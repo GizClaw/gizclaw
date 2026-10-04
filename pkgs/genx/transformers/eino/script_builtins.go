@@ -1,6 +1,7 @@
 package eino
 
 import (
+	"context"
 	"fmt"
 	"regexp"
 	"strings"
@@ -9,6 +10,24 @@ import (
 	starlarkjson "go.starlark.net/lib/json"
 	"go.starlark.net/starlark"
 )
+
+const (
+	scriptNativeContextKey     = "eino.native.context"
+	scriptNativeOutputLimitKey = "eino.native.output_limit"
+	maxScriptRegexMatches      = 4096
+)
+
+func scriptNativeLimits(thread *starlark.Thread) (context.Context, int) {
+	ctx, _ := thread.Local(scriptNativeContextKey).(context.Context)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	limit, _ := thread.Local(scriptNativeOutputLimitKey).(int)
+	if limit <= 0 {
+		limit = 1 << 20
+	}
+	return ctx, limit
+}
 
 // Script builtins have no filesystem, network, provider or product access.
 // JSON and RE2 processing remain bounded by the Script input/output limits.
@@ -47,7 +66,11 @@ func scriptRegexp(pattern starlark.Tuple) (*regexp.Regexp, bool, error) {
 	return compiled, strings.Contains(flags, "g"), err
 }
 
-func scriptRegexFind(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func scriptRegexFind(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	ctx, byteLimit := scriptNativeLimits(thread)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var text string
 	var pattern starlark.Tuple
 	if err := starlark.UnpackArgs("regex_find", args, kwargs, "text", &text, "pattern", &pattern); err != nil {
@@ -57,15 +80,37 @@ func scriptRegexFind(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tupl
 	if err != nil {
 		return nil, err
 	}
-	matches := compiled.FindStringSubmatch(text)
+	var matches []string
 	if all {
-		matches = compiled.FindAllString(text, -1)
+		// The extra match detects overflow without allocating for every input
+		// position, including zero-width matches on caller-controlled text.
+		limit := min(maxScriptRegexMatches, byteLimit/2)
+		matches = compiled.FindAllString(text, limit+1)
+		if len(matches) > limit {
+			return nil, fmt.Errorf("regex match count exceeds limit %d", limit)
+		}
+	} else {
+		if compiled.NumSubexp()+1 > maxScriptRegexMatches {
+			return nil, fmt.Errorf("regex capture count exceeds limit %d", maxScriptRegexMatches)
+		}
+		matches = compiled.FindStringSubmatch(text)
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	if matches == nil {
 		return starlark.None, nil
 	}
 	values := make([]starlark.Value, len(matches))
+	resultBytes := 0
 	for index, value := range matches {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		resultBytes += len(value) + 2
+		if resultBytes > byteLimit {
+			return nil, fmt.Errorf("regex result exceeds output byte limit %d", byteLimit)
+		}
 		values[index] = starlark.String(value)
 	}
 	return starlark.NewList(values), nil

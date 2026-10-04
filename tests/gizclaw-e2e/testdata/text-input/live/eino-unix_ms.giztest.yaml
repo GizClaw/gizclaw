@@ -1,5 +1,5 @@
 # User Story:
-# As a device using the eino-journey-guide Workflow in PUSH_TO_TALK mode,
+# As a device using the eino-concurrency-assistant Workflow in PUSH_TO_TALK mode,
 # I want a full TEXT_DONE to receive an audible reply both before and after speech,
 # So that text and microphone input share one conversation with unix_ms timestamps.
 version: gizclaw.test/v1alpha1
@@ -43,7 +43,7 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        workflow_name: eino-journey-guide
+        workflow_name: eino-concurrency-assistant
         parameters:
           eino_workspace_parameters:
             agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO

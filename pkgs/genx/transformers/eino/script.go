@@ -110,6 +110,8 @@ func (script *compiledScript) newThread(
 ) (*starlark.Thread, func()) {
 	runCtx, cancel := context.WithTimeout(ctx, script.config.Limits.Timeout)
 	thread := &starlark.Thread{Name: name}
+	thread.SetLocal(scriptNativeContextKey, runCtx)
+	thread.SetLocal(scriptNativeOutputLimitKey, script.config.Limits.MaxOutputBytes)
 	thread.SetMaxExecutionSteps(script.config.Limits.MaxExecutionSteps)
 	done := make(chan struct{})
 	go func() {
@@ -243,7 +245,34 @@ func toStarlark(value any) (starlark.Value, error) {
 	case []*schema.Message:
 		items := make([]any, len(typed))
 		for index, message := range typed {
-			items[index] = map[string]any{"role": string(message.Role), "content": message.Content}
+			if message == nil {
+				continue
+			}
+			object := map[string]any{"role": string(message.Role), "content": message.Content}
+			var parts []any
+			if len(message.UserInputMultiContent) != 0 {
+				for _, part := range message.UserInputMultiContent {
+					if part.Type == schema.ChatMessagePartTypeText {
+						parts = append(parts, map[string]any{"type": "text", "text": part.Text})
+					}
+				}
+			} else if len(message.AssistantGenMultiContent) != 0 {
+				for _, part := range message.AssistantGenMultiContent {
+					if part.Type == schema.ChatMessagePartTypeText {
+						parts = append(parts, map[string]any{"type": "text", "text": part.Text})
+					}
+				}
+			} else {
+				for _, part := range message.MultiContent {
+					if part.Type == schema.ChatMessagePartTypeText {
+						parts = append(parts, map[string]any{"type": "text", "text": part.Text})
+					}
+				}
+			}
+			if len(parts) != 0 {
+				object["parts"] = parts
+			}
+			items[index] = object
 		}
 		return toStarlark(items)
 	case []*schema.Document:

@@ -5,7 +5,8 @@
       "name": "Slow TTS",
       "compile": {
         "node_trigger_mode": "any_predecessor",
-        "max_run_steps": 8
+        "max_run_steps": 8,
+        "primary_output_mode": "first_output"
       },
       "state": {
         "fields": [

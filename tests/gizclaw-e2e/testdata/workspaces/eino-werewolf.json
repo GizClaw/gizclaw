@@ -2476,7 +2476,7 @@
             "type": "script",
             "language": "starlark",
             "entrypoint": "run",
-            "source": "def run(input):\n    values = input[\"values\"]\n    if (values.get('speech_valid') != \"True\"):\n        return {\"route\":'user_speech_retry'}\n    if (values.get('speech_valid') == \"True\"):\n        return {\"route\":'select_npc_tail_speaker'}\n    return {\"route\":'end'}\n",
+            "source": "def run(input):\n    values = input[\"values\"]\n    if (values.get('speech_valid') != \"true\"):\n        return {\"route\":'user_speech_retry'}\n    if (values.get('speech_valid') == \"true\"):\n        return {\"route\":'select_npc_tail_speaker'}\n    return {\"route\":'end'}\n",
             "inputs": {
               "values": {
                 "from": "values"
@@ -2497,7 +2497,7 @@
             "type": "script",
             "language": "starlark",
             "entrypoint": "run",
-            "source": "def run(input):\n    values = input[\"values\"]\n    if (values.get('vote_valid') != \"True\"):\n        return {\"route\":'vote_retry'}\n    if (values.get('vote_valid') == \"True\"):\n        return {\"route\":'host_vote_result'}\n    return {\"route\":'end'}\n",
+            "source": "def run(input):\n    values = input[\"values\"]\n    if (values.get('vote_valid') != \"true\"):\n        return {\"route\":'vote_retry'}\n    if (values.get('vote_valid') == \"true\"):\n        return {\"route\":'host_vote_result'}\n    return {\"route\":'end'}\n",
             "inputs": {
               "values": {
                 "from": "values"

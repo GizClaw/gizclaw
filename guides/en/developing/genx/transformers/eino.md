@@ -170,11 +170,11 @@ def run(input):
 }
 ```
 
-The return value must contain exactly the declared output keys. Supported values are null, boolean, integer, finite number, text, list, object, messages, documents, and binary. Binary values use base64 text inside Starlark. Messages use `{"role": "...", "content": "..."}` objects. Documents use `id`, `content`, and optional `metadata`.
+The return value must contain exactly the declared output keys. Supported values are null, boolean, integer, finite number, text, list, object, messages, documents, and binary. Binary values use base64 text inside Starlark. Messages use `{"role": "...", "content": "..."}` objects; text segments from multimodal messages are also available in `parts`. Documents use `id`, `content`, and optional `metadata`.
 
 Every Script limit must be positive. Step exhaustion, timeout, cancellation, malformed source, runtime failure, byte-limit failure, unsupported conversion, missing output, or undeclared output terminates the Graph run. The sandbox has no file, network, environment, process, random, Store, Tool, Graph, or native Go access.
 
-Starlark provides `json.encode` / `json.decode`, bounded RE2 `regex_find` / `regex_replace`, and `now_millis()`. The clock returns Unix milliseconds. Scenarios must persist their date and random decisions explicitly in State to retain them after reload.
+Starlark provides `json.encode` / `json.decode`, bounded RE2 `regex_find` / `regex_replace`, and `now_millis()`. `regex_find` caps global matches and captures at 4096, enforces the configured output-byte budget before constructing the result, and checks cancellation. The clock returns Unix milliseconds. Scenarios must persist their date and random decisions explicitly in State to retain them after reload.
 
 ## Named Lambda
 
@@ -239,7 +239,7 @@ Apart from the audio turns above, non-text routes bypass the Transformer unchang
 
 ## State, History, and Memory
 
-Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.eino.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Internal conversation History uses the mutable log referenced by `services.agent_host.eino.history_store`.
+Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.eino.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Nested object/list integers retain signed 64-bit precision, and integral floating-point values retain their numeric type through optional snapshot type hints. Internal conversation History uses the mutable log referenced by `services.agent_host.eino.history_store`.
 
 Persistent State is optional:
 

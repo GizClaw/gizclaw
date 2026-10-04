@@ -3,7 +3,7 @@
 # I want text during slow TTS startup and complete, paced audio,
 # So that speech synthesis does not delay my next reply.
 version: gizclaw.test/v1alpha1
-name: slow-tts.eino.realtime
+name: slow-tts.eino-sequential.realtime
 clients:
   peer:
     identity: ephemeral
@@ -51,7 +51,7 @@ steps:
     method: server.workspace.create
     request:
       name: ${workspace_name}
-      workflow_name: slow-tts-eino
+      workflow_name: slow-tts-eino-sequential
       parameters:
         eino_workspace_parameters:
           agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
@@ -74,7 +74,7 @@ steps:
     method: server.workspace.create
     request:
       name: ${audio_workspace_name}
-      workflow_name: slow-tts-eino
+      workflow_name: slow-tts-eino-sequential
       parameters:
         eino_workspace_parameters:
           agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO

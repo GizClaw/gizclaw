@@ -64,7 +64,7 @@ func decodeSnapshot(data []byte) (genxeino.StateSnapshot, error) {
 			err = json.Unmarshal(field.Value, &typed)
 			value = typed
 		case "json":
-			err = json.Unmarshal(field.Value, &value)
+			value, err = decodeJSONState(field.Value, field.FloatPaths)
 		default:
 			return genxeino.StateSnapshot{}, fmt.Errorf("graph state: unsupported field kind %q", field.Kind)
 		}
@@ -82,8 +82,9 @@ type stateRecord struct {
 }
 
 type stateField struct {
-	Kind  string          `json:"kind"`
-	Value json.RawMessage `json:"value"`
+	Kind       string          `json:"kind"`
+	Value      json.RawMessage `json:"value"`
+	FloatPaths []string        `json:"float_paths,omitempty"`
 }
 
 // CompareAndSwap persists one completed turn only if its loaded revision is current.
@@ -141,7 +142,11 @@ func encodeSnapshot(values map[string]any, version string) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("graph state: encode field %q: %w", name, err)
 		}
-		record.Fields[name] = stateField{Kind: kind, Value: data}
+		field := stateField{Kind: kind, Value: data}
+		if kind == "json" {
+			field.FloatPaths = jsonStateFloatPaths(value)
+		}
+		record.Fields[name] = field
 	}
 	data, err := json.Marshal(record)
 	if err != nil {

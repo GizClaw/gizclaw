@@ -268,6 +268,11 @@ func runFixtureScript(t *testing.T, graph genxeino.GraphDefinition, id string, f
 	graph.Edges = []genxeino.EdgeDefinition{{From: "start", To: id}, {From: id, To: "complete"}, {From: "complete", To: "end"}}
 	graph.Branches = nil
 	graph.Outputs = []genxeino.OutputDefinition{{Node: "complete", Field: "completion", Name: "assistant", MIMEType: "text/plain", Primary: true}}
+	return runFixtureGraph(t, graph, fields)
+}
+
+func runFixtureGraph(t *testing.T, graph genxeino.GraphDefinition, fields map[string]any) map[string]any {
+	t.Helper()
 	store := &fixtureStateStore{fields: fields}
 	selected := []string{}
 	for _, field := range graph.State.Fields {
@@ -298,12 +303,58 @@ func runFixtureScript(t *testing.T, graph genxeino.GraphDefinition, id string, f
 			t.Fatal(err)
 		}
 		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-			t.Fatalf("%s runtime failure: %s", id, chunk.Ctrl.Error)
+			t.Fatalf("%s runtime failure: %s", graph.Name, chunk.Ctrl.Error)
 		}
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	return store.fields
+}
+
+func TestEinoWerewolfBooleanRoutesExecute(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
+		for _, route := range []struct {
+			node, flag, success, retry string
+		}{
+			{"apply_vote-route", "vote_valid", "host_vote_result", "vote_retry"},
+			{"validate_user_speech-route", "speech_valid", "select_npc_tail_speaker", "user_speech_retry"},
+		} {
+			for _, flag := range []string{"true", "false"} {
+				t.Run(path+"/"+route.node+"/"+flag, func(t *testing.T) {
+					graph := fixtureGraph(t, path)
+					node := fixtureNode(t, graph, route.node)
+					graph.Nodes = []genxeino.NodeDefinition{node}
+					graph.Edges = []genxeino.EdgeDefinition{{From: "start", To: node.ID}}
+					for _, target := range []string{route.success, route.retry} {
+						graph.Nodes = append(graph.Nodes, genxeino.NodeDefinition{ID: target, Outputs: map[string]string{"text": "selected-route"},
+							Script: &genxeino.ScriptNode{Language: genxeino.ScriptStarlark, Source: "def run(input):\n    return {\"text\": \"" + target + "\"}\n",
+								Limits: genxeino.ScriptLimits{MaxExecutionSteps: 1000, Timeout: time.Second, MaxInputBytes: 4096, MaxOutputBytes: 4096}}})
+						graph.Edges = append(graph.Edges, genxeino.EdgeDefinition{From: target, To: "end"})
+					}
+					var branches []genxeino.BranchDefinition
+					for _, branch := range graph.Branches {
+						if branch.From == node.ID {
+							branches = append(branches, branch)
+						}
+					}
+					graph.Branches = branches
+					graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "selected-route", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
+					graph.Outputs = []genxeino.OutputDefinition{
+						{Node: route.success, Field: "selected-route", Name: "success", MIMEType: "text/plain", Primary: true},
+						{Node: route.retry, Field: "selected-route", Name: "retry", MIMEType: "text/plain"},
+					}
+					fields := runFixtureGraph(t, graph, map[string]any{"values": map[string]any{route.flag: flag}})
+					want := route.retry
+					if flag == "true" {
+						want = route.success
+					}
+					if fields["selected-route"] != want {
+						t.Fatalf("selected route = %v, want %s", fields["selected-route"], want)
+					}
+				})
+			}
+		}
+	}
 }
 
 func TestEinoWerewolfSelfStartAndHiddenMoveIsolation(t *testing.T) {

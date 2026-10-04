@@ -1,10 +1,43 @@
 package eino
 
 import (
+	"context"
 	"strings"
 	"testing"
 	"time"
+
+	"go.starlark.net/starlark"
 )
+
+func TestScriptRegexFindBoundsNativeResults(t *testing.T) {
+	for _, test := range []struct {
+		name, text, pattern string
+		byteLimit           int
+	}{
+		{name: "zero-width match count", text: strings.Repeat("x", 100000), pattern: "", byteLimit: 1 << 20},
+		{name: "result byte limit", text: strings.Repeat("x", 100), pattern: "x+", byteLimit: 16},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetLocal(scriptNativeOutputLimitKey, test.byteLimit)
+			_, err := scriptRegexFind(thread, nil, starlark.Tuple{
+				starlark.String(test.text), starlark.Tuple{starlark.String(test.pattern), starlark.String("g")},
+			}, nil)
+			if err == nil || !strings.Contains(err.Error(), "limit") {
+				t.Fatalf("unbounded regex result accepted: %v", err)
+			}
+		})
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	thread := &starlark.Thread{}
+	thread.SetLocal(scriptNativeContextKey, ctx)
+	if _, err := scriptRegexFind(thread, nil, starlark.Tuple{
+		starlark.String("text"), starlark.Tuple{starlark.String(""), starlark.String("g")},
+	}, nil); err != context.Canceled {
+		t.Fatalf("canceled regex = %v", err)
+	}
+}
 
 func TestScriptJSONAndRegexRespectInputOwnership(t *testing.T) {
 	source := `def run(input):

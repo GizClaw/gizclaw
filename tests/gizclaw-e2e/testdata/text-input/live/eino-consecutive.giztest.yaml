@@ -43,7 +43,7 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        workflow_name: eino-journey-guide
+        workflow_name: eino-concurrency-assistant
         parameters:
           eino_workspace_parameters:
             agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
