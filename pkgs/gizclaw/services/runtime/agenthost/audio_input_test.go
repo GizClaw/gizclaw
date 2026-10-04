@@ -59,7 +59,7 @@ func TestResolveAudioInputPrefersWorkspaceOverProfile(t *testing.T) {
 		},
 		{
 			name:     "other driver ignores the profile",
-			workflow: apitypes.Workflow{Id: "assistant", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft}},
+			workflow: apitypes.Workflow{Id: "assistant", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverDoubaoRealtime}},
 			profile:  new(audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"assistant": audioInputBinding("assistant", &model)})),
 		},
 	} {

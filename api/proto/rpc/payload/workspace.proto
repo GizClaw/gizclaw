@@ -349,8 +349,9 @@ message WorkspaceListResponse {
 }
 
 message WorkspaceParameters {
+  reserved 1;
+  reserved "flowcraft_workspace_parameters";
   oneof value {
-    FlowcraftWorkspaceParameters flowcraft_workspace_parameters = 1;
     DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters = 2;
     ASTTranslateWorkspaceParameters asttranslate_workspace_parameters = 3;
     DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters = 5;

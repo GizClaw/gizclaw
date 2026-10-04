@@ -352,7 +352,6 @@ typedef struct _gizclaw_rpc_v1_WorkspaceListResponse {
 typedef struct _gizclaw_rpc_v1_WorkspaceParameters {
     pb_size_t which_value;
     union {
-        gizclaw_rpc_v1_FlowcraftWorkspaceParameters flowcraft_workspace_parameters;
         gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters doubao_realtime_workspace_parameters;
         gizclaw_rpc_v1_ASTTranslateWorkspaceParameters asttranslate_workspace_parameters;
         gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters dash_scope_realtime_workspace_parameters;
@@ -530,7 +529,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceHistoryListResponse_init_default {false, gizclaw_rpc_v1_PeerRunHistoryListResponse_init_default}
 #define gizclaw_rpc_v1_WorkspaceListRequest_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceListResponse_init_default {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkspaceParameters_init_default {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_default}}
+#define gizclaw_rpc_v1_WorkspaceParameters_init_default {0, {gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_default}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_default {false, gizclaw_rpc_v1_WorkspacePutBody_init_default, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_init_default {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_default, false, 0, false, "", false, _gizclaw_rpc_v1_AudioInputPath_MIN}
@@ -599,7 +598,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceHistoryListResponse_init_zero {false, gizclaw_rpc_v1_PeerRunHistoryListResponse_init_zero}
 #define gizclaw_rpc_v1_WorkspaceListRequest_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspaceListResponse_init_zero {0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_WorkspaceParameters_init_zero {0, {gizclaw_rpc_v1_FlowcraftWorkspaceParameters_init_zero}}
+#define gizclaw_rpc_v1_WorkspaceParameters_init_zero {0, {gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters_init_zero}}
 #define gizclaw_rpc_v1_WorkspacePutRequest_init_zero {false, gizclaw_rpc_v1_WorkspacePutBody_init_zero, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_WorkspacePutResponse_init_zero {false, gizclaw_rpc_v1_Workspace_init_zero}
 #define gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero {false, _gizclaw_rpc_v1_WorkspaceInputMode_MIN, false, gizclaw_rpc_v1_ConversationParameters_init_zero, false, 0, false, "", false, _gizclaw_rpc_v1_AudioInputPath_MIN}
@@ -727,7 +726,6 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_WorkspaceListResponse_runtime_profile_name_tag 4
 #define gizclaw_rpc_v1_WorkspaceListResponse_runtime_profile_revision_tag 5
-#define gizclaw_rpc_v1_WorkspaceParameters_flowcraft_workspace_parameters_tag 1
 #define gizclaw_rpc_v1_WorkspaceParameters_doubao_realtime_workspace_parameters_tag 2
 #define gizclaw_rpc_v1_WorkspaceParameters_asttranslate_workspace_parameters_tag 3
 #define gizclaw_rpc_v1_WorkspaceParameters_dash_scope_realtime_workspace_parameters_tag 5
@@ -1217,7 +1215,6 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_WorkspaceListResponse_items_MSGTYPE gizclaw_rpc_v1_Workspace
 
 #define gizclaw_rpc_v1_WorkspaceParameters_FIELDLIST(X, a) \
-X(a, STATIC,   ONEOF,    MESSAGE,  (value,flowcraft_workspace_parameters,value.flowcraft_workspace_parameters),   1) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_workspace_parameters,value.doubao_realtime_workspace_parameters),   2) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,asttranslate_workspace_parameters,value.asttranslate_workspace_parameters),   3) \
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,dash_scope_realtime_workspace_parameters,value.dash_scope_realtime_workspace_parameters),   5) \
@@ -1225,7 +1222,6 @@ X(a, STATIC,   ONEOF,    MESSAGE,  (value,doubao_realtime_duplex_workspace_param
 X(a, STATIC,   ONEOF,    MESSAGE,  (value,eino_workspace_parameters,value.eino_workspace_parameters),   7)
 #define gizclaw_rpc_v1_WorkspaceParameters_CALLBACK NULL
 #define gizclaw_rpc_v1_WorkspaceParameters_DEFAULT NULL
-#define gizclaw_rpc_v1_WorkspaceParameters_value_flowcraft_workspace_parameters_MSGTYPE gizclaw_rpc_v1_FlowcraftWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_doubao_realtime_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_asttranslate_workspace_parameters_MSGTYPE gizclaw_rpc_v1_ASTTranslateWorkspaceParameters
 #define gizclaw_rpc_v1_WorkspaceParameters_value_dash_scope_realtime_workspace_parameters_MSGTYPE gizclaw_rpc_v1_DashScopeRealtimeWorkspaceParameters

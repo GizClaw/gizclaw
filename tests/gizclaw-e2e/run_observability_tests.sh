@@ -38,7 +38,7 @@ export GIZCLAW_E2E_OBSERVABILITY=1
 (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
   "$script_dir/giztest/eino-memory-assistant.text-roundtrip.giztest.yaml" \
   "$script_dir/giztest/doubao-realtime-conversation.push-to-talk-roundtrip.giztest.yaml" \
-  "$script_dir/giztest/flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml" \
+  "$script_dir/giztest/eino-voice-assistant.push-to-talk-roundtrip.giztest.yaml" \
   --parallel 1 --output "$script_dir/testdata/giztest-observability-report.json")
 
 # Recorders flush every ten seconds; wait for one complete interval before querying.

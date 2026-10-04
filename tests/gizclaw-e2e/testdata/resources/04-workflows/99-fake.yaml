@@ -1,4 +1,3 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 spec:
@@ -6,2040 +5,4320 @@ spec:
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-000
+      id: eino-scenario-000
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-001
+      id: eino-scenario-001
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-002
+      id: eino-scenario-002
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-003
+      id: eino-scenario-003
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-004
+      id: eino-scenario-004
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-005
+      id: eino-scenario-005
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-006
+      id: eino-scenario-006
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-007
+      id: eino-scenario-007
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-008
+      id: eino-scenario-008
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-009
+      id: eino-scenario-009
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-010
+      id: eino-scenario-010
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-011
+      id: eino-scenario-011
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-012
+      id: eino-scenario-012
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-013
+      id: eino-scenario-013
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-014
+      id: eino-scenario-014
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-015
+      id: eino-scenario-015
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-016
+      id: eino-scenario-016
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-017
+      id: eino-scenario-017
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-018
+      id: eino-scenario-018
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-019
+      id: eino-scenario-019
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-020
+      id: eino-scenario-020
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-021
+      id: eino-scenario-021
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-022
+      id: eino-scenario-022
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-023
+      id: eino-scenario-023
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-024
+      id: eino-scenario-024
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-025
+      id: eino-scenario-025
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-026
+      id: eino-scenario-026
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-027
+      id: eino-scenario-027
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-028
+      id: eino-scenario-028
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-029
+      id: eino-scenario-029
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-030
+      id: eino-scenario-030
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-031
+      id: eino-scenario-031
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-032
+      id: eino-scenario-032
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-033
+      id: eino-scenario-033
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-034
+      id: eino-scenario-034
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-035
+      id: eino-scenario-035
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-036
+      id: eino-scenario-036
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-037
+      id: eino-scenario-037
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-038
+      id: eino-scenario-038
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-039
+      id: eino-scenario-039
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-040
+      id: eino-scenario-040
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-041
+      id: eino-scenario-041
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-042
+      id: eino-scenario-042
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-043
+      id: eino-scenario-043
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-044
+      id: eino-scenario-044
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-045
+      id: eino-scenario-045
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-046
+      id: eino-scenario-046
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-047
+      id: eino-scenario-047
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-048
+      id: eino-scenario-048
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-049
+      id: eino-scenario-049
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-050
+      id: eino-scenario-050
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-051
+      id: eino-scenario-051
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-052
+      id: eino-scenario-052
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-053
+      id: eino-scenario-053
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-054
+      id: eino-scenario-054
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-055
+      id: eino-scenario-055
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-056
+      id: eino-scenario-056
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-057
+      id: eino-scenario-057
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-058
+      id: eino-scenario-058
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-059
+      id: eino-scenario-059
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-060
+      id: eino-scenario-060
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-061
+      id: eino-scenario-061
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-062
+      id: eino-scenario-062
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-063
+      id: eino-scenario-063
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-064
+      id: eino-scenario-064
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-065
+      id: eino-scenario-065
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-066
+      id: eino-scenario-066
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-067
+      id: eino-scenario-067
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-068
+      id: eino-scenario-068
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-069
+      id: eino-scenario-069
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-070
+      id: eino-scenario-070
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-071
+      id: eino-scenario-071
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-072
+      id: eino-scenario-072
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-073
+      id: eino-scenario-073
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-074
+      id: eino-scenario-074
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-075
+      id: eino-scenario-075
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-076
+      id: eino-scenario-076
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-077
+      id: eino-scenario-077
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-078
+      id: eino-scenario-078
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-079
+      id: eino-scenario-079
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-080
+      id: eino-scenario-080
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-081
+      id: eino-scenario-081
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-082
+      id: eino-scenario-082
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-083
+      id: eino-scenario-083
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-084
+      id: eino-scenario-084
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-085
+      id: eino-scenario-085
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-086
+      id: eino-scenario-086
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-087
+      id: eino-scenario-087
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-088
+      id: eino-scenario-088
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-089
+      id: eino-scenario-089
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-090
+      id: eino-scenario-090
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-091
+      id: eino-scenario-091
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-092
+      id: eino-scenario-092
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-093
+      id: eino-scenario-093
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-094
+      id: eino-scenario-094
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-095
+      id: eino-scenario-095
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-096
+      id: eino-scenario-096
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-097
+      id: eino-scenario-097
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-098
+      id: eino-scenario-098
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-099
+      id: eino-scenario-099
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-100
+      id: eino-scenario-100
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-101
+      id: eino-scenario-101
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-102
+      id: eino-scenario-102
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-103
+      id: eino-scenario-103
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-104
+      id: eino-scenario-104
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-105
+      id: eino-scenario-105
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-106
+      id: eino-scenario-106
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-107
+      id: eino-scenario-107
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-108
+      id: eino-scenario-108
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-109
+      id: eino-scenario-109
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-110
+      id: eino-scenario-110
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-111
+      id: eino-scenario-111
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-112
+      id: eino-scenario-112
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-113
+      id: eino-scenario-113
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-114
+      id: eino-scenario-114
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-115
+      id: eino-scenario-115
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-116
+      id: eino-scenario-116
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-117
+      id: eino-scenario-117
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-118
+      id: eino-scenario-118
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true
   - apiVersion: gizclaw.admin/v1alpha1
     kind: Workflow
     metadata:
-      id: flowcraft-scenario-119
+      id: eino-scenario-119
     spec:
-      driver: flowcraft
-      flowcraft:
+      driver: eino
+      eino:
         graph:
           name: passthrough
-          entry: passthrough
+          compile:
+            node_trigger_mode: any_predecessor
+          state:
+            fields:
+            - name: text
+              type: string
+              merge: replace
           nodes:
           - id: passthrough
             type: passthrough
-            publish: true
+            inputs:
+              value:
+                from: input.text
+            outputs:
+              value: text
           edges:
+          - from: start
+            to: passthrough
           - from: passthrough
-            to: __end__
+            to: end
+          branches: []
+          outputs:
+          - node: passthrough
+            field: text
+            name: assistant
+            mime_type: text/plain
+            primary: true

@@ -20,7 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
@@ -84,8 +84,8 @@ type Server struct {
 	MetricsStore           metrics.Store
 	PendingDeletionConfig  pendingdeletion.Config
 	ServerLogQuery         ServerLogQueryService
-	FlowcraftHistory       logstore.MutableStore
-	FlowcraftStateDB       *sqlx.DB
+	EinoHistory            logstore.MutableStore
+	GraphStateDB           *sqlx.DB
 	// SFU is the Server-held SFU connector configuration; a zero value
 	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
 	// writers so credentials never leave this struct.
@@ -425,13 +425,13 @@ func (s *Server) init() error {
 		}
 		_ = manager.BroadcastPeerEvent(recipient, event)
 	}
-	manager.FlowcraftHistory = s.FlowcraftHistory
-	if s.FlowcraftStateDB != nil {
-		if err := flowstate.Initialize(context.Background(), s.FlowcraftStateDB); err != nil {
-			return fmt.Errorf("initialize flowcraft state: %w", err)
+	manager.EinoHistory = s.EinoHistory
+	if s.GraphStateDB != nil {
+		if err := graphstate.Initialize(context.Background(), s.GraphStateDB); err != nil {
+			return fmt.Errorf("initialize graph state: %w", err)
 		}
 	}
-	manager.FlowcraftStateDB = s.FlowcraftStateDB
+	manager.GraphStateDB = s.GraphStateDB
 	manager.MemoryRoot = s.MemoryRoot
 	manager.MemoryStores = memorystore.NewRegistry()
 	manager.SpeechLimits = s.SpeechLimits
@@ -577,17 +577,17 @@ func (s *Server) init() error {
 	}
 	pendingDeletionRegistry := pendingdeletion.NewRegistry()
 	workspacePendingDeletionSource := workspace.NewPendingDeletionSource(workspaceDB)
-	var flowcraftWorkspaceCleanup workspace.FlowcraftWorkspaceCleanup
-	if s.FlowcraftStateDB != nil {
-		flowcraftWorkspaceCleanup = flowstate.WorkspaceCleanup{DB: s.FlowcraftStateDB}
+	var graphWorkspaceCleanup workspace.GraphStateWorkspaceCleanup
+	if s.GraphStateDB != nil {
+		graphWorkspaceCleanup = graphstate.WorkspaceCleanup{DB: s.GraphStateDB}
 	}
 	if err := pendingDeletionRegistry.Register(
 		workspacePendingDeletionSource,
 		workspace.DeletionHandler{
-			Server:    workspaceServer,
-			Source:    workspacePendingDeletionSource,
-			Quiescer:  manager,
-			Flowcraft: flowcraftWorkspaceCleanup,
+			Server:     workspaceServer,
+			Source:     workspacePendingDeletionSource,
+			Quiescer:   manager,
+			GraphState: graphWorkspaceCleanup,
 			Memory: workspaceMemoryCleanup{
 				Resolver: agenthost.ServiceResolver{
 					Workspaces:             workspaceServer,

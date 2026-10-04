@@ -46,7 +46,7 @@ steps:
     request: {tags: ["6-8"]}
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-chat-assistant}
+    /items/0/name: {equals: eino-chat-assistant}
 - id: rpc_and_filter
   client: peer
   rpc:
@@ -57,7 +57,7 @@ steps:
     profile_revision: /runtime_profile_revision
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-chat-assistant}
+    /items/0/name: {equals: eino-chat-assistant}
     /items/0/tags: {count: 3}
     /has_next: {equals: false}
 - id: rpc_reversed_tag_order
@@ -67,14 +67,14 @@ steps:
     request: {tags: ["6-8", assistants]}
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-chat-assistant}
+    /items/0/name: {equals: eino-chat-assistant}
 - id: rpc_workflow_get
   client: peer
   rpc:
     method: server.workflow.get
-    request: {name: flowcraft-chat-assistant}
+    request: {name: eino-chat-assistant}
   expect:
-    /value/name: {equals: flowcraft-chat-assistant}
+    /value/name: {equals: eino-chat-assistant}
     /value/tags: {count: 3}
     /runtime_profile_name: {equals: "${profile_name}"}
     /runtime_profile_revision: {equals: "${profile_revision}"}
@@ -92,7 +92,7 @@ steps:
     request: {tags: [assistants, "9-12"]}
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-voice-assistant}
+    /items/0/name: {equals: eino-voice-assistant}
 - id: rpc_and_not_or
   client: peer
   rpc:
@@ -123,7 +123,7 @@ steps:
   capture: {page_cursor: /next_cursor}
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-chat-assistant}
+    /items/0/name: {equals: eino-chat-assistant}
     /has_next: {equals: true}
     /next_cursor: {non_empty: true}
 - id: rpc_cursor_selector_changed
@@ -140,7 +140,7 @@ steps:
     request: {tags: [assistants, catalog], limit: 1, cursor: "${page_cursor}"}
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-voice-assistant}
+    /items/0/name: {equals: eino-voice-assistant}
     /has_next: {equals: false}
 - id: create_workspace_by_alias
   client: peer
@@ -148,13 +148,13 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       parameters:
-        flowcraft_workspace_parameters:
-          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
   expect:
-    /workflow_name: {equals: flowcraft-chat-assistant}
+    /workflow_name: {equals: eino-chat-assistant}
     /available: {equals: true}
 - id: rpc_workspace_get
   client: peer
@@ -162,7 +162,7 @@ steps:
     method: server.workspace.get
     request: {name: "${resource_name}"}
   expect:
-    /value/workflow_name: {equals: flowcraft-chat-assistant}
+    /value/workflow_name: {equals: eino-chat-assistant}
     /value/available: {equals: true}
 finally:
 - id: cleanup_workspace

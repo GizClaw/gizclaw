@@ -937,7 +937,7 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 		Value: &rpcpb.WorkspaceCreateBody{
 			Name: workspaceName,
 
-			WorkflowName: "flowcraft-chat-assistant",
+			WorkflowName: "eino-chat-assistant",
 		},
 	}, &createResponse)
 	if createResponse.GetValue().GetName() != workspaceName {
@@ -946,20 +946,20 @@ func CSDKChatWorkspace(t *testing.T, identityDir, registrationToken string) {
 	var workspaceResponse rpcpb.WorkspaceGetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET, &rpcpb.WorkspaceGetRequest{Name: workspaceName}, &workspaceResponse)
 	workspace := workspaceResponse.GetValue()
-	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "flowcraft-chat-assistant" || !workspace.GetAvailable() {
+	if workspace == nil || workspace.GetName() != workspaceName || workspace.GetWorkflowName() != "eino-chat-assistant" || !workspace.GetAvailable() {
 		t.Fatalf("invalid server.workspace.get: %s", workspaceResponse.String())
 	}
 	var inputResponse rpcpb.WorkspaceParametersSetResponse
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET, &rpcpb.WorkspaceParametersSetRequest{
 		Name: workspaceName, Parameters: &rpcpb.WorkspaceParametersPatch{Input: new(rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME)},
 	}, &inputResponse)
-	if mode := inputResponse.GetValue().GetParameters().GetFlowcraftWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME {
+	if mode := inputResponse.GetValue().GetParameters().GetEinoWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_REALTIME {
 		t.Fatalf("invalid server.workspace.parameters.set: %s", inputResponse.String())
 	}
 	mustCallRPC(t, client, rpcpb.RpcMethod_RPC_METHOD_SERVER_WORKSPACE_PARAMETERS_SET, &rpcpb.WorkspaceParametersSetRequest{
 		Name: workspaceName, Parameters: &rpcpb.WorkspaceParametersPatch{Input: new(rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK)},
 	}, &inputResponse)
-	if mode := inputResponse.GetValue().GetParameters().GetFlowcraftWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
+	if mode := inputResponse.GetValue().GetParameters().GetEinoWorkspaceParameters().GetInput(); mode != rpcpb.WorkspaceInputMode_WORKSPACE_INPUT_MODE_PUSH_TO_TALK {
 		t.Fatalf("invalid server.workspace.parameters.set revert: %s", inputResponse.String())
 	}
 	setChatWorkspace(t, client, workspaceName)

@@ -1,0 +1,249 @@
+{
+  "voice_adapter": {
+    "default_voice": "story.default",
+    "node_voices": {
+      "fox": "story.fox",
+      "bird": "story.bird",
+      "owl": "story.owl",
+      "bear": "story.bear"
+    }
+  },
+  "graph": {
+    "name": "multi-role-voices",
+    "compile": {
+      "node_trigger_mode": "any_predecessor",
+      "primary_output_mode": "first_output"
+    },
+    "state": {
+      "fields": [
+        {
+          "name": "messages",
+          "type": "messages",
+          "merge": "replace"
+        },
+        {
+          "name": "fox-text",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "bird-text",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "owl-text",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "bear-text",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "default-text",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "selected-role",
+          "type": "string",
+          "merge": "replace"
+        }
+      ]
+    },
+    "nodes": [
+      {
+        "id": "route",
+        "type": "script",
+        "language": "starlark",
+        "source": "def run(input):\n    return {\"messages\": [{\"role\": \"user\", \"content\": input[\"text\"]}], \"role\": input[\"text\"]}\n",
+        "inputs": {
+          "text": {
+            "from": "input.text"
+          }
+        },
+        "outputs": {
+          "messages": "messages",
+          "role": "selected-role"
+        },
+        "limits": {
+          "timeout": "100ms",
+          "max_execution_steps": 1000,
+          "max_input_bytes": 4096,
+          "max_output_bytes": 4096
+        }
+      },
+      {
+        "id": "fox",
+        "type": "chat_model",
+        "model": "fixture-llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "fox-text"
+        }
+      },
+      {
+        "id": "bird",
+        "type": "chat_model",
+        "model": "fixture-llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "bird-text"
+        }
+      },
+      {
+        "id": "owl",
+        "type": "chat_model",
+        "model": "fixture-llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "owl-text"
+        }
+      },
+      {
+        "id": "bear",
+        "type": "chat_model",
+        "model": "fixture-llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "bear-text"
+        }
+      },
+      {
+        "id": "default",
+        "type": "chat_model",
+        "model": "fixture-llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "default-text"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "start",
+        "to": "route"
+      },
+      {
+        "from": "fox",
+        "to": "end"
+      },
+      {
+        "from": "bird",
+        "to": "end"
+      },
+      {
+        "from": "owl",
+        "to": "end"
+      },
+      {
+        "from": "bear",
+        "to": "end"
+      },
+      {
+        "from": "default",
+        "to": "end"
+      }
+    ],
+    "branches": [
+      {
+        "from": "route",
+        "mode": "first_match",
+        "routes": [
+          {
+            "when": {
+              "field": "selected-role",
+              "op": "eq",
+              "value": "fox"
+            },
+            "to": "fox"
+          },
+          {
+            "when": {
+              "field": "selected-role",
+              "op": "eq",
+              "value": "bird"
+            },
+            "to": "bird"
+          },
+          {
+            "when": {
+              "field": "selected-role",
+              "op": "eq",
+              "value": "owl"
+            },
+            "to": "owl"
+          },
+          {
+            "when": {
+              "field": "selected-role",
+              "op": "eq",
+              "value": "bear"
+            },
+            "to": "bear"
+          }
+        ],
+        "default": "default"
+      }
+    ],
+    "outputs": [
+      {
+        "node": "fox",
+        "field": "fox-text",
+        "name": "fox",
+        "mime_type": "text/plain",
+        "primary": false
+      },
+      {
+        "node": "bird",
+        "field": "bird-text",
+        "name": "bird",
+        "mime_type": "text/plain",
+        "primary": false
+      },
+      {
+        "node": "owl",
+        "field": "owl-text",
+        "name": "owl",
+        "mime_type": "text/plain",
+        "primary": false
+      },
+      {
+        "node": "bear",
+        "field": "bear-text",
+        "name": "bear",
+        "mime_type": "text/plain",
+        "primary": false
+      },
+      {
+        "node": "default",
+        "field": "default-text",
+        "name": "default",
+        "mime_type": "text/plain",
+        "primary": true
+      }
+    ]
+  }
+}

@@ -12,6 +12,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -60,7 +61,7 @@ func run() error {
 		slowTTS           = flag.Bool("slow-tts", false, "Seed local slow TTS regression workflows")
 		server            = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
 		profileID         = flag.String("profile-id", "", "RuntimeProfile ID to upsert")
-		monitorWorkflowID = flag.String("monitor-workflow-id", "", "Optional model-free Flowcraft Workflow for Monitor history tests")
+		monitorWorkflowID = flag.String("monitor-workflow-id", "", "Optional model-free Eino Workflow for Monitor history tests")
 		tokenID           = flag.String("token-id", "", "RegistrationToken ID to upsert (default <profile-id>-token)")
 		token             = flag.String("token", "", "RegistrationToken value (default the token ID)")
 		adminEnv          = flag.String("admin-key-env", "GIZCLAW_E2E_ADMIN_PRIVATE_KEY", "environment variable holding the Server's admin private key")
@@ -158,34 +159,15 @@ func run() error {
 	return nil
 }
 
-// monitorWorkflowSpec publishes deterministic text through the real Flowcraft
-// stream so history tests exercise capture and persistence without a model API.
+// monitorWorkflowSpec publishes deterministic text through Eino so history
+// tests exercise capture and persistence without a model API.
 func monitorWorkflowSpec() apitypes.WorkflowSpec {
-	var node apitypes.FlowcraftNode
-	err := node.FromFlowcraftScriptNode(apitypes.FlowcraftScriptNode{
-		Id: "echo", Type: apitypes.FlowcraftScriptNodeTypeScript, Publish: new(true),
-		Config: apitypes.FlowcraftScriptNodeConfig{Source: `
-const messages = board.channel(board.MAIN_CHANNEL) || [];
-let text = "Monitor audio reply";
-for (let i = messages.length - 1; i >= 0; i--) {
-  const message = messages[i] || {};
-  if (message.role !== "user") continue;
-  if (typeof message.content === "string" && message.content) text = message.content;
-  else if (Array.isArray(message.parts)) {
-    const input = message.parts.filter(p => p.type === "text").map(p => p.text || "").join("");
-    if (input) text = input;
-  }
-  break;
-}
-host.emit("token", {content: text});
-`},
-	})
+	var spec apitypes.WorkflowSpec
+	err := json.Unmarshal([]byte(`{"driver":"eino","eino":{"graph":{"name":"Monitor Echo","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[{"name":"text","type":"string","merge":"replace"}]},"nodes":[{"id":"echo","type":"script","language":"starlark","source":"def run(input):\n    return {\"text\": input[\"text\"] or \"Monitor audio reply\"}\n","inputs":{"text":{"from":"input.text"}},"outputs":{"text":"text"},"limits":{"max_execution_steps":1000,"timeout":"100ms","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"echo"},{"from":"echo","to":"end"}],"branches":[],"outputs":[{"node":"echo","field":"text","name":"assistant","mime_type":"text/plain","primary":true}]}}}`), &spec)
 	if err != nil {
 		panic(err)
 	}
-	return apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &apitypes.FlowcraftWorkflowSpec{
-		Graph: apitypes.FlowcraftGraph{Name: "Monitor Echo", Entry: "echo", Nodes: []apitypes.FlowcraftNode{node}, Edges: &[]apitypes.FlowcraftEdge{{From: "echo", To: "__end__"}}},
-	}}
+	return spec
 }
 
 type volcCredentials struct {

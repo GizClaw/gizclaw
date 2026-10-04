@@ -242,7 +242,6 @@ var rpcPayloadUnionValueTypes = map[protoreflect.Name]reflect.Type{
 	"OpenAITenantVoiceProviderData":           reflect.TypeFor[OpenAITenantVoiceProviderData](),
 	"MiniMaxTenantVoiceProviderData":          reflect.TypeFor[MiniMaxTenantVoiceProviderData](),
 	"VolcTenantVoiceProviderData":             reflect.TypeFor[VolcTenantVoiceProviderData](),
-	"FlowcraftWorkspaceParameters":            reflect.TypeFor[FlowcraftWorkspaceParameters](),
 	"DoubaoRealtimeWorkspaceParameters":       reflect.TypeFor[DoubaoRealtimeWorkspaceParameters](),
 	"DashScopeRealtimeWorkspaceParameters":    reflect.TypeFor[DashScopeRealtimeWorkspaceParameters](),
 	"DoubaoRealtimeDuplexWorkspaceParameters": reflect.TypeFor[DoubaoRealtimeDuplexWorkspaceParameters](),
@@ -1233,8 +1232,6 @@ func oneofDiscriminatorFieldName(desc protoreflect.Name, discriminator string) s
 		}
 	case "WorkspaceParameters":
 		switch discriminator {
-		case "flowcraft":
-			return "flowcraft_workspace_parameters"
 		case "doubao-realtime":
 			return "doubao_realtime_workspace_parameters"
 		case "dashscope-realtime":

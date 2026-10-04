@@ -26,7 +26,7 @@ GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
   -run '^TestDoubaoServiceTierGiztest$' -count=1 -timeout=5m -v
 ```
 
-该测试通过 Admin HTTP 创建 Credential、Volc Tenant、`service_tier: fast` Model、Flowcraft Workflow、RuntimeProfile 和 RegistrationToken，在临时状态上启动真实 Server，再执行 `testdata/doubao-service-tier/fast.giztest.yaml` 的三轮 WebRTC 文本对话。默认模型为 `doubao-seed-2-0-mini-260428`；`GIZCLAW_E2E_DOUBAO_FAST_MODEL` 可指定已开通低延迟服务的其他 Model ID 或 Endpoint ID。
+该测试通过 Admin HTTP 创建 Credential、Volc Tenant、`service_tier: fast` Model、Eino Workflow、RuntimeProfile 和 RegistrationToken，在临时状态上启动真实 Server，再执行 `testdata/doubao-service-tier/fast.giztest.yaml` 的三轮 WebRTC 文本对话。默认模型为 `doubao-seed-2-0-mini-260428`；`GIZCLAW_E2E_DOUBAO_FAST_MODEL` 可指定已开通低延迟服务的其他 Model ID 或 Endpoint ID。
 
 请求通过透明观察器转发到真实 Ark HTTPS API，不替换上游响应。测试要求三轮都得到正确文本与 EOS、请求档位为 `fast`、上游 HTTP 200 且回显实际档位为 `fast`；降级到 `default` 或未回显档位不能通过。报告目录保存脱敏的 `giztest.json` 和只含档位、状态、时延、token 数及失败错误码的 `ark-tiers.json`。缺少凭据会明确失败；测试产生真实 provider 用量，普通无标签 Go 测试不运行它。
 
@@ -245,13 +245,11 @@ Starlark 节点生成，Mem0 embedding、SDK 和 PGVector 均为真实实现。
 第二项写入前故障，再由三个新进程补齐，验证持久化恢复。最终同时检查 vector
 collection 和 observation reservation 零残留。
 
-`flowcraft-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
+`eino-memory-scope.peer-and-workspace.giztest.yaml` 在 Docker Giztest 的真实
 Server/Peer/Mem0 路径上创建同一 Peer 的两个共享 Workspace（两个 binding alias
 指向同一 Layout）、一个隔离 Workspace，以及另一 Peer 的共享 Workspace。它写入带
 随机标记的 direct Fact，并断言跨 alias 命中、双向隔离，以及删除一个共享 Workspace
-后另一个仍能命中；最终删除测试 Peer。单独的
-`TestFlowcraftPeerScopeRedis8CrossAlias` 可用 `FLOWCRAFT_REDIS8_URL` 对真实 Redis 8
-验证两个 alias 复用物理 namespace，并校验 purge。
+后另一个仍能命中；最终删除测试 Peer。
 
 真实火山云项目的 `TestVolcMemoryLayoutScopeRouting` 使用产品 `memorystore.Registry`
 和带唯一运行标记的 direct Fact，验证当前 Layout 的 Peer/Workspace scope、另一 Peer
@@ -301,12 +299,7 @@ Workspace 的 Fact 被删除，测试失败。测试只触及通过 `memory.Bind
 `gizclaw-e2e-purge-<unix-nanos>-a`/`-b` 两个生成 Workspace ID；cleanup 即使在失败后
 也会 purge 两者直到校验为空。日志记录校验为空前用了几轮 purge。
 
-Flowcraft purge 不需要 provider 账号：PostgreSQL job 运行
-`TestPostgreSQLFlowcraftMemoryPurge`，通过 `memorystore.Registry` purge
-`flowcraft_postgresql` binding 的 canonical fact、retrieval index 与排队的 extraction job，
-并保留另一个 Workspace 的记忆。Redis 8 lane 为
-`FLOWCRAFT_REDIS8_URL=redis://... go test ./pkgs/store/memory/flowcraft/redis8`，需要
-Redis 8.4 或更高版本。
+
 
 
 ## Credential-backed harness 约束
@@ -343,7 +336,7 @@ tests/gizclaw-e2e/
 ```
 
 `tests/gizclaw-e2e/testdata` 下的 `workflow_catalog_test.go` 是不需要 Docker 或
-credential 的静态 fixture 检查，覆盖 Workflow catalog、Flowcraft graph、Workspace
+credential 的静态 fixture 检查，覆盖 Workflow catalog、Eino graph、Workspace
 与 Server/Edge 配置模板。Go 的 `./...` 模式会跳过名为 `testdata` 的目录，所以它不属于
 `go test ./...`；CI 的 Go Test job 单独运行它，本地修改这些 fixture 时也要执行：
 
@@ -351,10 +344,10 @@ credential 的静态 fixture 检查，覆盖 Workflow catalog、Flowcraft graph�
 go test -count=1 ./tests/gizclaw-e2e/testdata
 ```
 
-`*-flowcraft-*` Workflow resource 与 `flowcraft-*` Workspace 的 LLM 节点必须使用
+`*-eino-*` Workflow resource 与 `eino-*` Workspace 的 LLM 节点必须使用
 `max_tokens: 2048`。Latency comparison benchmark fixture 是唯一例外：它与
 `21-eino-latency-comparison.yaml` 使用相同的 64/128 上限，使两个 driver 的回答长度可比；
-例外及每个节点的上限登记在测试的 `benchmarkFlowcraftTokenBudgets` 中。
+例外及每个节点的上限登记在测试的 `TestEinoGeneratorsRetainTokenBudgets` 中。
 
 先复制 provider credential 模板。`.env` 只能保存 provider credential，不能保存
 runtime 地址、resource ID、model/voice ID 或 E2E identity；真实密钥不得提交。
@@ -504,10 +497,10 @@ JavaScript 与 Flutter 省略该字段。
 
 文字输入的 `peer_stream` 使用 `mode: text`。`text_done: true` 发送纯控制 BOS 与包含全文的 TEXT_DONE 两条事件；不设置时保留 BOS、TEXT_DELTA、空 TEXT_DONE 三条事件。`timestamp: zero` 是默认值，`timestamp: unix_ms` 给同轮两个事件使用当前 Unix 毫秒值。`label` 可为文字或音频输入指定相同的 route label，默认 `user`。
 
-`TestDeviceTextInputGiztest` 读取 `tests/gizclaw-e2e/testdata/text-input/` 中的 Giztest 文档，执行 Go runner 的真实 `peer_stream` operation、RealtimeStream 和三个 driver 的 Transformer。Doubao SDK 通过内存 HTTP/WebSocket 连接到本地 provider fixture；Eino 使用本地 typed Graph，Flowcraft 使用本地 Generator，外挂 TTS 输出可解码的非静音 Opus。此测试不需要凭据或本地端口，验证零/Unix 毫秒时间戳、PTT/Realtime、直接文字及语音后文字；它不替代真实 Server/WebRTC 或产品 Graph 的验收。
+`TestDeviceTextInputGiztest` 读取 `tests/gizclaw-e2e/testdata/text-input/` 中的 Giztest 文档，执行 Go runner 的真实 `peer_stream` operation、RealtimeStream 和三个 driver 的 Transformer。Doubao SDK 通过内存 HTTP/WebSocket 连接到本地 provider fixture；Eino 使用本地 typed Graph，Eino 使用本地 Generator，外挂 TTS 输出可解码的非静音 Opus。此测试不需要凭据或本地端口，验证零/Unix 毫秒时间戳、PTT/Realtime、直接文字及语音后文字；它不替代真实 Server/WebRTC 或产品 Graph 的验收。
 
 `TestDeviceTextSequences` 对五种配置增加连续两轮、同连接文字打断、文字→语音→文字、
-空白后恢复、4002 字节中文和 UTF-8/emoji；Eino/Flowcraft 另测 `开始` 与有前序轮次的
+空白后恢复、4002 字节中文和 UTF-8/emoji；Eino 另测 `开始` 与有前序轮次的
 `继续上次的内容`，Realtime 另测客户端静默后文字。Provider 回显完整输入，使本地测试可
 精确检查轮次内容与重复回复；本地 Graph 不代替产品 Graph 的状态恢复验收。
 
@@ -533,7 +526,7 @@ GIZCLAW_TEXT_INPUT_LIVE=1 go test ./cmd/internal/commands/giztest \
   -run '^TestDeviceTextInputLive$' -count=1 -timeout=20m
 ```
 
-也可以直接用 `gizclaw test run tests/gizclaw-e2e/testdata/text-input/live --parallel 1` 执行。Eino 和 Flowcraft 使用 E2E catalog 中的 Graph，不代表 H106 的所有小剧场或大冒险产品配置都已验收。
+也可以直接用 `gizclaw test run tests/gizclaw-e2e/testdata/text-input/live --parallel 1` 执行。两种 Eino Graph 使用 E2E catalog 中的 Graph，不代表 H106 的所有小剧场或大冒险产品配置都已验收。
 
 AST 连续轮次回归由 `volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml`
 和 `volc-ast-translate.realtime-consecutive-turns.giztest.yaml` 覆盖。每个场景只合成一次
@@ -590,7 +583,7 @@ Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
 bash tests/gizclaw-e2e/run_eino_first_response_tests.sh
 ```
 
-首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`flowcraft-latency-comparison` 与 `flowcraft-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，与省略该策略一样不向模型提供工具，显式写出以固定隔离意图。设备过程测试通过 `client.tool.v0.invoke` 和 `client.tool.v0.list` 验证预定义工具；产品自定义设备工具不属于 v0。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
+首响、并发和延迟测试使用的 `eino-concurrency-assistant`、`eino-latency-comparison`、`eino-planner-latency-comparison` 与 `eino-voice-assistant` 测试 Workflow 均显式配置 `spec.toolkit: {tool_ids: []}`，与省略该策略一样不向模型提供工具，显式写出以固定隔离意图。设备过程测试通过 `client.tool.v0.invoke` 和 `client.tool.v0.list` 验证预定义工具；产品自定义设备工具不属于 v0。首响入口的 text、Push-to-Talk、Realtime 与两个 roundtrip 文档都通过同一 Workflow 策略隔离工具。
 
 Runner 只构建一个 CLI revision，启动一套隔离的 Server/Edge stack，然后把同样的十任务
 text-only、configured-ASR Push-to-Talk 与 Realtime 文档分别以 `--parallel 1` 和
@@ -637,7 +630,7 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 必须打断还是继续输出。该模式只接受 `mode`、`input`、`pacing`，总时限用步骤 `timeout`。
 结果包含 `input_overlap`、`session_connection_reused`、`second_input_sent`、
 `first_audio_ms`、`second_input_audio_ms`、`first_audio_eos_ms` 和第二轮 EOS 标记。
-Doubao、Eino、Flowcraft 的 `*-overlapping-input.giztest.yaml` 分别覆盖两种输入模式；
+Doubao、Eino 的 `*-overlapping-input.giztest.yaml` 分别覆盖两种输入模式；
 这些场景由 Go runner 执行，JavaScript 和 Flutter runner 按不支持的 `peer_stream` 跳过。
 
 空的 assistant BOS 不建立回复归属；只有实际文本或音频内容才确定第一轮和第二轮回复。用例使用单句中文数数请求，减少录音内部停顿造成的额外 VAD 轮次。
@@ -719,7 +712,7 @@ Doubao realtime roundtrip 用零 underrun 和正的最小缓冲验收连续播�
 断流，因此听感连续性以 `underruns` 与 `minimum_buffer_ms` 为准。整段回复短于
 `prebuffer_ms` 时客户端要等全部音频到齐才起播，不会欠载，此时只提供 `prebuffer_ms`。
 Giztest 文件使用普通 `expect` 数值约束断言这些路径，不增加另一套 pacing schema。
-`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 与
+`eino-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 与
 `doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` 都要求至少 101 包、20 ms Opus
 frame、平均间隔 12 到 21 ms、P95 不超过 30 ms、最大间隔不超过 100 ms，并要求最终缓冲
 盈余在 450 到 550 ms 之间，分别覆盖 push-to-talk 与 realtime 下发。这些区间允许 pacer
@@ -727,11 +720,11 @@ frame、平均间隔 12 到 21 ms、P95 不超过 30 ms、最大间隔不超过 
 
 这两个用例都只有一轮，此时下行 pacer 正在第一次建立目标缓冲。真正会回归的是后续轮次：
 轮次之间的空闲墙上时间并不是客户端消费掉的音频，把它记到 pacer 头上会让之后每一轮都
-超前于实时到达。`flowcraft-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml`
+超前于实时到达。`eino-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml`
 与 `eino-concurrency-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` 对同一个
 Workspace 连续跑三轮，每轮要求至少 200 包、`buffer_surplus_ms` 不超过 700 ms、没有欠载，
 且 `minimum_buffer_ms` 为正。包数下限用于防止过短的回复在没有真正考验 pacing 断言的情况下
-通过，因为 pacer 出问题时累积的超前量随回合长度增长。这两个用例分别覆盖 flowcraft 与
+通过，因为 pacer 出问题时累积的超前量随回合长度增长。这两个用例分别覆盖 eino 与
 eino driver——它们共用同一条级联 text 到 TTS 的下行路径。
 
 `first_audio_ms` 记录的是第一个**有声帧**，而不是第一个音频包。runner 在 stream reader
@@ -896,7 +889,7 @@ bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
 ```
 
 两个固定入口每个并发档位各选择 10 个正式文件，覆盖 Realtime、Realtime Duplex、
-Flowcraft、Eino 和 Translate 的普通与打断场景。同一 repository head 必须先通过 10 路，
+Eino 和 Translate 的普通与打断场景。同一 repository head 必须先通过 10 路，
 再执行 20 路。每个文件内部的任务共享一个 barrier，但所有文件仍由同一个全局 worker
 pool 调度；因此报告必须保留 document 和 repeat 归属，不能把总任务数误报成单一
 Workflow 的并发数。每个 task 始终复用自己的物理连接、Workspace runtime 和
@@ -1192,14 +1185,13 @@ relay path，而不是 GizClaw Edge/Server capacity；它不代表 production Co
 
 ## LoCoMo Memory Evaluation
 
-`tests/locomo-e2e` 是 GizClaw 自有的 production `memory.Store` 人工评测，不使用
-Flowcraft LoCoMo evaluator，也不属于普通 `go test ./...`、Docker E2E 或 required CI。
+`tests/locomo-e2e` 是 GizClaw 自有的 production `memory.Store` 人工评测，独立于普通 `go test ./...`、Docker E2E 或 required CI。
 每个 live test 在对应 Go 文件中完整定义 provider、memory lane 和 extraction config；
 Volc remote project 配置由部署拥有，harness 不修改它。
 
-当前 lane 包括 Flowcraft Redis 8 BM25 single-pass、hybrid single/two-pass、self-hosted Mem0 Qdrant/pgvector、
+当前 lane 包括 self-hosted Mem0 Qdrant/pgvector、
 Mem0 Platform default/custom instructions 和 Volc AgentKit Memory default/request custom instructions。LoCoMo 是 tagged Go
-测试包；Docker runner 会按所选 group 启动固定版本的 Redis 8、self-hosted Mem0 和记忆后端，
+测试包；Docker runner 会按所选 group 启动self-hosted Mem0 和记忆后端，
 让宿主机上的 tagged Go test 连接容器，并在结束时删除容器和 volume。Mem0 Platform 和 Volc
 组继续使用标准 `go test -run` 连接远程 provider。
 被选择的测试只校验自己消费的环境变量，缺失或占位值会失败，未选择 backend 的变量
@@ -1212,7 +1204,6 @@ go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
 tests/locomo-e2e/run_docker.sh mem0
 tests/locomo-e2e/run_docker.sh mem0-pgvector
-tests/locomo-e2e/run_docker.sh flowcraft
 tests/locomo-e2e/run_docker.sh all
 ```
 
@@ -1231,19 +1222,17 @@ instruction 由测试通过每次 `Observe` 的 `prompt` 发送，模拟 MemoryL
 都执行 scoped purge 并连续三次验证为空，将清理结果写入 redacted report。
 该行为不修改共享项目策略。远程 endpoint 若仅在 VPC 可访问，需要通过已验证的 VPC 网络运行。
 
-Mem0 group 使用与 Flowcraft 相同的 extraction 和 embedding model/key/base URL 环境变量；
+Mem0 group 使用显式的 extraction 和 embedding model/key/base URL 环境变量；
 Qdrant 与 PGVector 容器共用 `cmd/mem0` 服务和 `mem0ai 2.2.1`，默认通过 `https://api.deepseek.com` 使用国内的
 `deepseek-v4-flash` 提取/回答模型和
 1024 维的 `qwen3.7-text-embedding`。`GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER` 选择 LLM adapter，
 支持 `deepseek` 和 `bytedance`。`GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS` 必须与 embedding
 服务实际返回的向量宽度一致，因为 Mem0 要用该值创建 Qdrant collection 或 PostgreSQL vector 列。远程 Mem0 Platform lane 仅在调用方拥有对应 endpoint、API key 和
 配置 fingerprint 时单独运行，不是 Docker group 的依赖。直接运行 Go tests 时必须设置
-对应的 `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` 或
 `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`；runner 会将它们指向自己启动的容器。如果默认
-端口不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` 或
-`GIZCLAW_LOCOMO_E2E_MEM0_PORT`。
+端口不可用，可以覆盖 `GIZCLAW_LOCOMO_E2E_MEM0_PORT`。
 
-`mem0` group 使用内嵌 Qdrant；`mem0-pgvector` group 启动 Mem0 和独立的 PostgreSQL 17/pgvector 容器，只在宿主机回环地址暴露 Mem0 HTTP 端口（默认 `18001`），数据库没有宿主机端口。测试先检查服务报告的 `vector_store` 是 `pgvector`，再执行相同的真实提取、召回和问答评测；缺失数据库配置或数据库初始化失败不会回退到 Qdrant。直接运行 Go test 时设置 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`；Docker 端口可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT` 覆盖。报告 profile 为 `mem0_self_hosted_pgvector`。`all` 包含这两种 Mem0 后端和 Flowcraft。数据库账号是仅用于临时 Docker 测试的固定 fixture，数据与 SQLite history 随 runner 退出清理，不使用云端 PG。
+`mem0` group 使用内嵌 Qdrant；`mem0-pgvector` group 启动 Mem0 和独立的 PostgreSQL 17/pgvector 容器，只在宿主机回环地址暴露 Mem0 HTTP 端口（默认 `18001`），数据库没有宿主机端口。测试先检查服务报告的 `vector_store` 是 `pgvector`，再执行相同的真实提取、召回和问答评测；缺失数据库配置或数据库初始化失败不会回退到 Qdrant。直接运行 Go test 时设置 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`；Docker 端口可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT` 覆盖。报告 profile 为 `mem0_self_hosted_pgvector`。`all` 包含这两种 Mem0 后端。数据库账号是仅用于临时 Docker 测试的固定 fixture，数据与 SQLite history 随 runner 退出清理，不使用云端 PG。
 
 PG lane 的提取输出上限默认为 8192 tokens，可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_MAX_TOKENS` 覆盖。测试读取服务实际 token 上限并纳入 fingerprint 和报告；服务仅输出 finish reason、JSON 有效性和候选数量等响应元数据，便于定位截断或空提取，不输出模型内容。Qdrant lane 保留原有 2000 token 默认值。
 
@@ -1343,7 +1332,6 @@ session（共 76 turns），以及覆盖 category 1 到 5 的八个问题。它�
 
 ```sh
 GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
-  tests/locomo-e2e/run_docker.sh flowcraft
 ```
 
 `tests/locomo-e2e/cmd/fixturegen` 负责从固定版本的上游 JSON 可复现地选择一个
@@ -1369,23 +1357,23 @@ git lfs fsck
 ## 多角色音频确定性 Giztest
 
 ```sh
-go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|EinoBranchMultiVoiceGiztest|MultiRole.*)$' -count=1
 ```
 
-套件共享 `voice_fixture_test.go` 的 fake provider，保留真实 Eino/Flowcraft Factory、
+套件共享 `voice_fixture_test.go` 的 fake provider，保留真实 Eino Factory、
 AudioDock、Go Giztest runner 和 CLI 接收逻辑。无需外部网络、凭据或 Docker。
 Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用已有音频测试环境。
 
 - `eino-voices/multi-turn.giztest.yaml` 执行四轮 Eino，Starlark selector 为每轮回复加上
   `【speaker】` 标记，经 `speaker_voices` 选择音色；
   `multi-role-voices/multi-turn.giztest.yaml` 在同一 invocation 执行 fox、bird、owl、bear、
-  unknown（default 回落）、bear、bear、fox 八轮。Flowcraft 的四个发布节点使用
+  unknown（default 回落）、bear、bear、fox 八轮。Eino 的四个发布节点使用
   `node_voices`，每轮使用不同的确定性音频摘要，连续同角色也能发现上一轮音频被复用。
 - 每轮 `audio_integrity/sha256` 验证包内容和顺序；`streams=1`、`max_active=1`、
   `open=0`、`violations=0` 验证 BOS/EOS、无交错和无晚到数据。整个会话另保留 ownership，
   并检查 TTS 调用次数及正常多轮中最多一个活跃调用。
 - `TestMixedProviderSpeakerVoicesGiztest` 运行 `eino-voices/mixed-providers` 与
-  `multi-role-voices/mixed-providers`（Flowcraft），经 AgentHost 并启用 Workspace History 执行一轮回复：旁白 Voice 原生返回 Ogg/Opus，`【fox】` Voice 原生返回 MP3。要求文字与音频
+  `multi-role-voices/mixed-providers`（Eino），经 AgentHost 并启用 Workspace History 执行一轮回复：旁白 Voice 原生返回 Ogg/Opus，`【fox】` Voice 原生返回 MP3。要求文字与音频
   EOS、`streams=1`，且两段合为一个 `audio/ogg` 流的摘要正确；同时检查每个 Voice 都被请求
   `format=ogg_opus`，History 保存回复文字并按顺序保存两段的 Opus packet。`ignore-format`
   故障保留 MP3 输出，必须被 AudioDock 的音频 MIME 混用错误拒绝。
@@ -1407,7 +1395,7 @@ Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用�
   原始包轨迹分别验证摘要、最大活跃流、未闭合流和晚到包断言，以及 150/151 ms 包间隔、
   500/501 ms 缓冲边界，避免一种断言失败掩盖其他断言失效。
 
-快速输入与中途打断共用上述测试：新输入 BOS 取代旧回复是 AudioDock/Flowcraft 的
+快速输入与中途打断共用上述测试：新输入 BOS 取代旧回复是 AudioDock/Eino 的
 barge-in 契约。测试正向断言 A 的合法前缀和双路由中断 EOS、B 完整 40/40 包及
 双路由正常 EOS、B 开始后无 A chunk，以及 `max_active=1`，不另设重复场景。
 此 provider 边界套件不替代真实音色识别、Server/Edge/WebRTC pacing 或设备播放验收。
@@ -1464,7 +1452,7 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 合成等待 200 毫秒，
 再输出 80 个有效的 20 毫秒 Opus 音频帧。延迟受 context 取消约束。
 
-`slow-tts.*.giztest.yaml` 覆盖 Eino push-to-talk、Eino realtime 和 Flowcraft realtime。
+`slow-tts.*.giztest.yaml` 覆盖 Eino push-to-talk、Eino realtime 和 Eino sequential realtime。
 `first_response` 步骤保持 2 秒首文本期限；使用相同 Workflow 的独立 Peer 检查 text/audio EOS、非空音频、
 无重叠和播放节拍。Realtime 在保留的 session 中连续发起输入，覆盖旧 TTS 启动期间的换轮。
 此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
@@ -1472,30 +1460,30 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 
 ### 说话人分段回归
 
-确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 Eino 与 Flowcraft；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
+确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 两种 Eino Graph；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
 
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
 bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
 ```
 
-标准 provider-backed Giztest 阶段还使用真实凭据运行 `eino-speaker-voices.text-roundtrip` 与 `flowcraft-speaker-voices.text-roundtrip`：真实 LLM 复述带标记的剧本，Volc TTS 以 `narrator`、`assistant-voice`、`story-bird` 三个别名朗读。场景断言已配置标记被剥离、未知标记保留，音频为单流、无违规且 `audio_pacing.underruns=0`，并通过 ASR 确认各段内容按顺序播出。在已启动的 Docker 栈上可单独运行：
+标准 provider-backed Giztest 阶段还使用真实凭据运行 `eino-speaker-voices.text-roundtrip` 与 `eino-speaker-sequence.text-roundtrip`：真实 LLM 复述带标记的剧本，Volc TTS 以 `narrator`、`assistant-voice`、`story-bird` 三个别名朗读。场景断言已配置标记被剥离、未知标记保留，音频为单流、无违规且 `audio_pacing.underruns=0`，并通过 ASR 确认各段内容按顺序播出。在已启动的 Docker 栈上可单独运行：
 
 ```sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
-  tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
+  tests/gizclaw-e2e/giztest/eino-speaker-sequence.text-roundtrip.giztest.yaml --parallel 2
 ```
 
-该阶段还运行 `eino-mixed-provider-voices.text-roundtrip` 与 `flowcraft-mixed-provider-voices.text-roundtrip`：旁白为 Volc `narrator` Voice，`【弟弟】` 为 MiniMax CN 系统音色 `minimax-boy`（`speech-2.6-turbo`，不覆盖 `provider_data.format`），因此同一回复混用了默认格式不同的两家 provider。场景检查 MiniMax Voice 能用测试账号合成，回复以文字与音频 EOS 结束且为单个音频流（`streams=1`、`max_active=1`、`open=0`、`violations=0`），ASR 按顺序听到各段，并且 Workspace History 将该回复保存为可回放 agent entry。History 查询显式使用倒序；Go runner 自动解包 protobuf 的 `value`，断言路径为 `/available`、`/items/0/type`、`/items/0/replay_available` 和 `/items/0/text`。三段剧本保留 20 KB 音频下限；转写用 `森林.*苹果.*日出` 检查内容顺序，容许 ASR 标点差异，不要求逐字一致。此场景不对真实 provider 的播放欠载设门槛。JS、C 与 Flutter runner 和单 provider 先例一样明确跳过这些音频文档。它们需要 `tests/gizclaw-e2e/.env` 中的 MiniMax CN 凭据；`minimax-cn` tenant 使用 `https://api.minimaxi.com`。在已启动的 Docker 栈上可单独运行：
+该阶段还运行 `eino-mixed-provider-voices.text-roundtrip` 与 `eino-mixed-speaker-sequence.text-roundtrip`：旁白为 Volc `narrator` Voice，`【弟弟】` 为 MiniMax CN 系统音色 `minimax-boy`（`speech-2.6-turbo`，不覆盖 `provider_data.format`），因此同一回复混用了默认格式不同的两家 provider。场景检查 MiniMax Voice 能用测试账号合成，回复以文字与音频 EOS 结束且为单个音频流（`streams=1`、`max_active=1`、`open=0`、`violations=0`），ASR 按顺序听到各段，并且 Workspace History 将该回复保存为可回放 agent entry。History 查询显式使用倒序；Go runner 自动解包 protobuf 的 `value`，断言路径为 `/available`、`/items/0/type`、`/items/0/replay_available` 和 `/items/0/text`。三段剧本保留 20 KB 音频下限；转写用 `森林.*苹果.*日出` 检查内容顺序，容许 ASR 标点差异，不要求逐字一致。此场景不对真实 provider 的播放欠载设门槛。JS、C 与 Flutter runner 和单 provider 先例一样明确跳过这些音频文档。它们需要 `tests/gizclaw-e2e/.env` 中的 MiniMax CN 凭据；`minimax-cn` tenant 使用 `https://api.minimaxi.com`。在已启动的 Docker 栈上可单独运行：
 
 ```sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.text-roundtrip.giztest.yaml \
-  tests/gizclaw-e2e/giztest/flowcraft-mixed-provider-voices.text-roundtrip.giztest.yaml --parallel 2
+  tests/gizclaw-e2e/giztest/eino-mixed-speaker-sequence.text-roundtrip.giztest.yaml --parallel 2
 ```
 
-该阶段还运行三个语速场景。`server.run.workspace.reload.tts-speech-rate` 之外的 RPC 契约由 `server.run.workspace.reload` 覆盖：它在 `reload-with-options` 中带上 `tts_speech_rate_percent: 80`，再用 `server.workspace.get` 确认参数已保存，因此 JS、C 与 Flutter runner 也会执行这段编解码。`flowcraft-voice-assistant.tts-speech-rate` 覆盖存储、越界拒绝（`INVALID_ARGUMENT`）和带语速的真实回复；`dashscope-realtime-conversation.tts-speech-rate` 覆盖没有原生语速的 provider 由 transformer 做时间伸缩后仍能出声。
+该阶段还运行三个语速场景。`server.run.workspace.reload.tts-speech-rate` 之外的 RPC 契约由 `server.run.workspace.reload` 覆盖：它在 `reload-with-options` 中带上 `tts_speech_rate_percent: 80`，再用 `server.workspace.get` 确认参数已保存，因此 JS、C 与 Flutter runner 也会执行这段编解码。`eino-voice-assistant.tts-speech-rate` 覆盖存储、越界拒绝（`INVALID_ARGUMENT`）和带语速的真实回复；`dashscope-realtime-conversation.tts-speech-rate` 覆盖没有原生语速的 provider 由 transformer 做时间伸缩后仍能出声。
 
 `eino-mixed-provider-voices.tts-speech-rate` 验证语速真的生效：两个同样绑定 `eino-mixed-provider-voices` 的 Workspace 读同一段脚本，默认语速的回复断言音频包数在 700..1400（每包 20 ms，约 14..28 秒），设为 60% 的 Workspace 断言至少 1600 包（约 32 秒）。实测默认约 1116..1122 包、60% 约 1836..1892 包，阈值两侧都留了 20% 以上余量。Volc 旁白与 MiniMax 角色音色都会变慢。该场景同样被 JS、C 与 Flutter runner 跳过：
 
@@ -1504,7 +1492,7 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
 
-安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。E2E RuntimeProfile fixture 定义 `alpha`、`bravo`、`charlie`、`delta` 四个独立完整 prompt。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证 RPC 档位发现、未选档时 reload 成功、自定义 ID 往返和格式错误；`server.device.runtime_profile.get.giztest.yaml` 验证 HTTP 档位发现且不暴露 prompt；`server.workspace.safety-fence.missing-profile.giztest.yaml` 验证 Profile 未定义 `child` 时 reload 明确失败；`sfu.workspace.switch.giztest.yaml` 验证合法 ID no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。五个 `safety-fence-*.giztest.yaml` 场景分别覆盖 Flowcraft、Eino 和三个 Realtime driver 的显式 prompt 注入。
+安全围栏离线测试覆盖参数、RPC、Profile SQL/revision 和各 driver 的注入。E2E RuntimeProfile fixture 定义 `alpha`、`bravo`、`charlie`、`delta` 四个独立完整 prompt。`server.workspace.safety-fence.roundtrip.giztest.yaml` 验证 RPC 档位发现、未选档时 reload 成功、自定义 ID 往返和格式错误；`server.device.runtime_profile.get.giztest.yaml` 验证 HTTP 档位发现且不暴露 prompt；`server.workspace.safety-fence.missing-profile.giztest.yaml` 验证 Profile 未定义 `child` 时 reload 明确失败；`sfu.workspace.switch.giztest.yaml` 验证合法 ID no-op。Admin put 400 在 Workspace Go 测试中验证：Giztest 的临时 Peer 连接不具备 Admin HTTP 权限。五个 `safety-fence-*.giztest.yaml` 场景分别覆盖 Eino 和三个 Realtime driver 的显式 prompt 注入。
 
 在线运行这九个场景使用专用的最小资源清单 `testdata/resources/safety-fence/` 和隔离 Docker project，需提供标准 E2E provider 凭据：
 

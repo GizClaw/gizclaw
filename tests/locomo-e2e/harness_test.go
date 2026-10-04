@@ -3,10 +3,8 @@
 package locomo_e2e
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -17,12 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/flowcraft/sdk/embedding"
-	"github.com/GizClaw/flowcraft/sdk/llm"
-	embeddingopenai "github.com/GizClaw/flowcraft/sdkx/embedding/openai"
-	llmbytedance "github.com/GizClaw/flowcraft/sdkx/llm/bytedance"
-	llmdeepseek "github.com/GizClaw/flowcraft/sdkx/llm/deepseek"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/openai/openai-go"
 	"github.com/openai/openai-go/option"
 )
 
@@ -181,62 +175,34 @@ func envRatio(t *testing.T, name string, fallback float64) float64 {
 	return parsed
 }
 
-type modelLoader struct {
-	provider         string
-	apiKey           string
-	baseURL          string
-	region           string
-	embeddingAPIKey  string
-	embeddingBaseURL string
+// answerModel owns the selected OpenAI-compatible model and its HTTP client.
+type answerModel struct {
+	client   openai.Client
+	model    string
+	provider string
 }
 
-func (l modelLoader) LoadLLM(_ context.Context, name string) (llm.LLM, error) {
-	return newLLM(l.provider, name, l.apiKey, l.baseURL, l.region)
-}
-
-func (l modelLoader) LoadEmbedder(_ context.Context, name string) (embedding.Embedder, error) {
-	var options []option.RequestOption
-	if l.embeddingBaseURL != "" {
-		options = append(options, option.WithBaseURL(l.embeddingBaseURL))
-	}
-	embedder := embeddingopenai.New(l.embeddingAPIKey, name, options...)
-	if embedder == nil {
-		return nil, errors.New("OpenAI-compatible embedder is unavailable")
-	}
-	return embedder, nil
-}
-
-func (s liveSettings) loader() modelLoader {
-	return modelLoader{
-		provider:         s.modelProvider,
-		apiKey:           s.apiKey,
-		baseURL:          s.baseURL,
-		region:           s.region,
-		embeddingAPIKey:  s.embeddingAPIKey,
-		embeddingBaseURL: s.embeddingBaseURL,
-	}
-}
-
-func newAnswerModel(settings liveSettings) (llm.LLM, error) {
+func newAnswerModel(settings liveSettings) (answerModel, error) {
 	return newLLM(settings.modelProvider, settings.answerModel, settings.apiKey, settings.baseURL, settings.region)
 }
 
-func newLLM(provider, model, apiKey, baseURL, region string) (llm.LLM, error) {
-	var raw llm.LLM
-	var err error
+func newLLM(provider, model, apiKey, baseURL, region string) (answerModel, error) {
 	switch provider {
 	case "bytedance":
-		raw, err = llmbytedance.New(model, apiKey, baseURL, region, 2)
+		if baseURL == "" {
+			if region == "" {
+				region = "cn-beijing"
+			}
+			baseURL = "https://ark." + region + ".volces.com/api/v3"
+		}
 	case "deepseek":
-		raw, err = llmdeepseek.New(model, apiKey, baseURL)
+		if baseURL == "" {
+			baseURL = "https://api.deepseek.com"
+		}
 	default:
-		return nil, fmt.Errorf("unsupported LoCoMo model provider %q", provider)
+		return answerModel{}, fmt.Errorf("unsupported LoCoMo model provider %q", provider)
 	}
-	if err != nil {
-		return nil, err
-	}
-	spec := llm.DefaultRegistry.LookupModelSpec(provider, model)
-	return llm.WithDefaults(llm.WithCaps(llm.WithLimits(raw, spec.Limits), spec.Caps), spec.Defaults), nil
+	return answerModel{client: openai.NewClient(option.WithAPIKey(apiKey), option.WithBaseURL(baseURL)), model: model, provider: provider}, nil
 }
 
 func closeStore(store memorystore.Store, closer io.Closer) error {

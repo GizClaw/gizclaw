@@ -21,13 +21,13 @@ func TestRegistryRegisterAndGet(t *testing.T) {
 	factory := FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
 		return passthroughTransformer{}, nil
 	})
-	if err := registry.Register("flowcraft", factory); err != nil {
+	if err := registry.Register("eino", factory); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	if _, ok := registry.Get("flowcraft"); !ok {
+	if _, ok := registry.Get("eino"); !ok {
 		t.Fatal("Get() missing registered factory")
 	}
-	if err := registry.Register("flowcraft", factory); err == nil || !strings.Contains(err.Error(), "already registered") {
+	if err := registry.Register("eino", factory); err == nil || !strings.Contains(err.Error(), "already registered") {
 		t.Fatalf("duplicate Register() error = %v", err)
 	}
 	if err := registry.Register("", factory); err == nil || !strings.Contains(err.Error(), "workflow type is required") {
@@ -83,8 +83,8 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	if spec.Workspace.Name != "demo" {
 		t.Fatalf("unexpected workspace spec: %#v", spec)
 	}
-	if spec.WorkflowType != "flowcraft" {
-		t.Fatalf("WorkflowType = %q, want flowcraft", spec.WorkflowType)
+	if spec.WorkflowType != "eino" {
+		t.Fatalf("WorkflowType = %q, want eino", spec.WorkflowType)
 	}
 }
 
@@ -105,12 +105,12 @@ func TestServiceResolverErrors(t *testing.T) {
 }
 
 func TestWorkflowTypeFromDriver(t *testing.T) {
-	got, err := resolveWorkflowType(rawWorkflow(t, apitypes.WorkflowDriverFlowcraft))
+	got, err := resolveWorkflowType(rawWorkflow(t, apitypes.WorkflowDriverEino))
 	if err != nil {
 		t.Fatalf("resolveWorkflowType() error = %v", err)
 	}
-	if got != "flowcraft" {
-		t.Fatalf("resolveWorkflowType() = %q, want flowcraft", got)
+	if got != "eino" {
+		t.Fatalf("resolveWorkflowType() = %q, want eino", got)
 	}
 	if _, err := resolveWorkflowType(rawWorkflow(t, apitypes.WorkflowDriver("bad"))); err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("unsupported driver error = %v", err)
@@ -482,22 +482,22 @@ func mustWorkflow(name string) apitypes.Workflow {
 	return apitypes.Workflow{
 		Id: name,
 		Spec: apitypes.WorkflowSpec{
-			Driver: apitypes.WorkflowDriverFlowcraft,
+			Driver: apitypes.WorkflowDriverEino,
 		},
 	}
 }
 
 func rawWorkflow(t *testing.T, driver apitypes.WorkflowDriver) apitypes.Workflow {
 	t.Helper()
-	spec := apitypes.FlowcraftWorkflowSpec{}
+	spec := apitypes.EinoWorkflowSpec{}
 	doc := apitypes.Workflow{
 		Id: "workflow",
 		Spec: apitypes.WorkflowSpec{
 			Driver: driver,
 		},
 	}
-	if driver == apitypes.WorkflowDriverFlowcraft {
-		doc.Spec.Flowcraft = &spec
+	if driver == apitypes.WorkflowDriverEino {
+		doc.Spec.Eino = &spec
 	}
 	return doc
 }

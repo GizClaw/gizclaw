@@ -21,8 +21,8 @@ type WorkspaceQuiescer interface {
 	QuiesceWorkspace(context.Context, string) error
 }
 
-// FlowcraftWorkspaceCleanup retires and verifies scoped Board checkpoints.
-type FlowcraftWorkspaceCleanup interface {
+// GraphStateWorkspaceCleanup retires and verifies scoped Graph checkpoints.
+type GraphStateWorkspaceCleanup interface {
 	DeleteWorkspaceState(context.Context, string, string) error
 	WorkspaceStateAbsent(context.Context, string, string) (bool, error)
 }
@@ -37,12 +37,12 @@ type MemoryWorkspaceCleanup interface {
 
 // DeletionHandler owns Workspace artifact cleanup and record finalization.
 type DeletionHandler struct {
-	Server    *Server
-	Source    workspaceSQLDeletionSource
-	Quiescer  WorkspaceQuiescer
-	Flowcraft FlowcraftWorkspaceCleanup
-	Memory    MemoryWorkspaceCleanup
-	Now       func() time.Time
+	Server     *Server
+	Source     workspaceSQLDeletionSource
+	Quiescer   WorkspaceQuiescer
+	GraphState GraphStateWorkspaceCleanup
+	Memory     MemoryWorkspaceCleanup
+	Now        func() time.Time
 }
 
 type validatedDeletion struct {
@@ -216,13 +216,13 @@ func (h DeletionHandler) cleanupArtifacts(ctx context.Context, descriptor valida
 			return memoryCleanupError("memory_cleanup_failed", "Workspace long-term memory could not be purged", err)
 		}
 	}
-	if h.Flowcraft != nil {
+	if h.GraphState != nil {
 		owner := ""
 		if descriptor.OwnerPublicKey != nil {
 			owner = *descriptor.OwnerPublicKey
 		}
-		if err := h.Flowcraft.DeleteWorkspaceState(ctx, owner, descriptor.ID); err != nil {
-			return pendingdeletion.Retryable("flowcraft_state_cleanup_failed", "Workspace Board state could not be deleted", err)
+		if err := h.GraphState.DeleteWorkspaceState(ctx, owner, descriptor.ID); err != nil {
+			return pendingdeletion.Retryable("graph_state_cleanup_failed", "Workspace Graph state could not be deleted", err)
 		}
 	}
 
@@ -254,17 +254,17 @@ func (h DeletionHandler) verifyArtifactsAbsent(ctx context.Context, descriptor v
 			return pendingdeletion.Retryable("memory_residual", "Workspace long-term memory remains", nil)
 		}
 	}
-	if h.Flowcraft != nil {
+	if h.GraphState != nil {
 		owner := ""
 		if descriptor.OwnerPublicKey != nil {
 			owner = *descriptor.OwnerPublicKey
 		}
-		absent, err := h.Flowcraft.WorkspaceStateAbsent(ctx, owner, descriptor.ID)
+		absent, err := h.GraphState.WorkspaceStateAbsent(ctx, owner, descriptor.ID)
 		if err != nil {
-			return pendingdeletion.Retryable("flowcraft_state_verify_failed", "Workspace Board state cleanup could not be verified", err)
+			return pendingdeletion.Retryable("graph_state_verify_failed", "Workspace Graph state cleanup could not be verified", err)
 		}
 		if !absent {
-			return pendingdeletion.Retryable("flowcraft_state_residual", "Workspace Board state remains or its scope is not retired", nil)
+			return pendingdeletion.Retryable("graph_state_residual", "Workspace Graph state remains or its scope is not retired", nil)
 		}
 	}
 

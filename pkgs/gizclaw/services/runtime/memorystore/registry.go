@@ -169,7 +169,6 @@ func (registry *Registry) maintain(ctx context.Context, request Request, operati
 		return fmt.Errorf("memory store: invalid workspace id: %w", err)
 	}
 	request.maintenance = true
-	request.ModelLoader = nil
 	result, err := registry.Resolve(ctx, request)
 	if err != nil {
 		return err
@@ -279,7 +278,6 @@ func (registry *Registry) finishFailedResolve(key string, entry *registryEntry) 
 
 func registryKey(request Request) (string, error) {
 	switch request.Binding.Driver {
-	case "flowcraft":
 	case "mem0":
 	case "volc_mem0":
 	default:
@@ -290,15 +288,6 @@ func registryKey(request Request) (string, error) {
 		return "", fmt.Errorf("memory store: encode binding identity: %w", err)
 	}
 	digest := sha256.Sum256(identity)
-	if request.Binding.Driver == "flowcraft" {
-		connectionType, err := request.Binding.Connection.Discriminator()
-		if err != nil {
-			return "", fmt.Errorf("memory store: decode Flowcraft connection: %w", err)
-		}
-		if (connectionType == "flowcraft_bbh" || connectionType == "flowcraft_redis8") && flowcraftPeerScope(request) {
-			return fmt.Sprintf("peer\x00%s\x00%s\x00%s\x00%x", request.ProfileID, request.Layout.Id, request.Binding.Driver, digest[:16]), nil
-		}
-	}
 	return fmt.Sprintf(
 		"%s\x00%s\x00%s\x00%x",
 		request.ProfileID,

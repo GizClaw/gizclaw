@@ -12,9 +12,6 @@
         "description": "Agent-specific workspace parameters. The shape is selected by agent_type.",
         "oneOf": [
           {
-            "$ref": "#/components/schemas/FlowcraftWorkspaceParameters"
-          },
-          {
             "$ref": "#/components/schemas/DoubaoRealtimeWorkspaceParameters"
           },
           {
@@ -33,7 +30,6 @@
         "discriminator": {
           "propertyName": "agent_type",
           "mapping": {
-            "flowcraft": "#/components/schemas/FlowcraftWorkspaceParameters",
             "doubao-realtime": "#/components/schemas/DoubaoRealtimeWorkspaceParameters",
             "dashscope-realtime": "#/components/schemas/DashScopeRealtimeWorkspaceParameters",
             "doubao-realtime-duplex": "#/components/schemas/DoubaoRealtimeDuplexWorkspaceParameters",
@@ -84,46 +80,6 @@
           }
         }
       },
-      "FlowcraftWorkspaceParameters": {
-        "type": "object",
-        "required": [
-          "agent_type"
-        ],
-        "additionalProperties": false,
-        "properties": {
-          "agent_type": {
-            "type": "string",
-            "enum": [
-              "flowcraft"
-            ]
-          },
-          "input": {
-            "$ref": "#/components/schemas/WorkspaceInputMode"
-          },
-          "conversation": {
-            "$ref": "#/components/schemas/ConversationParameters"
-          },
-          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
-          "tts_speech_rate_percent": {
-            "type": "integer",
-            "minimum": 50,
-            "maximum": 200,
-            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
-          },
-          "e2e": {
-            "type": "boolean",
-            "description": "Marks seed resources used by the local e2e harness."
-          }
-        },
-        "example": {
-          "agent_type": "flowcraft",
-          "input": "push-to-talk",
-          "conversation": {
-            "initiative": "agent",
-            "agent_initiative_policy": "once_when_empty"
-          }
-        }
-      },
       "DoubaoRealtimeWorkspaceParameters": {
         "type": "object",
         "required": [
@@ -162,7 +118,9 @@
           "extension": {
             "$ref": "./workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeExtension"
           },
-          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
+          "safety_fence_level": {
+            "$ref": "#/components/schemas/SafetyFenceLevel"
+          },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,
@@ -197,69 +155,185 @@
       },
       "DashScopeRealtimeWorkspaceParameters": {
         "type": "object",
-        "required": ["agent_type"],
+        "required": [
+          "agent_type"
+        ],
         "additionalProperties": false,
         "properties": {
-              "agent_type": { "type": "string", "enum": ["dashscope-realtime"] },
-              "model": { "type": "string", "minLength": 1 },
-              "voice": { "type": "string", "minLength": 1 },
-              "instructions": { "type": "string" },
-              "modalities": {
-                "type": "array",
-                "minItems": 1,
-                "uniqueItems": true,
-                "items": { "type": "string", "enum": ["text", "audio"] }
-              },
-              "vad": { "type": "string", "enum": ["server_vad", "disabled"] },
-              "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
-              "max_output_tokens": { "type": "integer", "minimum": 1 },
-              "enable_asr": { "type": "boolean" },
-              "asr_model": { "type": "string", "minLength": 1 },
-              "input_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
-              "output_audio_format": { "type": "string", "enum": ["pcm16", "mp3", "wav"] },
-              "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
-              "tts_speech_rate_percent": {
-                "type": "integer",
-                "minimum": 50,
-                "maximum": 200,
-                "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
-              },
-              "e2e": { "type": "boolean" }
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "dashscope-realtime"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "voice": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "modalities": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": [
+                "text",
+                "audio"
+              ]
+            }
+          },
+          "vad": {
+            "type": "string",
+            "enum": [
+              "server_vad",
+              "disabled"
+            ]
+          },
+          "temperature": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 2
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "enable_asr": {
+            "type": "boolean"
+          },
+          "asr_model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "input_audio_format": {
+            "type": "string",
+            "enum": [
+              "pcm16",
+              "mp3",
+              "wav"
+            ]
+          },
+          "output_audio_format": {
+            "type": "string",
+            "enum": [
+              "pcm16",
+              "mp3",
+              "wav"
+            ]
+          },
+          "safety_fence_level": {
+            "$ref": "#/components/schemas/SafetyFenceLevel"
+          },
+          "tts_speech_rate_percent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
+          },
+          "e2e": {
+            "type": "boolean"
+          }
         }
       },
       "DoubaoRealtimeDuplexWorkspaceParameters": {
         "type": "object",
-        "required": ["agent_type"],
+        "required": [
+          "agent_type"
+        ],
         "additionalProperties": false,
         "properties": {
-              "agent_type": { "type": "string", "enum": ["doubao-realtime-duplex"] },
-              "model": { "type": "string", "minLength": 1 },
-              "voice": { "type": "string", "minLength": 1 },
-              "instructions": { "type": "string" },
-              "format": { "type": "string", "enum": ["ogg_opus"] },
-              "sample_rate": { "type": "integer", "enum": [24000] },
-              "input_format": { "type": "string", "enum": ["speech_opus"] },
-              "input_sample_rate": { "type": "integer", "minimum": 8000, "maximum": 48000 },
-              "input_channels": { "type": "integer", "minimum": 1, "maximum": 2 },
-              "input_transcode": { "type": "boolean" },
-              "output_speed": { "type": "integer", "minimum": -50, "maximum": 100 },
-              "output_loudness": { "type": "integer", "minimum": -50, "maximum": 100 },
-              "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
-              "tts_speech_rate_percent": {
-                "type": "integer",
-                "minimum": 50,
-                "maximum": 200,
-                "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
-              },
-              "e2e": { "type": "boolean" }
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "doubao-realtime-duplex"
+            ]
+          },
+          "model": {
+            "type": "string",
+            "minLength": 1
+          },
+          "voice": {
+            "type": "string",
+            "minLength": 1
+          },
+          "instructions": {
+            "type": "string"
+          },
+          "format": {
+            "type": "string",
+            "enum": [
+              "ogg_opus"
+            ]
+          },
+          "sample_rate": {
+            "type": "integer",
+            "enum": [
+              24000
+            ]
+          },
+          "input_format": {
+            "type": "string",
+            "enum": [
+              "speech_opus"
+            ]
+          },
+          "input_sample_rate": {
+            "type": "integer",
+            "minimum": 8000,
+            "maximum": 48000
+          },
+          "input_channels": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 2
+          },
+          "input_transcode": {
+            "type": "boolean"
+          },
+          "output_speed": {
+            "type": "integer",
+            "minimum": -50,
+            "maximum": 100
+          },
+          "output_loudness": {
+            "type": "integer",
+            "minimum": -50,
+            "maximum": 100
+          },
+          "safety_fence_level": {
+            "$ref": "#/components/schemas/SafetyFenceLevel"
+          },
+          "tts_speech_rate_percent": {
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 200,
+            "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
+          },
+          "e2e": {
+            "type": "boolean"
+          }
         }
       },
       "EinoWorkspaceParameters": {
         "type": "object",
-        "required": ["agent_type"],
+        "required": [
+          "agent_type"
+        ],
         "additionalProperties": false,
         "properties": {
-          "agent_type": { "type": "string", "enum": ["eino"] },
+          "agent_type": {
+            "type": "string",
+            "enum": [
+              "eino"
+            ]
+          },
           "conversation": {
             "$ref": "#/components/schemas/ConversationParameters"
           },
@@ -267,17 +341,25 @@
             "$ref": "#/components/schemas/WorkspaceInputMode"
           },
           "audio_input": {
-            "allOf": [{ "$ref": "#/components/schemas/AudioInputPath" }],
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/AudioInputPath"
+              }
+            ],
             "description": "Preferred audio input path for this Workspace. It overrides the audio_input of the owner's RuntimeProfile Workflow binding. Absent keeps the binding's selection, or the Workflow default when the binding selects none: asr when the Workflow sets voice_adapter.asr_model, otherwise model. The Agent uses the preferred path when the Workflow declares it and it can run, and the other declared path otherwise: realtime input always uses asr, and model needs an audio_transcript node whose Model accepts audio. Reload fails when no declared path can run. Workflows that declare no audio input ignore it."
           },
-          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
+          "safety_fence_level": {
+            "$ref": "#/components/schemas/SafetyFenceLevel"
+          },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,
             "maximum": 200,
             "description": "Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default."
           },
-          "e2e": { "type": "boolean" }
+          "e2e": {
+            "type": "boolean"
+          }
         }
       },
       "ASTTranslateWorkspaceParameters": {
@@ -315,7 +397,9 @@
           "denoise": {
             "type": "boolean"
           },
-          "safety_fence_level": { "$ref": "#/components/schemas/SafetyFenceLevel" },
+          "safety_fence_level": {
+            "$ref": "#/components/schemas/SafetyFenceLevel"
+          },
           "tts_speech_rate_percent": {
             "type": "integer",
             "minimum": 50,

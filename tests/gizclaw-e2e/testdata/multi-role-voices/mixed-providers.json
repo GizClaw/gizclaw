@@ -1,25 +1,86 @@
 {
   "voice_adapter": {
     "default_voice": "story.default",
-    "speaker_voices": {"fox": "story.fox"}
+    "speaker_voices": {
+      "fox": "story.fox"
+    }
   },
   "graph": {
     "name": "mixed-provider-voices",
-    "entry": "narrate",
+    "compile": {
+      "node_trigger_mode": "any_predecessor"
+    },
+    "state": {
+      "fields": [
+        {
+          "name": "line",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "answer",
+          "type": "string",
+          "merge": "replace"
+        }
+      ]
+    },
     "nodes": [
       {
         "id": "narrate",
         "type": "script",
-        "publish": true,
-        "config": {
-          "source": "host.emit(\"token\", {content: \"The narrator begins. 【fox】I am the fox.\"});"
+        "language": "starlark",
+        "entrypoint": "run",
+        "inputs": {
+          "text": {
+            "from": "input.text"
+          }
+        },
+        "outputs": {
+          "line": "line"
+        },
+        "source": "def run(input):\n    return {\"line\": \"The narrator begins. \u3010fox\u3011I am the fox.\"}\n",
+        "limits": {
+          "timeout": "100ms",
+          "max_execution_steps": 1000,
+          "max_input_bytes": 4096,
+          "max_output_bytes": 4096
+        }
+      },
+      {
+        "id": "answer",
+        "type": "passthrough",
+        "inputs": {
+          "value": {
+            "from": "line"
+          }
+        },
+        "outputs": {
+          "value": "answer"
         }
       }
     ],
     "edges": [
       {
+        "from": "start",
+        "to": "narrate"
+      },
+      {
         "from": "narrate",
-        "to": "__end__"
+        "to": "answer"
+      },
+      {
+        "from": "answer",
+        "to": "end"
+      }
+    ],
+    "branches": [],
+    "outputs": [
+      {
+        "node": "answer",
+        "field": "answer",
+        "name": "assistant",
+        "mime_type": "text/plain",
+        "primary": true
       }
     ]
   }

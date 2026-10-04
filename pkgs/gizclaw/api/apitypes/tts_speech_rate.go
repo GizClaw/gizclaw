@@ -32,12 +32,6 @@ func (t WorkspaceParameters) TTSSpeechRatePercent() (*int, error) {
 	}
 	var value *int
 	switch WorkflowDriver(discriminator) {
-	case WorkflowDriverFlowcraft:
-		parameters, err := t.AsFlowcraftWorkspaceParameters()
-		if err != nil {
-			return nil, err
-		}
-		value = parameters.TtsSpeechRatePercent
 	case WorkflowDriverEino:
 		parameters, err := t.AsEinoWorkspaceParameters()
 		if err != nil {

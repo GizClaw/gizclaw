@@ -706,7 +706,6 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.EinoWorkflowSpec': {2, 3, 4},
   'gizclaw.rpc.v1.EinoWorkspaceParameters': {2, 3, 4, 5, 7, 50},
   'gizclaw.rpc.v1.FirmwareGetResponse': {2, 6},
-  'gizclaw.rpc.v1.FlowcraftWorkspaceParameters': {2, 3, 4, 5, 50},
   'gizclaw.rpc.v1.FriendGroupCreateRequest': {1, 3},
   'gizclaw.rpc.v1.FriendGroupInviteTokenGetResponse': {1, 2},
   'gizclaw.rpc.v1.FriendGroupListRequest': {1, 2},

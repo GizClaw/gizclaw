@@ -12,7 +12,7 @@ RuntimeProfile 的 Workflow binding 是平面 map，Peer 边界把每个 binding
 
 `server.workspace.parameters.set` 接受 Workspace `name` 和局部 `parameters`，由 Server 根据 Workflow driver 更新支持的字段，保留未提供的字段与 toolkit。合法但不支持的字段忽略，不写入配置；非法枚举、空 patch、失效 Workspace 和存储失败仍返回错误。普通 Workspace 保持 owner-only；共享 SFU Workspace 先验证当前好友／群成员身份，再接受参数 no-op，不改变 SFU 输入模式、共享配置或个人设置。系统 Workspace 仅应用其领域允许的参数，其他合法参数忽略。
 
-`tts_speech_rate_percent` 设置服务端合成语音的语速，取值为 provider 正常语速的 50..200%（100 为正常），缺省沿用 Workflow 配置。它适用于所有会合成语音的 Workflow driver，设置后覆盖 Workflow 中各 provider 的静态语速，并从下一次 reload 起作用于该 Workspace 的每个 Voice（包括 Eino/Flowcraft 按轮选择的 speaker voice）和 `server.run.say`。超出范围返回 `INVALID_ARGUMENT`；SFU Workspace 接受合法值但不保存。语速只在合成时调整，不对下发音频做播放侧变速，history 回放保持录制时的语速。
+`tts_speech_rate_percent` 设置服务端合成语音的语速，取值为 provider 正常语速的 50..200%（100 为正常），缺省沿用 Workflow 配置。它适用于所有会合成语音的 Workflow driver，设置后覆盖 Workflow 中各 provider 的静态语速，并从下一次 reload 起作用于该 Workspace 的每个 Voice（包括 Eino 按轮选择的 speaker voice）和 `server.run.say`。超出范围返回 `INVALID_ARGUMENT`；SFU Workspace 接受合法值但不保存。语速只在合成时调整，不对下发音频做播放侧变速，history 回放保持录制时的语速。
 
 `audio_input`（`AUDIO_INPUT_PATH_ASR` 或 `AUDIO_INPUT_PATH_MODEL`）是 Eino Workspace 的音频输入路径偏好：`asr` 先由流式 ASR 转写，`model` 把 Push-to-Talk 音频直接交给音频输入 chat Model。它覆盖 RuntimeProfile Workflow binding 的选择，缺省沿用 binding 或 Workflow 默认值，从下一次 reload 起生效；其他 driver 的 Workspace 接受合法值但不保存，未知枚举值返回 `INVALID_ARGUMENT`。偏好不保证生效：`realtime` 输入、Workflow 未声明该路径或 Model 不接受音频时会回落到另一条已声明的路径，没有可用路径时 reload 返回错误。实际路径由 `PeerRunWorkspaceState.audio_input` 返回，纯文本 Agent 与其他 driver 不返回该字段。规则见 [Eino 音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
 

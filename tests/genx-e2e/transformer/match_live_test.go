@@ -18,13 +18,6 @@ func TestMatchNodesOpenAICompatibleMusicDirectChat(t *testing.T) {
 		transformer func(*testing.T, *genx.OpenAIGenerator) genx.Transformer
 	}{
 		{
-			name:       "flowcraft",
-			apiKeyName: flowcraftAPIKeyEnv,
-			transformer: func(t *testing.T, generator *genx.OpenAIGenerator) genx.Transformer {
-				return newFlowcraftMatchTransformerWithGenerator(t, generator)
-			},
-		},
-		{
 			name:       "eino",
 			apiKeyName: einoAPIKeyEnv,
 			transformer: func(t *testing.T, generator *genx.OpenAIGenerator) genx.Transformer {

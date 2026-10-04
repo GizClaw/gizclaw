@@ -234,35 +234,25 @@ func openAIModelProviderData(t *testing.T, upstream string) apitypes.ModelProvid
 	return body
 }
 
-func flowcraftWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
+func einoWorkspaceParameters(t *testing.T, input apitypes.WorkspaceInputMode) *apitypes.WorkspaceParameters {
 	t.Helper()
 	var params apitypes.WorkspaceParameters
-	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+	if err := params.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{
+		AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
 		Input:     &input,
 	}); err != nil {
-		t.Fatalf("build Flowcraft workspace parameters: %v", err)
+		t.Fatalf("build Eino workspace parameters: %v", err)
 	}
 	return &params
 }
 
-func testFlowcraftWorkflowSpec() *apitypes.FlowcraftWorkflowSpec {
-	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
-		Id:      "answer",
-		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
-		Publish: ptr(true),
-		Config: apitypes.FlowcraftLLMNodeConfig{
-			Model: "llm",
-		},
-	}); err != nil {
+func testEinoWorkflowSpec() *apitypes.EinoWorkflowSpec {
+	var spec apitypes.EinoWorkflowSpec
+	err := json.Unmarshal([]byte(`{"graph":{"name":"Assistant","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"}}],"edges":[{"from":"start","to":"answer"},{"from":"answer","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`), &spec)
+	if err != nil {
 		panic(err)
 	}
-	return &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{
-		Name:  "Assistant",
-		Entry: "answer",
-		Nodes: []apitypes.FlowcraftNode{node},
-	}}
+	return &spec
 }
 
 func mutationName(base string) string {

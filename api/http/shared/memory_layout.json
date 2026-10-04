@@ -10,7 +10,10 @@
     "schemas": {
       "MemoryLayout": {
         "type": "object",
-        "required": ["id", "spec"],
+        "required": [
+          "id",
+          "spec"
+        ],
         "additionalProperties": false,
         "properties": {
           "id": {
@@ -24,12 +27,12 @@
       },
       "MemoryLayoutSpec": {
         "type": "object",
-        "required": ["flowcraft", "mem0", "volc_mem0"],
+        "required": [
+          "mem0",
+          "volc_mem0"
+        ],
         "additionalProperties": false,
         "properties": {
-          "flowcraft": {
-            "$ref": "#/components/schemas/FlowcraftMemoryLayoutPolicy"
-          },
           "mem0": {
             "$ref": "#/components/schemas/Mem0MemoryLayoutPolicy"
           },
@@ -41,197 +44,20 @@
           }
         }
       },
-      "FlowcraftMemoryLayoutPolicy": {
-        "type": "object",
-        "required": ["extraction", "lanes", "write"],
-        "additionalProperties": false,
-        "properties": {
-          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID)." },
-          "extraction": {
-            "$ref": "#/components/schemas/FlowcraftMemoryExtractionPolicy"
-          },
-          "embedding": {
-            "$ref": "#/components/schemas/FlowcraftMemoryModelPolicy"
-          },
-          "rerank": {
-            "$ref": "#/components/schemas/FlowcraftMemoryModelPolicy"
-          },
-          "bbh": {
-            "$ref": "#/components/schemas/FlowcraftMemoryBBHPolicy"
-          },
-          "lanes": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/FlowcraftMemoryLanePolicy"
-            }
-          },
-          "graph_enabled": {
-            "type": "boolean"
-          },
-          "write": {
-            "$ref": "#/components/schemas/FlowcraftMemoryWritePolicy"
-          }
-        }
-      },
-      "FlowcraftMemoryExtractionPolicy": {
-        "type": "object",
-        "required": ["model", "mode"],
-        "additionalProperties": false,
-        "properties": {
-          "enabled": {
-            "type": "boolean",
-            "description": "Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false."
-          },
-          "model": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 63,
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"
-          },
-          "mode": {
-            "type": "string",
-            "enum": ["single_pass", "two_pass"]
-          },
-          "system_prompt": {
-            "type": "string"
-          },
-          "schema_name": {
-            "type": "string"
-          },
-          "temperature": {
-            "type": "number"
-          },
-          "stage_timeout": {
-            "type": "string"
-          }
-        }
-      },
-      "FlowcraftMemoryModelPolicy": {
-        "type": "object",
-        "required": ["model"],
-        "additionalProperties": false,
-        "properties": {
-          "model": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 63,
-            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"
-          }
-        }
-      },
-      "FlowcraftMemoryBBHPolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "search_overfetch": {
-            "type": "integer",
-            "minimum": 1
-          },
-          "bleve": {
-            "$ref": "#/components/schemas/FlowcraftMemoryBlevePolicy"
-          },
-          "hnsw": {
-            "$ref": "#/components/schemas/FlowcraftMemoryHNSWPolicy"
-          }
-        }
-      },
-      "FlowcraftMemoryBlevePolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "analyzer": {
-            "type": "string",
-            "enum": ["standard", "simple", "keyword", "whitespace", "gojieba"]
-          },
-          "gojieba": {
-            "$ref": "#/components/schemas/FlowcraftMemoryGojiebaPolicy"
-          }
-        }
-      },
-      "FlowcraftMemoryGojiebaPolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": ["search", "full", "accurate"]
-          },
-          "hmm": {
-            "type": "boolean"
-          },
-          "dict_path": {
-            "type": "string"
-          },
-          "hmm_path": {
-            "type": "string"
-          },
-          "user_dict_path": {
-            "type": "string"
-          },
-          "idf_path": {
-            "type": "string"
-          },
-          "stop_words_path": {
-            "type": "string"
-          }
-        }
-      },
-      "FlowcraftMemoryHNSWPolicy": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "flush_interval": {
-            "type": "string",
-            "minLength": 1
-          }
-        }
-      },
-      "FlowcraftMemoryLanePolicy": {
-        "type": "object",
-        "required": ["name", "kind"],
-        "additionalProperties": false,
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 63
-          },
-          "kind": {
-            "type": "string",
-            "enum": ["event", "state", "preference", "procedure", "relation", "plan", "note", "episode"]
-          },
-          "description": {
-            "type": "string"
-          },
-          "extract": {
-            "type": "string"
-          },
-          "recall": {
-            "type": "string"
-          }
-        }
-      },
-      "FlowcraftMemoryWritePolicy": {
-        "type": "object",
-        "required": ["mode", "tier"],
-        "additionalProperties": false,
-        "properties": {
-          "mode": {
-            "type": "string",
-            "enum": ["sync", "async_semantic"]
-          },
-          "tier": {
-            "type": "string",
-            "enum": ["core", "general", "data", "storage"]
-          }
-        }
-      },
       "Mem0MemoryLayoutPolicy": {
         "type": "object",
         "minProperties": 1,
         "additionalProperties": false,
         "properties": {
-          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id)." },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "peer"
+            ],
+            "default": "workspace",
+            "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id)."
+          },
           "custom_instructions": {
             "type": "string"
           },
@@ -255,7 +81,15 @@
         "additionalProperties": false,
         "description": "Mem0 OSS extraction policy, selected only by a mem0_self_hosted connection. Model and pgvector configuration belong to the self-hosted service.",
         "properties": {
-          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or owner Peer identity, encoded with the complete logical scope into native user_id." },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "peer"
+            ],
+            "default": "workspace",
+            "description": "Maps Scope.AppID to the Workspace ID or owner Peer identity, encoded with the complete logical scope into native user_id."
+          },
           "custom_instructions": {
             "type": "string",
             "description": "Instructions passed to the self-hosted service for memory extraction."
@@ -264,10 +98,20 @@
       },
       "VolcMem0MemoryLayoutPolicy": {
         "type": "object",
-        "required": ["strategies"],
+        "required": [
+          "strategies"
+        ],
         "additionalProperties": false,
         "properties": {
-          "scope": { "type": "string", "enum": ["workspace", "peer"], "default": "workspace", "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Volc Mem0 app_id)." },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "workspace",
+              "peer"
+            ],
+            "default": "workspace",
+            "description": "Maps Scope.AppID to the Workspace ID or the owner Peer identity (Volc Mem0 app_id)."
+          },
           "strategies": {
             "type": "array",
             "minItems": 1,
@@ -280,7 +124,10 @@
       },
       "VolcMem0Strategy": {
         "type": "object",
-        "required": ["name", "type"],
+        "required": [
+          "name",
+          "type"
+        ],
         "additionalProperties": false,
         "properties": {
           "name": {
@@ -290,7 +137,11 @@
           },
           "type": {
             "type": "string",
-            "enum": ["summary", "semantic", "user_preference"]
+            "enum": [
+              "summary",
+              "semantic",
+              "user_preference"
+            ]
           },
           "custom_instructions": {
             "type": "string",

@@ -16,7 +16,7 @@ import (
 )
 
 func TestSpeakerSegmentsGiztest(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
+	for _, kind := range []string{"eino", "eino"} {
 		t.Run(kind, func(t *testing.T) {
 			root := "../../../../tests/gizclaw-e2e/testdata/speaker-segments"
 			data, err := os.ReadFile(filepath.Join(root, kind+".json"))

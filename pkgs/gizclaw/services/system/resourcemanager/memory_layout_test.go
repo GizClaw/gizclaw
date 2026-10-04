@@ -11,21 +11,7 @@ import (
 
 func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	manager := New(Services{MemoryLayouts: memorylayouttest.New(t)})
-	resource := mustResource(t, `{
-		"apiVersion": "gizclaw.admin/v1alpha1",
-		"kind": "MemoryLayout",
-		"metadata": {"id": "pet-memory"},
-		"spec": {
-			"flowcraft": {
-				"extraction": {"model": "pet-care.extract", "mode": "two_pass"},
-				"embedding": {"model": "pet-care.embedding"},
-				"lanes": [{"name": "owner_profile", "kind": "note"}],
-				"write": {"mode": "sync", "tier": "general"}
-			},
-			"mem0": {"custom_instructions": "Keep stable preferences."},
-			"volc_mem0": {"strategies": [{"name": "pet-facts", "type": "user_preference", "custom_instructions": "Keep pet facts."}]}
-		}
-	}`)
+	resource := mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MemoryLayout","metadata":{"id":"pet-memory"},"spec":{"mem0":{"custom_instructions":"Keep stable preferences."},"volc_mem0":{"strategies":[{"name":"pet-facts","type":"user_preference","custom_instructions":"Keep pet facts."}]}}}`)
 
 	created, err := manager.Apply(context.Background(), resource)
 	if err != nil {
@@ -52,8 +38,8 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AsMemoryLayoutResource(Get) error = %v", err)
 	}
-	if layout.Spec.Flowcraft.Extraction.Model != "pet-care.extract" {
-		t.Fatalf("Get(MemoryLayout) extraction model = %q", layout.Spec.Flowcraft.Extraction.Model)
+	if layout.Spec.Mem0.CustomInstructions == nil {
+		t.Fatal("Get(MemoryLayout) lost Mem0 policy")
 	}
 
 	deleted, err := manager.Delete(context.Background(), apitypes.ResourceKindMemoryLayout, id)
@@ -74,20 +60,7 @@ func TestMemoryLayoutResourceLifecycle(t *testing.T) {
 
 func TestMemoryLayoutResourceApplyComparesNormalizedSpec(t *testing.T) {
 	manager := New(Services{MemoryLayouts: memorylayouttest.New(t)})
-	resource := mustResource(t, `{
-		"apiVersion": "gizclaw.admin/v1alpha1",
-		"kind": "MemoryLayout",
-		"metadata": {"id": "adventure"},
-		"spec": {
-			"flowcraft": {
-				"extraction": {"model": " extraction ", "mode": "two_pass"},
-				"lanes": [{"name": " adventure_state ", "kind": "state"}],
-				"write": {"mode": "sync", "tier": "general"}
-			},
-			"mem0": {"custom_instructions": " Keep confirmed state.\n"},
-			"volc_mem0": {"strategies": [{"name": " adventure_state ", "type": "summary", "custom_instructions": " Keep confirmed state.\n"}]}
-		}
-	}`)
+	resource := mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MemoryLayout","metadata":{"id":"adventure"},"spec":{"mem0":{"custom_instructions":" Keep confirmed state.\n"},"volc_mem0":{"strategies":[{"name":" adventure_state ","type":"summary","custom_instructions":" Keep confirmed state.\n"}]}}}`)
 
 	created, err := manager.Apply(t.Context(), resource)
 	if err != nil || created.Action != apitypes.ApplyActionCreated {

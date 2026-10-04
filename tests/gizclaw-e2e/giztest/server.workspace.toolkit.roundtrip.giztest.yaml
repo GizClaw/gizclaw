@@ -44,7 +44,7 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       toolkit:
         tool_names:
           value:
@@ -136,7 +136,7 @@ steps:
     method: server.workspace.create
     request:
       name: "${inherit_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
   expect:
     "/toolkit":
       present: false
@@ -155,7 +155,7 @@ steps:
     method: server.workspace.create
     request:
       name: "${empty_object_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       toolkit: {}
   expect:
     "/toolkit":
@@ -175,7 +175,7 @@ steps:
     method: server.workspace.create
     request:
       name: "${workspace_name}-unknown"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       toolkit:
         tool_names:
           value:

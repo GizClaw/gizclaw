@@ -365,7 +365,7 @@ Go 与 C runner 执行上述调度，且都支持四个 CLI 覆盖参数。JavaS
 
 现有 `benchmark.*concurrency*` 文档显式使用 `start_jitter: 0s`、`stagger: 0s`、
 `step_jitter: 0s`，保留同时启动的 worst-case 基准。
-`benchmark.flowcraft-voice-assistant.realistic-concurrency-16.giztest.yaml` 默认使用 30 秒启动
+`benchmark.eino-voice-assistant.realistic-concurrency-16.giztest.yaml` 默认使用 30 秒启动
 jitter 和 3 秒 think time，16 个任务各请求三次长语音回复。它断言回复完成且包含文字、音频，
 并保留 `audio_pacing.underruns` 与 `minimum_buffer_ms` 供独立分析；完成通过不代表没有饥饿。
 其余原有基准可用上面的 CLI 参数执行 realistic load，不改变文件本身的默认测量含义。

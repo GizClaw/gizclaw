@@ -93,5 +93,5 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" run --rm test \
   /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/slow-tts.eino.push-to-talk.giztest.yaml \
-  /src/tests/gizclaw-e2e/giztest/slow-tts.flowcraft.realtime.giztest.yaml \
+  /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml \
   --output /reports/giztest.json

@@ -10,28 +10,19 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 	einotransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
-	flowcrafttransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/schema"
 )
 
-func TestMatchNodesProviderFreeParity(t *testing.T) {
-	flowcraftOutput := runMatchTransformer(t, newFlowcraftMatchTransformer(t))
-	einoOutput := runMatchTransformer(t, newEinoMatchTransformer(t))
-	var flowcraftMatches, einoMatches any
-	if err := json.Unmarshal([]byte(flowcraftOutput), &flowcraftMatches); err != nil {
-		t.Fatalf("decode Flowcraft Match output %q: %v", flowcraftOutput, err)
-	}
-	if err := json.Unmarshal([]byte(einoOutput), &einoMatches); err != nil {
-		t.Fatalf("decode Eino Match output %q: %v", einoOutput, err)
-	}
-	if !reflect.DeepEqual(flowcraftMatches, einoMatches) {
-		t.Fatalf("completed Match values differ:\nFlowcraft: %#v\nEino: %#v", flowcraftMatches, einoMatches)
+func TestEinoMatchNodeProviderFreeContract(t *testing.T) {
+	output := runMatchTransformer(t, newEinoMatchTransformer(t))
+	var matches any
+	if err := json.Unmarshal([]byte(output), &matches); err != nil {
+		t.Fatal(err)
 	}
 	want := []any{map[string]any{
 		"rule": "play_music",
@@ -45,50 +36,9 @@ func TestMatchNodesProviderFreeParity(t *testing.T) {
 		}},
 		"raw_text": "",
 	}}
-	if !reflect.DeepEqual(flowcraftMatches, want) {
-		t.Fatalf("completed Match value = %#v, want %#v", flowcraftMatches, want)
+	if !reflect.DeepEqual(matches, want) {
+		t.Fatalf("completed Match value = %#v, want %#v", matches, want)
 	}
-}
-
-func newFlowcraftMatchTransformer(t *testing.T) genx.Transformer {
-	t.Helper()
-	return newFlowcraftMatchTransformerWithGenerator(t, &providerFreeMatchGenerator{})
-}
-
-func newFlowcraftMatchTransformerWithGenerator(
-	t *testing.T,
-	generator genx.Generator,
-) genx.Transformer {
-	t.Helper()
-	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
-		ID: "flowcraft-match",
-		Graph: flowgraph.GraphDefinition{
-			Name:  "match",
-			Entry: "match",
-			Nodes: []flowgraph.NodeDefinition{
-				{
-					ID: "match", Type: "match",
-					Config: map[string]any{
-						"model": "router", "input": "input", "output": "matches",
-						"rules": matchRules(),
-					},
-				},
-				{
-					ID: "emit", Type: "script",
-					Config: map[string]any{"source": `
-host.emit("token", {content: JSON.stringify(board.getVar("matches"))});
-`},
-				},
-			},
-			Edges: []flowgraph.EdgeDefinition{{From: "match", To: "emit"}},
-		},
-		PublishNodes: []string{"emit"},
-		Models:       generator,
-	})
-	if err != nil {
-		t.Fatalf("flowcraft.New() error = %v", err)
-	}
-	return transformer
 }
 
 func newEinoMatchTransformer(t *testing.T) genx.Transformer {

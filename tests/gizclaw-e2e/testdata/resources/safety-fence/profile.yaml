@@ -4,8 +4,8 @@ metadata:
   id: e2e-giztest
 spec:
   workflows:
-    flowcraft-chat-assistant: {resource_id: safety-fence-flowcraft, tags: [assistants, "6-8", stories], i18n: {en: {display_name: Chat Assistant}, zh-CN: {display_name: 对话助手}}}
-    safety-fence-flowcraft: {resource_id: safety-fence-flowcraft, tags: [assistants], i18n: {en: {display_name: Flowcraft Fence}, zh-CN: {display_name: Flowcraft 围栏}}}
+    eino-chat-assistant: {resource_id: safety-fence-eino-script, tags: [assistants, "6-8", stories], i18n: {en: {display_name: Chat Assistant}, zh-CN: {display_name: 对话助手}}}
+    safety-fence-eino-script: {resource_id: safety-fence-eino-script, tags: [assistants], i18n: {en: {display_name: Eino Fence}, zh-CN: {display_name: Eino 围栏}}}
     safety-fence-eino: {resource_id: safety-fence-eino, tags: [assistants], i18n: {en: {display_name: Eino Fence}, zh-CN: {display_name: Eino 围栏}}}
     safety-fence-doubao-realtime: {resource_id: safety-fence-doubao-realtime, tags: [assistants], i18n: {en: {display_name: Doubao Realtime Fence}, zh-CN: {display_name: 豆包实时围栏}}}
     safety-fence-doubao-realtime-duplex: {resource_id: safety-fence-doubao-realtime-duplex, tags: [assistants], i18n: {en: {display_name: Doubao Duplex Fence}, zh-CN: {display_name: 豆包双工围栏}}}

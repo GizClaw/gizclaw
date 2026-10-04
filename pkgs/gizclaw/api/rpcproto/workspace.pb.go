@@ -3451,7 +3451,6 @@ type WorkspaceParameters struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Types that are valid to be assigned to Value:
 	//
-	//	*WorkspaceParameters_FlowcraftWorkspaceParameters
 	//	*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters
 	//	*WorkspaceParameters_AsttranslateWorkspaceParameters
 	//	*WorkspaceParameters_DashScopeRealtimeWorkspaceParameters
@@ -3495,15 +3494,6 @@ func (*WorkspaceParameters) Descriptor() ([]byte, []int) {
 func (x *WorkspaceParameters) GetValue() isWorkspaceParameters_Value {
 	if x != nil {
 		return x.Value
-	}
-	return nil
-}
-
-func (x *WorkspaceParameters) GetFlowcraftWorkspaceParameters() *FlowcraftWorkspaceParameters {
-	if x != nil {
-		if x, ok := x.Value.(*WorkspaceParameters_FlowcraftWorkspaceParameters); ok {
-			return x.FlowcraftWorkspaceParameters
-		}
 	}
 	return nil
 }
@@ -3557,10 +3547,6 @@ type isWorkspaceParameters_Value interface {
 	isWorkspaceParameters_Value()
 }
 
-type WorkspaceParameters_FlowcraftWorkspaceParameters struct {
-	FlowcraftWorkspaceParameters *FlowcraftWorkspaceParameters `protobuf:"bytes,1,opt,name=flowcraft_workspace_parameters,json=flowcraftWorkspaceParameters,proto3,oneof"`
-}
-
 type WorkspaceParameters_DoubaoRealtimeWorkspaceParameters struct {
 	DoubaoRealtimeWorkspaceParameters *DoubaoRealtimeWorkspaceParameters `protobuf:"bytes,2,opt,name=doubao_realtime_workspace_parameters,json=doubaoRealtimeWorkspaceParameters,proto3,oneof"`
 }
@@ -3580,8 +3566,6 @@ type WorkspaceParameters_DoubaoRealtimeDuplexWorkspaceParameters struct {
 type WorkspaceParameters_EinoWorkspaceParameters struct {
 	EinoWorkspaceParameters *EinoWorkspaceParameters `protobuf:"bytes,7,opt,name=eino_workspace_parameters,json=einoWorkspaceParameters,proto3,oneof"`
 }
-
-func (*WorkspaceParameters_FlowcraftWorkspaceParameters) isWorkspaceParameters_Value() {}
 
 func (*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters) isWorkspaceParameters_Value() {}
 
@@ -4172,15 +4156,14 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"\xac\x06\n" +
-	"\x13WorkspaceParameters\x12t\n" +
-	"\x1eflowcraft_workspace_parameters\x18\x01 \x01(\v2,.gizclaw.rpc.v1.FlowcraftWorkspaceParametersH\x00R\x1cflowcraftWorkspaceParameters\x12\x84\x01\n" +
+	"\f_next_cursor\"\xdc\x05\n" +
+	"\x13WorkspaceParameters\x12\x84\x01\n" +
 	"$doubao_realtime_workspace_parameters\x18\x02 \x01(\v21.gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParametersH\x00R!doubaoRealtimeWorkspaceParameters\x12}\n" +
 	"!asttranslate_workspace_parameters\x18\x03 \x01(\v2/.gizclaw.rpc.v1.ASTTranslateWorkspaceParametersH\x00R\x1fasttranslateWorkspaceParameters\x12\x8e\x01\n" +
 	"(dash_scope_realtime_workspace_parameters\x18\x05 \x01(\v24.gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParametersH\x00R$dashScopeRealtimeWorkspaceParameters\x12\x97\x01\n" +
 	"+doubao_realtime_duplex_workspace_parameters\x18\x06 \x01(\v27.gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParametersH\x00R'doubaoRealtimeDuplexWorkspaceParameters\x12e\n" +
 	"\x19eino_workspace_parameters\x18\a \x01(\v2'.gizclaw.rpc.v1.EinoWorkspaceParametersH\x00R\x17einoWorkspaceParametersB\a\n" +
-	"\x05value\"_\n" +
+	"\x05valueJ\x04\b\x01\x10\x02R\x1eflowcraft_workspace_parameters\"_\n" +
 	"\x13WorkspacePutRequest\x124\n" +
 	"\x04body\x18\x01 \x01(\v2 .gizclaw.rpc.v1.WorkspacePutBodyR\x04body\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"G\n" +
@@ -4299,14 +4282,13 @@ var file_payload_workspace_proto_goTypes = []any{
 	(*Icon)(nil),                                        // 76: gizclaw.rpc.v1.Icon
 	(IconFormat)(0),                                     // 77: gizclaw.rpc.v1.IconFormat
 	(WorkspaceHistoryListRequestOrder)(0),               // 78: gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
-	(*FlowcraftWorkspaceParameters)(nil),                // 79: gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	(*DoubaoRealtimeWorkspaceParameters)(nil),           // 80: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	(*ASTTranslateWorkspaceParameters)(nil),             // 81: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	(*DashScopeRealtimeWorkspaceParameters)(nil),        // 82: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
-	(*DoubaoRealtimeDuplexWorkspaceParameters)(nil),     // 83: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
-	(*EinoWorkspaceParameters)(nil),                     // 84: gizclaw.rpc.v1.EinoWorkspaceParameters
-	(WorkspaceInputMode)(0),                             // 85: gizclaw.rpc.v1.WorkspaceInputMode
-	(*ConversationParameters)(nil),                      // 86: gizclaw.rpc.v1.ConversationParameters
+	(*DoubaoRealtimeWorkspaceParameters)(nil),           // 79: gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	(*ASTTranslateWorkspaceParameters)(nil),             // 80: gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	(*DashScopeRealtimeWorkspaceParameters)(nil),        // 81: gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
+	(*DoubaoRealtimeDuplexWorkspaceParameters)(nil),     // 82: gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
+	(*EinoWorkspaceParameters)(nil),                     // 83: gizclaw.rpc.v1.EinoWorkspaceParameters
+	(WorkspaceInputMode)(0),                             // 84: gizclaw.rpc.v1.WorkspaceInputMode
+	(*ConversationParameters)(nil),                      // 85: gizclaw.rpc.v1.ConversationParameters
 }
 var file_payload_workspace_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.PeerRunAgent.active:type_name -> gizclaw.rpc.v1.AgentSelection
@@ -4359,24 +4341,23 @@ var file_payload_workspace_proto_depIdxs = []int32{
 	78, // 47: gizclaw.rpc.v1.WorkspaceHistoryListRequest.order:type_name -> gizclaw.rpc.v1.WorkspaceHistoryListRequestOrder
 	4,  // 48: gizclaw.rpc.v1.WorkspaceHistoryListResponse.value:type_name -> gizclaw.rpc.v1.PeerRunHistoryListResponse
 	44, // 49: gizclaw.rpc.v1.WorkspaceListResponse.items:type_name -> gizclaw.rpc.v1.Workspace
-	79, // 50: gizclaw.rpc.v1.WorkspaceParameters.flowcraft_workspace_parameters:type_name -> gizclaw.rpc.v1.FlowcraftWorkspaceParameters
-	80, // 51: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
-	81, // 52: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
-	82, // 53: gizclaw.rpc.v1.WorkspaceParameters.dash_scope_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
-	83, // 54: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_duplex_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
-	84, // 55: gizclaw.rpc.v1.WorkspaceParameters.eino_workspace_parameters:type_name -> gizclaw.rpc.v1.EinoWorkspaceParameters
-	46, // 56: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspacePutBody
-	44, // 57: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	85, // 58: gizclaw.rpc.v1.WorkspaceParametersPatch.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
-	86, // 59: gizclaw.rpc.v1.WorkspaceParametersPatch.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters
-	73, // 60: gizclaw.rpc.v1.WorkspaceParametersPatch.audio_input:type_name -> gizclaw.rpc.v1.AudioInputPath
-	66, // 61: gizclaw.rpc.v1.WorkspaceParametersSetRequest.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParametersPatch
-	44, // 62: gizclaw.rpc.v1.WorkspaceParametersSetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
-	63, // [63:63] is the sub-list for method output_type
-	63, // [63:63] is the sub-list for method input_type
-	63, // [63:63] is the sub-list for extension type_name
-	63, // [63:63] is the sub-list for extension extendee
-	0,  // [0:63] is the sub-list for field type_name
+	79, // 50: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters
+	80, // 51: gizclaw.rpc.v1.WorkspaceParameters.asttranslate_workspace_parameters:type_name -> gizclaw.rpc.v1.ASTTranslateWorkspaceParameters
+	81, // 52: gizclaw.rpc.v1.WorkspaceParameters.dash_scope_realtime_workspace_parameters:type_name -> gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters
+	82, // 53: gizclaw.rpc.v1.WorkspaceParameters.doubao_realtime_duplex_workspace_parameters:type_name -> gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters
+	83, // 54: gizclaw.rpc.v1.WorkspaceParameters.eino_workspace_parameters:type_name -> gizclaw.rpc.v1.EinoWorkspaceParameters
+	46, // 55: gizclaw.rpc.v1.WorkspacePutRequest.body:type_name -> gizclaw.rpc.v1.WorkspacePutBody
+	44, // 56: gizclaw.rpc.v1.WorkspacePutResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	84, // 57: gizclaw.rpc.v1.WorkspaceParametersPatch.input:type_name -> gizclaw.rpc.v1.WorkspaceInputMode
+	85, // 58: gizclaw.rpc.v1.WorkspaceParametersPatch.conversation:type_name -> gizclaw.rpc.v1.ConversationParameters
+	73, // 59: gizclaw.rpc.v1.WorkspaceParametersPatch.audio_input:type_name -> gizclaw.rpc.v1.AudioInputPath
+	66, // 60: gizclaw.rpc.v1.WorkspaceParametersSetRequest.parameters:type_name -> gizclaw.rpc.v1.WorkspaceParametersPatch
+	44, // 61: gizclaw.rpc.v1.WorkspaceParametersSetResponse.value:type_name -> gizclaw.rpc.v1.Workspace
+	62, // [62:62] is the sub-list for method output_type
+	62, // [62:62] is the sub-list for method input_type
+	62, // [62:62] is the sub-list for extension type_name
+	62, // [62:62] is the sub-list for extension extendee
+	0,  // [0:62] is the sub-list for field type_name
 }
 
 func init() { file_payload_workspace_proto_init() }
@@ -4407,7 +4388,6 @@ func file_payload_workspace_proto_init() {
 	file_payload_workspace_proto_msgTypes[61].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[62].OneofWrappers = []any{}
 	file_payload_workspace_proto_msgTypes[63].OneofWrappers = []any{
-		(*WorkspaceParameters_FlowcraftWorkspaceParameters)(nil),
 		(*WorkspaceParameters_DoubaoRealtimeWorkspaceParameters)(nil),
 		(*WorkspaceParameters_AsttranslateWorkspaceParameters)(nil),
 		(*WorkspaceParameters_DashScopeRealtimeWorkspaceParameters)(nil),

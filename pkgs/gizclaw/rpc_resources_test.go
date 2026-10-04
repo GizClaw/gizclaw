@@ -115,7 +115,7 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 }
 
 func resourceWorkflow(alias string) rpcapi.Workflow {
-	return rpcapi.Workflow{Name: alias, Driver: rpcapi.WorkflowDriverFlowcraft, I18n: resourceI18n(alias)}
+	return rpcapi.Workflow{Name: alias, Driver: rpcapi.WorkflowDriverEino, I18n: resourceI18n(alias)}
 }
 
 func resourceModel(alias string) rpcapi.Model {

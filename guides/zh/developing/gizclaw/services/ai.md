@@ -55,7 +55,7 @@ spec:
 
 ### memorylayout
 
-拥有 connection-free `MemoryLayout` Admin 资源。一个 Layout 同时声明 Flowcraft、Mem0 与 `volc_mem0` policy；实际 driver、endpoint、API key、project、DSN 或目录由 RuntimeProfile memory binding 选择。详见 [Memory Store](/zh/developing/stores/memory)。
+拥有 connection-free `MemoryLayout` Admin 资源。一个 Layout 声明 Mem0 Cloud、自托管 Mem0 与 `volc_mem0` policy；实际 driver、endpoint、API key 与 project 由 RuntimeProfile memory binding 选择。详见 [Memory Store](/zh/developing/stores/memory)。
 
 ### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/openaiapi)
 
@@ -79,7 +79,7 @@ Voice 使用本地 SQL `voices` 表，来源、Provider 类型与 ID、上游音
 
 ### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
 
-拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 Flowcraft、SFU、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
+拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 SFU、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
 
 Workflow 使用本地 SQL `workflows` 表，ID、driver 和配置 JSON 分列存储，复用 Server 的数据库连接池。表在启动阶段初始化；列表按 ID 范围和数量限制查询，并由 SQL 排除内置项。更新只影响存在的记录，删除原子返回删除的记录，因此并发更新不会重新创建已删除的 Workflow。内置 SFU Workflow 在启动时幂等写入，Admin 的创建、更新和删除限制保持不变。
 
@@ -89,19 +89,15 @@ Workflow 描述如何运行 Agent，但不拥有 Agent instance 的在线状态�
 
 Doubao Realtime factory 拥有产品层 precedence，不解释 provider model family。非空的 Workspace `parameters.instructions` 覆盖 Workflow instruction，两者不会拼接。Provider `dialog_id` 使用规范 Workspace ID 的精确值，因此替换 connection 或 reload 同一个 Workspace 会继续同一个 provider dialog，不再依赖独立的随机 runtime metadata。Provider session 仍然只属于 connection；删除 Workspace 后以新规范 ID 创建的 Workspace 会开启不同 dialog。Factory 再把最终 instruction、选中的 RuntimeProfile model 和 audio 配置交给 immutable GenX transformer。`peergenx` 只把语义值映射到 `Config.Instructions`；只有 `doubao-speech-go` 负责选择 O20 `dialog.system_role` 或 SC20 `dialog.character_manifest`。精确 provider 字段仍是显式、相互独立的选项，`prompt.system` 不是 Workflow instruction 的 fallback。
 
-#### Flowcraft 组合边界
+#### Eino 组合边界
 
-Flowcraft workflow factory 把扁平的 `spec.flowcraft.graph`、`conversation`、`max_iterations` 和 `voice_adapter` 与 Workspace owner 的 RuntimeProfile alias、History、State、Memory 和 Audio Dock 组装成 Transformer。Workspace `input` 缺省为 `push-to-talk`：该模式由客户端 audio EOS 完成一轮；`realtime` 复用 ASR Transformer 的 definite-utterance transcript EOS，在外层音频输入保持打开时完成一轮。客户端显式 audio route EOS 会终结当前 ASR provider session，下一条 route 再打开新 session；没有 route EOS 的连续音频仍由 provider VAD 分段。Audio Dock 保留客户端中间 transcript，但不把 `StreamCtrl.TextInterim` 标记的假设文本交给 Agent；未标记的定稿 text delta 由 Flowcraft 按顺序组合，不重新解释 provider 断句。Workspace History 同样排除带此标记的文本内容，保留原有按 StreamID 合并 transcript/audio、结束和落库的生命周期。`id` 与 `name` 不在 Flowcraft payload 中重复配置，分别由 Workspace 与 Workflow metadata 派生。
-
-Public `FlowcraftWorkflowSpec` 要求显式 `graph`，Graph 至少有一个 node，且 `entry` 必须引用已定义 node。除 `llm`、inline `script` 与 `passthrough` 外，`memory_recall` 和 `memory_observe` node 负责 Memory 的消费与写入。LLM node model 与 `voice_adapter` 的 ASR、default voice、per-node voice 都保存完整 RuntimeProfile alias，使用总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法，并作为平面 opaque key 精确解析，不支持 prefix、segment 或 fallback lookup。Workflow 顶层 `memory` 是 RuntimeProfile memory alias；provider extraction、embedding、rerank、lane 与 write policy 属于其 `MemoryLayout`，不再嵌套在 Flowcraft payload。
-
-同一 Workspace 的所有 stream 共用一个 Agent instance。Factory 为当前 RuntimeProfile binding 构造或借用 Store generation，按 MemoryLayout 当前 driver 的 scope 策略绑定 Workspace ID 或 owner Peer 的共享 AppID；reload 关闭旧 generation 并按新 snapshot 重建。改变 scope 不迁移旧 canonical facts。
+Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owner 的 Model、Voice、Memory alias、SQL State、内部 History 和 Audio Dock。`state_persistence.fields` 显式选择状态字段；`services.agent_host.eino.state_store` 与 `history_store` 分别选择 SQL 和 mutable Log。MemoryLayout 拥有 provider policy，Graph 拥有 Recall/Observe 和 direct Fact 映射。Workspace metadata 提供稳定 Agent identity，完整 RuntimeProfile alias 按 opaque flat key 精确解析。
 
 #### DashScope、Doubao Duplex 与 Eino 边界
 
 `dashscope-realtime`、`doubao-realtime-duplex` 和 `eino` 都是持久化 Workflow 与 Workspace driver。对应 factory 解析 typed RuntimeProfile Model/Voice alias，并构造既有 GenX Transformer。DashScope 要求 DashScope realtime Model；Doubao Duplex 要求 Volc `realtime-duplex` Model；Eino 分别解析每个 `chat_model` node。
 
-Flowcraft 与 Eino 共用同一个 `VoiceAdapter` contract。Eino Workflow 可以声明两条 live-audio 路径：非空的 `eino.voice_adapter.asr_model` 声明 `asr` 路径，通过对应的 RuntimeProfile ASR Model alias 把音频输入转换为文本；root Graph 中设置 `audio_transcript: true` 的 `chat_model` node 声明 `model` 路径，由该 node 的 Model 直接接收音频。两条路径可以同时声明，实际使用哪一条在 Workflow 之外选择，见 [Eino 音频输入路径](#eino-音频输入路径)。两条路径都没有声明时（`asr_model` 省略或为空白，且没有 `audio_transcript` node），输入保持纯文本；即使 `default_voice` 或 `node_voices` 为已接受的文本 turn 配置了 TTS-only 输出，也不改变这一边界。这类 route 收到第一段非空、普通 user `audio/*` Blob 时，factory 会立即发送一个 non-retryable 的 assistant `text/plain` EOS：`ErrorCode` 为 `EINO_AUDIO_INPUT_UNSUPPORTED`，failure provenance 为 transform；随后丢弃该 route 直到 EOS，不把音频转发给 AudioDock、Eino Graph 或 Provider。固定错误只说明 Eino 音频输入需要 `voice_adapter.asr_model`，不包含输入 payload、alias、credential、StreamID 或 Provider 原始错误。其他 route 继续运行；空 audio/control chunk、非法 MIME、非音频 part 与 `history.user_audio` 保持既有行为。
+Eino 使用 `VoiceAdapter` contract。Eino Workflow 可以声明两条 live-audio 路径：非空的 `eino.voice_adapter.asr_model` 声明 `asr` 路径，通过对应的 RuntimeProfile ASR Model alias 把音频输入转换为文本；root Graph 中设置 `audio_transcript: true` 的 `chat_model` node 声明 `model` 路径，由该 node 的 Model 直接接收音频。两条路径可以同时声明，实际使用哪一条在 Workflow 之外选择，见 [Eino 音频输入路径](#eino-音频输入路径)。两条路径都没有声明时（`asr_model` 省略或为空白，且没有 `audio_transcript` node），输入保持纯文本；即使 `default_voice` 或 `node_voices` 为已接受的文本 turn 配置了 TTS-only 输出，也不改变这一边界。这类 route 收到第一段非空、普通 user `audio/*` Blob 时，factory 会立即发送一个 non-retryable 的 assistant `text/plain` EOS：`ErrorCode` 为 `EINO_AUDIO_INPUT_UNSUPPORTED`，failure provenance 为 transform；随后丢弃该 route 直到 EOS，不把音频转发给 AudioDock、Eino Graph 或 Provider。固定错误只说明 Eino 音频输入需要 `voice_adapter.asr_model`，不包含输入 payload、alias、credential、StreamID 或 Provider 原始错误。其他 route 继续运行；空 audio/control chunk、非法 MIME、非音频 part 与 `history.user_audio` 保持既有行为。
 
 `model` 路径不经过 ASR：Push-to-Talk 音频 route 直接交给 Eino 音频 turn（语义见 [Eino Transformer](/zh/developing/genx/transformers/eino)），音频按原 MIME 作为 user Blob 交给该 node 的 Model Generator，由 Generator 在回复流中报告 transcript。Volc `chat_completions` Model 配置 `support_text_only: false` 时，peergenx 用 Doubao chat 适配（见 [OpenAI Adapter](/zh/developing/genx/generators/openai#doubao-音频输入)）包装其 Generator，负责音频转换与 transcript；建议该 Model 关闭 thinking。`asr` 路径上该 node 与其他 `chat_model` node 一样收到 ASR 文本，factory 构造 Transformer 前会去掉它的转写标记。两条路径都照常用 `default_voice` 与 `node_voices` 为回复合成语音。
 
@@ -141,7 +137,7 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 #### 同一回复内按说话人分段
 
-Eino 与 Flowcraft 的 `voice_adapter.speaker_voices` 将说话人名字映射到 RuntimeProfile Voice alias。名字必须非空白且不含 `【`、`】`，alias 遵循现有命名规则并须在 `resources.voices` 中存在。`admin validate` 离线检查名字与 alias 语法；RuntimeProfile 检查引用。
+Eino 的 `voice_adapter.speaker_voices` 将说话人名字映射到 RuntimeProfile Voice alias。名字必须非空白且不含 `【`、`】`，alias 遵循现有命名规则并须在 `resources.voices` 中存在。`admin validate` 离线检查名字与 alias 语法；RuntimeProfile 检查引用。
 
 ```yaml
 voice_adapter:
@@ -214,7 +210,7 @@ flowchart LR
 
 Workspace 创建按 owner 注册并 drain in-flight 工作。Runtime preparation 与调用者 initializer 在 coordinator mutex 外执行；退休只关闭目标 owner 的 admission，并在快照前等待该 owner 的创建。MemoryLayout 使用 SQL 原子更新和删除，不在 service 中持有覆盖数据库 I/O 的读改写锁。
 
-MemoryLayout 保存于 `memory_layouts` 业务表。ID 为主键，Flowcraft、Mem0 和 VolcMem0 policy 分别存入独立 JSON 列；该表不存 Memory 内容或运行时连接。Server 启动时建表并复用 SQL 连接池，列表按 ID 使用范围查询和 `LIMIT` 分页，完整替换仅更新已存在的行，不能把并发删除的记录重新写回。
+MemoryLayout 保存于 `memory_layouts` 业务表。ID 为主键，Mem0 Cloud、自托管 Mem0 和 VolcMem0 policy 分别存入独立 JSON 列；未公开的历史 policy 列作为原样保留的归档数据；该表不存 Memory 内容或运行时连接。Server 启动时建表并复用 SQL 连接池，列表按 ID 使用范围查询和 `LIMIT` 分页，完整替换仅更新已存在的行，不能把并发删除的记录重新写回。
 
 ## Peer 小时用量
 

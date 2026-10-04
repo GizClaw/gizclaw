@@ -796,6 +796,63 @@ func (e EinoGraphCompileNodeTriggerMode) Valid() bool {
 	}
 }
 
+// Defines values for EinoGraphCompilePrimaryOutputMode.
+const (
+	EinoGraphCompilePrimaryOutputModeFirstOutput EinoGraphCompilePrimaryOutputMode = "first_output"
+	EinoGraphCompilePrimaryOutputModeFixed       EinoGraphCompilePrimaryOutputMode = "fixed"
+)
+
+// Valid indicates whether the value is a known member of the EinoGraphCompilePrimaryOutputMode enum.
+func (e EinoGraphCompilePrimaryOutputMode) Valid() bool {
+	switch e {
+	case EinoGraphCompilePrimaryOutputModeFirstOutput:
+		return true
+	case EinoGraphCompilePrimaryOutputModeFixed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EinoMemoryFilterOperator.
+const (
+	EinoMemoryFilterOperatorEq     EinoMemoryFilterOperator = "eq"
+	EinoMemoryFilterOperatorExists EinoMemoryFilterOperator = "exists"
+	EinoMemoryFilterOperatorGt     EinoMemoryFilterOperator = "gt"
+	EinoMemoryFilterOperatorGte    EinoMemoryFilterOperator = "gte"
+	EinoMemoryFilterOperatorIn     EinoMemoryFilterOperator = "in"
+	EinoMemoryFilterOperatorLt     EinoMemoryFilterOperator = "lt"
+	EinoMemoryFilterOperatorLte    EinoMemoryFilterOperator = "lte"
+	EinoMemoryFilterOperatorNe     EinoMemoryFilterOperator = "ne"
+	EinoMemoryFilterOperatorNotIn  EinoMemoryFilterOperator = "not_in"
+)
+
+// Valid indicates whether the value is a known member of the EinoMemoryFilterOperator enum.
+func (e EinoMemoryFilterOperator) Valid() bool {
+	switch e {
+	case EinoMemoryFilterOperatorEq:
+		return true
+	case EinoMemoryFilterOperatorExists:
+		return true
+	case EinoMemoryFilterOperatorGt:
+		return true
+	case EinoMemoryFilterOperatorGte:
+		return true
+	case EinoMemoryFilterOperatorIn:
+		return true
+	case EinoMemoryFilterOperatorLt:
+		return true
+	case EinoMemoryFilterOperatorLte:
+		return true
+	case EinoMemoryFilterOperatorNe:
+		return true
+	case EinoMemoryFilterOperatorNotIn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EinoMemoryObserveNodeType.
 const (
 	EinoMemoryObserveNodeTypeMemoryObserve EinoMemoryObserveNodeType = "memory_observe"
@@ -1165,327 +1222,6 @@ const (
 func (e FirmwareResourceKind) Valid() bool {
 	switch e {
 	case FirmwareResourceKindFirmware:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftConversationStarts.
-const (
-	FlowcraftConversationStartsAgent FlowcraftConversationStarts = "agent"
-	FlowcraftConversationStartsPeer  FlowcraftConversationStarts = "peer"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftConversationStarts enum.
-func (e FlowcraftConversationStarts) Valid() bool {
-	switch e {
-	case FlowcraftConversationStartsAgent:
-		return true
-	case FlowcraftConversationStartsPeer:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftLLMNodeType.
-const (
-	FlowcraftLLMNodeTypeLlm FlowcraftLLMNodeType = "llm"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftLLMNodeType enum.
-func (e FlowcraftLLMNodeType) Valid() bool {
-	switch e {
-	case FlowcraftLLMNodeTypeLlm:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryBlevePolicyAnalyzer.
-const (
-	FlowcraftMemoryBlevePolicyAnalyzerGojieba    FlowcraftMemoryBlevePolicyAnalyzer = "gojieba"
-	FlowcraftMemoryBlevePolicyAnalyzerKeyword    FlowcraftMemoryBlevePolicyAnalyzer = "keyword"
-	FlowcraftMemoryBlevePolicyAnalyzerSimple     FlowcraftMemoryBlevePolicyAnalyzer = "simple"
-	FlowcraftMemoryBlevePolicyAnalyzerStandard   FlowcraftMemoryBlevePolicyAnalyzer = "standard"
-	FlowcraftMemoryBlevePolicyAnalyzerWhitespace FlowcraftMemoryBlevePolicyAnalyzer = "whitespace"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryBlevePolicyAnalyzer enum.
-func (e FlowcraftMemoryBlevePolicyAnalyzer) Valid() bool {
-	switch e {
-	case FlowcraftMemoryBlevePolicyAnalyzerGojieba:
-		return true
-	case FlowcraftMemoryBlevePolicyAnalyzerKeyword:
-		return true
-	case FlowcraftMemoryBlevePolicyAnalyzerSimple:
-		return true
-	case FlowcraftMemoryBlevePolicyAnalyzerStandard:
-		return true
-	case FlowcraftMemoryBlevePolicyAnalyzerWhitespace:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryExtractionPolicyMode.
-const (
-	FlowcraftMemoryExtractionPolicyModeSinglePass FlowcraftMemoryExtractionPolicyMode = "single_pass"
-	FlowcraftMemoryExtractionPolicyModeTwoPass    FlowcraftMemoryExtractionPolicyMode = "two_pass"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryExtractionPolicyMode enum.
-func (e FlowcraftMemoryExtractionPolicyMode) Valid() bool {
-	switch e {
-	case FlowcraftMemoryExtractionPolicyModeSinglePass:
-		return true
-	case FlowcraftMemoryExtractionPolicyModeTwoPass:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryFilterOperator.
-const (
-	FlowcraftMemoryFilterOperatorEq FlowcraftMemoryFilterOperator = "eq"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryFilterOperator enum.
-func (e FlowcraftMemoryFilterOperator) Valid() bool {
-	switch e {
-	case FlowcraftMemoryFilterOperatorEq:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryGojiebaPolicyMode.
-const (
-	FlowcraftMemoryGojiebaPolicyModeAccurate FlowcraftMemoryGojiebaPolicyMode = "accurate"
-	FlowcraftMemoryGojiebaPolicyModeFull     FlowcraftMemoryGojiebaPolicyMode = "full"
-	FlowcraftMemoryGojiebaPolicyModeSearch   FlowcraftMemoryGojiebaPolicyMode = "search"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryGojiebaPolicyMode enum.
-func (e FlowcraftMemoryGojiebaPolicyMode) Valid() bool {
-	switch e {
-	case FlowcraftMemoryGojiebaPolicyModeAccurate:
-		return true
-	case FlowcraftMemoryGojiebaPolicyModeFull:
-		return true
-	case FlowcraftMemoryGojiebaPolicyModeSearch:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryLanePolicyKind.
-const (
-	FlowcraftMemoryLanePolicyKindEpisode    FlowcraftMemoryLanePolicyKind = "episode"
-	FlowcraftMemoryLanePolicyKindEvent      FlowcraftMemoryLanePolicyKind = "event"
-	FlowcraftMemoryLanePolicyKindNote       FlowcraftMemoryLanePolicyKind = "note"
-	FlowcraftMemoryLanePolicyKindPlan       FlowcraftMemoryLanePolicyKind = "plan"
-	FlowcraftMemoryLanePolicyKindPreference FlowcraftMemoryLanePolicyKind = "preference"
-	FlowcraftMemoryLanePolicyKindProcedure  FlowcraftMemoryLanePolicyKind = "procedure"
-	FlowcraftMemoryLanePolicyKindRelation   FlowcraftMemoryLanePolicyKind = "relation"
-	FlowcraftMemoryLanePolicyKindState      FlowcraftMemoryLanePolicyKind = "state"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryLanePolicyKind enum.
-func (e FlowcraftMemoryLanePolicyKind) Valid() bool {
-	switch e {
-	case FlowcraftMemoryLanePolicyKindEpisode:
-		return true
-	case FlowcraftMemoryLanePolicyKindEvent:
-		return true
-	case FlowcraftMemoryLanePolicyKindNote:
-		return true
-	case FlowcraftMemoryLanePolicyKindPlan:
-		return true
-	case FlowcraftMemoryLanePolicyKindPreference:
-		return true
-	case FlowcraftMemoryLanePolicyKindProcedure:
-		return true
-	case FlowcraftMemoryLanePolicyKindRelation:
-		return true
-	case FlowcraftMemoryLanePolicyKindState:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryLayoutPolicyScope.
-const (
-	FlowcraftMemoryLayoutPolicyScopePeer      FlowcraftMemoryLayoutPolicyScope = "peer"
-	FlowcraftMemoryLayoutPolicyScopeWorkspace FlowcraftMemoryLayoutPolicyScope = "workspace"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryLayoutPolicyScope enum.
-func (e FlowcraftMemoryLayoutPolicyScope) Valid() bool {
-	switch e {
-	case FlowcraftMemoryLayoutPolicyScopePeer:
-		return true
-	case FlowcraftMemoryLayoutPolicyScopeWorkspace:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryObserveNodeType.
-const (
-	FlowcraftMemoryObserveNodeTypeMemoryObserve FlowcraftMemoryObserveNodeType = "memory_observe"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryObserveNodeType enum.
-func (e FlowcraftMemoryObserveNodeType) Valid() bool {
-	switch e {
-	case FlowcraftMemoryObserveNodeTypeMemoryObserve:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryRecallNodeType.
-const (
-	FlowcraftMemoryRecallNodeTypeMemoryRecall FlowcraftMemoryRecallNodeType = "memory_recall"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryRecallNodeType enum.
-func (e FlowcraftMemoryRecallNodeType) Valid() bool {
-	switch e {
-	case FlowcraftMemoryRecallNodeTypeMemoryRecall:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryRecallQueryKinds.
-const (
-	FlowcraftMemoryRecallQueryKindsEpisode    FlowcraftMemoryRecallQueryKinds = "episode"
-	FlowcraftMemoryRecallQueryKindsEvent      FlowcraftMemoryRecallQueryKinds = "event"
-	FlowcraftMemoryRecallQueryKindsNote       FlowcraftMemoryRecallQueryKinds = "note"
-	FlowcraftMemoryRecallQueryKindsPlan       FlowcraftMemoryRecallQueryKinds = "plan"
-	FlowcraftMemoryRecallQueryKindsPreference FlowcraftMemoryRecallQueryKinds = "preference"
-	FlowcraftMemoryRecallQueryKindsProcedure  FlowcraftMemoryRecallQueryKinds = "procedure"
-	FlowcraftMemoryRecallQueryKindsRelation   FlowcraftMemoryRecallQueryKinds = "relation"
-	FlowcraftMemoryRecallQueryKindsState      FlowcraftMemoryRecallQueryKinds = "state"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryRecallQueryKinds enum.
-func (e FlowcraftMemoryRecallQueryKinds) Valid() bool {
-	switch e {
-	case FlowcraftMemoryRecallQueryKindsEpisode:
-		return true
-	case FlowcraftMemoryRecallQueryKindsEvent:
-		return true
-	case FlowcraftMemoryRecallQueryKindsNote:
-		return true
-	case FlowcraftMemoryRecallQueryKindsPlan:
-		return true
-	case FlowcraftMemoryRecallQueryKindsPreference:
-		return true
-	case FlowcraftMemoryRecallQueryKindsProcedure:
-		return true
-	case FlowcraftMemoryRecallQueryKindsRelation:
-		return true
-	case FlowcraftMemoryRecallQueryKindsState:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryWritePolicyMode.
-const (
-	FlowcraftMemoryWritePolicyModeAsyncSemantic FlowcraftMemoryWritePolicyMode = "async_semantic"
-	FlowcraftMemoryWritePolicyModeSync          FlowcraftMemoryWritePolicyMode = "sync"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryWritePolicyMode enum.
-func (e FlowcraftMemoryWritePolicyMode) Valid() bool {
-	switch e {
-	case FlowcraftMemoryWritePolicyModeAsyncSemantic:
-		return true
-	case FlowcraftMemoryWritePolicyModeSync:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftMemoryWritePolicyTier.
-const (
-	FlowcraftMemoryWritePolicyTierCore    FlowcraftMemoryWritePolicyTier = "core"
-	FlowcraftMemoryWritePolicyTierData    FlowcraftMemoryWritePolicyTier = "data"
-	FlowcraftMemoryWritePolicyTierGeneral FlowcraftMemoryWritePolicyTier = "general"
-	FlowcraftMemoryWritePolicyTierStorage FlowcraftMemoryWritePolicyTier = "storage"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftMemoryWritePolicyTier enum.
-func (e FlowcraftMemoryWritePolicyTier) Valid() bool {
-	switch e {
-	case FlowcraftMemoryWritePolicyTierCore:
-		return true
-	case FlowcraftMemoryWritePolicyTierData:
-		return true
-	case FlowcraftMemoryWritePolicyTierGeneral:
-		return true
-	case FlowcraftMemoryWritePolicyTierStorage:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftPassthroughNodeType.
-const (
-	FlowcraftPassthroughNodeTypePassthrough FlowcraftPassthroughNodeType = "passthrough"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftPassthroughNodeType enum.
-func (e FlowcraftPassthroughNodeType) Valid() bool {
-	switch e {
-	case FlowcraftPassthroughNodeTypePassthrough:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftScriptNodeType.
-const (
-	FlowcraftScriptNodeTypeScript FlowcraftScriptNodeType = "script"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftScriptNodeType enum.
-func (e FlowcraftScriptNodeType) Valid() bool {
-	switch e {
-	case FlowcraftScriptNodeTypeScript:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for FlowcraftWorkspaceParametersAgentType.
-const (
-	FlowcraftWorkspaceParametersAgentTypeFlowcraft FlowcraftWorkspaceParametersAgentType = "flowcraft"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftWorkspaceParametersAgentType enum.
-func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
-	switch e {
-	case FlowcraftWorkspaceParametersAgentTypeFlowcraft:
 		return true
 	default:
 		return false
@@ -2536,21 +2272,6 @@ func (e ReusableEinoWorkflowVariantDriver) Valid() bool {
 	}
 }
 
-// Defines values for ReusableFlowcraftWorkflowVariantDriver.
-const (
-	ReusableFlowcraftWorkflowVariantDriverFlowcraft ReusableFlowcraftWorkflowVariantDriver = "flowcraft"
-)
-
-// Valid indicates whether the value is a known member of the ReusableFlowcraftWorkflowVariantDriver enum.
-func (e ReusableFlowcraftWorkflowVariantDriver) Valid() bool {
-	switch e {
-	case ReusableFlowcraftWorkflowVariantDriverFlowcraft:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for ReusableWorkflowDriver.
 const (
 	ReusableWorkflowDriverAstTranslate         ReusableWorkflowDriver = "ast-translate"
@@ -2558,7 +2279,6 @@ const (
 	ReusableWorkflowDriverDoubaoRealtime       ReusableWorkflowDriver = "doubao-realtime"
 	ReusableWorkflowDriverDoubaoRealtimeDuplex ReusableWorkflowDriver = "doubao-realtime-duplex"
 	ReusableWorkflowDriverEino                 ReusableWorkflowDriver = "eino"
-	ReusableWorkflowDriverFlowcraft            ReusableWorkflowDriver = "flowcraft"
 )
 
 // Valid indicates whether the value is a known member of the ReusableWorkflowDriver enum.
@@ -2573,68 +2293,6 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	case ReusableWorkflowDriverDoubaoRealtimeDuplex:
 		return true
 	case ReusableWorkflowDriverEino:
-		return true
-	case ReusableWorkflowDriverFlowcraft:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RuntimeProfileFlowcraftBBHConnectionType.
-const (
-	RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh RuntimeProfileFlowcraftBBHConnectionType = "flowcraft_bbh"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftBBHConnectionType enum.
-func (e RuntimeProfileFlowcraftBBHConnectionType) Valid() bool {
-	switch e {
-	case RuntimeProfileFlowcraftBBHConnectionTypeFlowcraftBbh:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RuntimeProfileFlowcraftObjectStoreConnectionType.
-const (
-	RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore RuntimeProfileFlowcraftObjectStoreConnectionType = "flowcraft_object_store"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftObjectStoreConnectionType enum.
-func (e RuntimeProfileFlowcraftObjectStoreConnectionType) Valid() bool {
-	switch e {
-	case RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RuntimeProfileFlowcraftPostgreSQLConnectionType.
-const (
-	RuntimeProfileFlowcraftPostgreSQLConnectionTypeFlowcraftPostgresql RuntimeProfileFlowcraftPostgreSQLConnectionType = "flowcraft_postgresql"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftPostgreSQLConnectionType enum.
-func (e RuntimeProfileFlowcraftPostgreSQLConnectionType) Valid() bool {
-	switch e {
-	case RuntimeProfileFlowcraftPostgreSQLConnectionTypeFlowcraftPostgresql:
-		return true
-	default:
-		return false
-	}
-}
-
-// Defines values for RuntimeProfileFlowcraftRedis8ConnectionType.
-const (
-	RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8 RuntimeProfileFlowcraftRedis8ConnectionType = "flowcraft_redis8"
-)
-
-// Valid indicates whether the value is a known member of the RuntimeProfileFlowcraftRedis8ConnectionType enum.
-func (e RuntimeProfileFlowcraftRedis8ConnectionType) Valid() bool {
-	switch e {
-	case RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8:
 		return true
 	default:
 		return false
@@ -2673,16 +2331,13 @@ func (e RuntimeProfileMem0SelfHostedConnectionType) Valid() bool {
 
 // Defines values for RuntimeProfileMemoryDriver.
 const (
-	RuntimeProfileMemoryDriverFlowcraft RuntimeProfileMemoryDriver = "flowcraft"
-	RuntimeProfileMemoryDriverMem0      RuntimeProfileMemoryDriver = "mem0"
-	RuntimeProfileMemoryDriverVolcMem0  RuntimeProfileMemoryDriver = "volc_mem0"
+	RuntimeProfileMemoryDriverMem0     RuntimeProfileMemoryDriver = "mem0"
+	RuntimeProfileMemoryDriverVolcMem0 RuntimeProfileMemoryDriver = "volc_mem0"
 )
 
 // Valid indicates whether the value is a known member of the RuntimeProfileMemoryDriver enum.
 func (e RuntimeProfileMemoryDriver) Valid() bool {
 	switch e {
-	case RuntimeProfileMemoryDriverFlowcraft:
-		return true
 	case RuntimeProfileMemoryDriverMem0:
 		return true
 	case RuntimeProfileMemoryDriverVolcMem0:
@@ -3128,7 +2783,6 @@ const (
 	WorkflowDriverDoubaoRealtime       WorkflowDriver = "doubao-realtime"
 	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
 	WorkflowDriverEino                 WorkflowDriver = "eino"
-	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
 	WorkflowDriverSfu                  WorkflowDriver = "sfu"
 )
 
@@ -3144,8 +2798,6 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverDoubaoRealtimeDuplex:
 		return true
 	case WorkflowDriverEino:
-		return true
-	case WorkflowDriverFlowcraft:
 		return true
 	case WorkflowDriverSfu:
 		return true
@@ -4068,10 +3720,16 @@ type EinoGraphCompile struct {
 	FanIn           *map[string]EinoFanIn           `json:"fan_in,omitempty"`
 	MaxRunSteps     *int                            `json:"max_run_steps,omitempty"`
 	NodeTriggerMode EinoGraphCompileNodeTriggerMode `json:"node_trigger_mode"`
+
+	// PrimaryOutputMode fixed requires the primary output on every path; first_output selects the first emitted public output and records all delivered public content.
+	PrimaryOutputMode *EinoGraphCompilePrimaryOutputMode `json:"primary_output_mode,omitempty"`
 }
 
 // EinoGraphCompileNodeTriggerMode defines model for EinoGraphCompile.NodeTriggerMode.
 type EinoGraphCompileNodeTriggerMode string
+
+// EinoGraphCompilePrimaryOutputMode fixed requires the primary output on every path; first_output selects the first emitted public output and records all delivered public content.
+type EinoGraphCompilePrimaryOutputMode string
 
 // EinoLimits defines model for EinoLimits.
 type EinoLimits struct {
@@ -4084,12 +3742,24 @@ type EinoMemoryFact struct {
 	TextFrom   string             `json:"text_from"`
 }
 
+// EinoMemoryFilter defines model for EinoMemoryFilter.
+type EinoMemoryFilter struct {
+	Field    string                   `json:"field"`
+	Operator EinoMemoryFilterOperator `json:"operator"`
+	Value    interface{}              `json:"value,omitempty"`
+}
+
+// EinoMemoryFilterOperator defines model for EinoMemoryFilter.Operator.
+type EinoMemoryFilterOperator string
+
 // EinoMemoryObserveNode defines model for EinoMemoryObserveNode.
 type EinoMemoryObserveNode struct {
-	Facts             []EinoMemoryFact          `json:"facts"`
+	Facts             *[]EinoMemoryFact         `json:"facts,omitempty"`
 	Id                string                    `json:"id"`
 	Inputs            *map[string]EinoBinding   `json:"inputs,omitempty"`
 	Outputs           *map[string]string        `json:"outputs,omitempty"`
+	TextFrom          *string                   `json:"text_from,omitempty"`
+	TurnsFrom         *string                   `json:"turns_from,omitempty"`
 	Type              EinoMemoryObserveNodeType `json:"type"`
 	WaitForCompletion *bool                     `json:"wait_for_completion,omitempty"`
 }
@@ -4099,6 +3769,7 @@ type EinoMemoryObserveNodeType string
 
 // EinoMemoryRecallNode defines model for EinoMemoryRecallNode.
 type EinoMemoryRecallNode struct {
+	Filters   *[]EinoMemoryFilter      `json:"filters,omitempty"`
 	Id        string                   `json:"id"`
 	Inputs    *map[string]EinoBinding  `json:"inputs,omitempty"`
 	Output    string                   `json:"output"`
@@ -4261,6 +3932,11 @@ type EinoStateFieldMerge string
 // EinoStateFieldType defines model for EinoStateField.Type.
 type EinoStateFieldType string
 
+// EinoStatePersistence defines model for EinoStatePersistence.
+type EinoStatePersistence struct {
+	Fields []string `json:"fields"`
+}
+
 // EinoSubgraphNode defines model for EinoSubgraphNode.
 type EinoSubgraphNode struct {
 	Graph   EinoGraph               `json:"graph"`
@@ -4305,10 +3981,11 @@ type EinoTransformNodeType string
 
 // EinoWorkflowSpec defines model for EinoWorkflowSpec.
 type EinoWorkflowSpec struct {
-	Conversation *EinoConversation `json:"conversation,omitempty"`
-	Graph        EinoGraph         `json:"graph"`
-	Limits       *EinoLimits       `json:"limits,omitempty"`
-	VoiceAdapter *VoiceAdapter     `json:"voice_adapter,omitempty"`
+	Conversation     *EinoConversation     `json:"conversation,omitempty"`
+	Graph            EinoGraph             `json:"graph"`
+	Limits           *EinoLimits           `json:"limits,omitempty"`
+	StatePersistence *EinoStatePersistence `json:"state_persistence,omitempty"`
+	VoiceAdapter     *VoiceAdapter         `json:"voice_adapter,omitempty"`
 }
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
@@ -4417,298 +4094,6 @@ type FirmwareSpecSlots struct {
 	Develop FirmwareSpecSlot `json:"develop"`
 	Stable  FirmwareSpecSlot `json:"stable"`
 }
-
-// FlowcraftConversation defines model for FlowcraftConversation.
-type FlowcraftConversation struct {
-	Starts *FlowcraftConversationStarts `json:"starts,omitempty"`
-}
-
-// FlowcraftConversationStarts defines model for FlowcraftConversation.Starts.
-type FlowcraftConversationStarts string
-
-// FlowcraftEdge defines model for FlowcraftEdge.
-type FlowcraftEdge struct {
-	Condition *string `json:"condition,omitempty"`
-	From      string  `json:"from"`
-	To        string  `json:"to"`
-}
-
-// FlowcraftGraph defines model for FlowcraftGraph.
-type FlowcraftGraph struct {
-	Edges *[]FlowcraftEdge `json:"edges,omitempty"`
-	Entry string           `json:"entry"`
-	Id    *string          `json:"id,omitempty"`
-	Name  string           `json:"name"`
-	Nodes []FlowcraftNode  `json:"nodes"`
-}
-
-// FlowcraftLLMNode defines model for FlowcraftLLMNode.
-type FlowcraftLLMNode struct {
-	Config        FlowcraftLLMNodeConfig `json:"config"`
-	Id            string                 `json:"id"`
-	Publish       *bool                  `json:"publish,omitempty"`
-	SkipCondition *string                `json:"skip_condition,omitempty"`
-	Type          FlowcraftLLMNodeType   `json:"type"`
-}
-
-// FlowcraftLLMNodeType defines model for FlowcraftLLMNode.Type.
-type FlowcraftLLMNodeType string
-
-// FlowcraftLLMNodeConfig defines model for FlowcraftLLMNodeConfig.
-type FlowcraftLLMNodeConfig struct {
-	JsonMode        *bool    `json:"json_mode,omitempty"`
-	MaxTokens       *int     `json:"max_tokens,omitempty"`
-	MessagesChannel *string  `json:"messages_channel,omitempty"`
-	Model           string   `json:"model"`
-	OutputKey       *string  `json:"output_key,omitempty"`
-	SystemPrompt    *string  `json:"system_prompt,omitempty"`
-	Temperature     *float32 `json:"temperature,omitempty"`
-	Thinking        *bool    `json:"thinking,omitempty"`
-	TrackSteps      *bool    `json:"track_steps,omitempty"`
-}
-
-// FlowcraftMemoryBBHPolicy defines model for FlowcraftMemoryBBHPolicy.
-type FlowcraftMemoryBBHPolicy struct {
-	Bleve           *FlowcraftMemoryBlevePolicy `json:"bleve,omitempty"`
-	Hnsw            *FlowcraftMemoryHNSWPolicy  `json:"hnsw,omitempty"`
-	SearchOverfetch *int                        `json:"search_overfetch,omitempty"`
-}
-
-// FlowcraftMemoryBlevePolicy defines model for FlowcraftMemoryBlevePolicy.
-type FlowcraftMemoryBlevePolicy struct {
-	Analyzer *FlowcraftMemoryBlevePolicyAnalyzer `json:"analyzer,omitempty"`
-	Gojieba  *FlowcraftMemoryGojiebaPolicy       `json:"gojieba,omitempty"`
-}
-
-// FlowcraftMemoryBlevePolicyAnalyzer defines model for FlowcraftMemoryBlevePolicy.Analyzer.
-type FlowcraftMemoryBlevePolicyAnalyzer string
-
-// FlowcraftMemoryExtractionPolicy defines model for FlowcraftMemoryExtractionPolicy.
-type FlowcraftMemoryExtractionPolicy struct {
-	// Enabled Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
-	Enabled      *bool                               `json:"enabled,omitempty"`
-	Mode         FlowcraftMemoryExtractionPolicyMode `json:"mode"`
-	Model        string                              `json:"model"`
-	SchemaName   *string                             `json:"schema_name,omitempty"`
-	StageTimeout *string                             `json:"stage_timeout,omitempty"`
-	SystemPrompt *string                             `json:"system_prompt,omitempty"`
-	Temperature  *float32                            `json:"temperature,omitempty"`
-}
-
-// FlowcraftMemoryExtractionPolicyMode defines model for FlowcraftMemoryExtractionPolicy.Mode.
-type FlowcraftMemoryExtractionPolicyMode string
-
-// FlowcraftMemoryFact defines model for FlowcraftMemoryFact.
-type FlowcraftMemoryFact struct {
-	Attributes *map[string]string `json:"attributes,omitempty"`
-	TextFrom   string             `json:"text_from"`
-}
-
-// FlowcraftMemoryFilter defines model for FlowcraftMemoryFilter.
-type FlowcraftMemoryFilter struct {
-	Field    string                         `json:"field"`
-	Operator *FlowcraftMemoryFilterOperator `json:"operator,omitempty"`
-	Value    interface{}                    `json:"value"`
-}
-
-// FlowcraftMemoryFilterOperator defines model for FlowcraftMemoryFilter.Operator.
-type FlowcraftMemoryFilterOperator string
-
-// FlowcraftMemoryGojiebaPolicy defines model for FlowcraftMemoryGojiebaPolicy.
-type FlowcraftMemoryGojiebaPolicy struct {
-	DictPath      *string                           `json:"dict_path,omitempty"`
-	Hmm           *bool                             `json:"hmm,omitempty"`
-	HmmPath       *string                           `json:"hmm_path,omitempty"`
-	IdfPath       *string                           `json:"idf_path,omitempty"`
-	Mode          *FlowcraftMemoryGojiebaPolicyMode `json:"mode,omitempty"`
-	StopWordsPath *string                           `json:"stop_words_path,omitempty"`
-	UserDictPath  *string                           `json:"user_dict_path,omitempty"`
-}
-
-// FlowcraftMemoryGojiebaPolicyMode defines model for FlowcraftMemoryGojiebaPolicy.Mode.
-type FlowcraftMemoryGojiebaPolicyMode string
-
-// FlowcraftMemoryHNSWPolicy defines model for FlowcraftMemoryHNSWPolicy.
-type FlowcraftMemoryHNSWPolicy struct {
-	FlushInterval *string `json:"flush_interval,omitempty"`
-}
-
-// FlowcraftMemoryLanePolicy defines model for FlowcraftMemoryLanePolicy.
-type FlowcraftMemoryLanePolicy struct {
-	Description *string                       `json:"description,omitempty"`
-	Extract     *string                       `json:"extract,omitempty"`
-	Kind        FlowcraftMemoryLanePolicyKind `json:"kind"`
-	Name        string                        `json:"name"`
-	Recall      *string                       `json:"recall,omitempty"`
-}
-
-// FlowcraftMemoryLanePolicyKind defines model for FlowcraftMemoryLanePolicy.Kind.
-type FlowcraftMemoryLanePolicyKind string
-
-// FlowcraftMemoryLayoutPolicy defines model for FlowcraftMemoryLayoutPolicy.
-type FlowcraftMemoryLayoutPolicy struct {
-	Bbh          *FlowcraftMemoryBBHPolicy       `json:"bbh,omitempty"`
-	Embedding    *FlowcraftMemoryModelPolicy     `json:"embedding,omitempty"`
-	Extraction   FlowcraftMemoryExtractionPolicy `json:"extraction"`
-	GraphEnabled *bool                           `json:"graph_enabled,omitempty"`
-	Lanes        []FlowcraftMemoryLanePolicy     `json:"lanes"`
-	Rerank       *FlowcraftMemoryModelPolicy     `json:"rerank,omitempty"`
-
-	// Scope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID).
-	Scope *FlowcraftMemoryLayoutPolicyScope `json:"scope,omitempty"`
-	Write FlowcraftMemoryWritePolicy        `json:"write"`
-}
-
-// FlowcraftMemoryLayoutPolicyScope Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID).
-type FlowcraftMemoryLayoutPolicyScope string
-
-// FlowcraftMemoryModelPolicy defines model for FlowcraftMemoryModelPolicy.
-type FlowcraftMemoryModelPolicy struct {
-	Model string `json:"model"`
-}
-
-// FlowcraftMemoryObservation defines model for FlowcraftMemoryObservation.
-type FlowcraftMemoryObservation struct {
-	Facts     *[]FlowcraftMemoryFact `json:"facts,omitempty"`
-	TextFrom  *string                `json:"text_from,omitempty"`
-	TurnsFrom *string                `json:"turns_from,omitempty"`
-}
-
-// FlowcraftMemoryObserveNode defines model for FlowcraftMemoryObserveNode.
-type FlowcraftMemoryObserveNode struct {
-	Config        FlowcraftMemoryObserveNodeConfig `json:"config"`
-	Id            string                           `json:"id"`
-	Publish       *bool                            `json:"publish,omitempty"`
-	SkipCondition *string                          `json:"skip_condition,omitempty"`
-	Type          FlowcraftMemoryObserveNodeType   `json:"type"`
-}
-
-// FlowcraftMemoryObserveNodeType defines model for FlowcraftMemoryObserveNode.Type.
-type FlowcraftMemoryObserveNodeType string
-
-// FlowcraftMemoryObserveNodeConfig defines model for FlowcraftMemoryObserveNodeConfig.
-type FlowcraftMemoryObserveNodeConfig struct {
-	Observations      []FlowcraftMemoryObservation `json:"observations"`
-	WaitForCompletion *bool                        `json:"wait_for_completion,omitempty"`
-}
-
-// FlowcraftMemoryRecallNode defines model for FlowcraftMemoryRecallNode.
-type FlowcraftMemoryRecallNode struct {
-	Config        FlowcraftMemoryRecallNodeConfig `json:"config"`
-	Id            string                          `json:"id"`
-	Publish       *bool                           `json:"publish,omitempty"`
-	SkipCondition *string                         `json:"skip_condition,omitempty"`
-	Type          FlowcraftMemoryRecallNodeType   `json:"type"`
-}
-
-// FlowcraftMemoryRecallNodeType defines model for FlowcraftMemoryRecallNode.Type.
-type FlowcraftMemoryRecallNodeType string
-
-// FlowcraftMemoryRecallNodeConfig defines model for FlowcraftMemoryRecallNodeConfig.
-type FlowcraftMemoryRecallNodeConfig struct {
-	Output string                       `json:"output"`
-	Query  FlowcraftMemoryRecallQuery   `json:"query"`
-	Render *FlowcraftMemoryRecallRender `json:"render,omitempty"`
-	TopK   int                          `json:"top_k"`
-}
-
-// FlowcraftMemoryRecallQuery defines model for FlowcraftMemoryRecallQuery.
-type FlowcraftMemoryRecallQuery struct {
-	Filters  *[]FlowcraftMemoryFilter           `json:"filters,omitempty"`
-	Kinds    *[]FlowcraftMemoryRecallQueryKinds `json:"kinds,omitempty"`
-	Lanes    *[]string                          `json:"lanes,omitempty"`
-	TextFrom string                             `json:"text_from"`
-}
-
-// FlowcraftMemoryRecallQueryKinds defines model for FlowcraftMemoryRecallQuery.Kinds.
-type FlowcraftMemoryRecallQueryKinds string
-
-// FlowcraftMemoryRecallRender defines model for FlowcraftMemoryRecallRender.
-type FlowcraftMemoryRecallRender struct {
-	Header     *string `json:"header,omitempty"`
-	ItemPrefix *string `json:"item_prefix,omitempty"`
-	MaxItems   *int    `json:"max_items,omitempty"`
-}
-
-// FlowcraftMemoryWritePolicy defines model for FlowcraftMemoryWritePolicy.
-type FlowcraftMemoryWritePolicy struct {
-	Mode FlowcraftMemoryWritePolicyMode `json:"mode"`
-	Tier FlowcraftMemoryWritePolicyTier `json:"tier"`
-}
-
-// FlowcraftMemoryWritePolicyMode defines model for FlowcraftMemoryWritePolicy.Mode.
-type FlowcraftMemoryWritePolicyMode string
-
-// FlowcraftMemoryWritePolicyTier defines model for FlowcraftMemoryWritePolicy.Tier.
-type FlowcraftMemoryWritePolicyTier string
-
-// FlowcraftNode defines model for FlowcraftNode.
-type FlowcraftNode struct {
-	union json.RawMessage
-}
-
-// FlowcraftNodeBase defines model for FlowcraftNodeBase.
-type FlowcraftNodeBase struct {
-	Id            string  `json:"id"`
-	Publish       *bool   `json:"publish,omitempty"`
-	SkipCondition *string `json:"skip_condition,omitempty"`
-	Type          string  `json:"type"`
-}
-
-// FlowcraftPassthroughNode defines model for FlowcraftPassthroughNode.
-type FlowcraftPassthroughNode struct {
-	Id            string                       `json:"id"`
-	Publish       *bool                        `json:"publish,omitempty"`
-	SkipCondition *string                      `json:"skip_condition,omitempty"`
-	Type          FlowcraftPassthroughNodeType `json:"type"`
-}
-
-// FlowcraftPassthroughNodeType defines model for FlowcraftPassthroughNode.Type.
-type FlowcraftPassthroughNodeType string
-
-// FlowcraftScriptNode defines model for FlowcraftScriptNode.
-type FlowcraftScriptNode struct {
-	Config        FlowcraftScriptNodeConfig `json:"config"`
-	Id            string                    `json:"id"`
-	Publish       *bool                     `json:"publish,omitempty"`
-	SkipCondition *string                   `json:"skip_condition,omitempty"`
-	Type          FlowcraftScriptNodeType   `json:"type"`
-}
-
-// FlowcraftScriptNodeType defines model for FlowcraftScriptNode.Type.
-type FlowcraftScriptNodeType string
-
-// FlowcraftScriptNodeConfig defines model for FlowcraftScriptNodeConfig.
-type FlowcraftScriptNodeConfig struct {
-	Source string `json:"source"`
-}
-
-// FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
-type FlowcraftWorkflowSpec struct {
-	Conversation  *FlowcraftConversation `json:"conversation,omitempty"`
-	Graph         FlowcraftGraph         `json:"graph"`
-	MaxIterations *int                   `json:"max_iterations,omitempty"`
-	VoiceAdapter  *VoiceAdapter          `json:"voice_adapter,omitempty"`
-}
-
-// FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
-type FlowcraftWorkspaceParameters struct {
-	AgentType    FlowcraftWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *ConversationParameters               `json:"conversation,omitempty"`
-
-	// E2e Marks seed resources used by the local e2e harness.
-	E2e   *bool               `json:"e2e,omitempty"`
-	Input *WorkspaceInputMode `json:"input,omitempty"`
-
-	// SafetyFenceLevel Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
-	SafetyFenceLevel *SafetyFenceLevel `json:"safety_fence_level,omitempty"`
-
-	// TtsSpeechRatePercent Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
-	TtsSpeechRatePercent *int `json:"tts_speech_rate_percent,omitempty"`
-}
-
-// FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
-type FlowcraftWorkspaceParametersAgentType string
 
 // FriendGroupInviteTokenResource defines model for FriendGroupInviteTokenResource.
 type FriendGroupInviteTokenResource struct {
@@ -4963,8 +4348,7 @@ type MemoryLayoutResourceKind string
 
 // MemoryLayoutSpec defines model for MemoryLayoutSpec.
 type MemoryLayoutSpec struct {
-	Flowcraft FlowcraftMemoryLayoutPolicy `json:"flowcraft"`
-	Mem0      Mem0MemoryLayoutPolicy      `json:"mem0"`
+	Mem0 Mem0MemoryLayoutPolicy `json:"mem0"`
 
 	// Mem0SelfHosted Mem0 OSS extraction policy, selected only by a mem0_self_hosted connection. Model and pgvector configuration belong to the self-hosted service.
 	Mem0SelfHosted *Mem0SelfHostedMemoryLayoutPolicy `json:"mem0_self_hosted,omitempty"`
@@ -5888,21 +5272,6 @@ type ReusableEinoWorkflowVariant struct {
 // ReusableEinoWorkflowVariantDriver defines model for ReusableEinoWorkflowVariant.Driver.
 type ReusableEinoWorkflowVariantDriver string
 
-// ReusableFlowcraftWorkflowVariant defines model for ReusableFlowcraftWorkflowVariant.
-type ReusableFlowcraftWorkflowVariant struct {
-	Driver    ReusableFlowcraftWorkflowVariantDriver `json:"driver"`
-	Flowcraft FlowcraftWorkflowSpec                  `json:"flowcraft"`
-
-	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
-	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
-
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
-	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
-}
-
-// ReusableFlowcraftWorkflowVariantDriver defines model for ReusableFlowcraftWorkflowVariant.Driver.
-type ReusableFlowcraftWorkflowVariantDriver string
-
 // ReusableWorkflowDriver defines model for ReusableWorkflowDriver.
 type ReusableWorkflowDriver string
 
@@ -5917,7 +5286,6 @@ type ReusableWorkflowSpecObject struct {
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
 	Driver               ReusableWorkflowDriver            `json:"driver"`
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
-	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
@@ -5969,42 +5337,6 @@ type RuntimeProfileBinding struct {
 	// Tags Only valid for Workflow bindings; opaque strings.
 	Tags *[]string `json:"tags,omitempty"`
 }
-
-// RuntimeProfileFlowcraftBBHConnection defines model for RuntimeProfileFlowcraftBBHConnection.
-type RuntimeProfileFlowcraftBBHConnection struct {
-	Type RuntimeProfileFlowcraftBBHConnectionType `json:"type"`
-}
-
-// RuntimeProfileFlowcraftBBHConnectionType defines model for RuntimeProfileFlowcraftBBHConnection.Type.
-type RuntimeProfileFlowcraftBBHConnectionType string
-
-// RuntimeProfileFlowcraftObjectStoreConnection defines model for RuntimeProfileFlowcraftObjectStoreConnection.
-type RuntimeProfileFlowcraftObjectStoreConnection struct {
-	Directory string                                           `json:"directory"`
-	Type      RuntimeProfileFlowcraftObjectStoreConnectionType `json:"type"`
-}
-
-// RuntimeProfileFlowcraftObjectStoreConnectionType defines model for RuntimeProfileFlowcraftObjectStoreConnection.Type.
-type RuntimeProfileFlowcraftObjectStoreConnectionType string
-
-// RuntimeProfileFlowcraftPostgreSQLConnection defines model for RuntimeProfileFlowcraftPostgreSQLConnection.
-type RuntimeProfileFlowcraftPostgreSQLConnection struct {
-	Dsn  string                                          `json:"dsn"`
-	Type RuntimeProfileFlowcraftPostgreSQLConnectionType `json:"type"`
-}
-
-// RuntimeProfileFlowcraftPostgreSQLConnectionType defines model for RuntimeProfileFlowcraftPostgreSQLConnection.Type.
-type RuntimeProfileFlowcraftPostgreSQLConnectionType string
-
-// RuntimeProfileFlowcraftRedis8Connection defines model for RuntimeProfileFlowcraftRedis8Connection.
-type RuntimeProfileFlowcraftRedis8Connection struct {
-	TlsCaFile *string                                     `json:"tls_ca_file,omitempty"`
-	Type      RuntimeProfileFlowcraftRedis8ConnectionType `json:"type"`
-	Url       string                                      `json:"url"`
-}
-
-// RuntimeProfileFlowcraftRedis8ConnectionType defines model for RuntimeProfileFlowcraftRedis8Connection.Type.
-type RuntimeProfileFlowcraftRedis8ConnectionType string
 
 // RuntimeProfileI18nText defines model for RuntimeProfileI18nText.
 type RuntimeProfileI18nText struct {
@@ -6652,7 +5984,6 @@ type WorkflowSpecObject struct {
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
 	Driver               WorkflowDriver                    `json:"driver"`
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
-	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
@@ -8507,185 +7838,6 @@ func (t *EinoNode) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsFlowcraftLLMNode returns the union data inside the FlowcraftNode as a FlowcraftLLMNode
-func (t FlowcraftNode) AsFlowcraftLLMNode() (FlowcraftLLMNode, error) {
-	var body FlowcraftLLMNode
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFlowcraftLLMNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftLLMNode
-func (t *FlowcraftNode) FromFlowcraftLLMNode(v FlowcraftLLMNode) error {
-	v.Type = "llm"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFlowcraftLLMNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftLLMNode
-func (t *FlowcraftNode) MergeFlowcraftLLMNode(v FlowcraftLLMNode) error {
-	v.Type = "llm"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsFlowcraftScriptNode returns the union data inside the FlowcraftNode as a FlowcraftScriptNode
-func (t FlowcraftNode) AsFlowcraftScriptNode() (FlowcraftScriptNode, error) {
-	var body FlowcraftScriptNode
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFlowcraftScriptNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftScriptNode
-func (t *FlowcraftNode) FromFlowcraftScriptNode(v FlowcraftScriptNode) error {
-	v.Type = "script"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFlowcraftScriptNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftScriptNode
-func (t *FlowcraftNode) MergeFlowcraftScriptNode(v FlowcraftScriptNode) error {
-	v.Type = "script"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsFlowcraftPassthroughNode returns the union data inside the FlowcraftNode as a FlowcraftPassthroughNode
-func (t FlowcraftNode) AsFlowcraftPassthroughNode() (FlowcraftPassthroughNode, error) {
-	var body FlowcraftPassthroughNode
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFlowcraftPassthroughNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftPassthroughNode
-func (t *FlowcraftNode) FromFlowcraftPassthroughNode(v FlowcraftPassthroughNode) error {
-	v.Type = "passthrough"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFlowcraftPassthroughNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftPassthroughNode
-func (t *FlowcraftNode) MergeFlowcraftPassthroughNode(v FlowcraftPassthroughNode) error {
-	v.Type = "passthrough"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsFlowcraftMemoryRecallNode returns the union data inside the FlowcraftNode as a FlowcraftMemoryRecallNode
-func (t FlowcraftNode) AsFlowcraftMemoryRecallNode() (FlowcraftMemoryRecallNode, error) {
-	var body FlowcraftMemoryRecallNode
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFlowcraftMemoryRecallNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftMemoryRecallNode
-func (t *FlowcraftNode) FromFlowcraftMemoryRecallNode(v FlowcraftMemoryRecallNode) error {
-	v.Type = "memory_recall"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFlowcraftMemoryRecallNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftMemoryRecallNode
-func (t *FlowcraftNode) MergeFlowcraftMemoryRecallNode(v FlowcraftMemoryRecallNode) error {
-	v.Type = "memory_recall"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsFlowcraftMemoryObserveNode returns the union data inside the FlowcraftNode as a FlowcraftMemoryObserveNode
-func (t FlowcraftNode) AsFlowcraftMemoryObserveNode() (FlowcraftMemoryObserveNode, error) {
-	var body FlowcraftMemoryObserveNode
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFlowcraftMemoryObserveNode overwrites any union data inside the FlowcraftNode as the provided FlowcraftMemoryObserveNode
-func (t *FlowcraftNode) FromFlowcraftMemoryObserveNode(v FlowcraftMemoryObserveNode) error {
-	v.Type = "memory_observe"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFlowcraftMemoryObserveNode performs a merge with any union data inside the FlowcraftNode, using the provided FlowcraftMemoryObserveNode
-func (t *FlowcraftNode) MergeFlowcraftMemoryObserveNode(v FlowcraftMemoryObserveNode) error {
-	v.Type = "memory_observe"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-func (t FlowcraftNode) Discriminator() (string, error) {
-	var discriminator struct {
-		Discriminator string `json:"type"`
-	}
-	err := json.Unmarshal(t.union, &discriminator)
-	return discriminator.Discriminator, err
-}
-
-func (t FlowcraftNode) ValueByDiscriminator() (interface{}, error) {
-	discriminator, err := t.Discriminator()
-	if err != nil {
-		return nil, err
-	}
-	switch discriminator {
-	case "llm":
-		return t.AsFlowcraftLLMNode()
-	case "memory_observe":
-		return t.AsFlowcraftMemoryObserveNode()
-	case "memory_recall":
-		return t.AsFlowcraftMemoryRecallNode()
-	case "passthrough":
-		return t.AsFlowcraftPassthroughNode()
-	case "script":
-		return t.AsFlowcraftScriptNode()
-	default:
-		return nil, errors.New("unknown discriminator value: " + discriminator)
-	}
-}
-
-func (t FlowcraftNode) MarshalJSON() ([]byte, error) {
-	b, err := t.union.MarshalJSON()
-	return b, err
-}
-
-func (t *FlowcraftNode) UnmarshalJSON(b []byte) error {
-	err := t.union.UnmarshalJSON(b)
-	return err
-}
-
 // AsMhsV0WifiReadResult returns the union data inside the MhsV0ReadResult as a MhsV0WifiReadResult
 func (t MhsV0ReadResult) AsMhsV0WifiReadResult() (MhsV0WifiReadResult, error) {
 	var body MhsV0WifiReadResult
@@ -10048,118 +9200,6 @@ func (t *Resource) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsRuntimeProfileFlowcraftBBHConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftBBHConnection
-func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftBBHConnection() (RuntimeProfileFlowcraftBBHConnection, error) {
-	var body RuntimeProfileFlowcraftBBHConnection
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRuntimeProfileFlowcraftBBHConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftBBHConnection
-func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftBBHConnection(v RuntimeProfileFlowcraftBBHConnection) error {
-	v.Type = "flowcraft_bbh"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRuntimeProfileFlowcraftBBHConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftBBHConnection
-func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftBBHConnection(v RuntimeProfileFlowcraftBBHConnection) error {
-	v.Type = "flowcraft_bbh"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsRuntimeProfileFlowcraftObjectStoreConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftObjectStoreConnection
-func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftObjectStoreConnection() (RuntimeProfileFlowcraftObjectStoreConnection, error) {
-	var body RuntimeProfileFlowcraftObjectStoreConnection
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRuntimeProfileFlowcraftObjectStoreConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftObjectStoreConnection
-func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
-	v.Type = "flowcraft_object_store"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRuntimeProfileFlowcraftObjectStoreConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftObjectStoreConnection
-func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftObjectStoreConnection(v RuntimeProfileFlowcraftObjectStoreConnection) error {
-	v.Type = "flowcraft_object_store"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsRuntimeProfileFlowcraftPostgreSQLConnection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftPostgreSQLConnection
-func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftPostgreSQLConnection() (RuntimeProfileFlowcraftPostgreSQLConnection, error) {
-	var body RuntimeProfileFlowcraftPostgreSQLConnection
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRuntimeProfileFlowcraftPostgreSQLConnection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftPostgreSQLConnection
-func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftPostgreSQLConnection(v RuntimeProfileFlowcraftPostgreSQLConnection) error {
-	v.Type = "flowcraft_postgresql"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRuntimeProfileFlowcraftPostgreSQLConnection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftPostgreSQLConnection
-func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftPostgreSQLConnection(v RuntimeProfileFlowcraftPostgreSQLConnection) error {
-	v.Type = "flowcraft_postgresql"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
-// AsRuntimeProfileFlowcraftRedis8Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileFlowcraftRedis8Connection
-func (t RuntimeProfileMemoryConnection) AsRuntimeProfileFlowcraftRedis8Connection() (RuntimeProfileFlowcraftRedis8Connection, error) {
-	var body RuntimeProfileFlowcraftRedis8Connection
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromRuntimeProfileFlowcraftRedis8Connection overwrites any union data inside the RuntimeProfileMemoryConnection as the provided RuntimeProfileFlowcraftRedis8Connection
-func (t *RuntimeProfileMemoryConnection) FromRuntimeProfileFlowcraftRedis8Connection(v RuntimeProfileFlowcraftRedis8Connection) error {
-	v.Type = "flowcraft_redis8"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeRuntimeProfileFlowcraftRedis8Connection performs a merge with any union data inside the RuntimeProfileMemoryConnection, using the provided RuntimeProfileFlowcraftRedis8Connection
-func (t *RuntimeProfileMemoryConnection) MergeRuntimeProfileFlowcraftRedis8Connection(v RuntimeProfileFlowcraftRedis8Connection) error {
-	v.Type = "flowcraft_redis8"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsRuntimeProfileMem0Connection returns the union data inside the RuntimeProfileMemoryConnection as a RuntimeProfileMem0Connection
 func (t RuntimeProfileMemoryConnection) AsRuntimeProfileMem0Connection() (RuntimeProfileMem0Connection, error) {
 	var body RuntimeProfileMem0Connection
@@ -10258,14 +9298,6 @@ func (t RuntimeProfileMemoryConnection) ValueByDiscriminator() (interface{}, err
 		return nil, err
 	}
 	switch discriminator {
-	case "flowcraft_bbh":
-		return t.AsRuntimeProfileFlowcraftBBHConnection()
-	case "flowcraft_object_store":
-		return t.AsRuntimeProfileFlowcraftObjectStoreConnection()
-	case "flowcraft_postgresql":
-		return t.AsRuntimeProfileFlowcraftPostgreSQLConnection()
-	case "flowcraft_redis8":
-		return t.AsRuntimeProfileFlowcraftRedis8Connection()
 	case "mem0":
 		return t.AsRuntimeProfileMem0Connection()
 	case "mem0_self_hosted":
@@ -10844,34 +9876,6 @@ func (t *VoiceProviderData) UnmarshalJSON(b []byte) error {
 	return err
 }
 
-// AsFlowcraftWorkspaceParameters returns the union data inside the WorkspaceParameters as a FlowcraftWorkspaceParameters
-func (t WorkspaceParameters) AsFlowcraftWorkspaceParameters() (FlowcraftWorkspaceParameters, error) {
-	var body FlowcraftWorkspaceParameters
-	err := json.Unmarshal(t.union, &body)
-	return body, err
-}
-
-// FromFlowcraftWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided FlowcraftWorkspaceParameters
-func (t *WorkspaceParameters) FromFlowcraftWorkspaceParameters(v FlowcraftWorkspaceParameters) error {
-	v.AgentType = "flowcraft"
-	b, err := json.Marshal(v)
-	t.union = b
-	return err
-}
-
-// MergeFlowcraftWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided FlowcraftWorkspaceParameters
-func (t *WorkspaceParameters) MergeFlowcraftWorkspaceParameters(v FlowcraftWorkspaceParameters) error {
-	v.AgentType = "flowcraft"
-	b, err := json.Marshal(v)
-	if err != nil {
-		return err
-	}
-
-	merged, err := runtime.JSONMerge(t.union, b)
-	t.union = merged
-	return err
-}
-
 // AsDoubaoRealtimeWorkspaceParameters returns the union data inside the WorkspaceParameters as a DoubaoRealtimeWorkspaceParameters
 func (t WorkspaceParameters) AsDoubaoRealtimeWorkspaceParameters() (DoubaoRealtimeWorkspaceParameters, error) {
 	var body DoubaoRealtimeWorkspaceParameters
@@ -11036,8 +10040,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (interface{}, error) {
 		return t.AsDoubaoRealtimeDuplexWorkspaceParameters()
 	case "eino":
 		return t.AsEinoWorkspaceParameters()
-	case "flowcraft":
-		return t.AsFlowcraftWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

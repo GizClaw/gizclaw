@@ -90,5 +90,5 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" run --rm seed -server server:9820 -profile-id speaker-segments -token-id speaker-segments -token monitor-test -speaker-segments
 "${compose[@]}" run --rm test \
   /src/tests/gizclaw-e2e/giztest/speaker-segments.eino.realtime.giztest.yaml \
-  /src/tests/gizclaw-e2e/giztest/speaker-segments.flowcraft.realtime.giztest.yaml \
+  /src/tests/gizclaw-e2e/giztest/speaker-segments.eino.realtime.giztest.yaml \
   --output /reports/giztest.json

@@ -422,7 +422,7 @@ func TestServerSystemWorkspaceLifecycle(t *testing.T) {
 		t.Fatalf("PutWorkspace(system conflicting toolkit) response = %#v", conflictingToolkit)
 	}
 	conflictingParameters := apitypes.WorkspaceParameters{}
-	if err := conflictingParameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{}); err != nil {
+	if err := conflictingParameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{}); err != nil {
 		t.Fatalf("encode conflicting parameters: %v", err)
 	}
 	conflictingPutBody := putBody
@@ -1071,14 +1071,14 @@ func TestServerWorkspaceConflictAndMissingDelete(t *testing.T) {
 	}
 }
 
-func TestServerDefersDirectFlowcraftAliasesToOwnerRuntimeProfile(t *testing.T) {
+func TestServerDefersDirectEinoPortedAliasesToOwnerRuntimeProfile(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	seedFlowcraftWorkflow(t, srv, "model-service-missing", "chat-alias")
+	seedEinoPortedWorkflow(t, srv, "model-service-missing", "chat-alias")
 	srv.Models = nil
-	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_id":"model-service-missing","parameters":{"agent_type":"flowcraft"}}`)
+	body := mustWorkspaceUpsert(t, `{"name":"model-service-missing","workflow_id":"model-service-missing","parameters":{"agent_type":"eino"}}`)
 	resp, err := createWorkspaceForTest(srv, ctx, createWorkspaceRequestObject{Body: &body})
 	if err != nil {
 		t.Fatalf("CreateWorkspace(model service missing) error = %v", err)
@@ -1088,14 +1088,14 @@ func TestServerDefersDirectFlowcraftAliasesToOwnerRuntimeProfile(t *testing.T) {
 	}
 }
 
-func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
+func TestServerValidatesRuntimeEinoPortedModelAliases(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "flowcraft-chat", "generate-model")
+	seedEinoPortedWorkflow(t, srv, "eino-chat", "generate-model")
 	seedModel(t, srv, "chat-model", apitypes.ModelKindLlm)
 	ctx := WithRuntimeModelBindings(
-		WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "flowcraft-chat"}),
+		WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "eino-chat"}),
 		map[string]string{
 			"generate-model": "chat-model",
 		},
@@ -1121,8 +1121,8 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	var validWorkspaceID string
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testCtx := WithRuntimeModelBindings(WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "flowcraft-chat"}), tt.bindings)
-			body := mustWorkspaceUpsert(t, fmt.Sprintf(`{"name":%q,"workflow_id":"flowcraft-chat","parameters":{"agent_type":"flowcraft"}}`, "runtime-"+strings.ReplaceAll(tt.name, " ", "-")))
+			testCtx := WithRuntimeModelBindings(WithRuntimeWorkflowBindings(context.Background(), map[string]string{"2fa-chat": "eino-chat"}), tt.bindings)
+			body := mustWorkspaceUpsert(t, fmt.Sprintf(`{"name":%q,"workflow_id":"eino-chat","parameters":{"agent_type":"eino"}}`, "runtime-"+strings.ReplaceAll(tt.name, " ", "-")))
 			resp, err := createWorkspaceForTest(srv, testCtx, createWorkspaceRequestObject{Body: &body})
 			if err != nil {
 				t.Fatalf("CreateWorkspace() error = %v", err)
@@ -1155,11 +1155,11 @@ func TestServerValidatesRuntimeFlowcraftModelAliases(t *testing.T) {
 	if !ok {
 		t.Fatalf("GetWorkspace(runtime-valid) response = %#v", getResp)
 	}
-	parameters, err := stored.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err := stored.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatalf("stored Workspace parameters: %v", err)
 	}
-	if parameters.AgentType != apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft {
+	if parameters.AgentType != apitypes.EinoWorkspaceParametersAgentTypeEino {
 		t.Fatalf("stored Workspace parameters = %#v", parameters)
 	}
 }
@@ -1548,13 +1548,13 @@ func seedWorkflow(t *testing.T, srv *Server, name string) {
 	}
 }
 
-func seedFlowcraftWorkflow(t *testing.T, srv *Server, name, generateModel string) {
+func seedEinoPortedWorkflow(t *testing.T, srv *Server, name, generateModel string) {
 	t.Helper()
 
 	store := testWorkflowStore(t, srv)
-	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"flowcraft","flowcraft":{"graph":{"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":%q}}]}}}}`, name, generateModel)
+	body := fmt.Appendf(nil, `{"name":%q,"spec":{"driver":"eino","eino":{"graph":{"name":"Assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":%q,"inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`, name, generateModel)
 	if err := store.Set(context.Background(), workflowReferenceKey(name), body); err != nil {
-		t.Fatalf("seed flowcraft workflow %q: %v", name, err)
+		t.Fatalf("seed eino workflow %q: %v", name, err)
 	}
 }
 

@@ -25,7 +25,7 @@ dock, err := audiodock.New(audiodock.Config{
 
 每个 child Transformer 仍然负责自己创建的 StreamID 或 MIME channel。Audio Dock 原样保留无关的透传 route，并按 child 原始的 `(StreamID, canonical MIME)` key 验证每个 child TTS lifecycle；data-before-BOS、duplicate BOS、EOS 后继续输出、missing EOS 或完全没有 MIME lifecycle 都是 route error。多个 publisher 为同一个最终 MIME channel 合成时，Audio Dock 把已验证的 child boundary 合并为一个最终 BOS 和一个最终 EOS；它只负责这个 remap 后的最终 route，不修补不合规的 child 生命周期。
 
-`ResolveVoice` 接收 response StreamID、输出 node/name 与 chunk metadata，返回交给 TTS mux 的 pattern。同一个 response 内的每个具名 publisher 都会独立解析，因此并行 Flowcraft publisher 可以共用 response StreamID、但使用不同 voice。返回空 pattern 时只保留该 publisher 的文本，不合成音频。RuntimeProfile alias 的解析属于产品 factory，不属于 Audio Dock。
+`ResolveVoice` 接收 response StreamID、输出 node/name 与 chunk metadata，返回交给 TTS mux 的 pattern。同一个 response 内的每个具名 publisher 都会独立解析，具名 publisher 可以使用不同 voice。返回空 pattern 时只保留该 publisher 的文本，不合成音频。RuntimeProfile alias 的解析属于产品 factory，不属于 Audio Dock。
 
 一个 Dock 可以并发处理多个 `Transform`。ASR session、Agent run、voice、TTS session、buffer、取消和错误都属于单次调用及其 StreamID；一个 route 失败不会终止其他调用。输出使用可增长内部队列，因此 producer 不依赖消费者及时 pull 才能继续读取 provider stream。
 

@@ -1003,75 +1003,6 @@ export type Icon = {
     png?: string;
 };
 
-export type FlowcraftMemoryBbhPolicy = {
-    search_overfetch?: number;
-    bleve?: FlowcraftMemoryBlevePolicy;
-    hnsw?: FlowcraftMemoryHnswPolicy;
-};
-
-export type FlowcraftMemoryBlevePolicy = {
-    analyzer?: 'standard' | 'simple' | 'keyword' | 'whitespace' | 'gojieba';
-    gojieba?: FlowcraftMemoryGojiebaPolicy;
-};
-
-export type FlowcraftMemoryExtractionPolicy = {
-    /**
-     * Whether Flowcraft extracts Facts from raw observations. Defaults to true; direct Graph Facts remain writable when false.
-     */
-    enabled?: boolean;
-    model: string;
-    mode: 'single_pass' | 'two_pass';
-    system_prompt?: string;
-    schema_name?: string;
-    temperature?: number;
-    stage_timeout?: string;
-};
-
-export type FlowcraftMemoryGojiebaPolicy = {
-    mode?: 'search' | 'full' | 'accurate';
-    hmm?: boolean;
-    dict_path?: string;
-    hmm_path?: string;
-    user_dict_path?: string;
-    idf_path?: string;
-    stop_words_path?: string;
-};
-
-export type FlowcraftMemoryHnswPolicy = {
-    flush_interval?: string;
-};
-
-export type FlowcraftMemoryLanePolicy = {
-    name: string;
-    kind: 'event' | 'state' | 'preference' | 'procedure' | 'relation' | 'plan' | 'note' | 'episode';
-    description?: string;
-    extract?: string;
-    recall?: string;
-};
-
-export type FlowcraftMemoryLayoutPolicy = {
-    /**
-     * Maps Scope.AppID to the Workspace ID or the owner Peer identity (Flowcraft RuntimeID).
-     */
-    scope?: 'workspace' | 'peer';
-    extraction: FlowcraftMemoryExtractionPolicy;
-    embedding?: FlowcraftMemoryModelPolicy;
-    rerank?: FlowcraftMemoryModelPolicy;
-    bbh?: FlowcraftMemoryBbhPolicy;
-    lanes: Array<FlowcraftMemoryLanePolicy>;
-    graph_enabled?: boolean;
-    write: FlowcraftMemoryWritePolicy;
-};
-
-export type FlowcraftMemoryModelPolicy = {
-    model: string;
-};
-
-export type FlowcraftMemoryWritePolicy = {
-    mode: 'sync' | 'async_semantic';
-    tier: 'core' | 'general' | 'data' | 'storage';
-};
-
 export type Mem0MemoryLayoutPolicy = {
     /**
      * Maps Scope.AppID to the Workspace ID or the owner Peer identity (Mem0 app_id).
@@ -1105,7 +1036,6 @@ export type MemoryLayout = {
 };
 
 export type MemoryLayoutSpec = {
-    flowcraft: FlowcraftMemoryLayoutPolicy;
     mem0: Mem0MemoryLayoutPolicy;
     mem0_self_hosted?: Mem0SelfHostedMemoryLayoutPolicy;
     volc_mem0: VolcMem0MemoryLayoutPolicy;
@@ -1546,26 +1476,6 @@ export type RuntimeProfileBinding = {
     audio_input?: AudioInputPath;
 };
 
-export type RuntimeProfileFlowcraftBbhConnection = {
-    type: 'flowcraft_bbh';
-};
-
-export type RuntimeProfileFlowcraftObjectStoreConnection = {
-    type: 'flowcraft_object_store';
-    directory: string;
-};
-
-export type RuntimeProfileFlowcraftPostgreSqlConnection = {
-    type: 'flowcraft_postgresql';
-    dsn: string;
-};
-
-export type RuntimeProfileFlowcraftRedis8Connection = {
-    type: 'flowcraft_redis8';
-    url: string;
-    tls_ca_file?: string;
-};
-
 export type RuntimeProfileI18nText = {
     display_name: string;
     description?: string;
@@ -1601,14 +1511,6 @@ export type RuntimeProfileMemoryBinding = {
 };
 
 export type RuntimeProfileMemoryConnection = ({
-    type: 'flowcraft_bbh';
-} & RuntimeProfileFlowcraftBbhConnection) | ({
-    type: 'flowcraft_object_store';
-} & RuntimeProfileFlowcraftObjectStoreConnection) | ({
-    type: 'flowcraft_postgresql';
-} & RuntimeProfileFlowcraftPostgreSqlConnection) | ({
-    type: 'flowcraft_redis8';
-} & RuntimeProfileFlowcraftRedis8Connection) | ({
     type: 'mem0';
 } & RuntimeProfileMem0Connection) | ({
     type: 'mem0_self_hosted';
@@ -1616,7 +1518,7 @@ export type RuntimeProfileMemoryConnection = ({
     type: 'volc_mem0';
 } & RuntimeProfileVolcMem0Connection);
 
-export type RuntimeProfileMemoryDriver = 'flowcraft' | 'mem0' | 'volc_mem0';
+export type RuntimeProfileMemoryDriver = 'mem0' | 'volc_mem0';
 
 export type RuntimeProfileMhs = {
     v0?: MhsV0Manifest;
@@ -2085,13 +1987,6 @@ export type ReusableEinoWorkflowVariant = {
     eino: EinoWorkflowSpec;
 };
 
-export type ReusableFlowcraftWorkflowVariant = {
-    driver: 'flowcraft';
-    toolkit?: ToolkitPolicy;
-    memory?: WorkflowMemoryAlias;
-    flowcraft: FlowcraftWorkflowSpec;
-};
-
 export type SfuWorkflowVariant = {
     driver: 'sfu';
     sfu: SfuWorkflowSpec;
@@ -2106,8 +2001,6 @@ export type WorkflowMemoryAlias = string;
  * Workflow union: one reusable variant or the SFU variant.
  */
 export type WorkflowSpec = ({
-    driver: 'flowcraft';
-} & ReusableFlowcraftWorkflowVariant) | ({
     driver: 'doubao-realtime';
 } & ReusableDoubaoRealtimeWorkflowVariant) | ({
     driver: 'dashscope-realtime';
@@ -2411,6 +2304,10 @@ export type EinoGraphCompile = {
     fan_in?: {
         [key: string]: EinoFanIn;
     };
+    /**
+     * fixed requires the primary output on every path; first_output selects the first emitted public output and records all delivered public content.
+     */
+    primary_output_mode?: 'fixed' | 'first_output';
 };
 
 export type EinoLimits = {
@@ -2424,6 +2321,12 @@ export type EinoMemoryFact = {
     };
 };
 
+export type EinoMemoryFilter = {
+    field: string;
+    operator: 'eq' | 'ne' | 'in' | 'not_in' | 'exists' | 'gt' | 'gte' | 'lt' | 'lte';
+    value?: unknown;
+};
+
 export type EinoMemoryObserveNode = EinoNodeBase & {
     id: string;
     type: 'memory_observe';
@@ -2433,8 +2336,10 @@ export type EinoMemoryObserveNode = EinoNodeBase & {
     outputs?: {
         [key: string]: string;
     };
-    facts: Array<EinoMemoryFact>;
+    facts?: Array<EinoMemoryFact>;
     wait_for_completion?: boolean;
+    text_from?: string;
+    turns_from?: string;
 };
 
 export type EinoMemoryRecallNode = EinoNodeBase & {
@@ -2449,6 +2354,7 @@ export type EinoMemoryRecallNode = EinoNodeBase & {
     query_from: string;
     output: string;
     top_k: number;
+    filters?: Array<EinoMemoryFilter>;
 };
 
 export type EinoNode = ({
@@ -2591,6 +2497,10 @@ export type EinoStateField = {
     merge: 'replace' | 'append' | 'object_merge';
 };
 
+export type EinoStatePersistence = {
+    fields: Array<string>;
+};
+
 export type EinoSubgraphNode = EinoNodeBase & {
     id: string;
     type: 'subgraph';
@@ -2631,149 +2541,7 @@ export type EinoWorkflowSpec = {
     conversation?: EinoConversation;
     limits?: EinoLimits;
     voice_adapter?: VoiceAdapter;
-};
-
-export type FlowcraftConversation = {
-    starts?: 'peer' | 'agent';
-};
-
-export type FlowcraftEdge = {
-    from: string;
-    to: string;
-    condition?: string;
-};
-
-export type FlowcraftGraph = {
-    id?: string;
-    name: string;
-    entry: string;
-    nodes: Array<FlowcraftNode>;
-    edges?: Array<FlowcraftEdge>;
-};
-
-export type FlowcraftLlmNode = FlowcraftNodeBase & {
-    id?: string;
-    type: 'llm';
-    publish?: boolean;
-    skip_condition?: string;
-    config: FlowcraftLlmNodeConfig;
-};
-
-export type FlowcraftLlmNodeConfig = {
-    model: string;
-    system_prompt?: string;
-    temperature?: number;
-    max_tokens?: number;
-    output_key?: string;
-    messages_channel?: string;
-    json_mode?: boolean;
-    thinking?: boolean;
-    track_steps?: boolean;
-};
-
-export type FlowcraftMemoryFact = {
-    text_from: string;
-    attributes?: {
-        [key: string]: string;
-    };
-};
-
-export type FlowcraftMemoryFilter = {
-    field: string;
-    operator?: 'eq';
-    value: unknown;
-};
-
-export type FlowcraftMemoryObservation = {
-    turns_from?: string;
-    text_from?: string;
-    facts?: Array<FlowcraftMemoryFact>;
-};
-
-export type FlowcraftMemoryObserveNode = {
-    id: string;
-    type: 'memory_observe';
-    publish?: boolean;
-    skip_condition?: string;
-    config: FlowcraftMemoryObserveNodeConfig;
-};
-
-export type FlowcraftMemoryObserveNodeConfig = {
-    observations: Array<FlowcraftMemoryObservation>;
-    wait_for_completion?: boolean;
-};
-
-export type FlowcraftMemoryRecallNode = {
-    id: string;
-    type: 'memory_recall';
-    publish?: boolean;
-    skip_condition?: string;
-    config: FlowcraftMemoryRecallNodeConfig;
-};
-
-export type FlowcraftMemoryRecallNodeConfig = {
-    query: FlowcraftMemoryRecallQuery;
-    output: string;
-    render?: FlowcraftMemoryRecallRender;
-    top_k: number;
-};
-
-export type FlowcraftMemoryRecallQuery = {
-    text_from: string;
-    kinds?: Array<'event' | 'state' | 'preference' | 'procedure' | 'relation' | 'plan' | 'note' | 'episode'>;
-    lanes?: Array<string>;
-    filters?: Array<FlowcraftMemoryFilter>;
-};
-
-export type FlowcraftMemoryRecallRender = {
-    header?: string;
-    item_prefix?: string;
-    max_items?: number;
-};
-
-export type FlowcraftNode = ({
-    type: 'llm';
-} & FlowcraftLlmNode) | ({
-    type: 'script';
-} & FlowcraftScriptNode) | ({
-    type: 'passthrough';
-} & FlowcraftPassthroughNode) | ({
-    type: 'memory_recall';
-} & FlowcraftMemoryRecallNode) | ({
-    type: 'memory_observe';
-} & FlowcraftMemoryObserveNode);
-
-export type FlowcraftNodeBase = {
-    id: string;
-    type: string;
-    publish?: boolean;
-    skip_condition?: string;
-};
-
-export type FlowcraftPassthroughNode = {
-    id: string;
-    type: 'passthrough';
-    publish?: boolean;
-    skip_condition?: string;
-};
-
-export type FlowcraftScriptNode = FlowcraftNodeBase & {
-    id?: string;
-    type: 'script';
-    publish?: boolean;
-    skip_condition?: string;
-    config: FlowcraftScriptNodeConfig;
-};
-
-export type FlowcraftScriptNodeConfig = {
-    source: string;
-};
-
-export type FlowcraftWorkflowSpec = {
-    graph: FlowcraftGraph;
-    max_iterations?: number;
-    conversation?: FlowcraftConversation;
-    voice_adapter?: VoiceAdapter;
+    state_persistence?: EinoStatePersistence;
 };
 
 /**
@@ -2965,21 +2733,6 @@ export type EinoWorkspaceParameters = {
     e2e?: boolean;
 };
 
-export type FlowcraftWorkspaceParameters = {
-    agent_type: 'flowcraft';
-    input?: WorkspaceInputMode;
-    conversation?: ConversationParameters;
-    safety_fence_level?: SafetyFenceLevel;
-    /**
-     * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.
-     */
-    tts_speech_rate_percent?: number;
-    /**
-     * Marks seed resources used by the local e2e harness.
-     */
-    e2e?: boolean;
-};
-
 /**
  * Stable identifier of a complete safety fence prompt in the bound RuntimeProfile. The profile defines all available identifiers and prompts.
  */
@@ -2991,8 +2744,6 @@ export type WorkspaceInputMode = 'push-to-talk' | 'realtime';
  * Agent-specific workspace parameters. The shape is selected by agent_type.
  */
 export type WorkspaceParameters = ({
-    agent_type: 'flowcraft';
-} & FlowcraftWorkspaceParameters) | ({
     agent_type: 'doubao-realtime';
 } & DoubaoRealtimeWorkspaceParameters) | ({
     agent_type: 'dashscope-realtime';

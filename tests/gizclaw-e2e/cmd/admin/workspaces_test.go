@@ -31,7 +31,7 @@ func TestAdminWorkspacesUserStory(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create admin API client: %v", err)
 	}
-	workflowName := "flowcraft-chat-assistant"
+	workflowName := "eino-chat-assistant"
 	profileID := fmt.Sprintf("e2e-cli-workspaces-%x", time.Now().UnixNano())
 	resources, err := clitest.SetupRuntimeResources(ctx, api)
 	if err != nil {

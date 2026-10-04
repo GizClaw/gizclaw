@@ -9,7 +9,7 @@ import (
 )
 
 func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
-	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverFlowcraft, apitypes.WorkflowDriverEino, apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverAstTranslate} {
+	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverEino, apitypes.WorkflowDriverEino, apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverAstTranslate} {
 		t.Run(string(driver), func(t *testing.T) {
 			var parameters *apitypes.WorkspaceParameters
 			for _, level := range []apitypes.SafetyFenceLevel{apitypes.SafetyFenceLevel("general"), apitypes.SafetyFenceLevel("child"), apitypes.SafetyFenceLevel("off")} {
@@ -49,10 +49,10 @@ func TestSafetyFencePatchRoundTripAndPreservation(t *testing.T) {
 
 func TestCreateAndPutRejectInvalidSafetyFence(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
-	invalid := flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: new(apitypes.SafetyFenceLevel("bad space"))})
+	invalid := einoInputParameters(t, apitypes.EinoWorkspaceParameters{AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino, SafetyFenceLevel: new(apitypes.SafetyFenceLevel("bad space"))})
 	if _, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{Name: "bad", WorkflowID: "workflow-1", Parameters: invalid}); err == nil {
 		t.Fatal("create accepted invalid level")
 	}

@@ -21,12 +21,13 @@ import (
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
-	flowcraftagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/jmoiron/sqlx"
 )
 
 const (
@@ -41,6 +42,7 @@ type Factory struct {
 	GenX         *peergenx.Service
 	GenXForOwner func(context.Context, string) (*peergenx.Service, error)
 	History      logstore.MutableStore
+	State        *sqlx.DB
 	MemoryStores *memorystore.Registry
 	ServerRoot   string
 }
@@ -91,7 +93,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, err
 		}
 	}
-	scope := flowcraftagent.WorkspaceAgentScope(owner, workspaceID, workspaceID)
+	scope := agenthost.WorkspaceAgentScope(owner, workspaceID, workspaceID)
 	config := genxeino.Config{
 		Agent: genxeino.AgentConfig{
 			ID:        workspaceID,
@@ -105,6 +107,17 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		History: &genxeino.HistoryConfig{
 			Store: f.History, Scope: scope, Limit: 50,
 		},
+	}
+	if public.StatePersistence != nil {
+		if f.State == nil {
+			return nil, fmt.Errorf("eino: state_persistence requires services.agent_host.eino.state_store")
+		}
+		initial := initialPersistentFields(graph.State.Fields, public.StatePersistence.Fields)
+		stateStore, err := graphstate.OpenScope(ctx, f.State, owner, workspaceID, workspaceID, initial)
+		if err != nil {
+			return nil, fmt.Errorf("eino: open Graph state: %w", err)
+		}
+		config.State = &genxeino.StatePersistenceConfig{Store: stateStore, Scope: scope, Fields: public.StatePersistence.Fields}
 	}
 	config.Initiative = mapInitiative(public.Conversation, spec.Workspace.Parameters)
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
@@ -130,8 +143,8 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			BindingName:     spec.MemoryName,
 			Layout:          *spec.MemoryLayout,
 			Binding:         *spec.MemoryBinding,
-			ModelLoader:     flowcraftagent.NewRuntimeMemoryLoader(service),
-			ServerRoot:      f.ServerRoot,
+
+			ServerRoot: f.ServerRoot,
 		}
 		memoryScope, err = memorystore.ScopeForRequest(request)
 		if err != nil {
@@ -197,6 +210,10 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.WorkspaceInputMode, error) {
 	if parameters == nil {
 		return apitypes.WorkspaceInputModePushToTalk, nil
+	}
+	driver, err := parameters.Discriminator()
+	if err != nil || driver != Type {
+		return "", fmt.Errorf("eino: unsupported workspace parameter variant %q", driver)
 	}
 	value, err := parameters.AsEinoWorkspaceParameters()
 	if err != nil {
@@ -1025,4 +1042,35 @@ func einoToolCall(call *genx.ToolCall, index int) (schema.ToolCall, error) {
 		Index: &index, ID: id, Type: "function",
 		Function: schema.FunctionCall{Name: name, Arguments: arguments},
 	}, nil
+}
+
+// Selected persistent fields start with their typed zero value on a new scope.
+func initialPersistentFields(fields []genxeino.StateField, selected []string) map[string]any {
+	result := make(map[string]any, len(selected))
+	for _, field := range fields {
+		if !slices.Contains(selected, field.Name) {
+			continue
+		}
+		switch field.Type {
+		case genxeino.StateString:
+			result[field.Name] = ""
+		case genxeino.StateBoolean:
+			result[field.Name] = false
+		case genxeino.StateInteger:
+			result[field.Name] = int64(0)
+		case genxeino.StateNumber:
+			result[field.Name] = float64(0)
+		case genxeino.StateObject:
+			result[field.Name] = map[string]any{}
+		case genxeino.StateList:
+			result[field.Name] = []any{}
+		case genxeino.StateMessages:
+			result[field.Name] = []*schema.Message{}
+		case genxeino.StateDocuments:
+			result[field.Name] = []*schema.Document{}
+		case genxeino.StateBlob:
+			result[field.Name] = []byte{}
+		}
+	}
+	return result
 }

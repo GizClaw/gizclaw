@@ -12,7 +12,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
@@ -87,7 +86,6 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 		doubaorealtime.Type,
 		doubaorealtimeduplex.Type,
 		eino.Type,
-		flowcraft.Type,
 		sfu.Type,
 	} {
 		t.Run(agentType, func(t *testing.T) {
@@ -96,19 +94,19 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 			}
 		})
 	}
-	registered, ok := got.Registry.Get(flowcraft.Type)
+	registered, ok := got.Registry.Get(eino.Type)
 	if !ok {
-		t.Fatal("flowcraft agent was not registered")
+		t.Fatal("Eino agent was not registered")
 	}
-	flowcraftFactory, ok := registered.(flowcraft.Factory)
+	statefulFactory, ok := registered.(eino.Factory)
 	if !ok {
-		t.Fatalf("flowcraft factory = %T, want flowcraft.Factory", registered)
+		t.Fatalf("Eino factory = %T, want eino.Factory", registered)
 	}
-	if flowcraftFactory.History != history {
-		t.Fatal("flowcraft factory did not receive history store")
+	if statefulFactory.History != history {
+		t.Fatal("Eino factory did not receive history store")
 	}
-	if flowcraftFactory.State != state {
-		t.Fatal("flowcraft factory did not receive state store")
+	if statefulFactory.State != state {
+		t.Fatal("Eino factory did not receive state store")
 	}
 	registered, ok = got.Registry.Get(eino.Type)
 	if !ok {

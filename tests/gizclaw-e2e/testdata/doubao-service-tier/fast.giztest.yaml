@@ -44,8 +44,8 @@ steps:
         name: ${workspace_name}
         workflow_name: doubao-fast
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
   - id: select_workspace
     client: peer
     rpc:

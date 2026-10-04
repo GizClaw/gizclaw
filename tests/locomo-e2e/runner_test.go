@@ -16,8 +16,9 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/GizClaw/flowcraft/sdk/llm"
 	memorystore "github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 )
 
 type benchmarkAnswerer interface {
@@ -25,7 +26,7 @@ type benchmarkAnswerer interface {
 }
 
 type llmAnswerer struct {
-	model llm.LLM
+	model answerModel
 }
 
 const answerSystemPrompt = "Answer using only the recalled memory evidence. Check that facts concern the person in the question. Combine relevant facts across memories, preserve negation, and calculate relative dates from the source conversation time rather than today's date. For lists and counts, include all supported distinct items. Return only a concise answer. If evidence is insufficient, return unknown."
@@ -37,19 +38,24 @@ func (a llmAnswerer) Answer(ctx context.Context, question string, matches []memo
 	for index, match := range matches {
 		fmt.Fprintf(&evidence, "[%d] %s\n", index+1, strings.TrimSpace(match.Fact.Text))
 	}
-	messages := []llm.Message{
-		llm.NewTextMessage(llm.RoleSystem, answerSystemPrompt),
-		llm.NewTextMessage(llm.RoleUser, "Memory evidence:\n"+evidence.String()+"\nQuestion: "+question),
+	var options []option.RequestOption
+	if a.model.provider == "bytedance" {
+		options = append(options, option.WithJSONSet("thinking", map[string]any{"type": "disabled"}))
 	}
-	message, _, err := a.model.Generate(ctx, messages,
-		llm.WithTemperature(0),
-		llm.WithMaxTokens(answerMaxTokens),
-		llm.WithThinking(false),
-	)
+	message, err := a.model.client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
+		Model: a.model.model,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(answerSystemPrompt),
+			openai.UserMessage("Memory evidence:\n" + evidence.String() + "\nQuestion: " + question),
+		}, Temperature: openai.Float(0), MaxTokens: openai.Int(answerMaxTokens),
+	}, options...)
 	if err != nil {
 		return "", err
 	}
-	answer := strings.TrimSpace(message.Content())
+	if len(message.Choices) == 0 {
+		return "", errors.New("answer model returned no choices")
+	}
+	answer := strings.TrimSpace(message.Choices[0].Message.Content)
 	if answer == "" {
 		return "", errors.New("answer model returned empty content")
 	}

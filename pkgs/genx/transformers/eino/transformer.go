@@ -435,6 +435,7 @@ func (transformer *Transformer) claimInitiative(ctx context.Context) (bool, erro
 }
 
 type outputRoute struct {
+	streamID   string
 	definition OutputDefinition
 	response   *streamkit.Response
 }
@@ -481,25 +482,30 @@ func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previ
 
 func (session *session) launch(run *turnRun, inputID string) <-chan struct{} {
 	cancel := run.cancel
+	run.automaticPrimary = session.transformer.graph.definition.Compile.PrimaryOutputMode == PrimaryFirstOutput
 	for _, output := range session.transformer.graph.definition.Outputs {
 		outputID := genx.NewStreamID()
 		streamlog.OutputRecorder(session.invocation.Context()).LinkOutput(inputID, outputID)
-		response, err := session.invocation.StartResponse(streamkit.ResponseConfig{
-			StreamID: outputID, Role: genx.RoleModel, Name: output.Name, Label: output.Name,
-		}, output.MIMEType)
-		if err != nil {
-			_ = session.invocation.Fail(err)
-			cancel(err)
-			close(run.done)
-			return run.done
+		route := outputRoute{definition: output, streamID: outputID}
+		if !run.automaticPrimary {
+			response, err := session.invocation.StartResponse(streamkit.ResponseConfig{
+				StreamID: outputID, Role: genx.RoleModel, Name: output.Name, Label: output.Name,
+			}, output.MIMEType)
+			if err != nil {
+				_ = session.invocation.Fail(err)
+				cancel(err)
+				close(run.done)
+				return run.done
+			}
+			route.response = response
 		}
-		route := outputRoute{definition: output, response: response}
 		run.routes[output.Name] = route
-		run.streamIDs[response.StreamID()] = struct{}{}
+		run.streamIDs[outputID] = struct{}{}
 		if output.Primary {
 			run.primary = route
 		}
 	}
+	run.anchorID = run.primary.streamID
 	session.mu.Lock()
 	for streamID := range run.streamIDs {
 		session.runs[streamID] = run
@@ -539,20 +545,24 @@ type turnRun struct {
 	previous     <-chan struct{}
 	done         chan struct{}
 
-	routes    map[string]outputRoute
-	primary   outputRoute
-	streamIDs map[string]struct{}
+	routes           map[string]outputRoute
+	primary          outputRoute
+	anchorID         string
+	automaticPrimary bool
+	primaryChosen    bool
+	streamIDs        map[string]struct{}
 
-	mu             sync.Mutex
-	accepting      bool
-	interrupted    bool
-	terminal       bool
-	initiative     bool
-	transcribed    bool
-	emittedPrimary int
-	deliveredBytes int
-	delivered      strings.Builder
-	changed        chan struct{}
+	mu               sync.Mutex
+	accepting        bool
+	interrupted      bool
+	terminal         bool
+	initiative       bool
+	transcribed      bool
+	emittedPrimary   int
+	deliveredBytes   int
+	delivered        strings.Builder
+	changed          chan struct{}
+	interruptionDone chan struct{}
 }
 
 func (run *turnRun) Emit(output OutputDefinition, value any) error {
@@ -577,13 +587,42 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 	if !ok {
 		return fmt.Errorf("eino: output route %q is not active", output.Name)
 	}
+	if route.response == nil {
+		var err error
+		route, err = run.startAutomaticRoute(route)
+		if err != nil {
+			return err
+		}
+	}
 	if err := run.session.invocation.Emit(route.response, chunk); err != nil {
 		return err
 	}
-	if output.Primary {
+	if run.automaticPrimary && !run.primaryChosen {
+		run.primary = route
+		run.primaryChosen = true
+	}
+	if output.Primary || run.automaticPrimary {
 		run.emittedPrimary += size
 	}
+
 	return nil
+}
+
+// startAutomaticRoute starts only a route that actually publishes. The caller
+// owns run.mu before calling this method.
+func (run *turnRun) startAutomaticRoute(route outputRoute) (outputRoute, error) {
+	response, err := run.session.invocation.StartResponse(streamkit.ResponseConfig{
+		StreamID: route.streamID, Role: genx.RoleModel, Name: route.definition.Name, Label: "assistant",
+	}, route.definition.MIMEType)
+	if err != nil {
+		return route, err
+	}
+	route.response = response
+	run.routes[route.definition.Name] = route
+	if err := run.session.invocation.Emit(response, newOutputRouteBegin(route.streamID, route.definition.MIMEType)); err != nil {
+		return route, err
+	}
+	return route, nil
 }
 
 func (run *turnRun) audioTurn() bool {
@@ -674,10 +713,15 @@ func historyUserAudioChunks(streamID string, audio []*genx.Blob) []*genx.Message
 }
 
 func (run *turnRun) observe(chunk *genx.MessageChunk) {
-	if chunk == nil || chunk.IsEndOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID != run.primary.response.StreamID() {
+	if chunk == nil || chunk.IsEndOfStream() || chunk.Ctrl == nil {
 		return
 	}
 	run.mu.Lock()
+	_, known := run.streamIDs[chunk.Ctrl.StreamID]
+	if !known || (!run.automaticPrimary && chunk.Ctrl.StreamID != run.primary.streamID) {
+		run.mu.Unlock()
+		return
+	}
 	switch part := chunk.Part.(type) {
 	case genx.Text:
 		run.delivered.WriteString(string(part))
@@ -709,10 +753,17 @@ func (run *turnRun) interrupt() {
 	}
 	run.interrupted = true
 	run.accepting = false
-	run.mu.Unlock()
-	run.cancel(errors.New("interrupted"))
+	run.interruptionDone = make(chan struct{})
+	cleanupDone := run.interruptionDone
+	routes := make([]outputRoute, 0, len(run.routes))
 	for _, route := range run.routes {
-		streamID := route.response.StreamID()
+		routes = append(routes, route)
+	}
+	run.mu.Unlock()
+	defer close(cleanupDone)
+	run.cancel(errors.New("interrupted"))
+	for _, route := range routes {
+		streamID := route.streamID
 		run.session.invocation.Output().Discard(func(chunk *genx.MessageChunk) bool {
 			return chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == streamID
 		})
@@ -740,7 +791,13 @@ func (run *turnRun) execute() {
 	run.mu.Unlock()
 	run.waitUntilDelivered()
 	run.mu.Lock()
+	cleanupDone := run.interruptionDone
 	run.terminal = true
+	run.mu.Unlock()
+	if cleanupDone != nil {
+		<-cleanupDone
+	}
+	run.mu.Lock()
 	delivered := run.delivered.String()
 	interrupted := run.interrupted
 	run.mu.Unlock()
@@ -774,6 +831,9 @@ func (run *turnRun) execute() {
 }
 
 func (run *turnRun) beginRoutes() error {
+	if run.automaticPrimary {
+		return nil
+	}
 	for _, output := range run.session.transformer.graph.definition.Outputs {
 		route, ok := run.routes[output.Name]
 		if !ok {
@@ -810,7 +870,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 		messages = append(messages, schemaUserMessage(run.user, run.parts))
 	}
 	state, err := newRunState(config.fields, graphInput{
-		ObservationID: run.primary.response.StreamID(),
+		ObservationID: run.anchorID,
 		Text:          run.user,
 		Messages:      messages,
 		Parts:         run.parts,
@@ -830,7 +890,10 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err := run.session.transformer.graph.execute(runContext, state); err != nil {
 		return state, version, err
 	}
-	if _, err := state.value(run.session.transformer.graph.primary.Field); err != nil {
+	if run.automaticPrimary && !run.primaryChosen {
+		return state, version, errors.New("eino: Graph did not publish any declared output")
+	}
+	if _, err := state.value(run.primary.definition.Field); err != nil {
 		return state, version, fmt.Errorf("eino: primary output was not produced: %w", err)
 	}
 	return state, version, nil
@@ -911,7 +974,7 @@ func (run *turnRun) finalize(ctx context.Context, state *runState, version, deli
 	if err := run.session.transformer.history.append(ctx, historyMessages(user, delivered), failed); err != nil {
 		return err
 	}
-	if err := observeMemory(ctx, run.session.transformer.config.Memory, state, run.primary.response.StreamID(), user, delivered, failed); err != nil {
+	if err := observeMemory(ctx, run.session.transformer.config.Memory, state, run.anchorID, user, delivered, failed); err != nil {
 		return err
 	}
 	if failed {
@@ -921,6 +984,16 @@ func (run *turnRun) finalize(ctx context.Context, state *runState, version, deli
 }
 
 func (run *turnRun) finishRoutes(errorText string, interrupted bool) {
+	run.mu.Lock()
+	if run.automaticPrimary && !run.primaryChosen {
+		route, err := run.startAutomaticRoute(run.primary)
+		if err != nil {
+			run.mu.Unlock()
+			_ = run.session.invocation.Fail(err)
+			return
+		}
+		run.primary = route
+	}
 	names := make([]string, 0, len(run.routes))
 	for name := range run.routes {
 		if name != run.primary.definition.Name {
@@ -929,8 +1002,15 @@ func (run *turnRun) finishRoutes(errorText string, interrupted bool) {
 	}
 	sort.Strings(names)
 	names = append(names, run.primary.definition.Name)
+	routes := make([]outputRoute, 0, len(names))
 	for _, name := range names {
-		route := run.routes[name]
+		routes = append(routes, run.routes[name])
+	}
+	run.mu.Unlock()
+	for _, route := range routes {
+		if route.response == nil {
+			continue
+		}
 		if interrupted {
 			_ = run.session.invocation.Interrupt(route.response, errorText)
 		} else {

@@ -17,7 +17,7 @@ const fixture = new URL(
 );
 const document: unknown = YAML.parse(readFileSync(fixture, "utf8"));
 const nodes = record(
-  record(record(record(document).spec).flowcraft).graph,
+  record(record(record(document).spec).eino).graph,
 ).nodes;
 if (!Array.isArray(nodes)) {
   throw new Error("tester workflow has no graph nodes");

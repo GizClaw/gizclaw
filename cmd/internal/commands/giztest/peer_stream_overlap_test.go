@@ -123,7 +123,7 @@ func TestOverlappingPeerInput(t *testing.T) {
 }
 
 func TestOverlappingInputDocuments(t *testing.T) {
-	for _, workflow := range []string{"doubao-realtime-conversation", "eino-concurrency-assistant", "flowcraft-voice-assistant"} {
+	for _, workflow := range []string{"doubao-realtime-conversation", "eino-concurrency-assistant", "eino-voice-assistant"} {
 		for _, mode := range []string{"push-to-talk", "realtime"} {
 			name := "../../../../tests/gizclaw-e2e/giztest/" + workflow + "." + mode + "-overlapping-input.giztest.yaml"
 			if _, err := giztest.LoadDocument(name, newDriver(false, nil)); err != nil {

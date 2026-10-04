@@ -48,10 +48,10 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       parameters:
-        flowcraft_workspace_parameters:
-          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
 # No selection runs unfenced even though the Profile defines levels.
 - id: unselected_reload
@@ -69,7 +69,7 @@ steps:
       parameters:
         safety_fence_level: alpha
   expect:
-    /parameters/flowcraft_workspace_parameters/safety_fence_level:
+    /parameters/eino_workspace_parameters/safety_fence_level:
       equals: alpha
 - id: get_alpha
   client: peer
@@ -78,7 +78,7 @@ steps:
     request:
       name: "${resource_name}"
   expect:
-    /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
+    /value/parameters/eino_workspace_parameters/safety_fence_level:
       equals: alpha
 - id: set_bravo
   client: peer
@@ -89,7 +89,7 @@ steps:
       parameters:
         safety_fence_level: bravo
   expect:
-    /parameters/flowcraft_workspace_parameters/safety_fence_level:
+    /parameters/eino_workspace_parameters/safety_fence_level:
       equals: bravo
 - id: get_bravo
   client: peer
@@ -98,7 +98,7 @@ steps:
     request:
       name: "${resource_name}"
   expect:
-    /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
+    /value/parameters/eino_workspace_parameters/safety_fence_level:
       equals: bravo
 - id: set_delta
   client: peer
@@ -109,7 +109,7 @@ steps:
       parameters:
         safety_fence_level: delta
   expect:
-    /parameters/flowcraft_workspace_parameters/safety_fence_level:
+    /parameters/eino_workspace_parameters/safety_fence_level:
       equals: delta
 - id: get_delta
   client: peer
@@ -118,7 +118,7 @@ steps:
     request:
       name: "${resource_name}"
   expect:
-    /value/parameters/flowcraft_workspace_parameters/safety_fence_level:
+    /value/parameters/eino_workspace_parameters/safety_fence_level:
       equals: delta
 - id: invalid_patch
   client: peer
@@ -146,10 +146,10 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}-invalid"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       parameters:
-        flowcraft_workspace_parameters:
-          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
           safety_fence_level: BAD
   expect_error:
     code: 3

@@ -34,23 +34,23 @@ set -a
 source "$docker_env_path"
 set +a
 
-flowcraft="$script_dir/giztest/benchmark.flowcraft-latency-comparison.voice-latency.giztest.yaml"
+eino="$script_dir/giztest/benchmark.eino-planner-latency-comparison.voice-latency.giztest.yaml"
 eino="$script_dir/giztest/benchmark.eino-latency-comparison.voice-latency.giztest.yaml"
 
 echo "==> warm up latency workflows"
-"$gizclaw_binary" test run --parallel 1 "$flowcraft"
+"$gizclaw_binary" test run --parallel 1 "$eino"
 "$gizclaw_binary" test run --parallel 1 "$eino"
 
 reports=()
 for pair in 1 2 3 4 5; do
 	if ((pair % 2 == 1)); then
-		order=(flowcraft eino)
+		order=(eino eino)
 	else
-		order=(eino flowcraft)
+		order=(eino eino)
 	fi
 	for driver in "${order[@]}"; do
 		case "$driver" in
-		flowcraft) test_file="$flowcraft" ;;
+		eino) test_file="$eino" ;;
 		eino) test_file="$eino" ;;
 		esac
 		report="$artifact_dir/runs/pair-${pair}-${driver}.json"
@@ -66,9 +66,9 @@ import sys
 
 output, *paths = sys.argv[1:]
 metrics = ("first_text_ms", "first_audio_ms", "text_eos_ms", "audio_eos_ms")
-samples = {"flowcraft": {key: [] for key in metrics}, "eino": {key: [] for key in metrics}}
+samples = {"eino": {key: [] for key in metrics}, "eino": {key: [] for key in metrics}}
 for path in paths:
-    driver = "flowcraft" if "flowcraft" in path else "eino"
+    driver = "eino" if "eino" in path else "eino"
     with open(path, encoding="utf-8") as handle:
         report = json.load(handle)
     if report.get("status") != "passed" or len(report.get("tasks", [])) != 1:

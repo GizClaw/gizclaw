@@ -405,11 +405,6 @@ func lifecycleCases(adminKey, peerKey string) []lifecycleCase {
 		{tier: 1, kind: "MemoryLayout", id: "tf-lc-memory", probe: []string{"mem0", "custom_instructions"},
 			spec: func(v string) map[string]any {
 				return map[string]any{
-					"flowcraft": map[string]any{
-						"extraction": map[string]any{"model": "tf-lc-chat", "mode": "two_pass"},
-						"lanes":      []any{map[string]any{"name": "owner_profile", "kind": "note"}},
-						"write":      map[string]any{"mode": "sync", "tier": "general"},
-					},
 					// The trailing newline is what a YAML block scalar produces;
 					// the Server trims it and refresh must still see no change.
 					"mem0": map[string]any{"custom_instructions": "Keep stable preferences " + v + ".\n"},
@@ -418,13 +413,16 @@ func lifecycleCases(adminKey, peerKey string) []lifecycleCase {
 					}}},
 				}
 			}},
-		{tier: 1, kind: "Workflow", id: "tf-lc-echo", probe: []string{"flowcraft", "graph", "name"},
+		{tier: 1, kind: "Workflow", id: "tf-lc-echo", probe: []string{"eino", "graph", "name"},
 			spec: func(v string) map[string]any {
-				return map[string]any{"driver": "flowcraft", "flowcraft": map[string]any{"graph": map[string]any{
-					"name":  "tf-lc-echo-" + v,
-					"entry": "passthrough",
-					"nodes": []any{map[string]any{"id": "passthrough", "type": "passthrough", "publish": true}},
-					"edges": []any{map[string]any{"from": "passthrough", "to": "__end__"}},
+				return map[string]any{"driver": "eino", "eino": map[string]any{"graph": map[string]any{
+					"name":     "tf-lc-echo-" + v,
+					"compile":  map[string]any{"node_trigger_mode": "any_predecessor"},
+					"state":    map[string]any{"fields": []any{map[string]any{"name": "answer", "type": "string", "merge": "replace"}}},
+					"nodes":    []any{map[string]any{"id": "passthrough", "type": "passthrough", "inputs": map[string]any{"value": map[string]any{"from": "input.text"}}, "outputs": map[string]any{"value": "answer"}}},
+					"edges":    []any{map[string]any{"from": "start", "to": "passthrough"}, map[string]any{"from": "passthrough", "to": "end"}},
+					"branches": []any{},
+					"outputs":  []any{map[string]any{"node": "passthrough", "field": "answer", "name": "assistant", "mime_type": "text/plain", "primary": true}},
 				}}}
 			}},
 		{tier: 1, kind: "Tool", id: "tf-lc-weather", probe: []string{"description"},

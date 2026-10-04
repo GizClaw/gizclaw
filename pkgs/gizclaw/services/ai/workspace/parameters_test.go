@@ -11,7 +11,7 @@ import (
 
 func TestSetPeerWorkspaceParametersMergesSupportedFields(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 	pushToTalk := apitypes.WorkspaceInputModePushToTalk
@@ -20,8 +20,8 @@ func TestSetPeerWorkspaceParametersMergesSupportedFields(t *testing.T) {
 	toolIDs := []string{"tool-1"}
 	created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
 		Name: "workspace-1", WorkflowID: "workflow-1", Labels: map[string]string{"purpose": "test"},
-		Parameters: flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{
-			AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Parameters: einoInputParameters(t, apitypes.EinoWorkspaceParameters{
+			AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
 			Input:     &pushToTalk,
 			E2e:       &e2e,
 			Conversation: &apitypes.ConversationParameters{
@@ -48,11 +48,11 @@ func TestSetPeerWorkspaceParametersMergesSupportedFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetPeerWorkspaceParameters() error = %v", err)
 	}
-	parameters, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parameters.AgentType != apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft {
+	if parameters.AgentType != apitypes.EinoWorkspaceParametersAgentTypeEino {
 		t.Fatalf("agent_type = %q", parameters.AgentType)
 	}
 	if parameters.Input == nil || *parameters.Input != realtime {
@@ -82,7 +82,7 @@ func TestSetPeerWorkspaceParametersMergesSupportedFields(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetPeerWorkspaceParameters(policy only) error = %v", err)
 	}
-	parameters, err = updated.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err = updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -182,7 +182,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 	for _, driver := range []apitypes.WorkflowDriver{
 		apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime,
-		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft,
+		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverEino,
 		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
 		apitypes.WorkflowDriverSfu,
 	} {
@@ -213,14 +213,14 @@ func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 
 func TestSetPeerWorkspaceParametersStoresTTSSpeechRate(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 	pushToTalk := apitypes.WorkspaceInputModePushToTalk
 	created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
 		Name: "workspace-1", WorkflowID: "workflow-1",
-		Parameters: flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{
-			AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Parameters: einoInputParameters(t, apitypes.EinoWorkspaceParameters{
+			AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
 			Input:     &pushToTalk,
 		}),
 	})
@@ -232,7 +232,7 @@ func TestSetPeerWorkspaceParametersStoresTTSSpeechRate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetPeerWorkspaceParameters(rate only) error = %v", err)
 	}
-	parameters, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,7 +245,7 @@ func TestSetPeerWorkspaceParametersStoresTTSSpeechRate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SetPeerWorkspaceParameters(input only) error = %v", err)
 	}
-	parameters, err = updated.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err = updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -263,13 +263,13 @@ func TestSetPeerWorkspaceParametersStoresTTSSpeechRate(t *testing.T) {
 
 func TestCreatePeerWorkspaceRejectsOutOfRangeTTSSpeechRate(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 	_, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
 		Name: "workspace-1", WorkflowID: "workflow-1",
-		Parameters: flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{
-			AgentType:            apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Parameters: einoInputParameters(t, apitypes.EinoWorkspaceParameters{
+			AgentType:            apitypes.EinoWorkspaceParametersAgentTypeEino,
 			TtsSpeechRatePercent: new(300),
 		}),
 	})
@@ -281,7 +281,7 @@ func TestCreatePeerWorkspaceRejectsOutOfRangeTTSSpeechRate(t *testing.T) {
 func TestWorkspaceParametersPatchStoresTTSSpeechRateForVoiceDrivers(t *testing.T) {
 	for _, driver := range []apitypes.WorkflowDriver{
 		apitypes.WorkflowDriverAstTranslate, apitypes.WorkflowDriverDoubaoRealtime,
-		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft,
+		apitypes.WorkflowDriverEino, apitypes.WorkflowDriverEino,
 		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
 	} {
 		t.Run(string(driver), func(t *testing.T) {
@@ -327,7 +327,7 @@ func TestWorkspaceParametersPatchStoresAudioInputForEinoOnly(t *testing.T) {
 
 	// Drivers without a selectable path ignore the field.
 	for _, driver := range []apitypes.WorkflowDriver{
-		apitypes.WorkflowDriverFlowcraft, apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverAstTranslate,
+		apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverAstTranslate,
 		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkflowDriverSfu,
 	} {
 		updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, nil, nil, &model)

@@ -439,36 +439,6 @@ class ConversationParametersInitiative extends $pb.ProtobufEnum {
   const ConversationParametersInitiative._(super.value, super.name);
 }
 
-class FlowcraftWorkspaceParametersAgentType extends $pb.ProtobufEnum {
-  static const FlowcraftWorkspaceParametersAgentType
-      FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
-      FlowcraftWorkspaceParametersAgentType._(
-          0,
-          _omitEnumNames
-              ? ''
-              : 'FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED');
-  static const FlowcraftWorkspaceParametersAgentType
-      FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT =
-      FlowcraftWorkspaceParametersAgentType._(
-          1,
-          _omitEnumNames
-              ? ''
-              : 'FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT');
-
-  static const $core.List<FlowcraftWorkspaceParametersAgentType> values =
-      <FlowcraftWorkspaceParametersAgentType>[
-    FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED,
-    FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT,
-  ];
-
-  static final $core.List<FlowcraftWorkspaceParametersAgentType?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 1);
-  static FlowcraftWorkspaceParametersAgentType? valueOf($core.int value) =>
-      value < 0 || value >= _byValue.length ? null : _byValue[value];
-
-  const FlowcraftWorkspaceParametersAgentType._(super.value, super.name);
-}
-
 class EinoWorkspaceParametersAgentType extends $pb.ProtobufEnum {
   static const EinoWorkspaceParametersAgentType
       EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_UNSPECIFIED =
@@ -788,8 +758,6 @@ class VolcTenantModelProviderDataApiMode extends $pb.ProtobufEnum {
 class WorkflowDriver extends $pb.ProtobufEnum {
   static const WorkflowDriver WORKFLOW_DRIVER_UNSPECIFIED =
       WorkflowDriver._(0, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_UNSPECIFIED');
-  static const WorkflowDriver WORKFLOW_DRIVER_FLOWCRAFT =
-      WorkflowDriver._(1, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_FLOWCRAFT');
   static const WorkflowDriver WORKFLOW_DRIVER_DOUBAO_REALTIME =
       WorkflowDriver._(
           2, _omitEnumNames ? '' : 'WORKFLOW_DRIVER_DOUBAO_REALTIME');
@@ -808,7 +776,6 @@ class WorkflowDriver extends $pb.ProtobufEnum {
 
   static const $core.List<WorkflowDriver> values = <WorkflowDriver>[
     WORKFLOW_DRIVER_UNSPECIFIED,
-    WORKFLOW_DRIVER_FLOWCRAFT,
     WORKFLOW_DRIVER_DOUBAO_REALTIME,
     WORKFLOW_DRIVER_AST_TRANSLATE,
     WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,
@@ -829,9 +796,6 @@ class ReusableWorkflowDriver extends $pb.ProtobufEnum {
   static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED =
       ReusableWorkflowDriver._(
           0, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED');
-  static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT =
-      ReusableWorkflowDriver._(
-          1, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT');
   static const ReusableWorkflowDriver REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME =
       ReusableWorkflowDriver._(
           2, _omitEnumNames ? '' : 'REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME');
@@ -855,7 +819,6 @@ class ReusableWorkflowDriver extends $pb.ProtobufEnum {
   static const $core.List<ReusableWorkflowDriver> values =
       <ReusableWorkflowDriver>[
     REUSABLE_WORKFLOW_DRIVER_UNSPECIFIED,
-    REUSABLE_WORKFLOW_DRIVER_FLOWCRAFT,
     REUSABLE_WORKFLOW_DRIVER_DOUBAO_REALTIME,
     REUSABLE_WORKFLOW_DRIVER_AST_TRANSLATE,
     REUSABLE_WORKFLOW_DRIVER_DASH_SCOPE_REALTIME,

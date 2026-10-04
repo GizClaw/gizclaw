@@ -2,8 +2,8 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {id: tf-raid-test}
 spec:
-  driver: flowcraft
-  flowcraft:
+  driver: eino
+  eino:
     graph:
       name: tf-raid-test
       entry: passthrough

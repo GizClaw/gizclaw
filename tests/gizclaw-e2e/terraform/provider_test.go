@@ -33,7 +33,7 @@ func TestTerraformProviderAppliesCatalogSelection(t *testing.T) {
 			"Model/tf-chat",
 			"Voice/tf-alloy",
 			"Workflow/tf-echo",
-			"Workflow/tf-raid-flowcraft",
+			"Workflow/tf-raid-eino",
 			"Workflow/tf-raid-test",
 			"Firmware/tf-devkit",
 			"RuntimeProfile/tf-device",
@@ -119,7 +119,7 @@ func TestTerraformProviderAppliesCatalogSelection(t *testing.T) {
 		for _, id := range []string{
 			"RuntimeProfile/tf-device",
 			"Workflow/tf-echo",
-			"Workflow/tf-raid-flowcraft",
+			"Workflow/tf-raid-eino",
 			"Workflow/tf-raid-test",
 			"Model/tf-chat",
 			"Voice/tf-alloy",

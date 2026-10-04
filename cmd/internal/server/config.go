@@ -92,13 +92,13 @@ type ProfilingConfig struct {
 // AgentHostConfig binds AgentHost persistence capabilities to logical Stores.
 // A non-nil value selects explicit mode, including when every field is omitted.
 type AgentHostConfig struct {
-	RuntimeStore string                    `yaml:"runtime_store"`
-	Flowcraft    *AgentHostFlowcraftConfig `yaml:"flowcraft"`
+	RuntimeStore string               `yaml:"runtime_store"`
+	Eino         *AgentHostEinoConfig `yaml:"eino"`
 }
 
-// AgentHostFlowcraftConfig binds Flowcraft persistence capabilities to logical
+// AgentHostEinoConfig binds Eino persistence capabilities to logical
 // Stores owned by the command-layer Store Registry.
-type AgentHostFlowcraftConfig struct {
+type AgentHostEinoConfig struct {
 	StateStore   string `yaml:"state_store"`
 	HistoryStore string `yaml:"history_store"`
 }
@@ -1202,11 +1202,11 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		if err := validateStoreReference("services.agent_host.runtime_store", cfg.AgentHost.RuntimeStore); err != nil {
 			return err
 		}
-		if cfg.AgentHost.Flowcraft != nil {
-			if err := validateStoreReference("services.agent_host.flowcraft.state_store", cfg.AgentHost.Flowcraft.StateStore); err != nil {
+		if cfg.AgentHost.Eino != nil {
+			if err := validateStoreReference("services.agent_host.eino.state_store", cfg.AgentHost.Eino.StateStore); err != nil {
 				return err
 			}
-			if err := validateStoreReference("services.agent_host.flowcraft.history_store", cfg.AgentHost.Flowcraft.HistoryStore); err != nil {
+			if err := validateStoreReference("services.agent_host.eino.history_store", cfg.AgentHost.Eino.HistoryStore); err != nil {
 				return err
 			}
 		}
@@ -1546,7 +1546,7 @@ func validateAgentHostConfigShape(path string, value any) error {
 	}
 	for field := range agentHost {
 		switch field {
-		case "runtime_store", "flowcraft":
+		case "runtime_store", "eino":
 		default:
 			return fmt.Errorf("server: %s has unknown field %q", path, field)
 		}
@@ -1556,24 +1556,24 @@ func validateAgentHostConfigShape(path string, value any) error {
 			return err
 		}
 	}
-	if flowcraftValue, exists := agentHost["flowcraft"]; exists {
-		if flowcraftValue == nil {
+	if einoValue, exists := agentHost["eino"]; exists {
+		if einoValue == nil {
 			return nil
 		}
-		flowcraft, ok := flowcraftValue.(map[string]any)
+		eino, ok := einoValue.(map[string]any)
 		if !ok {
-			return fmt.Errorf("server: %s.flowcraft must be a mapping", path)
+			return fmt.Errorf("server: %s.eino must be a mapping", path)
 		}
-		for field := range flowcraft {
+		for field := range eino {
 			switch field {
 			case "state_store", "history_store":
 			default:
-				return fmt.Errorf("server: %s.flowcraft has unknown field %q", path, field)
+				return fmt.Errorf("server: %s.eino has unknown field %q", path, field)
 			}
 		}
 		for _, field := range []string{"state_store", "history_store"} {
-			if reference, exists := flowcraft[field]; exists {
-				if err := validateFileStoreReference(path+".flowcraft."+field, reference); err != nil {
+			if reference, exists := eino[field]; exists {
+				if err := validateFileStoreReference(path+".eino."+field, reference); err != nil {
 					return err
 				}
 			}

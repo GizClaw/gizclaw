@@ -641,17 +641,17 @@ func TestPayloadCodecMapsGoDTOsDirectlyToProtobuf(t *testing.T) {
 	}
 
 	var workflowGet RPCPayload
-	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Name: "flowcraft-toolkit"}); err != nil {
+	if err := workflowGet.FromWorkflowGetRequest(WorkflowGetRequest{Name: "eino-toolkit"}); err != nil {
 		t.Fatalf("FromWorkflowGetRequest() error = %v", err)
 	}
 	workflowGetDecoded, err := workflowGet.AsWorkflowGetRequest()
-	if err != nil || workflowGetDecoded.Name != "flowcraft-toolkit" {
+	if err != nil || workflowGetDecoded.Name != "eino-toolkit" {
 		t.Fatalf("workflow get = %#v, %v", workflowGetDecoded, err)
 	}
 
 	var workflowResponse RPCPayload
 	workflow := WorkflowGetResponse{
-		Value:              Workflow{Name: "flowcraft-toolkit", Tags: []string{"assistant"}, Driver: WorkflowDriverFlowcraft, I18n: map[string]ResourceI18nText{"en": {DisplayName: "Flowcraft"}}},
+		Value:              Workflow{Name: "eino-toolkit", Tags: []string{"assistant"}, Driver: WorkflowDriverEino, I18n: map[string]ResourceI18nText{"en": {DisplayName: "EinoPorted"}}},
 		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}
 	if err := workflowResponse.FromWorkflowGetResponse(workflow); err != nil {

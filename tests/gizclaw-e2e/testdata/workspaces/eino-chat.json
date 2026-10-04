@@ -1,0 +1,374 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "Always generate exactly this Chinese utterance: 你好，简单介绍一下你自己。",
+  "rounds": 3,
+  "timeout": "1200s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "eino": {
+      "graph": {
+        "name": "claw-chat",
+        "compile": {
+          "node_trigger_mode": "any_predecessor",
+          "max_run_steps": 80
+        },
+        "state": {
+          "fields": [
+            {
+              "name": "values",
+              "type": "object",
+              "merge": "replace"
+            },
+            {
+              "name": "channels",
+              "type": "object",
+              "merge": "replace"
+            },
+            {
+              "name": "recall_memory-query",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "recall_memory-recalled",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "style_prompt-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "answer-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "answer-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_conversation-turns-0",
+              "type": "messages",
+              "merge": "replace"
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "initialize-conversation",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "history": {
+                "from": "input.messages"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "recall_memory-query",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    query = input[\"text\"]\n    return {\"values\":values,\"channels\":channels,\"query\":query}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "query": "recall_memory-query"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "recall_memory",
+            "type": "memory_recall",
+            "query_from": "recall_memory-query",
+            "output": "recall_memory-recalled",
+            "top_k": 5
+          },
+          {
+            "id": "recall_memory-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    recalled = input[\"recalled\"]\n    recalled = 'Relevant memory:\\n' + recalled if recalled else \"\"\n    values['memory_context'] = recalled\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "recalled": {
+                "from": "recall_memory-recalled"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "style_prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"memoryContext\": None, \"commonStyle\": None, \"rolePrompt\": None, \"memoryPrompt\": None}\n    def _logical1():\n        value = _get(_values, \"memory_context\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"memoryContext\"] = _logical1()\n    _scope0[\"commonStyle\"] = \"\\n\".join([_string(_item) for _item in [\"This is a spoken voice conversation. Output only the exact words your character would say aloud.\", \"Do not use emoji, emoticons, kaomoji, pictographic icons, decorative symbols, markdown, numbered lists, bullet lists, menus, or labels.\", \"Any emoji or icon such as 😮, 😉, 🤔, 🐕, 🐱, or 🦊 is invalid output. Use only plain Chinese text and ordinary punctuation.\", \"Do not output placeholders, bracketed template text, stage directions, scene labels, location fields, or UI text.\", \"Do not reveal reasoning, drafts, self-corrections, planning notes, or analysis.\", \"Reply like a real person in a flowing spoken conversation, not like a worksheet, form, assistant checklist, or option menu.\", \"Keep each reply short and conversational. Use one small imaginative idea, then ask at most one natural follow-up question.\", \"If the other speaker gives options or a list, do not mirror the list. Pick up the emotional thread and continue smoothly in plain dialogue.\"]])\n    _scope0[\"rolePrompt\"] = \"\\n\".join([_string(_item) for _item in [\"You are a warm, natural conversational partner for a child persona.\", \"Speak in concise, oral Chinese.\"]])\n    def _expression2():\n        return \"\\n\".join([_string(_item) for _item in [\"Memory is factual background only. Use it for continuity without copying its wording.\", _scope0[\"memoryContext\"]]])\n    def _expression3():\n        return \"\"\n    _scope0[\"memoryPrompt\"] = (_expression2() if _truth(_scope0[\"memoryContext\"]) else _expression3())\n    _values[\"system_prompt\"] = \"\\n\\n\".join([_string(_item) for _item in [[_scope0[\"commonStyle\"], _scope0[\"rolePrompt\"], _scope0[\"memoryPrompt\"]][_index] for _index in range(len([_scope0[\"commonStyle\"], _scope0[\"rolePrompt\"], _scope0[\"memoryPrompt\"]])) if _truth(_truth([_scope0[\"commonStyle\"], _scope0[\"rolePrompt\"], _scope0[\"memoryPrompt\"]][_index]))]])\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "style_prompt-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "answer-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '${board.system_prompt}'\n    prompt = prompt.replace('${board.system_prompt}', str(values.get('system_prompt', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "answer-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "answer",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "answer-messages"
+              }
+            },
+            "outputs": {
+              "text": "answer-text"
+            },
+            "max_tokens": 2048
+          },
+          {
+            "id": "answer-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "answer-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "observe_conversation-prepare-0",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    return {\"values\":values,\"channels\":channels,'turns':channels.get(\"main\", [])}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "turns": "observe_conversation-turns-0"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "observe_conversation",
+            "type": "memory_observe",
+            "wait_for_completion": false,
+            "turns_from": "observe_conversation-turns-0"
+          }
+        ],
+        "edges": [
+          {
+            "from": "start",
+            "to": "initialize-conversation"
+          },
+          {
+            "from": "recall_memory-query",
+            "to": "recall_memory"
+          },
+          {
+            "from": "recall_memory",
+            "to": "recall_memory-capture"
+          },
+          {
+            "from": "answer-prompt",
+            "to": "answer"
+          },
+          {
+            "from": "answer",
+            "to": "answer-capture"
+          },
+          {
+            "from": "observe_conversation-prepare-0",
+            "to": "observe_conversation"
+          },
+          {
+            "from": "initialize-conversation",
+            "to": "recall_memory-query"
+          },
+          {
+            "from": "recall_memory-capture",
+            "to": "style_prompt"
+          },
+          {
+            "from": "style_prompt",
+            "to": "answer-prompt"
+          },
+          {
+            "from": "answer-capture",
+            "to": "observe_conversation-prepare-0"
+          },
+          {
+            "from": "observe_conversation",
+            "to": "end"
+          }
+        ],
+        "branches": [],
+        "outputs": [
+          {
+            "node": "answer",
+            "field": "answer-text",
+            "name": "answer",
+            "mime_type": "text/plain",
+            "primary": true
+          }
+        ]
+      },
+      "state_persistence": {
+        "fields": [
+          "values",
+          "channels"
+        ]
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "narrator",
+        "node_voices": {
+          "answer": "narrator"
+        }
+      }
+    },
+    "name": "eino-chat-assistant",
+    "parameters": {
+      "input": "push-to-talk"
+    },
+    "memory": "chat-memory",
+    "description": "Eino raid: Chat"
+  }
+}

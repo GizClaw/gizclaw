@@ -92,7 +92,7 @@ steps:
     /name: {equals: "${profile_name}"}
     /revision: {equals: "${profile_revision}"}
     /workflows: {count: 1}
-    /workflows/0/name: {equals: flowcraft-chat-assistant}
+    /workflows/0/name: {equals: eino-chat-assistant}
     /workflows/0/tags: {count: 3}
 - id: single_tag_http_catalog
   client: peer
@@ -104,7 +104,7 @@ steps:
     status: 200
   expect:
     /workflows: {count: 1}
-    /workflows/0/name: {equals: flowcraft-chat-assistant}
+    /workflows/0/name: {equals: eino-chat-assistant}
 - id: no_match_http_catalog
   client: peer
   http:

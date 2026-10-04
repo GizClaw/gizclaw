@@ -99,18 +99,18 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 	}
 	// No Agent runs in this document. A valid passthrough Workflow lets the real
 	// Workspace service validate creation without any model or provider setup.
-	graph := apitypes.FlowcraftWorkflowSpec{}
-	if err := json.Unmarshal([]byte(`{"graph":{"name":"toolkit","entry":"answer","nodes":[{"id":"answer","type":"passthrough","publish":true}],"edges":[{"from":"answer","to":"__end__"}]}}`), &graph); err != nil {
+	graph := apitypes.EinoWorkflowSpec{}
+	if err := json.Unmarshal([]byte(`{"graph":{"name":"toolkit","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":8},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    return {\"text\":input[\"text\"]}\n","inputs":{"text":{"from":"input.text"}},"outputs":{"text":"answer-text"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"initialize-conversation","to":"answer"},{"from":"answer","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}`), &graph); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "toolkit-workflow", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &graph}}); err != nil {
+	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "toolkit-workflow", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &graph}}); err != nil {
 		t.Fatal(err)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{"giztest-echo": {ResourceId: "giztest-toolkit-echo", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Echo"}, "zh-CN": {DisplayName: "Echo"}}}, "giztest-other": {ResourceId: "giztest-toolkit-other", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Other"}, "zh-CN": {DisplayName: "Other"}}}}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "workspace-toolkit", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{
-			"flowcraft-chat-assistant":  {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Chat"}, "zh-CN": {DisplayName: "Toolkit Chat"}}, Tags: &[]string{"assistants", "6-8", "catalog"}},
-			"flowcraft-voice-assistant": {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Voice"}, "zh-CN": {DisplayName: "Toolkit Voice"}}, Tags: &[]string{"assistants", "9-12", "catalog"}},
+			"eino-chat-assistant":  {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Chat"}, "zh-CN": {DisplayName: "Toolkit Chat"}}, Tags: &[]string{"assistants", "6-8", "catalog"}},
+			"eino-voice-assistant": {ResourceId: "toolkit-workflow", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Toolkit Voice"}, "zh-CN": {DisplayName: "Toolkit Voice"}}, Tags: &[]string{"assistants", "9-12", "catalog"}},
 		},
 		Resources: apitypes.RuntimeProfileResources{Tools: &bindings},
 	}}
@@ -138,9 +138,9 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 	root := filepath.Join("..", "..", "..", "tests", "gizclaw-e2e")
 	run(filepath.Join(root, "giztest", "server.workspace.toolkit.roundtrip.giztest.yaml"))
 	run(filepath.Join(root, "giztest", "server.runtime_profile.tags.giztest.yaml"))
-	chat := profile.Spec.Workflows["flowcraft-chat-assistant"]
+	chat := profile.Spec.Workflows["eino-chat-assistant"]
 	chat.Tags = &[]string{"assistants", "10-12", "catalog"}
-	profile.Spec.Workflows["flowcraft-chat-assistant"] = chat
+	profile.Spec.Workflows["eino-chat-assistant"] = chat
 	if _, err := adminapi.PutRuntimeProfile(ctx, admin, profile.Id, profile); err != nil {
 		t.Fatal(err)
 	}

@@ -17,8 +17,8 @@ func TestBenchmarkWorkflowsExcludeProfileTools(t *testing.T) {
 	resolver := ServiceResolver{ToolBuilder: &toolkit.Builder{Tools: server}}
 	ctx := toolTestContext(t, map[string]string{"giztest-echo": echo.ID})
 	for _, name := range []string{
-		"05-flowcraft-basic.yaml",
-		"20-flowcraft-latency-comparison.yaml",
+		"05-eino-basic.yaml",
+		"20-eino-planner-latency-comparison.yaml",
 		"21-eino-latency-comparison.yaml",
 		"31-eino-concurrency.yaml",
 	} {

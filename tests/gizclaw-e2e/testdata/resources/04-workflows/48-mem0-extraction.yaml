@@ -1,26 +1,149 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
-metadata: {id: mem0-extraction}
+metadata:
+  id: mem0-extraction
 spec:
-  driver: flowcraft
+  driver: eino
   memory: default-memory
-  flowcraft:
+  eino:
     graph:
       name: Mem0 raw text extraction
-      entry: observe
+      compile:
+        node_trigger_mode: any_predecessor
+        max_run_steps: 16
+        primary_output_mode: first_output
+      state:
+        fields:
+        - name: values
+          type: object
+          merge: replace
+        - name: channels
+          type: object
+          merge: replace
+        - name: observe-material-0
+          type: string
+          merge: replace
+        - name: echo-text
+          type: string
+          merge: replace
       nodes:
+      - id: initialize-conversation
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
+          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
+          channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          history:
+            from: input.messages
+          fence:
+            from: input.safety_fence
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: observe-prepare-0
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    return {\"values\":values,\"channels\":channels,'material':input[\"text\"]}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+          material: observe-material-0
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
       - id: observe
         type: memory_observe
-        config:
-          observations: [{text_from: input}]
-          wait_for_completion: true
+        wait_for_completion: true
+        text_from: observe-material-0
       - id: echo
         type: script
-        publish: true
-        config:
-          source: 'host.emit("token", {content: "Memory observation accepted."});'
+        language: starlark
+        entrypoint: run
+        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
+          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
+          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
+          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
+          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
+          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
+          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
+          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
+          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
+          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
+          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
+          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
+          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
+          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
+          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
+          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
+          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
+          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
+          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
+          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
+          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
+          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
+          ]))\n    _emitted = []\n    _scope0 = {}\n    _emitted.append(_get({\"content\": \"Memory observation\
+          \ accepted.\"}, \"content\") or \"\")\n    return {\"values\": _values, \"channels\": _channels, \"text\"\
+          : \"\".join(_emitted)}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+        outputs:
+          values: values
+          channels: channels
+          text: echo-text
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
       edges:
-      - {from: observe, to: echo}
-      - {from: echo, to: __end__}
-    conversation: {starts: peer}
+      - from: start
+        to: initialize-conversation
+      - from: observe-prepare-0
+        to: observe
+      - from: initialize-conversation
+        to: observe-prepare-0
+      - from: observe
+        to: echo
+      - from: echo
+        to: end
+      branches: []
+      outputs:
+      - node: echo
+        field: echo-text
+        name: echo
+        mime_type: text/plain
+        primary: true
+    state_persistence:
+      fields:
+      - values
+      - channels
+    conversation:
+      starts: peer

@@ -12,11 +12,11 @@
 
 | 符号 | 作用 |
 | --- | --- |
-| `newPeerAgentHost` | 创建 Peer-scoped Agent Host，安装 Peer GenX provider，并注册 Flowcraft、DashScope Realtime、Doubao Realtime Duplex、Eino 等受支持的 Workflow factory。 |
+| `newPeerAgentHost` | 创建 Peer-scoped Agent Host，安装 Peer GenX provider，并注册 DashScope Realtime、Doubao Realtime Duplex、Eino 等受支持的 Workflow factory。 |
 
 Resolver 从 Workspace Workflow 顶层 `memory` 读取 alias，并在同一个 owner
 RuntimeProfile snapshot 中解析 `MemoryLayout`、driver 与 typed connection。
-Flowcraft 与 Eino factory 消费同一个 provider-neutral `memory.Store` contract；
+Eino factory 消费 provider-neutral `memory.Store` contract；
 Graph node 决定 Recall/Observe 映射。MemoryLayout 决定 `Scope.AppID` 映射到 Workspace ID 或 owner Peer 的共享身份；Peer identity 和 public key 不会替换成 `Scope.UserID`。
 
 Runtime Registry 只以 Workspace 为 live Agent identity。同一 Workspace 的多个
@@ -25,7 +25,7 @@ Workflow 与 RuntimeProfile snapshot 构造。
 
 每次 run 都解析当前 Peer 的 RuntimeProfile Tool binding snapshot。共享 Agent 只接收一个 `genx.ToolInvoker`；每次 Transform 都从自己的 context 解析 Tool，因此多个并发 Peer 即使共享 Agent，也不会共享 Tool definition、argument 或 result。
 
-Flowcraft、Eino、DashScope Realtime 与豆包 Realtime Duplex factory 都把同一个
+Eino、DashScope Realtime 与豆包 Realtime Duplex factory 都把同一个
 接口注入已有 Transformer config。Provider ToolCall ID 与 continuation 始终留在
 Transformer 内部；AgentHost 只按 canonical Resource name 分发到 `http_request`；Tool control traffic 留在 Transformer 内部。
 

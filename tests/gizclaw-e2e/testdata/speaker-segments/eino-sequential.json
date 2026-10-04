@@ -1,0 +1,130 @@
+{
+  "driver": "eino",
+  "eino": {
+    "graph": {
+      "name": "Slow TTS",
+      "compile": {
+        "node_trigger_mode": "any_predecessor",
+        "max_run_steps": 8
+      },
+      "state": {
+        "fields": [
+          {
+            "name": "values",
+            "type": "object",
+            "merge": "replace"
+          },
+          {
+            "name": "channels",
+            "type": "object",
+            "merge": "replace"
+          },
+          {
+            "name": "echo-text",
+            "type": "string",
+            "merge": "replace"
+          }
+        ]
+      },
+      "nodes": [
+        {
+          "id": "initialize-conversation",
+          "type": "script",
+          "language": "starlark",
+          "entrypoint": "run",
+          "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n",
+          "inputs": {
+            "values": {
+              "from": "values"
+            },
+            "channels": {
+              "from": "channels"
+            },
+            "history": {
+              "from": "input.messages"
+            },
+            "fence": {
+              "from": "input.safety_fence"
+            },
+            "text": {
+              "from": "input.text"
+            }
+          },
+          "outputs": {
+            "values": "values",
+            "channels": "channels"
+          },
+          "limits": {
+            "max_execution_steps": 1000000,
+            "timeout": "1s",
+            "max_input_bytes": 1048576,
+            "max_output_bytes": 1048576
+          }
+        },
+        {
+          "id": "echo",
+          "type": "script",
+          "language": "starlark",
+          "entrypoint": "run",
+          "source": "def run(input):\n    return {\"values\":input[\"values\"],\"channels\":input[\"channels\"],\"text\":'开场【狐】狐狸说话【鸟】小鸟回答【狐】狐狸再说【路人】尾声'}\n",
+          "inputs": {
+            "values": {
+              "from": "values"
+            },
+            "channels": {
+              "from": "channels"
+            }
+          },
+          "outputs": {
+            "values": "values",
+            "channels": "channels",
+            "text": "echo-text"
+          },
+          "limits": {
+            "max_execution_steps": 1000000,
+            "timeout": "1s",
+            "max_input_bytes": 1048576,
+            "max_output_bytes": 1048576
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "initialize-conversation"
+        },
+        {
+          "from": "initialize-conversation",
+          "to": "echo"
+        },
+        {
+          "from": "echo",
+          "to": "end"
+        }
+      ],
+      "branches": [],
+      "outputs": [
+        {
+          "node": "echo",
+          "field": "echo-text",
+          "name": "echo",
+          "mime_type": "text/plain",
+          "primary": true
+        }
+      ]
+    },
+    "state_persistence": {
+      "fields": [
+        "values",
+        "channels"
+      ]
+    },
+    "voice_adapter": {
+      "default_voice": "story.default",
+      "speaker_voices": {
+        "狐": "story.fox",
+        "鸟": "story.bird"
+      }
+    }
+  }
+}

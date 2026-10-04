@@ -63,7 +63,7 @@ and never resolves the owner RuntimeProfile, a toolkit, or Memory. Any Server
 therefore activates a Social SFU Workspace with the shared Social KV and its
 local driver alone, even when the owner Peer registered elsewhere.
 
-`Spec` exposes only `genx.ToolInvoker`. Flowcraft, Eino, DashScope Realtime, and
+`Spec` exposes only `genx.ToolInvoker`. Eino, DashScope Realtime, and
 Doubao Realtime Duplex receive that interface and never receive Resource,
 RuntimeProfile, Credential, policy, alias, or Peer-transport internals.
 `ResolveTools` and `InvokeTool` read the Transform context on every call, so one
@@ -80,11 +80,11 @@ Tool's immutable execution name. Non-idempotent Tool execution is never retried.
 
 ## Store dependency ownership
 
-The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Flowcraft, Pet, Eino, and per-Agent adapters must not close them.
+The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Eino, and per-Agent adapters must not close them.
 
-The `runtime_store` ObjectStore persists Workspace runtime metadata and runtime objects. Workspace History text and structured metadata are persisted by `services.workspace.history_store`, while binary replay assets use the independent `services.workspace.history_assets_store` ObjectStore. Flowcraft receives separate optional State, internal History, Memory-object, and provider-neutral Memory capabilities. Pet delegates to the same registered inner-driver factories. Eino receives only its optional provider-neutral Memory capability; persistent Eino State and History are not exposed.
+`runtime_store` stores Workspace runtime metadata and runtime objects. Workspace History text and structured metadata use `services.workspace.history_store`; binary replay assets use `services.workspace.history_assets_store`. Eino borrows optional SQL Graph State, mutable internal History, and provider-neutral Memory through process bindings `services.agent_host.eino.state_store` and `history_store`.
 
-Flowcraft and Eino bind only the Workspace App boundary on a configured Memory Store. The common Scope dimensions remain independent: Agent logic can retain its own User, Agent, and Run values, and AgentHost never substitutes the Peer public key for UserID. A configured Store is preferred by Flowcraft over its embedded provider; Eino requires it only when its Workflow declares a Memory policy.
+Eino binds `Scope.AppID` to Workspace or the owner Peer boundary according to the selected MemoryLayout policy. User, Agent, and Run dimensions stay independent; the public key never replaces UserID. A Graph declaring Memory policy requires an available Store, and construction failure fails initialization or reload explicitly.
 
 These bindings are process-start configuration. Reload reconstructs an Agent from current Workflow and Workspace resources but does not hot-swap shared Store dependencies. Changing a binding requires a Server restart and does not move existing data.
 

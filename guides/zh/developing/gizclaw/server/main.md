@@ -86,12 +86,12 @@ Edge 进程。
 | login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
 | `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
 | `services.workspace.history_store` | `log.mutable` |
-| `services.agent_host.flowcraft.history_store` | `log.mutable` |
+| `services.agent_host.eino.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout`、`talk_hangover`、`floor_idle` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
 | `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
 
-Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Flowcraft History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
+Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Eino History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
 
 多 Server 拓扑中，各 Server 可以把 Peer、Friend 和 Friend Group 控制面 Store 绑定到同一个 Redis 7.0 connector 下互不重叠的 prefix。`services.peer_run.store` 仍然必填，必须与 `services.peer.store` 不同，但可以使用任意受支持的 `keyvalue` backend；Server 会在该 binding 下保留代码拥有的 `runs` namespace。Client activation 会在发布 connection 或启动 service work 之前原子 claim 未分配 Peer，或校验已有的固定 Server owner。RuntimeProfile、Workspace、History、Memory、asset 与其他 runtime Store 仍保持 Server 本地；这种组合不提供 Workspace routing 或 failover。
 

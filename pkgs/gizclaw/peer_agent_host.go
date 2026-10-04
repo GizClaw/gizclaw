@@ -14,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
@@ -93,13 +92,6 @@ func newPeerAgentHost(
 	})
 	_ = host.Register(doubaorealtimeduplex.Type, doubaorealtimeduplex.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
 	_ = host.Register(eino.Type, eino.Factory{
-		GenX:         peerGenX,
-		GenXForOwner: ownerGenX,
-		History:      history,
-		ServerRoot:   memoryRoot,
-		MemoryStores: memoryStores,
-	})
-	_ = host.Register(flowcraft.Type, flowcraft.Factory{
 		GenX:         peerGenX,
 		GenXForOwner: ownerGenX,
 		History:      history,

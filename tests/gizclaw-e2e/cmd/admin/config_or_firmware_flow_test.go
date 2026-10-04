@@ -28,17 +28,7 @@ func TestAdminRuntimeProfileRegistrationTokenFlow(t *testing.T) {
 	firmwareID := adminCreatedResourceID(t, firmware.Stdout)
 
 	workflowPath := filepath.Join(h.SandboxDir, "echo-workflow.json")
-	writeAdminFixture(t, workflowPath, `{
-		"apiVersion":"gizclaw.admin/v1alpha1",
-		"kind":"Workflow",
-		"metadata":{"id":"device-echo"},
-		"spec":{"driver":"flowcraft","flowcraft":{"graph":{
-			"name":"device-echo-passthrough",
-			"entry":"passthrough",
-			"nodes":[{"id":"passthrough","type":"passthrough","publish":true}],
-			"edges":[{"from":"passthrough","to":"__end__"}]
-		}}}
-	}`)
+	writeAdminFixture(t, workflowPath, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"device-echo"},"spec":{"driver":"eino","eino":{"graph":{"name":"device-echo-passthrough","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"passthrough","type":"passthrough","inputs":{"value":{"from":"input.text"}},"outputs":{"value":"answer"}}],"edges":[{"from":"start","to":"passthrough"},{"from":"passthrough","to":"end"}],"branches":[],"outputs":[{"node":"passthrough","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}}}`)
 	workflow := h.RunCLI("admin", "apply", "-f", workflowPath, "--context", "admin-a")
 	workflow.MustSucceed(t)
 	workflowID := adminAppliedResourceID(t, workflow.Stdout)

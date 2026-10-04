@@ -327,21 +327,6 @@ message ConversationParameters {
   optional ConversationParametersInitiative initiative = 2;
 }
 
-message FlowcraftWorkflowSpec {
-  google.protobuf.Struct fields = 1;
-}
-
-message FlowcraftWorkspaceParameters {
-  FlowcraftWorkspaceParametersAgentType agent_type = 1;
-  optional ConversationParameters conversation = 2;
-  optional bool e2e = 3;
-  optional WorkspaceInputMode input = 4;
-  optional int32 tts_speech_rate_percent = 5;
-  // Legacy enum tag 6 is reserved: old clients must select a profile-defined identifier.
-  reserved 6;
-  optional string safety_fence_level = 50;
-}
-
 message Model {
   string name = 1;
   map<string, ResourceI18nText> i18n = 2;

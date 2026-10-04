@@ -15,10 +15,6 @@ import (
 func ScopeForRequest(request Request) (memory.Scope, error) {
 	var selected string
 	switch request.Binding.Driver {
-	case apitypes.RuntimeProfileMemoryDriverFlowcraft:
-		if request.Layout.Spec.Flowcraft.Scope != nil {
-			selected = string(*request.Layout.Spec.Flowcraft.Scope)
-		}
 	case apitypes.RuntimeProfileMemoryDriverMem0:
 		connectionType, err := request.Binding.Connection.Discriminator()
 		if err != nil {

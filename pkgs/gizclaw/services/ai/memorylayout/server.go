@@ -9,13 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -73,7 +71,7 @@ func (s *Server) CreateMemoryLayout(ctx context.Context, request adminhttp.Creat
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 	args := append([]any{item.Id}, values...)
-	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json,mem0_self_hosted_json) VALUES (?,?,?,?,?) ON CONFLICT(id) DO NOTHING`), args...)
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json,mem0_self_hosted_json) VALUES (?,'null',?,?,?) ON CONFLICT(id) DO NOTHING`), args...)
 	if err != nil {
 		return adminhttp.CreateMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -125,7 +123,7 @@ func (s *Server) PutMemoryLayout(ctx context.Context, request adminhttp.PutMemor
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`UPDATE memory_layouts SET flowcraft_json=?,mem0_json=?,volc_mem0_json=?,mem0_self_hosted_json=? WHERE id=?`), append(values, id)...)
+	result, err := s.DB.ExecContext(ctx, s.DB.Rebind(`UPDATE memory_layouts SET mem0_json=?,volc_mem0_json=?,mem0_self_hosted_json=? WHERE id=?`), append(values, id)...)
 	if err != nil {
 		return adminhttp.PutMemoryLayout500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -175,9 +173,6 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	if expectedID != "" && item.Id != expectedID {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("id %q must match path id %q", item.Id, expectedID)
 	}
-	if scope := item.Spec.Flowcraft.Scope; scope != nil && !scope.Valid() {
-		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.scope %q is invalid", *scope)
-	}
 	if scope := item.Spec.Mem0.Scope; scope != nil && !scope.Valid() {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.mem0.scope %q is invalid", *scope)
 	}
@@ -192,78 +187,6 @@ func validate(item apitypes.MemoryLayout, expectedID string) (apitypes.MemoryLay
 	}
 	if scope := item.Spec.VolcMem0.Scope; scope != nil && !scope.Valid() {
 		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.volc_mem0.scope %q is invalid", *scope)
-	}
-	item.Spec.Flowcraft.Extraction.Model = strings.TrimSpace(item.Spec.Flowcraft.Extraction.Model)
-	if item.Spec.Flowcraft.Extraction.Model == "" {
-		return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.extraction.model is required")
-	}
-	if err := runtimealias.Validate("spec.flowcraft.extraction.model", item.Spec.Flowcraft.Extraction.Model); err != nil {
-		return apitypes.MemoryLayout{}, nil, err
-	}
-	if !item.Spec.Flowcraft.Extraction.Mode.Valid() {
-		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.extraction.mode %q is invalid", item.Spec.Flowcraft.Extraction.Mode)
-	}
-	if timeout := item.Spec.Flowcraft.Extraction.StageTimeout; timeout != nil {
-		normalized := strings.TrimSpace(*timeout)
-		if duration, err := time.ParseDuration(normalized); err != nil || duration <= 0 {
-			return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.extraction.stage_timeout must be a positive duration")
-		}
-		item.Spec.Flowcraft.Extraction.StageTimeout = &normalized
-	}
-	for path, model := range map[string]*apitypes.FlowcraftMemoryModelPolicy{
-		"spec.flowcraft.embedding": item.Spec.Flowcraft.Embedding,
-		"spec.flowcraft.rerank":    item.Spec.Flowcraft.Rerank,
-	} {
-		if model != nil {
-			model.Model = strings.TrimSpace(model.Model)
-			if err := runtimealias.Validate(path+".model", model.Model); err != nil {
-				return apitypes.MemoryLayout{}, nil, err
-			}
-		}
-	}
-	if bbh := item.Spec.Flowcraft.Bbh; bbh != nil {
-		if bbh.SearchOverfetch != nil && *bbh.SearchOverfetch < 1 {
-			return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.bbh.search_overfetch must be at least 1")
-		}
-		if bleve := bbh.Bleve; bleve != nil {
-			if bleve.Analyzer != nil && !bleve.Analyzer.Valid() {
-				return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.bbh.bleve.analyzer %q is invalid", *bleve.Analyzer)
-			}
-			if bleve.Gojieba != nil && bleve.Gojieba.Mode != nil && !bleve.Gojieba.Mode.Valid() {
-				return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.bbh.bleve.gojieba.mode %q is invalid", *bleve.Gojieba.Mode)
-			}
-		}
-		if hnsw := bbh.Hnsw; hnsw != nil && hnsw.FlushInterval != nil {
-			normalized := strings.TrimSpace(*hnsw.FlushInterval)
-			if duration, err := time.ParseDuration(normalized); err != nil || duration <= 0 {
-				return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.bbh.hnsw.flush_interval must be a positive duration")
-			}
-			hnsw.FlushInterval = &normalized
-		}
-	}
-	if !item.Spec.Flowcraft.Write.Mode.Valid() {
-		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.write.mode %q is invalid", item.Spec.Flowcraft.Write.Mode)
-	}
-	if !item.Spec.Flowcraft.Write.Tier.Valid() {
-		return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.write.tier %q is invalid", item.Spec.Flowcraft.Write.Tier)
-	}
-	if len(item.Spec.Flowcraft.Lanes) == 0 {
-		return apitypes.MemoryLayout{}, nil, errors.New("spec.flowcraft.lanes must not be empty")
-	}
-	laneNames := make(map[string]struct{}, len(item.Spec.Flowcraft.Lanes))
-	for index, lane := range item.Spec.Flowcraft.Lanes {
-		lane.Name = strings.TrimSpace(lane.Name)
-		if lane.Name == "" || len(lane.Name) > 63 {
-			return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.lanes[%d].name must be 1-63 characters", index)
-		}
-		if !lane.Kind.Valid() {
-			return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.lanes[%d].kind %q is invalid", index, lane.Kind)
-		}
-		if _, duplicate := laneNames[lane.Name]; duplicate {
-			return apitypes.MemoryLayout{}, nil, fmt.Errorf("spec.flowcraft.lanes contains duplicate name %q", lane.Name)
-		}
-		laneNames[lane.Name] = struct{}{}
-		item.Spec.Flowcraft.Lanes[index] = lane
 	}
 	if item.Spec.Mem0.CustomInstructions == nil &&
 		item.Spec.Mem0.CustomCategories == nil &&
@@ -364,7 +287,7 @@ func normalizeListParams(cursor *string, limit *int32) (string, int) {
 	return cursorValue, limitValue
 }
 
-const layoutColumns = "id,flowcraft_json,mem0_json,volc_mem0_json,mem0_self_hosted_json"
+const layoutColumns = "id,mem0_json,volc_mem0_json,mem0_self_hosted_json"
 
 // Initialize creates the layout schema at Server startup using the shared pool.
 func (s *Server) Initialize(ctx context.Context) error {
@@ -378,7 +301,8 @@ func (s *Server) Initialize(ctx context.Context) error {
 	}
 	_, err := s.DB.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS memory_layouts (
  id TEXT PRIMARY KEY CHECK(length(id)>0),
- flowcraft_json TEXT NOT NULL,
+ -- Archived policy column retained for existing SQL rows; no provider reads it.
+ flowcraft_json TEXT NOT NULL DEFAULT 'null',
  mem0_json TEXT NOT NULL,
  volc_mem0_json TEXT NOT NULL,
  mem0_self_hosted_json TEXT NOT NULL DEFAULT 'null'
@@ -402,7 +326,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 
 func layoutPolicyValues(spec apitypes.MemoryLayoutSpec) ([]any, error) {
 	values := make([]any, 0, 4)
-	for _, policy := range []any{spec.Flowcraft, spec.Mem0, spec.VolcMem0, spec.Mem0SelfHosted} {
+	for _, policy := range []any{spec.Mem0, spec.VolcMem0, spec.Mem0SelfHosted} {
 		data, err := json.Marshal(policy)
 		if err != nil {
 			return nil, err
@@ -414,14 +338,14 @@ func layoutPolicyValues(spec apitypes.MemoryLayoutSpec) ([]any, error) {
 
 func scanLayout(row interface{ Scan(...any) error }) (apitypes.MemoryLayout, error) {
 	var item apitypes.MemoryLayout
-	var flowcraft, mem0, volc, selfHosted string
-	if err := row.Scan(&item.Id, &flowcraft, &mem0, &volc, &selfHosted); err != nil {
+	var mem0, volc, selfHosted string
+	if err := row.Scan(&item.Id, &mem0, &volc, &selfHosted); err != nil {
 		return item, err
 	}
 	for _, policy := range []struct {
 		raw    string
 		target any
-	}{{flowcraft, &item.Spec.Flowcraft}, {mem0, &item.Spec.Mem0}, {volc, &item.Spec.VolcMem0}, {selfHosted, &item.Spec.Mem0SelfHosted}} {
+	}{{mem0, &item.Spec.Mem0}, {volc, &item.Spec.VolcMem0}, {selfHosted, &item.Spec.Mem0SelfHosted}} {
 		if err := json.Unmarshal([]byte(policy.raw), policy.target); err != nil {
 			return item, err
 		}

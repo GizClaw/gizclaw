@@ -1,0 +1,241 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-memory-workspace
+spec:
+  driver: eino
+  memory: giztest-workspace-memory
+  eino:
+    graph:
+      name: Workspace Memory
+      compile:
+        node_trigger_mode: any_predecessor
+        max_run_steps: 36
+        primary_output_mode: first_output
+      state:
+        fields:
+        - name: values
+          type: object
+          merge: replace
+        - name: channels
+          type: object
+          merge: replace
+        - name: recall-memory-query
+          type: string
+          merge: replace
+        - name: recall-memory-recalled
+          type: string
+          merge: replace
+        - name: answer-messages
+          type: messages
+          merge: replace
+        - name: answer-text
+          type: string
+          merge: replace
+        - name: observe-input-fact-0
+          type: string
+          merge: replace
+        - name: observe-input-attribute-0-lane
+          type: string
+          merge: replace
+      nodes:
+      - id: initialize-conversation
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
+          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
+          channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          history:
+            from: input.messages
+          fence:
+            from: input.safety_fence
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: recall-memory-query
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    query = input[\"text\"]\n    return {\"values\":values,\"channels\":channels,\"query\"\
+          :query}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+          query: recall-memory-query
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: recall-memory
+        type: memory_recall
+        query_from: recall-memory-query
+        output: recall-memory-recalled
+        top_k: 5
+      - id: recall-memory-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    recalled = input[\"recalled\"]\n    values['recalled_memory'] = recalled\n    return\
+          \ {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          recalled:
+            from: recall-memory-recalled
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: answer-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = 'Answer briefly. Relevant\
+          \ memory: ${board.recalled_memory}'\n    prompt = prompt.replace('${board.recalled_memory}', str(values.get('recalled_memory',\
+          \ \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for\
+          \ message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not\
+          \ content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\"\
+          , []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"\
+          user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: answer-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: answer
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: answer-messages
+        outputs:
+          text: answer-text
+        max_tokens: 2048
+      - id: answer-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: answer-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: observe-input-prepare-0
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    fact_0 = input[\"text\"]\n    return {\"values\":values,\"channels\":channels,'fact-0':fact_0,'attribute-0-lane':'owner-profile'}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+          fact-0: observe-input-fact-0
+          attribute-0-lane: observe-input-attribute-0-lane
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: observe-input
+        type: memory_observe
+        wait_for_completion: true
+        facts:
+        - text_from: observe-input-fact-0
+          attributes:
+            lane: observe-input-attribute-0-lane
+      edges:
+      - from: start
+        to: initialize-conversation
+      - from: recall-memory-query
+        to: recall-memory
+      - from: recall-memory
+        to: recall-memory-capture
+      - from: answer-prompt
+        to: answer
+      - from: answer
+        to: answer-capture
+      - from: observe-input-prepare-0
+        to: observe-input
+      - from: initialize-conversation
+        to: recall-memory-query
+      - from: recall-memory-capture
+        to: answer-prompt
+      - from: answer-capture
+        to: observe-input-prepare-0
+      - from: observe-input
+        to: end
+      branches: []
+      outputs:
+      - node: answer
+        field: answer-text
+        name: answer
+        mime_type: text/plain
+        primary: true
+    state_persistence:
+      fields:
+      - values
+      - channels
+    conversation:
+      starts: peer

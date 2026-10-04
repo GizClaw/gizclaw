@@ -36,9 +36,9 @@ func (g peerMemoryLayoutGetter) GetMemoryLayout(_ context.Context, request admin
 }
 
 func TestPeerMemoryCleanupPurgesOnlySharedScope(t *testing.T) {
-	spec := objectStoreMemorySpec(t)
-	peerScope := apitypes.FlowcraftMemoryLayoutPolicyScopePeer
-	spec.MemoryLayout.Spec.Flowcraft.Scope = &peerScope
+	spec := selfHostedMemorySpec(t)
+	peerScope := apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer
+	spec.MemoryLayout.Spec.Mem0SelfHosted.Scope = &peerScope
 	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{spec.MemoryName: *spec.MemoryBinding}
 	profile := apitypes.RuntimeProfile{
 		Id: spec.MemoryProfileID, Revision: spec.MemoryProfileRevision,
@@ -66,8 +66,8 @@ func TestPeerMemoryCleanupPurgesOnlySharedScope(t *testing.T) {
 	}
 	privateRequest := requests[0]
 	privateRequest.WorkspaceID = "workspace-a"
-	workspaceScope := apitypes.FlowcraftMemoryLayoutPolicyScopeWorkspace
-	privateRequest.Layout.Spec.Flowcraft.Scope = &workspaceScope
+	workspaceScope := apitypes.Mem0SelfHostedMemoryLayoutPolicyScopeWorkspace
+	privateRequest.Layout.Spec.Mem0SelfHosted.Scope = &workspaceScope
 	private, err := stores.Resolve(t.Context(), privateRequest)
 	if err != nil {
 		t.Fatal(err)

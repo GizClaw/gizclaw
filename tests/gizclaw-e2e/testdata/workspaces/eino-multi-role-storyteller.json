@@ -1,0 +1,1313 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "Always generate exactly this Chinese utterance: 继续这个故事，让我参与选择。",
+  "rounds": 3,
+  "timeout": "1200s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "eino": {
+      "graph": {
+        "name": "multi-role-storyteller",
+        "compile": {
+          "node_trigger_mode": "any_predecessor",
+          "max_run_steps": 1160,
+          "primary_output_mode": "first_output"
+        },
+        "state": {
+          "fields": [
+            {
+              "name": "values",
+              "type": "object",
+              "merge": "replace"
+            },
+            {
+              "name": "channels",
+              "type": "object",
+              "merge": "replace"
+            },
+            {
+              "name": "initialize-story-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "select_story_step-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "select_speaker-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "select_speaker-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "shape_story_turn-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "route_speaker-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "narrator-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "narrator-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "role_wukong-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "role_wukong-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "role_tangseng-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "role_tangseng-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "role_bajie-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "role_bajie-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "role_monster-messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "role_monster-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "update_state-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "continue_check-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-fact-0",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-0-lane",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-0-kind",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-0-predicate",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-0-subject",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-fact-1",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-1-lane",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-1-kind",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-1-predicate",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-1-subject",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-fact-2",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-2-lane",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-2-kind",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-2-predicate",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-2-subject",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-fact-3",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-3-lane",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-3-kind",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-3-predicate",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-3-subject",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-fact-4",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-4-lane",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-4-kind",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-4-predicate",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-4-subject",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-fact-5",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-5-lane",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-5-kind",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-5-predicate",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "observe_story_audit-attribute-5-subject",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "route_speaker-route",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "continue_check-route",
+              "type": "string",
+              "merge": "replace"
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "initialize-conversation",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "history": {
+                "from": "input.messages"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "initialize-story",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"latestUserText\": None, \"story\": None, \"blueprintState\": None, \"cast\": None, \"user\": None, \"continuity\": None, \"ending\": None, \"latest\": None}\n    def _function1():\n        _scope2 = {\"msgs\": None, \"i\": None, \"msg\": None, \"parts\": None, \"text\": None}\n        def _logical3():\n            value = _get(_channels, \"main\")\n            if _truth(value):\n                return value\n            return []\n        _scope2[\"msgs\"] = _logical3()\n        for _index4 in range(int((len(_scope2[\"msgs\"]) - 1)), int((0 - 1)), -1):\n            _scope2[\"i\"] = _index4\n            def _logical5():\n                value = _get(_scope2[\"msgs\"], _scope2[\"i\"])\n                if _truth(value):\n                    return value\n                return {}\n            _scope2[\"msg\"] = _logical5()\n            if _truth((_get(_scope2[\"msg\"], \"role\") != \"user\")):\n                continue\n            def _logical6():\n                value = (_typeof(_get(_scope2[\"msg\"], \"content\")) == \"string\")\n                if not _truth(value):\n                    return value\n                return _get(_scope2[\"msg\"], \"content\").strip()\n            if _truth(_logical6()):\n                return _get(_scope2[\"msg\"], \"content\").strip()\n            def _expression7():\n                return _get(_scope2[\"msg\"], \"parts\")\n            def _expression8():\n                return []\n            _scope2[\"parts\"] = (_expression7() if _truth((type(_get(_scope2[\"msg\"], \"parts\")) == \"list\")) else _expression8())\n            def _function9(part):\n                _scope10 = {\"part\": part}\n                def _logical11():\n                    def _logical12():\n                        value = _scope10[\"part\"]\n                        if not _truth(value):\n                            return value\n                        return (_get(_scope10[\"part\"], \"type\") == \"text\")\n                    value = _logical12()\n                    if not _truth(value):\n                        return value\n                    return (_typeof(_get(_scope10[\"part\"], \"text\")) == \"string\")\n                def _expression13():\n                    return _get(_scope10[\"part\"], \"text\")\n                def _expression14():\n                    return \"\"\n                return (_expression13() if _truth(_logical11()) else _expression14())\n            _scope2[\"text\"] = \"\".join([_string(_item) for _item in [_function9(_scope2[\"parts\"][_index]) for _index in range(len(_scope2[\"parts\"]))]]).strip()\n            if _truth(_scope2[\"text\"]):\n                return _scope2[\"text\"]\n        return \"\"\n    _scope0[\"latestUserText\"] = _function1\n    def _logical15():\n        value = _get(_values, \"story_state\")\n        if _truth(value):\n            return value\n        return {\"scene\": \"取经路上的破庙雨夜\", \"phase\": \"threshold\", \"phase_spoken\": [], \"next_phase\": \"\", \"awaiting_user\": False, \"completed\": False, \"epilogue_turns\": 0, \"pressure\": \"门外有人在雨里敲门，但声音不像普通人。\", \"last_event\": \"故事尚未开场。\"}\n    _scope0[\"story\"] = _logical15()\n    def _logical16():\n        value = _get(_values, \"blueprint_state\")\n        if _truth(value):\n            return value\n        def _logical17():\n            value = _get(_scope0[\"story\"], \"phase\")\n            if _truth(value):\n                return value\n            return \"threshold\"\n        return {\"arc\": \"破庙雨夜黄毛货郎\", \"contract\": \"固定一折短故事：门外黄毛货郎其实是黄毛狼妖伪装；围绕敲门、试探、露馅、制伏、逐走、天明上路推进。\", \"current_phase\": _logical17(), \"allowed_scope\": \"只允许破庙雨夜、黄毛货郎/狼妖、取经四人、篮中黑腥水/黄毛/脚印等本折线索。\", \"forbidden_scope\": \"不要新增狮驼岭、黑熊精、貂鼠、天宫神将、铜铃残魂、京城、另一个大妖或新地点主线。\"}\n    _scope0[\"blueprintState\"] = _logical16()\n    def _logical18():\n        value = _get(_values, \"cast_state\")\n        if _truth(value):\n            return value\n        return {\"present\": \"narrator,wukong,tangseng,bajie,monster\", \"last_speaker\": \"\", \"mood\": \"悟空警觉，唐僧谨慎，八戒怕麻烦，门外妖怪伪装虚弱。\"}\n    _scope0[\"cast\"] = _logical18()\n    def _logical19():\n        value = _get(_values, \"user_state\")\n        if _truth(value):\n            return value\n        return {\"last_input\": \"\", \"last_choice\": \"\", \"preference\": \"喜欢节奏快、具体、有角色冲突的西游对话。\"}\n    _scope0[\"user\"] = _logical19()\n    def _logical20():\n        value = _get(_values, \"continuity_state\")\n        if _truth(value):\n            return value\n        return {\"confirmed\": \"地点=破庙雨夜；门外人=黄毛货郎伪装；真实身份=黄毛狼妖；结局约束=狼妖被制伏后逐走或罚走，不打死；固定角色=旁白/悟空/唐僧/八戒/妖怪。\", \"open_threads\": \"敲门异常；黄毛与黑腥水；货郎为何夜雨来庙；是否开门；悟空如何试探。\", \"forbidden_reveals\": \"不要把妖怪改成其他种类；不要说还有幕后大妖；不要把故事转去别的地点。\"}\n    _scope0[\"continuity\"] = _logical20()\n    def _logical21():\n        value = _get(_values, \"ending_state\")\n        if _truth(value):\n            return value\n        return {\"mode\": \"active_story\", \"closed\": False, \"closure\": \"\", \"epilogue_policy\": \"主冲突结束后只复盘本折因果或轻轻引下一折，不再给本折新增敌人。\"}\n    _scope0[\"ending\"] = _logical21()\n    _scope0[\"latest\"] = _scope0[\"latestUserText\"]()\n    if _truth(_scope0[\"latest\"]):\n        _scope0[\"user\"][\"last_input\"] = _scope0[\"latest\"]\n    _values[\"story_state\"] = _scope0[\"story\"]\n    _values[\"blueprint_state\"] = _scope0[\"blueprintState\"]\n    _values[\"cast_state\"] = _scope0[\"cast\"]\n    _values[\"user_state\"] = _scope0[\"user\"]\n    _values[\"continuity_state\"] = _scope0[\"continuity\"]\n    _values[\"ending_state\"] = _scope0[\"ending\"]\n    _values[\"story_state_text\"] = json.encode_indent(_scope0[\"story\"], indent=\"  \")\n    _values[\"blueprint_state_text\"] = json.encode_indent(_scope0[\"blueprintState\"], indent=\"  \")\n    _values[\"cast_state_text\"] = json.encode_indent(_scope0[\"cast\"], indent=\"  \")\n    _values[\"user_state_text\"] = json.encode_indent(_scope0[\"user\"], indent=\"  \")\n    _values[\"continuity_state_text\"] = json.encode_indent(_scope0[\"continuity\"], indent=\"  \")\n    _values[\"ending_state_text\"] = json.encode_indent(_scope0[\"ending\"], indent=\"  \")\n    _values[\"latest_user_text\"] = _scope0[\"latest\"]\n    _values[\"internal_turn_count\"] = 0\n    _values[\"continue_story\"] = True\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "initialize-story-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "select_story_step",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"story\": None, \"blueprintState\": None, \"continuity\": None, \"ending\": None, \"user\": None, \"latest\": None, \"blueprint\": None, \"phaseName\": None, \"phase\": None, \"spoken\": None, \"turnAllowed\": None, \"handoffAfter\": None, \"handoffDue\": None, \"unused\": None, \"phaseContext\": None}\n    def _logical1():\n        value = _get(_values, \"story_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"story\"] = _logical1()\n    def _logical2():\n        value = _get(_values, \"blueprint_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"blueprintState\"] = _logical2()\n    def _logical3():\n        value = _get(_values, \"continuity_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"continuity\"] = _logical3()\n    def _logical4():\n        value = _get(_values, \"ending_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"ending\"] = _logical4()\n    def _logical5():\n        value = _get(_values, \"user_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"user\"] = _logical5()\n    def _logical6():\n        value = _get(_values, \"latest_user_text\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"latest\"] = _string(_logical6()).strip()\n    _scope0[\"blueprint\"] = {\"threshold\": {\"name\": \"threshold\", \"goal\": \"破庙雨夜，门外异常敲门。重点是建立气氛、角色分歧和是否应门的张力。\", \"guard\": \"只能建立破庙雨夜和敲门异常，不揭示最终妖身。\", \"allowed\": [\"narrator\", \"wukong\", \"tangseng\", \"bajie\"], \"first\": \"narrator\", \"handoff_after\": 3, \"next_phase\": \"reveal\"}, \"reveal\": {\"name\": \"reveal\", \"goal\": \"根据用户介入推进开门、隔门试探或观察，只露出黄毛货郎的可疑状态和篮中异样。\", \"guard\": \"可以出现黄毛、黑腥水、篮子、脚印；不要说他已经是某个大妖，也不要新增幕后势力。\", \"allowed\": [\"wukong\", \"narrator\", \"monster\", \"bajie\", \"tangseng\"], \"first\": \"narrator\", \"handoff_after\": 4, \"next_phase\": \"probe\"}, \"probe\": {\"name\": \"probe\", \"goal\": \"悟空试探货郎，妖怪继续装可怜，唐僧担心误伤，八戒怕惹祸，疑点继续累积。\", \"guard\": \"这一阶段只做试探，不动手定输赢；妖怪仍不承认身份。\", \"allowed\": [\"wukong\", \"monster\", \"tangseng\", \"bajie\", \"narrator\"], \"first\": \"wukong\", \"handoff_after\": 4, \"next_phase\": \"pressure\"}, \"pressure\": {\"name\": \"pressure\", \"goal\": \"妖怪反咬或诱骗进庙，悟空发现更多破绽，唐僧与八戒形成分歧，让冲突升级但不变成解谜问答。\", \"guard\": \"可以让妖怪狡辩或诱骗；不要引入第二只妖怪；不要把场景带出破庙。\", \"allowed\": [\"monster\", \"wukong\", \"tangseng\", \"bajie\", \"narrator\"], \"first\": \"monster\", \"handoff_after\": 4, \"next_phase\": \"exposure\"}, \"exposure\": {\"name\": \"exposure\", \"goal\": \"关键破绽出现：黄毛、黑腥水、狼爪影子或脚印暴露，悟空确认货郎不是凡人。\", \"guard\": \"只确认黄毛狼妖伪装，不扩展到黑熊、貂鼠、神将、京城或其他新主线。\", \"allowed\": [\"narrator\", \"wukong\", \"monster\", \"tangseng\", \"bajie\"], \"first\": \"narrator\", \"handoff_after\": 4, \"next_phase\": \"clash\"}, \"clash\": {\"name\": \"clash\", \"goal\": \"冲突进入动作段：悟空逼近，妖怪露怯，货郎伪装开始撑不住，用户可以自然插话改变打法。\", \"guard\": \"动作只围绕破庙门口和狼妖伪装；不要一棒直接跳到新故事。\", \"allowed\": [\"wukong\", \"monster\", \"narrator\", \"bajie\", \"tangseng\"], \"first\": \"wukong\", \"handoff_after\": 4, \"next_phase\": \"turning\"}, \"turning\": {\"name\": \"turning\", \"goal\": \"妖怪露出狼形但还想逃或求饶，唐僧要求不要滥杀，八戒害怕又嘴硬。\", \"guard\": \"可以出现狼耳、狼爪、黄毛狼妖原形；不要新增同伙或幕后山主。\", \"allowed\": [\"monster\", \"tangseng\", \"wukong\", \"bajie\", \"narrator\"], \"first\": \"monster\", \"handoff_after\": 4, \"next_phase\": \"resolution\"}, \"resolution\": {\"name\": \"resolution\", \"goal\": \"收束主冲突：黄毛狼妖被悟空制住后逐走或罚走，交代为何夜雨敲门，唐僧与八戒各自给出反应。\", \"guard\": \"这是本折收束。只解决黄毛狼妖，不打死狼妖，不再抛新敌人、新法器、新地点。\", \"allowed\": [\"narrator\", \"wukong\", \"monster\", \"tangseng\", \"bajie\"], \"first\": \"wukong\", \"handoff_after\": 4, \"next_phase\": \"aftermath\"}, \"aftermath\": {\"name\": \"aftermath\", \"goal\": \"余波：破庙雨声渐小，确认狼妖已被逐走且没有更多危险，天明继续上路，给这一折明确结束感。\", \"guard\": \"必须确认本折没有更多妖怪或同伙；不要改变狼妖未被打死的结局；只能轻轻提示下一折在远处，不展开。\", \"allowed\": [\"narrator\", \"tangseng\", \"bajie\", \"wukong\"], \"first\": \"narrator\", \"handoff_after\": 3, \"next_phase\": \"epilogue\"}, \"epilogue\": {\"name\": \"epilogue\", \"goal\": \"主冲突已经结束。旁白进入尾声对话，只回应用户对本折的追问、复盘因果，或用一句话轻轻引下一折。\", \"guard\": \"尾声禁止新增本折敌人、反转、同伙、法器或新地点剧情。用户问有没有更多妖怪时，说明这一折已经收住。\", \"allowed\": [\"narrator\"], \"first\": \"narrator\", \"handoff_after\": 1, \"next_phase\": \"epilogue\"}}\n    def _logical7():\n        value = _get(_scope0[\"story\"], \"awaiting_user\")\n        if not _truth(value):\n            return value\n        return _scope0[\"latest\"]\n    if _truth(_logical7()):\n        _scope0[\"user\"][\"last_choice\"] = _scope0[\"latest\"]\n        _scope0[\"story\"][\"awaiting_user\"] = False\n        def _logical8():\n            def _logical9():\n                value = _get(_scope0[\"story\"], \"next_phase\")\n                if _truth(value):\n                    return value\n                return _get(_scope0[\"story\"], \"phase\")\n            value = _logical9()\n            if _truth(value):\n                return value\n            return \"threshold\"\n        _scope0[\"story\"][\"phase\"] = _logical8()\n        _scope0[\"story\"][\"phase_spoken\"] = []\n        _scope0[\"story\"][\"next_phase\"] = \"\"\n        if _truth((_get(_scope0[\"story\"], \"phase\") == \"epilogue\")):\n            _scope0[\"story\"][\"completed\"] = True\n            _scope0[\"story\"][\"pressure\"] = \"主冲突已结束，进入旁白尾声对话。\"\n            _scope0[\"ending\"][\"mode\"] = \"epilogue\"\n            _scope0[\"ending\"][\"closed\"] = True\n    def _expression10():\n        return _get(_scope0[\"story\"], \"phase\")\n    def _expression11():\n        return \"threshold\"\n    _scope0[\"phaseName\"] = (_expression10() if _truth(_get(_scope0[\"blueprint\"], _get(_scope0[\"story\"], \"phase\"))) else _expression11())\n    _scope0[\"phase\"] = _get(_scope0[\"blueprint\"], _scope0[\"phaseName\"])\n    _scope0[\"blueprintState\"][\"current_phase\"] = _get(_scope0[\"phase\"], \"name\")\n    _scope0[\"blueprintState\"][\"phase_goal\"] = _get(_scope0[\"phase\"], \"goal\")\n    _scope0[\"blueprintState\"][\"phase_guard\"] = _get(_scope0[\"phase\"], \"guard\")\n    _scope0[\"blueprintState\"][\"next_phase\"] = _get(_scope0[\"phase\"], \"next_phase\")\n    def _expression12():\n        return \"epilogue\"\n    def _expression13():\n        return \"active_story\"\n    _scope0[\"ending\"][\"mode\"] = (_expression12() if _truth((_get(_scope0[\"phase\"], \"name\") == \"epilogue\")) else _expression13())\n    def _expression14():\n        return _get(_scope0[\"story\"], \"phase_spoken\")\n    def _expression15():\n        return []\n    _scope0[\"spoken\"] = (_expression14() if _truth((type(_get(_scope0[\"story\"], \"phase_spoken\")) == \"list\")) else _expression15())\n    _scope0[\"turnAllowed\"] = _get(_scope0[\"phase\"], \"allowed\")[:]\n    def _logical16():\n        value = _get(_scope0[\"phase\"], \"handoff_after\")\n        if _truth(value):\n            return value\n        return 0\n    _scope0[\"handoffAfter\"] = _number(_logical16())\n    def _logical17():\n        value = (_scope0[\"handoffAfter\"] > 0)\n        if not _truth(value):\n            return value\n        return (_add(len(_scope0[\"spoken\"]), 1) >= _scope0[\"handoffAfter\"])\n    _scope0[\"handoffDue\"] = _logical17()\n    if _truth((_get(_scope0[\"phase\"], \"name\") == \"epilogue\")):\n        _scope0[\"turnAllowed\"] = [\"narrator\"]\n    else:\n        def _logical18():\n            value = (len(_scope0[\"spoken\"]) == 0)\n            if not _truth(value):\n                return value\n            return _get(_scope0[\"phase\"], \"first\")\n        if _truth(_logical18()):\n            _scope0[\"turnAllowed\"] = [_get(_scope0[\"phase\"], \"first\")]\n        else:\n            def _logical19():\n                value = _scope0[\"handoffDue\"]\n                if not _truth(value):\n                    return value\n                return (_index(_get(_scope0[\"phase\"], \"allowed\"), \"narrator\") >= 0)\n            if _truth(_logical19()):\n                _scope0[\"turnAllowed\"] = [\"narrator\"]\n            else:\n                def _function20(speaker):\n                    _scope21 = {\"speaker\": speaker}\n                    return (_index(_scope0[\"spoken\"], _scope21[\"speaker\"]) < 0)\n                _scope0[\"unused\"] = [_get(_scope0[\"phase\"], \"allowed\")[_index] for _index in range(len(_get(_scope0[\"phase\"], \"allowed\"))) if _truth(_function20(_get(_scope0[\"phase\"], \"allowed\")[_index]))]\n                if _truth((len(_scope0[\"unused\"]) > 0)):\n                    _scope0[\"turnAllowed\"] = _scope0[\"unused\"]\n    def _logical22():\n        value = _get(_values, \"internal_turn_count\")\n        if _truth(value):\n            return value\n        return 0\n    def _logical23():\n        def _logical24():\n            value = _get(_values, \"cast_state\")\n            if _truth(value):\n                return value\n            return {}\n        value = _get(_logical24(), \"last_speaker\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical25():\n        value = _get(_scope0[\"blueprintState\"], \"contract\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical26():\n        value = _get(_scope0[\"continuity\"], \"confirmed\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical27():\n        value = _get(_scope0[\"continuity\"], \"forbidden_reveals\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical28():\n        value = _get(_scope0[\"ending\"], \"mode\")\n        if _truth(value):\n            return value\n        return \"active_story\"\n    def _logical29():\n        value = _get(_scope0[\"ending\"], \"epilogue_policy\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"phaseContext\"] = {\"phase\": _get(_scope0[\"phase\"], \"name\"), \"goal\": _get(_scope0[\"phase\"], \"goal\"), \"guard\": _get(_scope0[\"phase\"], \"guard\"), \"allowed_speakers\": _scope0[\"turnAllowed\"], \"blueprint_allowed_speakers\": _get(_scope0[\"phase\"], \"allowed\"), \"first_speaker_hint\": _get(_scope0[\"phase\"], \"first\"), \"handoff_after\": _get(_scope0[\"phase\"], \"handoff_after\"), \"next_phase\": _get(_scope0[\"phase\"], \"next_phase\"), \"phase_spoken\": _scope0[\"spoken\"], \"internal_turn_count\": _number(_logical22()), \"last_speaker\": _string(_logical23()), \"latest_user_text\": _scope0[\"latest\"], \"blueprint_contract\": _string(_logical25()), \"continuity_confirmed\": _string(_logical26()), \"continuity_forbidden\": _string(_logical27()), \"ending_mode\": _string(_logical28()), \"ending_policy\": _string(_logical29()), \"story_completed\": (_get(_scope0[\"story\"], \"completed\") == True)}\n    _values[\"story_phase_context\"] = _scope0[\"phaseContext\"]\n    _values[\"story_phase_context_text\"] = json.encode_indent(_scope0[\"phaseContext\"], indent=\"  \")\n    _values[\"story_step_next_phase\"] = _get(_scope0[\"phase\"], \"next_phase\")\n    _values[\"blueprint_state\"] = _scope0[\"blueprintState\"]\n    _values[\"continuity_state\"] = _scope0[\"continuity\"]\n    _values[\"ending_state\"] = _scope0[\"ending\"]\n    _values[\"story_state\"] = _scope0[\"story\"]\n    _values[\"user_state\"] = _scope0[\"user\"]\n    _values[\"blueprint_state_text\"] = json.encode_indent(_scope0[\"blueprintState\"], indent=\"  \")\n    _values[\"continuity_state_text\"] = json.encode_indent(_scope0[\"continuity\"], indent=\"  \")\n    _values[\"ending_state_text\"] = json.encode_indent(_scope0[\"ending\"], indent=\"  \")\n    _channels[\"speaker_select_channel\"] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"text\": json.encode_indent(_scope0[\"phaseContext\"], indent=\"  \")}]}]\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "select_story_step-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "select_speaker-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = 'You select the next visible speaker for a fixed-cast multi-role story.\\nYou do not write story prose. Output exactly one control line.\\n\\nValid speakers are only:\\nnarrator, wukong, tangseng, bajie, monster\\n\\nRequired format:\\nspeaker=<narrator|wukong|tangseng|bajie|monster>; await_user=<true|false>; guidance=<short Chinese plot guidance>; reason=<short Chinese reason>\\n\\nRules:\\n- Use only allowed_speakers from the phase context. It is the candidate list for this specific turn.\\n- The blueprint phase goal and guard control the scene; do not invent a new story plan.\\n- guidance is a private one-sentence cue for the selected speaker, grounded in the original blueprint and current phase.\\n- guidance must respect continuity_state, ending_state, and guard.\\n- guidance must not add new major cast, new location, new enemy, or a different plot branch unrelated to the phase goal.\\n- guidance and reason must not contain English semicolons or Chinese semicolons.\\n- Prefer first_speaker_hint when phase_spoken is empty unless latest_user_text strongly addresses another allowed speaker.\\n- Do not repeat last_speaker unless latest_user_text directly addresses that speaker or no other allowed speaker fits.\\n- When phase_spoken is not empty and any allowed speaker has not spoken in this phase, choose an unused allowed speaker.\\n- Do not choose narrator twice in the same phase unless narrator is the only allowed speaker or this is the handoff speaker.\\n- When phase_spoken length plus this next speaker reaches handoff_after, choose narrator if narrator is allowed and set await_user=true.\\n- await_user=true means narrator will naturally pause for the user. Do not create an ask_user node.\\n- If phase is resolution, guide the speaker toward a concrete ending beat, not another escalation.\\n- If phase is aftermath, guide toward \"no more danger in this arc\" and dawn departure.\\n- If phase is epilogue, speaker must be narrator, await_user must be true, and guidance should answer only from confirmed facts or lightly point outside this arc.\\n- If latest_user_text asks what happens, who appears, or how the scene changes, narrator is usually best.\\n- If latest_user_text talks to or about 悟空/猴/打/砸/开门/金箍棒, wukong may be best.\\n- If latest_user_text talks to or about 唐僧/师父/慈悲/误伤, tangseng may be best.\\n- If latest_user_text talks to or about 八戒/老猪, bajie may be best.\\n- If latest_user_text talks to or about 妖怪/货郎/门外人/求饶/他说什么, monster may be best when monster is allowed.\\n'\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('speaker_select_channel', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "select_speaker-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "select_speaker",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "select_speaker-messages"
+              }
+            },
+            "outputs": {
+              "text": "select_speaker-text"
+            },
+            "max_tokens": 2048,
+            "temperature": 0
+          },
+          {
+            "id": "select_speaker-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    values['speaker_select_text'] = text\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "select_speaker-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "shape_story_turn",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"raw\": None, \"ctx\": None, \"allowed\": None, \"field\": None, \"requestedSpeaker\": None, \"speaker\": None, \"guidance\": None, \"awaitUser\": None, \"goal\": None, \"guard\": None, \"blueprintState\": None, \"continuity\": None, \"ending\": None, \"spoken\": None, \"handoffAfter\": None, \"cleanText\": None, \"latest\": None, \"cleanGoal\": None, \"cleanGuard\": None, \"boundary\": None}\n    def _function1(name, fallback):\n        _scope2 = {\"name\": name, \"fallback\": fallback, \"re\": None, \"m\": None}\n        _scope2[\"re\"] = (_add(_add(\"(^|[;；\\\\s])\", _scope2[\"name\"]), \"\\\\s*=\\\\s*([^;；]+)\"), \"i\")\n        _scope2[\"m\"] = regex_find(_scope0[\"raw\"], _scope2[\"re\"])\n        def _expression3():\n            def _logical4():\n                value = _get(_scope2[\"m\"], 2)\n                if _truth(value):\n                    return value\n                return \"\"\n            return _string(_logical4()).strip()\n        def _expression5():\n            return _scope2[\"fallback\"]\n        return (_expression3() if _truth(_scope2[\"m\"]) else _expression5())\n    _scope0[\"field\"] = _function1\n    def _function6(value):\n        _scope7 = {\"value\": value}\n        def _logical8():\n            value = _scope7[\"value\"]\n            if _truth(value):\n                return value\n            return \"\"\n        return regex_replace(_string(_logical8()), (\"[。.!！?？]+$\", \"\"), \"\")\n    _scope0[\"cleanText\"] = _function6\n    def _logical9():\n        value = _get(_values, \"speaker_select_text\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"raw\"] = _string(_logical9())\n    def _logical10():\n        value = _get(_values, \"story_phase_context\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"ctx\"] = _logical10()\n    def _expression11():\n        return _get(_scope0[\"ctx\"], \"allowed_speakers\")\n    def _expression12():\n        return [\"narrator\"]\n    _scope0[\"allowed\"] = (_expression11() if _truth((type(_get(_scope0[\"ctx\"], \"allowed_speakers\")) == \"list\")) else _expression12())\n    def _logical13():\n        value = _get(_scope0[\"ctx\"], \"first_speaker_hint\")\n        if _truth(value):\n            return value\n        return \"narrator\"\n    _scope0[\"requestedSpeaker\"] = _scope0[\"field\"](\"speaker\", _logical13()).lower()\n    _scope0[\"speaker\"] = _scope0[\"requestedSpeaker\"]\n    _scope0[\"guidance\"] = _scope0[\"field\"](\"guidance\", \"按当前蓝图目标自然推进这一小步，不要另起新线。\")\n    if _truth((_index(_scope0[\"allowed\"], _scope0[\"speaker\"]) < 0)):\n        def _expression14():\n            return \"narrator\"\n        def _expression15():\n            def _logical16():\n                value = _get(_scope0[\"allowed\"], 0)\n                if _truth(value):\n                    return value\n                return \"narrator\"\n            return _logical16()\n        _scope0[\"speaker\"] = (_expression14() if _truth((_index(_scope0[\"allowed\"], \"narrator\") >= 0)) else _expression15())\n        _scope0[\"guidance\"] = \"按最终发言身份改写这一拍，只推进当前蓝图目标，不沿用被纠正 speaker 的口吻。\"\n    _scope0[\"awaitUser\"] = (regex_find(_scope0[\"raw\"], (\"await_user\\\\s*=\\\\s*true\", \"i\")) != None)\n    def _logical17():\n        value = _get(_scope0[\"ctx\"], \"goal\")\n        if _truth(value):\n            return value\n        return \"推进当前场景的一小步。\"\n    _scope0[\"goal\"] = _string(_logical17())\n    def _logical18():\n        value = _get(_scope0[\"ctx\"], \"guard\")\n        if _truth(value):\n            return value\n        return \"不要偏离当前蓝图阶段。\"\n    _scope0[\"guard\"] = _string(_logical18())\n    def _logical19():\n        value = _get(_values, \"blueprint_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"blueprintState\"] = _logical19()\n    def _logical20():\n        value = _get(_values, \"continuity_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"continuity\"] = _logical20()\n    def _logical21():\n        value = _get(_values, \"ending_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"ending\"] = _logical21()\n    def _logical22():\n        value = _get(_scope0[\"ctx\"], \"phase\")\n        if _truth(value):\n            return value\n        return \"\"\n    if _truth((_string(_logical22()) == \"epilogue\")):\n        _scope0[\"speaker\"] = \"narrator\"\n        _scope0[\"awaitUser\"] = True\n        _scope0[\"guidance\"] = \"只回应本折已确认事实，说明黄毛狼妖事件已经收住，不再给破庙这一折新增妖怪或反转\"\n    def _expression23():\n        return _get(_scope0[\"ctx\"], \"phase_spoken\")\n    def _expression24():\n        return []\n    _scope0[\"spoken\"] = (_expression23() if _truth((type(_get(_scope0[\"ctx\"], \"phase_spoken\")) == \"list\")) else _expression24())\n    def _logical25():\n        value = _get(_scope0[\"ctx\"], \"handoff_after\")\n        if _truth(value):\n            return value\n        return 0\n    _scope0[\"handoffAfter\"] = _number(_logical25())\n    def _logical26():\n        def _logical27():\n            value = (_scope0[\"handoffAfter\"] > 0)\n            if not _truth(value):\n                return value\n            return (_add(len(_scope0[\"spoken\"]), 1) >= _scope0[\"handoffAfter\"])\n        value = _logical27()\n        if not _truth(value):\n            return value\n        return (_index(_scope0[\"allowed\"], \"narrator\") >= 0)\n    if _truth(_logical26()):\n        _scope0[\"speaker\"] = \"narrator\"\n        _scope0[\"awaitUser\"] = True\n        if _truth((_scope0[\"requestedSpeaker\"] != \"narrator\")):\n            _scope0[\"guidance\"] = \"旁白承接刚才的角色动作，推进镜头并自然停在用户可以插话的位置。\"\n    _scope0[\"guidance\"] = regex_replace(_scope0[\"guidance\"], (\"[。.!！?？]+$\", \"\"), \"\")\n    def _logical28():\n        value = _get(_values, \"latest_user_text\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"latest\"] = _string(_logical28())\n    _scope0[\"cleanGoal\"] = _scope0[\"cleanText\"](_scope0[\"goal\"])\n    _scope0[\"cleanGuard\"] = _scope0[\"cleanText\"](_scope0[\"guard\"])\n    _scope0[\"boundary\"] = _add(_add(_add(_add(_add(_add(_add(_add(_add(_add(_add(_add(_add(_add(\"阶段目标=\", _scope0[\"cleanGoal\"]), \"。阶段边界=\"), _scope0[\"cleanGuard\"]), \"。剧情引导=\"), _scope0[\"guidance\"]), \"。连续性事实=\"), _scope0[\"cleanText\"](_get(_scope0[\"continuity\"], \"confirmed\"))), \"。禁止突破=\"), _scope0[\"cleanText\"](_get(_scope0[\"continuity\"], \"forbidden_reveals\"))), \"。结尾策略=\"), _scope0[\"cleanText\"](_get(_scope0[\"ending\"], \"epilogue_policy\"))), \"。当前发言身份=\"), _scope0[\"speaker\"]), \"。只推进当前蓝图一小步，不要固定轮流报幕，不要突破 memory layout 的边界。\")\n    _values[\"planned_speaker\"] = _scope0[\"speaker\"]\n    def _logical29():\n        value = _get(_scope0[\"ctx\"], \"phase\")\n        if _truth(value):\n            return value\n        return \"scene\"\n    _values[\"story_step_name\"] = _add(_add(_string(_logical29()), \":\"), _scope0[\"speaker\"])\n    _values[\"story_step_goal\"] = _scope0[\"boundary\"]\n    _values[\"story_step_guidance\"] = _scope0[\"guidance\"]\n    _values[\"story_step_await_user\"] = _scope0[\"awaitUser\"]\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "shape_story_turn-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "route_speaker",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"speaker\": None, \"latest\": None, \"goal\": None, \"guidance\": None}\n    def _logical1():\n        value = _get(_values, \"planned_speaker\")\n        if _truth(value):\n            return value\n        return \"narrator\"\n    _scope0[\"speaker\"] = _string(_logical1())\n    def _logical2():\n        value = _get(_values, \"latest_user_text\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"latest\"] = _string(_logical2())\n    def _logical3():\n        value = _get(_values, \"story_step_goal\")\n        if _truth(value):\n            return value\n        return \"推进当前场景的一小步。\"\n    _scope0[\"goal\"] = _string(_logical3())\n    def _logical4():\n        value = _get(_values, \"story_step_guidance\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"guidance\"] = _string(_logical4())\n    _values[\"next_speaker\"] = _scope0[\"speaker\"]\n    def _logical5():\n        value = _get(_values, \"story_step_name\")\n        if _truth(value):\n            return value\n        return \"\"\n    _channels[\"speech_channel\"] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"text\": _add(_add(_add(_add(_add(_add(_add(_add(_add(\"speaker=\", _scope0[\"speaker\"]), \"\\nblueprint_step=\"), _string(_logical5())), \"\\nstory_brief=\"), _scope0[\"goal\"]), \"\\nguidance=\"), _scope0[\"guidance\"]), \"\\nlatest_user_text=\"), _scope0[\"latest\"])}]}]\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "route_speaker-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "narrator-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是旁白，只负责环境、动作、镜头和自然停顿，不替角色说台词。\\n这是语音互动故事，只输出自然中文正文，不要输出角色标签、Markdown、列表、舞台格式、括号动作或内部字段。\\n每次只推进一个小情节，必须控制在 18 到 28 个汉字内。\\n如果蓝图目标要求把镜头交给用户，要自然停在一个让用户想接话的位置，不要说“请用户输入”，不要列选项。\\n如果 ending_state.mode 是 epilogue，只复盘本折已确认事实；不要新增妖怪、同伙、法器、幕后主使或新地点剧情。\\n\\n蓝图目标：${board.story_step_goal}\\n当前故事状态：${board.story_state_text}\\n固定角色状态：${board.cast_state_text}\\n用户状态：${board.user_state_text}\\n'\n    prompt = prompt.replace('${board.story_step_goal}', str(values.get('story_step_goal', \"\") or \"\"))\n    prompt = prompt.replace('${board.story_state_text}', str(values.get('story_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.cast_state_text}', str(values.get('cast_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.user_state_text}', str(values.get('user_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('speech_channel', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "narrator-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "narrator",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "narrator-messages"
+              }
+            },
+            "outputs": {
+              "text": "narrator-text"
+            },
+            "max_tokens": 2048
+          },
+          {
+            "id": "narrator-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    values['tmp_speech_text'] = text\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "narrator-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_wukong-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你只扮演孙悟空。只说孙悟空会说出口的话，不替旁白、唐僧、八戒或妖怪发言。\\n语气机敏、直接、警觉，有行动感。只输出孙悟空口头说出来的话；不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。\\n回复一句自然中文，必须控制在 12 到 24 个汉字内，不要重复同一句威胁。\\n\\n蓝图目标：${board.story_step_goal}\\n当前故事状态：${board.story_state_text}\\n固定角色状态：${board.cast_state_text}\\n用户状态：${board.user_state_text}\\n'\n    prompt = prompt.replace('${board.story_step_goal}', str(values.get('story_step_goal', \"\") or \"\"))\n    prompt = prompt.replace('${board.story_state_text}', str(values.get('story_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.cast_state_text}', str(values.get('cast_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.user_state_text}', str(values.get('user_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('speech_channel', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "role_wukong-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_wukong",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "role_wukong-messages"
+              }
+            },
+            "outputs": {
+              "text": "role_wukong-text"
+            },
+            "max_tokens": 2048
+          },
+          {
+            "id": "role_wukong-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    values['tmp_speech_text'] = text\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "role_wukong-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_tangseng-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你只扮演唐僧。只说唐僧会说出口的话，不替旁白、悟空、八戒或妖怪发言。\\n语气克制、慈悲、谨慎。只输出唐僧口头说出来的话；不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。\\n回复一句自然中文，必须控制在 12 到 24 个汉字内。\\n\\n蓝图目标：${board.story_step_goal}\\n当前故事状态：${board.story_state_text}\\n固定角色状态：${board.cast_state_text}\\n用户状态：${board.user_state_text}\\n'\n    prompt = prompt.replace('${board.story_step_goal}', str(values.get('story_step_goal', \"\") or \"\"))\n    prompt = prompt.replace('${board.story_state_text}', str(values.get('story_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.cast_state_text}', str(values.get('cast_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.user_state_text}', str(values.get('user_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('speech_channel', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "role_tangseng-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_tangseng",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "role_tangseng-messages"
+              }
+            },
+            "outputs": {
+              "text": "role_tangseng-text"
+            },
+            "max_tokens": 2048
+          },
+          {
+            "id": "role_tangseng-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    values['tmp_speech_text'] = text\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "role_tangseng-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_bajie-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你只扮演猪八戒。只说猪八戒会说出口的话，不替旁白、悟空、唐僧或妖怪发言。\\n语气有点怕麻烦、嘴碎、但不恶意。只输出猪八戒口头说出来的话；不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。\\n回复一句自然中文，必须控制在 12 到 24 个汉字内。\\n\\n蓝图目标：${board.story_step_goal}\\n当前故事状态：${board.story_state_text}\\n固定角色状态：${board.cast_state_text}\\n用户状态：${board.user_state_text}\\n'\n    prompt = prompt.replace('${board.story_step_goal}', str(values.get('story_step_goal', \"\") or \"\"))\n    prompt = prompt.replace('${board.story_state_text}', str(values.get('story_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.cast_state_text}', str(values.get('cast_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.user_state_text}', str(values.get('user_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('speech_channel', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "role_bajie-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_bajie",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "role_bajie-messages"
+              }
+            },
+            "outputs": {
+              "text": "role_bajie-text"
+            },
+            "max_tokens": 2048
+          },
+          {
+            "id": "role_bajie-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    values['tmp_speech_text'] = text\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "role_bajie-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_monster-prompt",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你只扮演门外伪装成人的妖怪。只说这个妖怪会说出口的话，不替旁白或取经人发言。\\n语气表面虚弱可怜，但话里带一点不自然。不要直接承认自己是妖怪。只输出妖怪口头说出来的话，只使用中文，不要输出英文。不要输出角色标签、Markdown、舞台说明、括号动作或内部字段，不要使用任何括号。\\n回复一句自然中文，必须控制在 12 到 24 个汉字内。\\n\\n蓝图目标：${board.story_step_goal}\\n当前故事状态：${board.story_state_text}\\n固定角色状态：${board.cast_state_text}\\n用户状态：${board.user_state_text}\\n'\n    prompt = prompt.replace('${board.story_step_goal}', str(values.get('story_step_goal', \"\") or \"\"))\n    prompt = prompt.replace('${board.story_state_text}', str(values.get('story_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.cast_state_text}', str(values.get('cast_state_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.user_state_text}', str(values.get('user_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('speech_channel', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "fence": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "messages": "role_monster-messages"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "role_monster",
+            "type": "chat_model",
+            "model": "llm",
+            "inputs": {
+              "messages": {
+                "from": "role_monster-messages"
+              }
+            },
+            "outputs": {
+              "text": "role_monster-text"
+            },
+            "max_tokens": 2048
+          },
+          {
+            "id": "role_monster-capture",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    values['tmp_speech_text'] = text\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "answer": {
+                "from": "role_monster-text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "update_state",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"speaker\": None, \"speech\": None, \"story\": None, \"blueprintState\": None, \"cast\": None, \"user\": None, \"continuity\": None, \"ending\": None, \"shortSpeech\": None, \"nextPhase\": None, \"awaitUser\": None, \"count\": None}\n    def _logical1():\n        value = _get(_values, \"next_speaker\")\n        if _truth(value):\n            return value\n        return \"narrator\"\n    _scope0[\"speaker\"] = _string(_logical1())\n    def _logical2():\n        def _logical3():\n            value = _get(_values, \"tmp_speech_text\")\n            if _truth(value):\n                return value\n            return _get(_values, \"response\")\n        value = _logical3()\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"speech\"] = _string(_logical2()).strip()\n    def _logical4():\n        value = _get(_values, \"story_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"story\"] = _logical4()\n    def _logical5():\n        value = _get(_values, \"blueprint_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"blueprintState\"] = _logical5()\n    def _logical6():\n        value = _get(_values, \"cast_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"cast\"] = _logical6()\n    def _logical7():\n        value = _get(_values, \"user_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"user\"] = _logical7()\n    def _logical8():\n        value = _get(_values, \"continuity_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"continuity\"] = _logical8()\n    def _logical9():\n        value = _get(_values, \"ending_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"ending\"] = _logical9()\n    def _expression10():\n        return _add(_scope0[\"speech\"][0:80], \"...\")\n    def _expression11():\n        return _scope0[\"speech\"]\n    _scope0[\"shortSpeech\"] = (_expression10() if _truth((len(_scope0[\"speech\"]) > 80)) else _expression11())\n    def _logical12():\n        value = _get(_values, \"story_step_next_phase\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"nextPhase\"] = _string(_logical12())\n    _scope0[\"awaitUser\"] = (_get(_values, \"story_step_await_user\") == True)\n    _scope0[\"story\"][\"awaiting_user\"] = _scope0[\"awaitUser\"]\n    def _expression13():\n        return _scope0[\"nextPhase\"]\n    def _expression14():\n        def _logical15():\n            value = _get(_scope0[\"story\"], \"next_phase\")\n            if _truth(value):\n                return value\n            return \"\"\n        return _logical15()\n    _scope0[\"story\"][\"next_phase\"] = (_expression13() if _truth(_scope0[\"awaitUser\"]) else _expression14())\n    def _expression16():\n        return _get(_scope0[\"story\"], \"phase_spoken\")\n    def _expression17():\n        return []\n    _scope0[\"story\"][\"phase_spoken\"] = (_expression16() if _truth((type(_get(_scope0[\"story\"], \"phase_spoken\")) == \"list\")) else _expression17())\n    _scope0[\"story\"][\"phase_spoken\"] = (_get(_scope0[\"story\"], \"phase_spoken\") + [_scope0[\"speaker\"]])[(-8):]\n    def _logical18():\n        def _logical19():\n            value = _scope0[\"shortSpeech\"]\n            if _truth(value):\n                return value\n            return _get(_scope0[\"story\"], \"last_event\")\n        value = _logical19()\n        if _truth(value):\n            return value\n        return \"继续场景。\"\n    _scope0[\"story\"][\"last_event\"] = _logical18()\n    def _logical20():\n        value = _get(_scope0[\"story\"], \"phase\")\n        if _truth(value):\n            return value\n        return \"\"\n    if _truth((_string(_logical20()) == \"epilogue\")):\n        _scope0[\"story\"][\"completed\"] = True\n        def _logical21():\n            value = _get(_scope0[\"story\"], \"epilogue_turns\")\n            if _truth(value):\n                return value\n            return 0\n        _scope0[\"story\"][\"epilogue_turns\"] = _add(_number(_logical21()), 1)\n        _scope0[\"ending\"][\"mode\"] = \"epilogue\"\n        _scope0[\"ending\"][\"closed\"] = True\n        _scope0[\"ending\"][\"closure\"] = \"黄毛狼妖这一折已经结束，只能复盘本折因果或轻提示下一折。\"\n    def _expression22():\n        return \"主冲突已结束，旁白可以继续和用户对话或引出下一折。\"\n    def _expression23():\n        def _expression24():\n            return \"故事停在用户自然插话的位置。\"\n        def _expression25():\n            def _expression26():\n                return \"门外来者还在狡辩，身份越来越可疑。\"\n            def _expression27():\n                def _expression28():\n                    return \"悟空正在把怀疑变成行动。\"\n                def _expression29():\n                    return \"破庙雨夜的疑点继续加深。\"\n                return (_expression28() if _truth((_scope0[\"speaker\"] == \"wukong\")) else _expression29())\n            return (_expression26() if _truth((_scope0[\"speaker\"] == \"monster\")) else _expression27())\n        return (_expression24() if _truth(_scope0[\"awaitUser\"]) else _expression25())\n    _scope0[\"story\"][\"pressure\"] = (_expression22() if _truth((_get(_scope0[\"story\"], \"completed\") == True)) else _expression23())\n    def _logical30():\n        def _logical31():\n            value = _get(_scope0[\"story\"], \"phase\")\n            if _truth(value):\n                return value\n            return _get(_scope0[\"blueprintState\"], \"current_phase\")\n        value = _logical31()\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"blueprintState\"][\"current_phase\"] = _logical30()\n    def _logical32():\n        def _logical33():\n            value = _scope0[\"nextPhase\"]\n            if _truth(value):\n                return value\n            return _get(_scope0[\"blueprintState\"], \"next_phase\")\n        value = _logical33()\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"blueprintState\"][\"next_phase\"] = _logical32()\n    if _truth((_get(_scope0[\"story\"], \"completed\") == True)):\n        _scope0[\"blueprintState\"][\"allowed_scope\"] = \"尾声只能讨论破庙雨夜黄毛狼妖这一折的已确认事实，或一句话带到下一折。\"\n        _scope0[\"blueprintState\"][\"forbidden_scope\"] = \"不要继续给破庙这一折新增妖怪、同伙、法器、幕后主使、京城或新地点剧情。\"\n        _scope0[\"continuity\"][\"open_threads\"] = \"本折主冲突已收束；用户若追问，只回答已确认因果。\"\n    else:\n        if _truth((_scope0[\"nextPhase\"] == \"epilogue\")):\n            _scope0[\"ending\"][\"closure\"] = \"下一次用户接话后进入尾声，确认本折没有更多同伙或新危险。\"\n    _scope0[\"cast\"][\"last_speaker\"] = _scope0[\"speaker\"]\n    if _truth((_scope0[\"speaker\"] == \"monster\")):\n        _scope0[\"cast\"][\"mood\"] = \"妖怪继续伪装，悟空更警觉，唐僧犹豫，八戒害怕。\"\n    else:\n        if _truth((_scope0[\"speaker\"] == \"wukong\")):\n            _scope0[\"cast\"][\"mood\"] = \"悟空警觉上前，唐僧提醒谨慎，八戒想躲远一点。\"\n        else:\n            if _truth((_get(_scope0[\"story\"], \"completed\") == True)):\n                _scope0[\"cast\"][\"mood\"] = \"主冲突已结束，旁白接住用户的尾声对话。\"\n            else:\n                if _truth(_scope0[\"awaitUser\"]):\n                    _scope0[\"cast\"][\"mood\"] = \"众人等用户自然插话或判断下一步。\"\n    def _logical34():\n        value = _get(_values, \"internal_turn_count\")\n        if _truth(value):\n            return value\n        return 0\n    _scope0[\"count\"] = _add(_number(_logical34()), 1)\n    _values[\"internal_turn_count\"] = _scope0[\"count\"]\n    _values[\"story_state\"] = _scope0[\"story\"]\n    _values[\"blueprint_state\"] = _scope0[\"blueprintState\"]\n    _values[\"cast_state\"] = _scope0[\"cast\"]\n    _values[\"user_state\"] = _scope0[\"user\"]\n    _values[\"continuity_state\"] = _scope0[\"continuity\"]\n    _values[\"ending_state\"] = _scope0[\"ending\"]\n    _values[\"story_state_text\"] = json.encode_indent(_scope0[\"story\"], indent=\"  \")\n    _values[\"blueprint_state_text\"] = json.encode_indent(_scope0[\"blueprintState\"], indent=\"  \")\n    _values[\"cast_state_text\"] = json.encode_indent(_scope0[\"cast\"], indent=\"  \")\n    _values[\"user_state_text\"] = json.encode_indent(_scope0[\"user\"], indent=\"  \")\n    _values[\"continuity_state_text\"] = json.encode_indent(_scope0[\"continuity\"], indent=\"  \")\n    _values[\"ending_state_text\"] = json.encode_indent(_scope0[\"ending\"], indent=\"  \")\n    def _logical35():\n        value = _get(_scope0[\"story\"], \"scene\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical36():\n        value = _get(_scope0[\"story\"], \"phase\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical37():\n        value = _get(_scope0[\"story\"], \"pressure\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical38():\n        value = _get(_scope0[\"story\"], \"last_event\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_story_state_line\"] = _add(_add(_add(_add(_add(_add(_add(_add(_add(\"story_state: scene=\", _logical35()), \"; phase=\"), _logical36()), \"; awaiting_user=\"), (_get(_scope0[\"story\"], \"awaiting_user\") == True)), \"; pressure=\"), _logical37()), \"; last_event=\"), _logical38())\n    def _logical39():\n        value = _get(_scope0[\"blueprintState\"], \"arc\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical40():\n        value = _get(_scope0[\"blueprintState\"], \"current_phase\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical41():\n        value = _get(_scope0[\"blueprintState\"], \"next_phase\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical42():\n        value = _get(_scope0[\"blueprintState\"], \"allowed_scope\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical43():\n        value = _get(_scope0[\"blueprintState\"], \"forbidden_scope\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_blueprint_state_line\"] = _add(_add(_add(_add(_add(_add(_add(_add(_add(\"blueprint_state: arc=\", _logical39()), \"; current_phase=\"), _logical40()), \"; next_phase=\"), _logical41()), \"; allowed_scope=\"), _logical42()), \"; forbidden_scope=\"), _logical43())\n    def _logical44():\n        value = _get(_scope0[\"cast\"], \"present\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical45():\n        value = _get(_scope0[\"cast\"], \"last_speaker\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical46():\n        value = _get(_scope0[\"cast\"], \"mood\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_cast_state_line\"] = _add(_add(_add(_add(_add(\"cast_state: present=\", _logical44()), \"; last_speaker=\"), _logical45()), \"; mood=\"), _logical46())\n    def _logical47():\n        value = _get(_scope0[\"user\"], \"last_input\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical48():\n        value = _get(_scope0[\"user\"], \"last_choice\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical49():\n        value = _get(_scope0[\"user\"], \"preference\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_user_state_line\"] = _add(_add(_add(_add(_add(\"user_state: last_input=\", _logical47()), \"; last_choice=\"), _logical48()), \"; preference=\"), _logical49())\n    def _logical50():\n        value = _get(_scope0[\"continuity\"], \"confirmed\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical51():\n        value = _get(_scope0[\"continuity\"], \"open_threads\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical52():\n        value = _get(_scope0[\"continuity\"], \"forbidden_reveals\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_continuity_state_line\"] = _add(_add(_add(_add(_add(\"continuity_state: confirmed=\", _logical50()), \"; open_threads=\"), _logical51()), \"; forbidden_reveals=\"), _logical52())\n    def _logical53():\n        value = _get(_scope0[\"ending\"], \"mode\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical54():\n        value = _get(_scope0[\"ending\"], \"closure\")\n        if _truth(value):\n            return value\n        return \"\"\n    def _logical55():\n        value = _get(_scope0[\"ending\"], \"epilogue_policy\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_ending_state_line\"] = _add(_add(_add(_add(_add(_add(_add(\"ending_state: mode=\", _logical53()), \"; closed=\"), (_get(_scope0[\"ending\"], \"closed\") == True)), \"; closure=\"), _logical54()), \"; epilogue_policy=\"), _logical55())\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "update_state-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "continue_check",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value) in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n        return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value) == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\ndef _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\" else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n    for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare else _string(item) < _string(result[index])\n            if less:\n                position = index\n                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\", \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"]))\n    _emitted = []\n    _scope0 = {\"count\": None, \"story\": None, \"shouldContinue\": None}\n    def _logical1():\n        value = _get(_values, \"internal_turn_count\")\n        if _truth(value):\n            return value\n        return 0\n    _scope0[\"count\"] = _number(_logical1())\n    def _logical2():\n        value = _get(_values, \"story_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"story\"] = _logical2()\n    def _logical3():\n        value = (_get(_scope0[\"story\"], \"awaiting_user\") != True)\n        if not _truth(value):\n            return value\n        return (_scope0[\"count\"] < 2)\n    _scope0[\"shouldContinue\"] = _logical3()\n    _values[\"continue_story\"] = _scope0[\"shouldContinue\"]\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "text": "continue_check-text"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "observe_story_audit-prepare-0",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    fact_0 = str(values.get('tmp_story_state_line', \"\") or \"\")\n    fact_1 = str(values.get('tmp_blueprint_state_line', \"\") or \"\")\n    fact_2 = str(values.get('tmp_cast_state_line', \"\") or \"\")\n    fact_3 = str(values.get('tmp_user_state_line', \"\") or \"\")\n    fact_4 = str(values.get('tmp_continuity_state_line', \"\") or \"\")\n    fact_5 = str(values.get('tmp_ending_state_line', \"\") or \"\")\n    return {\"values\":values,\"channels\":channels,'fact-0':fact_0,'attribute-0-lane':'story-state','attribute-0-kind':'state','attribute-0-predicate':'progress','attribute-0-subject':'story_state','fact-1':fact_1,'attribute-1-lane':'blueprint-state','attribute-1-kind':'state','attribute-1-predicate':'arc','attribute-1-subject':'blueprint_state','fact-2':fact_2,'attribute-2-lane':'cast-state','attribute-2-kind':'state','attribute-2-predicate':'status','attribute-2-subject':'cast_state','fact-3':fact_3,'attribute-3-lane':'user-state','attribute-3-kind':'state','attribute-3-predicate':'participation','attribute-3-subject':'user_state','fact-4':fact_4,'attribute-4-lane':'continuity-state','attribute-4-kind':'state','attribute-4-predicate':'facts','attribute-4-subject':'continuity_state','fact-5':fact_5,'attribute-5-lane':'ending-state','attribute-5-kind':'state','attribute-5-predicate':'closure','attribute-5-subject':'ending_state'}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              },
+              "channels": {
+                "from": "channels"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "values": "values",
+              "channels": "channels",
+              "fact-0": "observe_story_audit-fact-0",
+              "attribute-0-lane": "observe_story_audit-attribute-0-lane",
+              "attribute-0-kind": "observe_story_audit-attribute-0-kind",
+              "attribute-0-predicate": "observe_story_audit-attribute-0-predicate",
+              "attribute-0-subject": "observe_story_audit-attribute-0-subject",
+              "fact-1": "observe_story_audit-fact-1",
+              "attribute-1-lane": "observe_story_audit-attribute-1-lane",
+              "attribute-1-kind": "observe_story_audit-attribute-1-kind",
+              "attribute-1-predicate": "observe_story_audit-attribute-1-predicate",
+              "attribute-1-subject": "observe_story_audit-attribute-1-subject",
+              "fact-2": "observe_story_audit-fact-2",
+              "attribute-2-lane": "observe_story_audit-attribute-2-lane",
+              "attribute-2-kind": "observe_story_audit-attribute-2-kind",
+              "attribute-2-predicate": "observe_story_audit-attribute-2-predicate",
+              "attribute-2-subject": "observe_story_audit-attribute-2-subject",
+              "fact-3": "observe_story_audit-fact-3",
+              "attribute-3-lane": "observe_story_audit-attribute-3-lane",
+              "attribute-3-kind": "observe_story_audit-attribute-3-kind",
+              "attribute-3-predicate": "observe_story_audit-attribute-3-predicate",
+              "attribute-3-subject": "observe_story_audit-attribute-3-subject",
+              "fact-4": "observe_story_audit-fact-4",
+              "attribute-4-lane": "observe_story_audit-attribute-4-lane",
+              "attribute-4-kind": "observe_story_audit-attribute-4-kind",
+              "attribute-4-predicate": "observe_story_audit-attribute-4-predicate",
+              "attribute-4-subject": "observe_story_audit-attribute-4-subject",
+              "fact-5": "observe_story_audit-fact-5",
+              "attribute-5-lane": "observe_story_audit-attribute-5-lane",
+              "attribute-5-kind": "observe_story_audit-attribute-5-kind",
+              "attribute-5-predicate": "observe_story_audit-attribute-5-predicate",
+              "attribute-5-subject": "observe_story_audit-attribute-5-subject"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "observe_story_audit",
+            "type": "memory_observe",
+            "wait_for_completion": true,
+            "facts": [
+              {
+                "text_from": "observe_story_audit-fact-0",
+                "attributes": {
+                  "lane": "observe_story_audit-attribute-0-lane",
+                  "kind": "observe_story_audit-attribute-0-kind",
+                  "predicate": "observe_story_audit-attribute-0-predicate",
+                  "subject": "observe_story_audit-attribute-0-subject"
+                }
+              },
+              {
+                "text_from": "observe_story_audit-fact-1",
+                "attributes": {
+                  "lane": "observe_story_audit-attribute-1-lane",
+                  "kind": "observe_story_audit-attribute-1-kind",
+                  "predicate": "observe_story_audit-attribute-1-predicate",
+                  "subject": "observe_story_audit-attribute-1-subject"
+                }
+              },
+              {
+                "text_from": "observe_story_audit-fact-2",
+                "attributes": {
+                  "lane": "observe_story_audit-attribute-2-lane",
+                  "kind": "observe_story_audit-attribute-2-kind",
+                  "predicate": "observe_story_audit-attribute-2-predicate",
+                  "subject": "observe_story_audit-attribute-2-subject"
+                }
+              },
+              {
+                "text_from": "observe_story_audit-fact-3",
+                "attributes": {
+                  "lane": "observe_story_audit-attribute-3-lane",
+                  "kind": "observe_story_audit-attribute-3-kind",
+                  "predicate": "observe_story_audit-attribute-3-predicate",
+                  "subject": "observe_story_audit-attribute-3-subject"
+                }
+              },
+              {
+                "text_from": "observe_story_audit-fact-4",
+                "attributes": {
+                  "lane": "observe_story_audit-attribute-4-lane",
+                  "kind": "observe_story_audit-attribute-4-kind",
+                  "predicate": "observe_story_audit-attribute-4-predicate",
+                  "subject": "observe_story_audit-attribute-4-subject"
+                }
+              },
+              {
+                "text_from": "observe_story_audit-fact-5",
+                "attributes": {
+                  "lane": "observe_story_audit-attribute-5-lane",
+                  "kind": "observe_story_audit-attribute-5-kind",
+                  "predicate": "observe_story_audit-attribute-5-predicate",
+                  "subject": "observe_story_audit-attribute-5-subject"
+                }
+              }
+            ]
+          },
+          {
+            "id": "route_speaker-route",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = input[\"values\"]\n    if (values.get('next_speaker') == \"narrator\"):\n        return {\"route\":'narrator-prompt'}\n    if (values.get('next_speaker') == \"wukong\"):\n        return {\"route\":'role_wukong-prompt'}\n    if (values.get('next_speaker') == \"tangseng\"):\n        return {\"route\":'role_tangseng-prompt'}\n    if (values.get('next_speaker') == \"bajie\"):\n        return {\"route\":'role_bajie-prompt'}\n    if (values.get('next_speaker') == \"monster\"):\n        return {\"route\":'role_monster-prompt'}\n    return {\"route\":'end'}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              }
+            },
+            "outputs": {
+              "route": "route_speaker-route"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          },
+          {
+            "id": "continue_check-route",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    values = input[\"values\"]\n    if (values.get('continue_story') == True):\n        return {\"route\":'select_story_step'}\n    if (values.get('continue_story') == False):\n        return {\"route\":'observe_story_audit-prepare-0'}\n    return {\"route\":'end'}\n",
+            "inputs": {
+              "values": {
+                "from": "values"
+              }
+            },
+            "outputs": {
+              "route": "continue_check-route"
+            },
+            "limits": {
+              "max_execution_steps": 1000000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "start",
+            "to": "initialize-conversation"
+          },
+          {
+            "from": "select_speaker-prompt",
+            "to": "select_speaker"
+          },
+          {
+            "from": "select_speaker",
+            "to": "select_speaker-capture"
+          },
+          {
+            "from": "narrator-prompt",
+            "to": "narrator"
+          },
+          {
+            "from": "narrator",
+            "to": "narrator-capture"
+          },
+          {
+            "from": "role_wukong-prompt",
+            "to": "role_wukong"
+          },
+          {
+            "from": "role_wukong",
+            "to": "role_wukong-capture"
+          },
+          {
+            "from": "role_tangseng-prompt",
+            "to": "role_tangseng"
+          },
+          {
+            "from": "role_tangseng",
+            "to": "role_tangseng-capture"
+          },
+          {
+            "from": "role_bajie-prompt",
+            "to": "role_bajie"
+          },
+          {
+            "from": "role_bajie",
+            "to": "role_bajie-capture"
+          },
+          {
+            "from": "role_monster-prompt",
+            "to": "role_monster"
+          },
+          {
+            "from": "role_monster",
+            "to": "role_monster-capture"
+          },
+          {
+            "from": "observe_story_audit-prepare-0",
+            "to": "observe_story_audit"
+          },
+          {
+            "from": "initialize-conversation",
+            "to": "initialize-story"
+          },
+          {
+            "from": "initialize-story",
+            "to": "select_story_step"
+          },
+          {
+            "from": "select_story_step",
+            "to": "select_speaker-prompt"
+          },
+          {
+            "from": "select_speaker-capture",
+            "to": "shape_story_turn"
+          },
+          {
+            "from": "shape_story_turn",
+            "to": "route_speaker"
+          },
+          {
+            "from": "route_speaker",
+            "to": "route_speaker-route"
+          },
+          {
+            "from": "narrator-capture",
+            "to": "update_state"
+          },
+          {
+            "from": "role_wukong-capture",
+            "to": "update_state"
+          },
+          {
+            "from": "role_tangseng-capture",
+            "to": "update_state"
+          },
+          {
+            "from": "role_bajie-capture",
+            "to": "update_state"
+          },
+          {
+            "from": "role_monster-capture",
+            "to": "update_state"
+          },
+          {
+            "from": "update_state",
+            "to": "continue_check"
+          },
+          {
+            "from": "continue_check",
+            "to": "continue_check-route"
+          },
+          {
+            "from": "observe_story_audit",
+            "to": "end"
+          }
+        ],
+        "branches": [
+          {
+            "from": "route_speaker-route",
+            "mode": "first_match",
+            "routes": [
+              {
+                "when": {
+                  "field": "route_speaker-route",
+                  "op": "eq",
+                  "value": "narrator-prompt"
+                },
+                "to": "narrator-prompt"
+              },
+              {
+                "when": {
+                  "field": "route_speaker-route",
+                  "op": "eq",
+                  "value": "role_wukong-prompt"
+                },
+                "to": "role_wukong-prompt"
+              },
+              {
+                "when": {
+                  "field": "route_speaker-route",
+                  "op": "eq",
+                  "value": "role_tangseng-prompt"
+                },
+                "to": "role_tangseng-prompt"
+              },
+              {
+                "when": {
+                  "field": "route_speaker-route",
+                  "op": "eq",
+                  "value": "role_bajie-prompt"
+                },
+                "to": "role_bajie-prompt"
+              },
+              {
+                "when": {
+                  "field": "route_speaker-route",
+                  "op": "eq",
+                  "value": "role_monster-prompt"
+                },
+                "to": "role_monster-prompt"
+              }
+            ],
+            "default": "end"
+          },
+          {
+            "from": "continue_check-route",
+            "mode": "first_match",
+            "routes": [
+              {
+                "when": {
+                  "field": "continue_check-route",
+                  "op": "eq",
+                  "value": "select_story_step"
+                },
+                "to": "select_story_step"
+              },
+              {
+                "when": {
+                  "field": "continue_check-route",
+                  "op": "eq",
+                  "value": "observe_story_audit-prepare-0"
+                },
+                "to": "observe_story_audit-prepare-0"
+              }
+            ],
+            "default": "end"
+          }
+        ],
+        "outputs": [
+          {
+            "node": "narrator",
+            "field": "narrator-text",
+            "name": "narrator",
+            "mime_type": "text/plain",
+            "primary": true
+          },
+          {
+            "node": "role_wukong",
+            "field": "role_wukong-text",
+            "name": "role_wukong",
+            "mime_type": "text/plain"
+          },
+          {
+            "node": "role_tangseng",
+            "field": "role_tangseng-text",
+            "name": "role_tangseng",
+            "mime_type": "text/plain"
+          },
+          {
+            "node": "role_bajie",
+            "field": "role_bajie-text",
+            "name": "role_bajie",
+            "mime_type": "text/plain"
+          },
+          {
+            "node": "role_monster",
+            "field": "role_monster-text",
+            "name": "role_monster",
+            "mime_type": "text/plain"
+          }
+        ]
+      },
+      "state_persistence": {
+        "fields": [
+          "values",
+          "channels"
+        ]
+      },
+      "conversation": {
+        "starts": "peer"
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "narrator",
+        "node_voices": {
+          "narrator": "narrator",
+          "role_bajie": "zhu-bajie",
+          "role_monster": "monster",
+          "role_tangseng": "tang-sanzang",
+          "role_wukong": "sun-wukong"
+        }
+      }
+    },
+    "name": "eino-multi-role-storyteller",
+    "parameters": {
+      "input": "push-to-talk"
+    },
+    "memory": "storyteller-memory",
+    "description": "Eino raid: Multi Role Storyteller"
+  }
+}

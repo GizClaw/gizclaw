@@ -18,7 +18,7 @@ spec:
         en: {display_name: Doubao Assistant}
         zh-CN: {display_name: 豆包助手}
     journey:
-      resource_id: flowcraft-journey-guide
+      resource_id: eino-journey-guide
       tags: [6-8岁, 故事]
       i18n:
         en: {display_name: Journey Guide}
@@ -48,10 +48,10 @@ spec:
     memories:
       assistant-memory:
         layout_id: assistant-memory
-        driver: flowcraft
+        driver: mem0
         connection:
-          type: flowcraft_redis8
-          url: redis://redis:6379/0
+          type: mem0_self_hosted
+          endpoint: http://127.0.0.1:18000
     voices:
       cute-pet:
         resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
@@ -72,11 +72,9 @@ Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。客�
 
 每个 RuntimeProfile alias 都是总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment。`asr`、`extract` 等无点名称表示共享能力；`journey.model`、`journey.narrator`、`story.journey-center-earth` 等名称表示可独立绑定的 consumer 槽位。完整名称始终是平面 map 中的一个 opaque key；Server 原样保留，不按 segment 查找，不支持 prefix、wildcard，也不会从 `journey.narrator` fallback 到 `narrator`。`journey.narrator` 与 `journey-narrator` 是两个不同 alias。空 segment、下划线以及 segment 内的首尾连字符均不合法。
 
-`resources.memories` 是产品拥有的长期 Memory 部署 binding。每个 alias 选择一个 Admin `MemoryLayout`、一个 driver 和唯一的 typed connection。封闭的 connection variant 包括：托管本地 `flowcraft_bbh`、显式目录 `flowcraft_object_store`、DSN 形式的 `flowcraft_postgresql`、Redis 8.4+ URL 形式的 `flowcraft_redis8`、带 endpoint/API key/Project ID 的 `mem0`，以及带 endpoint/API key/Memory Project ID 的 `volc_mem0`。`flowcraft_bbh` 将数据写入 Server Workspace root，不依赖外部服务；`flowcraft_redis8` 接受 `redis://` 或启用证书校验的 `rediss://`，后者可选 `tls_ca_file`。外部连接值直接保存在这个仅 Admin 可读的 RuntimeProfile 中，不引用 Credential，也不会通过 Peer API projection 暴露。Driver 必须与 connection type 匹配；Flowcraft Layout 使用的 model alias 必须存在于同一 RuntimeProfile。
+`resources.memories` 是长期 Memory 的 Admin 部署 binding。每个 alias 选择一个 `MemoryLayout`、driver 和唯一 typed connection。`mem0` driver 选择 Cloud `mem0`（endpoint、API key、Project ID）或自托管 `mem0_self_hosted`（endpoint、可选 API key）；`volc_mem0` driver 选择同名 connection（endpoint、API key、Memory Project ID）。连接值直接属于 Profile，不引用 Credential，也不投影到 Peer API。模型与向量库配置由自托管服务拥有。Driver 与 connection type 必须匹配，未知字段或缺失参数会被拒绝。
 
 这个 binding alias 表示 Workflow 标量 `memory` 字段选择的 named physical source。在相同 Workspace、driver 与 physical binding 下，修改 extraction policy、Graph Recall/Observe policy、prompt 或 `top_k` 不会创建新的 canonical data namespace；修改 driver 或 connection 可以切换到另一个数据源，但不会自动迁移或删除旧数据。删除 Workspace 时只清除它在当前 binding 中的数据，见 [Memory Store](/zh/developing/stores/memory#memorylayout、runtimeprofile-与-workflow)。
-
-`flowcraft_bbh` 不再是受支持的 connection。仍使用它的已持久化 profile 会在读取或 runtime 解析时被拒绝，错误会指出具体 profile 与 binding；管理员仍可通过 `PUT` 将其显式替换为 `flowcraft_redis8` 或 `flowcraft_object_store`。Profile 被拒绝、替换或删除时，GizClaw 都不会迁移、重新解释或删除旧的 managed local directory；operator 必须先保留或备份该目录，并在切换 binding 前显式完成所需的数据转移。
 
 ## app_config
 
@@ -179,7 +177,6 @@ GizClaw 只把当前档位的完整 prompt 作为具名变量提供给 Workflow�
 
 | Driver | Workflow 中的引用方式 |
 | --- | --- |
-| Flowcraft | 每轮执行前写入 Board 变量 `safety_fence`；在 LLM 节点的 `system_prompt` 中写 `${board.safety_fence}`。同名的产品 Board 输入会被覆盖。 |
 | Eino | 保留 binding `input.safety_fence`（`string`），batch、race 与子图继承同一值；prompt 节点通过 `inputs: {safety_fence: {from: input.safety_fence}}` 绑定后在模板中引用。 |
 | Doubao Realtime、Doubao Realtime Duplex、DashScope Realtime | 在 Workflow 或 Workspace 的 `instructions` 中写占位符 `${input.safety_fence}`。围栏以 `safety_fence` transformer pattern 参数下发，peergenx 构建 transformer 时替换全部占位符并去掉首尾空白；没有占位符的 instructions 原样传给 provider。占位符带点号，因此不会被 `gizclaw admin apply` 与 Terraform provider 的 `${NAME}` 环境变量展开误替换。 |
 

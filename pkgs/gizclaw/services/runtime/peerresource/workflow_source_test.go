@@ -367,18 +367,11 @@ func assertAliasNotFound(t *testing.T, response *rpcapi.RPCResponse, message, ca
 
 func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *workflow.Server, name string) {
 	t.Helper()
-	var flowcraftSpec apitypes.FlowcraftWorkflowSpec
-	if err := json.Unmarshal([]byte(`{
-		"graph": {
-			"name": "assistant",
-			"entry": "answer",
-			"nodes": [{"id": "answer", "type": "passthrough", "publish": true}],
-			"edges": [{"from": "answer", "to": "__end__"}]
-		}
-	}`), &flowcraftSpec); err != nil {
-		t.Fatalf("decode test Flowcraft config: %v", err)
+	var einoSpec apitypes.EinoWorkflowSpec
+	if err := json.Unmarshal([]byte(`{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":8},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    return {\"text\":input[\"text\"]}\n","inputs":{"text":{"from":"input.text"}},"outputs":{"text":"answer-text"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"initialize-conversation","to":"answer"},{"from":"answer","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}`), &einoSpec); err != nil {
+		t.Fatalf("decode test EinoPorted config: %v", err)
 	}
-	spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &flowcraftSpec}
+	spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &einoSpec}
 	if strings.Contains(name, "translate") {
 		langPair := "zh/ja"
 		spec = apitypes.WorkflowSpec{

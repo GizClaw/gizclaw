@@ -3,7 +3,7 @@
 # I want sequential speaker voices within one reply,
 # So that dialogue remains continuous and markers stay hidden.
 version: gizclaw.test/v1alpha1
-name: speaker-segments.flowcraft.realtime
+name: speaker-segments.eino.realtime
 clients:
   peer:
     identity: ephemeral
@@ -36,10 +36,10 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        workflow_name: speaker-segments-flowcraft
+        workflow_name: speaker-segments-eino
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_REALTIME
   - id: select_workspace
     client: peer

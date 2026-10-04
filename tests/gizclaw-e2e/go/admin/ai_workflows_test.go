@@ -23,22 +23,22 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 		}
 		return resp.JSON200.Items, resp.JSON200.HasNext, resp.JSON200.NextCursor
 	})
-	seed := requireName(t, all, "flowcraft-chat-assistant", func(item apitypes.Workflow) string { return item.Id })
-	requirePrefixCount(t, all, "flowcraft-scenario-", 100, func(item apitypes.Workflow) string { return item.Id })
+	seed := requireName(t, all, "eino-chat-assistant", func(item apitypes.Workflow) string { return item.Id })
+	requirePrefixCount(t, all, "eino-scenario-", 100, func(item apitypes.Workflow) string { return item.Id })
 
 	get, err := env.api.GetWorkflowWithResponse(env.ctx, seed.Id)
 	if err != nil {
 		t.Fatalf("get workflow: %v", err)
 	}
 	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+	if get.JSON200 == nil || get.JSON200.Id != seed.Id || get.JSON200.Spec.Driver != apitypes.WorkflowDriverEino {
 		t.Fatalf("get workflow = %#v", get.JSON200)
 	}
 
 	name := mutationName("workflow")
 	created, err := env.api.CreateWorkflowWithResponse(env.ctx, adminhttp.WorkflowUpsert{
 		Id:   name,
-		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: testFlowcraftWorkflowSpec()},
+		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: testEinoWorkflowSpec()},
 	})
 	if err != nil {
 		t.Fatalf("create workflow: %v", err)
@@ -56,7 +56,7 @@ func TestAdminAPIWorkflowsListGetPaginationAndMutation(t *testing.T) {
 
 func TestAdminAPIWorkflowHasExecutionDefinitionOnly(t *testing.T) {
 	env := newAdminAPIHarness(t)
-	const name = "flowcraft-chat-assistant"
+	const name = "eino-chat-assistant"
 	all := collectAdminPages(t, 200, func(cursor *string, limit int32) ([]apitypes.Workflow, bool, *string) {
 		response, listErr := env.api.ListWorkflowsWithResponse(env.ctx, &adminhttp.ListWorkflowsParams{Cursor: cursor, Limit: &limit})
 		if listErr != nil || response.JSON200 == nil {
@@ -70,7 +70,7 @@ func TestAdminAPIWorkflowHasExecutionDefinitionOnly(t *testing.T) {
 		t.Fatalf("get workflow: %v", err)
 	}
 	requireStatusOK(t, workflow, workflow.Body)
-	if workflow.JSON200 == nil || workflow.JSON200.Id != name || workflow.JSON200.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+	if workflow.JSON200 == nil || workflow.JSON200.Id != name || workflow.JSON200.Spec.Driver != apitypes.WorkflowDriverEino {
 		t.Fatalf("workflow = %#v", workflow.JSON200)
 	}
 }

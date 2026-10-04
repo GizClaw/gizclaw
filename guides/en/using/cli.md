@@ -444,7 +444,7 @@ the scheduling flags and are not jitter load measurement runners.
 
 Existing `benchmark.*concurrency*` documents explicitly set `start_jitter: 0s`,
 `stagger: 0s`, `step_jitter: 0s` to retain simultaneous-start worst-case baselines.
-`benchmark.flowcraft-voice-assistant.realistic-concurrency-16.giztest.yaml`
+`benchmark.eino-voice-assistant.realistic-concurrency-16.giztest.yaml`
 defaults to 30 seconds of start jitter and 3 seconds of think time, with sixteen
 tasks requesting three long voice replies each. It asserts completed text and
 audio and records `audio_pacing.underruns` and `minimum_buffer_ms` for separate

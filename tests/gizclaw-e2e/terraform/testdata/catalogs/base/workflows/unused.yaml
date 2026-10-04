@@ -2,8 +2,8 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {id: tf-unused}
 spec:
-  driver: flowcraft
-  flowcraft:
+  driver: eino
+  eino:
     graph:
       name: tf-unused
       entry: passthrough

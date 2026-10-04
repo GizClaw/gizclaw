@@ -30,6 +30,25 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 	if err != nil {
 		return fmt.Errorf("graph: %w", err)
 	}
+	if public.StatePersistence != nil {
+		if len(public.StatePersistence.Fields) == 0 {
+			return fmt.Errorf("state_persistence.fields must not be empty")
+		}
+		declared := make(map[string]struct{}, len(graph.State.Fields))
+		for _, field := range graph.State.Fields {
+			declared[field.Name] = struct{}{}
+		}
+		selected := make(map[string]struct{}, len(public.StatePersistence.Fields))
+		for _, name := range public.StatePersistence.Fields {
+			if _, ok := declared[name]; !ok {
+				return fmt.Errorf("state_persistence field %q is not declared by Graph State", name)
+			}
+			if _, duplicate := selected[name]; duplicate {
+				return fmt.Errorf("state_persistence field %q is duplicated", name)
+			}
+			selected[name] = struct{}{}
+		}
+	}
 	config := genxeino.Config{
 		Agent:      genxeino.AgentConfig{ID: "workflow-validation"},
 		Graph:      graph,
@@ -129,7 +148,8 @@ func MapGraph(public apitypes.EinoGraph) (genxeino.GraphDefinition, error) {
 	graph := genxeino.GraphDefinition{
 		Name: public.Name,
 		Compile: genxeino.GraphCompileConfig{
-			NodeTriggerMode: genxeino.NodeTriggerMode(public.Compile.NodeTriggerMode),
+			NodeTriggerMode:   genxeino.NodeTriggerMode(public.Compile.NodeTriggerMode),
+			PrimaryOutputMode: primaryOutputMode(public.Compile.PrimaryOutputMode),
 		},
 		State: genxeino.StateDefinition{},
 	}
@@ -307,6 +327,15 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 			Output:    value.Output,
 			TopK:      value.TopK,
 		}
+		if value.Filters != nil {
+			for _, filter := range *value.Filters {
+				var filterValue any
+				if filter.Value != nil {
+					filterValue = filter.Value
+				}
+				node.MemoryRecall.Filters = append(node.MemoryRecall.Filters, memory.Filter{Field: filter.Field, Operator: memory.FilterOperator(filter.Operator), Value: filterValue})
+			}
+		}
 		return node, nil
 	case "memory_observe":
 		value, err := public.AsEinoMemoryObserveNode()
@@ -316,8 +345,10 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		node := nodeBase(value.Id, value.Inputs, value.Outputs)
 		node.MemoryObserve = &genxeino.MemoryObserveNode{
 			WaitForCompletion: boolValue(value.WaitForCompletion),
+			TextFrom:          stringValue(value.TextFrom),
+			TurnsFrom:         stringValue(value.TurnsFrom),
 		}
-		for _, fact := range value.Facts {
+		for _, fact := range memoryFacts(value.Facts) {
 			attributes := map[string]string(nil)
 			if fact.Attributes != nil {
 				attributes = maps.Clone(*fact.Attributes)
@@ -415,4 +446,18 @@ func intValue(value *int) int {
 		return 0
 	}
 	return *value
+}
+
+func memoryFacts(value *[]apitypes.EinoMemoryFact) []apitypes.EinoMemoryFact {
+	if value == nil {
+		return nil
+	}
+	return *value
+}
+
+func primaryOutputMode(value *apitypes.EinoGraphCompilePrimaryOutputMode) genxeino.PrimaryOutputMode {
+	if value == nil {
+		return ""
+	}
+	return genxeino.PrimaryOutputMode(*value)
 }

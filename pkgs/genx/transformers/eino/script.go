@@ -18,7 +18,7 @@ type compiledScript struct {
 }
 
 func compileScript(ctx context.Context, config ScriptNode) (*compiledScript, error) {
-	_, program, err := starlark.SourceProgram("eino.star", config.Source, func(string) bool { return false })
+	_, program, err := starlark.SourceProgram("eino.star", config.Source, func(name string) bool { _, exists := scriptBuiltins[name]; return exists })
 	if err != nil {
 		return nil, fmt.Errorf("eino: compile Script: %w", err)
 	}
@@ -89,7 +89,7 @@ func (script *compiledScript) run(
 }
 
 func (script *compiledScript) initialize(thread *starlark.Thread) (starlark.Callable, error) {
-	globals, err := script.program.Init(thread, nil)
+	globals, err := script.program.Init(thread, scriptBuiltins)
 	if err != nil {
 		return nil, err
 	}

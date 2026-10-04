@@ -4611,7 +4611,6 @@ class WorkspaceListResponse extends $pb.GeneratedMessage {
 }
 
 enum WorkspaceParameters_Value {
-  flowcraftWorkspaceParameters,
   doubaoRealtimeWorkspaceParameters,
   asttranslateWorkspaceParameters,
   dashScopeRealtimeWorkspaceParameters,
@@ -4622,7 +4621,6 @@ enum WorkspaceParameters_Value {
 
 class WorkspaceParameters extends $pb.GeneratedMessage {
   factory WorkspaceParameters({
-    $2.FlowcraftWorkspaceParameters? flowcraftWorkspaceParameters,
     $2.DoubaoRealtimeWorkspaceParameters? doubaoRealtimeWorkspaceParameters,
     $2.ASTTranslateWorkspaceParameters? asttranslateWorkspaceParameters,
     $2.DashScopeRealtimeWorkspaceParameters?
@@ -4632,8 +4630,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
     $2.EinoWorkspaceParameters? einoWorkspaceParameters,
   }) {
     final result = create();
-    if (flowcraftWorkspaceParameters != null)
-      result.flowcraftWorkspaceParameters = flowcraftWorkspaceParameters;
     if (doubaoRealtimeWorkspaceParameters != null)
       result.doubaoRealtimeWorkspaceParameters =
           doubaoRealtimeWorkspaceParameters;
@@ -4661,7 +4657,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
 
   static const $core.Map<$core.int, WorkspaceParameters_Value>
       _WorkspaceParameters_ValueByTag = {
-    1: WorkspaceParameters_Value.flowcraftWorkspaceParameters,
     2: WorkspaceParameters_Value.doubaoRealtimeWorkspaceParameters,
     3: WorkspaceParameters_Value.asttranslateWorkspaceParameters,
     5: WorkspaceParameters_Value.dashScopeRealtimeWorkspaceParameters,
@@ -4673,10 +4668,7 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'WorkspaceParameters',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..oo(0, [1, 2, 3, 5, 6, 7])
-    ..aOM<$2.FlowcraftWorkspaceParameters>(
-        1, _omitFieldNames ? '' : 'flowcraftWorkspaceParameters',
-        subBuilder: $2.FlowcraftWorkspaceParameters.create)
+    ..oo(0, [2, 3, 5, 6, 7])
     ..aOM<$2.DoubaoRealtimeWorkspaceParameters>(
         2, _omitFieldNames ? '' : 'doubaoRealtimeWorkspaceParameters',
         subBuilder: $2.DoubaoRealtimeWorkspaceParameters.create)
@@ -4713,7 +4705,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<WorkspaceParameters>(create);
   static WorkspaceParameters? _defaultInstance;
 
-  @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(5)
@@ -4721,7 +4712,6 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   WorkspaceParameters_Value whichValue() =>
       _WorkspaceParameters_ValueByTag[$_whichOneof(0)]!;
-  @$pb.TagNumber(1)
   @$pb.TagNumber(2)
   @$pb.TagNumber(3)
   @$pb.TagNumber(5)
@@ -4729,90 +4719,77 @@ class WorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearValue() => $_clearField($_whichOneof(0));
 
-  @$pb.TagNumber(1)
-  $2.FlowcraftWorkspaceParameters get flowcraftWorkspaceParameters => $_getN(0);
-  @$pb.TagNumber(1)
-  set flowcraftWorkspaceParameters($2.FlowcraftWorkspaceParameters value) =>
-      $_setField(1, value);
-  @$pb.TagNumber(1)
-  $core.bool hasFlowcraftWorkspaceParameters() => $_has(0);
-  @$pb.TagNumber(1)
-  void clearFlowcraftWorkspaceParameters() => $_clearField(1);
-  @$pb.TagNumber(1)
-  $2.FlowcraftWorkspaceParameters ensureFlowcraftWorkspaceParameters() =>
-      $_ensure(0);
-
   @$pb.TagNumber(2)
   $2.DoubaoRealtimeWorkspaceParameters get doubaoRealtimeWorkspaceParameters =>
-      $_getN(1);
+      $_getN(0);
   @$pb.TagNumber(2)
   set doubaoRealtimeWorkspaceParameters(
           $2.DoubaoRealtimeWorkspaceParameters value) =>
       $_setField(2, value);
   @$pb.TagNumber(2)
-  $core.bool hasDoubaoRealtimeWorkspaceParameters() => $_has(1);
+  $core.bool hasDoubaoRealtimeWorkspaceParameters() => $_has(0);
   @$pb.TagNumber(2)
   void clearDoubaoRealtimeWorkspaceParameters() => $_clearField(2);
   @$pb.TagNumber(2)
   $2.DoubaoRealtimeWorkspaceParameters
-      ensureDoubaoRealtimeWorkspaceParameters() => $_ensure(1);
+      ensureDoubaoRealtimeWorkspaceParameters() => $_ensure(0);
 
   @$pb.TagNumber(3)
   $2.ASTTranslateWorkspaceParameters get asttranslateWorkspaceParameters =>
-      $_getN(2);
+      $_getN(1);
   @$pb.TagNumber(3)
   set asttranslateWorkspaceParameters(
           $2.ASTTranslateWorkspaceParameters value) =>
       $_setField(3, value);
   @$pb.TagNumber(3)
-  $core.bool hasAsttranslateWorkspaceParameters() => $_has(2);
+  $core.bool hasAsttranslateWorkspaceParameters() => $_has(1);
   @$pb.TagNumber(3)
   void clearAsttranslateWorkspaceParameters() => $_clearField(3);
   @$pb.TagNumber(3)
   $2.ASTTranslateWorkspaceParameters ensureAsttranslateWorkspaceParameters() =>
-      $_ensure(2);
+      $_ensure(1);
 
   @$pb.TagNumber(5)
   $2.DashScopeRealtimeWorkspaceParameters
-      get dashScopeRealtimeWorkspaceParameters => $_getN(3);
+      get dashScopeRealtimeWorkspaceParameters => $_getN(2);
   @$pb.TagNumber(5)
   set dashScopeRealtimeWorkspaceParameters(
           $2.DashScopeRealtimeWorkspaceParameters value) =>
       $_setField(5, value);
   @$pb.TagNumber(5)
-  $core.bool hasDashScopeRealtimeWorkspaceParameters() => $_has(3);
+  $core.bool hasDashScopeRealtimeWorkspaceParameters() => $_has(2);
   @$pb.TagNumber(5)
   void clearDashScopeRealtimeWorkspaceParameters() => $_clearField(5);
   @$pb.TagNumber(5)
   $2.DashScopeRealtimeWorkspaceParameters
-      ensureDashScopeRealtimeWorkspaceParameters() => $_ensure(3);
+      ensureDashScopeRealtimeWorkspaceParameters() => $_ensure(2);
 
   @$pb.TagNumber(6)
   $2.DoubaoRealtimeDuplexWorkspaceParameters
-      get doubaoRealtimeDuplexWorkspaceParameters => $_getN(4);
+      get doubaoRealtimeDuplexWorkspaceParameters => $_getN(3);
   @$pb.TagNumber(6)
   set doubaoRealtimeDuplexWorkspaceParameters(
           $2.DoubaoRealtimeDuplexWorkspaceParameters value) =>
       $_setField(6, value);
   @$pb.TagNumber(6)
-  $core.bool hasDoubaoRealtimeDuplexWorkspaceParameters() => $_has(4);
+  $core.bool hasDoubaoRealtimeDuplexWorkspaceParameters() => $_has(3);
   @$pb.TagNumber(6)
   void clearDoubaoRealtimeDuplexWorkspaceParameters() => $_clearField(6);
   @$pb.TagNumber(6)
   $2.DoubaoRealtimeDuplexWorkspaceParameters
-      ensureDoubaoRealtimeDuplexWorkspaceParameters() => $_ensure(4);
+      ensureDoubaoRealtimeDuplexWorkspaceParameters() => $_ensure(3);
 
   @$pb.TagNumber(7)
-  $2.EinoWorkspaceParameters get einoWorkspaceParameters => $_getN(5);
+  $2.EinoWorkspaceParameters get einoWorkspaceParameters => $_getN(4);
   @$pb.TagNumber(7)
   set einoWorkspaceParameters($2.EinoWorkspaceParameters value) =>
       $_setField(7, value);
   @$pb.TagNumber(7)
-  $core.bool hasEinoWorkspaceParameters() => $_has(5);
+  $core.bool hasEinoWorkspaceParameters() => $_has(4);
   @$pb.TagNumber(7)
   void clearEinoWorkspaceParameters() => $_clearField(7);
   @$pb.TagNumber(7)
-  $2.EinoWorkspaceParameters ensureEinoWorkspaceParameters() => $_ensure(5);
+  $2.EinoWorkspaceParameters ensureEinoWorkspaceParameters() => $_ensure(4);
 }
 
 class WorkspacePutRequest extends $pb.GeneratedMessage {

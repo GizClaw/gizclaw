@@ -36,7 +36,7 @@ const workflowName =
   process.env.GIZCLAW_E2E_WORKFLOW_NAME ??
   (inputMode === "audio-reload"
     ? "doubao-realtime-conversation"
-    : "flowcraft-voice-assistant");
+    : "eino-voice-assistant");
 const inputVoice = process.env.GIZCLAW_E2E_INPUT_VOICE ?? "narrator";
 const inputPCMPath = process.env.GIZCLAW_E2E_INPUT_PCM_PATH;
 const inputPCMFixtureRoot = path.join(
@@ -90,7 +90,7 @@ async function main(): Promise<void> {
           workflow_name: workflowName,
           parameters: {
             agent_type:
-              inputMode === "audio-reload" ? "doubao-realtime" : "flowcraft",
+              inputMode === "audio-reload" ? "doubao-realtime" : "eino",
             input: inputMode === "audio-reload" ? "realtime" : "push-to-talk",
           },
         });

@@ -1,6 +1,6 @@
 # Memory Store
 
-[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) 是 Agent runtime 共用的 provider-neutral 长期记忆边界。Flowcraft、Mem0 和 Volc 适配器分别位于 `flowcraft`、`mem0`、`volc` 子包。
+[`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) 是 Agent runtime 共用的 provider-neutral 长期记忆边界。Mem0 Cloud、自托管 Mem0 和 Volc 适配器位于 `mem0` 与 `volc` 子包。
 
 ## 契约
 
@@ -31,22 +31,22 @@ recalled, err := store.Recall(ctx, memory.Query{
 
 Adapter 只保留 native provider 能准确表达的维度和组合，不能保持时返回 `ErrUnsupported`：
 
-| 公共字段 | Flowcraft Recall | Mem0 / Volc Memory |
-| --- | --- | --- |
-| `AppID` | `RuntimeID` | `app_id` |
-| `UserID` | `UserID` | `user_id` |
-| `AgentID` | `AgentID` | `agent_id` |
-| `RunID` | 不支持 | `run_id` |
+| 公共字段 | Mem0 / Volc Memory |
+| --- | --- |
+| `AppID` | `app_id` |
+| `UserID` | `user_id` |
+| `AgentID` | `agent_id` |
+| `RunID` | `run_id` |
 
-Flowcraft 要求非空 `AppID`，允许空 `UserID` 形成 runtime-global Memory，并保留可选 `AgentID`。Mem0/Volc 支持 App-only、User-only、Agent-only、Run-only scope，也支持这些独立维度的组合。Adapter 会发送所有已选择的维度，并在 recall 与变更校验中使用 `AND` filter。
+Mem0/Volc 支持这些独立维度及其组合，发送全部已选择维度，并在 recall 与变更校验中使用 AND filter。自托管 Mem0 的完整 Scope 编码见下文。
 
-`Text` 和 `Turns` 是待提取的原始材料；`Facts` 是上层已经结构化的候选事实。Provider 必须保持候选事实的文本与其支持的 attributes，无法直接写入时返回 `ErrUnsupported`，不能把候选事实静默送回模型二次提取。Flowcraft、Mem0 和 Volc adapter 都支持 direct Fact；Flowcraft 把 `kind`、`subject`、`predicate`、`object` 和 `entities` 映射到 native fact 字段，Mem0/Volc 使用 `infer=false` direct import。
+`Text` 和 `Turns` 是待提取的原始材料；`Facts` 是上层已经结构化的候选事实。Provider 必须保持候选事实的文本与其支持的 attributes，无法直接写入时返回 `ErrUnsupported`，不能把候选事实静默送回模型二次提取。Mem0/Volc 使用 `infer=false` direct import，保留候选文本和 attributes。
 
 对于包含 direct Facts 的 Observation，非空 `Observation.ID` 是完整 `Scope` 内的幂等键。相同 ID 和相同 canonical direct-Fact payload 的并发调用或重试返回原 logical Fact 或 durable operation；Fact 文本、attributes 或 `ObservedAt` 改变时返回 `ErrConflict`。Adapter 在 native record 中保存 payload digest；self-hosted 的 durable reservation 和精确逐项对账由服务拥有，其他 Mem0 adapter 在提交前先对账；因此 provider 已接受但 response 丢失后的重试不会创建第二个 logical Fact。返回的 `Fact.Sources` 保留 `ObservationID`。这些 provider-owned metadata 不会暴露为业务 attributes。模型 extraction 的 provider-native dedup 行为不属于这个 direct-Fact 保证。
 
 `UpdateRequest`、`DeleteRequest` 和 `OperationRequest` 都必须重新携带调用方的 `Scope`，以及 Store 返回的不透明 fact、revision 或 operation locator。Locator 不是授权来源：Adapter 在 mutation 或完成异步操作前校验请求 Scope 与 locator、provider record 一致。原始 provider ID 不能绕过 App 边界。
 
-异步 `Observe` 返回 operation。实现 `OperationWaiter` 的 store 使用调用方已有的 `context.Context` 等待，不在 constructor 中启动后台 goroutine。Flowcraft constructor 不枚举 durable scopes，也不读取 canonical facts 来预热 operation cache。使用相同持久化依赖重新构造 adapter 后，`Wait()` 会先解码 locator 并校验调用方的完整 `Scope`，再只从 locator 对应的 scope 恢复 durable operation；scope 不匹配时在读取 temporal store 前返回 `ErrInvalidInput`。
+异步 `Observe` 返回 operation。实现 `OperationWaiter` 的 Store 使用调用方的 context 等待，并在恢复 operation 时校验 locator 与完整 Scope。Constructor 不启动后台 worker。
 
 `memory.BindApp(store, appID)` 返回一个借用的 Store view。它只填充或校验 `Scope.AppID`，不生成、清空、拼接、hash 或改写调用方的 `UserID`、`AgentID` 和 `RunID`。冲突 AppID 返回 `ErrInvalidInput`。View 不拥有也不关闭底层 Store，并且只有在底层实现 `OperationWaiter`、`AsyncOperationProcessor` 或 `StatisticsProvider` 时才暴露相同 capability。
 
@@ -54,28 +54,14 @@ Flowcraft 要求非空 `AppID`，允许空 `UserID` 形成 runtime-global Memory
 
 | Provider | Purge | 校验 |
 | --- | --- | --- |
-| Flowcraft | `ForgetAll(ForgetHard)` 删除 `(runtime_id, user_id)` hard partition 的 canonical fact、marker、所有 projection、evidence，以及该 partition 的 async semantic 与 side-effect job。`AgentID` 是 partition 内的 soft metadata，选择 `AgentID` 的 scope 返回 `ErrUnsupported` | canonical temporal store 中该 partition 不再有任何 revision |
 | Mem0 Platform | `DELETE /v1/memories/` 按已选择维度 AND 过滤；值为 `*` 的维度是 provider wildcard，返回 `ErrInvalidInput` | `POST /v3/memories/` 列出同一 filter |
 | Mem0 self-hosted | `DELETE /memories?user_id=<完整 scope 编码>` | `GET /memories` 使用同一 `user_id` |
 | Volc | `DELETE /v1/memories/?user_id=<保留 scope user>`。Volc bulk delete 只接受 `user_id`、`agent_id`、`run_id`，无法把调用方选择的 `UserID` 限定到一个 App，这类 scope 返回 `ErrUnsupported` | `GET /v1/memories/` 使用写入时的维度 |
 
-Mem0 Platform 异步删除；Volc 的 `async_mode` add job 可能在 purge 之后才 materialize。需要持久保证的调用方反复 purge 并校验，直到 `ScopeEmpty` 返回 true。Flowcraft 的 `NewMaintenance` 在调用方拥有的持久依赖上构造只用于 purge 与校验的 Store：它不加载 model，允许没有 extraction model 的 async queue，以便 purge 同时取消排队 job；其 `Observe` 与 `ProcessAsync` 返回 `ErrUnsupported`。
-
+Mem0 Platform 异步删除；Volc 的 `async_mode` add job 可能在 purge 之后才 materialize。需要持久保证的调用方反复 purge 并校验，直到 `ScopeEmpty` 返回 true。
 ## Provider 构造
 
 Provider 包只接收内存中的 runtime dependency，不解析 YAML、不展开环境变量、不读取配置文件，也不决定产品身份。
-
-Flowcraft 只通过一个 `flowcraft.Config` 构造。该结构可注入 `ModelLoader`、retrieval index、temporal store、evidence store、async queue 和 side-effect outbox。注入的 dependency 仍由调用方拥有；没有注入时，adapter 使用 Flowcraft 的内存实现。side-effect outbox job 到达注入的 outbox 之前，adapter 只在 job 没有 ID 且 request ID 非空时为其分配 scope 限定的 identity（`<scope canonical key>|<request ID>|<kind>`）；调用方自带的 ID 和没有 request ID 的 job 原样透传。Flowcraft 自身的 Save batch 总是不带 ID 到达，因此共享同一个 outbox 的不同 scope 并发 Save 不会互相去重 projection、embedding 或 evolution job，而同一 scope 的 batch 重放仍保持幂等。
-
-```go
-store, err := flowcraft.New(ctx, flowcraft.Config{
-	Loader:         loader,
-	Extraction:     flowcraft.ExtractionConfig{Model: "extractor"},
-	Embedding:      flowcraft.EmbeddingConfig{Model: "embedding"},
-	RetrievalIndex: index,
-	TemporalStore:  temporal,
-})
-```
 
 Mem0 只通过一个 `mem0.Config` 构造。`FlavorPlatform` 使用 `Authorization: Token`，并将所有已选择的维度映射到对应的 `app_id`、`user_id`、`agent_id` 和 `run_id`。Mem0 OSS 不提供 `app_id`，因此 `FlavorSelfHosted` 会把完整四维 Scope 编码到一个保留的原生 `user_id` 中；配置 key 时使用 `X-API-Key`。这样既能精确保持 Workspace App 隔离，也不会改写调用方逻辑上的 User、Agent 或 Run 维度。Update/Delete 先读取 provider record 并校验完整编码 scope，再执行 ID mutation。Self-hosted direct import 一次接受 1–1000 个带非空 Observation ID 的 Facts，通过一个 HTTP 请求提交；Platform 与 Volc 仍一次接受一个 Fact，多个 candidates 返回 `ErrUnsupported`。每条 Fact 的原始文本、attributes 和完整 Scope 独立保留。
 
@@ -192,32 +178,18 @@ Store 保留为该 Layout generation 的独立 policy，Observe 时通过 HTTP `
 
 ## MemoryLayout、RuntimeProfile 与 Workflow
 
-Memory 不再是 Server Config 中的 `stores.kind: memory`。Portable policy、部署连接和 Graph 消费行为分属三个资源面：
+Portable policy、部署连接和 Graph 消费行为分属三个资源面：
 
-- Admin `MemoryLayout` 同时声明 Flowcraft、Mem0 Cloud、自托管 `mem0_self_hosted` 和 `volc_mem0` 的 provider policy，不包含 endpoint、API key、DSN 或目录。每种实现独立配置 `scope: workspace|peer`；省略时使用现有的 Workspace 隔离行为。
-- RuntimeProfile 的 `resources.memories.<alias>` 选择 Layout、实际 driver 和严格类型化 connection。Connection 中的 endpoint、API key、project ID、DSN 或目录直接属于该 RuntimeProfile，不引用 Credential 资源。
-- Workflow 顶层 `memory` 只引用 RuntimeProfile alias。Graph 的 `memory_recall` / `memory_observe` node 决定何时读写、query 从哪里来、结果写到哪里，以及如何从 turn 或 state 构造 fact；这些映射不属于 MemoryLayout。
+- Admin `MemoryLayout` 声明 Mem0 Cloud、自托管 Mem0 和 Volc 的 provider policy，不包含 endpoint、API key、数据库或模型连接。每种 policy 独立选择 `scope: workspace|peer`，省略时使用 Workspace scope。
+- RuntimeProfile 的 `resources.memories.<alias>` 选择 Layout、driver 和唯一的 typed connection。Connection 由该 Admin 资源持有，不引用 Credential，也不会投影到 Peer API。
+- Workflow 顶层 `memory` 引用 RuntimeProfile alias。Eino 的 `memory_recall` / `memory_observe` node 决定 query、filter、原始抽取材料与 direct Facts；这些映射属于 Graph。
 
 ```yaml
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
-  name: pet-memory
+  id: pet-memory
 spec:
-  flowcraft:
-    scope: peer
-    extraction:
-      enabled: true
-      model: pet-care.extract
-      mode: two_pass
-    embedding:
-      model: pet-care.embedding
-    lanes:
-    - name: owner-profile
-      kind: preference
-    write:
-      mode: sync
-      tier: general
   mem0:
     scope: peer
     custom_instructions: Extract durable pet and owner facts.
@@ -232,14 +204,11 @@ spec:
       custom_instructions: Extract durable pet and owner facts.
 ```
 
-`MemoryLayout` 的 `flowcraft`、`mem0` 和 `volc_mem0` block 必须存在。
-`mem0_self_hosted` 是独立的可选 block；选择 `connection.type: mem0_self_hosted`
-时必须显式声明它（允许 `{}`，默认 Workspace scope 和服务默认提取指令）。它只支持
-`scope` 与 `custom_instructions`，不接受 Cloud 的 `custom_categories`、`multilingual`
-或 `decay`。`connection.type: mem0` 继续只读取 Cloud `mem0` policy，其他 provider
-同样独立。构造、reload、读写、统计、Workspace/Peer 清理及 purge 都按连接类型选取
-同一个 policy；不会从 Cloud block 转换、继承或回退。自托管服务的模型、embedding
-和 pgvector 配置由服务的部署配置提供。Flowcraft block 中的 extraction、embedding 和 rerank model 是 RuntimeProfile model alias，使用与 RuntimeProfile binding 相同的总长 1–63 字节、由 `.` 分隔的 lowercase kebab-case segment 语法。每个完整 alias 都是平面 map 中的 opaque key，只做精确解析，不支持 prefix、segment 或 fallback lookup；只有实际选择 `driver: flowcraft` 时才解析这些 alias。`extraction.enabled` 默认为 `true`；设为 `false` 时不运行模型提取，但 Graph 写入的 direct Facts 仍然可用。
+`mem0` 与 `volc_mem0` block 必须存在。`mem0_self_hosted` 是独立的可选 block；选择对应 connection 时必须显式声明它，允许 `{}`。它只支持 `scope` 与 `custom_instructions`，不继承 Cloud 的 categories、multilingual 或 decay。构造、reload、读写、统计和清理始终按 connection type 选择同一个 policy。
+
+支持的 connection 为 `mem0`（Cloud endpoint、API key、Project ID）、`mem0_self_hosted`（endpoint、可选 API key）和 `volc_mem0`（endpoint、API key、Memory Project ID）。`mem0` driver 接受前两种，`volc_mem0` driver 只接受同名 connection。无效字段、缺失参数及 driver/connection 不匹配会在写入或解析时被拒绝。
+
+自托管 Mem0 显式选择 OSS 协议；启用认证时通过 `X-API-Key` 发送 key。数据库、提取模型、Embedding 和持久化由 Mem0 服务管理。Cloud/Volc 的 Project ID 是与 API key 配套的控制面身份，Fact 请求由 key 路由，不附加独立的 Project ID 参数。协议不会根据 endpoint hostname 推断。
 
 ```yaml
 spec:
@@ -247,76 +216,116 @@ spec:
     memories:
       pet-memory:
         layout_id: pet-memory
-        driver: flowcraft
-        connection:
-          type: flowcraft_redis8
-          url: redis://redis:6379/0
-```
-
-Server 为每个 binding 只打开一次该物理 backend，并向每个 Workspace generation 提供独立关闭的 logical Store。当已发布的 Flowcraft projection signature 未改变时，不同 Workspace 的 logical Store 会并发构造，该过程不属于 binding registry map 的临界区。Policy 变化仍只有一个串行的 projection rebuild owner；完整 replacement 原子发布后，其他 constructor 才继续。Resolve 在离开 registry 锁之前保留 binding。正常的 final-lease cleanup 会在最后一个 logical lease 与在途 Resolve 都退出后关闭物理 backend；显式 Registry shutdown 会先摘除 binding、拒绝晚到的 constructor 结果并排空这些 constructor，再关闭物理 backend。
-
-合法的 Flowcraft connection 是托管本地 `flowcraft_bbh`、`flowcraft_object_store`（`directory`）、`flowcraft_postgresql`（`dsn`）和 `flowcraft_redis8`（`url`，可选 `tls_ca_file`）。`flowcraft_bbh` 不依赖外部服务，每个 binding 的数据位于 `<server-root>/data/memory/<profile-id-hash>/<binding>`；可选的 `flowcraft.bbh` Layout policy 控制 BBH search overfetch、Bleve analyzer 和 HNSW flush。`flowcraft_redis8` 要求 Redis 8.4 或更高版本及 Redis Search，Canonical Fact、Evidence、Async Semantic Queue、Side-effect Outbox 和全文/向量 retrieval 全部使用同一个 Redis namespace；它不降级支持 Redis 7 或 Redis 8.0/8.2。Retrieval 在 Redis 内执行 BM25、HNSW KNN、结构化 metadata filter、top-K 限制和 `FT.HYBRID` RRF 融合。`rediss://` 连接复用 Storage 的 TLS 校验，并可通过 `tls_ca_file` 增加受信 CA。Flowcraft 0.1.7 尚未公开 Graph store 注入点，因此 Redis8 connection 会拒绝 `graph_enabled`，避免静默使用不持久化的进程内 Graph。Driver 与 connection type 必须匹配，未知字段、缺失 key 和无效 endpoint 会在 RuntimeProfile 写入或解析时被拒绝。
-
-Flowcraft 0.1.7 将 `(runtime_id, user_id)` 定义为 canonical hard partition。`agent_id` 是 soft-isolation metadata，因此会被有意排除在 `ScopeEnumerator` 之外；使用枚举出的 hard scope 仍可读回该分区内所有 AgentID 写入的 Fact，避免破坏 cross-agent recall。
-
-已删除的 `flowcraft_bbh` connection 不提供自动迁移。使用该 connection 的已持久化 legacy profile 会 fail closed 并返回可操作的替换错误，但 mutation path 仍允许管理员把 profile 替换为受支持的 connection。旧 managed directory 及其中的 canonical data 保持原样；替换或删除 profile 都不会删除该目录。`flowcraft_object_store` 可以继续在内部使用其本地 derived index，但 BBH 不再是公开的部署 connection 或 policy surface。
-
-对于 Mem0 和火山云，Project ID 记录与所选数据面 API key 配套的部署/控制面身份。运行时 Fact 请求通过该 key 完成 Project 路由，不会再发送独立的 Project ID 字段。
-
-自托管 Mem0 使用 `driver: mem0` 和 `connection.type: mem0_self_hosted`，显式选择 OSS HTTP 协议。只要求 `endpoint`；服务启用认证时可提供 `api_key`，Adapter 通过 `X-API-Key` 发送。未启用认证的本机服务省略该字段。Self-hosted connection 不接受 `project_id`、数据库 DSN 或模型配置；向量库、模型和持久化由 Mem0 服务管理。原有 `connection.type: mem0` 仍选择 Platform 协议，并要求 `project_id` 与 `api_key`；不会根据 endpoint 自动推断协议。
-
-```yaml
-spec:
-  resources:
-    memories:
-      assistant-memory:
-        layout_id: assistant-memory
         driver: mem0
         connection:
           type: mem0_self_hosted
           endpoint: http://127.0.0.1:18000
 ```
 
-自托管提取会把 `Turn.Speaker` 与 UTC `ObservedAt` 放入消息正文，因为 OSS parser 不消费 OpenAI `name` 字段。turn 未提供时间时使用 Observation 时间。Platform/Volc 消息正文及 `infer=false` direct Fact 不做此变换。
+自托管 extraction 将 `Turn.Speaker` 和 UTC `ObservedAt` 写进消息正文，turn 未提供时间时使用 Observation 时间；Cloud/Volc 和 direct Facts 保留原始文本。
 
-该绑定使用 MemoryLayout 的 `mem0.scope` 选择 Workspace 或 Peer 记忆归属，并复用 OSS Adapter 的完整 Scope 编码、读写、修改、删除与 purge 校验。
+下面的 Eino Graph 先召回，再生成回复，并把本轮 assistant 加入原始 conversation 材料后提交 extraction：
 
 ```yaml
 spec:
-  driver: flowcraft
+  driver: eino
   memory: pet-memory
-  flowcraft:
+  eino:
     graph:
       name: companion
-      entry: recall-memory
+      compile:
+        node_trigger_mode: any_predecessor
+      state:
+        fields:
+        - name: memory_context
+          type: string
+          merge: replace
+        - name: messages
+          type: messages
+          merge: replace
+        - name: answer
+          type: string
+          merge: replace
+        - name: turns
+          type: messages
+          merge: replace
       nodes:
-      - id: recall-memory
+      - id: recall
         type: memory_recall
-        config:
-          query: {text_from: input}
-          output: memory_context
-          top_k: 5
+        query_from: input.text
+        output: memory_context
+        top_k: 5
+      - id: prompt
+        type: prompt
+        format: f_string
+        inputs:
+          memory:
+            from: memory_context
+          text:
+            from: input.text
+        outputs:
+          messages: messages
+        messages:
+        - role: system
+          template: '{memory}'
+        - role: user
+          template: '{text}'
       - id: answer
-        type: llm
-        publish: true
-        config:
-          model: chat
-          system_prompt: "${board.memory_context}"
-      - id: observe-turn
+        type: chat_model
+        model: chat
+        inputs:
+          messages:
+            from: messages
+        outputs:
+          text: answer
+      - id: conversation
+        type: script
+        language: starlark
+        source: "def run(input):\n    return {\"turns\": list(input[\"messages\"]) + [{\"role\": \"assistant\"\
+          , \"content\": input[\"answer\"]}]}\n"
+        inputs:
+          messages:
+            from: input.messages
+          answer:
+            from: answer
+        outputs:
+          turns: turns
+        limits:
+          max_execution_steps: 1000
+          timeout: 100ms
+          max_input_bytes: 262144
+          max_output_bytes: 262144
+      - id: observe
         type: memory_observe
-        config:
-          observations:
-          - turns_from: conversation
-          wait_for_completion: false
+        turns_from: turns
+        wait_for_completion: false
       edges:
-      - {from: recall-memory, to: answer}
-      - {from: answer, to: observe-turn}
-      - {from: observe-turn, to: __end__}
+      - from: start
+        to: recall
+      - from: recall
+        to: prompt
+      - from: prompt
+        to: answer
+      - from: answer
+        to: conversation
+      - from: conversation
+        to: observe
+      - from: observe
+        to: end
+      branches: []
+      outputs:
+      - node: answer
+        field: answer
+        name: assistant
+        mime_type: text/plain
+        primary: true
 ```
 
-同一 Workspace 的所有 stream 共用一个 Agent generation。MemoryLayout 中当前 driver 的 `scope` 决定长期记忆归属：`workspace` 将 Workspace ID 映射到公共 `Scope.AppID`；`peer` 将 Workspace owner Peer public key 派生为保留的 Peer AppID。Flowcraft 将 AppID 映射到 RuntimeID，Mem0 Platform 与火山云映射到 app_id；自托管 Mem0 将完整逻辑 Scope 编码到原生 user_id。读、写、统计与清理使用相同映射，Workflow Graph 和记忆节点不感知归属。不同 Workspace 要共享同一 Peer 记忆，还必须使用同一个物理数据空间：Flowcraft Peer scope 的同一 RuntimeProfile、同一 Layout 与同一连接会跨 binding alias 复用物理空间；托管本地目录放在独立的 `data/peer-memory` 根目录，Redis 8 使用独立的 `peer:` namespace，避免与同名 Workspace alias 冲突。Workspace scope 仍按 alias 隔离。Mem0/火山云须路由到同一 provider project；相同 Peer AppID 不会跨不同物理连接自动合并数据。切换 driver、binding 或 scope 不迁移旧数据。
+每个 binding 在 Registry 中按完整 key 协调构造。不同 key 可以独立进行网络工作；Registry 只在短临界区保留、发布或摘除 entry。每个 Workspace generation 持有可独立释放的 lease；shutdown 拒绝迟到的构造结果并等待在途工作退出，再关闭共享 backend。
 
-删除 Workspace 时仅清除 `scope: workspace` 的长期记忆；`scope: peer` 的共享记忆在该 Peer 删除时清理并校验。Workspace deletion handler 在 quiesce runtime 后，通过 retained Workspace row、Workflow `memory` alias 与 owner 当前 RuntimeProfile 解析 binding，对于 `scope: workspace` 调用 `Registry.PurgeWorkspace` 删除 `Scope{AppID: <Workspace ID>}`，只有 `Registry.WorkspaceMemoryEmpty` 确认为空后才 finalize；`scope: peer` 的 Workspace 删除不触碰共享记忆；仍有残留时返回 retryable `memory_residual` 并在下次重试时再次 purge。该 purge 以 maintenance 模式打开与 runtime 共享的物理 backend：不加载 model，也不重建派生索引，因此 owner 的 model catalog 不可用时仍可 purge；本地派生索引 policy 过期时保留已发布的 manifest，由下一个 runtime Store 负责重建。Workspace、Workflow、owner RuntimeProfile、memory alias 或 MemoryLayout 已不存在时，没有可解析的当前 binding，handler 视为无需清除；resolver 或 provider 的临时失败保持 retryable；provider 无法表达的 scope 以 terminal `memory_cleanup_unsupported` 停止，交由运维处理。GizClaw 不记录 binding 历史，Workspace 在更早的 driver、connection 或 alias 下写入的数据不会被这次 purge 访问。
+`workspace` 将 Workspace ID 映射到 `Scope.AppID`；`peer` 将 owner Peer public key 派生为保留的 `peer:<hash>` AppID。User、Agent、Run 维度仍独立。Cloud/Volc 保留 provider 能表达的维度，自托管 Mem0 将完整 Scope 编码成 transport `user_id`。不同 Workspace 共享 Peer 记忆还必须指向同一 provider project 或同一自托管数据空间；相同 AppID 不会自动合并不同连接的数据。
+
+删除 Workspace 只 purge 当前 binding 的 Workspace scope；Peer scope 在删除该 Peer 时 purge。handler 在 quiesce runtime 后解析 retained Workspace、Workflow alias 与 owner 当前 Profile，重复 purge 并检查为空后才 finalize。有残留返回 retryable `memory_residual`；provider 无法精确表达 scope 时以 terminal `memory_cleanup_unsupported` 停止。没有可解析的当前 binding 时无需清除，临时 provider/解析失败保持 retryable。清理不加载 extraction Model。GizClaw 不保留 binding 历史，不会访问以前连接下的数据；切换 driver、binding 或 scope 不迁移或删除旧数据。
 
 ## Ownership 与错误
 

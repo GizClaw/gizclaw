@@ -1,0 +1,1577 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-poetry-adventure-li-bai
+spec:
+  driver: eino
+  memory: poetry-memory
+  eino:
+    graph:
+      name: poetry-adventure-li-bai
+      compile:
+        node_trigger_mode: any_predecessor
+        max_run_steps: 624
+        primary_output_mode: first_output
+      state:
+        fields:
+        - name: values
+          type: object
+          merge: replace
+        - name: channels
+          type: object
+          merge: replace
+        - name: load_journey_state-text
+          type: string
+          merge: replace
+        - name: route_checkpoint-text
+          type: string
+          merge: replace
+        - name: tang_checkpoint-messages
+          type: messages
+          merge: replace
+        - name: tang_checkpoint-text
+          type: string
+          merge: replace
+        - name: song_checkpoint-messages
+          type: messages
+          merge: replace
+        - name: song_checkpoint-text
+          type: string
+          merge: replace
+        - name: yuan_checkpoint-messages
+          type: messages
+          merge: replace
+        - name: yuan_checkpoint-text
+          type: string
+          merge: replace
+        - name: ming_checkpoint-messages
+          type: messages
+          merge: replace
+        - name: ming_checkpoint-text
+          type: string
+          merge: replace
+        - name: judge_challenge-messages
+          type: messages
+          merge: replace
+        - name: judge_challenge-text
+          type: string
+          merge: replace
+        - name: apply_checkpoint_result-text
+          type: string
+          merge: replace
+        - name: checkpoint_clear-messages
+          type: messages
+          merge: replace
+        - name: checkpoint_clear-text
+          type: string
+          merge: replace
+        - name: retry_hint-messages
+          type: messages
+          merge: replace
+        - name: retry_hint-text
+          type: string
+          merge: replace
+        - name: advance_checkpoint-text
+          type: string
+          merge: replace
+        - name: journey_finish-messages
+          type: messages
+          merge: replace
+        - name: journey_finish-text
+          type: string
+          merge: replace
+        - name: finished_roleplay_chat-messages
+          type: messages
+          merge: replace
+        - name: finished_roleplay_chat-text
+          type: string
+          merge: replace
+        - name: write_poetry_audit-text
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-fact-0
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-0-lane
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-0-kind
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-0-predicate
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-0-subject
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-fact-1
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-1-lane
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-1-kind
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-1-predicate
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-1-subject
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-fact-2
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-2-lane
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-2-kind
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-2-predicate
+          type: string
+          merge: replace
+        - name: observe_poetry_audit-attribute-2-subject
+          type: string
+          merge: replace
+        - name: route_checkpoint-route
+          type: string
+          merge: replace
+        - name: apply_checkpoint_result-route
+          type: string
+          merge: replace
+        - name: advance_checkpoint-route
+          type: string
+          merge: replace
+        - name: checkpoint_clear-route
+          type: string
+          merge: replace
+      nodes:
+      - id: initialize-conversation
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
+          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
+          channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          history:
+            from: input.messages
+          fence:
+            from: input.safety_fence
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: load_journey_state
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
+          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
+          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
+          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
+          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
+          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
+          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
+          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
+          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
+          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
+          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
+          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
+          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
+          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
+          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
+          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
+          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
+          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
+          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
+          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
+          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
+          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
+          ]))\n    _emitted = []\n    _scope0 = {\"latestUserText\": None, \"checkpoints\": None, \"checkpointInfo\"\
+          : None, \"existing\": None, \"state\": None, \"idx\": None, \"nextCheckpoint\": None, \"nextInfo\": None,\
+          \ \"badgeLabels\": None}\n    def _function1():\n        _scope2 = {\"msgs\": None, \"i\": None, \"msg\"\
+          : None, \"parts\": None, \"text\": None}\n        def _logical3():\n            value = _get(_channels,\
+          \ \"main\")\n            if _truth(value):\n                return value\n            return []\n    \
+          \    _scope2[\"msgs\"] = _logical3()\n        for _index4 in range(int((len(_scope2[\"msgs\"]) - 1)),\
+          \ int((0 - 1)), -1):\n            _scope2[\"i\"] = _index4\n            def _logical5():\n           \
+          \     value = _get(_scope2[\"msgs\"], _scope2[\"i\"])\n                if _truth(value):\n           \
+          \         return value\n                return {}\n            _scope2[\"msg\"] = _logical5()\n      \
+          \      if _truth((_get(_scope2[\"msg\"], \"role\") != \"user\")):\n                continue\n        \
+          \    def _logical6():\n                value = (_typeof(_get(_scope2[\"msg\"], \"content\")) == \"string\"\
+          )\n                if not _truth(value):\n                    return value\n                return _get(_scope2[\"\
+          msg\"], \"content\").strip()\n            if _truth(_logical6()):\n                return _get(_scope2[\"\
+          msg\"], \"content\").strip()\n            def _expression7():\n                return _get(_scope2[\"\
+          msg\"], \"parts\")\n            def _expression8():\n                return []\n            _scope2[\"\
+          parts\"] = (_expression7() if _truth((type(_get(_scope2[\"msg\"], \"parts\")) == \"list\")) else _expression8())\n\
+          \            def _function9(part):\n                _scope10 = {\"part\": part}\n                def _logical11():\n\
+          \                    def _logical12():\n                        value = _scope10[\"part\"]\n         \
+          \               if not _truth(value):\n                            return value\n                    \
+          \    return (_get(_scope10[\"part\"], \"type\") == \"text\")\n                    value = _logical12()\n\
+          \                    if not _truth(value):\n                        return value\n                   \
+          \ return (_typeof(_get(_scope10[\"part\"], \"text\")) == \"string\")\n                def _expression13():\n\
+          \                    return _get(_scope10[\"part\"], \"text\")\n                def _expression14():\n\
+          \                    return \"\"\n                return (_expression13() if _truth(_logical11()) else\
+          \ _expression14())\n            _scope2[\"text\"] = \"\".join([_string(_item) for _item in [_function9(_scope2[\"\
+          parts\"][_index]) for _index in range(len(_scope2[\"parts\"]))]]).strip()\n            if _truth(_scope2[\"\
+          text\"]):\n                return _scope2[\"text\"]\n        return \"\"\n    _scope0[\"latestUserText\"\
+          ] = _function1\n    _scope0[\"checkpoints\"] = [\"tang\", \"song\", \"yuan\", \"ming\"]\n    _scope0[\"\
+          checkpointInfo\"] = {\"tang\": {\"title\": \"唐朝月门\", \"badge\": \"badge_tang_moon\", \"badge_label\":\
+          \ \"唐月徽章\", \"dynasty\": \"唐朝\", \"points\": 100, \"hint\": \"这一关要一句带月亮意象的唐诗，可以想《静夜思》或《关山月》。\"}, \"song\"\
+          : {\"title\": \"宋朝江门\", \"badge\": \"badge_song_river\", \"badge_label\": \"宋河徽章\", \"dynasty\": \"宋朝\"\
+          , \"points\": 100, \"hint\": \"这一关要一句宋代诗词里写江河、湖水或浪涛的句子，可以想苏轼和赤壁江水。\"}, \"yuan\": {\"title\": \"元曲暮门\"\
+          , \"badge\": \"badge_yuan_dusk\", \"badge_label\": \"元暮徽章\", \"dynasty\": \"元朝\", \"points\": 100, \"\
+          hint\": \"这一关要一句《天净沙·秋思》里的句子，可以想枯藤、小桥、古道这些画面。\"}, \"ming\": {\"title\": \"明朝青石门\", \"badge\": \"badge_ming_courage\"\
+          , \"badge_label\": \"明勇徽章\", \"dynasty\": \"明朝\", \"points\": 100, \"hint\": \"这一关要一句于谦《石灰吟》里的句子，可以想千锤万凿、粉骨碎身、清白这些词。\"\
+          }}\n    def _logical15():\n        value = _get(_values, \"poetry_journey_state\")\n        if _truth(value):\n\
+          \            return value\n        return {}\n    _scope0[\"existing\"] = _logical15()\n    def _logical16():\n\
+          \        value = _scope0[\"existing\"]\n        if _truth(value):\n            return value\n        return\
+          \ {}\n    _scope0[\"state\"] = _assign([{\"checkpoint\": \"tang\", \"status\": \"playing\", \"score\"\
+          : 0, \"badges\": [], \"attempts\": {}, \"awaiting_response\": False, \"last_result\": \"\", \"last_line\"\
+          : \"\", \"last_badge\": \"\", \"last_badge_label\": \"\", \"last_dynasty\": \"\", \"last_points\": 0},\
+          \ _logical16()])\n    def _expression17():\n        return _get(_scope0[\"state\"], \"badges\")\n    def\
+          \ _expression18():\n        return []\n    _scope0[\"state\"][\"badges\"] = (_expression17() if _truth((type(_get(_scope0[\"\
+          state\"], \"badges\")) == \"list\")) else _expression18())\n    def _logical19():\n        value = _get(_scope0[\"\
+          state\"], \"attempts\")\n        if not _truth(value):\n            return value\n        return (_typeof(_get(_scope0[\"\
+          state\"], \"attempts\")) == \"object\")\n    def _expression20():\n        return _get(_scope0[\"state\"\
+          ], \"attempts\")\n    def _expression21():\n        return {}\n    _scope0[\"state\"][\"attempts\"] =\
+          \ (_expression20() if _truth(_logical19()) else _expression21())\n    def _logical22():\n        value\
+          \ = (_index(_scope0[\"checkpoints\"], _get(_scope0[\"state\"], \"checkpoint\")) < 0)\n        if not _truth(value):\n\
+          \            return value\n        return (_get(_scope0[\"state\"], \"status\") != \"finished\")\n   \
+          \ if _truth(_logical22()):\n        _scope0[\"state\"][\"checkpoint\"] = \"tang\"\n    _scope0[\"state\"\
+          ][\"latest_user_text\"] = _scope0[\"latestUserText\"]()\n    def _logical23():\n        value = _get(_scope0[\"\
+          checkpointInfo\"], _get(_scope0[\"state\"], \"checkpoint\"))\n        if _truth(value):\n            return\
+          \ value\n        return _get(_scope0[\"checkpointInfo\"], \"tang\")\n    _scope0[\"state\"][\"current_info\"\
+          ] = _logical23()\n    _scope0[\"state\"][\"checkpoints\"] = _scope0[\"checkpoints\"]\n    _scope0[\"idx\"\
+          ] = _index(_scope0[\"checkpoints\"], _get(_scope0[\"state\"], \"checkpoint\"))\n    def _logical24():\n\
+          \        value = (_scope0[\"idx\"] >= 0)\n        if not _truth(value):\n            return value\n  \
+          \      return (_scope0[\"idx\"] < (len(_scope0[\"checkpoints\"]) - 1))\n    def _expression25():\n   \
+          \     return _get(_scope0[\"checkpoints\"], _add(_scope0[\"idx\"], 1))\n    def _expression26():\n   \
+          \     return \"\"\n    _scope0[\"nextCheckpoint\"] = (_expression25() if _truth(_logical24()) else _expression26())\n\
+          \    def _expression27():\n        return _get(_scope0[\"checkpointInfo\"], _scope0[\"nextCheckpoint\"\
+          ])\n    def _expression28():\n        return None\n    _scope0[\"nextInfo\"] = (_expression27() if _truth(_scope0[\"\
+          nextCheckpoint\"]) else _expression28())\n    _values[\"poetry_journey_state\"] = _scope0[\"state\"]\n\
+          \    _values[\"poetry_journey_state_text\"] = json.encode_indent(_scope0[\"state\"], indent=\"  \")\n\
+          \    _values[\"current_checkpoint\"] = _get(_scope0[\"state\"], \"checkpoint\")\n    _values[\"current_dynasty\"\
+          ] = _get(_get(_scope0[\"state\"], \"current_info\"), \"dynasty\")\n    _values[\"current_badge\"] = _get(_get(_scope0[\"\
+          state\"], \"current_info\"), \"badge\")\n    _values[\"current_badge_label\"] = _get(_get(_scope0[\"state\"\
+          ], \"current_info\"), \"badge_label\")\n    _values[\"current_points\"] = _get(_get(_scope0[\"state\"\
+          ], \"current_info\"), \"points\")\n    def _logical29():\n        value = _get(_get(_scope0[\"state\"\
+          ], \"current_info\"), \"hint\")\n        if _truth(value):\n            return value\n        return \"\
+          \"\n    _values[\"current_hint\"] = _logical29()\n    def _expression30():\n        return _get(_scope0[\"\
+          nextInfo\"], \"dynasty\")\n    def _expression31():\n        return \"终点\"\n    _values[\"next_dynasty\"\
+          ] = (_expression30() if _truth(_scope0[\"nextInfo\"]) else _expression31())\n    def _logical32():\n \
+          \       value = _get(_scope0[\"state\"], \"score\")\n        if _truth(value):\n            return value\n\
+          \        return 0\n    _values[\"current_score\"] = _logical32()\n    _values[\"badge_list\"] = \",\"\
+          .join([_string(_item) for _item in _get(_scope0[\"state\"], \"badges\")])\n    _scope0[\"badgeLabels\"\
+          ] = {\"badge_tang_moon\": \"唐月徽章\", \"badge_song_river\": \"宋河徽章\", \"badge_yuan_dusk\": \"元暮徽章\", \"\
+          badge_ming_courage\": \"明勇徽章\"}\n    def _function33(badge):\n        _scope34 = {\"badge\": badge}\n\
+          \        def _logical35():\n            value = _get(_scope0[\"badgeLabels\"], _scope34[\"badge\"])\n\
+          \            if _truth(value):\n                return value\n            return _scope34[\"badge\"]\n\
+          \        return _logical35()\n    _values[\"badge_label_list\"] = \"、\".join([_string(_item) for _item\
+          \ in [_function33(_get(_scope0[\"state\"], \"badges\")[_index]) for _index in range(len(_get(_scope0[\"\
+          state\"], \"badges\")))]])\n    _values[\"latest_user_text\"] = _get(_scope0[\"state\"], \"latest_user_text\"\
+          )\n    _values[\"challenge_judgement_text\"] = \"\"\n    def _logical36():\n        value = _get(_scope0[\"\
+          state\"], \"latest_user_text\")\n        if _truth(value):\n            return value\n        return \"\
+          开始\"\n    _channels[\"poetry_input_channel\"] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\"\
+          , \"text\": _logical36()}]}]\n    def _logical37():\n        value = _get(_scope0[\"state\"], \"latest_user_text\"\
+          )\n        if _truth(value):\n            return value\n        return \"开始\"\n    _channels[\"poetry_response_channel\"\
+          ] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"text\": _logical37()}]}]\n    return {\"\
+          values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+        outputs:
+          values: values
+          channels: channels
+          text: load_journey_state-text
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: route_checkpoint
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
+          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
+          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
+          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
+          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
+          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
+          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
+          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
+          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
+          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
+          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
+          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
+          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
+          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
+          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
+          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
+          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
+          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
+          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
+          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
+          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
+          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
+          ]))\n    _emitted = []\n    _scope0 = {\"state\": None, \"containsAny\": None, \"accepted\": None, \"\
+          latest\": None, \"cp\": None}\n    def _function1(text, arr):\n        _scope2 = {\"text\": text, \"arr\"\
+          : arr, \"i\": None}\n        for _index3 in range(int(0), int(len(_scope2[\"arr\"])), 1):\n          \
+          \  _scope2[\"i\"] = _index3\n            if _truth((_index(_scope2[\"text\"], _get(_scope2[\"arr\"], _scope2[\"\
+          i\"])) >= 0)):\n                return True\n        return False\n    _scope0[\"containsAny\"] = _function1\n\
+          \    def _logical4():\n        value = _get(_values, \"poetry_journey_state\")\n        if _truth(value):\n\
+          \            return value\n        return {}\n    _scope0[\"state\"] = _logical4()\n    _scope0[\"accepted\"\
+          ] = {\"tang\": [\"床前明月光\", \"举头望明月\", \"明月出天山\", \"我寄愁心与明月\"], \"song\": [\"大江东去浪淘尽\", \"水光潋滟晴方好\", \"\
+          竹外桃花三两枝\"], \"yuan\": [\"枯藤老树昏鸦\", \"小桥流水人家\", \"古道西风瘦马\", \"夕阳西下\"], \"ming\": [\"千锤万凿出深山\", \"粉骨碎身浑不怕\"\
+          , \"要留清白在人间\"]}\n    def _logical5():\n        value = _get(_scope0[\"state\"], \"latest_user_text\")\n\
+          \        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"latest\"] = _string(_logical5())\n\
+          \    def _logical6():\n        value = _get(_scope0[\"state\"], \"checkpoint\")\n        if _truth(value):\n\
+          \            return value\n        return \"tang\"\n    _scope0[\"cp\"] = _string(_logical6())\n    if\
+          \ _truth((_get(_scope0[\"state\"], \"status\") == \"finished\")):\n        _values[\"poetry_route\"] =\
+          \ \"finished_roleplay_chat\"\n    else:\n        if _truth((_get(_scope0[\"state\"], \"awaiting_response\"\
+          ) == True)):\n            _values[\"poetry_route\"] = \"judge_challenge\"\n        else:\n           \
+          \ def _logical7():\n                value = _get(_scope0[\"accepted\"], _scope0[\"cp\"])\n           \
+          \     if _truth(value):\n                    return value\n                return []\n            if _truth(_scope0[\"\
+          containsAny\"](_scope0[\"latest\"], _logical7())):\n                _scope0[\"state\"][\"awaiting_response\"\
+          ] = True\n                _values[\"poetry_journey_state\"] = _scope0[\"state\"]\n                _values[\"\
+          poetry_journey_state_text\"] = json.encode_indent(_scope0[\"state\"], indent=\"  \")\n               \
+          \ _values[\"poetry_route\"] = \"judge_challenge\"\n            else:\n                _scope0[\"state\"\
+          ][\"awaiting_response\"] = True\n                _values[\"poetry_journey_state\"] = _scope0[\"state\"\
+          ]\n                _values[\"poetry_journey_state_text\"] = json.encode_indent(_scope0[\"state\"], indent=\"\
+          \  \")\n                _values[\"poetry_route\"] = _add(_scope0[\"cp\"], \"_checkpoint\")\n    return\
+          \ {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+        outputs:
+          values: values
+          channels: channels
+          text: route_checkpoint-text
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: tang_checkpoint-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n当前关卡：唐朝月门。\\n场景：孩子和你来到唐朝长安外的月夜渡口，月光照在水面上，只有说出带“月”的唐诗句，月门才会打开。\\n\\n你要做：\\n- 用一句短中文讲场景。\\n- 明确告诉孩子这一关要说一句带“月”的唐诗句。\\\
+          n- 可以提示例子来自《静夜思》或《关山月》，但不要直接替孩子完整作答。\\n- 不要提内部节点、state、tool、badge 字段。\\n- 只输出一句，最多 18 个汉字。\\n\\n当前状态：\\\
+          n${board.poetry_journey_state_text}\\n'\n    prompt = prompt.replace('${board.poetry_journey_state_text}',\
+          \ str(values.get('poetry_journey_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
+          content\":prompt}] if prompt else []\n    for message in channels.get('poetry_input_channel', []):\n \
+          \       content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\"\
+          .join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"\
+          ])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return\
+          \ {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: tang_checkpoint-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: tang_checkpoint
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: tang_checkpoint-messages
+        outputs:
+          text: tang_checkpoint-text
+        max_tokens: 2048
+      - id: tang_checkpoint-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: tang_checkpoint-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: song_checkpoint-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n当前关卡：宋朝江门。\\n场景：孩子和你穿过时间门，来到宋朝江边，水雾升起。守门的词牌灯笼要求孩子说出一句宋代诗词里写江河、湖水或浪涛的句子。\\n\\n你要做：\\n- 用一句短中文讲场景。\\n-\
+          \ 明确告诉孩子这一关要说一句宋代诗词中和水、江、河、湖、浪有关的句子。\\n- 可以提示苏轼，但不要直接替孩子完整作答。\\n- 不要提内部节点、state、tool、badge 字段。\\n- 只输出一句，最多\
+          \ 18 个汉字。\\n\\n当前状态：\\n${board.poetry_journey_state_text}\\n'\n    prompt = prompt.replace('${board.poetry_journey_state_text}',\
+          \ str(values.get('poetry_journey_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
+          content\":prompt}] if prompt else []\n    for message in channels.get('poetry_input_channel', []):\n \
+          \       content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\"\
+          .join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"\
+          ])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return\
+          \ {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: song_checkpoint-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: song_checkpoint
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: song_checkpoint-messages
+        outputs:
+          text: song_checkpoint-text
+        max_tokens: 2048
+      - id: song_checkpoint-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: song_checkpoint-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: yuan_checkpoint-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n当前关卡：元曲暮门。\\n场景：孩子和你来到元代古道，夕阳低低挂着，远处有小桥、流水和人家。暮门要求孩子说出一句元曲《天净沙·秋思》里的句子，才能继续前进。\\n\\n你要做：\\n- 用一句短中文讲场景。\\\
+          n- 明确告诉孩子这一关要说一句《天净沙·秋思》中的句子。\\n- 可以提示“枯藤”“小桥”“古道”这些意象，但不要直接替孩子完整作答。\\n- 不要提内部节点、state、tool、badge 字段。\\\
+          n- 只输出一句，最多 18 个汉字。\\n\\n当前状态：\\n${board.poetry_journey_state_text}\\n'\n    prompt = prompt.replace('${board.poetry_journey_state_text}',\
+          \ str(values.get('poetry_journey_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
+          content\":prompt}] if prompt else []\n    for message in channels.get('poetry_input_channel', []):\n \
+          \       content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\"\
+          .join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"\
+          ])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return\
+          \ {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: yuan_checkpoint-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: yuan_checkpoint
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: yuan_checkpoint-messages
+        outputs:
+          text: yuan_checkpoint-text
+        max_tokens: 2048
+      - id: yuan_checkpoint-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: yuan_checkpoint-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: ming_checkpoint-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n当前关卡：明朝青石门。\\n场景：孩子和你来到明朝石灰窑旁，青石门上刻着“勇气”和“清白”。这一关要说出一句明代于谦《石灰吟》里的句子。\\n\\n你要做：\\n- 用一句短中文讲场景。\\n- 明确告诉孩子这一关要说一句《石灰吟》里的句子。\\\
+          n- 可以提示“千锤万凿”“粉骨碎身”“清白”，但不要直接替孩子完整作答。\\n- 不要提内部节点、state、tool、badge 字段。\\n- 只输出一句，最多 18 个汉字。\\n\\n当前状态：\\\
+          n${board.poetry_journey_state_text}\\n'\n    prompt = prompt.replace('${board.poetry_journey_state_text}',\
+          \ str(values.get('poetry_journey_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
+          content\":prompt}] if prompt else []\n    for message in channels.get('poetry_input_channel', []):\n \
+          \       content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\"\
+          .join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"\
+          ])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return\
+          \ {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: ming_checkpoint-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: ming_checkpoint
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: ming_checkpoint-messages
+        outputs:
+          text: ming_checkpoint-text
+        max_tokens: 2048
+      - id: ming_checkpoint-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: ming_checkpoint-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: judge_challenge-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = 'You judge a child answer\
+          \ for a dynasty poetry checkpoint.\\n\\nOutput exactly one line:\\nchallenge_result: passed=<true|false>;\
+          \ line=<line>; reason=<short reason>\\n\\nCurrent checkpoint:\\n${board.current_checkpoint}\\n\\nPass\
+          \ rules:\\n- tang: pass if the child gives a Tang poem line with moon imagery, especially 床前明月光, 举头望明月,\
+          \ 明月出天山, 我寄愁心与明月.\\n- song: pass if the child gives a Song poem/ci line about water, river, lake, or waves,\
+          \ especially 大江东去浪淘尽, 水光潋滟晴方好, 竹外桃花三两枝.\\n- yuan: pass if the child gives a line from 马致远《天净沙·秋思》, especially\
+          \ 枯藤老树昏鸦, 小桥流水人家, 古道西风瘦马.\\n- ming: pass if the child gives a line from 于谦《石灰吟》, especially 千锤万凿出深山, 粉骨碎身浑不怕,\
+          \ 要留清白在人间.\\n\\nDo not award points. Do not write encouragement. Only output the result line.\\n'\n  \
+          \  prompt = prompt.replace('${board.current_checkpoint}', str(values.get('current_checkpoint', \"\") or\
+          \ \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message\
+          \ in channels.get('poetry_input_channel', []):\n        content = message.get(\"content\", \"\")\n   \
+          \     if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"\
+          parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\"\
+          , \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: judge_challenge-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: judge_challenge
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: judge_challenge-messages
+        outputs:
+          text: judge_challenge-text
+        max_tokens: 2048
+        temperature: 0
+      - id: judge_challenge-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    values['challenge_judgement_text'] = text\n    return\
+          \ {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: judge_challenge-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: apply_checkpoint_result
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
+          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
+          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
+          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
+          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
+          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
+          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
+          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
+          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
+          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
+          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
+          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
+          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
+          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
+          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
+          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
+          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
+          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
+          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
+          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
+          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
+          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
+          ]))\n    _emitted = []\n    _scope0 = {\"containsAny\": None, \"addUnique\": None, \"accepted\": None,\
+          \ \"info\": None, \"state\": None, \"cp\": None, \"latest\": None, \"line\": None, \"judgeText\": None,\
+          \ \"modelPassed\": None, \"passed\": None, \"current\": None, \"nextBadges\": None, \"responseText\":\
+          \ None}\n    def _function1(text, arr):\n        _scope2 = {\"text\": text, \"arr\": arr, \"i\": None}\n\
+          \        for _index3 in range(int(0), int(len(_scope2[\"arr\"])), 1):\n            _scope2[\"i\"] = _index3\n\
+          \            if _truth((_index(_scope2[\"text\"], _get(_scope2[\"arr\"], _scope2[\"i\"])) >= 0)):\n  \
+          \              return _get(_scope2[\"arr\"], _scope2[\"i\"])\n        return \"\"\n    _scope0[\"containsAny\"\
+          ] = _function1\n    def _function4(arr, item):\n        _scope5 = {\"arr\": arr, \"item\": item}\n   \
+          \     if _truth((_index(_scope5[\"arr\"], _scope5[\"item\"]) < 0)):\n            _scope5[\"arr\"].append(_scope5[\"\
+          item\"])\n    _scope0[\"addUnique\"] = _function4\n    _scope0[\"accepted\"] = {\"tang\": [\"床前明月光\",\
+          \ \"举头望明月\", \"明月出天山\", \"我寄愁心与明月\"], \"song\": [\"大江东去浪淘尽\", \"水光潋滟晴方好\", \"竹外桃花三两枝\"], \"yuan\": [\"\
+          枯藤老树昏鸦\", \"小桥流水人家\", \"古道西风瘦马\", \"夕阳西下\"], \"ming\": [\"千锤万凿出深山\", \"粉骨碎身浑不怕\", \"要留清白在人间\"]}\n    _scope0[\"\
+          info\"] = {\"tang\": {\"dynasty\": \"唐朝\", \"badge\": \"badge_tang_moon\", \"badge_label\": \"唐月徽章\",\
+          \ \"points\": 100}, \"song\": {\"dynasty\": \"宋朝\", \"badge\": \"badge_song_river\", \"badge_label\":\
+          \ \"宋河徽章\", \"points\": 100}, \"yuan\": {\"dynasty\": \"元朝\", \"badge\": \"badge_yuan_dusk\", \"badge_label\"\
+          : \"元暮徽章\", \"points\": 100}, \"ming\": {\"dynasty\": \"明朝\", \"badge\": \"badge_ming_courage\", \"badge_label\"\
+          : \"明勇徽章\", \"points\": 100}}\n    def _logical6():\n        value = _get(_values, \"poetry_journey_state\"\
+          )\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"state\"] = _logical6()\n\
+          \    def _expression7():\n        return _get(_scope0[\"state\"], \"badges\")\n    def _expression8():\n\
+          \        return []\n    _scope0[\"state\"][\"badges\"] = (_expression7() if _truth((type(_get(_scope0[\"\
+          state\"], \"badges\")) == \"list\")) else _expression8())\n    def _logical9():\n        value = _get(_scope0[\"\
+          state\"], \"attempts\")\n        if not _truth(value):\n            return value\n        return (_typeof(_get(_scope0[\"\
+          state\"], \"attempts\")) == \"object\")\n    def _expression10():\n        return _get(_scope0[\"state\"\
+          ], \"attempts\")\n    def _expression11():\n        return {}\n    _scope0[\"state\"][\"attempts\"] =\
+          \ (_expression10() if _truth(_logical9()) else _expression11())\n    def _logical12():\n        value\
+          \ = _get(_scope0[\"state\"], \"checkpoint\")\n        if _truth(value):\n            return value\n  \
+          \      return \"tang\"\n    _scope0[\"cp\"] = _string(_logical12())\n    def _logical13():\n        def\
+          \ _logical14():\n            value = _get(_scope0[\"state\"], \"latest_user_text\")\n            if _truth(value):\n\
+          \                return value\n            return _get(_values, \"latest_user_text\")\n        value =\
+          \ _logical14()\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"\
+          latest\"] = _string(_logical13())\n    def _logical15():\n        value = _get(_scope0[\"accepted\"],\
+          \ _scope0[\"cp\"])\n        if _truth(value):\n            return value\n        return []\n    _scope0[\"\
+          line\"] = _scope0[\"containsAny\"](_scope0[\"latest\"], _logical15())\n    def _logical16():\n       \
+          \ value = _get(_values, \"challenge_judgement_text\")\n        if _truth(value):\n            return value\n\
+          \        return \"\"\n    _scope0[\"judgeText\"] = _string(_logical16())\n    def _logical17():\n    \
+          \    value = (regex_find(_scope0[\"judgeText\"], (\"passed\\\\s*=\\\\s*true\", \"i\")) != None)\n    \
+          \    if not _truth(value):\n            return value\n        return (not _truth((regex_find(_scope0[\"\
+          judgeText\"], (\"passed\\\\s*=\\\\s*false\", \"i\")) != None)))\n    _scope0[\"modelPassed\"] = _logical17()\n\
+          \    def _logical18():\n        value = (not _truth((not _truth(_scope0[\"line\"]))))\n        if _truth(value):\n\
+          \            return value\n        return _scope0[\"modelPassed\"]\n    _scope0[\"passed\"] = _logical18()\n\
+          \    def _logical19():\n        value = _number(_get(_get(_scope0[\"state\"], \"attempts\"), _scope0[\"\
+          cp\"]))\n        if _truth(value):\n            return value\n        return 0\n    _get(_scope0[\"state\"\
+          ], \"attempts\")[_scope0[\"cp\"]] = _add(_logical19(), 1)\n    def _logical20():\n        value = _scope0[\"\
+          line\"]\n        if _truth(value):\n            return value\n        return _scope0[\"latest\"]\n   \
+          \ _scope0[\"state\"][\"last_line\"] = _logical20()\n    def _expression21():\n        return \"passed\"\
+          \n    def _expression22():\n        return \"retry\"\n    _scope0[\"state\"][\"last_result\"] = (_expression21()\
+          \ if _truth(_scope0[\"passed\"]) else _expression22())\n    def _expression23():\n        return \"cleared\
+          \ checkpoint\"\n    def _expression24():\n        return \"needs another poem line\"\n    _scope0[\"state\"\
+          ][\"last_reason\"] = (_expression23() if _truth(_scope0[\"passed\"]) else _expression24())\n    if _truth(_scope0[\"\
+          passed\"]):\n        def _logical25():\n            value = _get(_scope0[\"info\"], _scope0[\"cp\"])\n\
+          \            if _truth(value):\n                return value\n            return _get(_scope0[\"info\"\
+          ], \"tang\")\n        _scope0[\"current\"] = _logical25()\n        _scope0[\"state\"][\"awaiting_response\"\
+          ] = False\n        _scope0[\"state\"][\"last_badge\"] = _get(_scope0[\"current\"], \"badge\")\n      \
+          \  _scope0[\"state\"][\"last_badge_label\"] = _get(_scope0[\"current\"], \"badge_label\")\n        _scope0[\"\
+          state\"][\"last_dynasty\"] = _get(_scope0[\"current\"], \"dynasty\")\n        _scope0[\"state\"][\"last_points\"\
+          ] = _get(_scope0[\"current\"], \"points\")\n        def _expression26():\n            return _get(_scope0[\"\
+          state\"], \"badges\")[:]\n        def _expression27():\n            return []\n        _scope0[\"nextBadges\"\
+          ] = (_expression26() if _truth((type(_get(_scope0[\"state\"], \"badges\")) == \"list\")) else _expression27())\n\
+          \        _scope0[\"addUnique\"](_scope0[\"nextBadges\"], _get(_scope0[\"current\"], \"badge\"))\n    \
+          \    _scope0[\"state\"][\"badges\"] = _scope0[\"nextBadges\"]\n        _values[\"poetry_award_route\"\
+          ] = _add(_scope0[\"cp\"], \"_award_badge\")\n        _values[\"poetry_result_route\"] = \"checkpoint_clear\"\
+          \n    else:\n        _scope0[\"state\"][\"awaiting_response\"] = True\n        _scope0[\"state\"][\"last_badge\"\
+          ] = \"\"\n        _scope0[\"state\"][\"last_badge_label\"] = \"\"\n        def _expression28():\n    \
+          \        return _get(_get(_scope0[\"info\"], _scope0[\"cp\"]), \"dynasty\")\n        def _expression29():\n\
+          \            return \"\"\n        _scope0[\"state\"][\"last_dynasty\"] = (_expression28() if _truth(_get(_scope0[\"\
+          info\"], _scope0[\"cp\"])) else _expression29())\n        _scope0[\"state\"][\"last_points\"] = 0\n  \
+          \      _values[\"poetry_award_route\"] = \"\"\n        _values[\"poetry_result_route\"] = \"retry_hint\"\
+          \n    _values[\"poetry_journey_state\"] = _scope0[\"state\"]\n    _values[\"poetry_journey_state_text\"\
+          ] = json.encode_indent(_scope0[\"state\"], indent=\"  \")\n    def _logical30():\n        value = _get(_scope0[\"\
+          state\"], \"last_badge\")\n        if _truth(value):\n            return value\n        return \"\"\n\
+          \    _values[\"last_badge\"] = _logical30()\n    def _logical31():\n        value = _get(_scope0[\"state\"\
+          ], \"last_badge_label\")\n        if _truth(value):\n            return value\n        return \"\"\n \
+          \   _values[\"last_badge_label\"] = _logical31()\n    def _logical32():\n        value = _get(_scope0[\"\
+          state\"], \"last_dynasty\")\n        if _truth(value):\n            return value\n        return \"\"\n\
+          \    _values[\"last_dynasty\"] = _logical32()\n    def _logical33():\n        value = _get(_scope0[\"\
+          state\"], \"last_points\")\n        if _truth(value):\n            return value\n        return 0\n  \
+          \  _values[\"last_points\"] = _logical33()\n    def _logical34():\n        value = _get(_scope0[\"state\"\
+          ], \"last_line\")\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"\
+          last_line\"] = _logical34()\n    def _expression35():\n        def _logical36():\n            value =\
+          \ _get(_scope0[\"state\"], \"last_line\")\n            if _truth(value):\n                return value\n\
+          \            return _scope0[\"latest\"]\n        def _logical37():\n            value = _get(_scope0[\"\
+          state\"], \"last_dynasty\")\n            if _truth(value):\n                return value\n           \
+          \ return \"\"\n        return _add(_add(_add(_add(\"孩子说出了：\", _logical36()), \"。他通过了\"), _logical37()),\
+          \ \"关卡，请庆祝通关。\")\n    def _expression38():\n        def _logical39():\n            value = _get(_scope0[\"\
+          state\"], \"last_dynasty\")\n            if _truth(value):\n                return value\n           \
+          \ return \"\"\n        return _add(_add(_add(_add(\"孩子刚才说：\", _scope0[\"latest\"]), \"。这次还没有通过\"), _logical39()),\
+          \ \"关卡，请给一个提示。\")\n    _scope0[\"responseText\"] = (_expression35() if _truth(_scope0[\"passed\"]) else\
+          \ _expression38())\n    _channels[\"poetry_response_channel\"] = [{\"role\": \"user\", \"parts\": [{\"\
+          type\": \"text\", \"text\": _scope0[\"responseText\"]}]}]\n    return {\"values\": _values, \"channels\"\
+          : _channels, \"text\": \"\".join(_emitted)}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+        outputs:
+          values: values
+          channels: channels
+          text: apply_checkpoint_result-text
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: checkpoint_clear-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n孩子刚刚通过了当前朝代关卡。\\n- 孩子说出的句子：${board.last_line}\\n- 通关朝代：${board.last_dynasty}\\n- 即将获得徽章：${board.last_badge_label}\\\
+          n- 下一站：${board.next_dynasty}\\n\\n请用自然中文庆祝通关，告诉孩子时间门亮起来了，马上会获得这个朝代的徽章，并准备前往下一个朝代。\\n\\n约束：\\n- 只输出中文闯关台词。\\\
+          n- 不要提内部节点、state、tool 字段。\\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage\
+          \ 这样的内部徽章 ID。\\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\\\
+          n- 如果下一站是“终点”，不要说还有下一关，只说最后的时间门即将打开。\\n- 不要重复整首诗。\\n- 只输出一句，最多 18 个汉字。\\n'\n    prompt = prompt.replace('${board.last_line}',\
+          \ str(values.get('last_line', \"\") or \"\"))\n    prompt = prompt.replace('${board.last_dynasty}', str(values.get('last_dynasty',\
+          \ \"\") or \"\"))\n    prompt = prompt.replace('${board.last_badge_label}', str(values.get('last_badge_label',\
+          \ \"\") or \"\"))\n    prompt = prompt.replace('${board.next_dynasty}', str(values.get('next_dynasty',\
+          \ \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for\
+          \ message in channels.get('poetry_response_channel', []):\n        content = message.get(\"content\",\
+          \ \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in\
+          \ message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"\
+          role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\"\
+          :messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: checkpoint_clear-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: checkpoint_clear
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: checkpoint_clear-messages
+        outputs:
+          text: checkpoint_clear-text
+        max_tokens: 2048
+      - id: checkpoint_clear-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: checkpoint_clear-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: retry_hint-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n孩子这次还没有通过当前关卡。\\n- 当前朝代：${board.current_dynasty}\\n- 孩子刚才说：${board.latest_user_text}\\n- 当前关卡提示：${board.current_hint}\\\
+          n\\n请温和地给一个场景化提示，让孩子继续留在当前朝代再试一次。\\n\\n约束：\\n- 只输出中文闯关台词。\\n- 不要直接给完整答案。\\n- 可以提示关键词。\\n- 不要提内部节点、state、tool\
+          \ 字段。\\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\\n- 只输出一句，最多 18 个汉字。\\n'\n    prompt = prompt.replace('${board.current_dynasty}',\
+          \ str(values.get('current_dynasty', \"\") or \"\"))\n    prompt = prompt.replace('${board.latest_user_text}',\
+          \ str(values.get('latest_user_text', \"\") or \"\"))\n    prompt = prompt.replace('${board.current_hint}',\
+          \ str(values.get('current_hint', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}]\
+          \ if prompt else []\n    for message in channels.get('poetry_response_channel', []):\n        content\
+          \ = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"\
+          text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"\
+          role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\"\
+          :channels,\"messages\":messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: retry_hint-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: retry_hint
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: retry_hint-messages
+        outputs:
+          text: retry_hint-text
+        max_tokens: 2048
+      - id: retry_hint-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: retry_hint-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: advance_checkpoint
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
+          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
+          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
+          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
+          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
+          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
+          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
+          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
+          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
+          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
+          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
+          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
+          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
+          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
+          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
+          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
+          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
+          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
+          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
+          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
+          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
+          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
+          ]))\n    _emitted = []\n    _scope0 = {\"order\": None, \"state\": None, \"idx\": None, \"badgeLabels\"\
+          : None}\n    _scope0[\"order\"] = [\"tang\", \"song\", \"yuan\", \"ming\"]\n    def _logical1():\n   \
+          \     value = _get(_values, \"poetry_journey_state\")\n        if _truth(value):\n            return value\n\
+          \        return {}\n    _scope0[\"state\"] = _logical1()\n    def _logical2():\n        value = _get(_scope0[\"\
+          state\"], \"checkpoint\")\n        if _truth(value):\n            return value\n        return \"tang\"\
+          \n    _scope0[\"idx\"] = _index(_scope0[\"order\"], _string(_logical2()))\n    def _logical3():\n    \
+          \    value = (_scope0[\"idx\"] >= 0)\n        if not _truth(value):\n            return value\n      \
+          \  return (_scope0[\"idx\"] < (len(_scope0[\"order\"]) - 1))\n    if _truth(_logical3()):\n        _scope0[\"\
+          state\"][\"checkpoint\"] = _get(_scope0[\"order\"], _add(_scope0[\"idx\"], 1))\n        _scope0[\"state\"\
+          ][\"status\"] = \"playing\"\n        _scope0[\"state\"][\"awaiting_response\"] = False\n        _values[\"\
+          poetry_after_award_route\"] = \"audit\"\n    else:\n        _scope0[\"state\"][\"status\"] = \"finished\"\
+          \n        _scope0[\"state\"][\"checkpoint\"] = \"finished\"\n        _scope0[\"state\"][\"awaiting_response\"\
+          ] = False\n        _values[\"poetry_after_award_route\"] = \"journey_finish\"\n    def _logical4():\n\
+          \        value = _number(_get(_scope0[\"state\"], \"score\"))\n        if _truth(value):\n           \
+          \ return value\n        return 0\n    def _logical5():\n        value = _number(_get(_scope0[\"state\"\
+          ], \"last_points\"))\n        if _truth(value):\n            return value\n        return 0\n    _scope0[\"\
+          state\"][\"score\"] = _add(_logical4(), _logical5())\n    _values[\"poetry_journey_state\"] = _scope0[\"\
+          state\"]\n    _values[\"poetry_journey_state_text\"] = json.encode_indent(_scope0[\"state\"], indent=\"\
+          \  \")\n    def _logical6():\n        value = _get(_scope0[\"state\"], \"score\")\n        if _truth(value):\n\
+          \            return value\n        return 0\n    _values[\"current_score\"] = _logical6()\n    def _expression7():\n\
+          \        return \",\".join([_string(_item) for _item in _get(_scope0[\"state\"], \"badges\")])\n    def\
+          \ _expression8():\n        return \"\"\n    _values[\"badge_list\"] = (_expression7() if _truth((type(_get(_scope0[\"\
+          state\"], \"badges\")) == \"list\")) else _expression8())\n    _scope0[\"badgeLabels\"] = {\"badge_tang_moon\"\
+          : \"唐月徽章\", \"badge_song_river\": \"宋河徽章\", \"badge_yuan_dusk\": \"元暮徽章\", \"badge_ming_courage\": \"\
+          明勇徽章\"}\n    def _expression9():\n        def _function10(badge):\n            _scope11 = {\"badge\":\
+          \ badge}\n            def _logical12():\n                value = _get(_scope0[\"badgeLabels\"], _scope11[\"\
+          badge\"])\n                if _truth(value):\n                    return value\n                return\
+          \ _scope11[\"badge\"]\n            return _logical12()\n        return \"、\".join([_string(_item) for\
+          \ _item in [_function10(_get(_scope0[\"state\"], \"badges\")[_index]) for _index in range(len(_get(_scope0[\"\
+          state\"], \"badges\")))]])\n    def _expression13():\n        return \"\"\n    _values[\"badge_label_list\"\
+          ] = (_expression9() if _truth((type(_get(_scope0[\"state\"], \"badges\")) == \"list\")) else _expression13())\n\
+          \    _channels[\"poetry_response_channel\"] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"\
+          text\": \"孩子已经收集完全部朝代徽章，请为古诗旅行收束。\"}]}]\n    return {\"values\": _values, \"channels\": _channels, \"\
+          text\": \"\".join(_emitted)}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+        outputs:
+          values: values
+          channels: channels
+          text: advance_checkpoint-text
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: journey_finish-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，正在带孩子进行古诗朝代闯关。\\n\\\
+          n孩子已经通关全部朝代。\\n- 总分：${board.current_score}\\n- 徽章：${board.badge_label_list}\\n\\n请用自然中文给一个收束场景：四枚徽章亮起，时间门合上，孩子完成了古诗朝代旅行。\\\
+          n\\n约束：\\n- 只输出中文闯关台词。\\n- 不要提内部节点、state、tool 字段。\\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage\
+          \ 这样的内部徽章 ID。\\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\\\
+          n- 可以提总分和徽章。\\n- 只输出一句，最多 22 个汉字。\\n'\n    prompt = prompt.replace('${board.current_score}', str(values.get('current_score',\
+          \ \"\") or \"\"))\n    prompt = prompt.replace('${board.badge_label_list}', str(values.get('badge_label_list',\
+          \ \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for\
+          \ message in channels.get('poetry_response_channel', []):\n        content = message.get(\"content\",\
+          \ \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in\
+          \ message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"\
+          role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\"\
+          :messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: journey_finish-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: journey_finish
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: journey_finish-messages
+        outputs:
+          text: journey_finish-text
+        max_tokens: 2048
+      - id: journey_finish-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: journey_finish-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: finished_roleplay_chat-prompt
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是李白，孩子已经完成古诗朝代闯关，现在进入通关后的角色扮演闲聊。\\\
+          n\\n已通关信息：\\n- 总分：${board.current_score}\\n- 徽章：${board.badge_label_list}\\n\\n你要做：\\n- 继续以李白身份和孩子自然聊天。\\\
+          n- 可以聊诗、旅行、月亮、江河、下一次想去哪里、徽章的故事含义。\\n- 如果孩子问是否通关，明确说今天的四朝闯关已经完成。\\n- 如果孩子问下一次冒险，回答成角色扮演里的约定或伏笔，不要开启新关卡，不要重新出题。\\\
+          n\\n约束：\\n- 不要再发徽章。\\n- 不要再判定答案。\\n- 不要提内部节点、state、tool 字段。\\n- 不要输出 badge_tang_moon、badge_song_river、badge_yuan_dusk、badge_ming_courage\
+          \ 这样的内部徽章 ID。\\n- 面向孩子只能使用唐月徽章、宋河徽章、元暮徽章、明勇徽章这样的中文名称。\\n- 不要输出 challenge_result、requirements、JSON、参数、英文判断文本。\\\
+          n- 只输出一句，最多 22 个汉字。\\n'\n    prompt = prompt.replace('${board.current_score}', str(values.get('current_score',\
+          \ \"\") or \"\"))\n    prompt = prompt.replace('${board.badge_label_list}', str(values.get('badge_label_list',\
+          \ \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for\
+          \ message in channels.get('poetry_response_channel', []):\n        content = message.get(\"content\",\
+          \ \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in\
+          \ message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"\
+          role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\"\
+          :messages}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          fence:
+            from: input.safety_fence
+        outputs:
+          values: values
+          channels: channels
+          messages: finished_roleplay_chat-messages
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: finished_roleplay_chat
+        type: chat_model
+        model: llm
+        inputs:
+          messages:
+            from: finished_roleplay_chat-messages
+        outputs:
+          text: finished_roleplay_chat-text
+        max_tokens: 2048
+      - id: finished_roleplay_chat-capture
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
+          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          answer:
+            from: finished_roleplay_chat-text
+        outputs:
+          values: values
+          channels: channels
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: write_poetry_audit
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
+          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
+          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
+          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
+          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
+          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
+          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
+          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
+          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
+          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
+          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
+          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
+          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
+          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
+          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
+          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
+          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
+          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
+          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
+          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
+          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
+          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
+          ]))\n    _emitted = []\n    _scope0 = {\"state\": None, \"badges\": None, \"attempts\": None}\n    def\
+          \ _logical1():\n        value = _get(_values, \"poetry_journey_state\")\n        if _truth(value):\n \
+          \           return value\n        return {}\n    _scope0[\"state\"] = _logical1()\n    def _expression2():\n\
+          \        return _get(_scope0[\"state\"], \"badges\")\n    def _expression3():\n        return []\n   \
+          \ _scope0[\"badges\"] = (_expression2() if _truth((type(_get(_scope0[\"state\"], \"badges\")) == \"list\"\
+          )) else _expression3())\n    def _logical4():\n        value = _get(_scope0[\"state\"], \"attempts\")\n\
+          \        if not _truth(value):\n            return value\n        return (_typeof(_get(_scope0[\"state\"\
+          ], \"attempts\")) == \"object\")\n    def _expression5():\n        return _get(_scope0[\"state\"], \"\
+          attempts\")\n    def _expression6():\n        return {}\n    _scope0[\"attempts\"] = (_expression5() if\
+          \ _truth(_logical4()) else _expression6())\n    def _logical7():\n        value = _get(_scope0[\"state\"\
+          ], \"status\")\n        if _truth(value):\n            return value\n        return \"playing\"\n    def\
+          \ _logical8():\n        value = _get(_scope0[\"state\"], \"checkpoint\")\n        if _truth(value):\n\
+          \            return value\n        return \"\"\n    def _logical9():\n        value = _get(_scope0[\"\
+          state\"], \"score\")\n        if _truth(value):\n            return value\n        return 0\n    _values[\"\
+          tmp_checkpoint_progress_line\"] = _add(_add(_add(_add(_add(_add(_add(_add(_add(\"checkpoint_progress:\
+          \ status=\", _logical7()), \"; checkpoint=\"), _logical8()), \"; score=\"), _logical9()), \"; badges=\"\
+          ), \",\".join([_string(_item) for _item in _scope0[\"badges\"]])), \"; awaiting=\"), (_get(_scope0[\"\
+          state\"], \"awaiting_response\") == True))\n    def _logical10():\n        def _logical11():\n       \
+          \     value = _get(_scope0[\"state\"], \"last_dynasty\")\n            if _truth(value):\n            \
+          \    return value\n            return _get(_scope0[\"state\"], \"checkpoint\")\n        value = _logical11()\n\
+          \        if _truth(value):\n            return value\n        return \"\"\n    def _logical12():\n   \
+          \     value = _get(_scope0[\"state\"], \"last_result\")\n        if _truth(value):\n            return\
+          \ value\n        return \"\"\n    def _logical13():\n        value = _get(_scope0[\"state\"], \"last_line\"\
+          )\n        if _truth(value):\n            return value\n        return \"\"\n    _values[\"tmp_achievement_log_line\"\
+          ] = _add(_add(_add(_add(_add(_add(_add(\"achievement_log: checkpoint=\", _logical10()), \"; result=\"\
+          ), _logical12()), \"; line=\"), _logical13()), \"; attempts=\"), json.encode(_scope0[\"attempts\"]))\n\
+          \    def _logical14():\n        value = _get(_scope0[\"state\"], \"last_badge\")\n        if _truth(value):\n\
+          \            return value\n        return \"none\"\n    def _logical15():\n        value = _get(_scope0[\"\
+          state\"], \"last_points\")\n        if _truth(value):\n            return value\n        return 0\n  \
+          \  def _logical16():\n        value = _get(_scope0[\"state\"], \"score\")\n        if _truth(value):\n\
+          \            return value\n        return 0\n    _values[\"tmp_badge_events_line\"] = _add(_add(_add(_add(_add(\"\
+          badge_events: badge=\", _logical14()), \"; points=\"), _logical15()), \"; score=\"), _logical16())\n \
+          \   return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+        outputs:
+          values: values
+          channels: channels
+          text: write_poetry_audit-text
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: observe_poetry_audit-prepare-0
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
+          channels\"]))\n    fact_0 = str(values.get('tmp_checkpoint_progress_line', \"\") or \"\")\n    fact_1\
+          \ = str(values.get('tmp_achievement_log_line', \"\") or \"\")\n    fact_2 = str(values.get('tmp_badge_events_line',\
+          \ \"\") or \"\")\n    return {\"values\":values,\"channels\":channels,'fact-0':fact_0,'attribute-0-lane':'checkpoint-progress','attribute-0-kind':'state','attribute-0-predicate':'status','attribute-0-subject':'checkpoint_progress','fact-1':fact_1,'attribute-1-lane':'achievement-log','attribute-1-kind':'event','attribute-1-predicate':'recitation','attribute-1-subject':'achievement_log','fact-2':fact_2,'attribute-2-lane':'badge-events','attribute-2-kind':'event','attribute-2-predicate':'badge','attribute-2-subject':'badge_events'}\n"
+        inputs:
+          values:
+            from: values
+          channels:
+            from: channels
+          text:
+            from: input.text
+        outputs:
+          values: values
+          channels: channels
+          fact-0: observe_poetry_audit-fact-0
+          attribute-0-lane: observe_poetry_audit-attribute-0-lane
+          attribute-0-kind: observe_poetry_audit-attribute-0-kind
+          attribute-0-predicate: observe_poetry_audit-attribute-0-predicate
+          attribute-0-subject: observe_poetry_audit-attribute-0-subject
+          fact-1: observe_poetry_audit-fact-1
+          attribute-1-lane: observe_poetry_audit-attribute-1-lane
+          attribute-1-kind: observe_poetry_audit-attribute-1-kind
+          attribute-1-predicate: observe_poetry_audit-attribute-1-predicate
+          attribute-1-subject: observe_poetry_audit-attribute-1-subject
+          fact-2: observe_poetry_audit-fact-2
+          attribute-2-lane: observe_poetry_audit-attribute-2-lane
+          attribute-2-kind: observe_poetry_audit-attribute-2-kind
+          attribute-2-predicate: observe_poetry_audit-attribute-2-predicate
+          attribute-2-subject: observe_poetry_audit-attribute-2-subject
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: observe_poetry_audit
+        type: memory_observe
+        wait_for_completion: true
+        facts:
+        - text_from: observe_poetry_audit-fact-0
+          attributes:
+            lane: observe_poetry_audit-attribute-0-lane
+            kind: observe_poetry_audit-attribute-0-kind
+            predicate: observe_poetry_audit-attribute-0-predicate
+            subject: observe_poetry_audit-attribute-0-subject
+        - text_from: observe_poetry_audit-fact-1
+          attributes:
+            lane: observe_poetry_audit-attribute-1-lane
+            kind: observe_poetry_audit-attribute-1-kind
+            predicate: observe_poetry_audit-attribute-1-predicate
+            subject: observe_poetry_audit-attribute-1-subject
+        - text_from: observe_poetry_audit-fact-2
+          attributes:
+            lane: observe_poetry_audit-attribute-2-lane
+            kind: observe_poetry_audit-attribute-2-kind
+            predicate: observe_poetry_audit-attribute-2-predicate
+            subject: observe_poetry_audit-attribute-2-subject
+      - id: route_checkpoint-route
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('poetry_route') == \"tang_checkpoint\"\
+          :\n        return {\"route\":'tang_checkpoint-prompt'}\n    if values.get('poetry_route') == \"song_checkpoint\"\
+          :\n        return {\"route\":'song_checkpoint-prompt'}\n    if values.get('poetry_route') == \"yuan_checkpoint\"\
+          :\n        return {\"route\":'yuan_checkpoint-prompt'}\n    if values.get('poetry_route') == \"ming_checkpoint\"\
+          :\n        return {\"route\":'ming_checkpoint-prompt'}\n    if values.get('poetry_route') == \"judge_challenge\"\
+          :\n        return {\"route\":'judge_challenge-prompt'}\n    if values.get('poetry_route') == \"journey_finish\"\
+          :\n        return {\"route\":'journey_finish-prompt'}\n    if values.get('poetry_route') == \"finished_roleplay_chat\"\
+          :\n        return {\"route\":'finished_roleplay_chat-prompt'}\n    return {\"route\":'end'}\n"
+        inputs:
+          values:
+            from: values
+        outputs:
+          route: route_checkpoint-route
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: apply_checkpoint_result-route
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('poetry_result_route') == \"\
+          retry_hint\":\n        return {\"route\":'retry_hint-prompt'}\n    if values.get('poetry_result_route')\
+          \ == \"checkpoint_clear\":\n        return {\"route\":'checkpoint_clear-prompt'}\n    return {\"route\"\
+          :'end'}\n"
+        inputs:
+          values:
+            from: values
+        outputs:
+          route: apply_checkpoint_result-route
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: advance_checkpoint-route
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('poetry_after_award_route')\
+          \ == \"journey_finish\":\n        return {\"route\":'journey_finish-prompt'}\n    if values.get('poetry_after_award_route')\
+          \ == \"audit\":\n        return {\"route\":'write_poetry_audit'}\n    return {\"route\":'end'}\n"
+        inputs:
+          values:
+            from: values
+        outputs:
+          route: advance_checkpoint-route
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      - id: checkpoint_clear-route
+        type: script
+        language: starlark
+        entrypoint: run
+        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('poetry_award_route') == \"\
+          tang_award_badge\":\n        return {\"route\":'advance_checkpoint'}\n    if values.get('poetry_award_route')\
+          \ == \"song_award_badge\":\n        return {\"route\":'advance_checkpoint'}\n    if values.get('poetry_award_route')\
+          \ == \"yuan_award_badge\":\n        return {\"route\":'advance_checkpoint'}\n    if values.get('poetry_award_route')\
+          \ == \"ming_award_badge\":\n        return {\"route\":'advance_checkpoint'}\n    return {\"route\":'end'}\n"
+        inputs:
+          values:
+            from: values
+        outputs:
+          route: checkpoint_clear-route
+        limits:
+          max_execution_steps: 1000000
+          timeout: 1s
+          max_input_bytes: 1048576
+          max_output_bytes: 1048576
+      edges:
+      - from: start
+        to: initialize-conversation
+      - from: tang_checkpoint-prompt
+        to: tang_checkpoint
+      - from: tang_checkpoint
+        to: tang_checkpoint-capture
+      - from: song_checkpoint-prompt
+        to: song_checkpoint
+      - from: song_checkpoint
+        to: song_checkpoint-capture
+      - from: yuan_checkpoint-prompt
+        to: yuan_checkpoint
+      - from: yuan_checkpoint
+        to: yuan_checkpoint-capture
+      - from: ming_checkpoint-prompt
+        to: ming_checkpoint
+      - from: ming_checkpoint
+        to: ming_checkpoint-capture
+      - from: judge_challenge-prompt
+        to: judge_challenge
+      - from: judge_challenge
+        to: judge_challenge-capture
+      - from: checkpoint_clear-prompt
+        to: checkpoint_clear
+      - from: checkpoint_clear
+        to: checkpoint_clear-capture
+      - from: retry_hint-prompt
+        to: retry_hint
+      - from: retry_hint
+        to: retry_hint-capture
+      - from: journey_finish-prompt
+        to: journey_finish
+      - from: journey_finish
+        to: journey_finish-capture
+      - from: finished_roleplay_chat-prompt
+        to: finished_roleplay_chat
+      - from: finished_roleplay_chat
+        to: finished_roleplay_chat-capture
+      - from: observe_poetry_audit-prepare-0
+        to: observe_poetry_audit
+      - from: initialize-conversation
+        to: load_journey_state
+      - from: load_journey_state
+        to: route_checkpoint
+      - from: route_checkpoint
+        to: route_checkpoint-route
+      - from: tang_checkpoint-capture
+        to: write_poetry_audit
+      - from: song_checkpoint-capture
+        to: write_poetry_audit
+      - from: yuan_checkpoint-capture
+        to: write_poetry_audit
+      - from: ming_checkpoint-capture
+        to: write_poetry_audit
+      - from: judge_challenge-capture
+        to: apply_checkpoint_result
+      - from: apply_checkpoint_result
+        to: apply_checkpoint_result-route
+      - from: retry_hint-capture
+        to: write_poetry_audit
+      - from: advance_checkpoint
+        to: advance_checkpoint-route
+      - from: journey_finish-capture
+        to: write_poetry_audit
+      - from: finished_roleplay_chat-capture
+        to: write_poetry_audit
+      - from: write_poetry_audit
+        to: observe_poetry_audit-prepare-0
+      - from: observe_poetry_audit
+        to: end
+      - from: checkpoint_clear-capture
+        to: checkpoint_clear-route
+      branches:
+      - from: route_checkpoint-route
+        mode: first_match
+        routes:
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: tang_checkpoint-prompt
+          to: tang_checkpoint-prompt
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: song_checkpoint-prompt
+          to: song_checkpoint-prompt
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: yuan_checkpoint-prompt
+          to: yuan_checkpoint-prompt
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: ming_checkpoint-prompt
+          to: ming_checkpoint-prompt
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: judge_challenge-prompt
+          to: judge_challenge-prompt
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: journey_finish-prompt
+          to: journey_finish-prompt
+        - when:
+            field: route_checkpoint-route
+            op: eq
+            value: finished_roleplay_chat-prompt
+          to: finished_roleplay_chat-prompt
+        default: end
+      - from: apply_checkpoint_result-route
+        mode: first_match
+        routes:
+        - when:
+            field: apply_checkpoint_result-route
+            op: eq
+            value: retry_hint-prompt
+          to: retry_hint-prompt
+        - when:
+            field: apply_checkpoint_result-route
+            op: eq
+            value: checkpoint_clear-prompt
+          to: checkpoint_clear-prompt
+        default: end
+      - from: advance_checkpoint-route
+        mode: first_match
+        routes:
+        - when:
+            field: advance_checkpoint-route
+            op: eq
+            value: journey_finish-prompt
+          to: journey_finish-prompt
+        - when:
+            field: advance_checkpoint-route
+            op: eq
+            value: write_poetry_audit
+          to: write_poetry_audit
+        default: end
+      - from: checkpoint_clear-route
+        mode: first_match
+        routes:
+        - when:
+            field: checkpoint_clear-route
+            op: eq
+            value: advance_checkpoint
+          to: advance_checkpoint
+        - when:
+            field: checkpoint_clear-route
+            op: eq
+            value: advance_checkpoint
+          to: advance_checkpoint
+        - when:
+            field: checkpoint_clear-route
+            op: eq
+            value: advance_checkpoint
+          to: advance_checkpoint
+        - when:
+            field: checkpoint_clear-route
+            op: eq
+            value: advance_checkpoint
+          to: advance_checkpoint
+        default: end
+      outputs:
+      - node: tang_checkpoint
+        field: tang_checkpoint-text
+        name: tang_checkpoint
+        mime_type: text/plain
+        primary: true
+      - node: song_checkpoint
+        field: song_checkpoint-text
+        name: song_checkpoint
+        mime_type: text/plain
+      - node: yuan_checkpoint
+        field: yuan_checkpoint-text
+        name: yuan_checkpoint
+        mime_type: text/plain
+      - node: ming_checkpoint
+        field: ming_checkpoint-text
+        name: ming_checkpoint
+        mime_type: text/plain
+      - node: checkpoint_clear
+        field: checkpoint_clear-text
+        name: checkpoint_clear
+        mime_type: text/plain
+      - node: retry_hint
+        field: retry_hint-text
+        name: retry_hint
+        mime_type: text/plain
+      - node: journey_finish
+        field: journey_finish-text
+        name: journey_finish
+        mime_type: text/plain
+      - node: finished_roleplay_chat
+        field: finished_roleplay_chat-text
+        name: finished_roleplay_chat
+        mime_type: text/plain
+    state_persistence:
+      fields:
+      - values
+      - channels
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      node_voices:
+        checkpoint_clear: narrator
+        finished_roleplay_chat: narrator
+        journey_finish: narrator
+        ming_checkpoint: narrator
+        retry_hint: narrator
+        song_checkpoint: narrator
+        tang_checkpoint: narrator
+        yuan_checkpoint: narrator
+    conversation:
+      starts: peer

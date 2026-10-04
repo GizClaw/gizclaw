@@ -22,7 +22,7 @@ steps:
     client: alice
     rpc:
       method: server.workspace.create
-      request: {name: "${workspace_name}", workflow_name: flowcraft-voice-assistant}
+      request: {name: "${workspace_name}", workflow_name: eino-voice-assistant}
   - id: deliberate_failure
     client: alice
     rpc: {method: all.ping, request: {}}

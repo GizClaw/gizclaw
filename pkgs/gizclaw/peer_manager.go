@@ -143,22 +143,22 @@ type Manager struct {
 	AgentHost       *agenthost.Host
 	RuntimeProfiles *runtimeprofile.Server
 
-	Workspaces       workspace.WorkspaceAdminService
-	Workflows        workflow.WorkflowAdminService
-	Firmwares        *firmware.Server
-	Models           model.ModelAdminService
-	Credentials      credential.CredentialAdminService
-	Voices           voice.VoiceAdminService
-	Contacts         *contact.Server
-	Friends          *friend.Server
-	FriendGroups     *friendgroup.Server
-	FlowcraftHistory logstore.MutableStore
-	FlowcraftStateDB *sqlx.DB
-	MemoryRoot       string
-	MemoryStores     *memorystore.Registry
-	SpeechLimits     SpeechLimits
-	Tools            *toolkit.Server
-	ToolBuilder      *toolkit.Builder
+	Workspaces   workspace.WorkspaceAdminService
+	Workflows    workflow.WorkflowAdminService
+	Firmwares    *firmware.Server
+	Models       model.ModelAdminService
+	Credentials  credential.CredentialAdminService
+	Voices       voice.VoiceAdminService
+	Contacts     *contact.Server
+	Friends      *friend.Server
+	FriendGroups *friendgroup.Server
+	EinoHistory  logstore.MutableStore
+	GraphStateDB *sqlx.DB
+	MemoryRoot   string
+	MemoryStores *memorystore.Registry
+	SpeechLimits SpeechLimits
+	Tools        *toolkit.Server
+	ToolBuilder  *toolkit.Builder
 	// SFU is the Server-level SFU connector configuration handed to the sfu
 	// Workflow driver. Credentials never leave the Server process.
 	SFU sfu.Config

@@ -31,12 +31,6 @@ func (t WorkspaceParameters) SafetyFenceLevel() (*SafetyFenceLevel, error) {
 	}
 	var value *SafetyFenceLevel
 	switch WorkflowDriver(discriminator) {
-	case WorkflowDriverFlowcraft:
-		parameters, err := t.AsFlowcraftWorkspaceParameters()
-		if err != nil {
-			return nil, err
-		}
-		value = parameters.SafetyFenceLevel
 	case WorkflowDriverEino:
 		parameters, err := t.AsEinoWorkspaceParameters()
 		if err != nil {

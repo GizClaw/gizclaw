@@ -23,9 +23,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	einoagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
-	flowcraftagent "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
+	"github.com/jmoiron/sqlx"
+	_ "modernc.org/sqlite"
 )
 
 func voiceTonePackets(t *testing.T, frequency int) [][]byte {
@@ -341,18 +343,25 @@ func (voiceFixtureResources) GetMiniMaxTenant(context.Context, adminhttp.GetMini
 
 func newVoiceFixtureAgent(t *testing.T, kind string, data []byte, service *peergenx.Service, mode apitypes.WorkspaceInputMode) agenthost.Agent {
 	t.Helper()
-	agent, err := voiceFixtureFactory(kind, service).NewAgent(t.Context(), newVoiceFixtureSpec(t, kind, data, mode))
+	agent, err := voiceFixtureFactory(t, kind, service).NewAgent(t.Context(), newVoiceFixtureSpec(t, kind, data, mode))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return agent
 }
 
-func voiceFixtureFactory(kind string, service *peergenx.Service) agenthost.Factory {
-	if kind == "flowcraft" {
-		return flowcraftagent.Factory{GenX: service}
+func voiceFixtureFactory(t *testing.T, kind string, service *peergenx.Service) agenthost.Factory {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatal(err)
 	}
-	return einoagent.Factory{GenX: service}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	if err := graphstate.Initialize(t.Context(), db); err != nil {
+		t.Fatal(err)
+	}
+	return einoagent.Factory{GenX: service, State: db}
 }
 
 func newVoiceFixtureSpec(t *testing.T, kind string, data []byte, mode apitypes.WorkspaceInputMode) agenthost.Spec {
@@ -369,12 +378,6 @@ func newVoiceFixtureSpec(t *testing.T, kind string, data []byte, mode apitypes.W
 			t.Fatal(err)
 		}
 		spec.Workflow.Spec = apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &public}
-	case "flowcraft":
-		var public apitypes.FlowcraftWorkflowSpec
-		if err := json.Unmarshal(data, &public); err != nil {
-			t.Fatal(err)
-		}
-		spec.Workflow.Spec = apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &public}
 	default:
 		t.Fatalf("unknown workflow %q", kind)
 	}

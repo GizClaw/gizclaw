@@ -189,18 +189,6 @@ func workspaceParametersWithPatch(
 			value.AudioInput = new(*audioInput)
 		}
 		return updated, updated.FromEinoWorkspaceParameters(value)
-	case apitypes.WorkflowDriverFlowcraft:
-		value := apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft}
-		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsFlowcraftWorkspaceParameters); err != nil {
-			return nil, err
-		}
-		patchInput(&value.Input, input)
-		patchConversation(&value.Conversation, conversation)
-		patchRate(&value.TtsSpeechRatePercent, rate)
-		if safetyFenceLevel != nil {
-			value.SafetyFenceLevel = new(*safetyFenceLevel)
-		}
-		return updated, updated.FromFlowcraftWorkspaceParameters(value)
 	case apitypes.WorkflowDriverDoubaoRealtime:
 		value := apitypes.DoubaoRealtimeWorkspaceParameters{AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime}
 		if err := decodeWorkspaceParametersVariant(parameters, &value, apitypes.WorkspaceParameters.AsDoubaoRealtimeWorkspaceParameters); err != nil {
