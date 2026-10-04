@@ -10,10 +10,6 @@
   },
   "graph": {
     "name": "multi-role-voices",
-    "compile": {
-      "node_trigger_mode": "any_predecessor",
-      "primary_output_mode": "first_output"
-    },
     "state": {
       "fields": [
         {
@@ -244,6 +240,10 @@
         "mime_type": "text/plain",
         "primary": true
       }
-    ]
+    ],
+    "compile": {
+      "node_trigger_mode": "any_predecessor",
+      "primary_output_mode": "first_output"
+    }
   }
 }

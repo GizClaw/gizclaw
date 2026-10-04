@@ -11,6 +11,8 @@ spec:
       compile:
         node_trigger_mode: any_predecessor
         max_run_steps: 2736
+        # The first executed output is the assistant primary; other routes
+        # can terminate without visiting the configured fallback output.
         primary_output_mode: first_output
       state:
         fields:

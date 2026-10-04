@@ -239,7 +239,7 @@ Apart from the audio turns above, non-text routes bypass the Transformer unchang
 
 ## State, History, and Memory
 
-Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.eino.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Nested object/list integers retain signed 64-bit precision, and integral floating-point values retain their numeric type through optional snapshot type hints. Internal conversation History uses the mutable log referenced by `services.agent_host.eino.history_store`.
+Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.eino.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Nested object/list integers retain signed 64-bit precision, and integral floating-point values retain their numeric type through optional snapshot type hints. New snapshots use format version 1; unversioned snapshots retain their previous JSON float64 decoding until a normal successful CAS write. Internal conversation History uses the mutable log referenced by `services.agent_host.eino.history_store`.
 
 Persistent State is optional:
 

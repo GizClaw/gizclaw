@@ -10,7 +10,8 @@ import (
 )
 
 // Integral floats need a type hint because encoding/json writes 7.0 as 7.
-// Integers are decoded losslessly, including checkpoints without these hints.
+// Versioned snapshots decode integers losslessly; unversioned records retain
+// their legacy float64 decoding in decodeSnapshot.
 func jsonStateFloatPaths(value any) []string {
 	var paths []string
 	var visit func(any, string)

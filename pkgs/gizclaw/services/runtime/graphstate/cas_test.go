@@ -52,13 +52,19 @@ func TestGraphStateReloadAndConflict(t *testing.T) {
 	}
 }
 
-func TestLegacyJSONCheckpointPreservesNestedInteger(t *testing.T) {
-	snapshot, err := decodeSnapshot([]byte(`{"version":"legacy","fields":{"object":{"kind":"json","value":{"nested":[9007199254740993,-9007199254740993]}}}}`))
+func TestLegacyJSONCheckpointPreservesNumericBehavior(t *testing.T) {
+	snapshot, err := decodeSnapshot([]byte(`{"version":"legacy","fields":{"object":{"kind":"json","value":{"nested":[7,2.5]}}}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]any{"nested": []any{int64(9007199254740993), int64(-9007199254740993)}}
+	want := map[string]any{"nested": []any{float64(7), float64(2.5)}}
 	if !reflect.DeepEqual(snapshot.Fields["object"], want) {
 		t.Fatalf("legacy JSON reload = %#v", snapshot.Fields["object"])
+	}
+}
+
+func TestSnapshotRejectsUnknownFormat(t *testing.T) {
+	if _, err := decodeSnapshot([]byte(`{"format_version":2,"version":"future","fields":{}}`)); err == nil {
+		t.Fatal("unsupported snapshot format accepted")
 	}
 }

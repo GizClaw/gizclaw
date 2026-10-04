@@ -43,6 +43,9 @@ func decodeSnapshot(data []byte) (genxeino.StateSnapshot, error) {
 	if err := json.Unmarshal(data, &record); err != nil {
 		return genxeino.StateSnapshot{}, fmt.Errorf("graph state: decode checkpoint: %w", err)
 	}
+	if record.FormatVersion < 0 || record.FormatVersion > 1 {
+		return genxeino.StateSnapshot{}, fmt.Errorf("graph state: unsupported snapshot format %d", record.FormatVersion)
+	}
 	fields := make(map[string]any, len(record.Fields))
 	for name, field := range record.Fields {
 		var value any
@@ -64,7 +67,13 @@ func decodeSnapshot(data []byte) (genxeino.StateSnapshot, error) {
 			err = json.Unmarshal(field.Value, &typed)
 			value = typed
 		case "json":
-			value, err = decodeJSONState(field.Value, field.FloatPaths)
+			if record.FormatVersion == 0 {
+				// Legacy JSON snapshots exposed numbers as float64. Do not
+				// reinterpret existing records when numeric type hints are absent.
+				err = json.Unmarshal(field.Value, &value)
+			} else {
+				value, err = decodeJSONState(field.Value, field.FloatPaths)
+			}
 		default:
 			return genxeino.StateSnapshot{}, fmt.Errorf("graph state: unsupported field kind %q", field.Kind)
 		}
@@ -77,8 +86,9 @@ func decodeSnapshot(data []byte) (genxeino.StateSnapshot, error) {
 }
 
 type stateRecord struct {
-	Version string                `json:"version"`
-	Fields  map[string]stateField `json:"fields"`
+	FormatVersion int                   `json:"format_version,omitempty"`
+	Version       string                `json:"version"`
+	Fields        map[string]stateField `json:"fields"`
 }
 
 type stateField struct {
@@ -125,7 +135,7 @@ func (s *Store) CompareAndSwap(ctx context.Context, contextID, expected string, 
 }
 
 func encodeSnapshot(values map[string]any, version string) ([]byte, error) {
-	record := stateRecord{Version: version, Fields: make(map[string]stateField, len(values))}
+	record := stateRecord{FormatVersion: 1, Version: version, Fields: make(map[string]stateField, len(values))}
 	for name, value := range values {
 		kind := "json"
 		switch value.(type) {
