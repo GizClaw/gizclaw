@@ -377,6 +377,8 @@ relay documents can omit `quality`.
 
 Judge input also includes an `evidence_quotes` catalog of nonempty candidate excerpts, each with `id`, `turn`, and `quote`. A judge may return `{turn, quote_id}`; Giztest resolves the exact original excerpt and rejects unknown IDs, mismatched turns, player references, and simultaneous ID/text citations. Existing `{turn, quote}` citations retain strict substring validation. Reports contain original text, and a valid citation never changes the score threshold.
 
+Invalid candidate citations allow at most three assessments within the original shared one-minute deadline, each fully validated. A valid low score returns immediately; retries never seek a PASS. Long scenes have a 30-minute execution budget and keep candidate, player, and judge connected; rules, 40 turns, and every 3/4 score threshold remain unchanged.
+
 During the relay, the judge connection is kept alive by a Ping every minute, each bounded to ten seconds. A keepalive failure terminates the relay; judging starts only after the keepalive is canceled and drained.
 
 ```yaml

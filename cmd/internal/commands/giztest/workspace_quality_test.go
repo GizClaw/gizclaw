@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -85,7 +87,7 @@ func TestQualityJudgeInvokesIndependentWorkspaceAndClosesStream(t *testing.T) {
 	}
 	d := newDriver(false, nil)
 	d.openPeerStream = func(*gizcli.Client) peerStreamOpener { return func() (peerStream, error) { return judge, nil } }
-	s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}}}, streams: newPeerStreamSessions()}
+	s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}, "player": {}, "candidate": {}}}, streams: newPeerStreamSessions()}
 	req := giztest.StepRequest{Vars: vars, Step: giztest.Step{ID: "story", WorkspaceRelay: &giztest.WorkspaceRelayOperation{FirstClient: "player", SecondClient: "candidate", MaxTurns: 2, Quality: qualityTestSpec()}}}
 	captured := make(chan string, 1)
 	done := make(chan struct{})
@@ -134,19 +136,20 @@ func TestQualityJudgeInvokesIndependentWorkspaceAndClosesStream(t *testing.T) {
 func TestQualityWorkspaceRelayFailureHasStructuredEvidence(t *testing.T) {
 	player, candidate, judge := newFakeRelayStream(), newFakeRelayStream(), newFakeRelayStream()
 	pingStarted := make(chan struct{})
-	var pingActive atomic.Bool
+	var pingActive atomic.Int32
+	var pingOnce sync.Once
 	d := newDriver(false, nil)
 	d.pingClient = func(ctx context.Context, _ *gizcli.Client) error {
-		pingActive.Store(true)
-		defer pingActive.Store(false)
-		close(pingStarted)
+		pingActive.Add(1)
+		defer pingActive.Add(-1)
+		pingOnce.Do(func() { close(pingStarted) })
 		<-ctx.Done()
 		return ctx.Err()
 	}
 	d.openRelayStreams = func() (relayStream, relayStream, error) { return player, candidate, nil }
 	d.openPeerStream = func(*gizcli.Client) peerStreamOpener {
 		return func() (peerStream, error) {
-			if pingActive.Load() {
+			if pingActive.Load() != 0 {
 				t.Error("keepalive RPC still active when judge starts")
 			}
 			select {
@@ -162,7 +165,7 @@ func TestQualityWorkspaceRelayFailureHasStructuredEvidence(t *testing.T) {
 			return judge, nil
 		}
 	}
-	s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}}}, streams: newPeerStreamSessions()}
+	s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}, "player": {}, "candidate": {}}}, streams: newPeerStreamSessions()}
 	go func() {
 		for {
 			chunk := <-player.pushes
@@ -206,7 +209,7 @@ func TestQualityJudgeCancellationClosesItsStream(t *testing.T) {
 	judge := newFakeRelayStream()
 	d := newDriver(false, nil)
 	d.openPeerStream = func(*gizcli.Client) peerStreamOpener { return func() (peerStream, error) { return judge, nil } }
-	s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}}}, streams: newPeerStreamSessions()}
+	s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}, "player": {}, "candidate": {}}}, streams: newPeerStreamSessions()}
 	req := giztest.StepRequest{Vars: mustVariables(t, nil), Step: giztest.Step{WorkspaceRelay: &giztest.WorkspaceRelayOperation{FirstClient: "player", SecondClient: "candidate", MaxTurns: 2, Quality: qualityTestSpec()}}}
 	result := operationResult{assertion: map[string]any{"turns": map[string]any{"player": map[string]any{"texts": []any{"start"}}, "candidate": map[string]any{"texts": []any{"hello"}}}}, evidence: map[string]any{}}
 	ctx, cancel := context.WithCancel(t.Context())
@@ -366,5 +369,107 @@ func TestQualityQuoteCatalogPreservesUnicodeAndCandidateBoundaries(t *testing.T)
 	}
 	if len(quotes) < 2 || restored.String() != source {
 		t.Fatal("catalog dropped or rewrote source text")
+	}
+}
+
+func TestQualityCitationRetryIsBoundedAndDoesNotSeekPassingScores(t *testing.T) {
+	for _, repaired := range []bool{false, true} {
+		t.Run(fmt.Sprint(repaired), func(t *testing.T) {
+			d := newDriver(false, nil)
+			var opened []*fakeRelayStream
+			d.openPeerStream = func(*gizcli.Client) peerStreamOpener {
+				return func() (peerStream, error) {
+					stream := newFakeRelayStream()
+					opened = append(opened, stream)
+					attempt := len(opened)
+					if attempt > 1 {
+						select {
+						case <-opened[attempt-2].closed:
+						default:
+							t.Error("previous judge stream remains open")
+						}
+					}
+					go func() {
+						var input strings.Builder
+						for {
+							c := <-stream.pushes
+							if part, ok := c.Part.(genx.Text); ok {
+								input.WriteString(string(part))
+							}
+							if c.IsEndOfStream() {
+								break
+							}
+						}
+						if attempt > 1 && !strings.Contains(input.String(), "citation_feedback") {
+							t.Error("retry lacks feedback")
+						}
+						id := "invented"
+						if repaired && attempt == 2 {
+							id = "t2-q1"
+						}
+						stream.in <- assistantText("j", fmt.Sprintf(`{"criteria":[{"id":"progression","score":1,"reason":"No progress","evidence":[{"turn":2,"quote_id":%q}]}]}`, id), true)
+					}()
+					return stream, nil
+				}
+			}
+			s := &session{driver: d, clients: &clientSet{clients: map[string]*gizcli.Client{"judge": {}}}}
+			req := giztest.StepRequest{Vars: mustVariables(t, nil), Step: giztest.Step{WorkspaceRelay: &giztest.WorkspaceRelayOperation{FirstClient: "player", SecondClient: "candidate", MaxTurns: 2, Quality: qualityTestSpec()}}}
+			result := operationResult{assertion: map[string]any{"turns": map[string]any{"player": map[string]any{"texts": []any{"continue"}}, "candidate": map[string]any{"texts": []any{"Welcome again"}}}}, evidence: map[string]any{}}
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			got, err := s.assessRelayQuality(ctx, req, result)
+			if repaired {
+				if err != nil || len(opened) != 2 || got.assertion.(map[string]any)["quality"].(map[string]any)["passed"] != false {
+					t.Fatalf("repair changed verdict or failed: %v", err)
+				}
+			} else if err == nil || len(opened) != 3 {
+				t.Fatalf("unbounded/accepted invalid evidence: attempts=%d err=%v", len(opened), err)
+			}
+			for _, stream := range opened {
+				select {
+				case <-stream.closed:
+				default:
+					t.Error("judge attempt not closed")
+				}
+			}
+			if _, exists := got.evidence["quality_judge_invalid_response"]; exists {
+				t.Error("redacted evidence contains an invalid model response")
+			}
+		})
+	}
+}
+
+func TestQualityJudgeLargeInputKeepsExactUTF8AndOneTerminal(t *testing.T) {
+	stream := newFakeRelayStream()
+	limited := &qualityLimitedStream{peerStream: stream}
+	text := strings.Repeat("原文🌙", 9000)
+	chunk := &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: "same", BeginOfStream: true, EndOfStream: true}}
+	var reconstructed strings.Builder
+	done := make(chan struct{})
+	var begins, ends int
+	go func() {
+		defer close(done)
+		for {
+			p := <-stream.pushes
+			v := string(p.Part.(genx.Text))
+			if len(v) > 8<<10 || !utf8.ValidString(v) {
+				t.Error("invalid transport-sized chunk")
+			}
+			reconstructed.WriteString(v)
+			if p.IsBeginOfStream() {
+				begins++
+			}
+			if p.IsEndOfStream() {
+				ends++
+				break
+			}
+		}
+	}()
+	if err := limited.Push(t.Context(), chunk); err != nil {
+		t.Fatal(err)
+	}
+	<-done
+	if reconstructed.String() != text || begins != 1 || ends != 1 || !chunk.IsBeginOfStream() || !chunk.IsEndOfStream() {
+		t.Fatal("chunking altered content or controls")
 	}
 }

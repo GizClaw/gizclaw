@@ -1790,6 +1790,8 @@ drives the dialogue; a separate judge rates character consistency, information
 boundaries, responsiveness, progression and closure. Each criterion requires
 3/4. Deterministic rule tests remain separate from model quality assessment.
 
+Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
+
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh
 GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \

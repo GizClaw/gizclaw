@@ -1521,6 +1521,8 @@ Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](/zh/
 20 次被测回复，由独立玩家 Workspace 驱动、独立裁判 Workspace 按角色一致性、信息边界、
 针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
 
+质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
+
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh
 # 只选指定剧本；凭据仍来自标准 credential 文件

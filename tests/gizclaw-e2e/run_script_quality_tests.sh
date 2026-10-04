@@ -84,6 +84,13 @@ set -a
 source "$docker_env_path"
 set +a
 
+# Preserve native graphs/rules/memory while grading text independently of TTS.
+quality_resources="$artifact_dir/text-workflows.json"
+(cd "$repo_root" && go run ./tests/gizclaw-e2e/internal/scriptqualityresources --output "$quality_resources")
+server_container="$(docker ps -q --filter "label=com.docker.compose.project=$GIZCLAW_E2E_DOCKER_PROJECT" --filter label=com.docker.compose.service=server)"
+docker cp "$quality_resources" "$server_container:/tmp/gizclaw-script-quality-workflows.json"
+docker exec "$server_container" sh -c 'XDG_CONFIG_HOME=/src/tests/gizclaw-e2e/testdata/cmd-config-home /src/tests/gizclaw-e2e/testdata/bin/gizclaw admin apply --context admin -f /tmp/gizclaw-script-quality-workflows.json'
+
 # Semantic failures are retained as evidence; every selected scenario runs.
 # The CLI's full report is explicit because judge explanations quote dialogue.
 status=0

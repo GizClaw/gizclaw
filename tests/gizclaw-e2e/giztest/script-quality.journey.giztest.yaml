@@ -43,7 +43,7 @@ variables:
     direction: input
     type: string
     generate: token
-timeout: 18m
+timeout: 35m
 steps:
   - id: register_candidate
     client: candidate
@@ -115,7 +115,7 @@ steps:
       request:
         workspace_name: ${judge_workspace}
   - id: play_and_assess
-    timeout: 15m
+    timeout: 30m
     workspace_relay:
       first_client: player
       second_client: candidate

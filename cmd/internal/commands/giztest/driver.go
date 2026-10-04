@@ -305,19 +305,31 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 	defer cancel(nil)
 	stopKeepalive := func() {}
 	if quality := step.WorkspaceRelay.Quality; quality != nil {
-		judge, err := s.clients.get(quality.JudgeClient)
-		if err != nil {
-			return giztest.StepResult{}, err
-		}
-		ping := func(ctx context.Context) error {
-			if s.driver.pingClient != nil {
-				return s.driver.pingClient(ctx, judge)
+		var participants []*gizcli.Client
+		for _, name := range []string{step.WorkspaceRelay.FirstClient, step.WorkspaceRelay.SecondClient, quality.JudgeClient} {
+			client, err := s.clients.get(name)
+			if err != nil {
+				return giztest.StepResult{}, err
 			}
-			_, err := judge.Ping(ctx, "giztest.quality.keepalive")
-			return err
+			participants = append(participants, client)
 		}
-		done := keepQualityJudgeAlive(relayCtx, time.Minute, ping, cancel)
-		stopKeepalive = func() { cancel(nil); <-done }
+		var pending []<-chan struct{}
+		for _, participant := range participants {
+			ping := func(ctx context.Context) error {
+				if s.driver.pingClient != nil {
+					return s.driver.pingClient(ctx, participant)
+				}
+				_, err := participant.Ping(ctx, "giztest.quality.keepalive")
+				return err
+			}
+			pending = append(pending, keepQualityJudgeAlive(relayCtx, time.Minute, ping, cancel))
+		}
+		stopKeepalive = func() {
+			cancel(nil)
+			for _, done := range pending {
+				<-done
+			}
+		}
 	}
 	defer stopKeepalive()
 	var result operationResult

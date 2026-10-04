@@ -58,6 +58,38 @@ type qualityLimitedStream struct {
 	events int
 }
 
+// Push keeps a valid bounded judge request below the transport's 64 KiB
+// message limit. Chunk boundaries never change the original JSON text.
+func (s *qualityLimitedStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	text, ok := chunk.Part.(genx.Text)
+	if !ok || len(text) <= 8<<10 {
+		return s.peerStream.Push(ctx, chunk)
+	}
+	if !utf8.ValidString(string(text)) {
+		return errors.New("quality request is not valid UTF-8")
+	}
+	for start := 0; start < len(text); {
+		end := min(start+(8<<10), len(text))
+		for end < len(text) && !utf8.RuneStart(text[end]) {
+			end--
+		}
+		part := chunk.Clone()
+		part.Part = genx.Text(text[start:end])
+		if chunk.Ctrl != nil {
+			ctrl := *chunk.Ctrl
+			ctrl.BeginOfStream = chunk.Ctrl.BeginOfStream && start == 0
+			ctrl.EndOfStream = chunk.Ctrl.EndOfStream && end == len(text)
+			ctrl.ResponseEpochEnd = chunk.Ctrl.ResponseEpochEnd && end == len(text)
+			part.Ctrl = &ctrl
+		}
+		if err := s.peerStream.Push(ctx, part); err != nil {
+			return err
+		}
+		start = end
+	}
+	return nil
+}
+
 func (s *qualityLimitedStream) Next() (*genx.MessageChunk, error) {
 	chunk, err := s.peerStream.Next()
 	if err != nil || chunk == nil {
@@ -113,6 +145,12 @@ func (q *qualityQuote) UnmarshalJSON(raw []byte) error {
 		return json.Unmarshal(fields.QuoteID, &q.QuoteID)
 	}
 	return nil
+}
+
+type qualityCitationError struct{ criterion string }
+
+func (e *qualityCitationError) Error() string {
+	return fmt.Sprintf("quality criterion %s cites invalid candidate evidence", e.criterion)
 }
 
 type qualityEvidenceQuote struct {
@@ -206,34 +244,51 @@ func (s *session) assessRelayQuality(ctx context.Context, req giztest.StepReques
 	invocation := peerStreamInvocation{client: client, open: boundedOpen, step: step, input: string(payload)}
 	judgeCtx, cancel := context.WithTimeout(ctx, time.Minute)
 	defer cancel()
-	judged, err := invocation.run(judgeCtx, nil)
-	if err != nil {
-		if errors.Is(err, errQualityResponseLimit) {
-			return result, errQualityResponseLimit
+	for attempt := 1; attempt <= 3; attempt++ {
+		judged, err := invocation.run(judgeCtx, nil)
+		if err != nil {
+			if errors.Is(err, errQualityResponseLimit) {
+				return result, errQualityResponseLimit
+			}
+			if errors.Is(err, context.DeadlineExceeded) {
+				return result, fmt.Errorf("quality judge timed out: %w", context.DeadlineExceeded)
+			}
+			if errors.Is(err, context.Canceled) {
+				return result, fmt.Errorf("quality judge canceled: %w", context.Canceled)
+			}
+			return result, errors.New("quality judge operation failed")
 		}
-		if errors.Is(err, context.DeadlineExceeded) {
-			return result, fmt.Errorf("quality judge timed out: %w", context.DeadlineExceeded)
+		object, ok := judged.assertion.(map[string]any)
+		if !ok {
+			return result, errors.New("quality judge returned no response")
 		}
-		if errors.Is(err, context.Canceled) {
-			return result, fmt.Errorf("quality judge canceled: %w", context.Canceled)
+		text, ok := object["reply"].(string)
+		if !ok {
+			return result, errors.New("quality judge returned no assistant text")
 		}
-		return result, errors.New("quality judge operation failed")
+		assertion, evidence, err := validateQualityResponse(text, quality, turns, s.driver.fullEvidence)
+		if err == nil {
+			evidence["judge_attempts"] = attempt
+			result.assertion.(map[string]any)["quality"] = assertion
+			result.evidence["quality"] = evidence
+			return result, nil
+		}
+		if s.driver.fullEvidence {
+			result.evidence["quality_judge_invalid_response"] = text
+		}
+		if _, citation := errors.AsType[*qualityCitationError](err); !citation || attempt == 3 {
+			return result, err
+		}
+		// Invalid evidence cannot establish a score. Request another assessment
+		// against the same original data; every response receives the full strict
+		// validator and the shared one-minute deadline still bounds all attempts.
+		corrected, err := json.Marshal(map[string]any{"reference": reference, "criteria": criteria, "dialogue": turns, "evidence_quotes": qualityEvidenceQuotes(turns), "citation_feedback": "Previous candidate evidence was invalid. Select only existing evidence_quotes IDs, keeping each entry's turn. Do not invent IDs or copy literal text."})
+		if err != nil || len(corrected) > relayMaxTextBytes {
+			return result, errors.New("quality assessment request exceeds its text limit")
+		}
+		invocation.input = string(corrected)
 	}
-	object, ok := judged.assertion.(map[string]any)
-	if !ok {
-		return result, errors.New("quality judge returned no response")
-	}
-	text, ok := object["reply"].(string)
-	if !ok {
-		return result, errors.New("quality judge returned no assistant text")
-	}
-	assertion, evidence, err := validateQualityResponse(text, quality, turns, s.driver.fullEvidence)
-	if err != nil {
-		return result, err
-	}
-	result.assertion.(map[string]any)["quality"] = assertion
-	result.evidence["quality"] = evidence
-	return result, nil
+	return result, errors.New("quality judge did not return valid evidence")
 }
 
 func qualityTranscript(op *giztest.WorkspaceRelayOperation, value any) ([]qualityTurn, error) {
@@ -336,14 +391,14 @@ func validateQualityResponse(text string, spec *giztest.RelayQualitySpec, turns 
 			if quote.quoteIDPresent {
 				selected, exists := quoteCatalog[quote.QuoteID]
 				if !exists || selected.Turn != quote.Turn || quote.quotePresent {
-					return nil, nil, fmt.Errorf("quality criterion %s cites an invalid candidate quote ID", criterion.ID)
+					return nil, nil, &qualityCitationError{criterion: criterion.ID}
 				}
 				quote.Quote, quote.QuoteID = selected.Quote, ""
 				rating.Evidence[index] = quote
 			}
 			source, exists := candidates[quote.Turn]
 			if !exists || strings.TrimSpace(quote.Quote) == "" || len(quote.Quote) > 512 || !strings.Contains(source, quote.Quote) {
-				return nil, nil, fmt.Errorf("quality criterion %s cites evidence absent from the candidate dialogue", criterion.ID)
+				return nil, nil, &qualityCitationError{criterion: criterion.ID}
 			}
 			references = append(references, quote.Turn)
 		}
