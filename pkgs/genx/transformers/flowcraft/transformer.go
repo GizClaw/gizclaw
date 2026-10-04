@@ -262,8 +262,8 @@ func (s *session) run() {
 		if chunk.IsEndOfStream() && chunk.Part == nil && inText {
 			streamID := messageStreamID(chunk)
 			if streamID == "" || activeInputID == "" || streamID == activeInputID {
-				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-					inputFailure = fmt.Errorf("flowcraft: input text stream failed: %s", chunk.Ctrl.Error)
+				if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+					inputFailure = fmt.Errorf("flowcraft: input text stream failed: %w", genx.StreamError(chunk.Ctrl))
 					break
 				}
 				if strings.TrimSpace(text.String()) != "" {
@@ -293,8 +293,8 @@ func (s *session) run() {
 			inText = true
 			text.WriteString(string(part))
 			if chunk.IsEndOfStream() {
-				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-					inputFailure = fmt.Errorf("flowcraft: input text stream failed: %s", chunk.Ctrl.Error)
+				if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+					inputFailure = fmt.Errorf("flowcraft: input text stream failed: %w", genx.StreamError(chunk.Ctrl))
 					break
 				}
 				if strings.TrimSpace(text.String()) != "" {
@@ -551,11 +551,7 @@ func (r *turnRun) execute() {
 		}
 		_ = r.session.invocation.Interrupt(r.response, errorText)
 	} else {
-		errorText := ""
-		if runErr != nil {
-			errorText = runErr.Error()
-		}
-		_ = r.session.invocation.FinishResponse(r.response, errorText)
+		_ = r.session.invocation.FinishResponseError(r.response, runErr)
 	}
 	r.session.mu.Lock()
 	delete(r.session.runs, r.response.StreamID())
@@ -781,7 +777,7 @@ func (s *sessionStream) inputClose(err error) error {
 }
 
 func isStreamEnd(err error) bool {
-	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, buffer.ErrIteratorDone) {
+	if err == nil || errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) || errors.Is(err, buffer.ErrIteratorDone) {
 		return true
 	}
 	var state *genx.State

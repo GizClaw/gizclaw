@@ -2468,3 +2468,106 @@ func readAll(t *testing.T, stream genx.Stream) []*genx.MessageChunk {
 		}
 	}
 }
+
+type publicDockError struct{}
+
+func (*publicDockError) Error() string { return "private TTS detail" }
+func (*publicDockError) PublicError() (string, string, bool) {
+	return "LIMIT_REACHED", "Limit reached.", false
+}
+
+func TestDockPreservesPublicErrorFromSourceAndTTS(t *testing.T) {
+	for _, sourceFailure := range []bool{false, true} {
+		t.Run(fmt.Sprint(sourceFailure), func(t *testing.T) {
+			cause := &publicDockError{}
+			terminal := &genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "source", EndOfStream: true}}
+			if sourceFailure {
+				genx.SetStreamError(terminal.Ctrl, cause)
+			}
+			dock, err := New(Config{
+				Agent: fixedAgentOutput(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "source", BeginOfStream: true}}, terminal),
+				TTS: muxFunc(func(context.Context, string, genx.Stream) (genx.Stream, error) {
+					return nil, fmt.Errorf("TTS: %w", cause)
+				}),
+				ResolveVoice: fixedVoice("voice/narrator"),
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := dock.Transform(t.Context(), emptyStream{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, chunk := range readAll(t, output) {
+				if chunk.IsEndOfStream() && chunk.Ctrl.ErrorCode == "LIMIT_REACHED" {
+					if chunk.Ctrl.Error != "Limit reached." || chunk.Ctrl.ErrorRetryable || !errors.Is(genx.StreamError(chunk.Ctrl), cause) {
+						t.Fatalf("terminal = %+v", chunk.Ctrl)
+					}
+					return
+				}
+			}
+			t.Fatal("missing public error terminal")
+		})
+	}
+}
+
+type lockProbeError struct {
+	t  *testing.T
+	mu *sync.Mutex
+}
+
+func (*lockProbeError) Error() string { return "private detail" }
+func (e *lockProbeError) PublicError() (string, string, bool) {
+	if !e.mu.TryLock() {
+		e.t.Fatal("public error projection called under emission lock")
+	}
+	e.mu.Unlock()
+	return "LIMIT_REACHED", "Limit reached.", false
+}
+
+func TestDockProjectsErrorOutsideEmissionBarrier(t *testing.T) {
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{})
+	defer invocation.Close()
+	response, err := invocation.StartResponse(streamkit.ResponseConfig{StreamID: "response"}, "text/plain")
+	if err != nil {
+		t.Fatal(err)
+	}
+	route := &dockRoute{response: response}
+	run := &dockRun{dock: &Dock{}, invocation: invocation}
+	run.finishRoute(route, &lockProbeError{t: t, mu: &route.ttsEmitMu})
+	chunk, err := invocation.Output().Next()
+	if err != nil || chunk.Ctrl.ErrorCode != "LIMIT_REACHED" {
+		t.Fatalf("terminal = %+v, %v", chunk, err)
+	}
+}
+
+type completionChunkStream struct{ chunk *genx.MessageChunk }
+
+func (s *completionChunkStream) Next() (*genx.MessageChunk, error) {
+	if s.chunk == nil {
+		return nil, io.EOF
+	}
+	chunk := s.chunk
+	s.chunk = nil
+	return chunk, genx.Done(genx.Usage{})
+}
+func (*completionChunkStream) Close() error               { return nil }
+func (*completionChunkStream) CloseWithError(error) error { return nil }
+
+func TestDockTranscriptCompletionKeepsTypedControlError(t *testing.T) {
+	cause := &publicDockError{}
+	chunk := genx.NewTextEndOfStream()
+	chunk.Role = genx.RoleUser
+	chunk.Ctrl.StreamID = "asr-input"
+	genx.SetStreamError(chunk.Ctrl, cause)
+	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{})
+	defer invocation.Close()
+	run := &dockRun{invocation: invocation}
+	if err := run.forwardTranscripts(&completionChunkStream{chunk: chunk}); err != nil {
+		t.Fatal(err)
+	}
+	terminal, err := invocation.Output().Next()
+	if err != nil || terminal.Ctrl.StreamID != "asr-input" || terminal.Ctrl.ErrorCode != "LIMIT_REACHED" || terminal.Ctrl.Error != "Limit reached." || !errors.Is(genx.StreamError(terminal.Ctrl), cause) {
+		t.Fatalf("terminal = %+v, %v", terminal, err)
+	}
+}

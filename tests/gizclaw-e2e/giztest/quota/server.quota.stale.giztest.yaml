@@ -119,7 +119,8 @@ steps:
         accepted_content_types:
           - audio/pcm
     expect_error:
-      code: 7
+      code: 14
+      message_contains: Quota unavailable.
 finally:
   - id: cleanup
     client: peer

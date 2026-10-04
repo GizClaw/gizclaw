@@ -43,7 +43,7 @@ func TestTransformerDefensiveAPIsAndStreamHelpers(t *testing.T) {
 		t.Fatalf("nil CloseWithError() error = %v", err)
 	}
 	if !isStreamEnd(nil) || !isStreamEnd(io.EOF) || !isStreamEnd(buffer.ErrIteratorDone) ||
-		!isStreamEnd(genx.Done(genx.Usage{})) || isStreamEnd(errors.New("failure")) {
+		!isStreamEnd(genx.ErrDone) || !isStreamEnd(genx.Done(genx.Usage{})) || isStreamEnd(errors.New("failure")) {
 		t.Fatal("isStreamEnd() classification mismatch")
 	}
 	if messageStreamID(nil) != "" || messageStreamID(&genx.MessageChunk{}) != "" {

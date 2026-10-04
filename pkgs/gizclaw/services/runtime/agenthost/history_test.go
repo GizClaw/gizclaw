@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"slices"
@@ -14,14 +15,17 @@ import (
 	"testing"
 	"time"
 
+	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
+	genxflowcraft "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
@@ -2202,4 +2206,67 @@ func TestProductionObserverWrappersReportUnsupportedProducer(t *testing.T) {
 		t.Fatal("wrappers claimed a producer callback that the underlying stream cannot install")
 	}
 	_ = probe.Close()
+}
+
+type finiteHistoryGenerator struct{ cause error }
+
+func (g finiteHistoryGenerator) GenerateStream(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
+	if g.cause != nil {
+		return nil, g.cause
+	}
+	builder := genx.NewStreamBuilder(modelContext, 2)
+	_ = builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("allowed")})
+	_ = builder.Done(genx.Usage{})
+	return builder.Stream(), nil
+}
+func (g finiteHistoryGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("Invoke is not supported by this fixture")
+}
+
+func TestFiniteHostHistoryPreservesDialogueAndQuotaTerminal(t *testing.T) {
+	for _, cause := range []error{nil, peerquota.ErrDenied, peerquota.ErrUnavailable} {
+		t.Run(fmt.Sprint(cause), func(t *testing.T) {
+			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+			host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Id: "finite-workspace"}, AgentType: "finite-flowcraft", Runtime: workspace.Runtime{History: history}}})
+			if err := host.Register("finite-flowcraft", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+				return genxflowcraft.New(genxflowcraft.Config{ID: "finite", Name: "finite", Models: finiteHistoryGenerator{cause: cause}, Graph: flowgraph.GraphDefinition{Name: "finite", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{ID: "chat", Type: "llm", Config: map[string]any{"model": "chat"}}}}, PublishNodes: []string{"chat"}})
+			})); err != nil {
+				t.Fatal(err)
+			}
+			observed := 0
+			ctx := WithWorkspaceHistoryObserver(t.Context(), func(context.Context, string, workspace.HistoryEntry) { observed++ })
+			input := historyStreamFromChunks(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "input", BeginOfStream: true}}, &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "input", EndOfStream: true}})
+			output, err := host.Transform(ctx, "finite-workspace", input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer output.Close()
+			var text string
+			var terminal error
+			for {
+				chunk, err := output.Next()
+				if chunk != nil {
+					if part, ok := chunk.Part.(genx.Text); ok {
+						text += string(part)
+					}
+					if chunk.IsEndOfStream() {
+						terminal = genx.StreamError(chunk.Ctrl)
+					}
+				}
+				if IsStreamDone(err) {
+					break
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			if cause != nil {
+				if !errors.Is(terminal, cause) {
+					t.Fatalf("terminal=%v text=%q observed=%d", terminal, text, observed)
+				}
+			} else if text != "allowed" || observed != 1 {
+				t.Fatalf("text=%q observed=%d", text, observed)
+			}
+		})
+	}
 }

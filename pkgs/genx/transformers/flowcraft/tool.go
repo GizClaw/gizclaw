@@ -88,8 +88,8 @@ func (s *genXToolStream) Next() bool {
 			continue
 		}
 		terminalErr := error(nil)
-		if chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-			terminalErr = errors.New(chunk.Ctrl.Error)
+		if chunk.IsEndOfStream() {
+			terminalErr = genx.StreamError(chunk.Ctrl)
 		}
 		if chunk.ToolCall != nil {
 			if terminalErr != nil {

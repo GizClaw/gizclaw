@@ -34,6 +34,8 @@ JSON、binary 与 ordered SSE response 均由 Shell 拥有并 framing。GenX str
 
 `go.mod` 与 `go.sum` 中的具体 Shell revision 保证单次 build 可复现。兼容更新通过既有每周 Go module Dependabot flow 推进；GizClaw 不 vendor、replace 或复制上游 compatibility profile。
 
+Quota enforcement 在 headers 之前返回稳定 403/503 error envelope，streaming 开始后发送结构化错误；Responses 的 failed record 保留同一 quota code/message。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。
+
 ## Chat tool call
 
 Chat Completions 支持由调用方执行的 function tool。`tools` 只接受 `type: "function"`，`function` 可带 `name`、`description`、`parameters` 与 `strict`；名称必须匹配 `^[A-Za-z0-9_-]{1,64}$` 且在请求内唯一。`parameters` 按原样传给 provider，不经过 GenX 的 structured-output 规范化。`tool_choice` 只接受 `"auto"`，`parallel_tool_calls` 只接受 `true`，其他取值显式拒绝。

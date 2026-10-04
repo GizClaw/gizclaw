@@ -2279,3 +2279,26 @@ func (t *fakeTrack) Write(chunk pcm.Chunk) error {
 	t.chunks = append(t.chunks, chunk)
 	return nil
 }
+
+type safeRuntimeError struct{}
+
+func (*safeRuntimeError) Error() string { return "private endpoint and credential" }
+func (*safeRuntimeError) PublicError() (string, string, bool) {
+	return "LIMIT_REACHED", "Limit reached.", false
+}
+
+func TestRuntimeStatusUsesSafeTypedErrorDetails(t *testing.T) {
+	service := &Service{}
+	status := service.setErrorStatus("workspace", fmt.Errorf("driver: %w", &safeRuntimeError{}))
+	if status.Message == nil || *status.Message != "LIMIT_REACHED: Limit reached." {
+		t.Fatalf("status = %+v", status)
+	}
+	rt := &runtime{workspace: "workspace"}
+	service.runtime = rt
+	if !service.failRuntime(rt, fmt.Errorf("consumer: %w", &safeRuntimeError{})) {
+		t.Fatal("runtime failure not recorded")
+	}
+	if service.status.Message == nil || *service.status.Message != "LIMIT_REACHED: Limit reached." {
+		t.Fatalf("fatal status = %+v", service.status)
+	}
+}

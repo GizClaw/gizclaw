@@ -277,8 +277,8 @@ func (s *genXStream) Next() bool {
 		}
 		endOfStream := chunk.IsEndOfStream()
 		var terminalErr error
-		if endOfStream && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-			terminalErr = errors.New(chunk.Ctrl.Error)
+		if endOfStream {
+			terminalErr = genx.StreamError(chunk.Ctrl)
 		}
 		if chunk.ToolCall != nil {
 			s.err = fmt.Errorf("flowcraft: tool calls are outside this Transformer")

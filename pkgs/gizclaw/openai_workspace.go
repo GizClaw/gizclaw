@@ -141,9 +141,10 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 		observed = append(observed, entry)
 		mu.Unlock()
 	})
+	inputStreamID := genx.NewStreamID()
 	input := &openAITextStream{chunks: []*genx.MessageChunk{
-		{Role: genx.RoleUser, Part: genx.Text(text)},
-		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{EndOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: inputStreamID, BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: inputStreamID, EndOfStream: true}},
 	}}
 	output, err := host.Transform(ctx, item.Id, input)
 	if err != nil {
@@ -154,6 +155,11 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	firstTextRouteSet := false
 	for {
 		chunk, nextErr := output.Next()
+		if chunk != nil && chunk.IsEndOfStream() {
+			if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+				return nil, terminalErr
+			}
+		}
 		if chunk != nil && chunk.Role != genx.RoleUser {
 			if value, ok := chunk.Part.(genx.Text); ok && value != "" && delta != nil {
 				route := chunk.Name

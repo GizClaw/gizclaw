@@ -1,0 +1,77 @@
+# User Story:
+# As a Peer using an unlimited flowcraft Workspace,
+# I want a real HTTP Response to complete a framed dialogue turn,
+# So that the same input path used for quota errors invokes the allowed provider.
+version: gizclaw.test/v1alpha1
+name: server.quota.responses.flowcraft.unlimited
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  conversation:
+    direction: output
+    type: string
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: quota-unlimited
+  - id: debug
+    client: peer
+    rpc:
+      method: server.runtime.put
+      request:
+        debug_mode: fullcontrol
+  - id: key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: quota-responses-test
+    capture:
+      api_key: /api_key
+  - id: conversation
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/conversations
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        metadata:
+          workflow_name: quota-flowcraft
+    capture:
+      conversation: /id
+  - id: allowed_response
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/responses
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        conversation: ${conversation}
+        input: hello
+    expect:
+      /status:
+        equals: completed
+      /output/0/content/0/text:
+        equals: quota fixture answer
+finally:
+  - id: cleanup
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

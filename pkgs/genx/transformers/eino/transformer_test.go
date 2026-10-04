@@ -743,3 +743,76 @@ func TestWhitespaceTurnDoesNotInvokeModel(t *testing.T) {
 		t.Fatalf("model calls=%d, want only normal turn", len(chat.inputs))
 	}
 }
+
+type publicTurnError struct{}
+
+func (*publicTurnError) Error() string { return "private provider failure" }
+func (*publicTurnError) PublicError() (string, string, bool) {
+	return "LIMIT_REACHED", "Limit reached.", false
+}
+
+func TestGraphErrorPreservesPublicTerminalCause(t *testing.T) {
+	cause := &publicTurnError{}
+	config := chatConfig(&componentMapResolver{chat: &fakeChatModel{terminalErr: fmt.Errorf("provider: %w", cause)}})
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := transformer.Transform(t.Context(), textInput("hello"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	chunks := drain(t, output)
+	for _, chunk := range chunks {
+		if chunk.IsEndOfStream() && chunk.Ctrl.Error != "" {
+			if chunk.Ctrl.ErrorCode != "LIMIT_REACHED" || chunk.Ctrl.Error != "Limit reached." || chunk.Ctrl.ErrorRetryable || !errors.Is(genx.StreamError(chunk.Ctrl), cause) {
+				t.Fatalf("terminal = %+v", chunk.Ctrl)
+			}
+			return
+		}
+	}
+	t.Fatal("missing error terminal")
+}
+
+// bareCompletionStream exercises the other valid GenX completion form.
+type bareCompletionStream struct{ genx.Stream }
+
+func (s bareCompletionStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	if errors.Is(err, genx.ErrDone) {
+		err = genx.ErrDone
+	}
+	return chunk, err
+}
+
+func TestFiniteBareDoneKeepsReplyAndTypedTurnError(t *testing.T) {
+	for _, cause := range []error{nil, &publicTurnError{}} {
+		t.Run(fmt.Sprint(cause), func(t *testing.T) {
+			chat := &fakeChatModel{chunks: []*schema.Message{{Role: schema.Assistant, Content: "allowed"}}, terminalErr: cause}
+			if cause != nil {
+				chat.chunks = nil
+			}
+			transformer, err := New(t.Context(), chatConfig(&componentMapResolver{chat: chat}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := transformer.Transform(t.Context(), bareCompletionStream{Stream: textInput("hello")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunks := drain(t, output)
+			if cause == nil {
+				if joinedText(chunks) != "allowed" {
+					t.Fatalf("reply=%q", joinedText(chunks))
+				}
+				return
+			}
+			for _, chunk := range chunks {
+				if chunk.IsEndOfStream() && errors.Is(genx.StreamError(chunk.Ctrl), cause) && chunk.Ctrl.ErrorCode == "LIMIT_REACHED" {
+					return
+				}
+			}
+			t.Fatal("typed terminal lost on bare completion")
+		})
+	}
+}

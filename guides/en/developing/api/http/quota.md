@@ -40,10 +40,26 @@ Real generator, transformer and speech calls acquire authorization before provid
 
 For custom policy, the Server refreshes at the midpoint of HTTP decision validity, including denied decisions and responses with omitted/null usable expiry. Attempts are bounded to five seconds and failed attempts retry after one second. A transient failure preserves a still-valid old decision but extends neither deadline. Expiry, denial or stale decision validity cancels active provider calls; a successful renewal can extend an active call without canceling it early. Idle state is reclaimed after five minutes. Shutdown cancels/joins quota workers before closing usage pools.
 
-If standalone speech synthesis loses authorization after sending metadata, it ends audio with early EOS. Already delivered audio can be partial; subsequent calls return permission denied. Denial before metadata returns permission denied directly.
+## Client errors
+
+Quota failures retain types distinct from ordinary resource authorization errors. An elapsed usable deadline or an explicit denial in a valid decision is `QUOTA_EXHAUSTED`. No valid decision, elapsed decision validity, failed reporting dependencies, or an unavailable custom controller is `QUOTA_UNAVAILABLE`. A transient refresh failure preserves a still-valid old decision until its original deadlines.
+
+| Surface | Exhausted | Unavailable |
+| --- | --- | --- |
+| HTTP chat / foreground Responses | HTTP 403, `permission_error`, `quota_exhausted` | HTTP 503, `service_unavailable_error`, `quota_unavailable` |
+| Chat / speech / transcription SSE | Error object with the above code/type/message | Error object with the above code/type/message |
+| Responses SSE / background polling | `response.failed` / failed Response, error code `quota_exhausted` | `response.failed` / failed Response, error code `quota_unavailable` |
+| Device Workspace EOS | `EventError.code=QUOTA_EXHAUSTED`, `retryable=false` | `EventError.code=QUOTA_UNAVAILABLE`, `retryable=true` |
+| Fresh speech RPC | `PERMISSION_DENIED` (7), `Reason=QUOTA_EXHAUSTED` | `UNAVAILABLE` (14), `Reason=QUOTA_UNAVAILABLE` |
+
+Every exhaustion message is `Quota exhausted.`; every unavailability message is `Quota unavailable.`. Public payloads exclude endpoints, credentials, and internal error chains. SSE whose headers have already been sent retains HTTP 200 and terminates with a structured error. Eino and Flowcraft error EOS belongs to the affected response StreamID and does not fail unrelated turns. Fatal runtime status messages retain the stable code and safe message.
+
+Revocation during provider opening or `Generator.Invoke` retains the typed quota cause, closes late stream handles, and preserves reported provider usage. Failure of an active audio epoch synthesizes EOS with the same safe error contract. Identified quota errors take precedence over accompanying cancellation, while ordinary Workspace replacement retains error-free EOS.
+
+If standalone speech synthesis loses authorization after metadata, it ends audio with early EOS without inserting a second protobuf response into binary audio. Delivered audio may be partial; the next fresh request uses the status and Reason above.
 
 This is time authorization, without per-token reservations or numeric hard caps. Provider-unreported or unflushed volatile usage retains the boundaries documented in [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).
 
 ## Docker acceptance
 
-Run `bash tests/gizclaw-e2e/setup/run-quota.sh` for real Linux GizClaw, fixture and Giztest containers. The local HTTP/WebSocket provider fixture emits deterministic OpenAI/MiniMax usage and captures quota reports. Twelve cases cover the ten custom-policy deadline/reporting scenarios plus omitted policy and explicit unlimited. Both unlimited cases invoke real provider adapters and assert zero quota requests for their Peer. This acceptance does not claim live cloud-provider qualification.
+Run `bash tests/gizclaw-e2e/setup/run-quota.sh` for real Linux GizClaw, fixture and Giztest containers. The local HTTP/WebSocket provider fixture emits deterministic OpenAI/MiniMax usage and captures quota reports. Eighteen cases cover ten custom-policy deadline/reporting scenarios, omitted policy, explicit unlimited, exhausted/unavailable Eino/Flowcraft dialogue, and two allowed HTTP Responses scenarios. Both unlimited cases invoke real provider adapters and assert zero quota requests for their Peer. HTTP chat and Responses assert complete 403/503 envelopes. A fixture helper uses the real SDK PeerStream through Edge/Server to assert a fresh request after an allowed reply expires, EOS code/message/retryable, distinct response identity, and zero provider request increment during denial. This acceptance does not claim live cloud-provider qualification.

@@ -252,7 +252,7 @@ func (session *session) run() {
 						audioErr = chunk.Ctrl.Error
 					}
 					if audioErr != "" && audioErr != "interrupted" {
-						inputFailure = fmt.Errorf("eino: input audio Stream failed: %s", audioErr)
+						inputFailure = fmt.Errorf("eino: input audio Stream failed: %w", genx.StreamError(chunk.Ctrl))
 						break
 					}
 					if audioErr == "" {
@@ -319,8 +319,8 @@ func (session *session) run() {
 		if chunk.IsEndOfStream() && chunk.Part == nil && inText {
 			streamID := messageStreamID(chunk)
 			if streamID == "" || activeInputID == "" || streamID == activeInputID {
-				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-					inputFailure = fmt.Errorf("eino: input text Stream failed: %s", chunk.Ctrl.Error)
+				if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+					inputFailure = fmt.Errorf("eino: input text Stream failed: %w", genx.StreamError(chunk.Ctrl))
 					break
 				}
 				previous = session.startTurn(text.String(), activeInputID, parts, previous)
@@ -342,8 +342,8 @@ func (session *session) run() {
 			inText = true
 			text.WriteString(string(textPart))
 			if chunk.IsEndOfStream() {
-				if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-					inputFailure = fmt.Errorf("eino: input text Stream failed: %s", chunk.Ctrl.Error)
+				if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+					inputFailure = fmt.Errorf("eino: input text Stream failed: %w", genx.StreamError(chunk.Ctrl))
 					break
 				}
 				previous = session.startTurn(text.String(), activeInputID, parts, previous)
@@ -360,8 +360,8 @@ func (session *session) run() {
 				if part != nil {
 					parts = append(parts, &genx.Blob{MIMEType: part.MIMEType, Data: append([]byte(nil), part.Data...)})
 				}
-				if chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
-					inputFailure = fmt.Errorf("eino: input part Stream failed: %s", chunk.Ctrl.Error)
+				if chunk.IsEndOfStream() && genx.StreamError(chunk.Ctrl) != nil {
+					inputFailure = fmt.Errorf("eino: input part Stream failed: %w", genx.StreamError(chunk.Ctrl))
 					break
 				}
 				continue
@@ -750,13 +750,7 @@ func (run *turnRun) execute() {
 			runErr = finalizeErr
 		}
 	}
-	errorText := ""
-	if interrupted {
-		errorText = "interrupted"
-	} else if runErr != nil {
-		errorText = runErr.Error()
-	}
-	run.finishRoutes(errorText, interrupted)
+	run.finishRoutes(runErr, interrupted)
 	if run.initiative && (interrupted || runErr != nil) {
 		run.session.transformer.initiativeMu.Lock()
 		run.session.transformer.initiativeClaimed = false
@@ -920,7 +914,7 @@ func (run *turnRun) finalize(ctx context.Context, state *runState, version, deli
 	return commitPersistentState(ctx, run.session.transformer.config.State, state, version)
 }
 
-func (run *turnRun) finishRoutes(errorText string, interrupted bool) {
+func (run *turnRun) finishRoutes(cause error, interrupted bool) {
 	names := make([]string, 0, len(run.routes))
 	for name := range run.routes {
 		if name != run.primary.definition.Name {
@@ -932,9 +926,9 @@ func (run *turnRun) finishRoutes(errorText string, interrupted bool) {
 	for _, name := range names {
 		route := run.routes[name]
 		if interrupted {
-			_ = run.session.invocation.Interrupt(route.response, errorText)
+			_ = run.session.invocation.Interrupt(route.response, "interrupted")
 		} else {
-			_ = run.session.invocation.FinishResponse(route.response, errorText)
+			_ = run.session.invocation.FinishResponseError(route.response, cause)
 		}
 	}
 }
@@ -971,7 +965,7 @@ func (stream *sessionStream) CloseWithError(err error) error {
 }
 
 func isStreamEnd(err error) bool {
-	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, buffer.ErrIteratorDone) {
+	if err == nil || errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) || errors.Is(err, buffer.ErrIteratorDone) {
 		return true
 	}
 	var state *genx.State

@@ -163,6 +163,7 @@ func readChatStream(stream genx.Stream) (chatOutput, error) {
 	)
 	for {
 		chunk, err := stream.Next()
+		err = streamReadError(chunk, err)
 		if streamDone(err) {
 			output.text = text.String()
 			return output, nil

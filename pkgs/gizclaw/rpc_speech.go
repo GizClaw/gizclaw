@@ -144,8 +144,7 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 	contentType, err := validateSpeechTranscribeRequest(params)
 	if err != nil {
 		if errors.Is(err, errSpeechBadRequest) {
-			code, message := speechRPCError(err)
-			return writeRPCErrorResponse(stream, req.Id, code, message)
+			return writeSpeechRPCError(stream, req.Id, err, false)
 		}
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
@@ -185,8 +184,7 @@ func (s *rpcServer) handleSpeechTranscribe(ctx context.Context, stream *rpcStrea
 		if closeErr := callStream.Close(); closeErr != nil {
 			return closeErr
 		}
-		code, message := speechRPCError(callErr)
-		return writeRPCErrorResponse(stream, req.Id, code, message)
+		return writeSpeechRPCError(stream, req.Id, callErr, false)
 	}
 	if !utf8.ValidString(transcript) {
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech provider returned invalid transcript")
@@ -225,8 +223,7 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 	if err != nil {
 		observability.SetErrorCode(ctx, "SPEECH_EXTRACT_REQUEST_INVALID_INPUT")
 		if errors.Is(err, errSpeechBadRequest) {
-			code, message := speechRPCError(err)
-			return writeRPCErrorResponse(stream, req.Id, code, message)
+			return writeSpeechRPCError(stream, req.Id, err, false)
 		}
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
@@ -274,8 +271,7 @@ func (s *rpcServer) handleSpeechExtract(ctx context.Context, stream *rpcStream, 
 			return closeErr
 		}
 		setSpeechExtractErrorCode(callCtx, callErr)
-		code, message := speechExtractRPCError(callErr)
-		return writeRPCErrorResponse(stream, req.Id, code, message)
+		return writeSpeechRPCError(stream, req.Id, callErr, true)
 	}
 	if !utf8.ValidString(extraction.Transcript) || len(extraction.Transcript) > rpcSpeechMaxTranscriptBytes {
 		observability.SetErrorCode(callCtx, "SPEECH_EXTRACT_RESPONSE_INVALID_OUTPUT")
@@ -406,8 +402,7 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 	accepted, err := validateSpeechSynthesizeRequest(params, limits.SynthesisMaxTextBytes)
 	if err != nil {
 		if errors.Is(err, errSpeechBadRequest) {
-			code, message := speechRPCError(err)
-			return writeRPCErrorResponse(stream, req.Id, code, message)
+			return writeSpeechRPCError(stream, req.Id, err, false)
 		}
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInvalidArgument, err.Error())
 	}
@@ -439,24 +434,21 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 				return closeErr
 			}
 		}
-		code, message := speechRPCError(err)
-		return writeRPCErrorResponse(stream, req.Id, code, message)
+		return writeSpeechRPCError(stream, req.Id, err, false)
 	}
 	if synthesis.Stream == nil {
 		return writeRPCErrorResponse(stream, req.Id, rpcapi.StatusCodeInternal, "speech provider returned no audio")
 	}
 	contentType, err := validateSpeechSynthesisMetadata(synthesis, accepted)
 	if err != nil {
-		code, message := speechRPCError(err)
-		return writeRPCErrorResponse(stream, req.Id, code, message)
+		return writeSpeechRPCError(stream, req.Id, err, false)
 	}
 	output := synthesis.Stream
 	defer output.Close()
 
 	first, err := firstSpeechAudioChunk(output, contentType)
 	if err != nil {
-		code, message := speechRPCError(err)
-		return writeRPCErrorResponse(stream, req.Id, code, message)
+		return writeSpeechRPCError(stream, req.Id, err, false)
 	}
 	response, err := newRPCResultResponse(req.Id, rpcapi.SpeechSynthesizeResponse{
 		ContentType: contentType, SampleRateHz: synthesis.SampleRateHz, Channels: synthesis.Channels,
@@ -502,13 +494,18 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 	}
 	for {
 		chunk, nextErr := output.Next()
+		if chunk != nil {
+			if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+				nextErr = terminalErr
+			}
+		}
 		if nextErr != nil {
 			if errors.Is(nextErr, genx.ErrDone) || errors.Is(nextErr, io.EOF) {
 				break
 			}
 			// Metadata has already been sent. Binary speech streams terminate
 			// with EOS; another response envelope would become audio bytes.
-			if errors.Is(nextErr, peerquota.ErrDenied) || errors.Is(nextErr, peerquota.ErrUnavailable) {
+			if errors.Is(nextErr, peerquota.ErrDenied) || errors.Is(nextErr, peerquota.ErrUnavailable) || errors.Is(nextErr, peerquota.ErrClosed) {
 				return callStream.WriteEOS()
 			}
 			return nextErr
@@ -526,6 +523,11 @@ func (s *rpcServer) handleSpeechSynthesize(ctx context.Context, stream *rpcStrea
 func firstSpeechAudioChunk(output genx.Stream, expectedContentType string) (*genx.MessageChunk, error) {
 	for {
 		chunk, err := output.Next()
+		if chunk != nil {
+			if terminalErr := genx.StreamError(chunk.Ctrl); terminalErr != nil {
+				return nil, terminalErr
+			}
+		}
 		if err != nil {
 			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
 				return nil, errors.New("speech provider returned empty audio")
@@ -665,10 +667,26 @@ func validRuntimeAlias(value string) bool {
 	return runtimeprofile.ValidateAlias("speech alias", value) == nil
 }
 
+func writeSpeechRPCError(stream *rpcStream, id string, cause error, extraction bool) error {
+	code, message := speechRPCError(cause)
+	if extraction {
+		code, message = speechExtractRPCError(cause)
+	}
+	status := &rpcapi.RPCStatus{Code: code, Message: message}
+	if reason, safe, _, ok := peerquota.ErrorDetails(cause); ok {
+		status.Reason, status.Message = reason, safe
+	}
+	return writeRPCStatusResponse(stream, id, status)
+}
+
 func speechRPCError(err error) (rpcapi.StatusCode, string) {
 	switch {
-	case errors.Is(err, peergenx.ErrDenied), errors.Is(err, peerquota.ErrDenied), errors.Is(err, peerquota.ErrUnavailable):
-		return rpcapi.StatusCodePermissionDenied, "quota does not authorize speech"
+	case errors.Is(err, peerquota.ErrDenied):
+		return rpcapi.StatusCodePermissionDenied, "Quota exhausted."
+	case errors.Is(err, peerquota.ErrUnavailable), errors.Is(err, peerquota.ErrClosed):
+		return rpcapi.StatusCodeUnavailable, "Quota unavailable."
+	case errors.Is(err, peergenx.ErrDenied):
+		return rpcapi.StatusCodePermissionDenied, "speech is not authorized"
 	case errors.Is(err, errSpeechBadRequest):
 		return rpcapi.StatusCodeInvalidArgument, err.Error()
 	case errors.Is(err, peergenx.ErrNotFound):
@@ -684,8 +702,12 @@ func speechRPCError(err error) (rpcapi.StatusCode, string) {
 
 func speechExtractRPCError(err error) (rpcapi.StatusCode, string) {
 	switch {
-	case errors.Is(err, peergenx.ErrDenied), errors.Is(err, peerquota.ErrDenied), errors.Is(err, peerquota.ErrUnavailable):
-		return rpcapi.StatusCodePermissionDenied, "quota does not authorize speech"
+	case errors.Is(err, peerquota.ErrDenied):
+		return rpcapi.StatusCodePermissionDenied, "Quota exhausted."
+	case errors.Is(err, peerquota.ErrUnavailable), errors.Is(err, peerquota.ErrClosed):
+		return rpcapi.StatusCodeUnavailable, "Quota unavailable."
+	case errors.Is(err, peergenx.ErrDenied):
+		return rpcapi.StatusCodePermissionDenied, "speech is not authorized"
 	case errors.Is(err, errSpeechBadRequest):
 		return rpcapi.StatusCodeInvalidArgument, err.Error()
 	case errors.Is(err, peergenx.ErrNotFound):

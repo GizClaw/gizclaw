@@ -38,11 +38,7 @@ func (g quotaGenerator) GenerateStream(ctx context.Context, pattern string, inpu
 		return nil, err
 	}
 	stream, err := g.Generator.GenerateStream(ctx, pattern, input)
-	if err != nil || stream == nil {
-		release()
-		return stream, err
-	}
-	return newQuotaStream(ctx, stream, release), nil
+	return finishQuotaStartup(ctx, stream, err, release)
 }
 func (g quotaGenerator) Invoke(ctx context.Context, pattern string, input genx.ModelContext, tool *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
 	ctx, release, err := g.authorize(ctx)
@@ -50,7 +46,11 @@ func (g quotaGenerator) Invoke(ctx context.Context, pattern string, input genx.M
 		return genx.Usage{}, nil, err
 	}
 	defer release()
-	return g.Generator.Invoke(ctx, pattern, input, tool)
+	usage, call, err := g.Generator.Invoke(ctx, pattern, input, tool)
+	if ctx.Err() != nil {
+		return usage, nil, context.Cause(ctx)
+	}
+	return usage, call, err
 }
 
 type quotaTransformer struct {
@@ -64,6 +64,20 @@ func (t quotaTransformer) Transform(ctx context.Context, input genx.Stream) (gen
 		return nil, err
 	}
 	stream, err := t.Transformer.Transform(ctx, input)
+	return finishQuotaStartup(ctx, stream, err, release)
+}
+
+// finishQuotaStartup retains the authorized context's cause before release
+// can cancel it, and closes a late provider handle when its grant has ended.
+func finishQuotaStartup(ctx context.Context, stream genx.Stream, err error, release func()) (genx.Stream, error) {
+	if ctx.Err() != nil {
+		cause := context.Cause(ctx)
+		if stream != nil {
+			_ = stream.CloseWithError(cause)
+		}
+		release()
+		return nil, cause
+	}
 	if err != nil || stream == nil {
 		release()
 		return stream, err

@@ -17,9 +17,9 @@ import (
 )
 
 var (
-	ErrDenied      = errors.New("peerquota: usable time has expired")
-	ErrUnavailable = errors.New("peerquota: no valid quota result")
-	ErrClosed      = errors.New("peerquota: service is closed")
+	ErrDenied      = &quotaError{message: "peerquota: usable time has expired", exhausted: true}
+	ErrUnavailable = &quotaError{message: "peerquota: no valid quota result"}
+	ErrClosed      = &quotaError{message: "peerquota: service is closed"}
 )
 
 const requestTimeout = 5 * time.Second

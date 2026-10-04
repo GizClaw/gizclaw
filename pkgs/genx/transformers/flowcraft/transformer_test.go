@@ -1657,3 +1657,99 @@ func joinedText(chunks []*genx.MessageChunk) string {
 	}
 	return result.String()
 }
+
+type publicTurnError struct{}
+
+func (*publicTurnError) Error() string { return "private provider failure" }
+func (*publicTurnError) PublicError() (string, string, bool) {
+	return "LIMIT_REACHED", "Limit reached.", false
+}
+
+type failedTurnGenerator struct {
+	cause    error
+	terminal bool
+}
+
+func (g failedTurnGenerator) GenerateStream(context.Context, string, genx.ModelContext) (genx.Stream, error) {
+	if !g.terminal {
+		return nil, fmt.Errorf("provider: %w", g.cause)
+	}
+	builder := genx.NewStreamBuilder((&genx.ModelContextBuilder{}).Build(), 2)
+	chunk := genx.NewTextEndOfStream()
+	genx.SetStreamError(chunk.Ctrl, g.cause)
+	_ = builder.Add(chunk)
+	_ = builder.Done(genx.Usage{})
+	return builder.Stream(), nil
+}
+
+func TestGraphErrorPreservesPublicTerminalCause(t *testing.T) {
+	for _, terminal := range []bool{false, true} {
+		t.Run(fmt.Sprint(terminal), func(t *testing.T) {
+			cause := &publicTurnError{}
+			transformer, err := New(testConfig(failedTurnGenerator{cause: cause, terminal: terminal}))
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := transformer.Transform(t.Context(), textInput("hello"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, chunk := range drain(t, output) {
+				if chunk.IsEndOfStream() && chunk.Ctrl.Error != "" {
+					if chunk.Ctrl.ErrorCode != "LIMIT_REACHED" || chunk.Ctrl.Error != "Limit reached." || chunk.Ctrl.ErrorRetryable || !errors.Is(genx.StreamError(chunk.Ctrl), cause) {
+						t.Fatalf("terminal = %+v", chunk.Ctrl)
+					}
+					return
+				}
+			}
+			t.Fatal("missing error terminal")
+		})
+	}
+}
+
+func (g failedTurnGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, g.cause
+}
+
+// bareCompletionStream exercises the other valid GenX completion form.
+type bareCompletionStream struct{ genx.Stream }
+
+func (s bareCompletionStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	if errors.Is(err, genx.ErrDone) {
+		err = genx.ErrDone
+	}
+	return chunk, err
+}
+
+func TestFiniteBareDoneKeepsReplyAndTypedTurnError(t *testing.T) {
+	for _, cause := range []error{nil, &publicTurnError{}} {
+		t.Run(fmt.Sprint(cause), func(t *testing.T) {
+			var generator genx.Generator = &echoGenerator{}
+			if cause != nil {
+				generator = failedTurnGenerator{cause: cause}
+			}
+			transformer, err := New(testConfig(generator))
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := transformer.Transform(t.Context(), bareCompletionStream{Stream: textInput("hello")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunks := drain(t, output)
+			if cause == nil {
+				if joinedText(chunks) != "reply: hello" {
+					t.Fatalf("reply=%q", joinedText(chunks))
+				}
+				return
+			}
+			for _, chunk := range chunks {
+				if chunk.IsEndOfStream() && errors.Is(genx.StreamError(chunk.Ctrl), cause) && chunk.Ctrl.ErrorCode == "LIMIT_REACHED" {
+					return
+				}
+			}
+			t.Fatal("typed terminal lost on bare completion")
+		})
+	}
+}
