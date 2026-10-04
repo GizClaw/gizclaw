@@ -178,6 +178,9 @@ func TestNativeWerewolfRulesAndPrivacy(t *testing.T) {
 	}
 	// A known role map makes rule assertions independent from game-start time.
 	game["roles"] = map[string]any{"1": "狼人", "2": "狼人", "3": "预言家", "4": "女巫", "5": "猎人", "6": "平民", "7": "平民", "8": "平民"}
+	if runRules(t, "werewolf", "查验18号", game)["valid"] != false {
+		t.Fatal("out-of-range target was treated as seat 8")
+	}
 	inspected := runRules(t, "werewolf", "查验1号", game)
 	if inspected["valid"] != true || !strings.Contains(inspected["private"].(string), "1号是狼人") || strings.Contains(inspected["context"].(string), "1号是狼人") {
 		t.Fatalf("inspection/private projection = %v", inspected)

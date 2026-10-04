@@ -71,7 +71,7 @@ spec:
                     game = {"roles": roles, "dead": [], "day": 1, "phase": "night", "winner": "", "inspection": "", "potion_used": False, "poison_used": False, "hunter_used": False, "inspected_day": 0, "log": []}
                 outcome = "第%d夜开始。你的座位是3号。" % game["day"]
                 valid = True
-                match = regex_find(text, ("([1-8])[ ]*(?:号|座|$)", ""))
+                match = regex_find(text, ("(?:^|[^0-9])([1-8])[ ]*(?:号|座|$)", ""))
                 target = int(match[1]) if match else 0
                 role = game["roles"]["3"]
                 spectating = 3 in game["dead"] and text in ["继续", "旁观", "继续旁观", "旁观下一轮", "继续天亮"]
