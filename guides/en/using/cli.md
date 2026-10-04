@@ -375,6 +375,8 @@ Flutter runners still explicitly do not support `workspace_relay`. The
 participants and must have an earlier `server.run.workspace.set` step. Existing
 relay documents can omit `quality`.
 
+During the relay, the judge connection is kept alive by a Ping every minute, each bounded to ten seconds. A keepalive failure terminates the relay; judging starts only after the keepalive is canceled and drained.
+
 ```yaml
 quality:
   judge_client: judge

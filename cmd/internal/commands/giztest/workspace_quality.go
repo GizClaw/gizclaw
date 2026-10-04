@@ -19,6 +19,37 @@ const maxQualityResponseBytes = 64 << 10
 
 var errQualityResponseLimit = errors.New("quality judge response exceeds its stream limit")
 
+var errQualityJudgeKeepalive = errors.New("quality judge keepalive failed")
+
+// keepQualityJudgeAlive preserves an otherwise inactive judge's Edge session
+// while the two other clients play. Cancellation drains its bounded RPC before
+// the judge is invoked or the task starts its finalizers.
+func keepQualityJudgeAlive(ctx context.Context, interval time.Duration, ping func(context.Context) error, cancel context.CancelCauseFunc) <-chan struct{} {
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for ctx.Err() == nil {
+			pingCtx, stop := context.WithTimeout(ctx, 10*time.Second)
+			err := ping(pingCtx)
+			stop()
+			if err != nil {
+				if ctx.Err() == nil {
+					cancel(errQualityJudgeKeepalive)
+				}
+				return
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
+	return done
+}
+
 // qualityLimitedStream rejects excessive text/events before the general
 // PeerStream collector retains them. Non-text media is unsupported by a judge.
 type qualityLimitedStream struct {

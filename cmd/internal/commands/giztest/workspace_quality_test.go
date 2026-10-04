@@ -3,7 +3,9 @@ package giztestcmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -130,10 +132,22 @@ func TestQualityJudgeInvokesIndependentWorkspaceAndClosesStream(t *testing.T) {
 
 func TestQualityWorkspaceRelayFailureHasStructuredEvidence(t *testing.T) {
 	player, candidate, judge := newFakeRelayStream(), newFakeRelayStream(), newFakeRelayStream()
+	pingStarted := make(chan struct{})
+	var pingActive atomic.Bool
 	d := newDriver(false, nil)
+	d.pingClient = func(ctx context.Context, _ *gizcli.Client) error {
+		pingActive.Store(true)
+		defer pingActive.Store(false)
+		close(pingStarted)
+		<-ctx.Done()
+		return ctx.Err()
+	}
 	d.openRelayStreams = func() (relayStream, relayStream, error) { return player, candidate, nil }
 	d.openPeerStream = func(*gizcli.Client) peerStreamOpener {
 		return func() (peerStream, error) {
+			if pingActive.Load() {
+				t.Error("keepalive RPC still active when judge starts")
+			}
 			select {
 			case <-player.closed:
 			default:
@@ -155,6 +169,7 @@ func TestQualityWorkspaceRelayFailureHasStructuredEvidence(t *testing.T) {
 				break
 			}
 		}
+		<-pingStarted
 		player.in <- assistantText("p", "please continue", true)
 	}()
 	go func() {
@@ -247,5 +262,55 @@ func TestQualityJudgeEnforcesLimitBeforeCollectingFullResponse(t *testing.T) {
 				t.Fatal("bounded stream did not close its transport")
 			}
 		})
+	}
+}
+
+func TestQualityJudgeKeepaliveRepeatsAndDrainsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(nil)
+	pings := make(chan struct{}, 4)
+	done := keepQualityJudgeAlive(ctx, 10*time.Millisecond, func(pingCtx context.Context) error {
+		deadline, ok := pingCtx.Deadline()
+		if !ok || time.Until(deadline) > 10*time.Second {
+			t.Error("keepalive RPC has no bounded deadline")
+		}
+		select {
+		case pings <- struct{}{}:
+			return nil
+		case <-pingCtx.Done():
+			return pingCtx.Err()
+		}
+	}, cancel)
+	for range 3 {
+		select {
+		case <-pings:
+		case <-time.After(time.Second):
+			t.Fatal("inactive judge was not kept alive")
+		}
+	}
+	cancel(nil)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("keepalive did not drain on cancellation")
+	}
+}
+
+func TestQualityJudgeKeepaliveFailureCancelsRelayWithoutLeakingError(t *testing.T) {
+	ctx, cancel := context.WithCancelCause(t.Context())
+	defer cancel(nil)
+	done := keepQualityJudgeAlive(ctx, time.Minute, func(context.Context) error {
+		return errors.New("sensitive provider detail")
+	}, cancel)
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("failed keepalive did not stop")
+	}
+	if context.Cause(ctx) != errQualityJudgeKeepalive {
+		t.Fatalf("relay cause = %v", context.Cause(ctx))
+	}
+	if t.Context().Err() != nil {
+		t.Fatal("keepalive canceled the task owner")
 	}
 }
