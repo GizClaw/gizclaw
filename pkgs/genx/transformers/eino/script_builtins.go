@@ -4,8 +4,11 @@ import (
 	"context"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	starlarkjson "go.starlark.net/lib/json"
 	"go.starlark.net/starlark"
@@ -116,7 +119,11 @@ func scriptRegexFind(thread *starlark.Thread, _ *starlark.Builtin, args starlark
 	return starlark.NewList(values), nil
 }
 
-func scriptRegexReplace(_ *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+func scriptRegexReplace(thread *starlark.Thread, _ *starlark.Builtin, args starlark.Tuple, kwargs []starlark.Tuple) (starlark.Value, error) {
+	ctx, byteLimit := scriptNativeLimits(thread)
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	var text, replacement string
 	var pattern starlark.Tuple
 	if err := starlark.UnpackArgs("regex_replace", args, kwargs, "text", &text, "pattern", &pattern, "replacement", &replacement); err != nil {
@@ -126,13 +133,122 @@ func scriptRegexReplace(_ *starlark.Thread, _ *starlark.Builtin, args starlark.T
 	if err != nil {
 		return nil, err
 	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	captures := compiled.NumSubexp() + 1
+	// Bound both dimensions of native match-index storage before searching.
+	if captures > min(maxScriptRegexMatches, max(1, byteLimit/16)) {
+		return nil, fmt.Errorf("regex capture count exceeds output byte limit %d", byteLimit)
+	}
+	matchLimit := min(maxScriptRegexMatches, max(1, byteLimit/(16*captures)))
+	count := 1
 	if all {
-		return starlark.String(compiled.ReplaceAllString(text, replacement)), nil
+		count = matchLimit + 1
 	}
-	indices := compiled.FindStringSubmatchIndex(text)
-	if indices == nil {
-		return starlark.String(text), nil
+	matches := compiled.FindAllStringSubmatchIndex(text, count)
+	if len(matches) > matchLimit {
+		return nil, fmt.Errorf("regex match count exceeds limit %d", matchLimit)
 	}
-	result := compiled.ExpandString(nil, replacement, text, indices)
-	return starlark.String(text[:indices[0]] + string(result) + text[indices[1]:]), nil
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	var result strings.Builder
+	appendText := func(value string) error {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		if len(value) > byteLimit-result.Len() {
+			return fmt.Errorf("regex result exceeds output byte limit %d", byteLimit)
+		}
+		result.WriteString(value)
+		return nil
+	}
+	last := 0
+	names := compiled.SubexpNames()
+	for _, match := range matches {
+		if err := appendText(text[last:match[0]]); err != nil {
+			return nil, err
+		}
+		template := replacement
+		for template != "" {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			before, after, found := strings.Cut(template, "$")
+			if err := appendText(before); err != nil {
+				return nil, err
+			}
+			if !found {
+				break
+			}
+			template = after
+			if strings.HasPrefix(template, "$") {
+				if err := appendText("$"); err != nil {
+					return nil, err
+				}
+				template = template[1:]
+				continue
+			}
+			name, rest, ok := scriptRegexReference(template)
+			if !ok {
+				if err := appendText("$"); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			template = rest
+			capture := -1
+			number, numericErr := strconv.Atoi(name)
+			if numericErr == nil && len(name) <= 9 && (len(name) == 1 || name[0] != '0') {
+				if number < len(match)/2 && match[2*number] >= 0 {
+					capture = number
+				}
+			} else {
+				for index, candidate := range names {
+					if candidate == name && match[2*index] >= 0 {
+						capture = index
+						break
+					}
+				}
+			}
+			if capture >= 0 {
+				if err := appendText(text[match[2*capture]:match[2*capture+1]]); err != nil {
+					return nil, err
+				}
+			}
+		}
+		last = match[1]
+	}
+	if err := appendText(text[last:]); err != nil {
+		return nil, err
+	}
+	return starlark.String(result.String()), nil
+}
+
+// scriptRegexReference parses the name syntax accepted by regexp.ExpandString.
+func scriptRegexReference(value string) (name, rest string, ok bool) {
+	braced := strings.HasPrefix(value, "{")
+	if braced {
+		value = value[1:]
+	}
+	end := 0
+	for end < len(value) {
+		character, size := utf8.DecodeRuneInString(value[end:])
+		if !unicode.IsLetter(character) && !unicode.IsDigit(character) && character != '_' {
+			break
+		}
+		end += size
+	}
+	if end == 0 {
+		return "", "", false
+	}
+	name = value[:end]
+	if braced {
+		if end == len(value) || value[end] != '}' {
+			return "", "", false
+		}
+		end++
+	}
+	return name, value[end:], true
 }

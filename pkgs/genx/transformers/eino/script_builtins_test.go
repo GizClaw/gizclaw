@@ -2,6 +2,8 @@ package eino
 
 import (
 	"context"
+	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -74,6 +76,88 @@ func TestScriptRegexRejectsUnsupportedPatternsAndFlags(t *testing.T) {
 		}
 		if _, err := script.run(t.Context(), map[string]any{}, map[string]StateType{"answer": StateString}); err == nil {
 			t.Fatalf("unsupported regex accepted: %s", pattern)
+		}
+	}
+}
+
+func TestScriptRegexReplaceBoundsNativeExpansion(t *testing.T) {
+	for _, test := range []struct {
+		name, text, pattern, flags, replacement string
+		limit                                   int
+	}{
+		{"global expansion", "aaa", "a", "g", strings.Repeat("x", 100000), 1024},
+		{"single capture expansion", strings.Repeat("x", 1000), "(x+)", "", strings.Repeat("$1", 1000), 1024},
+		{"unmatched suffix", "abc", "b", "", "X", 2},
+		{"zero-width matches", strings.Repeat("x", 100000), "", "g", "", 1 << 20},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			thread := &starlark.Thread{}
+			thread.SetLocal(scriptNativeOutputLimitKey, test.limit)
+			_, err := scriptRegexReplace(thread, nil, starlark.Tuple{starlark.String(test.text), starlark.Tuple{starlark.String(test.pattern), starlark.String(test.flags)}, starlark.String(test.replacement)}, nil)
+			if err == nil || !strings.Contains(err.Error(), "limit") {
+				t.Fatalf("unbounded replacement accepted: %v", err)
+			}
+		})
+	}
+}
+
+func TestScriptRegexReplaceMatchesRE2Expansion(t *testing.T) {
+	for _, test := range []struct{ text, pattern, replacement string }{
+		{"a ab aaa", "a*", "<$0>"},
+		{"ab ab", "(?P<word>a)(b)?", "${word}:$2:$$:$missing:$1x:$?:${}"},
+		{"b a", "(?P<same>a)|(?P<same>b)", "${same}"},
+		{"中文", "", "-"},
+		{"foo", "(foo)", "$01:$1:$1234567890:${1}:$"},
+	} {
+		for _, all := range []bool{false, true} {
+			thread := &starlark.Thread{}
+			flags := ""
+			if all {
+				flags = "g"
+			}
+			result, err := scriptRegexReplace(thread, nil, starlark.Tuple{starlark.String(test.text), starlark.Tuple{starlark.String(test.pattern), starlark.String(flags)}, starlark.String(test.replacement)}, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			compiled := regexp.MustCompile(test.pattern)
+			want := compiled.ReplaceAllString(test.text, test.replacement)
+			if !all {
+				match := compiled.FindStringSubmatchIndex(test.text)
+				want = test.text
+				if match != nil {
+					want = test.text[:match[0]] + string(compiled.ExpandString(nil, test.replacement, test.text, match)) + test.text[match[1]:]
+				}
+			}
+			got, _ := starlark.AsString(result)
+			if got != want {
+				t.Fatalf("text=%q pattern=%q replacement=%q all=%v got=%q want=%q", test.text, test.pattern, test.replacement, all, got, want)
+			}
+		}
+	}
+}
+
+type cancelRegexAfterChecks struct {
+	context.Context
+	checks int
+}
+
+func (c *cancelRegexAfterChecks) Err() error {
+	c.checks++
+	if c.checks >= 8 {
+		return context.Canceled
+	}
+	return nil
+}
+
+func TestScriptRegexReplaceChecksCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	for _, nativeCtx := range []context.Context{ctx, &cancelRegexAfterChecks{Context: t.Context()}} {
+		thread := &starlark.Thread{}
+		thread.SetLocal(scriptNativeContextKey, nativeCtx)
+		_, err := scriptRegexReplace(thread, nil, starlark.Tuple{starlark.String("abc abc abc"), starlark.Tuple{starlark.String("(abc)"), starlark.String("g")}, starlark.String("$1-$1")}, nil)
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("replacement did not observe cancellation: %v", err)
 		}
 	}
 }

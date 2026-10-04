@@ -174,7 +174,7 @@ The return value must contain exactly the declared output keys. Supported values
 
 Every Script limit must be positive. Step exhaustion, timeout, cancellation, malformed source, runtime failure, byte-limit failure, unsupported conversion, missing output, or undeclared output terminates the Graph run. The sandbox has no file, network, environment, process, random, Store, Tool, Graph, or native Go access.
 
-Starlark provides `json.encode` / `json.decode`, bounded RE2 `regex_find` / `regex_replace`, and `now_millis()`. `regex_find` caps global matches and captures at 4096, enforces the configured output-byte budget before constructing the result, and checks cancellation. The clock returns Unix milliseconds. Scenarios must persist their date and random decisions explicitly in State to retain them after reload.
+Starlark provides `json.encode` / `json.decode`, bounded RE2 `regex_find` / `regex_replace`, and `now_millis()`. `regex_find` caps global matches and captures at 4096, enforces the configured output-byte budget before constructing the result, and checks cancellation. `regex_replace` bounds match-index storage and capture counts by the output budget, then checks cancellation and remaining bytes before appending each replacement segment. Numeric/named captures and `$$` retain RE2 expansion semantics; overflow returns an error. The clock returns Unix milliseconds. Scenarios must persist their date and random decisions explicitly in State to retain them after reload.
 
 ## Named Lambda
 

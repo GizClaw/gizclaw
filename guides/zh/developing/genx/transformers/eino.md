@@ -174,7 +174,7 @@ def run(input):
 
 每个 Script limit 都必须为正数。step exhaustion、timeout、cancellation、malformed source、runtime error、byte-limit failure、unsupported conversion、缺失 output 或未声明 output 都会终止 Graph run。Sandbox 不提供 file、network、environment、process、random、Store、Tool、Graph 或 native Go access。
 
-Starlark 提供 `json.encode` / `json.decode`、有界 RE2 `regex_find` / `regex_replace` 和 `now_millis()`。`regex_find` 的全局匹配和捕获数量最多为 4096，在构造结果前检查 output-byte 预算，并检查取消。`now_millis()` 返回当前 Unix 毫秒；日期与随机业务结果需要由场景显式保存为 State，才能在重载后保留。
+Starlark 提供 `json.encode` / `json.decode`、有界 RE2 `regex_find` / `regex_replace` 和 `now_millis()`。`regex_find` 的全局匹配和捕获数量最多为 4096，在构造结果前检查 output-byte 预算，并检查取消。`regex_replace` 同时按输出预算限制匹配索引与捕获数量，逐段检查取消和剩余字节后才追加替换内容；数字、命名捕获及 `$$` 保持 RE2 展开语义，超预算返回错误。`now_millis()` 返回当前 Unix 毫秒；日期与随机业务结果需要由场景显式保存为 State，才能在重载后保留。
 
 ## Named Lambda
 
