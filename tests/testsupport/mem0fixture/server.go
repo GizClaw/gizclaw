@@ -88,9 +88,11 @@ func (h *scopedMemoryHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) 
 	default:
 		id := strings.TrimPrefix(r.URL.Path, "/memories/")
 		if r.Method == http.MethodGet && id != r.URL.Path {
-			response = h.records[id]
-			if response == nil {
+			record, ok := h.records[id]
+			if !ok {
 				status = http.StatusNotFound
+			} else {
+				response = record
 			}
 		} else {
 			status = http.StatusNotFound

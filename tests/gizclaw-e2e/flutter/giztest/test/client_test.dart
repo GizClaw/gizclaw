@@ -65,9 +65,7 @@ void main() {
               'value': {
                 'name': 'x',
                 'parameters': {
-                  'eino_workspace_parameters': {
-                    'safety_fence_level': 'alpha',
-                  },
+                  'eino_workspace_parameters': {'safety_fence_level': 'alpha'},
                 },
               },
             }
@@ -264,14 +262,12 @@ void main() {
       camelToSnakeKeys(
         unwrapValueMessage(
           EinoWorkflowSpec(
-            fields: Struct(
-              fields: {'mode': Value(stringValue: 'idle')}.entries,
-            ),
+            graph: Struct(fields: {'mode': Value(stringValue: 'idle')}.entries),
           ),
         ),
       ),
       {
-        'fields': {'mode': 'idle'},
+        'graph': {'mode': 'idle'},
       },
     );
   });
