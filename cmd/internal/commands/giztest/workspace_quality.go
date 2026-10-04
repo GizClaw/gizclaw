@@ -84,9 +84,35 @@ type qualityTurn struct {
 	Text string `json:"text"`
 }
 type qualityQuote struct {
-	Turn    int    `json:"turn"`
-	Quote   string `json:"quote,omitempty"`
-	QuoteID string `json:"quote_id,omitempty"`
+	Turn           int    `json:"turn"`
+	Quote          string `json:"quote,omitempty"`
+	QuoteID        string `json:"quote_id,omitempty"`
+	quotePresent   bool
+	quoteIDPresent bool
+}
+
+func (q *qualityQuote) UnmarshalJSON(raw []byte) error {
+	var fields struct {
+		Turn    int             `json:"turn"`
+		Quote   json.RawMessage `json:"quote"`
+		QuoteID json.RawMessage `json:"quote_id"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&fields); err != nil {
+		return err
+	}
+	q.Turn, q.quotePresent, q.quoteIDPresent = fields.Turn, fields.Quote != nil, fields.QuoteID != nil
+	if q.quotePresent && q.quoteIDPresent {
+		return errors.New("quality evidence must use exactly one quote format")
+	}
+	if q.quotePresent {
+		return json.Unmarshal(fields.Quote, &q.Quote)
+	}
+	if q.quoteIDPresent {
+		return json.Unmarshal(fields.QuoteID, &q.QuoteID)
+	}
+	return nil
 }
 
 type qualityEvidenceQuote struct {
@@ -307,9 +333,9 @@ func validateQualityResponse(text string, spec *giztest.RelayQualitySpec, turns 
 		}
 		references := make([]int, 0, len(rating.Evidence))
 		for index, quote := range rating.Evidence {
-			if quote.QuoteID != "" {
+			if quote.quoteIDPresent {
 				selected, exists := quoteCatalog[quote.QuoteID]
-				if !exists || selected.Turn != quote.Turn || quote.Quote != "" {
+				if !exists || selected.Turn != quote.Turn || quote.quotePresent {
 					return nil, nil, fmt.Errorf("quality criterion %s cites an invalid candidate quote ID", criterion.ID)
 				}
 				quote.Quote, quote.QuoteID = selected.Quote, ""

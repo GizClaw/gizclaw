@@ -328,6 +328,11 @@ func TestQualityQuoteIDsResolveOnlyExactCandidateEvidence(t *testing.T) {
 		{"player reference", strings.Replace(good, "t2-q1", "t1-q1", 1), false},
 		{"different turn", strings.Replace(good, `"turn":2`, `"turn":4`, 1), false},
 		{"ambiguous text and ID", strings.Replace(good, `"quote_id":`, `"quote":"altered text","quote_id":`, 1), false},
+		{"empty text plus ID", strings.Replace(good, `"quote_id":`, `"quote":"","quote_id":`, 1), false},
+		{"null text plus ID", strings.Replace(good, `"quote_id":`, `"quote":null,"quote_id":`, 1), false},
+		{"literal text plus empty ID", strings.Replace(good, `"quote_id":"t2-q1"`, `"quote":"**李白**","quote_id":""`, 1), false},
+		{"literal text plus null ID", strings.Replace(good, `"quote_id":"t2-q1"`, `"quote":"**李白**","quote_id":null`, 1), false},
+		{"unknown evidence field", strings.Replace(good, `"quote_id":`, `"unknown":true,"quote_id":`, 1), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			result, report, err := validateQualityResponse(test.text, qualityTestSpec(), turns, true)
