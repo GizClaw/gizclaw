@@ -7,132 +7,57 @@ spec:
   eino:
     graph:
       name: eino-speaker-sequence
-      compile:
-        node_trigger_mode: any_predecessor
-        max_run_steps: 16
-        primary_output_mode: first_output
       state:
         fields:
-        - name: values
-          type: object
-          merge: replace
-        - name: channels
-          type: object
-          merge: replace
-        - name: answer-messages
-          type: messages
-          merge: replace
-        - name: answer-text
-          type: string
-          merge: replace
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
       nodes:
-      - id: initialize-conversation
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
-          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
-          channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          history:
-            from: input.messages
-          fence:
-            from: input.safety_fence
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: answer-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是配音剧本复读器。逐字输出用户给出的剧本，保留全部【】标记和标点，不增删、不改写、不解释。'\n\
-          \    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main',\
-          \ []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content\
-          \ = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") ==\
-          \ \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n\
-          \    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: answer-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: answer
-        type: chat_model
-        model: llm
-        inputs:
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+          outputs:
+            messages: messages
           messages:
-            from: answer-messages
-        outputs:
-          text: answer-text
-        max_tokens: 2048
-      - id: answer-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
-          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: answer-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
+            - role: system
+              template: |-
+                你是配音剧本复读器。逐字输出用户给出的剧本，保留全部【】标记和标点，不增删、不改写、不解释。
+                {safety}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
+          model: llm
+          max_tokens: 2048
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
       edges:
-      - from: start
-        to: initialize-conversation
-      - from: answer-prompt
-        to: answer
-      - from: answer
-        to: answer-capture
-      - from: initialize-conversation
-        to: answer-prompt
-      - from: answer-capture
-        to: end
-      branches: []
+        - from: start
+          to: prompt
+        - from: prompt
+          to: answer
+        - from: answer
+          to: end
       outputs:
-      - node: answer
-        field: answer-text
-        name: answer
-        mime_type: text/plain
-        primary: true
-    state_persistence:
-      fields:
-      - values
-      - channels
+        - node: answer
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
+      compile:
+        node_trigger_mode: any_predecessor
+      branches: []
     voice_adapter:
       asr_model: asr
       default_voice: narrator

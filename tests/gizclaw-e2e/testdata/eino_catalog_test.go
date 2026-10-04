@@ -16,6 +16,10 @@ import (
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/retriever"
+	"github.com/cloudwego/eino/schema"
 	"github.com/goccy/go-yaml"
 )
 
@@ -115,111 +119,145 @@ func fixtureGraph(t *testing.T, path string) genxeino.GraphDefinition {
 	return graph
 }
 
-func TestEinoMemoryFixturesDecodeTypedGraph(t *testing.T) {
-	for _, name := range []string{"basic", "chat", "journey", "multi-role-storyteller", "murder-mystery", "poetry-adventure-li-bai", "werewolf", "configured-memory"} {
-		t.Run(name, func(t *testing.T) {
-			graph := fixtureGraph(t, filepath.Join("workspaces", "eino-"+name+".json"))
-			observations := 0
-			for _, node := range graph.Nodes {
-				if node.MemoryObserve == nil {
-					continue
-				}
-				observations++
-				observe := node.MemoryObserve
-				if len(observe.Facts) != 0 && (observe.TextFrom != "" || observe.TurnsFrom != "") {
-					t.Fatalf("%s mixes direct Facts and model extraction", node.ID)
-				}
-			}
-			if observations == 0 {
-				t.Fatal("explicit memory observation is missing")
-			}
-		})
-	}
-}
-
-func TestEinoWorkspaceAndResourceGraphsValidate(t *testing.T) {
-	for _, pattern := range []string{"resources/04-workflows/*-eino-*.yaml", "workspaces/eino-*.json"} {
+func TestNativeEinoScenarioGraphs(t *testing.T) {
+	for _, pattern := range []string{"resources/04-workflows/*-eino-*.yaml", "resources/04-workflows/32-giztest-workflow-tester.yaml", "resources/04-workflows/48-mem0-extraction.yaml", "workspaces/eino-*.json"} {
 		paths, err := filepath.Glob(pattern)
 		if err != nil || len(paths) == 0 {
 			t.Fatalf("%s: %v", pattern, err)
 		}
 		for _, path := range paths {
-			t.Run(path, func(t *testing.T) { fixtureEinos(t, path) })
+			t.Run(path, func(t *testing.T) {
+				for _, spec := range fixtureEinos(t, path) {
+					graph, err := einoconfig.MapGraph(spec.Graph)
+					if err != nil {
+						t.Fatal(err)
+					}
+					compiled, err := genxeino.New(t.Context(), genxeino.Config{Agent: genxeino.AgentConfig{ID: "fixture"}, Graph: graph, Components: fixtureComponents{}, Memory: fixtureMemoryConfig()})
+					if err != nil {
+						t.Fatal(err)
+					}
+					t.Cleanup(func() { _ = compiled.Close() })
+					for _, node := range graph.Nodes {
+						if node.Script != nil && (strings.Contains(node.Script.Source, "_scope") || strings.Contains(node.Script.Source, "_channels")) {
+							t.Fatalf("%s retains mechanically translated business source", node.ID)
+						}
+					}
+				}
+			})
 		}
 	}
 }
 
-func TestEinoJourneyIterationBudgetCoversEveryRoute(t *testing.T) {
-	for _, path := range []string{"resources/04-workflows/08-eino-journey.yaml", "workspaces/eino-journey.json"} {
-		t.Run(path, func(t *testing.T) {
-			graph := fixtureGraph(t, path)
-			adjacency := map[string][]string{}
-			for _, edge := range graph.Edges {
-				adjacency[edge.From] = append(adjacency[edge.From], edge.To)
-			}
-			for _, branch := range graph.Branches {
-				adjacency[branch.From] = append(adjacency[branch.From], branch.Default)
-				for _, route := range branch.Routes {
-					adjacency[branch.From] = append(adjacency[branch.From], route.To)
-				}
-			}
-			visiting := map[string]bool{}
-			var longest func(string) int
-			longest = func(node string) int {
-				if node == "end" {
-					return 0
-				}
-				if visiting[node] {
-					t.Fatalf("unexpected cycle through %s", node)
-				}
-				visiting[node] = true
-				length := 0
-				for _, next := range adjacency[node] {
-					length = max(length, longest(next)+1)
-				}
-				delete(visiting, node)
-				return length
-			}
-			if steps := longest("start"); graph.Compile.MaxRunSteps < steps {
-				t.Fatalf("MaxRunSteps=%d cannot cover %d-step route", graph.Compile.MaxRunSteps, steps)
-			}
-		})
+func runRules(t *testing.T, name, command string, game map[string]any) map[string]any {
+	t.Helper()
+	graph := fixtureGraph(t, "workspaces/eino-"+name+".json")
+	for index := range graph.Nodes {
+		if graph.Nodes[index].ID == "rules" {
+			graph.Nodes[index].Inputs["text"] = genxeino.Binding{From: "command"}
+		}
+	}
+	graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "command", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
+	return runFixtureScript(t, graph, "rules", map[string]any{"game": game, "command": command})
+}
+
+func TestNativeWerewolfRulesAndPrivacy(t *testing.T) {
+	initial := runRules(t, "werewolf", "开始", map[string]any{})
+	game := initial["game"].(map[string]any)
+	roles := game["roles"].(map[string]any)
+	if len(roles) != 8 || game["phase"] != "night" {
+		t.Fatalf("initial game = %v", game)
+	}
+	wolves := 0
+	for _, role := range roles {
+		if role == "狼人" {
+			wolves++
+		}
+	}
+	if wolves != 2 || strings.Contains(initial["context"].(string), `"roles"`) {
+		t.Fatal("invalid role allocation or private role map leaked into public context")
+	}
+	// A known role map makes rule assertions independent from game-start time.
+	game["roles"] = map[string]any{"1": "狼人", "2": "狼人", "3": "预言家", "4": "女巫", "5": "猎人", "6": "平民", "7": "平民", "8": "平民"}
+	inspected := runRules(t, "werewolf", "查验1号", game)
+	if inspected["valid"] != true || !strings.Contains(inspected["private"].(string), "1号是狼人") || strings.Contains(inspected["context"].(string), "1号是狼人") {
+		t.Fatalf("inspection/private projection = %v", inspected)
+	}
+	game = inspected["game"].(map[string]any)
+	if runRules(t, "werewolf", "查验2号", game)["valid"] != false {
+		t.Fatal("second inspection in one night accepted")
+	}
+	if runRules(t, "werewolf", "刀4号", game)["valid"] != false {
+		t.Fatal("non-wolf kill accepted")
+	}
+	rejected := runRules(t, "werewolf", "查验3号", game)
+	if rejected["valid"] != false {
+		t.Fatal("self-target was accepted")
+	}
+	day := runRules(t, "werewolf", "继续天亮", game)
+	game = day["game"].(map[string]any)
+	if game["phase"] != "speech" || len(game["dead"].([]any)) != 1 {
+		t.Fatalf("night transition = %v", game)
+	}
+	if runRules(t, "werewolf", "我的发言", game)["valid"] != false {
+		t.Fatal("eliminated player was allowed to act")
+	}
+	game["dead"] = []any{int64(6)}
+	game = runRules(t, "werewolf", "我的发言：先分析线索", game)["game"].(map[string]any)
+	if game["phase"] != "vote" {
+		t.Fatalf("speech transition = %v", game)
+	}
+	if runRules(t, "werewolf", "投票3号", game)["valid"] != false {
+		t.Fatal("self-vote accepted")
+	}
+	voted := runRules(t, "werewolf", "投票1号", game)
+	replayed := runRules(t, "werewolf", "投票1号", game)
+	first, _ := json.Marshal(voted["game"])
+	second, _ := json.Marshal(replayed["game"])
+	if string(first) != string(second) {
+		t.Fatal("same vote state produced different rule outcomes")
+	}
+	if voted["valid"] != true || len(voted["game"].(map[string]any)["log"].([]any)) != 1 {
+		t.Fatalf("valid vote = %v", voted)
+	}
+	spectator := voted["game"].(map[string]any)
+	spectator["dead"], spectator["phase"], spectator["winner"] = []any{int64(3)}, "vote", ""
+	progressed := runRules(t, "werewolf", "继续旁观", spectator)
+	if progressed["valid"] != true || progressed["game"].(map[string]any)["phase"] == "vote" {
+		t.Fatal("spectator continuation stalled")
+	}
+	// Eliminating the last wolf is decided by state rules, not narration.
+	game = voted["game"].(map[string]any)
+	game["roles"] = map[string]any{"1": "狼人", "2": "平民", "3": "女巫", "4": "平民", "5": "猎人", "6": "平民", "7": "平民", "8": "预言家"}
+	game["phase"], game["dead"], game["poison_used"] = "night", []any{}, false
+	finished := runRules(t, "werewolf", "毒1号", game)["game"].(map[string]any)
+	if finished["winner"] != "好人" || finished["phase"] != "ended" {
+		t.Fatalf("victory = %v", finished)
 	}
 }
 
-func TestEinoGeneratorsRetainTokenBudgets(t *testing.T) {
-	for _, name := range []string{"basic", "chat", "journey", "multi-role-storyteller", "murder-mystery", "poetry-adventure-li-bai", "werewolf", "configured-memory", "planner-latency-comparison"} {
-		graph := fixtureGraph(t, filepath.Join("workspaces", "eino-"+name+".json"))
-		for _, node := range graph.Nodes {
-			if node.ChatModel == nil {
-				continue
-			}
-			want := 2048
-			if name == "planner-latency-comparison" {
-				want = map[string]int{"planner-model": 64, "answer-model": 128}[node.ID]
-			}
-			if node.ChatModel.MaxTokens == nil || *node.ChatModel.MaxTokens != want || want == 0 {
-				t.Errorf("%s/%s max_tokens=%d, want %d", name, node.ID, node.ChatModel.MaxTokens, want)
-			}
-		}
+func TestNativeMysteryAndPoetryProgression(t *testing.T) {
+	mystery := runRules(t, "murder-mystery", "指认沈知秋", map[string]any{})["game"].(map[string]any)
+	if mystery["solved"] != false {
+		t.Fatal("mystery completed without evidence")
 	}
-}
-
-func TestEinoMurderMysterySolvedChatRefreshesAuditBeforeObservation(t *testing.T) {
-	for _, path := range []string{"resources/04-workflows/11-eino-murder-mystery.yaml", "workspaces/eino-murder-mystery.json"} {
-		graph := fixtureGraph(t, path)
-		found := false
-		for _, edge := range graph.Edges {
-			if edge.From == "solved_chat-capture" {
-				found = true
-				if edge.To != "write_case_audit" {
-					t.Fatalf("%s: solved chat routes to %s", path, edge.To)
-				}
-			}
-		}
-		if !found {
-			t.Fatalf("%s: solved chat audit edge is missing", path)
-		}
+	mystery = runRules(t, "murder-mystery", "调查书房门锁、壁炉、留声机、后廊和沈知秋房间", mystery)["game"].(map[string]any)
+	mystery = runRules(t, "murder-mystery", "指认沈知秋", mystery)["game"].(map[string]any)
+	if mystery["solved"] != true {
+		t.Fatal("supported evidence-backed solution did not finish")
+	}
+	poetry := runRules(t, "poetry-adventure-li-bai", "错误答案", map[string]any{})["game"].(map[string]any)
+	if poetry["stage"] != int64(0) {
+		t.Fatal("wrong answer advanced the checkpoint")
+	}
+	for _, answer := range []string{"床前明月光", "大江东去，浪淘尽", "小桥流水人家", "要留清白在人间"} {
+		poetry = runRules(t, "poetry-adventure-li-bai", answer, poetry)["game"].(map[string]any)
+	}
+	if poetry["stage"] != int64(4) || len(poetry["cleared"].([]any)) != 4 || poetry["score"] != int64(400) {
+		t.Fatalf("poetry completion = %v", poetry)
+	}
+	replay := runRules(t, "poetry-adventure-li-bai", "要留清白在人间", poetry)["game"].(map[string]any)
+	if replay["score"] != int64(400) || len(replay["cleared"].([]any)) != 4 {
+		t.Fatal("completed checkpoint awarded twice")
 	}
 }
 
@@ -278,10 +316,11 @@ func runFixtureGraph(t *testing.T, graph genxeino.GraphDefinition, fields map[st
 	for _, field := range graph.State.Fields {
 		selected = append(selected, field.Name)
 	}
-	transformer, err := genxeino.New(t.Context(), genxeino.Config{Agent: genxeino.AgentConfig{ID: "fixture"}, Graph: graph, State: &genxeino.StatePersistenceConfig{Store: store, Scope: "fixture", Fields: selected}})
+	transformer, err := genxeino.New(t.Context(), genxeino.Config{Agent: genxeino.AgentConfig{ID: "fixture"}, Graph: graph, Components: fixtureComponents{}, Memory: fixtureMemoryConfig(), State: &genxeino.StatePersistenceConfig{Store: store, Scope: "fixture", Fields: selected}})
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { _ = transformer.Close() })
 	input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 	if err := input.Add(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("execute"), Ctrl: &genx.StreamCtrl{StreamID: "fixture-input", BeginOfStream: true, EndOfStream: true}}); err != nil {
 		t.Fatal(err)
@@ -311,91 +350,83 @@ func runFixtureGraph(t *testing.T, graph genxeino.GraphDefinition, fields map[st
 	return store.fields
 }
 
-func TestEinoWerewolfBooleanRoutesExecute(t *testing.T) {
-	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
-		for _, route := range []struct {
-			node, flag, success, retry string
-		}{
-			{"apply_vote-route", "vote_valid", "host_vote_result", "vote_retry"},
-			{"validate_user_speech-route", "speech_valid", "select_npc_tail_speaker", "user_speech_retry"},
-		} {
-			for _, flag := range []string{"true", "false"} {
-				t.Run(path+"/"+route.node+"/"+flag, func(t *testing.T) {
-					graph := fixtureGraph(t, path)
-					node := fixtureNode(t, graph, route.node)
-					graph.Nodes = []genxeino.NodeDefinition{node}
-					graph.Edges = []genxeino.EdgeDefinition{{From: "start", To: node.ID}}
-					for _, target := range []string{route.success, route.retry} {
-						graph.Nodes = append(graph.Nodes, genxeino.NodeDefinition{ID: target, Outputs: map[string]string{"text": "selected-route"},
-							Script: &genxeino.ScriptNode{Language: genxeino.ScriptStarlark, Source: "def run(input):\n    return {\"text\": \"" + target + "\"}\n",
-								Limits: genxeino.ScriptLimits{MaxExecutionSteps: 1000, Timeout: time.Second, MaxInputBytes: 4096, MaxOutputBytes: 4096}}})
-						graph.Edges = append(graph.Edges, genxeino.EdgeDefinition{From: target, To: "end"})
-					}
-					var branches []genxeino.BranchDefinition
-					for _, branch := range graph.Branches {
-						if branch.From == node.ID {
-							branches = append(branches, branch)
-						}
-					}
-					graph.Branches = branches
-					graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "selected-route", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
-					graph.Outputs = []genxeino.OutputDefinition{
-						{Node: route.success, Field: "selected-route", Name: "success", MIMEType: "text/plain", Primary: true},
-						{Node: route.retry, Field: "selected-route", Name: "retry", MIMEType: "text/plain"},
-					}
-					fields := runFixtureGraph(t, graph, map[string]any{"values": map[string]any{route.flag: flag}})
-					want := route.retry
-					if flag == "true" {
-						want = route.success
-					}
-					if fields["selected-route"] != want {
-						t.Fatalf("selected route = %v, want %s", fields["selected-route"], want)
-					}
-				})
+// fixtureComponents executes the real prompt/model binding without provider I/O.
+type fixtureComponents struct{}
+
+func (fixtureComponents) ResolveChatModel(context.Context, string) (model.BaseChatModel, error) {
+	return fixtureModel{}, nil
+}
+func (fixtureComponents) ResolveRetriever(context.Context, string) (retriever.Retriever, error) {
+	return nil, errors.New("unexpected retriever")
+}
+
+type fixtureModel struct{}
+
+func (fixtureModel) Generate(context.Context, []*schema.Message, ...model.Option) (*schema.Message, error) {
+	return schema.AssistantMessage("fixture reply", nil), nil
+}
+func (fixtureModel) Stream(ctx context.Context, messages []*schema.Message, options ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	message, err := (fixtureModel{}).Generate(ctx, messages, options...)
+	return schema.StreamReaderFromArray([]*schema.Message{message}), err
+}
+func TestNativeScenarioExecution(t *testing.T) {
+	for _, name := range []string{"journey", "multi-role-storyteller", "murder-mystery", "poetry-adventure-li-bai", "werewolf", "chat", "planner-latency-comparison"} {
+		t.Run(name, func(t *testing.T) {
+			graph := fixtureGraph(t, "workspaces/eino-"+name+".json")
+			fields := runFixtureGraph(t, graph, map[string]any{"game": map[string]any{}})
+			if fields["answer"] != "fixture reply" {
+				t.Fatalf("native pipeline did not complete: %v", fields)
 			}
-		}
+		})
 	}
 }
 
-func TestEinoWerewolfSelfStartAndHiddenMoveIsolation(t *testing.T) {
-	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
-		t.Run(path, func(t *testing.T) {
-			graph := fixtureGraph(t, path)
-			for _, input := range []string{"", "我要查验1号"} {
-				fields := map[string]any{"values": map[string]any{"input": input}, "channels": map[string]any{"main": []any{map[string]any{"role": "user", "content": input}}}}
-				prepared := runFixtureScript(t, graph, "prepare_memory_query", fields)
-				values := prepared["values"].(map[string]any)
-				want := input
-				if want == "" {
-					want = "狼人游戏状态与公开进度"
-				}
-				if values["memory_query"] != want {
-					t.Fatalf("memory query = %#v, want %q", values["memory_query"], want)
-				}
-				loaded := runFixtureScript(t, graph, "load_game_state", prepared)
-				values = loaded["values"].(map[string]any)
-				if text, ok := values["werewolf_game_state_text"].(string); !ok || strings.TrimSpace(text) == "" {
-					t.Fatal("self-start did not prepare state text")
-				}
-				prompted := runFixtureScript(t, graph, "format_player_move-prompt", loaded)
-				raw, err := json.Marshal(prompted["format_player_move-messages"])
-				if err != nil {
-					t.Fatal(err)
-				}
-				if input != "" && !strings.Contains(string(raw), input) {
-					t.Fatalf("classifier lost latest user input: %s", raw)
-				}
+func fixtureMemoryConfig() *genxeino.MemoryConfig {
+	return &genxeino.MemoryConfig{Store: fixtureMemory{}, Scope: memory.Scope{AppID: "fixture", UserID: "player"}}
+}
+
+type fixtureMemory struct{}
+
+func (fixtureMemory) Observe(context.Context, memory.Observation) (memory.ObserveResult, error) {
+	return memory.ObserveResult{Operation: &memory.Operation{ID: "fixture", Status: memory.OperationSucceeded}}, nil
+}
+func (fixtureMemory) Recall(context.Context, memory.Query) (memory.RecallResult, error) {
+	return memory.RecallResult{}, nil
+}
+func (fixtureMemory) Update(context.Context, memory.UpdateRequest) (memory.Fact, error) {
+	return memory.Fact{}, memory.ErrUnsupported
+}
+func (fixtureMemory) Delete(context.Context, memory.DeleteRequest) error {
+	return memory.ErrUnsupported
+}
+func (fixtureMemory) Wait(context.Context, memory.OperationRequest) (memory.ObserveResult, error) {
+	return memory.ObserveResult{Operation: &memory.Operation{ID: "fixture", Status: memory.OperationSucceeded}}, nil
+}
+
+func (fixtureMemory) SupportsDirectFactObservation() bool { return true }
+
+func TestNativeLatencyComparisonsRemainDistinct(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		models int
+	}{{"latency-comparison", 1}, {"planner-latency-comparison", 2}} {
+		graph := fixtureGraph(t, "workspaces/eino-"+test.name+".json")
+		models := 0
+		for _, node := range graph.Nodes {
+			if node.ChatModel == nil {
+				continue
 			}
-			for _, node := range graph.Nodes {
-				if node.ID == "call_game_event" || node.ID == "call_game_over_event" {
-					t.Fatalf("unsupported lifecycle ToolCall %s", node.ID)
-				}
+			models++
+			want := 128
+			if node.ID == "planner" {
+				want = 64
 			}
-			turns := fixtureNode(t, graph, "observe_game_conversation-1").MemoryObserve
-			state := fixtureNode(t, graph, "observe_game_conversation-0").MemoryObserve
-			if turns == nil || turns.TurnsFrom == "" || state == nil || state.TextFrom == "" {
-				t.Fatal("conversation and self-start state extraction must remain separate observations")
+			if node.ChatModel.MaxTokens == nil || *node.ChatModel.MaxTokens != want {
+				t.Fatalf("%s/%s budget changed", test.name, node.ID)
 			}
-		})
+		}
+		if models != test.models {
+			t.Fatalf("%s has %d model calls, want %d", test.name, models, test.models)
+		}
 	}
 }

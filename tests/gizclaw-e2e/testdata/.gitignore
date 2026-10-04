@@ -11,8 +11,6 @@
 !assets/firmware/*.tar
 !workflow_catalog_test.go
 !eino_catalog_test.go
-!script_equivalence_test.go
-!business_script_reference.json
 !workspaces/
 !workspaces/*.json
 !server-workspace/

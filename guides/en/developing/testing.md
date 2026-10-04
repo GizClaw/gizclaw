@@ -362,11 +362,24 @@ changes must run it too:
 go test -count=1 ./tests/gizclaw-e2e/testdata
 ```
 
-LLM nodes in `*-eino-*` Workflow resources and `eino-*` Workspaces
-must use `max_tokens: 2048`. The latency comparison benchmark fixture is the only
-exception: it uses the same 64/128 caps as `21-eino-latency-comparison.yaml` so
-both drivers produce comparably short answers. The exception and its per-node
-caps are registered in the test's `TestEinoGeneratorsRetainTokenBudgets`.
+Business fixtures compose Eino Prompt, ChatModel, Memory and typed State directly.
+A bounded Starlark node owns deterministic Werewolf, mystery and poetry rules;
+the model narrates the authoritative result. Werewolf persists seats, roles,
+eliminations, ballots and victory. The complete role map never enters the prompt
+or long-term Memory; only the player's role and inspection enter private host
+input. The mystery retains the four evidence requirements of Rainy Night
+Gramophone. Poetry uses the Tang/Song/Yuan/Ming answer catalogue, awards each
+badge once and adds 100 points per checkpoint. Memory observes public state.
+Native History supplies conversation turns; only game progress is persisted in
+Graph State, without a second conversation channel store.
+
+`eino_catalog_test.go` compiles actual Resource and Workspace configurations,
+executes their native pipelines, and checks illegal actions, private projections,
+insufficient evidence, wrong answers and completed games. These local model and
+Memory fixtures do not replace live-provider or device voice acceptance.
+LLM nodes use `max_tokens: 2048`; latency comparisons use a 128-token direct
+answer and an additional 64-token planner in the planned variant. Both are
+validated independently.
 
 Copy the provider credential template first. `.env` is only for provider
 credentials; runtime addresses, resource/model/voice IDs, and E2E identities do

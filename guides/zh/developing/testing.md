@@ -344,10 +344,18 @@ credential 的静态 fixture 检查，覆盖 Workflow catalog、Eino graph、Wor
 go test -count=1 ./tests/gizclaw-e2e/testdata
 ```
 
-`*-eino-*` Workflow resource 与 `eino-*` Workspace 的 LLM 节点必须使用
-`max_tokens: 2048`。Latency comparison benchmark fixture 是唯一例外：它与
-`21-eino-latency-comparison.yaml` 使用相同的 64/128 上限，使两个 driver 的回答长度可比；
-例外及每个节点的上限登记在测试的 `TestEinoGeneratorsRetainTokenBudgets` 中。
+业务 fixture 直接组合 Eino 的 Prompt、ChatModel、Memory 与类型化 State。
+狼人杀、解谜和诗词闯关用一个有界 Starlark 节点处理确定性规则，模型只负责叙述。
+狼人杀持久化座位身份、出局、投票及胜负；完整角色表不进入 Prompt 或长期 Memory，
+玩家身份与查验结果只通过私密输入交给主持人。解谜保留《雨夜留声机》的四类证据门槛；
+诗词按唐宋元明的固定答案目录计分，每关只颁发一次徽章。长期 Memory 只观察公开状态。
+短期对话由原生 History 提供，Graph 只持久化游戏进度，不另存一套对话 channels。
+
+`eino_catalog_test.go` 编译 Resource 和 Workspace 的实际配置，执行完整原生节点链，
+并验证非法行动、私密信息投影、证据不足、错误答案和通关后的状态。
+这些离线测试使用本地模型与 Memory fixture，不替代真实 Provider 或设备语音验收。
+LLM 节点使用 `max_tokens: 2048`；延迟对照的直接回答上限为 128，
+Planner 额外使用上限为 64 的计划节点，两个配置分别验证。
 
 先复制 provider credential 模板。`.env` 只能保存 provider credential，不能保存
 runtime 地址、resource ID、model/voice ID 或 E2E identity；真实密钥不得提交。

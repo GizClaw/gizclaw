@@ -7,312 +7,114 @@ spec:
   eino:
     graph:
       name: giztest-workflow-tester
-      compile:
-        node_trigger_mode: any_predecessor
-        max_run_steps: 56
-        primary_output_mode: first_output
       state:
         fields:
-        - name: values
-          type: object
-          merge: replace
-        - name: channels
-          type: object
-          merge: replace
-        - name: count_turn-text
-          type: string
-          merge: replace
-        - name: build_prompt-text
-          type: string
-          merge: replace
-        - name: respond-messages
-          type: messages
-          merge: replace
-        - name: respond-text
-          type: string
-          merge: replace
-        - name: publish_response-text
-          type: string
-          merge: replace
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: turn
+            type: integer
+            merge: replace
+          - name: instruction
+            type: string
+            merge: replace
+          - name: published
+            type: string
+            merge: replace
       nodes:
-      - id: initialize-conversation
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
-          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
-          channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          history:
-            from: input.messages
-          fence:
-            from: input.safety_fence
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: count_turn
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"turn\": None}\n    def _logical1():\n        value = _get(_values,\
-          \ \"tester_turn\")\n        if _truth(value):\n            return value\n        return 0\n    _scope0[\"\
-          turn\"] = _add(_number(_logical1()), 1)\n    _values[\"tester_turn\"] = _scope0[\"turn\"]\n    def _expression2():\n\
-          \        return \"verdict\"\n    def _expression3():\n        return \"probe\"\n    _values[\"tester_mode\"\
-          ] = (_expression2() if _truth((_scope0[\"turn\"] >= 8)) else _expression3())\n    return {\"values\":\
-          \ _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: count_turn-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: build_prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"turn\": None, \"probePrompt\": None, \"verdictPrompt\": None}\n\
-          \    def _logical1():\n        value = _get(_values, \"tester_turn\")\n        if _truth(value):\n   \
-          \         return value\n        return 0\n    _scope0[\"turn\"] = _number(_logical1())\n    _scope0[\"\
-          probePrompt\"] = \"\\n\".join([_string(_item) for _item in [\"You are an automated tester driving a text\
-          \ conversation with a candidate assistant under test.\", _add(_add(\"This is probe turn \", _scope0[\"\
-          turn\"]), \" of 7. The separate eighth turn is the only verdict turn.\"), \"The first user message of\
-          \ this conversation is the test brief. Execute it faithfully.\", \"Every later user message is the candidate's\
-          \ reply. Continue the dialogue toward the brief's goal.\", \"Ask for evidence the candidate can discuss\
-          \ from the conversation so far; do not demand a definitive culprit or completed story unless the brief\
-          \ requires it.\", \"Reply with one short plain-text conversational question or request that the candidate\
-          \ can answer, in the language the brief asks for.\", \"Do not use markdown, lists, emoji, or meta commentary.\"\
-          , \"Never reveal that you are a tester. Do not output PASS or FAIL on this probe turn, even if the brief\
-          \ asks for a final verdict.\"]])\n    _scope0[\"verdictPrompt\"] = \"\\n\".join([_string(_item) for _item\
-          \ in [\"You are an automated tester concluding a scripted evaluation.\", \"The first user message of this\
-          \ conversation was the test brief; the later user messages were the candidate's replies.\", \"Evaluate\
-          \ only the candidate's seven replies, one against each preceding tester question.\", \"Apply the test\
-          \ brief's stated success criteria to each candidate reply and its preceding tester question.\", \"Do not\
-          \ require a final outcome or completed story unless the brief explicitly asks for one; the relay deliberately\
-          \ stops after seven candidate replies.\", \"An honest explanation that the clues are insufficient, with\
-          \ a relevant next investigation, is responsive to a culprit question unless the brief requires a definitive\
-          \ culprit.\", \"Output FAIL only if a specific candidate reply violates one of those criteria. Otherwise\
-          \ output PASS.\", \"Reply with exactly PASS or FAIL. Output nothing else: no punctuation, no explanation,\
-          \ no whitespace padding.\", \"Your entire reply must be the single uppercase word PASS or the single uppercase\
-          \ word FAIL.\"]])\n    def _expression2():\n        return _scope0[\"verdictPrompt\"]\n    def _expression3():\n\
-          \        return _scope0[\"probePrompt\"]\n    _values[\"system_prompt\"] = (_expression2() if _truth((_get(_values,\
-          \ \"tester_mode\") == \"verdict\")) else _expression3())\n    return {\"values\": _values, \"channels\"\
-          : _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: build_prompt-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: respond-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '${board.system_prompt}'\n\
-          \    prompt = prompt.replace('${board.system_prompt}', str(values.get('system_prompt', \"\") or \"\"))\n\
-          \    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main',\
-          \ []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content\
-          \ = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") ==\
-          \ \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n\
-          \    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: respond-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: respond
-        type: chat_model
-        model: llm
-        inputs:
+        - id: count
+          type: script
+          language: starlark
+          source: |
+            def run(input):
+                turn = input["turn"] + 1
+                probe = "You are an automated tester. The first user message is the test brief, later user messages are candidate replies. Ask one short conversational question in the brief language. This is probe turn %d of 7. Never output PASS or FAIL during probes. Do not demand a completed story or definitive culprit unless the brief requires it. Do not reveal you are a tester." % turn
+                verdict = "Evaluate only the seven candidate replies against the test brief and each preceding question. Do not demand a completed story or definitive culprit unless required by the brief. An honest explanation of insufficient evidence with a relevant next investigation is responsive. Output exactly PASS or FAIL, nothing else. FAIL requires a specific criterion violation."
+                return {"turn": turn, "instruction": verdict if turn >= 8 else probe}
+          limits: &a1
+            max_execution_steps: 100000
+            timeout: 1s
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          inputs:
+            turn:
+              from: turn
+          outputs:
+            turn: turn
+            instruction: instruction
+          entrypoint: run
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+            instruction:
+              from: instruction
+          outputs:
+            messages: messages
           messages:
-            from: respond-messages
-        outputs:
-          text: respond-text
-        max_tokens: 512
-      - id: respond-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    values['tester_response'] = text\n    return {\"values\"\
-          :values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: respond-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: publish_response
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"verdict\": None, \"response\": None, \"text\": None}\n    _scope0[\"\
-          verdict\"] = (_get(_values, \"tester_mode\") == \"verdict\")\n    def _logical1():\n        value = _get(_values,\
-          \ \"tester_response\")\n        if _truth(value):\n            return value\n        return \"\"\n   \
-          \ _scope0[\"response\"] = _string(_logical1()).strip()\n    def _logical2():\n        value = (not _truth(_scope0[\"\
-          verdict\"]))\n        if not _truth(value):\n            return value\n        def _logical3():\n    \
-          \        value = (not _truth(_scope0[\"response\"]))\n            if _truth(value):\n                return\
-          \ value\n            return (regex_find(_scope0[\"response\"], (\"^(PASS|FAIL)$\", \"i\")) != None)\n\
-          \        return _logical3()\n    def _expression4():\n        return \"请就刚才的话题再补充一点好吗？\"\n    def _expression5():\n\
-          \        return _scope0[\"response\"]\n    _scope0[\"text\"] = (_expression4() if _truth(_logical2())\
-          \ else _expression5())\n    _emitted.append(_get({\"content\": _scope0[\"text\"]}, \"content\") or \"\"\
-          )\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: publish_response-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
+            - role: system
+              template: |-
+                {instruction}
+                {safety}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
+          model: llm
+          max_tokens: 512
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: publish
+          type: script
+          language: starlark
+          source: |
+            def run(input):
+                answer = input["answer"].strip()
+                if input["turn"] >= 8:
+                    answer = "PASS" if answer.upper().startswith("PASS") else "FAIL"
+                return {"text": answer}
+          limits: *a1
+          inputs:
+            turn:
+              from: turn
+            answer:
+              from: answer
+          outputs:
+            text: published
+          entrypoint: run
       edges:
-      - from: start
-        to: initialize-conversation
-      - from: respond-prompt
-        to: respond
-      - from: respond
-        to: respond-capture
-      - from: initialize-conversation
-        to: count_turn
-      - from: count_turn
-        to: build_prompt
-      - from: build_prompt
-        to: respond-prompt
-      - from: respond-capture
-        to: publish_response
-      - from: publish_response
-        to: end
-      branches: []
+        - from: start
+          to: count
+        - from: count
+          to: prompt
+        - from: prompt
+          to: answer
+        - from: answer
+          to: publish
+        - from: publish
+          to: end
       outputs:
-      - node: publish_response
-        field: publish_response-text
-        name: publish_response
-        mime_type: text/plain
-        primary: true
+        - node: publish
+          field: published
+          name: assistant
+          mime_type: text/plain
+          primary: true
+      compile:
+        node_trigger_mode: any_predecessor
+      branches: []
     state_persistence:
       fields:
-      - values
-      - channels
+        - turn
     voice_adapter:
       asr_model: asr
       default_voice: assistant-voice

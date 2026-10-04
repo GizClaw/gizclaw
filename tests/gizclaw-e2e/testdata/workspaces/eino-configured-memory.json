@@ -10,308 +10,162 @@
     "memory": "default-memory",
     "eino": {
       "graph": {
-        "name": "Configured Memory Assistant",
+        "name": "eino-configured-memory",
         "compile": {
-          "node_trigger_mode": "any_predecessor",
-          "max_run_steps": 36
+          "node_trigger_mode": "any_predecessor"
         },
         "state": {
           "fields": [
             {
-              "name": "values",
-              "type": "object",
-              "merge": "replace"
-            },
-            {
-              "name": "channels",
-              "type": "object",
-              "merge": "replace"
-            },
-            {
-              "name": "recall-memory-query",
-              "type": "string",
-              "merge": "replace"
-            },
-            {
-              "name": "recall-memory-recalled",
-              "type": "string",
-              "merge": "replace"
-            },
-            {
-              "name": "answer-messages",
+              "name": "messages",
               "type": "messages",
               "merge": "replace"
             },
             {
-              "name": "answer-text",
+              "name": "answer",
               "type": "string",
               "merge": "replace"
             },
             {
-              "name": "observe-turn-fact-0",
+              "name": "user-text",
               "type": "string",
               "merge": "replace"
             },
             {
-              "name": "observe-turn-attribute-0-lane",
+              "name": "recalled-memory",
               "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "memory-turns",
+              "type": "messages",
               "merge": "replace"
             }
           ]
         },
         "nodes": [
           {
-            "id": "initialize-conversation",
-            "type": "script",
-            "language": "starlark",
-            "entrypoint": "run",
-            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n",
+            "id": "capture-input",
+            "type": "passthrough",
             "inputs": {
-              "values": {
-                "from": "values"
-              },
-              "channels": {
-                "from": "channels"
-              },
-              "history": {
-                "from": "input.messages"
-              },
-              "fence": {
-                "from": "input.safety_fence"
-              },
-              "text": {
+              "value": {
                 "from": "input.text"
               }
             },
             "outputs": {
-              "values": "values",
-              "channels": "channels"
-            },
-            "limits": {
-              "max_execution_steps": 1000000,
-              "timeout": "1s",
-              "max_input_bytes": 1048576,
-              "max_output_bytes": 1048576
+              "value": "user-text"
             }
           },
           {
-            "id": "recall-memory-query",
-            "type": "script",
-            "language": "starlark",
-            "entrypoint": "run",
-            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    query = input[\"text\"]\n    return {\"values\":values,\"channels\":channels,\"query\":query}\n",
-            "inputs": {
-              "values": {
-                "from": "values"
-              },
-              "channels": {
-                "from": "channels"
-              },
-              "text": {
-                "from": "input.text"
-              }
-            },
-            "outputs": {
-              "values": "values",
-              "channels": "channels",
-              "query": "recall-memory-query"
-            },
-            "limits": {
-              "max_execution_steps": 1000000,
-              "timeout": "1s",
-              "max_input_bytes": 1048576,
-              "max_output_bytes": 1048576
-            }
-          },
-          {
-            "id": "recall-memory",
+            "id": "recall",
             "type": "memory_recall",
-            "query_from": "recall-memory-query",
-            "output": "recall-memory-recalled",
+            "query_from": "user-text",
+            "output": "recalled-memory",
             "top_k": 5
           },
           {
-            "id": "recall-memory-capture",
-            "type": "script",
-            "language": "starlark",
-            "entrypoint": "run",
-            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    recalled = input[\"recalled\"]\n    values['recalled_memory'] = recalled\n    return {\"values\":values,\"channels\":channels}\n",
+            "id": "prompt",
+            "type": "prompt",
+            "format": "f_string",
             "inputs": {
-              "values": {
-                "from": "values"
+              "history": {
+                "from": "input.messages"
               },
-              "channels": {
-                "from": "channels"
-              },
-              "recalled": {
-                "from": "recall-memory-recalled"
-              }
-            },
-            "outputs": {
-              "values": "values",
-              "channels": "channels"
-            },
-            "limits": {
-              "max_execution_steps": 1000000,
-              "timeout": "1s",
-              "max_input_bytes": 1048576,
-              "max_output_bytes": 1048576
-            }
-          },
-          {
-            "id": "answer-prompt",
-            "type": "script",
-            "language": "starlark",
-            "entrypoint": "run",
-            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是一个简短、准确的中文语音助手。\\n相关长期记忆如下；如果为空就忽略：\\n${board.recalled_memory}\\n'\n    prompt = prompt.replace('${board.recalled_memory}', str(values.get('recalled_memory', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n",
-            "inputs": {
-              "values": {
-                "from": "values"
-              },
-              "channels": {
-                "from": "channels"
-              },
-              "fence": {
+              "safety": {
                 "from": "input.safety_fence"
+              },
+              "memory": {
+                "from": "recalled-memory"
               }
             },
             "outputs": {
-              "values": "values",
-              "channels": "channels",
-              "messages": "answer-messages"
+              "messages": "messages"
             },
-            "limits": {
-              "max_execution_steps": 1000000,
-              "timeout": "1s",
-              "max_input_bytes": 1048576,
-              "max_output_bytes": 1048576
-            }
+            "messages": [
+              {
+                "role": "system",
+                "template": "你是一个能记住用户明确偏好的中文助手。需要时参考召回记忆；区分已知事实和未确认信息，不把一次性要求当作长期偏好。\n\n{safety}\n可参考长期记忆；为空时忽略：\n{memory}"
+              },
+              {
+                "placeholder": "history",
+                "optional": true
+              }
+            ]
           },
           {
             "id": "answer",
             "type": "chat_model",
             "model": "llm",
+            "max_tokens": 2048,
             "inputs": {
               "messages": {
-                "from": "answer-messages"
+                "from": "messages"
               }
             },
             "outputs": {
-              "text": "answer-text"
-            },
-            "max_tokens": 2048
-          },
-          {
-            "id": "answer-capture",
-            "type": "script",
-            "language": "starlark",
-            "entrypoint": "run",
-            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n",
-            "inputs": {
-              "values": {
-                "from": "values"
-              },
-              "channels": {
-                "from": "channels"
-              },
-              "answer": {
-                "from": "answer-text"
-              }
-            },
-            "outputs": {
-              "values": "values",
-              "channels": "channels"
-            },
-            "limits": {
-              "max_execution_steps": 1000000,
-              "timeout": "1s",
-              "max_input_bytes": 1048576,
-              "max_output_bytes": 1048576
+              "text": "answer"
             }
           },
           {
-            "id": "observe-turn-prepare-0",
-            "type": "script",
-            "language": "starlark",
-            "entrypoint": "run",
-            "source": "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    fact_0 = input[\"text\"]\n    return {\"values\":values,\"channels\":channels,'fact-0':fact_0,'attribute-0-lane':'owner-profile'}\n",
+            "id": "memory-turns",
+            "type": "transform",
+            "operation": "build_messages",
             "inputs": {
-              "values": {
-                "from": "values"
+              "user": {
+                "from": "user-text"
               },
-              "channels": {
-                "from": "channels"
-              },
-              "text": {
-                "from": "input.text"
+              "assistant": {
+                "from": "answer"
               }
             },
             "outputs": {
-              "values": "values",
-              "channels": "channels",
-              "fact-0": "observe-turn-fact-0",
-              "attribute-0-lane": "observe-turn-attribute-0-lane"
+              "messages": "memory-turns"
             },
-            "limits": {
-              "max_execution_steps": 1000000,
-              "timeout": "1s",
-              "max_input_bytes": 1048576,
-              "max_output_bytes": 1048576
-            }
-          },
-          {
-            "id": "observe-turn",
-            "type": "memory_observe",
-            "wait_for_completion": true,
-            "facts": [
+            "messages": [
               {
-                "text_from": "observe-turn-fact-0",
-                "attributes": {
-                  "lane": "observe-turn-attribute-0-lane"
-                }
+                "role": "user",
+                "input": "user"
+              },
+              {
+                "role": "assistant",
+                "input": "assistant"
               }
             ]
+          },
+          {
+            "id": "remember",
+            "type": "memory_observe",
+            "turns_from": "memory-turns",
+            "wait_for_completion": true
           }
         ],
         "edges": [
           {
             "from": "start",
-            "to": "initialize-conversation"
+            "to": "capture-input"
           },
           {
-            "from": "recall-memory-query",
-            "to": "recall-memory"
+            "from": "capture-input",
+            "to": "recall"
           },
           {
-            "from": "recall-memory",
-            "to": "recall-memory-capture"
+            "from": "recall",
+            "to": "prompt"
           },
           {
-            "from": "answer-prompt",
+            "from": "prompt",
             "to": "answer"
           },
           {
             "from": "answer",
-            "to": "answer-capture"
+            "to": "memory-turns"
           },
           {
-            "from": "observe-turn-prepare-0",
-            "to": "observe-turn"
+            "from": "memory-turns",
+            "to": "remember"
           },
           {
-            "from": "initialize-conversation",
-            "to": "recall-memory-query"
-          },
-          {
-            "from": "recall-memory-capture",
-            "to": "answer-prompt"
-          },
-          {
-            "from": "answer-capture",
-            "to": "observe-turn-prepare-0"
-          },
-          {
-            "from": "observe-turn",
+            "from": "remember",
             "to": "end"
           }
         ],
@@ -319,17 +173,11 @@
         "outputs": [
           {
             "node": "answer",
-            "field": "answer-text",
-            "name": "answer",
+            "field": "answer",
+            "name": "assistant",
             "mime_type": "text/plain",
             "primary": true
           }
-        ]
-      },
-      "state_persistence": {
-        "fields": [
-          "values",
-          "channels"
         ]
       },
       "conversation": {

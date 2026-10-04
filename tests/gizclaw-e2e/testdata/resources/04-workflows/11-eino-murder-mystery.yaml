@@ -7,982 +7,207 @@ spec:
   memory: murder-mystery-memory
   eino:
     graph:
-      name: murder-mystery
+      name: eino-murder-mystery
       compile:
         node_trigger_mode: any_predecessor
-        max_run_steps: 200
-        # The first executed output is the assistant primary; other routes
-        # can terminate without visiting the configured fallback output.
         primary_output_mode: first_output
       state:
         fields:
-        - name: values
-          type: object
-          merge: replace
-        - name: channels
-          type: object
-          merge: replace
-        - name: load_case_state-text
-          type: string
-          merge: replace
-        - name: format_player_action-messages
-          type: messages
-          merge: replace
-        - name: format_player_action-text
-          type: string
-          merge: replace
-        - name: apply_case_action-text
-          type: string
-          merge: replace
-        - name: route_case-text
-          type: string
-          merge: replace
-        - name: prepare_game_master_messages-text
-          type: string
-          merge: replace
-        - name: generate_game_master-messages
-          type: messages
-          merge: replace
-        - name: generate_game_master-text
-          type: string
-          merge: replace
-        - name: write_case_audit-text
-          type: string
-          merge: replace
-        - name: solved_chat-messages
-          type: messages
-          merge: replace
-        - name: solved_chat-text
-          type: string
-          merge: replace
-        - name: observe_case_audit-fact-0
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-0-lane
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-0-kind
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-0-predicate
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-0-subject
-          type: string
-          merge: replace
-        - name: observe_case_audit-fact-1
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-1-lane
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-1-kind
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-1-predicate
-          type: string
-          merge: replace
-        - name: observe_case_audit-attribute-1-subject
-          type: string
-          merge: replace
-        - name: load_case_state-route
-          type: string
-          merge: replace
-        - name: route_case-route
-          type: string
-          merge: replace
-        - name: generate_game_master-route
-          type: string
-          merge: replace
+          - name: game
+            type: object
+            merge: replace
+          - name: context
+            type: string
+            merge: replace
+          - name: private
+            type: string
+            merge: replace
+          - name: feedback
+            type: string
+            merge: replace
+          - name: valid
+            type: boolean
+            merge: replace
+          - name: recalled-memory
+            type: string
+            merge: replace
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: rejected
+            type: string
+            merge: replace
       nodes:
-      - id: initialize-conversation
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
-          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
-          channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          history:
-            from: input.messages
-          fence:
-            from: input.safety_fence
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: load_case_state
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"defaultState\": None, \"existing\": None, \"state\": None}\n\
-          \    _scope0[\"defaultState\"] = {\"phase\": \"investigation\", \"found\": [], \"missing\": [\"method\"\
-          , \"time\", \"route\", \"motive\"], \"next_scene\": \"study_lock\", \"recommended_action\": {\"kind\"\
-          : \"inspect_study_lock\", \"target\": \"study_lock\"}, \"last_action\": \"start\", \"new_badges\": [],\
-          \ \"response_mode\": \"opening\"}\n    def _logical1():\n        value = _get(_values, \"case_progress_state\"\
-          )\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"existing\"] =\
-          \ _logical1()\n    def _logical2():\n        value = _scope0[\"existing\"]\n        if _truth(value):\n\
-          \            return value\n        return {}\n    _scope0[\"state\"] = _assign([{}, _scope0[\"defaultState\"\
-          ], _logical2()])\n    def _expression3():\n        return _get(_scope0[\"state\"], \"found\")\n    def\
-          \ _expression4():\n        return []\n    _scope0[\"state\"][\"found\"] = (_expression3() if _truth((type(_get(_scope0[\"\
-          state\"], \"found\")) == \"list\")) else _expression4())\n    def _expression5():\n        return _get(_scope0[\"\
-          state\"], \"missing\")\n    def _expression6():\n        return _get(_scope0[\"defaultState\"], \"missing\"\
-          )\n    _scope0[\"state\"][\"missing\"] = (_expression5() if _truth((type(_get(_scope0[\"state\"], \"missing\"\
-          )) == \"list\")) else _expression6())\n    _scope0[\"state\"][\"new_badges\"] = []\n    _values[\"case_progress_state\"\
-          ] = _scope0[\"state\"]\n    def _logical7():\n        value = _get(_scope0[\"state\"], \"phase\")\n  \
-          \      if _truth(value):\n            return value\n        return \"investigation\"\n    _values[\"case_status\"\
-          ] = _logical7()\n    def _expression8():\n        return \"solved_chat\"\n    def _expression9():\n  \
-          \      return \"game_master\"\n    _values[\"case_route\"] = (_expression8() if _truth((_get(_scope0[\"\
-          state\"], \"phase\") == \"solved\")) else _expression9())\n    _values[\"case_progress_state_text\"] =\
-          \ json.encode_indent(_scope0[\"state\"], indent=\"  \")\n    return {\"values\": _values, \"channels\"\
-          : _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: load_case_state-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: format_player_action-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = \"You classify the latest\
-          \ user turn for a murder mystery game.\\n\\nOutput exactly one line:\\ncase_action: kind=<kind>; target=<target>\\\
-          n\\nValid kinds:\\n- start\\n- inspect_study_lock\\n- inspect_fireplace\\n- inspect_gramophone\\n- inspect_corridor\\\
-          n- inspect_shen_zhiqiu\\n- inspect_shen_zhiqiu_room\\n- accuse_shen_zhiqiu\\n- ask_detail\\n- other\\\
-          n\\nClassification rules:\\n- Use inspect_study_lock for checking the study, locked door, lock hole, latch,\
-          \ door crack, or thread marks.\\n- Use inspect_fireplace for checking fireplace, wall brick, hidden compartment,\
-          \ or spare key.\\n- Use inspect_gramophone for checking gramophone, record, needle, song, loop, or death\
-          \ time sound.\\n- Use inspect_corridor for checking back corridor, garden path, rain marks, footprints,\
-          \ mud, paint, or route.\\n- Use inspect_shen_zhiqiu for questioning or observing Shen Zhiqiu, her alibi,\
-          \ dress, skirt, or rain stain.\\n- Use inspect_shen_zhiqiu_room for searching Shen Zhiqiu's room, desk,\
-          \ drawer, papers, will, newspaper, motive, family history, or father.\\n- Use accuse_shen_zhiqiu when\
-          \ the user names Shen Zhiqiu as culprit, asks whether she is the culprit, or presents a complete accusation.\\\
-          n- Use ask_detail for follow-up questions about already mentioned evidence, method, route, motive, ending,\
-          \ or contradictions.\\n- Use start for opening/start-game turns.\\n- Use other only when none of the above\
-          \ fits.\\n- The current deterministic state is provided below. If the latest user turn is only a short\
-          \ confirmation of the previously suggested next step, output current_state.recommended_action exactly.\\\
-          n\\nCurrent deterministic state:\\n${board.case_progress_state_text}\\n\\nPattern examples:\\nUser: 我去书房检查门锁和门缝\\\
-          ncase_action: kind=inspect_study_lock; target=study_lock\\nUser: 我去壁炉附近找找有没有藏钥匙的地方\\ncase_action: kind=inspect_fireplace;\
-          \ target=fireplace\\nUser: 我检查留声机，看它是不是能循环播放\\ncase_action: kind=inspect_gramophone; target=gramophone\\\
-          nUser: 我去后廊看有没有脚印或者雨水痕迹\\ncase_action: kind=inspect_corridor; target=back_corridor\\nUser: 我去沈知秋房间看看裙摆和抽屉\\\
-          ncase_action: kind=inspect_shen_zhiqiu_room; target=shen_zhiqiu_room\\nUser: 所以凶手真的是沈知秋吗？\\ncase_action:\
-          \ kind=accuse_shen_zhiqiu; target=shen_zhiqiu\\nUser: 案子结束后，我想问沈知秋最后有没有后悔。\\ncase_action: kind=ask_detail;\
-          \ target=epilogue\\n\\nDo not solve the case. Do not add explanations.\\n\"\n    prompt = prompt.replace('${board.case_progress_state_text}',\
-          \ str(values.get('case_progress_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
-          content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content =\
-          \ message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"\
-          text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"\
-          role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\"\
-          :channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: format_player_action-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: format_player_action
-        type: chat_model
-        model: llm
-        inputs:
+        - id: rules
+          type: script
+          language: starlark
+          entrypoint: run
+          source: |
+            def run(input):
+                game = json.decode(json.encode(input["game"]))
+                text = input["text"]
+                reset = not game or "重新开始" in text
+                if reset:
+                    game = {"found": [], "solved": False, "attempts": 0}
+                # The original case and its four independent evidence requirements.
+                evidence = {
+                    "门锁": ["method_lock", "门锁和门缝有新鲜细线划痕。"],
+                    "门缝": ["method_lock", "门锁和门缝有新鲜细线划痕。"],
+                    "壁炉": ["method_key", "壁炉暗格里有备用钥匙痕迹。"],
+                    "留声机": ["time", "留声机会循环播放，死亡时间被误导。"],
+                    "后廊": ["route", "后廊有湿脚印和雨水路线。"],
+                    "裙摆": ["route", "沈知秋裙摆有未干雨渍。"],
+                    "询问沈知秋": ["route", "沈知秋裙摆有未干雨渍。"],
+                    "沈知秋房间": ["motive", "抽屉里的遗嘱草稿与旧报纸揭示遗产和生父旧仇。"],
+                    "抽屉": ["motive", "抽屉里的遗嘱草稿与旧报纸揭示遗产和生父旧仇。"],
+                    "遗嘱": ["motive", "遗嘱草稿牵涉大半遗产。"],
+                    "旧报纸": ["motive", "旧报纸揭示沈知秋生父与沈鹤年的旧仇。"],
+                }
+                if not game["solved"]:
+                    for location, clue in evidence.items():
+                        if location in text and clue[0] not in game["found"] and any([word in text for word in ["查", "搜", "看", "检查", "调查", "问"]]):
+                            game["found"].append(clue[0])
+                    accusing = any([word in text for word in ["指认", "凶手", "对质"]])
+                    if accusing:
+                        game["attempts"] += 1
+                    found = game["found"]
+                    missing = []
+                    if "method_lock" not in found or "method_key" not in found:
+                        missing.append("密室手法")
+                    if "time" not in found:
+                        missing.append("死亡时间")
+                    if "route" not in found:
+                        missing.append("行动路线")
+                    if "motive" not in found:
+                        missing.append("动机")
+                    if not missing and accusing and "沈知秋" in text:
+                        game["solved"] = True
+                else:
+                    missing = []
+                clues = []
+                seen = []
+                for clue in evidence.values():
+                    if clue[0] in game["found"] and clue[0] not in seen:
+                        seen.append(clue[0])
+                        clues.append(clue[1])
+                context = {"title": "雨夜留声机", "clues": clues, "missing": missing, "solved": game["solved"], "attempts": game["attempts"]}
+                if game["solved"]:
+                    context["culprit"] = "沈知秋"
+                    context["solution"] = "备用钥匙进出书房，细线拉内门闩伪造反锁；循环留声机误导死亡时间；经后廊返回；遗嘱与生父旧仇构成动机。"
+                return {"game": game, "context": json.encode(context), "feedback": "", "valid": True, "private": ""}
+          limits:
+            max_execution_steps: 100000
+            timeout: 1s
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          inputs:
+            game:
+              from: game
+            text:
+              from: input.text
+          outputs:
+            game: game
+            context: context
+            private: private
+            feedback: feedback
+            valid: valid
+        - id: reject
+          type: passthrough
+          inputs:
+            value:
+              from: feedback
+          outputs:
+            value: rejected
+        - id: recall
+          type: memory_recall
+          query_from: input.text
+          output: recalled-memory
+          top_k: 5
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            context:
+              from: context
+            player:
+              from: private
+            memory:
+              from: recalled-memory
+            safety:
+              from: input.safety_fence
+            history:
+              from: input.messages
+          outputs:
+            messages: messages
           messages:
-            from: format_player_action-messages
-        outputs:
-          text: format_player_action-text
-        max_tokens: 2048
-        temperature: 0
-      - id: format_player_action-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    values['case_action_text'] = text\n    return {\"values\"\
-          :values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: format_player_action-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: apply_case_action
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"latestUserText\": None, \"parseAction\": None, \"addBadge\":\
-          \ None, \"has\": None, \"recommendedAction\": None, \"recompute\": None, \"state\": None, \"action\":\
-          \ None, \"userText\": None}\n    def _function1():\n        _scope2 = {\"msgs\": None, \"i\": None, \"\
-          msg\": None, \"parts\": None, \"text\": None}\n        def _logical3():\n            value = _get(_channels,\
-          \ \"main\")\n            if _truth(value):\n                return value\n            return []\n    \
-          \    _scope2[\"msgs\"] = _logical3()\n        for _index4 in range(int((len(_scope2[\"msgs\"]) - 1)),\
-          \ int((0 - 1)), -1):\n            _scope2[\"i\"] = _index4\n            def _logical5():\n           \
-          \     value = _get(_scope2[\"msgs\"], _scope2[\"i\"])\n                if _truth(value):\n           \
-          \         return value\n                return {}\n            _scope2[\"msg\"] = _logical5()\n      \
-          \      if _truth((_get(_scope2[\"msg\"], \"role\") != \"user\")):\n                continue\n        \
-          \    def _logical6():\n                value = (_typeof(_get(_scope2[\"msg\"], \"content\")) == \"string\"\
-          )\n                if not _truth(value):\n                    return value\n                return _get(_scope2[\"\
-          msg\"], \"content\").strip()\n            if _truth(_logical6()):\n                return _get(_scope2[\"\
-          msg\"], \"content\").strip()\n            def _expression7():\n                return _get(_scope2[\"\
-          msg\"], \"parts\")\n            def _expression8():\n                return []\n            _scope2[\"\
-          parts\"] = (_expression7() if _truth((type(_get(_scope2[\"msg\"], \"parts\")) == \"list\")) else _expression8())\n\
-          \            def _function9(part):\n                _scope10 = {\"part\": part}\n                def _logical11():\n\
-          \                    def _logical12():\n                        value = _scope10[\"part\"]\n         \
-          \               if not _truth(value):\n                            return value\n                    \
-          \    return (_get(_scope10[\"part\"], \"type\") == \"text\")\n                    value = _logical12()\n\
-          \                    if not _truth(value):\n                        return value\n                   \
-          \ return (_typeof(_get(_scope10[\"part\"], \"text\")) == \"string\")\n                def _expression13():\n\
-          \                    return _get(_scope10[\"part\"], \"text\")\n                def _expression14():\n\
-          \                    return \"\"\n                return (_expression13() if _truth(_logical11()) else\
-          \ _expression14())\n            _scope2[\"text\"] = \"\".join([_string(_item) for _item in [_function9(_scope2[\"\
-          parts\"][_index]) for _index in range(len(_scope2[\"parts\"]))]]).strip()\n            if _truth(_scope2[\"\
-          text\"]):\n                return _scope2[\"text\"]\n        return \"\"\n    _scope0[\"latestUserText\"\
-          ] = _function1\n    def _function15(line):\n        _scope16 = {\"line\": line, \"text\": None, \"kind\"\
-          : None, \"target\": None}\n        def _logical17():\n            value = _scope16[\"line\"]\n       \
-          \     if _truth(value):\n                return value\n            return \"\"\n        _scope16[\"text\"\
-          ] = _string(_logical17())\n        def _logical18():\n            def _logical19():\n                def\
-          \ _logical20():\n                    value = regex_find(_scope16[\"text\"], (\"kind=([^;\\\\n]+)\", \"\
-          \"))\n                    if _truth(value):\n                        return value\n                  \
-          \  return regex_find(_scope16[\"text\"], (\"case_action:\\\\s*([^;\\\\n]+)\", \"\"))\n               \
-          \ value = _logical20()\n                if _truth(value):\n                    return value\n        \
-          \        return []\n            value = _get(_logical19(), 1)\n            if _truth(value):\n       \
-          \         return value\n            return \"other\"\n        _scope16[\"kind\"] = _logical18()\n    \
-          \    def _logical21():\n            def _logical22():\n                value = regex_find(_scope16[\"\
-          text\"], (\"target=([^;\\\\n]+)\", \"\"))\n                if _truth(value):\n                    return\
-          \ value\n                return []\n            value = _get(_logical22(), 1)\n            if _truth(value):\n\
-          \                return value\n            return \"\"\n        _scope16[\"target\"] = _logical21()\n\
-          \        return {\"kind\": _scope16[\"kind\"].strip(), \"target\": _scope16[\"target\"].strip()}\n   \
-          \ _scope0[\"parseAction\"] = _function15\n    def _function23(state, badge):\n        _scope24 = {\"state\"\
-          : state, \"badge\": badge}\n        if _truth((_index(_get(_scope24[\"state\"], \"found\"), _scope24[\"\
-          badge\"]) >= 0)):\n            return None\n        _get(_scope24[\"state\"], \"found\").append(_scope24[\"\
-          badge\"])\n        _get(_scope24[\"state\"], \"new_badges\").append(_scope24[\"badge\"])\n    _scope0[\"\
-          addBadge\"] = _function23\n    def _function25(state, badge):\n        _scope26 = {\"state\": state, \"\
-          badge\": badge}\n        return (_index(_get(_scope26[\"state\"], \"found\"), _scope26[\"badge\"]) >=\
-          \ 0)\n    _scope0[\"has\"] = _function25\n    def _function27(nextScene):\n        _scope28 = {\"nextScene\"\
-          : nextScene}\n        if _truth((_scope28[\"nextScene\"] == \"study_lock\")):\n            return {\"\
-          kind\": \"inspect_study_lock\", \"target\": \"study_lock\"}\n        if _truth((_scope28[\"nextScene\"\
-          ] == \"fireplace\")):\n            return {\"kind\": \"inspect_fireplace\", \"target\": \"fireplace\"\
-          }\n        if _truth((_scope28[\"nextScene\"] == \"gramophone\")):\n            return {\"kind\": \"inspect_gramophone\"\
-          , \"target\": \"gramophone\"}\n        if _truth((_scope28[\"nextScene\"] == \"corridor\")):\n       \
-          \     return {\"kind\": \"inspect_corridor\", \"target\": \"back_corridor\"}\n        if _truth((_scope28[\"\
-          nextScene\"] == \"shen_zhiqiu_room\")):\n            return {\"kind\": \"inspect_shen_zhiqiu_room\", \"\
-          target\": \"shen_zhiqiu_room\"}\n        if _truth((_scope28[\"nextScene\"] == \"confrontation\")):\n\
-          \            return {\"kind\": \"accuse_shen_zhiqiu\", \"target\": \"shen_zhiqiu\"}\n        def _logical29():\n\
-          \            value = _scope28[\"nextScene\"]\n            if _truth(value):\n                return value\n\
-          \            return \"case\"\n        return {\"kind\": \"ask_detail\", \"target\": _logical29()}\n  \
-          \  _scope0[\"recommendedAction\"] = _function27\n    def _function30(state):\n        _scope31 = {\"state\"\
-          : state, \"hasMethod\": None, \"hasTime\": None, \"hasRoute\": None, \"hasMotive\": None, \"missing\"\
-          : None}\n        def _logical32():\n            value = _scope0[\"has\"](_scope31[\"state\"], \"found_thread_scratch\"\
-          )\n            if not _truth(value):\n                return value\n            return _scope0[\"has\"\
-          ](_scope31[\"state\"], \"found_spare_key_compartment\")\n        _scope31[\"hasMethod\"] = _logical32()\n\
-          \        _scope31[\"hasTime\"] = _scope0[\"has\"](_scope31[\"state\"], \"found_gramophone_loop\")\n  \
-          \      def _logical33():\n            value = _scope0[\"has\"](_scope31[\"state\"], \"found_wet_footprints\"\
-          )\n            if _truth(value):\n                return value\n            return _scope0[\"has\"](_scope31[\"\
-          state\"], \"noticed_wet_skirt\")\n        _scope31[\"hasRoute\"] = _logical33()\n        def _logical34():\n\
-          \            value = _scope0[\"has\"](_scope31[\"state\"], \"found_will_draft\")\n            if _truth(value):\n\
-          \                return value\n            return _scope0[\"has\"](_scope31[\"state\"], \"found_old_newspaper\"\
-          )\n        _scope31[\"hasMotive\"] = _logical34()\n        _scope31[\"missing\"] = []\n        if _truth((not\
-          \ _truth(_scope31[\"hasMethod\"]))):\n            _scope31[\"missing\"].append(\"method\")\n        if\
-          \ _truth((not _truth(_scope31[\"hasTime\"]))):\n            _scope31[\"missing\"].append(\"time\")\n \
-          \       if _truth((not _truth(_scope31[\"hasRoute\"]))):\n            _scope31[\"missing\"].append(\"\
-          route\")\n        if _truth((not _truth(_scope31[\"hasMotive\"]))):\n            _scope31[\"missing\"\
-          ].append(\"motive\")\n        _scope31[\"state\"][\"missing\"] = _scope31[\"missing\"]\n        if _truth((_get(_scope31[\"\
-          state\"], \"phase\") != \"solved\")):\n            def _expression35():\n                return \"accusation_ready\"\
-          \n            def _expression36():\n                return \"investigation\"\n            _scope31[\"\
-          state\"][\"phase\"] = (_expression35() if _truth((len(_scope31[\"missing\"]) == 0)) else _expression36())\n\
-          \        if _truth((_get(_scope31[\"state\"], \"phase\") == \"solved\")):\n            _scope31[\"state\"\
-          ][\"next_scene\"] = \"epilogue\"\n        else:\n            if _truth((_index(_scope31[\"missing\"],\
-          \ \"method\") >= 0)):\n                def _expression37():\n                    return \"fireplace\"\n\
-          \                def _expression38():\n                    return \"study_lock\"\n                _scope31[\"\
-          state\"][\"next_scene\"] = (_expression37() if _truth(_scope0[\"has\"](_scope31[\"state\"], \"found_thread_scratch\"\
-          )) else _expression38())\n            else:\n                if _truth((_index(_scope31[\"missing\"],\
-          \ \"time\") >= 0)):\n                    _scope31[\"state\"][\"next_scene\"] = \"gramophone\"\n      \
-          \          else:\n                    if _truth((_index(_scope31[\"missing\"], \"route\") >= 0)):\n  \
-          \                      _scope31[\"state\"][\"next_scene\"] = \"corridor\"\n                    else:\n\
-          \                        if _truth((_index(_scope31[\"missing\"], \"motive\") >= 0)):\n              \
-          \              _scope31[\"state\"][\"next_scene\"] = \"shen_zhiqiu_room\"\n                        else:\n\
-          \                            _scope31[\"state\"][\"next_scene\"] = \"confrontation\"\n        _scope31[\"\
-          state\"][\"recommended_action\"] = _scope0[\"recommendedAction\"](_get(_scope31[\"state\"], \"next_scene\"\
-          ))\n    _scope0[\"recompute\"] = _function30\n    def _logical39():\n        value = _get(_values, \"\
-          case_progress_state\")\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"\
-          state\"] = _assign([{\"phase\": \"investigation\", \"found\": [], \"missing\": [\"method\", \"time\",\
-          \ \"route\", \"motive\"], \"next_scene\": \"study_lock\", \"recommended_action\": {\"kind\": \"inspect_study_lock\"\
-          , \"target\": \"study_lock\"}}, _logical39()])\n    def _expression40():\n        return _get(_scope0[\"\
-          state\"], \"found\")\n    def _expression41():\n        return []\n    _scope0[\"state\"][\"found\"] =\
-          \ (_expression40() if _truth((type(_get(_scope0[\"state\"], \"found\")) == \"list\")) else _expression41())\n\
-          \    _scope0[\"state\"][\"new_badges\"] = []\n    _scope0[\"action\"] = _scope0[\"parseAction\"](_get(_values,\
-          \ \"case_action_text\"))\n    _scope0[\"userText\"] = _scope0[\"latestUserText\"]()\n    _scope0[\"state\"\
-          ][\"last_action\"] = _get(_scope0[\"action\"], \"kind\")\n    _scope0[\"state\"][\"last_target\"] = _get(_scope0[\"\
-          action\"], \"target\")\n    _scope0[\"state\"][\"latest_user_text\"] = _scope0[\"userText\"]\n    _scope0[\"\
-          state\"][\"response_mode\"] = \"investigation\"\n    if _truth((_get(_scope0[\"action\"], \"kind\") ==\
-          \ \"start\")):\n        _scope0[\"state\"][\"response_mode\"] = \"opening\"\n    else:\n        if _truth((_get(_scope0[\"\
-          action\"], \"kind\") == \"inspect_study_lock\")):\n            _scope0[\"addBadge\"](_scope0[\"state\"\
-          ], \"entered_study\")\n            _scope0[\"addBadge\"](_scope0[\"state\"], \"inspected_door_lock\")\n\
-          \            _scope0[\"addBadge\"](_scope0[\"state\"], \"found_thread_scratch\")\n        else:\n    \
-          \        if _truth((_get(_scope0[\"action\"], \"kind\") == \"inspect_fireplace\")):\n                _scope0[\"\
-          addBadge\"](_scope0[\"state\"], \"inspected_fireplace\")\n                _scope0[\"addBadge\"](_scope0[\"\
-          state\"], \"found_spare_key_compartment\")\n            else:\n                if _truth((_get(_scope0[\"\
-          action\"], \"kind\") == \"inspect_gramophone\")):\n                    _scope0[\"addBadge\"](_scope0[\"\
-          state\"], \"inspected_gramophone\")\n                    _scope0[\"addBadge\"](_scope0[\"state\"], \"\
-          found_gramophone_loop\")\n                else:\n                    if _truth((_get(_scope0[\"action\"\
-          ], \"kind\") == \"inspect_corridor\")):\n                        _scope0[\"addBadge\"](_scope0[\"state\"\
-          ], \"entered_back_corridor\")\n                        _scope0[\"addBadge\"](_scope0[\"state\"], \"found_wet_footprints\"\
-          )\n                    else:\n                        if _truth((_get(_scope0[\"action\"], \"kind\") ==\
-          \ \"inspect_shen_zhiqiu\")):\n                            _scope0[\"addBadge\"](_scope0[\"state\"], \"\
-          questioned_shen_zhiqiu\")\n                            _scope0[\"addBadge\"](_scope0[\"state\"], \"noticed_wet_skirt\"\
-          )\n                        else:\n                            if _truth((_get(_scope0[\"action\"], \"\
-          kind\") == \"inspect_shen_zhiqiu_room\")):\n                                _scope0[\"addBadge\"](_scope0[\"\
-          state\"], \"questioned_shen_zhiqiu\")\n                                _scope0[\"addBadge\"](_scope0[\"\
-          state\"], \"noticed_wet_skirt\")\n                                _scope0[\"addBadge\"](_scope0[\"state\"\
-          ], \"found_will_draft\")\n                                _scope0[\"addBadge\"](_scope0[\"state\"], \"\
-          found_old_newspaper\")\n                            else:\n                                if _truth((_get(_scope0[\"\
-          action\"], \"kind\") == \"accuse_shen_zhiqiu\")):\n                                    _scope0[\"state\"\
-          ][\"response_mode\"] = \"accusation\"\n                                else:\n                       \
-          \             def _logical42():\n                                        value = (_get(_scope0[\"action\"\
-          ], \"kind\") == \"ask_detail\")\n                                        if not _truth(value):\n     \
-          \                                       return value\n                                        return (_get(_scope0[\"\
-          state\"], \"phase\") == \"accusation_ready\")\n                                    if _truth(_logical42()):\n\
-          \                                        _scope0[\"state\"][\"response_mode\"] = \"accusation\"\n    \
-          \                                else:\n                                        _scope0[\"state\"][\"\
-          response_mode\"] = \"guidance\"\n    _scope0[\"recompute\"](_scope0[\"state\"])\n    def _logical43():\n\
-          \        def _logical44():\n            value = (_get(_scope0[\"action\"], \"kind\") == \"accuse_shen_zhiqiu\"\
-          )\n            if _truth(value):\n                return value\n            return (_get(_scope0[\"state\"\
-          ], \"response_mode\") == \"accusation\")\n        value = _logical44()\n        if not _truth(value):\n\
-          \            return value\n        return (_get(_scope0[\"state\"], \"phase\") == \"accusation_ready\"\
-          )\n    if _truth(_logical43()):\n        _scope0[\"state\"][\"phase\"] = \"solved\"\n        _scope0[\"\
-          state\"][\"response_mode\"] = \"finale\"\n        _scope0[\"addBadge\"](_scope0[\"state\"], \"accused_shen_zhiqiu\"\
-          )\n        _scope0[\"addBadge\"](_scope0[\"state\"], \"solved_case\")\n        _scope0[\"recompute\"](_scope0[\"\
-          state\"])\n    else:\n        def _logical45():\n            value = (_get(_scope0[\"state\"], \"phase\"\
-          ) == \"accusation_ready\")\n            if not _truth(value):\n                return value\n        \
-          \    return (_get(_scope0[\"state\"], \"response_mode\") != \"finale\")\n        if _truth(_logical45()):\n\
-          \            _scope0[\"state\"][\"response_mode\"] = \"ready\"\n    _values[\"case_progress_state\"] =\
-          \ _scope0[\"state\"]\n    _values[\"case_status\"] = _get(_scope0[\"state\"], \"phase\")\n    _values[\"\
-          case_action_kind\"] = _get(_scope0[\"action\"], \"kind\")\n    _values[\"case_action_target\"] = _get(_scope0[\"\
-          action\"], \"target\")\n    _values[\"case_progress_state_text\"] = json.encode_indent(_scope0[\"state\"\
-          ], indent=\"  \")\n    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: apply_case_action-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: route_case
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"state\": None}\n    def _logical1():\n        value = _get(_values,\
-          \ \"case_progress_state\")\n        if _truth(value):\n            return value\n        return {}\n \
-          \   _scope0[\"state\"] = _logical1()\n    def _logical2():\n        value = (_get(_scope0[\"state\"],\
-          \ \"phase\") == \"solved\")\n        if not _truth(value):\n            return value\n        return (_get(_scope0[\"\
-          state\"], \"response_mode\") != \"finale\")\n    def _expression3():\n        return \"solved_chat\"\n\
-          \    def _expression4():\n        return \"game_master\"\n    _values[\"case_route\"] = (_expression3()\
-          \ if _truth(_logical2()) else _expression4())\n    return {\"values\": _values, \"channels\": _channels,\
-          \ \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: route_case-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: prepare_game_master_messages
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"latestUserText\": None}\n    def _function1():\n        _scope2\
-          \ = {\"msgs\": None, \"i\": None, \"msg\": None, \"parts\": None, \"text\": None}\n        def _logical3():\n\
-          \            value = _get(_channels, \"main\")\n            if _truth(value):\n                return\
-          \ value\n            return []\n        _scope2[\"msgs\"] = _logical3()\n        for _index4 in range(int((len(_scope2[\"\
-          msgs\"]) - 1)), int((0 - 1)), -1):\n            _scope2[\"i\"] = _index4\n            def _logical5():\n\
-          \                value = _get(_scope2[\"msgs\"], _scope2[\"i\"])\n                if _truth(value):\n\
-          \                    return value\n                return {}\n            _scope2[\"msg\"] = _logical5()\n\
-          \            if _truth((_get(_scope2[\"msg\"], \"role\") != \"user\")):\n                continue\n  \
-          \          def _logical6():\n                value = (_typeof(_get(_scope2[\"msg\"], \"content\")) ==\
-          \ \"string\")\n                if not _truth(value):\n                    return value\n             \
-          \   return _get(_scope2[\"msg\"], \"content\").strip()\n            if _truth(_logical6()):\n        \
-          \        return _get(_scope2[\"msg\"], \"content\").strip()\n            def _expression7():\n       \
-          \         return _get(_scope2[\"msg\"], \"parts\")\n            def _expression8():\n                return\
-          \ []\n            _scope2[\"parts\"] = (_expression7() if _truth((type(_get(_scope2[\"msg\"], \"parts\"\
-          )) == \"list\")) else _expression8())\n            def _function9(part):\n                _scope10 = {\"\
-          part\": part}\n                def _logical11():\n                    def _logical12():\n            \
-          \            value = _scope10[\"part\"]\n                        if not _truth(value):\n             \
-          \               return value\n                        return (_get(_scope10[\"part\"], \"type\") == \"\
-          text\")\n                    value = _logical12()\n                    if not _truth(value):\n       \
-          \                 return value\n                    return (_typeof(_get(_scope10[\"part\"], \"text\"\
-          )) == \"string\")\n                def _expression13():\n                    return _get(_scope10[\"part\"\
-          ], \"text\")\n                def _expression14():\n                    return \"\"\n                return\
-          \ (_expression13() if _truth(_logical11()) else _expression14())\n            _scope2[\"text\"] = \"\"\
-          .join([_string(_item) for _item in [_function9(_scope2[\"parts\"][_index]) for _index in range(len(_scope2[\"\
-          parts\"]))]]).strip()\n            if _truth(_scope2[\"text\"]):\n                return _scope2[\"text\"\
-          ]\n        return \"\"\n    _scope0[\"latestUserText\"] = _function1\n    _channels[\"case_game_master_channel\"\
-          ] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"text\": _scope0[\"latestUserText\"]()}]}]\n\
-          \    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: prepare_game_master_messages-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: generate_game_master-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '你是中文剧本杀《雨夜留声机》的主持人。玩家是侦探，正在沈家大宅调查沈鹤年的密室死亡。\\\
-          n\\n固定真相：\\n- 真凶是沈知秋。\\n- 密室手法：沈知秋使用壁炉暗格里的备用钥匙进出书房，再用细线从门外拉动内侧门闩伪造反锁。\\n- 死亡时间诡计：她让留声机循环播放，制造死者仍在书房活动的假象。\\\
-          n- 行动路线：她从后廊绕回房间，留下湿脚印，裙摆也沾了雨渍。\\n- 动机：遗嘱与旧仇。沈鹤年曾逼死沈知秋的亲生父亲，遗嘱草稿又牵涉大半遗产。\\n\\n固定角色：\\n- 死者：沈鹤年，沈家主人，古董商。\\\
-          n- 沈知秋：沈家养女，年轻女性，真凶。\\n- 陆明远：沈家亲族，嫌疑人。\\n- 白素琴：沈家夫人，嫌疑人。\\n- 周管家：沈家老管家，嫌疑人。\\n- 林医生：沈家私人医生，嫌疑人。\\n- 阿桂：厨房帮工，嫌疑人。\\\
-          n不要改名、改性别、改关系，也不要新增主要嫌疑人。\\n\\n标准控制规则：\\n- workspace case_progress_state 是唯一进度源。\\n- 只能叙述 case_progress_state.new_badges\
-          \ 本轮新增的线索，以及 case_progress_state.found 已经发现过的线索。\\n- 不要自行授予新线索，不要把未在 found 或 new_badges 里的证据提前说成已经发现。\\\
-          n- 如果 response_mode=opening，开场只介绍大厅、死者、嫌疑人，并询问先查哪里。\\n- 如果 response_mode=investigation，按 latest_user_text\
-          \ 和 new_badges 给出本轮搜查结果，然后根据 next_scene 给一个下一步。\\n- 如果 response_mode=guidance，简短回应玩家问题，然后引导到 next_scene。\\\
-          n- 如果 response_mode=ready，说明四类证据已经齐全，把场景推到大厅对质。\\n- 如果 response_mode=finale，确认沈知秋为凶手，复盘 found 里的证据链，并让案件告破。\\\
-          n- 如果证据不足但玩家指认沈知秋，不要揭示真相，只说明还缺哪些类别。\\n- 回复自然中文，一到三段短段落，不输出 JSON、内部字段、节点名或英文。\\n\\nbadge 对应线索：\\n- found_thread_scratch：门锁和门缝有新鲜细线划痕。\\\
-          n- found_spare_key_compartment：壁炉暗格里有备用钥匙痕迹。\\n- found_gramophone_loop：留声机会循环播放，死亡时间被误导。\\n- found_wet_footprints：后廊有湿脚印或雨水路线。\\\
-          n- noticed_wet_skirt：沈知秋裙摆有未干雨渍。\\n- found_will_draft：沈知秋房间抽屉里有遗嘱草稿。\\n- found_old_newspaper：旧报纸揭示沈知秋生父与沈鹤年的旧仇。\\\
-          n\\n下一步提示：\\n- next_scene=study_lock：引导查看书房门锁和门缝。\\n- next_scene=fireplace：引导查看壁炉暗格。\\n- next_scene=gramophone：引导查看留声机。\\\
-          n- next_scene=corridor：引导去后廊找路线痕迹。\\n- next_scene=shen_zhiqiu_room：引导搜沈知秋房间抽屉或动机线索。\\n- next_scene=confrontation：引导大厅对质。\\\
-          n\\n当前状态：\\n${board.case_progress_state_text}\\n'\n    prompt = prompt.replace('${board.case_progress_state_text}',\
-          \ str(values.get('case_progress_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
-          content\":prompt}] if prompt else []\n    for message in channels.get('case_game_master_channel', []):\n\
-          \        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\"\
-          .join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"\
-          ])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return\
-          \ {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: generate_game_master-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: generate_game_master
-        type: chat_model
-        model: llm
-        inputs:
-          messages:
-            from: generate_game_master-messages
-        outputs:
-          text: generate_game_master-text
-        max_tokens: 2048
-      - id: generate_game_master-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
-          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: generate_game_master-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: write_case_audit
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"state\": None, \"phase\": None, \"next\": None, \"found\": None,\
-          \ \"missing\": None, \"nextLead\": None}\n    def _logical1():\n        value = _get(_values, \"case_progress_state\"\
-          )\n        if _truth(value):\n            return value\n        return {}\n    _scope0[\"state\"] = _logical1()\n\
-          \    def _logical2():\n        value = _get(_scope0[\"state\"], \"phase\")\n        if _truth(value):\n\
-          \            return value\n        return \"investigation\"\n    _scope0[\"phase\"] = _logical2()\n  \
-          \  def _expression3():\n        return \"solved_chat\"\n    def _expression4():\n        return \"game_master\"\
-          \n    _scope0[\"next\"] = (_expression3() if _truth((_scope0[\"phase\"] == \"solved\")) else _expression4())\n\
-          \    def _expression5():\n        return _sort(_get(_scope0[\"state\"], \"found\")[:])\n    def _expression6():\n\
-          \        return []\n    _scope0[\"found\"] = (_expression5() if _truth((type(_get(_scope0[\"state\"],\
-          \ \"found\")) == \"list\")) else _expression6())\n    def _logical7():\n        value = (type(_get(_scope0[\"\
-          state\"], \"missing\")) == \"list\")\n        if not _truth(value):\n            return value\n      \
-          \  return len(_get(_scope0[\"state\"], \"missing\"))\n    def _expression8():\n        return _get(_scope0[\"\
-          state\"], \"missing\")\n    def _expression9():\n        return []\n    _scope0[\"missing\"] = (_expression8()\
-          \ if _truth(_logical7()) else _expression9())\n    def _expression10():\n        return \"进入尾声闲聊。\"\n\
-          \    def _expression11():\n        def _expression12():\n            return \"可以到大厅对质。\"\n        def\
-          \ _expression13():\n            def _expression14():\n                return \"继续查书房门锁和门缝。\"\n       \
-          \     def _expression15():\n                def _expression16():\n                    return \"继续查壁炉暗格。\"\
-          \n                def _expression17():\n                    def _expression18():\n                   \
-          \     return \"检查留声机。\"\n                    def _expression19():\n                        def _expression20():\n\
-          \                            return \"去后廊查看路线痕迹。\"\n                        def _expression21():\n   \
-          \                         def _expression22():\n                                return \"搜沈知秋房间抽屉找动机。\"\
-          \n                            def _expression23():\n                                return \"继续调查。\"\n\
-          \                            return (_expression22() if _truth((_get(_scope0[\"state\"], \"next_scene\"\
-          ) == \"shen_zhiqiu_room\")) else _expression23())\n                        return (_expression20() if\
-          \ _truth((_get(_scope0[\"state\"], \"next_scene\") == \"corridor\")) else _expression21())\n         \
-          \           return (_expression18() if _truth((_get(_scope0[\"state\"], \"next_scene\") == \"gramophone\"\
-          )) else _expression19())\n                return (_expression16() if _truth((_get(_scope0[\"state\"],\
-          \ \"next_scene\") == \"fireplace\")) else _expression17())\n            return (_expression14() if _truth((_get(_scope0[\"\
-          state\"], \"next_scene\") == \"study_lock\")) else _expression15())\n        return (_expression12() if\
-          \ _truth((_scope0[\"phase\"] == \"accusation_ready\")) else _expression13())\n    _scope0[\"nextLead\"\
-          ] = (_expression10() if _truth((_scope0[\"phase\"] == \"solved\")) else _expression11())\n    def _logical24():\n\
-          \        value = _get(_scope0[\"state\"], \"next_scene\")\n        if _truth(value):\n            return\
-          \ value\n        return \"\"\n    _values[\"tmp_case_state_line\"] = _add(_add(_add(_add(_add(_add(\"\
-          case_state: status=\", _scope0[\"phase\"]), \"; next=\"), _scope0[\"next\"]), \"; next_scene=\"), _logical24()),\
-          \ \";\")\n    def _expression25():\n        return \",\".join([_string(_item) for _item in _scope0[\"\
-          missing\"]])\n    def _expression26():\n        return \"none\"\n    _values[\"tmp_progress_badges_line\"\
-          ] = _add(_add(_add(_add(_add(_add(_add(\"progress_badges: progress: phase=\", _scope0[\"phase\"]), \"\
-          ; found=\"), \",\".join([_string(_item) for _item in _scope0[\"found\"]])), \"; missing=\"), (_expression25()\
-          \ if _truth(len(_scope0[\"missing\"])) else _expression26())), \"; next=\"), _scope0[\"nextLead\"])\n\
-          \    return {\"values\": _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: write_case_audit-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: solved_chat-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '案件《雨夜留声机》已经破案。\\n\\n你现在只负责尾声闲聊、解释细节、回应玩家关于人物结局、证物去向、留声机后续、凶手心理、遗漏细节的追问。\\\
-          n\\n规则：\\n- 固定死者姓名是沈鹤年，固定真凶姓名是沈知秋。不要改名，不要新增主要角色。\\n- 不要再要求玩家正式指认。\\n- 不要再让玩家搜查、盘问、回到调查流程。\\n- 可以简短复述已破案事实：真凶是沈知秋，密室靠备用钥匙和细线，死亡时间靠留声机循环伪造，路线靠后廊湿脚印和裙摆雨渍，动机是遗产与生父旧仇。\\\
-          n- 回复自然中文，一到三段短段落。\\n\\n当前状态：\\n${board.case_progress_state_text}\\n'\n    prompt = prompt.replace('${board.case_progress_state_text}',\
-          \ str(values.get('case_progress_state_text', \"\") or \"\"))\n    messages = [{\"role\":\"system\",\"\
-          content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content =\
-          \ message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"\
-          text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"\
-          role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\"\
-          :channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: solved_chat-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: solved_chat
-        type: chat_model
-        model: llm
-        inputs:
-          messages:
-            from: solved_chat-messages
-        outputs:
-          text: solved_chat-text
-        max_tokens: 2048
-      - id: solved_chat-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"\
-          assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: solved_chat-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: observe_case_audit-prepare-0
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    fact_0 = str(values.get('tmp_case_state_line', \"\") or \"\")\n    fact_1 = str(values.get('tmp_progress_badges_line',\
-          \ \"\") or \"\")\n    return {\"values\":values,\"channels\":channels,'fact-0':fact_0,'attribute-0-lane':'case-state','attribute-0-kind':'state','attribute-0-predicate':'status','attribute-0-subject':'case_state','fact-1':fact_1,'attribute-1-lane':'progress-badges','attribute-1-kind':'state','attribute-1-predicate':'progress','attribute-1-subject':'progress_badges'}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-          fact-0: observe_case_audit-fact-0
-          attribute-0-lane: observe_case_audit-attribute-0-lane
-          attribute-0-kind: observe_case_audit-attribute-0-kind
-          attribute-0-predicate: observe_case_audit-attribute-0-predicate
-          attribute-0-subject: observe_case_audit-attribute-0-subject
-          fact-1: observe_case_audit-fact-1
-          attribute-1-lane: observe_case_audit-attribute-1-lane
-          attribute-1-kind: observe_case_audit-attribute-1-kind
-          attribute-1-predicate: observe_case_audit-attribute-1-predicate
-          attribute-1-subject: observe_case_audit-attribute-1-subject
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: observe_case_audit
-        type: memory_observe
-        wait_for_completion: true
-        facts:
-        - text_from: observe_case_audit-fact-0
-          attributes:
-            lane: observe_case_audit-attribute-0-lane
-            kind: observe_case_audit-attribute-0-kind
-            predicate: observe_case_audit-attribute-0-predicate
-            subject: observe_case_audit-attribute-0-subject
-        - text_from: observe_case_audit-fact-1
-          attributes:
-            lane: observe_case_audit-attribute-1-lane
-            kind: observe_case_audit-attribute-1-kind
-            predicate: observe_case_audit-attribute-1-predicate
-            subject: observe_case_audit-attribute-1-subject
-      - id: load_case_state-route
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('case_route') == \"solved_chat\"\
-          :\n        return {\"route\":'solved_chat-prompt'}\n    if values.get('case_route') == \"game_master\"\
-          :\n        return {\"route\":'format_player_action-prompt'}\n    return {\"route\":'end'}\n"
-        inputs:
-          values:
-            from: values
-        outputs:
-          route: load_case_state-route
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: route_case-route
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('case_route') == \"solved_chat\"\
-          :\n        return {\"route\":'solved_chat-prompt'}\n    if values.get('case_route') == \"game_master\"\
-          :\n        return {\"route\":'prepare_game_master_messages'}\n    return {\"route\":'end'}\n"
-        inputs:
-          values:
-            from: values
-        outputs:
-          route: route_case-route
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: generate_game_master-route
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = input[\"values\"]\n    if values.get('case_status') != \"solved\"\
-          :\n        return {\"route\":'write_case_audit'}\n    if values.get('case_status') == \"solved\":\n  \
-          \      return {\"route\":'write_case_audit'}\n    return {\"route\":'end'}\n"
-        inputs:
-          values:
-            from: values
-        outputs:
-          route: generate_game_master-route
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
+            - role: system
+              template: |-
+                你是轻松友好的解谜主持人。主持《雨夜留声机》：侦探在沈家大宅调查古董商沈鹤年的密室死亡。角色有养女沈知秋、亲族陆明远、夫人白素琴、周管家、林医生和厨房帮工阿桂。引导调查门锁、壁炉、留声机、后廊和沈知秋房间，逐步描述已经取得的线索。只有 solved 为 true 才宣布破案；其后可以自由复盘。不要提前泄露未发现的线索或把模型推测当作规则结果。
+
+                当前规则状态（这是权威结果，不得修改或另行判定）：
+                {context}
+                玩家自己的私密信息：{player}
+                长期记忆：{memory}
+                {safety}
+            - placeholder: history
+              optional: true
+        - id: host
+          type: chat_model
+          model: llm
+          max_tokens: 2048
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: remember
+          type: memory_observe
+          text_from: context
+          wait_for_completion: true
       edges:
-      - from: start
-        to: initialize-conversation
-      - from: format_player_action-prompt
-        to: format_player_action
-      - from: format_player_action
-        to: format_player_action-capture
-      - from: generate_game_master-prompt
-        to: generate_game_master
-      - from: generate_game_master
-        to: generate_game_master-capture
-      - from: solved_chat-prompt
-        to: solved_chat
-      - from: solved_chat
-        to: solved_chat-capture
-      - from: observe_case_audit-prepare-0
-        to: observe_case_audit
-      - from: initialize-conversation
-        to: load_case_state
-      - from: load_case_state
-        to: load_case_state-route
-      - from: format_player_action-capture
-        to: apply_case_action
-      - from: apply_case_action
-        to: route_case
-      - from: route_case
-        to: route_case-route
-      - from: prepare_game_master_messages
-        to: generate_game_master-prompt
-      - from: generate_game_master-capture
-        to: generate_game_master-route
-      - from: write_case_audit
-        to: observe_case_audit-prepare-0
-      - from: solved_chat-capture
-        to: write_case_audit
-      - from: observe_case_audit
-        to: end
+        - from: start
+          to: rules
+        - from: reject
+          to: end
+        - from: recall
+          to: prompt
+        - from: prompt
+          to: host
+        - from: host
+          to: remember
+        - from: remember
+          to: end
       branches:
-      - from: load_case_state-route
-        mode: first_match
-        routes:
-        - when:
-            field: load_case_state-route
-            op: eq
-            value: solved_chat-prompt
-          to: solved_chat-prompt
-        - when:
-            field: load_case_state-route
-            op: eq
-            value: format_player_action-prompt
-          to: format_player_action-prompt
-        default: end
-      - from: route_case-route
-        mode: first_match
-        routes:
-        - when:
-            field: route_case-route
-            op: eq
-            value: solved_chat-prompt
-          to: solved_chat-prompt
-        - when:
-            field: route_case-route
-            op: eq
-            value: prepare_game_master_messages
-          to: prepare_game_master_messages
-        default: end
-      - from: generate_game_master-route
-        mode: first_match
-        routes:
-        - when:
-            field: generate_game_master-route
-            op: eq
-            value: write_case_audit
-          to: write_case_audit
-        - when:
-            field: generate_game_master-route
-            op: eq
-            value: write_case_audit
-          to: write_case_audit
-        default: end
+        - from: rules
+          mode: first_match
+          routes:
+            - when:
+                field: valid
+                op: eq
+                value: false
+              to: reject
+          default: recall
       outputs:
-      - node: generate_game_master
-        field: generate_game_master-text
-        name: generate_game_master
-        mime_type: text/plain
-        primary: true
-      - node: solved_chat
-        field: solved_chat-text
-        name: solved_chat
-        mime_type: text/plain
+        - node: host
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
+        - node: reject
+          field: rejected
+          name: rejected
+          mime_type: text/plain
     state_persistence:
       fields:
-      - values
-      - channels
+        - game
+    conversation:
+      starts: peer
     voice_adapter:
       asr_model: asr
       default_voice: narrator
       node_voices:
-        generate_game_master: narrator
-        solved_chat: narrator
-    conversation:
-      starts: peer
+        host: narrator
+        reject: narrator

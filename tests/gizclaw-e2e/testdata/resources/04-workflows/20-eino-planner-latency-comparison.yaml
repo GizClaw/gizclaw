@@ -9,507 +9,149 @@ spec:
   memory: default-memory
   eino:
     graph:
-      name: Complex Workflow Latency Comparison
+      name: eino-planner-latency-comparison
       compile:
         node_trigger_mode: any_predecessor
-        max_run_steps: 160
-        primary_output_mode: first_output
       state:
         fields:
-        - name: values
-          type: object
-          merge: replace
-        - name: channels
-          type: object
-          merge: replace
-        - name: recall-memory-query
-          type: string
-          merge: replace
-        - name: recall-memory-recalled
-          type: string
-          merge: replace
-        - name: capture-input-text
-          type: string
-          merge: replace
-        - name: planner-prompt-text
-          type: string
-          merge: replace
-        - name: planner-model-messages
-          type: messages
-          merge: replace
-        - name: planner-model-text
-          type: string
-          merge: replace
-        - name: answer-prompt-text
-          type: string
-          merge: replace
-        - name: answer-model-messages
-          type: messages
-          merge: replace
-        - name: answer-model-text
-          type: string
-          merge: replace
-        - name: observe-turn-fact-0
-          type: string
-          merge: replace
-        - name: observe-turn-fact-1
-          type: string
-          merge: replace
-        - name: completion-barrier-text
-          type: string
-          merge: replace
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: user-text
+            type: string
+            merge: replace
+          - name: recalled-memory
+            type: string
+            merge: replace
+          - name: memory-turns
+            type: messages
+            merge: replace
+          - name: planner-messages
+            type: messages
+            merge: replace
+          - name: plan
+            type: string
+            merge: replace
       nodes:
-      - id: initialize-conversation
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"input\"\
-          ] = input[\"text\"]\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"\
-          channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          history:
-            from: input.messages
-          fence:
-            from: input.safety_fence
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: recall-memory-query
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    query = input[\"text\"]\n    return {\"values\":values,\"channels\":channels,\"query\"\
-          :query}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-          query: recall-memory-query
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: recall-memory
-        type: memory_recall
-        query_from: recall-memory-query
-        output: recall-memory-recalled
-        top_k: 5
-      - id: recall-memory-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    recalled = input[\"recalled\"]\n    values['recalled-memory'] = recalled\n    return\
-          \ {\"values\":values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          recalled:
-            from: recall-memory-recalled
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: capture-input
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"messages\": None, \"inputText\": None, \"i\": None, \"message\"\
-          : None, \"parts\": None}\n    def _logical1():\n        value = _get(_channels, \"main\")\n        if\
-          \ _truth(value):\n            return value\n        return []\n    _scope0[\"messages\"] = _logical1()\n\
-          \    _scope0[\"inputText\"] = \"\"\n    for _index2 in range(int((len(_scope0[\"messages\"]) - 1)), int((0\
-          \ - 1)), -1):\n        _scope0[\"i\"] = _index2\n        def _logical3():\n            value = _get(_scope0[\"\
-          messages\"], _scope0[\"i\"])\n            if _truth(value):\n                return value\n          \
-          \  return {}\n        _scope0[\"message\"] = _logical3()\n        if _truth((_get(_scope0[\"message\"\
-          ], \"role\") != \"user\")):\n            continue\n        def _logical4():\n            value = (_typeof(_get(_scope0[\"\
-          message\"], \"content\")) == \"string\")\n            if not _truth(value):\n                return value\n\
-          \            return _get(_scope0[\"message\"], \"content\").strip()\n        if _truth(_logical4()):\n\
-          \            _scope0[\"inputText\"] = _get(_scope0[\"message\"], \"content\").strip()\n            break\n\
-          \        def _expression5():\n            return _get(_scope0[\"message\"], \"parts\")\n        def _expression6():\n\
-          \            return []\n        _scope0[\"parts\"] = (_expression5() if _truth((type(_get(_scope0[\"message\"\
-          ], \"parts\")) == \"list\")) else _expression6())\n        def _function7(part):\n            _scope8\
-          \ = {\"part\": part}\n            def _logical9():\n                def _logical10():\n              \
-          \      value = _scope8[\"part\"]\n                    if not _truth(value):\n                        return\
-          \ value\n                    return (_get(_scope8[\"part\"], \"type\") == \"text\")\n                value\
-          \ = _logical10()\n                if not _truth(value):\n                    return value\n          \
-          \      return (_typeof(_get(_scope8[\"part\"], \"text\")) == \"string\")\n            def _expression11():\n\
-          \                return _get(_scope8[\"part\"], \"text\")\n            def _expression12():\n        \
-          \        return \"\"\n            return (_expression11() if _truth(_logical9()) else _expression12())\n\
-          \        _scope0[\"inputText\"] = \"\".join([_string(_item) for _item in [_function7(_scope0[\"parts\"\
-          ][_index]) for _index in range(len(_scope0[\"parts\"]))]]).strip()\n        if _truth(_scope0[\"inputText\"\
-          ]):\n            break\n    _values[\"captured-input\"] = _scope0[\"inputText\"]\n    return {\"values\"\
-          : _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: capture-input-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: planner-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {}\n    def _logical1():\n        value = _get(_values, \"captured-input\"\
-          )\n        if _truth(value):\n            return value\n        return \"\"\n    _channels[\"planner-messages\"\
-          ] = [{\"role\": \"user\", \"parts\": [{\"type\": \"text\", \"text\": _logical1()}]}]\n    return {\"values\"\
-          : _values, \"channels\": _channels, \"text\": \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: planner-prompt-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: planner-model-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '请把用户请求归纳成一个不超过二十个汉字的执行计划。只输出计划，不要解释。'\n\
-          \    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('planner-messages',\
-          \ []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content\
-          \ = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") ==\
-          \ \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n\
-          \    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: planner-model-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: planner-model
-        type: chat_model
-        model: llm
-        inputs:
+        - id: capture-input
+          type: passthrough
+          inputs:
+            value:
+              from: input.text
+          outputs:
+            value: user-text
+        - id: recall
+          type: memory_recall
+          query_from: user-text
+          output: recalled-memory
+          top_k: 5
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+            memory:
+              from: recalled-memory
+            plan:
+              from: plan
+          outputs:
+            messages: messages
           messages:
-            from: planner-model-messages
-        outputs:
-          text: planner-model-text
-        max_tokens: 64
-        temperature: 0
-      - id: planner-model-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    values['plan'] = text\n    return {\"values\":values,\"\
-          channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: planner-model-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: answer-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def _get(value, key):\n    if type(value) == \"dict\":\n        return value.get(key)\n    if type(value)\
-          \ in [\"list\", \"string\"] and type(key) in [\"int\", \"float\"]:\n        index = int(key)\n       \
-          \ return value[index] if index >= 0 and index < len(value) else None\n    return None\n\ndef _truth(value):\n\
-          \    if type(value) in [\"dict\", \"list\", \"function\", \"builtin_function_or_method\"]:\n        return\
-          \ True\n    return bool(value)\n\ndef _string(value):\n    if value == None:\n        return \"null\"\n\
-          \    if type(value) == \"bool\":\n        return \"true\" if value else \"false\"\n    if type(value)\
-          \ == \"float\" and value == int(value):\n        return str(int(value))\n    return str(value)\n\ndef\
-          \ _number(value):\n    if value == None or value == \"\" or value == False:\n        return 0\n    if\
-          \ value == True:\n        return 1\n    return float(value) if type(value) == \"string\" else value\n\n\
-          def _add(a, b):\n    return _string(a) + _string(b) if type(a) == \"string\" or type(b) == \"string\"\
-          \ else a + b\n\ndef _index(value, item):\n    if type(value) == \"string\":\n        return value.find(item)\n\
-          \    return value.index(item) if item in value else -1\n\ndef _assign(objects):\n    result = {}\n   \
-          \ for value in objects:\n        if value:\n            result.update(value)\n    return result\n\ndef\
-          \ _sort(items, compare = None):\n    result = []\n    for item in items:\n        position = len(result)\n\
-          \        for index in range(len(result)):\n            less = compare(item, result[index]) < 0 if compare\
-          \ else _string(item) < _string(result[index])\n            if less:\n                position = index\n\
-          \                break\n        result.insert(position, item)\n    items.clear()\n    items.extend(result)\n\
-          \    return items\n\ndef _typeof(value):\n    if type(value) in [\"dict\", \"list\"] or value == None:\n\
-          \        return \"object\"\n    return {\"string\": \"string\", \"bool\": \"boolean\", \"int\": \"number\"\
-          , \"float\": \"number\", \"function\": \"function\"}.get(type(value), \"undefined\")\n\ndef _imul(a, b):\n\
-          \    return ((int(a) * int(b) + 2147483648) % 4294967296) - 2147483648\n\ndef run(input):\n    _values\
-          \ = json.decode(json.encode(input[\"values\"]))\n    _channels = json.decode(json.encode(input[\"channels\"\
-          ]))\n    _emitted = []\n    _scope0 = {\"memory\": None, \"plan\": None}\n    def _logical1():\n     \
-          \   value = _get(_values, \"recalled-memory\")\n        if _truth(value):\n            return value\n\
-          \        return \"\"\n    _scope0[\"memory\"] = _logical1()\n    def _logical2():\n        value = _get(_values,\
-          \ \"plan\")\n        if _truth(value):\n            return value\n        return \"\"\n    _scope0[\"\
-          plan\"] = _logical2()\n    _values[\"answer-system-prompt\"] = \"\\n\".join([_string(_item) for _item\
-          \ in [\"你是一个简短、准确的中文语音助手。\", \"请参考下面的长期记忆和执行计划回答用户；长期记忆为空时忽略。\", _add(\"长期记忆：\\n\", _scope0[\"memory\"\
-          ]), _add(\"执行计划：\\n\", _scope0[\"plan\"]), \"回答只说一句简短中文，不要提及计划或记忆。\"]])\n    def _logical3():\n      \
-          \  value = _get(_values, \"captured-input\")\n        if _truth(value):\n            return value\n  \
-          \      return \"\"\n    _channels[\"answer-messages\"] = [{\"role\": \"user\", \"parts\": [{\"type\":\
-          \ \"text\", \"text\": _logical3()}]}]\n    return {\"values\": _values, \"channels\": _channels, \"text\"\
-          : \"\".join(_emitted)}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-        outputs:
-          values: values
-          channels: channels
-          text: answer-prompt-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: answer-model-prompt
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = '${board.answer-system-prompt}'\n\
-          \    prompt = prompt.replace('${board.answer-system-prompt}', str(values.get('answer-system-prompt', \"\
-          \") or \"\"))\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message\
-          \ in channels.get('answer-messages', []):\n        content = message.get(\"content\", \"\")\n        if\
-          \ not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\"\
-          , []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"\
-          user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          fence:
-            from: input.safety_fence
-        outputs:
-          values: values
-          channels: channels
-          messages: answer-model-messages
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: answer-model
-        type: chat_model
-        model: llm
-        inputs:
+            - role: system
+              template: |-
+                你是简短准确的中文语音助手。依据长期记忆和执行计划回答。只说一句简短中文。
+
+                {safety}
+                可参考长期记忆；为空时忽略：
+                {memory}
+                执行计划：{plan}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
+          model: llm
+          max_tokens: 128
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: memory-turns
+          type: transform
+          operation: build_messages
+          inputs:
+            user:
+              from: user-text
+            assistant:
+              from: answer
+          outputs:
+            messages: memory-turns
           messages:
-            from: answer-model-messages
-        outputs:
-          text: answer-model-text
-        max_tokens: 128
-        temperature: 0
-      - id: answer-model-capture
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    text = input[\"answer\"]\n    values['answer'] = text\n    channels.setdefault(\"main\"\
-          , []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          answer:
-            from: answer-model-text
-        outputs:
-          values: values
-          channels: channels
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: observe-turn-prepare-0
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"\
-          channels\"]))\n    fact_0 = str(values.get('captured-input', \"\") or \"\")\n    fact_1 = str(values.get('answer',\
-          \ \"\") or \"\")\n    return {\"values\":values,\"channels\":channels,'fact-0':fact_0,'fact-1':fact_1}\n"
-        inputs:
-          values:
-            from: values
-          channels:
-            from: channels
-          text:
-            from: input.text
-        outputs:
-          values: values
-          channels: channels
-          fact-0: observe-turn-fact-0
-          fact-1: observe-turn-fact-1
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
-      - id: observe-turn
-        type: memory_observe
-        wait_for_completion: true
-        facts:
-        - text_from: observe-turn-fact-0
-        - text_from: observe-turn-fact-1
-      - id: completion-barrier
-        type: script
-        language: starlark
-        entrypoint: run
-        source: "def run(input):\n    return {\"text\":input[\"text\"]}\n"
-        inputs:
-          text:
-            from: input.text
-        outputs:
-          text: completion-barrier-text
-        limits:
-          max_execution_steps: 1000000
-          timeout: 1s
-          max_input_bytes: 1048576
-          max_output_bytes: 1048576
+            - role: user
+              input: user
+            - role: assistant
+              input: assistant
+        - id: remember
+          type: memory_observe
+          turns_from: memory-turns
+          wait_for_completion: true
+        - id: planner-prompt
+          type: prompt
+          format: f_string
+          inputs:
+            text:
+              from: user-text
+          outputs:
+            messages: planner-messages
+          messages:
+            - role: system
+              template: 把用户请求归纳成不超过二十个汉字的执行计划，只输出计划。
+            - role: user
+              template: "{text}"
+        - id: planner
+          type: chat_model
+          model: llm
+          max_tokens: 64
+          temperature: 0
+          inputs:
+            messages:
+              from: planner-messages
+          outputs:
+            text: plan
       edges:
-      - from: start
-        to: initialize-conversation
-      - from: recall-memory-query
-        to: recall-memory
-      - from: recall-memory
-        to: recall-memory-capture
-      - from: planner-model-prompt
-        to: planner-model
-      - from: planner-model
-        to: planner-model-capture
-      - from: answer-model-prompt
-        to: answer-model
-      - from: answer-model
-        to: answer-model-capture
-      - from: observe-turn-prepare-0
-        to: observe-turn
-      - from: initialize-conversation
-        to: recall-memory-query
-      - from: recall-memory-capture
-        to: capture-input
-      - from: capture-input
-        to: planner-prompt
-      - from: planner-prompt
-        to: planner-model-prompt
-      - from: planner-model-capture
-        to: answer-prompt
-      - from: answer-prompt
-        to: answer-model-prompt
-      - from: answer-model-capture
-        to: observe-turn-prepare-0
-      - from: observe-turn
-        to: completion-barrier
-      - from: completion-barrier
-        to: end
+        - from: start
+          to: capture-input
+        - from: capture-input
+          to: recall
+        - from: prompt
+          to: answer
+        - from: answer
+          to: memory-turns
+        - from: memory-turns
+          to: remember
+        - from: remember
+          to: end
+        - from: recall
+          to: planner-prompt
+        - from: planner-prompt
+          to: planner
+        - from: planner
+          to: prompt
       branches: []
       outputs:
-      - node: answer-model
-        field: answer-model-text
-        name: answer-model
-        mime_type: text/plain
-        primary: true
-    state_persistence:
-      fields:
-      - values
-      - channels
+        - node: answer
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
     voice_adapter:
       asr_model: asr
       default_voice: assistant-voice
       node_voices:
-        answer-model: assistant-voice
-    conversation:
-      starts: peer
+        answer: assistant-voice
