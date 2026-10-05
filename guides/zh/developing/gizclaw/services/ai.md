@@ -91,7 +91,7 @@ Doubao Realtime factory 拥有产品层 precedence，不解释 provider model fa
 
 #### Eino 组合边界
 
-Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owner 的 Model、Voice、Memory alias、SQL State、内部 History 和 Audio Dock。`state_persistence.fields` 显式选择状态字段；`services.agent_host.eino.state_store` 与 `history_store` 分别选择 SQL 和 mutable Log。MemoryLayout 拥有 provider policy，Graph 拥有 Recall/Observe 和 direct Fact 映射。Workspace metadata 提供稳定 Agent identity，完整 RuntimeProfile alias 按 opaque flat key 精确解析。
+Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owner 的 Model、Voice、Memory alias、SQL State、内部 History 和 Audio Dock。`state_persistence.fields` 显式选择状态字段；`services.agent_host.persistence.state_store` 与 `history_store` 分别选择 SQL 和 mutable Log。MemoryLayout 拥有 provider policy，Graph 拥有 Recall/Observe 和 direct Fact 映射。Workspace metadata 提供稳定 Agent identity，完整 RuntimeProfile alias 按 opaque flat key 精确解析。
 
 #### DashScope、Doubao Duplex 与 Eino 边界
 

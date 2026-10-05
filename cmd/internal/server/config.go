@@ -92,13 +92,13 @@ type ProfilingConfig struct {
 // AgentHostConfig binds AgentHost persistence capabilities to logical Stores.
 // A non-nil value selects explicit mode, including when every field is omitted.
 type AgentHostConfig struct {
-	RuntimeStore string               `yaml:"runtime_store"`
-	Eino         *AgentHostEinoConfig `yaml:"eino"`
+	RuntimeStore string                      `yaml:"runtime_store"`
+	Persistence  *AgentHostPersistenceConfig `yaml:"persistence"`
 }
 
-// AgentHostEinoConfig binds Eino persistence capabilities to logical
-// Stores owned by the command-layer Store Registry.
-type AgentHostEinoConfig struct {
+// AgentHostPersistenceConfig binds shared Agent state and internal history to
+// logical Stores owned by the command-layer Store Registry.
+type AgentHostPersistenceConfig struct {
 	StateStore   string `yaml:"state_store"`
 	HistoryStore string `yaml:"history_store"`
 }
@@ -1202,11 +1202,11 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 		if err := validateStoreReference("services.agent_host.runtime_store", cfg.AgentHost.RuntimeStore); err != nil {
 			return err
 		}
-		if cfg.AgentHost.Eino != nil {
-			if err := validateStoreReference("services.agent_host.eino.state_store", cfg.AgentHost.Eino.StateStore); err != nil {
+		if cfg.AgentHost.Persistence != nil {
+			if err := validateStoreReference("services.agent_host.persistence.state_store", cfg.AgentHost.Persistence.StateStore); err != nil {
 				return err
 			}
-			if err := validateStoreReference("services.agent_host.eino.history_store", cfg.AgentHost.Eino.HistoryStore); err != nil {
+			if err := validateStoreReference("services.agent_host.persistence.history_store", cfg.AgentHost.Persistence.HistoryStore); err != nil {
 				return err
 			}
 		}
@@ -1546,7 +1546,7 @@ func validateAgentHostConfigShape(path string, value any) error {
 	}
 	for field := range agentHost {
 		switch field {
-		case "runtime_store", "eino":
+		case "runtime_store", "persistence":
 		default:
 			return fmt.Errorf("server: %s has unknown field %q", path, field)
 		}
@@ -1556,24 +1556,24 @@ func validateAgentHostConfigShape(path string, value any) error {
 			return err
 		}
 	}
-	if einoValue, exists := agentHost["eino"]; exists {
-		if einoValue == nil {
+	if persistenceValue, exists := agentHost["persistence"]; exists {
+		if persistenceValue == nil {
 			return nil
 		}
-		eino, ok := einoValue.(map[string]any)
+		persistence, ok := persistenceValue.(map[string]any)
 		if !ok {
-			return fmt.Errorf("server: %s.eino must be a mapping", path)
+			return fmt.Errorf("server: %s.persistence must be a mapping", path)
 		}
-		for field := range eino {
+		for field := range persistence {
 			switch field {
 			case "state_store", "history_store":
 			default:
-				return fmt.Errorf("server: %s.eino has unknown field %q", path, field)
+				return fmt.Errorf("server: %s.persistence has unknown field %q", path, field)
 			}
 		}
 		for _, field := range []string{"state_store", "history_store"} {
-			if reference, exists := eino[field]; exists {
-				if err := validateFileStoreReference(path+".eino."+field, reference); err != nil {
+			if reference, exists := persistence[field]; exists {
+				if err := validateFileStoreReference(path+".persistence."+field, reference); err != nil {
 					return err
 				}
 			}

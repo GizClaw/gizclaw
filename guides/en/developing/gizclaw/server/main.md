@@ -100,12 +100,15 @@ The main capability groups are:
 | login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
 | `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.workspace.history_store` | `log.mutable` |
-| `services.agent_host.eino.history_store` | `log.mutable` |
+| `services.agent_host.persistence.state_store` | `sql` |
+| `services.agent_host.persistence.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval`, `reconnect_timeout`, `talk_hangover`, and `floor_idle` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
 | `services.system_log.query_store` and Store sinks | immutable Log capability |
 
-Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable Eino History, and unknown fields fail before listeners open.
+Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable internal Agent History, and unknown fields fail before listeners open.
+
+`services.agent_host.persistence` is the sole binding for shared state and internal History. Both references are optional; an Eino Workflow declaring `state_persistence` requires the SQL `state_store`. `services.agent_host.eino` and `services.agent_host.flowcraft` are unknown fields and are rejected even beside `persistence`. Store names are independent of the executor. Keep the same physical connection, History table, and Workspace scope when updating the binding; existing data is not moved, cleared, or rebuilt.
 
 In a multi-Server topology, all Servers may bind Peer, Friend, and Friend Group control-plane Stores to distinct prefixes on one Redis 7.0 connector. `services.peer_run.store` remains mandatory and distinct from `services.peer.store`, but it may use any supported `keyvalue` backend; the Server retains its code-owned `runs` namespace below that binding. Client activation atomically claims an unassigned Peer or verifies the existing fixed Server owner before publishing the connection or starting service work. RuntimeProfile, Workspace, History, Memory, assets, and other runtime Stores remain Server-local; this composition does not provide Workspace routing or failover.
 

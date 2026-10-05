@@ -47,7 +47,7 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 	cfg.Storage["business-db"] = storage.PostgreSQLConfig{DSN: dsn}
 	cfg.Storage["peer-runs-db"] = storage.PostgreSQLConfig{DSN: dsn}
 	cfg.Stores["eino-state"] = stores.Config{Kind: stores.KindSQL, Storage: "business-db"}
-	cfg.Services.AgentHost.Eino = &AgentHostEinoConfig{StateStore: "eino-state"}
+	cfg.Services.AgentHost.Persistence = &AgentHostPersistenceConfig{StateStore: "eino-state"}
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)

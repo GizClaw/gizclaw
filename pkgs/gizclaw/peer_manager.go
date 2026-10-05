@@ -152,7 +152,7 @@ type Manager struct {
 	Contacts     *contact.Server
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server
-	EinoHistory  logstore.MutableStore
+	AgentHistory logstore.MutableStore // Server-owned internal history borrowed by Workflow factories.
 	GraphStateDB *sqlx.DB
 	MemoryRoot   string
 	MemoryStores *memorystore.Registry

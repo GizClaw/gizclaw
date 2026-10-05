@@ -414,15 +414,15 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 				return err
 			}
 		}
-		if eino := cfg.AgentHost.Eino; eino != nil {
-			if eino.StateStore != "" {
-				server.GraphStateDB, err = resolveSQLStore(registry, "services.agent_host.eino.state_store", eino.StateStore)
+		if persistence := cfg.AgentHost.Persistence; persistence != nil {
+			if persistence.StateStore != "" {
+				server.GraphStateDB, err = resolveSQLStore(registry, "services.agent_host.persistence.state_store", persistence.StateStore)
 				if err != nil {
 					return err
 				}
 			}
-			if eino.HistoryStore != "" {
-				server.EinoHistory, err = resolveMutableLogStore(registry, "services.agent_host.eino.history_store", eino.HistoryStore)
+			if persistence.HistoryStore != "" {
+				server.AgentHistory, err = resolveMutableLogStore(registry, "services.agent_host.persistence.history_store", persistence.HistoryStore)
 				if err != nil {
 					return err
 				}

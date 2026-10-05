@@ -91,7 +91,7 @@ The Doubao Realtime factory owns product precedence, not provider model-family m
 
 #### Eino composition boundary
 
-The Eino factory constructs a typed Graph from `spec.eino.graph` and binds the Workspace owner's Model, Voice, and Memory aliases, SQL State, internal History, and Audio Dock. `state_persistence.fields` explicitly selects fields; `services.agent_host.eino.state_store` and `history_store` select SQL and mutable Log. MemoryLayout owns provider policy while Graph owns Recall/Observe and direct Fact mappings. Workspace metadata supplies stable Agent identity; complete RuntimeProfile aliases resolve as exact opaque flat keys.
+The Eino factory constructs a typed Graph from `spec.eino.graph` and binds the Workspace owner's Model, Voice, and Memory aliases, SQL State, internal History, and Audio Dock. `state_persistence.fields` explicitly selects fields; `services.agent_host.persistence.state_store` and `history_store` select SQL and mutable Log. MemoryLayout owns provider policy while Graph owns Recall/Observe and direct Fact mappings. Workspace metadata supplies stable Agent identity; complete RuntimeProfile aliases resolve as exact opaque flat keys.
 
 #### DashScope, Doubao Duplex, and Eino boundaries
 
