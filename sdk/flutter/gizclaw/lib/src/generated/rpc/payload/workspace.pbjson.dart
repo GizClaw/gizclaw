@@ -1762,15 +1762,6 @@ const WorkspaceParameters$json = {
   '1': 'WorkspaceParameters',
   '2': [
     {
-      '1': 'flowcraft_workspace_parameters',
-      '3': 1,
-      '4': 1,
-      '5': 11,
-      '6': '.gizclaw.rpc.v1.FlowcraftWorkspaceParameters',
-      '9': 0,
-      '10': 'flowcraftWorkspaceParameters'
-    },
-    {
       '1': 'doubao_realtime_workspace_parameters',
       '3': 2,
       '4': 1,
@@ -1819,25 +1810,28 @@ const WorkspaceParameters$json = {
   '8': [
     {'1': 'value'},
   ],
+  '9': [
+    {'1': 1, '2': 2},
+  ],
+  '10': ['flowcraft_workspace_parameters'],
 };
 
 /// Descriptor for `WorkspaceParameters`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceParametersDescriptor = $convert.base64Decode(
-    'ChNXb3Jrc3BhY2VQYXJhbWV0ZXJzEnQKHmZsb3djcmFmdF93b3Jrc3BhY2VfcGFyYW1ldGVycx'
-    'gBIAEoCzIsLmdpemNsYXcucnBjLnYxLkZsb3djcmFmdFdvcmtzcGFjZVBhcmFtZXRlcnNIAFIc'
-    'Zmxvd2NyYWZ0V29ya3NwYWNlUGFyYW1ldGVycxKEAQokZG91YmFvX3JlYWx0aW1lX3dvcmtzcG'
-    'FjZV9wYXJhbWV0ZXJzGAIgASgLMjEuZ2l6Y2xhdy5ycGMudjEuRG91YmFvUmVhbHRpbWVXb3Jr'
-    'c3BhY2VQYXJhbWV0ZXJzSABSIWRvdWJhb1JlYWx0aW1lV29ya3NwYWNlUGFyYW1ldGVycxJ9Ci'
-    'Fhc3R0cmFuc2xhdGVfd29ya3NwYWNlX3BhcmFtZXRlcnMYAyABKAsyLy5naXpjbGF3LnJwYy52'
-    'MS5BU1RUcmFuc2xhdGVXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSH2FzdHRyYW5zbGF0ZVdvcmtzcG'
-    'FjZVBhcmFtZXRlcnMSjgEKKGRhc2hfc2NvcGVfcmVhbHRpbWVfd29ya3NwYWNlX3BhcmFtZXRl'
-    'cnMYBSABKAsyNC5naXpjbGF3LnJwYy52MS5EYXNoU2NvcGVSZWFsdGltZVdvcmtzcGFjZVBhcm'
-    'FtZXRlcnNIAFIkZGFzaFNjb3BlUmVhbHRpbWVXb3Jrc3BhY2VQYXJhbWV0ZXJzEpcBCitkb3Vi'
-    'YW9fcmVhbHRpbWVfZHVwbGV4X3dvcmtzcGFjZV9wYXJhbWV0ZXJzGAYgASgLMjcuZ2l6Y2xhdy'
-    '5ycGMudjEuRG91YmFvUmVhbHRpbWVEdXBsZXhXb3Jrc3BhY2VQYXJhbWV0ZXJzSABSJ2RvdWJh'
-    'b1JlYWx0aW1lRHVwbGV4V29ya3NwYWNlUGFyYW1ldGVycxJlChllaW5vX3dvcmtzcGFjZV9wYX'
-    'JhbWV0ZXJzGAcgASgLMicuZ2l6Y2xhdy5ycGMudjEuRWlub1dvcmtzcGFjZVBhcmFtZXRlcnNI'
-    'AFIXZWlub1dvcmtzcGFjZVBhcmFtZXRlcnNCBwoFdmFsdWU=');
+    'ChNXb3Jrc3BhY2VQYXJhbWV0ZXJzEoQBCiRkb3ViYW9fcmVhbHRpbWVfd29ya3NwYWNlX3Bhcm'
+    'FtZXRlcnMYAiABKAsyMS5naXpjbGF3LnJwYy52MS5Eb3ViYW9SZWFsdGltZVdvcmtzcGFjZVBh'
+    'cmFtZXRlcnNIAFIhZG91YmFvUmVhbHRpbWVXb3Jrc3BhY2VQYXJhbWV0ZXJzEn0KIWFzdHRyYW'
+    '5zbGF0ZV93b3Jrc3BhY2VfcGFyYW1ldGVycxgDIAEoCzIvLmdpemNsYXcucnBjLnYxLkFTVFRy'
+    'YW5zbGF0ZVdvcmtzcGFjZVBhcmFtZXRlcnNIAFIfYXN0dHJhbnNsYXRlV29ya3NwYWNlUGFyYW'
+    '1ldGVycxKOAQooZGFzaF9zY29wZV9yZWFsdGltZV93b3Jrc3BhY2VfcGFyYW1ldGVycxgFIAEo'
+    'CzI0LmdpemNsYXcucnBjLnYxLkRhc2hTY29wZVJlYWx0aW1lV29ya3NwYWNlUGFyYW1ldGVyc0'
+    'gAUiRkYXNoU2NvcGVSZWFsdGltZVdvcmtzcGFjZVBhcmFtZXRlcnMSlwEKK2RvdWJhb19yZWFs'
+    'dGltZV9kdXBsZXhfd29ya3NwYWNlX3BhcmFtZXRlcnMYBiABKAsyNy5naXpjbGF3LnJwYy52MS'
+    '5Eb3ViYW9SZWFsdGltZUR1cGxleFdvcmtzcGFjZVBhcmFtZXRlcnNIAFInZG91YmFvUmVhbHRp'
+    'bWVEdXBsZXhXb3Jrc3BhY2VQYXJhbWV0ZXJzEmUKGWVpbm9fd29ya3NwYWNlX3BhcmFtZXRlcn'
+    'MYByABKAsyJy5naXpjbGF3LnJwYy52MS5FaW5vV29ya3NwYWNlUGFyYW1ldGVyc0gAUhdlaW5v'
+    'V29ya3NwYWNlUGFyYW1ldGVyc0IHCgV2YWx1ZUoECAEQAlIeZmxvd2NyYWZ0X3dvcmtzcGFjZV'
+    '9wYXJhbWV0ZXJz');
 
 @$core.Deprecated('Use workspacePutRequestDescriptor instead')
 const WorkspacePutRequest$json = {

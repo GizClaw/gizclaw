@@ -927,7 +927,7 @@ func TestAdminValidateAudioInputResources(t *testing.T) {
 }
 
 func TestAdminValidateSpeakerVoices(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
+	for _, kind := range []string{"eino", "eino-sequential"} {
 		spec, err := os.ReadFile("../../../../tests/gizclaw-e2e/testdata/speaker-segments/" + kind + ".json")
 		if err != nil {
 			t.Fatal(err)

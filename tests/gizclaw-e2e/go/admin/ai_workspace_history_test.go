@@ -4,6 +4,7 @@ package admin_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -177,23 +178,14 @@ func createAdminWorkflowWorkspaceHistory(t *testing.T, env *adminAPIHarness) (st
 	return workspaceName, workspace.Id, texts
 }
 
-// The fixture emits real assistant text; a passthrough node emits no content.
+// The native Eino passthrough publishes the input through the real delivery path.
 func ensureAdminHistoryWorkflow(t *testing.T, env *adminAPIHarness) {
 	t.Helper()
-	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftScriptNode(apitypes.FlowcraftScriptNode{
-		Id: "echo", Type: apitypes.FlowcraftScriptNodeTypeScript, Publish: ptr(true),
-		Config: apitypes.FlowcraftScriptNodeConfig{Source: `host.emit("token", {content: board.getVar("input")});`},
-	}); err != nil {
+	var spec apitypes.WorkflowSpec
+	if err := json.Unmarshal([]byte(`{"driver":"eino","eino":{"graph":{"name":"Admin history echo","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"echo","type":"passthrough","inputs":{"value":{"from":"input.text"}},"outputs":{"value":"answer"}}],"edges":[{"from":"start","to":"echo"},{"from":"echo","to":"end"}],"branches":[],"outputs":[{"node":"echo","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}}`), &spec); err != nil {
 		t.Fatal(err)
 	}
-	body := adminhttp.WorkflowUpsert{Id: adminHistoryWorkflowID, Spec: apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverFlowcraft,
-		Flowcraft: &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{
-			Name: "Admin history echo", Entry: "echo", Nodes: []apitypes.FlowcraftNode{node},
-			Edges: &[]apitypes.FlowcraftEdge{{From: "echo", To: "__end__"}},
-		}},
-	}}
+	body := adminhttp.WorkflowUpsert{Id: adminHistoryWorkflowID, Spec: spec}
 	existing, err := env.api.GetWorkflowWithResponse(env.ctx, adminHistoryWorkflowID)
 	if err != nil {
 		t.Fatal(err)

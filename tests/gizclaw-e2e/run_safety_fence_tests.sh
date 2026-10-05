@@ -25,7 +25,7 @@ resource_paths=(
 	03-models/01-volc-tts.yaml
 	03-models/02-volc-asr.yaml
 	03-models/03-doubao-realtime.yaml
-	03-models/04-doubao-mini-chat.yaml
+	03-models/04-doubao-lite-chat.yaml
 	03-models/09-qwen-realtime.yaml
 	03-models/10-doubao-realtime-duplex.yaml
 	04-workflows/41-safety-fence.yaml

@@ -1,26 +1,8 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
   id: default-memory
 spec:
-  flowcraft:
-    extraction:
-      model: llm
-      mode: two_pass
-      system_prompt: Extract durable identity, preference, relationship, and long-term goal facts.
-      schema_name: durable_memory
-      temperature: 0
-    lanes:
-    - name: owner-profile
-      kind: preference
-      description: Durable facts about the owner.
-      extract: Store stable identity and preference facts only.
-      recall: Use these facts for continuity.
-    graph_enabled: false
-    write:
-      mode: sync
-      tier: general
   mem0:
     custom_instructions: Extract durable identity, preference, relationship, and long-term goal facts.
     custom_categories:

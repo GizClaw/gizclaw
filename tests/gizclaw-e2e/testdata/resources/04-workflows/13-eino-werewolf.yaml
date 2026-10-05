@@ -1,0 +1,670 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-werewolf-game
+spec:
+  driver: eino
+  memory: werewolf-memory
+  eino:
+    graph:
+      name: eino-werewolf-game
+      compile:
+        node_trigger_mode: any_predecessor
+      state:
+        fields:
+          - name: game
+            type: object
+            merge: replace
+          - name: context
+            type: string
+            merge: replace
+          - name: private
+            type: string
+            merge: replace
+          - name: feedback
+            type: string
+            merge: replace
+          - name: official
+            type: string
+            merge: replace
+          - name: public_input
+            type: string
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: valid
+            type: boolean
+            merge: replace
+          - name: audit_due
+            type: boolean
+            merge: replace
+          - name: public_history
+            type: messages
+            merge: replace
+          - name: actors
+            type: list
+            merge: replace
+          - name: replies
+            type: list
+            merge: replace
+          - name: rejected_lines
+            type: integer
+            merge: replace
+      nodes:
+        - id: rules
+          type: script
+          language: starlark
+          entrypoint: run
+          source: |
+            def alive(game):
+                return [seat for seat in range(1, 9) if seat not in game["dead"]]
+
+            def finish(game):
+                if game.get("hunter_pending", False):
+                    return
+                wolves = [seat for seat in alive(game) if game["roles"][str(seat)] == "狼人"]
+                if not wolves:
+                    game["winner"] = "好人"
+                elif len(wolves) >= len(alive(game)) - len(wolves):
+                    game["winner"] = "狼人"
+                if game["winner"]:
+                    game["phase"] = "ended"
+
+            def eliminate(game, seat, cause, actor=0):
+                if seat in alive(game):
+                    game["dead"].append(seat)
+                    game.setdefault("events", []).append({"day": game["day"], "seat": seat, "cause": cause, "actor": actor})
+                    if game["roles"][str(seat)] == "猎人" and cause in ["夜间袭击", "白天放逐"] and not game["hunter_used"]:
+                        if seat == 3:
+                            game["hunter_pending"] = True
+                        else:
+                            choices = [other for other in alive(game) if other != seat]
+                            prior = game["log"][-1]["votes"].get(str(seat), 0) if game["log"] else 0
+                            target = prior if prior in choices else (choices[(seat + game["day"]) % len(choices)] if choices else 0)
+                            game["hunter_used"] = True
+                            if target:
+                                game["dead"].append(target)
+                                game["events"].append({"day": game["day"], "seat": target, "cause": "猎人开枪", "actor": seat})
+
+            def ballot_targets(game):
+                seats = alive(game)
+                votes = {}
+                for seat in seats:
+                    choices = [other for other in seats if other != seat and (game["roles"][str(seat)] != "狼人" or game["roles"][str(other)] != "狼人")]
+                    votes[str(seat)] = choices[(seat + game["day"]) % len(choices)]
+                return votes
+
+            def prepare_night(game):
+                if game["phase"] == "night" and game.get("pending_day", 0) != game["day"]:
+                    victims = [seat for seat in alive(game) if game["roles"][str(seat)] != "狼人"]
+                    game["pending_day"] = game["day"]
+                    game["pending_victim"] = victims[(game["day"] - 1) % len(victims)] if victims else 0
+
+            def end_night(game, victim, saved):
+                wolves = [seat for seat in alive(game) if game["roles"][str(seat)] == "狼人"]
+                if saved:
+                    game["potion_used"] = True
+                lost = victim if victim in alive(game) and wolves and not saved else 0
+                if lost:
+                    eliminate(game, lost, "夜间袭击")
+                game["phase"] = "speech"
+                finish(game)
+                return "天亮了，%s。" % ("无人因袭击出局" if not lost else "%d号因夜间袭击出局" % lost)
+
+            def run(input):
+                game = json.decode(json.encode(input["game"]))
+                text = input["text"].strip().rstrip("。！？!?")
+                previous_phase = game.get("phase", "night") if game else "night"
+                reset = not game or text in ["重新开始", "新一局", "开始新一局", "请重新开始"]
+                if reset:
+                    # Seat 3 belongs to the user. Rotation changes assignments per game;
+                    # the complete role map is persisted and never given to the host model.
+                    seed = now_millis() % 8
+                    deck = ["狼人", "狼人", "预言家", "女巫", "猎人", "平民", "平民", "平民"]
+                    roles = {str(i + 1): deck[(i + seed) % 8] for i in range(8)}
+                    game = {"roles": roles, "dead": [], "day": 1, "phase": "night", "winner": "", "inspection": "", "potion_used": False, "poison_used": False, "hunter_used": False, "inspected_day": 0, "log": [], "events": []}
+                phases = {"night": "夜晚", "speech": "白天发言", "vote": "投票", "ended": "结束"}
+                outcome = "新局开始。" if reset else "本轮尚未执行新行动。"
+                valid = True
+                previous_votes = len(game["log"])
+                previous_events = len(game["events"])
+                farewell = game["phase"] == "ended" and any([word in text for word in ["再见", "告别", "到这里", "到这儿", "拜拜"]]) and not any([word in text for word in ["？", "?", "怎么", "如何", "规则"]])
+                rule_question = game["phase"] == "ended" and "猎人" in text and any([word in text for word in ["开枪", "技能", "带走"]]) and "规则" in text and not any([word in text for word in ["为什么", "为何", "如果", "假如", "当时", "记录"]])
+                prepare_night(game)
+                end_match = regex_find(text, ("(?:^|[，。；])[^，。；]{0,20}(?:继续天亮|结束夜晚|继续旁观|旁观下一轮)(?:$|[^0-9])", ""))
+                ending = (bool(end_match) and not any([word in end_match[0] for word in ["不继续", "不要", "不想", "不能"]])) or text in ["继续", "旁观"]
+                # Only an explicit first-person command selects a target.
+                # Past ballots, questions and negated skills are discussion.
+                match = regex_find(text, ("(?:^|[，。；])[ ]*(?:(?:本轮|这轮|今晚|现在)[ ]*)?(?:(?:我|我们)[ ]*)?(?:(?:本轮|这轮|今晚|现在|选择|决定|要|想要|会|准备|将|明确|直接)[ ]*){0,4}(?:(?:在夜晚|在今晚|在本夜|在本轮|夜里|夜晚|本夜)[ ]*)?(?:把票)?(查验|使用毒药毒杀|使用毒药|毒杀|毒|击杀|袭击|刀|开枪带走|开枪带人|开枪|投票放逐|投票|投给|投|使用解药救下|使用解药救|用解药救下|使用解药|救下|救)[ ]*(?:给|向)?(?:今晚受袭的|受袭的|今晚被刀的|目标为|目标是)?([0-9]+)[ ]*(?:号|座|$)", ""))
+                action = match[1] if match else ""
+                if action == "袭击":
+                    action = "刀"
+                elif action in ["投票放逐", "投"]:
+                    action = "投票"
+                elif action in ["使用毒药毒杀", "使用毒药", "毒杀"]:
+                    action = "毒"
+                elif action in ["使用解药救下", "使用解药救", "用解药救下", "使用解药", "救下"]:
+                    action = "救"
+                if action in ["开枪带走", "开枪带人"]:
+                    action = "开枪"
+                target = int(match[2]) if match else 0
+                if text in ["救人", "使用解药", "我选择救人"]:
+                    action = "救"
+                role = game["roles"]["3"]
+                spectating = 3 in game["dead"] and ending and not action
+                if spectating and game.get("hunter_pending", False):
+                    game["hunter_pending"] = False
+                    game["hunter_used"] = True
+                    finish(game)
+                if not reset and game["phase"] == "ended":
+                    outcome = "本局复盘结束，谢谢参与，再见。" if farewell else ("猎人受到夜间袭击或被放逐时触发一次开枪；被女巫毒杀不能开枪。只能选择其他存活座位。玩家猎人可选目标或继续旁观放弃；NPC猎人的开枪结果由法官公示。" if rule_question else "本局已结束，现在只讨论复盘问题。")
+                elif not reset and 3 in game["dead"] and not spectating:
+                    if role == "猎人" and game.get("hunter_pending", False) and not game["hunter_used"] and action == "开枪" and target in alive(game) and target != 3:
+                        eliminate(game, target, "猎人开枪", 3)
+                        game["hunter_used"] = True
+                        game["hunter_pending"] = False
+                        finish(game)
+                        outcome = "猎人带走%d号。" % target
+                    elif not action and not text.startswith("我的发言"):
+                        outcome = "你已出局，本次询问不改变对局；可以询问已公开信息或说‘继续旁观’。"
+                    else:
+                        outcome = "你已经出局，可以旁观或复盘，不能继续投票或夜间行动。"
+                        valid = False
+                elif not reset and game["phase"] == "night":
+                    if target and (target not in alive(game) or (target == 3 and action != "救")):
+                        outcome = "请选择仍存活且不是自己的座位。"
+                        valid = False
+                    elif action == "查验":
+                        if role != "预言家" or not target or game.get("inspected_day", 0) == game["day"]:
+                            outcome = "只有预言家可以每夜查验一次有效目标。"
+                            valid = False
+                        else:
+                            game["inspected_day"] = game["day"]
+                            game["inspection"] = "%d号是%s。" % (target, "狼人" if game["roles"][str(target)] == "狼人" else "好人")
+                            outcome = "查验完成；结果只对你可见。"
+                    elif action == "毒":
+                        if role != "女巫" or game["poison_used"] or not target:
+                            outcome = "毒药行动不合法。"
+                            valid = False
+                        else:
+                            eliminate(game, target, "女巫毒药")
+                            game["poison_used"] = True
+                            finish(game)
+                            outcome = "%d号因女巫毒药出局。" % target
+                            if ending and not game["winner"]:
+                                outcome += end_night(game, game["pending_victim"], False)
+                    elif action in ["击杀", "刀"] and (role != "狼人" or not target):
+                        outcome = "你的身份是%s；只有狼人可以发动袭击，并且需要明确目标。" % role
+                        valid = False
+                    elif action in ["击杀", "刀"] and game["roles"].get(str(target)) == "狼人":
+                        choices = [str(seat) + "号" for seat in alive(game) if game["roles"][str(seat)] != "狼人"]
+                        outcome = "私密提示（仅你可见）：%d号是你的狼人同伴，不能袭击同伴。可选择%s。" % (target, "、".join(choices))
+                        valid = False
+                    elif action == "救" and (role != "女巫" or game["potion_used"]):
+                        outcome = "解药行动不合法。"
+                        valid = False
+                    elif action == "救" and target and target != game["pending_victim"]:
+                        outcome = "解药只能救今晚受袭的%d号，请确认目标。" % game["pending_victim"]
+                        valid = False
+                    elif ending or action in ["击杀", "刀", "救"]:
+                        victim = target if role == "狼人" and action in ["击杀", "刀"] else game["pending_victim"]
+                        saved = role == "女巫" and action == "救" and not game["potion_used"]
+                        outcome = ("解药已使用，%d号获救。" % victim if saved else "") + end_night(game, victim, saved)
+                    else:
+                        outcome = "现在是夜晚，请选择符合自己身份的行动，或说继续天亮。"
+                elif not reset and game["phase"] == "speech":
+                    if action in ["投票", "投给"]:
+                        outcome = "请先完成白天发言，再进入投票。"
+                        valid = False
+                    else:
+                        game["phase"] = "vote"
+                        outcome = "本轮公开交流后由存活NPC投票；你仅旁观，无需提交个人投票。" if spectating else "你的发言已记录。可以继续追问NPC理由，或明确投票给一个座位。"
+                elif not reset and game["phase"] == "vote":
+                    if not spectating and action not in ["投票", "投给"]:
+                        outcome = "请先交流投票理由，确认后以‘投票N号’提交本轮选择。"
+                    elif not spectating and (not target or target not in alive(game) or target == 3):
+                        outcome = "请投票给仍存活且不是自己的座位。"
+                        valid = False
+                    else:
+                        # NPC ballots are reproducible and exclude each voter's own seat.
+                        # Ties produce no exile; only the reducer tallies and advances.
+                        seats = alive(game)
+                        votes = ballot_targets(game)
+                        counts = {}
+                        if not spectating:
+                            votes["3"] = target
+                        for chosen in votes.values():
+                            counts[str(chosen)] = counts.get(str(chosen), 0) + 1
+                        peak = max(counts.values())
+                        winners = [int(seat) for seat in counts if counts[seat] == peak]
+                        exiled = winners[0] if len(winners) == 1 else 0
+                        game["log"].append({"day": game["day"], "votes": votes, "counts": counts, "exiled": exiled})
+                        if exiled:
+                            eliminate(game, exiled, "白天放逐")
+                        finish(game)
+                        outcome = "%d号被放逐。" % exiled if exiled else "投票平票，本轮无人被放逐。"
+                        if not game["winner"]:
+                            game["day"] += 1
+                            game["phase"] = "night"
+                            outcome += "进入第%d夜。" % game["day"]
+                prepare_night(game)
+                for event in game["events"][previous_events:]:
+                    if event["cause"] == "猎人开枪":
+                        outcome += "%d号猎人开枪带走%d号。" % (event["actor"], event["seat"])
+                if game["winner"] and previous_phase != "ended":
+                    outcome += "%s阵营获胜。" % game["winner"]
+                if not valid:
+                    outcome += " 当前是%s阶段。" % phases[game["phase"]]
+                    outcome += "请先说‘我的发言：’并说明理由。" if game["phase"] == "speech" else ("请说‘投票N号’。" if game["phase"] == "vote" else "可说‘继续天亮’或出局后‘继续旁观’。")
+                game["next_votes"] = ballot_targets(game) if game["phase"] in ["speech", "vote"] and not game.get("hunter_pending", False) else {}
+                public_outcome = "夜间行动被拒绝，请查看私密提示。" if outcome.startswith("私密提示") else outcome
+                public = {"day": game["day"], "phase": game["phase"], "alive": alive(game), "dead": game["dead"], "winner": game["winner"], "outcome": public_outcome, "events": game.get("events", []), "votes": game["log"][-1:], "farewell": farewell, "answered": rule_question}
+                if game["log"]:
+                    ballot = game["log"][-1]
+                    votes_text = "；".join(["%s号投给%d号" % (seat, chosen) for seat, chosen in ballot["votes"].items()])
+                    counts_text = "；".join(["%s号%d票" % (seat, count) for seat, count in ballot["counts"].items()])
+                    public["ballot_statement"] = "第%d天实际公示：%s。实际票数：%s。总计%d票。%s。" % (ballot["day"], votes_text, counts_text, len(ballot["votes"]), "%d号被放逐" % ballot["exiled"] if ballot["exiled"] else "平票，无人被放逐")
+                if game["winner"]:
+                    wolves = [seat for seat in alive(game) if game["roles"][str(seat)] == "狼人"]
+                    public["resolution"] = "存活狼人%d人，存活好人%d人。" % (len(wolves), len(alive(game)) - len(wolves))
+                if game["winner"]:
+                    public["host_instruction"] = "对局已经结束，不得重演夜晚或投票。复盘只回答当轮问题，不重述整局；道别仅用一句话，不再描写离场、挥手、楼道或重邀新局。"
+                private = "你的身份：%s。%s" % (role, game["inspection"])
+                if role == "女巫":
+                    private += "技能状态：解药%s；毒药%s。" % ("已用" if game["potion_used"] else "未用", "已用" if game["poison_used"] else "未用")
+                if role == "狼人":
+                    partners = [str(seat) + "号" for seat in range(1, 9) if seat != 3 and game["roles"][str(seat)] == "狼人"]
+                    private += "你的狼人同伴是%s；这是狼队私密信息，其他NPC不知道。" % "、".join(partners)
+                    if game["phase"] == "night" and 3 in alive(game):
+                        choices = [str(seat) + "号" for seat in alive(game) if game["roles"][str(seat)] != "狼人"]
+                        private += "今晚可袭击%s。" % "、".join(choices)
+                if role == "女巫" and game["phase"] == "night" and 3 in alive(game) and not game["potion_used"]:
+                    private += "今晚受袭目标为%d号；可以说‘救人’使用解药。" % game.get("pending_victim", 0)
+                audit_due = bool(game["winner"]) and not game.get("audit_written", False)
+                commands = {"night": "请选择本身份允许的行动，或说‘继续天亮’。", "speech": "请公开发言，说明怀疑与理由。", "vote": "请明确说‘投票N号’，也可以先追问理由。", "ended": "本局已结束，可以复盘或告别。"}
+                seats = "、".join([str(seat) + "号" for seat in alive(game)])
+                official = "【法官公示】%s\n当前第%d%s；存活座位：%s。" % (outcome, game["day"], "夜" if game["phase"] == "night" else "天", seats)
+                official += " 当前阶段：%s。" % phases[game["phase"]]
+                if reset:
+                    official += "\n座位：1号林知、2号阿澈、3号你、4号小满、5号周岚、6号陈医生、7号老赵、8号苏禾。"
+                if len(game["log"]) > previous_votes:
+                    official += "\n放逐前参与本轮投票的存活座位：" + "、".join([seat + "号" for seat in game["log"][-1]["votes"].keys()]) + "。以下票数属于放逐前，当前存活名单属于放逐后。"
+                    official += "\n" + public["ballot_statement"]
+                if game["winner"]:
+                    official += "\n" + public["resolution"]
+                    if previous_phase != "ended" or any([word in text for word in ["身份", "底牌"]]):
+                        official += "\n身份揭晓（本局已结束）：" + "、".join(["%d号%s" % (seat, game["roles"][str(seat)]) for seat in range(1, 9)])
+                    official += "\n已发生的出局记录：" + "；".join(["第%d天%d号因%s出局" % (event["day"], event["seat"], event["cause"]) for event in game.get("events", [])])
+                if not game["winner"]:
+                    official += "\n私密提示（仅你可见）：" + private
+                instruction = commands[game["phase"]]
+                if 3 not in alive(game) and not game["winner"]:
+                    instruction = "你已经出局，不能发言、投票或用药；请说‘继续旁观’。"
+                    if role == "猎人" and game.get("hunter_pending", False) and not game["hunter_used"]:
+                        instruction += "猎人还可使用一次‘开枪N号’。"
+                if not farewell:
+                    official += "\n" + instruction
+                # Complete roles stay private; Memory observes public results only.
+                public_input = text if previous_phase in ["speech", "vote", "ended"] or (3 not in alive(game) and not action) else "请围绕当前公开局面给出一句建议；玩家的夜间操作和私密信息不对NPC开放。"
+                return {"game": game, "context": json.encode(public), "feedback": outcome, "valid": valid, "private": private, "official": official, "public_input": public_input, "audit_due": audit_due, "actors": [], "replies": []}
+          limits:
+            max_execution_steps: 100000
+            timeout: 1s
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          inputs:
+            game:
+              from: game
+            text:
+              from: input.text
+          outputs:
+            game: game
+            context: context
+            private: private
+            feedback: feedback
+            valid: valid
+            official: official
+            public_input: public_input
+            audit_due: audit_due
+            actors: actors
+            replies: replies
+        - id: public-history
+          type: script
+          language: starlark
+          entrypoint: run
+          source: |
+            def run(input):
+                messages = []
+                public_turn = False
+                names = ["林知", "阿澈", "小满", "周岚", "陈医生", "老赵", "苏禾"]
+                for message in input["history"]:
+                    text = message.get("content", "")
+                    if message.get("role") == "assistant":
+                        phase = regex_find(text, ("当前阶段：(夜晚|白天发言|投票|结束)", ""))
+                        if phase:
+                            public_turn = phase[1] in ["白天发言", "投票", "结束"]
+                        for name in names:
+                            text = text.replace("【" + name + "】", "\n【" + name + "】")
+                        lines = [line for line in text.splitlines() if any([line.startswith("【" + name + "】") for name in names])]
+                        if lines:
+                            messages.append({"role": "assistant", "content": "\n".join(lines)})
+                    elif message.get("role") == "user" and public_turn and text:
+                        messages.append({"role": "user", "content": "玩家3号：" + text})
+                return {"history": messages[-12:]}
+          limits:
+            max_execution_steps: 100000
+            timeout: 1s
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          inputs:
+            history:
+              from: history.messages
+          outputs:
+            history: public_history
+        - id: roles
+          type: script
+          language: starlark
+          entrypoint: run
+          source: |
+            def run(input):
+                game = input["game"]
+                public = json.decode(input["context"])
+                names = {"1": "林知", "2": "阿澈", "4": "小满", "5": "周岚", "6": "陈医生", "7": "老赵", "8": "苏禾"}
+                styles = {"1":"冷静严谨，引用已出现的原话对照事实，先区分证据与猜测再回应","2":"直率急性子，用短句反问推理漏洞；发现自己错误时坦率认错","4":"温和谨慎，先承认对方合理的一点，再用商量语气提出另一种解释","5":"果断敢冒险，明确支持或反对当前建议，说明自己愿意承担的判断风险","6":"细致，围绕一条已发生的行动分析因果，不重复上一位的疑点","7":"务实，要求观点落实为可检验的选择，直说当前最缺的证据","8":"善于比较两个玩家或两个时点的公开表现，指出具体差别"}
+                text = input["text"]
+                ended = public["phase"] == "ended"
+                farewell = public.get("farewell", False)
+                items = []
+                if public["phase"] != "night" and not farewell and not public.get("answered", False):
+                    available = [seat for seat in range(1, 9) if seat != 3 and (ended or seat in public["alive"])]
+                    selected = []
+                    # Explicit addressees precede seats merely mentioned as suspects.
+                    request = regex_find(text, ("(?:请问|问问|追问|想问|询问|听听|想听|请|听|让|那么|那|至于|关于)([^，。；？?：:]{1,32})", ""))
+                    addressees = request[1] if request else ""
+                    for verb in ["回应", "解释", "分析", "评价", "回答", "说明", "觉得", "说说", "当时", "你", "他", "她", "在第", "怎么", "如何", "有没有", "为什么"]:
+                        addressees = addressees.split(verb)[0]
+                    for seat in available:
+                        if names[str(seat)] in addressees or (str(seat) + "号") in addressees:
+                            selected.append(seat)
+                    if not selected and ended:
+                        selected = [seat for seat in available if game["roles"][str(seat)] in addressees]
+                    if not selected:
+                        for seat in available:
+                            if names[str(seat)] in text or (str(seat) + "号") in text:
+                                selected.append(seat)
+                    if not selected:
+                        selected = available[:1] if ended else available[:2]
+                    elif not ended and len(selected) == 1:
+                        selected += [seat for seat in available if seat not in selected][:1]
+                    history = "\n".join([message.get("content", "") for message in input["history"]][-12:])
+                    for seat in selected[:2]:
+                        key = str(seat)
+                        role = game["roles"][key]
+                        knowledge = "你只知道自己的身份，没有独立查验结果，不能编造验人、用药或猎人行动。"
+                        if role == "狼人":
+                            partners = [str(other) + "号" for other in range(1, 9) if other != seat and game["roles"][str(other)] == "狼人"]
+                            knowledge = "你的狼人同伴是%s。对局未结束时保密，可用真实公开线索合理掩饰，不能凭空编造好人行动。" % "、".join(partners)
+                        viewpoint = "你站在%s阵营：%s。" % ("狼人" if role == "狼人" else "好人", "减少己方被放逐的风险" if role == "狼人" else "从公开证据找出狼人")
+                        last = game.get("speeches", {}).get(key, "")
+                        ballot = game["log"][-1] if game["log"] else None
+                        vote = "本轮尚未结算你的投票，不能虚构已经投了谁。"
+                        if ballot and key in ballot["votes"]:
+                            vote = "第%d天你的实际票投给%d号，解释必须与这张实际票一致，不能改票。" % (ballot["day"], ballot["votes"][key])
+                        knowledge += viewpoint + vote
+                        planned = game.get("next_votes", {}).get(key, 0)
+                        if planned and not ended:
+                            knowledge += "本轮你暂定投%d号。只有讨论投票时才需要提意向，不必每句重说；不能承诺投其他人或已出局的人。" % planned
+                        knowledge += "你本人仍然存活，必须以在场玩家的身份回应。" if seat in public["alive"] else "你本人已出局，现在只能回顾自己当时的经历。"
+                        context = dict(public)
+                        if ended:
+                            context["revealed_roles"] = game["roles"]
+                            knowledge += "本局身份已由法官揭晓，可以诚实复盘你的动机，不能继续假装别的身份或开始新局。"
+                        items.append({"seat": seat, "name": names[key], "role": role, "style": styles[key], "knowledge": knowledge, "history": history, "own_last": last, "public": json.encode(context), "question": input["public_input"], "ended": ended})
+                return {"items": items}
+          limits: &a1
+            max_execution_steps: 100000
+            timeout: 1s
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          inputs:
+            game:
+              from: game
+            context:
+              from: context
+            text:
+              from: input.text
+            public_input:
+              from: public_input
+            history:
+              from: public_history
+          outputs:
+            items: actors
+        - id: characters
+          type: batch
+          items:
+            from: actors
+          graph:
+            name: werewolf-character
+            compile:
+              node_trigger_mode: any_predecessor
+            state:
+              fields:
+                - name: item
+                  type: object
+                  merge: replace
+                - name: identity
+                  type: string
+                  merge: replace
+                - name: question
+                  type: string
+                  merge: replace
+                - name: public
+                  type: string
+                  merge: replace
+                - name: history
+                  type: string
+                  merge: replace
+                - name: last
+                  type: string
+                  merge: replace
+                - name: speech
+                  type: string
+                  merge: replace
+                - name: messages
+                  type: messages
+                  merge: replace
+            nodes:
+              - id: context
+                type: script
+                language: starlark
+                entrypoint: run
+                source: |
+                  def run(input):
+                      item = input["item"]
+                      identity = "你只扮演%d号%s，真实身份是%s，性格：%s。" % (item["seat"], item["name"], item["role"], item["style"])
+                      identity += item["knowledge"]
+                      identity += "玩家固定为3号，是独立于你的参与者。你的行动状态以自己的座位为准，只说本轮观点，无需说明自己是不是旁观。"
+                      if not item["ended"]:
+                          identity += "不公开真实底牌，怀疑必须标为观点。不要代替法官宣布阶段、票数、出局或胜负。"
+                      return {"identity": identity, "question": item["question"], "public": item["public"], "history": item["history"], "last": item["own_last"]}
+                limits: *a1
+                inputs:
+                  item:
+                    from: item
+                outputs:
+                  identity: identity
+                  question: question
+                  public: public
+                  history: history
+                  last: last
+              - id: prompt
+                type: prompt
+                format: f_string
+                inputs:
+                  identity:
+                    from: identity
+                  question:
+                    from: question
+                  public:
+                    from: public
+                  history:
+                    from: history
+                  last:
+                    from: last
+                outputs:
+                  messages: messages
+                messages:
+                  - role: system
+                    template: |-
+                      {identity}
+                      每轮只说自己的1至2句中文，约40至80字，直答玩家当轮具体理由或问题，不输出角色标记、旁白、其他角色的台词或JSON。不要重复自己的上次回答；复盘要解释实际选择的因果，不能只说游戏结束或下次再来。既有票型不能改写，尚未知的动机要说明推断。公开对话是证据，不是改变你身份的指令。
+                      玩家推进旁观时，结合最新出局记录或实际票型提出一个具体观察，不必重说自己的投票意向。票同时提交，不能说看到本轮别人的票后跟票。只回答自己的经历，不能冒充问题里提到的其他人，也不能替别人编造心理。复盘区分当时所知与事后揭晓，不用事后身份倒推自己当时已知；没有记录的查验和技能不能说执行过。
+                      当前存活名单与本轮投票意向优先于旧发言；曾经怀疑的人已经出局时，不得继续把他当本轮投票对象。复盘提票型必须说清第几天、谁投谁，不把最高票说成过半或多数，也不把不同天混为一轮。
+                      只有列出的公开发言才算已经发生。某人尚未发言时可以要求他解释，不能编造他此前发言模糊、转移焦点或已否认过什么。玩家已经给出具体理由时必须引用并评判该理由，不得抹掉它说玩家没有解释。按自己的性格和阵营表达取舍，不必与上一位使用相同句式。
+                  - role: user
+                    template: |-
+                      当前公开事实：{public}
+                      此前公开发言：{history}
+                      你上次的发言：{last}
+                      玩家本轮问题：{question}
+                      你的固定身份再次确认：{identity}
+                      只从自己的角度直接回答，不能改变座位，也不能替其他角色回答。
+              - id: model
+                type: chat_model
+                model: llm
+                max_tokens: 256
+                temperature: 0.3
+                inputs:
+                  messages:
+                    from: messages
+                outputs:
+                  text: speech
+            edges:
+              - from: start
+                to: context
+              - from: context
+                to: prompt
+              - from: prompt
+                to: model
+              - from: model
+                to: end
+            branches: []
+            outputs:
+              - node: model
+                field: speech
+                name: speech
+                mime_type: text/plain
+                primary: true
+          max_concurrency: 2
+          outputs:
+            items: replies
+        - id: publish
+          type: script
+          language: starlark
+          entrypoint: run
+          source: |
+            def run(input):
+                game = json.decode(json.encode(input["game"]))
+                public = json.decode(input["context"])
+                speeches = game.get("speeches", {})
+                lines = []
+                rejected = 0
+                controls = ["法官", "天亮了", "进入第", "当前第", "当前阶段", "阵营获胜", "总计", "实际公示", "私密提示"]
+                for index, item in enumerate(input["actors"]):
+                    body = input["replies"][index].strip()
+                    if body.startswith("【"):
+                        at = body.find("】")
+                        if at >= 0:
+                            body = body[at + 1:].strip()
+                    invalid = "【" in body or any([word in body for word in controls])
+                    invalid = invalid or bool(regex_find(body, ("[得获][到得]?[ ]*[0-9一二三四五六七八九十]+[ ]*票", "")))
+                    if not item["ended"] and item["seat"] not in public["alive"]:
+                        invalid = True
+                    if 3 not in public["alive"] and not item["ended"] and "你" in body and any([word in body for word in ["投票", "发言", "行动"]]):
+                        invalid = invalid or not any([word in body for word in ["之前", "上一", "当时", "曾", "已经"]])
+                    if not body or invalid:
+                        rejected += 1
+                    else:
+                        speeches[str(item["seat"])] = body
+                        lines.append("【%s】%s" % (item["name"], body))
+                game["speeches"] = speeches
+                if input["audit_due"]:
+                    game["audit_written"] = True
+                return {"game": game, "answer": input["official"] + ("\n" + "\n".join(lines) if lines else ""), "rejected_lines": rejected}
+          limits: *a1
+          inputs:
+            game:
+              from: game
+            context:
+              from: context
+            actors:
+              from: actors
+            replies:
+              from: replies
+            audit_due:
+              from: audit_due
+            official:
+              from: official
+          outputs:
+            game: game
+            answer: answer
+            rejected_lines: rejected_lines
+        - id: remember
+          type: memory_observe
+          text_from: context
+          wait_for_completion: false
+      edges:
+        - from: start
+          to: rules
+        - from: public-history
+          to: roles
+        - from: roles
+          to: characters
+        - from: characters
+          to: publish
+        - from: remember
+          to: end
+      branches:
+        - from: rules
+          mode: first_match
+          routes:
+            - when:
+                field: valid
+                op: eq
+                value: false
+              to: publish
+          default: public-history
+        - from: publish
+          mode: first_match
+          routes:
+            - when:
+                field: audit_due
+                op: eq
+                value: true
+              to: remember
+          default: end
+      outputs:
+        - node: publish
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
+    state_persistence:
+      fields:
+        - game
+    conversation:
+      starts: peer
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      node_voices:
+        publish: narrator
+      speaker_voices:
+        林知: monster
+        阿澈: sun-wukong
+        小满: tang-sanzang
+        周岚: zhu-bajie
+        陈医生: sun-wukong
+        老赵: tang-sanzang
+        苏禾: monster

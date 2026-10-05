@@ -126,12 +126,6 @@ PB_BIND(gizclaw_rpc_v1_DoubaoRealtimeWorkspaceParameters, gizclaw_rpc_v1_DoubaoR
 PB_BIND(gizclaw_rpc_v1_ConversationParameters, gizclaw_rpc_v1_ConversationParameters, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_FlowcraftWorkflowSpec, gizclaw_rpc_v1_FlowcraftWorkflowSpec, AUTO)
-
-
-PB_BIND(gizclaw_rpc_v1_FlowcraftWorkspaceParameters, gizclaw_rpc_v1_FlowcraftWorkspaceParameters, AUTO)
-
-
 PB_BIND(gizclaw_rpc_v1_Model, gizclaw_rpc_v1_Model, 2)
 
 

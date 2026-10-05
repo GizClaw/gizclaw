@@ -15,7 +15,6 @@ import (
 
 	dashscope "github.com/GizClaw/dashscope-realtime-go"
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -27,7 +26,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtimeduplex"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaotts"
 	einotransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
-	flowcrafttransformer "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/openai/openai-go"
@@ -75,23 +73,6 @@ func TestEinoTransformerLiveRepeatedInterrupt(t *testing.T) {
 		t.Fatalf("eino.New() failed: %v", err)
 	}
 	runLiveTextRepeatedInterrupt(t, transformer, "eino")
-}
-
-func TestFlowcraftTransformerLiveRepeatedInterrupt(t *testing.T) {
-	loadGenXE2EEnv(t)
-	client := openai.NewClient(option.WithAPIKey(firstEnv(flowcraftAPIKeyEnv)))
-	generator := &genx.OpenAIGenerator{Client: &client, Model: "gpt-4o-mini", TextOnly: true}
-	transformer, err := flowcrafttransformer.New(flowcrafttransformer.Config{
-		ID: "flowcraft-interrupt-e2e", Name: "Flowcraft Interrupt E2E", Models: generator,
-		Graph: flowgraph.GraphDefinition{Name: "interrupt-chat", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{
-			ID: "chat", Type: "llm", Config: map[string]any{"model": "chat", "system_prompt": "Follow the user request exactly."},
-		}}},
-		PublishNodes: []string{"chat"},
-	})
-	if err != nil {
-		t.Fatalf("flowcraft.New() failed: %v", err)
-	}
-	runLiveTextRepeatedInterrupt(t, transformer, "flowcraft")
 }
 
 func TestDoubaoRealtimeLiveRepeatedInterrupt(t *testing.T) {

@@ -11,7 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/flowstate"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
@@ -77,19 +77,19 @@ func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *test
 			t.Error(err)
 		}
 	})
-	if err := flowstate.Initialize(ctx, stateDB); err != nil {
+	if err := graphstate.Initialize(ctx, stateDB); err != nil {
 		t.Fatal(err)
 	}
-	targetState, err := flowstate.OpenScope(ctx, stateDB, owner, item.Id, "agent")
+	targetState, err := graphstate.OpenScope(ctx, stateDB, owner, item.Id, "agent")
 	if err != nil {
 		t.Fatal(err)
 	}
-	foreignState, err := flowstate.OpenScope(ctx, stateDB, owner, foreign.Id, "agent")
+	foreignState, err := graphstate.OpenScope(ctx, stateDB, owner, foreign.Id, "agent")
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, state := range []*flowstate.Store{targetState, foreignState} {
-		if err := state.SaveState(ctx, "checkpoint", []byte(`{"kept":true}`)); err != nil {
+	for _, state := range []*graphstate.Store{targetState, foreignState} {
+		if _, err := state.CompareAndSwap(ctx, "checkpoint", "", map[string]any{"kept": true}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -97,7 +97,7 @@ func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *test
 	claim := claimWorkspaceTask(t, source, now.Add(time.Second))
 	quiescer := &recordingWorkspaceQuiescer{}
 	handler := DeletionHandler{
-		Server: srv, Source: source, Quiescer: quiescer, Flowcraft: flowstate.WorkspaceCleanup{DB: stateDB},
+		Server: srv, Source: source, Quiescer: quiescer, GraphState: graphstate.WorkspaceCleanup{DB: stateDB},
 		Now: func() time.Time { return now.Add(time.Second) },
 	}
 	if err := handler.Handle(ctx, claim); err != nil {
@@ -119,14 +119,14 @@ func TestWorkspaceDeletionHandlerRemovesOwnedDataAndPreservesForeignData(t *test
 		t.Fatalf("quiesced Workspaces = %#v", quiescer.ids)
 	}
 
-	if err := targetState.SaveState(ctx, "checkpoint", []byte(`{}`)); !errors.Is(err, flowstate.ErrRetired) {
+	if _, err := targetState.CompareAndSwap(ctx, "checkpoint", "", map[string]any{}); !errors.Is(err, graphstate.ErrRetired) {
 		t.Fatalf("stale state write = %v", err)
 	}
-	if value, err := targetState.LoadState(ctx, "checkpoint"); err != nil || value != nil {
-		t.Fatalf("retired state = %s, %v", value, err)
+	if value, err := targetState.Load(ctx, "checkpoint"); !errors.Is(err, graphstate.ErrRetired) {
+		t.Fatalf("retired state = %#v, %v", value, err)
 	}
-	if value, err := foreignState.LoadState(ctx, "checkpoint"); err != nil || string(value) != `{"kept":true}` {
-		t.Fatalf("foreign state = %s, %v", value, err)
+	if value, err := foreignState.Load(ctx, "checkpoint"); err != nil || value.Fields["kept"] != true || value.Version == "" {
+		t.Fatalf("foreign state = %#v, %v", value, err)
 	}
 	if _, err := source.GetTask(ctx, record.DeletionID); !errors.Is(err, pendingdeletion.ErrNotFound) {
 		t.Fatalf("GetTask() error = %v, want ErrNotFound", err)

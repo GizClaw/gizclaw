@@ -35,7 +35,6 @@ flowchart TB
     Domains --> Objects["objectstore"]
     Domains --> Vectors["vecstore"]
     Domains --> Memory["memory"]
-    Memory --> Flowcraft["Flowcraft embedded"]
     Memory --> Remote["Mem0 / Volc remote"]
     Vectors --> Objects
     VecID["vecid"] --> Voiceprint["audio/voiceprint"]

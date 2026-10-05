@@ -1,26 +1,64 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
-metadata: {id: mem0-extraction}
+metadata:
+  id: mem0-extraction
 spec:
-  driver: flowcraft
+  driver: eino
   memory: default-memory
-  flowcraft:
+  eino:
     graph:
-      name: Mem0 raw text extraction
-      entry: observe
+      name: mem0-extraction
+      state:
+        fields:
+          - name: material
+            type: string
+            merge: replace
+          - name: text
+            type: string
+            merge: replace
       nodes:
-      - id: observe
-        type: memory_observe
-        config:
-          observations: [{text_from: input}]
+        - id: capture
+          type: passthrough
+          inputs:
+            value:
+              from: input.text
+          outputs:
+            value: material
+        - id: observe
+          type: memory_observe
+          text_from: material
           wait_for_completion: true
-      - id: echo
-        type: script
-        publish: true
-        config:
-          source: 'host.emit("token", {content: "Memory observation accepted."});'
+        - id: echo
+          type: script
+          outputs:
+            value: text
+          language: starlark
+          source: |
+            def run(input):
+                return {"value": "Memory observation accepted."}
+          limits:
+            max_execution_steps: 1000
+            timeout: 100ms
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          entrypoint: run
       edges:
-      - {from: observe, to: echo}
-      - {from: echo, to: __end__}
-    conversation: {starts: peer}
+        - from: start
+          to: capture
+        - from: capture
+          to: observe
+        - from: observe
+          to: echo
+        - from: echo
+          to: end
+      outputs:
+        - node: echo
+          field: text
+          name: assistant
+          mime_type: text/plain
+          primary: true
+      compile:
+        node_trigger_mode: any_predecessor
+      branches: []
+    conversation:
+      starts: peer

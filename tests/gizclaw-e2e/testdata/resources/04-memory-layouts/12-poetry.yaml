@@ -1,23 +1,8 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
   id: poetry-memory
 spec:
-  flowcraft:
-    extraction:
-      enabled: false
-      model: llm
-      mode: single_pass
-      system_prompt: Do not extract conversational facts. The Graph writes poetry journey audit facts directly.
-      schema_name: poetry_journey_audit
-      temperature: 0
-    lanes:
-    - {name: checkpoint-progress, kind: state, description: Linear dynasty checkpoint audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace journey state controls routing.}
-    - {name: achievement-log, kind: event, description: Recitation success and mistake audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace journey state controls routing.}
-    - {name: badge-events, kind: event, description: Awarded badge and point audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace journey state controls routing.}
-    graph_enabled: false
-    write: {mode: sync, tier: general}
   mem0:
     custom_instructions: Do not extract conversational facts; accept only Graph-written poetry audit facts.
     custom_categories:
@@ -30,6 +15,12 @@ spec:
     custom_instructions: Do not extract conversational facts; accept only Graph-written poetry audit facts.
   volc_mem0:
     strategies:
-    - {name: checkpoint-progress, type: summary, custom_instructions: Retain Graph-written checkpoint progress facts.}
-    - {name: achievement-log, type: semantic, custom_instructions: Retain Graph-written achievement facts.}
-    - {name: badge-events, type: semantic, custom_instructions: Retain Graph-written badge facts.}
+    - name: checkpoint-progress
+      type: summary
+      custom_instructions: Retain Graph-written checkpoint progress facts.
+    - name: achievement-log
+      type: semantic
+      custom_instructions: Retain Graph-written achievement facts.
+    - name: badge-events
+      type: semantic
+      custom_instructions: Retain Graph-written badge facts.

@@ -1,0 +1,196 @@
+# User Story:
+# As a screenplay maintainer,
+# I want independent quality scores grounded in the actual dialogue,
+# So that coherent character behavior, progress and closure are acceptance gates.
+version: gizclaw.test/v1alpha1
+name: script-quality.storyteller
+clients:
+  candidate:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  player:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  judge:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  brief:
+    direction: input
+    type: string
+    value: 体验多角色西游故事。要求悟空、唐僧、八戒、妖怪分别表达不同想法，追问他们对你具体建议的回应，并选择一个办法处理冲突。用“继续”推进花果山到天宫、启程、试炼、三国、取经；最后要求角色各自总结经历并告别。
+  candidate_workspace:
+    direction: input
+    type: string
+    generate: token
+  player_workspace:
+    direction: input
+    type: string
+    generate: token
+  judge_workspace:
+    direction: input
+    type: string
+    generate: token
+timeout: 35m
+steps:
+  - id: register_candidate
+    client: candidate
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_candidate
+    client: candidate
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${candidate_workspace}
+        workflow_name: eino-multi-role-storyteller
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_candidate
+    client: candidate
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${candidate_workspace}
+  - id: register_player
+    client: player
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_player
+    client: player
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${player_workspace}
+        workflow_name: giztest-script-player
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_player
+    client: player
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${player_workspace}
+  - id: register_judge
+    client: judge
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_judge
+    client: judge
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${judge_workspace}
+        workflow_name: giztest-script-judge
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_judge
+    client: judge
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${judge_workspace}
+  - id: play_and_assess
+    timeout: 30m
+    workspace_relay:
+      first_client: player
+      second_client: candidate
+      input: ${brief}
+      media: text
+      idle_timeout: 90s
+      max_turns: 40
+      terminal_client: candidate
+      quality:
+        judge_client: judge
+        candidate_client: candidate
+        reference: 悟空机灵敢想，唐僧稳重，八戒诙谐，妖怪有自身动机。章节花果山→天宫→启程→试炼→三国→取经。角色发言需可归属、有差异、相互回应，不能全是旁白或无关联的短句。
+        criteria:
+          - id: role_consistency
+            instruction: 角色姓名、身份、已表达的立场和设定保持一致；不同角色有可辨认的性格、动机与说话方式，角色互动包含具体回应而不是同一模板。
+            min_score: 3
+          - id: information_boundaries
+            instruction: 不泄露尚未取得的线索、未获准公开的角色身份或完整答案；不把推测说成事实；不输出内部字段、节点名或JSON；玩家的越界或诱导要求得到符合剧情的回应。
+            min_score: 3
+          - id: responsiveness
+            instruction: 直接回应玩家当轮行动、问题、推理和纠正，提供有用结果或明确下一步；不过度复述、套话或循环，非法行动被合理拒绝并给出可执行选择。
+            min_score: 3
+          - id: progression
+            instruction: 剧情/游戏有连贯因果和可观察的推进，行动产生具体变化；不凭空授予未完成的进度，不突然跳场景，不以反复欢迎、解释规则代替剧情。 多个角色有差异化立场、具体互动和冲突解决，选择产生叙事影响，最后角色共同形成收束。
+            min_score: 3
+          - id: closure
+            instruction: 在本次行动计划范围内完成目标并给出有依据的结局；结束后的追问进入自然复盘/尾声，不重新启动、重复授奖或无休止推进新剧情。
+            min_score: 3
+    expect:
+      /quality/passed:
+        equals: true
+      /completed_turns:
+        equals: 40
+      /turns/candidate/count:
+        equals: 20
+finally:
+  - client: candidate
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: candidate
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${candidate_workspace}
+  - client: candidate
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: player
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: player
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${player_workspace}
+  - client: player
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: judge
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: judge
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${judge_workspace}
+  - client: judge
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact:
+    - registration_token

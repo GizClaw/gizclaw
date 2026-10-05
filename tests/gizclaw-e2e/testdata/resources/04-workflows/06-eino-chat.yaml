@@ -1,0 +1,119 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-chat-assistant
+spec:
+  driver: eino
+  memory: chat-memory
+  eino:
+    graph:
+      name: eino-chat-assistant
+      compile:
+        node_trigger_mode: any_predecessor
+      state:
+        fields:
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: user-text
+            type: string
+            merge: replace
+          - name: recalled-memory
+            type: string
+            merge: replace
+          - name: memory-turns
+            type: messages
+            merge: replace
+      nodes:
+        - id: capture-input
+          type: passthrough
+          inputs:
+            value:
+              from: input.text
+          outputs:
+            value: user-text
+        - id: recall
+          type: memory_recall
+          query_from: user-text
+          output: recalled-memory
+          top_k: 5
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+            memory:
+              from: recalled-memory
+          outputs:
+            messages: messages
+          messages:
+            - role: system
+              template: |-
+                你是用户的中文聊天伙伴。根据当前对话和长期记忆保持连续性。避免重复问已经知道的信息，优先采用用户最新的明确更正。
+
+                {safety}
+                可参考长期记忆；为空时忽略：
+                {memory}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
+          model: llm
+          max_tokens: 2048
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: memory-turns
+          type: transform
+          operation: build_messages
+          inputs:
+            user:
+              from: user-text
+            assistant:
+              from: answer
+          outputs:
+            messages: memory-turns
+          messages:
+            - role: user
+              input: user
+            - role: assistant
+              input: assistant
+        - id: remember
+          type: memory_observe
+          turns_from: memory-turns
+          wait_for_completion: true
+      edges:
+        - from: start
+          to: capture-input
+        - from: capture-input
+          to: recall
+        - from: recall
+          to: prompt
+        - from: prompt
+          to: answer
+        - from: answer
+          to: memory-turns
+        - from: memory-turns
+          to: remember
+        - from: remember
+          to: end
+      branches: []
+      outputs:
+        - node: answer
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      node_voices:
+        answer: narrator

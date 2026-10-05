@@ -44,7 +44,6 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata: {id: chat-memory}
 spec:
-  flowcraft: {}
   mem0: {}
   volc_mem0: {}
 `)
@@ -85,7 +84,7 @@ spec:
     models:
       chat: {resource_id: chat-model}
     memories:
-      chat: {layout_id: chat-memory, driver: flowcraft, connection: {type: flowcraft_bbh}}
+      chat: {layout_id: chat-memory, driver: mem0_self_hosted, connection: {type: mem0_self_hosted, endpoint: "http://mem0.example.invalid"}}
     voices: {}
 
 `)
@@ -229,13 +228,13 @@ func TestResolveCatalogSelectsWorkflowMemoryLayoutDependency(t *testing.T) {
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata: {id: chat-memory}
-spec: {flowcraft: {}, mem0: {}, volc_mem0: {}}
+spec: {mem0: {}, volc_mem0: {}}
 `)
 	writeCatalogTestFile(t, catalog, "workflows/chat.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {id: chat-workflow}
-spec: {driver: flowcraft, memory: chat-memory, flowcraft: {}}
+spec: {driver: eino, memory: chat-memory, eino: {}}
 `)
 	writeCatalogTestFile(t, product, "runtime-profiles/default.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
@@ -362,11 +361,11 @@ func TestResolveCatalogDeploysRaidTesterWithoutProfileBinding(t *testing.T) {
 	catalog := t.TempDir()
 	product := t.TempDir()
 
-	writeCatalogTestFile(t, catalog, "workflows/adventure-demo/flowcraft.yaml", `
+	writeCatalogTestFile(t, catalog, "workflows/adventure-demo/eino.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
-metadata: {id: flowcraft-adventure-demo}
-spec: {driver: flowcraft}
+metadata: {id: eino-adventure-demo}
+spec: {driver: eino}
 `)
 	writeCatalogTestFile(t, catalog, "workflows/adventure-demo/test.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
@@ -374,17 +373,12 @@ kind: Workflow
 metadata: {id: adventure-demo-test}
 spec: {driver: eino}
 `)
-	writeCatalogTestFile(t, catalog, "workflows/adventure-demo/raid.json", `{
-  "schema": "raids.raid/v1alpha1",
-  "id": "adventure-demo",
-  "implementations": {"flowcraft": {"workflow_id": "flowcraft-adventure-demo"}},
-  "tester": {"workflow_id": "adventure-demo-test"}
-}`)
-	writeCatalogTestFile(t, catalog, "workflows/adventure-unused/flowcraft.yaml", `
+	writeCatalogTestFile(t, catalog, "workflows/adventure-demo/raid.json", `{"schema":"raids.raid/v1alpha1","id":"adventure-demo","implementations":{"eino":{"workflow_id":"eino-adventure-demo"}},"tester":{"workflow_id":"adventure-demo-test"}}`)
+	writeCatalogTestFile(t, catalog, "workflows/adventure-unused/eino.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
-metadata: {id: flowcraft-adventure-unused}
-spec: {driver: flowcraft}
+metadata: {id: eino-adventure-unused}
+spec: {driver: eino}
 `)
 	writeCatalogTestFile(t, catalog, "workflows/adventure-unused/test.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
@@ -392,19 +386,14 @@ kind: Workflow
 metadata: {id: adventure-unused-test}
 spec: {driver: eino}
 `)
-	writeCatalogTestFile(t, catalog, "workflows/adventure-unused/raid.json", `{
-  "schema": "raids.raid/v1alpha1",
-  "id": "adventure-unused",
-  "implementations": {"flowcraft": {"workflow_id": "flowcraft-adventure-unused"}},
-  "tester": {"workflow_id": "adventure-unused-test"}
-}`)
+	writeCatalogTestFile(t, catalog, "workflows/adventure-unused/raid.json", `{"schema":"raids.raid/v1alpha1","id":"adventure-unused","implementations":{"eino":{"workflow_id":"eino-adventure-unused"}},"tester":{"workflow_id":"adventure-unused-test"}}`)
 	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: demo}
 spec:
   workflows:
-    adventure-demo: {resource_id: flowcraft-adventure-demo}
+    adventure-demo: {resource_id: eino-adventure-demo}
   resources: {}
 `)
 
@@ -413,7 +402,7 @@ spec:
 		t.Fatalf("resolveCatalog: %v", err)
 	}
 	workflows := resolved.byStage["workflows"]
-	if _, ok := workflows["Workflow/flowcraft-adventure-demo"]; !ok {
+	if _, ok := workflows["Workflow/eino-adventure-demo"]; !ok {
 		t.Error("selected raid implementation Workflow is missing")
 	}
 	if _, ok := workflows["Workflow/adventure-demo-test"]; !ok {
@@ -463,23 +452,23 @@ func TestResolveCatalogRejectsSelectedPetDriver(t *testing.T) {
 // decoded as true, raid.json bytes unchanged.
 func TestResolveCatalogEncodingIsStable(t *testing.T) {
 	catalog, product := t.TempDir(), t.TempDir()
-	writeCatalogTestFile(t, catalog, "workflows/demo/flowcraft.yaml", `
+	writeCatalogTestFile(t, catalog, "workflows/demo/eino.yaml", `
 spec:
   zeta: {size: 1048576, ratio: 0.5, enabled: yes, list: [b, a]}
-  driver: flowcraft
+  driver: eino
   prompt: "${PROMPT:-hello}"
-metadata: {id: demo-flowcraft}
+metadata: {id: demo-eino}
 kind: Workflow
 apiVersion: gizclaw.admin/v1alpha1
 `)
-	raid := "{\n  \"schema\": \"raids.raid/v1alpha1\",\n  \"id\": \"demo\",\n  \"implementations\": {\"flowcraft\": {\"workflow_id\": \"demo-flowcraft\"}}\n}\n"
+	raid := "{\n  \"schema\": \"raids.raid/v1alpha1\",\n  \"id\": \"demo\",\n  \"implementations\": {\"eino\": {\"workflow_id\": \"demo-eino\"}}\n}\n"
 	writeCatalogTestFile(t, catalog, "workflows/demo/raid.json", raid)
 	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
 kind: RuntimeProfile
 metadata: {id: demo}
 spec:
-  workflows: {demo: {resource_id: demo-flowcraft, tags: [raids]}}
+  workflows: {demo: {resource_id: demo-eino, tags: [raids]}}
 `)
 
 	resolved, err := resolveCatalog([]string{catalog}, []string{product})
@@ -487,9 +476,9 @@ spec:
 		t.Fatal(err)
 	}
 	for got, want := range map[string]string{
-		resolved.byStage["workflows"]["Workflow/demo-flowcraft"]:    `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"demo-flowcraft"},"spec":{"driver":"flowcraft","prompt":"${PROMPT:-hello}","zeta":{"enabled":true,"list":["b","a"],"ratio":0.5,"size":1048576}}}`,
-		resolved.byStage["runtime_profiles"]["RuntimeProfile/demo"]: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"demo"},"spec":{"workflows":{"demo":{"resource_id":"demo-flowcraft","tags":["raids"]}}}}`,
-		resolved.raids["demo"]: raid,
+		resolved.byStage["workflows"]["Workflow/demo-eino"]:         `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"demo-eino"},"spec":{"driver":"eino","prompt":"${PROMPT:-hello}","zeta":{"enabled":true,"list":["b","a"],"ratio":0.5,"size":1048576}}}`,
+		resolved.byStage["runtime_profiles"]["RuntimeProfile/demo"]: `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"demo"},"spec":{"workflows":{"demo":{"resource_id":"demo-eino","tags":["raids"]}}}}`,
+		resolved.raids["demo"]:                                      raid,
 	} {
 		if got != want {
 			t.Errorf("encoded = %s\nwant      %s", got, want)
@@ -510,7 +499,7 @@ spec: {driver: eino}
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {id: chat}
-spec: {driver: flowcraft}
+spec: {driver: doubao-realtime}
 `)
 	writeCatalogTestFile(t, product, "runtime-profiles/default.yaml", `
 apiVersion: gizclaw.admin/v1alpha1
@@ -563,7 +552,7 @@ spec: {token: default-token, runtime_profile_id: default}
 		}
 		return out
 	}
-	if got := stringMap(state.Workflows)["Workflow/chat"]; !strings.Contains(got, `"driver":"flowcraft"`) {
+	if got := stringMap(state.Workflows)["Workflow/chat"]; !strings.Contains(got, `"driver":"doubao-realtime"`) {
 		t.Fatalf("workflows = %v", stringMap(state.Workflows))
 	}
 	if _, ok := stringMap(state.RegistrationTokens)["RegistrationToken/default"]; !ok {
@@ -595,11 +584,11 @@ spec: {token: default-token, runtime_profile_id: default}
 
 func TestResolveCatalogSelectsRaidTesterMemoryLayout(t *testing.T) {
 	catalog, product := t.TempDir(), t.TempDir()
-	writeCatalogTestFile(t, catalog, "memory-layouts/tester.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: MemoryLayout\nmetadata: {id: tester-memory}\nspec: {flowcraft: {}}\n")
-	writeCatalogTestFile(t, catalog, "workflows/demo/flowcraft.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-flowcraft}\nspec: {driver: flowcraft}\n")
+	writeCatalogTestFile(t, catalog, "memory-layouts/tester.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: MemoryLayout\nmetadata: {id: tester-memory}\nspec: {mem0: {}}\n")
+	writeCatalogTestFile(t, catalog, "workflows/demo/eino.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-eino}\nspec: {driver: eino}\n")
 	writeCatalogTestFile(t, catalog, "workflows/demo/test.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: Workflow\nmetadata: {id: demo-test}\nspec: {driver: eino, memory: tester-memory}\n")
-	writeCatalogTestFile(t, catalog, "workflows/demo/raid.json", `{"id": "demo", "implementations": {"flowcraft": {"workflow_id": "demo-flowcraft"}}, "tester": {"workflow_id": "demo-test"}}`)
-	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: demo}\nspec:\n  workflows: {demo: {resource_id: demo-flowcraft}}\n")
+	writeCatalogTestFile(t, catalog, "workflows/demo/raid.json", `{"id":"demo","implementations":{"eino":{"workflow_id":"demo-eino"}},"tester":{"workflow_id":"demo-test"}}`)
+	writeCatalogTestFile(t, product, "runtime-profiles/demo.yaml", "apiVersion: gizclaw.admin/v1alpha1\nkind: RuntimeProfile\nmetadata: {id: demo}\nspec:\n  workflows: {demo: {resource_id: demo-eino}}\n")
 
 	resolved, err := resolveCatalog([]string{catalog}, []string{product})
 	if err != nil {

@@ -20,6 +20,13 @@ OpenAI Adapter is implemented by `OpenAIGenerator` in the root package and adapt
 
 OpenAI-compatible only means provider protocol compatibility; credentials, endpoint and product model selection are provided by the caller.
 
+Streaming `finish_reason: content_filter` maps to `StatusBlocked`, separately
+from `length`/`StatusTruncated` and network or decoding errors. When the provider
+supplies no refusal text, the error identifies
+`provider finish_reason=content_filter; refusal detail was not supplied`.
+An absent explanation is neither a normal completion nor evidence of a specific
+filtering rule.
+
 ## Doubao audio input
 
 `pkgs/genx/generators/doubaochat` wraps the `OpenAIGenerator` of a Volc Ark Doubao chat completions Model. Doubao Seed chat Models accept audio input, but the API returns no transcript of it. The adapter merges the audio Blobs of each user message into one Blob the API accepts: raw Opus packets, Ogg/Opus, and signed 16-bit PCM are decoded to 16 kHz mono WAV, and MP3 and a single WAV pass through. When the latest user message carries audio, it appends one system instruction: write one complete sentence of the reply first, then one separate line `<asr>verbatim transcript</asr>`, then continue the reply, so the first reply text does not wait for the transcript. The adapter cuts the first `<asr>` segment out of the streamed text wherever it appears, holding back only trailing characters that could start the opening tag, and emits one `RoleUser` chunk labelled `genx.InputTranscriptLabel` (built by `genx.NewInputTranscriptChunk`) when the segment closes. The transcript ends at the first closing tag or line break, tolerating misspellings such as `</asr]`, and a segment still open at the end of the stream is reported as the transcript. A reply without the segment is passed through with a warning log and no transcript. Text-only requests pass through unchanged, and `Invoke` only converts audio. peergenx installs the adapter for Volc `chat_completions` Models whose `support_text_only` is not true, and `Service.AcceptsAudioInput` answers "does this Model accept audio input" with the same condition; the Eino factory uses it to decide the [audio input path](/en/developing/gizclaw/services/ai#eino-audio-input-path).

@@ -4,7 +4,7 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
-env_file="$script_dir/.env"
+env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$script_dir/.env}"
 gizclaw_binary="$script_dir/testdata/bin/gizclaw"
 artifact_dir="${GIZCLAW_E2E_EINO_FIRST_RESPONSE_ARTIFACT_DIR:-$script_dir/testdata/eino-first-response}"
 docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-eino-first-response.XXXXXX")"
@@ -159,7 +159,7 @@ def git_output(*args):
 
 model_path = os.path.join(
     repo_root,
-    "tests/gizclaw-e2e/testdata/resources/03-models/04-doubao-mini-chat.yaml",
+    "tests/gizclaw-e2e/testdata/resources/03-models/04-doubao-lite-chat.yaml",
 )
 profile_path = os.path.join(
     repo_root,
@@ -170,14 +170,15 @@ with open(model_path, encoding="utf-8") as handle:
 with open(profile_path, encoding="utf-8") as handle:
     profile_source = handle.read()
 for required in (
-    "metadata:\n  id: doubao-mini-chat\n",
+    "metadata:\n  id: doubao-lite-chat\n",
     "    id: volc-ark\n",
-    "    upstream_model: doubao-seed-2-0-mini-260428\n",
+    "    upstream_model: doubao-seed-2-1-lite-260915\n",
+    "    service_tier: fast\n",
 ):
     if required not in model_source:
         raise SystemExit(f"qualified chat Model contract is missing {required.strip()!r}")
 for required in (
-    "llm: {resource_id: doubao-mini-chat,",
+    "llm: {resource_id: doubao-lite-chat,",
     "asr: {resource_id: volc-bigasr-sauc,",
     "narrator: {resource_id:",
 ):
@@ -189,9 +190,10 @@ summary = {
     "git_revision": git_output("rev-parse", "HEAD"),
     "worktree_dirty": bool(git_output("status", "--porcelain", "--untracked-files=no")),
     "qualified_resources": {
-        "chat_model_resource_id": "doubao-mini-chat",
-        "chat_model_upstream": "doubao-seed-2-0-mini-260428",
+        "chat_model_resource_id": "doubao-lite-chat",
+        "chat_model_upstream": "doubao-seed-2-1-lite-260915",
         "chat_model_tenant": "volc-ark",
+        "chat_model_requested_service_tier": "fast",
         "asr_model_resource_id": "volc-bigasr-sauc",
         "voice_alias": "narrator",
     },
@@ -199,7 +201,7 @@ summary = {
     "cases": {},
 }
 resource_paths = (
-    "tests/gizclaw-e2e/testdata/resources/03-models/04-doubao-mini-chat.yaml",
+    "tests/gizclaw-e2e/testdata/resources/03-models/04-doubao-lite-chat.yaml",
     "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.concurrency-10.giztest.yaml",
     "tests/gizclaw-e2e/giztest/benchmark.eino-concurrency-assistant.push-to-talk-concurrency-10.giztest.yaml",

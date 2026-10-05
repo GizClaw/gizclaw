@@ -60,8 +60,8 @@ steps:
         name: ${omitted_name}
         workflow_name: giztest-toolkit-probe-none
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
         toolkit:
           tool_names:
@@ -100,8 +100,8 @@ steps:
         name: ${listed_name}
         workflow_name: giztest-toolkit-probe-both
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
   - id: select_listed
     client: peer
@@ -137,8 +137,8 @@ steps:
         name: ${narrowed_name}
         workflow_name: giztest-toolkit-probe-both
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
         toolkit:
           tool_names:
@@ -177,8 +177,8 @@ steps:
         name: ${widened_name}
         workflow_name: giztest-toolkit-probe-echo
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
         toolkit:
           tool_names:

@@ -212,7 +212,7 @@ func TestRPCServerLogsDomainFailureOnce(t *testing.T) {
 			Workspaces: invalidWorkspaceAdminService{},
 			Workflows: fixedWorkflowAdminService{value: apitypes.Workflow{
 				Id:   "workflow-a",
-				Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft},
+				Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino},
 			}},
 		},
 	}

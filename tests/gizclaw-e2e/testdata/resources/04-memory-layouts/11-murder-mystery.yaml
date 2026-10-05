@@ -1,22 +1,8 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
   id: murder-mystery-memory
 spec:
-  flowcraft:
-    extraction:
-      enabled: false
-      model: llm
-      mode: single_pass
-      system_prompt: Do not extract conversational facts. The Graph writes case audit facts directly.
-      schema_name: murder_mystery_audit
-      temperature: 0
-    lanes:
-    - {name: case-state, kind: state, description: Deterministic case state audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace case state controls routing.}
-    - {name: progress-badges, kind: state, description: Deterministic progress badge audit., extract: Do not extract; the Graph writes this lane., recall: Audit only; workspace case state controls routing.}
-    graph_enabled: false
-    write: {mode: sync, tier: general}
   mem0:
     custom_instructions: Do not extract conversational facts; accept only Graph-written case audit facts.
     custom_categories:
@@ -28,5 +14,9 @@ spec:
     custom_instructions: Do not extract conversational facts; accept only Graph-written case audit facts.
   volc_mem0:
     strategies:
-    - {name: case-state, type: summary, custom_instructions: Retain Graph-written case state facts.}
-    - {name: progress-badges, type: summary, custom_instructions: Retain Graph-written progress badge facts.}
+    - name: case-state
+      type: summary
+      custom_instructions: Retain Graph-written case state facts.
+    - name: progress-badges
+      type: summary
+      custom_instructions: Retain Graph-written progress badge facts.

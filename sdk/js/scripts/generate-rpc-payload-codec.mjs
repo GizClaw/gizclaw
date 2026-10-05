@@ -579,7 +579,6 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
       } as Record<string, string>)[discriminator];
     case "WorkspaceParameters":
       return ({
-        "flowcraft": "flowcraft_workspace_parameters",
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",
@@ -1240,7 +1239,7 @@ function tsFieldType(field, parsed) {
 function isOneofDiscriminatorField(field) {
   return (
     field.name === "agent_type" &&
-    (field.type === "FlowcraftWorkspaceParametersAgentType" ||
+    (field.type === "EinoWorkspaceParametersAgentType" ||
       field.type === "DoubaoRealtimeWorkspaceParametersAgentType" ||
       field.type === "ASTTranslateWorkspaceParametersAgentType")
   );

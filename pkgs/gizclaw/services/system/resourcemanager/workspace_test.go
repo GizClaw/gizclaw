@@ -126,7 +126,7 @@ func TestGetWorkspaceReturnsResource(t *testing.T) {
 		Id:         "demo",
 		CreatedAt:  time.Now().UTC(),
 		Name:       "demo",
-		Parameters: testFlowcraftWorkspaceParameters(),
+		Parameters: testEinoWorkspaceParameters(),
 		UpdatedAt:  time.Now().UTC(),
 		WorkflowId: "workflow",
 	}

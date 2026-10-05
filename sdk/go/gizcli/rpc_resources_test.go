@@ -712,7 +712,7 @@ func resourceWorkspace(name string) rpcapi.Workspace {
 
 func resourceWorkflowDoc(alias string) rpcapi.WorkflowGetResponse {
 	return rpcapi.WorkflowGetResponse{
-		Value: rpcapi.Workflow{Name: alias, Driver: rpcapi.WorkflowDriverFlowcraft,
+		Value: rpcapi.Workflow{Name: alias, Driver: rpcapi.WorkflowDriverEino,
 			I18n: map[string]rpcapi.ResourceI18nText{"en": {DisplayName: alias}, "zh-CN": {DisplayName: alias}}},
 		RuntimeProfileName: "default", RuntimeProfileRevision: "revision",
 	}

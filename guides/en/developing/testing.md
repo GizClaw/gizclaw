@@ -51,7 +51,7 @@ GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
   -run '^TestDoubaoServiceTierGiztest$' -count=1 -timeout=5m -v
 ```
 
-The test creates a Credential, Volc Tenant, `service_tier: fast` Model, Flowcraft Workflow, RuntimeProfile, and RegistrationToken through Admin HTTP. It starts a real Server with temporary state and runs three WebRTC text turns from `testdata/doubao-service-tier/fast.giztest.yaml`. The default model is `doubao-seed-2-0-mini-260428`; `GIZCLAW_E2E_DOUBAO_FAST_MODEL` can select another Model ID or Endpoint ID with low-latency service enabled.
+The test creates a Credential, Volc Tenant, `service_tier: fast` Model, Eino Workflow, RuntimeProfile, and RegistrationToken through Admin HTTP. It starts a real Server with temporary state and runs three WebRTC text turns from `testdata/doubao-service-tier/fast.giztest.yaml`. The default model is `doubao-seed-2-1-lite-260915`; `GIZCLAW_E2E_DOUBAO_FAST_MODEL` can select another Model ID or Endpoint ID with low-latency service enabled.
 
 A transparent observer forwards requests to the real Ark HTTPS API without replacing upstream responses. All three turns must return the expected text and EOS, request `fast`, receive HTTP 200, and report actual upstream execution as `fast`. A fallback to `default` or an absent tier fails acceptance. The report directory contains redacted `giztest.json` and `ark-tiers.json` with only tier, status, timing, token metadata, and failure codes. Missing credentials fail explicitly. This test incurs real provider usage and is excluded from ordinary Go tests without the build tag.
 
@@ -312,13 +312,6 @@ bound through `memory.BindApp` are the only scopes the test touches, and cleanup
 purges both until verification reports empty, also after a failure. The log
 records how many purge rounds verification needed.
 
-Flowcraft purge is covered without a provider account: the PostgreSQL job runs
-`TestPostgreSQLFlowcraftMemoryPurge`, which purges a `flowcraft_postgresql`
-binding's canonical facts, retrieval index, and queued extraction job through
-`memorystore.Registry` and keeps another Workspace's memory. The Redis 8 lane is
-`FLOWCRAFT_REDIS8_URL=redis://... go test ./pkgs/store/memory/flowcraft/redis8`,
-which needs Redis 8.4 or later.
-
 
 ## Credential-backed harness contract
 
@@ -360,7 +353,7 @@ tests/gizclaw-e2e/
 
 `workflow_catalog_test.go` below `tests/gizclaw-e2e/testdata` holds static
 fixture checks that need neither Docker nor credentials. They cover the Workflow
-catalog, Flowcraft graphs, Workspaces, and the Server/Edge config templates. Go
+catalog, Eino graphs, Workspaces, and the Server/Edge config templates. Go
 `./...` patterns skip directories named `testdata`, so the package is not part
 of `go test ./...`; the CI Go Test job runs it separately, and local fixture
 changes must run it too:
@@ -369,11 +362,77 @@ changes must run it too:
 go test -count=1 ./tests/gizclaw-e2e/testdata
 ```
 
-LLM nodes in `*-flowcraft-*` Workflow resources and `flowcraft-*` Workspaces
-must use `max_tokens: 2048`. The latency comparison benchmark fixture is the only
-exception: it uses the same 64/128 caps as `21-eino-latency-comparison.yaml` so
-both drivers produce comparably short answers. The exception and its per-node
-caps are registered in the test's `benchmarkFlowcraftTokenBudgets`.
+Business fixtures compose Eino Prompt, ChatModel, Memory and typed State directly.
+A bounded Starlark node owns deterministic Werewolf, mystery and poetry rules;
+the model narrates the authoritative result. Werewolf persists seats, roles,
+eliminations, ballots and victory. During play, the complete role map stays out
+of character prompts and long-term Memory; publicly revealed final identities
+may be used for review. Rules render the player's private role, inspection and
+wolf teammate hints directly. Each character receives its own role and allowed
+knowledge. Teammate rejection details stay out of public Memory. Rules render
+actual ballot counts and surviving faction counts directly.
+The mystery retains the four evidence requirements of Rainy Night
+Gramophone; motive requires both the will and newspaper, and undiscovered
+individual clues stay out of narration context. Poetry uses the Tang/Song/Yuan/Ming answer catalogue, awards each
+badge once and adds 100 points per checkpoint. Memory observes public state.
+Native History supplies conversation turns; only game progress is persisted in
+Graph State, without a second conversation channel store.
+
+Screenplay prompts specify character positions, responses to the player's current
+reasoning, available actions at each stage and narrative closure. Current State
+overrides prior narration and long-term Memory. Mystery narration uses acquired
+evidence only, poetry hints do not supply answers, and Werewolf dialogue follows
+fixed seats without replacing rule decisions. The Werewolf referee announcement
+is rendered directly from rules; the model supplies living-character dialogue
+during play and may answer as an eliminated character in the final review.
+The final publisher rejects model declarations of phases, tallies, victory or
+private identities. Character history projects NPC dialogue and the player's
+public daytime statements, excluding private hints and night actions. Death records distinguish attacks,
+poison, exile and hunter shots. The final identity table is rendered directly by
+the referee and stays outside long-term Memory. Werewolf renders the referee
+announcement in its rules node. Native Eino Batch calls at most two
+relevant characters in parallel with separate identities, wolf teammate
+knowledge, public dialogue and each character's last position. They do not share
+the full role table during play. Each character also receives its own deterministic ballot target before
+speaking, matching the NPC ballot subsequently committed by rules; other
+characters' unsubmitted intentions stay out of its prompt and public Memory.
+NPC wolf voting excludes known teammates. An attacked or exiled NPC hunter
+shoots a surviving target from its last public ballot, with a seat-and-round
+fallback when that target is unavailable. A player hunter gets a shoot-or-decline
+choice before victory is settled. Poisoned hunters cannot shoot. Rules answer
+final hunter-rule questions and farewells directly.
+The publisher validates character speech and combines it with the referee
+announcement in one assistant text output with one turn-ending boundary.
+VoiceAdapter selects character Voices within one audio route. First-response
+measurement includes this turn's character generation. Game progress uses State and dialogue uses History;
+long-term Memory is observed once for a public final audit, rather than every
+turn. Journey and ensemble stories
+resolve earlier commitments in the final chapter, then enter review or a brief
+farewell. The quality player's initial brief is a goal, not an established event
+or identity. These configurations still require actual provider-backed dialogue
+assessment; written prompt requirements do not prove passing quality.
+
+Candidate prompts separate history from the current input, repeat authoritative
+State beside that input. Werewolf characters use temperature 0.3; other candidates
+use 0.2. Journey advances only through a complete affirmative continuation command;
+questions and negations leave the chapter unchanged. Ensemble stories also require
+an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
+recognizes explicit action clauses without executing past ballot discussion or negated
+skills. The quality player tracks its 20 utterances in native State, advances the
+main objective, asks distinct review questions and then says farewell. It does
+not invent completion when the objective remains unfinished.
+
+`eino_catalog_test.go` compiles actual Resource and Workspace configurations,
+executes their native pipelines, and checks illegal actions, private projections,
+insufficient evidence, wrong answers and completed games. These local model and
+Memory fixtures do not replace live-provider or device voice acceptance.
+`eino-werewolf-game.push-to-talk-roundtrip` starts a game by voice, then advances
+to daylight with text to verify voiced NPC replies, one audio stream and complete
+turn boundaries. VoiceAdapter removes configured character markers from visible text.
+Werewolf character nodes use `max_tokens: 256`; other screenplay LLM nodes use
+2048. Latency comparisons use a 128-token direct
+answer and an additional 64-token planner in the planned variant. Both are
+validated independently.
 
 Copy the provider credential template first. `.env` is only for provider
 credentials; runtime addresses, resource/model/voice IDs, and E2E identities do
@@ -674,7 +733,7 @@ A first response reporting `interrupted` after the second input is allowed and r
 Only `mode`, `input`, and `pacing` can accompany this option; use the step `timeout` for the bound.
 Results include `input_overlap`, `session_connection_reused`, `second_input_sent`,
 `first_audio_ms`, `second_input_audio_ms`, `first_audio_eos_ms`, and second-response EOS flags.
-The Doubao, Eino, and Flowcraft `*-overlapping-input.giztest.yaml` scenarios cover both input
+The Doubao, Eino, and Eino `*-overlapping-input.giztest.yaml` scenarios cover both input
 modes in the Go runner. JavaScript and Flutter runners skip the unsupported `peer_stream` operation.
 
 Empty assistant BOS events do not establish response ownership; actual text or audio content does. The scenarios use a single Chinese counting request to reduce extra VAD turns caused by pauses within the recording.
@@ -787,7 +846,7 @@ shorter than `prebuffer_ms` only starts once every packet has arrived and
 cannot underrun, so only `prebuffer_ms` is reported.
 Giztest documents assert these paths through ordinary numeric `expect`
 constraints rather than a separate pacing schema.
-`flowcraft-voice-assistant.push-to-talk-roundtrip.giztest.yaml` and
+`eino-voice-assistant.push-to-talk-roundtrip.giztest.yaml` and
 `doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` require 20 ms
 Opus frames, a mean interval from 12 through 21 ms, P95 no greater than 30 ms,
 maximum interval no greater than 100 ms, at least 101 packets, no underruns
@@ -801,13 +860,13 @@ Both of those cases exercise a single turn, where the downlink pacer is
 building its target for the first time. The turns that follow are the ones that
 regress: the idle wall clock between them is not audio the client consumed, so
 charging it to the pacer makes every later turn arrive ahead of real time.
-`flowcraft-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` and
+`eino-voice-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` and
 `eino-concurrency-assistant.push-to-talk-multi-turn-pacing.giztest.yaml` take
 three turns against one Workspace and require at least 200 packets on each, a
 `buffer_surplus_ms` no greater than 700 ms, no underruns, and a positive
 `minimum_buffer_ms`. The packet floor keeps a short reply from satisfying the
 pacing assertions without exercising them, since the surplus a broken pacer
-accumulates grows with the length of the turn. The two cases cover the flowcraft
+accumulates grows with the length of the turn. The two cases cover the eino
 and eino drivers, which share the same cascaded text-to-TTS downlink.
 
 `first_audio_ms` records the first **audible frame**, not the first audio
@@ -1028,7 +1087,7 @@ bash tests/gizclaw-e2e/run_workflow_concurrency_20_tests.sh
 ```
 
 Each fixed entrypoint selects ten required files covering ordinary and
-interruption scenarios for Realtime, Realtime Duplex, Flowcraft, Eino, and
+interruption scenarios for Realtime, Realtime Duplex, Eino, and
 Translate. The 10-lane gate must pass before the 20-lane gate on the same
 repository head. Repeats within one file share one barrier, while one global
 worker pool schedules tasks from every selected file. Reports therefore retain
@@ -1401,13 +1460,13 @@ hosts or WAN behavior.
 ## LoCoMo Memory Evaluation
 
 `tests/locomo-e2e` is a GizClaw-owned manual evaluation of production
-`memory.Store` implementations. It does not use Flowcraft's evaluator and is
+`memory.Store` implementations. It does not use Eino's evaluator and is
 not part of ordinary `go test ./...`, Docker E2E, or required CI. Each live Go
 test owns its complete provider, memory-lane, and extraction configuration.
 Volc remote project configuration remains deployment state and the harness
 does not mutate it.
 
-Current lanes cover Flowcraft Redis 8 BM25 single-pass, hybrid single/two-pass,
+Current lanes cover Eino Redis 8 BM25 single-pass, hybrid single/two-pass,
 self-hosted Mem0 with Qdrant/pgvector, Mem0 Platform default/custom-instructions, and Volc AgentKit
 Memory default/request custom instructions. LoCoMo is a tagged Go test package. The Docker runner starts the
 pinned Redis 8 service, self-hosted Mem0 and its backend for the selected group, runs
@@ -1424,7 +1483,6 @@ go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
   -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
 tests/locomo-e2e/run_docker.sh mem0
 tests/locomo-e2e/run_docker.sh mem0-pgvector
-tests/locomo-e2e/run_docker.sh flowcraft
 tests/locomo-e2e/run_docker.sh all
 ```
 
@@ -1442,7 +1500,7 @@ redacted report. Shared project strategies are not modified. VPC-only endpoints
 require verified access through the project's VPC.
 
 The Mem0 group uses the same extraction and embedding model/key/base-URL
-environment variables as Flowcraft. Both Qdrant and PGVector containers use the `cmd/mem0` service pinned to `mem0ai 2.2.1`, and
+environment variables as Eino. Both Qdrant and PGVector containers use the `cmd/mem0` service pinned to `mem0ai 2.2.1`, and
 defaults to the domestic `deepseek-v4-flash` extractor/answer model through
 `https://api.deepseek.com`
 and `qwen3.7-text-embedding` with 1024 dimensions. Select the LLM adapter with
@@ -1452,10 +1510,8 @@ selected embedding service because Mem0 must create its Qdrant collection or Pos
 the exact vector width.
 Run a remote Mem0 Platform lane separately only when its endpoint, API key, and
 configuration fingerprint are available; those credentials are not required by
-the Docker groups. Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_FLOWCRAFT_REDIS8_URL` or
-`GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`; the runner points both at its Docker
-services. Override `GIZCLAW_LOCOMO_E2E_REDIS8_PORT` or
-`GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable.
+the Docker groups. Direct Go test runs require the matching `GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL`; the runner points both at its Docker
+services. Override `GIZCLAW_LOCOMO_E2E_MEM0_PORT` when the default port is unavailable.
 
 The LoCoMo runner prepares a standard Mem0 base for the actual Docker architecture.
 Set `GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR=cn` for the CN base. The PG lane sends
@@ -1464,7 +1520,7 @@ matching MemoryLayout delivery. Override it with
 `GIZCLAW_LOCOMO_E2E_MEM0_CUSTOM_INSTRUCTIONS`; reports fingerprint that request
 policy. The service owns model/storage configuration and no business Layout registry.
 
-The `mem0` group uses embedded Qdrant. `mem0-pgvector` starts Mem0 and an independent PostgreSQL 17/pgvector container, exposes only the Mem0 HTTP port on host loopback (default `18001`), and publishes no database port. Its test requires the health response's `vector_store` to be `pgvector` before running the same real extraction, recall, and question-answering evaluation. Missing database configuration or failed initialization never falls back to Qdrant. Direct Go tests use `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`; override the Docker HTTP port with `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT`. The report profile is `mem0_self_hosted_pgvector`. `all` includes both Mem0 backends and Flowcraft. Database credentials are fixed temporary Docker fixtures; database data and SQLite history are removed when the runner exits. This lane does not use cloud PostgreSQL.
+The `mem0` group uses embedded Qdrant. `mem0-pgvector` starts Mem0 and an independent PostgreSQL 17/pgvector container, exposes only the Mem0 HTTP port on host loopback (default `18001`), and publishes no database port. Its test requires the health response's `vector_store` to be `pgvector` before running the same real extraction, recall, and question-answering evaluation. Missing database configuration or failed initialization never falls back to Qdrant. Direct Go tests use `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`; override the Docker HTTP port with `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT`. The report profile is `mem0_self_hosted_pgvector`. `all` includes both Mem0 backends. Database credentials are fixed temporary Docker fixtures; database data and SQLite history are removed when the runner exits. This lane does not use cloud PostgreSQL.
 
 The PG lane defaults to an 8192-token extraction output budget, overridden by `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_MAX_TOKENS`. The test reads the service's actual budget and includes it in its fingerprint and report. The service logs only response metadata such as finish reason, JSON validity, and candidate count to diagnose truncation or empty extraction without logging model content. The Qdrant lane retains its original 2000-token default.
 
@@ -1572,7 +1628,6 @@ The upstream project publishes one `data/locomo10.json` file rather than a
 
 ```sh
 GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
-  tests/locomo-e2e/run_docker.sh flowcraft
 ```
 
 `tests/locomo-e2e/cmd/fixturegen` reproducibly converts one conversation from
@@ -1605,23 +1660,23 @@ The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tes
 
 Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.
 
-`TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-mini-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
+`TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
 ## Deterministic multi-role audio Giztest
 
 ```sh
-go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|FlowcraftMultiVoiceGiztest|MultiRole.*)$' -count=1
+go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|EinoBranchMultiVoiceGiztest|MultiRole.*)$' -count=1
 ```
 
 The suite shares the fake provider in `voice_fixture_test.go` while retaining real
-Eino/Flowcraft factories, AudioDock, the Go Giztest runner and CLI receiver. No
+Eino factories, AudioDock, the Go Giztest runner and CLI receiver. No
 external network, credentials or Docker are required. Audioplayer Giztest runs the
 whole suite after building Console assets, reusing its audio test environment.
 
 - `eino-voices/multi-turn.giztest.yaml` runs four Eino turns whose Starlark selector
   prefixes each reply with a `【speaker】` marker selected through `speaker_voices`.
   `multi-role-voices/multi-turn.giztest.yaml` runs fox, bird, owl, bear, unknown
-  (default fallback), bear, bear and fox in one invocation. Four Flowcraft publisher
+  (default fallback), bear, bear and fox in one invocation. Four Eino publisher
   nodes use `node_voices`. Distinct deterministic payloads for every turn detect
   stale TTS audio even across consecutive turns with the same role.
 - Per-turn `audio_integrity/sha256` verifies payload and order; `streams=1`,
@@ -1629,7 +1684,7 @@ whole suite after building Console assets, reusing its audio test environment.
   data. Session-wide ownership and TTS call counts also verify that ordinary
   multi-turn synthesis has at most one active call.
 - `TestMixedProviderSpeakerVoicesGiztest` runs `eino-voices/mixed-providers` and
-  `multi-role-voices/mixed-providers` (Flowcraft): one reply whose narrator Voice
+  `multi-role-voices/mixed-providers` (Eino): one reply whose narrator Voice
   natively returns Ogg/Opus and whose `【fox】` Voice natively returns MP3,
   through AgentHost with Workspace History. It requires text and audio EOS,
   `streams=1` and the digest of both segments as one `audio/ogg` stream, checks
@@ -1661,7 +1716,7 @@ whole suite after building Console assets, reusing its audio test environment.
   a broken sibling expectation.
 
 Rapid input shares the interruption test above: a new input BOS superseding the
-previous reply is the AudioDock/Flowcraft barge-in contract. The test positively
+previous reply is the AudioDock/Eino barge-in contract. The test positively
 asserts a valid A prefix and interrupted EOS on both routes, all 40/40 B packets
 and normal EOS on both routes, no A chunks after B starts, and `max_active=1`, without a duplicate scenario. This provider-boundary
 suite does not qualify real voice identity, Server/Edge/WebRTC pacing or device
@@ -1723,7 +1778,7 @@ a fixed transcript from input audio. TTS waits 12 seconds at startup, announces 
 audio BOS, waits 200 ms for synthesis, then emits 80 valid 20 ms Opus frames. Context cancellation bounds
 these delays.
 
-`slow-tts.*.giztest.yaml` covers Eino push-to-talk, Eino realtime and Flowcraft
+`slow-tts.*.giztest.yaml` covers Eino push-to-talk, Eino realtime and Eino
 realtime. First-response steps retain the 2-second text deadline; a separate
 Peer with the same workflow checks text/audio EOS, nonempty audio, overlap and pacing. Realtime
 turns reuse the session to replace input during earlier TTS startup. CI runs this
@@ -1733,30 +1788,30 @@ cleanup removes containers, the image and temporary runtime state.
 
 ### Speaker segment regression
 
-Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs Eino and Flowcraft without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.
+Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs both Eino Graph configurations without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.
 
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
 bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
 ```
 
-The standard provider-backed Giztest phase also runs `eino-speaker-voices.text-roundtrip` and `flowcraft-speaker-voices.text-roundtrip` with real credentials. The real LLM repeats a marked script, and Volc TTS speaks it with the `narrator`, `assistant-voice` and `story-bird` aliases. The scenarios assert that configured markers are stripped while unknown markers remain, that audio arrives as one stream with no violations and `audio_pacing.underruns=0`, and that ASR transcribes the segment content in order. Run them alone against a started Docker stack:
+The standard provider-backed Giztest phase also runs `eino-speaker-voices.text-roundtrip` and `eino-speaker-sequence.text-roundtrip` with real credentials. The real LLM repeats a marked script, and Volc TTS speaks it with the `narrator`, `assistant-voice` and `story-bird` aliases. The scenarios assert that configured markers are stripped while unknown markers remain, that audio arrives as one stream with no violations and `audio_pacing.underruns=0`, and that ASR transcribes the segment content in order. Run them alone against a started Docker stack:
 
 ```sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-speaker-voices.text-roundtrip.giztest.yaml \
-  tests/gizclaw-e2e/giztest/flowcraft-speaker-voices.text-roundtrip.giztest.yaml --parallel 2
+  tests/gizclaw-e2e/giztest/eino-speaker-sequence.text-roundtrip.giztest.yaml --parallel 2
 ```
 
-`eino-mixed-provider-voices.text-roundtrip` and `flowcraft-mixed-provider-voices.text-roundtrip` also run in that phase. The narrator is the Volc `narrator` Voice and the `【弟弟】` character is the MiniMax CN system Voice `minimax-boy` (`speech-2.6-turbo`, no `provider_data.format` override), so one reply mixes providers whose Voices default to different formats. The scenarios check that the MiniMax Voice synthesizes with the test account, that the reply ends with text and audio EOS as one audio stream (`streams=1`, `max_active=1`, `open=0`, `violations=0`), that ASR hears the segments in order, and that Workspace History stores the reply as a replayable agent entry. History requests explicitly use descending order; the Go runner unwraps the protobuf `value`, so assertions use `/available`, `/items/0/type`, `/items/0/replay_available`, and `/items/0/text`. The three-segment script retains a 20 KB audio minimum; transcription uses `森林.*苹果.*日出` to check content order while allowing ASR punctuation differences instead of requiring verbatim text. These scenarios do not impose a playback-underrun threshold on live providers. JS, C, and Flutter runners explicitly skip these audio documents, as they do the single-provider precedent. They need the MiniMax CN credential from `tests/gizclaw-e2e/.env`; the `minimax-cn` tenant uses `https://api.minimaxi.com`. Run them alone against a started Docker stack:
+`eino-mixed-provider-voices.text-roundtrip` and `eino-mixed-speaker-sequence.text-roundtrip` also run in that phase. The narrator is the Volc `narrator` Voice and the `【弟弟】` character is the MiniMax CN system Voice `minimax-boy` (`speech-2.6-turbo`, no `provider_data.format` override), so one reply mixes providers whose Voices default to different formats. The scenarios check that the MiniMax Voice synthesizes with the test account, that the reply ends with text and audio EOS as one audio stream (`streams=1`, `max_active=1`, `open=0`, `violations=0`), that ASR hears the segments in order, and that Workspace History stores the reply as a replayable agent entry. History requests explicitly use descending order; the Go runner unwraps the protobuf `value`, so assertions use `/available`, `/items/0/type`, `/items/0/replay_available`, and `/items/0/text`. The three-segment script retains a 20 KB audio minimum; transcription uses `森林.*苹果.*日出` to check content order while allowing ASR punctuation differences instead of requiring verbatim text. These scenarios do not impose a playback-underrun threshold on live providers. JS, C, and Flutter runners explicitly skip these audio documents, as they do the single-provider precedent. They need the MiniMax CN credential from `tests/gizclaw-e2e/.env`; the `minimax-cn` tenant uses `https://api.minimaxi.com`. Run them alone against a started Docker stack:
 
 ```sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.text-roundtrip.giztest.yaml \
-  tests/gizclaw-e2e/giztest/flowcraft-mixed-provider-voices.text-roundtrip.giztest.yaml --parallel 2
+  tests/gizclaw-e2e/giztest/eino-mixed-speaker-sequence.text-roundtrip.giztest.yaml --parallel 2
 ```
 
-Three speech-rate scenarios also run in that phase. `server.run.workspace.reload` carries the RPC contract: it sends `tts_speech_rate_percent: 80` with `reload-with-options` and confirms the stored parameter with `server.workspace.get`, so the JS, C, and Flutter runners exercise that encoding too. `flowcraft-voice-assistant.tts-speech-rate` covers storage, out-of-range rejection (`INVALID_ARGUMENT`), and a real reply spoken at the rate; `dashscope-realtime-conversation.tts-speech-rate` covers a provider without a native rate still speaking through the transformer time-stretch.
+Three speech-rate scenarios also run in that phase. `server.run.workspace.reload` carries the RPC contract: it sends `tts_speech_rate_percent: 80` with `reload-with-options` and confirms the stored parameter with `server.workspace.get`, so the JS, C, and Flutter runners exercise that encoding too. `eino-voice-assistant.tts-speech-rate` covers storage, out-of-range rejection (`INVALID_ARGUMENT`), and a real reply spoken at the rate; `dashscope-realtime-conversation.tts-speech-rate` covers a provider without a native rate still speaking through the transformer time-stretch.
 
 `eino-mixed-provider-voices.tts-speech-rate` proves the rate takes effect: two Workspaces bound to `eino-mixed-provider-voices` read the same script, the reply at the Workflow rate asserts 700..1400 audio packets (20 ms each, about 14..28 seconds), and the Workspace set to 60% asserts at least 1600 packets (about 32 seconds). Measured runs produce about 1116..1122 and 1836..1892 packets, leaving more than 20% margin on both bounds. Both the Volc narrator and the MiniMax character segment slow down. JS, C, and Flutter runners skip this scenario as well:
 
@@ -1765,7 +1820,7 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
   tests/gizclaw-e2e/giztest/eino-mixed-provider-voices.tts-speech-rate.giztest.yaml
 ```
 
-Offline safety-fence tests cover parameters, RPC, Profile SQL/revisions, and driver injection. The E2E RuntimeProfile fixture defines four independent complete prompts named `alpha`, `bravo`, `charlie`, and `delta`. `server.workspace.safety-fence.roundtrip.giztest.yaml` covers RPC discovery, successful reload without a selection, custom identifier roundtrip, and malformed values; `server.device.runtime_profile.get.giztest.yaml` covers HTTP discovery without exposing prompts; `server.workspace.safety-fence.missing-profile.giztest.yaml` verifies that reload fails for an undefined `child` entry; and `sfu.workspace.switch.giztest.yaml` verifies valid-identifier no-op behavior. Workspace Go tests verify Admin put 400 because Giztest ephemeral Peer connections have no Admin HTTP permission. The five `safety-fence-*.giztest.yaml` scenarios cover explicit prompt injection for Flowcraft, Eino, and three Realtime drivers.
+Offline safety-fence tests cover parameters, RPC, Profile SQL/revisions, and driver injection. The E2E RuntimeProfile fixture defines four independent complete prompts named `alpha`, `bravo`, `charlie`, and `delta`. `server.workspace.safety-fence.roundtrip.giztest.yaml` covers RPC discovery, successful reload without a selection, custom identifier roundtrip, and malformed values; `server.device.runtime_profile.get.giztest.yaml` covers HTTP discovery without exposing prompts; `server.workspace.safety-fence.missing-profile.giztest.yaml` verifies that reload fails for an undefined `child` entry; and `sfu.workspace.switch.giztest.yaml` verifies valid-identifier no-op behavior. Workspace Go tests verify Admin put 400 because Giztest ephemeral Peer connections have no Admin HTTP permission. The five `safety-fence-*.giztest.yaml` scenarios cover explicit prompt injection for Eino, and three Realtime drivers.
 
 Run these nine scenarios with the dedicated minimal resource catalog in `testdata/resources/safety-fence/`, an isolated Docker project, and standard E2E provider credentials:
 
@@ -1779,4 +1834,33 @@ The script writes separate RPC, provider, HTTP, and SFU JSON reports under `test
 
 For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](/en/developing/api/http/quota).
 
-The quota Docker lane additionally checks complete HTTP chat/Responses rejection envelopes and real SDK Workspace dialogue over Edge/Server. Its Eino and Flowcraft helpers observe exhausted and unavailable error EOS, exact public details, response identity, and no denied provider I/O. These deterministic protocol fixtures do not claim live cloud-provider or hardware qualification.
+The quota Docker lane additionally checks complete HTTP chat/Responses rejection envelopes and real SDK Workspace dialogue over Edge/Server. Its Eino helpers observe exhausted and unavailable error EOS, exact public details, response identity, and no denied provider I/O. These deterministic protocol fixtures do not claim live cloud-provider or hardware qualification.
+
+## Screenplay quality
+
+`script-quality.*.giztest.yaml` runs 20 candidate replies for Werewolf, mystery,
+poetry, journey and multi-role storytelling. An independent player Workspace
+drives the dialogue; a separate judge rates character consistency, information
+boundaries, responsiveness, progression and closure. Each criterion requires
+3/4. Deterministic rule tests remain separate from model quality assessment.
+
+Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
+
+```bash
+bash tests/gizclaw-e2e/run_script_quality_tests.sh
+GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
+  bash tests/gizclaw-e2e/run_script_quality_tests.sh
+```
+
+The runner accepts `GIZCLAW_E2E_CREDENTIAL_FILE`, starts and cleans its isolated
+Docker project, and calls real providers. It does not merge or deploy business
+configuration. Every selected case runs with its own JSON report; any quality or
+execution failure produces a nonzero exit. Default artifacts live under ignored
+`testdata/script-quality/`. The terminal summary contains scores and turns; full
+reports contain dialogue and quoted judgments and should be handled as dialogue
+content. Player/judge workflows use native Eino Prompt/ChatModel; the
+Docker E2E Profile's text `llm`, judge `script-judge`, and audio `audio-llm`
+aliases all select Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`), request
+`service_tier: fast`, and disable thinking by default. The `script-judge` alias
+can still select the judge model independently. The live low-latency Giztest
+and first-response matrix on this page verify the actual tier and latency.

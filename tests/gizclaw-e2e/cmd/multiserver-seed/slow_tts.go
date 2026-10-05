@@ -35,7 +35,7 @@ func seedVoiceFixture(ctx context.Context, api *adminhttp.ClientWithResponses, p
 		}
 	}
 	workflows := map[string]apitypes.RuntimeProfileBinding{}
-	for _, driver := range []string{"eino", "flowcraft"} {
+	for _, driver := range []string{"eino", "eino-sequential"} {
 		data, err := os.ReadFile("tests/gizclaw-e2e/testdata/" + fixture + "/" + driver + ".json")
 		if err != nil {
 			return err

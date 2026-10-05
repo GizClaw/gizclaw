@@ -18,10 +18,10 @@ func testCredentialBodyString(body apitypes.CredentialBody, key string) string {
 	return values[key]
 }
 
-func testFlowcraftWorkspaceParameters() *apitypes.WorkspaceParameters {
+func testEinoWorkspaceParameters() *apitypes.WorkspaceParameters {
 	var params apitypes.WorkspaceParameters
-	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{
-		AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+	if err := params.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{
+		AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
 	}); err != nil {
 		panic(err)
 	}

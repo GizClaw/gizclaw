@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
@@ -1315,38 +1316,34 @@ func (s *Server) validateReferences(ctx context.Context, workspace adminhttp.Wor
 		return s.validateDoubaoRealtimeDuplexOverrides(ctx, workflow.Spec.DoubaoRealtimeDuplex, workspace.Parameters, runtimeAlias)
 	}
 	if workflow.Spec.Driver == apitypes.WorkflowDriverEino {
-		return validateEinoOverrides(workspace.Parameters)
-	}
-	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
-		return nil
-	}
-	references, err := ResolveFlowcraftModelReferences(workflow, workspace.Parameters)
-	if err != nil {
-		return err
-	}
-	// Flowcraft model fields are RuntimeProfile aliases, including when a
-	// Workspace names the Workflow resource directly. A direct Workspace write
-	// has no authoritative owner RuntimeProfile in this request, so resource
-	// existence and model kinds are validated when that profile resolves the
-	// Workflow. Treating aliases as Model IDs here would reject valid Graphs and
-	// couple reusable Workflow resources to one deployment's model catalog.
-	if !runtimeAlias {
-		return nil
-	}
-	for _, reference := range references {
-		modelID := reference.ModelID
-		visibleModelID := modelID
-		bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
-		if !present {
-			return errors.New("runtime model bindings not configured")
-		}
-		modelID = bindings[reference.ModelID]
-		if modelID == "" {
-			return invalidWorkspaceReference("flowcraft parameter %q references missing runtime Model alias %q", reference.Role, reference.ModelID)
-		}
-		if err := s.validateModelKind(ctx, "flowcraft parameter", reference.Role, modelID, visibleModelID, reference.Kind); err != nil {
+		if err := validateEinoOverrides(workspace.Parameters); err != nil {
 			return err
 		}
+		if !runtimeAlias {
+			return nil
+		}
+		if workflow.Spec.Eino == nil {
+			return invalidWorkspaceReference("eino workflow config is required")
+		}
+		bindings, present := ctx.Value(runtimeModelBindingsContextKey{}).(map[string]string)
+		requireModel := func(path, alias string, kind apitypes.ModelKind) error {
+			if !present {
+				return errors.New("runtime model bindings not configured")
+			}
+			modelID := bindings[alias]
+			if modelID == "" {
+				return invalidWorkspaceReference("eino parameter %q references missing runtime Model alias %q", path, alias)
+			}
+			return s.validateModelKind(ctx, "eino parameter", path, modelID, alias, kind)
+		}
+		if err := einoconfig.VisitModelAliases("workflow", workflow.Spec.Eino.Graph, requireModel); err != nil {
+			return err
+		}
+		voice := workflow.Spec.Eino.VoiceAdapter
+		if voice != nil && voice.AsrModel != nil && strings.TrimSpace(*voice.AsrModel) != "" {
+			return requireModel("voice_adapter.asr_model", *voice.AsrModel, apitypes.ModelKindAsr)
+		}
+		return nil
 	}
 	return nil
 }
@@ -1656,52 +1653,6 @@ func resolveWorkflowReference(ctx context.Context, workspace adminhttp.Workspace
 	workflowID := string(workspace.WorkflowId)
 	_, runtimeBound := ctx.Value(runtimeWorkflowBindingsContextKey{}).(map[string]string)
 	return workflowID, runtimeBound, nil
-}
-
-// FlowcraftModelReference is one effective Model selected for a FlowCraft role.
-type FlowcraftModelReference struct {
-	Role    string
-	ModelID string
-	Kind    apitypes.ModelKind
-}
-
-// ResolveFlowcraftModelReferences resolves Workspace overrides and Workflow
-// settings into the concrete Models used by a FlowCraft runtime.
-func ResolveFlowcraftModelReferences(workflow apitypes.Workflow, workspaceParameters *apitypes.WorkspaceParameters) ([]FlowcraftModelReference, error) {
-	if workflow.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
-		return nil, nil
-	}
-	if workspaceParameters != nil {
-		if err := requireWorkspaceParametersVariant(workspaceParameters, "flowcraft"); err != nil {
-			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
-		}
-		_, err := workspaceParameters.AsFlowcraftWorkspaceParameters()
-		if err != nil {
-			return nil, invalidWorkspaceReference("flowcraft parameters are required: %v", err)
-		}
-	}
-	if workflow.Spec.Flowcraft == nil {
-		return nil, invalidWorkspaceReference("flowcraft workflow config is required")
-	}
-	configured := *workflow.Spec.Flowcraft
-	references := make([]FlowcraftModelReference, 0, len(configured.Graph.Nodes)+3)
-	for index, raw := range configured.Graph.Nodes {
-		if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
-			node, err := raw.AsFlowcraftLLMNode()
-			if err != nil {
-				return nil, invalidWorkspaceReference("flowcraft graph node %d is invalid: %v", index, err)
-			}
-			references = append(references, FlowcraftModelReference{
-				Role: fmt.Sprintf("graph.nodes[%d].config.model", index), ModelID: node.Config.Model, Kind: apitypes.ModelKindLlm,
-			})
-		}
-	}
-	if configured.VoiceAdapter != nil {
-		if alias := stringPointerValue(configured.VoiceAdapter.AsrModel); alias != "" {
-			references = append(references, FlowcraftModelReference{Role: "voice_adapter.asr_model", ModelID: alias, Kind: apitypes.ModelKindAsr})
-		}
-	}
-	return references, nil
 }
 
 func stringPointerValue(value *string) string {

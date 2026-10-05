@@ -18,7 +18,7 @@ spec:
         en: {display_name: Doubao Assistant}
         zh-CN: {display_name: 豆包助手}
     journey:
-      resource_id: flowcraft-journey-guide
+      resource_id: eino-journey-guide
       tags: [6-8, stories]
       i18n:
         en: {display_name: Journey Guide}
@@ -48,10 +48,10 @@ spec:
     memories:
       assistant-memory:
         layout_id: assistant-memory
-        driver: flowcraft
+        driver: mem0
         connection:
-          type: flowcraft_redis8
-          url: redis://redis:6379/0
+          type: mem0_self_hosted
+          endpoint: http://127.0.0.1:18000
     voices:
       cute-pet:
         resource_id: volc-tenant:volc-main:zh_male_naiqimengwa_mars_bigtts
@@ -72,11 +72,9 @@ The maps under `resources` bind environment aliases to canonical Admin resource 
 
 Every RuntimeProfile alias is 1-63 bytes of dot-separated lowercase kebab-case segments. Undotted names such as `asr` and `extract` identify shared capabilities; names such as `journey.model`, `journey.narrator`, and `story.journey-center-earth` provide independently bindable consumer slots. Each complete name remains one opaque key in a flat map. The Server preserves it exactly and performs no segment lookup, prefix matching, wildcard matching, or fallback from `journey.narrator` to `narrator`. Dotted and hyphenated forms such as `journey.narrator` and `journey-narrator` are distinct aliases. Empty segments, underscores, and leading or trailing hyphens within a segment are invalid.
 
-`resources.memories` is the product-owned deployment binding for long-term Memory. Each alias selects one Admin `MemoryLayout`, one driver, and exactly one typed connection. The closed connection variants are managed local `flowcraft_bbh`, `flowcraft_object_store` (explicit directory), `flowcraft_postgresql` (DSN), `flowcraft_redis8` (Redis 8.4+ URL), `mem0` (endpoint, API key, Project ID), and `volc_mem0` (endpoint, API key, Memory Project ID). `flowcraft_bbh` stores data under the Server Workspace root and needs no external service, while `flowcraft_redis8` accepts `redis://` or certificate-verifying `rediss://`, with an optional `tls_ca_file` for an additional trusted CA. External connection values are stored directly in this Admin-only RuntimeProfile; they do not reference a Credential and are never projected through Peer APIs. Driver and connection type must match, and Flowcraft Layout model aliases must exist in the same RuntimeProfile.
+`resources.memories` is the Admin deployment binding for long-term Memory. Each alias selects one `MemoryLayout`, driver, and typed connection. Driver `mem0` selects Cloud `mem0` (endpoint, API key, Project ID) or self-hosted `mem0_self_hosted` (endpoint, optional API key); driver `volc_mem0` selects its matching connection (endpoint, API key, Memory Project ID). The Profile owns connection values without Credential references or Peer projection. The self-hosted service owns model and vector-store configuration. Driver/connection mismatches, unknown fields, and missing parameters are rejected.
 
 The binding alias identifies the named physical source selected by a Workflow's scalar `memory` field. Within the same Workspace, driver, and physical binding, changing extraction policy, Graph Recall/Observe policy, prompts, or `top_k` does not create another canonical data namespace. Changing the driver or connection can select another source without migrating or deleting the old one. Deleting a Workspace purges only its data in the current binding; see [Memory Store](/en/developing/stores/memory#memorylayout-runtimeprofile-and-workflow).
-
-`flowcraft_bbh` is no longer a supported connection. A persisted profile that still uses it is rejected on read or runtime resolution with the affected profile and binding names, but remains replaceable through `PUT` with `flowcraft_redis8` or `flowcraft_object_store`. GizClaw does not migrate, reinterpret, or delete the former managed local directory when the profile is rejected, replaced, or deleted; operators must retain or back up that directory and perform any data transfer explicitly before switching the binding.
 
 ## app_config
 
@@ -180,7 +178,6 @@ GizClaw provides the selected complete prompt as a named Workflow variable. Each
 
 | Driver | How a Workflow references the fence |
 | --- | --- |
-| Flowcraft | The Board variable `safety_fence`, written before every turn; reference it as `${board.safety_fence}` in an LLM node's `system_prompt`. It replaces a product Board input with the same name. |
 | Eino | The reserved `input.safety_fence` binding (`string`), inherited by batch, race, and subgraph runs; bind it into a prompt node with `inputs: {safety_fence: {from: input.safety_fence}}` and use it in the template. |
 | Doubao Realtime, Doubao Realtime Duplex, DashScope Realtime | The `${input.safety_fence}` placeholder in Workflow or Workspace `instructions`. The fence travels as the `safety_fence` transformer pattern parameter; peergenx replaces every placeholder and trims surrounding whitespace while building the transformer, and passes instructions without the placeholder to the provider unchanged. The dotted name keeps the `${NAME}` environment expansion of `gizclaw admin apply` and the Terraform provider from consuming it. |
 

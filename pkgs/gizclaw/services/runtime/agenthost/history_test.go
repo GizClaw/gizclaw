@@ -15,18 +15,20 @@ import (
 	"testing"
 	"time"
 
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
-	genxflowcraft "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
+	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/cloudwego/eino/components/model"
+	"github.com/cloudwego/eino/components/retriever"
+	"github.com/cloudwego/eino/schema"
 )
 
 func TestHistoryAgentRecordsOutputText(t *testing.T) {
@@ -2208,28 +2210,40 @@ func TestProductionObserverWrappersReportUnsupportedProducer(t *testing.T) {
 	_ = probe.Close()
 }
 
-type finiteHistoryGenerator struct{ cause error }
+type finiteHistoryModel struct{ cause error }
 
-func (g finiteHistoryGenerator) GenerateStream(_ context.Context, _ string, modelContext genx.ModelContext) (genx.Stream, error) {
-	if g.cause != nil {
-		return nil, g.cause
+func (m finiteHistoryModel) Generate(context.Context, []*schema.Message, ...model.Option) (*schema.Message, error) {
+	if m.cause != nil {
+		return nil, m.cause
 	}
-	builder := genx.NewStreamBuilder(modelContext, 2)
-	_ = builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("allowed")})
-	_ = builder.Done(genx.Usage{})
-	return builder.Stream(), nil
+	return schema.AssistantMessage("allowed", nil), nil
 }
-func (g finiteHistoryGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
-	return genx.Usage{}, nil, errors.New("Invoke is not supported by this fixture")
+func (m finiteHistoryModel) Stream(ctx context.Context, input []*schema.Message, options ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	message, err := m.Generate(ctx, input, options...)
+	if err != nil {
+		return nil, err
+	}
+	return schema.StreamReaderFromArray([]*schema.Message{message}), nil
+}
+func (m finiteHistoryModel) ResolveChatModel(context.Context, string) (model.BaseChatModel, error) {
+	return m, nil
+}
+func (finiteHistoryModel) ResolveRetriever(context.Context, string) (retriever.Retriever, error) {
+	return nil, errors.New("retriever is not supported by this fixture")
 }
 
 func TestFiniteHostHistoryPreservesDialogueAndQuotaTerminal(t *testing.T) {
 	for _, cause := range []error{nil, peerquota.ErrDenied, peerquota.ErrUnavailable} {
 		t.Run(fmt.Sprint(cause), func(t *testing.T) {
 			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
-			host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Id: "finite-workspace"}, AgentType: "finite-flowcraft", Runtime: workspace.Runtime{History: history}}})
-			if err := host.Register("finite-flowcraft", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
-				return genxflowcraft.New(genxflowcraft.Config{ID: "finite", Name: "finite", Models: finiteHistoryGenerator{cause: cause}, Graph: flowgraph.GraphDefinition{Name: "finite", Entry: "chat", Nodes: []flowgraph.NodeDefinition{{ID: "chat", Type: "llm", Config: map[string]any{"model": "chat"}}}}, PublishNodes: []string{"chat"}})
+			host := New(fakeResolver{spec: Spec{Workspace: apitypes.Workspace{Id: "finite-workspace"}, AgentType: "finite-eino", Runtime: workspace.Runtime{History: history}}})
+			if err := host.Register("finite-eino", FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
+				return genxeino.New(t.Context(), genxeino.Config{
+					Agent: genxeino.AgentConfig{ID: "finite", Name: "finite"}, Components: finiteHistoryModel{cause: cause},
+					Graph: genxeino.GraphDefinition{Name: "finite", State: genxeino.StateDefinition{Fields: []genxeino.StateField{{Name: "answer", Type: genxeino.StateString, Merge: genxeino.MergeReplace}}},
+						Nodes: []genxeino.NodeDefinition{{ID: "chat", ChatModel: &genxeino.ChatModelNode{Model: "chat"}, Inputs: map[string]genxeino.Binding{"messages": {From: "input.messages"}}, Outputs: map[string]string{"text": "answer"}}},
+						Edges: []genxeino.EdgeDefinition{{From: "start", To: "chat"}, {From: "chat", To: "end"}}, Outputs: []genxeino.OutputDefinition{{Node: "chat", Field: "answer", Name: "assistant", MIMEType: "text/plain", Primary: true}}},
+				})
 			})); err != nil {
 				t.Fatal(err)
 			}

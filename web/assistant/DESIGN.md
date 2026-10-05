@@ -140,4 +140,4 @@ facts the reply must contain or must not claim.
   between runs; three attempts separate that variance from a behavior the
   assistant cannot reach at all. The Go e2e
   `TestAssistantScenariosWithLiveModel` runs it with the Docker stack's
-  `doubao-mini-chat`.
+  `doubao-lite-chat`.

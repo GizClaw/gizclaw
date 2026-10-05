@@ -13,10 +13,10 @@ import {
 test("scenario Protobuf JSON converts workspace oneofs and enums for the SDK", () => {
   const request = requestFromProtoJSON("server.workspace.create", {
     name: "example",
-    workflow_name: "flowcraft-chat-assistant",
+    workflow_name: "eino-chat-assistant",
     parameters: {
-      flowcraft_workspace_parameters: {
-        agent_type: "FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT",
+      eino_workspace_parameters: {
+        agent_type: "EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO",
         input: "WORKSPACE_INPUT_MODE_PUSH_TO_TALK",
       },
     },
@@ -30,7 +30,7 @@ test("scenario Protobuf JSON converts workspace oneofs and enums for the SDK", (
   assert.ok(
     "agent_type" in request.parameters && "input" in request.parameters,
   );
-  assert.equal(request.parameters.agent_type, "flowcraft");
+  assert.equal(request.parameters.agent_type, "eino");
   assert.equal(request.parameters.input, "push-to-talk");
 });
 

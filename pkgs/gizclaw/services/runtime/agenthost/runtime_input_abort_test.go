@@ -177,7 +177,7 @@ func (m dockMux) Transform(ctx context.Context, _ string, input genx.Stream) (ge
 	return m.dock.Transform(ctx, input)
 }
 
-// turnScopedAgent mimics the Flowcraft contract that matters here: a finished
+// turnScopedAgent mimics the EinoPorted contract that matters here: a finished
 // turn keeps the output stream open, a control-only BOS interrupts the active
 // turn, and the output stream ends only when the input stream ends.
 type turnScopedAgent struct {
@@ -199,7 +199,7 @@ func (a *turnScopedAgent) run(ctx context.Context, input genx.Stream, output *ag
 		if err != nil {
 			cancelTurn()
 			turn.Wait()
-			// Flowcraft closes cleanly once its input ends.
+			// EinoPorted closes cleanly once its input ends.
 			_ = output.Close()
 			return
 		}

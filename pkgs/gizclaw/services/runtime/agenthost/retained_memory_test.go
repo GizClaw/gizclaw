@@ -35,7 +35,7 @@ func retainedMemoryResolver(t *testing.T, profile func(context.Context, string) 
 func memoryProfile(aliases ...string) apitypes.RuntimeProfile {
 	bindings := make(map[string]apitypes.RuntimeProfileMemoryBinding, len(aliases))
 	for _, alias := range aliases {
-		bindings[alias] = apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-layout", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft}
+		bindings[alias] = apitypes.RuntimeProfileMemoryBinding{LayoutId: "pet-layout", Driver: apitypes.RuntimeProfileMemoryDriverMem0}
 	}
 	return apitypes.RuntimeProfile{
 		Id: "owner-profile", Revision: "revision-1",

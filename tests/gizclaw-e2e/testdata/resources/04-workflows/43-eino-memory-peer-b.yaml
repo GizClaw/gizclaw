@@ -1,0 +1,111 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-memory-peer-b
+spec:
+  driver: eino
+  memory: giztest-peer-memory-b
+  eino:
+    graph:
+      name: eino-memory-peer-b
+      state:
+        fields:
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: input-text
+            type: string
+            merge: replace
+          - name: recalled
+            type: string
+            merge: replace
+          - name: lane
+            type: string
+            merge: replace
+      nodes:
+        - id: capture
+          type: script
+          inputs:
+            text:
+              from: input.text
+          outputs:
+            text: input-text
+            lane: lane
+          language: starlark
+          source: |
+            def run(input):
+                return {"text": input["text"], "lane": "owner-profile"}
+          limits:
+            max_execution_steps: 1000
+            timeout: 100ms
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          entrypoint: run
+        - id: recall
+          type: memory_recall
+          query_from: input-text
+          output: recalled
+          top_k: 5
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+            memory:
+              from: recalled
+          outputs:
+            messages: messages
+          messages:
+            - role: system
+              template: |-
+                Answer briefly.
+                {safety}
+                Relevant memory: {memory}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
+          model: llm
+          max_tokens: 2048
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: observe
+          type: memory_observe
+          wait_for_completion: true
+          facts:
+            - text_from: input-text
+              attributes:
+                lane: lane
+      edges:
+        - from: start
+          to: capture
+        - from: capture
+          to: recall
+        - from: recall
+          to: prompt
+        - from: prompt
+          to: answer
+        - from: answer
+          to: observe
+        - from: observe
+          to: end
+      outputs:
+        - node: answer
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
+      compile:
+        node_trigger_mode: any_predecessor
+      branches: []
+    conversation:
+      starts: peer

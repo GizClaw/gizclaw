@@ -37,10 +37,10 @@ stores:
     storage: database
     table: gizclaw_metrics
 
-  flowcraft-history:
+  eino-history:
     kind: log.mutable
     storage: database
-    table: gizclaw_flowcraft_history
+    table: gizclaw_eino_history
 
   workspace-history:
     kind: log.mutable
@@ -54,7 +54,7 @@ stores:
     prefix: workspace-history
     ttl: 720h
 
-  flowcraft-state:
+  eino-state:
     kind: sql
     storage: database
 
@@ -194,9 +194,9 @@ services:
     floor_idle: 300ms
   agent_host:
     runtime_store: agenthost
-    flowcraft:
-      state_store: flowcraft-state
-      history_store: flowcraft-history
+    eino:
+      state_store: eino-state
+      history_store: eino-history
   metrics:
     store: metrics
   system_log:

@@ -1,0 +1,65 @@
+{
+  "driver": "eino",
+  "eino": {
+    "graph": {
+      "name": "speaker-segments",
+      "state": {
+        "fields": [
+          {
+            "name": "text",
+            "type": "string",
+            "merge": "replace"
+          }
+        ]
+      },
+      "nodes": [
+        {
+          "id": "echo",
+          "type": "script",
+          "outputs": {
+            "value": "text"
+          },
+          "language": "starlark",
+          "source": "def run(input):\n    return {\"value\": \"开场【狐】狐狸说话【鸟】小鸟回答【狐】狐狸再说【路人】尾声\"}\n",
+          "limits": {
+            "max_execution_steps": 1000,
+            "timeout": "100ms",
+            "max_input_bytes": 1048576,
+            "max_output_bytes": 1048576
+          },
+          "entrypoint": "run"
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "echo"
+        },
+        {
+          "from": "echo",
+          "to": "end"
+        }
+      ],
+      "outputs": [
+        {
+          "node": "echo",
+          "field": "text",
+          "name": "assistant",
+          "mime_type": "text/plain",
+          "primary": true
+        }
+      ],
+      "compile": {
+        "node_trigger_mode": "any_predecessor"
+      },
+      "branches": []
+    },
+    "voice_adapter": {
+      "default_voice": "story.default",
+      "speaker_voices": {
+        "狐": "story.fox",
+        "鸟": "story.bird"
+      }
+    }
+  }
+}

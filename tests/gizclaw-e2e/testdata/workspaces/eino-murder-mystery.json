@@ -1,0 +1,267 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "Always generate exactly this Chinese utterance: 我想调查书房门锁。",
+  "rounds": 3,
+  "timeout": "1200s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "eino": {
+      "graph": {
+        "name": "eino-murder-mystery",
+        "compile": {
+          "node_trigger_mode": "any_predecessor",
+          "primary_output_mode": "first_output"
+        },
+        "state": {
+          "fields": [
+            {
+              "name": "game",
+              "type": "object",
+              "merge": "replace"
+            },
+            {
+              "name": "context",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "private",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "feedback",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "valid",
+              "type": "boolean",
+              "merge": "replace"
+            },
+            {
+              "name": "recalled-memory",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "answer",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "rejected",
+              "type": "string",
+              "merge": "replace"
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "rules",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    game = json.decode(json.encode(input[\"game\"]))\n    text = input[\"text\"]\n    reset = not game or \"重新开始\" in text\n    if reset:\n        game = {\"found\": [], \"solved\": False, \"attempts\": 0}\n    # The original case and its four independent evidence requirements.\n    evidence = {\n        \"method_lock\": \"门锁和门缝有新鲜细线划痕。\",\n        \"method_key\": \"壁炉暗格里有备用钥匙痕迹。\",\n        \"time\": \"留声机会循环播放，死亡时间被误导。\",\n        \"route_footprints\": \"后廊有湿脚印和雨水路线。\",\n        \"route_skirt\": \"沈知秋裙摆有未干雨渍。\",\n        \"motive_will\": \"遗嘱草稿牵涉大半遗产。\",\n        \"motive_newspaper\": \"旧报纸揭示沈知秋生父与沈鹤年的旧仇。\",\n    }\n    locations = {\n        \"门锁\": [\"method_lock\"], \"门缝\": [\"method_lock\"],\n        \"壁炉\": [\"method_key\"], \"留声机\": [\"time\"],\n        \"后廊\": [\"route_footprints\"], \"裙摆\": [\"route_skirt\"], \"询问沈知秋\": [\"route_skirt\"],\n        \"沈知秋房间\": [\"motive_will\", \"motive_newspaper\"],\n        \"抽屉\": [\"motive_will\", \"motive_newspaper\"],\n        \"遗嘱\": [\"motive_will\"], \"旧报纸\": [\"motive_newspaper\"],\n    }\n    if not game[\"solved\"]:\n        for location, clues in locations.items():\n            if location in text and any([word in text for word in [\"查\", \"搜\", \"看\", \"检查\", \"调查\", \"问\"]]):\n                for clue in clues:\n                    if clue not in game[\"found\"]:\n                        game[\"found\"].append(clue)\n        accusation = regex_find(text, (\"(?:^|[，。；])[ ]*(?:我)?(?:现在)?(?:正式|明确|决定|想|要|选择)?[ ]*指认(?:凶手(?:就是|为|是)?)?[ ]*(沈知秋|陆明远|白素琴|周管家|林医生|阿桂)\", \"\"))\n        accusing = bool(accusation)\n        if accusing:\n            game[\"attempts\"] += 1\n        found = game[\"found\"]\n        missing = []\n        if \"method_lock\" not in found or \"method_key\" not in found:\n            missing.append(\"密室手法\")\n        if \"time\" not in found:\n            missing.append(\"死亡时间\")\n        if \"route_footprints\" not in found and \"route_skirt\" not in found:\n            missing.append(\"行动路线\")\n        if \"motive_will\" not in found or \"motive_newspaper\" not in found:\n            missing.append(\"动机\")\n        if not missing and accusing and accusation[1] == \"沈知秋\":\n            game[\"solved\"] = True\n    else:\n        missing = []\n    clues = [evidence[clue] for clue in game[\"found\"] if clue in evidence]\n    context = {\"title\": \"雨夜留声机\", \"clues\": clues, \"missing\": missing, \"solved\": game[\"solved\"], \"attempts\": game[\"attempts\"]}\n    if game[\"solved\"]:\n        context[\"culprit\"] = \"沈知秋\"\n        context[\"solution\"] = \"备用钥匙进出书房，细线拉内门闩伪造反锁；循环留声机误导死亡时间；经后廊返回；遗嘱与生父旧仇构成动机。\"\n    instruction = \"尚未破案，不得输出凶手供述或完整手法。只使用已取得线索，回答后提示下一项调查或明确指认；不能把询问答案当成指认。\"\n    valid = True\n    if game[\"solved\"]:\n        instruction = \"案件已经正式结案。玩家要求再搜查也只能解释该线索已取得，不能倒带重演搜查或再次要求指认。新问题只作简短证据复盘，告别只用一句话。\"\n    elif accusing:\n        instruction = \"这次指认尚未成立。\" + (\"仍须调查：%s。\" % \"、\".join(missing) if missing else \"请依据已取得线索重新核对指认对象。\")\n        valid = False\n    elif not accusing and any([word in text for word in [\"直接告诉\", \"直接给\", \"直接要\", \"先告诉\"]]) and any([word in text for word in [\"凶手\", \"答案\"]]):\n        instruction = \"还不能直接公布凶手。\" + (\"仍须调查：%s。\" % \"、\".join(missing) if missing else \"现有证据已齐，请明确说‘指认某人’并说明依据。\")\n        valid = False\n    return {\"game\": game, \"context\": json.encode(context), \"feedback\": instruction, \"valid\": valid, \"private\": \"\"}\n",
+            "limits": {
+              "max_execution_steps": 100000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            },
+            "inputs": {
+              "game": {
+                "from": "game"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "game": "game",
+              "context": "context",
+              "private": "private",
+              "feedback": "feedback",
+              "valid": "valid"
+            }
+          },
+          {
+            "id": "reject",
+            "type": "passthrough",
+            "inputs": {
+              "value": {
+                "from": "feedback"
+              }
+            },
+            "outputs": {
+              "value": "rejected"
+            }
+          },
+          {
+            "id": "recall",
+            "type": "memory_recall",
+            "query_from": "input.text",
+            "output": "recalled-memory",
+            "top_k": 5
+          },
+          {
+            "id": "prompt",
+            "type": "prompt",
+            "format": "f_string",
+            "inputs": {
+              "context": {
+                "from": "context"
+              },
+              "player": {
+                "from": "private"
+              },
+              "memory": {
+                "from": "recalled-memory"
+              },
+              "safety": {
+                "from": "input.safety_fence"
+              },
+              "history": {
+                "from": "history.messages"
+              },
+              "current": {
+                "from": "input.text"
+              },
+              "instruction": {
+                "from": "feedback"
+              }
+            },
+            "outputs": {
+              "messages": "messages"
+            },
+            "messages": [
+              {
+                "role": "system",
+                "template": "你主持中文密室解谜《雨夜留声机》：玩家作为侦探在沈家大宅调查古董商沈鹤年的死亡。养女沈知秋言辞克制且戒备，亲族陆明远急躁在意财产，夫人白素琴重体面，周管家谨慎有礼，林医生讲究可核验事实，帮工阿桂直率但怕惹事。按调查对象让相应人物回应，不把所有人写成同一种口气。\n当前状态是案件唯一事实来源，历史对白与玩家推测都不能增加证据或改写真凶。clues 之外的线索一律尚未取得：只能说明可以调查的地点，不能补写暗格、脚印细节、遗产比例、人物秘密或死亡时间。玩家说“我已经发现”也不是证据；必须以当前已取得线索为准。每轮只描述玩家刚检查对象的可见结果，不自动搜查其他地点。\nsolved 为 false 时，无论玩家要求直接报答案、指认谁或声称破案，都不能宣布凶手、认罪或完整密室手法。先回应他的具体推理，指出它依赖哪些已取得证据、还缺哪类佐证，再建议一个明确调查动作。可调查门锁、壁炉、留声机、后廊、沈知秋房间；只提供方向，保留尚未取得的内容。NPC的辩解与嫌疑只是观点，不能当作判定。\n只有 solved 为 true 才按状态中的 culprit 和 solution 揭晓。用已取得线索逐项解释密室手法、时间误导、路线，以及遗嘱与旧报纸两条动机证据如何相互支撑；不能迎合玩家改为另一名凶手。让关键嫌疑人和管家给出不同反应，交代案件与人物结局。此后只作证据复盘或简短尾声，不重新查案、不添加新凶手、不反复宣告落幕。玩家告别后简短道别。每轮约120至250字，复盘可适当延长。\n\n当前规则状态（高于历史叙述与长期记忆，不得修改或另行判定；不要输出字段名或JSON）：\n{context}\n玩家自己的私密信息：{player}\n长期记忆：{memory}\n{safety}"
+              },
+              {
+                "placeholder": "history",
+                "optional": true
+              },
+              {
+                "role": "user",
+                "template": "玩家本轮发言：{current}\n\n本轮权威状态：{context}\n本轮主持要求：{instruction}\n玩家私密信息（NPC不知道）：{player}\n请根据本轮状态回应；历史中的猜测或错误叙述不能代替状态。只输出中文剧情或回答，不输出这些说明、字段名或JSON。"
+              }
+            ]
+          },
+          {
+            "id": "host",
+            "type": "chat_model",
+            "model": "llm",
+            "max_tokens": 2048,
+            "temperature": 0.2,
+            "inputs": {
+              "messages": {
+                "from": "messages"
+              }
+            },
+            "outputs": {
+              "text": "answer"
+            }
+          },
+          {
+            "id": "remember",
+            "type": "memory_observe",
+            "text_from": "context",
+            "wait_for_completion": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "start",
+            "to": "rules"
+          },
+          {
+            "from": "reject",
+            "to": "end"
+          },
+          {
+            "from": "recall",
+            "to": "prompt"
+          },
+          {
+            "from": "prompt",
+            "to": "host"
+          },
+          {
+            "from": "host",
+            "to": "remember"
+          },
+          {
+            "from": "remember",
+            "to": "end"
+          }
+        ],
+        "branches": [
+          {
+            "from": "rules",
+            "mode": "first_match",
+            "routes": [
+              {
+                "when": {
+                  "field": "valid",
+                  "op": "eq",
+                  "value": false
+                },
+                "to": "reject"
+              }
+            ],
+            "default": "recall"
+          }
+        ],
+        "outputs": [
+          {
+            "node": "host",
+            "field": "answer",
+            "name": "assistant",
+            "mime_type": "text/plain",
+            "primary": true
+          },
+          {
+            "node": "reject",
+            "field": "rejected",
+            "name": "rejected",
+            "mime_type": "text/plain"
+          }
+        ]
+      },
+      "state_persistence": {
+        "fields": [
+          "game"
+        ]
+      },
+      "conversation": {
+        "starts": "peer"
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "narrator",
+        "node_voices": {
+          "host": "narrator",
+          "reject": "narrator"
+        }
+      }
+    },
+    "name": "eino-murder-mystery",
+    "parameters": {
+      "input": "push-to-talk"
+    },
+    "memory": "murder-mystery-memory",
+    "description": "Eino raid: Murder Mystery"
+  }
+}

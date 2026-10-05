@@ -51,10 +51,10 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       parameters:
-        flowcraft_workspace_parameters:
-          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
 - id: create_api_key
   client: peer
@@ -68,7 +68,7 @@ steps:
   client: peer
   http:
     method: GET
-    path: /gizclaw/v1/device/workspaces?workflow_name=flowcraft-chat-assistant
+    path: /gizclaw/v1/device/workspaces?workflow_name=eino-chat-assistant
     headers:
       Authorization: "Bearer ${api_key}"
     status: 200
@@ -78,7 +78,7 @@ steps:
     "": {count: 1}
     /0/id: {non_empty: true}
     /0/name: {equals: "${resource_name}"}
-    /0/workflow_name: {equals: flowcraft-chat-assistant}
+    /0/workflow_name: {equals: eino-chat-assistant}
     /0/available: {equals: true}
     /0/system: {equals: false}
     /0/created_at: {non_empty: true}
@@ -131,7 +131,7 @@ steps:
   client: peer
   http:
     method: GET
-    path: /gizclaw/v1/device/workspaces?workflow_name=flowcraft-chat-assistant
+    path: /gizclaw/v1/device/workspaces?workflow_name=eino-chat-assistant
     headers:
       Authorization: "Bearer ${api_key}"
     status: 200

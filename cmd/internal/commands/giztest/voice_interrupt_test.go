@@ -21,22 +21,18 @@ import (
 // TestMultiRoleVoiceInterrupt covers rapid input through the barge-in contract:
 // new input BOS cancels the active reply rather than queueing its remaining audio.
 func TestMultiRoleVoiceInterrupt(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
+	for _, fixture := range []string{"eino-voices", "multi-role-voices"} {
 		for _, mode := range []apitypes.WorkspaceInputMode{apitypes.WorkspaceInputModePushToTalk, apitypes.WorkspaceInputModeRealtime} {
-			t.Run(kind+"/"+string(mode), func(t *testing.T) { runVoiceInterrupt(t, kind, mode) })
+			t.Run(fixture+"/"+string(mode), func(t *testing.T) { runVoiceInterrupt(t, fixture, mode) })
 		}
 	}
 }
 
-func runVoiceInterrupt(t *testing.T, kind string, mode apitypes.WorkspaceInputMode) {
+func runVoiceInterrupt(t *testing.T, fixture string, mode apitypes.WorkspaceInputMode) {
 	t.Helper()
 	packets := map[string][][]byte{"story.fox": voiceTonePacketsCount(t, 300, 160), "story.bird": voiceTonePackets(t, 500), "story.default": voiceTonePackets(t, 700)}
 	provider := &voiceFixtureProvider{packets: packets, recognize: map[string]string{string(packets["story.fox"][0]): "fox", string(packets["story.bird"][0]): "bird"}}
-	root, file := "eino-voices", "workflow.json"
-	if kind == "flowcraft" {
-		root, file = "multi-role-voices", "flowcraft.json"
-	}
-	data, err := os.ReadFile(filepath.Join("../../../../tests/gizclaw-e2e/testdata", root, file))
+	data, err := os.ReadFile(filepath.Join("../../../../tests/gizclaw-e2e/testdata", fixture, "workflow.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +47,7 @@ func runVoiceInterrupt(t *testing.T, kind string, mode apitypes.WorkspaceInputMo
 	}
 	resources := voiceFixtureResources{}
 	service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
-	agent := newVoiceFixtureAgent(t, kind, data, service, mode)
+	agent := newVoiceFixtureAgent(t, "eino", data, service, mode)
 	defer agent.(io.Closer).Close()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

@@ -12,15 +12,7 @@ func TestSelfHostedMem0RuntimeProfileResourceLifecycle(t *testing.T) {
 	profiles := runtimeprofiletest.New(t)
 	manager := New(Services{RuntimeProfiles: profiles, MemoryLayouts: memorylayouttest.New(t)})
 	profiles.ResolveResource = manager.Get
-	if _, err := manager.Apply(t.Context(), mustResource(t, `{
-		"apiVersion":"gizclaw.admin/v1alpha1","kind":"MemoryLayout",
-		"metadata":{"id":"assistant-memory"},"spec":{
-			"flowcraft":{"extraction":{"model":"extract","mode":"single_pass"},
-				"embedding":{"model":"embedding"},"lanes":[{"name":"profile","kind":"note"}],
-				"write":{"mode":"sync","tier":"general"}},
-			"mem0":{"scope":"peer","custom_instructions":"Keep durable facts."},
-			"volc_mem0":{"strategies":[{"name":"profile","type":"semantic","custom_instructions":"Keep durable facts."}]}
-		}}`)); err != nil {
+	if _, err := manager.Apply(t.Context(), mustResource(t, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"MemoryLayout","metadata":{"id":"assistant-memory"},"spec":{"mem0":{"scope":"peer","custom_instructions":"Keep durable facts."},"volc_mem0":{"strategies":[{"name":"profile","type":"semantic","custom_instructions":"Keep durable facts."}]}}}`)); err != nil {
 		t.Fatal(err)
 	}
 	for _, test := range []struct {

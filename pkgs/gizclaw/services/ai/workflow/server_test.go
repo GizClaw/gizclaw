@@ -22,21 +22,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	srv := newTestServer(t)
 	ctx := context.Background()
 
-	createDoc := mustDocument(t, `{
-		"id": "demo-assistant",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {
-				"graph": {
-					"name": "assistant",
-					"entry": "answer",
-					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "pet-care.model"}}],
-					"edges": [{"from": "answer", "to": "__end__"}]
-				},
-				"voice_adapter": {"asr_model": "pet-care.asr", "default_voice": "pet-care.pet", "node_voices": {"answer": "pet-care.answer"}}
-			}
-		}
-	}`)
+	createDoc := mustDocument(t, `{"id":"demo-assistant","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"pet-care.model","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]},"voice_adapter":{"asr_model":"pet-care.asr","default_voice":"pet-care.pet","node_voices":{"answer":"pet-care.answer"}}}}}`)
 
 	createResp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &createDoc})
 	if err != nil {
@@ -46,7 +32,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	if !ok {
 		t.Fatalf("CreateWorkflow() response = %#v", createResp)
 	}
-	if got := workflowDriver(t, apitypes.Workflow(created)); got != "flowcraft" {
+	if got := workflowDriver(t, apitypes.Workflow(created)); got != "eino" {
 		t.Fatalf("CreateWorkflow() driver = %q", got)
 	}
 
@@ -76,21 +62,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 	}
 	assertWorkflowDottedAliases(t, gotSingle, "pet-care.model", "pet-care.asr", "pet-care.pet", "pet-care.answer")
 
-	updateDoc := mustDocument(t, `{
-		"id": "demo-assistant",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {
-				"graph": {
-					"name": "assistant",
-					"entry": "answer",
-					"nodes": [{"id": "answer", "type": "llm", "publish": true, "config": {"model": "story-teller.model"}}],
-					"edges": [{"from": "answer", "to": "__end__"}]
-				},
-				"voice_adapter": {"asr_model": "story-teller.asr", "default_voice": "story-teller.narrator", "node_voices": {"answer": "story-teller.answer"}}
-			}
-		}
-	}`)
+	updateDoc := mustDocument(t, `{"id":"demo-assistant","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"story-teller.model","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]},"voice_adapter":{"asr_model":"story-teller.asr","default_voice":"story-teller.narrator","node_voices":{"answer":"story-teller.answer"}}}}}`)
 	putResp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
 		Id:   created.Id,
 		Body: &updateDoc,
@@ -103,7 +75,7 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 		t.Fatalf("PutWorkflow() response = %#v", putResp)
 	}
 	putSingle := mustSingle(t, apitypes.Workflow(putDoc))
-	if putSingle.Spec.Flowcraft == nil || putSingle.Spec.Flowcraft.Graph.Name != "assistant" {
+	if putSingle.Spec.Eino == nil || putSingle.Spec.Eino.Graph.Name != "assistant" {
 		t.Fatalf("PutWorkflow() spec = %#v", putSingle.Spec)
 	}
 	assertWorkflowDottedAliases(t, putSingle, "story-teller.model", "story-teller.asr", "story-teller.narrator", "story-teller.answer")
@@ -127,18 +99,18 @@ func TestServerWorkflowsCRUD(t *testing.T) {
 
 func assertWorkflowDottedAliases(t *testing.T, workflow adminhttp.WorkflowUpsert, model, asr, defaultVoice, nodeVoice string) {
 	t.Helper()
-	if workflow.Spec.Flowcraft == nil || workflow.Spec.Flowcraft.VoiceAdapter == nil ||
-		workflow.Spec.Flowcraft.VoiceAdapter.AsrModel == nil || *workflow.Spec.Flowcraft.VoiceAdapter.AsrModel != asr ||
-		workflow.Spec.Flowcraft.VoiceAdapter.DefaultVoice == nil || *workflow.Spec.Flowcraft.VoiceAdapter.DefaultVoice != defaultVoice ||
-		workflow.Spec.Flowcraft.VoiceAdapter.NodeVoices == nil || (*workflow.Spec.Flowcraft.VoiceAdapter.NodeVoices)["answer"] != nodeVoice {
-		t.Fatalf("Flowcraft voice aliases = %#v", workflow.Spec.Flowcraft)
+	if workflow.Spec.Eino == nil || workflow.Spec.Eino.VoiceAdapter == nil ||
+		workflow.Spec.Eino.VoiceAdapter.AsrModel == nil || *workflow.Spec.Eino.VoiceAdapter.AsrModel != asr ||
+		workflow.Spec.Eino.VoiceAdapter.DefaultVoice == nil || *workflow.Spec.Eino.VoiceAdapter.DefaultVoice != defaultVoice ||
+		workflow.Spec.Eino.VoiceAdapter.NodeVoices == nil || (*workflow.Spec.Eino.VoiceAdapter.NodeVoices)["answer"] != nodeVoice {
+		t.Fatalf("EinoPorted voice aliases = %#v", workflow.Spec.Eino)
 	}
-	raw, err := json.Marshal(workflow.Spec.Flowcraft)
+	raw, err := json.Marshal(workflow.Spec.Eino)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.Contains(string(raw), `"model":"`+model+`"`) {
-		t.Fatalf("Flowcraft model alias was not preserved: %s", raw)
+		t.Fatalf("EinoPorted model alias was not preserved: %s", raw)
 	}
 }
 
@@ -235,14 +207,14 @@ func TestValidateDriverSpecRejectsInvalidRealtimeOptions(t *testing.T) {
 	}
 }
 
-func TestServerRejectsEmptyFlowcraftSpec(t *testing.T) {
+func TestServerRejectsEmptyEinoPortedSpec(t *testing.T) {
 	t.Parallel()
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	empty := apitypes.FlowcraftWorkflowSpec{}
-	doc := adminhttp.WorkflowUpsert{Id: "empty-flowcraft", Spec: apitypes.WorkflowSpec{
-		Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &empty,
+	empty := apitypes.EinoWorkflowSpec{}
+	doc := adminhttp.WorkflowUpsert{Id: "empty-eino", Spec: apitypes.WorkflowSpec{
+		Driver: apitypes.WorkflowDriverEino, Eino: &empty,
 	}}
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
@@ -339,7 +311,7 @@ func TestServerRejectsInvalidToolkitPolicy(t *testing.T) {
 	doc := adminhttp.WorkflowUpsert{
 		Id: "bad-toolkit",
 		Spec: apitypes.WorkflowSpec{
-			Driver:  apitypes.WorkflowDriverFlowcraft,
+			Driver:  apitypes.WorkflowDriverEino,
 			Toolkit: &apitypes.ToolkitPolicy{ToolIds: &toolIDs},
 		},
 	}
@@ -366,12 +338,7 @@ func TestServerCreateWorkflowRequiresName(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	doc := mustDocument(t, `{
-		"metadata": {},
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	doc := mustDocument(t, `{"metadata":{},"spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
@@ -387,23 +354,13 @@ func TestServerPutRejectsPathNameMismatch(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	seed := mustDocument(t, `{
-		"id": "expected-name",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	seed := mustDocument(t, `{"id":"expected-name","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 	createdResponse, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &seed})
 	if err != nil {
 		t.Fatal(err)
 	}
 	created := createdResponse.(adminhttp.CreateWorkflow200JSONResponse)
-	doc := mustDocument(t, `{
-		"id": "other-name",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	doc := mustDocument(t, `{"id":"other-name","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 
 	resp, err := srv.PutWorkflow(ctx, adminhttp.PutWorkflowRequestObject{
 		Id:   created.Id,
@@ -438,12 +395,7 @@ func TestServerRejectsNonCanonicalWorkflowName(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	doc := mustDocument(t, `{
-		"id": " padded-workflow ",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	doc := mustDocument(t, `{"id":" padded-workflow ","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 
 	resp, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc})
 	if err != nil {
@@ -461,12 +413,7 @@ func TestServerListWorkflowsPagination(t *testing.T) {
 	ctx := context.Background()
 
 	for _, name := range []string{"alpha001", "beta0001", "gamma001"} {
-		doc := mustDocument(t, fmt.Sprintf(`{
-			"id": %q,
-			"spec": {
-				"driver": "flowcraft",
-				"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}			}
-		}`, name))
+		doc := mustDocument(t, fmt.Sprintf(`{"id":%q,"spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`, name))
 		if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 			t.Fatalf("CreateWorkflow(%q) error = %v", name, err)
 		}
@@ -511,12 +458,7 @@ func TestServerWorkflowConflictAndMissingDelete(t *testing.T) {
 
 	srv := newTestServer(t)
 	ctx := context.Background()
-	doc := mustDocument(t, `{
-		"id": "duplicate",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	doc := mustDocument(t, `{"id":"duplicate","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 	if _, err := srv.CreateWorkflow(ctx, adminhttp.CreateWorkflowRequestObject{Body: &doc}); err != nil {
 		t.Fatalf("CreateWorkflow(seed) error = %v", err)
 	}
@@ -542,12 +484,7 @@ func TestServerWorkflowStoreNotConfigured(t *testing.T) {
 
 	srv := &Server{}
 	ctx := context.Background()
-	doc := mustDocument(t, `{
-		"id": "missing-store",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	doc := mustDocument(t, `{"id":"missing-store","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 
 	listResp, err := srv.ListWorkflows(ctx, adminhttp.ListWorkflowsRequestObject{})
 	if err != nil {
@@ -618,12 +555,7 @@ func TestServerRejectsUnsupportedWorkflowDriver(t *testing.T) {
 func TestWorkflowResponseVisitors(t *testing.T) {
 	t.Parallel()
 
-	doc := mustDocument(t, `{
-		"id": "visitor",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {"graph":{"name":"assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm"}}],"edges":[{"from":"answer","to":"__end__"}]}}		}
-	}`)
+	doc := mustDocument(t, `{"id":"visitor","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"llm","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 	responseDoc := apitypes.Workflow{Id: doc.Id, Spec: doc.Spec}
 	cases := map[string]func(*fiber.Ctx) error{
 		"create": createWorkflow200Response{doc: responseDoc}.VisitCreateWorkflowResponse,

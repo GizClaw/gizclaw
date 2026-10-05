@@ -438,7 +438,11 @@ func (p *oaiPuller) pull(sb *StreamBuilder, stream *ssestream.Stream[openai.Chat
 		case oaiFinishReasonLength:
 			finish = sb.Truncated
 		case oaiFinishReasonContentFilter:
-			finish = blockedFinish(sb, sel.Delta.Refusal)
+			reason := sel.Delta.Refusal
+			if strings.TrimSpace(reason) == "" {
+				reason = "provider finish_reason=content_filter; refusal detail was not supplied"
+			}
+			finish = blockedFinish(sb, reason)
 		}
 		if finish == nil && sel.Delta.Refusal != "" {
 			finish = blockedFinish(sb, sel.Delta.Refusal)

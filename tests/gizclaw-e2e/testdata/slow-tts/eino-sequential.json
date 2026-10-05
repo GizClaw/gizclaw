@@ -1,0 +1,62 @@
+{
+  "driver": "eino",
+  "eino": {
+    "graph": {
+      "name": "slow-tts",
+      "state": {
+        "fields": [
+          {
+            "name": "text",
+            "type": "string",
+            "merge": "replace"
+          }
+        ]
+      },
+      "nodes": [
+        {
+          "id": "echo",
+          "type": "script",
+          "outputs": {
+            "value": "text"
+          },
+          "language": "starlark",
+          "source": "def run(input):\n    return {\"value\": \"Latency fixture reply\"}\n",
+          "limits": {
+            "max_execution_steps": 1000,
+            "timeout": "100ms",
+            "max_input_bytes": 1048576,
+            "max_output_bytes": 1048576
+          },
+          "entrypoint": "run"
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "echo"
+        },
+        {
+          "from": "echo",
+          "to": "end"
+        }
+      ],
+      "outputs": [
+        {
+          "node": "echo",
+          "field": "text",
+          "name": "assistant",
+          "mime_type": "text/plain",
+          "primary": true
+        }
+      ],
+      "compile": {
+        "node_trigger_mode": "any_predecessor"
+      },
+      "branches": []
+    },
+    "voice_adapter": {
+      "asr_model": "asr",
+      "default_voice": "narrator"
+    }
+  }
+}

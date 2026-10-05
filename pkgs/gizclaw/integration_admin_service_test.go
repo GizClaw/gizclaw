@@ -18,20 +18,12 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
-	createDoc := mustWorkflow(t, `{
-		"id": "demo-assistant",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {
-				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
-			}
-		}
-	}`)
+	createDoc := mustWorkflow(t, `{"id":"demo-assistant","spec":{"driver":"eino","eino":{"graph":{"name":"Assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"updated","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 	created, err := createWorkflow(context.Background(), admin, createDoc)
 	if err != nil {
 		t.Fatalf("CreateWorkflow error: %v", err)
 	}
-	if created.Spec.Driver != apitypes.WorkflowDriverFlowcraft {
+	if created.Spec.Driver != apitypes.WorkflowDriverEino {
 		t.Fatalf("CreateWorkflow driver = %q", created.Spec.Driver)
 	}
 
@@ -51,20 +43,12 @@ func TestIntegrationAdminServiceWorkflowLifecycle(t *testing.T) {
 		t.Fatalf("GetWorkflow id = %q", got.Id)
 	}
 
-	updateDoc := mustWorkflow(t, `{
-		"id": "demo-assistant",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {
-				"graph": {"name":"Updated Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
-			}
-		}
-	}`)
+	updateDoc := mustWorkflow(t, `{"id":"demo-assistant","spec":{"driver":"eino","eino":{"graph":{"name":"Updated Assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"updated","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 	updated, err := putWorkflow(context.Background(), admin, created.Id, updateDoc)
 	if err != nil {
 		t.Fatalf("PutWorkflow error: %v", err)
 	}
-	if updated.Spec.Flowcraft == nil || updated.Spec.Flowcraft.Graph.Name != "Updated Assistant" {
+	if updated.Spec.Eino == nil || updated.Spec.Eino.Graph.Name != "Updated Assistant" {
 		t.Fatalf("PutWorkflow spec = %#v", updated.Spec)
 	}
 
@@ -88,10 +72,7 @@ func TestIntegrationAdminServiceRejectsLegacyWorkflowDescription(t *testing.T) {
 	resp, err := api.CreateWorkflowWithBodyWithResponse(
 		context.Background(),
 		"application/json",
-		strings.NewReader(`{
-			"metadata":{"name":"legacy","description":"old"},
-			"spec":{"driver":"flowcraft","flowcraft":{}}
-		}`),
+		strings.NewReader(`{"metadata":{"name":"legacy","description":"old"},"spec":{"driver":"eino"}}`),
 	)
 	if err != nil {
 		t.Fatalf("CreateWorkflowWithBodyWithResponse() error = %v", err)
@@ -107,15 +88,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 	admin := newTestClient(t, ts)
 	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{Name: new("admin")})
 
-	workflowDoc := mustWorkflow(t, `{
-		"id": "demo-workflow",
-		"spec": {
-			"driver": "flowcraft",
-			"flowcraft": {
-				"graph": {"name":"Assistant","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"updated"}}]}
-			}
-		}
-	}`)
+	workflowDoc := mustWorkflow(t, `{"id":"demo-workflow","spec":{"driver":"eino","eino":{"graph":{"name":"Assistant","compile":{"node_trigger_mode":"any_predecessor","max_run_steps":16},"state":{"fields":[{"name":"values","type":"object","merge":"replace"},{"name":"channels","type":"object","merge":"replace"},{"name":"answer-messages","type":"messages","merge":"replace"},{"name":"answer-text","type":"string","merge":"replace"}]},"nodes":[{"id":"initialize-conversation","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    channels[\"main\"] = json.decode(json.encode(input[\"history\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"history":{"from":"input.messages"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer-prompt","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    values[\"safety_fence\"] = input[\"fence\"]\n    prompt = ''\n    messages = [{\"role\":\"system\",\"content\":prompt}] if prompt else []\n    for message in channels.get('main', []):\n        content = message.get(\"content\", \"\")\n        if not content:\n            content = \"\".join([part.get(\"text\", \"\") for part in message.get(\"parts\", []) if part.get(\"type\") == \"text\"])\n        messages.append({\"role\":message.get(\"role\", \"user\"),\"content\":content})\n    return {\"values\":values,\"channels\":channels,\"messages\":messages}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"fence":{"from":"input.safety_fence"}},"outputs":{"values":"values","channels":"channels","messages":"answer-messages"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}},{"id":"answer","type":"chat_model","model":"updated","inputs":{"messages":{"from":"answer-messages"}},"outputs":{"text":"answer-text"}},{"id":"answer-capture","type":"script","language":"starlark","entrypoint":"run","source":"def run(input):\n    values = json.decode(json.encode(input[\"values\"]))\n    channels = json.decode(json.encode(input[\"channels\"]))\n    text = input[\"answer\"]\n    channels.setdefault(\"main\", []).append({\"role\":\"assistant\",\"content\":text})\n    return {\"values\":values,\"channels\":channels}\n","inputs":{"values":{"from":"values"},"channels":{"from":"channels"},"answer":{"from":"answer-text"}},"outputs":{"values":"values","channels":"channels"},"limits":{"max_execution_steps":1000000,"timeout":"1s","max_input_bytes":1048576,"max_output_bytes":1048576}}],"edges":[{"from":"start","to":"initialize-conversation"},{"from":"answer-prompt","to":"answer"},{"from":"answer","to":"answer-capture"},{"from":"initialize-conversation","to":"answer-prompt"},{"from":"answer-capture","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer-text","name":"answer","mime_type":"text/plain","primary":true}]},"state_persistence":{"fields":["values","channels"]}}}}`)
 	workflow, err := createWorkflow(context.Background(), admin, workflowDoc)
 	if err != nil {
 		t.Fatalf("CreateWorkflow error: %v", err)
@@ -137,7 +110,7 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		Id:         "demo-workspace-id",
 		Name:       "demo-workspace",
 		WorkflowId: workflow.Id,
-		Parameters: testFlowcraftWorkspaceParameters(),
+		Parameters: testEinoWorkspaceParameters(),
 	}
 	created, err := createWorkspace(context.Background(), ts, admin, createBody)
 	if err != nil {
@@ -167,13 +140,13 @@ func TestIntegrationAdminServiceWorkspaceLifecycle(t *testing.T) {
 		Id:         created.Id,
 		Name:       "demo-workspace",
 		WorkflowId: workflow.Id,
-		Parameters: testFlowcraftWorkspaceParameters(),
+		Parameters: testEinoWorkspaceParameters(),
 	})
 	if err != nil {
 		t.Fatalf("PutWorkspace error: %v", err)
 	}
-	params, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
-	if err != nil || params.AgentType != apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft {
+	params, err := updated.Parameters.AsEinoWorkspaceParameters()
+	if err != nil || params.AgentType != apitypes.EinoWorkspaceParametersAgentTypeEino {
 		t.Fatalf("PutWorkspace parameters = %#v", updated.Parameters)
 	}
 

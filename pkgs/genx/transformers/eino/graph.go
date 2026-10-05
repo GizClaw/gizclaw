@@ -15,9 +15,10 @@ type GraphDefinition struct {
 
 // GraphCompileConfig controls Eino Graph compilation.
 type GraphCompileConfig struct {
-	MaxRunSteps     int
-	NodeTriggerMode NodeTriggerMode
-	FanIn           map[string]FanInConfig
+	PrimaryOutputMode PrimaryOutputMode
+	MaxRunSteps       int
+	NodeTriggerMode   NodeTriggerMode
+	FanIn             map[string]FanInConfig
 }
 
 // NodeTriggerMode controls whether a node runs after any or all predecessors.
@@ -218,3 +219,11 @@ func validatePredicate(predicate Predicate, fields map[string]StateType) error {
 	}
 	return nil
 }
+
+// PrimaryOutputMode chooses the delivery anchor of a Graph turn.
+type PrimaryOutputMode string
+
+const (
+	PrimaryFixed       PrimaryOutputMode = "fixed"
+	PrimaryFirstOutput PrimaryOutputMode = "first_output"
+)

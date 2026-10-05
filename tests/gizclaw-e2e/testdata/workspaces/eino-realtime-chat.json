@@ -1,0 +1,138 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "Always generate exactly this Chinese utterance: 请问你能听清楚我说话吗？",
+  "rounds": 1,
+  "timeout": "300s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "eino": {
+      "graph": {
+        "name": "eino-realtime-chat",
+        "compile": {
+          "node_trigger_mode": "any_predecessor"
+        },
+        "state": {
+          "fields": [
+            {
+              "name": "messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "answer",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "user-text",
+              "type": "string",
+              "merge": "replace"
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "capture-input",
+            "type": "passthrough",
+            "inputs": {
+              "value": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "value": "user-text"
+            }
+          },
+          {
+            "id": "prompt",
+            "type": "prompt",
+            "format": "f_string",
+            "inputs": {
+              "history": {
+                "from": "input.messages"
+              },
+              "safety": {
+                "from": "input.safety_fence"
+              }
+            },
+            "outputs": {
+              "messages": "messages"
+            },
+            "messages": [
+              {
+                "role": "system",
+                "template": "你是中文实时语音助手。使用简短自然的句子，直接回应当前问题，遵循用户要求的回复格式。\n\n{safety}"
+              },
+              {
+                "placeholder": "history",
+                "optional": true
+              }
+            ]
+          },
+          {
+            "id": "answer",
+            "type": "chat_model",
+            "model": "llm",
+            "max_tokens": 2048,
+            "inputs": {
+              "messages": {
+                "from": "messages"
+              }
+            },
+            "outputs": {
+              "text": "answer"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "start",
+            "to": "capture-input"
+          },
+          {
+            "from": "capture-input",
+            "to": "prompt"
+          },
+          {
+            "from": "prompt",
+            "to": "answer"
+          },
+          {
+            "from": "answer",
+            "to": "end"
+          }
+        ],
+        "branches": [],
+        "outputs": [
+          {
+            "node": "answer",
+            "field": "answer",
+            "name": "assistant",
+            "mime_type": "text/plain",
+            "primary": true
+          }
+        ]
+      },
+      "conversation": {
+        "starts": "peer"
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "narrator",
+        "node_voices": {
+          "answer": "narrator"
+        }
+      }
+    },
+    "name": "eino-realtime-chat",
+    "parameters": {
+      "input": "realtime"
+    },
+    "description": "Eino realtime Chat E2E without memory side effects"
+  }
+}

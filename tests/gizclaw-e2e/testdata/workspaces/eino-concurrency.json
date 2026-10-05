@@ -7,7 +7,6 @@
   },
   "workflow": {
     "name": "eino-concurrency-assistant",
-    "description": "Eino streaming text workflow for concurrency and interruption qualification",
     "eino": {
       "voice_adapter": {
         "asr_model": "asr",
@@ -99,7 +98,8 @@
           }
         ]
       }
-    }
+    },
+    "description": "Eino streaming text workflow for concurrency and interruption qualification"
   },
   "voice": "assistant-voice",
   "rounds": 1,

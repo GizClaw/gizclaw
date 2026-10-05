@@ -42,7 +42,7 @@ stores:
     kind: keyvalue
     storage: memory
     prefix: api-keys
-  flowcraft-state:
+  eino-state:
     kind: sql
     storage: business-db
   credentials:
@@ -146,8 +146,8 @@ services:
     store: friend-groups
   agent_host:
     runtime_store: agenthost
-    flowcraft:
-      state_store: flowcraft-state
+    eino:
+      state_store: eino-state
   metrics:
     store: metrics
   system_log:

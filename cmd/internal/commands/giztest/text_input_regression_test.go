@@ -20,13 +20,11 @@ import (
 	"time"
 
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
-	flowgraph "github.com/GizClaw/flowcraft/sdk/graph"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/flowcraft"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	einomodel "github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
@@ -37,10 +35,10 @@ import (
 // The provider is local, but the SDK websocket, Transformer, RealtimeStream,
 // Giztest YAML loader and production peer_stream operation are real.
 func TestDeviceTextInputGiztest(t *testing.T) {
-	for _, workflow := range []string{"doubao-ptt", "doubao-realtime", "doubao-external-tts", "eino-story", "flowcraft-adventure"} {
+	for _, workflow := range []string{"doubao-ptt", "doubao-realtime", "doubao-external-tts", "eino-story", "eino-adventure"} {
 		for _, timestamp := range []string{"zero", "unix_ms"} {
 			for _, afterAudio := range []bool{false, true} {
-				if afterAudio && (workflow == "eino-story" || workflow == "flowcraft-adventure") {
+				if afterAudio && (workflow == "eino-story" || workflow == "eino-adventure") {
 					continue
 				}
 				t.Run(fmt.Sprintf("%s/%s/after_audio=%t", workflow, timestamp, afterAudio), func(t *testing.T) {
@@ -285,7 +283,7 @@ func (l *textPipeListener) Addr() net.Addr { return &net.TCPAddr{IP: net.IPv4(12
 
 func textRegressionTransformer(t *testing.T, ctx context.Context, workflow string) genx.Transformer {
 	t.Helper()
-	if workflow == "eino-story" {
+	if workflow == "eino-story" || workflow == "eino-adventure" {
 		tr, err := eino.New(ctx, eino.Config{
 			Agent: eino.AgentConfig{ID: "story", Name: "Story"}, Components: textStoryProvider{},
 			Graph: eino.GraphDefinition{Name: "story",
@@ -301,16 +299,6 @@ func textRegressionTransformer(t *testing.T, ctx context.Context, workflow strin
 		if err != nil {
 			t.Fatal(err)
 		}
-		return tr
-	}
-	if workflow == "flowcraft-adventure" {
-		tr, err := flowcraft.New(flowcraft.Config{ID: "adventure", Name: "Adventure", Models: textRegressionGenerator{},
-			Graph: flowgraph.GraphDefinition{Name: "adventure", Entry: "narrator", Nodes: []flowgraph.NodeDefinition{{ID: "narrator", Type: "llm", Config: map[string]any{"model": "chat"}}}}, PublishNodes: []string{"narrator"},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = tr.Close() })
 		return tr
 	}
 	provider := textRegressionProvider(t)
@@ -466,19 +454,19 @@ func textRegressionUserText(mc genx.ModelContext) string {
 }
 
 func TestDeviceTextSequences(t *testing.T) {
-	for _, workflow := range []string{"doubao-ptt", "doubao-realtime", "doubao-external-tts", "eino-story", "flowcraft-adventure"} {
+	for _, workflow := range []string{"doubao-ptt", "doubao-realtime", "doubao-external-tts", "eino-story", "eino-adventure"} {
 		for _, scenario := range []string{"consecutive", "opening", "resume", "utf8", "long", "alternating", "whitespace", "interrupt", "silence"} {
 			if scenario == "silence" && workflow != "doubao-realtime" {
 				continue
 			}
-			if (scenario == "opening" || scenario == "resume") && workflow != "eino-story" && workflow != "flowcraft-adventure" {
+			if (scenario == "opening" || scenario == "resume") && workflow != "eino-story" && workflow != "eino-adventure" {
 				continue
 			}
 			t.Run(workflow+"/"+scenario, func(t *testing.T) {
 				ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 				defer cancel()
 				tr := textRegressionTransformer(t, ctx, workflow)
-				if workflow == "eino-story" || workflow == "flowcraft-adventure" {
+				if workflow == "eino-story" || workflow == "eino-adventure" {
 					dock, err := audiodock.New(audiodock.Config{Agent: tr, ASR: textRegressionASR{}, TTS: textRegressionTTS{audio: testAudibleOpus(t)}, ResolveVoice: func(context.Context, audiodock.VoiceRequest) (string, error) { return "voice/local", nil }})
 					if err != nil {
 						t.Fatal(err)

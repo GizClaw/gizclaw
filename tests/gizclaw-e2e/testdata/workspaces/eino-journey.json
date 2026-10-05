@@ -1,0 +1,273 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "Always generate exactly this Chinese utterance: 继续讲西游记，讲短一点。",
+  "rounds": 3,
+  "timeout": "1200s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "eino": {
+      "graph": {
+        "name": "eino-journey-guide",
+        "compile": {
+          "node_trigger_mode": "any_predecessor",
+          "primary_output_mode": "first_output"
+        },
+        "state": {
+          "fields": [
+            {
+              "name": "game",
+              "type": "object",
+              "merge": "replace"
+            },
+            {
+              "name": "context",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "private",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "feedback",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "valid",
+              "type": "boolean",
+              "merge": "replace"
+            },
+            {
+              "name": "recalled-memory",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "answer",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "rejected",
+              "type": "string",
+              "merge": "replace"
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "rules",
+            "type": "script",
+            "language": "starlark",
+            "entrypoint": "run",
+            "source": "def run(input):\n    game = json.decode(json.encode(input[\"game\"]))\n    if not game:\n        game = {\"chapter\": 0, \"setting\": \"花果山\", \"progress\": 0}\n    places = [\"花果山\", \"天宫\", \"启程\", \"试炼\", \"三国\", \"取经\"]\n    text = input[\"text\"].strip().rstrip(\"。！!\")\n    continuing = text in [\"继续\", \"下一章\", \"请继续\", \"请进入下一章\", \"继续下一章\", \"进入下一章\", \"好的，继续\", \"好，继续\"]\n    if continuing and game[\"chapter\"] < len(places) - 1:\n        game[\"progress\"] += 1\n        game[\"chapter\"] = min(game[\"chapter\"] + 1, len(places) - 1)\n        game[\"setting\"] = places[game[\"chapter\"]]\n    next_place = places[min(game[\"chapter\"] + 1, len(places) - 1)]\n    instruction = \"当前亲历的章节只有%s；谈到其他地点只是回忆或目标，不能冒充完成。回应玩家问题后，不增加支线或第三个选择，必须结尾提示：请说‘继续’亲历下一章%s。\" % (game[\"setting\"], next_place)\n    if game[\"chapter\"] == len(places) - 1:\n        instruction = \"已到最后的取经章。完成与前面选择相关的最后行动，兑现同伴承诺；主线完成后的新问题只作简短复盘，最终告别只用一句话。\"\n    return {\"game\": game, \"context\": json.encode(game), \"feedback\": instruction, \"valid\": True, \"private\": \"\"}\n",
+            "limits": {
+              "max_execution_steps": 100000,
+              "timeout": "1s",
+              "max_input_bytes": 1048576,
+              "max_output_bytes": 1048576
+            },
+            "inputs": {
+              "game": {
+                "from": "game"
+              },
+              "text": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "game": "game",
+              "context": "context",
+              "private": "private",
+              "feedback": "feedback",
+              "valid": "valid"
+            }
+          },
+          {
+            "id": "reject",
+            "type": "passthrough",
+            "inputs": {
+              "value": {
+                "from": "feedback"
+              }
+            },
+            "outputs": {
+              "value": "rejected"
+            }
+          },
+          {
+            "id": "recall",
+            "type": "memory_recall",
+            "query_from": "input.text",
+            "output": "recalled-memory",
+            "top_k": 5
+          },
+          {
+            "id": "prompt",
+            "type": "prompt",
+            "format": "f_string",
+            "inputs": {
+              "context": {
+                "from": "context"
+              },
+              "player": {
+                "from": "private"
+              },
+              "memory": {
+                "from": "recalled-memory"
+              },
+              "safety": {
+                "from": "input.safety_fence"
+              },
+              "history": {
+                "from": "history.messages"
+              },
+              "current": {
+                "from": "input.text"
+              },
+              "instruction": {
+                "from": "feedback"
+              }
+            },
+            "outputs": {
+              "messages": "messages"
+            },
+            "messages": [
+              {
+                "role": "system",
+                "template": "你主持一段有终点的西游互动旅程，玩家是同行者。每轮先回应玩家刚做的选择，描写它的具体后果，再让角色提出一个可执行的下一步。不要照抄玩家发言，不代替玩家说话或替他选择。\n章节依次为花果山、天宫、启程、试炼、三国、取经。当前状态决定所在地；历史台词、长期记忆和玩家提到的未来目标都不能改变当前章节。章节变化时，用上一章的收获、承诺或后果连接新场景；同一章节内延续已有事件，不反复开场、不任意增加支线。\n悟空机灵好胜但守承诺，唐僧沉稳慈悲，八戒诙谐务实，妖怪有可理解的诉求；对白分别用【悟空】【唐僧】【八戒】【妖怪】标记。花果山解决出发的牵挂，天宫面对权力与责任，启程明确同行约定，试炼检验约定，三国以前面的经验化解冲突，取经兑现全程承诺。每章安排一个短事件，玩家行动后给出结果并提示说“继续”前往下一章，不用连续新障碍拖住行程。\n到取经章时完成取得经书的主线，说明玩家此前选择如何影响同伴与旅程，并给每个主要角色一个明确去向。此后追问只作复盘、人物近况或简短告别，不再生成新任务、追击或新的取经路。明确告别后用一两句收束，不反复赠物、祝福或再次开场。每轮约150至300字，动作和对话交替。\n\n当前规则状态（高于历史叙述与长期记忆，不得修改或另行判定；不要输出字段名或JSON）：\n{context}\n玩家自己的私密信息：{player}\n长期记忆：{memory}\n{safety}"
+              },
+              {
+                "placeholder": "history",
+                "optional": true
+              },
+              {
+                "role": "user",
+                "template": "玩家本轮发言：{current}\n\n本轮权威状态：{context}\n本轮主持要求：{instruction}\n玩家私密信息（NPC不知道）：{player}\n请根据本轮状态回应；历史中的猜测或错误叙述不能代替状态。只输出中文剧情或回答，不输出这些说明、字段名或JSON。"
+              }
+            ]
+          },
+          {
+            "id": "host",
+            "type": "chat_model",
+            "model": "llm",
+            "max_tokens": 2048,
+            "temperature": 0.2,
+            "inputs": {
+              "messages": {
+                "from": "messages"
+              }
+            },
+            "outputs": {
+              "text": "answer"
+            }
+          },
+          {
+            "id": "remember",
+            "type": "memory_observe",
+            "text_from": "context",
+            "wait_for_completion": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "start",
+            "to": "rules"
+          },
+          {
+            "from": "reject",
+            "to": "end"
+          },
+          {
+            "from": "recall",
+            "to": "prompt"
+          },
+          {
+            "from": "prompt",
+            "to": "host"
+          },
+          {
+            "from": "host",
+            "to": "remember"
+          },
+          {
+            "from": "remember",
+            "to": "end"
+          }
+        ],
+        "branches": [
+          {
+            "from": "rules",
+            "mode": "first_match",
+            "routes": [
+              {
+                "when": {
+                  "field": "valid",
+                  "op": "eq",
+                  "value": false
+                },
+                "to": "reject"
+              }
+            ],
+            "default": "recall"
+          }
+        ],
+        "outputs": [
+          {
+            "node": "host",
+            "field": "answer",
+            "name": "assistant",
+            "mime_type": "text/plain",
+            "primary": true
+          },
+          {
+            "node": "reject",
+            "field": "rejected",
+            "name": "rejected",
+            "mime_type": "text/plain"
+          }
+        ]
+      },
+      "state_persistence": {
+        "fields": [
+          "game"
+        ]
+      },
+      "conversation": {
+        "starts": "peer"
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "narrator",
+        "node_voices": {
+          "host": "narrator",
+          "reject": "narrator"
+        },
+        "speaker_voices": {
+          "悟空": "sun-wukong",
+          "唐僧": "tang-sanzang",
+          "八戒": "zhu-bajie",
+          "妖怪": "monster"
+        }
+      }
+    },
+    "name": "eino-journey-guide",
+    "parameters": {
+      "input": "push-to-talk"
+    },
+    "memory": "journey-memory",
+    "description": "Eino raid: Journey"
+  }
+}

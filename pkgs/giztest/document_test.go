@@ -861,3 +861,52 @@ func TestTextProbeValidation(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadDocumentValidatesIndependentQualityJudge(t *testing.T) {
+	source := strings.Replace(relayDocument, "variables:\n", `  judge:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+`, 1)
+	source = strings.Replace(source, "  - id: relay\n", `  - id: select_judge
+    client: judge
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: j}
+  - id: relay
+`, 1)
+	source = strings.Replace(source, "      input: brief\n", `      input: brief
+      quality:
+        judge_client: judge
+        candidate_client: candidate
+        criteria:
+          - id: role_consistency
+            instruction: Keep character identities consistent
+            min_score: 3
+`, 1)
+	for _, test := range []struct {
+		name, source string
+		valid        bool
+	}{
+		{"valid", source, true},
+		{"candidate judges itself", strings.Replace(source, "judge_client: judge", "judge_client: candidate", 1), false},
+		{"unknown judge", strings.Replace(source, "judge_client: judge", "judge_client: absent", 1), false},
+		{"not selected", strings.Replace(source, "client: judge\n    rpc:", "client: tester\n    rpc:", 1), false},
+		{"unknown candidate", strings.Replace(source, "candidate_client: candidate", "candidate_client: judge", 1), false},
+		{"score too high", strings.Replace(source, "min_score: 3", "min_score: 5", 1), false},
+		{"empty instruction", strings.Replace(source, "Keep character identities consistent", `""`, 1), false},
+		{"audio unsupported", strings.Replace(source, "media: text", "media: audio", 1), false},
+		{"duplicate criterion", strings.Replace(source, "            min_score: 3", `            min_score: 3
+          - id: role_consistency
+            instruction: Repeat
+            min_score: 3`, 1), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := LoadDocument(writeTestDocument(t, test.source), nil)
+			if (err == nil) != test.valid {
+				t.Fatalf("valid=%v, error=%v", test.valid, err)
+			}
+		})
+	}
+}

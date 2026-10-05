@@ -7,7 +7,6 @@
   },
   "workflow": {
     "name": "eino-memory-assistant",
-    "description": "Eino prompt and chat model workflow with configured memory",
     "memory": "default-memory",
     "eino": {
       "voice_adapter": {
@@ -175,7 +174,8 @@
           }
         ]
       }
-    }
+    },
+    "description": "Eino prompt and chat model workflow with configured memory"
   },
   "voice": "assistant-voice",
   "rounds": 3,

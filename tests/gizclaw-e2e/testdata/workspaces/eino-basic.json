@@ -1,0 +1,206 @@
+{
+  "agent": "eino",
+  "models": {
+    "asr": "asr",
+    "llm": "llm",
+    "tts": "tts"
+  },
+  "persona": "You are a concise Chinese voice chat test user. Keep every utterance short and speech friendly.",
+  "rounds": 3,
+  "interrupt": {
+    "rounds": 3
+  },
+  "timeout": "1200s",
+  "voice": "assistant-voice",
+  "workflow": {
+    "eino": {
+      "graph": {
+        "name": "eino-voice-assistant",
+        "compile": {
+          "node_trigger_mode": "any_predecessor"
+        },
+        "state": {
+          "fields": [
+            {
+              "name": "messages",
+              "type": "messages",
+              "merge": "replace"
+            },
+            {
+              "name": "answer",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "user-text",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "recalled-memory",
+              "type": "string",
+              "merge": "replace"
+            },
+            {
+              "name": "memory-turns",
+              "type": "messages",
+              "merge": "replace"
+            }
+          ]
+        },
+        "nodes": [
+          {
+            "id": "capture-input",
+            "type": "passthrough",
+            "inputs": {
+              "value": {
+                "from": "input.text"
+              }
+            },
+            "outputs": {
+              "value": "user-text"
+            }
+          },
+          {
+            "id": "recall",
+            "type": "memory_recall",
+            "query_from": "user-text",
+            "output": "recalled-memory",
+            "top_k": 5
+          },
+          {
+            "id": "prompt",
+            "type": "prompt",
+            "format": "f_string",
+            "inputs": {
+              "history": {
+                "from": "input.messages"
+              },
+              "safety": {
+                "from": "input.safety_fence"
+              },
+              "memory": {
+                "from": "recalled-memory"
+              }
+            },
+            "outputs": {
+              "messages": "messages"
+            },
+            "messages": [
+              {
+                "role": "system",
+                "template": "你是一个友好的中文语音助手。自然、简洁地回答用户；适合直接朗读。\n\n{safety}\n可参考长期记忆；为空时忽略：\n{memory}"
+              },
+              {
+                "placeholder": "history",
+                "optional": true
+              }
+            ]
+          },
+          {
+            "id": "answer",
+            "type": "chat_model",
+            "model": "llm",
+            "max_tokens": 2048,
+            "inputs": {
+              "messages": {
+                "from": "messages"
+              }
+            },
+            "outputs": {
+              "text": "answer"
+            }
+          },
+          {
+            "id": "memory-turns",
+            "type": "transform",
+            "operation": "build_messages",
+            "inputs": {
+              "user": {
+                "from": "user-text"
+              },
+              "assistant": {
+                "from": "answer"
+              }
+            },
+            "outputs": {
+              "messages": "memory-turns"
+            },
+            "messages": [
+              {
+                "role": "user",
+                "input": "user"
+              },
+              {
+                "role": "assistant",
+                "input": "assistant"
+              }
+            ]
+          },
+          {
+            "id": "remember",
+            "type": "memory_observe",
+            "turns_from": "memory-turns",
+            "wait_for_completion": true
+          }
+        ],
+        "edges": [
+          {
+            "from": "start",
+            "to": "capture-input"
+          },
+          {
+            "from": "capture-input",
+            "to": "recall"
+          },
+          {
+            "from": "recall",
+            "to": "prompt"
+          },
+          {
+            "from": "prompt",
+            "to": "answer"
+          },
+          {
+            "from": "answer",
+            "to": "memory-turns"
+          },
+          {
+            "from": "memory-turns",
+            "to": "remember"
+          },
+          {
+            "from": "remember",
+            "to": "end"
+          }
+        ],
+        "branches": [],
+        "outputs": [
+          {
+            "node": "answer",
+            "field": "answer",
+            "name": "assistant",
+            "mime_type": "text/plain",
+            "primary": true
+          }
+        ]
+      },
+      "conversation": {
+        "starts": "peer"
+      },
+      "voice_adapter": {
+        "asr_model": "asr",
+        "default_voice": "narrator",
+        "node_voices": {
+          "answer": "narrator"
+        }
+      }
+    },
+    "name": "eino-voice-assistant",
+    "parameters": {
+      "input": "push-to-talk"
+    },
+    "memory": "voice-assistant-memory",
+    "description": "Eino voice adapter workflow"
+  }
+}

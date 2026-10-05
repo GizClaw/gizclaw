@@ -39,14 +39,14 @@ steps:
     request: {tags: [assistants, "10-12"]}
   expect:
     /items: {count: 1}
-    /items/0/name: {equals: flowcraft-chat-assistant}
+    /items/0/name: {equals: eino-chat-assistant}
 - id: get_updated_workflow
   client: peer
   rpc:
     method: server.workflow.get
-    request: {name: flowcraft-chat-assistant}
+    request: {name: eino-chat-assistant}
   expect:
-    /value/name: {equals: flowcraft-chat-assistant}
+    /value/name: {equals: eino-chat-assistant}
     /value/tags: {count: 3}
 finally:
 - id: cleanup_peer

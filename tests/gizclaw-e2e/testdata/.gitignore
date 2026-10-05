@@ -10,6 +10,7 @@
 !assets/firmware/
 !assets/firmware/*.tar
 !workflow_catalog_test.go
+!eino_catalog_test.go
 !workspaces/
 !workspaces/*.json
 !server-workspace/

@@ -39,7 +39,6 @@ export type DoubaoRealtimeFunctionToolType = "" | "function" | "unspecified" | n
 export type DoubaoRealtimeWorkspaceParametersAgentType = "" | "doubao-realtime" | "unspecified" | number;
 export type EinoWorkspaceParametersAgentType = "" | "eino" | "unspecified" | number;
 export type FirmwareChannelName = "" | "beta" | "develop" | "stable" | "unspecified" | number;
-export type FlowcraftWorkspaceParametersAgentType = "" | "flowcraft" | "unspecified" | number;
 export type FriendGroupMemberMutableRole = "" | "admin" | "member" | "unspecified" | number;
 export type FriendGroupMemberRole = "" | "admin" | "member" | "owner" | "unspecified" | number;
 export type IconFormat = "" | "pixa" | "png" | "unspecified" | number;
@@ -49,12 +48,12 @@ export type PeerRole = "" | "admin" | "client" | "edge-node" | "server" | "unspe
 export type PeerRunHistoryEntryType = "" | "agent" | "gear" | "unspecified" | number;
 export type PeerRunHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type PeerRunStatusState = "" | "error" | "running" | "starting" | "stopped" | "stopping" | "unspecified" | number;
-export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "unspecified" | number;
+export type ReusableWorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "unspecified" | number;
 export type RpcMethod = number;
 export type SocialPingResult = "" | "delivered" | "not_online" | "rate_limited" | "unspecified" | number;
 export type StatusCode = "" | "aborted" | "already_exists" | "cancelled" | "data_loss" | "deadline_exceeded" | "failed_precondition" | "internal" | "invalid_argument" | "not_found" | "ok" | "out_of_range" | "permission_denied" | "resource_exhausted" | "unauthenticated" | "unavailable" | "unimplemented" | "unknown" | number;
 export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions" | "embedding" | "realtime" | "realtime_duplex" | "translation" | "tts" | "unspecified" | number;
-export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "flowcraft" | "sfu" | "unspecified" | number;
+export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "sfu" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
 export type APIKey = {
@@ -573,7 +572,7 @@ export type EinoWorkflowSpec = {
   "voice_adapter"?: Record<string, unknown>;
 };
 export type EinoWorkspaceParameters = {
-  "agent_type": EinoWorkspaceParametersAgentType;
+  "agent_type": string;
   "e2e"?: boolean;
   "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
@@ -595,17 +594,6 @@ export type FirmwareGetResponse = {
   "sha256": string;
   "size": number;
   "version"?: string;
-};
-export type FlowcraftWorkflowSpec = {
-  "fields": Record<string, unknown>;
-};
-export type FlowcraftWorkspaceParameters = {
-  "agent_type": string;
-  "conversation"?: ConversationParameters;
-  "e2e"?: boolean;
-  "input"?: WorkspaceInputMode;
-  "tts_speech_rate_percent"?: number;
-  "safety_fence_level"?: string;
 };
 export type FriendAddRequest = {
   "invite_token": string;
@@ -1418,7 +1406,7 @@ export type WorkspaceListResponse = {
   "runtime_profile_name": string;
   "runtime_profile_revision": string;
 };
-export type WorkspaceParameters = FlowcraftWorkspaceParameters | DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters;
+export type WorkspaceParameters = DoubaoRealtimeWorkspaceParameters | ASTTranslateWorkspaceParameters | DashScopeRealtimeWorkspaceParameters | DoubaoRealtimeDuplexWorkspaceParameters | EinoWorkspaceParameters;
 export type WorkspaceParametersPatch = {
   "input"?: WorkspaceInputMode;
   "conversation"?: ConversationParameters;
@@ -4110,54 +4098,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "version",
         "number": 6,
-        "optional": true,
-        "type": "string"
-      }
-    ]
-  },
-  "FlowcraftWorkflowSpec": {
-    "fields": [
-      {
-        "name": "fields",
-        "number": 1,
-        "type": "google.protobuf.Struct"
-      }
-    ]
-  },
-  "FlowcraftWorkspaceParameters": {
-    "fields": [
-      {
-        "name": "agent_type",
-        "number": 1,
-        "type": "FlowcraftWorkspaceParametersAgentType"
-      },
-      {
-        "name": "conversation",
-        "number": 2,
-        "optional": true,
-        "type": "ConversationParameters"
-      },
-      {
-        "name": "e2e",
-        "number": 3,
-        "optional": true,
-        "type": "bool"
-      },
-      {
-        "name": "input",
-        "number": 4,
-        "optional": true,
-        "type": "WorkspaceInputMode"
-      },
-      {
-        "name": "tts_speech_rate_percent",
-        "number": 5,
-        "optional": true,
-        "type": "int32"
-      },
-      {
-        "name": "safety_fence_level",
-        "number": 50,
         "optional": true,
         "type": "string"
       }
@@ -7796,13 +7736,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "WorkspaceParameters": {
     "fields": [
       {
-        "name": "flowcraft_workspace_parameters",
-        "number": 1,
-        "oneof": true,
-        "oneofGroup": "value",
-        "type": "FlowcraftWorkspaceParameters"
-      },
-      {
         "name": "doubao_realtime_workspace_parameters",
         "number": 2,
         "oneof": true,
@@ -8175,16 +8108,6 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "3": "develop"
     }
   },
-  "FlowcraftWorkspaceParametersAgentType": {
-    "byName": {
-      "flowcraft": 1,
-      "unspecified": 0
-    },
-    "byNumber": {
-      "0": "",
-      "1": "flowcraft"
-    }
-  },
   "FriendGroupMemberMutableRole": {
     "byName": {
       "admin": 1,
@@ -8330,12 +8253,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "doubao-realtime": 2,
       "doubao-realtime-duplex": 6,
       "eino": 7,
-      "flowcraft": 1,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
-      "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
       "5": "dashscope-realtime",
@@ -8608,13 +8529,11 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "doubao-realtime": 2,
       "doubao-realtime-duplex": 7,
       "eino": 8,
-      "flowcraft": 1,
       "sfu": 9,
       "unspecified": 0
     },
     "byNumber": {
       "0": "",
-      "1": "flowcraft",
       "2": "doubao-realtime",
       "3": "ast-translate",
       "6": "dashscope-realtime",
@@ -9136,7 +9055,6 @@ function oneofDiscriminatorFieldName(type: string, discriminator: string): strin
       } as Record<string, string>)[discriminator];
     case "WorkspaceParameters":
       return ({
-        "flowcraft": "flowcraft_workspace_parameters",
         "doubao-realtime": "doubao_realtime_workspace_parameters",
         "ast-translate": "asttranslate_workspace_parameters",
         "dashscope-realtime": "dash_scope_realtime_workspace_parameters",

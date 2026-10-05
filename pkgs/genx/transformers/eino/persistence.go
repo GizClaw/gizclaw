@@ -76,7 +76,7 @@ func recallMemory(ctx context.Context, config *MemoryConfig, state *runState) er
 			continue
 		}
 		result, err := config.Store.Recall(ctx, memory.Query{
-			Scope: config.Scope, Text: query, Limit: definition.TopK,
+			Scope: config.Scope, Text: query, Limit: definition.TopK, Filters: definition.Filters,
 		})
 		if err != nil {
 			return fmt.Errorf("eino: Recall[%d]: %w", index, err)
@@ -133,6 +133,33 @@ func observeMemory(
 			observation.Context = map[string]any{"interrupted": true}
 		}
 	}
+	if from := config.Observe.TextFrom; from != "" {
+		value, err := state.binding(Binding{From: from})
+		if err != nil {
+			return fmt.Errorf("eino: Memory TextFrom: %w", err)
+		}
+		text, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("eino: Memory TextFrom is not string")
+		}
+		observation.Text = text
+	}
+	if from := config.Observe.TurnsFrom; from != "" {
+		value, err := state.binding(Binding{From: from})
+		if err != nil {
+			return fmt.Errorf("eino: Memory TurnsFrom: %w", err)
+		}
+		messages, ok := value.([]*schema.Message)
+		if !ok {
+			return fmt.Errorf("eino: Memory TurnsFrom is not messages")
+		}
+		for index, message := range messages {
+			if message == nil || strings.TrimSpace(message.Content) == "" {
+				continue
+			}
+			observation.Turns = append(observation.Turns, memory.Turn{ID: fmt.Sprintf("%s:turn:%d", streamID, index), Role: memory.Role(message.Role), Text: message.Content})
+		}
+	}
 	for _, definition := range config.Observe.Facts {
 		value, err := state.value(definition.TextFrom)
 		if err != nil {
@@ -152,7 +179,7 @@ func observeMemory(
 		}
 		observation.Facts = append(observation.Facts, fact)
 	}
-	if len(observation.Turns) == 0 && len(observation.Facts) == 0 {
+	if strings.TrimSpace(observation.Text) == "" && len(observation.Turns) == 0 && len(observation.Facts) == 0 {
 		return nil
 	}
 	if err := memory.ValidateObservation(observation); err != nil {

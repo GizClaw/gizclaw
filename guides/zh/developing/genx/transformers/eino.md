@@ -170,9 +170,11 @@ def run(input):
 }
 ```
 
-返回 dictionary 必须与声明的 output key 完全一致。支持 null、boolean、integer、有限 number、text、list、object、messages、documents 和 binary。Binary 在 Starlark 内使用 base64 text；message 使用 `{"role": "...", "content": "..."}`；document 使用 `id`、`content` 和可选 `metadata`。
+返回 dictionary 必须与声明的 output key 完全一致。支持 null、boolean、integer、有限 number、text、list、object、messages、documents 和 binary。Binary 在 Starlark 内使用 base64 text；message 使用 `{"role": "...", "content": "..."}`，多模态 message 的文本分段也通过 `parts` 提供；document 使用 `id`、`content` 和可选 `metadata`。
 
-每个 Script limit 都必须为正数。step exhaustion、timeout、cancellation、malformed source、runtime error、byte-limit failure、unsupported conversion、缺失 output 或未声明 output 都会终止 Graph run。Sandbox 不提供 file、network、environment、process、clock、random、Store、Tool、Graph 或 native Go access。
+每个 Script limit 都必须为正数。step exhaustion、timeout、cancellation、malformed source、runtime error、byte-limit failure、unsupported conversion、缺失 output 或未声明 output 都会终止 Graph run。Sandbox 不提供 file、network、environment、process、random、Store、Tool、Graph 或 native Go access。
+
+Starlark 提供 `json.encode` / `json.decode`、有界 RE2 `regex_find` / `regex_replace` 和 `now_millis()`。`regex_find` 的全局匹配和捕获数量最多为 4096，在构造结果前检查 output-byte 预算，并检查取消。`regex_replace` 同时按输出预算限制匹配索引与捕获数量，逐段检查取消和剩余字节后才追加替换内容；数字、命名捕获及 `$$` 保持 RE2 展开语义，超预算返回错误。`now_millis()` 返回当前 Unix 毫秒；日期与随机业务结果需要由场景显式保存为 State，才能在重载后保留。
 
 ## Named Lambda
 
@@ -225,6 +227,8 @@ Subgraph 只执行一次 nested Graph。名为 `text`、`messages`、`parts` 的
 
 `Outputs` 是唯一的 publication allow-list。每项指定一个 node 产生的 string 或 blob State field、route name 与 MIME type。Name 和 node-field source 必须唯一，并且恰好有一个 primary output。
 
+`Compile.PrimaryOutputMode` 默认为 `fixed`，所有成功路径必须经过指定的 primary node。设置 `first_output` 时，本轮第一个实际发布的 output 成为 primary；只有实际执行的 output 才发出 BOS/EOS，保留配置的 Name 并使用 `assistant` label。空字符串是合法发布；没有发布的路径以错误结束，即使 State 中仍有旧值。其他已执行 output 先结束，primary EOS 最后结束。History 与 Memory 使用所有已交付 output 的文本，并等待这些 output 的交付边界。
+
 语音输入经 Audio Dock 排除带 `StreamCtrl.TextInterim` 的中间假设，只聚合定稿文本内容。普通文本和一轮内多个定稿段仍按原顺序追加；仅中间结果的 interrupted route 不启动 Graph，也不写 user History。
 
 每个已完成 text turn 都创建新的 output route 与 StreamID。每条 route 都有 BOS、data 和独立 EOS。Graph 仍在运行时 model text 可以增量到达。Non-primary route 按 name 稳定排序先结束；成功的 primary EOS 是最后一个边界。
@@ -236,6 +240,8 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 除上述音频 turn 外，非文本 route 会原样 bypass。包含 blob 的 text turn 只有在 Graph 显式绑定 `input.parts` 时才接受，否则以 unsupported multimodal input 失败；如何解释这些 defensive copy 后的 part 由 component adapter 决定。
 
 ## State、History 与 Memory
+
+产品 Workflow 可以通过 `state_persistence.fields` 选择持久化字段；Server 的 `services.agent_host.eino.state_store` 引用 SQL Store，状态保存在 `graph_states`，删除边界保存在 `graph_state_scopes`。首次加载缺失字段时按声明类型初始化零值；重载后只恢复选择的字段。Object/List 中的嵌套整数保留 signed 64-bit 精度，整值浮点数通过可选 snapshot 类型提示保留其 numeric type。 新快照使用 format version 1；无版本快照保持原有 JSON float64 解码，直到一次正常成功的 CAS 写入。内部对话 History 使用 `services.agent_host.eino.history_store` 的 mutable log。
 
 Persistent State 是可选能力：
 
@@ -252,6 +258,8 @@ Store 在 Graph 前加载 versioned snapshot。只有配置列出的 field 会�
 History 使用可选的 `logstore.MutableStore`、稳定 scope、Agent ID、ContextID 和有界 query limit。没有 Store 时，Transformer 使用有界的 Agent-local History。Record 按顺序保存 user 与真正 pull-visible 的 assistant message；被中断的 assistant record 带 interruption marker。
 
 Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph 前执行，把有序 fact 渲染为 `- text` 行，写入声明的 string State field，并加入 `memory.recalled`。Recall 的 query 文本为空时（例如 Agent 主动开场 turn）跳过 Store，写入空结果而不是让本次 run 失败。Observe 在 delivery observation 后执行，只提交 pull-visible turn 与显式声明的 State fact binding。
+
+显式 `memory_observe` node 可使用 `text_from` 与 `turns_from` 向 Store 提交原始抽取材料；这些 binding 与 direct `facts` 互斥。Direct Facts 不调用模型抽取。`memory_recall.filters` 传递 provider-neutral filter；`attributes.kind` / `attributes.lane` 可用于筛选业务记忆。Store 是否支持对应过滤语义由 provider contract 决定。
 
 `WaitForCompletion=true` 时 Store 必须实现 `memory.OperationWaiter`，primary EOS 会等待 operation terminal success。设为 false 时，Observe acceptance 仍在 EOS 前完成；实现 `memory.AsyncOperationProcessor` 的 Store 可以异步处理 pending operation。
 

@@ -48,7 +48,7 @@ func TestWorkspaceReloadWithOptions(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parameters, err := stored.Value.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err := stored.Value.Parameters.AsEinoWorkspaceParameters()
 	if err != nil || parameters.Input == nil || *parameters.Input != rpcapi.WorkspaceInputModeRealtime {
 		t.Fatalf("parameters not applied: %+v, %v", parameters, err)
 	}

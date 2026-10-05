@@ -414,15 +414,15 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 				return err
 			}
 		}
-		if flowcraft := cfg.AgentHost.Flowcraft; flowcraft != nil {
-			if flowcraft.StateStore != "" {
-				server.FlowcraftStateDB, err = resolveSQLStore(registry, "services.agent_host.flowcraft.state_store", flowcraft.StateStore)
+		if eino := cfg.AgentHost.Eino; eino != nil {
+			if eino.StateStore != "" {
+				server.GraphStateDB, err = resolveSQLStore(registry, "services.agent_host.eino.state_store", eino.StateStore)
 				if err != nil {
 					return err
 				}
 			}
-			if flowcraft.HistoryStore != "" {
-				server.FlowcraftHistory, err = resolveMutableLogStore(registry, "services.agent_host.flowcraft.history_store", flowcraft.HistoryStore)
+			if eino.HistoryStore != "" {
+				server.EinoHistory, err = resolveMutableLogStore(registry, "services.agent_host.eino.history_store", eino.HistoryStore)
 				if err != nil {
 					return err
 				}

@@ -65,9 +65,7 @@ void main() {
               'value': {
                 'name': 'x',
                 'parameters': {
-                  'flowcraft_workspace_parameters': {
-                    'safety_fence_level': 'alpha',
-                  },
+                  'eino_workspace_parameters': {'safety_fence_level': 'alpha'},
                 },
               },
             }
@@ -263,15 +261,13 @@ void main() {
     expect(
       camelToSnakeKeys(
         unwrapValueMessage(
-          FlowcraftWorkflowSpec(
-            fields: Struct(
-              fields: {'mode': Value(stringValue: 'idle')}.entries,
-            ),
+          EinoWorkflowSpec(
+            graph: Struct(fields: {'mode': Value(stringValue: 'idle')}.entries),
           ),
         ),
       ),
       {
-        'fields': {'mode': 'idle'},
+        'graph': {'mode': 'idle'},
       },
     );
   });

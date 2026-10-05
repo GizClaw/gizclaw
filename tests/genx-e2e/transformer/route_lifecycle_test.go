@@ -96,7 +96,7 @@ func (tracker *routeLifecycleTracker) observe(chunk *genx.MessageChunk) error {
 		)
 	}
 	// Name identifies the publisher of an individual chunk, not the route.
-	// Flowcraft may publish several named nodes under one response StreamID so
+	// A transformer may publish several named nodes under one response StreamID so
 	// Audio Dock can resolve a different voice for each publisher.
 	if routeChunkHasData(chunk) {
 		state.dataChunks++

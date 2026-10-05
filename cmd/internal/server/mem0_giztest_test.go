@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"sigs.k8s.io/yaml"
@@ -45,6 +46,8 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 	}
 	cfg.Storage["business-db"] = storage.PostgreSQLConfig{DSN: dsn}
 	cfg.Storage["peer-runs-db"] = storage.PostgreSQLConfig{DSN: dsn}
+	cfg.Stores["eino-state"] = stores.Config{Kind: stores.KindSQL, Storage: "business-db"}
+	cfg.Services.AgentHost.Eino = &AgentHostEinoConfig{StateStore: "eino-state"}
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -158,7 +161,7 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 		memories[alias] = apitypes.RuntimeProfileMemoryBinding{Driver: apitypes.RuntimeProfileMemoryDriverMem0, LayoutId: layout, Connection: connection}
 	}
 	workflows := make(apitypes.RuntimeProfileWorkflows)
-	for _, path := range []string{"42-flowcraft-memory-peer-a.yaml", "43-flowcraft-memory-peer-b.yaml", "44-flowcraft-memory-workspace.yaml", "48-mem0-extraction.yaml", "49-mem0-batch.yaml"} {
+	for _, path := range []string{"42-eino-memory-peer-a.yaml", "43-eino-memory-peer-b.yaml", "44-eino-memory-workspace.yaml", "48-mem0-extraction.yaml", "49-mem0-batch.yaml"} {
 		resource := load("04-workflows/" + path)
 		workflow, err := resource.AsWorkflowResource()
 		if err != nil {
@@ -166,24 +169,29 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 		}
 		// Scope probes write direct Facts and need no answer model. The raw
 		// extraction document reaches the real Mem0 LLM and embedder.
-		if workflow.Spec.Flowcraft != nil {
-			for i := range workflow.Spec.Flowcraft.Graph.Nodes {
-				node := &workflow.Spec.Flowcraft.Graph.Nodes[i]
+		if workflow.Spec.Eino != nil {
+			for i := range workflow.Spec.Eino.Graph.Nodes {
+				node := &workflow.Spec.Eino.Graph.Nodes[i]
 				kind, err := node.Discriminator()
 				if err != nil {
 					t.Fatal(err)
 				}
-				if kind == "llm" {
-					definition, err := node.AsFlowcraftLLMNode()
-					if err != nil {
-						t.Fatal(err)
-					}
-					if err := node.FromFlowcraftScriptNode(apitypes.FlowcraftScriptNode{
-						Id: definition.Id, Publish: definition.Publish, Type: apitypes.FlowcraftScriptNodeTypeScript,
-						Config: apitypes.FlowcraftScriptNodeConfig{Source: `host.emit("token", {content: "Memory observation accepted."});`},
-					}); err != nil {
-						t.Fatal(err)
-					}
+				if kind != "chat_model" {
+					continue
+				}
+				definition, err := node.AsEinoChatModelNode()
+				if err != nil {
+					t.Fatal(err)
+				}
+				mapped := map[string]any{"id": definition.Id, "type": "script", "language": "starlark", "entrypoint": "run",
+					"source":  "def run(input):\n    return {\"text\":\"Memory observation accepted.\"}\n",
+					"outputs": definition.Outputs, "limits": map[string]any{"max_execution_steps": 10000, "timeout": "1s", "max_input_bytes": 65536, "max_output_bytes": 65536}}
+				data, err := json.Marshal(mapped)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := json.Unmarshal(data, node); err != nil {
+					t.Fatal(err)
 				}
 			}
 		}
@@ -203,7 +211,7 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "mem0-test-token")
-	for _, name := range []string{"flowcraft-memory-scope.peer-and-workspace", "mem0-self-hosted.extraction", "mem0-self-hosted.batch"} {
+	for _, name := range []string{"eino-memory-scope.peer-and-workspace", "mem0-self-hosted.extraction", "mem0-self-hosted.batch"} {
 		command := giztestcmd.NewCmd()
 		var output bytes.Buffer
 		report := filepath.Join(t.TempDir(), name+".json")

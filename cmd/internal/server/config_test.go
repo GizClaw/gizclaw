@@ -250,20 +250,20 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 				if cfg == nil {
 					t.Fatal("AgentHost = nil, want present block")
 				}
-				if cfg.RuntimeStore != "" || cfg.Flowcraft != nil {
+				if cfg.RuntimeStore != "" || cfg.Eino != nil {
 					t.Fatalf("AgentHost = %+v, want empty block", cfg)
 				}
 			},
 		},
 		{
 			name: "present partial",
-			yaml: "services:\n  agent_host:\n    flowcraft:\n      state_store: state\n",
+			yaml: "services:\n  agent_host:\n    eino:\n      state_store: state\n",
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
-				if cfg == nil || cfg.Flowcraft == nil || cfg.Flowcraft.StateStore != "state" {
+				if cfg == nil || cfg.Eino == nil || cfg.Eino.StateStore != "state" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
-				if cfg.RuntimeStore != "" || cfg.Flowcraft.HistoryStore != "" {
+				if cfg.RuntimeStore != "" || cfg.Eino.HistoryStore != "" {
 					t.Fatalf("AgentHost partial fields = %+v", cfg)
 				}
 			},
@@ -274,18 +274,18 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 services:
   agent_host:
     runtime_store: runtime
-    flowcraft:
+    eino:
       state_store: state
       history_store: history
 `,
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
-				if cfg == nil || cfg.Flowcraft == nil {
+				if cfg == nil || cfg.Eino == nil {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 				if cfg.RuntimeStore != "runtime" ||
-					cfg.Flowcraft.StateStore != "state" ||
-					cfg.Flowcraft.HistoryStore != "history" {
+					cfg.Eino.StateStore != "state" ||
+					cfg.Eino.HistoryStore != "history" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 			},
@@ -315,9 +315,9 @@ func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
 		{"legacy top-level", "agent_host: {}\n", `unknown field "agent_host"`},
 		{"unknown field", "services:\n  agent_host:\n    runtime: store\n", `unknown field "runtime"`},
 		{"non-string runtime", "services:\n  agent_host:\n    runtime_store: 42\n", "services.agent_host.runtime_store must be a string"},
-		{"unknown flowcraft field", "services:\n  agent_host:\n    flowcraft:\n      memories: memory\n", `unknown field "memories"`},
-		{"non-string state", "services:\n  agent_host:\n    flowcraft:\n      state_store: {}\n", "services.agent_host.flowcraft.state_store must be a string"},
-		{"legacy memory objects", "services:\n  agent_host:\n    flowcraft:\n      memory_objects_store: old\n", `unknown field "memory_objects_store"`},
+		{"unknown eino field", "services:\n  agent_host:\n    eino:\n      memories: memory\n", `unknown field "memories"`},
+		{"non-string state", "services:\n  agent_host:\n    eino:\n      state_store: {}\n", "services.agent_host.eino.state_store must be a string"},
+		{"legacy memory objects", "services:\n  agent_host:\n    eino:\n      memory_objects_store: old\n", `unknown field "memory_objects_store"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -368,7 +368,7 @@ func TestParseConfigRejectsPre795StorageStoreAndServiceShapes(t *testing.T) {
 func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	fileBlock := &AgentHostConfig{
 		RuntimeStore: "file-runtime",
-		Flowcraft: &AgentHostFlowcraftConfig{
+		Eino: &AgentHostEinoConfig{
 			StateStore:   "file-state",
 			HistoryStore: "file-history",
 		},
@@ -382,7 +382,7 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 		t.Fatalf("mergeFileConfig(retain) Services = %+v", retained.Services)
 	}
 
-	runtimeBlock := &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: "runtime-state"}}
+	runtimeBlock := &AgentHostConfig{Eino: &AgentHostEinoConfig{StateStore: "runtime-state"}}
 	runtimeServices := &ServicesConfig{AgentHost: runtimeBlock}
 	replaced, err := mergeFileConfig(Config{Services: runtimeServices}, ConfigFile{Services: fileServices})
 	if err != nil {
@@ -391,7 +391,7 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	if replaced.Services != runtimeServices {
 		t.Fatalf("mergeFileConfig(replace) Services = %+v, want runtime block", replaced.Services)
 	}
-	if replaced.Services.AgentHost.RuntimeStore != "" || replaced.Services.AgentHost.Flowcraft.HistoryStore != "" {
+	if replaced.Services.AgentHost.RuntimeStore != "" || replaced.Services.AgentHost.Eino.HistoryStore != "" {
 		t.Fatalf("mergeFileConfig(replace) field-merged blocks: %+v", replaced.Services)
 	}
 }
@@ -399,9 +399,9 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 func TestValidateAgentHostRejectsProgrammaticWhitespaceReference(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Services = validServicesConfig()
-	cfg.Services.AgentHost = &AgentHostConfig{Flowcraft: &AgentHostFlowcraftConfig{StateStore: " "}}
+	cfg.Services.AgentHost = &AgentHostConfig{Eino: &AgentHostEinoConfig{StateStore: " "}}
 	err := cfg.validate()
-	if err == nil || !strings.Contains(err.Error(), "services.agent_host.flowcraft.state_store must not be whitespace-only") {
+	if err == nil || !strings.Contains(err.Error(), "services.agent_host.eino.state_store must not be whitespace-only") {
 		t.Fatalf("validate() error = %v", err)
 	}
 }
@@ -515,7 +515,7 @@ func TestParseConfigRejectsRemovedPublicIngressSwitches(t *testing.T) {
 func TestParseConfigRejectsLegacySystemTasks(t *testing.T) {
 	_, err := parseConfigData([]byte(`
 system_tasks:
-  pet_flowcraft_workflow:
+  pet_eino_workflow:
     generate_model: legacy
 `))
 	if err == nil || !strings.Contains(err.Error(), "system_tasks is not supported") {
@@ -1034,16 +1034,16 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 		"services:\n  system_log:\n    sinks:\n      - kind: stderr\n        path: file.log\n",
 		"stores:\n  logs:\n    kind: log\n    clickhouse:\n      dsn: x\n      unknown: y\n",
 		"stores:\n  logs:\n    kind: log\n    volc:\n      endpoint: x\n      unknown: y\n",
-		"stores:\n  agent-memory:\n    kind: memory\n    storage: x\n    flowcraft: {}\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    storage: x\n    eino: {}\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    mem0:\n      endpoint: https://example.test\n      unknown: y\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      api_key_id: x\n      unknown: y\n",
-		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    eino:\n      async:\n        unknown: y\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        unknown: y\n",
-		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      runtime_id: legacy\n",
-		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      async:\n        worker_id: legacy\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    eino:\n      runtime_id: legacy\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    eino:\n      async:\n        worker_id: legacy\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    mem0:\n      user_id: legacy\n",
 		"stores:\n  agent-memory:\n    kind: memory\n    volc_memory:\n      mem0:\n        run_id: legacy\n",
-		"stores:\n  agent-memory:\n    kind: memory\n    flowcraft:\n      bbh:\n        unknown: y\n",
+		"stores:\n  agent-memory:\n    kind: memory\n    eino:\n      bbh:\n        unknown: y\n",
 	} {
 		if _, err := parseConfigData([]byte(data)); err == nil {
 			t.Fatalf("parseConfigData(%q) error = nil", data)
@@ -1051,23 +1051,23 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 	}
 }
 
-func TestParseConfigReadsFlowcraftHistoryClickHouse(t *testing.T) {
+func TestParseConfigReadsEinoHistoryClickHouse(t *testing.T) {
 	cfg, err := parseConfigData([]byte(`
 stores:
-  flowcraft-history:
+  eino-history:
     kind: log.mutable
     storage: analytics
     database: default
-    table: gizclaw_flowcraft_history
+    table: gizclaw_eino_history
 `))
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := cfg.Stores["flowcraft-history"]
+	store := cfg.Stores["eino-history"]
 	if store.Kind != stores.KindLogMutable {
-		t.Fatalf("flowcraft history store = %+v", store)
+		t.Fatalf("eino history store = %+v", store)
 	}
-	if store.Database != "default" || store.Table != "gizclaw_flowcraft_history" {
+	if store.Database != "default" || store.Table != "gizclaw_eino_history" {
 		t.Fatalf("clickhouse config = %+v", store)
 	}
 }
@@ -1157,14 +1157,14 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseConfigData(%s) error = %v", path, err)
 	}
-	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Flowcraft == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
+	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Eino == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
 		t.Fatalf("complete services block = %+v", cfg.Services)
 	}
 	if len(cfg.Storage) != 3 {
 		t.Fatalf("storage count = %d, want 3", len(cfg.Storage))
 	}
 	for _, name := range []string{
-		"logs", "metrics", "flowcraft-history", "flowcraft-state", "peers", "peer-runs",
+		"logs", "metrics", "eino-history", "eino-state", "peers", "peer-runs",
 		"api-keys", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
 		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "agenthost",
 		"workspace-history", "workspace-history-assets", "workspace-assets",
@@ -1234,8 +1234,8 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.workspace.history_store", services.Workspace.HistoryStore, stores.KindLogMutable)
 	expect("services.workspace.history_assets_store", services.Workspace.HistoryAssetsStore, stores.KindObjectStore)
 	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
-	expect("services.agent_host.flowcraft.state_store", services.AgentHost.Flowcraft.StateStore, stores.KindSQL)
-	expect("services.agent_host.flowcraft.history_store", services.AgentHost.Flowcraft.HistoryStore, stores.KindLogMutable)
+	expect("services.agent_host.eino.state_store", services.AgentHost.Eino.StateStore, stores.KindSQL)
+	expect("services.agent_host.eino.history_store", services.AgentHost.Eino.HistoryStore, stores.KindLogMutable)
 	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
 	if services.SystemLog.QueryStore != "" {
 		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable, stores.KindLogMutable)

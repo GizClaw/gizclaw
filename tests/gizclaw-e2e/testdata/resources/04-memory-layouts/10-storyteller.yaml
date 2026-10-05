@@ -1,26 +1,8 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: MemoryLayout
 metadata:
   id: storyteller-memory
 spec:
-  flowcraft:
-    extraction:
-      enabled: false
-      model: llm
-      mode: single_pass
-      system_prompt: Do not extract conversational facts. The Graph writes every durable audit fact directly.
-      schema_name: storyteller_audit
-      temperature: 0
-    lanes:
-    - {name: story-state, kind: state, description: Current scene and last visible event., extract: Do not extract; the Graph writes this lane., recall: Story continuity audit only.}
-    - {name: blueprint-state, kind: state, description: Active arc and phase guardrails., extract: Do not extract; the Graph writes this lane., recall: Blueprint boundary audit only.}
-    - {name: cast-state, kind: state, description: Cast presence and mood., extract: Do not extract; the Graph writes this lane., recall: Cast continuity audit only.}
-    - {name: user-state, kind: state, description: User choices and pacing., extract: Do not extract; the Graph writes this lane., recall: User participation audit only.}
-    - {name: continuity-state, kind: state, description: Confirmed facts and open questions., extract: Do not extract; the Graph writes this lane., recall: Continuity guard audit only.}
-    - {name: ending-state, kind: state, description: Conflict closure and epilogue mode., extract: Do not extract; the Graph writes this lane., recall: Ending policy audit only.}
-    graph_enabled: false
-    write: {mode: sync, tier: general}
   mem0:
     custom_instructions: Do not extract conversational facts; accept only Graph-written audit facts.
     custom_categories:
@@ -36,9 +18,21 @@ spec:
     custom_instructions: Do not extract conversational facts; accept only Graph-written audit facts.
   volc_mem0:
     strategies:
-    - {name: story-state, type: summary, custom_instructions: Retain Graph-written story state facts.}
-    - {name: blueprint-state, type: summary, custom_instructions: Retain Graph-written blueprint facts.}
-    - {name: cast-state, type: summary, custom_instructions: Retain Graph-written cast facts.}
-    - {name: user-state, type: summary, custom_instructions: Retain Graph-written user state facts.}
-    - {name: continuity-state, type: summary, custom_instructions: Retain Graph-written continuity facts.}
-    - {name: ending-state, type: summary, custom_instructions: Retain Graph-written ending facts.}
+    - name: story-state
+      type: summary
+      custom_instructions: Retain Graph-written story state facts.
+    - name: blueprint-state
+      type: summary
+      custom_instructions: Retain Graph-written blueprint facts.
+    - name: cast-state
+      type: summary
+      custom_instructions: Retain Graph-written cast facts.
+    - name: user-state
+      type: summary
+      custom_instructions: Retain Graph-written user state facts.
+    - name: continuity-state
+      type: summary
+      custom_instructions: Retain Graph-written continuity facts.
+    - name: ending-state
+      type: summary
+      custom_instructions: Retain Graph-written ending facts.

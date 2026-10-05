@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"database/sql"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
@@ -447,55 +449,17 @@ func TestValidateFlowcraftRuntimeAliasesRejectsWrongModelKindAndMissingVoice(t *
 		"generate-model": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
 	}
 	workflow := apitypes.WorkflowSpec{
-		Driver:    apitypes.WorkflowDriverFlowcraft,
-		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "generate-model", "narrator"),
+		Driver: apitypes.WorkflowDriverEino,
+		Eino:   runtimeProfileTestEinoFormerSpec(t, "generate-model", "narrator"),
 	}
 	if err := validateWorkflowRuntimeAliases("workflows.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "want \"llm\"") {
 		t.Fatalf("validateWorkflowRuntimeAliases(wrong model kind) error = %v", err)
 	}
 
 	models["generate-model"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
-	workflow.Flowcraft = runtimeProfileTestFlowcraftSpec(t, "generate-model", "missing-voice")
+	workflow.Eino = runtimeProfileTestEinoFormerSpec(t, "generate-model", "missing-voice")
 	if err := validateWorkflowRuntimeAliases("workflows.demo", workflow, models, voices); err == nil || !strings.Contains(err.Error(), "not declared in resources.voices") {
 		t.Fatalf("validateWorkflowRuntimeAliases(missing voice) error = %v", err)
-	}
-}
-
-func TestValidateDottedMemoryLayoutAndFlowcraftRuntimeAliases(t *testing.T) {
-	t.Parallel()
-
-	models := map[string]apitypes.ModelResource{
-		"pet-care.extract":   {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-		"pet-care.embedding": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}},
-		"pet-care.rerank":    {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-		"pet-care.model":     {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}},
-	}
-	voices := map[string]apitypes.VoiceResource{"pet-care.pet": {}}
-	layout := apitypes.MemoryLayoutSpec{Flowcraft: apitypes.FlowcraftMemoryLayoutPolicy{
-		Extraction: apitypes.FlowcraftMemoryExtractionPolicy{Model: "pet-care.extract"},
-		Embedding:  &apitypes.FlowcraftMemoryModelPolicy{Model: "pet-care.embedding"},
-		Rerank:     &apitypes.FlowcraftMemoryModelPolicy{Model: "pet-care.rerank"},
-	}}
-	if err := validateMemoryLayoutRuntimeAliases("resources.memories.pet-care", apitypes.RuntimeProfileMemoryDriverFlowcraft, layout, models); err != nil {
-		t.Fatalf("validateMemoryLayoutRuntimeAliases() error = %v", err)
-	}
-	workflow := apitypes.WorkflowSpec{
-		Driver:    apitypes.WorkflowDriverFlowcraft,
-		Flowcraft: runtimeProfileTestFlowcraftSpec(t, "pet-care.model", "pet-care.pet"),
-	}
-	if err := validateWorkflowRuntimeAliases("workflows.pet-care", workflow, models, voices); err != nil {
-		t.Fatalf("validateWorkflowRuntimeAliases() error = %v", err)
-	}
-
-	delete(models, "pet-care.extract")
-	if err := validateMemoryLayoutRuntimeAliases("resources.memories.pet-care", apitypes.RuntimeProfileMemoryDriverFlowcraft, layout, models); err == nil ||
-		!strings.Contains(err.Error(), `model alias "pet-care.extract" is not declared`) {
-		t.Fatalf("validateMemoryLayoutRuntimeAliases(missing dotted alias) error = %v", err)
-	}
-	delete(voices, "pet-care.pet")
-	if err := validateWorkflowRuntimeAliases("workflows.pet-care", workflow, models, voices); err == nil ||
-		!strings.Contains(err.Error(), `voice alias "pet-care.pet" is not declared`) {
-		t.Fatalf("validateWorkflowRuntimeAliases(missing dotted alias) error = %v", err)
 	}
 }
 
@@ -1241,11 +1205,11 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		raw     string
 		wantErr string
 	}{
-		{name: "Flowcraft Redis 8", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`},
-		{name: "Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`},
-		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis.example:6379/0","tls_ca_file":"/etc/ssl/redis-ca.pem"}}`},
-		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`},
-		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`},
+		{name: "Flowcraft Redis 8", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`, wantErr: "unsupported"},
+		{name: "Flowcraft BBH", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_bbh"}}`, wantErr: "unsupported"},
+		{name: "opaque canonical layout ID", raw: `{"layout_id":"1234opaque","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis.example:6379/0","tls_ca_file":"/etc/ssl/redis-ca.pem"}}`, wantErr: "unsupported"},
+		{name: "Flowcraft object store", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":"/var/lib/gizclaw/memory"}}`, wantErr: "unsupported"},
+		{name: "Flowcraft PostgreSQL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":"postgres://gizclaw:secret@db/memory"}}`, wantErr: "unsupported"},
 		{name: "Mem0", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":"key","poll_interval":"500ms"}}`},
 		{name: "Mem0 self-hosted without authentication", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0_self_hosted","endpoint":"http://127.0.0.1:18000"}}`},
 		{name: "Mem0 self-hosted with authentication", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0_self_hosted","endpoint":"https://memory.example","api_key":"key"}}`},
@@ -1257,12 +1221,12 @@ func TestNormalizeMemoryBindingEnforcesStrictDriverConnectionOneOf(t *testing.T)
 		{name: "self-hosted rejects Platform project", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0_self_hosted","endpoint":"http://127.0.0.1:18000","project_id":"project"}}`, wantErr: "unknown field"},
 		{name: "self-hosted rejects database configuration", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0_self_hosted","endpoint":"http://127.0.0.1:18000","dsn":"postgres://db/mem0"}}`, wantErr: "unknown field"},
 		{name: "Volc Mem0", raw: `{"layout_id":"pet-memory","driver":"volc_mem0","connection":{"type":"volc_mem0","memory_project_id":"project","endpoint":"https://open.volcengineapi.com","api_key":"key"}}`},
-		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`, wantErr: "cannot use connection type"},
-		{name: "BBH driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_bbh"}}`, wantErr: "cannot use connection type"},
-		{name: "invalid Redis URL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"http://redis:6379"}}`, wantErr: "redis or rediss URL"},
-		{name: "non-numeric Redis database", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/not-a-database"}}`, wantErr: "valid single-endpoint"},
-		{name: "Redis TLS verification disabled", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis:6379/0?skip_verify=true"}}`, wantErr: "certificate verification"},
-		{name: "Redis CA without TLS", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379","tls_ca_file":"/ca.pem"}}`, wantErr: "requires a rediss URL"},
+		{name: "driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/0"}}`, wantErr: "unsupported"},
+		{name: "BBH driver mismatch", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"flowcraft_bbh"}}`, wantErr: "unsupported"},
+		{name: "invalid Redis URL", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"http://redis:6379"}}`, wantErr: "unsupported"},
+		{name: "non-numeric Redis database", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379/not-a-database"}}`, wantErr: "unsupported"},
+		{name: "Redis TLS verification disabled", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"rediss://redis:6379/0?skip_verify=true"}}`, wantErr: "unsupported"},
+		{name: "Redis CA without TLS", raw: `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_redis8","url":"redis://redis:6379","tls_ca_file":"/ca.pem"}}`, wantErr: "unsupported"},
 		{name: "missing Mem0 key", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://api.mem0.ai","api_key":""}}`, wantErr: "project_id and api_key"},
 		{name: "invalid endpoint", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"mem0.local","api_key":"key"}}`, wantErr: "absolute http or https URL"},
 		{name: "endpoint userinfo", raw: `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":"project","endpoint":"https://user:pass@api.mem0.ai","api_key":"key"}}`, wantErr: "userinfo, query, or fragment"},
@@ -1297,16 +1261,6 @@ func TestNormalizeMemoryBindingTrimsConnectionValues(t *testing.T) {
 		raw   string
 		wants []string
 	}{
-		{
-			name:  "Flowcraft object store",
-			raw:   `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_object_store","directory":" /var/lib/gizclaw/memory "}}`,
-			wants: []string{`"directory":"/var/lib/gizclaw/memory"`},
-		},
-		{
-			name:  "Flowcraft PostgreSQL",
-			raw:   `{"layout_id":"pet-memory","driver":"flowcraft","connection":{"type":"flowcraft_postgresql","dsn":" postgres://db/memory "}}`,
-			wants: []string{`"dsn":"postgres://db/memory"`},
-		},
 		{
 			name:  "Mem0",
 			raw:   `{"layout_id":"pet-memory","driver":"mem0","connection":{"type":"mem0","project_id":" project ","endpoint":" https://api.mem0.ai ","api_key":" key ","poll_interval":" 500ms "}}`,
@@ -1413,42 +1367,23 @@ func runtimeProfileTestBinding(resourceID string) apitypes.RuntimeProfileBinding
 	}}
 }
 
-func runtimeProfileTestFlowcraftSpec(t *testing.T, modelAlias, voiceAlias string) *apitypes.FlowcraftWorkflowSpec {
+func runtimeProfileTestEinoFormerSpec(t *testing.T, modelAlias, voiceAlias string) *apitypes.EinoWorkflowSpec {
 	t.Helper()
-	publish := true
-	var node apitypes.FlowcraftNode
-	if err := node.FromFlowcraftLLMNode(apitypes.FlowcraftLLMNode{
-		Id:      "answer",
-		Type:    apitypes.FlowcraftLLMNodeTypeLlm,
-		Publish: &publish,
-		Config:  apitypes.FlowcraftLLMNodeConfig{Model: modelAlias},
-	}); err != nil {
+	raw := fmt.Sprintf(`{"voice_adapter":{"default_voice":%q},"graph":{"name":"Assistant","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"answer","type":"chat_model","model":%q,"inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"}}],"edges":[{"from":"start","to":"answer"},{"from":"answer","to":"end"}],"branches":[],"outputs":[{"node":"answer","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`, voiceAlias, modelAlias)
+	var value apitypes.EinoWorkflowSpec
+	if err := json.Unmarshal([]byte(raw), &value); err != nil {
 		t.Fatal(err)
 	}
-	return &apitypes.FlowcraftWorkflowSpec{
-		Graph:        apitypes.FlowcraftGraph{Name: "Assistant", Entry: "answer", Nodes: []apitypes.FlowcraftNode{node}},
-		VoiceAdapter: &apitypes.VoiceAdapter{DefaultVoice: &voiceAlias},
-	}
+	return &value
 }
 
 func TestSpeakerVoiceRuntimeReferences(t *testing.T) {
-	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverEino, apitypes.WorkflowDriverFlowcraft} {
-		voices := map[string]string{"狐": "story.fox"}
-		spec := apitypes.WorkflowSpec{Driver: driver}
-		if driver == apitypes.WorkflowDriverEino {
-			spec.Eino = &apitypes.EinoWorkflowSpec{VoiceAdapter: &apitypes.VoiceAdapter{SpeakerVoices: &voices}}
-		} else {
-			node := apitypes.FlowcraftNode{}
-			if err := json.Unmarshal([]byte(`{"id":"echo","type":"passthrough"}`), &node); err != nil {
-				t.Fatal(err)
-			}
-			spec.Flowcraft = &apitypes.FlowcraftWorkflowSpec{Graph: apitypes.FlowcraftGraph{Name: "test", Entry: "echo", Nodes: []apitypes.FlowcraftNode{node}}, VoiceAdapter: &apitypes.VoiceAdapter{SpeakerVoices: &voices}}
-		}
-		if err := validateWorkflowRuntimeAliases("workflow", spec, nil, nil); err == nil || !strings.Contains(err.Error(), "speaker_voices.狐") {
-			t.Fatalf("%s missing voice: %v", driver, err)
-		}
-		if err := validateWorkflowRuntimeAliases("workflow", spec, nil, map[string]apitypes.VoiceResource{"story.fox": {}}); err != nil {
-			t.Fatalf("%s valid voice: %v", driver, err)
-		}
+	voices := map[string]string{"狐": "story.fox"}
+	spec := apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &apitypes.EinoWorkflowSpec{VoiceAdapter: &apitypes.VoiceAdapter{SpeakerVoices: &voices}}}
+	if err := validateWorkflowRuntimeAliases("workflow", spec, nil, nil); err == nil || !strings.Contains(err.Error(), "speaker_voices.狐") {
+		t.Fatalf("missing voice: %v", err)
+	}
+	if err := validateWorkflowRuntimeAliases("workflow", spec, nil, map[string]apitypes.VoiceResource{"story.fox": {}}); err != nil {
+		t.Fatalf("valid voice: %v", err)
 	}
 }

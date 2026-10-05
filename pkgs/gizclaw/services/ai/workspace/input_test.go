@@ -10,11 +10,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 )
 
-func flowcraftInputParameters(t *testing.T, value apitypes.FlowcraftWorkspaceParameters) *apitypes.WorkspaceParameters {
+func einoInputParameters(t *testing.T, value apitypes.EinoWorkspaceParameters) *apitypes.WorkspaceParameters {
 	t.Helper()
 	parameters := &apitypes.WorkspaceParameters{}
-	if err := parameters.FromFlowcraftWorkspaceParameters(value); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	if err := parameters.FromEinoWorkspaceParameters(value); err != nil {
+		t.Fatalf("FromEinoWorkspaceParameters() error = %v", err)
 	}
 	return parameters
 }
@@ -24,16 +24,16 @@ func workspaceInputMode(t *testing.T, workspace apitypes.Workspace) *apitypes.Wo
 	if workspace.Parameters == nil {
 		return nil
 	}
-	value, err := workspace.Parameters.AsFlowcraftWorkspaceParameters()
+	value, err := workspace.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
-		t.Fatalf("AsFlowcraftWorkspaceParameters() error = %v", err)
+		t.Fatalf("AsEinoWorkspaceParameters() error = %v", err)
 	}
 	return value.Input
 }
 
 func TestSetPeerWorkspaceParametersKeepsOtherParameters(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 
@@ -42,8 +42,8 @@ func TestSetPeerWorkspaceParametersKeepsOtherParameters(t *testing.T) {
 	toolIDs := []string{"tool-a"}
 	created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
 		Name: "workspace-1", WorkflowID: "workflow-1",
-		Parameters: flowcraftInputParameters(t, apitypes.FlowcraftWorkspaceParameters{
-			AgentType:    apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+		Parameters: einoInputParameters(t, apitypes.EinoWorkspaceParameters{
+			AgentType:    apitypes.EinoWorkspaceParametersAgentTypeEino,
 			Conversation: &apitypes.ConversationParameters{Initiative: &initiative},
 			Input:        &pushToTalk,
 		}),
@@ -62,9 +62,9 @@ func TestSetPeerWorkspaceParametersKeepsOtherParameters(t *testing.T) {
 	if mode := workspaceInputMode(t, updated); mode == nil || *mode != apitypes.WorkspaceInputModeRealtime {
 		t.Fatalf("input = %+v, want realtime", mode)
 	}
-	parameters, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
-		t.Fatalf("AsFlowcraftWorkspaceParameters() error = %v", err)
+		t.Fatalf("AsEinoWorkspaceParameters() error = %v", err)
 	}
 	if parameters.Conversation == nil || parameters.Conversation.Initiative == nil || *parameters.Conversation.Initiative != initiative {
 		t.Fatalf("conversation = %+v, want initiative %q preserved", parameters.Conversation, initiative)
@@ -89,7 +89,7 @@ func TestSetPeerWorkspaceParametersKeepsOtherParameters(t *testing.T) {
 
 func TestSetPeerWorkspaceParametersResolvesInheritedParameters(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 
@@ -114,7 +114,7 @@ func TestSetPeerWorkspaceParametersResolvesInheritedParameters(t *testing.T) {
 
 func TestSetPeerWorkspaceParametersRejectsInvalidRequests(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 	created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{Name: "workspace-1", WorkflowID: "workflow-1"})
@@ -143,7 +143,7 @@ func TestWorkspaceParametersWithInputIgnoresDriversWithoutInput(t *testing.T) {
 
 func TestSetPeerWorkspaceParametersReadsUnderTheRecordLock(t *testing.T) {
 	srv := newTestServer(t)
-	seedFlowcraftWorkflow(t, srv, "workflow-1", "model-1")
+	seedEinoPortedWorkflow(t, srv, "workflow-1", "model-1")
 	seedModel(t, srv, "model-1", apitypes.ModelKindLlm)
 	ctx := ownership.WithOwner(t.Context(), "peer-owner")
 

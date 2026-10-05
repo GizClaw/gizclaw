@@ -15,6 +15,7 @@ import (
 	"unicode/utf8"
 
 	"database/sql"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
@@ -24,7 +25,6 @@ import (
 	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -826,59 +826,6 @@ func normalizeMemoryBinding(binding apitypes.RuntimeProfileMemoryBinding) (apity
 		return binding, fmt.Errorf("connection: %w", err)
 	}
 	switch connectionType {
-	case "flowcraft_bbh":
-		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
-			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
-		}
-	case "flowcraft_object_store":
-		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
-			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
-		}
-		value, err := binding.Connection.AsRuntimeProfileFlowcraftObjectStoreConnection()
-		value.Directory = strings.TrimSpace(value.Directory)
-		if err != nil || value.Directory == "" {
-			return binding, errors.New("flowcraft_object_store connection requires directory")
-		}
-		if err := binding.Connection.FromRuntimeProfileFlowcraftObjectStoreConnection(value); err != nil {
-			return binding, err
-		}
-	case "flowcraft_postgresql":
-		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
-			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
-		}
-		value, err := binding.Connection.AsRuntimeProfileFlowcraftPostgreSQLConnection()
-		value.Dsn = strings.TrimSpace(value.Dsn)
-		if err != nil || value.Dsn == "" {
-			return binding, errors.New("flowcraft_postgresql connection requires dsn")
-		}
-		if err := binding.Connection.FromRuntimeProfileFlowcraftPostgreSQLConnection(value); err != nil {
-			return binding, err
-		}
-	case "flowcraft_redis8":
-		if binding.Driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
-			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
-		}
-		value, err := binding.Connection.AsRuntimeProfileFlowcraftRedis8Connection()
-		if err != nil {
-			return binding, err
-		}
-		value.Url = strings.TrimSpace(value.Url)
-		value.TlsCaFile = trimOptionalString(value.TlsCaFile)
-		if value.Url == "" {
-			return binding, errors.New("flowcraft_redis8 connection requires url")
-		}
-		if err := storage.ValidateRedisURL(value.Url); err != nil {
-			return binding, fmt.Errorf("flowcraft_redis8 connection requires a valid single-endpoint redis or rediss URL: %w", err)
-		}
-		if value.TlsCaFile != nil {
-			parsed, _ := url.Parse(value.Url)
-			if parsed.Scheme != "rediss" {
-				return binding, errors.New("flowcraft_redis8 tls_ca_file requires a rediss URL")
-			}
-		}
-		if err := binding.Connection.FromRuntimeProfileFlowcraftRedis8Connection(value); err != nil {
-			return binding, err
-		}
 	case "mem0":
 		if binding.Driver != apitypes.RuntimeProfileMemoryDriverMem0 {
 			return binding, fmt.Errorf("driver %q cannot use connection type %q", binding.Driver, connectionType)
@@ -1091,9 +1038,6 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			if err != nil {
 				return fmt.Errorf("%s.layout_id %q returned an invalid MemoryLayout: %w", path, binding.LayoutId, err)
 			}
-			if err := validateMemoryLayoutRuntimeAliases(path, binding.Driver, layout.Spec, models); err != nil {
-				return err
-			}
 			memories[alias] = layout
 		}
 	}
@@ -1116,36 +1060,6 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 	}
 	for _, workflow := range workflows {
 		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, voices, memories); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func validateMemoryLayoutRuntimeAliases(path string, driver apitypes.RuntimeProfileMemoryDriver, layout apitypes.MemoryLayoutSpec, models map[string]apitypes.ModelResource) error {
-	if driver != apitypes.RuntimeProfileMemoryDriverFlowcraft {
-		return nil
-	}
-	requireModel := func(field, alias string, kind apitypes.ModelKind) error {
-		model, ok := models[strings.TrimSpace(alias)]
-		if !ok {
-			return fmt.Errorf("%s.layout.%s model alias %q is not declared in resources.models", path, field, alias)
-		}
-		if model.Spec.Kind != kind {
-			return fmt.Errorf("%s.layout.%s model alias %q has kind %q, want %q", path, field, alias, model.Spec.Kind, kind)
-		}
-		return nil
-	}
-	if err := requireModel("flowcraft.extraction.model", layout.Flowcraft.Extraction.Model, apitypes.ModelKindLlm); err != nil {
-		return err
-	}
-	if layout.Flowcraft.Embedding != nil {
-		if err := requireModel("flowcraft.embedding.model", layout.Flowcraft.Embedding.Model, apitypes.ModelKindEmbedding); err != nil {
-			return err
-		}
-	}
-	if layout.Flowcraft.Rerank != nil {
-		if err := requireModel("flowcraft.rerank.model", layout.Flowcraft.Rerank.Model, apitypes.ModelKindLlm); err != nil {
 			return err
 		}
 	}
@@ -1295,7 +1209,7 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		if workflow.Eino == nil {
 			return fmt.Errorf("%s has no eino spec", path)
 		}
-		if err := validateEinoRuntimeAliases(path, workflow.Eino.Graph, requireModel); err != nil {
+		if err := einoconfig.VisitModelAliases(path, workflow.Eino.Graph, requireModel); err != nil {
 			return err
 		}
 		if workflow.Eino.VoiceAdapter != nil {
@@ -1326,131 +1240,6 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 			}
 		}
 		return nil
-	case apitypes.WorkflowDriverFlowcraft:
-		if workflow.Flowcraft == nil {
-			return fmt.Errorf("%s has no flowcraft spec", path)
-		}
-		flowcraft := *workflow.Flowcraft
-		modelAliases := make([]struct {
-			field string
-			alias string
-			kind  apitypes.ModelKind
-		}, 0, len(flowcraft.Graph.Nodes)+4)
-		for index, raw := range flowcraft.Graph.Nodes {
-			if discriminator, _ := raw.Discriminator(); discriminator == "llm" {
-				node, err := raw.AsFlowcraftLLMNode()
-				if err != nil {
-					return fmt.Errorf("%s.graph.nodes[%d]: %w", path, index, err)
-				}
-				modelAliases = append(modelAliases, struct {
-					field string
-					alias string
-					kind  apitypes.ModelKind
-				}{field: fmt.Sprintf("graph.nodes[%d].config.model", index), alias: node.Config.Model, kind: apitypes.ModelKindLlm})
-			}
-		}
-		if flowcraft.VoiceAdapter != nil && flowcraft.VoiceAdapter.AsrModel != nil {
-			modelAliases = append(modelAliases, struct {
-				field, alias string
-				kind         apitypes.ModelKind
-			}{"voice_adapter.asr_model", *flowcraft.VoiceAdapter.AsrModel, apitypes.ModelKindAsr})
-		}
-		for _, model := range modelAliases {
-			if strings.TrimSpace(model.alias) != "" {
-				if err := requireModel(model.field, model.alias, model.kind); err != nil {
-					return err
-				}
-			}
-		}
-		if flowcraft.VoiceAdapter != nil {
-			if flowcraft.VoiceAdapter.DefaultVoice != nil {
-				if err := requireVoice("voice_adapter.default_voice", *flowcraft.VoiceAdapter.DefaultVoice); err != nil {
-					return err
-				}
-			}
-			if flowcraft.VoiceAdapter.SpeakerVoices != nil {
-				for name, alias := range *flowcraft.VoiceAdapter.SpeakerVoices {
-					if err := requireVoice("voice_adapter.speaker_voices."+name, alias); err != nil {
-						return err
-					}
-				}
-			}
-			if flowcraft.VoiceAdapter.NodeVoices != nil {
-				for nodeID, alias := range *flowcraft.VoiceAdapter.NodeVoices {
-					if err := requireVoice("voice_adapter.node_voices."+nodeID, alias); err != nil {
-						return err
-					}
-				}
-			}
-		}
-		if strings.TrimSpace(flowcraft.Graph.Entry) == "" || len(flowcraft.Graph.Nodes) == 0 {
-			return fmt.Errorf("%s.graph must have an entry and at least one node", path)
-		}
-		entryFound := false
-		for _, raw := range flowcraft.Graph.Nodes {
-			data, err := raw.MarshalJSON()
-			if err != nil {
-				return err
-			}
-			var node struct {
-				ID string `json:"id"`
-			}
-			if err := json.Unmarshal(data, &node); err != nil {
-				return err
-			}
-			entryFound = entryFound || node.ID == flowcraft.Graph.Entry
-		}
-		if !entryFound {
-			return fmt.Errorf("%s.graph.entry %q is not a defined node", path, flowcraft.Graph.Entry)
-		}
-	}
-	return nil
-}
-
-func validateEinoRuntimeAliases(path string, graph apitypes.EinoGraph, requireModel func(string, string, apitypes.ModelKind) error) error {
-	for index, raw := range graph.Nodes {
-		discriminator, err := raw.Discriminator()
-		if err != nil {
-			return fmt.Errorf("%s.graph.nodes[%d]: %w", path, index, err)
-		}
-		nodePath := fmt.Sprintf("graph.nodes[%d]", index)
-		switch discriminator {
-		case "chat_model":
-			node, err := raw.AsEinoChatModelNode()
-			if err != nil {
-				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
-			}
-			if err := requireModel(nodePath+".model", node.Model, apitypes.ModelKindLlm); err != nil {
-				return err
-			}
-		case "batch":
-			node, err := raw.AsEinoBatchNode()
-			if err != nil {
-				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
-			}
-			if err := validateEinoRuntimeAliases(path+"."+nodePath+".graph", node.Graph, requireModel); err != nil {
-				return err
-			}
-		case "subgraph":
-			node, err := raw.AsEinoSubgraphNode()
-			if err != nil {
-				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
-			}
-			if err := validateEinoRuntimeAliases(path+"."+nodePath+".graph", node.Graph, requireModel); err != nil {
-				return err
-			}
-		case "race":
-			node, err := raw.AsEinoRaceNode()
-			if err != nil {
-				return fmt.Errorf("%s.%s: %w", path, nodePath, err)
-			}
-			for branchIndex, branch := range node.Branches {
-				branchPath := fmt.Sprintf("%s.%s.branches[%d].graph", path, nodePath, branchIndex)
-				if err := validateEinoRuntimeAliases(branchPath, branch.Graph, requireModel); err != nil {
-					return err
-				}
-			}
-		}
 	}
 	return nil
 }

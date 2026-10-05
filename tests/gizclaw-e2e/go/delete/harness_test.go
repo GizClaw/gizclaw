@@ -25,7 +25,7 @@ const (
 	deleteProfileID    = "e2e-deletion"
 	deleteCollection   = "deletion"
 	deleteWorkflowName = "workspace"
-	deleteWorkflowID   = "flowcraft-scenario-000"
+	deleteWorkflowID   = "eino-scenario-000"
 )
 
 type deletionHarness struct {
@@ -162,8 +162,8 @@ func deletionWorkspaceParameters(t *testing.T) *rpcapi.WorkspaceParameters {
 	t.Helper()
 	input := rpcapi.WorkspaceInputModePushToTalk
 	var parameters rpcapi.WorkspaceParameters
-	if err := parameters.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
-		AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+	if err := parameters.FromEinoWorkspaceParameters(rpcapi.EinoWorkspaceParameters{
+		AgentType: rpcapi.EinoWorkspaceParametersAgentTypeEino,
 		Input:     &input,
 	}); err != nil {
 		t.Fatal(err)

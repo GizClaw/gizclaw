@@ -377,11 +377,11 @@ func TestOpenAIWorkspaceAdapterRejectsSFUWorkspace(t *testing.T) {
 		t.Fatalf("rejectSFUWorkspace(system-sfu) error = %v, want %v", err, errOpenAISFUWorkspace)
 	}
 	adapter.manager.Workflows = fixedWorkflowAdminService{value: apitypes.Workflow{
-		Id:   "wf-flowcraft",
-		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft},
+		Id:   "wf-eino",
+		Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino},
 	}}
-	if err := adapter.rejectSFUWorkspace(ctx, apitypes.Workspace{Id: "ws-a", Name: "chat", WorkflowId: "wf-flowcraft"}); err != nil {
-		t.Fatalf("rejectSFUWorkspace(flowcraft) error = %v", err)
+	if err := adapter.rejectSFUWorkspace(ctx, apitypes.Workspace{Id: "ws-a", Name: "chat", WorkflowId: "wf-eino"}); err != nil {
+		t.Fatalf("rejectSFUWorkspace(eino) error = %v", err)
 	}
 }
 

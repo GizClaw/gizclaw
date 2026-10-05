@@ -135,8 +135,7 @@ func seed() error {
 		return err
 	}
 	workflowBodies := map[string]string{
-		"eino":      `{"driver":"eino","eino":{"graph":{"name":"Quota chat","state":{"fields":[{"name":"messages","type":"messages","merge":"replace"},{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"prompt","type":"prompt","format":"f_string","inputs":{"text":{"from":"input.text"}},"outputs":{"messages":"messages"},"messages":[{"role":"user","template":"{text}"}]},{"id":"chat","type":"chat_model","model":"chat","inputs":{"messages":{"from":"messages"}},"outputs":{"text":"answer"}}],"edges":[{"from":"start","to":"prompt"},{"from":"prompt","to":"chat"},{"from":"chat","to":"end"}],"branches":[],"outputs":[{"name":"answer","node":"chat","field":"answer","mime_type":"text/plain","primary":true}],"compile":{"node_trigger_mode":"all_predecessor"}}}}`,
-		"flowcraft": `{"driver":"flowcraft","flowcraft":{"graph":{"name":"Quota chat","entry":"chat","nodes":[{"id":"chat","type":"llm","publish":true,"config":{"model":"chat"}}],"edges":[{"from":"chat","to":"__end__"}]}}}`,
+		"eino": `{"driver":"eino","eino":{"graph":{"name":"Quota chat","state":{"fields":[{"name":"messages","type":"messages","merge":"replace"},{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"prompt","type":"prompt","format":"f_string","inputs":{"text":{"from":"input.text"}},"outputs":{"messages":"messages"},"messages":[{"role":"user","template":"{text}"}]},{"id":"chat","type":"chat_model","model":"chat","inputs":{"messages":{"from":"messages"}},"outputs":{"text":"answer"}}],"edges":[{"from":"start","to":"prompt"},{"from":"prompt","to":"chat"},{"from":"chat","to":"end"}],"branches":[],"outputs":[{"name":"answer","node":"chat","field":"answer","mime_type":"text/plain","primary":true}],"compile":{"node_trigger_mode":"all_predecessor"}}}}`,
 	}
 	for driver, body := range workflowBodies {
 		var spec apitypes.WorkflowSpec
@@ -168,7 +167,7 @@ func seed() error {
 				return err
 			}
 		}
-		spec := apitypes.RuntimeProfileSpec{Quota: policy, Workflows: apitypes.RuntimeProfileWorkflows{"quota-eino": binding("quota-eino"), "quota-flowcraft": binding("quota-flowcraft")}, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"chat": binding("quota-chat")}), Voices: new(map[string]apitypes.RuntimeProfileBinding{"narrator": binding("quota-voice")})}}
+		spec := apitypes.RuntimeProfileSpec{Quota: policy, Workflows: apitypes.RuntimeProfileWorkflows{"quota-eino": binding("quota-eino")}, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"chat": binding("quota-chat")}), Voices: new(map[string]apitypes.RuntimeProfileBinding{"narrator": binding("quota-voice")})}}
 		profile, err := api.CreateRuntimeProfileWithResponse(ctx, adminhttp.RuntimeProfileUpsert{Id: "quota-" + mode, Spec: spec})
 		if err != nil {
 			return err

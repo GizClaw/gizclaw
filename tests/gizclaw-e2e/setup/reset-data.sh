@@ -92,7 +92,7 @@ gear1_context="${GIZCLAW_E2E_CMD_GEAR1_CONTEXT:-}"
 gear2_context="${GIZCLAW_E2E_CMD_GEAR2_CONTEXT:-}"
 config_home="${GIZCLAW_E2E_CONFIG_HOME:-}"
 
-# Preserve Flowcraft runtime placeholders while admin apply expands provider
+# Preserve Eino runtime placeholders while admin apply expands provider
 # credential placeholders from the setup environment.
 export input='${input}'
 

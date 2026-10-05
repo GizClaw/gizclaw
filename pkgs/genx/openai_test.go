@@ -299,6 +299,19 @@ func TestOAIPullerStates(t *testing.T) {
 		}
 	})
 
+	t.Run("blocked_without_refusal_detail", func(t *testing.T) {
+		sb := NewStreamBuilder(ctx, 4)
+		stream := newChunkStream(`{"id":"1","object":"chat.completion.chunk","created":1,"model":"m","choices":[{"index":0,"delta":{},"finish_reason":"content_filter"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+		if err := (&oaiPuller{}).pull(sb, stream); err != nil {
+			t.Fatal(err)
+		}
+		_, err := sb.Stream().Next()
+		var state *State
+		if !errors.As(err, &state) || state.Status() != StatusBlocked || !strings.Contains(err.Error(), "finish_reason=content_filter") || !strings.Contains(err.Error(), "not supplied") {
+			t.Fatalf("missing provider filter diagnostic: %v", err)
+		}
+	})
+
 	t.Run("decoder_error", func(t *testing.T) {
 		sb := NewStreamBuilder(ctx, 2)
 		st := ssestream.NewStream[openai.ChatCompletionChunk](&fakeDecoder{events: nil, err: errors.New("decode")}, nil)

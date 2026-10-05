@@ -9,13 +9,6 @@ import (
 
 func rpcWorkspaceParametersToAPI(in rpcapi.WorkspaceParameters) (apitypes.WorkspaceParameters, error) {
 	var out apitypes.WorkspaceParameters
-	if typed, err := in.AsFlowcraftWorkspaceParameters(); err == nil {
-		converted, err := convertType[apitypes.FlowcraftWorkspaceParameters](typed)
-		if err != nil {
-			return out, err
-		}
-		return out, out.FromFlowcraftWorkspaceParameters(converted)
-	}
 	if typed, err := in.AsDoubaoRealtimeWorkspaceParameters(); err == nil {
 		converted, err := convertType[apitypes.DoubaoRealtimeWorkspaceParameters](typed)
 		if err != nil {
@@ -61,12 +54,6 @@ func apiWorkspaceParametersToRPC(in apitypes.WorkspaceParameters) (rpcapi.Worksp
 		return out, err
 	}
 	switch typed := value.(type) {
-	case apitypes.FlowcraftWorkspaceParameters:
-		converted, err := convertType[rpcapi.FlowcraftWorkspaceParameters](typed)
-		if err != nil {
-			return out, err
-		}
-		return out, out.FromFlowcraftWorkspaceParameters(converted)
 	case apitypes.DoubaoRealtimeWorkspaceParameters:
 		converted, err := convertType[rpcapi.DoubaoRealtimeWorkspaceParameters](typed)
 		if err != nil {

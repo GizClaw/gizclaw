@@ -8,7 +8,7 @@ import (
 func TestWorkspaceParametersTTSSpeechRatePercent(t *testing.T) {
 	t.Parallel()
 	for _, agentType := range []string{
-		"flowcraft", "eino", "doubao-realtime", "doubao-realtime-duplex", "dashscope-realtime", "ast-translate",
+		"eino", "eino", "doubao-realtime", "doubao-realtime-duplex", "dashscope-realtime", "ast-translate",
 	} {
 		t.Run(agentType, func(t *testing.T) {
 			t.Parallel()

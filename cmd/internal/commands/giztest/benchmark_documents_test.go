@@ -10,9 +10,8 @@ import (
 func TestBenchmarkAndFirstResponseGiztestDocuments(t *testing.T) {
 	for _, pattern := range []string{
 		"benchmark.eino-*.giztest.yaml",
-		"benchmark.flowcraft-*.giztest.yaml",
 		"eino-concurrency-assistant.*.giztest.yaml",
-		"flowcraft-voice-assistant.workspace-reload-initiative.giztest.yaml",
+		"eino-voice-assistant.workspace-reload-initiative.giztest.yaml",
 		"server.device.find*.giztest.yaml",
 	} {
 		paths, err := filepath.Glob(filepath.Join("../../../../tests/gizclaw-e2e/giztest", pattern))

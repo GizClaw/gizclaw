@@ -6,7 +6,6 @@ import (
 	"strings"
 )
 
-// ValidateSpeakerVoices checks shared Eino and Flowcraft speaker mappings.
 func ValidateSpeakerVoices(voices *map[string]string) error {
 	if voices == nil {
 		return nil

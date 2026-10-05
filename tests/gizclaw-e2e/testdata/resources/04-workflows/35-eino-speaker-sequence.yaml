@@ -1,0 +1,69 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-speaker-sequence
+spec:
+  driver: eino
+  eino:
+    graph:
+      name: eino-speaker-sequence
+      state:
+        fields:
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+      nodes:
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+          outputs:
+            messages: messages
+          messages:
+            - role: system
+              template: |-
+                你是配音剧本复读器。逐字输出用户给出的剧本，保留全部【】标记和标点，不增删、不改写、不解释。
+                {safety}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
+          model: llm
+          max_tokens: 2048
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+      edges:
+        - from: start
+          to: prompt
+        - from: prompt
+          to: answer
+        - from: answer
+          to: end
+      outputs:
+        - node: answer
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true
+      compile:
+        node_trigger_mode: any_predecessor
+      branches: []
+    voice_adapter:
+      asr_model: asr
+      default_voice: narrator
+      speaker_voices:
+        旁白: narrator
+        狐狸: assistant-voice
+        小鸟: story-bird
+    conversation:
+      starts: peer

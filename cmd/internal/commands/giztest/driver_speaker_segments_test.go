@@ -16,10 +16,10 @@ import (
 )
 
 func TestSpeakerSegmentsGiztest(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
-		t.Run(kind, func(t *testing.T) {
+	for _, fixture := range []string{"eino", "eino-sequential"} {
+		t.Run(fixture, func(t *testing.T) {
 			root := "../../../../tests/gizclaw-e2e/testdata/speaker-segments"
-			data, err := os.ReadFile(filepath.Join(root, kind+".json"))
+			data, err := os.ReadFile(filepath.Join(root, fixture+".json"))
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -34,7 +34,7 @@ func TestSpeakerSegmentsGiztest(t *testing.T) {
 			provider := &voiceFixtureProvider{packets: packets}
 			resources := voiceFixtureResources{}
 			service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
-			agent := newVoiceFixtureAgent(t, kind, spec[kind], service, apitypes.WorkspaceInputModePushToTalk)
+			agent := newVoiceFixtureAgent(t, "eino", spec["eino"], service, apitypes.WorkspaceInputModePushToTalk)
 			defer agent.(io.Closer).Close()
 			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 			defer cancel()

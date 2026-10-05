@@ -98,6 +98,7 @@ type MemoryConfig struct {
 
 // RecallDefinition binds recalled Memory to a Graph state field.
 type RecallDefinition struct {
+	Filters   []memory.Filter
 	QueryFrom string
 	Output    string
 	TopK      int
@@ -112,6 +113,8 @@ type ObserveDefinition struct {
 
 // ObservePolicy declares post-delivery Memory behavior.
 type ObservePolicy struct {
+	TextFrom          string
+	TurnsFrom         string
 	Enabled           bool
 	WaitForCompletion bool
 	Facts             []ObserveDefinition
@@ -151,7 +154,11 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	config := source
 	config.State = cloneStateConfig(source.State)
 	config.History = cloneHistoryConfig(source.History)
-	config.Memory = cloneMemoryConfig(source.Memory)
+	var err error
+	config.Memory, err = cloneMemoryConfig(source.Memory)
+	if err != nil {
+		return nil, err
+	}
 	config.Agent.ID = strings.TrimSpace(config.Agent.ID)
 	config.Agent.Name = strings.TrimSpace(config.Agent.Name)
 	config.Agent.ContextID = strings.TrimSpace(config.Agent.ContextID)
@@ -211,9 +218,9 @@ func cloneHistoryConfig(source *HistoryConfig) *HistoryConfig {
 	return &result
 }
 
-func cloneMemoryConfig(source *MemoryConfig) *MemoryConfig {
+func cloneMemoryConfig(source *MemoryConfig) (*MemoryConfig, error) {
 	if source == nil {
-		return nil
+		return nil, nil
 	}
 	result := *source
 	result.Recall = slices.Clone(source.Recall)
@@ -223,7 +230,14 @@ func cloneMemoryConfig(source *MemoryConfig) *MemoryConfig {
 		result.Observe.Facts[index].Attributes = make(map[string]string, len(fact.Attributes))
 		maps.Copy(result.Observe.Facts[index].Attributes, fact.Attributes)
 	}
-	return &result
+	for index := range result.Recall {
+		filters, err := cloneMemoryFilters(source.Recall[index].Filters)
+		if err != nil {
+			return nil, err
+		}
+		result.Recall[index].Filters = filters
+	}
+	return &result, nil
 }
 
 func cloneGraph(source GraphDefinition) (GraphDefinition, error) {
@@ -253,6 +267,13 @@ func restorePredicateValues(source GraphDefinition, target *GraphDefinition) err
 	for index := range source.Nodes {
 		sourceNode := source.Nodes[index]
 		targetNode := &target.Nodes[index]
+		if sourceNode.MemoryRecall != nil {
+			filters, err := cloneMemoryFilters(sourceNode.MemoryRecall.Filters)
+			if err != nil {
+				return err
+			}
+			targetNode.MemoryRecall.Filters = filters
+		}
 		switch {
 		case sourceNode.Subgraph != nil:
 			if err := restorePredicateValues(sourceNode.Subgraph.Graph, &targetNode.Subgraph.Graph); err != nil {
@@ -478,6 +499,10 @@ func (config *normalizedConfig) validateGraph(graph GraphDefinition, path string
 	if cyclic && graph.Compile.MaxRunSteps <= 0 {
 		return fmt.Errorf("eino: %s cyclic Graph requires positive MaxRunSteps", path)
 	}
+	automaticPrimary := graph.Compile.PrimaryOutputMode == PrimaryFirstOutput
+	if mode := graph.Compile.PrimaryOutputMode; mode != "" && mode != PrimaryFixed && mode != PrimaryFirstOutput {
+		return fmt.Errorf("eino: %s invalid primary output mode %q", path, mode)
+	}
 	primary := 0
 	seenOutputs := make(map[string]struct{}, len(graph.Outputs))
 	seenSources := make(map[string]struct{}, len(graph.Outputs))
@@ -519,7 +544,7 @@ func (config *normalizedConfig) validateGraph(graph GraphDefinition, path string
 		return fmt.Errorf("eino: %s requires exactly one primary Output", path)
 	}
 	for _, output := range graph.Outputs {
-		if output.Primary && canReachAvoiding(adjacency, "start", "end", output.Node) {
+		if !automaticPrimary && output.Primary && canReachAvoiding(adjacency, "start", "end", output.Node) {
 			return fmt.Errorf(
 				"eino: %s has a start-to-end path that bypasses primary Output node %q",
 				path,
@@ -634,6 +659,9 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 			strings.TrimSpace(node.MemoryRecall.Output) == "" {
 			return fmt.Errorf("eino: %s has invalid MemoryRecall configuration", nodePath)
 		}
+		if err := memory.ValidateQuery(memory.Query{Text: "validation", Limit: node.MemoryRecall.TopK, Filters: node.MemoryRecall.Filters}); err != nil {
+			return fmt.Errorf("eino: %s MemoryRecall filters: %w", nodePath, err)
+		}
 		if node.MemoryRecall.QueryFrom != "input.text" {
 			if field, ok := fields[node.MemoryRecall.QueryFrom]; !ok || field != StateString {
 				return fmt.Errorf("eino: %s MemoryRecall QueryFrom must be input.text or a string State field", nodePath)
@@ -643,10 +671,26 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 			return fmt.Errorf("eino: %s MemoryRecall Output must be a string State field", nodePath)
 		}
 	case node.MemoryObserve != nil:
-		if len(node.MemoryObserve.Facts) == 0 {
-			return fmt.Errorf("eino: %s requires MemoryObserve Facts", nodePath)
+		raw := node.MemoryObserve.TextFrom != "" || node.MemoryObserve.TurnsFrom != ""
+		if len(node.MemoryObserve.Facts) == 0 && !raw {
+			return fmt.Errorf("eino: %s requires MemoryObserve Facts or extraction material", nodePath)
 		}
-		if config.Memory != nil && !memory.SupportsDirectFactObservation(config.Memory.Store) {
+		if len(node.MemoryObserve.Facts) > 0 && raw {
+			return fmt.Errorf("eino: %s cannot mix direct Facts and extraction material", nodePath)
+		}
+		if from := node.MemoryObserve.TextFrom; from != "" {
+			fieldType, err := bindingStateType(Binding{From: from}, fields)
+			if err != nil || fieldType != StateString {
+				return fmt.Errorf("eino: %s MemoryObserve TextFrom must be a string binding", nodePath)
+			}
+		}
+		if from := node.MemoryObserve.TurnsFrom; from != "" {
+			fieldType, err := bindingStateType(Binding{From: from}, fields)
+			if err != nil || fieldType != StateMessages {
+				return fmt.Errorf("eino: %s MemoryObserve TurnsFrom must be a messages binding", nodePath)
+			}
+		}
+		if len(node.MemoryObserve.Facts) > 0 && config.Memory != nil && !memory.SupportsDirectFactObservation(config.Memory.Store) {
 			return fmt.Errorf("eino: %s requires direct Fact observation support", nodePath)
 		}
 		for index, fact := range node.MemoryObserve.Facts {
@@ -1103,6 +1147,9 @@ func validateStateWriters(
 	reverse map[string][]string,
 	path string,
 ) error {
+	if serialGraph(adjacency, branches) {
+		return nil
+	}
 	writers := make(map[string][]string)
 	for nodeID, node := range nodes {
 		for _, field := range node.Outputs {
@@ -1117,7 +1164,7 @@ func validateStateWriters(
 			for right := left + 1; right < len(nodeIDs); right++ {
 				a, b := nodeIDs[left], nodeIDs[right]
 				if canReach(adjacency, a, b) || canReach(adjacency, b, a) ||
-					exclusiveFirstMatchDestinations(branches, reverse, a, b) {
+					exclusiveFirstMatchDestinations(branches, adjacency, reverse, a, b) {
 					continue
 				}
 				return fmt.Errorf(
@@ -1159,6 +1206,7 @@ func canReachAvoiding(adjacency map[string][]string, from, to, avoided string) b
 
 func exclusiveFirstMatchDestinations(
 	branches []BranchDefinition,
+	adjacency map[string][]string,
 	reverse map[string][]string,
 	left, right string,
 ) bool {
@@ -1170,25 +1218,42 @@ func exclusiveFirstMatchDestinations(
 		for _, route := range branch.Routes {
 			destinations[route.To] = struct{}{}
 		}
-		_, hasLeft := destinations[left]
-		_, hasRight := destinations[right]
-		if hasLeft && hasRight &&
-			onlyPredecessor(reverse[left], branch.From) &&
-			onlyPredecessor(reverse[right], branch.From) {
+		// Ordinary edges or a second branch at the same owner can activate a
+		// destination independently of first_match selection.
+		if len(adjacency[branch.From]) != len(destinations) || !singleActivationSource(reverse, branch.From) {
+			continue
+		}
+		leftOrigin, rightOrigin := "", ""
+		leftCount, rightCount := 0, 0
+		for destination := range destinations {
+			if canReach(adjacency, destination, left) {
+				leftOrigin = destination
+				leftCount++
+			}
+			if canReach(adjacency, destination, right) {
+				rightOrigin = destination
+				rightCount++
+			}
+		}
+		if leftCount == 1 && rightCount == 1 && leftOrigin != rightOrigin &&
+			!canReachAvoiding(adjacency, "start", left, branch.From) &&
+			!canReachAvoiding(adjacency, "start", right, branch.From) {
 			return true
 		}
 	}
 	return false
 }
 
-func onlyPredecessor(predecessors []string, source string) bool {
-	if len(predecessors) == 0 {
-		return false
-	}
-	for _, predecessor := range predecessors {
-		if predecessor != source {
+// A unique predecessor chain from start cannot reactivate the branch owner
+// through a fan-in or a cycle. Serial graphs are proved separately above.
+func singleActivationSource(reverse map[string][]string, source string) bool {
+	seen := make(map[string]bool)
+	for source != "start" {
+		if seen[source] || len(reverse[source]) != 1 {
 			return false
 		}
+		seen[source] = true
+		source = reverse[source][0]
 	}
 	return true
 }
@@ -1405,4 +1470,52 @@ func valueMatchesStateType(value any, stateType StateType) bool {
 	default:
 		return value != nil
 	}
+}
+
+func cloneMemoryFilters(source []memory.Filter) ([]memory.Filter, error) {
+	result := slices.Clone(source)
+	for index, filter := range source {
+		var value any
+		var err error
+		switch typed := filter.Value.(type) {
+		case []string:
+			value = slices.Clone(typed)
+		case []int:
+			value = slices.Clone(typed)
+		case []float64:
+			value = slices.Clone(typed)
+		default:
+			value, err = cloneValue(filter.Value)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("eino: copy Memory filter %d: %w", index, err)
+		}
+		result[index].Value = value
+	}
+	return result, nil
+}
+
+// serialGraph proves that one invocation can activate only one next node at
+// each step. A first_match branch selects one destination; ordinary fan-out
+// and mixed edge/branch dispatch retain the stricter writer checks.
+func serialGraph(adjacency map[string][]string, branches []BranchDefinition) bool {
+	exclusive := make(map[string]int, len(branches))
+	for _, branch := range branches {
+		if branch.Mode == BranchFirstMatch {
+			destinations := map[string]struct{}{branch.Default: {}}
+			for _, route := range branch.Routes {
+				destinations[route.To] = struct{}{}
+			}
+			exclusive[branch.From] = len(destinations)
+		}
+	}
+	for source, targets := range adjacency {
+		if len(targets) <= 1 {
+			continue
+		}
+		if exclusive[source] != len(targets) {
+			return false
+		}
+	}
+	return true
 }

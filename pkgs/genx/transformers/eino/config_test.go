@@ -200,6 +200,52 @@ func TestNewAcceptsOnlyProvenExclusiveStateWriters(t *testing.T) {
 	}
 }
 
+func TestNewValidatesConditionalDescendantWriters(t *testing.T) {
+	t.Parallel()
+	for _, test := range []struct {
+		name   string
+		mutate func(*Config)
+		valid  bool
+	}{
+		{name: "exclusive descendants", valid: true, mutate: func(*Config) {}},
+		{name: "all-match", mutate: func(config *Config) { config.Graph.Branches[0].Mode = BranchAllMatch }},
+		{name: "external entry", mutate: func(config *Config) {
+			config.Graph.Edges = append(config.Graph.Edges, EdgeDefinition{From: "start", To: "left"})
+		}},
+		{name: "mixed dispatch", mutate: func(config *Config) {
+			config.Graph.Edges = append(config.Graph.Edges, EdgeDefinition{From: "select", To: "right-prepare"})
+		}},
+		{name: "reactivated owner", mutate: func(config *Config) {
+			config.Graph.State.Fields = append(config.Graph.State.Fields, StateField{Name: "extra", Type: StateString, Merge: MergeReplace})
+			config.Graph.Nodes = append(config.Graph.Nodes, NodeDefinition{ID: "extra", Inputs: map[string]Binding{"value": {From: "input.text"}}, Outputs: map[string]string{"value": "extra"}, Passthrough: &PassthroughNode{}})
+			config.Graph.Edges = append(config.Graph.Edges, EdgeDefinition{From: "start", To: "extra"}, EdgeDefinition{From: "extra", To: "select"})
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			config := conditionalOutputConfig()
+			for index, side := range []string{"left", "right"} {
+				field := side + "-prepared"
+				config.Graph.State.Fields = append(config.Graph.State.Fields, StateField{Name: field, Type: StateString, Merge: MergeReplace})
+				config.Graph.Nodes[index+1].Outputs["value"] = "selected"
+				config.Graph.Nodes[index+1].Inputs["value"] = Binding{From: field}
+				config.Graph.Outputs[index].Field = "selected"
+				config.Graph.Nodes = append(config.Graph.Nodes, NodeDefinition{ID: side + "-prepare", Inputs: map[string]Binding{"value": {From: "input.text"}}, Outputs: map[string]string{"value": field}, Passthrough: &PassthroughNode{}})
+				config.Graph.Edges = append(config.Graph.Edges, EdgeDefinition{From: side + "-prepare", To: side})
+			}
+			config.Graph.Branches[0].Routes[0].To = "left-prepare"
+			config.Graph.Branches[0].Default = "right-prepare"
+			test.mutate(&config)
+			_, err := New(t.Context(), config)
+			if test.valid && err != nil {
+				t.Fatalf("exclusive descendant writers rejected: %v", err)
+			}
+			if !test.valid && (err == nil || !strings.Contains(err.Error(), "concurrently write")) {
+				t.Fatalf("unproven descendant writers error = %v", err)
+			}
+		})
+	}
+}
+
 func TestNewRejectsInvalidRoutingAndOptionalConfig(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

@@ -23,13 +23,13 @@ func TestRegistryRegisterAndGet(t *testing.T) {
 	factory := FactoryFunc(func(context.Context, Spec) (genx.Transformer, error) {
 		return passthroughTransformer{}, nil
 	})
-	if err := registry.Register("flowcraft", factory); err != nil {
+	if err := registry.Register("eino", factory); err != nil {
 		t.Fatalf("Register() error = %v", err)
 	}
-	if _, ok := registry.Get("flowcraft"); !ok {
+	if _, ok := registry.Get("eino"); !ok {
 		t.Fatal("Get() missing registered factory")
 	}
-	if err := registry.Register("flowcraft", factory); err == nil || !strings.Contains(err.Error(), "already registered") {
+	if err := registry.Register("eino", factory); err == nil || !strings.Contains(err.Error(), "already registered") {
 		t.Fatalf("duplicate Register() error = %v", err)
 	}
 	if err := registry.Register("", factory); err == nil || !strings.Contains(err.Error(), "agent type is required") {
@@ -68,8 +68,8 @@ func TestParseWorkspacePattern(t *testing.T) {
 func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	workflow := mustWorkflow(t, "workflow-1")
 	var params apitypes.WorkspaceParameters
-	if err := params.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{}); err != nil {
-		t.Fatalf("FromFlowcraftWorkspaceParameters() error = %v", err)
+	if err := params.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{}); err != nil {
+		t.Fatalf("FromEinoWorkspaceParameters() error = %v", err)
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -87,8 +87,8 @@ func TestServiceResolverResolvesWorkspaceAndWorkflow(t *testing.T) {
 	if spec.Workspace.Name != "demo" {
 		t.Fatalf("unexpected workspace spec: %#v", spec)
 	}
-	if spec.AgentType != "flowcraft" {
-		t.Fatalf("AgentType = %q, want flowcraft", spec.AgentType)
+	if spec.AgentType != "eino" {
+		t.Fatalf("AgentType = %q, want eino", spec.AgentType)
 	}
 	if spec.Runtime.ObjectPrefix != "workspaces/demo" {
 		t.Fatalf("Runtime = %#v", spec.Runtime)
@@ -109,8 +109,8 @@ func TestServiceResolverUsesWorkflowDriverAsAgentType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Resolve() error = %v", err)
 	}
-	if spec.AgentType != "flowcraft" {
-		t.Fatalf("AgentType = %q, want flowcraft", spec.AgentType)
+	if spec.AgentType != "eino" {
+		t.Fatalf("AgentType = %q, want eino", spec.AgentType)
 	}
 }
 
@@ -214,7 +214,7 @@ func TestServiceResolverUsesCallerRuntimeProfileMemoryForUnownedWorkspace(t *tes
 	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{
 		"pet-memory": {
 			LayoutId: "pet-layout",
-			Driver:   apitypes.RuntimeProfileMemoryDriverFlowcraft,
+			Driver:   apitypes.RuntimeProfileMemoryDriverMem0,
 		},
 	}
 	profile := apitypes.RuntimeProfile{
@@ -258,7 +258,7 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 	bindings := map[string]apitypes.RuntimeProfileMemoryBinding{
 		"pet-memory": {
 			LayoutId: "pet-layout",
-			Driver:   apitypes.RuntimeProfileMemoryDriverFlowcraft,
+			Driver:   apitypes.RuntimeProfileMemoryDriverMem0,
 		},
 	}
 	profile := apitypes.RuntimeProfile{
@@ -292,10 +292,10 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 
 func TestServiceResolverRejectsWorkspaceAgentTypeWorkflowDriverMismatch(t *testing.T) {
 	var params apitypes.WorkspaceParameters
-	if err := params.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{
-		AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino,
+	if err := params.FromDoubaoRealtimeWorkspaceParameters(apitypes.DoubaoRealtimeWorkspaceParameters{
+		AgentType: apitypes.DoubaoRealtimeWorkspaceParametersAgentTypeDoubaoRealtime,
 	}); err != nil {
-		t.Fatalf("FromEinoWorkspaceParameters() error = %v", err)
+		t.Fatalf("FromDoubaoRealtimeWorkspaceParameters() error = %v", err)
 	}
 	resolver := ServiceResolver{
 		Workspaces: fakeWorkspaceService{items: map[string]apitypes.Workspace{
@@ -339,7 +339,7 @@ func TestAgentTypeFromWorkflowDriver(t *testing.T) {
 		driver string
 		want   string
 	}{
-		{driver: "flowcraft", want: "flowcraft"},
+		{driver: "eino", want: "eino"},
 		{driver: "sfu", want: "sfu"},
 		{driver: "doubao-realtime", want: "doubao-realtime"},
 		{driver: "dashscope-realtime", want: "dashscope-realtime"},
@@ -1175,7 +1175,7 @@ func mustWorkflow(t *testing.T, name string) apitypes.Workflow {
 	return apitypes.Workflow{
 		Id: name,
 		Spec: apitypes.WorkflowSpec{
-			Driver: apitypes.WorkflowDriverFlowcraft,
+			Driver: apitypes.WorkflowDriverEino,
 		},
 	}
 }

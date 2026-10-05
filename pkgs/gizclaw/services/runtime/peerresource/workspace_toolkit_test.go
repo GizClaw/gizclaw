@@ -392,7 +392,7 @@ func TestWorkspaceRPCStaleToolkitDoesNotFailReadsOrMutations(t *testing.T) {
 	var payload rpcapi.RPCPayload
 	var parameters rpcapi.WorkspaceParameters
 	putInput := rpcapi.WorkspaceInputModeRealtime
-	if err := parameters.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{AgentType: rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft, Input: &putInput}); err != nil {
+	if err := parameters.FromEinoWorkspaceParameters(rpcapi.EinoWorkspaceParameters{AgentType: rpcapi.EinoWorkspaceParametersAgentTypeEino, Input: &putInput}); err != nil {
 		t.Fatal(err)
 	}
 	if err := payload.FromWorkspacePutRequest(rpcapi.WorkspacePutRequest{Name: "stale-workspace", Body: rpcapi.WorkspacePutBody{Parameters: &parameters}}); err != nil {
@@ -409,7 +409,7 @@ func TestWorkspaceRPCStaleToolkitDoesNotFailReadsOrMutations(t *testing.T) {
 	if put.Toolkit == nil || put.Toolkit.ToolNames == nil || len(*put.Toolkit.ToolNames) != 0 {
 		t.Fatalf("put projection = %+v", put.Toolkit)
 	}
-	putParams, err := put.Parameters.AsFlowcraftWorkspaceParameters()
+	putParams, err := put.Parameters.AsEinoWorkspaceParameters()
 	if err != nil || putParams.Input == nil || *putParams.Input != putInput {
 		t.Fatalf("put input not updated: %+v %v", putParams, err)
 	}
@@ -425,7 +425,7 @@ func TestWorkspaceRPCStaleToolkitDoesNotFailReadsOrMutations(t *testing.T) {
 	if updated.Toolkit == nil || updated.Toolkit.ToolNames == nil || len(*updated.Toolkit.ToolNames) != 0 {
 		t.Fatalf("parameters projection = %+v", updated.Toolkit)
 	}
-	params, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	params, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil || params.Input == nil || *params.Input != input {
 		t.Fatalf("input not updated: %+v %v", params, err)
 	}

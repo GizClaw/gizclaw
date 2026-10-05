@@ -66,7 +66,7 @@ func runEinoBreakdown(t *testing.T, concurrent bool) {
 		t.Fatal("set GIZCLAW_GENX_E2E_VOLC_ARK_API_KEY in tests/genx-e2e/.env")
 	}
 	resources := breakdownResources{models: map[string]apitypes.Model{}}
-	for alias, file := range map[string]string{"asr": "02-volc-asr.yaml", "llm": "04-doubao-mini-chat.yaml"} {
+	for alias, file := range map[string]string{"asr": "02-volc-asr.yaml", "llm": "04-doubao-lite-chat.yaml"} {
 		var m apitypes.Model
 		breakdownResource(t, "03-models/"+file, &m)
 		resources.models[alias] = m

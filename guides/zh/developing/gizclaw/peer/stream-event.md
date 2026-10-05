@@ -42,4 +42,4 @@ Produced accounting 分类 GenX source chunk；delivered accounting 只分类 `B
 
 Workspace 切换取消旧回复、用户 BOS 打断 Agent 开场、或同 label 的新 assistant BOS cutover 混音 epoch 时，旧输出都通过不带 error 的 EOS 结束。客户端通过新的 BOS 识别打断，而不是依赖旧 EOS。真实模型或音频处理失败仍携带错误 code 和 message；输入路由重载仍使用 `INPUT_ROUTE_RELOADED` 通知重新开始输入。
 
-Quota 失败使用已有 `EventError` 字段：`QUOTA_EXHAUSTED` / `Quota exhausted.` / `retryable=false`，或 `QUOTA_UNAVAILABLE` / `Quota unavailable.` / `retryable=true`。Eino/Flowcraft 的 terminal cause 在进程内保留到产品转换边界，wire 只包含安全公开字段；EOS 保留受影响 response 的 StreamID。完整跨 transport contract 见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。
+Quota 失败使用已有 `EventError` 字段：`QUOTA_EXHAUSTED` / `Quota exhausted.` / `retryable=false`，或 `QUOTA_UNAVAILABLE` / `Quota unavailable.` / `retryable=true`。Eino 的 terminal cause 在进程内保留到产品转换边界，wire 只包含安全公开字段；EOS 保留受影响 response 的 StreamID。完整跨 transport contract 见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。

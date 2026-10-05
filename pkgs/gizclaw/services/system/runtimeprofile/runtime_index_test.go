@@ -251,12 +251,12 @@ func TestMemoryIndexSplitsEveryConfigurationKind(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	tools := map[string]apitypes.RuntimeProfileBinding{"echo": runtimeProfileTestBinding("echo-tool")}
 	var connection apitypes.RuntimeProfileMemoryConnection
-	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
-		Directory: "/tmp/memory", Type: apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
+	if err := connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
+		Endpoint: "http://memory.example", Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted,
 	}); err != nil {
 		t.Fatal(err)
 	}
-	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"history": {LayoutId: "layout", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"history": {LayoutId: "layout", Driver: apitypes.RuntimeProfileMemoryDriverMem0, Connection: connection}}
 	fences := apitypes.RuntimeProfileSafetyFences{"general": {Prompt: "safe"}}
 	profile := apitypes.RuntimeProfile{Id: "all-kinds", Revision: "rev", Spec: apitypes.RuntimeProfileSpec{
 		Resources:    apitypes.RuntimeProfileResources{Tools: &tools, Memories: &memories},

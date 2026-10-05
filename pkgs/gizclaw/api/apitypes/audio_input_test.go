@@ -17,7 +17,7 @@ func TestWorkspaceParametersAudioInput(t *testing.T) {
 			t.Fatalf("WorkspaceAudioInput() = %v, %v; want %q", got, err, path)
 		}
 	}
-	for _, body := range []string{`{"agent_type":"eino"}`, `{"agent_type":"flowcraft"}`, `{"agent_type":"sfu"}`} {
+	for _, body := range []string{`{"agent_type":"eino"}`, `{"agent_type":"eino"}`, `{"agent_type":"sfu"}`} {
 		var parameters WorkspaceParameters
 		if err := json.Unmarshal([]byte(body), &parameters); err != nil {
 			t.Fatalf("json.Unmarshal(%s) error = %v", body, err)

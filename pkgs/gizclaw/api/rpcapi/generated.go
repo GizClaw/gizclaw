@@ -236,20 +236,7 @@ func (e ConversationParametersInitiative) Valid() bool {
 	}
 }
 
-// Defines values for FlowcraftWorkspaceParametersAgentType.
-const (
-	FlowcraftWorkspaceParametersAgentTypeFlowcraft FlowcraftWorkspaceParametersAgentType = "flowcraft"
-)
-
-// Valid indicates whether the value is a known member of the FlowcraftWorkspaceParametersAgentType enum.
-func (e FlowcraftWorkspaceParametersAgentType) Valid() bool {
-	switch e {
-	case FlowcraftWorkspaceParametersAgentTypeFlowcraft:
-		return true
-	default:
-		return false
-	}
-}
+const ()
 
 // Defines values for ReusableWorkflowDriver.
 const (
@@ -258,7 +245,6 @@ const (
 	ReusableWorkflowDriverDoubaoRealtime       ReusableWorkflowDriver = "doubao-realtime"
 	ReusableWorkflowDriverDoubaoRealtimeDuplex ReusableWorkflowDriver = "doubao-realtime-duplex"
 	ReusableWorkflowDriverEino                 ReusableWorkflowDriver = "eino"
-	ReusableWorkflowDriverFlowcraft            ReusableWorkflowDriver = "flowcraft"
 )
 
 // Valid indicates whether the value is a known member of the ReusableWorkflowDriver enum.
@@ -273,8 +259,6 @@ func (e ReusableWorkflowDriver) Valid() bool {
 	case ReusableWorkflowDriverDoubaoRealtimeDuplex:
 		return true
 	case ReusableWorkflowDriverEino:
-		return true
-	case ReusableWorkflowDriverFlowcraft:
 		return true
 	default:
 		return false
@@ -920,7 +904,6 @@ const (
 	WorkflowDriverDoubaoRealtime       WorkflowDriver = "doubao-realtime"
 	WorkflowDriverDoubaoRealtimeDuplex WorkflowDriver = "doubao-realtime-duplex"
 	WorkflowDriverEino                 WorkflowDriver = "eino"
-	WorkflowDriverFlowcraft            WorkflowDriver = "flowcraft"
 	WorkflowDriverSfu                  WorkflowDriver = "sfu"
 )
 
@@ -936,8 +919,6 @@ func (e WorkflowDriver) Valid() bool {
 	case WorkflowDriverDoubaoRealtimeDuplex:
 		return true
 	case WorkflowDriverEino:
-		return true
-	case WorkflowDriverFlowcraft:
 		return true
 	case WorkflowDriverSfu:
 		return true
@@ -1507,24 +1488,6 @@ type ConversationParametersAgentInitiativePolicy string
 
 // ConversationParametersInitiative Who starts the conversation when the workspace runtime opens.
 type ConversationParametersInitiative string
-
-// FlowcraftWorkflowSpec defines model for FlowcraftWorkflowSpec.
-type FlowcraftWorkflowSpec map[string]any
-
-// FlowcraftWorkspaceParameters defines model for FlowcraftWorkspaceParameters.
-type FlowcraftWorkspaceParameters struct {
-	AgentType    FlowcraftWorkspaceParametersAgentType `json:"agent_type"`
-	Conversation *ConversationParameters               `json:"conversation,omitempty"`
-
-	// E2e Marks seed resources used by the local e2e harness.
-	E2e                  *bool                      `json:"e2e,omitempty"`
-	Input                *WorkspaceInputMode        `json:"input,omitempty"`
-	TtsSpeechRatePercent *int                       `json:"tts_speech_rate_percent,omitempty"`
-	SafetyFenceLevel     *apitypes.SafetyFenceLevel `json:"safety_fence_level,omitempty"`
-}
-
-// FlowcraftWorkspaceParametersAgentType defines model for FlowcraftWorkspaceParameters.AgentType.
-type FlowcraftWorkspaceParametersAgentType string
 
 // FriendAddRequest defines model for FriendAddRequest.
 type FriendAddRequest struct {
@@ -2496,7 +2459,6 @@ type WorkflowSpec struct {
 	DoubaoRealtimeDuplex *DoubaoRealtimeDuplexWorkflowSpec `json:"doubao_realtime_duplex,omitempty"`
 	Driver               WorkflowDriver                    `json:"driver"`
 	Eino                 *EinoWorkflowSpec                 `json:"eino,omitempty"`
-	Flowcraft            *FlowcraftWorkflowSpec            `json:"flowcraft,omitempty"`
 	Memory               *string                           `json:"memory,omitempty"`
 
 	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
@@ -5212,25 +5174,6 @@ func (t *VoiceProviderData) MergeVolcTenantVoiceProviderData(v VolcTenantVoicePr
 	return nil
 }
 
-// AsFlowcraftWorkspaceParameters returns the union data inside the WorkspaceParameters as a FlowcraftWorkspaceParameters
-func (t WorkspaceParameters) AsFlowcraftWorkspaceParameters() (FlowcraftWorkspaceParameters, error) {
-	return rpcUnionAs[FlowcraftWorkspaceParameters](t.Value, "WorkspaceParameters", "FlowcraftWorkspaceParameters")
-}
-
-// FromFlowcraftWorkspaceParameters overwrites any union data inside the WorkspaceParameters as the provided FlowcraftWorkspaceParameters
-func (t *WorkspaceParameters) FromFlowcraftWorkspaceParameters(v FlowcraftWorkspaceParameters) error {
-	v.AgentType = "flowcraft"
-	t.Value = v
-	return nil
-}
-
-// MergeFlowcraftWorkspaceParameters performs a merge with any union data inside the WorkspaceParameters, using the provided FlowcraftWorkspaceParameters
-func (t *WorkspaceParameters) MergeFlowcraftWorkspaceParameters(v FlowcraftWorkspaceParameters) error {
-	v.AgentType = "flowcraft"
-	t.Value = v
-	return nil
-}
-
 // AsDoubaoRealtimeWorkspaceParameters returns the union data inside the WorkspaceParameters as a DoubaoRealtimeWorkspaceParameters
 func (t WorkspaceParameters) AsDoubaoRealtimeWorkspaceParameters() (DoubaoRealtimeWorkspaceParameters, error) {
 	return rpcUnionAs[DoubaoRealtimeWorkspaceParameters](t.Value, "WorkspaceParameters", "DoubaoRealtimeWorkspaceParameters")
@@ -5319,8 +5262,6 @@ func (t *WorkspaceParameters) MergeASTTranslateWorkspaceParameters(v ASTTranslat
 
 func (t WorkspaceParameters) Discriminator() (string, error) {
 	switch v := t.Value.(type) {
-	case FlowcraftWorkspaceParameters:
-		return string(v.AgentType), nil
 	case DoubaoRealtimeWorkspaceParameters:
 		return string(v.AgentType), nil
 	case DashScopeRealtimeWorkspaceParameters:
@@ -5354,8 +5295,6 @@ func (t WorkspaceParameters) ValueByDiscriminator() (any, error) {
 		return t.AsDoubaoRealtimeDuplexWorkspaceParameters()
 	case "eino":
 		return t.AsEinoWorkspaceParameters()
-	case "flowcraft":
-		return t.AsFlowcraftWorkspaceParameters()
 	default:
 		return nil, errors.New("unknown discriminator value: " + discriminator)
 	}

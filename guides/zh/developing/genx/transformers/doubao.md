@@ -32,7 +32,7 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 ### ASR 中间结果与定稿
 
-`EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino 或 Flowcraft。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
+`EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
 
 ### ASR 空识别
 

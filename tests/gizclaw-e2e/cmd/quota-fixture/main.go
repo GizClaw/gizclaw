@@ -37,7 +37,7 @@ type fixture struct {
 	admin         *adminConnection
 }
 
-var modes = []string{"allow", "omitted", "null", "deny", "expire", "renew", "stale", "failure", "malformed", "recover", "dialogue-eino", "dialogue-flowcraft"}
+var modes = []string{"allow", "omitted", "null", "deny", "expire", "renew", "stale", "failure", "malformed", "recover", "dialogue-eino"}
 
 func main() {
 	if err := run(); err != nil {
@@ -149,7 +149,7 @@ func (f *fixture) check(w http.ResponseWriter, r *http.Request) {
 		body["expires_at"] = nil
 	case "deny":
 		body["expires_at"] = now.Add(-time.Hour)
-	case "dialogue-eino", "dialogue-flowcraft":
+	case "dialogue-eino":
 		body["expires_at"] = first.Add(2 * time.Second)
 		body["valid_until"] = first.Add(10 * time.Second)
 	case "expire":

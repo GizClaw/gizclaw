@@ -112,8 +112,8 @@ func TestValidateWorkflowAudioInput(t *testing.T) {
 		{name: "asr without asr_model", workflow: eino("", transcript), selected: apitypes.AudioInputPathAsr, wantErr: "requires voice_adapter.asr_model"},
 		{
 			name:     "other driver",
-			workflow: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft},
-			selected: apitypes.AudioInputPathAsr, wantErr: `only valid for Eino Workflows, got driver "flowcraft"`,
+			workflow: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverDoubaoRealtime},
+			selected: apitypes.AudioInputPathAsr, wantErr: `only valid for Eino Workflows, got driver "doubao-realtime"`,
 		},
 	} {
 		err := validateWorkflowAudioInput("workflows.assistant", test.workflow, test.selected)

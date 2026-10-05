@@ -34,9 +34,6 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 	}
 	root := "../../../../tests/gizclaw-e2e/testdata/" + fixture
 	workflowFile := "workflow.json"
-	if kind == "flowcraft" {
-		workflowFile = "flowcraft.json"
-	}
 	data, err := os.ReadFile(filepath.Join(root, workflowFile))
 	if err != nil {
 		t.Fatal(err)
@@ -50,7 +47,7 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 	}
 	provider := &voiceFixtureProvider{packets: packets, fault: fault}
 	// Distinct per-turn payloads detect stale TTS even for consecutive identical roles.
-	if kind == "flowcraft" {
+	if kind == "eino" {
 		for turn := range 8 {
 			voices := make(map[string][][]byte)
 			for i, role := range []string{"fox", "bird", "default", "owl", "bear"} {
@@ -61,7 +58,7 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 	}
 	if config.long {
 		provider.reply = strings.Repeat("A long character reply with a distinct ending. ", 64)
-		if kind == "eino" {
+		if fixture == "eino-voices" {
 			var workflow map[string]any
 			if err := json.Unmarshal(data, &workflow); err != nil {
 				t.Fatal(err)
@@ -182,38 +179,30 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 	t.Logf("completed turns; distinct voices including default; one Agent invocation; TTS calls=%d peak=%d", provider.calls.Load(), provider.peak.Load())
 }
 
-func TestFlowcraftMultiVoiceGiztest(t *testing.T) {
+func TestEinoBranchMultiVoiceGiztest(t *testing.T) {
 	for _, fault := range []string{"", "wrong-voice", "stall", "overlap"} {
 		name := fault
 		if name == "" {
 			name = "success"
 		}
-		t.Run(name, func(t *testing.T) { runVoiceGiztest(t, "flowcraft", "multi-role-voices", fault) })
+		t.Run(name, func(t *testing.T) { runVoiceGiztest(t, "eino", "multi-role-voices", fault) })
 	}
 }
 
 func TestMultiRoleVoiceModesGiztest(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
+	for _, fixture := range []string{"eino-voices", "multi-role-voices"} {
 		for _, mode := range []apitypes.WorkspaceInputMode{apitypes.WorkspaceInputModePushToTalk, apitypes.WorkspaceInputModeRealtime} {
-			t.Run(kind+"/"+string(mode), func(t *testing.T) {
-				fixture := "eino-voices"
-				if kind == "flowcraft" {
-					fixture = "multi-role-voices"
-				}
-				runVoiceGiztest(t, kind, fixture, "", voiceCase{mode: mode})
+			t.Run(fixture+"/"+string(mode), func(t *testing.T) {
+				runVoiceGiztest(t, "eino", fixture, "", voiceCase{mode: mode})
 			})
 		}
 	}
 }
 func TestMultiRoleLongVoiceGiztest(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
+	for _, fixture := range []string{"eino-voices", "multi-role-voices"} {
 		for _, fault := range []string{"", "stall", "truncate"} {
-			t.Run(kind+"/"+fault, func(t *testing.T) {
-				fixture := "eino-voices"
-				if kind == "flowcraft" {
-					fixture = "multi-role-voices"
-				}
-				runVoiceGiztest(t, kind, fixture, fault, voiceCase{long: true})
+			t.Run(fixture+"/"+fault, func(t *testing.T) {
+				runVoiceGiztest(t, "eino", fixture, fault, voiceCase{long: true})
 			})
 		}
 	}

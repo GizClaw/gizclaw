@@ -10,13 +10,26 @@
     "schemas": {
       "EinoWorkflowSpec": {
         "type": "object",
-        "required": ["graph"],
+        "required": [
+          "graph"
+        ],
         "additionalProperties": false,
         "properties": {
-          "graph": { "$ref": "#/components/schemas/EinoGraph" },
-          "conversation": { "$ref": "#/components/schemas/EinoConversation" },
-          "limits": { "$ref": "#/components/schemas/EinoLimits" },
-          "voice_adapter": { "$ref": "./voice_adapter.json#/components/schemas/VoiceAdapter" }
+          "graph": {
+            "$ref": "#/components/schemas/EinoGraph"
+          },
+          "conversation": {
+            "$ref": "#/components/schemas/EinoConversation"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/EinoLimits"
+          },
+          "voice_adapter": {
+            "$ref": "./voice_adapter.json#/components/schemas/VoiceAdapter"
+          },
+          "state_persistence": {
+            "$ref": "#/components/schemas/EinoStatePersistence"
+          }
         }
       },
       "EinoConversation": {
@@ -66,17 +79,36 @@
       },
       "EinoGraphCompile": {
         "type": "object",
-        "required": ["node_trigger_mode"],
+        "required": [
+          "node_trigger_mode"
+        ],
         "additionalProperties": false,
         "properties": {
-          "max_run_steps": { "type": "integer", "minimum": 1 },
+          "max_run_steps": {
+            "type": "integer",
+            "minimum": 1
+          },
           "node_trigger_mode": {
             "type": "string",
-            "enum": ["any_predecessor", "all_predecessor"]
+            "enum": [
+              "any_predecessor",
+              "all_predecessor"
+            ]
           },
           "fan_in": {
             "type": "object",
-            "additionalProperties": { "$ref": "#/components/schemas/EinoFanIn" }
+            "additionalProperties": {
+              "$ref": "#/components/schemas/EinoFanIn"
+            }
+          },
+          "primary_output_mode": {
+            "type": "string",
+            "enum": [
+              "fixed",
+              "first_output"
+            ],
+            "default": "fixed",
+            "description": "fixed requires the primary output on every path; first_output selects the first emitted public output and records all delivered public content."
           }
         }
       },
@@ -391,41 +423,157 @@
       },
       "EinoMemoryRecallNode": {
         "allOf": [
-          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "$ref": "#/components/schemas/EinoNodeBase"
+          },
           {
             "type": "object",
-            "required": ["id", "type", "query_from", "output", "top_k"],
+            "required": [
+              "id",
+              "type",
+              "query_from",
+              "output",
+              "top_k"
+            ],
             "additionalProperties": false,
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
-              "type": { "type": "string", "enum": ["memory_recall"] },
-              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
-              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
-              "query_from": { "type": "string", "minLength": 1 },
-              "output": { "type": "string", "minLength": 1 },
-              "top_k": { "type": "integer", "minimum": 1 }
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "memory_recall"
+                ]
+              },
+              "inputs": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/EinoBinding"
+                }
+              },
+              "outputs": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "query_from": {
+                "type": "string",
+                "minLength": 1
+              },
+              "output": {
+                "type": "string",
+                "minLength": 1
+              },
+              "top_k": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "filters": {
+                "type": "array",
+                "maxItems": 64,
+                "items": {
+                  "$ref": "#/components/schemas/EinoMemoryFilter"
+                }
+              }
             }
           }
         ]
       },
       "EinoMemoryObserveNode": {
         "allOf": [
-          { "$ref": "#/components/schemas/EinoNodeBase" },
+          {
+            "$ref": "#/components/schemas/EinoNodeBase"
+          },
           {
             "type": "object",
-            "required": ["id", "type", "facts"],
+            "required": [
+              "id",
+              "type"
+            ],
             "additionalProperties": false,
             "properties": {
-              "id": { "type": "string", "minLength": 1 },
-              "type": { "type": "string", "enum": ["memory_observe"] },
-              "inputs": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/EinoBinding" } },
-              "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
+              "id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "type": {
+                "type": "string",
+                "enum": [
+                  "memory_observe"
+                ]
+              },
+              "inputs": {
+                "type": "object",
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/EinoBinding"
+                }
+              },
+              "outputs": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
               "facts": {
                 "type": "array",
                 "minItems": 1,
-                "items": { "$ref": "#/components/schemas/EinoMemoryFact" }
+                "items": {
+                  "$ref": "#/components/schemas/EinoMemoryFact"
+                }
               },
-              "wait_for_completion": { "type": "boolean" }
+              "wait_for_completion": {
+                "type": "boolean"
+              },
+              "text_from": {
+                "type": "string",
+                "minLength": 1
+              },
+              "turns_from": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "facts",
+                    "text_from"
+                  ]
+                },
+                {
+                  "required": [
+                    "facts",
+                    "turns_from"
+                  ]
+                },
+                {
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "facts"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "text_from"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "turns_from"
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
             }
           }
         ]
@@ -514,6 +662,53 @@
           "name": { "type": "string", "minLength": 1 },
           "mime_type": { "type": "string", "minLength": 1 },
           "primary": { "type": "boolean" }
+        }
+      },
+      "EinoStatePersistence": {
+        "type": "object",
+        "required": [
+          "fields"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "fields": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      },
+      "EinoMemoryFilter": {
+        "type": "object",
+        "required": [
+          "field",
+          "operator"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "field": {
+            "type": "string",
+            "minLength": 1
+          },
+          "operator": {
+            "type": "string",
+            "enum": [
+              "eq",
+              "ne",
+              "in",
+              "not_in",
+              "exists",
+              "gt",
+              "gte",
+              "lt",
+              "lte"
+            ]
+          },
+          "value": {}
         }
       }
     }

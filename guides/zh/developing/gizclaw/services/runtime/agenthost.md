@@ -60,7 +60,7 @@ owner 仍决定 Workspace、Workflow、Model 与 Memory resource，但不能替�
 Peer 的 Tool 集合。`Service.Reload` 会快照该 Peer 的 RuntimeProfile Tool binding，
 并把这个连接专属的 execution handle 放入 run context。
 
-`Spec` 只暴露 `genx.ToolInvoker`。Flowcraft、Eino、DashScope Realtime 与豆包
+`Spec` 只暴露 `genx.ToolInvoker`。Eino、DashScope Realtime 与豆包
 Realtime Duplex 只接收该接口，不接收 Resource、RuntimeProfile、Credential、
 policy、alias 或 Peer transport 内部对象。`ResolveTools` 与 `InvokeTool` 每次都从
 Transform context 读取 scope，因此一个 Workspace Agent 可以由不同 Profile 和
@@ -75,11 +75,11 @@ connection 或其他在线 Peer。Resource declaration 与 provider Credential �
 
 ## Store 依赖 ownership
 
-Host process 在启动时解析一次 `agent_host` Server Config 引用，并把 borrowed Store interface 注入 GizClaw Server、Peer Manager 与已注册 Workflow factory。Store Registry 仍是这些共享 backend 的唯一 owner；AgentHost、Workspace reload、Flowcraft、Pet、Eino 和 per-Agent adapter 都不能关闭它们。
+Host process 在启动时解析一次 `agent_host` Server Config 引用，并把 borrowed Store interface 注入 GizClaw Server、Peer Manager 与已注册 Workflow factory。Store Registry 仍是这些共享 backend 的唯一 owner；AgentHost、Workspace reload、Eino 和 per-Agent adapter 都不能关闭它们。
 
-`runtime_store` ObjectStore 持久化 Workspace runtime metadata 与 runtime object；Workspace History 的文本和结构化 metadata 由 `services.workspace.history_store` 持久化，二进制 replay asset 则使用独立的 `services.workspace.history_assets_store` ObjectStore。Flowcraft 接收相互独立且可选的 State、内部 History、Memory-object 与 provider-neutral Memory capability。Pet 委托给相同的已注册 inner-driver factory。Eino 只接收可选的 provider-neutral Memory capability；产品层不暴露持久化 Eino State 与 History。
+`runtime_store` ObjectStore 保存 Workspace runtime metadata 与 runtime object；Workspace History 文本与结构化 metadata 使用 `services.workspace.history_store`，二进制 replay asset 使用 `services.workspace.history_assets_store`。Eino 可借用 SQL Graph State、mutable 内部 History 和 provider-neutral Memory；process 配置通过 `services.agent_host.eino.state_store` 与 `history_store` 引用对应 Store。
 
-Flowcraft 与 Eino 在已配置的 Memory Store 上按当前 driver 的 MemoryLayout scope 策略绑定 Workspace 或 owner Peer App 边界。通用 Scope 的各维度仍然独立：Agent 逻辑可以保留自己的 User、Agent 与 Run 值，AgentHost 绝不会用 Peer public key 替代 UserID。Flowcraft 优先选择已配置 Store，而不是内嵌 provider；Eino 只有在 Workflow 声明 Memory policy 时才强制要求该 Store。
+Eino 依据所选 MemoryLayout policy，把 `Scope.AppID` 绑定到 Workspace 或 owner Peer 共享边界。User、Agent 与 Run 维度保持独立，Peer public key 不会替换 UserID。声明 Memory policy 的 Graph 必须有可用 Store；构造失败会使初始化或 reload 显式失败。
 
 这些绑定属于 process-start configuration。Reload 会根据当前 Workflow 与 Workspace resource 重建 Agent，但不会 hot-swap 共享 Store 依赖。修改绑定后必须重启 Server，已有数据不会自动移动。
 
@@ -105,4 +105,4 @@ Direct Workspace turn 可以安装 request-scoped History observer。它在 Hist
 
 新路由的 BOS 可能在 reload 结束旧 route 后、replacement runtime 发布前到达。此时输入鉴权最多等待 2 秒的本地 transition 完成，再对发布后的 revision 做必要鉴权；等待取消或超时仍拒绝输入。这个等待不访问 Redis。旧 route 的音频包仍按原 revision 丢弃，不能借用新 route 的权限。
 
-Eino/Flowcraft 与 Audio Dock 保留每个 turn 的 typed failure，并发布对应 response 的错误 EOS。Quota EOS 使用稳定 code/message/retryable，runtime 可以继续接收后续 turn。致命 consumer failure 仍然停止 runtime；存在公开错误 contract 时，status 使用安全 message 和 code。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。
+Eino 与 Audio Dock 保留每个 turn 的 typed failure，并发布对应 response 的错误 EOS。Quota EOS 使用稳定 code/message/retryable，runtime 可以继续接收后续 turn。致命 consumer failure 仍然停止 runtime；存在公开错误 contract 时，status 使用安全 message 和 code。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。

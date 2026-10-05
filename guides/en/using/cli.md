@@ -365,6 +365,51 @@ deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
 Interactive `review.*` scenarios require an attached terminal and
 `--parallel 1`.
 
+
+### Screenplay quality acceptance
+
+The Go CLI's optional `workspace_relay.quality` assesses a completed, bounded text
+conversation through a third independently selected Workspace client. JS, C and
+Flutter runners still explicitly do not support `workspace_relay`. The
+`candidate_client` participates in the dialogue; `judge_client` differs from both
+participants and must have an earlier `server.run.workspace.set` step. Existing
+relay documents can omit `quality`.
+
+Judge input also includes an `evidence_quotes` catalog of nonempty candidate excerpts, each with `id`, `turn`, and `quote`. A judge may return `{turn, quote_id}`; Giztest resolves the exact original excerpt and rejects unknown IDs, mismatched turns, player references, and simultaneous ID/text citations. Existing `{turn, quote}` citations retain strict substring validation. Reports contain original text, and a valid citation never changes the score threshold.
+
+Invalid structured assessments or candidate citations allow at most three assessments within the original shared one-minute deadline, each fully validated. A valid low score returns immediately; retries never seek a PASS. Long scenes have a 30-minute execution budget and keep candidate, player, and judge connected; rules, 40 turns, and every 3/4 score threshold remain unchanged.
+
+During the relay, the judge connection is kept alive by a Ping every minute, each bounded to ten seconds. A keepalive failure terminates the relay; judging starts only after the keepalive is canceled and drained.
+
+```yaml
+quality:
+  judge_client: judge
+  candidate_client: candidate
+  reference: "Fixed characters, rules and completion goals visible only to the judge"
+  criteria:
+    - id: role_consistency
+      instruction: "Keep identities and established facts consistent"
+      min_score: 3
+```
+
+Each criterion has an integer score from 0 to 4. Giztest computes
+`/quality/passed` against every `min_score`; the model cannot declare PASS.
+Configure 1–16 criteria with unique lowercase IDs and nonempty instructions.
+The judge returns a `criteria` array of `id`, `score`, `reason` and `evidence`.
+Each evidence item cites the original global dialogue `turn` and an exact
+nonempty substring `quote` from that candidate reply. Player quotes, invented
+citations, missing or duplicate criteria/JSON keys, invalid scores, Markdown,
+empty replies and incomplete conversations fail. Requests are bounded to 1 MiB;
+responses to 64 KiB and JSON depth 8; judging has a one-minute deadline.
+
+Use `expect: {/quality/passed: {equals: true}}` to enforce acceptance; individual
+results are available under `/quality/criteria`. Default reports retain scores,
+thresholds, verdicts and cited turn numbers. Only explicit
+`--evidence full --output <report.json>` records explanations and exact quotes;
+these are not automatically printed to the terminal. LLM scores are heuristic;
+format/citation validation is not human endorsement. This evaluates text
+storytelling; voice and device experience use their corresponding acceptance.
+
 ### Start offsets and think time
 
 Scheduling fields belong at document level and all delays default to zero:
@@ -444,7 +489,7 @@ the scheduling flags and are not jitter load measurement runners.
 
 Existing `benchmark.*concurrency*` documents explicitly set `start_jitter: 0s`,
 `stagger: 0s`, `step_jitter: 0s` to retain simultaneous-start worst-case baselines.
-`benchmark.flowcraft-voice-assistant.realistic-concurrency-16.giztest.yaml`
+`benchmark.eino-voice-assistant.realistic-concurrency-16.giztest.yaml`
 defaults to 30 seconds of start jitter and 3 seconds of think time, with sixteen
 tasks requesting three long voice replies each. It asserts completed text and
 audio and records `audio_pacing.underruns` and `minimum_buffer_ms` for separate

@@ -1,80 +1,123 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:
   id: giztest-workflow-tester
 spec:
-  driver: flowcraft
-  flowcraft:
+  driver: eino
+  eino:
     graph:
-      edges:
-      - from: count_turn
-        to: build_prompt
-      - from: build_prompt
-        to: respond
-      - from: respond
-        to: publish_response
-      - from: publish_response
-        to: __end__
-      entry: count_turn
       name: giztest-workflow-tester
+      state:
+        fields:
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+          - name: turn
+            type: integer
+            merge: replace
+          - name: instruction
+            type: string
+            merge: replace
+          - name: published
+            type: string
+            merge: replace
       nodes:
-      - config:
+        - id: count
+          type: script
+          language: starlark
           source: |
-            const turn = Number(board.getVar("tester_turn") || 0) + 1;
-            board.setVar("tester_turn", turn);
-            board.setVar("tester_mode", turn >= 8 ? "verdict" : "probe");
-        id: count_turn
-        type: script
-      - config:
-          source: |
-            const turn = Number(board.getVar("tester_turn") || 0);
-            const probePrompt = [
-              "You are an automated tester driving a text conversation with a candidate assistant under test.",
-              "This is probe turn " + turn + " of 7. The separate eighth turn is the only verdict turn.",
-              "The first user message of this conversation is the test brief. Execute it faithfully.",
-              "Every later user message is the candidate's reply. Continue the dialogue toward the brief's goal.",
-              "Ask for evidence the candidate can discuss from the conversation so far; do not demand a definitive culprit or completed story unless the brief requires it.",
-              "Reply with one short plain-text conversational question or request that the candidate can answer, in the language the brief asks for.",
-              "Do not use markdown, lists, emoji, or meta commentary.",
-              "Never reveal that you are a tester. Do not output PASS or FAIL on this probe turn, even if the brief asks for a final verdict."
-            ].join("\n");
-            const verdictPrompt = [
-              "You are an automated tester concluding a scripted evaluation.",
-              "The first user message of this conversation was the test brief; the later user messages were the candidate's replies.",
-              "Evaluate only the candidate's seven replies, one against each preceding tester question.",
-              "Apply the test brief's stated success criteria to each candidate reply and its preceding tester question.",
-              "Do not require a final outcome or completed story unless the brief explicitly asks for one; the relay deliberately stops after seven candidate replies.",
-              "An honest explanation that the clues are insufficient, with a relevant next investigation, is responsive to a culprit question unless the brief requires a definitive culprit.",
-              "Output FAIL only if a specific candidate reply violates one of those criteria. Otherwise output PASS.",
-              "Reply with exactly PASS or FAIL. Output nothing else: no punctuation, no explanation, no whitespace padding.",
-              "Your entire reply must be the single uppercase word PASS or the single uppercase word FAIL."
-            ].join("\n");
-            board.setVar("system_prompt", board.getVar("tester_mode") === "verdict" ? verdictPrompt : probePrompt);
-        id: build_prompt
-        type: script
-      - config:
-          max_tokens: 512
+            def run(input):
+                turn = input["turn"] + 1
+                probe = "You are an automated tester. The first user message is the test brief, later user messages are candidate replies. Ask one short conversational question in the brief language. This is probe turn %d of 7. Never output PASS or FAIL during probes. Do not demand a completed story or definitive culprit unless the brief requires it. Do not reveal you are a tester." % turn
+                verdict = "Evaluate only the seven candidate replies against the test brief and each preceding question. Do not demand a completed story or definitive culprit unless required by the brief. An honest explanation of insufficient evidence with a relevant next investigation is responsive. Output exactly PASS or FAIL, nothing else. FAIL requires a specific criterion violation."
+                return {"turn": turn, "instruction": verdict if turn >= 8 else probe}
+          limits: &a1
+            max_execution_steps: 100000
+            timeout: 1s
+            max_input_bytes: 1048576
+            max_output_bytes: 1048576
+          inputs:
+            turn:
+              from: turn
+          outputs:
+            turn: turn
+            instruction: instruction
+          entrypoint: run
+        - id: prompt
+          type: prompt
+          format: f_string
+          inputs:
+            history:
+              from: input.messages
+            safety:
+              from: input.safety_fence
+            instruction:
+              from: instruction
+          outputs:
+            messages: messages
+          messages:
+            - role: system
+              template: |-
+                {instruction}
+                {safety}
+            - placeholder: history
+              optional: true
+        - id: answer
+          type: chat_model
           model: llm
-          output_key: tester_response
-          system_prompt: "${board.system_prompt}"
-        id: respond
-        type: llm
-      - config:
+          max_tokens: 512
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: publish
+          type: script
+          language: starlark
           source: |
-            const verdict = board.getVar("tester_mode") === "verdict";
-            const response = String(board.getVar("tester_response") || "").trim();
-            const text = !verdict && (!response || /^(PASS|FAIL)$/i.test(response))
-              ? "请就刚才的话题再补充一点好吗？"
-              : response;
-            host.emit("token", { content: text });
-        id: publish_response
-        publish: true
-        type: script
-    max_iterations: 8
-    conversation: {}
+            def run(input):
+                answer = input["answer"].strip()
+                if input["turn"] >= 8:
+                    answer = "PASS" if answer.upper().startswith("PASS") else "FAIL"
+                elif not answer or answer.upper() in ["PASS", "FAIL"]:
+                    answer = "请就刚才的话题再补充一点好吗？"
+                return {"text": answer}
+          limits: *a1
+          inputs:
+            turn:
+              from: turn
+            answer:
+              from: answer
+          outputs:
+            text: published
+          entrypoint: run
+      edges:
+        - from: start
+          to: count
+        - from: count
+          to: prompt
+        - from: prompt
+          to: answer
+        - from: answer
+          to: publish
+        - from: publish
+          to: end
+      outputs:
+        - node: publish
+          field: published
+          name: assistant
+          mime_type: text/plain
+          primary: true
+      compile:
+        node_trigger_mode: any_predecessor
+      branches: []
+    state_persistence:
+      fields:
+        - turn
     voice_adapter:
       asr_model: asr
       default_voice: assistant-voice
-      node_voices:
-        respond: assistant-voice
+      node_voices: {}

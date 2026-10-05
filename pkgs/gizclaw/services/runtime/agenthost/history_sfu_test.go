@@ -16,7 +16,7 @@ func (passthroughFactory) NewAgent(context.Context, Spec) (Agent, error) {
 
 func TestNewWorkspaceAgentSkipsHistoryWrapperForSFU(t *testing.T) {
 	host := New(nil)
-	for _, agentType := range []string{"sfu", "flowcraft"} {
+	for _, agentType := range []string{"sfu", "eino"} {
 		if err := host.Register(agentType, passthroughFactory{}); err != nil {
 			t.Fatalf("Register(%q) error = %v", agentType, err)
 		}
@@ -55,13 +55,13 @@ func TestNewWorkspaceAgentSkipsHistoryWrapperForSFU(t *testing.T) {
 	}
 
 	workflowSpec := Spec{
-		AgentType: "flowcraft",
-		Workflow:  apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft}},
+		AgentType: "eino",
+		Workflow:  apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino}},
 		Runtime:   workspace.Runtime{History: history},
 	}
 	agent, release, err = host.newWorkspaceAgent(t.Context(), workflowSpec)
 	if err != nil {
-		t.Fatalf("newWorkspaceAgent(flowcraft) error = %v", err)
+		t.Fatalf("newWorkspaceAgent(eino) error = %v", err)
 	}
 	defer release()
 	if _, wrapped := agent.(*historyAgent); !wrapped {
@@ -73,7 +73,7 @@ func TestIsSFUSpecUsesWorkflowDriverFallback(t *testing.T) {
 	if !isSFUSpec(Spec{Workflow: apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverSfu}}}) {
 		t.Fatal("sfu Workflow driver was not recognised")
 	}
-	if isSFUSpec(Spec{AgentType: "flowcraft"}) {
-		t.Fatal("flowcraft Spec was classified as sfu")
+	if isSFUSpec(Spec{AgentType: "eino"}) {
+		t.Fatal("eino Spec was classified as sfu")
 	}
 }

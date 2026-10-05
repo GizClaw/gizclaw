@@ -891,7 +891,7 @@ func TestServiceWorkspaceStateMergesOpenAgentStatus(t *testing.T) {
 	}
 	available := true
 	workflowName := "chat"
-	agentType := "flowcraft"
+	agentType := "eino"
 	output := newBlockingStream()
 	agent := &runtimeTestAgent{
 		output: output,

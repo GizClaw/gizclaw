@@ -19,7 +19,7 @@ import (
 // helper gives Giztest the existing EventError fields without changing its DSL.
 func (f *fixture) dialogue(w http.ResponseWriter, r *http.Request) {
 	driver := r.PathValue("driver")
-	if driver != "eino" && driver != "flowcraft" {
+	if driver != "eino" {
 		http.Error(w, "unknown driver", 400)
 		return
 	}

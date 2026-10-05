@@ -713,6 +713,7 @@ func compileNode(
 			memoryConfig := *config.Memory
 			memoryConfig.Recall = []RecallDefinition{{
 				QueryFrom: node.MemoryRecall.QueryFrom,
+				Filters:   node.MemoryRecall.Filters,
 				Output:    node.MemoryRecall.Output,
 				TopK:      node.MemoryRecall.TopK,
 			}}
@@ -730,6 +731,8 @@ func compileNode(
 				Enabled:           true,
 				WaitForCompletion: node.MemoryObserve.WaitForCompletion,
 				Facts:             node.MemoryObserve.Facts,
+				TextFrom:          node.MemoryObserve.TextFrom,
+				TurnsFrom:         node.MemoryObserve.TurnsFrom,
 			}
 			observationID := strings.Join([]string{state.input.ObservationID, path, node.ID}, ":")
 			if err := observeMemory(ctx, &memoryConfig, state, observationID, "", "", false); err != nil {

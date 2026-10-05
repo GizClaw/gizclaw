@@ -176,9 +176,9 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	workflowResources := map[string]string{
-		"echo":                     "flowcraft-scenario-000",
-		"flowcraft-chat-assistant": "flowcraft-chat-assistant",
-		"realtime-workflow":        "doubao-realtime-conversation",
+		"echo":                "eino-scenario-000",
+		"eino-chat-assistant": "eino-chat-assistant",
+		"realtime-workflow":   "doubao-realtime-conversation",
 	}
 	profileName := "cgo-chat"
 	resources, err := clitest.SetupRuntimeResources(ctx, api)

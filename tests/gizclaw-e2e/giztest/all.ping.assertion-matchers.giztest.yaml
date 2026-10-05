@@ -45,10 +45,10 @@ steps:
     method: server.workspace.create
     request:
       name: "${resource_name}"
-      workflow_name: flowcraft-chat-assistant
+      workflow_name: eino-chat-assistant
       parameters:
-        flowcraft_workspace_parameters:
-          agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
           input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
 - id: get_workspace_with_matchers
   client: peer
@@ -63,8 +63,8 @@ steps:
       max_length: 33
       not_contains: ["/", " "]
     "/value/workflow_name":
-      contains: flowcraft
-      contains_all: [flowcraft, chat, assistant]
+      contains: eino
+      contains_all: [eino, chat, assistant]
       contains_any: [assistant, helper]
     "/runtime_profile_name":
       non_empty: true

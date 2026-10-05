@@ -38,7 +38,7 @@ func TestServerMemoryLayoutLifecycle(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if response, ok := got.(adminhttp.GetMemoryLayout200JSONResponse); !ok || response.Spec.Flowcraft.Extraction.Model != "extraction" {
+	if response, ok := got.(adminhttp.GetMemoryLayout200JSONResponse); !ok || response.Spec.Mem0.CustomInstructions == nil || *response.Spec.Mem0.CustomInstructions != "extract durable facts" {
 		t.Fatalf("GetMemoryLayout() = %#v", got)
 	}
 	limit := int32(1)
@@ -88,7 +88,7 @@ func TestSelfHostedPolicyLifecycleAndLegacySchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := server.DB.Exec(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json) VALUES(?,?,?,?)`, append([]any{layout.Id}, values[:3]...)...); err != nil {
+	if _, err := server.DB.Exec(`INSERT INTO memory_layouts(id,flowcraft_json,mem0_json,volc_mem0_json) VALUES(?,?,?,?)`, []any{layout.Id, `{"archived":true}`, values[0], values[1]}...); err != nil {
 		t.Fatal(err)
 	}
 	for range 2 {
@@ -128,10 +128,10 @@ func TestSelfHostedPolicyLifecycleAndLegacySchema(t *testing.T) {
 func TestMemoryLayoutImplementationScopesPersistAndValidate(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "scope-layout")
-	flowPeer := apitypes.FlowcraftMemoryLayoutPolicyScopePeer
+	selfHostedPeer := apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer
 	memWorkspace := apitypes.Mem0MemoryLayoutPolicyScopeWorkspace
 	volcPeer := apitypes.VolcMem0MemoryLayoutPolicyScopePeer
-	layout.Spec.Flowcraft.Scope = &flowPeer
+	layout.Spec.Mem0SelfHosted = &apitypes.Mem0SelfHostedMemoryLayoutPolicy{Scope: &selfHostedPeer}
 	layout.Spec.Mem0.Scope = &memWorkspace
 	layout.Spec.VolcMem0.Scope = &volcPeer
 	created, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
@@ -146,7 +146,7 @@ func TestMemoryLayoutImplementationScopesPersistAndValidate(t *testing.T) {
 		t.Fatal(err)
 	}
 	stored, ok := got.(adminhttp.GetMemoryLayout200JSONResponse)
-	if !ok || stored.Spec.Flowcraft.Scope == nil || *stored.Spec.Flowcraft.Scope != flowPeer ||
+	if !ok || stored.Spec.Mem0SelfHosted == nil || stored.Spec.Mem0SelfHosted.Scope == nil || *stored.Spec.Mem0SelfHosted.Scope != selfHostedPeer ||
 		stored.Spec.Mem0.Scope == nil || *stored.Spec.Mem0.Scope != memWorkspace ||
 		stored.Spec.VolcMem0.Scope == nil || *stored.Spec.VolcMem0.Scope != volcPeer {
 		t.Fatalf("stored scopes = %#v", got)
@@ -155,54 +155,6 @@ func TestMemoryLayoutImplementationScopesPersistAndValidate(t *testing.T) {
 	layout.Spec.Mem0.Scope = &invalid
 	if _, _, err := validate(apitypes.MemoryLayout{Id: layout.Id, Spec: layout.Spec}, ""); err == nil {
 		t.Fatal("invalid Mem0 scope accepted")
-	}
-}
-
-func TestServerMemoryLayoutPreservesDottedRuntimeAliases(t *testing.T) {
-	server := newTestServer(t)
-	layout := testLayout(t, "pet-memory")
-	layout.Spec.Flowcraft.Extraction.Model = " pet-care.extract "
-	layout.Spec.Flowcraft.Embedding.Model = "pet-care.embedding"
-	layout.Spec.Flowcraft.Rerank.Model = "pet-care.rerank"
-
-	createResponse, err := server.CreateMemoryLayout(t.Context(), adminhttp.CreateMemoryLayoutRequestObject{Body: &layout})
-	if err != nil {
-		t.Fatal(err)
-	}
-	created, ok := createResponse.(adminhttp.CreateMemoryLayout200JSONResponse)
-	if !ok {
-		t.Fatalf("CreateMemoryLayout() = %#v", createResponse)
-	}
-	assertMemoryLayoutModelAliases(t, created.Spec, "pet-care.extract", "pet-care.embedding", "pet-care.rerank")
-
-	created.Spec.Flowcraft.Extraction.Model = "story-teller.extract"
-	putBody := adminhttp.MemoryLayoutUpsert{Id: created.Id, Spec: created.Spec}
-	putResponse, err := server.PutMemoryLayout(t.Context(), adminhttp.PutMemoryLayoutRequestObject{Id: created.Id, Body: &putBody})
-	if err != nil {
-		t.Fatal(err)
-	}
-	put, ok := putResponse.(adminhttp.PutMemoryLayout200JSONResponse)
-	if !ok {
-		t.Fatalf("PutMemoryLayout() = %#v", putResponse)
-	}
-	assertMemoryLayoutModelAliases(t, put.Spec, "story-teller.extract", "pet-care.embedding", "pet-care.rerank")
-
-	getResponse, err := server.GetMemoryLayout(t.Context(), adminhttp.GetMemoryLayoutRequestObject{Id: created.Id})
-	if err != nil {
-		t.Fatal(err)
-	}
-	got, ok := getResponse.(adminhttp.GetMemoryLayout200JSONResponse)
-	if !ok {
-		t.Fatalf("GetMemoryLayout() = %#v", getResponse)
-	}
-	assertMemoryLayoutModelAliases(t, got.Spec, "story-teller.extract", "pet-care.embedding", "pet-care.rerank")
-}
-
-func assertMemoryLayoutModelAliases(t *testing.T, spec apitypes.MemoryLayoutSpec, extraction, embedding, rerank string) {
-	t.Helper()
-	if spec.Flowcraft.Extraction.Model != extraction || spec.Flowcraft.Embedding == nil || spec.Flowcraft.Embedding.Model != embedding ||
-		spec.Flowcraft.Rerank == nil || spec.Flowcraft.Rerank.Model != rerank {
-		t.Fatalf("MemoryLayout model aliases = %#v", spec.Flowcraft)
 	}
 }
 
@@ -336,30 +288,6 @@ func TestServerRejectsInvalidMemoryLayouts(t *testing.T) {
 		mutate func(*adminhttp.MemoryLayoutUpsert)
 		want   string
 	}{
-		{"empty lanes", func(layout *adminhttp.MemoryLayoutUpsert) { layout.Spec.Flowcraft.Lanes = nil }, "lanes must not be empty"},
-		{"duplicate lanes", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Lanes = append(layout.Spec.Flowcraft.Lanes, layout.Spec.Flowcraft.Lanes[0])
-		}, "duplicate name"},
-		{"invalid fact kind", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Lanes[0].Kind = "unknown"
-		}, "kind"},
-		{"invalid extraction mode", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Extraction.Mode = "unknown"
-		}, "extraction.mode"},
-		{"invalid extraction timeout", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Extraction.StageTimeout = new("0s")
-		}, "stage_timeout"},
-		{"invalid dotted extraction alias", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Extraction.Model = "pet-care..extract"
-		}, "RuntimeProfile alias"},
-		{"invalid BBH overfetch", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{SearchOverfetch: new(0)}
-		}, "search_overfetch"},
-		{"invalid BBH flush interval", func(layout *adminhttp.MemoryLayoutUpsert) {
-			layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{
-				Hnsw: &apitypes.FlowcraftMemoryHNSWPolicy{FlushInterval: new("0s")},
-			}
-		}, "flush_interval"},
 		{"empty mem0 policy", func(layout *adminhttp.MemoryLayoutUpsert) {
 			layout.Spec.Mem0 = apitypes.Mem0MemoryLayoutPolicy{}
 		}, "spec.mem0 must define"},
@@ -412,10 +340,6 @@ func TestServerRejectsMemoryLayoutPathMismatch(t *testing.T) {
 func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 	server := newTestServer(t)
 	layout := testLayout(t, "pet-memory")
-	layout.Spec.Flowcraft.Extraction.StageTimeout = new(" 30s ")
-	layout.Spec.Flowcraft.Bbh = &apitypes.FlowcraftMemoryBBHPolicy{
-		Hnsw: &apitypes.FlowcraftMemoryHNSWPolicy{FlushInterval: new(" 2s ")},
-	}
 	layout.Spec.Mem0.CustomInstructions = new(" keep durable facts ")
 	layout.Spec.VolcMem0.Strategies[0].CustomInstructions = new(" keep pet facts ")
 
@@ -426,12 +350,6 @@ func TestServerNormalizesRuntimePolicyStrings(t *testing.T) {
 	created, ok := response.(adminhttp.CreateMemoryLayout200JSONResponse)
 	if !ok {
 		t.Fatalf("CreateMemoryLayout() = %#v", response)
-	}
-	if got := *created.Spec.Flowcraft.Extraction.StageTimeout; got != "30s" {
-		t.Fatalf("stage_timeout = %q", got)
-	}
-	if got := *created.Spec.Flowcraft.Bbh.Hnsw.FlushInterval; got != "2s" {
-		t.Fatalf("bbh.flush_interval = %q", got)
 	}
 	if got := *created.Spec.Mem0.CustomInstructions; got != "keep durable facts" {
 		t.Fatalf("mem0 custom_instructions = %q", got)
@@ -465,13 +383,6 @@ func testLayout(t *testing.T, name string) adminhttp.MemoryLayoutUpsert {
 	raw := `{
 		"id":"` + name + `",
 		"spec":{
-			"flowcraft":{
-				"extraction":{"model":"extraction","mode":"two_pass","stage_timeout":"30s"},
-				"embedding":{"model":"embedding"},
-				"rerank":{"model":"rerank-model"},
-				"lanes":[{"name":"owner-profile","kind":"preference"}],
-				"write":{"mode":"sync","tier":"general"}
-			},
 			"mem0":{"custom_instructions":"extract durable facts","custom_categories":{"owner-profile":"Owner facts"}},
 			"volc_mem0":{"strategies":[{"name":"owner-profile","type":"user_preference"}]}
 		}

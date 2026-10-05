@@ -1041,3 +1041,34 @@ class DirectObservationTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CollectionReadinessTest(unittest.IsolatedAsyncioTestCase):
+    def memory(self, provider="pgvector"):
+        client = mock.Mock()
+        client.with_options.return_value = client
+        memory = SimpleNamespace(
+            config=SimpleNamespace(vector_store=SimpleNamespace(provider=provider)),
+            llm=SimpleNamespace(client=client),
+            embedding_model=SimpleNamespace(client=client),
+            vector_store=mock.Mock(), close=mock.Mock(),
+        )
+        return memory
+
+    async def test_collection_is_ready_before_requests_are_accepted(self):
+        memory = self.memory()
+        with mock.patch.object(mem0_server, "_build_memory", return_value=memory):
+            async with mem0_server._lifespan(mem0_server.app):
+                memory.vector_store._ensure_collection.assert_called_once_with()
+        memory.vector_store.connection_pool.close.assert_called_once_with()
+        memory.close.assert_called_once_with()
+
+    async def test_failed_collection_startup_closes_resources(self):
+        memory = self.memory()
+        memory.vector_store._ensure_collection.side_effect = RuntimeError("collection unavailable")
+        with mock.patch.object(mem0_server, "_build_memory", return_value=memory):
+            with self.assertRaisesRegex(RuntimeError, "collection unavailable"):
+                async with mem0_server._lifespan(mem0_server.app):
+                    self.fail("service accepted requests before collection preparation")
+        memory.vector_store.connection_pool.close.assert_called_once_with()
+        memory.close.assert_called_once_with()

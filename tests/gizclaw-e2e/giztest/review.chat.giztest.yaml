@@ -1,5 +1,5 @@
 # User Story:
-# As a registered device using the flowcraft-voice-assistant Workflow,
+# As a registered device using the eino-voice-assistant Workflow,
 # I want complete the independent review.chat scenario,
 # So that conversation behavior and cleanup remain reproducible.
 version: gizclaw.test/v1alpha1
@@ -60,10 +60,10 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        workflow_name: flowcraft-voice-assistant
+        workflow_name: eino-voice-assistant
         parameters:
-          flowcraft_workspace_parameters:
-            agent_type: FLOWCRAFT_WORKSPACE_PARAMETERS_AGENT_TYPE_FLOWCRAFT
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
   - id: select_workspace
     client: peer

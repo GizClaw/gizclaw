@@ -8,42 +8,114 @@
   "paths": {},
   "components": {
     "schemas": {
-      "MhsV0Device": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0Device"},
-      "MhsV0Manifest": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0Manifest"},
-      "MhsV0ReadRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ReadRequest"},
-      "MhsV0ReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ReadResult"},
-      "MhsV0WriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0WriteRequest"},
-      "MhsV0WriteResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0WriteResult"},
-      "WifiHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/WifiHwdReadResponse"},
-      "MhsV0WifiReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0WifiReadResult"},
-      "BleHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/BleHwdReadResponse"},
-      "MhsV0BleReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0BleReadResult"},
-      "ModemHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/ModemHwdReadResponse"},
-      "MhsV0ModemReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ModemReadResult"},
-      "BatteryHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/BatteryHwdReadResponse"},
-      "MhsV0BatteryReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0BatteryReadResult"},
-      "MicHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/MicHwdReadResponse"},
-      "MhsV0MicReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0MicReadResult"},
-      "DisplayHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/DisplayHwdReadResponse"},
-      "MhsV0DisplayReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0DisplayReadResult"},
-      "DisplayHwdWriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/DisplayHwdWriteRequest"},
-      "MhsV0DisplayWriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0DisplayWriteRequest"},
-      "LedHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/LedHwdReadResponse"},
-      "MhsV0LedReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0LedReadResult"},
-      "LedHwdWriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/LedHwdWriteRequest"},
-      "MhsV0LedWriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0LedWriteRequest"},
-      "SpeakerHwdReadResponse": {"$ref": "./shared/mhs_v0.json#/components/schemas/SpeakerHwdReadResponse"},
-      "MhsV0SpeakerReadResult": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0SpeakerReadResult"},
-      "SpeakerHwdWriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/SpeakerHwdWriteRequest"},
-      "MhsV0SpeakerWriteRequest": {"$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0SpeakerWriteRequest"},
-      "AudioPlayerItem": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerItem"},
-      "AudioPlayerStatus": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerStatus"},
-      "AudioPlayerResponse": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerResponse"},
-      "AudioPlayerPlaylist": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylist"},
-      "AudioPlayerPlaylistSetRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylistSetRequest"},
-      "AudioPlayerPlaylistAppendRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylistAppendRequest"},
-      "AudioPlayerPlayRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlayRequest"},
-      "AudioPlayerModeSetRequest": {"$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerModeSetRequest"},
+      "MhsV0Device": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0Device"
+      },
+      "MhsV0Manifest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0Manifest"
+      },
+      "MhsV0ReadRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ReadRequest"
+      },
+      "MhsV0ReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ReadResult"
+      },
+      "MhsV0WriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0WriteRequest"
+      },
+      "MhsV0WriteResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0WriteResult"
+      },
+      "WifiHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/WifiHwdReadResponse"
+      },
+      "MhsV0WifiReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0WifiReadResult"
+      },
+      "BleHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/BleHwdReadResponse"
+      },
+      "MhsV0BleReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0BleReadResult"
+      },
+      "ModemHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/ModemHwdReadResponse"
+      },
+      "MhsV0ModemReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ModemReadResult"
+      },
+      "BatteryHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/BatteryHwdReadResponse"
+      },
+      "MhsV0BatteryReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0BatteryReadResult"
+      },
+      "MicHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MicHwdReadResponse"
+      },
+      "MhsV0MicReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0MicReadResult"
+      },
+      "DisplayHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/DisplayHwdReadResponse"
+      },
+      "MhsV0DisplayReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0DisplayReadResult"
+      },
+      "DisplayHwdWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/DisplayHwdWriteRequest"
+      },
+      "MhsV0DisplayWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0DisplayWriteRequest"
+      },
+      "LedHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/LedHwdReadResponse"
+      },
+      "MhsV0LedReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0LedReadResult"
+      },
+      "LedHwdWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/LedHwdWriteRequest"
+      },
+      "MhsV0LedWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0LedWriteRequest"
+      },
+      "SpeakerHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/SpeakerHwdReadResponse"
+      },
+      "MhsV0SpeakerReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0SpeakerReadResult"
+      },
+      "SpeakerHwdWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/SpeakerHwdWriteRequest"
+      },
+      "MhsV0SpeakerWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0SpeakerWriteRequest"
+      },
+      "AudioPlayerItem": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerItem"
+      },
+      "AudioPlayerStatus": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerStatus"
+      },
+      "AudioPlayerResponse": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerResponse"
+      },
+      "AudioPlayerPlaylist": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylist"
+      },
+      "AudioPlayerPlaylistSetRequest": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylistSetRequest"
+      },
+      "AudioPlayerPlaylistAppendRequest": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlaylistAppendRequest"
+      },
+      "AudioPlayerPlayRequest": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerPlayRequest"
+      },
+      "AudioPlayerModeSetRequest": {
+        "$ref": "./shared/audioplayer.json#/components/schemas/AudioPlayerModeSetRequest"
+      },
       "DeviceInfo": {
         "$ref": "./shared/device_info.json#/components/schemas/DeviceInfo"
       },
@@ -418,9 +490,6 @@
       },
       "WorkflowDriver": {
         "$ref": "./shared/workflow_spec.json#/components/schemas/WorkflowDriver"
-      },
-      "FlowcraftWorkflowSpec": {
-        "$ref": "./shared/workflows/flowcraft.json#/components/schemas/FlowcraftWorkflowSpec"
       },
       "DoubaoRealtimeWorkflowSpec": {
         "$ref": "./shared/workflows/doubao_realtime.json#/components/schemas/DoubaoRealtimeWorkflowSpec"

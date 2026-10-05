@@ -122,16 +122,16 @@ func newOpenAIHarness(t *testing.T) *openAIHarness {
 
 func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	t.Helper()
-	workflows := apitypes.RuntimeProfileWorkflows{"shared": binding("flowcraft-chat-assistant")}
-	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-mini-chat"), "asr": binding("volc-bigasr-sauc")}
+	workflows := apitypes.RuntimeProfileWorkflows{"shared": binding("eino-chat-assistant")}
+	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-lite-chat"), "asr": binding("volc-bigasr-sauc")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
 	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftRedis8Connection(apitypes.RuntimeProfileFlowcraftRedis8Connection{
-		Type: apitypes.RuntimeProfileFlowcraftRedis8ConnectionTypeFlowcraftRedis8, Url: "redis://redis:6379/0",
+	if err := connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
+		Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: "http://mem0:8000", ApiKey: new(os.Getenv("GIZCLAW_E2E_MEM0_API_KEY")),
 	}); err != nil {
 		t.Fatal(err)
 	}
-	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"chat-memory": {LayoutId: "chat-memory", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection}}
+	memories := map[string]apitypes.RuntimeProfileMemoryBinding{"chat-memory": {LayoutId: "chat-memory", Driver: apitypes.RuntimeProfileMemoryDriverMem0, Connection: connection}}
 	return apitypes.RuntimeProfileSpec{
 		Workflows: workflows,
 		Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices, Memories: &memories},

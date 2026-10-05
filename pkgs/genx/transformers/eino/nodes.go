@@ -4,6 +4,7 @@ import (
 	"time"
 
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 // Binding reads one Graph input, History, Memory, or state value.
@@ -177,13 +178,16 @@ type RetrieverNode struct {
 
 // MemoryRecallNode recalls provider-neutral Memory into one state field.
 type MemoryRecallNode struct {
+	Filters   []memory.Filter
 	QueryFrom string
 	Output    string
 	TopK      int
 }
 
-// MemoryObserveNode writes provider-neutral facts from state fields.
+// MemoryObserveNode writes direct facts or extraction material from typed bindings.
 type MemoryObserveNode struct {
+	TextFrom          string
+	TurnsFrom         string
 	Facts             []ObserveDefinition
 	WaitForCompletion bool
 }

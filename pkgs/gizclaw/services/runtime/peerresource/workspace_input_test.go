@@ -84,11 +84,11 @@ func TestWorkspaceParametersSetDerivesAgentTypeAndMergesFields(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parameters, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	parameters, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if parameters.AgentType != rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft || parameters.Input == nil || *parameters.Input != realtime {
+	if parameters.AgentType != rpcapi.EinoWorkspaceParametersAgentTypeEino || parameters.Input == nil || *parameters.Input != realtime {
 		t.Fatalf("parameters = %+v", parameters)
 	}
 	if parameters.Conversation == nil || parameters.Conversation.Initiative == nil || *parameters.Conversation.Initiative != agent ||
@@ -119,8 +119,8 @@ func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	pushToTalk := rpcapi.WorkspaceInputModePushToTalk
 	initiative := rpcapi.ConversationParametersInitiativeAgent
 	var parameters rpcapi.WorkspaceParameters
-	if err := parameters.FromFlowcraftWorkspaceParameters(rpcapi.FlowcraftWorkspaceParameters{
-		AgentType:    rpcapi.FlowcraftWorkspaceParametersAgentTypeFlowcraft,
+	if err := parameters.FromEinoWorkspaceParameters(rpcapi.EinoWorkspaceParameters{
+		AgentType:    rpcapi.EinoWorkspaceParametersAgentTypeEino,
 		Conversation: &rpcapi.ConversationParameters{Initiative: &initiative},
 		Input:        &pushToTalk,
 	}); err != nil {
@@ -149,16 +149,16 @@ func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	if updated.Parameters == nil {
 		t.Fatalf("updated Workspace parameters = nil")
 	}
-	flowcraft, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	eino, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flowcraft.Input == nil || *flowcraft.Input != rpcapi.WorkspaceInputModeRealtime {
-		t.Fatalf("input = %+v, want realtime", flowcraft.Input)
+	if eino.Input == nil || *eino.Input != rpcapi.WorkspaceInputModeRealtime {
+		t.Fatalf("input = %+v, want realtime", eino.Input)
 	}
-	if flowcraft.Conversation == nil || flowcraft.Conversation.Initiative == nil ||
-		*flowcraft.Conversation.Initiative != initiative {
-		t.Fatalf("conversation = %+v, want initiative preserved", flowcraft.Conversation)
+	if eino.Conversation == nil || eino.Conversation.Initiative == nil ||
+		*eino.Conversation.Initiative != initiative {
+		t.Fatalf("conversation = %+v, want initiative preserved", eino.Conversation)
 	}
 	if !reflect.DeepEqual(updated.Toolkit, created.Toolkit) {
 		t.Fatalf("toolkit = %+v, want %+v", updated.Toolkit, created.Toolkit)
@@ -174,12 +174,12 @@ func TestWorkspaceParametersSetInputKeepsParametersAndToolkit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	flowcraft, err = restored.Parameters.AsFlowcraftWorkspaceParameters()
+	eino, err = restored.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flowcraft.Input == nil || *flowcraft.Input != rpcapi.WorkspaceInputModePushToTalk {
-		t.Fatalf("input = %+v, want push-to-talk", flowcraft.Input)
+	if eino.Input == nil || *eino.Input != rpcapi.WorkspaceInputModePushToTalk {
+		t.Fatalf("input = %+v, want push-to-talk", eino.Input)
 	}
 }
 
@@ -203,12 +203,12 @@ func TestWorkspaceParametersSetInputSetsInheritedParameters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	flowcraft, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	eino, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flowcraft.Input == nil || *flowcraft.Input != rpcapi.WorkspaceInputModeRealtime {
-		t.Fatalf("input = %+v, want realtime", flowcraft.Input)
+	if eino.Input == nil || *eino.Input != rpcapi.WorkspaceInputModeRealtime {
+		t.Fatalf("input = %+v, want realtime", eino.Input)
 	}
 }
 
@@ -365,12 +365,12 @@ func TestWorkspaceParametersSetStoresTTSSpeechRate(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	flowcraft, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
+	eino, err := updated.Parameters.AsEinoWorkspaceParameters()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if flowcraft.TtsSpeechRatePercent == nil || *flowcraft.TtsSpeechRatePercent != 70 {
-		t.Fatalf("tts_speech_rate_percent = %v, want 70", flowcraft.TtsSpeechRatePercent)
+	if eino.TtsSpeechRatePercent == nil || *eino.TtsSpeechRatePercent != 70 {
+		t.Fatalf("tts_speech_rate_percent = %v, want 70", eino.TtsSpeechRatePercent)
 	}
 
 	rejected := callWorkspaceParametersSet(t, ctx, server, rpcapi.WorkspaceParametersSetRequest{
@@ -396,15 +396,15 @@ func TestWorkspaceParametersSetIgnoresAudioInputOutsideEino(t *testing.T) {
 		Name: "journey-audio", Parameters: rpcapi.WorkspaceParametersPatch{AudioInput: new(apitypes.AudioInputPathModel)},
 	})
 	if response.Error != nil || response.Result == nil {
-		t.Fatalf("audio_input on a Flowcraft Workspace = %#v, want accepted no-op", response)
+		t.Fatalf("audio_input on a EinoPorted Workspace = %#v, want accepted no-op", response)
 	}
 	updated, err := response.Result.AsWorkspaceParametersSetResponse()
 	if err != nil {
 		t.Fatal(err)
 	}
-	flowcraft, err := updated.Parameters.AsFlowcraftWorkspaceParameters()
-	if err != nil || flowcraft.TtsSpeechRatePercent == nil || *flowcraft.TtsSpeechRatePercent != 70 {
-		t.Fatalf("parameters after ignored audio_input = %+v, %v", flowcraft, err)
+	eino, err := updated.Parameters.AsEinoWorkspaceParameters()
+	if err != nil || eino.TtsSpeechRatePercent == nil || *eino.TtsSpeechRatePercent != 70 {
+		t.Fatalf("parameters after ignored audio_input = %+v, %v", eino, err)
 	}
 }
 
@@ -421,7 +421,7 @@ func TestWorkspaceParametersSetSafetyFenceRoundTrip(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		parameters, err := value.Parameters.AsFlowcraftWorkspaceParameters()
+		parameters, err := value.Parameters.AsEinoWorkspaceParameters()
 		if err != nil || parameters.SafetyFenceLevel == nil || *parameters.SafetyFenceLevel != level {
 			t.Fatalf("parameters = %+v, %v", parameters, err)
 		}

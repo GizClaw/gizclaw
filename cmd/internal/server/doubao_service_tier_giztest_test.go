@@ -50,7 +50,7 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
 	}
 	modelName := os.Getenv("GIZCLAW_E2E_DOUBAO_FAST_MODEL")
 	if modelName == "" {
-		modelName = "doubao-seed-2-0-mini-260428"
+		modelName = "doubao-seed-2-1-lite-260915"
 	}
 	reportDir := os.Getenv("GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR")
 	if reportDir == "" {
@@ -245,11 +245,99 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
 	if model.JSON200 == nil {
 		t.Fatalf("create Model: HTTP %d", model.StatusCode())
 	}
-	var graph apitypes.FlowcraftWorkflowSpec
-	if err := json.Unmarshal([]byte(`{"graph":{"name":"Doubao fast acceptance","entry":"answer","nodes":[{"id":"answer","type":"llm","publish":true,"config":{"model":"llm","max_tokens":32,"system_prompt":"按用户要求简短回答，不输出其他内容。"}}],"edges":[{"from":"answer","to":"__end__"}]},"conversation":{}}`), &graph); err != nil {
+	var graph apitypes.EinoWorkflowSpec
+	if err := json.Unmarshal([]byte(`{
+  "graph": {
+    "name": "Doubao fast acceptance",
+    "compile": {
+      "node_trigger_mode": "any_predecessor",
+      "max_run_steps": 16
+    },
+    "state": {
+      "fields": [
+        {
+          "name": "messages",
+          "type": "messages",
+          "merge": "replace"
+        },
+        {
+          "name": "answer",
+          "type": "string",
+          "merge": "replace"
+        }
+      ]
+    },
+    "nodes": [
+      {
+        "id": "prompt",
+        "type": "prompt",
+        "format": "f_string",
+        "inputs": {
+          "history": {
+            "from": "input.messages"
+          }
+        },
+        "outputs": {
+          "messages": "messages"
+        },
+        "messages": [
+          {
+            "role": "system",
+            "template": "按用户要求简短回答，不输出其他内容。"
+          },
+          {
+            "placeholder": "history",
+            "optional": true
+          }
+        ]
+      },
+      {
+        "id": "model",
+        "type": "chat_model",
+        "model": "llm",
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "answer"
+        },
+        "max_tokens": 32
+      }
+    ],
+    "edges": [
+      {
+        "from": "start",
+        "to": "prompt"
+      },
+      {
+        "from": "prompt",
+        "to": "model"
+      },
+      {
+        "from": "model",
+        "to": "end"
+      }
+    ],
+    "branches": [],
+    "outputs": [
+      {
+        "node": "model",
+        "field": "answer",
+        "name": "assistant",
+        "mime_type": "text/plain",
+        "primary": true
+      }
+    ]
+  },
+  "conversation": {
+    "starts": "peer"
+  }
+}`), &graph); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "doubao-fast", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft, Flowcraft: &graph}}); err != nil {
+	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "doubao-fast", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &graph}}); err != nil {
 		t.Fatal(err)
 	}
 	binding := apitypes.RuntimeProfileBinding{ResourceId: "doubao-fast", I18n: map[string]apitypes.RuntimeProfileI18nText{

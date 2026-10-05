@@ -16,7 +16,7 @@ func TestResolverSafetyFenceUsesOwnerProfileAndFailsClosed(t *testing.T) {
 	resolver := ServiceResolver{Workflows: fakeWorkflowService{items: map[string]apitypes.Workflow{"workflow": mustWorkflow(t, "workflow")}}, RuntimeProfileForOwner: func(context.Context, string) (apitypes.RuntimeProfile, error) { return profile, nil }}
 	for _, level := range []apitypes.SafetyFenceLevel{"general", "child"} {
 		ws.Parameters = &apitypes.WorkspaceParameters{}
-		if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: &level}); err != nil {
+		if err := ws.Parameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino, SafetyFenceLevel: &level}); err != nil {
 			t.Fatal(err)
 		}
 		spec, err := resolver.resolveWorkspace(withRuntimeProfile(t.Context(), apitypes.RuntimeProfile{Id: "wrong-profile"}), ws)
@@ -28,7 +28,7 @@ func TestResolverSafetyFenceUsesOwnerProfileAndFailsClosed(t *testing.T) {
 			t.Fatalf("prompt = %q, want %q", spec.SafetyFencePrompt, want)
 		}
 	}
-	if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: new(apitypes.SafetyFenceLevel("child"))}); err != nil {
+	if err := ws.Parameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino, SafetyFenceLevel: new(apitypes.SafetyFenceLevel("child"))}); err != nil {
 		t.Fatal(err)
 	}
 	(*profile.Spec.SafetyFences)["child"] = apitypes.RuntimeProfileSafetyFence{Prompt: "updated child text"}
@@ -55,7 +55,7 @@ func TestResolverSafetyFenceUsesOwnerProfileAndFailsClosed(t *testing.T) {
 }
 
 func TestResolveSafetyFenceUsesEachProfilesOwnIdentifiers(t *testing.T) {
-	workflow := apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverFlowcraft}}
+	workflow := apitypes.Workflow{Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino}}
 	ws := systemWorkspace("custom-fence", "workflow", nil)
 	for _, tc := range []struct {
 		profile string
@@ -69,7 +69,7 @@ func TestResolveSafetyFenceUsesEachProfilesOwnIdentifiers(t *testing.T) {
 		profile := apitypes.RuntimeProfile{Id: tc.profile, Spec: apitypes.RuntimeProfileSpec{SafetyFences: &fences}}
 		level := apitypes.SafetyFenceLevel(tc.level)
 		ws.Parameters = &apitypes.WorkspaceParameters{}
-		if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: &level}); err != nil {
+		if err := ws.Parameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino, SafetyFenceLevel: &level}); err != nil {
 			t.Fatal(err)
 		}
 		got, err := resolveSafetyFence(withRuntimeProfile(t.Context(), profile), ws, workflow)
@@ -77,7 +77,7 @@ func TestResolveSafetyFenceUsesEachProfilesOwnIdentifiers(t *testing.T) {
 			t.Fatalf("profile %q: prompt = %q, error = %v", tc.profile, got, err)
 		}
 		level = "unknown"
-		if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft, SafetyFenceLevel: &level}); err != nil {
+		if err := ws.Parameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino, SafetyFenceLevel: &level}); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := resolveSafetyFence(withRuntimeProfile(t.Context(), profile), ws, workflow); err == nil || !strings.Contains(err.Error(), "unknown") {
@@ -88,7 +88,7 @@ func TestResolveSafetyFenceUsesEachProfilesOwnIdentifiers(t *testing.T) {
 			t.Fatalf("unselected level: prompt = %q, error = %v; want no prompt and no error", got, err)
 		}
 		ws.Parameters = &apitypes.WorkspaceParameters{}
-		if err := ws.Parameters.FromFlowcraftWorkspaceParameters(apitypes.FlowcraftWorkspaceParameters{AgentType: apitypes.FlowcraftWorkspaceParametersAgentTypeFlowcraft}); err != nil {
+		if err := ws.Parameters.FromEinoWorkspaceParameters(apitypes.EinoWorkspaceParameters{AgentType: apitypes.EinoWorkspaceParametersAgentTypeEino}); err != nil {
 			t.Fatal(err)
 		}
 		if got, err := resolveSafetyFence(withRuntimeProfile(t.Context(), profile), ws, workflow); err != nil || got != "" {

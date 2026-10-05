@@ -26,26 +26,24 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// TestMixedProviderSpeakerVoicesGiztest runs one Eino or Flowcraft reply whose
+// TestMixedProviderSpeakerVoicesGiztest runs two Eino speaker-selection replies whose
 // narrator Voice natively produces Ogg/Opus and whose speaker_voices character
 // Voice natively produces MP3, through AgentHost with Workspace History enabled.
 func TestMixedProviderSpeakerVoicesGiztest(t *testing.T) {
-	for _, kind := range []string{"eino", "flowcraft"} {
+	for _, fixture := range []string{"eino-voices", "multi-role-voices"} {
 		for _, fault := range []string{"", "ignore-format"} {
 			name := fault
 			if name == "" {
 				name = "success"
 			}
-			t.Run(kind+"/"+name, func(t *testing.T) { runMixedProviderVoices(t, kind, fault) })
+			t.Run(fixture+"/"+name, func(t *testing.T) { runMixedProviderVoices(t, fixture, fault) })
 		}
 	}
 }
 
-func runMixedProviderVoices(t *testing.T, kind, fault string) {
-	root := "../../../../tests/gizclaw-e2e/testdata/eino-voices"
-	if kind == "flowcraft" {
-		root = "../../../../tests/gizclaw-e2e/testdata/multi-role-voices"
-	}
+func runMixedProviderVoices(t *testing.T, fixture, fault string) {
+	kind := "eino"
+	root := filepath.Join("../../../../tests/gizclaw-e2e/testdata", fixture)
 	data, err := os.ReadFile(filepath.Join(root, "mixed-providers.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -65,7 +63,7 @@ func runMixedProviderVoices(t *testing.T, kind, fault string) {
 	spec := newVoiceFixtureSpec(t, kind, data, apitypes.WorkspaceInputModePushToTalk)
 	spec.Runtime.History = history
 	host := agenthost.New(fixedSpecResolver{spec: spec})
-	if err := host.Register(kind, voiceFixtureFactory(kind, service)); err != nil {
+	if err := host.Register(kind, voiceFixtureFactory(t, kind, service)); err != nil {
 		t.Fatal(err)
 	}
 	agent, release, err := host.OpenAgent(t.Context(), "voice-fixture")

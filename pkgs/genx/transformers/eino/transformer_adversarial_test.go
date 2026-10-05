@@ -79,7 +79,7 @@ func TestTurnRunEmitterAdversarialBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartResponse() error = %v", err)
 	}
-	route := outputRoute{definition: output, response: response}
+	route := outputRoute{streamID: response.StreamID(), definition: output, response: response}
 	run.routes[output.Name] = route
 	run.primary = route
 	run.streamIDs[response.StreamID()] = struct{}{}
@@ -98,7 +98,7 @@ func TestTurnRunEmitterAdversarialBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartResponse(blob) error = %v", err)
 	}
-	run.routes[blobOutput.Name] = outputRoute{definition: blobOutput, response: blobResponse}
+	run.routes[blobOutput.Name] = outputRoute{streamID: blobResponse.StreamID(), definition: blobOutput, response: blobResponse}
 	if err := run.Emit(blobOutput, []byte{1, 2, 3}); err != nil {
 		t.Fatalf("Emit(blob) error = %v", err)
 	}
@@ -141,7 +141,7 @@ func TestTurnRunConcurrentEmitAndInterruptMakeProgress(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartResponse() error = %v", err)
 	}
-	route := outputRoute{definition: output, response: response}
+	route := outputRoute{streamID: response.StreamID(), definition: output, response: response}
 	run := &turnRun{
 		session: session, ctx: runCtx, cancel: cancel,
 		routes: map[string]outputRoute{output.Name: route}, primary: route,

@@ -37,7 +37,7 @@ workspace-backed agents through the CLI and APIs.
 - [x] Out-of-the-box server and CLI for local or deployed GizClaw nodes.
 - [x] Workspace-based agent runtime where each workspace is an instantiated agent
   environment backed by a workflow configuration.
-- [x] Workflow drivers for runtime behavior such as Flowcraft agents, SFU
+- [x] Workflow drivers for runtime behavior such as Eino graphs, SFU
   voice rooms, Doubao AST translation, and Doubao realtime flows.
 - [x] WebRTC transport, signaling, and service streams for GizClaw node and
   client connectivity.

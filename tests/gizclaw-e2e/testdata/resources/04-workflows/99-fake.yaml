@@ -1,2045 +1,992 @@
----
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 spec:
   items:
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-000
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-001
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-002
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-003
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-004
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-005
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-006
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-007
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-008
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-009
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-010
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-011
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-012
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-013
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-014
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-015
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-016
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-017
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-018
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-019
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-020
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-021
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-022
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-023
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-024
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-025
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-026
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-027
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-028
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-029
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-030
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-031
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-032
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-033
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-034
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-035
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-036
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-037
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-038
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-039
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-040
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-041
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-042
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-043
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-044
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-045
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-046
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-047
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-048
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-049
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-050
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-051
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-052
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-053
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-054
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-055
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-056
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-057
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-058
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-059
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-060
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-061
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-062
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-063
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-064
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-065
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-066
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-067
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-068
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-069
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-070
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-071
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-072
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-073
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-074
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-075
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-076
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-077
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-078
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-079
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-080
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-081
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-082
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-083
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-084
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-085
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-086
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-087
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-088
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-089
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-090
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-091
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-092
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-093
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-094
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-095
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-096
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-097
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-098
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-099
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-100
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-101
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-102
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-103
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-104
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-105
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-106
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-107
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-108
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-109
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-110
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-111
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-112
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-113
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-114
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-115
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-116
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-117
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-118
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
-  - apiVersion: gizclaw.admin/v1alpha1
-    kind: Workflow
-    metadata:
-      id: flowcraft-scenario-119
-    spec:
-      driver: flowcraft
-      flowcraft:
-        graph:
-          name: passthrough
-          entry: passthrough
-          nodes:
-          - id: passthrough
-            type: passthrough
-            publish: true
-          edges:
-          - from: passthrough
-            to: __end__
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-000
+      spec:
+        driver: eino
+        eino:
+          graph: &a1
+            name: passthrough
+            compile:
+              node_trigger_mode: any_predecessor
+            state:
+              fields:
+                - name: text
+                  type: string
+                  merge: replace
+            nodes:
+              - id: passthrough
+                type: passthrough
+                inputs:
+                  value:
+                    from: input.text
+                outputs:
+                  value: text
+            edges:
+              - from: start
+                to: passthrough
+              - from: passthrough
+                to: end
+            branches: []
+            outputs:
+              - node: passthrough
+                field: text
+                name: assistant
+                mime_type: text/plain
+                primary: true
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-001
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-002
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-003
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-004
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-005
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-006
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-007
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-008
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-009
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-010
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-011
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-012
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-013
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-014
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-015
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-016
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-017
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-018
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-019
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-020
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-021
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-022
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-023
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-024
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-025
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-026
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-027
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-028
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-029
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-030
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-031
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-032
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-033
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-034
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-035
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-036
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-037
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-038
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-039
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-040
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-041
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-042
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-043
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-044
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-045
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-046
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-047
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-048
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-049
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-050
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-051
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-052
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-053
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-054
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-055
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-056
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-057
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-058
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-059
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-060
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-061
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-062
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-063
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-064
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-065
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-066
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-067
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-068
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-069
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-070
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-071
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-072
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-073
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-074
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-075
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-076
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-077
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-078
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-079
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-080
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-081
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-082
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-083
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-084
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-085
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-086
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-087
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-088
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-089
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-090
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-091
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-092
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-093
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-094
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-095
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-096
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-097
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-098
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-099
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-100
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-101
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-102
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-103
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-104
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-105
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-106
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-107
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-108
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-109
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-110
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-111
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-112
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-113
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-114
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-115
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-116
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-117
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-118
+      spec:
+        driver: eino
+        eino:
+          graph: *a1
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: eino-scenario-119
+      spec:
+        driver: eino
+        eino:
+          graph: *a1

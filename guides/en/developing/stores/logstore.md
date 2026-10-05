@@ -22,7 +22,7 @@ A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity,
 | ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
 | SQLite / PostgreSQL | `MutableStore` | Dedicated relational table, atomic append/replace/delete, and the shared SQL cursor |
 
-Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy the mutable record capability required by Workspace History or Flowcraft History. Physical connection ownership remains under `storage`.
+Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy the mutable record capability required by Workspace History or Eino History. Physical connection ownership remains under `storage`.
 
 ### Volc TLS
 
@@ -61,11 +61,11 @@ storage:
     kind: clickhouse
     dsn: ${CLICKHOUSE_DSN}
 stores:
-  flowcraft-history:
+  eino-history:
     kind: log.mutable
     storage: analytics
     database: gizclaw
-    table: flowcraft_history
+    table: eino_history
 ```
 
 The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.

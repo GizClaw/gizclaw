@@ -22,7 +22,7 @@
 | ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
 | SQLite / PostgreSQL | `MutableStore` | 独立关系表、原子 append/replace/delete 与共享 SQL cursor |
 
-每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足 Workspace History 或 Flowcraft History 所需的可变记录能力。物理连接 ownership 始终属于 `storage`。
+每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足 Workspace History 或 Eino History 所需的可变记录能力。物理连接 ownership 始终属于 `storage`。
 
 ### Volc TLS
 
@@ -61,11 +61,11 @@ storage:
     kind: clickhouse
     dsn: ${CLICKHOUSE_DSN}
 stores:
-  flowcraft-history:
+  eino-history:
     kind: log.mutable
     storage: analytics
     database: gizclaw
-    table: flowcraft_history
+    table: eino_history
 ```
 
 Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。

@@ -21,8 +21,8 @@ func TestAdminAPIApplyResource(t *testing.T) {
 		Kind:       apitypes.WorkflowResourceKindWorkflow,
 		Metadata:   apitypes.ResourceMetadata{Id: name},
 		Spec: apitypes.WorkflowSpec{
-			Driver:    apitypes.WorkflowDriverFlowcraft,
-			Flowcraft: testFlowcraftWorkflowSpec(),
+			Driver: apitypes.WorkflowDriverEino,
+			Eino:   testEinoWorkflowSpec(),
 		},
 	}); err != nil {
 		t.Fatalf("build workflow resource: %v", err)
@@ -122,8 +122,8 @@ func workflowResource(t *testing.T, id string) apitypes.Resource {
 		Kind:       apitypes.WorkflowResourceKindWorkflow,
 		Metadata:   apitypes.ResourceMetadata{Id: id},
 		Spec: apitypes.WorkflowSpec{
-			Driver:    apitypes.WorkflowDriverFlowcraft,
-			Flowcraft: testFlowcraftWorkflowSpec(),
+			Driver: apitypes.WorkflowDriverEino,
+			Eino:   testEinoWorkflowSpec(),
 		},
 	}); err != nil {
 		t.Fatalf("build workflow resource: %v", err)

@@ -9,6 +9,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/mem0fixture"
 )
 
 type retainedMemoryResolverFunc func(context.Context, string) (agenthost.Spec, error)
@@ -17,31 +18,20 @@ func (f retainedMemoryResolverFunc) ResolveRetainedMemoryByID(ctx context.Contex
 	return f(ctx, id)
 }
 
-func objectStoreMemorySpec(t *testing.T) agenthost.Spec {
+func selfHostedMemorySpec(t *testing.T) agenthost.Spec {
 	t.Helper()
 	connection := apitypes.RuntimeProfileMemoryConnection{}
-	if err := connection.FromRuntimeProfileFlowcraftObjectStoreConnection(apitypes.RuntimeProfileFlowcraftObjectStoreConnection{
-		Type:      apitypes.RuntimeProfileFlowcraftObjectStoreConnectionTypeFlowcraftObjectStore,
-		Directory: t.TempDir(),
-	}); err != nil {
+	if err := connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted, Endpoint: mem0fixture.NewServer(t)}); err != nil {
 		t.Fatal(err)
 	}
-	return agenthost.Spec{
-		MemoryName: "pet-memory", MemoryProfileID: "profile", MemoryProfileRevision: "revision",
-		MemoryLayout: &apitypes.MemoryLayout{Id: "layout", Spec: apitypes.MemoryLayoutSpec{
-			Flowcraft: apitypes.FlowcraftMemoryLayoutPolicy{Write: apitypes.FlowcraftMemoryWritePolicy{
-				Mode: apitypes.FlowcraftMemoryWritePolicyModeSync, Tier: apitypes.FlowcraftMemoryWritePolicyTierGeneral,
-			}},
-		}},
-		MemoryBinding: &apitypes.RuntimeProfileMemoryBinding{
-			LayoutId: "layout", Driver: apitypes.RuntimeProfileMemoryDriverFlowcraft, Connection: connection,
-		},
-	}
+	return agenthost.Spec{MemoryName: "pet-memory", MemoryProfileID: "profile", MemoryProfileRevision: "revision",
+		MemoryLayout:  &apitypes.MemoryLayout{Id: "layout", Spec: apitypes.MemoryLayoutSpec{Mem0SelfHosted: &apitypes.Mem0SelfHostedMemoryLayoutPolicy{}}},
+		MemoryBinding: &apitypes.RuntimeProfileMemoryBinding{LayoutId: "layout", Driver: apitypes.RuntimeProfileMemoryDriverMem0, Connection: connection}}
 }
 
 func TestWorkspaceMemoryCleanupPurgesCurrentBinding(t *testing.T) {
 	t.Parallel()
-	spec := objectStoreMemorySpec(t)
+	spec := selfHostedMemorySpec(t)
 	stores := memorystore.NewRegistry()
 	t.Cleanup(func() { _ = stores.Close() })
 	cleanup := workspaceMemoryCleanup{
@@ -80,11 +70,11 @@ func TestWorkspaceMemoryCleanupPurgesCurrentBinding(t *testing.T) {
 }
 
 func TestWorkspaceMemoryCleanupLeavesPeerScope(t *testing.T) {
-	spec := objectStoreMemorySpec(t)
+	spec := selfHostedMemorySpec(t)
 	owner := "owner-a"
 	spec.Workspace.OwnerPublicKey = &owner
-	shared := apitypes.FlowcraftMemoryLayoutPolicyScopePeer
-	spec.MemoryLayout.Spec.Flowcraft.Scope = &shared
+	shared := apitypes.Mem0SelfHostedMemoryLayoutPolicyScopePeer
+	spec.MemoryLayout.Spec.Mem0SelfHosted.Scope = &shared
 	stores := memorystore.NewRegistry()
 	t.Cleanup(func() { _ = stores.Close() })
 	cleanup := workspaceMemoryCleanup{

@@ -1,0 +1,109 @@
+# User Story:
+# As a registered device using the eino-voice-assistant Workflow,
+# I want sixteen independently arriving devices to receive three long voice replies,
+# So that sustained audio playback can be measured with reproducible arrival and think-time jitter.
+version: gizclaw.test/v1alpha1
+name: benchmark.eino-voice-assistant.realistic-concurrency-16
+repeat: 16
+timeout: 20m
+start_jitter: 30s # Realistic load: independent device arrivals.
+stagger: 0s
+step_jitter: 3s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: 请完整讲述一个适合孩子听的森林冒险故事，包含出发、三个困难、朋友合作和温暖的结局。请直接连续讲完整故事，约一千二百个汉字，不要分章节，不要提问，不要省略细节。
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: eino-voice-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: long_voice_turn_1
+    client: peer
+    timeout: 6m
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      require_text: true
+      require_audio: true
+    expect:
+      /text: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+  - id: long_voice_turn_2
+    client: peer
+    timeout: 6m
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      require_text: true
+      require_audio: true
+    expect:
+      /text: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+  - id: long_voice_turn_3
+    client: peer
+    timeout: 6m
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      require_text: true
+      require_audio: true
+    expect:
+      /text: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

@@ -35,7 +35,7 @@ steps:
   rpc:
     method: server.workflow.get
     request:
-      name: flowcraft-chat-assistant
+      name: eino-chat-assistant
 finally:
 - id: cleanup_peer
   client: peer

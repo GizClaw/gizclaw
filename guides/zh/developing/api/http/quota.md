@@ -54,7 +54,7 @@ Quota 拒绝保留独立于普通资源权限错误的类型。可用期限已�
 | Device Workspace EOS | `EventError.code=QUOTA_EXHAUSTED`，`retryable=false` | `EventError.code=QUOTA_UNAVAILABLE`，`retryable=true` |
 | 新 speech RPC | `PERMISSION_DENIED` (7)，`Reason=QUOTA_EXHAUSTED` | `UNAVAILABLE` (14)，`Reason=QUOTA_UNAVAILABLE` |
 
-所有 exhaustion message 固定为 `Quota exhausted.`，unavailability message 固定为 `Quota unavailable.`；不暴露 endpoint、credential 或内部 error chain。已经发送 HTTP headers 的 SSE 保持 HTTP 200，以结构化 error 结束。Eino 与 Flowcraft 的错误 EOS 属于受影响的 response StreamID，不使无关 turn 变成失败。致命 runtime 错误的公开 status message 保留稳定 code 和安全 message。
+所有 exhaustion message 固定为 `Quota exhausted.`，unavailability message 固定为 `Quota unavailable.`；不暴露 endpoint、credential 或内部 error chain。已经发送 HTTP headers 的 SSE 保持 HTTP 200，以结构化 error 结束。Eino 的错误 EOS 属于受影响的 response StreamID，不使无关 turn 变成失败。致命 runtime 错误的公开 status message 保留稳定 code 和安全 message。
 
 provider opening 与 `Generator.Invoke` 期间撤权也保留 quota 的 typed cause；迟到的 stream handle 会被关闭，已报告的 provider usage 保留。活动 audio epoch 失败时，合成 EOS 使用同一安全 error contract；已识别的 quota error 优先于伴随的 cancellation，普通 Workspace replacement 仍然使用无错误 EOS。
 
@@ -64,4 +64,4 @@ Quota 是时间授权，不保证逐 token 的预扣或数值硬上限。GenX pr
 
 ## Docker 验证
 
-`bash tests/gizclaw-e2e/setup/run-quota.sh` 构建真实 Linux GizClaw 与 HTTP fixture，在隔离 Docker stack 中通过 giztest 的真实 RPC/HTTP transport 验证协议。fixture 同时提供确定性的 OpenAI 和 MiniMax provider 数据，捕获 identifiers 和用量报告。十八个场景覆盖十个 custom policy 的期限/上报场景、省略 policy、显式 unlimited，Eino/Flowcraft 的到期和不可用 dialogue，以及两个允许的 HTTP Responses 场景。两个 unlimited 场景都调用真实 provider adapter，并断言该 Peer 的 quota 请求为零。HTTP chat 与 Responses 验证完整 403/503 envelope；fixture helper 使用真实 SDK PeerStream，经 Edge/Server 验证允许回复后的到期新请求、错误 EOS code/message/retryable、独立 response ID，并断言拒绝期间 provider 请求增量为零。该验证不代表云端 provider 资格验证。
+`bash tests/gizclaw-e2e/setup/run-quota.sh` 构建真实 Linux GizClaw 与 HTTP fixture，在隔离 Docker stack 中通过 giztest 的真实 RPC/HTTP transport 验证协议。fixture 同时提供确定性的 OpenAI 和 MiniMax provider 数据，捕获 identifiers 和用量报告。十五个场景覆盖十个 custom policy 的期限/上报场景、省略 policy、显式 unlimited，Eino 的到期和不可用 dialogue，以及一个允许的 HTTP Responses 场景。unlimited 场景调用真实 provider adapter，并断言该 Peer 的 quota 请求为零。HTTP chat 与 Responses 验证完整 403/503 envelope；fixture helper 使用真实 SDK PeerStream，经 Edge/Server 验证允许回复后的到期新请求、错误 EOS code/message/retryable、独立 response ID，并断言拒绝期间 provider 请求增量为零。该验证不代表云端 provider 资格验证。

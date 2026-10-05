@@ -174,11 +174,19 @@ func (s *Server) DeleteWorkflow(ctx context.Context, request adminhttp.DeleteWor
 	if IsBuiltinWorkflowID(id) {
 		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse(BuiltinWorkflowCode, builtinWorkflowMessage(id))), nil
 	}
-	doc, err := scanWorkflow(s.DB.QueryRowContext(ctx, s.DB.Rebind(`DELETE FROM workflows WHERE id=? RETURNING id,driver,config_json`), id))
+	tx, err := s.DB.BeginTxx(ctx, nil)
+	if err != nil {
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	defer tx.Rollback()
+	doc, err := scanWorkflow(tx.QueryRowContext(ctx, tx.Rebind(`DELETE FROM workflows WHERE id=? RETURNING id,driver,config_json`), id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.DeleteWorkflow404JSONResponse(apitypes.NewErrorResponse("WORKFLOW_NOT_FOUND", fmt.Sprintf("workflow %q not found", id))), nil
 	}
 	if err != nil {
+		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	if err := tx.Commit(); err != nil {
 		return adminhttp.DeleteWorkflow500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
 
@@ -282,7 +290,6 @@ func validateWorkflow(item apitypes.Workflow, expectedID string) (apitypes.Workf
 func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 	if err := validateDriverPayloads(
 		spec.Driver,
-		spec.Flowcraft != nil,
 		spec.DoubaoRealtime != nil,
 		spec.DashscopeRealtime != nil,
 		spec.DoubaoRealtimeDuplex != nil,
@@ -293,11 +300,6 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 		return err
 	}
 	switch spec.Driver {
-	case apitypes.WorkflowDriverFlowcraft:
-		if err := spec.Flowcraft.Validate(); err != nil {
-			return fmt.Errorf("spec.flowcraft: %w", err)
-		}
-		return nil
 	case apitypes.WorkflowDriverSfu:
 		if len(*spec.Sfu) != 0 {
 			return errors.New("spec.sfu must be an empty object")
@@ -333,13 +335,12 @@ func validateDriverSpec(spec apitypes.WorkflowSpec) error {
 	}
 }
 
-func validateDriverPayloads(driver apitypes.WorkflowDriver, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu bool) error {
+func validateDriverPayloads(driver apitypes.WorkflowDriver, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu bool) error {
 	payloads := []struct {
 		driver  apitypes.WorkflowDriver
 		field   string
 		present bool
 	}{
-		{apitypes.WorkflowDriverFlowcraft, "flowcraft", flowcraft},
 		{apitypes.WorkflowDriverDoubaoRealtime, "doubao_realtime", doubaoRealtime},
 		{apitypes.WorkflowDriverDashscopeRealtime, "dashscope_realtime", dashscopeRealtime},
 		{apitypes.WorkflowDriverDoubaoRealtimeDuplex, "doubao_realtime_duplex", doubaoRealtimeDuplex},

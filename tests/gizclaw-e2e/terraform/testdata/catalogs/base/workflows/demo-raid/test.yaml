@@ -2,10 +2,19 @@ apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata: {id: tf-raid-test}
 spec:
-  driver: flowcraft
-  flowcraft:
+  driver: eino
+  eino:
     graph:
       name: tf-raid-test
-      entry: passthrough
-      nodes: [{id: passthrough, type: passthrough, publish: true}]
-      edges: [{from: passthrough, to: __end__}]
+      compile: {node_trigger_mode: any_predecessor}
+      state:
+        fields: [{name: answer, type: string, merge: replace}]
+      nodes:
+        - id: passthrough
+          type: passthrough
+          inputs: {value: {from: input.text}}
+          outputs: {value: answer}
+      edges: [{from: start, to: passthrough}, {from: passthrough, to: end}]
+      branches: []
+      outputs:
+        - {node: passthrough, field: answer, name: assistant, mime_type: text/plain, primary: true}

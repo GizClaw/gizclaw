@@ -19,7 +19,6 @@ func (s *WorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	}
 	if err := validateWorkflowDriverPayloads(
 		string(value.Driver),
-		value.Flowcraft != nil,
 		value.DoubaoRealtime != nil,
 		value.DashscopeRealtime != nil,
 		value.DoubaoRealtimeDuplex != nil,
@@ -53,7 +52,6 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	}
 	if err := validateWorkflowDriverPayloads(
 		string(value.Driver),
-		value.Flowcraft != nil,
 		value.DoubaoRealtime != nil,
 		value.DashscopeRealtime != nil,
 		value.DoubaoRealtimeDuplex != nil,
@@ -67,13 +65,12 @@ func (s *ReusableWorkflowSpecObject) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func validateWorkflowDriverPayloads(driver string, flowcraft, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu bool) error {
+func validateWorkflowDriverPayloads(driver string, doubaoRealtime, dashscopeRealtime, doubaoRealtimeDuplex, eino, astTranslate, sfu bool) error {
 	payloads := []struct {
 		driver  string
 		field   string
 		present bool
 	}{
-		{driver: "flowcraft", field: "flowcraft", present: flowcraft},
 		{driver: "doubao-realtime", field: "doubao_realtime", present: doubaoRealtime},
 		{driver: "dashscope-realtime", field: "dashscope_realtime", present: dashscopeRealtime},
 		{driver: "doubao-realtime-duplex", field: "doubao_realtime_duplex", present: doubaoRealtimeDuplex},
