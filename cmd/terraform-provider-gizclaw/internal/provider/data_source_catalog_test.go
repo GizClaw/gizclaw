@@ -79,7 +79,7 @@ kind: RuntimeProfile
 metadata: {id: device}
 spec:
   workflows:
-    chat: {resource_id: chat-workflow}
+    chat: {resource_id: chat-workflow, sort_order: -1}
   resources:
     models:
       chat: {resource_id: chat-model}
@@ -124,6 +124,9 @@ spec:
 	}
 	if got := resolved.byStage["workflows"]["Workflow/chat-workflow"]; !strings.Contains(got, `"driver":"local"`) {
 		t.Fatalf("override was not selected: %s", got)
+	}
+	if got := resolved.byStage["runtime_profiles"]["RuntimeProfile/device"]; !strings.Contains(got, `"sort_order":-1`) {
+		t.Fatalf("catalog discarded configured Workflow order: %s", got)
 	}
 }
 
