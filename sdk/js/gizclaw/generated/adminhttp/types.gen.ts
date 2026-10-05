@@ -1471,6 +1471,10 @@ export type RuntimeProfileBinding = {
      */
     tags?: Array<string>;
     /**
+     * Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings.
+     */
+    sort_order?: number;
+    /**
      * Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths.
      */
     audio_input?: AudioInputPath;

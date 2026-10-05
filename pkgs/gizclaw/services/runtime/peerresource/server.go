@@ -1062,8 +1062,8 @@ func (s *Server) handleWorkflowList(ctx context.Context, req *rpcapi.RPCRequest)
 				aliases = append(aliases, alias)
 			}
 		}
-		sort.Strings(aliases)
 	}
+	sortWorkflowAliases(aliases, bindings)
 	page, hasNext, nextCursor, conflict := pageAliases(aliases, params.Cursor, params.Limit, workflowTagSelectorRevision(profile.Revision, params.Tags))
 	if conflict {
 		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")

@@ -169,6 +169,9 @@ func (r DeviceReads) DeviceRuntimeProfileWithTags(ctx context.Context, tags []st
 			}
 			result.Workflows = append(result.Workflows, peerhttp.DeviceRuntimeProfileWorkflow{Name: entry.Name, Tags: workflowTags(binding)})
 		}
+		slices.SortFunc(result.Workflows, func(left, right peerhttp.DeviceRuntimeProfileWorkflow) int {
+			return compareWorkflowAliases(profile.Spec.Workflows, left.Name, right.Name)
+		})
 		return result, nil
 	}
 	bindings := profile.Spec.Workflows
@@ -178,7 +181,7 @@ func (r DeviceReads) DeviceRuntimeProfileWithTags(ctx context.Context, tags []st
 			names = append(names, name)
 		}
 	}
-	slices.Sort(names)
+	sortWorkflowAliases(names, bindings)
 	result := peerhttp.DeviceRuntimeProfile{
 		Name: profile.Id, Revision: profile.Revision,
 		SafetyFences: profileSafetyFenceCatalog(profile),

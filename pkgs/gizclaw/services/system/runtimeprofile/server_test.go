@@ -905,6 +905,47 @@ func TestDecodeStoredWorkflowCollections(t *testing.T) {
 	}
 }
 
+func TestWorkflowSortOrderRoundTripsAndRejectsOtherBindings(t *testing.T) {
+	for _, order := range []int32{-2147483648, -1, 0, 2147483647} {
+		binding := runtimeProfileTestBinding("canonical-workflow")
+		binding.SortOrder = &order
+		profile, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "ordered", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"guess.history-figures-cn": binding}}}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(profile.Spec.Workflows)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stored, err := decodeRuntimeProfileWorkflows(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := stored["guess.history-figures-cn"]
+		if got.ResourceId != "canonical-workflow" || got.SortOrder == nil || *got.SortOrder != order {
+			t.Fatalf("stored Workflow = %+v, want unchanged identity and order %d", got, order)
+		}
+	}
+	for _, kind := range []string{"models", "voices", "tools"} {
+		binding := runtimeProfileTestBinding("canonical-resource")
+		binding.SortOrder = new(int32(-1))
+		bindings := map[string]apitypes.RuntimeProfileBinding{"resource": binding}
+		resources := apitypes.RuntimeProfileResources{}
+		switch kind {
+		case "models":
+			resources.Models = &bindings
+		case "voices":
+			resources.Voices = &bindings
+		case "tools":
+			resources.Tools = &bindings
+		}
+		_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "ordered", Spec: apitypes.RuntimeProfileSpec{Resources: resources}}, "")
+		if err == nil || !strings.Contains(err.Error(), "sort_order is only valid on workflows") {
+			t.Fatalf("%s ordering error = %v", kind, err)
+		}
+	}
+}
+
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{DB: profileSQLTestDB(t)}
