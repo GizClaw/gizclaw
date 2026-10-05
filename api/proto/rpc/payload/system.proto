@@ -4,6 +4,7 @@ syntax = "proto3";
 
 import "payload/audioplayer.proto";
 import "rpc.proto";
+import "payload/mhs_v0.proto";
 
 package gizclaw.rpc.v1;
 
@@ -76,8 +77,18 @@ message ClientRpcMethodsListRequest {
 // and 136; a later mhs/v1 or tool/v1 appears here as its own numbers. Which
 // individual tools tool/v0 offers is a separate question, answered by
 // client.tool.v0.list. Unknown numbers must be ignored rather than rejected.
+// Explicit support for a concrete hardware instance. Presence in the generic
+// HWD schema is never evidence of implementation on this device.
+message MhsV0InstanceCapability {
+  string id = 1;
+  ClientHwd hwd = 2;
+  repeated string write_fields = 3;
+}
+
 message ClientRpcMethodsListResponse {
   repeated RpcMethod methods = 1;
+  // Empty means capability unknown, not every manifest instance supported.
+  repeated MhsV0InstanceCapability mhs_v0 = 2;
 }
 
 // ClientDeviceFindRequest asks the device to play its built-in find-me sound.

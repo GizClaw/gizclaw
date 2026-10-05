@@ -844,7 +844,14 @@ type DeviceRunWorkspaceSetRequest struct {
 
 	// WorkspaceName Existing Workspace to run.
 	WorkspaceName *string `json:"workspace_name,omitempty"`
+	union         json.RawMessage
 }
+
+// DeviceRunWorkspaceSetRequest0 defines model for .
+type DeviceRunWorkspaceSetRequest0 = interface{}
+
+// DeviceRunWorkspaceSetRequest1 defines model for .
+type DeviceRunWorkspaceSetRequest1 = interface{}
 
 // DeviceRuntimeProfile defines model for DeviceRuntimeProfile.
 type DeviceRuntimeProfile struct {
@@ -1969,6 +1976,130 @@ func (t ClientToolV0InvokeRequest) MarshalJSON() ([]byte, error) {
 
 func (t *ClientToolV0InvokeRequest) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsDeviceRunWorkspaceSetRequest0 returns the union data inside the DeviceRunWorkspaceSetRequest as a DeviceRunWorkspaceSetRequest0
+func (t DeviceRunWorkspaceSetRequest) AsDeviceRunWorkspaceSetRequest0() (DeviceRunWorkspaceSetRequest0, error) {
+	var body DeviceRunWorkspaceSetRequest0
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeviceRunWorkspaceSetRequest0 overwrites any union data inside the DeviceRunWorkspaceSetRequest as the provided DeviceRunWorkspaceSetRequest0
+func (t *DeviceRunWorkspaceSetRequest) FromDeviceRunWorkspaceSetRequest0(v DeviceRunWorkspaceSetRequest0) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeviceRunWorkspaceSetRequest0 performs a merge with any union data inside the DeviceRunWorkspaceSetRequest, using the provided DeviceRunWorkspaceSetRequest0
+func (t *DeviceRunWorkspaceSetRequest) MergeDeviceRunWorkspaceSetRequest0(v DeviceRunWorkspaceSetRequest0) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeviceRunWorkspaceSetRequest1 returns the union data inside the DeviceRunWorkspaceSetRequest as a DeviceRunWorkspaceSetRequest1
+func (t DeviceRunWorkspaceSetRequest) AsDeviceRunWorkspaceSetRequest1() (DeviceRunWorkspaceSetRequest1, error) {
+	var body DeviceRunWorkspaceSetRequest1
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeviceRunWorkspaceSetRequest1 overwrites any union data inside the DeviceRunWorkspaceSetRequest as the provided DeviceRunWorkspaceSetRequest1
+func (t *DeviceRunWorkspaceSetRequest) FromDeviceRunWorkspaceSetRequest1(v DeviceRunWorkspaceSetRequest1) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeviceRunWorkspaceSetRequest1 performs a merge with any union data inside the DeviceRunWorkspaceSetRequest, using the provided DeviceRunWorkspaceSetRequest1
+func (t *DeviceRunWorkspaceSetRequest) MergeDeviceRunWorkspaceSetRequest1(v DeviceRunWorkspaceSetRequest1) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t DeviceRunWorkspaceSetRequest) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	object := make(map[string]json.RawMessage)
+	if t.union != nil {
+		err = json.Unmarshal(b, &object)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if t.Kickoff != nil {
+		object["kickoff"], err = json.Marshal(t.Kickoff)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'kickoff': %w", err)
+		}
+	}
+
+	if t.WorkflowName != nil {
+		object["workflow_name"], err = json.Marshal(t.WorkflowName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'workflow_name': %w", err)
+		}
+	}
+
+	if t.WorkspaceName != nil {
+		object["workspace_name"], err = json.Marshal(t.WorkspaceName)
+		if err != nil {
+			return nil, fmt.Errorf("error marshaling 'workspace_name': %w", err)
+		}
+	}
+	b, err = json.Marshal(object)
+	return b, err
+}
+
+func (t *DeviceRunWorkspaceSetRequest) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	if err != nil {
+		return err
+	}
+	object := make(map[string]json.RawMessage)
+	err = json.Unmarshal(b, &object)
+	if err != nil {
+		return err
+	}
+
+	if raw, found := object["kickoff"]; found {
+		err = json.Unmarshal(raw, &t.Kickoff)
+		if err != nil {
+			return fmt.Errorf("error reading 'kickoff': %w", err)
+		}
+	}
+
+	if raw, found := object["workflow_name"]; found {
+		err = json.Unmarshal(raw, &t.WorkflowName)
+		if err != nil {
+			return fmt.Errorf("error reading 'workflow_name': %w", err)
+		}
+	}
+
+	if raw, found := object["workspace_name"]; found {
+		err = json.Unmarshal(raw, &t.WorkspaceName)
+		if err != nil {
+			return fmt.Errorf("error reading 'workspace_name': %w", err)
+		}
+	}
+
 	return err
 }
 

@@ -399,7 +399,7 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 		Id: "pet-runtime",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				"missing": runtimeProfileTestBinding("missing-workflow"),
+				"missing": runtimeProfileTestWorkflowBinding("missing-workflow"),
 			},
 			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
 		},
@@ -792,8 +792,8 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 		"journey.narrator": runtimeProfileTestBinding("journey-voice"),
 		"journey-narrator": runtimeProfileTestBinding("legacy-voice"),
 	}
-	tools := map[string]apitypes.RuntimeProfileBinding{
-		"journey.tool": runtimeProfileTestBinding("journey-tool"),
+	tools := map[string]apitypes.RuntimeProfileToolBinding{
+		"journey.tool": runtimeProfileTestToolBinding("journey-tool"),
 	}
 	var memory apitypes.RuntimeProfileMemoryBinding
 	if err := json.Unmarshal([]byte(`{
@@ -812,7 +812,7 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 
-				"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
+				"story.journey-center-earth": runtimeProfileTestWorkflowBinding("journey-workflow"),
 			},
 			Resources: apitypes.RuntimeProfileResources{
 				Models: &models, Voices: &voices, Tools: &tools, Memories: &memories,
@@ -838,7 +838,15 @@ func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) 
 		case "voices":
 			bindings = spec.Resources.Voices
 		case "tools":
-			bindings = spec.Resources.Tools
+			if spec.Resources.Tools == nil {
+				t.Fatal("Tools bindings are nil")
+			}
+			for _, alias := range aliases {
+				if _, ok := (*spec.Resources.Tools)[alias]; !ok {
+					t.Fatalf("missing Tool alias %s", alias)
+				}
+			}
+			continue
 		}
 		for _, alias := range aliases {
 			if bindings == nil {
@@ -862,8 +870,8 @@ func TestRuntimeProfileRejectsWorkflowAliasesDuplicatedAfterNormalization(t *tes
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-			"chat":   runtimeProfileTestBinding("chat"),
-			" chat ": runtimeProfileTestBinding("other"),
+			"chat":   runtimeProfileTestWorkflowBinding("chat"),
+			" chat ": runtimeProfileTestWorkflowBinding("other"),
 		}}}, "")
 	if err == nil || !strings.Contains(err.Error(), "duplicated after normalization") {
 		t.Fatalf("normalizeProfile() error = %v, want normalized collection collision", err)
@@ -871,7 +879,7 @@ func TestRuntimeProfileRejectsWorkflowAliasesDuplicatedAfterNormalization(t *tes
 }
 
 func TestRuntimeProfileWorkflowTagsAreOpaqueAndCanonical(t *testing.T) {
-	binding := runtimeProfileTestBinding("chat")
+	binding := runtimeProfileTestWorkflowBinding("chat")
 	binding.Tags = &[]string{"story", "6-8"}
 	item, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding},
@@ -1025,7 +1033,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v", first, err)
 	}
 	updated := adminhttp.RuntimeProfileUpsert{Id: first.Id, Spec: first.Spec}
-	updated.Spec.Workflows = apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat-v2")}
+	updated.Spec.Workflows = apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat-v2")}
 	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Id, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutRuntimeProfile() error = %v", err)
@@ -1385,5 +1393,37 @@ func TestSpeakerVoiceRuntimeReferences(t *testing.T) {
 	}
 	if err := validateWorkflowRuntimeAliases("workflow", spec, nil, map[string]apitypes.VoiceResource{"story.fox": {}}); err != nil {
 		t.Fatalf("valid voice: %v", err)
+	}
+}
+
+func runtimeProfileTestWorkflowBinding(id string) apitypes.RuntimeProfileWorkflowBinding {
+	base := runtimeProfileTestBinding(id)
+	return apitypes.RuntimeProfileWorkflowBinding{ResourceId: base.ResourceId, I18n: base.I18n}
+}
+func runtimeProfileTestToolBinding(id string) apitypes.RuntimeProfileToolBinding {
+	base := runtimeProfileTestBinding(id)
+	return apitypes.RuntimeProfileToolBinding{ResourceId: base.ResourceId, I18n: base.I18n}
+}
+
+func TestRuntimeProfileToolAliasIsNeverRenamed(t *testing.T) {
+	for _, alias := range []string{"music.stop", " music.stop", "music.stop ", "music_stop"} {
+		t.Run(alias, func(t *testing.T) {
+			tools := map[string]apitypes.RuntimeProfileToolBinding{
+				alias: {ClientTool: &apitypes.RuntimeProfileClientTool{Name: "audioplayer.stop"}, I18n: runtimeProfileTestBinding("unused").I18n},
+			}
+			profile, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "tool-aliases", Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Tools: &tools}}}, "tool-aliases")
+			if alias != "music.stop" {
+				if err == nil {
+					t.Fatalf("invalid alias %q was accepted", alias)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := (*profile.Spec.Resources.Tools)[alias]; !ok {
+				t.Fatalf("alias %q was not preserved", alias)
+			}
+		})
 	}
 }

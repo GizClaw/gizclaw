@@ -184,12 +184,66 @@ class ClientMhsV0ReadRequest extends $pb.GeneratedMessage {
   void clearHwd() => $_clearField(2);
 }
 
+/// Present capabilities report the fields this concrete instance can write.
+/// Omitted capabilities mean unknown; fields in a generic HWD schema do not
+/// imply write support on a particular device.
+class MhsV0WriteCapabilities extends $pb.GeneratedMessage {
+  factory MhsV0WriteCapabilities({
+    $core.Iterable<$core.String>? fields,
+  }) {
+    final result = create();
+    if (fields != null) result.fields.addAll(fields);
+    return result;
+  }
+
+  MhsV0WriteCapabilities._();
+
+  factory MhsV0WriteCapabilities.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MhsV0WriteCapabilities.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MhsV0WriteCapabilities',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..pPS(1, _omitFieldNames ? '' : 'fields')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MhsV0WriteCapabilities clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MhsV0WriteCapabilities copyWith(
+          void Function(MhsV0WriteCapabilities) updates) =>
+      super.copyWith((message) => updates(message as MhsV0WriteCapabilities))
+          as MhsV0WriteCapabilities;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MhsV0WriteCapabilities create() => MhsV0WriteCapabilities._();
+  @$core.override
+  MhsV0WriteCapabilities createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MhsV0WriteCapabilities getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MhsV0WriteCapabilities>(create);
+  static MhsV0WriteCapabilities? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $pb.PbList<$core.String> get fields => $_getList(0);
+}
+
 class ClientMhsV0ReadResponse extends $pb.GeneratedMessage {
   factory ClientMhsV0ReadResponse({
     $core.List<$core.int>? payload,
+    MhsV0WriteCapabilities? writeCapabilities,
   }) {
     final result = create();
     if (payload != null) result.payload = payload;
+    if (writeCapabilities != null) result.writeCapabilities = writeCapabilities;
     return result;
   }
 
@@ -208,6 +262,8 @@ class ClientMhsV0ReadResponse extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..a<$core.List<$core.int>>(
         1, _omitFieldNames ? '' : 'payload', $pb.PbFieldType.OY)
+    ..aOM<MhsV0WriteCapabilities>(2, _omitFieldNames ? '' : 'writeCapabilities',
+        subBuilder: MhsV0WriteCapabilities.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -238,6 +294,17 @@ class ClientMhsV0ReadResponse extends $pb.GeneratedMessage {
   $core.bool hasPayload() => $_has(0);
   @$pb.TagNumber(1)
   void clearPayload() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  MhsV0WriteCapabilities get writeCapabilities => $_getN(1);
+  @$pb.TagNumber(2)
+  set writeCapabilities(MhsV0WriteCapabilities value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasWriteCapabilities() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearWriteCapabilities() => $_clearField(2);
+  @$pb.TagNumber(2)
+  MhsV0WriteCapabilities ensureWriteCapabilities() => $_ensure(1);
 }
 
 class ClientMhsV0WriteRequest extends $pb.GeneratedMessage {

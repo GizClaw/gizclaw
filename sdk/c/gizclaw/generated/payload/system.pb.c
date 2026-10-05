@@ -45,6 +45,9 @@ PB_BIND(gizclaw_rpc_v1_ClientRunWorkspaceSetResponse, gizclaw_rpc_v1_ClientRunWo
 PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsListRequest, gizclaw_rpc_v1_ClientRpcMethodsListRequest, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_MhsV0InstanceCapability, gizclaw_rpc_v1_MhsV0InstanceCapability, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ClientRpcMethodsListResponse, gizclaw_rpc_v1_ClientRpcMethodsListResponse, AUTO)
 
 

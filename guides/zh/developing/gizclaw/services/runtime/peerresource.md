@@ -2,7 +2,7 @@
 
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource)
 
-`peerresource` 把当前 RuntimeProfile 投影为 Peer RPC surface。Workflow、Model、Voice 和 Tool 都使用带 scope 的 `name` DTO。这些 name 来源于 RuntimeProfile binding alias，但它们是 Peer 唯一可见的资源 identity；AST Workflow 还会携带 Workspace 默认语言对。projection 不返回真实资源 ID、provider、tenant、credential、ownership 或 executor routing。
+`peerresource` 把当前 RuntimeProfile 投影为 Peer RPC surface。Workflow、Model、Voice 和 Tool 都使用带 scope 的 `name` DTO。这些 name 来源于 RuntimeProfile binding alias，但它们是 Peer 唯一可见的资源 identity；AST Workflow 还会携带 Workspace 默认语言对。projection 不返回 Admin 资源 ID、provider、tenant、credential、ownership 或私有 HTTP executor routing。Tool 目录会返回其固定设备实例或 ClientTool 程序目标。
 
 ```mermaid
 flowchart LR
@@ -15,19 +15,17 @@ Workflow list 从平面的 `workflows` map 投影，可用最多 32 个普通字
 
 Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `workflow_name`，在内部 label 中保存它；list 跳过已进入 pending deletion 的 Workspace。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 
-Workspace create/put 的 `toolkit.tool_names` 在当前 RuntimeProfile 中解析为内部 Tool ID：优先匹配 Tool binding alias；没有同名 alias 时，可以使用该 Profile 已绑定 Tool 的 `invoke_name`。未绑定或不存在的名称返回 `NOT_FOUND`，空名称或带首尾空白的名称返回 `INVALID_ARGUMENT`，且不写入 Workspace。响应优先投影为当前 Profile 的 alias；没有 binding 但 Tool 仍可读取时使用 `invoke_name`。Tool 读取失败、目录不可用或回退调用名与另一个 Tool 的 alias 冲突时跳过该项，toolkit 数据不能让 Workspace list/get 或已成功写入后的 put/parameters-set/delete 响应失败。投影不修改已存 ID，也不授予工具权限，AgentHost 仍与当前连接的 Profile 和 Workflow 策略取交集。
+Workspace create/put 的 `toolkit.tool_names` 只接受当前 Profile Tool aliases，按 alias 持久化。它不能按 canonical ID 或 HTTP `invoke_name` 选择资源。空列表禁用，省略不再收窄；失效 alias 原样读取，实际执行仍需当前 Profile Workflow binding 授权。目录与模型注入共用 [运行时 Tools](./toolkit) resolver。
 
-当前 Schema 只有可选的名称选择列表，没有 stale/unresolved 状态字段；省略策略已表示“不再收窄 Workflow 列表”，不能用它表示未解析的限制。因此所有项都无法投影时返回 `tool_names: []`，与显式禁用在 Peer 响应中不可区分；部分失效时只返回可表示项。响应是可表示名称的视图，不是已存策略的无损备份。把投影列表原样 put 会替换存储中的选择；仅修改参数或保留原限制时应省略 `toolkit`。Admin 仍可读取完整 Tool ID 策略。
+创建时省略 `toolkit` 或提供没有 `tool_names` 的空对象完全等价：内部存储 nil 策略，响应省略 `toolkit`，不再收窄 Profile Workflow binding 已授权的 aliases。显式空列表禁用全部工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`；空列表在 wire 上是存在的空 message，在 JSON 中保持空数组。put 省略 `toolkit` 保留原策略，提供 `toolkit: {}` 则清除 Workspace 选择。Workflow resource 的旧 `spec.toolkit.tool_ids` 不授予运行时权限。
 
-创建时省略 `toolkit` 或提供没有 `tool_names` 的空对象完全等价：内部存储 nil 策略，响应省略 `toolkit`，使用 Workflow `spec.toolkit.tool_ids` 列出的全部工具；显式空列表表示不提供任何工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`，空列表在 wire 上是存在的空 message；Go 和持久化 JSON 保留显式空数组，不能改为 `null`。put 省略 `toolkit` 保留原策略，提供 `toolkit: {}` 则清除已有选择并恢复同一个不收窄的 nil 状态。Workspace 策略与 Workflow `spec.toolkit.tool_ids` 及当前连接的 RuntimeProfile 集合取交集，不能扩大工具权限；Workflow 省略该列表时不提供任何工具，Workspace 选择也无法开启，见 [Tools 暴露策略](/zh/developing/gizclaw/services/runtime/toolkit#暴露策略)。
-
-`server.workspace.toolkit.roundtrip.giztest.yaml` 覆盖 create/get/put 的选择、空列表、省略策略及未知名称。`go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` 在临时 SQLite Server 上通过真实 WebRTC 执行该文档与 RuntimeProfile tags 的 RPC Giztest，不需要外部服务。标准 Docker 环境的 `e2e-giztest` RuntimeProfile 把 `giztest-echo` 和 `giztest-other` 绑定到两个只用于声明的 `http_request` Tool（`giztest_echo`、`giztest_other`）。Workspace 选择经 AgentHost 解析后的有效工具集合，包括 Workflow 省略策略、Workspace 收窄以及不能扩大 Workflow 列表，由 `pkgs/gizclaw/services/runtime/peerresource` 与 `agenthost` 的 Go 测试覆盖；标准 Giztest 环境中的 `server.workspace.toolkit.exposure.giztest.yaml` 用真实模型确认同样的组合，见 [Tools 暴露策略](/zh/developing/gizclaw/services/runtime/toolkit#暴露策略)。设备过程属于 tool/v0 预定义的 `ClientTool` 集合，不是 Admin Tool，不能通过 Workspace toolkit 选择。
+`server.workspace.toolkit.roundtrip.giztest.yaml` 覆盖 create/get/put、空列表、省略策略及未知名称。`go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` 用临时 SQLite Server 与真实 WebRTC 执行该文档。标准 Docker 夹具把两个 Admin HTTP resources 绑定到 `giztest-echo` 与 `giztest-other` aliases；Profile Workflow bindings 显式选择它们，声明中的私有 HTTP 调用名不再成为模型身份。设备程序仍属于预定义 ClientTool 注册表，也可通过 Profile inner Tool binding 和 Workflow alias 选择注入。
 
 `server.app_config.list` 与 `server.app_config.get` 投影 `spec.app_config`，是 catalog 之外唯一的 RuntimeProfile 下发面。list 对 key 排序后复用与 Workflow、Model、Voice、Tool 相同的 revision-bound cursor 分页，revision 变化时返回 `ABORTED`；get 返回原样 value，key 不存在返回 `NOT_FOUND`，空 key 返回 `INVALID_ARGUMENT`。value 对本层不透明，不解析也不校验格式。list 只返回 key，因为 64 个 4096 字节 value 无法放进一个 RPC frame。
 
 Firmware 不属于 RuntimeProfile name catalog。RegistrationToken 可以给 Peer 绑定一个 caller-defined canonical Firmware ID；`server.register` 不返回 Firmware identity，`server.firmware.get` 从内部 binding 解析 Firmware 但不暴露 ID。设备请求一个 channel，并得到 external HTTPS `.tar.zlib` URL、SHA-256 与 archive size。Peer RPC 不提供 Firmware list，也不传输 package bytes。
 
-每次 catalog 操作都重新取得当前 profile snapshot。Dangling internal binding 只表现为不可用，不泄漏真实 target。删除 Workflow binding 不会删除或隐藏已有 Workspace；在相同 Peer name 恢复前，执行操作返回 not found。
+每次 catalog 操作都重新取得当前 profile snapshot。Dangling internal binding 只表现为不可用，不泄漏 Admin HTTP resource ID。删除 Workflow binding 不会删除或隐藏已有 Workspace；在相同 Peer name 恢复前，执行操作返回 not found。
 
 Social 方法同样经由 `peerresource` 分发，但只做解码、参数校验与错误映射：`server.friend.ping` 与 `server.friend_group.ping` 要求非空且无首尾空白的 `name`，领域规则由 social 服务执行；`server.profile.get` 校验 1–16 个规范 public key、去重后逐个读取公开资料，存储错误统一脱敏为 `profile lookup failed`。
 

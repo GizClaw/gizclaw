@@ -167,7 +167,7 @@ func seed() error {
 				return err
 			}
 		}
-		spec := apitypes.RuntimeProfileSpec{Quota: policy, Workflows: apitypes.RuntimeProfileWorkflows{"quota-eino": binding("quota-eino")}, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"chat": binding("quota-chat")}), Voices: new(map[string]apitypes.RuntimeProfileBinding{"narrator": binding("quota-voice")})}}
+		spec := apitypes.RuntimeProfileSpec{Quota: policy, Workflows: apitypes.RuntimeProfileWorkflows{"quota-eino": {ResourceId: "quota-eino", I18n: binding("quota-eino").I18n}}, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"chat": binding("quota-chat")}), Voices: new(map[string]apitypes.RuntimeProfileBinding{"narrator": binding("quota-voice")})}}
 		profile, err := api.CreateRuntimeProfileWithResponse(ctx, adminhttp.RuntimeProfileUpsert{Id: "quota-" + mode, Spec: spec})
 		if err != nil {
 			return err

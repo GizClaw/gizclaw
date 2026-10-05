@@ -15,7 +15,7 @@ func TestBenchmarkWorkflowsExcludeProfileTools(t *testing.T) {
 	server := toolkittest.New(t)
 	echo := putAgentHostTool(t, server, agentHostBoundHTTPTool("giztest_echo"))
 	resolver := ServiceResolver{ToolBuilder: &toolkit.Builder{Tools: server}}
-	ctx := toolTestContext(t, map[string]string{"giztest-echo": echo.ID})
+	ctx := withRuntimeProfile(toolTestContext(t, map[string]string{"giztest-echo": echo.ID}), apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"benchmark": {ResourceId: "benchmark"}}}})
 	for _, name := range []string{
 		"05-eino-basic.yaml",
 		"20-eino-planner-latency-comparison.yaml",
@@ -33,14 +33,18 @@ func TestBenchmarkWorkflowsExcludeProfileTools(t *testing.T) {
 			if err := yaml.Unmarshal(data, &resource); err != nil {
 				t.Fatal(err)
 			}
-			invoker, err := resolver.resolveToolkit(ctx, apitypes.Workspace{}, apitypes.Workflow{Spec: resource.Spec})
-			if err != nil || invoker != nil {
+			invoker, err := resolver.resolveToolkit(ctx, apitypes.Workspace{OwnerPublicKey: new("workspace-owner"), WorkflowId: "benchmark"}, apitypes.Workflow{Id: "benchmark", Spec: resource.Spec})
+			if err != nil || invoker == nil {
 				t.Fatalf("benchmark ToolInvoker = %#v, error = %v", invoker, err)
+			}
+			definitions, err := invoker.ResolveTools(ctx)
+			if err != nil || len(definitions) != 0 {
+				t.Fatalf("benchmark definitions=%v error=%v", definitions, err)
 			}
 			// Omission is the same opt-out; it never inherits RuntimeProfile Tools.
 			resource.Spec.Toolkit = nil
-			invoker, err = resolver.resolveToolkit(ctx, apitypes.Workspace{}, apitypes.Workflow{Spec: resource.Spec})
-			if err != nil || invoker != nil {
+			invoker, err = resolver.resolveToolkit(ctx, apitypes.Workspace{OwnerPublicKey: new("workspace-owner"), WorkflowId: "benchmark"}, apitypes.Workflow{Id: "benchmark", Spec: resource.Spec})
+			if err != nil || invoker == nil {
 				t.Fatalf("omitted-policy ToolInvoker = %#v, error = %v", invoker, err)
 			}
 		})

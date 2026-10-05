@@ -17,7 +17,7 @@ func TestAudioPlayerProviderValidationAndErrors(t *testing.T) {
 			if request.GetIndex() != 0 {
 				return nil, ErrDeviceRejected
 			}
-			return &rpcpb.ClientDeviceAudioPlayerPlayResponse{Value: &rpcpb.AudioPlayerStatus{State: "buffering", Repeat: "off", PlaylistLength: 1, CurrentIndex: request.Index}}, nil
+			return &rpcpb.ClientDeviceAudioPlayerPlayResponse{Value: &rpcpb.AudioPlayerStatus{State: "buffering", Repeat: "off", PlaylistLength: 1, CurrentIndex: new(request.GetIndex())}}, nil
 		},
 	}}); err != nil {
 		t.Fatal(err)
@@ -26,7 +26,7 @@ func TestAudioPlayerProviderValidationAndErrors(t *testing.T) {
 		response := deviceControlDispatch(t, device, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY, func(payload *rpcapi.RPCPayload) error {
 			return payload.FromClientDeviceAudioPlayerPlayRequest(&rpcpb.ClientDeviceAudioPlayerPlayRequest{Index: index})
 		})
-		if index != nil && *index == 0 {
+		if index == nil || *index == 0 {
 			if response.Error != nil {
 				t.Fatal(response.Error)
 			}
@@ -38,7 +38,7 @@ func TestAudioPlayerProviderValidationAndErrors(t *testing.T) {
 			t.Fatalf("response=%+v", response)
 		}
 	}
-	if calls != 2 {
+	if calls != 3 {
 		t.Fatalf("calls=%d", calls)
 	}
 	response := deviceControlDispatch(t, device, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_STOP, nil)

@@ -2347,6 +2347,24 @@ func (e RuntimeProfileMemoryDriver) Valid() bool {
 	}
 }
 
+// Defines values for RuntimeProfileMhsToolOperation.
+const (
+	RuntimeProfileMhsToolOperationRead  RuntimeProfileMhsToolOperation = "read"
+	RuntimeProfileMhsToolOperationWrite RuntimeProfileMhsToolOperation = "write"
+)
+
+// Valid indicates whether the value is a known member of the RuntimeProfileMhsToolOperation enum.
+func (e RuntimeProfileMhsToolOperation) Valid() bool {
+	switch e {
+	case RuntimeProfileMhsToolOperationRead:
+		return true
+	case RuntimeProfileMhsToolOperationWrite:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RuntimeProfileQuotaCustomType.
 const (
 	RuntimeProfileQuotaCustomTypeCustom RuntimeProfileQuotaCustomType = "custom"
@@ -2979,7 +2997,8 @@ type AudioPlayerModeSetRequestRepeat string
 
 // AudioPlayerPlayRequest defines model for AudioPlayerPlayRequest.
 type AudioPlayerPlayRequest struct {
-	Index *int `json:"index"`
+	// Index Zero-based playlist index. Omit to select the device default track.
+	Index **int `json:"index,omitempty"`
 }
 
 // AudioPlayerPlaylist defines model for AudioPlayerPlaylist.
@@ -5205,7 +5224,7 @@ type ReusableASTTranslateWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5220,7 +5239,7 @@ type ReusableDashScopeRealtimeWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5235,7 +5254,7 @@ type ReusableDoubaoRealtimeDuplexWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5250,7 +5269,7 @@ type ReusableDoubaoRealtimeWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5265,7 +5284,7 @@ type ReusableEinoWorkflowVariant struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5290,7 +5309,7 @@ type ReusableWorkflowSpecObject struct {
 	// Memory RuntimeProfile resources.memories alias resolved for the Workspace.
 	Memory *WorkflowMemoryAlias `json:"memory,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -5336,6 +5355,12 @@ type RuntimeProfileBinding struct {
 
 	// Tags Only valid for Workflow bindings; opaque strings.
 	Tags *[]string `json:"tags,omitempty"`
+}
+
+// RuntimeProfileClientTool defines model for RuntimeProfileClientTool.
+type RuntimeProfileClientTool struct {
+	// Name One predefined ClientTool v0 procedure name; model arguments cannot change it.
+	Name string `json:"name"`
 }
 
 // RuntimeProfileI18nText defines model for RuntimeProfileI18nText.
@@ -5390,6 +5415,17 @@ type RuntimeProfileMhs struct {
 	V0 *MhsV0Manifest `json:"v0,omitempty"`
 }
 
+// RuntimeProfileMhsTool defines model for RuntimeProfileMhsTool.
+type RuntimeProfileMhsTool struct {
+	// Fields Required for write; every field must be explicitly supported by the device. Forbidden for read.
+	Fields    *[]string                      `json:"fields,omitempty"`
+	Id        string                         `json:"id"`
+	Operation RuntimeProfileMhsToolOperation `json:"operation"`
+}
+
+// RuntimeProfileMhsToolOperation defines model for RuntimeProfileMhsTool.Operation.
+type RuntimeProfileMhsToolOperation string
+
 // RuntimeProfileQuota Provider-call policy variants: unlimited or custom HTTP.
 type RuntimeProfileQuota struct {
 	union json.RawMessage
@@ -5432,7 +5468,7 @@ type RuntimeProfileResourceKind string
 type RuntimeProfileResources struct {
 	Memories *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
 	Models   *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
-	Tools    *map[string]RuntimeProfileBinding       `json:"tools,omitempty"`
+	Tools    *map[string]RuntimeProfileToolBinding   `json:"tools,omitempty"`
 	Voices   *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
 }
 
@@ -5465,6 +5501,20 @@ type RuntimeProfileSpec struct {
 	Workflows RuntimeProfileWorkflows `json:"workflows,omitempty"`
 }
 
+// RuntimeProfileToolBinding Select exactly one source. Devices are always the current Peer; HTTP invoke_name and credentials are private implementation details.
+type RuntimeProfileToolBinding struct {
+	ClientTool *RuntimeProfileClientTool         `json:"client_tool,omitempty"`
+	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
+	Mhs        *RuntimeProfileMhsTool            `json:"mhs,omitempty"`
+	ResourceId string                            `json:"resource_id,omitempty"`
+}
+
+// RuntimeProfileToolSelection defines model for RuntimeProfileToolSelection.
+type RuntimeProfileToolSelection struct {
+	// ToolNames Profile Tool aliases explicitly injected into this Workflow; omitted or empty means no Tools.
+	ToolNames *[]string `json:"tool_names,omitempty"`
+}
+
 // RuntimeProfileVolcMem0Connection defines model for RuntimeProfileVolcMem0Connection.
 type RuntimeProfileVolcMem0Connection struct {
 	ApiKey   string `json:"api_key"`
@@ -5479,8 +5529,20 @@ type RuntimeProfileVolcMem0Connection struct {
 // RuntimeProfileVolcMem0ConnectionType defines model for RuntimeProfileVolcMem0Connection.Type.
 type RuntimeProfileVolcMem0ConnectionType string
 
+// RuntimeProfileWorkflowBinding defines model for RuntimeProfileWorkflowBinding.
+type RuntimeProfileWorkflowBinding struct {
+	// AudioInput Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths.
+	AudioInput *AudioInputPath                   `json:"audio_input,omitempty"`
+	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
+	ResourceId string                            `json:"resource_id"`
+
+	// Tags Only valid for Workflow bindings; opaque strings.
+	Tags    *[]string                    `json:"tags,omitempty"`
+	Toolkit *RuntimeProfileToolSelection `json:"toolkit,omitempty"`
+}
+
 // RuntimeProfileWorkflows Workflow bindings keyed by Workflow name. Omitted means the RuntimeProfile binds no Workflows.
-type RuntimeProfileWorkflows map[string]RuntimeProfileBinding
+type RuntimeProfileWorkflows map[string]RuntimeProfileWorkflowBinding
 
 // SFUWorkflowSpec Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
 type SFUWorkflowSpec = map[string]interface{}
@@ -5756,10 +5818,12 @@ type ToolTriggerExample struct {
 // ToolType defines model for ToolType.
 type ToolType string
 
-// ToolkitPolicy Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+// ToolkitPolicy Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 type ToolkitPolicy struct {
-	// ToolIds Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool invoke names are not accepted.
-	ToolIds *[]string `json:"tool_ids,omitempty"`
+	// ToolIds Legacy fixed-resource narrowing. Cannot be combined with tool_names and never grants Workflow runtime authority.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	ToolIds   *[]string `json:"tool_ids,omitempty"`
+	ToolNames *[]string `json:"tool_names,omitempty"`
 }
 
 // Voice defines model for Voice.
@@ -5991,7 +6055,7 @@ type WorkflowSpecObject struct {
 	// Sfu Empty SFU Workflow payload. The Workspace binds the current Peer to the SFU Room declared by its Social resource; the Workflow itself carries no configuration.
 	Sfu *SFUWorkflowSpec `json:"sfu,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 }
 
@@ -6017,7 +6081,7 @@ type Workspace struct {
 	// System Whether the Workspace lifecycle is owned by another domain service. System Workspaces cannot be deleted through generic Workspace operations.
 	System *bool `json:"system,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit    *ToolkitPolicy `json:"toolkit,omitempty"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 	WorkflowId string         `json:"workflow_id"`
@@ -6054,7 +6118,7 @@ type WorkspaceSpec struct {
 	// Parameters Agent-specific workspace parameters. The shape is selected by agent_type.
 	Parameters *WorkspaceParameters `json:"parameters,omitempty"`
 
-	// Toolkit Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+	// Toolkit Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
 	Toolkit *ToolkitPolicy `json:"toolkit,omitempty"`
 
 	// WorkflowId Referenced Workflow canonical ID.

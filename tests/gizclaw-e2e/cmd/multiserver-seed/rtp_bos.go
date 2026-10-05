@@ -17,7 +17,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 		return err
 	}
 	spec := runtimeProfileSpec(true)
-	workflows := map[string]apitypes.RuntimeProfileBinding{}
+	workflows := map[string]apitypes.RuntimeProfileWorkflowBinding{}
 	for _, driver := range []string{"eino"} {
 		data, err := os.ReadFile("tests/gizclaw-e2e/testdata/rtp-bos/" + driver + ".json")
 		if err != nil {
@@ -31,7 +31,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: id, Spec: workflow}); err != nil {
 			return err
 		}
-		workflows[id] = binding(id, id, id)
+		workflows[id] = runtimeWorkflowBinding(id, id, id)
 	}
 	maps.Copy(spec.Workflows, workflows)
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{Id: profile, Spec: spec}); err != nil {

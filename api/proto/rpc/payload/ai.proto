@@ -545,12 +545,21 @@ message Tool {
   string name = 1;
   map<string, ResourceI18nText> i18n = 2;
   google.protobuf.Struct input_schema = 3;
-  string invoke_name = 4;
+  string invoke_name = 4; // Stable model function name projected from the Profile alias.
+  string source = 5; // http_request, mhs, or client_tool.
+  google.protobuf.Struct target = 6; // Fixed procedure or id/hwd/operation; no secrets.
+  bool supported = 7;
+  bool online = 8;
+  bool available = 9;
+  string unavailable_reason = 10;
+
 }
 
 message ToolListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
+  optional string workflow_name = 3;
+  optional string workspace_name = 4;
 }
 
 message ToolListResponse {
@@ -563,6 +572,8 @@ message ToolListResponse {
 
 message ToolGetRequest {
   string name = 1;
+  optional string workflow_name = 2;
+  optional string workspace_name = 3;
 }
 
 message ToolGetResponse {

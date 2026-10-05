@@ -1,88 +1,105 @@
-# Tools
+# 运行时 Tools
 
-[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
+`toolkit` 保存 Admin HTTP Tool resources；`toolcatalog` 从当前 Peer 的 RuntimeProfile
+解析运行时工具，供 AgentHost 与 `server.tool.list/get` 共同使用。设备工具只存在于运行时，
+不向 Admin tools 表写入合成资源，也不通过本机 HTTP 控制设备。
 
-`toolkit` 负责 typed Tool Resource 的持久化、公共校验、防御性快照与
-canonical-ID policy 过滤。Admin Tool resource 使用 caller-supplied、immutable
-`metadata.id`；运行时执行名是显式的 immutable `spec.invoke_name`，不是第二个
-Admin identity。RuntimeProfile binding 与 Admin `ToolkitPolicy.tool_ids` 保存
-canonical ID。Peer RPC 把 binding key 投影为 scoped Tool `name`；Peer Toolkit
-policy 按 [Workspace 选择规则](./peerresource) 解析 scoped name 或已绑定工具的
-`invoke_name`，不暴露 canonical ID；执行调用使用 Tool 的 `invoke_name`。已存
-Workspace 选择在 binding 移除后仍保留可读取的调用名投影；不可读取或有 alias
-冲突的项被跳过，不能影响 Workspace 操作成功。全部项不可表示时返回空列表，
-现有 Schema 无法在该响应中区别失效引用与显式禁用；已存 ID 不变，投影列表不是
-无损备份。模型实际可用的工具由下文“暴露策略”决定。
+## 配置与权限
 
-目前支持一种 Tool：
-
-- `http_request` 声明一个固定 HTTPS `GET` 或 JSON `POST` 操作。参数通过
-  RFC 6901 pointer 映射到 query 或 body field；status、response pointer、
-  timeout 与 response size 都由 Resource 固定。
-
-Resource contract 中不存在 `source`、`builtin`、executor registry、第二套 Tool
-identity、`output_schema` 或 provider ToolCall ID。
-
-## 暴露策略
-
-Tool 只能由 Workflow 显式开启。RuntimeProfile `resources.tools` binding 只决定
-当前 Peer 能使用哪些 Tool，不会自动交给任何 Workflow。
-
-- Workflow `spec.toolkit.tool_ids` 是该 Workflow 可用 canonical ID 的完整列表。
-  省略 `spec.toolkit`、省略 `tool_ids` 与 `tool_ids: []` 等价，都不提供任何工具。
-- Workspace `toolkit.tool_ids` 只与 Workflow 列表取交集，不能加入 Workflow 未列出
-  的工具。省略时不再收窄，显式空数组禁用全部工具。Peer 按名称选择的规则见
-  [Workspace 选择规则](./peerresource)。
-- 每次调用时，结果再与当前 Peer RuntimeProfile binding 取交集。列出但未被 Profile
-  绑定的 ID 只是不可用，不会报错。
-- 交集为空时 AgentHost 不创建 ToolInvoker，Transformer 调用模型时不携带工具声明，
-  也不读取 Tool Resource。
-
-标准 Giztest RuntimeProfile 绑定 `09-giztest/00-toolkit-tools.yaml` 中只用于声明的
-`giztest_echo` 与 `giztest_other`，它们的 host 是保留的 `.invalid`，不会被真正调用。
-`server.workspace.toolkit.exposure.giztest.yaml` 让真实模型只列出声明给它的工具名、
-不做调用；工具名不出现在任何 prompt 中，只能来自声明。该文档覆盖 Workflow 省略策略、
-完整列表、Workspace 收窄和 Workspace 无法放大四种组合。
-
-## HTTP auth 与 transport
-
-HTTP auth 是封闭 union：`none`、`bearer`、`header_api_key`、`volc_ark`、
-`volc_search`、`volc_openapi`、`aliyun_app_code`、
-`aliyun_openapi_v3`。Bearer token 与 header API key 是 write-only Resource
-field：同一方法更新时省略 secret 会保留，提供新值会轮换，切换方法会删除旧
-secret。Admin read、RuntimeProfile projection、model definition、日志与结果都
-不会返回这些值。
-
-Provider auth 在每次调用时解析一个 `volc` 或 `aliyun` Credential。Volc
-Ark/Search 使用固定 API-key field；Volc OpenAPI 与阿里云 OpenAPI V3 对最终
-request 签名；阿里云市场使用 AppCode。`pkgs/giztools` 只包含有界 HTTP request
-mapper/executor；它不解析 Resource、policy、RuntimeProfile，
-不选择 Peer，也不实现 `genx.ToolInvoker`。
-
-HTTP 仅允许 HTTPS，关闭 redirect 与环境 proxy；每次连接都检查全部 DNS 结果，
-拒绝 private、loopback、link-local、multicast、unspecified、运营商 NAT 与
-Server 配置的 denied network；同时校验 JSON status、content type、大小、语法和
-response pointer。执行不会自动重试。
-
-## Runtime 链路
-
-```mermaid
-flowchart LR
-    Resource["Admin Tool canonical ID"] --> Profile["当前 Peer RuntimeProfile binding"]
-    Profile --> Policy["Peer scoped Tool name"]
-    Policy --> Invoker["context-scoped AgentHost ToolInvoker"]
-    Invoker --> HTTP["http_request 走 giztools"]
-    HTTP --> Continue["Transformer 或 Graph continuation"]
+```yaml
+resources:
+  tools:
+    web-search:
+      resource_id: volc-web-search
+      i18n:
+        en: {display_name: Web search}
+        zh-CN: {display_name: 搜索网页}
+    screen.brightness:
+      mhs: {id: display.main, operation: write, fields: [brightness_percent]}
+      i18n:
+        en: {display_name: Screen brightness}
+        zh-CN: {display_name: 设置本机屏幕亮度}
+    music-play:
+      client_tool: {name: audioplayer.play}
+      i18n:
+        en: {display_name: Play music}
+        zh-CN: {display_name: 播放音乐}
+workflows:
+  general-assistant:
+    resource_id: eino-chat-assistant
+    toolkit:
+      tool_names: [web-search, screen.brightness, music-play]
+    i18n:
+      en: {display_name: Assistant}
+      zh-CN: {display_name: 助手}
 ```
 
-Disabled Tool 不会被声明；dangling Resource 或同一 canonical ID 的重复 binding
-会使 scope 构造失败。每次调用都会重新读取 Resource、重新授权、校验 model
-arguments，再严格按 `spec.type` 分发；不会回退到另一类型、name、owner Profile
-或其他在线 Peer。
+每个 Tool binding 必须选择且只选择一个来源：`resource_id`、`mhs` 或 `client_tool`。
+Tool 和 Workflow 使用专用 binding 类型。Workflow binding 的 `toolkit.tool_names` 是唯一
+注入授权来源，值必须是同一 Profile 声明的 Tool aliases。省略、空策略、空列表都不注入。
+Workspace 的 `toolkit.tool_names` 只取交集；省略不再收窄，显式空列表禁用全部工具。
 
-HTTP 的 `timeout` 与 `unavailable` 会成为有界 JSON Tool result，交回模型继续
-执行；原始 transport 与 Credential 信息会被隐藏。ToolCall 与
-ToolResult 始终是 Transformer/Graph 内部控制，不会作为 public assistant stream
-control message 发给 Peer。
+Workflow resource 的旧 `spec.toolkit.tool_ids` 不授予运行时权限。已有配置需要在 Profile
+的 Workflow binding 中显式选择 aliases。旧 Workspace `tool_ids` 仍只能收窄所选 HTTP
+resources；不能与 `tool_names` 混用，也不能授予 inner tools。新 Peer Workspace 选择按 alias
+持久化，换绑时保持选择；失效 alias 原样投影，但不会被模型调用，不回退到 HTTP 调用名。
 
-Tool catalog 使用 `tools` SQL 业务表：canonical ID 为主键，`invoke_name` 有唯一约束，类型、启用状态、描述、版本与时间为独立列；输入 Schema、trigger、metadata 和 HTTP 配置分别保留为 JSON。Server 启动时初始化表并复用 SQL 连接池，按调用名获取工具只执行一次索引查询。目录枚举按 ID 分批查询，每批最多 256 条。更新使用行版本和创建实例标识进行条件写入；并发轮换密钥或删除后重建时，重读当前记录再处理省略的密钥，不恢复旧密钥。
+Profile alias 是 1–63 字节的 lowercase kebab-case segments，可用点号连接，不接受下划线。
+模型函数名把点号逐字替换为下划线，其余字符保留。因此 `screen.brightness` 对应
+`screen_brightness`，`screen-brightness` 对应 `screen-brightness`；这是可逆映射。
+目录的 `name` 是 alias，`invoke_name` 是该映射后的函数名。HTTP resource 的 immutable
+`spec.invoke_name` 只属于资源实现，不参与 Peer 选择或模型身份。
+
+## 设备与能力
+
+MHS binding 固定当前 Peer manifest 中的实例 ID；manifest 决定 HWD，模型不能提交或改变
+`id/hwd`。Read 接收空对象，write 只接受 `fields` 中的 HWD 专属参数，并要求至少一个参数。
+非法范围、类型、额外字段和不存在的实例在接触设备前拒绝。
+
+`client.rpc.methods.list` 的 `mhs_v0` 返回设备明确实现的实例及 `write_fields`；SDK 的
+`MhsCapabilities` provider 负责报告真实实现。通用 display Schema 中有 `enabled` 不代表
+当前硬件支持写它。未报告能力的旧设备显示能力未知，其 inner Tool 不注入模型。
+`client.mhs.v0.read` 也可携带 `write_capabilities`，供设备调用方检查具体读写能力。
+
+ClientTool binding 固定一个注册表程序名，input schema 来自同一嵌入契约。程序 enum
+选择对应 protobuf 请求与响应；参数不能更换底层程序。`client.tool.v0.list` 只报告设备
+已安装的程序。`run.workspace.set` 仍通过当前 owner 的 Workspace/Workflow 解析规则选择目标。
+
+一次目录解析按协议 family 查询能力；同一解析内复用查询结果。执行前重新读取 Profile、
+Workflow binding、Workspace 收窄及目标能力，只解析被调用的 alias，不向无关设备发送请求。
+设备操作复用按 owner 串行的控制通道；排队期间再次校验权限和绑定。离线、撤权、未实现、
+错误参数、断线与超时都不选择另一工具或另一 Peer。模型必须以实际成功结果确认动作。
+
+## 目录
+
+`server.tool.list/get` 返回 alias、显示信息、参数 Schema、来源、固定目标与支持/在线/可用状态。
+`workflow_name` 或 `workspace_name` 可选择最终子集，不能同时指定两者。Workspace 必须属于
+调用 Peer。HTTP credentials 与 auth 配置不出现在目录中。
+
+已配置但资源删除、禁用或设备能力未知的条目仍可发现，`available` 为 false，
+`unavailable_reason` 说明原因。离线时不能推断硬件不支持，需同时检查 `online` 与 reason。
+HTTP 的在线标记表示 Server 可解析该资源；禁用状态单独体现在 available，不探测远端 provider 健康。
+分页 cursor 绑定 Profile revision 与查询 scope。
+
+## HTTP 执行
+
+HTTP resources 固定 HTTPS GET 或 JSON POST、参数映射、结果 pointer、超时和大小上限。
+`giztools` 拒绝 redirect、环境 proxy、private/loopback/link-local 等禁止地址，并校验状态、
+content type 和 JSON。执行不自动重试。凭据在调用时由 Server 解析，不交给模型。
+
+内置工具与 HTTP 的 ToolCall/ToolResult 均留在 Transformer continuation 中，不成为公开
+assistant control stream。协议确定性回归与真实模型、Docker 验收边界见 [测试与 E2E](../../../testing)。
+
+## 持久化与结果边界
+
+Admin HTTP resources 继续保存在 SQL `tools` 表：canonical ID 为主键，私有 `invoke_name`
+有唯一约束。type、enabled、description、version、timestamps 为独立列，input Schema、
+triggers、metadata、HTTP 配置为 JSON。更新校验 row revision 和 creation incarnation；
+轮换 secret 或删除重建后会重读当前资源，不能恢复旧 secret。枚举使用最多 256 行的 ID 排序批次。
+认证支持 none、bearer、header_api_key、volc_ark、volc_search、volc_openapi、aliyun_app_code、
+aliyun_openapi_v3。直接 secret 是 write-only，同方法省略保留，替换轮换，改方法移除。
+调用在完成凭据解析后、HTTP dispatch 前再次校验权限与资源；原始错误不进入模型结果。
+
+inner `run.workspace.set` 要求模型选择 Profile `workflow_name` alias；控制 App 仍可通过
+原有接口指定所属 Workspace name。程序应答表示接受请求，后续 reload 才提交切换。
+Audio `play` 的 index 可省略，保留设备默认曲目语义，不由 Runtime 猜一个索引。

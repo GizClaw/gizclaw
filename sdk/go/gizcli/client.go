@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/protobuf/proto"
 )
 
 var _ genx.Transformer = (*Client)(nil)
@@ -67,14 +68,15 @@ type Client struct {
 	packetSubscribers map[byte]map[chan []byte]struct{}
 	openPeerStream    func(int) (*PeerStream, error)
 
-	clientRPCMu        sync.RWMutex
-	clientRPCObserver  func(rpcapi.RPCMethod)
-	deviceMu           sync.RWMutex
-	deviceHandlers     *DeviceControlHandlers
-	toolHandlers       map[rpcpb.ClientTool]ClientToolHandler
-	clientToolObserver func(rpcpb.ClientTool)
-	socialMu           sync.RWMutex
-	socialPing         SocialPingHandler
+	clientRPCMu           sync.RWMutex
+	clientRPCObserver     func(rpcapi.RPCMethod)
+	deviceMu              sync.RWMutex
+	deviceHandlers        *DeviceControlHandlers
+	toolHandlers          map[rpcpb.ClientTool]ClientToolHandler
+	clientToolObserver    func(rpcpb.ClientTool)
+	deviceRequestObserver func(rpcapi.RPCMethod, rpcpb.ClientTool, proto.Message)
+	socialMu              sync.RWMutex
+	socialPing            SocialPingHandler
 }
 
 type DialTransportFunc func(key *giznet.KeyPair, serverPK giznet.PublicKey, serverAddr string, securityPolicy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error)

@@ -2,9 +2,11 @@ package giztestcmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -13,13 +15,106 @@ import (
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
-type inboundCounter struct{ atomic.Int64 }
+type inboundCounter struct {
+	atomic.Int64
+	requestsMu     sync.Mutex
+	recordRequests atomic.Bool
+	requests       []any
+}
+
+func (c *inboundCounter) observeRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool, request proto.Message) {
+	if c == nil || !c.recordRequests.Load() {
+		return
+	}
+	value := map[string]any{"method": string(method), "received_at_unix_ms": time.Now().UnixMilli()}
+	var message proto.Message = request
+	switch request := request.(type) {
+	case *rpcpb.ClientMhsV0ReadRequest:
+		meta, err := rpcapi.ClientHwdMetadata(request.Hwd)
+		if err != nil {
+			return
+		}
+		value["id"], value["hwd"], value["hwd_enum"] = request.Id, meta.Name, int32(request.Hwd)
+		message = nil
+	case *rpcpb.ClientMhsV0WriteRequest:
+		meta, err := rpcapi.ClientHwdMetadata(request.Hwd)
+		if err != nil {
+			return
+		}
+		value["id"], value["hwd"], value["hwd_enum"] = request.Id, meta.Name, int32(request.Hwd)
+		message, err = rpcapi.ClientHwdWriteRequestFromBytes(request.Hwd, request.Payload)
+		if err != nil {
+			return
+		}
+	}
+	if play, ok := request.(*rpcpb.ClientDeviceAudioPlayerPlayRequest); ok {
+		value["effective_index"] = play.GetIndex()
+	}
+	if tool != 0 {
+		meta, err := rpcapi.ClientToolMetadata(tool)
+		if err != nil {
+			return
+		}
+		value["tool"], value["tool_enum"] = meta.Name, int32(tool)
+	}
+	if message != nil {
+		data, err := (protojson.MarshalOptions{UseProtoNames: true}).Marshal(message)
+		if err != nil {
+			return
+		}
+		var args any
+		if err := json.Unmarshal(data, &args); err != nil {
+			return
+		}
+		if _, sensitive := request.(*rpcpb.ClientWifiConnectRequest); sensitive {
+			if fields, ok := args.(map[string]any); ok {
+				if _, exists := fields["passphrase"]; exists {
+					fields["passphrase"] = "[redacted]"
+				}
+			}
+		}
+		if _, workspace := request.(*rpcpb.ClientRunWorkspaceSetRequest); workspace {
+			if fields, ok := args.(map[string]any); ok {
+				if _, exists := fields["kickoff"]; !exists {
+					fields["kickoff"] = false
+				}
+			}
+		}
+		value["args"] = args
+	}
+	c.requestsMu.Lock()
+	defer c.requestsMu.Unlock()
+	if len(c.requests) < 1024 {
+		c.requests = append(c.requests, value)
+	}
+}
+
+func (c *inboundCounter) requestSnapshot() []any {
+	c.requestsMu.Lock()
+	defer c.requestsMu.Unlock()
+	return append([]any{}, c.requests...)
+}
 
 func configureClientRPC(client *gizcli.Client, clientName string, steps []giztest.Step, vars *giztest.Variables, counts map[string]*inboundCounter) error {
+	localCounts := map[string]*inboundCounter{}
+	for _, step := range steps {
+		if step.Client != clientName || step.ClientRPC == nil {
+			continue
+		}
+		key := clientName + ":" + step.ClientRPC.Key()
+		counter := counts[key]
+		if counter == nil {
+			counter = &inboundCounter{}
+			counts[key] = counter
+		}
+		localCounts[key] = counter
+	}
 	if err := client.ObserveClientRPC(func(method rpcapi.RPCMethod) {
-		if counter := counts[clientName+":"+string(method)]; counter != nil {
+		if counter := localCounts[clientName+":"+string(method)]; counter != nil {
 			counter.Add(1)
 		}
 	}); err != nil {
@@ -28,25 +123,43 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 	client.ObserveClientTool(func(tool rpcpb.ClientTool) {
 		metadata, err := rpcapi.ClientToolMetadata(tool)
 		if err == nil {
-			if counter := counts[clientName+":client.tool.v0.invoke:"+metadata.Name]; counter != nil {
+			if counter := localCounts[clientName+":client.tool.v0.invoke:"+metadata.Name]; counter != nil {
 				counter.Add(1)
 			}
 		}
 	})
+	client.ObserveDeviceRequest(func(method rpcapi.RPCMethod, tool rpcpb.ClientTool, request proto.Message) {
+		key := clientName + ":" + string(method)
+		if tool != 0 {
+			if meta, err := rpcapi.ClientToolMetadata(tool); err == nil {
+				key += ":" + meta.Name
+			}
+		}
+		localCounts[key].observeRequest(method, tool, request)
+	})
 	var device gizcli.DeviceControlHandlers
+	var audio *audioFixture
 	haveDevice := false
 	for _, step := range steps {
 		if step.Client != clientName || step.ClientRPC == nil {
 			continue
 		}
 		operation := step.ClientRPC
-		response, err := vars.Resolve(operation.Response)
-		if err != nil && operation.Response != nil {
-			return fmt.Errorf("step %s client_rpc response: %w", step.ID, err)
-		}
 		key := clientName + ":" + operation.Key()
 		if counts[key] == nil {
 			counts[key] = &inboundCounter{}
+		}
+		for pointer := range step.Expect {
+			if strings.HasPrefix(pointer, "/requests") {
+				counts[key].recordRequests.Store(true)
+			}
+		}
+		if operation.ObserveOnly {
+			continue
+		}
+		response, err := vars.Resolve(operation.Response)
+		if err != nil && operation.Response != nil {
+			return fmt.Errorf("step %s client_rpc response: %w", step.ID, err)
 		}
 		if operation.Method != "client.tool.v0.invoke" && operation.Tool != "" {
 			return fmt.Errorf("step %s: tool requires client.tool.v0.invoke", step.ID)
@@ -72,6 +185,42 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 					}
 					continue
 				}
+			}
+			if object, ok := response.(map[string]any); ok && object["run_workspace"] == true {
+				tool, err := rpcapi.ClientToolByName(operation.Tool)
+				if err != nil {
+					return err
+				}
+				if err := client.HandleClientTool(tool, func(ctx context.Context, message proto.Message) (proto.Message, error) {
+					request, ok := message.(*rpcpb.ClientRunWorkspaceSetRequest)
+					if !ok {
+						return nil, fmt.Errorf("wrong workspace procedure request")
+					}
+					_, err := client.SetServerRunWorkspace(ctx, "giztest-program-select", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: request.WorkspaceName})
+					if err != nil {
+						return nil, err
+					}
+					return &rpcpb.ClientRunWorkspaceSetResponse{}, nil
+				}); err != nil {
+					return err
+				}
+				continue
+			}
+			if object, ok := response.(map[string]any); ok && object["audio_player"] != nil {
+				if audio == nil {
+					audio, err = newAudioFixture(object["audio_player"])
+					if err != nil {
+						return err
+					}
+				}
+				tool, err := rpcapi.ClientToolByName(operation.Tool)
+				if err != nil {
+					return err
+				}
+				if err := client.HandleClientTool(tool, audio.invoke); err != nil {
+					return err
+				}
+				continue
 			}
 			switch operation.Tool {
 			case "info.get":

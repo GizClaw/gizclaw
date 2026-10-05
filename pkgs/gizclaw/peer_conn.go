@@ -624,6 +624,7 @@ func (h *PeerConn) peerResources() *peerresource.Server {
 		Friends:        manager.Friends,
 		FriendGroups:   manager.FriendGroups,
 		Tools:          manager.Tools,
+		ToolCatalog:    manager.ToolCatalog,
 		Profiles:       manager.Peers,
 		RuntimeProfile: h.currentRuntimeProfile,
 	}

@@ -3860,7 +3860,29 @@
             "type": "boolean",
             "description": "Let the agent speak first once the Workspace is ready. Defaults to false."
           }
-        }
+        },
+        "oneOf": [
+          {
+            "required": [
+              "workspace_name"
+            ],
+            "not": {
+              "required": [
+                "workflow_name"
+              ]
+            }
+          },
+          {
+            "required": [
+              "workflow_name"
+            ],
+            "not": {
+              "required": [
+                "workspace_name"
+              ]
+            }
+          }
+        ]
       },
       "DeviceWifiConnectRequest": {
         "type": "object",

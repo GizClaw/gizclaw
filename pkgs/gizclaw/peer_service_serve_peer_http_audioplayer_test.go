@@ -143,7 +143,6 @@ func TestAudioPlayerHTTPRoundTrip(t *testing.T) {
 func TestAudioPlayerHTTPRejectsInvalidRequests(t *testing.T) {
 	f := newDeviceHTTPFixture(t)
 	for _, test := range []struct{ method, path, body string }{
-		{"POST", "audioplayer.play", `{}`},
 		{"POST", "audioplayer.play", `{"index":-1}`},
 		{"POST", "audioplayer.play", `{"index":32}`},
 		{"PUT", "audioplayer.playlist.set", `{}`},
@@ -176,5 +175,30 @@ func TestAudioPlayerHTTPRejectsMalformedDeviceStatus(t *testing.T) {
 	stored := decodeJSON[apitypes.PeerStatus](t, f.do(t, "GET", "/gizclaw/v1/device/status", ""))
 	if stored.Audioplayer != nil {
 		t.Fatal("malformed status persisted")
+	}
+}
+
+func TestAudioPlayerHTTPPreservesDefaultTrackSelection(t *testing.T) {
+	f := newDeviceHTTPFixture(t)
+	device := newFakeToolConn(func(_ context.Context, tool rpcpb.ClientTool, req *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+		if tool != rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAY {
+			t.Fatalf("wrong procedure: %v", tool)
+		}
+		params, err := req.Params.AsClientDeviceAudioPlayerPlayRequest()
+		if err != nil {
+			return nil, err
+		}
+		if params.Index != nil {
+			t.Fatal("device default was replaced with a guessed index")
+		}
+		return newRPCResultResponse(req.Id, &rpcpb.ClientDeviceAudioPlayerPlayResponse{Value: &rpcpb.AudioPlayerStatus{State: "playing", CurrentIndex: new(uint32(0)), Repeat: "off", PlaylistLength: 1, PlaylistRevision: 1}}, (*rpcapi.RPCPayload).FromClientDeviceAudioPlayerPlayResponse)
+	})
+	defer device.Close()
+	f.manager.SetPeerUp(f.owner, device)
+	if response := f.invoke(t, "audioplayer.play", `{}`); response.Code != http.StatusOK {
+		t.Fatalf("default play status=%d body=%s", response.Code, response.Body.String())
+	}
+	if device.calls.Load() != 1 {
+		t.Fatalf("calls=%d", device.calls.Load())
 	}
 }

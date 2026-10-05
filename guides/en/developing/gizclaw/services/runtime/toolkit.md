@@ -1,87 +1,70 @@
-# Tools
+# Runtime Tools
 
-[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
+`toolkit` persists Admin HTTP resources. `toolcatalog` resolves current-Peer RuntimeProfile aliases
+for both AgentHost and `server.tool.list/get`. Device tools exist only in memory and call the
+existing serialized device RPC controller directly.
 
-`toolkit` owns typed Tool Resource persistence, common validation, defensive
-snapshots, and canonical-ID policy filtering. An Admin Tool Resource has a
-caller-supplied immutable `metadata.id`; its runtime execution name is the
-explicit immutable `spec.invoke_name`, not a second Admin identity.
-RuntimeProfile bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs.
-Peer RPC projects each binding key as a scoped Tool `name`; Peer Toolkit policy
-and invocation use only that scoped name and never expose the canonical ID.
-The Tools a model can use follow the exposure policy below.
+A dedicated Tool binding selects exactly one source: HTTP `resource_id`, MHS `{id, operation,
+fields}`, or a predefined `client_tool.name`. Each Profile Workflow binding explicitly opts in
+through `toolkit.tool_names`. Omission and an empty list inject no Tools. Workspace `tool_names`
+only narrows that selection; omission adds no restriction and an explicit empty list disables it.
 
-The supported Tool type is:
+The legacy Workflow resource `spec.toolkit.tool_ids` grants no runtime authority. Configure the
+Profile Workflow binding explicitly. Legacy Workspace `tool_ids` can only narrow HTTP resources
+and cannot be combined with aliases. New Peer Workspace selections persist aliases, including
+stale references, without falling back to HTTP invocation names.
 
-- `http_request` declares one fixed HTTPS `GET` or JSON `POST` operation.
-  Arguments map from RFC 6901 pointers to query or body fields. The declaration
-  fixes status, response pointer, timeout, and response-size limits.
-There is no `source`, `builtin`, executor registry, duplicate Tool identity,
-`output_schema`, or provider ToolCall ID in the Resource contract.
+Profile aliases contain lowercase kebab-case segments separated by dots and are 1–63 bytes.
+Underscores are forbidden. A model function name replaces each dot with an underscore, preserving
+all other characters: `screen.brightness` maps to `screen_brightness`. Catalog `name` is the alias;
+`invoke_name` is the stable projected function name. The HTTP resource's immutable `invoke_name`
+and credentials are private implementation details.
 
-## Exposure policy
+MHS binds one current-Peer manifest instance and resolves its HWD. Models cannot supply id/hwd.
+Write parameters come from the existing HWD contract and are restricted to explicitly selected
+fields. `client.rpc.methods.list.mhs_v0` advertises actual instances and writable fields through
+`DeviceControlHandlers.MhsCapabilities`. Generic HWD fields do not establish implementation support;
+missing capability information stays unknown and prevents injection. ClientTool input schemas and
+protobuf messages come from the predefined procedure registry, and arguments cannot change its
+procedure. `client.tool.v0.list` advertises installed handlers.
 
-Tools are opt-in per Workflow. A RuntimeProfile `resources.tools` binding only
-decides which Tools the current Peer may use; it never hands them to a Workflow.
+Discovery batches queries by protocol family within one resolution. Every invocation rereads the
+current owner Profile, Workflow binding, Workspace restriction and target capability. Only the
+requested alias is resolved for execution. The device queue checks authorization again before
+sending the RPC. Offline, unavailable, revoked, invalid and unsupported calls never use another
+Tool, procedure or Peer.
 
-- Workflow `spec.toolkit.tool_ids` is the complete list of canonical IDs that
-  Workflow can use. Omitting `spec.toolkit`, omitting `tool_ids`, and
-  `tool_ids: []` are equivalent and expose no Tools.
-- Workspace `toolkit.tool_ids` is intersected with the Workflow list and cannot
-  add a Tool the Workflow does not list. Omitting it applies no further
-  narrowing; an explicit empty list disables every Tool.
-- Every call intersects the result with the current Peer RuntimeProfile
-  bindings. A listed ID the Profile does not bind is unavailable, not an error.
-- When the intersection is empty, AgentHost creates no ToolInvoker, the
-  Transformer calls the model without Tool declarations, and no Tool Resource is
-  read.
+The existing catalog includes schema, localized display text, source, fixed target, supported,
+online, available and unavailable_reason. `workflow_name` or `workspace_name` selects an effective
+subset; they are mutually exclusive and a Workspace must belong to the caller. Disabled and
+unresolved entries remain discoverable. Offline means support cannot currently be observed. HTTP
+online denotes a resolvable Server resource; enabled state gates available. It does not probe provider health. Pagination
+binds Profile revision and scope. Credentials and HTTP auth configuration never enter the catalog.
 
-The standard Giztest RuntimeProfile binds the declaration-only `giztest_echo`
-and `giztest_other` Tools from `09-giztest/00-toolkit-tools.yaml`; their reserved
-`.invalid` host is never called. `server.workspace.toolkit.exposure.giztest.yaml`
-asks a real model to list, without invoking, the Tools declared to it. The Tool
-names appear in no prompt, so each listed name proves a declaration. It covers
-an omitted Workflow policy, a full Workflow list, Workspace narrowing, and a
-Workspace selection that cannot widen the Workflow list.
+HTTP execution retains HTTPS-only GET/JSON POST, bounded responses, fixed parameter mappings,
+credential resolution on the Server and existing address/redirect/proxy restrictions. Execution
+never automatically retries. ToolCall and ToolResult stay inside model continuation and do not
+become public assistant control events.
 
-## HTTP authentication and transport
+## HTTP resource persistence and authentication
 
-HTTP auth is a closed union: `none`, `bearer`, `header_api_key`, `volc_ark`,
-`volc_search`, `volc_openapi`, `aliyun_app_code`, or
-`aliyun_openapi_v3`. Bearer tokens and header API keys are write-only Resource
-fields: omitting the same method's secret on update retains it, replacing it
-rotates it, and changing method removes it. Admin reads, RuntimeProfile
-projections, model definitions, logs, and results never contain those values.
+Admin HTTP resources remain in the SQL `tools` table. Canonical ID is the primary key and
+private `invoke_name` has a unique constraint. Type, enabled state, description, version and
+timestamps use separate columns; input schema, triggers, metadata and HTTP configuration remain
+JSON. Conditional updates check row revision and creation incarnation. Resource enumeration
+uses ID-ordered batches of at most 256 rows. Secret rotation or deletion/recreation rereads the
+current resource before retaining an omitted secret.
 
-Provider methods resolve one `volc` or `aliyun` Credential at invocation time.
-Volc Ark/Search use their fixed API-key fields; Volc OpenAPI and Alibaba Cloud
-OpenAPI V3 sign the final request. Alibaba Cloud Marketplace uses AppCode.
-`pkgs/giztools` contains the bounded HTTP request mapper and executor. It does not resolve Resources, policy, RuntimeProfiles, select a Peer,
-or implement `genx.ToolInvoker`.
+Authentication supports none, bearer, header_api_key, volc_ark, volc_search, volc_openapi,
+aliyun_app_code and aliyun_openapi_v3. Direct bearer/API-key values are write-only: omission under
+the same method retains the secret; replacement rotates it; changing the method removes it.
+Provider methods resolve one Server-owned credential at invocation. Volc OpenAPI and Alibaba
+Cloud OpenAPI V3 sign the final request; Marketplace uses AppCode. `giztools` owns bounded mapping
+and HTTP execution without selecting a Profile or Peer. Invocation rechecks authorization after
+credential resolution and before dispatch. Raw transport and credential errors are bounded
+recoverable results.
 
-HTTP execution permits HTTPS only, disables redirects and environment proxies,
-checks every DNS result for private, loopback, link-local, multicast,
-unspecified, carrier-grade NAT, and Server-denied networks, and validates JSON
-status, content type, size, syntax, and response pointers. It never retries.
-
-## Runtime chain
-
-```mermaid
-flowchart LR
-    Resource["Admin Tool canonical ID"] --> Profile["Current-Peer RuntimeProfile binding"]
-    Profile --> Policy["Peer scoped Tool name"]
-    Policy --> Invoker["Context-scoped AgentHost ToolInvoker"]
-    Invoker --> HTTP["http_request via giztools"]
-    HTTP --> Continue["Transformer or Graph continuation"]
-```
-
-Disabled Tools are not advertised. Dangling or duplicate canonical-ID bindings
-fail scope construction. Every invocation re-reads and reauthorizes the
-Resource, validates model arguments, and dispatches by `spec.type`; it does not
-fall back to another type, name, owner Profile, or online Peer.
-
-HTTP timeout and transport failures are bounded JSON Tool results submitted to
-the model continuation. Raw transport and Credential details are redacted. Tool calls and Tool results remain internal to the Transformer or
-Graph and are not public assistant stream control messages.
-
-The Tool catalog uses the `tools` SQL business table. Canonical ID is the primary key and `invoke_name` has a unique constraint. Type, enabled state, description, version and timestamps occupy separate columns; input Schema, triggers, metadata and HTTP configuration each remain JSON. Server startup initializes the schema using the configured SQL pool. Invocation-name lookup uses one indexed query, and catalog enumeration reads ID-ordered batches of at most 256 rows. Conditional updates check both row revision and creation incarnation. Concurrent secret rotation or deletion/recreation causes a reread before retaining omitted secrets, preventing restoration of an old secret.
+For the inner `run.workspace.set` catalog, the model selects a required Profile `workflow_name`
+alias; existing control-app APIs can still select an owned Workspace name. A procedure reply
+acknowledges acceptance, while `server.run.workspace.reload-with-options` commits the switch.
+Audio `play` accepts an optional index; omission preserves the device default track selection.

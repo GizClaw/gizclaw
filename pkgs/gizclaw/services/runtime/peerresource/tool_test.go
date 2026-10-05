@@ -1,25 +1,14 @@
 package peerresource
 
 import (
-	"testing"
-
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/google/jsonschema-go/jsonschema"
+	"testing"
 )
 
-func TestProjectToolExposesPeerNameDistinctFromInvocationName(t *testing.T) {
-	t.Parallel()
-	projected := projectTool(
-		"device_volume",
-		apitypes.RuntimeProfileBinding{},
-		toolkit.Tool{
-			InvokeName:  "client_volume_set",
-			Type:        toolkit.ToolTypeHTTPRequest,
-			InputSchema: jsonschema.Schema{Type: "object"},
-		},
-	)
-	if projected.Name != "device_volume" || projected.InvokeName != "client_volume_set" {
-		t.Fatalf("projectTool() identity = name %q, invoke_name %q", projected.Name, projected.InvokeName)
+func TestProjectToolUsesAliasAndStableModelName(t *testing.T) {
+	projected := projectCatalogTool(toolcatalog.Tool{Alias: "device.volume", FunctionName: "device_volume", Source: "mhs", Target: map[string]any{"id": "speaker.main"}, Schema: jsonschema.Schema{Type: "object"}})
+	if projected.Name != "device.volume" || projected.InvokeName != "device_volume" || projected.Source != "mhs" || projected.Target["id"] != "speaker.main" {
+		t.Fatalf("projection = %+v", projected)
 	}
 }

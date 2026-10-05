@@ -367,7 +367,7 @@ func (s *Service) prepareAgentOutput(output genx.Stream) {
 	}
 }
 
-func profileTools(profile *apitypes.RuntimeProfile) *map[string]apitypes.RuntimeProfileBinding {
+func profileTools(profile *apitypes.RuntimeProfile) *map[string]apitypes.RuntimeProfileToolBinding {
 	if profile == nil {
 		return nil
 	}
@@ -597,7 +597,7 @@ func runtimeProfileWorkflowBindings(profile apitypes.RuntimeProfile) map[string]
 	return bindings
 }
 
-func runtimeProfileToolBindings(tools *map[string]apitypes.RuntimeProfileBinding) map[string]string {
+func runtimeProfileToolBindings(tools *map[string]apitypes.RuntimeProfileToolBinding) map[string]string {
 	if tools == nil {
 		return map[string]string{}
 	}

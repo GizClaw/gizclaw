@@ -58,3 +58,22 @@ func (c *Client) observeClientTool(tool rpcpb.ClientTool) {
 		observer(tool)
 	}
 }
+
+// ObserveDeviceRequest observes a validated MHS or ClientTool request before
+// handler dispatch. The callback borrows the message for its duration, runs
+// without an SDK mutex held, and must not modify it or call lifecycle methods.
+// It is intended for protocol tracing with caller-controlled redaction.
+func (c *Client) ObserveDeviceRequest(observer func(rpcapi.RPCMethod, rpcpb.ClientTool, proto.Message)) {
+	c.clientRPCMu.Lock()
+	defer c.clientRPCMu.Unlock()
+	c.deviceRequestObserver = observer
+}
+
+func (c *Client) observeDeviceRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool, request proto.Message) {
+	c.clientRPCMu.RLock()
+	observer := c.deviceRequestObserver
+	c.clientRPCMu.RUnlock()
+	if observer != nil {
+		observer(method, tool, request)
+	}
+}

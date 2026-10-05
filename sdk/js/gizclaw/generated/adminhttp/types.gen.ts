@@ -1476,6 +1476,13 @@ export type RuntimeProfileBinding = {
     audio_input?: AudioInputPath;
 };
 
+export type RuntimeProfileClientTool = {
+    /**
+     * One predefined ClientTool v0 procedure name; model arguments cannot change it.
+     */
+    name: string;
+};
+
 export type RuntimeProfileI18nText = {
     display_name: string;
     description?: string;
@@ -1524,6 +1531,15 @@ export type RuntimeProfileMhs = {
     v0?: MhsV0Manifest;
 };
 
+export type RuntimeProfileMhsTool = {
+    id: string;
+    operation: 'read' | 'write';
+    /**
+     * Required for write; every field must be explicitly supported by the device. Forbidden for read.
+     */
+    fields?: Array<string>;
+};
+
 /**
  * Provider-call policy variants: unlimited or custom HTTP.
  */
@@ -1560,7 +1576,7 @@ export type RuntimeProfileResources = {
         [key: string]: RuntimeProfileBinding;
     };
     tools?: {
-        [key: string]: RuntimeProfileBinding;
+        [key: string]: RuntimeProfileToolBinding;
     };
     memories?: {
         [key: string]: RuntimeProfileMemoryBinding;
@@ -1594,6 +1610,25 @@ export type RuntimeProfileSpec = {
     quota?: RuntimeProfileQuota | null;
 };
 
+/**
+ * Select exactly one source. Devices are always the current Peer; HTTP invoke_name and credentials are private implementation details.
+ */
+export type RuntimeProfileToolBinding = {
+    resource_id?: string;
+    mhs?: RuntimeProfileMhsTool;
+    client_tool?: RuntimeProfileClientTool;
+    i18n: {
+        [key: string]: RuntimeProfileI18nText;
+    };
+};
+
+export type RuntimeProfileToolSelection = {
+    /**
+     * Profile Tool aliases explicitly injected into this Workflow; omitted or empty means no Tools.
+     */
+    tool_names?: Array<string>;
+};
+
 export type RuntimeProfileVolcMem0Connection = {
     type: 'volc_mem0';
     /**
@@ -1605,11 +1640,27 @@ export type RuntimeProfileVolcMem0Connection = {
     poll_interval?: string;
 };
 
+export type RuntimeProfileWorkflowBinding = {
+    resource_id: string;
+    i18n: {
+        [key: string]: RuntimeProfileI18nText;
+    };
+    /**
+     * Only valid for Workflow bindings; opaque strings.
+     */
+    tags?: Array<string>;
+    /**
+     * Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths.
+     */
+    audio_input?: AudioInputPath;
+    toolkit?: RuntimeProfileToolSelection;
+};
+
 /**
  * Workflow bindings keyed by Workflow name. Omitted means the RuntimeProfile binds no Workflows.
  */
 export type RuntimeProfileWorkflows = {
-    [key: string]: RuntimeProfileBinding;
+    [key: string]: RuntimeProfileWorkflowBinding;
 };
 
 export type FriendGroupInviteTokenClearResponse = {
@@ -1833,13 +1884,16 @@ export type ToolTriggerExample = {
 };
 
 /**
- * Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.
+ * Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.
  */
 export type ToolkitPolicy = {
     /**
-     * Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool invoke names are not accepted.
+     * Legacy fixed-resource narrowing. Cannot be combined with tool_names and never grants Workflow runtime authority.
+     *
+     * @deprecated
      */
     tool_ids?: Array<string>;
+    tool_names?: Array<string>;
 };
 
 export type Voice = {

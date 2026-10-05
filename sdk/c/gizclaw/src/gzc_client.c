@@ -1959,8 +1959,9 @@ static bool valid_protobuf(gzc_str_t payload) {
 
 static int respond_discovery(const pb_msgdesc_t *fields, const void *message,
                              gzc_rpc_provider_respond_fn respond, void *userdata) {
-  /* Both discovery responses contain at most 32 enum values, never strings. */
-  uint8_t encoded[gizclaw_rpc_v1_ClientRpcMethodsListResponse_size];
+  /* This provider emits only its bounded 32-method / 32-procedure registries.
+   * Optional MHS capabilities remain absent until the C host supplies them. */
+  uint8_t encoded[32u * 6u + 16u];
   pb_ostream_t stream = pb_ostream_from_buffer(encoded, sizeof(encoded));
   if (!pb_encode(&stream, fields, message)) {
     return GZC_ERR_RPC;

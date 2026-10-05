@@ -34,7 +34,7 @@ func seedVoiceFixture(ctx context.Context, api *adminhttp.ClientWithResponses, p
 			(*spec.Resources.Voices)["story."+name] = binding(id, id, id)
 		}
 	}
-	workflows := map[string]apitypes.RuntimeProfileBinding{}
+	workflows := map[string]apitypes.RuntimeProfileWorkflowBinding{}
 	for _, driver := range []string{"eino", "eino-sequential"} {
 		data, err := os.ReadFile("tests/gizclaw-e2e/testdata/" + fixture + "/" + driver + ".json")
 		if err != nil {
@@ -48,7 +48,7 @@ func seedVoiceFixture(ctx context.Context, api *adminhttp.ClientWithResponses, p
 		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: id, Spec: workflow}); err != nil {
 			return err
 		}
-		workflows[id] = binding(id, id, id)
+		workflows[id] = runtimeWorkflowBinding(id, id, id)
 	}
 	maps.Copy(spec.Workflows, workflows)
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{Id: profile, Spec: spec}); err != nil {

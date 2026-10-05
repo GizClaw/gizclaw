@@ -24,15 +24,23 @@ type ToolTrigger struct {
 }
 
 type Tool struct {
-	Name        string                      `json:"name"`
-	I18n        map[string]ResourceI18nText `json:"i18n"`
-	InputSchema jsonschema.Schema           `json:"input_schema"`
-	InvokeName  string                      `json:"invoke_name"`
+	Name              string                      `json:"name"`
+	I18n              map[string]ResourceI18nText `json:"i18n"`
+	InputSchema       jsonschema.Schema           `json:"input_schema"`
+	InvokeName        string                      `json:"invoke_name"`
+	Source            string                      `json:"source"`
+	Target            map[string]any              `json:"target"`
+	Supported         bool                        `json:"supported"`
+	Online            bool                        `json:"online"`
+	Available         bool                        `json:"available"`
+	UnavailableReason string                      `json:"unavailable_reason"`
 }
 
 type ToolListRequest struct {
-	Cursor *string `json:"cursor,omitempty"`
-	Limit  *int    `json:"limit,omitempty"`
+	Cursor        *string `json:"cursor,omitempty"`
+	Limit         *int    `json:"limit,omitempty"`
+	WorkflowName  *string `json:"workflow_name,omitempty"`
+	WorkspaceName *string `json:"workspace_name,omitempty"`
 }
 
 type ToolListResponse struct {
@@ -44,7 +52,9 @@ type ToolListResponse struct {
 }
 
 type ToolGetRequest struct {
-	Name string `json:"name"`
+	Name          string  `json:"name"`
+	WorkflowName  *string `json:"workflow_name,omitempty"`
+	WorkspaceName *string `json:"workspace_name,omitempty"`
 }
 
 type ToolGetResponse struct {

@@ -40,8 +40,16 @@ message ClientMhsV0ReadRequest {
   ClientHwd hwd = 2;
 }
 
+// Present capabilities report the fields this concrete instance can write.
+// Omitted capabilities mean unknown; fields in a generic HWD schema do not
+// imply write support on a particular device.
+message MhsV0WriteCapabilities {
+  repeated string fields = 1;
+}
+
 message ClientMhsV0ReadResponse {
   bytes payload = 1; // Encoded read_response message declared by hwd.
+  optional MhsV0WriteCapabilities write_capabilities = 2;
 }
 
 message ClientMhsV0WriteRequest {

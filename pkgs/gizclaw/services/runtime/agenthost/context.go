@@ -16,6 +16,7 @@ type toolExecutionContextKey struct{}
 
 type toolExecutionContext struct {
 	profileTools []string
+	bindings     map[string]apitypes.RuntimeProfileToolBinding
 }
 
 type accessContext struct {
@@ -68,7 +69,7 @@ func resourceAccessFromContext(ctx context.Context) (accessContext, bool) {
 // RuntimeProfile Tool snapshot.
 func WithToolExecution(
 	ctx context.Context,
-	bindings *map[string]apitypes.RuntimeProfileBinding,
+	bindings *map[string]apitypes.RuntimeProfileToolBinding,
 ) (context.Context, error) {
 	if ctx == nil {
 		ctx = context.Background()
@@ -82,24 +83,20 @@ func WithToolExecution(
 	}
 	sort.Strings(aliases)
 	ids := make([]string, 0, len(aliases))
-	seen := make(map[string]string, len(aliases))
 	for _, alias := range aliases {
 		id := (*bindings)[alias].ResourceId
+		if id == "" {
+			continue
+		}
 		if err := customid.ValidateResourceID(id); err != nil {
 			return nil, fmt.Errorf("agenthost: runtime Tool alias %q has an invalid resource ID: %w", alias, err)
 		}
-		if previous, duplicate := seen[id]; duplicate {
-			return nil, fmt.Errorf(
-				"agenthost: runtime Tool aliases %q and %q bind the same canonical Tool %q",
-				previous, alias, id,
-			)
-		}
-		seen[id] = alias
 		ids = append(ids, id)
 	}
 	sort.Strings(ids)
 	return context.WithValue(ctx, toolExecutionContextKey{}, toolExecutionContext{
 		profileTools: ids,
+		bindings:     maps.Clone(*bindings),
 	}), nil
 }
 

@@ -1572,3 +1572,52 @@ GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
 统一使用 Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`)，设置 `service_tier: fast` 并默认关闭
 thinking。裁判 `script-judge` alias 仍可在测试 Profile 单独选择模型。实际 fast 档位与首响时延
 分别由本页的低延迟真实 Giztest 和首响验证矩阵验收。
+
+## Profile Tool alias 验收
+
+```sh
+GIZCLAW_RUNTIME_TOOL_CREDENTIAL_FILE=/secure/gizclaw.env \
+  bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
+```
+
+独立 Compose project 启动真实 Server、Edge、Admin seed 和 Go Giztest Peer。凭据文件只在
+runner 进程中读取 `GIZCLAW_VOLC_ARK_API_KEY`，通过环境传给 seed；真实凭据与 SQLite
+运行状态不写入报告。设备测试 Peer 实现真实 MHS 与 ClientTool protobuf handlers，
+不代表物理硬件验收。真实模型是 `doubao-seed-2-1-lite-260915`，thinking disabled，
+temperature 省略，max_tokens 2048。
+
+`client_rpc.response.instances` 安装有状态 MHS 实例；`audio_player` 安装真实协议的测试
+播放列表/播放器；`run_workspace` 安装调用现有 Server Workspace selection 的程序。
+这些是设备实现，不是模型替身。明确 `--evidence full` 时，Go runner 保存实际用户输入、
+模型回复和安全的 Tool catalog 投影。带 `/requests` 断言的 provider 还保存实际解码的
+id/hwd、程序 enum、参数及接收时间；未要求请求记录时不保存参数。对副作用使用 `/calls`
+的精确断言，不能只用 `expect_calls` 的至少一次等待。模型澄清必须由前一个真实 turn 生成。
+
+本 lane 的报告在 `.testbench/runtime-tools-*/reports/`。每次失败都会保留，不自动选择
+成功重跑；脚本非零、缺失任务、FAIL 和 SKIP 均不构成完整验收通过。确定性协议、目录与
+权限回归和真实模型层的结果分别记录，直连 Server 诊断不能替代 Edge 链路验收。
+
+此入口默认编译 423 个原生文档：80 个业务话语与20组多轮对话，另有随机结果、真实长历史、
+区域灯选择和跨设备意图负对照；每组覆盖10/30/60/100工具并重复3次，合计1265任务，
+含确定性合同文档与两个基础探针。每个文档用独立 Profile，允许3个并行任务。
+`GIZCLAW_RUNTIME_TOOL_CASE_FILTER`、`GIZCLAW_RUNTIME_TOOL_REPEAT` 和
+`GIZCLAW_RUNTIME_TOOL_SMOKE_ONLY` 仅用于明确标记的诊断子集，不能代替完整矩阵。
+
+没有变更动作的轮次由另一个真实模型 Peer 检查虚假的变更完成声明；裁判的误判也保留为
+失败，需人工核对原始回复与调用记录。`client_rpc.observe_only: true` 只读取已收到的计数，
+不等待或断言调用次数，不能同时配置 response 或 expect_calls；finally 只允许这种观察形式，
+用于即使主断言失败也保存协议回执。它不注册新的设备 handler。
+
+报告保留 inputs、源代码 patch、编译前后源文件哈希、二进制哈希、giztest.json、summary.json
+与 report.html。参数与目标正确率按实际用户轮次对齐后的解码请求独立计算；动作指标只统计
+变更请求，读调用由原生断言另行核对。就绪时间测量用户轮开始至设备收到完整
+合法请求，包含传输时间。失败文档可能在后续轮次前结束，未执行轮次单独计数。历史上下文
+不复制实验里的脚本 assistant；历史中已齐全的真实执行指令另计动作，实验中只“准备”执行
+的场景在原生用户轮显式说明暂不执行。焦点场景通过真实 Profile 目录显示元数据更新建模，
+不能声称已提供产品 UI 焦点 API。音乐测试验证协议状态，不能声称音频已经实际播放。
+
+程序切换 fixture 使用独立的真实 Workflow/Workspace 标识，但这些 Workflow 共用测试
+assistant Graph。`run_workspace` handler 只调用 Server selection 并返回 ACK，不提交 reload，
+因此这些调用回执不证明剧本内容、切换后的运行状态或首轮 kickoff 已就绪。HTTP resource
+的原生合同场景验证绑定、换绑、禁用和删除后的目录状态；HTTP 执行与调用前权限变更另由
+Go 测试验证，不能把目录通过写成真实外部 HTTP provider 已通过 Docker 验收。

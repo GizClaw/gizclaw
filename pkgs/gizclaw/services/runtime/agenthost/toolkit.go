@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"maps"
 	"net/http"
+	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 )
@@ -23,98 +28,151 @@ type toolCredentialResolver interface {
 // Peer's RuntimeProfile on every call and keeps resource storage and transport
 // details out of workflow Transformers.
 type ToolkitInvoker struct {
-	Builder     *toolkit.Builder
+	Catalog     *toolcatalog.Catalog
+	Owner       func(context.Context) (string, error)
+	Scope       func(context.Context, string) (apitypes.RuntimeProfile, []string, error)
 	Credentials toolCredentialResolver
 	HTTP        giztools.HTTPExecutor
-	Request     toolkit.BuildRequest
 }
 
 var _ genx.ToolInvoker = (*ToolkitInvoker)(nil)
 
+func (i *ToolkitInvoker) resolveCatalog(ctx context.Context) (string, apitypes.RuntimeProfile, []toolcatalog.Tool, error) {
+	if i == nil || i.Catalog == nil || i.Owner == nil || i.Scope == nil {
+		return "", apitypes.RuntimeProfile{}, nil, toolkit.ErrNotConfigured
+	}
+	owner, err := i.Owner(ctx)
+	if err != nil {
+		return "", apitypes.RuntimeProfile{}, nil, err
+	}
+	profile, names, err := i.Scope(ctx, owner)
+	if err != nil {
+		return "", profile, nil, err
+	}
+	tools, err := i.Catalog.Resolve(ctx, owner, profile, &names)
+	return owner, profile, tools, err
+}
+
 func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinition, error) {
-	request, _, err := i.requestForContext(ctx)
+	_, _, tools, err := i.resolveCatalog(ctx)
 	if err != nil {
 		return nil, err
 	}
-	kit, err := i.Builder.Build(ctx, request)
-	if err != nil {
-		return nil, fmt.Errorf("agenthost: resolve Tools: %w", err)
-	}
-	definitions := make([]genx.ToolDefinition, 0, len(kit.Tools))
-	for index := range kit.Tools {
-		tool := kit.Tools[index]
-		schema := tool.InputSchema
-		definitions = append(definitions, genx.ToolDefinition{
-			Name:        tool.InvokeName,
-			Description: stringValue(tool.Description),
-			Argument:    &schema,
-		})
+	definitions := make([]genx.ToolDefinition, 0, len(tools))
+	for _, tool := range tools {
+		if !tool.Available {
+			continue
+		}
+		schema := tool.Schema
+		definitions = append(definitions, genx.ToolDefinition{Name: tool.FunctionName, Description: tool.Description, Argument: &schema})
 	}
 	return definitions, nil
 }
 
-func (i *ToolkitInvoker) InvokeTool(
-	ctx context.Context,
-	name string,
-	args json.RawMessage,
-) (json.RawMessage, error) {
-	request, _, err := i.requestForContext(ctx)
-	if err != nil {
-		return nil, err
+func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
+	if len(args) == 0 {
+		args = json.RawMessage(`{}`)
 	}
-	tool, arguments, err := i.Builder.ResolveInvoke(ctx, toolkit.InvokeRequest{
-		Build: request,
-		Name:  name,
-		Args:  args,
-	})
+	if i == nil || i.Catalog == nil || i.Owner == nil || i.Scope == nil {
+		return recoverableToolError("unavailable", "tool authorization is unavailable"), nil
+	}
+	owner, err := i.Owner(ctx)
 	if err != nil {
-		if errors.Is(err, toolkit.ErrToolNotFound) {
+		return recoverableToolError("unavailable", "tool authorization is unavailable"), nil
+	}
+	profile, names, err := i.Scope(ctx, owner)
+	if err != nil {
+		return recoverableToolError("unavailable", "tool authorization is unavailable"), nil
+	}
+	selected := []string{}
+	for _, alias := range names {
+		function, err := toolcatalog.FunctionName(alias)
+		if err == nil && function == name {
+			selected = append(selected, alias)
+		}
+	}
+	if len(selected) != 1 {
+		slog.WarnContext(ctx, "agenthost: Tool call rejected", "reason", "function_not_authorized")
+		return recoverableToolError("unavailable", "tool is not authorized"), nil
+	}
+	// Resolve only the requested binding immediately before execution. Unrelated
+	// devices do not gain traffic or affect this operation's authorization.
+	tools, err := i.Catalog.Resolve(ctx, owner, profile, &selected)
+	if err != nil {
+		return recoverableToolError("unavailable", "tool authorization is unavailable"), nil
+	}
+	for _, tool := range tools {
+		if tool.FunctionName != name {
+			continue
+		}
+		slog.InfoContext(ctx, "agenthost: Tool execution requested", "tool_alias", tool.Alias, "source", tool.Source)
+		if !tool.Available {
+			slog.WarnContext(ctx, "agenthost: Tool unavailable", "tool_alias", tool.Alias, "reason", tool.Reason)
 			return recoverableToolError("unavailable", "tool is unavailable"), nil
 		}
-		return nil, fmt.Errorf("agenthost: authorize Tool invocation: %w", err)
+		if err := toolcatalog.ValidateArguments(tool, args); err != nil {
+			slog.WarnContext(ctx, "agenthost: Tool arguments rejected", "tool_alias", tool.Alias, "reason", "invalid_arguments")
+			return recoverableToolError("invalid_arguments", "tool arguments do not match its schema"), nil
+		}
+		tool.Authorize = func(ctx context.Context) error {
+			current, names, err := i.Scope(ctx, owner)
+			if err != nil || current.Revision != profile.Revision || !slices.Contains(names, tool.Alias) || current.Spec.Resources.Tools == nil {
+				return errors.New("Tool permissions changed")
+			}
+			if binding, ok := (*current.Spec.Resources.Tools)[tool.Alias]; !ok || !reflect.DeepEqual(binding, tool.Binding) {
+				return errors.New("Tool binding changed")
+			}
+			if tool.HTTP != nil {
+				resource, err := i.Catalog.Tools.GetToolByID(ctx, tool.HTTP.ID)
+				if err != nil || !resource.Enabled || !reflect.DeepEqual(resource, *tool.HTTP) {
+					return errors.New("HTTP Tool changed")
+				}
+			}
+			return nil
+		}
+		if tool.HTTP != nil {
+			return i.invokeHTTP(ctx, *tool.HTTP, args, tool.Authorize)
+		}
+		result, err := i.Catalog.Devices.Invoke(ctx, owner, profile, tool, args)
+		if err != nil {
+			reason := "device_operation_failed"
+			if failure, ok := errors.AsType[*toolcatalog.InvocationError](err); ok {
+				reason = failure.Code
+			}
+			slog.WarnContext(ctx, "agenthost: device Tool failed", "tool_alias", tool.Alias, "reason", reason)
+			return recoverableToolError("device_failure", "device operation did not succeed"), nil
+		}
+		return result, nil
 	}
-	switch tool.Type {
-	case toolkit.ToolTypeHTTPRequest:
-		return i.invokeHTTP(ctx, tool, arguments)
-	default:
-		return nil, fmt.Errorf("agenthost: unsupported Tool type %q", tool.Type)
-	}
-}
-
-func (i *ToolkitInvoker) requestForContext(ctx context.Context) (toolkit.BuildRequest, toolExecutionContext, error) {
-	if i == nil || i.Builder == nil {
-		return toolkit.BuildRequest{}, toolExecutionContext{}, toolkit.ErrNotConfigured
-	}
-	scope, ok := toolExecutionFromContext(ctx)
-	if !ok {
-		return toolkit.BuildRequest{}, toolExecutionContext{}, errors.New("agenthost: current Peer Tool context is required")
-	}
-	request := i.Request
-	request.ProfileTools = append([]string(nil), scope.profileTools...)
-	if access, ok := resourceAccessFromContext(ctx); ok {
-		request.CallerPublicKey = access.ownerPublicKey
-	}
-	return request, scope, nil
+	return recoverableToolError("unavailable", "tool is not authorized"), nil
 }
 
 func (i *ToolkitInvoker) invokeHTTP(
 	ctx context.Context,
 	tool toolkit.Tool,
 	args json.RawMessage,
+	authorize func(context.Context) error,
 ) (json.RawMessage, error) {
 	if tool.HTTP == nil {
 		return nil, fmt.Errorf("agenthost: Tool %q has no HTTP operation", tool.InvokeName)
 	}
 	authorizer, err := i.httpAuthorizer(ctx, tool.HTTP.Auth)
 	if err != nil {
-		return nil, fmt.Errorf("agenthost: Tool %q auth: %w", tool.InvokeName, err)
+		return recoverableToolError("authorization_failure", "tool authorization did not succeed"), nil
 	}
-	result, err := i.HTTP.Invoke(ctx, httpOperation(*tool.HTTP), args, authorizer)
+	result, err := i.HTTP.Invoke(ctx, httpOperation(*tool.HTTP), args, giztools.HTTPAuthorizerFunc(func(callCtx context.Context, request *http.Request) error {
+		if authorizer != nil {
+			if err := authorizer.Authorize(callCtx, request); err != nil {
+				return err
+			}
+		}
+		return authorize(callCtx)
+	}))
 	if errors.Is(err, context.DeadlineExceeded) {
 		return recoverableToolError("timeout", "tool execution timed out"), nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("agenthost: invoke HTTP Tool %q: %w", tool.InvokeName, err)
+		return recoverableToolError("http_failure", "HTTP tool operation did not succeed"), nil
 	}
 	return result, nil
 }

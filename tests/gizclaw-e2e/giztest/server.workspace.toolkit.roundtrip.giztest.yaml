@@ -48,7 +48,7 @@ steps:
       toolkit:
         tool_names:
           value:
-          - giztest_echo
+          - giztest-echo
   expect:
     "/toolkit/tool_names/value":
       equals:
@@ -182,6 +182,18 @@ steps:
           - unknown-workspace-tool
   expect_error:
     code: 5
+- id: reject_private_http_invoke_name
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: "${inherit_name}-private"
+      workflow_name: eino-chat-assistant
+      toolkit:
+        tool_names:
+          value: [giztest_echo]
+  expect_error:
+    code: 3
 finally:
 - id: stop
   client: peer

@@ -134,7 +134,7 @@ func TestDeviceRuntimeReportsPendingWorkspace(t *testing.T) {
 }
 
 type fakeControlProfiles struct {
-	tools map[string]apitypes.RuntimeProfileBinding
+	tools map[string]apitypes.RuntimeProfileToolBinding
 }
 
 func (p fakeControlProfiles) ResolveOwnerProfile(context.Context, string) (apitypes.RuntimeProfile, error) {

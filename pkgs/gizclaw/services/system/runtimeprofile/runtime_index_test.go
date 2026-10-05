@@ -82,7 +82,7 @@ func TestMemoryIndexDecomposesAllProfilesAndFiltersTags(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	for _, id := range []string{"alpha", "beta"} {
-		binding := runtimeProfileTestBinding(id + "-workflow")
+		binding := runtimeProfileTestWorkflowBinding(id + "-workflow")
 		binding.Tags = &[]string{"6-8", "stories"}
 		models := map[string]apitypes.RuntimeProfileBinding{"chat": runtimeProfileTestBinding(id + "-model")}
 		voices := map[string]apitypes.RuntimeProfileBinding{"narrator": runtimeProfileTestBinding(id + "-voice")}
@@ -182,7 +182,7 @@ func TestMemoryIndexRotatesOnInterval(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	item := apitypes.RuntimeProfile{
 		Id: "external", Revision: "rev", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}},
 	}
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, item); err != nil || !created {
 		t.Fatalf("external insert = %v, %v", created, err)
@@ -211,7 +211,7 @@ func TestMemoryIndexRefreshesExternalProfileWrites(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	item := apitypes.RuntimeProfile{
 		Id: "external", Revision: "rev", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}},
 	}
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, item); err != nil || !created {
 		t.Fatalf("external insert = %v, %v", created, err)
@@ -249,7 +249,7 @@ func TestMemoryIndexSplitsEveryConfigurationKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
-	tools := map[string]apitypes.RuntimeProfileBinding{"echo": runtimeProfileTestBinding("echo-tool")}
+	tools := map[string]apitypes.RuntimeProfileToolBinding{"echo": runtimeProfileTestToolBinding("echo-tool")}
 	var connection apitypes.RuntimeProfileMemoryConnection
 	if err := connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
 		Endpoint: "http://memory.example", Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted,
@@ -286,7 +286,7 @@ func TestMemoryIndexRefreshAndWritesMakeProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
-	initial := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}}
+	initial := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}}
 	if response, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{Id: "shared", Spec: initial}}); err != nil {
 		t.Fatal(err)
 	} else if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
@@ -307,7 +307,7 @@ func TestMemoryIndexRefreshAndWritesMakeProgress(t *testing.T) {
 	go func() {
 		defer group.Done()
 		for i := range 10 {
-			spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}}
+			spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}}
 			binding := spec.Workflows["chat"]
 			binding.Tags = &[]string{fmt.Sprintf("tag-%d", i)}
 			spec.Workflows["chat"] = binding
@@ -353,7 +353,7 @@ func TestMemoryIndexRemainsReadableWithoutPersistentDB(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	response, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Id: "cached", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
+		Id: "cached", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}},
 	}})
 	if err != nil {
 		t.Fatal(err)

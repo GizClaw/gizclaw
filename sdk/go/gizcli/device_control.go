@@ -21,6 +21,10 @@ var (
 // DeviceControlHandlers installs MHS HWD handlers and predefined tool/v0 procedures. A nil handler answers
 // METHOD_NOT_FOUND, which the Server maps to 501 DEVICE_UNSUPPORTED.
 type DeviceControlHandlers struct {
+	// MhsCapabilities advertises only physically implemented instances and write
+	// fields. A nil callback leaves support unknown for runtime Tool discovery.
+	MhsCapabilities func(context.Context) ([]*rpcpb.MhsV0InstanceCapability, error)
+
 	// ReadMhsHwd returns one typed HWD observation, or NOT_FOUND.
 	ReadMhsHwd func(context.Context, *rpcpb.ClientMhsV0ReadRequest) (*rpcpb.ClientMhsV0ReadResponse, error)
 	// WriteMhsHwd enforces driver safety limits for one writable HWD.
@@ -158,6 +162,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		if err != nil || rpcapi.ValidateMhsHwdReadRequest(params) != nil {
 			return rpcInvalidParams(req.Id), nil
 		}
+		c.peer.observeDeviceRequest(req.Method, 0, params)
 		c.peer.observeClientRPC(req.Method)
 		result, err := handlers.ReadMhsHwd(ctx, params)
 		if err != nil {
@@ -178,6 +183,7 @@ func (c *rpcClient) handleDeviceControl(ctx context.Context, req *rpcapi.RPCRequ
 		if err != nil || rpcapi.ValidateMhsHwdWriteRequest(params) != nil {
 			return rpcInvalidParams(req.Id), nil
 		}
+		c.peer.observeDeviceRequest(req.Method, 0, params)
 		c.peer.observeClientRPC(req.Method)
 		result, err := handlers.WriteMhsHwd(ctx, params)
 		if err != nil {

@@ -15,8 +15,9 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../rpc.pbenum.dart' as $1;
+import '../rpc.pbenum.dart' as $2;
 import 'audioplayer.pb.dart' as $0;
+import 'mhs_v0.pbenum.dart' as $1;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -699,12 +700,90 @@ class ClientRpcMethodsListRequest extends $pb.GeneratedMessage {
 /// and 136; a later mhs/v1 or tool/v1 appears here as its own numbers. Which
 /// individual tools tool/v0 offers is a separate question, answered by
 /// client.tool.v0.list. Unknown numbers must be ignored rather than rejected.
+/// Explicit support for a concrete hardware instance. Presence in the generic
+/// HWD schema is never evidence of implementation on this device.
+class MhsV0InstanceCapability extends $pb.GeneratedMessage {
+  factory MhsV0InstanceCapability({
+    $core.String? id,
+    $1.ClientHwd? hwd,
+    $core.Iterable<$core.String>? writeFields,
+  }) {
+    final result = create();
+    if (id != null) result.id = id;
+    if (hwd != null) result.hwd = hwd;
+    if (writeFields != null) result.writeFields.addAll(writeFields);
+    return result;
+  }
+
+  MhsV0InstanceCapability._();
+
+  factory MhsV0InstanceCapability.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory MhsV0InstanceCapability.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'MhsV0InstanceCapability',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'id')
+    ..aE<$1.ClientHwd>(2, _omitFieldNames ? '' : 'hwd',
+        enumValues: $1.ClientHwd.values)
+    ..pPS(3, _omitFieldNames ? '' : 'writeFields')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MhsV0InstanceCapability clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  MhsV0InstanceCapability copyWith(
+          void Function(MhsV0InstanceCapability) updates) =>
+      super.copyWith((message) => updates(message as MhsV0InstanceCapability))
+          as MhsV0InstanceCapability;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static MhsV0InstanceCapability create() => MhsV0InstanceCapability._();
+  @$core.override
+  MhsV0InstanceCapability createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static MhsV0InstanceCapability getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<MhsV0InstanceCapability>(create);
+  static MhsV0InstanceCapability? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get id => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set id($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearId() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $1.ClientHwd get hwd => $_getN(1);
+  @$pb.TagNumber(2)
+  set hwd($1.ClientHwd value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasHwd() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearHwd() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $pb.PbList<$core.String> get writeFields => $_getList(2);
+}
+
 class ClientRpcMethodsListResponse extends $pb.GeneratedMessage {
   factory ClientRpcMethodsListResponse({
-    $core.Iterable<$1.RpcMethod>? methods,
+    $core.Iterable<$2.RpcMethod>? methods,
+    $core.Iterable<MhsV0InstanceCapability>? mhsV0,
   }) {
     final result = create();
     if (methods != null) result.methods.addAll(methods);
+    if (mhsV0 != null) result.mhsV0.addAll(mhsV0);
     return result;
   }
 
@@ -721,10 +800,12 @@ class ClientRpcMethodsListResponse extends $pb.GeneratedMessage {
       _omitMessageNames ? '' : 'ClientRpcMethodsListResponse',
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
-    ..pc<$1.RpcMethod>(1, _omitFieldNames ? '' : 'methods', $pb.PbFieldType.KE,
-        valueOf: $1.RpcMethod.valueOf,
-        enumValues: $1.RpcMethod.values,
-        defaultEnumValue: $1.RpcMethod.RPC_METHOD_UNSPECIFIED)
+    ..pc<$2.RpcMethod>(1, _omitFieldNames ? '' : 'methods', $pb.PbFieldType.KE,
+        valueOf: $2.RpcMethod.valueOf,
+        enumValues: $2.RpcMethod.values,
+        defaultEnumValue: $2.RpcMethod.RPC_METHOD_UNSPECIFIED)
+    ..pPM<MhsV0InstanceCapability>(2, _omitFieldNames ? '' : 'mhsV0',
+        subBuilder: MhsV0InstanceCapability.create)
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -750,7 +831,11 @@ class ClientRpcMethodsListResponse extends $pb.GeneratedMessage {
   static ClientRpcMethodsListResponse? _defaultInstance;
 
   @$pb.TagNumber(1)
-  $pb.PbList<$1.RpcMethod> get methods => $_getList(0);
+  $pb.PbList<$2.RpcMethod> get methods => $_getList(0);
+
+  /// Empty means capability unknown, not every manifest instance supported.
+  @$pb.TagNumber(2)
+  $pb.PbList<MhsV0InstanceCapability> get mhsV0 => $_getList(1);
 }
 
 /// ClientDeviceFindRequest asks the device to play its built-in find-me sound.

@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -49,6 +50,7 @@ type Server struct {
 	Friends        *friend.Server
 	FriendGroups   *friendgroup.Server
 	Tools          *toolkit.Server
+	ToolCatalog    *toolcatalog.Catalog
 	Profiles       publicProfileService
 	Index          *runtimeindex.Index
 	RuntimeProfile func() *apitypes.RuntimeProfile
@@ -1122,7 +1124,7 @@ func ValidWorkflowTagSelector(tags []string) bool {
 	return true
 }
 
-func workflowTags(binding apitypes.RuntimeProfileBinding) []string {
+func workflowTags(binding apitypes.RuntimeProfileWorkflowBinding) []string {
 	if binding.Tags == nil {
 		return []string{}
 	}
@@ -1188,7 +1190,7 @@ func (s *Server) handleWorkflowGet(ctx context.Context, req *rpcapi.RPCRequest) 
 	}, (*rpcapi.RPCPayload).FromWorkflowGetResponse)
 }
 
-func workflowRPCProjection(item apitypes.Workflow, alias string, binding apitypes.RuntimeProfileBinding) rpcapi.Workflow {
+func workflowRPCProjection(item apitypes.Workflow, alias string, binding apitypes.RuntimeProfileWorkflowBinding) rpcapi.Workflow {
 	result := rpcapi.Workflow{
 		Name: alias, Tags: workflowTags(binding), I18n: workflowBindingI18n(binding),
 		Driver: rpcapi.WorkflowDriver(item.Spec.Driver),

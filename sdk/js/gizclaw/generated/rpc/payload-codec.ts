@@ -231,6 +231,7 @@ export type ClientMhsV0ReadRequest = {
 };
 export type ClientMhsV0ReadResponse = {
   "payload": string;
+  "write_capabilities"?: MhsV0WriteCapabilities;
 };
 export type ClientMhsV0WriteRequest = {
   "id": string;
@@ -243,6 +244,7 @@ export type ClientMhsV0WriteResponse = {
 export type ClientRpcMethodsListRequest = Record<string, never>;
 export type ClientRpcMethodsListResponse = {
   "methods": RpcMethod[];
+  "mhs_v0": MhsV0InstanceCapability[];
 };
 export type ClientRunWorkspaceSetRequest = {
   "workspace_name": string;
@@ -799,6 +801,14 @@ export type LedHwdWriteRequest = {
 export type LedHwdWriteResponse = {
   "applied": LedHwdReadResponse;
 };
+export type MhsV0InstanceCapability = {
+  "id": string;
+  "hwd": ClientHwd;
+  "write_fields": string[];
+};
+export type MhsV0WriteCapabilities = {
+  "fields": string[];
+};
 export type MicHwdReadResponse = {
   "available"?: boolean;
   "capturing"?: boolean;
@@ -1221,9 +1231,17 @@ export type Tool = {
   "i18n": Record<string, ResourceI18nText>;
   "input_schema": Record<string, unknown>;
   "invoke_name": string;
+  "source": string;
+  "target": Record<string, unknown>;
+  "supported": boolean;
+  "online": boolean;
+  "available": boolean;
+  "unavailable_reason": string;
 };
 export type ToolGetRequest = {
   "name": string;
+  "workflow_name"?: string;
+  "workspace_name"?: string;
 };
 export type ToolGetResponse = {
   "value": Tool;
@@ -1233,6 +1251,8 @@ export type ToolGetResponse = {
 export type ToolListRequest = {
   "cursor"?: string;
   "limit"?: number;
+  "workflow_name"?: string;
+  "workspace_name"?: string;
 };
 export type ToolListResponse = {
   "items": Tool[];
@@ -2434,6 +2454,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "payload",
         "number": 1,
         "type": "bytes"
+      },
+      {
+        "name": "write_capabilities",
+        "number": 2,
+        "optional": true,
+        "type": "MhsV0WriteCapabilities"
       }
     ]
   },
@@ -2475,6 +2501,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 1,
         "repeated": true,
         "type": "RpcMethod"
+      },
+      {
+        "name": "mhs_v0",
+        "number": 2,
+        "repeated": true,
+        "type": "MhsV0InstanceCapability"
       }
     ]
   },
@@ -4977,6 +5009,36 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "MhsV0InstanceCapability": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "hwd",
+        "number": 2,
+        "type": "ClientHwd"
+      },
+      {
+        "name": "write_fields",
+        "number": 3,
+        "repeated": true,
+        "type": "string"
+      }
+    ]
+  },
+  "MhsV0WriteCapabilities": {
+    "fields": [
+      {
+        "name": "fields",
+        "number": 1,
+        "repeated": true,
+        "type": "string"
+      }
+    ]
+  },
   "MicHwdReadResponse": {
     "fields": [
       {
@@ -6920,6 +6982,36 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "invoke_name",
         "number": 4,
         "type": "string"
+      },
+      {
+        "name": "source",
+        "number": 5,
+        "type": "string"
+      },
+      {
+        "name": "target",
+        "number": 6,
+        "type": "google.protobuf.Struct"
+      },
+      {
+        "name": "supported",
+        "number": 7,
+        "type": "bool"
+      },
+      {
+        "name": "online",
+        "number": 8,
+        "type": "bool"
+      },
+      {
+        "name": "available",
+        "number": 9,
+        "type": "bool"
+      },
+      {
+        "name": "unavailable_reason",
+        "number": 10,
+        "type": "string"
       }
     ]
   },
@@ -6928,6 +7020,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "name",
         "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "workflow_name",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "workspace_name",
+        "number": 3,
+        "optional": true,
         "type": "string"
       }
     ]
@@ -6984,6 +7088,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 2,
         "optional": true,
         "type": "int64"
+      },
+      {
+        "name": "workflow_name",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "workspace_name",
+        "number": 4,
+        "optional": true,
+        "type": "string"
       }
     ]
   },

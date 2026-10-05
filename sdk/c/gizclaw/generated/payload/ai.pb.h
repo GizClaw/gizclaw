@@ -709,7 +709,14 @@ typedef struct _gizclaw_rpc_v1_Tool {
     pb_callback_t i18n;
     bool has_input_schema;
     google_protobuf_Struct input_schema;
-    pb_callback_t invoke_name;
+    pb_callback_t invoke_name; /* Stable model function name projected from the Profile alias. */
+    pb_callback_t source; /* http_request, mhs, or client_tool. */
+    bool has_target;
+    google_protobuf_Struct target; /* Fixed procedure or id/hwd/operation; no secrets. */
+    bool supported;
+    bool online;
+    bool available;
+    pb_callback_t unavailable_reason;
 } gizclaw_rpc_v1_Tool;
 
 typedef struct _gizclaw_rpc_v1_Tool_I18nEntry {
@@ -722,6 +729,8 @@ typedef struct _gizclaw_rpc_v1_ToolListRequest {
     pb_callback_t cursor;
     bool has_limit;
     int64_t limit;
+    pb_callback_t workflow_name;
+    pb_callback_t workspace_name;
 } gizclaw_rpc_v1_ToolListRequest;
 
 typedef struct _gizclaw_rpc_v1_ToolListResponse {
@@ -734,6 +743,8 @@ typedef struct _gizclaw_rpc_v1_ToolListResponse {
 
 typedef struct _gizclaw_rpc_v1_ToolGetRequest {
     pb_callback_t name;
+    pb_callback_t workflow_name;
+    pb_callback_t workspace_name;
 } gizclaw_rpc_v1_ToolGetRequest;
 
 typedef struct _gizclaw_rpc_v1_ToolGetResponse {
@@ -914,11 +925,11 @@ extern "C" {
 #define gizclaw_rpc_v1_SafetyFenceOption_init_default {"", false, ""}
 #define gizclaw_rpc_v1_ToolkitPolicyToolNames_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_default {false, gizclaw_rpc_v1_ToolkitPolicyToolNames_init_default}
-#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_default         {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_default, 0, 0, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Tool_I18nEntry_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_ResourceI18nText_init_default}
-#define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_ToolListRequest_init_default {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolListResponse_init_default {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolGetRequest_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetResponse_init_default {false, gizclaw_rpc_v1_Tool_init_default, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ResourceI18nText_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_SpeechTranscribeRequest_init_zero {"", "", false, ""}
@@ -987,11 +998,11 @@ extern "C" {
 #define gizclaw_rpc_v1_SafetyFenceOption_init_zero {"", false, ""}
 #define gizclaw_rpc_v1_ToolkitPolicyToolNames_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolkitPolicy_init_zero   {false, gizclaw_rpc_v1_ToolkitPolicyToolNames_init_zero}
-#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Tool_init_zero            {{{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, {{NULL}, NULL}, {{NULL}, NULL}, false, google_protobuf_Struct_init_zero, 0, 0, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_Tool_I18nEntry_init_zero  {{{NULL}, NULL}, false, gizclaw_rpc_v1_ResourceI18nText_init_zero}
-#define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0}
+#define gizclaw_rpc_v1_ToolListRequest_init_zero {{{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolListResponse_init_zero {{{NULL}, NULL}, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ToolGetRequest_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ToolGetResponse_init_zero {false, gizclaw_rpc_v1_Tool_init_zero, {{NULL}, NULL}, {{NULL}, NULL}}
 
 /* Field tags (for use in manual encoding/decoding) */
@@ -1328,16 +1339,26 @@ extern "C" {
 #define gizclaw_rpc_v1_Tool_i18n_tag             2
 #define gizclaw_rpc_v1_Tool_input_schema_tag     3
 #define gizclaw_rpc_v1_Tool_invoke_name_tag      4
+#define gizclaw_rpc_v1_Tool_source_tag           5
+#define gizclaw_rpc_v1_Tool_target_tag           6
+#define gizclaw_rpc_v1_Tool_supported_tag        7
+#define gizclaw_rpc_v1_Tool_online_tag           8
+#define gizclaw_rpc_v1_Tool_available_tag        9
+#define gizclaw_rpc_v1_Tool_unavailable_reason_tag 10
 #define gizclaw_rpc_v1_Tool_I18nEntry_key_tag    1
 #define gizclaw_rpc_v1_Tool_I18nEntry_value_tag  2
 #define gizclaw_rpc_v1_ToolListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_ToolListRequest_limit_tag 2
+#define gizclaw_rpc_v1_ToolListRequest_workflow_name_tag 3
+#define gizclaw_rpc_v1_ToolListRequest_workspace_name_tag 4
 #define gizclaw_rpc_v1_ToolListResponse_items_tag 1
 #define gizclaw_rpc_v1_ToolListResponse_has_next_tag 2
 #define gizclaw_rpc_v1_ToolListResponse_next_cursor_tag 3
 #define gizclaw_rpc_v1_ToolListResponse_runtime_profile_name_tag 4
 #define gizclaw_rpc_v1_ToolListResponse_runtime_profile_revision_tag 5
 #define gizclaw_rpc_v1_ToolGetRequest_name_tag   1
+#define gizclaw_rpc_v1_ToolGetRequest_workflow_name_tag 2
+#define gizclaw_rpc_v1_ToolGetRequest_workspace_name_tag 3
 #define gizclaw_rpc_v1_ToolGetResponse_value_tag 1
 #define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_name_tag 2
 #define gizclaw_rpc_v1_ToolGetResponse_runtime_profile_revision_tag 3
@@ -2000,11 +2021,18 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  tool_names,        1)
 X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
 X(a, CALLBACK, REPEATED, MESSAGE,  i18n,              2) \
 X(a, STATIC,   OPTIONAL, MESSAGE,  input_schema,      3) \
-X(a, CALLBACK, SINGULAR, STRING,   invoke_name,       4)
+X(a, CALLBACK, SINGULAR, STRING,   invoke_name,       4) \
+X(a, CALLBACK, SINGULAR, STRING,   source,            5) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  target,            6) \
+X(a, STATIC,   SINGULAR, BOOL,     supported,         7) \
+X(a, STATIC,   SINGULAR, BOOL,     online,            8) \
+X(a, STATIC,   SINGULAR, BOOL,     available,         9) \
+X(a, CALLBACK, SINGULAR, STRING,   unavailable_reason,  10)
 #define gizclaw_rpc_v1_Tool_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Tool_DEFAULT NULL
 #define gizclaw_rpc_v1_Tool_i18n_MSGTYPE gizclaw_rpc_v1_Tool_I18nEntry
 #define gizclaw_rpc_v1_Tool_input_schema_MSGTYPE google_protobuf_Struct
+#define gizclaw_rpc_v1_Tool_target_MSGTYPE google_protobuf_Struct
 
 #define gizclaw_rpc_v1_Tool_I18nEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
@@ -2015,7 +2043,9 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
 
 #define gizclaw_rpc_v1_ToolListRequest_FIELDLIST(X, a) \
 X(a, CALLBACK, OPTIONAL, STRING,   cursor,            1) \
-X(a, STATIC,   OPTIONAL, INT64,    limit,             2)
+X(a, STATIC,   OPTIONAL, INT64,    limit,             2) \
+X(a, CALLBACK, OPTIONAL, STRING,   workflow_name,     3) \
+X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    4)
 #define gizclaw_rpc_v1_ToolListRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolListRequest_DEFAULT NULL
 
@@ -2030,7 +2060,9 @@ X(a, CALLBACK, SINGULAR, STRING,   runtime_profile_revision,   5)
 #define gizclaw_rpc_v1_ToolListResponse_items_MSGTYPE gizclaw_rpc_v1_Tool
 
 #define gizclaw_rpc_v1_ToolGetRequest_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, STRING,   name,              1)
+X(a, CALLBACK, SINGULAR, STRING,   name,              1) \
+X(a, CALLBACK, OPTIONAL, STRING,   workflow_name,     2) \
+X(a, CALLBACK, OPTIONAL, STRING,   workspace_name,    3)
 #define gizclaw_rpc_v1_ToolGetRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ToolGetRequest_DEFAULT NULL
 

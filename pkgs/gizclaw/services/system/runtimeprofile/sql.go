@@ -298,7 +298,7 @@ func decodeRuntimeProfileWorkflows(data []byte) (apitypes.RuntimeProfileWorkflow
 		}
 	}
 	if len(raw) == 1 && collectionsValue != nil && collectionsValue["resource_id"] == nil {
-		var collections map[string]map[string]apitypes.RuntimeProfileBinding
+		var collections map[string]map[string]apitypes.RuntimeProfileWorkflowBinding
 		if err := json.Unmarshal(raw["collections"], &collections); err != nil {
 			return nil, err
 		}

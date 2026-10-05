@@ -85,18 +85,46 @@ final $typed_data.Uint8List clientMhsV0ReadRequestDescriptor =
         'ChZDbGllbnRNaHNWMFJlYWRSZXF1ZXN0Eg4KAmlkGAEgASgJUgJpZBIrCgNod2QYAiABKA4yGS'
         '5naXpjbGF3LnJwYy52MS5DbGllbnRId2RSA2h3ZA==');
 
+@$core.Deprecated('Use mhsV0WriteCapabilitiesDescriptor instead')
+const MhsV0WriteCapabilities$json = {
+  '1': 'MhsV0WriteCapabilities',
+  '2': [
+    {'1': 'fields', '3': 1, '4': 3, '5': 9, '10': 'fields'},
+  ],
+};
+
+/// Descriptor for `MhsV0WriteCapabilities`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List mhsV0WriteCapabilitiesDescriptor =
+    $convert.base64Decode(
+        'ChZNaHNWMFdyaXRlQ2FwYWJpbGl0aWVzEhYKBmZpZWxkcxgBIAMoCVIGZmllbGRz');
+
 @$core.Deprecated('Use clientMhsV0ReadResponseDescriptor instead')
 const ClientMhsV0ReadResponse$json = {
   '1': 'ClientMhsV0ReadResponse',
   '2': [
     {'1': 'payload', '3': 1, '4': 1, '5': 12, '10': 'payload'},
+    {
+      '1': 'write_capabilities',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.MhsV0WriteCapabilities',
+      '9': 0,
+      '10': 'writeCapabilities',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_write_capabilities'},
   ],
 };
 
 /// Descriptor for `ClientMhsV0ReadResponse`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List clientMhsV0ReadResponseDescriptor =
-    $convert.base64Decode(
-        'ChdDbGllbnRNaHNWMFJlYWRSZXNwb25zZRIYCgdwYXlsb2FkGAEgASgMUgdwYXlsb2Fk');
+final $typed_data.Uint8List clientMhsV0ReadResponseDescriptor = $convert.base64Decode(
+    'ChdDbGllbnRNaHNWMFJlYWRSZXNwb25zZRIYCgdwYXlsb2FkGAEgASgMUgdwYXlsb2FkEloKEn'
+    'dyaXRlX2NhcGFiaWxpdGllcxgCIAEoCzImLmdpemNsYXcucnBjLnYxLk1oc1YwV3JpdGVDYXBh'
+    'YmlsaXRpZXNIAFIRd3JpdGVDYXBhYmlsaXRpZXOIAQFCFQoTX3dyaXRlX2NhcGFiaWxpdGllcw'
+    '==');
 
 @$core.Deprecated('Use clientMhsV0WriteRequestDescriptor instead')
 const ClientMhsV0WriteRequest$json = {

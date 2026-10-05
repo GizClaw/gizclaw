@@ -56,6 +56,8 @@ func main() {
 
 func run() error {
 	var (
+		runtimeTools      = flag.Bool("runtime-tools", false, "Seed Profile alias and real model device Tool acceptance")
+		controlListen     = flag.String("control-listen", ":9822", "Internal test-control HTTP listener for runtime Tools")
 		rtpBOS            = flag.Bool("rtp-bos", false, "Seed local RTP BOS regression workflows")
 		speakerSegments   = flag.Bool("speaker-segments", false, "Seed isolated speaker segment fixtures")
 		slowTTS           = flag.Bool("slow-tts", false, "Seed local slow TTS regression workflows")
@@ -117,6 +119,9 @@ func run() error {
 		return fmt.Errorf("admin client: %w", err)
 	}
 
+	if *runtimeTools {
+		return seedRuntimeTools(ctx, api, *profileID, *tokenID, *token, *controlListen)
+	}
 	if *rtpBOS {
 		return seedRTPBOS(ctx, api, *profileID, *tokenID, *token)
 	}
@@ -139,7 +144,7 @@ func run() error {
 	}
 	profileSpec := runtimeProfileSpec(providerErr == nil)
 	if *monitorWorkflowID != "" {
-		profileSpec.Workflows[*monitorWorkflowID] = binding(*monitorWorkflowID, "Monitor Echo", "监控回声测试")
+		profileSpec.Workflows[*monitorWorkflowID] = runtimeWorkflowBinding(*monitorWorkflowID, "Monitor Echo", "监控回声测试")
 	}
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id:   *profileID,
@@ -414,4 +419,9 @@ func responseBody(response any) []byte {
 		return body.Bytes()
 	}
 	return nil
+}
+
+func runtimeWorkflowBinding(id, en, zh string) apitypes.RuntimeProfileWorkflowBinding {
+	base := binding(id, en, zh)
+	return apitypes.RuntimeProfileWorkflowBinding{ResourceId: base.ResourceId, I18n: base.I18n}
 }

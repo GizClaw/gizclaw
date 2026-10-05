@@ -163,7 +163,7 @@ func (r DeviceReads) DeviceRuntimeProfileWithTags(ctx context.Context, tags []st
 		}
 		result := peerhttp.DeviceRuntimeProfile{Name: profile.Id, Revision: profile.Revision, SafetyFences: profileSafetyFenceCatalog(profile), Workflows: make([]peerhttp.DeviceRuntimeProfileWorkflow, 0, len(entries))}
 		for _, entry := range entries {
-			var binding apitypes.RuntimeProfileBinding
+			var binding apitypes.RuntimeProfileWorkflowBinding
 			if err := json.Unmarshal(entry.Value, &binding); err != nil {
 				return peerhttp.DeviceRuntimeProfile{}, err
 			}

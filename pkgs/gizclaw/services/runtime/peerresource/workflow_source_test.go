@@ -28,7 +28,7 @@ func TestListRuntimeWorkflowsUsesCollectionAliasesAndSkipsDanglingBindings(t *te
 	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "runtime-chat")
 	createWorkflowForCollectionTest(t, ctx, workflows, "runtime-translate")
-	bindings := map[string]apitypes.RuntimeProfileBinding{
+	bindings := map[string]apitypes.RuntimeProfileWorkflowBinding{
 		"story.translate": collectionTestBinding("runtime-translate", "Translate"),
 		"story-translate": collectionTestBinding("runtime-chat", "Chat"),
 		"story.missing":   collectionTestBinding("deleted-workflow", "Missing"),
@@ -100,10 +100,10 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 	store := kv.NewMemory(nil)
 	t.Cleanup(func() { _ = store.Close() })
 	models := map[string]apitypes.RuntimeProfileBinding{
-		"chat": collectionTestBinding("tenant/model/canonical-secret", "Chat"),
+		"chat": collectionResourceTestBinding("tenant/model/canonical-secret", "Chat"),
 	}
 	voices := map[string]apitypes.RuntimeProfileBinding{
-		"narrator": collectionTestBinding("volc-tenant:main:canonical-secret", "Narrator"),
+		"narrator": collectionResourceTestBinding("volc-tenant:main:canonical-secret", "Narrator"),
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
@@ -146,12 +146,12 @@ func TestAliasGetsHideDanglingCanonicalResourceIDs(t *testing.T) {
 func TestResolveAliasesKeepsDottedAndHyphenatedNamesDistinct(t *testing.T) {
 	t.Parallel()
 	models := map[string]apitypes.RuntimeProfileBinding{
-		"journey.model": collectionTestBinding("journey-model", "Journey Model"),
-		"journey-model": collectionTestBinding("legacy-model", "Legacy Model"),
+		"journey.model": collectionResourceTestBinding("journey-model", "Journey Model"),
+		"journey-model": collectionResourceTestBinding("legacy-model", "Legacy Model"),
 	}
 	voices := map[string]apitypes.RuntimeProfileBinding{
-		"journey.narrator": collectionTestBinding("journey-voice", "Journey Voice"),
-		"journey-narrator": collectionTestBinding("legacy-voice", "Legacy Voice"),
+		"journey.narrator": collectionResourceTestBinding("journey-voice", "Journey Voice"),
+		"journey-narrator": collectionResourceTestBinding("legacy-voice", "Legacy Voice"),
 	}
 	profile := apitypes.RuntimeProfile{
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models, Voices: &voices}},
@@ -213,9 +213,9 @@ func TestListModelsProjectsRuntimeAliases(t *testing.T) {
 		t.Fatalf("CreateModel() response = %#v", response)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"journey.model": collectionTestBinding(created.Id, "Journey Model"),
-		"journey-model": collectionTestBinding(created.Id, "Legacy Journey Model"),
-		"missing.model": collectionTestBinding("deleted-model", "Missing Model"),
+		"journey.model": collectionResourceTestBinding(created.Id, "Journey Model"),
+		"journey-model": collectionResourceTestBinding(created.Id, "Legacy Journey Model"),
+		"missing.model": collectionResourceTestBinding("deleted-model", "Missing Model"),
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
@@ -274,9 +274,9 @@ func TestListVoicesProjectsRuntimeAliases(t *testing.T) {
 		t.Fatalf("CreateVoice() response = %#v", response)
 	}
 	bindings := map[string]apitypes.RuntimeProfileBinding{
-		"journey.narrator": collectionTestBinding(created.Id, "Journey Narrator"),
-		"journey-narrator": collectionTestBinding(created.Id, "Legacy Journey Narrator"),
-		"missing.narrator": collectionTestBinding("openai-tenant:primary:deleted", "Missing Voice"),
+		"journey.narrator": collectionResourceTestBinding(created.Id, "Journey Narrator"),
+		"journey-narrator": collectionResourceTestBinding(created.Id, "Legacy Journey Narrator"),
+		"missing.narrator": collectionResourceTestBinding("openai-tenant:primary:deleted", "Missing Voice"),
 	}
 	profile := apitypes.RuntimeProfile{
 		Id: "default", Revision: "r1",
@@ -392,8 +392,13 @@ func createWorkflowForCollectionTest(t *testing.T, ctx context.Context, server *
 	}
 }
 
-func collectionTestBinding(resourceID, displayName string) apitypes.RuntimeProfileBinding {
-	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
+func collectionTestBinding(resourceID, displayName string) apitypes.RuntimeProfileWorkflowBinding {
+	return apitypes.RuntimeProfileWorkflowBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
 		"en": {DisplayName: displayName}, "zh-CN": {DisplayName: displayName},
 	}}
+}
+
+func collectionResourceTestBinding(id, display string) apitypes.RuntimeProfileBinding {
+	b := collectionTestBinding(id, display)
+	return apitypes.RuntimeProfileBinding{ResourceId: b.ResourceId, I18n: b.I18n}
 }

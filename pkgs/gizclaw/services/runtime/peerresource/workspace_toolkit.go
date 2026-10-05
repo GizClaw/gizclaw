@@ -3,9 +3,7 @@ package peerresource
 import (
 	"context"
 	"errors"
-	"fmt"
-	"sort"
-	"strings"
+	"slices"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -19,83 +17,47 @@ func (s *Server) resolveWorkspaceToolkit(ctx context.Context, policy *rpcapi.Too
 	if policy == nil || policy.ToolNames == nil {
 		return nil, nil
 	}
-	out := &apitypes.ToolkitPolicy{}
-	ids := make([]string, 0, len(*policy.ToolNames))
-	out.ToolIds = &ids
-	if len(*policy.ToolNames) == 0 {
-		return out, nil
+	names := append([]string{}, (*policy.ToolNames)...)
+	if profile == nil {
+		return nil, errors.New("runtime profile not configured")
 	}
-	if profile == nil || s.Tools == nil {
-		return nil, errors.New("toolkit service or runtime profile not configured")
+	normalized, err := toolkit.NormalizePolicy(&apitypes.ToolkitPolicy{ToolNames: &names})
+	if err != nil {
+		return nil, err
 	}
-	bindings := bindingMap(profile.Spec.Resources.Tools)
-	for _, name := range *policy.ToolNames {
-		if name == "" || strings.TrimSpace(name) != name {
-			return nil, fmt.Errorf("%w: invalid Tool name", toolkit.ErrInvalidTool)
+	for _, name := range names {
+		if profile.Spec.Resources.Tools == nil {
+			return nil, toolkit.ErrToolNotFound
 		}
-		var id string
-		if binding, ok := bindings[name]; ok {
-			tool, err := s.Tools.GetToolByID(ctx, binding.ResourceId)
-			if err != nil {
-				return nil, err
-			}
-			id = tool.ID
-		} else {
-			tool, err := s.Tools.GetTool(ctx, name)
-			if err != nil {
-				return nil, err
-			}
-			for _, binding := range bindings {
-				if binding.ResourceId == tool.ID {
-					id = tool.ID
-					break
-				}
-			}
-			if id == "" {
-				return nil, toolkit.ErrToolNotFound
-			}
+		if _, ok := (*profile.Spec.Resources.Tools)[name]; !ok {
+			return nil, toolkit.ErrToolNotFound
 		}
-		ids = append(ids, id)
 	}
-	return toolkit.NormalizePolicy(out)
+	return normalized, nil
 }
 
-// projectWorkspaceToolkit returns representable names without letting stale
-// toolkit data fail Workspace reads or responses after a successful mutation.
+// Preserve alias selections verbatim, including stale references and explicit
+// empty lists. Discovery never substitutes an HTTP invoke_name for an alias.
 func (s *Server) projectWorkspaceToolkit(ctx context.Context, policy *apitypes.ToolkitPolicy, profile *apitypes.RuntimeProfile) *rpcapi.ToolkitPolicy {
-	if policy == nil || policy.ToolIds == nil {
+	if policy == nil {
 		return nil
 	}
-	bindings := map[string]apitypes.RuntimeProfileBinding{}
-	if profile != nil {
-		bindings = bindingMap(profile.Spec.Resources.Tools)
+	if policy.ToolNames != nil {
+		names := append([]string{}, (*policy.ToolNames)...)
+		return &rpcapi.ToolkitPolicy{ToolNames: &names}
 	}
-	aliases := map[string]string{}
-	for _, alias := range sortedBindingAliases(bindings) {
-		id := bindings[alias].ResourceId
-		if _, exists := aliases[id]; !exists {
-			aliases[id] = alias
-		}
+	if policy.ToolIds == nil {
+		return nil
 	}
-	names := make([]string, 0, len(*policy.ToolIds))
-	for _, id := range *policy.ToolIds {
-		name, bound := aliases[id]
-		if !bound {
-			if s.Tools == nil {
-				continue
-			}
-			tool, err := s.Tools.GetToolByID(ctx, id)
-			if err != nil {
-				continue
-			}
-			name = tool.InvokeName
-			if binding, collision := bindings[name]; collision && binding.ResourceId != id {
-				continue
+	names := []string{}
+	if profile != nil && profile.Spec.Resources.Tools != nil {
+		for _, alias := range sortedBindingAliases(*profile.Spec.Resources.Tools) {
+			binding := (*profile.Spec.Resources.Tools)[alias]
+			if binding.ResourceId != "" && slices.Contains(*policy.ToolIds, binding.ResourceId) {
+				names = append(names, alias)
 			}
 		}
-		names = append(names, name)
 	}
-	sort.Strings(names)
 	return &rpcapi.ToolkitPolicy{ToolNames: &names}
 }
 

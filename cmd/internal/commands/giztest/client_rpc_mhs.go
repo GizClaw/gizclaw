@@ -11,6 +11,9 @@ import (
 )
 
 func installMhs(handlers *gizcli.DeviceControlHandlers, method string, response any) error {
+	if object, ok := response.(map[string]any); ok && object["instances"] != nil {
+		return installStatefulMhs(handlers, response)
+	}
 	scripted, err := deviceControlErrorResponse(response)
 	if err != nil {
 		return err

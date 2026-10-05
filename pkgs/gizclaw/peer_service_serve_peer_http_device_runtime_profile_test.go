@@ -15,8 +15,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
-func runtimeProfileHTTPBinding(resourceID, displayName string) apitypes.RuntimeProfileBinding {
-	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
+func runtimeProfileHTTPBinding(resourceID, displayName string) apitypes.RuntimeProfileWorkflowBinding {
+	return apitypes.RuntimeProfileWorkflowBinding{ResourceId: resourceID, I18n: map[string]apitypes.RuntimeProfileI18nText{
 		"en": {DisplayName: displayName}, "zh-CN": {DisplayName: displayName},
 	}}
 }
@@ -44,8 +44,8 @@ func seedRuntimeProfile(t *testing.T, f *deviceHTTPFixture, owner giznet.PublicK
 }
 
 func storyTellerSpec() apitypes.RuntimeProfileSpec {
-	models := map[string]apitypes.RuntimeProfileBinding{"chat": runtimeProfileHTTPBinding("secret-model-resource", "Chat Model")}
-	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": runtimeProfileHTTPBinding("secret-voice-resource", "Narrator Voice")}
+	models := map[string]apitypes.RuntimeProfileBinding{"chat": runtimeProfileHTTPResourceBinding("secret-model-resource", "Chat Model")}
+	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": runtimeProfileHTTPResourceBinding("secret-voice-resource", "Narrator Voice")}
 	appConfig := apitypes.RuntimeProfileAppConfig{"theme": "secret-app-config-value"}
 	return apitypes.RuntimeProfileSpec{
 		AppConfig: &appConfig,
@@ -248,4 +248,9 @@ func TestGetDeviceRuntimeProfileHandlerMapsLostBinding(t *testing.T) {
 func isResponseType[T any](value any) bool {
 	_, ok := value.(T)
 	return ok
+}
+
+func runtimeProfileHTTPResourceBinding(id, display string) apitypes.RuntimeProfileBinding {
+	b := runtimeProfileHTTPBinding(id, display)
+	return apitypes.RuntimeProfileBinding{ResourceId: b.ResourceId, I18n: b.I18n}
 }

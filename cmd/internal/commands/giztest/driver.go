@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -76,7 +77,7 @@ func (d *driver) Open(ctx context.Context, doc *giztest.Document, vars *giztest.
 	if d.connectClients != nil {
 		connect = d.connectClients
 	}
-	clients, err := connect(ctx, doc.Clients, doc.Steps, vars)
+	clients, err := connect(ctx, doc.Clients, append(append([]giztest.Step{}, doc.Steps...), doc.Finally...), vars)
 	if clients == nil {
 		return nil, err
 	}
@@ -120,7 +121,16 @@ func (s *session) Execute(ctx context.Context, req giztest.StepRequest) (giztest
 		if err != nil {
 			return giztest.StepResult{}, err
 		}
-		return giztest.StepResult{Value: value, Saved: value}, nil
+		evidence := map[string]any{}
+		if s.driver.fullEvidence {
+			switch step.RPC.Method {
+			case "server.tool.get", "server.tool.list":
+				evidence["catalog"] = value
+			case "server.workspace.create", "server.workspace.get", "server.run.workspace.get":
+				evidence["workspace"] = value
+			}
+		}
+		return giztest.StepResult{Value: value, Saved: value, Evidence: evidence}, nil
 	case "rpc_stream":
 		client, err := s.clients.get(step.Client)
 		if err != nil {
@@ -203,6 +213,27 @@ func (s *session) executePeerStream(ctx context.Context, req giztest.StepRequest
 		return giztest.StepResult{}, err
 	}
 	result, err := invocation.run(ctx, s.streams)
+	if s.driver.fullEvidence {
+		if data, ok := result.assertion.(map[string]any); ok {
+			if result.evidence == nil {
+				result.evidence = map[string]any{}
+			}
+			switch chunks := data["text"].(type) {
+			case []string:
+				data["joined_text"] = strings.Join(chunks, "")
+			case []any:
+				var text strings.Builder
+				for _, chunk := range chunks {
+					if chunk, ok := chunk.(string); ok {
+						text.WriteString(chunk)
+					}
+				}
+				data["joined_text"] = text.String()
+			}
+			result.evidence["text"] = data["text"]
+			result.evidence["user_input"] = invocation.input
+		}
+	}
 	return result.stepResult(), err
 }
 
@@ -365,15 +396,22 @@ func (s *session) executeClientRPC(ctx context.Context, step giztest.Step) (gizt
 	if step.ClientRPC.ExpectCalls != nil {
 		expected = int64(*step.ClientRPC.ExpectCalls)
 	}
-	if expected == 0 && counter.Load() != 0 {
-		return giztest.StepResult{}, fmt.Errorf("client RPC %s reached device %d times", step.ClientRPC.Key(), counter.Load())
+	calls := counter.Load()
+	var err error
+	if !step.ClientRPC.ObserveOnly {
+		calls, err = awaitInboundCalls(ctx, counter, expected, step.ClientRPC.Method)
 	}
-	calls, err := awaitInboundCalls(ctx, counter, expected, step.ClientRPC.Method)
 	if err != nil {
-		return giztest.StepResult{}, err
+		calls = counter.Load()
+	}
+	if !step.ClientRPC.ObserveOnly && expected == 0 && calls != 0 {
+		err = fmt.Errorf("client RPC %s reached device %d times", step.ClientRPC.Key(), calls)
 	}
 	evidence := map[string]any{"method": step.ClientRPC.Method, "calls": calls}
-	return giztest.StepResult{Value: evidence, Saved: evidence, Evidence: evidence}, nil
+	if counter.recordRequests.Load() {
+		evidence["requests"] = counter.requestSnapshot()
+	}
+	return giztest.StepResult{Value: evidence, Saved: evidence, Evidence: evidence}, err
 }
 
 // stepResult adapts an operation outcome to the runner's contract.

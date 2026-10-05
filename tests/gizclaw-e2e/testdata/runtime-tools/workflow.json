@@ -1,0 +1,88 @@
+{
+  "driver": "eino",
+  "eino": {
+    "graph": {
+      "name": "Runtime Tool Assistant",
+      "compile": {
+        "node_trigger_mode": "any_predecessor"
+      },
+      "state": {
+        "fields": [
+          {
+            "name": "messages",
+            "type": "messages",
+            "merge": "replace"
+          },
+          {
+            "name": "answer",
+            "type": "string",
+            "merge": "replace"
+          }
+        ]
+      },
+      "nodes": [
+        {
+          "id": "prompt",
+          "type": "prompt",
+          "format": "f_string",
+          "inputs": {
+            "history": {
+              "from": "input.messages"
+            }
+          },
+          "outputs": {
+            "messages": "messages"
+          },
+          "messages": [
+            {
+              "role": "system",
+              "template": "你是当前设备的中文助手，主要通过本次请求实际注入的工具执行。工具的固定目标和参数来自描述与 schema，只能使用实际可用的工具，不能借用相似目标。每次回复前以最近用户消息为准，判断它是在要求执行、补齐一个仍待执行的请求，还是讨论/否定/取消。\n缺少对象时只询问对象，不能根据你的问题中列出的候选对象当成用户已选择；单独的百分比不同时授权灯和屏幕。用户说灯或灯光指本机主灯，屏幕指本机屏幕，区域灯必须明确编号；手机、卧室吊灯、其他设备均不受本机工具控制。\n绝对亮度必须是用户明确给出的0到100整数。三成/调到三成/百分之三十均表示绝对30%，不是降低30%。负20%或150%是非法绝对值，说明范围并等合法值，绝不能转为相对调整或自动修正到边界。相对请求必须先读取对应目标的实际状态；明确目标后的“一点/一档/有点刺眼/有点暗”采用10个百分点，明确给出增减幅度则用该幅度，相对调整结果限制0到100。没有目标的“太亮了/调亮一点”只询问目标。\n取消会永久结束此前待执行请求。用户明确取消之后下一轮只给数值时，必须重新询问要做什么和针对哪个对象，不得复活已取消的目标。等待保留尚未取消的请求。完成过的动作不能因历史重复执行。按用户最新更正更新未完成目标。界面焦点只帮助没有待补目标的新请求，不能覆盖此前指定的目标。工具撤权、不可用或调用失败时说明没有完成，不能使用其他目标代替。\n用户讨论知识、事实记录、引用、否定、保持现状、仅举例均不执行。音乐暂停并从同一进度无损继续在现有工具中不受支持，不能用停止替代。指定歌名须先读取真实列表匹配标题；缺歌名询问；默认曲目可省略index。下一首先读取状态和列表，不能猜索引。选择剧本按提供的名称和描述；未指定则询问，不得猜剧本。明确多动作逐项执行，保持顺序。\n所有成功声明必须依赖本轮实际成功返回的工具结果；若本轮没有对应成功调用，不能说已设置、已切换、已播放。用户询问结果内编号时照实际结果回答，不可编造。"
+            },
+            {
+              "placeholder": "history",
+              "optional": true
+            }
+          ]
+        },
+        {
+          "id": "answer",
+          "type": "chat_model",
+          "model": "llm",
+          "max_tokens": 2048,
+          "inputs": {
+            "messages": {
+              "from": "messages"
+            }
+          },
+          "outputs": {
+            "text": "answer"
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "start",
+          "to": "prompt"
+        },
+        {
+          "from": "prompt",
+          "to": "answer"
+        },
+        {
+          "from": "answer",
+          "to": "end"
+        }
+      ],
+      "branches": [],
+      "outputs": [
+        {
+          "node": "answer",
+          "field": "answer",
+          "name": "assistant",
+          "mime_type": "text/plain",
+          "primary": true
+        }
+      ]
+    }
+  }
+}

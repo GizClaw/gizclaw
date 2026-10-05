@@ -648,7 +648,7 @@ func TestServiceSelectionPersistenceFailureKeepsRevision(t *testing.T) {
 }
 
 func TestRuntimeProfileToolBindingsPreserveAliases(t *testing.T) {
-	tools := map[string]apitypes.RuntimeProfileBinding{
+	tools := map[string]apitypes.RuntimeProfileToolBinding{
 		"weather": {ResourceId: "tool-weather"},
 		"clock":   {ResourceId: "tool-clock"},
 		"alarm":   {ResourceId: "tool-alarm"},

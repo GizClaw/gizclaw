@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"sort"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -16,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 )
@@ -30,6 +30,7 @@ type ServiceResolver struct {
 	MemoryLayouts          memorylayout.MemoryLayoutAdminService
 	RuntimeProfileForOwner func(context.Context, string) (apitypes.RuntimeProfile, error)
 	ToolBuilder            *toolkit.Builder
+	ToolCatalog            *toolcatalog.Catalog
 	ToolCredentials        toolCredentialResolver
 	HTTPTools              giztools.HTTPExecutor
 }
@@ -368,69 +369,70 @@ func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (s
 	return id, nil
 }
 
-// resolveToolkit returns the ToolInvoker for one Workspace generation. Tools
-// are opt-in: only canonical IDs listed by the Workflow spec.toolkit.tool_ids
-// are candidates, and an omitted policy or tool_ids allows none. A Workspace
-// policy with tool_ids only narrows that list; an omitted one adds no further
-// narrowing. The current Peer RuntimeProfile bindings still filter the result
-// on every call. When nothing is allowed the invoker is nil, so models are
-// called without Tool declarations.
-func (r ServiceResolver) resolveToolkit(_ context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (genx.ToolInvoker, error) {
-	workflowIDs, _, err := policyToolIDs(workflow.Spec.Toolkit)
-	if err != nil {
-		return nil, fmt.Errorf("agenthost: workflow toolkit policy: %w", err)
+// resolveToolkit creates the shared alias invoker. Profile Workflow bindings are
+// the only opt-in authority; the resource's legacy ID policy grants nothing.
+func (r ServiceResolver) resolveToolkit(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (genx.ToolInvoker, error) {
+	catalog := r.ToolCatalog
+	if catalog == nil && r.ToolBuilder != nil {
+		catalog = &toolcatalog.Catalog{Tools: r.ToolBuilder.Tools}
 	}
-	workspaceIDs, workspaceRestrict, err := policyToolIDs(ws.Toolkit)
-	if err != nil {
-		return nil, fmt.Errorf("agenthost: workspace toolkit policy: %w", err)
-	}
-	ids := workflowIDs
-	if workspaceRestrict {
-		ids = intersectToolIDs(workflowIDs, workspaceIDs)
-	}
-	if len(ids) == 0 {
+	if catalog == nil {
+		if profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile); ok {
+			for _, binding := range profile.Spec.Workflows {
+				if binding.ResourceId == ws.WorkflowId && binding.Toolkit != nil && binding.Toolkit.ToolNames != nil && len(*binding.Toolkit.ToolNames) > 0 {
+					return nil, toolkit.ErrNotConfigured
+				}
+			}
+		}
 		return nil, nil
 	}
-	if r.ToolBuilder == nil {
-		return nil, fmt.Errorf("agenthost: toolkit services are required")
-	}
 	return &ToolkitInvoker{
-		Builder:     r.ToolBuilder,
-		Credentials: r.ToolCredentials,
-		HTTP:        r.HTTPTools,
-		Request:     toolkit.BuildRequest{AllowedTools: ids},
+		Catalog: catalog, Credentials: r.ToolCredentials, HTTP: r.HTTPTools,
+		Owner: func(ctx context.Context) (string, error) {
+			access, ok := resourceAccessFromContext(ctx)
+			if !ok {
+				return "", errors.New("connected Peer context is required")
+			}
+			if ws.OwnerPublicKey != nil && *ws.OwnerPublicKey != access.ownerPublicKey {
+				return "", errors.New("Workspace owner mismatch")
+			}
+			return access.ownerPublicKey, nil
+		},
+		Scope: func(callCtx context.Context, owner string) (apitypes.RuntimeProfile, []string, error) {
+			profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
+			if r.RuntimeProfileForOwner != nil {
+				var err error
+				profile, err = r.RuntimeProfileForOwner(callCtx, owner)
+				if err != nil {
+					return apitypes.RuntimeProfile{}, nil, err
+				}
+				ok = true
+			}
+			if !ok {
+				return apitypes.RuntimeProfile{}, nil, errors.New("current RuntimeProfile is required")
+			}
+			current := ws
+			if r.Workspaces != nil {
+				var err error
+				current, err = r.getAvailableWorkspaceByID(callCtx, ws.Id)
+				if err != nil {
+					return apitypes.RuntimeProfile{}, nil, err
+				}
+			}
+			if current.OwnerPublicKey != nil && *current.OwnerPublicKey != owner {
+				return apitypes.RuntimeProfile{}, nil, errors.New("Workspace owner mismatch")
+			}
+			if current.OwnerPublicKey == nil {
+				return profile, []string{}, nil
+			}
+			alias := ""
+			if current.Labels != nil {
+				alias = (*current.Labels)["workflow_name"]
+			}
+			names, err := toolcatalog.Selection(profile, alias, current.WorkflowId, current.Toolkit)
+			return profile, names, err
+		},
 	}, nil
-}
-
-// policyToolIDs returns the normalized canonical IDs of a policy and whether
-// the policy lists tool_ids at all.
-func policyToolIDs(policy *apitypes.ToolkitPolicy) ([]string, bool, error) {
-	if policy == nil || policy.ToolIds == nil {
-		return nil, false, nil
-	}
-	normalized, err := toolkit.NormalizePolicy(policy)
-	if err != nil {
-		return nil, false, err
-	}
-	return append([]string(nil), (*normalized.ToolIds)...), true, nil
-}
-
-func intersectToolIDs(left, right []string) []string {
-	if len(left) == 0 || len(right) == 0 {
-		return []string{}
-	}
-	rightSet := make(map[string]bool, len(right))
-	for _, id := range right {
-		rightSet[id] = true
-	}
-	out := make([]string, 0, min(len(left), len(right)))
-	for _, id := range left {
-		if rightSet[id] {
-			out = append(out, id)
-		}
-	}
-	sort.Strings(out)
-	return out
 }
 
 func ParseWorkspacePattern(pattern string) (string, error) {

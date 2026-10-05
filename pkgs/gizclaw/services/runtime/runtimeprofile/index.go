@@ -250,13 +250,19 @@ func insertMemoryProfile(ctx context.Context, index *sqlx.DB, profile apitypes.R
 	}{
 		{"model", profile.Spec.Resources.Models},
 		{"voice", profile.Spec.Resources.Voices},
-		{"tool", profile.Spec.Resources.Tools},
 	} {
 		if group.values != nil {
 			for alias, binding := range *group.values {
 				if err := add(group.kind, alias, binding); err != nil {
 					return err
 				}
+			}
+		}
+	}
+	if profile.Spec.Resources.Tools != nil {
+		for alias, binding := range *profile.Spec.Resources.Tools {
+			if err := add("tool", alias, binding); err != nil {
+				return err
 			}
 		}
 	}

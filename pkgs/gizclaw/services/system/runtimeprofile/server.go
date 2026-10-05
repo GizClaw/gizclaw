@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/einoconfig"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/mhs"
 	runtimeindex "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/runtimeprofile"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/jmoiron/sqlx"
@@ -643,7 +644,7 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			binding.AudioInput = new(*binding.AudioInput)
 		}
 		// Reuse the ordinary binding normalizer for the shared ID and i18n rules.
-		normalized, err := normalizeBindingMap(map[string]apitypes.RuntimeProfileBinding{alias: binding})
+		normalized, err := normalizeBindingMap(map[string]apitypes.RuntimeProfileBinding{alias: {ResourceId: binding.ResourceId, I18n: binding.I18n}})
 		if err != nil {
 			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s: %w", alias, err)
 		}
@@ -660,7 +661,6 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 	}{
 		{name: "model", values: spec.Resources.Models},
 		{name: "voice", values: spec.Resources.Voices},
-		{name: "tool", values: spec.Resources.Tools},
 	}
 	for _, resourceMap := range resourceMaps {
 		if resourceMap.values == nil {
@@ -682,6 +682,48 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			}
 		}
 		*resourceMap.values = normalized
+	}
+	if spec.Resources.Tools != nil {
+		next := make(map[string]apitypes.RuntimeProfileToolBinding, len(*spec.Resources.Tools))
+		for rawAlias, binding := range *spec.Resources.Tools {
+			alias := rawAlias
+			if err := registerProfileAlias(allAliases, alias, "tool"); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+			if _, err := toolcatalog.FunctionName(alias); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+			if _, _, _, err := toolcatalog.BindingSchema(apitypes.RuntimeProfile{Spec: spec}, binding); err != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.tools.%s: %w", alias, err)
+			}
+			normalized, err := normalizeBindingMap(map[string]apitypes.RuntimeProfileBinding{alias: {ResourceId: "tool-validation", I18n: binding.I18n}})
+			if err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+			binding.I18n = normalized[alias].I18n
+			next[alias] = binding
+		}
+		spec.Resources.Tools = &next
+	}
+	for alias, binding := range spec.Workflows {
+		if binding.Toolkit == nil || binding.Toolkit.ToolNames == nil {
+			continue
+		}
+		names := append([]string(nil), (*binding.Toolkit.ToolNames)...)
+		slices.Sort(names)
+		if len(names) != len(slices.Compact(append([]string(nil), names...))) {
+			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.toolkit: duplicate Tool alias", alias)
+		}
+		for _, name := range names {
+			if spec.Resources.Tools == nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.toolkit: Tool alias %q is not bound", alias, name)
+			}
+			if _, exists := (*spec.Resources.Tools)[name]; !exists {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.toolkit: Tool alias %q is not bound", alias, name)
+			}
+		}
+		binding.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: &names}
+		spec.Workflows[alias] = binding
 	}
 	if spec.Resources.Memories != nil {
 		normalized := make(map[string]apitypes.RuntimeProfileMemoryBinding, len(*spec.Resources.Memories))
@@ -807,7 +849,7 @@ func validateWorkflowTags(tags []string) error {
 	return nil
 }
 
-func bindingTags(binding apitypes.RuntimeProfileBinding) []string {
+func bindingTags(binding apitypes.RuntimeProfileWorkflowBinding) []string {
 	if binding.Tags == nil {
 		return nil
 	}
@@ -1041,20 +1083,12 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 			memories[alias] = layout
 		}
 	}
-	groups := []struct {
-		path   string
-		kind   apitypes.ResourceKind
-		values *map[string]apitypes.RuntimeProfileBinding
-	}{
-		{path: "resources.tools", kind: apitypes.ResourceKindTool, values: spec.Resources.Tools},
-	}
-	for _, group := range groups {
-		if group.values == nil {
-			continue
-		}
-		for alias, binding := range *group.values {
-			if _, err := resolve(group.path+"."+alias, group.kind, binding); err != nil {
-				return err
+	if spec.Resources.Tools != nil {
+		for alias, binding := range *spec.Resources.Tools {
+			if binding.ResourceId != "" {
+				if _, err := resolve("resources.tools."+alias, apitypes.ResourceKindTool, apitypes.RuntimeProfileBinding{ResourceId: binding.ResourceId}); err != nil {
+					return err
+				}
 			}
 		}
 	}

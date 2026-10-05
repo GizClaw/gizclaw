@@ -12,6 +12,9 @@ PB_BIND(gizclaw_rpc_v1_ClientHwdOptions, gizclaw_rpc_v1_ClientHwdOptions, AUTO)
 PB_BIND(gizclaw_rpc_v1_ClientMhsV0ReadRequest, gizclaw_rpc_v1_ClientMhsV0ReadRequest, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_MhsV0WriteCapabilities, gizclaw_rpc_v1_MhsV0WriteCapabilities, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ClientMhsV0ReadResponse, gizclaw_rpc_v1_ClientMhsV0ReadResponse, AUTO)
 
 
