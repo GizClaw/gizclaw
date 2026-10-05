@@ -241,7 +241,7 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 ## State、History 与 Memory
 
-产品 Workflow 可以通过 `state_persistence.fields` 选择持久化字段；Server 的 `services.agent_host.eino.state_store` 引用 SQL Store，状态保存在 `graph_states`，删除边界保存在 `graph_state_scopes`。首次加载缺失字段时按声明类型初始化零值；重载后只恢复选择的字段。Object/List 中的嵌套整数保留 signed 64-bit 精度，整值浮点数通过可选 snapshot 类型提示保留其 numeric type。 新快照使用 format version 1；无版本快照保持原有 JSON float64 解码，直到一次正常成功的 CAS 写入。内部对话 History 使用 `services.agent_host.eino.history_store` 的 mutable log。
+产品 Workflow 可以通过 `state_persistence.fields` 选择持久化字段；Server 的 `services.agent_host.persistence.state_store` 引用 SQL Store，状态保存在 `graph_states`，删除边界保存在 `graph_state_scopes`。首次加载缺失字段时按声明类型初始化零值；重载后只恢复选择的字段。Object/List 中的嵌套整数保留 signed 64-bit 精度，整值浮点数通过可选 snapshot 类型提示保留其 numeric type。 新快照使用 format version 1；无版本快照保持原有 JSON float64 解码，直到一次正常成功的 CAS 写入。内部对话 History 使用 `services.agent_host.persistence.history_store` 的 mutable log。
 
 Persistent State 是可选能力：
 

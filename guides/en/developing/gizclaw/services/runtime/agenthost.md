@@ -82,7 +82,7 @@ Tool's immutable execution name. Non-idempotent Tool execution is never retried.
 
 The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Eino, and per-Agent adapters must not close them.
 
-`runtime_store` stores Workspace runtime metadata and runtime objects. Workspace History text and structured metadata use `services.workspace.history_store`; binary replay assets use `services.workspace.history_assets_store`. Eino borrows optional SQL Graph State, mutable internal History, and provider-neutral Memory through process bindings `services.agent_host.eino.state_store` and `history_store`.
+`runtime_store` stores Workspace runtime metadata and runtime objects. Workspace History text and structured metadata use `services.workspace.history_store`; binary replay assets use `services.workspace.history_assets_store`. Shared state and internal History bind SQL and mutable Log through `services.agent_host.persistence.state_store` and `history_store`. The Server injects `GraphStateDB` and `AgentHistory` into Workflow factories using those contracts. Eino consumes these borrowed capabilities and provider-neutral Memory; the binding is independent of the executor name.
 
 Eino binds `Scope.AppID` to Workspace or the owner Peer boundary according to the selected MemoryLayout policy. User, Agent, and Run dimensions stay independent; the public key never replaces UserID. A Graph declaring Memory policy requires an available Store, and construction failure fails initialization or reload explicitly.
 

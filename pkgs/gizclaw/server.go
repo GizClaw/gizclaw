@@ -84,7 +84,7 @@ type Server struct {
 	MetricsStore           metrics.Store
 	PendingDeletionConfig  pendingdeletion.Config
 	ServerLogQuery         ServerLogQueryService
-	EinoHistory            logstore.MutableStore
+	AgentHistory           logstore.MutableStore // Shared internal history borrowed by compatible Workflow factories.
 	GraphStateDB           *sqlx.DB
 	// SFU is the Server-held SFU connector configuration; a zero value
 	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
@@ -425,7 +425,7 @@ func (s *Server) init() error {
 		}
 		_ = manager.BroadcastPeerEvent(recipient, event)
 	}
-	manager.EinoHistory = s.EinoHistory
+	manager.AgentHistory = s.AgentHistory
 	if s.GraphStateDB != nil {
 		if err := graphstate.Initialize(context.Background(), s.GraphStateDB); err != nil {
 			return fmt.Errorf("initialize graph state: %w", err)

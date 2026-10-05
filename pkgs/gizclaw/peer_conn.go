@@ -487,7 +487,7 @@ func (h *PeerConn) initAgentHost() {
 		resources,
 		h.serverGenX,
 		h.ownerGenX,
-		manager.EinoHistory,
+		manager.AgentHistory,
 		manager.GraphStateDB,
 		manager.MemoryRoot,
 		manager.MemoryStores,

@@ -250,20 +250,20 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 				if cfg == nil {
 					t.Fatal("AgentHost = nil, want present block")
 				}
-				if cfg.RuntimeStore != "" || cfg.Eino != nil {
+				if cfg.RuntimeStore != "" || cfg.Persistence != nil {
 					t.Fatalf("AgentHost = %+v, want empty block", cfg)
 				}
 			},
 		},
 		{
 			name: "present partial",
-			yaml: "services:\n  agent_host:\n    eino:\n      state_store: state\n",
+			yaml: "services:\n  agent_host:\n    persistence:\n      state_store: state\n",
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
-				if cfg == nil || cfg.Eino == nil || cfg.Eino.StateStore != "state" {
+				if cfg == nil || cfg.Persistence == nil || cfg.Persistence.StateStore != "state" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
-				if cfg.RuntimeStore != "" || cfg.Eino.HistoryStore != "" {
+				if cfg.RuntimeStore != "" || cfg.Persistence.HistoryStore != "" {
 					t.Fatalf("AgentHost partial fields = %+v", cfg)
 				}
 			},
@@ -274,18 +274,18 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 services:
   agent_host:
     runtime_store: runtime
-    eino:
+    persistence:
       state_store: state
       history_store: history
 `,
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
-				if cfg == nil || cfg.Eino == nil {
+				if cfg == nil || cfg.Persistence == nil {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 				if cfg.RuntimeStore != "runtime" ||
-					cfg.Eino.StateStore != "state" ||
-					cfg.Eino.HistoryStore != "history" {
+					cfg.Persistence.StateStore != "state" ||
+					cfg.Persistence.HistoryStore != "history" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 			},
@@ -315,9 +315,17 @@ func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
 		{"legacy top-level", "agent_host: {}\n", `unknown field "agent_host"`},
 		{"unknown field", "services:\n  agent_host:\n    runtime: store\n", `unknown field "runtime"`},
 		{"non-string runtime", "services:\n  agent_host:\n    runtime_store: 42\n", "services.agent_host.runtime_store must be a string"},
-		{"unknown eino field", "services:\n  agent_host:\n    eino:\n      memories: memory\n", `unknown field "memories"`},
-		{"non-string state", "services:\n  agent_host:\n    eino:\n      state_store: {}\n", "services.agent_host.eino.state_store must be a string"},
-		{"legacy memory objects", "services:\n  agent_host:\n    eino:\n      memory_objects_store: old\n", `unknown field "memory_objects_store"`},
+		{"retired eino", "services:\n  agent_host:\n    eino:\n      state_store: state\n", `unknown field "eino"`},
+		{"retired eino null", "services:\n  agent_host:\n    eino: null\n", `unknown field "eino"`},
+		{"retired eino beside persistence", "services:\n  agent_host:\n    persistence:\n      state_store: state\n    eino: {}\n", `unknown field "eino"`},
+		{"retired flowcraft", "services:\n  agent_host:\n    flowcraft:\n      history_store: history\n", `unknown field "flowcraft"`},
+		{"non-mapping persistence", "services:\n  agent_host:\n    persistence: state\n", "services.agent_host.persistence must be a mapping"},
+		{"unknown persistence field", "services:\n  agent_host:\n    persistence:\n      memories: memory\n", `unknown field "memories"`},
+		{"non-string state", "services:\n  agent_host:\n    persistence:\n      state_store: {}\n", "services.agent_host.persistence.state_store must be a string"},
+		{"non-string history", "services:\n  agent_host:\n    persistence:\n      history_store: true\n", "services.agent_host.persistence.history_store must be a string"},
+		{"empty state", "services:\n  agent_host:\n    persistence:\n      state_store: ''\n", "services.agent_host.persistence.state_store must not be empty"},
+		{"whitespace history", "services:\n  agent_host:\n    persistence:\n      history_store: ' '\n", "services.agent_host.persistence.history_store must not be empty"},
+		{"legacy memory objects", "services:\n  agent_host:\n    persistence:\n      memory_objects_store: old\n", `unknown field "memory_objects_store"`},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -368,7 +376,7 @@ func TestParseConfigRejectsPre795StorageStoreAndServiceShapes(t *testing.T) {
 func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	fileBlock := &AgentHostConfig{
 		RuntimeStore: "file-runtime",
-		Eino: &AgentHostEinoConfig{
+		Persistence: &AgentHostPersistenceConfig{
 			StateStore:   "file-state",
 			HistoryStore: "file-history",
 		},
@@ -382,7 +390,7 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 		t.Fatalf("mergeFileConfig(retain) Services = %+v", retained.Services)
 	}
 
-	runtimeBlock := &AgentHostConfig{Eino: &AgentHostEinoConfig{StateStore: "runtime-state"}}
+	runtimeBlock := &AgentHostConfig{Persistence: &AgentHostPersistenceConfig{StateStore: "runtime-state"}}
 	runtimeServices := &ServicesConfig{AgentHost: runtimeBlock}
 	replaced, err := mergeFileConfig(Config{Services: runtimeServices}, ConfigFile{Services: fileServices})
 	if err != nil {
@@ -391,7 +399,7 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	if replaced.Services != runtimeServices {
 		t.Fatalf("mergeFileConfig(replace) Services = %+v, want runtime block", replaced.Services)
 	}
-	if replaced.Services.AgentHost.RuntimeStore != "" || replaced.Services.AgentHost.Eino.HistoryStore != "" {
+	if replaced.Services.AgentHost.RuntimeStore != "" || replaced.Services.AgentHost.Persistence.HistoryStore != "" {
 		t.Fatalf("mergeFileConfig(replace) field-merged blocks: %+v", replaced.Services)
 	}
 }
@@ -399,9 +407,9 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 func TestValidateAgentHostRejectsProgrammaticWhitespaceReference(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Services = validServicesConfig()
-	cfg.Services.AgentHost = &AgentHostConfig{Eino: &AgentHostEinoConfig{StateStore: " "}}
+	cfg.Services.AgentHost = &AgentHostConfig{Persistence: &AgentHostPersistenceConfig{StateStore: " "}}
 	err := cfg.validate()
-	if err == nil || !strings.Contains(err.Error(), "services.agent_host.eino.state_store must not be whitespace-only") {
+	if err == nil || !strings.Contains(err.Error(), "services.agent_host.persistence.state_store must not be whitespace-only") {
 		t.Fatalf("validate() error = %v", err)
 	}
 }
@@ -1157,7 +1165,7 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parseConfigData(%s) error = %v", path, err)
 	}
-	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Eino == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
+	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Persistence == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
 		t.Fatalf("complete services block = %+v", cfg.Services)
 	}
 	if len(cfg.Storage) != 3 {
@@ -1234,8 +1242,8 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.workspace.history_store", services.Workspace.HistoryStore, stores.KindLogMutable)
 	expect("services.workspace.history_assets_store", services.Workspace.HistoryAssetsStore, stores.KindObjectStore)
 	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
-	expect("services.agent_host.eino.state_store", services.AgentHost.Eino.StateStore, stores.KindSQL)
-	expect("services.agent_host.eino.history_store", services.AgentHost.Eino.HistoryStore, stores.KindLogMutable)
+	expect("services.agent_host.persistence.state_store", services.AgentHost.Persistence.StateStore, stores.KindSQL)
+	expect("services.agent_host.persistence.history_store", services.AgentHost.Persistence.HistoryStore, stores.KindLogMutable)
 	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
 	if services.SystemLog.QueryStore != "" {
 		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable, stores.KindLogMutable)

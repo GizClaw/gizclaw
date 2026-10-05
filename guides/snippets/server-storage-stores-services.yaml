@@ -194,7 +194,7 @@ services:
     floor_idle: 300ms
   agent_host:
     runtime_store: agenthost
-    eino:
+    persistence:
       state_store: eino-state
       history_store: eino-history
   metrics:

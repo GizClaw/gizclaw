@@ -145,7 +145,7 @@ services:
     store: friend-groups
   agent_host:
     runtime_store: agenthost
-    eino:
+    persistence:
       state_store: eino-state
   metrics:
     store: metrics

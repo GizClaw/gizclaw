@@ -110,7 +110,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	}
 	if public.StatePersistence != nil {
 		if f.State == nil {
-			return nil, fmt.Errorf("eino: state_persistence requires services.agent_host.eino.state_store")
+			return nil, fmt.Errorf("eino: state_persistence requires services.agent_host.persistence.state_store")
 		}
 		initial := initialPersistentFields(graph.State.Fields, public.StatePersistence.Fields)
 		stateStore, err := graphstate.OpenScope(ctx, f.State, owner, workspaceID, workspaceID, initial)
