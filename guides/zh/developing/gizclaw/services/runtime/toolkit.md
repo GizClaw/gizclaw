@@ -43,6 +43,8 @@ Eino Workflow binding 可选 `toolkit.verification_model`，引用同一 Profile
 alias。主模型仍看到原生 Tool declarations 并提出调用；固定目标 MHS 读取与有副作用的调用在发送设备 RPC
 或 HTTP POST 前，由该模型基于真实对话、当前目录的业务上下文、固定目标、参数及本轮工具结果独立校验。
 目录上下文包含其他候选的目标、说明和可用性，用于区分配置的默认目标与当前候选；
+MHS 能力另按精确 id/hwd 汇总可读、可写和已授权写字段；读能力不能授予写能力。
+真实用户输入按原有顺序单独投影，助手提议不进入用户授权序列。
 私有 HTTP executor 与认证字段不参与校验。当前目录读取失败时拒绝调用校验模型及执行。
 它只批准或拒绝当前候选，不能替换目标或修改参数。其他只读操作不增加这次校验。缺少真实
 对话、校验模型错误或非法决定都拒绝执行；校验后仍执行原有权限与资源重读。
@@ -118,3 +120,5 @@ aliyun_openapi_v3。直接 secret 是 write-only，同方法省略保留，替�
 inner `run.workspace.set` 要求模型选择 Profile `workflow_name` alias；控制 App 仍可通过
 原有接口指定所属 Workspace name。程序应答表示接受请求，后续 reload 才提交切换。
 Audio `play` 的 index 可省略，保留设备默认曲目语义，不由 Runtime 猜一个索引。
+
+拒绝后的纠正反馈携带同一安全目录与原始用户上下文，供主模型重新核对目标和参数；它不选替代工具、不合成参数、不产生新的授权。语音消息只含音频时，用户序列保留当前实际转写。

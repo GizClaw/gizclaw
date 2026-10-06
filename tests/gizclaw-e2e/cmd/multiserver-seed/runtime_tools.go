@@ -370,7 +370,11 @@ func runtimeToolFocus(spec *apitypes.RuntimeProfileSpec, id string) error {
 		text := binding.I18n["zh-CN"]
 		text.Description = nil
 		if binding.Mhs.Id == id {
-			text.Description = new("当前界面焦点：" + id + "，也是没有待补目标的新相对亮度请求的默认目标。用户新请求‘调亮/调暗一点’时先读此目标，再按业务幅度调整；未提出动作时焦点不授权执行。已有待补请求仍使用先前明确的目标，焦点改变不能覆盖它。")
+			label := "本机屏幕"
+			if id == "led.status" {
+				label = "本机主灯（灯光）"
+			}
+			text.Description = new("当前界面焦点、且相对亮度动作的唯一默认对象是 " + label + "，固定 id=" + id + "。用户没有点名对象且没有待补请求时，直接使用这个固定目标，不追问对象；先读此目标的实际亮度，再按业务幅度换算。仅陈述或记录状态不授权动作。已有待补请求仍使用先前明确的目标，更新后的默认对象不能覆盖它。")
 		}
 		binding.I18n["zh-CN"] = text
 		(*spec.Resources.Tools)[alias] = binding

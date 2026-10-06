@@ -162,3 +162,76 @@ func TestUnavailableCatalogCannotDemandExecutionButStillRejectsFalseCompletion(t
 		}
 	}
 }
+
+func TestVerificationCapabilityFactsKeepReadAndWriteIndependent(t *testing.T) {
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{
+			{Alias: "screen.read", Source: "mhs", Available: true, Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "read"}},
+			{Alias: "screen.revoked", Source: "mhs", Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "write", "fields": []string{"brightness_percent"}}},
+			{Alias: "lamp.write", Source: "mhs", Available: true, Target: map[string]any{"id": "led.status", "hwd": "led", "operation": "write", "fields": []string{"brightness_percent"}}},
+			{Alias: "screen.external", Source: "http_request", Available: true, Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "write"}},
+		}, nil
+	}
+	generator := &verificationGenerator{result: `{"approved":true,"reason":"approved"}`}
+	conversation := genx.ToolConversation{CurrentUser: "40%", ContinuationStart: 3, Messages: []genx.ToolConversationMessage{
+		{Role: "user", Content: "set screen brightness"},
+		{Role: "assistant", Content: "proposal to change the lamp"},
+		{Role: "user", Content: "40%"},
+	}}
+	if feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), conversation, "screen write unavailable; not changed"); err != nil || feedback != "" {
+		t.Fatalf("verification: %q %v", feedback, err)
+	}
+	var input struct {
+		Users []string `json:"user_turns"`
+		MHS   []struct {
+			ID, HWD string
+			Read    bool     `json:"can_read"`
+			Write   bool     `json:"can_write"`
+			Fields  []string `json:"writable_fields"`
+		} `json:"mhs_capabilities"`
+	}
+	if err := json.Unmarshal([]byte(generator.seen), &input); err != nil {
+		// The fake records the system prompt before the raw proposal JSON.
+		start := strings.Index(generator.seen, `{"conversation":`)
+		if start < 0 || json.Unmarshal([]byte(generator.seen[start:]), &input) != nil {
+			t.Fatalf("missing structured verification input: %v", err)
+		}
+	}
+	if len(input.Users) != 2 || input.Users[0] != "set screen brightness" || input.Users[1] != "40%" {
+		t.Fatalf("assistant proposal became user authority: %v", input.Users)
+	}
+	if len(input.MHS) != 2 || input.MHS[0].ID != "display.main" || !input.MHS[0].Read || input.MHS[0].Write || len(input.MHS[0].Fields) != 0 {
+		t.Fatalf("read, revoked or external capability created screen write authority: %+v", input.MHS)
+	}
+	if input.MHS[1].ID != "led.status" || input.MHS[1].Read || !input.MHS[1].Write || len(input.MHS[1].Fields) != 1 || input.MHS[1].Fields[0] != "brightness_percent" {
+		t.Fatalf("lamp capability lost or borrowed: %+v", input.MHS)
+	}
+}
+
+func TestVerificationFeedbackCarriesSafeContextForPrimaryCorrection(t *testing.T) {
+	candidate := toolcatalog.Tool{Alias: "screen.read", Source: "mhs", Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "read"}}
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{candidate, {Alias: "lamp.read", Source: "mhs", Description: "configured lamp focus", Target: map[string]any{"id": "led.status", "hwd": "led", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-primary"}}}}}, nil
+	}
+	generator := &verificationGenerator{result: `{"approved":false,"reason":"wrong_target"}`}
+	feedback, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, json.RawMessage(`{}`), genx.ToolConversation{CurrentUser: "increase brightness"})
+	if err != nil || !strings.Contains(feedback, "configured lamp focus") || !strings.Contains(feedback, "display.main") || !strings.Contains(feedback, "led.status") || strings.Contains(feedback, "must-not-reach-primary") {
+		t.Fatalf("missing safe correction context: %q, %v", feedback, err)
+	}
+	if candidate.Target["id"] != "display.main" || !strings.Contains(feedback, "do not authorize a new action") {
+		t.Fatal("feedback changed candidate or granted independent authority")
+	}
+}
+
+func TestVerificationUserTurnsPreserveActualAudioTranscription(t *testing.T) {
+	for _, currentWireText := range []string{"", "turn light up"} {
+		users := toolVerificationUserTurns(genx.ToolConversation{CurrentUser: "turn light up", Messages: []genx.ToolConversationMessage{
+			{Role: "user", Content: "previous user turn"},
+			{Role: "assistant", Content: "proposed unrelated change"},
+			{Role: "user", Content: currentWireText},
+		}})
+		if len(users) != 2 || users[0] != "previous user turn" || users[1] != "turn light up" {
+			t.Fatalf("transcription omitted, duplicated or replaced by assistant: %v", users)
+		}
+	}
+}

@@ -61,7 +61,7 @@ credential resolution on the Server and existing address/redirect/proxy restrict
 never automatically retries. ToolCall and ToolResult stay inside model continuation and do not
 become public assistant control events.
 
-Both proposal and reply verification use a safe projection of the current catalog. Other targets, descriptions and availability provide business context for configured defaults; private HTTP executors and authentication are excluded. A catalog lookup failure prevents the verification model call and execution.
+Both proposal and reply verification use a safe projection of the current catalog. MHS facts group read/write availability and authorized write fields by exact id/hwd; readable never implies writable. Verbatim user turns are projected separately in order, without turning assistant proposals into user authority. Other targets, descriptions and availability provide business context for configured defaults; private HTTP executors and authentication are excluded. A catalog lookup failure prevents the verification model call and execution.
 
 ## HTTP resource persistence and authentication
 
@@ -85,3 +85,5 @@ For the inner `run.workspace.set` catalog, the model selects a required Profile 
 alias; existing control-app APIs can still select an owned Workspace name. A procedure reply
 acknowledges acceptance, while `server.run.workspace.reload-with-options` commits the switch.
 Audio `play` accepts an optional index; omission preserves the device default track selection.
+
+Rejection feedback carries the same safe catalog and actual user context for the primary model to correct its own proposal. It selects no replacement, synthesizes no parameters and grants no new intent. User-turn projections retain the actual current transcript for audio-only wire messages.
