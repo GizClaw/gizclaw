@@ -16,6 +16,7 @@ func runtimeToolMutations(api *adminhttp.ClientWithResponses, prefix string, gat
 		var request struct {
 			Instance  string `json:"instance"`
 			Operation string `json:"operation"`
+			Oracle    string `json:"oracle"`
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 65536)).Decode(&request); err != nil {
 			http.Error(w, "invalid request", 400)
@@ -33,7 +34,7 @@ func runtimeToolMutations(api *adminhttp.ClientWithResponses, prefix string, gat
 			http.Error(w, "coordination canceled", 500)
 			return
 		}
-		status, err := mutateRuntimeTool(r.Context(), api, id, request.Operation)
+		status, err := mutateRuntimeTool(r.Context(), api, id, request.Operation, request.Oracle)
 		if err != nil {
 			http.Error(w, "test mutation failed", 500)
 			return
@@ -44,7 +45,7 @@ func runtimeToolMutations(api *adminhttp.ClientWithResponses, prefix string, gat
 	}
 }
 
-func mutateRuntimeTool(ctx context.Context, api *adminhttp.ClientWithResponses, id, operation string) (int, error) {
+func mutateRuntimeTool(ctx context.Context, api *adminhttp.ClientWithResponses, id, operation, oracle string) (int, error) {
 	current, err := api.GetRuntimeProfileWithResponse(ctx, id)
 	if err != nil || current.JSON200 == nil {
 		return 500, errors.New("test Profile unavailable")
@@ -56,10 +57,42 @@ func mutateRuntimeTool(ctx context.Context, api *adminhttp.ClientWithResponses, 
 		workflow := spec.Workflows["assistant-10"]
 		names := append([]string{}, (*workflow.Toolkit.ToolNames)...)
 		names = append(names, alias)
-		workflow.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: &names}
+		selection := *workflow.Toolkit
+		selection.ToolNames = &names
+		workflow.Toolkit = &selection
 		spec.Workflows["assistant-10"] = workflow
 	}
 	switch operation {
+	case "add-echo-http":
+		if err := customid.ValidateResourceID(oracle); err != nil {
+			return 400, nil
+		}
+		target := id + "-echo"
+		resource := map[string]any{
+			"apiVersion": "gizclaw.admin/v1alpha1", "kind": "Tool", "metadata": map[string]any{"id": target},
+			"spec": map[string]any{
+				"type": "http_request", "invoke_name": "private_" + target, "enabled": true,
+				"input_schema": map[string]any{"type": "object", "properties": map[string]any{}, "additionalProperties": false},
+				"http": map[string]any{"url": "https://postman-echo.com/get", "method": "GET", "auth": map[string]any{"method": "none"},
+					"headers": map[string]any{"X-Giztest-Oracle": oracle}, "response_pointer": "/headers/x-giztest-oracle", "timeout": "10s", "max_response_bytes": 8192},
+			},
+		}
+		encoded, err := json.Marshal(resource)
+		if err != nil {
+			return 500, err
+		}
+		var body adminhttp.ApplyResourceJSONRequestBody
+		if err := json.Unmarshal(encoded, &body); err != nil {
+			return 500, err
+		}
+		result, err := api.ApplyResourceWithResponse(ctx, body)
+		if err != nil || result.JSON200 == nil {
+			return 500, errors.New("echo HTTP resource creation failed")
+		}
+		tools["echo.lookup"] = apitypes.RuntimeProfileToolBinding{ResourceId: target, I18n: binding("", "Read actual HTTP resource identifier", "从 HTTPS 服务读取实际资源编号，不猜测或生成编号，只返回服务提供的值").I18n}
+		workflow := spec.Workflows["assistant-10"]
+		workflow.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: new([]string{"echo.lookup"})}
+		spec.Workflows["http-probe"] = workflow
 	case "add-http", "rebind-http", "disable-http":
 		target := id + "-first"
 		if operation != "add-http" {

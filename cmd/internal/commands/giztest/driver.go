@@ -410,6 +410,7 @@ func (s *session) executeClientRPC(ctx context.Context, step giztest.Step) (gizt
 	evidence := map[string]any{"method": step.ClientRPC.Method, "calls": calls}
 	if counter.recordRequests.Load() {
 		evidence["requests"] = counter.requestSnapshot()
+		evidence["mutations"] = counter.mutations.snapshot()
 	}
 	return giztest.StepResult{Value: evidence, Saved: evidence, Evidence: evidence}, err
 }

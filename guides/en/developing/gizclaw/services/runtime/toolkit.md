@@ -9,6 +9,21 @@ fields}`, or a predefined `client_tool.name`. Each Profile Workflow binding expl
 through `toolkit.tool_names`. Omission and an empty list inject no Tools. Workspace `tool_names`
 only narrows that selection; omission adds no restriction and an explicit empty list disables it.
 
+An Eino Workflow binding can select `toolkit.verification_model`, a chat-model alias in the same
+Profile. The primary model still proposes native Tool calls. Before a mutating device call or
+HTTP POST, an independent model checks that exact fixed target and arguments against the actual
+conversation and this turn's Tool results. It only approves or rejects, never rewrites arguments
+or substitutes a target. Read operations bypass this additional check. Missing conversation,
+provider failure and invalid decisions fail closed; normal authorization is reread afterward.
+The alias must bind an `llm` Model; other Workflow drivers reject this configuration.
+A final-reply check also rejects missing operations, redundant clarification of completed slots,
+unsupported completion claims and fabricated results. The primary model can correct a rejected
+draft at most twice. Intermediate Tool-round text and rejected drafts stay buffered; only an
+accepted final reply is published. Verification failure or exhausted corrections ends the turn
+with an error and no unverified reply text. Each mutating proposal and final-reply check adds a
+model request, cost and latency; corrections can add more. Semantic decisions still require
+actual-model qualification.
+
 The legacy Workflow resource `spec.toolkit.tool_ids` grants no runtime authority. Configure the
 Profile Workflow binding explicitly. Legacy Workspace `tool_ids` can only narrow HTTP resources
 and cannot be combined with aliases. New Peer Workspace selections persist aliases, including

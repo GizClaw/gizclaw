@@ -21,6 +21,9 @@ type Spec struct {
 	AgentType   string
 	Runtime     workspace.Runtime
 	ToolInvoker genx.ToolInvoker
+	// ToolVerificationModel selects an independent semantic checker for mutating
+	// calls. The primary model still proposes native ToolCalls.
+	ToolVerificationModel string
 	// SafetyFencePrompt is the complete selected RuntimeProfile prompt for this generation.
 	SafetyFencePrompt string
 	// AudioInput is the audio input path selected for an Eino Workspace: its

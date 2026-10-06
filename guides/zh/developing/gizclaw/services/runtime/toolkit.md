@@ -39,6 +39,18 @@ Tool 和 Workflow 使用专用 binding 类型。Workflow binding 的 `toolkit.to
 注入授权来源，值必须是同一 Profile 声明的 Tool aliases。省略、空策略、空列表都不注入。
 Workspace 的 `toolkit.tool_names` 只取交集；省略不再收窄，显式空列表禁用全部工具。
 
+Eino Workflow binding 可选 `toolkit.verification_model`，引用同一 Profile 的 chat-model
+alias。主模型仍看到原生 Tool declarations 并提出调用；有副作用的调用在发送设备 RPC
+或 HTTP POST 前，由该模型基于真实对话、固定目标、参数及本轮工具结果独立校验。
+它只批准或拒绝当前候选，不能替换目标或修改参数。读操作不增加这次校验。缺少真实
+对话、校验模型错误或非法决定都拒绝执行；校验后仍执行原有权限与资源重读。
+该 alias 必须绑定 `llm` Model。此配置目前只支持 Eino，其他 Workflow driver 会在
+Profile 验证时拒绝。最终回复还会核对本轮成功结果，拒绝漏执行、重复追问已齐槽位、
+虚假完成和编造结果；最多让主模型纠正两次。中间调用文本和被拒绝的草稿不发布，
+只有通过检查的最终文本进入输出；校验失败或纠正耗尽以错误结束该轮，不发布未校验文本。
+每个变更候选和最终回复检查都会增加模型调用、成本和延迟；纠正也可能增加调用。
+语义判断仍需真实模型回归验证，不能当成确定性证明。
+
 Workflow resource 的旧 `spec.toolkit.tool_ids` 不授予运行时权限。已有配置需要在 Profile
 的 Workflow binding 中显式选择 aliases。旧 Workspace `tool_ids` 仍只能收窄所选 HTTP
 resources；不能与 `tool_names` 混用，也不能授予 inner tools。新 Peer Workspace 选择按 alias

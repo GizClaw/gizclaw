@@ -108,6 +108,19 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			Store: f.History, Scope: scope, Limit: 50,
 		},
 	}
+	if spec.ToolVerificationModel != "" {
+		invoker, ok := spec.ToolInvoker.(*agenthost.ToolkitInvoker)
+		if !ok {
+			return nil, errors.New("eino: semantic Tool verification requires the runtime catalog invoker")
+		}
+		if _, err := service.ResolveGenerator(ctx, "model/"+spec.ToolVerificationModel); err != nil {
+			return nil, fmt.Errorf("eino: Tool verification model: %w", err)
+		}
+		configured := *invoker
+		configured.Verify = runtimeToolVerifier(service.Generator(), "model/"+spec.ToolVerificationModel)
+		config.ToolInvoker = &configured
+		config.VerifyToolResponse = runtimeToolResponseVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
+	}
 	if public.StatePersistence != nil {
 		if f.State == nil {
 			return nil, fmt.Errorf("eino: state_persistence requires services.agent_host.persistence.state_store")

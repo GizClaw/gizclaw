@@ -33,28 +33,32 @@ type ToolkitInvoker struct {
 	Scope       func(context.Context, string) (apitypes.RuntimeProfile, []string, error)
 	Credentials toolCredentialResolver
 	HTTP        giztools.HTTPExecutor
+	// Verify validates a mutating proposal against its actual conversation.
+	// It never selects another alias or changes the supplied arguments.
+	Verify func(context.Context, toolcatalog.Tool, json.RawMessage, genx.ToolConversation) (string, error)
 }
 
 var _ genx.ToolInvoker = (*ToolkitInvoker)(nil)
 
-func (i *ToolkitInvoker) resolveCatalog(ctx context.Context) (string, apitypes.RuntimeProfile, []toolcatalog.Tool, error) {
+// ResolveCatalog returns the current authorized catalog for product consumers.
+// HTTP executor data is private; model inputs must project only public metadata.
+func (i *ToolkitInvoker) ResolveCatalog(ctx context.Context) ([]toolcatalog.Tool, error) {
 	if i == nil || i.Catalog == nil || i.Owner == nil || i.Scope == nil {
-		return "", apitypes.RuntimeProfile{}, nil, toolkit.ErrNotConfigured
+		return nil, toolkit.ErrNotConfigured
 	}
 	owner, err := i.Owner(ctx)
 	if err != nil {
-		return "", apitypes.RuntimeProfile{}, nil, err
+		return nil, err
 	}
 	profile, names, err := i.Scope(ctx, owner)
 	if err != nil {
-		return "", profile, nil, err
+		return nil, err
 	}
-	tools, err := i.Catalog.Resolve(ctx, owner, profile, &names)
-	return owner, profile, tools, err
+	return i.Catalog.Resolve(ctx, owner, profile, &names)
 }
 
 func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinition, error) {
-	_, _, tools, err := i.resolveCatalog(ctx)
+	tools, err := i.ResolveCatalog(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +118,19 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 			slog.WarnContext(ctx, "agenthost: Tool arguments rejected", "tool_alias", tool.Alias, "reason", "invalid_arguments")
 			return recoverableToolError("invalid_arguments", "tool arguments do not match its schema"), nil
 		}
+		if i.Verify != nil && mutatingTool(tool) {
+			conversation, ok := genx.ToolConversationFromContext(ctx)
+			if !ok || strings.TrimSpace(conversation.CurrentUser) == "" {
+				return recoverableToolError("intent_unverified", "the actual user conversation is unavailable; do not execute or claim completion"), nil
+			}
+			reason, err := i.Verify(ctx, tool, args, conversation)
+			if err != nil {
+				return recoverableToolError("intent_unverified", "request verification failed; no change was executed"), nil
+			}
+			if reason != "" {
+				return recoverableToolError("intent_rejected", reason+"; no change was executed; clarify missing information and never substitute another target or claim completion"), nil
+			}
+		}
 		tool.Authorize = func(ctx context.Context) error {
 			current, names, err := i.Scope(ctx, owner)
 			if err != nil || current.Revision != profile.Revision || !slices.Contains(names, tool.Alias) || current.Spec.Resources.Tools == nil {
@@ -145,6 +162,21 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 		return result, nil
 	}
 	return recoverableToolError("unavailable", "tool is not authorized"), nil
+}
+
+func mutatingTool(tool toolcatalog.Tool) bool {
+	if tool.Source == "mhs" {
+		return tool.Binding.Mhs.Operation == "write"
+	}
+	if tool.Source == "client_tool" {
+		switch tool.Binding.ClientTool.Name {
+		case "info.get", "identifiers.get", "device.status.get", "audioplayer.get", "audioplayer.playlist.get", "wifi.scan", "wifi.saved.list":
+			return false
+		default:
+			return true
+		}
+	}
+	return tool.HTTP != nil && tool.HTTP.HTTP != nil && tool.HTTP.HTTP.Method != "GET"
 }
 
 func (i *ToolkitInvoker) invokeHTTP(

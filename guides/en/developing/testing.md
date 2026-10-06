@@ -1864,3 +1864,41 @@ aliases all select Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`), request
 `service_tier: fast`, and disable thinking by default. The `script-judge` alias
 can still select the judge model independently. The live low-latency Giztest
 and first-response matrix on this page verify the actual tier and latency.
+
+## Runtime Tool aliases
+
+Run the isolated native Server/Edge/Peer lane with the authorized provider
+credential file; its contents remain process-local:
+
+```bash
+GIZCLAW_RUNTIME_TOOL_CREDENTIAL_FILE=/secure/gizclaw.env \
+  bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
+```
+
+The default matrix contains 424 native documents and 1268 tasks: 80 business
+utterances, 20 actual-model dialogs, unpredictable results, long history and
+target-isolation cases at 10/30/60/100 available Tools with three repetitions,
+plus contract checks, an external HTTPS echo and two probes. Each task has an
+independent Profile. Filter/repeat/smoke overrides are diagnostic subsets and
+cannot replace full acceptance. Every failure and skipped or missing task is
+retained under ignored `.testbench/runtime-tools-*/reports/`, with exact source
+and binary hashes, source patch, inputs, decoded protocol receipts and reports.
+
+Business bindings select `verification_model`; the primary model still produces
+native calls and clarification. Independent checks cover each mutating proposal
+and final reply, with at most two corrections. Complete-parameter readiness
+includes this execution cost. Final text is buffered for checking, so its first
+chunk latency must be distinguished from unverified streaming. Semantic
+misclassification, exhausted corrections and provider/session errors remain
+failures. Mutation counts, fixed targets and parameters use exact native
+assertions; a separate real model checks zero-action replies for false claims.
+
+Program fixtures have independent Workflow/Workspace IDs and program system
+content. After checking the acknowledged selection's enum, parameters and count,
+the lane explicitly reloads and checks selected/active Workspace and `RUNNING`.
+An ACK alone does not prove committed reload or physical script playback.
+G02 executes an external HTTPS Tool and requires the model to use the random
+value returned from a private fixed header, absent from user input. Positive
+echo acceptance does not qualify every provider or credential-revocation path.
+Focus fixtures update real Profile metadata; audio fixtures qualify protocol
+state. Neither proves a production focus UI or physical audio playout.

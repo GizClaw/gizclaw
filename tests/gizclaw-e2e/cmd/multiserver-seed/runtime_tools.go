@@ -45,13 +45,30 @@ func seedRuntimeTools(ctx context.Context, api *adminhttp.ClientWithResponses, p
 	if err := json.Unmarshal(data, &workflow); err != nil {
 		return err
 	}
+	workflow, err = runtimeToolWorkflowContext(workflow, "当前程序是聊天。知识问答、闲聊和保持当前聊天不需要切换程序。只有用户明确要求进入一个具体剧本，或在已有待选择剧本请求中补齐名称，才选择新的剧本。")
+	if err != nil {
+		return err
+	}
 	if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: "runtime-tools-assistant", Spec: workflow}); err != nil {
 		return err
 	}
-	// Distinct binding IDs make program selection observable without encoding a
-	// fixed Tool name into the prompt.
-	for _, id := range []string{"runtime-tools-aesop", "runtime-tools-space", "runtime-tools-three-kingdoms", "runtime-tools-chat"} {
-		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: id, Spec: workflow}); err != nil {
+	// Each target has its own actual program context. The typed selection and
+	// subsequent reload must activate that target, not only change a menu label.
+	for _, program := range []struct{ id, context string }{
+		{"runtime-tools-aesop", "当前程序是伊索寓言。你按用户要求讲述简短寓言，例如龟兔赛跑、狐狸与葡萄；用户提问时直接回应。除非用户明确要求换程序，不自主切换。"},
+		{"runtime-tools-space", "当前程序是宇宙救援。你按用户要求讲述一支太空救援队寻找失联飞船的互动故事；用户提问时直接回应。除非用户明确要求换程序，不自主切换。"},
+		{"runtime-tools-three-kingdoms", "当前程序是三国乱世。你按用户要求讲述三国人物与事件；知识讨论不要求切换程序。除非用户明确要求换程序，不自主切换。"},
+		{"runtime-tools-chat", "当前程序是聊天。知识问答、闲聊和保持当前聊天不需要切换程序。只有用户明确要求进入具体剧本时才选择新程序。"},
+	} {
+		var base apitypes.WorkflowSpec
+		if err := json.Unmarshal(data, &base); err != nil {
+			return err
+		}
+		configured, err := runtimeToolWorkflowContext(base, program.context)
+		if err != nil {
+			return err
+		}
+		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: program.id, Spec: configured}); err != nil {
 			return err
 		}
 	}
@@ -192,7 +209,9 @@ func seedRuntimeTools(ctx context.Context, api *adminhttp.ClientWithResponses, p
 				original := runtimeToolProfile().Workflows[request.Workflow]
 				request.Names = slices.Clone(*original.Toolkit.ToolNames)
 			}
-			binding.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: &request.Names}
+			selection := *binding.Toolkit
+			selection.ToolNames = &request.Names
+			binding.Toolkit = &selection
 			spec.Workflows[request.Workflow] = binding
 		}
 		if err := upsertRuntimeProfile(r.Context(), api, adminhttp.RuntimeProfileUpsert{Id: id, Spec: spec}); err != nil {
@@ -216,6 +235,29 @@ func seedRuntimeTools(ctx context.Context, api *adminhttp.ClientWithResponses, p
 		return ctx.Err()
 	}
 	return err
+}
+
+func runtimeToolWorkflowContext(spec apitypes.WorkflowSpec, context string) (apitypes.WorkflowSpec, error) {
+	if spec.Eino == nil {
+		return spec, errors.New("runtime Tool fixture requires an Eino Workflow")
+	}
+	for index, node := range spec.Eino.Graph.Nodes {
+		prompt, err := node.AsEinoPromptNode()
+		if err != nil || prompt.Type != apitypes.EinoPromptNodeTypePrompt {
+			continue
+		}
+		for messageIndex, message := range prompt.Messages {
+			if message.Role == nil || *message.Role != apitypes.EinoPromptMessageRoleSystem || message.Template == nil {
+				continue
+			}
+			prompt.Messages[messageIndex].Template = new(*message.Template + "\n" + context)
+			if err := spec.Eino.Graph.Nodes[index].FromEinoPromptNode(prompt); err != nil {
+				return spec, err
+			}
+			return spec, nil
+		}
+	}
+	return spec, errors.New("runtime Tool fixture requires a system prompt")
 }
 
 func runtimeToolProfile() apitypes.RuntimeProfileSpec {
@@ -254,18 +296,18 @@ func runtimeToolProfile() apitypes.RuntimeProfileSpec {
 	for _, count := range []int{10, 30, 60, 100} {
 		selection := slices.Clone(names[:count])
 		b := runtimeWorkflowBinding("runtime-tools-assistant", fmt.Sprintf("Assistant %d", count), fmt.Sprintf("聊天 %d", count))
-		b.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: &selection}
+		b.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: &selection, VerificationModel: new("llm")}
 		profile.Workflows[fmt.Sprintf("assistant-%d", count)] = b
 	}
 	b := runtimeWorkflowBinding("runtime-tools-chat", "Chat", "聊天")
-	b.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: new(slices.Clone(names[:10]))}
+	b.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: new(slices.Clone(names[:10])), VerificationModel: new("llm")}
 	profile.Workflows["chat"] = b
 	profile.Workflows["story.three-kingdoms"] = runtimeWorkflowBinding("runtime-tools-three-kingdoms", "Three Kingdoms", "三国乱世")
 	profile.Workflows["story.aesop"] = runtimeWorkflowBinding("runtime-tools-aesop", "Aesop Fables", "伊索寓言")
 	profile.Workflows["story.space-rescue"] = runtimeWorkflowBinding("runtime-tools-space", "Space Rescue", "宇宙救援")
 	for _, alias := range []string{"story.three-kingdoms", "story.aesop", "story.space-rescue"} {
 		b := profile.Workflows[alias]
-		b.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: new(slices.Clone(names[:10]))}
+		b.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: new(slices.Clone(names[:10])), VerificationModel: new("llm")}
 		profile.Workflows[alias] = b
 	}
 	profile.Workflows["no-tools"] = runtimeWorkflowBinding("runtime-tools-assistant", "No tools", "不注入工具")

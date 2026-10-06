@@ -99,6 +99,9 @@ func BindingSchema(profile apitypes.RuntimeProfile, binding apitypes.RuntimeProf
 			delete(schema.Properties, "workspace_name")
 			schema.OneOf = nil
 			schema.Required = []string{"workflow_name"}
+			if property := schema.Properties["kickoff"]; property != nil {
+				property.Description = "Omit for ordinary program selection. Use true only when the user explicitly asks the new agent to speak first after reload; selecting a program alone does not request kickoff."
+			}
 			aliases := []string{}
 			for alias := range profile.Spec.Workflows {
 				aliases = append(aliases, alias)
@@ -239,23 +242,33 @@ func (c *Catalog) Resolve(ctx context.Context, owner string, profile apitypes.Ru
 	return result, nil
 }
 
-// Selection returns a Workflow's alias opt-in narrowed by its Workspace. The
-// resource policy grants no authority; legacy Workspace IDs only restrict HTTP.
-func Selection(profile apitypes.RuntimeProfile, workflowName, workflowID string, policy *apitypes.ToolkitPolicy) ([]string, error) {
+// WorkflowBinding resolves the exact Profile alias or its unique resource-id
+// binding. All Workflow toolkit settings use the same ambiguity checks.
+func WorkflowBinding(profile apitypes.RuntimeProfile, workflowName, workflowID string) (apitypes.RuntimeProfileWorkflowBinding, error) {
 	if workflowName == "" {
 		for alias, binding := range profile.Spec.Workflows {
 			if binding.ResourceId != workflowID {
 				continue
 			}
 			if workflowName != "" {
-				return nil, errors.New("ambiguous Workflow binding")
+				return apitypes.RuntimeProfileWorkflowBinding{}, errors.New("ambiguous Workflow binding")
 			}
 			workflowName = alias
 		}
 	}
 	binding, ok := profile.Spec.Workflows[workflowName]
 	if !ok || binding.ResourceId != workflowID {
-		return nil, errors.New("Workflow binding is unavailable")
+		return apitypes.RuntimeProfileWorkflowBinding{}, errors.New("Workflow binding is unavailable")
+	}
+	return binding, nil
+}
+
+// Selection returns a Workflow's alias opt-in narrowed by its Workspace. The
+// resource policy grants no authority; legacy Workspace IDs only restrict HTTP.
+func Selection(profile apitypes.RuntimeProfile, workflowName, workflowID string, policy *apitypes.ToolkitPolicy) ([]string, error) {
+	binding, err := WorkflowBinding(profile, workflowName, workflowID)
+	if err != nil {
+		return nil, err
 	}
 	if binding.Toolkit == nil || binding.Toolkit.ToolNames == nil {
 		return []string{}, nil

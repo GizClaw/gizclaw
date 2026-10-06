@@ -92,6 +92,18 @@ Prompt, ChatModel, and Retriever components are added through Eino's native `Add
 
 ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a `ToolInvoker` is configured, `ResolveTools` supplies function names, descriptions, and schemas through Eino model options. Correlated ToolCalls execute in model order through `InvokeTool(name, arguments)`, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
 
+A host can also configure `Config.VerifyToolResponse`, receiving the actual
+`genx.ToolConversation` snapshot and final reply draft. Empty feedback accepts it;
+nonempty feedback permits at most two native-model corrections. The Transformer
+does not generate Tool names or arguments. This option requires `ToolInvoker` and
+buffers reply text: intermediate Tool rounds and rejected drafts are withheld,
+and an accepted final reply is published once. Callback failure or exhausted
+corrections ends the turn with an error without leaking unverified text. Only
+messages after `ContinuationStart` contain current execution evidence; historical
+success is not proof of a new operation. Call correlation, budget and completed
+results survive correction, while each invocation owns a separate snapshot.
+Product authorization and semantics remain the host's responsibility.
+
 ### Audio turns
 
 `ChatModelNode.AudioTranscript` makes one root Graph ChatModel node the transcriber of audio user turns; setting it in a nested Graph or on more than one node fails `New`. When the Graph has that node, an ordinary user `audio/*` route (never the `history.user_audio` sideband) starts a turn at its first audio chunk and completes it at EOS: a new audio route interrupts the previous turn, an `interrupted` EOS discards the route, and any other EOS error fails the session. Each Blob stays one audio part of the current user message, so the node must receive it through `input.messages`; `input.text` is empty for that turn, so a Memory recall that uses it as the query is skipped (see below). A Graph without that node keeps accepting text turns only.

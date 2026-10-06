@@ -2,6 +2,7 @@ package eino
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"maps"
 	"slices"
@@ -305,7 +306,8 @@ func addNativeComponentNode(
 		}
 		adapted := &streamingChatModel{
 			component: component, options: options, node: node, published: published,
-			toolInvoker: config.ToolInvoker,
+			toolInvoker: config.ToolInvoker, verifyToolResponse: config.VerifyToolResponse,
+			maxReplyBytes: config.Limits.MaxOutputBytes,
 		}
 		post := compose.WithStatePostHandler(func(
 			_ context.Context,
@@ -421,11 +423,13 @@ func addNativeEdges(graph *compose.Graph[map[string]any, map[string]any]) error 
 }
 
 type streamingChatModel struct {
-	component   model.BaseChatModel
-	options     []model.Option
-	node        NodeDefinition
-	published   []OutputDefinition
-	toolInvoker genx.ToolInvoker
+	component          model.BaseChatModel
+	options            []model.Option
+	node               NodeDefinition
+	published          []OutputDefinition
+	toolInvoker        genx.ToolInvoker
+	verifyToolResponse func(context.Context, genx.ToolConversation, string) (string, error)
+	maxReplyBytes      int
 }
 
 func (chatModel *streamingChatModel) transcribesAudio() bool {
@@ -446,6 +450,8 @@ func (chatModel *streamingChatModel) Generate(
 		callState = toolrun.New(chatModel.toolInvoker, 0)
 	}
 	messages := cloneMessages(input)
+	inputMessageCount := len(messages)
+	corrections := 0
 	var transcript *audioTranscript
 	if chatModel.transcribesAudio() {
 		publisher, audioTurn := state.transcriptPublisher()
@@ -471,7 +477,7 @@ func (chatModel *streamingChatModel) Generate(
 		if streamErr != nil {
 			return nil, streamErr
 		}
-		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content, transcript)
+		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content, transcript, chatModel.verifyToolResponse == nil)
 		reader.Close()
 		if streamErr != nil {
 			return nil, streamErr
@@ -483,7 +489,30 @@ func (chatModel *streamingChatModel) Generate(
 		if message == nil {
 			return nil, fmt.Errorf("eino: ChatModel returned no message")
 		}
+		// Streaming adapters can omit the role on text-only deltas. This is a
+		// ChatModel response, so its assembled continuation is an assistant.
+		if message.Role == "" {
+			message.Role = schema.Assistant
+		}
 		if len(message.ToolCalls) == 0 {
+			if chatModel.verifyToolResponse != nil {
+				conversation := toolConversation(messages, inputMessageCount, currentToolUser(state, transcript))
+				feedback, err := chatModel.verifyToolResponse(ctx, conversation, message.Content)
+				if err != nil {
+					return nil, fmt.Errorf("eino: verify Tool response: %w", err)
+				}
+				if feedback != "" {
+					if corrections >= 2 {
+						return nil, fmt.Errorf("eino: Tool response verification corrections exhausted")
+					}
+					corrections++
+					messages = append(messages, message, schema.SystemMessage("The previous assistant draft was rejected and was not shown to the user. "+feedback+" Re-evaluate the actual user request using current Tool results. Do not repeat completed operations, invent authorization, or substitute another target."))
+					continue
+				}
+				if err := chatModel.publishText(state, textField, &content, message.Content); err != nil {
+					return nil, err
+				}
+			}
 			message.Content = content.String()
 			return message, nil
 		}
@@ -492,7 +521,8 @@ func (chatModel *streamingChatModel) Generate(
 		}
 		messages = append(messages, message)
 		for _, call := range message.ToolCalls {
-			result, invokeErr := callState.Invoke(ctx, genx.ToolCall{
+			conversation := toolConversation(messages, inputMessageCount, currentToolUser(state, transcript))
+			result, invokeErr := callState.Invoke(genx.WithToolConversation(ctx, conversation), genx.ToolCall{
 				ID: call.ID,
 				FuncCall: &genx.FuncCall{
 					Name: call.Function.Name, Arguments: call.Function.Arguments,
@@ -515,8 +545,10 @@ func (chatModel *streamingChatModel) receiveRound(
 	textField string,
 	content *strings.Builder,
 	transcript *audioTranscript,
+	publish bool,
 ) ([]*schema.Message, error) {
 	var chunks []*schema.Message
+	textBytes := 0
 	for {
 		chunk, err := reader.Recv()
 		if err != nil && isStreamEnd(err) {
@@ -534,11 +566,46 @@ func (chatModel *streamingChatModel) receiveRound(
 			}
 			continue
 		}
+		if !publish {
+			textBytes += len(chunk.Content)
+			if chatModel.maxReplyBytes > 0 && textBytes > chatModel.maxReplyBytes {
+				return nil, fmt.Errorf("eino: buffered model reply exceeds MaxOutputBytes")
+			}
+		}
 		chunks = append(chunks, chunk)
-		if err := chatModel.publishText(state, textField, content, chunk.Content); err != nil {
-			return nil, err
+		if publish {
+			if err := chatModel.publishText(state, textField, content, chunk.Content); err != nil {
+				return nil, err
+			}
 		}
 	}
+}
+
+func currentToolUser(state *runState, transcript *audioTranscript) string {
+	if transcript != nil && transcript.published {
+		return transcript.text
+	}
+	return state.input.Text
+}
+
+func toolConversation(messages []*schema.Message, inputMessageCount int, currentUser string) genx.ToolConversation {
+	conversation := genx.ToolConversation{CurrentUser: currentUser}
+	for index, entry := range messages {
+		if index == inputMessageCount {
+			conversation.ContinuationStart = len(conversation.Messages)
+		}
+		if entry == nil {
+			continue
+		}
+		conversation.Messages = append(conversation.Messages, genx.ToolConversationMessage{Role: string(entry.Role), Content: entry.Content, Name: entry.ToolName})
+		for _, proposal := range entry.ToolCalls {
+			conversation.Messages = append(conversation.Messages, genx.ToolConversationMessage{Role: "assistant_tool_proposal", Name: proposal.Function.Name, Arguments: json.RawMessage(proposal.Function.Arguments)})
+		}
+	}
+	if inputMessageCount == len(messages) {
+		conversation.ContinuationStart = len(conversation.Messages)
+	}
+	return conversation
 }
 
 // publishText appends reply text to the node content and streams it to the

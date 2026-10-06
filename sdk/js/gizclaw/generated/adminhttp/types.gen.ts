@@ -1624,6 +1624,10 @@ export type RuntimeProfileToolBinding = {
 
 export type RuntimeProfileToolSelection = {
     /**
+     * Optional Profile llm-model alias for independent semantic checks before mutating Eino Tool calls and before publishing final replies. Rejected replies allow at most two native-model corrections; accepted replies are buffered until checked. Each check adds a model request. This does not grant Tool authority or replace the primary model's native ToolCall.
+     */
+    verification_model?: string;
+    /**
      * Profile Tool aliases explicitly injected into this Workflow; omitted or empty means no Tools.
      */
     tool_names?: Array<string>;

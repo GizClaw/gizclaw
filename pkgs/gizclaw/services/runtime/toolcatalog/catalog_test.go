@@ -197,6 +197,12 @@ func TestMissingResourceCatalogRemainsEncodable(t *testing.T) {
 
 func TestWorkflowAliasRecoveryIsUnique(t *testing.T) {
 	profile := toolProfile()
+	configured := profile.Spec.Workflows["assistant"]
+	configured.Toolkit.VerificationModel = new("checker")
+	profile.Spec.Workflows["assistant"] = configured
+	if binding, err := WorkflowBinding(profile, "", "workflow"); err != nil || binding.Toolkit.VerificationModel == nil || *binding.Toolkit.VerificationModel != "checker" {
+		t.Fatalf("recovered Workflow omitted verification: %#v, %v", binding, err)
+	}
 	if names, err := Selection(profile, "", "workflow", nil); err != nil || len(names) != 2 {
 		t.Fatalf("names=%v error=%v", names, err)
 	}

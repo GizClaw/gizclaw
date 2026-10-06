@@ -263,6 +263,13 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 	if err != nil {
 		return Spec{}, err
 	}
+	verificationModel := ""
+	if profile, ok := resolutionCtx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile); ok {
+		verificationModel, err = resolveToolVerificationModel(profile, ws)
+		if err != nil {
+			return Spec{}, err
+		}
+	}
 	memoryName, memoryBinding, memoryLayout, err := r.resolveMemory(resolutionCtx, workflow)
 	if err != nil {
 		return Spec{}, err
@@ -281,6 +288,7 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 		AudioInput:            audioInput,
 		Runtime:               runtime,
 		ToolInvoker:           tools,
+		ToolVerificationModel: verificationModel,
 		MemoryName:            memoryName,
 		MemoryProfileID:       memoryProfileID,
 		MemoryProfileRevision: memoryProfileRevision,
@@ -367,6 +375,27 @@ func resolveWorkspaceWorkflowName(ctx context.Context, ws apitypes.Workspace) (s
 		return "", fmt.Errorf("agenthost: workspace %q has an invalid workflow id: %w", ws.Name, err)
 	}
 	return id, nil
+}
+
+func resolveToolVerificationModel(profile apitypes.RuntimeProfile, ws apitypes.Workspace) (string, error) {
+	for _, configured := range profile.Spec.Workflows {
+		if configured.ResourceId != ws.WorkflowId || configured.Toolkit == nil || configured.Toolkit.VerificationModel == nil {
+			continue
+		}
+		alias := ""
+		if ws.Labels != nil {
+			alias = (*ws.Labels)["workflow_name"]
+		}
+		binding, err := toolcatalog.WorkflowBinding(profile, alias, ws.WorkflowId)
+		if err != nil {
+			return "", err
+		}
+		if binding.Toolkit != nil && binding.Toolkit.VerificationModel != nil {
+			return *binding.Toolkit.VerificationModel, nil
+		}
+		return "", nil
+	}
+	return "", nil
 }
 
 // resolveToolkit creates the shared alias invoker. Profile Workflow bindings are

@@ -20,16 +20,22 @@ const defaultMaxOutputBytes = 4 << 20
 
 // Config declares one reusable Eino-backed Transformer.
 type Config struct {
-	Agent        AgentConfig
-	Graph        GraphDefinition
-	Components   ComponentResolver
-	Lambdas      LambdaResolver
-	State        *StatePersistenceConfig
-	History      *HistoryConfig
-	Memory       *MemoryConfig
-	ToolInvoker  genx.ToolInvoker
-	MaxToolCalls int
-	Limits       Limits
+	Agent       AgentConfig
+	Graph       GraphDefinition
+	Components  ComponentResolver
+	Lambdas     LambdaResolver
+	State       *StatePersistenceConfig
+	History     *HistoryConfig
+	Memory      *MemoryConfig
+	ToolInvoker genx.ToolInvoker
+	// VerifyToolResponse checks a final draft against the actual conversation
+	// and current Tool results. When configured, reply text is buffered until
+	// accepted; nonempty feedback permits at most two model corrections.
+	// An error or exhausted corrections publishes no unverified reply text.
+	// Independent invocations may call the callback concurrently.
+	VerifyToolResponse func(context.Context, genx.ToolConversation, string) (string, error)
+	MaxToolCalls       int
+	Limits             Limits
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
 	// SafetyFence is host-selected safety prompt text exposed to every run,
@@ -176,6 +182,9 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	}
 	if config.MaxToolCalls > 0 && config.ToolInvoker == nil {
 		return nil, fmt.Errorf("eino: MaxToolCalls requires ToolInvoker")
+	}
+	if config.VerifyToolResponse != nil && config.ToolInvoker == nil {
+		return nil, fmt.Errorf("eino: VerifyToolResponse requires ToolInvoker")
 	}
 	switch config.Initiative {
 	case InitiativeDisabled, InitiativeOnceWhenEmpty, InitiativeOnReload:

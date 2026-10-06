@@ -5513,6 +5513,9 @@ type RuntimeProfileToolBinding struct {
 type RuntimeProfileToolSelection struct {
 	// ToolNames Profile Tool aliases explicitly injected into this Workflow; omitted or empty means no Tools.
 	ToolNames *[]string `json:"tool_names,omitempty"`
+
+	// VerificationModel Optional Profile llm-model alias for independent semantic checks before mutating Eino Tool calls and before publishing final replies. Rejected replies allow at most two native-model corrections; accepted replies are buffered until checked. Each check adds a model request. This does not grant Tool authority or replace the primary model's native ToolCall.
+	VerificationModel *string `json:"verification_model,omitempty"`
 }
 
 // RuntimeProfileVolcMem0Connection defines model for RuntimeProfileVolcMem0Connection.

@@ -3,6 +3,7 @@ package agenthost
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"slices"
@@ -11,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/toolkittest"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -20,6 +22,61 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 	"github.com/google/jsonschema-go/jsonschema"
 )
+
+func TestToolkitVerifierRejectsBeforeTransportAndReauthorizesAfterApproval(t *testing.T) {
+	for _, mode := range []string{"no conversation", "empty current user", "rejected", "verification error", "revoked during verification"} {
+		t.Run(mode, func(t *testing.T) {
+			server := toolkittest.New(t)
+			resource := agentHostBoundHTTPTool("private_control")
+			resource.HTTP.Method = "POST"
+			created := putAgentHostTool(t, server, resource)
+			bindings := map[string]apitypes.RuntimeProfileToolBinding{"control": {ResourceId: created.ID}}
+			profile := apitypes.RuntimeProfile{Revision: "current", Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Tools: &bindings}}}
+			names := []string{"control"}
+			calls, checks := 0, 0
+			invoker := ToolkitInvoker{
+				Catalog: &toolcatalog.Catalog{Tools: server},
+				Owner:   func(context.Context) (string, error) { return "owner", nil },
+				Scope:   func(context.Context, string) (apitypes.RuntimeProfile, []string, error) { return profile, names, nil },
+				HTTP: giztools.HTTPExecutor{Transport: roundTripperFunc(func(*http.Request) (*http.Response, error) {
+					calls++
+					return &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(strings.NewReader(`{}`))}, nil
+				})},
+				Verify: func(_ context.Context, tool toolcatalog.Tool, args json.RawMessage, conversation genx.ToolConversation) (string, error) {
+					checks++
+					if tool.Alias != "control" || string(args) != `{"level":7}` || conversation.CurrentUser != "requested control" {
+						return "", fmt.Errorf("verification received wrong candidate or conversation")
+					}
+					switch mode {
+					case "rejected":
+						return "wrong target", nil
+					case "verification error":
+						return "", fmt.Errorf("checker unavailable")
+					case "revoked during verification":
+						names = []string{}
+					}
+					return "", nil
+				},
+			}
+			ctx := t.Context()
+			if mode != "no conversation" {
+				currentUser := "requested control"
+				if mode == "empty current user" {
+					currentUser = ""
+				}
+				ctx = genx.WithToolConversation(ctx, genx.ToolConversation{CurrentUser: currentUser})
+			}
+			result, err := invoker.InvokeTool(ctx, "control", json.RawMessage(`{"level":7}`))
+			wantChecks := 1
+			if mode == "no conversation" || mode == "empty current user" {
+				wantChecks = 0
+			}
+			if err != nil || calls != 0 || checks != wantChecks || !strings.Contains(string(result), `"error"`) {
+				t.Fatalf("result=%s err=%v transport=%d verification=%d", result, err, calls, checks)
+			}
+		})
+	}
+}
 
 func TestToolkitInvokerUsesCanonicalCurrentPeerScope(t *testing.T) {
 	server := toolkittest.New(t)

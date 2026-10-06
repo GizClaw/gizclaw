@@ -92,6 +92,14 @@ Prompt、ChatModel 和 Retriever 通过 Eino 原生 `AddChatTemplateNode`、`Add
 
 ChatModel 调用解析后的 Eino streaming interface。model node 直接拥有 declared text output 时，文本 chunk 会增量发布。配置 `ToolInvoker` 后，`ResolveTools` 取得的函数名、说明和 schema 会通过 Eino model option 传入；带关联 ID 的 ToolCall 按模型顺序通过 `InvokeTool(name, arguments)` 执行，native tool message 被追加后继续同一个 model node。内部 call/result 不公开输出；完成的 model turn 没有文本时，请求 `text` port 仍会失败。
 
+宿主可同时配置 `Config.VerifyToolResponse` callback，接收真实 `genx.ToolConversation`
+快照和最终回复草稿。返回空反馈接受回复；非空反馈让原生模型最多纠正两次，不由
+Transformer 生成工具名或参数。此配置要求 `ToolInvoker`，并暂存整个回复文本：中间
+Tool round 与被拒绝的草稿不发布，通过检查的最终文本一次发布。callback 错误或
+纠正耗尽使该轮以错误结束，不泄漏未校验文本。当前执行结果只位于 `ContinuationStart`
+之后，历史成功不能充当本轮执行证明。调用关联、额度与已完成结果在纠正期间保留，
+新的 invocation 独立持有快照；产品权限和语义仍由宿主检查。
+
 ### 音频 turn
 
 `ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 的 Graph 仍只接受文本 turn。

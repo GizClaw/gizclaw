@@ -24,6 +24,52 @@ type inboundCounter struct {
 	requestsMu     sync.Mutex
 	recordRequests atomic.Bool
 	requests       []any
+	mutations      *inboundMutationLog
+}
+
+// One client shares this ordered log across MHS and predefined procedures.
+// Entries are immutable decoded receipts, bounded independently of counters.
+type inboundMutationLog struct {
+	mu       sync.Mutex
+	requests []any
+}
+
+func (l *inboundMutationLog) append(request any) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if len(l.requests) < 1024 {
+		l.requests = append(l.requests, request)
+	}
+}
+
+func (l *inboundMutationLog) snapshot() []any {
+	if l == nil {
+		return []any{}
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]any{}, l.requests...)
+}
+
+func isMutatingDeviceRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool) bool {
+	if method == rpcapi.RPCMethodClientMhsV0Write {
+		return true
+	}
+	if method != rpcapi.RPCMethodClientToolV0Invoke {
+		return false
+	}
+	switch tool {
+	case rpcpb.ClientTool_CLIENT_TOOL_INFO_GET, rpcpb.ClientTool_CLIENT_TOOL_IDENTIFIERS_GET,
+		rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN,
+		rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET,
+		rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET:
+		return false
+	default:
+		return true
+	}
 }
 
 func (c *inboundCounter) observeRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool, request proto.Message) {
@@ -86,6 +132,9 @@ func (c *inboundCounter) observeRequest(method rpcapi.RPCMethod, tool rpcpb.Clie
 		}
 		value["args"] = args
 	}
+	if isMutatingDeviceRequest(method, tool) {
+		c.mutations.append(value)
+	}
 	c.requestsMu.Lock()
 	defer c.requestsMu.Unlock()
 	if len(c.requests) < 1024 {
@@ -101,6 +150,7 @@ func (c *inboundCounter) requestSnapshot() []any {
 
 func configureClientRPC(client *gizcli.Client, clientName string, steps []giztest.Step, vars *giztest.Variables, counts map[string]*inboundCounter) error {
 	localCounts := map[string]*inboundCounter{}
+	var mutations *inboundMutationLog
 	for _, step := range steps {
 		if step.Client != clientName || step.ClientRPC == nil {
 			continue
@@ -112,6 +162,17 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 			counts[key] = counter
 		}
 		localCounts[key] = counter
+		if counter.mutations != nil {
+			mutations = counter.mutations
+		}
+	}
+	if mutations == nil {
+		mutations = &inboundMutationLog{}
+	}
+	for _, counter := range localCounts {
+		if counter.mutations == nil {
+			counter.mutations = mutations
+		}
 	}
 	if err := client.ObserveClientRPC(func(method rpcapi.RPCMethod) {
 		if counter := localCounts[clientName+":"+string(method)]; counter != nil {

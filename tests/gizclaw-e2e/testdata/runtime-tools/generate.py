@@ -83,6 +83,7 @@ def document(case,count,repeat):
     for step in judge_setup: step["client"]="judge"
     steps.extend(judge_setup)
     totals={"mhs":[],**{name:[] for name in PROCEDURES.values()}}
+    ordered_mutations=[]
     turns=case.get("turns")
     if turns is None:
         # Prior user content is replayed through the actual model. No scripted
@@ -99,6 +100,9 @@ def document(case,count,repeat):
         if turn.get("drop_history"):
             replacement="${workspace}-fresh"
             steps.extend([rpc(f"fresh_{index}","server.workspace.create",{"name":replacement,"workflow_name":f"assistant-{count}"}),rpc(f"fresh_select_{index}","server.run.workspace.set",{"workspace_name":replacement}),rpc(f"fresh_reload_{index}","server.run.workspace.reload",{})])
+            fresh=rpc(f"fresh_ready_{index}","server.run.workspace.get",{})
+            fresh["expect"]={"/active_workspace_name":{"equals":replacement},"/runtime_state":{"equals":"PEER_RUN_STATUS_STATE_RUNNING"}}
+            steps.append(fresh)
         if turn.get("remove_tool"):
             removed={"mhs_led_write":"led.status.write","mhs_display_write":"display.main.write"}.get(turn["remove_tool"],turn["remove_tool"])
             base=["audioplayer.get","audioplayer.playlist.get","audioplayer.play","audioplayer.stop","audioplayer.mode.set","display.main.read","display.main.write","led.status.read","led.status.write","run.workspace.set"]
@@ -129,12 +133,25 @@ def document(case,count,repeat):
                 read["expect"]={"/calls":{"minimum":1}}
                 steps.append(read)
         for action in turn.get("expected",[]):
-            group,value=expected_call(action);totals[group].append(value)
+            group,value=expected_call(action);totals[group].append(value);ordered_mutations.append(value)
         for group,expected in totals.items():
             if group=="mhs":check=observer(f"writes_{index}","client.mhs.v0.write",mhs,len(expected))
             else:check=observer(f"{group.replace('.','_')}_{index}","client.tool.v0.invoke",audio if group.startswith("audioplayer.") else {"run_workspace":True},len(expected),group)
             check["expect"].update(assertions(expected))
+            if group=="mhs" and case.get("ordered"):
+                check["expect"].update({pointer.replace("/requests","/mutations",1):rule for pointer,rule in assertions(ordered_mutations).items()})
             steps.append(check)
+        programs=[action for action in turn.get("expected",[]) if action["name"]=="run_workspace_set"]
+        if programs:
+            _,call=expected_call(programs[-1]);target=call["args"]["workspace_name"]
+            selected=rpc(f"program_selected_{index}","server.run.workspace.get",{})
+            selected["expect"]={"/selected_workspace_name":{"equals":target}}
+            steps.append(selected)
+            steps.append(rpc(f"program_commit_{index}","server.run.workspace.reload",{}))
+            ready=rpc(f"program_ready_{index}","server.run.workspace.get",{})
+            ready["retry"]={"attempts":10,"on":["assertion"],"delay":"200ms"}
+            ready["expect"]={"/active_workspace_name":{"equals":target},"/selected_workspace_name":{"equals":target},"/runtime_state":{"equals":"PEER_RUN_STATUS_STATE_RUNNING"}}
+            steps.append(ready)
         if not turn.get("expected"):
             question="待评估的最近用户输入："+turn["text"]+"。实际新增变更调用次数=0。真实助手回复如下：${reply_"+str(index)+"}"
             judgement={"id":f"judge_{index}","client":"judge","timeout":"60s","peer_stream":{"mode":"text","input":question,"require_text":True,"require_audio":False},"expect":{"/text":{"pattern":"^PASS(?:$|[，；：:;\\s])"},"/text_eos":{"equals":True}}}
@@ -198,6 +215,17 @@ def main():
     other_cleanup=rpc("other_cleanup","server.peer.delete",{});other_cleanup["client"]="other";deterministic["finally"].append(other_cleanup)
     filename="g01-contract.giztest.yaml";(args.output/filename).write_text(STORY+json.dumps(deterministic,ensure_ascii=False,indent=2)+"\n")
     manifest.append({"file":filename,"case_id":"G01","repeat":args.repeat,"deterministic":True})
+    if not args.filter or "G02" in args.filter.split(","):
+        echo=document({"id":"G02","turns":[]},10,args.repeat)
+        echo["name"]="runtime-tools.http-echo"
+        setup={"id":"create_echo_http","client":"peer","http":{"endpoint":"http://toolcontrol:9822","method":"POST","path":"/gizclaw/v1/runtime-tools/mutate","body":{"instance":"${workspace}","operation":"add-echo-http","oracle":"${oracle}"},"status":200}}
+        echo["steps"].extend([setup,rpc("echo_workspace","server.workspace.create",{"name":"${workspace}-http","workflow_name":"http-probe"}),rpc("echo_select","server.run.workspace.set",{"workspace_name":"${workspace}-http"}),rpc("echo_reload","server.run.workspace.reload",{})])
+        catalog=rpc("echo_catalog","server.tool.list",{"workflow_name":"http-probe"})
+        catalog["expect"]={"/items":{"count":1},"/items/0/name":{"equals":"echo.lookup"},"/items/0/available":{"equals":True}}
+        echo["steps"].append(catalog)
+        echo["steps"].append({"id":"turn_0","client":"peer","timeout":"60s","peer_stream":{"mode":"text","input":"请从 HTTPS 服务读取实际资源编号，只回复服务实际提供的完整编号，不能自行生成。","require_text":True,"require_audio":False},"expect":{"/text":{"contains":"${oracle}"},"/text_eos":{"equals":True}}})
+        filename="g02-http-echo.giztest.yaml";(args.output/filename).write_text(STORY+json.dumps(echo,ensure_ascii=False,indent=2)+"\n")
+        manifest.append({"file":filename,"case_id":"G02","repeat":args.repeat,"http_result_oracle":True})
     (args.output/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
 
 if __name__=="__main__":main()

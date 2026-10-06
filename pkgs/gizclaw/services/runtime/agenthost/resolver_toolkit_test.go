@@ -9,6 +9,22 @@ import (
 	"testing"
 )
 
+func TestToolVerificationFollowsUniqueWorkflowBinding(t *testing.T) {
+	profile := apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"assistant": {ResourceId: "workflow", Toolkit: &apitypes.RuntimeProfileToolSelection{VerificationModel: new("checker")}}}}}
+	workspace := apitypes.Workspace{WorkflowId: "workflow"}
+	if model, err := resolveToolVerificationModel(profile, workspace); err != nil || model != "checker" {
+		t.Fatalf("missing label disabled configured verification: model=%q err=%v", model, err)
+	}
+	profile.Spec.Workflows["other"] = profile.Spec.Workflows["assistant"]
+	if _, err := resolveToolVerificationModel(profile, workspace); err == nil {
+		t.Fatal("ambiguous binding silently selected verification settings")
+	}
+	workspace.Labels = &map[string]string{"workflow_name": "assistant"}
+	if model, err := resolveToolVerificationModel(profile, workspace); err != nil || model != "checker" {
+		t.Fatalf("explicit binding: model=%q err=%v", model, err)
+	}
+}
+
 func TestServiceResolverToolkitIsProfileOptIn(t *testing.T) {
 	server := toolkittest.New(t)
 	echo := putAgentHostTool(t, server, agentHostBoundHTTPTool("giztest_echo"))

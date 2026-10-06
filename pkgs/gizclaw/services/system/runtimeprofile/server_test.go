@@ -18,6 +18,56 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
+func TestToolVerificationModelMustBeBoundAndPreserved(t *testing.T) {
+	models := map[string]apitypes.RuntimeProfileBinding{"checker": runtimeProfileTestBinding("checker-model")}
+	binding := runtimeProfileTestWorkflowBinding("assistant-workflow")
+	binding.Toolkit = &apitypes.RuntimeProfileToolSelection{VerificationModel: new("checker")}
+	input := adminhttp.RuntimeProfileUpsert{Id: "verified-profile", Spec: apitypes.RuntimeProfileSpec{
+		Resources: apitypes.RuntimeProfileResources{Models: &models},
+		Workflows: apitypes.RuntimeProfileWorkflows{"assistant": binding},
+	}}
+	profile, err := normalizeProfile(input, "verified-profile")
+	if err != nil || profile.Spec.Workflows["assistant"].Toolkit.VerificationModel == nil || *profile.Spec.Workflows["assistant"].Toolkit.VerificationModel != "checker" {
+		t.Fatalf("verification setting lost: %#v %v", profile.Spec.Workflows, err)
+	}
+	input.Spec.Resources.Models = nil
+	if _, err := normalizeProfile(input, "verified-profile"); err == nil {
+		t.Fatal("unbound verification Model was accepted")
+	}
+}
+
+func TestToolVerificationRequiresEinoAndLLMModel(t *testing.T) {
+	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverEino, apitypes.WorkflowDriverSfu} {
+		t.Run(string(driver), func(t *testing.T) {
+			workflow := apitypes.WorkflowSpec{Driver: driver}
+			if driver == apitypes.WorkflowDriverEino {
+				workflow.Eino = runtimeProfileTestEinoFormerSpec(t, "checker", "narrator")
+			} else {
+				workflow.Sfu = &apitypes.SFUWorkflowSpec{}
+			}
+			server := Server{ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
+				var resource apitypes.Resource
+				if kind == apitypes.ResourceKindWorkflow {
+					err := resource.FromWorkflowResource(apitypes.WorkflowResource{ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1, Kind: apitypes.WorkflowResourceKindWorkflow, Metadata: apitypes.ResourceMetadata{Id: id}, Spec: workflow})
+					return resource, err
+				}
+				err := resource.FromModelResource(apitypes.ModelResource{ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1, Kind: apitypes.ModelResourceKindModel, Metadata: apitypes.ResourceMetadata{Id: id}, Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}})
+				return resource, err
+			}}
+			models := map[string]apitypes.RuntimeProfileBinding{"checker": runtimeProfileTestBinding("checker-model")}
+			spec := apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}, Workflows: apitypes.RuntimeProfileWorkflows{"assistant": {ResourceId: "assistant-workflow", Toolkit: &apitypes.RuntimeProfileToolSelection{VerificationModel: new("checker")}}}}
+			err := server.validateResources(t.Context(), spec)
+			want := "requires an llm Model"
+			if driver != apitypes.WorkflowDriverEino {
+				want = "requires an Eino Workflow"
+			}
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("error=%v, want %q", err, want)
+			}
+		})
+	}
+}
+
 func TestRegistrationTokenIsReadableAndIndexedByToken(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

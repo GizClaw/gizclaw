@@ -706,6 +706,18 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		spec.Resources.Tools = &next
 	}
 	for alias, binding := range spec.Workflows {
+		if binding.Toolkit != nil && binding.Toolkit.VerificationModel != nil {
+			name := *binding.Toolkit.VerificationModel
+			if err := ValidateAlias("Tool verification model", name); err != nil {
+				return apitypes.RuntimeProfile{}, err
+			}
+			if spec.Resources.Models == nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.toolkit: verification model is not bound", alias)
+			}
+			if _, exists := (*spec.Resources.Models)[name]; !exists {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.toolkit: verification model is not bound", alias)
+			}
+		}
 		if binding.Toolkit == nil || binding.Toolkit.ToolNames == nil {
 			continue
 		}
@@ -722,7 +734,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 				return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.toolkit: Tool alias %q is not bound", alias, name)
 			}
 		}
-		binding.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: &names}
+		selection := *binding.Toolkit
+		selection.ToolNames = &names
+		binding.Toolkit = &selection
 		spec.Workflows[alias] = binding
 	}
 	if spec.Resources.Memories != nil {
@@ -1027,6 +1041,9 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		if err != nil {
 			return fmt.Errorf("%s.resource_id %q returned an invalid Workflow: %w", path, binding.ResourceId, err)
 		}
+		if binding.Toolkit != nil && binding.Toolkit.VerificationModel != nil && workflow.Spec.Driver != apitypes.WorkflowDriverEino {
+			return fmt.Errorf("%s.toolkit: verification_model requires an Eino Workflow", path)
+		}
 		if binding.AudioInput != nil {
 			if err := validateWorkflowAudioInput(path, workflow.Spec, *binding.AudioInput); err != nil {
 				return err
@@ -1047,6 +1064,15 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 				return fmt.Errorf("%s.resource_id %q returned an invalid Model: %w", path, binding.ResourceId, err)
 			}
 			models[alias] = model
+		}
+	}
+	for alias, binding := range spec.Workflows {
+		if binding.Toolkit == nil || binding.Toolkit.VerificationModel == nil {
+			continue
+		}
+		model, exists := models[*binding.Toolkit.VerificationModel]
+		if !exists || model.Spec.Kind != apitypes.ModelKindLlm {
+			return fmt.Errorf("workflows.%s.toolkit: verification_model requires an llm Model", alias)
 		}
 	}
 	voices := make(map[string]apitypes.VoiceResource)

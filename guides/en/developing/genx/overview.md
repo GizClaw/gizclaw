@@ -121,6 +121,13 @@ Composition layers may also attach a process-local response epoch to `StreamCtrl
 
 Provider call IDs never cross the `ToolInvoker` boundary. The consuming Transformer owns correlation, ordering, duplicate-ID rejection, and the call budget for one invocation. `Toolkit` is an immutable standalone implementation backed by executable `FuncTool` values; it snapshots declarations, validates arguments, executes the paired function, and serializes the result. Other implementations may resolve tools from product resources without exposing those internals to GenX Transformers.
 
+Eino attaches a `ToolConversation` snapshot when executing an internal ToolCall. `ContinuationStart`
+separates input/history from this invocation's new proposals and results. Audio turns use the
+transcript actually reported by the component. The snapshot contains the
+actual current user input, conversation and continuation, with no provider call IDs. Messages and
+arguments are independently owned, and consumers receive a copy. Product invokers can use it for
+pre-execution checks; GenX does not interpret product authority or select another Tool.
+
 ### Usage metering
 
 Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage) as soon as the provider reports usage, handing a [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block; without a recorder the records are dropped. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.

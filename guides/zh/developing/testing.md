@@ -1597,9 +1597,9 @@ id/hwd、程序 enum、参数及接收时间；未要求请求记录时不保存
 成功重跑；脚本非零、缺失任务、FAIL 和 SKIP 均不构成完整验收通过。确定性协议、目录与
 权限回归和真实模型层的结果分别记录，直连 Server 诊断不能替代 Edge 链路验收。
 
-此入口默认编译 423 个原生文档：80 个业务话语与20组多轮对话，另有随机结果、真实长历史、
-区域灯选择和跨设备意图负对照；每组覆盖10/30/60/100工具并重复3次，合计1265任务，
-含确定性合同文档与两个基础探针。每个文档用独立 Profile，允许3个并行任务。
+此入口默认编译 424 个原生文档：80 个业务话语与20组多轮对话，另有随机结果、真实长历史、
+区域灯选择和跨设备意图负对照；每组覆盖10/30/60/100工具并重复3次，合计1268任务，
+含确定性合同文档、真实外部 HTTP 回显和两个基础探针。每个文档用独立 Profile，允许3个并行任务。
 `GIZCLAW_RUNTIME_TOOL_CASE_FILTER`、`GIZCLAW_RUNTIME_TOOL_REPEAT` 和
 `GIZCLAW_RUNTIME_TOOL_SMOKE_ONLY` 仅用于明确标记的诊断子集，不能代替完整矩阵。
 
@@ -1616,8 +1616,15 @@ id/hwd、程序 enum、参数及接收时间；未要求请求记录时不保存
 的场景在原生用户轮显式说明暂不执行。焦点场景通过真实 Profile 目录显示元数据更新建模，
 不能声称已提供产品 UI 焦点 API。音乐测试验证协议状态，不能声称音频已经实际播放。
 
-程序切换 fixture 使用独立的真实 Workflow/Workspace 标识，但这些 Workflow 共用测试
-assistant Graph。`run_workspace` handler 只调用 Server selection 并返回 ACK，不提交 reload，
-因此这些调用回执不证明剧本内容、切换后的运行状态或首轮 kickoff 已就绪。HTTP resource
-的原生合同场景验证绑定、换绑、禁用和删除后的目录状态；HTTP 执行与调用前权限变更另由
-Go 测试验证，不能把目录通过写成真实外部 HTTP provider 已通过 Docker 验收。
+程序切换 fixture 使用独立的真实 Workflow/Workspace 标识与各自程序 system 内容。
+`run_workspace` handler 调用 Server selection 并返回 ACK；断言先核对参数、enum 和次数，
+再显式 reload，确认 selected/active Workspace 及 `RUNNING`。ACK 本身仍不证明 reload
+已提交，也不证明物理设备内容播放或 kickoff 的完整用户体验。HTTP 合同场景验证绑定、
+换绑、禁用和删除后的目录状态；G02 另实际调用外部 HTTPS 回显服务，固定私有 header
+携带随机值且用户输入不提供它，由最终模型回复核对服务实际返回值。调用前撤权另有
+Go 回归，不能把 HTTP 正向成功扩展为所有 provider 或凭据撤权都已通过 Docker。
+
+业务 Workflow binding 启用 `verification_model`，主模型仍生成原生调用与澄清；独立
+模型检查变更候选和最终回复，拒绝时最多纠正两次。报告中的完整参数就绪时间包含
+这些执行前请求与纠正成本；最终文本因回复检查暂存，不能与未启用校验时的首 chunk
+延迟混称。语义检查自身的误判、耗尽与 provider/session 错误都保留为失败。
