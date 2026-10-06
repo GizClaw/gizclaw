@@ -397,3 +397,55 @@ func prepareAliasTestInvoker(source *testToolkitInvoker) *ToolkitInvoker {
 	}
 	return &invoker
 }
+
+type verifyingMHSDevices struct {
+	calls []string
+}
+
+func (*verifyingMHSDevices) Inspect(context.Context, string, apitypes.RuntimeProfile, toolcatalog.Tool) (toolcatalog.Availability, error) {
+	return toolcatalog.Availability{Online: true, Supported: true}, nil
+}
+
+func (d *verifyingMHSDevices) Invoke(_ context.Context, _ string, _ apitypes.RuntimeProfile, tool toolcatalog.Tool, _ json.RawMessage) (json.RawMessage, error) {
+	d.calls = append(d.calls, tool.Target["id"].(string))
+	return json.RawMessage(`{"brightness_percent":50}`), nil
+}
+
+func TestToolkitVerifierRejectsWrongMHSReadBeforeDevice(t *testing.T) {
+	devices := &verifyingMHSDevices{}
+	bindings := map[string]apitypes.RuntimeProfileToolBinding{
+		"lamp.read":   {Mhs: &apitypes.RuntimeProfileMhsTool{Id: "led.status", Operation: "read"}},
+		"screen.read": {Mhs: &apitypes.RuntimeProfileMhsTool{Id: "display.main", Operation: "read"}},
+	}
+	profile := apitypes.RuntimeProfile{Revision: "current", Spec: apitypes.RuntimeProfileSpec{
+		Resources: apitypes.RuntimeProfileResources{Tools: &bindings},
+		Mhs:       &apitypes.RuntimeProfileMhs{V0: &apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "led.status", Hwd: "led"}, {Id: "display.main", Hwd: "display"}}}},
+	}}
+	checks := 0
+	invoker := &ToolkitInvoker{
+		Catalog: &toolcatalog.Catalog{Devices: devices},
+		Owner:   func(context.Context) (string, error) { return "owner", nil },
+		Scope: func(context.Context, string) (apitypes.RuntimeProfile, []string, error) {
+			return profile, []string{"lamp.read", "screen.read"}, nil
+		},
+		Verify: func(_ context.Context, candidate toolcatalog.Tool, args json.RawMessage, conversation genx.ToolConversation) (string, error) {
+			checks++
+			if candidate.Target["operation"] != "read" || string(args) != `{}` || conversation.CurrentUser != "increase screen brightness" {
+				t.Fatal("read verification omitted its target, parameters or actual user")
+			}
+			if candidate.Target["id"] != "display.main" {
+				return "wrong target", nil
+			}
+			return "", nil
+		},
+	}
+	ctx := genx.WithToolConversation(t.Context(), genx.ToolConversation{CurrentUser: "increase screen brightness"})
+	result, err := invoker.InvokeTool(ctx, "lamp_read", json.RawMessage(`{}`))
+	if err != nil || len(devices.calls) != 0 || !strings.Contains(string(result), `"intent_rejected"`) {
+		t.Fatalf("wrong read reached device: result=%s error=%v calls=%v", result, err, devices.calls)
+	}
+	result, err = invoker.InvokeTool(ctx, "screen_read", json.RawMessage(`{}`))
+	if err != nil || string(result) != `{"brightness_percent":50}` || checks != 2 || !slices.Equal(devices.calls, []string{"display.main"}) {
+		t.Fatalf("correct read: result=%s error=%v checks=%d calls=%v", result, err, checks, devices.calls)
+	}
+}

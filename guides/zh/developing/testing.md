@@ -1607,6 +1607,7 @@ id/hwd、程序 enum、参数及接收时间；未要求请求记录时不保存
 失败，需人工核对原始回复与调用记录。`client_rpc.observe_only: true` 只读取已收到的计数，
 不等待或断言调用次数，不能同时配置 response 或 expect_calls；finally 只允许这种观察形式，
 用于即使主断言失败也保存协议回执。它不注册新的设备 handler。
+若容器中断而没有生成 giztest.json，报告仍标记 FAIL，全部预期任务记为结果未知的 missing；不伪造运行、失败动作或延迟指标。
 
 报告保留 inputs、源代码 patch、编译前后源文件哈希、二进制哈希、giztest.json、summary.json
 与 report.html。参数与目标正确率按实际用户轮次对齐后的解码请求独立计算；动作指标只统计
@@ -1625,7 +1626,7 @@ id/hwd、程序 enum、参数及接收时间；未要求请求记录时不保存
 Go 回归，不能把 HTTP 正向成功扩展为所有 provider 或凭据撤权都已通过 Docker。
 
 业务 Workflow binding 启用 `verification_model`，主模型仍生成原生调用与澄清；独立
-模型检查变更候选和最终回复，拒绝时最多纠正两次。报告中的完整参数就绪时间包含
+模型检查变更候选、固定目标 MHS 读取和最终回复，拒绝时最多纠正两次。报告中的完整参数就绪时间包含
 这些执行前请求与纠正成本；最终文本因回复检查暂存，不能与未启用校验时的首 chunk
 延迟混称。语义检查自身的误判、耗尽与 provider/session 错误都保留为失败。
 

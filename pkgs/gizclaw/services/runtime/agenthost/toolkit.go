@@ -33,7 +33,7 @@ type ToolkitInvoker struct {
 	Scope       func(context.Context, string) (apitypes.RuntimeProfile, []string, error)
 	Credentials toolCredentialResolver
 	HTTP        giztools.HTTPExecutor
-	// Verify validates a mutating proposal against its actual conversation.
+	// Verify validates mutations and fixed-target MHS reads against their actual conversation.
 	// It never selects another alias or changes the supplied arguments.
 	Verify func(context.Context, toolcatalog.Tool, json.RawMessage, genx.ToolConversation) (string, error)
 }
@@ -118,7 +118,7 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 			slog.WarnContext(ctx, "agenthost: Tool arguments rejected", "tool_alias", tool.Alias, "reason", "invalid_arguments")
 			return recoverableToolError("invalid_arguments", "tool arguments do not match its schema"), nil
 		}
-		if i.Verify != nil && mutatingTool(tool) {
+		if i.Verify != nil && (mutatingTool(tool) || tool.Source == "mhs") {
 			conversation, ok := genx.ToolConversationFromContext(ctx)
 			if !ok || strings.TrimSpace(conversation.CurrentUser) == "" {
 				return recoverableToolError("intent_unverified", "the actual user conversation is unavailable; do not execute or claim completion"), nil
@@ -128,7 +128,7 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 				return recoverableToolError("intent_unverified", "request verification failed; no change was executed"), nil
 			}
 			if reason != "" {
-				return recoverableToolError("intent_rejected", reason+"; no change was executed; clarify missing information and never substitute another target or claim completion"), nil
+				return recoverableToolError("intent_rejected", reason+"; this candidate was not executed. Recheck the actual user request and current catalog; this rejection does not revoke a different authorized candidate. Ask only for information still missing, and never substitute another target or claim completion"), nil
 			}
 		}
 		tool.Authorize = func(ctx context.Context) error {

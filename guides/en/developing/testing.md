@@ -1883,9 +1883,11 @@ independent Profile. Filter/repeat/smoke overrides are diagnostic subsets and
 cannot replace full acceptance. Every failure and skipped or missing task is
 retained under ignored `.testbench/runtime-tools-*/reports/`, with exact source
 and binary hashes, source patch, inputs, decoded protocol receipts and reports.
+If a container interruption produces no giztest.json, the summary is FAIL with every
+expected task missing and its outcome unknown; it fabricates no execution or timing scores.
 
 Business bindings select `verification_model`; the primary model still produces
-native calls and clarification. Independent checks cover each mutating proposal
+native calls and clarification. Independent checks cover each mutating proposal, fixed-target MHS read
 and final reply, with at most two corrections. Complete-parameter readiness
 includes this execution cost. Final text is buffered for checking, so its first
 chunk latency must be distinguished from unverified streaming. Semantic

@@ -129,7 +129,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("reports", type=Path)
     args = parser.parse_args()
-    report = json.loads((args.reports / "giztest.json").read_text())
+    native_error = None
+    try:
+        report = json.loads((args.reports / "giztest.json").read_text())
+    except FileNotFoundError:
+        # This is a missing receipt, not evidence that any task ran or failed.
+        report = {"status": "missing", "tasks": []}
+        native_error = "native_report_missing"
     documents = {path.name: load_document(path) for path in (args.reports / "inputs").glob("*.giztest.yaml")}
     expected_count = sum(document.get("repeat", 1) for document in documents.values())
     counts = Counter(task["status"] for task in report["tasks"])
@@ -163,7 +169,7 @@ def main():
     for row in rows:
         repetitions[row["name"]].append(row["status"])
     missing = expected_count - len(report["tasks"])
-    passed = report["status"] == "passed" and missing == 0 and counts.get("skipped", 0) == 0 and len(rows) == expected_count
+    passed = report["status"] == "passed" and missing == 0 and counts.get("passed", 0) == expected_count and len(rows) == expected_count
     summary = {"status": "PASS" if passed else "FAIL", "native_status": report["status"], "expected_tasks": expected_count,
                "actual_tasks": len(report["tasks"]), "missing_tasks": missing, "counts": dict(counts), "by_tool_count": groups,
                "repeat_stability": {name: {"attempts": len(statuses), "passed": statuses.count("passed"), "all_passed": all(value == "passed" for value in statuses)} for name, statuses in repetitions.items()},
@@ -175,6 +181,9 @@ def main():
                          "Protocol ready time measures user-turn start to receipt of the complete validated request at the device; it includes transport.",
                          "Catalog focus metadata is a test fixture update, not a production UI focus API.",
                          "Program and audio acknowledgments do not qualify physical hardware or actual audio playout."], "tasks": rows}
+    if native_error is not None:
+        summary["receipt_error"] = native_error
+        summary["notes"].insert(0, "No native task receipts were produced. Execution outcomes are unknown; no success, failure, action or timing scores are fabricated.")
     (args.reports / "summary.json").write_text(json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
     table = "".join("<tr><td>" + "</td><td>".join(html.escape(str(row[key])) for key in ["name", "repeat", "status", "duration_ms", "correct_actions", "expected_actions", "observed_actions", "error"]) + "</td></tr>" for row in rows)
     page = "<!doctype html><meta charset=utf-8><title>Runtime Tool native acceptance</title><style>body{font:15px system-ui;margin:32px}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ddd;padding:7px;text-align:left}input{padding:8px;width:320px}pre{white-space:pre-wrap}</style>"

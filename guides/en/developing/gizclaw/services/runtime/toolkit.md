@@ -10,17 +10,17 @@ through `toolkit.tool_names`. Omission and an empty list inject no Tools. Worksp
 only narrows that selection; omission adds no restriction and an explicit empty list disables it.
 
 An Eino Workflow binding can select `toolkit.verification_model`, a chat-model alias in the same
-Profile. The primary model still proposes native Tool calls. Before a mutating device call or
+Profile. The primary model still proposes native Tool calls. Before a fixed-target MHS read, a mutating device call or
 HTTP POST, an independent model checks that exact fixed target and arguments against the actual
 conversation and this turn's Tool results. It only approves or rejects, never rewrites arguments
-or substitutes a target. Read operations bypass this additional check. Missing conversation,
+or substitutes a target. Other read operations bypass this additional check. MHS reads require the intended fixed target before device access. Missing conversation,
 provider failure and invalid decisions fail closed; normal authorization is reread afterward.
 The alias must bind an `llm` Model; other Workflow drivers reject this configuration.
 A final-reply check also rejects missing operations, redundant clarification of completed slots,
 unsupported completion claims and fabricated results. The primary model can correct a rejected
 draft at most twice. Intermediate Tool-round text and rejected drafts stay buffered; only an
 accepted final reply is published. Verification failure or exhausted corrections ends the turn
-with an error and no unverified reply text. Each mutating proposal and final-reply check adds a
+with an error and no unverified reply text. Each checked proposal and final-reply check adds a
 model request, cost and latency; corrections can add more. Semantic decisions still require
 actual-model qualification.
 
@@ -61,7 +61,7 @@ credential resolution on the Server and existing address/redirect/proxy restrict
 never automatically retries. ToolCall and ToolResult stay inside model continuation and do not
 become public assistant control events.
 
-Both mutation and reply verification use a safe projection of the current catalog. Other targets, descriptions and availability provide business context for configured defaults; private HTTP executors and authentication are excluded. A catalog lookup failure prevents the verification model call and execution.
+Both proposal and reply verification use a safe projection of the current catalog. Other targets, descriptions and availability provide business context for configured defaults; private HTTP executors and authentication are excluded. A catalog lookup failure prevents the verification model call and execution.
 
 ## HTTP resource persistence and authentication
 
