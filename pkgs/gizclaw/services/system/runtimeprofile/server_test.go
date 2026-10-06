@@ -963,6 +963,64 @@ func TestDecodeStoredWorkflowCollections(t *testing.T) {
 	}
 }
 
+func TestWorkflowSortOrderRoundTripsAndRejectsOtherBindings(t *testing.T) {
+	for _, order := range []int32{-2147483648, -1, 0, 2147483647} {
+		binding := runtimeProfileTestWorkflowBinding("canonical-workflow")
+		binding.SortOrder = &order
+		profile, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "ordered", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"guess.history-figures-cn": binding}}}, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := json.Marshal(profile.Spec.Workflows)
+		if err != nil {
+			t.Fatal(err)
+		}
+		stored, err := decodeRuntimeProfileWorkflows(data)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := stored["guess.history-figures-cn"]
+		if got.ResourceId != "canonical-workflow" || got.SortOrder == nil || *got.SortOrder != order {
+			t.Fatalf("stored Workflow = %+v, want unchanged identity and order %d", got, order)
+		}
+	}
+	for _, kind := range []string{"models", "voices"} {
+		binding := runtimeProfileTestBinding("canonical-resource")
+		binding.SortOrder = new(int32(-1))
+		bindings := map[string]apitypes.RuntimeProfileBinding{"resource": binding}
+		resources := apitypes.RuntimeProfileResources{}
+		switch kind {
+		case "models":
+			resources.Models = &bindings
+		case "voices":
+			resources.Voices = &bindings
+		}
+		_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "ordered", Spec: apitypes.RuntimeProfileSpec{Resources: resources}}, "")
+		if err == nil || !strings.Contains(err.Error(), "sort_order is only valid on workflows") {
+			t.Fatalf("%s ordering error = %v", kind, err)
+		}
+	}
+	// Dedicated Tool bindings reject the Workflow-only field at the source
+	// schema boundary, before it could be discarded by typed JSON decoding.
+	toolBinding := map[string]any{"resource_id": "canonical-tool", "i18n": runtimeProfileTestBinding("canonical-tool").I18n}
+	resource := map[string]any{"apiVersion": "gizclaw.admin/v1alpha1", "kind": "RuntimeProfile", "metadata": map[string]any{"id": "ordered"}, "spec": map[string]any{"resources": map[string]any{"tools": map[string]any{"resource": toolBinding}}}}
+	valid, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := apitypes.ValidateResourceJSON(valid); err != nil {
+		t.Fatalf("valid Tool binding: %v", err)
+	}
+	toolBinding["sort_order"] = -1
+	invalid, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := apitypes.ValidateResourceJSON(invalid); err == nil {
+		t.Fatal("Tool binding accepted Workflow-only sort_order")
+	}
+}
+
 func TestRuntimeProfileAcceptsDefaultName(t *testing.T) {
 	t.Parallel()
 	s := &Server{DB: profileSQLTestDB(t)}

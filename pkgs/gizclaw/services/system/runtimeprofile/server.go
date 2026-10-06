@@ -677,6 +677,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			if normalized[alias].AudioInput != nil {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: audio_input is only valid on workflows", resourceMap.name, alias)
 			}
+			if normalized[alias].SortOrder != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: sort_order is only valid on workflows", resourceMap.name, alias)
+			}
 			if err := registerProfileAlias(allAliases, alias, resourceMap.name); err != nil {
 				return apitypes.RuntimeProfile{}, err
 			}

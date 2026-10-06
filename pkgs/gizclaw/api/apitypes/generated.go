@@ -5353,6 +5353,9 @@ type RuntimeProfileBinding struct {
 	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
 	ResourceId string                            `json:"resource_id"`
 
+	// SortOrder Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings.
+	SortOrder *int32 `json:"sort_order,omitempty"`
+
 	// Tags Only valid for Workflow bindings; opaque strings.
 	Tags *[]string `json:"tags,omitempty"`
 }
@@ -5538,6 +5541,9 @@ type RuntimeProfileWorkflowBinding struct {
 	AudioInput *AudioInputPath                   `json:"audio_input,omitempty"`
 	I18n       map[string]RuntimeProfileI18nText `json:"i18n"`
 	ResourceId string                            `json:"resource_id"`
+
+	// SortOrder Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings.
+	SortOrder *int32 `json:"sort_order,omitempty"`
 
 	// Tags Only valid for Workflow bindings; opaque strings.
 	Tags    *[]string                    `json:"tags,omitempty"`

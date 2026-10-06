@@ -64,7 +64,9 @@ spec:
 
 `workflows` 是以 alias 为 key 的平面 map。每个 binding 可带 `tags` 字符串数组；Server 只做精确字符串匹配，不解析年龄或内容类别。查询传多个 tag 时取交集；不传 tag 返回全部。Tag 不参与 Workflow 身份，修改 tag 不改变已有 Workspace 的 workflow name。RuntimeProfile 创建或更新时会验证每个引用的真实 Workflow ID、其 driver，以及 Workflow 内部使用的 Model、Voice、Tool alias。Friend 与 Friend Group 的 Workspace 固定绑定内置 `system-sfu` Workflow，不经 RuntimeProfile 选择，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
-Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。客户端自行决定菜单、顺序、图标和 tag 的展示文本；RuntimeProfile 提供 Workflow 成员、tags 以及 alias 自己的 `en`、`zh-CN` 显示文本。
+Workflow alias 位于 `workflows.<alias>`，在 RuntimeProfile 内唯一。RuntimeProfile 提供 Workflow 成员、tags、列表顺序以及 alias 自己的 `en`、`zh-CN` 显示文本；客户端拥有菜单结构、图标和 tag 的展示文本。
+
+每个 Workflow binding 可以设置可选的 `sort_order`（有符号 int32）。`server.workflow.list` 与 `GET /gizclaw/v1/device/runtime-profile` 都按 `sort_order` 升序、再按 alias 返回匹配的 Workflow；省略时使用零。把优先条目设为 `-1`，就能使它排在对应 tag 筛选列表的普通条目前面，无需修改 alias、canonical resource 或 Workspace。筛选保留这一顺序，内存索引与 fallback 路径一致。RPC cursor 分页按配置顺序继续，来自其它 Profile revision 的 cursor 会被拒绝。Model、Voice 和 Tool binding 不接受 `sort_order`，其列表仍按 alias 排序。
 
 `resources` 下的 map 把环境 alias 绑定到管理员创建的真实资源 ID。Model alias 表示 `chat`、`extraction`、`embedding`、`asr`、`realtime`、`translation` 这类稳定用途，不包含 provider 或真实 Model 名。Model 和 Voice alias 是互相独立的环境变量，不属于 Workflow tags。Workflow spec 和 Workspace 参数保存符号 alias；每次 Workspace reload 都从当前 RuntimeProfile 重新解析。因此同一个 App 或固件可以切换生产、调试 RuntimeProfile，而无需重新构建。
 

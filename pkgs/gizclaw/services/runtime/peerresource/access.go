@@ -95,10 +95,13 @@ func pageAliases(aliases []string, cursor *string, requested *int, revision stri
 		if len(parts) != 2 || parts[0] != revision {
 			return nil, false, nil, true
 		}
-		start = sort.SearchStrings(aliases, parts[1])
-		if start < len(aliases) && aliases[start] == parts[1] {
-			start++
+		// The cursor records an alias's position in this revision's list;
+		// Workflow lists may use a configured order rather than lexical order.
+		start = slices.Index(aliases, parts[1])
+		if start < 0 {
+			return nil, false, nil, true
 		}
+		start++
 	}
 	end := min(start+limit, len(aliases))
 	page := aliases[start:end]
