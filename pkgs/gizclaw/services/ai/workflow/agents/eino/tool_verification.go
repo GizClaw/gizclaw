@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"maps"
 	"slices"
 	"strings"
 
@@ -46,6 +47,7 @@ const toolResponseVerificationPrompt = `你是设备助手最终回复的独立�
 conversation.messages 在 continuation_start 之前是输入和历史；之后才是当前轮模型提议与实际工具结果。只有当前轮 role=tool 的成功结果证明执行，assistant 的说法或提议都不是证明；带 error 的结果表示没有执行成功。读结果不能证明写入，旧轮成功不能证明新动作。
 对明确、参数已补齐且当前 current_tools 中 available=true 的相同固定目标与操作支持的用户变更请求，必须有当前轮对应成功变更结果，不能直接声称已完成，也不能再次追问已经明确的默认目标。读取工具不支持写入，其他目标的写工具不能代替所请求目标；同一对象可读不表示可改。多动作按用户顺序逐项核对；只补仍缺的动作，不重复成功动作。用户只询问状态或结果时可以引用有依据的历史事实，但不能捏造一次新执行。
 请求缺对象、数值、歌名或程序名时应询问。非法值需要说明合法范围并等待更正。撤权、不支持或工具失败时应说明未完成，不能要求换一个相似目标或声称成功。相对调整、下一首、曲名匹配要依据真实读结果。无新动作授权时，正常聊天或回答知识即可；不要提议或承诺未要求的设备变更。
+可用性以 current_tools 的固定目标、operation 与 available 为准。不能凭助手自己的说法声称目标不支持；若精确目标的写工具实际可用且用户参数已齐，声称不支持并漏执行应判 missing_operation。intent_rejected 只拒绝那一个候选，不表示当前目标撤权或不支持，应恢复真实用户更正后的请求并核对正确工具。
 approved=true,reason=approved 表示回复和实际执行均满足当前请求。明确可执行请求未执行时 reason=missing_operation；仅在必要信息确实已齐却再次追问时 reason=unnecessary_clarification；无对应成功结果却声称、承诺或提议未授权的变更时 reason=false_completion；与实际返回结果不符或编造结果时 reason=incorrect_result。拒绝时不要输出其他 reason、解释或新参数。`
 
 var toolResponseVerificationReasons = map[string]string{
@@ -78,14 +80,26 @@ func runtimeToolResponseVerifier(generator genx.Generator, pattern string, resol
 			return "", errors.New("Tool response verification catalog is unavailable")
 		}
 		catalog := make([]map[string]any, 0, len(tools))
+		available := false
 		for _, tool := range tools {
+			available = available || tool.Available
 			catalog = append(catalog, map[string]any{"name": tool.FunctionName, "alias": tool.Alias, "description": tool.Description, "source": tool.Source, "fixed_target": tool.Target, "input_schema": tool.Schema, "available": tool.Available, "unavailable_reason": tool.Reason})
 		}
 		input, err := json.Marshal(map[string]any{"conversation": conversation, "draft_reply": reply, "current_tools": catalog})
 		if err != nil {
 			return "", errors.New("Tool response verification input is invalid")
 		}
-		return verifyToolDecision(ctx, generator, pattern, "verify_tool_response", toolResponseVerificationPrompt, input, toolResponseVerificationReasons)
+		prompt := toolResponseVerificationPrompt
+		reasons := toolResponseVerificationReasons
+		if !available {
+			// An empty available catalog cannot support a missing operation.
+			// Still reject fabricated completion/results; never invent a fallback.
+			reasons = maps.Clone(reasons)
+			delete(reasons, "missing_operation")
+			delete(reasons, "unnecessary_clarification")
+			prompt += "\n本轮没有任何可用工具，因此执行请求确实不可完成。只有明确说明未完成、不可用或需要设备恢复，且没有承诺或提议随后执行的回复才 approved=true。不要判漏执行或多余澄清。虚构工具调用标签、声称完成以及‘我会先尝试/查询/设置’等未来执行承诺都应拒绝为 false_completion。reason 只能使用本次 Schema 中的有限值。"
+		}
+		return verifyToolDecision(ctx, generator, pattern, "verify_tool_response", prompt, input, reasons)
 	}
 }
 

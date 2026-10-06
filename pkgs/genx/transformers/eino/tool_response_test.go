@@ -61,8 +61,13 @@ func TestVerifiedToolResponseRepairsMissingCallWithoutPublishingDrafts(t *testin
 	if got := joinedText(drain(t, output)); got != "actual result confirmed" || executions.Load() != 1 || checks != 2 {
 		t.Fatalf("reply=%q executions=%d checks=%d", got, executions.Load(), checks)
 	}
-	if chat.inputs[1][2].Role != schema.Assistant {
-		t.Fatal("role-free text draft was appended as an invalid model message")
+	if len(chat.inputs[1]) != 3 || chat.inputs[1][2].Role != schema.System || chat.inputs[1][2].Name != "tool_response_feedback" {
+		t.Fatal("correction did not preserve the user turn and separate feedback")
+	}
+	for _, message := range chat.inputs[1] {
+		if strings.Contains(message.Content, "already done without a call") {
+			t.Fatal("rejected assistant draft entered model history")
+		}
 	}
 }
 

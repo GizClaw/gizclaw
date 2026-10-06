@@ -452,6 +452,7 @@ func (chatModel *streamingChatModel) Generate(
 	messages := cloneMessages(input)
 	inputMessageCount := len(messages)
 	corrections := 0
+	var availabilityMessage *schema.Message
 	var transcript *audioTranscript
 	if chatModel.transcribesAudio() {
 		publisher, audioTurn := state.transcriptPublisher()
@@ -468,6 +469,15 @@ func (chatModel *streamingChatModel) Generate(
 		tools, toolErr := einoToolInfos(ctx, chatModel.toolInvoker)
 		if toolErr != nil {
 			return nil, toolErr
+		}
+		if chatModel.toolInvoker != nil {
+			messages = slices.DeleteFunc(messages, func(entry *schema.Message) bool {
+				return availabilityMessage != nil && entry == availabilityMessage
+			})
+			if len(tools) == 0 {
+				availabilityMessage = &schema.Message{Role: schema.System, Name: "tool_availability", Content: "No Tools are currently available for this turn. You cannot execute an operation through a missing or unavailable Tool. Explain that the requested operation was not completed; do not claim success, promise an upcoming invocation, invent function names, or output tool-call markup. Ordinary conversation and knowledge answers remain possible."}
+				messages = append(messages, availabilityMessage)
+			}
 		}
 		callOptions := append(slices.Clone(chatModel.options), options...)
 		if chatModel.toolInvoker != nil {
@@ -506,7 +516,11 @@ func (chatModel *streamingChatModel) Generate(
 						return nil, fmt.Errorf("eino: Tool response verification corrections exhausted")
 					}
 					corrections++
-					messages = append(messages, message, schema.SystemMessage("The previous assistant draft was rejected and was not shown to the user. "+feedback+" Re-evaluate the actual user request using current Tool results. Do not repeat completed operations, invent authorization, or substitute another target."))
+					// GenX keeps system instructions in its prompt section. Appending
+					// the rejected assistant draft would therefore leave a model
+					// message last on the wire, inviting empty assistant continuation
+					// instead of regeneration of the current user/Tool-result turn.
+					messages = append(messages, &schema.Message{Role: schema.System, Name: "tool_response_feedback", Content: "The previous assistant draft was rejected and was not shown to the user. " + feedback + " Re-evaluate the actual user request using current Tool results. Do not repeat completed operations, invent authorization, or substitute another target."})
 					continue
 				}
 				if err := chatModel.publishText(state, textField, &content, message.Content); err != nil {

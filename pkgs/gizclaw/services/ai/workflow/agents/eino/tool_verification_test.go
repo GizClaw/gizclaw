@@ -74,7 +74,7 @@ func TestToolVerifierFailsClosedAndDoesNotChangeCandidate(t *testing.T) {
 
 func TestToolResponseVerifierUsesCurrentCatalogAndFiniteDecision(t *testing.T) {
 	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
-		return []toolcatalog.Tool{{Alias: "screen.read", Source: "mhs", Target: map[string]any{"id": "display.main", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
+		return []toolcatalog.Tool{{Alias: "screen.read", Source: "mhs", Available: true, Target: map[string]any{"id": "display.main", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
 	}
 	for _, response := range []string{`{"approved":true,"reason":"approved"}`, `{"approved":false,"reason":"missing_operation"}`, `{"approved":false,"reason":"false_completion"}`, `{"approved":false,"reason":"invented"}`} {
 		generator := &verificationGenerator{result: response}
@@ -105,5 +105,29 @@ func TestEmptyToolReplyRequestsCorrectionWithoutModelOrCatalogCall(t *testing.T)
 	feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{}, " \n")
 	if feedback == "" || err != nil || generator.seen != "" {
 		t.Fatalf("empty reply: feedback=%q err=%v", feedback, err)
+	}
+}
+
+func TestUnavailableCatalogCannotDemandExecutionButStillRejectsFalseCompletion(t *testing.T) {
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{{Alias: "screen", Availability: toolcatalog.Availability{Reason: "DEVICE_OFFLINE"}}}, nil
+	}
+	for _, response := range []string{`{"approved":true,"reason":"approved"}`, `{"approved":false,"reason":"false_completion"}`, `{"approved":false,"reason":"missing_operation"}`} {
+		generator := &verificationGenerator{result: response}
+		feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{CurrentUser: "screen 40%"}, "device unavailable; not completed")
+		if strings.Contains(string(generator.schema), "missing_operation") || strings.Contains(string(generator.schema), "unnecessary_clarification") {
+			t.Fatal("unavailable catalog admitted impossible classifications")
+		}
+		if strings.Contains(response, "missing_operation") {
+			if err == nil {
+				t.Fatal("impossible missing-operation decision accepted")
+			}
+		} else if strings.Contains(response, "false_completion") {
+			if err != nil || feedback == "" {
+				t.Fatalf("false claim escaped: %q %v", feedback, err)
+			}
+		} else if err != nil || feedback != "" {
+			t.Fatalf("honest unavailable reply rejected: %q %v", feedback, err)
+		}
 	}
 }
