@@ -198,6 +198,9 @@ func (c *Catalog) Resolve(ctx context.Context, owner string, profile apitypes.Ru
 				for _, alias := range aliases {
 					text := profile.Spec.Workflows[alias].I18n["zh-CN"]
 					tool.Description += "; " + alias + " = " + text.DisplayName
+					if text.Description != nil {
+						tool.Description += " (" + *text.Description + ")"
+					}
 				}
 			}
 

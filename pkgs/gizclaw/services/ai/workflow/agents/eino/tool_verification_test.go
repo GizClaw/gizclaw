@@ -55,7 +55,8 @@ func TestToolVerifierFailsClosedAndDoesNotChangeCandidate(t *testing.T) {
 			generator := &verificationGenerator{result: row.response}
 			candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
 			arguments := json.RawMessage(`{"brightness_percent":30}`)
-			reason, err := runtimeToolVerifier(generator, "model/checker")(t.Context(), candidate, arguments, genx.ToolConversation{CurrentUser: "screen 30%"})
+			resolve := func(context.Context) ([]toolcatalog.Tool, error) { return []toolcatalog.Tool{candidate}, nil }
+			reason, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, arguments, genx.ToolConversation{CurrentUser: "screen 30%"})
 			if row.invalid != (err != nil) || (!row.invalid && row.allow != (reason == "")) {
 				t.Fatalf("reason=%q error=%v", reason, err)
 			}
@@ -69,6 +70,36 @@ func TestToolVerifierFailsClosedAndDoesNotChangeCandidate(t *testing.T) {
 				t.Fatalf("structured Invoke omitted the finite decision schema: %s", generator.schema)
 			}
 		})
+	}
+}
+
+func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T) {
+	candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
+	focus := "screen is the configured focus"
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{candidate, {Alias: "screen", Description: focus, Target: map[string]any{"id": "display.main"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
+	}
+	generator := &verificationGenerator{result: `{"approved":false,"reason":"wrong_target"}`}
+	verify := runtimeToolVerifier(generator, "model/checker", resolve)
+	for _, current := range []string{"screen is the configured focus", "lamp is the configured focus"} {
+		focus = current
+		generator.seen = ""
+		if reason, err := verify(t.Context(), candidate, json.RawMessage(`{"brightness_percent":60}`), genx.ToolConversation{CurrentUser: "increase brightness"}); err != nil || reason == "" {
+			t.Fatalf("decision: %q, %v", reason, err)
+		}
+		if !strings.Contains(generator.seen, current) || !strings.Contains(generator.seen, "display.main") || strings.Contains(generator.seen, "must-not-reach-verifier") {
+			t.Fatal("current cross-target metadata missing or private executor leaked")
+		}
+	}
+}
+
+func TestToolVerifierDoesNotCallModelWithoutCurrentCatalog(t *testing.T) {
+	for _, resolve := range []func(context.Context) ([]toolcatalog.Tool, error){nil, func(context.Context) ([]toolcatalog.Tool, error) { return nil, errors.New("private lookup failure") }} {
+		generator := &verificationGenerator{result: `{"approved":true,"reason":"approved"}`}
+		_, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), toolcatalog.Tool{}, json.RawMessage(`{}`), genx.ToolConversation{CurrentUser: "change brightness"})
+		if err == nil || strings.Contains(err.Error(), "private") || generator.seen != "" {
+			t.Fatalf("catalog failure reached model or leaked: %v", err)
+		}
 	}
 }
 

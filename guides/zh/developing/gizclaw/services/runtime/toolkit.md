@@ -41,7 +41,9 @@ Workspace 的 `toolkit.tool_names` 只取交集；省略不再收窄，显式空
 
 Eino Workflow binding 可选 `toolkit.verification_model`，引用同一 Profile 的 chat-model
 alias。主模型仍看到原生 Tool declarations 并提出调用；有副作用的调用在发送设备 RPC
-或 HTTP POST 前，由该模型基于真实对话、固定目标、参数及本轮工具结果独立校验。
+或 HTTP POST 前，由该模型基于真实对话、当前目录的业务上下文、固定目标、参数及本轮工具结果独立校验。
+目录上下文包含其他候选的目标、说明和可用性，用于区分配置的默认目标与当前候选；
+私有 HTTP executor 与认证字段不参与校验。当前目录读取失败时拒绝调用校验模型及执行。
 它只批准或拒绝当前候选，不能替换目标或修改参数。读操作不增加这次校验。缺少真实
 对话、校验模型错误或非法决定都拒绝执行；校验后仍执行原有权限与资源重读。
 该 alias 必须绑定 `llm` Model。此配置目前只支持 Eino，其他 Workflow driver 会在

@@ -61,6 +61,8 @@ credential resolution on the Server and existing address/redirect/proxy restrict
 never automatically retries. ToolCall and ToolResult stay inside model continuation and do not
 become public assistant control events.
 
+Both mutation and reply verification use a safe projection of the current catalog. Other targets, descriptions and availability provide business context for configured defaults; private HTTP executors and authentication are excluded. A catalog lookup failure prevents the verification model call and execution.
+
 ## HTTP resource persistence and authentication
 
 Admin HTTP resources remain in the SQL `tools` table. Canonical ID is the primary key and

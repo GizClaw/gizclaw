@@ -117,7 +117,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			return nil, fmt.Errorf("eino: Tool verification model: %w", err)
 		}
 		configured := *invoker
-		configured.Verify = runtimeToolVerifier(service.Generator(), "model/"+spec.ToolVerificationModel)
+		configured.Verify = runtimeToolVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
 		config.ToolInvoker = &configured
 		config.VerifyToolResponse = runtimeToolResponseVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
 	}

@@ -3,6 +3,7 @@ package toolcatalog
 import (
 	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -164,6 +165,17 @@ func TestProgramSelectionRequiresProfileWorkflowAlias(t *testing.T) {
 		if err := ValidateArguments(tool, json.RawMessage(args)); err == nil {
 			t.Fatalf("accepted unbound target: %s", args)
 		}
+	}
+}
+
+func TestProgramCatalogIncludesBoundDescription(t *testing.T) {
+	profile := toolProfile()
+	profile.Spec.Resources.Tools = &map[string]apitypes.RuntimeProfileToolBinding{"program": {ClientTool: &apitypes.RuntimeProfileClientTool{Name: "run.workspace.set"}, I18n: map[string]apitypes.RuntimeProfileI18nText{"zh-CN": {DisplayName: "选择程序"}}}}
+	profile.Spec.Workflows = apitypes.RuntimeProfileWorkflows{"story": {ResourceId: "story-resource", I18n: map[string]apitypes.RuntimeProfileI18nText{"zh-CN": {DisplayName: "动物故事", Description: new("小动物寓言")}}}}
+	catalog := &Catalog{}
+	tools, err := catalog.Resolve(t.Context(), "owner", profile, nil)
+	if err != nil || len(tools) != 1 || !strings.Contains(tools[0].Description, "story = 动物故事 (小动物寓言)") {
+		t.Fatalf("bound description missing: %#v, %v", tools, err)
 	}
 }
 

@@ -63,7 +63,8 @@ def document(case,count,repeat):
     variables={"endpoint":{"direction":"input","type":"string","env":"GIZCLAW_TEST_ENDPOINT"},"registration_token":{"direction":"input","type":"string","env":"GIZCLAW_TEST_REGISTRATION_TOKEN","secret":True}}
     for name in ["workspace","chat","aesop","kingdoms","space","oracle","judge_workspace"]:
         variables[name]={"direction":"input","type":"string","generate":"token"}
-    prepare={"id":"prepare","client":"peer","http":{"endpoint":"http://toolcontrol:9822","method":"POST","path":"/gizclaw/v1/runtime-tools/prepare","body":{"instance":"${workspace}","tool_count":count,"focus":context.get("ui_focus") or ""},"status":200}}
+    styles={item["title"]:item["style"] for item in context.get("player",{}).get("playlist",[]) if item.get("style")}
+    prepare={"id":"prepare","client":"peer","http":{"endpoint":"http://toolcontrol:9822","method":"POST","path":"/gizclaw/v1/runtime-tools/prepare","body":{"instance":"${workspace}","tool_count":count,"focus":context.get("ui_focus") or "","playlist_styles":styles},"status":200}}
     steps=[prepare,rpc("register","server.register",{"token":"${registration_token}-${workspace}"}),observer("install_mhs","client.mhs.v0.read",mhs),observer("install_mhs_write","client.mhs.v0.write",mhs)]
     for tool in ["audioplayer.play","audioplayer.get","audioplayer.playlist.get","audioplayer.stop","audioplayer.mode.set"]:
         steps.append(observer("install_"+tool.replace(".","_"),"client.tool.v0.invoke",audio,tool=tool))
@@ -90,12 +91,17 @@ def document(case,count,repeat):
         # assistant questions or completions are inserted into model history.
         prior={"L07":[{"name":"mhs_display_write","arguments":{"id":"display.main","hwd":"display","value":{"brightness_percent":60}}}],"D07":[{"name":"mhs_led_write","arguments":{"id":"led.status","hwd":"led","value":{"brightness_percent":60}}}],"M17":[{"name":"audioplayer_play","arguments":{"index":0}}]}
         turns=[{"text":message["content"],"expected":prior.get(case["id"],[]),"history":True} for message in case.get("history",[]) if message["role"]=="user"]
+        if case["id"]=="M06":
+            # Recreate completed historical selections with real user commands
+            # and acknowledgements instead of a scripted assistant state.
+            turns=[{"text":"先放小星星。","expected":[{"name":"audioplayer_play","arguments":{"index":0}}],"history":True},{"text":"换成卡农。","expected":[{"name":"audioplayer_play","arguments":{"index":1}}],"history":True}]
         # These benchmark histories originally depended on a scripted assistant
         # delaying an otherwise executable action. Make that delay explicit in
         # the native user turn, so the real model must produce the clarification.
-        if case["id"] in ["W10","X06"]:
+        if case["id"] in ["W09","W10","X06"]:
             turns[0]["text"] += " 这里只是在讨论准备计划，暂时不要执行。"
-        turns.append({"text":case["text"],"expected":case["expected"],"ask": "generic" if case.get("action")=="clarify" else None})
+        clarification="reject_or_value" if case["id"] in {"L14","D14"} else "reject_or_target" if case["id"]=="D13" else "generic"
+        turns.append({"text":case["text"],"expected":case["expected"],"ask": clarification if case.get("action")=="clarify" else None})
     for index,turn in enumerate(turns):
         if turn.get("drop_history"):
             replacement="${workspace}-fresh"
@@ -215,6 +221,18 @@ def main():
     other_cleanup=rpc("other_cleanup","server.peer.delete",{});other_cleanup["client"]="other";deterministic["finally"].append(other_cleanup)
     filename="g01-contract.giztest.yaml";(args.output/filename).write_text(STORY+json.dumps(deterministic,ensure_ascii=False,indent=2)+"\n")
     manifest.append({"file":filename,"case_id":"G01","repeat":args.repeat,"deterministic":True})
+    if not args.filter or "G04" in args.filter.split(","):
+        large=document({"id":"G04","turns":[]},100,args.repeat)
+        large["name"]="runtime-tools.large-catalog"
+        # Description bytes alone exceed one protobuf frame. The real Server
+        # must return all entries through the standard continuation envelope.
+        large["steps"][0]["http"]["body"]["description_padding"]=800
+        catalog=next(step for step in large["steps"] if step["id"]=="catalog")
+        for n in range(100):
+            catalog["expect"][f"/items/{n}/i18n/zh-CN/description"]={"pattern":"x{800}"}
+        filename="g04-large-catalog.giztest.yaml"
+        (args.output/filename).write_text(STORY+json.dumps(large,ensure_ascii=False,indent=2)+"\n")
+        manifest.append({"file":filename,"case_id":"G04","tool_count":100,"repeat":args.repeat,"deterministic":True,"continuation_envelope":True})
     if not args.filter or "G02" in args.filter.split(","):
         echo=document({"id":"G02","turns":[]},10,args.repeat)
         echo["name"]="runtime-tools.http-echo"
