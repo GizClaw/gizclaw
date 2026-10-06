@@ -534,9 +534,9 @@ func (c *Client) serveRPC() error {
 		}
 
 		go func(stream net.Conn) {
-			if err := client.Handle(stream); err != nil {
-				_ = stream.Close()
-			}
+			// Each unary request owns its transport on every completion path.
+			defer func() { _ = stream.Close() }()
+			_ = client.Handle(stream)
 		}(stream)
 	}
 }

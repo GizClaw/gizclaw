@@ -1875,7 +1875,7 @@ GIZCLAW_RUNTIME_TOOL_CREDENTIAL_FILE=/secure/gizclaw.env \
   bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
 ```
 
-The default matrix contains 426 native documents and 1274 tasks: 80 business
+The default matrix contains 428 native documents and 1280 tasks: 80 business
 utterances, 20 actual-model dialogs, unpredictable results, long history and
 target-isolation cases at 10/30/60/100 available Tools with three repetitions,
 plus contract checks, an external HTTPS echo and two probes. Each task has an
@@ -1906,3 +1906,5 @@ state. Neither proves a production focus UI or physical audio playout.
 G03 invokes `device.reboot` using a real owner API key and checks enum 4 and exact protobuf JSON parameters. During the acknowledged reboot transition, catalog and HTTP writes reject that owner while another Peer on the same Profile stays available. Both write counters must remain zero. This qualifies the Server transition and owner isolation without physical hardware.
 
 G04 configures an 800-byte description for each of 100 genuinely available catalog entries, forcing a protobuf continuation envelope, then checks the entire catalog, descriptions and availability. Go Giztest unary RPC requires EOS and bounds a complete envelope to 16 maximum frames; truncated, mixed and oversized envelopes fail.
+
+G05 directly plays indices 0→1→0 through an owner API key, checking enum 14, the effective index and cumulative decoded calls after each action. G06 first completes one real model playback turn, then issues two same-owner HTTP playback calls to prove the device channel remains available after a conversation. Go SDK inbound unary RPC releases its request transport on both success and failure; every request still owns a separate channel.

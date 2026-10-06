@@ -102,6 +102,7 @@ def document(case,count,repeat):
             turns[0]["text"] += " 这里只是在讨论准备计划，暂时不要执行。"
         clarification="reject_or_value" if case["id"] in {"L14","D14"} else "reject_or_target" if case["id"]=="D13" else "generic"
         turns.append({"text":case["text"],"expected":case["expected"],"ask": clarification if case.get("action")=="clarify" else None})
+    removed_aliases=set()
     for index,turn in enumerate(turns):
         if turn.get("drop_history"):
             replacement="${workspace}-fresh"
@@ -111,11 +112,20 @@ def document(case,count,repeat):
             steps.append(fresh)
         if turn.get("remove_tool"):
             removed={"mhs_led_write":"led.status.write","mhs_display_write":"display.main.write"}.get(turn["remove_tool"],turn["remove_tool"])
+            removed_aliases.add(removed)
             base=["audioplayer.get","audioplayer.playlist.get","audioplayer.play","audioplayer.stop","audioplayer.mode.set","display.main.read","display.main.write","led.status.read","led.status.write","run.workspace.set"]
             base.extend(f"zone-{n:02d}.brightness" for n in range(1,count-9))
             steps.append({"id":f"permissions_{index}","client":"peer","http":{"endpoint":"http://toolcontrol:9822","method":"POST","path":"/gizclaw/v1/runtime-tools/permissions","body":{"instance":"${workspace}","workflow":f"assistant-{count}","tool_names":[name for name in base if name!=removed]},"status":200}})
         if turn.get("focus"):
             steps.append({"id":f"focus_{index}","client":"peer","http":{"endpoint":"http://toolcontrol:9822","method":"POST","path":"/gizclaw/v1/runtime-tools/permissions","body":{"instance":"${workspace}","focus":turn["focus"]},"status":200}})
+        if case["id"] in {"M06","L17","D17","C18"}:
+            # Preserve the actual capability state immediately before each
+            # model turn, including playback changes and explicit revocation.
+            snapshot=rpc(f"catalog_before_{index}","server.tool.list",{"workflow_name":f"assistant-{count}","limit":100})
+            size=count-len(removed_aliases)
+            snapshot["expect"]={"/items":{"count":size},"/has_next":{"equals":False}}
+            for n in range(size):snapshot["expect"][f"/items/{n}/available"]={"equals":True}
+            steps.append(snapshot)
         variables[f"reply_{index}"]={"direction":"output","type":"string"}
         current={"capture":{f"reply_{index}":"/joined_text"},"id":f"turn_{index}","client":"peer","timeout":"60s","peer_stream":{"mode":"text","input":turn["text"],"require_text":True,"require_audio":False},"expect":{"/text_eos":{"equals":True}}}
         if turn.get("ask"):
@@ -278,6 +288,44 @@ def main():
         offline["finally"].extend([audit,dict(rpc("other_cleanup","server.peer.delete",{}),client="other")])
         filename="g03-offline-owner.giztest.yaml";(args.output/filename).write_text(STORY+json.dumps(offline,ensure_ascii=False,indent=2)+"\n")
         manifest.append({"file":filename,"case_id":"G03","repeat":args.repeat,"offline_owner_isolation":True})
+    if not args.filter or "G05" in args.filter.split(","):
+        playback=document({"id":"G05","turns":[]},10,args.repeat)
+        playback["name"]="runtime-tools.playback-protocol"
+        playback["variables"]["api_key"]={"direction":"output","type":"string","secret":True}
+        key=rpc("owner_api_key","server.api_key.create",{"display_name":"${workspace}"})
+        key["capture"]={"api_key":"/api_key"}
+        playback["steps"].append(key)
+        _,audio=fixtures({})
+        expected=[]
+        for n,index in enumerate([0,1,0]):
+            playback["steps"].append({"id":f"direct_play_{n}","client":"peer","http":{"method":"POST","path":"/gizclaw/v1/device/tool/v0/invoke","headers":{"Authorization":"Bearer ${api_key}"},"body":{"tool":"audioplayer.play","args":{"index":index}},"status":200}})
+            expected.append({"tool":"audioplayer.play","tool_enum":14,"args":{"index":index}})
+            check=observer(f"play_received_{n}","client.tool.v0.invoke",audio,n+1,"audioplayer.play")
+            check["expect"].update(assertions(expected))
+            playback["steps"].append(check)
+        filename="g05-playback-protocol.giztest.yaml"
+        (args.output/filename).write_text(STORY+json.dumps(playback,ensure_ascii=False,indent=2)+"\n")
+        manifest.append({"file":filename,"case_id":"G05","repeat":args.repeat,"deterministic":True,"playback_protocol":True})
+    if not args.filter or "G06" in args.filter.split(","):
+        # Prove a completed conversational turn releases its RPC streams
+        # while later direct typed calls still reach the same device.
+        playback=document({"id":"G06","turns":[{"text":"先放小星星。","expected":[{"name":"audioplayer_play","arguments":{"index":0}}]}]},10,args.repeat)
+        playback["name"]="runtime-tools.playback-after-conversation"
+        playback["variables"]["api_key"]={"direction":"output","type":"string","secret":True}
+        key=rpc("owner_api_key","server.api_key.create",{"display_name":"${workspace}"})
+        key["capture"]={"api_key":"/api_key"}
+        playback["steps"].append(key)
+        _,audio=fixtures({})
+        expected=[{"tool":"audioplayer.play","tool_enum":14,"args":{"index":0}}]
+        for n,index in enumerate([1,0]):
+            playback["steps"].append({"id":f"direct_play_{n}","client":"peer","http":{"method":"POST","path":"/gizclaw/v1/device/tool/v0/invoke","headers":{"Authorization":"Bearer ${api_key}"},"body":{"tool":"audioplayer.play","args":{"index":index}},"status":200}})
+            expected.append({"tool":"audioplayer.play","tool_enum":14,"args":{"index":index}})
+            check=observer(f"play_received_{n}","client.tool.v0.invoke",audio,n+2,"audioplayer.play")
+            check["expect"].update(assertions(expected))
+            playback["steps"].append(check)
+        filename="g06-playback-after-conversation.giztest.yaml"
+        (args.output/filename).write_text(STORY+json.dumps(playback,ensure_ascii=False,indent=2)+"\n")
+        manifest.append({"file":filename,"case_id":"G06","repeat":args.repeat,"playback_after_conversation":True})
     (args.output/"manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2)+"\n")
 
 if __name__=="__main__":main()
