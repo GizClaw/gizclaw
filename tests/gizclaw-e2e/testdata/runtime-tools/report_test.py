@@ -80,6 +80,40 @@ class ReportTest(unittest.TestCase):
             self.assertEqual(metrics["observed_turns"], 0)
             self.assertEqual(json.loads((root / "giztest.json").read_text())["tasks"][0], task)
 
+    def test_explicit_device_api_after_reply_has_its_own_request_window(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "inputs").mkdir()
+            def check(identifier, indexes):
+                expect = {"/requests": {"count": len(indexes)}}
+                for n, index in enumerate(indexes):
+                    for key, value in {"tool": "audioplayer.play", "tool_enum": 14, "args": {"index": index}, "effective_index": index}.items():
+                        expect[f"/requests/{n}/{key}"] = {"equals": value}
+                return {"id": identifier, "client_rpc": {"method": "client.tool.v0.invoke", "tool": "audioplayer.play"}, "expect": expect}
+            document = {"name": "probe.10", "steps": [
+                {"id": "turn_0", "client": "peer", "peer_stream": {"mode": "text", "input": "play music"}},
+                check("model_play", [0]),
+                {"id": "direct_play", "http": {"method": "POST", "path": "/gizclaw/v1/device/tool/v0/invoke"}},
+                check("direct_received", [0, 1]),
+            ]}
+            (root / "inputs/probe.giztest.yaml").write_text(json.dumps(document))
+            task = {"name": "probe.10", "path": "probe.giztest.yaml", "status": "passed", "duration_ms": 2200,
+                    "steps": [
+                        {"id": "turn_0", "operation": "peer_stream", "status": "passed", "started_at": "2026-01-01T00:00:00Z", "duration_ms": 400, "evidence": {"user_input": "play music"}},
+                        {"id": "direct_play", "operation": "http", "status": "passed", "started_at": "2026-01-01T00:00:02Z", "duration_ms": 200},
+                    ], "cleanup": [{"id": "audit_play", "evidence": {"requests": [
+                        {"tool": "audioplayer.play", "tool_enum": 14, "args": {"index": 0}, "effective_index": 0, "received_at_unix_ms": 1767225600100},
+                        {"tool": "audioplayer.play", "tool_enum": 14, "args": {"index": 1}, "effective_index": 1, "received_at_unix_ms": 1767225602050},
+                    ]}}]}
+            (root / "giztest.json").write_text(json.dumps({"status": "passed", "tasks": [task]}))
+            result = self.run_report(root)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            metrics = json.loads((root / "summary.json").read_text())["tasks"][0]
+            self.assertEqual(metrics["correct_actions"], 2)
+            self.assertEqual(metrics["extra_or_wrong_actions"], 0)
+            self.assertEqual(metrics["observed_turns"], 1)
+            self.assertEqual(metrics["attempted_turns"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

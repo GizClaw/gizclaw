@@ -28,6 +28,8 @@ def expected_requests(document, variables):
     for step in document["steps"]:
         if step["id"].startswith("turn_"):
             turn = step["id"]
+        if direct_device_command(step):
+            turn = step["id"]
         operation = step.get("client_rpc", {})
         if operation.get("method") != "client.mhs.v0.write" and operation.get("tool") not in {
             "audioplayer.play", "audioplayer.stop", "audioplayer.mode.set", "run.workspace.set"
@@ -49,6 +51,13 @@ def expected_requests(document, variables):
             row["turn_id"] = previous[index]["turn_id"] if index < len(previous) else turn
         groups[key] = rows
     return [row for rows in groups.values() for row in rows]
+
+
+def direct_device_command(step):
+    request = step.get("http", {})
+    return request.get("method") == "POST" and request.get("path") in {
+        "/gizclaw/v1/device/tool/v0/invoke", "/gizclaw/v1/device/mhs/v0/write"
+    }
 
 
 def percentile(values, percent):
@@ -99,12 +108,14 @@ def task_metrics(task, document):
     actual = [dict(row) for rows in actual_groups.values() for row in rows]
     turns = [step for step in steps if step["id"].startswith("turn_") and step.get("evidence", {}).get("user_input") is not None]
     attempts = [step for step in steps if step["id"].startswith("turn_") and step.get("operation") == "peer_stream" and step.get("started_at")]
+    commands = {step["id"] for step in document["steps"] if direct_device_command(step)}
+    direct_steps = [step for step in steps if step["id"] in commands and step.get("operation") == "http" and step.get("started_at")]
     # A failed reply can follow a real device mutation. Its native step window
     # still identifies the attempted turn, without inventing captured input or
     # upgrading that turn/task to success. Requests outside every window remain
     # unassigned, including late mutations after a failed turn ended.
     windows = []
-    for step in attempts:
+    for step in attempts + direct_steps:
         start = int(datetime.fromisoformat(step["started_at"].replace("Z", "+00:00")).timestamp() * 1000)
         windows.append((start, start + step["duration_ms"] + 1, step["id"]))
     for row in actual:
@@ -187,7 +198,7 @@ def main():
                          "Call precision requires both exact target and parameters in the authorized user turn. Parameter and target accuracies independently match expected requests one-to-one within the same user turn and procedure.",
                          "A failed task can stop before later planned turns; those turns remain unobserved.",
                          "Failed reply steps retain request attribution within their native timing window; this does not invent captured input or change native failure. Late requests outside all turn windows stay unassigned.",
-                         "Protocol ready time measures user-turn start to receipt of the complete validated request at the device; it includes transport.",
+                         "Protocol ready time measures the owning native user-turn or explicit direct-device HTTP step start to receipt of the complete validated request; it includes transport.",
                          "Catalog focus metadata is a test fixture update, not a production UI focus API.",
                          "Program and audio acknowledgments do not qualify physical hardware or actual audio playout."], "tasks": rows}
     if native_error is not None:
