@@ -155,6 +155,8 @@ eino.NodeDefinition{
 - `decode_json`：一个 `text` input、一个 `object` output、正数 byte limit、UTF-8 object JSON 和 duplicate-key rejection；
 - `build_messages`：按顺序使用 system、user、assistant literal 或 string input，输出一个 `messages`。
 
+`f_string` 系统提示中应转义字面大括号或使用不含大括号的说明；未转义的空大括号也参与模板插值。用户历史通过独立 message placeholder 注入，不能混入静态系统规则。
+
 ## Starlark Script
 
 Script source 在 `New` 中只 compile 一次并校验 initialization。每次 run 都会在配置的 step、timeout 与 cancellation 限制内初始化独立 module globals，再调用 entrypoint，因此 mutable global 不会跨 turn 泄漏。默认 entrypoint 是 `run`，接收一个 frozen dictionary：

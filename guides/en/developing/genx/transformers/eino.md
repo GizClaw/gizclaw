@@ -159,6 +159,8 @@ The built-in Transform operations are:
 - `decode_json`: one `text` input, one `object` output, positive byte limits, UTF-8 object JSON, and duplicate-key rejection; and
 - `build_messages`: ordered system, user, or assistant items using either literal text or declared string input, and one `messages` output.
 
+In `f_string` system templates, escape literal braces or use brace-free wording. Unescaped empty braces also participate in interpolation. User history belongs in a separate message placeholder and must not be interpolated into static system rules.
+
 ## Starlark Script
 
 Script source is compiled once and its initialization is validated in `New`. Every run initializes fresh module globals under the configured step, timeout, and cancellation limits before calling the entrypoint, so mutable globals cannot cross turn boundaries. The entrypoint defaults to `run` and receives one frozen dictionary:

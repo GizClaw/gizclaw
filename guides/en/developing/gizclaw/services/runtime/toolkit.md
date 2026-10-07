@@ -91,3 +91,10 @@ Rejection feedback carries the same safe catalog and actual user context for the
 Indirect requests follow the actual business rules. When configured discomfort phrasing refers to one named target, verification uses its actual read and configured relative step. Records, negation, unchanged-state requests and multiple-target observations grant no new change. Unnamed requests without a unique configured focus need target clarification. Delegated arbitrary music selection can use the device default without requiring a song name.
 
 The verification model returns one required finite reason enum. Only approved allows execution; other declared values reject. There is no redundant boolean. Unknown, duplicate, missing or extra fields, trailing data and provider errors still fail closed.
+
+Verification restores requests in actual user order. Cancellation ends the earlier pending action;
+a later isolated value does not restore its target, so asking for a new action and target is necessary.
+Read-only status queries and mutation authority are assessed separately. Relative adjustments use
+a current-turn read of the same target and configured business rules, rather than historical claims.
+A successful empty acknowledgment proves only the declared operation, not unreturned program
+content or initiative. Semantic decisions can still misclassify and require real-model acceptance.
