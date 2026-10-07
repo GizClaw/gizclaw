@@ -183,3 +183,5 @@ flowchart LR
 - Capabilities that can be selected by name are registered through the mux of the corresponding sub-package, and the second set of routing tables is not maintained by the product service.
 - Provider SDK adapter is placed in the package with this specific capability; provider credential and product model resource still belong to `pkgs/gizclaw/services/ai`.
 - Product Agent instances, workspaces, HTTP/RPC, and credential ownership do not belong to `genx`. A reusable Graph Transformer may accept generic Store interfaces, but it must not depend back on the GizClaw product runtime.
+
+`ErrInvalidToolArguments` identifies malformed model ToolCall JSON. A Transformer may request bounded regeneration while preserving non-execution and without substituting parameters.

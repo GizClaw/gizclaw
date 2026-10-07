@@ -376,6 +376,12 @@ func runtimeToolFocus(spec *apitypes.RuntimeProfileSpec, id string) error {
 			}
 			text.Description = new("当前界面焦点、且相对亮度动作的唯一默认对象是 " + label + "，固定 id=" + id + "。用户没有点名对象且没有待补请求时，直接使用这个固定目标，不追问对象；先读此目标的实际亮度，再按业务幅度换算。仅陈述或记录状态不授权动作。已有待补请求仍使用先前明确的目标，更新后的默认对象不能覆盖它。")
 		}
+		if binding.Mhs.Id == "led.status" {
+			text.Description = new(*text.Description + " 用户明确说灯或灯光时，就是选择本机主灯 led.status，不需要区域编号。该用户选择优先于本轮默认焦点；只有未指名对象的新请求才使用默认焦点。")
+		}
+		if binding.Mhs.Id == "display.main" {
+			text.Description = new(*text.Description + " 用户明确说屏幕时，就是选择本机屏幕 display.main。该用户选择优先于本轮默认焦点；本机屏幕不包括手机或其他设备。")
+		}
 		binding.I18n["zh-CN"] = text
 		(*spec.Resources.Tools)[alias] = binding
 	}

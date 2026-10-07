@@ -3,6 +3,7 @@ package eino
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -489,6 +490,14 @@ func (chatModel *streamingChatModel) Generate(
 		}
 		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content, transcript, chatModel.verifyToolResponse == nil)
 		reader.Close()
+		if errors.Is(streamErr, genx.ErrInvalidToolArguments) && chatModel.verifyToolResponse != nil && corrections < 2 {
+			// The malformed proposal has not reached the invoker or wire history.
+			// Regenerate from the same user/results under the existing shared
+			// correction budget; never substitute or repair its parameters.
+			corrections++
+			messages = append(messages, &schema.Message{Role: schema.System, Name: "tool_argument_feedback", Content: "The previous model Tool proposal contained invalid JSON and was not executed. Generate a new valid JSON object under the actual Tool schema for only the authorized user request. Preserve current successful results, omit unrequested optional parameters, and do not claim completion without a successful Tool result."})
+			continue
+		}
 		if streamErr != nil {
 			return nil, streamErr
 		}

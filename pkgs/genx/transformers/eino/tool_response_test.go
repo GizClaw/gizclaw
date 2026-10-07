@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
 
@@ -201,5 +202,92 @@ func TestVerifiedToolResponseRetainsOutputByteLimit(t *testing.T) {
 	}
 	if !strings.Contains(terminal, "buffered model reply exceeds MaxOutputBytes") {
 		t.Fatalf("terminal=%q", terminal)
+	}
+}
+
+type malformedToolChatModel struct {
+	*scriptedChatModel
+	failures, attempts int
+	observed           [][]*schema.Message
+}
+
+func (chat *malformedToolChatModel) Stream(ctx context.Context, input []*schema.Message, options ...model.Option) (*schema.StreamReader[*schema.Message], error) {
+	chat.observed = append(chat.observed, cloneMessages(input))
+	chat.attempts++
+	if chat.attempts <= chat.failures {
+		reader, writer := schema.Pipe[*schema.Message](1)
+		writer.Send(nil, genx.ErrInvalidToolArguments)
+		writer.Close()
+		return reader, nil
+	}
+	return chat.scriptedChatModel.Stream(ctx, input, options...)
+}
+
+func TestMalformedToolArgumentsRegenerateWithoutDispatchOrParameterRepair(t *testing.T) {
+	chat := &malformedToolChatModel{failures: 1, scriptedChatModel: &scriptedChatModel{rounds: [][]*schema.Message{
+		{{Role: schema.Assistant, ToolCalls: []schema.ToolCall{{ID: "valid-new-call", Type: "function", Function: schema.FunctionCall{Name: "lookup", Arguments: `{"value":"requested"}`}}}}},
+		{schema.AssistantMessage("actual success", nil)},
+	}}}
+	var calls atomic.Int32
+	config := chatConfig(&componentMapResolver{chat: chat})
+	config.ToolInvoker = einoTestToolInvoker(func(value string) (any, error) {
+		calls.Add(1)
+		if value != "requested" {
+			t.Fatalf("recovery synthesized parameters: %q", value)
+		}
+		return map[string]bool{"ok": true}, nil
+	})
+	config.VerifyToolResponse = func(context.Context, genx.ToolConversation, string) (string, error) { return "", nil }
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer transformer.Close()
+	output, err := transformer.Transform(t.Context(), textInput("requested"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := joinedText(drain(t, output)); text != "actual success" || calls.Load() != 1 || chat.attempts != 3 {
+		t.Fatalf("reply=%q executions=%d model attempts=%d", text, calls.Load(), chat.attempts)
+	}
+	feedback := chat.observed[1][len(chat.observed[1])-1]
+	if feedback.Role != schema.System || feedback.Name != "tool_argument_feedback" || !strings.Contains(feedback.Content, "not executed") {
+		t.Fatalf("syntax correction lost its non-execution boundary: %#v", feedback)
+	}
+}
+
+func TestMalformedToolArgumentsRemainBoundedAndRequireVerification(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(map[bool]string{false: "verification absent", true: "bounded regeneration"}[enabled], func(t *testing.T) {
+			chat := &malformedToolChatModel{failures: 10, scriptedChatModel: &scriptedChatModel{}}
+			config := chatConfig(&componentMapResolver{chat: chat})
+			config.ToolInvoker = einoTestToolInvoker(func(string) (any, error) { t.Fatal("invalid JSON dispatched"); return nil, nil })
+			if enabled {
+				config.VerifyToolResponse = func(context.Context, genx.ToolConversation, string) (string, error) {
+					t.Fatal("invalid proposal became final reply")
+					return "", nil
+				}
+			}
+			transformer, err := New(t.Context(), config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer transformer.Close()
+			output, err := transformer.Transform(t.Context(), textInput("requested"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			chunks := drain(t, output)
+			if joinedText(chunks) != "" {
+				t.Fatal("invalid proposal acquired published text")
+			}
+			wantAttempts := 1
+			if enabled {
+				wantAttempts = 3
+			}
+			if chat.attempts != wantAttempts {
+				t.Fatalf("model attempts=%d want=%d", chat.attempts, wantAttempts)
+			}
+		})
 	}
 }

@@ -121,8 +121,8 @@ func TestEinoToolCallValidatesProviderOutput(t *testing.T) {
 	}
 	if _, err := einoToolCall(&genx.ToolCall{
 		ID: "call-2", FuncCall: &genx.FuncCall{Name: "bad", Arguments: `{`},
-	}, 0); err == nil {
-		t.Fatal("einoToolCall() accepted invalid JSON")
+	}, 0); !errors.Is(err, genx.ErrInvalidToolArguments) {
+		t.Fatalf("einoToolCall() did not classify invalid JSON: %v", err)
 	}
 }
 

@@ -190,3 +190,5 @@ flowchart LR
 - 可按名称选择的能力通过对应子包的 mux 注册，不由产品服务维护第二套路由表。
 - Provider SDK adapter 放在拥有该具体能力的 package；provider credential 和产品 model resource 仍属于 `pkgs/gizclaw/services/ai`。
 - 产品 Agent instance、workspace、HTTP/RPC 与 credential ownership 不属于 `genx`。可复用的 Graph Transformer 可以接收通用 Store interface，但不能反向依赖 GizClaw 产品 runtime。
+
+`ErrInvalidToolArguments` 标记模型 ToolCall 参数的非法 JSON；Transformer 可以在有限预算内要求重新生成，但不能替换参数或宣称已执行。

@@ -8,6 +8,10 @@ import (
 // ErrDone is returned when the stream is done.
 var ErrDone = errors.New("genx: done")
 
+// ErrInvalidToolArguments reports malformed model ToolCall JSON before dispatch.
+// A Transformer may request bounded regeneration without altering the arguments.
+var ErrInvalidToolArguments = errors.New("genx: invalid model Tool arguments")
+
 func Done(stats Usage) *State {
 	return &State{usage: stats, status: StatusDone, err: ErrDone}
 }

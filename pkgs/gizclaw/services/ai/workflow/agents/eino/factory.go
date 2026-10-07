@@ -1049,7 +1049,7 @@ func einoToolCall(call *genx.ToolCall, index int) (schema.ToolCall, error) {
 		arguments = "{}"
 	}
 	if !json.Valid([]byte(arguments)) {
-		return schema.ToolCall{}, fmt.Errorf("eino: model returned invalid JSON arguments for Tool %q", name)
+		return schema.ToolCall{}, fmt.Errorf("eino: model returned invalid JSON arguments for Tool %q: %w", name, genx.ErrInvalidToolArguments)
 	}
 	return schema.ToolCall{
 		Index: &index, ID: id, Type: "function",

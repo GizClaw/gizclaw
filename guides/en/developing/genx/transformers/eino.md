@@ -288,3 +288,5 @@ Eino realtime speech input explicitly sets Volc ASR `end_window_size=200` and
 the latter preserves the minimum speech duration. Push-to-Talk keeps the ASR
 Builder defaults. The model still starts only after definite ASR text EOS;
 interim transcripts do not trigger a dialogue turn.
+
+With final-reply verification enabled, malformed model Tool JSON can request regeneration before dispatch. Syntax and reply corrections share the same two-correction budget. Invalid proposals enter neither invocation nor wire history; parameters are not patched and no result is fabricated. Persistent errors or disabled verification still fail closed.
