@@ -184,8 +184,13 @@ func TestDefaultAudioPlaybackAllowsOmittedIndex(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := ValidateArguments(Tool{Schema: schema}, json.RawMessage(`{}`)); err != nil {
-		t.Fatal(err)
+	for _, valid := range []string{`{}`, `{"index":0}`, `{"index":1}`} {
+		if err := ValidateArguments(Tool{Schema: schema}, json.RawMessage(valid)); err != nil {
+			t.Fatalf("valid playback arguments %s: %v", valid, err)
+		}
+	}
+	if err := ValidateArguments(Tool{Schema: schema}, json.RawMessage(`{"index":null}`)); err == nil {
+		t.Fatal("explicit null became an omitted optional index")
 	}
 }
 

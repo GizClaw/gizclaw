@@ -53,8 +53,8 @@ var toolVerificationReasons = map[string]string{
 	"missing_value":         "the requested value or program name is missing",
 	"cancelled":             "the pending request was cancelled and must not be revived",
 	"wrong_target":          "the proposed fixed target differs from the user request",
-	"wrong_parameters":      "the proposed parameters differ from the authorized request",
-	"unrequested_parameter": "omit unrequested optional changes and preserve their defaults",
+	"wrong_parameters":      "the proposed parameters differ from the authorized request. Preserve optional defaults by omitting unrequested fields, not by supplying null or a guessed value; recheck the actual request and Tool description",
+	"unrequested_parameter": "omit unrequested optional fields entirely to preserve their defaults. Null is an explicit value, not omission; do not replace it with zero or another guessed value",
 	"already_completed":     "the requested change was already completed",
 	"unsupported_request":   "the requested operation is unavailable; do not substitute another operation",
 }
@@ -77,6 +77,7 @@ conversation.messages 在 continuation_start 之前是输入和历史；之后�
 - 因只读查询候选被拒而缺少读结果时，可以按用户所述事实回应并说明未修改，不能要求无授权的写入；未读取就声称实际查询成功仍然不允许。
 最终判定先重新确认缺少的是不是仍然有效的必要信息：
 - 用户取消之后只提供数值，原目标已经清除。询问要做什么以及针对哪个对象是必要澄清，必须 approved，不能 unnecessary_clarification 或 missing_operation；不能要求恢复取消的动作。
+- user_turns 中只有孤立数值、百分比或名称，且没有实际历史请求时，不存在可恢复的待补动作。不能从系统示例、候选参数或助手草稿补出动作与目标。询问动作和对象可 approved；没有本轮成功结果却说“已设为这个值”必须 false_completion，即使该值合法且主灯工具可用。
 - 用户仅说要调灯光/屏幕且未给数值时，询问数值必须 approved。只有已经确定的目标被再次询问才是多余澄清；缺数值不能被当成已可执行。
 - 两个对象均在用户上一轮出现后仅说“它”，目标尚有歧义。准确询问灯还是屏幕必须 approved，不能因为工具描述或助手问题选定一项。
 - 用户上一轮仅给一个本机对象的状态，随后明确要求“它再暗一点/调亮一点”，是针对这个唯一对象的新相对请求；可执行时重新问灯还是屏幕属于 unnecessary_clarification。之前那轮不授权修改，不代表后来新请求不能引用其唯一对象；仍须本轮读取。目录中的其他目标和助手列举不造成用户指代歧义。
@@ -88,6 +89,7 @@ conversation.messages 在 continuation_start 之前是输入和历史；之后�
 - 用户此前同时谈到程序、音乐和设备，当前只说“换一下”，还缺所操作的类别和目标。准确询问要换音乐还是剧本或其他对象必须 approved，不能判 missing_operation 或 unnecessary_clarification。目录默认曲目或当前程序不能替用户选择类别。
 - 默认焦点按固定 id/hwd 的对象判断，read/write 是同一个对象。已明确配置唯一默认对象的新相对动作不因用户没再点名而缺目标；不能因执行检查拒了一个候选，就把配置焦点当作不存在。必要目标和幅度已经齐备时，应让主模型重新检查实际目录和读取，不能批准漏执行或要求重新点名。
 - 用户允许随便放歌、当前 audioplayer.play 以空参数成功时，该请求已经完成。无需补歌名、index 或读取列表来证明播放。result 的 current_index 是零基索引，0 表示第一首而不是没有选择；state=playing 证明本轮返回的播放状态。简短确认已开始播放/已播放设备默认曲目，或准确引用这些返回字段，必须 approved；不能因未提交 index 或没返回标题而判 missing_operation/incorrect_result。没有返回标题时不要求说标题，也不能猜标题；默认播放不证明随机机制，不应声称真正随机抽取。旧的 invalid_arguments 拒绝不推翻后来的本轮成功结果。
+- 若本轮实际 audioplayer.play 成功返回 current_index，且真实 playlist.get 的 playlist_revision 与播放结果相同，可按返回的零基 current_index 引用该列表中的完整标题；例如 current_index=0 与同版本列表第一项标题共同证明当前曲名。列表结果与播放结果可组合核对，不要求播放结果重复返回标题。未读取列表、版本不同或索引无效时仍不能推断标题。
 - 文本形式的待调用占位标记、工具调用标签或“稍后执行”的无依据承诺不是工具执行，也不是有效最终答复；缺实际结果时不能 approved。
 reason=approved 表示回复和实际执行均满足当前请求。明确可执行请求未执行时 reason=missing_operation；仅在必要信息确实已齐却再次追问时 reason=unnecessary_clarification；无对应成功结果却声称、承诺或提议未授权的变更时 reason=false_completion；与实际返回结果不符或编造结果时 reason=incorrect_result。只输出唯一必填字段 reason：通过为 approved，拒绝为本次 Schema 的一个拒绝值；不输出布尔值。不要输出其他 reason、解释或新参数。`
 

@@ -355,7 +355,14 @@ func TestToolkitInvokerRejectsInvalidArgumentsBeforeHTTP(t *testing.T) {
 	client := &recordingHTTPTools{}
 	invoker := &testToolkitInvoker{Builder: &toolkit.Builder{Tools: server}, HTTP: giztools.HTTPExecutor{Transport: client}, Request: toolkit.BuildRequest{AllowedTools: []string{created.ID}}}
 	ctx := toolTestContext(t, map[string]string{"volume": created.ID})
-	if result, err := prepareAliasTestInvoker(invoker).InvokeTool(ctx, "volume", json.RawMessage(`{"level":"loud"}`)); err != nil || string(result) != `{"error":{"code":"invalid_arguments","message":"tool arguments do not match its schema"}}` {
+	result, err := prepareAliasTestInvoker(invoker).InvokeTool(ctx, "volume", json.RawMessage(`{"level":"loud"}`))
+	var failure struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if err != nil || json.Unmarshal(result, &failure) != nil || failure.Error.Code != "invalid_arguments" || !strings.Contains(failure.Error.Message, "null is an explicit value, not omission") || !strings.Contains(failure.Error.Message, "Do not guess") {
 		t.Fatalf("invalid arguments result=%s error=%v", result, err)
 	}
 	if client.calls != 0 {

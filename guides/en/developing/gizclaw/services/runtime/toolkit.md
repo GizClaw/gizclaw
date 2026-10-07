@@ -125,3 +125,10 @@ successful call of the same fixed procedure with matching actual arguments. Read
 procedure, history, rejected calls and different arguments cannot supply that reason. This
 narrows impossible rejection reasons without approving candidates, skipping verification or
 caching results; the model still assesses explicitly repeated requests.
+
+Unrequested optional fields must be omitted; `null` is an explicit value rather than omission.
+Schema and semantic parameter rejection feedback explains that distinction without deleting fields,
+filling values or selecting targets for the model. Default playback still needs independently verified
+empty arguments. An isolated value without actual request history cannot restore pending intent,
+and completion claims still need current success evidence. A returned playback index can establish
+a title using an actual playlist with the same revision; absent or different revisions cannot.

@@ -116,7 +116,7 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 		}
 		if err := toolcatalog.ValidateArguments(tool, args); err != nil {
 			slog.WarnContext(ctx, "agenthost: Tool arguments rejected", "tool_alias", tool.Alias, "reason", "invalid_arguments")
-			return recoverableToolError("invalid_arguments", "tool arguments do not match its schema"), nil
+			return recoverableToolError("invalid_arguments", "tool arguments do not match its schema. Optional fields must be omitted when not requested; null is an explicit value, not omission. Do not guess a replacement value or target"), nil
 		}
 		if i.Verify != nil && (mutatingTool(tool) || tool.Source == "mhs") {
 			conversation, ok := genx.ToolConversationFromContext(ctx)
