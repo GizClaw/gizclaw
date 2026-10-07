@@ -98,3 +98,5 @@ Read-only status queries and mutation authority are assessed separately. Relativ
 a current-turn read of the same target and configured business rules, rather than historical claims.
 A successful empty acknowledgment proves only the declared operation, not unreturned program
 content or initiative. Semantic decisions can still misclassify and require real-model acceptance.
+
+A factual record grants no mutation in that turn, but its single explicit local object can resolve a later explicitly new action. The current turn still needs an actual read. Other catalog objects and assistant suggestions cannot introduce a user selection. References to multiple user objects remain ambiguous; an isolated value after cancellation does not restore the old pending action.
