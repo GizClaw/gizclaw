@@ -143,3 +143,9 @@ parameters. A valid current candidate with just the required target and omitted 
 provides no unrequested_parameter reason; all other independent checks remain. This does not approve
 candidates, rewrite arguments or cache results. Ambiguous replies cannot announce a chosen target
 and then ask for confirmation; later clarification does not undo the unsupported selection.
+
+A negative sign does not authorize a relative decrease; that restriction addresses an illegal
+absolute value rather than later explicit requests such as making it dimmer. Verify relative
+parameters using the unique user target, the current actual read and configured business increment.
+Configured increments need no extra absolute value, and a previous state statement does not require
+keeping that value.
