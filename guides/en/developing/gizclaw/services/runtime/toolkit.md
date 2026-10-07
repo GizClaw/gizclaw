@@ -151,3 +151,5 @@ Configured increments need no extra absolute value, and a previous state stateme
 keeping that value.
 
 Final-reply verification checks the entire draft. An unsupported lossless pause/resume request cannot be replaced by a promise to stop, even when a later sentence explains the limitation. Explain that no change occurred, or neutrally ask whether the user separately wants a stop. A later explicit stop remains a new executable request. `intent_rejected`, `intent_unverified` and `invalid_arguments` are pre-dispatch rejections and cannot be described as device rejection or device execution failure; actual device errors and successful read state retain their own meaning.
+
+An ordinary brightness request with only its target supplied still requires explicit value clarification; configured relative steps apply only to an actual user direction request. Multiple targets execute serially in the order named by the user, with current results confirming the preceding action. Catalog order cannot reorder the request, and completed actions are not repeated.
