@@ -1910,3 +1910,5 @@ G03 invokes `device.reboot` using a real owner API key and checks enum 4 and exa
 G04 configures an 800-byte description for each of 100 genuinely available catalog entries, forcing a protobuf continuation envelope, then checks the entire catalog, descriptions and availability. Go Giztest unary RPC requires EOS and bounds a complete envelope to 16 maximum frames; truncated, mixed and oversized envelopes fail.
 
 G05 directly plays indices 0→1→0 through an owner API key, checking enum 14, the effective index and cumulative decoded calls after each action. G06 first completes one real model playback turn, then issues two same-owner HTTP playback calls to prove the device channel remains available after a conversation. Go SDK inbound unary RPC releases its request transport on both success and failure; every request still owns a separate channel.
+
+Native fixtures explicitly retain the absence of a default focus in lamp/screen catalog descriptions. With a configured focus, other objects are explicitly identified as non-default. This context grants no new user intent, and an existing pending target still takes precedence.

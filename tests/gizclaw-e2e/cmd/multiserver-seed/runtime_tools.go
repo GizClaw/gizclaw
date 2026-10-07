@@ -357,10 +357,7 @@ func runtimeToolProfile() apitypes.RuntimeProfileSpec {
 // runtimeToolFocus models changed contextual metadata through the real Profile
 // catalog. This is a catalog-metadata regression, not a new product UI API.
 func runtimeToolFocus(spec *apitypes.RuntimeProfileSpec, id string) error {
-	if id == "" {
-		return nil
-	}
-	if id != "display.main" && id != "led.status" {
+	if id != "" && id != "display.main" && id != "led.status" {
 		return errors.New("unknown focus target")
 	}
 	for alias, binding := range *spec.Resources.Tools {
@@ -368,7 +365,10 @@ func runtimeToolFocus(spec *apitypes.RuntimeProfileSpec, id string) error {
 			continue
 		}
 		text := binding.I18n["zh-CN"]
-		text.Description = nil
+		text.Description = new("本轮没有配置默认亮度焦点。此工具的存在和名称本身不选择目标；用户未明确对象、也没有待补目标时，必须先询问对象，不能默认为屏幕或主灯。")
+		if id != "" {
+			text.Description = new("本绑定不是当前默认亮度目标。除非真实用户已明确选择本对象或仍有该对象的待补请求，不因工具名称选择本对象。")
+		}
 		if binding.Mhs.Id == id {
 			label := "本机屏幕"
 			if id == "led.status" {
