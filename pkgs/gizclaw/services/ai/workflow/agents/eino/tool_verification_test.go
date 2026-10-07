@@ -43,13 +43,13 @@ func TestToolVerifierFailsClosedAndDoesNotChangeCandidate(t *testing.T) {
 		allow          bool
 		invalid        bool
 	}{
-		{"allow", `{"approved":true,"reason":"approved"}`, true, false},
-		{"wrong target", `{"approved":false,"reason":"wrong_target"}`, false, false},
-		{"cancelled", `{"approved":false,"reason":"cancelled"}`, false, false},
-		{"unknown reason", `{"approved":false,"reason":"invented"}`, false, true},
-		{"inconsistent", `{"approved":true,"reason":"cancelled"}`, false, true},
-		{"missing approval", `{"reason":"approved"}`, false, true},
-		{"duplicate approval", `{"approved":false,"approved":true,"reason":"approved"}`, false, true},
+		{"allow", `{"reason":"approved"}`, true, false},
+		{"wrong target", `{"reason":"wrong_target"}`, false, false},
+		{"cancelled", `{"reason":"cancelled"}`, false, false},
+		{"unknown reason", `{"reason":"invented"}`, false, true},
+		{"legacy extra approval", `{"approved":true,"reason":"cancelled"}`, false, true},
+		{"missing decision", `{}`, false, true},
+		{"duplicate reason", `{"reason":"cancelled","reason":"approved"}`, false, true},
 	} {
 		t.Run(row.name, func(t *testing.T) {
 			generator := &verificationGenerator{result: row.response}
@@ -79,7 +79,7 @@ func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T
 	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
 		return []toolcatalog.Tool{candidate, {Alias: "screen", Description: focus, Target: map[string]any{"id": "display.main"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
 	}
-	generator := &verificationGenerator{result: `{"approved":false,"reason":"wrong_target"}`}
+	generator := &verificationGenerator{result: `{"reason":"wrong_target"}`}
 	verify := runtimeToolVerifier(generator, "model/checker", resolve)
 	for _, current := range []string{"screen is the configured focus", "lamp is the configured focus"} {
 		focus = current
@@ -95,7 +95,7 @@ func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T
 
 func TestToolVerifierDoesNotCallModelWithoutCurrentCatalog(t *testing.T) {
 	for _, resolve := range []func(context.Context) ([]toolcatalog.Tool, error){nil, func(context.Context) ([]toolcatalog.Tool, error) { return nil, errors.New("private lookup failure") }} {
-		generator := &verificationGenerator{result: `{"approved":true,"reason":"approved"}`}
+		generator := &verificationGenerator{result: `{"reason":"approved"}`}
 		_, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), toolcatalog.Tool{}, json.RawMessage(`{}`), genx.ToolConversation{CurrentUser: "change brightness"})
 		if err == nil || strings.Contains(err.Error(), "private") || generator.seen != "" {
 			t.Fatalf("catalog failure reached model or leaked: %v", err)
@@ -107,14 +107,14 @@ func TestToolResponseVerifierUsesCurrentCatalogAndFiniteDecision(t *testing.T) {
 	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
 		return []toolcatalog.Tool{{Alias: "screen.read", Source: "mhs", Available: true, Target: map[string]any{"id": "display.main", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
 	}
-	for _, response := range []string{`{"approved":true,"reason":"approved"}`, `{"approved":false,"reason":"missing_operation"}`, `{"approved":false,"reason":"false_completion"}`, `{"approved":false,"reason":"invented"}`} {
+	for _, response := range []string{`{"reason":"approved"}`, `{"reason":"missing_operation"}`, `{"reason":"false_completion"}`, `{"reason":"invented"}`} {
 		generator := &verificationGenerator{result: response}
 		feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{CurrentUser: "screen 30%", ContinuationStart: 1, Messages: []genx.ToolConversationMessage{{Role: "user", Content: "screen 30%"}}}, "set without proof")
-		if response == `{"approved":true,"reason":"approved"}` {
+		if response == `{"reason":"approved"}` {
 			if err != nil || feedback != "" {
 				t.Fatalf("approved: %q %v", feedback, err)
 			}
-		} else if response == `{"approved":false,"reason":"invented"}` {
+		} else if response == `{"reason":"invented"}` {
 			if err == nil {
 				t.Fatal("unknown decision accepted")
 			}
@@ -143,7 +143,7 @@ func TestUnavailableCatalogCannotDemandExecutionButStillRejectsFalseCompletion(t
 	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
 		return []toolcatalog.Tool{{Alias: "screen", Availability: toolcatalog.Availability{Reason: "DEVICE_OFFLINE"}}}, nil
 	}
-	for _, response := range []string{`{"approved":true,"reason":"approved"}`, `{"approved":false,"reason":"false_completion"}`, `{"approved":false,"reason":"missing_operation"}`} {
+	for _, response := range []string{`{"reason":"approved"}`, `{"reason":"false_completion"}`, `{"reason":"missing_operation"}`} {
 		generator := &verificationGenerator{result: response}
 		feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{CurrentUser: "screen 40%"}, "device unavailable; not completed")
 		if strings.Contains(string(generator.schema), "missing_operation") || strings.Contains(string(generator.schema), "unnecessary_clarification") {
@@ -172,7 +172,7 @@ func TestVerificationCapabilityFactsKeepReadAndWriteIndependent(t *testing.T) {
 			{Alias: "screen.external", Source: "http_request", Available: true, Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "write"}},
 		}, nil
 	}
-	generator := &verificationGenerator{result: `{"approved":true,"reason":"approved"}`}
+	generator := &verificationGenerator{result: `{"reason":"approved"}`}
 	conversation := genx.ToolConversation{CurrentUser: "40%", ContinuationStart: 3, Messages: []genx.ToolConversationMessage{
 		{Role: "user", Content: "set screen brightness"},
 		{Role: "assistant", Content: "proposal to change the lamp"},
@@ -213,7 +213,7 @@ func TestVerificationFeedbackCarriesSafeContextForPrimaryCorrection(t *testing.T
 	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
 		return []toolcatalog.Tool{candidate, {Alias: "lamp.read", Source: "mhs", Description: "configured lamp focus", Target: map[string]any{"id": "led.status", "hwd": "led", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-primary"}}}}}, nil
 	}
-	generator := &verificationGenerator{result: `{"approved":false,"reason":"wrong_target"}`}
+	generator := &verificationGenerator{result: `{"reason":"wrong_target"}`}
 	feedback, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, json.RawMessage(`{}`), genx.ToolConversation{CurrentUser: "increase brightness"})
 	if err != nil || !strings.Contains(feedback, "configured lamp focus") || !strings.Contains(feedback, "display.main") || !strings.Contains(feedback, "led.status") || strings.Contains(feedback, "must-not-reach-primary") {
 		t.Fatalf("missing safe correction context: %q, %v", feedback, err)

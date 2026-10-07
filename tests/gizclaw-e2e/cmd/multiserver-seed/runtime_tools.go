@@ -309,7 +309,7 @@ func runtimeToolProfile() apitypes.RuntimeProfileSpec {
 		addMHS(device.id+".read", device.id, device.hwd, "read", "Read current device "+device.label, "读取"+device.label+"当前实际亮度")
 		addMHS(device.id+".write", device.id, device.hwd, "write", "Set current device "+device.label, "设置"+device.label+"的绝对目标亮度：用户可指定 0 到 100 整数，或明确相对调整并先读取这个固定对象的实际亮度后按业务幅度换算；不能猜初始值或目标，不控制手机或别的设备")
 	}
-	for _, entry := range []struct{ name, label string }{{"audioplayer.get", "读取实际播放器状态（当前索引与播放列表长度）"}, {"audioplayer.playlist.get", "读取真实曲目列表及标题和资源编号"}, {"audioplayer.play", "播放一个曲目，index 是播放列表零基索引；省略选择设备默认曲目；下一首先读取状态再计算"}, {"audioplayer.stop", "停止当前音乐"}, {"audioplayer.mode.set", "设置循环模式 off 不循环、one 单曲循环、all 列表循环"}, {"run.workspace.set", "按当前 Profile 的剧本名称选择剧本，或返回 chat 聊天；只能修改当前设备"}} {
+	for _, entry := range []struct{ name, label string }{{"audioplayer.get", "读取实际播放器状态（当前索引与播放列表长度）"}, {"audioplayer.playlist.get", "读取真实曲目列表及标题和资源编号"}, {"audioplayer.play", "播放一个曲目，index 是播放列表零基索引；默认或任意播放必须传空参数对象并省略index，让设备选默认曲目；指定曲目先读真实列表；下一首先读取状态再计算"}, {"audioplayer.stop", "停止当前音乐"}, {"audioplayer.mode.set", "设置循环模式 off 不循环、one 单曲循环、all 列表循环"}, {"run.workspace.set", "按当前 Profile 的剧本名称选择剧本，或返回 chat 聊天；只能修改当前设备"}} {
 		base := binding("", entry.name, entry.label)
 		tools[entry.name] = apitypes.RuntimeProfileToolBinding{I18n: base.I18n, ClientTool: &apitypes.RuntimeProfileClientTool{Name: entry.name}}
 	}
