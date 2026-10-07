@@ -157,6 +157,9 @@ func TestProgramSelectionRequiresProfileWorkflowAlias(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if strings.Contains(schema.Description, "workspace_name") || !strings.Contains(schema.Properties["kickoff"].Description, "false") {
+		t.Fatal("model schema describes removed target or omits inert kickoff default")
+	}
 	tool := Tool{Schema: schema}
 	if err := ValidateArguments(tool, json.RawMessage(`{"workflow_name":"assistant"}`)); err != nil {
 		t.Fatal(err)

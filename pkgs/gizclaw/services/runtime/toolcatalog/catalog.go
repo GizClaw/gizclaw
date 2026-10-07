@@ -99,8 +99,9 @@ func BindingSchema(profile apitypes.RuntimeProfile, binding apitypes.RuntimeProf
 			delete(schema.Properties, "workspace_name")
 			schema.OneOf = nil
 			schema.Required = []string{"workflow_name"}
+			schema.Description = "Select one Workflow alias from the bound RuntimeProfile for the current device. Ordinary selection does not start opening speech."
 			if property := schema.Properties["kickoff"]; property != nil {
-				property.Description = "Omit for ordinary program selection. Use true only when the user explicitly asks the new agent to speak first after reload; selecting a program alone does not request kickoff."
+				property.Description = "Omitted or false means ordinary program selection with no opening speech. Use true only when the user explicitly asks the new agent to speak first after reload; starting or selecting a program alone does not request kickoff."
 			}
 			aliases := []string{}
 			for alias := range profile.Spec.Workflows {

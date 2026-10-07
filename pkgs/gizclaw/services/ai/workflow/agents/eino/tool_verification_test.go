@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 )
@@ -187,6 +188,43 @@ func TestClientToolCompletedReasonRequiresSameCurrentProcedureAndArguments(t *te
 			_, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, json.RawMessage(`{"index":1}`), row.conversation)
 			if row.allowed != (err == nil) {
 				t.Fatalf("already_completed eligibility=%v error=%v", row.allowed, err)
+			}
+		})
+	}
+}
+
+func TestProgramOptionalReasonUsesCurrentSideEffectParameters(t *testing.T) {
+	profile := apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"story": {ResourceId: "workflow"}}}}
+	source, target, schema, err := toolcatalog.BindingSchema(profile, apitypes.RuntimeProfileToolBinding{ClientTool: &apitypes.RuntimeProfileClientTool{Name: "run.workspace.set"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := toolcatalog.Tool{Alias: "program", Source: source, Target: target, Schema: schema}
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) { return []toolcatalog.Tool{candidate}, nil }
+	for _, row := range []struct {
+		name, arguments string
+		ordinary        bool
+	}{
+		{"omitted", `{"workflow_name":"story"}`, true},
+		{"false", `{"workflow_name":"story","kickoff":false}`, true},
+		{"true", `{"workflow_name":"story","kickoff":true}`, false},
+		{"null", `{"workflow_name":"story","kickoff":null}`, false},
+		{"foreign target", `{"workflow_name":"foreign"}`, false},
+		{"other field", `{"workflow_name":"story","workspace_name":"other"}`, false},
+		{"duplicate", `{"workflow_name":"story","kickoff":false,"kickoff":true}`, false},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			generator := &verificationGenerator{result: `{"reason":"unrequested_parameter"}`}
+			conversation := genx.ToolConversation{CurrentUser: "select story", ContinuationStart: 1, Messages: []genx.ToolConversationMessage{{Role: "assistant_tool_proposal", Name: "program", Arguments: json.RawMessage(`{"workflow_name":"story","kickoff":true}`)}}}
+			arguments := json.RawMessage(row.arguments)
+			reason, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, arguments, conversation)
+			if row.ordinary != (err != nil) || (err == nil && reason == "") || generator.seen == "" || string(arguments) != row.arguments {
+				t.Fatalf("current optional reason: reason=%q error=%v arguments=%s", reason, err, arguments)
+			}
+			generator.result = `{"reason":"wrong_target"}`
+			reason, err = runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, arguments, conversation)
+			if err != nil || reason == "" {
+				t.Fatalf("other independent checks disappeared: reason=%q error=%v", reason, err)
 			}
 		})
 	}

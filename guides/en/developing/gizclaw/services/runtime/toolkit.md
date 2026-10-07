@@ -137,3 +137,9 @@ Execution verification checks the current candidate arguments rather than fields
 proposals. Program selection requires `workflow_name`; omitted or false `kickoff` requests no opening
 speech, while true still needs explicit authorization. A negative value supplied for pending absolute
 brightness is not a relative decrease; illegal absolute values wait for a legal correction.
+
+The model program-selection schema describes only Profile Workflow aliases, excluding Workspace
+parameters. A valid current candidate with just the required target and omitted or false kickoff
+provides no unrequested_parameter reason; all other independent checks remain. This does not approve
+candidates, rewrite arguments or cache results. Ambiguous replies cannot announce a chosen target
+and then ask for confirmation; later clarification does not undo the unsupported selection.

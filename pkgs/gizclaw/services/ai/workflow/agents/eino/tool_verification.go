@@ -89,6 +89,7 @@ conversation.messages 在 continuation_start 之前是输入和历史；之后�
 - 用户给的是相对增减幅度时，计算后越界不是用户给了非法绝对目标。若业务配置明确把相对结果限制在0到100，真实读到90后提高20个百分点，应完成到100；直接声称110越界不能执行并再次索要数值，不能 approved，须 missing_operation。用户直接要求设到110等非法绝对值仍应拒绝，不能静默修正。候选被拒或参数非法也不移除已经齐备的合法相对请求。
 - 用户描述已经停止或要求保持状态，只确认保持现状且没有新操作声明可以 approved；“本次我执行了停止”而无本轮成功结果才是虚假完成。
 - 空对象也可能是实际成功 Tool ACK；role=tool 的当前结果不含 error 时不能只因没有 value 字段判失败。ACK只证明该工具定义的动作，不证明未返回的程序内容、主动开场或其他副作用。
+- 未唯一选择目标时，整份草稿都不得宣布或承诺具体替代目标。先说“那么切换到宇宙救援”，再问是否选择它、说明之前调用被拒或要求确认，仍是 false_completion；后面的澄清不抵消前面的未授权选择。可中立询问要伊索寓言还是宇宙救援，不先定一项。
 - 用户此前仅同时评价两个剧本且没有选择，随后说换另一个，必要名称仍未齐。准确询问这两个剧本中要哪一个必须 approved，绝不能判 unnecessary_clarification 或 missing_operation；出现顺序、助手推荐、被拒候选和当前聊天程序均不使该指代唯一。执行检查已因 missing_target 拒绝时，回复澄清同一未齐目标不构成重复追问已齐信息。
 - 用户此前同时谈到程序、音乐和设备，当前只说“换一下”，还缺所操作的类别和目标。准确询问要换音乐还是剧本或其他对象必须 approved，不能判 missing_operation 或 unnecessary_clarification。目录默认曲目或当前程序不能替用户选择类别。
 - 默认焦点按固定 id/hwd 的对象判断，read/write 是同一个对象。已明确配置唯一默认对象的新相对动作不因用户没再点名而缺目标；不能因执行检查拒了一个候选，就把配置焦点当作不存在。必要目标和幅度已经齐备时，应让主模型重新检查实际目录和读取，不能批准漏执行或要求重新点名。
@@ -129,6 +130,12 @@ func runtimeToolVerifier(generator genx.Generator, pattern string, resolve func(
 			// the checker still independently evaluates every other reason.
 			reasons = maps.Clone(reasons)
 			delete(reasons, "already_completed")
+		}
+		if toolVerificationOrdinaryProgramSelection(candidate, args) {
+			// The required target plus an omitted or false kickoff requests no
+			// optional side effect. Other intent and parameter checks still run.
+			reasons = maps.Clone(reasons)
+			delete(reasons, "unrequested_parameter")
 		}
 		reason, err := verifyToolDecision(ctx, generator, pattern, "verify_requested_operation", toolVerificationPrompt, input, reasons)
 		if err != nil || reason == "" {
@@ -313,6 +320,20 @@ func toolVerificationClientToolResults(conversation genx.ToolConversation, catal
 		results = append(results, result)
 	}
 	return results
+}
+
+func toolVerificationOrdinaryProgramSelection(candidate toolcatalog.Tool, args json.RawMessage) bool {
+	if candidate.Source != "client_tool" || candidate.Target["name"] != "run.workspace.set" || toolcatalog.ValidateArguments(candidate, args) != nil {
+		return false
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(args, &fields) != nil || len(fields) == 0 || len(fields) > 2 || len(fields["workflow_name"]) == 0 {
+		return false
+	}
+	if len(fields) == 1 {
+		return true
+	}
+	return string(fields["kickoff"]) == "false"
 }
 
 func toolVerificationClientCallSucceeded(conversation genx.ToolConversation, catalog []map[string]any, candidate toolcatalog.Tool, args json.RawMessage) bool {
