@@ -1341,9 +1341,10 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				}
 			}
 			rearm := result.chunk.Ctrl != nil && result.chunk.Ctrl.ErrorCode == "INPUT_ROUTE_RELOADED"
-			if responseComplete && observeReply && session != nil && (label != "assistant" || rearm) {
+			if responseComplete && observeReply && session != nil && (rearm || (label != "assistant" && peerStreamTerminalError(result.chunk) == "")) {
 				// Re-arm and transcript events after this reply belong to the
-				// retained session's next operation, not to this observation.
+				// retained session's next operation. Other errors still fail
+				// this observation instead of being deferred to another step.
 				retainedAfterReply = append(retainedAfterReply, result)
 				continue
 			}

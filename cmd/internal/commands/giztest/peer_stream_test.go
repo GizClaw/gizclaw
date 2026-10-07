@@ -2141,6 +2141,30 @@ func TestPeerStreamReplyObservationRetainsRearm(t *testing.T) {
 	}
 }
 
+func TestPeerStreamReplyObservationFailsLateSessionErrors(t *testing.T) {
+	for _, label := range []string{"transcript", "control"} {
+		for _, eos := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/eos=%t", label, eos), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+				defer cancel()
+				stream := newFakeRelayStream()
+				session := newPeerStreamSession("peer", stream)
+				defer session.Close()
+				session.startReader()
+				stream.in <- assistantText("first", "answer", false)
+				stream.in <- assistantText("first", "", true)
+				stream.in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: label, Error: "late ASR failure", EndOfStream: eos}}
+				noAudio := false
+				step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", RequireAudio: &noAudio, ReplyObservation: "50ms"}}
+				_, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "turn", step, "question", 0, nil)
+				if err == nil || !strings.Contains(err.Error(), "late ASR failure") {
+					t.Fatalf("late %s error was deferred: %v", label, err)
+				}
+			})
+		}
+	}
+}
+
 type delayedReplyStream struct {
 	*fakeRelayStream
 	firstDone chan struct{}
