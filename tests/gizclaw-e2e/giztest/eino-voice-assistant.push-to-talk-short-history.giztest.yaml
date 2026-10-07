@@ -1,0 +1,129 @@
+# User Story:
+# As a device sending one short PTT utterance,
+# I want its final text and actual recording in one history entry,
+# So that a delayed ASR result cannot detach text from the recording.
+version: gizclaw.test/v1alpha1
+name: eino-voice-assistant.push-to-talk-short-history
+timeout: 360s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  history_name:
+    direction: output
+    type: string
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: eino-voice-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: short_spoken_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        accepted_content_types: [audio/ogg]
+        text: 这是一次短句录音，请等我说完再回答。
+    save_as: input_audio
+  - id: held_ptt_turn
+    client: peer
+    timeout: 300s
+    peer_stream:
+      mode: push-to-talk
+      label: demo-home
+      hold_before_audio: 500ms
+      input: ${input_audio}
+      pacing: 20ms
+      trim_trailing_silence: true
+      idle_timeout: 45s
+      reply_observation: 1s
+      wait_for_history: true
+    expect:
+      /input_ms: {minimum: 1000, maximum: 10000}
+      /response_count: {equals: 1}
+      /reply: {non_empty: true}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/max_active: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+  - id: one_user_history
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request:
+        workspace_name: ${workspace_name}
+        order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+        limit: 10
+    expect:
+      /items: {count: 2}
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+      /items/0/text: {non_empty: true}
+    capture:
+      history_name: /items/0/name
+  - id: download_same_recording
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request:
+        workspace_name: ${workspace_name}
+        history_name: ${history_name}
+      max_bytes: 16777216
+    expect:
+      /bytes: {minimum: 1}
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

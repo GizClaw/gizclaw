@@ -389,7 +389,7 @@ func TestRunStepRetriesTimeoutWithFreshStepDeadline(t *testing.T) {
 	opened := 0
 	clients := &clientSet{clients: map[string]*gizcli.Client{"peer": {}}}
 	vars, _ := giztest.NewVariables(map[string]giztest.VariableSpec{})
-	step := giztest.Step{ID: "turn", Client: "peer", Timeout: "30ms", PeerStream: &giztest.PeerStreamOperation{Mode: "text", Input: "hello"}, Retry: &giztest.RetrySpec{Attempts: 2}}
+	step := giztest.Step{ID: "turn", Client: "peer", Timeout: "30ms", PeerStream: &giztest.PeerStreamOperation{Mode: "text", Input: "hello", ReplyObservation: "1ms"}, Retry: &giztest.RetrySpec{Attempts: 2}}
 	testDriver := &driver{speechCache: newSpeechFixtureCache(), openPeerStream: func(*gizcli.Client) peerStreamOpener {
 		stream := streams[opened]
 		opened++

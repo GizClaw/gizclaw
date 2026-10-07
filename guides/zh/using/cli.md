@@ -114,6 +114,16 @@ Ogg/Opus（MiniMax 输出由 Server 转码），翻译类文档不依赖 Workflo
 打开 RPC 前被拒绝。Runner 按准备完成的 bytes 设置 `content_type`；文档 request 只填写
 model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
 
+`peer_stream.mode: push-to-talk` 发送与设备一致的控制 BOS、音频 BOS、Opus、音频 EOS、
+控制 EOS，同一轮保持同一 StreamID；`pacing` 只作用于音频包。空 PTT 只发送控制边界。
+完整单轮对话可断言 `/response_count: {equals: 1}`，检测多次回复被混进同一音频下行的情况；
+该值排除已忽略或打断的回复。音频输入通过 `/input_ms` 报告媒体时长。
+Assistant terminal completion 在首个完整回复后继续收集 250 ms；`reply_observation: 1s`
+可延长这段有界观察，再统计 `response_count`。该设置不用于空输入、`first_response`、
+`input_sent`、重叠输入或 transcript completion。
+控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，
+用于其它设备门限。PTT 不在 wire 声明 `input_mode`，实际输入模式来自 Workspace 参数。
+
 只验证时延的 `peer_stream` 探针可以在收到第一段 assistant 文本和音频后停止，不等待终止
 输出：
 

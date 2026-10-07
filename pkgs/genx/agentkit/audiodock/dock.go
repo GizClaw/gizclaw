@@ -1284,6 +1284,8 @@ func (r *inputRouter) routeInput() {
 	if r.asrInput != nil {
 		defer r.asrInput.Close()
 	}
+	var endedAudioID string
+	audioEnded := false
 	for {
 		chunk, err := streamlog.ReadInput(r.ctx, r.input)
 		if err != nil {
@@ -1297,6 +1299,7 @@ func (r *inputRouter) routeInput() {
 			continue
 		}
 		if chunk.IsBeginOfStream() {
+			audioEnded = false
 			if !r.sendInputEvent(true, dockStreamID(chunk)) {
 				return
 			}
@@ -1305,6 +1308,17 @@ func (r *inputRouter) routeInput() {
 		if r.asrInput != nil {
 			if mimeType, ok := chunk.MIMEType(); ok && strings.HasPrefix(mimeType, "audio/") {
 				target = r.asrInput
+				if chunk.IsEndOfStream() {
+					endedAudioID, audioEnded = dockStreamID(chunk), true
+				}
+			} else if chunk.Part == nil && chunk.IsEndOfStream() && audioEnded &&
+				dockStreamID(chunk) == endedAudioID && genx.StreamError(chunk.Ctrl) == nil {
+				// Devices can end both the audio channel and its control stream.
+				// ASR owns the transcript EOS; the following control EOS must not
+				// commit the partial transcript before ASR supplies its final text.
+				continue
+			} else if _, text := chunk.Part.(genx.Text); text {
+				audioEnded = false
 			}
 		}
 		if target == r.asrInput && chunk.IsBeginOfStream() {

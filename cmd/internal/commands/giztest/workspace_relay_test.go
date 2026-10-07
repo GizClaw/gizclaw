@@ -640,8 +640,12 @@ func TestWorkspaceRelayForwardsAudioIncrementally(t *testing.T) {
 		result, err := runWorkspaceRelay(context.Background(), op, tester, candidate, []byte{0x11, 0x22}, 1<<20)
 		done <- outcome{result, err}
 	}()
-	// Initial push-to-talk input: BOS, one packet, EOS.
-	if chunk := nextPush(t, tester); !chunk.Ctrl.BeginOfStream {
+	// Initial push-to-talk input uses the same control/audio boundaries as a device.
+	controlBOS := nextPush(t, tester)
+	if controlBOS.Part != nil || !controlBOS.IsBeginOfStream() {
+		t.Fatalf("input missing control BOS: %#v", controlBOS)
+	}
+	if chunk := nextPush(t, tester); !chunk.Ctrl.BeginOfStream || chunk.Ctrl.StreamID != controlBOS.Ctrl.StreamID {
 		t.Fatalf("input missing BOS: %#v", chunk)
 	}
 	if chunk := nextPush(t, tester); !bytes.Equal(chunk.Part.(*genx.Blob).Data, []byte{0x11, 0x22}) {
@@ -649,6 +653,9 @@ func TestWorkspaceRelayForwardsAudioIncrementally(t *testing.T) {
 	}
 	if chunk := nextPush(t, tester); !chunk.IsEndOfStream() {
 		t.Fatalf("input missing EOS: %#v", chunk)
+	}
+	if chunk := nextPush(t, tester); chunk.Part != nil || !chunk.IsEndOfStream() || chunk.Ctrl.StreamID != controlBOS.Ctrl.StreamID {
+		t.Fatalf("input missing matching control EOS: %#v", chunk)
 	}
 	// Tester audio turn: the first packet is forwarded before the source EOS.
 	tester.in <- assistantText("t1-text", "question", true)
