@@ -657,6 +657,10 @@ BOS，再发送音频 BOS，等待 SDK 的 `AUDIO_INPUT_READY` 后发送 Opus；
 音频 EOS 和纯控制 EOS。`pacing` 只用于音频包，不在控制边界之间加入延迟。
 结果与 evidence 中的 `/response_count` 统计有内容且未被忽略或打断的 assistant
 回复 StreamID 数量；单轮 PTT 可以断言为 1，即使服务器把多条回复混到一条下行音频。
+Assistant terminal completion 在首个完整回复后继续收集 250 ms；`reply_observation`
+可指定其它正 Go duration，PTT 回归用例使用 1 秒，以计入稍后到达的第二次回复。
+它只证明观察窗口内收到的结果，不保证窗口外不会有输出。空输入、`first_response`、
+`input_sent` 和 transcript completion 使用各自的完成边界。
 音频输入同时报告 `/input_packets`、`/input_ms` 和 `/pushed_packets`。
 控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，
 用于其它设备门限。PTT 不在 wire 声明 `input_mode`，实际输入模式来自 Workspace 参数。

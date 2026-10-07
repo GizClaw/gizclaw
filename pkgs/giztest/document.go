@@ -176,7 +176,9 @@ type PeerStreamOperation struct {
 	Duration   string `json:"duration,omitempty" yaml:"duration,omitempty"`
 	Pacing     string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	// HoldBeforeAudio delays audio BOS after control BOS in PTT; default 500ms.
-	HoldBeforeAudio   string `json:"hold_before_audio,omitempty" yaml:"hold_before_audio,omitempty"`
+	HoldBeforeAudio string `json:"hold_before_audio,omitempty" yaml:"hold_before_audio,omitempty"`
+	// ReplyObservation bounds collection after assistant terminal EOS; default 250ms.
+	ReplyObservation  string `json:"reply_observation,omitempty" yaml:"reply_observation,omitempty"`
 	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
 	IdleTimeout       string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
 	Completion        string `json:"completion,omitempty" yaml:"completion,omitempty"`
@@ -1035,6 +1037,14 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 		}
 		if delay, err := time.ParseDuration(op.HoldBeforeAudio); err != nil || delay < 0 {
 			return fmt.Errorf("step %s has invalid hold_before_audio %q", step.ID, op.HoldBeforeAudio)
+		}
+	}
+	if op.ReplyObservation != "" {
+		if op.EmptyInput || op.OverlapInput || (op.Completion != "" && op.Completion != "terminal") || (op.TerminalLabel != "" && op.TerminalLabel != "assistant") {
+			return fmt.Errorf("step %s reply_observation requires nonempty assistant terminal completion", step.ID)
+		}
+		if delay, err := time.ParseDuration(op.ReplyObservation); err != nil || delay <= 0 {
+			return fmt.Errorf("step %s has invalid reply_observation %q", step.ID, op.ReplyObservation)
 		}
 	}
 	if op.TextDone && op.Mode != "text" {

@@ -147,6 +147,10 @@ packets; empty PTT sends control boundaries only. A full single-turn dialogue
 can assert `/response_count: {equals: 1}` to catch multiple replies mixed into
 one audio downlink. Ignored or interrupted replies are excluded. `/input_ms`
 reports the audio input's media duration.
+Assistant terminal completion collects late output for 250 ms after the first
+complete reply; `reply_observation: 1s` extends that bounded observation before
+reporting `response_count`. It does not apply to empty input, `first_response`,
+`input_sent`, overlap probes, or transcript completion.
 Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
 set another nonnegative Go duration for a different device threshold. PTT
 omits wire `input_mode`; Workspace parameters determine the actual input mode.

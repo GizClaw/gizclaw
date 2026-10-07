@@ -649,6 +649,10 @@
         "hold_before_audio": {
           "type": "string",
           "description": "Nonnegative Go duration between control BOS and audio BOS in nonempty push-to-talk input; defaults to 500ms."
+        },
+        "reply_observation": {
+          "type": "string",
+          "description": "Positive Go duration to collect late replies after assistant terminal EOS; defaults to 250ms."
         }
       },
       "allOf": [
@@ -873,6 +877,37 @@
             "not": {
               "required": [
                 "empty_input"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "reply_observation"
+            ]
+          },
+          "then": {
+            "properties": {
+              "completion": {
+                "const": "terminal"
+              },
+              "terminal_label": {
+                "const": "assistant"
+              }
+            },
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "empty_input"
+                  ]
+                },
+                {
+                  "required": [
+                    "overlap_input"
+                  ]
+                }
               ]
             }
           }

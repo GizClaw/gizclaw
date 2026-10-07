@@ -721,6 +721,11 @@ to audio packets and adds no delay between control boundaries.
 `/response_count` in the result and evidence counts assistant response StreamIDs
 with content that were neither ignored nor interrupted. A single PTT turn can
 assert 1 even when the server mixes several replies into one audio downlink.
+Assistant terminal completion continues collecting output for 250 ms after
+the first complete reply. `reply_observation` sets another positive Go duration;
+the PTT regressions use 1 second to include late second replies. This is a
+bounded observation, not proof against output beyond that window. Empty input,
+`first_response`, `input_sent`, and transcript completion use their own bounds.
 Audio input also reports `/input_packets`, `/input_ms`, and `/pushed_packets`.
 Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
 set another nonnegative Go duration for a different device threshold. PTT

@@ -90,6 +90,7 @@ steps:
       pacing: 20ms
       trim_trailing_silence: true
       idle_timeout: 45s
+      reply_observation: 1s
     expect:
       /input_ms: {minimum: 60000}
       /response_count: {equals: 1}

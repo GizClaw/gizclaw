@@ -25,6 +25,7 @@ const (
 	realtimeTailSilence     = 4 * time.Second
 	emptyInputQuietWindow   = 250 * time.Millisecond
 	pushToTalkHoldThreshold = 500 * time.Millisecond
+	replyObservationWindow  = 250 * time.Millisecond
 )
 
 // peerStream is the PeerStream surface invokePeerStream drives.
@@ -983,6 +984,14 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if terminalLabel == "" {
 		terminalLabel = "assistant"
 	}
+	replyObservation := replyObservationWindow
+	if op.ReplyObservation != "" {
+		var err error
+		replyObservation, err = time.ParseDuration(op.ReplyObservation)
+		if err != nil || replyObservation <= 0 {
+			return operationResult{}, fmt.Errorf("invalid reply_observation %q", op.ReplyObservation)
+		}
+	}
 	// An empty push-to-talk turn has no audio channel or required response.
 	// Observe a bounded quiet window after its control EOS instead.
 	// A whitespace text probe explicitly disables both reply modalities and
@@ -1025,6 +1034,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 
 	var audioIntegrity peerAudioIntegrity
 	finish := func() (operationResult, error) {
+		if len(terminalErrors) != 0 {
+			return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
+		}
 		if len(abandonedResponses) > 0 {
 			// Report only the responses the turn kept: an abandoned partial
 			// response must not satisfy assertions meant for the reply.
@@ -1175,9 +1187,30 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 		}
 	}
-	responseComplete, interruptPending := false, false
+	responseComplete, interruptPending, replyClosed := false, false, false
+	observeReply := !firstResponse && !emptyTurn && !quietText && terminalLabel == "assistant"
+	var replyTimer *time.Timer
+	var replyDeadline <-chan time.Time
+	var retainedAfterReply []nextPeerStreamResult
+	defer func() {
+		if replyTimer != nil {
+			replyTimer.Stop()
+		}
+		if session != nil {
+			session.prependOutput(retainedAfterReply)
+		}
+	}()
+	observeCompletedReply := func() {
+		if replyTimer == nil {
+			stopIdle()
+			replyTimer = time.NewTimer(replyObservation)
+			replyDeadline = replyTimer.C
+		}
+	}
 	for {
 		select {
+		case <-replyDeadline:
+			return finish()
 		case origin := <-speechEnded:
 			speechEnded = nil
 			armFirstResponse(origin)
@@ -1187,7 +1220,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				return operationResult{}, initialError
 			}
 			if responseComplete {
-				return finish()
+				if !observeReply || replyClosed {
+					return finish()
+				}
+				observeCompletedReply()
+				continue
 			}
 			armIdle()
 			if interruptPending {
@@ -1248,7 +1285,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 		case result := <-next:
-			if responseComplete {
+			if responseComplete && firstResponse {
 				continue
 			}
 			eventElapsed := time.Since(started)
@@ -1272,6 +1309,13 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			if result.err != nil {
 				if result.err == io.EOF {
+					if responseComplete && observeReply {
+						if initialDone == nil {
+							return finish()
+						}
+						replyClosed, next = true, nil
+						continue
+					}
 					return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream closed before terminal output")
 				}
 				return operationResult{evidence: baseEvidence()}, result.err
@@ -1281,24 +1325,34 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			events++
 			lastEventMS = eventElapsed.Milliseconds()
-			armIdle()
+			if replyTimer == nil {
+				armIdle()
+			}
 			label := ""
 			actualStreamID := ""
 			if result.chunk.Ctrl != nil {
 				label = strings.TrimSpace(result.chunk.Ctrl.Label)
 				actualStreamID = strings.TrimSpace(result.chunk.Ctrl.StreamID)
-				terminalError := peerStreamTerminalError(result.chunk)
-				if terminalError != "" {
-					terminalErrors = append(terminalErrors, terminalError)
-				}
-				if label == "assistant" && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted") {
-					observedInterrupted = true
-				}
 			}
 			if label == "" {
 				switch result.chunk.Part.(type) {
 				case genx.Text, *genx.Blob:
 					label = "assistant"
+				}
+			}
+			rearm := result.chunk.Ctrl != nil && result.chunk.Ctrl.ErrorCode == "INPUT_ROUTE_RELOADED"
+			if responseComplete && observeReply && session != nil && (label != "assistant" || rearm) {
+				// Re-arm and transcript events after this reply belong to the
+				// retained session's next operation, not to this observation.
+				retainedAfterReply = append(retainedAfterReply, result)
+				continue
+			}
+			if result.chunk.Ctrl != nil {
+				if terminalError := peerStreamTerminalError(result.chunk); terminalError != "" {
+					terminalErrors = append(terminalErrors, terminalError)
+				}
+				if label == "assistant" && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted") {
+					observedInterrupted = true
 				}
 			}
 			if emptyTurn && label == "assistant" {
@@ -1550,6 +1604,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				}
 				if initialDone != nil {
 					responseComplete = true
+					continue
+				}
+				if observeReply {
+					responseComplete = true
+					observeCompletedReply()
 					continue
 				}
 				return finish()

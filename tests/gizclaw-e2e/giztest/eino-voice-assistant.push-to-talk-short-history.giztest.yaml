@@ -77,6 +77,7 @@ steps:
       pacing: 20ms
       trim_trailing_silence: true
       idle_timeout: 45s
+      reply_observation: 1s
       wait_for_history: true
     expect:
       /input_ms: {minimum: 1000, maximum: 10000}

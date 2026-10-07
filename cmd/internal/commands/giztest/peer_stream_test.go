@@ -2042,6 +2042,120 @@ func TestPeerStreamCountsTwoRepliesOnOneAudioDownlink(t *testing.T) {
 	}
 }
 
+func TestPeerStreamObservesReplyAfterFirstTerminal(t *testing.T) {
+	for _, lateError := range []bool{false, true} {
+		t.Run(fmt.Sprintf("late_error=%t", lateError), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			stream := &delayedReplyStream{fakeRelayStream: newFakeRelayStream(), firstDone: make(chan struct{})}
+			for _, chunk := range []*genx.MessageChunk{
+				assistantText("first", "first answer", false),
+				assistantBlob("first", testAudibleOpus(t), false),
+				assistantText("first", "", true),
+				assistantBlob("first", nil, true),
+			} {
+				stream.in <- chunk
+			}
+			providerDone := make(chan struct{})
+			go func() {
+				defer close(providerDone)
+				select {
+				case <-stream.firstDone:
+				case <-ctx.Done():
+					return
+				}
+				if err := waitPeerInput(ctx, 30*time.Millisecond); err != nil {
+					return
+				}
+				chunks := []*genx.MessageChunk{assistantText("second", "late answer", false), assistantText("second", "", true)}
+				if lateError {
+					chunks[1].Ctrl.Error = "late provider failure"
+				}
+				for _, chunk := range chunks {
+					select {
+					case stream.in <- chunk:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			defer func() { cancel(); <-providerDone }()
+			step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", IdleTimeout: "10ms"}}
+			result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, step, "question", 0)
+			if lateError {
+				if err == nil || !strings.Contains(err.Error(), "late provider failure") {
+					t.Fatalf("late terminal error was lost: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			object := result.assertion.(map[string]any)
+			if object["response_count"] != 2 || result.evidence["response_count"] != 2 || object["reply"] != "first answerlate answer" {
+				t.Fatalf("late reply was omitted: result=%v evidence=%v", object, result.evidence)
+			}
+		})
+	}
+}
+
+func TestPeerStreamReplyObservationHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	stream := newFakeRelayStream()
+	stream.in <- assistantText("first", "answer", false)
+	stream.in <- assistantText("first", "", true)
+	noAudio := false
+	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", RequireAudio: &noAudio, ReplyObservation: "1s"}}
+	_, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, step, "question", 0)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("observation ignored cancellation: %v", err)
+	}
+}
+
+func TestPeerStreamReplyObservationRetainsRearm(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	stream := newFakeRelayStream()
+	session := newPeerStreamSession("peer", stream)
+	defer session.Close()
+	session.startReader()
+	stream.in <- assistantText("first", "answer", false)
+	stream.in <- assistantText("first", "", true)
+	rearm := assistantText("next", "", true)
+	rearm.Ctrl.ErrorCode, rearm.Ctrl.Error = "INPUT_ROUTE_RELOADED", "input route reloaded"
+	stream.in <- rearm
+	noAudio := false
+	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", RequireAudio: &noAudio, ReplyObservation: "50ms"}}
+	_, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "turn", step, "question", 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case result := <-session.next:
+		if result.chunk != rearm {
+			t.Fatalf("observation lost the next consumer's re-arm: %+v", result.chunk)
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+}
+
+type delayedReplyStream struct {
+	*fakeRelayStream
+	firstDone chan struct{}
+}
+
+func (s *delayedReplyStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.fakeRelayStream.Next()
+	if chunk != nil && chunk.Ctrl.StreamID == "first" && chunk.IsEndOfStream() {
+		if mimeType, _ := chunk.MIMEType(); relayOpusMIME(mimeType) {
+			close(s.firstDone)
+		}
+	}
+	return chunk, err
+}
+
 type replyDuringEOSStream struct {
 	*fakeRelayStream
 	openingRead chan struct{}
@@ -2065,11 +2179,11 @@ func (s *replyDuringEOSStream) Next() (*genx.MessageChunk, error) {
 
 func (s *replyDuringEOSStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	var read <-chan struct{}
-	if chunk.IsBeginOfStream() {
+	if chunk.IsBeginOfStream() && chunk.Part == nil {
 		s.in <- assistantText("opening", "old opening", false)
 		read = s.openingRead
 	}
-	if chunk.IsEndOfStream() {
+	if chunk.IsEndOfStream() && chunk.Part != nil {
 		s.in <- assistantText("opening", "", true)
 		s.in <- assistantText("reply", "answer", false)
 		s.in <- assistantText("reply", "", true)

@@ -594,6 +594,27 @@ func TestPeerStreamHoldBeforeAudioValidation(t *testing.T) {
 	}
 }
 
+func TestPeerStreamReplyObservationValidation(t *testing.T) {
+	step := Step{ID: "observe", PeerStream: &PeerStreamOperation{Mode: "text", Input: "question", ReplyObservation: "1s"}}
+	if err := validatePeerStreamStep(step, false); err != nil {
+		t.Fatal(err)
+	}
+	for _, op := range []PeerStreamOperation{
+		{Mode: "text", Input: "question", ReplyObservation: "0ms"},
+		{Mode: "text", Input: "question", ReplyObservation: "-1ms"},
+		{Mode: "text", Input: "question", ReplyObservation: "bad"},
+		{Mode: "text", Input: "question", Completion: "first_response", ReplyObservation: "1s"},
+		{Mode: "push-to-talk", Input: "audio", Completion: "input_sent", ReplyObservation: "1s"},
+		{Mode: "push-to-talk", EmptyInput: true, ReplyObservation: "1s"},
+		{Mode: "push-to-talk", Input: "audio", OverlapInput: true, ReplyObservation: "1s"},
+		{Mode: "realtime", Input: "audio", TerminalLabel: "transcript", ReplyObservation: "1s"},
+	} {
+		if err := validatePeerStreamStep(Step{ID: "observe", PeerStream: &op}, false); err == nil {
+			t.Fatalf("invalid reply observation accepted: %+v", op)
+		}
+	}
+}
+
 func TestLoadDocumentValidatesEmptyInputTurn(t *testing.T) {
 	turn := func(extra string) string {
 		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      empty_input: true\n" + extra
