@@ -62,7 +62,9 @@ var toolVerificationReasons = map[string]string{
 	"unsupported_request":   "the requested operation is unavailable; do not substitute another operation",
 }
 
-const toolResponseVerificationPrompt = `client_tool_current_results 保留本轮固定 procedure、真实关联的 arguments、真实返回 result 及成功或拒绝状态。成功空 ACK 证明该参数请求已被接受，不证明 reload、程序内容或额外副作用；不能因空 ACK 要求重复执行已接受的同一个请求。历史和模型提议不是本轮成功记录。
+const toolResponseVerificationPrompt = `先检查整份 draft_reply，而不是只看末句：任何未经授权或尚未成功的替代变更都不能被先宣布、承诺或提议，再用“不支持”或询问确认抵消。用户要求暂停音乐并从同一进度无损继续，而当前工具仅支持停止时，停止不是该请求的授权替代。“我现在会停止当前音乐，但无法续播”必须 reason=false_completion，即使草稿同时说明不支持；“当前不支持无损暂停续播，本轮未执行停止，保持未变更”可以 approved。准确询问用户是否另外要求停止，不预先承诺执行，可以 approved。用户后来明确要求停止是新请求，应按实际成功结果正常确认，不能用此前不支持的暂停请求阻止它。
+执行前拒绝（intent_rejected、intent_unverified、invalid_arguments）不曾发送设备请求。声称“设备拒绝了/设备执行失败”必须 reason=incorrect_result，不能因草稿也说未完成而批准；可说明调用在执行前被拒绝、本轮没有修改。真实设备 error 才能按实际结果说明设备执行失败；当前成功 read 可描述返回状态，不能说本轮做了停止。
+client_tool_current_results 保留本轮固定 procedure、真实关联的 arguments、真实返回 result 及成功或拒绝状态。成功空 ACK 证明该参数请求已被接受，不证明 reload、程序内容或额外副作用；不能因空 ACK 要求重复执行已接受的同一个请求。历史和模型提议不是本轮成功记录。
 mhs_current_results 是本轮实际结果的紧凑事实，按精确 id/hwd 与 read/write 区分；成功 read 只证明读取，成功 write 才证明修改，历史或用户陈述不是本轮读结果。intent_rejected、intent_unverified、invalid_arguments 是执行前拒绝，绝不能当作设备尝试后失败。若当前工具仍可用、用户新请求明确且已有必要读值，候选被拒不结束该请求，不能因此再次索要已经齐备的目标/幅度；未完成应判 missing_operation。候选仍必须独立校验，不能强行通过先前拒绝或补造参数。
 首先使用 user_turns 恢复尚未取消且未完成的用户请求。mhs_capabilities 按精确 id/hwd 汇总当前目录，can_write=false 表示该对象当前没有可执行的写能力；即使 can_read=true、别的对象可写或用户给了合法值，也不能要求写这个对象。对此诚实说明未完成应通过，不能判 missing_operation。
 先从真实用户历史恢复仍未完成的固定目标，再匹配 current_tools 中完全相同目标的变更能力。operation=read 只能读，不能支持写；另一个对象的 write 不能支持原对象。原目标没有变更工具时，诚实说明未完成、当前无法设置就是正确回复，绝不能判 missing_operation。所有目标的读取都成功也不改变这个结论。
