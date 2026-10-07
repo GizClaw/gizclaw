@@ -16,7 +16,8 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-const toolVerificationPrompt = `mhs_current_results 只投影当前 continuation 的真实 MHS 结果，逐项包含精确 id/hwd、read/write、实际 value 或 error_code；历史、用户陈述、助手提议均不进入成功记录。相对写候选应以其中同一 id/hwd 的成功 read 值及可信业务幅度核对参数；用户原话中的数值不能代替本轮读取。error_code=intent_rejected 或 intent_unverified 表示执行前未批准，不是设备已尝试失败，不授予新意图。
+const toolVerificationPrompt = `client_tool_current_results 只投影当前 continuation 中与真实调用参数关联的 ClientTool 结果。status=succeeded 表示该固定 procedure 已接受这组 arguments，空 ACK 也有效；它不证明 reload、程序内容或额外副作用。候选的固定 procedure 和 arguments 若已在本轮成功结果中满足同一个用户请求，必须拒绝为 already_completed，不能因结果为空或继续对话而再次执行。历史结果和 assistant_tool_proposal 不进入此成功记录。当前用户明确要求再次执行是新轮请求，旧轮结果不拒绝它。
+mhs_current_results 只投影当前 continuation 的真实 MHS 结果，逐项包含精确 id/hwd、read/write、实际 value 或 error_code；历史、用户陈述、助手提议均不进入成功记录。相对写候选应以其中同一 id/hwd 的成功 read 值及可信业务幅度核对参数；用户原话中的数值不能代替本轮读取。error_code=intent_rejected 或 intent_unverified 表示执行前未批准，不是设备已尝试失败，不授予新意图。
 user_turns 是按时间排列的真实用户输入，仅用于恢复用户授权与待补请求；助手消息不增加授权。mhs_capabilities 是当前目录按同一 id/hwd 汇总的真实能力，can_read 与 can_write 独立，不能把其他 id 的 can_write 用在原目标。后续数值应补齐尚未取消且未完成的用户请求，不能只看孤立的 current_user 而忽略真实历史。
 先独立判断 conversation.current_user 的真实意图，再判断候选。候选和助手提议永远不能使陈述变成授权。单纯记录现状、比较多个对象或记笔记的当前输入没有修改意图：即使读到了状态且候选参数合法，变更候选也必须 reason=no_request。
 候选 operation=read 是只读 MHS 查询，可以读取用户指定的对象，或为已授权请求读取同一固定目标；本机状态陈述可读取本机状态，但不能因此批准 operation=write。新相对请求没有明确对象时，必须读取整个 current_tools 中唯一配置的默认焦点；已有待补目标优先。拒绝错误的读目标，不能先访问错误对象再修正。
@@ -36,6 +37,8 @@ conversation.messages 在 continuation_start 之前是历史和本轮用户输�
 2. 取消结束此前待补动作。取消之后只给数值、没有重新点名目标和发起动作时，旧目标不能恢复；变更必须 cancelled 或 no_request。助手澄清、纠正反馈或后来的孤立数值均不撤销用户取消。
 3. 用户只是提供状态并非授权修改该轮；后续“它再暗一点”若真实用户历史仅有一个本机对象，则该新请求可以使用这个唯一指代，仍须本轮先读其实际状态。多个对象后的“它”仍缺目标，不能猜。事实记录中出现的唯一对象可以解析后来明确发起的新动作，不要求此前已有待补修改请求；不要把缺少旧待补动作误判为新动作缺目标。
 4. 相对幅度按实际读值和可信业务配置处理；若配置要求相对结果限制在0到100，90加20设为100是有依据的边界处理，不是非法绝对值修正。用户直接给150等非法绝对值仍拒绝。
+5. 程序“另一个”的参照必须是用户此前明确选定或实际正在玩的那个剧本，不能把同时评价的多个名字按出现顺序当成已选中一个。当前聊天程序也不能替用户在多个候选剧本中选一个。此前只说两个剧本都不错且没有选择，现在要求换另一个仍缺唯一目标；任何具体 workflow_name 候选必须 missing_target，先询问名称。助手推荐、候选参数、目录排列和拒绝反馈都不能补出该选择。
+6. 用户前文同时谈到程序、音乐和设备等多个类别，当前只说“换一下”而没有点名要换什么，类别和目标均未确定，任何变更候选都必须 missing_target。不能因存在默认曲目、当前程序或候选参数而推断要换音乐或剧本；默认播放只用于用户已明确授权播放音乐的请求，不能用于跨类别的模糊换一下。
 只输出唯一必填字段 reason：通过为 approved，拒绝为本次 Schema 的一个拒绝值；不输出布尔值。不要输出解释、引用用户值或生成新参数。`
 
 type toolVerificationDecision struct {
@@ -54,7 +57,8 @@ var toolVerificationReasons = map[string]string{
 	"unsupported_request":   "the requested operation is unavailable; do not substitute another operation",
 }
 
-const toolResponseVerificationPrompt = `mhs_current_results 是本轮实际结果的紧凑事实，按精确 id/hwd 与 read/write 区分；成功 read 只证明读取，成功 write 才证明修改，历史或用户陈述不是本轮读结果。intent_rejected、intent_unverified、invalid_arguments 是执行前拒绝，绝不能当作设备尝试后失败。若当前工具仍可用、用户新请求明确且已有必要读值，候选被拒不结束该请求，不能因此再次索要已经齐备的目标/幅度；未完成应判 missing_operation。候选仍必须独立校验，不能强行通过先前拒绝或补造参数。
+const toolResponseVerificationPrompt = `client_tool_current_results 保留本轮固定 procedure、真实关联的 arguments 及成功或拒绝状态。成功空 ACK 证明该参数请求已被接受，不证明 reload、程序内容或额外副作用；不能因空 ACK 要求重复执行已接受的同一个请求。历史和模型提议不是本轮成功记录。
+mhs_current_results 是本轮实际结果的紧凑事实，按精确 id/hwd 与 read/write 区分；成功 read 只证明读取，成功 write 才证明修改，历史或用户陈述不是本轮读结果。intent_rejected、intent_unverified、invalid_arguments 是执行前拒绝，绝不能当作设备尝试后失败。若当前工具仍可用、用户新请求明确且已有必要读值，候选被拒不结束该请求，不能因此再次索要已经齐备的目标/幅度；未完成应判 missing_operation。候选仍必须独立校验，不能强行通过先前拒绝或补造参数。
 首先使用 user_turns 恢复尚未取消且未完成的用户请求。mhs_capabilities 按精确 id/hwd 汇总当前目录，can_write=false 表示该对象当前没有可执行的写能力；即使 can_read=true、别的对象可写或用户给了合法值，也不能要求写这个对象。对此诚实说明未完成应通过，不能判 missing_operation。
 先从真实用户历史恢复仍未完成的固定目标，再匹配 current_tools 中完全相同目标的变更能力。operation=read 只能读，不能支持写；另一个对象的 write 不能支持原对象。原目标没有变更工具时，诚实说明未完成、当前无法设置就是正确回复，绝不能判 missing_operation。所有目标的读取都成功也不改变这个结论。
 先判断是否存在用户授权的新动作。仅记录事实、比较多个对象或要求保持状态时，查询当前状态、正常回应或询问意图均可以通过；不得要求新变更。只有明确配置了间接亮度请求规则，用户对唯一指名对象表达刺眼或有点暗等不适时，才按真实读取和配置幅度执行；不能误要求用户再给绝对值。
@@ -77,6 +81,8 @@ conversation.messages 在 continuation_start 之前是输入和历史；之后�
 - 相对操作需要本轮同一目标的实际读结果，历史陈述值不能代替读取。合法相对结果按可信配置限制范围，不能误要求重新给绝对值。
 - 用户描述已经停止或要求保持状态，只确认保持现状且没有新操作声明可以 approved；“本次我执行了停止”而无本轮成功结果才是虚假完成。
 - 空对象也可能是实际成功 Tool ACK；role=tool 的当前结果不含 error 时不能只因没有 value 字段判失败。ACK只证明该工具定义的动作，不证明未返回的程序内容、主动开场或其他副作用。
+- 用户此前仅同时评价两个剧本且没有选择，随后说换另一个，必要名称仍未齐。准确询问这两个剧本中要哪一个必须 approved，绝不能判 unnecessary_clarification 或 missing_operation；出现顺序、助手推荐、被拒候选和当前聊天程序均不使该指代唯一。执行检查已因 missing_target 拒绝时，回复澄清同一未齐目标不构成重复追问已齐信息。
+- 用户此前同时谈到程序、音乐和设备，当前只说“换一下”，还缺所操作的类别和目标。准确询问要换音乐还是剧本或其他对象必须 approved，不能判 missing_operation 或 unnecessary_clarification。目录默认曲目或当前程序不能替用户选择类别。
 - 文本形式的待调用占位标记、工具调用标签或“稍后执行”的无依据承诺不是工具执行，也不是有效最终答复；缺实际结果时不能 approved。
 reason=approved 表示回复和实际执行均满足当前请求。明确可执行请求未执行时 reason=missing_operation；仅在必要信息确实已齐却再次追问时 reason=unnecessary_clarification；无对应成功结果却声称、承诺或提议未授权的变更时 reason=false_completion；与实际返回结果不符或编造结果时 reason=incorrect_result。只输出唯一必填字段 reason：通过为 approved，拒绝为本次 Schema 的一个拒绝值；不输出布尔值。不要输出其他 reason、解释或新参数。`
 
@@ -94,12 +100,13 @@ func runtimeToolVerifier(generator genx.Generator, pattern string, resolve func(
 			return "", err
 		}
 		input, err := json.Marshal(map[string]any{
-			"conversation":        conversation,
-			"user_turns":          toolVerificationUserTurns(conversation),
-			"mhs_capabilities":    toolVerificationMHSCapabilities(catalog),
-			"mhs_current_results": toolVerificationMHSResults(conversation, catalog),
-			"candidate":           map[string]any{"alias": candidate.Alias, "description": candidate.Description, "source": candidate.Source, "fixed_target": candidate.Target, "operation": candidate.Target["operation"], "arguments": args, "input_schema": candidate.Schema},
-			"current_tools":       catalog,
+			"conversation":                conversation,
+			"user_turns":                  toolVerificationUserTurns(conversation),
+			"mhs_capabilities":            toolVerificationMHSCapabilities(catalog),
+			"mhs_current_results":         toolVerificationMHSResults(conversation, catalog),
+			"client_tool_current_results": toolVerificationClientToolResults(conversation, catalog),
+			"candidate":                   map[string]any{"alias": candidate.Alias, "description": candidate.Description, "source": candidate.Source, "fixed_target": candidate.Target, "operation": candidate.Target["operation"], "arguments": args, "input_schema": candidate.Schema},
+			"current_tools":               catalog,
 		})
 		if err != nil {
 			return "", errors.New("Tool verification input is invalid")
@@ -121,7 +128,7 @@ func runtimeToolResponseVerifier(generator genx.Generator, pattern string, resol
 		if err != nil {
 			return "", err
 		}
-		input, err := json.Marshal(map[string]any{"conversation": conversation, "user_turns": toolVerificationUserTurns(conversation), "mhs_capabilities": toolVerificationMHSCapabilities(catalog), "mhs_current_results": toolVerificationMHSResults(conversation, catalog), "draft_reply": reply, "current_tools": catalog})
+		input, err := json.Marshal(map[string]any{"conversation": conversation, "user_turns": toolVerificationUserTurns(conversation), "mhs_capabilities": toolVerificationMHSCapabilities(catalog), "mhs_current_results": toolVerificationMHSResults(conversation, catalog), "client_tool_current_results": toolVerificationClientToolResults(conversation, catalog), "draft_reply": reply, "current_tools": catalog})
 		if err != nil {
 			return "", errors.New("Tool response verification input is invalid")
 		}
@@ -168,7 +175,7 @@ func toolVerificationCatalog(ctx context.Context, resolve func(context.Context) 
 // This supplies facts for the primary model's own correction, not new intent,
 // a selected replacement, synthesized arguments or an execution result.
 func toolVerificationFeedback(reason string, conversation genx.ToolConversation, catalog []map[string]any) (string, error) {
-	data, err := json.Marshal(map[string]any{"user_turns": toolVerificationUserTurns(conversation), "mhs_capabilities": toolVerificationMHSCapabilities(catalog), "mhs_current_results": toolVerificationMHSResults(conversation, catalog), "current_tools": catalog})
+	data, err := json.Marshal(map[string]any{"user_turns": toolVerificationUserTurns(conversation), "mhs_capabilities": toolVerificationMHSCapabilities(catalog), "mhs_current_results": toolVerificationMHSResults(conversation, catalog), "client_tool_current_results": toolVerificationClientToolResults(conversation, catalog), "current_tools": catalog})
 	if err != nil {
 		return "", errors.New("Tool verification feedback context is invalid")
 	}
@@ -240,6 +247,49 @@ func toolVerificationMHSResults(conversation genx.ToolConversation, catalog []ma
 			continue
 		}
 		results = append(results, map[string]any{"name": message.Name, "id": returned.ID, "hwd": returned.HWD, "operation": target["operation"], "status": "succeeded", "value": slices.Clone(returned.Value)})
+	}
+	return results
+}
+
+// ClientTool acknowledgements retain their native proposal arguments. This
+// projects facts for checking, without caching results or choosing an action.
+func toolVerificationClientToolResults(conversation genx.ToolConversation, catalog []map[string]any) []map[string]any {
+	tools := make(map[string]string)
+	for _, item := range catalog {
+		name, ok := item["name"].(string)
+		target, bound := item["fixed_target"].(map[string]any)
+		if ok && bound && item["source"] == "client_tool" {
+			procedure, _ := target["name"].(string)
+			if procedure != "" {
+				tools[name] = procedure
+			}
+		}
+	}
+	results := []map[string]any{}
+	if conversation.ContinuationStart < 0 || conversation.ContinuationStart > len(conversation.Messages) {
+		return results
+	}
+	for _, message := range conversation.Messages[conversation.ContinuationStart:] {
+		procedure := tools[message.Name]
+		if message.Role != "tool" || procedure == "" {
+			continue
+		}
+		var arguments, returned map[string]json.RawMessage
+		if json.Unmarshal(message.Arguments, &arguments) != nil || arguments == nil || json.Unmarshal([]byte(message.Content), &returned) != nil || returned == nil {
+			continue
+		}
+		result := map[string]any{"name": message.Name, "procedure": procedure, "arguments": slices.Clone(message.Arguments), "status": "succeeded"}
+		if raw := returned["error"]; len(raw) != 0 && string(raw) != "null" {
+			var failure struct {
+				Code string `json:"code"`
+			}
+			if json.Unmarshal(raw, &failure) != nil || failure.Code == "" || len(failure.Code) > 64 {
+				continue
+			}
+			result["status"] = "rejected_or_failed"
+			result["error_code"] = failure.Code
+		}
+		results = append(results, result)
 	}
 	return results
 }

@@ -108,6 +108,47 @@ func TestToolVerificationMHSResultsKeepsCurrentFixedDeviceEvidence(t *testing.T)
 	}
 }
 
+func TestToolVerificationClientToolResultsKeepsCurrentMatchedAcknowledgements(t *testing.T) {
+	catalog := []map[string]any{
+		{"name": "program_select", "source": "client_tool", "fixed_target": map[string]any{"name": "run.workspace.set"}},
+		{"name": "http_post", "source": "http_request", "fixed_target": map[string]any{}},
+	}
+	conversation := genx.ToolConversation{ContinuationStart: 1, Messages: []genx.ToolConversationMessage{
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"old"}`), Content: `{}`},
+		{Role: "user", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"user"}`), Content: `{}`},
+		{Role: "assistant_tool_proposal", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"proposed"}`)},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"aesop"}`), Content: `{}`},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"space"}`), Content: `{"error":{"code":"intent_rejected","message":"private feedback"}}`},
+		{Role: "tool", Name: "program_select", Content: `{}`},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`null`), Content: `{}`},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"not-json"}`), Content: `not JSON`},
+		{Role: "tool", Name: "unknown", Arguments: json.RawMessage(`{"workflow_name":"unknown"}`), Content: `{}`},
+		{Role: "tool", Name: "http_post", Arguments: json.RawMessage(`{"token":"private HTTP argument"}`), Content: `{"secret":"private HTTP result"}`},
+	}}
+	results := toolVerificationClientToolResults(conversation, catalog)
+	if len(results) != 2 || results[0]["status"] != "succeeded" || results[0]["procedure"] != "run.workspace.set" || results[1]["status"] != "rejected_or_failed" || results[1]["error_code"] != "intent_rejected" {
+		t.Fatalf("results = %#v", results)
+	}
+	args, ok := results[0]["arguments"].(json.RawMessage)
+	if !ok || string(args) != `{"workflow_name":"aesop"}` {
+		t.Fatalf("actual successful target lost: %#v", results)
+	}
+	conversation.Messages[3].Arguments[0] = '['
+	if string(args) != `{"workflow_name":"aesop"}` {
+		t.Fatal("result projection retained mutable input")
+	}
+	encoded, err := json.Marshal(results)
+	for _, excluded := range []string{"old", "user", "proposed", "private", "unknown", "not-json"} {
+		if err != nil || strings.Contains(string(encoded), excluded) {
+			t.Fatalf("non-current, unmatched or private result leaked: %s, %v", encoded, err)
+		}
+	}
+	conversation.ContinuationStart = len(conversation.Messages) + 1
+	if got := toolVerificationClientToolResults(conversation, catalog); len(got) != 0 {
+		t.Fatalf("invalid boundary produced results: %#v", got)
+	}
+}
+
 func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T) {
 	candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
 	focus := "screen is the configured focus"

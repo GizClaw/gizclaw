@@ -100,6 +100,9 @@ Tool round 与被拒绝的草稿不发布，通过检查的最终文本一次发
 之后，历史成功不能充当本轮执行证明。调用关联、额度与已完成结果在纠正期间保留，
 新的 invocation 独立持有快照；产品权限和语义仍由宿主检查。
 
+Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，随后移除 ID。
+同名并行提议或结果顺序不同也不按名称猜目标；无匹配的结果不补参数。
+
 ### 音频 turn
 
 `ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 的 Graph 仍只接受文本 turn。

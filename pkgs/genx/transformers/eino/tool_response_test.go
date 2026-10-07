@@ -173,6 +173,35 @@ func TestToolConversationDoesNotTreatHistoricalResultsAsCurrentProof(t *testing.
 	}
 }
 
+func TestToolConversationAssociatesResultArgumentsByCallID(t *testing.T) {
+	first, second := `{"workflow_name":"aesop"}`, `{"workflow_name":"space"}`
+	messages := []*schema.Message{
+		schema.UserMessage("select a program"),
+		{Role: schema.Assistant, ToolCalls: []schema.ToolCall{
+			{ID: "first", Function: schema.FunctionCall{Name: "select", Arguments: first}},
+			{ID: "second", Function: schema.FunctionCall{Name: "select", Arguments: second}},
+		}},
+		{Role: schema.Tool, ToolCallID: "second", ToolName: "select", Content: `{}`},
+		{Role: schema.Tool, ToolCallID: "first", ToolName: "select", Content: `{}`},
+		{Role: schema.Tool, ToolCallID: "missing", ToolName: "select", Content: `{}`},
+		{Role: schema.Tool, ToolCallID: "first", ToolName: "different", Content: `{}`},
+	}
+	conversation := toolConversation(messages, 1, "select a program")
+	var results []genx.ToolConversationMessage
+	for _, message := range conversation.Messages {
+		if message.Role == "tool" {
+			results = append(results, message)
+		}
+	}
+	if len(results) != 4 || string(results[0].Arguments) != second || string(results[1].Arguments) != first || len(results[2].Arguments) != 0 || len(results[3].Arguments) != 0 {
+		t.Fatalf("Tool results lost exact proposal association: %#v", results)
+	}
+	messages[1].ToolCalls[0].Function.Arguments = `{"workflow_name":"changed"}`
+	if string(results[1].Arguments) != first {
+		t.Fatal("Tool result arguments retained mutable model input")
+	}
+}
+
 func TestVerifiedToolResponseRetainsOutputByteLimit(t *testing.T) {
 	config := chatConfig(&componentMapResolver{chat: &fakeChatModel{chunks: []*schema.Message{{Content: "0123456789"}}}})
 	config.ToolInvoker = einoTestToolInvoker(func(string) (any, error) { return nil, nil })

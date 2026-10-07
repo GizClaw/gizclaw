@@ -131,6 +131,8 @@ Provider call ID 不会越过 `ToolInvoker` 边界。消费它的 Transformer �
 
 Eino 在内部执行 ToolCall 时以 `ToolConversation` 附加当前真实用户输入、已使用的对话和
 本轮 continuation。`ContinuationStart` 区分输入/历史与当前轮新产生的提议和结果。
+Tool 结果的 arguments 通过原生调用 ID 与同名提议精确关联，再移除 ID；同名工具的
+不同调用不按名称猜参数。没有匹配提议的结果不补参数，也不合成执行证明。
 音频轮使用组件实际报告的 transcript。快照独立拥有 message/arguments，不含 provider call ID；调用方读取
 时得到自己的副本。产品 ToolInvoker 可以消费它做执行前检查，GenX 不解释产品权限或
 语义规则，也不据此选择另一工具。

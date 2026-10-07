@@ -104,6 +104,10 @@ success is not proof of a new operation. Call correlation, budget and completed
 results survive correction, while each invocation owns a separate snapshot.
 Product authorization and semantics remain the host's responsibility.
 
+Tool-result snapshots associate actual arguments using the internal call ID and matching function
+name, then omit the ID. Multiple proposals with the same name or reordered results cannot select
+arguments by name; an unmatched result receives no invented arguments.
+
 ### Audio turns
 
 `ChatModelNode.AudioTranscript` makes one root Graph ChatModel node the transcriber of audio user turns; setting it in a nested Graph or on more than one node fails `New`. When the Graph has that node, an ordinary user `audio/*` route (never the `history.user_audio` sideband) starts a turn at its first audio chunk and completes it at EOS: a new audio route interrupts the previous turn, an `interrupted` EOS discards the route, and any other EOS error fails the session. Each Blob stays one audio part of the current user message, so the node must receive it through `input.messages`; `input.text` is empty for that turn, so a Memory recall that uses it as the query is skipped (see below). A Graph without that node keeps accepting text turns only.

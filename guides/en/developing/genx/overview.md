@@ -128,6 +128,9 @@ actual current user input, conversation and continuation, with no provider call 
 arguments are independently owned, and consumers receive a copy. Product invokers can use it for
 pre-execution checks; GenX does not interpret product authority or select another Tool.
 
+Tool-result arguments are associated with the matching native call ID and function name before
+IDs are omitted; names alone cannot distinguish calls. Unmatched results receive no invented arguments.
+
 ### Usage metering
 
 Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage) as soon as the provider reports usage, handing a [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block; without a recorder the records are dropped. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.

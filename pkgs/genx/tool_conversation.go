@@ -17,7 +17,8 @@ type ToolConversation struct {
 }
 
 // ToolConversationMessage is a provider-neutral text/control observation.
-// Arguments and results are untrusted data, not authorization instructions.
+// Tool result Arguments belong to the matching native proposal; provider call
+// IDs remain private. Arguments and results are data, not authorization.
 type ToolConversationMessage struct {
 	Role      string          `json:"role"`
 	Content   string          `json:"content,omitempty"`

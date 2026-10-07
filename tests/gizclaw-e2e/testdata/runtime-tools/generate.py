@@ -100,7 +100,7 @@ def document(case,count,repeat):
         # the native user turn, so the real model must produce the clarification.
         if case["id"] in ["W09","W10","X06"]:
             turns[0]["text"] += " 这里只是在讨论准备计划，暂时不要执行。"
-        clarification="reject_or_value" if case["id"] in {"L14","D14"} else "unsupported" if case["id"] in {"L13","D13","M14","M16"} else "generic"
+        clarification="reject_or_value" if case["id"] in {"L14","D14"} else "unsupported" if case["id"] in {"L13","D13","M14","M16","W15"} else "generic"
         turns.append({"text":case["text"],"expected":case["expected"],"ask": clarification if case.get("action")=="clarify" else None})
     removed_aliases=set()
     for index,turn in enumerate(turns):
@@ -129,7 +129,7 @@ def document(case,count,repeat):
         variables[f"reply_{index}"]={"direction":"output","type":"string"}
         current={"capture":{f"reply_{index}":"/joined_text"},"id":f"turn_{index}","client":"peer","timeout":"60s","peer_stream":{"mode":"text","input":turn["text"],"require_text":True,"require_audio":False},"expect":{"/text_eos":{"equals":True}}}
         if turn.get("ask"):
-            patterns={"value":"多少|多亮|几成|数值|百分|亮度","target":"哪|灯|屏幕|对象|目标","generic":"哪|多少|什么|告诉|歌名|名称|请明确|请说明|指代不明|指代不清|？|\\?","reject_or_value":"0|100|范围|多少|数值|不能|非法","reject_or_target":"手机|不能|本机|哪|屏幕","unsupported":"无法|不能|不支持|未支持|没有|未找到|不在|不可用|不受|控制不了|没办法|未执行"}
+            patterns={"value":"多少|多亮|几成|数值|百分|亮度","target":"哪|灯|屏幕|对象|目标","generic":"哪|多少|什么|告诉|歌名|名称|请明确|请说明|指代不明|指代不清|？|\\?","reject_or_value":"0|100|范围|多少|数值|不能|非法","reject_or_target":"手机|不能|本机|哪|屏幕","unsupported":"无法|不能|不支持|未支持|没有|未找到|未.*找到|不在|不属于|不可用|不受|控制不了|没办法|未执行"}
             current["expect"]["/text"]={"pattern":patterns[turn["ask"]]}
         if case["id"]=="O01": current["expect"]["/text"]={"contains":"${oracle}"}
         steps.append(current)

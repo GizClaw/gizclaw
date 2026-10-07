@@ -613,6 +613,7 @@ func currentToolUser(state *runState, transcript *audioTranscript) string {
 
 func toolConversation(messages []*schema.Message, inputMessageCount int, currentUser string) genx.ToolConversation {
 	conversation := genx.ToolConversation{CurrentUser: currentUser}
+	proposals := map[string]schema.FunctionCall{}
 	for index, entry := range messages {
 		if index == inputMessageCount {
 			conversation.ContinuationStart = len(conversation.Messages)
@@ -620,8 +621,17 @@ func toolConversation(messages []*schema.Message, inputMessageCount int, current
 		if entry == nil {
 			continue
 		}
-		conversation.Messages = append(conversation.Messages, genx.ToolConversationMessage{Role: string(entry.Role), Content: entry.Content, Name: entry.ToolName})
+		observation := genx.ToolConversationMessage{Role: string(entry.Role), Content: entry.Content, Name: entry.ToolName}
+		if proposal, ok := proposals[entry.ToolCallID]; entry.Role == schema.Tool && ok && proposal.Name == entry.ToolName {
+			// Correlate using the native ID before dropping provider metadata.
+			// Names alone cannot distinguish multiple calls of the same Tool.
+			observation.Arguments = json.RawMessage(proposal.Arguments)
+		}
+		conversation.Messages = append(conversation.Messages, observation)
 		for _, proposal := range entry.ToolCalls {
+			if entry.Role == schema.Assistant && proposal.ID != "" {
+				proposals[proposal.ID] = proposal.Function
+			}
 			conversation.Messages = append(conversation.Messages, genx.ToolConversationMessage{Role: "assistant_tool_proposal", Name: proposal.Function.Name, Arguments: json.RawMessage(proposal.Function.Arguments)})
 		}
 	}
