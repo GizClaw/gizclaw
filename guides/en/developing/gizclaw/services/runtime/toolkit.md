@@ -103,8 +103,8 @@ A factual record grants no mutation in that turn, but its single explicit local 
 
 Verification input and rejection feedback also project compact current-turn MHS results with exact id/hwd, read/write operation, actual values and bounded error codes. History, user statements, assistant proposals and other sources do not become current execution evidence. The projection infers no intent and computes no parameters. `intent_rejected`, `intent_unverified` and `invalid_arguments` are pre-dispatch rejections, not attempted device failures; later proposals still require independent verification.
 
-Current ClientTool results separately retain the fixed procedure, native-call-associated arguments
-and success or rejection status. An empty successful ACK means that argument request was accepted;
+Current ClientTool results separately retain the fixed procedure, native-call-associated arguments,
+actual returned fields and success or rejection status. An empty successful ACK means that argument request was accepted;
 subsequent checks consider that success instead of repeating the same user request. It does not
 prove reload, program content or extra side effects, and is not a result cache. An explicit request
 to repeat in a new turn remains a new request. History, proposals, unmatched results and private
@@ -116,3 +116,7 @@ without explicit configuration, target clarification is still required. Relative
 actual reads and business bounds; computed overflow is not an illegal user-supplied absolute
 value. Music replies retain actual returned titles without adding unreturned editions or IDs
 from style hints.
+An empty-argument successful default-play ACK satisfies an arbitrary-play request without requiring
+an index or song name. Actual `current_index=0` means the first item and `state=playing` is the
+returned playback state. Without a returned title, confirm playback briefly rather than guessing
+names or describing the device default as random selection.

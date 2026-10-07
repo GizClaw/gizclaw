@@ -16,7 +16,7 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
-const toolVerificationPrompt = `client_tool_current_results 只投影当前 continuation 中与真实调用参数关联的 ClientTool 结果。status=succeeded 表示该固定 procedure 已接受这组 arguments，空 ACK 也有效；它不证明 reload、程序内容或额外副作用。候选的固定 procedure 和 arguments 若已在本轮成功结果中满足同一个用户请求，必须拒绝为 already_completed，不能因结果为空或继续对话而再次执行。历史结果和 assistant_tool_proposal 不进入此成功记录。当前用户明确要求再次执行是新轮请求，旧轮结果不拒绝它。
+const toolVerificationPrompt = `client_tool_current_results 只投影当前 continuation 中与真实调用参数关联的 ClientTool 结果。status=succeeded 表示该固定 procedure 已接受这组 arguments，result 保留真实返回字段，空 ACK 也有效；它不证明 reload、程序内容或额外副作用。候选的固定 procedure 和 arguments 若已在本轮成功结果中满足同一个用户请求，必须拒绝为 already_completed，不能因结果为空或继续对话而再次执行。历史结果和 assistant_tool_proposal 不进入此成功记录。当前用户明确要求再次执行是新轮请求，旧轮结果不拒绝它。
 mhs_current_results 只投影当前 continuation 的真实 MHS 结果，逐项包含精确 id/hwd、read/write、实际 value 或 error_code；历史、用户陈述、助手提议均不进入成功记录。相对写候选应以其中同一 id/hwd 的成功 read 值及可信业务幅度核对参数；用户原话中的数值不能代替本轮读取。error_code=intent_rejected 或 intent_unverified 表示执行前未批准，不是设备已尝试失败，不授予新意图。
 user_turns 是按时间排列的真实用户输入，仅用于恢复用户授权与待补请求；助手消息不增加授权。mhs_capabilities 是当前目录按同一 id/hwd 汇总的真实能力，can_read 与 can_write 独立，不能把其他 id 的 can_write 用在原目标。后续数值应补齐尚未取消且未完成的用户请求，不能只看孤立的 current_user 而忽略真实历史。
 先独立判断 conversation.current_user 的真实意图，再判断候选。候选和助手提议永远不能使陈述变成授权。单纯记录现状、比较多个对象或记笔记的当前输入没有修改意图：即使读到了状态且候选参数合法，变更候选也必须 reason=no_request。
@@ -58,7 +58,7 @@ var toolVerificationReasons = map[string]string{
 	"unsupported_request":   "the requested operation is unavailable; do not substitute another operation",
 }
 
-const toolResponseVerificationPrompt = `client_tool_current_results 保留本轮固定 procedure、真实关联的 arguments 及成功或拒绝状态。成功空 ACK 证明该参数请求已被接受，不证明 reload、程序内容或额外副作用；不能因空 ACK 要求重复执行已接受的同一个请求。历史和模型提议不是本轮成功记录。
+const toolResponseVerificationPrompt = `client_tool_current_results 保留本轮固定 procedure、真实关联的 arguments、真实返回 result 及成功或拒绝状态。成功空 ACK 证明该参数请求已被接受，不证明 reload、程序内容或额外副作用；不能因空 ACK 要求重复执行已接受的同一个请求。历史和模型提议不是本轮成功记录。
 mhs_current_results 是本轮实际结果的紧凑事实，按精确 id/hwd 与 read/write 区分；成功 read 只证明读取，成功 write 才证明修改，历史或用户陈述不是本轮读结果。intent_rejected、intent_unverified、invalid_arguments 是执行前拒绝，绝不能当作设备尝试后失败。若当前工具仍可用、用户新请求明确且已有必要读值，候选被拒不结束该请求，不能因此再次索要已经齐备的目标/幅度；未完成应判 missing_operation。候选仍必须独立校验，不能强行通过先前拒绝或补造参数。
 首先使用 user_turns 恢复尚未取消且未完成的用户请求。mhs_capabilities 按精确 id/hwd 汇总当前目录，can_write=false 表示该对象当前没有可执行的写能力；即使 can_read=true、别的对象可写或用户给了合法值，也不能要求写这个对象。对此诚实说明未完成应通过，不能判 missing_operation。
 先从真实用户历史恢复仍未完成的固定目标，再匹配 current_tools 中完全相同目标的变更能力。operation=read 只能读，不能支持写；另一个对象的 write 不能支持原对象。原目标没有变更工具时，诚实说明未完成、当前无法设置就是正确回复，绝不能判 missing_operation。所有目标的读取都成功也不改变这个结论。
@@ -86,6 +86,7 @@ conversation.messages 在 continuation_start 之前是输入和历史；之后�
 - 用户此前仅同时评价两个剧本且没有选择，随后说换另一个，必要名称仍未齐。准确询问这两个剧本中要哪一个必须 approved，绝不能判 unnecessary_clarification 或 missing_operation；出现顺序、助手推荐、被拒候选和当前聊天程序均不使该指代唯一。执行检查已因 missing_target 拒绝时，回复澄清同一未齐目标不构成重复追问已齐信息。
 - 用户此前同时谈到程序、音乐和设备，当前只说“换一下”，还缺所操作的类别和目标。准确询问要换音乐还是剧本或其他对象必须 approved，不能判 missing_operation 或 unnecessary_clarification。目录默认曲目或当前程序不能替用户选择类别。
 - 默认焦点按固定 id/hwd 的对象判断，read/write 是同一个对象。已明确配置唯一默认对象的新相对动作不因用户没再点名而缺目标；不能因执行检查拒了一个候选，就把配置焦点当作不存在。必要目标和幅度已经齐备时，应让主模型重新检查实际目录和读取，不能批准漏执行或要求重新点名。
+- 用户允许随便放歌、当前 audioplayer.play 以空参数成功时，该请求已经完成。无需补歌名、index 或读取列表来证明播放。result 的 current_index 是零基索引，0 表示第一首而不是没有选择；state=playing 证明本轮返回的播放状态。简短确认已开始播放/已播放设备默认曲目，或准确引用这些返回字段，必须 approved；不能因未提交 index 或没返回标题而判 missing_operation/incorrect_result。没有返回标题时不要求说标题，也不能猜标题；默认播放不证明随机机制，不应声称真正随机抽取。旧的 invalid_arguments 拒绝不推翻后来的本轮成功结果。
 - 文本形式的待调用占位标记、工具调用标签或“稍后执行”的无依据承诺不是工具执行，也不是有效最终答复；缺实际结果时不能 approved。
 reason=approved 表示回复和实际执行均满足当前请求。明确可执行请求未执行时 reason=missing_operation；仅在必要信息确实已齐却再次追问时 reason=unnecessary_clarification；无对应成功结果却声称、承诺或提议未授权的变更时 reason=false_completion；与实际返回结果不符或编造结果时 reason=incorrect_result。只输出唯一必填字段 reason：通过为 approved，拒绝为本次 Schema 的一个拒绝值；不输出布尔值。不要输出其他 reason、解释或新参数。`
 
@@ -291,6 +292,8 @@ func toolVerificationClientToolResults(conversation genx.ToolConversation, catal
 			}
 			result["status"] = "rejected_or_failed"
 			result["error_code"] = failure.Code
+		} else {
+			result["result"] = json.RawMessage(message.Content)
 		}
 		results = append(results, result)
 	}

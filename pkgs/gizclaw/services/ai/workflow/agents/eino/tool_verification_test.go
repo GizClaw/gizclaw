@@ -149,6 +149,23 @@ func TestToolVerificationClientToolResultsKeepsCurrentMatchedAcknowledgements(t 
 	}
 }
 
+func TestClientToolResultProjectionPreservesActualDefaultPlaybackStatus(t *testing.T) {
+	catalog := []map[string]any{{"name": "music_play", "source": "client_tool", "fixed_target": map[string]any{"name": "audioplayer.play"}}}
+	conversation := genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{}`), Content: `{"current_index":0,"state":"playing","playlist_length":3}`}}}
+	results := toolVerificationClientToolResults(conversation, catalog)
+	if len(results) != 1 {
+		t.Fatalf("results = %#v", results)
+	}
+	returned, ok := results[0]["result"].(json.RawMessage)
+	if !ok || string(returned) != `{"current_index":0,"state":"playing","playlist_length":3}` {
+		t.Fatalf("actual zero-based index/status lost: %#v", results)
+	}
+	conversation.Messages[0].Content = `{"current_index":2,"state":"stopped"}`
+	if string(returned) != `{"current_index":0,"state":"playing","playlist_length":3}` {
+		t.Fatal("projection retained mutable result input")
+	}
+}
+
 func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T) {
 	candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
 	focus := "screen is the configured focus"
