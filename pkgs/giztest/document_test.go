@@ -575,6 +575,25 @@ func TestLoadDocumentValidatesListenPeerStream(t *testing.T) {
 	}
 }
 
+func TestPeerStreamHoldBeforeAudioValidation(t *testing.T) {
+	for _, delay := range []string{"0ms", "500ms", "1s"} {
+		step := Step{ID: "hold", PeerStream: &PeerStreamOperation{Mode: "push-to-talk", Input: "audio", HoldBeforeAudio: delay}}
+		if err := validatePeerStreamStep(step, false); err != nil {
+			t.Fatalf("valid hold %q: %v", delay, err)
+		}
+	}
+	for _, op := range []PeerStreamOperation{
+		{Mode: "push-to-talk", Input: "audio", HoldBeforeAudio: "-1ms"},
+		{Mode: "push-to-talk", Input: "audio", HoldBeforeAudio: "bad"},
+		{Mode: "realtime", Input: "audio", HoldBeforeAudio: "500ms"},
+		{Mode: "push-to-talk", EmptyInput: true, HoldBeforeAudio: "500ms"},
+	} {
+		if err := validatePeerStreamStep(Step{ID: "hold", PeerStream: &op}, false); err == nil {
+			t.Fatalf("invalid hold accepted: %+v", op)
+		}
+	}
+}
+
 func TestLoadDocumentValidatesEmptyInputTurn(t *testing.T) {
 	turn := func(extra string) string {
 		return validDocument + "  - id: turn\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      empty_input: true\n" + extra

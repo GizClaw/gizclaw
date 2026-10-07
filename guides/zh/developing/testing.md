@@ -652,6 +652,20 @@ CLI 运行按文档、步骤和展开后的请求缓存一份成功的只读输�
 上传 `content_type`：Ogg/Opus 解码成 16 kHz 单声道 PCM，格式匹配的 `pcm_s16le` 以相同
 wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不拥有这项 wire metadata。
 
+`peer_stream` 的 `push-to-talk` 输入与设备使用同一条逻辑 StreamID：先发送纯控制
+BOS，再发送音频 BOS，等待 SDK 的 `AUDIO_INPUT_READY` 后发送 Opus；释放时依次发送
+音频 EOS 和纯控制 EOS。`pacing` 只用于音频包，不在控制边界之间加入延迟。
+结果与 evidence 中的 `/response_count` 统计有内容且未被忽略或打断的 assistant
+回复 StreamID 数量；单轮 PTT 可以断言为 1，即使服务器把多条回复混到一条下行音频。
+音频输入同时报告 `/input_packets`、`/input_ms` 和 `/pushed_packets`。
+控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，
+用于其它设备门限。PTT 不在 wire 声明 `input_mode`，实际输入模式来自 Workspace 参数。
+`eino-voice-assistant.push-to-talk-long-input.giztest.yaml` 使用至少 60 秒的多句输入，
+去除尾静音后松手，要求只生成一次回复并完成同一回复的文本、音频 EOS。
+`eino-voice-assistant.push-to-talk-short-history.giztest.yaml` 验证短句最终转写晚于输入
+结束时，仍只持久化一条用户记录；该条必须有非空文字，并成功下载实际录音，
+不以 `replay_available` 代替音频资产验证。
+
 `peer_stream.terminal_label` 默认等待同一个 `assistant` response 的文本和音频 EOS，
 并要求该 response 实际产出所需模态的非空内容。没有观察到 BOS 或内容的迟到 EOS
 不参与完成判定，不同 StreamID 的文本和音频 EOS 不能拼成一次成功；
@@ -668,7 +682,7 @@ wire type 原样上传，其他音频格式在 RPC 打开前失败；文档不�
 则失败；成功要求第二轮首个音频包发送成功的时间早于第一轮音频 EOS 的接收时间，并且两轮
 各自的文本和音频 route 都结束，第二轮实际产出文本与音频且没有错误。第一轮在第二轮输入
 之后报告 `interrupted` 可以通过，结果记录 `first_response_interrupted`，不预设 Provider
-必须打断还是继续输出。该模式只接受 `mode`、`input`、`pacing`，总时限用步骤 `timeout`。
+必须打断还是继续输出。该模式接受 `mode`、`input`、`pacing` 和 PTT 的 `hold_before_audio`，总时限用步骤 `timeout`。
 结果包含 `input_overlap`、`session_connection_reused`、`second_input_sent`、
 `first_audio_ms`、`second_input_audio_ms`、`first_audio_eos_ms` 和第二轮 EOS 标记。
 Doubao、Eino 的 `*-overlapping-input.giztest.yaml` 分别覆盖两种输入模式；
@@ -860,12 +874,12 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   child 的 `status`、`duration_ms`、`error` 与 evidence。play 模式不支持 `parallel` step；
   无法并发执行步骤的 driver 不声明 `parallel` 操作，这类文档在 `validate` 阶段就被拒绝或跳过，
   而不是运行时失败。
-- `peer_stream.empty_input: true` 只对 `push-to-talk` 有效：这一轮打开又关闭音频
-  route，但不发送任何音频帧，对应设备按下后在采到第一帧之前就松开、或本地门控没有产出
-  帧的情况。它与 `input` 互斥，也不能与 `require_text`、`require_audio`、
-  `interrupt_after` 或 `completion: first_response` 组合。默认的 terminal completion
-  要求这一轮的 assistant 文本与音频 route 都正常关闭且不带任何内容，assistant 出现文本
-  或音频即判失败；只想确认输入已经送出时改用 `completion: input_sent`。
+- `peer_stream.empty_input: true` 只对 `push-to-talk` 有效：只发送同一 StreamID 的
+  纯控制 BOS/EOS，不打开音频通道，也不发送帧，匹配设备在采到第一帧之前松手的行为。
+  它与 `input`、`require_text`、`require_audio`、`interrupt_after` 和
+  `completion: first_response` 互斥。默认完成方式在输入送出后观察 `idle_timeout`
+  指定的静默窗口（省略时为 250 ms），窗口内出现 assistant 文本或音频即失败；
+  没有回复 EOS 也可正常完成。`completion: input_sent` 只确认输入已经送出。
 - `peer_stream.trim_trailing_silence: true` 只对带音频 `input` 的 `push-to-talk` 有效：
   发送这一轮之前，runner 丢掉最后一个有声包（解码峰值约 -30 dBFS 及以上）之后的所有 Opus
   包，让 EOS 紧跟最后一个字，对应设备在最后一个字说完时就松开按键的情况。否则合成音频的

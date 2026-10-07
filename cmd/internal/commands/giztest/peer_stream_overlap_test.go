@@ -41,6 +41,12 @@ func TestOverlappingPeerInput(t *testing.T) {
 				if !firstBOS.IsBeginOfStream() {
 					t.Fatal("missing first BOS")
 				}
+				if mode == "push-to-talk" {
+					audioBOS := nextPush(t, stream)
+					if firstBOS.Part != nil || !audioBOS.IsBeginOfStream() || audioBOS.Ctrl.StreamID != firstBOS.Ctrl.StreamID {
+						t.Fatal("missing same-input control/audio BOS")
+					}
+				}
 				nextPush(t, stream)
 				// Realtime can announce an empty provisional response before ASR.
 				empty := assistantText("provisional", "", false)
@@ -69,6 +75,11 @@ func TestOverlappingPeerInput(t *testing.T) {
 					}
 				}
 			second:
+				if mode == "push-to-talk" {
+					if chunk := nextPush(t, stream); !chunk.IsBeginOfStream() {
+						t.Fatal("missing second audio BOS")
+					}
+				}
 				// Wait for two packets so the first successful audio Push has returned.
 				nextPush(t, stream)
 				nextPush(t, stream)

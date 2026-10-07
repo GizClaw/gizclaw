@@ -645,6 +645,10 @@
         },
         "await_rearm": {
           "const": "INPUT_ROUTE_RELOADED"
+        },
+        "hold_before_audio": {
+          "type": "string",
+          "description": "Nonnegative Go duration between control BOS and audio BOS in nonempty push-to-talk input; defaults to 500ms."
         }
       },
       "allOf": [
@@ -847,6 +851,28 @@
                     "duration"
                   ]
                 }
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "hold_before_audio"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "push-to-talk"
+              }
+            },
+            "required": [
+              "input"
+            ],
+            "not": {
+              "required": [
+                "empty_input"
               ]
             }
           }

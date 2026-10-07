@@ -22,7 +22,9 @@ import (
 )
 
 const (
-	realtimeTailSilence = 4 * time.Second
+	realtimeTailSilence     = 4 * time.Second
+	emptyInputQuietWindow   = 250 * time.Millisecond
+	pushToTalkHoldThreshold = 500 * time.Millisecond
 )
 
 // peerStream is the PeerStream surface invokePeerStream drives.
@@ -660,6 +662,8 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			return operationResult{}, fmt.Errorf("invalid idle_timeout %q", op.IdleTimeout)
 		}
 		idleTimeout = duration
+	} else if op.EmptyInput {
+		idleTimeout = emptyInputQuietWindow
 	}
 	streamID := initialStreamID
 	if streamID == "" {
@@ -788,16 +792,29 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				return operationResult{}, fmt.Errorf("invalid pacing %q", op.Pacing)
 			}
 		}
+		hold := pushToTalkHoldThreshold
+		if op.HoldBeforeAudio != "" {
+			hold, err = time.ParseDuration(op.HoldBeforeAudio)
+			if err != nil || hold < 0 {
+				return operationResult{}, fmt.Errorf("invalid hold_before_audio %q", op.HoldBeforeAudio)
+			}
+		}
 		pushTurn := func(sendCtx context.Context, id string) error {
 			chunks := audioInputChunks(op.Mode, id, mimeType, packets)
+			heldAt := time.Now()
 			for index, chunk := range chunks {
+				if op.Mode == "push-to-talk" && index == 1 && chunk.IsBeginOfStream() {
+					if err := waitPeerInput(sendCtx, time.Until(heldAt.Add(hold))); err != nil {
+						return err
+					}
+				}
 				if op.Label != "" {
 					chunk.Ctrl.Label = op.Label
 				}
 				// Publish the cutoff before the duplex write can release a reply.
 				// A failed Push still fails the operation; this is only the
 				// ownership cutoff, not the response latency clock origin.
-				if skipEarlierResponses && id == streamID && chunk.IsEndOfStream() {
+				if skipEarlierResponses && id == streamID && chunk.IsEndOfStream() && inputCommitStartedAt.IsZero() {
 					inputCommitStartedAt = time.Now()
 				}
 				if err := stream.Push(sendCtx, chunk); err != nil {
@@ -813,13 +830,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					speechEndedAt := time.Now()
 					speechEndNotify <- speechEndedAt
 				}
-				if pause > 0 {
-					timer := time.NewTimer(pause)
-					select {
-					case <-timer.C:
-					case <-sendCtx.Done():
-						timer.Stop()
-						return context.Cause(sendCtx)
+				if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+					if err := waitPeerInput(sendCtx, pause); err != nil {
+						return err
 					}
 				}
 			}
@@ -970,8 +983,8 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if terminalLabel == "" {
 		terminalLabel = "assistant"
 	}
-	// An empty push-to-talk turn has no response to wait for: it completes when
-	// both assistant routes close, and it must close them without content.
+	// An empty push-to-talk turn has no audio channel or required response.
+	// Observe a bounded quiet window after its control EOS instead.
 	// A whitespace text probe explicitly disables both reply modalities and
 	// observes a bounded quiet window. It must still send the original bytes.
 	textInput, _ := input.(string)
@@ -1031,6 +1044,18 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		}
 		transcript, reply := peerStreamTranscriptAndReply(outputRecords, abandonedResponses)
 		object := map[string]any{"text": texts, "transcript": transcript, "reply": reply, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		responseCount := 0
+		for id, response := range responses {
+			if !abandonedResponses[id] && !response.interrupted && (response.textObserved || response.audioObserved) {
+				responseCount++
+			}
+		}
+		object["response_count"] = responseCount
+		if op.Mode == "push-to-talk" || op.Mode == "realtime" {
+			object["input_packets"] = inputPackets
+			object["input_ms"] = inputDuration.Milliseconds()
+			object["pushed_packets"] = pushedPackets
+		}
 		object["audio_integrity"] = audioIntegrity.summary()
 		maps.Copy(object, lead.fields())
 		if inputSent {
@@ -1060,6 +1085,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			object["history_name"] = historyName
 		}
 		evidence := baseEvidence()
+		evidence["response_count"] = responseCount
+		if op.Mode == "push-to-talk" || op.Mode == "realtime" {
+			evidence["input_packets"] = inputPackets
+			evidence["input_ms"] = inputDuration.Milliseconds()
+			evidence["pushed_packets"] = pushedPackets
+		}
 		integrityEvidence := audioIntegrity.summary()
 		delete(integrityEvidence, "sha256")
 		evidence["audio_integrity"] = integrityEvidence
@@ -1193,9 +1224,13 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			textEOSMS, audioEOSMS = 0, 0
 			armIdle()
 		case <-idle:
-			if quietText {
+			if quietText || emptyTurn {
 				if len(terminalErrors) != 0 {
-					return operationResult{}, fmt.Errorf("whitespace input terminal error: %s", strings.Join(terminalErrors, "; "))
+					kind := "whitespace input"
+					if emptyTurn {
+						kind = "empty turn"
+					}
+					return operationResult{}, fmt.Errorf("%s terminal error: %s", kind, strings.Join(terminalErrors, "; "))
 				}
 				return finish()
 			}
@@ -1264,6 +1299,18 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				switch result.chunk.Part.(type) {
 				case genx.Text, *genx.Blob:
 					label = "assistant"
+				}
+			}
+			if emptyTurn && label == "assistant" {
+				switch part := result.chunk.Part.(type) {
+				case genx.Text:
+					if strings.TrimSpace(string(part)) != "" {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream empty turn produced assistant content")
+					}
+				case *genx.Blob:
+					if len(part.Data) > 0 {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream empty turn produced assistant content")
+					}
 				}
 			}
 			if label == "assistant" {
@@ -1533,14 +1580,41 @@ func peerStreamTerminalError(chunk *genx.MessageChunk) string {
 }
 
 func audioInputChunks(mode, streamID, mimeType string, packets [][]byte) []*genx.MessageChunk {
-	chunks := []*genx.MessageChunk{{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", InputMode: mode, BeginOfStream: true}}}
+	var chunks []*genx.MessageChunk
+	if mode == "push-to-talk" {
+		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", BeginOfStream: true}})
+	}
+	if mode != "push-to-talk" || len(packets) > 0 {
+		declaredMode := mode
+		if mode == "push-to-talk" {
+			declaredMode = ""
+		}
+		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", InputMode: declaredMode, BeginOfStream: true}})
+	}
 	for _, packet := range packets {
 		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType, Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user"}})
 	}
 	if mode == "push-to-talk" {
-		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", EndOfStream: true}})
+		if len(packets) > 0 {
+			chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: mimeType}, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", EndOfStream: true}})
+		}
+		chunks = append(chunks, &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "user", EndOfStream: true}})
 	}
 	return chunks
+}
+
+func waitPeerInput(ctx context.Context, delay time.Duration) error {
+	if delay <= 0 {
+		return nil
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-ctx.Done():
+		return context.Cause(ctx)
+	}
 }
 
 func streamIDMatches(actual, expected string) bool {
