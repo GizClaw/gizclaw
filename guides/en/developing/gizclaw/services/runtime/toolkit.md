@@ -87,3 +87,5 @@ acknowledges acceptance, while `server.run.workspace.reload-with-options` commit
 Audio `play` accepts an optional index; omission preserves the device default track selection.
 
 Rejection feedback carries the same safe catalog and actual user context for the primary model to correct its own proposal. It selects no replacement, synthesizes no parameters and grants no new intent. User-turn projections retain the actual current transcript for audio-only wire messages.
+
+Indirect requests follow the actual business rules. When configured discomfort phrasing refers to one named target, verification uses its actual read and configured relative step. Records, negation, unchanged-state requests and multiple-target observations grant no new change. Unnamed requests without a unique configured focus need target clarification. Delegated arbitrary music selection can use the device default without requiring a song name.
