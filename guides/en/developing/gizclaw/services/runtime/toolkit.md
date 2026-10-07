@@ -100,3 +100,5 @@ A successful empty acknowledgment proves only the declared operation, not unretu
 content or initiative. Semantic decisions can still misclassify and require real-model acceptance.
 
 A factual record grants no mutation in that turn, but its single explicit local object can resolve a later explicitly new action. The current turn still needs an actual read. Other catalog objects and assistant suggestions cannot introduce a user selection. References to multiple user objects remain ambiguous; an isolated value after cancellation does not restore the old pending action.
+
+Verification input and rejection feedback also project compact current-turn MHS results with exact id/hwd, read/write operation, actual values and bounded error codes. History, user statements, assistant proposals and other sources do not become current execution evidence. The projection infers no intent and computes no parameters. `intent_rejected`, `intent_unverified` and `invalid_arguments` are pre-dispatch rejections, not attempted device failures; later proposals still require independent verification.

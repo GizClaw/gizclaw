@@ -73,6 +73,41 @@ func TestToolVerifierFailsClosedAndDoesNotChangeCandidate(t *testing.T) {
 	}
 }
 
+func TestToolVerificationMHSResultsKeepsCurrentFixedDeviceEvidence(t *testing.T) {
+	catalog := []map[string]any{
+		{"name": "screen_read", "source": "mhs", "fixed_target": map[string]any{"id": "display.main", "hwd": "display", "operation": "read"}},
+		{"name": "screen_write", "source": "mhs", "fixed_target": map[string]any{"id": "display.main", "hwd": "display", "operation": "write"}},
+		{"name": "http_read", "source": "resource", "fixed_target": map[string]any{"resource_id": "private"}},
+	}
+	conversation := genx.ToolConversation{ContinuationStart: 1, Messages: []genx.ToolConversationMessage{
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":{"brightness_percent":80}}`},
+		{Role: "user", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":{"brightness_percent":70}}`},
+		{Role: "assistant_tool_proposal", Name: "screen_write", Arguments: json.RawMessage(`{"brightness_percent":40}`)},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":{"brightness_percent":50}}`},
+		{Role: "tool", Name: "screen_write", Content: `{"error":{"code":"intent_rejected","message":"private feedback must not be duplicated"}}`},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"foreign","hwd":"display","value":{"brightness_percent":60}}`},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"led","value":{"brightness_percent":60}}`},
+		{Role: "tool", Name: "http_read", Content: `{"secret":"private HTTP result"}`},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":null}`},
+	}}
+	results := toolVerificationMHSResults(conversation, catalog)
+	if len(results) != 2 || results[0]["status"] != "succeeded" || results[1]["status"] != "rejected_or_failed" || results[1]["error_code"] != "intent_rejected" {
+		t.Fatalf("results = %#v", results)
+	}
+	value, ok := results[0]["value"].(json.RawMessage)
+	if !ok || string(value) != `{"brightness_percent":50}` || results[0]["operation"] != "read" || results[1]["operation"] != "write" {
+		t.Fatalf("fixed operation or actual value changed: %#v", results)
+	}
+	encoded, err := json.Marshal(results)
+	if err != nil || strings.Contains(string(encoded), "private") || strings.Contains(string(encoded), "80") || strings.Contains(string(encoded), "70") {
+		t.Fatalf("historical, proposed or private result leaked: %s, %v", encoded, err)
+	}
+	conversation.ContinuationStart = len(conversation.Messages) + 1
+	if got := toolVerificationMHSResults(conversation, catalog); len(got) != 0 {
+		t.Fatalf("invalid boundary produced results: %#v", got)
+	}
+}
+
 func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T) {
 	candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
 	focus := "screen is the configured focus"
