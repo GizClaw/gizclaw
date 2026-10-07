@@ -302,11 +302,8 @@ func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.Publ
 	if m == nil || m.Peers == nil {
 		return false
 	}
-	peer, err := m.Peers.LoadPeer(ctx, publicKey)
-	if err != nil {
-		return false
-	}
-	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == role
+	allowed, err := m.Peers.CheckActiveRole(ctx, publicKey, role)
+	return err == nil && allowed
 }
 
 func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {

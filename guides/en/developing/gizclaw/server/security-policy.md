@@ -66,11 +66,7 @@ Activation and connection revocation on block enforce blocked status; the old
 generation's retiring flag is memory-only. Slow shared storage therefore does
 not turn each ordinary service open into a transport denial.
 
-Admin/Edge role services retain their existing `allowActivePeerRole` lookup and
-host-policy fallback. Role queries preserve the caller's context, including
-`context.Background()` in DataChannel callbacks, without a fixed timeout.
-Manager role grants still require active status and a matching role. A host
-Admin grant cannot bypass the activation check for blocked status.
+Admin/Edge role services use `peer.Server.CheckActiveRole` to read current KV role/status and deletion fences, excluding the SQL firmware display projection. KV errors, deletion, inactive status and mismatched roles deny access; host-policy fallback remains. Lookups retain the caller context, DataChannel callbacks retain `context.Background()`, and no fixed timeout or authority cache is introduced. A host Admin grant cannot bypass activation's blocked check.
 
 ## Built-in registration-token policy
 

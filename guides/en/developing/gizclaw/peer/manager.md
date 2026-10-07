@@ -37,3 +37,5 @@ After a Peer connection is published, the Server performs one bounded device-inf
 Friends read these text profile fields through `server.friend.info.get` or the items of `server.friend.list`. The method requires an existing caller-scoped friend relation and returns no binary avatar data. `server.profile.get` instead exposes `name` (projected as `display_name`) and `emoji` of any registered Peer by public key, up to 16 per call, with no relationship required; it reads only those two fields and never exposes hardware, identifiers, status, or online state.
 
 See [Public API](../../api/http/public) for device-owned debug access and multi-match SN/IMEI lookup.
+
+Role admission reads current Peer KV status and deletion fences, requiring active status and an exact role. Firmware display projection is excluded. Authority is not cached; slow firmware SQL cannot block service opens, while KV errors still deny access.

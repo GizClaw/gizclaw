@@ -36,3 +36,5 @@ block 不会给远端或离线 Peer 新增本地运行目录记录，也不依�
 持久化失败不踢下线。`EnsureAvailable` 保留删除围栏语义，
 使 Admin 仍可读取、修改和解封 blocked 记录。连接与 service 执行边界见
 [Management](../../peer/manager) 和 [Security Policy](../../server/security-policy)。
+
+`Server.CheckActiveRole` 只读取当前 Peer KV 权限与删除围栏，不叠加 SQL Firmware 展示字段。它要求 active 状态与精确 role，KV 错误、pending deletion 和永久 tombstone 都拒绝；沿用调用方 context，不缓存判定。Admin/Edge transport 准入使用此入口，完整资源读取仍通过 `LoadPeer` 保留 Firmware 投影。

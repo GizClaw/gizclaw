@@ -211,3 +211,44 @@ func TestRoleServicesPreserveLookupContextAndBlockedDenial(t *testing.T) {
 		}
 	}
 }
+
+func TestRoleServiceAdmissionDoesNotWaitForFirmwareProjection(t *testing.T) {
+	for _, row := range []struct {
+		name    string
+		service uint64
+		role    apitypes.PeerRole
+	}{
+		{"admin", ServiceAdminHTTP, apitypes.PeerRoleAdmin},
+		{"edge HTTP", ServiceEdgeHTTP, apitypes.PeerRoleEdgeNode},
+		{"edge RPC", ServiceEdgeRPC, apitypes.PeerRoleEdgeNode},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			key := giznet.PublicKey{76}
+			peers := &peer.Server{Store: kv.NewMemory(nil)}
+			if _, err := peers.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: row.role, Status: apitypes.PeerRegistrationStatusActive}); err != nil {
+				t.Fatal(err)
+			}
+			entered := make(chan struct{}, 1)
+			release := make(chan struct{})
+			defer close(release)
+			peers.RegistrationFirmware = func(context.Context, string) (*string, error) {
+				entered <- struct{}{}
+				<-release
+				return nil, nil
+			}
+			policy := testServerSecurityPolicy(peers)
+			done := make(chan bool, 1)
+			go func() { done <- policy.AllowService(key, row.service) }()
+			select {
+			case allowed := <-done:
+				if !allowed {
+					t.Fatal("active matching role was denied")
+				}
+			case <-entered:
+				t.Fatal("role admission waited for unrelated firmware projection")
+			case <-time.After(time.Second):
+				t.Fatal("role admission did not make progress")
+			}
+		})
+	}
+}

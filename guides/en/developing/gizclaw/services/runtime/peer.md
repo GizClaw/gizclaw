@@ -38,3 +38,5 @@ directory being available. A failed durable write does not disconnect a healthy 
 semantics so Admin can still read, edit, and approve blocked records. Connection
 and service enforcement belong to [Management](../../peer/manager) and
 [Security Policy](../../server/security-policy).
+
+`Server.CheckActiveRole` reads current Peer KV authority and deletion fences without the SQL firmware display projection. It requires active status and an exact role; KV errors, pending deletion and permanent tombstones deny access. It retains the caller context and caches no decision. Admin/Edge transport admission uses this predicate, while full resource reads through `LoadPeer` retain firmware projection.

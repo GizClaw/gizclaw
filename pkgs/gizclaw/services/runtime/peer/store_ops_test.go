@@ -55,6 +55,63 @@ func TestStoreOpsLoadPeerMissing(t *testing.T) {
 	}
 }
 
+func TestCheckActiveRoleReadsLiveAuthorityWithoutFirmwareProjection(t *testing.T) {
+	server := &Server{Store: kv.NewMemory(nil)}
+	key := giznet.PublicKey{61}
+	for _, status := range []apitypes.PeerRegistrationStatus{apitypes.PeerRegistrationStatusActive, apitypes.PeerRegistrationStatusBlocked, apitypes.PeerRegistrationStatusActive} {
+		server.RegistrationFirmware = nil
+		if _, err := server.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleEdgeNode, Status: status}); err != nil {
+			t.Fatal(err)
+		}
+		server.RegistrationFirmware = func(context.Context, string) (*string, error) {
+			t.Error("role authority queried firmware projection")
+			return nil, errors.New("projection unavailable")
+		}
+		allowed, err := server.CheckActiveRole(t.Context(), key, apitypes.PeerRoleEdgeNode)
+		if err != nil || allowed != (status == apitypes.PeerRegistrationStatusActive) {
+			t.Fatalf("status %s: allowed=%v error=%v", status, allowed, err)
+		}
+		if allowed, err := server.CheckActiveRole(t.Context(), key, apitypes.PeerRoleAdmin); err != nil || allowed {
+			t.Fatalf("mismatched role: allowed=%v error=%v", allowed, err)
+		}
+	}
+}
+
+func TestCheckActiveRoleRejectsMissingDeletionAndCorruptAuthority(t *testing.T) {
+	key := giznet.PublicKey{62}
+	for _, state := range []string{"missing", "pending", "deleted", "corrupt"} {
+		t.Run(state, func(t *testing.T) {
+			store := kv.NewMemory(nil)
+			server := &Server{Store: store}
+			if state != "missing" {
+				if _, err := server.SavePeer(t.Context(), apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleEdgeNode, Status: apitypes.PeerRegistrationStatusActive}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			switch state {
+			case "pending":
+				if err := server.DeleteSelf(t.Context(), key); err != nil {
+					t.Fatal(err)
+				}
+			case "deleted":
+				if err := store.Set(t.Context(), peerKey(key.String()), encodedPeerTombstone); err != nil {
+					t.Fatal(err)
+				}
+			case "corrupt":
+				if err := store.Set(t.Context(), peerKey(key.String()), []byte("invalid JSON")); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if allowed, err := server.CheckActiveRole(t.Context(), key, apitypes.PeerRoleEdgeNode); allowed || err == nil {
+				t.Fatalf("%s authority: allowed=%v error=%v", state, allowed, err)
+			}
+		})
+	}
+	if allowed, err := (&Server{}).CheckActiveRole(t.Context(), key, apitypes.PeerRoleEdgeNode); allowed || err == nil {
+		t.Fatalf("missing store: allowed=%v error=%v", allowed, err)
+	}
+}
+
 func TestBindFirmwarePersistsReleaseLine(t *testing.T) {
 	server := &Server{Store: mustBadgerInMemory(t, nil)}
 	publicKey := giznet.PublicKey{1}
