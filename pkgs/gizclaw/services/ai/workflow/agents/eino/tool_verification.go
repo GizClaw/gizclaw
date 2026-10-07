@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"reflect"
 	"slices"
 	"strings"
 
@@ -115,7 +116,15 @@ func runtimeToolVerifier(generator genx.Generator, pattern string, resolve func(
 		if err != nil {
 			return "", errors.New("Tool verification input is invalid")
 		}
-		reason, err := verifyToolDecision(ctx, generator, pattern, "verify_requested_operation", toolVerificationPrompt, input, toolVerificationReasons)
+		reasons := toolVerificationReasons
+		if candidate.Source == "client_tool" && !toolVerificationClientCallSucceeded(conversation, catalog, candidate, args) {
+			// Reads, proposals, other procedures and historical successes cannot
+			// prove this candidate already ran. Narrow the finite decision schema;
+			// the checker still independently evaluates every other reason.
+			reasons = maps.Clone(reasons)
+			delete(reasons, "already_completed")
+		}
+		reason, err := verifyToolDecision(ctx, generator, pattern, "verify_requested_operation", toolVerificationPrompt, input, reasons)
 		if err != nil || reason == "" {
 			return reason, err
 		}
@@ -298,6 +307,30 @@ func toolVerificationClientToolResults(conversation genx.ToolConversation, catal
 		results = append(results, result)
 	}
 	return results
+}
+
+func toolVerificationClientCallSucceeded(conversation genx.ToolConversation, catalog []map[string]any, candidate toolcatalog.Tool, args json.RawMessage) bool {
+	decode := func(raw json.RawMessage) (any, error) {
+		var value any
+		decoder := json.NewDecoder(bytes.NewReader(raw))
+		decoder.UseNumber()
+		err := decoder.Decode(&value)
+		return value, err
+	}
+	wanted, err := decode(args)
+	if err != nil || wanted == nil {
+		return false
+	}
+	for _, result := range toolVerificationClientToolResults(conversation, catalog) {
+		if result["status"] != "succeeded" || result["procedure"] != candidate.Target["name"] {
+			continue
+		}
+		actual, err := decode(result["arguments"].(json.RawMessage))
+		if err == nil && reflect.DeepEqual(wanted, actual) {
+			return true
+		}
+	}
+	return false
 }
 
 // Capability facts are grouped only by fixed protocol identity, not labels or

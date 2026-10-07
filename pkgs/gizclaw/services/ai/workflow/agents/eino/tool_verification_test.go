@@ -166,6 +166,32 @@ func TestClientToolResultProjectionPreservesActualDefaultPlaybackStatus(t *testi
 	}
 }
 
+func TestClientToolCompletedReasonRequiresSameCurrentProcedureAndArguments(t *testing.T) {
+	candidate := toolcatalog.Tool{Alias: "music.play", FunctionName: "music_play", Source: "client_tool", Target: map[string]any{"name": "audioplayer.play"}}
+	playlist := toolcatalog.Tool{Alias: "music.list", FunctionName: "music_list", Source: "client_tool", Target: map[string]any{"name": "audioplayer.playlist.get"}}
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) { return []toolcatalog.Tool{candidate, playlist}, nil }
+	for _, row := range []struct {
+		name         string
+		conversation genx.ToolConversation
+		allowed      bool
+	}{
+		{"none", genx.ToolConversation{}, false},
+		{"read is not play", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_list", Arguments: json.RawMessage(`{}`), Content: `{"items":[]}`}}}, false},
+		{"different index", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":0}`), Content: `{}`}}}, false},
+		{"historical", genx.ToolConversation{ContinuationStart: 1, Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":1}`), Content: `{}`}}}, false},
+		{"rejected", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":1}`), Content: `{"error":{"code":"intent_rejected"}}`}}}, false},
+		{"same current call", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":1}`), Content: `{}`}}}, true},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			generator := &verificationGenerator{result: `{"reason":"already_completed"}`}
+			_, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, json.RawMessage(`{"index":1}`), row.conversation)
+			if row.allowed != (err == nil) {
+				t.Fatalf("already_completed eligibility=%v error=%v", row.allowed, err)
+			}
+		})
+	}
+}
+
 func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T) {
 	candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
 	focus := "screen is the configured focus"

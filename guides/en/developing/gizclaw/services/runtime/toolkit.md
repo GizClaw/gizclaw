@@ -120,3 +120,8 @@ An empty-argument successful default-play ACK satisfies an arbitrary-play reques
 an index or song name. Actual `current_index=0` means the first item and `state=playing` is the
 returned playback state. Without a returned title, confirm playback briefly rather than guessing
 names or describing the device default as random selection.
+ClientTool decisions offer `already_completed` only when the current continuation contains a
+successful call of the same fixed procedure with matching actual arguments. Reads of another
+procedure, history, rejected calls and different arguments cannot supply that reason. This
+narrows impossible rejection reasons without approving candidates, skipping verification or
+caching results; the model still assesses explicitly repeated requests.
