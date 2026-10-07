@@ -18,9 +18,14 @@ project="gizclaw-runtime-tools-$$"
 run_user="$(id -u):$(id -g)"
 cat > "$run_dir/compose.runtime-tools.yaml" <<'COMPOSE'
 services:
-  server: {user: "${RUNTIME_TOOLS_RUN_USER}"}
-  edge: {user: "${RUNTIME_TOOLS_RUN_USER}"}
+  server:
+    user: "${RUNTIME_TOOLS_RUN_USER}"
+    logging: {driver: json-file, options: {max-size: "256m", max-file: "1"}}
+  edge:
+    user: "${RUNTIME_TOOLS_RUN_USER}"
+    logging: {driver: json-file, options: {max-size: "256m", max-file: "1"}}
   toolcontrol:
+    logging: {driver: json-file, options: {max-size: "32m", max-file: "1"}}
     image: ${GIZCLAW_MONITOR_IMAGE}
     user: "${RUNTIME_TOOLS_RUN_USER}"
     env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env"]
@@ -45,10 +50,17 @@ compose=(docker compose -p "$project" -f "$script_dir/docker/compose.monitor.yam
 cleanup() {
   status=$?
   "${compose[@]}" logs --no-color > "$GIZCLAW_MONITOR_REPORTS/containers.log" 2>&1 || true
+  if [[ -d "$state_dir/server/data/objects/runtime-tool-profiling" ]]; then
+    if ! cp -R "$state_dir/server/data/objects/runtime-tool-profiling" "$GIZCLAW_MONITOR_REPORTS/profiles"; then
+      printf 'Runtime Tool profiling evidence copy failed.\n' >&2
+      status=1
+    fi
+  fi
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
   docker image rm "$GIZCLAW_MONITOR_IMAGE" >/dev/null 2>&1 || true
   rm -rf "$state_dir" "$run_dir/image"
   printf 'Runtime Tool Docker E2E exit=%s reports=%s\n' "$status" "$GIZCLAW_MONITOR_REPORTS"
+  exit "$status"
 }
 trap cleanup EXIT
 arch=amd64
@@ -92,6 +104,17 @@ git diff --binary HEAD > "$GIZCLAW_MONITOR_REPORTS/source.patch"
 
 docker build -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
 docker run --rm --user "$run_user" -v "$state_dir:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+python3 - "$state_dir/server/config.yaml" <<'PYPROFILE'
+from pathlib import Path
+import sys
+path = Path(sys.argv[1])
+config = path.read_text()
+if config.count("\nservices:\n") != 1:
+    raise SystemExit("Runtime Tool fixture requires one services section")
+config = config.replace("\nservices:\n", "\n  runtime-tool-profiling:\n    kind: objectstore\n    storage: local-files\n    prefix: runtime-tool-profiling\nservices:\n")
+config += "\nprofiling:\n  enabled: true\n  store: runtime-tool-profiling\n"
+path.write_text(config)
+PYPROFILE
 touch "$state_dir/fixture.env"
 "${compose[@]}" up -d --wait server edge toolcontrol
 "${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test validate -f /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest'

@@ -13,7 +13,8 @@ for name in sorted(set(paths)):
     path = root / name
     if not name or not path.is_file() or path.is_symlink():
         continue
-    if path.suffix not in {".go", ".proto"} and not name.startswith("api/http/") and name not in {"go.mod", "go.sum"}:
+    runtime_input = name.startswith(("tests/gizclaw-e2e/testdata/runtime-tools/", "tests/gizclaw-e2e/docker/monitor/")) or name == "tests/gizclaw-e2e/run_runtime_tool_tests.sh"
+    if path.suffix not in {".go", ".proto"} and not name.startswith("api/http/") and name not in {"go.mod", "go.sum"} and not runtime_input:
         continue
     inputs[name] = hashlib.sha256(path.read_bytes()).hexdigest()
 output.write_text(json.dumps(inputs, sort_keys=True, indent=2) + "\n")
