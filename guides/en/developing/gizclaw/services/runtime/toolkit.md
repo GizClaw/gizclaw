@@ -132,3 +132,8 @@ filling values or selecting targets for the model. Default playback still needs 
 empty arguments. An isolated value without actual request history cannot restore pending intent,
 and completion claims still need current success evidence. A returned playback index can establish
 a title using an actual playlist with the same revision; absent or different revisions cannot.
+
+Execution verification checks the current candidate arguments rather than fields of earlier rejected
+proposals. Program selection requires `workflow_name`; omitted or false `kickoff` requests no opening
+speech, while true still needs explicit authorization. A negative value supplied for pending absolute
+brightness is not a relative decrease; illegal absolute values wait for a legal correction.
