@@ -29,6 +29,148 @@ func (source *failingProfileSource) ForEachProfile(ctx context.Context, consume 
 	return profileSource{source.db}.ForEachProfile(ctx, consume)
 }
 
+func TestProfileSourceConsumerDoesNotHoldPersistentSQLConnection(t *testing.T) {
+	db := profileSQLTestDB(t)
+	now := time.Now().UTC()
+	if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: "profile", Revision: "revision", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	entered, release := make(chan struct{}), make(chan struct{})
+	done := make(chan error, 1)
+	sourceCtx, cancelSource := context.WithCancel(context.Background())
+	go func() {
+		done <- (profileSource{db}).ForEachProfile(sourceCtx, func(apitypes.RuntimeProfile) error {
+			close(entered)
+			<-release
+			return nil
+		})
+	}()
+	t.Cleanup(func() {
+		defer cancelSource()
+		close(release)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Error(err)
+			}
+		case <-time.After(time.Second):
+			t.Error("Profile source did not finish after releasing its consumer")
+		}
+	})
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("Profile source never reached its consumer")
+	}
+	queryCtx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	var count int
+	if err := db.QueryRowContext(queryCtx, `SELECT COUNT(*) FROM runtime_profiles`).Scan(&count); err != nil {
+		t.Fatalf("Persistent SQL query waited for an index consumer: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("profile count = %d", count)
+	}
+}
+
+func TestProfileSourceBatchesPreserveOrderAndAllowConsumerWrites(t *testing.T) {
+	db := profileSQLTestDB(t)
+	now := time.Now().UTC()
+	insert := func(id string) error {
+		_, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: id, Revision: "revision", CreatedAt: now, UpdatedAt: now})
+		return err
+	}
+	expected := []string{}
+	for i := range 2*profileSourceBatchSize + 3 {
+		id := fmt.Sprintf("profile-%03d", i)
+		if err := insert(id); err != nil {
+			t.Fatal(err)
+		}
+		expected = append(expected, id)
+	}
+	observed := []string{}
+	if err := (profileSource{db}).ForEachProfile(t.Context(), func(profile apitypes.RuntimeProfile) error {
+		observed = append(observed, profile.Id)
+		if len(observed) == 1 {
+			// A new later ID belongs to a subsequent refresh, not an endlessly
+			// extending scan. This write also needs the same single SQL lease.
+			return insert("z-added-during-consume")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(observed, expected) {
+		t.Fatalf("profile traversal omitted, duplicated or reordered records: %v", observed)
+	}
+	observed = nil
+	if err := (profileSource{db}).ForEachProfile(t.Context(), func(profile apitypes.RuntimeProfile) error {
+		observed = append(observed, profile.Id)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(observed, append(expected, "z-added-during-consume")) {
+		t.Fatalf("subsequent refresh did not include committed Profile: %v", observed)
+	}
+}
+
+func TestProfileSourceStopsOnConsumerFailureOrCancellation(t *testing.T) {
+	for _, cancelAfterFirst := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cancel=%v", cancelAfterFirst), func(t *testing.T) {
+			db := profileSQLTestDB(t)
+			now := time.Now().UTC()
+			for _, id := range []string{"first", "second"} {
+				if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: id, Revision: "revision", CreatedAt: now, UpdatedAt: now}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			failure := errors.New("consumer failed")
+			calls := 0
+			err := (profileSource{db}).ForEachProfile(ctx, func(apitypes.RuntimeProfile) error {
+				calls++
+				if cancelAfterFirst {
+					cancel()
+					return nil
+				}
+				return failure
+			})
+			want := failure
+			if cancelAfterFirst {
+				want = context.Canceled
+			}
+			if !errors.Is(err, want) || calls != 1 {
+				t.Fatalf("error=%v calls=%d", err, calls)
+			}
+			queryCtx, stopQuery := context.WithTimeout(t.Context(), time.Second)
+			defer stopQuery()
+			var value int
+			if err := db.QueryRowContext(queryCtx, `SELECT 1`).Scan(&value); err != nil {
+				t.Fatalf("error path retained persistent SQL lease: %v", err)
+			}
+		})
+	}
+}
+
+func TestProfileSourceCancellationAfterLastConsumer(t *testing.T) {
+	db := profileSQLTestDB(t)
+	now := time.Now().UTC()
+	if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: "only", Revision: "revision", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	err := (profileSource{db}).ForEachProfile(ctx, func(apitypes.RuntimeProfile) error {
+		cancel()
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("last callback cancellation lost: %v", err)
+	}
+}
+
 func TestCommittedProfileWritesReturnSuccessWhenIndexRefreshFails(t *testing.T) {
 	ctx := t.Context()
 	s := &Server{DB: profileSQLTestDB(t)}

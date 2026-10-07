@@ -19,7 +19,9 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// Source streams complete persisted profiles into a new runtime snapshot.
+// Source enumerates complete persisted profiles into a new runtime snapshot.
+// Consumers can perform slow work; implementations must release persistent
+// storage cursors and transactions before calling the consumer.
 type Source interface {
 	ForEachProfile(context.Context, func(apitypes.RuntimeProfile) error) error
 }

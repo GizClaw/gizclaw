@@ -156,6 +156,12 @@ RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens`、`registra
 
 `services/runtime/runtimeprofile` 在 Server 初始化时从持久 SQL 的所有 RuntimeProfile 构建一份纯内存 SQLite 索引。持久 SQL 仍保存完整 Profile 且是权威数据；内存库把每个 Workflow、Model、Voice、Tool、Memory、app_config、safety fence 与 MHS v0 device 拆成独立的 `(runtime_profile_id, kind, name, value_json)` 行，并把 Workflow tags 拆成可检索行。`Index.ListProfileIDs` 枚举全部 Profile，`Index.GetEntry` 按 Profile ID、kind 和 name 精确读取，`Index.ListEntries` 可跨 Profile 按 kind 读取条目，`Index.ListWorkflowsByTags` 对多个普通字符串 tag 做 AND 查询；设备 Workflow catalog 也按 Profile revision 从这个 SQLite 快照筛选；这些内部查询不读取磁盘，也不向 Peer 暴露包含凭证的条目。内存 SQLite 实例发布后设为只读。RuntimeProfile 在本 Server 持久提交后立即重建一个新实例，后台也每 5 分钟从持久 SQL 重建；新实例完成后原子切换，并关闭旧实例。持久写入提交后即返回成功；若随后的内存快照刷新失败，Server 记录告警，按 revision 读取时重试，后台五分钟轮换也会重试，不把已提交写入报成失败。其他 Server 的写入由下一次定时轮换纳入，也可调用 `RefreshMemoryIndex` 提前重建。进程关闭时释放内存库，重启后从持久数据重建。
 
+持久化 Profile 按 canonical ID 分批读取，每批最多 64 项；关闭 SQL 游标并释放连接后，
+才调用构建内存索引的消费者，避免索引构建长期占用业务 SQL 连接。遍历先记录 ID 上界，
+晚于该上界的新 Profile 由后续刷新纳入。并发变更不构成跨所有 Profile 的单一时刻快照；
+每个 Profile 保留完整持久 revision，设备读取仍核对当前 revision，失败时保留已发布索引。
+消费者错误或取消终止本次构建，不发布部分结果。
+
 Admin 创建和更新 registration token 时，原始输入必须不超过 512 个 UTF-8 字节（不是 512 个字符），与 admission value 上限一致；超限返回 400，不能写入数据库。
 
 ## Workspace 安全围栏

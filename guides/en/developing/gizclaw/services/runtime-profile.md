@@ -157,6 +157,13 @@ RuntimeProfile uses SQL `runtime_profiles`, `registration_tokens`, `registration
 
 At initialization, `services/runtime/runtimeprofile` builds a pure in-memory SQLite index from every persisted RuntimeProfile. Persistent SQL remains authoritative and stores each complete Profile. The memory database splits each Workflow, Model, Voice, Tool, Memory, app_config, safety fence, and MHS v0 device into a separate `(runtime_profile_id, kind, name, value_json)` row, with Workflow tags in searchable rows. `Index.ListProfileIDs` enumerates all Profiles, `Index.GetEntry` resolves one Profile ID/kind/name, and `Index.ListEntries` reads entries across Profiles by kind, and `Index.ListWorkflowsByTags` uses AND semantics for opaque tag strings without disk access. The device Workflow catalog also filters through this SQLite snapshot at a matching Profile revision. These internal reads do not expose credential-bearing entries to Peers. A published memory SQLite instance is read-only. After a local RuntimeProfile commit, the Server builds and publishes a new instance; it also rebuilds every five minutes. Publication atomically switches readers to the new instance and closes the old one. A durable write returns success after commit even if refreshing the memory snapshot fails; the Server logs the failure, revision-aware reads retry it, and the five-minute rotation retries it. Writes by other Servers appear on the next rotation, or earlier through `RefreshMemoryIndex`. Shutdown releases the memory database, and startup rebuilds it from persistent data.
 
+Persistent Profiles are read in canonical-ID batches of at most 64. Each SQL cursor and connection
+lease is released before invoking the memory-index consumer, so slow construction does not hold
+the business SQL connection. The scan captures an upper ID; later IDs enter a subsequent refresh.
+Concurrent changes do not form one global point-in-time snapshot. Each complete Profile retains
+its persisted revision, device reads still verify the current revision, and failures retain the
+published index. Consumer errors or cancellation stop construction without publishing partial results.
+
 Admin creation and updates require registration-token input to fit within 512 UTF-8 bytes, rather than 512 characters, matching the admission value limit. Oversized input returns 400 before persistence.
 
 ## Workspace safety fences
