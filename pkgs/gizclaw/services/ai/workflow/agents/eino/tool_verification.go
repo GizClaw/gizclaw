@@ -39,6 +39,7 @@ conversation.messages 在 continuation_start 之前是历史和本轮用户输�
 4. 相对幅度按实际读值和可信业务配置处理；若配置要求相对结果限制在0到100，90加20设为100是有依据的边界处理，不是非法绝对值修正。用户直接给150等非法绝对值仍拒绝。
 5. 程序“另一个”的参照必须是用户此前明确选定或实际正在玩的那个剧本，不能把同时评价的多个名字按出现顺序当成已选中一个。当前聊天程序也不能替用户在多个候选剧本中选一个。此前只说两个剧本都不错且没有选择，现在要求换另一个仍缺唯一目标；任何具体 workflow_name 候选必须 missing_target，先询问名称。助手推荐、候选参数、目录排列和拒绝反馈都不能补出该选择。
 6. 用户前文同时谈到程序、音乐和设备等多个类别，当前只说“换一下”而没有点名要换什么，类别和目标均未确定，任何变更候选都必须 missing_target。不能因存在默认曲目、当前程序或候选参数而推断要换音乐或剧本；默认播放只用于用户已明确授权播放音乐的请求，不能用于跨类别的模糊换一下。
+7. 默认焦点按固定 id/hwd 的对象计数，同一对象的 read 和 write 两个条目不是两个默认对象。目录明确配置唯一默认对象时，它优先于名称中“本身不提供默认焦点”的一般说明；后者只说明名字不是配置。用户明确发起新的相对亮度动作（包括“再调亮一点”）且没有待补目标时，可直接读取这个唯一配置目标，不要求旧动作历史或再次点名。该目标的可用 read 候选不能因用户没说灯/屏幕而判 missing_target；未配置或多个不同对象仍需澄清，非默认读目标仍拒绝。记录、取消后的孤立数值和无动作输入仍不授权写入。
 只输出唯一必填字段 reason：通过为 approved，拒绝为本次 Schema 的一个拒绝值；不输出布尔值。不要输出解释、引用用户值或生成新参数。`
 
 type toolVerificationDecision struct {
@@ -79,10 +80,12 @@ conversation.messages 在 continuation_start 之前是输入和历史；之后�
 - 两个对象均在用户上一轮出现后仅说“它”，目标尚有歧义。准确询问灯还是屏幕必须 approved，不能因为工具描述或助手问题选定一项。
 - 用户上一轮仅给一个本机对象的状态，随后明确要求“它再暗一点/调亮一点”，是针对这个唯一对象的新相对请求；可执行时重新问灯还是屏幕属于 unnecessary_clarification。之前那轮不授权修改，不代表后来新请求不能引用其唯一对象；仍须本轮读取。目录中的其他目标和助手列举不造成用户指代歧义。
 - 相对操作需要本轮同一目标的实际读结果，历史陈述值不能代替读取。合法相对结果按可信配置限制范围，不能误要求重新给绝对值。
+- 用户给的是相对增减幅度时，计算后越界不是用户给了非法绝对目标。若业务配置明确把相对结果限制在0到100，真实读到90后提高20个百分点，应完成到100；直接声称110越界不能执行并再次索要数值，不能 approved，须 missing_operation。用户直接要求设到110等非法绝对值仍应拒绝，不能静默修正。候选被拒或参数非法也不移除已经齐备的合法相对请求。
 - 用户描述已经停止或要求保持状态，只确认保持现状且没有新操作声明可以 approved；“本次我执行了停止”而无本轮成功结果才是虚假完成。
 - 空对象也可能是实际成功 Tool ACK；role=tool 的当前结果不含 error 时不能只因没有 value 字段判失败。ACK只证明该工具定义的动作，不证明未返回的程序内容、主动开场或其他副作用。
 - 用户此前仅同时评价两个剧本且没有选择，随后说换另一个，必要名称仍未齐。准确询问这两个剧本中要哪一个必须 approved，绝不能判 unnecessary_clarification 或 missing_operation；出现顺序、助手推荐、被拒候选和当前聊天程序均不使该指代唯一。执行检查已因 missing_target 拒绝时，回复澄清同一未齐目标不构成重复追问已齐信息。
 - 用户此前同时谈到程序、音乐和设备，当前只说“换一下”，还缺所操作的类别和目标。准确询问要换音乐还是剧本或其他对象必须 approved，不能判 missing_operation 或 unnecessary_clarification。目录默认曲目或当前程序不能替用户选择类别。
+- 默认焦点按固定 id/hwd 的对象判断，read/write 是同一个对象。已明确配置唯一默认对象的新相对动作不因用户没再点名而缺目标；不能因执行检查拒了一个候选，就把配置焦点当作不存在。必要目标和幅度已经齐备时，应让主模型重新检查实际目录和读取，不能批准漏执行或要求重新点名。
 - 文本形式的待调用占位标记、工具调用标签或“稍后执行”的无依据承诺不是工具执行，也不是有效最终答复；缺实际结果时不能 approved。
 reason=approved 表示回复和实际执行均满足当前请求。明确可执行请求未执行时 reason=missing_operation；仅在必要信息确实已齐却再次追问时 reason=unnecessary_clarification；无对应成功结果却声称、承诺或提议未授权的变更时 reason=false_completion；与实际返回结果不符或编造结果时 reason=incorrect_result。只输出唯一必填字段 reason：通过为 approved，拒绝为本次 Schema 的一个拒绝值；不输出布尔值。不要输出其他 reason、解释或新参数。`
 
@@ -90,7 +93,7 @@ var toolResponseVerificationReasons = map[string]string{
 	"missing_operation":         "An explicit supported user request is still incomplete. Use native Tool calls for only the remaining authorized operations before claiming completion.",
 	"unnecessary_clarification": "Do not ask again for a detail already supplied by the user or configured default target. Recover the pending request from actual user messages; ask only for details still missing, and execute only when all required values are confirmed.",
 	"false_completion":          "The draft claims or promises an operation without corresponding current successful Tool evidence. Complete an actually authorized pending request, or remove the unsupported claim and explain what remains incomplete.",
-	"incorrect_result":          "The draft does not match the actual Tool results. Ground the corrected answer in those results without inventing identifiers or repeating completed operations.",
+	"incorrect_result":          "The draft does not match the actual Tool results. Use exact returned titles and identifiers; do not append unreturned song editions or versions from style hints. Ground the corrected answer in actual arguments/results without repeating completed operations.",
 }
 
 func runtimeToolVerifier(generator genx.Generator, pattern string, resolve func(context.Context) ([]toolcatalog.Tool, error)) func(context.Context, toolcatalog.Tool, json.RawMessage, genx.ToolConversation) (string, error) {

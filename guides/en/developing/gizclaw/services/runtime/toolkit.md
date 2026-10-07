@@ -109,3 +109,10 @@ subsequent checks consider that success instead of repeating the same user reque
 prove reload, program content or extra side effects, and is not a result cache. An explicit request
 to repeat in a new turn remains a new request. History, proposals, unmatched results and private
 HTTP results are excluded from this projection.
+
+Default focus is assessed by exact id/hwd identity; read and write capabilities are one object.
+An explicit configured default outranks general wording that a name alone provides no default;
+without explicit configuration, target clarification is still required. Relative results use
+actual reads and business bounds; computed overflow is not an illegal user-supplied absolute
+value. Music replies retain actual returned titles without adding unreturned editions or IDs
+from style hints.

@@ -304,7 +304,7 @@ func runtimeToolProfile() apitypes.RuntimeProfileSpec {
 		}
 		tools[alias] = apitypes.RuntimeProfileToolBinding{I18n: base.I18n, Mhs: config}
 	}
-	for _, device := range []struct{ id, hwd, label string }{{"display.main", "display", "本机屏幕"}, {"led.status", "led", "本机主灯（用户明确说灯或灯光时指此灯；未指名对象时此名称不提供默认焦点，区域灯需明确指名区域）"}} {
+	for _, device := range []struct{ id, hwd, label string }{{"display.main", "display", "本机屏幕"}, {"led.status", "led", "本机主灯（灯光）"}} {
 		profile.Mhs.V0.Devices = append(profile.Mhs.V0.Devices, apitypes.MhsV0Device{Id: device.id, Hwd: apitypes.MhsV0DeviceHwd(device.hwd)})
 		addMHS(device.id+".read", device.id, device.hwd, "read", "Read current device "+device.label, "读取"+device.label+"当前实际亮度")
 		addMHS(device.id+".write", device.id, device.hwd, "write", "Set current device "+device.label, "设置"+device.label+"的绝对目标亮度：用户可指定 0 到 100 整数，或明确相对调整并先读取这个固定对象的实际亮度后按业务幅度换算；不能猜初始值或目标，不控制手机或别的设备")
