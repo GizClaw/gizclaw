@@ -645,6 +645,32 @@ manages a disconnected device with its API key over another device's connection.
 is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without a declared `status` is
 an assertion failure. The API key comes from a `server.api_key.create` step with
 `capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
+
+`http.query` supports string, number, and boolean query parameters. Exact variable
+references retain their types, such as `query: {timestamp: "${checkpoint}"}` for
+server-issued SSE checkpoint numbers. `http.response_format: sse` projects a finite
+response as `{events: [{event, data}], last_event, raw}`. JSON data is decoded,
+other data stays text, and only blank-line-terminated events with data dispatch.
+An incomplete terminal frame cannot satisfy a done assertion. Parsing is bounded
+to 4 MiB and 16384 events. Go/C, JS, and Flutter use
+`api/giztest/testdata/http_sse_vectors.json` for shared conformance tests.
+
+`server.peer.sync.giztest.yaml` covers initial reset, continuation, unchanged
+state, owner isolation, creation, coalesced final updates, deletion, device
+reconnect, stale checkpoints, and invalid timestamps or missing/invalid/revoked
+API keys. `go test ./cmd/internal/server -run '^TestPeerSyncGiztest$' -count=1`
+starts real Server and Edge processes over temporary state. Devices connect
+through Gateway/WebRTC, and Edge forwards HTTP SSE to the authoritative Server.
+The report requires all 23 steps and both cleanup steps to pass; ordinary Go CI
+runs this test too.
+
+JavaScript and native Flutter reuse the same scenario. Build the Flutter runner,
+set `GIZCLAW_SYNC_FLUTTER_RUNNER` to its executable, and run
+`go test -tags=gizclaw_sdk_e2e ./cmd/internal/server -run '^TestPeerSyncSDKGiztests$' -count=1`.
+Missing runners and execution failures fail rather than counting validation as
+acceptance. The C controller SDK currently has no `/sync` route, so its runner
+explicitly marks this scenario unsupported; Go/C share decoder unit coverage.
+
 A `client_rpc` step names `client.mhs.v0.read/write`, `client.tool.v0.invoke/list`, or `client.rpc.methods.list`. For an invoke step, `tool` selects the predefined `ClientTool` payload. The runner installs the scripted provider response when the client connects; `response: {error_code: 3}` answers a canonical error. Uninstalled tools answer `UNIMPLEMENTED`, and `expect_calls` proves that a later HTTP call reached the provider. A Server-side validation case expects zero calls.
 
 

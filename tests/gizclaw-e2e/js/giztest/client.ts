@@ -281,6 +281,7 @@ export class ScenarioClient {
     body: unknown,
     signal?: AbortSignal,
     endpoint?: string,
+    responseFormat?: "sse",
   ): Promise<HTTPStepResult> {
     const token = bearerToken(headers);
     const control = this.controlFor(token, endpoint);
@@ -297,6 +298,7 @@ export class ScenarioClient {
         token == null ? undefined : [{ scheme: "bearer", type: "http" }],
       signal,
       throwOnError: false,
+      parseAs: responseFormat === "sse" ? "text" : undefined,
       url: pathWithQuery,
     })) as { data?: unknown; error?: unknown; response?: Response };
     const response = result.response;

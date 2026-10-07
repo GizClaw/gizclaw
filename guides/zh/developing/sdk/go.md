@@ -34,3 +34,7 @@ BOS。`PeerStream` 在首次音频 BOS 绑定之前暂存 RTP payload，先向�
 payload 没有逻辑 StreamID，无法据此区分上一 epoch 的迟到包和下一 epoch 的首包；
 因此暂存仅用于首次音频绑定，不会将 EOS 后的裸包重归属给下一 BOS。此类包仍由
 调用方的边界检查报告；现有 EOS drain 和音频完整性断言保持不变。
+
+## Peer HTTP 状态同步
+
+OpenAPI 生成的 `pkgs/gizclaw/api/peerhttp.Client.SyncPeer` 接受 `SyncPeerParams.Timestamp`，返回可读取 SSE 的 `*http.Response`。请求通过 API Key 绑定 owner；调用方关闭 response body，并用 context 取消请求。`SyncEvent` 是同一 Schema 生成的事件联合类型。暂存每轮状态，在 done 时一起提交状态与服务端时间戳；不完整响应应丢弃并以原时间戳重试。具体事件与范围见 [Public API](../api/http/public#peer-状态同步)。

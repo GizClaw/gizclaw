@@ -58,6 +58,7 @@ import {
   listFriends,
   putFriendGroup,
   putFriendGroupMember,
+  syncPeer,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
   AudioPlayerPlaylistSetRequest,
@@ -103,6 +104,7 @@ import type {
   ErrorResponse,
   PeerHTTPClient,
   PeerStatus,
+  SyncEvent,
   PeerTelemetryAggregate,
   PeerTelemetryAggregateResponse,
   PeerTelemetryField,
@@ -163,6 +165,11 @@ export type {
   ErrorResponse,
   PeerHTTPClient,
   PeerStatus,
+  SyncEvent,
+  SyncUpsert,
+  SyncDelete,
+  SyncReset,
+  SyncDone,
   PeerTelemetryAggregate,
   PeerTelemetryAggregateResponse,
   PeerTelemetryField,
@@ -599,6 +606,13 @@ export interface GizClawControlClient {
   readonly contacts: GizClawControlContacts;
   readonly friends: GizClawControlFriends;
   readonly friendGroups: GizClawControlFriendGroups;
+  /**
+   * Finite owner-scoped state sync. Use 0 initially, then the timestamp from
+   * the last done event. Stage changes and commit state and timestamp together
+   * on done. Discard an incomplete batch and retry with the previous timestamp.
+   * Breaking iteration cancels the request.
+   */
+  sync(timestamp?: number, signal?: AbortSignal): AsyncGenerator<SyncEvent>;
 }
 
 interface GeneratedResult<T> {
@@ -673,6 +687,60 @@ export function createGizClawControlClient(
 
   return {
     client,
+    async *sync(timestamp = 0, signal) {
+      if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
+        throw new TypeError("timestamp must be a nonnegative safe integer");
+      }
+      const controller = new AbortController();
+      const signals = [controller.signal];
+      if (options.signal !== undefined) signals.push(options.signal);
+      if (signal !== undefined) signals.push(signal);
+      const requestSignal = AbortSignal.any(signals);
+      let response: Response | undefined;
+      const syncFetch: typeof fetch = async (input, init) => {
+        const fetcher = options.fetch ?? globalThis.fetch;
+        response = await fetcher(input, init);
+        return response;
+      };
+      try {
+        const { stream } = await syncPeer({
+          ...common,
+          query: { timestamp },
+          signal: requestSignal,
+          fetch: syncFetch,
+          sseMaxRetryAttempts: 1,
+          onSseError: (error) => {
+            requestSignal.throwIfAborted();
+            throw GizClawControlError.fromResult(
+              "syncPeer",
+              response?.ok === false ? response : undefined,
+              error,
+            );
+          },
+        });
+        let count = 0;
+        for await (const event of stream) {
+          requestSignal.throwIfAborted();
+          validateSyncEvent(event);
+          if (event.event === "reset" && count !== 0) {
+            throw new GizClawControlError(
+              "network",
+              "syncPeer: reset must be the first event",
+            );
+          }
+          count++;
+          yield event;
+          if (event.event === "done") return;
+        }
+        requestSignal.throwIfAborted();
+        throw new GizClawControlError(
+          "network",
+          "syncPeer: stream ended without done",
+        );
+      } finally {
+        controller.abort();
+      }
+    },
     apiKeys: {
       create: (body) =>
         unwrap("createApiKey", createApiKey({ ...common, body })),
@@ -1012,6 +1080,29 @@ export function createGizClawControlClient(
         ),
     },
   };
+}
+
+function validateSyncEvent(event: SyncEvent): void {
+  if (typeof event === "object" && event !== null) {
+    if (event.event === "reset") return;
+    if (
+      event.event === "done" &&
+      Number.isSafeInteger(event.timestamp) &&
+      event.timestamp > 0
+    )
+      return;
+    if (
+      (event.event === "upsert" || event.event === "delete") &&
+      typeof event.key === "string" &&
+      event.key.startsWith("/gizclaw/v1/") &&
+      (event.event === "delete" ||
+        (typeof event.data === "object" &&
+          event.data !== null &&
+          !Array.isArray(event.data)))
+    )
+      return;
+  }
+  throw new GizClawControlError("network", "syncPeer: invalid SSE event");
 }
 
 function groupPath(friendGroupName: string): { friendGroupName: string } {

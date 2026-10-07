@@ -26,6 +26,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peersync"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerusage"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
@@ -731,6 +732,7 @@ func (s *Server) init() error {
 				return s.WebRTCSignalingHandler
 			},
 			Contacts:      contactServer,
+			Sync:          &peersync.Server{Store: peersServer.Store},
 			DeviceControl: newDeviceController(manager, manager.PeerRun),
 			Friends:       friendServer,
 			FriendGroups:  friendGroupServer,

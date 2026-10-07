@@ -37,6 +37,33 @@ transceiver；调用方注入 identity、crypto、fetch 等 runtime-specific pri
 
 `createGizClawControlClient` 用 `createPeerHTTPClient` 创建独立的生成 client（`baseUrl`、`auth`、可选 `fetch`），每个 API Key 一个实例，不使用 `peerHTTPClient` 单例。route 方法以 `throwOnError: false` 调用 `sdk.gen.ts` 函数，再把 `{ error, response }` 转成 `GizClawControlError`：`response` 缺失是 `network`，否则先按 body 的 `error.code` 匹配 `DEVICE_*`，再按 status 分类；code 常量以 `pkgs/gizclaw/peer_service_serve_peer_http_device_control.go` 为准。路径参数由生成 client 做 `encodeURIComponent`。
 
+## Peer 状态同步
+
+`createGizClawControlClient(...).sync(timestamp, signal?)` 返回 `AsyncGenerator<SyncEvent>`，
+使用该 client 的 API Key 和生成的 `syncPeer` SSE 操作。首次传 `0`；后续使用上次 `done`
+返回的时间戳。HTTP 错误保留 `GizClawControlError` 分类，网络中断、畸形事件与缺少 done
+都会失败。自动重试关闭；退出迭代或 AbortSignal 取消会关闭本次请求。
+
+每轮暂存变更，只在 done 时一起提交状态与检查点；失败时丢弃暂存数据。示例：
+
+```ts
+let state = new Map<string, unknown>();
+let timestamp = 0;
+const next = new Map(state);
+for await (const event of client.sync(timestamp)) {
+  switch (event.event) {
+    case "reset": next.clear(); break;
+    case "upsert": next.set(event.key, event.data); break;
+    case "delete": next.delete(event.key); break;
+    case "done": state = next; timestamp = event.timestamp; break;
+  }
+}
+```
+
+`client` 是调用方创建的 control client。事件与覆盖的数据范围由
+[Public API](../api/http/public#peer-状态同步) 定义。HTTP OpenAPI 生成 surface 同样导出
+`syncPeer` 与 `SyncEvent`，设备的 Protobuf Peer Event Stream 保持独立。
+
 ## 生成与验证
 
 ```sh

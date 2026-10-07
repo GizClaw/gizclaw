@@ -13,6 +13,48 @@ Offer 使用 ECDH/AEAD 验证公钥持有者并保护 SDP 和可选的 `Admissio
 
 API Key 的鉴权和管理契约见 [Peer HTTP · API Key](../../gizclaw/peer/service/api-keys)。设备首次入网仍由本地 BLE 通道负责；设备在线后可经 API Key 和 `/gizclaw/v1/device*` 扫描或更换 Wi‑Fi。
 
+## Peer 状态同步
+
+`GET /gizclaw/v1/sync?timestamp=...` 使用 Bearer API Key 的不可变 owner Peer，
+普通 Key 与 manager Key 的同步范围相同。`timestamp=0` 读取初始全量；后续请求使用
+上次完整同步返回的服务端 Unix 毫秒时间戳，不使用客户端时钟，也不接受 Peer selector。
+
+响应为有限的 `text/event-stream`。每个 SSE `data` 是 OpenAPI `SyncEvent`，
+其 `event` 字段与 SSE event name 相同：
+
+| Event | 数据与作用 |
+| --- | --- |
+| `reset` | 清空本轮暂存状态，随后接收当前全量。 |
+| `upsert` | `key` 是规范的 `/gizclaw/v1/...` 资源路径，`data` 是该项目的完整当前读取投影；替换同 key 的旧对象。 |
+| `delete` | 删除 `key` 对应的项目，包含对象删除和 owner 失去访问权限。 |
+| `done` | `timestamp` 标识本轮成功同步的检查点，发送后连接结束。 |
+
+```text
+event: upsert
+data: {"event":"upsert","key":"/gizclaw/v1/device/runtime","data":{"online":true,"last_seen_at":"2026-10-07T00:00:00Z"}}
+
+event: done
+data: {"event":"done","timestamp":1791331200000}
+
+```
+
+每个项目与上次检查点比较，只发送最终读取投影有差异的项目。覆盖设备信息、runtime、
+status、firmware、runtime-profile、MHS manifest、拥有的 Workspace、Contact、Friend、
+Friend Group 与成员，以及自己可读取的有效邀请码。集合按项目同步，名字与 ID 在路径中
+逐段 URL 编码。群名使用 owner 自己的名字空间，群邀请码只向群 owner 返回。
+未绑定的 Firmware 不作为当前项目。历史、日志与 telemetry 查询继续使用各自读取接口。
+同步不向设备发送 RPC，也不刷新设备在线状态。
+
+客户端应暂存本轮事件，只在收到 `done` 后一起提交新状态和时间戳。没有收到 `done` 的
+断线、取消或读取失败应丢弃本轮暂存数据，并使用上次完成的时间戳重试。
+检查点保存的是已返回投影的摘要；它不是历史事件日志或任意墙钟时间的查询。
+[Peer Sync](../../gizclaw/services/runtime/peersync) 在 Peer KV store 中保存最近 64 个检查点，
+每个最多保留 24 小时；未知、过期或被淘汰的时间戳返回 `reset` 后重新同步全量。
+持久化 KV 可在 Server 重启后继续同步。
+
+参数、鉴权和数据读取失败在 SSE 开始前返回标准 JSON 错误；无效时间戳返回
+`400 INVALID_REQUEST`，其他鉴权与 owner 可用性规则沿用 Peer HTTP。
+
 ## 设备与 Contact surface
 
 `/gizclaw/v1/device*`、`/gizclaw/v1/contacts*`、`/gizclaw/v1/friends*` 与 `/gizclaw/v1/friend-groups*` 支持 `Authorization: Bearer <api-key>`，也支持下述设备调试访问。Server 从 Key record 取得不可变的 owner Peer；Bearer API Key 的 owner 始终由 Key 决定，manager Key 与普通 Key 对这些 route 拥有相同的 owner-scoped 能力。Key 无效或已撤销返回 `401 INVALID_API_KEY`，owner 不是 active Client 或没有 RuntimeProfile binding 返回 `403 API_KEY_OWNER_UNAVAILABLE`，owner pending deletion 返回 `409 PEER_PENDING_DELETION`，validation 与分页错误返回 `400 INVALID_REQUEST`，store 或 service 故障统一返回脱敏的 `500 INTERNAL_ERROR`。

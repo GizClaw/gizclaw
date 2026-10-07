@@ -1,0 +1,357 @@
+# User Story:
+# As a device API key holder,
+# I want to synchronize my Peer final state through SSE checkpoints,
+# So that isolation, changes, deletions, and errors are verified end to end.
+version: gizclaw.test/v1alpha1
+name: server.peer.sync
+clients:
+  device:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  controller:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  device_key:
+    direction: output
+    type: string
+    secret: true
+  controller_key:
+    direction: output
+    type: string
+    secret: true
+  initial_checkpoint:
+    direction: output
+    type: number
+  idle_checkpoint:
+    direction: output
+    type: number
+  created_checkpoint:
+    direction: output
+    type: number
+  updated_checkpoint:
+    direction: output
+    type: number
+  deleted_checkpoint:
+    direction: output
+    type: number
+  reconnected_checkpoint:
+    direction: output
+    type: number
+steps:
+  - id: register_device
+    client: device
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: register_controller
+    client: controller
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: device_key
+    client: device
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}-device
+    capture:
+      device_key: /api_key
+  - id: controller_key
+    client: controller
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}-controller
+    capture:
+      controller_key: /api_key
+  - id: foreign_contact
+    client: controller
+    http:
+      method: POST
+      path: /gizclaw/v1/contacts
+      headers:
+        Authorization: Bearer ${controller_key}
+      body:
+        name: ${resource_name}
+        display_name: sync-foreign-${resource_name}
+      status: 201
+  - id: initial_sync
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync?timestamp=0
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events/0/event:
+        equals: reset
+      /last_event/event:
+        equals: done
+      /last_event/data/event:
+        equals: done
+      /last_event/data/timestamp:
+        minimum: 1
+      /raw:
+        contains_all:
+          - /gizclaw/v1/device/runtime
+          - '"online":true'
+          - /gizclaw/v1/device/status
+          - /gizclaw/v1/device/runtime-profile
+        not_contains: sync-foreign-${resource_name}
+    capture:
+      initial_checkpoint: /last_event/data/timestamp
+  - id: unchanged_sync
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      query: {timestamp: "${initial_checkpoint}"}
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events:
+        count: 1
+      /last_event/event:
+        equals: done
+    capture:
+      idle_checkpoint: /last_event/data/timestamp
+  - id: create_owned_contact
+    client: controller
+    http:
+      method: POST
+      path: /gizclaw/v1/contacts
+      headers:
+        Authorization: Bearer ${device_key}
+      body:
+        name: ${resource_name}
+        display_name: sync-original-${resource_name}
+      status: 201
+  - id: created_contact_sync
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      query: {timestamp: "${idle_checkpoint}"}
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events/0/event:
+        equals: upsert
+      /events/0/data/key:
+        equals: /gizclaw/v1/contacts/${resource_name}
+      /events/0/data/data/display_name:
+        equals: sync-original-${resource_name}
+      /last_event/event:
+        equals: done
+      /raw:
+        not_contains:
+          - "event: reset"
+          - sync-foreign-${resource_name}
+    capture:
+      created_checkpoint: /last_event/data/timestamp
+  - id: intermediate_update
+    client: controller
+    http:
+      method: PUT
+      path: /gizclaw/v1/contacts/${resource_name}
+      headers:
+        Authorization: Bearer ${device_key}
+      body:
+        display_name: sync-intermediate-${resource_name}
+      status: 200
+  - id: final_update
+    client: controller
+    http:
+      method: PUT
+      path: /gizclaw/v1/contacts/${resource_name}
+      headers:
+        Authorization: Bearer ${device_key}
+      body:
+        display_name: sync-final-${resource_name}
+      status: 200
+  - id: final_state_sync
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      query: {timestamp: "${created_checkpoint}"}
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events/0/event:
+        equals: upsert
+      /events/0/data/data/display_name:
+        equals: sync-final-${resource_name}
+      /last_event/event:
+        equals: done
+      /raw:
+        not_contains:
+          - sync-intermediate-${resource_name}
+          - "event: reset"
+    capture:
+      updated_checkpoint: /last_event/data/timestamp
+  - id: delete_owned_contact
+    client: controller
+    http:
+      method: DELETE
+      path: /gizclaw/v1/contacts/${resource_name}
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 204
+  - id: deletion_sync
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      query: {timestamp: "${updated_checkpoint}"}
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events/0/event:
+        equals: delete
+      /events/0/data/key:
+        equals: /gizclaw/v1/contacts/${resource_name}
+      /last_event/event:
+        equals: done
+    capture:
+      deleted_checkpoint: /last_event/data/timestamp
+  - id: reconnect_device
+    client: device
+    reconnect:
+      await_ms: 30000
+  - id: reconnect_sync
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      query: {timestamp: "${deleted_checkpoint}"}
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events/0/event:
+        equals: upsert
+      /events/0/data/key:
+        equals: /gizclaw/v1/device/runtime
+      /events/0/data/data/online:
+        equals: true
+      /last_event/event:
+        equals: done
+    capture:
+      reconnected_checkpoint: /last_event/data/timestamp
+  - id: stale_checkpoint
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync?timestamp=1
+      response_format: sse
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 200
+    expect:
+      /events/0/event:
+        equals: reset
+      /last_event/event:
+        equals: done
+  - id: invalid_timestamp
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync?timestamp=-1
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: missing_timestamp
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: missing_key
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync?timestamp=0
+      status: 401
+    expect:
+      /error/code:
+        equals: INVALID_API_KEY
+  - id: invalid_key
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync?timestamp=0
+      headers:
+        Authorization: Bearer invalid-sync-key
+      status: 401
+    expect:
+      /error/code:
+        equals: INVALID_API_KEY
+  - id: revoke_device_key
+    client: controller
+    http:
+      method: DELETE
+      path: /gizclaw/v1/api-keys/self
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 204
+  - id: revoked_key
+    client: controller
+    http:
+      method: GET
+      path: /gizclaw/v1/sync
+      query: {timestamp: "${reconnected_checkpoint}"}
+      headers:
+        Authorization: Bearer ${device_key}
+      status: 401
+    expect:
+      /error/code:
+        equals: INVALID_API_KEY
+finally:
+  - id: cleanup_device
+    client: device
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - id: cleanup_controller
+    client: controller
+    rpc:
+      method: server.peer.delete
+      request: {}

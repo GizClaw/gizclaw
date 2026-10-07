@@ -8,6 +8,7 @@ import 'dart:io';
 import 'assertions.dart';
 import 'client.dart';
 import 'document.dart';
+import 'http_sse.dart';
 import 'variables.dart';
 
 const _cleanupBudget = Duration(seconds: 30);
@@ -129,9 +130,26 @@ Future<_StepOutcome> _runStep(
     if (client == null) {
       throw StateError('step ${step.id} has no connected client');
     }
-    final path = variables.resolveString(http['path'], 'http path');
+    var path = variables.resolveString(http['path'], 'http path');
     if (!path.startsWith('/')) {
       throw StateError('http path must resolve to an absolute path');
+    }
+    final query = http['query'];
+    if (query is Map) {
+      final parsed = Uri.parse(path);
+      final parameters = Map<String, String>.of(parsed.queryParameters);
+      for (final entry in query.entries) {
+        final value = variables.resolve(entry.value);
+        if (value is! String && value is! num && value is! bool)
+          throw StateError('HTTP query must be a scalar');
+        if (value is num && !value.isFinite)
+          throw StateError('HTTP query must be finite');
+        parameters[entry.key
+            .toString()] = value is double && value == value.truncateToDouble()
+            ? value.toInt().toString()
+            : value.toString();
+      }
+      path = parsed.replace(queryParameters: parameters).toString();
     }
     final headers = <String, String>{};
     for (final entry
@@ -165,6 +183,14 @@ Future<_StepOutcome> _runStep(
     }
     if (declared == null && result.status >= 400) {
       throw AssertionFailure('http status = ${result.status}');
+    }
+    if (http['response_format'] == 'sse') {
+      final text = result.body;
+      if (text is! String) throw StateError('SSE response must be text');
+      return _StepOutcome(
+        value: decodeHttpEventStream(text),
+        evidence: evidence,
+      );
     }
     return _StepOutcome(value: result.body, evidence: evidence);
   }

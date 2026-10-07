@@ -370,6 +370,10 @@ func (s *session) executeHTTP(ctx context.Context, client *deviceClient, req giz
 	if err != nil {
 		return giztest.StepResult{}, fmt.Errorf("http path: %w", err)
 	}
+	pathValue, err = giztest.ResolveHTTPQuery(pathValue, step.HTTP.Query, req.Vars)
+	if err != nil {
+		return giztest.StepResult{}, err
+	}
 	apiKey, err := bearerToken(req.Vars, step.HTTP.Headers)
 	if err != nil {
 		return giztest.StepResult{}, err
@@ -396,7 +400,13 @@ func (s *session) executeHTTP(ctx context.Context, client *deviceClient, req giz
 		evidence["error_kind"] = result.kind
 	}
 	outcome := giztest.StepResult{Evidence: evidence}
-	if len(strings.TrimSpace(string(result.body))) > 0 {
+	if step.HTTP.ResponseFormat == "sse" {
+		outcome.Value, err = giztest.DecodeHTTPEventStream(string(result.body))
+		if err != nil {
+			return outcome, err
+		}
+		outcome.Saved = outcome.Value
+	} else if len(strings.TrimSpace(string(result.body))) > 0 {
 		var decoded any
 		if json.Unmarshal(result.body, &decoded) == nil {
 			outcome.Value = decoded
