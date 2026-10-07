@@ -20,6 +20,7 @@ cat > "$run_dir/compose.runtime-tools.yaml" <<'COMPOSE'
 services:
   server:
     user: "${RUNTIME_TOOLS_RUN_USER}"
+    dns: [223.5.5.5, 119.29.29.29]
     logging: {driver: json-file, options: {max-size: "256m", max-file: "1"}}
   edge:
     user: "${RUNTIME_TOOLS_RUN_USER}"

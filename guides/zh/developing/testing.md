@@ -1586,6 +1586,10 @@ runner 进程中读取 `GIZCLAW_VOLC_ARK_API_KEY`，通过环境传给 seed；�
 不代表物理硬件验收。真实模型是 `doubao-seed-2-1-lite-260915`，thinking disabled，
 temperature 省略，max_tokens 2048。
 
+该入口只为自己的测试 Server 容器设置 `223.5.5.5` 和 `119.29.29.29` 作为外部 DNS
+转发地址，Docker 内部服务名仍由项目网络解析；不修改宿主机、共享 Docker 或生产配置。
+报告仍把 DNS、连接与 Provider 失败保留为 FAIL，不能用解析配置或重跑覆盖原失败回执。
+
 `client_rpc.response.instances` 安装有状态 MHS 实例；`audio_player` 安装真实协议的测试
 播放列表/播放器；`run_workspace` 安装调用现有 Server Workspace selection 的程序。
 这些是设备实现，不是模型替身。明确 `--evidence full` 时，Go runner 保存实际用户输入、

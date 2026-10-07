@@ -1886,6 +1886,11 @@ and binary hashes, source patch, inputs, decoded protocol receipts and reports.
 If a container interruption produces no giztest.json, the summary is FAIL with every
 expected task missing and its outcome unknown; it fabricates no execution or timing scores.
 
+Only this lane's test Server container uses `223.5.5.5` and `119.29.29.29` as external DNS
+forwarders. Docker service names still resolve within the project network; host, shared Docker
+and production settings are not changed. DNS, connection and provider failures remain FAIL,
+and neither resolver configuration nor a rerun overwrites an earlier failed receipt.
+
 Business bindings select `verification_model`; the primary model still produces
 native calls and clarification. Independent checks cover each mutating proposal, fixed-target MHS read
 and final reply, with at most two corrections. Complete-parameter readiness
