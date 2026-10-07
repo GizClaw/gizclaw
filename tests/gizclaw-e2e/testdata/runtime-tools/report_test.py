@@ -45,6 +45,41 @@ class ReportTest(unittest.TestCase):
             self.assertEqual(summary["counts"], {"failed": 1})
             self.assertEqual(summary["missing_tasks"], 0)
 
+    def test_failed_reply_keeps_actual_request_attribution_without_passing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "inputs").mkdir()
+            document = {"name": "probe.10", "steps": [
+                {"id": "turn_0", "client": "peer", "peer_stream": {"mode": "text", "input": "play the selected song"}},
+                {"id": "play", "client_rpc": {"method": "client.tool.v0.invoke", "tool": "audioplayer.play"}, "expect": {
+                    "/requests": {"count": 1}, "/requests/0/tool": {"equals": "audioplayer.play"},
+                    "/requests/0/tool_enum": {"equals": 14}, "/requests/0/args": {"equals": {"index": 1}},
+                    "/requests/0/effective_index": {"equals": 1},
+                }},
+            ]}
+            (root / "inputs/probe.giztest.yaml").write_text(json.dumps(document))
+            request = {"tool": "audioplayer.play", "tool_enum": 14, "args": {"index": 1}, "effective_index": 1}
+            task = {"name": "probe.10", "path": "probe.giztest.yaml", "status": "failed", "duration_ms": 1000,
+                    "steps": [{"id": "turn_0", "operation": "peer_stream", "client": "peer", "status": "failed",
+                               "started_at": "2026-01-01T00:00:00Z", "duration_ms": 1000, "evidence": {"terminal_errors": 1}}],
+                    "cleanup": [{"id": "audit_play", "evidence": {"requests": [
+                        dict(request, received_at_unix_ms=1767225600100),
+                        dict(request, received_at_unix_ms=1767225601200),
+                    ]}}]}
+            (root / "giztest.json").write_text(json.dumps({"status": "failed", "tasks": [task]}))
+            result = self.run_report(root)
+            self.assertEqual(result.returncode, 1, result.stderr)
+            summary = json.loads((root / "summary.json").read_text())
+            self.assertEqual(summary["status"], "FAIL")
+            self.assertEqual(summary["counts"], {"failed": 1})
+            metrics = summary["tasks"][0]
+            self.assertEqual(metrics["correct_actions"], 1)
+            self.assertEqual(metrics["parameter_correct_actions"], 1)
+            self.assertEqual(metrics["target_correct_actions"], 1)
+            self.assertEqual(metrics["extra_or_wrong_actions"], 1)
+            self.assertEqual(metrics["observed_turns"], 0)
+            self.assertEqual(json.loads((root / "giztest.json").read_text())["tasks"][0], task)
+
 
 if __name__ == "__main__":
     unittest.main()

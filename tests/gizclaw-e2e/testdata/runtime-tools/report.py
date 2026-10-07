@@ -96,11 +96,20 @@ def task_metrics(task, document):
         evidence = step.get("evidence", {})
         if step["id"].startswith("audit_") and "requests" in evidence:
             actual_groups[step["id"]] = evidence["requests"]
-    actual = [row for rows in actual_groups.values() for row in rows]
+    actual = [dict(row) for rows in actual_groups.values() for row in rows]
     turns = [step for step in steps if step["id"].startswith("turn_") and step.get("evidence", {}).get("user_input") is not None]
-    turn_starts = [(datetime.fromisoformat(step["started_at"].replace("Z", "+00:00")).timestamp() * 1000, step["id"]) for step in turns]
+    attempts = [step for step in steps if step["id"].startswith("turn_") and step.get("operation") == "peer_stream" and step.get("started_at")]
+    # A failed reply can follow a real device mutation. Its native step window
+    # still identifies the attempted turn, without inventing captured input or
+    # upgrading that turn/task to success. Requests outside every window remain
+    # unassigned, including late mutations after a failed turn ended.
+    windows = []
+    for step in attempts:
+        start = int(datetime.fromisoformat(step["started_at"].replace("Z", "+00:00")).timestamp() * 1000)
+        windows.append((start, start + step["duration_ms"] + 1, step["id"]))
     for row in actual:
-        starts = [(start, identifier) for start, identifier in turn_starts if start <= row.get("received_at_unix_ms", -1)]
+        received = row.get("received_at_unix_ms", -1)
+        starts = [(start, identifier) for start, end, identifier in windows if start <= received <= end]
         row["turn_id"] = max(starts)[1] if starts else None
     unmatched = list(actual)
     matched = []
@@ -114,15 +123,14 @@ def task_metrics(task, document):
         received = request.get("received_at_unix_ms")
         if received is None:
             continue
-        prior = [datetime.fromisoformat(step["started_at"].replace("Z", "+00:00")).timestamp() * 1000 for step in turns]
-        prior = [start for start in prior if start <= received]
+        prior = [start for start, _, identifier in windows if identifier == request["turn_id"]]
         if prior:
             ready_ms.append(round(received - max(prior), 3))
     return {"expected_actions": len(expected), "observed_actions": len(actual), "correct_actions": len(matched),
             "parameter_correct_actions": matching_parts(expected, actual, "parameter"),
             "target_correct_actions": matching_parts(expected, actual, "target"),
             "extra_or_wrong_actions": len(unmatched), "planned_turns": sum(step["id"].startswith("turn_") for step in document["steps"]),
-            "observed_turns": len(turns), "protocol_ready_ms": ready_ms, "trace_present": bool(actual_groups)}
+            "observed_turns": len(turns), "attempted_turns": len(attempts), "protocol_ready_ms": ready_ms, "trace_present": bool(actual_groups)}
 
 
 def main():
@@ -178,6 +186,7 @@ def main():
                          "Recall is fully correct actions divided by all planned expected actions, including later turns not reached after failure.",
                          "Call precision requires both exact target and parameters in the authorized user turn. Parameter and target accuracies independently match expected requests one-to-one within the same user turn and procedure.",
                          "A failed task can stop before later planned turns; those turns remain unobserved.",
+                         "Failed reply steps retain request attribution within their native timing window; this does not invent captured input or change native failure. Late requests outside all turn windows stay unassigned.",
                          "Protocol ready time measures user-turn start to receipt of the complete validated request at the device; it includes transport.",
                          "Catalog focus metadata is a test fixture update, not a production UI focus API.",
                          "Program and audio acknowledgments do not qualify physical hardware or actual audio playout."], "tasks": rows}
