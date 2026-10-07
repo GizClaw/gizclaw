@@ -2,7 +2,9 @@ package gizclaw
 
 import (
 	"context"
+	"database/sql"
 	"errors"
+	"log/slog"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -10,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -124,6 +127,9 @@ func (m *Manager) sfuInputAccess(
 		if err == nil && strings.TrimSpace(item.WorkflowId) != socialutil.SFUWorkflowID {
 			return false, nil
 		}
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			slog.WarnContext(gizlog.WithPeerPublicKey(ctx, caller.String()), "gizclaw: input permission lookup failed", "stage", "local_workspace", "timeout", errors.Is(err, context.DeadlineExceeded), "canceled", errors.Is(err, context.Canceled))
+		}
 	}
 	_, err := m.sfuBindings().ResolveSFUWorkspaceBindingByName(ctx, workspaceName, caller.String())
 	switch {
@@ -134,6 +140,7 @@ func (m *Manager) sfuInputAccess(
 	case errors.Is(err, sfu.ErrNotMember), errors.Is(err, sfu.ErrRevoked):
 		return true, sfuAccessRevokedError()
 	default:
+		slog.WarnContext(gizlog.WithPeerPublicKey(ctx, caller.String()), "gizclaw: input permission lookup failed", "stage", "social_binding", "timeout", errors.Is(err, context.DeadlineExceeded), "canceled", errors.Is(err, context.Canceled))
 		return true, sfuAccessCheckFailedError()
 	}
 }
@@ -158,6 +165,7 @@ func (m *Manager) unboundInputAccess(
 	item, err := resources.ResolveWorkspaceForAccessCheck(ctx, workspaceName)
 	switch {
 	case err != nil:
+		slog.WarnContext(gizlog.WithPeerPublicKey(ctx, caller.String()), "gizclaw: input permission lookup failed", "stage", "unbound_workspace", "timeout", errors.Is(err, context.DeadlineExceeded), "canceled", errors.Is(err, context.Canceled))
 		return true, sfuAccessCheckFailedError()
 	case strings.TrimSpace(item.WorkflowId) == socialutil.SFUWorkflowID:
 		return true, sfuAccessRevokedError()

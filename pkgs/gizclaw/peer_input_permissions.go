@@ -2,6 +2,8 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
+	"log/slog"
 	"sync"
 	"time"
 )
@@ -42,6 +44,7 @@ func (h *PeerConn) inputPermission(ctx context.Context, refresh bool) peerInputP
 		stable, err := h.agentHost.WaitRuntimeRevision(waitCtx)
 		cancel()
 		if err != nil {
+			slog.WarnContext(h.logContext(), "gizclaw: input permission check failed", "stage", "runtime_revision_wait", "timeout", errors.Is(err, context.DeadlineExceeded), "canceled", errors.Is(err, context.Canceled))
 			return denied
 		}
 		revision = stable
@@ -59,6 +62,7 @@ func (h *PeerConn) inputPermission(ctx context.Context, refresh bool) peerInputP
 			cache.mu.Unlock()
 			// Expired results fail closed locally. The worker owns retrying storage.
 			if time.Since(value.checkedAt) > peerPermissionMaxAge {
+				slog.WarnContext(h.logContext(), "gizclaw: input permission check failed", "stage", "cache_expired", "runtime_revision", revision, "age_ms", time.Since(value.checkedAt).Milliseconds())
 				return denied
 			}
 			return value
@@ -100,6 +104,7 @@ func (h *PeerConn) readInputPermission(parent context.Context, revision uint64) 
 	run, err := h.currentRunState(ctx)
 	value.run = run
 	if err != nil {
+		slog.WarnContext(h.logContext(), "gizclaw: input permission check failed", "stage", "run_state", "runtime_revision", revision, "timeout", errors.Is(err, context.DeadlineExceeded), "canceled", errors.Is(err, context.Canceled))
 		value.denial = sfuAccessCheckFailedError()
 		return value
 	}
@@ -110,6 +115,7 @@ func (h *PeerConn) readInputPermission(parent context.Context, revision uint64) 
 		}
 	}
 	if ctx.Err() != nil {
+		slog.WarnContext(h.logContext(), "gizclaw: input permission check failed", "stage", "lookup_context", "runtime_revision", revision, "timeout", errors.Is(ctx.Err(), context.DeadlineExceeded), "canceled", errors.Is(ctx.Err(), context.Canceled))
 		value.denial = sfuAccessCheckFailedError()
 	}
 	return value
