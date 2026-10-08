@@ -3,6 +3,11 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
+CI 只执行无需线上数据库和真实 AI 服务的测试。数据库集成使用 job 自建的临时
+PostgreSQL、ClickHouse 或 PGVector；协议与 SDK E2E 使用隔离的本地服务和确定性
+provider fixture。依赖线上数据库、真实模型调用或 provider 凭据的 E2E 与质量评测
+只能在本地显式启动，不加入 CI，包括手动触发的 CI。
+
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
@@ -1362,7 +1367,7 @@ hit rate 不低于 `0.50`，且每个选中 session 至少 materialize 一个 fa
 
 Doubao `doubao-embedding-vision-251215` 支持纯文本，使用 Ark `/embeddings/multimodal`。设置 `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal`，并明确提供 Ark embedding key/base URL、模型与 1024 或 2048 维。服务按每条文本发出一个请求，保持 batch 输入与向量一一对应，并为 corpus/query 设置不同的 instruction；instruction fingerprint 进入报告。错误或无效向量不能变成成功空写入。更换 Embedding 后必须在独立 collection 中重新生成向量，不能与 Qwen 向量混用。
 
-CI 的手动 `workflow_dispatch` 可选择 `mem0_quality`，运行完整 conv-30 的真实质量评测并上传 redacted JSON。它需要 repository secrets `GIZCLAW_DEEPSEEK_API_KEY`、`GIZCLAW_VOLC_ARK_API_KEY`；缺失则失败，未选择时不请求模型。此 job 使用固定 Lite extraction（请求 `service_tier: fast`）、Doubao Vision embedding（1024 维）与 DeepSeek answer 配置，不等于完整十对话 LoCoMo。
+完整 conv-30 的真实质量评测通过本地 `tests/locomo-e2e/run_docker.sh mem0-pgvector` 显式启动，按本节配置模型凭据并保留 redacted JSON。CI 不调用真实模型，也不提供真实模型评测的手动触发入口。conv-30 不等于完整十对话 LoCoMo。
 
 LoCoMo 的 self-hosted lane 使用 `sdk/go/mem0` 的健康检查和 production adapter
 的生成请求 DTO/HTTP client；PG lane 的 instruction 通过每次请求 `prompt` 传递。

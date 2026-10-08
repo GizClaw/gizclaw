@@ -5,6 +5,12 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
+CI runs only tests that require no online database or live AI service. Database
+integration jobs provision temporary PostgreSQL, ClickHouse or PGVector instances;
+protocol and SDK E2E use isolated local services and deterministic provider fixtures.
+E2E and quality evaluations that need an online database, real model calls or provider
+credentials run explicitly on the local host, outside CI, including manual CI dispatch.
+
 E2E entrypoints that build the GizClaw CLI install the locked Node workspaces
 and build the embedded console before Go compilation, including container builds.
 No manual asset or manifest copy is required; standalone build prerequisites are
@@ -1621,7 +1627,7 @@ Regression checks have two layers. `tests/locomo-e2e/run_regression.sh` requires
 
 Doubao `doubao-embedding-vision-251215` accepts text through Ark `/embeddings/multimodal`. Set `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal` and explicitly provide the Ark embedding key/base URL, model, and 1024 or 2048 dimensions. Each text is one request, preserving one vector per batch input. Corpus/query instructions differ and their fingerprint enters reports. Provider errors or invalid vectors cannot become successful empty writes. Changing embedders requires regenerating vectors in a separate collection; Qwen and Doubao vectors cannot be mixed.
 
-Manual CI `workflow_dispatch` accepts `mem0_quality` to run complete conv-30 with real models and upload redacted JSON. It requires repository secrets `GIZCLAW_DEEPSEEK_API_KEY` and `GIZCLAW_VOLC_ARK_API_KEY`; missing credentials fail. Unselected runs make no model calls. This job fixes Lite extraction (requesting `service_tier: fast`), Doubao Vision embeddings (1024 dimensions), and DeepSeek answers; conv-30 is not the complete ten-conversation LoCoMo benchmark.
+Run complete conv-30 quality evaluation explicitly on the local host with `tests/locomo-e2e/run_docker.sh mem0-pgvector`, configuring model credentials as described here and retaining redacted JSON. CI neither calls real models nor provides a manual trigger for live model evaluation. Conv-30 is not the complete ten-conversation LoCoMo benchmark.
 
 Self-hosted LoCoMo uses `sdk/go/mem0` health checks and the production adapter
 with generated request DTOs/HTTP clients. PG instructions travel as request-local

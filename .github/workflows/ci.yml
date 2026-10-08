@@ -6,69 +6,12 @@ on:
       - main
   pull_request:
   workflow_dispatch:
-    inputs:
-      mem0_quality:
-        description: Run credential-backed Mem0 PGVector conv-30 quality evaluation
-        type: boolean
-        default: false
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  mem0-quality:
-    name: Mem0 LoCoMo Quality
-    if: github.event_name == 'workflow_dispatch' && inputs.mem0_quality
-    runs-on: ubuntu-24.04
-    timeout-minutes: 90
-    permissions:
-      contents: read
-    env:
-      GIZCLAW_LOCOMO_E2E_MODEL_API_KEY: ${{ secrets.GIZCLAW_DEEPSEEK_API_KEY }}
-      GIZCLAW_LOCOMO_E2E_MODEL_BASE_URL: https://api.deepseek.com
-      GIZCLAW_LOCOMO_E2E_MODEL_PROVIDER: deepseek
-      GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY: ${{ secrets.GIZCLAW_VOLC_ARK_API_KEY }}
-      GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL: https://ark.cn-beijing.volces.com/api/v3
-      GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING: disabled
-      GIZCLAW_LOCOMO_E2E_MEM0_LLM_SERVICE_TIER: fast
-      GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL: doubao-seed-2-1-lite-260915
-      GIZCLAW_LOCOMO_E2E_ANSWER_MODEL: deepseek-flash
-      GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY: ${{ secrets.GIZCLAW_VOLC_ARK_API_KEY }}
-      GIZCLAW_LOCOMO_E2E_EMBEDDING_BASE_URL: https://ark.cn-beijing.volces.com/api/v3
-      GIZCLAW_LOCOMO_E2E_EMBEDDING_MODEL: doubao-embedding-vision-251215
-      GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL: ark_multimodal
-      GIZCLAW_LOCOMO_E2E_EMBEDDING_DIMENSIONS: "1024"
-      GIZCLAW_LOCOMO_E2E_DATASET: tests/locomo-e2e/testdata/locomo10_conv30.jsonl
-      GIZCLAW_LOCOMO_E2E_REPORT_DIR: tests/locomo-e2e/reports/ci
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Fetch LoCoMo fixtures
-        run: git lfs pull --include="tests/locomo-e2e/testdata/*.jsonl"
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Require model credentials
-        run: |
-          for name in GIZCLAW_LOCOMO_E2E_MODEL_API_KEY GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY GIZCLAW_LOCOMO_E2E_EMBEDDING_API_KEY; do
-            if [[ -z "${!name}" ]]; then
-              echo "$name is required for live quality evaluation" >&2
-              exit 2
-            fi
-          done
-      - name: Evaluate real extraction, persistence, recall and answers
-        run: bash tests/locomo-e2e/run_docker.sh mem0-pgvector
-      - name: Preserve redacted quality reports
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        with:
-          name: mem0-locomo-quality
-          path: tests/locomo-e2e/reports/ci/*.json
-          if-no-files-found: warn
-
   mem0-regression:
     name: Mem0 PGVector Regression
     runs-on: ubuntu-24.04
