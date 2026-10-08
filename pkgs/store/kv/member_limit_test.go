@@ -13,8 +13,9 @@ func testCollectionMemberLimit(t *testing.T, store collectionStore) {
 	ctx := t.Context()
 	root := "member-limit-" + rand.Text()
 	index, ordered, record, other, legacy, wrong := Key{root, "index"}, Key{root, "ordered"}, Key{root, "record"}, Key{root, "other"}, Key{root, "legacy"}, Key{root, "wrong"}
+	mixed, mixedOrdered := Key{root, "mixed"}, Key{root, "mixed-ordered"}
 	t.Cleanup(func() {
-		_, _ = store.ApplyMutation(context.Background(), Mutation{DeleteKeys: []Key{index, ordered, record, other, legacy, wrong}})
+		_, _ = store.ApplyMutation(context.Background(), Mutation{DeleteKeys: []Key{index, ordered, record, other, legacy, wrong, mixed, mixedOrdered}})
 	})
 	if err := store.Set(ctx, record, []byte("before")); err != nil {
 		t.Fatal(err)
@@ -34,6 +35,8 @@ func testCollectionMemberLimit(t *testing.T, store collectionStore) {
 		{DeleteKeys: []Key{record}, AddOrderedMembers: []SetMembers{{Key: ordered, Members: []string{"c"}, MaxMembers: 2}}},
 		{AddMembers: []SetMembers{{Key: index, Members: []string{"c"}, MaxMembers: 3}, {Key: index, Members: []string{"d"}, MaxMembers: 3}}},
 		{AddMembers: []SetMembers{{Key: legacy, Members: []string{"d"}, MaxMembers: 2}}},
+		{Entries: []Entry{{Key: record, Value: []byte("changed")}}, AddMembers: []SetMembers{{Key: mixed, Members: []string{"a"}}, {Key: mixed, Members: []string{"b"}, MaxMembers: 1}}},
+		{DeleteKeys: []Key{record}, AddOrderedMembers: []SetMembers{{Key: mixedOrdered, Members: []string{"a"}}, {Key: mixedOrdered, Members: []string{"b"}, MaxMembers: 1}}},
 	} {
 		if ok, err := store.ApplyMutation(ctx, mutation); ok || !errors.Is(err, ErrMemberLimit) {
 			t.Fatalf("overflow = %v, %v", ok, err)
@@ -51,8 +54,19 @@ func testCollectionMemberLimit(t *testing.T, store collectionStore) {
 		if err != nil || len(members) != 0 {
 			t.Fatalf("rejected mutation created other index = %v, %v", members, err)
 		}
+		members, err = store.ListMembers(ctx, mixed)
+		if err != nil || len(members) != 0 {
+			t.Fatalf("rejected mixed additions created index = %v, %v", members, err)
+		}
+		members, err = store.RangeOrderedMembers(ctx, mixedOrdered, OrderedRange{Limit: 2})
+		if err != nil || len(members) != 0 {
+			t.Fatalf("rejected mixed additions created ordered index = %v, %v", members, err)
+		}
 	}
-	duplicate := Mutation{AddMembers: []SetMembers{{Key: index, Members: []string{"a", "a"}, MaxMembers: 2}, {Key: legacy, Members: []string{"b"}, MaxMembers: 2}}, AddOrderedMembers: []SetMembers{{Key: ordered, Members: []string{"a"}, MaxMembers: 2}}}
+	duplicate := Mutation{
+		AddMembers:        []SetMembers{{Key: index, Members: []string{"a", "a"}, MaxMembers: 2}, {Key: legacy, Members: []string{"b"}, MaxMembers: 2}, {Key: mixed, Members: []string{"a"}}, {Key: mixed, Members: []string{"a"}, MaxMembers: 1}},
+		AddOrderedMembers: []SetMembers{{Key: ordered, Members: []string{"a"}, MaxMembers: 2}, {Key: mixedOrdered, Members: []string{"a"}}, {Key: mixedOrdered, Members: []string{"a"}, MaxMembers: 1}},
+	}
 	if ok, err := store.ApplyMutation(ctx, duplicate); err != nil || !ok {
 		t.Fatalf("idempotent addition = %v, %v", ok, err)
 	}

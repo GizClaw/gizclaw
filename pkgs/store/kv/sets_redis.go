@@ -140,6 +140,8 @@ for i, key in ipairs(KEYS) do
  if (op == 'add' or op == 'zadd') and tonumber(values[1]) > 0 then bounded[key] = true end
  operations[i] = {op=op, key=key, values=values}
 end
+-- A later bounded group must count earlier additions with a zero limit.
+-- Mark bounded keys first, then project every addition to those keys.
 local projected = {}
 for _, command in ipairs(operations) do
  local op, key, values = command.op, command.key, command.values
