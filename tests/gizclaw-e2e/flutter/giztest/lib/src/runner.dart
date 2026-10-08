@@ -8,6 +8,7 @@ import 'dart:io';
 import 'assertions.dart';
 import 'client.dart';
 import 'document.dart';
+import 'http_query.dart';
 import 'http_sse.dart';
 import 'variables.dart';
 
@@ -136,20 +137,7 @@ Future<_StepOutcome> _runStep(
     }
     final query = http['query'];
     if (query is Map) {
-      final parsed = Uri.parse(path);
-      final parameters = Map<String, String>.of(parsed.queryParameters);
-      for (final entry in query.entries) {
-        final value = variables.resolve(entry.value);
-        if (value is! String && value is! num && value is! bool)
-          throw StateError('HTTP query must be a scalar');
-        if (value is num && !value.isFinite)
-          throw StateError('HTTP query must be finite');
-        parameters[entry.key
-            .toString()] = value is double && value == value.truncateToDouble()
-            ? value.toInt().toString()
-            : value.toString();
-      }
-      path = parsed.replace(queryParameters: parameters).toString();
+      path = resolveHttpQuery(path, query, variables);
     }
     final headers = <String, String>{};
     for (final entry
