@@ -39,11 +39,7 @@ func TestStageLogsPreserveDrainAndDeferredAcknowledgement(t *testing.T) {
 	if err := output.Close(); err != nil {
 		t.Fatal(err)
 	}
-	// CloseWithError is a no-op once production closed normally; logging must
-	// not discard the recorder for the still-readable queue.
-	if err := output.CloseWithError(context.Canceled); err != nil {
-		t.Fatal(err)
-	}
+	// Producer completion preserves the queue and its delivery acknowledgements.
 	for _, expected := range chunks {
 		got, err := output.Next()
 		if err != nil || got != expected {

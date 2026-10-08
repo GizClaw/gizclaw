@@ -1542,6 +1542,14 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
 报告保留在 `.testbench/slow-tts-*/reports/`，退出时清理容器、镜像和临时运行状态。
 
+### 客户端结束与输出确认回归
+
+`bash tests/gizclaw-e2e/run_observer_lifecycle_tests.sh` 在本地 internal Docker 网络启动真实 Server、Edge 和 Go Giztest，使用临时 Peer identity、SQLite 和确定性流式 Generator/ASR/TTS。首响应后关闭与换轮的相同文档连续执行三轮，另行覆盖保留实时流后的断连重连、重复 `server.run.stop`、活动 Workspace 删除及 Peer 删除。正常完成的对照检查 text/audio EOS 和已交付的 Workspace History。
+
+测试构建只通过 overlay 替换 provider、记录完整测试公钥并将原生 profiler 周期缩短为 2 秒；流处理和 RPC 生命周期使用被测实现。测试配置将 pending-deletion scan 设置为 1 秒，以检查异步本地清理完成。报告校验 goroutine/heap/allocs manifest 的大小与 SHA-256，检查任务结束及延后采样中的 Eino observer/execute 等待，记录总协程数，并按测试公钥关联 SQLite Workspace、graph state 与 retirement marker。Mem0、PostgreSQL、Redis、全部文件对象及 Peer-run 行物理回收不在这条 lane 的验收范围。
+
+报告和身份映射保留在权限受限的 ignored `.testbench/observer-lifecycle-*/reports/`，退出时清理该 project 的容器、镜像和临时运行状态。它不读取线上 provider 凭据。
+
 ### 说话人分段回归
 
 确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 两种 Eino Graph；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。

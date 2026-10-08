@@ -95,7 +95,22 @@ func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, e
 		}
 	}
 	go run.execute()
-	return invocation.Output(), nil
+	return &dockStream{Output: invocation.Output(), invocation: invocation}, nil
+}
+
+// The returned stream belongs to the consumer. Its close must cancel delivery,
+// while Invocation.Close remains the producer's buffer-preserving completion.
+type dockStream struct {
+	*streamkit.Output
+	invocation *streamkit.Invocation
+}
+
+func (s *dockStream) Close() error {
+	return s.invocation.Cancel(io.EOF)
+}
+
+func (s *dockStream) CloseWithError(err error) error {
+	return s.invocation.Cancel(err)
 }
 
 type dockRun struct {

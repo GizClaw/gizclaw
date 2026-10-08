@@ -1,0 +1,100 @@
+# User Story:
+# As a conversation user,
+# I want disconnect to release an active conversation,
+# So that delivery waiters and sessions finish after cleanup.
+version: gizclaw.test/v1alpha1
+name: observer.disconnect
+repeat: 3
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: Lifecycle fixture reply
+  tone:
+    direction: input
+    type: audio
+    env: LATENCY_TONE
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: slow-tts-eino
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_REALTIME
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: active_response
+    client: peer
+    timeout: 10s
+    peer_stream:
+      mode: realtime
+      input: ${tone}
+      pacing: 20ms
+      session: active
+      keep_open: true
+      completion: first_response
+      first_text_timeout: 2s
+      require_audio: false
+    expect:
+      /first_text_ms:
+        maximum: 2000
+  - id: disconnect_reconnect
+    client: peer
+    reconnect:
+      await_ms: 10000
+  - id: after_reconnect
+    client: peer
+    rpc:
+      method: server.run.status
+      request: {}
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
+timeout: 45s
