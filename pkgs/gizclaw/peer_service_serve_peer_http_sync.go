@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peersync"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -114,7 +115,7 @@ func (s *peerHTTP) syncSnapshot(ctx context.Context, owner giznet.PublicKey) (pe
 		if err := addSyncItem(snapshot, "device/firmware", peerhttp.DeviceFirmware{Description: firmware.Description, Slots: firmware.Slots}); err != nil {
 			return nil, err
 		}
-	} else if !errors.Is(err, peerresource.ErrDeviceFirmwareNotBound) {
+	} else if !errors.Is(err, peerresource.ErrDeviceFirmwareNotBound) && !errors.Is(err, kv.ErrNotFound) {
 		return nil, err
 	}
 	workspaces, err := reads.DeviceWorkspaces(ctx, peerresource.DeviceWorkspaceFilter{})

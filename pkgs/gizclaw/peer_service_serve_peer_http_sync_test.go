@@ -15,10 +15,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peersync"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/getkin/kin-openapi/openapi3"
 )
@@ -166,6 +170,38 @@ func TestPeerHTTPSyncOwnerIsolationAndSchema(t *testing.T) {
 	other := syncAs(t, f, f.b, first.timestamp)
 	if !other.reset || len(other.deleted) != 0 || other.upserts[syncPrefix+"contacts/alice"] != nil || other.upserts[syncPrefix+"contacts/private-b"] == nil {
 		t.Fatalf("foreign timestamp = %#v", other)
+	}
+}
+
+type missingSyncFirmware struct {
+	firmware.FirmwareAdminService
+}
+
+func (missingSyncFirmware) GetFirmware(context.Context, adminhttp.GetFirmwareRequestObject) (adminhttp.GetFirmwareResponseObject, error) {
+	return nil, fmt.Errorf("firmware lookup: %w", kv.ErrNotFound)
+}
+
+func TestPeerHTTPSyncMissingFirmwareDeletesPreviousItem(t *testing.T) {
+	f := newPeerSyncHTTPFixture(t)
+	seedBoundFirmware(t, f.deviceHTTPFixture, "devkit")
+	first := syncAs(t, f, f.a, 0)
+	if first.upserts[syncPrefix+"device/firmware"] == nil {
+		t.Fatal("bound firmware missing from initial sync")
+	}
+	deviceReads := f.public.DeviceReads
+	f.public.DeviceReads = func(owner giznet.PublicKey) peerresource.DeviceReads {
+		reads := deviceReads(owner)
+		reads.Firmwares = missingSyncFirmware{FirmwareAdminService: f.firmware}
+		return reads
+	}
+	expect(t, f.as(t, f.a, http.MethodGet, "/device/firmware", ""), http.StatusNotFound, publicHTTPFirmwareNotFound)
+	next := syncAs(t, f, f.a, first.timestamp)
+	if next.reset || len(next.upserts) != 0 || !slices.Equal(next.deleted, []string{syncPrefix + "device/firmware"}) {
+		t.Fatalf("missing firmware changes = %#v", next)
+	}
+	full := syncAs(t, f, f.a, 0)
+	if !full.reset || full.upserts[syncPrefix+"device/firmware"] != nil {
+		t.Fatalf("missing firmware reset = %#v", full)
 	}
 }
 
