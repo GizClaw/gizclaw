@@ -6999,6 +6999,7 @@
     "/peers/{publicKey}/@refresh": {
       "post": {
         "operationId": "refreshPeer",
+        "description": "A Peer may declare at most 10 distinct SN and IMEI indexes combined. Each SN or IMEI index may associate at most 10 Peers. Identifier overflow returns 409 DEVICE_IDENTIFIER_LIMIT_REACHED or DEVICE_IDENTIFIER_INDEX_FULL without changing the stored Peer or its indexes.",
         "summary": "Refresh peer info from connected device",
         "tags": [
           "Resource"
@@ -7036,7 +7037,7 @@
             }
           },
           "409": {
-            "description": "Device offline",
+            "description": "Device offline or a device identifier limit was reached",
             "content": {
               "application/json": {
                 "schema": {

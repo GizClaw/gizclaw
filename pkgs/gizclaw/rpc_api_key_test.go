@@ -13,6 +13,28 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+func TestRPCAPIKeyCreateLimit(t *testing.T) {
+	profiles, _ := registrationServerAndToken(t, "profile-api-key-limit")
+	owner := giznet.PublicKey{1}
+	if err := profiles.BindOwnerProfile(t.Context(), owner.String(), "profile-api-key-limit"); err != nil {
+		t.Fatal(err)
+	}
+	keys := apikey.NewServer(kv.NewMemory(nil))
+	for range apikey.PeerAPIKeyLimit {
+		if _, err := keys.Create(t.Context(), owner.String(), "existing", false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	server := &rpcServer{registrations: profiles, apiKeys: keys, callerPublicKey: owner,
+		validateAPIKeyOwner: func(context.Context, giznet.PublicKey) error { return nil }}
+	request := newRPCRequest("api-key-limit", rpcapi.RPCMethodServerAPIKeyCreate, mustRPCParams(
+		rpcapi.APIKeyCreateRequest{DisplayName: "eleventh"}, (*rpcapi.RPCPayload).FromAPIKeyCreateRequest))
+	response, err := server.dispatch(t.Context(), request)
+	if err != nil || response == nil || response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted || response.Error.Reason != "API_KEY_LIMIT_REACHED" {
+		t.Fatalf("API Key limit response=%+v err=%v", response, err)
+	}
+}
+
 func TestRPCAPIKeyCreateRequiresRegistrationAndReturnsRecoverableKey(t *testing.T) {
 	profiles, _ := registrationServerAndToken(t, "profile-api-key")
 	keyPair, err := giznet.GenerateKeyPair()

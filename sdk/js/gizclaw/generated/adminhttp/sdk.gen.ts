@@ -827,6 +827,8 @@ export const blockPeer = <ThrowOnError extends boolean = false>(options: Options
 
 /**
  * Refresh peer info from connected device
+ *
+ * A Peer may declare at most 10 distinct SN and IMEI indexes combined. Each SN or IMEI index may associate at most 10 Peers. Identifier overflow returns 409 DEVICE_IDENTIFIER_LIMIT_REACHED or DEVICE_IDENTIFIER_INDEX_FULL without changing the stored Peer or its indexes.
  */
 export const refreshPeer = <ThrowOnError extends boolean = false>(options: Options<RefreshPeerData, ThrowOnError>): RequestResult<RefreshPeerResponses, RefreshPeerErrors, ThrowOnError> => (options.client ?? client).post<RefreshPeerResponses, RefreshPeerErrors, ThrowOnError>({ url: '/peers/{publicKey}/@refresh', ...options });
 

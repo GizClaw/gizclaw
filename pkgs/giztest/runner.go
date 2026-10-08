@@ -584,9 +584,14 @@ func completeStepReport(report StepReport, step Step, vars *Variables, value, sa
 			err = &AssertionError{err: fmt.Errorf("expected RPC error code %d, got %d", step.ExpectError.Code, code)}
 		} else if step.ExpectError.MessageContains != "" && !strings.Contains(message, step.ExpectError.MessageContains) {
 			err = &AssertionError{err: fmt.Errorf("RPC error message does not contain expected text")}
+		} else if step.ExpectError.Reason != "" && !matchesFailureReason(opts.Driver, err, step.ExpectError.Reason) {
+			err = &AssertionError{err: fmt.Errorf("RPC error reason does not match expected reason")}
 		} else {
 			err = nil
 			evidence = map[string]any{"rpc_error_code": code}
+			if step.ExpectError.Reason != "" {
+				evidence["rpc_error_reason"] = step.ExpectError.Reason
+			}
 		}
 	}
 	if err == nil && value != nil {
@@ -622,6 +627,15 @@ func completeStepReport(report StepReport, step Step, vars *Variables, value, sa
 	}
 	report.DurationMS = time.Since(started).Milliseconds()
 	return report, err
+}
+
+func matchesFailureReason(driver Driver, err error, expected string) bool {
+	reasons, ok := driver.(FailureReasonDriver)
+	if !ok {
+		return false
+	}
+	reason, found := reasons.FailureReason(err)
+	return found && reason == expected
 }
 
 func applyCaptures(vars *Variables, captures map[string]string, input any) error {

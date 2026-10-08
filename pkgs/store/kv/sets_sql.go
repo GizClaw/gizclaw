@@ -190,13 +190,32 @@ func (s *SQL) ApplyMutation(ctx context.Context, mutation Mutation) (applied boo
 					return false, err
 				}
 			}
+			var added int64
 			for _, member := range g.Members {
 				query := "INSERT INTO " + s.members + " (encoded_key,member) VALUES (?,?) ON CONFLICT(encoded_key,member) DO NOTHING"
 				if phase%2 == 1 {
 					query = "DELETE FROM " + s.members + " WHERE encoded_key = ? AND member = ?"
 				}
-				if _, err := tx.ExecContext(ctx, s.db.Rebind(query), key, []byte(member)); err != nil {
+				result, err := tx.ExecContext(ctx, s.db.Rebind(query), key, []byte(member))
+				if err != nil {
 					return false, err
+				}
+				if g.MaxMembers > 0 {
+					count, err := result.RowsAffected()
+					if err != nil {
+						return false, err
+					}
+					added += count
+				}
+			}
+			if g.MaxMembers > 0 && added > 0 {
+				var count int64
+				query := "SELECT COUNT(*) FROM " + s.members + " WHERE encoded_key = ?"
+				if err := tx.QueryRowContext(ctx, s.db.Rebind(query), key).Scan(&count); err != nil {
+					return false, err
+				}
+				if count > int64(g.MaxMembers) {
+					return false, ErrMemberLimit
 				}
 			}
 			if phase%2 == 1 {
@@ -214,7 +233,7 @@ func (s *SQL) ApplyMutation(ctx context.Context, mutation Mutation) (applied boo
 }
 
 func sqlCollectionError(err error) error {
-	if err == nil || errors.Is(err, ErrWrongType) || errors.Is(err, ErrInvalidDeadline) || errors.Is(err, ErrStoreClosed) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if err == nil || errors.Is(err, ErrWrongType) || errors.Is(err, ErrMemberLimit) || errors.Is(err, ErrInvalidDeadline) || errors.Is(err, ErrStoreClosed) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
 	return storage.ExternalSQLError("kv: sql collection operation", err)

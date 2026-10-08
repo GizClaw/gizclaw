@@ -11,6 +11,16 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## API Key 与设备标识数量限制
+
+`bash tests/gizclaw-e2e/run_resource_limit_tests.sh` 构建四种 runner 并运行完整数量限制 lane。
+
+`go test ./cmd/internal/server -run 'TestAPIKeyLimitGiztestGo|TestIdentifierLimitGiztestsGo' -count=1` 在临时状态上启动真实 Server 与 Edge。API Key 的共享场景 `server.api_key.limit.giztest.yaml` 验证第 11 个 Key 的 RPC `RESOURCE_EXHAUSTED`／`API_KEY_LIMIT_REACHED`、HTTP `409 API_KEY_LIMIT_REACHED`、拒绝后的数量不变、不同 owner 独立配额和撤销后的恢复。Giztest 的 `expect_error.reason` 精确比较 RPC 的结构化原因，错误码相同但原因缺失或不匹配也会失败。
+
+`tests/gizclaw-e2e/testdata/identifier-limits/` 的三个 Go Giztest 验证 SN＋IMEI 合计超额、SN 反查索引满和 IMEI 反查索引满。设备通过真实 WebRTC SDK 上报标识，fixture 只解析测试 Key 的 owner 并通过已认证的 Admin HTTP connection 转发 refresh／get，不生成错误响应。场景要求真实 handler 返回对应 409 错误、原记录未写入标识，并且设备仍能 ping。
+
+API Key 场景由 Go、JavaScript、C 与原生 Flutter 执行。`TestAPIKeyLimitSDKGiztests` 使用 `gizclaw_sdk_e2e` build tag，要求 `GIZCLAW_LIMIT_C_RUNNER` 和 `GIZCLAW_LIMIT_FLUTTER_RUNNER` 指向已经构建的 runner；缺少 runner 或 skipped step 都失败。SN／IMEI 的 Admin fixture 属于 Go lane，设备控制 C SDK 不提供 Admin API。
+
 ## Peer 封禁的真实 WebRTC 回归
 
 `go test ./cmd/internal/server -run '^TestPeerBlockedSDKWebRTC$' -count=1 -v`

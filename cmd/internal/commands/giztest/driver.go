@@ -72,6 +72,16 @@ func (d *driver) FailureCode(err error) (int32, string, bool) {
 	return 0, "", false
 }
 
+func (d *driver) FailureReason(err error) (string, bool) {
+	if failure, ok := errors.AsType[*rpcFailure](err); ok {
+		return failure.reason, true
+	}
+	if apiError, ok := errors.AsType[rpcapi.Error](err); ok {
+		return apiError.Reason, true
+	}
+	return "", false
+}
+
 func (d *driver) Open(ctx context.Context, doc *giztest.Document, vars *giztest.Variables) (giztest.Session, error) {
 	connect := connectClients
 	if d.connectClients != nil {

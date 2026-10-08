@@ -8,4 +8,6 @@ This recoverability is an intentional credential-store boundary. GizClaw does no
 
 The authenticated Peer RPC connection remains the device owner's root management authority through `server.api_key.create`, `server.api_key.list`, and `server.api_key.revoke`. The `manage_api_keys` flag delegates management to an issued API key; it does not gate or replace the Peer RPC root methods.
 
+A Peer may own at most 10 API keys, counting ordinary and management keys together. `apikey.PeerAPIKeyLimit` fixes the limit. Capacity checking, the record, the credential index, and the owner Set share one atomic mutation, so concurrent Servers cannot exceed it. At capacity, Peer HTTP returns `409 API_KEY_LIMIT_REACHED` and Peer RPC returns `RESOURCE_EXHAUSTED` (8) with reason `API_KEY_LIMIT_REACHED`, without creating a key or index. Revoking a key releases a slot. Existing over-limit data remains readable and revocable, but no additional keys can be created.
+
 Create, list, revoke, and Peer cleanup coordinate per owner. The durable retirement marker still prevents late same-owner publication, while unrelated owners continue during Store scans. Only access to an injected non-thread-safe random source uses a separate short mutex; global uniqueness remains enforced by atomic KV guards.

@@ -36,6 +36,16 @@ Python integration injects failure before the second real candidate write, then
 uses three fresh processes to resume against real embedding/PGVector. Final
 cleanup checks both the vector collection and observation reservations are empty.
 
+## API key and device identifier limits
+
+`bash tests/gizclaw-e2e/run_resource_limit_tests.sh` builds all four runners and executes the complete resource-limit lane.
+
+`go test ./cmd/internal/server -run 'TestAPIKeyLimitGiztestGo|TestIdentifierLimitGiztestsGo' -count=1` starts a real Server and Edge on temporary state. The shared `server.api_key.limit.giztest.yaml` scenario verifies rejection of the eleventh key with RPC `RESOURCE_EXHAUSTED`/`API_KEY_LIMIT_REACHED` and HTTP `409 API_KEY_LIMIT_REACHED`, unchanged counts after rejection, independent owner quotas, and restored capacity after revocation. Giztest's `expect_error.reason` compares the structured RPC reason exactly; a matching code with a missing or different reason also fails.
+
+The three Go Giztests in `tests/gizclaw-e2e/testdata/identifier-limits/` cover the combined SN/IMEI limit, a full SN reverse index, and a full IMEI reverse index. Devices report identifiers through the real WebRTC SDK. The fixture only resolves the test key's owner and forwards refresh/get over authenticated Admin HTTP; it never creates an error response. Scenarios require the real handler's corresponding 409 error, no identifiers written to the source record, and a still-usable device ping.
+
+Go, JavaScript, C, and native Flutter execute the API key scenario. `TestAPIKeyLimitSDKGiztests` uses the `gizclaw_sdk_e2e` build tag and requires `GIZCLAW_LIMIT_C_RUNNER` and `GIZCLAW_LIMIT_FLUTTER_RUNNER` to name built runners. Missing runners or skipped steps fail. The SN/IMEI Admin fixture belongs to the Go lane; the device control C SDK does not provide Admin APIs.
+
 ## Real WebRTC Peer blocking regression
 
 `go test ./cmd/internal/server -run '^TestPeerBlockedSDKWebRTC$' -count=1 -v`

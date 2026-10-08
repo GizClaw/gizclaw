@@ -676,6 +676,9 @@ export type AudioPlayerStatus = {
     observed_at_unix_ms: number;
 };
 
+/**
+ * A Peer may declare at most 10 distinct identifier indexes: a non-empty SN counts as one, and each distinct complete IMEI (TAC, serial) counts as one. Duplicate or incomplete IMEIs create no additional indexes. Each SN or IMEI reverse index may associate at most 10 Peers.
+ */
 export type DeviceIdentifiers = {
     /**
      * Optional client-declared serial number. Clients should keep it stable and unique per physical device, but servers must tolerate duplicates.

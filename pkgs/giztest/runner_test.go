@@ -13,6 +13,28 @@ import (
 	"time"
 )
 
+func TestExpectedRPCReasonMustMatch(t *testing.T) {
+	for _, tc := range []struct{ name, reason, status string }{
+		{"matching", "API_KEY_LIMIT_REACHED", "passed"},
+		{"wrong", "OTHER_LIMIT", "failed"},
+		{"missing", "", "failed"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			driver := &stubDriver{execute: func(context.Context, StepRequest) (StepResult, error) {
+				return StepResult{}, fmt.Errorf("wrapped: %w", stubFailure{code: 8, message: "at capacity", reason: tc.reason})
+			}}
+			doc := &Document{Name: "reason", Path: "reason.yaml", Repeat: 1, Variables: map[string]VariableSpec{}, Clients: map[string]ClientSpec{"peer": {Identity: "ephemeral", Connection: "webrtc", AccessPoint: "http://fixture"}}, Steps: []Step{{ID: "create", Client: "peer", RPC: &RPCOperation{Method: "server.api_key.create"}, ExpectError: &ErrorExpectation{Code: 8, Reason: "API_KEY_LIMIT_REACHED"}}}}
+			result := runTask(t.Context(), task{doc: doc}, Options{Driver: driver, Out: io.Discard})
+			if result.Status != tc.status {
+				t.Fatalf("status=%s want=%s error=%s", result.Status, tc.status, result.Error)
+			}
+			if tc.status == "passed" && result.Steps[0].Evidence["rpc_error_reason"] != tc.reason {
+				t.Fatalf("reason evidence=%v", result.Steps[0].Evidence)
+			}
+		})
+	}
+}
+
 func TestRunTaskRunsFinalizersAfterClientSetupFailure(t *testing.T) {
 	var output bytes.Buffer
 	doc := &Document{

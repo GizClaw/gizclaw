@@ -726,6 +726,13 @@ func (s *Server) ListPublicKeysByIMEI(ctx context.Context, tac, serial string) (
 }
 
 func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previous *apitypes.Peer) error {
+	additions := identifierSets(peer)
+	if len(additions) > PeerIdentifierLimit {
+		return ErrPeerIdentifierLimit
+	}
+	for i := range additions {
+		additions[i].MaxMembers = IdentifierIndexPeerLimit
+	}
 	store, err := s.store()
 	if err != nil {
 		return err
@@ -758,7 +765,6 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 			filtered = append(filtered, key)
 		}
 	}
-	additions := identifierSets(peer)
 	var removals []kv.SetMembers
 	if previous != nil {
 		current := make(map[string]bool, len(additions))
@@ -788,6 +794,9 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 		},
 		Entries: entries, DeleteKeys: filtered, AddMembers: additions, RemoveMembers: removals,
 	})
+	if errors.Is(err, kv.ErrMemberLimit) {
+		return ErrIdentifierIndexPeerLimit
+	}
 	if err != nil {
 		return fmt.Errorf("peer: write record and identifier indexes: %w", err)
 	}

@@ -253,6 +253,10 @@ func (s *Server) RefreshPeer(ctx context.Context, request adminhttp.RefreshPeerR
 			return adminhttp.RefreshPeer404JSONResponse(apitypes.NewErrorResponse("PEER_NOT_FOUND", err.Error())), nil
 		case !online:
 			return adminhttp.RefreshPeer409JSONResponse(apitypes.NewErrorResponse("DEVICE_OFFLINE", err.Error())), nil
+		case errors.Is(err, ErrPeerIdentifierLimit):
+			return adminhttp.RefreshPeer409JSONResponse(apitypes.NewErrorResponse("DEVICE_IDENTIFIER_LIMIT_REACHED", err.Error())), nil
+		case errors.Is(err, ErrIdentifierIndexPeerLimit):
+			return adminhttp.RefreshPeer409JSONResponse(apitypes.NewErrorResponse("DEVICE_IDENTIFIER_INDEX_FULL", err.Error())), nil
 		default:
 			return adminhttp.RefreshPeer502JSONResponse(apitypes.NewErrorResponse("DEVICE_REFRESH_FAILED", err.Error())), nil
 		}

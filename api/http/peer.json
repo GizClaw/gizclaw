@@ -792,6 +792,7 @@
     "/gizclaw/v1/api-keys": {
       "post": {
         "operationId": "createAPIKey",
+        "description": "A Peer may own at most 10 API keys, including management keys. Creating another key at capacity returns 409 API_KEY_LIMIT_REACHED. Revoking a key releases its capacity.",
         "summary": "Create an API key for the caller's device",
         "tags": [
           "APIKeys"

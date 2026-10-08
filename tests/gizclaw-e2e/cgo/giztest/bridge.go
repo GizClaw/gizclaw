@@ -117,6 +117,7 @@ type rpcResult struct {
 	payload   []byte
 	errorCode int32
 	message   string
+	reason    string
 }
 
 // CallRPC sends one encoded server.* request and returns the encoded response
@@ -126,6 +127,8 @@ func (s *cSession) CallRPC(method uint32, payload []byte, timeoutMS int) (rpcRes
 	defer freeErr()
 	messageBuf, freeMessage := newErrorBuffer()
 	defer freeMessage()
+	reasonBuf, freeReason := newErrorBuffer()
+	defer freeReason()
 
 	var request *C.uchar
 	if len(payload) > 0 {
@@ -136,14 +139,14 @@ func (s *cSession) CallRPC(method uint32, payload []byte, timeoutMS int) (rpcRes
 	var rpcCode C.int
 	rc := C.gzt_session_call_rpc(
 		s.handle, C.uint(method), request, C.ulong(len(payload)), C.int(timeoutMS), &out, &outLen,
-		&rpcCode, messageBuf, errorBufferSize, errbuf, errorBufferSize)
+		&rpcCode, messageBuf, errorBufferSize, reasonBuf, errorBufferSize, errbuf, errorBufferSize)
 	if out != nil {
 		defer C.gzt_free(unsafe.Pointer(out))
 	}
 	if rc != 0 {
 		return rpcResult{}, bridgeFailure("call RPC", rc, errbuf)
 	}
-	result := rpcResult{errorCode: int32(rpcCode), message: C.GoString(messageBuf)}
+	result := rpcResult{errorCode: int32(rpcCode), message: C.GoString(messageBuf), reason: C.GoString(reasonBuf)}
 	if out != nil && outLen > 0 {
 		result.payload = C.GoBytes(unsafe.Pointer(out), C.int(outLen))
 	}

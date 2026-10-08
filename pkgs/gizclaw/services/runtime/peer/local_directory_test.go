@@ -78,7 +78,11 @@ func TestPeerListsOverlapRemoteReadsWithinBound(t *testing.T) {
 	sn := "shared-serial"
 	for i := range 32 {
 		key := giznet.PublicKey{byte(i + 1)}
-		saveTestPeer(t, server, key, apitypes.DeviceInfo{Identifiers: &apitypes.DeviceIdentifiers{Sn: &sn}})
+		device := apitypes.DeviceInfo{}
+		if i < IdentifierIndexPeerLimit {
+			device.Identifiers = &apitypes.DeviceIdentifiers{Sn: &sn}
+		}
+		saveTestPeer(t, server, key, device)
 		expected = append(expected, key.String())
 	}
 	for _, query := range []string{"directory", "serial"} {
@@ -118,7 +122,7 @@ func TestPeerListsOverlapRemoteReadsWithinBound(t *testing.T) {
 			case <-ctx.Done():
 				t.Fatal("list did not finish after releasing storage")
 			}
-			want := 32
+			want := IdentifierIndexPeerLimit
 			if query == "directory" {
 				want = 16
 				if !out.more || out.cursor == nil || *out.cursor != expected[15] {

@@ -49,7 +49,7 @@ int gzt_session_poll(gzt_session_t *session, int timeout_ms, char *errbuf, unsig
  * returns the encoded response payload, which the caller frees with gzt_free.
  *
  * timeout_ms bounds the call; 0 selects the bridge default. A structured RPC
- * error sets out_rpc_error_code and fills out_error_message.
+ * error sets out_rpc_error_code and fills out_error_message and out_error_reason.
  */
 int gzt_session_call_rpc(
     gzt_session_t *session,
@@ -62,6 +62,8 @@ int gzt_session_call_rpc(
     int *out_rpc_error_code,
     char *out_error_message,
     unsigned long out_error_message_len,
+    char *out_error_reason,
+    unsigned long out_error_reason_len,
     char *errbuf,
     unsigned long errbuf_len);
 

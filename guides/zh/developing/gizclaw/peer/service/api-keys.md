@@ -8,4 +8,6 @@
 
 已认证的 Peer RPC 连接始终是设备 owner 的根管理权限，通过 `server.api_key.create`、`server.api_key.list` 和 `server.api_key.revoke` 管理 Key。`manage_api_keys` 只把管理能力委派给已签发的 API Key，不会限制或取代 Peer RPC 根方法。
 
+每个 Peer 最多拥有 10 个 API Key，普通 Key 与管理 Key 合并计数。上限由 `apikey.PeerAPIKeyLimit` 固定，容量检查与 record、credential index 和 owner Set 在同一原子 mutation 中提交，因此不同 Server 并发创建也不会超额。已满时 Peer HTTP 返回 `409 API_KEY_LIMIT_REACHED`，Peer RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `API_KEY_LIMIT_REACHED`，不产生新 Key 或索引。撤销 Key 会释放一个名额；已有超额数据保持可读、可撤销，但不能继续新增。
+
 Create、list、revoke 与 Peer cleanup 按 owner 协调。持久化 retirement marker 仍阻止同 owner 的迟到 publication，无关 owner 可在 Store scan 期间继续。只有注入的非线程安全 random source 使用独立短 mutex；全局唯一性仍由原子 KV guard 保证。

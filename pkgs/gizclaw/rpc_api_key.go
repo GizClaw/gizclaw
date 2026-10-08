@@ -30,6 +30,9 @@ func (s *rpcServer) handleAPIKeyCreate(ctx context.Context, req *rpcapi.RPCReque
 	if errors.Is(err, apikey.ErrOwnerRetired) {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeFailedPrecondition, Reason: "PEER_DELETED", Message: "Peer is deleted"}.RPCResponse(), nil
 	}
+	if errors.Is(err, apikey.ErrPeerAPIKeyLimit) {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeResourceExhausted, Reason: "API_KEY_LIMIT_REACHED", Message: "Peer API key limit reached"}.RPCResponse(), nil
+	}
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "API key creation failed"}.RPCResponse(), nil
 	}

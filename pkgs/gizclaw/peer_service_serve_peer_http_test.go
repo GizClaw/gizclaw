@@ -91,6 +91,19 @@ func TestPeerHTTPAPIKeyLifecycle(t *testing.T) {
 	if response.Code != http.StatusForbidden {
 		t.Fatalf("GET list with ordinary key status = %d body=%s", response.Code, response.Body.String())
 	}
+	for range apikey.PeerAPIKeyLimit - 2 {
+		if _, err := keys.Create(t.Context(), ownerKey.Public.String(), "additional", false); err != nil {
+			t.Fatal(err)
+		}
+	}
+	request = httptest.NewRequest(http.MethodPost, "/gizclaw/v1/api-keys", bytes.NewBufferString(`{"display_name":"eleventh","manage_api_keys":false}`))
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Authorization", "Bearer "+managerKey.Secret)
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict || !bytes.Contains(response.Body.Bytes(), []byte("API_KEY_LIMIT_REACHED")) {
+		t.Fatalf("POST at capacity status=%d body=%s", response.Code, response.Body.String())
+	}
 }
 
 func TestValidateAPIKeyOwnerRequiresActiveClientAndBinding(t *testing.T) {

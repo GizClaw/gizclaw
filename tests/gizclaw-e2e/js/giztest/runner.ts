@@ -414,9 +414,20 @@ async function runStepAttempt(
       failure = new AssertionFailure(
         "RPC error message does not contain expected text",
       );
+    } else if (
+      step.expect_error.reason != null &&
+      (failure as Error & { reason?: string }).reason !==
+        step.expect_error.reason
+    ) {
+      failure = new AssertionFailure(
+        "RPC error reason does not match expected reason",
+      );
     } else {
       failure = undefined;
       outcome = { evidence: { rpc_error_code: code } };
+      if (step.expect_error.reason != null) {
+        outcome.evidence!.rpc_error_reason = step.expect_error.reason;
+      }
     }
   }
 

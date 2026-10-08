@@ -92,7 +92,7 @@ export type Step = {
   save_as?: string;
   capture?: Record<string, string>;
   expect?: Record<string, Expectation>;
-  expect_error?: { code: number; message_contains?: string };
+  expect_error?: { code: number; message_contains?: string; reason?: string };
   rpc?: { method: string; request: unknown };
   client_rpc?: {
     method: string;

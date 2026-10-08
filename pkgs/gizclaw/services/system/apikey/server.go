@@ -21,6 +21,8 @@ import (
 )
 
 const (
+	// PeerAPIKeyLimit is the fixed maximum number of keys owned by one Peer.
+	PeerAPIKeyLimit    = 10
 	secretPrefix       = "gizclaw_sk_v1_"
 	namePrefix         = "key_"
 	maxDisplayNameSize = 80
@@ -35,6 +37,7 @@ var (
 	ErrInvalidCursor      = errors.New("api key: invalid cursor")
 	ErrInvalidName        = errors.New("api key: invalid name")
 	ErrOwnerRetired       = errors.New("api key: owner is retired")
+	ErrPeerAPIKeyLimit    = errors.New("api key: peer API key limit reached")
 	ErrForbidden          = errors.New("api key: management permission required")
 	ErrNotFound           = errors.New("api key: not found")
 )
@@ -128,8 +131,11 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		created, err := s.Store.ApplyMutation(ctx, kv.Mutation{
 			Conditions: []kv.Condition{{Key: recordKey(item.Name)}, {Key: secretKey(secret)}, {Key: retiredKey(owner)}},
 			Entries:    []kv.Entry{{Key: recordKey(item.Name), Value: data}, {Key: secretKey(secret), Value: []byte(item.Name)}},
-			AddMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: []string{item.Name}}},
+			AddMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: []string{item.Name}, MaxMembers: PeerAPIKeyLimit}},
 		})
+		if errors.Is(err, kv.ErrMemberLimit) {
+			return Created{}, ErrPeerAPIKeyLimit
+		}
 		if err != nil {
 			return Created{}, err
 		}

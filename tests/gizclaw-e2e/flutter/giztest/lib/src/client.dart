@@ -22,10 +22,11 @@ const _rpcTimeout = Duration(seconds: 30);
 /// One Peer RPC failure, with the numeric code a scenario's expect_error
 /// compares against.
 class ScenarioRpcError implements Exception {
-  const ScenarioRpcError(this.code, this.message);
+  const ScenarioRpcError(this.code, this.message, {this.reason = ''});
 
   final int code;
   final String message;
+  final String reason;
 
   @override
   String toString() => 'rpc failed (code $code): $message';
@@ -518,7 +519,7 @@ class ScenarioClient {
       );
       return camelToSnakeKeys(unwrapValueMessage(response));
     } on RpcStatus catch (error) {
-      throw ScenarioRpcError(error.code, error.message);
+      throw ScenarioRpcError(error.code, error.message, reason: error.reason);
     }
   }
 
