@@ -136,28 +136,40 @@ func TestServerInitRequiresAtomicStoreCapabilities(t *testing.T) {
 	}
 }
 
-func TestServerInitReconcilesFriendCreationIntents(t *testing.T) {
-	keyPair, err := giznet.GenerateKeyPair()
-	if err != nil {
-		t.Fatalf("GenerateKeyPair() error = %v", err)
-	}
-	friendStore := mustBadgerInMemory(t, nil)
-	if _, err := kv.Prefixed(friendStore, kv.Key{"friends"}).ApplyMutation(t.Context(), kv.Mutation{
-		Entries:    []kv.Entry{{Key: kv.Key{"friend-creation-intents", "invalid"}, Value: []byte("{")}},
-		AddMembers: (socialutil.RecoveryIndex{Root: kv.Key{"friend-creation-intents"}}).Add("invalid"),
-	}); err != nil {
-		t.Fatalf("write indexed malformed Friend creation intent: %v", err)
-	}
-
-	server := &Server{
-		LocalStatic: *keyPair,
-		PeerStore:   mustBadgerInMemory(t, nil),
-		FriendStore: friendStore,
-	}
-	completeTestServer(t, server)
-	err = server.init()
-	if err == nil || !strings.Contains(err.Error(), "reconcile Friend creation intents") {
-		t.Fatalf("init() error = %v, want Friend creation reconciliation error", err)
+func TestServerListenPreservesMalformedSocialRecoveryIntents(t *testing.T) {
+	for _, root := range []kv.Key{
+		{"friend-creation-intents"},
+		{"friend-retirement-intents"},
+		{"social-retirement-intents", "friend-groups"},
+	} {
+		t.Run(strings.Join(root, "/"), func(t *testing.T) {
+			keyPair, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatal(err)
+			}
+			server := completeTestServer(t, &Server{
+				LocalStatic:   *keyPair,
+				PeerListeners: []giznet.Listener{newTestGiznetListener()},
+			})
+			store := kv.Prefixed(server.FriendStore, kv.Key{"friends"})
+			if root[0] == "social-retirement-intents" {
+				store = server.FriendGroupStore
+			}
+			key := append(append(kv.Key{}, root...), "invalid")
+			if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+				Entries:    []kv.Entry{{Key: key, Value: []byte("{")}},
+				AddMembers: (socialutil.RecoveryIndex{Root: root}).Add("invalid"),
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := server.Listen(); err != nil {
+				t.Fatalf("Listen() with malformed recovery record: %v", err)
+			}
+			data, err := store.Get(t.Context(), key)
+			if err != nil || string(data) != "{" {
+				t.Fatalf("failed recovery record was changed: %q, %v", data, err)
+			}
+		})
 	}
 }
 

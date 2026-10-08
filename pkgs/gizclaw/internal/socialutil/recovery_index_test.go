@@ -2,8 +2,12 @@ package socialutil
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"slices"
 	"testing"
+	"testing/synctest"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -11,6 +15,110 @@ import (
 type recoveryReadStore struct {
 	kv.Store
 	reads int
+}
+
+func TestRecoveryContinuesAfterTimedOutIntentAndRetainsItForRetry(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		store := kv.NewMemory(nil)
+		defer store.Close()
+		index := RecoveryIndex{Root: kv.Key{"retirement"}}
+		for _, id := range []string{"a", "b", "c"} {
+			if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+				Entries: []kv.Entry{{Key: index.recordKey(id), Value: []byte(id)}}, AddMembers: index.Add(id),
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		var ids []string
+		for id, err := range index.IDs(t.Context(), store) {
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids = append(ids, id)
+		}
+		var attempted []string
+		started := time.Now()
+		err := index.Reconcile(t.Context(), store, func(ctx context.Context, id string) error {
+			attempted = append(attempted, id)
+			if id == ids[0] {
+				<-ctx.Done()
+				return ctx.Err()
+			}
+			_, err := store.ApplyMutation(ctx, kv.Mutation{
+				DeleteKeys: []kv.Key{index.recordKey(id)}, RemoveMembers: index.Remove(id),
+			})
+			return err
+		})
+		if !errors.Is(err, context.DeadlineExceeded) || !slices.Equal(attempted, ids) {
+			t.Fatalf("attempted = %v, error = %v", attempted, err)
+		}
+		if time.Since(started) != recoveryAttemptTimeout {
+			t.Fatal("recovery did not bound the slow attempt")
+		}
+		var remaining []string
+		for id, err := range index.IDs(t.Context(), store) {
+			if err != nil {
+				t.Fatal(err)
+			}
+			remaining = append(remaining, id)
+		}
+		if !slices.Equal(remaining, ids[:1]) {
+			t.Fatalf("remaining indexed work = %v, want failed identity only", remaining)
+		}
+	})
+}
+
+func TestRecoveryCancellationStopsBeforeNextIntent(t *testing.T) {
+	store := kv.NewMemory(nil)
+	defer store.Close()
+	index := RecoveryIndex{Root: kv.Key{"retirement"}}
+	for _, id := range []string{"a", "b", "c"} {
+		if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+			Entries: []kv.Entry{{Key: index.recordKey(id), Value: []byte(id)}}, AddMembers: index.Add(id),
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	attempts := 0
+	err := index.Reconcile(ctx, store, func(context.Context, string) error {
+		attempts++
+		cancel()
+		return context.Canceled
+	})
+	if !errors.Is(err, context.Canceled) || attempts != 1 {
+		t.Fatalf("attempts = %d, error = %v", attempts, err)
+	}
+}
+
+func TestRecoveryContinuesPastInvalidBucketAndMember(t *testing.T) {
+	store := kv.NewMemory(nil)
+	defer store.Close()
+	index := RecoveryIndex{Root: kv.Key{"retirement"}}
+	if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+		Entries: []kv.Entry{{Key: index.recordKey("valid"), Value: []byte("valid")}},
+		AddMembers: append(index.Add("valid"),
+			kv.SetMembers{Key: index.directory(), Members: []string{"invalid-bucket"}},
+			kv.SetMembers{Key: index.bucket(recoveryBucket("valid")), Members: []string{""}},
+		),
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var attempted []string
+	err := index.Reconcile(t.Context(), store, func(_ context.Context, id string) error {
+		attempted = append(attempted, id)
+		return nil
+	})
+	if err != nil || !slices.Equal(attempted, []string{"valid"}) {
+		t.Fatalf("attempted = %v, error = %v", attempted, err)
+	}
+	if present, err := store.HasMember(t.Context(), index.directory(), "invalid-bucket"); err != nil || present {
+		t.Fatalf("invalid directory entry remains: %v, %v", present, err)
+	}
+	if present, err := store.HasMember(t.Context(), index.bucket(recoveryBucket("valid")), ""); err != nil || present {
+		t.Fatalf("empty member remains: %v, %v", present, err)
+	}
 }
 
 func (s *recoveryReadStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {

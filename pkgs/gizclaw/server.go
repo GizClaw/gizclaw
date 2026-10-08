@@ -112,6 +112,7 @@ type Server struct {
 	closed                   bool
 	httpHandler              http.Handler
 	pendingDeletionProcessor *pendingdeletion.Processor
+	socialRecovery           *socialRecovery
 }
 
 type PeerListenerOptions struct {
@@ -166,6 +167,9 @@ func (s *Server) Listen() error {
 	s.listenerMu.Unlock()
 	if s.pendingDeletionProcessor != nil {
 		s.pendingDeletionProcessor.Start(context.Background())
+	}
+	if s.socialRecovery != nil {
+		s.socialRecovery.start(context.Background())
 	}
 	if s.manager != nil && s.manager.PeerUsage != nil {
 		s.manager.PeerUsage.Start(context.Background())
@@ -272,6 +276,10 @@ func (s *Server) Close() error {
 		if listener != nil {
 			errs = append(errs, listener.Close())
 		}
+	}
+	if s.socialRecovery != nil {
+		s.socialRecovery.close()
+		s.socialRecovery = nil
 	}
 	if s.pendingDeletionProcessor != nil {
 		s.pendingDeletionProcessor.Close()
@@ -671,14 +679,13 @@ func (s *Server) init() error {
 	if err := workflowServer.EnsureBuiltinWorkflows(context.Background()); err != nil {
 		return fmt.Errorf("gizclaw: materialize built-in Workflows: %w", err)
 	}
-	if err := friendServer.ReconcileCreationIntents(context.Background()); err != nil {
-		return fmt.Errorf("gizclaw: reconcile Friend creation intents: %w", err)
-	}
-	if err := friendServer.ReconcileRetirementIntents(context.Background()); err != nil {
-		return fmt.Errorf("gizclaw: reconcile Friend retirement intents: %w", err)
-	}
-	if err := friendGroupServer.ReconcileRetirementIntents(context.Background()); err != nil {
-		return fmt.Errorf("gizclaw: reconcile Friend Group retirement intents: %w", err)
+	s.socialRecovery = &socialRecovery{
+		interval: pendingDeletionConfig.ScanInterval,
+		tasks: []socialRecoveryTask{
+			{kind: "friend_creation", reconcile: friendServer.ReconcileCreationIntents},
+			{kind: "friend_retirement", reconcile: friendServer.ReconcileRetirementIntents},
+			{kind: "friend_group_retirement", reconcile: friendGroupServer.ReconcileRetirementIntents},
+		},
 	}
 	manager.ProviderTenants = providerTenantsServer
 	manager.Metrics = s.MetricsStore

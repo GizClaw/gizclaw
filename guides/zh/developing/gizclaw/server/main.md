@@ -120,6 +120,14 @@ Production registration 为 `source=workspace`（`kind=workspace`）、`source=f
 
 可选顶层 `pending_deletion` 配置的默认值为：`scan_interval: 30s`、`page_size: 100`、`dispatch_capacity: 256`、`workers: 4`、`lease_duration: 2m`、`attempt_timeout: 90s`、`retry_initial: 5s`、`retry_max: 30m`、`max_attempts: 10`。Duration 与 count 必须为正且有界；attempt timeout 必须短于 lease；retry initial 不能大于 retry max；严格配置解析会拒绝未知字段。系统没有 completion retention 配置。
 
+## Social 后台恢复
+
+Server 初始化只组装 Social service 和恢复 worker，不读取或重放历史恢复索引。`Server.Listen` 在 listener 就绪后启动好友创建、好友删除和群组删除三个独立 worker，并立即执行第一轮恢复；随后每轮结束等待 `pending_deletion.scan_interval` 再重试。某一类任务阻塞或失败不会阻止其他类型运行，也不会使 Server 启动失败。
+
+恢复只精确访问持久化的分片索引和对应意图记录。[Social 索引自愈](../services/social) 在后台重建目录、清理残留及错置成员，不扫描业务数据库。索引校验／修复和单条业务恢复分别有 30 秒 deadline；记录失败后保留原意图与索引，继续处理后续记录，并在本轮结束报告有界的错误摘要。资源的访问限制继续由权威关系、binding 和 `PendingDeletion` 决定。群删除恢复校验已提交的删除快照并保留 mutation lock，但不要求旧成员 Peer 仍可接受新业务；正在删除的 Peer 不能阻止群的 Workspace retirement handoff。
+
+`Server.Close` 先取消并 join 全部 Social 恢复 worker，再停止 pending-deletion processor 和释放 runtime 资源。关闭后再次 `Listen` 会重新从持久化索引发现任务。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

@@ -6,10 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -181,8 +179,8 @@ func (s *Server) RetirePeerFriend(ctx context.Context, owner string, snapshot Pe
 }
 
 var (
-	relationMutationMu [64]sync.Mutex
-	peerMutationGates  keyedlock.Locker[string]
+	relationMutationGates keyedlock.Locker[string]
+	peerMutationGates     keyedlock.Locker[string]
 )
 
 type peerRetirementContextKey struct{}
@@ -477,12 +475,8 @@ func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublic
 	return s.createFriend(ctx, owner, peerPublicKey, owner)
 }
 
-func (s *Server) lockRelation(relationID string) func() {
-	hash := fnv.New32a()
-	_, _ = hash.Write([]byte(relationID))
-	mu := &relationMutationMu[hash.Sum32()%uint32(len(relationMutationMu))]
-	mu.Lock()
-	return mu.Unlock
+func (s *Server) lockRelation(ctx context.Context, relationID string) (func(), error) {
+	return relationMutationGates.Acquire(ctx, relationID)
 }
 
 func (s *Server) lockRelationMutation(ctx context.Context, relationID string, peers ...string) (func(), error) {
@@ -490,7 +484,11 @@ func (s *Server) lockRelationMutation(ctx context.Context, relationID string, pe
 	if err != nil {
 		return nil, err
 	}
-	releaseRelation := s.lockRelation(relationID)
+	releaseRelation, err := s.lockRelation(ctx, relationID)
+	if err != nil {
+		releasePeers()
+		return nil, err
+	}
 	return func() {
 		releaseRelation()
 		releasePeers()
@@ -1674,19 +1672,17 @@ func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, i
 }
 
 // ReconcileCreationIntents completes Workspace-first relationship creations
-// that stopped before the reciprocal Friend rows committed.
+// that stopped before the reciprocal Friend rows committed. Individual
+// failures remain indexed for retry while the remaining intents are attempted.
 func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
 	store, err := s.friendsStore()
 	if err != nil {
 		return err
 	}
-	for relationID, err := range (socialutil.RecoveryIndex{Root: creationIntentsRoot}).IDs(ctx, store) {
-		if err != nil {
-			return err
-		}
+	return (socialutil.RecoveryIndex{Root: creationIntentsRoot}).Reconcile(ctx, store, func(ctx context.Context, relationID string) error {
 		listed, err := socialutil.ReadJSONValue[creationIntent](ctx, store, creationIntentKey(relationID))
 		if errors.Is(err, kv.ErrNotFound) {
-			continue
+			return nil
 		}
 		if err != nil {
 			return err
@@ -1698,13 +1694,12 @@ func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
 		if lockErr != nil {
 			return lockErr
 		}
+		defer unlock()
 		current, readErr := readCreationIntent(ctx, store, relationID)
 		if errors.Is(readErr, kv.ErrNotFound) {
-			unlock()
-			continue
+			return nil
 		}
 		if readErr != nil {
-			unlock()
 			return readErr
 		}
 		current, err = validateCreationIntent(
@@ -1754,28 +1749,22 @@ func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
 				}
 			}
 		}
-		unlock()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+		return err
+	})
 }
 
 // ReconcileRetirementIntents completes relationship-first deletions that
 // committed before the process could persist their Workspace PendingDeletion.
+// Individual failures do not prevent recovery of other indexed deletions.
 func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 	store, err := s.friendsStore()
 	if err != nil {
 		return err
 	}
-	for relationID, err := range (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).IDs(ctx, store) {
-		if err != nil {
-			return err
-		}
+	return (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Reconcile(ctx, store, func(ctx context.Context, relationID string) error {
 		intent, err := socialutil.ReadJSONValue[retirementIntent](ctx, store, retirementIntentKey(relationID))
 		if errors.Is(err, kv.ErrNotFound) {
-			continue
+			return nil
 		}
 		if err != nil {
 			return err
@@ -1787,27 +1776,20 @@ func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 		if lockErr != nil {
 			return lockErr
 		}
+		defer unlock()
 		current, readErr := readRetirementIntent(ctx, store, relationID)
 		if errors.Is(readErr, kv.ErrNotFound) {
-			unlock()
-			continue
+			return nil
 		}
 		if readErr != nil {
-			unlock()
 			return readErr
 		}
 		current, err = validateRetirementIntent(current, relationID)
 		if err != nil {
-			unlock()
 			return err
 		}
-		err = s.completeFriendRetirement(ctx, store, current)
-		unlock()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
+		return s.completeFriendRetirement(ctx, store, current)
+	})
 }
 
 func (s *Server) notifyFriendRetirement(ctx context.Context, intent retirementIntent) {

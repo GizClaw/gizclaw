@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"hash/fnv"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -198,8 +196,8 @@ func (s *Server) RetirePeerGroup(ctx context.Context, snapshot PeerRetirementGro
 }
 
 var (
-	groupMutationMu   [64]sync.Mutex
-	peerMutationGates keyedlock.Locker[string]
+	groupMutationGates keyedlock.Locker[string]
+	peerMutationGates  keyedlock.Locker[string]
 )
 
 type peerRetirementContextKey struct{}
@@ -445,7 +443,10 @@ func (s *Server) CreateFriendGroup(ctx context.Context, owner string, req rpcapi
 	}
 	now := s.now()
 	id := s.newID()
-	unlock := s.lockGroup(id)
+	unlock, lockErr := s.lockGroup(ctx, id)
+	if lockErr != nil {
+		return rpcapi.FriendGroupObject{}, lockErr
+	}
 	defer unlock()
 	if err := s.rejectDataPendingDeletion(ctx, id); err != nil {
 		return rpcapi.FriendGroupObject{}, err
@@ -511,7 +512,10 @@ func (s *Server) AdminCreateFriendGroup(ctx context.Context, id, owner, name str
 	if err := customid.ValidateMembershipName(id, owner); err != nil {
 		return adminhttp.AdminFriendGroupObject{}, fmt.Errorf("social: %w", err)
 	}
-	unlock := s.lockGroup(id)
+	unlock, lockErr := s.lockGroup(ctx, id)
+	if lockErr != nil {
+		return adminhttp.AdminFriendGroupObject{}, lockErr
+	}
 	defer unlock()
 	now := s.now()
 	if err := s.rejectDataPendingDeletion(ctx, id); err != nil {
@@ -634,12 +638,8 @@ func (s *Server) AdminFriendGroupObject(ctx context.Context, id string, item rpc
 	return s.adminFriendGroupObject(ctx, id, item)
 }
 
-func (s *Server) lockGroup(friendGroupID string) func() {
-	hash := fnv.New32a()
-	_, _ = hash.Write([]byte(friendGroupID))
-	mu := &groupMutationMu[hash.Sum32()%uint32(len(groupMutationMu))]
-	mu.Lock()
-	return mu.Unlock
+func (s *Server) lockGroup(ctx context.Context, friendGroupID string) (func(), error) {
+	return groupMutationGates.Acquire(ctx, friendGroupID)
 }
 
 func (s *Server) GetFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupGetRequest) (rpcapi.FriendGroupObject, error) {
@@ -822,7 +822,10 @@ func (s *Server) PutFriendGroup(ctx context.Context, owner string, req rpcapi.Fr
 	if err != nil {
 		return rpcapi.FriendGroupObject{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupObject{}, lockErr
+	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupObject{}, err
@@ -844,7 +847,10 @@ func (s *Server) AdminPutFriendGroup(ctx context.Context, friendGroupID string, 
 	if err := customid.ValidateFriendGroupID(friendGroupID); err != nil {
 		return rpcapi.FriendGroupObject{}, fmt.Errorf("social: friend group %w", err)
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupObject{}, lockErr
+	}
 	defer unlock()
 	group, err := s.putFriendGroup(ctx, friendGroupID, displayName, description)
 	if err != nil {
@@ -870,7 +876,10 @@ func (s *Server) DeleteFriendGroup(ctx context.Context, owner string, req rpcapi
 			return rpcapi.FriendGroupObject{}, err
 		}
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupObject{}, lockErr
+	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		intent, intentErr := s.readRetirementIntent(ctx, friendGroupID)
@@ -908,7 +917,10 @@ func (s *Server) AdminDeleteFriendGroup(ctx context.Context, friendGroupID strin
 	if err := customid.ValidateFriendGroupID(friendGroupID); err != nil {
 		return rpcapi.FriendGroupObject{}, fmt.Errorf("social: friend group %w", err)
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupObject{}, lockErr
+	}
 	defer unlock()
 	return s.deleteFriendGroup(ctx, friendGroupID)
 }
@@ -922,7 +934,10 @@ func (s *Server) GetFriendGroupInviteToken(ctx context.Context, owner string, re
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenGetResponse{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupInviteTokenGetResponse{}, lockErr
+	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupInviteTokenGetResponse{}, err
@@ -958,7 +973,10 @@ func (s *Server) CreateFriendGroupInviteTokenWithTTL(ctx context.Context, owner 
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupInviteTokenCreateResponse{}, lockErr
+	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
@@ -1012,7 +1030,10 @@ func (s *Server) ClearFriendGroupInviteToken(ctx context.Context, owner string, 
 	if err != nil {
 		return rpcapi.FriendGroupInviteTokenClearResponse{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupInviteTokenClearResponse{}, lockErr
+	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupInviteTokenClearResponse{}, err
@@ -1052,7 +1073,10 @@ func (s *Server) AdminPutFriendGroupInviteToken(ctx context.Context, friendGroup
 	if err := customid.ValidateFriendGroupID(friendGroupID); err != nil {
 		return rpcapi.FriendGroupInviteTokenCreateResponse{}, fmt.Errorf("social: friend group %w", err)
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupInviteTokenCreateResponse{}, lockErr
+	}
 	defer unlock()
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1088,7 +1112,10 @@ func (s *Server) AdminDeleteFriendGroupInviteToken(ctx context.Context, friendGr
 	if err := customid.ValidateFriendGroupID(friendGroupID); err != nil {
 		return rpcapi.FriendGroupInviteTokenClearResponse{}, fmt.Errorf("social: friend group %w", err)
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupInviteTokenClearResponse{}, lockErr
+	}
 	defer unlock()
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1133,7 +1160,10 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	} else if err != nil && !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupJoinResponse{}, lockErr
+	}
 	defer unlock()
 	if existing, err := s.groupMember(ctx, friendGroupID, owner); err == nil {
 		if socialutil.StringValue(existing.FriendGroupName) != name {
@@ -1189,7 +1219,10 @@ func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpc
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupMemberObject{}, lockErr
+	}
 	defer unlock()
 	if req.Role == rpcapi.FriendGroupMemberMutableRole("admin") {
 		if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
@@ -1234,7 +1267,10 @@ func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpc
 	if !req.Role.Valid() {
 		return rpcapi.FriendGroupMemberObject{}, ErrInvalidMemberRole
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupMemberObject{}, lockErr
+	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -1283,7 +1319,10 @@ func (s *Server) deleteFriendGroupMember(ctx context.Context, owner string, req 
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupMemberObject{}, lockErr
+	}
 	defer unlock()
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1392,7 +1431,10 @@ func (s *Server) AdminCreateFriendGroupMember(ctx context.Context, friendGroupID
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupMemberObject{}, lockErr
+	}
 	defer unlock()
 	group, err = s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1429,7 +1471,10 @@ func (s *Server) AdminPutFriendGroupMember(ctx context.Context, friendGroupID, p
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupMemberObject{}, lockErr
+	}
 	defer unlock()
 	group, err = s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -1481,7 +1526,10 @@ func (s *Server) AdminDeleteFriendGroupMember(ctx context.Context, friendGroupID
 	if peerID == "" || peerID != strings.TrimSpace(peerID) {
 		return rpcapi.FriendGroupMemberObject{}, errors.New("social: peer public key is required without surrounding whitespace")
 	}
-	unlock := s.lockGroup(friendGroupID)
+	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
+	if lockErr != nil {
+		return rpcapi.FriendGroupMemberObject{}, lockErr
+	}
 	defer unlock()
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
@@ -2062,38 +2110,49 @@ func (s *Server) rejectDataPendingDeletion(ctx context.Context, friendGroupID st
 
 // ReconcileRetirementIntents completes relationship-first deletions that
 // committed before the process could persist their Workspace PendingDeletion.
+// Recovery validates the persisted retirement proof and retains mutation locks,
+// but does not require its former members to remain available for new activity.
 func (s *Server) ReconcileRetirementIntents(ctx context.Context) error {
 	store, err := s.relationshipStore()
 	if err != nil {
 		return err
 	}
-	for friendGroupID, err := range (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).IDs(ctx, store) {
-		if err != nil {
-			return err
-		}
-		unlock := s.lockGroup(friendGroupID)
-		current, readErr := s.readRetirementIntent(ctx, friendGroupID)
-		if errors.Is(readErr, kv.ErrNotFound) {
-			unlock()
-			continue
-		}
-		if readErr != nil {
-			unlock()
-			return readErr
-		}
-		lockedCtx, releasePeers, lockErr := s.lockRetirementPeers(ctx, current)
+	return (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Reconcile(ctx, store, func(ctx context.Context, friendGroupID string) error {
+		unlock, lockErr := s.lockGroup(ctx, friendGroupID)
 		if lockErr != nil {
-			unlock()
 			return lockErr
 		}
-		_, err = s.completeFriendGroupRetirement(lockedCtx, friendGroupID, current)
-		releasePeers()
-		unlock()
-		if err != nil {
+		defer unlock()
+		current, readErr := s.readRetirementIntent(ctx, friendGroupID)
+		if errors.Is(readErr, kv.ErrNotFound) {
+			return nil
+		}
+		if readErr != nil {
+			return readErr
+		}
+		if err := validateFriendGroupRetirementReceipt(retirementReceipt{
+			FriendGroupID: current.FriendGroupID,
+			Name:          current.FriendGroup.Name,
+			WorkspaceID:   current.WorkspaceID,
+			WorkspaceName: current.WorkspaceName,
+			Owner:         socialutil.StringValue(current.FriendGroup.CreatedByPeerPublicKey),
+			DeletedAt:     current.DeletedAt,
+			Members:       current.Members,
+		}, friendGroupID); err != nil {
 			return err
 		}
-	}
-	return nil
+		// The relationship deletion has already committed. A Peer retirement
+		// may itself be waiting for this handoff, so applying the admission
+		// check for new mutations here would create a circular dependency.
+		ctx = context.WithValue(ctx, peerRetirementContextKey{}, true)
+		lockedCtx, releasePeers, lockErr := s.lockRetirementPeers(ctx, current)
+		if lockErr != nil {
+			return lockErr
+		}
+		defer releasePeers()
+		_, err := s.completeFriendGroupRetirement(lockedCtx, friendGroupID, current)
+		return err
+	})
 }
 
 func (s *Server) notifyFriendGroupRetirement(ctx context.Context, friendGroupID string, intent retirementIntent) {
