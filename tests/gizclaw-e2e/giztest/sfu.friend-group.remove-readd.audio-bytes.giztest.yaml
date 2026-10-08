@@ -155,13 +155,59 @@ steps:
   # the windows cover the whole utterance.
   # Establish both real publisher tracks before measuring exact first packets.
   - id: alice_prime_media
-    client: alice
-    peer_stream: {mode: push-to-talk, input: "${tone}", pacing: 20ms, completion: input_sent}
-    expect: {/input_sent: {equals: true}}
+    timeout: 30s
+    parallel:
+      - id: alice_prime_bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: alice_prime_carol_listen
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: alice_prime_send
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /alice_prime_send/input_sent:
+        equals: true
+      /alice_prime_bob_listen/audio_bytes:
+        minimum: 2000
+      /alice_prime_carol_listen/audio_bytes:
+        minimum: 2000
   - id: bob_prime_media
-    client: bob
-    peer_stream: {mode: push-to-talk, input: "${tone}", pacing: 20ms, completion: input_sent}
-    expect: {/input_sent: {equals: true}}
+    timeout: 30s
+    parallel:
+      - id: bob_prime_alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: bob_prime_carol_listen
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: bob_prime_send
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /bob_prime_send/input_sent:
+        equals: true
+      /bob_prime_alice_listen/audio_bytes:
+        minimum: 2000
+      /bob_prime_carol_listen/audio_bytes:
+        minimum: 2000
   - id: alice_speaks_before_removal
     timeout: 30s
     parallel:
@@ -308,6 +354,33 @@ steps:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
   # One step starts the speaker and both listen windows at the same moment, so
   # the windows cover the whole utterance.
+  - id: bob_prime_media_restored
+    timeout: 30s
+    parallel:
+      - id: bob_prime_restored_alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: bob_prime_restored_carol_listen
+        client: carol
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: bob_prime_restored_send
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /bob_prime_restored_send/input_sent:
+        equals: true
+      /bob_prime_restored_alice_listen/audio_bytes:
+        minimum: 2000
+      /bob_prime_restored_carol_listen/audio_bytes:
+        minimum: 2000
   - id: alice_speaks_after_readd
     timeout: 30s
     parallel:
