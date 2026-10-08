@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reflect"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/firmwaretest"
@@ -16,12 +17,19 @@ import (
 func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	ctx := context.Background()
 	manager := New(Services{Firmwares: firmwaretest.New(t)})
+	metadata := apitypes.FirmwareMetadata{
+		"modem":  json.RawMessage(`{"version":"1.0.0","urls":["https://firmware.example/modem-a.bin","https://firmware.example/modem-b.bin"]}`),
+		"null":   json.RawMessage(`null`),
+		"number": json.RawMessage(`9007199254740993`),
+		"text":   json.RawMessage(`"hello"`),
+	}
 	resource, err := marshalResource(apitypes.FirmwareResource{
 		ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1,
 		Kind:       apitypes.FirmwareResourceKind(apitypes.ResourceKindFirmware),
 		Metadata:   apitypes.ResourceMetadata{Id: "devkit"},
 		Spec: apitypes.FirmwareSpec{
-			Slots: testFirmwareSpecSlots("stable firmware"),
+			Slots:    testFirmwareSpecSlots("stable firmware"),
+			Metadata: &metadata,
 		},
 	})
 	if err != nil {
@@ -51,6 +59,9 @@ func TestFirmwareResourceApplyShowDelete(t *testing.T) {
 	}
 
 	unchanged, err := manager.Apply(ctx, resource)
+	if !reflect.DeepEqual(item.Spec.Metadata, &metadata) {
+		t.Fatalf("shown metadata = %#v", item.Spec.Metadata)
+	}
 	if err != nil {
 		t.Fatalf("Apply unchanged error = %v", err)
 	}

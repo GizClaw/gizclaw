@@ -679,6 +679,42 @@ int gzc_rpc_request_start(
       out_request);
 }
 
+int gzc_client_get_firmware_metadata(
+    gzc_client_t *client,
+    gzc_str_t key,
+    int timeout_ms,
+    const gzc_rpc_request_options_t *options,
+    gzc_rpc_request_t **out_request) {
+  if (out_request != NULL) {
+    *out_request = NULL;
+  }
+  if (client == NULL || out_request == NULL || key.data == NULL ||
+      key.len == 0 || key.len > 64) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  for (size_t i = 0; i < key.len; ++i) {
+    unsigned char c = (unsigned char)key.data[i];
+    bool alphanumeric = (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+                        (c >= '0' && c <= '9');
+    if (!alphanumeric && (i == 0 || (c != '.' && c != '_' && c != '-'))) {
+      return GZC_ERR_INVALID_ARGUMENT;
+    }
+  }
+  gizclaw_rpc_v1_FirmwareMetadataGetRequest message =
+      gizclaw_rpc_v1_FirmwareMetadataGetRequest_init_zero;
+  memcpy(message.key, key.data, key.len);
+  uint8_t payload[gizclaw_rpc_v1_FirmwareMetadataGetRequest_size];
+  pb_ostream_t output = pb_ostream_from_buffer(payload, sizeof(payload));
+  if (!pb_encode(&output, gizclaw_rpc_v1_FirmwareMetadataGetRequest_fields, &message)) {
+    return GZC_ERR_RPC;
+  }
+  return gzc_rpc_request_start(
+      client, UINT64_C(0),
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_METADATA_GET,
+      gzc_str_from_parts((const char *)payload, output.bytes_written),
+      timeout_ms, options, out_request);
+}
+
 int gzc_rpc_request_start_stream(
     gzc_client_t *client,
     uint64_t service,

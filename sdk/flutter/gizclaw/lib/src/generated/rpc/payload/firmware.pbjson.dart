@@ -83,6 +83,34 @@ final $typed_data.Uint8List firmwareGetResponseDescriptor = $convert.base64Decod
     'IKBHNpemUYBSABKANSBHNpemUSHQoHdmVyc2lvbhgGIAEoCUgBUgd2ZXJzaW9uiAEBQg4KDF9k'
     'ZXNjcmlwdGlvbkIKCghfdmVyc2lvbg==');
 
+@$core.Deprecated('Use firmwareMetadataGetRequestDescriptor instead')
+const FirmwareMetadataGetRequest$json = {
+  '1': 'FirmwareMetadataGetRequest',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+  ],
+};
+
+/// Descriptor for `FirmwareMetadataGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List firmwareMetadataGetRequestDescriptor =
+    $convert.base64Decode(
+        'ChpGaXJtd2FyZU1ldGFkYXRhR2V0UmVxdWVzdBIQCgNrZXkYASABKAlSA2tleQ==');
+
+@$core.Deprecated('Use firmwareMetadataGetResponseDescriptor instead')
+const FirmwareMetadataGetResponse$json = {
+  '1': 'FirmwareMetadataGetResponse',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {'1': 'value', '3': 2, '4': 1, '5': 9, '10': 'value'},
+  ],
+};
+
+/// Descriptor for `FirmwareMetadataGetResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List firmwareMetadataGetResponseDescriptor =
+    $convert.base64Decode(
+        'ChtGaXJtd2FyZU1ldGFkYXRhR2V0UmVzcG9uc2USEAoDa2V5GAEgASgJUgNrZXkSFAoFdmFsdW'
+        'UYAiABKAlSBXZhbHVl');
+
 @$core.Deprecated('Use clientFirmwareUpdateRequestDescriptor instead')
 const ClientFirmwareUpdateRequest$json = {
   '1': 'ClientFirmwareUpdateRequest',

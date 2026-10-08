@@ -9,7 +9,7 @@ The RPC module is responsible for client/server, dispatch, stream framing and do
 | [Common](./all) | Ping common to all RPC connections. | `rpc_all.go` |
 | [Client](./client) | Client-side RPC receiver, Client info and identifiers query. | `rpc_client.go` |
 | [Server](./server) | RPC Server composition, dispatch, Server methods, and handling for unimplemented methods. | `rpc_server.go` |
-| [Firmware Configuration](./firmware) | Resolves the caller Peer's bound Firmware and returns one channel's external package configuration. | `services/runtime/peerresource/firmware.go` |
+| [Firmware Configuration](./firmware) | Resolves the caller Peer's bound Firmware and reads a channel package or one independent metadata key. | `services/runtime/peerresource/firmware.go` |
 | [Workspace History](./workspace-history) | History audio streaming. | `rpc_workspace_history.go` |
 | [Speech Transcription](./transcription) | Standalone streaming audio-to-text. | `rpc_speech.go` |
 | [Speech Extraction](./extraction) | Standalone streaming audio-to-schema-constrained JSON. | `rpc_speech.go` |

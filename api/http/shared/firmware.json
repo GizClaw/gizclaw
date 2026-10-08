@@ -27,6 +27,9 @@
           "slots": {
             "$ref": "./firmware_slots.json#/components/schemas/FirmwareSlots"
           },
+          "metadata": {
+            "$ref": "./firmware_metadata.json#/components/schemas/FirmwareMetadata"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time"

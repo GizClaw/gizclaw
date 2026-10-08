@@ -233,6 +233,9 @@
       "Firmware": {
         "$ref": "./shared/firmware.json#/components/schemas/Firmware"
       },
+      "FirmwareMetadata": {
+        "$ref": "./shared/firmware_metadata.json#/components/schemas/FirmwareMetadata"
+      },
       "FirmwarePackage": {
         "$ref": "./shared/firmware_package.json#/components/schemas/FirmwarePackage"
       },

@@ -105,6 +105,7 @@ export type DeviceFirmware = {
      */
     description?: string;
     slots: FirmwareSlots;
+    metadata?: FirmwareMetadata;
 };
 
 export type DeviceRuntimeProfile = {
@@ -701,6 +702,13 @@ export type ErrorPayload = {
 
 export type ErrorResponse = {
     error: ErrorPayload;
+};
+
+/**
+ * Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata.
+ */
+export type FirmwareMetadata = {
+    [key: string]: unknown;
 };
 
 export type FirmwarePackage = {

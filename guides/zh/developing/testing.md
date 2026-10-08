@@ -410,6 +410,21 @@ Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/R
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+固件 metadata 的共享场景是 `server.firmware.metadata.get.giztest.yaml`。
+它覆盖对象、字符串、数组、数字、布尔值和显式 `null`，大整数精度、缺失或非法 key、
+平面 key 匹配、重连后的绑定，以及原有 stable channel。每次执行包含 16 个步骤和一次
+Peer 删除清理；任何步骤或原生 runner 失败都使测试失败。
+
+以下两个入口使用临时 Server、真实 WebRTC 和 Admin API，均不需要 provider 凭据：
+
+```sh
+go test ./cmd/internal/server -run '^TestFirmwareMetadataGiztest$' -count=1
+bash tests/gizclaw-e2e/run_firmware_metadata_tests.sh
+```
+
+第一条随普通 Go 测试运行；第二条构建并执行 Go、JavaScript、C 和 Flutter 四个
+原生 runner，使用同一份场景与 Firmware fixture。完整 Docker firmware 套件也执行该场景。
+
 托管删除变更使用固定的 production vertical-slice 入口。该入口校验统一的 credential
 file，启动隔离的 Docker stack，并在独立的 Peer RPC 删除测试包中覆盖 Workspace、
 Friend Group 和 Peer。测试会验证使用中资源被终止，以及 Peer tombstone 在 Server 重启后

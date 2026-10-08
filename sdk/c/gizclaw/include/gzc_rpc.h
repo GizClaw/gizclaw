@@ -120,6 +120,20 @@ int gzc_rpc_request_start(
     const gzc_rpc_request_options_t *options,
     gzc_rpc_request_t **out_request);
 /*
+ * Starts server.firmware.metadata.get on the Peer RPC service. key is copied
+ * during this call and must match [A-Za-z0-9][A-Za-z0-9_.-]{0,63}.
+ * Use the normal poll/result/destroy lifecycle and completion options above.
+ * Decode result_payload as gizclaw_rpc_v1_FirmwareMetadataGetResponse, with a
+ * value callback to receive the JSON text. The response is borrowed until the
+ * request is destroyed; the callback decoder owns any value copy it creates.
+ */
+int gzc_client_get_firmware_metadata(
+    gzc_client_t *client,
+    gzc_str_t key,
+    int timeout_ms,
+    const gzc_rpc_request_options_t *options,
+    gzc_rpc_request_t **out_request);
+/*
  * Starts one mixed-frame RPC without closing the request direction. Incoming
  * response, binary data, and EOS frames are delivered from gzc_client_poll().
  * Callback frame storage is borrowed only until the callback returns. The frame

@@ -149,6 +149,14 @@ export class PeerRPCClient {
     >(method, params, options);
   }
 
+  /** Reads one bound-firmware metadata key. Decode response.value as JSON. */
+  getFirmwareMetadata(
+    key: string,
+    options?: RPCCallOptions,
+  ): Promise<RPCPayload.FirmwareMetadataGetResponse> {
+    return this.call("server.firmware.metadata.get", { key }, options);
+  }
+
   transcribeSpeech(
     params: RPCPayload.SpeechTranscribeRequest,
     audio: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,

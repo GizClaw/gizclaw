@@ -314,9 +314,12 @@ type FirmwareList struct {
 
 // FirmwareUpsert defines model for FirmwareUpsert.
 type FirmwareUpsert struct {
-	Description *string                    `json:"description,omitempty"`
-	Id          string                     `json:"id"`
-	Slots       externalRef0.FirmwareSlots `json:"slots"`
+	Description *string `json:"description,omitempty"`
+	Id          string  `json:"id"`
+
+	// Metadata Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata.
+	Metadata *externalRef0.FirmwareMetadata `json:"metadata,omitempty"`
+	Slots    externalRef0.FirmwareSlots     `json:"slots"`
 }
 
 // GeminiTenantList defines model for GeminiTenantList.

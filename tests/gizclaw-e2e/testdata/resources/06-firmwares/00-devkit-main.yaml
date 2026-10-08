@@ -5,6 +5,18 @@ metadata:
   id: devkit-firmware-main
 spec:
   description: Devkit firmware resource entry
+  metadata:
+    mcu:
+      version: "1.2.3"
+      urls:
+        - https://firmware.example.invalid/mcu/ap.bin
+        - https://firmware.example.invalid/mcu/cp.bin
+    label: devkit
+    parts: [main, secondary]
+    revision: 42
+    enabled: true
+    optional: null
+    large_integer: 9007199254740993
   slots:
     beta:
       description: Devkit beta package

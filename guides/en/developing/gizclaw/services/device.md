@@ -15,6 +15,7 @@ services/device/
 `firmware` owns:
 
 - Firmware catalog and channel metadata.
+- Channel-independent firmware metadata; see [Firmware RPC](../rpc/firmware#firmware-metadata) for fields and reads.
 - Validation and persistence of each channel's HTTPS `.tar.zlib` URL, SHA-256, and archive size.
 - Complete replacement and strict validation of stable, beta, and develop slots.
 

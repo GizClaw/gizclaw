@@ -4048,12 +4048,18 @@ type Event struct {
 
 // Firmware defines model for Firmware.
 type Firmware struct {
-	CreatedAt   time.Time     `json:"created_at"`
-	Description *string       `json:"description,omitempty"`
-	Id          string        `json:"id"`
-	Slots       FirmwareSlots `json:"slots"`
-	UpdatedAt   time.Time     `json:"updated_at"`
+	CreatedAt   time.Time `json:"created_at"`
+	Description *string   `json:"description,omitempty"`
+	Id          string    `json:"id"`
+
+	// Metadata Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata.
+	Metadata  *FirmwareMetadata `json:"metadata,omitempty"`
+	Slots     FirmwareSlots     `json:"slots"`
+	UpdatedAt time.Time         `json:"updated_at"`
 }
+
+// FirmwareMetadata Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata.
+type FirmwareMetadata = map[string]json.RawMessage
 
 // FirmwarePackage defines model for FirmwarePackage.
 type FirmwarePackage struct {
@@ -4097,8 +4103,11 @@ type FirmwareSlots struct {
 
 // FirmwareSpec defines model for FirmwareSpec.
 type FirmwareSpec struct {
-	Description *string           `json:"description,omitempty"`
-	Slots       FirmwareSpecSlots `json:"slots"`
+	Description *string `json:"description,omitempty"`
+
+	// Metadata Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata.
+	Metadata *FirmwareMetadata `json:"metadata,omitempty"`
+	Slots    FirmwareSpecSlots `json:"slots"`
 }
 
 // FirmwareSpecSlot defines model for FirmwareSpecSlot.

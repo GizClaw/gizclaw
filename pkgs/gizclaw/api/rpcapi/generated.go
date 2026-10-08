@@ -626,7 +626,7 @@ func (e RPCMethod) Valid() bool {
 		return true
 	case RPCMethodServerContactPut:
 		return true
-	case RPCMethodServerFirmwareGet:
+	case RPCMethodServerFirmwareGet, RPCMethodServerFirmwareMetadataGet:
 		return true
 	case RPCMethodServerFriendAdd:
 		return true

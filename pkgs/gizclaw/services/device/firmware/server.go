@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -82,7 +83,11 @@ func (s *Server) CreateFirmware(ctx context.Context, request adminhttp.CreateFir
 	if err != nil {
 		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	result, err := store.ExecContext(ctx, store.Rebind(`INSERT INTO firmwares(id,description,slots_json,created_at,updated_at) VALUES (?,?,?,?,?) ON CONFLICT(id) DO NOTHING`), item.Id, item.Description, string(data), item.CreatedAt.Format(time.RFC3339Nano), item.UpdatedAt.Format(time.RFC3339Nano))
+	metadata, err := json.Marshal(item.Metadata)
+	if err != nil {
+		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	result, err := store.ExecContext(ctx, store.Rebind(`INSERT INTO firmwares(id,description,slots_json,metadata_json,created_at,updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`), item.Id, item.Description, string(data), string(metadata), item.CreatedAt.Format(time.RFC3339Nano), item.UpdatedAt.Format(time.RFC3339Nano))
 	if err != nil {
 		return adminhttp.CreateFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
@@ -156,7 +161,11 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	if err != nil {
 		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	item, err = scanFirmware(store.QueryRowContext(ctx, store.Rebind(`UPDATE firmwares SET description=?,slots_json=?,updated_at=? WHERE id=? RETURNING `+firmwareColumns), item.Description, string(data), s.now().Format(time.RFC3339Nano), id))
+	metadata, err := json.Marshal(item.Metadata)
+	if err != nil {
+		return adminhttp.PutFirmware500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
+	}
+	item, err = scanFirmware(store.QueryRowContext(ctx, store.Rebind(`UPDATE firmwares SET description=?,slots_json=?,metadata_json=?,updated_at=? WHERE id=? RETURNING `+firmwareColumns), item.Description, string(data), string(metadata), s.now().Format(time.RFC3339Nano), id))
 	if errors.Is(err, sql.ErrNoRows) {
 		return adminhttp.PutFirmware404JSONResponse(apitypes.NewErrorResponse("FIRMWARE_NOT_FOUND", fmt.Sprintf("firmware %q not found", id))), nil
 	}
@@ -166,7 +175,7 @@ func (s *Server) PutFirmware(ctx context.Context, request adminhttp.PutFirmwareR
 	return adminhttp.PutFirmware200JSONResponse(item), nil
 }
 
-const firmwareColumns = "id,description,slots_json,created_at,updated_at"
+const firmwareColumns = "id,description,slots_json,metadata_json,created_at,updated_at"
 
 // Get reads a Firmware by its catalog ID.
 func Get(ctx context.Context, db *sqlx.DB, id string) (apitypes.Firmware, error) {
@@ -175,12 +184,19 @@ func Get(ctx context.Context, db *sqlx.DB, id string) (apitypes.Firmware, error)
 
 func scanFirmware(row interface{ Scan(...any) error }) (apitypes.Firmware, error) {
 	var item apitypes.Firmware
-	var slots, created, updated string
-	if err := row.Scan(&item.Id, &item.Description, &slots, &created, &updated); err != nil {
+	var slots, metadata, created, updated string
+	if err := row.Scan(&item.Id, &item.Description, &slots, &metadata, &created, &updated); err != nil {
 		return item, err
 	}
 	if err := json.Unmarshal([]byte(slots), &item.Slots); err != nil {
 		return item, err
+	}
+	if err := json.Unmarshal([]byte(metadata), &item.Metadata); err != nil {
+		return item, err
+	}
+	var err error
+	if item.Metadata, err = normalizeMetadata(item.Metadata); err != nil {
+		return item, fmt.Errorf("invalid stored firmware metadata: %w", err)
 	}
 	for _, slot := range []apitypes.FirmwareSlot{item.Slots.Stable, item.Slots.Beta, item.Slots.Develop} {
 		if slot.Package != nil && slot.Package.Version != nil {
@@ -189,7 +205,6 @@ func scanFirmware(row interface{ Scan(...any) error }) (apitypes.Firmware, error
 			}
 		}
 	}
-	var err error
 	if item.CreatedAt, err = time.Parse(time.RFC3339Nano, created); err != nil {
 		return item, err
 	}
@@ -235,6 +250,9 @@ func normalizeFirmwareUpsert(in adminhttp.FirmwareUpsert, expectedID string) (ap
 	item := apitypes.Firmware{
 		Id:    id,
 		Slots: slots,
+	}
+	if item.Metadata, err = normalizeMetadata(in.Metadata); err != nil {
+		return apitypes.Firmware{}, err
 	}
 	if in.Description != nil {
 		description := strings.TrimSpace(*in.Description)
@@ -361,9 +379,32 @@ func (s *Server) Initialize(ctx context.Context) error {
  id TEXT PRIMARY KEY CHECK(length(id)>0),
  description TEXT,
  slots_json TEXT NOT NULL,
+ metadata_json TEXT NOT NULL DEFAULT 'null',
  created_at TEXT NOT NULL,
  updated_at TEXT NOT NULL
  )`)
+	if err != nil {
+		return err
+	}
+	if db.DriverName() == "postgres" {
+		_, err := db.ExecContext(ctx, "ALTER TABLE firmwares ADD COLUMN IF NOT EXISTS metadata_json TEXT NOT NULL DEFAULT 'null'")
+		return err
+	}
+	rows, err := db.QueryContext(ctx, "SELECT * FROM firmwares WHERE 1=0")
+	if err != nil {
+		return err
+	}
+	columns, err := rows.Columns()
+	closeErr := rows.Close()
+	if err != nil {
+		return err
+	}
+	if closeErr != nil {
+		return closeErr
+	}
+	if !slices.Contains(columns, "metadata_json") {
+		_, err = db.ExecContext(ctx, "ALTER TABLE firmwares ADD COLUMN metadata_json TEXT NOT NULL DEFAULT 'null'")
+	}
 	return err
 }
 

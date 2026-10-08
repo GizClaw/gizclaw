@@ -23,6 +23,19 @@ message FirmwareGetResponse {
   optional string version = 6;
 }
 
+// Reads one channel-independent entry from the caller's bound Firmware.
+message FirmwareMetadataGetRequest {
+  // 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$.
+  string key = 1;
+}
+
+message FirmwareMetadataGetResponse {
+  string key = 1;
+  // Compact UTF-8 JSON text, at most 65536 bytes. Parse as JSON even for a
+  // string or null value. A present null value returns "null", not NOT_FOUND.
+  string value = 2;
+}
+
 message ClientFirmwareUpdateRequest {
   optional FirmwareChannelName channel = 1;
   optional string sha256 = 2;

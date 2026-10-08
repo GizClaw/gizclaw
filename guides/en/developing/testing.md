@@ -456,6 +456,23 @@ coverage without the unrelated provider-backed suites:
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+The shared firmware metadata scenario is `server.firmware.metadata.get.giztest.yaml`.
+It covers objects, strings, arrays, numbers, booleans, explicit null, large integer precision,
+missing or invalid keys, exact flat-key matching, binding after reconnect, and the existing
+stable channel. Each run executes 16 steps and one Peer deletion cleanup; a failed step or
+native runner fails the test.
+
+Both entry points below use temporary Servers, real WebRTC, and Admin APIs without provider credentials:
+
+```sh
+go test ./cmd/internal/server -run '^TestFirmwareMetadataGiztest$' -count=1
+bash tests/gizclaw-e2e/run_firmware_metadata_tests.sh
+```
+
+The first runs with ordinary Go tests. The second builds and runs the Go, JavaScript, C,
+and Flutter native runners against the same scenario and Firmware fixture. The full Docker
+firmware suite also executes this scenario.
+
 Managed-deletion changes use a fixed production vertical-slice entrypoint. It
 validates the shared credential file, starts an isolated Docker stack, and runs
 the dedicated Peer RPC deletion package for Workspace, Friend Group, and Peer

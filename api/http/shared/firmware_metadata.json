@@ -1,0 +1,23 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Firmware Metadata Type",
+    "description": "Channel-independent firmware metadata entries.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "FirmwareMetadata": {
+        "type": "object",
+        "x-go-type": "map[string]json.RawMessage",
+        "maxProperties": 64,
+        "additionalProperties": {
+          "nullable": true,
+          "x-go-type": "json.RawMessage"
+        },
+        "description": "Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata."
+      }
+    }
+  }
+}

@@ -120,7 +120,7 @@ func (s *peerHTTP) GetDeviceFirmware(ctx context.Context, _ peerhttp.GetDeviceFi
 		}
 		return peerhttp.GetDeviceFirmware500JSONResponse{InternalErrorJSONResponse: peerhttp.InternalErrorJSONResponse(internalPublicHTTP())}, nil
 	}
-	return peerhttp.GetDeviceFirmware200JSONResponse{Description: item.Description, Slots: item.Slots}, nil
+	return peerhttp.GetDeviceFirmware200JSONResponse{Description: item.Description, Slots: item.Slots, Metadata: item.Metadata}, nil
 }
 
 func (s *peerHTTP) GetDeviceRuntimeProfile(ctx context.Context, request peerhttp.GetDeviceRuntimeProfileRequestObject) (peerhttp.GetDeviceRuntimeProfileResponseObject, error) {

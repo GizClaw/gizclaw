@@ -1,0 +1,132 @@
+# User Story:
+# As a device reading its bound Firmware configuration,
+# I want read arbitrary metadata by an exact key,
+# So that JSON values survive RPC transport and reconnect without changing OTA channels.
+version: gizclaw.test/v1alpha1
+name: server.firmware.metadata.get
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+steps:
+- id: register_peer
+  client: peer
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: object_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: mcu}
+  expect:
+    /key: {equals: mcu}
+    /value:
+      equals: '{"urls":["https://firmware.example.invalid/mcu/ap.bin","https://firmware.example.invalid/mcu/cp.bin"],"version":"1.2.3"}'
+- id: string_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: label}
+  expect:
+    /key: {equals: label}
+    /value: {equals: '"devkit"'}
+- id: array_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: parts}
+  expect:
+    /value: {equals: '["main","secondary"]'}
+- id: number_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: revision}
+  expect:
+    /value: {equals: '42'}
+- id: large_integer_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: large_integer}
+  expect:
+    /value: {equals: '9007199254740993'}
+- id: boolean_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: enabled}
+  expect:
+    /value: {equals: 'true'}
+- id: null_value
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: optional}
+  expect:
+    /key: {equals: optional}
+    /value: {equals: 'null'}
+- id: missing_key
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: missing.key}
+  expect_error:
+    code: 5
+    message_contains: firmware metadata key not found
+- id: exact_key_not_json_path
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: mcu.version}
+  expect_error: {code: 5}
+- id: empty_key
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: ""}
+  expect_error: {code: 3}
+- id: invalid_key
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: ../mcu}
+  expect_error: {code: 3}
+- id: original_firmware_channel
+  client: peer
+  rpc:
+    method: server.firmware.get
+    request: {channel: FIRMWARE_CHANNEL_NAME_STABLE}
+  expect:
+    /version: {equals: "1.2.3"}
+    /url: {equals: https://firmware.example.invalid/devkit/stable.tar.zlib}
+- id: reconnect_peer
+  client: peer
+  reconnect: {await_ms: 5000}
+- id: register_again
+  client: peer
+  rpc:
+    method: server.register
+    request: {token: "${registration_token}"}
+- id: metadata_after_reconnect
+  client: peer
+  rpc:
+    method: server.firmware.metadata.get
+    request: {key: label}
+  expect:
+    /value: {equals: '"devkit"'}
+finally:
+- id: cleanup_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}

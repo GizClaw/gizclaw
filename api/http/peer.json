@@ -3721,6 +3721,9 @@
           "slots": {
             "$ref": "./shared.json#/components/schemas/FirmwareSlots",
             "description": "Every configured channel. A channel with no configured package carries no package field."
+          },
+          "metadata": {
+            "$ref": "./shared.json#/components/schemas/FirmwareMetadata"
           }
         }
       },
