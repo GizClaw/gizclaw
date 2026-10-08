@@ -134,6 +134,14 @@ Production registrations are `source=workspace` (`kind=workspace`), `source=frie
 
 The optional top-level `pending_deletion` configuration defaults to `scan_interval: 30s`, `page_size: 100`, `dispatch_capacity: 256`, `workers: 4`, `lease_duration: 2m`, `attempt_timeout: 90s`, `retry_initial: 5s`, `retry_max: 30m`, and `max_attempts: 10`. Durations and counts must be positive and bounded, attempt timeout must be shorter than the lease, retry initial must not exceed retry max, and unknown keys fail strict configuration parsing. There is no completion-retention setting.
 
+## Background Social recovery
+
+Server initialization only composes Social services and recovery workers; it does not read or replay historical recovery indexes. After listeners are ready, `Server.Listen` starts three independent workers for Friend creation, Friend retirement, and Friend Group retirement. Each performs an immediate recovery pass, then waits `pending_deletion.scan_interval` after each pass before retrying. A blocked or failed work kind neither prevents the others from running nor fails Server startup.
+
+Recovery only visits durable sharded indexes. Each index read and individual record attempt has a 30-second deadline. Failed records retain their original intents and memberships while later records are attempted; the pass reports a bounded error summary. Authoritative relationships, bindings, and `PendingDeletion` continue to enforce resource access. Group retirement recovery validates the committed deletion snapshot and retains mutation locks without requiring former member Peers to admit new activity; a deleting Peer cannot block the Group's Workspace retirement handoff.
+
+`Server.Close` cancels and joins all Social recovery workers before stopping the pending-deletion processor and releasing runtime resources. A later `Listen` discovers work again from the durable indexes.
+
 ## Core structure and main function
 
 | Symbol | Function |

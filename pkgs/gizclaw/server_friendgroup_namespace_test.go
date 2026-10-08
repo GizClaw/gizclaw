@@ -10,6 +10,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -23,6 +24,32 @@ type failingGroupWorkspaceRetirement struct {
 
 func (s failingGroupWorkspaceRetirement) RetireSystemWorkspaceByID(context.Context, string, socialutil.SFUWorkspaceKind, string) (apitypes.Workspace, error) {
 	return apitypes.Workspace{}, s.err
+}
+
+func runServerSocialRecoveryPass(t *testing.T, server *Server) {
+	t.Helper()
+	r := server.socialRecovery
+	results := make(chan error, len(r.tasks))
+	for i := range r.tasks {
+		reconcile := r.tasks[i].reconcile
+		r.tasks[i].reconcile = func(ctx context.Context) error {
+			err := reconcile(ctx)
+			results <- err
+			return err
+		}
+	}
+	r.start(t.Context())
+	defer r.close()
+	for range r.tasks {
+		select {
+		case err := <-results:
+			if err != nil {
+				t.Fatalf("background recovery pass: %v", err)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("background recovery did not complete")
+		}
+	}
 }
 
 func TestServerFriendGroupNamespaceLifecycle(t *testing.T) {
@@ -145,16 +172,27 @@ func TestServerFriendGroupNamespaceLifecycle(t *testing.T) {
 	if err := prod.init(); err != nil {
 		t.Fatal(err)
 	}
+	runServerSocialRecoveryPass(t, prod)
 	prodGroups = prod.peerService.admin.FriendGroups
 	if _, err := prodGroups.AdminGetFriendGroup(ctx, groupID); err != nil {
 		t.Fatal(err)
 	}
 	assertRecovery(dev.FriendGroupStore, []string{groupID})
+	// A persisted Peer deletion must not prevent the committed Group deletion
+	// from reaching the independent Workspace cleanup flow.
+	if err := dev.manager.Peers.DeleteSelf(ctx, keyPair.Public); err != nil {
+		t.Fatal(err)
+	}
 	// Reinitialization uses the same durable stores and restores the real Workspace service.
 	if err := dev.init(); err != nil {
 		t.Fatal(err)
 	}
 	devGroups = dev.peerService.admin.FriendGroups
+	assertRecovery(dev.FriendGroupStore, []string{groupID})
+	if err := dev.manager.Peers.EnsureAvailable(ctx, keyPair.Public); !errors.Is(err, runtimepeer.ErrPeerPendingDeletion) {
+		t.Fatalf("Peer was not pending deletion: %v", err)
+	}
+	runServerSocialRecoveryPass(t, dev)
 	assertRecovery(dev.FriendGroupStore, nil)
 	assertAbsent(dev.FriendGroupStore, intentKey)
 	for _, key := range []kv.Key{receiptKey, nameKey} {
@@ -225,6 +263,7 @@ func TestServerFriendGroupNamespaceIgnoresUnscopedRecovery(t *testing.T) {
 	if err := server.init(); err != nil {
 		t.Fatalf("foreign recovery affected startup: %v", err)
 	}
+	runServerSocialRecoveryPass(t, server)
 	got, err := root.Get(t.Context(), key)
 	if err != nil || string(got) != string(value) {
 		t.Fatalf("foreign record changed: %q, %v", got, err)

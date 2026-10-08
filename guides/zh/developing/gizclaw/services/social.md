@@ -27,13 +27,15 @@ Contact 使用 Server 本地 SQL 连接池中的 `contacts` 业务表。ID、own
 
 Peer RPC 以 `name` 暴露 Friend relationship 的稳定身份，其值是已由 authenticated caller 限定 scope 的另一方 Peer public key；get/info/delete 接收同一个 `name`。Profile 展示字段是 `FriendInfo.display_name`。确定性的 relationship ID 只保留在内部以及 Admin/persistence surface。
 
-每个好友直聊生命周期拥有一个独立的 system Workspace。稳定 `RelationID` 只标识双方；每次从无关系进入 active 状态时，服务创建新的 opaque incarnation，并从 `(RelationID, incarnation)` 派生新的 Workspace name。持久化 creation intent 固定本次 incarnation、Workspace owner、Workspace name 和本次 incarnation 的 SFU `room_token`；Workspace 固定绑定内置 `system-sfu` Workflow，不从 RuntimeProfile 选择；Workspace 创建与双方 relationship 提交之间发生失败时，重试或启动恢复会复用同一 intent，不会产生第二个 identity。每个 incarnation 还保留一个不可变 decision，通过原子竞争只允许“提交双方 relationship”或“取消创建”其中一方获胜，因此共享 relationship store 的两个服务实例不能同时提交这两个状态。如果 intent 尚未提交 relationship 时收到删除请求，服务会记录 cancellation decision 并删除从未 active 的 Workspace；延迟的创建方竞争失败后也会再次执行这次幂等清理，启动恢复不会重新建立这段关系。所有清理都只在 pair 当前 creation intent 的存储 incarnation 仍匹配时执行原子 compare-and-delete，因此旧生命周期的延迟工作不能移除重新加好友产生的新恢复意图。
+每个好友直聊生命周期拥有一个独立的 system Workspace。稳定 `RelationID` 只标识双方；每次从无关系进入 active 状态时，服务创建新的 opaque incarnation，并从 `(RelationID, incarnation)` 派生新的 Workspace name。持久化 creation intent 固定本次 incarnation、Workspace owner、Workspace name 和本次 incarnation 的 SFU `room_token`；Workspace 固定绑定内置 `system-sfu` Workflow，不从 RuntimeProfile 选择；Workspace 创建与双方 relationship 提交之间发生失败时，重试或后台恢复会复用同一 intent，不会产生第二个 identity。每个 incarnation 还保留一个不可变 decision，通过原子竞争只允许“提交双方 relationship”或“取消创建”其中一方获胜，因此共享 relationship store 的两个服务实例不能同时提交这两个状态。如果 intent 尚未提交 relationship 时收到删除请求，服务会记录 cancellation decision 并删除从未 active 的 Workspace；延迟的创建方竞争失败后也会再次执行这次幂等清理，后台恢复不会重新建立这段关系。所有清理都只在 pair 当前 creation intent 的存储 incarnation 仍匹配时执行原子 compare-and-delete，因此旧生命周期的延迟工作不能移除重新加好友产生的新恢复意图。
 
 Friend relationship 行保存 Peer 可见的精确 Workspace name，内部 binding `friend-workspace-bindings/<relationID>` 则保存用于 retirement、`PendingDeletion`、runtime 与 asset cleanup 的 canonical Workspace ID，以及双方共享的 [SFU binding](#sfu-workspace)。正式删除好友时，服务在同一个 KV `BatchMutate` 中原子删除双方 relationship 并保存最小的 ID-based retirement intent，提交成功后才进入清理队列；完成后用 compact retirement receipt 保留幂等重试所需的 canonical identity 与不可变 name。重新加好友始终创建新的 Workspace 和新的 `room_token`，不查询、清除或复用旧 Workspace 的清理状态。Relationship 或 binding 缺少最终 Schema 要求的 identity 字段时视为无效，不提供旧 identity fallback。创建 invite token 的 Peer 是发起人和不可变 Workspace owner；接受邀请的一方获得访问权但不共享 ownership，Admin 创建使用显式 owner。
 
 Friend invite token 是不透明且区分每个字节的 credential。`friend.add` 只把空值或纯空白值视为缺少参数；其他输入不会做 trim 或格式校验，只有与当前有效 token 完全相等才可建立关系。未知、格式任意、带首尾空白、已清除或已过期的 token 统一返回 not found，调用方自己的 token 返回 conflict。存储读取、解码、有效记录校验或过期记录清理失败统一返回脱敏的 internal error；所有拒绝都不会创建 Friend relationship 或 Workspace，也不会关闭底层 Peer connection。
 
 好友创建、好友删除和群组删除的恢复任务各自维护专用 Set 索引，任务 ID 经哈希分到 256 个集合。一个最多 256 项的目录只记录分片名称；空分片可以留在目录中，以避免清空目录与并发新增任务的竞争。任务记录和成员索引在同一原子操作中写入或删除，恢复过程逐分片读取待处理 ID，再重新读取记录，不扫描业务 key；已完成任务不会永久留在成员集合中。
+
+这三个索引由 [Server 的后台恢复 worker](../server/main#social-后台恢复) 消费，初始化和 listener 启动不等待历史任务。每条记录独立执行，有时限，失败保留索引并继续后续工作；无效分片或成员会报告错误，但不会隐藏其他有效项。群删除恢复只根据校验后的持久化快照完成 retirement，不能因旧 owner 或 member Peer 正在删除而要求它恢复可用；普通创建和变更仍执行 Peer availability 检查。
 
 Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信息写入 256 个分片有序集合，目录最多保存 256 个分片名称；创建／删除好友时，同一原子操作同步更新双方的管理索引。分页游标是不透明值，排序为分片与分片内的 owner／关系 ID，索引范围与返回数量下推到存储后端，仅读取当前页记录，并在页内复用 Workspace binding 查询。
 

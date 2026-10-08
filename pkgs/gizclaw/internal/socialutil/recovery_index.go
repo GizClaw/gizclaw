@@ -5,8 +5,10 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"iter"
 	"slices"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -18,6 +20,8 @@ import (
 type RecoveryIndex struct {
 	Root kv.Key
 }
+
+const recoveryAttemptTimeout = 30 * time.Second
 
 func recoveryBucket(id string) string {
 	sum := sha256.Sum256([]byte(id))
@@ -50,7 +54,7 @@ func (index RecoveryIndex) Remove(id string) []kv.SetMembers {
 // record because another worker may complete it after the set was read.
 func (index RecoveryIndex) IDs(ctx context.Context, store kv.Store) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
-		buckets, err := store.ListMembers(ctx, index.directory())
+		buckets, err := recoveryMembers(ctx, store, index.directory())
 		if err != nil {
 			yield("", err)
 			return
@@ -61,21 +65,31 @@ func (index RecoveryIndex) IDs(ctx context.Context, store kv.Store) iter.Seq2[st
 		}
 		slices.Sort(buckets)
 		for _, bucket := range buckets {
-			decoded, err := hex.DecodeString(bucket)
-			if err != nil || len(decoded) != 1 || hex.EncodeToString(decoded) != bucket {
-				yield("", errors.New("social: invalid recovery bucket"))
-				return
-			}
-			ids, err := store.ListMembers(ctx, index.bucket(bucket))
-			if err != nil {
+			if err := ctx.Err(); err != nil {
 				yield("", err)
 				return
+			}
+			decoded, err := hex.DecodeString(bucket)
+			if err != nil || len(decoded) != 1 || hex.EncodeToString(decoded) != bucket {
+				if !yield("", errors.New("social: invalid recovery bucket")) {
+					return
+				}
+				continue
+			}
+			ids, err := recoveryMembers(ctx, store, index.bucket(bucket))
+			if err != nil {
+				if !yield("", err) {
+					return
+				}
+				continue
 			}
 			slices.Sort(ids)
 			for _, id := range ids {
 				if id == "" || recoveryBucket(id) != bucket {
-					yield("", errors.New("social: invalid recovery member"))
-					return
+					if !yield("", errors.New("social: invalid recovery member")) {
+						return
+					}
+					continue
 				}
 				if !yield(id, nil) {
 					return
@@ -83,4 +97,41 @@ func (index RecoveryIndex) IDs(ctx context.Context, store kv.Store) iter.Seq2[st
 			}
 		}
 	}
+}
+
+func recoveryMembers(ctx context.Context, store kv.Store, key kv.Key) ([]string, error) {
+	readCtx, cancel := context.WithTimeout(ctx, recoveryAttemptTimeout)
+	defer cancel()
+	return store.ListMembers(readCtx, key)
+}
+
+// Reconcile attempts each indexed identity independently with a 30-second
+// deadline. Failed records stay indexed and do not hide later work. It returns
+// a bounded error summary after the pass, or stops promptly on cancellation.
+func (index RecoveryIndex) Reconcile(ctx context.Context, store kv.Store, reconcile func(context.Context, string) error) error {
+	var firstErr error
+	var failures int
+	for id, err := range index.IDs(ctx, store) {
+		if ctx.Err() != nil {
+			return errors.Join(firstErr, ctx.Err())
+		}
+		if err == nil {
+			attemptCtx, cancel := context.WithTimeout(ctx, recoveryAttemptTimeout)
+			err = reconcile(attemptCtx, id)
+			if err == nil {
+				err = attemptCtx.Err()
+			}
+			cancel()
+		}
+		if err != nil {
+			failures++
+			if firstErr == nil {
+				firstErr = err
+			}
+		}
+	}
+	if firstErr != nil {
+		return fmt.Errorf("social: %d recovery attempts failed: %w", failures, firstErr)
+	}
+	return ctx.Err()
 }
