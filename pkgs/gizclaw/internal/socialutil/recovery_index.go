@@ -105,13 +105,14 @@ func recoveryMembers(ctx context.Context, store kv.Store, key kv.Key) ([]string,
 	return store.ListMembers(readCtx, key)
 }
 
-// Reconcile attempts each indexed identity independently with a 30-second
-// deadline. Failed records stay indexed and do not hide later work. It returns
-// a bounded error summary after the pass, or stops promptly on cancellation.
+// Reconcile repairs derived memberships from exact work records, then attempts
+// each discovered identity independently with a 30-second deadline. It visits
+// the 256 known bucket keys even when their directory is missing. Failed work
+// records stay indexed; neither repairs nor recovery failures hide later work.
 func (index RecoveryIndex) Reconcile(ctx context.Context, store kv.Store, reconcile func(context.Context, string) error) error {
 	var firstErr error
 	var failures int
-	for id, err := range index.IDs(ctx, store) {
+	for id, err := range index.repairIDs(ctx, store) {
 		if ctx.Err() != nil {
 			return errors.Join(firstErr, ctx.Err())
 		}

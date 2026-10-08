@@ -23,7 +23,9 @@ func TestRecoveryContinuesAfterTimedOutIntentAndRetainsItForRetry(t *testing.T) 
 		defer store.Close()
 		index := RecoveryIndex{Root: kv.Key{"retirement"}}
 		for _, id := range []string{"a", "b", "c"} {
-			if _, err := store.ApplyMutation(t.Context(), kv.Mutation{AddMembers: index.Add(id)}); err != nil {
+			if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+				Entries: []kv.Entry{{Key: index.recordKey(id), Value: []byte(id)}}, AddMembers: index.Add(id),
+			}); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -42,7 +44,9 @@ func TestRecoveryContinuesAfterTimedOutIntentAndRetainsItForRetry(t *testing.T) 
 				<-ctx.Done()
 				return ctx.Err()
 			}
-			_, err := store.ApplyMutation(ctx, kv.Mutation{RemoveMembers: index.Remove(id)})
+			_, err := store.ApplyMutation(ctx, kv.Mutation{
+				DeleteKeys: []kv.Key{index.recordKey(id)}, RemoveMembers: index.Remove(id),
+			})
 			return err
 		})
 		if !errors.Is(err, context.DeadlineExceeded) || !slices.Equal(attempted, ids) {
@@ -69,7 +73,9 @@ func TestRecoveryCancellationStopsBeforeNextIntent(t *testing.T) {
 	defer store.Close()
 	index := RecoveryIndex{Root: kv.Key{"retirement"}}
 	for _, id := range []string{"a", "b", "c"} {
-		if _, err := store.ApplyMutation(t.Context(), kv.Mutation{AddMembers: index.Add(id)}); err != nil {
+		if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+			Entries: []kv.Entry{{Key: index.recordKey(id), Value: []byte(id)}}, AddMembers: index.Add(id),
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -91,6 +97,7 @@ func TestRecoveryContinuesPastInvalidBucketAndMember(t *testing.T) {
 	defer store.Close()
 	index := RecoveryIndex{Root: kv.Key{"retirement"}}
 	if _, err := store.ApplyMutation(t.Context(), kv.Mutation{
+		Entries: []kv.Entry{{Key: index.recordKey("valid"), Value: []byte("valid")}},
 		AddMembers: append(index.Add("valid"),
 			kv.SetMembers{Key: index.directory(), Members: []string{"invalid-bucket"}},
 			kv.SetMembers{Key: index.bucket(recoveryBucket("valid")), Members: []string{""}},
@@ -103,8 +110,14 @@ func TestRecoveryContinuesPastInvalidBucketAndMember(t *testing.T) {
 		attempted = append(attempted, id)
 		return nil
 	})
-	if err == nil || !slices.Equal(attempted, []string{"valid"}) {
+	if err != nil || !slices.Equal(attempted, []string{"valid"}) {
 		t.Fatalf("attempted = %v, error = %v", attempted, err)
+	}
+	if present, err := store.HasMember(t.Context(), index.directory(), "invalid-bucket"); err != nil || present {
+		t.Fatalf("invalid directory entry remains: %v, %v", present, err)
+	}
+	if present, err := store.HasMember(t.Context(), index.bucket(recoveryBucket("valid")), ""); err != nil || present {
+		t.Fatalf("empty member remains: %v, %v", present, err)
 	}
 }
 

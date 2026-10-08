@@ -183,12 +183,20 @@ func TestServerFriendGroupNamespaceLifecycle(t *testing.T) {
 	if err := dev.manager.Peers.DeleteSelf(ctx, keyPair.Public); err != nil {
 		t.Fatal(err)
 	}
+	// A damaged derived directory must not lose a valid, persisted intent.
+	// The fixed bucket keys survive and are repaired by background discovery.
+	directoryKey := recovery.Add(groupID)[0].Key
+	if err := dev.FriendGroupStore.Set(ctx, directoryKey, []byte("corrupt directory")); err != nil {
+		t.Fatal(err)
+	}
 	// Reinitialization uses the same durable stores and restores the real Workspace service.
 	if err := dev.init(); err != nil {
 		t.Fatal(err)
 	}
 	devGroups = dev.peerService.admin.FriendGroups
-	assertRecovery(dev.FriendGroupStore, []string{groupID})
+	if value, err := dev.FriendGroupStore.Get(ctx, directoryKey); err != nil || string(value) != "corrupt directory" {
+		t.Fatalf("initialization changed the damaged directory: %q, %v", value, err)
+	}
 	if err := dev.manager.Peers.EnsureAvailable(ctx, keyPair.Public); !errors.Is(err, runtimepeer.ErrPeerPendingDeletion) {
 		t.Fatalf("Peer was not pending deletion: %v", err)
 	}
