@@ -791,7 +791,7 @@ class FirmwareSlot {
       withoutNulls({'description': description, 'package': package?.toJson()});
 }
 
-/// Firmware channels configured for the device (`DeviceFirmware`).
+/// Firmware channels and optional metadata configured for the device.
 ///
 /// Read with [GizClawControlClient.getDeviceFirmware]. Channel selection
 /// belongs to the caller: pick a channel here and name it when calling
@@ -802,21 +802,27 @@ class DeviceFirmware {
     required this.beta,
     required this.develop,
     this.description,
+    this.metadata,
   });
 
   factory DeviceFirmware.fromJson(Object? json) {
     final object = asJsonObject(json, 'DeviceFirmware');
     final slots = asJsonObject(object['slots'], 'FirmwareSlots');
+    final metadata = readOptionalObject(object, 'metadata');
     return DeviceFirmware(
       description: readOptionalString(object, 'description'),
       stable: FirmwareSlot.fromJson(slots['stable']),
       beta: FirmwareSlot.fromJson(slots['beta']),
       develop: FirmwareSlot.fromJson(slots['develop']),
+      metadata: metadata,
     );
   }
 
   /// Description of the Firmware configuration bound to the device.
   final String? description;
+
+  /// Optional metadata independent of stable, beta and develop channels.
+  final JsonObject? metadata;
 
   final FirmwareSlot stable;
   final FirmwareSlot beta;
@@ -831,6 +837,7 @@ class DeviceFirmware {
 
   JsonObject toJson() => withoutNulls({
     'description': description,
+    'metadata': metadata,
     'slots': {
       'stable': stable.toJson(),
       'beta': beta.toJson(),

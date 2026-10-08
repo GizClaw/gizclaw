@@ -139,6 +139,7 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_RUN_STOP                          RpcMethod = 20
 	RpcMethod_RPC_METHOD_SERVER_RUN_SAY                           RpcMethod = 21
 	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_GET                      RpcMethod = 22
+	RpcMethod_RPC_METHOD_SERVER_FIRMWARE_METADATA_GET             RpcMethod = 138
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST                    RpcMethod = 24
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_GET                     RpcMethod = 25
 	RpcMethod_RPC_METHOD_SERVER_WORKSPACE_CREATE                  RpcMethod = 26
@@ -232,6 +233,7 @@ var (
 		20:  "RPC_METHOD_SERVER_RUN_STOP",
 		21:  "RPC_METHOD_SERVER_RUN_SAY",
 		22:  "RPC_METHOD_SERVER_FIRMWARE_GET",
+		138: "RPC_METHOD_SERVER_FIRMWARE_METADATA_GET",
 		24:  "RPC_METHOD_SERVER_WORKSPACE_LIST",
 		25:  "RPC_METHOD_SERVER_WORKSPACE_GET",
 		26:  "RPC_METHOD_SERVER_WORKSPACE_CREATE",
@@ -322,6 +324,7 @@ var (
 		"RPC_METHOD_SERVER_RUN_STOP":                          20,
 		"RPC_METHOD_SERVER_RUN_SAY":                           21,
 		"RPC_METHOD_SERVER_FIRMWARE_GET":                      22,
+		"RPC_METHOD_SERVER_FIRMWARE_METADATA_GET":             138,
 		"RPC_METHOD_SERVER_WORKSPACE_LIST":                    24,
 		"RPC_METHOD_SERVER_WORKSPACE_GET":                     25,
 		"RPC_METHOD_SERVER_WORKSPACE_CREATE":                  26,
@@ -961,7 +964,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x88S\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x94T\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
@@ -1006,7 +1009,9 @@ const file_rpc_proto_rawDesc = "" +
 	"\x19RPC_METHOD_SERVER_RUN_SAY\x10\x15\x1a?\xc2\xf3\x18;\n" +
 	"\x0eserver.run.say\x12\x13ServerRunSayRequest\x1a\x14ServerRunSayResponse\x12f\n" +
 	"\x1eRPC_METHOD_SERVER_FIRMWARE_GET\x10\x16\x1aB\xc2\xf3\x18>\n" +
-	"\x13server.firmware.get\x12\x12FirmwareGetRequest\x1a\x13FirmwareGetResponse\x12n\n" +
+	"\x13server.firmware.get\x12\x12FirmwareGetRequest\x1a\x13FirmwareGetResponse\x12\x89\x01\n" +
+	"'RPC_METHOD_SERVER_FIRMWARE_METADATA_GET\x10\x8a\x01\x1a[\xc2\xf3\x18W\n" +
+	"\x1cserver.firmware.metadata.get\x12\x1aFirmwareMetadataGetRequest\x1a\x1bFirmwareMetadataGetResponse\x12n\n" +
 	" RPC_METHOD_SERVER_WORKSPACE_LIST\x10\x18\x1aH\xc2\xf3\x18D\n" +
 	"\x15server.workspace.list\x12\x14WorkspaceListRequest\x1a\x15WorkspaceListResponse\x12j\n" +
 	"\x1fRPC_METHOD_SERVER_WORKSPACE_GET\x10\x19\x1aE\xc2\xf3\x18A\n" +

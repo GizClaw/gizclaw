@@ -1211,6 +1211,39 @@ test("Firmware RPC generated contract round-trips every channel and field", () =
   );
 });
 
+test("Firmware metadata RPC transports every JSON value kind as text", () => {
+  const method = "server.firmware.metadata.get";
+  const request = { key: "modem" };
+  assert.equal(RPC_METHOD_IDS[method], 138);
+  assert.deepEqual(
+    decodeRPCRequestPayload(method, encodeRPCRequestPayload(method, request)),
+    request,
+  );
+  for (const value of [
+    {
+      version: "vendor-2026.10",
+      urls: [
+        "https://firmware.example/ap.bin",
+        "https://firmware.example/cp.bin",
+      ],
+    },
+    "hello",
+    42,
+    true,
+    null,
+    [1, "x", null],
+  ]) {
+    const response = { key: "modem", value: JSON.stringify(value) };
+    assert.deepEqual(
+      decodeRPCResponsePayload(
+        method,
+        encodeRPCResponsePayload(method, response),
+      ),
+      response,
+    );
+  }
+});
+
 test("WebRTCRPCClient reassembles response frames split across messages", async () => {
   const pc = new FakePeerConnection();
   const client = new WebRTCRPCClient(pc, { createID: () => "req-split" });
@@ -1937,6 +1970,34 @@ test("WebRTCRPCClient honors AbortSignal", async () => {
 
   await assert.rejects(promise, { name: "AbortError" });
   assert.equal(channel.closed, true);
+});
+
+test("PeerRPCClient gets firmware metadata through its named method", async () => {
+  const pc = new FakePeerConnection();
+  const rpc = createPeerRPCClient(pc, { createID: () => "metadata-get" });
+  const pending = rpc.getFirmwareMetadata("modem");
+  const channel = pc.lastChannel();
+  channel.open();
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.deepEqual(
+    channel.sent.flatMap((bytes) => decodeFrames(bytes)),
+    decodeFrames(
+      encodeRPCRequest({
+        v: 1,
+        id: "metadata-get",
+        method: "server.firmware.metadata.get",
+        params: { key: "modem" },
+      }),
+    ),
+  );
+  const result = { key: "modem", value: JSON.stringify({ version: "1.2.3" }) };
+  channel.receive(
+    encodeRPCResponse(
+      { v: 1, id: "metadata-get", result },
+      "server.firmware.metadata.get",
+    ),
+  );
+  assert.deepEqual(await pending, result);
 });
 
 test("createPeerRPCClient calls generated typed RPC methods", async () => {

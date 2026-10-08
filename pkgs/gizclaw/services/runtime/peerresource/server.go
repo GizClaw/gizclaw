@@ -136,6 +136,7 @@ func (s *Server) createWorkspace(ctx context.Context, request WorkspaceCreateReq
 func IsMethod(method rpcapi.RPCMethod) bool {
 	switch method {
 	case rpcapi.RPCMethodServerFirmwareGet,
+		rpcapi.RPCMethodServerFirmwareMetadataGet,
 		rpcapi.RPCMethodServerWorkspaceList,
 		rpcapi.RPCMethodServerWorkspaceGet,
 		rpcapi.RPCMethodServerWorkspaceCreate,
@@ -196,6 +197,8 @@ func (s *Server) Dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpcapi.
 	switch req.Method {
 	case rpcapi.RPCMethodServerFirmwareGet:
 		return s.handleFirmwareGet(ctx, req), true, nil
+	case rpcapi.RPCMethodServerFirmwareMetadataGet:
+		return s.handleFirmwareMetadataGet(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkspaceList:
 		return s.handleWorkspaceList(ctx, req), true, nil
 	case rpcapi.RPCMethodServerWorkspaceGet:

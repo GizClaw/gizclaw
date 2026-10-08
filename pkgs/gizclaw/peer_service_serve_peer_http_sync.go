@@ -112,7 +112,7 @@ func (s *peerHTTP) syncSnapshot(ctx context.Context, owner giznet.PublicKey) (pe
 	}
 	firmware, err := reads.DeviceFirmware(ctx)
 	if err == nil {
-		if err := addSyncItem(snapshot, "device/firmware", peerhttp.DeviceFirmware{Description: firmware.Description, Slots: firmware.Slots}); err != nil {
+		if err := addSyncItem(snapshot, "device/firmware", peerhttp.DeviceFirmware{Description: firmware.Description, Slots: firmware.Slots, Metadata: firmware.Metadata}); err != nil {
 			return nil, err
 		}
 	} else if !errors.Is(err, peerresource.ErrDeviceFirmwareNotBound) && !errors.Is(err, kv.ErrNotFound) {

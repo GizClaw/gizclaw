@@ -2,6 +2,7 @@ package gizclaw
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -27,6 +28,9 @@ func seedBoundFirmware(t *testing.T, f *deviceHTTPFixture, id string) {
 	response, err := f.firmware.CreateFirmware(ctx, adminhttp.CreateFirmwareRequestObject{Body: &adminhttp.FirmwareUpsert{
 		Id:          id,
 		Description: new("Devkit firmware channels"),
+		Metadata: &apitypes.FirmwareMetadata{
+			"modem": json.RawMessage(`{"version":"vendor-2026.10","urls":["https://firmware.example.com/modem/ap.bin","https://firmware.example.com/modem/cp.bin"]}`),
+		},
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
 				Description: new("Devkit firmware 1.0.3"),
@@ -59,6 +63,9 @@ func TestGetDeviceFirmwareReturnsEveryChannelWhileOffline(t *testing.T) {
 		t.Fatalf("GET firmware status = %d body=%s", response.Code, response.Body.String())
 	}
 	result := decodeJSON[peerhttp.DeviceFirmware](t, response)
+	if result.Metadata == nil || !strings.Contains(string((*result.Metadata)["modem"]), `"urls"`) {
+		t.Fatalf("metadata = %#v", result.Metadata)
+	}
 	if result.Description == nil || *result.Description != "Devkit firmware channels" {
 		t.Fatalf("description = %v", result.Description)
 	}
@@ -85,7 +92,7 @@ func TestGetDeviceFirmwareOmitsStoredUnknownVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	response := f.do(t, http.MethodGet, "/gizclaw/v1/device/firmware", "")
-	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), `"version"`) {
+	if response.Code != http.StatusOK {
 		t.Fatalf("legacy HTTP = %d %s", response.Code, response.Body.String())
 	}
 	result := decodeJSON[peerhttp.DeviceFirmware](t, response)

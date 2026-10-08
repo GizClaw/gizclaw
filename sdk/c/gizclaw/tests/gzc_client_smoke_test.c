@@ -44,7 +44,8 @@ typedef enum {
   FAKE_RESPONSE_SPEECH_SYNTHESIZE = 6,
   FAKE_RESPONSE_SPEECH_EXTRACT = 7,
   FAKE_RESPONSE_SPEED_TEST = 8,
-  FAKE_RESPONSE_DEFERRED_PROTO = 9
+  FAKE_RESPONSE_DEFERRED_PROTO = 9,
+  FAKE_RESPONSE_FIRMWARE_METADATA = 10
 } fake_response_mode_t;
 
 typedef struct {
@@ -1098,6 +1099,11 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
           2,
           (const uint8_t *)"{\"name\":\"GizClaw\"}",
           strlen("{\"name\":\"GizClaw\"}"));
+    }
+  } else if (fake->response_mode == FAKE_RESPONSE_FIRMWARE_METADATA) {
+    rc = append_test_proto_bytes(fake->platform, &response_result, 1, (const uint8_t *)"modem", 5);
+    if (rc == GZC_OK) {
+      rc = append_test_proto_bytes(fake->platform, &response_result, 2, (const uint8_t *)"null", 4);
     }
   } else {
     rc = append_test_proto_varint(fake->platform, &response_result, 1, 99);
@@ -2395,6 +2401,54 @@ static int test_rpc_completion_callbacks(
   return 0;
 }
 
+static bool encode_metadata_value(pb_ostream_t *stream, const pb_field_t *field, void *const *arg) {
+  const char *value = (const char *)*arg;
+  return pb_encode_tag_for_field(stream, field) && pb_encode_string(stream, (const pb_byte_t *)value, strlen(value));
+}
+
+typedef struct {
+  char value[512];
+} metadata_value_t;
+
+static bool decode_metadata_value(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  (void)field;
+  metadata_value_t *value = (metadata_value_t *)*arg;
+  if (stream->bytes_left >= sizeof(value->value)) {
+    return false;
+  }
+  size_t length = stream->bytes_left;
+  if (!pb_read(stream, (pb_byte_t *)value->value, length)) {
+    return false;
+  }
+  value->value[length] = '\0';
+  return true;
+}
+
+static int test_firmware_metadata(void) {
+  const char *values[] = {"{\"version\":\"1.2.3\",\"urls\":[\"https://firmware.example/ap.bin\",\"https://firmware.example/cp.bin\"]}", "\"hello\"", "9007199254740993", "true", "[1,\"x\",null]", "null"};
+  for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); ++i) {
+    gizclaw_rpc_v1_FirmwareMetadataGetResponse source = gizclaw_rpc_v1_FirmwareMetadataGetResponse_init_zero;
+    gizclaw_rpc_v1_FirmwareMetadataGetResponse decoded = gizclaw_rpc_v1_FirmwareMetadataGetResponse_init_zero;
+    _Static_assert(sizeof(source) < 128, "metadata JSON must use a callback");
+    memcpy(source.key, "modem", 6);
+    source.value.funcs.encode = encode_metadata_value;
+    source.value.arg = (void *)values[i];
+    uint8_t buffer[512];
+    pb_ostream_t output = pb_ostream_from_buffer(buffer, sizeof(buffer));
+    if (!pb_encode(&output, gizclaw_rpc_v1_FirmwareMetadataGetResponse_fields, &source)) {
+      return 1;
+    }
+    metadata_value_t result = {0};
+    decoded.value.funcs.decode = decode_metadata_value;
+    decoded.value.arg = &result;
+    pb_istream_t input = pb_istream_from_buffer(buffer, output.bytes_written);
+    if (expect(pb_decode(&input, gizclaw_rpc_v1_FirmwareMetadataGetResponse_fields, &decoded) && strcmp(decoded.key, source.key) == 0 && strcmp(result.value, values[i]) == 0, "firmware metadata preserves every JSON value kind") != 0) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 static int test_firmware_version(void) {
   gizclaw_rpc_v1_FirmwareGetResponse source =
       gizclaw_rpc_v1_FirmwareGetResponse_init_zero;
@@ -2432,6 +2486,59 @@ static int test_firmware_version(void) {
   memset(buffer + 3, 'a', 129);
   input = pb_istream_from_buffer(buffer, 132);
   return pb_decode(&input, gizclaw_rpc_v1_FirmwareGetResponse_fields, &decoded) ? 1 : 0;
+}
+
+static int test_firmware_metadata_getter(gzc_client_t *client, fake_webrtc_t *fake) {
+  gzc_rpc_request_t *request = NULL;
+  const char *invalid_keys[] = {"", "../modem", "-modem", "bad key"};
+  for (size_t i = 0; i < sizeof(invalid_keys) / sizeof(invalid_keys[0]); ++i) {
+    if (expect(gzc_client_get_firmware_metadata(client, gzc_str_from_cstr(invalid_keys[i]), 1000, NULL, &request) == GZC_ERR_INVALID_ARGUMENT && request == NULL, "metadata getter rejects invalid keys") != 0) {
+      return 1;
+    }
+  }
+  char oversized[65];
+  memset(oversized, 'a', sizeof(oversized));
+  if (expect(gzc_client_get_firmware_metadata(client, gzc_str_from_parts(oversized, sizeof(oversized)), 1000, NULL, &request) == GZC_ERR_INVALID_ARGUMENT && request == NULL, "metadata getter bounds key before copying") != 0) {
+    return 1;
+  }
+  fake_response_mode_t previous_mode = fake->response_mode;
+  fake->response_mode = FAKE_RESPONSE_FIRMWARE_METADATA;
+  int rc = gzc_client_get_firmware_metadata(client, gzc_str_from_cstr("modem"), 1000, NULL, &request);
+  gzc_rpc_response_t response = {0};
+  for (size_t i = 0; rc == GZC_OK && i < 100; ++i) {
+    int result = gzc_rpc_request_result(request, &response);
+    if (result != GZC_ERR_WOULD_BLOCK) {
+      rc = result;
+      break;
+    }
+    rc = gzc_client_poll(client, 0);
+  }
+  if (rc == GZC_OK && !response.has_error) {
+    gizclaw_rpc_v1_FirmwareMetadataGetResponse decoded = gizclaw_rpc_v1_FirmwareMetadataGetResponse_init_zero;
+    metadata_value_t value = {0};
+    decoded.value.funcs.decode = decode_metadata_value;
+    decoded.value.arg = &value;
+    rc = decode_test_pb_message(response.result_payload, gizclaw_rpc_v1_FirmwareMetadataGetResponse_fields, &decoded);
+    if (rc == GZC_OK && (strcmp(decoded.key, "modem") != 0 || strcmp(value.value, "null") != 0)) {
+      rc = GZC_ERR_RPC;
+    }
+    gzc_rpc_frame_t frame;
+    unsigned method = 0;
+    if (rc == GZC_OK) {
+      rc = gzc_rpc_frame_decode(fake->sent.data, first_frame_size(&fake->sent), &frame);
+    }
+    if (rc == GZC_OK) {
+      rc = read_test_proto_method_id(gzc_str_from_parts((const char *)frame.data, frame.len), &method);
+    }
+    if (rc == GZC_OK && method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_METADATA_GET) {
+      rc = GZC_ERR_RPC;
+    }
+  } else if (rc == GZC_OK) {
+    rc = GZC_ERR_RPC;
+  }
+  gzc_rpc_request_destroy(request);
+  fake->response_mode = previous_mode;
+  return expect(rc == GZC_OK, "named metadata getter sends the method and decodes a JSON null result");
 }
 
 static int test_admission_signaling(const gzc_platform_t *platform, const gzc_platform_crypto_t *crypto) {
@@ -2637,7 +2744,7 @@ int main(void) {
   if (test_mhs_codec() != 0)
     return 1;
 
-  if (test_firmware_version() != 0) {
+  if (test_firmware_version() != 0 || test_firmware_metadata() != 0) {
     return 1;
   }
   if (expect(test_peer_event_golden_vectors() == 0,
@@ -3611,6 +3718,9 @@ int main(void) {
     return 1;
   }
   if (expect(method_id == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING, "request method id value") != 0) {
+    return 1;
+  }
+  if (test_firmware_metadata_getter(client, &fake_webrtc) != 0) {
     return 1;
   }
   if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE == 96, "API key create method id value") != 0) {

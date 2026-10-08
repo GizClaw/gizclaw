@@ -862,8 +862,11 @@ type DeviceFindRequest struct {
 // DeviceFirmware defines model for DeviceFirmware.
 type DeviceFirmware struct {
 	// Description Description of the Firmware configuration bound to the device.
-	Description *string                    `json:"description,omitempty"`
-	Slots       externalRef0.FirmwareSlots `json:"slots"`
+	Description *string `json:"description,omitempty"`
+
+	// Metadata Optional channel-independent JSON values, keyed by 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$. Values may be objects, arrays, strings, numbers, booleans or null; each compact JSON value is at most 65536 UTF-8 bytes. Missing or empty means no metadata.
+	Metadata *externalRef0.FirmwareMetadata `json:"metadata,omitempty"`
+	Slots    externalRef0.FirmwareSlots     `json:"slots"`
 }
 
 // DeviceFirmwareUpdateRequest defines model for DeviceFirmwareUpdateRequest.

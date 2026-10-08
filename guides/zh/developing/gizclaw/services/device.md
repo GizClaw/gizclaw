@@ -15,6 +15,7 @@ services/device/
 `firmware` 拥有：
 
 - Firmware catalog 和 channel metadata。
+- 独立于 channel 的固件 metadata；字段和读取协议见 [Firmware RPC](../rpc/firmware#固件-metadata)。
 - 校验和保存每个 channel 的 HTTPS `.tar.zlib` URL、SHA-256 和 archive size。
 - stable、beta、develop 三个 slot 的完整替换与严格校验。
 

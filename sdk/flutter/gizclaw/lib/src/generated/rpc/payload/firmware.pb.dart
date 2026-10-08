@@ -191,6 +191,135 @@ class FirmwareGetResponse extends $pb.GeneratedMessage {
   void clearVersion() => $_clearField(6);
 }
 
+/// Reads one channel-independent entry from the caller's bound Firmware.
+class FirmwareMetadataGetRequest extends $pb.GeneratedMessage {
+  factory FirmwareMetadataGetRequest({
+    $core.String? key,
+  }) {
+    final result = create();
+    if (key != null) result.key = key;
+    return result;
+  }
+
+  FirmwareMetadataGetRequest._();
+
+  factory FirmwareMetadataGetRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FirmwareMetadataGetRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FirmwareMetadataGetRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FirmwareMetadataGetRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FirmwareMetadataGetRequest copyWith(
+          void Function(FirmwareMetadataGetRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as FirmwareMetadataGetRequest))
+          as FirmwareMetadataGetRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FirmwareMetadataGetRequest create() => FirmwareMetadataGetRequest._();
+  @$core.override
+  FirmwareMetadataGetRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FirmwareMetadataGetRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FirmwareMetadataGetRequest>(create);
+  static FirmwareMetadataGetRequest? _defaultInstance;
+
+  /// 1–64 ASCII characters matching ^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$.
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+}
+
+class FirmwareMetadataGetResponse extends $pb.GeneratedMessage {
+  factory FirmwareMetadataGetResponse({
+    $core.String? key,
+    $core.String? value,
+  }) {
+    final result = create();
+    if (key != null) result.key = key;
+    if (value != null) result.value = value;
+    return result;
+  }
+
+  FirmwareMetadataGetResponse._();
+
+  factory FirmwareMetadataGetResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory FirmwareMetadataGetResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'FirmwareMetadataGetResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'key')
+    ..aOS(2, _omitFieldNames ? '' : 'value')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FirmwareMetadataGetResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  FirmwareMetadataGetResponse copyWith(
+          void Function(FirmwareMetadataGetResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as FirmwareMetadataGetResponse))
+          as FirmwareMetadataGetResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static FirmwareMetadataGetResponse create() =>
+      FirmwareMetadataGetResponse._();
+  @$core.override
+  FirmwareMetadataGetResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static FirmwareMetadataGetResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<FirmwareMetadataGetResponse>(create);
+  static FirmwareMetadataGetResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get key => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set key($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearKey() => $_clearField(1);
+
+  /// Compact UTF-8 JSON text, at most 65536 bytes. Parse as JSON even for a
+  /// string or null value. A present null value returns "null", not NOT_FOUND.
+  @$pb.TagNumber(2)
+  $core.String get value => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set value($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasValue() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearValue() => $_clearField(2);
+}
+
 class ClientFirmwareUpdateRequest extends $pb.GeneratedMessage {
   factory ClientFirmwareUpdateRequest({
     $0.FirmwareChannelName? channel,

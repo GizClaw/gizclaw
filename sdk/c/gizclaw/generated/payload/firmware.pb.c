@@ -12,6 +12,12 @@ PB_BIND(gizclaw_rpc_v1_FirmwareGetRequest, gizclaw_rpc_v1_FirmwareGetRequest, AU
 PB_BIND(gizclaw_rpc_v1_FirmwareGetResponse, gizclaw_rpc_v1_FirmwareGetResponse, 2)
 
 
+PB_BIND(gizclaw_rpc_v1_FirmwareMetadataGetRequest, gizclaw_rpc_v1_FirmwareMetadataGetRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_FirmwareMetadataGetResponse, gizclaw_rpc_v1_FirmwareMetadataGetResponse, AUTO)
+
+
 PB_BIND(gizclaw_rpc_v1_ClientFirmwareUpdateRequest, gizclaw_rpc_v1_ClientFirmwareUpdateRequest, AUTO)
 
 

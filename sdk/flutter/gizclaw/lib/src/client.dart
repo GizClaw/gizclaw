@@ -187,6 +187,14 @@ class GizClawClient {
     );
   }
 
+  /// Reads one channel-independent entry from this peer's bound Firmware.
+  Future<payload.FirmwareMetadataGetResponse> getFirmwareMetadata(String key) {
+    return rpc.call<payload.FirmwareMetadataGetResponse>(
+      'server.firmware.metadata.get',
+      payload.FirmwareMetadataGetRequest(key: key),
+    );
+  }
+
   Future<payload.WorkspaceListResponse> listWorkspaces({
     String? cursor,
     int? limit,

@@ -597,6 +597,13 @@ export type FirmwareGetResponse = {
   "size": number;
   "version"?: string;
 };
+export type FirmwareMetadataGetRequest = {
+  "key": string;
+};
+export type FirmwareMetadataGetResponse = {
+  "key": string;
+  "value": string;
+};
 export type FriendAddRequest = {
   "invite_token": string;
 };
@@ -1469,6 +1476,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.list": "ContactListRequest",
   "server.contact.put": "ContactPutRequest",
   "server.firmware.get": "FirmwareGetRequest",
+  "server.firmware.metadata.get": "FirmwareMetadataGetRequest",
   "server.friend_group.create": "FriendGroupCreateRequest",
   "server.friend_group.delete": "FriendGroupDeleteRequest",
   "server.friend_group.get": "FriendGroupGetRequest",
@@ -1558,6 +1566,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.contact.list": "ContactListResponse",
   "server.contact.put": "ContactPutResponse",
   "server.firmware.get": "FirmwareGetResponse",
+  "server.firmware.metadata.get": "FirmwareMetadataGetResponse",
   "server.friend_group.create": "FriendGroupCreateResponse",
   "server.friend_group.delete": "FriendGroupDeleteResponse",
   "server.friend_group.get": "FriendGroupGetResponse",
@@ -4131,6 +4140,29 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "version",
         "number": 6,
         "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "FirmwareMetadataGetRequest": {
+    "fields": [
+      {
+        "name": "key",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "FirmwareMetadataGetResponse": {
+    "fields": [
+      {
+        "name": "key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "value",
+        "number": 2,
         "type": "string"
       }
     ]
@@ -8401,6 +8433,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "server_contact_list": 38,
       "server_contact_put": 41,
       "server_firmware_get": 22,
+      "server_firmware_metadata_get": 138,
       "server_friend_add": 46,
       "server_friend_delete": 48,
       "server_friend_group_create": 51,
@@ -8559,7 +8592,8 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "134": "client_mhs_v0_write",
       "135": "client_tool_v0_invoke",
       "136": "client_tool_v0_list",
-      "137": "client_rpc_methods_list"
+      "137": "client_rpc_methods_list",
+      "138": "server_firmware_metadata_get"
     }
   },
   "SocialPingResult": {

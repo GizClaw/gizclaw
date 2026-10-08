@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -67,6 +68,52 @@ func TestClientGetFirmwareUsesRPCConnection(t *testing.T) {
 	}
 	if err := <-serverErr; err != nil {
 		t.Fatalf("server: %v", err)
+	}
+}
+
+func TestClientGetFirmwareMetadataUsesRPCConnection(t *testing.T) {
+	client, serverConn, cleanup := connectedFirmwareTestClient(t)
+	defer cleanup()
+	listener := serverConn.ListenService(ServicePeerRPC)
+	defer listener.Close()
+	serverErr := make(chan error, 1)
+	go func() {
+		stream, err := listener.Accept()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		defer stream.Close()
+		request, err := readRPCRequestWithEOS(stream)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		params, err := request.Params.AsFirmwareMetadataGetRequest()
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		if request.Method != rpcapi.RPCMethodServerFirmwareMetadataGet || params.Key != "modem" {
+			serverErr <- &unexpectedRPCMethodError{got: request.Method, want: rpcapi.RPCMethodServerFirmwareMetadataGet}
+			return
+		}
+		var body rpcapi.RPCPayload
+		if err := body.FromFirmwareMetadataGetResponse(&rpcpb.FirmwareMetadataGetResponse{Key: "modem", Value: `{"version":"vendor-2026.10","urls":["https://firmware.example/ap.bin","https://firmware.example/cp.bin"]}`}); err != nil {
+			serverErr <- err
+			return
+		}
+		serverErr <- writeRPCResponseWithEOS(stream, request.Method, &rpcapi.RPCResponse{V: rpcapi.RPCVersionV1, Id: request.Id, Result: &body})
+	}()
+	got, err := client.GetFirmwareMetadata(t.Context(), "metadata-get", &rpcpb.FirmwareMetadataGetRequest{Key: "modem"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Key != "modem" || got.Value != `{"version":"vendor-2026.10","urls":["https://firmware.example/ap.bin","https://firmware.example/cp.bin"]}` {
+		t.Fatalf("GetFirmwareMetadata = %v", got)
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatal(err)
 	}
 }
 

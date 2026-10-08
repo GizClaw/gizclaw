@@ -56,6 +56,9 @@
           },
           "slots": {
             "$ref": "#/components/schemas/FirmwareSpecSlots"
+          },
+          "metadata": {
+            "$ref": "./firmware_metadata.json#/components/schemas/FirmwareMetadata"
           }
         }
       }

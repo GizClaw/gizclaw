@@ -141,6 +141,12 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'FirmwareGetRequest',
     responseType: 'FirmwareGetResponse',
   ),
+  'server.firmware.metadata.get': RpcMethodDescriptor(
+    id: 138,
+    name: 'server.firmware.metadata.get',
+    requestType: 'FirmwareMetadataGetRequest',
+    responseType: 'FirmwareMetadataGetResponse',
+  ),
   'server.workspace.list': RpcMethodDescriptor(
     id: 24,
     name: 'server.workspace.list',
@@ -561,6 +567,7 @@ const rpcMethodNamesById = <int, String>{
   20: 'server.run.stop',
   21: 'server.run.say',
   22: 'server.firmware.get',
+  138: 'server.firmware.metadata.get',
   24: 'server.workspace.list',
   25: 'server.workspace.get',
   26: 'server.workspace.create',
