@@ -81,15 +81,16 @@ func (d *driver) Open(ctx context.Context, doc *giztest.Document, vars *giztest.
 	if clients == nil {
 		return nil, err
 	}
-	return &session{driver: d, clients: clients, streams: newPeerStreamSessions()}, err
+	return &session{driver: d, clients: clients, streams: newPeerStreamSessions(), packetClock: newPeerPacketClock()}, err
 }
 
 // session is one task's set of dialed clients plus the peer streams the
 // document is holding open across steps.
 type session struct {
-	driver  *driver
-	clients *clientSet
-	streams *peerStreamSessions
+	driver      *driver
+	clients     *clientSet
+	streams     *peerStreamSessions
+	packetClock *peerPacketClock
 }
 
 func (s *session) Fingerprints() map[string]string { return s.clients.fingerprints() }
@@ -271,6 +272,7 @@ type peerStreamInvocation struct {
 	input                any
 	audioCaptureMaxBytes int
 	observer             audioObserver
+	packetClock          *peerPacketClock
 }
 
 // preparePeerStream resolves the step input and the /audio capture bound.
@@ -301,13 +303,34 @@ func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztes
 	if s.driver.openPeerStream != nil {
 		open = s.driver.openPeerStream(client)
 	}
-	return peerStreamInvocation{client: client, open: open, step: step, input: input, audioCaptureMaxBytes: audioCaptureMaxBytes, observer: s.driver.audioObserver}, nil
+	return peerStreamInvocation{client: client, open: open, step: step, input: input, audioCaptureMaxBytes: audioCaptureMaxBytes, observer: s.driver.audioObserver, packetClock: s.packetClock}, nil
 }
 
 // run drives the stream. sessions is the task's held-open stream set, or nil
 // for a parallel child, which validation keeps out of sessions.
 func (p peerStreamInvocation) run(ctx context.Context, sessions *peerStreamSessions) (operationResult, error) {
-	return invokePeerStreamWithSessions(ctx, p.client, p.open, sessions, p.step, p.input, p.audioCaptureMaxBytes, p.observer)
+	if p.packetClock == nil || (!p.step.PeerStream.MeasureFirstPacket && p.step.PeerStream.Mode != "listen") {
+		return invokePeerStreamWithSessions(ctx, p.client, p.open, sessions, p.step, p.input, p.audioCaptureMaxBytes, p.observer)
+	}
+	started := time.Now()
+	var measured *packetTimedPeerStream
+	open := func() (peerStream, error) {
+		stream, err := p.open()
+		if err != nil {
+			return nil, err
+		}
+		identity := ""
+		if p.client != nil && p.client.KeyPair != nil {
+			identity = p.client.KeyPair.Public.String()
+		}
+		measured = &packetTimedPeerStream{peerStream: stream, clock: p.packetClock, step: p.step, identity: identity, started: started}
+		return measured, nil
+	}
+	result, err := invokePeerStreamWithSessions(ctx, p.client, open, sessions, p.step, p.input, p.audioCaptureMaxBytes, p.observer)
+	if measured != nil {
+		measured.addEvidence(&result)
+	}
+	return result, err
 }
 
 // Run implements giztest.ParallelChild.

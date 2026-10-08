@@ -10,6 +10,27 @@ func TestEmbeddedSchemaCompiles(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestFirstPacketTimingInputContract(t *testing.T) {
+	valid := validDocument + "  - id: send\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      input: audio\n      completion: input_sent\n      measure_first_packet: true\n"
+	if _, err := LoadDocument(writeTestDocument(t, valid), nil); err != nil {
+		t.Fatal(err)
+	}
+	for name, document := range map[string]string{
+		"text":      strings.Replace(valid, "mode: push-to-talk", "mode: text", 1),
+		"realtime":  strings.Replace(valid, "mode: push-to-talk", "mode: realtime", 1),
+		"terminal":  strings.Replace(valid, "completion: input_sent", "completion: terminal", 1),
+		"overlap":   valid + "      overlap_input: true\n",
+		"interrupt": valid + "      interrupt_after: 1s\n",
+		"empty":     strings.Replace(valid, "      input: audio\n", "      empty_input: true\n", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := LoadDocument(writeTestDocument(t, document), nil); err == nil {
+				t.Fatal("accepted unsupported first-packet probe")
+			}
+		})
+	}
+}
 func TestSchemaRejectsUnknownField(t *testing.T) {
 	_, err := LoadDocument(writeTestDocument(t, strings.Replace(validDocument, "name: ping-connectivity", "name: ping-connectivity\nunknown: true", 1)), nil)
 	if err == nil || !strings.Contains(err.Error(), "unknown") {

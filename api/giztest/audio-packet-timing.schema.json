@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://gizclaw.dev/schemas/giztest-audio-packet-timing-v1.json",
+  "description": "Additive Go Giztest peer_stream result/evidence fields. All offsets are fractional milliseconds on one task's shared Go monotonic clock. Receive samples require the exact marked first nonempty input packet and a successful Push; missing delivery is an empty array, never zero latency.",
+  "type": "object",
+  "properties": {
+    "audio_first_packet": {"$ref": "#/$defs/send"},
+    "audio_first_packets": {"type": "array", "maxItems": 128, "items": {"$ref": "#/$defs/receive"}},
+    "audio_first_packets_dropped": {"type": "integer", "minimum": 1}
+  },
+  "$defs": {
+    "common": {
+      "type": "object",
+      "required": ["clock", "sender_client", "sender_step", "send_start_ms", "send_completed_ms", "startup_ms"],
+      "properties": {
+        "clock": {"const": "task_monotonic"},
+        "sender_client": {"type": "string"},
+        "sender_step": {"type": "string"},
+        "packet_id": {"type": "string", "minLength": 1},
+        "send_start_ms": {"type": "number", "minimum": 0, "description": "Immediately before Push of the first nonempty Opus packet, after PTT hold and audio-route acknowledgement."},
+        "send_completed_ms": {"type": "number", "minimum": 0, "description": "After that packet's Push succeeds; a local write boundary, not a hardware wire timestamp."},
+        "startup_ms": {"type": "number", "minimum": 0, "description": "From the sender invocation before stream opening to send_start_ms; includes actual startup/hold/route wait."}
+      }
+    },
+    "send": {
+      "allOf": [{"$ref": "#/$defs/common"}],
+      "properties": {"uncorrelated_reason": {"const": "silence_or_dtx"}},
+      "oneOf": [{"required": ["packet_id"]}, {"required": ["uncorrelated_reason"]}],
+      "unevaluatedProperties": false
+    },
+    "receive": {
+      "allOf": [{"$ref": "#/$defs/common"}],
+      "required": ["packet_id", "receive_ms", "latency_ms"],
+      "properties": {
+        "receive_ms": {"type": "number", "minimum": 0, "description": "Immediately after PeerStream.Next returns this exact SFU packet, before audio decoding or operation-loop queueing."},
+        "latency_ms": {"type": "number", "minimum": 0, "description": "receive_ms minus send_start_ms. Includes SDK, uplink, Server/SFU/LiveKit and downlink; excludes startup_ms. Not pure LiveKit processing or speaker playback latency."}
+      },
+      "unevaluatedProperties": false
+    }
+  }
+}

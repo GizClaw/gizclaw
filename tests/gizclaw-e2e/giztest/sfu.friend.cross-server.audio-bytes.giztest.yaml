@@ -5,8 +5,8 @@
 #
 # Provider-free variant of sfu.friend.cross-server: the input is a committed
 # Ogg/Opus tone delivered through GIZCLAW_TEST_SFU_TONE_OGG_BASE64 and the
-# assertions only look at audio_bytes: the receiver hears the tone and the
-# sender's concurrent self-listen hears nothing (mix-minus-self).
+# assertions verify both audio delivery and correlated first-packet timing.
+# The sender's concurrent self-listen hears nothing (mix-minus-self).
 version: gizclaw.test/v1alpha1
 name: sfu.friend.cross-server.audio-bytes
 clients:
@@ -126,6 +126,47 @@ steps:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
   # One step starts the speaker and both listen windows at the same moment, so
   # the windows cover the whole utterance.
+  # Establish both real publisher tracks before measuring exact first packets.
+  - id: alice_prime_media
+    timeout: 30s
+    parallel:
+      - id: alice_prime_bob_listen
+        client: bob
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: alice_prime_send
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /alice_prime_send/input_sent:
+        equals: true
+      /alice_prime_bob_listen/audio_bytes:
+        minimum: 2000
+  - id: bob_prime_media
+    timeout: 30s
+    parallel:
+      - id: bob_prime_alice_listen
+        client: alice
+        peer_stream:
+          mode: listen
+          duration: 4s
+      - id: bob_prime_send
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${tone}
+          pacing: 20ms
+          completion: input_sent
+    expect:
+      /bob_prime_send/input_sent:
+        equals: true
+      /bob_prime_alice_listen/audio_bytes:
+        minimum: 2000
   - id: alice_speaks
     timeout: 30s
     parallel:
@@ -146,7 +187,12 @@ steps:
           input: ${tone}
           pacing: 20ms
           completion: input_sent
+          measure_first_packet: true
     expect:
+      /alice_speak/audio_first_packet/startup_ms: {minimum: 500}
+      /bob_listen/audio_first_packets: {count: 1}
+      /bob_listen/audio_first_packets/0/sender_client: {equals: alice}
+      /alice_listen_self/audio_first_packets: {count: 0}
       /alice_speak/input_sent: {equals: true}
       /bob_listen/audio_bytes: {minimum: 2000}
       /bob_listen/packets: {minimum: 50}
@@ -171,7 +217,12 @@ steps:
           input: ${tone}
           pacing: 20ms
           completion: input_sent
+          measure_first_packet: true
     expect:
+      /bob_speak/audio_first_packet/startup_ms: {minimum: 500}
+      /alice_listen/audio_first_packets: {count: 1}
+      /alice_listen/audio_first_packets/0/sender_client: {equals: bob}
+      /bob_listen_self/audio_first_packets: {count: 0}
       /bob_speak/input_sent: {equals: true}
       /alice_listen/audio_bytes: {minimum: 2000}
       /alice_listen/packets: {minimum: 50}
