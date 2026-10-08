@@ -35,6 +35,8 @@ dock, err := audiodock.New(audiodock.Config{
 
 `Config.SpeakerVoices` 将说话人名字映射为 TTS mux pattern，使用 response 内的增量解析器剥离已配置的 `【名字】`。当前段与下一预取段最多同时启动两个 provider 会话，后续段等待前段完成；所有输出仍按段串行并共享最终 MIME 生命周期，因此所有段必须输出同一种音频 MIME：首段的音频 MIME 固定为该 response 的音频 MIME，后续段若不同，会以错误结束该 response 的音频与文字，而不是再开一条音频 MIME channel。调用方应为各段选择输出格式一致的 TTS pattern。未配置时继续按 publisher 解析 `ResolveVoice`。
 
+Audio Dock 返回的 stream 由 consumer 持有；`Close` 与 `CloseWithError` 取消整个 invocation，并释放尚未完成的 delivery acknowledgement。Producer 内部的正常完成仍保留缓冲供读取。已经开始的 delivery observer 会继续完成；取消后的 terminal 不再创建新的确认等待。
+
 Seed V2 的可继续分段失败在 child TTS 内处理，Audio Dock 继续合并同一条 audio route，
 不为失败句子创建额外 EOS，也不重播音频。整条回复无音频的 provider 失败仍沿用既有
 error EOS；已经投递的回复文字保留。具体策略见 [Seed V2 分段失败](./transformers/doubao#seed-v2-分段失败)。

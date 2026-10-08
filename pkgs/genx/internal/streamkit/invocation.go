@@ -27,6 +27,7 @@ type Invocation struct {
 	output    *Output
 	responses map[string]*Response
 	closed    bool
+	cancelled bool
 }
 
 // NewInvocation creates an independent invocation and output buffer.
@@ -50,8 +51,14 @@ func NewInvocation(parent context.Context, outputConfig OutputConfig) *Invocatio
 		select {
 		case <-parent.Done():
 			_ = invocation.Cancel(context.Cause(parent))
+			return
 		case <-invocation.output.Done():
 			invocation.stopFromOutput()
+		}
+		select {
+		case <-parent.Done():
+			_ = invocation.Cancel(context.Cause(parent))
+		case <-invocation.output.settled:
 		}
 	}()
 	return invocation
@@ -278,16 +285,24 @@ func (i *Invocation) Cancel(cause error) error {
 		return nil
 	}
 	i.mu.Lock()
-	defer i.mu.Unlock()
-	if i.closed {
+	if i.cancelled {
+		i.mu.Unlock()
 		return nil
+	}
+	i.cancelled = true
+	if i.closed {
+		i.mu.Unlock()
+		return i.output.CloseWithError(cause)
 	}
 	i.closed = true
 	i.cancel(cause)
-	i.output.AbandonDeferredObservations()
+	responses := i.responses
+	i.responses = nil
+	i.mu.Unlock()
+	i.output.cancelObservations()
 	discarded := i.output.discardChunks(func(*genx.MessageChunk) bool { return true })
 	errorText := errorCtrl.Error
-	for _, response := range i.responses {
+	for _, response := range responses {
 		responseDiscarded := make([]*genx.MessageChunk, 0, len(discarded))
 		for _, chunk := range discarded {
 			if chunkStreamID(chunk) == response.StreamID() {
@@ -300,7 +315,6 @@ func (i *Invocation) Cancel(cause error) error {
 			return err
 		}
 	}
-	clear(i.responses)
 	return i.output.Close()
 }
 

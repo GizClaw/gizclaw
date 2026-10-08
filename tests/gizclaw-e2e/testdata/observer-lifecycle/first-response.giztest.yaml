@@ -1,0 +1,110 @@
+# User Story:
+# As a conversation user,
+# I want first-response turns and cleanup to release their sessions,
+# So that repeated conversations do not retain waiters.
+version: gizclaw.test/v1alpha1
+name: observer.first-response-next-turn
+repeat: 12
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  prompt:
+    direction: input
+    type: string
+    value: Lifecycle fixture reply
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: slow-tts-eino
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: turn_1
+    client: peer
+    timeout: 10s
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      completion: first_response
+      first_text_timeout: 2s
+      require_text: true
+      require_audio: false
+    expect:
+      /first_text_ms:
+        maximum: 2000
+      /text:
+        non_empty: true
+  - id: turn_2
+    client: peer
+    timeout: 10s
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      completion: first_response
+      first_text_timeout: 2s
+      require_text: true
+      require_audio: false
+    expect:
+      /first_text_ms:
+        maximum: 2000
+      /text:
+        non_empty: true
+  - id: turn_3
+    client: peer
+    timeout: 10s
+    peer_stream:
+      mode: text
+      input: ${prompt}
+      completion: first_response
+      first_text_timeout: 2s
+      require_text: true
+      require_audio: false
+    expect:
+      /first_text_ms:
+        maximum: 2000
+      /text:
+        non_empty: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
+timeout: 45s

@@ -1841,6 +1841,14 @@ suite in the Audioplayer Giztest job. The standard provider-backed runner exclud
 these dedicated fixtures. Reports remain in `.testbench/slow-tts-*/reports/`; exit
 cleanup removes containers, the image and temporary runtime state.
 
+### Client teardown and output acknowledgement regression
+
+`bash tests/gizclaw-e2e/run_observer_lifecycle_tests.sh` starts a real local Server, Edge and Go Giztest in an internal Docker network, using temporary Peer identities, SQLite and deterministic streaming Generator/ASR/TTS providers. The same first-response close/replacement document runs three times. Separate cases keep a realtime stream open before disconnect/reconnect, repeated `server.run.stop`, active Workspace deletion and Peer deletion. Normal-completion controls check text/audio EOS and delivered Workspace History.
+
+The build overlay replaces only providers, records full test public identities and shortens the native profiler cadence to two seconds. Stream handling and RPC lifecycle use the tested implementation. Pending-deletion scanning runs every second to verify asynchronous local cleanup. Reports verify goroutine/heap/allocs manifest sizes and SHA-256, check task-end and delayed Eino observer/execute waits, record total goroutine counts, and join SQLite Workspaces, graph states and retirement markers by test Peer ownership. This lane does not qualify Mem0 scopes, PostgreSQL, Redis, all filesystem objects or physical Peer-run row reclamation.
+
+Reports and identity mappings remain in the permission-restricted ignored `.testbench/observer-lifecycle-*/reports/` directory. Teardown removes the project's containers, image and temporary runtime state. The lane reads no live provider credentials.
+
 ### Speaker segment regression
 
 Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs both Eino Graph configurations without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.

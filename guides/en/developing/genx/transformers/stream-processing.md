@@ -20,6 +20,8 @@ The output queue grows independently of downstream `Next()` calls. A positive by
 
 StreamKit never supplies a model role or `assistant` label. Producers provide route metadata, and StreamKit preserves it on generated terminal chunks.
 
+Producer completion and consumer abandonment are separate lifecycle boundaries. Normal `Close`/`Fail` retains the buffer and terminal result; later cancellation or error close still releases unfinished deferred observations and queued delivery callbacks, and cancellation terminals cannot acquire new acknowledgements. Delivery observers that have already started continue to completion. `WaitForObservers` waits for those callbacks, preserving the delivered prefix. A completed producer's readable buffer and original terminal result remain intact. The invocation's parent cancellation watch exits once delivery has completed or been abandoned; pending delivery remains cancellable after producer completion.
+
 ## TTS stream processing
 
 The internal TTS pipeline maintains one sentence segmenter per input StreamID. It can synthesize complete sentences before input EOS and flushes remaining text at EOS. For every audio MIME channel it creates, it preserves role/name/label metadata and emits an explicit BOS, normalized audio data, and one matching EOS on the same logical route. Inputs without a StreamID receive a fresh non-empty ID at the producer boundary.

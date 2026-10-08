@@ -20,6 +20,8 @@ Output queue 不依赖 downstream 及时调用 `Next()`。显式 byte limit 超�
 
 StreamKit 不提供 model role 或 `assistant` label。Producer 负责提供 route metadata，StreamKit 只在生成 terminal chunk 时保留这些值。
 
+Producer 完成与 consumer 放弃 delivery 是不同的生命周期边界。正常 `Close`/`Fail` 保留缓冲及其终态；随后到达的取消或 error close 仍会释放未完成的 deferred observation 和 queued delivery callback，并阻止取消 terminal 再创建 acknowledgement。已经开始执行的 delivery observer 继续完成，`WaitForObservers` 等待这些 callback 返回，不把已交付 prefix 当作丢弃。Producer 完成后的 readable buffer 与原始终态保持不变。Invocation 的 parent cancellation watch 在 delivery 完成或被放弃后退出；正常完成后尚未确认的 delivery 仍受 parent 取消约束。
+
 ## TTS Stream Processing
 
 内部 TTS pipeline 按输入 StreamID 分别维护 sentence segmenter，可以在输入 EOS 前提前合成完整句子，并在 EOS 到达后 flush 剩余文本。它为自己创建的每个 audio MIME channel 保留 role、name 与 label，并在同一逻辑 route 显式输出 BOS、规范化后的 audio data 和一个匹配的 EOS。没有 StreamID 的输入在 producer boundary 获得新的非空 ID。

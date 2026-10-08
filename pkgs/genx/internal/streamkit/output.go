@@ -63,9 +63,12 @@ type Output struct {
 	closeErr    error
 	failErr     error
 	done        chan struct{}
+	settled     chan struct{}
 	closeOnce   sync.Once
+	settleOnce  sync.Once
 
 	observationDeferred bool
+	observationAborted  bool
 	observe             func(*genx.MessageChunk)
 	deferred            []deferredObservation
 	observers           int
@@ -82,6 +85,7 @@ func NewOutput(config OutputConfig) *Output {
 		queue:       make([]outputEntry, 0, capacity),
 		maxBytes:    config.MaxBytes,
 		done:        make(chan struct{}),
+		settled:     make(chan struct{}),
 		observe:     config.Observe,
 	}
 	output.cond = sync.NewCond(&output.mu)
@@ -128,7 +132,7 @@ func (o *Output) Next() (chunk *genx.MessageChunk, err error) {
 	if observe == nil {
 		observe = o.observe
 	}
-	tracked := entry.chunk != nil && observe != nil
+	tracked := entry.chunk != nil && observe != nil && !o.observationAborted
 	observing := tracked && !deferred
 	if tracked {
 		o.observers++
@@ -139,6 +143,7 @@ func (o *Output) Next() (chunk *genx.MessageChunk, err error) {
 			})
 		}
 	}
+	o.signalSettledLocked()
 	o.mu.Unlock()
 	if observing {
 		func() {
@@ -204,6 +209,7 @@ func (o *Output) drainLogs() {
 func (o *Output) finishObservation() {
 	o.mu.Lock()
 	o.observers--
+	o.signalSettledLocked()
 	o.cond.Broadcast()
 	o.mu.Unlock()
 }
@@ -302,6 +308,7 @@ func (o *Output) discardChunks(predicate func(*genx.MessageChunk) bool) []*genx.
 	}
 	clear(o.queue[len(kept):])
 	o.queue = kept
+	o.signalSettledLocked()
 	o.mu.Unlock()
 	for _, entry := range abandoned {
 		entry.abandon(entry.chunk)
@@ -343,7 +350,9 @@ func (o *Output) Fail(cause error) error {
 	return nil
 }
 
-// CloseWithError terminates the stream and discards queued chunks.
+// CloseWithError aborts active production and discards queued chunks. After
+// production has already completed, its readable buffer and terminal result
+// remain intact, but delivery acknowledgements are abandoned in both cases.
 func (o *Output) CloseWithError(err error) error {
 	if o == nil {
 		return nil
@@ -363,8 +372,13 @@ func (o *Output) CloseWithError(err error) error {
 }
 
 func (o *Output) closeWithErrorLocked(err error) []deferredObservation {
-	if o.closed || o.closeErr != nil {
+	if o.closeErr != nil {
 		return nil
+	}
+	if o.closed {
+		// Producer completion keeps its readable buffer and terminal result.
+		// Late teardown still retires delivery that the consumer abandoned.
+		return o.cancelObservationsLocked()
 	}
 	abandoned := make([]deferredObservation, 0, len(o.queue)+len(o.deferred))
 	for _, entry := range o.queue {
@@ -374,12 +388,37 @@ func (o *Output) closeWithErrorLocked(err error) []deferredObservation {
 	}
 	o.closeErr = err
 	o.closed = true
+	o.observationAborted = true
 	clear(o.queue)
 	o.queue = nil
 	o.queuedBytes = 0
 	abandoned = append(abandoned, o.abandonDeferredObservationsLocked()...)
 	o.signalDoneLocked()
 	o.cond.Broadcast()
+	return abandoned
+}
+
+// Cancellation terminals may still be pulled after production closes. They
+// cannot acquire a new delivery acknowledgement after the consumer has left.
+func (o *Output) cancelObservations() {
+	o.mu.Lock()
+	abandoned := o.cancelObservationsLocked()
+	o.mu.Unlock()
+	runAbandonments(abandoned)
+}
+
+func (o *Output) cancelObservationsLocked() []deferredObservation {
+	o.observationAborted = true
+	abandoned := o.abandonDeferredObservationsLocked()
+	for index := range o.queue {
+		entry := &o.queue[index]
+		if entry.abandon != nil {
+			abandoned = append(abandoned, deferredObservation{chunk: entry.chunk, abandon: entry.abandon})
+		}
+		entry.observe = nil
+		entry.abandon = nil
+	}
+	o.signalSettledLocked()
 	return abandoned
 }
 
@@ -403,12 +442,33 @@ func (o *Output) abandonDeferredObservationsLocked() []deferredObservation {
 	o.observers -= o.deferredObservers
 	o.deferredObservers = 0
 	o.deferred = nil
+	o.signalSettledLocked()
 	o.cond.Broadcast()
 	return abandoned
 }
 
 func (o *Output) signalDoneLocked() {
 	o.closeOnce.Do(func() { close(o.done) })
+	o.signalSettledLocked()
+}
+
+// Producer completion leaves both buffered output and claimed delivery owned
+// by the consumer. Only settled output can release its parent cancellation watch.
+func (o *Output) signalSettledLocked() {
+	if !o.closed || o.observers != 0 {
+		return
+	}
+	if !o.observationAborted {
+		if o.observe != nil && len(o.queue) != 0 {
+			return
+		}
+		for _, entry := range o.queue {
+			if entry.observe != nil || entry.abandon != nil {
+				return
+			}
+		}
+	}
+	o.settleOnce.Do(func() { close(o.settled) })
 }
 
 // Done closes as soon as production is closed or aborted.
@@ -474,6 +534,7 @@ func (o *Output) AbandonOutputObservation(chunk *genx.MessageChunk) {
 		o.removeDeferredObservationLocked(index)
 		o.deferredObservers--
 		o.observers--
+		o.signalSettledLocked()
 		o.cond.Broadcast()
 	}
 	o.mu.Unlock()
