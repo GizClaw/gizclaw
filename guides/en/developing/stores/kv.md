@@ -56,6 +56,8 @@ PostgreSQL mutations acquire transaction advisory locks scoped to the physical t
 
 Redis uses native Sets and Lua. Badger uses distinct physical record/member namespaces and transactions, with exact member-key lookups. SQL uses a record type column and a separate member table whose primary key is `(encoded_key, member)`; transactions coordinate record and collection keys. `Prefixed` scopes records, conditions, and collection keys while leaving member IDs unchanged.
 
+`SetMembers.MaxMembers` on `AddMembers` or `AddOrderedMembers` can bound the collection after that addition; zero means unlimited. An addition that introduces distinct members beyond the limit returns `ErrMemberLimit` without any writes from the mutation. Repeated members remain idempotent, and removals release capacity. Capacity checks and record/member writes share one Lua execution, transaction, or memory lock, preventing concurrent clients from exceeding the limit. Each addition group is checked separately; later removals do not reserve capacity for earlier additions.
+
 ## Ordered collection ranges
 
 `RangeOrderedMembers` reads members in ascending byte order within one complete collection key. `After` and `Before` are optional exclusive bounds, and `Limit` must be positive. Members remain opaque strings; the business layer encodes time indexes with fixed-width timestamps and resource IDs. This operation does not interpret key prefixes or enumerate other collections.

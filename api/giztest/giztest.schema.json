@@ -376,6 +376,10 @@
         "message_contains": {
           "type": "string",
           "minLength": 1
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
         }
       }
     },

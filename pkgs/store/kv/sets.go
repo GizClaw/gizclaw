@@ -9,11 +9,19 @@ import (
 // ErrWrongType reports an operation on a key holding another data type.
 var ErrWrongType = errors.New("kv: wrong value type")
 
+// ErrMemberLimit reports an addition that would exceed its collection limit.
+// The entire mutation is rejected without changing any records or indexes.
+var ErrMemberLimit = errors.New("kv: collection member limit reached")
+
 // SetMembers addresses members of one exact collection. Members are opaque
 // strings, not hierarchical keys. Collection enumeration has no ordering guarantee.
 type SetMembers struct {
 	Key     Key
 	Members []string
+	// MaxMembers bounds the collection after this addition. Zero is unlimited.
+	// Re-adding existing members is allowed, including to an over-limit collection.
+	// Only AddMembers and AddOrderedMembers may specify a limit.
+	MaxMembers int
 }
 
 // Condition compares a record before applying a mutation. A nil Expected
@@ -58,6 +66,9 @@ func (m Mutation) validate(ctx context.Context, opts *Options) error {
 	collectionKinds := make(map[string]bool)
 	for phase, groups := range [][]SetMembers{m.AddMembers, m.RemoveMembers, m.AddOrderedMembers, m.RemoveOrderedMembers} {
 		for _, group := range groups {
+			if group.MaxMembers < 0 || phase%2 == 1 && group.MaxMembers != 0 {
+				return errors.New("kv: member limit requires an addition and a non-negative maximum")
+			}
 			key := string(opts.encode(group.Key))
 			ordered := phase >= 2
 			if previous, exists := collectionKinds[key]; exists && previous != ordered {

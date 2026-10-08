@@ -119,12 +119,16 @@ func (m *Memory) ApplyMutation(ctx context.Context, mutation Mutation) (bool, er
 					entry = memoryEntry{members: make(map[string]struct{}), ordered: phase >= 2}
 				}
 			}
+			previousCount := len(entry.members)
 			for _, member := range group.Members {
 				if phase%2 == 0 {
 					entry.members[member] = struct{}{}
 				} else {
 					delete(entry.members, member)
 				}
+			}
+			if group.MaxMembers > 0 && len(entry.members) > group.MaxMembers && len(entry.members) > previousCount {
+				return false, ErrMemberLimit
 			}
 			staged[key] = entry
 			deletes[key] = len(entry.members) == 0

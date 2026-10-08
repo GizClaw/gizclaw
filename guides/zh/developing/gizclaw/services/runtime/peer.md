@@ -21,6 +21,8 @@ Peer 的 KV mutation 使用未叠加 SQL 字段的持久化快照生成 CAS 条�
 
 Public key 是 Peer identity，不应和数据库 ID、connection ID 或 Edge assignment 混用。WebRTC connection lifecycle 属于 `giznet` 与根 `PeerManager`，不属于本 package。
 
+每个 Peer 最多维护 10 个不同的 SN／IMEI 索引，非空 SN 计一个，IMEI 按完整的 `(TAC, serial)` 去重；重复或不完整 IMEI 不增加索引。每个 SN 或 IMEI 反查 Set 最多关联 10 个不同的 Peer 公钥。数量检查覆盖完整保存和设备字段刷新；集合容量在与主记录及索引变更相同的原子 mutation 中校验。超额拒绝不会更改原记录或任何旧、新索引，重复关联不消耗额外名额，移除关联后可再次添加。Admin refresh 分别返回 `409 DEVICE_IDENTIFIER_LIMIT_REACHED` 或 `409 DEVICE_IDENTIFIER_INDEX_FULL`。已有超额集合不自动删除成员，允许不增长的幂等关联和移除操作。
+
 Peer 删除会在 Peer KV 中创建或复用一条 `kind=peer` PendingDeletion，并立即把 public key 变成跨进程 identity fence。marker 存在期间，Admin Peer get/list 与同一 delete 仍可用于诊断和幂等重试；reconnect、API Key HTTP、WebRTC、RPC/stream、Edge bootstrap、业务读取与 mutation 都返回 `PEER_PENDING_DELETION`。在线 connection 会被 quiesce，terminal cleanup failure 也不会解除 fence。
 
 Production handler 保存绑定 marker fingerprint 的 immutable 且带版本的 retirement plan。旧版本写入的 plan 记录了当前 handler 已无法退役的 Workspace，因此会被判定为 terminal 拒绝而不是继续完成；由运维退役这些 Workspace 后重新删除该 Peer。该 plan 并通过 Social、Workspace、API Key 与 RuntimeProfile 的 narrow adapter 清除该 Peer 拥有或被计划选中的数据。API Key cleanup 会写入 owner retirement marker，阻止并发 create 在清理后复活 credential。Workspace cleanup 需要通过 owner RuntimeProfile 解析要清除的 memory binding，因此 handler 等所有 child Workspace deletion 完成后才删除 owner RuntimeProfile binding。全局 catalog/config、foreign resource、log 与 metrics 不参与删除。完成时同一 guarded KV mutation 删除 Peer payload、secondary index、plan、marker、locator 与 task，并在 `by-pubkey/<public-key>` 写入唯一的 `{"version":1,"state":"deleted"}` tombstone。Admin get/list 从该 sentinel 派生 `{public_key,status=deleted}`；其他入口返回 `PEER_DELETED`，同一 public key 永久不能重新注册。

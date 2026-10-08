@@ -3348,7 +3348,7 @@ type DeepSeekTenantSpec struct {
 	Description  *string `json:"description,omitempty"`
 }
 
-// DeviceIdentifiers defines model for DeviceIdentifiers.
+// DeviceIdentifiers A Peer may declare at most 10 distinct identifier indexes: a non-empty SN counts as one, and each distinct complete IMEI (TAC, serial) counts as one. Duplicate or incomplete IMEIs create no additional indexes. Each SN or IMEI reverse index may associate at most 10 Peers.
 type DeviceIdentifiers struct {
 	Imeis  *[]PeerIMEI  `json:"imeis,omitempty"`
 	Labels *[]PeerLabel `json:"labels,omitempty"`
@@ -3359,8 +3359,10 @@ type DeviceIdentifiers struct {
 
 // DeviceInfo defines model for DeviceInfo.
 type DeviceInfo struct {
-	Emoji       *string            `json:"emoji,omitempty"`
-	Hardware    *HardwareInfo      `json:"hardware,omitempty"`
+	Emoji    *string       `json:"emoji,omitempty"`
+	Hardware *HardwareInfo `json:"hardware,omitempty"`
+
+	// Identifiers A Peer may declare at most 10 distinct identifier indexes: a non-empty SN counts as one, and each distinct complete IMEI (TAC, serial) counts as one. Duplicate or incomplete IMEIs create no additional indexes. Each SN or IMEI reverse index may associate at most 10 Peers.
 	Identifiers *DeviceIdentifiers `json:"identifiers,omitempty"`
 	Name        *string            `json:"name,omitempty"`
 }

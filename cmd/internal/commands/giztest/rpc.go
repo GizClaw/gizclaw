@@ -29,6 +29,7 @@ type rpcFailure struct {
 	method  string
 	code    int32
 	message string
+	reason  string
 }
 
 func (e *rpcFailure) Error() string {
@@ -121,7 +122,7 @@ func invokeUnary(ctx context.Context, client *gizcli.Client, step giztest.Step, 
 		return nil, fmt.Errorf("rpc %s response id %q does not match request %q", method, response.GetId(), step.ID)
 	}
 	if rpcErr := response.GetStatus(); rpcErr != nil {
-		return nil, &rpcFailure{method: method, code: int32(rpcErr.GetCode()), message: rpcErr.GetMessage()}
+		return nil, &rpcFailure{method: method, code: int32(rpcErr.GetCode()), message: rpcErr.GetMessage(), reason: rpcErr.GetInfo().GetReason()}
 	}
 	respMsg, err := dynamicMessage(info.response)
 	if err != nil {

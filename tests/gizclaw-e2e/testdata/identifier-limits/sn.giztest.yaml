@@ -1,0 +1,54 @@
+# User Story:
+# As a Server operator,
+# I want oversized or over-subscribed device identifiers rejected by real Admin HTTP,
+# So that the stored Peer remains unchanged and usable after refresh rejection.
+version: gizclaw.test/v1alpha1
+name: server.peer.identifiers.sn.limit
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  admin_endpoint: {direction: input, type: string, env: GIZCLAW_TEST_IDENTIFIER_ADMIN_ENDPOINT}
+  api_key: {direction: output, type: string, secret: true}
+steps:
+  - id: create_key
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: identifiers}}
+    capture: {api_key: /api_key}
+  - id: identifiers_provider_called
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: identifiers.get
+      expect_calls: 1
+      response:
+        sn: giztest-shared-sn
+        imeis: [{tac: "87654321", serial: "654321"}]
+  # The fixture only resolves the Bearer owner and forwards this to the real
+  # /peers/{publicKey}/@refresh handler through an authenticated Admin connection.
+  - id: refresh_rejected
+    client: peer
+    http:
+      endpoint: "${admin_endpoint}"
+      method: POST
+      path: /peers/@refresh
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 409
+    expect: {/error/code: {equals: DEVICE_IDENTIFIER_INDEX_FULL}}
+  - id: stored_identifiers_unchanged
+    client: peer
+    http:
+      endpoint: "${admin_endpoint}"
+      method: GET
+      path: /peers
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 200
+    expect: {/device/identifiers: {present: false}}
+  - id: peer_still_usable
+    client: peer
+    rpc: {method: all.ping, request: {}}
+finally:
+  - id: delete_peer
+    client: peer
+    rpc: {method: server.peer.delete, request: {}}

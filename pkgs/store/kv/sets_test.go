@@ -12,15 +12,16 @@ import (
 	redis "github.com/redis/go-redis/v9"
 )
 
+type collectionStore interface {
+	Get(context.Context, Key) ([]byte, error)
+	Set(context.Context, Key, []byte) error
+	HasMember(context.Context, Key, string) (bool, error)
+	ListMembers(context.Context, Key) ([]string, error)
+	RangeOrderedMembers(context.Context, Key, OrderedRange) ([]string, error)
+	ApplyMutation(context.Context, Mutation) (bool, error)
+}
+
 func TestCollectionMutation(t *testing.T) {
-	type collectionStore interface {
-		Get(context.Context, Key) ([]byte, error)
-		Set(context.Context, Key, []byte) error
-		HasMember(context.Context, Key, string) (bool, error)
-		ListMembers(context.Context, Key) ([]string, error)
-		RangeOrderedMembers(context.Context, Key, OrderedRange) ([]string, error)
-		ApplyMutation(context.Context, Mutation) (bool, error)
-	}
 	factories := map[string]func(*testing.T) collectionStore{
 		"memory":   func(t *testing.T) collectionStore { return NewMemory(nil) },
 		"sqlite":   func(t *testing.T) collectionStore { return newSQLiteStore(t) },
@@ -68,6 +69,8 @@ func TestCollectionMutation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			store := factory(t)
 			t.Run("ordered", func(t *testing.T) { testOrderedCollection(t, store) })
+			t.Run("member-limit", func(t *testing.T) { testCollectionMemberLimit(t, store) })
+			t.Run("member-limit-race", func(t *testing.T) { testCollectionMemberLimitRace(t, store) })
 			ctx := t.Context()
 			namespace := "set-contract-" + rand.Text()
 			record := Key{namespace, name, "record"}

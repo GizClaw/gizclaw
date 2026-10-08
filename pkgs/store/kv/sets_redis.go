@@ -77,11 +77,14 @@ func (r *Redis) ApplyMutation(ctx context.Context, mutation Mutation) (bool, err
 		values []SetMembers
 	}{{"add", mutation.AddMembers}, {"remove", mutation.RemoveMembers}, {"zadd", mutation.AddOrderedMembers}, {"zremove", mutation.RemoveOrderedMembers}} {
 		for _, group := range groups.values {
-			values := make([]any, len(group.Members))
-			for i, member := range group.Members {
-				values[i] = member
+			values := make([]any, 0, len(group.Members)+1)
+			if groups.op == "add" || groups.op == "zadd" {
+				values = append(values, group.MaxMembers)
 			}
-			if len(values) > 0 {
+			for _, member := range group.Members {
+				values = append(values, member)
+			}
+			if len(group.Members) > 0 {
 				appendOp(groups.op, group.Key, values...)
 			}
 		}
@@ -94,6 +97,8 @@ func (r *Redis) ApplyMutation(ctx context.Context, mutation Mutation) (bool, err
 		return false, setRedisError(err)
 	}
 	switch result {
+	case -2:
+		return false, ErrMemberLimit
 	case -1:
 		return false, ErrInvalidDeadline
 	case 0:
@@ -106,9 +111,10 @@ func (r *Redis) ApplyMutation(ctx context.Context, mutation Mutation) (bool, err
 }
 
 // Validate every command before writing: Redis script errors do not roll back
-// earlier writes. The second pass contains only validated operations.
+// earlier writes. Type, deadline and capacity checks all precede the write pass.
 var redisSetMutationScript = redis.NewScript(`
 local operations = {}
+local bounded = {}
 local offset = 1
 local clock = redis.call('TIME')
 local now = tonumber(clock[1]) * 1000 + math.floor(tonumber(clock[2]) / 1000)
@@ -131,7 +137,37 @@ for i, key in ipairs(KEYS) do
  elseif op == 'add' or op == 'remove' then
   if kind ~= 'none' and kind ~= 'set' then return redis.error_reply('WRONGTYPE Operation against a key holding the wrong kind of value') end
  end
+ if (op == 'add' or op == 'zadd') and tonumber(values[1]) > 0 then bounded[key] = true end
  operations[i] = {op=op, key=key, values=values}
+end
+local projected = {}
+for _, command in ipairs(operations) do
+ local op, key, values = command.op, command.key, command.values
+ if (op == 'add' or op == 'zadd') and bounded[key] then
+  local state = projected[key]
+  if not state then
+   local count
+   if op == 'add' then count = redis.call('SCARD', key) else count = redis.call('ZCARD', key) end
+   state = {count=count, members={}}
+   projected[key] = state
+  end
+  local previous = state.count
+  for i=2,#values do
+   local member = values[i]
+   if state.members[member] == nil then
+    local present
+    if op == 'add' then present = redis.call('SISMEMBER', key, member) == 1
+    else present = redis.call('ZSCORE', key, member) ~= false end
+    state.members[member] = present
+   end
+   if not state.members[member] then
+    state.count = state.count + 1
+    state.members[member] = true
+   end
+  end
+  local maximum = tonumber(values[1])
+  if maximum > 0 and state.count > maximum and state.count > previous then return -2 end
+ end
 end
 for _, command in ipairs(operations) do
  local op, key, values = command.op, command.key, command.values
@@ -140,11 +176,11 @@ for _, command in ipairs(operations) do
   else redis.call('SET', key, values[1], 'PXAT', values[2]) end
  elseif op == 'delete' then redis.call('DEL', key)
  elseif op == 'zadd' then
-  for _, member in ipairs(values) do redis.call('ZADD', key, 0, member) end
+  for i=2,#values do redis.call('ZADD', key, 0, values[i]) end
  elseif op == 'zremove' then
   for _, member in ipairs(values) do redis.call('ZREM', key, member) end
  elseif op == 'add' then
-  for _, member in ipairs(values) do redis.call('SADD', key, member) end
+  for i=2,#values do redis.call('SADD', key, values[i]) end
  elseif op == 'remove' then
   for _, member in ipairs(values) do redis.call('SREM', key, member) end
  end

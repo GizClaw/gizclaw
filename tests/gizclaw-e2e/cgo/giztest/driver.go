@@ -143,11 +143,19 @@ func (driver) FailureCode(err error) (int32, string, bool) {
 	return 0, "", false
 }
 
+func (driver) FailureReason(err error) (string, bool) {
+	if failure, ok := errors.AsType[*rpcError](err); ok {
+		return failure.reason, true
+	}
+	return "", false
+}
+
 // rpcError is a structured RPC error the Server returned.
 type rpcError struct {
 	method  string
 	code    int32
 	message string
+	reason  string
 }
 
 func (e *rpcError) Error() string {
@@ -296,7 +304,7 @@ func (s *session) executeRPC(ctx context.Context, client *deviceClient, req gizt
 	}
 	if result.errorCode != 0 {
 		return giztest.StepResult{}, &rpcError{
-			method: req.Step.RPC.Method, code: result.errorCode, message: result.message,
+			method: req.Step.RPC.Method, code: result.errorCode, message: result.message, reason: result.reason,
 		}
 	}
 	decoded, err := decodePayload(info.response, result.payload)

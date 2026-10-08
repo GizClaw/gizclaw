@@ -227,6 +227,7 @@ func (b *Badger) ApplyMutation(ctx context.Context, mutation Mutation) (bool, er
 					} else if !errors.Is(err, badger.ErrKeyNotFound) {
 						return err
 					}
+					previousCount := count
 					prefix := b.memberPrefix(group.Key)
 					for _, member := range group.Members {
 						memberKey := append(bytes.Clone(prefix), member...)
@@ -247,6 +248,9 @@ func (b *Badger) ApplyMutation(ctx context.Context, mutation Mutation) (bool, er
 							}
 							count--
 						}
+					}
+					if group.MaxMembers > 0 && count > uint64(group.MaxMembers) && count > previousCount {
+						return ErrMemberLimit
 					}
 					if count == 0 {
 						if err := tx.Delete(key); err != nil {

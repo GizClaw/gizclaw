@@ -43,6 +43,12 @@ type Driver interface {
 	FailureCode(err error) (code int32, message string, ok bool)
 }
 
+// FailureReasonDriver supplies structured reasons for expect_error.reason.
+// A driver without this capability fails steps that require a reason assertion.
+type FailureReasonDriver interface {
+	FailureReason(err error) (reason string, ok bool)
+}
+
 // Session is one task's connected client set. The runner owns its lifecycle:
 // it calls CloseStreams after the document's steps and Close after its
 // finalizers.

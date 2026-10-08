@@ -55,11 +55,19 @@ func (d *stubDriver) FailureCode(err error) (int32, string, bool) {
 	return 0, "", false
 }
 
+func (d *stubDriver) FailureReason(err error) (string, bool) {
+	if failure, ok := errors.AsType[stubFailure](err); ok {
+		return failure.reason, true
+	}
+	return "", false
+}
+
 // stubFailure is the structured error the stub driver reports for
 // expect_error steps.
 type stubFailure struct {
 	code    int32
 	message string
+	reason  string
 }
 
 func (e stubFailure) Error() string { return fmt.Sprintf("code %d: %s", e.code, e.message) }

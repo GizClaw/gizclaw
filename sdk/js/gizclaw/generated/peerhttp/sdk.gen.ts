@@ -145,6 +145,8 @@ export const listApiKeys = <ThrowOnError extends boolean = false>(options?: Opti
 
 /**
  * Create an API key for the caller's device
+ *
+ * A Peer may own at most 10 API keys, including management keys. Creating another key at capacity returns 409 API_KEY_LIMIT_REACHED. Revoking a key releases its capacity.
  */
 export const createApiKey = <ThrowOnError extends boolean = false>(options: Options<CreateApiKeyData, ThrowOnError>): RequestResult<CreateApiKeyResponses, CreateApiKeyErrors, ThrowOnError> => (options.client ?? client).post<CreateApiKeyResponses, CreateApiKeyErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],

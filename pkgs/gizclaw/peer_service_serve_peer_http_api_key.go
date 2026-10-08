@@ -55,6 +55,9 @@ func (s *peerHTTP) CreateAPIKey(ctx context.Context, request peerhttp.CreateAPIK
 		return peerhttp.CreateAPIKey400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError("INVALID_REQUEST", "request body is required"))}, nil
 	}
 	created, err := s.APIKeys.Create(ctx, principal.Key.Owner, request.Body.DisplayName, request.Body.ManageApiKeys)
+	if errors.Is(err, apikey.ErrPeerAPIKeyLimit) {
+		return peerhttp.CreateAPIKey409JSONResponse{ConflictJSONResponse: peerhttp.ConflictJSONResponse(apiError("API_KEY_LIMIT_REACHED", "Peer API key limit reached"))}, nil
+	}
 	if errors.Is(err, apikey.ErrInvalidDisplayName) {
 		return peerhttp.CreateAPIKey400JSONResponse{BadRequestJSONResponse: peerhttp.BadRequestJSONResponse(apiError("INVALID_DISPLAY_NAME", err.Error()))}, nil
 	}

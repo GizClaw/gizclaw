@@ -1,0 +1,101 @@
+# User Story:
+# As a device owner,
+# I want API key creation to stop at ten keys and resume after revocation,
+# So that every SDK observes the same RPC reason and HTTP error without leaking a slot.
+version: gizclaw.test/v1alpha1
+name: server.api-key.limit
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+  other: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  manager_key: {direction: output, type: string, secret: true}
+  removable_name: {direction: output, type: string}
+  removable_key: {direction: output, type: string, secret: true}
+steps:
+  - id: create_manager
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: manager, manage_api_keys: true}}
+    capture: {manager_key: /api_key}
+  - id: create_key_1
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-1}}
+  - id: create_key_2
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-2}}
+  - id: create_key_3
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-3}}
+  - id: create_key_4
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-4}}
+  - id: create_key_5
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-5}}
+  - id: create_key_6
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-6}}
+  - id: create_key_7
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-7}}
+  - id: create_key_8
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-8}}
+  - id: create_key_9
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: key-9}}
+    capture: {removable_name: /value/name, removable_key: /api_key}
+  - id: rpc_eleventh_rejected
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: eleventh}}
+    expect_error: {code: 8, reason: API_KEY_LIMIT_REACHED, message_contains: Peer API key limit reached}
+  - id: http_eleventh_rejected
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/api-keys
+      headers: {Authorization: "Bearer ${manager_key}"}
+      body: {display_name: eleventh, manage_api_keys: false}
+      status: 409
+    expect: {/error/code: {equals: API_KEY_LIMIT_REACHED}}
+  - id: ten_after_rejections
+    client: peer
+    rpc: {method: server.api_key.list, request: {}}
+    expect: {/items: {count: 10}}
+  - id: independent_owner_can_create
+    client: other
+    rpc: {method: server.api_key.create, request: {display_name: other}}
+  - id: independent_owner_has_one
+    client: other
+    rpc: {method: server.api_key.list, request: {}}
+    expect: {/items: {count: 1}}
+  - id: revoke_one
+    client: peer
+    rpc: {method: server.api_key.revoke, request: {name: "${removable_name}"}}
+  - id: revoked_key_is_invalid
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/api-keys/self
+      headers: {Authorization: "Bearer ${removable_key}"}
+      status: 401
+    expect: {/error/code: {equals: INVALID_API_KEY}}
+  - id: nine_after_revoke
+    client: peer
+    rpc: {method: server.api_key.list, request: {}}
+    expect: {/items: {count: 9}}
+  - id: replacement_can_create
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: replacement, manage_api_keys: true}}
+  - id: ten_after_replacement
+    client: peer
+    rpc: {method: server.api_key.list, request: {}}
+    expect: {/items: {count: 10}}
+finally:
+  - id: delete_peer
+    client: peer
+    rpc: {method: server.peer.delete, request: {}}
+  - id: delete_other
+    client: other
+    rpc: {method: server.peer.delete, request: {}}

@@ -56,6 +56,8 @@ PostgreSQL mutation 按物理表与 encoded key 获取事务级 advisory lock，
 
 Redis 使用原生 Set 和 Lua 原子操作。Badger 使用独立的记录／成员物理命名空间和事务，成员判断是精确 key 查询。SQL 使用记录类型列及独立成员表，联合主键为 `(encoded_key, member)`；事务锁覆盖记录和集合 key。`Prefixed` 同时限定记录、条件和集合 key，不修改成员 ID。
 
+`AddMembers` 和 `AddOrderedMembers` 的 `SetMembers.MaxMembers` 可限制本次添加后的集合大小，零表示不限制。只有增加了不同成员且超过上限才返回 `ErrMemberLimit`，整个 mutation 不产生任何写入；重复成员仍幂等，删除可释放容量。容量校验与记录、成员写入在同一 Lua／事务／内存锁内执行，多个客户端不能并发超额。每个添加分组单独校验，后面的删除不会为前面的添加预留容量。
+
 ## 有序集合范围查询
 
 `RangeOrderedMembers` 在一个完整集合 key 内按成员字节升序读取，`After` 和 `Before` 为可选的排他边界，`Limit` 必须为正数。成员仍是 opaque string；时间索引由业务层编码为固定宽度时间与资源 ID。它不会解释 key 前缀，也不会枚举其他集合。

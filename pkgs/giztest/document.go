@@ -122,6 +122,7 @@ type RetrySpec struct {
 type ErrorExpectation struct {
 	Code            int32  `json:"code" yaml:"code"`
 	MessageContains string `json:"message_contains,omitempty" yaml:"message_contains,omitempty"`
+	Reason          string `json:"reason,omitempty" yaml:"reason,omitempty"`
 }
 
 type RPCOperation struct {

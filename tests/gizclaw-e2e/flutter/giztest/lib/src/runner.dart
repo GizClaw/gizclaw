@@ -350,9 +350,17 @@ Future<_StepResult> _runStepReport(
       failure = const AssertionFailure(
         'RPC error message does not contain expected text',
       );
+    } else if (expectError['reason'] is String &&
+        (failure! as ScenarioRpcError).reason != expectError['reason']) {
+      failure = const AssertionFailure(
+        'RPC error reason does not match expected reason',
+      );
     } else {
       failure = null;
       outcome = _StepOutcome(evidence: {'rpc_error_code': code});
+      if (expectError['reason'] is String) {
+        outcome.evidence!['rpc_error_reason'] = expectError['reason'];
+      }
     }
   }
 

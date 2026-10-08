@@ -1,10 +1,25 @@
 package peer
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+)
+
+const (
+	// PeerIdentifierLimit bounds the distinct SN and IMEI indexes of one Peer.
+	PeerIdentifierLimit = 10
+	// IdentifierIndexPeerLimit bounds the Peers associated with one SN or IMEI.
+	IdentifierIndexPeerLimit = 10
+)
+
+var (
+	// ErrPeerIdentifierLimit reports more than ten distinct SN/IMEI indexes.
+	ErrPeerIdentifierLimit = errors.New("peer: SN and IMEI identifier limit reached")
+	// ErrIdentifierIndexPeerLimit reports a full SN or IMEI reverse index.
+	ErrIdentifierIndexPeerLimit = errors.New("peer: SN or IMEI index Peer limit reached")
 )
 
 func validatePeer(peer apitypes.Peer) error {

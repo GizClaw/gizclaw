@@ -277,6 +277,8 @@ int gzt_session_call_rpc(
     int *out_rpc_error_code,
     char *out_error_message,
     unsigned long out_error_message_len,
+    char *out_error_reason,
+    unsigned long out_error_reason_len,
     char *errbuf,
     unsigned long errbuf_len) {
   if (session == NULL || method_id == 0 || out_payload == NULL || out_payload_len == NULL ||
@@ -305,6 +307,7 @@ int gzt_session_call_rpc(
   if (response.has_error) {
     *out_rpc_error_code = response.error.code;
     copy_error_message(response.error.message, out_error_message, out_error_message_len);
+    copy_error_message(response.error.reason, out_error_reason, out_error_reason_len);
     gzc_rpc_request_destroy(request);
     return GZC_OK;
   }
