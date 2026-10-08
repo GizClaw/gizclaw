@@ -10,6 +10,7 @@ services/runtime/
 ├── agenthost/       # Agent instances, input/output, streams, and lifecycle
 ├── peer/            # Peer resources, identity, and base state
 ├── peerresource/    # cross-domain resource aggregation for peers
+├── peersync/        # Peer state synchronization checkpoints and hashes
 ├── peerroute/       # Peer assignment and edge-route data
 ├── peerrun/         # selection state for the Agent currently running on a Peer
 ├── peerusage/       # Hourly Peer/model consumption and 90-day retention
@@ -87,3 +88,7 @@ Owns hourly Peer/model quantities, nonblocking reporting, idempotent cumulative 
 ### [peerquota](/en/developing/api/http/quota)
 
 Owns external quota queries, cached decisions and authorization lifetimes for active provider calls. The HTTP service bound by RuntimeProfile owns billing policy.
+
+### [peersync](./peersync)
+
+Owns owner Peer state checkpoints and compares projection hashes with the last complete synchronization. Domain services retain resource and authorization ownership; Peer HTTP serves finite SSE responses.

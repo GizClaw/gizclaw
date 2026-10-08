@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peersync"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -56,6 +57,7 @@ type peerHTTP struct {
 	DeviceReads   func(giznet.PublicKey) peerresource.DeviceReads
 	Contacts      *contact.Server
 	DeviceControl *deviceController
+	Sync          *peersync.Server
 
 	// Friends and FriendGroups serve /gizclaw/v1/friends* and
 	// /gizclaw/v1/friend-groups* for the same owner; Profiles supplies the

@@ -10,6 +10,7 @@ services/runtime/
 ├── agenthost/       # Agent instance、输入输出、stream 和 lifecycle
 ├── peer/            # Peer 资源、identity 和基础状态
 ├── peerresource/    # 面向 peer 的跨领域资源聚合
+├── peersync/        # Peer 状态同步检查点与摘要
 ├── peerroute/       # Peer assignment 与 edge route 数据
 ├── peerrun/         # Peer 当前运行 Agent 的选择状态
 ├── peerusage/       # Peer/model 小时用量与 90 天保留
@@ -89,3 +90,7 @@ flowchart TB
 ### [peerquota](/zh/developing/api/http/quota)
 
 拥有 custom HTTP quota 查询、缓存结果与活动 provider 调用的授权生命周期。RuntimeProfile 默认/unlimited 不经过该 controller，独立配置的 Peer 用量仍会记录；计费策略由绑定的外部 custom 服务负责。
+
+### [peersync](./peersync)
+
+拥有 owner Peer 的状态同步检查点，以投影摘要比较当前状态与上次完整同步。领域 service 保留资源与权限所有权，Peer HTTP 提供有限 SSE 响应。

@@ -449,6 +449,23 @@
           "type": "string",
           "minLength": 1,
           "description": "Optional HTTP fixture access point; defaults to the selected client access point. Variables are resolved before the request."
+        },
+        "response_format": {
+          "enum": [
+            "sse"
+          ],
+          "description": "Decode a finite SSE response into {events: [{event, data}], last_event, raw}. JSON-valued data is decoded. Omitted preserves JSON/text response decoding. Only blank-line-terminated events with data are dispatched."
+        },
+        "query": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "number",
+              "boolean"
+            ]
+          },
+          "description": "Scalar query parameters, including exact numeric variable references. Overrides matching keys already in path; other path query keys remain."
         }
       }
     },
@@ -1298,7 +1315,7 @@
     },
     "timing_duration": {
       "type": "string",
-      "pattern": "^(0|([0-9]+(\\.[0-9]+)?(ns|us|\u00b5s|\u03bcs|ms|s|m|h))+)$"
+      "pattern": "^(0|([0-9]+(\\.[0-9]+)?(ns|us|µs|μs|ms|s|m|h))+)$"
     },
     "relay_quality": {
       "type": "object",

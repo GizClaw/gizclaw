@@ -58,6 +58,10 @@ func invokeHTTP(ctx context.Context, endpoint string, step giztest.Step, vars *g
 	if !ok || !strings.HasPrefix(path, "/") {
 		return httpStepResult{}, fmt.Errorf("http path must resolve to an absolute path")
 	}
+	path, err = giztest.ResolveHTTPQuery(path, step.HTTP.Query, vars)
+	if err != nil {
+		return httpStepResult{}, err
+	}
 	var body io.Reader
 	if step.HTTP.Body != nil {
 		resolved, err := vars.Resolve(step.HTTP.Body)
@@ -101,7 +105,12 @@ func invokeHTTP(ctx context.Context, endpoint string, step giztest.Step, vars *g
 		return httpStepResult{}, fmt.Errorf("http response body exceeds %d bytes", maxHTTPStepBodyBytes)
 	}
 	result := httpStepResult{evidence: map[string]any{"method": step.HTTP.Method, "path": path, "status": response.StatusCode}}
-	if len(bytes.TrimSpace(raw)) > 0 {
+	if step.HTTP.ResponseFormat == "sse" {
+		result.body, err = giztest.DecodeHTTPEventStream(string(raw))
+		if err != nil {
+			return result, err
+		}
+	} else if len(bytes.TrimSpace(raw)) > 0 {
 		var decoded any
 		if json.Unmarshal(raw, &decoded) == nil {
 			result.body = decoded

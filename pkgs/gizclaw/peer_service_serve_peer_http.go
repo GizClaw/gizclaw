@@ -200,6 +200,7 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 		return ctx.Next()
 	})
 	app.Use(observeFiberRoute)
+	app.Use(validatePeerSyncQuery)
 	app.Use(func(ctx *fiber.Ctx) error {
 		if ctx.Method() == http.MethodPost && ctx.Path() == "/gizclaw/v1/device/tool/v0/invoke" && !utf8.Valid(ctx.Body()) {
 			return ctx.Status(http.StatusBadRequest).JSON(apitypes.NewErrorResponse(publicHTTPInvalidRequestCode, "invalid tool arguments"))

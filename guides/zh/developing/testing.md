@@ -599,6 +599,26 @@ gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
 `headers`、JSON `body`、可选 `status`），响应 JSON 作为该 step 的值参与 `expect`、`capture` 与
 `save_as`；未声明 `status` 时 4xx/5xx 视为断言失败。API Key 由 `server.api_key.create` step
 `capture: {api_key: /api_key}` 得到，并以 `Authorization: "Bearer ${api_key}"` header 传入。
+
+`http.query` 为字符串、数值、布尔值提供查询参数；完整变量引用保留类型，例如
+`query: {timestamp: "${checkpoint}"}`，用于传回 SSE 的数值时间戳。
+`http.response_format: sse` 将有限响应投影为 `{events: [{event, data}], last_event, raw}`，
+JSON data 自动解码，普通文本保留字符串。只有以空行结束且带 data 的事件会进入 events；
+没有完整终止帧的响应不能通过 done 断言。解析上限为 4 MiB 和 16384 个事件。
+Go/C、JS、Flutter 使用 `api/giztest/testdata/http_sse_vectors.json` 校验一致性。
+
+`server.peer.sync.giztest.yaml` 覆盖初次 reset、检查点续接、无变化、owner 隔离、
+新增/多次更新后的最终值、删除、设备重连、过期检查点，以及非法时间戳与缺失/失效/撤销 Key。
+`go test ./cmd/internal/server -run '^TestPeerSyncGiztest$' -count=1` 使用临时状态启动真实
+Server 和 Edge，设备经 Gateway/WebRTC 建连，SSE 请求通过 Edge 转发到 authoritative Server。
+报告要求 23 个步骤与 2 个清理步骤全部通过，普通 Go CI 同样执行。
+
+JavaScript 和原生 Flutter 复用相同场景：构建 Flutter runner 后设置
+`GIZCLAW_SYNC_FLUTTER_RUNNER` 为其可执行文件路径，运行
+`go test -tags=gizclaw_sdk_e2e ./cmd/internal/server -run '^TestPeerSyncSDKGiztests$' -count=1`。
+缺少 runner 或实际执行失败会报错，不会降级为解析通过。C 控制 SDK 当前不支持 `/sync`，
+因此该场景在 C runner 中明确标为不支持；有限 SSE decoder 的 Go/C 共享部分仍有单元覆盖。
+
 `client_rpc` step 使用 `client.mhs.v0.read/write`、`client.tool.v0.invoke/list` 或 `client.rpc.methods.list`。invoke step 的 `tool` 选择预定义 `ClientTool` payload。runner 在设备连接时安装脚本中的 provider 响应；`response: {error_code: 3}` 返回指定的 canonical 错误。未安装的工具应答 `UNIMPLEMENTED`，`expect_calls` 用于证明后续 HTTP 调用是否到达 provider；Server 侧验证失败的场景应断言零次调用。
 
 

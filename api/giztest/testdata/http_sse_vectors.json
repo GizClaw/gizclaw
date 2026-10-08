@@ -1,0 +1,75 @@
+[
+  {
+    "name": "json-and-text",
+    "text": "data: hello\n\nevent: done\ndata: {\"event\":\"done\",\"timestamp\":1791331200000}\n\n",
+    "expected": {
+      "events": [
+        {
+          "event": "message",
+          "data": "hello"
+        },
+        {
+          "event": "done",
+          "data": {
+            "event": "done",
+            "timestamp": 1791331200000
+          }
+        }
+      ],
+      "raw": "data: hello\n\nevent: done\ndata: {\"event\":\"done\",\"timestamp\":1791331200000}\n\n",
+      "last_event": {
+        "event": "done",
+        "data": {
+          "event": "done",
+          "timestamp": 1791331200000
+        }
+      }
+    }
+  },
+  {
+    "name": "multiline-crlf-bom",
+    "text": "﻿: heartbeat\r\nevent: sample\r\ndata: {\"name\":\r\ndata: \"小猫\"}\r\n\r\n",
+    "expected": {
+      "events": [
+        {
+          "event": "sample",
+          "data": {
+            "name": "小猫"
+          }
+        }
+      ],
+      "raw": "﻿: heartbeat\r\nevent: sample\r\ndata: {\"name\":\r\ndata: \"小猫\"}\r\n\r\n",
+      "last_event": {
+        "event": "sample",
+        "data": {
+          "name": "小猫"
+        }
+      }
+    }
+  },
+  {
+    "name": "empty-and-incomplete",
+    "text": "id: unused\nretry: 1000\n\nevent:\ndata:\n\nevent: lost\ndata: incomplete\n",
+    "expected": {
+      "events": [
+        {
+          "event": "message",
+          "data": ""
+        }
+      ],
+      "raw": "id: unused\nretry: 1000\n\nevent:\ndata:\n\nevent: lost\ndata: incomplete\n",
+      "last_event": {
+        "event": "message",
+        "data": ""
+      }
+    }
+  },
+  {
+    "name": "no-data-events",
+    "text": "event: ignored\n\n: comment\n\ndata: missing-blank-line\n",
+    "expected": {
+      "events": [],
+      "raw": "event: ignored\n\n: comment\n\ndata: missing-blank-line\n"
+    }
+  }
+]

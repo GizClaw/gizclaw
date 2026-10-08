@@ -101,6 +101,8 @@ export type Step = {
     expect_calls?: number;
   };
   http?: {
+    response_format?: "sse";
+    query?: Record<string, unknown>;
     endpoint?: string;
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
     path: string;

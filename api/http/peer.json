@@ -38,6 +38,10 @@
     {
       "name": "FriendGroups",
       "description": "Friend Groups the device bound to the API key belongs to"
+    },
+    {
+      "name": "Sync",
+      "description": "Incremental current-state synchronization for the API key owner Peer"
     }
   ],
   "paths": {
@@ -3246,6 +3250,70 @@
           }
         }
       }
+    },
+    "/gizclaw/v1/sync": {
+      "get": {
+        "operationId": "syncPeer",
+        "summary": "Synchronize the API key owner Peer current state",
+        "description": "Bearer API key fixes the owner Peer; no Peer selector is accepted. timestamp is the server-issued checkpoint from the last successfully completed sync, or 0 for the first sync. The Server compares current authorized read-API projections against that checkpoint, coalescing each item to its latest full state. Checkpoint hashes are persisted in the Peer KV store; the last 64 checkpoints are retained for at most 24 hours. An unknown or expired timestamp starts with reset and returns all current state. The connection ends after done. Errors occur before SSE starts and use the standard JSON error response. Covers device identity/runtime/status/firmware/runtime-profile/MHS manifest, owned Workspaces, Contacts, Friends, Friend Groups/members, and permitted invite tokens. History, log and telemetry queries, device RPC operations, and API key management retain their existing endpoints. Clients must use the returned timestamp rather than their local clock. Stage each batch and commit state and timestamp together only on done; discard an incomplete batch.",
+        "tags": [
+          "Sync"
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "timestamp",
+            "in": "query",
+            "required": true,
+            "description": "Last completed server-issued Unix millisecond checkpoint; 0 requests full state.",
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Finite SSE state synchronization. Every data payload conforms to SyncEvent.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SyncEvent"
+                },
+                "example": {
+                  "event": "upsert",
+                  "key": "/gizclaw/v1/device/runtime",
+                  "data": {
+                    "online": true,
+                    "last_seen_at": "2026-10-07T00:00:00Z"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/Conflict"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3695,7 +3763,9 @@
       "DeviceRuntimeProfileSafetyFence": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id"],
+        "required": [
+          "id"
+        ],
         "properties": {
           "id": {
             "type": "string",
@@ -4927,6 +4997,153 @@
           "result": {
             "type": "object",
             "additionalProperties": true
+          }
+        }
+      },
+      "SyncReset": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Clear the staged state for this owner before applying the following upserts. Sent for timestamp 0 or an unknown or expired checkpoint. Commit the staged state only on done.",
+        "required": [
+          "event"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "reset"
+            ]
+          }
+        }
+      },
+      "SyncUpsert": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Replace one item with its complete current read-API JSON projection. key is its canonical /gizclaw/v1/... resource path. Singleton device paths identify device, runtime, status, firmware, runtime-profile, and mhs/v0/manifest. Collection items use /device/workspaces/{id}, /contacts/{name}, /friends/{name}, /friend-groups/{name}, and /friend-groups/{name}/members/{memberName}; each segment is URL-encoded. Invite tokens use the existing /friends/invite-token and owner-only /friend-groups/{name}/invite-token paths.",
+        "required": [
+          "event",
+          "key",
+          "data"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "upsert"
+            ]
+          },
+          "key": {
+            "type": "string"
+          },
+          "data": {
+            "anyOf": [
+              {
+                "$ref": "./shared.json#/components/schemas/DeviceInfo"
+              },
+              {
+                "$ref": "./shared.json#/components/schemas/Runtime"
+              },
+              {
+                "$ref": "./shared.json#/components/schemas/PeerStatus"
+              },
+              {
+                "$ref": "./shared.json#/components/schemas/MhsV0Manifest"
+              },
+              {
+                "$ref": "#/components/schemas/DeviceFirmware"
+              },
+              {
+                "$ref": "#/components/schemas/DeviceRuntimeProfile"
+              },
+              {
+                "$ref": "#/components/schemas/DeviceWorkspace"
+              },
+              {
+                "$ref": "#/components/schemas/Contact"
+              },
+              {
+                "$ref": "#/components/schemas/Friend"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroup"
+              },
+              {
+                "$ref": "#/components/schemas/FriendGroupMember"
+              },
+              {
+                "$ref": "#/components/schemas/InviteToken"
+              }
+            ]
+          }
+        }
+      },
+      "SyncDelete": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Remove an item that was present in the previous checkpoint and is now deleted or no longer visible to the owner.",
+        "required": [
+          "event",
+          "key"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "delete"
+            ]
+          },
+          "key": {
+            "type": "string"
+          }
+        }
+      },
+      "SyncDone": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "The only successful completion marker. Commit staged state and this timestamp together after receiving all preceding events. Discard an interrupted batch without done and retry using the previous timestamp.",
+        "required": [
+          "event",
+          "timestamp"
+        ],
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": [
+              "done"
+            ]
+          },
+          "timestamp": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "maximum": 9007199254740991,
+            "description": "Server-issued Unix millisecond checkpoint timestamp for the next sync request."
+          }
+        }
+      },
+      "SyncEvent": {
+        "description": "JSON data of one SSE event. The SSE event name matches data.event. A finite stream contains optional reset, zero or more delete/upsert events, then exactly one done event.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/SyncReset"
+          },
+          {
+            "$ref": "#/components/schemas/SyncUpsert"
+          },
+          {
+            "$ref": "#/components/schemas/SyncDelete"
+          },
+          {
+            "$ref": "#/components/schemas/SyncDone"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "event",
+          "mapping": {
+            "reset": "#/components/schemas/SyncReset",
+            "upsert": "#/components/schemas/SyncUpsert",
+            "delete": "#/components/schemas/SyncDelete",
+            "done": "#/components/schemas/SyncDone"
           }
         }
       }

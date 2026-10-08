@@ -17,6 +17,7 @@ import {
 import { ScenarioClient } from "./client.ts";
 import { telemetryFrameFromProtoJSON } from "./proto_json.ts";
 import { Variables } from "./variables.ts";
+import { decodeHTTPEventStream } from "./http_sse.ts";
 
 const CLEANUP_BUDGET_MS = 30_000;
 const CLIENT_RPC_POLL_MS = 10;
@@ -110,9 +111,25 @@ async function runStep(
     if (client == null) {
       throw new Error(`step ${step.id} has no connected client`);
     }
-    const path = variables.resolveString(step.http.path, "http path");
+    let path = variables.resolveString(step.http.path, "http path");
     if (!path.startsWith("/")) {
       throw new Error("http path must resolve to an absolute path");
+    }
+    if (step.http.query != null) {
+      const parsed = new URL(path, "http://giztest.invalid");
+      for (const [key, raw] of Object.entries(step.http.query)) {
+        const value = variables.resolve(raw);
+        if (
+          typeof value !== "string" &&
+          typeof value !== "number" &&
+          typeof value !== "boolean"
+        )
+          throw new Error(`HTTP query ${key} must be a scalar`);
+        if (typeof value === "number" && !Number.isFinite(value))
+          throw new Error(`HTTP query ${key} must be finite`);
+        parsed.searchParams.set(key, String(value));
+      }
+      path = parsed.pathname + parsed.search;
     }
     const headers: Record<string, string> = {};
     for (const [name, raw] of Object.entries(step.http.headers ?? {})) {
@@ -131,6 +148,7 @@ async function runStep(
       step.http.endpoint == null
         ? undefined
         : variables.resolveString(step.http.endpoint, "http endpoint"),
+      step.http.response_format,
     );
     const evidence = {
       method: step.http.method,
@@ -145,6 +163,11 @@ async function runStep(
     }
     if (declared == null && result.status >= 400) {
       throw new AssertionFailure(`http status = ${result.status}`);
+    }
+    if (step.http.response_format === "sse") {
+      if (typeof result.body !== "string")
+        throw new Error("SSE response must be text");
+      return { evidence, value: decodeHTTPEventStream(result.body) };
     }
     return { evidence, value: result.body };
   }

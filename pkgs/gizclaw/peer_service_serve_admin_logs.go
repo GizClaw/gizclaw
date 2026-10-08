@@ -3,9 +3,7 @@ package gizclaw
 import (
 	"bufio"
 	"context"
-	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strings"
 
@@ -145,7 +143,7 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 	ctx.Context().SetBodyStreamWriter(func(w *bufio.Writer) {
 		defer cancel()
 		if hasFirst {
-			if err := writeServerLogSSE(w, first.name, first.data); err != nil {
+			if err := writeSSEEvent(w, first.name, first.data); err != nil {
 				return
 			}
 		}
@@ -157,11 +155,11 @@ func (response streamServerLogsResponse) VisitStreamServerLogsResponse(ctx *fibe
 						err = <-done
 					}
 					if err != nil && !errors.Is(err, context.Canceled) {
-						_ = writeServerLogSSE(w, "error", postStartServerLogError(err))
+						_ = writeSSEEvent(w, "error", postStartServerLogError(err))
 					}
 					return
 				}
-				if err := writeServerLogSSE(w, event.name, event.data); err != nil {
+				if err := writeSSEEvent(w, event.name, event.data); err != nil {
 					return
 				}
 			case <-streamCtx.Done():
@@ -205,15 +203,4 @@ func waitFirstServerLogEvent(ctx context.Context, events <-chan serverLogEvent, 
 func postStartServerLogError(err error) apitypes.ErrorResponse {
 	_, body := serverLogQueryErrorResponse(err)
 	return body
-}
-
-func writeServerLogSSE(w *bufio.Writer, event string, data any) error {
-	payload, err := json.Marshal(data)
-	if err != nil {
-		return err
-	}
-	if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, payload); err != nil {
-		return err
-	}
-	return w.Flush()
 }

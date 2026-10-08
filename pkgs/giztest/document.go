@@ -135,14 +135,18 @@ type RPCStreamOperation struct {
 }
 
 // HTTPOperation sends one HTTP request to the client's access point or Endpoint.
-// The response JSON body is the step value for expect, capture, and save_as.
+// The response body is the step value for expect, capture, and save_as.
+// ResponseFormat "sse" projects a finite event stream as events, last_event,
+// and raw; omitted ResponseFormat preserves JSON/text decoding.
 type HTTPOperation struct {
-	Endpoint string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
-	Method   string            `json:"method" yaml:"method"`
-	Path     string            `json:"path" yaml:"path"`
-	Headers  map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Body     any               `json:"body,omitempty" yaml:"body,omitempty"`
-	Status   int               `json:"status,omitempty" yaml:"status,omitempty"`
+	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"`
+	Query          map[string]any    `json:"query,omitempty" yaml:"query,omitempty"`
+	Endpoint       string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	Method         string            `json:"method" yaml:"method"`
+	Path           string            `json:"path" yaml:"path"`
+	Headers        map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Body           any               `json:"body,omitempty" yaml:"body,omitempty"`
+	Status         int               `json:"status,omitempty" yaml:"status,omitempty"`
 }
 type ClientRPCOperation struct {
 	Tool        string `json:"tool,omitempty" yaml:"tool,omitempty"`
