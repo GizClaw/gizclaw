@@ -82,42 +82,64 @@ func TestGroupMutationLockAllowsIndependentProgressAndCancellation(t *testing.T)
 	})
 }
 
-func TestRetirementRecoveryAllowsPendingPeerAndPreservesAdmissionFence(t *testing.T) {
-	s := newTestServer(t)
-	id := interruptedGroupRetirement(t, s, "peer-a", "room", "peer-b")
-	workspaces := s.Workspaces.(*recordingWorkspaceService)
-	workspaces.retireErr = nil
-	pendingPeer := errors.New("peer is pending deletion")
-	s.PeerAvailability = func(_ context.Context, peer string) error {
-		if peer == "peer-b" {
-			return pendingPeer
+func TestRetirementRecoveryAllowsUnavailablePeersAndPreservesAdmissionFence(t *testing.T) {
+	for _, unavailablePeer := range []string{"peer-a", "peer-b"} {
+		for _, state := range []string{"pending deletion", "completed deletion"} {
+			t.Run(unavailablePeer+"/"+state, func(t *testing.T) {
+				unavailableErr := errors.New("peer: " + state)
+				s := newTestServer(t)
+				id := interruptedGroupRetirement(t, s, "peer-a", "room", "peer-b")
+				workspaces := s.Workspaces.(*recordingWorkspaceService)
+				workspaces.retireErr = nil
+				s.PeerAvailability = func(_ context.Context, peer string) error {
+					if peer == unavailablePeer {
+						return unavailableErr
+					}
+					return nil
+				}
+				if _, err := s.CreateFriendGroup(t.Context(), unavailablePeer, rpcapi.FriendGroupCreateRequest{Name: "new-room"}); !errors.Is(err, unavailableErr) {
+					t.Fatalf("normal admission allowed a deleting Peer: %v", err)
+				}
+				intent, err := s.readRetirementIntent(t.Context(), id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				// The admission helper used by the old recovery path must still reject
+				// unavailable Peers. Only committed-retirement recovery bypasses it.
+				_, release, err := s.lockRetirementPeers(t.Context(), intent)
+				if release != nil {
+					release()
+				}
+				if !errors.Is(err, unavailableErr) {
+					t.Fatalf("ordinary retirement admission no longer rejects the Peer: %v", err)
+				}
+				if err := s.ReconcileRetirementIntents(t.Context()); err != nil {
+					t.Fatalf("recovery rejected a deleting Peer: %v", err)
+				}
+				if _, err := s.readRetirementIntent(t.Context(), id); !errors.Is(err, kv.ErrNotFound) {
+					t.Fatalf("retirement intent was not completed: %v", err)
+				}
+				if _, err := s.AdminGetFriendGroup(t.Context(), id); !errors.Is(err, kv.ErrNotFound) {
+					t.Fatalf("retired Group was revived: %v", err)
+				}
+				receipt, err := s.readRetirementReceipt(t.Context(), id)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := validateFriendGroupRetirementReceipt(receipt, id); err != nil {
+					t.Fatalf("retirement proof: %v", err)
+				}
+				if len(workspaces.retired) != 2 || workspaces.retired[0] != workspaces.retired[1] {
+					t.Fatalf("recovery changed the retired Workspace: %v", workspaces.retired)
+				}
+				if _, err := pendingdeletion.GetByLocator(t.Context(), s.RelationshipStore, pendingdeletion.KindFriendGroup, id); err != nil {
+					t.Fatalf("data cleanup was not handed to PendingDeletion: %v", err)
+				}
+				if err := s.ReconcileRetirementIntents(t.Context()); err != nil || len(workspaces.retired) != 2 {
+					t.Fatalf("completed recovery was not idempotent: %v", err)
+				}
+			})
 		}
-		return nil
-	}
-	if _, err := s.CreateFriendGroup(t.Context(), "peer-b", rpcapi.FriendGroupCreateRequest{Name: "new-room"}); !errors.Is(err, pendingPeer) {
-		t.Fatalf("normal admission allowed a deleting Peer: %v", err)
-	}
-	if err := s.ReconcileRetirementIntents(t.Context()); err != nil {
-		t.Fatalf("recovery rejected a deleting Peer: %v", err)
-	}
-	if _, err := s.readRetirementIntent(t.Context(), id); !errors.Is(err, kv.ErrNotFound) {
-		t.Fatalf("retirement intent was not completed: %v", err)
-	}
-	receipt, err := s.readRetirementReceipt(t.Context(), id)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := validateFriendGroupRetirementReceipt(receipt, id); err != nil {
-		t.Fatalf("retirement proof: %v", err)
-	}
-	if len(workspaces.retired) != 2 || workspaces.retired[0] != workspaces.retired[1] {
-		t.Fatalf("recovery changed the retired Workspace: %v", workspaces.retired)
-	}
-	if _, err := pendingdeletion.GetByLocator(t.Context(), s.RelationshipStore, pendingdeletion.KindFriendGroup, id); err != nil {
-		t.Fatalf("data cleanup was not handed to PendingDeletion: %v", err)
-	}
-	if err := s.ReconcileRetirementIntents(t.Context()); err != nil || len(workspaces.retired) != 2 {
-		t.Fatalf("completed recovery was not idempotent: %v", err)
 	}
 }
 
