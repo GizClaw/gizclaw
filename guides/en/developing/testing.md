@@ -222,7 +222,7 @@ The provider-free SFU scenarios cover these boundaries:
 
 | Scenario (without `sfu.` and `.audio-bytes`) | Coverage |
 | --- | --- |
-| `friend.cross-server` | Bidirectional PTT between friends on different Servers, without self audio |
+| `friend.cross-server` | Bidirectional PTT and correlated first-packet timing between friends on different Servers, without self audio or packet samples |
 | `friend-group.remove-readd` | Three-client first-packet correlation; after revocation the removed member receives no audio or packet sample while the remaining member keeps receiving; re-add and select the original Workspace to restore both directions |
 | `friend-group.reconnect-readd` | Reconnect while removed without regaining membership; after re-add, select the original Workspace and restore both audio directions without registering again |
 | `friend-group.rapid-readd` | Three immediate remove/add cycles without waiting for periodic revocation, with PTT and realtime audio |
@@ -1019,7 +1019,7 @@ A `peer_stream` result's `/transcript` is the non-interim `transcript`-labelled 
 ### Broadcast scenarios: listen, parallel, and input_sent
 
 In SFU Workspace broadcast scenarios the response appears on the other clients
-in the room rather than on the sender. The runner provides three extensions for
+in the room rather than on the sender. The runner provides four extensions for
 that, each following the existing schema, validation, evidence, and timeout
 conventions:
 
@@ -1050,6 +1050,13 @@ conventions:
   `wait_for_history`, `session`, `keep_open`, or `await_rearm`. The step fails
   when the PeerStream closes before the window ends, when the step or document
   timeout expires, or when a terminal error arrives.
+- SFU send probes use `measure_first_packet: true` with `completion: input_sent`
+  to record the first nonempty Opus packet. Same-task listeners correlate its
+  unique ID and sender, separating startup wait from send-to-receive latency.
+  An empty array means no corresponding packet could be proved, not zero latency.
+  See [CLI packet timing](/en/using/cli) for fields and monotonic clock boundaries.
+  Regression tests cover holds, delivery delay, fan-out, repeated audio, lost/self/
+  failed delivery, PCM preservation and the Schema contract.
 - Step-level `parallel`. A `parallel` step owns a list of child steps, starts
   every one of them at the same moment, waits for all of them, and reports
   them together, so "one client speaks while another listens" needs no

@@ -876,7 +876,7 @@ bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ### 广播场景：listen、parallel 与 input_sent
 
 SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而不是发送方自己。runner 为此提供
-三个扩展，都遵循现有的 schema、校验、evidence 与 timeout 约定：
+四个扩展，都遵循现有的 schema、校验、evidence 与 timeout 约定：
 
 - `peer_stream.mode: listen` 是只收不发的操作：必须声明 Go duration `duration`
   （正数且不超过 5m），不推送任何输入，在该时长内记录 PeerStream 下发的全部 chunk。任何
