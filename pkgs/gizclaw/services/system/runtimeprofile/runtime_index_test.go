@@ -29,6 +29,148 @@ func (source *failingProfileSource) ForEachProfile(ctx context.Context, consume 
 	return profileSource{source.db}.ForEachProfile(ctx, consume)
 }
 
+func TestProfileSourceConsumerDoesNotHoldPersistentSQLConnection(t *testing.T) {
+	db := profileSQLTestDB(t)
+	now := time.Now().UTC()
+	if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: "profile", Revision: "revision", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	entered, release := make(chan struct{}), make(chan struct{})
+	done := make(chan error, 1)
+	sourceCtx, cancelSource := context.WithCancel(context.Background())
+	go func() {
+		done <- (profileSource{db}).ForEachProfile(sourceCtx, func(apitypes.RuntimeProfile) error {
+			close(entered)
+			<-release
+			return nil
+		})
+	}()
+	t.Cleanup(func() {
+		defer cancelSource()
+		close(release)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Error(err)
+			}
+		case <-time.After(time.Second):
+			t.Error("Profile source did not finish after releasing its consumer")
+		}
+	})
+	select {
+	case <-entered:
+	case <-time.After(time.Second):
+		t.Fatal("Profile source never reached its consumer")
+	}
+	queryCtx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	var count int
+	if err := db.QueryRowContext(queryCtx, `SELECT COUNT(*) FROM runtime_profiles`).Scan(&count); err != nil {
+		t.Fatalf("Persistent SQL query waited for an index consumer: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("profile count = %d", count)
+	}
+}
+
+func TestProfileSourceBatchesPreserveOrderAndAllowConsumerWrites(t *testing.T) {
+	db := profileSQLTestDB(t)
+	now := time.Now().UTC()
+	insert := func(id string) error {
+		_, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: id, Revision: "revision", CreatedAt: now, UpdatedAt: now})
+		return err
+	}
+	expected := []string{}
+	for i := range 2*profileSourceBatchSize + 3 {
+		id := fmt.Sprintf("profile-%03d", i)
+		if err := insert(id); err != nil {
+			t.Fatal(err)
+		}
+		expected = append(expected, id)
+	}
+	observed := []string{}
+	if err := (profileSource{db}).ForEachProfile(t.Context(), func(profile apitypes.RuntimeProfile) error {
+		observed = append(observed, profile.Id)
+		if len(observed) == 1 {
+			// A new later ID belongs to a subsequent refresh, not an endlessly
+			// extending scan. This write also needs the same single SQL lease.
+			return insert("z-added-during-consume")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(observed, expected) {
+		t.Fatalf("profile traversal omitted, duplicated or reordered records: %v", observed)
+	}
+	observed = nil
+	if err := (profileSource{db}).ForEachProfile(t.Context(), func(profile apitypes.RuntimeProfile) error {
+		observed = append(observed, profile.Id)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Equal(observed, append(expected, "z-added-during-consume")) {
+		t.Fatalf("subsequent refresh did not include committed Profile: %v", observed)
+	}
+}
+
+func TestProfileSourceStopsOnConsumerFailureOrCancellation(t *testing.T) {
+	for _, cancelAfterFirst := range []bool{false, true} {
+		t.Run(fmt.Sprintf("cancel=%v", cancelAfterFirst), func(t *testing.T) {
+			db := profileSQLTestDB(t)
+			now := time.Now().UTC()
+			for _, id := range []string{"first", "second"} {
+				if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: id, Revision: "revision", CreatedAt: now, UpdatedAt: now}); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ctx, cancel := context.WithCancel(t.Context())
+			defer cancel()
+			failure := errors.New("consumer failed")
+			calls := 0
+			err := (profileSource{db}).ForEachProfile(ctx, func(apitypes.RuntimeProfile) error {
+				calls++
+				if cancelAfterFirst {
+					cancel()
+					return nil
+				}
+				return failure
+			})
+			want := failure
+			if cancelAfterFirst {
+				want = context.Canceled
+			}
+			if !errors.Is(err, want) || calls != 1 {
+				t.Fatalf("error=%v calls=%d", err, calls)
+			}
+			queryCtx, stopQuery := context.WithTimeout(t.Context(), time.Second)
+			defer stopQuery()
+			var value int
+			if err := db.QueryRowContext(queryCtx, `SELECT 1`).Scan(&value); err != nil {
+				t.Fatalf("error path retained persistent SQL lease: %v", err)
+			}
+		})
+	}
+}
+
+func TestProfileSourceCancellationAfterLastConsumer(t *testing.T) {
+	db := profileSQLTestDB(t)
+	now := time.Now().UTC()
+	if _, err := insertRuntimeProfileSQL(t.Context(), db, apitypes.RuntimeProfile{Id: "only", Revision: "revision", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	err := (profileSource{db}).ForEachProfile(ctx, func(apitypes.RuntimeProfile) error {
+		cancel()
+		return nil
+	})
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("last callback cancellation lost: %v", err)
+	}
+}
+
 func TestCommittedProfileWritesReturnSuccessWhenIndexRefreshFails(t *testing.T) {
 	ctx := t.Context()
 	s := &Server{DB: profileSQLTestDB(t)}
@@ -82,7 +224,7 @@ func TestMemoryIndexDecomposesAllProfilesAndFiltersTags(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	for _, id := range []string{"alpha", "beta"} {
-		binding := runtimeProfileTestBinding(id + "-workflow")
+		binding := runtimeProfileTestWorkflowBinding(id + "-workflow")
 		binding.Tags = &[]string{"6-8", "stories"}
 		models := map[string]apitypes.RuntimeProfileBinding{"chat": runtimeProfileTestBinding(id + "-model")}
 		voices := map[string]apitypes.RuntimeProfileBinding{"narrator": runtimeProfileTestBinding(id + "-voice")}
@@ -182,7 +324,7 @@ func TestMemoryIndexRotatesOnInterval(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	item := apitypes.RuntimeProfile{
 		Id: "external", Revision: "rev", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}},
 	}
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, item); err != nil || !created {
 		t.Fatalf("external insert = %v, %v", created, err)
@@ -211,7 +353,7 @@ func TestMemoryIndexRefreshesExternalProfileWrites(t *testing.T) {
 	t.Cleanup(func() { _ = s.Close() })
 	item := apitypes.RuntimeProfile{
 		Id: "external", Revision: "rev", CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(),
-		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
+		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}},
 	}
 	if created, err := insertRuntimeProfileSQL(ctx, s.DB, item); err != nil || !created {
 		t.Fatalf("external insert = %v, %v", created, err)
@@ -249,7 +391,7 @@ func TestMemoryIndexSplitsEveryConfigurationKind(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
-	tools := map[string]apitypes.RuntimeProfileBinding{"echo": runtimeProfileTestBinding("echo-tool")}
+	tools := map[string]apitypes.RuntimeProfileToolBinding{"echo": runtimeProfileTestToolBinding("echo-tool")}
 	var connection apitypes.RuntimeProfileMemoryConnection
 	if err := connection.FromRuntimeProfileMem0SelfHostedConnection(apitypes.RuntimeProfileMem0SelfHostedConnection{
 		Endpoint: "http://memory.example", Type: apitypes.RuntimeProfileMem0SelfHostedConnectionTypeMem0SelfHosted,
@@ -286,7 +428,7 @@ func TestMemoryIndexRefreshAndWritesMakeProgress(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.Close() })
-	initial := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}}
+	initial := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}}
 	if response, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{Id: "shared", Spec: initial}}); err != nil {
 		t.Fatal(err)
 	} else if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
@@ -307,7 +449,7 @@ func TestMemoryIndexRefreshAndWritesMakeProgress(t *testing.T) {
 	go func() {
 		defer group.Done()
 		for i := range 10 {
-			spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}}
+			spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}}
 			binding := spec.Workflows["chat"]
 			binding.Tags = &[]string{fmt.Sprintf("tag-%d", i)}
 			spec.Workflows["chat"] = binding
@@ -353,7 +495,7 @@ func TestMemoryIndexRemainsReadableWithoutPersistentDB(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	response, err := s.CreateRuntimeProfile(ctx, adminhttp.CreateRuntimeProfileRequestObject{Body: &adminhttp.RuntimeProfileUpsert{
-		Id: "cached", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat")}},
+		Id: "cached", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat")}},
 	}})
 	if err != nil {
 		t.Fatal(err)

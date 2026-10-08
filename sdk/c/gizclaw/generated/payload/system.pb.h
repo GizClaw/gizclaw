@@ -6,6 +6,7 @@
 #include <pb.h>
 #include "payload/audioplayer.pb.h"
 #include "rpc.pb.h"
+#include "payload/mhs_v0.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
 #error Regenerate this file with the current version of nanopb generator.
@@ -75,10 +76,20 @@ typedef struct _gizclaw_rpc_v1_ClientRpcMethodsListRequest {
  device speaks, for example mhs/v0 through 133 and 134 or tool/v0 through 135
  and 136; a later mhs/v1 or tool/v1 appears here as its own numbers. Which
  individual tools tool/v0 offers is a separate question, answered by
- client.tool.v0.list. Unknown numbers must be ignored rather than rejected. */
+ client.tool.v0.list. Unknown numbers must be ignored rather than rejected.
+ Explicit support for a concrete hardware instance. Presence in the generic
+ HWD schema is never evidence of implementation on this device. */
+typedef struct _gizclaw_rpc_v1_MhsV0InstanceCapability {
+    pb_callback_t id;
+    gizclaw_rpc_v1_ClientHwd hwd;
+    pb_callback_t write_fields;
+} gizclaw_rpc_v1_MhsV0InstanceCapability;
+
 typedef struct _gizclaw_rpc_v1_ClientRpcMethodsListResponse {
     pb_size_t methods_count;
     gizclaw_rpc_v1_RpcMethod methods[32];
+    /* Empty means capability unknown, not every manifest instance supported. */
+    pb_callback_t mhs_v0;
 } gizclaw_rpc_v1_ClientRpcMethodsListResponse;
 
 /* ClientDeviceFindRequest asks the device to play its built-in find-me sound.
@@ -514,7 +525,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_default {"", false, 0}
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsListRequest_init_default {0}
-#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_default {0, {_gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN}}
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_init_default {{{NULL}, NULL}, _gizclaw_rpc_v1_ClientHwd_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_default {0, {_gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_init_default {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceFindResponse_init_default {0}
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_init_default {false, 0}
@@ -583,7 +595,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_init_zero {"", false, 0}
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientRpcMethodsListRequest_init_zero {0}
-#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_zero {0, {_gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN}}
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_init_zero {{{NULL}, NULL}, _gizclaw_rpc_v1_ClientHwd_MIN, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_zero {0, {_gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN, _gizclaw_rpc_v1_RpcMethod_MIN}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_init_zero {false, 0}
 #define gizclaw_rpc_v1_ClientDeviceFindResponse_init_zero {0}
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_init_zero {false, 0}
@@ -646,7 +659,11 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientDeviceFactoryResetRequest_keep_network_tag 1
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_workspace_name_tag 1
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_kickoff_tag 2
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_id_tag 1
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_hwd_tag 2
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_write_fields_tag 3
 #define gizclaw_rpc_v1_ClientRpcMethodsListResponse_methods_tag 1
+#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_mhs_v0_tag 2
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_duration_ms_tag 1
 #define gizclaw_rpc_v1_ClientDeviceRebootRequest_delay_ms_tag 1
 #define gizclaw_rpc_v1_WifiSavedNetwork_ssid_tag 1
@@ -850,10 +867,19 @@ X(a, STATIC,   OPTIONAL, BOOL,     kickoff,           2)
 #define gizclaw_rpc_v1_ClientRpcMethodsListRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientRpcMethodsListRequest_DEFAULT NULL
 
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_FIELDLIST(X, a) \
+X(a, CALLBACK, SINGULAR, STRING,   id,                1) \
+X(a, STATIC,   SINGULAR, UENUM,    hwd,               2) \
+X(a, CALLBACK, REPEATED, STRING,   write_fields,      3)
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_DEFAULT NULL
+
 #define gizclaw_rpc_v1_ClientRpcMethodsListResponse_FIELDLIST(X, a) \
-X(a, STATIC,   REPEATED, UENUM,    methods,           1)
-#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_CALLBACK NULL
+X(a, STATIC,   REPEATED, UENUM,    methods,           1) \
+X(a, CALLBACK, REPEATED, MESSAGE,  mhs_v0,            2)
+#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ClientRpcMethodsListResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_mhs_v0_MSGTYPE gizclaw_rpc_v1_MhsV0InstanceCapability
 
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, INT64,    duration_ms,       1)
@@ -1243,6 +1269,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFactoryResetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRpcMethodsListRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_MhsV0InstanceCapability_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientRpcMethodsListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFindRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientDeviceFindResponse_msg;
@@ -1314,6 +1341,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_fields &gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_msg
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_fields &gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_msg
 #define gizclaw_rpc_v1_ClientRpcMethodsListRequest_fields &gizclaw_rpc_v1_ClientRpcMethodsListRequest_msg
+#define gizclaw_rpc_v1_MhsV0InstanceCapability_fields &gizclaw_rpc_v1_MhsV0InstanceCapability_msg
 #define gizclaw_rpc_v1_ClientRpcMethodsListResponse_fields &gizclaw_rpc_v1_ClientRpcMethodsListResponse_msg
 #define gizclaw_rpc_v1_ClientDeviceFindRequest_fields &gizclaw_rpc_v1_ClientDeviceFindRequest_msg
 #define gizclaw_rpc_v1_ClientDeviceFindResponse_fields &gizclaw_rpc_v1_ClientDeviceFindResponse_msg
@@ -1375,6 +1403,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 /* gizclaw_rpc_v1_ClientGetIdentifiersResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientGetInfoResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientDeviceStatusGetResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_MhsV0InstanceCapability_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ClientRpcMethodsListResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DeviceInfo_size depends on runtime parameters */
 /* gizclaw_rpc_v1_DeviceIdentifiers_size depends on runtime parameters */
 /* gizclaw_rpc_v1_HardwareInfo_size depends on runtime parameters */
@@ -1413,7 +1443,6 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_size 0
 #define gizclaw_rpc_v1_ClientGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ClientRpcMethodsListRequest_size 0
-#define gizclaw_rpc_v1_ClientRpcMethodsListResponse_size 96
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetRequest_size 261
 #define gizclaw_rpc_v1_ClientRunWorkspaceSetResponse_size 0
 #define gizclaw_rpc_v1_ClientWifiConnectRequest_size 99

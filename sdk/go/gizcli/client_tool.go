@@ -31,7 +31,15 @@ func (c *rpcClient) handleToolV0(ctx context.Context, req *rpcapi.RPCRequest) (*
 		}
 		slices.Sort(methods)
 		c.peer.observeClientRPC(req.Method)
-		return newRPCResultResponse(req.Id, &rpcpb.ClientRpcMethodsListResponse{Methods: methods}, (*rpcapi.RPCPayload).FromClientRpcMethodsListResponse)
+		response := &rpcpb.ClientRpcMethodsListResponse{Methods: methods}
+		if handlers != nil && handlers.MhsCapabilities != nil {
+			instances, err := handlers.MhsCapabilities(ctx)
+			if err != nil {
+				return deviceControlError(req.Id, err), nil
+			}
+			response.MhsV0 = instances
+		}
+		return newRPCResultResponse(req.Id, response, (*rpcapi.RPCPayload).FromClientRpcMethodsListResponse)
 	case rpcapi.RPCMethodClientToolV0List:
 		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientToolV0ListRequest); err != nil {
 			return rpcInvalidParams(req.Id), nil
@@ -66,6 +74,7 @@ func (c *rpcClient) handleToolV0(ctx context.Context, req *rpcapi.RPCRequest) (*
 	if err != nil || rpcapi.ValidateClientToolRequest(message) != nil {
 		return rpcInvalidParams(req.Id), nil
 	}
+	c.peer.observeDeviceRequest(req.Method, invoke.Tool, message)
 	c.peer.observeClientTool(invoke.Tool)
 	if handler := c.peer.clientToolHandler(invoke.Tool); handler != nil {
 		c.peer.observeClientRPC(req.Method)

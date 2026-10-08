@@ -30,8 +30,10 @@ Each run resolves the current Peer RuntimeProfile Tool binding snapshot. The sha
 
 Eino, DashScope Realtime, and Doubao Realtime Duplex factories inject
 the same interface into their existing Transformer configuration. Provider
-ToolCall IDs and continuation stay inside the Transformer. AgentHost dispatches canonical Resource names to `http_request`; Tool control traffic stays inside the Transformer.
+ToolCall IDs and continuation stay inside the Transformer. AgentHost dispatches the stable Profile alias function name through the shared catalog to HTTP or a fixed current-Peer device operation; Tool control traffic stays inside the Transformer.
 
-OpenAI Responses use a request-scoped direct Workspace attachment through the same canonical Resolver and shared Runtime Registry. It does not read or update the PeerRun selection. Server-side HTTP Tools keep normal Workflow policy. A bounded History observer returns the exact persisted assistant entry used by the Response projection.
+OpenAI Responses use a request-scoped direct Workspace attachment through the same canonical Resolver and shared Runtime Registry. It does not read or update the PeerRun selection. Server-side HTTP Tools use the Profile Workflow alias opt-in and Workspace narrowing. A bounded History observer returns the exact persisted assistant entry used by the Response projection.
 
 When an assistant route ends with a provider or runtime error EOS, the Peer output adapter forwards the original EOS unchanged and emits one structured Server error record with Peer, active Workspace, stream, error-code, and retryability correlation. The expected `interrupted` replacement EOS is a control event and is not logged as a failure. Logging does not fail the long-lived output consumer, add another EOS, or prevent a later turn or Workspace reload.
+
+Tool injection and execution use the shared Profile alias catalog. Workflow bindings opt in; Workspace selections narrow them. Execution refreshes authorization and routes a fixed HTTP resource, current-Peer MHS instance or predefined ClientTool procedure.

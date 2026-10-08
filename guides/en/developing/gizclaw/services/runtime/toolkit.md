@@ -1,87 +1,159 @@
-# Tools
+# Runtime Tools
 
-[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit)
+`toolkit` persists Admin HTTP resources. `toolcatalog` resolves current-Peer RuntimeProfile aliases
+for both AgentHost and `server.tool.list/get`. Device tools exist only in memory and call the
+existing serialized device RPC controller directly.
 
-`toolkit` owns typed Tool Resource persistence, common validation, defensive
-snapshots, and canonical-ID policy filtering. An Admin Tool Resource has a
-caller-supplied immutable `metadata.id`; its runtime execution name is the
-explicit immutable `spec.invoke_name`, not a second Admin identity.
-RuntimeProfile bindings and Admin `ToolkitPolicy.tool_ids` store canonical IDs.
-Peer RPC projects each binding key as a scoped Tool `name`; Peer Toolkit policy
-and invocation use only that scoped name and never expose the canonical ID.
-The Tools a model can use follow the exposure policy below.
+A dedicated Tool binding selects exactly one source: HTTP `resource_id`, MHS `{id, operation,
+fields}`, or a predefined `client_tool.name`. Each Profile Workflow binding explicitly opts in
+through `toolkit.tool_names`. Omission and an empty list inject no Tools. Workspace `tool_names`
+only narrows that selection; omission adds no restriction and an explicit empty list disables it.
 
-The supported Tool type is:
+An Eino Workflow binding can select `toolkit.verification_model`, a chat-model alias in the same
+Profile. The primary model still proposes native Tool calls. Before a fixed-target MHS read, a mutating device call or
+HTTP POST, an independent model checks that exact fixed target and arguments against the actual
+conversation and this turn's Tool results. It only approves or rejects, never rewrites arguments
+or substitutes a target. Other read operations bypass this additional check. MHS reads require the intended fixed target before device access. Missing conversation,
+provider failure and invalid decisions fail closed; normal authorization is reread afterward.
+The alias must bind an `llm` Model; other Workflow drivers reject this configuration.
+A final-reply check also rejects missing operations, redundant clarification of completed slots,
+unsupported completion claims and fabricated results. The primary model can correct a rejected
+draft at most twice. Intermediate Tool-round text and rejected drafts stay buffered; only an
+accepted final reply is published. Verification failure or exhausted corrections ends the turn
+with an error and no unverified reply text. Each checked proposal and final-reply check adds a
+model request, cost and latency; corrections can add more. Semantic decisions still require
+actual-model qualification.
 
-- `http_request` declares one fixed HTTPS `GET` or JSON `POST` operation.
-  Arguments map from RFC 6901 pointers to query or body fields. The declaration
-  fixes status, response pointer, timeout, and response-size limits.
-There is no `source`, `builtin`, executor registry, duplicate Tool identity,
-`output_schema`, or provider ToolCall ID in the Resource contract.
+The legacy Workflow resource `spec.toolkit.tool_ids` grants no runtime authority. Configure the
+Profile Workflow binding explicitly. Legacy Workspace `tool_ids` can only narrow HTTP resources
+and cannot be combined with aliases. New Peer Workspace selections persist aliases, including
+stale references, without falling back to HTTP invocation names.
 
-## Exposure policy
+Profile aliases contain lowercase kebab-case segments separated by dots and are 1–63 bytes.
+Underscores are forbidden. A model function name replaces each dot with an underscore, preserving
+all other characters: `screen.brightness` maps to `screen_brightness`. Catalog `name` is the alias;
+`invoke_name` is the stable projected function name. The HTTP resource's immutable `invoke_name`
+and credentials are private implementation details.
 
-Tools are opt-in per Workflow. A RuntimeProfile `resources.tools` binding only
-decides which Tools the current Peer may use; it never hands them to a Workflow.
+MHS binds one current-Peer manifest instance and resolves its HWD. Models cannot supply id/hwd.
+Write parameters come from the existing HWD contract and are restricted to explicitly selected
+fields. `client.rpc.methods.list.mhs_v0` advertises actual instances and writable fields through
+`DeviceControlHandlers.MhsCapabilities`. Generic HWD fields do not establish implementation support;
+missing capability information stays unknown and prevents injection. ClientTool input schemas and
+protobuf messages come from the predefined procedure registry, and arguments cannot change its
+procedure. `client.tool.v0.list` advertises installed handlers.
 
-- Workflow `spec.toolkit.tool_ids` is the complete list of canonical IDs that
-  Workflow can use. Omitting `spec.toolkit`, omitting `tool_ids`, and
-  `tool_ids: []` are equivalent and expose no Tools.
-- Workspace `toolkit.tool_ids` is intersected with the Workflow list and cannot
-  add a Tool the Workflow does not list. Omitting it applies no further
-  narrowing; an explicit empty list disables every Tool.
-- Every call intersects the result with the current Peer RuntimeProfile
-  bindings. A listed ID the Profile does not bind is unavailable, not an error.
-- When the intersection is empty, AgentHost creates no ToolInvoker, the
-  Transformer calls the model without Tool declarations, and no Tool Resource is
-  read.
+Discovery batches queries by protocol family within one resolution. Every invocation rereads the
+current owner Profile, Workflow binding, Workspace restriction and target capability. Only the
+requested alias is resolved for execution. The device queue checks authorization again before
+sending the RPC. Offline, unavailable, revoked, invalid and unsupported calls never use another
+Tool, procedure or Peer.
 
-The standard Giztest RuntimeProfile binds the declaration-only `giztest_echo`
-and `giztest_other` Tools from `09-giztest/00-toolkit-tools.yaml`; their reserved
-`.invalid` host is never called. `server.workspace.toolkit.exposure.giztest.yaml`
-asks a real model to list, without invoking, the Tools declared to it. The Tool
-names appear in no prompt, so each listed name proves a declaration. It covers
-an omitted Workflow policy, a full Workflow list, Workspace narrowing, and a
-Workspace selection that cannot widen the Workflow list.
+The existing catalog includes schema, localized display text, source, fixed target, supported,
+online, available and unavailable_reason. `workflow_name` or `workspace_name` selects an effective
+subset; they are mutually exclusive and a Workspace must belong to the caller. Disabled and
+unresolved entries remain discoverable. Offline means support cannot currently be observed. HTTP
+online denotes a resolvable Server resource; enabled state gates available. It does not probe provider health. Pagination
+binds Profile revision and scope. Credentials and HTTP auth configuration never enter the catalog.
 
-## HTTP authentication and transport
+HTTP execution retains HTTPS-only GET/JSON POST, bounded responses, fixed parameter mappings,
+credential resolution on the Server and existing address/redirect/proxy restrictions. Execution
+never automatically retries. ToolCall and ToolResult stay inside model continuation and do not
+become public assistant control events.
 
-HTTP auth is a closed union: `none`, `bearer`, `header_api_key`, `volc_ark`,
-`volc_search`, `volc_openapi`, `aliyun_app_code`, or
-`aliyun_openapi_v3`. Bearer tokens and header API keys are write-only Resource
-fields: omitting the same method's secret on update retains it, replacing it
-rotates it, and changing method removes it. Admin reads, RuntimeProfile
-projections, model definitions, logs, and results never contain those values.
+Both proposal and reply verification use a safe projection of the current catalog. MHS facts group read/write availability and authorized write fields by exact id/hwd; readable never implies writable. Verbatim user turns are projected separately in order, without turning assistant proposals into user authority. Other targets, descriptions and availability provide business context for configured defaults; private HTTP executors and authentication are excluded. A catalog lookup failure prevents the verification model call and execution.
 
-Provider methods resolve one `volc` or `aliyun` Credential at invocation time.
-Volc Ark/Search use their fixed API-key fields; Volc OpenAPI and Alibaba Cloud
-OpenAPI V3 sign the final request. Alibaba Cloud Marketplace uses AppCode.
-`pkgs/giztools` contains the bounded HTTP request mapper and executor. It does not resolve Resources, policy, RuntimeProfiles, select a Peer,
-or implement `genx.ToolInvoker`.
+## HTTP resource persistence and authentication
 
-HTTP execution permits HTTPS only, disables redirects and environment proxies,
-checks every DNS result for private, loopback, link-local, multicast,
-unspecified, carrier-grade NAT, and Server-denied networks, and validates JSON
-status, content type, size, syntax, and response pointers. It never retries.
+Admin HTTP resources remain in the SQL `tools` table. Canonical ID is the primary key and
+private `invoke_name` has a unique constraint. Type, enabled state, description, version and
+timestamps use separate columns; input schema, triggers, metadata and HTTP configuration remain
+JSON. Conditional updates check row revision and creation incarnation. Resource enumeration
+uses ID-ordered batches of at most 256 rows. Secret rotation or deletion/recreation rereads the
+current resource before retaining an omitted secret.
 
-## Runtime chain
+Authentication supports none, bearer, header_api_key, volc_ark, volc_search, volc_openapi,
+aliyun_app_code and aliyun_openapi_v3. Direct bearer/API-key values are write-only: omission under
+the same method retains the secret; replacement rotates it; changing the method removes it.
+Provider methods resolve one Server-owned credential at invocation. Volc OpenAPI and Alibaba
+Cloud OpenAPI V3 sign the final request; Marketplace uses AppCode. `giztools` owns bounded mapping
+and HTTP execution without selecting a Profile or Peer. Invocation rechecks authorization after
+credential resolution and before dispatch. Raw transport and credential errors are bounded
+recoverable results.
 
-```mermaid
-flowchart LR
-    Resource["Admin Tool canonical ID"] --> Profile["Current-Peer RuntimeProfile binding"]
-    Profile --> Policy["Peer scoped Tool name"]
-    Policy --> Invoker["Context-scoped AgentHost ToolInvoker"]
-    Invoker --> HTTP["http_request via giztools"]
-    HTTP --> Continue["Transformer or Graph continuation"]
-```
+For the inner `run.workspace.set` catalog, the model selects a required Profile `workflow_name`
+alias; existing control-app APIs can still select an owned Workspace name. A procedure reply
+acknowledges acceptance, while `server.run.workspace.reload-with-options` commits the switch.
+Audio `play` accepts an optional index; omission preserves the device default track selection.
 
-Disabled Tools are not advertised. Dangling or duplicate canonical-ID bindings
-fail scope construction. Every invocation re-reads and reauthorizes the
-Resource, validates model arguments, and dispatches by `spec.type`; it does not
-fall back to another type, name, owner Profile, or online Peer.
+Rejection feedback carries the same safe catalog and actual user context for the primary model to correct its own proposal. It selects no replacement, synthesizes no parameters and grants no new intent. User-turn projections retain the actual current transcript for audio-only wire messages.
 
-HTTP timeout and transport failures are bounded JSON Tool results submitted to
-the model continuation. Raw transport and Credential details are redacted. Tool calls and Tool results remain internal to the Transformer or
-Graph and are not public assistant stream control messages.
+Indirect requests follow the actual business rules. When configured discomfort phrasing refers to one named target, verification uses its actual read and configured relative step. Records, negation, unchanged-state requests and multiple-target observations grant no new change. Unnamed requests without a unique configured focus need target clarification. Delegated arbitrary music selection can use the device default without requiring a song name.
 
-The Tool catalog uses the `tools` SQL business table. Canonical ID is the primary key and `invoke_name` has a unique constraint. Type, enabled state, description, version and timestamps occupy separate columns; input Schema, triggers, metadata and HTTP configuration each remain JSON. Server startup initializes the schema using the configured SQL pool. Invocation-name lookup uses one indexed query, and catalog enumeration reads ID-ordered batches of at most 256 rows. Conditional updates check both row revision and creation incarnation. Concurrent secret rotation or deletion/recreation causes a reread before retaining omitted secrets, preventing restoration of an old secret.
+The verification model returns one required finite reason enum. Only approved allows execution; other declared values reject. There is no redundant boolean. Unknown, duplicate, missing or extra fields, trailing data and provider errors still fail closed.
+
+Verification restores requests in actual user order. Cancellation ends the earlier pending action;
+a later isolated value does not restore its target, so asking for a new action and target is necessary.
+Read-only status queries and mutation authority are assessed separately. Relative adjustments use
+a current-turn read of the same target and configured business rules, rather than historical claims.
+A successful empty acknowledgment proves only the declared operation, not unreturned program
+content or initiative. Semantic decisions can still misclassify and require real-model acceptance.
+
+A factual record grants no mutation in that turn, but its single explicit local object can resolve a later explicitly new action. The current turn still needs an actual read. Other catalog objects and assistant suggestions cannot introduce a user selection. References to multiple user objects remain ambiguous; an isolated value after cancellation does not restore the old pending action.
+
+Verification input and rejection feedback also project compact current-turn MHS results with exact id/hwd, read/write operation, actual values and bounded error codes. History, user statements, assistant proposals and other sources do not become current execution evidence. The projection infers no intent and computes no parameters. `intent_rejected`, `intent_unverified` and `invalid_arguments` are pre-dispatch rejections, not attempted device failures; later proposals still require independent verification.
+
+Current ClientTool results separately retain the fixed procedure, native-call-associated arguments,
+actual returned fields and success or rejection status. An empty successful ACK means that argument request was accepted;
+subsequent checks consider that success instead of repeating the same user request. It does not
+prove reload, program content or extra side effects, and is not a result cache. An explicit request
+to repeat in a new turn remains a new request. History, proposals, unmatched results and private
+HTTP results are excluded from this projection.
+
+Default focus is assessed by exact id/hwd identity; read and write capabilities are one object.
+An explicit configured default outranks general wording that a name alone provides no default;
+without explicit configuration, target clarification is still required. Relative results use
+actual reads and business bounds; computed overflow is not an illegal user-supplied absolute
+value. Music replies retain actual returned titles without adding unreturned editions or IDs
+from style hints.
+An empty-argument successful default-play ACK satisfies an arbitrary-play request without requiring
+an index or song name. Actual `current_index=0` means the first item and `state=playing` is the
+returned playback state. Without a returned title, confirm playback briefly rather than guessing
+names or describing the device default as random selection.
+ClientTool decisions offer `already_completed` only when the current continuation contains a
+successful call of the same fixed procedure with matching actual arguments. Reads of another
+procedure, history, rejected calls and different arguments cannot supply that reason. This
+narrows impossible rejection reasons without approving candidates, skipping verification or
+caching results; the model still assesses explicitly repeated requests.
+
+Unrequested optional fields must be omitted; `null` is an explicit value rather than omission.
+Schema and semantic parameter rejection feedback explains that distinction without deleting fields,
+filling values or selecting targets for the model. Default playback still needs independently verified
+empty arguments. An isolated value without actual request history cannot restore pending intent,
+and completion claims still need current success evidence. A returned playback index can establish
+a title using an actual playlist with the same revision; absent or different revisions cannot.
+
+Execution verification checks the current candidate arguments rather than fields of earlier rejected
+proposals. Program selection requires `workflow_name`; omitted or false `kickoff` requests no opening
+speech, while true still needs explicit authorization. A negative value supplied for pending absolute
+brightness is not a relative decrease; illegal absolute values wait for a legal correction.
+
+The model program-selection schema describes only Profile Workflow aliases, excluding Workspace
+parameters. A valid current candidate with just the required target and omitted or false kickoff
+provides no unrequested_parameter reason; all other independent checks remain. This does not approve
+candidates, rewrite arguments or cache results. Ambiguous replies cannot announce a chosen target
+and then ask for confirmation; later clarification does not undo the unsupported selection.
+
+A negative sign does not authorize a relative decrease; that restriction addresses an illegal
+absolute value rather than later explicit requests such as making it dimmer. Verify relative
+parameters using the unique user target, the current actual read and configured business increment.
+Configured increments need no extra absolute value, and a previous state statement does not require
+keeping that value.
+
+Final-reply verification checks the entire draft. An unsupported lossless pause/resume request cannot be replaced by a promise to stop, even when a later sentence explains the limitation. Explain that no change occurred, or neutrally ask whether the user separately wants a stop. A later explicit stop remains a new executable request. `intent_rejected`, `intent_unverified` and `invalid_arguments` are pre-dispatch rejections and cannot be described as device rejection or device execution failure; actual device errors and successful read state retain their own meaning.
+
+An ordinary brightness request with only its target supplied still requires explicit value clarification; configured relative steps apply only to an actual user direction request. Multiple targets execute serially in the order named by the user, with current results confirming the preceding action. Catalog order cannot reorder the request, and completed actions are not repeated.
+
+When the requested target is revoked or read-only, the entire final draft must accurately state that it was not changed. An opening promise to set it, or a command restated as execution, is not cancelled by a later limitation. Neutral acknowledgement of the supplied value with no execution claim remains valid. Writable alternatives grant no substitute authority; a later explicit request is evaluated independently.
+
+Ordering applies only when the actual user request authorizes multiple change targets. Other catalog entries, system examples and a single target’s read/write entries add no user target. A single-target indirect relative request uses its actual current read and trusted business step; another target’s missing result cannot reject it or require a configured step to be supplied again.

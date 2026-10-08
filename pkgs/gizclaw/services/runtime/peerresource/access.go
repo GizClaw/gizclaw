@@ -62,7 +62,7 @@ func bindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.Resou
 	return projectBindingI18n(binding.I18n)
 }
 
-func workflowBindingI18n(binding apitypes.RuntimeProfileBinding) map[string]rpcapi.ResourceI18nText {
+func workflowBindingI18n(binding apitypes.RuntimeProfileWorkflowBinding) map[string]rpcapi.ResourceI18nText {
 	return projectBindingI18n(binding.I18n)
 }
 
@@ -74,9 +74,9 @@ func projectBindingI18n(values map[string]apitypes.RuntimeProfileI18nText) map[s
 	return out
 }
 
-func workflowBinding(profile *apitypes.RuntimeProfile, alias string) (apitypes.RuntimeProfileBinding, bool) {
+func workflowBinding(profile *apitypes.RuntimeProfile, alias string) (apitypes.RuntimeProfileWorkflowBinding, bool) {
 	if profile == nil {
-		return apitypes.RuntimeProfileBinding{}, false
+		return apitypes.RuntimeProfileWorkflowBinding{}, false
 	}
 	alias = strings.TrimSpace(alias)
 	binding, ok := profile.Spec.Workflows[alias]
@@ -154,7 +154,15 @@ func profileBindingsFrom(profile *apitypes.RuntimeProfile, kind profileResourceK
 	case profileVoices:
 		values = resources.Voices
 	case profileTools:
-		values = resources.Tools
+		out := make(map[string]string)
+		if resources.Tools != nil {
+			for alias, binding := range *resources.Tools {
+				if binding.ResourceId != "" {
+					out[alias] = binding.ResourceId
+				}
+			}
+		}
+		return out
 	}
 	if values == nil {
 		return map[string]string{}

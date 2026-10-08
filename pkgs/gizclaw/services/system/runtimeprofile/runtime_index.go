@@ -2,6 +2,7 @@ package runtimeprofile
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"time"
@@ -13,22 +14,60 @@ import (
 
 type profileSource struct{ db *sqlx.DB }
 
+const profileSourceBatchSize = 64
+
 func (source profileSource) ForEachProfile(ctx context.Context, consume func(apitypes.RuntimeProfile) error) error {
-	rows, err := source.db.QueryContext(ctx, "SELECT "+runtimeProfileColumns+" FROM runtime_profiles ORDER BY id")
-	if err != nil {
+	var upperID sql.NullString
+	if err := source.db.QueryRowContext(ctx, `SELECT MAX(id) FROM runtime_profiles`).Scan(&upperID); err != nil {
 		return err
 	}
-	defer rows.Close()
-	for rows.Next() {
-		profile, _, err := scanRuntimeProfileSQL(rows)
+	if !upperID.Valid {
+		return ctx.Err()
+	}
+	lastID := ""
+	for {
+		profiles, err := source.readBatch(ctx, lastID, upperID.String)
 		if err != nil {
 			return err
 		}
-		if err := consume(profile); err != nil {
-			return err
+		// The persistent SQL lease ends before the consumer builds its memory
+		// index. A slow callback must not block unrelated authoritative reads.
+		for _, profile := range profiles {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := consume(profile); err != nil {
+				return err
+			}
+			lastID = profile.Id
+		}
+		if len(profiles) < profileSourceBatchSize {
+			return ctx.Err()
 		}
 	}
-	return rows.Err()
+}
+
+func (source profileSource) readBatch(ctx context.Context, lastID, upperID string) ([]apitypes.RuntimeProfile, error) {
+	rows, err := source.db.QueryContext(ctx, source.db.Rebind("SELECT "+runtimeProfileColumns+" FROM runtime_profiles WHERE id > ? AND id <= ? ORDER BY id LIMIT ?"), lastID, upperID, profileSourceBatchSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	profiles := make([]apitypes.RuntimeProfile, 0, profileSourceBatchSize)
+	for rows.Next() {
+		profile, _, err := scanRuntimeProfileSQL(rows)
+		if err != nil {
+			return nil, err
+		}
+		profiles = append(profiles, profile)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	return profiles, nil
 }
 
 func (s *Server) runtimeIndexOrError() (*runtimeindex.Index, error) {

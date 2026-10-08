@@ -275,8 +275,8 @@ func TestServiceResolverResolveMemorySkipsToolkitConstruction(t *testing.T) {
 		},
 	}
 	ctx := withRuntimeProfile(t.Context(), profile)
-	if _, err := resolver.Resolve(ctx, "demo"); err == nil || !strings.Contains(err.Error(), "toolkit") {
-		t.Fatalf("Resolve() error = %v, want toolkit construction failure", err)
+	if _, err := resolver.Resolve(ctx, "demo"); err != nil {
+		t.Fatalf("legacy resource toolkit must not create authority: %v", err)
 	}
 	spec, err := resolver.ResolveMemory(ctx, "demo")
 	if err != nil {

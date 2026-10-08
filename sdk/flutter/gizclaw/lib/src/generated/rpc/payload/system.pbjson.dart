@@ -218,6 +218,29 @@ const ClientRpcMethodsListRequest$json = {
 final $typed_data.Uint8List clientRpcMethodsListRequestDescriptor =
     $convert.base64Decode('ChtDbGllbnRScGNNZXRob2RzTGlzdFJlcXVlc3Q=');
 
+@$core.Deprecated('Use mhsV0InstanceCapabilityDescriptor instead')
+const MhsV0InstanceCapability$json = {
+  '1': 'MhsV0InstanceCapability',
+  '2': [
+    {'1': 'id', '3': 1, '4': 1, '5': 9, '10': 'id'},
+    {
+      '1': 'hwd',
+      '3': 2,
+      '4': 1,
+      '5': 14,
+      '6': '.gizclaw.rpc.v1.ClientHwd',
+      '10': 'hwd'
+    },
+    {'1': 'write_fields', '3': 3, '4': 3, '5': 9, '10': 'writeFields'},
+  ],
+};
+
+/// Descriptor for `MhsV0InstanceCapability`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List mhsV0InstanceCapabilityDescriptor = $convert.base64Decode(
+    'ChdNaHNWMEluc3RhbmNlQ2FwYWJpbGl0eRIOCgJpZBgBIAEoCVICaWQSKwoDaHdkGAIgASgOMh'
+    'kuZ2l6Y2xhdy5ycGMudjEuQ2xpZW50SHdkUgNod2QSIQoMd3JpdGVfZmllbGRzGAMgAygJUgt3'
+    'cml0ZUZpZWxkcw==');
+
 @$core.Deprecated('Use clientRpcMethodsListResponseDescriptor instead')
 const ClientRpcMethodsListResponse$json = {
   '1': 'ClientRpcMethodsListResponse',
@@ -230,6 +253,14 @@ const ClientRpcMethodsListResponse$json = {
       '6': '.gizclaw.rpc.v1.RpcMethod',
       '10': 'methods'
     },
+    {
+      '1': 'mhs_v0',
+      '3': 2,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.MhsV0InstanceCapability',
+      '10': 'mhsV0'
+    },
   ],
 };
 
@@ -237,7 +268,8 @@ const ClientRpcMethodsListResponse$json = {
 final $typed_data.Uint8List clientRpcMethodsListResponseDescriptor =
     $convert.base64Decode(
         'ChxDbGllbnRScGNNZXRob2RzTGlzdFJlc3BvbnNlEjMKB21ldGhvZHMYASADKA4yGS5naXpjbG'
-        'F3LnJwYy52MS5ScGNNZXRob2RSB21ldGhvZHM=');
+        'F3LnJwYy52MS5ScGNNZXRob2RSB21ldGhvZHMSPgoGbWhzX3YwGAIgAygLMicuZ2l6Y2xhdy5y'
+        'cGMudjEuTWhzVjBJbnN0YW5jZUNhcGFiaWxpdHlSBW1oc1Yw');
 
 @$core.Deprecated('Use clientDeviceFindRequestDescriptor instead')
 const ClientDeviceFindRequest$json = {

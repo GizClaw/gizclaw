@@ -59,6 +59,7 @@ func messagesContainAudio(messages []*schema.Message) bool {
 type audioTranscript struct {
 	publisher transcriptPublisher
 	published bool
+	text      string
 }
 
 func (transcript *audioTranscript) observe(text string) error {
@@ -66,5 +67,6 @@ func (transcript *audioTranscript) observe(text string) error {
 		return nil
 	}
 	transcript.published = true
+	transcript.text = text
 	return transcript.publisher.PublishTranscript(text)
 }

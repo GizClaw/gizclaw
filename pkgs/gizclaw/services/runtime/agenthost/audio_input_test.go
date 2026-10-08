@@ -19,12 +19,12 @@ func audioInputWorkspace(t *testing.T, workflowID string, path *apitypes.AudioIn
 	return ws
 }
 
-func audioInputProfile(bindings map[string]apitypes.RuntimeProfileBinding) apitypes.RuntimeProfile {
+func audioInputProfile(bindings map[string]apitypes.RuntimeProfileWorkflowBinding) apitypes.RuntimeProfile {
 	return apitypes.RuntimeProfile{Id: "owner-profile", Spec: apitypes.RuntimeProfileSpec{Workflows: bindings}}
 }
 
-func audioInputBinding(resourceID string, path *apitypes.AudioInputPath) apitypes.RuntimeProfileBinding {
-	return apitypes.RuntimeProfileBinding{ResourceId: resourceID, AudioInput: path}
+func audioInputBinding(resourceID string, path *apitypes.AudioInputPath) apitypes.RuntimeProfileWorkflowBinding {
+	return apitypes.RuntimeProfileWorkflowBinding{ResourceId: resourceID, AudioInput: path}
 }
 
 func TestResolveAudioInputPrefersWorkspaceOverProfile(t *testing.T) {
@@ -41,26 +41,26 @@ func TestResolveAudioInputPrefersWorkspaceOverProfile(t *testing.T) {
 		{name: "workspace only", workspace: &model, workflow: eino, want: &model},
 		{
 			name: "profile only", workflow: eino, want: &model,
-			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"assistant": audioInputBinding("assistant", &model)})),
+			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{"assistant": audioInputBinding("assistant", &model)})),
 		},
 		{
 			name: "workspace overrides profile", workspace: &asr, workflow: eino, want: &asr,
-			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"assistant": audioInputBinding("assistant", &model)})),
+			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{"assistant": audioInputBinding("assistant", &model)})),
 		},
 		{
 			name: "binding of another Workflow", workflow: eino,
-			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"other": audioInputBinding("other", &model)})),
+			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{"other": audioInputBinding("other", &model)})),
 		},
 		{
 			name: "aliases of one Workflow", workflow: eino, want: &model,
-			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileBinding{
+			profile: new(audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{
 				"assistant": audioInputBinding("assistant", nil), "assistant-v2": audioInputBinding("assistant", &model),
 			})),
 		},
 		{
 			name:     "other driver ignores the profile",
 			workflow: apitypes.Workflow{Id: "assistant", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverDoubaoRealtime}},
-			profile:  new(audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"assistant": audioInputBinding("assistant", &model)})),
+			profile:  new(audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{"assistant": audioInputBinding("assistant", &model)})),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -87,14 +87,14 @@ func TestResolveAudioInputRejectsUnusableSelections(t *testing.T) {
 		!strings.Contains(err.Error(), `workspace "audio-workspace": unsupported audio_input "direct"`) {
 		t.Fatalf("unknown Workspace audio_input error = %v", err)
 	}
-	conflicting := audioInputProfile(map[string]apitypes.RuntimeProfileBinding{
+	conflicting := audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{
 		"assistant": audioInputBinding("assistant", &model), "assistant-v2": audioInputBinding("assistant", &asr),
 	})
 	if _, err := resolveAudioInput(withRuntimeProfile(t.Context(), conflicting), audioInputWorkspace(t, "assistant", nil), eino); err == nil ||
 		!strings.Contains(err.Error(), "conflicting audio_input") {
 		t.Fatalf("conflicting profile bindings error = %v", err)
 	}
-	invalid := audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"assistant": audioInputBinding("assistant", &unknown)})
+	invalid := audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{"assistant": audioInputBinding("assistant", &unknown)})
 	if _, err := resolveAudioInput(withRuntimeProfile(t.Context(), invalid), audioInputWorkspace(t, "assistant", nil), eino); err == nil ||
 		!strings.Contains(err.Error(), `workflows.assistant: unsupported audio_input "direct"`) {
 		t.Fatalf("unknown profile audio_input error = %v", err)
@@ -103,7 +103,7 @@ func TestResolveAudioInputRejectsUnusableSelections(t *testing.T) {
 
 func TestResolverCarriesOwnerProfileAudioInput(t *testing.T) {
 	model := apitypes.AudioInputPathModel
-	profile := audioInputProfile(map[string]apitypes.RuntimeProfileBinding{"assistant": audioInputBinding("assistant", &model)})
+	profile := audioInputProfile(map[string]apitypes.RuntimeProfileWorkflowBinding{"assistant": audioInputBinding("assistant", &model)})
 	ws := audioInputWorkspace(t, "assistant", nil)
 	ws.OwnerPublicKey = new("owner")
 	resolver := ServiceResolver{

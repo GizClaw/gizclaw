@@ -132,6 +132,7 @@ func (c *deviceController) markTransitioning(owner giznet.PublicKey, conn giznet
 
 // deviceControlOptions tunes one forwarded control command.
 type deviceControlOptions struct {
+	authorize func(context.Context) *deviceControlError
 	// markTransition records the connection that answered the command as
 	// transitioning before the owner command lock is released.
 	markTransition bool
@@ -176,6 +177,11 @@ func callDeviceControl[T any](ctx context.Context, c *deviceController, owner gi
 		return nil, mapDeviceControlError(fmt.Errorf("dial peer rpc: %w", err), callCtx, opts.notFoundCode)
 	}
 	defer func() { _ = stream.Close() }()
+	if opts.authorize != nil {
+		if failure := opts.authorize(callCtx); failure != nil {
+			return nil, failure
+		}
+	}
 	result, err := call(callCtx, &rpcClient{}, stream)
 	if err != nil {
 		return nil, mapDeviceControlError(err, callCtx, opts.notFoundCode)

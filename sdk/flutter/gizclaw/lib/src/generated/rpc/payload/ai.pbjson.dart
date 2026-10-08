@@ -3754,6 +3754,25 @@ const Tool$json = {
       '10': 'inputSchema'
     },
     {'1': 'invoke_name', '3': 4, '4': 1, '5': 9, '10': 'invokeName'},
+    {'1': 'source', '3': 5, '4': 1, '5': 9, '10': 'source'},
+    {
+      '1': 'target',
+      '3': 6,
+      '4': 1,
+      '5': 11,
+      '6': '.google.protobuf.Struct',
+      '10': 'target'
+    },
+    {'1': 'supported', '3': 7, '4': 1, '5': 8, '10': 'supported'},
+    {'1': 'online', '3': 8, '4': 1, '5': 8, '10': 'online'},
+    {'1': 'available', '3': 9, '4': 1, '5': 8, '10': 'available'},
+    {
+      '1': 'unavailable_reason',
+      '3': 10,
+      '4': 1,
+      '5': 9,
+      '10': 'unavailableReason'
+    },
   ],
   '3': [Tool_I18nEntry$json],
 };
@@ -3780,8 +3799,12 @@ final $typed_data.Uint8List toolDescriptor = $convert.base64Decode(
     'CgRUb29sEhIKBG5hbWUYASABKAlSBG5hbWUSMgoEaTE4bhgCIAMoCzIeLmdpemNsYXcucnBjLn'
     'YxLlRvb2wuSTE4bkVudHJ5UgRpMThuEjoKDGlucHV0X3NjaGVtYRgDIAEoCzIXLmdvb2dsZS5w'
     'cm90b2J1Zi5TdHJ1Y3RSC2lucHV0U2NoZW1hEh8KC2ludm9rZV9uYW1lGAQgASgJUgppbnZva2'
-    'VOYW1lGlkKCUkxOG5FbnRyeRIQCgNrZXkYASABKAlSA2tleRI2CgV2YWx1ZRgCIAEoCzIgLmdp'
-    'emNsYXcucnBjLnYxLlJlc291cmNlSTE4blRleHRSBXZhbHVlOgI4AQ==');
+    'VOYW1lEhYKBnNvdXJjZRgFIAEoCVIGc291cmNlEi8KBnRhcmdldBgGIAEoCzIXLmdvb2dsZS5w'
+    'cm90b2J1Zi5TdHJ1Y3RSBnRhcmdldBIcCglzdXBwb3J0ZWQYByABKAhSCXN1cHBvcnRlZBIWCg'
+    'ZvbmxpbmUYCCABKAhSBm9ubGluZRIcCglhdmFpbGFibGUYCSABKAhSCWF2YWlsYWJsZRItChJ1'
+    'bmF2YWlsYWJsZV9yZWFzb24YCiABKAlSEXVuYXZhaWxhYmxlUmVhc29uGlkKCUkxOG5FbnRyeR'
+    'IQCgNrZXkYASABKAlSA2tleRI2CgV2YWx1ZRgCIAEoCzIgLmdpemNsYXcucnBjLnYxLlJlc291'
+    'cmNlSTE4blRleHRSBXZhbHVlOgI4AQ==');
 
 @$core.Deprecated('Use toolListRequestDescriptor instead')
 const ToolListRequest$json = {
@@ -3789,17 +3812,39 @@ const ToolListRequest$json = {
   '2': [
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
+    {
+      '1': 'workflow_name',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'workflowName',
+      '17': true
+    },
+    {
+      '1': 'workspace_name',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 3,
+      '10': 'workspaceName',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_cursor'},
     {'1': '_limit'},
+    {'1': '_workflow_name'},
+    {'1': '_workspace_name'},
   ],
 };
 
 /// Descriptor for `ToolListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List toolListRequestDescriptor = $convert.base64Decode(
     'Cg9Ub29sTGlzdFJlcXVlc3QSGwoGY3Vyc29yGAEgASgJSABSBmN1cnNvcogBARIZCgVsaW1pdB'
-    'gCIAEoA0gBUgVsaW1pdIgBAUIJCgdfY3Vyc29yQggKBl9saW1pdA==');
+    'gCIAEoA0gBUgVsaW1pdIgBARIoCg13b3JrZmxvd19uYW1lGAMgASgJSAJSDHdvcmtmbG93TmFt'
+    'ZYgBARIqCg53b3Jrc3BhY2VfbmFtZRgEIAEoCUgDUg13b3Jrc3BhY2VOYW1liAEBQgkKB19jdX'
+    'Jzb3JCCAoGX2xpbWl0QhAKDl93b3JrZmxvd19uYW1lQhEKD193b3Jrc3BhY2VfbmFtZQ==');
 
 @$core.Deprecated('Use toolListResponseDescriptor instead')
 const ToolListResponse$json = {
@@ -3856,12 +3901,36 @@ const ToolGetRequest$json = {
   '1': 'ToolGetRequest',
   '2': [
     {'1': 'name', '3': 1, '4': 1, '5': 9, '10': 'name'},
+    {
+      '1': 'workflow_name',
+      '3': 2,
+      '4': 1,
+      '5': 9,
+      '9': 0,
+      '10': 'workflowName',
+      '17': true
+    },
+    {
+      '1': 'workspace_name',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'workspaceName',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_workflow_name'},
+    {'1': '_workspace_name'},
   ],
 };
 
 /// Descriptor for `ToolGetRequest`. Decode as a `google.protobuf.DescriptorProto`.
-final $typed_data.Uint8List toolGetRequestDescriptor =
-    $convert.base64Decode('Cg5Ub29sR2V0UmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1l');
+final $typed_data.Uint8List toolGetRequestDescriptor = $convert.base64Decode(
+    'Cg5Ub29sR2V0UmVxdWVzdBISCgRuYW1lGAEgASgJUgRuYW1lEigKDXdvcmtmbG93X25hbWUYAi'
+    'ABKAlIAFIMd29ya2Zsb3dOYW1liAEBEioKDndvcmtzcGFjZV9uYW1lGAMgASgJSAFSDXdvcmtz'
+    'cGFjZU5hbWWIAQFCEAoOX3dvcmtmbG93X25hbWVCEQoPX3dvcmtzcGFjZV9uYW1l');
 
 @$core.Deprecated('Use toolGetResponseDescriptor instead')
 const ToolGetResponse$json = {

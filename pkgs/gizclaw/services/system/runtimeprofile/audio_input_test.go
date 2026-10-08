@@ -10,8 +10,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func audioInputTestBinding(resourceID string, path apitypes.AudioInputPath) apitypes.RuntimeProfileBinding {
-	binding := runtimeProfileTestBinding(resourceID)
+func audioInputTestBinding(resourceID string, path apitypes.AudioInputPath) apitypes.RuntimeProfileWorkflowBinding {
+	binding := runtimeProfileTestWorkflowBinding(resourceID)
 	binding.AudioInput = &path
 	return binding
 }
@@ -25,7 +25,7 @@ func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
 	item, err := normalize(apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
 		"assistant":       audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
 		"assistant-again": audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
-		"assistant-plain": runtimeProfileTestBinding("assistant"),
+		"assistant-plain": runtimeProfileTestWorkflowBinding("assistant"),
 		"other":           audioInputTestBinding("other", apitypes.AudioInputPathAsr),
 	}})
 	if err != nil {
@@ -38,7 +38,7 @@ func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
 		t.Fatalf("workflows.assistant-plain.audio_input = %q, want absent", *got)
 	}
 	without, err := normalize(apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-		"assistant": runtimeProfileTestBinding("assistant"),
+		"assistant": runtimeProfileTestWorkflowBinding("assistant"),
 	}})
 	if err != nil {
 		t.Fatalf("normalizeProfile(without audio_input) error = %v", err)
@@ -66,13 +66,13 @@ func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
 		},
 		"model binding": {
 			spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-				Models: &map[string]apitypes.RuntimeProfileBinding{"llm": audioInputTestBinding("chat", apitypes.AudioInputPathModel)},
+				Models: &map[string]apitypes.RuntimeProfileBinding{"llm": {ResourceId: "chat", I18n: runtimeProfileTestBinding("chat").I18n, AudioInput: new(apitypes.AudioInputPathModel)}},
 			}},
 			wantErr: "resources.models.llm: audio_input is only valid on workflows",
 		},
 		"voice binding": {
 			spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-				Voices: &map[string]apitypes.RuntimeProfileBinding{"narrator": audioInputTestBinding("voice", apitypes.AudioInputPathAsr)},
+				Voices: &map[string]apitypes.RuntimeProfileBinding{"narrator": {ResourceId: "voice", I18n: runtimeProfileTestBinding("voice").I18n, AudioInput: new(apitypes.AudioInputPathAsr)}},
 			}},
 			wantErr: "resources.voices.narrator: audio_input is only valid on workflows",
 		},

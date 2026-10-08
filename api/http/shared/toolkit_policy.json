@@ -10,7 +10,7 @@
     "schemas": {
       "ToolkitPolicy": {
         "type": "object",
-        "description": "Opt-in policy that controls which Toolkit tools are exposed to an agent runtime. On a Workflow, only listed tool_ids are exposed, and omitting the policy or tool_ids exposes no tools, the same as an empty list. On a Workspace, tool_ids can only narrow the Workflow list, and omitting it applies no further narrowing. The current RuntimeProfile bindings always limit the result.",
+        "description": "Workspace narrowing by Profile Tool aliases. Omitted tool_names adds no restriction; an explicit empty list disables all Tools. Workflow resource tool_ids is a legacy policy and grants no runtime authority; configure the RuntimeProfile Workflow binding.",
         "properties": {
           "tool_ids": {
             "type": "array",
@@ -19,7 +19,16 @@
               "minLength": 1
             },
             "uniqueItems": true,
-            "description": "Allowed canonical Tool resource IDs. RuntimeProfile aliases and Tool invoke names are not accepted."
+            "description": "Legacy fixed-resource narrowing. Cannot be combined with tool_names and never grants Workflow runtime authority.",
+            "deprecated": true
+          },
+          "tool_names": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
           }
         },
         "additionalProperties": false

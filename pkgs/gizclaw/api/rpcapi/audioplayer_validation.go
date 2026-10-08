@@ -88,7 +88,7 @@ func ValidateAudioPlayerRequest(message proto.Message) error {
 	case *rpcpb.ClientDeviceAudioPlayerPlaylistAppendRequest:
 		return ValidateAudioPlayerItems(request.Items, true)
 	case *rpcpb.ClientDeviceAudioPlayerPlayRequest:
-		if request.Index != nil && *request.Index < MaxAudioPlayerItems {
+		if request.Index == nil || *request.Index < MaxAudioPlayerItems {
 			return nil
 		}
 	case *rpcpb.ClientDeviceAudioPlayerModeSetRequest:

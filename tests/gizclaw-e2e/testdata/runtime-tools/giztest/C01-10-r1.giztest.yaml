@@ -1,0 +1,2827 @@
+# User Story:
+# As a current device owner,
+# I want the real model to clarify brightness before invoking my bound Tool,
+# So that exactly one typed call reaches only the intended instance.
+{
+  "version": "gizclaw.test/v1alpha1",
+  "name": "runtime-tools.c01.10.r1",
+  "clients": {
+    "peer": {
+      "identity": "ephemeral",
+      "connection": "webrtc",
+      "access_point": "${endpoint}"
+    }
+  },
+  "variables": {
+    "endpoint": {
+      "direction": "input",
+      "type": "string",
+      "env": "GIZCLAW_TEST_ENDPOINT"
+    },
+    "registration_token": {
+      "direction": "input",
+      "type": "string",
+      "env": "GIZCLAW_TEST_REGISTRATION_TOKEN",
+      "secret": true
+    },
+    "workspace": {
+      "direction": "input",
+      "type": "string",
+      "generate": "token"
+    },
+    "oracle": {
+      "direction": "input",
+      "type": "string",
+      "generate": "token"
+    }
+  },
+  "steps": [
+    {
+      "id": "register",
+      "client": "peer",
+      "rpc": {
+        "method": "server.register",
+        "request": {
+          "token": "${registration_token}"
+        }
+      }
+    },
+    {
+      "id": "install_mhs",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.mhs.v0.read",
+        "response": {
+          "instances": {
+            "display.main": {
+              "hwd": "display",
+              "value": {
+                "brightness_percent": 52
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.status": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 46
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-01": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-02": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-03": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-04": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-05": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-06": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-07": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-08": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-09": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-10": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-11": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-12": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-13": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-14": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-15": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-16": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-17": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-18": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-19": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-20": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-21": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-22": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-23": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-24": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-25": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-26": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-27": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-28": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-29": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-30": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-31": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-32": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-33": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-34": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-35": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-36": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-37": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-38": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-39": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-40": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-41": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-42": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-43": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-44": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-45": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-46": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-47": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-48": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-49": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-50": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-51": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-52": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-53": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-54": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-55": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-56": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-57": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-58": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-59": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-60": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-61": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-62": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-63": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-64": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-65": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-66": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-67": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-68": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-69": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-70": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-71": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-72": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-73": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-74": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-75": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-76": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-77": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-78": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-79": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-80": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-81": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-82": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-83": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-84": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-85": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-86": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-87": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-88": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-89": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-90": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            }
+          }
+        },
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "install_audioplayer_play",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "audioplayer.play",
+        "response": {
+          "audio_player": {
+            "items": [
+              {
+                "url": "https://media.example.com/twinkle.mp3",
+                "title": "小星星",
+                "source_ref": "${oracle}"
+              },
+              {
+                "url": "https://media.example.com/canon.mp3",
+                "title": "卡农",
+                "source_ref": "${oracle}"
+              }
+            ]
+          }
+        },
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "install_audioplayer_get",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "audioplayer.get",
+        "response": {
+          "audio_player": {
+            "items": [
+              {
+                "url": "https://media.example.com/twinkle.mp3",
+                "title": "小星星",
+                "source_ref": "${oracle}"
+              },
+              {
+                "url": "https://media.example.com/canon.mp3",
+                "title": "卡农",
+                "source_ref": "${oracle}"
+              }
+            ]
+          }
+        },
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "install_audioplayer_playlist_get",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "audioplayer.playlist.get",
+        "response": {
+          "audio_player": {
+            "items": [
+              {
+                "url": "https://media.example.com/twinkle.mp3",
+                "title": "小星星",
+                "source_ref": "${oracle}"
+              },
+              {
+                "url": "https://media.example.com/canon.mp3",
+                "title": "卡农",
+                "source_ref": "${oracle}"
+              }
+            ]
+          }
+        },
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "install_audioplayer_stop",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "audioplayer.stop",
+        "response": {
+          "audio_player": {
+            "items": [
+              {
+                "url": "https://media.example.com/twinkle.mp3",
+                "title": "小星星",
+                "source_ref": "${oracle}"
+              },
+              {
+                "url": "https://media.example.com/canon.mp3",
+                "title": "卡农",
+                "source_ref": "${oracle}"
+              }
+            ]
+          }
+        },
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "install_audioplayer_mode_set",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "audioplayer.mode.set",
+        "response": {
+          "audio_player": {
+            "items": [
+              {
+                "url": "https://media.example.com/twinkle.mp3",
+                "title": "小星星",
+                "source_ref": "${oracle}"
+              },
+              {
+                "url": "https://media.example.com/canon.mp3",
+                "title": "卡农",
+                "source_ref": "${oracle}"
+              }
+            ]
+          }
+        },
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "install_workspace",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "run.workspace.set",
+        "response": {},
+        "expect_calls": 0
+      }
+    },
+    {
+      "id": "discover_write",
+      "client": "peer",
+      "rpc": {
+        "method": "server.tool.get",
+        "request": {
+          "name": "led.status.write",
+          "workflow_name": "assistant-10"
+        }
+      },
+      "expect": {
+        "/value/available": {
+          "equals": true
+        },
+        "/value/invoke_name": {
+          "equals": "led_status_write"
+        },
+        "/value/target/id": {
+          "equals": "led.status"
+        }
+      }
+    },
+    {
+      "id": "create_workspace",
+      "client": "peer",
+      "rpc": {
+        "method": "server.workspace.create",
+        "request": {
+          "name": "${workspace}",
+          "workflow_name": "assistant-10",
+          "parameters": {
+            "eino_workspace_parameters": {
+              "agent_type": "EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO",
+              "input": "WORKSPACE_INPUT_MODE_PUSH_TO_TALK"
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": "select",
+      "client": "peer",
+      "rpc": {
+        "method": "server.run.workspace.set",
+        "request": {
+          "workspace_name": "${workspace}"
+        }
+      }
+    },
+    {
+      "id": "reload",
+      "client": "peer",
+      "rpc": {
+        "method": "server.run.workspace.reload",
+        "request": {}
+      }
+    },
+    {
+      "id": "clarify",
+      "client": "peer",
+      "timeout": "60s",
+      "peer_stream": {
+        "mode": "text",
+        "input": "调节灯光亮度。",
+        "require_text": true,
+        "require_audio": false
+      },
+      "expect": {
+        "/text": {
+          "pattern": "多少|多亮|几成|数值|百分|请.*(?:告诉|指定).*(?:目标亮度|怎么调节)"
+        },
+        "/text_eos": {
+          "equals": true
+        }
+      }
+    },
+    {
+      "id": "no_premature_write",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.mhs.v0.write",
+        "response": {
+          "instances": {
+            "display.main": {
+              "hwd": "display",
+              "value": {
+                "brightness_percent": 52
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.status": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 46
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-01": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-02": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-03": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-04": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-05": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-06": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-07": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-08": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-09": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-10": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-11": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-12": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-13": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-14": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-15": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-16": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-17": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-18": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-19": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-20": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-21": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-22": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-23": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-24": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-25": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-26": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-27": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-28": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-29": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-30": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-31": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-32": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-33": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-34": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-35": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-36": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-37": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-38": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-39": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-40": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-41": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-42": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-43": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-44": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-45": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-46": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-47": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-48": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-49": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-50": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-51": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-52": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-53": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-54": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-55": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-56": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-57": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-58": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-59": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-60": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-61": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-62": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-63": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-64": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-65": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-66": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-67": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-68": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-69": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-70": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-71": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-72": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-73": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-74": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-75": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-76": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-77": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-78": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-79": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-80": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-81": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-82": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-83": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-84": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-85": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-86": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-87": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-88": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-89": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-90": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            }
+          }
+        },
+        "expect_calls": 0
+      },
+      "expect": {
+        "/calls": {
+          "equals": 0
+        }
+      }
+    },
+    {
+      "id": "complete",
+      "client": "peer",
+      "timeout": "60s",
+      "peer_stream": {
+        "mode": "text",
+        "input": "30%。",
+        "require_text": true,
+        "require_audio": false
+      },
+      "expect": {
+        "/text_eos": {
+          "equals": true
+        }
+      }
+    },
+    {
+      "id": "exact_write",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.mhs.v0.write",
+        "response": {
+          "instances": {
+            "display.main": {
+              "hwd": "display",
+              "value": {
+                "brightness_percent": 52
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.status": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 46
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-01": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-02": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-03": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-04": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-05": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-06": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-07": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-08": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-09": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-10": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-11": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-12": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-13": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-14": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-15": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-16": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-17": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-18": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-19": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-20": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-21": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-22": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-23": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-24": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-25": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-26": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-27": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-28": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-29": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-30": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-31": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-32": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-33": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-34": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-35": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-36": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-37": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-38": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-39": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-40": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-41": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-42": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-43": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-44": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-45": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-46": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-47": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-48": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-49": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-50": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-51": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-52": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-53": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-54": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-55": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-56": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-57": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-58": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-59": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-60": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-61": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-62": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-63": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-64": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-65": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-66": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-67": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-68": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-69": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-70": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-71": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-72": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-73": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-74": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-75": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-76": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-77": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-78": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-79": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-80": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-81": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-82": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-83": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-84": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-85": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-86": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-87": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-88": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-89": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            },
+            "led.zone-90": {
+              "hwd": "led",
+              "value": {
+                "brightness_percent": 22
+              },
+              "write_fields": [
+                "brightness_percent"
+              ]
+            }
+          }
+        },
+        "expect_calls": 1
+      },
+      "expect": {
+        "/calls": {
+          "equals": 1
+        },
+        "/requests/0/id": {
+          "equals": "led.status"
+        },
+        "/requests/0/hwd": {
+          "equals": "led"
+        },
+        "/requests/0/args/brightness_percent": {
+          "equals": 30
+        }
+      },
+      "timeout": "2s"
+    }
+  ],
+  "finally": [
+    {
+      "id": "cleanup",
+      "client": "peer",
+      "rpc": {
+        "method": "server.peer.delete",
+        "request": {}
+      }
+    }
+  ]
+}

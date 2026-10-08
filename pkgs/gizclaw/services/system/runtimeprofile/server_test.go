@@ -18,6 +18,56 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
+func TestToolVerificationModelMustBeBoundAndPreserved(t *testing.T) {
+	models := map[string]apitypes.RuntimeProfileBinding{"checker": runtimeProfileTestBinding("checker-model")}
+	binding := runtimeProfileTestWorkflowBinding("assistant-workflow")
+	binding.Toolkit = &apitypes.RuntimeProfileToolSelection{VerificationModel: new("checker")}
+	input := adminhttp.RuntimeProfileUpsert{Id: "verified-profile", Spec: apitypes.RuntimeProfileSpec{
+		Resources: apitypes.RuntimeProfileResources{Models: &models},
+		Workflows: apitypes.RuntimeProfileWorkflows{"assistant": binding},
+	}}
+	profile, err := normalizeProfile(input, "verified-profile")
+	if err != nil || profile.Spec.Workflows["assistant"].Toolkit.VerificationModel == nil || *profile.Spec.Workflows["assistant"].Toolkit.VerificationModel != "checker" {
+		t.Fatalf("verification setting lost: %#v %v", profile.Spec.Workflows, err)
+	}
+	input.Spec.Resources.Models = nil
+	if _, err := normalizeProfile(input, "verified-profile"); err == nil {
+		t.Fatal("unbound verification Model was accepted")
+	}
+}
+
+func TestToolVerificationRequiresEinoAndLLMModel(t *testing.T) {
+	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverEino, apitypes.WorkflowDriverSfu} {
+		t.Run(string(driver), func(t *testing.T) {
+			workflow := apitypes.WorkflowSpec{Driver: driver}
+			if driver == apitypes.WorkflowDriverEino {
+				workflow.Eino = runtimeProfileTestEinoFormerSpec(t, "checker", "narrator")
+			} else {
+				workflow.Sfu = &apitypes.SFUWorkflowSpec{}
+			}
+			server := Server{ResolveResource: func(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
+				var resource apitypes.Resource
+				if kind == apitypes.ResourceKindWorkflow {
+					err := resource.FromWorkflowResource(apitypes.WorkflowResource{ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1, Kind: apitypes.WorkflowResourceKindWorkflow, Metadata: apitypes.ResourceMetadata{Id: id}, Spec: workflow})
+					return resource, err
+				}
+				err := resource.FromModelResource(apitypes.ModelResource{ApiVersion: apitypes.ResourceAPIVersionGizclawAdminv1alpha1, Kind: apitypes.ModelResourceKindModel, Metadata: apitypes.ResourceMetadata{Id: id}, Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindEmbedding}})
+				return resource, err
+			}}
+			models := map[string]apitypes.RuntimeProfileBinding{"checker": runtimeProfileTestBinding("checker-model")}
+			spec := apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Models: &models}, Workflows: apitypes.RuntimeProfileWorkflows{"assistant": {ResourceId: "assistant-workflow", Toolkit: &apitypes.RuntimeProfileToolSelection{VerificationModel: new("checker")}}}}
+			err := server.validateResources(t.Context(), spec)
+			want := "requires an llm Model"
+			if driver != apitypes.WorkflowDriverEino {
+				want = "requires an Eino Workflow"
+			}
+			if err == nil || !strings.Contains(err.Error(), want) {
+				t.Fatalf("error=%v, want %q", err, want)
+			}
+		})
+	}
+}
+
 func TestRegistrationTokenIsReadableAndIndexedByToken(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -399,7 +449,7 @@ func TestDanglingRuntimeProfileResourceNamesAreRejected(t *testing.T) {
 		Id: "pet-runtime",
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
-				"missing": runtimeProfileTestBinding("missing-workflow"),
+				"missing": runtimeProfileTestWorkflowBinding("missing-workflow"),
 			},
 			Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"missing": runtimeProfileTestBinding("missing-model")})},
 		},
@@ -792,8 +842,8 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 		"journey.narrator": runtimeProfileTestBinding("journey-voice"),
 		"journey-narrator": runtimeProfileTestBinding("legacy-voice"),
 	}
-	tools := map[string]apitypes.RuntimeProfileBinding{
-		"journey.tool": runtimeProfileTestBinding("journey-tool"),
+	tools := map[string]apitypes.RuntimeProfileToolBinding{
+		"journey.tool": runtimeProfileTestToolBinding("journey-tool"),
 	}
 	var memory apitypes.RuntimeProfileMemoryBinding
 	if err := json.Unmarshal([]byte(`{
@@ -812,7 +862,7 @@ func scopedAliasProfileForTest(t *testing.T) adminhttp.RuntimeProfileUpsert {
 		Spec: apitypes.RuntimeProfileSpec{
 			Workflows: apitypes.RuntimeProfileWorkflows{
 
-				"story.journey-center-earth": runtimeProfileTestBinding("journey-workflow"),
+				"story.journey-center-earth": runtimeProfileTestWorkflowBinding("journey-workflow"),
 			},
 			Resources: apitypes.RuntimeProfileResources{
 				Models: &models, Voices: &voices, Tools: &tools, Memories: &memories,
@@ -838,7 +888,15 @@ func assertScopedProfileAliases(t *testing.T, spec apitypes.RuntimeProfileSpec) 
 		case "voices":
 			bindings = spec.Resources.Voices
 		case "tools":
-			bindings = spec.Resources.Tools
+			if spec.Resources.Tools == nil {
+				t.Fatal("Tools bindings are nil")
+			}
+			for _, alias := range aliases {
+				if _, ok := (*spec.Resources.Tools)[alias]; !ok {
+					t.Fatalf("missing Tool alias %s", alias)
+				}
+			}
+			continue
 		}
 		for _, alias := range aliases {
 			if bindings == nil {
@@ -862,8 +920,8 @@ func TestRuntimeProfileRejectsWorkflowAliasesDuplicatedAfterNormalization(t *tes
 	_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{
 		Id: "test-profile",
 		Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-			"chat":   runtimeProfileTestBinding("chat"),
-			" chat ": runtimeProfileTestBinding("other"),
+			"chat":   runtimeProfileTestWorkflowBinding("chat"),
+			" chat ": runtimeProfileTestWorkflowBinding("other"),
 		}}}, "")
 	if err == nil || !strings.Contains(err.Error(), "duplicated after normalization") {
 		t.Fatalf("normalizeProfile() error = %v, want normalized collection collision", err)
@@ -871,7 +929,7 @@ func TestRuntimeProfileRejectsWorkflowAliasesDuplicatedAfterNormalization(t *tes
 }
 
 func TestRuntimeProfileWorkflowTagsAreOpaqueAndCanonical(t *testing.T) {
-	binding := runtimeProfileTestBinding("chat")
+	binding := runtimeProfileTestWorkflowBinding("chat")
 	binding.Tags = &[]string{"story", "6-8"}
 	item, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: apitypes.RuntimeProfileWorkflows{"chat": binding},
@@ -907,7 +965,7 @@ func TestDecodeStoredWorkflowCollections(t *testing.T) {
 
 func TestWorkflowSortOrderRoundTripsAndRejectsOtherBindings(t *testing.T) {
 	for _, order := range []int32{-2147483648, -1, 0, 2147483647} {
-		binding := runtimeProfileTestBinding("canonical-workflow")
+		binding := runtimeProfileTestWorkflowBinding("canonical-workflow")
 		binding.SortOrder = &order
 		profile, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "ordered", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"guess.history-figures-cn": binding}}}, "")
 		if err != nil {
@@ -926,7 +984,7 @@ func TestWorkflowSortOrderRoundTripsAndRejectsOtherBindings(t *testing.T) {
 			t.Fatalf("stored Workflow = %+v, want unchanged identity and order %d", got, order)
 		}
 	}
-	for _, kind := range []string{"models", "voices", "tools"} {
+	for _, kind := range []string{"models", "voices"} {
 		binding := runtimeProfileTestBinding("canonical-resource")
 		binding.SortOrder = new(int32(-1))
 		bindings := map[string]apitypes.RuntimeProfileBinding{"resource": binding}
@@ -936,13 +994,30 @@ func TestWorkflowSortOrderRoundTripsAndRejectsOtherBindings(t *testing.T) {
 			resources.Models = &bindings
 		case "voices":
 			resources.Voices = &bindings
-		case "tools":
-			resources.Tools = &bindings
 		}
 		_, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "ordered", Spec: apitypes.RuntimeProfileSpec{Resources: resources}}, "")
 		if err == nil || !strings.Contains(err.Error(), "sort_order is only valid on workflows") {
 			t.Fatalf("%s ordering error = %v", kind, err)
 		}
+	}
+	// Dedicated Tool bindings reject the Workflow-only field at the source
+	// schema boundary, before it could be discarded by typed JSON decoding.
+	toolBinding := map[string]any{"resource_id": "canonical-tool", "i18n": runtimeProfileTestBinding("canonical-tool").I18n}
+	resource := map[string]any{"apiVersion": "gizclaw.admin/v1alpha1", "kind": "RuntimeProfile", "metadata": map[string]any{"id": "ordered"}, "spec": map[string]any{"resources": map[string]any{"tools": map[string]any{"resource": toolBinding}}}}
+	valid, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := apitypes.ValidateResourceJSON(valid); err != nil {
+		t.Fatalf("valid Tool binding: %v", err)
+	}
+	toolBinding["sort_order"] = -1
+	invalid, err := json.Marshal(resource)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := apitypes.ValidateResourceJSON(invalid); err == nil {
+		t.Fatal("Tool binding accepted Workflow-only sort_order")
 	}
 }
 
@@ -1066,7 +1141,7 @@ func TestOwnerProfileBindingSurvivesConnectionLifetimeAndLoadsCurrentRevision(t 
 		t.Fatalf("ResolveOwnerProfile() = %#v, %v", first, err)
 	}
 	updated := adminhttp.RuntimeProfileUpsert{Id: first.Id, Spec: first.Spec}
-	updated.Spec.Workflows = apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestBinding("chat-v2")}
+	updated.Spec.Workflows = apitypes.RuntimeProfileWorkflows{"chat": runtimeProfileTestWorkflowBinding("chat-v2")}
 	response, err := s.PutRuntimeProfile(t.Context(), adminhttp.PutRuntimeProfileRequestObject{Id: first.Id, Body: &updated})
 	if err != nil {
 		t.Fatalf("PutRuntimeProfile() error = %v", err)
@@ -1426,5 +1501,37 @@ func TestSpeakerVoiceRuntimeReferences(t *testing.T) {
 	}
 	if err := validateWorkflowRuntimeAliases("workflow", spec, nil, map[string]apitypes.VoiceResource{"story.fox": {}}); err != nil {
 		t.Fatalf("valid voice: %v", err)
+	}
+}
+
+func runtimeProfileTestWorkflowBinding(id string) apitypes.RuntimeProfileWorkflowBinding {
+	base := runtimeProfileTestBinding(id)
+	return apitypes.RuntimeProfileWorkflowBinding{ResourceId: base.ResourceId, I18n: base.I18n}
+}
+func runtimeProfileTestToolBinding(id string) apitypes.RuntimeProfileToolBinding {
+	base := runtimeProfileTestBinding(id)
+	return apitypes.RuntimeProfileToolBinding{ResourceId: base.ResourceId, I18n: base.I18n}
+}
+
+func TestRuntimeProfileToolAliasIsNeverRenamed(t *testing.T) {
+	for _, alias := range []string{"music.stop", " music.stop", "music.stop ", "music_stop"} {
+		t.Run(alias, func(t *testing.T) {
+			tools := map[string]apitypes.RuntimeProfileToolBinding{
+				alias: {ClientTool: &apitypes.RuntimeProfileClientTool{Name: "audioplayer.stop"}, I18n: runtimeProfileTestBinding("unused").I18n},
+			}
+			profile, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "tool-aliases", Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{Tools: &tools}}}, "tool-aliases")
+			if alias != "music.stop" {
+				if err == nil {
+					t.Fatalf("invalid alias %q was accepted", alias)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, ok := (*profile.Spec.Resources.Tools)[alias]; !ok {
+				t.Fatalf("alias %q was not preserved", alias)
+			}
+		})
 	}
 }

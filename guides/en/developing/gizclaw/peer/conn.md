@@ -72,4 +72,10 @@ Audio packets retain the AgentHost revision accepted at BOS. Revision checking a
 
 Input permissions are cached per connection and AgentHost revision. First input and runtime revision changes perform the required check; subsequent BOS, EOS, and text events use the local snapshot. The Event stream owns a background refresh every five seconds, with a two-second query deadline and a seven-second maximum snapshot age. Refresh errors, revocation, and expiration deny input locally. Expired events do not retry storage themselves. Closing the connection or Event stream cancels and joins the worker. Ordinary Workspaces are classified locally before any Social binding query.
 
+Permission failure logs use a fixed stage for revision waiting, snapshot expiration, run-state
+queries, lookup context and Workspace/binding lookup, with applicable timeout, cancellation,
+revision or snapshot age fields. Logging occurs outside the snapshot lock and excludes raw query
+errors and input payloads. A missing local shared Workspace follows the existing authoritative
+binding path without logging that expected branch as a lookup failure.
+
 An audio input BOS may declare `StreamBegin.input_mode` as `PUSH_TO_TALK` or `REALTIME`. A Doubao realtime Workspace defaults to Push-to-Talk when `parameters.input` is omitted. When that Workspace receives a BOS declaring REALTIME, the Server returns an EOS with `WORKSPACE_INPUT_MODE_MISMATCH` before accepting audio packets. A Workspace explicitly configured for REALTIME also accepts Push-to-Talk input because the provider can end that turn. Older clients that omit `input_mode` retain their existing behavior: the Server cannot infer the intended mode from an otherwise identical BOS and audio packets. Go PeerStream forwards the declaration, and Giztest sets it from `peer_stream.mode`. JavaScript callers may set `ContinuousAudioRoute.inputMode` and Flutter callers may set `WorkspaceEventSession.beginAudio(inputMode:)`; omitting either still sends UNSPECIFIED.

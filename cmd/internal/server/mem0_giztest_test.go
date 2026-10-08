@@ -199,7 +199,7 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 		if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: id, Spec: workflow.Spec}); err != nil {
 			t.Fatal(err)
 		}
-		workflows[id] = apitypes.RuntimeProfileBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: id}, "zh-CN": {DisplayName: id}}}
+		workflows[id] = apitypes.RuntimeProfileWorkflowBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: id}, "zh-CN": {DisplayName: id}}}
 	}
 	profile := adminhttp.RuntimeProfileUpsert{Id: "mem0-giztest", Spec: apitypes.RuntimeProfileSpec{
 		Workflows: workflows, Resources: apitypes.RuntimeProfileResources{Memories: &memories},

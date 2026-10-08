@@ -3,8 +3,8 @@
 # I want a model to see only the Tools its Workflow lists, narrowed by the Workspace selection,
 # So that binding a Tool never attaches it to Workflows that did not opt in.
 #
-# The e2e-giztest RuntimeProfile binds the declaration-only giztest_echo and
-# giztest_other Tools. Each giztest-toolkit-probe-* Workflow asks the real model to
+# The e2e-giztest RuntimeProfile binds the declaration-only giztest-echo and
+# giztest-other Tools. Each giztest-toolkit-probe-* Workflow asks the real model to
 # list the Tools declared to it without invoking them, or to answer NO_TOOLS.
 # The Tool names appear in no prompt, so a listed name proves its declaration.
 version: gizclaw.test/v1alpha1
@@ -88,7 +88,7 @@ steps:
     expect:
       /text:
         contains: NO_TOOLS
-        not_contains: [giztest_echo, giztest_other]
+        not_contains: [giztest-echo, giztest-other]
       /text_eos:
         equals: true
   # Both Tools are listed and the Workspace omits its policy, so both are exposed.
@@ -124,7 +124,7 @@ steps:
       require_audio: false
     expect:
       /text:
-        contains_all: [giztest_echo, giztest_other]
+        contains_all: [giztest-echo, giztest-other]
         not_contains: NO_TOOLS
       /text_eos:
         equals: true
@@ -164,8 +164,8 @@ steps:
       require_audio: false
     expect:
       /text:
-        contains: giztest_other
-        not_contains: [giztest_echo, NO_TOOLS]
+        contains: giztest-other
+        not_contains: [giztest-echo, NO_TOOLS]
       /text_eos:
         equals: true
   # The Workspace selects both bound Tools, but the Workflow lists only echo.
@@ -204,8 +204,8 @@ steps:
       require_audio: false
     expect:
       /text:
-        contains: giztest_echo
-        not_contains: [giztest_other, NO_TOOLS]
+        contains: giztest-echo
+        not_contains: [giztest-other, NO_TOOLS]
       /text_eos:
         equals: true
 finally:

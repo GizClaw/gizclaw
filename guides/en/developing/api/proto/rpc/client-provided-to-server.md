@@ -39,10 +39,14 @@ The 21 predefined tools are `info.get`, `identifiers.get`, `device.status.get`, 
 
 ## Music player
 
-One device player exposes seven `audioplayer.*` tools: `get`, `playlist.get`, `playlist.set`, `playlist.append`, `play`, `stop`, and `mode.set`. The playlist holds at most 32 items. `playlist.set` validates and atomically replaces the list, stopping playback; `playlist.append` preserves ordering and duplicates and never retries automatically. `play` requires a zero-based index and acknowledges acceptance; playback state and progress arrive through audioplayer telemetry. `stop` is idempotent, and `mode.set` selects `off`, `one`, or `all`. A list item has an HTTPS audio URL without credentials or fragments and optional title and source reference. The Server does not download audio. `playlist_revision` changes on list mutation, and `playlist.get` reads the device after reconnect.
+One device player exposes seven `audioplayer.*` tools: `get`, `playlist.get`, `playlist.set`, `playlist.append`, `play`, `stop`, and `mode.set`. The playlist holds at most 32 items. `playlist.set` validates and atomically replaces the list, stopping playback; `playlist.append` preserves ordering and duplicates and never retries automatically. `play` accepts an optional zero-based index; omission selects the device default and acknowledges acceptance; playback state and progress arrive through audioplayer telemetry. `stop` is idempotent, and `mode.set` selects `off`, `one`, or `all`. A list item has an HTTPS audio URL without credentials or fragments and optional title and source reference. The Server does not download audio. `playlist_revision` changes on list mutation, and `playlist.get` reads the device after reconnect.
 
 ## Provider and error contract
 
 Go providers install handlers on `gizcli.DeviceControlHandlers` or per `ClientTool`; JavaScript, Flutter and C install the corresponding typed handlers. Each SDK derives discovery from installed handlers. The C provider decodes the invoke bytes through nanopb callbacks, keeping payload storage bounded by its caller buffer.
 
 The Server validates typed Peer HTTP arguments before opening an RPC stream. Offline maps to `409 DEVICE_OFFLINE`; an uninstalled tool to `501 DEVICE_UNSUPPORTED`; timeout to `504 DEVICE_TIMEOUT`; device `INVALID_PARAMS` to `400 DEVICE_REJECTED`; other device errors to a redacted `502 DEVICE_ERROR`. A missing saved SSID uses the route's not-found mapping. Device handlers must not leak credentials in status or errors.
+
+## Explicit runtime Tool capabilities
+
+`client.rpc.methods.list.mhs_v0` optionally reports concrete `id/hwd` instances and supported `write_fields`. The Go SDK obtains this from `DeviceControlHandlers.MhsCapabilities`. Missing information is unknown; a generic HWD field never proves hardware support. `client.mhs.v0.read.write_capabilities` can report writable fields for the returned instance. Device handlers still validate their own safety constraints.

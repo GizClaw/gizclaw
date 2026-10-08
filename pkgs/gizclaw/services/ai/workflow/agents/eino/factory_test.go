@@ -24,6 +24,32 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
+func TestCorrectionFeedbackDoesNotReplaceCurrentWireTurn(t *testing.T) {
+	for _, last := range []*schema.Message{schema.UserMessage("actual pending request"), {Role: schema.Tool, ToolCallID: "current-call", ToolName: "lookup", Content: `{"value":"actual"}`}} {
+		modelContext, err := genXModelContext([]*schema.Message{
+			schema.SystemMessage("business policy"), last,
+			{Role: schema.System, Name: "tool_response_feedback", Content: "Correct the unpublished draft; do not repeat completed operations."},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		var messages []*genx.Message
+		for message := range modelContext.Messages() {
+			messages = append(messages, message)
+		}
+		if len(messages) != 1 || messages[0].Role == genx.RoleModel {
+			t.Fatalf("correction wire ends in rejected assistant continuation: %#v", messages)
+		}
+		prompts := 0
+		for range modelContext.Prompts() {
+			prompts++
+		}
+		if prompts != 2 {
+			t.Fatalf("business policy or correction feedback was lost: prompts=%d", prompts)
+		}
+	}
+}
+
 func TestGenXModelContextPreservesToolsCallsAndResults(t *testing.T) {
 	t.Parallel()
 	toolInfo := &schema.ToolInfo{
@@ -95,8 +121,8 @@ func TestEinoToolCallValidatesProviderOutput(t *testing.T) {
 	}
 	if _, err := einoToolCall(&genx.ToolCall{
 		ID: "call-2", FuncCall: &genx.FuncCall{Name: "bad", Arguments: `{`},
-	}, 0); err == nil {
-		t.Fatal("einoToolCall() accepted invalid JSON")
+	}, 0); !errors.Is(err, genx.ErrInvalidToolArguments) {
+		t.Fatalf("einoToolCall() did not classify invalid JSON: %v", err)
 	}
 }
 

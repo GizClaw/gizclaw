@@ -3,6 +3,11 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
+CI 只执行无需线上数据库和真实 AI 服务的测试。数据库集成使用 job 自建的临时
+PostgreSQL、ClickHouse 或 PGVector；协议与 SDK E2E 使用隔离的本地服务和确定性
+provider fixture。依赖线上数据库、真实模型调用或 provider 凭据的 E2E 与质量评测
+只能在本地显式启动，不加入 CI，包括手动触发的 CI。
+
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
@@ -1362,7 +1367,7 @@ hit rate 不低于 `0.50`，且每个选中 session 至少 materialize 一个 fa
 
 Doubao `doubao-embedding-vision-251215` 支持纯文本，使用 Ark `/embeddings/multimodal`。设置 `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal`，并明确提供 Ark embedding key/base URL、模型与 1024 或 2048 维。服务按每条文本发出一个请求，保持 batch 输入与向量一一对应，并为 corpus/query 设置不同的 instruction；instruction fingerprint 进入报告。错误或无效向量不能变成成功空写入。更换 Embedding 后必须在独立 collection 中重新生成向量，不能与 Qwen 向量混用。
 
-CI 的手动 `workflow_dispatch` 可选择 `mem0_quality`，运行完整 conv-30 的真实质量评测并上传 redacted JSON。它需要 repository secrets `GIZCLAW_DEEPSEEK_API_KEY`、`GIZCLAW_VOLC_ARK_API_KEY`；缺失则失败，未选择时不请求模型。此 job 使用固定 Lite extraction（请求 `service_tier: fast`）、Doubao Vision embedding（1024 维）与 DeepSeek answer 配置，不等于完整十对话 LoCoMo。
+完整 conv-30 的真实质量评测通过本地 `tests/locomo-e2e/run_docker.sh mem0-pgvector` 显式启动，按本节配置模型凭据并保留 redacted JSON。CI 不调用真实模型，也不提供真实模型评测的手动触发入口。conv-30 不等于完整十对话 LoCoMo。
 
 LoCoMo 的 self-hosted lane 使用 `sdk/go/mem0` 的健康检查和 production adapter
 的生成请求 DTO/HTTP client；PG lane 的 instruction 通过每次请求 `prompt` 传递。
@@ -1610,3 +1615,74 @@ GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
 统一使用 Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`)，设置 `service_tier: fast` 并默认关闭
 thinking。裁判 `script-judge` alias 仍可在测试 Profile 单独选择模型。实际 fast 档位与首响时延
 分别由本页的低延迟真实 Giztest 和首响验证矩阵验收。
+
+## Profile Tool alias 验收
+
+```sh
+GIZCLAW_RUNTIME_TOOL_CREDENTIAL_FILE=/secure/gizclaw.env \
+  bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
+```
+
+独立 Compose project 启动真实 Server、Edge、Admin seed 和 Go Giztest Peer。凭据文件只在
+runner 进程中读取 `GIZCLAW_VOLC_ARK_API_KEY`，通过环境传给 seed；真实凭据与 SQLite
+运行状态不写入报告。设备测试 Peer 实现真实 MHS 与 ClientTool protobuf handlers，
+不代表物理硬件验收。真实模型是 `doubao-seed-2-1-lite-260915`，thinking disabled，
+temperature 省略，max_tokens 2048。
+
+该入口只为自己的测试 Server 容器设置 `223.5.5.5` 和 `119.29.29.29` 作为外部 DNS
+转发地址，Docker 内部服务名仍由项目网络解析；不修改宿主机、共享 Docker 或生产配置。
+报告仍把 DNS、连接与 Provider 失败保留为 FAIL，不能用解析配置或重跑覆盖原失败回执。
+
+`client_rpc.response.instances` 安装有状态 MHS 实例；`audio_player` 安装真实协议的测试
+播放列表/播放器；`run_workspace` 安装调用现有 Server Workspace selection 的程序。
+这些是设备实现，不是模型替身。明确 `--evidence full` 时，Go runner 保存实际用户输入、
+模型回复和安全的 Tool catalog 投影。带 `/requests` 断言的 provider 还保存实际解码的
+id/hwd、程序 enum、参数及接收时间；未要求请求记录时不保存参数。对副作用使用 `/calls`
+的精确断言，不能只用 `expect_calls` 的至少一次等待。模型澄清必须由前一个真实 turn 生成。
+
+本 lane 的报告在 `.testbench/runtime-tools-*/reports/`。每次失败都会保留，不自动选择
+成功重跑；脚本非零、缺失任务、FAIL 和 SKIP 均不构成完整验收通过。确定性协议、目录与
+权限回归和真实模型层的结果分别记录，直连 Server 诊断不能替代 Edge 链路验收。
+
+此入口默认编译 428 个原生文档：80 个业务话语与20组多轮对话，另有随机结果、真实长历史、
+区域灯选择和跨设备意图负对照；每组覆盖10/30/60/100工具并重复3次，合计1280任务，
+含确定性合同文档、真实外部 HTTP 回显和两个基础探针。每个文档用独立 Profile，允许3个并行任务。
+`GIZCLAW_RUNTIME_TOOL_CASE_FILTER`、`GIZCLAW_RUNTIME_TOOL_REPEAT` 和
+`GIZCLAW_RUNTIME_TOOL_SMOKE_ONLY` 仅用于明确标记的诊断子集，不能代替完整矩阵。
+
+没有变更动作的轮次由另一个真实模型 Peer 检查虚假的变更完成声明；裁判的误判也保留为
+失败，需人工核对原始回复与调用记录。`client_rpc.observe_only: true` 只读取已收到的计数，
+不等待或断言调用次数，不能同时配置 response 或 expect_calls；finally 只允许这种观察形式，
+用于即使主断言失败也保存协议回执。它不注册新的设备 handler。
+若容器中断而没有生成 giztest.json，报告仍标记 FAIL，全部预期任务记为结果未知的 missing；不伪造运行、失败动作或延迟指标。
+
+报告保留 inputs、源代码 patch、编译前后源文件哈希、二进制哈希、giztest.json、summary.json
+与 report.html。参数与目标正确率按实际用户轮次对齐后的解码请求独立计算；动作指标只统计
+变更请求，读调用由原生断言另行核对。就绪时间测量用户轮开始至设备收到完整
+合法请求，包含传输时间。失败文档可能在后续轮次前结束，未执行轮次单独计数。历史上下文
+不复制实验里的脚本 assistant；历史中已齐全的真实执行指令另计动作，实验中只“准备”执行
+的场景在原生用户轮显式说明暂不执行。焦点场景通过真实 Profile 目录显示元数据更新建模，
+不能声称已提供产品 UI 焦点 API。音乐测试验证协议状态，不能声称音频已经实际播放。
+
+程序切换 fixture 使用独立的真实 Workflow/Workspace 标识与各自程序 system 内容。
+`run_workspace` handler 调用 Server selection 并返回 ACK；断言先核对参数、enum 和次数，
+再显式 reload，确认 selected/active Workspace 及 `RUNNING`。ACK 本身仍不证明 reload
+已提交，也不证明物理设备内容播放或 kickoff 的完整用户体验。HTTP 合同场景验证绑定、
+换绑、禁用和删除后的目录状态；G02 另实际调用外部 HTTPS 回显服务，固定私有 header
+携带随机值且用户输入不提供它，由最终模型回复核对服务实际返回值。调用前撤权另有
+Go 回归，不能把 HTTP 正向成功扩展为所有 provider 或凭据撤权都已通过 Docker。
+
+业务 Workflow binding 启用 `verification_model`，主模型仍生成原生调用与澄清；独立
+模型检查变更候选、固定目标 MHS 读取和最终回复，拒绝时最多纠正两次。报告中的完整参数就绪时间包含
+这些执行前请求与纠正成本；最终文本因回复检查暂存，不能与未启用校验时的首 chunk
+延迟混称。语义检查自身的误判、耗尽与 provider/session 错误都保留为失败。
+
+G03 通过真实 owner API key 发送 `device.reboot`，核对设备收到 enum 4 与准确的 protobuf JSON 参数。Server 进入重启后的不可用状态，目录与 HTTP 写入均拒绝当前设备；同一 Profile 的另一 Peer 仍可用，但两台设备的写计数必须为零。该场景验证 Server 的重启转换与 owner 隔离，不操作物理硬件。
+
+G04 为 100 个真实可用目录项分别配置 800 字节说明，确保 protobuf 响应超过单帧上限，再核对完整目录、说明与 availability。Go Giztest 普通 RPC 接受标准续帧 envelope，要求 EOS，并限制完整 envelope 为 16 个最大帧；截断、混合编码和超限均失败。
+
+G05 直接通过 owner API key 顺序播放索引 0→1→0，逐次核对设备收到 enum 14、有效索引与累计调用次数。G06 先由真实模型完成一次播放，再执行两次同 owner 的 HTTP 播放，验证对话后的设备通道继续可用。Go SDK 的 inbound unary RPC 在成功和失败路径都释放请求通道；每个请求仍使用独立通道。
+
+本轮未配置默认焦点时，原生夹具在主灯与屏幕目录说明中明确保留“没有默认目标”的配置事实；配置焦点时也明确标记其他对象不是默认对象。目录文字不创建新的用户授权，已明确的待补目标仍优先。
+
+此泳道同时对 runner、业务输入与 Monitor 模板取源码哈希；初始化后的私钥配置不进入报告。Server 运行时 profile 使用独立 ObjectStore，每五分钟采集，并在清理临时状态前保存。Server/Edge 容器日志各保留最多 256 MiB，控制夹具最多 32 MiB，避免默认日志轮转过早丢失失败时间线。Profile 与日志仅辅助定位，不能代替任务回执或证明通过。

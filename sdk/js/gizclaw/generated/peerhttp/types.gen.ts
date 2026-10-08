@@ -190,10 +190,7 @@ export type DeviceFactoryResetRequest = {
     keep_network?: boolean;
 };
 
-/**
- * Exactly one target: workspace_name or workflow_name naming a workflow of the bound RuntimeProfile.
- */
-export type DeviceRunWorkspaceSetRequest = {
+export type DeviceRunWorkspaceSetRequest = unknown & {
     /**
      * Existing Workspace to run.
      */
@@ -645,7 +642,10 @@ export type AudioPlayerModeSetRequest = {
 };
 
 export type AudioPlayerPlayRequest = {
-    index: number;
+    /**
+     * Zero-based playlist index. Omit to select the device default track.
+     */
+    index?: number;
 };
 
 export type AudioPlayerPlaylistAppendRequest = {

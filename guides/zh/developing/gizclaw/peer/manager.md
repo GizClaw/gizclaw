@@ -37,3 +37,5 @@ Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失�
 好友通过 `server.friend.info.get` 或 `server.friend.list` 的列表项读取这些文本资料。该方法要求调用者作用域内已存在好友关系，并且不返回二进制头像数据。`server.profile.get` 则按 public key 向任意已注册 Peer 公开 `name`（投影为 `display_name`）与 `emoji`，一次最多 16 个，不要求关系；它只读这两个字段，硬件、标识、状态与在线信息不公开。
 
 设备自设调试权限与 SN/IMEI 多值查询见 [Public API](../../api/http/public)。
+
+角色准入读取 Peer service 的当前 KV 状态与删除围栏，要求 active 与精确 role；Firmware 展示投影不参与该判定。它不缓存权限，固件 SQL 变慢不会阻塞服务打开；KV 自身错误仍拒绝。

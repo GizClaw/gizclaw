@@ -213,7 +213,7 @@ func runtimeProfileWithWorkspaceAlias(revision string) apitypes.RuntimeProfile {
 		Id: "default", Revision: revision,
 		Spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
 			Models: &map[string]apitypes.RuntimeProfileBinding{
-				"llm": collectionTestBinding("chat-model", "Chat"),
+				"llm": collectionResourceTestBinding("chat-model", "Chat"),
 			},
 		}, Workflows: apitypes.RuntimeProfileWorkflows{
 

@@ -149,6 +149,20 @@ func (s *Server) LoadPeer(ctx context.Context, publicKey giznet.PublicKey) (apit
 	return s.get(ctx, publicKey)
 }
 
+// CheckActiveRole reads current Peer authority without projecting firmware
+// metadata. Deletion fences, KV failures and mismatched or inactive roles deny
+// access; the caller's context still bounds every authoritative lookup.
+func (s *Server) CheckActiveRole(ctx context.Context, publicKey giznet.PublicKey, role apitypes.PeerRole) (bool, error) {
+	if err := s.EnsureAvailable(ctx, publicKey); err != nil {
+		return false, err
+	}
+	record, err := s.getStored(ctx, publicKey)
+	if err != nil {
+		return false, err
+	}
+	return record.Status == apitypes.PeerRegistrationStatusActive && record.Role == role, nil
+}
+
 // BootstrapEdgeNodes inserts or updates configured edge-node peers while
 // preserving existing peer metadata.
 func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.PublicKey) error {

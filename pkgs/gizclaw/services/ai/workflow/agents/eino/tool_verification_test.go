@@ -1,0 +1,394 @@
+package eino
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"strings"
+	"testing"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
+)
+
+type verificationGenerator struct {
+	result string
+	err    error
+	seen   string
+	schema json.RawMessage
+}
+
+func (*verificationGenerator) GenerateStream(context.Context, string, genx.ModelContext) (genx.Stream, error) {
+	return nil, errors.New("not a primary model call")
+}
+
+func (g *verificationGenerator) Invoke(_ context.Context, _ string, input genx.ModelContext, tool *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	g.schema, _ = json.Marshal(tool.Argument)
+	for message := range input.Messages() {
+		if parts, ok := message.Payload.(genx.Contents); ok {
+			for _, part := range parts {
+				if text, ok := part.(genx.Text); ok {
+					g.seen += string(text)
+				}
+			}
+		}
+	}
+	return genx.Usage{}, tool.NewFuncCall(g.result), g.err
+}
+
+func TestToolVerifierFailsClosedAndDoesNotChangeCandidate(t *testing.T) {
+	for _, row := range []struct {
+		name, response string
+		allow          bool
+		invalid        bool
+	}{
+		{"allow", `{"reason":"approved"}`, true, false},
+		{"wrong target", `{"reason":"wrong_target"}`, false, false},
+		{"cancelled", `{"reason":"cancelled"}`, false, false},
+		{"unknown reason", `{"reason":"invented"}`, false, true},
+		{"legacy extra approval", `{"approved":true,"reason":"cancelled"}`, false, true},
+		{"missing decision", `{}`, false, true},
+		{"duplicate reason", `{"reason":"cancelled","reason":"approved"}`, false, true},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			generator := &verificationGenerator{result: row.response}
+			candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
+			arguments := json.RawMessage(`{"brightness_percent":30}`)
+			resolve := func(context.Context) ([]toolcatalog.Tool, error) { return []toolcatalog.Tool{candidate}, nil }
+			reason, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, arguments, genx.ToolConversation{CurrentUser: "screen 30%"})
+			if row.invalid != (err != nil) || (!row.invalid && row.allow != (reason == "")) {
+				t.Fatalf("reason=%q error=%v", reason, err)
+			}
+			if candidate.Target["id"] != "led.status" || string(arguments) != `{"brightness_percent":30}` || generator.seen == "" {
+				t.Fatal("candidate changed or actual conversation was omitted")
+			}
+			var schema struct {
+				Properties map[string]struct{ Enum []string }
+			}
+			if err := json.Unmarshal(generator.schema, &schema); err != nil || len(schema.Properties["reason"].Enum) != 10 {
+				t.Fatalf("structured Invoke omitted the finite decision schema: %s", generator.schema)
+			}
+		})
+	}
+}
+
+func TestToolVerificationMHSResultsKeepsCurrentFixedDeviceEvidence(t *testing.T) {
+	catalog := []map[string]any{
+		{"name": "screen_read", "source": "mhs", "fixed_target": map[string]any{"id": "display.main", "hwd": "display", "operation": "read"}},
+		{"name": "screen_write", "source": "mhs", "fixed_target": map[string]any{"id": "display.main", "hwd": "display", "operation": "write"}},
+		{"name": "http_read", "source": "resource", "fixed_target": map[string]any{"resource_id": "private"}},
+	}
+	conversation := genx.ToolConversation{ContinuationStart: 1, Messages: []genx.ToolConversationMessage{
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":{"brightness_percent":80}}`},
+		{Role: "user", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":{"brightness_percent":70}}`},
+		{Role: "assistant_tool_proposal", Name: "screen_write", Arguments: json.RawMessage(`{"brightness_percent":40}`)},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":{"brightness_percent":50}}`},
+		{Role: "tool", Name: "screen_write", Content: `{"error":{"code":"intent_rejected","message":"private feedback must not be duplicated"}}`},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"foreign","hwd":"display","value":{"brightness_percent":60}}`},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"led","value":{"brightness_percent":60}}`},
+		{Role: "tool", Name: "http_read", Content: `{"secret":"private HTTP result"}`},
+		{Role: "tool", Name: "screen_read", Content: `{"id":"display.main","hwd":"display","value":null}`},
+	}}
+	results := toolVerificationMHSResults(conversation, catalog)
+	if len(results) != 2 || results[0]["status"] != "succeeded" || results[1]["status"] != "rejected_or_failed" || results[1]["error_code"] != "intent_rejected" {
+		t.Fatalf("results = %#v", results)
+	}
+	value, ok := results[0]["value"].(json.RawMessage)
+	if !ok || string(value) != `{"brightness_percent":50}` || results[0]["operation"] != "read" || results[1]["operation"] != "write" {
+		t.Fatalf("fixed operation or actual value changed: %#v", results)
+	}
+	encoded, err := json.Marshal(results)
+	if err != nil || strings.Contains(string(encoded), "private") || strings.Contains(string(encoded), "80") || strings.Contains(string(encoded), "70") {
+		t.Fatalf("historical, proposed or private result leaked: %s, %v", encoded, err)
+	}
+	conversation.ContinuationStart = len(conversation.Messages) + 1
+	if got := toolVerificationMHSResults(conversation, catalog); len(got) != 0 {
+		t.Fatalf("invalid boundary produced results: %#v", got)
+	}
+}
+
+func TestToolVerificationClientToolResultsKeepsCurrentMatchedAcknowledgements(t *testing.T) {
+	catalog := []map[string]any{
+		{"name": "program_select", "source": "client_tool", "fixed_target": map[string]any{"name": "run.workspace.set"}},
+		{"name": "http_post", "source": "http_request", "fixed_target": map[string]any{}},
+	}
+	conversation := genx.ToolConversation{ContinuationStart: 1, Messages: []genx.ToolConversationMessage{
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"old"}`), Content: `{}`},
+		{Role: "user", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"user"}`), Content: `{}`},
+		{Role: "assistant_tool_proposal", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"proposed"}`)},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"aesop"}`), Content: `{}`},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"space"}`), Content: `{"error":{"code":"intent_rejected","message":"private feedback"}}`},
+		{Role: "tool", Name: "program_select", Content: `{}`},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`null`), Content: `{}`},
+		{Role: "tool", Name: "program_select", Arguments: json.RawMessage(`{"workflow_name":"not-json"}`), Content: `not JSON`},
+		{Role: "tool", Name: "unknown", Arguments: json.RawMessage(`{"workflow_name":"unknown"}`), Content: `{}`},
+		{Role: "tool", Name: "http_post", Arguments: json.RawMessage(`{"token":"private HTTP argument"}`), Content: `{"secret":"private HTTP result"}`},
+	}}
+	results := toolVerificationClientToolResults(conversation, catalog)
+	if len(results) != 2 || results[0]["status"] != "succeeded" || results[0]["procedure"] != "run.workspace.set" || results[1]["status"] != "rejected_or_failed" || results[1]["error_code"] != "intent_rejected" {
+		t.Fatalf("results = %#v", results)
+	}
+	args, ok := results[0]["arguments"].(json.RawMessage)
+	if !ok || string(args) != `{"workflow_name":"aesop"}` {
+		t.Fatalf("actual successful target lost: %#v", results)
+	}
+	conversation.Messages[3].Arguments[0] = '['
+	if string(args) != `{"workflow_name":"aesop"}` {
+		t.Fatal("result projection retained mutable input")
+	}
+	encoded, err := json.Marshal(results)
+	for _, excluded := range []string{"old", "user", "proposed", "private", "unknown", "not-json"} {
+		if err != nil || strings.Contains(string(encoded), excluded) {
+			t.Fatalf("non-current, unmatched or private result leaked: %s, %v", encoded, err)
+		}
+	}
+	conversation.ContinuationStart = len(conversation.Messages) + 1
+	if got := toolVerificationClientToolResults(conversation, catalog); len(got) != 0 {
+		t.Fatalf("invalid boundary produced results: %#v", got)
+	}
+}
+
+func TestClientToolResultProjectionPreservesActualDefaultPlaybackStatus(t *testing.T) {
+	catalog := []map[string]any{{"name": "music_play", "source": "client_tool", "fixed_target": map[string]any{"name": "audioplayer.play"}}}
+	conversation := genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{}`), Content: `{"current_index":0,"state":"playing","playlist_length":3}`}}}
+	results := toolVerificationClientToolResults(conversation, catalog)
+	if len(results) != 1 {
+		t.Fatalf("results = %#v", results)
+	}
+	returned, ok := results[0]["result"].(json.RawMessage)
+	if !ok || string(returned) != `{"current_index":0,"state":"playing","playlist_length":3}` {
+		t.Fatalf("actual zero-based index/status lost: %#v", results)
+	}
+	conversation.Messages[0].Content = `{"current_index":2,"state":"stopped"}`
+	if string(returned) != `{"current_index":0,"state":"playing","playlist_length":3}` {
+		t.Fatal("projection retained mutable result input")
+	}
+}
+
+func TestClientToolCompletedReasonRequiresSameCurrentProcedureAndArguments(t *testing.T) {
+	candidate := toolcatalog.Tool{Alias: "music.play", FunctionName: "music_play", Source: "client_tool", Target: map[string]any{"name": "audioplayer.play"}}
+	playlist := toolcatalog.Tool{Alias: "music.list", FunctionName: "music_list", Source: "client_tool", Target: map[string]any{"name": "audioplayer.playlist.get"}}
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) { return []toolcatalog.Tool{candidate, playlist}, nil }
+	for _, row := range []struct {
+		name         string
+		conversation genx.ToolConversation
+		allowed      bool
+	}{
+		{"none", genx.ToolConversation{}, false},
+		{"read is not play", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_list", Arguments: json.RawMessage(`{}`), Content: `{"items":[]}`}}}, false},
+		{"different index", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":0}`), Content: `{}`}}}, false},
+		{"historical", genx.ToolConversation{ContinuationStart: 1, Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":1}`), Content: `{}`}}}, false},
+		{"rejected", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":1}`), Content: `{"error":{"code":"intent_rejected"}}`}}}, false},
+		{"same current call", genx.ToolConversation{Messages: []genx.ToolConversationMessage{{Role: "tool", Name: "music_play", Arguments: json.RawMessage(`{"index":1}`), Content: `{}`}}}, true},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			generator := &verificationGenerator{result: `{"reason":"already_completed"}`}
+			_, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, json.RawMessage(`{"index":1}`), row.conversation)
+			if row.allowed != (err == nil) {
+				t.Fatalf("already_completed eligibility=%v error=%v", row.allowed, err)
+			}
+		})
+	}
+}
+
+func TestProgramOptionalReasonUsesCurrentSideEffectParameters(t *testing.T) {
+	profile := apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"story": {ResourceId: "workflow"}}}}
+	source, target, schema, err := toolcatalog.BindingSchema(profile, apitypes.RuntimeProfileToolBinding{ClientTool: &apitypes.RuntimeProfileClientTool{Name: "run.workspace.set"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := toolcatalog.Tool{Alias: "program", Source: source, Target: target, Schema: schema}
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) { return []toolcatalog.Tool{candidate}, nil }
+	for _, row := range []struct {
+		name, arguments string
+		ordinary        bool
+	}{
+		{"omitted", `{"workflow_name":"story"}`, true},
+		{"false", `{"workflow_name":"story","kickoff":false}`, true},
+		{"true", `{"workflow_name":"story","kickoff":true}`, false},
+		{"null", `{"workflow_name":"story","kickoff":null}`, false},
+		{"foreign target", `{"workflow_name":"foreign"}`, false},
+		{"other field", `{"workflow_name":"story","workspace_name":"other"}`, false},
+		{"duplicate", `{"workflow_name":"story","kickoff":false,"kickoff":true}`, false},
+	} {
+		t.Run(row.name, func(t *testing.T) {
+			generator := &verificationGenerator{result: `{"reason":"unrequested_parameter"}`}
+			conversation := genx.ToolConversation{CurrentUser: "select story", ContinuationStart: 1, Messages: []genx.ToolConversationMessage{{Role: "assistant_tool_proposal", Name: "program", Arguments: json.RawMessage(`{"workflow_name":"story","kickoff":true}`)}}}
+			arguments := json.RawMessage(row.arguments)
+			reason, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, arguments, conversation)
+			if row.ordinary != (err != nil) || (err == nil && reason == "") || generator.seen == "" || string(arguments) != row.arguments {
+				t.Fatalf("current optional reason: reason=%q error=%v arguments=%s", reason, err, arguments)
+			}
+			generator.result = `{"reason":"wrong_target"}`
+			reason, err = runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, arguments, conversation)
+			if err != nil || reason == "" {
+				t.Fatalf("other independent checks disappeared: reason=%q error=%v", reason, err)
+			}
+		})
+	}
+}
+
+func TestToolVerifierReadsOtherTargetContextWithoutPrivateExecutors(t *testing.T) {
+	candidate := toolcatalog.Tool{Alias: "lamp", Source: "mhs", Target: map[string]any{"id": "led.status"}}
+	focus := "screen is the configured focus"
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{candidate, {Alias: "screen", Description: focus, Target: map[string]any{"id": "display.main"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
+	}
+	generator := &verificationGenerator{result: `{"reason":"wrong_target"}`}
+	verify := runtimeToolVerifier(generator, "model/checker", resolve)
+	for _, current := range []string{"screen is the configured focus", "lamp is the configured focus"} {
+		focus = current
+		generator.seen = ""
+		if reason, err := verify(t.Context(), candidate, json.RawMessage(`{"brightness_percent":60}`), genx.ToolConversation{CurrentUser: "increase brightness"}); err != nil || reason == "" {
+			t.Fatalf("decision: %q, %v", reason, err)
+		}
+		if !strings.Contains(generator.seen, current) || !strings.Contains(generator.seen, "display.main") || strings.Contains(generator.seen, "must-not-reach-verifier") {
+			t.Fatal("current cross-target metadata missing or private executor leaked")
+		}
+	}
+}
+
+func TestToolVerifierDoesNotCallModelWithoutCurrentCatalog(t *testing.T) {
+	for _, resolve := range []func(context.Context) ([]toolcatalog.Tool, error){nil, func(context.Context) ([]toolcatalog.Tool, error) { return nil, errors.New("private lookup failure") }} {
+		generator := &verificationGenerator{result: `{"reason":"approved"}`}
+		_, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), toolcatalog.Tool{}, json.RawMessage(`{}`), genx.ToolConversation{CurrentUser: "change brightness"})
+		if err == nil || strings.Contains(err.Error(), "private") || generator.seen != "" {
+			t.Fatalf("catalog failure reached model or leaked: %v", err)
+		}
+	}
+}
+
+func TestToolResponseVerifierUsesCurrentCatalogAndFiniteDecision(t *testing.T) {
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{{Alias: "screen.read", Source: "mhs", Available: true, Target: map[string]any{"id": "display.main", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-verifier"}}}}}, nil
+	}
+	for _, response := range []string{`{"reason":"approved"}`, `{"reason":"missing_operation"}`, `{"reason":"false_completion"}`, `{"reason":"invented"}`} {
+		generator := &verificationGenerator{result: response}
+		feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{CurrentUser: "screen 30%", ContinuationStart: 1, Messages: []genx.ToolConversationMessage{{Role: "user", Content: "screen 30%"}}}, "set without proof")
+		if response == `{"reason":"approved"}` {
+			if err != nil || feedback != "" {
+				t.Fatalf("approved: %q %v", feedback, err)
+			}
+		} else if response == `{"reason":"invented"}` {
+			if err == nil {
+				t.Fatal("unknown decision accepted")
+			}
+		} else if err != nil || feedback == "" {
+			t.Fatalf("rejected: %q %v", feedback, err)
+		}
+		if !strings.Contains(generator.seen, `"operation":"read"`) || strings.Contains(generator.seen, "must-not-reach-verifier") {
+			t.Fatal("fixed operation omitted or private executor data exposed")
+		}
+	}
+}
+
+func TestEmptyToolReplyRequestsCorrectionWithoutModelOrCatalogCall(t *testing.T) {
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		t.Error("empty reply loaded catalog")
+		return nil, nil
+	}
+	generator := &verificationGenerator{}
+	feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{}, " \n")
+	if feedback == "" || err != nil || generator.seen != "" {
+		t.Fatalf("empty reply: feedback=%q err=%v", feedback, err)
+	}
+}
+
+func TestUnavailableCatalogCannotDemandExecutionButStillRejectsFalseCompletion(t *testing.T) {
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{{Alias: "screen", Availability: toolcatalog.Availability{Reason: "DEVICE_OFFLINE"}}}, nil
+	}
+	for _, response := range []string{`{"reason":"approved"}`, `{"reason":"false_completion"}`, `{"reason":"missing_operation"}`} {
+		generator := &verificationGenerator{result: response}
+		feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), genx.ToolConversation{CurrentUser: "screen 40%"}, "device unavailable; not completed")
+		if strings.Contains(string(generator.schema), "missing_operation") || strings.Contains(string(generator.schema), "unnecessary_clarification") {
+			t.Fatal("unavailable catalog admitted impossible classifications")
+		}
+		if strings.Contains(response, "missing_operation") {
+			if err == nil {
+				t.Fatal("impossible missing-operation decision accepted")
+			}
+		} else if strings.Contains(response, "false_completion") {
+			if err != nil || feedback == "" {
+				t.Fatalf("false claim escaped: %q %v", feedback, err)
+			}
+		} else if err != nil || feedback != "" {
+			t.Fatalf("honest unavailable reply rejected: %q %v", feedback, err)
+		}
+	}
+}
+
+func TestVerificationCapabilityFactsKeepReadAndWriteIndependent(t *testing.T) {
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{
+			{Alias: "screen.read", Source: "mhs", Available: true, Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "read"}},
+			{Alias: "screen.revoked", Source: "mhs", Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "write", "fields": []string{"brightness_percent"}}},
+			{Alias: "lamp.write", Source: "mhs", Available: true, Target: map[string]any{"id": "led.status", "hwd": "led", "operation": "write", "fields": []string{"brightness_percent"}}},
+			{Alias: "screen.external", Source: "http_request", Available: true, Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "write"}},
+		}, nil
+	}
+	generator := &verificationGenerator{result: `{"reason":"approved"}`}
+	conversation := genx.ToolConversation{CurrentUser: "40%", ContinuationStart: 3, Messages: []genx.ToolConversationMessage{
+		{Role: "user", Content: "set screen brightness"},
+		{Role: "assistant", Content: "proposal to change the lamp"},
+		{Role: "user", Content: "40%"},
+	}}
+	if feedback, err := runtimeToolResponseVerifier(generator, "model/checker", resolve)(t.Context(), conversation, "screen write unavailable; not changed"); err != nil || feedback != "" {
+		t.Fatalf("verification: %q %v", feedback, err)
+	}
+	var input struct {
+		Users []string `json:"user_turns"`
+		MHS   []struct {
+			ID, HWD string
+			Read    bool     `json:"can_read"`
+			Write   bool     `json:"can_write"`
+			Fields  []string `json:"writable_fields"`
+		} `json:"mhs_capabilities"`
+	}
+	if err := json.Unmarshal([]byte(generator.seen), &input); err != nil {
+		// The fake records the system prompt before the raw proposal JSON.
+		start := strings.Index(generator.seen, `{"conversation":`)
+		if start < 0 || json.Unmarshal([]byte(generator.seen[start:]), &input) != nil {
+			t.Fatalf("missing structured verification input: %v", err)
+		}
+	}
+	if len(input.Users) != 2 || input.Users[0] != "set screen brightness" || input.Users[1] != "40%" {
+		t.Fatalf("assistant proposal became user authority: %v", input.Users)
+	}
+	if len(input.MHS) != 2 || input.MHS[0].ID != "display.main" || !input.MHS[0].Read || input.MHS[0].Write || len(input.MHS[0].Fields) != 0 {
+		t.Fatalf("read, revoked or external capability created screen write authority: %+v", input.MHS)
+	}
+	if input.MHS[1].ID != "led.status" || input.MHS[1].Read || !input.MHS[1].Write || len(input.MHS[1].Fields) != 1 || input.MHS[1].Fields[0] != "brightness_percent" {
+		t.Fatalf("lamp capability lost or borrowed: %+v", input.MHS)
+	}
+}
+
+func TestVerificationFeedbackCarriesSafeContextForPrimaryCorrection(t *testing.T) {
+	candidate := toolcatalog.Tool{Alias: "screen.read", Source: "mhs", Target: map[string]any{"id": "display.main", "hwd": "display", "operation": "read"}}
+	resolve := func(context.Context) ([]toolcatalog.Tool, error) {
+		return []toolcatalog.Tool{candidate, {Alias: "lamp.read", Source: "mhs", Description: "configured lamp focus", Target: map[string]any{"id": "led.status", "hwd": "led", "operation": "read"}, HTTP: &toolkit.Tool{HTTP: &toolkit.HTTPRequest{Headers: map[string]string{"private": "must-not-reach-primary"}}}}}, nil
+	}
+	generator := &verificationGenerator{result: `{"reason":"wrong_target"}`}
+	feedback, err := runtimeToolVerifier(generator, "model/checker", resolve)(t.Context(), candidate, json.RawMessage(`{}`), genx.ToolConversation{CurrentUser: "increase brightness"})
+	if err != nil || !strings.Contains(feedback, "configured lamp focus") || !strings.Contains(feedback, "display.main") || !strings.Contains(feedback, "led.status") || strings.Contains(feedback, "must-not-reach-primary") {
+		t.Fatalf("missing safe correction context: %q, %v", feedback, err)
+	}
+	if candidate.Target["id"] != "display.main" || !strings.Contains(feedback, "do not authorize a new action") {
+		t.Fatal("feedback changed candidate or granted independent authority")
+	}
+}
+
+func TestVerificationUserTurnsPreserveActualAudioTranscription(t *testing.T) {
+	for _, currentWireText := range []string{"", "turn light up"} {
+		users := toolVerificationUserTurns(genx.ToolConversation{CurrentUser: "turn light up", Messages: []genx.ToolConversationMessage{
+			{Role: "user", Content: "previous user turn"},
+			{Role: "assistant", Content: "proposed unrelated change"},
+			{Role: "user", Content: currentWireText},
+		}})
+		if len(users) != 2 || users[0] != "previous user turn" || users[1] != "turn light up" {
+			t.Fatalf("transcription omitted, duplicated or replaced by assistant: %v", users)
+		}
+	}
+}

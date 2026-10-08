@@ -29,6 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peersync"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerusage"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
@@ -643,12 +644,14 @@ func (s *Server) init() error {
 	s.pendingDeletionProcessor = pendingDeletionProcessor
 	manager.Tools = toolServer
 	manager.ToolBuilder = &toolkit.Builder{Tools: toolServer}
+	manager.ToolCatalog = &toolcatalog.Catalog{Tools: toolServer}
 	agentResolver := agenthost.ServiceResolver{
 		Workspaces:             workspaceServer,
 		Workflows:              workflowServer,
 		MemoryLayouts:          memoryLayoutServer,
 		RuntimeProfileForOwner: manager.runtimeProfileForOwner,
 		ToolBuilder:            manager.ToolBuilder,
+		ToolCatalog:            manager.ToolCatalog,
 		ToolCredentials:        credentialServer,
 		HTTPTools:              s.ToolHTTPExecutor,
 	}
@@ -740,6 +743,7 @@ func (s *Server) init() error {
 		},
 	}
 	s.peerService.public.DeviceReads = s.peerService.deviceReadsForAPIKey
+	manager.ToolCatalog.Devices = &runtimeDevices{public: s.peerService.public}
 	s.apiKeys = apiKeyServer
 	mux := http.NewServeMux()
 	publicHandler := s.peerService.publicHTTPHandler(apiKeyServer)

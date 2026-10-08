@@ -1,9 +1,11 @@
 package giztestcmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -111,19 +113,12 @@ func invokeUnary(ctx context.Context, client *gizcli.Client, step giztest.Step, 
 	if err := rpcapi.WriteEOS(stream); err != nil {
 		return nil, err
 	}
-	responseFrame, err := rpcapi.ReadFrame(stream)
+	response, err := readUnaryRPCResponse(stream)
 	if err != nil {
-		return nil, err
-	}
-	var response rpcpb.RpcResponse
-	if err := rpcapi.DecodeProtobufFrame(responseFrame, &response); err != nil {
 		return nil, err
 	}
 	if response.GetId() != step.ID {
 		return nil, fmt.Errorf("rpc %s response id %q does not match request %q", method, response.GetId(), step.ID)
-	}
-	if err := rpcapi.ReadEOS(stream); err != nil {
-		return nil, err
 	}
 	if rpcErr := response.GetStatus(); rpcErr != nil {
 		return nil, &rpcFailure{method: method, code: int32(rpcErr.GetCode()), message: rpcErr.GetMessage()}
@@ -147,6 +142,52 @@ func invokeUnary(ctx context.Context, client *gizcli.Client, step giztest.Step, 
 		return unwrapped, nil
 	}
 	return result, nil
+}
+
+// readUnaryRPCResponse accepts the same bounded protobuf continuation envelope
+// as the Go SDK. Large catalogs use text frames for binary continuation bytes;
+// those frames do not contain text or JSON messages.
+func readUnaryRPCResponse(reader io.Reader) (*rpcpb.RpcResponse, error) {
+	frame, err := rpcapi.ReadFrame(reader)
+	if err != nil {
+		return nil, err
+	}
+	var response rpcpb.RpcResponse
+	if frame.Type == rpcapi.FrameTypeBinary {
+		if err := rpcapi.DecodeProtobufFrame(frame, &response); err != nil {
+			return nil, err
+		}
+		if err := rpcapi.ReadEOS(reader); err != nil {
+			return nil, err
+		}
+		return &response, nil
+	}
+	if frame.Type != rpcapi.FrameTypeText {
+		return nil, fmt.Errorf("rpc: expected protobuf binary frame, got type %d", frame.Type)
+	}
+	const maxEnvelopeSize = rpcapi.MaxFrameSize * 16
+	var payload bytes.Buffer
+	payload.Write(frame.Payload)
+	for {
+		frame, err = rpcapi.ReadFrame(reader)
+		if err != nil {
+			return nil, err
+		}
+		if frame.Type == rpcapi.FrameTypeEOS {
+			break
+		}
+		if frame.Type != rpcapi.FrameTypeText {
+			return nil, fmt.Errorf("rpc: expected protobuf continuation frame, got type %d", frame.Type)
+		}
+		if payload.Len()+len(frame.Payload) > maxEnvelopeSize {
+			return nil, fmt.Errorf("rpc: protobuf response envelope too large")
+		}
+		payload.Write(frame.Payload)
+	}
+	if err := proto.Unmarshal(payload.Bytes(), &response); err != nil {
+		return nil, err
+	}
+	return &response, nil
 }
 
 func validateRPCRequestShape(method string, request any, specs map[string]giztest.VariableSpec) error {

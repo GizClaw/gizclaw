@@ -1,9 +1,9 @@
 ---
 # Declaration-only Tools bound by the e2e-giztest RuntimeProfile. Workspace
 # toolkit selections resolve them (server.workspace.toolkit.roundtrip), and the
-# giztest-toolkit-probe-* Workflows opt into them so a real model can list their
+# Profile Workflow bindings opt into aliases so a real model can list their
 # declarations (server.workspace.toolkit.exposure). Workflows that do not list
-# them never receive them, and the reserved .invalid host is never dialed.
+# aliases never receive them, and the reserved .invalid host is never dialed.
 # Device procedures are the predefined tool/v0 ClientTool set, not Admin Tools.
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList

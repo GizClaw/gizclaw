@@ -6714,12 +6714,24 @@ class Tool extends $pb.GeneratedMessage {
     $core.Iterable<$core.MapEntry<$core.String, ResourceI18nText>>? i18n,
     $0.Struct? inputSchema,
     $core.String? invokeName,
+    $core.String? source,
+    $0.Struct? target,
+    $core.bool? supported,
+    $core.bool? online,
+    $core.bool? available,
+    $core.String? unavailableReason,
   }) {
     final result = create();
     if (name != null) result.name = name;
     if (i18n != null) result.i18n.addEntries(i18n);
     if (inputSchema != null) result.inputSchema = inputSchema;
     if (invokeName != null) result.invokeName = invokeName;
+    if (source != null) result.source = source;
+    if (target != null) result.target = target;
+    if (supported != null) result.supported = supported;
+    if (online != null) result.online = online;
+    if (available != null) result.available = available;
+    if (unavailableReason != null) result.unavailableReason = unavailableReason;
     return result;
   }
 
@@ -6747,6 +6759,13 @@ class Tool extends $pb.GeneratedMessage {
     ..aOM<$0.Struct>(3, _omitFieldNames ? '' : 'inputSchema',
         subBuilder: $0.Struct.create)
     ..aOS(4, _omitFieldNames ? '' : 'invokeName')
+    ..aOS(5, _omitFieldNames ? '' : 'source')
+    ..aOM<$0.Struct>(6, _omitFieldNames ? '' : 'target',
+        subBuilder: $0.Struct.create)
+    ..aOB(7, _omitFieldNames ? '' : 'supported')
+    ..aOB(8, _omitFieldNames ? '' : 'online')
+    ..aOB(9, _omitFieldNames ? '' : 'available')
+    ..aOS(10, _omitFieldNames ? '' : 'unavailableReason')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6798,16 +6817,76 @@ class Tool extends $pb.GeneratedMessage {
   $core.bool hasInvokeName() => $_has(3);
   @$pb.TagNumber(4)
   void clearInvokeName() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.String get source => $_getSZ(4);
+  @$pb.TagNumber(5)
+  set source($core.String value) => $_setString(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasSource() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearSource() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $0.Struct get target => $_getN(5);
+  @$pb.TagNumber(6)
+  set target($0.Struct value) => $_setField(6, value);
+  @$pb.TagNumber(6)
+  $core.bool hasTarget() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearTarget() => $_clearField(6);
+  @$pb.TagNumber(6)
+  $0.Struct ensureTarget() => $_ensure(5);
+
+  @$pb.TagNumber(7)
+  $core.bool get supported => $_getBF(6);
+  @$pb.TagNumber(7)
+  set supported($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasSupported() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearSupported() => $_clearField(7);
+
+  @$pb.TagNumber(8)
+  $core.bool get online => $_getBF(7);
+  @$pb.TagNumber(8)
+  set online($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasOnline() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearOnline() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $core.bool get available => $_getBF(8);
+  @$pb.TagNumber(9)
+  set available($core.bool value) => $_setBool(8, value);
+  @$pb.TagNumber(9)
+  $core.bool hasAvailable() => $_has(8);
+  @$pb.TagNumber(9)
+  void clearAvailable() => $_clearField(9);
+
+  @$pb.TagNumber(10)
+  $core.String get unavailableReason => $_getSZ(9);
+  @$pb.TagNumber(10)
+  set unavailableReason($core.String value) => $_setString(9, value);
+  @$pb.TagNumber(10)
+  $core.bool hasUnavailableReason() => $_has(9);
+  @$pb.TagNumber(10)
+  void clearUnavailableReason() => $_clearField(10);
 }
 
 class ToolListRequest extends $pb.GeneratedMessage {
   factory ToolListRequest({
     $core.String? cursor,
     $fixnum.Int64? limit,
+    $core.String? workflowName,
+    $core.String? workspaceName,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
+    if (workflowName != null) result.workflowName = workflowName;
+    if (workspaceName != null) result.workspaceName = workspaceName;
     return result;
   }
 
@@ -6826,6 +6905,8 @@ class ToolListRequest extends $pb.GeneratedMessage {
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
+    ..aOS(3, _omitFieldNames ? '' : 'workflowName')
+    ..aOS(4, _omitFieldNames ? '' : 'workspaceName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -6864,6 +6945,24 @@ class ToolListRequest extends $pb.GeneratedMessage {
   $core.bool hasLimit() => $_has(1);
   @$pb.TagNumber(2)
   void clearLimit() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get workflowName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set workflowName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasWorkflowName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearWorkflowName() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get workspaceName => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set workspaceName($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasWorkspaceName() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearWorkspaceName() => $_clearField(4);
 }
 
 class ToolListResponse extends $pb.GeneratedMessage {
@@ -6967,9 +7066,13 @@ class ToolListResponse extends $pb.GeneratedMessage {
 class ToolGetRequest extends $pb.GeneratedMessage {
   factory ToolGetRequest({
     $core.String? name,
+    $core.String? workflowName,
+    $core.String? workspaceName,
   }) {
     final result = create();
     if (name != null) result.name = name;
+    if (workflowName != null) result.workflowName = workflowName;
+    if (workspaceName != null) result.workspaceName = workspaceName;
     return result;
   }
 
@@ -6987,6 +7090,8 @@ class ToolGetRequest extends $pb.GeneratedMessage {
       package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
       createEmptyInstance: create)
     ..aOS(1, _omitFieldNames ? '' : 'name')
+    ..aOS(2, _omitFieldNames ? '' : 'workflowName')
+    ..aOS(3, _omitFieldNames ? '' : 'workspaceName')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -7016,6 +7121,24 @@ class ToolGetRequest extends $pb.GeneratedMessage {
   $core.bool hasName() => $_has(0);
   @$pb.TagNumber(1)
   void clearName() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get workflowName => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set workflowName($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasWorkflowName() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearWorkflowName() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get workspaceName => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set workspaceName($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasWorkspaceName() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearWorkspaceName() => $_clearField(3);
 }
 
 class ToolGetResponse extends $pb.GeneratedMessage {

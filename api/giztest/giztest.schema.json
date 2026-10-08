@@ -515,6 +515,10 @@
             "run.workspace.set",
             "social.ping"
           ]
+        },
+        "observe_only": {
+          "type": "boolean",
+          "description": "Read the current inbound counter without waiting or asserting expect_calls; useful for failure receipts in finally."
         }
       },
       "allOf": [
@@ -535,6 +539,34 @@
             "not": {
               "required": [
                 "tool"
+              ]
+            }
+          }
+        },
+        {
+          "if": {
+            "required": [
+              "observe_only"
+            ],
+            "properties": {
+              "observe_only": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "expect_calls"
+                  ]
+                },
+                {
+                  "required": [
+                    "response"
+                  ]
+                }
               ]
             }
           }
@@ -1283,6 +1315,23 @@
         },
         "output": {
           "$ref": "#/$defs/output"
+        },
+        "client_rpc": {
+          "allOf": [
+            {
+              "$ref": "#/$defs/client_rpc"
+            },
+            {
+              "required": [
+                "observe_only"
+              ],
+              "properties": {
+                "observe_only": {
+                  "const": true
+                }
+              }
+            }
+          ]
         }
       },
       "oneOf": [
@@ -1309,6 +1358,11 @@
         {
           "required": [
             "output"
+          ]
+        },
+        {
+          "required": [
+            "client_rpc"
           ]
         }
       ]

@@ -129,6 +129,14 @@ Composition layer 还可以在 `StreamCtrl` 上附加仅限进程内使用的 re
 
 Provider call ID 不会越过 `ToolInvoker` 边界。消费它的 Transformer 自己管理 invocation 内的关联、顺序、重复 ID 和调用额度。`Toolkit` 是基于可执行 `FuncTool` 的不可变 standalone 实现：它快照声明、校验参数、执行配对函数并序列化结果；其他实现可以从产品资源解析工具，而不向 GenX Transformer 暴露内部机制。
 
+Eino 在内部执行 ToolCall 时以 `ToolConversation` 附加当前真实用户输入、已使用的对话和
+本轮 continuation。`ContinuationStart` 区分输入/历史与当前轮新产生的提议和结果。
+Tool 结果的 arguments 通过原生调用 ID 与同名提议精确关联，再移除 ID；同名工具的
+不同调用不按名称猜参数。没有匹配提议的结果不补参数，也不合成执行证明。
+音频轮使用组件实际报告的 transcript。快照独立拥有 message/arguments，不含 provider call ID；调用方读取
+时得到自己的副本。产品 ToolInvoker 可以消费它做执行前检查，GenX 不解释产品权限或
+语义规则，也不据此选择另一工具。
+
 ### Usage 计量
 
 Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage)，把 [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) 交给 context 中由 [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) 设置的 recorder。Generator 与 Transformer 都从各自 goroutine 调用它，recorder 必须并发安全且不能阻塞；没有 recorder 时记录被丢弃。Stream 终态中的 `Usage` 仍只供直接调用方参考，计量以 `UsageRecord` 为准。
@@ -184,3 +192,5 @@ flowchart LR
 - 可按名称选择的能力通过对应子包的 mux 注册，不由产品服务维护第二套路由表。
 - Provider SDK adapter 放在拥有该具体能力的 package；provider credential 和产品 model resource 仍属于 `pkgs/gizclaw/services/ai`。
 - 产品 Agent instance、workspace、HTTP/RPC 与 credential ownership 不属于 `genx`。可复用的 Graph Transformer 可以接收通用 Store interface，但不能反向依赖 GizClaw 产品 runtime。
+
+`ErrInvalidToolArguments` 标记模型 ToolCall 参数的非法 JSON；Transformer 可以在有限预算内要求重新生成，但不能替换参数或宣称已执行。

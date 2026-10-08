@@ -41,8 +41,17 @@ typedef struct _gizclaw_rpc_v1_ClientMhsV0ReadRequest {
     gizclaw_rpc_v1_ClientHwd hwd;
 } gizclaw_rpc_v1_ClientMhsV0ReadRequest;
 
+/* Present capabilities report the fields this concrete instance can write.
+ Omitted capabilities mean unknown; fields in a generic HWD schema do not
+ imply write support on a particular device. */
+typedef struct _gizclaw_rpc_v1_MhsV0WriteCapabilities {
+    pb_callback_t fields;
+} gizclaw_rpc_v1_MhsV0WriteCapabilities;
+
 typedef struct _gizclaw_rpc_v1_ClientMhsV0ReadResponse {
     pb_callback_t payload; /* Encoded read_response message declared by hwd. */
+    bool has_write_capabilities;
+    gizclaw_rpc_v1_MhsV0WriteCapabilities write_capabilities;
 } gizclaw_rpc_v1_ClientMhsV0ReadResponse;
 
 typedef struct _gizclaw_rpc_v1_ClientMhsV0WriteRequest {
@@ -191,6 +200,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_hwd_ENUMTYPE gizclaw_rpc_v1_ClientHwd
 
 
+
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_hwd_ENUMTYPE gizclaw_rpc_v1_ClientHwd
 
 
@@ -212,7 +222,8 @@ extern "C" {
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_ClientHwdOptions_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_init_default {"", _gizclaw_rpc_v1_ClientHwd_MIN}
-#define gizclaw_rpc_v1_ClientMhsV0ReadResponse_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ClientMhsV0ReadResponse_init_default {{{NULL}, NULL}, false, gizclaw_rpc_v1_MhsV0WriteCapabilities_init_default}
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_init_default {"", _gizclaw_rpc_v1_ClientHwd_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientMhsV0WriteResponse_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WifiHwdReadResponse_init_default {false, 0, false, "", false, "", false, 0, false, ""}
@@ -231,7 +242,8 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeakerHwdWriteResponse_init_default {false, gizclaw_rpc_v1_SpeakerHwdReadResponse_init_default}
 #define gizclaw_rpc_v1_ClientHwdOptions_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_init_zero {"", _gizclaw_rpc_v1_ClientHwd_MIN}
-#define gizclaw_rpc_v1_ClientMhsV0ReadResponse_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_ClientMhsV0ReadResponse_init_zero {{{NULL}, NULL}, false, gizclaw_rpc_v1_MhsV0WriteCapabilities_init_zero}
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_init_zero {"", _gizclaw_rpc_v1_ClientHwd_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientMhsV0WriteResponse_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WifiHwdReadResponse_init_zero {false, 0, false, "", false, "", false, 0, false, ""}
@@ -256,7 +268,9 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientHwdOptions_write_response_tag 4
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_id_tag 1
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_hwd_tag 2
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_fields_tag 1
 #define gizclaw_rpc_v1_ClientMhsV0ReadResponse_payload_tag 1
+#define gizclaw_rpc_v1_ClientMhsV0ReadResponse_write_capabilities_tag 2
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_id_tag 1
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_hwd_tag 2
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_payload_tag 3
@@ -314,10 +328,17 @@ X(a, STATIC,   SINGULAR, UENUM,    hwd,               2)
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_DEFAULT NULL
 
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_FIELDLIST(X, a) \
+X(a, CALLBACK, REPEATED, STRING,   fields,            1)
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_CALLBACK pb_default_field_callback
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_DEFAULT NULL
+
 #define gizclaw_rpc_v1_ClientMhsV0ReadResponse_FIELDLIST(X, a) \
-X(a, CALLBACK, SINGULAR, BYTES,    payload,           1)
+X(a, CALLBACK, SINGULAR, BYTES,    payload,           1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  write_capabilities,   2)
 #define gizclaw_rpc_v1_ClientMhsV0ReadResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ClientMhsV0ReadResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ClientMhsV0ReadResponse_write_capabilities_MSGTYPE gizclaw_rpc_v1_MhsV0WriteCapabilities
 
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   id,                1) \
@@ -428,6 +449,7 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  applied,           1)
 
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientHwdOptions_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientMhsV0ReadRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_MhsV0WriteCapabilities_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientMhsV0ReadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientMhsV0WriteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientMhsV0WriteResponse_msg;
@@ -449,6 +471,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeakerHwdWriteResponse_msg;
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_ClientHwdOptions_fields &gizclaw_rpc_v1_ClientHwdOptions_msg
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_fields &gizclaw_rpc_v1_ClientMhsV0ReadRequest_msg
+#define gizclaw_rpc_v1_MhsV0WriteCapabilities_fields &gizclaw_rpc_v1_MhsV0WriteCapabilities_msg
 #define gizclaw_rpc_v1_ClientMhsV0ReadResponse_fields &gizclaw_rpc_v1_ClientMhsV0ReadResponse_msg
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_fields &gizclaw_rpc_v1_ClientMhsV0WriteRequest_msg
 #define gizclaw_rpc_v1_ClientMhsV0WriteResponse_fields &gizclaw_rpc_v1_ClientMhsV0WriteResponse_msg
@@ -469,6 +492,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeakerHwdWriteResponse_msg;
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ClientHwdOptions_size depends on runtime parameters */
+/* gizclaw_rpc_v1_MhsV0WriteCapabilities_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientMhsV0ReadResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientMhsV0WriteRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientMhsV0WriteResponse_size depends on runtime parameters */

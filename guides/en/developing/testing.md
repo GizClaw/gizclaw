@@ -5,6 +5,12 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
+CI runs only tests that require no online database or live AI service. Database
+integration jobs provision temporary PostgreSQL, ClickHouse or PGVector instances;
+protocol and SDK E2E use isolated local services and deterministic provider fixtures.
+E2E and quality evaluations that need an online database, real model calls or provider
+credentials run explicitly on the local host, outside CI, including manual CI dispatch.
+
 E2E entrypoints that build the GizClaw CLI install the locked Node workspaces
 and build the embedded console before Go compilation, including container builds.
 No manual asset or manifest copy is required; standalone build prerequisites are
@@ -1621,7 +1627,7 @@ Regression checks have two layers. `tests/locomo-e2e/run_regression.sh` requires
 
 Doubao `doubao-embedding-vision-251215` accepts text through Ark `/embeddings/multimodal`. Set `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal` and explicitly provide the Ark embedding key/base URL, model, and 1024 or 2048 dimensions. Each text is one request, preserving one vector per batch input. Corpus/query instructions differ and their fingerprint enters reports. Provider errors or invalid vectors cannot become successful empty writes. Changing embedders requires regenerating vectors in a separate collection; Qwen and Doubao vectors cannot be mixed.
 
-Manual CI `workflow_dispatch` accepts `mem0_quality` to run complete conv-30 with real models and upload redacted JSON. It requires repository secrets `GIZCLAW_DEEPSEEK_API_KEY` and `GIZCLAW_VOLC_ARK_API_KEY`; missing credentials fail. Unselected runs make no model calls. This job fixes Lite extraction (requesting `service_tier: fast`), Doubao Vision embeddings (1024 dimensions), and DeepSeek answers; conv-30 is not the complete ten-conversation LoCoMo benchmark.
+Run complete conv-30 quality evaluation explicitly on the local host with `tests/locomo-e2e/run_docker.sh mem0-pgvector`, configuring model credentials as described here and retaining redacted JSON. CI neither calls real models nor provides a manual trigger for live model evaluation. Conv-30 is not the complete ten-conversation LoCoMo benchmark.
 
 Self-hosted LoCoMo uses `sdk/go/mem0` health checks and the production adapter
 with generated request DTOs/HTTP clients. PG instructions travel as request-local
@@ -1913,3 +1919,58 @@ aliases all select Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`), request
 `service_tier: fast`, and disable thinking by default. The `script-judge` alias
 can still select the judge model independently. The live low-latency Giztest
 and first-response matrix on this page verify the actual tier and latency.
+
+## Runtime Tool aliases
+
+Run the isolated native Server/Edge/Peer lane with the authorized provider
+credential file; its contents remain process-local:
+
+```bash
+GIZCLAW_RUNTIME_TOOL_CREDENTIAL_FILE=/secure/gizclaw.env \
+  bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
+```
+
+The default matrix contains 428 native documents and 1280 tasks: 80 business
+utterances, 20 actual-model dialogs, unpredictable results, long history and
+target-isolation cases at 10/30/60/100 available Tools with three repetitions,
+plus contract checks, an external HTTPS echo and two probes. Each task has an
+independent Profile. Filter/repeat/smoke overrides are diagnostic subsets and
+cannot replace full acceptance. Every failure and skipped or missing task is
+retained under ignored `.testbench/runtime-tools-*/reports/`, with exact source
+and binary hashes, source patch, inputs, decoded protocol receipts and reports.
+If a container interruption produces no giztest.json, the summary is FAIL with every
+expected task missing and its outcome unknown; it fabricates no execution or timing scores.
+
+Only this lane's test Server container uses `223.5.5.5` and `119.29.29.29` as external DNS
+forwarders. Docker service names still resolve within the project network; host, shared Docker
+and production settings are not changed. DNS, connection and provider failures remain FAIL,
+and neither resolver configuration nor a rerun overwrites an earlier failed receipt.
+
+Business bindings select `verification_model`; the primary model still produces
+native calls and clarification. Independent checks cover each mutating proposal, fixed-target MHS read
+and final reply, with at most two corrections. Complete-parameter readiness
+includes this execution cost. Final text is buffered for checking, so its first
+chunk latency must be distinguished from unverified streaming. Semantic
+misclassification, exhausted corrections and provider/session errors remain
+failures. Mutation counts, fixed targets and parameters use exact native
+assertions; a separate real model checks zero-action replies for false claims.
+
+Program fixtures have independent Workflow/Workspace IDs and program system
+content. After checking the acknowledged selection's enum, parameters and count,
+the lane explicitly reloads and checks selected/active Workspace and `RUNNING`.
+An ACK alone does not prove committed reload or physical script playback.
+G02 executes an external HTTPS Tool and requires the model to use the random
+value returned from a private fixed header, absent from user input. Positive
+echo acceptance does not qualify every provider or credential-revocation path.
+Focus fixtures update real Profile metadata; audio fixtures qualify protocol
+state. Neither proves a production focus UI or physical audio playout.
+
+G03 invokes `device.reboot` using a real owner API key and checks enum 4 and exact protobuf JSON parameters. During the acknowledged reboot transition, catalog and HTTP writes reject that owner while another Peer on the same Profile stays available. Both write counters must remain zero. This qualifies the Server transition and owner isolation without physical hardware.
+
+G04 configures an 800-byte description for each of 100 genuinely available catalog entries, forcing a protobuf continuation envelope, then checks the entire catalog, descriptions and availability. Go Giztest unary RPC requires EOS and bounds a complete envelope to 16 maximum frames; truncated, mixed and oversized envelopes fail.
+
+G05 directly plays indices 0→1→0 through an owner API key, checking enum 14, the effective index and cumulative decoded calls after each action. G06 first completes one real model playback turn, then issues two same-owner HTTP playback calls to prove the device channel remains available after a conversation. Go SDK inbound unary RPC releases its request transport on both success and failure; every request still owns a separate channel.
+
+Native fixtures explicitly retain the absence of a default focus in lamp/screen catalog descriptions. With a configured focus, other objects are explicitly identified as non-default. This context grants no new user intent, and an existing pending target still takes precedence.
+
+The lane hashes its runner, business inputs and Monitor templates alongside code; initialized private-key configuration is excluded from reports. Server runtime profiles use a dedicated ObjectStore, are captured every five minutes and are retained before temporary-state cleanup. Server and Edge container logs each retain up to 256 MiB, with 32 MiB for the control fixture, preserving failure timelines beyond default rotation. Profiles and logs support diagnosis and do not replace task receipts or prove acceptance.

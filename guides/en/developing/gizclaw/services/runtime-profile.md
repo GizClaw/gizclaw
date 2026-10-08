@@ -70,7 +70,7 @@ Each Workflow binding can set optional `sort_order`, a signed int32. Both `serve
 
 The maps under `resources` bind environment aliases to canonical Admin resource IDs. Model aliases name semantic roles such as `chat`, `extraction`, `embedding`, `asr`, `realtime`, and `translation`; they do not contain provider or canonical Model names. Model and Voice aliases are independent environment variables, not Workflow members. Workflow specs and Workspace parameters store symbolic aliases, so each Workspace reload resolves the latest active binding. The same binary can therefore use production or debug RuntimeProfiles without rebuilding.
 
-`resources.tools` binds Admin HTTP Tools for AI and Workflow runtimes. A binding is never handed to a Workflow automatically; the Workflow must list the canonical ID in `spec.toolkit.tool_ids`, see [Tools exposure policy](/en/developing/gizclaw/services/runtime/toolkit#exposure-policy). Device procedures use the predefined `tool/v0` registry and are independent of this catalog.
+`resources.tools` binds Admin HTTP resources, fixed current-Peer MHS operations, or predefined ClientTool procedures. Each Profile Workflow binding explicitly selects aliases through `toolkit.tool_names`; omission injects none. Workspace policies only narrow those aliases. See [Runtime Tools](/en/developing/gizclaw/services/runtime/toolkit).
 
 Every RuntimeProfile alias is 1-63 bytes of dot-separated lowercase kebab-case segments. Undotted names such as `asr` and `extract` identify shared capabilities; names such as `journey.model`, `journey.narrator`, and `story.journey-center-earth` provide independently bindable consumer slots. Each complete name remains one opaque key in a flat map. The Server preserves it exactly and performs no segment lookup, prefix matching, wildcard matching, or fallback from `journey.narrator` to `narrator`. Dotted and hyphenated forms such as `journey.narrator` and `journey-narrator` are distinct aliases. Empty segments, underscores, and leading or trailing hyphens within a segment are invalid.
 
@@ -145,7 +145,7 @@ CLI `admin registration-tokens create/put -f` accepts the corresponding JSON fie
 
 ## Peer surface and ownership
 
-- Workflow, Model, Voice, and Tool list/get return safe scoped-name projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from a dynamic name. Projections do not expose canonical IDs, providers, tenants, credentials, owners, or execution routing.
+- Workflow, Model, Voice, and Tool list/get return safe scoped-name projections only. An AST Workflow projection includes its Workspace language-pair default so a client never infers behavior from a dynamic name. Projections do not expose Admin resource IDs, providers, tenants, credentials, owners, or private HTTP execution routing. Tool projections include their fixed hardware instance or procedure target.
 - Workflow list accepts multiple tags as an AND filter. Workflow get uses the name projected by the current RuntimeProfile. There is no `source=runtime|owned` selector.
 - Workflow, Model, Credential, and Tool create/put/delete are not Peer RPC methods. Admin owns canonical resource management.
 - Workspace create requires `workflow_name`; Workspace list has no required filter. The Server stores the workflow name as an internal Workspace label and does not return generic labels through Peer RPC. The same typed create capability is used by OpenAI Conversation creation; Admin cannot create or apply a Workspace.
@@ -156,6 +156,13 @@ Firmware remains an independent Admin resource and is not part of the RuntimePro
 RuntimeProfile uses SQL `runtime_profiles`, `registration_tokens`, `registration_token_activations`, and `runtime_profile_owners`. Resource configuration remains JSON; identities, versions, limits, and bindings use separate columns. Lists push cursors and limits into SQL. Profile/token updates and deletes compare incarnation and row_version. Registration and snapshot publication serialize by owner within each process, while token write locks enforce capacity across processes.
 
 At initialization, `services/runtime/runtimeprofile` builds a pure in-memory SQLite index from every persisted RuntimeProfile. Persistent SQL remains authoritative and stores each complete Profile. The memory database splits each Workflow, Model, Voice, Tool, Memory, app_config, safety fence, and MHS v0 device into a separate `(runtime_profile_id, kind, name, value_json)` row, with Workflow tags in searchable rows. `Index.ListProfileIDs` enumerates all Profiles, `Index.GetEntry` resolves one Profile ID/kind/name, and `Index.ListEntries` reads entries across Profiles by kind, and `Index.ListWorkflowsByTags` uses AND semantics for opaque tag strings without disk access. The device Workflow catalog also filters through this SQLite snapshot at a matching Profile revision. These internal reads do not expose credential-bearing entries to Peers. A published memory SQLite instance is read-only. After a local RuntimeProfile commit, the Server builds and publishes a new instance; it also rebuilds every five minutes. Publication atomically switches readers to the new instance and closes the old one. A durable write returns success after commit even if refreshing the memory snapshot fails; the Server logs the failure, revision-aware reads retry it, and the five-minute rotation retries it. Writes by other Servers appear on the next rotation, or earlier through `RefreshMemoryIndex`. Shutdown releases the memory database, and startup rebuilds it from persistent data.
+
+Persistent Profiles are read in canonical-ID batches of at most 64. Each SQL cursor and connection
+lease is released before invoking the memory-index consumer, so slow construction does not hold
+the business SQL connection. The scan captures an upper ID; later IDs enter a subsequent refresh.
+Concurrent changes do not form one global point-in-time snapshot. Each complete Profile retains
+its persisted revision, device reads still verify the current revision, and failures retain the
+published index. Consumer errors or cancellation stop construction without publishing partial results.
 
 Admin creation and updates require registration-token input to fit within 512 UTF-8 bytes, rather than 512 characters, matching the admission value limit. Oversized input returns 400 before persistence.
 
@@ -233,3 +240,7 @@ IDs are unique across the manifest, case-sensitive and at most 64 ASCII bytes ma
 ## Quota
 
 `spec.quota` is an optional discriminated policy. Omission/null defaults to unlimited; explicit `{type: unlimited}` also skips quota checks. `{type: custom, endpoint: ..., api_key: ...}` binds the external Quota HTTP API and requires both valid fields. Supplied empty, incomplete or unknown policies are rejected. SQL `runtime_profiles.quota_json` stores absence as null and explicit policies as tagged objects; quota participates in the Profile revision. Usage persistence is independently optional, while custom policy requires SQL usage for reports. See [Quota](/en/developing/api/http/quota) for the protocol, refresh, both deadlines and Docker acceptance.
+
+## Profile Tool aliases
+
+`resources.tools` uses dedicated source bindings. `workflows.<alias>.toolkit.tool_names` is the only runtime opt-in authority; Workspace aliases can only narrow it. HTTP resource IDs, fixed current-Peer MHS instances and predefined ClientTool programs use the same [runtime catalog](./runtime/toolkit). Legacy Workflow fixed Tool IDs grant nothing. Devices report concrete MHS instance capabilities through `client.rpc.methods.list.mhs_v0`; missing capability information is unknown.

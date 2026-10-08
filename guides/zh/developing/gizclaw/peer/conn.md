@@ -91,6 +91,11 @@ Friend 与 Friend Group 的 SFU Workspace 使用连接内的权限快照。首�
 
 Event stream 拥有后台刷新任务，默认每 5 秒刷新一次，每次查询最多 2 秒；旧结果最多使用 7 秒。刷新失败、撤权或结果过期时，本地拒绝输入，错误分别使用 `SFU_ACCESS_CHECK_FAILED`、`SFU_ACCESS_REVOKED` 或 `SFU_RUNTIME_NOT_ATTACHED`。过期事件不自行重试远程查询，由后台刷新恢复；连接或 Event stream 关闭时取消并回收任务。已经建立的 SFU participant 还会自行刷新 binding，停止已撤权音频的转发。普通 Workflow 的权限刷新不扫描共享 Redis。
 
+权限失败日志使用封闭的 stage 区分运行版本等待、快照过期、run-state 查询、查询 context
+和 Workspace/binding lookup，并记录适用的 timeout、canceled、版本或快照年龄。
+日志在快照锁之外输出，不包含原始查询错误或输入 payload；本地未找到共享 Workspace
+仍按原有 authoritative binding 路径判断，不将这个预期分支记录成查询失败。
+
 音频输入 BOS 可声明 `StreamBegin.input_mode` 为 `PUSH_TO_TALK` 或 `REALTIME`。Doubao realtime Workspace 未配置 `parameters.input` 时默认 Push-to-Talk；这类 Workspace 收到声明为 REALTIME 的 BOS 时，在接受音频包前返回带 `WORKSPACE_INPUT_MODE_MISMATCH` 的 EOS。显式 REALTIME Workspace 也接受 Push-to-Talk 输入，因为该路径可由 Provider 结束话轮。省略 `input_mode` 的旧客户端沿用原有行为，Server 无法从相同的 BOS 和音频包推断它原本打算使用哪种模式。Go PeerStream 的音频 BOS 会透传声明，Giztest 根据 `peer_stream.mode` 设置它；JavaScript `ContinuousAudioRoute.inputMode` 和 Flutter `WorkspaceEventSession.beginAudio(inputMode:)` 可供调用方显式声明，省略时仍发送 UNSPECIFIED。
 
 

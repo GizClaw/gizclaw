@@ -27,7 +27,7 @@ Workflow 与 RuntimeProfile snapshot 构造。
 
 Eino、DashScope Realtime 与豆包 Realtime Duplex factory 都把同一个
 接口注入已有 Transformer config。Provider ToolCall ID 与 continuation 始终留在
-Transformer 内部；AgentHost 只按 canonical Resource name 分发到 `http_request`；Tool control traffic 留在 Transformer 内部。
+Transformer 内部；AgentHost 按 Profile alias 的稳定模型函数名解析，并分发到固定 HTTP resource、当前 Peer MHS 实例或 ClientTool 程序；Tool control traffic 留在 Transformer 内部。
 
 OpenAI Responses 通过相同 canonical Resolver 与共享 Runtime Registry 建立 request-scoped direct Workspace attachment，不读取或修改 PeerRun selection。Server-side HTTP Tool 继续遵守 Workflow policy。受限 History observer 返回 Response projection 使用的准确已持久化 assistant entry。
 

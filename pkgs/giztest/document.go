@@ -149,6 +149,7 @@ type HTTPOperation struct {
 	Status         int               `json:"status,omitempty" yaml:"status,omitempty"`
 }
 type ClientRPCOperation struct {
+	ObserveOnly bool   `json:"observe_only,omitempty" yaml:"observe_only,omitempty"`
 	Tool        string `json:"tool,omitempty" yaml:"tool,omitempty"`
 	Method      string `json:"method" yaml:"method"`
 	Response    any    `json:"response,omitempty" yaml:"response,omitempty"`
@@ -575,6 +576,14 @@ func (d *Document) validateSemantics() error {
 			return fmt.Errorf("step %d requires id", i+1)
 		}
 		op := step.Operation()
+		if op == "client_rpc" {
+			if step.ClientRPC.ObserveOnly && (step.ClientRPC.ExpectCalls != nil || step.ClientRPC.Response != nil) {
+				return fmt.Errorf("step %s observation cannot set response or expect_calls", step.ID)
+			}
+			if i >= len(d.Steps) && !step.ClientRPC.ObserveOnly {
+				return fmt.Errorf("step %s finally can only observe client RPC", step.ID)
+			}
+		}
 		if ids[step.ID] {
 			return fmt.Errorf("duplicate step id %q", step.ID)
 		}

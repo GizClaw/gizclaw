@@ -90,26 +90,35 @@ func (s *peerHTTP) InvokeClientTool(ctx context.Context, request peerhttp.Invoke
 	if err := decoder.Decode(&body); err != nil {
 		return clientToolFailure(invalidDeviceRequest("invalid tool arguments")), nil
 	}
-	tool, err := rpcapi.ClientToolByName(body.Tool)
-	if err != nil {
-		return clientToolFailure(invalidDeviceRequest("unknown tool")), nil
-	}
-	if tool == rpcpb.ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET {
-		if failure := s.resolveToolWorkspace(ctx, owner, body.Args); failure != nil {
-			return clientToolFailure(failure), nil
-		}
-	}
-	message, err := rpcapi.ClientToolRequestMessage(tool, body.Args)
-	if err != nil {
-		return clientToolFailure(invalidDeviceRequest("invalid tool arguments")), nil
-	}
-	opts, failure := validateClientToolRequest(message)
+	value, failure := s.invokeClientToolForOwner(ctx, owner, body.Tool, body.Args, nil)
 	if failure != nil {
 		return clientToolFailure(failure), nil
 	}
+	return peerhttp.InvokeClientTool200JSONResponse{Result: value}, nil
+}
+
+func (s *peerHTTP) invokeClientToolForOwner(ctx context.Context, owner giznet.PublicKey, name string, args map[string]any, authorize func(context.Context) *deviceControlError) (map[string]any, *deviceControlError) {
+	tool, err := rpcapi.ClientToolByName(name)
+	if err != nil {
+		return nil, invalidDeviceRequest("unknown tool")
+	}
+	if tool == rpcpb.ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET {
+		if failure := s.resolveToolWorkspace(ctx, owner, args); failure != nil {
+			return nil, failure
+		}
+	}
+	message, err := rpcapi.ClientToolRequestMessage(tool, args)
+	if err != nil {
+		return nil, invalidDeviceRequest("invalid tool arguments")
+	}
+	opts, failure := validateClientToolRequest(message)
+	opts.authorize = authorize
+	if failure != nil {
+		return nil, failure
+	}
 	payload, err := proto.Marshal(message)
 	if err != nil {
-		return clientToolFailure(internalDeviceControlError()), nil
+		return nil, internalDeviceControlError()
 	}
 	var responseMessage proto.Message
 	_, failure = callDeviceControl(ctx, s.DeviceControl, owner, opts, func(ctx context.Context, client *rpcClient, conn net.Conn) (*rpcpb.ClientToolV0InvokeResponse, error) {
@@ -150,13 +159,13 @@ func (s *peerHTTP) InvokeClientTool(ctx context.Context, request peerhttp.Invoke
 		return nil
 	})
 	if failure != nil {
-		return clientToolFailure(failure), nil
+		return nil, failure
 	}
 	value, err := rpcapi.ClientToolResultJSON(responseMessage)
 	if err != nil {
-		return clientToolFailure(&deviceControlError{http.StatusBadGateway, deviceErrorCode, "device returned an invalid result"}), nil
+		return nil, &deviceControlError{http.StatusBadGateway, deviceErrorCode, "device returned an invalid result"}
 	}
-	return peerhttp.InvokeClientTool200JSONResponse{Result: value}, nil
+	return value, nil
 }
 
 func (s *peerHTTP) resolveToolWorkspace(ctx context.Context, owner giznet.PublicKey, args map[string]any) *deviceControlError {

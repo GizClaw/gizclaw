@@ -35,6 +35,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerusage"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -159,6 +160,7 @@ type Manager struct {
 	SpeechLimits SpeechLimits
 	Tools        *toolkit.Server
 	ToolBuilder  *toolkit.Builder
+	ToolCatalog  *toolcatalog.Catalog
 	// SFU is the Server-level SFU connector configuration handed to the sfu
 	// Workflow driver. Credentials never leave the Server process.
 	SFU sfu.Config
@@ -300,11 +302,8 @@ func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.Publ
 	if m == nil || m.Peers == nil {
 		return false
 	}
-	peer, err := m.Peers.LoadPeer(ctx, publicKey)
-	if err != nil {
-		return false
-	}
-	return peer.Status == apitypes.PeerRegistrationStatusActive && peer.Role == role
+	allowed, err := m.Peers.CheckActiveRole(ctx, publicKey, role)
+	return err == nil && allowed
 }
 
 func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {

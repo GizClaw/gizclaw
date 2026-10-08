@@ -57,10 +57,11 @@ connection、Edge transport 和正在激活的 reservation；摘除时在 Manage
 blocked 强制由 activation 与 block 时的连接撤销共同完成，旧连接的 retiring 标记
 仅使用内存。共享存储变慢不会通过每次普通 service 打开传播成 transport 拒绝。
 
-Admin/Edge role service 保留原有的 `allowActivePeerRole` 查询及宿主 policy 回退。
-角色查询沿用调用方 context，DataChannel 回调沿用 `context.Background()`，不添加
-固定超时；Manager 角色授权仍要求 active 状态及匹配 role。宿主 Admin grant 不会
-让连接绕过 activation 的 blocked 检查。
+Admin/Edge role service 通过 `peer.Server.CheckActiveRole` 读取当前 KV 角色与状态，
+并检查删除围栏；不查询只用于展示的 SQL Firmware 投影。KV 错误、删除、非 active
+或 role 不匹配均拒绝，宿主 policy 回退保留。角色查询沿用调用方 context，
+DataChannel 回调沿用 `context.Background()`，不添加固定超时，也不缓存权限。
+宿主 Admin grant 不会让连接绕过 activation 的 blocked 检查。
 
 ## 内置 registration-token policy
 

@@ -4967,13 +4967,19 @@ func (x *ToolkitPolicy) GetToolNames() *ToolkitPolicyToolNames {
 }
 
 type Tool struct {
-	state         protoimpl.MessageState       `protogen:"open.v1"`
-	Name          string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	I18N          map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
-	InputSchema   *structpb.Struct             `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
-	InvokeName    string                       `protobuf:"bytes,4,opt,name=invoke_name,json=invokeName,proto3" json:"invoke_name,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState       `protogen:"open.v1"`
+	Name              string                       `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	I18N              map[string]*ResourceI18NText `protobuf:"bytes,2,rep,name=i18n,proto3" json:"i18n,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	InputSchema       *structpb.Struct             `protobuf:"bytes,3,opt,name=input_schema,json=inputSchema,proto3" json:"input_schema,omitempty"`
+	InvokeName        string                       `protobuf:"bytes,4,opt,name=invoke_name,json=invokeName,proto3" json:"invoke_name,omitempty"` // Stable model function name projected from the Profile alias.
+	Source            string                       `protobuf:"bytes,5,opt,name=source,proto3" json:"source,omitempty"`                           // http_request, mhs, or client_tool.
+	Target            *structpb.Struct             `protobuf:"bytes,6,opt,name=target,proto3" json:"target,omitempty"`                           // Fixed procedure or id/hwd/operation; no secrets.
+	Supported         bool                         `protobuf:"varint,7,opt,name=supported,proto3" json:"supported,omitempty"`
+	Online            bool                         `protobuf:"varint,8,opt,name=online,proto3" json:"online,omitempty"`
+	Available         bool                         `protobuf:"varint,9,opt,name=available,proto3" json:"available,omitempty"`
+	UnavailableReason string                       `protobuf:"bytes,10,opt,name=unavailable_reason,json=unavailableReason,proto3" json:"unavailable_reason,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Tool) Reset() {
@@ -5034,10 +5040,54 @@ func (x *Tool) GetInvokeName() string {
 	return ""
 }
 
+func (x *Tool) GetSource() string {
+	if x != nil {
+		return x.Source
+	}
+	return ""
+}
+
+func (x *Tool) GetTarget() *structpb.Struct {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
+func (x *Tool) GetSupported() bool {
+	if x != nil {
+		return x.Supported
+	}
+	return false
+}
+
+func (x *Tool) GetOnline() bool {
+	if x != nil {
+		return x.Online
+	}
+	return false
+}
+
+func (x *Tool) GetAvailable() bool {
+	if x != nil {
+		return x.Available
+	}
+	return false
+}
+
+func (x *Tool) GetUnavailableReason() string {
+	if x != nil {
+		return x.UnavailableReason
+	}
+	return ""
+}
+
 type ToolListRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	WorkflowName  *string                `protobuf:"bytes,3,opt,name=workflow_name,json=workflowName,proto3,oneof" json:"workflow_name,omitempty"`
+	WorkspaceName *string                `protobuf:"bytes,4,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5084,6 +5134,20 @@ func (x *ToolListRequest) GetLimit() int64 {
 		return *x.Limit
 	}
 	return 0
+}
+
+func (x *ToolListRequest) GetWorkflowName() string {
+	if x != nil && x.WorkflowName != nil {
+		return *x.WorkflowName
+	}
+	return ""
+}
+
+func (x *ToolListRequest) GetWorkspaceName() string {
+	if x != nil && x.WorkspaceName != nil {
+		return *x.WorkspaceName
+	}
+	return ""
 }
 
 type ToolListResponse struct {
@@ -5165,6 +5229,8 @@ func (x *ToolListResponse) GetRuntimeProfileRevision() string {
 type ToolGetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	WorkflowName  *string                `protobuf:"bytes,2,opt,name=workflow_name,json=workflowName,proto3,oneof" json:"workflow_name,omitempty"`
+	WorkspaceName *string                `protobuf:"bytes,3,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -5202,6 +5268,20 @@ func (*ToolGetRequest) Descriptor() ([]byte, []int) {
 func (x *ToolGetRequest) GetName() string {
 	if x != nil {
 		return x.Name
+	}
+	return ""
+}
+
+func (x *ToolGetRequest) GetWorkflowName() string {
+	if x != nil && x.WorkflowName != nil {
+		return *x.WorkflowName
+	}
+	return ""
+}
+
+func (x *ToolGetRequest) GetWorkspaceName() string {
+	if x != nil && x.WorkspaceName != nil {
+		return *x.WorkspaceName
 	}
 	return ""
 }
@@ -5957,21 +6037,32 @@ const file_payload_ai_proto_rawDesc = "" +
 	"\rToolkitPolicy\x12J\n" +
 	"\n" +
 	"tool_names\x18\x01 \x01(\v2&.gizclaw.rpc.v1.ToolkitPolicyToolNamesH\x00R\ttoolNames\x88\x01\x01B\r\n" +
-	"\v_tool_names\"\x86\x02\n" +
+	"\v_tool_names\"\xd2\x03\n" +
 	"\x04Tool\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x122\n" +
 	"\x04i18n\x18\x02 \x03(\v2\x1e.gizclaw.rpc.v1.Tool.I18nEntryR\x04i18n\x12:\n" +
 	"\finput_schema\x18\x03 \x01(\v2\x17.google.protobuf.StructR\vinputSchema\x12\x1f\n" +
 	"\vinvoke_name\x18\x04 \x01(\tR\n" +
-	"invokeName\x1aY\n" +
+	"invokeName\x12\x16\n" +
+	"\x06source\x18\x05 \x01(\tR\x06source\x12/\n" +
+	"\x06target\x18\x06 \x01(\v2\x17.google.protobuf.StructR\x06target\x12\x1c\n" +
+	"\tsupported\x18\a \x01(\bR\tsupported\x12\x16\n" +
+	"\x06online\x18\b \x01(\bR\x06online\x12\x1c\n" +
+	"\tavailable\x18\t \x01(\bR\tavailable\x12-\n" +
+	"\x12unavailable_reason\x18\n" +
+	" \x01(\tR\x11unavailableReason\x1aY\n" +
 	"\tI18nEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x126\n" +
-	"\x05value\x18\x02 \x01(\v2 .gizclaw.rpc.v1.ResourceI18nTextR\x05value:\x028\x01\"^\n" +
+	"\x05value\x18\x02 \x01(\v2 .gizclaw.rpc.v1.ResourceI18nTextR\x05value:\x028\x01\"\xd9\x01\n" +
 	"\x0fToolListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
-	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01B\t\n" +
+	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12(\n" +
+	"\rworkflow_name\x18\x03 \x01(\tH\x02R\fworkflowName\x88\x01\x01\x12*\n" +
+	"\x0eworkspace_name\x18\x04 \x01(\tH\x03R\rworkspaceName\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
-	"\x06_limit\"\xfb\x01\n" +
+	"\x06_limitB\x10\n" +
+	"\x0e_workflow_nameB\x11\n" +
+	"\x0f_workspace_name\"\xfb\x01\n" +
 	"\x10ToolListResponse\x12*\n" +
 	"\x05items\x18\x01 \x03(\v2\x14.gizclaw.rpc.v1.ToolR\x05items\x12\x19\n" +
 	"\bhas_next\x18\x02 \x01(\bR\ahasNext\x12$\n" +
@@ -5979,9 +6070,13 @@ const file_payload_ai_proto_rawDesc = "" +
 	"nextCursor\x88\x01\x01\x120\n" +
 	"\x14runtime_profile_name\x18\x04 \x01(\tR\x12runtimeProfileName\x128\n" +
 	"\x18runtime_profile_revision\x18\x05 \x01(\tR\x16runtimeProfileRevisionB\x0e\n" +
-	"\f_next_cursor\"$\n" +
+	"\f_next_cursor\"\x9f\x01\n" +
 	"\x0eToolGetRequest\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"\xa9\x01\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12(\n" +
+	"\rworkflow_name\x18\x02 \x01(\tH\x00R\fworkflowName\x88\x01\x01\x12*\n" +
+	"\x0eworkspace_name\x18\x03 \x01(\tH\x01R\rworkspaceName\x88\x01\x01B\x10\n" +
+	"\x0e_workflow_nameB\x11\n" +
+	"\x0f_workspace_name\"\xa9\x01\n" +
 	"\x0fToolGetResponse\x12*\n" +
 	"\x05value\x18\x01 \x01(\v2\x14.gizclaw.rpc.v1.ToolR\x05value\x120\n" +
 	"\x14runtime_profile_name\x18\x02 \x01(\tR\x12runtimeProfileName\x128\n" +
@@ -6175,18 +6270,19 @@ var file_payload_ai_proto_depIdxs = []int32{
 	61, // 70: gizclaw.rpc.v1.ToolkitPolicy.tool_names:type_name -> gizclaw.rpc.v1.ToolkitPolicyToolNames
 	73, // 71: gizclaw.rpc.v1.Tool.i18n:type_name -> gizclaw.rpc.v1.Tool.I18nEntry
 	79, // 72: gizclaw.rpc.v1.Tool.input_schema:type_name -> google.protobuf.Struct
-	63, // 73: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
-	63, // 74: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
-	32, // 75: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
-	1,  // 76: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	1,  // 77: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	1,  // 78: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	1,  // 79: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
-	80, // [80:80] is the sub-list for method output_type
-	80, // [80:80] is the sub-list for method input_type
-	80, // [80:80] is the sub-list for extension type_name
-	80, // [80:80] is the sub-list for extension extendee
-	0,  // [0:80] is the sub-list for field type_name
+	79, // 73: gizclaw.rpc.v1.Tool.target:type_name -> google.protobuf.Struct
+	63, // 74: gizclaw.rpc.v1.ToolListResponse.items:type_name -> gizclaw.rpc.v1.Tool
+	63, // 75: gizclaw.rpc.v1.ToolGetResponse.value:type_name -> gizclaw.rpc.v1.Tool
+	32, // 76: gizclaw.rpc.v1.DoubaoRealtimeJSONSchema.PropertiesEntry.value:type_name -> gizclaw.rpc.v1.DoubaoRealtimeJSONSchema
+	1,  // 77: gizclaw.rpc.v1.Model.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,  // 78: gizclaw.rpc.v1.Voice.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,  // 79: gizclaw.rpc.v1.Workflow.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	1,  // 80: gizclaw.rpc.v1.Tool.I18nEntry.value:type_name -> gizclaw.rpc.v1.ResourceI18nText
+	81, // [81:81] is the sub-list for method output_type
+	81, // [81:81] is the sub-list for method input_type
+	81, // [81:81] is the sub-list for extension type_name
+	81, // [81:81] is the sub-list for extension extendee
+	0,  // [0:81] is the sub-list for field type_name
 }
 
 func init() { file_payload_ai_proto_init() }
@@ -6251,6 +6347,7 @@ func file_payload_ai_proto_init() {
 	file_payload_ai_proto_msgTypes[61].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[63].OneofWrappers = []any{}
 	file_payload_ai_proto_msgTypes[64].OneofWrappers = []any{}
+	file_payload_ai_proto_msgTypes[65].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
