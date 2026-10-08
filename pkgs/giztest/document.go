@@ -182,6 +182,9 @@ type PeerStreamOperation struct {
 	Pacing     string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
 	// HoldBeforeAudio delays audio BOS after control BOS in PTT; default 500ms.
 	HoldBeforeAudio string `json:"hold_before_audio,omitempty" yaml:"hold_before_audio,omitempty"`
+	// MeasureFirstPacket tags the first nonempty Opus packet of an input_sent
+	// PTT probe, preserving its decoded audio, for same-task SFU timing.
+	MeasureFirstPacket bool `json:"measure_first_packet,omitempty" yaml:"measure_first_packet,omitempty"`
 	// ReplyObservation bounds collection after assistant terminal EOS; default 250ms.
 	ReplyObservation  string `json:"reply_observation,omitempty" yaml:"reply_observation,omitempty"`
 	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
@@ -1044,6 +1047,9 @@ func collectReferences(v any) []string {
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
 	op := step.PeerStream
+	if op.MeasureFirstPacket && (op.Mode != "push-to-talk" || op.Completion != "input_sent" || op.EmptyInput || op.OverlapInput || op.InterruptAfter != "") {
+		return fmt.Errorf("step %s measure_first_packet requires nonempty push-to-talk input_sent without overlap or interruption", step.ID)
+	}
 	if op.HoldBeforeAudio != "" {
 		if op.Mode != "push-to-talk" || op.EmptyInput {
 			return fmt.Errorf("step %s hold_before_audio requires nonempty push-to-talk input", step.ID)

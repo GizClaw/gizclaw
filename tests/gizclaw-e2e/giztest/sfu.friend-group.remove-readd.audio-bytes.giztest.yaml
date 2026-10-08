@@ -2,6 +2,7 @@
 # As a group member removed and added back while my device stays connected,
 # I want to speak and hear again after selecting the same SFU Workspace,
 # So that revocation does not leave the participant or media bridge unusable.
+# A third member verifies one-to-many packet correlation throughout revocation.
 # Uses the committed Ogg/Opus tone; no TTS/ASR credentials are needed.
 version: gizclaw.test/v1alpha1
 name: sfu.friend-group.remove-readd.audio-bytes
@@ -12,6 +13,11 @@ clients:
     access_point: ${edge_a}
     registration_token: ${token_a}
   bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+  carol:
     identity: ephemeral
     connection: webrtc
     access_point: ${edge_b}
@@ -92,8 +98,14 @@ steps:
       /group/workspace_name: {equals: "${alice_workspace}"}
       /member/name: {non_empty: true}
       /member/peer_public_key: {non_empty: true}
-  # Both sides see one shared Workspace identity; each client selects it
-  # under the name captured by the other side, which joins the Room at once.
+  - id: carol_join
+    client: carol
+    rpc:
+      method: server.friend_group.join
+      request: {invite_token: "${group_invite}", name: "${group_name}"}
+    expect:
+      /group/workspace_name: {equals: "${alice_workspace}"}
+  # All members select the same shared Workspace and join its Room.
   - id: alice_select_shared_workspace
     client: alice
     rpc:
@@ -128,8 +140,28 @@ steps:
       request: {}
     expect:
       /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: carol_select_shared_workspace
+    client: carol
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${alice_workspace}"}
+  - id: carol_select_shared_workspace_running
+    client: carol
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc: {method: server.run.workspace.get, request: {}}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
   # One step starts the speaker and both listen windows at the same moment, so
   # the windows cover the whole utterance.
+  # Establish both real publisher tracks before measuring exact first packets.
+  - id: alice_prime_media
+    client: alice
+    peer_stream: {mode: push-to-talk, input: "${tone}", pacing: 20ms, completion: input_sent}
+    expect: {/input_sent: {equals: true}}
+  - id: bob_prime_media
+    client: bob
+    peer_stream: {mode: push-to-talk, input: "${tone}", pacing: 20ms, completion: input_sent}
+    expect: {/input_sent: {equals: true}}
   - id: alice_speaks_before_removal
     timeout: 30s
     parallel:
@@ -143,6 +175,9 @@ steps:
         peer_stream:
           mode: listen
           duration: 8s
+      - id: carol_listen_alice_before_removal
+        client: carol
+        peer_stream: {mode: listen, duration: 8s}
       - id: alice_speak_before_removal
         client: alice
         peer_stream:
@@ -150,7 +185,13 @@ steps:
           input: ${tone}
           pacing: 20ms
           completion: input_sent
+          measure_first_packet: true
     expect:
+      /alice_speak_before_removal/audio_first_packet/startup_ms: {minimum: 500}
+      /carol_listen_alice_before_removal/audio_first_packets: {count: 1}
+      /carol_listen_alice_before_removal/audio_first_packets/0/sender_client: {equals: alice}
+      /bob_listen_before_removal/audio_first_packets: {count: 1}
+      /alice_listen_self_before_removal/audio_first_packets: {count: 0}
       /alice_speak_before_removal/input_sent: {equals: true}
       /bob_listen_before_removal/audio_bytes: {minimum: 2000}
       /bob_listen_before_removal/packets: {minimum: 50}
@@ -168,6 +209,9 @@ steps:
         peer_stream:
           mode: listen
           duration: 8s
+      - id: carol_listen_bob_before_removal
+        client: carol
+        peer_stream: {mode: listen, duration: 8s}
       - id: bob_speak_before_removal
         client: bob
         peer_stream:
@@ -175,7 +219,13 @@ steps:
           input: ${tone}
           pacing: 20ms
           completion: input_sent
+          measure_first_packet: true
     expect:
+      /bob_speak_before_removal/audio_first_packet/startup_ms: {minimum: 500}
+      /carol_listen_bob_before_removal/audio_first_packets: {count: 1}
+      /carol_listen_bob_before_removal/audio_first_packets/0/sender_client: {equals: bob}
+      /alice_listen_before_removal/audio_first_packets: {count: 1}
+      /bob_listen_self_before_removal/audio_first_packets: {count: 0}
       /bob_speak_before_removal/input_sent: {equals: true}
       /alice_listen_before_removal/audio_bytes: {minimum: 2000}
       /alice_listen_before_removal/packets: {minimum: 50}
@@ -203,10 +253,17 @@ steps:
       - id: bob_listen_removed
         client: bob
         peer_stream: {mode: listen, duration: 8s}
+      - id: carol_listen_alice_removed
+        client: carol
+        peer_stream: {mode: listen, duration: 8s}
       - id: alice_speak_removed
         client: alice
-        peer_stream: {mode: push-to-talk, input: "${tone}", pacing: 20ms, completion: input_sent}
+        peer_stream: {mode: push-to-talk, input: "${tone}", pacing: 20ms, completion: input_sent, measure_first_packet: true}
     expect:
+      /alice_speak_removed/audio_first_packet/startup_ms: {minimum: 500}
+      /carol_listen_alice_removed/audio_first_packets: {count: 1}
+      /carol_listen_alice_removed/audio_first_packets/0/sender_client: {equals: alice}
+      /bob_listen_removed/audio_first_packets: {count: 0}
       /alice_speak_removed/input_sent: {equals: true}
       /bob_listen_removed/audio_bytes: {maximum: 0}
   - id: alice_readd_bob
@@ -264,6 +321,9 @@ steps:
         peer_stream:
           mode: listen
           duration: 8s
+      - id: carol_listen_alice_after_readd
+        client: carol
+        peer_stream: {mode: listen, duration: 8s}
       - id: alice_speak_after_readd
         client: alice
         peer_stream:
@@ -271,7 +331,13 @@ steps:
           input: ${tone}
           pacing: 20ms
           completion: input_sent
+          measure_first_packet: true
     expect:
+      /alice_speak_after_readd/audio_first_packet/startup_ms: {minimum: 500}
+      /carol_listen_alice_after_readd/audio_first_packets: {count: 1}
+      /carol_listen_alice_after_readd/audio_first_packets/0/sender_client: {equals: alice}
+      /bob_listen_after_readd/audio_first_packets: {count: 1}
+      /alice_listen_self_after_readd/audio_first_packets: {count: 0}
       /alice_speak_after_readd/input_sent: {equals: true}
       /bob_listen_after_readd/audio_bytes: {minimum: 2000}
       /bob_listen_after_readd/packets: {minimum: 50}
@@ -289,6 +355,9 @@ steps:
         peer_stream:
           mode: listen
           duration: 8s
+      - id: carol_listen_bob_after_readd
+        client: carol
+        peer_stream: {mode: listen, duration: 8s}
       - id: bob_speak_after_readd
         client: bob
         peer_stream:
@@ -296,12 +365,20 @@ steps:
           input: ${tone}
           pacing: 20ms
           completion: input_sent
+          measure_first_packet: true
     expect:
+      /bob_speak_after_readd/audio_first_packet/startup_ms: {minimum: 500}
+      /carol_listen_bob_after_readd/audio_first_packets: {count: 1}
+      /carol_listen_bob_after_readd/audio_first_packets/0/sender_client: {equals: bob}
+      /alice_listen_after_readd/audio_first_packets: {count: 1}
+      /bob_listen_self_after_readd/audio_first_packets: {count: 0}
       /bob_speak_after_readd/input_sent: {equals: true}
       /alice_listen_after_readd/audio_bytes: {minimum: 2000}
       /alice_listen_after_readd/packets: {minimum: 50}
       /bob_listen_self_after_readd/audio_bytes: {maximum: 0}
 finally:
+  - client: carol
+    rpc: {method: server.run.stop, request: {}}
   - client: alice
     rpc:
       method: server.run.stop
@@ -323,5 +400,7 @@ finally:
     rpc:
       method: server.peer.delete
       request: {}
+  - client: carol
+    rpc: {method: server.peer.delete, request: {}}
 report:
   redact: [token_a, token_b, group_invite]

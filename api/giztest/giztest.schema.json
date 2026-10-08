@@ -699,12 +699,33 @@
           "type": "string",
           "description": "Nonnegative Go duration between control BOS and audio BOS in nonempty push-to-talk input; defaults to 500ms."
         },
+        "measure_first_packet": {
+          "const": true,
+          "description": "Tag the first nonempty Opus packet of a nonempty push-to-talk input_sent probe using decoder-ignored padding. The Go runner reports audio_first_packet send evidence and audio_first_packets in same-task SFU listen results, using a shared monotonic clock. Existing first_audio_ms retains its listen-start, audible-audio meaning."
+        },
         "reply_observation": {
           "type": "string",
           "description": "Positive Go duration to collect late replies after assistant terminal EOS; defaults to 250ms."
         }
       },
       "allOf": [
+        {
+          "if": {"required": ["measure_first_packet"]},
+          "then": {
+            "required": ["input", "completion"],
+            "properties": {
+              "mode": {"const": "push-to-talk"},
+              "completion": {"const": "input_sent"}
+            },
+            "not": {
+              "anyOf": [
+                {"required": ["empty_input"]},
+                {"required": ["overlap_input"]},
+                {"required": ["interrupt_after"]}
+              ]
+            }
+          }
+        },
         {
           "if": {
             "properties": {

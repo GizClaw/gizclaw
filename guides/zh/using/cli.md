@@ -98,7 +98,8 @@ Play 需要支持当前平台的 cgo、libopus 和 PortAudio native runtime，�
 
 `--evidence redacted` 是默认模式。`--evidence full` 必须同时提供 `--output`，只把有界的
 `workspace_relay` 逐轮与终轮文本写入该 JSON report，不向终端打印。完整 evidence report
-仍不包含输入、展开变量、凭据、ID 或音频 payload，但模型或 tester 文本可能含私密内容，
+仍不包含输入、展开变量、凭据、资源 ID 或音频 payload；首包探针包含临时关联 packet ID。
+模型或 tester 文本可能含私密内容，
 必须按敏感文件处理。
 
 YAML 的 `repeat` 是每个文件的任务数，`--parallel` 是所有文件共享的最大 worker 数。
@@ -123,6 +124,31 @@ Assistant terminal completion 在首个完整回复后继续收集 250 ms；`rep
 `input_sent`、重叠输入或 transcript completion。
 控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，
 用于其它设备门限。PTT 不在 wire 声明 `input_mode`，实际输入模式来自 Workspace 参数。
+
+SFU 首包探针在非空 `push-to-talk` + `completion: input_sent` 的发送步骤设置
+`measure_first_packet: true`。Go runner 为首个非空 Opus 包加入唯一测试 padding 标记，
+保持解码 PCM 和媒体时长；正常输入不增加标记。Canonical silence/DTX 包保持原样，
+发送证据的 `uncorrelated_reason: silence_or_dtx` 表示无法关联。只有同一包的完整内容和
+SFU 发送者身份匹配才统计接收。
+
+发送步骤的 `/audio_first_packet` 与同一 task 中 `listen` 步骤的
+`/audio_first_packets` 数组同时进入结果、capture/save_as 和脱敏 JSON evidence。
+字段由 `api/giztest/audio-packet-timing.schema.json` 定义：
+
+| 字段 | 单位与语义 |
+| --- | --- |
+| `clock` | 固定为 `task_monotonic`；每个 task 独立，包括其全部并行 children。 |
+| `packet_id`、`sender_client`、`sender_step` | 首包关联 ID 和 YAML 发送 client/step。不同轮次、retry 和相同音频各有独立 ID；群组多个接收者对应同一 ID。 |
+| `send_start_ms`、`send_completed_ms` | 共享单调基准上的发送偏移；分别在非空包的 `PeerStream.Push` 前和成功返回后记录。不是网卡实际发包时间。 |
+| `startup_ms` | 发送 invocation 开始（打开 stream 前）至 `send_start_ms`，包括实际长按、音频路由确认和启动等待。 |
+| `receive_ms` | `PeerStream.Next` 返回同一首包后立即记录，早于音频解码和操作循环排队。 |
+| `latency_ms` | `receive_ms - send_start_ms`，不含 `startup_ms`；包含 SDK、上行、Server/SFU/LiveKit 和下行，不是纯 LiveKit 处理或扬声器播放时间。 |
+
+只有成功发送并收到对应包才有接收样本；丢包、自收或撤权后的无音频返回空数组，不填零延迟。
+收到后续音频不能替代丢失首包。重复接收同一标记只计一次；每个 listen 最多保留 128 个样本，
+超限通过 `audio_first_packets_dropped` 计数。`first_audio_ms` 保留从开始收听至首个可听音频的
+旧含义，包括发送前等待和前导静音；不能减去固定 500 ms 作为转发延迟。共享偏移只在同一
+task 的 Go runner 内可比较，不能与 report 的 wall-clock `started_at`、其它 task 或机器混用。
 
 只验证时延的 `peer_stream` 探针可以在收到第一段 assistant 文本和音频后停止，不等待终止
 输出：

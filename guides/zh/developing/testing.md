@@ -174,8 +174,8 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 | 场景（省略 `sfu.` 和 `.audio-bytes`） | 验证内容 |
 | --- | --- |
-| `friend.cross-server` | 两台 Server 上的好友双向 PTT，发送方不收到自己的音频 |
-| `friend-group.remove-readd` | 等待踢出撤权，保持连接，加回并选择原 Workspace 后恢复双向音频 |
+| `friend.cross-server` | 两台 Server 上的好友双向 PTT 和可关联首包计时，发送方不收到自己的音频或生成首包接收样本 |
+| `friend-group.remove-readd` | 三客户端一发多收的首包关联；等待踢出撤权后被移除者无音频/首包样本，其余成员继续接收，加回并选择原 Workspace 后恢复双向音频 |
 | `friend-group.reconnect-readd` | 被踢出后重连仍无成员权限，加回后无需再次注册即可选择原 Workspace 并恢复双向音频 |
 | `friend-group.rapid-readd` | 连续三轮立即踢出再加回，不等待周期撤权，验证 PTT 和 realtime |
 | `friend-group.mixed-server-members` | 每台 Server 两名成员，移除本机和异机成员；其余成员继续通话；重复添加不重复计数，owner 添加与邀请重入恢复广播 |
@@ -897,6 +897,11 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
   `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
   在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
+- SFU 发送探针通过 `measure_first_packet: true` 和 `completion: input_sent` 记录首个
+  非空 Opus 包。相同 task 的 listen 按唯一 packet ID 和发送者关联收包，独立报告启动等待与
+  收发延迟；空数组表示没有可证明的对应首包，不表示零延迟。字段、单调时钟边界与旧
+  `first_audio_ms` 的含义见 [CLI 首包计时](/zh/using/cli)。测试覆盖 500 ms/1 s hold、
+  延迟传递、一发多收、重复音频、自收/丢包/错误发送、PCM 保持和 Schema contract。
 - step 级 `parallel`：一个 `parallel` step 拥有一组 child step，把它们**同时**启动、
   等全部结束后一起报告，因此“一个 client 说、另一个 client 同时听”不需要任何额外的
   同步 step。child 只能是 `client` 加恰好一个 `peer_stream`（任意 mode），数量 2 到 16，

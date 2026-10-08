@@ -223,7 +223,7 @@ The provider-free SFU scenarios cover these boundaries:
 | Scenario (without `sfu.` and `.audio-bytes`) | Coverage |
 | --- | --- |
 | `friend.cross-server` | Bidirectional PTT between friends on different Servers, without self audio |
-| `friend-group.remove-readd` | Wait for revocation, retain the connection, then add back and select the original Workspace to restore both directions |
+| `friend-group.remove-readd` | Three-client first-packet correlation; after revocation the removed member receives no audio or packet sample while the remaining member keeps receiving; re-add and select the original Workspace to restore both directions |
 | `friend-group.reconnect-readd` | Reconnect while removed without regaining membership; after re-add, select the original Workspace and restore both audio directions without registering again |
 | `friend-group.rapid-readd` | Three immediate remove/add cycles without waiting for periodic revocation, with PTT and realtime audio |
 | `friend-group.mixed-server-members` | Two members per Server; local and remote removal preserves remaining audio; duplicate add preserves the member count; owner-add and invite-rejoin restore broadcasts |

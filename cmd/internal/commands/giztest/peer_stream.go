@@ -383,6 +383,9 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 		observeAudio = observers[0]
 	}
 	started := time.Now()
+	if timed, ok := stream.(*packetTimedPeerStream); ok {
+		timed.listenStart, timed.listenEnd = started, started.Add(duration)
+	}
 	window := time.NewTimer(duration)
 	defer window.Stop()
 	next := readPeerStream(ctx, stream, nil)
@@ -1867,6 +1870,11 @@ func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func
 		for {
 			chunk, err := stream.Next()
 			result := nextPeerStreamResult{chunk: chunk, err: err, receivedAt: time.Now()}
+			if observer, ok := stream.(interface {
+				observePacketArrival(*genx.MessageChunk, time.Time)
+			}); ok && err == nil {
+				observer.observePacketArrival(chunk, result.receivedAt)
+			}
 			select {
 			case raw <- result:
 			case <-ctx.Done():

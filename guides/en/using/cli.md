@@ -119,7 +119,7 @@ audio device or writes an additional audio file.
 `--evidence redacted` is the default. `--evidence full` requires `--output`
 and writes bounded `workspace_relay` per-turn and terminal text into that JSON
 report without printing it to the terminal. Treat a full-evidence report as
-sensitive; it still excludes inputs, expanded variables, credentials, IDs, and
+sensitive; it still excludes inputs, expanded variables, credentials, resource IDs, and
 audio payloads, but model or tester text may contain private content.
 
 YAML `repeat` is the task count for that file. `--parallel` is the maximum
@@ -154,6 +154,34 @@ reporting `response_count`. It does not apply to empty input, `first_response`,
 Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
 set another nonnegative Go duration for a different device threshold. PTT
 omits wire `input_mode`; Workspace parameters determine the actual input mode.
+
+For an SFU first-packet probe, set `measure_first_packet: true` on a nonempty
+`push-to-talk` send with `completion: input_sent`. The Go runner adds a unique
+test marker in decoder-ignored Opus padding, preserving PCM and media duration.
+Normal inputs are unchanged. Canonical silence/DTX remains unchanged and reports
+`uncorrelated_reason: silence_or_dtx`. Receipts require exact packet contents and
+the matching SFU sender identity.
+
+Sender `/audio_first_packet` and same-task listener `/audio_first_packets` are
+available to expectations, capture/save_as and redacted JSON evidence. Their
+contract is `api/giztest/audio-packet-timing.schema.json`:
+
+| Field | Units and meaning |
+| --- | --- |
+| `clock` | `task_monotonic`: one shared Go monotonic origin per task, including parallel children. |
+| `packet_id`, `sender_client`, `sender_step` | Unique packet correlation ID and YAML sender. Identical audio, later turns and retries get new IDs; group receivers share the same ID. |
+| `send_start_ms`, `send_completed_ms` | Fractional millisecond offsets before the nonempty packet's `PeerStream.Push` and after its successful return; local write boundaries, not hardware wire timestamps. |
+| `startup_ms` | Sender invocation (before stream opening) to send start, including the actual hold and audio-route acknowledgement. |
+| `receive_ms` | Offset immediately after `PeerStream.Next` returns that exact packet, before decoding and operation-loop queueing. |
+| `latency_ms` | `receive_ms - send_start_ms`; excludes startup and includes SDK, uplink, Server/SFU/LiveKit and downlink. Not pure LiveKit processing or speaker playback latency. |
+
+Missing, dropped, self or revoked delivery produces no receive sample, never a
+zero latency. Later packets cannot replace a lost first packet. Duplicate
+receipts count once. Each listener retains at most 128 samples and reports excess
+as `audio_first_packets_dropped`. Existing `first_audio_ms` still measures
+listen start to audible audio, including startup and leading silence; subtracting
+a fixed 500 ms does not establish forwarding latency. Compare offsets only
+within one task, not with wall-clock `started_at`, other tasks or machines.
 
 A latency-only `peer_stream` probe can stop after the first assistant text and
 audio instead of waiting for terminal output:
