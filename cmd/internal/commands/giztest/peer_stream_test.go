@@ -76,14 +76,110 @@ func TestAudioInputChunksKeepRealtimeOpen(t *testing.T) {
 	} {
 		t.Run(tc.mode, func(t *testing.T) {
 			chunks := audioInputChunks(tc.mode, "turn", "audio/opus", [][]byte{{1, 2, 3}})
-			if got := chunks[0].Ctrl.InputMode; got != tc.mode {
-				t.Fatalf("audio BOS input mode = %q, want %q", got, tc.mode)
+			audioBOS := 0
+			if tc.mode == "push-to-talk" {
+				audioBOS = 1
+				if chunks[0].Part != nil || !chunks[0].IsBeginOfStream() || chunks[len(chunks)-1].Part != nil {
+					t.Fatal("PTT must wrap its audio channel in control BOS/EOS")
+				}
+			}
+			wantMode := tc.mode
+			if tc.mode == "push-to-talk" {
+				wantMode = ""
+			}
+			if got := chunks[audioBOS].Ctrl.InputMode; got != wantMode {
+				t.Fatalf("audio BOS input mode = %q, want %q", got, wantMode)
 			}
 			last := chunks[len(chunks)-1]
 			if got := last.IsEndOfStream(); got != tc.wantEOS {
 				t.Fatalf("last chunk EndOfStream = %t, want %t", got, tc.wantEOS)
 			}
 		})
+	}
+}
+
+func TestAudioInputChunksMatchDevicePTTBoundaries(t *testing.T) {
+	for _, packets := range [][][]byte{nil, {{1, 2}, {3, 4}}} {
+		chunks := audioInputChunks("push-to-talk", "held-input", "audio/opus", packets)
+		var boundaries []string
+		var sent [][]byte
+		for _, chunk := range chunks {
+			if chunk.Ctrl.StreamID != "held-input" || chunk.Ctrl.Label != "user" {
+				t.Fatal("one PTT gesture changed its stream or label")
+			}
+			kind := "control"
+			if blob, ok := chunk.Part.(*genx.Blob); ok {
+				kind = "audio"
+				if len(blob.Data) > 0 {
+					sent = append(sent, blob.Data)
+				}
+			}
+			if chunk.IsBeginOfStream() {
+				boundaries = append(boundaries, kind+" BOS")
+			}
+			if chunk.IsEndOfStream() {
+				boundaries = append(boundaries, kind+" EOS")
+			}
+		}
+		want := []string{"control BOS", "control EOS"}
+		if len(packets) > 0 {
+			want = []string{"control BOS", "audio BOS", "audio EOS", "control EOS"}
+		}
+		if !slices.Equal(boundaries, want) || !slices.EqualFunc(sent, packets, bytes.Equal) {
+			t.Fatalf("PTT boundaries = %v, packets = %v; want %v and unchanged packets", boundaries, sent, want)
+		}
+	}
+}
+
+func TestPeerStreamDefaultPTTHoldGate(t *testing.T) {
+	stream := &pttGateStream{fakeRelayStream: newFakeRelayStream()}
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	audio, _ := testOggOpus(t)
+	_, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
+		PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", Completion: "input_sent"},
+	}, audio, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	control := nextPush(t, stream.fakeRelayStream)
+	if control.Part != nil || !control.IsBeginOfStream() {
+		t.Fatal("press did not send a control BOS")
+	}
+	begin := nextPush(t, stream.fakeRelayStream)
+	if !begin.IsBeginOfStream() || begin.Part == nil || begin.Ctrl.InputMode != "" {
+		t.Fatalf("Main hold gate or workspace-owned input mode was lost: %+v", begin)
+	}
+	// Measure the sender's boundary timestamps, independent of when the test
+	// goroutine is scheduled to read them. Allow only a small call overhead.
+	if held := stream.audioBOS.Sub(stream.controlBOS); held < pushToTalkHoldThreshold-10*time.Millisecond {
+		t.Fatalf("audio channel opened after %v, want the 500ms hold threshold", held)
+	}
+}
+
+type pttGateStream struct {
+	*fakeRelayStream
+	controlBOS time.Time
+	audioBOS   time.Time
+}
+
+func (s *pttGateStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	if chunk.IsBeginOfStream() {
+		if chunk.Part == nil {
+			s.controlBOS = time.Now()
+		} else {
+			s.audioBOS = time.Now()
+		}
+	}
+	return s.fakeRelayStream.Push(ctx, chunk)
+}
+
+func TestEinoPTTRegressionDocuments(t *testing.T) {
+	for _, scenario := range []string{"long-input", "short-history"} {
+		_, err := giztest.LoadDocument("../../../../tests/gizclaw-e2e/giztest/eino-voice-assistant.push-to-talk-"+scenario+".giztest.yaml", newDriver(false, nil))
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -224,7 +320,7 @@ func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
 	}()
 	var roles []string
 	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
-		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk"},
+		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", HoldBeforeAudio: "0ms"},
 	}, []byte{1}, 0, func(_ string, role string, _ []byte, end bool) error {
 		if end {
 			roles = append(roles, role)
@@ -257,7 +353,7 @@ func TestInvokePeerStreamDoesNotWaitForUserPlaybackBeforePush(t *testing.T) {
 	result := make(chan error, 1)
 	go func() {
 		_, invokeErr := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
-			ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk"},
+			ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", HoldBeforeAudio: "0ms"},
 		}, audio.Bytes(), 0, session.observe)
 		result <- invokeErr
 	}()
@@ -1220,34 +1316,25 @@ func emptyRoute(id, mimeType string, bos bool) *genx.MessageChunk {
 
 func TestInvokePeerStreamEmptyInputSendsTurnWithoutAudio(t *testing.T) {
 	stream := newFakeRelayStream()
-	for _, chunk := range []*genx.MessageChunk{
-		emptyRoute("s1", "text/plain", true),
-		emptyRoute("s1", "text/plain", false),
-		emptyRoute("s1", "audio/opus", true),
-		emptyRoute("s1", "audio/opus", false),
-	} {
-		stream.in <- chunk
-	}
 	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", EmptyInput: true}}
 	result, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, step, nil, 0)
 	if err != nil {
 		t.Fatalf("empty turn failed: %v", err)
 	}
 	if got := len(stream.pushes); got != 2 {
-		t.Fatalf("pushed chunks = %d, want an audio route BOS and EOS with no frame", got)
+		t.Fatalf("pushed chunks = %d, want control BOS and EOS without an audio channel", got)
 	}
 	first, second := <-stream.pushes, <-stream.pushes
 	for _, chunk := range []*genx.MessageChunk{first, second} {
-		blob, ok := chunk.Part.(*genx.Blob)
-		if !ok || len(blob.Data) != 0 {
-			t.Fatalf("empty turn pushed audio data: %#v", chunk.Part)
+		if chunk.Part != nil {
+			t.Fatalf("empty turn opened a content channel: %#v", chunk.Part)
 		}
 	}
 	if !first.IsBeginOfStream() || !second.IsEndOfStream() {
 		t.Fatalf("empty turn boundaries = bos:%t eos:%t", first.IsBeginOfStream(), second.IsEndOfStream())
 	}
 	object := result.assertion.(map[string]any)
-	if object["text_eos"] != true || object["audio_eos"] != true || object["audio_bytes"] != 0 {
+	if object["text_eos"] != false || object["audio_eos"] != false || object["audio_bytes"] != 0 || object["response_count"] != 0 {
 		t.Fatalf("empty turn result = %#v", object)
 	}
 }
@@ -1273,7 +1360,7 @@ func TestInvokePeerStreamEmptyInputRejectsAssistantContent(t *testing.T) {
 func TestInvokePeerStreamInputSentCompletesAfterEOS(t *testing.T) {
 	stream := newFakeRelayStream()
 	oggAudio, packets := testOggOpus(t)
-	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", Completion: "input_sent"}}
+	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", HoldBeforeAudio: "0ms", Completion: "input_sent"}}
 	started := time.Now()
 	result, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, step, oggAudio, 0)
 	if err != nil {
@@ -1282,8 +1369,8 @@ func TestInvokePeerStreamInputSentCompletesAfterEOS(t *testing.T) {
 	if time.Since(started) > 2*time.Second {
 		t.Fatal("input_sent waited for output")
 	}
-	if got := len(stream.pushes); got != len(packets)+2 {
-		t.Fatalf("pushed chunks = %d, want BOS + %d packets + EOS", got, len(packets))
+	if got := len(stream.pushes); got != len(packets)+4 {
+		t.Fatalf("pushed chunks = %d, want control/audio BOS + %d packets + audio/control EOS", got, len(packets))
 	}
 	var last *genx.MessageChunk
 	for len(stream.pushes) > 0 {
@@ -1375,7 +1462,7 @@ func TestInvokePeerStreamPushToTalkIgnoresResponseBeforeInputCompletes(t *testin
 	}()
 	// Pacing keeps the push loop busy long enough for the reader to receive
 	// the opening before the input EOS is on the wire.
-	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", Pacing: "5ms"}}
+	step := giztest.Step{ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", HoldBeforeAudio: "0ms", Pacing: "5ms"}}
 	result, err := invokePeerStream(t.Context(), nil, func() (peerStream, error) { return stream, nil }, step, oggAudio, 0)
 	if err != nil {
 		t.Fatal(err)
@@ -1918,7 +2005,7 @@ func TestInvokePeerStreamPushToTalkReplyDuringEOSPush(t *testing.T) {
 			audio, _ := testOggOpus(t)
 			noAudio := false
 			step := giztest.Step{ID: "turn", PeerStream: &giztest.PeerStreamOperation{
-				Mode: "push-to-talk", Pacing: "0ms", IdleTimeout: "50ms", RequireAudio: &noAudio,
+				Mode: "push-to-talk", HoldBeforeAudio: "0ms", Pacing: "0ms", IdleTimeout: "50ms", RequireAudio: &noAudio,
 			}}
 			result, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "turn", step, audio, 0, nil)
 			if err != nil {
@@ -1930,6 +2017,167 @@ func TestInvokePeerStreamPushToTalkReplyDuringEOSPush(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPeerStreamCountsTwoRepliesOnOneAudioDownlink(t *testing.T) {
+	stream := newFakeRelayStream()
+	for _, chunk := range []*genx.MessageChunk{
+		assistantText("partial-reply", "partial answer", false),
+		assistantBlob("partial-reply", testAudibleOpus(t), false),
+		assistantText("final-reply", "another answer", false),
+		assistantText("final-reply", "", true),
+		assistantText("partial-reply", "", true),
+		assistantBlob("partial-reply", nil, true),
+	} {
+		stream.in <- chunk
+	}
+	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text"}}
+	result, err := invokePeerStream(t.Context(), nil, func() (peerStream, error) { return stream, nil }, step, "question", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	if object["response_count"] != 2 || result.evidence["response_count"] != 2 {
+		t.Fatalf("two replies were hidden by the single downlink: %v, %v", object, result.evidence)
+	}
+}
+
+func TestPeerStreamObservesReplyAfterFirstTerminal(t *testing.T) {
+	for _, lateError := range []bool{false, true} {
+		t.Run(fmt.Sprintf("late_error=%t", lateError), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			stream := &delayedReplyStream{fakeRelayStream: newFakeRelayStream(), firstDone: make(chan struct{})}
+			for _, chunk := range []*genx.MessageChunk{
+				assistantText("first", "first answer", false),
+				assistantBlob("first", testAudibleOpus(t), false),
+				assistantText("first", "", true),
+				assistantBlob("first", nil, true),
+			} {
+				stream.in <- chunk
+			}
+			providerDone := make(chan struct{})
+			go func() {
+				defer close(providerDone)
+				select {
+				case <-stream.firstDone:
+				case <-ctx.Done():
+					return
+				}
+				if err := waitPeerInput(ctx, 30*time.Millisecond); err != nil {
+					return
+				}
+				chunks := []*genx.MessageChunk{assistantText("second", "late answer", false), assistantText("second", "", true)}
+				if lateError {
+					chunks[1].Ctrl.Error = "late provider failure"
+				}
+				for _, chunk := range chunks {
+					select {
+					case stream.in <- chunk:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}()
+			defer func() { cancel(); <-providerDone }()
+			step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", IdleTimeout: "10ms"}}
+			result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, step, "question", 0)
+			if lateError {
+				if err == nil || !strings.Contains(err.Error(), "late provider failure") {
+					t.Fatalf("late terminal error was lost: %v", err)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			object := result.assertion.(map[string]any)
+			if object["response_count"] != 2 || result.evidence["response_count"] != 2 || object["reply"] != "first answerlate answer" {
+				t.Fatalf("late reply was omitted: result=%v evidence=%v", object, result.evidence)
+			}
+		})
+	}
+}
+
+func TestPeerStreamReplyObservationHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
+	defer cancel()
+	stream := newFakeRelayStream()
+	stream.in <- assistantText("first", "answer", false)
+	stream.in <- assistantText("first", "", true)
+	noAudio := false
+	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", RequireAudio: &noAudio, ReplyObservation: "1s"}}
+	_, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, step, "question", 0)
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("observation ignored cancellation: %v", err)
+	}
+}
+
+func TestPeerStreamReplyObservationRetainsRearm(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	stream := newFakeRelayStream()
+	session := newPeerStreamSession("peer", stream)
+	defer session.Close()
+	session.startReader()
+	stream.in <- assistantText("first", "answer", false)
+	stream.in <- assistantText("first", "", true)
+	rearm := assistantText("next", "", true)
+	rearm.Ctrl.ErrorCode, rearm.Ctrl.Error = "INPUT_ROUTE_RELOADED", "input route reloaded"
+	stream.in <- rearm
+	noAudio := false
+	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", RequireAudio: &noAudio, ReplyObservation: "50ms"}}
+	_, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "turn", step, "question", 0, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case result := <-session.next:
+		if result.chunk != rearm {
+			t.Fatalf("observation lost the next consumer's re-arm: %+v", result.chunk)
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+}
+
+func TestPeerStreamReplyObservationFailsLateSessionErrors(t *testing.T) {
+	for _, label := range []string{"transcript", "control"} {
+		for _, eos := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/eos=%t", label, eos), func(t *testing.T) {
+				ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+				defer cancel()
+				stream := newFakeRelayStream()
+				session := newPeerStreamSession("peer", stream)
+				defer session.Close()
+				session.startReader()
+				stream.in <- assistantText("first", "answer", false)
+				stream.in <- assistantText("first", "", true)
+				stream.in <- &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: label, Error: "late ASR failure", EndOfStream: eos}}
+				noAudio := false
+				step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", RequireAudio: &noAudio, ReplyObservation: "50ms"}}
+				_, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "turn", step, "question", 0, nil)
+				if err == nil || !strings.Contains(err.Error(), "late ASR failure") {
+					t.Fatalf("late %s error was deferred: %v", label, err)
+				}
+			})
+		}
+	}
+}
+
+type delayedReplyStream struct {
+	*fakeRelayStream
+	firstDone chan struct{}
+}
+
+func (s *delayedReplyStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.fakeRelayStream.Next()
+	if chunk != nil && chunk.Ctrl.StreamID == "first" && chunk.IsEndOfStream() {
+		if mimeType, _ := chunk.MIMEType(); relayOpusMIME(mimeType) {
+			close(s.firstDone)
+		}
+	}
+	return chunk, err
 }
 
 type replyDuringEOSStream struct {
@@ -1955,11 +2203,11 @@ func (s *replyDuringEOSStream) Next() (*genx.MessageChunk, error) {
 
 func (s *replyDuringEOSStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	var read <-chan struct{}
-	if chunk.IsBeginOfStream() {
+	if chunk.IsBeginOfStream() && chunk.Part == nil {
 		s.in <- assistantText("opening", "old opening", false)
 		read = s.openingRead
 	}
-	if chunk.IsEndOfStream() {
+	if chunk.IsEndOfStream() && chunk.Part != nil {
 		s.in <- assistantText("opening", "", true)
 		s.in <- assistantText("reply", "answer", false)
 		s.in <- assistantText("reply", "", true)

@@ -68,6 +68,9 @@ func TestDeviceTextInputGiztest(t *testing.T) {
 						noAudio := false
 						audio, _ := testOggOpus(t)
 						audioStep := giztest.Step{ID: "audio_first", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: mode, Label: "demo-home", RequireAudio: &noAudio, Pacing: "0ms", Completion: "first_response", FirstTextTimeout: "2s"}}
+						if mode == "push-to-talk" {
+							audioStep.PeerStream.HoldBeforeAudio = "0ms"
+						}
 						if _, err := invokePeerStreamOnStream(ctx, nil, nil, stream, session, "voice-1", audioStep, audio, 0, nil); err != nil {
 							t.Fatalf("audio baseline: %v", err)
 						}

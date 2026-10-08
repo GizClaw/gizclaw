@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import type { SyncEvent } from "./index.ts";
+
 import {
   GizClawControlError,
   classifyGizClawControlError,
@@ -46,6 +48,163 @@ function json(status: number, body: unknown): Answer {
 function noContent(): Answer {
   return () => new Response(null, { status: 204 });
 }
+
+function syncAnswer(events: SyncEvent[]): Answer {
+  return () =>
+    new Response(
+      events
+        .map(
+          (event) =>
+            `event: ${event.event}\ndata: ${JSON.stringify(event)}\n\n`,
+        )
+        .join(""),
+      { headers: { "content-type": "text/event-stream" } },
+    );
+}
+
+async function collectSync(
+  events: AsyncGenerator<SyncEvent>,
+): Promise<SyncEvent[]> {
+  const result: SyncEvent[] = [];
+  for await (const event of events) result.push(event);
+  return result;
+}
+
+test("sync sends the owner API key and checkpoint and consumes finite SSE events", async () => {
+  const events: SyncEvent[] = [
+    { event: "reset" },
+    {
+      event: "upsert",
+      key: "/gizclaw/v1/device/runtime",
+      data: { online: true, last_seen_at: "2026-10-07T00:00:00Z" },
+    },
+    { event: "delete", key: "/gizclaw/v1/contacts/alice" },
+    { event: "done", timestamp: 1791331200000 },
+  ];
+  const h = harness([syncAnswer(events)]);
+  assert.deepEqual(await collectSync(h.client.sync(1791331199999)), events);
+  const seen = h.single();
+  assert.equal(seen.method, "GET");
+  assert.equal(seen.url.pathname, "/gizclaw/v1/sync");
+  assert.equal(seen.url.searchParams.get("timestamp"), "1791331199999");
+  assert.equal(seen.headers.get("authorization"), `Bearer ${apiKey}`);
+});
+
+test("sync rejects HTTP errors with the existing control error classification and no retry", async () => {
+  const h = harness([
+    errorResponse(401, "INVALID_API_KEY", "revoked", {
+      "x-request-id": "sync-request",
+    }),
+  ]);
+  await assert.rejects(collectSync(h.client.sync()), (error) => {
+    assert.ok(error instanceof GizClawControlError);
+    assert.equal(error.kind, "unauthorized");
+    assert.equal(error.code, "INVALID_API_KEY");
+    assert.equal(error.requestId, "sync-request");
+    return true;
+  });
+  h.single();
+});
+
+test("sync treats an incomplete batch as a failure and permits retry from the completed checkpoint", async () => {
+  const change: SyncEvent = {
+    event: "upsert",
+    key: "/gizclaw/v1/device",
+    data: { name: "Changed" },
+  };
+  const h = harness([
+    syncAnswer([change]),
+    syncAnswer([{ event: "done", timestamp: 1001 }]),
+  ]);
+  const committed = new Map<string, unknown>([
+    ["/gizclaw/v1/device", { name: "Original" }],
+  ]);
+  const staged = new Map(committed);
+  let timestamp = 1000;
+  await assert.rejects(
+    (async () => {
+      for await (const event of h.client.sync(timestamp)) {
+        if (event.event === "upsert") staged.set(event.key, event.data);
+        if (event.event === "done") timestamp = event.timestamp;
+      }
+    })(),
+    /ended without done/u,
+  );
+  assert.equal(timestamp, 1000);
+  assert.deepEqual(committed.get("/gizclaw/v1/device"), { name: "Original" });
+  assert.deepEqual(await collectSync(h.client.sync(timestamp)), [
+    { event: "done", timestamp: 1001 },
+  ]);
+  assert.equal(h.seen[1]!.url.searchParams.get("timestamp"), "1000");
+});
+
+test("sync rejects malformed events and an out-of-order reset", async () => {
+  const malformed = harness([
+    () =>
+      new Response('event: upsert\ndata: {"event":"upsert"}\n\n', {
+        headers: { "content-type": "text/event-stream" },
+      }),
+  ]);
+  await assert.rejects(
+    collectSync(malformed.client.sync()),
+    /invalid SSE event/u,
+  );
+  const reset = harness([
+    syncAnswer([
+      { event: "delete", key: "/gizclaw/v1/contacts/alice" },
+      { event: "reset" },
+      { event: "done", timestamp: 1000 },
+    ]),
+  ]);
+  await assert.rejects(
+    collectSync(reset.client.sync()),
+    /reset must be the first event/u,
+  );
+});
+
+test("sync surfaces a network failure without automatically replaying a partial batch", async () => {
+  const h = harness([
+    () => {
+      throw new Error("disconnected");
+    },
+  ]);
+  await assert.rejects(collectSync(h.client.sync()), (error) => {
+    assert.ok(error instanceof GizClawControlError);
+    assert.equal(error.kind, "network");
+    assert.match(error.message, /disconnected/u);
+    return true;
+  });
+  h.single();
+});
+
+test("sync validates timestamps and cancels the fetch when iteration stops", async () => {
+  const h = harness([]);
+  for (const value of [-1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN]) {
+    await assert.rejects(collectSync(h.client.sync(value)), TypeError);
+  }
+  assert.equal(h.seen.length, 0);
+  let signal: AbortSignal | undefined;
+  const client = createGizClawControlClient({
+    baseUrl,
+    apiKey,
+    fetch: async (input, init) => {
+      signal = new Request(input, init).signal;
+      return new Response('event: reset\ndata: {"event":"reset"}\n\n', {
+        headers: { "content-type": "text/event-stream" },
+      });
+    },
+  });
+  for await (const event of client.sync()) {
+    assert.equal(event.event, "reset");
+    break;
+  }
+  assert.equal(signal?.aborted, true);
+  const controller = new AbortController();
+  controller.abort();
+  await assert.rejects(collectSync(client.sync(0, controller.signal)), {
+    name: "AbortError",
+  });
+});
 
 function accepted(): Answer {
   return () => new Response(null, { status: 202 });

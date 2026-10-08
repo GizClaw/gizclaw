@@ -13,6 +13,55 @@ The offer uses ECDH/AEAD to prove key possession and protect SDP and an optional
 
 See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authentication and management contract. First-time provisioning stays on the device-local BLE channel; once the device is online, an API key can scan or change Wi-Fi through `/gizclaw/v1/device*`.
 
+## Peer state synchronization
+
+`GET /gizclaw/v1/sync?timestamp=...` uses the Bearer API key's immutable owner
+Peer. Ordinary and manager keys have the same synchronization scope. Start with
+`timestamp=0`; subsequent requests use the server-issued Unix millisecond
+timestamp from the last complete synchronization, rather than the client clock.
+There is no Peer selector.
+
+The response is a finite `text/event-stream`. Each SSE `data` payload is the
+OpenAPI `SyncEvent`; its `event` field matches the SSE event name:
+
+| Event | Data and effect |
+| --- | --- |
+| `reset` | Clear the staged state for this batch before receiving the current full state. |
+| `upsert` | `key` is a canonical `/gizclaw/v1/...` resource path; `data` replaces its previous object with the complete current read projection. |
+| `delete` | Remove `key`, including when an item is deleted or access is lost. |
+| `done` | `timestamp` identifies the successful checkpoint; the connection then ends. |
+
+```text
+event: upsert
+data: {"event":"upsert","key":"/gizclaw/v1/device/runtime","data":{"online":true,"last_seen_at":"2026-10-07T00:00:00Z"}}
+
+event: done
+data: {"event":"done","timestamp":1791331200000}
+
+```
+
+The Server compares each item's final read projection with the previous
+checkpoint. It covers device identity, runtime, status, firmware, runtime profile,
+MHS manifest, owned Workspaces, Contacts, Friends, Friend Groups and members, and
+permitted active invite tokens. Collections synchronize individual items with
+URL-encoded path segments. Group names come from the caller's namespace; group
+invite tokens are visible only to the group owner. Unbound firmware is absent.
+History, log, and telemetry queries retain their existing read endpoints.
+Synchronization never sends device RPCs or refreshes online state.
+
+Stage the batch and commit state and timestamp together only after `done`.
+Discard an incomplete batch after disconnection, cancellation, or a read error,
+then retry with the last completed timestamp. A checkpoint stores hashes of the
+returned projections, rather than a historical event log or an arbitrary
+wall-clock cutoff. [Peer Sync](../../gizclaw/services/runtime/peersync) retains
+the last 64 checkpoints for at most 24 hours in the Peer KV store. Unknown,
+expired, and evicted timestamps start with `reset` and resend current full state.
+A persistent KV store preserves checkpoints across Server restarts.
+
+Parameter, authentication, and projection failures return the standard JSON
+errors before SSE starts. Invalid timestamps answer `400 INVALID_REQUEST`;
+authentication and owner availability follow the existing Peer HTTP rules.
+
 ## Device and contact surface
 
 `/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` accept `Authorization: Bearer <api-key>` or device debug access as described below. The Server takes the immutable owner Peer from the key record; API key bearer credentials always select their own immutable owner, and manager keys and ordinary keys have the same owner-scoped capability on these routes. An invalid or revoked key answers `401 INVALID_API_KEY`, an owner that is not an active Client with a RuntimeProfile binding answers `403 API_KEY_OWNER_UNAVAILABLE`, an owner pending deletion answers `409 PEER_PENDING_DELETION`, validation and pagination failures answer `400 INVALID_REQUEST`, and store or service failures collapse into a redacted `500 INTERNAL_ERROR`.

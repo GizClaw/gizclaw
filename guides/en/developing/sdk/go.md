@@ -41,3 +41,7 @@ from an earlier epoch cannot be distinguished from the next epoch's first packet
 Buffering therefore applies only to the initial audio binding; packets after EOS
 are not reassigned to the next BOS and remain visible to caller boundary checks.
 Existing EOS draining and audio integrity assertions remain unchanged.
+
+## Peer HTTP state synchronization
+
+The OpenAPI-generated `pkgs/gizclaw/api/peerhttp.Client.SyncPeer` accepts `SyncPeerParams.Timestamp` and returns an `*http.Response` with a readable SSE body. The API key fixes the owner. Callers close the response body and cancel with context. `SyncEvent` is the event union generated from the same Schema. Stage each batch and commit state and the server timestamp together on done; discard an incomplete response and retry with the previous timestamp. See [Public API](../api/http/public#peer-state-synchronization) for event and data scope.

@@ -70,6 +70,14 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 	chunks := inputChunks(0)
 	started := time.Now()
 	var firstAudio, firstEnd, secondInput time.Time
+	var heldAt time.Time
+	hold := pushToTalkHoldThreshold
+	if op.HoldBeforeAudio != "" {
+		hold, err = time.ParseDuration(op.HoldBeforeAudio)
+		if err != nil || hold < 0 {
+			return operationResult{}, fmt.Errorf("invalid hold_before_audio %q", op.HoldBeforeAudio)
+		}
+	}
 	var firstID, secondID string
 	responses := map[string]*peerStreamResponseProgress{}
 	events, turn, cursor := 0, 0, 0
@@ -127,19 +135,30 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 			return fail(fmt.Errorf("overlapping input: %w", context.Cause(ctx)))
 		case <-send:
 			chunk := chunks[cursor]
+			if op.Mode == "push-to-talk" && cursor == 0 {
+				heldAt = time.Now()
+			}
 			if op.Mode == "text" && turn == 1 && cursor == 0 {
 				secondInput = time.Now()
 			}
 			if err := stream.Push(ctx, chunk); err != nil {
 				return fail(fmt.Errorf("send overlapping input turn %d: %w", turn+1, err))
 			}
-			if op.Mode != "text" && turn == 1 && cursor == 1 {
+			blob, audio := chunks[cursor].Part.(*genx.Blob)
+			audioPacket := audio && len(blob.Data) > 0
+			if turn == 1 && audioPacket && secondInput.IsZero() {
 				secondInput = time.Now()
 			}
 			cursor++
 			send = nil
 			if cursor < len(chunks) {
-				timer.Reset(pause)
+				delay := time.Duration(0)
+				if op.Mode == "push-to-talk" && cursor == 1 {
+					delay = max(time.Until(heldAt.Add(hold)), 0)
+				} else if audioPacket || op.Mode == "text" {
+					delay = pause
+				}
+				timer.Reset(delay)
 				send = timer.C
 			}
 		case received := <-next:

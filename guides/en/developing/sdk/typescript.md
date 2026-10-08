@@ -40,6 +40,37 @@ HTTP proxy.
 
 `createGizClawControlClient` builds a separate generated client with `createPeerHTTPClient` (`baseUrl`, `auth`, optional `fetch`), one instance per API key, and never touches the `peerHTTPClient` singleton. Route methods call the `sdk.gen.ts` functions with `throwOnError: false` and convert `{ error, response }` into `GizClawControlError`: a missing `response` is `network`; otherwise the body's `error.code` is matched against `DEVICE_*` first and the status is classified second. The code constants are owned by `pkgs/gizclaw/peer_service_serve_peer_http_device_control.go`. Path parameters are `encodeURIComponent`-encoded by the generated client.
 
+## Peer state synchronization
+
+`createGizClawControlClient(...).sync(timestamp, signal?)` returns
+`AsyncGenerator<SyncEvent>` through the client's API key and generated `syncPeer`
+SSE operation. Start with `0`, then reuse the timestamp from the last done event.
+HTTP errors retain `GizClawControlError` classification. Network interruption,
+malformed events, and missing done events fail. Automatic retries are disabled;
+exiting iteration or aborting closes the request.
+
+Stage each batch and commit state and checkpoint together only on done. Discard
+staged changes on failure:
+
+```ts
+let state = new Map<string, unknown>();
+let timestamp = 0;
+const next = new Map(state);
+for await (const event of client.sync(timestamp)) {
+  switch (event.event) {
+    case "reset": next.clear(); break;
+    case "upsert": next.set(event.key, event.data); break;
+    case "delete": next.delete(event.key); break;
+    case "done": state = next; timestamp = event.timestamp; break;
+  }
+}
+```
+
+`client` is the caller's control client. The
+[Public API](../api/http/public#peer-state-synchronization) owns event and data
+scope. The generated HTTP OpenAPI surface also exports `syncPeer` and `SyncEvent`;
+this HTTP response is independent of the Protobuf Peer Event Stream.
+
 ## Generation and validation
 
 ```sh

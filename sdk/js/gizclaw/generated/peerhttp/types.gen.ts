@@ -580,6 +580,54 @@ export type ClientToolV0InvokeResponse = {
     };
 };
 
+/**
+ * Clear the staged state for this owner before applying the following upserts. Sent for timestamp 0 or an unknown or expired checkpoint. Commit the staged state only on done.
+ */
+export type SyncReset = {
+    event: 'reset';
+};
+
+/**
+ * Replace one item with its complete current read-API JSON projection. key is its canonical /gizclaw/v1/... resource path. Singleton device paths identify device, runtime, status, firmware, runtime-profile, and mhs/v0/manifest. Collection items use /device/workspaces/{id}, /contacts/{name}, /friends/{name}, /friend-groups/{name}, and /friend-groups/{name}/members/{memberName}; each segment is URL-encoded. Invite tokens use the existing /friends/invite-token and owner-only /friend-groups/{name}/invite-token paths.
+ */
+export type SyncUpsert = {
+    event: 'upsert';
+    key: string;
+    data: DeviceInfo | Runtime | PeerStatus | MhsV0Manifest | DeviceFirmware | DeviceRuntimeProfile | DeviceWorkspace | Contact | Friend | FriendGroup | FriendGroupMember | InviteToken;
+};
+
+/**
+ * Remove an item that was present in the previous checkpoint and is now deleted or no longer visible to the owner.
+ */
+export type SyncDelete = {
+    event: 'delete';
+    key: string;
+};
+
+/**
+ * The only successful completion marker. Commit staged state and this timestamp together after receiving all preceding events. Discard an interrupted batch without done and retry using the previous timestamp.
+ */
+export type SyncDone = {
+    event: 'done';
+    /**
+     * Server-issued Unix millisecond checkpoint timestamp for the next sync request.
+     */
+    timestamp: number;
+};
+
+/**
+ * JSON data of one SSE event. The SSE event name matches data.event. A finite stream contains optional reset, zero or more delete/upsert events, then exactly one done event.
+ */
+export type SyncEvent = ({
+    event: 'reset';
+} & SyncReset) | ({
+    event: 'upsert';
+} & SyncUpsert) | ({
+    event: 'delete';
+} & SyncDelete) | ({
+    event: 'done';
+} & SyncDone);
+
 export type AudioPlayerItem = {
     /**
      * HTTPS audio URL without embedded credentials; at most 1024 UTF-8 bytes.
@@ -3719,3 +3767,49 @@ export type InvokeClientToolResponses = {
 };
 
 export type InvokeClientToolResponse = InvokeClientToolResponses[keyof InvokeClientToolResponses];
+
+export type SyncPeerData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Last completed server-issued Unix millisecond checkpoint; 0 requests full state.
+         */
+        timestamp: number;
+    };
+    url: '/gizclaw/v1/sync';
+};
+
+export type SyncPeerErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The API key owner is pending deletion.
+     */
+    409: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+};
+
+export type SyncPeerError = SyncPeerErrors[keyof SyncPeerErrors];
+
+export type SyncPeerResponses = {
+    /**
+     * Finite SSE state synchronization. Every data payload conforms to SyncEvent.
+     */
+    200: SyncEvent;
+};
+
+export type SyncPeerResponse = SyncPeerResponses[keyof SyncPeerResponses];

@@ -4,6 +4,7 @@
 package peerhttp
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -448,6 +449,66 @@ func (e FriendGroupRole) Valid() bool {
 	case FriendGroupRoleMember:
 		return true
 	case FriendGroupRoleOwner:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncDeleteEvent.
+const (
+	Delete SyncDeleteEvent = "delete"
+)
+
+// Valid indicates whether the value is a known member of the SyncDeleteEvent enum.
+func (e SyncDeleteEvent) Valid() bool {
+	switch e {
+	case Delete:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncDoneEvent.
+const (
+	Done SyncDoneEvent = "done"
+)
+
+// Valid indicates whether the value is a known member of the SyncDoneEvent enum.
+func (e SyncDoneEvent) Valid() bool {
+	switch e {
+	case Done:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncResetEvent.
+const (
+	Reset SyncResetEvent = "reset"
+)
+
+// Valid indicates whether the value is a known member of the SyncResetEvent enum.
+func (e SyncResetEvent) Valid() bool {
+	switch e {
+	case Reset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SyncUpsertEvent.
+const (
+	Upsert SyncUpsertEvent = "upsert"
+)
+
+// Valid indicates whether the value is a known member of the SyncUpsertEvent enum.
+func (e SyncUpsertEvent) Valid() bool {
+	switch e {
+	case Upsert:
 		return true
 	default:
 		return false
@@ -1102,6 +1163,54 @@ type PublicKeyList struct {
 	PublicKeys []string `json:"public_keys"`
 }
 
+// SyncDelete Remove an item that was present in the previous checkpoint and is now deleted or no longer visible to the owner.
+type SyncDelete struct {
+	Event SyncDeleteEvent `json:"event"`
+	Key   string          `json:"key"`
+}
+
+// SyncDeleteEvent defines model for SyncDelete.Event.
+type SyncDeleteEvent string
+
+// SyncDone The only successful completion marker. Commit staged state and this timestamp together after receiving all preceding events. Discard an interrupted batch without done and retry using the previous timestamp.
+type SyncDone struct {
+	Event SyncDoneEvent `json:"event"`
+
+	// Timestamp Server-issued Unix millisecond checkpoint timestamp for the next sync request.
+	Timestamp int64 `json:"timestamp"`
+}
+
+// SyncDoneEvent defines model for SyncDone.Event.
+type SyncDoneEvent string
+
+// SyncEvent JSON data of one SSE event. The SSE event name matches data.event. A finite stream contains optional reset, zero or more delete/upsert events, then exactly one done event.
+type SyncEvent struct {
+	union json.RawMessage
+}
+
+// SyncReset Clear the staged state for this owner before applying the following upserts. Sent for timestamp 0 or an unknown or expired checkpoint. Commit the staged state only on done.
+type SyncReset struct {
+	Event SyncResetEvent `json:"event"`
+}
+
+// SyncResetEvent defines model for SyncReset.Event.
+type SyncResetEvent string
+
+// SyncUpsert Replace one item with its complete current read-API JSON projection. key is its canonical /gizclaw/v1/... resource path. Singleton device paths identify device, runtime, status, firmware, runtime-profile, and mhs/v0/manifest. Collection items use /device/workspaces/{id}, /contacts/{name}, /friends/{name}, /friend-groups/{name}, and /friend-groups/{name}/members/{memberName}; each segment is URL-encoded. Invite tokens use the existing /friends/invite-token and owner-only /friend-groups/{name}/invite-token paths.
+type SyncUpsert struct {
+	Data  SyncUpsert_Data `json:"data"`
+	Event SyncUpsertEvent `json:"event"`
+	Key   string          `json:"key"`
+}
+
+// SyncUpsert_Data defines model for SyncUpsert.Data.
+type SyncUpsert_Data struct {
+	union json.RawMessage
+}
+
+// SyncUpsertEvent defines model for SyncUpsert.Event.
+type SyncUpsertEvent string
+
 // BadRequest defines model for BadRequest.
 type BadRequest = externalRef0.ErrorResponse
 
@@ -1264,6 +1373,12 @@ type ListFriendsParams struct {
 	// Cursor Opaque next_cursor returned by the previous page.
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// SyncPeerParams defines parameters for SyncPeer.
+type SyncPeerParams struct {
+	// Timestamp Last completed server-issued Unix millisecond checkpoint; 0 requests full state.
+	Timestamp int64 `form:"timestamp" json:"timestamp"`
 }
 
 // CreateGiznetWebRTCOfferParams defines parameters for CreateGiznetWebRTCOffer.
@@ -2103,6 +2218,477 @@ func (t *DeviceRunWorkspaceSetRequest) UnmarshalJSON(b []byte) error {
 	return err
 }
 
+// AsSyncReset returns the union data inside the SyncEvent as a SyncReset
+func (t SyncEvent) AsSyncReset() (SyncReset, error) {
+	var body SyncReset
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSyncReset overwrites any union data inside the SyncEvent as the provided SyncReset
+func (t *SyncEvent) FromSyncReset(v SyncReset) error {
+	v.Event = "reset"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSyncReset performs a merge with any union data inside the SyncEvent, using the provided SyncReset
+func (t *SyncEvent) MergeSyncReset(v SyncReset) error {
+	v.Event = "reset"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSyncUpsert returns the union data inside the SyncEvent as a SyncUpsert
+func (t SyncEvent) AsSyncUpsert() (SyncUpsert, error) {
+	var body SyncUpsert
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSyncUpsert overwrites any union data inside the SyncEvent as the provided SyncUpsert
+func (t *SyncEvent) FromSyncUpsert(v SyncUpsert) error {
+	v.Event = "upsert"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSyncUpsert performs a merge with any union data inside the SyncEvent, using the provided SyncUpsert
+func (t *SyncEvent) MergeSyncUpsert(v SyncUpsert) error {
+	v.Event = "upsert"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSyncDelete returns the union data inside the SyncEvent as a SyncDelete
+func (t SyncEvent) AsSyncDelete() (SyncDelete, error) {
+	var body SyncDelete
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSyncDelete overwrites any union data inside the SyncEvent as the provided SyncDelete
+func (t *SyncEvent) FromSyncDelete(v SyncDelete) error {
+	v.Event = "delete"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSyncDelete performs a merge with any union data inside the SyncEvent, using the provided SyncDelete
+func (t *SyncEvent) MergeSyncDelete(v SyncDelete) error {
+	v.Event = "delete"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSyncDone returns the union data inside the SyncEvent as a SyncDone
+func (t SyncEvent) AsSyncDone() (SyncDone, error) {
+	var body SyncDone
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSyncDone overwrites any union data inside the SyncEvent as the provided SyncDone
+func (t *SyncEvent) FromSyncDone(v SyncDone) error {
+	v.Event = "done"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeSyncDone performs a merge with any union data inside the SyncEvent, using the provided SyncDone
+func (t *SyncEvent) MergeSyncDone(v SyncDone) error {
+	v.Event = "done"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t SyncEvent) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"event"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t SyncEvent) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "delete":
+		return t.AsSyncDelete()
+	case "done":
+		return t.AsSyncDone()
+	case "reset":
+		return t.AsSyncReset()
+	case "upsert":
+		return t.AsSyncUpsert()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t SyncEvent) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *SyncEvent) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsExternalRef0DeviceInfo returns the union data inside the SyncUpsert_Data as a externalRef0.DeviceInfo
+func (t SyncUpsert_Data) AsExternalRef0DeviceInfo() (externalRef0.DeviceInfo, error) {
+	var body externalRef0.DeviceInfo
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExternalRef0DeviceInfo overwrites any union data inside the SyncUpsert_Data as the provided externalRef0.DeviceInfo
+func (t *SyncUpsert_Data) FromExternalRef0DeviceInfo(v externalRef0.DeviceInfo) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExternalRef0DeviceInfo performs a merge with any union data inside the SyncUpsert_Data, using the provided externalRef0.DeviceInfo
+func (t *SyncUpsert_Data) MergeExternalRef0DeviceInfo(v externalRef0.DeviceInfo) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsExternalRef0Runtime returns the union data inside the SyncUpsert_Data as a externalRef0.Runtime
+func (t SyncUpsert_Data) AsExternalRef0Runtime() (externalRef0.Runtime, error) {
+	var body externalRef0.Runtime
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExternalRef0Runtime overwrites any union data inside the SyncUpsert_Data as the provided externalRef0.Runtime
+func (t *SyncUpsert_Data) FromExternalRef0Runtime(v externalRef0.Runtime) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExternalRef0Runtime performs a merge with any union data inside the SyncUpsert_Data, using the provided externalRef0.Runtime
+func (t *SyncUpsert_Data) MergeExternalRef0Runtime(v externalRef0.Runtime) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsExternalRef0PeerStatus returns the union data inside the SyncUpsert_Data as a externalRef0.PeerStatus
+func (t SyncUpsert_Data) AsExternalRef0PeerStatus() (externalRef0.PeerStatus, error) {
+	var body externalRef0.PeerStatus
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExternalRef0PeerStatus overwrites any union data inside the SyncUpsert_Data as the provided externalRef0.PeerStatus
+func (t *SyncUpsert_Data) FromExternalRef0PeerStatus(v externalRef0.PeerStatus) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExternalRef0PeerStatus performs a merge with any union data inside the SyncUpsert_Data, using the provided externalRef0.PeerStatus
+func (t *SyncUpsert_Data) MergeExternalRef0PeerStatus(v externalRef0.PeerStatus) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsExternalRef0MhsV0Manifest returns the union data inside the SyncUpsert_Data as a externalRef0.MhsV0Manifest
+func (t SyncUpsert_Data) AsExternalRef0MhsV0Manifest() (externalRef0.MhsV0Manifest, error) {
+	var body externalRef0.MhsV0Manifest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromExternalRef0MhsV0Manifest overwrites any union data inside the SyncUpsert_Data as the provided externalRef0.MhsV0Manifest
+func (t *SyncUpsert_Data) FromExternalRef0MhsV0Manifest(v externalRef0.MhsV0Manifest) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeExternalRef0MhsV0Manifest performs a merge with any union data inside the SyncUpsert_Data, using the provided externalRef0.MhsV0Manifest
+func (t *SyncUpsert_Data) MergeExternalRef0MhsV0Manifest(v externalRef0.MhsV0Manifest) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeviceFirmware returns the union data inside the SyncUpsert_Data as a DeviceFirmware
+func (t SyncUpsert_Data) AsDeviceFirmware() (DeviceFirmware, error) {
+	var body DeviceFirmware
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeviceFirmware overwrites any union data inside the SyncUpsert_Data as the provided DeviceFirmware
+func (t *SyncUpsert_Data) FromDeviceFirmware(v DeviceFirmware) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeviceFirmware performs a merge with any union data inside the SyncUpsert_Data, using the provided DeviceFirmware
+func (t *SyncUpsert_Data) MergeDeviceFirmware(v DeviceFirmware) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeviceRuntimeProfile returns the union data inside the SyncUpsert_Data as a DeviceRuntimeProfile
+func (t SyncUpsert_Data) AsDeviceRuntimeProfile() (DeviceRuntimeProfile, error) {
+	var body DeviceRuntimeProfile
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeviceRuntimeProfile overwrites any union data inside the SyncUpsert_Data as the provided DeviceRuntimeProfile
+func (t *SyncUpsert_Data) FromDeviceRuntimeProfile(v DeviceRuntimeProfile) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeviceRuntimeProfile performs a merge with any union data inside the SyncUpsert_Data, using the provided DeviceRuntimeProfile
+func (t *SyncUpsert_Data) MergeDeviceRuntimeProfile(v DeviceRuntimeProfile) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeviceWorkspace returns the union data inside the SyncUpsert_Data as a DeviceWorkspace
+func (t SyncUpsert_Data) AsDeviceWorkspace() (DeviceWorkspace, error) {
+	var body DeviceWorkspace
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeviceWorkspace overwrites any union data inside the SyncUpsert_Data as the provided DeviceWorkspace
+func (t *SyncUpsert_Data) FromDeviceWorkspace(v DeviceWorkspace) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeDeviceWorkspace performs a merge with any union data inside the SyncUpsert_Data, using the provided DeviceWorkspace
+func (t *SyncUpsert_Data) MergeDeviceWorkspace(v DeviceWorkspace) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsContact returns the union data inside the SyncUpsert_Data as a Contact
+func (t SyncUpsert_Data) AsContact() (Contact, error) {
+	var body Contact
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromContact overwrites any union data inside the SyncUpsert_Data as the provided Contact
+func (t *SyncUpsert_Data) FromContact(v Contact) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeContact performs a merge with any union data inside the SyncUpsert_Data, using the provided Contact
+func (t *SyncUpsert_Data) MergeContact(v Contact) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriend returns the union data inside the SyncUpsert_Data as a Friend
+func (t SyncUpsert_Data) AsFriend() (Friend, error) {
+	var body Friend
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriend overwrites any union data inside the SyncUpsert_Data as the provided Friend
+func (t *SyncUpsert_Data) FromFriend(v Friend) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriend performs a merge with any union data inside the SyncUpsert_Data, using the provided Friend
+func (t *SyncUpsert_Data) MergeFriend(v Friend) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroup returns the union data inside the SyncUpsert_Data as a FriendGroup
+func (t SyncUpsert_Data) AsFriendGroup() (FriendGroup, error) {
+	var body FriendGroup
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroup overwrites any union data inside the SyncUpsert_Data as the provided FriendGroup
+func (t *SyncUpsert_Data) FromFriendGroup(v FriendGroup) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroup performs a merge with any union data inside the SyncUpsert_Data, using the provided FriendGroup
+func (t *SyncUpsert_Data) MergeFriendGroup(v FriendGroup) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsFriendGroupMember returns the union data inside the SyncUpsert_Data as a FriendGroupMember
+func (t SyncUpsert_Data) AsFriendGroupMember() (FriendGroupMember, error) {
+	var body FriendGroupMember
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromFriendGroupMember overwrites any union data inside the SyncUpsert_Data as the provided FriendGroupMember
+func (t *SyncUpsert_Data) FromFriendGroupMember(v FriendGroupMember) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeFriendGroupMember performs a merge with any union data inside the SyncUpsert_Data, using the provided FriendGroupMember
+func (t *SyncUpsert_Data) MergeFriendGroupMember(v FriendGroupMember) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsInviteToken returns the union data inside the SyncUpsert_Data as a InviteToken
+func (t SyncUpsert_Data) AsInviteToken() (InviteToken, error) {
+	var body InviteToken
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromInviteToken overwrites any union data inside the SyncUpsert_Data as the provided InviteToken
+func (t *SyncUpsert_Data) FromInviteToken(v InviteToken) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeInviteToken performs a merge with any union data inside the SyncUpsert_Data, using the provided InviteToken
+func (t *SyncUpsert_Data) MergeInviteToken(v InviteToken) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t SyncUpsert_Data) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *SyncUpsert_Data) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // RequestEditorFn  is the function signature for the RequestEditor callback function
 type RequestEditorFn func(ctx context.Context, req *http.Request) error
 
@@ -2365,6 +2951,9 @@ type ClientInterface interface {
 
 	// FindPublicKeysBySN request
 	FindPublicKeysBySN(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SyncPeer request
+	SyncPeer(ctx context.Context, params *SyncPeerParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetServerInfo request
 	GetServerInfo(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -3179,6 +3768,18 @@ func (c *Client) FindPublicKeysByIMEI(ctx context.Context, tac string, serial st
 
 func (c *Client) FindPublicKeysBySN(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewFindPublicKeysBySNRequest(c.Server, sn)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) SyncPeer(ctx context.Context, params *SyncPeerParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSyncPeerRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -5560,6 +6161,56 @@ func NewFindPublicKeysBySNRequest(server string, sn string) (*http.Request, erro
 	return req, nil
 }
 
+// NewSyncPeerRequest generates requests for SyncPeer
+func NewSyncPeerRequest(server string, params *SyncPeerParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/sync")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "timestamp", params.Timestamp, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodGet, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetServerInfoRequest generates requests for GetServerInfo
 func NewGetServerInfoRequest(server string) (*http.Request, error) {
 	var err error
@@ -5879,6 +6530,9 @@ type ClientWithResponsesInterface interface {
 
 	// FindPublicKeysBySNWithResponse request
 	FindPublicKeysBySNWithResponse(ctx context.Context, sn string, reqEditors ...RequestEditorFn) (*FindPublicKeysBySNResponse, error)
+
+	// SyncPeerWithResponse request
+	SyncPeerWithResponse(ctx context.Context, params *SyncPeerParams, reqEditors ...RequestEditorFn) (*SyncPeerResponse, error)
 
 	// GetServerInfoWithResponse request
 	GetServerInfoWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetServerInfoResponse, error)
@@ -7727,6 +8381,40 @@ func (r FindPublicKeysBySNResponse) ContentType() string {
 	return ""
 }
 
+type SyncPeerResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON409      *Conflict
+	JSON500      *InternalError
+}
+
+// Status returns HTTPResponse.Status
+func (r SyncPeerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SyncPeerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r SyncPeerResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 type GetServerInfoResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
@@ -8391,6 +9079,15 @@ func (c *ClientWithResponses) FindPublicKeysBySNWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseFindPublicKeysBySNResponse(rsp)
+}
+
+// SyncPeerWithResponse request returning *SyncPeerResponse
+func (c *ClientWithResponses) SyncPeerWithResponse(ctx context.Context, params *SyncPeerParams, reqEditors ...RequestEditorFn) (*SyncPeerResponse, error) {
+	rsp, err := c.SyncPeer(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSyncPeerResponse(rsp)
 }
 
 // GetServerInfoWithResponse request returning *GetServerInfoResponse
@@ -11723,6 +12420,60 @@ func ParseFindPublicKeysBySNResponse(rsp *http.Response) (*FindPublicKeysBySNRes
 	return response, nil
 }
 
+// ParseSyncPeerResponse parses an HTTP response from a SyncPeerWithResponse call
+func ParseSyncPeerResponse(rsp *http.Response) (*SyncPeerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SyncPeerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest Conflict
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetServerInfoResponse parses an HTTP response from a GetServerInfoWithResponse call
 func ParseGetServerInfoResponse(rsp *http.Response) (*GetServerInfoResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -11989,6 +12740,9 @@ type ServerInterface interface {
 	// Find all matching device public keys
 	// (GET /gizclaw/v1/peers/@findBySn/{sn})
 	FindPublicKeysBySN(c *fiber.Ctx, sn string) error
+	// Synchronize the API key owner Peer current state
+	// (GET /gizclaw/v1/sync)
+	SyncPeer(c *fiber.Ctx, params SyncPeerParams) error
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(c *fiber.Ctx) error
@@ -13709,6 +14463,45 @@ func (siw *ServerInterfaceWrapper) FindPublicKeysBySN(c *fiber.Ctx) error {
 	return handler(c)
 }
 
+// SyncPeer operation middleware
+func (siw *ServerInterfaceWrapper) SyncPeer(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params SyncPeerParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "timestamp" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "timestamp", query, &params.Timestamp, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter timestamp: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.SyncPeer(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
 // GetServerInfo operation middleware
 func (siw *ServerInterfaceWrapper) GetServerInfo(c *fiber.Ctx) error {
 
@@ -13939,6 +14732,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 	router.Get(options.BaseURL+"/gizclaw/v1/peers/@findByImei/:tac/:serial", wrapper.FindPublicKeysByIMEI)
 
 	router.Get(options.BaseURL+"/gizclaw/v1/peers/@findBySn/:sn", wrapper.FindPublicKeysBySN)
+
+	router.Get(options.BaseURL+"/gizclaw/v1/sync", wrapper.SyncPeer)
 
 	router.Get(options.BaseURL+"/server-info", wrapper.GetServerInfo)
 
@@ -17546,6 +18341,97 @@ func (response FindPublicKeysBySN500JSONResponse) VisitFindPublicKeysBySNRespons
 	return ctx.JSON(&response)
 }
 
+type SyncPeerRequestObject struct {
+	Params SyncPeerParams
+}
+
+type SyncPeerResponseObject interface {
+	VisitSyncPeerResponse(ctx *fiber.Ctx) error
+}
+
+type SyncPeer200TexteventStreamResponse struct {
+	Body          io.Reader
+	ContentLength int64
+}
+
+func (response SyncPeer200TexteventStreamResponse) VisitSyncPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		ctx.Response().Header.Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	ctx.Status(200)
+
+	// Fiber/fasthttp streams through a callback: fasthttp emits
+	// a chunk each time we call w.Flush(), so clients see
+	// streaming data immediately instead of waiting on buffering.
+	ctx.Response().SetBodyStreamWriter(func(w *bufio.Writer) {
+		if closer, ok := response.Body.(io.ReadCloser); ok {
+			defer closer.Close()
+		}
+		buf := make([]byte, 4096)
+		for {
+			n, err := response.Body.Read(buf)
+			if n > 0 {
+				if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+					return
+				}
+				if flushErr := w.Flush(); flushErr != nil {
+					return
+				}
+			}
+			if err != nil {
+				return
+			}
+		}
+	})
+	return nil
+}
+
+type SyncPeer400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response SyncPeer400JSONResponse) VisitSyncPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type SyncPeer401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response SyncPeer401JSONResponse) VisitSyncPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type SyncPeer403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SyncPeer403JSONResponse) VisitSyncPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type SyncPeer409JSONResponse struct{ ConflictJSONResponse }
+
+func (response SyncPeer409JSONResponse) VisitSyncPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type SyncPeer500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response SyncPeer500JSONResponse) VisitSyncPeerResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
 type GetServerInfoRequestObject struct {
 }
 
@@ -17829,6 +18715,9 @@ type StrictServerInterface interface {
 	// Find all matching device public keys
 	// (GET /gizclaw/v1/peers/@findBySn/{sn})
 	FindPublicKeysBySN(ctx context.Context, request FindPublicKeysBySNRequestObject) (FindPublicKeysBySNResponseObject, error)
+	// Synchronize the API key owner Peer current state
+	// (GET /gizclaw/v1/sync)
+	SyncPeer(ctx context.Context, request SyncPeerRequestObject) (SyncPeerResponseObject, error)
 	// Get server information
 	// (GET /server-info)
 	GetServerInfo(ctx context.Context, request GetServerInfoRequestObject) (GetServerInfoResponseObject, error)
@@ -19303,6 +20192,33 @@ func (sh *strictHandler) FindPublicKeysBySN(ctx *fiber.Ctx, sn string) error {
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(FindPublicKeysBySNResponseObject); ok {
 		if err := validResponse.VisitFindPublicKeysBySNResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// SyncPeer operation middleware
+func (sh *strictHandler) SyncPeer(ctx *fiber.Ctx, params SyncPeerParams) error {
+	var request SyncPeerRequestObject
+
+	request.Params = params
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.SyncPeer(ctx.UserContext(), request.(SyncPeerRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SyncPeer")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(SyncPeerResponseObject); ok {
+		if err := validResponse.VisitSyncPeerResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {

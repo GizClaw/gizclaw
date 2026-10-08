@@ -135,14 +135,18 @@ type RPCStreamOperation struct {
 }
 
 // HTTPOperation sends one HTTP request to the client's access point or Endpoint.
-// The response JSON body is the step value for expect, capture, and save_as.
+// The response body is the step value for expect, capture, and save_as.
+// ResponseFormat "sse" projects a finite event stream as events, last_event,
+// and raw; omitted ResponseFormat preserves JSON/text decoding.
 type HTTPOperation struct {
-	Endpoint string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
-	Method   string            `json:"method" yaml:"method"`
-	Path     string            `json:"path" yaml:"path"`
-	Headers  map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Body     any               `json:"body,omitempty" yaml:"body,omitempty"`
-	Status   int               `json:"status,omitempty" yaml:"status,omitempty"`
+	ResponseFormat string            `json:"response_format,omitempty" yaml:"response_format,omitempty"`
+	Query          map[string]any    `json:"query,omitempty" yaml:"query,omitempty"`
+	Endpoint       string            `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	Method         string            `json:"method" yaml:"method"`
+	Path           string            `json:"path" yaml:"path"`
+	Headers        map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Body           any               `json:"body,omitempty" yaml:"body,omitempty"`
+	Status         int               `json:"status,omitempty" yaml:"status,omitempty"`
 }
 type ClientRPCOperation struct {
 	ObserveOnly bool   `json:"observe_only,omitempty" yaml:"observe_only,omitempty"`
@@ -169,14 +173,17 @@ type PeerStreamOperation struct {
 	OverlapInput bool   `json:"overlap_input,omitempty" yaml:"overlap_input,omitempty"`
 	Mode         string `json:"mode" yaml:"mode"`
 	Input        any    `json:"input,omitempty" yaml:"input,omitempty"`
-	// EmptyInput sends a push-to-talk turn whose audio route opens and closes
-	// without a frame, the way a Peer reports a press released before the first
-	// frame is captured or a device whose gate emitted nothing. It replaces
-	// Input, and the step asserts that the turn completes with empty assistant
-	// routes instead of waiting for a response.
-	EmptyInput        bool   `json:"empty_input,omitempty" yaml:"empty_input,omitempty"`
-	Duration          string `json:"duration,omitempty" yaml:"duration,omitempty"`
-	Pacing            string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
+	// EmptyInput sends control-only BOS/EOS without opening an audio channel,
+	// matching a press released before any PCM is captured. It replaces Input.
+	// Unless completion is input_sent, the step observes a quiet window set by
+	// idle_timeout (250ms by default) and rejects assistant content.
+	EmptyInput bool   `json:"empty_input,omitempty" yaml:"empty_input,omitempty"`
+	Duration   string `json:"duration,omitempty" yaml:"duration,omitempty"`
+	Pacing     string `json:"pacing,omitempty" yaml:"pacing,omitempty"`
+	// HoldBeforeAudio delays audio BOS after control BOS in PTT; default 500ms.
+	HoldBeforeAudio string `json:"hold_before_audio,omitempty" yaml:"hold_before_audio,omitempty"`
+	// ReplyObservation bounds collection after assistant terminal EOS; default 250ms.
+	ReplyObservation  string `json:"reply_observation,omitempty" yaml:"reply_observation,omitempty"`
 	InterruptAfter    string `json:"interrupt_after,omitempty" yaml:"interrupt_after,omitempty"`
 	IdleTimeout       string `json:"idle_timeout,omitempty" yaml:"idle_timeout,omitempty"`
 	Completion        string `json:"completion,omitempty" yaml:"completion,omitempty"`
@@ -1037,6 +1044,22 @@ func collectReferences(v any) []string {
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
 	op := step.PeerStream
+	if op.HoldBeforeAudio != "" {
+		if op.Mode != "push-to-talk" || op.EmptyInput {
+			return fmt.Errorf("step %s hold_before_audio requires nonempty push-to-talk input", step.ID)
+		}
+		if delay, err := time.ParseDuration(op.HoldBeforeAudio); err != nil || delay < 0 {
+			return fmt.Errorf("step %s has invalid hold_before_audio %q", step.ID, op.HoldBeforeAudio)
+		}
+	}
+	if op.ReplyObservation != "" {
+		if op.EmptyInput || op.OverlapInput || (op.Completion != "" && op.Completion != "terminal") || (op.TerminalLabel != "" && op.TerminalLabel != "assistant") {
+			return fmt.Errorf("step %s reply_observation requires nonempty assistant terminal completion", step.ID)
+		}
+		if delay, err := time.ParseDuration(op.ReplyObservation); err != nil || delay <= 0 {
+			return fmt.Errorf("step %s has invalid reply_observation %q", step.ID, op.ReplyObservation)
+		}
+	}
 	if op.TextDone && op.Mode != "text" {
 		return fmt.Errorf("step %s text_done requires text mode", step.ID)
 	}
@@ -1066,7 +1089,7 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 			}
 		}
 		if op.InterruptAfter != "" || op.Completion != "" || op.Session != "" || op.KeepOpen || op.AwaitRearm != "" || op.TerminalLabel != "" || op.RequireText != nil || op.RequireAudio != nil || op.FirstTextTimeout != "" || op.FirstAudioTimeout != "" || op.WaitForHistory || op.IdleTimeout != "" {
-			return fmt.Errorf("step %s overlap_input only supports mode, input and pacing; use step timeout", step.ID)
+			return fmt.Errorf("step %s overlap_input only supports mode, input, pacing and PTT hold_before_audio; use step timeout", step.ID)
 		}
 	}
 	persistent := step.PeerStream.KeepOpen || step.PeerStream.AwaitRearm != ""
@@ -1109,7 +1132,7 @@ func validatePeerStreamStep(step Step, finalizer bool) error {
 			return fmt.Errorf("step %s peer_stream empty_input cannot set input", step.ID)
 		}
 		if step.PeerStream.RequireText != nil || step.PeerStream.RequireAudio != nil {
-			return fmt.Errorf("step %s peer_stream empty_input completes with empty assistant routes: remove require_text and require_audio", step.ID)
+			return fmt.Errorf("step %s peer_stream empty_input has no required response: remove require_text and require_audio", step.ID)
 		}
 		if step.PeerStream.InterruptAfter != "" {
 			return fmt.Errorf("step %s peer_stream empty_input has no response to interrupt", step.ID)

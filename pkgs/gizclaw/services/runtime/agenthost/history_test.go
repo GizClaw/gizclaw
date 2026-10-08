@@ -2284,3 +2284,158 @@ func TestFiniteHostHistoryPreservesDialogueAndQuotaTerminal(t *testing.T) {
 		})
 	}
 }
+
+func TestHistoryAgentPTTControlEndWaitsForFinalASR(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	core, err := genxeino.New(ctx, genxeino.Config{
+		Agent: genxeino.AgentConfig{ID: "ptt", Name: "ptt"}, Components: finiteHistoryModel{},
+		Graph: genxeino.GraphDefinition{Name: "ptt", State: genxeino.StateDefinition{Fields: []genxeino.StateField{{Name: "answer", Type: genxeino.StateString, Merge: genxeino.MergeReplace}}},
+			Nodes: []genxeino.NodeDefinition{{ID: "chat", ChatModel: &genxeino.ChatModelNode{Model: "chat"}, Inputs: map[string]genxeino.Binding{"messages": {From: "input.messages"}}, Outputs: map[string]string{"text": "answer"}}},
+			Edges: []genxeino.EdgeDefinition{{From: "start", To: "chat"}, {From: "chat", To: "end"}}, Outputs: []genxeino.OutputDefinition{{Node: "chat", Field: "answer", Name: "assistant", MIMEType: "text/plain", Primary: true}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transcripts := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+	dock, err := audiodock.New(audiodock.Config{Agent: core, ASR: historyTransformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) { return transcripts.Stream(), nil })})
+	if err != nil {
+		t.Fatal(err)
+	}
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+	audioDelivered := make(chan struct{})
+	tapped := historyTransformerFunc(func(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+		output, err := dock.Transform(ctx, input)
+		if err != nil {
+			return nil, err
+		}
+		return &historyAudioBoundaryTap{Stream: output, delivered: audioDelivered}, nil
+	})
+	agent := wrapHistoryAgent(NewTransformerAgent(tapped), history)
+	output, err := agent.Transform(withHistoryGearID(ctx, "gear-a"), input.Stream())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	add := func(builder *genx.StreamBuilder, chunks ...*genx.MessageChunk) {
+		t.Helper()
+		if err := builder.Add(chunks...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	boundary := func(part genx.Part, begin, end bool) *genx.MessageChunk {
+		return &genx.MessageChunk{Role: genx.RoleUser, Part: part, Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: "demo-home", BeginOfStream: begin, EndOfStream: end}}
+	}
+	add(input, boundary(nil, true, false), boundary(&genx.Blob{MIMEType: "audio/opus"}, true, false), boundary(&genx.Blob{MIMEType: "audio/opus"}, false, true))
+	encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationVoIP)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	pcmFrame := make([]int16, 320)
+	for i := range pcmFrame {
+		pcmFrame[i] = int16((i%20 - 10) * 1000)
+	}
+	packet, err := encoder.Encode(pcmFrame, 320)
+	if err != nil {
+		t.Fatal(err)
+	}
+	add(transcripts,
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus", Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: genx.HistoryUserAudioLabel, BeginOfStream: true}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: genx.HistoryUserAudioLabel, EndOfStream: true}},
+	)
+	// Drain while ASR's history-only audio is recorded, before any text exists.
+	results := make(chan *genx.MessageChunk, 8)
+	drainDone := make(chan error, 1)
+	go func() {
+		for {
+			c, err := output.Next()
+			if err != nil {
+				drainDone <- err
+				return
+			}
+			select {
+			case results <- c:
+			case <-ctx.Done():
+				drainDone <- ctx.Err()
+				return
+			}
+		}
+	}()
+	select {
+	case <-audioDelivered:
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	add(input, boundary(nil, false, true), &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "control-drained", Label: "control-drained"}})
+	for {
+		select {
+		case c := <-results:
+			if c != nil && c.Ctrl != nil && c.Ctrl.StreamID == "control-drained" {
+				goto finalASR
+			}
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		}
+	}
+finalASR:
+	// Final text is deliberately unavailable until both firmware ends have
+	// passed through the input router and Eino's input reader.
+	add(transcripts,
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("complete speech"), Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: "transcript"}},
+		&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "speech", Label: "transcript", EndOfStream: true}},
+	)
+	if err := transcripts.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-drainDone:
+		if !IsStreamDone(err) {
+			t.Fatal(err)
+		}
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	}
+	page, err := history.ListEntries(ctx, "", "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var users []workspace.HistoryEntry
+	for _, entry := range page.Entries {
+		if entry.Type == historyEntryTypeGear {
+			users = append(users, entry)
+		}
+	}
+	if len(users) != 1 || users[0].Text != "complete speech" || len(users[0].Assets) != 1 {
+		t.Fatalf("one PTT was split into history entries: %+v", users)
+	}
+	asset, err := history.ReadAsset(ctx, users[0].Assets[0].Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer asset.Close()
+	packets, err := ogg.ReadAllPackets(asset)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(packets) != 3 || !bytes.Equal(packets[2].Data, packet) {
+		t.Fatal("the text history entry lost the actual Opus recording")
+	}
+}
+
+type historyAudioBoundaryTap struct {
+	genx.Stream
+	delivered chan struct{}
+}
+
+func (s *historyAudioBoundaryTap) Next() (*genx.MessageChunk, error) {
+	c, err := s.Stream.Next()
+	if c != nil && c.Ctrl != nil && c.Ctrl.Label == genx.HistoryUserAudioLabel && c.IsEndOfStream() {
+		close(s.delivered)
+	}
+	return c, err
+}

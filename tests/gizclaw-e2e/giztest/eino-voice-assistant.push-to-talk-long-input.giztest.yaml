@@ -1,0 +1,117 @@
+# User Story:
+# As a device holding Record through a long spoken input with sentence pauses,
+# I want one complete reply after releasing Record,
+# So that partial ASR results cannot become overlapping assistant replies.
+version: gizclaw.test/v1alpha1
+name: eino-voice-assistant.push-to-talk-long-input
+timeout: 360s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: eino-voice-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: long_spoken_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        accepted_content_types: [audio/ogg]
+        text: >-
+          今天我想把一次很长的郊游经历完整讲给你听，请先听完全部内容，等我结束之后再回答。
+          我们早晨从家里出发，走到一片苹果果园旁边，看见树叶在风里轻轻摇动。
+          我们沿着小路慢慢往前走，数一数经过的树，看看路边不同颜色的花，
+          还讨论了为什么有的叶子已经变黄，有的叶子仍然是绿色。
+          走出果园以后，我们在一座木头桥前面停下来。桥下面有一条清澈的小河，
+          水面上倒映着天空和远处的山。我们没有急着过桥，而是先看了看桥边的说明，
+          确认可以安全通行，再排好队一步一步走过去。到了河对岸，我们找到一块平整的地方休息，
+          喝水，吃东西，整理背包，然后继续沿着山路往上走。
+          下午的路比上午更长一些。我们经过了一片树林，又经过几块大石头，在每个路口都认真看地图。
+          有人提出可以走近路，但我们发现近路比较陡，而且不太熟悉，所以还是选择原来的路线。
+          一路上我们互相提醒不要掉队，也不要把垃圾留在路边，看到有趣的小动物时就安静地观察，
+          没有追赶它们。接近傍晚的时候，我们终于来到山顶。大家先站稳，找到安全的位置，
+          再看看远处的村庄和已经走过的路。天色慢慢暗下来，山顶星星一颗一颗出现，
+          我们回想早晨的苹果果园、中午的木头桥，还有下午走过的树林，
+          觉得这一路虽然很长，但每一段都有值得记住的事情。
+          我已经把完整经历讲完了，现在请只回答一句：收到完整输入。
+    save_as: input_audio
+  - id: held_ptt_turn
+    client: peer
+    timeout: 300s
+    peer_stream:
+      mode: push-to-talk
+      label: demo-home
+      hold_before_audio: 500ms
+      input: ${input_audio}
+      pacing: 20ms
+      trim_trailing_silence: true
+      idle_timeout: 45s
+      reply_observation: 1s
+    expect:
+      /input_ms: {minimum: 60000}
+      /response_count: {equals: 1}
+      /reply: {non_empty: true}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/max_active: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

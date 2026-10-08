@@ -77,10 +77,8 @@ steps:
       mode: push-to-talk
       empty_input: true
     expect:
-      /text_eos:
-        equals: true
-      /audio_eos:
-        equals: true
+      /response_count:
+        equals: 0
       /audio_bytes:
         equals: 0
   - id: exercise_workflow

@@ -141,6 +141,20 @@ formats before opening the RPC and sets `content_type` for the prepared bytes;
 the document request contains the model and optional language, not this
 runner-owned wire metadata.
 
+`peer_stream.mode: push-to-talk` sends the device's control BOS, audio BOS,
+Opus, audio EOS, and control EOS on one StreamID. `pacing` applies only to audio
+packets; empty PTT sends control boundaries only. A full single-turn dialogue
+can assert `/response_count: {equals: 1}` to catch multiple replies mixed into
+one audio downlink. Ignored or interrupted replies are excluded. `/input_ms`
+reports the audio input's media duration.
+Assistant terminal completion collects late output for 250 ms after the first
+complete reply; `reply_observation: 1s` extends that bounded observation before
+reporting `response_count`. It does not apply to empty input, `first_response`,
+`input_sent`, overlap probes, or transcript completion.
+Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
+set another nonnegative Go duration for a different device threshold. PTT
+omits wire `input_mode`; Workspace parameters determine the actual input mode.
+
 A latency-only `peer_stream` probe can stop after the first assistant text and
 audio instead of waiting for terminal output:
 

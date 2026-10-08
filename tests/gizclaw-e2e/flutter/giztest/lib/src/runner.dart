@@ -8,6 +8,8 @@ import 'dart:io';
 import 'assertions.dart';
 import 'client.dart';
 import 'document.dart';
+import 'http_query.dart';
+import 'http_sse.dart';
 import 'variables.dart';
 
 const _cleanupBudget = Duration(seconds: 30);
@@ -129,9 +131,13 @@ Future<_StepOutcome> _runStep(
     if (client == null) {
       throw StateError('step ${step.id} has no connected client');
     }
-    final path = variables.resolveString(http['path'], 'http path');
+    var path = variables.resolveString(http['path'], 'http path');
     if (!path.startsWith('/')) {
       throw StateError('http path must resolve to an absolute path');
+    }
+    final query = http['query'];
+    if (query is Map) {
+      path = resolveHttpQuery(path, query, variables);
     }
     final headers = <String, String>{};
     for (final entry
@@ -165,6 +171,14 @@ Future<_StepOutcome> _runStep(
     }
     if (declared == null && result.status >= 400) {
       throw AssertionFailure('http status = ${result.status}');
+    }
+    if (http['response_format'] == 'sse') {
+      final text = result.body;
+      if (text is! String) throw StateError('SSE response must be text');
+      return _StepOutcome(
+        value: decodeHttpEventStream(text),
+        evidence: evidence,
+      );
     }
     return _StepOutcome(value: result.body, evidence: evidence);
   }

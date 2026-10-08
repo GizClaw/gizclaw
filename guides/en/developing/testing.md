@@ -645,6 +645,32 @@ manages a disconnected device with its API key over another device's connection.
 is the step value for `expect`, `capture`, and `save_as`, and a 4xx/5xx without a declared `status` is
 an assertion failure. The API key comes from a `server.api_key.create` step with
 `capture: {api_key: /api_key}` and is sent as the `Authorization: "Bearer ${api_key}"` header.
+
+`http.query` supports string, number, and boolean query parameters. Exact variable
+references retain their types, such as `query: {timestamp: "${checkpoint}"}` for
+server-issued SSE checkpoint numbers. `http.response_format: sse` projects a finite
+response as `{events: [{event, data}], last_event, raw}`. JSON data is decoded,
+other data stays text, and only blank-line-terminated events with data dispatch.
+An incomplete terminal frame cannot satisfy a done assertion. Parsing is bounded
+to 4 MiB and 16384 events. Go/C, JS, and Flutter use
+`api/giztest/testdata/http_sse_vectors.json` for shared conformance tests.
+
+`server.peer.sync.giztest.yaml` covers initial reset, continuation, unchanged
+state, owner isolation, creation, coalesced final updates, deletion, device
+reconnect, stale checkpoints, and invalid timestamps or missing/invalid/revoked
+API keys. `go test ./cmd/internal/server -run '^TestPeerSyncGiztest$' -count=1`
+starts real Server and Edge processes over temporary state. Devices connect
+through Gateway/WebRTC, and Edge forwards HTTP SSE to the authoritative Server.
+The report requires all 23 steps and both cleanup steps to pass; ordinary Go CI
+runs this test too.
+
+JavaScript and native Flutter reuse the same scenario. Build the Flutter runner,
+set `GIZCLAW_SYNC_FLUTTER_RUNNER` to its executable, and run
+`go test -tags=gizclaw_sdk_e2e ./cmd/internal/server -run '^TestPeerSyncSDKGiztests$' -count=1`.
+Missing runners and execution failures fail rather than counting validation as
+acceptance. The C controller SDK currently has no `/sync` route, so its runner
+explicitly marks this scenario unsupported; Go/C share decoder unit coverage.
+
 A `client_rpc` step names `client.mhs.v0.read/write`, `client.tool.v0.invoke/list`, or `client.rpc.methods.list`. For an invoke step, `tool` selects the predefined `ClientTool` payload. The runner installs the scripted provider response when the client connects; `response: {error_code: 3}` answers a canonical error. Uninstalled tools answer `UNIMPLEMENTED`, and `expect_calls` proves that a later HTTP call reached the provider. A Server-side validation case expects zero calls.
 
 
@@ -713,6 +739,30 @@ the typed audio variable and the runner's conversion. Ogg/Opus is decoded to
 16 kHz mono PCM; matching `pcm_s16le` input passes through with that same wire
 type. Other audio formats fail before the RPC opens. The document does not own
 this wire metadata.
+
+Push-to-talk `peer_stream` input uses the device lifecycle on one logical
+StreamID: control-only BOS, audio BOS, Opus packets after the SDK receives
+`AUDIO_INPUT_READY`, audio EOS, then control-only EOS. `pacing` applies only
+to audio packets and adds no delay between control boundaries.
+`/response_count` in the result and evidence counts assistant response StreamIDs
+with content that were neither ignored nor interrupted. A single PTT turn can
+assert 1 even when the server mixes several replies into one audio downlink.
+Assistant terminal completion continues collecting output for 250 ms after
+the first complete reply. `reply_observation` sets another positive Go duration;
+the PTT regressions use 1 second to include late second replies. This is a
+bounded observation, not proof against output beyond that window. Empty input,
+`first_response`, `input_sent`, and transcript completion use their own bounds.
+Audio input also reports `/input_packets`, `/input_ms`, and `/pushed_packets`.
+Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
+set another nonnegative Go duration for a different device threshold. PTT
+omits wire `input_mode`; Workspace parameters determine the actual input mode.
+`eino-voice-assistant.push-to-talk-long-input.giztest.yaml` sends at least 60
+seconds of multi-sentence speech, trims tail silence before release, and requires
+one reply with matching text and audio EOS.
+`eino-voice-assistant.push-to-talk-short-history.giztest.yaml` verifies that a
+short utterance whose final ASR arrives after input end keeps one user history
+entry with nonempty text and a downloadable recording. `replay_available` alone
+is not evidence of an audio asset.
 
 `peer_stream.terminal_label` defaults to `assistant`; that completion requires
 text and audio EOS boundaries from the same response, with nonempty content
@@ -1015,15 +1065,14 @@ conventions:
   mode does not support parallel steps, and a driver that cannot run steps
   concurrently does not list the `parallel` operation, so such a document is
   rejected or skipped by `validate` instead of failing at run time.
-- `peer_stream.empty_input: true` is valid for `push-to-talk` only: the turn
-  opens and closes its audio route without sending a frame, the way a device
-  reports a press released before the first frame is captured or a local gate
-  that emitted nothing. It replaces `input` and cannot be combined with
-  `require_text`, `require_audio`, `interrupt_after`, or
-  `completion: first_response`. The default terminal completion requires the
-  turn's assistant text and audio routes to close normally and carry no
-  content; any assistant text or audio fails the step. Use
-  `completion: input_sent` when only the delivery of the input matters.
+- `peer_stream.empty_input: true` is valid for `push-to-talk` only. It sends
+  control-only BOS/EOS on one StreamID without opening an audio channel or
+  sending frames, matching a device released before its first captured frame.
+  It cannot combine with `input`, `require_text`, `require_audio`,
+  `interrupt_after`, or `completion: first_response`. Default completion
+  observes the `idle_timeout` quiet window after sending (250 ms when omitted)
+  and rejects assistant text or audio. No reply EOS is required.
+  `completion: input_sent` only confirms delivery of the input.
 - `peer_stream.trim_trailing_silence: true` is valid for `push-to-talk` with
   audio `input` only: before the turn is sent, the runner drops every Opus
   packet after the last voiced one (decoded peak of about -30 dBFS or more),
