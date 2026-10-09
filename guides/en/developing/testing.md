@@ -497,6 +497,8 @@ cp tests/gizclaw-e2e/.env.example tests/gizclaw-e2e/.env
 bash tests/gizclaw-e2e/run_tests.sh
 ```
 
+Use `bash tests/gizclaw-e2e/run_tests.sh --full-giztest` for every automated document in the current Giztest corpus. It validates the whole directory, runs the standard SDK/Go batches and all `benchmark.*` documents, then runs Quota, Monitor, cross-Server SFU, slow-tts and speaker-segments in their isolated environments. Benchmark documents run sequentially while preserving their own concurrency levels; the audio-input comparison uses every language sample supplied by its scorer. The deliberate `failure-cleanup` failure must also prove successful cleanup. `review.*` requires human assessment and is not counted as an automated pass. Any failed phase fails the entry point. `GIZCLAW_E2E_CREDENTIAL_FILE` can select an existing file satisfying the shared credential inventory. The full entry point has a three-hour overall deadline; the existing deadline variables also apply.
+
 Firmware OTA changes can run their focused live stack and Admin/RPC/CLI/C SDK
 coverage without the unrelated provider-backed suites:
 
@@ -1944,7 +1946,7 @@ Reports and identity mappings remain in the permission-restricted ignored `.test
 
 ### Speaker segment regression
 
-Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs both Eino Graph configurations without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.
+Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs the Eino Graph configuration without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.
 
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1

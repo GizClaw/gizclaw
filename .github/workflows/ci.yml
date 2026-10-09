@@ -513,24 +513,9 @@ jobs:
   postgres:
     name: PostgreSQL Integration
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: gizclaw
-          POSTGRES_PASSWORD: gizclaw
-          POSTGRES_DB: gizclaw_test
-          POSTGRES_INITDB_ARGS: --set=max_connections=300
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U gizclaw -d gizclaw_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       GIZCLAW_TEST_POSTGRES_DSN: postgres://gizclaw:gizclaw@127.0.0.1:5432/gizclaw_test?sslmode=disable
     steps:
@@ -557,18 +542,45 @@ jobs:
       - name: Require PostgreSQL test DSN
         run: test -n "$GIZCLAW_TEST_POSTGRES_DSN"
 
+      - name: Start PostgreSQL with pgvector and pg_partman
+        run: |
+          docker build -f build/postgres/Dockerfile -t gizclaw-postgres-test .
+          docker run --detach --name gizclaw-postgres-test \
+            --publish 127.0.0.1:5432:5432 \
+            --env POSTGRES_USER=gizclaw --env POSTGRES_PASSWORD=gizclaw --env POSTGRES_DB=gizclaw_test \
+            --health-cmd 'pg_isready -U gizclaw -d gizclaw_test' --health-interval 1s \
+            gizclaw-postgres-test postgres \
+            -c max_connections=300 \
+            -c shared_preload_libraries=pg_partman_bgw \
+            -c pg_partman_bgw.dbname=gizclaw_test \
+            -c pg_partman_bgw.role=gizclaw \
+            -c pg_partman_bgw.interval=3600
+          for attempt in $(seq 1 120); do
+            if docker exec gizclaw-postgres-test pg_isready -U gizclaw -d gizclaw_test; then break; fi
+            if test "$attempt" = 120; then exit 1; fi
+            sleep 1
+          done
+          docker exec -e PGUSER=gizclaw -e PG_PARTMAN_DATABASES=gizclaw_test \
+            gizclaw-postgres-test bootstrap-partman
+
       - name: Run PostgreSQL integration tests
         env:
           GOFLAGS: -mod=readonly
         run: |
           go test -count=1 -p 1 \
             ./cmd/internal/server \
-            ./pkgs/gizclaw/services/system/runtimeprofile
+            ./pkgs/gizclaw \
+            ./pkgs/gizclaw/services/system/runtimeprofile \
+            ./pkgs/gizclaw/services/runtime/peerusage
           go test -tags=store_e2e -count=1 -p 1 \
             -run '^TestPostgreSQL' \
             ./tests/store-e2e
           go test -count=1 -run '^TestPostgreSQLHistoryRetentionWithoutWrites$' \
             ./pkgs/gizclaw
+
+      - name: Stop PostgreSQL test container
+        if: always()
+        run: docker rm --force --volumes gizclaw-postgres-test || true
 
   clickhouse:
     name: ClickHouse Integration

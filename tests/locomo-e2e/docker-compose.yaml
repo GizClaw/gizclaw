@@ -34,7 +34,10 @@ services:
     tmpfs: &id002
     - /tmp
   pgvector:
-    image: pgvector/pgvector:pg17@sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f
+    build:
+      context: ../..
+      dockerfile: build/postgres/Dockerfile
+    command: ["postgres", "-c", "shared_preload_libraries=pg_partman_bgw", "-c", "pg_partman_bgw.dbname=mem0_locomo", "-c", "pg_partman_bgw.role=gizclaw_test", "-c", "pg_partman_bgw.interval=3600"]
     environment:
       POSTGRES_DB: mem0_locomo
       POSTGRES_USER: gizclaw_test
@@ -48,6 +51,19 @@ services:
       retries: 30
     tmpfs:
     - /var/lib/postgresql/data
+  partman-init:
+    build:
+      context: ../..
+      dockerfile: build/postgres/Dockerfile
+    entrypoint: ["bootstrap-partman"]
+    environment:
+      PGHOST: pgvector
+      PGUSER: gizclaw_test
+      PGPASSWORD: gizclaw_test
+      PG_PARTMAN_DATABASES: mem0_locomo
+    depends_on:
+      pgvector:
+        condition: service_healthy
   mem0_pgvector:
     build:
       context: ../..
@@ -76,5 +92,5 @@ services:
     healthcheck: *id001
     tmpfs: *id002
     depends_on:
-      pgvector:
-        condition: service_healthy
+      partman-init:
+        condition: service_completed_successfully

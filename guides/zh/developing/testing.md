@@ -451,6 +451,8 @@ cp tests/gizclaw-e2e/.env.example tests/gizclaw-e2e/.env
 bash tests/gizclaw-e2e/run_tests.sh
 ```
 
+覆盖当前 Giztest 全部自动化文档时使用 `bash tests/gizclaw-e2e/run_tests.sh --full-giztest`。它先校验完整目录，再执行标准 SDK/Go 批次和全部 `benchmark.*`，随后在各自隔离环境运行 Quota、Monitor、跨 Server SFU、slow-tts 与 speaker-segments。Benchmark 文档逐份执行，各自的并发数保持不变；音频输入对照使用 scorer 的全部语言样本。`failure-cleanup` 按预期失败和清理成功验收；`review.*` 需要人工评审，不计入自动通过。任一阶段失败都会使入口失败。凭据文件可由 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定，仍须满足统一 inventory；全量入口总 deadline 默认为 3 小时，现有 deadline 变量同样适用。
+
 Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/RPC/CLI/C SDK
 覆盖，不运行无关的 provider-backed suites：
 
@@ -1638,7 +1640,7 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 
 ### 说话人分段回归
 
-确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 两种 Eino Graph；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
+确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，运行 Eino Graph；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
 
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1

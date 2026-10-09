@@ -87,7 +87,9 @@ PGVector or local Qdrant. `build/mem0/Dockerfile` provides `test` and non-root
 Extraction and embedding models belong to the service configuration;
 RuntimeProfile stores only the endpoint and optional API key.
 
-The service initializes the PGVector collection through the native SDK during startup, before accepting requests. This prevents concurrent cold search/add requests from racing table creation. A collection initialization failure aborts startup and closes constructed clients and connection pools.
+PGVector uses pg_partman-managed UTC day partitions with a fixed 90-day lifetime. The SDK keeps reading and writing the original collection name through an updatable view. Expired rows disappear immediately from reads, search and mutation, while background partition removal reclaims facts and vectors. First startup transactionally converts ordinary collections, retaining UUIDs, payloads and vectors. Valid creation times determine existing deadlines; missing times start a 90-day window at conversion, and future times are capped at conversion. Invalid dates roll back conversion and abort startup. Subsequent startups reuse the registered data space.
+
+Hourly maintenance prunes expired identities, direct-observation reservations, orphaned entity indexes, and SQLite journals/messages. Scope purge also removes expired physical rows awaiting partition removal and addressable SQLite journal/cache through exact native routing, preserving other scopes. Peer/Workspace deletion keeps existing binding/scope boundaries. Qdrant development mode retains native SDK storage behavior; this policy applies only to PGVector. Failed startup closes main/entity pools and model clients. See [PostgreSQL retention](./postgresql-retention).
 
 Select a YAML/JSON file with `--config` or `MEM0_CONFIG`. Its `memory` object uses
 native Mem0 model/storage settings and rejects global business `custom_instructions`; `service` accepts `api_key`, `thinking` and

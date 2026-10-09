@@ -76,7 +76,7 @@ Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timest
 
 每个逻辑 Store 必须声明独立 `table`。关系 Store 用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Get 按 `(stream, id)` 精确读取；Replace 不是 upsert，不能改变 time；Get 与 Delete 对缺失 key 返回 `ErrNotFound`；Replace 不延长 retention。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。Workspace History 需要 `MutableRecordStore`，把文本和结构化 metadata 保存在 LogStore，ObjectStore 只保存 record 引用的二进制 asset。
 
-配置 `ttl` 后，两种 driver 都按 backend 实际写入时间设置 `expires_at_unix_nano`，并从 Get 与 Query 过滤过期 record。SQLite 在后续 append 时清理过期物理 row。PostgreSQL 把配置的 `table` 创建为按 `expires_at_unix_nano` range partition 的父表，调用方始终查询该父表；driver 在初始化和维护时准备所需的 UTC 日分区及下一日分区。
+配置 `ttl` 后，两种 driver 都按 backend 实际写入时间设置 `expires_at_unix_nano`，并从 Get 与 Query 过滤过期 record。SQLite 在 append 或 `Maintain` 时删除过期 row。PostgreSQL 父表按到期时间进行 UTC 日分区，分区生命周期由 pg_partman 管理；初始化自动登记既有原生分区，写入只准备缺失的所需分区。到期时间已经包含 TTL，因此 pg_partman 的额外 retention 为零，不能再叠加一次业务保留期。配套的 `<table>_keys` 表维持跨分区 `(stream, id)` 唯一性；Server 每小时调用 History 的 `Maintain` 清理过期 identity，即使没有新会话也会运行。公共 LogStore interface 不变。部署条件见 [PostgreSQL retention](./postgresql-retention)。
 
 正常 Append 只做记录事务：独立 `(stream, id)` 并发，批量按 canonical key 顺序预留唯一身份，并按输入顺序返回 key；Replace/Delete 先锁身份行，再修改记录。缺分区的 Append 会完整回滚，单独取得 DDL advisory lock 建分区，再重新计算写入时间与 TTL 并重试一次。已有分区的写入不取得该 advisory lock、不枚举分区，也不执行全表串行锁。
 

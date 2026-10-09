@@ -33,12 +33,14 @@ from dotenv import dotenv_values
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from gizclaw_mem0.schema import contract
 from gizclaw_mem0 import direct
+from gizclaw_mem0 import retention
 import anyio.to_thread
 import anyio
 
 _ROUTING_FIELDS = ("user_id", "agent_id", "run_id")
 _CREDENTIAL_FILE = os.environ.get("MEM0_CREDENTIAL_FILE", "")
 _memory: Memory | None = None
+_retention: retention.Retention | None = None
 _memory_lock = threading.RLock()
 # Purges and ID mutations coordinate before an ID's entity routing is known.
 # Routed adds keep using entity locks and remain concurrent across PG scopes.
@@ -561,7 +563,7 @@ def _vector_store_config(embedding_dimensions: int) -> dict[str, Any]:
 
 @asynccontextmanager
 async def _lifespan(_: FastAPI):
-    global _memory, _request_limiter, _read_limiter
+    global _memory, _retention, _request_limiter, _read_limiter
     _memory = _build_memory()
     concurrency = getattr(_operation_state, "configured_concurrency", None)
     if concurrency is None:
@@ -579,9 +581,21 @@ async def _lifespan(_: FastAPI):
         # Complete that single startup operation before concurrent reads/writes
         # can race CREATE TABLE and PostgreSQL's collection type registration.
         if _memory.config.vector_store.provider == "pgvector":
-            _memory.vector_store._ensure_collection()
-        yield
+            cleanup = retention.Retention(_memory)
+        else:
+            cleanup = None
+        _retention = cleanup
+        async with anyio.create_task_group() as tasks:
+            if cleanup is not None:
+                tasks.start_soon(cleanup.run)
+            try:
+                yield
+            finally:
+                tasks.cancel_scope.cancel()
     finally:
+        entity_pool = getattr(getattr(_memory, "_entity_store", None), "connection_pool", None)
+        if entity_pool is not None:
+            entity_pool.close()
         for client in (_memory.llm.client, _memory.embedding_model.client):
             client.close()
         pool = getattr(_memory.vector_store, "connection_pool", None)
@@ -591,6 +605,7 @@ async def _lifespan(_: FastAPI):
             _memory.vector_store.client.close()
         _memory.close()
         _memory = None
+        _retention = None
         _request_limiter = None
         _read_limiter = None
 
@@ -729,6 +744,8 @@ def delete_memories(
         )
         with _purge_lock, _write_lock(routing), direct.purge(_get_memory(), routing):
             _get_memory().delete_all(**routing)
+            if _retention is not None:
+                _retention.purge(routing)
         return {"message": "Memories deleted successfully!"}
     except ValueError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error

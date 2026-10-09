@@ -49,7 +49,7 @@ func TestNewAgentHostPersistencePreservesPostgresData(t *testing.T) {
 		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is not set")
 	}
 	cfg := validLayeredConfig(t.TempDir())
-	cfg.Storage["business-db"] = storage.PostgreSQLConfig{DSN: dsn}
+	cfg.Storage["business-db"] = storage.PostgreSQLConfig{DSN: isolatedPostgresDSN(t, dsn)}
 	assertAgentHostPersistencePreservesExistingData(t, cfg)
 }
 

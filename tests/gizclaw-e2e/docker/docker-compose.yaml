@@ -40,6 +40,9 @@ services:
   postgres:
     extends: {file: compose.memory.yaml, service: postgres}
 
+  partman-init:
+    extends: {file: compose.memory.yaml, service: partman-init}
+
   mem0:
     extends: {file: compose.memory.yaml, service: mem0}
 

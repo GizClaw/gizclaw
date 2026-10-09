@@ -37,7 +37,9 @@ class PGVectorRegressionTest(unittest.TestCase):
 
         async def run():
             with mock.patch.object(mem0_server, "_build_memory", return_value=memory), \
+                    mock.patch.object(mem0_server.retention, "Retention", return_value=SimpleNamespace(run=asyncio.Event().wait)), \
                     mock.patch.object(self.store.connection_pool, "close"):
+                self.store._ensure_collection()
                 async with mem0_server._lifespan(mem0_server.app):
                     self.assertTrue(self.store._collection_ensured)
                     with ThreadPoolExecutor(max_workers=5) as pool:

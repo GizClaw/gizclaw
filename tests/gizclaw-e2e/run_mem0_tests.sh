@@ -45,6 +45,7 @@ GIZCLAW_TEST_MEM0_ENDPOINT="http://$("${compose[@]}" port mem0 8000)"
 GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw_server:gizclaw_server@$("${compose[@]}" port postgres 5432)/gizclaw_server?sslmode=disable"
 export GIZCLAW_TEST_MEM0_ENDPOINT GIZCLAW_TEST_POSTGRES_DSN
 "${compose[@]}" exec -T mem0 python -m unittest -v mem0_direct_integration_test.py | tee "$run_dir/direct.log"
+"${compose[@]}" exec -T mem0 python -m unittest -v mem0_pgvector_regression_test.py mem0_retention_test.py | tee "$run_dir/retention.log"
 npm ci
 npm run build:console
 go test -v -count=1 -timeout=10m -run '^TestSelfHostedMem0Giztest$' ./cmd/internal/server | tee "$run_dir/giztest.log"

@@ -128,3 +128,5 @@ modernc 参数。连接的 `busy_timeout`、WAL journal mode 和 foreign-key PRA
 ## Peer 小时用量
 
 可选 `services.peer_usage.store` 绑定 SQL pool，保存 provider 实际 model/resource ID 的小时数量；使用共享 SQL 日分区维护，并在关闭 pool 前 flush worker。完整字段、保留与持久化边界见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。
+
+[PostgreSQL retention 与 pg_partman 部署](./postgresql-retention)

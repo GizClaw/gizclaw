@@ -77,12 +77,12 @@ stores:
     kind: log.mutable
     storage: business-db
     table: workspace_history
-    ttl: 720h
+    ttl: 2160h
   workspace-history-assets:
     kind: objectstore
     storage: local-files
     prefix: workspace-history
-    ttl: 720h
+    ttl: 2160h
   workflows:
     kind: sql
     storage: business-db

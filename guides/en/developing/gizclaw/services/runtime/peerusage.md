@@ -36,7 +36,7 @@ The primary key is `(peer_public_key, model_id, hour_unix_nano, writer_id)`. A c
 
 ## Hour buckets, day partitions and retention
 
-Hours are the aggregation unit; PostgreSQL uses UTC day range partitions on `hour_unix_nano`. Children are named `peer_model_usage_hourly_pYYYYMMDD`. Callers read/write the parent and PostgreSQL routes rows. Initialization and writes prepare required/following days and drop children wholly before the retention boundary. The shared `storage.SQLDailyPartitions` capability is also used by LogStore; its expiry-based partition key and auxiliary-key cleanup remain unchanged.
+Hours are the aggregation unit; PostgreSQL uses UTC day range partitions on `hour_unix_nano`. Children are named `peer_model_usage_hourly_pYYYYMMDD`. Callers read/write the parent and PostgreSQL routes rows. Initialization registers the parent with pg_partman. Writes prepare missing required/following days, and pg_partman drops old partitions under the 90-day policy. `storage.SQLDailyPartitions` is the shared pg_partman adapter, also used by LogStore. See [PostgreSQL retention](/en/developing/stores/postgresql-retention).
 
 The boundary is the current UTC hour minus 90 days. Queries immediately hide older hours. Physical PostgreSQL deletion works at day granularity; SQLite deletes expired rows. An hourly idle maintenance tick reclaims data even without new reports. There is no partition-registration table or per-Peer table.
 

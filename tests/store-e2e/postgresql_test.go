@@ -420,8 +420,8 @@ func TestPostgreSQLLogTTLUsesDailyPartitions(t *testing.T) {
 		WHERE backend.nspname = current_schema() AND parent.relname = $1`, table); err != nil {
 		t.Fatal(err)
 	}
-	if partitionCount != 2 {
-		t.Fatalf("initial partition count = %d, want expiry day and following day", partitionCount)
+	if partitionCount < 2 {
+		t.Fatalf("initial partition count = %d, want at least expiry day and following day", partitionCount)
 	}
 
 	record := logstore.Record{
@@ -628,6 +628,7 @@ func cleanupPostgreSQLTables(t *testing.T, db *sqlx.DB, tables ...string) {
 	t.Helper()
 	t.Cleanup(func() {
 		for _, table := range tables {
+			_, _ = db.Exec(`DELETE FROM partman.part_config WHERE parent_table=current_schema() || '.' || $1`, table)
 			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `" CASCADE`)
 		}
 	})

@@ -42,6 +42,8 @@ def _database(memory, routing):
                 cursor.execute("SELECT pg_advisory_lock(%s)", (0x47697A4D656D30,))
                 try:
                     cursor.execute(_ddl)
+                    cursor.execute(f"ALTER TABLE {_table} ADD COLUMN IF NOT EXISTS expires_at timestamptz NOT NULL DEFAULT (statement_timestamp()+interval '90 days')")
+                    cursor.execute(f"CREATE INDEX IF NOT EXISTS gizclaw_direct_observations_expiry ON {_table}(collection,expires_at)")
                 finally:
                     cursor.execute("SELECT pg_advisory_unlock(%s)", (0x47697A4D656D30,))
                 keys = []

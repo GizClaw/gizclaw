@@ -1057,16 +1057,18 @@ class CollectionReadinessTest(unittest.IsolatedAsyncioTestCase):
 
     async def test_collection_is_ready_before_requests_are_accepted(self):
         memory = self.memory()
-        with mock.patch.object(mem0_server, "_build_memory", return_value=memory):
+        cleanup = SimpleNamespace(run=asyncio.Event().wait)
+        with mock.patch.object(mem0_server, "_build_memory", return_value=memory), \
+                mock.patch.object(mem0_server.retention, "Retention", return_value=cleanup) as prepare:
             async with mem0_server._lifespan(mem0_server.app):
-                memory.vector_store._ensure_collection.assert_called_once_with()
+                prepare.assert_called_once_with(memory)
         memory.vector_store.connection_pool.close.assert_called_once_with()
         memory.close.assert_called_once_with()
 
     async def test_failed_collection_startup_closes_resources(self):
         memory = self.memory()
-        memory.vector_store._ensure_collection.side_effect = RuntimeError("collection unavailable")
-        with mock.patch.object(mem0_server, "_build_memory", return_value=memory):
+        with mock.patch.object(mem0_server, "_build_memory", return_value=memory), \
+                mock.patch.object(mem0_server.retention, "Retention", side_effect=RuntimeError("collection unavailable")):
             with self.assertRaisesRegex(RuntimeError, "collection unavailable"):
                 async with mem0_server._lifespan(mem0_server.app):
                     self.fail("service accepted requests before collection preparation")

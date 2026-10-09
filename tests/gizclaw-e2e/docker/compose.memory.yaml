@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg17@sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f
+    build:
+      context: ../../..
+      dockerfile: build/postgres/Dockerfile
+    command: ["postgres", "-c", "shared_preload_libraries=pg_partman_bgw", "-c", "pg_partman_bgw.dbname=gizclaw_server,gizclaw_mem0", "-c", "pg_partman_bgw.role=gizclaw_bootstrap", "-c", "pg_partman_bgw.interval=3600"]
     environment:
       POSTGRES_USER: gizclaw_bootstrap
       POSTGRES_PASSWORD: gizclaw_bootstrap
@@ -13,6 +16,20 @@ services:
       timeout: 2s
       retries: 120
       start_period: 120s
+
+  partman-init:
+    build:
+      context: ../../..
+      dockerfile: build/postgres/Dockerfile
+    entrypoint: ["bootstrap-partman"]
+    environment:
+      PGHOST: postgres
+      PGUSER: gizclaw_bootstrap
+      PGPASSWORD: gizclaw_bootstrap
+      PG_PARTMAN_DATABASES: gizclaw_server,gizclaw_mem0
+    depends_on:
+      postgres:
+        condition: service_healthy
 
   mem0:
     build:
@@ -28,8 +45,8 @@ services:
       MEM0_POSTGRES_DSN: postgres://gizclaw_mem0:gizclaw_mem0@postgres:5432/gizclaw_mem0?sslmode=disable
     entrypoint: ["python", "/run/entrypoint-mem0.py"]
     depends_on:
-      postgres:
-        condition: service_healthy
+      partman-init:
+        condition: service_completed_successfully
     volumes:
       - ../../../cmd/mem0/config.example.yaml:/run/mem0-config.yaml:ro
       - ./entrypoint-mem0.py:/run/entrypoint-mem0.py:ro

@@ -77,7 +77,9 @@ Eino `memory_observe` node 会为每个 Graph 写入的 direct Fact 分配由当
 Release 使用同一份服务实现。提取模型和 Embedding 属于该服务配置，RuntimeProfile
 只保存 endpoint 与可选 API key。
 
-PGVector 集合在服务启动期间按原生 SDK 初始化，完成后才接受请求，避免冷启动时并发 search/add 竞争建表。集合初始化失败使服务启动失败，并关闭已构造的客户端与连接池。
+PGVector 使用 pg_partman 管理按到期时间划分的 UTC 日分区，固定保留 90 天。SDK 继续通过原来的 collection 名读写一个可更新 view；到期记录立即从读取、搜索和更新中排除，事实与向量在后台整分区回收。首次启动事务性转换已有普通 collection，保留 UUID、payload 和向量；有效创建时间决定既有记录的期限，缺失时间从转换时计 90 天，未来时间按转换时限界。无效日期使转换回滚并阻止启动。重复启动复用已登记的数据空间。
+
+服务每小时清理过期 identity、direct observation reservation、无有效事实的实体索引、SQLite 变更历史和最近消息。Scope purge 同时删除尚未被整分区回收的过期记录及可定位的 SQLite journal/cache，使用精确 native routing；不删除其他 Scope。设备和 Workspace 删除仍遵循既有 binding/scope 边界。Qdrant 开发模式保持原生 SDK 存储行为；该策略只适用于 PGVector。启动失败会关闭主集合、实体集合和模型客户端。部署要求及回收粒度见 [PostgreSQL retention](./postgresql-retention)。
 
 配置文件通过 `--config` 或 `MEM0_CONFIG` 选择。`memory` 对象使用 Mem0 原生模型/存储配置，拒绝全局业务 `custom_instructions`；
 `service` 支持 `api_key`、`thinking`、`embedding_protocol` 和 `max_concurrency`。模型档位配置为 `memory.llm.config.service_tier`；wrapper 在构造原生 Mem0 config 前取出该扩展字段，再通过 OpenAI SDK 转发。`${VARIABLE}` 从进程环境

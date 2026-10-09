@@ -132,3 +132,5 @@ Storage interfaces, backend adapters, and common key, query, index, expiration, 
 ## Hourly Peer usage
 
 Optional `services.peer_usage.store` binds a SQL pool to hourly provider model/resource quantities. Shared SQL day maintenance and a worker drain before pool closure implement retention and lifecycle. See [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).
+
+[PostgreSQL retention and pg_partman deployment](./postgresql-retention)

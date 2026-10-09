@@ -155,6 +155,9 @@ func (store *SQLStore) checkPostgresPartitionSchema(ctx context.Context) error {
 	if err := storage.ValidateSQLIndexColumns(ctx, store.db, store.keysTable, indexName, []string{"expires_at_unix_nano"}); err != nil {
 		return fmt.Errorf("logstore: incompatible postgres key expiry index: %w", err)
 	}
+	if err := store.dailyPartitions().Check(ctx, store.db); err != nil {
+		return err
+	}
 	partitions, err := store.postgresPartitions(ctx, store.db)
 	if err != nil {
 		return err
@@ -203,10 +206,16 @@ func (store *SQLStore) preparePostgresPartitions(ctx context.Context, expiresAt 
 }
 
 func (store *SQLStore) maintainPostgresPartitionsLocked(ctx context.Context, tx *sqlx.Tx, now, expiresAt time.Time) error {
-	return store.dailyPartitions().Maintain(ctx, tx, now, []time.Time{expiresAt}, func(partition storage.SQLDailyPartition) error {
-		_, err := tx.ExecContext(ctx, "DELETE FROM "+store.quotedKeys+" WHERE expires_at_unix_nano >= $1 AND expires_at_unix_nano < $2", partition.Lower, partition.Upper)
+	if err := store.dailyPartitions().Maintain(ctx, tx, now, []time.Time{expiresAt}, nil); err != nil {
+		return err
+	}
+	// pg_partman's background worker can drop an idle partition independently
+	// of this process. Sweep expired identities while the parent DDL lock is
+	// still held, including identities whose child was already reclaimed.
+	if _, err := tx.ExecContext(ctx, "DELETE FROM "+store.quotedKeys+" WHERE expires_at_unix_nano <= $1", now.UnixNano()); err != nil {
 		return storage.ExternalSQLError("logstore: delete expired postgres partition keys", err)
-	})
+	}
+	return nil
 }
 
 func postgresPartitionDay(value time.Time) time.Time {

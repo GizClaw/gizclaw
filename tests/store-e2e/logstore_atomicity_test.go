@@ -130,7 +130,9 @@ func TestPostgreSQLLogConcurrentMissingPartitions(t *testing.T) {
 		}
 	}
 	var children int
-	if err := db.Get(&children, `SELECT COUNT(*) FROM pg_inherits WHERE inhparent=('"' || current_schema() || '"."' || $1 || '"')::regclass`, table); err != nil {
+	if err := db.Get(&children, `SELECT COUNT(*) FROM pg_inherits i JOIN pg_class child ON child.oid=i.inhrelid
+		WHERE inhparent=('"' || current_schema() || '"."' || $1 || '"')::regclass AND child.relname IN ($2,$3)`,
+		table, table+"_p"+day.Format("20060102"), table+"_p"+day.AddDate(0, 0, 1).Format("20060102")); err != nil {
 		t.Fatal(err)
 	}
 	if children != 2 {

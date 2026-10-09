@@ -103,7 +103,7 @@ func (s *Store) now() time.Time {
 }
 func (s *Store) cutoff() time.Time { return s.now().Truncate(time.Hour).Add(-Retention) }
 func (s *Store) partitions() storage.SQLDailyPartitions {
-	return storage.SQLDailyPartitions{Table: s.table, Column: "hour_unix_nano", Prefix: TableName}
+	return storage.SQLDailyPartitions{Table: s.table, Column: "hour_unix_nano", Prefix: TableName, Retention: Retention}
 }
 
 // Maintain reclaims expired rows/partitions even when no new usage arrives.
@@ -164,8 +164,14 @@ func (s *Store) Write(ctx context.Context, snapshots []Snapshot) error {
 		return storage.ExternalSQLError("peerusage: begin hourly write", err)
 	}
 	defer tx.Rollback()
-	if err := s.maintain(ctx, tx, days); err != nil {
-		return err
+	if s.table.Dialect() == storage.SQLDialectPostgreSQL {
+		if err := s.partitions().Prepare(ctx, tx, days); err != nil {
+			return err
+		}
+	} else {
+		if err := s.maintain(ctx, tx, days); err != nil {
+			return err
+		}
 	}
 	query := s.db.Rebind("INSERT INTO " + s.table.Quoted() + " (peer_public_key, model_id, hour_unix_nano, writer_id, quantity) VALUES (?, ?, ?, ?, ?) ON CONFLICT(peer_public_key, model_id, hour_unix_nano, writer_id) DO UPDATE SET quantity=excluded.quantity WHERE " + s.table.Quoted() + ".quantity < excluded.quantity")
 	for i, item := range snapshots {

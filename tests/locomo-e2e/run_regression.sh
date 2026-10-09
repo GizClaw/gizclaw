@@ -19,4 +19,5 @@ export GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE="gizclaw-mem0:${platform//\//-}-base"
 TARGET=base PLATFORM="$platform" BASE_IMAGE="$GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE" "$repo_root/build/build-mem0.sh"
 "${compose[@]}" build mem0_pgvector
 "${compose[@]}" up --detach --wait pgvector
-"${compose[@]}" run --rm --no-deps --entrypoint python mem0_pgvector -m unittest -v mem0_pgvector_regression_test.py
+"${compose[@]}" run --rm --no-deps partman-init
+"${compose[@]}" run --rm --no-deps --entrypoint python mem0_pgvector -m unittest -v mem0_pgvector_regression_test.py mem0_retention_test.py

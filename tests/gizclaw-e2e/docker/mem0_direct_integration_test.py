@@ -19,13 +19,16 @@ from gizclaw_mem0 import server
 def _memory():
     credentials = dotenv_values(os.environ["MEM0_CREDENTIAL_FILE"])
     os.environ["VOLC_ARK_API_KEY"] = credentials["GIZCLAW_E2E_VOLC_ARK_API_KEY"]
-    return server._build_memory()
+    memory = server._build_memory()
+    server.retention.Retention(memory)
+    return memory
 
 
 def _close(memory):
     memory.llm.client.close()
     memory.embedding_model.client.close()
     memory.vector_store.connection_pool.close()
+    memory.entity_store.connection_pool.close()
     memory.close()
 
 

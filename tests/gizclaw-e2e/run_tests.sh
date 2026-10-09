@@ -4,13 +4,25 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
-env_file="$script_dir/.env"
+full_giztest=0
+case "${1:-}" in
+  "") ;;
+  --full-giztest) full_giztest=1; shift ;;
+  *) echo "usage: $0 [--full-giztest]" >&2; exit 2 ;;
+esac
+if (($# > 0)); then
+  echo "usage: $0 [--full-giztest]" >&2
+  exit 2
+fi
+env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$script_dir/.env}"
 # shellcheck source=setup/credentials.sh
 source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestAdminLogStreamVolcSmoke)$'
 go_test_timeout="45m"
-full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-5400}"
+default_full_deadline=5400
+if [[ "$full_giztest" == 1 ]]; then default_full_deadline=10800; fi
+full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-$default_full_deadline}"
 gate_started=$SECONDS
 docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-e2e-run.XXXXXX")"
 rm -f "$docker_env_path"
@@ -402,6 +414,7 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
 			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort
 	)
+	if [[ "$full_giztest" != 1 ]]; then
 	files+=(
 		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-1.giztest.yaml"
 		"$giztest_dir/benchmark.doubao-realtime-conversation.realtime-concurrency-1.giztest.yaml"
@@ -422,7 +435,30 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-10.giztest.yaml"
 		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-interrupt-10.giztest.yaml"
 	)
+	fi
 	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --output "$report")
+}
+
+run_all_benchmark_giztest() {
+	local -a files=()
+	while IFS= read -r file; do files+=("$file"); done < <(
+		find "$script_dir/giztest" -maxdepth 1 -type f -name 'benchmark.*.giztest.yaml' \
+			! -name 'benchmark.eino-audio-input-comparison.giztest.yaml' -print | sort
+	)
+	# Each document owns its concurrency level. Run documents sequentially so
+	# unrelated benchmarks cannot inflate each other's load and timing.
+	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" \
+		--parallel 1 --output "$script_dir/testdata/giztest-benchmark-report.json")
+}
+
+run_audio_input_giztest() {
+	# This document requires the scorer's language-specific inputs, rather than
+	# the standard environment. The full lane always uses every recorded sample.
+	unset GIZCLAW_AUDIO_SAMPLES
+	python3 -B "$setup_dir/audio_input_comparison.py" \
+		"$script_dir/testdata/bin/gizclaw" \
+		"$script_dir/giztest/benchmark.eino-audio-input-comparison.giztest.yaml" \
+		"$script_dir/testdata/audio-input-comparison"
 }
 
 # The C runner is pointed at the whole scenario directory, like the JavaScript
@@ -499,6 +535,7 @@ run_timed "preflight:nanopb" prepare_nanopb
 
 run_timed "preflight:host-cli" build_host_cli
 run_timed "preflight:c-giztest-runner" build_c_giztest_runner
+run_timed "preflight:giztest-corpus" "$script_dir/testdata/bin/gizclaw" test validate --file "$script_dir/giztest"
 
 stack_started=1
 run_timed "docker:setup" start_docker_stack
@@ -520,11 +557,24 @@ run_timed "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
 run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
 run_timed "terraform" bash "$script_dir/run_terraform_provider_tests.sh"
 run_timed "giztest:standard" run_standard_giztest
+if [[ "$full_giztest" == 1 ]]; then
+	run_timed "giztest:benchmark" run_all_benchmark_giztest
+	run_timed "giztest:audio-input" run_audio_input_giztest
+fi
 run_timed "giztest:failure-cleanup" run_failure_cleanup_giztest
 run_timed "giztest:input-mode-mismatch" run_input_mode_mismatch_giztest
 run_timed "giztest:c-sdk" run_c_giztest
 
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
 stack_started=0
+
+if [[ "$full_giztest" == 1 ]]; then
+	run_timed "giztest:quota" bash "$setup_dir/run-quota.sh"
+	run_timed "giztest:monitor" bash "$script_dir/run_monitor_tests.sh"
+	run_timed "giztest:sfu" bash "$script_dir/run_multi_server_tests.sh"
+	run_timed "giztest:slow-tts" bash "$script_dir/run_slow_tts_tests.sh"
+	run_timed "giztest:speaker-segments" bash "$script_dir/run_speaker_segment_tests.sh"
+	echo "==> manual Giztest review.* documents require human assessment"
+fi
 
 echo "==> e2e run completed"

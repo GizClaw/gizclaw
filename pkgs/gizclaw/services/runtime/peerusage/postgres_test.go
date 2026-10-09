@@ -35,6 +35,7 @@ func TestPostgreSQLDailyPartitionsAndIdempotentWriters(t *testing.T) {
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
+		_, _ = admin.ExecContext(ctx, "DELETE FROM partman.part_config WHERE parent_table LIKE $1", schema+".%")
 		if _, err := admin.ExecContext(ctx, "DROP SCHEMA "+pq.QuoteIdentifier(schema)+" CASCADE"); err != nil {
 			t.Error(err)
 		}
