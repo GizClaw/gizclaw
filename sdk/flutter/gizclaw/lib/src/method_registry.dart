@@ -779,6 +779,24 @@ const clientToolsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientSocialPingRequest',
     responseType: 'ClientSocialPingResponse',
   ),
+  'lua.app.list': RpcMethodDescriptor(
+    id: 22,
+    name: 'lua.app.list',
+    requestType: 'ClientLuaAppListRequest',
+    responseType: 'ClientLuaAppListResponse',
+  ),
+  'lua.app.install': RpcMethodDescriptor(
+    id: 23,
+    name: 'lua.app.install',
+    requestType: 'ClientLuaAppInstallRequest',
+    responseType: 'ClientLuaAppInstallResponse',
+  ),
+  'lua.app.run': RpcMethodDescriptor(
+    id: 24,
+    name: 'lua.app.run',
+    requestType: 'ClientLuaAppRunRequest',
+    responseType: 'ClientLuaAppRunResponse',
+  ),
 };
 const clientToolNamesById = <int, String>{
   1: 'info.get',
@@ -802,6 +820,9 @@ const clientToolNamesById = <int, String>{
   19: 'audioplayer.playlist.append',
   20: 'run.workspace.set',
   21: 'social.ping',
+  22: 'lua.app.list',
+  23: 'lua.app.install',
+  24: 'lua.app.run',
 };
 RpcMethodDescriptor clientToolByName(String name) =>
     clientToolsByName[name] ??

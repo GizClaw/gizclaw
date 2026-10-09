@@ -55,6 +55,9 @@ enum ClientTool {
   CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND = 19 [(client_tool) = { name: "audioplayer.playlist.append" request: "ClientDeviceAudioPlayerPlaylistAppendRequest" response: "ClientDeviceAudioPlayerPlaylistAppendResponse" }];
   CLIENT_TOOL_RUN_WORKSPACE_SET = 20 [(client_tool) = { name: "run.workspace.set" request: "ClientRunWorkspaceSetRequest" response: "ClientRunWorkspaceSetResponse" }];
   CLIENT_TOOL_SOCIAL_PING = 21 [(client_tool) = { name: "social.ping" request: "ClientSocialPingRequest" response: "ClientSocialPingResponse" }];
+  CLIENT_TOOL_LUA_APP_LIST = 22 [(client_tool) = { name: "lua.app.list" request: "ClientLuaAppListRequest" response: "ClientLuaAppListResponse" }];
+  CLIENT_TOOL_LUA_APP_INSTALL = 23 [(client_tool) = { name: "lua.app.install" request: "ClientLuaAppInstallRequest" response: "ClientLuaAppInstallResponse" }];
+  CLIENT_TOOL_LUA_APP_RUN = 24 [(client_tool) = { name: "lua.app.run" request: "ClientLuaAppRunRequest" response: "ClientLuaAppRunResponse" }];
 }
 
 // ClientToolV0InvokeRequest carries one tool call. payload is the encoded

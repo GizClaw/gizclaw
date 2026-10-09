@@ -939,6 +939,15 @@ jobs:
           cache: npm
       - name: Run isolated device playback and telemetry scenarios
         run: bash tests/gizclaw-e2e/run_audioplayer_tests.sh
+      - name: Run Lua application Giztests
+        run: bash tests/gizclaw-e2e/run_lua_app_tests.sh
+      - name: Upload Lua application Giztest evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: lua-app-giztest-evidence
+          path: tests/gizclaw-e2e/.testbench/lua-app-*/reports/
+          include-hidden-files: true
       - name: Verify initial RTP before BOS binding
         run: bash tests/gizclaw-e2e/run_rtp_bos_tests.sh
       - name: Upload RTP BOS regression evidence

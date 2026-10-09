@@ -60,6 +60,9 @@ const (
 	ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND ClientTool = 19
 	ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET           ClientTool = 20
 	ClientTool_CLIENT_TOOL_SOCIAL_PING                 ClientTool = 21
+	ClientTool_CLIENT_TOOL_LUA_APP_LIST                ClientTool = 22
+	ClientTool_CLIENT_TOOL_LUA_APP_INSTALL             ClientTool = 23
+	ClientTool_CLIENT_TOOL_LUA_APP_RUN                 ClientTool = 24
 )
 
 // Enum value maps for ClientTool.
@@ -87,6 +90,9 @@ var (
 		19: "CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND",
 		20: "CLIENT_TOOL_RUN_WORKSPACE_SET",
 		21: "CLIENT_TOOL_SOCIAL_PING",
+		22: "CLIENT_TOOL_LUA_APP_LIST",
+		23: "CLIENT_TOOL_LUA_APP_INSTALL",
+		24: "CLIENT_TOOL_LUA_APP_RUN",
 	}
 	ClientTool_value = map[string]int32{
 		"CLIENT_TOOL_UNSPECIFIED":                 0,
@@ -111,6 +117,9 @@ var (
 		"CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND": 19,
 		"CLIENT_TOOL_RUN_WORKSPACE_SET":           20,
 		"CLIENT_TOOL_SOCIAL_PING":                 21,
+		"CLIENT_TOOL_LUA_APP_LIST":                22,
+		"CLIENT_TOOL_LUA_APP_INSTALL":             23,
+		"CLIENT_TOOL_LUA_APP_RUN":                 24,
 	}
 )
 
@@ -427,7 +436,7 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\b_payload\"\x19\n" +
 	"\x17ClientToolV0ListRequest\"L\n" +
 	"\x18ClientToolV0ListResponse\x120\n" +
-	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xb1\x14\n" +
+	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xe8\x16\n" +
 	"\n" +
 	"ClientTool\x12\x1b\n" +
 	"\x17CLIENT_TOOL_UNSPECIFIED\x10\x00\x12U\n" +
@@ -474,7 +483,13 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\x1dCLIENT_TOOL_RUN_WORKSPACE_SET\x10\x14\x1aT\xca\xf3\x18P\n" +
 	"\x11run.workspace.set\x12\x1cClientRunWorkspaceSetRequest\x1a\x1dClientRunWorkspaceSetResponse\x12a\n" +
 	"\x17CLIENT_TOOL_SOCIAL_PING\x10\x15\x1aD\xca\xf3\x18@\n" +
-	"\vsocial.ping\x12\x17ClientSocialPingRequest\x1a\x18ClientSocialPingResponse:g\n" +
+	"\vsocial.ping\x12\x17ClientSocialPingRequest\x1a\x18ClientSocialPingResponse\x12c\n" +
+	"\x18CLIENT_TOOL_LUA_APP_LIST\x10\x16\x1aE\xca\xf3\x18A\n" +
+	"\flua.app.list\x12\x17ClientLuaAppListRequest\x1a\x18ClientLuaAppListResponse\x12o\n" +
+	"\x1bCLIENT_TOOL_LUA_APP_INSTALL\x10\x17\x1aN\xca\xf3\x18J\n" +
+	"\x0flua.app.install\x12\x1aClientLuaAppInstallRequest\x1a\x1bClientLuaAppInstallResponse\x12_\n" +
+	"\x17CLIENT_TOOL_LUA_APP_RUN\x10\x18\x1aB\xca\xf3\x18>\n" +
+	"\vlua.app.run\x12\x16ClientLuaAppRunRequest\x1a\x17ClientLuaAppRunResponse:g\n" +
 	"\vclient_tool\x12!.google.protobuf.EnumValueOptions\x18\xb9\x8e\x03 \x01(\v2!.gizclaw.rpc.v1.ClientToolOptionsR\n" +
 	"clientToolB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

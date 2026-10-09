@@ -4550,6 +4550,94 @@ test("tool/v0 list, unimplemented invoke and malformed payload", async () => {
   assert.equal(malformed.error?.code, STATUS_CODE_INVALID_ARGUMENT);
 });
 
+test("Lua app providers discover, install and preserve string launch parameters", async () => {
+  const calls: unknown[] = [];
+  const app = {
+    app_id: "tetris",
+    version: "0.1.0",
+    display_name: "俄罗斯方块",
+  };
+  const handlers: GizClawPeerRPCHandlers = {
+    tools: {
+      [CLIENT_TOOL_IDS["lua.app.list"]]: () => ({ apps: [app] }),
+      [CLIENT_TOOL_IDS["lua.app.install"]]: (request) => {
+        calls.push(request);
+        return { app };
+      },
+      [CLIENT_TOOL_IDS["lua.app.run"]]: (request) => {
+        calls.push(request);
+        return {};
+      },
+    },
+  };
+  const listed = await serveInboundClientRPC(
+    "client.tool.v0.list",
+    {},
+    handlers,
+  );
+  assert.deepEqual(listed.result, { tools: [22, 23, 24] });
+  const catalog = await serveInboundClientRPC("lua.app.list", {}, handlers);
+  assert.deepEqual(catalog.result, { apps: [app] });
+  const install = { url: "https://apps.example.test/tetris.lua-app.tar.zlib" };
+  assert.deepEqual(
+    (await serveInboundClientRPC("lua.app.install", install, handlers)).result,
+    { app },
+  );
+  const run = {
+    app_id: "tetris",
+    params: { mode: "single", level: "2", text: "玩一局" },
+  };
+  assert.equal(
+    (await serveInboundClientRPC("lua.app.run", run, handlers)).error,
+    undefined,
+  );
+  assert.deepEqual(calls, [install, run]);
+  assert.equal(
+    (
+      await serveInboundClientRPC(
+        "lua.app.run",
+        { app_id: "../tetris" },
+        handlers,
+      )
+    ).error?.code,
+    STATUS_CODE_INVALID_ARGUMENT,
+  );
+  assert.equal(
+    (
+      await serveInboundClientRPC(
+        "lua.app.install",
+        { url: "https://apps.test/p#" },
+        handlers,
+      )
+    ).error?.code,
+    STATUS_CODE_INVALID_ARGUMENT,
+  );
+  assert.equal(calls.length, 2);
+  assert.equal(
+    (await serveInboundClientRPC("lua.app.run", { app_id: "tetris" }, {})).error
+      ?.code,
+    STATUS_CODE_UNIMPLEMENTED,
+  );
+});
+
+test("Lua launch parameters preserve prototype-shaped map keys", () => {
+  const request = {
+    app_id: "tetris",
+    params: Object.fromEntries([
+      ["__proto__", "value"],
+      ["constructor", "string"],
+    ]),
+  };
+  const encoded = encodeClientToolRequestPayload(
+    CLIENT_TOOL_IDS["lua.app.run"],
+    request,
+  );
+  assert.deepEqual(
+    decodeClientToolRequestPayload(CLIENT_TOOL_IDS["lua.app.run"], encoded),
+    request,
+  );
+});
+
 test("endpoint connection rejects oversized admission credentials before discovery", async () => {
   const pc = new FakePeerConnection();
   let requests = 0;

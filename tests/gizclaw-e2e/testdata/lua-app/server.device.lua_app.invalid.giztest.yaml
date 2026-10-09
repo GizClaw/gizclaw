@@ -1,0 +1,255 @@
+# User Story:
+# As a device owner,
+# I want to install and launch complete Lua applications through the real device RPC,
+# So that package validation, capacity failures and launch parameters are observable.
+{
+  "version": "gizclaw.test/v1alpha1",
+  "name": "server.device.lua_app.invalid",
+  "clients": {
+    "peer": {
+      "identity": "ephemeral",
+      "connection": "webrtc",
+      "access_point": "${endpoint}"
+    }
+  },
+  "variables": {
+    "endpoint": {
+      "direction": "input",
+      "type": "string",
+      "env": "GIZCLAW_TEST_ENDPOINT"
+    },
+    "registration_token": {
+      "direction": "input",
+      "type": "string",
+      "env": "GIZCLAW_TEST_REGISTRATION_TOKEN",
+      "secret": true
+    },
+    "resource_name": {
+      "direction": "input",
+      "type": "string",
+      "generate": "token"
+    },
+    "api_key": {
+      "direction": "output",
+      "type": "string",
+      "secret": true
+    }
+  },
+  "steps": [
+    {
+      "id": "register",
+      "client": "peer",
+      "rpc": {
+        "method": "server.register",
+        "request": {
+          "token": "${registration_token}"
+        }
+      }
+    },
+    {
+      "id": "key",
+      "client": "peer",
+      "rpc": {
+        "method": "server.api_key.create",
+        "request": {
+          "display_name": "${resource_name}"
+        }
+      },
+      "capture": {
+        "api_key": "/api_key"
+      }
+    },
+    {
+      "id": "http_url",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.install",
+          "args": {
+            "url": "http://apps.example.test/app"
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "credential_url",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.install",
+          "args": {
+            "url": "https://user:secret@apps.example.test/app"
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "bad_digest",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.install",
+          "args": {
+            "url": "https://apps.example.test/tetris-0.1.0.lua-app.tar.zlib",
+            "sha256": "bad"
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "path_id",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.run",
+          "args": {
+            "app_id": "../tetris"
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "numeric_value",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.run",
+          "args": {
+            "app_id": "tetris",
+            "params": {
+              "level": 2
+            }
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "nested_value",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.run",
+          "args": {
+            "app_id": "tetris",
+            "params": {
+              "level": {
+                "value": "2"
+              }
+            }
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "oversized_value",
+      "client": "peer",
+      "http": {
+        "method": "POST",
+        "path": "/gizclaw/v1/device/tool/v0/invoke",
+        "headers": {
+          "Authorization": "Bearer ${api_key}"
+        },
+        "body": {
+          "tool": "lua.app.run",
+          "args": {
+            "app_id": "tetris",
+            "params": {
+              "text": "字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字字"
+            }
+          }
+        },
+        "status": 400
+      }
+    },
+    {
+      "id": "provider_lua_app_install",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "lua.app.install",
+        "response": {
+          "lua_apps": {
+            "capacity_bytes": 4096,
+            "packages": {
+              "https://apps.example.test/tetris-0.1.0.lua-app.tar.zlib": "eNrt1dtO4zAQANA89yuiPHezvozjhl9BCPkyhqC0jWwXCVD/HTeVll2WBQmJilXnPDjx2HKscSZZm80QMOX2Lm031ddgRQcwX4vXV6a5+nU/xzkDxauaVSewS9nE8vjqPD0t6rox03Q9+OaibjLmOKRmeYi67XoyLpdwMGPCOeZNNtd+iK/n4ibHh5dgO+7McSAMI6YycFk6df00tyU8mXz7xvR5LN0aobrDqAEp0avArbesD9pC71WvlJRaCpAWxAoDSKe5sd4zVBBWWnMeVsjAudVvaw6PWFbk3RzYL9/bzc8R73FMc0W8tSvNHQBqL5ntNRO99k52qnMQNITOdQwldsL21gBXBsoUhlyAFsGaXvbin7sq7dUxadu4NofE87mbH6bDtKZk6Uc5qmNi7zGmoWywxFnLW9Ys9otPnP/LAXzdO/ZR/ZcE/Vn/TGslqP5PIWLexU1t4k1q11uPFTkrf3/yvkH9cw4SqP5P8v9vjkffXFzypbjaU0UQQgghhBBCCCGEEEIIIYQQQsj/6RnikbcQ"
+            }
+          }
+        },
+        "expect_calls": 0
+      },
+      "expect": {
+        "/calls": {
+          "equals": 0
+        }
+      }
+    },
+    {
+      "id": "provider_lua_app_run",
+      "client": "peer",
+      "client_rpc": {
+        "method": "client.tool.v0.invoke",
+        "tool": "lua.app.run",
+        "response": {
+          "lua_apps": {
+            "capacity_bytes": 4096,
+            "packages": {
+              "https://apps.example.test/tetris-0.1.0.lua-app.tar.zlib": "eNrt1dtO4zAQANA89yuiPHezvozjhl9BCPkyhqC0jWwXCVD/HTeVll2WBQmJilXnPDjx2HKscSZZm80QMOX2Lm031ddgRQcwX4vXV6a5+nU/xzkDxauaVSewS9nE8vjqPD0t6rox03Q9+OaibjLmOKRmeYi67XoyLpdwMGPCOeZNNtd+iK/n4ibHh5dgO+7McSAMI6YycFk6df00tyU8mXz7xvR5LN0aobrDqAEp0avArbesD9pC71WvlJRaCpAWxAoDSKe5sd4zVBBWWnMeVsjAudVvaw6PWFbk3RzYL9/bzc8R73FMc0W8tSvNHQBqL5ntNRO99k52qnMQNITOdQwldsL21gBXBsoUhlyAFsGaXvbin7sq7dUxadu4NofE87mbH6bDtKZk6Uc5qmNi7zGmoWywxFnLW9Ys9otPnP/LAXzdO/ZR/ZcE/Vn/TGslqP5PIWLexU1t4k1q11uPFTkrf3/yvkH9cw4SqP5P8v9vjkffXFzypbjaU0UQQgghhBBCCCGEEEIIIYQQQsj/6RnikbcQ"
+            }
+          }
+        },
+        "expect_calls": 0
+      },
+      "expect": {
+        "/calls": {
+          "equals": 0
+        }
+      }
+    }
+  ],
+  "finally": [
+    {
+      "id": "cleanup",
+      "client": "peer",
+      "rpc": {
+        "method": "server.peer.delete",
+        "request": {}
+      }
+    }
+  ]
+}

@@ -2738,7 +2738,50 @@ static int test_model_service_tier(void) {
   return 0;
 }
 
+static bool encode_lua_param(pb_ostream_t *stream, const pb_field_t *field, void *const *arg) {
+  return pb_encode_tag_for_field(stream, field) &&
+         pb_encode_submessage(stream, gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_fields, *arg);
+}
+
+static bool decode_lua_param(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  (void)field;
+  return pb_decode(stream, gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_fields, *arg);
+}
+
+static int test_lua_app_codec(void) {
+  uint8_t wire[2048];
+  gizclaw_rpc_v1_ClientLuaAppInstallRequest install = gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_zero;
+  strcpy(install.url, "https://apps.test/tetris.lua-app.tar.zlib");
+  pb_ostream_t output = pb_ostream_from_buffer(wire, sizeof(wire));
+  if (!pb_encode(&output, gizclaw_rpc_v1_ClientLuaAppInstallRequest_fields, &install))
+    return 1;
+  gizclaw_rpc_v1_ClientLuaAppInstallRequest received = gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_zero;
+  pb_istream_t input = pb_istream_from_buffer(wire, output.bytes_written);
+  if (!pb_decode(&input, gizclaw_rpc_v1_ClientLuaAppInstallRequest_fields, &received) || strcmp(received.url, install.url) != 0 || received.has_sha256)
+    return 1;
+  gizclaw_rpc_v1_ClientLuaAppRunRequest run = gizclaw_rpc_v1_ClientLuaAppRunRequest_init_zero;
+  gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry param = gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_init_zero;
+  strcpy(run.app_id, "tetris");
+  strcpy(param.key, "mode");
+  strcpy(param.value, "single");
+  run.params.funcs.encode = encode_lua_param;
+  run.params.arg = &param;
+  output = pb_ostream_from_buffer(wire, sizeof(wire));
+  if (!pb_encode(&output, gizclaw_rpc_v1_ClientLuaAppRunRequest_fields, &run))
+    return 1;
+  gizclaw_rpc_v1_ClientLuaAppRunRequest decoded = gizclaw_rpc_v1_ClientLuaAppRunRequest_init_zero;
+  gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry decoded_param = gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_init_zero;
+  decoded.params.funcs.decode = decode_lua_param;
+  decoded.params.arg = &decoded_param;
+  input = pb_istream_from_buffer(wire, output.bytes_written);
+  if (!pb_decode(&input, gizclaw_rpc_v1_ClientLuaAppRunRequest_fields, &decoded))
+    return 1;
+  return expect(strcmp(decoded.app_id, "tetris") == 0 && strcmp(decoded_param.key, "mode") == 0 && strcmp(decoded_param.value, "single") == 0, "Lua app launch preserves string parameters");
+}
+
 int main(void) {
+  if (test_lua_app_codec() != 0)
+    return 1;
   if (test_model_service_tier() != 0)
     return 1;
   if (test_mhs_codec() != 0)

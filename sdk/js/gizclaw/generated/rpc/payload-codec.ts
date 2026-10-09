@@ -225,6 +225,22 @@ export type ClientHwdOptions = {
   "write_request": string;
   "write_response": string;
 };
+export type ClientLuaAppInstallRequest = {
+  "url": string;
+  "sha256"?: string;
+};
+export type ClientLuaAppInstallResponse = {
+  "app": LuaAppInfo;
+};
+export type ClientLuaAppListRequest = Record<string, never>;
+export type ClientLuaAppListResponse = {
+  "apps": LuaAppInfo[];
+};
+export type ClientLuaAppRunRequest = {
+  "app_id": string;
+  "params"?: Record<string, string>;
+};
+export type ClientLuaAppRunResponse = Record<string, never>;
 export type ClientMhsV0ReadRequest = {
   "id": string;
   "hwd": ClientHwd;
@@ -807,6 +823,12 @@ export type LedHwdWriteRequest = {
 };
 export type LedHwdWriteResponse = {
   "applied": LedHwdReadResponse;
+};
+export type LuaAppInfo = {
+  "app_id": string;
+  "version": string;
+  "display_name"?: string;
+  "description"?: string;
 };
 export type MhsV0InstanceCapability = {
   "id": string;
@@ -1657,7 +1679,10 @@ const TOOL_REQUEST_MESSAGES: Record<string, string> = {
   "18": "ClientDeviceAudioPlayerPlaylistSetRequest",
   "19": "ClientDeviceAudioPlayerPlaylistAppendRequest",
   "20": "ClientRunWorkspaceSetRequest",
-  "21": "ClientSocialPingRequest"
+  "21": "ClientSocialPingRequest",
+  "22": "ClientLuaAppListRequest",
+  "23": "ClientLuaAppInstallRequest",
+  "24": "ClientLuaAppRunRequest"
 };
 const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "ClientGetInfoResponse",
@@ -1680,7 +1705,10 @@ const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "18": "ClientDeviceAudioPlayerPlaylistSetResponse",
   "19": "ClientDeviceAudioPlayerPlaylistAppendResponse",
   "20": "ClientRunWorkspaceSetResponse",
-  "21": "ClientSocialPingResponse"
+  "21": "ClientSocialPingResponse",
+  "22": "ClientLuaAppListResponse",
+  "23": "ClientLuaAppInstallResponse",
+  "24": "ClientLuaAppRunResponse"
 };
 const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "WifiHwdReadResponse",
@@ -2442,6 +2470,62 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "type": "string"
       }
     ]
+  },
+  "ClientLuaAppInstallRequest": {
+    "fields": [
+      {
+        "name": "url",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "sha256",
+        "number": 2,
+        "optional": true,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientLuaAppInstallResponse": {
+    "fields": [
+      {
+        "name": "app",
+        "number": 1,
+        "type": "LuaAppInfo"
+      }
+    ]
+  },
+  "ClientLuaAppListRequest": {
+    "fields": []
+  },
+  "ClientLuaAppListResponse": {
+    "fields": [
+      {
+        "name": "apps",
+        "number": 1,
+        "repeated": true,
+        "type": "LuaAppInfo"
+      }
+    ]
+  },
+  "ClientLuaAppRunRequest": {
+    "fields": [
+      {
+        "name": "app_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "mapValue": "string",
+        "name": "params",
+        "number": 2,
+        "optional": true,
+        "type": "map"
+      }
+    ]
+  },
+  "ClientLuaAppRunResponse": {
+    "fields": []
   },
   "ClientMhsV0ReadRequest": {
     "fields": [
@@ -5038,6 +5122,32 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "applied",
         "number": 1,
         "type": "LedHwdReadResponse"
+      }
+    ]
+  },
+  "LuaAppInfo": {
+    "fields": [
+      {
+        "name": "app_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "version",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "description",
+        "number": 4,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -8092,6 +8202,9 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "firmware_update": 12,
       "identifiers_get": 2,
       "info_get": 1,
+      "lua_app_install": 23,
+      "lua_app_list": 22,
+      "lua_app_run": 24,
       "run_workspace_set": 20,
       "social_ping": 21,
       "sound_play": 7,
@@ -8123,7 +8236,10 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "18": "audioplayer_playlist_set",
       "19": "audioplayer_playlist_append",
       "20": "run_workspace_set",
-      "21": "social_ping"
+      "21": "social_ping",
+      "22": "lua_app_list",
+      "23": "lua_app_install",
+      "24": "lua_app_run"
     }
   },
   "ConversationParametersAgentInitiativePolicy": {
@@ -8870,8 +8986,9 @@ function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<str
     } else if (field.mapValue != null) {
       const current = out[field.name];
       const target = isRecord(current) ? current : {};
-      Object.assign(target, value);
-      out[field.name] = target;
+      if (!isRecord(value)) throw new Error("invalid protobuf map entry");
+      // Spread defines own properties, preserving keys such as __proto__.
+      out[field.name] = { ...target, ...value };
     } else {
       out[field.name] = value;
     }

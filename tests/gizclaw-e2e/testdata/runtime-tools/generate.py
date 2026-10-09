@@ -207,6 +207,32 @@ def main():
             (args.output/filename).write_text(STORY+json.dumps(document(case,count,args.repeat),ensure_ascii=False,indent=2)+"\n")
             manifest.append({"file":filename,"case_id":case["id"],"tool_count":count,"repeat":args.repeat,"turns":case["turns"],"context":case.get("context"),"result_oracle":case["id"].startswith("O")})
     deterministic=document({"id":"G01","turns":[]},10,args.repeat)
+
+    if not args.filter or "LUA01" in args.filter.split(","):
+        lua=document({"id":"LUA01","turns":[]},10,args.repeat)
+        lua["name"]="runtime-tools.lua-app-launch"
+        simulator={"lua_apps":{"capacity_bytes":4096,"installed":[{"app_id":"tetris","version":"0.1.0","display_name":"俄罗斯方块","description":"俄罗斯方块游戏。启动参数 mode: single 单人，difficulty: easy 简单，均为字符串。"},{"app_id":"fishing","version":"0.1.0","display_name":"钓钓钓"}]}}
+        lua["steps"].extend([
+            observer("install_lua_list","client.tool.v0.invoke",simulator,tool="lua.app.list"),
+            observer("install_lua_run","client.tool.v0.invoke",simulator,tool="lua.app.run"),
+            rpc("create_lua","server.workspace.create",{"name":"${workspace}-lua","workflow_name":"lua-apps"}),
+            rpc("select_lua","server.run.workspace.set",{"workspace_name":"${workspace}-lua"}),
+            rpc("reload_lua","server.run.workspace.reload",{}),
+        ])
+        catalog=rpc("lua_catalog","server.tool.list",{"workflow_name":"lua-apps"})
+        catalog["expect"]={"/items":{"count":2},"/items/0/available":{"equals":True},"/items/1/available":{"equals":True}}
+        lua["steps"].append(catalog)
+        lua["steps"].append({"id":"turn_0","client":"peer","timeout":"60s","peer_stream":{"mode":"text","input":"我要玩俄罗斯方块，单人模式、简单难度，只启动一次。","require_text":True,"require_audio":False},"expect":{"/text_eos":{"equals":True}}})
+        read=observer("lua_list_received","client.tool.v0.invoke",simulator,1,"lua.app.list")
+        read["expect"]={"/calls":{"minimum":1}}
+        lua["steps"].append(read)
+        run=observer("lua_run_received","client.tool.v0.invoke",simulator,1,"lua.app.run")
+        run["expect"].update(assertions([{"tool":"lua.app.run","tool_enum":24,"args":{"app_id":"tetris","params":{"mode":"single","difficulty":"easy"}}}]))
+        lua["steps"].append(run)
+        lua["finally"].insert(0,{"id":"audit_lua_run","client":"peer","client_rpc":{"method":"client.tool.v0.invoke","tool":"lua.app.run","observe_only":True},"expect":{"/requests":{"present":True}}})
+        filename="lua01-launch.giztest.yaml"
+        (args.output/filename).write_text(STORY+json.dumps(lua,ensure_ascii=False,indent=2)+"\n")
+        manifest.append({"file":filename,"case_id":"LUA01","repeat":args.repeat,"lua_app_launch":True})
     def mutate(identifier,operation,status=200):
         return {"id":identifier,"client":"peer","http":{"endpoint":"http://toolcontrol:9822","method":"POST","path":"/gizclaw/v1/runtime-tools/mutate","body":{"instance":"${workspace}","operation":operation},"status":status}}
     def get(identifier,alias,**expected):

@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
@@ -195,7 +196,17 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 	invalid := func() (deviceControlOptions, *deviceControlError) {
 		return opts, invalidDeviceRequest("invalid tool arguments")
 	}
+	switch message.(type) {
+	case *rpcpb.ClientLuaAppListRequest, *rpcpb.ClientLuaAppInstallRequest, *rpcpb.ClientLuaAppRunRequest:
+		if err := rpcapi.ValidateLuaAppRequest(message); err != nil {
+			return invalid()
+		}
+	}
 	switch request := message.(type) {
+	case *rpcpb.ClientLuaAppInstallRequest:
+		opts.timeout = 2 * time.Minute
+	case *rpcpb.ClientLuaAppRunRequest:
+		opts.notFoundCode = "LUA_APP_NOT_FOUND"
 	case *rpcpb.ClientDeviceSoundPlayRequest:
 		if failure := validateDeviceString("sound", request.Sound, maxDeviceSoundBytes); failure != nil {
 			return opts, failure
@@ -257,6 +268,9 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 }
 
 func validateClientToolResponse(message proto.Message) error {
+	if strings.HasPrefix(string(message.ProtoReflect().Descriptor().Name()), "ClientLuaApp") {
+		return rpcapi.ValidateLuaAppResponse(message)
+	}
 	if strings.HasPrefix(string(message.ProtoReflect().Descriptor().Name()), "ClientDeviceAudioPlayer") {
 		return rpcapi.ValidateAudioPlayerResponse(message)
 	}

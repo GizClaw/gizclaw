@@ -64,6 +64,12 @@ class ClientTool extends $pb.ProtobufEnum {
       ClientTool._(20, _omitEnumNames ? '' : 'CLIENT_TOOL_RUN_WORKSPACE_SET');
   static const ClientTool CLIENT_TOOL_SOCIAL_PING =
       ClientTool._(21, _omitEnumNames ? '' : 'CLIENT_TOOL_SOCIAL_PING');
+  static const ClientTool CLIENT_TOOL_LUA_APP_LIST =
+      ClientTool._(22, _omitEnumNames ? '' : 'CLIENT_TOOL_LUA_APP_LIST');
+  static const ClientTool CLIENT_TOOL_LUA_APP_INSTALL =
+      ClientTool._(23, _omitEnumNames ? '' : 'CLIENT_TOOL_LUA_APP_INSTALL');
+  static const ClientTool CLIENT_TOOL_LUA_APP_RUN =
+      ClientTool._(24, _omitEnumNames ? '' : 'CLIENT_TOOL_LUA_APP_RUN');
 
   static const $core.List<ClientTool> values = <ClientTool>[
     CLIENT_TOOL_UNSPECIFIED,
@@ -88,10 +94,13 @@ class ClientTool extends $pb.ProtobufEnum {
     CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND,
     CLIENT_TOOL_RUN_WORKSPACE_SET,
     CLIENT_TOOL_SOCIAL_PING,
+    CLIENT_TOOL_LUA_APP_LIST,
+    CLIENT_TOOL_LUA_APP_INSTALL,
+    CLIENT_TOOL_LUA_APP_RUN,
   ];
 
   static final $core.List<ClientTool?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 21);
+      $pb.ProtobufEnum.$_initByValueList(values, 24);
   static ClientTool? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

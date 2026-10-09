@@ -32,7 +32,7 @@ def expected_requests(document, variables):
             turn = step["id"]
         operation = step.get("client_rpc", {})
         if operation.get("method") != "client.mhs.v0.write" and operation.get("tool") not in {
-            "audioplayer.play", "audioplayer.stop", "audioplayer.mode.set", "run.workspace.set"
+            "audioplayer.play", "audioplayer.stop", "audioplayer.mode.set", "run.workspace.set", "lua.app.run", "lua.app.install"
         }:
             continue
         expected = step.get("expect", {})
@@ -74,6 +74,8 @@ def request_identity(row, part):
         target = {key: row[key] for key in ("id", "hwd", "hwd_enum", "tool_enum") if key in row}
         if procedure == "run.workspace.set":
             target["workspace_name"] = arguments.get("workspace_name")
+        if procedure == "lua.app.run":
+            target["app_id"] = arguments.get("app_id")
         return row.get("turn_id"), procedure, target
     if "effective_index" in row:
         return row.get("turn_id"), procedure, {"index": row["effective_index"]}

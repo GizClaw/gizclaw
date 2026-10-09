@@ -36,7 +36,10 @@ typedef enum _gizclaw_rpc_v1_ClientTool {
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_SET = 18,
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND = 19,
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_RUN_WORKSPACE_SET = 20,
-    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_SOCIAL_PING = 21
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_SOCIAL_PING = 21,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_LIST = 22,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_INSTALL = 23,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_RUN = 24
 } gizclaw_rpc_v1_ClientTool;
 
 /* Struct definitions */
@@ -87,8 +90,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _gizclaw_rpc_v1_ClientTool_MIN gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED
-#define _gizclaw_rpc_v1_ClientTool_MAX gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_SOCIAL_PING
-#define _gizclaw_rpc_v1_ClientTool_ARRAYSIZE ((gizclaw_rpc_v1_ClientTool)(gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_SOCIAL_PING+1))
+#define _gizclaw_rpc_v1_ClientTool_MAX gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_RUN
+#define _gizclaw_rpc_v1_ClientTool_ARRAYSIZE ((gizclaw_rpc_v1_ClientTool)(gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_RUN+1))
 
 
 #define gizclaw_rpc_v1_ClientToolV0InvokeRequest_tool_ENUMTYPE gizclaw_rpc_v1_ClientTool

@@ -41,6 +41,9 @@ const ClientTool$json = {
     {'1': 'CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_APPEND', '2': 19, '3': {}},
     {'1': 'CLIENT_TOOL_RUN_WORKSPACE_SET', '2': 20, '3': {}},
     {'1': 'CLIENT_TOOL_SOCIAL_PING', '2': 21, '3': {}},
+    {'1': 'CLIENT_TOOL_LUA_APP_LIST', '2': 22, '3': {}},
+    {'1': 'CLIENT_TOOL_LUA_APP_INSTALL', '2': 23, '3': {}},
+    {'1': 'CLIENT_TOOL_LUA_APP_RUN', '2': 24, '3': {}},
   ],
 };
 
@@ -93,7 +96,12 @@ final $typed_data.Uint8List clientToolDescriptor = $convert.base64Decode(
     'YWNlLnNldBIcQ2xpZW50UnVuV29ya3NwYWNlU2V0UmVxdWVzdBodQ2xpZW50UnVuV29ya3NwYW'
     'NlU2V0UmVzcG9uc2USYQoXQ0xJRU5UX1RPT0xfU09DSUFMX1BJTkcQFRpEyvMYQAoLc29jaWFs'
     'LnBpbmcSF0NsaWVudFNvY2lhbFBpbmdSZXF1ZXN0GhhDbGllbnRTb2NpYWxQaW5nUmVzcG9uc2'
-    'U=');
+    'USYwoYQ0xJRU5UX1RPT0xfTFVBX0FQUF9MSVNUEBYaRcrzGEEKDGx1YS5hcHAubGlzdBIXQ2xp'
+    'ZW50THVhQXBwTGlzdFJlcXVlc3QaGENsaWVudEx1YUFwcExpc3RSZXNwb25zZRJvChtDTElFTl'
+    'RfVE9PTF9MVUFfQVBQX0lOU1RBTEwQFxpOyvMYSgoPbHVhLmFwcC5pbnN0YWxsEhpDbGllbnRM'
+    'dWFBcHBJbnN0YWxsUmVxdWVzdBobQ2xpZW50THVhQXBwSW5zdGFsbFJlc3BvbnNlEl8KF0NMSU'
+    'VOVF9UT09MX0xVQV9BUFBfUlVOEBgaQsrzGD4KC2x1YS5hcHAucnVuEhZDbGllbnRMdWFBcHBS'
+    'dW5SZXF1ZXN0GhdDbGllbnRMdWFBcHBSdW5SZXNwb25zZQ==');
 
 @$core.Deprecated('Use clientToolOptionsDescriptor instead')
 const ClientToolOptions$json = {

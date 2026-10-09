@@ -4948,6 +4948,15 @@
           },
           {
             "$ref": "#/components/schemas/ClientToolSocialPingInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolLuaAppListInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolLuaAppInstallInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolLuaAppRunInvoke"
           }
         ],
         "discriminator": {
@@ -4973,7 +4982,10 @@
             "audioplayer.playlist.set": "#/components/schemas/ClientToolAudioplayerPlaylistSetInvoke",
             "audioplayer.playlist.append": "#/components/schemas/ClientToolAudioplayerPlaylistAppendInvoke",
             "run.workspace.set": "#/components/schemas/ClientToolRunWorkspaceSetInvoke",
-            "social.ping": "#/components/schemas/ClientToolSocialPingInvoke"
+            "social.ping": "#/components/schemas/ClientToolSocialPingInvoke",
+            "lua.app.list": "#/components/schemas/ClientToolLuaAppListInvoke",
+            "lua.app.install": "#/components/schemas/ClientToolLuaAppInstallInvoke",
+            "lua.app.run": "#/components/schemas/ClientToolLuaAppRunInvoke"
           }
         }
       },
@@ -5008,7 +5020,10 @@
                 "audioplayer.playlist.set",
                 "audioplayer.playlist.append",
                 "run.workspace.set",
-                "social.ping"
+                "social.ping",
+                "lua.app.list",
+                "lua.app.install",
+                "lua.app.run"
               ]
             }
           }
@@ -5172,6 +5187,115 @@
             "done": "#/components/schemas/SyncDone"
           }
         }
+      },
+      "ClientLuaAppInstallArgs": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "url": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024,
+            "format": "uri",
+            "pattern": "^https://",
+            "description": "HTTPS URL of a complete GizOS .lua-app.tar.zlib package, without credentials or fragment. The device downloads and validates it; the Server never fetches it."
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[a-fA-F0-9]{64}$",
+            "description": "Optional expected SHA-256 of the compressed archive."
+          }
+        },
+        "required": [
+          "url"
+        ],
+        "description": "Install a complete Lua app package. Success means installed. Insufficient storage returns DEVICE_UNSUPPORTED; failures preserve the previous app and user data. Do not automatically retry a timed-out installation."
+      },
+      "ClientLuaAppRunArgs": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z0-9_-][a-z0-9_.-]{0,31}$",
+            "description": "Stable package app_id returned by lua.app.list. Do not guess an ID from a game title."
+          },
+          "params": {
+            "type": "object",
+            "maxProperties": 16,
+            "additionalProperties": {
+              "type": "string",
+              "maxLength": 1024
+            },
+            "description": "Optional string-to-string parameters, passed directly to the Lua args table. Keys are 1..64 UTF-8 bytes, values at most 1024 bytes, total at most 4096 bytes, no NUL. Pass only parameters supported by the selected app; omitted means empty."
+          }
+        },
+        "required": [
+          "app_id"
+        ],
+        "description": "Launch one installed Lua application. Success acknowledges acceptance; it does not mean the game has completed. Query lua.app.list to resolve a requested game name to its installed app_id."
+      },
+      "ClientToolLuaAppListInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "lua.app.list"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "description": "List installed, runnable Lua apps with their stable app_id, version and optional display name/description. Use this to resolve a game requested in conversation."
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ]
+      },
+      "ClientToolLuaAppInstallInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "lua.app.install"
+            ]
+          },
+          "args": {
+            "$ref": "#/components/schemas/ClientLuaAppInstallArgs"
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ]
+      },
+      "ClientToolLuaAppRunInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "lua.app.run"
+            ]
+          },
+          "args": {
+            "$ref": "#/components/schemas/ClientLuaAppRunArgs"
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ]
       }
     }
   }

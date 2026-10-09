@@ -140,6 +140,18 @@ gizclaw.rpc.v1.ModemHwdReadResponse.rat max_size:17
 # tool/v0 advertises at most the whole ClientTool registry.
 gizclaw.rpc.v1.ClientToolV0ListResponse.tools max_count:32
 
+# Lua application strings are bounded; lists/maps remain callbacks so the
+# device provider can consume them without a large static message buffer.
+gizclaw.rpc.v1.LuaAppInfo.app_id max_size:33
+gizclaw.rpc.v1.LuaAppInfo.version max_size:32
+gizclaw.rpc.v1.LuaAppInfo.display_name max_size:129
+gizclaw.rpc.v1.LuaAppInfo.description max_size:1025
+gizclaw.rpc.v1.ClientLuaAppInstallRequest.url max_size:1025
+gizclaw.rpc.v1.ClientLuaAppInstallRequest.sha256 max_size:65
+gizclaw.rpc.v1.ClientLuaAppRunRequest.app_id max_size:33
+gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry.key max_size:65
+gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry.value max_size:1025
+
 gizclaw.rpc.v1.ASTTranslateWorkspaceParameters.safety_fence_level max_size:65
 gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters.safety_fence_level max_size:65
 gizclaw.rpc.v1.DoubaoRealtimeDuplexWorkspaceParameters.safety_fence_level max_size:65
