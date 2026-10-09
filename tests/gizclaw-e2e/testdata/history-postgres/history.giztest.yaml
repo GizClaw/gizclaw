@@ -1,0 +1,92 @@
+# User Story:
+# As a device sharing PostgreSQL history with other Workspaces,
+# I want the first text within two seconds while history writes run concurrently,
+# So that persistence does not serialize independent conversations.
+version: gizclaw.test/v1alpha1
+name: history.postgres.concurrent
+repeat: 8
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request: {token: "${registration_token}"}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: history-echo
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${workspace_name}"}
+  - id: first_text
+    client: peer
+    peer_stream:
+      mode: text
+      input: history-concurrency
+      completion: first_response
+      first_text_timeout: 2s
+      require_text: true
+      require_audio: false
+    expect:
+      /text: {non_empty: true}
+      /first_text_ms: {maximum: 2000}
+  - id: complete_persisted_turn
+    client: peer
+    peer_stream:
+      mode: text
+      input: history-concurrency
+      completion: terminal
+      require_text: true
+      require_audio: false
+    expect:
+      /text: {non_empty: true}
+      /text_eos: {equals: true}
+  - id: persisted_history
+    client: peer
+    rpc:
+      method: server.run.workspace.history
+      request: {limit: 10}
+    retry:
+      attempts: 10
+      on: [assertion]
+      delay: 100ms
+    expect:
+      /items: {non_empty: true}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${workspace_name}"}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]

@@ -190,6 +190,18 @@ func (store *SQLStore) dailyPartitions() storage.SQLDailyPartitions {
 	return storage.SQLDailyPartitions{Table: store.table, Column: "expires_at_unix_nano", Prefix: postgresAuxiliaryPrefix(store.table.Name())}
 }
 
+func (store *SQLStore) preparePostgresPartitions(ctx context.Context, expiresAt time.Time) error {
+	tx, err := store.beginTransaction(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	if err := store.dailyPartitions().Prepare(ctx, tx, []time.Time{expiresAt}); err != nil {
+		return err
+	}
+	return storage.ExternalSQLError("logstore: commit postgres partition preparation", tx.Commit())
+}
+
 func (store *SQLStore) maintainPostgresPartitionsLocked(ctx context.Context, tx *sqlx.Tx, now, expiresAt time.Time) error {
 	return store.dailyPartitions().Maintain(ctx, tx, now, []time.Time{expiresAt}, func(partition storage.SQLDailyPartition) error {
 		_, err := tx.ExecContext(ctx, "DELETE FROM "+store.quotedKeys+" WHERE expires_at_unix_nano >= $1 AND expires_at_unix_nano < $2", partition.Lower, partition.Upper)

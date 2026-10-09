@@ -523,6 +523,7 @@ jobs:
           POSTGRES_USER: gizclaw
           POSTGRES_PASSWORD: gizclaw
           POSTGRES_DB: gizclaw_test
+          POSTGRES_INITDB_ARGS: --set=max_connections=300
         ports:
           - 5432:5432
         options: >-
@@ -566,6 +567,8 @@ jobs:
           go test -tags=store_e2e -count=1 -p 1 \
             -run '^TestPostgreSQL' \
             ./tests/store-e2e
+          go test -count=1 -run '^TestPostgreSQLHistoryRetentionWithoutWrites$' \
+            ./pkgs/gizclaw
 
   clickhouse:
     name: ClickHouse Integration
