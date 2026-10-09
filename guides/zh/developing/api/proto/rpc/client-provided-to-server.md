@@ -43,6 +43,8 @@ sequenceDiagram
 
 `lua.app.install` 接受完整 `.lua-app.tar.zlib` 包的 HTTPS `url`，以及可选的压缩包 `sha256`。URL 最多 1024 UTF-8 字节，不含嵌入凭证或 fragment。Server 只校验和转发，安装 RPC 最多等待 120 秒；设备负责流式下载、zlib/USTAR 解析、format-1 `lua-app` manifest 和全部文件长度/SHA-256 校验。设备必须限制解压总量、文件数量、路径和可用空间，先暂存完整应用，在全部校验成功后发布新安装；失败保留旧应用和用户数据。空间不足或没有安装能力返回 `UNIMPLEMENTED`，HTTP 映射为 `501 DEVICE_UNSUPPORTED`。成功响应中的 `app` 表示安装完成，不能用下载已排队冒充成功。调用方不得自动重放超时请求。
 
+包格式以 GizOS [固定版本的公共打包器](https://github.com/GizClaw/gizos/blob/604492cc10e2b86b730a365288694d4bf1fc76ab/libs/lua/app_package.py) 为准。USTAR 在文件边界后必须包含两个完整的 512 字节全零结束块；其后的填充也只能是完整的全零块。zlib 校验成功不能代替 tar 完整性验证。
+
 `lua.app.run` 接受 `app_id` 和可选 `params`。`params` 是字符串到字符串的对象，直接映射为 GizOS `h2_lua_arg_t` 和 Lua 全局 `args`；省略等价于空对象，不需要把整份 JSON 编码为一个字符串。最多 16 对，键 1–64 UTF-8 字节、值最多 1024 字节、键和值总计最多 4096 字节，均禁止 NUL。数字或结构化内容需要应用自行约定和解析。未安装的 ID 返回 `NOT_FOUND`，HTTP 为 `404 LUA_APP_NOT_FOUND`。设备先应答接受启动，再移交界面或断开会话；应答不表示游戏已经完成。
 
 例如 `{"tool":"lua.app.run","args":{"app_id":"tetris","params":{"mode":"single","difficulty":"easy"}}}`。Lua 侧读取 `args.mode` 和 `args.difficulty`。对话 Agent 通过 RuntimeProfile 的 `client_tool` bindings 和 Workflow `toolkit.tool_names` 获得 `lua.app.list`、`lua.app.run`，先将用户说的游戏名匹配到设备返回的 ID，再传递应用支持的字符串参数。SDK 只公布实际注册的 handler；新增协议不会自动给现有固件安装实现。

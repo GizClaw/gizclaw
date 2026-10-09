@@ -9,6 +9,8 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"slices"
@@ -156,6 +158,62 @@ func TestLuaAppSimulatorFailuresPreserveInstallation(t *testing.T) {
 			}
 			if fixture.apps["tetris"].Version != "1.0.0" || string(fixture.files["tetris"]["tetris.lua"]) != "return 1" || fixture.used != 8 {
 				t.Fatal("failure changed installed app")
+			}
+		})
+	}
+}
+
+func TestLuaAppSimulatorRequiresCompleteTarEnding(t *testing.T) {
+	old := luaArchive(t, "1.0.0", map[string]string{"tetris.lua": "return 1"}, false)
+	// Zero-filled resource blocks are valid payload, not archive terminators.
+	valid := luaArchive(t, "2.0.0", map[string]string{"tetris.lua": "return 2", "tetris/zeros.bin": strings.Repeat("\x00", 1024)}, false)
+	reader, err := zlib.NewReader(bytes.NewReader(valid))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := reader.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) < 1024 || !bytes.Equal(raw[len(raw)-1024:], make([]byte, 1024)) {
+		t.Fatal("fixture has no canonical tar ending")
+	}
+	for _, tc := range []struct {
+		blocks, padding int
+		valid           bool
+	}{{0, 0, false}, {1, 0, false}, {2, 0, true}, {2, 512, true}, {2, 1, false}} {
+		t.Run(fmt.Sprintf("blocks_%d_padding_%d", tc.blocks, tc.padding), func(t *testing.T) {
+			var compressed bytes.Buffer
+			writer := zlib.NewWriter(&compressed)
+			if _, err := writer.Write(raw[:len(raw)-1024]); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := writer.Write(make([]byte, tc.blocks*512+tc.padding)); err != nil {
+				t.Fatal(err)
+			}
+			if err := writer.Close(); err != nil {
+				t.Fatal(err)
+			}
+			fixture := luaFixture(t, 4096, map[string][]byte{"https://apps.test/old": old, "https://apps.test/new": compressed.Bytes()})
+			if _, err := fixture.invoke(t.Context(), &rpcpb.ClientLuaAppInstallRequest{Url: "https://apps.test/old"}); err != nil {
+				t.Fatal(err)
+			}
+			checksum := sha256.Sum256(compressed.Bytes())
+			_, err = fixture.invoke(t.Context(), &rpcpb.ClientLuaAppInstallRequest{Url: "https://apps.test/new", Sha256: new(hex.EncodeToString(checksum[:]))})
+			if tc.valid {
+				if err != nil || fixture.apps["tetris"].Version != "2.0.0" {
+					t.Fatalf("valid archive rejected: %v", err)
+				}
+				return
+			}
+			if status, ok := err.(rpcapi.Error); !ok || status.Code != rpcapi.StatusCodeInvalidArgument {
+				t.Fatalf("incomplete tar accepted: %v", err)
+			}
+			if fixture.apps["tetris"].Version != "1.0.0" || string(fixture.files["tetris"]["tetris.lua"]) != "return 1" || fixture.used != 8 {
+				t.Fatal("incomplete tar replaced the installed app")
 			}
 		})
 	}

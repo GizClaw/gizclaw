@@ -171,6 +171,17 @@ func (r luaContextReader) Read(p []byte) (int, error) {
 	return r.reader.Read(p)
 }
 
+type luaTarReader struct {
+	reader    io.Reader
+	bytesRead int64
+}
+
+func (r *luaTarReader) Read(p []byte) (int, error) {
+	n, err := r.reader.Read(p)
+	r.bytesRead += int64(n)
+	return n, err
+}
+
 func luaPackagePath(name string) bool {
 	if name == "" || path.IsAbs(name) || path.Clean(name) != name || strings.Contains(name, "\\") {
 		return false
@@ -201,7 +212,10 @@ func (f *luaAppFixture) install(ctx context.Context, request *rpcpb.ClientLuaApp
 	defer decoded.Close()
 	// The tar overhead and manifest are bounded separately from payload capacity.
 	unpacked := &io.LimitedReader{R: decoded, N: luaFixtureMaxBytes + (256 << 10) + 1}
-	archive := tar.NewReader(unpacked)
+	stream := &luaTarReader{reader: unpacked}
+	archive := tar.NewReader(stream)
+	const blockSize = int64(512)
+	var nextHeader int64
 	staged := map[string][]byte{}
 	portable := map[string]bool{}
 	var manifestBytes []byte
@@ -209,9 +223,15 @@ func (f *luaAppFixture) install(ctx context.Context, request *rpcpb.ClientLuaApp
 	for {
 		header, err := archive.Next()
 		if err == io.EOF {
+			// archive/tar also accepts EOF with zero or one terminal block.
+			// Require both blocks at the next header boundary, independently
+			// of any zero-filled resource bytes that preceded them.
+			if stream.bytesRead != nextHeader+2*blockSize {
+				return nil, invalid
+			}
 			break
 		}
-		if err != nil || header.Format != tar.FormatUSTAR || (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || !luaPackagePath(header.Name) || header.Size < 0 || (len(staged) >= 256 && header.Name != "manifest.json") {
+		if err != nil || stream.bytesRead != nextHeader+blockSize || header.Format != tar.FormatUSTAR || (header.Typeflag != tar.TypeReg && header.Typeflag != tar.TypeRegA) || !luaPackagePath(header.Name) || header.Size < 0 || (len(staged) >= 256 && header.Name != "manifest.json") {
 			return nil, invalid
 		}
 		key := strings.ToLower(header.Name)
@@ -233,6 +253,7 @@ func (f *luaAppFixture) install(ctx context.Context, request *rpcpb.ClientLuaApp
 		if err != nil || int64(len(content)) != header.Size {
 			return nil, invalid
 		}
+		nextHeader = stream.bytesRead + (blockSize-header.Size%blockSize)%blockSize
 		if header.Name == "manifest.json" {
 			manifestBytes = content
 		} else {
@@ -244,7 +265,7 @@ func (f *luaAppFixture) install(ctx context.Context, request *rpcpb.ClientLuaApp
 	padding := make([]byte, 4096)
 	var zeros [4096]byte
 	for {
-		n, err := unpacked.Read(padding)
+		n, err := stream.Read(padding)
 		if !bytes.Equal(padding[:n], zeros[:n]) {
 			return nil, invalid
 		}
@@ -255,7 +276,7 @@ func (f *luaAppFixture) install(ctx context.Context, request *rpcpb.ClientLuaApp
 			return nil, invalid
 		}
 	}
-	if unpacked.N == 0 || compressed.N == 0 {
+	if unpacked.N == 0 || compressed.N == 0 || stream.bytesRead%blockSize != 0 {
 		return nil, invalid
 	}
 	if _, err := buffered.ReadByte(); err != io.EOF {
