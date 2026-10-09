@@ -236,6 +236,51 @@ func (e ClientToolInfoGetInvokeTool) Valid() bool {
 	}
 }
 
+// Defines values for ClientToolLuaAppInstallInvokeTool.
+const (
+	LuaAppInstall ClientToolLuaAppInstallInvokeTool = "lua.app.install"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolLuaAppInstallInvokeTool enum.
+func (e ClientToolLuaAppInstallInvokeTool) Valid() bool {
+	switch e {
+	case LuaAppInstall:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolLuaAppListInvokeTool.
+const (
+	LuaAppList ClientToolLuaAppListInvokeTool = "lua.app.list"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolLuaAppListInvokeTool enum.
+func (e ClientToolLuaAppListInvokeTool) Valid() bool {
+	switch e {
+	case LuaAppList:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolLuaAppRunInvokeTool.
+const (
+	LuaAppRun ClientToolLuaAppRunInvokeTool = "lua.app.run"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolLuaAppRunInvokeTool enum.
+func (e ClientToolLuaAppRunInvokeTool) Valid() bool {
+	switch e {
+	case LuaAppRun:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolRunWorkspaceSetInvokeTool.
 const (
 	RunWorkspaceSet ClientToolRunWorkspaceSetInvokeTool = "run.workspace.set"
@@ -297,6 +342,9 @@ const (
 	ClientToolV0ListResponseToolsFirmwareUpdate            ClientToolV0ListResponseTools = "firmware.update"
 	ClientToolV0ListResponseToolsIdentifiersGet            ClientToolV0ListResponseTools = "identifiers.get"
 	ClientToolV0ListResponseToolsInfoGet                   ClientToolV0ListResponseTools = "info.get"
+	ClientToolV0ListResponseToolsLuaAppInstall             ClientToolV0ListResponseTools = "lua.app.install"
+	ClientToolV0ListResponseToolsLuaAppList                ClientToolV0ListResponseTools = "lua.app.list"
+	ClientToolV0ListResponseToolsLuaAppRun                 ClientToolV0ListResponseTools = "lua.app.run"
 	ClientToolV0ListResponseToolsRunWorkspaceSet           ClientToolV0ListResponseTools = "run.workspace.set"
 	ClientToolV0ListResponseToolsSocialPing                ClientToolV0ListResponseTools = "social.ping"
 	ClientToolV0ListResponseToolsSoundPlay                 ClientToolV0ListResponseTools = "sound.play"
@@ -336,6 +384,12 @@ func (e ClientToolV0ListResponseTools) Valid() bool {
 	case ClientToolV0ListResponseToolsIdentifiersGet:
 		return true
 	case ClientToolV0ListResponseToolsInfoGet:
+		return true
+	case ClientToolV0ListResponseToolsLuaAppInstall:
+		return true
+	case ClientToolV0ListResponseToolsLuaAppList:
+		return true
+	case ClientToolV0ListResponseToolsLuaAppRun:
 		return true
 	case ClientToolV0ListResponseToolsRunWorkspaceSet:
 		return true
@@ -594,6 +648,24 @@ type APIKeyList struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 
+// ClientLuaAppInstallArgs Install a complete Lua app package. Success means installed. Insufficient storage returns DEVICE_UNSUPPORTED; failures preserve the previous app and user data. Do not automatically retry a timed-out installation.
+type ClientLuaAppInstallArgs struct {
+	// Sha256 Optional expected SHA-256 of the compressed archive.
+	Sha256 *string `json:"sha256,omitempty"`
+
+	// Url HTTPS URL of a complete GizOS .lua-app.tar.zlib package, without credentials or fragment. The device downloads and validates it; the Server never fetches it.
+	Url string `json:"url"`
+}
+
+// ClientLuaAppRunArgs Launch one installed Lua application. Success acknowledges acceptance; it does not mean the game has completed. Query lua.app.list to resolve a requested game name to its installed app_id.
+type ClientLuaAppRunArgs struct {
+	// AppId Stable package app_id returned by lua.app.list. Do not guess an ID from a game title.
+	AppId string `json:"app_id"`
+
+	// Params Optional string-to-string parameters, passed directly to the Lua args table. Keys are 1..64 UTF-8 bytes, values at most 1024 bytes, total at most 4096 bytes, no NUL. Pass only parameters supported by the selected app; omitted means empty.
+	Params *map[string]string `json:"params,omitempty"`
+}
+
 // ClientToolAudioplayerGetInvoke defines model for ClientToolAudioplayerGetInvoke.
 type ClientToolAudioplayerGetInvoke struct {
 	Args map[string]interface{}             `json:"args"`
@@ -719,6 +791,36 @@ type ClientToolInfoGetInvoke struct {
 
 // ClientToolInfoGetInvokeTool defines model for ClientToolInfoGetInvoke.Tool.
 type ClientToolInfoGetInvokeTool string
+
+// ClientToolLuaAppInstallInvoke defines model for ClientToolLuaAppInstallInvoke.
+type ClientToolLuaAppInstallInvoke struct {
+	// Args Install a complete Lua app package. Success means installed. Insufficient storage returns DEVICE_UNSUPPORTED; failures preserve the previous app and user data. Do not automatically retry a timed-out installation.
+	Args ClientLuaAppInstallArgs           `json:"args"`
+	Tool ClientToolLuaAppInstallInvokeTool `json:"tool"`
+}
+
+// ClientToolLuaAppInstallInvokeTool defines model for ClientToolLuaAppInstallInvoke.Tool.
+type ClientToolLuaAppInstallInvokeTool string
+
+// ClientToolLuaAppListInvoke defines model for ClientToolLuaAppListInvoke.
+type ClientToolLuaAppListInvoke struct {
+	// Args List installed, runnable Lua apps with their stable app_id, version and optional display name/description. Use this to resolve a game requested in conversation.
+	Args map[string]interface{}         `json:"args"`
+	Tool ClientToolLuaAppListInvokeTool `json:"tool"`
+}
+
+// ClientToolLuaAppListInvokeTool defines model for ClientToolLuaAppListInvoke.Tool.
+type ClientToolLuaAppListInvokeTool string
+
+// ClientToolLuaAppRunInvoke defines model for ClientToolLuaAppRunInvoke.
+type ClientToolLuaAppRunInvoke struct {
+	// Args Launch one installed Lua application. Success acknowledges acceptance; it does not mean the game has completed. Query lua.app.list to resolve a requested game name to its installed app_id.
+	Args ClientLuaAppRunArgs           `json:"args"`
+	Tool ClientToolLuaAppRunInvokeTool `json:"tool"`
+}
+
+// ClientToolLuaAppRunInvokeTool defines model for ClientToolLuaAppRunInvoke.Tool.
+type ClientToolLuaAppRunInvokeTool string
 
 // ClientToolRunWorkspaceSetInvoke defines model for ClientToolRunWorkspaceSetInvoke.
 type ClientToolRunWorkspaceSetInvoke struct {
@@ -2026,6 +2128,90 @@ func (t *ClientToolV0InvokeRequest) MergeClientToolSocialPingInvoke(v ClientTool
 	return err
 }
 
+// AsClientToolLuaAppListInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolLuaAppListInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolLuaAppListInvoke() (ClientToolLuaAppListInvoke, error) {
+	var body ClientToolLuaAppListInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolLuaAppListInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolLuaAppListInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolLuaAppListInvoke(v ClientToolLuaAppListInvoke) error {
+	v.Tool = "lua.app.list"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolLuaAppListInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolLuaAppListInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolLuaAppListInvoke(v ClientToolLuaAppListInvoke) error {
+	v.Tool = "lua.app.list"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolLuaAppInstallInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolLuaAppInstallInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolLuaAppInstallInvoke() (ClientToolLuaAppInstallInvoke, error) {
+	var body ClientToolLuaAppInstallInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolLuaAppInstallInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolLuaAppInstallInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolLuaAppInstallInvoke(v ClientToolLuaAppInstallInvoke) error {
+	v.Tool = "lua.app.install"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolLuaAppInstallInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolLuaAppInstallInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolLuaAppInstallInvoke(v ClientToolLuaAppInstallInvoke) error {
+	v.Tool = "lua.app.install"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolLuaAppRunInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolLuaAppRunInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolLuaAppRunInvoke() (ClientToolLuaAppRunInvoke, error) {
+	var body ClientToolLuaAppRunInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolLuaAppRunInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolLuaAppRunInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolLuaAppRunInvoke(v ClientToolLuaAppRunInvoke) error {
+	v.Tool = "lua.app.run"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolLuaAppRunInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolLuaAppRunInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolLuaAppRunInvoke(v ClientToolLuaAppRunInvoke) error {
+	v.Tool = "lua.app.run"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ClientToolV0InvokeRequest) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"tool"`
@@ -2068,6 +2254,12 @@ func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
 		return t.AsClientToolIdentifiersGetInvoke()
 	case "info.get":
 		return t.AsClientToolInfoGetInvoke()
+	case "lua.app.install":
+		return t.AsClientToolLuaAppInstallInvoke()
+	case "lua.app.list":
+		return t.AsClientToolLuaAppListInvoke()
+	case "lua.app.run":
+		return t.AsClientToolLuaAppRunInvoke()
 	case "run.workspace.set":
 		return t.AsClientToolRunWorkspaceSetInvoke()
 	case "social.ping":

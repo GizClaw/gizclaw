@@ -517,7 +517,10 @@
             "audioplayer.playlist.set",
             "audioplayer.playlist.append",
             "run.workspace.set",
-            "social.ping"
+            "social.ping",
+            "lua.app.list",
+            "lua.app.install",
+            "lua.app.run"
           ]
         },
         "observe_only": {

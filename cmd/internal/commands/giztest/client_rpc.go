@@ -1,6 +1,7 @@
 package giztestcmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -65,7 +66,7 @@ func isMutatingDeviceRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool) boo
 	case rpcpb.ClientTool_CLIENT_TOOL_INFO_GET, rpcpb.ClientTool_CLIENT_TOOL_IDENTIFIERS_GET,
 		rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN,
 		rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET,
-		rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET:
+		rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET, rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_LIST:
 		return false
 	default:
 		return true
@@ -200,6 +201,8 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 	})
 	var device gizcli.DeviceControlHandlers
 	var audio *audioFixture
+	var luaApps *luaAppFixture
+	var luaConfig []byte
 	haveDevice := false
 	for _, step := range steps {
 		if step.Client != clientName || step.ClientRPC == nil {
@@ -246,6 +249,55 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 					}
 					continue
 				}
+			}
+			if strings.HasPrefix(operation.Tool, "lua.app.") {
+				tool, _ := rpcapi.ClientToolByName(operation.Tool)
+				var handler gizcli.ClientToolHandler
+				if object, ok := response.(map[string]any); ok && object["lua_apps"] != nil {
+					config, err := json.Marshal(object["lua_apps"])
+					if err != nil {
+						return err
+					}
+					if luaApps == nil {
+						luaConfig = config
+						luaApps, err = newLuaAppFixture(object["lua_apps"])
+						if err != nil {
+							return fmt.Errorf("step %s: %w", step.ID, err)
+						}
+					} else if !bytes.Equal(config, luaConfig) {
+						return fmt.Errorf("step %s: conflicting Lua app simulator configurations", step.ID)
+					}
+					handler = luaApps.invoke
+				} else {
+					scripted, scriptErr := deviceControlErrorResponse(response)
+					if scriptErr != nil {
+						return scriptErr
+					}
+					result, err := rpcapi.ClientToolResponseMessage(tool, nil)
+					if err != nil {
+						return err
+					}
+					if scripted == nil {
+						data, err := json.Marshal(response)
+						if response == nil {
+							data = []byte(`{}`)
+						}
+						if err != nil {
+							return err
+						}
+						if err := protojson.Unmarshal(data, result); err != nil {
+							return err
+						}
+						if err := rpcapi.ValidateLuaAppResponse(result); err != nil {
+							return err
+						}
+					}
+					handler = func(context.Context, proto.Message) (proto.Message, error) { return proto.Clone(result), scripted }
+				}
+				if err := client.HandleClientTool(tool, handler); err != nil {
+					return err
+				}
+				continue
 			}
 			if object, ok := response.(map[string]any); ok && object["run_workspace"] == true {
 				tool, err := rpcapi.ClientToolByName(operation.Tool)

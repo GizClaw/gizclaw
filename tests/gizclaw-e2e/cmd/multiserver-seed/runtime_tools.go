@@ -351,6 +351,16 @@ func runtimeToolProfile() apitypes.RuntimeProfileSpec {
 		profile.Workflows[alias] = b
 	}
 	profile.Workflows["no-tools"] = runtimeWorkflowBinding("runtime-tools-assistant", "No tools", "不注入工具")
+	for name, label := range map[string]string{
+		"lua.app.list": "查询本机已安装的 Lua 游戏，返回 app_id、名称、版本和参数说明；根据用户说的游戏名查找，不能猜测 app_id",
+		"lua.app.run":  "启动本机已安装的 Lua 游戏；先查询 lua.app.list 获得 app_id，params 是传给 Lua args 的字符串键值，只传用户指定且应用支持的参数",
+	} {
+		base := binding("", name, label)
+		tools[name] = apitypes.RuntimeProfileToolBinding{I18n: base.I18n, ClientTool: &apitypes.RuntimeProfileClientTool{Name: name}}
+	}
+	lua := runtimeWorkflowBinding("runtime-tools-assistant", "Lua games", "Lua 游戏")
+	lua.Toolkit = &apitypes.RuntimeProfileToolSelection{ToolNames: new([]string{"lua.app.list", "lua.app.run"}), VerificationModel: new("llm")}
+	profile.Workflows["lua-apps"] = lua
 	return profile
 }
 

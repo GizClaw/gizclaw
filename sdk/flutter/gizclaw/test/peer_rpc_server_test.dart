@@ -293,6 +293,62 @@ void main() {
     );
   });
 
+  test('Lua app launch forwards string parameters', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    ClientLuaAppRunRequest? received;
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'lua-test'),
+        tools: {
+          ClientTool.CLIENT_TOOL_LUA_APP_RUN: (message) {
+            received = message as ClientLuaAppRunRequest;
+            return ClientLuaAppRunResponse();
+          },
+        },
+      ),
+    );
+    final result = await _callInbound(
+      channel,
+      id: 'lua-run',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'lua.app.run',
+      request: (ClientLuaAppRunRequest(appId: 'tetris')
+        ..params.addAll({'mode': 'single', 'level': '2'})),
+    );
+    expect(result.hasStatus(), isFalse);
+    expect(received?.appId, 'tetris');
+    expect(received?.params, {'mode': 'single', 'level': '2'});
+  });
+
+  test('Lua app launch rejects an invalid app ID before the handler', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    var called = false;
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'lua-test'),
+        tools: {
+          ClientTool.CLIENT_TOOL_LUA_APP_RUN: (_) {
+            called = true;
+            return ClientLuaAppRunResponse();
+          },
+        },
+      ),
+    );
+    final result = await _callInbound(
+      channel,
+      id: 'invalid-lua',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'lua.app.run',
+      request: ClientLuaAppRunRequest(appId: '../tetris'),
+    );
+    expect(result.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
+    expect(called, isFalse);
+  });
+
   test('waits for tool/v0 request EOS before invoking a handler', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);

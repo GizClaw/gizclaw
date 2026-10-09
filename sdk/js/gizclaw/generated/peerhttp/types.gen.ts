@@ -569,10 +569,16 @@ export type ClientToolV0InvokeRequest = ({
     tool: 'run.workspace.set';
 } & ClientToolRunWorkspaceSetInvoke) | ({
     tool: 'social.ping';
-} & ClientToolSocialPingInvoke);
+} & ClientToolSocialPingInvoke) | ({
+    tool: 'lua.app.list';
+} & ClientToolLuaAppListInvoke) | ({
+    tool: 'lua.app.install';
+} & ClientToolLuaAppInstallInvoke) | ({
+    tool: 'lua.app.run';
+} & ClientToolLuaAppRunInvoke);
 
 export type ClientToolV0ListResponse = {
-    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping'>;
+    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run'>;
 };
 
 export type ClientToolV0InvokeResponse = {
@@ -628,6 +634,56 @@ export type SyncEvent = ({
 } & SyncDelete) | ({
     event: 'done';
 } & SyncDone);
+
+/**
+ * Install a complete Lua app package. Success means installed. Insufficient storage returns DEVICE_UNSUPPORTED; failures preserve the previous app and user data. Do not automatically retry a timed-out installation.
+ */
+export type ClientLuaAppInstallArgs = {
+    /**
+     * HTTPS URL of a complete GizOS .lua-app.tar.zlib package, without credentials or fragment. The device downloads and validates it; the Server never fetches it.
+     */
+    url: string;
+    /**
+     * Optional expected SHA-256 of the compressed archive.
+     */
+    sha256?: string;
+};
+
+/**
+ * Launch one installed Lua application. Success acknowledges acceptance; it does not mean the game has completed. Query lua.app.list to resolve a requested game name to its installed app_id.
+ */
+export type ClientLuaAppRunArgs = {
+    /**
+     * Stable package app_id returned by lua.app.list. Do not guess an ID from a game title.
+     */
+    app_id: string;
+    /**
+     * Optional string-to-string parameters, passed directly to the Lua args table. Keys are 1..64 UTF-8 bytes, values at most 1024 bytes, total at most 4096 bytes, no NUL. Pass only parameters supported by the selected app; omitted means empty.
+     */
+    params?: {
+        [key: string]: string;
+    };
+};
+
+export type ClientToolLuaAppListInvoke = {
+    tool: 'lua.app.list';
+    /**
+     * List installed, runnable Lua apps with their stable app_id, version and optional display name/description. Use this to resolve a game requested in conversation.
+     */
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientToolLuaAppInstallInvoke = {
+    tool: 'lua.app.install';
+    args: ClientLuaAppInstallArgs;
+};
+
+export type ClientToolLuaAppRunInvoke = {
+    tool: 'lua.app.run';
+    args: ClientLuaAppRunArgs;
+};
 
 export type AudioPlayerItem = {
     /**

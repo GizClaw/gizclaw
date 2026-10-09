@@ -104,7 +104,11 @@ func TestObserveClientRPCSkipsInvalidRequest(t *testing.T) {
 
 func TestRPCClientToolV0RegistrationAndDispatch(t *testing.T) {
 	device := &Client{}
-	for _, tool := range []rpcpb.ClientTool{0, -1, 22, 999} {
+	var maxTool int32
+	for value := range rpcpb.ClientTool_name {
+		maxTool = max(maxTool, value)
+	}
+	for _, tool := range []rpcpb.ClientTool{0, -1, rpcpb.ClientTool(maxTool + 1), 999} {
 		if err := device.HandleClientTool(tool, func(context.Context, proto.Message) (proto.Message, error) { return nil, nil }); err == nil {
 			t.Fatalf("unknown tool %d accepted", tool)
 		}

@@ -60,6 +60,6 @@ MHS v0 由 GizClaw 定义八种 HWD。`api/proto/rpc/payload/mhs_v0.proto` 规�
 
 控制 App 从 `GET /gizclaw/v1/device/mhs/v0/manifest` 发现实例，然后通过 `POST /device/mhs/v0/read` 读取一个实例，或通过 `POST /device/mhs/v0/write` 写入一个可写实例。请求包含 `id`、`hwd`；写入另含 HWD 专属 `value` 对象。响应带同一实例及其类型化 `value`。设备的 Wi-Fi 扫描、连接等过程仍使用 tool/v0。写入超时后重新读取确认实际状态。
 
-`tool/v0` 通过 `client.tool.v0.invoke`（135）承载操作。每次调用选择 21 个预定义 `ClientTool` 之一，并携带对应的 Protobuf 请求消息。设备通过 `client.tool.v0.list`（136）只公布实际安装的操作。`client.rpc.methods.list`（137）返回 `RpcMethod` 数字，用于识别协议 family 和版本。控制 App 使用 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke`；Server 在接触设备前验证有类型的参数。详见 [Peer HTTP](./http/public)、[设备 provider](./proto/rpc/client-provided-to-server) 与 [RPC Reference](/references/rpc)。
+`tool/v0` 通过 `client.tool.v0.invoke`（135）承载操作。每次调用选择 24 个预定义 `ClientTool` 之一，并携带对应的 Protobuf 请求消息。设备通过 `client.tool.v0.list`（136）只公布实际安装的操作。`client.rpc.methods.list`（137）返回 `RpcMethod` 数字，用于识别协议 family 和版本。控制 App 使用 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke`；Server 在接触设备前验证有类型的参数。详见 [Peer HTTP](./http/public)、[设备 provider](./proto/rpc/client-provided-to-server) 与 [RPC Reference](/references/rpc)。
 
 `GET /gizclaw/v1/device/status` 读取 Server 保存的标识与遥测快照；实时调用 `device.status.get` 工具可以刷新该快照。

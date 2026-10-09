@@ -28,7 +28,7 @@ sequenceDiagram
 
 ## tool/v0 操作
 
-21 个预定义操作是 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set` 与 `social.ping`。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
+24 个预定义操作是 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set`、`social.ping` 与三个 `lua.app.*`。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
 
 - `device.status.get` 返回实时 `PeerStatus` 并刷新 Server 快照。超出 MHS manifest 的设备标识与遥测字段仍在该状态中。
 - `sound.play` 接受最多 32 UTF-8 字节的设备自定义声音名和可选非负时长。`device.find` 用内置找寻提示音响铃，可选时长。`device.reboot` 先应答再重启。`device.factory_reset` 先应答再清除本机状态；`keep_network` 可保留 Wi-Fi 和蜂窝配置。设备若同时删除自身 Peer，相关 API Key 也会失效。
@@ -36,6 +36,18 @@ sequenceDiagram
 - `firmware.update` 接受可选 channel 和 SHA-256 摘要，先应答再执行 OTA；摘要与设备解析出的包不符时拒绝。设备通过 `PeerStatus.firmware_sha256` 上报当前固件摘要。
 - `run.workspace.set` 接受已解析的 `workspace_name` 和可选 `kickoff`。Server 在调用设备前把 `workflow_name` 目标解析为一个 Workspace。设备先应答，再通过 `server.run.workspace.reload-with-options` 切换；应答不代表 Workspace 已就绪。
 - `social.ping` 通知设备好友呼叫或群组集结，携带发送方 public key 和可选昵称、群组名。设备应及时应答；Server 把超时或缺少 handler 计作未送达，不重试。
+
+## Lua 应用
+
+`lua.app.list` 返回设备已安装、可启动的应用，每项含包的稳定 `app_id`、独立 SemVer 和可选的 `display_name`、`description`。最多 32 项，ID 不重复。这里的 `app_id` 沿用 GizOS 应用包身份，不是 Server 的 Peer resource ID，也不是文件路径。
+
+`lua.app.install` 接受完整 `.lua-app.tar.zlib` 包的 HTTPS `url`，以及可选的压缩包 `sha256`。URL 最多 1024 UTF-8 字节，不含嵌入凭证或 fragment。Server 只校验和转发，安装 RPC 最多等待 120 秒；设备负责流式下载、zlib/USTAR 解析、format-1 `lua-app` manifest 和全部文件长度/SHA-256 校验。设备必须限制解压总量、文件数量、路径和可用空间，先暂存完整应用，在全部校验成功后发布新安装；失败保留旧应用和用户数据。空间不足或没有安装能力返回 `UNIMPLEMENTED`，HTTP 映射为 `501 DEVICE_UNSUPPORTED`。成功响应中的 `app` 表示安装完成，不能用下载已排队冒充成功。调用方不得自动重放超时请求。
+
+包格式以 GizOS [固定版本的公共打包器](https://github.com/GizClaw/gizos/blob/604492cc10e2b86b730a365288694d4bf1fc76ab/libs/lua/app_package.py) 为准。USTAR 在文件边界后必须包含两个完整的 512 字节全零结束块；其后的填充也只能是完整的全零块。zlib 校验成功不能代替 tar 完整性验证。
+
+`lua.app.run` 接受 `app_id` 和可选 `params`。`params` 是字符串到字符串的对象，直接映射为 GizOS `h2_lua_arg_t` 和 Lua 全局 `args`；省略等价于空对象，不需要把整份 JSON 编码为一个字符串。最多 16 对，键 1–64 UTF-8 字节、值最多 1024 字节、键和值总计最多 4096 字节，均禁止 NUL。数字或结构化内容需要应用自行约定和解析。未安装的 ID 返回 `NOT_FOUND`，HTTP 为 `404 LUA_APP_NOT_FOUND`。设备先应答接受启动，再移交界面或断开会话；应答不表示游戏已经完成。
+
+例如 `{"tool":"lua.app.run","args":{"app_id":"tetris","params":{"mode":"single","difficulty":"easy"}}}`。Lua 侧读取 `args.mode` 和 `args.difficulty`。对话 Agent 通过 RuntimeProfile 的 `client_tool` bindings 和 Workflow `toolkit.tool_names` 获得 `lua.app.list`、`lua.app.run`，先将用户说的游戏名匹配到设备返回的 ID，再传递应用支持的字符串参数。SDK 只公布实际注册的 handler；新增协议不会自动给现有固件安装实现。
 
 ## 音乐播放器
 

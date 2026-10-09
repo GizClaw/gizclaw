@@ -1,5 +1,10 @@
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen.ts";
 import {
+  validLuaAppInfo,
+  validLuaAppInstall,
+  validLuaAppRun,
+} from "./lua_app.ts";
+import {
   RPC_METHOD_IDS,
   CLIENT_TOOL_IDS,
   CLIENT_TOOL_NAMES,
@@ -2800,6 +2805,36 @@ async function answerDeviceProcedure(
 
   try {
     switch (tool) {
+      case CLIENT_TOOL_IDS["lua.app.list"]: {
+        const handler = handlers?.tools?.[CLIENT_TOOL_IDS["lua.app.list"]];
+        if (handler == null) return unsupported();
+        const result = await handler({});
+        if (
+          !Array.isArray(result.apps) ||
+          result.apps.length > 32 ||
+          !result.apps.every(validLuaAppInfo) ||
+          new Set(result.apps.map((app) => app.app_id)).size !==
+            result.apps.length
+        )
+          throw new Error("invalid Lua app catalog");
+        return ok(result);
+      }
+      case CLIENT_TOOL_IDS["lua.app.install"]: {
+        if (!validLuaAppInstall(request.params)) return invalid();
+        const handler = handlers?.tools?.[CLIENT_TOOL_IDS["lua.app.install"]];
+        if (handler == null) return unsupported();
+        const result = await handler(request.params);
+        if (!validLuaAppInfo(result.app))
+          throw new Error("invalid Lua app installation result");
+        return ok(result);
+      }
+      case CLIENT_TOOL_IDS["lua.app.run"]: {
+        if (!validLuaAppRun(request.params)) return invalid();
+        const handler = handlers?.tools?.[CLIENT_TOOL_IDS["lua.app.run"]];
+        return handler == null
+          ? unsupported()
+          : ok(await handler(request.params));
+      }
       case CLIENT_TOOL_IDS["info.get"]: {
         const handler = handlers?.deviceInfo;
         return handler == null ? unsupported() : ok(await handler());

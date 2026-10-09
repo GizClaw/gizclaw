@@ -1724,3 +1724,27 @@ G05 直接通过 owner API key 顺序播放索引 0→1→0，逐次核对设备
 本轮未配置默认焦点时，原生夹具在主灯与屏幕目录说明中明确保留“没有默认目标”的配置事实；配置焦点时也明确标记其他对象不是默认对象。目录文字不创建新的用户授权，已明确的待补目标仍优先。
 
 此泳道同时对 runner、业务输入与 Monitor 模板取源码哈希；初始化后的私钥配置不进入报告。Server 运行时 profile 使用独立 ObjectStore，每五分钟采集，并在清理临时状态前保存。Server/Edge 容器日志各保留最多 256 MiB，控制夹具最多 32 MiB，避免默认日志轮转过早丢失失败时间线。Profile 与日志仅辅助定位，不能代替任务回执或证明通过。
+
+
+## Lua 应用 Giztest simulator
+
+Go Giztest 的 `client_rpc.response.lua_apps` 安装有状态的设备 simulator，三个操作共用同一份状态。配置字段为 `capacity_bytes`（0–64 MiB 的包文件及更新暂存预算）、`installed`（预置的已安装应用目录）和可选 `packages`（HTTPS URL 到 base64 编码的真实 `.lua-app.tar.zlib` archive）。预置目录不模拟内置固件文件；容量预算由本次动态安装的包文件消耗。未配置 URL fixture 时，simulator 使用 HTTPS GET，跟随至多 10 次同样受校验的 HTTPS redirect，并传播请求取消。
+
+Simulator 分块解压 zlib，解析 USTAR，核对 manifest、文件大小和 SHA-256，拒绝路径穿越、链接、重复文件、截断和尾随数据。容量不足时返回 `UNIMPLEMENTED`，旧版本与目录保持不变。安装成功后的 `list` 查询读取真实 simulator 状态；`run` 校验应用存在并记录实际字符串参数，不执行 Lua VM。请求记录仅在 `/requests` 断言需要时开启，沿用普通 Giztest evidence contract。
+
+以下 Go lane 用隔离的 Docker Server、Edge 和真实 WebRTC Peer 验证安装、查询、启动、空间不足、不支持、未安装 ID 和参数拒绝，不需要模型凭据：
+
+```sh
+bash tests/gizclaw-e2e/run_lua_app_tests.sh
+```
+
+场景位于 `tests/gizclaw-e2e/testdata/lua-app/`，simulator 属于 Go runner。Go、JavaScript、Flutter 与 C SDK 另有 protobuf/handler 回归；simulator 和 SDK 通过不代表物理设备已下载、运行游戏。
+
+真实对话用例 `LUA01` 通过现有 Runtime Tool lane 执行“我要玩俄罗斯方块，单人模式、简单难度”，要求模型先查询应用，且仅发出一次 `lua.app.run`，实际参数必须是 `app_id=tetris`、`mode=single`、`difficulty=easy`：
+
+```sh
+GIZCLAW_RUNTIME_TOOL_CASE_FILTER=LUA01 GIZCLAW_RUNTIME_TOOL_REPEAT=1 \
+  bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
+```
+
+该命令需要现有 Runtime Tool 凭据，保留真实模型回复与设备接收回执；结果属于指定子集，不代表完整 Runtime Tool 压力矩阵。

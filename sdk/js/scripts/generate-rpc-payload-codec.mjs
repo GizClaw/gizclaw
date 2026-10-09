@@ -24,7 +24,10 @@ const OPTIONAL_REPEATED_FIELDS = new Set([
   "DeviceIdentifiers.labels",
 ]);
 
-const OPTIONAL_MAP_FIELDS = new Set(["DoubaoRealtimeASRContext.correct_words"]);
+const OPTIONAL_MAP_FIELDS = new Set([
+  "DoubaoRealtimeASRContext.correct_words",
+  "ClientLuaAppRunRequest.params",
+]);
 
 const methods = parseRegistry(
   readFileSync(peerProtoURL, "utf8"),
@@ -244,8 +247,9 @@ function decodeMessageFields(desc: MessageDesc, payload: Uint8Array): Record<str
     } else if (field.mapValue != null) {
       const current = out[field.name];
       const target = isRecord(current) ? current : {};
-      Object.assign(target, value);
-      out[field.name] = target;
+      if (!isRecord(value)) throw new Error("invalid protobuf map entry");
+      // Spread defines own properties, preserving keys such as __proto__.
+      out[field.name] = { ...target, ...value };
     } else {
       out[field.name] = value;
     }

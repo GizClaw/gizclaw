@@ -2016,3 +2016,27 @@ G05 directly plays indices 0→1→0 through an owner API key, checking enum 14,
 Native fixtures explicitly retain the absence of a default focus in lamp/screen catalog descriptions. With a configured focus, other objects are explicitly identified as non-default. This context grants no new user intent, and an existing pending target still takes precedence.
 
 The lane hashes its runner, business inputs and Monitor templates alongside code; initialized private-key configuration is excluded from reports. Server runtime profiles use a dedicated ObjectStore, are captured every five minutes and are retained before temporary-state cleanup. Server and Edge container logs each retain up to 256 MiB, with 32 MiB for the control fixture, preserving failure timelines beyond default rotation. Profiles and logs support diagnosis and do not replace task receipts or prove acceptance.
+
+
+## Lua application Giztest simulator
+
+The Go Giztest runner installs a stateful device simulator through `client_rpc.response.lua_apps`; the three Lua procedures share one state. Configuration contains `capacity_bytes` (a 0–64 MiB budget for package files and update staging), `installed` (the initial installed-app catalog), and optional `packages` (HTTPS URLs mapped to base64-encoded, real `.lua-app.tar.zlib` archives). Initial catalog entries do not model built-in firmware files; dynamically installed files consume the capacity budget. URLs without an explicit fixture are fetched by HTTPS GET, with at most ten equally validated HTTPS redirects and request cancellation propagation.
+
+The simulator incrementally decodes zlib and USTAR, verifies the manifest, lengths and SHA-256 values, and rejects path traversal, links, duplicate files, truncation and trailing data. Insufficient capacity returns `UNIMPLEMENTED` and preserves the previous version and catalog. After successful installation, `list` reads the simulator's actual state. `run` checks that the app exists and records the received string parameters without executing a Lua VM. Requests are recorded only when `/requests` assertions need them, under the ordinary Giztest evidence contract.
+
+This Go lane runs isolated Docker Server, Edge and real WebRTC Peer processes to cover installation, listing, launch, insufficient space, unsupported handlers, missing IDs and rejected parameters, without model credentials:
+
+```sh
+bash tests/gizclaw-e2e/run_lua_app_tests.sh
+```
+
+Scenarios are in `tests/gizclaw-e2e/testdata/lua-app/`; the simulator belongs to the Go runner. Go, JavaScript, Flutter and C have separate protobuf/handler regressions. Simulator and SDK success does not qualify downloads or game execution on physical hardware.
+
+The real-model `LUA01` case in the Runtime Tool lane requests the Tetris game in single-player, easy mode. It requires application discovery followed by exactly one `lua.app.run`, with the received `app_id=tetris`, `mode=single` and `difficulty=easy`:
+
+```sh
+GIZCLAW_RUNTIME_TOOL_CASE_FILTER=LUA01 GIZCLAW_RUNTIME_TOOL_REPEAT=1 \
+  bash tests/gizclaw-e2e/run_runtime_tool_tests.sh
+```
+
+This command uses the existing Runtime Tool credentials and retains the real model reply and decoded device receipts. It qualifies this selected subset, not the complete Runtime Tool pressure matrix.

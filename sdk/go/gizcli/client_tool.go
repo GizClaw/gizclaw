@@ -121,6 +121,9 @@ func (c *rpcClient) dispatchClientTool(ctx context.Context, tool rpcpb.ClientToo
 }
 
 func validateClientToolResponse(message proto.Message) error {
+	if strings.HasPrefix(string(message.ProtoReflect().Descriptor().Name()), "ClientLuaApp") {
+		return rpcapi.ValidateLuaAppResponse(message)
+	}
 	if strings.HasPrefix(string(message.ProtoReflect().Descriptor().Name()), "ClientDeviceAudioPlayer") {
 		return rpcapi.ValidateAudioPlayerResponse(message)
 	}

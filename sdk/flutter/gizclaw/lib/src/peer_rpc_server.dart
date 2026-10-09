@@ -1212,6 +1212,8 @@ bool _validToolArguments(GeneratedMessage request) {
       utf8.encode(value).length <= max &&
       !value.contains('\u0000');
   return switch (request) {
+    payload.ClientLuaAppInstallRequest r => _validLuaAppInstall(r),
+    payload.ClientLuaAppRunRequest r => _validLuaAppRun(r),
     payload.ClientDeviceSoundPlayRequest r =>
       text(r.sound, 32) && (!r.hasDurationMs() || r.durationMs >= 0),
     payload.ClientDeviceFindRequest r =>
@@ -1243,4 +1245,41 @@ bool _validToolArguments(GeneratedMessage request) {
     payload.ClientSocialPingRequest r => text(r.fromPeerPublicKey, 128),
     _ => true,
   };
+}
+
+bool _validLuaAppInstall(payload.ClientLuaAppInstallRequest request) {
+  final uri = Uri.tryParse(request.url);
+  return uri != null &&
+      request.url.startsWith('https://') &&
+      uri.scheme == 'https' &&
+      uri.host.isNotEmpty &&
+      uri.userInfo.isEmpty &&
+      !request.url.substring(8).split(RegExp(r'[/\?#]')).first.contains('@') &&
+      !request.url.contains('#') &&
+      !RegExp(r'[\s\\]').hasMatch(request.url) &&
+      !request.url.contains('\u0000') &&
+      utf8.encode(request.url).length <= 1024 &&
+      (!request.hasSha256() ||
+          RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(request.sha256));
+}
+
+bool _validLuaAppRun(payload.ClientLuaAppRunRequest request) {
+  if (!RegExp(r'^[a-z0-9_-][a-z0-9_.-]{0,31}$').hasMatch(request.appId) ||
+      request.params.length > 16) {
+    return false;
+  }
+  var total = 0;
+  for (final item in request.params.entries) {
+    final key = utf8.encode(item.key).length;
+    final value = utf8.encode(item.value).length;
+    if (key == 0 ||
+        key > 64 ||
+        value > 1024 ||
+        item.key.contains('\u0000') ||
+        item.value.contains('\u0000')) {
+      return false;
+    }
+    total += key + value;
+  }
+  return total <= 4096;
 }
