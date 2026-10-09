@@ -16,6 +16,26 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## PostgreSQL History concurrency and retention
+
+Set `GIZCLAW_TEST_POSTGRES_DSN` to an isolated local PostgreSQL 17 instance configured with `max_connections=300`:
+
+```sh
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLLog' ./tests/store-e2e
+go test -count=1 -run '^TestPostgreSQLHistory' ./cmd/internal/server ./pkgs/gizclaw
+```
+
+Store regressions cover independent-record progress, same-key conflicts and atomic rollback, concurrent missing-partition creation, UTC day boundaries, expired-key reuse, mutations interleaved with maintenance, and reclamation without writes. `TestPostgreSQLHistoryGiztest` runs real Server/WebRTC, eight independent Workspaces and 96 streams writing eight records each to the same table. A PostgreSQL trigger adds 30ms of work to every record. A deterministic Eino echo Graph removes external model variability; metadata, run state, Workspace and internal Eino History use real PostgreSQL in an isolated schema. The scenario retains the two-second first-text deadline, then completes a dialogue turn to await real EOS and persisted history, and checks all cleanup steps. It does not qualify an external model or first audio.
+
+The optional load uses 128 independent streams, four batches per stream and four records per batch. Save separate evidence directories for different versions and use identical database settings and delay:
+
+```sh
+GIZCLAW_TEST_PG_LOG_EVIDENCE="$(mktemp -d)" GIZCLAW_TEST_PG_LOG_DELAY_MS=5 \
+  go test -tags=store_e2e -count=1 -v -run '^TestPostgreSQLLogAppendLoad$' ./tests/store-e2e
+```
+
+`summary.json` records persisted counts, throughput and Append latency. `locks.json` records `pg_stat_activity`, wait types and blocker PID samples. Set `GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE` to retain the Giztest report and runner log. Inputs are synthetic and local; do not commit logs or reports.
+
 The default Docker Giztest stack uses real self-hosted GizClaw Mem0 with pgvector.
 Server and Mem0 share one PostgreSQL instance using separate databases and
 non-superuser roles. `bash tests/gizclaw-e2e/run_mem0_tests.sh` runs real model

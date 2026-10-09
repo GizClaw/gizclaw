@@ -11,6 +11,26 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## PostgreSQL History 并发与回收
+
+设置 `GIZCLAW_TEST_POSTGRES_DSN` 指向隔离的本地 PostgreSQL 17 实例，并为测试实例配置 `max_connections=300` 后运行：
+
+```sh
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLLog' ./tests/store-e2e
+go test -count=1 -run '^TestPostgreSQLHistory' ./cmd/internal/server ./pkgs/gizclaw
+```
+
+Store 回归覆盖独立 record 的并发进度、同 key 冲突和整批回滚、缺分区并发创建、UTC 跨日、到期身份重用、mutation 与维护交错，以及无新写入时的回收。`TestPostgreSQLHistoryGiztest` 启动真实 Server/WebRTC、8 个独立 Workspace 和 96 个同表写入 stream，每个 stream 写入 8 条记录；PG trigger 为每条记录增加固定 30ms 工作。确定性的 Eino echo Graph 消除外部模型波动，元数据、run state、Workspace 和内部 Eino History 均使用独立 schema 中的真实 PG；场景保留 2 秒首字门槛，再完成一轮对话以等待实际 EOS 和持久 history，并检查全部 cleanup。它不验证外部模型或首音频。
+
+可选负载测试固定 128 个独立 stream、每个 stream 4 个批次、每批 4 条记录。为不同版本保存独立目录，使用相同数据库参数和延迟值：
+
+```sh
+GIZCLAW_TEST_PG_LOG_EVIDENCE="$(mktemp -d)" GIZCLAW_TEST_PG_LOG_DELAY_MS=5 \
+  go test -tags=store_e2e -count=1 -v -run '^TestPostgreSQLLogAppendLoad$' ./tests/store-e2e
+```
+
+`summary.json` 保存全部写入计数、吞吐和 Append 延迟，`locks.json` 保存 `pg_stat_activity`、等待类型与 blocker PID 样本。设置 `GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE` 可保留 giztest 报告和 runner 日志。所有数据均为本地合成输入；日志与报告不得提交到仓库。
+
 ## API Key 与设备标识数量限制
 
 `bash tests/gizclaw-e2e/run_resource_limit_tests.sh` 构建四种 runner 并运行完整数量限制 lane。

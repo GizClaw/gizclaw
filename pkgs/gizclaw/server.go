@@ -113,6 +113,7 @@ type Server struct {
 	httpHandler              http.Handler
 	pendingDeletionProcessor *pendingdeletion.Processor
 	socialRecovery           *socialRecovery
+	historyRetention         *historyRetention
 }
 
 type PeerListenerOptions struct {
@@ -173,6 +174,9 @@ func (s *Server) Listen() error {
 	}
 	if s.manager != nil && s.manager.PeerUsage != nil {
 		s.manager.PeerUsage.Start(context.Background())
+	}
+	if s.historyRetention != nil {
+		s.historyRetention.start(context.Background())
 	}
 	return nil
 }
@@ -272,6 +276,10 @@ func (s *Server) Close() error {
 		s.closed = true
 	}
 	s.listenerMu.Unlock()
+	if s.historyRetention != nil {
+		s.historyRetention.close()
+		s.historyRetention = nil
+	}
 	for _, listener := range listeners {
 		if listener != nil {
 			errs = append(errs, listener.Close())
@@ -313,6 +321,7 @@ func (s *Server) init() error {
 	if s == nil {
 		return errors.New("gizclaw: nil server")
 	}
+	s.historyRetention = newHistoryRetention(s.WorkspaceHistory, s.AgentHistory)
 	switch {
 	case s.LocalStatic.Private.IsZero():
 		return errors.New("gizclaw: empty local static private key")

@@ -163,6 +163,11 @@ func (p SQLDailyPartitions) Maintain(ctx context.Context, tx *sqlx.Tx, cutoff ti
 		if child.Upper > bound {
 			continue
 		}
+		// Writers lock the parent before auxiliary identities. Take the parent
+		// DDL lock before beforeDrop touches those rows, in the same order.
+		if _, err := tx.ExecContext(ctx, "LOCK TABLE ONLY "+p.Table.Quoted()+" IN ACCESS EXCLUSIVE MODE"); err != nil {
+			return ExternalSQLError("storage: protect daily partition retention", err)
+		}
 		if beforeDrop != nil {
 			if err := beforeDrop(child); err != nil {
 				return err
@@ -176,7 +181,27 @@ func (p SQLDailyPartitions) Maintain(ctx context.Context, tx *sqlx.Tx, cutoff ti
 			return ExternalSQLError("storage: drop daily partition", err)
 		}
 	}
+	return p.Prepare(ctx, tx, required)
+}
+
+// Prepare creates only missing required days and their following days. Call it
+// outside a write transaction that has reserved caller-owned identities.
+// The advisory lock coordinates DDL, while ordinary writes remain concurrent.
+func (p SQLDailyPartitions) Prepare(ctx context.Context, tx *sqlx.Tx, required []time.Time) error {
+	if err := p.validate(); err != nil {
+		return err
+	}
+	if err := LockPostgreSQLTable(ctx, tx, p.Table); err != nil {
+		return err
+	}
+	children, err := p.List(ctx, tx)
+	if err != nil {
+		return err
+	}
 	seen := make(map[string]bool)
+	for _, child := range children {
+		seen[child.Name] = true
+	}
 	for _, at := range required {
 		for _, day := range []time.Time{at, at.AddDate(0, 0, 1)} {
 			child, err := p.Partition(day)

@@ -482,6 +482,10 @@ func TestPostgreSQLLogTTLUsesDailyPartitions(t *testing.T) {
 	}
 	live := record
 	live.ID = "two"
+	// Reclamation must not depend on another successful Append.
+	if err := store.Maintain(context.Background()); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := store.Append(context.Background(), []logstore.Record{live}); err != nil {
 		t.Fatal(err)
 	}
@@ -501,7 +505,7 @@ func TestPostgreSQLLogTTLUsesDailyPartitions(t *testing.T) {
 	}
 }
 
-func TestPostgreSQLLogTTLStartsAfterPartitionMaintenance(t *testing.T) {
+func TestPostgreSQLLogTTLStartsAfterMissingPartitionPreparation(t *testing.T) {
 	db := openPostgreSQL(t)
 	table := uniqueTable("logs_ttl_lock")
 	keysTable := table + "_keys"
@@ -512,6 +516,13 @@ func TestPostgreSQLLogTTLStartsAfterPartitionMaintenance(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = store.Close() })
+	// Force the cold DDL path. Existing partitions never wait on this lock.
+	day := time.Now().UTC().Add(ttl).Truncate(24 * time.Hour)
+	for _, at := range []time.Time{day, day.AddDate(0, 0, 1)} {
+		if _, err := db.Exec(`DROP TABLE "` + table + `_p` + at.Format("20060102") + `"`); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	lockTx, err := db.BeginTxx(context.Background(), nil)
 	if err != nil {
