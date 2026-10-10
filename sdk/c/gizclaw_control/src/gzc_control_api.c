@@ -1949,7 +1949,7 @@ static int read_tool_value(gzc_control_client_t *client, gzc_control_call_t *cal
 }
 
 int gzc_control_get_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
-                                         bool *out_enabled) {
+                                          bool *out_enabled) {
   int rc = check_args(client, call);
   if (rc != GZC_OK || out_enabled == NULL)
     return GZC_ERR_INVALID_ARGUMENT;
@@ -1963,7 +1963,7 @@ int gzc_control_get_device_gnss_reporting(gzc_control_client_t *client, gzc_cont
 }
 
 int gzc_control_set_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
-                                         bool enabled, bool *out_enabled) {
+                                          bool enabled, bool *out_enabled) {
   int rc = check_args(client, call);
   if (rc != GZC_OK || out_enabled == NULL)
     return GZC_ERR_INVALID_ARGUMENT;

@@ -1026,10 +1026,10 @@ typedef struct {
 
 /* Reads the online device's GNSS reporting switch through invoke. */
 int gzc_control_get_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
-                                         bool *out_enabled);
+                                          bool *out_enabled);
 /* Sets an explicit switch value through invoke and returns the device's applied value. */
 int gzc_control_set_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
-                                         bool enabled, bool *out_enabled);
+                                          bool enabled, bool *out_enabled);
 
 /* Reads live hardware information through info.get. */
 int gzc_control_get_device_hardware(gzc_control_client_t *client, gzc_control_call_t *call,
