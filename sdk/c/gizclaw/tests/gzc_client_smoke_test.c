@@ -2748,82 +2748,121 @@ static bool decode_lua_param(pb_istream_t *stream, const pb_field_t *field, void
   return pb_decode(stream, gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_fields, *arg);
 }
 
-typedef struct { size_t bytes, chunks, closed; int outcome; bool finish, block, finish_block; } lua_stream_test_t;
+typedef struct {
+  size_t bytes, chunks, closed;
+  int outcome;
+  bool finish, block, finish_block;
+} lua_stream_test_t;
 static int lua_stream_begin(void *user, int method, gzc_str_t metadata, void **out) {
-  (void)method; (void)metadata; *out = user; return GZC_OK;
+  (void)method;
+  (void)metadata;
+  *out = user;
+  return GZC_OK;
 }
 static int lua_stream_write(void *session, const uint8_t *bytes, size_t len) {
   lua_stream_test_t *s = session;
   (void)bytes;
-  if (s->block) { s->block = false; return GZC_ERR_WOULD_BLOCK; }
-  s->bytes += len; s->chunks++; return GZC_OK;
+  if (s->block) {
+    s->block = false;
+    return GZC_ERR_WOULD_BLOCK;
+  }
+  s->bytes += len;
+  s->chunks++;
+  return GZC_OK;
 }
 static int lua_stream_finish(void *session, gzc_rpc_provider_respond_fn respond, void *user) {
   lua_stream_test_t *s = session;
-  if (s->finish_block) return GZC_ERR_WOULD_BLOCK;
+  if (s->finish_block)
+    return GZC_ERR_WOULD_BLOCK;
   s->finish = true;
-  const uint8_t app[] = {0x0a, 0x0d, 0x0a, 0x04, 'd','e','m','o', 0x12, 0x05, '1','.','0','.','0'};
-  const gzc_rpc_provider_response_t response = {.payload=app,.payload_len=sizeof(app)};
+  const uint8_t app[] = {0x0a, 0x0d, 0x0a, 0x04, 'd', 'e', 'm', 'o', 0x12, 0x05, '1', '.', '0', '.', '0'};
+  const gzc_rpc_provider_response_t response = {.payload = app, .payload_len = sizeof(app)};
   return respond(user, &response);
 }
 static void lua_stream_close(void *session, int status) {
-  lua_stream_test_t *s = session; s->closed++; s->outcome=status;
+  lua_stream_test_t *s = session;
+  s->closed++;
+  s->outcome = status;
 }
 
 static int test_lua_stream(gzc_client_t *client, fake_webrtc_t *fake, lua_stream_test_t *sink) {
   const gzc_platform_t *platform = fake->platform;
   for (int variant = 0; variant < 8; variant++) {
-    *sink = (lua_stream_test_t){.block=true,.finish_block=variant==4};
+    *sink = (lua_stream_test_t){.block = true, .finish_block = variant == 4};
     gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest metadata = gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_init_zero;
-    metadata.content_length = variant==6 ? 524288u : variant==7 ? 524289u : 164484u;
+    metadata.content_length = variant == 6 ? 524288u : variant == 7 ? 524289u
+                                                                    : 164484u;
     memset(metadata.sha256, 'a', 64u);
     uint8_t encoded[128];
     pb_ostream_t output = pb_ostream_from_buffer(encoded, sizeof(encoded));
-    if (!pb_encode(&output, gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_fields, &metadata)) return 1;
-    gzc_buf_t request, frames; gzc_buf_init(&request); gzc_buf_init(&frames);
-    if (gzc_rpc_encode_request_envelope(platform,gzc_str_from_cstr("lua-upload"),
-        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL,
-        gzc_str_from_parts((const char *)encoded,output.bytes_written),&request) != GZC_OK) return 1;
+    if (!pb_encode(&output, gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_fields, &metadata))
+      return 1;
+    gzc_buf_t request, frames;
+    gzc_buf_init(&request);
+    gzc_buf_init(&frames);
+    if (gzc_rpc_encode_request_envelope(platform, gzc_str_from_cstr("lua-upload"),
+                                        gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL,
+                                        gzc_str_from_parts((const char *)encoded, output.bytes_written), &request) != GZC_OK)
+      return 1;
     announce_remote_rpc(fake, 0);
     gzc_buf_reset(&fake->sent);
-    if (append_test_frame(platform,&frames,GZC_RPC_FRAME_BINARY,request.data,request.len) != GZC_OK) return 1;
-    fake->callbacks.on_channel_message(fake->callbacks.userdata,&fake->peer,&fake->remote_channels[0],NULL,frames.data,frames.len,false);
-    if (variant==7) {
-      if (gzc_client_poll(client,0)!=GZC_OK) return 1;
-      gzc_rpc_frame_t frame; gzc_rpc_response_t response;
-      if (gzc_rpc_frame_decode(fake->sent.data,first_frame_size(&fake->sent),&frame)!=GZC_OK ||
-          gzc_rpc_decode_response_envelope(gzc_str_from_parts((const char *)frame.data,frame.len),&response)!=GZC_OK ||
-          expect(response.has_error && response.error.code==gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT && sink->closed==0,"reject 512 KiB plus one before begin")!=0) return 1;
-      gzc_buf_free(&request,platform);gzc_buf_free(&frames,platform);
+    if (append_test_frame(platform, &frames, GZC_RPC_FRAME_BINARY, request.data, request.len) != GZC_OK)
+      return 1;
+    fake->callbacks.on_channel_message(fake->callbacks.userdata, &fake->peer, &fake->remote_channels[0], NULL, frames.data, frames.len, false);
+    if (variant == 7) {
+      if (gzc_client_poll(client, 0) != GZC_OK)
+        return 1;
+      gzc_rpc_frame_t frame;
+      gzc_rpc_response_t response;
+      if (gzc_rpc_frame_decode(fake->sent.data, first_frame_size(&fake->sent), &frame) != GZC_OK ||
+          gzc_rpc_decode_response_envelope(gzc_str_from_parts((const char *)frame.data, frame.len), &response) != GZC_OK ||
+          expect(response.has_error && response.error.code == gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT && sink->closed == 0, "reject 512 KiB plus one before begin") != 0)
+        return 1;
+      gzc_buf_free(&request, platform);
+      gzc_buf_free(&frames, platform);
       continue;
     }
     uint8_t chunk[8192] = {0};
-    size_t total = variant==6 ? 524288u : variant == 1 ? 163000u : variant == 2 ? 164485u : (variant == 3 || variant == 5) ? 8192u : 164484u;
+    size_t total = variant == 6 ? 524288u : variant == 1                 ? 163000u
+                                        : variant == 2                   ? 164485u
+                                        : (variant == 3 || variant == 5) ? 8192u
+                                                                         : 164484u;
     for (size_t n = 0; n < total;) {
-      size_t take = total-n < sizeof(chunk) ? total-n : sizeof(chunk);
+      size_t take = total - n < sizeof(chunk) ? total - n : sizeof(chunk);
       gzc_buf_reset(&frames);
-      if (append_test_frame(platform,&frames,GZC_RPC_FRAME_BINARY,chunk,take) != GZC_OK) return 1;
-      fake->callbacks.on_channel_message(fake->callbacks.userdata,&fake->peer,&fake->remote_channels[0],NULL,frames.data,frames.len,false);
-      if (gzc_client_poll(client,0) != GZC_OK) return 1;
+      if (append_test_frame(platform, &frames, GZC_RPC_FRAME_BINARY, chunk, take) != GZC_OK)
+        return 1;
+      fake->callbacks.on_channel_message(fake->callbacks.userdata, &fake->peer, &fake->remote_channels[0], NULL, frames.data, frames.len, false);
+      if (gzc_client_poll(client, 0) != GZC_OK)
+        return 1;
       n += take;
     }
     int64_t original_clock = fake->clock->instant_ms;
-    if (variant == 3) { close_remote_rpc(fake,0); }
-    else if (variant == 5) {
+    if (variant == 3) {
+      close_remote_rpc(fake, 0);
+    } else if (variant == 5) {
       fake->clock->instant_ms += 120001;
-      if (gzc_client_poll(client,0) != GZC_OK || gzc_client_poll(client,0) != GZC_OK) return 1;
+      if (gzc_client_poll(client, 0) != GZC_OK || gzc_client_poll(client, 0) != GZC_OK)
+        return 1;
       fake->clock->instant_ms = original_clock;
-      if (expect(sink->outcome == GZC_ERR_TIMEOUT, "stream deadline aborts owner") != 0) return 1;
+      if (expect(sink->outcome == GZC_ERR_TIMEOUT, "stream deadline aborts owner") != 0)
+        return 1;
     } else {
       gzc_buf_reset(&frames);
-      if (append_test_frame(platform,&frames,GZC_RPC_FRAME_EOS,NULL,0) != GZC_OK) return 1;
-      fake->callbacks.on_channel_message(fake->callbacks.userdata,&fake->peer,&fake->remote_channels[0],NULL,frames.data,frames.len,false);
-      if (gzc_client_poll(client,0) != GZC_OK) return 1;
+      if (append_test_frame(platform, &frames, GZC_RPC_FRAME_EOS, NULL, 0) != GZC_OK)
+        return 1;
+      fake->callbacks.on_channel_message(fake->callbacks.userdata, &fake->peer, &fake->remote_channels[0], NULL, frames.data, frames.len, false);
+      if (gzc_client_poll(client, 0) != GZC_OK)
+        return 1;
     }
-    if (variant == 4) close_remote_rpc(fake,0);
-    if (expect(sink->closed == 1 && sink->finish == (variant == 0 || variant==6), "stream finish/abort owns cleanup once") != 0) return 1;
-    if ((variant == 0 || variant==6) && expect(sink->bytes == metadata.content_length && sink->chunks > 2 && sink->outcome == GZC_OK,"large archive chunks survive WOULD_BLOCK") != 0) return 1;
-    gzc_buf_free(&request,platform);gzc_buf_free(&frames,platform);
+    if (variant == 4)
+      close_remote_rpc(fake, 0);
+    if (expect(sink->closed == 1 && sink->finish == (variant == 0 || variant == 6), "stream finish/abort owns cleanup once") != 0)
+      return 1;
+    if ((variant == 0 || variant == 6) && expect(sink->bytes == metadata.content_length && sink->chunks > 2 && sink->outcome == GZC_OK, "large archive chunks survive WOULD_BLOCK") != 0)
+      return 1;
+    gzc_buf_free(&request, platform);
+    gzc_buf_free(&frames, platform);
   }
   return 0;
 }
@@ -3036,7 +3075,7 @@ int main(void) {
   config.tool_handlers = tool_handlers;
   config.tool_handler_count = installed_count;
   lua_stream_test_t lua_stream = {0};
-  gzc_rpc_stream_provider_t lua_provider = {.userdata=&lua_stream,.begin=lua_stream_begin,.write=lua_stream_write,.finish=lua_stream_finish,.close=lua_stream_close};
+  gzc_rpc_stream_provider_t lua_provider = {.userdata = &lua_stream, .begin = lua_stream_begin, .write = lua_stream_write, .finish = lua_stream_finish, .close = lua_stream_close};
   config.lua_app_install = &lua_provider;
 
   gzc_client_t *client = NULL;
@@ -5350,7 +5389,8 @@ int main(void) {
     return 1;
   }
 
-  if (test_lua_stream(client, &fake_webrtc, &lua_stream) != 0) return 1;
+  if (test_lua_stream(client, &fake_webrtc, &lua_stream) != 0)
+    return 1;
   announce_remote_rpc(&fake_webrtc, 0);
   gzc_buf_t inbound_request;
   gzc_buf_t inbound_framed;

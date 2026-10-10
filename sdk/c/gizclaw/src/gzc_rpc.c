@@ -865,7 +865,6 @@ static void inbound_close_provider(struct gzc_rpc_inbound *inbound, int status) 
   inbound->provider_blocked = false;
 }
 
-
 typedef struct {
   gzc_buf_t *out;
   const gzc_platform_t *platform;
@@ -1146,14 +1145,14 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
     inbound->upload_expected = metadata.content_length;
     inbound->install_deadline_ms = gzc_client_instant_ms_internal(inbound->client) + 120000;
     int rc = inbound->provider->begin(inbound->provider->userdata, (int)request.method,
-        gzc_str_from_parts((const char *)inbound->payload.data, inbound->payload.len),
-        &inbound->provider_session);
+                                      gzc_str_from_parts((const char *)inbound->payload.data, inbound->payload.len),
+                                      &inbound->provider_session);
     if (rc != GZC_OK || inbound->provider_session == NULL) {
       inbound_close_provider(inbound, rc == GZC_OK ? GZC_ERR_RPC : rc);
       return inbound_error(inbound,
-          rc == GZC_ERR_UNSUPPORTED ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED :
-          rc == GZC_ERR_INVALID_ARGUMENT ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT :
-          gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL, "installer begin failed");
+                           rc == GZC_ERR_UNSUPPORTED ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED : rc == GZC_ERR_INVALID_ARGUMENT ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT
+                                                                                                                                            : gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
+                           "installer begin failed");
     }
     inbound->phase = GZC_INBOUND_INSTALL_BODY;
     return GZC_OK;
@@ -1251,7 +1250,7 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
   int rc;
   if (inbound->provider != NULL) {
     rc = inbound->provider->finish(inbound->provider_session,
-        inbound_provider_respond, &provider_response);
+                                   inbound_provider_respond, &provider_response);
     if (rc == GZC_ERR_WOULD_BLOCK && !provider_response.responded) {
       gzc_buf_free(&provider_response.encoded_response, inbound->platform);
       inbound->provider_blocked = true;
@@ -1259,13 +1258,13 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
     }
   } else {
     rc = gzc_client_dispatch_rpc_internal(
-      inbound->client,
-      (int)inbound->method,
-      gzc_str_from_parts(
-          (const char *)inbound->payload.data,
-          inbound->payload.len),
-      inbound_provider_respond,
-      &provider_response);
+        inbound->client,
+        (int)inbound->method,
+        gzc_str_from_parts(
+            (const char *)inbound->payload.data,
+            inbound->payload.len),
+        inbound_provider_respond,
+        &provider_response);
   }
   if (rc == GZC_ERR_UNSUPPORTED) {
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
@@ -1374,13 +1373,16 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
         return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT, "archive exceeds declared length");
       }
       int rc = inbound->provider->write(inbound->provider_session, frame->data, frame->len);
-      if (rc == GZC_ERR_WOULD_BLOCK) { inbound->provider_blocked = true; return rc; }
+      if (rc == GZC_ERR_WOULD_BLOCK) {
+        inbound->provider_blocked = true;
+        return rc;
+      }
       if (rc != GZC_OK) {
         inbound_close_provider(inbound, rc);
         return inbound_error(inbound,
-            rc == GZC_ERR_INVALID_ARGUMENT ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT :
-            rc == GZC_ERR_UNSUPPORTED ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED :
-            gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL, "archive write failed");
+                             rc == GZC_ERR_INVALID_ARGUMENT ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT : rc == GZC_ERR_UNSUPPORTED ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED
+                                                                                                                                                 : gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
+                             "archive write failed");
       }
       inbound->upload_received += frame->len;
       return GZC_OK;
@@ -1493,7 +1495,8 @@ int gzc_rpc_inbound_feed(
       return inbound_close_transport(inbound, GZC_OK);
     }
     rc = inbound_process_frame(inbound, &frame);
-    if (rc == GZC_ERR_WOULD_BLOCK && inbound->provider_blocked) return GZC_OK;
+    if (rc == GZC_ERR_WOULD_BLOCK && inbound->provider_blocked)
+      return GZC_OK;
     inbound_consume(&inbound->rx, frame_len);
     if (rc != GZC_OK) {
       return rc;
@@ -1519,7 +1522,8 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
     }
     if (inbound->provider_blocked) {
       int rc = gzc_rpc_inbound_feed(inbound, NULL, 0, false);
-      if (rc != GZC_OK || inbound->provider_blocked) return rc;
+      if (rc != GZC_OK || inbound->provider_blocked)
+        return rc;
     }
   }
   uint8_t chunk[4096];
@@ -1618,8 +1622,10 @@ int gzc_rpc_inbound_backend_timeout_ms(
   }
   if (inbound->phase == GZC_INBOUND_INSTALL_BODY) {
     int64_t remaining = inbound->install_deadline_ms - gzc_client_instant_ms_internal(inbound->client);
-    if (remaining <= 0 || inbound->provider_blocked) return 0;
-    if (requested_timeout_ms < 0 || remaining < requested_timeout_ms) requested_timeout_ms = (int)remaining;
+    if (remaining <= 0 || inbound->provider_blocked)
+      return 0;
+    if (requested_timeout_ms < 0 || remaining < requested_timeout_ms)
+      requested_timeout_ms = (int)remaining;
   }
   if (inbound->tx_offset < inbound->tx.len) {
     if (!inbound->write_blocked) {

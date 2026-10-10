@@ -54,7 +54,10 @@ typedef struct {
 static int stub_request(void *userdata, const gzc_http_request_t *request, gzc_http_response_t *out_response) {
   stub_t *stub = (stub_t *)userdata;
   stub->method = request->method;
-  stub->body_length=request->body_len;stub->body_view=request->body;stub->retry_count=request->retry_count;stub->binary=false;
+  stub->body_length = request->body_len;
+  stub->body_view = request->body;
+  stub->retry_count = request->retry_count;
+  stub->binary = false;
   size_t url_len = request->url.len < sizeof(stub->url) - 1 ? request->url.len : sizeof(stub->url) - 1;
   memcpy(stub->url, request->url.data, url_len);
   stub->url[url_len] = 0;
@@ -73,7 +76,7 @@ static int stub_request(void *userdata, const gzc_http_request_t *request, gzc_h
     if (request->headers[i].name.len == 12 &&
         memcmp(request->headers[i].name.data, "Content-Type", 12) == 0) {
       stub->saw_content_type = true;
-      stub->binary = request->headers[i].value.len == 24 && memcmp(request->headers[i].value.data,"application/octet-stream",24)==0;
+      stub->binary = request->headers[i].value.len == 24 && memcmp(request->headers[i].value.data, "application/octet-stream", 24) == 0;
     }
   }
   if (stub->result != GZC_OK) {
@@ -1350,21 +1353,25 @@ static void test_additional_typed_tools(void) {
 }
 
 static void test_lua_upload(void) {
-  gzc_control_client_t client; stub_t stub = {0}; gzc_http_vtable_t http;
-  init_client(&client,&stub,&http);
-  uint8_t scratch[1024],response[2048];
+  gzc_control_client_t client;
+  stub_t stub = {0};
+  gzc_http_vtable_t http;
+  init_client(&client, &stub, &http);
+  uint8_t scratch[1024], response[2048];
   static uint8_t archive[524288];
-  gzc_control_call_t call; gzc_control_call_init(&call,scratch,sizeof(scratch),response,sizeof(response));
-  stub.status_code=200;stub.response_body="{\"app\":{\"app_id\":\"demo\",\"version\":\"1.0.0\"}}";
+  gzc_control_call_t call;
+  gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response));
+  stub.status_code = 200;
+  stub.response_body = "{\"app\":{\"app_id\":\"demo\",\"version\":\"1.0.0\"}}";
   gzc_str_t app;
-  const char *sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-  check(gzc_control_install_lua_app(&client,&call,archive,sizeof(archive),gzc_str_from_cstr(sha),&app)==GZC_OK,"Lua upload success");
-  check(stub.binary && stub.body_length==sizeof(archive) && stub.body_view==archive && stub.retry_count==0,"Lua upload borrows binary body without replay");
-  check(strstr(stub.url,"/device/lua-app/install?content_length=524288&sha256=")!=NULL,"Lua upload metadata URL");
-  check_str(app,"{\"app_id\":\"demo\",\"version\":\"1.0.0\"}","Lua installed app response");
-  int calls=stub.free_calls;
-  check(gzc_control_install_lua_app(&client,&call,archive,524289u,gzc_str_from_cstr(sha),&app)==GZC_ERR_INVALID_ARGUMENT && stub.free_calls==calls,"reject oversized archive before HTTP");
-  check(gzc_control_classify(413,gzc_str_from_cstr("LUA_APP_PACKAGE_TOO_LARGE"))==GZC_CONTROL_ERROR_INVALID_REQUEST,"classify oversized archive response");
+  const char *sha = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+  check(gzc_control_install_lua_app(&client, &call, archive, sizeof(archive), gzc_str_from_cstr(sha), &app) == GZC_OK, "Lua upload success");
+  check(stub.binary && stub.body_length == sizeof(archive) && stub.body_view == archive && stub.retry_count == 0, "Lua upload borrows binary body without replay");
+  check(strstr(stub.url, "/device/lua-app/install?content_length=524288&sha256=") != NULL, "Lua upload metadata URL");
+  check_str(app, "{\"app_id\":\"demo\",\"version\":\"1.0.0\"}", "Lua installed app response");
+  int calls = stub.free_calls;
+  check(gzc_control_install_lua_app(&client, &call, archive, 524289u, gzc_str_from_cstr(sha), &app) == GZC_ERR_INVALID_ARGUMENT && stub.free_calls == calls, "reject oversized archive before HTTP");
+  check(gzc_control_classify(413, gzc_str_from_cstr("LUA_APP_PACKAGE_TOO_LARGE")) == GZC_CONTROL_ERROR_INVALID_REQUEST, "classify oversized archive response");
 }
 
 int main(void) {

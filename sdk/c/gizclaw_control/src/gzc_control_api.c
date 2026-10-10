@@ -2076,28 +2076,35 @@ int gzc_control_ping_device(gzc_control_client_t *client, gzc_control_call_t *ca
 }
 
 int gzc_control_install_lua_app(gzc_control_client_t *client,
-    gzc_control_call_t *call, const uint8_t *archive, size_t length,
-    gzc_str_t sha256, gzc_str_t *out_app_json) {
+                                gzc_control_call_t *call, const uint8_t *archive, size_t length,
+                                gzc_str_t sha256, gzc_str_t *out_app_json) {
   if (client == NULL || call == NULL || archive == NULL || out_app_json == NULL ||
-      length == 0 || length > 512u * 1024u || sha256.data == NULL || sha256.len != 64u) return GZC_ERR_INVALID_ARGUMENT;
-  for (size_t i=0;i<sha256.len;i++) {
-    char c=sha256.data[i];
-    if (!((c>='0'&&c<='9')||(c>='a'&&c<='f')||(c>='A'&&c<='F'))) return GZC_ERR_INVALID_ARGUMENT;
+      length == 0 || length > 512u * 1024u || sha256.data == NULL || sha256.len != 64u)
+    return GZC_ERR_INVALID_ARGUMENT;
+  for (size_t i = 0; i < sha256.len; i++) {
+    char c = sha256.data[i];
+    if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')))
+      return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_control_builder_t builder;
-  builder_begin(&builder,client,call,"/device/lua-app/install");
-  builder_query_i64(&builder,"content_length",(int64_t)length);
-  builder_query_str(&builder,"sha256",sha256);
-  if (builder.rc != GZC_OK) return gzc_control_fail(call,GZC_CONTROL_ERROR_NETWORK,builder.rc);
-  gzc_control_request_t request = {.method=GZC_HTTP_METHOD_POST,
-    .url=builder_url(&builder), .body=gzc_str_from_parts((const char *)archive,length), .binary=true};
-  int rc=gzc_control_send(client,call,&request);
-  if (rc != GZC_OK) return rc;
+  builder_begin(&builder, client, call, "/device/lua-app/install");
+  builder_query_i64(&builder, "content_length", (int64_t)length);
+  builder_query_str(&builder, "sha256", sha256);
+  if (builder.rc != GZC_OK)
+    return gzc_control_fail(call, GZC_CONTROL_ERROR_NETWORK, builder.rc);
+  gzc_control_request_t request = {.method = GZC_HTTP_METHOD_POST,
+                                   .url = builder_url(&builder),
+                                   .body = gzc_str_from_parts((const char *)archive, length),
+                                   .binary = true};
+  int rc = gzc_control_send(client, call, &request);
+  if (rc != GZC_OK)
+    return rc;
   gzc_str_t object;
-  rc=decoded_object(call,&object);
-  bool present=false;
-  if (rc==GZC_OK) rc=gzc_control_field(object,"app",out_app_json,&present);
-  if (rc!=GZC_OK || !present || gzc_json_validate_object(*out_app_json)!=GZC_OK)
-    return gzc_control_fail(call,GZC_CONTROL_ERROR_MALFORMED_RESPONSE,GZC_ERR_JSON);
+  rc = decoded_object(call, &object);
+  bool present = false;
+  if (rc == GZC_OK)
+    rc = gzc_control_field(object, "app", out_app_json, &present);
+  if (rc != GZC_OK || !present || gzc_json_validate_object(*out_app_json) != GZC_OK)
+    return gzc_control_fail(call, GZC_CONTROL_ERROR_MALFORMED_RESPONSE, GZC_ERR_JSON);
   return GZC_OK;
 }

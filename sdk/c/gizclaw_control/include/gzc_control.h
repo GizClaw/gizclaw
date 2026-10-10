@@ -1279,8 +1279,8 @@ int gzc_control_set_device_audioplayer_mode(gzc_control_client_t *client, gzc_co
  * Incremental RPC producers use gzc_rpc_request_start_stream/write/finish_write.
  */
 int gzc_control_install_lua_app(gzc_control_client_t *client,
-    gzc_control_call_t *call, const uint8_t *archive, size_t length,
-    gzc_str_t sha256, gzc_str_t *out_app_json);
+                                gzc_control_call_t *call, const uint8_t *archive, size_t length,
+                                gzc_str_t sha256, gzc_str_t *out_app_json);
 
 #ifdef __cplusplus
 }
