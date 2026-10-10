@@ -107,14 +107,15 @@ func TestLuaAppUploadServerEdgeWebRTC(t *testing.T) {
 		sum := sha256.Sum256(data)
 		digest := hex.EncodeToString(sum[:])
 		path := fmt.Sprintf("/gizclaw/v1/device/lua-app/install?content_length=%d&sha256=%s", len(data), digest)
-		for _, lane := range []struct {
+		lanes := []struct {
 			name, endpoint string
 			client         *http.Client
 		}{
 			{"server", publicHTTP.URL, http.DefaultClient},
 			{"edge", edgeURL, http.DefaultClient},
 			{"peer_http", "http://gizclaw", device.HTTPClient(gizcli.ServicePeerHTTP)},
-		} {
+		}
+		for _, lane := range lanes {
 			t.Run(lane.name, func(t *testing.T) {
 				requestCtx, cancel := context.WithTimeout(ctx, 20*time.Second)
 				defer cancel()
@@ -198,6 +199,40 @@ func TestLuaAppUploadServerEdgeWebRTC(t *testing.T) {
 			}
 			if response.StatusCode != http.StatusRequestEntityTooLarge || !bytes.Contains(body, []byte("LUA_APP_PACKAGE_TOO_LARGE")) || begins.Load() != before {
 				t.Fatalf("oversize=%d %s, begins=%d", response.StatusCode, body, begins.Load()-before)
+			}
+		})
+		t.Run("unsupported_before_body_complete", func(t *testing.T) {
+			if err := device.HandleDeviceControl(gizcli.DeviceControlHandlers{}); err != nil {
+				t.Fatal(err)
+			}
+			for _, lane := range lanes {
+				t.Run(lane.name, func(t *testing.T) {
+					requestCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+					defer cancel()
+					body, producer := io.Pipe()
+					defer body.Close()
+					defer producer.Close()
+					stop := context.AfterFunc(requestCtx, func() { _ = producer.CloseWithError(requestCtx.Err()) })
+					defer stop()
+					request, err := http.NewRequestWithContext(requestCtx, http.MethodPost, lane.endpoint+path, body)
+					if err != nil {
+						t.Fatal(err)
+					}
+					request.Header.Set("Authorization", "Bearer "+apiKey.APIKey)
+					request.Header.Set("Content-Type", "application/octet-stream")
+					produced := make(chan struct{})
+					go func() { _, _ = producer.Write(data[:32768]); close(produced) }()
+					response, err := lane.client.Do(request)
+					_ = producer.Close()
+					<-produced
+					if err != nil {
+						t.Fatalf("device error waited for the unfinished body: %v", err)
+					}
+					defer response.Body.Close()
+					if response.StatusCode != http.StatusNotImplemented {
+						t.Fatalf("unsupported=%d", response.StatusCode)
+					}
+				})
 			}
 		})
 	})

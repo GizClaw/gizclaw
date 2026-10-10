@@ -55,6 +55,9 @@ func UploadLuaApp(ctx context.Context, conn net.Conn, metadata *rpcpb.ClientLuaA
 	if readErr == nil && response.Error == nil && !eosQueued.Load() {
 		readErr = errors.New("lua app: success before request EOS")
 	}
+	// Interrupting a server HTTP request body can cancel its request context.
+	// Preserve an already received device error through our own abort cleanup.
+	contextErr := ctx.Err()
 	// An error may arrive before upload completion. Success must wait for the
 	// writer's EOS, otherwise closing here races the last successful write.
 	var sendErr error
@@ -65,11 +68,14 @@ func UploadLuaApp(ctx context.Context, conn net.Conn, metadata *rpcpb.ClientLuaA
 		_ = conn.Close()
 		sendErr = <-sent
 	}
-	if ctx.Err() != nil {
-		return nil, ctx.Err()
+	if contextErr != nil {
+		return nil, contextErr
 	}
 	if readErr == nil && response.Error != nil {
 		return nil, Error{Code: response.Error.Code, Message: response.Error.Message}
+	}
+	if ctx.Err() != nil {
+		return nil, ctx.Err()
 	}
 	if sendErr != nil {
 		return nil, sendErr

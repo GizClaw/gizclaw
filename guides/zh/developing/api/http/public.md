@@ -201,4 +201,4 @@ Admin IMEI 查询为 `/peers/@findPubKeysByImei/{tac}/{serial}`，CLI `admin pee
 
 ## Lua 应用上传
 
-`POST /gizclaw/v1/device/lua-app/install` 接受最多 512 KiB 的原始 Binary 压缩包体及 `content_length`、`sha256` query 参数。超限返回 `413 LUA_APP_PACKAGE_TOO_LARGE`，更大的压缩包必须改用 HTTP(S) URL 下载。Server 保留请求流的背压与取消，按 owner 转发到 RPC 139 并等待安装最终结果；Edge 沿用 Public HTTP 代理。完整合同与 URL 兼容入口见 [Lua 应用 provider](../proto/rpc/client-provided-to-server#lua-应用)。
+`POST /gizclaw/v1/device/lua-app/install` 接受最多 512 KiB 的原始 Binary 压缩包体及 `content_length`、`sha256` query 参数。超限返回 `413 LUA_APP_PACKAGE_TOO_LARGE`，更大的压缩包必须改用 HTTP(S) URL 下载。Server 保留请求流的背压与取消，按 owner 转发到 RPC 139 并等待安装最终结果；Edge 沿用 Public HTTP 代理。设备提前拒绝时，Server 与 Edge 会中断未完成的请求体并立即返回错误；上传使用的 HTTP/1 连接随后关闭。完整合同与 URL 兼容入口见 [Lua 应用 provider](../proto/rpc/client-provided-to-server#lua-应用)。

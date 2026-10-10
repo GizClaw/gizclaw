@@ -43,7 +43,7 @@ func (s *peerHTTP) InstallLuaApp(ctx context.Context, request peerhttp.InstallLu
 		return rpcapi.UploadLuaApp(ctx, conn, metadata, body)
 	}, nil)
 	if failure != nil {
-		if ctx.Err() != nil {
+		if failure.Code == publicHTTPInternalErrorCode && ctx.Err() != nil {
 			failure = mapDeviceControlError(ctx.Err(), ctx, "")
 		}
 		return clientToolFailure(failure), nil
