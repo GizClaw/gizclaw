@@ -35,6 +35,10 @@ type Config struct {
 	ResolveVoice VoiceResolver
 	// SpeakerVoices maps recognized speaker names to TTS mux patterns.
 	SpeakerVoices map[string]string
+	// Backpressure couples Agent delivery to TTS input consumption and forwards
+	// audio delivery acknowledgements to the shared TTS emitter. Use it for
+	// continuous narration with a single publisher and no speaker switching.
+	Backpressure bool
 }
 
 func normalizeConfig(config Config) (Config, error) {
@@ -48,6 +52,9 @@ func normalizeConfig(config Config) (Config, error) {
 		return Config{}, fmt.Errorf("audiodock: TTS requires ResolveVoice")
 	}
 	config.SpeakerVoices = maps.Clone(config.SpeakerVoices)
+	if config.Backpressure && len(config.SpeakerVoices) != 0 {
+		return Config{}, fmt.Errorf("audiodock: Backpressure does not support SpeakerVoices")
+	}
 	for name, pattern := range config.SpeakerVoices {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, "【】") || strings.TrimSpace(pattern) == "" {
 			return Config{}, fmt.Errorf("audiodock: invalid speaker voice %q", name)

@@ -113,6 +113,8 @@ First-response latency is a property of the complete RuntimeProfile selection, n
 
 Eino Graphs consume the same Workflow memory alias through typed `memory_recall` and `memory_observe` nodes. There is no Eino-specific Memory block or Server Config binding. `conversation.starts: agent` enables proactive opening. Workspace conversation parameters select `on_reload` or once when history is empty; concurrent streams permit only one successful claim, a failed opening is retryable, and user input interrupts through the existing interruption path. History remains persistent while Graph state remains invocation-local.
 
+`conversation.continue_from` repeats generation within one user turn until interruption or a false control field. Playback retains one StreamID while each generation is saved as a separate Workspace History entry with its corresponding text and audio. The [Eino Transformer](../../genx/transformers/eino#continuous-narration-within-one-turn) owns field validation, context-window, backpressure, and cancellation rules.
+
 #### Eino audio input path
 
 Workspace `input` is `push-to-talk` (default) or `realtime`. It selects which ASR Model to read from the Profile binding:

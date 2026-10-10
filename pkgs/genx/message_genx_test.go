@@ -16,6 +16,23 @@ type customTool struct{}
 
 func (*customTool) isTool() {}
 
+func TestMessageBoundaryIsProcessLocalAndSurvivesClone(t *testing.T) {
+	chunk := &MessageChunk{Part: Text(""), Ctrl: &StreamCtrl{
+		StreamID: "playback", MessageID: "private-generation-id", MessageEnd: true,
+	}}
+	clone := chunk.Clone()
+	if clone.Ctrl.MessageID != chunk.Ctrl.MessageID || !clone.Ctrl.MessageEnd || clone.IsEndOfStream() {
+		t.Fatalf("message boundary changed the playback lifecycle: %+v", clone.Ctrl)
+	}
+	data, err := json.Marshal(clone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "private-generation-id") || strings.Contains(string(data), "MessageEnd") {
+		t.Fatalf("process-local message metadata leaked into JSON: %s", data)
+	}
+}
+
 func TestMessageChunkConstructorsAndClone(t *testing.T) {
 	bos := NewBeginOfStream("s1")
 	if !bos.IsBeginOfStream() || bos.IsEndOfStream() {

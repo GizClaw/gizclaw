@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
@@ -143,6 +144,9 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		config.State = &genxeino.StatePersistenceConfig{Store: stateStore, Scope: scope, Fields: public.StatePersistence.Fields}
 	}
 	config.Initiative = mapInitiative(public.Conversation, spec.Workspace.Parameters)
+	if public.Conversation != nil && public.Conversation.ContinueFrom != nil {
+		config.ContinueFrom = *public.Conversation.ContinueFrom
+	}
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
@@ -212,7 +216,7 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		if buildErr != nil {
 			return nil, errors.Join(fmt.Errorf("eino: Profile ASR: %w", buildErr), transformer.Close(), closeMemory(memoryCloser))
 		}
-		composed, err = wrapAudio(service.Transformer(), transformer, asr, voice, public.Graph.Outputs, speechRatePercent)
+		composed, err = wrapAudio(service.Transformer(), transformer, asr, voice, public.Graph.Outputs, speechRatePercent, config.ContinueFrom != "")
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
@@ -383,8 +387,9 @@ func wrapAudio(
 	voice apitypes.VoiceAdapter,
 	outputs []apitypes.EinoOutput,
 	speechRatePercent *int,
+	backpressure bool,
 ) (genx.Transformer, error) {
-	config := audiodock.Config{Agent: core, ASR: asr}
+	config := audiodock.Config{Agent: core, ASR: asr, Backpressure: backpressure}
 	defaultVoice := stringPointerValue(voice.DefaultVoice)
 	nodeVoices := map[string]string(nil)
 	if voice.NodeVoices != nil {
@@ -493,6 +498,10 @@ func (g einoAudioInputGuard) Transform(ctx context.Context, input genx.Stream) (
 		builder:    output,
 		downstream: downstream,
 		input:      guardedInput,
+	}
+	if observer, ok := downstream.(agenthost.OutputObservationStream); ok {
+		observer.DeferOutputObservation()
+		guardedOutput.observer = observer
 	}
 	guardedOutput.stopContext = context.AfterFunc(ctx, func() {
 		_ = guardedOutput.closeStreams(context.Cause(ctx))
@@ -655,17 +664,37 @@ func einoAudioInputUnsupportedTerminal(streamID string) *genx.MessageChunk {
 }
 
 type einoAudioOutputStream struct {
-	stream     genx.Stream
-	builder    *genx.StreamBuilder
-	downstream genx.Stream
-	input      genx.Stream
+	stream              genx.Stream
+	builder             *genx.StreamBuilder
+	downstream          genx.Stream
+	input               genx.Stream
+	observer            agenthost.OutputObservationStream
+	observationDeferred atomic.Bool
 
 	closeOnce   sync.Once
 	stopContext func() bool
 }
 
 func (s *einoAudioOutputStream) Next() (*genx.MessageChunk, error) {
-	return s.stream.Next()
+	chunk, err := s.stream.Next()
+	if chunk != nil && !s.observationDeferred.Load() {
+		s.ObserveOutput(chunk)
+	}
+	return chunk, err
+}
+
+func (s *einoAudioOutputStream) DeferOutputObservation() { s.observationDeferred.Store(true) }
+
+func (s *einoAudioOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if s.observer != nil {
+		s.observer.ObserveOutput(chunk)
+	}
+}
+
+func (s *einoAudioOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if abandoner, ok := s.observer.(interface{ AbandonOutputObservation(*genx.MessageChunk) }); ok {
+		abandoner.AbandonOutputObservation(chunk)
+	}
 }
 
 func (s *einoAudioOutputStream) Close() error {

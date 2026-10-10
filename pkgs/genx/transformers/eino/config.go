@@ -38,6 +38,11 @@ type Config struct {
 	Limits             Limits
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
+	// ContinueFrom names a boolean root State field. When true after a
+	// successful Graph execution, the same turn executes the Graph again,
+	// retaining State and a bounded window of its preceding narration. All
+	// iterations share one output route; each generation is a History message.
+	ContinueFrom string
 	// SafetyFence is host-selected safety prompt text exposed to every run,
 	// including child Graphs, through the input.safety_fence binding. The
 	// transformer never places it anywhere itself: a Graph that does not bind
@@ -218,6 +223,19 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	}
 	if err := result.validateOptionalConfig(); err != nil {
 		return nil, err
+	}
+	if config.ContinueFrom != "" {
+		field, ok := result.fields[config.ContinueFrom]
+		if !ok || field.Type != StateBoolean || field.Merge != MergeReplace {
+			return nil, fmt.Errorf("eino: ContinueFrom must name a boolean root State field with replace merge")
+		}
+		if len(graph.Outputs) != 1 || result.primary.MIMEType != "text/plain" ||
+			result.fields[result.primary.Field].Type != StateString || result.fields[result.primary.Field].Merge != MergeReplace {
+			return nil, fmt.Errorf("eino: ContinueFrom requires one text/plain string output with replace merge")
+		}
+		if result.audioTranscriptNode != "" {
+			return nil, fmt.Errorf("eino: ContinueFrom requires text input; use ASR before the Graph")
+		}
 	}
 	return result, nil
 }

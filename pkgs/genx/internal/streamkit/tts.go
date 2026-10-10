@@ -40,6 +40,7 @@ type TTSMeta struct {
 	Label        string
 	StreamID     string
 	SegmentIndex int // one-based within the input route
+	MessageID    string
 }
 
 type ttsStreamState struct {
@@ -77,7 +78,7 @@ type ttsSegmentEmitter struct {
 	emitted    bool
 }
 
-func newTTSSegmentEmitter(ctx context.Context, emit func([]byte) error) *ttsSegmentEmitter {
+func newTTSSegmentEmitter(ctx context.Context, emit func(context.Context, TTSMeta, []byte) error) *ttsSegmentEmitter {
 	ctx, cancel := context.WithCancel(ctx)
 	e := &ttsSegmentEmitter{
 		ctx:    ctx,
@@ -91,14 +92,14 @@ func newTTSSegmentEmitter(ctx context.Context, emit func([]byte) error) *ttsSegm
 	return e
 }
 
-func (e *ttsSegmentEmitter) run(emit func([]byte) error) {
+func (e *ttsSegmentEmitter) run(emit func(context.Context, TTSMeta, []byte) error) {
 	defer close(e.done)
 	for job := range e.queue {
 		if e.err != nil || e.ctx.Err() != nil {
 			job.cancel()
 			<-job.done
 		} else if emitErr, synthErr := job.drain(func(data []byte) error {
-			err := emit(data)
+			err := emit(e.ctx, job.meta, data)
 			if err == nil && len(data) > 0 {
 				e.emitted = true
 			}
@@ -171,6 +172,7 @@ func (e *ttsSegmentEmitter) abort() {
 // queue holds at most ttsAudioQueueBytes; past that the provider callback
 // blocks until the consumer catches up or the job is cancelled.
 type ttsSegmentJob struct {
+	meta   TTSMeta
 	cancel context.CancelFunc
 	done   chan error
 
@@ -184,7 +186,7 @@ type ttsSegmentJob struct {
 
 func startTTSSegment(ctx context.Context, segment string, meta TTSMeta, mimeType string, synthesize TTSSynthesizer) *ttsSegmentJob {
 	jobCtx, cancel := context.WithCancel(ctx)
-	job := &ttsSegmentJob{cancel: cancel, done: make(chan error, 1)}
+	job := &ttsSegmentJob{meta: meta, cancel: cancel, done: make(chan error, 1)}
 	job.ready = sync.NewCond(&job.mu)
 	stop := context.AfterFunc(jobCtx, job.stop)
 	go func() {
@@ -328,7 +330,7 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 			states[streamID] = state
 			if err := invocation.Emit(response, &genx.MessageChunk{
 				Part: &genx.Blob{MIMEType: mimeType},
-				Ctrl: &genx.StreamCtrl{BeginOfStream: true},
+				Ctrl: &genx.StreamCtrl{BeginOfStream: true, MessageID: meta.MessageID},
 			}); err != nil {
 				delete(states, streamID)
 				return nil, err
@@ -348,9 +350,10 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 			debugTTSSegment(ctx, state.meta, segment, all)
 			if state.emitter == nil {
 				response := state.response
-				state.emitter = newTTSSegmentEmitter(ctx, func(data []byte) error {
-					return invocation.Emit(response, &genx.MessageChunk{
+				state.emitter = newTTSSegmentEmitter(ctx, func(emitCtx context.Context, meta TTSMeta, data []byte) error {
+					return emitTTSAudio(emitCtx, invocation, response, &genx.MessageChunk{
 						Part: &genx.Blob{MIMEType: mimeType, Data: data},
+						Ctrl: &genx.StreamCtrl{MessageID: meta.MessageID},
 					})
 				})
 			}
@@ -452,6 +455,19 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 					return
 				}
 			}
+			if chunk.Ctrl != nil && chunk.Ctrl.MessageEnd && !chunk.IsEndOfStream() {
+				if err := flushState(state, true); err != nil {
+					_ = invocation.Fail(err)
+					return
+				}
+				if err := emitTTSAudio(ctx, invocation, state.response, &genx.MessageChunk{
+					Part: &genx.Blob{MIMEType: mimeType},
+					Ctrl: &genx.StreamCtrl{MessageID: state.meta.MessageID, MessageEnd: true},
+				}); err != nil {
+					_ = invocation.Fail(err)
+					return
+				}
+			}
 			continue
 		}
 
@@ -493,6 +509,9 @@ func updateTTSMeta(meta *TTSMeta, chunk *genx.MessageChunk) {
 	meta.Role = chunk.Role
 	meta.Name = chunk.Name
 	if chunk.Ctrl != nil {
+		if chunk.Ctrl.MessageID != "" {
+			meta.MessageID = chunk.Ctrl.MessageID
+		}
 		if streamID := strings.TrimSpace(chunk.Ctrl.StreamID); streamID != "" {
 			meta.StreamID = streamID
 		}

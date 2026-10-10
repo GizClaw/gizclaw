@@ -131,9 +131,21 @@ type historyAgent struct {
 type historyOutput struct {
 	output           *genx.StreamBuilder
 	upstreamObserver OutputObservationStream
+	upstream         genx.Stream
+	recorder         *historyRecorder
+	historyContext   context.Context
+	forwardingDone   chan struct{}
 
 	observationMu      sync.Mutex
 	pendingObservation map[*genx.MessageChunk]*genx.MessageChunk
+	messageHistory     map[string]bool
+	historyEnabled     bool
+	historyEnded       bool
+	historyFinished    bool
+	historyCleanupDone chan struct{}
+	deliveryClosed     bool
+	deliveryActive     int
+	deliveryDone       chan struct{}
 	productionMu       sync.RWMutex
 	productionObserver func(*genx.MessageChunk)
 
@@ -176,7 +188,7 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 	}
 	outputKey := historyOutputKey(ctx)
 	output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 256)
-	outputState := &historyOutput{output: output}
+	outputState := &historyOutput{output: output, historyContext: ctx, forwardingDone: make(chan struct{})}
 	a.outputMu.Lock()
 	if a.outputs == nil {
 		a.outputs = make(map[string]*historyOutput)
@@ -199,6 +211,8 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 		return nil, err
 	}
 	outputState.upstreamObserver = deferOutputObservation(agentOutput)
+	outputState.upstream = agentOutput
+	outputState.recorder = recorder
 	go a.forwardOutput(ctx, outputKey, outputState, agentOutput, output, recorder)
 	return &historyOutputStream{Stream: output.Stream(), output: outputState}, nil
 }
@@ -217,6 +231,9 @@ func (s *historyOutputStream) Next() (*genx.MessageChunk, error) {
 	if chunk != nil && !s.observationDeferred.Load() {
 		s.ObserveOutput(chunk)
 	}
+	if err != nil {
+		s.output.endMessageHistory()
+	}
 	return chunk, err
 }
 
@@ -230,9 +247,18 @@ func (s *historyOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
 	}
 	s.output.observeReplayOutput(chunk)
 	s.output.observeForwardOutput(chunk)
-	if s.output.upstreamObserver != nil {
-		upstream := s.output.takePendingObservation(chunk)
-		if upstream != nil {
+	upstream := s.output.takeDelivery(chunk)
+	if upstream != nil {
+		defer s.output.completeDelivery()
+		if s.output.isMessageHistory(upstream, false) && s.output.recorder != nil {
+			s.output.recorder.record(s.output.historyContext, upstream)
+			if upstream.IsEndOfStream() && upstream.Ctrl.ResponseEpochEnd {
+				s.output.observationMu.Lock()
+				delete(s.output.messageHistory, upstream.Ctrl.StreamID)
+				s.output.observationMu.Unlock()
+			}
+		}
+		if s.output.upstreamObserver != nil {
 			s.output.upstreamObserver.ObserveOutput(upstream)
 		}
 	}
@@ -274,9 +300,12 @@ func (s *historyOutputStream) Close() error {
 		return nil
 	}
 	if s.output != nil {
+		s.output.stopDeliveries()
 		s.output.abandonPendingObservations()
 	}
-	return s.Stream.Close()
+	err := s.Stream.Close()
+	s.output.closeMessageHistory()
+	return err
 }
 
 func (s *historyOutputStream) CloseWithError(err error) error {
@@ -284,9 +313,132 @@ func (s *historyOutputStream) CloseWithError(err error) error {
 		return nil
 	}
 	if s.output != nil {
+		s.output.stopDeliveries()
 		s.output.abandonPendingObservations()
 	}
-	return s.Stream.CloseWithError(err)
+	closeErr := s.Stream.CloseWithError(err)
+	s.output.closeMessageHistory()
+	return closeErr
+}
+
+// A continuous message is recorded at final delivery, independently of the
+// forwarding goroutine's read-ahead. Ordinary routes retain their existing
+// production-side recording policy.
+func (o *historyOutput) isMessageHistory(chunk *genx.MessageChunk, mark bool) bool {
+	if o == nil || chunk == nil || chunk.Ctrl == nil {
+		return false
+	}
+	o.observationMu.Lock()
+	defer o.observationMu.Unlock()
+	if mark && chunk.Ctrl.MessageID != "" {
+		o.historyEnabled = true
+		if o.messageHistory == nil {
+			o.messageHistory = make(map[string]bool)
+		}
+		o.messageHistory[chunk.Ctrl.StreamID] = true
+	}
+	return o.messageHistory[chunk.Ctrl.StreamID]
+}
+
+func (o *historyOutput) hasMessageHistory() bool {
+	if o == nil {
+		return false
+	}
+	o.observationMu.Lock()
+	defer o.observationMu.Unlock()
+	return o.historyEnabled
+}
+
+func (o *historyOutput) finishMessageHistory() {
+	if !o.hasMessageHistory() || o.recorder == nil {
+		return
+	}
+	o.observationMu.Lock()
+	if o.historyFinished {
+		done := o.historyCleanupDone
+		o.observationMu.Unlock()
+		if done != nil {
+			<-done
+		}
+		return
+	}
+	o.historyFinished = true
+	done := make(chan struct{})
+	o.historyCleanupDone = done
+	clear(o.messageHistory)
+	o.observationMu.Unlock()
+	defer close(done)
+	if o.forwardingDone != nil {
+		<-o.forwardingDone
+	}
+	o.recorder.flushAll(o.historyContext)
+	o.recorder.discard()
+}
+
+func (o *historyOutput) endMessageHistory() {
+	if o == nil {
+		return
+	}
+	o.observationMu.Lock()
+	o.historyEnded = true
+	ready := len(o.pendingObservation) == 0 && o.deliveryActive == 0
+	o.observationMu.Unlock()
+	if ready {
+		o.finishMessageHistory()
+	}
+}
+
+func (o *historyOutput) takeDelivery(chunk *genx.MessageChunk) *genx.MessageChunk {
+	o.observationMu.Lock()
+	defer o.observationMu.Unlock()
+	if o.deliveryClosed {
+		return nil
+	}
+	upstream := o.pendingObservation[chunk]
+	delete(o.pendingObservation, chunk)
+	if upstream != nil {
+		if o.deliveryActive == 0 {
+			o.deliveryDone = make(chan struct{})
+		}
+		o.deliveryActive++
+	}
+	return upstream
+}
+
+func (o *historyOutput) completeDelivery() {
+	o.observationMu.Lock()
+	o.deliveryActive--
+	if o.deliveryActive == 0 {
+		close(o.deliveryDone)
+		o.deliveryDone = nil
+	}
+	ready := o.historyEnded && len(o.pendingObservation) == 0 && o.deliveryActive == 0
+	o.observationMu.Unlock()
+	if ready {
+		o.finishMessageHistory()
+	}
+}
+
+func (o *historyOutput) stopDeliveries() {
+	o.observationMu.Lock()
+	o.deliveryClosed = true
+	o.observationMu.Unlock()
+}
+
+func (o *historyOutput) closeMessageHistory() {
+	if !o.hasMessageHistory() {
+		return
+	}
+	if o.upstream != nil {
+		_ = o.upstream.CloseWithError(io.ErrClosedPipe)
+	}
+	o.observationMu.Lock()
+	done := o.deliveryDone
+	o.observationMu.Unlock()
+	if done != nil {
+		<-done
+	}
+	o.finishMessageHistory()
 }
 
 func (a *historyAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceState, error) {
@@ -346,8 +498,9 @@ func (a *historyAgent) PlayHistory(ctx context.Context, req apitypes.PeerRunHist
 }
 
 func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outputState *historyOutput, input genx.Stream, output *genx.StreamBuilder, recorder *historyRecorder) {
+	defer close(outputState.forwardingDone)
 	defer input.Close()
-	defer recorder.discard()
+	defer recorder.discardUnsegmented()
 	for {
 		if err := ctx.Err(); err != nil {
 			_ = output.Abort(err)
@@ -356,7 +509,7 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 		}
 		chunk, err := input.Next()
 		if err != nil {
-			recorder.flushAll(ctx)
+			recorder.flushUnsegmented(ctx)
 			a.clearOutput(outputKey, outputState)
 			if IsStreamDone(err) {
 				_ = output.Done(genx.Usage{})
@@ -375,13 +528,15 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 		if outputState.observeForwardChunk(chunk) {
 			continue
 		}
-		recorder.record(ctx, chunk)
+		if !outputState.isMessageHistory(chunk, true) {
+			recorder.record(ctx, chunk)
+		}
 		forwarded := chunk.Clone()
 		outputState.addPendingObservation(forwarded, chunk)
 		outputState.observeProduction(forwarded)
 		if err := output.Add(forwarded); err != nil {
 			outputState.abandonPendingObservation(forwarded)
-			recorder.flushAll(ctx)
+			recorder.flushUnsegmented(ctx)
 			a.clearOutput(outputKey, outputState)
 			return
 		}
@@ -451,7 +606,10 @@ func (a *historyAgent) clearOutput(outputKey string, state *historyOutput) {
 }
 
 func (o *historyOutput) addPendingObservation(forwarded, upstream *genx.MessageChunk) {
-	if o == nil || forwarded == nil || upstream == nil || o.upstreamObserver == nil {
+	if o == nil || forwarded == nil || upstream == nil {
+		return
+	}
+	if o.upstreamObserver == nil && !o.isMessageHistory(upstream, false) {
 		return
 	}
 	o.observationMu.Lock()
@@ -489,15 +647,12 @@ func (o *historyOutput) abandonPendingObservation(forwarded *genx.MessageChunk) 
 }
 
 func (o *historyOutput) abandonPendingObservations() {
-	if o == nil || o.upstreamObserver == nil {
+	if o == nil {
 		return
 	}
 	abandoner, ok := o.upstreamObserver.(interface {
 		AbandonOutputObservation(*genx.MessageChunk)
 	})
-	if !ok {
-		return
-	}
 	o.observationMu.Lock()
 	pending := make([]*genx.MessageChunk, 0, len(o.pendingObservation))
 	for _, upstream := range o.pendingObservation {
@@ -505,8 +660,10 @@ func (o *historyOutput) abandonPendingObservations() {
 	}
 	clear(o.pendingObservation)
 	o.observationMu.Unlock()
-	for _, upstream := range pending {
-		abandoner.AbandonOutputObservation(upstream)
+	if ok {
+		for _, upstream := range pending {
+			abandoner.AbandonOutputObservation(upstream)
+		}
 	}
 }
 
@@ -998,6 +1155,7 @@ type historyPendingEntry struct {
 	gearID    string
 	name      string
 	streamID  string
+	messageID string
 	label     string
 	channels  map[string]bool
 	text      strings.Builder
@@ -1051,12 +1209,23 @@ func (r *historyRecorder) Flush(ctx context.Context) error {
 }
 
 func (r *historyRecorder) discard() {
+	r.discardMatching(nil)
+}
+
+func (r *historyRecorder) discardUnsegmented() {
+	r.discardMatching(func(entry *historyPendingEntry) bool { return entry != nil && entry.messageID != "" })
+}
+
+func (r *historyRecorder) discardMatching(keep func(*historyPendingEntry) bool) {
 	if r == nil {
 		return
 	}
 	r.mu.Lock()
 	entries := make([]*historyPendingEntry, 0, len(r.pending))
 	for key, entry := range r.pending {
+		if keep != nil && keep(entry) {
+			continue
+		}
 		entries = append(entries, entry)
 		delete(r.pending, key)
 	}
@@ -1104,6 +1273,14 @@ func (r *historyRecorder) flushAll(ctx context.Context) {
 	}
 }
 
+func (r *historyRecorder) flushUnsegmented(ctx context.Context) {
+	if err := r.flushMatching(ctx, func(entry *historyPendingEntry) bool {
+		return entry != nil && entry.messageID != ""
+	}); err != nil {
+		logHistoryRecordError(ctx, "flush output", err)
+	}
+}
+
 func logHistoryRecordError(ctx context.Context, operation string, err error) {
 	slog.WarnContext(ctx, "agenthost: workspace history entry dropped", "operation", operation, "error", err)
 }
@@ -1115,6 +1292,13 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 	interrupted := historyInterruptedChunk(chunk)
 	if interrupted {
 		r.markInterrupted(historyChunkStreamID(chunk))
+	}
+	if chunk.Ctrl != nil && chunk.Ctrl.MessageEnd && chunk.Ctrl.MessageID != "" {
+		mimeType, ok := chunk.MIMEType()
+		if !ok {
+			return fmt.Errorf("agenthost: History message boundary requires a MIME channel")
+		}
+		return r.completeMessageChannel(ctx, chunk, typ, mimeType)
 	}
 	recordChunk := chunk
 	var (
@@ -1214,12 +1398,23 @@ func historyAgentRouteChannelEOS(chunk *genx.MessageChunk, part any) bool {
 }
 
 func (r *historyRecorder) completeRouteChannel(ctx context.Context, chunk *genx.MessageChunk, typ, mimeType string) error {
+	return r.completeChannels(ctx, chunk, typ, mimeType, false)
+}
+
+func (r *historyRecorder) completeMessageChannel(ctx context.Context, chunk *genx.MessageChunk, typ, mimeType string) error {
+	return r.completeChannels(ctx, chunk, typ, mimeType, true)
+}
+
+func (r *historyRecorder) completeChannels(ctx context.Context, chunk *genx.MessageChunk, typ, mimeType string, messageOnly bool) error {
 	streamID := historyChunkStreamID(chunk)
 	label := strings.TrimSpace(chunk.Ctrl.Label)
 	r.mu.Lock()
 	keys := make([]string, 0, len(r.pending))
 	for key, entry := range r.pending {
 		if entry == nil || entry.typ != typ || entry.streamID != streamID || entry.label != label {
+			continue
+		}
+		if messageOnly && entry.messageID != chunk.Ctrl.MessageID {
 			continue
 		}
 		if _, observed := entry.channels[mimeType]; !observed {
@@ -1389,6 +1584,7 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 			gearID:    strings.TrimSpace(gearID),
 			name:      historyChunkName(chunk, typ),
 			streamID:  historyChunkStreamID(chunk),
+			messageID: historyChunkMessageID(chunk),
 			label:     historyChunkLabel(chunk),
 			createdAt: time.Now().UTC(),
 		}
@@ -1608,7 +1804,18 @@ func historyPCMFormat(mimeType string) (pcm.Format, bool) {
 }
 
 func (r *historyRecorder) key(chunk *genx.MessageChunk, typ string) string {
-	return typ + ":" + historyChunkStreamID(chunk) + ":" + historyChunkLabel(chunk) + ":" + historyChunkName(chunk, typ)
+	key := typ + ":" + historyChunkStreamID(chunk) + ":" + historyChunkLabel(chunk) + ":" + historyChunkName(chunk, typ)
+	if messageID := historyChunkMessageID(chunk); messageID != "" {
+		key += ":" + messageID
+	}
+	return key
+}
+
+func historyChunkMessageID(chunk *genx.MessageChunk) string {
+	if chunk != nil && chunk.Ctrl != nil {
+		return chunk.Ctrl.MessageID
+	}
+	return ""
 }
 
 func historyChunkLabel(chunk *genx.MessageChunk) string {
