@@ -113,6 +113,8 @@ Volc `chat_completions` Model 的 `support_text_only: false` 启用 Doubao chat 
 
 Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同一个 Workflow memory alias；不存在 Eino 专属的 Memory block 或 Server Config binding。`conversation.starts: agent` 支持主动开场，Workspace conversation parameters 可以选择 `on_reload` 或仅空 history 时一次开场；并发 stream 只允许一个成功 claim，失败可重试，用户输入可以沿既有 interruption 路径打断开场。产品层继续使用持久 History，但 Graph state 仍是 invocation-local。
 
+`conversation.continue_from` 让 Eino 在同一用户 turn 内持续生成，直到用户打断或控制字段变为 false。播讲共用一个 StreamID，每轮生成分别写入一条 Workspace History，文字与对应音频一起保存。字段、上下文窗口、背压与取消规则由 [Eino Transformer](../../genx/transformers/eino#同一-turn-内连续讲述) 定义。
+
 #### Eino 音频输入路径
 
 Workspace `input` 为 `push-to-talk`（默认）或 `realtime`，仅决定读取 Profile binding 的哪一个 ASR Model：

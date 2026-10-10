@@ -107,10 +107,34 @@ type quotaStream struct {
 	done    chan struct{}
 }
 
-func newQuotaStream(ctx context.Context, stream genx.Stream, release func()) *quotaStream {
+func newQuotaStream(ctx context.Context, stream genx.Stream, release func()) genx.Stream {
 	s := &quotaStream{Stream: stream, ctx: ctx, release: release, done: make(chan struct{})}
 	s.stop = context.AfterFunc(ctx, func() { defer close(s.done); _ = stream.CloseWithError(context.Cause(ctx)) })
+	if observer, ok := stream.(quotaOutputObserver); ok {
+		return &observedQuotaStream{quotaStream: s, observer: observer}
+	}
 	return s
+}
+
+type quotaOutputObserver interface {
+	DeferOutputObservation()
+	ObserveOutput(*genx.MessageChunk)
+	AbandonOutputObservation(*genx.MessageChunk)
+}
+
+// Preserve provider delivery control through quota ownership. In particular,
+// a paced TTS stream must not acknowledge audio when Audio Dock merely reads it.
+type observedQuotaStream struct {
+	*quotaStream
+	observer quotaOutputObserver
+}
+
+func (s *observedQuotaStream) DeferOutputObservation() { s.observer.DeferOutputObservation() }
+func (s *observedQuotaStream) ObserveOutput(chunk *genx.MessageChunk) {
+	s.observer.ObserveOutput(chunk)
+}
+func (s *observedQuotaStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	s.observer.AbandonOutputObservation(chunk)
 }
 func (s *quotaStream) finish() {
 	s.once.Do(func() {

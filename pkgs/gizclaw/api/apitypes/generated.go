@@ -3706,7 +3706,9 @@ type EinoChatModelNodeType string
 
 // EinoConversation defines model for EinoConversation.
 type EinoConversation struct {
-	Starts *EinoConversationStarts `json:"starts,omitempty"`
+	// ContinueFrom Boolean root State field with replace merge. True repeats the Graph within the same user turn and continuous playback stream; false ends it. Each generation is saved as a separate History entry before the next generation. Requires one text/plain string output with replace merge and text input (ASR may precede the Graph); speaker_voices is unsupported. Interruption cancels the current generation and preserves its delivered prefix.
+	ContinueFrom *string                 `json:"continue_from,omitempty"`
+	Starts       *EinoConversationStarts `json:"starts,omitempty"`
 }
 
 // EinoConversationStarts defines model for EinoConversation.Starts.

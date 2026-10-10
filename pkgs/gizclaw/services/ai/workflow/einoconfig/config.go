@@ -64,6 +64,15 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes
 	}
+	if public.Conversation != nil && public.Conversation.ContinueFrom != nil {
+		config.ContinueFrom = *public.Conversation.ContinueFrom
+		if strings.TrimSpace(config.ContinueFrom) == "" {
+			return errors.New("conversation.continue_from must name a boolean root State field")
+		}
+		if public.VoiceAdapter != nil && public.VoiceAdapter.SpeakerVoices != nil && len(*public.VoiceAdapter.SpeakerVoices) != 0 {
+			return errors.New("conversation.continue_from does not support voice_adapter.speaker_voices")
+		}
+	}
 	return genxeino.ValidateConfig(config)
 }
 

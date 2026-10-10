@@ -40,3 +40,9 @@ Audio Dock 返回的 stream 由 consumer 持有；`Close` 与 `CloseWithError` �
 Seed V2 的可继续分段失败在 child TTS 内处理，Audio Dock 继续合并同一条 audio route，
 不为失败句子创建额外 EOS，也不重播音频。整条回复无音频的 provider 失败仍沿用既有
 error EOS；已经投递的回复文字保留。具体策略见 [Seed V2 分段失败](./transformers/doubao#seed-v2-分段失败)。
+
+## 连续讲述背压
+
+`Config.Backpressure` 用于单一 publisher 的连续讲述，不支持 `SpeakerVoices`。正文在 TTS 读取后才发布，交付确认传回文本 Agent；共享 TTS emitter 每次发出一个音频 chunk 后等待最终消费者确认，同时保留原有的两个有界句子合成任务。TTS 输入队列限制为 4 MiB，超限会明确报错。TTS output 必须支持 deferred output observation；产品 Quota wrapper 与 Eino 输入检查 wrapper 保留该 capability。
+
+`MessageEnd` 让 TTS flush 当前生成的剩余文字并等待其音频交付，再转交该段文字与音频的消息边界。整个 response 保持一套 BOS/EOS，Workspace recorder 可以在播讲过程中逐段落库。输入 BOS 的取消路径独立于这些交付等待，能释放阻塞中的合成与 generation。交付确认到达服务端消费者边界；Mixer 与 transport 仍管理播放缓冲，它不是设备扬声器的逐字播放回执。

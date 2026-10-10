@@ -36,6 +36,39 @@ func TestValidate(t *testing.T) {
 		t.Fatalf("Validate(valid) error = %v", err)
 	}
 
+	t.Run("continuation field", func(t *testing.T) {
+		spec := cloneSpec(t, valid)
+		field := "answer"
+		spec.Conversation = &apitypes.EinoConversation{ContinueFrom: &field}
+		if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "ContinueFrom") {
+			t.Fatalf("Validate(non-boolean continuation)=%v", err)
+		}
+	})
+
+	t.Run("continuation contract", func(t *testing.T) {
+		spec := cloneSpec(t, valid)
+		field := "continue"
+		spec.Conversation = &apitypes.EinoConversation{ContinueFrom: &field}
+		spec.Graph.State.Fields = append(spec.Graph.State.Fields, apitypes.EinoStateField{
+			Name: field, Type: "boolean", Merge: "replace",
+		})
+		if err := Validate(spec); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"", "  ", "missing"} {
+			candidate := cloneSpec(t, spec)
+			candidate.Conversation.ContinueFrom = &name
+			if err := Validate(candidate); err == nil {
+				t.Fatalf("accepted invalid continuation field %q", name)
+			}
+		}
+		speakers := map[string]string{"Host": "host"}
+		spec.VoiceAdapter = &apitypes.VoiceAdapter{SpeakerVoices: &speakers}
+		if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "speaker_voices") {
+			t.Fatalf("accepted unpaced speaker switching: %v", err)
+		}
+	})
+
 	t.Run("voice adapter", func(t *testing.T) {
 		spec := cloneSpec(t, valid)
 		asr, blank, voice := "speech.asr", "  ", "speech.voice"

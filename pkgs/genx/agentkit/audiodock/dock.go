@@ -148,6 +148,9 @@ type dockRoute struct {
 	// resolved or aborted every sibling TTS route. Publishing it earlier could
 	// expose ResponseEpochEnd while sibling cleanup is still in progress.
 	deferredEOS *genx.MessageChunk
+	// messageEnds waits for each generated message's sibling audio to finish,
+	// while the enclosing playback route stays open across messages.
+	messageEnds map[string]*genx.MessageChunk
 	ttsRoutes   map[string]*dockTTSRoute
 	ttsPipes    map[string]*ttsPipe
 	ttsDone     sync.WaitGroup
@@ -374,6 +377,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		hasSpeech = true
 	}
 	resolveTTS := textChunk && hasSpeech && r.dock.config.TTS != nil
+	var publishText func(*genx.MessageChunk)
 
 	route.ttsEmitMu.Lock()
 	if route.closed.Load() {
@@ -383,6 +387,15 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	}
 	deferEOS := chunk.IsEndOfStream() && (resolveTTS || route.hasTTSPipes() ||
 		(chunk.Ctrl != nil && (chunk.Ctrl.Error != "" || chunk.Ctrl.ErrorCode != "")))
+	deferMessage := chunk.Ctrl != nil && chunk.Ctrl.MessageEnd && !chunk.IsEndOfStream() && route.hasTTSPipes()
+	if deferMessage {
+		route.mu.Lock()
+		if route.messageEnds == nil {
+			route.messageEnds = make(map[string]*genx.MessageChunk)
+		}
+		route.messageEnds[chunk.Ctrl.MessageID] = chunk
+		route.mu.Unlock()
+	}
 	if deferEOS {
 		route.mu.Lock()
 		route.deferredEOS = chunk
@@ -400,21 +413,21 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		emitted.Ctrl.ErrorRetryable = false
 		emitted.Ctrl.FailureClass = ""
 	}
-	if !deferEOS || emitted != chunk {
-		mimeType, trackedTerminal := route.trackPendingTerminal(emitted)
-		if err := r.invocation.EmitTracked(route.response, emitted, func(*genx.MessageChunk) {
-			route.clearPendingTerminal(mimeType, trackedTerminal)
-			r.source.ObserveOutput(chunk)
-		}, func(*genx.MessageChunk) {
-			route.clearPendingTerminal(mimeType, trackedTerminal)
-			r.source.AbandonOutputObservation(chunk)
-		}); err != nil {
-			route.ttsEmitMu.Unlock()
-			route.clearPendingTerminal(mimeType, trackedTerminal)
-			if route.closed.Load() && errors.Is(err, streamkit.ErrInactiveResponse) {
-				r.source.AbandonOutputObservation(chunk)
-				return nil
+	if (!deferEOS || emitted != chunk) && !deferMessage {
+		if resolveTTS && r.dock.config.Backpressure {
+			// Publish only when TTS takes this text. A slow synthesizer therefore
+			// also holds the Agent's delivered-output acknowledgement, bounding
+			// continuation without counting invisible text in History.
+			publishText = func(*genx.MessageChunk) {
+				route.ttsEmitMu.Lock()
+				err := r.emitSourceChunkLocked(route, emitted, chunk)
+				route.ttsEmitMu.Unlock()
+				if err != nil {
+					_ = r.invocation.Fail(err)
+				}
 			}
+		} else if err := r.emitSourceChunkLocked(route, emitted, chunk); err != nil {
+			route.ttsEmitMu.Unlock()
 			return err
 		}
 	}
@@ -445,11 +458,31 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 			}
 		}
 	}
+	if deferMessage {
+		pipe = r.ttsPipe(ctx, route, chunk, "", "")
+	}
 	if pipe != nil {
-		if err := pipe.input.Push(emitted); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+		var err error
+		if publishText != nil {
+			err = pipe.input.PushTracked(emitted, publishText, func(*genx.MessageChunk) {
+				r.source.AbandonOutputObservation(chunk)
+			})
+		} else if deferMessage {
+			err = pipe.input.PushTracked(emitted, nil, func(*genx.MessageChunk) {
+				r.source.AbandonOutputObservation(chunk)
+			})
+		} else {
+			err = pipe.input.Push(emitted)
+		}
+		if err != nil && (publishText != nil || deferMessage) {
+			r.source.AbandonOutputObservation(chunk)
+		}
+		if err != nil && !errors.Is(err, io.ErrClosedPipe) {
 			r.finishRoute(route, err)
 			return nil
 		}
+	} else if publishText != nil || deferMessage {
+		r.source.AbandonOutputObservation(chunk)
 	}
 	if !chunk.IsEndOfStream() {
 		return nil
@@ -473,6 +506,28 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		r.finishRoute(route, nil)
 	}
 	return nil
+}
+
+// emitSourceChunkLocked runs under the route's publication barrier, including
+// when TTS pulls deferred narration. It never waits for a downstream consumer.
+func (r *dockRun) emitSourceChunkLocked(route *dockRoute, emitted, source *genx.MessageChunk) error {
+	if route.closed.Load() {
+		r.source.AbandonOutputObservation(source)
+		return nil
+	}
+	mimeType, terminal := route.trackPendingTerminal(emitted)
+	err := r.invocation.EmitTracked(route.response, emitted, func(*genx.MessageChunk) {
+		route.clearPendingTerminal(mimeType, terminal)
+		r.source.ObserveOutput(source)
+	}, func(*genx.MessageChunk) {
+		route.clearPendingTerminal(mimeType, terminal)
+		r.source.AbandonOutputObservation(source)
+	})
+	if err != nil {
+		route.clearPendingTerminal(mimeType, terminal)
+		r.source.AbandonOutputObservation(source)
+	}
+	return err
 }
 
 func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
@@ -531,9 +586,14 @@ func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.Mes
 		return nil
 	}
 	ctx, cancel := context.WithCancel(ctx)
+	inputConfig := streamkit.OutputConfig{InitialCapacity: initialOutputCapacity}
+	if r.dock.config.Backpressure {
+		ctx = streamkit.WithTTSBackpressure(ctx)
+		inputConfig.MaxBytes = maxPendingSpeechBytes
+	}
 	pipe := &ttsPipe{
 		name:   chunk.Name,
-		input:  streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity}),
+		input:  streamkit.NewOutput(inputConfig),
 		cancel: cancel,
 	}
 	if segmentKey != "" {
@@ -589,6 +649,13 @@ func (r *dockRun) startTTS(ctx context.Context, route *dockRoute, pipe *ttsPipe,
 		}
 		if output != nil {
 			defer output.Close()
+			if r.dock.config.Backpressure {
+				if observer, ok := output.(ttsDeliveryStream); ok {
+					observer.DeferOutputObservation()
+				} else {
+					err = fmt.Errorf("audiodock: Backpressure requires TTS output delivery observation")
+				}
+			}
 			// Publish the handle under the same lock used by abortTTS. If an
 			// interrupt won startup, close the late handle without emitting it.
 			route.mu.Lock()
@@ -611,6 +678,24 @@ func (r *dockRun) startTTS(ctx context.Context, route *dockRoute, pipe *ttsPipe,
 		}
 		if err != nil {
 			err = fmt.Errorf("audiodock: start TTS pattern=%q: %w", pattern, err)
+		}
+	}
+	if err == nil && pattern == "" && r.dock.config.Backpressure {
+		// An empty Voice pattern disables speech. Consume its input so text
+		// acknowledgements still progress without opening a provider session.
+		for {
+			chunk, readErr := pipe.input.Next()
+			if readErr != nil {
+				break
+			}
+			if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.MessageEnd {
+				route.ttsEmitMu.Lock()
+				err = r.emitMessageEndLocked(route, chunk.Ctrl.MessageID)
+				route.ttsEmitMu.Unlock()
+				if err != nil {
+					break
+				}
+			}
 		}
 	}
 	if err != nil && ctx.Err() == nil {
@@ -719,9 +804,25 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 			// closing the final MIME route with the error EOS.
 			genx.SetStreamError(emitted.Ctrl, nil)
 		}
-		emitChunk := emitted.IsBeginOfStream() || ttsChunkHasData(emitted)
+		emitChunk := emitted.IsBeginOfStream() || ttsChunkHasData(emitted) || emitted.Ctrl.MessageEnd
 		if emitChunk {
-			if err := r.invocation.Emit(route.response, emitted); err != nil {
+			var emitErr error
+			if observer, ok := pipe.output.(ttsDeliveryStream); ok && r.dock.config.Backpressure {
+				emitErr = r.invocation.EmitTracked(route.response, emitted, func(*genx.MessageChunk) {
+					observer.ObserveOutput(chunk)
+				}, func(*genx.MessageChunk) {
+					observer.AbandonOutputObservation(chunk)
+				})
+			} else {
+				emitErr = r.invocation.Emit(route.response, emitted)
+			}
+			if emitErr != nil {
+				route.ttsEmitMu.Unlock()
+				return
+			}
+		}
+		if emitted.Ctrl.MessageEnd {
+			if err := r.emitMessageEndLocked(route, emitted.Ctrl.MessageID); err != nil {
 				route.ttsEmitMu.Unlock()
 				return
 			}
@@ -733,7 +834,23 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 			return
 		}
 		route.ttsEmitMu.Unlock()
+		if !emitChunk && r.dock.config.Backpressure {
+			if observer, ok := pipe.output.(ttsDeliveryStream); ok {
+				observer.ObserveOutput(chunk)
+			}
+		}
 	}
+}
+
+func (r *dockRun) emitMessageEndLocked(route *dockRoute, messageID string) error {
+	route.mu.Lock()
+	source := route.messageEnds[messageID]
+	delete(route.messageEnds, messageID)
+	route.mu.Unlock()
+	if source == nil {
+		return nil
+	}
+	return r.emitSourceChunkLocked(route, source, source)
 }
 
 func validateTTSTermination(routes map[dockTTSChildRouteKey]*dockTTSRoute) error {
@@ -822,8 +939,12 @@ func (r *dockRun) finishRoute(route *dockRoute, cause error) {
 		hook(ctrl.Error)
 	}
 	route.ttsEmitMu.Lock()
-	defer route.ttsEmitMu.Unlock()
+	failInvocation := cause != nil && !route.closed.Load() && r.dock.config.Backpressure
 	r.finishRouteLocked(route, ctrl)
+	route.ttsEmitMu.Unlock()
+	if failInvocation {
+		_ = r.invocation.Fail(cause)
+	}
 }
 
 // finishRouteLocked copies cached public fields while serializing terminal
@@ -976,6 +1097,11 @@ func (r *dockRun) abortTTS(route *dockRoute, err error) {
 	route.mu.Lock()
 	pipes := make([]*ttsPipe, 0, len(route.ttsPipes))
 	var outputs []genx.Stream
+	messageEnds := make([]*genx.MessageChunk, 0, len(route.messageEnds))
+	for _, chunk := range route.messageEnds {
+		messageEnds = append(messageEnds, chunk)
+	}
+	clear(route.messageEnds)
 	for _, pipe := range route.ttsPipes {
 		if pipe != nil {
 			pipe.cancel()
@@ -986,6 +1112,9 @@ func (r *dockRun) abortTTS(route *dockRoute, err error) {
 		}
 	}
 	route.mu.Unlock()
+	for _, chunk := range messageEnds {
+		r.source.AbandonOutputObservation(chunk)
+	}
 	for _, pipe := range pipes {
 		_ = pipe.input.CloseWithError(err)
 	}
