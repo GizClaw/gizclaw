@@ -32,6 +32,7 @@ active_command_pid=""
 active_phase=""
 failure_diagnostics_collected=0
 stack_started=0
+failed_phases=()
 
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
 
@@ -281,6 +282,14 @@ run_timed() {
 	echo "==> phase done: $phase status=$status elapsed_seconds=$((SECONDS - started))"
 	if [[ "$status" != "0" ]]; then
 		collect_failure_diagnostics
+		if [[ "$full_giztest" == 1 ]]; then
+			case "$phase" in
+				javascript | giztest:* | cgo:* | go:* | cli | terraform)
+					failed_phases+=("$phase:$status")
+					return 0
+					;;
+			esac
+		fi
 	fi
 	return "$status"
 }
@@ -346,9 +355,10 @@ run_js_rpc_tests() {
 # failure-cleanup document belongs to its dedicated negative-test phase.
 # Monitor scenarios need the dedicated runner's node token, retained assets
 # and script Workflow. Slow TTS scenarios require the provider-only build
-# overlay. Keep both out of unrelated provider/SDK environments.
+# overlay. Quota documents in their subdirectory need the quota fixture and
+# catalog. Each dedicated runner owns its environment and scenario discovery.
 standard_sdk_giztest_files() {
-	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
+	find "$script_dir/giztest" -maxdepth 1 -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
 }
 
 run_js_giztest() {
@@ -575,6 +585,11 @@ if [[ "$full_giztest" == 1 ]]; then
 	run_timed "giztest:slow-tts" bash "$script_dir/run_slow_tts_tests.sh"
 	run_timed "giztest:speaker-segments" bash "$script_dir/run_speaker_segment_tests.sh"
 	echo "==> manual Giztest review.* documents require human assessment"
+fi
+
+if ((${#failed_phases[@]} > 0)); then
+	echo "==> e2e completed with failed phases: ${failed_phases[*]}" >&2
+	exit 1
 fi
 
 echo "==> e2e run completed"
