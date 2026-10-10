@@ -374,7 +374,13 @@ func listRuntimeProfileSQL(ctx context.Context, db *sqlx.DB, cursor string, limi
 
 const registrationTokenColumns = "id,token,runtime_profile_id,firmware_id,enabled,expires_at,max_activations,created_at,updated_at,incarnation,row_version"
 
-const registrationTokenProjection = registrationTokenColumns + ",(SELECT COUNT(*) FROM registration_token_activations a WHERE a.token_id=registration_tokens.id)"
+const registrationTokenActivationCount = "(SELECT COUNT(*) FROM registration_token_activations a WHERE a.token_id=registration_tokens.id)"
+
+const registrationTokenProjection = registrationTokenColumns + "," + registrationTokenActivationCount
+
+// Admission needs a count only when the token limits new activations. Admin
+// reads continue to return the exact count, including for unlimited tokens.
+const registrationTokenAdmissionProjection = registrationTokenColumns + ",CASE WHEN max_activations IS NULL THEN 0 ELSE " + registrationTokenActivationCount + " END"
 
 func encodeRegistrationTokenSQL(item apitypes.RegistrationToken) ([]any, error) {
 	return []any{item.Id, item.Token, item.RuntimeProfileId, item.FirmwareId, item.Enabled, registrationExpiryText(item.ExpiresAt), item.MaxActivations, item.CreatedAt.UTC().Format(time.RFC3339Nano), item.UpdatedAt.UTC().Format(time.RFC3339Nano)}, nil

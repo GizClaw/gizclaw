@@ -105,6 +105,24 @@ The successful document under `tests/gizclaw-e2e/testdata/admission/` covers new
 
 The Admission SDK E2E CI job runs the complete lane. Ordinary Go tests run the Go Giztest scenarios. PostgreSQL Integration runs `TestPostgreSQLRegistrationTokenLifecycle`, covering old-schema migration, editable limits, idempotence, and independent connections racing for the last slot. SQLite runs equivalent lifecycle and independent-connection concurrency tests.
 
+### Concurrent RegistrationToken activation
+
+```sh
+npm ci && npm run build:console
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**'
+bash tests/gizclaw-e2e/run_registration_load_tests.sh
+```
+
+Replace `<os>-<arch>` with the host platform, such as `darwin-arm64` or `linux-amd64`. This entry requires Go, Docker and Python 3, with no model credentials. It pins PostgreSQL 17 and Redis 8.4.6 by digest, limits them to 2 CPU / 1 GiB and 1 CPU / 256 MiB respectively, and sets PG `max_connections=300`. Server/Go Giztest defaults to `GOMAXPROCS=8`. Cleanup removes only this run's containers and volumes. Evidence remains in ignored `.testbench/registration-*`, or the directory supplied as the first argument.
+
+PG defaults to a Docker volume. `GIZCLAW_TEST_REGISTRATION_PG_TMPFS=1` selects a 256 MiB memory filesystem within the same 1 GiB container limit to isolate lock behavior from long host disk stalls. It does not measure disk persistence performance. Before/after comparisons must use the same storage option and retain `settings.txt` and `containers.json`.
+
+`GIZCLAW_TEST_REGISTRATION_CONCURRENCY` selects 2–128 distinct public keys, defaulting to 64. The fixture starts the production Server with an isolated SQL schema and Redis prefix, provisions Profile/Token resources over Admin HTTP, and uses Go Giztest over real WebRTC for registration and four retries per public key. Signaling still uses registration-token admission. The fixture serializes signaling HTTP requests to respect the policy's concurrent same-token lookup rejection, then releases all registration RPCs through an HTTP rendezvous. RPC timing excludes setup and rendezvous and does not represent unrestricted handshake burst capacity.
+
+Cases cover a shared token, independent tokens, a shared token with 20,000 existing activations, shared/independent tokens with a fixed 20 ms owner-write delay, and a limited token whose exhausted capacity still permits retries. The delay is a lock-scope diagnostic, not a production latency prediction. Limited tokens still serialize capacity checks; unlimited-token throughput does not describe that path. Each case verifies activation and owner counts and saves generated Giztest documents, reports, errors, PG activity and blocking PIDs sampled every 10 ms, `pg_stat_statements`, container settings, binary SHA-256 and source information. Summaries include throughput, p50/p95/p99, sampled waiters and transaction age. Sampled query age is not exact cumulative PostgreSQL lock-wait time; missing a wait in samples does not prove it never occurred.
+
+`TestPostgreSQLRegistrationIndependentProgress` holds one owner's row in an external transaction and requires a different owner sharing the token to commit. Limited tokens and same-owner retries provide serialization controls. Other `TestPostgreSQLRegistration*` cases use actual blocking PIDs to coordinate last-slot races, limits added while waiting, both orders of token update/delete races, and cancellation rollback. They use `GIZCLAW_TEST_POSTGRES_DSN` and independent service instances. SQLite lifecycle and concurrency coverage remains part of ordinary `go test`.
+
 ### Docker admission and blocking
 
 ```sh

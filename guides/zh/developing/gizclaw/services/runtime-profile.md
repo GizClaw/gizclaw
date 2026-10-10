@@ -125,7 +125,9 @@ Admin create/put 与声明式 `spec` 支持 `enabled`（省略为 true）、`exp
 
 一次激活是一个新公钥第一次用该 token 成功执行 `server.register`。SQL `registration_token_activations` 以 `(token_id, peer_public_key)` 为唯一键，保存第一次激活的 `activated_at`；计数来自行数。相同 token 与公钥重复注册不新增记录，即使管理员后来禁用、缩短有效期或降低上限，已有激活仍可幂等注册。token 被删除或值被替换后，旧值不再有效；删除 token 同时删除它的激活记录，保留已有 owner/firmware 绑定。
 
-`server.register` 是权威写入点：事务先取得 token 写锁，再判断 enabled、到期时间、数量和是否已激活，插入激活记录，同时写入 `runtime_profile_owners` 的 RuntimeProfile 与 firmware 绑定。SQLite 与 PostgreSQL 都在读之前取得写锁；两个新设备争最后一个名额时只能成功一个。拒绝返回 `PermissionDenied`，SQL 失败回滚整个事务。只有提交成功后才发布连接内快照。Peer 的 firmware 读取优先使用这份 SQL 绑定，尚无 SQL firmware 的老设备继续读取既有 Peer 数据。
+`server.register` 是权威写入点：事务锁定 token 配置，再判断 enabled、到期时间、数量和是否已激活，插入激活记录，同时写入 `runtime_profile_owners` 的 RuntimeProfile 与 firmware 绑定。PostgreSQL 对不限次数的 token 使用 `FOR SHARE`，不同公钥可并行注册，管理员更新或删除仍须等待这些事务提交。有限额的 token 使用 `FOR NO KEY UPDATE`；事务显式使用 Read Committed，并在获得排他锁后的独立语句中统计激活数，因此能看见等待期间提交的最后一个名额。若等待共享锁时被管理员加上限额，先回滚，再开启排他事务，避免锁升级死锁。SQLite 保留读之前的写锁，避免并发连接的读转写冲突。两个新设备争最后一个名额时只能成功一个。
+
+不限次数的 token 在准入和注册时不扫描激活总数；重复注册通过唯一键检查已有激活，不再插入同一条记录。有限额的新激活仍在事务内计数，Admin 响应始终返回真实 `activation_count`。所有注册事务在提交前持续保护 token 配置，不以缓存替代权威检查。拒绝返回 `PermissionDenied`，SQL 失败回滚整个事务。只有提交成功后才发布连接内快照。Peer 的 firmware 读取优先使用这份 SQL 绑定，尚无 SQL firmware 的老设备继续读取既有 Peer 数据。
 
 管理员可延长或缩短有效期、调高或调低上限，包括调到低于已激活数；这些操作沿用 incarnation / row_version 乐观并发，冲突返回 409。省略或 null 会清除可空限制，省略 enabled 恢复 true。禁用、过期与降低上限只阻止新激活，不吊销已有设备；已知且可用的 Peer 不带凭证重连仍成功。握手只读预检不预留名额，预检后被其他设备抢完额度时，register 仍会拒绝且不产生半绑定。管理员恢复 token 后负缓存最多保留 1 秒，独立的失败预算仍可能阻止该窗口内的查询。
 
@@ -152,7 +154,7 @@ CLI 的 `admin registration-tokens create/put -f` 接受对应 JSON 字段；Ter
 
 Firmware 仍是独立 Admin 资源，不进入 RuntimeProfile projection。RegistrationToken 可以独立绑定 Firmware ID，但不绑定 channel。Credential 与 ProviderTenant 只是真实 Model、Voice 在 Server 侧使用的依赖，不会暴露给设备。
 
-RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens`、`registration_token_activations` 和 `runtime_profile_owners` 表。资源配置保留 JSON，身份、版本、限制和绑定分别保存为列。列表把游标与数量限制下推 SQL，Profile 与 token 更新/删除比较 incarnation 和 row_version。注册的事务与快照发布按同一 owner 串行，无关 owner 可并行；token 写锁保证跨进程限额一致。
+RuntimeProfile 使用 SQL `runtime_profiles`、`registration_tokens`、`registration_token_activations` 和 `runtime_profile_owners` 表。资源配置保留 JSON，身份、版本、限制和绑定分别保存为列。列表把游标与数量限制下推 SQL，Profile 与 token 更新/删除比较 incarnation 和 row_version。注册的事务与快照发布按同一 owner 串行；PostgreSQL 上不限次数的 token 允许无关 owner 并行，有限额的 token 由排他行锁保证跨进程限额一致。
 
 `services/runtime/runtimeprofile` 在 Server 初始化时从持久 SQL 的所有 RuntimeProfile 构建一份纯内存 SQLite 索引。持久 SQL 仍保存完整 Profile 且是权威数据；内存库把每个 Workflow、Model、Voice、Tool、Memory、app_config、safety fence 与 MHS v0 device 拆成独立的 `(runtime_profile_id, kind, name, value_json)` 行，并把 Workflow tags 拆成可检索行。`Index.ListProfileIDs` 枚举全部 Profile，`Index.GetEntry` 按 Profile ID、kind 和 name 精确读取，`Index.ListEntries` 可跨 Profile 按 kind 读取条目，`Index.ListWorkflowsByTags` 对多个普通字符串 tag 做 AND 查询；设备 Workflow catalog 也按 Profile revision 从这个 SQLite 快照筛选；这些内部查询不读取磁盘，也不向 Peer 暴露包含凭证的条目。内存 SQLite 实例发布后设为只读。RuntimeProfile 在本 Server 持久提交后立即重建一个新实例，后台也每 5 分钟从持久 SQL 重建；新实例完成后原子切换，并关闭旧实例。持久写入提交后即返回成功；若随后的内存快照刷新失败，Server 记录告警，按 revision 读取时重试，后台五分钟轮换也会重试，不把已提交写入报成失败。其他 Server 的写入由下一次定时轮换纳入，也可调用 `RefreshMemoryIndex` 提前重建。进程关闭时释放内存库，重启后从持久数据重建。
 
