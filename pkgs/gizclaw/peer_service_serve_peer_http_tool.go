@@ -203,6 +203,10 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 		}
 	}
 	switch request := message.(type) {
+	case *rpcpb.ClientGnssReportingSetRequest:
+		if request.Enabled == nil {
+			return invalid()
+		}
 	case *rpcpb.ClientLuaAppInstallRequest:
 		opts.timeout = 2 * time.Minute
 	case *rpcpb.ClientLuaAppRunRequest:
@@ -268,6 +272,10 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 }
 
 func validateClientToolResponse(message proto.Message) error {
+	switch message.(type) {
+	case *rpcpb.ClientGnssReportingGetResponse, *rpcpb.ClientGnssReportingSetResponse:
+		return rpcapi.ValidateGNSSReportingResponse(message)
+	}
 	if strings.HasPrefix(string(message.ProtoReflect().Descriptor().Name()), "ClientLuaApp") {
 		return rpcapi.ValidateLuaAppResponse(message)
 	}

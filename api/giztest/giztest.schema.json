@@ -520,7 +520,9 @@
             "social.ping",
             "lua.app.list",
             "lua.app.install",
-            "lua.app.run"
+            "lua.app.run",
+            "gnss.reporting.get",
+            "gnss.reporting.set"
           ]
         },
         "observe_only": {

@@ -1024,6 +1024,13 @@ typedef struct {
   gzc_str_t friend_group_name;
 } gzc_control_social_ping_request_t;
 
+/* Reads the online device's GNSS reporting switch through invoke. */
+int gzc_control_get_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
+                                         bool *out_enabled);
+/* Sets an explicit switch value through invoke and returns the device's applied value. */
+int gzc_control_set_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
+                                         bool enabled, bool *out_enabled);
+
 /* Reads live hardware information through info.get. */
 int gzc_control_get_device_hardware(gzc_control_client_t *client, gzc_control_call_t *call,
                                     gzc_control_hardware_info_t *out);

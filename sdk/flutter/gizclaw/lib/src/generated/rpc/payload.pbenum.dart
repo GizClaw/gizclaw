@@ -5,6 +5,7 @@ export 'payload/audioplayer.pbenum.dart';
 export 'payload/edge.pbenum.dart';
 export 'payload/enums.pbenum.dart';
 export 'payload/firmware.pbenum.dart';
+export 'payload/gnss.pbenum.dart';
 export 'payload/icon.pbenum.dart';
 export 'payload/lua_app.pbenum.dart';
 export 'payload/mhs_v0.pbenum.dart';

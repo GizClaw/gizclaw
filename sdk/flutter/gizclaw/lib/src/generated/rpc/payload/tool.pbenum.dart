@@ -70,6 +70,10 @@ class ClientTool extends $pb.ProtobufEnum {
       ClientTool._(23, _omitEnumNames ? '' : 'CLIENT_TOOL_LUA_APP_INSTALL');
   static const ClientTool CLIENT_TOOL_LUA_APP_RUN =
       ClientTool._(24, _omitEnumNames ? '' : 'CLIENT_TOOL_LUA_APP_RUN');
+  static const ClientTool CLIENT_TOOL_GNSS_REPORTING_GET =
+      ClientTool._(25, _omitEnumNames ? '' : 'CLIENT_TOOL_GNSS_REPORTING_GET');
+  static const ClientTool CLIENT_TOOL_GNSS_REPORTING_SET =
+      ClientTool._(26, _omitEnumNames ? '' : 'CLIENT_TOOL_GNSS_REPORTING_SET');
 
   static const $core.List<ClientTool> values = <ClientTool>[
     CLIENT_TOOL_UNSPECIFIED,
@@ -97,10 +101,12 @@ class ClientTool extends $pb.ProtobufEnum {
     CLIENT_TOOL_LUA_APP_LIST,
     CLIENT_TOOL_LUA_APP_INSTALL,
     CLIENT_TOOL_LUA_APP_RUN,
+    CLIENT_TOOL_GNSS_REPORTING_GET,
+    CLIENT_TOOL_GNSS_REPORTING_SET,
   ];
 
   static final $core.List<ClientTool?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 24);
+      $pb.ProtobufEnum.$_initByValueList(values, 26);
   static ClientTool? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

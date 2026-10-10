@@ -50,6 +50,10 @@ import {
   type ClientDeviceFindRequest,
   type ClientDeviceRebootRequest,
   type ClientRunWorkspaceSetRequest,
+  type ClientGnssReportingGetRequest,
+  type ClientGnssReportingGetResponse,
+  type ClientGnssReportingSetRequest,
+  type ClientGnssReportingSetResponse,
   type ClientMhsV0ReadRequest,
   type ClientMhsV0ReadResponse,
   type ClientMhsV0WriteRequest,
@@ -305,6 +309,14 @@ export type GizClawDeviceControlHandlers = {
     request: ClientMhsV0WriteRequest,
   ) => Promise<ClientMhsV0WriteResponse> | ClientMhsV0WriteResponse;
   audioplayer?: GizClawAudioPlayerHandlers;
+  /** Reads the device-owned GNSS reporting switch. */
+  gnssReportingGet?: (
+    request: ClientGnssReportingGetRequest,
+  ) => Promise<ClientGnssReportingGetResponse> | ClientGnssReportingGetResponse;
+  /** Applies the switch and returns its value. Device policy owns persistence. */
+  gnssReportingSet?: (
+    request: ClientGnssReportingSetRequest,
+  ) => Promise<ClientGnssReportingSetResponse> | ClientGnssReportingSetResponse;
   connectWifi?: (ssid: string, passphrase?: string) => Promise<void> | void;
   // find plays the device's own built-in find-me sound with a rising volume
   // ramp. durationMs is undefined when the caller leaves the ring time to the
@@ -2519,6 +2531,8 @@ function supportedDeviceTools(
     [CLIENT_TOOL_IDS["identifiers.get"], handlers?.deviceIdentifiers],
     [CLIENT_TOOL_IDS["social.ping"], handlers?.socialPing],
     [CLIENT_TOOL_IDS["device.status.get"], control?.status],
+    [CLIENT_TOOL_IDS["gnss.reporting.get"], control?.gnssReportingGet],
+    [CLIENT_TOOL_IDS["gnss.reporting.set"], control?.gnssReportingSet],
     [CLIENT_TOOL_IDS["sound.play"], control?.playSound],
     [CLIENT_TOOL_IDS["device.reboot"], control?.reboot],
     [CLIENT_TOOL_IDS["device.find"], control?.find],
@@ -2609,6 +2623,12 @@ function withToolProviders(
   if (device_status_get != null)
     out.deviceControl.status = async () => device_status_get({});
   const sound_play = tools[CLIENT_TOOL_IDS["sound.play"]];
+  const gnss_reporting_get = tools[CLIENT_TOOL_IDS["gnss.reporting.get"]];
+  if (gnss_reporting_get != null)
+    out.deviceControl.gnssReportingGet = gnss_reporting_get;
+  const gnss_reporting_set = tools[CLIENT_TOOL_IDS["gnss.reporting.set"]];
+  if (gnss_reporting_set != null)
+    out.deviceControl.gnssReportingSet = gnss_reporting_set;
   if (sound_play != null)
     out.deviceControl.playSound = async (sound, duration_ms) => {
       await sound_play({ sound, duration_ms });
@@ -2805,6 +2825,26 @@ async function answerDeviceProcedure(
 
   try {
     switch (tool) {
+      case CLIENT_TOOL_IDS["gnss.reporting.get"]: {
+        const handler = control?.gnssReportingGet;
+        if (handler == null) return unsupported();
+        const result = await handler({});
+        if (result == null || typeof result.enabled !== "boolean")
+          throw new Error("gnss reporting result requires enabled");
+        return ok(result);
+      }
+      case CLIENT_TOOL_IDS["gnss.reporting.set"]: {
+        const params = request.params as
+          ClientGnssReportingSetRequest | undefined;
+        if (params == null || typeof params.enabled !== "boolean")
+          return invalid();
+        const handler = control?.gnssReportingSet;
+        if (handler == null) return unsupported();
+        const result = await handler(params);
+        if (result == null || typeof result.enabled !== "boolean")
+          throw new Error("gnss reporting result requires enabled");
+        return ok(result);
+      }
       case CLIENT_TOOL_IDS["lua.app.list"]: {
         const handler = handlers?.tools?.[CLIENT_TOOL_IDS["lua.app.list"]];
         if (handler == null) return unsupported();

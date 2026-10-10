@@ -87,6 +87,8 @@ class GizClawAudioPlayerHandlers {
 class GizClawDeviceControlHandlers {
   const GizClawDeviceControlHandlers({
     this.audioplayer,
+    this.gnssReportingGet,
+    this.gnssReportingSet,
     this.status,
     this.playSound,
     this.find,
@@ -115,6 +117,18 @@ class GizClawDeviceControlHandlers {
   writeMhsHwd;
 
   final GizClawAudioPlayerHandlers? audioplayer;
+
+  /// Reads the device-owned GNSS reporting switch.
+  final FutureOr<payload.ClientGnssReportingGetResponse> Function(
+    payload.ClientGnssReportingGetRequest request,
+  )?
+  gnssReportingGet;
+
+  /// Applies the switch and returns its value. The device owns persistence.
+  final FutureOr<payload.ClientGnssReportingSetResponse> Function(
+    payload.ClientGnssReportingSetRequest request,
+  )?
+  gnssReportingSet;
   final FutureOr<payload.PeerStatus> Function()? status;
   final FutureOr<void> Function(String sound, int? durationMs)? playSound;
 
@@ -539,6 +553,8 @@ class _InboundPeerRpcChannel {
     final installed = <String, Object?>{
       'social.ping': handlers?.socialPing,
       'device.status.get': control?.status,
+      'gnss.reporting.get': control?.gnssReportingGet,
+      'gnss.reporting.set': control?.gnssReportingSet,
       'sound.play': control?.playSound,
       'device.find': control?.find,
       'device.reboot': control?.reboot,
@@ -637,6 +653,24 @@ class _InboundPeerRpcChannel {
       return invalid();
     }
     switch (methodName) {
+      case 'gnss.reporting.get':
+        final handler = handlers?.gnssReportingGet;
+        if (handler == null) return unsupported();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(params as payload.ClientGnssReportingGetRequest),
+        );
+      case 'gnss.reporting.set':
+        final handler = handlers?.gnssReportingSet;
+        if (handler == null) return unsupported();
+        final value = params as payload.ClientGnssReportingSetRequest;
+        if (!value.hasEnabled()) return invalid();
+        return _rpcPayloadResponse(
+          request.id,
+          methodName,
+          await handler(value),
+        );
       case 'audioplayer.get':
         final handler = handlers?.audioplayer?.get;
         if (handler == null) return unsupported();
@@ -897,6 +931,12 @@ class _InboundPeerRpcChannel {
     String methodName,
     GeneratedMessage response,
   ) {
+    if ((response is payload.ClientGnssReportingGetResponse &&
+            !response.hasEnabled()) ||
+        (response is payload.ClientGnssReportingSetResponse &&
+            !response.hasEnabled())) {
+      throw const FormatException('gnss reporting result requires enabled');
+    }
     return rpc.RpcResponse(
       id: id,
       payload: clientToolsByName.containsKey(methodName)
@@ -1212,6 +1252,7 @@ bool _validToolArguments(GeneratedMessage request) {
       utf8.encode(value).length <= max &&
       !value.contains('\u0000');
   return switch (request) {
+    payload.ClientGnssReportingSetRequest r => r.hasEnabled(),
     payload.ClientLuaAppInstallRequest r => _validLuaAppInstall(r),
     payload.ClientLuaAppRunRequest r => _validLuaAppRun(r),
     payload.ClientDeviceSoundPlayRequest r =>

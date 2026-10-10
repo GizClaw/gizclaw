@@ -2779,7 +2779,48 @@ static int test_lua_app_codec(void) {
   return expect(strcmp(decoded.app_id, "tetris") == 0 && strcmp(decoded_param.key, "mode") == 0 && strcmp(decoded_param.value, "single") == 0, "Lua app launch preserves string parameters");
 }
 
+static int test_gnss_reporting_codec(void) {
+  const uint8_t expected[] = {0x08, 0x00};
+  uint8_t wire[8];
+  gizclaw_rpc_v1_ClientGnssReportingSetRequest request =
+      gizclaw_rpc_v1_ClientGnssReportingSetRequest_init_zero;
+  request.has_enabled = true;
+  request.enabled = false;
+  pb_ostream_t output = pb_ostream_from_buffer(wire, sizeof(wire));
+  if (!pb_encode(&output, gizclaw_rpc_v1_ClientGnssReportingSetRequest_fields, &request) ||
+      output.bytes_written != sizeof(expected) ||
+      memcmp(wire, expected, sizeof(expected)) != 0)
+    return 1;
+  gizclaw_rpc_v1_ClientGnssReportingSetRequest decoded =
+      gizclaw_rpc_v1_ClientGnssReportingSetRequest_init_zero;
+  pb_istream_t input = pb_istream_from_buffer(wire, output.bytes_written);
+  if (!pb_decode(&input, gizclaw_rpc_v1_ClientGnssReportingSetRequest_fields, &decoded) ||
+      !decoded.has_enabled || decoded.enabled)
+    return 1;
+  gizclaw_rpc_v1_ClientGnssReportingGetResponse get =
+      gizclaw_rpc_v1_ClientGnssReportingGetResponse_init_zero;
+  input = pb_istream_from_buffer(expected, sizeof(expected));
+  if (!pb_decode(&input, gizclaw_rpc_v1_ClientGnssReportingGetResponse_fields, &get) ||
+      !get.has_enabled || get.enabled)
+    return 1;
+  gizclaw_rpc_v1_ClientGnssReportingSetResponse set =
+      gizclaw_rpc_v1_ClientGnssReportingSetResponse_init_zero;
+  input = pb_istream_from_buffer(expected, sizeof(expected));
+  if (!pb_decode(&input, gizclaw_rpc_v1_ClientGnssReportingSetResponse_fields, &set) ||
+      !set.has_enabled || set.enabled)
+    return 1;
+  input = pb_istream_from_buffer(wire, 0);
+  decoded = (gizclaw_rpc_v1_ClientGnssReportingSetRequest)
+      gizclaw_rpc_v1_ClientGnssReportingSetRequest_init_zero;
+  if (!pb_decode(&input, gizclaw_rpc_v1_ClientGnssReportingSetRequest_fields, &decoded) ||
+      decoded.has_enabled)
+    return 1;
+  return 0;
+}
+
 int main(void) {
+  if (test_gnss_reporting_codec() != 0)
+    return 1;
   if (test_lua_app_codec() != 0)
     return 1;
   if (test_model_service_tier() != 0)

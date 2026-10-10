@@ -28,7 +28,7 @@ sequenceDiagram
 
 ## tool/v0 procedures
 
-The 24 predefined tools are `info.get`, `identifiers.get`, `device.status.get`, `device.reboot`, `device.factory_reset`, `device.find`, `sound.play`, `wifi.scan`, `wifi.connect`, `wifi.saved.list`, `wifi.saved.forget`, `firmware.update`, seven `audioplayer.*` tools, `run.workspace.set`, `social.ping`, and three `lua.app.*` tools. Their exact enum numbers and request/response messages are in [the RPC reference](/references/rpc#clienttool-v0). Devices advertise the installed subset through `client.tool.v0.list`. Product-defined device-local tools are not callable by the Agent in tool/v0.
+The 26 predefined tools are `info.get`, `identifiers.get`, `device.status.get`, `device.reboot`, `device.factory_reset`, `device.find`, `sound.play`, `wifi.scan`, `wifi.connect`, `wifi.saved.list`, `wifi.saved.forget`, `firmware.update`, seven `audioplayer.*` tools, `run.workspace.set`, `social.ping`, three `lua.app.*` tools, and two `gnss.reporting.*` tools. Their exact enum numbers and request/response messages are in [the RPC reference](/references/rpc#clienttool-v0). Devices advertise the installed subset through `client.tool.v0.list`. Product-defined device-local tools are not callable by the Agent in tool/v0.
 
 - `device.status.get` returns live `PeerStatus` and refreshes the Server snapshot. Device identity and telemetry fields outside the MHS manifest remain in this status.
 - `sound.play` accepts a device-defined sound name of at most 32 UTF-8 bytes and optional non-negative duration. `device.find` rings the built-in find-me sound with an optional duration. `device.reboot` acknowledges before rebooting. `device.factory_reset` acknowledges before erasing local state; `keep_network` can preserve Wi-Fi and cellular settings. A device that also deletes its Peer invalidates its API keys.
@@ -36,6 +36,39 @@ The 24 predefined tools are `info.get`, `identifiers.get`, `device.status.get`, 
 - `firmware.update` accepts optional channel and SHA-256 digest, acknowledges before OTA, and rejects a digest that differs from the package resolved by the device. The device reports its running digest in `PeerStatus.firmware_sha256`.
 - `run.workspace.set` receives a resolved `workspace_name` and optional `kickoff`. The Server resolves a `workflow_name` target to one Workspace before calling the device. The device acknowledges, then switches through `server.run.workspace.reload-with-options`; the acknowledgement does not mean the Workspace is ready.
 - `social.ping` delivers a Friend or Friend Group notification with sender public key and optional display and group names. The device acknowledges promptly; the Server treats timeout or a missing handler as not delivered and does not retry.
+
+## GNSS reporting switch
+
+`gnss.reporting.get` (25) and `gnss.reporting.set` (26) read and write the device-owned
+reporting switch through the existing `client.tool.v0.invoke`. HTTP callers use
+`POST /gizclaw/v1/device/tool/v0/invoke`:
+
+```json
+{"tool":"gnss.reporting.get","args":{}}
+```
+
+```json
+{"tool":"gnss.reporting.set","args":{"enabled":false}}
+```
+
+Both calls return a result such as `{"result":{"enabled":false}}`. The value comes from
+the device: the current value for get, or the applied value for set. Set requires an explicit
+boolean; `false` is valid, while omission, null, numbers and strings are invalid. The
+Protobuf set request and both responses use optional bool to retain presence. The Server
+rejects a set request or device response without `enabled`. Repeating set assigns the same
+value rather than toggling it.
+
+Device handlers own reads, application, defaults, persistence and actual reporting behavior.
+The Server validates and forwards the calls without persisting the switch, adding a
+`PeerStatus` member or changing GNSS telemetry ingestion or storage. Go providers use
+`DeviceControlHandlers.GNSSReportingGet/Set`; JavaScript/Flutter use `gnssReportingGet/Set`.
+Generic ClientTool handlers are also supported. C providers register the enum through
+`gzc_tool_handler_t` and encode the corresponding `ClientGnssReporting*` message. Discovery
+advertises installed handlers only. Control-side JavaScript callers use
+`device.getGnssReporting()` / `device.setGnssReporting(enabled)`; Dart callers use
+`getDeviceGnssReporting()` / `setDeviceGnssReporting(enabled)`. C callers use
+`gzc_control_get_device_gnss_reporting` / `gzc_control_set_device_gnss_reporting`. Each returns the device-provided boolean. An absent handler returns `UNIMPLEMENTED`, mapped to
+HTTP `501 DEVICE_UNSUPPORTED`.
 
 ## Lua applications
 

@@ -219,6 +219,16 @@ export type ClientGetIdentifiersRequest = Record<string, never>;
 export type ClientGetIdentifiersResponse = DeviceIdentifiers;
 export type ClientGetInfoRequest = Record<string, never>;
 export type ClientGetInfoResponse = HardwareInfo;
+export type ClientGnssReportingGetRequest = Record<string, never>;
+export type ClientGnssReportingGetResponse = {
+  "enabled"?: boolean;
+};
+export type ClientGnssReportingSetRequest = {
+  "enabled"?: boolean;
+};
+export type ClientGnssReportingSetResponse = {
+  "enabled"?: boolean;
+};
 export type ClientHwdOptions = {
   "name": string;
   "read_response": string;
@@ -1682,7 +1692,9 @@ const TOOL_REQUEST_MESSAGES: Record<string, string> = {
   "21": "ClientSocialPingRequest",
   "22": "ClientLuaAppListRequest",
   "23": "ClientLuaAppInstallRequest",
-  "24": "ClientLuaAppRunRequest"
+  "24": "ClientLuaAppRunRequest",
+  "25": "ClientGnssReportingGetRequest",
+  "26": "ClientGnssReportingSetRequest"
 };
 const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "ClientGetInfoResponse",
@@ -1708,7 +1720,9 @@ const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "21": "ClientSocialPingResponse",
   "22": "ClientLuaAppListResponse",
   "23": "ClientLuaAppInstallResponse",
-  "24": "ClientLuaAppRunResponse"
+  "24": "ClientLuaAppRunResponse",
+  "25": "ClientGnssReportingGetResponse",
+  "26": "ClientGnssReportingSetResponse"
 };
 const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "WifiHwdReadResponse",
@@ -2444,6 +2458,39 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "HardwareInfo"
+      }
+    ]
+  },
+  "ClientGnssReportingGetRequest": {
+    "fields": []
+  },
+  "ClientGnssReportingGetResponse": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientGnssReportingSetRequest": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientGnssReportingSetResponse": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -8200,6 +8247,8 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "device_reboot": 4,
       "device_status_get": 3,
       "firmware_update": 12,
+      "gnss_reporting_get": 25,
+      "gnss_reporting_set": 26,
       "identifiers_get": 2,
       "info_get": 1,
       "lua_app_install": 23,
@@ -8239,7 +8288,9 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "21": "social_ping",
       "22": "lua_app_list",
       "23": "lua_app_install",
-      "24": "lua_app_run"
+      "24": "lua_app_run",
+      "25": "gnss_reporting_get",
+      "26": "gnss_reporting_set"
     }
   },
   "ConversationParametersAgentInitiativePolicy": {

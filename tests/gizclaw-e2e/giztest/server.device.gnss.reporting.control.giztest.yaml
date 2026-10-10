@@ -1,0 +1,255 @@
+# User Story:
+# As a device API caller,
+# I want to read each owner device switch and forward explicit true/false and repeated set requests,
+# So that GNSS reporting invoke is verified over the real Server and device SDK transport.
+version: gizclaw.test/v1alpha1
+name: server.device.gnss.reporting.control
+clients:
+  on:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  off:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  on_key:
+    direction: output
+    type: string
+    secret: true
+  off_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_on
+    client: on
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: key_on
+    client: on
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      on_key: /api_key
+  - id: register_off
+    client: off
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: key_off
+    client: off
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      off_key: /api_key
+  - id: tools_on
+    client: on
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${on_key}
+      status: 200
+    expect:
+      /tools:
+        equals:
+          - info.get
+          - identifiers.get
+          - gnss.reporting.get
+          - gnss.reporting.set
+  - id: get_on
+    client: on
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${on_key}
+      body:
+        tool: gnss.reporting.get
+        args: {}
+      status: 200
+    expect:
+      /result/enabled:
+        equals: true
+  - id: get_off
+    client: off
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${off_key}
+      body:
+        tool: gnss.reporting.get
+        args: {}
+      status: 200
+    expect:
+      /result/enabled:
+        equals: false
+  - id: set_on_true
+    client: on
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${on_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: true
+      status: 200
+    expect:
+      /result/enabled:
+        equals: true
+  - id: device_keeps_on
+    client: on
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${on_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: false
+      status: 200
+    expect:
+      /result/enabled:
+        equals: true
+  - id: set_off_false
+    client: off
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${off_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: false
+      status: 200
+    expect:
+      /result/enabled:
+        equals: false
+  - id: set_off_false_again
+    client: off
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${off_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: false
+      status: 200
+    expect:
+      /result/enabled:
+        equals: false
+  - id: device_keeps_off
+    client: off
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${off_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: true
+      status: 200
+    expect:
+      /result/enabled:
+        equals: false
+  - id: get_on_again
+    client: on
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${on_key}
+      body:
+        tool: gnss.reporting.get
+        args: {}
+      status: 200
+    expect:
+      /result/enabled:
+        equals: true
+  - id: get_off_again
+    client: off
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${off_key}
+      body:
+        tool: gnss.reporting.get
+        args: {}
+      status: 200
+    expect:
+      /result/enabled:
+        equals: false
+  - id: on_get_calls
+    client: on
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: gnss.reporting.get
+      response:
+        enabled: true
+      expect_calls: 2
+  - id: on_set_calls
+    client: on
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: gnss.reporting.set
+      response:
+        enabled: true
+      expect_calls: 2
+  - id: off_get_calls
+    client: off
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: gnss.reporting.get
+      response:
+        enabled: false
+      expect_calls: 2
+  - id: off_set_calls
+    client: off
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: gnss.reporting.set
+      response:
+        enabled: false
+      expect_calls: 3
+finally:
+  - id: cleanup_on
+    client: on
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - id: cleanup_off
+    client: off
+    rpc:
+      method: server.peer.delete
+      request: {}

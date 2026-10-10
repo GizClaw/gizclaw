@@ -23,6 +23,10 @@ func ValidateClientToolRequest(message proto.Message) error {
 		return value != "" && len(value) <= max && utf8.ValidString(value) && !strings.ContainsRune(value, 0)
 	}
 	switch request := message.(type) {
+	case *rpcpb.ClientGnssReportingSetRequest:
+		if request == nil || request.Enabled == nil {
+			return invalid
+		}
 	case *rpcpb.ClientLuaAppListRequest, *rpcpb.ClientLuaAppInstallRequest, *rpcpb.ClientLuaAppRunRequest:
 		return ValidateLuaAppRequest(message)
 	case *rpcpb.ClientDeviceSoundPlayRequest:

@@ -797,6 +797,18 @@ const clientToolsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientLuaAppRunRequest',
     responseType: 'ClientLuaAppRunResponse',
   ),
+  'gnss.reporting.get': RpcMethodDescriptor(
+    id: 25,
+    name: 'gnss.reporting.get',
+    requestType: 'ClientGnssReportingGetRequest',
+    responseType: 'ClientGnssReportingGetResponse',
+  ),
+  'gnss.reporting.set': RpcMethodDescriptor(
+    id: 26,
+    name: 'gnss.reporting.set',
+    requestType: 'ClientGnssReportingSetRequest',
+    responseType: 'ClientGnssReportingSetResponse',
+  ),
 };
 const clientToolNamesById = <int, String>{
   1: 'info.get',
@@ -823,6 +835,8 @@ const clientToolNamesById = <int, String>{
   22: 'lua.app.list',
   23: 'lua.app.install',
   24: 'lua.app.run',
+  25: 'gnss.reporting.get',
+  26: 'gnss.reporting.set',
 };
 RpcMethodDescriptor clientToolByName(String name) =>
     clientToolsByName[name] ??

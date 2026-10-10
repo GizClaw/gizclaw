@@ -859,6 +859,51 @@ test("classifyGizClawControlError: device codes win over status", () => {
   assert.equal(classifyGizClawControlError(302), "unexpectedStatus");
 });
 
+test("GNSS reporting control invokes get/set and returns the device value", async () => {
+  const h = harness([
+    json(200, { result: { enabled: true } }),
+    json(200, { result: { enabled: false } }),
+    json(200, { result: { enabled: false } }),
+  ]);
+  assert.equal(await h.client.device.getGnssReporting(), true);
+  assert.equal(await h.client.device.setGnssReporting(false), false);
+  assert.equal(await h.client.device.setGnssReporting(true), false);
+  assert.deepEqual(
+    h.seen.map((request) => JSON.parse(request.body)),
+    [
+      { tool: "gnss.reporting.get", args: {} },
+      { tool: "gnss.reporting.set", args: { enabled: false } },
+      { tool: "gnss.reporting.set", args: { enabled: true } },
+    ],
+  );
+  assert.ok(
+    h.seen.every(
+      (request) =>
+        request.method === "POST" &&
+        request.url.pathname === "/gizclaw/v1/device/tool/v0/invoke" &&
+        request.headers.get("authorization") === `Bearer ${apiKey}`,
+    ),
+  );
+});
+
+test("GNSS reporting control rejects absent or nonboolean device values", async () => {
+  for (const result of [
+    {},
+    { enabled: null },
+    { enabled: 0 },
+    { enabled: "false" },
+  ]) {
+    const h = harness([json(200, { result })]);
+    await assert.rejects(h.client.device.getGnssReporting());
+  }
+  const h = harness([]);
+  assert.throws(
+    () => h.client.device.setGnssReporting(undefined as never),
+    TypeError,
+  );
+  assert.equal(h.seen.length, 0);
+});
+
 test("audioplayer procedures preserve playlist order and explicit zero index", async () => {
   const status = {
     state: "buffering",

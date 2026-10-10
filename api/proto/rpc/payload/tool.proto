@@ -58,6 +58,8 @@ enum ClientTool {
   CLIENT_TOOL_LUA_APP_LIST = 22 [(client_tool) = { name: "lua.app.list" request: "ClientLuaAppListRequest" response: "ClientLuaAppListResponse" }];
   CLIENT_TOOL_LUA_APP_INSTALL = 23 [(client_tool) = { name: "lua.app.install" request: "ClientLuaAppInstallRequest" response: "ClientLuaAppInstallResponse" }];
   CLIENT_TOOL_LUA_APP_RUN = 24 [(client_tool) = { name: "lua.app.run" request: "ClientLuaAppRunRequest" response: "ClientLuaAppRunResponse" }];
+  CLIENT_TOOL_GNSS_REPORTING_GET = 25 [(client_tool) = { name: "gnss.reporting.get" request: "ClientGnssReportingGetRequest" response: "ClientGnssReportingGetResponse" }];
+  CLIENT_TOOL_GNSS_REPORTING_SET = 26 [(client_tool) = { name: "gnss.reporting.set" request: "ClientGnssReportingSetRequest" response: "ClientGnssReportingSetResponse" }];
 }
 
 // ClientToolV0InvokeRequest carries one tool call. payload is the encoded

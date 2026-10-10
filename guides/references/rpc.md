@@ -196,6 +196,8 @@ RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP 
 | 19 | `audioplayer.playlist.append` | 原子追加 1–32 项并保持总容量 32，保留顺序与重复项；不中断播放，也不自动开始播放，失败后不应自动重试。 |
 | 20 | `run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
 | 21 | `social.ping` | Server 调用设备：通知好友呼叫或 Friend Group 集结，携带发起方 public key、可选 `display_name` 与接收方自己的 `friend_group_name`。 |
+| 25 | `gnss.reporting.get` | 读取设备的 GNSS 上报开关，返回显式 boolean `enabled`。 |
+| 26 | `gnss.reporting.set` | 按显式 boolean `enabled` 设置设备的 GNSS 上报开关，返回设备实际生效值；Server 只转发。 |
 
 ## 独立流式语音
 

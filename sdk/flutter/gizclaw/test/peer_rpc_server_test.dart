@@ -10,6 +10,131 @@ import 'package:test/test.dart';
 import 'fake_transport.dart';
 
 void main() {
+  test(
+    'GNSS reporting get/set preserve explicit false through invoke',
+    () async {
+      for (final generic in [false, true]) {
+        var enabled = true;
+        var calls = 0;
+        ClientGnssReportingGetResponse get(
+          ClientGnssReportingGetRequest request,
+        ) => ClientGnssReportingGetResponse(enabled: enabled);
+        ClientGnssReportingSetResponse set(
+          ClientGnssReportingSetRequest request,
+        ) {
+          calls++;
+          enabled = request.enabled;
+          return ClientGnssReportingSetResponse(enabled: enabled);
+        }
+
+        final handlers = GizClawPeerRpcHandlers(
+          deviceInfo: () => DeviceInfo(name: 'gnss'),
+          deviceControl: generic
+              ? null
+              : GizClawDeviceControlHandlers(
+                  gnssReportingGet: get,
+                  gnssReportingSet: set,
+                ),
+          tools: generic
+              ? {
+                  ClientTool.CLIENT_TOOL_GNSS_REPORTING_GET: (request) =>
+                      get(request as ClientGnssReportingGetRequest),
+                  ClientTool.CLIENT_TOOL_GNSS_REPORTING_SET: (request) =>
+                      set(request as ClientGnssReportingSetRequest),
+                }
+              : {},
+        );
+        Future<rpc.RpcResponse> call(String name, GeneratedMessage request) {
+          final channel = FakeDataChannel('giznet/v1/service/0');
+          addTearDown(channel.close);
+          serveGizClawPeerRpcChannel(channel, handlers: handlers);
+          return _callInbound(
+            channel,
+            id: name,
+            method: name == 'client.tool.v0.list'
+                ? rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_LIST
+                : rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+            methodName: name,
+            request: request,
+          );
+        }
+
+        for (final value in <bool?>[false, false, true, null]) {
+          final response = await call(
+            'gnss.reporting.set',
+            ClientGnssReportingSetRequest(enabled: value),
+          );
+          if (value == null) {
+            expect(
+              response.status.code,
+              rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT,
+            );
+            continue;
+          }
+          expect(response.hasStatus(), isFalse);
+          final result =
+              decodeClientToolResponsePayload(
+                    clientToolByName('gnss.reporting.set').id,
+                    response.payload,
+                  )
+                  as ClientGnssReportingSetResponse;
+          expect(result.hasEnabled(), isTrue);
+          expect(result.enabled, value);
+          final current = await call(
+            'gnss.reporting.get',
+            ClientGnssReportingGetRequest(),
+          );
+          expect(current.hasStatus(), isFalse);
+          final read =
+              decodeClientToolResponsePayload(
+                    clientToolByName('gnss.reporting.get').id,
+                    current.payload,
+                  )
+                  as ClientGnssReportingGetResponse;
+          expect(read.hasEnabled(), isTrue);
+          expect(read.enabled, value);
+        }
+        expect(calls, 3);
+        final list = await call(
+          'client.tool.v0.list',
+          ClientToolV0ListRequest(),
+        );
+        final tools =
+            decodeRpcResponsePayload('client.tool.v0.list', list.payload)
+                as ClientToolV0ListResponse;
+        expect(
+          tools.tools,
+          containsAll([
+            ClientTool.CLIENT_TOOL_GNSS_REPORTING_GET,
+            ClientTool.CLIENT_TOOL_GNSS_REPORTING_SET,
+          ]),
+        );
+      }
+    },
+  );
+
+  test('GNSS reporting requires a device value in the response', () async {
+    final channel = FakeDataChannel('giznet/v1/service/0');
+    addTearDown(channel.close);
+    serveGizClawPeerRpcChannel(
+      channel,
+      handlers: GizClawPeerRpcHandlers(
+        deviceInfo: () => DeviceInfo(name: 'gnss'),
+        deviceControl: GizClawDeviceControlHandlers(
+          gnssReportingGet: (_) => ClientGnssReportingGetResponse(),
+        ),
+      ),
+    );
+    final response = await _callInbound(
+      channel,
+      id: 'gnss-empty',
+      method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      methodName: 'gnss.reporting.get',
+      request: ClientGnssReportingGetRequest(),
+    );
+    expect(response.status.code, rpc.StatusCode.STATUS_CODE_INTERNAL);
+  });
+
   deviceControlTests();
   mhsTests();
   test(

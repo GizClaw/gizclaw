@@ -44,6 +44,8 @@ const ClientTool$json = {
     {'1': 'CLIENT_TOOL_LUA_APP_LIST', '2': 22, '3': {}},
     {'1': 'CLIENT_TOOL_LUA_APP_INSTALL', '2': 23, '3': {}},
     {'1': 'CLIENT_TOOL_LUA_APP_RUN', '2': 24, '3': {}},
+    {'1': 'CLIENT_TOOL_GNSS_REPORTING_GET', '2': 25, '3': {}},
+    {'1': 'CLIENT_TOOL_GNSS_REPORTING_SET', '2': 26, '3': {}},
   ],
 };
 
@@ -101,7 +103,12 @@ final $typed_data.Uint8List clientToolDescriptor = $convert.base64Decode(
     'RfVE9PTF9MVUFfQVBQX0lOU1RBTEwQFxpOyvMYSgoPbHVhLmFwcC5pbnN0YWxsEhpDbGllbnRM'
     'dWFBcHBJbnN0YWxsUmVxdWVzdBobQ2xpZW50THVhQXBwSW5zdGFsbFJlc3BvbnNlEl8KF0NMSU'
     'VOVF9UT09MX0xVQV9BUFBfUlVOEBgaQsrzGD4KC2x1YS5hcHAucnVuEhZDbGllbnRMdWFBcHBS'
-    'dW5SZXF1ZXN0GhdDbGllbnRMdWFBcHBSdW5SZXNwb25zZQ==');
+    'dW5SZXF1ZXN0GhdDbGllbnRMdWFBcHBSdW5SZXNwb25zZRJ7Ch5DTElFTlRfVE9PTF9HTlNTX1'
+    'JFUE9SVElOR19HRVQQGRpXyvMYUwoSZ25zcy5yZXBvcnRpbmcuZ2V0Eh1DbGllbnRHbnNzUmVw'
+    'b3J0aW5nR2V0UmVxdWVzdBoeQ2xpZW50R25zc1JlcG9ydGluZ0dldFJlc3BvbnNlEnsKHkNMSU'
+    'VOVF9UT09MX0dOU1NfUkVQT1JUSU5HX1NFVBAaGlfK8xhTChJnbnNzLnJlcG9ydGluZy5zZXQS'
+    'HUNsaWVudEduc3NSZXBvcnRpbmdTZXRSZXF1ZXN0Gh5DbGllbnRHbnNzUmVwb3J0aW5nU2V0Um'
+    'VzcG9uc2U=');
 
 @$core.Deprecated('Use clientToolOptionsDescriptor instead')
 const ClientToolOptions$json = {

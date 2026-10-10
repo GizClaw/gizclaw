@@ -462,6 +462,14 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 	if scripted != nil {
 		fail := func(context.Context) error { return scripted }
 		switch method {
+		case "gnss.reporting.get":
+			handlers.GNSSReportingGet = func(ctx context.Context, _ *rpcpb.ClientGnssReportingGetRequest) (*rpcpb.ClientGnssReportingGetResponse, error) {
+				return nil, fail(ctx)
+			}
+		case "gnss.reporting.set":
+			handlers.GNSSReportingSet = func(ctx context.Context, _ *rpcpb.ClientGnssReportingSetRequest) (*rpcpb.ClientGnssReportingSetResponse, error) {
+				return nil, fail(ctx)
+			}
 		case "device.status.get":
 			handlers.Status = func(ctx context.Context) (rpcapi.PeerStatus, error) { return rpcapi.PeerStatus{}, fail(ctx) }
 		case "sound.play":
@@ -488,6 +496,26 @@ func installDeviceControl(handlers *gizcli.DeviceControlHandlers, method string,
 		return nil
 	}
 	switch method {
+	case "gnss.reporting.get":
+		var result rpcpb.ClientGnssReportingGetResponse
+		if response != nil {
+			if err := decodeRequest(response, &result); err != nil {
+				return err
+			}
+		}
+		handlers.GNSSReportingGet = func(context.Context, *rpcpb.ClientGnssReportingGetRequest) (*rpcpb.ClientGnssReportingGetResponse, error) {
+			return proto.CloneOf(&result), nil
+		}
+	case "gnss.reporting.set":
+		var result rpcpb.ClientGnssReportingSetResponse
+		if response != nil {
+			if err := decodeRequest(response, &result); err != nil {
+				return err
+			}
+		}
+		handlers.GNSSReportingSet = func(context.Context, *rpcpb.ClientGnssReportingSetRequest) (*rpcpb.ClientGnssReportingSetResponse, error) {
+			return proto.CloneOf(&result), nil
+		}
 	case "device.status.get":
 		var status rpcapi.PeerStatus
 		if response != nil {

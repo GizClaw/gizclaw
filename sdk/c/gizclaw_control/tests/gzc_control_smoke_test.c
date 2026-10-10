@@ -1276,6 +1276,37 @@ static void test_mhs_v0(void) {
   check(gzc_control_read_mhs_v0_hwd(&client, &call, gzc_str_from_cstr("battery.main"), GZC_CONTROL_HWD_BATTERY, NULL, &result) == GZC_ERR_INVALID_ARGUMENT, "null storage");
 }
 
+static void test_gnss_reporting(void) {
+  stub_t stub = {0};
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  init_client(&client, &stub, &http);
+  uint8_t scratch[2048], response[2048];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "GNSS call init");
+  stub.status_code = 200;
+  bool enabled = true;
+  stub.response_body = "{\"result\":{\"enabled\":false}}";
+  check(gzc_control_get_device_gnss_reporting(&client, &call, &enabled) == GZC_OK && !enabled, "GNSS get preserves false");
+  check(strcmp(stub.body, "{\"tool\":\"gnss.reporting.get\",\"args\":{}}") == 0, "GNSS get args");
+  check(gzc_control_set_device_gnss_reporting(&client, &call, false, &enabled) == GZC_OK && !enabled, "GNSS set preserves false");
+  check(strcmp(stub.body, "{\"tool\":\"gnss.reporting.set\",\"args\":{\"enabled\":false}}") == 0, "GNSS explicit false args");
+  check(gzc_control_set_device_gnss_reporting(&client, &call, true, &enabled) == GZC_OK && !enabled, "GNSS set returns device value");
+  check(strcmp(stub.body, "{\"tool\":\"gnss.reporting.set\",\"args\":{\"enabled\":true}}") == 0, "GNSS true args");
+  stub.response_body = "{\"result\":{\"enabled\":true}}";
+  check(gzc_control_get_device_gnss_reporting(&client, &call, &enabled) == GZC_OK && enabled, "GNSS get true");
+  const char *invalid[] = {"{\"result\":{}}", "{\"result\":{\"enabled\":null}}", "{\"result\":{\"enabled\":0}}", "{\"result\":{\"enabled\":\"false\"}}"};
+  for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+    stub.response_body = invalid[i];
+    check(gzc_control_get_device_gnss_reporting(&client, &call, &enabled) == GZC_ERR_JSON, "GNSS invalid get result");
+    check(call.error.kind == GZC_CONTROL_ERROR_MALFORMED_RESPONSE, "GNSS malformed result classified");
+    check(gzc_control_set_device_gnss_reporting(&client, &call, true, &enabled) == GZC_ERR_JSON, "GNSS invalid set result");
+  }
+  check(gzc_control_get_device_gnss_reporting(NULL, &call, &enabled) == GZC_ERR_INVALID_ARGUMENT, "GNSS null client");
+  check(gzc_control_get_device_gnss_reporting(&client, &call, NULL) == GZC_ERR_INVALID_ARGUMENT, "GNSS null get output");
+  check(gzc_control_set_device_gnss_reporting(&client, &call, false, NULL) == GZC_ERR_INVALID_ARGUMENT, "GNSS null set output");
+}
+
 static void test_additional_typed_tools(void) {
   stub_t stub = {0};
   gzc_http_vtable_t http;
@@ -1313,6 +1344,7 @@ static void test_additional_typed_tools(void) {
 }
 
 int main(void) {
+  test_gnss_reporting();
   test_mhs_v0();
   test_additional_typed_tools();
   test_audioplayer();

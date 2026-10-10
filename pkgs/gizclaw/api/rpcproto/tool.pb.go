@@ -63,6 +63,8 @@ const (
 	ClientTool_CLIENT_TOOL_LUA_APP_LIST                ClientTool = 22
 	ClientTool_CLIENT_TOOL_LUA_APP_INSTALL             ClientTool = 23
 	ClientTool_CLIENT_TOOL_LUA_APP_RUN                 ClientTool = 24
+	ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET          ClientTool = 25
+	ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET          ClientTool = 26
 )
 
 // Enum value maps for ClientTool.
@@ -93,6 +95,8 @@ var (
 		22: "CLIENT_TOOL_LUA_APP_LIST",
 		23: "CLIENT_TOOL_LUA_APP_INSTALL",
 		24: "CLIENT_TOOL_LUA_APP_RUN",
+		25: "CLIENT_TOOL_GNSS_REPORTING_GET",
+		26: "CLIENT_TOOL_GNSS_REPORTING_SET",
 	}
 	ClientTool_value = map[string]int32{
 		"CLIENT_TOOL_UNSPECIFIED":                 0,
@@ -120,6 +124,8 @@ var (
 		"CLIENT_TOOL_LUA_APP_LIST":                22,
 		"CLIENT_TOOL_LUA_APP_INSTALL":             23,
 		"CLIENT_TOOL_LUA_APP_RUN":                 24,
+		"CLIENT_TOOL_GNSS_REPORTING_GET":          25,
+		"CLIENT_TOOL_GNSS_REPORTING_SET":          26,
 	}
 )
 
@@ -436,7 +442,7 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\b_payload\"\x19\n" +
 	"\x17ClientToolV0ListRequest\"L\n" +
 	"\x18ClientToolV0ListResponse\x120\n" +
-	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xe8\x16\n" +
+	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xe2\x18\n" +
 	"\n" +
 	"ClientTool\x12\x1b\n" +
 	"\x17CLIENT_TOOL_UNSPECIFIED\x10\x00\x12U\n" +
@@ -489,7 +495,11 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\x1bCLIENT_TOOL_LUA_APP_INSTALL\x10\x17\x1aN\xca\xf3\x18J\n" +
 	"\x0flua.app.install\x12\x1aClientLuaAppInstallRequest\x1a\x1bClientLuaAppInstallResponse\x12_\n" +
 	"\x17CLIENT_TOOL_LUA_APP_RUN\x10\x18\x1aB\xca\xf3\x18>\n" +
-	"\vlua.app.run\x12\x16ClientLuaAppRunRequest\x1a\x17ClientLuaAppRunResponse:g\n" +
+	"\vlua.app.run\x12\x16ClientLuaAppRunRequest\x1a\x17ClientLuaAppRunResponse\x12{\n" +
+	"\x1eCLIENT_TOOL_GNSS_REPORTING_GET\x10\x19\x1aW\xca\xf3\x18S\n" +
+	"\x12gnss.reporting.get\x12\x1dClientGnssReportingGetRequest\x1a\x1eClientGnssReportingGetResponse\x12{\n" +
+	"\x1eCLIENT_TOOL_GNSS_REPORTING_SET\x10\x1a\x1aW\xca\xf3\x18S\n" +
+	"\x12gnss.reporting.set\x12\x1dClientGnssReportingSetRequest\x1a\x1eClientGnssReportingSetResponse:g\n" +
 	"\vclient_tool\x12!.google.protobuf.EnumValueOptions\x18\xb9\x8e\x03 \x01(\v2!.gizclaw.rpc.v1.ClientToolOptionsR\n" +
 	"clientToolB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

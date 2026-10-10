@@ -121,6 +121,10 @@ func (c *rpcClient) dispatchClientTool(ctx context.Context, tool rpcpb.ClientToo
 }
 
 func validateClientToolResponse(message proto.Message) error {
+	switch message.(type) {
+	case *rpcpb.ClientGnssReportingGetResponse, *rpcpb.ClientGnssReportingSetResponse:
+		return rpcapi.ValidateGNSSReportingResponse(message)
+	}
 	if strings.HasPrefix(string(message.ProtoReflect().Descriptor().Name()), "ClientLuaApp") {
 		return rpcapi.ValidateLuaAppResponse(message)
 	}
