@@ -566,6 +566,23 @@ func (c *deviceClient) reconnect(ctx context.Context) error {
 	go c.run(commands, stopped, closeOne, ready, nil)
 	select {
 	case err := <-ready:
+		if err != nil {
+			return err
+		}
+		// Open transport channels can precede activation on the Server. A reply
+		// on the replacement connection proves it is ready for device control.
+		ping, err := lookupMethod("all.ping")
+		if err != nil {
+			c.Close()
+			return err
+		}
+		result, err := c.callRPC(ctx, uint32(ping.id), nil)
+		if err == nil && result.errorCode != 0 {
+			err = &rpcError{method: "all.ping", code: result.errorCode, message: result.message, reason: result.reason}
+		}
+		if err != nil {
+			c.Close()
+		}
 		return err
 	case <-ctx.Done():
 		close(closeOne)

@@ -762,6 +762,14 @@ A scenario installs one `response` per method, so the device reports the same
 values before and after; what a step after `reconnect` asserts is that a control
 route recovered from `409`, not that a method answered differently.
 
+`TestDeviceReconnectGiztest` runs the Wi-Fi switch scenario with real WebRTC,
+Edge, Server, and SQLite state. Build the C runner with
+`go build -o /tmp/giztest-c ./tests/gizclaw-e2e/cgo/giztest`, set
+`GIZCLAW_DEVICE_C_RUNNER=/tmp/giztest-c`, and run
+`go test -tags=gizclaw_sdk_e2e ./cmd/internal/server -run '^TestDeviceReconnectSDKGiztest$' -count=1`.
+The C lane requires all nine steps and the cleanup step to pass; it fails when
+the native runner is missing.
+
 Giztest never performs Admin Apply. Standard Docker setup applies all fixtures,
 including the dedicated RuntimeProfile and run-scoped registration token, once
 before JavaScript, C/cgo, Go, CLI, or Giztest starts. A pre-provisioned remote

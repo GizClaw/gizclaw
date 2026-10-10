@@ -703,6 +703,12 @@ Edge 的 tunnel session 到达 Server。脚本给定的 provider 会重新安装
 `response`，所以断开前后设备上报的值相同；`reconnect` 之后要断言的是控制 route 从
 `409` 恢复为可应答，而不是同一方法返回了不同的值。
 
+`TestDeviceReconnectGiztest` 用真实 WebRTC、Edge、Server 与 SQLite 运行 Wi-Fi 切网场景。
+通过 `go build -o /tmp/giztest-c ./tests/gizclaw-e2e/cgo/giztest` 构建 C runner，设置
+`GIZCLAW_DEVICE_C_RUNNER=/tmp/giztest-c`，然后执行
+`go test -tags=gizclaw_sdk_e2e ./cmd/internal/server -run '^TestDeviceReconnectSDKGiztest$' -count=1`。
+C lane 要求 9 个步骤与清理步骤全部通过；缺少原生 runner 会失败。
+
 Giztest 不执行 Admin Apply。标准 Docker setup 先一次性 apply 全部 fixture（包括专用
 RuntimeProfile 和 run-scoped registration token），随后 JavaScript、C/cgo、Go、CLI 和
 Giztest 共用该环境。远端目标可预先 provision 资源，再只提供
