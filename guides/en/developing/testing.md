@@ -1817,6 +1817,34 @@ retain `podcast.giztest.json` and `runner.log`. The test cleans up the Workspace
 Peer and local services. This validates the local protocol and runtime path;
 live cloud providers, physical devices and deployment require separate acceptance.
 
+Live provider acceptance uses `TestContinuousPodcastLiveGiztest` and the adjacent
+`live.giztest.yaml`. Load `GIZCLAW_E2E_VOLC_ARK_API_KEY`,
+`GIZCLAW_E2E_DOUBAO_APP_ID` and `GIZCLAW_E2E_DOUBAO_API_KEY` with
+`require_gizclaw_e2e_credentials` from `tests/gizclaw-e2e/setup/credentials.sh`,
+then run explicitly:
+
+```sh
+GIZCLAW_TEST_PODCAST_LIVE_WORKFLOW=/path/to/raids/examples/podcast/eino.yaml \
+GIZCLAW_TEST_PODCAST_LIVE_EVIDENCE="$(mktemp -d)" \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestContinuousPodcastLiveGiztest$' -count=1 -timeout=12m -v
+```
+
+The test loads the supplied podcast Graph and prompts unchanged, binds Doubao
+2.1 Lite and the Qingxin female 2.0 Voice, and runs 20 steps, eight parallel
+children and stop cleanup through temporary Server/Edge/WebRTC. It observes
+100 seconds of initial narration, pause, resumption, redirection to Mars during
+playback, and resumption of the new topic. The transparent Ark observer only
+forwards real responses. Each Agent History must match one unused real model
+generation, allowing the delivered prefix of an interrupted section. Both model
+and TTS usage must be positive.
+
+Evidence includes source Graph/document hashes, model replies, complete Workspace
+History, matching counts, two Ogg audio files, provider usage, and Workspace/Peer
+cleanup results. Real calls incur charges. This lane runs locally and explicitly,
+outside CI; never commit reports, credentials or logs. It does not qualify
+physical devices or deployments.
+
 ## Deterministic multi-role audio Giztest
 
 ```sh

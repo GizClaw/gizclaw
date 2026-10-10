@@ -1529,6 +1529,27 @@ HTTP SSE 与 WebSocket 夹具替代远端模型和语音服务，无需外部凭
 `podcast.giztest.json` 和 `runner.log`。测试结束清理 Workspace、Peer 和本地服务。
 这项测试验证本地协议与运行链，不代替真实云 Provider、物理设备或部署验收。
 
+真实 Provider 验收使用 `TestContinuousPodcastLiveGiztest` 和同目录的
+`live.giztest.yaml`。先通过 `tests/gizclaw-e2e/setup/credentials.sh` 的
+`require_gizclaw_e2e_credentials` 加载 `GIZCLAW_E2E_VOLC_ARK_API_KEY`、
+`GIZCLAW_E2E_DOUBAO_APP_ID`、`GIZCLAW_E2E_DOUBAO_API_KEY`，再显式执行：
+
+```sh
+GIZCLAW_TEST_PODCAST_LIVE_WORKFLOW=/path/to/raids/examples/podcast/eino.yaml \
+GIZCLAW_TEST_PODCAST_LIVE_EVIDENCE="$(mktemp -d)" \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestContinuousPodcastLiveGiztest$' -count=1 -timeout=12m -v
+```
+
+该测试原样加载给定播客 Graph 与 prompt，绑定豆包 2.1 Lite 和清新女声 2.0，
+通过临时 Server/Edge/WebRTC 运行 20 个步骤、8 个 parallel 子步骤及停止清理。
+观察初始连续播讲 100 秒，并验证暂停、恢复原主题、播讲中切换火星主题和恢复新主题。
+透明 Ark observer 只转发真实响应；验收将每条 Agent History 与一条尚未匹配的
+真实模型生成文本核对，允许被打断段保留已交付前缀，并要求模型与 TTS 均有正数用量。
+报告包含原始 Graph/document hash、模型回复、完整 Workspace History、匹配计数、
+两段 Ogg 音频、Provider 用量和 Workspace/Peer 清理结果。真实调用会计费，套件只在
+本地显式运行，不进入 CI；报告、凭据与日志不得提交。它不验证实物设备或部署。
+
 ## 多角色音频确定性 Giztest
 
 ```sh

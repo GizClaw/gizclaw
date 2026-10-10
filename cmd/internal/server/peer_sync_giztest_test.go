@@ -99,9 +99,17 @@ func runPeerControlGiztestWithChannels(t *testing.T, scenario string, steps, cle
 // withPeerControlServer owns the real Server, Edge and admin transport fixture.
 func withPeerControlServer(t *testing.T, channelsPerSession int, run func(context.Context, *gizclaw.Server, *gizcli.Client, string, string)) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
+	withPeerControlServerTimeout(t, channelsPerSession, 120*time.Second, run)
+}
+
+func withPeerControlServerTimeout(t *testing.T, channelsPerSession int, timeout time.Duration, run func(context.Context, *gizclaw.Server, *gizcli.Client, string, string), configure ...func(*Config)) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 	cfg := validLayeredConfig(t.TempDir())
+	for _, apply := range configure {
+		apply(&cfg)
+	}
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)

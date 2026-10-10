@@ -41,4 +41,8 @@ The returned Audio Dock stream belongs to its consumer. `Close` and `CloseWithEr
 
 `Config.Backpressure` supports continuous narration from a single publisher and rejects `SpeakerVoices`. Text is published when TTS reads it, forwarding delivery acknowledgement to the text Agent. The shared TTS emitter waits for final consumer acknowledgement after each audio chunk while retaining its two bounded sentence-synthesis jobs. The TTS input queue has a 4 MiB limit and fails explicitly on overflow. TTS output must support deferred output observation; the product Quota wrapper and Eino input guard preserve that capability.
 
+Whitespace chunks also enter an open TTS input queue in order. Paragraph breaks
+cannot overtake text awaiting consumption, so narration and History retain the
+model's original paragraph order.
+
 `MessageEnd` flushes the current generation’s remaining text, waits for its audio delivery, and then forwards its text and audio message boundaries. The response keeps one BOS/EOS lifecycle while Workspace History persists each message during playback. Input-BOS cancellation is independent of these delivery waits and releases blocked synthesis and generation. Acknowledgement reaches the server consumer boundary; Mixer and transport still manage playback buffers, so it is not a word-by-word speaker playback receipt.

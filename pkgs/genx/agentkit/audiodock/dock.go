@@ -376,7 +376,11 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	if len(r.dock.config.SpeakerVoices) != 0 && text != "" && route.hasTTSPipes() {
 		hasSpeech = true
 	}
-	resolveTTS := textChunk && hasSpeech && r.dock.config.TTS != nil
+	// Whitespace belongs in the same delivery queue as preceding narration.
+	// Publishing it directly would move paragraph breaks ahead of text that
+	// TTS has not consumed yet.
+	queuedWhitespace := textChunk && !hasSpeech && text != "" && r.dock.config.Backpressure && route.hasTTSPipes()
+	resolveTTS := textChunk && (hasSpeech || queuedWhitespace) && r.dock.config.TTS != nil
 	var publishText func(*genx.MessageChunk)
 
 	route.ttsEmitMu.Lock()
