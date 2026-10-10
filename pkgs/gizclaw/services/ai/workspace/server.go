@@ -1299,9 +1299,6 @@ func (s *Server) validateReferences(ctx context.Context, workspace adminhttp.Wor
 		if _, err := workspace.Parameters.TTSSpeechRatePercent(); err != nil {
 			return invalidWorkspaceReference("workspace parameters: %v", err)
 		}
-		if _, err := workspace.Parameters.AudioInput(); err != nil {
-			return invalidWorkspaceReference("workspace parameters: %v", err)
-		}
 	}
 	if workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate && runtimeAlias {
 		return s.validateASTTranslateOverrides(ctx, workspace.Parameters)

@@ -1450,7 +1450,6 @@ type EinoWorkspaceParameters struct {
 	E2e                  *bool                            `json:"e2e,omitempty"`
 	Input                *WorkspaceInputMode              `json:"input,omitempty"`
 	TtsSpeechRatePercent *int                             `json:"tts_speech_rate_percent,omitempty"`
-	AudioInput           *apitypes.AudioInputPath         `json:"audio_input,omitempty"`
 	SafetyFenceLevel     *apitypes.SafetyFenceLevel       `json:"safety_fence_level,omitempty"`
 }
 
@@ -2588,7 +2587,6 @@ type WorkspaceParametersPatch struct {
 	Input                *WorkspaceInputMode        `json:"input,omitempty"`
 	TtsSpeechRatePercent *int                       `json:"tts_speech_rate_percent,omitempty"`
 	SafetyFenceLevel     *apitypes.SafetyFenceLevel `json:"safety_fence_level,omitempty"`
-	AudioInput           *apitypes.AudioInputPath   `json:"audio_input,omitempty"`
 }
 
 // WorkspaceParametersSetRequest updates supported parameters without exposing agent_type.

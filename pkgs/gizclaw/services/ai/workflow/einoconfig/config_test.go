@@ -67,8 +67,8 @@ func TestValidate(t *testing.T) {
 		}{
 			{name: "invalid alias", mutate: func(spec *apitypes.EinoWorkflowSpec) {
 				invalid := "INVALID ALIAS"
-				spec.VoiceAdapter = &apitypes.VoiceAdapter{AsrModel: &invalid}
-			}, wantErr: "asr_model"},
+				spec.VoiceAdapter = &apitypes.VoiceAdapter{DefaultVoice: &invalid}
+			}, wantErr: "default_voice"},
 			{name: "unknown node", mutate: func(spec *apitypes.EinoWorkflowSpec) {
 				mapped := map[string]string{"missing": voice}
 				spec.VoiceAdapter = &apitypes.VoiceAdapter{NodeVoices: &mapped}

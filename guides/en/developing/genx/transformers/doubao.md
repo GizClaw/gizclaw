@@ -46,6 +46,8 @@ For PCM input, ASR aggregates small live frames within the current provider sess
 
 GizClaw's Volc ASR Builder accepts `vad_segment_duration`, `end_window_size`, and `force_to_speech_time`, together with their camelCase aliases. When the caller provides no endpointing parameter, the Builder uses `end_window_size=500` and `force_to_speech_time=1000`: measured with `TestEinoRealtimeFirstResponseBreakdown`, an 800 ms silence window often pushed realtime speech-end-to-first-text past the 2 s first-response gate, while 500 ms keeps it near 1 s with unchanged transcripts; `force_to_speech_time` has a documented minimum of `1`, so `0` is not a valid "no minimum" value. When the caller provides any endpointing parameter, the Builder sends only the explicitly provided fields.
 
+When external ASR returns an empty final text, Doubao Realtime completes that PTT input locally without calling `SendText` or `EndASR`, allowing the next recording to start. An empty text MIME boundary within a turn that has uploaded audio does not commit that audio early.
+
 ### Seed V2 segment failures
 
 `doubaotts.SeedV2` requests each readable segment once, without retrying, switching voices, or synthesizing replacement content. A provider failure, including truncation or completion without normalized audio, ends that segment and lets later segments continue in order. Already emitted audio is retained without replay or rollback.

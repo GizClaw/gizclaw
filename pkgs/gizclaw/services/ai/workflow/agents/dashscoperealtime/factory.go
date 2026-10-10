@@ -22,6 +22,9 @@ type Factory struct {
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
+	if spec.ASRModel != "" {
+		return nil, fmt.Errorf("dashscoperealtime: external ASR requires text input, which this driver does not support")
+	}
 	service, err := f.serviceForWorkspace(ctx, spec)
 	if err != nil {
 		return nil, err

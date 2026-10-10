@@ -34,7 +34,8 @@ func TestParallelNativeAudioGiztest(t *testing.T) {
 			name = "invalid_transcript_fails"
 		}
 		t.Run(name, func(t *testing.T) {
-			var replyCalls, asrCalls atomic.Int32
+			var replyCalls, asrCalls, requestsRead atomic.Int32
+			requestsReady := make(chan struct{})
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				body, err := io.ReadAll(r.Body)
 				if err != nil {
@@ -57,6 +58,17 @@ func TestParallelNativeAudioGiztest(t *testing.T) {
 						t.Error("audio-only business request gained a system prompt")
 					}
 				}
+				// Both uploads must finish before an invalid transcript can cancel
+				// its sibling. Otherwise the expected cancellation can truncate the
+				// reply body and make this fixture report an unrelated read error.
+				if requestsRead.Add(1) == 2 {
+					close(requestsReady)
+				}
+				select {
+				case <-requestsReady:
+				case <-r.Context().Done():
+					return
+				}
 				chunk, err := json.Marshal(map[string]any{"id": "native-parallel-fixture", "object": "chat.completion.chunk", "model": "doubao-seed-2-1-lite-260915", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant", "content": text}}}})
 				if err != nil {
 					t.Error(err)
@@ -70,8 +82,8 @@ func TestParallelNativeAudioGiztest(t *testing.T) {
 			generator := doubaochat.New(&genx.OpenAIGenerator{Client: &client, Model: "doubao-seed-2-1-lite-260915", PromptRole: genx.PromptRoleSystem})
 			resources := nativeParallelResources{}
 			service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: nativeParallelBuilder{generator: generator}})
-			workflow := []byte(`{"graph":{"name":"native-parallel","state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"reply","type":"chat_model","inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"},"model":"audio-llm","audio_transcript":true}],"edges":[{"from":"start","to":"reply"},{"from":"reply","to":"end"}],"outputs":[{"node":"reply","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`)
-			agent := newVoiceFixtureAgent(t, "eino", workflow, service, apitypes.WorkspaceInputModePushToTalk)
+			workflow := []byte(`{"graph":{"name":"native-parallel","state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"reply","type":"chat_model","inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"},"model":"audio-llm"}],"edges":[{"from":"start","to":"reply"},{"from":"reply","to":"end"}],"outputs":[{"node":"reply","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`)
+			agent := newVoiceFixtureAgent(t, "eino", workflow, service, apitypes.WorkspaceInputModePushToTalk, "")
 			defer agent.(io.Closer).Close()
 			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 			defer cancel()
@@ -132,11 +144,14 @@ steps:
 			if len(report.Tasks) != 1 {
 				t.Fatalf("tasks=%d", len(report.Tasks))
 			}
+			if replyCalls.Load() != 1 || asrCalls.Load() != 1 {
+				t.Fatalf("reply=%d asr=%d report=%s", replyCalls.Load(), asrCalls.Load(), encoded)
+			}
 			if invalid {
 				if report.Tasks[0].Status != "failed" || !strings.Contains(string(encoded), "invalid audio transcription object") {
 					t.Fatalf("invalid ASR became a success: %s", encoded)
 				}
-			} else if report.Tasks[0].Status != "passed" || replyCalls.Load() != 1 || asrCalls.Load() != 1 {
+			} else if report.Tasks[0].Status != "passed" {
 				t.Fatalf("reply=%d asr=%d report=%s", replyCalls.Load(), asrCalls.Load(), encoded)
 			}
 		})

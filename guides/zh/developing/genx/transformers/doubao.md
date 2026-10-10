@@ -50,6 +50,8 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` 和 `force_to_speech_time`，同时兼容对应的 camelCase 名称。调用方没有提供任何断句参数时，Builder 使用 `end_window_size=500` 和 `force_to_speech_time=1000`：实测 800 ms 静音窗口让实时模式从说完到首字常超过 2 s 首响门槛，500 ms 时稳定在约 1 s 且识别结果不变（`TestEinoRealtimeFirstResponseBreakdown`）；`force_to_speech_time` 的文档最小值为 `1`，`0` 并不是合法的“无下限”取值。只要调用方提供任意一个断句参数，Builder 就只发送显式提供的字段。
 
+外挂 ASR 返回空的定稿文本时，Doubao Realtime 的 PTT 输入在本地结束该轮，不调用 `SendText` 或 `EndASR`，下一条录音仍可正常开始。已上传音频的 turn 内部空文本 MIME 边界不会提前提交音频。
+
 ### Seed V2 分段失败
 
 `doubaotts.SeedV2` 每个可朗读 segment 只请求一次上游，不重试、不切换 Voice、不合成替代内容。

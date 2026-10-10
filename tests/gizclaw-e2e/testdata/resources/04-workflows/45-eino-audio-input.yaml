@@ -1,10 +1,6 @@
-# One Workflow that declares both live-audio paths: the streaming ASR Model and
-# the chat_model node that receives push-to-talk audio. The e2e-giztest
-# RuntimeProfile binding selects the model path, where the audio-input Model
-# runs parallel reply and transcription requests; a Workspace audio_input parameter
-# selects asr, where the ASR Model transcribes first and the Model gets text.
-# benchmark.eino-audio-input-comparison compares both on one recording; the
-# multilingual reply Voice speaks every sample language.
+# One reusable Workflow, with input ASR selected by each RuntimeProfile.
+# e2e-giztest uses native PTT audio; e2e-audio-asr selects external ASR.
+# The same Model and multilingual reply Voice serve both paths.
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 spec:
@@ -56,7 +52,6 @@ spec:
             model: audio-llm
             max_tokens: 256
             temperature: 0
-            audio_transcript: true
           edges:
           - from: start
             to: prompt

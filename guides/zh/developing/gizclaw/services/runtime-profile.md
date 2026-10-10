@@ -194,30 +194,37 @@ ASTTranslate 的当前 provider 路径没有系统提示入口：格式合法的
 
 围栏是发给模型的系统提示，约束效果仍依赖所选模型；这项配置不提供独立的内容审核器。
 
-## Eino 音频输入路径
+## 音频输入与 ASR
 
-Workflow binding 可带 `audio_input`，取值 `asr` 或 `model`，为运行该 Workflow 的 Eino Workspace 选择用户音频的转写来源：`asr` 由 Workflow 的 `voice_adapter.asr_model` 先转写再把文本交给 Graph，`model` 把音频直接交给设置了 `audio_transcript` 的 `chat_model` node，由其 Model 在回复中报告 transcript。
+每个 Workflow binding 可以分别配置 `ptt_asr_model` 和 `realtime_asr_model`，引用本 Profile 的 `resources.models` alias。配置后，runtime 先用独立 ASR 转写，再把文本交给会话 Model；省略或设为 null 时直接传原始音频，不自动补 ASR 或回落。两个输入模式独立选择，可以共享同一个 ASR Model binding。
 
 ```yaml
 spec:
   workflows:
     assistant:
       resource_id: eino-assistant
-      audio_input: model
+      realtime_asr_model: asr
       i18n:
         en: {display_name: Assistant}
         zh-CN: {display_name: 助手}
+  resources:
+    models:
+      asr:
+        resource_id: volc-bigasr-sauc
+        i18n:
+          en: {display_name: Speech recognition}
+          zh-CN: {display_name: 语音识别}
 ```
 
-同一个 Workflow 因此可以在有音频输入 Model 的部署上走 `model`，在其他部署上走 `asr`，不需要修改 Workflow 或维护两份近似的副本。Workspace 自己的 `audio_input` 参数优先于 binding；两者都未设置时使用 Workflow 默认值。完整的选择与回落规则见 [Eino 音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
+这个例子中 PTT 直接使用绑定 Model 的音频能力，realtime 使用独立 ASR。同一个 Workflow 因此可以适配不同部署，不需要修改业务图或 prompt。Workflow 不选择 ASR；旧 `eino.voice_adapter.asr_model` 仍可提交但完全忽略，不要求对应 alias 存在。Workspace 只能选择 `input` 模式，不能 override Profile 的 ASR。
 
 创建或更新 RuntimeProfile 时校验：
 
-- `audio_input` 只能出现在 Workflow binding 上，取值必须是 `asr` 或 `model`；Model、Voice 与 Tool binding 带该字段会被拒绝。
-- 被绑定的 Workflow 必须是 `eino` driver，并且声明了所选路径：`asr` 需要 `voice_adapter.asr_model`，`model` 需要一个设置 `audio_transcript` 的 `chat_model` node。
-- Workspace 保存的是 Workflow ID 而不是创建时使用的 alias，因此指向同一个 Workflow 的多个 binding 不能选择不同路径；未设置的 binding 不参与比较。
+- 两个字段只允许出现在 Workflow binding 上，值符合 Model alias 规则，并且必须在 `resources.models` 中绑定到 `kind: asr` 的资源。
+- 外挂 ASR 支持 `eino` 和 `doubao-realtime` driver。当前 `doubao-realtime-duplex` 与 `dashscope-realtime` Adapter 只接收音频，配置独立 ASR 会在 Profile 写入时被拒绝。
+- Workspace 保存 canonical Workflow ID，因此同一个资源的多个 alias 必须具有完全一致的 PTT 和 realtime ASR 配置；省略表示直接音频，也参与一致性比较。
 
-`audio_transcript` node 绑定的 Model 是否接受音频不在这里校验：Model 资源可以独立变更，该检查在每次 Workspace reload 时进行，不满足时回落到 `asr` 或使 reload 失败。`audio_input` 参与 revision 计算，不投影给 Peer；Peer 通过 `PeerRunWorkspaceState.audio_input` 读取实际生效的路径。
+两个字段参与 Profile revision，不作为可写参数投影给 Peer。每次 reload 解析当前 owner 的 Profile；ASR 构造失败会使 reload 失败，不静默切换路径。直接音频的实际支持范围取决于绑定 Model 与 driver，见 [Eino 音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
 
 ## MHS v0 硬件清单
 

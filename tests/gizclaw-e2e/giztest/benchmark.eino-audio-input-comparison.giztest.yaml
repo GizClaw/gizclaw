@@ -9,6 +9,10 @@ clients:
     identity: ephemeral
     connection: webrtc
     access_point: ${endpoint}
+  asr_peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -19,6 +23,10 @@ variables:
     type: string
     env: GIZCLAW_TEST_REGISTRATION_TOKEN
     secret: true
+  asr_registration_token:
+    direction: input
+    type: string
+    value: gizclaw-e2e-audio-asr
   sample_voice:
     direction: input
     type: string
@@ -60,6 +68,11 @@ steps:
       method: server.register
       request:
         token: ${registration_token}
+  - id: register_asr_peer
+    client: asr_peer
+    rpc:
+      method: server.register
+      request: {token: "${asr_registration_token}"}
   - id: create_audio_workspace
     client: peer
     rpc:
@@ -72,7 +85,7 @@ steps:
             agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
   - id: create_asr_workspace
-    client: peer
+    client: asr_peer
     rpc:
       method: server.workspace.create
       request:
@@ -82,7 +95,6 @@ steps:
           eino_workspace_parameters:
             agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
             input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
-            audio_input: AUDIO_INPUT_PATH_ASR
   - id: synthesize_sample
     client: peer
     speech:
@@ -128,14 +140,14 @@ steps:
     output:
       variable: audio_reply
   - id: select_asr
-    client: peer
+    client: asr_peer
     rpc:
       method: server.run.workspace.set
       request:
         workspace_name: ${asr_workspace}
-  # The Workspace parameter overrides the binding.
+  # The second Peer uses a RuntimeProfile that selects ASR.
   - id: reload_asr
-    client: peer
+    client: asr_peer
     rpc:
       method: server.run.workspace.reload
       request: {}
@@ -143,7 +155,7 @@ steps:
       /audio_input:
         equals: AUDIO_INPUT_PATH_ASR
   - id: ask_asr
-    client: peer
+    client: asr_peer
     timeout: 90s
     peer_stream:
       mode: push-to-talk
@@ -172,12 +184,20 @@ finally:
       method: server.workspace.delete
       request:
         name: ${audio_workspace}
-  - client: peer
+  - client: asr_peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: asr_peer
     rpc:
       method: server.workspace.delete
       request:
         name: ${asr_workspace}
   - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: asr_peer
     rpc:
       method: server.peer.delete
       request: {}

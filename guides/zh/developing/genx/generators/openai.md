@@ -35,6 +35,8 @@ OpenAI-compatible 只表示 provider protocol compatibility；credential、endpo
 
 转写请求最多等待 30 秒，设置 2048 completion tokens，最多读取 64 KiB 文本。缺少字段、重复或额外字段、非字符串值、无效 JSON 或上游错误都使外层 stream 明确失败，不把回复正文当作转写。任一路失败、调用方取消或关闭 stream 时，会取消另一请求并回收两条上游流；不发起额外恢复或重试请求。
 
+`Generator.TranscribeInput` 复用同样的音频转换、隔离转写请求和取消边界，单独返回转写与用量，不启动回复请求。需要先取得当前用户文本的 Graph 输入兼容层使用它，再按原业务 prompt 执行真实回复。
+
 纯文本请求原样转发；`Invoke` 只转换音频。peergenx 为 `support_text_only` 不为 true 的 Volc `chat_completions` Model 装配该适配，并用同一条件通过 `Service.AcceptsAudioInput` 回答“这个 Model 是否接受音频输入”；Eino factory 据此决定 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
 
 标准 Docker E2E 的 `eino-lite-native-audio.asr-roundtrip.giztest.yaml` 使用 `doubao-lite-audio-chat`（`doubao-seed-2-1-lite-260915`）。对应 Workflow 不声明业务 prompt、`asr_model` 或回复 Voice；Giztest 先合成固定输入录音，再断言运行路径为 `AUDIO_INPUT_PATH_MODEL`、Lite 返回正确的独立 transcript 与非空回复，回复正文没有 ASR 标签。输入合成只用于准备录音，不参与识别；转写由 Lite 适配内部的独立请求完成。

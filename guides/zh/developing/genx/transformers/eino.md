@@ -105,7 +105,11 @@ Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，�
 
 ### 音频 turn
 
-`ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 的 Graph 仍只接受文本 turn。
+`Config.TranscribeInput` 由宿主提供原生 Model 转写能力，不改变 Graph 定义。Push-to-Talk 音频到达 EOS 后先执行该回调，发布同一 StreamID 的用户转写，再以普通文本初始化 `input.text` 与 `input.messages`，然后才执行 Memory recall 和 Graph。失败或取消不执行 Graph；空转写结束该轮且不生成回复。后续 Observe 与 History 使用同一份用户文本，普通文本轮不调用转写。回调与 Graph 的 `AudioTranscript` receiver 互斥，宿主必须选择一种接入方式。
+
+宿主也可在内部 Graph 配置中设置 receiver，直接将音频交给 ChatModel，Graph 可以早于转写开始执行。GizClaw 仅为不依赖当前文本的简单图自动推导这种集成；持久化 Workflow Schema 不提供 receiver 字段。以下描述 Go API 的直接音频模式：
+
+`ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 且未配置 `TranscribeInput` 的 Graph 只接受文本 turn。
 
 音频轮中，Transformer 先以音频 input 的 StreamID 发布 `history.user_audio` sideband，使 History 中的用户条目排在回复之前。该 node 调用的 ChatModel component 在回复流中任意位置用 `TranscriptMessage` 构造的 stream message 报告这段音频的 transcript；怎样得到 transcript 由 component 与其背后的 Model 负责（GizClaw 的 GenX 适配把 Generator 的 `genx.InputTranscriptLabel` chunk 转成该 message）。Node 把第一次报告的 transcript 作为本轮 user text 写入 History 与 Memory observe，并以同一 StreamID 发布 `transcript` label 的 user text route，形状与 ASR stage 相同；Tool round 重新报告的 transcript 被忽略。没有报告 transcript 的轮次照常发布回复，user text 为空，History 只保存用户音频和回复。History 不保存音频 part，后续轮次不再发送音频。
 
@@ -121,7 +125,7 @@ def run(input):
     return {"query": query}
 ```
 
-该 Script node 绑定 `text: input.text`、`history: history.messages`，把 `query` 输出到 `MemoryRecallNode.QueryFrom` 引用的 field。这样召回依据的是上一轮的话题而不是当前这句话；第一轮音频没有可用的 History，仍然不召回。必须按当前话语召回的场景应在 Transformer 之前用 ASR 把音频转成文本轮。
+该 Script node 绑定 `text: input.text`、`history: history.messages`，把 `query` 输出到 `MemoryRecallNode.QueryFrom` 引用的 field。这样召回依据的是上一轮的话题而不是当前这句话；第一轮音频没有可用的 History，仍然不召回。需要按当前话语召回时，宿主应配置 `Config.TranscribeInput`，或在 Transformer 之前用独立 ASR 转成文本轮。GizClaw 对带 Memory 或 Script 的原图自动选择前置转写，不要求修改原图。
 
 ### Match
 

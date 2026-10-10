@@ -609,7 +609,6 @@ export type EinoWorkspaceParameters = {
   "conversation"?: ConversationParameters;
   "input"?: WorkspaceInputMode;
   "tts_speech_rate_percent"?: number;
-  "audio_input"?: AudioInputPath;
   "safety_fence_level"?: string;
 };
 export type ErrorInfo = {
@@ -1475,7 +1474,6 @@ export type WorkspaceParametersPatch = {
   "conversation"?: ConversationParameters;
   "tts_speech_rate_percent"?: number;
   "safety_fence_level"?: string;
-  "audio_input"?: AudioInputPath;
 };
 export type WorkspaceParametersSetRequest = {
   "name": string;
@@ -4221,12 +4219,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "int32"
-      },
-      {
-        "name": "audio_input",
-        "number": 7,
-        "optional": true,
-        "type": "AudioInputPath"
       },
       {
         "name": "safety_fence_level",
@@ -8122,12 +8114,6 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "string"
-      },
-      {
-        "name": "audio_input",
-        "number": 6,
-        "optional": true,
-        "type": "AudioInputPath"
       }
     ]
   },

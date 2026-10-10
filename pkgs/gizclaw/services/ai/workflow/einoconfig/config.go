@@ -75,16 +75,10 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 	if err := apitypes.ValidateSpeakerVoices(adapter.SpeakerVoices); err != nil {
 		return err
 	}
-	asr := strings.TrimSpace(stringValue(adapter.AsrModel))
 	defaultVoice := strings.TrimSpace(stringValue(adapter.DefaultVoice))
 	var nodeVoices map[string]string
 	if adapter.NodeVoices != nil {
 		nodeVoices = *adapter.NodeVoices
-	}
-	if asr != "" {
-		if err := runtimealias.Validate("ASR model alias", asr); err != nil {
-			return fmt.Errorf("asr_model: %w", err)
-		}
 	}
 	if defaultVoice != "" {
 		if err := runtimealias.Validate("default Voice alias", defaultVoice); err != nil {
@@ -230,7 +224,6 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		node := nodeBase(value.Id, value.Inputs, value.Outputs)
 		node.ChatModel = &genxeino.ChatModelNode{
 			Model: value.Model, Temperature: value.Temperature, MaxTokens: value.MaxTokens,
-			AudioTranscript: boolValue(value.AudioTranscript),
 		}
 		return node, nil
 	case "transform":

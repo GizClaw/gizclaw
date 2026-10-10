@@ -12,30 +12,30 @@ spec:
     volc-ast-translate: {resource_id: volc-ast-translate, i18n: {en: {display_name: AST Translate}, zh-CN: {display_name: AST 翻译}}, tags: [assistants]}
     doubao-realtime-conversation: {resource_id: doubao-realtime-conversation, i18n: {en: {display_name: Doubao Realtime}, zh-CN: {display_name: 豆包实时对话}}, tags: [assistants]}
     doubao-realtime-tts-conversation: {resource_id: doubao-realtime-tts-conversation, i18n: {en: {display_name: Doubao Realtime External TTS}, zh-CN: {display_name: 豆包实时对话外挂 TTS}}, tags: [assistants]}
-    eino-voice-assistant: {resource_id: eino-voice-assistant, i18n: {en: {display_name: Eino Voice Assistant}, zh-CN: {display_name: Eino 语音助手}}, tags: [assistants, "9-12", catalog]}
-    eino-chat-assistant: {resource_id: eino-chat-assistant, i18n: {en: {display_name: Eino Chat Assistant}, zh-CN: {display_name: Eino 对话助手}}, tags: [assistants, "6-8", catalog]}
+    eino-voice-assistant: {resource_id: eino-voice-assistant, i18n: {en: {display_name: Eino Voice Assistant}, zh-CN: {display_name: Eino 语音助手}}, tags: [assistants, "9-12", catalog], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-chat-assistant: {resource_id: eino-chat-assistant, i18n: {en: {display_name: Eino Chat Assistant}, zh-CN: {display_name: Eino 对话助手}}, tags: [assistants, "6-8", catalog], ptt_asr_model: asr, realtime_asr_model: asr}
     doubao-realtime-quality: {resource_id: doubao-realtime-quality, i18n: {en: {display_name: Doubao Quality}, zh-CN: {display_name: 豆包质量测试}}, tags: [assistants]}
-    eino-journey-guide: {resource_id: eino-journey-guide, i18n: {en: {display_name: Journey Guide}, zh-CN: {display_name: 旅程向导}}, tags: [assistants]}
-    eino-multi-role-storyteller: {resource_id: eino-multi-role-storyteller, i18n: {en: {display_name: Storyteller}, zh-CN: {display_name: 多角色故事}}, tags: [assistants]}
-    eino-murder-mystery: {resource_id: eino-murder-mystery, i18n: {en: {display_name: Murder Mystery}, zh-CN: {display_name: 剧本杀}}, tags: [assistants]}
-    eino-poetry-adventure-li-bai: {resource_id: eino-poetry-adventure-li-bai, i18n: {en: {display_name: Poetry Adventure}, zh-CN: {display_name: 李白诗词冒险}}, tags: [assistants]}
-    eino-werewolf-game: {resource_id: eino-werewolf-game, i18n: {en: {display_name: Werewolf Game}, zh-CN: {display_name: 狼人杀}}, tags: [assistants]}
+    eino-journey-guide: {resource_id: eino-journey-guide, i18n: {en: {display_name: Journey Guide}, zh-CN: {display_name: 旅程向导}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-multi-role-storyteller: {resource_id: eino-multi-role-storyteller, i18n: {en: {display_name: Storyteller}, zh-CN: {display_name: 多角色故事}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-murder-mystery: {resource_id: eino-murder-mystery, i18n: {en: {display_name: Murder Mystery}, zh-CN: {display_name: 剧本杀}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-poetry-adventure-li-bai: {resource_id: eino-poetry-adventure-li-bai, i18n: {en: {display_name: Poetry Adventure}, zh-CN: {display_name: 李白诗词冒险}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-werewolf-game: {resource_id: eino-werewolf-game, i18n: {en: {display_name: Werewolf Game}, zh-CN: {display_name: 狼人杀}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
     volc-ast-translate-zh-en: {resource_id: volc-ast-translate-zh-en, i18n: {en: {display_name: Chinese English Translate}, zh-CN: {display_name: 中英翻译}}, tags: [assistants]}
     dashscope-realtime-conversation: {resource_id: dashscope-realtime-conversation, i18n: {en: {display_name: DashScope Realtime}, zh-CN: {display_name: 百炼实时对话}}, tags: [assistants]}
     doubao-realtime-duplex-conversation: {resource_id: doubao-realtime-duplex-conversation, i18n: {en: {display_name: Doubao Realtime Duplex}, zh-CN: {display_name: 豆包双工对话}}, tags: [assistants]}
-    eino-memory-assistant: {resource_id: eino-memory-assistant, i18n: {en: {display_name: Eino Memory Assistant}, zh-CN: {display_name: Eino 记忆助手}}, tags: [assistants]}
-    eino-configured-memory: {resource_id: eino-configured-memory, i18n: {en: {display_name: Configured Memory}, zh-CN: {display_name: 配置记忆}}, tags: [assistants]}
-    eino-realtime-chat: {resource_id: eino-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}, tags: [assistants]}
-    eino-planner-latency-comparison: {resource_id: eino-planner-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants]}
-    eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants]}
-    eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}, tags: [assistants]}
+    eino-memory-assistant: {resource_id: eino-memory-assistant, i18n: {en: {display_name: Eino Memory Assistant}, zh-CN: {display_name: Eino 记忆助手}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-configured-memory: {resource_id: eino-configured-memory, i18n: {en: {display_name: Configured Memory}, zh-CN: {display_name: 配置记忆}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-realtime-chat: {resource_id: eino-realtime-chat, i18n: {en: {display_name: Realtime Chat}, zh-CN: {display_name: 实时对话}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-planner-latency-comparison: {resource_id: eino-planner-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-latency-comparison: {resource_id: eino-latency-comparison, i18n: {en: {display_name: Eino Latency}, zh-CN: {display_name: Eino 延迟}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-concurrency-assistant: {resource_id: eino-concurrency-assistant, i18n: {en: {display_name: Eino Concurrency}, zh-CN: {display_name: Eino 并发}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
     giztest-script-player: {resource_id: giztest-script-player, i18n: {en: {display_name: Script Player}, zh-CN: {display_name: 剧本玩家}}, tags: [giztest-quality]}
     giztest-script-judge: {resource_id: giztest-script-judge, i18n: {en: {display_name: Script Judge}, zh-CN: {display_name: 剧本裁判}}, tags: [giztest-quality]}
-    giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}, tags: [assistants]}
-    eino-speaker-voices: {resource_id: eino-speaker-voices, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants]}
-    eino-speaker-sequence: {resource_id: eino-speaker-sequence, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants]}
-    eino-mixed-provider-voices: {resource_id: eino-mixed-provider-voices, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}, tags: [assistants]}
-    eino-mixed-speaker-sequence: {resource_id: eino-mixed-speaker-sequence, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}, tags: [assistants]}
+    giztest-workflow-tester: {resource_id: giztest-workflow-tester, i18n: {en: {display_name: Giztest Workflow Tester}, zh-CN: {display_name: Giztest 测试驱动}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-speaker-voices: {resource_id: eino-speaker-voices, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-speaker-sequence: {resource_id: eino-speaker-sequence, i18n: {en: {display_name: Eino Speaker Voices}, zh-CN: {display_name: Eino 分段音色}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-mixed-provider-voices: {resource_id: eino-mixed-provider-voices, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
+    eino-mixed-speaker-sequence: {resource_id: eino-mixed-speaker-sequence, i18n: {en: {display_name: Eino Mixed Provider Voices}, zh-CN: {display_name: Eino 跨厂商音色}}, tags: [assistants], ptt_asr_model: asr, realtime_asr_model: asr}
     safety-fence-eino-script: {resource_id: safety-fence-eino-script, i18n: {en: {display_name: Safety Fence Eino}, zh-CN: {display_name: 安全围栏 Eino}}, tags: [assistants]}
     safety-fence-eino: {resource_id: safety-fence-eino, i18n: {en: {display_name: Safety Fence Eino}, zh-CN: {display_name: 安全围栏 Eino}}, tags: [assistants]}
     safety-fence-doubao-realtime: {resource_id: safety-fence-doubao-realtime, i18n: {en: {display_name: Safety Fence Doubao Realtime}, zh-CN: {display_name: 安全围栏豆包实时}}, tags: [assistants]}
@@ -44,8 +44,8 @@ spec:
     eino-memory-peer-a: {resource_id: eino-memory-peer-a, i18n: {en: {display_name: Peer Memory A}, zh-CN: {display_name: Peer 记忆 A}}, tags: [assistants]}
     eino-memory-peer-b: {resource_id: eino-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}, tags: [assistants]}
     eino-memory-workspace: {resource_id: eino-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
-    eino-audio-input: {resource_id: eino-audio-input, i18n: {en: {display_name: Eino Audio Input}, zh-CN: {display_name: Eino 音频输入}}, tags: [assistants], audio_input: model}
-    eino-lite-native-audio: {resource_id: eino-lite-native-audio, i18n: {en: {display_name: Lite Native Audio}, zh-CN: {display_name: Lite 原生音频}}, tags: [assistants], audio_input: model}
+    eino-audio-input: {resource_id: eino-audio-input, i18n: {en: {display_name: Eino Audio Input}, zh-CN: {display_name: Eino 音频输入}}, tags: [assistants], realtime_asr_model: asr}
+    eino-lite-native-audio: {resource_id: eino-lite-native-audio, i18n: {en: {display_name: Lite Native Audio}, zh-CN: {display_name: Lite 原生音频}}, tags: [assistants], realtime_asr_model: asr}
     giztest-toolkit-probe-none: {resource_id: giztest-toolkit-probe-none, i18n: {en: {display_name: Toolkit Probe None}, zh-CN: {display_name: 工具探针 无}}, tags: [assistants]}
     giztest-toolkit-probe-echo: {resource_id: giztest-toolkit-probe-echo, toolkit: {tool_names: [giztest-echo]}, i18n: {en: {display_name: Toolkit Probe Echo}, zh-CN: {display_name: 工具探针 Echo}}, tags: [assistants]}
     giztest-toolkit-probe-both: {resource_id: giztest-toolkit-probe-both, toolkit: {tool_names: [giztest-echo, giztest-other]}, i18n: {en: {display_name: Toolkit Probe Both}, zh-CN: {display_name: 工具探针 全部}}, tags: [assistants]}

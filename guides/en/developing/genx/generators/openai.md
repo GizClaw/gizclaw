@@ -37,6 +37,8 @@ Callers still receive one `genx.Stream`. Reply chunks pass through unchanged; th
 
 Transcription has a 30-second timeout, requests 2048 completion tokens, and reads at most 64 KiB of text. Missing, duplicate or extra fields, non-string values, invalid JSON and upstream errors explicitly fail the outer stream; reply text is never substituted for a transcript. Failure of either request, caller cancellation or closing the stream cancels its sibling and releases both upstream streams. The adapter makes no extra recovery or retry request.
 
+`Generator.TranscribeInput` reuses the same audio conversion, isolated transcription request and cancellation boundaries, returning only the transcript and usage without starting a reply request. Graph input integrations use it when current user text must be available before executing the original business prompt.
+
 Text-only requests pass through unchanged, and `Invoke` only converts audio. peergenx installs the adapter for Volc `chat_completions` Models whose `support_text_only` is not true, and `Service.AcceptsAudioInput` answers "does this Model accept audio input" with the same condition; the Eino factory uses it to decide the [audio input path](/en/developing/gizclaw/services/ai#eino-audio-input-path).
 
 The standard Docker E2E document `eino-lite-native-audio.asr-roundtrip.giztest.yaml` uses `doubao-lite-audio-chat` (`doubao-seed-2-1-lite-260915`). Its Workflow declares no application prompt, `asr_model` or reply Voice. Giztest synthesizes a fixed input recording, then asserts `AUDIO_INPUT_PATH_MODEL`, a correct independent transcript, a nonempty Lite reply, and no ASR tags in the reply. Input synthesis only prepares the recording; the Lite adapter's independent request performs transcription.

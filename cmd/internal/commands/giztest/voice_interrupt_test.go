@@ -47,7 +47,7 @@ func runVoiceInterrupt(t *testing.T, fixture string, mode apitypes.WorkspaceInpu
 	}
 	resources := voiceFixtureResources{}
 	service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
-	agent := newVoiceFixtureAgent(t, "eino", data, service, mode)
+	agent := newVoiceFixtureAgent(t, "eino", data, service, mode, "fixture-asr")
 	defer agent.(io.Closer).Close()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()

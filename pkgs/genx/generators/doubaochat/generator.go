@@ -50,6 +50,25 @@ func (g *Generator) GenerateStream(ctx context.Context, pattern string, mctx gen
 	return newAudioStream(ctx, g.next, pattern, prepared, transcription), nil
 }
 
+// TranscribeInput transcribes only the current user audio with this Model.
+// It shares the audio conversion, isolated prompt, limits and cancellation of
+// GenerateStream's transcription request, without starting a speculative reply.
+// Graph runtimes use it when their input logic must see text before execution.
+func (g *Generator) TranscribeInput(ctx context.Context, pattern string, mctx genx.ModelContext) (string, genx.Usage, error) {
+	if g == nil || g.next == nil {
+		return "", genx.Usage{}, errors.New("doubaochat: Generator is nil")
+	}
+	prepared, _, err := prepareModelContext(mctx)
+	if err != nil {
+		return "", genx.Usage{}, err
+	}
+	request, err := audioTranscriptContext(prepared)
+	if err != nil {
+		return "", genx.Usage{}, err
+	}
+	return transcribeAudio(ctx, g.next, pattern, request)
+}
+
 // Invoke converts request audio and delegates the function call unchanged.
 func (g *Generator) Invoke(ctx context.Context, pattern string, mctx genx.ModelContext, fn *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
 	if g == nil || g.next == nil {

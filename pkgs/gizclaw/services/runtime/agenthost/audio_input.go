@@ -6,55 +6,49 @@ import (
 	"slices"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/runtimealias"
 )
 
-// resolveAudioInput returns the audio input path selected for one Eino
-// Workspace: its own audio_input parameter, else the audio_input of the owner
-// RuntimeProfile's binding of the Workflow. Nil leaves the Workflow default.
-func resolveAudioInput(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (*apitypes.AudioInputPath, error) {
-	if workflow.Spec.Driver != apitypes.WorkflowDriverEino {
-		return nil, nil
-	}
-	selected, err := apitypes.WorkspaceAudioInput(ws.Parameters)
+// resolveASRModel reads only the owner Profile's binding for the current input
+// mode. Omission means native audio. Stored Workspace input-source fields and
+// legacy Workflow ASR configuration never participate in selection.
+func resolveASRModel(ctx context.Context, ws apitypes.Workspace, workflow apitypes.Workflow) (string, error) {
+	mode, err := apitypes.WorkspaceInput(workflow.Spec.Driver, ws.Parameters)
 	if err != nil {
-		return nil, fmt.Errorf("workspace %q: %w", ws.Name, err)
-	}
-	if selected != nil {
-		return selected, nil
+		return "", fmt.Errorf("workspace %q: %w", ws.Name, err)
 	}
 	profile, ok := ctx.Value(runtimeProfileContextKey{}).(apitypes.RuntimeProfile)
 	if !ok {
-		return nil, nil
+		return "", nil
 	}
-	selected, err = profileWorkflowAudioInput(profile, workflow.Id)
-	if err != nil {
-		return nil, fmt.Errorf("workspace %q: %w", ws.Name, err)
-	}
-	return selected, nil
-}
-
-// profileWorkflowAudioInput returns the audio_input the profile selects for a
-// Workflow resource. A Workspace stores the Workflow ID rather than the alias
-// it was created through, so every binding of that Workflow must agree.
-func profileWorkflowAudioInput(profile apitypes.RuntimeProfile, workflowID string) (*apitypes.AudioInputPath, error) {
 	aliases := make([]string, 0, len(profile.Spec.Workflows))
 	for alias := range profile.Spec.Workflows {
 		aliases = append(aliases, alias)
 	}
 	slices.Sort(aliases)
-	var selected *apitypes.AudioInputPath
+	selected, previous := "", ""
 	for _, alias := range aliases {
 		binding := profile.Spec.Workflows[alias]
-		if binding.ResourceId != workflowID || binding.AudioInput == nil {
+		if binding.ResourceId != workflow.Id {
 			continue
 		}
-		if err := apitypes.ValidateAudioInputPath(binding.AudioInput); err != nil {
-			return nil, fmt.Errorf("RuntimeProfile %q workflows.%s: %w", profile.Id, alias, err)
+		value := binding.PttAsrModel
+		field := "ptt_asr_model"
+		if mode == apitypes.WorkspaceInputModeRealtime {
+			value = binding.RealtimeAsrModel
+			field = "realtime_asr_model"
 		}
-		if selected != nil && *selected != *binding.AudioInput {
-			return nil, fmt.Errorf("RuntimeProfile %q binds Workflow %q with conflicting audio_input %q and %q", profile.Id, workflowID, *selected, *binding.AudioInput)
+		current := ""
+		if value != nil {
+			current = *value
+			if err := runtimealias.Validate("ASR Model alias", current); err != nil {
+				return "", fmt.Errorf("RuntimeProfile %q workflows.%s.%s: %w", profile.Id, alias, field, err)
+			}
 		}
-		selected = new(*binding.AudioInput)
+		if previous != "" && selected != current {
+			return "", fmt.Errorf("RuntimeProfile %q binds Workflow %q with conflicting %s in %q and %q", profile.Id, workflow.Id, field, previous, alias)
+		}
+		selected, previous = current, alias
 	}
 	return selected, nil
 }

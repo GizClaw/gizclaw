@@ -53,6 +53,19 @@ func (g quotaGenerator) Invoke(ctx context.Context, pattern string, input genx.M
 	return usage, call, err
 }
 
+func (g quotaGenerator) TranscribeInput(ctx context.Context, pattern string, input genx.ModelContext) (string, genx.Usage, error) {
+	ctx, release, err := g.authorize(ctx)
+	if err != nil {
+		return "", genx.Usage{}, err
+	}
+	defer release()
+	text, usage, err := transcribeInput(ctx, g.Generator, pattern, input)
+	if ctx.Err() != nil {
+		return "", usage, context.Cause(ctx)
+	}
+	return text, usage, err
+}
+
 type quotaTransformer struct {
 	genx.Transformer
 	authorize func(context.Context) (context.Context, func(), error)

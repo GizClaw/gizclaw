@@ -26,10 +26,10 @@ type Spec struct {
 	ToolVerificationModel string
 	// SafetyFencePrompt is the complete selected RuntimeProfile prompt for this generation.
 	SafetyFencePrompt string
-	// AudioInput is the audio input path selected for an Eino Workspace: its
-	// own parameter, else the owner RuntimeProfile's Workflow binding. Nil
-	// leaves the Workflow default. The factory decides the effective path.
-	AudioInput *apitypes.AudioInputPath
+	// ASRModel is the external ASR alias selected by the owner's RuntimeProfile
+	// Workflow binding for this Workspace input mode. Empty passes native audio
+	// directly to the conversation Model. Workflow and Workspace cannot select it.
+	ASRModel string
 	// Memory is the Layout-bound provider-neutral Store selected through
 	// the current RuntimeProfile. MemoryCloser belongs to this Agent generation.
 	Memory       memory.Store

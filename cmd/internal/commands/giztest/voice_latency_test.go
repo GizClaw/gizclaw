@@ -52,7 +52,7 @@ func TestEinoRealtimeTextDuringTTSStartup(t *testing.T) {
 				}
 				resources := voiceFixtureResources{}
 				service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
-				agent := newVoiceFixtureAgent(t, "eino", configured, service, apitypes.WorkspaceInputModeRealtime)
+				agent := newVoiceFixtureAgent(t, "eino", configured, service, apitypes.WorkspaceInputModeRealtime, "fixture-asr")
 				defer agent.(io.Closer).Close()
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()

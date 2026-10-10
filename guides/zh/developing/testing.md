@@ -917,7 +917,7 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ```
 
-`eino-audio-input` 是同时声明两条[音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)的一个 Workflow：`asr_model` 为 `asr`（`volc-bigasr-sauc`），`audio_transcript` chat_model node 使用 `audio-llm`（`doubao-lite-audio-chat`，上游 `doubao-seed-2-1-lite-260915`，关闭 thinking），回复用 `multilingual-voice` 合成。`e2e-giztest` RuntimeProfile 的 binding 设置 `audio_input: model`，因此默认由该 node 在同一次回复中转写 Push-to-Talk 音频；设置 `audio_input: asr` 的 Workspace 先经 ASR 识别再把文本发给同一个 Model。脚本启动一套隔离 stack，对每个样本（普通话、四川话、粤语、英语、日语、西班牙语）运行一次 `benchmark.eino-audio-input-comparison`：文档在该 Workflow 上创建两个 Workspace，一个沿用 binding，一个用 Workspace 参数选择 `asr`，reload 后分别断言 `PeerRunWorkspaceState.audio_input`，再把同一段合成录音先后发给两个 Workspace，文档用 `output` step 打印两条路径的 transcript 与 reply。`setup/audio_input_comparison.py` 按关键词组给 transcript 和 reply 打分，把 `report.json`、`report.md` 以及每个样本的 report 与 log 写到 `testdata/audio-input-comparison/`，并附带 `first_transcript_ms`、`first_text_ms`、`first_audio_ms`。音频输入路径任一样本缺少期望的 transcript 或 reply 时脚本失败；ASR 路径只作为基线记录。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 只运行所列样本。`run_tests.sh` preflight 运行 `setup/audio_input_comparison_test.py`，离线校验输出解析与打分。
+`eino-audio-input` 用同一个 `audio-llm`（`doubao-lite-audio-chat`，上游 `doubao-seed-2-1-lite-260915`）和 `multilingual-voice` 比较两条[音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。`e2e-giztest` Profile 不配置 PTT ASR，`e2e-audio-asr` Profile 的 Workflow binding 设置 `ptt_asr_model: asr`（`volc-bigasr-sauc`）；Workflow 内旧 `asr_model` 忽略，Workspace 不选择音频来源。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`。两个 Peer 分别注册到两个 Profile，在同一个 Workflow 上创建 Workspace，reload 后断言实际路径，再使用同一段录音比较 transcript 和 reply。`setup/audio_input_comparison.py` 按关键词打分，在 `testdata/audio-input-comparison/` 保存报告、日志和首 transcript／文本／音频时延。原生音频路径任一样本缺少期望 transcript 或 reply 时失败，ASR 作为比较基线。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 可选择样本；`setup/audio_input_comparison_test.py` 离线验证解析与打分。
 
 `peer_stream` result 的 `/transcript` 是非 interim 的 `transcript` label 文本，`/reply` 是保留下来的 `assistant` label 文本；`/text` 仍按到达顺序包含全部文本片段。常规阶段的 `eino-audio-input.push-to-talk-transcript` 先断言 reload 返回 `model` 路径，再用普通话问题断言 `/transcript`、`/reply` 和 History 写入。`eino-audio-input.path-selection` 只使用 RPC，所有语言的 runner 都会执行：它依次断言 binding 默认的 `model`、Workspace 参数覆盖为 `asr`、`realtime` 输入保持 `asr`、切回 Push-to-Talk 后恢复 `model`，以及只声明 `asr_model` 的 `eino-concurrency-assistant` 在偏好 `model` 时回落到 `asr`。
 
@@ -1817,3 +1817,19 @@ python3 tests/gizclaw-e2e/lua-app/verify_install.py   --endpoint http://127.0.0.
 ```
 
 脚本验证 URL、两种 data URL、Binary 安装及 list/run 参数，Binary 压缩包最多 512 KiB，超限必须通过 HTTP(S) URL 安装；声明 524289 字节的直推请求应返回 `413 LUA_APP_PACKAGE_TOO_LARGE`。截断、超长、错 SHA 和主动取消后重新读取探针，确认应用及存档保留。data URL 测试样本必须在 256 KiB 编码上限内。GizOS 的探针还应记录收到的 launch params，并在其自身 E2E 校验真实入口与首帧 golden。未启动 GizOS host 或未提供探针时，不把协议测试或旧 Giztest simulator 作为设备安装通过的依据。无 handler 与最终错误映射另由 C/Go/JS/Flutter provider 和 Server HTTP tests 覆盖。
+
+## 原始业务图的真实音频回归
+
+`TestRuntimeProfileAudioGiztests` 是本地显式启动的 provider 测试。先按 `cmd/mem0/config.example.yaml` 启动隔离的真实 Mem0／Pgvector，并提供 Ark、Doubao Speech/Search 与原始 Voice 绑定所需的 MiniMax CN/global 凭据。测试要求 Deploy checkout 含 Raids catalog、H106 Tiga Profile 和原始 Giztest 文档：
+
+```sh
+GIZCLAW_TEST_AUDIO_DEPLOY_ROOT=/path/to/deploy \
+GIZCLAW_TEST_AUDIO_EVIDENCE="$(mktemp -d)" \
+GIZCLAW_TEST_MEM0_ENDPOINT=http://127.0.0.1:8000 \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestRuntimeProfileAudioGiztests$' -count=1 -timeout=20m -v
+```
+
+`GIZCLAW_E2E_MEM0_API_KEY` 用于 Mem0 鉴权。测试通过已认证 Admin HTTP 在临时 SQLite Server 中绑定真实资源；只为本地 Profile 选择原生 Lite Model 和测试 Mem0，读取原始冒险多角色、猜动物、专题与主聊天 Workflow，保持业务图和 prompt。原始 Giztest 经真实 WebRTC 验证两轮语音、文本开场、回复 EOS 与 cleanup。主聊天仍使用 Doubao Realtime，并额外验证同一个 Workflow 外挂 ASR 的 PTT、连续 realtime、打断及下一轮恢复。
+
+证据目录保存原始图和测试文档 SHA-256、各场景报告、透明 Ark／Mem0 观察器的脱敏记录与 provider 用量。观察器转发真实上游响应；原生 Lite 阶段必须有成功的音频转写和文本回复请求、正用量且无独立 BigASR 用量，外挂 ASR 阶段必须记录实际 ASR 用量。该测试产生真实费用，不进入 CI，也不代表设备或部署验收；报告和日志不得提交。

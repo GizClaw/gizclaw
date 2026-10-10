@@ -117,44 +117,36 @@ func TestFactoryAudioInputPath(t *testing.T) {
 	t.Parallel()
 	asr, model := apitypes.AudioInputPathAsr, apitypes.AudioInputPathModel
 	for _, test := range []struct {
-		name string
-		// asrModel and node say which audio input paths the Workflow declares.
-		asrModel bool
-		node     bool
-		// textModel binds the audio_transcript node to a text-only Model.
-		textModel bool
-		selected  *apitypes.AudioInputPath
-		realtime  bool
-		// want is the reported path; empty means a text-only Agent.
-		want    apitypes.AudioInputPath
-		wantErr string
+		name                           string
+		legacyASR                      bool
+		asrModel                       string
+		textModel, realtime, textLogic bool
+		want                           apitypes.AudioInputPath
+		wantErr                        string
 	}{
-		{name: "both declared default", asrModel: true, node: true, want: asr},
-		{name: "both declared model preferred", asrModel: true, node: true, selected: &model, want: model},
-		{name: "both declared asr preferred", asrModel: true, node: true, selected: &asr, want: asr},
-		{name: "model preferred falls back for a text-only Model", asrModel: true, node: true, textModel: true, selected: &model, want: asr},
-		{name: "model preferred keeps asr for realtime", asrModel: true, node: true, selected: &model, realtime: true, want: asr},
-		{name: "model preferred without node falls back", asrModel: true, selected: &model, want: asr},
-		{name: "asr only default", asrModel: true, want: asr},
-		{name: "node only default", node: true, want: model},
-		{name: "node only asr preferred falls back", node: true, selected: &asr, want: model},
-		{name: "node only text-only Model", node: true, textModel: true, wantErr: "does not accept audio input"},
-		{name: "node only realtime", node: true, realtime: true, wantErr: "realtime input requires voice_adapter.asr_model"},
-		{name: "text only default"},
-		{name: "text only ignores a preference", selected: &model},
+		{name: "native input without graph configuration", want: model},
+		{name: "legacy Workflow ASR slot is ignored", legacyASR: true, want: model},
+		{name: "Profile selects external ASR", asrModel: "asr", want: asr},
+		{name: "external ASR feeds text to an audio-capable Model", asrModel: "asr", legacyASR: true, want: asr},
+		{name: "input text is prepared before legacy control scripts", textLogic: true, want: model},
+		{name: "text Model with Profile ASR", textModel: true, asrModel: "asr", want: asr},
+		{name: "invalid Profile ASR never falls back", asrModel: "audio-llm", wantErr: "is not a transformer"},
+		{name: "native Lite cannot segment realtime input", realtime: true, wantErr: "configure RuntimeProfile realtime_asr_model"},
+		{name: "Profile realtime ASR", asrModel: "asr", realtime: true, want: asr},
+		{name: "text only without ASR", textModel: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			spec := einoFactorySpec(t)
 			spec.Workflow.Spec.Eino = audioTranscriptSpec(t)
-			if !test.node {
-				spec.Workflow.Spec.Eino = audioTranscriptSpecWithout(t)
+			if test.textLogic {
+				spec.Workflow.Spec.Eino = audioInputControlSpec(t)
 			}
-			if test.asrModel {
-				alias := "asr"
+			if test.legacyASR {
+				alias := "ignored-legacy-slot"
 				spec.Workflow.Spec.Eino.VoiceAdapter = &apitypes.VoiceAdapter{AsrModel: &alias}
 			}
-			spec.AudioInput = test.selected
+			spec.ASRModel = test.asrModel
 			if test.realtime {
 				spec.Workspace.Parameters = einoWorkspaceParameters(t, apitypes.WorkspaceInputModeRealtime)
 			}
@@ -208,7 +200,11 @@ func TestFactoryAudioInputPath(t *testing.T) {
 			}
 			heard, asrBuilds := builder.snapshot()
 			if test.want == model {
-				if heard != "audio" || asrBuilds != 0 || transcript.String() != "model heard" || reply.String() != "reply" {
+				wantHeard := "audio"
+				if test.textLogic {
+					wantHeard = "model heard"
+				}
+				if heard != wantHeard || asrBuilds != 0 || transcript.String() != "model heard" || reply.String() != "reply" {
 					t.Fatalf("model path: heard %q, ASR builds %d, transcript %q, reply %q", heard, asrBuilds, transcript.String(), reply.String())
 				}
 				return
@@ -220,21 +216,19 @@ func TestFactoryAudioInputPath(t *testing.T) {
 	}
 }
 
-func TestWithoutAudioTranscriptLeavesTheSourceGraph(t *testing.T) {
-	t.Parallel()
+func TestAutomaticAudioReceiverDoesNotChangeSourceGraph(t *testing.T) {
 	source := genxeino.GraphDefinition{Nodes: []genxeino.NodeDefinition{
 		{ID: "prompt", Prompt: &genxeino.PromptNode{}},
-		{ID: "answer", ChatModel: &genxeino.ChatModelNode{Model: "audio-llm", AudioTranscript: true}},
+		{ID: "answer", ChatModel: &genxeino.ChatModelNode{Model: "audio-llm"}},
 	}}
-	stripped := withoutAudioTranscript(source)
-	if genxeino.AcceptsAudioInput(genxeino.Config{Graph: stripped}) {
-		t.Fatal("stripped Graph still starts audio turns")
+	derived := automaticAudioReceiver(source, "audio-llm")
+	if !genxeino.AcceptsAudioInput(genxeino.Config{Graph: derived}) || genxeino.AcceptsAudioInput(genxeino.Config{Graph: source}) {
+		t.Fatal("automatic receiver did not preserve the source Graph")
 	}
-	if stripped.Nodes[1].ChatModel.Model != "audio-llm" {
-		t.Fatalf("stripped chat_model = %#v", stripped.Nodes[1].ChatModel)
-	}
-	if !genxeino.AcceptsAudioInput(genxeino.Config{Graph: source}) {
-		t.Fatal("withoutAudioTranscript modified the source Graph")
+	source.Nodes[0].Inputs = map[string]genxeino.Binding{"text": {From: "input.text"}}
+	staged := automaticAudioReceiver(source, "audio-llm")
+	if genxeino.AcceptsAudioInput(genxeino.Config{Graph: staged}) {
+		t.Fatal("text-dependent Graph must prepare input transcription")
 	}
 }
 
@@ -265,7 +259,9 @@ func runAudioTurn(t testing.TB, agent genx.Transformer) []*genx.MessageChunk {
 // audioPathModels serves the chat Model of the audio_transcript node and the
 // streaming ASR Model.
 type audioPathModels struct {
-	textModel bool
+	textModel   bool
+	textModels  map[string]bool
+	resourceIDs map[string]string
 }
 
 func (m audioPathModels) GetModel(_ context.Context, request adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
@@ -276,6 +272,12 @@ func (m audioPathModels) GetModel(_ context.Context, request adminhttp.GetModelR
 	data := apitypes.VolcTenantModelProviderData{
 		ApiMode: apitypes.VolcTenantModelProviderDataApiModeChatCompletions, SupportTextOnly: &m.textModel,
 	}
+	if value, ok := m.textModels[request.Id]; ok {
+		data.SupportTextOnly = &value
+	}
+	if id := m.resourceIDs[request.Id]; id != "" {
+		model.Id = id
+	}
 	if request.Id == "asr" {
 		model.Kind = apitypes.ModelKindAsr
 		data = apitypes.VolcTenantModelProviderData{ApiMode: apitypes.VolcTenantModelProviderDataApiModeAsr}
@@ -284,6 +286,43 @@ func (m audioPathModels) GetModel(_ context.Context, request adminhttp.GetModelR
 		return nil, err
 	}
 	return adminhttp.GetModel200JSONResponse(model), nil
+}
+
+func TestAutomaticInputModelSelectionUsesBoundCapabilities(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		resources audioPathModels
+		wantErr   bool
+	}{
+		{name: "one native and one text Model", resources: audioPathModels{textModels: map[string]bool{"other": true}}},
+		{name: "two aliases for the same native Model", resources: audioPathModels{resourceIDs: map[string]string{"audio-llm": "shared", "other": "shared"}}},
+		{name: "different native Models are ambiguous", wantErr: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			public := audioTranscriptSpecWithout(t)
+			node, err := public.Graph.Nodes[0].AsEinoChatModelNode()
+			if err != nil {
+				t.Fatal(err)
+			}
+			node.Id, node.Model = "other", "other"
+			var raw apitypes.EinoNode
+			if err := raw.FromEinoChatModelNode(node); err != nil {
+				t.Fatal(err)
+			}
+			public.Graph.Nodes = append(public.Graph.Nodes, raw)
+			service := peergenx.New(peergenx.Service{Models: tc.resources, Credentials: einoTTSResources{}, ProviderTenants: einoTTSResources{}})
+			alias, capable, err := selectInputModel(t.Context(), service, *public)
+			if tc.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "multiple audio-capable Models") {
+					t.Fatalf("selection=%q capable=%v error=%v", alias, capable, err)
+				}
+				return
+			}
+			if err != nil || !capable || alias != "audio-llm" {
+				t.Fatalf("selection=%q capable=%v error=%v", alias, capable, err)
+			}
+		})
+	}
 }
 
 // audioPathBuilder records what the chat Model received and how often the
@@ -341,6 +380,10 @@ type audioPathGenerator struct {
 	builder *audioPathBuilder
 }
 
+func (audioPathGenerator) TranscribeInput(context.Context, string, genx.ModelContext) (string, genx.Usage, error) {
+	return "model heard", genx.Usage{}, nil
+}
+
 func (g audioPathGenerator) GenerateStream(_ context.Context, _ string, mctx genx.ModelContext) (genx.Stream, error) {
 	heard := ""
 	for message := range mctx.Messages() {
@@ -379,20 +422,18 @@ func (audioPathGenerator) Invoke(context.Context, string, genx.ModelContext, *ge
 	return genx.Usage{}, nil, errors.New("not used")
 }
 
-// audioTranscriptSpecWithout returns the audio_transcript fixture with the
-// flag removed from its chat_model node.
 func audioTranscriptSpecWithout(t testing.TB) *apitypes.EinoWorkflowSpec {
+	return audioTranscriptSpec(t)
+}
+
+func audioInputControlSpec(t testing.TB) *apitypes.EinoWorkflowSpec {
 	t.Helper()
-	public := audioTranscriptSpec(t)
-	node, err := public.Graph.Nodes[0].AsEinoChatModelNode()
-	if err != nil {
-		t.Fatalf("decode chat_model node: %v", err)
+	var spec apitypes.EinoWorkflowSpec
+	body := `{"graph":{"name":"control-input","state":{"fields":[{"name":"messages","type":"messages","merge":"replace"},{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"control","type":"script","inputs":{"text":{"from":"input.text"},"messages":{"from":"input.messages"}},"outputs":{"messages":"messages"},"language":"starlark","entrypoint":"run","limits":{"max_execution_steps":10000,"timeout":"1s","max_input_bytes":65536,"max_output_bytes":65536},"source":"def run(input):\n  if input[\"text\"] != \"model heard\":\n    fail(\"empty or wrong transcription\")\n  return {\"messages\": input[\"messages\"]}\n"},{"id":"answer","type":"chat_model","model":"audio-llm","inputs":{"messages":{"from":"messages"}},"outputs":{"text":"answer"}}],"edges":[{"from":"start","to":"control"},{"from":"control","to":"answer"},{"from":"answer","to":"end"}],"outputs":[{"node":"answer","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`
+	if err := json.Unmarshal([]byte(body), &spec); err != nil {
+		t.Fatal(err)
 	}
-	node.AudioTranscript = nil
-	if err := public.Graph.Nodes[0].FromEinoChatModelNode(node); err != nil {
-		t.Fatalf("encode chat_model node: %v", err)
-	}
-	return public
+	return &spec
 }
 
 func audioTranscriptSpec(t testing.TB) *apitypes.EinoWorkflowSpec {
@@ -408,8 +449,7 @@ func audioTranscriptSpec(t testing.TB) *apitypes.EinoWorkflowSpec {
 				"type": "chat_model",
 				"inputs": {"messages": {"from": "input.messages"}},
 				"outputs": {"text": "answer"},
-				"model": "audio-llm",
-				"audio_transcript": true
+				"model": "audio-llm"
 			}],
 			"edges": [{"from": "start", "to": "answer"}, {"from": "answer", "to": "end"}],
 			"branches": [],

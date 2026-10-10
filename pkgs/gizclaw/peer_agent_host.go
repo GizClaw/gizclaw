@@ -83,12 +83,30 @@ func newPeerAgentHost(
 		}
 		return nil
 	}
+	buildASR := func(ctx context.Context, owner, alias string, mode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
+		service := peerGenX
+		if owner != "" {
+			if ownerGenX == nil {
+				return nil, fmt.Errorf("owner GenX resolver is not configured")
+			}
+			var err error
+			service, err = ownerGenX(ctx, owner)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if service == nil {
+			return nil, fmt.Errorf("GenX service is not configured")
+		}
+		return service.BuildASR(ctx, alias, mode)
+	}
 	_ = host.Register(asttranslate.Type, asttranslate.Factory{Transformer: transformer, TransformerForOwner: transformerForOwner})
 	_ = host.Register(dashscoperealtime.Type, dashscoperealtime.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
 	_ = host.Register(doubaorealtime.Type, doubaorealtime.Factory{
 		Transformer:         transformer,
 		TransformerForOwner: transformerForOwner,
 		ValidateVoice:       validateVoice,
+		BuildASR:            buildASR,
 	})
 	_ = host.Register(doubaorealtimeduplex.Type, doubaorealtimeduplex.Factory{GenX: peerGenX, GenXForOwner: ownerGenX})
 	_ = host.Register(eino.Type, eino.Factory{

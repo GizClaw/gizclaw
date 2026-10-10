@@ -20,7 +20,6 @@ spec:
       - id: reply
         type: chat_model
         model: audio-llm
-        audio_transcript: true
         max_tokens: 512
         inputs:
           messages:
