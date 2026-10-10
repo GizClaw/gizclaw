@@ -20,4 +20,6 @@ TARGET=base PLATFORM="$platform" BASE_IMAGE="$GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE
 "${compose[@]}" build mem0_pgvector
 "${compose[@]}" up --detach --wait pgvector
 "${compose[@]}" run --rm --no-deps partman-init
-"${compose[@]}" run --rm --no-deps --entrypoint python mem0_pgvector -m unittest -v mem0_pgvector_regression_test.py mem0_retention_test.py
+"${compose[@]}" run --rm --no-deps \
+  -e MEM0_POSTGRES_ADMIN_DSN=postgresql://gizclaw_bootstrap:gizclaw_bootstrap@pgvector:5432/mem0_locomo?sslmode=disable \
+  --entrypoint python mem0_pgvector -m unittest -v mem0_pgvector_regression_test.py mem0_retention_test.py

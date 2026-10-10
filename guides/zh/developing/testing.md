@@ -1399,6 +1399,8 @@ Qdrant 与 PGVector 容器共用 `cmd/mem0` 服务和 `mem0ai 2.2.1`，默认通
 
 `mem0` group 使用内嵌 Qdrant；`mem0-pgvector` group 启动 Mem0 和独立的 PostgreSQL 17/pgvector 容器，只在宿主机回环地址暴露 Mem0 HTTP 端口（默认 `18001`），数据库没有宿主机端口。测试先检查服务报告的 `vector_store` 是 `pgvector`，再执行相同的真实提取、召回和问答评测；缺失数据库配置或数据库初始化失败不会回退到 Qdrant。直接运行 Go test 时设置 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL`；Docker 端口可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_PORT` 覆盖。报告 profile 为 `mem0_self_hosted_pgvector`。`all` 包含这两种 Mem0 后端。数据库账号是仅用于临时 Docker 测试的固定 fixture，数据与 SQLite history 随 runner 退出清理，不使用云端 PG。
 
+PostgreSQL 初始化与后台维护使用独立夹具管理员 `gizclaw_bootstrap`；Mem0 使用普通数据库 owner `gizclaw_test` 连接。保留策略回归明确验证应用账号不是 superuser。只有回归测试进程接收 `MEM0_POSTGRES_ADMIN_DSN`，用于管理员创建分区和修复分区 ownership 的场景。
+
 PG lane 的提取输出上限默认为 8192 tokens，可通过 `GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_MAX_TOKENS` 覆盖。测试读取服务实际 token 上限并纳入 fingerprint 和报告；服务仅输出 finish reason、JSON 有效性和候选数量等响应元数据，便于定位截断或空提取，不输出模型内容。Qdrant lane 保留原有 2000 token 默认值。
 
 模型名称必须是所选账号实际可用的名称，可分别覆盖 `GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL` 和 `GIZCLAW_LOCOMO_E2E_ANSWER_MODEL`。例如账号支持返回 Flash 非思考模式的 `deepseek-chat` 兼容别名时：

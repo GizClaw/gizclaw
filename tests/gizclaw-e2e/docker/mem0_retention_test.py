@@ -5,10 +5,10 @@ import os
 import tempfile
 import time
 import unittest
+import unittest.mock as mock
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
-from unittest import mock
 
 import anyio
 import psycopg
@@ -106,7 +106,13 @@ class RetentionTest(unittest.TestCase):
     def test_background_role_children_remain_application_owned(self):
         admin_dsn = os.environ["MEM0_POSTGRES_ADMIN_DSN"]
         day = datetime.now(timezone.utc) + timedelta(days=200)
+        with psycopg.connect(self.dsn) as application:
+            application_role, superuser = application.execute(
+                "SELECT current_user, rolsuper FROM pg_roles WHERE rolname=current_user"
+            ).fetchone()
+            self.assertFalse(superuser, "retention must be exercised by an ordinary application role")
         with psycopg.connect(admin_dsn) as admin:
+            self.assertNotEqual(admin.execute("SELECT current_user").fetchone()[0], application_role)
             for store in self.cleanup.stores:
                 parent = "public." + retention._name(store.collection_name, "records")
                 admin.execute("SELECT partman.create_partition_time(%s,ARRAY[%s]::timestamptz[])", (parent, day))

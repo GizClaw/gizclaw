@@ -37,15 +37,17 @@ services:
     build:
       context: ../..
       dockerfile: build/postgres/Dockerfile
-    command: ["postgres", "-c", "shared_preload_libraries=pg_partman_bgw", "-c", "pg_partman_bgw.dbname=mem0_locomo", "-c", "pg_partman_bgw.role=gizclaw_test", "-c", "pg_partman_bgw.interval=3600"]
+    command: ["postgres", "-c", "shared_preload_libraries=pg_partman_bgw", "-c", "pg_partman_bgw.dbname=mem0_locomo", "-c", "pg_partman_bgw.role=gizclaw_bootstrap", "-c", "pg_partman_bgw.interval=3600"]
     environment:
       POSTGRES_DB: mem0_locomo
-      POSTGRES_USER: gizclaw_test
-      POSTGRES_PASSWORD: gizclaw_test
+      POSTGRES_USER: gizclaw_bootstrap
+      POSTGRES_PASSWORD: gizclaw_bootstrap
+    volumes:
+    - ./postgres-init.sql:/docker-entrypoint-initdb.d/01-application.sql:ro
     healthcheck:
       test:
       - CMD-SHELL
-      - pg_isready -U gizclaw_test -d mem0_locomo
+      - pg_isready -U gizclaw_bootstrap -d mem0_locomo
       interval: 1s
       timeout: 3s
       retries: 30
@@ -58,8 +60,8 @@ services:
     entrypoint: ["bootstrap-partman"]
     environment:
       PGHOST: pgvector
-      PGUSER: gizclaw_test
-      PGPASSWORD: gizclaw_test
+      PGUSER: gizclaw_bootstrap
+      PGPASSWORD: gizclaw_bootstrap
       PG_PARTMAN_DATABASES: mem0_locomo
     depends_on:
       pgvector:
