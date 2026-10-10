@@ -45,6 +45,7 @@ spec:
     eino-memory-peer-b: {resource_id: eino-memory-peer-b, i18n: {en: {display_name: Peer Memory B}, zh-CN: {display_name: Peer 记忆 B}}, tags: [assistants]}
     eino-memory-workspace: {resource_id: eino-memory-workspace, i18n: {en: {display_name: Workspace Memory}, zh-CN: {display_name: Workspace 记忆}}, tags: [assistants]}
     eino-audio-input: {resource_id: eino-audio-input, i18n: {en: {display_name: Eino Audio Input}, zh-CN: {display_name: Eino 音频输入}}, tags: [assistants], audio_input: model}
+    eino-lite-native-audio: {resource_id: eino-lite-native-audio, i18n: {en: {display_name: Lite Native Audio}, zh-CN: {display_name: Lite 原生音频}}, tags: [assistants], audio_input: model}
     giztest-toolkit-probe-none: {resource_id: giztest-toolkit-probe-none, i18n: {en: {display_name: Toolkit Probe None}, zh-CN: {display_name: 工具探针 无}}, tags: [assistants]}
     giztest-toolkit-probe-echo: {resource_id: giztest-toolkit-probe-echo, toolkit: {tool_names: [giztest-echo]}, i18n: {en: {display_name: Toolkit Probe Echo}, zh-CN: {display_name: 工具探针 Echo}}, tags: [assistants]}
     giztest-toolkit-probe-both: {resource_id: giztest-toolkit-probe-both, toolkit: {tool_names: [giztest-echo, giztest-other]}, i18n: {en: {display_name: Toolkit Probe Both}, zh-CN: {display_name: 工具探针 全部}}, tags: [assistants]}

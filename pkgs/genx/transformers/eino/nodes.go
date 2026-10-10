@@ -39,10 +39,11 @@ type ChatModelNode struct {
 	Temperature *float32
 	MaxTokens   *int
 	// AudioTranscript makes this node the transcriber of audio user turns.
-	// For an audio turn the node asks the model to begin its reply with
-	// <asr>verbatim transcript</asr>, publishes that transcript as the turn's
-	// user text, and keeps only the remaining text as the node reply. At most
-	// one root Graph node may set it.
+	// Its ChatModel component reports the audio transcript with TranscriptMessage
+	// anywhere in the reply stream. The node publishes it as the turn's user
+	// text, separately from assistant reply content. Obtaining the transcript
+	// belongs to the component and its model. At most one root Graph node may
+	// set it.
 	AudioTranscript bool
 }
 

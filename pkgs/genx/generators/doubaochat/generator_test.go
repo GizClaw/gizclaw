@@ -9,6 +9,7 @@ import (
 	"math"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
@@ -17,73 +18,57 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-func TestGenerateStreamReportsTranscriptWhereTheModelPlacesIt(t *testing.T) {
-	t.Parallel()
-	for _, testCase := range []struct {
-		name   string
-		deltas []string
-		events []string
-	}{
-		{name: "after first sentence", deltas: []string{"三加五等于八。\n<a", "sr>三加", "五等于几</asr>", "\n还有问题吗？"},
-			events: []string{"text:三加五等于八。\n", "asr:三加五等于几", "text:还有问题吗？"}},
-		{name: "at the end", deltas: []string{"等于八。\n<asr>三加五</asr>"}, events: []string{"text:等于八。\n", "asr:三加五"}},
-		{name: "at the start", deltas: []string{" \n<asr>三加五</asr>\n", "等于八。"}, events: []string{"asr:三加五", "text:等于八。"}},
-		{name: "misspelled close", deltas: []string{"好的。<asr>你好</asr]再见"}, events: []string{"text:好的。", "asr:你好", "text:再见"}},
-		{name: "unclosed at end", deltas: []string{"好的。\n<asr>你好"}, events: []string{"text:好的。\n", "asr:你好"}},
-		{name: "tag-like text", deltas: []string{"价格", "<", "b>便宜</b>"}, events: []string{"text:价格", "text:<b>便宜</b>"}},
-		{name: "no transcript", deltas: []string{"等于", "八。<"}, events: []string{"text:等于", "text:八。", "text:<"}},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-			next := &recordingGenerator{deltas: testCase.deltas}
+func TestGenerateStreamKeepsReplyAndTranscriptSeparate(t *testing.T) {
+	for _, reply := range []string{"八。", "{\"answer\":8}", "<asr>literal business text</asr>", "<b>标题</b>"} {
+		t.Run(reply, func(t *testing.T) {
+			next := &recordingGenerator{deltas: []string{reply}, transcription: []string{`{"transcript":"三加五等于几"}`}}
 			stream, err := New(next).GenerateStream(t.Context(), "model/audio", audioContext(t, testOpusPackets(t, 2)...))
 			if err != nil {
 				t.Fatal(err)
 			}
-			events, err := drainEvents(stream)
-			if err != nil {
-				t.Fatalf("stream error = %v", err)
-			}
-			if !slices.Equal(events, testCase.events) {
-				t.Fatalf("events = %q, want %q", events, testCase.events)
+			defer stream.Close()
+			body, transcripts, err := drainAudio(stream)
+			if err != nil || body != reply || !slices.Equal(transcripts, []string{"三加五等于几"}) || len(next.Requests()) != 2 {
+				t.Fatalf("body=%q transcripts=%q error=%v calls=%d", body, transcripts, err, len(next.Requests()))
 			}
 		})
 	}
 }
 
-func TestGenerateStreamConvertsAudioAndAddsInstruction(t *testing.T) {
-	t.Parallel()
-	next := &recordingGenerator{deltas: []string{"八。<asr>三加五</asr>"}}
+func TestGenerateStreamConvertsAudioAndOwnsASRRequest(t *testing.T) {
+	next := &recordingGenerator{deltas: []string{"八。"}}
 	stream, err := New(next).GenerateStream(t.Context(), "model/audio", audioContext(t, testOpusPackets(t, 2)...))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := drainEvents(stream); err != nil {
+	defer stream.Close()
+	if _, _, err := drainAudio(stream); err != nil {
 		t.Fatal(err)
 	}
-	request := next.requests[0]
-	var instructed bool
-	for prompt := range request.Prompts() {
-		instructed = instructed || prompt.Text == transcriptInstruction
+	if len(next.Requests()) != 2 {
+		t.Fatalf("calls=%d", len(next.Requests()))
 	}
-	if !instructed {
-		t.Fatal("audio request carries no transcript instruction")
-	}
-	var messages []*genx.Message
-	for message := range request.Messages() {
-		messages = append(messages, message)
-	}
-	contents := messages[len(messages)-1].Payload.(genx.Contents)
-	if len(contents) != 1 {
-		t.Fatalf("latest user contents = %#v, want one WAV Blob", contents)
-	}
-	if frames := assertWAV(t, contents[0].(*genx.Blob), 16000, 1); frames != 2*320 {
-		t.Fatalf("decoded frames = %d, want %d", frames, 2*320)
+	for _, request := range next.Requests() {
+		messages := slices.Collect(request.Messages())
+		contents := messages[len(messages)-1].Payload.(genx.Contents)
+		if len(contents) != 1 {
+			t.Fatalf("current user parts=%d", len(contents))
+		}
+		if frames := assertWAV(t, contents[0].(*genx.Blob), 16000, 1); frames != 640 {
+			t.Fatalf("frames=%d", frames)
+		}
+		prompts := slices.Collect(request.Prompts())
+		if isAudioTranscriptRequest(request) {
+			if len(messages) != 1 || len(prompts) != 1 || prompts[0].Text != audioTranscriptInstruction {
+				t.Fatal("ASR inherited caller state")
+			}
+		} else if len(prompts) != 1 || prompts[0].Text != "be brief" {
+			t.Fatal("reply prompt was modified")
+		}
 	}
 }
 
 func TestGenerateStreamPassesTextRequestsThrough(t *testing.T) {
-	t.Parallel()
 	next := &recordingGenerator{deltas: []string{"<asr>kept</asr>"}}
 	builder := &genx.ModelContextBuilder{}
 	builder.UserText("", "hello")
@@ -92,17 +77,17 @@ func TestGenerateStreamPassesTextRequestsThrough(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	defer stream.Close()
 	events, err := drainEvents(stream)
 	if err != nil || !slices.Equal(events, []string{"text:<asr>kept</asr>"}) {
-		t.Fatalf("events=%q err=%v", events, err)
+		t.Fatalf("events=%q error=%v", events, err)
 	}
-	if next.requests[0] != request {
-		t.Fatal("text request was rebuilt")
+	if requests := next.Requests(); len(requests) != 1 || requests[0] != request {
+		t.Fatal("text request was rebuilt or transcribed")
 	}
 }
 
-func TestEarlierAudioIsConvertedWithoutTranscriptInstruction(t *testing.T) {
-	t.Parallel()
+func TestEarlierAudioIsConvertedWithoutTranscriptRequest(t *testing.T) {
 	next := &recordingGenerator{deltas: []string{"reply"}}
 	builder := &genx.ModelContextBuilder{}
 	builder.UserBlob("", "audio/mp3", []byte("ab"))
@@ -112,13 +97,10 @@ func TestEarlierAudioIsConvertedWithoutTranscriptInstruction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if events, err := drainEvents(stream); err != nil || !slices.Equal(events, []string{"text:reply"}) {
-		t.Fatalf("events=%q err=%v", events, err)
-	}
-	for prompt := range next.requests[0].Prompts() {
-		if prompt.Text == transcriptInstruction {
-			t.Fatal("text turn carries the transcript instruction")
-		}
+	defer stream.Close()
+	events, err := drainEvents(stream)
+	if err != nil || !slices.Equal(events, []string{"text:reply"}) || len(next.Requests()) != 1 {
+		t.Fatalf("events=%q error=%v calls=%d", events, err, len(next.Requests()))
 	}
 }
 
@@ -233,14 +215,25 @@ func TestRequestAudioBlobRejectsUnusableAudio(t *testing.T) {
 }
 
 type recordingGenerator struct {
-	deltas   []string
-	requests []genx.ModelContext
+	mu            sync.Mutex
+	deltas        []string
+	transcription []string
+	requests      []genx.ModelContext
 }
 
 func (g *recordingGenerator) GenerateStream(_ context.Context, _ string, mctx genx.ModelContext) (genx.Stream, error) {
+	g.mu.Lock()
 	g.requests = append(g.requests, mctx)
+	g.mu.Unlock()
+	deltas := g.deltas
+	if isAudioTranscriptRequest(mctx) {
+		deltas = g.transcription
+		if deltas == nil {
+			deltas = []string{`{"transcript":"heard"}`}
+		}
+	}
 	builder := genx.NewGrowableStreamBuilder(mctx, 8)
-	for _, delta := range g.deltas {
+	for _, delta := range deltas {
 		if err := builder.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(delta)}); err != nil {
 			return nil, err
 		}
@@ -251,8 +244,37 @@ func (g *recordingGenerator) GenerateStream(_ context.Context, _ string, mctx ge
 	return builder.Stream(), nil
 }
 
-func (g *recordingGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
-	return genx.Usage{}, nil, errors.New("not used")
+func (g *recordingGenerator) Requests() []genx.ModelContext {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	return slices.Clone(g.requests)
+}
+
+func (*recordingGenerator) Invoke(context.Context, string, genx.ModelContext, *genx.FuncTool) (genx.Usage, *genx.FuncCall, error) {
+	return genx.Usage{}, nil, errors.New("unexpected tool invocation")
+}
+
+func isAudioTranscriptRequest(mctx genx.ModelContext) bool {
+	for prompt := range mctx.Prompts() {
+		if prompt.Name == audioTranscriptPromptName && prompt.Text == audioTranscriptInstruction {
+			return true
+		}
+	}
+	return false
+}
+
+func drainAudio(stream genx.Stream) (string, []string, error) {
+	events, err := drainEvents(stream)
+	var body strings.Builder
+	var transcripts []string
+	for _, event := range events {
+		if text, ok := strings.CutPrefix(event, "text:"); ok {
+			body.WriteString(text)
+		} else if text, ok := strings.CutPrefix(event, "asr:"); ok {
+			transcripts = append(transcripts, text)
+		}
+	}
+	return body.String(), transcripts, err
 }
 
 // drainEvents renders reply text as "text:" and transcripts as "asr:".
@@ -341,35 +363,4 @@ func assertWAV(t testing.TB, blob *genx.Blob, sampleRate, channels int) int {
 		t.Fatalf("WAV data size = %d, payload %d", size, len(data)-44)
 	}
 	return size / (2 * channels)
-}
-
-func TestTranscriptFilterToleratesClosingVariants(t *testing.T) {
-	t.Parallel()
-	for _, testCase := range []struct {
-		deltas     []string
-		transcript string
-		reply      string
-	}{
-		{deltas: []string{"<asr></asr]您好，我没有听清。"}, transcript: "", reply: "您好，我没有听清。"},
-		{deltas: []string{"<ASR>hi</asr>", "\nyo"}, transcript: "hi", reply: "yo"},
-		{deltas: []string{"<asr>三加五\n", "等于八"}, transcript: "三加五", reply: "等于八"},
-		{deltas: []string{"<asr>三加五</as", "r", "]八"}, transcript: "三加五", reply: "八"},
-		{deltas: []string{"<asr>三加五</asr", ">\n\n八"}, transcript: "三加五", reply: "八"},
-		{deltas: []string{"<asr>\n三加五</asr>八"}, transcript: "三加五", reply: "八"},
-	} {
-		var filter transcriptFilter
-		var reply strings.Builder
-		transcript, closed := "", false
-		for _, delta := range testCase.deltas {
-			before, text, done, after := filter.consume(delta)
-			reply.WriteString(before)
-			reply.WriteString(after)
-			if done {
-				transcript, closed = text, true
-			}
-		}
-		if !closed || transcript != testCase.transcript || reply.String() != testCase.reply {
-			t.Fatalf("deltas %q: closed=%v transcript=%q reply=%q", testCase.deltas, closed, transcript, reply.String())
-		}
-	}
 }

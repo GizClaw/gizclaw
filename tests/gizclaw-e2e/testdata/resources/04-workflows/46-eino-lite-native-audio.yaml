@@ -1,0 +1,42 @@
+# Native audio goes directly to the Lite chat Model. This Workflow has no
+# application prompt, ASR Model or reply Voice; the Model adapter owns ASR.
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-lite-native-audio
+spec:
+  driver: eino
+  eino:
+    graph:
+      name: eino-lite-native-audio
+      compile:
+        node_trigger_mode: all_predecessor
+        max_run_steps: 3
+      state:
+        fields:
+        - name: answer
+          type: string
+          merge: replace
+      nodes:
+      - id: reply
+        type: chat_model
+        model: audio-llm
+        audio_transcript: true
+        max_tokens: 512
+        inputs:
+          messages:
+            from: input.messages
+        outputs:
+          text: answer
+      edges:
+      - from: start
+        to: reply
+      - from: reply
+        to: end
+      branches: []
+      outputs:
+      - node: reply
+        field: answer
+        name: assistant
+        mime_type: text/plain
+        primary: true
