@@ -16,3 +16,5 @@ Bearer and cookie values are never the backend identity. The Shell authenticator
 | `openAIProtocolHandler` | Lazily construct and retain one Shell router for a `PeerService` handler graph, keeping unrelated Server startup independent of OpenAI schema parsing. |
 
 The same authenticated composition exposes Workspace-backed Conversations and Responses. One process-shared Response runtime serializes active work per Workspace, persists terminal state before returning terminal JSON/SSE, and converts abandoned `in_progress` records to a safe restart failure on retrieval. Server shutdown stops and joins this runtime before Workspace and Agent stores are closed.
+
+Responses turns pass the authenticated API key owner into the AgentHost invocation context. Tool catalogs recheck that owner's current RuntimeProfile, Workflow binding, and Workspace selection. Empty catalogs require the same identity; HTTP requests do not depend on a connected device context.

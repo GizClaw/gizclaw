@@ -127,6 +127,9 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	}
 	host.Resolver = openAICanonicalResolver{resolver: resolver}
 	ctx = a.ownerContext(ctx)
+	// Workflow tools resolve the authenticated caller at invocation time, even
+	// for an empty catalog. The resolver rechecks the current owner profile.
+	ctx = agenthost.WithResourceAccess(ctx, a.caller.String(), nil, nil)
 	ctx, err := agenthost.WithToolExecution(ctx, nil)
 	if err != nil {
 		return nil, err

@@ -83,7 +83,7 @@ steps:
         imeis:
           - name: modem
             tac: "12345678"
-            serial: "123456"
+            serial: "200005"
         labels:
           - key: hardware
             value: fixture
