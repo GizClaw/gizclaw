@@ -451,7 +451,7 @@ cp tests/gizclaw-e2e/.env.example tests/gizclaw-e2e/.env
 bash tests/gizclaw-e2e/run_tests.sh
 ```
 
-覆盖当前 Giztest 全部自动化文档时使用 `bash tests/gizclaw-e2e/run_tests.sh --full-giztest`。它先校验完整目录，再执行标准 SDK/Go 批次和全部 `benchmark.*`，随后在各自隔离环境运行 Quota、Monitor、跨 Server SFU、slow-tts 与 speaker-segments。Benchmark 文档逐份执行，各自的并发数保持不变；音频输入对照使用 scorer 的全部语言样本。`failure-cleanup` 按预期失败和清理成功验收；`review.*` 需要人工评审，不计入自动通过。业务阶段失败会记录并继续其他独立阶段，结束时返回非零；预检或环境启动失败仍立即停止。凭据文件可由 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定，仍须满足统一 inventory；全量入口总 deadline 默认为 3 小时，现有 deadline 变量同样适用。
+覆盖当前 Giztest 全部自动化文档时使用 `bash tests/gizclaw-e2e/run_tests.sh --full-giztest`。它先校验完整目录，再执行标准 SDK/Go 批次和全部 `benchmark.*`，随后在各自隔离环境运行 Quota、Monitor、跨 Server SFU、slow-tts 与 speaker-segments。Benchmark 文档逐份执行，每份的 `--parallel` 等于文档的 `repeat`，保留其并发数；逐份报告保存在汇总报告旁的 `.json.d` 目录，前一份失败后仍执行后续文档。中途进度保存在 `.partial.json` 文件，全部文档结束后才发布汇总报告。音频输入对照使用 scorer 的全部语言样本。`failure-cleanup` 按预期失败和清理成功验收；`review.*` 需要人工评审，不计入自动通过。业务阶段失败会记录并继续其他独立阶段，结束时返回非零；预检或环境启动失败仍立即停止。凭据文件可由 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定，仍须满足统一 inventory；全量入口总 deadline 默认为 3 小时，现有 deadline 变量同样适用。
 
 Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/RPC/CLI/C SDK
 覆盖，不运行无关的 provider-backed suites：

@@ -457,8 +457,8 @@ run_all_benchmark_giztest() {
 	)
 	# Each document owns its concurrency level. Run documents sequentially so
 	# unrelated benchmarks cannot inflate each other's load and timing.
-	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" \
-		--parallel 1 --output "$script_dir/testdata/giztest-benchmark-report.json")
+	(cd "$repo_root" && go run ./tests/gizclaw-e2e/cmd/benchmark-runner \
+		"$script_dir/testdata/bin/gizclaw" "$script_dir/testdata/giztest-benchmark-report.json" "${files[@]}")
 }
 
 run_audio_input_giztest() {
