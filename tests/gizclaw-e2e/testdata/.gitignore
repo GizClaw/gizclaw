@@ -1,4 +1,7 @@
 *
+!continuous-podcast/
+!continuous-podcast/*.json
+!continuous-podcast/*.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

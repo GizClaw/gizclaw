@@ -1,0 +1,134 @@
+{
+  "conversation": {
+    "starts": "peer",
+    "continue_from": "keep-speaking"
+  },
+  "voice_adapter": {
+    "default_voice": "podcast.host"
+  },
+  "graph": {
+    "name": "continuous-podcast-giztest",
+    "compile": {
+      "node_trigger_mode": "any_predecessor",
+      "max_run_steps": 6
+    },
+    "state": {
+      "fields": [
+        {
+          "name": "keep-speaking",
+          "type": "boolean",
+          "merge": "replace"
+        },
+        {
+          "name": "marker",
+          "type": "string",
+          "merge": "replace"
+        },
+        {
+          "name": "messages",
+          "type": "messages",
+          "merge": "replace"
+        },
+        {
+          "name": "answer",
+          "type": "string",
+          "merge": "replace"
+        }
+      ]
+    },
+    "nodes": [
+      {
+        "id": "prepare",
+        "type": "script",
+        "language": "starlark",
+        "entrypoint": "run",
+        "inputs": {
+          "request": {
+            "from": "input.text"
+          },
+          "history": {
+            "from": "input.messages"
+          }
+        },
+        "outputs": {
+          "continue": "keep-speaking",
+          "marker": "marker"
+        },
+        "limits": {
+          "max_execution_steps": 10000,
+          "timeout": "500ms",
+          "max_input_bytes": 65536,
+          "max_output_bytes": 4096
+        },
+        "source": "def run(input):\n    request = input[\"request\"]\n    if request == \"stop\":\n        return {\"continue\": False, \"marker\": \"Paused\"}\n    topic = \"space\" if request in [\"space\", \"space-once\"] else \"science\"\n    previous = []\n    for message in reversed(input[\"history\"]):\n        content = message.get(\"content\", \"\")\n        if content.startswith(\"slow-\"):\n            content = content[5:]\n        if message.get(\"role\") == \"assistant\" and (content.startswith(\"science:\") or content.startswith(\"space:\")):\n            previous.append(content)\n    if request == \"resume\" and previous:\n        topic = previous[0].split(\":\")[0]\n    counter = 1\n    if request != \"space-once\":\n        for content in previous:\n            if content.startswith(topic + \":\"):\n                counter = int(content.split(\":\")[1].strip(\". \\n\")) + 1\n                break\n    marker = (\"slow-\" if request == \"slow-science\" else \"\") + topic + \":\" + str(counter)\n    return {\"continue\": request != \"space-once\", \"marker\": marker}\n"
+      },
+      {
+        "id": "prompt",
+        "type": "prompt",
+        "format": "f_string",
+        "inputs": {
+          "marker": {
+            "from": "marker"
+          },
+          "history": {
+            "from": "input.messages"
+          }
+        },
+        "outputs": {
+          "messages": "messages"
+        },
+        "messages": [
+          {
+            "role": "system",
+            "template": "podcast-section {marker}"
+          },
+          {
+            "placeholder": "history"
+          }
+        ]
+      },
+      {
+        "id": "narrate",
+        "type": "chat_model",
+        "model": "podcast.model",
+        "max_tokens": 64,
+        "inputs": {
+          "messages": {
+            "from": "messages"
+          }
+        },
+        "outputs": {
+          "text": "answer"
+        }
+      }
+    ],
+    "edges": [
+      {
+        "from": "start",
+        "to": "prepare"
+      },
+      {
+        "from": "prepare",
+        "to": "prompt"
+      },
+      {
+        "from": "prompt",
+        "to": "narrate"
+      },
+      {
+        "from": "narrate",
+        "to": "end"
+      }
+    ],
+    "branches": [],
+    "outputs": [
+      {
+        "node": "narrate",
+        "field": "answer",
+        "name": "assistant",
+        "mime_type": "text/plain",
+        "primary": true
+      }
+    ]
+  }
+}

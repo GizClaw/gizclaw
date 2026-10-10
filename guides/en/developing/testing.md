@@ -1789,6 +1789,34 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
+## Continuous narration and per-section History Giztest
+
+Run from the repository root:
+
+```sh
+go test ./cmd/internal/server -run '^TestContinuousPodcastGiztest$' -count=1 -timeout=150s
+```
+
+The test starts a temporary SQLite Server, Edge and real WebRTC connections. It
+runs `tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml` through
+production Eino, MiniMax LLM/TTS adapters, AudioDock, Workspace History and the Go
+Giztest CLI. Deterministic local HTTP SSE and WebSocket fixtures replace the
+remote model and speech services; no external credentials or Docker are needed.
+
+The scenario executes 20 steps, six parallel children and three cleanup steps.
+While narration continues, it requires one playback stream, audio pacing without
+underruns, advancing History with one generated section per entry, and separate
+audio downloads for two entries. It then interrupts active model and TTS I/O,
+stops and resumes the original topic, redirects during playback, and resumes the
+new topic. Provider receipts also require no synthetic user inputs, more
+generations than the per-execution Graph step budget, and at most eight current
+turn assistant sections in model context.
+
+Reports are temporary by default. Set `GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE` to
+retain `podcast.giztest.json` and `runner.log`. The test cleans up the Workspace,
+Peer and local services. This validates the local protocol and runtime path;
+live cloud providers, physical devices and deployment require separate acceptance.
+
 ## Deterministic multi-role audio Giztest
 
 ```sh

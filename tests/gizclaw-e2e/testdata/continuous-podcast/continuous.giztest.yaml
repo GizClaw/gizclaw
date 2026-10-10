@@ -1,0 +1,190 @@
+# User Story:
+# As a podcast listener,
+# I want continuous playback with one History entry per generated section,
+# So that I can interrupt, resume or redirect it without losing delivered content.
+version: gizclaw.test/v1alpha1
+name: eino-podcast.continuous-history
+timeout: 90s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace_name: {direction: input, type: string, generate: token}
+  first_section: {direction: output, type: string}
+  second_section: {direction: output, type: string}
+steps:
+  - id: register
+    client: peer
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: podcast
+        parameters:
+          eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO}
+  - id: select
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_name}"}}
+  - id: continuous_playback
+    timeout: 8s
+    parallel:
+      - id: playback
+        client: peer
+        peer_stream: {mode: listen, duration: 4s}
+      - id: start
+        client: peer
+        delay: 250ms
+        peer_stream: {mode: text, input: science, completion: first_response, first_text_timeout: 2s, first_audio_timeout: 3s}
+    expect:
+      /playback/text: {min_length: 9}
+      /playback/streams: {equals: 1}
+      /playback/audio_bytes: {minimum: 1}
+      /playback/audio_pacing/packets: {minimum: 100}
+      /playback/audio_pacing/mean_packet_ms: {equals: 20}
+      /playback/audio_pacing/max_interval_ms: {maximum: 150}
+      /playback/audio_pacing/underruns: {equals: 0}
+      /start/text: {non_empty: true}
+  - id: history_while_speaking
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect:
+      /items: {non_empty: true}
+      /items/8/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+      /items/0/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/0/replay_available: {equals: true}
+      /items/1/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+      /items/1/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/1/replay_available: {equals: true}
+      /items/2/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/3/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/4/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/5/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/6/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/7/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/8/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/8/replay_available: {equals: true}
+    capture: {first_section: /items/0/name, second_section: /items/1/name}
+  - id: history_keeps_advancing_without_input
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect:
+      /items/0/name: {not_contains: "${first_section}"}
+      /items/0/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/0/replay_available: {equals: true}
+  - id: first_section_audio
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${first_section}"}
+      max_bytes: 1048576
+    expect: {/bytes: {minimum: 100}}
+  - id: second_section_audio
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${second_section}"}
+      max_bytes: 1048576
+    expect: {/bytes: {minimum: 100}}
+  - id: stop
+    client: peer
+    timeout: 10s
+    peer_stream: {mode: text, input: stop}
+    # This new subscription can receive the active narration's tail before
+    # the stop reply. History below checks the new reply separately and exactly.
+    expect:
+      /reply: {contains: 'Paused. '}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {minimum: 1, maximum: 2}
+  - id: history_after_stop
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect:
+      /items/0/text: {equals: 'Paused. '}
+      /items/0/replay_available: {equals: true}
+      /items/1/text: {pattern: '^science:[0-9]+\.\s*$'}
+  - id: interrupt_generation_and_synthesis
+    client: peer
+    timeout: 10s
+    peer_stream: {mode: text, overlap_input: true, input: [slow-science, stop]}
+    expect:
+      /input_overlap: {equals: true}
+      /second_text_eos: {equals: true}
+      /second_audio_eos: {equals: true}
+  - id: resume_science
+    timeout: 6s
+    parallel:
+      - id: science_playback
+        client: peer
+        peer_stream: {mode: listen, duration: 2s}
+      - id: science_resume
+        client: peer
+        delay: 250ms
+        peer_stream: {mode: text, input: resume, completion: first_response, first_text_timeout: 2s, first_audio_timeout: 3s}
+    expect: {/science_playback/text: {min_length: 2}, /science_playback/streams: {equals: 1}, /science_playback/audio_bytes: {minimum: 1}, /science_resume/text: {non_empty: true}}
+  - id: resumed_science_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect: {/items/0/text: {pattern: '^science:[0-9]+\.\s*$'}, /items/0/replay_available: {equals: true}}
+  - id: stop_resumed_science
+    client: peer
+    timeout: 10s
+    peer_stream: {mode: text, input: stop}
+    expect: {/reply: {contains: 'Paused. '}, /text_eos: {equals: true}, /audio_eos: {equals: true}, /response_count: {minimum: 1, maximum: 2}}
+  - id: redirect_during_audio
+    client: peer
+    timeout: 10s
+    peer_stream: {mode: text, overlap_input: true, input: [slow-science, space-once]}
+    expect: {/input_overlap: {equals: true}, /second_text_eos: {equals: true}, /second_audio_eos: {equals: true}}
+  - id: redirected_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect: {/items/0/text: {equals: 'space:1. '}, /items/0/replay_available: {equals: true}}
+  - id: resume_space
+    timeout: 6s
+    parallel:
+      - id: space_playback
+        client: peer
+        peer_stream: {mode: listen, duration: 2s}
+      - id: space_resume
+        client: peer
+        delay: 250ms
+        peer_stream: {mode: text, input: resume, completion: first_response, first_text_timeout: 2s, first_audio_timeout: 3s}
+    expect: {/space_playback/text: {min_length: 2}, /space_playback/streams: {equals: 1}, /space_playback/audio_bytes: {minimum: 1}, /space_resume/text: {non_empty: true}}
+  - id: resumed_space_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect: {/items/0/text: {pattern: '^space:[0-9]+\.\s*$'}, /items/0/replay_available: {equals: true}}
+  - id: stop_resumed_space
+    client: peer
+    timeout: 10s
+    peer_stream: {mode: text, input: stop}
+    expect: {/reply: {contains: 'Paused. '}, /text_eos: {equals: true}, /audio_eos: {equals: true}, /response_count: {minimum: 1, maximum: 2}}
+  - id: final_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect: {/items/0/text: {equals: 'Paused. '}, /items/1/text: {pattern: '^space:[0-9]+\.\s*$'}}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_name}"}}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]

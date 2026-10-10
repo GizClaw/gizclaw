@@ -12,7 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
-// Exercise the production Workspace recorder and SQLite persistence. Topic
+// Exercise the production Workspace recorder and SQLite persistence.
 // Each generated message becomes a History entry while playback stays open.
 func TestContinuousPodcastWorkspaceHistory(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
