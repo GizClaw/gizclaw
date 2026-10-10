@@ -187,7 +187,7 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	}
 	profile, err := clitest.UpsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{
 		Id:   profileName,
-		Spec: apitypes.RuntimeProfileSpec{Resources: resources, Workflows: apitypes.RuntimeProfileWorkflows(runtimeBindings(workflowResources))},
+		Spec: apitypes.RuntimeProfileSpec{Resources: resources, Workflows: runtimeBindings(workflowResources)},
 	})
 	if err != nil {
 		t.Fatalf("put C SDK chat RuntimeProfile: %v", err)
@@ -210,10 +210,10 @@ func createCSDKChatRegistrationToken(t *testing.T, h *clitest.Harness, scenario 
 	return tokenResp.JSON200.Token
 }
 
-func runtimeBindings(resources map[string]string) map[string]apitypes.RuntimeProfileBinding {
-	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(resources))
+func runtimeBindings(resources map[string]string) apitypes.RuntimeProfileWorkflows {
+	bindings := make(apitypes.RuntimeProfileWorkflows, len(resources))
 	for alias, resourceID := range resources {
-		bindings[alias] = apitypes.RuntimeProfileBinding{
+		bindings[alias] = apitypes.RuntimeProfileWorkflowBinding{
 			ResourceId: resourceID,
 			I18n: map[string]apitypes.RuntimeProfileI18nText{
 				"en":    {DisplayName: alias},
