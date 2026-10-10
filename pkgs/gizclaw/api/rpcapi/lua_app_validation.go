@@ -1,6 +1,7 @@
 package rpcapi
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -19,16 +20,47 @@ func luaAppText(value string, limit int) bool {
 	return len(value) <= limit && utf8.ValidString(value) && !strings.ContainsRune(value, 0)
 }
 
+// LuaAppDataURLMaxBytes leaves room for tool/RPC envelopes below the C SDK's
+// bounded 1 MiB receive limit. HTTP(S) URLs retain the 1024-byte address limit.
+const LuaAppDataURLMaxBytes = 256 * 1024
+
+// LuaAppArchiveMaxBytes bounds a single compressed Binary upload to 16 MiB.
+const LuaAppArchiveMaxBytes = 16 * 1024 * 1024
+
+func validLuaAppInstallSource(source string) bool {
+	if !luaAppText(source, LuaAppDataURLMaxBytes) || strings.ContainsFunc(source, func(r rune) bool { return unicode.IsSpace(r) || r == '\\' }) {
+		return false
+	}
+	for _, prefix := range []string{"data:application/zlib;base64,", "data:application/octet-stream;base64,"} {
+		if encoded, ok := strings.CutPrefix(source, prefix); ok {
+			if encoded == "" || len(encoded)%4 != 0 {
+				return false
+			}
+			decoded, err := base64.StdEncoding.Strict().DecodeString(encoded)
+			return err == nil && len(decoded) != 0
+		}
+	}
+	u, err := url.Parse(source)
+	return err == nil && (strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://")) && len(source) <= 1024 && (u.Scheme == "http" || u.Scheme == "https") && u.Hostname() != "" && u.Opaque == "" && u.User == nil && !strings.Contains(source, "#")
+}
+
 // ValidateLuaAppRequest checks the portable device contract without fetching
 // URLs or imposing a particular product's filesystem and runtime policies.
 func ValidateLuaAppRequest(message proto.Message) error {
 	invalid := fmt.Errorf("rpc: invalid Lua app arguments")
+	if message == nil || !message.ProtoReflect().IsValid() {
+		return invalid
+	}
 	switch request := message.(type) {
+	case *rpcpb.ClientLuaAppInstallStreamRequest:
+		if request.ContentLength == 0 || request.ContentLength > LuaAppArchiveMaxBytes || !clientToolFirmwareDigest.MatchString(request.Sha256) {
+			return invalid
+		}
+		return nil
 	case *rpcpb.ClientLuaAppListRequest:
 		return nil
 	case *rpcpb.ClientLuaAppInstallRequest:
-		u, err := url.Parse(request.Url)
-		if err != nil || !luaAppText(request.Url, 1024) || u.Scheme != "https" || u.Hostname() == "" || u.Opaque != "" || u.User != nil || strings.Contains(request.Url, "#") || strings.ContainsFunc(request.Url, func(r rune) bool { return unicode.IsSpace(r) || r == '\\' }) {
+		if !validLuaAppInstallSource(request.Url) {
 			return invalid
 		}
 		if request.Sha256 != nil && !clientToolFirmwareDigest.MatchString(*request.Sha256) {
@@ -58,6 +90,9 @@ func ValidateLuaAppRequest(message proto.Message) error {
 // or model can consume it. Display metadata is descriptive, never authority.
 func ValidateLuaAppResponse(message proto.Message) error {
 	invalid := fmt.Errorf("rpc: invalid Lua app response")
+	if message == nil || !message.ProtoReflect().IsValid() {
+		return invalid
+	}
 	check := func(app *rpcpb.LuaAppInfo) bool {
 		return app != nil && luaAppID.MatchString(app.AppId) && len(app.Version) <= 31 && luaAppVersion.MatchString(app.Version) && luaAppText(app.GetDisplayName(), 128) && luaAppText(app.GetDescription(), 1024)
 	}

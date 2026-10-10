@@ -16,6 +16,9 @@ func (c *rpcClient) Handle(conn net.Conn) error {
 }
 
 func (c *rpcClient) dispatchStream(ctx context.Context, stream *rpcStream, req *rpcapi.RPCRequest) (bool, error) {
+	if req != nil && req.Method == rpcapi.RPCMethodClientLuaAppInstall {
+		return true, c.handleLuaAppInstall(ctx, stream, req)
+	}
 	if req == nil || req.Method != rpcapi.RPCMethodAllSpeedTestRun {
 		return false, nil
 	}

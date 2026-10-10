@@ -82,6 +82,8 @@ class StatusCode extends $pb.ProtobufEnum {
 class RpcMethod extends $pb.ProtobufEnum {
   static const RpcMethod RPC_METHOD_UNSPECIFIED =
       RpcMethod._(0, _omitEnumNames ? '' : 'RPC_METHOD_UNSPECIFIED');
+  static const RpcMethod RPC_METHOD_CLIENT_LUA_APP_INSTALL = RpcMethod._(
+      139, _omitEnumNames ? '' : 'RPC_METHOD_CLIENT_LUA_APP_INSTALL');
   static const RpcMethod RPC_METHOD_ALL_PING =
       RpcMethod._(1, _omitEnumNames ? '' : 'RPC_METHOD_ALL_PING');
   static const RpcMethod RPC_METHOD_ALL_SPEED_TEST_RUN =
@@ -293,6 +295,7 @@ class RpcMethod extends $pb.ProtobufEnum {
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
+    RPC_METHOD_CLIENT_LUA_APP_INSTALL,
     RPC_METHOD_ALL_PING,
     RPC_METHOD_ALL_SPEED_TEST_RUN,
     RPC_METHOD_SERVER_INFO_GET,

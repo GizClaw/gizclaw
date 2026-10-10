@@ -43,6 +43,31 @@ typedef int (*gzc_rpc_provider_fn)(
     gzc_rpc_provider_respond_fn respond,
     void *respond_userdata);
 
+/* Inbound streaming provider, called only by the serialized poll owner.
+ * begin receives borrowed protobuf metadata and creates *out_session once.
+ * write receives borrowed Binary bytes, valid only until return. GZC_OK means
+ * the entire chunk was consumed. WOULD_BLOCK means nothing was consumed: the
+ * SDK retains that frame and retries it from poll, pausing backend polling.
+ * finish follows exact length and request EOS; it may return WOULD_BLOCK before
+ * responding; backend polling continues so cancellation can abort a pending finish.
+ * On GZC_OK it must respond exactly once, only after verifying the
+ * compressed SHA-256, manifest/files, tar and zlib EOS and atomic publication.
+ * No response callback may be retained. No callback may reenter this client.
+ * close runs exactly once for each non-NULL session, including begin failure:
+ * GZC_OK after a successful finish, otherwise an SDK error for abort/timeout/
+ * disconnect. It cancels/joins provider-owned workers before releasing state
+ * and rolls back unfinished work.
+ * begin cannot return WOULD_BLOCK. All callbacks must return promptly; async
+ * device workers must copy borrowed bytes into their own bounded storage.
+ */
+typedef struct {
+  void *userdata;
+  int (*begin)(void *userdata, int method, gzc_str_t metadata, void **out_session);
+  int (*write)(void *session, const uint8_t *data, size_t len);
+  int (*finish)(void *session, gzc_rpc_provider_respond_fn respond, void *userdata);
+  void (*close)(void *session, int status);
+} gzc_rpc_stream_provider_t;
+
 /*
  * Handles one ClientTool. request_payload and the response payload are the
  * encoded messages selected by ClientTool, without the invoke envelope.
@@ -103,6 +128,10 @@ typedef struct {
   /* Borrowed for the client's lifetime. Only these tools are advertised. */
   const gzc_tool_handler_t *tool_handlers;
   size_t tool_handler_count;
+  /* Borrowed for client lifetime; NULL means client.lua.app.install unsupported.
+   * Metadata is ClientLuaAppInstallStreamRequest. Maximum duration: 120 seconds.
+   * URL installation remains a separate tool handler using the same installer. */
+  const gzc_rpc_stream_provider_t *lua_app_install;
 } gzc_client_config_t;
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);

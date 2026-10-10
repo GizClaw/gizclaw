@@ -26,6 +26,10 @@ type clientToolHTTPResponse struct {
 	body   any
 }
 
+func (r clientToolHTTPResponse) VisitInstallLuaAppResponse(w *fiber.Ctx) error {
+	return w.Status(r.status).JSON(r.body)
+}
+
 func (r clientToolHTTPResponse) VisitInvokeClientToolResponse(w *fiber.Ctx) error {
 	return w.Status(r.status).JSON(r.body)
 }

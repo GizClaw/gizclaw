@@ -22,6 +22,7 @@ import {
   getApiKey,
   getContact,
   invokeClientTool,
+  installLuaApp,
   listClientTools,
   getDevice,
   getDeviceRuntime,
@@ -61,6 +62,7 @@ import {
   syncPeer,
 } from "@gizclaw/gizclaw/peerhttp";
 import type {
+  LuaAppInstallResult,
   AudioPlayerPlaylistSetRequest,
   AudioPlayerPlaylistAppendRequest,
   AudioPlayerPlayRequest,
@@ -603,6 +605,12 @@ export interface GizClawControlFriendGroups {
 }
 
 export interface GizClawControlClient {
+  /** Uploads a complete archive as a raw body. AbortSignal cancels; never retries. */
+  installLuaApp(
+    archive: Blob,
+    sha256: string,
+    signal?: AbortSignal,
+  ): Promise<LuaAppInstallResult>;
   /** Configured generated client for calls this wrapper does not expose. */
   readonly client: PeerHTTPClient;
   readonly apiKeys: GizClawControlApiKeys;
@@ -706,6 +714,26 @@ export function createGizClawControlClient(
 
   return {
     client,
+    installLuaApp(archive, sha256, signal) {
+      if (
+        archive.size < 1 ||
+        archive.size > 16 * 1024 * 1024 ||
+        !/^[a-fA-F0-9]{64}$/.test(sha256)
+      )
+        throw new TypeError("invalid archive metadata");
+      const signals = [AbortSignal.timeout(120000)];
+      if (options.signal != null) signals.push(options.signal);
+      if (signal != null) signals.push(signal);
+      return unwrap(
+        "installLuaApp",
+        installLuaApp({
+          ...common,
+          signal: AbortSignal.any(signals),
+          body: archive,
+          query: { content_length: archive.size, sha256 },
+        }),
+      );
+    },
     async *sync(timestamp = 0, signal) {
       if (!Number.isSafeInteger(timestamp) || timestamp < 0) {
         throw new TypeError("timestamp must be a nonnegative safe integer");

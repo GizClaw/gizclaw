@@ -22,6 +22,9 @@ func (c *rpcClient) handleToolV0(ctx context.Context, req *rpcapi.RPCRequest) (*
 		}
 		methods := []rpcpb.RpcMethod{rpcpb.RpcMethod_RPC_METHOD_ALL_PING, rpcpb.RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN, rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE, rpcpb.RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_LIST, rpcpb.RpcMethod_RPC_METHOD_CLIENT_RPC_METHODS_LIST}
 		if handlers != nil {
+			if handlers.InstallLuaApp != nil {
+				methods = append(methods, rpcpb.RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL)
+			}
 			if handlers.ReadMhsHwd != nil {
 				methods = append(methods, rpcpb.RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ)
 			}

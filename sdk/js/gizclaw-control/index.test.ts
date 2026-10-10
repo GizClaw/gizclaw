@@ -1053,3 +1053,21 @@ test("MHS control uses generated HWD routes and preserves device errors", async 
       error.code === "MHS_HWD_NOT_FOUND",
   );
 });
+
+test("Lua archive control sends one raw body with metadata and no retry", async () => {
+  const result = { app: { app_id: "demo", version: "1.0.0" } };
+  const h = harness([json(200, result)]);
+  assert.deepEqual(
+    await h.client.installLuaApp(
+      new Blob(["*".repeat(164484)]),
+      "a".repeat(64),
+    ),
+    result,
+  );
+  const seen = h.single();
+  assert.equal(seen.method, "POST");
+  assert.equal(seen.url.pathname, "/gizclaw/v1/device/lua-app/install");
+  assert.equal(seen.url.searchParams.get("content_length"), "164484");
+  assert.equal(seen.headers.get("content-type"), "application/octet-stream");
+  assert.equal(seen.body.length, 164484);
+});

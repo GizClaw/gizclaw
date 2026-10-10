@@ -604,7 +604,7 @@ const (
 // Valid indicates whether the value is a known member of the RPCMethod enum.
 func (e RPCMethod) Valid() bool {
 	switch e {
-	case RPCMethodClientToolV0Invoke, RPCMethodClientToolV0List, RPCMethodClientRPCMethodsList:
+	case RPCMethodClientLuaAppInstall, RPCMethodClientToolV0Invoke, RPCMethodClientToolV0List, RPCMethodClientRPCMethodsList:
 		return true
 	case RPCMethodAllPing:
 		return true

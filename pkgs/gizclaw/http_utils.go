@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"path"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -441,7 +442,8 @@ func fiberHTTPHandler(app *fiber.App) http.Handler {
 		req := fasthttp.AcquireRequest()
 		defer fasthttp.ReleaseRequest(req)
 
-		if r.Body != nil {
+		streamUpload := r.Method == http.MethodPost && strings.EqualFold(path.Clean(r.URL.Path), "/gizclaw/v1/device/lua-app/install")
+		if r.Body != nil && !streamUpload {
 			n, err := io.Copy(req.BodyWriter(), r.Body)
 			req.Header.SetContentLength(int(n))
 			if err != nil {
@@ -470,6 +472,11 @@ func fiberHTTPHandler(app *fiber.App) http.Handler {
 
 		var fctx fasthttp.RequestCtx
 		fctx.Init(req, remoteAddr, nil)
+		if streamUpload && r.Body != nil {
+			// Preserve backpressure and request cancellation through the adapter.
+			fctx.Request.SetBodyStream(r.Body, -1)
+			defer fctx.Request.CloseBodyStream()
+		}
 		fctx.SetUserValue("__local_user_context__", r.Context())
 		func() {
 			defer func() {

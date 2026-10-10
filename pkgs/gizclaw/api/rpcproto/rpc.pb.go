@@ -118,6 +118,7 @@ type RpcMethod int32
 
 const (
 	RpcMethod_RPC_METHOD_UNSPECIFIED                              RpcMethod = 0
+	RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL                   RpcMethod = 139
 	RpcMethod_RPC_METHOD_ALL_PING                                 RpcMethod = 1
 	RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN                       RpcMethod = 2
 	RpcMethod_RPC_METHOD_SERVER_INFO_GET                          RpcMethod = 5
@@ -212,6 +213,7 @@ const (
 var (
 	RpcMethod_name = map[int32]string{
 		0:   "RPC_METHOD_UNSPECIFIED",
+		139: "RPC_METHOD_CLIENT_LUA_APP_INSTALL",
 		1:   "RPC_METHOD_ALL_PING",
 		2:   "RPC_METHOD_ALL_SPEED_TEST_RUN",
 		5:   "RPC_METHOD_SERVER_INFO_GET",
@@ -303,6 +305,7 @@ var (
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                              0,
+		"RPC_METHOD_CLIENT_LUA_APP_INSTALL":                   139,
 		"RPC_METHOD_ALL_PING":                                 1,
 		"RPC_METHOD_ALL_SPEED_TEST_RUN":                       2,
 		"RPC_METHOD_SERVER_INFO_GET":                          5,
@@ -964,9 +967,11 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x94T\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x9aU\n" +
 	"\tRpcMethod\x12\x1a\n" +
-	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12B\n" +
+	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12\x83\x01\n" +
+	"!RPC_METHOD_CLIENT_LUA_APP_INSTALL\x10\x8b\x01\x1a[\xc2\xf3\x18W\n" +
+	"\x16client.lua.app.install\x12 ClientLuaAppInstallStreamRequest\x1a\x1bClientLuaAppInstallResponse\x12B\n" +
 	"\x13RPC_METHOD_ALL_PING\x10\x01\x1a)\xc2\xf3\x18%\n" +
 	"\ball.ping\x12\vPingRequest\x1a\fPingResponse\x12`\n" +
 	"\x1dRPC_METHOD_ALL_SPEED_TEST_RUN\x10\x02\x1a=\xc2\xf3\x189\n" +

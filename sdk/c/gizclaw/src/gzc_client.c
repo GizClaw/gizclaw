@@ -1,6 +1,7 @@
 #include "gzc_client.h"
 
 #include "gzc_client_internal.h"
+#include "payload/lua_app.pb.h"
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
 #include "payload/system.pb.h"
@@ -25,6 +26,7 @@ int gzc_rpc_inbound_create(
     gzc_rpc_inbound_t **out_inbound);
 int gzc_rpc_inbound_feed(gzc_rpc_inbound_t *inbound, const uint8_t *data, size_t len, bool is_text);
 int gzc_rpc_inbound_poll(gzc_rpc_inbound_t *inbound);
+bool gzc_rpc_inbound_blocked(gzc_rpc_inbound_t *inbound);
 int gzc_rpc_inbound_backend_timeout_ms(gzc_rpc_inbound_t *inbound, int requested_timeout_ms);
 bool gzc_rpc_inbound_close_requested(gzc_rpc_inbound_t *inbound);
 void gzc_rpc_inbound_destroy(gzc_rpc_inbound_t *inbound);
@@ -1468,6 +1470,13 @@ int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_clie
       (config->webrtc->channel_set_buffered_amount_low_threshold == NULL)) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  if (config->lua_app_install != NULL &&
+      (config->lua_app_install->begin == NULL ||
+       config->lua_app_install->write == NULL ||
+       config->lua_app_install->finish == NULL ||
+       config->lua_app_install->close == NULL)) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
   if ((config->tool_handlers == NULL && config->tool_handler_count != 0u) ||
       (config->tool_handlers != NULL && config->tool_handler_count == 0u)) {
     return GZC_ERR_INVALID_ARGUMENT;
@@ -1868,7 +1877,12 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
       break;
     }
   }
-  int rc = client->config.webrtc->peer_poll(client->peer, backend_timeout_ms);
+  bool inbound_blocked = false;
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    if (gzc_rpc_inbound_blocked(client->inbound[i])) inbound_blocked = true;
+  }
+  int rc = inbound_blocked ? GZC_OK :
+      client->config.webrtc->peer_poll(client->peer, backend_timeout_ms);
   expire_pending_rpc_requests(client);
   if (rc != GZC_OK) {
     fail_pending_rpc_requests(client, rc);
@@ -1942,6 +1956,61 @@ static bool decode_tool_payload(pb_istream_t *stream, const pb_field_t *field,
   return pb_read(stream, NULL, stream->bytes_left);
 }
 
+static int lua_app_base64_value(unsigned char c) {
+  if (c >= 'A' && c <= 'Z') return c - 'A';
+  if (c >= 'a' && c <= 'z') return c - 'a' + 26;
+  if (c >= '0' && c <= '9') return c - '0' + 52;
+  return c == '+' ? 62 : c == '/' ? 63 : -1;
+}
+
+static bool valid_lua_app_source(gzc_str_t source) {
+  if (source.data == NULL || source.len == 0 || source.len > 256u * 1024u) return false;
+  const char *prefixes[] = {"data:application/zlib;base64,", "data:application/octet-stream;base64,"};
+  for (size_t p = 0; p < 2u; p++) {
+    size_t prefix_len = strlen(prefixes[p]);
+    if (source.len <= prefix_len || memcmp(source.data, prefixes[p], prefix_len) != 0) continue;
+    const unsigned char *b = (const unsigned char *)source.data + prefix_len;
+    size_t n = source.len - prefix_len;
+    if (n % 4u != 0) return false;
+    size_t pad = b[n-1] == '=' ? (b[n-2] == '=' ? 2u : 1u) : 0u;
+    for (size_t i = 0; i < n-pad; i++) if (lua_app_base64_value(b[i]) < 0) return false;
+    if (pad == 2u && (lua_app_base64_value(b[n-3]) & 15) != 0) return false;
+    if (pad == 1u && (lua_app_base64_value(b[n-2]) & 3) != 0) return false;
+    return true;
+  }
+  size_t start = source.len >= 7u && memcmp(source.data, "http://", 7u) == 0 ? 7u :
+      source.len >= 8u && memcmp(source.data, "https://", 8u) == 0 ? 8u : 0u;
+  if (start == 0 || source.len <= start || source.len > 1024u) return false;
+  size_t authority_end = start;
+  for (; authority_end < source.len; authority_end++) {
+    if (source.data[authority_end] == '/' || source.data[authority_end] == '?') break;
+    if (source.data[authority_end] == '@') return false;
+  }
+  if (authority_end == start || source.data[start] == ':') return false;
+  for (size_t i = 0; i < source.len; i++) {
+    unsigned char c = (unsigned char)source.data[i];
+    if (c <= 32u || c == 127u || c == '#' || c == '\\') return false;
+  }
+  return true;
+}
+
+static bool valid_lua_app_install(gzc_str_t payload) {
+  gizclaw_rpc_v1_ClientLuaAppInstallRequest request = gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_zero;
+  gzc_str_t source = {NULL,0};
+  request.url.funcs.decode = decode_tool_payload;
+  request.url.arg = &source;
+  pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)payload.data, payload.len);
+  if (!pb_decode(&stream, gizclaw_rpc_v1_ClientLuaAppInstallRequest_fields, &request) || !valid_lua_app_source(source)) return false;
+  if (request.has_sha256) {
+    if (strlen(request.sha256) != 64u) return false;
+    for (size_t i = 0; i < 64u; i++) {
+      char c = request.sha256[i];
+      if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) return false;
+    }
+  }
+  return true;
+}
+
 static bool valid_protobuf(gzc_str_t payload) {
   pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)payload.data,
                                                payload.len);
@@ -2006,6 +2075,9 @@ int gzc_client_dispatch_rpc_internal(
         gizclaw_rpc_v1_ClientRpcMethodsListResponse_init_zero;
     list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING;
     list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN;
+    if (client->config.lua_app_install != NULL) {
+      list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL;
+    }
     if (client->config.mhs_read != NULL) {
       list.methods[list.methods_count++] = gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ;
     }
@@ -2028,7 +2100,8 @@ int gzc_client_dispatch_rpc_internal(
         (const pb_byte_t *)request_payload.data, request_payload.len);
     if (!pb_decode(&stream, gizclaw_rpc_v1_ClientToolV0InvokeRequest_fields,
                    &request) ||
-        !valid_protobuf(payload)) {
+        !valid_protobuf(payload) ||
+        (request.tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_INSTALL && !valid_lua_app_install(payload))) {
       return provider_error(respond, respond_userdata,
                             gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                             "invalid tool request");
@@ -2574,4 +2647,13 @@ int gzc_client_read_packet_into(
   }
   consume_packet_view(client, &view);
   return GZC_OK;
+}
+
+const gzc_rpc_stream_provider_t *gzc_client_lua_app_provider_internal(gzc_client_t *client) {
+  if (client->config.rpc_observer != NULL) {
+    client->config.rpc_observer(client->config.rpc_observer_userdata,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL,
+      gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED);
+  }
+  return client->config.lua_app_install;
 }

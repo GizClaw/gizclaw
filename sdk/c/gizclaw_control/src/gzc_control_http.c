@@ -309,7 +309,7 @@ int gzc_control_send(
   header_count++;
   if (!gzc_control_str_empty(request->body)) {
     headers[header_count].name = gzc_str_from_cstr("Content-Type");
-    headers[header_count].value = gzc_str_from_cstr("application/json");
+    headers[header_count].value = gzc_str_from_cstr(request->binary ? "application/octet-stream" : "application/json");
     header_count++;
   }
 

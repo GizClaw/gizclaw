@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:protobuf/protobuf.dart';
 
 import 'generated/rpc/rpc.pb.dart' as rpc;
+import 'generated/rpc/payload.pb.dart' as payload;
 import 'method_registry.dart';
 import 'payload_codec.dart';
 import 'rpc_frame.dart';
@@ -103,11 +104,55 @@ class PeerRpcClient {
     return result.response as T;
   }
 
+  /// One metadata envelope and bounded Binary frames, followed by request EOS.
+  /// Cancel aborts the request, cancels the body subscription, and never retries.
+  Future<payload.ClientLuaAppInstallResponse> installLuaApp(
+    payload.ClientLuaAppInstallStreamRequest metadata,
+    Stream<Uint8List> body, {
+    Future<void>? cancel,
+    String? id,
+    Duration timeout = const Duration(seconds: 120),
+  }) async {
+    if (metadata.contentLength < 1 ||
+        metadata.contentLength > 16 * 1024 * 1024 ||
+        !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(metadata.sha256)) {
+      throw ArgumentError('invalid Lua app upload metadata');
+    }
+    Stream<Uint8List> checked() async* {
+      var count = 0;
+      await for (final chunk in body) {
+        count += chunk.length;
+        if (chunk.isEmpty || count > metadata.contentLength) {
+          throw const FormatException('archive exceeds declared length');
+        }
+        yield chunk;
+      }
+      if (count != metadata.contentLength) {
+        throw const FormatException('truncated archive');
+      }
+    }
+
+    final result = await _call(
+      'client.lua.app.install',
+      metadata,
+      expectBody: false,
+      requestChunks: checked(),
+      cancel: cancel,
+      id: id,
+      timeout: timeout > const Duration(seconds: 120)
+          ? const Duration(seconds: 120)
+          : timeout,
+    );
+    return result.response as payload.ClientLuaAppInstallResponse;
+  }
+
   Future<RpcCallResult> _call(
     String methodName,
     GeneratedMessage request, {
     required bool expectBody,
     Uint8List? requestBody,
+    Stream<Uint8List>? requestChunks,
+    Future<void>? cancel,
     String? id,
     int? maxBodyBytes,
     Duration? timeout,
@@ -122,6 +167,7 @@ class PeerRpcClient {
         request,
         id: requestId,
         body: requestBody,
+        finish: requestChunks == null,
       );
       responseReader = _ResponseReader(
         methodName,
@@ -136,12 +182,15 @@ class PeerRpcClient {
     final requestTimeout = timeout ?? _requestTimeout;
     GizClawDataChannel? channel;
     var requestSent = false;
+    var uploadEosQueued = false;
+    StreamIterator<Uint8List>? upload;
     Timer? timer;
     StreamSubscription<Uint8List>? messages;
     StreamSubscription<GizClawDataChannelState>? states;
 
     Future<void> cleanup() async {
       timer?.cancel();
+      await upload?.cancel();
       final messageSubscription = messages;
       if (messageSubscription != null) {
         await messageSubscription.cancel();
@@ -168,10 +217,22 @@ class PeerRpcClient {
       if (completer.isCompleted) {
         return;
       }
+      if (requestChunks != null && !uploadEosQueued) {
+        fail(const FormatException('installation success before request EOS'));
+        return;
+      }
       completer.complete(result);
       unawaited(cleanup());
     }
 
+    if (cancel != null) {
+      unawaited(
+        cancel.then(
+          (_) => fail(StateError("RPC upload cancelled")),
+          onError: (Object e) => fail(e),
+        ),
+      );
+    }
     timer = Timer(requestTimeout, () {
       fail(TimeoutException('RPC request timed out', requestTimeout));
     });
@@ -204,6 +265,34 @@ class PeerRpcClient {
         requestSent = true;
         try {
           await activeChannel.send(encodedRequest);
+          if (requestChunks != null && !completer.isCompleted) {
+            final iterator = StreamIterator<Uint8List>(requestChunks);
+            upload = iterator;
+            while (!completer.isCompleted && await iterator.moveNext()) {
+              final chunk = iterator.current;
+              for (
+                var offset = 0;
+                offset < chunk.length;
+                offset += rpcMaxFramePayloadSize
+              ) {
+                if (completer.isCompleted) return;
+                final end = (offset + rpcMaxFramePayloadSize).clamp(
+                  0,
+                  chunk.length,
+                );
+                await activeChannel.send(
+                  encodeFrame(
+                    rpcFrameTypeBinary,
+                    Uint8List.sublistView(chunk, offset, end),
+                  ),
+                );
+              }
+            }
+            if (!completer.isCompleted) {
+              uploadEosQueued = true;
+              await activeChannel.send(encodeFrame(rpcFrameTypeEos));
+            }
+          }
         } catch (error, stackTrace) {
           fail(error, stackTrace);
         }
@@ -253,6 +342,7 @@ Uint8List encodeRpcRequest(
   GeneratedMessage request, {
   required String id,
   Uint8List? body,
+  bool finish = true,
 }) {
   final descriptor = rpcMethodByName(methodName);
   final method = rpc.RpcMethod.valueOf(descriptor.id);
@@ -267,6 +357,8 @@ Uint8List encodeRpcRequest(
   final envelope = rpc.RpcRequest(id: id, method: method, payload: payload);
   return concatBytes([
     ...encodeEnvelopeFrames(envelope.writeToBuffer()),
+    if (!finish && envelope.writeToBuffer().length > rpcMaxFramePayloadSize)
+      encodeFrame(rpcFrameTypeEos),
     if (body != null)
       for (
         var offset = 0;
@@ -282,7 +374,7 @@ Uint8List encodeRpcRequest(
                 : offset + rpcMaxFramePayloadSize,
           ),
         ),
-    encodeFrame(rpcFrameTypeEos),
+    if (finish) encodeFrame(rpcFrameTypeEos),
   ]);
 }
 

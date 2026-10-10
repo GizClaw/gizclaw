@@ -689,7 +689,7 @@ type ClientLuaAppInstallArgs struct {
 	// Sha256 Optional expected SHA-256 of the compressed archive.
 	Sha256 *string `json:"sha256,omitempty"`
 
-	// Url HTTPS URL of a complete GizOS .lua-app.tar.zlib package, without credentials or fragment. The device downloads and validates it; the Server never fetches it.
+	// Url HTTP(S) URL, or canonical Base64 data URL containing the complete zlib-wrapped Lua app archive.
 	Url string `json:"url"`
 }
 
@@ -1314,6 +1314,19 @@ type InviteTokenCreateRequest struct {
 	TtlSeconds *int32 `json:"ttl_seconds,omitempty"`
 }
 
+// LuaAppInfo defines model for LuaAppInfo.
+type LuaAppInfo struct {
+	AppId       string  `json:"app_id"`
+	Description *string `json:"description,omitempty"`
+	DisplayName *string `json:"display_name,omitempty"`
+	Version     string  `json:"version"`
+}
+
+// LuaAppInstallResult defines model for LuaAppInstallResult.
+type LuaAppInstallResult struct {
+	App LuaAppInfo `json:"app"`
+}
+
 // PeerProfileInfo Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
 type PeerProfileInfo struct {
 	DisplayName *string `json:"display_name,omitempty"`
@@ -1452,6 +1465,15 @@ type SearchDeviceLogsParams struct {
 
 // SearchDeviceLogsParamsLevel defines parameters for SearchDeviceLogs.
 type SearchDeviceLogsParamsLevel string
+
+// InstallLuaAppParams defines parameters for InstallLuaApp.
+type InstallLuaAppParams struct {
+	// ContentLength Compressed archive bytes; must equal body length. Chunked HTTP is supported.
+	ContentLength int64 `form:"content_length" json:"content_length"`
+
+	// Sha256 SHA-256 of the compressed archive.
+	Sha256 string `form:"sha256" json:"sha256"`
+}
 
 // GetDeviceRuntimeProfileParams defines parameters for GetDeviceRuntimeProfile.
 type GetDeviceRuntimeProfileParams struct {
@@ -3122,6 +3144,9 @@ type ClientInterface interface {
 	// SearchDeviceLogs request
 	SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// InstallLuaAppWithBody request with any body
+	InstallLuaAppWithBody(ctx context.Context, params *InstallLuaAppParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetMhsManifest request
 	GetMhsManifest(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -3468,6 +3493,18 @@ func (c *Client) GetDeviceFirmware(ctx context.Context, reqEditors ...RequestEdi
 
 func (c *Client) SearchDeviceLogs(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSearchDeviceLogsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) InstallLuaAppWithBody(ctx context.Context, params *InstallLuaAppParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewInstallLuaAppRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -4731,6 +4768,66 @@ func NewSearchDeviceLogsRequest(server string, params *SearchDeviceLogsParams) (
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewInstallLuaAppRequestWithBody generates requests for InstallLuaApp with any type of body
+func NewInstallLuaAppRequestWithBody(server string, params *InstallLuaAppParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/device/lua-app/install")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		// queryValues collects non-styled parameters (passthrough, JSON)
+		// that are safe to round-trip through url.Values.Encode().
+		queryValues := queryURL.Query()
+		// rawQueryFragments collects pre-encoded query fragments from
+		// styled parameters, preserving literal commas as delimiters
+		// per the OpenAPI spec (e.g. "color=blue,black,brown").
+		var rawQueryFragments []string
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "content_length", params.ContentLength, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", true, "sha256", params.Sha256, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else {
+			for _, qp := range strings.Split(queryFrag, "&") {
+				rawQueryFragments = append(rawQueryFragments, qp)
+			}
+		}
+
+		if encoded := queryValues.Encode(); encoded != "" {
+			rawQueryFragments = append(rawQueryFragments, encoded)
+		}
+		queryURL.RawQuery = strings.Join(rawQueryFragments, "&")
+	}
+
+	req, err := http.NewRequest(http.MethodPost, queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -6701,6 +6798,9 @@ type ClientWithResponsesInterface interface {
 	// SearchDeviceLogsWithResponse request
 	SearchDeviceLogsWithResponse(ctx context.Context, params *SearchDeviceLogsParams, reqEditors ...RequestEditorFn) (*SearchDeviceLogsResponse, error)
 
+	// InstallLuaAppWithBodyWithResponse request with any body
+	InstallLuaAppWithBodyWithResponse(ctx context.Context, params *InstallLuaAppParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InstallLuaAppResponse, error)
+
 	// GetMhsManifestWithResponse request
 	GetMhsManifestWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMhsManifestResponse, error)
 
@@ -7335,6 +7435,45 @@ func (r SearchDeviceLogsResponse) StatusCode() int {
 
 // ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
 func (r SearchDeviceLogsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
+type InstallLuaAppResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *LuaAppInstallResult
+	JSON400      *BadRequest
+	JSON401      *Unauthorized
+	JSON403      *Forbidden
+	JSON404      *externalRef0.ErrorResponse
+	JSON409      *DeviceOffline
+	JSON500      *InternalError
+	JSON501      *DeviceUnsupported
+	JSON502      *DeviceError
+	JSON504      *DeviceTimeout
+}
+
+// Status returns HTTPResponse.Status
+func (r InstallLuaAppResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r InstallLuaAppResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r InstallLuaAppResponse) ContentType() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Header.Get("Content-Type")
 	}
@@ -8945,6 +9084,15 @@ func (c *ClientWithResponses) SearchDeviceLogsWithResponse(ctx context.Context, 
 	return ParseSearchDeviceLogsResponse(rsp)
 }
 
+// InstallLuaAppWithBodyWithResponse request with arbitrary body returning *InstallLuaAppResponse
+func (c *ClientWithResponses) InstallLuaAppWithBodyWithResponse(ctx context.Context, params *InstallLuaAppParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*InstallLuaAppResponse, error) {
+	rsp, err := c.InstallLuaAppWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseInstallLuaAppResponse(rsp)
+}
+
 // GetMhsManifestWithResponse request returning *GetMhsManifestResponse
 func (c *ClientWithResponses) GetMhsManifestWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMhsManifestResponse, error) {
 	rsp, err := c.GetMhsManifest(ctx, reqEditors...)
@@ -10254,6 +10402,95 @@ func ParseSearchDeviceLogsResponse(rsp *http.Response) (*SearchDeviceLogsRespons
 			return nil, err
 		}
 		response.JSON500 = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseInstallLuaAppResponse parses an HTTP response from a InstallLuaAppWithResponse call
+func ParseInstallLuaAppResponse(rsp *http.Response) (*InstallLuaAppResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &InstallLuaAppResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LuaAppInstallResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 400:
+		var dest BadRequest
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON400 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
+		var dest Unauthorized
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON401 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 403:
+		var dest Forbidden
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON403 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 404:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON404 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 409:
+		var dest DeviceOffline
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
+		var dest InternalError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON500 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 501:
+		var dest DeviceUnsupported
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON501 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 502:
+		var dest DeviceError
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON502 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 504:
+		var dest DeviceTimeout
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON504 = &dest
 
 	}
 
@@ -12938,6 +13175,9 @@ type ServerInterface interface {
 	// Search persistent system logs scoped to the authenticated device
 	// (GET /gizclaw/v1/device/logs/search)
 	SearchDeviceLogs(c *fiber.Ctx, params SearchDeviceLogsParams) error
+	// Stream a Lua application package to the API key owner device
+	// (POST /gizclaw/v1/device/lua-app/install)
+	InstallLuaApp(c *fiber.Ctx, params InstallLuaAppParams) error
 	// Get the bound RuntimeProfile MHS v0 manifest
 	// (GET /gizclaw/v1/device/mhs/v0/manifest)
 	GetMhsManifest(c *fiber.Ctx) error
@@ -13500,6 +13740,52 @@ func (siw *ServerInterfaceWrapper) SearchDeviceLogs(c *fiber.Ctx) error {
 
 	handler := func(c *fiber.Ctx) error {
 		return siw.Handler.SearchDeviceLogs(c, params)
+	}
+
+	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
+		m := siw.HandlerMiddlewares[i]
+		next := handler
+		handler = func(c *fiber.Ctx) error {
+			return m(c, next)
+		}
+	}
+
+	return handler(c)
+}
+
+// InstallLuaApp operation middleware
+func (siw *ServerInterfaceWrapper) InstallLuaApp(c *fiber.Ctx) error {
+
+	var err error
+	_ = err
+
+	c.Context().SetUserValue((BearerAuthScopes), []string{})
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params InstallLuaAppParams
+
+	var query url.Values
+	query, err = url.ParseQuery(string(c.Request().URI().QueryString()))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for query string: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "content_length" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "content_length", query, &params.ContentLength, runtime.BindQueryParameterOptions{Type: "integer", Format: "int64"})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter content_length: %w", err).Error())
+	}
+
+	// ------------- Required query parameter "sha256" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "sha256", query, &params.Sha256, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, fmt.Errorf("Invalid format for parameter sha256: %w", err).Error())
+	}
+
+	handler := func(c *fiber.Ctx) error {
+		return siw.Handler.InstallLuaApp(c, params)
 	}
 
 	for i := len(siw.HandlerMiddlewares) - 1; i >= 0; i-- {
@@ -14969,6 +15255,8 @@ func RegisterHandlersWithOptions(router fiber.Router, si ServerInterface, option
 
 	router.Get(options.BaseURL+"/gizclaw/v1/device/logs/search", wrapper.SearchDeviceLogs)
 
+	router.Post(options.BaseURL+"/gizclaw/v1/device/lua-app/install", wrapper.InstallLuaApp)
+
 	router.Get(options.BaseURL+"/gizclaw/v1/device/mhs/v0/manifest", wrapper.GetMhsManifest)
 
 	router.Post(options.BaseURL+"/gizclaw/v1/device/mhs/v0/read", wrapper.ReadMhsHwd)
@@ -15954,6 +16242,105 @@ type SearchDeviceLogs500JSONResponse struct{ InternalErrorJSONResponse }
 func (response SearchDeviceLogs500JSONResponse) VisitSearchDeviceLogsResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaAppRequestObject struct {
+	Params InstallLuaAppParams
+	Body   io.Reader
+}
+
+type InstallLuaAppResponseObject interface {
+	VisitInstallLuaAppResponse(ctx *fiber.Ctx) error
+}
+
+type InstallLuaApp200JSONResponse LuaAppInstallResult
+
+func (response InstallLuaApp200JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(200)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp400JSONResponse struct{ BadRequestJSONResponse }
+
+func (response InstallLuaApp400JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(400)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp401JSONResponse struct{ UnauthorizedJSONResponse }
+
+func (response InstallLuaApp401JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(401)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response InstallLuaApp403JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(403)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp404JSONResponse externalRef0.ErrorResponse
+
+func (response InstallLuaApp404JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(404)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp409JSONResponse struct{ DeviceOfflineJSONResponse }
+
+func (response InstallLuaApp409JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp500JSONResponse struct{ InternalErrorJSONResponse }
+
+func (response InstallLuaApp500JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(500)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp501JSONResponse struct{ DeviceUnsupportedJSONResponse }
+
+func (response InstallLuaApp501JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(501)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp502JSONResponse struct{ DeviceErrorJSONResponse }
+
+func (response InstallLuaApp502JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(502)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp504JSONResponse struct{ DeviceTimeoutJSONResponse }
+
+func (response InstallLuaApp504JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(504)
 
 	return ctx.JSON(&response)
 }
@@ -18913,6 +19300,9 @@ type StrictServerInterface interface {
 	// Search persistent system logs scoped to the authenticated device
 	// (GET /gizclaw/v1/device/logs/search)
 	SearchDeviceLogs(ctx context.Context, request SearchDeviceLogsRequestObject) (SearchDeviceLogsResponseObject, error)
+	// Stream a Lua application package to the API key owner device
+	// (POST /gizclaw/v1/device/lua-app/install)
+	InstallLuaApp(ctx context.Context, request InstallLuaAppRequestObject) (InstallLuaAppResponseObject, error)
 	// Get the bound RuntimeProfile MHS v0 manifest
 	// (GET /gizclaw/v1/device/mhs/v0/manifest)
 	GetMhsManifest(ctx context.Context, request GetMhsManifestRequestObject) (GetMhsManifestResponseObject, error)
@@ -19039,6 +19429,7 @@ type StrictServerInterface interface {
 }
 
 type StrictHandlerFunc func(ctx *fiber.Ctx, args any) (any, error)
+
 type StrictMiddlewareFunc func(f StrictHandlerFunc, operationID string) StrictHandlerFunc
 
 func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
@@ -19426,6 +19817,39 @@ func (sh *strictHandler) SearchDeviceLogs(ctx *fiber.Ctx, params SearchDeviceLog
 		return fiber.NewError(fiber.StatusBadRequest, err.Error())
 	} else if validResponse, ok := response.(SearchDeviceLogsResponseObject); ok {
 		if err := validResponse.VisitSearchDeviceLogsResponse(ctx); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, err.Error())
+		}
+	} else if response != nil {
+		return fmt.Errorf("unexpected response type: %T", response)
+	}
+	return nil
+}
+
+// InstallLuaApp operation middleware
+func (sh *strictHandler) InstallLuaApp(ctx *fiber.Ctx, params InstallLuaAppParams) error {
+	var request InstallLuaAppRequestObject
+
+	request.Params = params
+
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
+
+	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
+		return sh.ssi.InstallLuaApp(ctx.UserContext(), request.(InstallLuaAppRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "InstallLuaApp")
+	}
+
+	response, err := handler(ctx, request)
+
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, err.Error())
+	} else if validResponse, ok := response.(InstallLuaAppResponseObject); ok {
+		if err := validResponse.VisitInstallLuaAppResponse(ctx); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, err.Error())
 		}
 	} else if response != nil {
@@ -20570,7 +20994,11 @@ func (sh *strictHandler) CreateGiznetWebRTCOffer(ctx *fiber.Ctx, params CreateGi
 
 	request.Params = params
 
-	request.Body = bytes.NewReader(ctx.Request().Body())
+	body := ctx.Context().RequestBodyStream()
+	if body == nil {
+		body = bytes.NewReader(ctx.Request().Body())
+	}
+	request.Body = body
 
 	handler := func(ctx *fiber.Ctx, request interface{}) (interface{}, error) {
 		return sh.ssi.CreateGiznetWebRTCOffer(ctx.UserContext(), request.(CreateGiznetWebRTCOfferRequestObject))

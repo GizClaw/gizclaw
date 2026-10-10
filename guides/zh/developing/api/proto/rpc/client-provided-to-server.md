@@ -70,9 +70,28 @@ C 使用 `gzc_control_get_device_gnss_reporting` / `gzc_control_set_device_gnss_
 
 `lua.app.list` 返回设备已安装、可启动的应用，每项含包的稳定 `app_id`、独立 SemVer 和可选的 `display_name`、`description`。最多 32 项，ID 不重复。这里的 `app_id` 沿用 GizOS 应用包身份，不是 Server 的 Peer resource ID，也不是文件路径。
 
-`lua.app.install` 接受完整 `.lua-app.tar.zlib` 包的 HTTPS `url`，以及可选的压缩包 `sha256`。URL 最多 1024 UTF-8 字节，不含嵌入凭证或 fragment。Server 只校验和转发，安装 RPC 最多等待 120 秒；设备负责流式下载、zlib/USTAR 解析、format-1 `lua-app` manifest 和全部文件长度/SHA-256 校验。设备必须限制解压总量、文件数量、路径和可用空间，先暂存完整应用，在全部校验成功后发布新安装；失败保留旧应用和用户数据。空间不足或没有安装能力返回 `UNIMPLEMENTED`，HTTP 映射为 `501 DEVICE_UNSUPPORTED`。成功响应中的 `app` 表示安装完成，不能用下载已排队冒充成功。调用方不得自动重放超时请求。
+`lua.app.install` 接受完整 `.lua-app.tar.zlib` 包的 HTTP(S) `url`，以及可选的压缩包 `sha256`。HTTP(S) 地址最多 1024 UTF-8 字节，不含嵌入凭证或 fragment。兼容入口也接受 `data:application/zlib;base64,` 和 `data:application/octet-stream;base64,`，要求无空白的 canonical Base64，含前缀最多 262144 ASCII 字节。该上限可容纳约 192 KiB 压缩包，覆盖 164484 字节应用样本，并为 Tool/RPC envelope 留出 1 MiB 接收上限内的余量；更大的包使用 Binary 入口。Server 只校验和转发，安装 RPC 最多等待 120 秒；设备负责流式下载、zlib/USTAR 解析、format-1 `lua-app` manifest 和全部文件长度/SHA-256 校验。设备必须限制解压总量、文件数量、路径和可用空间，先暂存完整应用，在全部校验成功后发布新安装；失败保留旧应用和用户数据。空间不足或没有安装能力返回 `UNIMPLEMENTED`，HTTP 映射为 `501 DEVICE_UNSUPPORTED`。成功响应中的 `app` 表示安装完成，不能用下载已排队冒充成功。调用方不得自动重放超时请求。
 
 包格式以 GizOS [固定版本的公共打包器](https://github.com/GizClaw/gizos/blob/604492cc10e2b86b730a365288694d4bf1fc76ab/libs/lua/app_package.py) 为准。USTAR 在文件边界后必须包含两个完整的 512 字节全零结束块；其后的填充也只能是完整的全零块。zlib 校验成功不能代替 tar 完整性验证。
+
+`client.lua.app.install`（RPC 139）是独立的上传 contract，不属于 `ClientTool`。首个小型 Protobuf `RpcRequest` 的 payload 为 `ClientLuaAppInstallStreamRequest { uint32 content_length; string sha256; }`；压缩包长度范围 1–16777216 字节，SHA-256 必填且为 64 位十六进制。随后同一有序 stream 接收多个 Binary 帧，单帧最多 65535 字节，最后是请求 EOS。禁止用 Protobuf bytes、Base64 envelope 或多次 RPC 拼装包体。总期限 120 秒；16 MiB 限制传输工作量，设备继续施加较低的存储、文件数量及解压限制。
+
+设备必须复用 URL 安装器，边收边解压、校验并写暂存文件，完整压缩包不落盘。压缩长度与 SHA-256、manifest、全部文件长度与摘要、两个 tar 结束零块和 zlib EOS 均通过后才原子发布，并发送 `ClientLuaAppInstallResponse` 与响应 EOS。错误、取消、超时或中断都清理暂存状态，保留旧应用与用户数据；失败不重放。早期拒绝可在上传完成前发送最终错误。
+
+控制入口 `POST /gizclaw/v1/device/lua-app/install?content_length=N&sha256=HEX` 使用 `application/octet-stream` 原始请求体，支持 chunked HTTP。鉴权仍绑定 API Key owner；Server/Edge 只转发字节，不持有另一份解包器。返回 `{ "app": ... }`，错误沿用 `DEVICE_REJECTED`、`DEVICE_UNSUPPORTED`、`DEVICE_TIMEOUT` 和脱敏 `DEVICE_ERROR`。列表及启动仍使用 URL Tool 所在的 `tool/v0/invoke` 入口。
+
+C 设备通过 `gzc_client_config_t.lua_app_install` 安装借用的 `gzc_rpc_stream_provider_t`，只有实际注册才在 `client.rpc.methods.list` 公布 139：
+
+| 回调 | 生命周期 |
+| --- | --- |
+| `begin(userdata, method, metadata, &session)` | 一次性接收借用的 protobuf 元信息并建立 owner；非空 session 必有一次 close。不能返回 WOULD_BLOCK。 |
+| `write(session, bytes, len)` | 借用字节只在回调内有效。OK 表示整块已消费；WOULD_BLOCK 表示未消费，SDK 保留同一帧并在 poll 重试，暂缓 backend poll。 |
+| `finish(session, respond, userdata)` | 仅在声明长度与请求 EOS 一致后调用。完成压缩 SHA 和包校验及原子发布后才 respond；pending 可返回 WOULD_BLOCK，期间继续 backend poll 以观察取消；不得保留 respond 指针。 |
+| `close(session, status)` | 最后一次操作结束后的唯一清理点；成功为 OK，失败、断连、client close 或 120 秒超时为错误状态。回滚未提交状态，释放 owner。 |
+
+回调由串行 poll owner 调用，不得重入 client，且应及时返回。异步设备 worker 若需要跨回调处理必须复制到自身有界存储；SDK 不为回调创建线程。SDK 校验元信息和压缩长度；C provider 的 finish 负责压缩 SHA-256 与全部安装校验。普通 URL Tool 保持同步 respond 合同，不能借用它接收额外 Binary 包体。
+
+Go 的 `gizcli.DeviceControlHandlers.InstallLuaApp` 返回 `LuaAppInstallSession`；JS 的 `GizClawPeerRPCHandlers.installLuaApp` 返回 `LuaAppInstallSession` 并接收 `AbortSignal`；Flutter 的 `GizClawPeerRpcHandlers.installLuaApp` 返回同名 owner 并接收 `LuaAppInstallCancellation`。这些 provider 只负责接线，安装实现由设备拥有。Go/JS/Flutter 在 finish 前也校验压缩 SHA。Go controller 使用生成的 Peer HTTP client 或 `rpcapi.UploadLuaApp`；JS `WebRTCRPCClient.installLuaApp` 和 Flutter `PeerRpcClient.installLuaApp` 接受逐块输入，复用现有发送背压与 EOS。
 
 `lua.app.run` 接受 `app_id` 和可选 `params`。`params` 是字符串到字符串的对象，直接映射为 GizOS `h2_lua_arg_t` 和 Lua 全局 `args`；省略等价于空对象，不需要把整份 JSON 编码为一个字符串。最多 16 对，键 1–64 UTF-8 字节、值最多 1024 字节、键和值总计最多 4096 字节，均禁止 NUL。数字或结构化内容需要应用自行约定和解析。未安装的 ID 返回 `NOT_FOUND`，HTTP 为 `404 LUA_APP_NOT_FOUND`。设备先应答接受启动，再移交界面或断开会话；应答不表示游戏已经完成。
 

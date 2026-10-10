@@ -1,6 +1,7 @@
 package rpcapi
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -11,6 +12,9 @@ import (
 func TestLuaAppRequestBounds(t *testing.T) {
 	for _, request := range []proto.Message{
 		&rpcpb.ClientLuaAppListRequest{},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "http://apps.test/app"},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/zlib;base64,eJwDAAAAAAE="},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/octet-stream;base64,eJwDAAAAAAE="},
 		&rpcpb.ClientLuaAppInstallRequest{Url: "https://apps.test/tetris.lua-app.tar.zlib?token=opaque"},
 		&rpcpb.ClientLuaAppRunRequest{AppId: "tetris", Params: map[string]string{"mode": "single", "text": "玩一局", "empty": ""}},
 	} {
@@ -19,7 +23,12 @@ func TestLuaAppRequestBounds(t *testing.T) {
 		}
 	}
 	for _, request := range []proto.Message{
-		&rpcpb.ClientLuaAppInstallRequest{Url: "http://apps.test/app"},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/zlib;base64,AB=="},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/zlib;base64,AA=A"},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/zlib;base64,"},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/zlib;base64,AA==\n"},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:text/plain;base64,AA=="},
+		&rpcpb.ClientLuaAppInstallRequest{Url: "data:application/zlib;base64," + strings.Repeat("A", LuaAppDataURLMaxBytes)},
 		&rpcpb.ClientLuaAppInstallRequest{Url: "https://user:pass@apps.test/app"},
 		&rpcpb.ClientLuaAppInstallRequest{Url: "https://apps.test/app#"},
 		&rpcpb.ClientLuaAppInstallRequest{Url: "https://apps.test/app", Sha256: new("bad")},
@@ -58,5 +67,38 @@ func TestLuaAppCatalogAndCodec(t *testing.T) {
 	decoded, err := ClientToolRequestFromBytes(rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_RUN, data)
 	if err != nil || !proto.Equal(request, decoded) {
 		t.Fatalf("decoded=%v err=%v", decoded, err)
+	}
+}
+
+func TestLuaAppInstallFragmentedEnvelopeSize(t *testing.T) {
+	// Larger than the measured largest product archive (164484 bytes), and
+	// crosses three 65535-byte frame boundaries after Base64 encoding.
+	archive := make([]byte, 164484)
+	for i := range archive {
+		archive[i] = byte(i)
+	}
+	source := "data:application/zlib;base64," + base64.StdEncoding.EncodeToString(archive)
+	request := &rpcpb.ClientLuaAppInstallRequest{Url: source}
+	if err := ValidateLuaAppRequest(request); err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := proto.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(encoded) <= 3*65535 || len(encoded) >= LuaAppDataURLMaxBytes {
+		t.Fatalf("unexpected wire size: %d", len(encoded))
+	}
+	var roundtrip rpcpb.ClientLuaAppInstallRequest
+	if err := proto.Unmarshal(encoded, &roundtrip); err != nil || roundtrip.Url != source {
+		t.Fatalf("round trip: %v", err)
+	}
+}
+
+func TestLuaAppNilPayloadsAreRejected(t *testing.T) {
+	var request *rpcpb.ClientLuaAppInstallStreamRequest
+	var response *rpcpb.ClientLuaAppInstallResponse
+	if ValidateLuaAppRequest(request) == nil || ValidateLuaAppResponse(response) == nil {
+		t.Fatal("nil installer payload accepted")
 	}
 }

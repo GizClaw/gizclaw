@@ -74,6 +74,8 @@ final _messageFactories = <String, MessageFactory>{
   'ClientGnssReportingSetResponse': payload.ClientGnssReportingSetResponse.new,
   'ClientLuaAppInstallRequest': payload.ClientLuaAppInstallRequest.new,
   'ClientLuaAppInstallResponse': payload.ClientLuaAppInstallResponse.new,
+  'ClientLuaAppInstallStreamRequest':
+      payload.ClientLuaAppInstallStreamRequest.new,
   'ClientLuaAppListRequest': payload.ClientLuaAppListRequest.new,
   'ClientLuaAppListResponse': payload.ClientLuaAppListResponse.new,
   'ClientLuaAppRunRequest': payload.ClientLuaAppRunRequest.new,
@@ -341,6 +343,7 @@ final _messageTypes = <String, Type>{
   'ClientGnssReportingSetResponse': payload.ClientGnssReportingSetResponse,
   'ClientLuaAppInstallRequest': payload.ClientLuaAppInstallRequest,
   'ClientLuaAppInstallResponse': payload.ClientLuaAppInstallResponse,
+  'ClientLuaAppInstallStreamRequest': payload.ClientLuaAppInstallStreamRequest,
   'ClientLuaAppListRequest': payload.ClientLuaAppListRequest,
   'ClientLuaAppListResponse': payload.ClientLuaAppListResponse,
   'ClientLuaAppRunRequest': payload.ClientLuaAppRunRequest,

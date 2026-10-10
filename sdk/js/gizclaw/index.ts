@@ -1,5 +1,7 @@
+import { sha256 } from "@noble/hashes/sha2.js";
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen.ts";
 import {
+  validLuaAppUpload,
   validLuaAppInfo,
   validLuaAppInstall,
   validLuaAppRun,
@@ -20,6 +22,8 @@ import {
   decodeClientHwdWriteRequestPayload,
   decodeClientHwdWriteResponsePayload,
   type ClientToolV0InvokeRequest,
+  type ClientLuaAppInstallStreamRequest,
+  type ClientLuaAppInstallResponse,
   decodeRPCRequestPayload,
   decodeRPCResponsePayload,
   encodeRPCRequestPayload,
@@ -360,7 +364,21 @@ export type GizClawDeviceControlHandlers = {
 
 // GizClawPeerRPCHandlers answers the client.* RPCs a GizClaw server initiates.
 // Every group is optional; an unhandled method answers METHOD_NOT_FOUND.
+/** Device installer owner. write borrows its chunk until completion. finish
+ * validates tar/zlib/manifest/files and atomically publishes. close runs once
+ * after the last operation, with undefined on success or an abort reason.
+ * All operations must honor the signal supplied to begin. */
+export type LuaAppInstallSession = {
+  write(chunk: Uint8Array): void | Promise<void>;
+  finish(): ClientLuaAppInstallResponse | Promise<ClientLuaAppInstallResponse>;
+  close(reason?: unknown): void | Promise<void>;
+};
+
 export type GizClawPeerRPCHandlers = {
+  installLuaApp?: (
+    metadata: ClientLuaAppInstallStreamRequest,
+    signal: AbortSignal,
+  ) => LuaAppInstallSession | Promise<LuaAppInstallSession>;
   /** Observes decoded requests, including an unimplemented tool. */
   observe?: (method: string, tool?: number) => void;
   deviceControl?: GizClawDeviceControlHandlers;
@@ -545,6 +563,38 @@ export class WebRTCRPCClient {
       body: response.body,
       result: response.response.result as TResult,
     };
+  }
+
+  async installLuaApp(
+    metadata: ClientLuaAppInstallStreamRequest,
+    body: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
+    options: RPCCallOptions = {},
+  ): Promise<ClientLuaAppInstallResponse> {
+    if (!validLuaAppUpload(metadata))
+      throw new Error("invalid Lua app metadata");
+    async function* checked(): AsyncIterable<Uint8Array> {
+      let count = 0;
+      for await (const chunk of body) {
+        count += chunk.length;
+        if (count > metadata.content_length)
+          throw new Error("archive too long");
+        yield chunk;
+      }
+      if (count !== metadata.content_length)
+        throw new Error("truncated archive");
+    }
+    return rpcUploadCall(
+      this.pc,
+      this.channelLabel,
+      "client.lua.app.install",
+      metadata,
+      checked(),
+      {
+        ...options,
+        id: options.id ?? this.createID(),
+        timeoutMs: Math.min(options.timeoutMs ?? 120000, 120000),
+      },
+    );
   }
 
   transcribeSpeech(
@@ -947,14 +997,14 @@ async function rpcUploadCall<TResult>(
         responseOutcome,
       ]);
       if (outcome.kind === "response") {
+        if (method === "client.lua.app.install")
+          throw new Error("installation response before request EOS");
         return outcome.value;
       }
       if (outcome.result.done) break;
       const chunk = outcome.result.value;
       if (!(chunk instanceof Uint8Array) || chunk.length === 0) {
-        throw new Error(
-          "speech audio chunks must be non-empty Uint8Array values",
-        );
+        throw new Error("RPC body chunks must be non-empty Uint8Array values");
       }
       for (
         let offset = 0;
@@ -982,16 +1032,21 @@ async function rpcUploadCall<TResult>(
     return await response.promise;
   } catch (error) {
     response.cancel(error);
-    await response.promise.catch(() => undefined);
+    let failure = error;
+    await response.promise.catch((terminal) => {
+      if (terminal instanceof WebRTCRPCError) failure = terminal;
+    });
     try {
       channel.close();
     } catch {
       // Ignore close races while unwinding a failed upload.
     }
-    throw error;
+    throw failure;
   } finally {
     if (!uploadComplete && iterator.return != null) {
-      await Promise.resolve(iterator.return()).catch(() => undefined);
+      // A producer may be awaiting external input; cancellation must not wait
+      // for that next() to complete. Dispose it without delaying the RPC result.
+      void Promise.resolve(iterator.return()).catch(() => undefined);
     }
   }
 }
@@ -2288,6 +2343,17 @@ function handleInboundRPCDataChannel(
   let uploaded = 0;
   let ignoreBody = false;
   let closed = false;
+  let install: LuaAppInstallSession | undefined;
+  const installAbort = new AbortController();
+  const digest = sha256.create();
+  let installTimer: ReturnType<typeof setTimeout> | undefined;
+  let queuedBytes = 0;
+  const releaseInstall = async (reason?: unknown): Promise<void> => {
+    const current = install;
+    install = undefined;
+    if (installTimer != null) clearTimeout(installTimer);
+    await current?.close(reason);
+  };
 
   const cleanup = (): void => {
     channel.removeEventListener("message", onMessage);
@@ -2299,6 +2365,11 @@ function handleInboundRPCDataChannel(
       return;
     }
     closed = true;
+    installAbort.abort(new Error("installation channel closed"));
+    if (installTimer != null) clearTimeout(installTimer);
+    void messageQueue
+      .then(() => releaseInstall(installAbort.signal.reason))
+      .catch(() => undefined);
     cleanup();
     try {
       channel.close();
@@ -2306,7 +2377,23 @@ function handleInboundRPCDataChannel(
       // Ignore close races from an already closed remote stream.
     }
   };
-  const fail = (): void => close();
+  const fail = (error: unknown): void => {
+    if (closed) return;
+    installAbort.abort(error);
+    if (request?.method === "client.lua.app.install") {
+      ignoreBody = true;
+      const code =
+        error instanceof GizClawDeviceControlError
+          ? error.code
+          : STATUS_CODE_INTERNAL;
+      void sendResponse(
+        rpcErrorResponse(request.id, code, "installation failed"),
+        request.method,
+      )
+        .finally(close)
+        .catch(() => undefined);
+    } else close();
+  };
   const sendResponse = (response: RPCResponse, method: string): Promise<void> =>
     sendInboundRPCFrames(channel, [
       ...encodeRPCEnvelopeFrames(encodeRPCResponseEnvelope(response, method)),
@@ -2331,9 +2418,29 @@ function handleInboundRPCDataChannel(
     void sendResponse(response, pingRequest.method).catch(fail);
   };
 
-  const startRequest = (next: RPCRequest): void => {
+  const startRequest = async (next: RPCRequest): Promise<void> => {
     request = next;
     switch (next.method) {
+      case "client.lua.app.install": {
+        if (!validLuaAppUpload(next.params))
+          throw new GizClawDeviceControlError(
+            STATUS_CODE_INVALID_ARGUMENT,
+            "invalid archive metadata",
+          );
+        const handler = getHandlers()?.installLuaApp;
+        if (handler == null)
+          throw new GizClawDeviceControlError(
+            RPC_ERROR_METHOD_NOT_FOUND,
+            "installer unavailable",
+          );
+        getHandlers()?.observe?.(next.method);
+        installTimer = setTimeout(() => {
+          fail(new GizClawDeviceControlError(4, "installation timeout"));
+        }, 120000);
+        install = await handler(next.params, installAbort.signal);
+        if (closed) await releaseInstall(installAbort.signal.reason);
+        return;
+      }
       case "all.ping":
         return;
       case "all.speed_test.run": {
@@ -2361,7 +2468,10 @@ function handleInboundRPCDataChannel(
     }
   };
 
-  const handleFrame = (frame: { payload: Uint8Array; type: number }): void => {
+  const handleFrame = async (frame: {
+    payload: Uint8Array;
+    type: number;
+  }): Promise<void> => {
     if (request == null) {
       if (frame.type === RPC_FRAME_TYPE_TEXT) {
         envelopeLength += frame.payload.length;
@@ -2375,14 +2485,14 @@ function handleInboundRPCDataChannel(
         if (envelopeChunks.length > 0) {
           throw new Error("RPC request contains multiple protobuf frames.");
         }
-        startRequest(decodeRPCRequestEnvelope(frame.payload));
+        await startRequest(decodeRPCRequestEnvelope(frame.payload));
         return;
       }
       if (frame.type === RPC_FRAME_TYPE_EOS && envelopeChunks.length > 0) {
         const continuedRequest = decodeRPCRequestEnvelope(
           concatByteArrays(envelopeChunks),
         );
-        startRequest(continuedRequest);
+        await startRequest(continuedRequest);
         if (continuedRequest.method === "all.ping") {
           finishPing(continuedRequest);
         }
@@ -2394,6 +2504,45 @@ function handleInboundRPCDataChannel(
     }
 
     if (ignoreBody) {
+      return;
+    }
+    if (request.method === "client.lua.app.install") {
+      const metadata = request.params;
+      if (!validLuaAppUpload(metadata) || install == null)
+        throw new Error("missing installer");
+      if (frame.type === RPC_FRAME_TYPE_BINARY) {
+        if (
+          frame.payload.length === 0 ||
+          uploaded + frame.payload.length > metadata.content_length
+        )
+          throw new GizClawDeviceControlError(3, "archive too long");
+        await install.write(frame.payload);
+        digest.update(frame.payload);
+        uploaded += frame.payload.length;
+        return;
+      }
+      const actual = Array.from(digest.digest(), (b) =>
+        b.toString(16).padStart(2, "0"),
+      ).join("");
+      if (
+        frame.type !== RPC_FRAME_TYPE_EOS ||
+        uploaded !== metadata.content_length ||
+        actual !== metadata.sha256.toLowerCase()
+      )
+        throw new GizClawDeviceControlError(
+          3,
+          "invalid archive length or SHA-256",
+        );
+      ignoreBody = true;
+      const result = await install.finish();
+      if (installAbort.signal.aborted) throw installAbort.signal.reason;
+      if (!validLuaAppInfo(result.app))
+        throw new Error("invalid installed app");
+      await releaseInstall();
+      await sendResponse(
+        { id: request.id, v: RPC_VERSION, result },
+        request.method,
+      );
       return;
     }
     if (request.method === "all.ping") {
@@ -2423,32 +2572,54 @@ function handleInboundRPCDataChannel(
     }
   };
 
-  const drainFrames = (): void => {
+  const drainFrames = async (): Promise<void> => {
     for (;;) {
       const parsed = tryReadFrame(buffer);
       if (parsed == null) {
         return;
       }
       buffer = parsed.rest;
-      handleFrame(parsed.frame);
+      await handleFrame(parsed.frame);
     }
   };
   const onMessage = (event: MessageEvent): void => {
+    const size =
+      event.data instanceof ArrayBuffer
+        ? event.data.byteLength
+        : ArrayBuffer.isView(event.data)
+          ? event.data.byteLength
+          : event.data instanceof Blob
+            ? event.data.size
+            : 0;
+    queuedBytes += size;
+    if (queuedBytes + buffer.length > RPC_MAX_ENVELOPE_SIZE + 68) {
+      queuedBytes -= size;
+      fail(new GizClawDeviceControlError(8, "RPC ingress limit"));
+      return;
+    }
+    if (
+      request?.method === "client.lua.app.install" &&
+      queuedBytes + buffer.length > 2 * (RPC_MAX_FRAME_PAYLOAD_SIZE + 4)
+    ) {
+      queuedBytes -= size;
+      fail(new GizClawDeviceControlError(8, "installer ingress limit"));
+      return;
+    }
     messageQueue = messageQueue
       .then(async () => {
         if (closed) {
           return;
         }
         buffer = appendBytes(buffer, await messageDataBytes(event.data));
-        drainFrames();
+        await drainFrames();
       })
-      .catch(fail);
+      .catch(fail)
+      .finally(() => {
+        queuedBytes -= size;
+      });
   };
-  const onClose = (): void => {
-    closed = true;
-    cleanup();
-  };
-  const onError = (): void => fail();
+  const onClose = (): void => close();
+  const onError = (): void => fail(new Error("RPC channel error"));
 
   channel.addEventListener("message", onMessage);
   channel.addEventListener("close", onClose);
@@ -2723,6 +2894,7 @@ async function answerClientRequest(
     switch (request.method) {
       case "client.rpc.methods.list": {
         const methods = [1, 2, 135, 136, 137];
+        if (handlers?.installLuaApp != null) methods.push(139);
         if (control?.readMhsHwd != null) methods.push(133);
         if (control?.writeMhsHwd != null) methods.push(134);
         return ok({ methods: methods.sort((a, b) => a - b) });

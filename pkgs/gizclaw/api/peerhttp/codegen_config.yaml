@@ -12,3 +12,4 @@ output-options:
   user-templates:
     client.tmpl: ./templates/client.tmpl
     client-with-responses.tmpl: ./templates/client-with-responses.tmpl
+    strict/strict-fiber.tmpl: ../adminhttp/templates/strict/strict-fiber.tmpl

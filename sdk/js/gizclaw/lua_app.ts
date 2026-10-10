@@ -1,5 +1,6 @@
 import type {
   ClientLuaAppInstallRequest,
+  ClientLuaAppInstallStreamRequest,
   ClientLuaAppRunRequest,
   LuaAppInfo,
 } from "./generated/rpc/payload-codec.ts";
@@ -28,27 +29,55 @@ export function validLuaAppInfo(value: unknown): value is LuaAppInfo {
 export function validLuaAppInstall(
   value: unknown,
 ): value is ClientLuaAppInstallRequest {
-  if (
-    !object(value) ||
-    !text(value.url, 1024) ||
-    value.url.includes("#") ||
-    !value.url.startsWith("https://") ||
-    /[\s\\]/.test(value.url)
-  )
-    return false;
-  try {
-    const url = new URL(value.url);
+  if (!object(value) || !text(value.url, 256 * 1024)) return false;
+  const source = value.url;
+  const prefixes = [
+    "data:application/zlib;base64,",
+    "data:application/octet-stream;base64,",
+  ];
+  const prefix = prefixes.find((item) => source.startsWith(item));
+  if (prefix != null) {
+    const encoded = source.slice(prefix.length);
     if (
-      url.protocol !== "https:" ||
-      url.hostname === "" ||
-      value.url.slice(8).split(/[/?#]/)[0] === "" ||
-      url.username !== "" ||
-      url.password !== "" ||
-      value.url.slice(8).split(/[/?#]/)[0]?.includes("@")
+      !encoded ||
+      !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+        encoded,
+      )
     )
       return false;
-  } catch {
-    return false;
+    const alphabet =
+      "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    if (encoded.endsWith("==") && alphabet.indexOf(encoded.at(-3)!) & 15)
+      return false;
+    if (
+      encoded.endsWith("=") &&
+      !encoded.endsWith("==") &&
+      alphabet.indexOf(encoded.at(-2)!) & 3
+    )
+      return false;
+  } else {
+    if (
+      bytes(source) > 1024 ||
+      /[\s\\#]/.test(source) ||
+      !/^https?:\/\//.test(source)
+    )
+      return false;
+    try {
+      const url = new URL(source);
+      if (
+        (url.protocol !== "http:" && url.protocol !== "https:") ||
+        !url.hostname ||
+        url.username ||
+        url.password ||
+        source
+          .slice(source.indexOf("://") + 3)
+          .split(/[/?#]/)[0]
+          ?.includes("@")
+      )
+        return false;
+    } catch {
+      return false;
+    }
   }
   return (
     value.sha256 == null ||
@@ -74,4 +103,18 @@ export function validLuaAppRun(
     total += bytes(key) + bytes(item);
   }
   return total <= 4096;
+}
+
+export function validLuaAppUpload(
+  value: unknown,
+): value is ClientLuaAppInstallStreamRequest {
+  return (
+    object(value) &&
+    typeof value.content_length === "number" &&
+    Number.isInteger(value.content_length) &&
+    value.content_length > 0 &&
+    value.content_length <= 16 * 1024 * 1024 &&
+    typeof value.sha256 === "string" &&
+    /^[a-fA-F0-9]{64}$/.test(value.sha256)
+  );
 }
