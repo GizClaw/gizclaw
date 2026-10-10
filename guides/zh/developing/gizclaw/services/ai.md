@@ -97,11 +97,15 @@ Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owne
 
 `dashscope-realtime`、`doubao-realtime-duplex` 和 `eino` 都是持久化 Workflow 与 Workspace driver。对应 factory 解析 typed RuntimeProfile Model/Voice alias，并构造既有 GenX Transformer。DashScope 要求 DashScope realtime Model；Doubao Duplex 要求 Volc `realtime-duplex` Model；Eino 分别解析每个 `chat_model` node。
 
-Eino 使用 `VoiceAdapter` contract。Eino Workflow 可以声明两条 live-audio 路径：非空的 `eino.voice_adapter.asr_model` 声明 `asr` 路径，通过对应的 RuntimeProfile ASR Model alias 把音频输入转换为文本；root Graph 中设置 `audio_transcript: true` 的 `chat_model` node 声明 `model` 路径，由该 node 的 Model 直接接收音频。两条路径可以同时声明，实际使用哪一条在 Workflow 之外选择，见 [Eino 音频输入路径](#eino-音频输入路径)。两条路径都没有声明时（`asr_model` 省略或为空白，且没有 `audio_transcript` node），输入保持纯文本；即使 `default_voice` 或 `node_voices` 为已接受的文本 turn 配置了 TTS-only 输出，也不改变这一边界。这类 route 收到第一段非空、普通 user `audio/*` Blob 时，factory 会立即发送一个 non-retryable 的 assistant `text/plain` EOS：`ErrorCode` 为 `EINO_AUDIO_INPUT_UNSUPPORTED`，failure provenance 为 transform；随后丢弃该 route 直到 EOS，不把音频转发给 AudioDock、Eino Graph 或 Provider。固定错误只说明 Eino 音频输入需要 `voice_adapter.asr_model`，不包含输入 payload、alias、credential、StreamID 或 Provider 原始错误。其他 route 继续运行；空 audio/control chunk、非法 MIME、非音频 part 与 `history.user_audio` 保持既有行为。
+Eino 的 `VoiceAdapter` 只配置回复 Voice。用户音频是否先走独立 ASR，由 RuntimeProfile 的 Workflow binding 分别通过 `ptt_asr_model` 和 `realtime_asr_model` 选择；旧 `eino.voice_adapter.asr_model` 接受但忽略。Workspace 不能覆盖这个选择，业务图不声明 `audio_transcript`。
 
-`model` 路径不经过 ASR：Push-to-Talk 音频 route 直接交给 Eino 音频 turn（语义见 [Eino Transformer](/zh/developing/genx/transformers/eino)），音频按原 MIME 作为 user Blob 交给该 node 的 Model Generator，由 Generator 在回复流中报告 transcript。Volc `chat_completions` Model 配置 `support_text_only: false` 时，peergenx 用 Doubao chat 适配（见 [OpenAI Adapter](/zh/developing/genx/generators/openai#doubao-音频输入)）包装其 Generator，负责音频转换与 transcript；建议该 Model 关闭 thinking。`asr` 路径上该 node 与其他 `chat_model` node 一样收到 ASR 文本，factory 构造 Transformer 前会去掉它的转写标记。两条路径都照常用 `default_voice` 与 `node_voices` 为回复合成语音。
+PTT 未配置 ASR 时，factory 根据绑定的 `chat_model` Model 选择原生音频能力。只有一个音频 Model resource 时自动选中，多个 alias 绑定同一个 resource 也可以，纯文本 Model 不参与选择。不同音频 Model resource 同时存在时 reload 失败，需要在 Profile 中统一输入 Model。
 
-配置后，`default_voice` 和 `node_voices` 通过 RuntimeProfile Voice alias 为声明为 `text/plain` 的 Graph output 合成语音。`node_voices` 以 Graph output 引用的 node ID 为 key，并优先于 `default_voice`。Eino Workspace `input` 接受 `push-to-talk` 或 `realtime`，默认值为 `push-to-talk`；realtime ASR 会输出 interim transcript。两种 live-audio 模式都以 `realtime_pacing=false` 解析 ASR Model：设备 frame 已按真实时间到达；只有使用相同 100 ms packet 的十次交替顺序 provider-backed 试验证明 EOS 到 definite transcript 的中位数至少降低 200 ms，才保留这项 mode-specific 设置。factory 在构造 Agent 前校验全部 alias，并用 AudioDock 组合 Eino Transformer，不把音频行为下沉到 provider-neutral Eino package。
+对于带前置 Script、Memory 或控制逻辑的图，runtime 在 PTT EOS 后先用同一个音频 Model 获取当前转写，再执行原图。`input.text` 与 `input.messages` 包含当前话语，Recall、Observe 与 History 保持文本轮语义。转写请求不带业务 prompt、history、Tools 或 CoT，也不启动无用的回复请求。转写失败或取消不执行 Graph；空转写结束该轮，不生成回复。只有 Prompt 和一个 ChatModel 且不读取 `input.text` 的简单图直接将音频交给 ChatModel，保留转写与回复并行的能力。这两种集成都由 runtime 推导，Workflow 不增加配置。
+
+Volc `chat_completions` Model 的 `support_text_only: false` 启用 Doubao chat 音频适配，详见 [OpenAI Adapter](/zh/developing/genx/generators/openai#doubao-音频输入)。纯文本 Model 没有配置 Profile ASR 时仍可接收文本；非空用户音频会产生 non-retryable 的 `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS。
+
+`default_voice`、`node_voices` 和 `speaker_voices` 继续通过 RuntimeProfile Voice alias 合成回复。`node_voices` 以 Graph output 引用的 node ID 为 key，优先于 `default_voice`。Factory 在构造 Agent 前校验 Voice，并用 AudioDock 组合 ASR、Eino 与 TTS。
 
 `admin validate` 对 Eino Workflow（包括 ResourceList 中的项）同时执行 Schema 与 `einoconfig.Validate` 语义检查，可离线拒绝非法 Graph、非法 speaker 名称或非法 alias；alias 是否绑定真实资源仍由 RuntimeProfile 与 factory 检查。
 
@@ -111,29 +115,18 @@ Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同�
 
 #### Eino 音频输入路径
 
-同一个 Eino Workflow 可以同时声明 `asr_model` 与 `audio_transcript` node；`admin validate`、Workflow 写入和 factory 只要求最多一个 root `chat_model` node 设置 `audio_transcript`，嵌套 Graph 中设置仍被拒绝。选择用 `audio_input` 表达，取值 `asr` 或 `model`，有两个来源：
+Workspace `input` 为 `push-to-talk`（默认）或 `realtime`，仅决定读取 Profile binding 的哪一个 ASR Model：
 
-| 来源 | 位置 | 语义 |
-| --- | --- | --- |
-| Workspace | Eino Workspace 参数 `audio_input`（create、put、`server.workspace.parameters.set`、`reload-with-options.parameters`） | 该 Workspace 的偏好；其他 driver 的 Workspace 忽略这个字段。 |
-| RuntimeProfile | `spec.workflows.<alias>.audio_input` | 运行该 Workflow 且自身未设置 `audio_input` 的 Workspace 的偏好，见 [RuntimeProfile](/zh/developing/gizclaw/services/runtime-profile#eino-音频输入路径)。 |
+| 输入模式 | Profile 字段 | 配置 alias | 省略或 null |
+| --- | --- | --- | --- |
+| PTT | `spec.workflows.<alias>.ptt_asr_model` | 独立 ASR → 文本 → Model。 | 音频直接交给 Model。 |
+| Realtime | `spec.workflows.<alias>.realtime_asr_model` | 流式 ASR 断句 → 文本 → Model。 | 音频直接交给 Model。 |
 
-优先级为 Workspace 参数、RuntimeProfile binding、Workflow 默认值。Workflow 默认值保持没有这项设置时的行为：声明了 `asr_model` 用 `asr`，否则用 `model`。`agenthost` resolver 把前两者合并为 `Spec.AudioInput`，Eino factory 在每次 reload 时用 `einoconfig.ResolveAudioInput` 决定实际路径：
+`agenthost` 解析 owner Profile 后把选中的 alias 放入内部 `Spec.ASRModel`。Factory 不读取 Workflow ASR 配置，也没有 Workspace 优先级或自动回落。错误的 ASR alias、Model kind 或构造错误会使 reload 失败。
 
-| 条件 | 实际路径 |
-| --- | --- |
-| Workflow 两条路径都没有声明 | 无（纯文本 Agent）；选择被忽略。 |
-| Workspace `input` 为 `realtime` | 始终 `asr`，因为实时断句由流式 ASR 完成；Workflow 没有 `asr_model` 时 reload 失败。 |
-| 偏好 `model`，且 `audio_transcript` node 绑定的 Model 接受音频 | `model`。 |
-| 偏好 `model`，但没有 `audio_transcript` node，或该 node 的 Model 不接受音频 | 声明了 `asr_model` 时回落到 `asr`，否则 reload 失败。 |
-| 偏好 `asr`，且声明了 `asr_model` | `asr`。 |
-| 偏好 `asr`，但没有 `asr_model` | `audio_transcript` node 的 Model 接受音频时用 `model`，否则 reload 失败。 |
+Eino 的原生 Lite 音频路径目前处理完整的 PTT 录音，不接受连续 realtime 音频；这种绑定必须配置 `realtime_asr_model` 才能运行 realtime。Doubao Realtime driver 保留模型自己的音频输入，也可通过同样的 Profile 配置外挂 ASR 后使用模型的文本输入。ASR 对两种模式均禁用重复 pacing；realtime 额外请求 interim transcript、`end_window_size=200` 和 `force_to_speech_time=1000`。
 
-“接受音频”由 `peergenx.Service.AcceptsAudioInput` 判定，与 Generator 构造规则一致：只有会被 Doubao chat 适配包装的 Model（Volc `chat_completions` 且 `support_text_only` 不为 true）才算。其他 Model 即使能接收音频也不会报告 transcript，因此不会被选中。失败发生在 reload，错误指出 node、Model alias 与缺少的 `asr_model`，不会等到某一轮音频才暴露。
-
-实际路径通过 `PeerRunWorkspaceState.audio_input` 返回给 Peer（`server.run.workspace.get`、`reload`、`reload-with-options`）；纯文本 Agent 与其他 driver 不返回该字段。Giztest 用它断言路径，例如 `eino-audio-input.path-selection`。
-
-`model` 路径的音频轮开始时 `input.text` 为空，`query_from: input.text` 的 `memory_recall` 在该轮被跳过。需要在音频轮召回的 Workflow 可以让 Graph 从 History 推导 query，写法见 [Eino Transformer](/zh/developing/genx/transformers/eino#音频-turn)；需要按当前这句话召回时应选择 `asr` 路径。
+Eino 通过 `PeerRunWorkspaceState.audio_input` 报告实际 `asr` 或 `model` 路径；这是只读运行状态，不能作为 Workspace 参数提交。纯文本 Agent 和其他 driver 不返回它。Giztest `eino-audio-input.path-selection` 验证两种输入模式与两个 Profile 对同一个 Workflow 的独立选择。
 
 #### 同一回复内按说话人分段
 

@@ -1301,6 +1301,8 @@ func (r *inputRouter) routeInput() {
 	}
 	var endedAudioID string
 	audioEnded := false
+	var announcedAudioID string
+	audioAnnounced := false
 	for {
 		chunk, err := streamlog.ReadInput(r.ctx, r.input)
 		if err != nil {
@@ -1315,6 +1317,9 @@ func (r *inputRouter) routeInput() {
 		}
 		if chunk.IsBeginOfStream() {
 			audioEnded = false
+			if chunk.Part == nil {
+				announcedAudioID, audioAnnounced = dockStreamID(chunk), true
+			}
 			if !r.sendInputEvent(true, dockStreamID(chunk)) {
 				return
 			}
@@ -1336,11 +1341,13 @@ func (r *inputRouter) routeInput() {
 				audioEnded = false
 			}
 		}
-		if target == r.asrInput && chunk.IsBeginOfStream() {
+		if target == r.asrInput && chunk.IsBeginOfStream() && (!audioAnnounced || announcedAudioID != dockStreamID(chunk)) {
 			// The raw audio payload belongs only to ASR, but the downstream text
 			// Agent must observe the replacement BOS immediately so it can cancel
 			// an active turn. Realtime ASR implementations are not required to
 			// repeat BOS on their transcript stream.
+			// An upstream control BOS already announced this route; its audio
+			// MIME BOS must not become a second control BOS for a text Agent.
 			begin := chunk.Clone()
 			begin.Part = nil
 			if err := r.agentInput.Push(begin); err != nil {
@@ -1349,12 +1356,16 @@ func (r *inputRouter) routeInput() {
 				}
 				return
 			}
+			announcedAudioID, audioAnnounced = dockStreamID(chunk), true
 		}
 		if err := target.Push(chunk); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
 				r.fail(fmt.Errorf("audiodock: route input: %w", err))
 			}
 			return
+		}
+		if chunk.IsEndOfStream() {
+			audioAnnounced = false
 		}
 	}
 }

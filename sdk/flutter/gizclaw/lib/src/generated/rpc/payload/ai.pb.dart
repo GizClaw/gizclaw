@@ -2059,7 +2059,6 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     ConversationParameters? conversation,
     $1.WorkspaceInputMode? input,
     $core.int? ttsSpeechRatePercent,
-    $1.AudioInputPath? audioInput,
     $core.String? safetyFenceLevel,
   }) {
     final result = create();
@@ -2069,7 +2068,6 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     if (input != null) result.input = input;
     if (ttsSpeechRatePercent != null)
       result.ttsSpeechRatePercent = ttsSpeechRatePercent;
-    if (audioInput != null) result.audioInput = audioInput;
     if (safetyFenceLevel != null) result.safetyFenceLevel = safetyFenceLevel;
     return result;
   }
@@ -2096,8 +2094,6 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
     ..aE<$1.WorkspaceInputMode>(4, _omitFieldNames ? '' : 'input',
         enumValues: $1.WorkspaceInputMode.values)
     ..aI(5, _omitFieldNames ? '' : 'ttsSpeechRatePercent')
-    ..aE<$1.AudioInputPath>(7, _omitFieldNames ? '' : 'audioInput',
-        enumValues: $1.AudioInputPath.values)
     ..aOS(50, _omitFieldNames ? '' : 'safetyFenceLevel')
     ..hasRequiredFields = false;
 
@@ -2169,22 +2165,12 @@ class EinoWorkspaceParameters extends $pb.GeneratedMessage {
   @$pb.TagNumber(5)
   void clearTtsSpeechRatePercent() => $_clearField(5);
 
-  /// Preferred audio input path for this Workspace; absent keeps the RuntimeProfile or Workflow default.
-  @$pb.TagNumber(7)
-  $1.AudioInputPath get audioInput => $_getN(5);
-  @$pb.TagNumber(7)
-  set audioInput($1.AudioInputPath value) => $_setField(7, value);
-  @$pb.TagNumber(7)
-  $core.bool hasAudioInput() => $_has(5);
-  @$pb.TagNumber(7)
-  void clearAudioInput() => $_clearField(7);
-
   @$pb.TagNumber(50)
-  $core.String get safetyFenceLevel => $_getSZ(6);
+  $core.String get safetyFenceLevel => $_getSZ(5);
   @$pb.TagNumber(50)
-  set safetyFenceLevel($core.String value) => $_setString(6, value);
+  set safetyFenceLevel($core.String value) => $_setString(5, value);
   @$pb.TagNumber(50)
-  $core.bool hasSafetyFenceLevel() => $_has(6);
+  $core.bool hasSafetyFenceLevel() => $_has(5);
   @$pb.TagNumber(50)
   void clearSafetyFenceLevel() => $_clearField(50);
 }

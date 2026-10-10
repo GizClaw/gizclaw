@@ -8,7 +8,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "asr_model": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
+          "asr_model": { "type": "string", "deprecated": true, "description": "Accepted for existing Workflow compatibility and ignored. External ASR is selected only by RuntimeProfile ptt_asr_model or realtime_asr_model." },
           "default_voice": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" },
           "speaker_voices": {"type": "object", "description": "Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.", "additionalProperties": {"type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$"}},
           "node_voices": { "type": "object", "additionalProperties": { "type": "string", "maxLength": 63, "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$" } }

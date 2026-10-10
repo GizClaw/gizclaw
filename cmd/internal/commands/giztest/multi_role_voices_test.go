@@ -77,7 +77,9 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 		}
 		provider.delays = []time.Duration{15 * time.Millisecond, 25 * time.Millisecond, 20 * time.Millisecond}
 	}
+	asrModel := ""
 	if config.mode != "" {
+		asrModel = "fixture-asr"
 		provider.recognize = make(map[string]string)
 		for voice, frames := range packets {
 			provider.recognize[string(frames[0])] = strings.TrimPrefix(voice, "story.")
@@ -94,7 +96,7 @@ func runVoiceGiztest(t *testing.T, kind, fixture, fault string, options ...voice
 	}
 	resources := voiceFixtureResources{}
 	service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
-	agent := newVoiceFixtureAgent(t, kind, data, service, mode)
+	agent := newVoiceFixtureAgent(t, kind, data, service, mode, asrModel)
 	defer agent.(io.Closer).Close()
 	ctx, cancel := context.WithTimeout(t.Context(), 40*time.Second)
 	defer cancel()

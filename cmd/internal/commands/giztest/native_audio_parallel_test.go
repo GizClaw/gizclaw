@@ -70,8 +70,8 @@ func TestParallelNativeAudioGiztest(t *testing.T) {
 			generator := doubaochat.New(&genx.OpenAIGenerator{Client: &client, Model: "doubao-seed-2-1-lite-260915", PromptRole: genx.PromptRoleSystem})
 			resources := nativeParallelResources{}
 			service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: nativeParallelBuilder{generator: generator}})
-			workflow := []byte(`{"graph":{"name":"native-parallel","state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"reply","type":"chat_model","inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"},"model":"audio-llm","audio_transcript":true}],"edges":[{"from":"start","to":"reply"},{"from":"reply","to":"end"}],"outputs":[{"node":"reply","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`)
-			agent := newVoiceFixtureAgent(t, "eino", workflow, service, apitypes.WorkspaceInputModePushToTalk)
+			workflow := []byte(`{"graph":{"name":"native-parallel","state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},"nodes":[{"id":"reply","type":"chat_model","inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"},"model":"audio-llm"}],"edges":[{"from":"start","to":"reply"},{"from":"reply","to":"end"}],"outputs":[{"node":"reply","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]}}`)
+			agent := newVoiceFixtureAgent(t, "eino", workflow, service, apitypes.WorkspaceInputModePushToTalk, "")
 			defer agent.(io.Closer).Close()
 			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 			defer cancel()

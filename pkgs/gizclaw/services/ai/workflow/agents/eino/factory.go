@@ -34,7 +34,7 @@ const (
 	Type = "eino"
 
 	einoAudioInputUnsupportedCode    = "EINO_AUDIO_INPUT_UNSUPPORTED"
-	einoAudioInputUnsupportedMessage = "Eino audio input requires voice_adapter.asr_model"
+	einoAudioInputUnsupportedMessage = "Model does not accept audio; configure a RuntimeProfile ASR Model for this input mode"
 )
 
 // Factory maps the strict product Workflow into the existing Eino Transformer.
@@ -75,21 +75,21 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	audioInput, err := resolveAudioInput(ctx, service, *public, spec.AudioInput, inputMode)
+	audioInput, inputModel, err := resolveAudioInput(ctx, service, *public, spec.ASRModel, inputMode)
 	if err != nil {
 		return nil, err
 	}
-	if audioInput != apitypes.AudioInputPathModel {
-		// Only the model path starts Eino audio turns. On the asr path the
-		// audio_transcript node receives ASR text like any other chat_model.
-		graph = withoutAudioTranscript(graph)
+	if audioInput == apitypes.AudioInputPathModel {
+		graph = automaticAudioReceiver(graph, inputModel)
 	}
 	speechRatePercent, err := apitypes.WorkspaceTTSSpeechRatePercent(spec.Workspace.Parameters)
 	if err != nil {
 		return nil, fmt.Errorf("eino: %w", err)
 	}
 	if public.VoiceAdapter != nil {
-		if err := preflightVoiceAdapter(ctx, service, *public.VoiceAdapter, inputMode); err != nil {
+		voice := *public.VoiceAdapter
+		voice.AsrModel = nil
+		if err := preflightVoiceAdapter(ctx, service, voice); err != nil {
 			return nil, err
 		}
 	}
@@ -107,6 +107,16 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		History: &genxeino.HistoryConfig{
 			Store: f.History, Scope: scope, Limit: 50,
 		},
+	}
+	if audioInput == apitypes.AudioInputPathModel && !genxeino.AcceptsAudioInput(config) {
+		config.TranscribeInput = func(ctx context.Context, audio []*genx.Blob) (string, error) {
+			builder := &genx.ModelContextBuilder{}
+			for _, blob := range audio {
+				builder.UserBlob("", blob.MIMEType, blob.Data)
+			}
+			text, _, err := service.TranscribeInput(ctx, "model/"+inputModel, builder.Build())
+			return text, err
+		}
 	}
 	if spec.ToolVerificationModel != "" {
 		invoker, ok := spec.ToolInvoker.(*agenthost.ToolkitInvoker)
@@ -192,12 +202,17 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		return nil, errors.Join(err, closeMemory(memoryCloser))
 	}
 	var composed genx.Transformer = transformer
-	if public.VoiceAdapter != nil {
-		voice := *public.VoiceAdapter
-		if audioInput != apitypes.AudioInputPathAsr {
-			voice.AsrModel = nil
+	if public.VoiceAdapter != nil || spec.ASRModel != "" {
+		voice := apitypes.VoiceAdapter{}
+		if public.VoiceAdapter != nil {
+			voice = *public.VoiceAdapter
 		}
-		composed, err = wrapAudio(service.Transformer(), transformer, voice, public.Graph.Outputs, inputMode, speechRatePercent)
+		voice.AsrModel = nil
+		asr, buildErr := service.BuildASR(ctx, spec.ASRModel, inputMode)
+		if buildErr != nil {
+			return nil, errors.Join(fmt.Errorf("eino: Profile ASR: %w", buildErr), transformer.Close(), closeMemory(memoryCloser))
+		}
+		composed, err = wrapAudio(service.Transformer(), transformer, asr, voice, public.Graph.Outputs, speechRatePercent)
 		if err != nil {
 			return nil, errors.Join(err, transformer.Close(), closeMemory(memoryCloser))
 		}
@@ -241,51 +256,81 @@ func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.Wo
 	return *value.Input, nil
 }
 
-// resolveAudioInput returns the audio input path of one Agent generation. An
-// empty path means the Workflow declares no live-audio path and the Agent
-// accepts text turns only.
-func resolveAudioInput(
-	ctx context.Context,
-	service *peergenx.Service,
-	public apitypes.EinoWorkflowSpec,
-	selected *apitypes.AudioInputPath,
-	inputMode apitypes.WorkspaceInputMode,
-) (apitypes.AudioInputPath, error) {
-	support, err := einoconfig.WorkflowAudioInput(public)
+// resolveAudioInput uses the Profile's selected ASR alias. With no ASR it
+// derives native audio capability solely from the bound conversation Models.
+func resolveAudioInput(ctx context.Context, service *peergenx.Service, public apitypes.EinoWorkflowSpec, asrModel string, inputMode apitypes.WorkspaceInputMode) (apitypes.AudioInputPath, string, error) {
+	if asrModel != "" {
+		return apitypes.AudioInputPathAsr, "", nil
+	}
+	model, capable, err := selectInputModel(ctx, service, public)
 	if err != nil {
-		return "", fmt.Errorf("eino: workflow %w", err)
+		return "", "", fmt.Errorf("eino: resolve input Model: %w", err)
 	}
-	request := einoconfig.AudioInputRequest{
-		Support: support, Selected: selected,
-		Realtime: inputMode == apitypes.WorkspaceInputModeRealtime,
+	if !capable {
+		return "", "", nil
 	}
-	// The Model capability only matters when the model path can be chosen.
-	canUseModel := !request.Realtime && support.TranscriptNode != "" && (request.PrefersModel() || support.ASRModel == "")
-	if canUseModel {
-		request.ModelAcceptsAudio, err = service.AcceptsAudioInput(ctx, "model/"+support.TranscriptModel)
-		if err != nil {
-			return "", fmt.Errorf("eino: resolve audio_transcript node %q model %q: %w", support.TranscriptNode, support.TranscriptModel, err)
-		}
+	if inputMode == apitypes.WorkspaceInputModeRealtime {
+		return "", "", errors.New("Eino native audio requires push-to-talk; configure RuntimeProfile realtime_asr_model for continuous input")
 	}
-	path, err := einoconfig.ResolveAudioInput(request)
-	if err != nil {
-		return "", fmt.Errorf("eino: %w", err)
-	}
-	return path, nil
+	return apitypes.AudioInputPathModel, model, nil
 }
 
-// withoutAudioTranscript returns graph with no transcribing chat_model node,
-// so the Eino Transformer starts turns from text only.
-func withoutAudioTranscript(graph genxeino.GraphDefinition) genxeino.GraphDefinition {
-	graph.Nodes = slices.Clone(graph.Nodes)
+// selectInputModel chooses the single audio-capable resource referenced by the
+// Graph. Multiple aliases may bind the same Model; distinct audio Models
+// are ambiguous and must be resolved through the RuntimeProfile bindings.
+func selectInputModel(ctx context.Context, service *peergenx.Service, public apitypes.EinoWorkflowSpec) (string, bool, error) {
+	seen := make(map[string]bool)
+	selected, resourceID := "", ""
+	err := einoconfig.VisitModelAliases("", public.Graph, func(_ string, alias string, _ apitypes.ModelKind) error {
+		if seen[alias] {
+			return nil
+		}
+		seen[alias] = true
+		capable, err := service.AcceptsAudioInput(ctx, "model/"+alias)
+		if err != nil || !capable {
+			return err
+		}
+		resolved, err := service.ResolveGenerator(ctx, "model/"+alias)
+		if err != nil {
+			return err
+		}
+		if selected != "" && resolved.Model.Id != resourceID {
+			return errors.New("Graph references multiple audio-capable Models; select one input Model resource through its RuntimeProfile bindings")
+		}
+		if selected == "" {
+			selected, resourceID = alias, resolved.Model.Id
+		}
+		return nil
+	})
+	return selected, selected != "", err
+}
+
+// automaticAudioReceiver enables direct model audio for a prompt/reply Graph.
+// Graphs with text-dependent logic prepare Model transcription before execution.
+// This is a derived runtime capability, never a Workflow configuration field.
+func automaticAudioReceiver(graph genxeino.GraphDefinition, inputModel string) genxeino.GraphDefinition {
+	modelIndex := -1
 	for index, node := range graph.Nodes {
-		if node.ChatModel == nil || !node.ChatModel.AudioTranscript {
+		for _, binding := range node.Inputs {
+			if binding.From == "input.text" {
+				return graph
+			}
+		}
+		if node.Prompt != nil {
 			continue
 		}
-		chatModel := *node.ChatModel
-		chatModel.AudioTranscript = false
-		graph.Nodes[index].ChatModel = &chatModel
+		if node.ChatModel == nil || modelIndex != -1 || node.ChatModel.Model != inputModel {
+			return graph
+		}
+		modelIndex = index
 	}
+	if modelIndex == -1 {
+		return graph
+	}
+	graph.Nodes = slices.Clone(graph.Nodes)
+	chatModel := *graph.Nodes[modelIndex].ChatModel
+	chatModel.AudioTranscript = true
+	graph.Nodes[modelIndex].ChatModel = &chatModel
 	return graph
 }
 
@@ -304,16 +349,7 @@ func (a audioInputAgent) Status(ctx context.Context) (apitypes.PeerRunWorkspaceS
 	return state, nil
 }
 
-func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.VoiceAdapter, inputMode apitypes.WorkspaceInputMode) error {
-	if alias := stringPointerValue(voice.AsrModel); alias != "" {
-		resolved, err := service.ResolveTransformer(ctx, einoASRPattern(alias, inputMode))
-		if err != nil {
-			return fmt.Errorf("eino: resolve voice_adapter.asr_model %q: %w", alias, err)
-		}
-		if resolved.Model == nil || resolved.Model.Kind != apitypes.ModelKindAsr {
-			return fmt.Errorf("eino: voice_adapter.asr_model %q is not an ASR model", alias)
-		}
-	}
+func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice apitypes.VoiceAdapter) error {
 	aliases := make(map[string]struct{})
 	if alias := stringPointerValue(voice.DefaultVoice); alias != "" {
 		aliases[alias] = struct{}{}
@@ -343,15 +379,12 @@ func preflightVoiceAdapter(ctx context.Context, service *peergenx.Service, voice
 func wrapAudio(
 	mux genx.TransformerMux,
 	core genx.Transformer,
+	asr genx.Transformer,
 	voice apitypes.VoiceAdapter,
 	outputs []apitypes.EinoOutput,
-	inputMode apitypes.WorkspaceInputMode,
 	speechRatePercent *int,
 ) (genx.Transformer, error) {
-	config := audiodock.Config{Agent: core}
-	if alias := stringPointerValue(voice.AsrModel); alias != "" {
-		config.ASR = einoPatternTransformer{mux: mux, pattern: einoASRPattern(alias, inputMode)}
-	}
+	config := audiodock.Config{Agent: core, ASR: asr}
 	defaultVoice := stringPointerValue(voice.DefaultVoice)
 	nodeVoices := map[string]string(nil)
 	if voice.NodeVoices != nil {
@@ -393,16 +426,6 @@ func einoVoiceResolver(defaultVoice string, nodeVoices, outputNodes map[string]s
 		}
 		return voicePattern(alias), nil
 	}
-}
-
-func einoASRPattern(alias string, inputMode apitypes.WorkspaceInputMode) string {
-	// Eino audio already arrives at device cadence. Avoid replaying the
-	// provider-session-open backlog after the PCM packetizer has aggregated it.
-	pattern := "model/" + strings.TrimSpace(alias) + "?realtime_pacing=false"
-	if inputMode == apitypes.WorkspaceInputModeRealtime {
-		return pattern + "&emit_interim=true&end_window_size=200&force_to_speech_time=1000"
-	}
-	return pattern
 }
 
 func einoVoicePattern(alias string) string { return "voice/" + strings.TrimSpace(alias) }

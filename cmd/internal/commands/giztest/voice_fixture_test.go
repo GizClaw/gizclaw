@@ -341,9 +341,9 @@ func (voiceFixtureResources) GetMiniMaxTenant(context.Context, adminhttp.GetMini
 	return nil, errors.New("unexpected MiniMax tenant lookup")
 }
 
-func newVoiceFixtureAgent(t *testing.T, kind string, data []byte, service *peergenx.Service, mode apitypes.WorkspaceInputMode) agenthost.Agent {
+func newVoiceFixtureAgent(t *testing.T, kind string, data []byte, service *peergenx.Service, mode apitypes.WorkspaceInputMode, asrModel string) agenthost.Agent {
 	t.Helper()
-	agent, err := voiceFixtureFactory(t, kind, service).NewAgent(t.Context(), newVoiceFixtureSpec(t, kind, data, mode))
+	agent, err := voiceFixtureFactory(t, kind, service).NewAgent(t.Context(), newVoiceFixtureSpec(t, kind, data, mode, asrModel))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -364,13 +364,13 @@ func voiceFixtureFactory(t *testing.T, kind string, service *peergenx.Service) a
 	return einoagent.Factory{GenX: service, State: db}
 }
 
-func newVoiceFixtureSpec(t *testing.T, kind string, data []byte, mode apitypes.WorkspaceInputMode) agenthost.Spec {
+func newVoiceFixtureSpec(t *testing.T, kind string, data []byte, mode apitypes.WorkspaceInputMode, asrModel string) agenthost.Spec {
 	t.Helper()
 	var parameters apitypes.WorkspaceParameters
 	if err := json.Unmarshal([]byte(fmt.Sprintf(`{"agent_type":%q,"input":%q}`, kind, mode)), &parameters); err != nil {
 		t.Fatal(err)
 	}
-	spec := agenthost.Spec{Workspace: apitypes.Workspace{Id: "voice-fixture", Name: "voice-fixture", Parameters: &parameters}, Workflow: apitypes.Workflow{Id: "voices"}, AgentType: kind}
+	spec := agenthost.Spec{ASRModel: asrModel, Workspace: apitypes.Workspace{Id: "voice-fixture", Name: "voice-fixture", Parameters: &parameters}, Workflow: apitypes.Workflow{Id: "voices"}, AgentType: kind}
 	switch kind {
 	case "eino":
 		var public apitypes.EinoWorkflowSpec
@@ -401,11 +401,15 @@ func (voiceFixtureGenerator) Invoke(context.Context, string, genx.ModelContext, 
 	return genx.Usage{}, nil, errors.New("unexpected tool invocation")
 }
 func (voiceFixtureResources) GetModel(_ context.Context, req adminhttp.GetModelRequestObject) (adminhttp.GetModelResponseObject, error) {
+	var data apitypes.ModelProviderData
+	if err := data.FromVolcTenantModelProviderData(apitypes.VolcTenantModelProviderData{ApiMode: apitypes.VolcTenantModelProviderDataApiModeChatCompletions, SupportTextOnly: new(true)}); err != nil {
+		return nil, err
+	}
 	kind := apitypes.ModelKindLlm
 	if req.Id == "fixture-asr" {
 		kind = apitypes.ModelKindAsr
 	}
-	return adminhttp.GetModel200JSONResponse(apitypes.Model{Id: req.Id, Kind: kind, Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindVolcTenant, Id: "volc-main"}}), nil
+	return adminhttp.GetModel200JSONResponse(apitypes.Model{Id: req.Id, Kind: kind, Provider: apitypes.ModelProvider{Kind: apitypes.ModelProviderKindVolcTenant, Id: "volc-main"}, ProviderData: data}), nil
 }
 
 // ASR recognizes a fixture packet, never a requested role outside the input stream.

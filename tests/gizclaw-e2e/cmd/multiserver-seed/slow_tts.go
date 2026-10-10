@@ -48,7 +48,12 @@ func seedVoiceFixture(ctx context.Context, api *adminhttp.ClientWithResponses, p
 		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: id, Spec: workflow}); err != nil {
 			return err
 		}
-		workflows[id] = runtimeWorkflowBinding(id, id, id)
+		binding := runtimeWorkflowBinding(id, id, id)
+		if fixture == "slow-tts" {
+			binding.PttAsrModel = new("asr")
+			binding.RealtimeAsrModel = new("asr")
+		}
+		workflows[id] = binding
 	}
 	maps.Copy(spec.Workflows, workflows)
 	if err := upsertRuntimeProfile(ctx, api, adminhttp.RuntimeProfileUpsert{Id: profile, Spec: spec}); err != nil {

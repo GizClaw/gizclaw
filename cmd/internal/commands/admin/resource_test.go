@@ -884,12 +884,13 @@ func TestAdminValidateAudioInputResources(t *testing.T) {
 	t.Setenv("GIZCLAW_E2E_MEM0_API_KEY", "giztest-offline-key")
 	const resources = "../../../../tests/gizclaw-e2e/testdata/resources/"
 	for _, test := range []struct{ name, file, from, to, want string }{
-		// One Workflow may declare both the ASR Model and the audio_transcript node.
-		{name: "workflow with both paths", file: "04-workflows/45-eino-audio-input.yaml"},
-		{name: "profile selects a path", file: "09-giztest/01-runtime-profile.yaml"},
+		// The Profile chooses the input source; the Graph declares only Model slots.
+		{name: "workflow resource slots", file: "04-workflows/45-eino-audio-input.yaml"},
+		{name: "Graph cannot select transcription", file: "04-workflows/45-eino-audio-input.yaml", from: `"model":"audio-llm"`, to: `"model":"audio-llm","audio_transcript":true`, want: "audio_transcript"},
+		{name: "profile selects ASR Models", file: "09-giztest/01-runtime-profile.yaml"},
 		{
-			name: "profile selects an unknown path", file: "09-giztest/01-runtime-profile.yaml",
-			from: `"audio_input":"model"`, to: `"audio_input":"direct"`, want: "audio_input",
+			name: "profile rejects an invalid ASR alias", file: "09-giztest/01-runtime-profile.yaml",
+			from: `"ptt_asr_model":"asr"`, to: `"ptt_asr_model":"unsafe?query"`, want: "ptt_asr_model",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {

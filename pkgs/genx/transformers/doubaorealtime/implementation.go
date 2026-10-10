@@ -2078,11 +2078,11 @@ func (t *Transformer) processSession(
 				}
 			}
 		case genx.Text:
-			// Whitespace is not a provider query. Complete the local PTT
-			// lifecycle without calling SendText or leaving a capturing turn.
-			// Zero-length text is a route boundary inside a turn, not input.
-			if len(p) > 0 && strings.TrimSpace(string(p)) == "" {
-				if t.mode == ModePushToTalk && chunk.IsEndOfStream() {
+			// Empty ASR results and whitespace are not provider queries. Close
+			// an audioless PTT turn so the next recording can start. An empty
+			// text MIME boundary within an audio turn must not commit its audio.
+			if strings.TrimSpace(string(p)) == "" {
+				if t.mode == ModePushToTalk && chunk.IsEndOfStream() && !inputAudioEnded && (len(p) > 0 || turnAudioSent == 0) {
 					if err := pushToTalk.end(); err != nil {
 						return err
 					}

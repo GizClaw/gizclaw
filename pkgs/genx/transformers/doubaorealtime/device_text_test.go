@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"iter"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -84,6 +85,57 @@ func TestDeviceTextRoundsOnAudioSession(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func TestEmptyExternalASRTextTurnAllowsNextPTTTurn(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	session := &deviceTextSession{ctx: ctx, events: make(chan *doubaospeech.RealtimeEvent, 32)}
+	transformer := newTransformer(nil, withMode(ModePushToTalk), withOutput(OutputText), withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}))
+	input := newBufferStream(16)
+	defer input.Close()
+	output, err := transformer.Transform(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	// Audio Dock announces the audio route before ASR completes. A silent
+	// recording produces an empty text channel, then the next recording has
+	// recognized words. Neither recording sends audio to this Model.
+	for index, text := range []string{"", "heard words"} {
+		id := fmt.Sprintf("audio-%d", index)
+		for _, chunk := range []*genx.MessageChunk{
+			{Ctrl: &genx.StreamCtrl{StreamID: id, BeginOfStream: true}},
+			{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "transcript", BeginOfStream: true}},
+			{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "transcript", EndOfStream: true}},
+		} {
+			if err := input.Push(chunk); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	answered := false
+	for {
+		chunk, err := output.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
+			t.Fatal(chunk.Ctrl.Error)
+		}
+		if text, ok := chunk.Part.(genx.Text); ok && chunk.Role == genx.RoleModel {
+			answered = answered || text == "answer"
+			if answered && chunk.IsEndOfStream() {
+				break
+			}
+		}
+	}
+	session.mu.Lock()
+	texts, audio := slices.Clone(session.texts), len(session.audio)
+	session.mu.Unlock()
+	if len(texts) != 1 || texts[0] != "heard words" || audio != 0 || session.endASRCount() != 0 {
+		t.Fatalf("texts=%q audio=%d EndASR=%d", texts, audio, session.endASRCount())
 	}
 }
 

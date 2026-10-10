@@ -25,6 +25,9 @@ type Factory struct {
 	// Voice resource in the runtime of owner, which is empty for the Peer
 	// runtime. It is required by Workflows that configure tts.
 	ValidateVoice func(ctx context.Context, owner, alias string) error
+	// BuildASR constructs the owner Profile's external input stage. It is used
+	// only when the RuntimeProfile selects an ASR Model for this input mode.
+	BuildASR func(context.Context, string, string, apitypes.WorkspaceInputMode) (genx.Transformer, error)
 }
 
 func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.Agent, error) {
@@ -44,24 +47,41 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		return nil, fmt.Errorf("doubaorealtime: %w", err)
 	}
 	core := patternTransformer{Transformer: transformer, Pattern: pattern}
-	if ttsVoice == "" {
+	if ttsVoice == "" && spec.ASRModel == "" {
 		return agenthost.NewTransformerAgent(core), nil
 	}
-	if f.ValidateVoice == nil {
-		return nil, fmt.Errorf("doubaorealtime: tts.voice requires a Voice validator")
+	config := audiodock.Config{Agent: core}
+	if spec.ASRModel != "" {
+		if f.BuildASR == nil {
+			return nil, fmt.Errorf("doubaorealtime: Profile ASR builder is required")
+		}
+		mode, err := apitypes.WorkspaceInput(spec.Workflow.Spec.Driver, spec.Workspace.Parameters)
+		if err != nil {
+			return nil, err
+		}
+		config.ASR, err = f.BuildASR(ctx, workspaceOwner(spec.Workspace), spec.ASRModel, mode)
+		if err == nil && config.ASR == nil {
+			err = fmt.Errorf("ASR builder returned no transformer")
+		}
+		if err != nil {
+			return nil, fmt.Errorf("doubaorealtime: Profile ASR: %w", err)
+		}
 	}
-	if err := f.ValidateVoice(ctx, workspaceOwner(spec.Workspace), ttsVoice); err != nil {
-		return nil, fmt.Errorf("doubaorealtime: resolve tts.voice %q: %w", ttsVoice, err)
+	if ttsVoice != "" {
+		if f.ValidateVoice == nil {
+			return nil, fmt.Errorf("doubaorealtime: tts.voice requires a Voice validator")
+		}
+		if err := f.ValidateVoice(ctx, workspaceOwner(spec.Workspace), ttsVoice); err != nil {
+			return nil, fmt.Errorf("doubaorealtime: resolve tts.voice %q: %w", ttsVoice, err)
+		}
+		config.TTS = transformer
+		config.ResolveVoice = realtimeVoiceResolver(ttsVoice, rate)
 	}
-	// The realtime model returns text only; Audio Dock streams each reply
-	// into the configured Voice while user audio still reaches the model.
-	dock, err := audiodock.New(audiodock.Config{
-		Agent:        core,
-		TTS:          transformer,
-		ResolveVoice: realtimeVoiceResolver(ttsVoice, rate),
-	})
+	// Audio Dock supplies the selected ASR and/or reply Voice while the
+	// realtime model keeps its existing conversation behavior.
+	dock, err := audiodock.New(config)
 	if err != nil {
-		return nil, fmt.Errorf("doubaorealtime: compose tts: %w", err)
+		return nil, fmt.Errorf("doubaorealtime: compose audio: %w", err)
 	}
 	return agenthost.NewTransformerAgent(dock), nil
 }

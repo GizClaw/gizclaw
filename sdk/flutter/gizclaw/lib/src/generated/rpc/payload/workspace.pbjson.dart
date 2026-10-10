@@ -1916,23 +1916,12 @@ const WorkspaceParametersPatch$json = {
       '10': 'safetyFenceLevel',
       '17': true
     },
-    {
-      '1': 'audio_input',
-      '3': 6,
-      '4': 1,
-      '5': 14,
-      '6': '.gizclaw.rpc.v1.AudioInputPath',
-      '9': 4,
-      '10': 'audioInput',
-      '17': true
-    },
   ],
   '8': [
     {'1': '_input'},
     {'1': '_conversation'},
     {'1': '_tts_speech_rate_percent'},
     {'1': '_safety_fence_level'},
-    {'1': '_audio_input'},
   ],
   '9': [
     {'1': 4, '2': 5},
@@ -1946,10 +1935,8 @@ final $typed_data.Uint8List workspaceParametersPatchDescriptor = $convert.base64
     'MiYuZ2l6Y2xhdy5ycGMudjEuQ29udmVyc2F0aW9uUGFyYW1ldGVyc0gBUgxjb252ZXJzYXRpb2'
     '6IAQESOgoXdHRzX3NwZWVjaF9yYXRlX3BlcmNlbnQYAyABKAVIAlIUdHRzU3BlZWNoUmF0ZVBl'
     'cmNlbnSIAQESMQoSc2FmZXR5X2ZlbmNlX2xldmVsGAUgASgJSANSEHNhZmV0eUZlbmNlTGV2ZW'
-    'yIAQESRAoLYXVkaW9faW5wdXQYBiABKA4yHi5naXpjbGF3LnJwYy52MS5BdWRpb0lucHV0UGF0'
-    'aEgEUgphdWRpb0lucHV0iAEBQggKBl9pbnB1dEIPCg1fY29udmVyc2F0aW9uQhoKGF90dHNfc3'
-    'BlZWNoX3JhdGVfcGVyY2VudEIVChNfc2FmZXR5X2ZlbmNlX2xldmVsQg4KDF9hdWRpb19pbnB1'
-    'dEoECAQQBQ==');
+    'yIAQFCCAoGX2lucHV0Qg8KDV9jb252ZXJzYXRpb25CGgoYX3R0c19zcGVlY2hfcmF0ZV9wZXJj'
+    'ZW50QhUKE19zYWZldHlfZmVuY2VfbGV2ZWxKBAgEEAU=');
 
 @$core.Deprecated('Use workspaceParametersSetRequestDescriptor instead')
 const WorkspaceParametersSetRequest$json = {

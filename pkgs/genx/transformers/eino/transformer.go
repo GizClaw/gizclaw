@@ -199,7 +199,7 @@ func (session *session) run() {
 	activeBypassID := ""
 	inAudio := false
 	activeAudioID := ""
-	acceptsAudio := session.transformer.config.audioTranscriptNode != ""
+	acceptsAudio := AcceptsAudioInput(session.transformer.config.Config)
 	var inputFailure error
 	var previous <-chan struct{}
 	initiative, err := session.transformer.claimInitiative(session.invocation.Context())
@@ -537,7 +537,7 @@ type turnRun struct {
 	user    string
 	parts   []any
 	// audio is the user audio of an audio turn; user stays empty until the
-	// transcribing ChatModel node publishes the transcript.
+	// input callback or transcribing ChatModel publishes the transcript.
 	audio        []*genx.Blob
 	audioInputID string
 	ctx          context.Context
@@ -845,6 +845,18 @@ func (run *turnRun) beginRoutes() error {
 
 func (run *turnRun) runGraph() (*runState, string, error) {
 	config := run.session.transformer.config
+	if run.audioTurn() && config.TranscribeInput != nil {
+		text, err := config.TranscribeInput(run.ctx, run.audio)
+		if err != nil {
+			return nil, "", fmt.Errorf("eino: transcribe input: %w", err)
+		}
+		if err := run.PublishTranscript(text); err != nil {
+			return nil, "", err
+		}
+		if strings.TrimSpace(text) == "" {
+			return nil, "", nil
+		}
+	}
 	if len(run.parts) > 0 && !graphUsesBinding(config.Graph, "input.parts") {
 		return nil, "", fmt.Errorf("eino: multimodal input is unsupported by this Graph")
 	}
@@ -858,7 +870,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	}
 	messages := cloneMessages(history)
 	switch {
-	case run.audioTurn():
+	case run.audioTurn() && config.TranscribeInput == nil:
 		messages = append(messages, schemaAudioUserMessage(run.audio))
 	case !run.initiative:
 		messages = append(messages, schemaUserMessage(run.user, run.parts))

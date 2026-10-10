@@ -376,8 +376,6 @@ message WorkspaceParametersPatch {
   optional int32 tts_speech_rate_percent = 3;
   reserved 4; // Legacy fixed enum wire field.
   optional string safety_fence_level = 5;
-  // Preferred audio input path for Eino Workspaces; other drivers ignore it.
-  optional AudioInputPath audio_input = 6;
 }
 
 message WorkspaceParametersSetRequest {

@@ -38,6 +38,42 @@ func TestAudioTranscriptContextContainsOnlyCurrentAudio(t *testing.T) {
 	}
 }
 
+func TestTranscribeInputDoesNotStartAReply(t *testing.T) {
+	next := &recordingGenerator{transcription: []string{`{"transcript":"听见了"}`}}
+	text, _, err := New(next).TranscribeInput(t.Context(), "model/audio", audioContext(t, testOpusPackets(t, 2)...))
+	if err != nil || text != "听见了" {
+		t.Fatalf("transcript=%q error=%v", text, err)
+	}
+	requests := next.Requests()
+	if len(requests) != 1 || !isAudioTranscriptRequest(requests[0]) {
+		t.Fatalf("transcription must make only its isolated request, calls=%d", len(requests))
+	}
+}
+
+func TestTranscribeInputCancellation(t *testing.T) {
+	started := make(chan struct{})
+	next := audioGeneratorFunc(func(ctx context.Context, _ string, _ genx.ModelContext) (genx.Stream, error) {
+		close(started)
+		<-ctx.Done()
+		return nil, context.Cause(ctx)
+	})
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	result := make(chan error, 1)
+	request := audioContext(t, testOpusPackets(t, 1)...)
+	go func() { _, _, err := New(next).TranscribeInput(ctx, "model/audio", request); result <- err }()
+	waitAudioSignal(t, started)
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("error=%v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("canceled transcription did not return")
+	}
+}
+
 func TestASRPromptIsInternalAndReplyPromptIsUnchanged(t *testing.T) {
 	for _, prompt := range []string{"", "Answer briefly.", "Return JSON only. Never output XML or ASR tags."} {
 		t.Run(prompt, func(t *testing.T) {

@@ -51,6 +51,10 @@ func (g usageGenerator) Invoke(ctx context.Context, pattern string, mctx genx.Mo
 	return g.Generator.Invoke(providerUsageContext(ctx, g.record), pattern, mctx, tool)
 }
 
+func (g usageGenerator) TranscribeInput(ctx context.Context, pattern string, input genx.ModelContext) (string, genx.Usage, error) {
+	return transcribeInput(providerUsageContext(ctx, g.record), g.Generator, pattern, input)
+}
+
 type usageTransformer struct {
 	genx.Transformer
 	record genx.UsageRecorder

@@ -34,7 +34,7 @@ func TestSpeakerSegmentsGiztest(t *testing.T) {
 			provider := &voiceFixtureProvider{packets: packets}
 			resources := voiceFixtureResources{}
 			service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
-			agent := newVoiceFixtureAgent(t, "eino", spec["eino"], service, apitypes.WorkspaceInputModePushToTalk)
+			agent := newVoiceFixtureAgent(t, "eino", spec["eino"], service, apitypes.WorkspaceInputModePushToTalk, "")
 			defer agent.(io.Closer).Close()
 			ctx, cancel := context.WithTimeout(t.Context(), 20*time.Second)
 			defer cancel()

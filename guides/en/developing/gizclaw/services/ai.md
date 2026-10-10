@@ -97,11 +97,15 @@ The Eino factory constructs a typed Graph from `spec.eino.graph` and binds the W
 
 `dashscope-realtime`, `doubao-realtime-duplex`, and `eino` are persisted Workflow and Workspace drivers. Their factories resolve typed RuntimeProfile Model and Voice aliases and construct the existing GenX Transformers. DashScope requires a DashScope realtime Model; Doubao Duplex requires a Volc `realtime-duplex` Model; Eino resolves each `chat_model` node independently.
 
-Eino uses the `VoiceAdapter` contract. An Eino Workflow can declare two live-audio paths: a non-empty `eino.voice_adapter.asr_model` declares the `asr` path, which converts audio input through that RuntimeProfile ASR Model alias, and a root Graph `chat_model` node with `audio_transcript: true` declares the `model` path, where that node's Model receives the audio itself. A Workflow may declare both; which one runs is selected outside the Workflow, see [Eino audio input path](#eino-audio-input-path). A Workflow that declares neither (an omitted or blank `asr_model` and no `audio_transcript` node) keeps input text-only, including when `default_voice` or `node_voices` configures TTS-only output for accepted text turns. On the first non-empty ordinary user `audio/*` Blob for such a route, the factory emits one non-retryable assistant `text/plain` EOS with `EINO_AUDIO_INPUT_UNSUPPORTED` and transform failure provenance, then discards that route through its EOS without forwarding the audio to AudioDock, the Eino Graph, or a Provider. The fixed error states that Eino audio input requires `voice_adapter.asr_model` and contains no input payload, alias, credential, StreamID, or raw Provider error. Other routes continue; empty audio/control chunks, malformed MIME, non-audio parts, and `history.user_audio` keep their existing behavior.
+Eino's `VoiceAdapter` configures reply Voices. The RuntimeProfile Workflow binding selects external input ASR independently through `ptt_asr_model` and `realtime_asr_model`; legacy `eino.voice_adapter.asr_model` is accepted but ignored. Workspaces cannot override the selection, and business Graphs declare no `audio_transcript` flag.
 
-The `model` path bypasses ASR: Push-to-Talk audio routes go straight to the Eino audio turn (see [Eino Transformer](/en/developing/genx/transformers/eino)), whose audio reaches that node's Model Generator as user Blobs with their original MIME types, and the Generator reports the transcript in its reply stream. For a Volc `chat_completions` Model with `support_text_only: false`, peergenx wraps its Generator with the Doubao chat adapter (see [OpenAI Adapter](/en/developing/genx/generators/openai#doubao-audio-input)), which converts the audio and reports the transcript; that Model should run with thinking disabled. On the `asr` path the node receives ASR text like any other `chat_model` node, and the factory removes its transcribing flag before it constructs the Transformer. Both paths synthesize the reply with `default_voice` and `node_voices` as usual.
+Without PTT ASR, the factory selects native audio capability from the bound `chat_model` Models. One audio-capable Model resource is selected automatically, including multiple aliases for that resource. Text-only Models do not participate. Distinct audio-capable resources are ambiguous and fail reload; the Profile must bind a consistent input Model.
 
-When configured, `default_voice` and `node_voices` synthesize declared `text/plain` Graph outputs through RuntimeProfile Voice aliases. `node_voices` is keyed by the Graph node ID referenced by an output and takes precedence over `default_voice`. Eino Workspace `input` accepts `push-to-talk` or `realtime` and defaults to `push-to-talk`; realtime ASR emits interim transcripts. Both live-audio modes resolve the ASR model with `realtime_pacing=false`: device frames already arrive at wall-clock cadence, and ten interleaved provider-backed trials with identical 100 ms packets must show at least a 200 ms median EOS-to-definite-transcript saving before this mode-specific setting is retained. The factory validates all aliases before constructing the Agent and composes the Eino Transformer with AudioDock, without moving audio behavior into the provider-neutral Eino package.
+For Graphs with leading Scripts, Memory or control logic, the runtime first obtains the current transcription from that same audio Model after PTT EOS, then executes the original Graph. `input.text` and `input.messages` contain the current utterance, preserving text-turn semantics for Recall, Observe and History. Transcription inherits no business prompts, history, Tools or CoT, and starts no unused reply request. Failure or cancellation prevents Graph execution; an empty transcript ends the turn without a reply. Simple Graphs containing only Prompts and one ChatModel, with no `input.text` binding, pass audio directly to the ChatModel and retain parallel transcription and reply. The runtime derives both integrations without Workflow configuration.
+
+Volc `chat_completions` Models enable the Doubao chat audio adapter with `support_text_only: false`; see [OpenAI Adapter](/en/developing/genx/generators/openai#doubao-audio-input). A text-only Model without Profile ASR still accepts text; nonempty user audio produces a non-retryable `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS.
+
+`default_voice`, `node_voices` and `speaker_voices` continue synthesizing replies through RuntimeProfile Voice aliases. `node_voices` is keyed by the Graph node ID referenced by an output and takes precedence over `default_voice`. The factory validates Voices before constructing an Agent and composes ASR, Eino and TTS through AudioDock.
 
 `admin validate` runs both Schema and Eino semantic validation, including items inside ResourceList; resource availability is still checked by RuntimeProfile and the factory.
 
@@ -111,29 +115,18 @@ Eino Graphs consume the same Workflow memory alias through typed `memory_recall`
 
 #### Eino audio input path
 
-One Eino Workflow may declare both `asr_model` and an `audio_transcript` node. `admin validate`, Workflow writes, and the factory only require that at most one root `chat_model` node sets `audio_transcript`; setting it in a nested Graph is still rejected. The selection is an `audio_input` value, `asr` or `model`, with two sources:
+Workspace `input` is `push-to-talk` (default) or `realtime`. It selects which ASR Model to read from the Profile binding:
 
-| Source | Location | Meaning |
-| --- | --- | --- |
-| Workspace | The Eino Workspace parameter `audio_input` (create, put, `server.workspace.parameters.set`, `reload-with-options.parameters`) | This Workspace's preference. Workspaces of other drivers ignore the field. |
-| RuntimeProfile | `spec.workflows.<alias>.audio_input` | The preference of Workspaces that run this Workflow and set no `audio_input` themselves, see [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#eino-audio-input-path). |
+| Input mode | Profile field | Configured alias | Omitted or null |
+| --- | --- | --- | --- |
+| PTT | `spec.workflows.<alias>.ptt_asr_model` | External ASR → text → Model. | Audio directly to the Model. |
+| Realtime | `spec.workflows.<alias>.realtime_asr_model` | Streaming ASR segmentation → text → Model. | Audio directly to the Model. |
 
-Precedence is the Workspace parameter, then the RuntimeProfile binding, then the Workflow default. The Workflow default keeps the behavior of a deployment without this setting: `asr` when the Workflow declares `asr_model`, otherwise `model`. The `agenthost` resolver merges the first two into `Spec.AudioInput`, and on every reload the Eino factory decides the effective path with `einoconfig.ResolveAudioInput`:
+`agenthost` resolves the owner's Profile and puts the selected alias in internal `Spec.ASRModel`. Factories do not read Workflow ASR configuration. There is no Workspace precedence or automatic fallback. Invalid ASR aliases, Model kinds or construction errors fail reload.
 
-| Condition | Effective path |
-| --- | --- |
-| The Workflow declares neither path | None (a text-only Agent); the selection is ignored. |
-| Workspace `input` is `realtime` | Always `asr`, because the streaming ASR segments realtime utterances; reload fails when the Workflow has no `asr_model`. |
-| `model` is preferred and the Model bound to the `audio_transcript` node accepts audio | `model`. |
-| `model` is preferred but there is no `audio_transcript` node, or its Model does not accept audio | Falls back to `asr` when `asr_model` is declared; otherwise reload fails. |
-| `asr` is preferred and `asr_model` is declared | `asr`. |
-| `asr` is preferred but there is no `asr_model` | `model` when the `audio_transcript` node's Model accepts audio; otherwise reload fails. |
+Eino's native Lite audio path currently handles complete PTT recordings, not continuous realtime audio. Such bindings must configure `realtime_asr_model` to run realtime. The Doubao Realtime driver keeps the Model's native audio input, and the same Profile settings can prepend external ASR to use the Model's text input. Both ASR modes disable duplicate pacing. Realtime additionally requests interim transcription, `end_window_size=200`, and `force_to_speech_time=1000`.
 
-"Accepts audio" is decided by `peergenx.Service.AcceptsAudioInput` and matches how the Generator is built: only a Model that gets the Doubao chat adapter (Volc `chat_completions` whose `support_text_only` is not true) qualifies. Other Models report no transcript even when they can receive audio, so they are never selected. The failure happens at reload and names the node, the Model alias, and the missing `asr_model`; it does not wait for an audio turn.
-
-The Peer reads the effective path from `PeerRunWorkspaceState.audio_input` (`server.run.workspace.get`, `reload`, `reload-with-options`). A text-only Agent and other drivers do not return the field. Giztest documents assert the path with it, for example `eino-audio-input.path-selection`.
-
-An audio turn on the `model` path starts with an empty `input.text`, so a `memory_recall` with `query_from: input.text` is skipped in that turn. A Workflow that needs recall in audio turns can derive the query from History inside the Graph, see [Eino Transformer](/en/developing/genx/transformers/eino#audio-turns); select the `asr` path when recall must use the current utterance.
+Eino reports its effective `asr` or `model` path through `PeerRunWorkspaceState.audio_input`. This is read-only run state and cannot be submitted as a Workspace parameter. Text-only Agents and other drivers do not report it. Giztest `eino-audio-input.path-selection` verifies independent mode and Profile selection for the same Workflow.
 
 #### Speaker segments within one response
 

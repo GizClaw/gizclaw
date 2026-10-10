@@ -196,30 +196,37 @@ The current ASTTranslate provider path has no system-prompt entry point: syntact
 
 A fence is a system prompt sent to the model. Its effectiveness depends on the selected model; this configuration does not implement a separate content moderator.
 
-## Eino audio input path
+## Audio input and ASR
 
-A Workflow binding may carry `audio_input`, `asr` or `model`, to choose where the transcript of user audio comes from for Eino Workspaces that run the Workflow. `asr` transcribes with the Workflow's `voice_adapter.asr_model` and hands text to the Graph. `model` sends the audio to the `chat_model` node that sets `audio_transcript`, whose Model reports the transcript in its reply.
+Each Workflow binding may independently select `ptt_asr_model` and `realtime_asr_model`, referencing Model aliases in this Profile's `resources.models`. A configured alias runs external ASR before sending text to the conversation Model. Omission or null sends the original audio directly, without automatic ASR or fallback. Both modes may share one ASR Model binding.
 
 ```yaml
 spec:
   workflows:
     assistant:
       resource_id: eino-assistant
-      audio_input: model
+      realtime_asr_model: asr
       i18n:
         en: {display_name: Assistant}
         zh-CN: {display_name: 助手}
+  resources:
+    models:
+      asr:
+        resource_id: volc-bigasr-sauc
+        i18n:
+          en: {display_name: Speech recognition}
+          zh-CN: {display_name: 语音识别}
 ```
 
-One Workflow can therefore use `model` on a deployment that has an audio-input Model and `asr` elsewhere, without editing the Workflow or keeping two near-identical copies. A Workspace's own `audio_input` parameter takes precedence over the binding, and the Workflow default applies when neither is set. See [Eino audio input path](/en/developing/gizclaw/services/ai#eino-audio-input-path) for the complete selection and fallback rules.
+Here PTT uses the bound Model's audio capability directly, while realtime uses external ASR. The same Workflow can serve different deployments without editing business Graphs or prompts. Workflows do not select ASR. Legacy `eino.voice_adapter.asr_model` remains accepted but is completely ignored, including dependency checks. Workspaces may select their `input` mode but cannot override the Profile's ASR choice.
 
-Creating or updating a RuntimeProfile validates that:
+RuntimeProfile writes validate that:
 
-- `audio_input` appears only on Workflow bindings and is `asr` or `model`. Model, Voice, and Tool bindings that carry it are rejected.
-- The bound Workflow uses the `eino` driver and declares the selected path: `asr` needs `voice_adapter.asr_model`, and `model` needs a `chat_model` node that sets `audio_transcript`.
-- A Workspace stores the Workflow ID, not the alias it was created through, so bindings of the same Workflow must not select different paths. Bindings without the field are not compared.
+- These fields appear only on Workflow bindings, contain valid Model aliases, and reference `kind: asr` resources bound in `resources.models`.
+- External ASR is supported by the `eino` and `doubao-realtime` drivers. The current `doubao-realtime-duplex` and `dashscope-realtime` Adapters accept only audio; Profile writes reject external ASR for them.
+- All aliases for one canonical Workflow ID have identical PTT and realtime ASR selections. Omission means direct audio and participates in this comparison because Workspaces store canonical IDs.
 
-Whether the Model bound to the `audio_transcript` node accepts audio is not checked here. Model resources change independently, so that check runs on every Workspace reload and either falls back to `asr` or fails the reload. `audio_input` participates in the revision and is not projected to Peers; a Peer reads the effective path from `PeerRunWorkspaceState.audio_input`.
+Both fields participate in Profile revisions and are not projected as writable Peer parameters. Each reload resolves the owner's current Profile. ASR construction failure fails reload without changing paths. Direct audio support depends on the bound Model and driver; see [Eino audio input path](/en/developing/gizclaw/services/ai#eino-audio-input-path).
 
 ## MHS v0 hardware manifest
 

@@ -1487,10 +1487,6 @@ export type RuntimeProfileBinding = {
      * Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings.
      */
     sort_order?: number;
-    /**
-     * Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths.
-     */
-    audio_input?: AudioInputPath;
 };
 
 export type RuntimeProfileClientTool = {
@@ -1670,15 +1666,19 @@ export type RuntimeProfileWorkflowBinding = {
      * Only valid for Workflow bindings; opaque strings.
      */
     tags?: Array<string>;
-    /**
-     * Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths.
-     */
-    audio_input?: AudioInputPath;
     toolkit?: RuntimeProfileToolSelection;
     /**
      * Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings.
      */
     sort_order?: number;
+    /**
+     * Optional external ASR Model alias from this RuntimeProfile resources.models for push-to-talk input. Omitted or null sends original audio directly to the conversation Model. Workflow definitions and Workspace parameters cannot override it.
+     */
+    ptt_asr_model?: string | null;
+    /**
+     * Optional external ASR Model alias from this RuntimeProfile resources.models for realtime input. Omitted or null sends original audio directly to the conversation Model. Workflow definitions and Workspace parameters cannot override it.
+     */
+    realtime_asr_model?: string | null;
 };
 
 /**
@@ -2348,10 +2348,6 @@ export type EinoChatModelNode = EinoNodeBase & {
     model: string;
     temperature?: number;
     max_tokens?: number;
-    /**
-     * Declares this root Graph node as the receiver of push-to-talk audio turns on the model audio input path. When that path is in effect the node sends the user audio to its model, whose Generator reports the audio transcript anywhere in the reply stream; the transcript becomes the user text of the turn, and a turn without one keeps only its reply and user audio. On the asr path the node receives the transcribed text like any other chat_model node. The Workspace audio_input parameter or the RuntimeProfile Workflow binding selects the path; without a selection the Workflow uses asr when voice_adapter.asr_model is set and model otherwise. At most one node may set it.
-     */
-    audio_transcript?: boolean;
 };
 
 export type EinoConversation = {
@@ -2631,6 +2627,11 @@ export type SfuWorkflowSpec = {
 };
 
 export type VoiceAdapter = {
+    /**
+     * Accepted for existing Workflow compatibility and ignored. External ASR is selected only by RuntimeProfile ptt_asr_model or realtime_asr_model.
+     *
+     * @deprecated
+     */
     asr_model?: string;
     default_voice?: string;
     /**
@@ -2715,11 +2716,6 @@ export type AstTranslateWorkspaceParameters = {
     e2e?: boolean;
 };
 
-/**
- * Where the transcript of a user's audio turn comes from. asr transcribes the audio with the Workflow's voice_adapter.asr_model and sends text to the Graph. model sends the audio to the chat_model node that sets audio_transcript, whose Model reports the transcript with its reply.
- */
-export type AudioInputPath = 'asr' | 'model';
-
 export type ConversationParameters = {
     /**
      * Who starts the conversation when the workspace runtime opens.
@@ -2800,10 +2796,6 @@ export type EinoWorkspaceParameters = {
     agent_type: 'eino';
     conversation?: ConversationParameters;
     input?: WorkspaceInputMode;
-    /**
-     * Preferred audio input path for this Workspace. It overrides the audio_input of the owner's RuntimeProfile Workflow binding. Absent keeps the binding's selection, or the Workflow default when the binding selects none: asr when the Workflow sets voice_adapter.asr_model, otherwise model. The Agent uses the preferred path when the Workflow declares it and it can run, and the other declared path otherwise: realtime input always uses asr, and model needs an audio_transcript node whose Model accepts audio. Reload fails when no declared path can run. Workflows that declare no audio input ignore it.
-     */
-    audio_input?: AudioInputPath;
     safety_fence_level?: SafetyFenceLevel;
     /**
      * Synthesized speech rate in percent of the provider's normal rate. Absent keeps the Workflow default.

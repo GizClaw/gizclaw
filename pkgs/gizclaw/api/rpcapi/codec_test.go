@@ -100,7 +100,6 @@ func TestWorkspaceParametersSetRoundTrip(t *testing.T) {
 				Initiative: &initiative, AgentInitiativePolicy: &policy,
 			},
 			TtsSpeechRatePercent: new(70),
-			AudioInput:           new(apitypes.AudioInputPathModel),
 		},
 	}
 	var payload RPCPayload
@@ -766,9 +765,8 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	var parameters WorkspaceParameters
 	realtime := WorkspaceInputModeRealtime
 	if err := parameters.FromEinoWorkspaceParameters(EinoWorkspaceParameters{
-		AgentType:  EinoWorkspaceParametersAgentTypeEino,
-		Input:      &realtime,
-		AudioInput: new(apitypes.AudioInputPathAsr),
+		AgentType: EinoWorkspaceParametersAgentTypeEino,
+		Input:     &realtime,
 	}); err != nil {
 		t.Fatalf("encode Eino workspace parameters union: %v", err)
 	}
@@ -786,33 +784,6 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	}
 	if decodedEinoParameters.Input == nil || *decodedEinoParameters.Input != WorkspaceInputModeRealtime {
 		t.Fatalf("Eino Workspace input round trip = %#v", decodedEinoParameters.Input)
-	}
-	if decodedEinoParameters.AudioInput == nil || *decodedEinoParameters.AudioInput != apitypes.AudioInputPathAsr {
-		t.Fatalf("Eino Workspace audio_input round trip = %#v", decodedEinoParameters.AudioInput)
-	}
-}
-
-// A client may send an enum number this Server does not know. The patch must
-// keep the field present so the Workspace service rejects it instead of
-// treating it as omitted.
-func TestWorkspaceParametersPatchKeepsUnknownAudioInputPresent(t *testing.T) {
-	for _, number := range []rpcpb.AudioInputPath{rpcpb.AudioInputPath_AUDIO_INPUT_PATH_UNSPECIFIED, 99} {
-		data, err := proto.Marshal(&rpcpb.WorkspaceParametersSetRequest{
-			Name: "story", Parameters: &rpcpb.WorkspaceParametersPatch{AudioInput: &number},
-		})
-		if err != nil {
-			t.Fatalf("marshal patch with audio_input %d: %v", number, err)
-		}
-		request, err := newRPCPayload("WorkspaceParametersSetRequest", data, false).AsWorkspaceParametersSetRequest()
-		if err != nil {
-			t.Fatalf("AsWorkspaceParametersSetRequest(audio_input %d) error = %v", number, err)
-		}
-		if request.Parameters.AudioInput == nil {
-			t.Fatalf("audio_input %d decoded as omitted", number)
-		}
-		if err := apitypes.ValidateAudioInputPath(request.Parameters.AudioInput); err == nil {
-			t.Fatalf("audio_input %d decoded as valid path %q", number, *request.Parameters.AudioInput)
-		}
 	}
 }
 

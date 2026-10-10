@@ -60,7 +60,7 @@ func runMixedProviderVoices(t *testing.T, fixture, fault string) {
 	resources := voiceFixtureResources{}
 	service := peergenx.New(peergenx.Service{Models: resources, Voices: resources, Credentials: resources, ProviderTenants: resources, Builder: provider})
 	history := newMixedVoiceHistory(t)
-	spec := newVoiceFixtureSpec(t, kind, data, apitypes.WorkspaceInputModePushToTalk)
+	spec := newVoiceFixtureSpec(t, kind, data, apitypes.WorkspaceInputModePushToTalk, "")
 	spec.Runtime.History = history
 	host := agenthost.New(fixedSpecResolver{spec: spec})
 	if err := host.Register(kind, voiceFixtureFactory(t, kind, service)); err != nil {

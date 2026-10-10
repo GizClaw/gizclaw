@@ -10,170 +10,89 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
-func audioInputTestBinding(resourceID string, path apitypes.AudioInputPath) apitypes.RuntimeProfileWorkflowBinding {
-	binding := runtimeProfileTestWorkflowBinding(resourceID)
-	binding.AudioInput = &path
-	return binding
-}
-
-func TestNormalizeProfileWorkflowAudioInput(t *testing.T) {
-	t.Parallel()
-	normalize := func(spec apitypes.RuntimeProfileSpec) (apitypes.RuntimeProfile, error) {
-		return normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: spec}, "")
-	}
-
-	item, err := normalize(apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-		"assistant":       audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
-		"assistant-again": audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
-		"assistant-plain": runtimeProfileTestWorkflowBinding("assistant"),
-		"other":           audioInputTestBinding("other", apitypes.AudioInputPathAsr),
-	}})
+func TestProfileASRModelsNormalizeRevisionAndAgreement(t *testing.T) {
+	binding := runtimeProfileTestWorkflowBinding("assistant")
+	binding.PttAsrModel = new(" ptt-asr ")
+	binding.RealtimeAsrModel = new("stream-asr")
+	spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"assistant": binding}}
+	got, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test", Spec: spec}, "")
 	if err != nil {
-		t.Fatalf("normalizeProfile() error = %v", err)
+		t.Fatal(err)
 	}
-	if got := item.Spec.Workflows["assistant"].AudioInput; got == nil || *got != apitypes.AudioInputPathModel {
-		t.Fatalf("workflows.assistant.audio_input = %v", got)
+	if *got.Spec.Workflows["assistant"].PttAsrModel != "ptt-asr" {
+		t.Fatal("ASR alias not normalized")
 	}
-	if got := item.Spec.Workflows["assistant-plain"].AudioInput; got != nil {
-		t.Fatalf("workflows.assistant-plain.audio_input = %q, want absent", *got)
+	plain := runtimeProfileTestWorkflowBinding("assistant")
+	without, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"assistant": plain}}}, "")
+	if err != nil || without.Revision == got.Revision {
+		t.Fatalf("ASR selection missing from revision: %v", err)
 	}
-	without, err := normalize(apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-		"assistant": runtimeProfileTestWorkflowBinding("assistant"),
-	}})
-	if err != nil {
-		t.Fatalf("normalizeProfile(without audio_input) error = %v", err)
+	spec.Workflows["other"] = plain
+	if _, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test", Spec: spec}, ""); err == nil || !strings.Contains(err.Error(), "ASR Models conflict") {
+		t.Fatalf("inconsistent aliases accepted: %v", err)
 	}
-	if item.Revision == without.Revision {
-		t.Fatal("audio_input does not participate in the profile revision")
-	}
-
-	for name, test := range map[string]struct {
-		spec    apitypes.RuntimeProfileSpec
-		wantErr string
-	}{
-		"unknown path": {
-			spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-				"assistant": audioInputTestBinding("assistant", "direct"),
-			}},
-			wantErr: `workflows.assistant: unsupported audio_input "direct"`,
-		},
-		"bindings of one Workflow disagree": {
-			spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
-				"assistant":    audioInputTestBinding("assistant", apitypes.AudioInputPathModel),
-				"assistant-v2": audioInputTestBinding("assistant", apitypes.AudioInputPathAsr),
-			}},
-			wantErr: `workflows.assistant-v2.audio_input "asr" conflicts with workflows.assistant.audio_input "model" for Workflow "assistant"`,
-		},
-		"model binding": {
-			spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-				Models: &map[string]apitypes.RuntimeProfileBinding{"llm": {ResourceId: "chat", I18n: runtimeProfileTestBinding("chat").I18n, AudioInput: new(apitypes.AudioInputPathModel)}},
-			}},
-			wantErr: "resources.models.llm: audio_input is only valid on workflows",
-		},
-		"voice binding": {
-			spec: apitypes.RuntimeProfileSpec{Resources: apitypes.RuntimeProfileResources{
-				Voices: &map[string]apitypes.RuntimeProfileBinding{"narrator": {ResourceId: "voice", I18n: runtimeProfileTestBinding("voice").I18n, AudioInput: new(apitypes.AudioInputPathAsr)}},
-			}},
-			wantErr: "resources.voices.narrator: audio_input is only valid on workflows",
-		},
-	} {
-		if _, err := normalize(test.spec); err == nil || !strings.Contains(err.Error(), test.wantErr) {
-			t.Fatalf("%s: normalizeProfile() error = %v, want containing %q", name, err, test.wantErr)
-		}
+	binding.PttAsrModel = new("unsafe?query=true")
+	spec.Workflows = apitypes.RuntimeProfileWorkflows{"assistant": binding}
+	if _, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test", Spec: spec}, ""); err == nil {
+		t.Fatal("invalid ASR Model alias accepted")
 	}
 }
 
-func TestValidateWorkflowAudioInput(t *testing.T) {
-	t.Parallel()
-	decode := func(body string) apitypes.WorkflowSpec {
-		var spec apitypes.WorkflowSpec
-		if err := json.Unmarshal([]byte(body), &spec); err != nil {
-			t.Fatalf("decode Workflow spec: %v", err)
+func TestProfileASRReferencesRequireASRModels(t *testing.T) {
+	binding := runtimeProfileTestWorkflowBinding("assistant")
+	binding.PttAsrModel = new("asr")
+	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverEino, apitypes.WorkflowDriverDoubaoRealtime} {
+		models := map[string]apitypes.ModelResource{"asr": {Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}}
+		if err := validateWorkflowASRModels("workflows.assistant", driver, binding, models); err != nil {
+			t.Fatal(err)
 		}
-		return spec
+		models["asr"] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
+		if err := validateWorkflowASRModels("workflows.assistant", driver, binding, models); err == nil || !strings.Contains(err.Error(), "want asr") {
+			t.Fatalf("invalid Model kind accepted: %v", err)
+		}
 	}
-	const graph = `"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[%s],"edges":[],"branches":[],"outputs":[]}`
-	node := func(flag string) string {
-		return `{"id":"answer","type":"chat_model","model":"llm"` + flag + `}`
+	for _, driver := range []apitypes.WorkflowDriver{apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkflowDriverDashscopeRealtime} {
+		if err := validateWorkflowASRModels("workflows.assistant", driver, binding, nil); err == nil {
+			t.Fatalf("audio-only driver %s accepted external ASR", driver)
+		}
 	}
-	eino := func(adapter, flag string) apitypes.WorkflowSpec {
-		return decode(`{"driver":"eino","eino":{` + adapter + strings.Replace(graph, "%s", node(flag), 1) + `}}`)
+	if err := validateWorkflowASRModels("workflows.assistant", apitypes.WorkflowDriverEino, binding, nil); err == nil {
+		t.Fatal("missing ASR binding accepted")
 	}
-	const asr, transcript = `"voice_adapter":{"asr_model":"asr"},`, `,"audio_transcript":true`
-	for _, test := range []struct {
-		name     string
-		workflow apitypes.WorkflowSpec
-		selected apitypes.AudioInputPath
-		wantErr  string
-	}{
-		{name: "both declared model", workflow: eino(asr, transcript), selected: apitypes.AudioInputPathModel},
-		{name: "both declared asr", workflow: eino(asr, transcript), selected: apitypes.AudioInputPathAsr},
-		{name: "model without node", workflow: eino(asr, ""), selected: apitypes.AudioInputPathModel, wantErr: "requires a chat_model node that sets audio_transcript"},
-		{name: "asr without asr_model", workflow: eino("", transcript), selected: apitypes.AudioInputPathAsr, wantErr: "requires voice_adapter.asr_model"},
-		{
-			name:     "other driver",
-			workflow: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverDoubaoRealtime},
-			selected: apitypes.AudioInputPathAsr, wantErr: `only valid for Eino Workflows, got driver "doubao-realtime"`,
-		},
-	} {
-		err := validateWorkflowAudioInput("workflows.assistant", test.workflow, test.selected)
-		if test.wantErr == "" {
-			if err != nil {
-				t.Fatalf("%s: validateWorkflowAudioInput() error = %v", test.name, err)
+}
+
+func TestProfilePersistsASRModelsAndIgnoresLegacyWorkflowSlot(t *testing.T) {
+	const workflow = `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"assistant"},"spec":{"driver":"eino","eino":{"voice_adapter":{"asr_model":"unbound-legacy-slot"},"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[{"id":"reply","type":"chat_model","model":"llm"}],"edges":[],"branches":[],"outputs":[]}}}}`
+	resolver := func(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {
+		body := workflow
+		if kind == apitypes.ResourceKindModel {
+			modelKind := "llm"
+			if id == "speech" {
+				modelKind = "asr"
 			}
-			continue
+			body = `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"` + id + `"},"spec":{"kind":"` + modelKind + `","source":"manual","provider":{"kind":"volc-tenant","id":"volc"},"provider_data":{"api_mode":"chat_completions"}}}`
 		}
-		if err == nil || !strings.Contains(err.Error(), "workflows.assistant") || !strings.Contains(err.Error(), test.wantErr) {
-			t.Fatalf("%s: validateWorkflowAudioInput() error = %v, want containing %q", test.name, err, test.wantErr)
-		}
+		var resource apitypes.Resource
+		err := json.Unmarshal([]byte(body), &resource)
+		return resource, err
 	}
-}
-
-func TestRuntimeProfileStoresWorkflowAudioInputAndChecksTheWorkflow(t *testing.T) {
-	t.Parallel()
-	workflowBody := func(flag string) string {
-		return `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"assistant"},"spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[{"id":"answer","type":"chat_model","model":"llm"` + flag + `}],"edges":[],"branches":[],"outputs":[]}}}}`
-	}
-	const modelBody = `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"chat"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"volc-tenant","id":"volc-ark"},"provider_data":{"api_mode":"chat_completions"}}}`
-	resolver := func(flag string) func(context.Context, apitypes.ResourceKind, string) (apitypes.Resource, error) {
-		return func(_ context.Context, kind apitypes.ResourceKind, _ string) (apitypes.Resource, error) {
-			body := modelBody
-			if kind == apitypes.ResourceKindWorkflow {
-				body = workflowBody(flag)
-			}
-			var resource apitypes.Resource
-			err := json.Unmarshal([]byte(body), &resource)
-			return resource, err
-		}
-	}
-	profile := adminhttp.RuntimeProfileUpsert{Id: "test-profile", Spec: apitypes.RuntimeProfileSpec{
-		Workflows: apitypes.RuntimeProfileWorkflows{"assistant": audioInputTestBinding("assistant", apitypes.AudioInputPathModel)},
-		Resources: apitypes.RuntimeProfileResources{Models: &map[string]apitypes.RuntimeProfileBinding{"llm": runtimeProfileTestBinding("chat")}},
-	}}
-
-	rejecting := &Server{DB: profileSQLTestDB(t), ResolveResource: resolver("")}
-	response, err := rejecting.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{Body: &profile})
+	server := &Server{DB: profileSQLTestDB(t), ResolveResource: resolver}
+	binding := runtimeProfileTestWorkflowBinding("assistant")
+	binding.RealtimeAsrModel = new("asr")
+	profile := adminhttp.RuntimeProfileUpsert{Id: "profile", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"assistant": binding}, Resources: apitypes.RuntimeProfileResources{Models: new(map[string]apitypes.RuntimeProfileBinding{"llm": runtimeProfileTestBinding("chat"), "asr": runtimeProfileTestBinding("speech")})}}}
+	response, err := server.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{Body: &profile})
 	if err != nil {
-		t.Fatalf("CreateRuntimeProfile(undeclared path) error = %v", err)
-	}
-	rejected, ok := response.(adminhttp.CreateRuntimeProfile400JSONResponse)
-	if !ok || !strings.Contains(rejected.Error.Message, "requires a chat_model node that sets audio_transcript") {
-		t.Fatalf("CreateRuntimeProfile(undeclared path) response = %#v", response)
-	}
-
-	server := &Server{DB: profileSQLTestDB(t), ResolveResource: resolver(`,"audio_transcript":true`)}
-	response, err = server.CreateRuntimeProfile(t.Context(), adminhttp.CreateRuntimeProfileRequestObject{Body: &profile})
-	if err != nil {
-		t.Fatalf("CreateRuntimeProfile() error = %v", err)
+		t.Fatal(err)
 	}
 	if _, ok := response.(adminhttp.CreateRuntimeProfile200JSONResponse); !ok {
-		t.Fatalf("CreateRuntimeProfile() response = %#v", response)
+		t.Fatalf("legacy Workflow incorrectly required its ASR slot: %#v", response)
 	}
-	stored, err := server.ResolveProfile(t.Context(), "test-profile")
+	stored, err := server.ResolveProfile(t.Context(), "profile")
 	if err != nil {
-		t.Fatalf("ResolveProfile() error = %v", err)
+		t.Fatal(err)
 	}
-	if got := stored.Spec.Workflows["assistant"].AudioInput; got == nil || *got != apitypes.AudioInputPathModel {
-		t.Fatalf("stored workflows.assistant.audio_input = %v", got)
+	got := stored.Spec.Workflows["assistant"]
+	if got.PttAsrModel != nil || got.RealtimeAsrModel == nil || *got.RealtimeAsrModel != "asr" {
+		t.Fatalf("stored ASR Models=%#v", got)
 	}
 }

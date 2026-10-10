@@ -1,0 +1,7 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: RegistrationToken
+metadata:
+  id: e2e-audio-asr
+spec:
+  token: gizclaw-e2e-audio-asr
+  runtime_profile_id: e2e-audio-asr

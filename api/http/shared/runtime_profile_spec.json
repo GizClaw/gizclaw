@@ -63,14 +63,6 @@
             "minimum": -2147483648,
             "maximum": 2147483647,
             "description": "Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings."
-          },
-          "audio_input": {
-            "allOf": [
-              {
-                "$ref": "./workspace_parameters.json#/components/schemas/AudioInputPath"
-              }
-            ],
-            "description": "Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths."
           }
         }
       },
@@ -434,14 +426,6 @@
             "uniqueItems": true,
             "description": "Only valid for Workflow bindings; opaque strings."
           },
-          "audio_input": {
-            "allOf": [
-              {
-                "$ref": "./workspace_parameters.json#/components/schemas/AudioInputPath"
-              }
-            ],
-            "description": "Only valid for Eino Workflow bindings. Preferred audio input path for Workspaces that run this Workflow and set no audio_input parameter. The Workflow must declare the selected path: asr requires voice_adapter.asr_model and model requires a chat_model node that sets audio_transcript. Bindings of the same Workflow must not select different paths."
-          },
           "toolkit": {
             "$ref": "#/components/schemas/RuntimeProfileToolSelection"
           },
@@ -451,6 +435,22 @@
             "minimum": -2147483648,
             "maximum": 2147483647,
             "description": "Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings."
+          },
+          "ptt_asr_model": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$",
+            "description": "Optional external ASR Model alias from this RuntimeProfile resources.models for push-to-talk input. Omitted or null sends original audio directly to the conversation Model. Workflow definitions and Workspace parameters cannot override it."
+          },
+          "realtime_asr_model": {
+            "type": "string",
+            "nullable": true,
+            "minLength": 1,
+            "maxLength": 63,
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*(?:\\.[a-z0-9]+(?:-[a-z0-9]+)*)*$",
+            "description": "Optional external ASR Model alias from this RuntimeProfile resources.models for realtime input. Omitted or null sends original audio directly to the conversation Model. Workflow definitions and Workspace parameters cannot override it."
           }
         }
       },

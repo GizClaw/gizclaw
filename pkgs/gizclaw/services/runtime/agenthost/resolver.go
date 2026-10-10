@@ -248,7 +248,7 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 	if err != nil {
 		return Spec{}, err
 	}
-	audioInput, err := resolveAudioInput(resolutionCtx, ws, workflow)
+	asrModel, err := resolveASRModel(resolutionCtx, ws, workflow)
 	if err != nil {
 		return Spec{}, err
 	}
@@ -285,7 +285,7 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 		Workflow:              workflow,
 		AgentType:             agentType,
 		SafetyFencePrompt:     safetyFencePrompt,
-		AudioInput:            audioInput,
+		ASRModel:              asrModel,
 		Runtime:               runtime,
 		ToolInvoker:           tools,
 		ToolVerificationModel: verificationModel,

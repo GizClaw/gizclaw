@@ -1,0 +1,19 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: RuntimeProfile
+metadata:
+  id: e2e-audio-asr
+spec:
+  workflows:
+    eino-audio-input:
+      resource_id: eino-audio-input
+      ptt_asr_model: asr
+      realtime_asr_model: asr
+      i18n:
+        en: {display_name: Eino Audio Input}
+        zh-CN: {display_name: Eino 音频输入}
+  resources:
+    models:
+      asr: {resource_id: volc-bigasr-sauc, i18n: {en: {display_name: ASR}, zh-CN: {display_name: 识别}}}
+      audio-llm: {resource_id: doubao-lite-audio-chat, i18n: {en: {display_name: Audio Model}, zh-CN: {display_name: 音频模型}}}
+    voices:
+      multilingual-voice: {resource_id: "volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts", i18n: {en: {display_name: Voice}, zh-CN: {display_name: 语音}}}

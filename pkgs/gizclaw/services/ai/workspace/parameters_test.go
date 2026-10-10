@@ -2,7 +2,6 @@ package workspace
 
 import (
 	"errors"
-	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -115,7 +114,7 @@ func TestWorkspaceParametersWithPatchDerivesEino(t *testing.T) {
 	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverEino, &realtime, &apitypes.ConversationParameters{
 		Initiative:            &agent,
 		AgentInitiativePolicy: &policy,
-	}, nil, nil, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
 	}
@@ -140,7 +139,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverDoubaoRealtime, &pushToTalk, &apitypes.ConversationParameters{
 		Initiative:            &agent,
 		AgentInitiativePolicy: &policy,
-	}, nil, nil, nil)
+	}, nil, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch() error = %v", err)
 	}
@@ -165,7 +164,7 @@ func TestWorkspaceParametersWithPatchDerivesDoubaoRealtime(t *testing.T) {
 		t.Fatal(err)
 	}
 	peer := apitypes.ConversationParametersInitiativePeer
-	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer}, nil, nil, nil)
+	updated, err = workspaceParametersWithPatch(existing, apitypes.WorkflowDriverDoubaoRealtime, nil, &apitypes.ConversationParameters{Initiative: &peer}, nil, nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch(existing) error = %v", err)
 	}
@@ -189,7 +188,7 @@ func TestWorkspaceParametersPatchSupportsEveryDriver(t *testing.T) {
 		t.Run(string(driver), func(t *testing.T) {
 			realtime := apitypes.WorkspaceInputModeRealtime
 			conversation := &apitypes.ConversationParameters{Initiative: new(apitypes.ConversationParametersInitiativeAgent)}
-			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation, nil, nil, nil)
+			updated, err := workspaceParametersWithPatch(nil, driver, &realtime, conversation, nil, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -285,7 +284,7 @@ func TestWorkspaceParametersPatchStoresTTSSpeechRateForVoiceDrivers(t *testing.T
 		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex,
 	} {
 		t.Run(string(driver), func(t *testing.T) {
-			updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, new(150), nil, nil)
+			updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, new(150), nil)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -304,88 +303,12 @@ func TestWorkspaceParametersPatchStoresTTSSpeechRateForVoiceDrivers(t *testing.T
 	}
 }
 
-func TestWorkspaceParametersPatchStoresAudioInputForEinoOnly(t *testing.T) {
-	model := apitypes.AudioInputPathModel
-	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverEino, nil, nil, nil, nil, &model)
-	if err != nil {
-		t.Fatalf("workspaceParametersWithPatch(eino) error = %v", err)
-	}
-	got, err := updated.AudioInput()
-	if err != nil || got == nil || *got != model {
-		t.Fatalf("eino audio_input = %v, %v; want %q", got, err, model)
-	}
+// A later patch of another field keeps the stored path.
 
-	// A later patch of another field keeps the stored path.
-	realtime := apitypes.WorkspaceInputModeRealtime
-	updated, err = workspaceParametersWithPatch(updated, apitypes.WorkflowDriverEino, &realtime, nil, nil, nil, nil)
-	if err != nil {
-		t.Fatalf("workspaceParametersWithPatch(eino input) error = %v", err)
-	}
-	if got, err := updated.AudioInput(); err != nil || got == nil || *got != model {
-		t.Fatalf("eino audio_input after input patch = %v, %v; want %q", got, err, model)
-	}
-
-	// Drivers without a selectable path ignore the field.
-	for _, driver := range []apitypes.WorkflowDriver{
-		apitypes.WorkflowDriverDoubaoRealtime, apitypes.WorkflowDriverAstTranslate,
-		apitypes.WorkflowDriverDashscopeRealtime, apitypes.WorkflowDriverDoubaoRealtimeDuplex, apitypes.WorkflowDriverSfu,
-	} {
-		updated, err := workspaceParametersWithPatch(nil, driver, nil, nil, nil, nil, &model)
-		if err != nil {
-			t.Fatalf("workspaceParametersWithPatch(%s) error = %v", driver, err)
-		}
-		if updated == nil {
-			continue
-		}
-		data, err := updated.MarshalJSON()
-		if err != nil || strings.Contains(string(data), "audio_input") {
-			t.Fatalf("%s parameters = %s, %v; want no audio_input", driver, data, err)
-		}
-	}
-}
-
-func TestCreatePeerWorkspaceValidatesAudioInput(t *testing.T) {
-	srv := newTestServer(t)
-	store := testWorkflowStore(t, srv)
-	if err := store.Set(t.Context(), workflowReferenceKey("workflow-eino"), []byte(`{"id":"workflow-eino","spec":{"driver":"eino","eino":{"graph":{"name":"assistant","compile":{},"state":{"fields":[]},"nodes":[],"edges":[],"branches":[],"outputs":[]}}}}`)); err != nil {
-		t.Fatalf("seed Eino workflow: %v", err)
-	}
-	ctx := ownership.WithOwner(t.Context(), "peer-owner")
-	for value, wantErr := range map[string]bool{"model": false, "asr": false, "direct": true} {
-		var parameters apitypes.WorkspaceParameters
-		if err := parameters.UnmarshalJSON([]byte(`{"agent_type":"eino","audio_input":"` + value + `"}`)); err != nil {
-			t.Fatalf("decode parameters: %v", err)
-		}
-		created, err := srv.CreatePeerWorkspace(ctx, PeerWorkspaceCreateRequest{
-			Name: "workspace-" + value, WorkflowID: "workflow-eino", Parameters: &parameters,
-		})
-		if wantErr {
-			if err == nil || !strings.Contains(err.Error(), "unsupported audio_input") {
-				t.Fatalf("CreatePeerWorkspace(audio_input %q) error = %v", value, err)
-			}
-			continue
-		}
-		if err != nil {
-			t.Fatalf("CreatePeerWorkspace(audio_input %q) error = %v", value, err)
-		}
-		if got, err := created.Parameters.AudioInput(); err != nil || got == nil || string(*got) != value {
-			t.Fatalf("stored audio_input = %v, %v; want %q", got, err, value)
-		}
-	}
-}
-
-func TestValidateWorkspaceParametersPatchAudioInput(t *testing.T) {
-	if err := validateWorkspaceParametersPatch(PeerWorkspaceParametersSetRequest{AudioInput: new(apitypes.AudioInputPathAsr)}); err != nil {
-		t.Fatalf("validateWorkspaceParametersPatch(asr) error = %v", err)
-	}
-	err := validateWorkspaceParametersPatch(PeerWorkspaceParametersSetRequest{AudioInput: new(apitypes.AudioInputPath("direct"))})
-	if err == nil || !strings.Contains(err.Error(), `unsupported audio_input "direct"`) {
-		t.Fatalf("validateWorkspaceParametersPatch(direct) error = %v", err)
-	}
-}
+// Drivers without a selectable path ignore the field.
 
 func TestWorkspaceParametersPatchIgnoresTTSSpeechRateForSFU(t *testing.T) {
-	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, new(70), nil, nil)
+	updated, err := workspaceParametersWithPatch(nil, apitypes.WorkflowDriverSfu, nil, nil, new(70), nil)
 	if err != nil {
 		t.Fatalf("workspaceParametersWithPatch(sfu) error = %v", err)
 	}

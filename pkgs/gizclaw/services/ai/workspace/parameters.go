@@ -18,9 +18,6 @@ type PeerWorkspaceParametersSetRequest struct {
 	Conversation         *apitypes.ConversationParameters
 	TTSSpeechRatePercent *int
 	SafetyFenceLevel     *apitypes.SafetyFenceLevel
-	// AudioInput selects the audio input path of an Eino Workspace. Other
-	// drivers ignore it.
-	AudioInput *apitypes.AudioInputPath
 }
 
 // PeerWorkspaceParametersSetErrorKind classifies errors for transport adapters.
@@ -71,7 +68,7 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
-		parameters, err := workspaceParametersWithPatch(previous.Parameters, workflow.Spec.Driver, request.Input, request.Conversation, request.TTSSpeechRatePercent, request.SafetyFenceLevel, request.AudioInput)
+		parameters, err := workspaceParametersWithPatch(previous.Parameters, workflow.Spec.Driver, request.Input, request.Conversation, request.TTSSpeechRatePercent, request.SafetyFenceLevel)
 		if err != nil {
 			return adminhttp.WorkspaceUpsert{}, err
 		}
@@ -108,7 +105,7 @@ func (s *Server) SetPeerWorkspaceParameters(ctx context.Context, request PeerWor
 }
 
 func validateWorkspaceParametersPatch(request PeerWorkspaceParametersSetRequest) error {
-	if request.Input == nil && request.Conversation == nil && request.TTSSpeechRatePercent == nil && request.SafetyFenceLevel == nil && request.AudioInput == nil {
+	if request.Input == nil && request.Conversation == nil && request.TTSSpeechRatePercent == nil && request.SafetyFenceLevel == nil {
 		return errors.New("workspace: at least one parameter is required")
 	}
 	if request.Input != nil && !request.Input.Valid() {
@@ -118,9 +115,6 @@ func validateWorkspaceParametersPatch(request PeerWorkspaceParametersSetRequest)
 		return fmt.Errorf("workspace: %w", err)
 	}
 	if err := apitypes.ValidateSafetyFenceLevel(request.SafetyFenceLevel); err != nil {
-		return fmt.Errorf("workspace: %w", err)
-	}
-	if err := apitypes.ValidateAudioInputPath(request.AudioInput); err != nil {
 		return fmt.Errorf("workspace: %w", err)
 	}
 	if request.Conversation == nil {
@@ -152,9 +146,8 @@ func workspaceParametersWithPatch(
 	conversation *apitypes.ConversationParameters,
 	ttsSpeechRatePercent *int,
 	safetyFenceLevel *apitypes.SafetyFenceLevel,
-	audioInput *apitypes.AudioInputPath,
 ) (*apitypes.WorkspaceParameters, error) {
-	if input == nil && conversation == nil && ttsSpeechRatePercent == nil && safetyFenceLevel == nil && audioInput == nil {
+	if input == nil && conversation == nil && ttsSpeechRatePercent == nil && safetyFenceLevel == nil {
 		return nil, invalidWorkspaceReference("workspace: at least one parameter is required")
 	}
 	variant := string(driver)
@@ -166,10 +159,6 @@ func workspaceParametersWithPatch(
 		if discriminator != variant {
 			return nil, invalidWorkspaceReference("workspace: parameters agent_type is %q, want %q", discriminator, variant)
 		}
-	}
-	if driver != apitypes.WorkflowDriverEino && input == nil && conversation == nil && ttsSpeechRatePercent == nil && safetyFenceLevel == nil {
-		// Only Eino has a selectable audio input path.
-		return parameters, nil
 	}
 	rate := cloneInt(ttsSpeechRatePercent)
 	updated := &apitypes.WorkspaceParameters{}
@@ -184,9 +173,6 @@ func workspaceParametersWithPatch(
 		patchRate(&value.TtsSpeechRatePercent, rate)
 		if safetyFenceLevel != nil {
 			value.SafetyFenceLevel = new(*safetyFenceLevel)
-		}
-		if audioInput != nil {
-			value.AudioInput = new(*audioInput)
 		}
 		return updated, updated.FromEinoWorkspaceParameters(value)
 	case apitypes.WorkflowDriverDoubaoRealtime:

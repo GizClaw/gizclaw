@@ -223,7 +223,7 @@ func TestFactoryRejectsLiveAudioWithoutASR(t *testing.T) {
 	}
 }
 
-func TestResolveEinoInputModeAndASRPattern(t *testing.T) {
+func TestResolveEinoInputMode(t *testing.T) {
 	t.Parallel()
 	for _, testCase := range []struct {
 		name        string
@@ -248,9 +248,6 @@ func TestResolveEinoInputModeAndASRPattern(t *testing.T) {
 			if err != nil || mode != testCase.wantMode {
 				t.Fatalf("resolveEinoInputMode() = %q, %v, want %q", mode, err, testCase.wantMode)
 			}
-			if got := einoASRPattern("speech.asr", mode); got != testCase.wantPattern {
-				t.Fatalf("einoASRPattern() = %q, want %q", got, testCase.wantPattern)
-			}
 		})
 	}
 }
@@ -265,7 +262,7 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 		{DefaultVoice: &fallback},
 		{AsrModel: &asr, DefaultVoice: &fallback},
 	} {
-		if _, err := wrapAudio(mux, core, voice, nil, apitypes.WorkspaceInputModePushToTalk, nil); err != nil {
+		if _, err := wrapAudio(mux, core, core, voice, nil, nil); err != nil {
 			t.Fatalf("wrapAudio(%#v) error = %v", voice, err)
 		}
 	}
@@ -346,7 +343,7 @@ func TestWrapAudioRequestsOneSegmentFormatFromSpeakerVoices(t *testing.T) {
 	})
 	fallback := "story.default"
 	speakers := map[string]string{"fox": "story.fox"}
-	dock, err := wrapAudio(mux, core, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, apitypes.WorkspaceInputModePushToTalk, nil)
+	dock, err := wrapAudio(mux, core, nil, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, nil)
 	if err != nil {
 		t.Fatalf("wrapAudio() error = %v", err)
 	}

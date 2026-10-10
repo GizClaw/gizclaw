@@ -727,8 +727,8 @@ func TestValidateNewWorkflowRuntimeAliases(t *testing.T) {
 	}
 	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindLlm}}
 	voices[defaultVoice] = apitypes.VoiceResource{}
-	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err == nil || !strings.Contains(err.Error(), `want "asr"`) {
-		t.Fatalf("validate Eino wrong ASR kind error = %v", err)
+	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err != nil {
+		t.Fatalf("legacy Workflow ASR must not select a Model: %v", err)
 	}
 	models[asr] = apitypes.ModelResource{Spec: apitypes.ModelSpec{Kind: apitypes.ModelKindAsr}}
 	if err := validateWorkflowRuntimeAliases("workflows.eino", eino, models, voices); err != nil {

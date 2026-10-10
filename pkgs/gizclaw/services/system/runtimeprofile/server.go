@@ -637,11 +637,20 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 			slices.Sort(tags)
 			binding.Tags = &tags
 		}
-		if err := apitypes.ValidateAudioInputPath(binding.AudioInput); err != nil {
-			return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s: %w", alias, err)
-		}
-		if binding.AudioInput != nil {
-			binding.AudioInput = new(*binding.AudioInput)
+		for _, field := range []struct {
+			name  string
+			value **string
+		}{
+			{"ptt_asr_model", &binding.PttAsrModel}, {"realtime_asr_model", &binding.RealtimeAsrModel},
+		} {
+			if *field.value == nil {
+				continue
+			}
+			value := strings.TrimSpace(**field.value)
+			if err := runtimealias.Validate("ASR Model alias", value); err != nil {
+				return apitypes.RuntimeProfile{}, fmt.Errorf("workflows.%s.%s: %w", alias, field.name, err)
+			}
+			*field.value = new(value)
 		}
 		// Reuse the ordinary binding normalizer for the shared ID and i18n rules.
 		normalized, err := normalizeBindingMap(map[string]apitypes.RuntimeProfileBinding{alias: {ResourceId: binding.ResourceId, I18n: binding.I18n}})
@@ -651,7 +660,7 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		binding.I18n = normalized[alias].I18n
 		workflows[alias] = binding
 	}
-	if err := validateWorkflowAudioInputAgreement(workflows); err != nil {
+	if err := validateWorkflowASRAgreement(workflows); err != nil {
 		return apitypes.RuntimeProfile{}, err
 	}
 	spec.Workflows = workflows
@@ -673,9 +682,6 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		for alias := range normalized {
 			if normalized[alias].Tags != nil {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: tags are only valid on workflows", resourceMap.name, alias)
-			}
-			if normalized[alias].AudioInput != nil {
-				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: audio_input is only valid on workflows", resourceMap.name, alias)
 			}
 			if normalized[alias].SortOrder != nil {
 				return apitypes.RuntimeProfile{}, fmt.Errorf("resources.%ss.%s: sort_order is only valid on workflows", resourceMap.name, alias)
@@ -804,47 +810,58 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 	return item, nil
 }
 
-// validateWorkflowAudioInputAgreement rejects bindings of one Workflow that
-// select different audio input paths. A Workspace stores the Workflow ID, not
-// the alias it was created through, so the selection must not depend on the
-// alias.
-func validateWorkflowAudioInputAgreement(workflows apitypes.RuntimeProfileWorkflows) error {
+// validateWorkflowASRAgreement keeps aliases of one canonical Workflow
+// consistent: a Workspace stores the resource ID, not its creation alias.
+func validateWorkflowASRAgreement(workflows apitypes.RuntimeProfileWorkflows) error {
 	aliases := make([]string, 0, len(workflows))
 	for alias := range workflows {
 		aliases = append(aliases, alias)
 	}
 	slices.Sort(aliases)
-	selected := make(map[string]string, len(workflows))
+	previous := make(map[string]string)
+	value := func(p *string) string {
+		if p == nil {
+			return ""
+		}
+		return *p
+	}
 	for _, alias := range aliases {
 		binding := workflows[alias]
-		if binding.AudioInput == nil {
-			continue
+		if old, ok := previous[binding.ResourceId]; ok {
+			other := workflows[old]
+			if value(binding.PttAsrModel) != value(other.PttAsrModel) || value(binding.RealtimeAsrModel) != value(other.RealtimeAsrModel) {
+				return fmt.Errorf("workflows.%s ASR Models conflict with workflows.%s for Workflow %q", alias, old, binding.ResourceId)
+			}
+		} else {
+			previous[binding.ResourceId] = alias
 		}
-		previous, ok := selected[binding.ResourceId]
-		if ok && *workflows[previous].AudioInput != *binding.AudioInput {
-			return fmt.Errorf(
-				"workflows.%s.audio_input %q conflicts with workflows.%s.audio_input %q for Workflow %q",
-				alias, *binding.AudioInput, previous, *workflows[previous].AudioInput, binding.ResourceId,
-			)
-		}
-		selected[binding.ResourceId] = alias
 	}
 	return nil
 }
 
-// validateWorkflowAudioInput checks a binding's audio_input against the
-// Workflow it binds. The bound Model's audio capability is a reload-time
-// property and is not checked here.
-func validateWorkflowAudioInput(path string, workflow apitypes.WorkflowSpec, selected apitypes.AudioInputPath) error {
-	if workflow.Driver != apitypes.WorkflowDriverEino || workflow.Eino == nil {
-		return fmt.Errorf("%s.audio_input is only valid for Eino Workflows, got driver %q", path, workflow.Driver)
+func validateWorkflowASRModels(path string, driver apitypes.WorkflowDriver, binding apitypes.RuntimeProfileWorkflowBinding, models map[string]apitypes.ModelResource) error {
+	if binding.PttAsrModel == nil && binding.RealtimeAsrModel == nil {
+		return nil
 	}
-	support, err := einoconfig.WorkflowAudioInput(*workflow.Eino)
-	if err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+	switch driver {
+	case apitypes.WorkflowDriverEino, apitypes.WorkflowDriverDoubaoRealtime:
+	default:
+		return fmt.Errorf("%s: driver %q does not support external ASR", path, driver)
 	}
-	if err := support.ValidateSelection(selected); err != nil {
-		return fmt.Errorf("%s: %w", path, err)
+	for _, field := range []struct {
+		name  string
+		alias *string
+	}{{"ptt_asr_model", binding.PttAsrModel}, {"realtime_asr_model", binding.RealtimeAsrModel}} {
+		if field.alias == nil {
+			continue
+		}
+		model, ok := models[*field.alias]
+		if !ok {
+			return fmt.Errorf("%s.%s Model alias %q is not declared in resources.models", path, field.name, *field.alias)
+		}
+		if model.Spec.Kind != apitypes.ModelKindAsr {
+			return fmt.Errorf("%s.%s Model alias %q has kind %q, want asr", path, field.name, *field.alias, model.Spec.Kind)
+		}
 	}
 	return nil
 }
@@ -1032,6 +1049,7 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 	type resolvedWorkflow struct {
 		path     string
 		resource apitypes.WorkflowResource
+		binding  apitypes.RuntimeProfileWorkflowBinding
 	}
 	workflows := make([]resolvedWorkflow, 0, 1)
 	for alias, binding := range spec.Workflows {
@@ -1047,12 +1065,7 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		if binding.Toolkit != nil && binding.Toolkit.VerificationModel != nil && workflow.Spec.Driver != apitypes.WorkflowDriverEino {
 			return fmt.Errorf("%s.toolkit: verification_model requires an Eino Workflow", path)
 		}
-		if binding.AudioInput != nil {
-			if err := validateWorkflowAudioInput(path, workflow.Spec, *binding.AudioInput); err != nil {
-				return err
-			}
-		}
-		workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow})
+		workflows = append(workflows, resolvedWorkflow{path: path, resource: workflow, binding: binding})
 	}
 	models := make(map[string]apitypes.ModelResource)
 	if spec.Resources.Models != nil {
@@ -1122,6 +1135,9 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		}
 	}
 	for _, workflow := range workflows {
+		if err := validateWorkflowASRModels(workflow.path, workflow.resource.Spec.Driver, workflow.binding, models); err != nil {
+			return err
+		}
 		if err := validateWorkflowRuntimeAliases(workflow.path, workflow.resource.Spec, models, voices, memories); err != nil {
 			return err
 		}
@@ -1277,11 +1293,6 @@ func validateWorkflowRuntimeAliases(path string, workflow apitypes.WorkflowSpec,
 		}
 		if workflow.Eino.VoiceAdapter != nil {
 			voiceAdapter := workflow.Eino.VoiceAdapter
-			if voiceAdapter.AsrModel != nil && strings.TrimSpace(*voiceAdapter.AsrModel) != "" {
-				if err := requireModel("voice_adapter.asr_model", *voiceAdapter.AsrModel, apitypes.ModelKindAsr); err != nil {
-					return err
-				}
-			}
 			if voiceAdapter.DefaultVoice != nil && strings.TrimSpace(*voiceAdapter.DefaultVoice) != "" {
 				if err := requireVoice("voice_adapter.default_voice", *voiceAdapter.DefaultVoice); err != nil {
 					return err
