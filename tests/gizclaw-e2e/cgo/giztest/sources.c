@@ -10,6 +10,7 @@
 #include "../../../../sdk/c/gizclaw/generated/payload/edge.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/enums.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/firmware.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/payload/gnss.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/icon.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/lua_app.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/mhs_v0.pb.c"
