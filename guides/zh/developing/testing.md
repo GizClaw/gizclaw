@@ -110,7 +110,7 @@ bash tests/gizclaw-e2e/run_admission_docker_tests.sh
 此 lane 使用 Server 公布的 TCP ICE 入口，不验收 relay。标准 `run_tests.sh` 保留
 原有 Compose 文件、凭据 preflight、资源初始化与默认 `open` 行为。
 准入镜像通过 `PREBUILD_CLI=1` 在构建时编译一次 CLI，三个服务复用现有 prebuilt 入口，
-避免低配 CI runner 在就绪检查期间分别冷编译；标准镜像默认仍在启动时构建。
+避免低配 CI runner 在就绪检查期间分别冷编译。标准 Compose 的 Server 与 Edge 也在镜像构建时预编译 CLI，各节点共用同一份编译产物。
 失败时先输出三个服务的末尾日志，再按项目拆栈。
 
 入口先通过 Edge 登记配置的 Admin identity，再切回直连 Server 的 admin CLI context。
@@ -452,6 +452,8 @@ bash tests/gizclaw-e2e/run_tests.sh
 ```
 
 覆盖当前 Giztest 全部自动化文档时使用 `bash tests/gizclaw-e2e/run_tests.sh --full-giztest`。它先校验完整目录，再执行标准 SDK/Go 批次和全部 `benchmark.*`，随后在各自隔离环境运行 Quota、Monitor、跨 Server SFU、slow-tts 与 speaker-segments。Benchmark 文档逐份执行，每份的 `--parallel` 等于文档的 `repeat`，保留其并发数；逐份报告保存在汇总报告旁的 `.json.d` 目录，前一份失败后仍执行后续文档。中途进度保存在 `.partial.json` 文件，全部文档结束后才发布汇总报告。音频输入对照使用 scorer 的全部语言样本。`failure-cleanup` 按预期失败和清理成功验收；`review.*` 需要人工评审，不计入自动通过。业务阶段失败会记录并继续其他独立阶段，结束时返回非零；预检或环境启动失败仍立即停止。凭据文件可由 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定，仍须满足统一 inventory；全量入口总 deadline 默认为 3 小时，现有 deadline 变量同样适用。
+
+SFU、slow-tts 和 speaker-segments 的 Docker 构建复用宿主机 `go env GOMODCACHE` 和 `go env GOCACHE`，避免每个隔离环境重复复制编译缓存。可在运行前配置这些 Go 缓存目录；它们不改变测试清单、负载或时限。
 
 Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/RPC/CLI/C SDK
 覆盖，不运行无关的 provider-backed suites：

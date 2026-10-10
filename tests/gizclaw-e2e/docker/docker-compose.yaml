@@ -82,6 +82,7 @@ services:
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+        PREBUILD_CLI: "1"
     environment:
       GIZCLAW_E2E_MEM0_API_KEY: ${GIZCLAW_E2E_MEM0_API_KEY:?set by docker-compose-up.sh}
       GIZCLAW_E2E_POSTGRES_DSN: postgres://gizclaw_server:gizclaw_server@postgres:5432/gizclaw_server?sslmode=disable
@@ -132,6 +133,7 @@ services:
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+        PREBUILD_CLI: "1"
     entrypoint: ["/src/tests/gizclaw-e2e/docker/entrypoint-edge.sh"]
     depends_on:
       server:
@@ -163,6 +165,7 @@ services:
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
       args:
         BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+        PREBUILD_CLI: "1"
     entrypoint: ["/src/tests/gizclaw-e2e/docker/entrypoint-edge.sh"]
     depends_on:
       server:

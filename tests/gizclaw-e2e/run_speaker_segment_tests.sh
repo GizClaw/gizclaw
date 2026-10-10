@@ -74,7 +74,7 @@ else
   docker run --rm --entrypoint /bin/bash \
     -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
     -v "$(go env GOMODCACHE):/root/go/pkg/mod" \
-    -v "gizclaw-speaker-segments-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
+    -v "$(go env GOCACHE):/root/.cache/go-build" "$base" -lc 'cd /src \
       && go build -overlay /out/overlay.json -o /out/gizclaw ./cmd/gizclaw \
       && go build -o /out/monitor-seed ./tests/gizclaw-e2e/cmd/multiserver-seed \
       && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture'

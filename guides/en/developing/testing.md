@@ -139,8 +139,8 @@ its acceptance scope. The standard `run_tests.sh` keeps its original Compose fil
 credential preflight, resource initialization and default `open` behavior.
 Admission sets `PREBUILD_CLI=1` to compile the CLI once during image construction;
 all three services reuse the existing prebuilt entrypoint. This keeps cold builds
-outside readiness checks on small CI runners. Standard images still build at
-startup by default. Failures print the tail of all three service logs before
+outside readiness checks on small CI runners. Standard Compose Server and Edge
+images also prebuild the CLI and share the compiled artifact. Failures print the tail of all three service logs before
 project-scoped cleanup.
 
 The entrypoint registers the configured Admin identity through Edge, then uses the
@@ -498,6 +498,8 @@ bash tests/gizclaw-e2e/run_tests.sh
 ```
 
 Use `bash tests/gizclaw-e2e/run_tests.sh --full-giztest` for every automated document in the current Giztest corpus. It validates the whole directory, runs the standard SDK/Go batches and all `benchmark.*` documents, then runs Quota, Monitor, cross-Server SFU, slow-tts and speaker-segments in their isolated environments. Benchmark documents run sequentially, setting `--parallel` to each document's `repeat` to preserve its concurrency. Individual reports remain in the `.json.d` directory beside the combined report, and a failed document does not skip later documents. Progress remains in a `.partial.json` file until all documents finish and the combined report is published. The audio-input comparison uses every language sample supplied by its scorer. The deliberate `failure-cleanup` failure must also prove successful cleanup. `review.*` requires human assessment and is not counted as an automated pass. Failed business phases are recorded while remaining independent phases continue; the entry point returns nonzero at the end. Failed preflight or environment setup still stops immediately. `GIZCLAW_E2E_CREDENTIAL_FILE` can select an existing file satisfying the shared credential inventory. The full entry point has a three-hour overall deadline; the existing deadline variables also apply.
+
+SFU, slow-tts and speaker-segments Docker builds reuse the host's `go env GOMODCACHE` and `go env GOCACHE` instead of copying compilation caches for each isolated environment. Configure these Go cache directories before running; they do not change the test inventory, load or deadlines.
 
 Firmware OTA changes can run their focused live stack and Admin/RPC/CLI/C SDK
 coverage without the unrelated provider-backed suites:
