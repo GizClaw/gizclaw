@@ -417,6 +417,30 @@ function buildHandlers(
       continue;
     }
     switch (method) {
+      case "gnss.reporting.get":
+        control.gnssReportingGet = () => {
+          if (failure != null) throw failure;
+          const enabled = scriptedObject["enabled"];
+          if (enabled === undefined) return {};
+          if (typeof enabled !== "boolean")
+            throw new Error(
+              "gnss reporting scripted enabled must be a boolean",
+            );
+          return { enabled };
+        };
+        break;
+      case "gnss.reporting.set":
+        control.gnssReportingSet = () => {
+          if (failure != null) throw failure;
+          const enabled = scriptedObject["enabled"];
+          if (enabled === undefined) return {};
+          if (typeof enabled !== "boolean")
+            throw new Error(
+              "gnss reporting scripted enabled must be a boolean",
+            );
+          return { enabled };
+        };
+        break;
       case "client.rpc.methods.list":
       case "client.tool.v0.list":
         if (scripted != null) throw new Error(`${method} takes no response`);

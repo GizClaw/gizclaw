@@ -206,6 +206,36 @@ func (e ClientToolFirmwareUpdateInvokeTool) Valid() bool {
 	}
 }
 
+// Defines values for ClientToolGnssReportingGetInvokeTool.
+const (
+	GnssReportingGet ClientToolGnssReportingGetInvokeTool = "gnss.reporting.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolGnssReportingGetInvokeTool enum.
+func (e ClientToolGnssReportingGetInvokeTool) Valid() bool {
+	switch e {
+	case GnssReportingGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolGnssReportingSetInvokeTool.
+const (
+	GnssReportingSet ClientToolGnssReportingSetInvokeTool = "gnss.reporting.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolGnssReportingSetInvokeTool enum.
+func (e ClientToolGnssReportingSetInvokeTool) Valid() bool {
+	switch e {
+	case GnssReportingSet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolIdentifiersGetInvokeTool.
 const (
 	IdentifiersGet ClientToolIdentifiersGetInvokeTool = "identifiers.get"
@@ -340,6 +370,8 @@ const (
 	ClientToolV0ListResponseToolsDeviceReboot              ClientToolV0ListResponseTools = "device.reboot"
 	ClientToolV0ListResponseToolsDeviceStatusGet           ClientToolV0ListResponseTools = "device.status.get"
 	ClientToolV0ListResponseToolsFirmwareUpdate            ClientToolV0ListResponseTools = "firmware.update"
+	ClientToolV0ListResponseToolsGnssReportingGet          ClientToolV0ListResponseTools = "gnss.reporting.get"
+	ClientToolV0ListResponseToolsGnssReportingSet          ClientToolV0ListResponseTools = "gnss.reporting.set"
 	ClientToolV0ListResponseToolsIdentifiersGet            ClientToolV0ListResponseTools = "identifiers.get"
 	ClientToolV0ListResponseToolsInfoGet                   ClientToolV0ListResponseTools = "info.get"
 	ClientToolV0ListResponseToolsLuaAppInstall             ClientToolV0ListResponseTools = "lua.app.install"
@@ -380,6 +412,10 @@ func (e ClientToolV0ListResponseTools) Valid() bool {
 	case ClientToolV0ListResponseToolsDeviceStatusGet:
 		return true
 	case ClientToolV0ListResponseToolsFirmwareUpdate:
+		return true
+	case ClientToolV0ListResponseToolsGnssReportingGet:
+		return true
+	case ClientToolV0ListResponseToolsGnssReportingSet:
 		return true
 	case ClientToolV0ListResponseToolsIdentifiersGet:
 		return true
@@ -773,6 +809,27 @@ type ClientToolFirmwareUpdateInvoke struct {
 
 // ClientToolFirmwareUpdateInvokeTool defines model for ClientToolFirmwareUpdateInvoke.Tool.
 type ClientToolFirmwareUpdateInvokeTool string
+
+// ClientToolGnssReportingGetInvoke Read the device GNSS reporting switch. Returns result.enabled as a boolean. The Server only forwards the invoke; it does not store the switch or alter telemetry ingestion.
+type ClientToolGnssReportingGetInvoke struct {
+	Args map[string]interface{}               `json:"args"`
+	Tool ClientToolGnssReportingGetInvokeTool `json:"tool"`
+}
+
+// ClientToolGnssReportingGetInvokeTool defines model for ClientToolGnssReportingGetInvoke.Tool.
+type ClientToolGnssReportingGetInvokeTool string
+
+// ClientToolGnssReportingSetInvoke Set the device GNSS reporting switch and return the applied value. Returns result.enabled as a boolean. The Server only forwards the invoke; it does not store the switch or alter telemetry ingestion.
+type ClientToolGnssReportingSetInvoke struct {
+	Args struct {
+		// Enabled Explicit desired GNSS reporting switch value. The device owns its behavior and persistence.
+		Enabled bool `json:"enabled"`
+	} `json:"args"`
+	Tool ClientToolGnssReportingSetInvokeTool `json:"tool"`
+}
+
+// ClientToolGnssReportingSetInvokeTool defines model for ClientToolGnssReportingSetInvoke.Tool.
+type ClientToolGnssReportingSetInvokeTool string
 
 // ClientToolIdentifiersGetInvoke defines model for ClientToolIdentifiersGetInvoke.
 type ClientToolIdentifiersGetInvoke struct {
@@ -2212,6 +2269,62 @@ func (t *ClientToolV0InvokeRequest) MergeClientToolLuaAppRunInvoke(v ClientToolL
 	return err
 }
 
+// AsClientToolGnssReportingGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolGnssReportingGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolGnssReportingGetInvoke() (ClientToolGnssReportingGetInvoke, error) {
+	var body ClientToolGnssReportingGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolGnssReportingGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolGnssReportingGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolGnssReportingGetInvoke(v ClientToolGnssReportingGetInvoke) error {
+	v.Tool = "gnss.reporting.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolGnssReportingGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolGnssReportingGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolGnssReportingGetInvoke(v ClientToolGnssReportingGetInvoke) error {
+	v.Tool = "gnss.reporting.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolGnssReportingSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolGnssReportingSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolGnssReportingSetInvoke() (ClientToolGnssReportingSetInvoke, error) {
+	var body ClientToolGnssReportingSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolGnssReportingSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolGnssReportingSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolGnssReportingSetInvoke(v ClientToolGnssReportingSetInvoke) error {
+	v.Tool = "gnss.reporting.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolGnssReportingSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolGnssReportingSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolGnssReportingSetInvoke(v ClientToolGnssReportingSetInvoke) error {
+	v.Tool = "gnss.reporting.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ClientToolV0InvokeRequest) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"tool"`
@@ -2250,6 +2363,10 @@ func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
 		return t.AsClientToolDeviceStatusGetInvoke()
 	case "firmware.update":
 		return t.AsClientToolFirmwareUpdateInvoke()
+	case "gnss.reporting.get":
+		return t.AsClientToolGnssReportingGetInvoke()
+	case "gnss.reporting.set":
+		return t.AsClientToolGnssReportingSetInvoke()
 	case "identifiers.get":
 		return t.AsClientToolIdentifiersGetInvoke()
 	case "info.get":

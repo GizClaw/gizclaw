@@ -31,8 +31,13 @@ type DeviceControlHandlers struct {
 	// Return the actual applied value or reject the request.
 	WriteMhsHwd func(context.Context, *rpcpb.ClientMhsV0WriteRequest) (*rpcpb.ClientMhsV0WriteResponse, error)
 	AudioPlayer AudioPlayerHandlers
-	Status      func(context.Context) (rpcapi.PeerStatus, error)
-	PlaySound   func(ctx context.Context, sound string, durationMs *int64) error
+	// GNSSReportingGet reads the device-owned GNSS reporting switch.
+	GNSSReportingGet func(context.Context, *rpcpb.ClientGnssReportingGetRequest) (*rpcpb.ClientGnssReportingGetResponse, error)
+	// GNSSReportingSet applies an explicit switch value and returns the value
+	// in effect. The device owns defaults, persistence and reporting behavior.
+	GNSSReportingSet func(context.Context, *rpcpb.ClientGnssReportingSetRequest) (*rpcpb.ClientGnssReportingSetResponse, error)
+	Status           func(context.Context) (rpcapi.PeerStatus, error)
+	PlaySound        func(ctx context.Context, sound string, durationMs *int64) error
 	// Find rings the device's built-in find-me sound. durationMs is nil when
 	// the caller leaves the ring time to the device.
 	Find        func(ctx context.Context, durationMs *int64) error
@@ -77,6 +82,8 @@ func (h *DeviceControlHandlers) supportedTools() []rpcpb.ClientTool {
 		present bool
 	}{
 		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET, h.Status != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET, h.GNSSReportingGet != nil},
+		{rpcpb.ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET, h.GNSSReportingSet != nil},
 		{rpcpb.ClientTool_CLIENT_TOOL_SOUND_PLAY, h.PlaySound != nil},
 		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FIND, h.Find != nil},
 		{rpcpb.ClientTool_CLIENT_TOOL_DEVICE_REBOOT, h.Reboot != nil},
@@ -208,6 +215,42 @@ func (c *rpcClient) handleDeviceTool(ctx context.Context, tool rpcpb.ClientTool,
 		return deviceControlUnsupported(req.Id, req.Method), nil
 	}
 	switch tool {
+	case rpcpb.ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET:
+		if handlers.GNSSReportingGet == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientGnssReportingGetRequest); err != nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		result, err := handlers.GNSSReportingGet(ctx, new(rpcpb.ClientGnssReportingGetRequest))
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		if err := rpcapi.ValidateGNSSReportingResponse(result); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientGnssReportingGetResponse)
+	case rpcpb.ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET:
+		if handlers.GNSSReportingSet == nil {
+			return deviceControlUnsupported(req.Id, req.Method), nil
+		}
+		if req.Params == nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		params, err := req.Params.AsClientGnssReportingSetRequest()
+		if err != nil || params.Enabled == nil {
+			return rpcInvalidParams(req.Id), nil
+		}
+		c.peer.observeClientRPC(req.Method)
+		result, err := handlers.GNSSReportingSet(ctx, params)
+		if err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		if err := rpcapi.ValidateGNSSReportingResponse(result); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
+		return newRPCResultResponse(req.Id, result, (*rpcapi.RPCPayload).FromClientGnssReportingSetResponse)
 	case rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET:
 		if err := validateRPCParams(req.Params, rpcapi.RPCPayload.AsClientDeviceStatusGetRequest); err != nil {
 			return rpcInvalidParams(req.Id), nil

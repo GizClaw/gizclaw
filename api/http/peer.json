@@ -4957,6 +4957,12 @@
           },
           {
             "$ref": "#/components/schemas/ClientToolLuaAppRunInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolGnssReportingGetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolGnssReportingSetInvoke"
           }
         ],
         "discriminator": {
@@ -4985,7 +4991,9 @@
             "social.ping": "#/components/schemas/ClientToolSocialPingInvoke",
             "lua.app.list": "#/components/schemas/ClientToolLuaAppListInvoke",
             "lua.app.install": "#/components/schemas/ClientToolLuaAppInstallInvoke",
-            "lua.app.run": "#/components/schemas/ClientToolLuaAppRunInvoke"
+            "lua.app.run": "#/components/schemas/ClientToolLuaAppRunInvoke",
+            "gnss.reporting.get": "#/components/schemas/ClientToolGnssReportingGetInvoke",
+            "gnss.reporting.set": "#/components/schemas/ClientToolGnssReportingSetInvoke"
           }
         }
       },
@@ -5023,7 +5031,9 @@
                 "social.ping",
                 "lua.app.list",
                 "lua.app.install",
-                "lua.app.run"
+                "lua.app.run",
+                "gnss.reporting.get",
+                "gnss.reporting.set"
               ]
             }
           }
@@ -5290,6 +5300,58 @@
           },
           "args": {
             "$ref": "#/components/schemas/ClientLuaAppRunArgs"
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ]
+      },
+      "ClientToolGnssReportingGetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Read the device GNSS reporting switch. Returns result.enabled as a boolean. The Server only forwards the invoke; it does not store the switch or alter telemetry ingestion.",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "gnss.reporting.get"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {}
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ]
+      },
+      "ClientToolGnssReportingSetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Set the device GNSS reporting switch and return the applied value. Returns result.enabled as a boolean. The Server only forwards the invoke; it does not store the switch or alter telemetry ingestion.",
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "gnss.reporting.set"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "enabled": {
+                "type": "boolean",
+                "description": "Explicit desired GNSS reporting switch value. The device owns its behavior and persistence."
+              }
+            },
+            "required": [
+              "enabled"
+            ]
           }
         },
         "required": [

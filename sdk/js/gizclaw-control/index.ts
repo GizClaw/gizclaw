@@ -395,6 +395,10 @@ export type AudioPlayerPlaylist = {
 };
 
 export interface GizClawControlDevice {
+  /** Reads the GNSS reporting switch from the online device through invoke. */
+  getGnssReporting(): Promise<boolean>;
+  /** Sets the switch through invoke and returns the device's applied value. */
+  setGnssReporting(enabled: boolean): Promise<boolean>;
   getAudioPlayer(): Promise<AudioPlayerResponse>;
   getAudioPlayerPlaylist(): Promise<AudioPlayerPlaylist>;
   setAudioPlayerPlaylist(
@@ -685,6 +689,21 @@ export function createGizClawControlClient(
   const callTool = (body: ClientToolV0InvokeRequest) =>
     unwrap("invokeClientTool", invokeClientTool({ ...common, body }));
 
+  const callGnssReporting = async (
+    body: Extract<
+      ClientToolV0InvokeRequest,
+      { tool: "gnss.reporting.get" | "gnss.reporting.set" }
+    >,
+  ): Promise<boolean> => {
+    const result = decodeClientToolResult(
+      CLIENT_TOOL_IDS[body.tool],
+      (await callTool(body)).result,
+    );
+    if (typeof result.enabled !== "boolean")
+      throw new TypeError("gnss reporting result requires enabled");
+    return result.enabled;
+  };
+
   return {
     client,
     async *sync(timestamp = 0, signal) {
@@ -808,6 +827,16 @@ export function createGizClawControlClient(
       },
       get: () => unwrap("getDevice", getDevice(common)),
       getRuntime: () => unwrap("getDeviceRuntime", getDeviceRuntime(common)),
+      getGnssReporting: () =>
+        callGnssReporting({ tool: "gnss.reporting.get", args: {} }),
+      setGnssReporting: (enabled) => {
+        if (typeof enabled !== "boolean")
+          throw new TypeError("gnss reporting enabled must be a boolean");
+        return callGnssReporting({
+          tool: "gnss.reporting.set",
+          args: { enabled },
+        });
+      },
       getAudioPlayer: async () => ({
         status: decodeClientToolResult(
           CLIENT_TOOL_IDS["audioplayer.get"],

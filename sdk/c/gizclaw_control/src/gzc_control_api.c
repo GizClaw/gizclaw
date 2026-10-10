@@ -1948,6 +1948,44 @@ static int read_tool_value(gzc_control_client_t *client, gzc_control_call_t *cal
   return rc == GZC_OK ? rc : decode_failed(call, rc);
 }
 
+int gzc_control_get_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
+                                          bool *out_enabled) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_enabled == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  *out_enabled = false;
+  gzc_str_t value;
+  rc = read_tool_value(client, call, "gnss.reporting.get", &value);
+  if (rc != GZC_OK)
+    return rc;
+  rc = gzc_control_req_bool(value, "enabled", out_enabled);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
+int gzc_control_set_device_gnss_reporting(gzc_control_client_t *client, gzc_control_call_t *call,
+                                          bool enabled, bool *out_enabled) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_enabled == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  *out_enabled = false;
+  gzc_control_builder_t builder;
+  builder_tool_begin(&builder, client, call, "gnss.reporting.set");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_bool(&writer, "enabled", enabled);
+  gzc_str_t body = builder_body(&builder, &writer);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
+  if (rc != GZC_OK)
+    return rc;
+  gzc_str_t value;
+  rc = decoded_tool_result(call, &value);
+  if (rc == GZC_OK)
+    rc = gzc_control_req_bool(value, "enabled", out_enabled);
+  return rc == GZC_OK ? rc : decode_failed(call, rc);
+}
+
 int gzc_control_get_device_hardware(gzc_control_client_t *client, gzc_control_call_t *call,
                                     gzc_control_hardware_info_t *out) {
   int rc = check_args(client, call);

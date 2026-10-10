@@ -4462,6 +4462,87 @@ test("mhs/v0 write rejects invalid instance IDs before handler", async () => {
   assert.equal(ran, false);
 });
 
+test("GNSS reporting get/set use device values and preserve false", async () => {
+  for (const generic of [false, true]) {
+    let enabled = true;
+    const seen: boolean[] = [];
+    const control: NonNullable<GizClawPeerRPCHandlers["deviceControl"]> = {
+      gnssReportingGet: () => ({ enabled }),
+      gnssReportingSet: (request) => {
+        assert.equal(typeof request.enabled, "boolean");
+        enabled = request.enabled!;
+        seen.push(enabled);
+        return { enabled };
+      },
+    };
+    const handlers: GizClawPeerRPCHandlers = generic
+      ? {
+          tools: {
+            [CLIENT_TOOL_IDS["gnss.reporting.get"]]: control.gnssReportingGet,
+            [CLIENT_TOOL_IDS["gnss.reporting.set"]]: control.gnssReportingSet,
+          },
+        }
+      : { deviceControl: control };
+    const initial = await serveInboundClientRPC(
+      "gnss.reporting.get",
+      {},
+      handlers,
+    );
+    assert.equal(initial.error, undefined);
+    assert.deepEqual(initial.result, { enabled: true });
+    for (const value of [false, false, true]) {
+      const set = await serveInboundClientRPC(
+        "gnss.reporting.set",
+        { enabled: value },
+        handlers,
+      );
+      assert.equal(set.error, undefined);
+      assert.deepEqual(set.result, { enabled: value });
+      const get = await serveInboundClientRPC(
+        "gnss.reporting.get",
+        {},
+        handlers,
+      );
+      assert.equal(get.error, undefined);
+      assert.deepEqual(get.result, { enabled: value });
+    }
+    const invalid = await serveInboundClientRPC(
+      "gnss.reporting.set",
+      {},
+      handlers,
+    );
+    assert.equal(invalid.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+    assert.deepEqual(seen, [false, false, true]);
+    const list = await serveInboundClientRPC(
+      "client.tool.v0.list",
+      {},
+      handlers,
+    );
+    assert.deepEqual(list.result, {
+      tools: [
+        CLIENT_TOOL_IDS["gnss.reporting.get"],
+        CLIENT_TOOL_IDS["gnss.reporting.set"],
+      ],
+    });
+  }
+});
+
+test("GNSS reporting rejects missing providers and empty results", async () => {
+  const missing = await serveInboundClientRPC("gnss.reporting.get", {});
+  assert.equal(missing.error?.code, STATUS_CODE_UNIMPLEMENTED);
+  for (const handlers of [
+    { deviceControl: { gnssReportingGet: () => ({}) } },
+    { tools: { [CLIENT_TOOL_IDS["gnss.reporting.get"]]: () => ({}) } },
+  ]) {
+    const response = await serveInboundClientRPC(
+      "gnss.reporting.get",
+      {},
+      handlers,
+    );
+    assert.equal(response.error?.code, STATUS_CODE_INTERNAL);
+  }
+});
+
 test("inbound run.workspace.set requires a workspace name", async () => {
   const seen: unknown[] = [];
   const handlers = {

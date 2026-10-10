@@ -46,6 +46,11 @@ func runPeerSyncGiztest(t *testing.T, run func(context.Context, string, string) 
 
 func runPeerControlGiztest(t *testing.T, scenario string, steps, cleanup int, run func(context.Context, string, string) ([]byte, error), setup ...func(*gizclaw.Server, *gizcli.Client)) {
 	t.Helper()
+	runPeerControlGiztestWithChannels(t, scenario, steps, cleanup, 8, run, setup...)
+}
+
+func runPeerControlGiztestWithChannels(t *testing.T, scenario string, steps, cleanup, channelsPerSession int, run func(context.Context, string, string) ([]byte, error), setup ...func(*gizclaw.Server, *gizcli.Client)) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
 	defer cancel()
 	cfg := validLayeredConfig(t.TempDir())
@@ -109,7 +114,7 @@ func runPeerControlGiztest(t *testing.T, scenario string, steps, cleanup int, ru
 	if _, err := adminapi.CreateRegistrationToken(ctx, admin, adminhttp.RegistrationTokenUpsert{Id: "peer-sync-token", Token: "local-peer-sync-test-token", RuntimeProfileId: profile.Id}); err != nil {
 		t.Fatal(err)
 	}
-	edgeURL := startPeerSyncGiztestEdge(t, ctx, edgeKey, httpServer.URL, srv.PublicKey())
+	edgeURL := startPeerSyncGiztestEdge(t, ctx, edgeKey, httpServer.URL, srv.PublicKey(), channelsPerSession)
 	t.Setenv("GIZCLAW_TEST_ENDPOINT", edgeURL)
 	t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "local-peer-sync-test-token")
 	for _, configure := range setup {
@@ -153,7 +158,7 @@ func runPeerControlGiztest(t *testing.T, scenario string, steps, cleanup int, ru
 	t.Logf("%s: %d steps and %d cleanup steps passed\n%s", scenario, steps, cleanup, output)
 }
 
-func startPeerSyncGiztestEdge(t *testing.T, ctx context.Context, key *giznet.KeyPair, serverURL string, serverKey giznet.PublicKey) string {
+func startPeerSyncGiztestEdge(t *testing.T, ctx context.Context, key *giznet.KeyPair, serverURL string, serverKey giznet.PublicKey, channelsPerSession int) string {
 	t.Helper()
 	probe, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -164,7 +169,7 @@ func startPeerSyncGiztestEdge(t *testing.T, ctx context.Context, key *giznet.Key
 		t.Fatal(err)
 	}
 	root := t.TempDir()
-	config := fmt.Sprintf("identity:\n  private-key: %s\nwebrtc:\n  listen: %s\n  endpoint: %s\nupstreams:\n  - endpoint: %s\n    public-key: %s\nhttp:\n  listeners:\n    - listen: %s\ngateway:\n  enabled: true\n  max-sessions: 8\n  max-upstreams: 1\n  sessions-per-upstream: 8\n  channels-per-session: 8\n  channels-per-upstream: 32\n  max-pending-handshakes: 8\n  session-buffer-bytes: 1048576\n  idle-timeout: 1m\n  drain-timeout: 1s\n", key.Private.String(), address, address, serverURL, serverKey.String(), address)
+	config := fmt.Sprintf("identity:\n  private-key: %s\nwebrtc:\n  listen: %s\n  endpoint: %s\nupstreams:\n  - endpoint: %s\n    public-key: %s\nhttp:\n  listeners:\n    - listen: %s\ngateway:\n  enabled: true\n  max-sessions: 8\n  max-upstreams: 1\n  sessions-per-upstream: 8\n  channels-per-session: %d\n  channels-per-upstream: %d\n  max-pending-handshakes: 8\n  session-buffer-bytes: 1048576\n  idle-timeout: 1m\n  drain-timeout: 1s\n", key.Private.String(), address, address, serverURL, serverKey.String(), address, channelsPerSession, 4*channelsPerSession)
 	if err := os.WriteFile(filepath.Join(root, "config.yaml"), []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}

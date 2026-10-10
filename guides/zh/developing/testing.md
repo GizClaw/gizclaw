@@ -1579,6 +1579,24 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 
 测试给 Server 配置一个占位 SFU URL，使 Friend 与 Friend Group 能绑定 Room 身份，该地址没有服务监听。Workspace 归 Peer 所有，只检查 Admin 拒绝。`endpoint` 覆盖要求 https，不在此处验证。独立 CI job 与完整 gate 运行相同入口。
 
+### GNSS reporting invoke Giztest
+
+`bash tests/gizclaw-e2e/run_gnss_reporting_tests.sh` 构建 Go、JavaScript、C 与原生 Flutter
+runner，并在临时 SQLite、真实 Server/Edge 与 WebRTC 上执行五个
+`server.device.gnss.reporting.*` 场景。每个 runner 必须执行全部 44 个正常步骤和 6 个 cleanup
+步骤；缺少 runner、跳过步骤或清理失败均失败。普通 Go 测试执行 Go lane。
+
+场景验证 true/false 与重复 set、按 API Key owner 转发到不同设备、返回设备实际提供的值、
+缺少或非法 boolean 在反向 RPC 前拒绝、未实现的过程、设备拒绝与响应缺少 `enabled`。
+`client_rpc` 只模拟设备返回值，真实 SDK 负责编码和传输，真实 Server 执行鉴权与响应校验；
+设备的默认值、持久化与真实定位启停仍由固件拥有。
+
+单独执行 Go lane：
+
+```sh
+go test ./cmd/internal/server -run '^TestGNSSReportingGiztestGo$' -count=1
+```
+
 ### Audioplayer Giztest
 
 `bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。独立 CI job 运行相同入口。

@@ -1,0 +1,23 @@
+// Device-owned GNSS reporting switch. The Server forwards these procedures;
+// it does not choose a default, persist the switch or change telemetry ingestion.
+syntax = "proto3";
+package gizclaw.rpc.v1;
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message ClientGnssReportingGetRequest {
+}
+
+message ClientGnssReportingGetResponse {
+  // Required presence, including an explicit false. Read from the device.
+  optional bool enabled = 1;
+}
+
+message ClientGnssReportingSetRequest {
+  // Required presence. Sets the value explicitly; never toggles it.
+  optional bool enabled = 1;
+}
+
+message ClientGnssReportingSetResponse {
+  // Required presence. The value in effect after the device applied the request.
+  optional bool enabled = 1;
+}

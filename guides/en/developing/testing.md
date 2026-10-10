@@ -1876,6 +1876,27 @@ SQLite, filesystem assets and a script Workflow avoid external model dependencie
 
 The Server gets a placeholder SFU URL so Friend and Friend Group resources can bind their Room identity; nothing listens there. Workspace is Peer-owned and only its Admin rejection is checked. The `endpoint` override is not exercised because it requires https. The dedicated CI job and the full gate run this same entrypoint.
 
+### GNSS reporting invoke Giztest
+
+`bash tests/gizclaw-e2e/run_gnss_reporting_tests.sh` builds the Go, JavaScript, C and native
+Flutter runners and executes five `server.device.gnss.reporting.*` scenarios against temporary
+SQLite state, a real Server/Edge and WebRTC. Every runner must execute all 44 regular steps
+and 6 cleanup steps. Missing runners, skipped steps or failed cleanup fail the lane. The
+ordinary Go tests run the Go lane.
+
+The scenarios cover true/false and repeated set requests, API-key owner routing to separate
+devices, preserving device-provided values, rejecting missing or invalid booleans before
+reverse RPC, unavailable procedures, device rejection and a response without `enabled`.
+`client_rpc` simulates device responses only. Real SDKs encode and transport the calls, and
+the real Server performs authentication and result validation. Firmware owns defaults,
+persistence and actual GNSS reporting behavior.
+
+Run the Go lane alone:
+
+```sh
+go test ./cmd/internal/server -run '^TestGNSSReportingGiztestGo$' -count=1
+```
+
 ### Audioplayer Giztest
 
 `bash tests/gizclaw-e2e/run_audioplayer_tests.sh` starts an isolated real Server and Edge with SQLite runtime storage and no model/provider credentials. It runs the six `server.device.audioplayer.*` scenarios and always cleans up its containers and ephemeral identities; reports remain under the ignored `.testbench` directory. The dedicated CI job runs this same entrypoint.

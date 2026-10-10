@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+_Static_assert(_gizclaw_rpc_v1_ClientTool_MAX < 32,
+               "Giztest tool bitmask requires ClientTool numbers below 32");
+
 /* Implemented in Go by provider.go. */
 extern int gztGoProvider(
     unsigned long long handle,
@@ -35,8 +38,8 @@ struct gzt_session {
   gzc_webrtc_media_vtable_t media;
   gzc_client_t *client;
   unsigned long long provider_handle;
-  struct gzt_tool_context tool_contexts[21];
-  gzc_tool_handler_t tool_handlers[21];
+  struct gzt_tool_context tool_contexts[_gizclaw_rpc_v1_ClientTool_MAX];
+  gzc_tool_handler_t tool_handlers[_gizclaw_rpc_v1_ClientTool_MAX];
 };
 
 static int fail(char *errbuf, unsigned long errbuf_len, const char *message, int rc) {
@@ -165,7 +168,7 @@ int gzt_session_open(
     config.rpc_observer = observer;
     config.rpc_observer_userdata = session;
     config.tool_handlers = session->tool_handlers;
-    for (unsigned int i = 1; i <= 21u; i++) {
+    for (unsigned int i = 1; i <= (unsigned int)_gizclaw_rpc_v1_ClientTool_MAX; i++) {
       if ((tool_mask & (1u << i)) == 0u)
         continue;
       size_t index = config.tool_handler_count++;
@@ -814,6 +817,7 @@ int gzt_control_request(
 
   bool invoke = post && route_is(&route, "/device/tool/v0/invoke", false);
   bool raw_invoke = false;
+  gzc_str_t invoke_body = body;
   gzc_str_t tool = {0};
   if (invoke) {
     gzc_str_t args = {0};
@@ -869,6 +873,17 @@ int gzt_control_request(
     }
     if (rc != GZC_OK && rc != GZC_ERR_HTTP) {
       return fail(errbuf, errbuf_len, "MHS control encode/decode", rc);
+    }
+  } else if (invoke && str_is(tool, "gnss.reporting.get")) {
+    bool enabled = false;
+    rc = gzc_control_get_device_gnss_reporting(&control, &call, &enabled);
+  } else if (invoke && str_is(tool, "gnss.reporting.set")) {
+    bool enabled = false;
+    bool applied = false;
+    if (body_bool(body, "enabled", &enabled)) {
+      rc = gzc_control_set_device_gnss_reporting(&control, &call, enabled, &applied);
+    } else {
+      rc = send_raw_post(&control, &call, base_url, path, invoke_body);
     }
   } else if (invoke && str_is(tool, "audioplayer.get")) {
     rc = gzc_control_get_device_audioplayer(&control, &call, &player);

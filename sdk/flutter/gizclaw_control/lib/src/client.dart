@@ -88,6 +88,25 @@ class GizClawControlClient {
   }
 
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
+  /// Reads the switch from the online device.
+  Future<bool> getDeviceGnssReporting() => _tool(
+    'gnss.reporting.get',
+    _gnssReportingEnabled,
+    operation: 'getDeviceGnssReporting',
+  );
+
+  /// Sets the switch through invoke and returns the device's applied value.
+  Future<bool> setDeviceGnssReporting(bool enabled) => _tool(
+    'gnss.reporting.set',
+    _gnssReportingEnabled,
+    body: {'enabled': enabled},
+    operation: 'setDeviceGnssReporting',
+  );
+
+  static bool _gnssReportingEnabled(Object? json) =>
+      readBool(asJsonObject(json, 'gnss reporting result'), 'enabled');
+
+  /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   Future<AudioPlayerResponse> getAudioPlayer() =>
       _tool('audioplayer.get', _audioPlayerResult, operation: 'getAudioPlayer');
 

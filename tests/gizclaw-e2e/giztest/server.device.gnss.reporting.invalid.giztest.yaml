@@ -1,0 +1,139 @@
+# User Story:
+# As a device API caller,
+# I want to reject missing and nonboolean switch values before calling the device,
+# So that GNSS reporting invoke is verified over the real Server and device SDK transport.
+version: gizclaw.test/v1alpha1
+name: server.device.gnss.reporting.invalid
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: key_peer
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: invalid_0
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: gnss.reporting.set
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: invalid_1
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: null
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: invalid_2
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: "false"
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: invalid_3
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: gnss.reporting.set
+        args:
+          enabled: 0
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: invalid_4
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: gnss.reporting.set
+        args: "false"
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: get_not_called
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: gnss.reporting.get
+      response:
+        enabled: true
+      expect_calls: 0
+  - id: set_not_called
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: gnss.reporting.set
+      response:
+        enabled: true
+      expect_calls: 0
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

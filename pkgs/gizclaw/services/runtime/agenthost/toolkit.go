@@ -170,7 +170,7 @@ func mutatingTool(tool toolcatalog.Tool) bool {
 	}
 	if tool.Source == "client_tool" {
 		switch tool.Binding.ClientTool.Name {
-		case "info.get", "identifiers.get", "device.status.get", "audioplayer.get", "audioplayer.playlist.get", "wifi.scan", "wifi.saved.list":
+		case "info.get", "identifiers.get", "device.status.get", "gnss.reporting.get", "audioplayer.get", "audioplayer.playlist.get", "wifi.scan", "wifi.saved.list":
 			return false
 		default:
 			return true

@@ -1587,6 +1587,60 @@ void main() {
   });
 
   group('device settings, Workspace switch and Tools', () {
+    test(
+      'GNSS reporting invokes get/set and returns the device value',
+      () async {
+        final recorder = Recorder([
+          json(200, {
+            'result': {'enabled': true},
+          }),
+          json(200, {
+            'result': {'enabled': false},
+          }),
+          json(200, {
+            'result': {'enabled': false},
+          }),
+        ]);
+        final client = clientWith(recorder);
+        expect(await client.getDeviceGnssReporting(), isTrue);
+        expect(await client.setDeviceGnssReporting(false), isFalse);
+        expect(await client.setDeviceGnssReporting(true), isFalse);
+        expect(recorder.requests.map((r) => jsonDecode(r.body)).toList(), [
+          {'tool': 'gnss.reporting.get', 'args': {}},
+          {
+            'tool': 'gnss.reporting.set',
+            'args': {'enabled': false},
+          },
+          {
+            'tool': 'gnss.reporting.set',
+            'args': {'enabled': true},
+          },
+        ]);
+        for (final request in recorder.requests) {
+          expect(request.method, 'POST');
+          expect(request.url.path, '/gizclaw/v1/device/tool/v0/invoke');
+          expect(request.headers['authorization'], 'Bearer $apiKey');
+        }
+      },
+    );
+
+    test('GNSS reporting rejects absent or nonboolean device values', () async {
+      for (final result in [
+        <String, Object?>{},
+        {'enabled': null},
+        {'enabled': 0},
+        {'enabled': 'false'},
+      ]) {
+        final client = clientWith(
+          Recorder([
+            json(200, {'result': result}),
+          ]),
+        );
+        final exception = await failure(client.getDeviceGnssReporting());
+        expect(exception.kind, GizClawControlErrorKind.malformedResponse);
+      }
+    });
+
     test('MHS HWD round trip preserves zero and false', () async {
       final recorder = Recorder([
         json(200, {

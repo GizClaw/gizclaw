@@ -575,10 +575,14 @@ export type ClientToolV0InvokeRequest = ({
     tool: 'lua.app.install';
 } & ClientToolLuaAppInstallInvoke) | ({
     tool: 'lua.app.run';
-} & ClientToolLuaAppRunInvoke);
+} & ClientToolLuaAppRunInvoke) | ({
+    tool: 'gnss.reporting.get';
+} & ClientToolGnssReportingGetInvoke) | ({
+    tool: 'gnss.reporting.set';
+} & ClientToolGnssReportingSetInvoke);
 
 export type ClientToolV0ListResponse = {
-    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run'>;
+    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run' | 'gnss.reporting.get' | 'gnss.reporting.set'>;
 };
 
 export type ClientToolV0InvokeResponse = {
@@ -683,6 +687,29 @@ export type ClientToolLuaAppInstallInvoke = {
 export type ClientToolLuaAppRunInvoke = {
     tool: 'lua.app.run';
     args: ClientLuaAppRunArgs;
+};
+
+/**
+ * Read the device GNSS reporting switch. Returns result.enabled as a boolean. The Server only forwards the invoke; it does not store the switch or alter telemetry ingestion.
+ */
+export type ClientToolGnssReportingGetInvoke = {
+    tool: 'gnss.reporting.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+/**
+ * Set the device GNSS reporting switch and return the applied value. Returns result.enabled as a boolean. The Server only forwards the invoke; it does not store the switch or alter telemetry ingestion.
+ */
+export type ClientToolGnssReportingSetInvoke = {
+    tool: 'gnss.reporting.set';
+    args: {
+        /**
+         * Explicit desired GNSS reporting switch value. The device owns its behavior and persistence.
+         */
+        enabled: boolean;
+    };
 };
 
 export type AudioPlayerItem = {

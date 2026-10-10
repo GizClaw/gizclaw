@@ -28,7 +28,7 @@ sequenceDiagram
 
 ## tool/v0 操作
 
-24 个预定义操作是 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set`、`social.ping` 与三个 `lua.app.*`。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
+26 个预定义操作是 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set`、`social.ping`、三个 `lua.app.*` 与两个 `gnss.reporting.*`。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
 
 - `device.status.get` 返回实时 `PeerStatus` 并刷新 Server 快照。超出 MHS manifest 的设备标识与遥测字段仍在该状态中。
 - `sound.play` 接受最多 32 UTF-8 字节的设备自定义声音名和可选非负时长。`device.find` 用内置找寻提示音响铃，可选时长。`device.reboot` 先应答再重启。`device.factory_reset` 先应答再清除本机状态；`keep_network` 可保留 Wi-Fi 和蜂窝配置。设备若同时删除自身 Peer，相关 API Key 也会失效。
@@ -36,6 +36,35 @@ sequenceDiagram
 - `firmware.update` 接受可选 channel 和 SHA-256 摘要，先应答再执行 OTA；摘要与设备解析出的包不符时拒绝。设备通过 `PeerStatus.firmware_sha256` 上报当前固件摘要。
 - `run.workspace.set` 接受已解析的 `workspace_name` 和可选 `kickoff`。Server 在调用设备前把 `workflow_name` 目标解析为一个 Workspace。设备先应答，再通过 `server.run.workspace.reload-with-options` 切换；应答不代表 Workspace 已就绪。
 - `social.ping` 通知设备好友呼叫或群组集结，携带发送方 public key 和可选昵称、群组名。设备应及时应答；Server 把超时或缺少 handler 计作未送达，不重试。
+
+## GNSS 上报开关
+
+`gnss.reporting.get`（25）与 `gnss.reporting.set`（26）通过现有的 `client.tool.v0.invoke`
+读写设备自己的定位上报开关。HTTP 调用同样使用 `POST /gizclaw/v1/device/tool/v0/invoke`：
+
+```json
+{"tool":"gnss.reporting.get","args":{}}
+```
+
+```json
+{"tool":"gnss.reporting.set","args":{"enabled":false}}
+```
+
+两个调用均返回 `{"result":{"enabled":false}}` 这样的结果，其中 `enabled` 是设备返回的
+当前值或设置后的实际生效值。set 必须显式传入 boolean，`false` 是有效值；省略、null、数字
+或字符串均非法。Protobuf request 与两个 response 使用 optional bool 保存 presence，
+服务端拒绝缺少 `enabled` 的 set 请求和设备响应。重复 set 设置相同值，不执行 toggle。
+
+设备 handler 拥有读取、应用、默认值、持久化与实际停发行为。Server 只校验和转发，
+不保存该开关，不新增 `PeerStatus` 字段，也不改变 GNSS telemetry 的接收或存储规则。
+Go 的 `DeviceControlHandlers.GNSSReportingGet/Set`、JavaScript/Flutter 的
+`gnssReportingGet/Set` 或各语言的通用 ClientTool handler 提供实现；C 使用已有
+`gzc_tool_handler_t` 注册对应枚举并编码 `ClientGnssReporting*` message。
+控制端 JavaScript 使用 `device.getGnssReporting()` / `device.setGnssReporting(enabled)`，
+Dart 使用 `getDeviceGnssReporting()` / `setDeviceGnssReporting(enabled)`，
+C 使用 `gzc_control_get_device_gnss_reporting` / `gzc_control_set_device_gnss_reporting`，
+均返回设备给出的 boolean。
+只公布实际安装的 handler；未安装时返回 `UNIMPLEMENTED`，HTTP 为 `501 DEVICE_UNSUPPORTED`。
 
 ## Lua 应用
 
