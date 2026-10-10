@@ -65,8 +65,8 @@ func main() {
 	case "modernize":
 		flags := flag.NewFlagSet("modernize", flag.ExitOnError)
 		binary := flags.String("binary", "modernize", "modernize executable")
-		exemptions := flags.String("exemptions", "tools/quality/modernize.exemptions", "repository-relative generated/third-party diagnostic exemptions")
-		writeExemptions := flags.Bool("write-exemptions", false, "replace generated/third-party diagnostic exemptions")
+		exemptions := flags.String("exemptions", "tools/quality/modernize.exemptions", "repository-relative generated Go diagnostic exemptions")
+		writeExemptions := flags.Bool("write-exemptions", false, "replace generated Go diagnostic exemptions")
 		_ = flags.Parse(os.Args[2:])
 		if err := runModernize(root, *binary, *exemptions, *writeExemptions); err != nil {
 			fatal("modernize: %v", err)
@@ -203,8 +203,8 @@ func modernizeDiagnosticsFromOutput(
 			continue
 		}
 		normalized := rel + strings.TrimPrefix(text, path)
-		switch classifySource(root, rel, tracked[rel]) {
-		case provenanceGenerated, provenanceThirdParty:
+		switch classifyModernizeSource(root, rel, tracked[rel]) {
+		case provenanceGenerated:
 			exemptible = append(exemptible, normalized)
 		case provenanceExcluded:
 			continue
@@ -270,6 +270,9 @@ func checkModernizeExemptions(
 	}
 	actual := serializedDiagnostics(diagnostics)
 	if writeExemptions {
+		if err := validateModernizeExemptions(root, actual, tracked); err != nil {
+			return err
+		}
 		return writeFileAtomically(exemptionsPath, actual)
 	}
 
@@ -309,9 +312,8 @@ func validateModernizeExemptions(root string, contents []byte, tracked map[strin
 		if external || rel != path || !tracked[rel] {
 			return fmt.Errorf("modernize exemption line %d does not reference a tracked repository file", lineNumber)
 		}
-		provenance := classifySource(root, rel, true)
-		if provenance != provenanceGenerated && provenance != provenanceThirdParty {
-			return fmt.Errorf("modernize exemption line %d references handwritten Go", lineNumber)
+		if classifyModernizeSource(root, rel, true) != provenanceGenerated {
+			return fmt.Errorf("modernize exemption line %d references non-generated Go", lineNumber)
 		}
 		if previous != "" && line <= previous {
 			return fmt.Errorf("modernize exemption line %d is not sorted and unique", lineNumber)
@@ -534,6 +536,26 @@ func isGenerated(root, file string) bool {
 	return classifySource(root, file, true) != provenanceHandwritten
 }
 
+// Modernize exemptions require a tracked, regular Go source with a standard
+// generated preamble. A directory or general quality exclusion is not proof
+// that its contents were generated.
+func classifyModernizeSource(root, file string, tracked bool) sourceProvenance {
+	if !tracked {
+		if classifySource(root, file, false) == provenanceExcluded {
+			return provenanceExcluded
+		}
+		return provenanceHandwritten
+	}
+	info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(file)))
+	if err != nil || !info.Mode().IsRegular() || filepath.Ext(file) != ".go" {
+		return provenanceHandwritten
+	}
+	if hasGeneratedGoHeader(root, file) {
+		return provenanceGenerated
+	}
+	return provenanceHandwritten
+}
+
 func classifySource(root, file string, tracked bool) sourceProvenance {
 	file = filepath.ToSlash(filepath.Clean(file))
 	info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(file)))
@@ -565,9 +587,16 @@ func classifySource(root, file string, tracked bool) sourceProvenance {
 	if filepath.Ext(file) != ".go" {
 		return provenanceHandwritten
 	}
+	if hasGeneratedGoHeader(root, file) {
+		return provenanceGenerated
+	}
+	return provenanceHandwritten
+}
+
+func hasGeneratedGoHeader(root, file string) bool {
 	contents, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(file)))
 	if err != nil {
-		return provenanceHandwritten
+		return false
 	}
 	parsed, err := parser.ParseFile(
 		token.NewFileSet(),
@@ -576,16 +605,16 @@ func classifySource(root, file string, tracked bool) sourceProvenance {
 		parser.PackageClauseOnly|parser.ParseComments,
 	)
 	if err != nil {
-		return provenanceHandwritten
+		return false
 	}
 	for _, group := range parsed.Comments {
 		for _, comment := range group.List {
-			if generatedGoHeader.MatchString(comment.Text) {
-				return provenanceGenerated
+			if comment.Pos() < parsed.Package && generatedGoHeader.MatchString(comment.Text) {
+				return true
 			}
 		}
 	}
-	return provenanceHandwritten
+	return false
 }
 
 func trackedFiles(root string) ([]string, error) {
