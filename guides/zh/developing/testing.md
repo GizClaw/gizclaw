@@ -1784,7 +1784,7 @@ G05 直接通过 owner API key 顺序播放索引 0→1→0，逐次核对设备
 
 ## Lua 应用 Giztest simulator
 
-Go Giztest 的 `client_rpc.response.lua_apps` 安装有状态的设备 simulator，三个操作共用同一份状态。配置字段为 `capacity_bytes`（0–64 MiB 的包文件及更新暂存预算）、`installed`（预置的已安装应用目录）和可选 `packages`（HTTPS URL 到 base64 编码的真实 `.lua-app.tar.zlib` archive）。预置目录不模拟内置固件文件；容量预算由本次动态安装的包文件消耗。未配置 URL fixture 时，simulator 使用 HTTPS GET，跟随至多 10 次同样受校验的 HTTPS redirect，并传播请求取消。
+Go Giztest 的 `client_rpc.response.lua_apps` 安装有状态的设备 simulator，三个操作共用同一份状态。配置字段为 `capacity_bytes`（0–64 MiB 的包文件及更新暂存预算）、`installed`（预置的已安装应用目录）和可选 `packages`（HTTP(S) URL 到 base64 编码的真实 `.lua-app.tar.zlib` archive）。预置目录不模拟内置固件文件；容量预算由本次动态安装的包文件消耗。未配置 URL fixture 时，simulator 使用 HTTP(S) GET，跟随至多 10 次同样受校验的 HTTP(S) redirect，并传播请求取消。两种合法 data URL 按块解码后进入同一个包校验器，编码后含前缀最多 256 KiB。
 
 Simulator 分块解压 zlib，解析 USTAR，核对 manifest、文件大小和 SHA-256，拒绝路径穿越、链接、重复文件、截断和尾随数据。容量不足时返回 `UNIMPLEMENTED`，旧版本与目录保持不变。安装成功后的 `list` 查询读取真实 simulator 状态；`run` 校验应用存在并记录实际字符串参数，不执行 Lua VM。请求记录仅在 `/requests` 断言需要时开启，沿用普通 Giztest evidence contract。
 

@@ -129,6 +129,29 @@ func TestLuaAppSimulatorDownloadInstallListRun(t *testing.T) {
 	}
 }
 
+func TestLuaAppSimulatorHTTPAndDataURLs(t *testing.T) {
+	data := luaArchive(t, "1.0.0", map[string]string{"tetris.lua": "return args.mode"}, false)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write(data)
+	}))
+	defer server.Close()
+	sum := sha256.Sum256(data)
+	for _, source := range []string{
+		server.URL,
+		"data:application/zlib;base64," + base64.StdEncoding.EncodeToString(data),
+		"data:application/octet-stream;base64," + base64.StdEncoding.EncodeToString(data),
+	} {
+		fixture := luaFixture(t, 4096, nil)
+		result, err := fixture.invoke(t.Context(), &rpcpb.ClientLuaAppInstallRequest{Url: source, Sha256: new(hex.EncodeToString(sum[:]))})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result.(*rpcpb.ClientLuaAppInstallResponse).App.AppId != "tetris" || string(fixture.files["tetris"]["tetris.lua"]) != "return args.mode" {
+			t.Fatal("source did not reach the existing package validator")
+		}
+	}
+}
+
 func TestLuaAppSimulatorFailuresPreserveInstallation(t *testing.T) {
 	good := luaArchive(t, "1.0.0", map[string]string{"tetris.lua": "return 1"}, false)
 	badChecksum := luaArchive(t, "2.0.0", map[string]string{"tetris.lua": "return 2"}, true)
