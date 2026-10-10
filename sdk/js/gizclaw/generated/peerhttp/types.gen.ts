@@ -644,9 +644,9 @@ export type SyncEvent = ({
  */
 export type ClientLuaAppInstallArgs = {
     /**
-     * HTTPS URL of a complete GizOS .lua-app.tar.zlib package, without credentials or fragment. The device downloads and validates it; the Server never fetches it.
+     * HTTP(S) URL, or canonical Base64 data URL containing the complete zlib-wrapped Lua app archive.
      */
-    url: string;
+    url: string | string;
     /**
      * Optional expected SHA-256 of the compressed archive.
      */
@@ -710,6 +710,17 @@ export type ClientToolGnssReportingSetInvoke = {
          */
         enabled: boolean;
     };
+};
+
+export type LuaAppInstallResult = {
+    app: LuaAppInfo;
+};
+
+export type LuaAppInfo = {
+    app_id: string;
+    version: string;
+    display_name?: string;
+    description?: string;
 };
 
 export type AudioPlayerItem = {
@@ -3907,3 +3918,73 @@ export type SyncPeerResponses = {
 };
 
 export type SyncPeerResponse = SyncPeerResponses[keyof SyncPeerResponses];
+
+export type InstallLuaAppData = {
+    body: Blob | File;
+    path?: never;
+    query: {
+        /**
+         * Compressed archive bytes; must equal body length. Chunked HTTP is supported.
+         */
+        content_length: number;
+        /**
+         * SHA-256 of the compressed archive.
+         */
+        sha256: string;
+    };
+    url: '/gizclaw/v1/device/lua-app/install';
+};
+
+export type InstallLuaAppErrors = {
+    /**
+     * Invalid request.
+     */
+    400: ErrorResponse;
+    /**
+     * Missing, invalid, or revoked API key.
+     */
+    401: ErrorResponse;
+    /**
+     * The API key does not authorize this operation.
+     */
+    403: ErrorResponse;
+    /**
+     * The requested device resource was not found.
+     */
+    404: ErrorResponse;
+    /**
+     * The device has no active connection, or is rebooting and has not reconnected.
+     */
+    409: ErrorResponse;
+    /**
+     * LUA_APP_PACKAGE_TOO_LARGE: compressed archive exceeds 512 KiB. Install larger archives with the lua.app.install HTTP(S) URL download tool.
+     */
+    413: ErrorResponse;
+    /**
+     * The API key operation failed.
+     */
+    500: ErrorResponse;
+    /**
+     * The device does not implement this control method.
+     */
+    501: ErrorResponse;
+    /**
+     * The device answered with an unexpected RPC error.
+     */
+    502: ErrorResponse;
+    /**
+     * The device did not answer within the control timeout.
+     */
+    504: ErrorResponse;
+};
+
+export type InstallLuaAppError = InstallLuaAppErrors[keyof InstallLuaAppErrors];
+
+export type InstallLuaAppResponses = {
+    /**
+     * Atomically installed application
+     */
+    200: LuaAppInstallResult;
+};
+
+export type InstallLuaAppResponse = InstallLuaAppResponses[keyof InstallLuaAppResponses];

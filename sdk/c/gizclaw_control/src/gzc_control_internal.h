@@ -49,6 +49,7 @@ typedef struct {
   gzc_http_method_t method;
   gzc_str_t url;
   gzc_str_t body;
+  bool binary;
 } gzc_control_request_t;
 
 /*

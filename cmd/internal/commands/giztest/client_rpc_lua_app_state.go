@@ -28,7 +28,8 @@ const luaFixtureMaxBytes = 64 << 20
 // luaAppFixture is a device protocol simulator. Package files occupy its
 // bounded in-memory filesystem; run accepts and records a launch without a Lua
 // VM. URL fixtures contain real base64-encoded .lua-app.tar.zlib archives. URLs
-// not in that explicit table are fetched over HTTPS with the request context.
+// not in that explicit table are decoded from data URLs or fetched over HTTP(S)
+// with the request context.
 type luaAppFixture struct {
 	operation chan struct{}
 	capacity  int64
@@ -124,6 +125,12 @@ func (f *luaAppFixture) invoke(ctx context.Context, message proto.Message) (prot
 }
 
 func (f *luaAppFixture) download(ctx context.Context, url string) (io.ReadCloser, error) {
+	for _, prefix := range []string{"data:application/zlib;base64,", "data:application/octet-stream;base64,"} {
+		if encoded, ok := strings.CutPrefix(url, prefix); ok {
+			// invoke already checked the canonical encoding and 256 KiB limit.
+			return io.NopCloser(base64.NewDecoder(base64.StdEncoding.Strict(), strings.NewReader(encoded))), nil
+		}
+	}
 	if encoded, ok := f.packages[url]; ok {
 		// Decode incrementally too: this fixture does not require another full
 		// compressed-package buffer before installation can start.

@@ -33,6 +33,7 @@ typedef enum _gizclaw_rpc_v1_StatusCode {
 
 typedef enum _gizclaw_rpc_v1_RpcMethod {
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED = 0,
+    gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL = 139,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING = 1,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_SPEED_TEST_RUN = 2,
     gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_INFO_GET = 5,
@@ -190,8 +191,8 @@ extern "C" {
 #define _gizclaw_rpc_v1_StatusCode_ARRAYSIZE ((gizclaw_rpc_v1_StatusCode)(gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNAUTHENTICATED+1))
 
 #define _gizclaw_rpc_v1_RpcMethod_MIN gizclaw_rpc_v1_RpcMethod_RPC_METHOD_UNSPECIFIED
-#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_METADATA_GET
-#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_FIRMWARE_METADATA_GET+1))
+#define _gizclaw_rpc_v1_RpcMethod_MAX gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL
+#define _gizclaw_rpc_v1_RpcMethod_ARRAYSIZE ((gizclaw_rpc_v1_RpcMethod)(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL+1))
 
 
 

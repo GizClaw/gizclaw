@@ -122,6 +122,21 @@ final $typed_data.Uint8List clientLuaAppInstallResponseDescriptor =
         'ChtDbGllbnRMdWFBcHBJbnN0YWxsUmVzcG9uc2USLAoDYXBwGAEgASgLMhouZ2l6Y2xhdy5ycG'
         'MudjEuTHVhQXBwSW5mb1IDYXBw');
 
+@$core.Deprecated('Use clientLuaAppInstallStreamRequestDescriptor instead')
+const ClientLuaAppInstallStreamRequest$json = {
+  '1': 'ClientLuaAppInstallStreamRequest',
+  '2': [
+    {'1': 'content_length', '3': 1, '4': 1, '5': 13, '10': 'contentLength'},
+    {'1': 'sha256', '3': 2, '4': 1, '5': 9, '10': 'sha256'},
+  ],
+};
+
+/// Descriptor for `ClientLuaAppInstallStreamRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientLuaAppInstallStreamRequestDescriptor =
+    $convert.base64Decode(
+        'CiBDbGllbnRMdWFBcHBJbnN0YWxsU3RyZWFtUmVxdWVzdBIlCg5jb250ZW50X2xlbmd0aBgBIA'
+        'EoDVINY29udGVudExlbmd0aBIWCgZzaGEyNTYYAiABKAlSBnNoYTI1Ng==');
+
 @$core.Deprecated('Use clientLuaAppRunRequestDescriptor instead')
 const ClientLuaAppRunRequest$json = {
   '1': 'ClientLuaAppRunRequest',

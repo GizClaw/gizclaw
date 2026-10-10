@@ -21,6 +21,9 @@ var (
 // DeviceControlHandlers installs MHS HWD handlers and predefined tool/v0 procedures. A nil handler answers
 // METHOD_NOT_FOUND, which the Server maps to 501 DEVICE_UNSUPPORTED.
 type DeviceControlHandlers struct {
+	// InstallLuaApp begins a streaming installation. The returned owner receives
+	// borrowed chunks, and must validate the package before Finish publishes it.
+	InstallLuaApp func(context.Context, *rpcpb.ClientLuaAppInstallStreamRequest) (LuaAppInstallSession, error)
 	// MhsCapabilities advertises only physically implemented instances and write
 	// fields. A nil callback leaves support unknown for runtime Tool discovery.
 	MhsCapabilities func(context.Context) ([]*rpcpb.MhsV0InstanceCapability, error)

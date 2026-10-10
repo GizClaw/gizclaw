@@ -60,7 +60,7 @@
       }
     },
     {
-      "id": "http_url",
+      "id": "unsupported_scheme",
       "client": "peer",
       "http": {
         "method": "POST",
@@ -71,7 +71,7 @@
         "body": {
           "tool": "lua.app.install",
           "args": {
-            "url": "http://apps.example.test/app"
+            "url": "ftp://apps.example.test/app"
           }
         },
         "status": 400

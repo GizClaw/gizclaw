@@ -34,7 +34,12 @@ typedef struct _gizclaw_rpc_v1_ClientLuaAppListResponse {
  or an unavailable installer returns UNIMPLEMENTED (HTTP DEVICE_UNSUPPORTED).
  No automatic retry. The Server does not download or unpack the URL. */
 typedef struct _gizclaw_rpc_v1_ClientLuaAppInstallRequest {
-    char url[1025]; /* HTTPS, no credentials or fragment, 1..1024 UTF-8 bytes. */
+    /* HTTP(S): 1..1024 UTF-8 bytes, no credentials or fragment.
+ Inline zlib package: data:application/zlib;base64,<base64> or
+ data:application/octet-stream;base64,<base64>; at most 262144 ASCII
+ bytes including the prefix. Strict canonical Base64, no whitespace.
+ Device decodes blocks directly into its bounded inflater. */
+    pb_callback_t url;
     bool has_sha256;
     char sha256[65]; /* Expected compressed archive SHA-256, 64 hex digits. */
 } gizclaw_rpc_v1_ClientLuaAppInstallRequest;
@@ -43,6 +48,19 @@ typedef struct _gizclaw_rpc_v1_ClientLuaAppInstallResponse {
     bool has_app;
     gizclaw_rpc_v1_LuaAppInfo app;
 } gizclaw_rpc_v1_ClientLuaAppInstallResponse;
+
+/* One ordered stream: small RpcRequest metadata, Binary body frames, request
+ EOS, then final ClientLuaAppInstallResponse and response EOS. No replay.
+ The device uses the URL tool's installer. Validate compressed length/SHA-256,
+ manifest, every file, two tar zero blocks and zlib EOS before atomic publish.
+ Failure/cancel/timeout preserves the previous application and user data. */
+typedef struct _gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest {
+    /* Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+ must use the URL install tool. Devices
+ enforce their own smaller storage/inflation limits. Total deadline 120s. */
+    uint32_t content_length;
+    char sha256[65]; /* Required compressed SHA-256, 64 hex digits. */
+} gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest;
 
 /* Select an app_id returned by lua.app.list. Parameters map directly to GizOS
  h2_lua_arg_t and the Lua args table: both keys and values are strings.
@@ -73,16 +91,18 @@ extern "C" {
 #define gizclaw_rpc_v1_LuaAppInfo_init_default   {"", "", false, "", false, ""}
 #define gizclaw_rpc_v1_ClientLuaAppListRequest_init_default {0}
 #define gizclaw_rpc_v1_ClientLuaAppListResponse_init_default {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_default {"", false, ""}
+#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_default {{{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_init_default {false, gizclaw_rpc_v1_LuaAppInfo_init_default}
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_init_default {0, ""}
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_init_default {"", {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_init_default {"", ""}
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_init_default {0}
 #define gizclaw_rpc_v1_LuaAppInfo_init_zero      {"", "", false, "", false, ""}
 #define gizclaw_rpc_v1_ClientLuaAppListRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientLuaAppListResponse_init_zero {{{NULL}, NULL}}
-#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_zero {"", false, ""}
+#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_zero {{{NULL}, NULL}, false, ""}
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_init_zero {false, gizclaw_rpc_v1_LuaAppInfo_init_zero}
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_init_zero {0, ""}
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_init_zero {"", {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_init_zero {"", ""}
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_init_zero {0}
@@ -96,6 +116,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientLuaAppInstallRequest_url_tag 1
 #define gizclaw_rpc_v1_ClientLuaAppInstallRequest_sha256_tag 2
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_app_tag 1
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_content_length_tag 1
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_sha256_tag 2
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_app_id_tag 1
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_params_tag 2
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_key_tag 1
@@ -122,9 +144,9 @@ X(a, CALLBACK, REPEATED, MESSAGE,  apps,              1)
 #define gizclaw_rpc_v1_ClientLuaAppListResponse_apps_MSGTYPE gizclaw_rpc_v1_LuaAppInfo
 
 #define gizclaw_rpc_v1_ClientLuaAppInstallRequest_FIELDLIST(X, a) \
-X(a, STATIC,   SINGULAR, STRING,   url,               1) \
+X(a, CALLBACK, SINGULAR, STRING,   url,               1) \
 X(a, STATIC,   OPTIONAL, STRING,   sha256,            2)
-#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ClientLuaAppInstallRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_FIELDLIST(X, a) \
@@ -132,6 +154,12 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  app,               1)
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_app_MSGTYPE gizclaw_rpc_v1_LuaAppInfo
+
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, UINT32,   content_length,    1) \
+X(a, STATIC,   SINGULAR, STRING,   sha256,            2)
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_DEFAULT NULL
 
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_FIELDLIST(X, a) \
 X(a, STATIC,   SINGULAR, STRING,   app_id,            1) \
@@ -156,6 +184,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppListResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppInstallRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppInstallResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunResponse_msg;
@@ -166,16 +195,18 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunResponse_msg;
 #define gizclaw_rpc_v1_ClientLuaAppListResponse_fields &gizclaw_rpc_v1_ClientLuaAppListResponse_msg
 #define gizclaw_rpc_v1_ClientLuaAppInstallRequest_fields &gizclaw_rpc_v1_ClientLuaAppInstallRequest_msg
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_fields &gizclaw_rpc_v1_ClientLuaAppInstallResponse_msg
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_fields &gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_msg
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_fields &gizclaw_rpc_v1_ClientLuaAppRunRequest_msg
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_fields &gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_msg
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_fields &gizclaw_rpc_v1_ClientLuaAppRunResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ClientLuaAppListResponse_size depends on runtime parameters */
+/* gizclaw_rpc_v1_ClientLuaAppInstallRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientLuaAppRunRequest_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_LUA_APP_PB_H_MAX_SIZE gizclaw_rpc_v1_ClientLuaAppInstallResponse_size
-#define gizclaw_rpc_v1_ClientLuaAppInstallRequest_size 1093
 #define gizclaw_rpc_v1_ClientLuaAppInstallResponse_size 1228
+#define gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_size 72
 #define gizclaw_rpc_v1_ClientLuaAppListRequest_size 0
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_size 1093
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_size 0

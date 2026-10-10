@@ -3315,6 +3315,113 @@
           }
         }
       }
+    },
+    "/gizclaw/v1/device/lua-app/install": {
+      "post": {
+        "operationId": "installLuaApp",
+        "summary": "Stream a Lua application package to the API key owner device",
+        "description": "Single request; no replay. Forward bounded Binary frames to client.lua.app.install. Success means device installation and atomic publication completed. The device owns format-1 lua-app manifest, tar, zlib and file validation. Failures preserve the old application and user data. Maximum 512 KiB and 120 seconds. Larger compressed archives must use the lua.app.install HTTP(S) URL download tool.",
+        "tags": [
+          "DeviceControl"
+        ],
+        "parameters": [
+          {
+            "name": "content_length",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "format": "int64",
+              "minimum": 1,
+              "maximum": 524288
+            },
+            "description": "Compressed archive bytes; must equal body length. Chunked HTTP is supported."
+          },
+          {
+            "name": "sha256",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-fA-F0-9]{64}$"
+            },
+            "description": "SHA-256 of the compressed archive."
+          }
+        ],
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary",
+                "maxLength": 524288
+              }
+            }
+          }
+        },
+        "responses": {
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "409": {
+            "$ref": "#/components/responses/DeviceOffline"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/DeviceUnsupported"
+          },
+          "502": {
+            "$ref": "#/components/responses/DeviceError"
+          },
+          "504": {
+            "$ref": "#/components/responses/DeviceTimeout"
+          },
+          "404": {
+            "description": "The requested device resource was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Atomically installed application",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LuaAppInstallResult"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "LUA_APP_PACKAGE_TOO_LARGE: compressed archive exceeds 512 KiB. Install larger archives with the lua.app.install HTTP(S) URL download tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5204,11 +5311,19 @@
         "properties": {
           "url": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 1024,
-            "format": "uri",
-            "pattern": "^https://",
-            "description": "HTTPS URL of a complete GizOS .lua-app.tar.zlib package, without credentials or fragment. The device downloads and validates it; the Server never fetches it."
+            "description": "HTTP(S) URL, or canonical Base64 data URL containing the complete zlib-wrapped Lua app archive.",
+            "oneOf": [
+              {
+                "maxLength": 1024,
+                "pattern": "^https?://",
+                "type": "string"
+              },
+              {
+                "maxLength": 262144,
+                "pattern": "^data:application/(zlib|octet-stream);base64,[A-Za-z0-9+/]+={0,2}$",
+                "type": "string"
+              }
+            ]
           },
           "sha256": {
             "type": "string",
@@ -5358,6 +5473,42 @@
           "tool",
           "args"
         ]
+      },
+      "LuaAppInstallResult": {
+        "type": "object",
+        "required": [
+          "app"
+        ],
+        "properties": {
+          "app": {
+            "$ref": "#/components/schemas/LuaAppInfo"
+          }
+        }
+      },
+      "LuaAppInfo": {
+        "type": "object",
+        "required": [
+          "app_id",
+          "version"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "pattern": "^[a-z0-9_-][a-z0-9_.-]{0,31}$"
+          },
+          "version": {
+            "type": "string",
+            "maxLength": 31
+          },
+          "display_name": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 1024
+          }
+        }
       }
     }
   }

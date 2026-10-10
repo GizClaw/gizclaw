@@ -15,10 +15,13 @@ PB_BIND(gizclaw_rpc_v1_ClientLuaAppListRequest, gizclaw_rpc_v1_ClientLuaAppListR
 PB_BIND(gizclaw_rpc_v1_ClientLuaAppListResponse, gizclaw_rpc_v1_ClientLuaAppListResponse, AUTO)
 
 
-PB_BIND(gizclaw_rpc_v1_ClientLuaAppInstallRequest, gizclaw_rpc_v1_ClientLuaAppInstallRequest, 2)
+PB_BIND(gizclaw_rpc_v1_ClientLuaAppInstallRequest, gizclaw_rpc_v1_ClientLuaAppInstallRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientLuaAppInstallResponse, gizclaw_rpc_v1_ClientLuaAppInstallResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest, gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest, AUTO)
 
 
 PB_BIND(gizclaw_rpc_v1_ClientLuaAppRunRequest, gizclaw_rpc_v1_ClientLuaAppRunRequest, AUTO)

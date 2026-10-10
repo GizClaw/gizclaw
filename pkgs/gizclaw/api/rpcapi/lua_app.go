@@ -2,6 +2,21 @@ package rpcapi
 
 import rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 
+// RPCMethodClientLuaAppInstall transfers one archive in Binary body frames.
+const RPCMethodClientLuaAppInstall RPCMethod = "client.lua.app.install"
+
+// AsClientLuaAppInstallStreamRequest decodes the upload metadata.
+func (t RPCPayload) AsClientLuaAppInstallStreamRequest() (*rpcpb.ClientLuaAppInstallStreamRequest, error) {
+	body := new(rpcpb.ClientLuaAppInstallStreamRequest)
+	err := t.decode("ClientLuaAppInstallStreamRequest", body)
+	return body, err
+}
+
+// FromClientLuaAppInstallStreamRequest encodes the upload metadata.
+func (t *RPCPayload) FromClientLuaAppInstallStreamRequest(v *rpcpb.ClientLuaAppInstallStreamRequest) error {
+	return t.encode("ClientLuaAppInstallStreamRequest", v)
+}
+
 // AsClientLuaAppListRequest decodes the protobuf payload.
 func (t RPCPayload) AsClientLuaAppListRequest() (*rpcpb.ClientLuaAppListRequest, error) {
 	body := new(rpcpb.ClientLuaAppListRequest)

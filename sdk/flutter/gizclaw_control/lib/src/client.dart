@@ -87,6 +87,82 @@ class GizClawControlClient {
     }
   }
 
+  /// Streams a .lua-app.tar.zlib package to the bound device. The result is
+  /// returned only after installation. Cancellation/timeout aborts; never retries.
+  Future<JsonObject> installLuaApp(
+    Stream<List<int>> archive, {
+    required int contentLength,
+    required String sha256,
+    Future<void>? cancel,
+    Duration timeout = const Duration(seconds: 120),
+  }) async {
+    if (_closed) throw StateError('client is closed');
+    if (contentLength > 512 * 1024) {
+      throw ArgumentError(
+        'compressed archive exceeds 512 KiB; install via an HTTP(S) URL',
+      );
+    }
+    if (contentLength < 1 || !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(sha256)) {
+      throw ArgumentError('invalid Lua app upload metadata');
+    }
+    final aborted = Completer<void>();
+    void abort() {
+      if (!aborted.isCompleted) aborted.complete();
+    }
+
+    if (cancel != null) {
+      unawaited(cancel.then((_) => abort(), onError: (Object _) => abort()));
+    }
+    final limit = timeout > const Duration(seconds: 120)
+        ? const Duration(seconds: 120)
+        : timeout;
+    final timer = Timer(limit, abort);
+    Stream<List<int>> checked() async* {
+      var count = 0;
+      await for (final chunk in archive) {
+        count += chunk.length;
+        if (count > contentLength) {
+          throw const FormatException('archive exceeds declared length');
+        }
+        yield chunk;
+      }
+      if (count != contentLength) {
+        throw const FormatException('truncated archive');
+      }
+    }
+
+    final request = _LuaArchiveRequest(
+      _uri('/device/lua-app/install', {
+        'content_length': '$contentLength',
+        'sha256': sha256,
+      }),
+      checked(),
+      aborted.future,
+    )..contentLength = contentLength;
+    request.headers.addAll({
+      'Authorization': 'Bearer $_apiKey',
+      'Accept': 'application/json',
+      'Content-Type': 'application/octet-stream',
+    });
+    try {
+      final response = await _http.send(request).then(http.Response.fromStream);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw _failure(response);
+      }
+      final value = asJsonObject(
+        jsonDecode(utf8.decode(response.bodyBytes)),
+        'installation',
+      );
+      final app = asJsonObject(value['app'], 'installed app');
+      readString(app, 'app_id');
+      readString(app, 'version');
+      return app;
+    } finally {
+      timer.cancel();
+      abort();
+    }
+  }
+
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   /// Reads the switch from the online device.
   Future<bool> getDeviceGnssReporting() => _tool(
@@ -1282,4 +1358,19 @@ class GizClawControlResponse {
   final String? requestId;
 
   bool get isSuccess => statusCode >= 200 && statusCode < 300;
+}
+
+// Stream ownership is transferred to the HTTP transport, which cancels its
+// subscription on abort. The SDK does not enqueue a second archive-sized copy.
+class _LuaArchiveRequest extends http.BaseRequest with http.Abortable {
+  _LuaArchiveRequest(Uri url, this.body, this.abortTrigger)
+    : super('POST', url);
+  final Stream<List<int>> body;
+  @override
+  final Future<void> abortTrigger;
+  @override
+  http.ByteStream finalize() {
+    super.finalize();
+    return http.ByteStream(body);
+  }
 }

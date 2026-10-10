@@ -15,6 +15,12 @@ class RpcMethodDescriptor {
 }
 
 const rpcMethodsByName = <String, RpcMethodDescriptor>{
+  'client.lua.app.install': RpcMethodDescriptor(
+    id: 139,
+    name: 'client.lua.app.install',
+    requestType: 'ClientLuaAppInstallStreamRequest',
+    responseType: 'ClientLuaAppInstallResponse',
+  ),
   'all.ping': RpcMethodDescriptor(
     id: 1,
     name: 'all.ping',
@@ -546,6 +552,7 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
 };
 
 const rpcMethodNamesById = <int, String>{
+  139: 'client.lua.app.install',
   1: 'all.ping',
   2: 'all.speed_test.run',
   5: 'server.info.get',

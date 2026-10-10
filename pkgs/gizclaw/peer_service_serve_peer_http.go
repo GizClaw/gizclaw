@@ -302,10 +302,7 @@ func hasOptionalJSONBody(path string) bool {
 // accept an empty POST: the generated strict handler only tolerates a JSON
 // body, so an absent body becomes the empty object.
 func normalizeOptionalJSONBody(ctx *fiber.Ctx) {
-	if ctx.Method() != http.MethodPost || len(ctx.Body()) != 0 {
-		return
-	}
-	if !hasOptionalJSONBody(ctx.Path()) {
+	if ctx.Method() != http.MethodPost || !hasOptionalJSONBody(ctx.Path()) || len(ctx.Body()) != 0 {
 		return
 	}
 	ctx.Request().Header.SetContentType(fiber.MIMEApplicationJSON)

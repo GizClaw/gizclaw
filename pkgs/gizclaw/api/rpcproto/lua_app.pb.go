@@ -179,9 +179,14 @@ func (x *ClientLuaAppListResponse) GetApps() []*LuaAppInfo {
 // or an unavailable installer returns UNIMPLEMENTED (HTTP DEVICE_UNSUPPORTED).
 // No automatic retry. The Server does not download or unpack the URL.
 type ClientLuaAppInstallRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`             // HTTPS, no credentials or fragment, 1..1024 UTF-8 bytes.
-	Sha256        *string                `protobuf:"bytes,2,opt,name=sha256,proto3,oneof" json:"sha256,omitempty"` // Expected compressed archive SHA-256, 64 hex digits.
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// HTTP(S): 1..1024 UTF-8 bytes, no credentials or fragment.
+	// Inline zlib package: data:application/zlib;base64,<base64> or
+	// data:application/octet-stream;base64,<base64>; at most 262144 ASCII
+	// bytes including the prefix. Strict canonical Base64, no whitespace.
+	// Device decodes blocks directly into its bounded inflater.
+	Url           string  `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
+	Sha256        *string `protobuf:"bytes,2,opt,name=sha256,proto3,oneof" json:"sha256,omitempty"` // Expected compressed archive SHA-256, 64 hex digits.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -274,6 +279,66 @@ func (x *ClientLuaAppInstallResponse) GetApp() *LuaAppInfo {
 	return nil
 }
 
+// One ordered stream: small RpcRequest metadata, Binary body frames, request
+// EOS, then final ClientLuaAppInstallResponse and response EOS. No replay.
+// The device uses the URL tool's installer. Validate compressed length/SHA-256,
+// manifest, every file, two tar zero blocks and zlib EOS before atomic publish.
+// Failure/cancel/timeout preserves the previous application and user data.
+type ClientLuaAppInstallStreamRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+	// must use the URL install tool. Devices
+	// enforce their own smaller storage/inflation limits. Total deadline 120s.
+	ContentLength uint32 `protobuf:"varint,1,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
+	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"` // Required compressed SHA-256, 64 hex digits.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientLuaAppInstallStreamRequest) Reset() {
+	*x = ClientLuaAppInstallStreamRequest{}
+	mi := &file_payload_lua_app_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientLuaAppInstallStreamRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientLuaAppInstallStreamRequest) ProtoMessage() {}
+
+func (x *ClientLuaAppInstallStreamRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_lua_app_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientLuaAppInstallStreamRequest.ProtoReflect.Descriptor instead.
+func (*ClientLuaAppInstallStreamRequest) Descriptor() ([]byte, []int) {
+	return file_payload_lua_app_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ClientLuaAppInstallStreamRequest) GetContentLength() uint32 {
+	if x != nil {
+		return x.ContentLength
+	}
+	return 0
+}
+
+func (x *ClientLuaAppInstallStreamRequest) GetSha256() string {
+	if x != nil {
+		return x.Sha256
+	}
+	return ""
+}
+
 // Select an app_id returned by lua.app.list. Parameters map directly to GizOS
 // h2_lua_arg_t and the Lua args table: both keys and values are strings.
 // At most 16 parameters; keys 1..64 UTF-8 bytes, values 0..1024 bytes;
@@ -290,7 +355,7 @@ type ClientLuaAppRunRequest struct {
 
 func (x *ClientLuaAppRunRequest) Reset() {
 	*x = ClientLuaAppRunRequest{}
-	mi := &file_payload_lua_app_proto_msgTypes[5]
+	mi := &file_payload_lua_app_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -302,7 +367,7 @@ func (x *ClientLuaAppRunRequest) String() string {
 func (*ClientLuaAppRunRequest) ProtoMessage() {}
 
 func (x *ClientLuaAppRunRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_lua_app_proto_msgTypes[5]
+	mi := &file_payload_lua_app_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +380,7 @@ func (x *ClientLuaAppRunRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientLuaAppRunRequest.ProtoReflect.Descriptor instead.
 func (*ClientLuaAppRunRequest) Descriptor() ([]byte, []int) {
-	return file_payload_lua_app_proto_rawDescGZIP(), []int{5}
+	return file_payload_lua_app_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *ClientLuaAppRunRequest) GetAppId() string {
@@ -340,7 +405,7 @@ type ClientLuaAppRunResponse struct {
 
 func (x *ClientLuaAppRunResponse) Reset() {
 	*x = ClientLuaAppRunResponse{}
-	mi := &file_payload_lua_app_proto_msgTypes[6]
+	mi := &file_payload_lua_app_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -352,7 +417,7 @@ func (x *ClientLuaAppRunResponse) String() string {
 func (*ClientLuaAppRunResponse) ProtoMessage() {}
 
 func (x *ClientLuaAppRunResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_lua_app_proto_msgTypes[6]
+	mi := &file_payload_lua_app_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -365,7 +430,7 @@ func (x *ClientLuaAppRunResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClientLuaAppRunResponse.ProtoReflect.Descriptor instead.
 func (*ClientLuaAppRunResponse) Descriptor() ([]byte, []int) {
-	return file_payload_lua_app_proto_rawDescGZIP(), []int{6}
+	return file_payload_lua_app_proto_rawDescGZIP(), []int{7}
 }
 
 var File_payload_lua_app_proto protoreflect.FileDescriptor
@@ -389,7 +454,10 @@ const file_payload_lua_app_proto_rawDesc = "" +
 	"\x06sha256\x18\x02 \x01(\tH\x00R\x06sha256\x88\x01\x01B\t\n" +
 	"\a_sha256\"K\n" +
 	"\x1bClientLuaAppInstallResponse\x12,\n" +
-	"\x03app\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.LuaAppInfoR\x03app\"\xb6\x01\n" +
+	"\x03app\x18\x01 \x01(\v2\x1a.gizclaw.rpc.v1.LuaAppInfoR\x03app\"a\n" +
+	" ClientLuaAppInstallStreamRequest\x12%\n" +
+	"\x0econtent_length\x18\x01 \x01(\rR\rcontentLength\x12\x16\n" +
+	"\x06sha256\x18\x02 \x01(\tR\x06sha256\"\xb6\x01\n" +
 	"\x16ClientLuaAppRunRequest\x12\x15\n" +
 	"\x06app_id\x18\x01 \x01(\tR\x05appId\x12J\n" +
 	"\x06params\x18\x02 \x03(\v22.gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntryR\x06params\x1a9\n" +
@@ -410,21 +478,22 @@ func file_payload_lua_app_proto_rawDescGZIP() []byte {
 	return file_payload_lua_app_proto_rawDescData
 }
 
-var file_payload_lua_app_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_payload_lua_app_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_payload_lua_app_proto_goTypes = []any{
-	(*LuaAppInfo)(nil),                  // 0: gizclaw.rpc.v1.LuaAppInfo
-	(*ClientLuaAppListRequest)(nil),     // 1: gizclaw.rpc.v1.ClientLuaAppListRequest
-	(*ClientLuaAppListResponse)(nil),    // 2: gizclaw.rpc.v1.ClientLuaAppListResponse
-	(*ClientLuaAppInstallRequest)(nil),  // 3: gizclaw.rpc.v1.ClientLuaAppInstallRequest
-	(*ClientLuaAppInstallResponse)(nil), // 4: gizclaw.rpc.v1.ClientLuaAppInstallResponse
-	(*ClientLuaAppRunRequest)(nil),      // 5: gizclaw.rpc.v1.ClientLuaAppRunRequest
-	(*ClientLuaAppRunResponse)(nil),     // 6: gizclaw.rpc.v1.ClientLuaAppRunResponse
-	nil,                                 // 7: gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
+	(*LuaAppInfo)(nil),                       // 0: gizclaw.rpc.v1.LuaAppInfo
+	(*ClientLuaAppListRequest)(nil),          // 1: gizclaw.rpc.v1.ClientLuaAppListRequest
+	(*ClientLuaAppListResponse)(nil),         // 2: gizclaw.rpc.v1.ClientLuaAppListResponse
+	(*ClientLuaAppInstallRequest)(nil),       // 3: gizclaw.rpc.v1.ClientLuaAppInstallRequest
+	(*ClientLuaAppInstallResponse)(nil),      // 4: gizclaw.rpc.v1.ClientLuaAppInstallResponse
+	(*ClientLuaAppInstallStreamRequest)(nil), // 5: gizclaw.rpc.v1.ClientLuaAppInstallStreamRequest
+	(*ClientLuaAppRunRequest)(nil),           // 6: gizclaw.rpc.v1.ClientLuaAppRunRequest
+	(*ClientLuaAppRunResponse)(nil),          // 7: gizclaw.rpc.v1.ClientLuaAppRunResponse
+	nil,                                      // 8: gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
 }
 var file_payload_lua_app_proto_depIdxs = []int32{
 	0, // 0: gizclaw.rpc.v1.ClientLuaAppListResponse.apps:type_name -> gizclaw.rpc.v1.LuaAppInfo
 	0, // 1: gizclaw.rpc.v1.ClientLuaAppInstallResponse.app:type_name -> gizclaw.rpc.v1.LuaAppInfo
-	7, // 2: gizclaw.rpc.v1.ClientLuaAppRunRequest.params:type_name -> gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
+	8, // 2: gizclaw.rpc.v1.ClientLuaAppRunRequest.params:type_name -> gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
 	3, // [3:3] is the sub-list for method output_type
 	3, // [3:3] is the sub-list for method input_type
 	3, // [3:3] is the sub-list for extension type_name
@@ -445,7 +514,7 @@ func file_payload_lua_app_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_lua_app_proto_rawDesc), len(file_payload_lua_app_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

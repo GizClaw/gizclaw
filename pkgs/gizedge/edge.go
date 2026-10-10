@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -748,6 +749,10 @@ func newPeerHTTPProxy(edgeEndpoint string, transport http.RoundTripper, gatewayT
 		w = httpsnoop.Wrap(w, httpsnoop.Hooks{WriteHeader: func(next httpsnoop.WriteHeaderFunc) httpsnoop.WriteHeaderFunc {
 			return func(code int) { status = code; w.Header().Set("X-Request-ID", requestID); next(code) }
 		}})
+		if req.Method == http.MethodPost && strings.EqualFold(path.Clean(req.URL.Path), "/gizclaw/v1/device/lua-app/install") && req.Body != nil {
+			req.Body = gizhttp.InterruptibleRequestBody(w, req.Body)
+			defer req.Body.Close()
+		}
 		defer func() {
 			slog.InfoContext(context.WithoutCancel(completionCtx), "gizedge: HTTP request completed", "request_path", metadata.RequestPath, "client_ip", metadata.ClientIP, "user_agent", metadata.UserAgent, "method", req.Method, "status", status, "started_at", started, "ended_at", time.Now(), "duration_ms", time.Since(started).Milliseconds())
 		}()

@@ -3,6 +3,7 @@ package cgobackend
 import (
 	"bytes"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/pion/webrtc/v4"
@@ -325,5 +326,64 @@ func TestBackendBidirectionalOpusRTP(t *testing.T) {
 	}
 	if len(sink.opus) != 1 || !bytes.Equal(sink.opus[0], clientPacket) {
 		t.Fatalf("uplink Opus = %x, want %x", sink.opus, clientPacket)
+	}
+}
+
+// Pausing the C poll owner must bound the transport's pending messages too,
+// otherwise a WOULD_BLOCK provider would merely move the archive into Go RAM.
+func TestInboundMessageBackpressureAndClose(t *testing.T) {
+	for _, release := range []string{"poll", "close"} {
+		t.Run(release, func(t *testing.T) {
+			synctest.Test(t, func(t *testing.T) {
+				backend := New()
+				defer backend.Close()
+				for range 4 {
+					backend.emitChannelMessage(1, make([]byte, backendMessageBytes/4), false)
+				}
+				done := make(chan struct{})
+				go func() { backend.emitChannelMessage(1, []byte{1}, false); close(done) }()
+				synctest.Wait()
+				select {
+				case <-done:
+					t.Fatal("producer bypassed bounded receive queue")
+				default:
+				}
+				if release == "close" {
+					backend.Close()
+				} else {
+					backend.Poll(0)
+				}
+				synctest.Wait()
+				select {
+				case <-done:
+				default:
+					t.Fatal("producer did not resume")
+				}
+				backend.mu.Lock()
+				count, size := backend.messageCount, backend.messageBytes
+				backend.mu.Unlock()
+				if release == "poll" && (count != 4 || size != 3*backendMessageBytes/4+1) {
+					t.Fatalf("queue count=%d bytes=%d", count, size)
+				}
+				if release == "close" && (count != 0 || size != 0) {
+					t.Fatalf("close retained queue count=%d bytes=%d", count, size)
+				}
+			})
+		})
+	}
+}
+
+func TestInboundPollDeliversOnlyOneDataMessage(t *testing.T) {
+	backend := New()
+	defer backend.Close()
+	for range 3 {
+		backend.emitChannelMessage(1, []byte{1}, false)
+	}
+	backend.Poll(0)
+	backend.mu.Lock()
+	remaining := backend.messageCount
+	backend.mu.Unlock()
+	if remaining != 2 {
+		t.Fatalf("poll consumed %d messages", 3-remaining)
 	}
 }

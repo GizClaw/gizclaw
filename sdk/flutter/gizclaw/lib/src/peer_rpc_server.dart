@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
+import 'package:cryptography/dart.dart' show DartSha256;
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
 import 'generated/rpc/rpc.pb.dart' as rpc;
@@ -172,10 +173,31 @@ class GizClawDeviceControlHandlers {
   setRunWorkspace;
 }
 
+/// Cancellation observed by the device during extraction and publication.
+class LuaAppInstallCancellation {
+  final _cancelled = Completer<void>();
+  bool get isCancelled => _cancelled.isCompleted;
+  Future<void> get cancelled => _cancelled.future;
+  void _cancel() {
+    if (!isCancelled) _cancelled.complete();
+  }
+}
+
+/// Device-owned installer. write synchronously consumes borrowed bytes, applying
+/// backpressure without queuing an archive. finish validates compressed SHA-256,
+/// manifest/files, tar and zlib EOS before atomic publication. close is called
+/// once after the last operation, with null on success; it rolls back on error.
+abstract interface class LuaAppInstallSession {
+  void write(Uint8List chunk);
+  FutureOr<payload.ClientLuaAppInstallResponse> finish();
+  void close(Object? error);
+}
+
 class GizClawPeerRpcHandlers {
   GizClawPeerRpcHandlers({
     required this.deviceInfo,
     this.observe,
+    this.installLuaApp,
     Map<payload.ClientTool, GizClawToolHandler> tools = const {},
     this.deviceControl,
     this.deviceIdentifiers,
@@ -187,6 +209,11 @@ class GizClawPeerRpcHandlers {
   final GizClawDeviceInfoProvider deviceInfo;
   final Map<payload.ClientTool, GizClawToolHandler> tools;
   final GizClawDeviceControlHandlers? deviceControl;
+  final LuaAppInstallSession Function(
+    payload.ClientLuaAppInstallStreamRequest,
+    LuaAppInstallCancellation,
+  )?
+  installLuaApp;
 
   /// Answers `identifiers.get`. When null the identifiers reported by
   /// [deviceInfo] are used, so a device that already reports them there needs
@@ -219,6 +246,19 @@ class _InboundPeerRpcChannel {
   var _envelopeLength = 0;
   var _ignoreBody = false;
   var _uploaded = 0;
+  LuaAppInstallSession? _install;
+  payload.ClientLuaAppInstallStreamRequest? _installMetadata;
+  final _installCancel = LuaAppInstallCancellation();
+  final _installHash = (const DartSha256()).newHashSink();
+  Future<void>? _installFinishing;
+  Timer? _installTimer;
+  void _releaseInstall(Object? error) {
+    final session = _install;
+    _install = null;
+    _installTimer?.cancel();
+    session?.close(error);
+  }
+
   rpc.RpcRequest? _request;
   late StreamSubscription<Uint8List> _messages;
   late StreamSubscription<GizClawDataChannelState> _states;
@@ -241,6 +281,16 @@ class _InboundPeerRpcChannel {
       return;
     }
     try {
+      final limit =
+          _request != null && _methodName(_request!) == 'client.lua.app.install'
+          ? 2 * (rpcMaxFramePayloadSize + 4)
+          : rpcMaxEnvelopeSize + 68;
+      if (chunk.length + _buffer.length > limit) {
+        throw const GizClawDeviceControlException(
+          rpc.StatusCode.STATUS_CODE_RESOURCE_EXHAUSTED,
+          'RPC ingress limit exceeded',
+        );
+      }
       _buffer = concatBytes([_buffer, chunk]);
       for (;;) {
         final result = tryReadFrame(_buffer);
@@ -250,8 +300,23 @@ class _InboundPeerRpcChannel {
         _buffer = result.rest;
         _handleFrame(result.frame);
       }
-    } catch (_) {
-      _close();
+    } catch (error) {
+      if (_request != null &&
+          _methodName(_request!) == 'client.lua.app.install') {
+        _installCancel._cancel();
+        _releaseInstall(error);
+        _ignoreBody = true;
+        final code = error is GizClawDeviceControlException
+            ? error.code
+            : rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT;
+        _unawaited(
+          _sendEnvelopeOnly(
+            _rpcErrorResponse(_request!.id, code, 'installation failed'),
+          ).whenComplete(_close),
+        );
+      } else {
+        _close();
+      }
     }
   }
 
@@ -293,6 +358,36 @@ class _InboundPeerRpcChannel {
       return;
     }
     final methodName = _methodName(request);
+    if (methodName == 'client.lua.app.install') {
+      final metadata = _installMetadata!;
+      if (frame.type == rpcFrameTypeBinary) {
+        if (frame.payload.isEmpty ||
+            _uploaded + frame.payload.length > metadata.contentLength) {
+          throw const FormatException('archive exceeds declared length');
+        }
+        _install!.write(frame.payload);
+        _installHash.add(frame.payload);
+        _uploaded += frame.payload.length;
+        return;
+      }
+      if (frame.type != rpcFrameTypeEos ||
+          _uploaded != metadata.contentLength) {
+        throw const FormatException('invalid archive length or EOS');
+      }
+      _ignoreBody = true;
+      _installHash.close();
+      final digest = _installHash
+          .hashSync()
+          .bytes
+          .map((b) => b.toRadixString(16).padLeft(2, '0'))
+          .join();
+      if (digest != metadata.sha256.toLowerCase()) {
+        throw const FormatException('archive SHA-256 mismatch');
+      }
+      _installFinishing = _finishInstall(request);
+      _unawaited(_installFinishing!);
+      return;
+    }
     if (methodName == 'all.ping') {
       if (frame.type != rpcFrameTypeEos) {
         throw FormatException('expected ping EOS frame, got ${frame.type}');
@@ -334,6 +429,39 @@ class _InboundPeerRpcChannel {
     _ignoreBody = true;
   }
 
+  Future<void> _finishInstall(rpc.RpcRequest request) async {
+    try {
+      final result = await _install!.finish();
+      if (_installCancel.isCancelled) {
+        throw StateError('installation cancelled');
+      }
+      if (!result.hasApp() || !_validLuaAppInfo(result.app)) {
+        throw const FormatException('missing installed app');
+      }
+      _releaseInstall(null);
+      await _sendEnvelopeOnly(
+        rpc.RpcResponse(
+          id: request.id,
+          payload: encodeRpcResponsePayload('client.lua.app.install', result),
+        ),
+      );
+    } catch (error) {
+      _releaseInstall(error);
+      if (!_closed) {
+        final code = error is GizClawDeviceControlException
+            ? error.code
+            : rpc.StatusCode.STATUS_CODE_INTERNAL;
+        try {
+          await _sendEnvelopeOnly(
+            _rpcErrorResponse(request.id, code, 'installation failed'),
+          );
+        } catch (_) {
+          _close();
+        }
+      }
+    }
+  }
+
   void _startRequest(rpc.RpcRequest request) {
     if (request.id.isEmpty || !request.hasMethod()) {
       throw const FormatException('invalid RPC request envelope');
@@ -341,6 +469,29 @@ class _InboundPeerRpcChannel {
     _request = request;
     final methodName = _methodName(request);
     switch (methodName) {
+      case 'client.lua.app.install':
+        final metadata = payload.ClientLuaAppInstallStreamRequest.fromBuffer(
+          request.payload,
+        );
+        if (metadata.contentLength < 1 ||
+            metadata.contentLength > 512 * 1024 ||
+            !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(metadata.sha256)) {
+          throw const FormatException('invalid upload metadata');
+        }
+        final begin = handlers?.installLuaApp;
+        if (begin == null) {
+          throw const GizClawDeviceControlException(
+            rpc.StatusCode.STATUS_CODE_UNIMPLEMENTED,
+            'installer unavailable',
+          );
+        }
+        handlers?.observe?.call(methodName, null);
+        _installMetadata = metadata;
+        _install = begin(metadata, _installCancel);
+        _installTimer = Timer(const Duration(seconds: 120), () {
+          _close();
+        });
+        return;
       case 'all.ping':
         return;
       case 'all.speed_test.run':
@@ -530,6 +681,8 @@ class _InboundPeerRpcChannel {
     final methods = <rpc.RpcMethod>[
       rpc.RpcMethod.RPC_METHOD_ALL_PING,
       rpc.RpcMethod.RPC_METHOD_ALL_SPEED_TEST_RUN,
+      if (handlers?.installLuaApp != null)
+        rpc.RpcMethod.RPC_METHOD_CLIENT_LUA_APP_INSTALL,
       if (handlers?.deviceControl?.readMhsHwd != null)
         rpc.RpcMethod.RPC_METHOD_CLIENT_MHS_V0_READ,
       if (handlers?.deviceControl?.writeMhsHwd != null)
@@ -1075,6 +1228,18 @@ class _InboundPeerRpcChannel {
       return;
     }
     _closed = true;
+    _installCancel._cancel();
+    _installTimer?.cancel();
+    final finishing = _installFinishing;
+    if (finishing == null) {
+      _releaseInstall(StateError('installation aborted'));
+    } else {
+      _unawaited(
+        finishing.whenComplete(
+          () => _releaseInstall(StateError('installation aborted')),
+        ),
+      );
+    }
     _unawaited(_messages.cancel());
     _unawaited(_states.cancel());
     _unawaited(channel.close());
@@ -1289,19 +1454,45 @@ bool _validToolArguments(GeneratedMessage request) {
 }
 
 bool _validLuaAppInstall(payload.ClientLuaAppInstallRequest request) {
-  final uri = Uri.tryParse(request.url);
+  final source = request.url;
+  if (source.contains('\u0000') ||
+      utf8.encode(source).length > 256 * 1024 ||
+      (request.hasSha256() &&
+          !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(request.sha256))) {
+    return false;
+  }
+  for (final prefix in [
+    'data:application/zlib;base64,',
+    'data:application/octet-stream;base64,',
+  ]) {
+    if (!source.startsWith(prefix)) continue;
+    final encoded = source.substring(prefix.length);
+    if (encoded.isEmpty ||
+        !RegExp(
+          r'^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$',
+        ).hasMatch(encoded)) {
+      return false;
+    }
+    try {
+      return base64.encode(base64.decode(encoded)) == encoded;
+    } on FormatException {
+      return false;
+    }
+  }
+  final uri = Uri.tryParse(source);
   return uri != null &&
-      request.url.startsWith('https://') &&
-      uri.scheme == 'https' &&
+      (source.startsWith('https://') || source.startsWith('http://')) &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
       uri.host.isNotEmpty &&
       uri.userInfo.isEmpty &&
-      !request.url.substring(8).split(RegExp(r'[/\?#]')).first.contains('@') &&
-      !request.url.contains('#') &&
-      !RegExp(r'[\s\\]').hasMatch(request.url) &&
-      !request.url.contains('\u0000') &&
-      utf8.encode(request.url).length <= 1024 &&
-      (!request.hasSha256() ||
-          RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(request.sha256));
+      !source
+          .substring(source.indexOf('://') + 3)
+          .split(RegExp(r'[/\?#]'))
+          .first
+          .contains('@') &&
+      !source.contains('#') &&
+      !RegExp(r'[\s\\]').hasMatch(source) &&
+      utf8.encode(source).length <= 1024;
 }
 
 bool _validLuaAppRun(payload.ClientLuaAppRunRequest request) {
@@ -1323,4 +1514,17 @@ bool _validLuaAppRun(payload.ClientLuaAppRunRequest request) {
     total += key + value;
   }
   return total <= 4096;
+}
+
+bool _validLuaAppInfo(payload.LuaAppInfo app) {
+  return RegExp(r'^[a-z0-9_-][a-z0-9_.-]{0,31}$').hasMatch(app.appId) &&
+      app.version.isNotEmpty &&
+      utf8.encode(app.version).length <= 31 &&
+      RegExp(
+        r'^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9][0-9]*|[0-9A-Za-z-]*[A-Za-z-][0-9A-Za-z-]*))*)?(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$',
+      ).hasMatch(app.version) &&
+      utf8.encode(app.displayName).length <= 128 &&
+      !app.displayName.contains('\u0000') &&
+      utf8.encode(app.description).length <= 1024 &&
+      !app.description.contains('\u0000');
 }

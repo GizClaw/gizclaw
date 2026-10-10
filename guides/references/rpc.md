@@ -1,6 +1,6 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 87 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+本页由 `api/proto/rpc/rpc.proto` 的当前 registry 核对生成，列出全部 89 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
 
 `all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
 
@@ -153,6 +153,7 @@ RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP 
 | 135 | `client.tool.v0.invoke` | 按 `ClientTool` 编号和该操作的 protobuf 请求 payload 执行预定义操作；未安装的操作返回 `UNIMPLEMENTED`。 |
 | 136 | `client.tool.v0.list` | 返回设备实际安装的 `ClientTool` 编号。 |
 | 137 | `client.rpc.methods.list` | 返回设备提供的 `RpcMethod` 编号，用于识别协议 family 与版本。 |
+| 139 | `client.lua.app.install` | `ClientLuaAppInstallStreamRequest` 元信息后推送 Binary 压缩包和请求 EOS；设备完成校验与原子发布后返回 `ClientLuaAppInstallResponse`。 |
 
 ### ClientHwd v0
 

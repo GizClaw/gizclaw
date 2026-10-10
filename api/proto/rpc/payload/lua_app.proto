@@ -24,11 +24,29 @@ message ClientLuaAppListResponse {
 // or an unavailable installer returns UNIMPLEMENTED (HTTP DEVICE_UNSUPPORTED).
 // No automatic retry. The Server does not download or unpack the URL.
 message ClientLuaAppInstallRequest {
-  string url = 1; // HTTPS, no credentials or fragment, 1..1024 UTF-8 bytes.
+  // HTTP(S): 1..1024 UTF-8 bytes, no credentials or fragment.
+  // Inline zlib package: data:application/zlib;base64,<base64> or
+  // data:application/octet-stream;base64,<base64>; at most 262144 ASCII
+  // bytes including the prefix. Strict canonical Base64, no whitespace.
+  // Device decodes blocks directly into its bounded inflater.
+  string url = 1;
   optional string sha256 = 2; // Expected compressed archive SHA-256, 64 hex digits.
 }
 message ClientLuaAppInstallResponse {
   LuaAppInfo app = 1;
+}
+
+// One ordered stream: small RpcRequest metadata, Binary body frames, request
+// EOS, then final ClientLuaAppInstallResponse and response EOS. No replay.
+// The device uses the URL tool's installer. Validate compressed length/SHA-256,
+// manifest, every file, two tar zero blocks and zlib EOS before atomic publish.
+// Failure/cancel/timeout preserves the previous application and user data.
+message ClientLuaAppInstallStreamRequest {
+  // Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+  // must use the URL install tool. Devices
+  // enforce their own smaller storage/inflation limits. Total deadline 120s.
+  uint32 content_length = 1;
+  string sha256 = 2; // Required compressed SHA-256, 64 hex digits.
 }
 
 // Select an app_id returned by lua.app.list. Parameters map directly to GizOS

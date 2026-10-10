@@ -197,3 +197,8 @@ Admin IMEI 查询为 `/peers/@findPubKeysByImei/{tac}/{serial}`，CLI `admin pee
 每次只访问一个实例。wifi、ble、modem、battery、mic 只读；display、led、speaker 可写。Server 在发送 RPC 前校验实例存在、HWD 匹配及写入结构；只读 HWD 或非法值返回 `400 INVALID_REQUEST`。设备响应按对应 protobuf 结构解码并验证，畸形结果返回 `502 DEVICE_ERROR`。
 
 调用沿用 5 秒 device-control 超时与 owner 串行化。离线返回 `409 DEVICE_OFFLINE`，未安装 handler 返回 `501 DEVICE_UNSUPPORTED`，超时返回 `504 DEVICE_TIMEOUT`，设备拒绝返回 `400 DEVICE_REJECTED`。实际硬件缺少 manifest 声明的实例时返回 `404 MHS_HWD_NOT_FOUND`。写入成功返回设备报告的实际值；超时不能证明写入未发生，应重新读取。
+
+
+## Lua 应用上传
+
+`POST /gizclaw/v1/device/lua-app/install` 接受最多 512 KiB 的原始 Binary 压缩包体及 `content_length`、`sha256` query 参数。超限返回 `413 LUA_APP_PACKAGE_TOO_LARGE`，更大的压缩包必须改用 HTTP(S) URL 下载。Server 保留请求流的背压与取消，按 owner 转发到 RPC 139 并等待安装最终结果；Edge 沿用 Public HTTP 代理。设备提前拒绝时，Server 与 Edge 会中断未完成的请求体并立即返回错误；上传使用的 HTTP/1 连接随后关闭。完整合同与 URL 兼容入口见 [Lua 应用 provider](../proto/rpc/client-provided-to-server#lua-应用)。

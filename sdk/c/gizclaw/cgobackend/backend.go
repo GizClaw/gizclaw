@@ -42,6 +42,7 @@ const (
 
 	RTCChannelOpen   = 1
 	RTCChannelClosed = 2
+	RTCChannelError  = 3
 	RTCPeerFailed    = 4
 )
 
@@ -67,18 +68,24 @@ type EventSink interface {
 	OpusFrame(opus []byte)
 }
 
+const backendMessageBytes = 256 * 1024
+const backendMessageSlots = 64
+
 type Backend struct {
-	mu         sync.Mutex
-	dispatchMu sync.Mutex
-	pc         *webrtc.PeerConnection
-	opusTrack  sampleWriter
-	dcs        map[int]*dataChannelState
-	nextDCID   int
-	sink       EventSink
-	events     []backendEvent
-	eventReady chan struct{}
-	closed     bool
-	audioUp    bool
+	mu           sync.Mutex
+	dispatchMu   sync.Mutex
+	pc           *webrtc.PeerConnection
+	opusTrack    sampleWriter
+	dcs          map[int]*dataChannelState
+	nextDCID     int
+	sink         EventSink
+	events       []backendEvent
+	eventReady   chan struct{}
+	eventSpace   chan struct{}
+	messageBytes int
+	messageCount int
+	closed       bool
+	audioUp      bool
 
 	packetSendCalls atomic.Uint64
 	opusSendCalls   atomic.Uint64
@@ -126,6 +133,7 @@ func New() *Backend {
 		dcs:        make(map[int]*dataChannelState),
 		nextDCID:   3,
 		eventReady: make(chan struct{}, 1),
+		eventSpace: make(chan struct{}),
 	}
 }
 
@@ -607,8 +615,31 @@ func (b *Backend) Poll(timeoutMS int) {
 	defer b.dispatchMu.Unlock()
 
 	b.mu.Lock()
-	events := b.events
-	b.events = nil
+	// Dispatch at most one DataChannel message per poll, allowing the C
+	// provider to return WOULD_BLOCK before another body chunk is delivered.
+	// Keep the remaining FIFO intact, including close after response EOS.
+	n := len(b.events)
+	seenMessage := false
+	for i, event := range b.events {
+		if event.kind == backendEventChannelMessage {
+			if seenMessage {
+				n = i
+				break
+			}
+			seenMessage = true
+		}
+	}
+	events := append([]backendEvent(nil), b.events[:n]...)
+	copy(b.events, b.events[n:])
+	clear(b.events[len(b.events)-n:])
+	b.events = b.events[:len(b.events)-n]
+	for _, event := range events {
+		if event.kind == backendEventChannelMessage {
+			b.messageBytes -= len(event.data)
+			b.messageCount--
+		}
+	}
+	b.releaseEventSpaceLocked()
 	sink := b.sink
 	closed = b.closed
 	b.mu.Unlock()
@@ -724,6 +755,9 @@ func (b *Backend) Close() {
 	b.audioUp = false
 	b.sink = nil
 	b.events = nil
+	b.messageBytes = 0
+	b.messageCount = 0
+	b.releaseEventSpaceLocked()
 	b.closed = true
 	ready := b.eventReady
 	b.mu.Unlock()
@@ -765,6 +799,10 @@ func (b *Backend) emitChannelState(channelID int, state int) {
 }
 
 func (b *Backend) emitChannelMessage(channelID int, data []byte, isText bool) {
+	if len(data) > backendMessageBytes {
+		b.emitChannelState(channelID, RTCChannelError)
+		return
+	}
 	b.enqueue(backendEvent{
 		kind: backendEventChannelMessage, channelID: channelID,
 		data: append([]byte(nil), data...), isText: isText,
@@ -777,6 +815,23 @@ func (b *Backend) emitBufferedAmountLow(channelID int) {
 
 func (b *Backend) enqueue(event backendEvent) {
 	b.mu.Lock()
+	if event.kind == backendEventChannelMessage {
+		if len(event.data) > backendMessageBytes {
+			b.mu.Unlock()
+			return
+		}
+		for !b.closed && (b.messageCount >= backendMessageSlots || b.messageBytes+len(event.data) > backendMessageBytes) {
+			if b.eventSpace == nil {
+				b.eventSpace = make(chan struct{})
+			}
+			space := b.eventSpace
+			b.mu.Unlock()
+			// Blocking the transport callback bounds the Pion receive queue as well;
+			// no internal state mutex is held while waiting for the poll owner.
+			<-space
+			b.mu.Lock()
+		}
+	}
 	if b.closed {
 		b.mu.Unlock()
 		return
@@ -797,6 +852,10 @@ func (b *Backend) enqueue(event backendEvent) {
 			b.events[len(b.events)-1] = backendEvent{}
 			b.events = b.events[:len(b.events)-1]
 		}
+	}
+	if event.kind == backendEventChannelMessage {
+		b.messageBytes += len(event.data)
+		b.messageCount++
 	}
 	b.events = append(b.events, event)
 	ready := b.eventReady
@@ -854,4 +913,12 @@ func (plaintextAEAD) Seal(dst, _nonce, plaintext, _aad []byte) []byte {
 }
 func (plaintextAEAD) Open(dst, _nonce, ciphertext, _aad []byte) ([]byte, error) {
 	return append(dst, ciphertext...), nil
+}
+
+// releaseEventSpaceLocked wakes producers after a poll or peer shutdown.
+func (b *Backend) releaseEventSpaceLocked() {
+	if b.eventSpace != nil {
+		close(b.eventSpace)
+	}
+	b.eventSpace = make(chan struct{})
 }

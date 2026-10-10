@@ -84,6 +84,7 @@ message RpcRequest {
 
 enum RpcMethod {
   RPC_METHOD_UNSPECIFIED = 0;
+  RPC_METHOD_CLIENT_LUA_APP_INSTALL = 139 [(rpc_method) = { name: "client.lua.app.install" request: "ClientLuaAppInstallStreamRequest" response: "ClientLuaAppInstallResponse" }];
   RPC_METHOD_ALL_PING = 1 [(rpc_method) = { name: "all.ping" request: "PingRequest" response: "PingResponse" }];
   RPC_METHOD_ALL_SPEED_TEST_RUN = 2 [(rpc_method) = { name: "all.speed_test.run" request: "SpeedTestRequest" response: "SpeedTestResponse" }];
   RPC_METHOD_SERVER_INFO_GET = 5 [(rpc_method) = { name: "server.info.get" request: "ServerGetInfoRequest" response: "ServerGetInfoResponse" }];

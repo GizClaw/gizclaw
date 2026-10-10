@@ -155,6 +155,7 @@ RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle
 
 | RPC method | Binary frames 方向 | Payload |
 | --- | --- | --- |
+| `client.lua.app.install` | Server → Client / Device | 完整 `.lua-app.tar.zlib` 压缩包；小型长度/SHA-256 元信息 → Binary chunks → 请求 EOS → 安装最终结果。 |
 | `all.speed_test.run` | 双向 | 指定长度的测速 bytes。 |
 | `server.speech.transcribe` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回最终 transcript。 |
 | `server.speech.extract` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回 transcript 与 schema-constrained JSON。 |

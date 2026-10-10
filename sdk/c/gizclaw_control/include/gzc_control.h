@@ -1272,6 +1272,16 @@ int gzc_control_play_device_audioplayer(gzc_control_client_t *client, gzc_contro
 int gzc_control_stop_device_audioplayer(gzc_control_client_t *client, gzc_control_call_t *call, gzc_control_audioplayer_status_t *out_status);
 int gzc_control_set_device_audioplayer_mode(gzc_control_client_t *client, gzc_control_call_t *call, gzc_str_t repeat, gzc_control_audioplayer_status_t *out_status);
 
+/* Raw binary upload, at most 512 KiB; larger archives use URL installation.
+ * archive is borrowed for this synchronous call and is not
+ * copied into scratch. The HTTP backend sends it with retry_count=0. The app
+ * JSON result borrows call->response. Set config.timeout_ms up to 120000.
+ * Incremental RPC producers use gzc_rpc_request_start_stream/write/finish_write.
+ */
+int gzc_control_install_lua_app(gzc_control_client_t *client,
+                                gzc_control_call_t *call, const uint8_t *archive, size_t length,
+                                gzc_str_t sha256, gzc_str_t *out_app_json);
+
 #ifdef __cplusplus
 }
 #endif

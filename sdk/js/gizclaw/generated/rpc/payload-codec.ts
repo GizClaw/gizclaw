@@ -242,6 +242,10 @@ export type ClientLuaAppInstallRequest = {
 export type ClientLuaAppInstallResponse = {
   "app": LuaAppInfo;
 };
+export type ClientLuaAppInstallStreamRequest = {
+  "content_length": number;
+  "sha256": string;
+};
 export type ClientLuaAppListRequest = Record<string, never>;
 export type ClientLuaAppListResponse = {
   "apps": LuaAppInfo[];
@@ -1491,6 +1495,7 @@ export type WorkspacePutResponse = Workspace;
 const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingRequest",
   "all.speed_test.run": "SpeedTestRequest",
+  "client.lua.app.install": "ClientLuaAppInstallStreamRequest",
   "client.mhs.v0.read": "ClientMhsV0ReadRequest",
   "client.mhs.v0.write": "ClientMhsV0WriteRequest",
   "client.rpc.methods.list": "ClientRpcMethodsListRequest",
@@ -1581,6 +1586,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
 const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "all.ping": "PingResponse",
   "all.speed_test.run": "SpeedTestResponse",
+  "client.lua.app.install": "ClientLuaAppInstallResponse",
   "client.mhs.v0.read": "ClientMhsV0ReadResponse",
   "client.mhs.v0.write": "ClientMhsV0WriteResponse",
   "client.rpc.methods.list": "ClientRpcMethodsListResponse",
@@ -2539,6 +2545,20 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "app",
         "number": 1,
         "type": "LuaAppInfo"
+      }
+    ]
+  },
+  "ClientLuaAppInstallStreamRequest": {
+    "fields": [
+      {
+        "name": "content_length",
+        "number": 1,
+        "type": "uint32"
+      },
+      {
+        "name": "sha256",
+        "number": 2,
+        "type": "string"
       }
     ]
   },
@@ -8583,6 +8603,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
     "byName": {
       "all_ping": 1,
       "all_speed_test_run": 2,
+      "client_lua_app_install": 139,
       "client_mhs_v0_read": 133,
       "client_mhs_v0_write": 134,
       "client_rpc_methods_list": 137,
@@ -8760,7 +8781,8 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "135": "client_tool_v0_invoke",
       "136": "client_tool_v0_list",
       "137": "client_rpc_methods_list",
-      "138": "server_firmware_metadata_get"
+      "138": "server_firmware_metadata_get",
+      "139": "client_lua_app_install"
     }
   },
   "SocialPingResult": {

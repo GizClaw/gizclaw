@@ -3685,6 +3685,7 @@ async function serveInboundClientRPC(
   method: string,
   params: unknown,
   handlers?: GizClawPeerRPCHandlers,
+  body?: Uint8Array[],
 ): Promise<RPCResponse> {
   const tool = CLIENT_TOOL_IDS[method as keyof typeof CLIENT_TOOL_IDS];
   const rpcMethod = tool == null ? method : "client.tool.v0.invoke";
@@ -3733,15 +3734,23 @@ async function serveInboundClientRPC(
   );
   assert.ok(openChannel != null);
   openChannel({ channel });
-  for (const listener of listeners.get("message") ?? []) {
-    listener({
-      data: encodeRPCRequest({
-        id: "inbound-1",
-        method: rpcMethod,
-        params: rpcParams,
-        v: 1,
-      }),
-    });
+  const encodedRequest = encodeRPCRequest({
+    id: "inbound-1",
+    method: rpcMethod,
+    params: rpcParams,
+    v: 1,
+  });
+  const input =
+    body == null
+      ? [encodedRequest]
+      : [
+          encodedRequest.slice(0, -4),
+          ...body.map((chunk) => encodeFrame(RPC_FRAME_TYPE_BINARY, chunk)),
+          encodeFrame(RPC_FRAME_TYPE_EOS),
+        ];
+  for (const data of input) {
+    for (const listener of listeners.get("message") ?? []) listener({ data });
+    await new Promise((resolve) => setImmediate(resolve));
   }
   for (let tick = 0; tick < 50; tick++) {
     await new Promise((resolve) => setImmediate(resolve));
@@ -4863,4 +4872,149 @@ test("MHS provider reads all HWDs and discovers installed handlers", async () =>
     handlers,
   );
   assert.equal(absent.error?.code, STATUS_CODE_UNIMPLEMENTED);
+});
+
+test("Lua app Binary provider verifies ordered chunks, SHA and terminal ownership", async () => {
+  const bytes = new Uint8Array(524288).fill(0xaa);
+  const digest = Array.from(sha256(bytes), (x) =>
+    x.toString(16).padStart(2, "0"),
+  ).join("");
+  for (const kind of ["valid", "short", "long", "hash", "unsupported"]) {
+    let received = 0,
+      writes = 0,
+      finished = 0,
+      closed = 0;
+    const handlers: GizClawPeerRPCHandlers =
+      kind === "unsupported"
+        ? {}
+        : {
+            installLuaApp: () => ({
+              write(chunk) {
+                received += chunk.length;
+                writes++;
+              },
+              finish() {
+                finished++;
+                return { app: { app_id: "demo", version: "1.0.0" } };
+              },
+              close() {
+                closed++;
+              },
+            }),
+          };
+    const source =
+      kind === "short"
+        ? bytes.subarray(0, 524287)
+        : kind === "long"
+          ? new Uint8Array(524289)
+          : bytes;
+    const chunks = [];
+    for (let offset = 0; offset < source.length; offset += 8192)
+      chunks.push(source.subarray(offset, offset + 8192));
+    const response = await serveInboundClientRPC(
+      "client.lua.app.install",
+      {
+        content_length: bytes.length,
+        sha256: kind === "hash" ? "0".repeat(64) : digest,
+      },
+      handlers,
+      chunks,
+    );
+    if (kind === "valid") {
+      assert.equal(response.error, undefined);
+      assert.equal(received, bytes.length);
+      assert.ok(writes > 2);
+      assert.equal(finished, 1);
+    } else {
+      assert.equal(response.error?.code, kind === "unsupported" ? 12 : 3);
+      assert.equal(finished, 0);
+    }
+    assert.equal(closed, kind === "unsupported" ? 0 : 1);
+  }
+});
+
+test("Lua app Binary caller splits large chunks and never replays", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc, { createID: () => "lua-install" });
+  const promise = client.installLuaApp(
+    { content_length: 164484, sha256: "a".repeat(64) },
+    [new Uint8Array(164484)],
+    { timeoutMs: 1000 },
+  );
+  const channel = pc.lastChannel();
+  channel.open();
+  await channel.waitForSentCount(15);
+  const frames = decodeFrames(
+    new Uint8Array(
+      Buffer.concat(channel.sent.map((data) => Buffer.from(data))),
+    ),
+  );
+  assert.deepEqual(
+    frames.map((x) => x.type),
+    [2, 2, 2, 2, 0],
+  );
+  assert.deepEqual(
+    frames.slice(1, -1).map((x) => x.payload.length),
+    [65535, 65535, 33414],
+  );
+  channel.receive(
+    encodeRPCResponse(
+      {
+        id: "lua-install",
+        v: 1,
+        result: { app: { app_id: "demo", version: "1.0.0" } },
+      },
+      "client.lua.app.install",
+    ),
+  );
+  assert.equal((await promise).app?.app_id, "demo");
+  assert.equal(pc.channels.length, 1);
+});
+
+test("Lua data URL keeps the 256 KiB compatibility boundary", async () => {
+  const { validLuaAppInstall } = await import("./lua_app.ts");
+  const body = Buffer.alloc(164484).toString("base64");
+  assert.equal(body.length, 219312);
+  for (const mime of ["application/zlib", "application/octet-stream"]) {
+    assert.equal(
+      validLuaAppInstall({ url: `data:${mime};base64,${body}` }),
+      true,
+    );
+    assert.equal(
+      validLuaAppInstall({ url: `data:${mime};base64,AB==` }),
+      false,
+    );
+    assert.equal(
+      validLuaAppInstall({ url: `data:${mime};base64,${body}\n` }),
+      false,
+    );
+    assert.equal(
+      validLuaAppInstall({ url: `data:${mime};base64,${"A".repeat(262144)}` }),
+      false,
+    );
+  }
+  assert.equal(validLuaAppInstall({ url: "http://apps.test/app" }), true);
+  assert.equal(validLuaAppInstall({ url: "https://apps.test/app" }), true);
+});
+
+test("Lua Binary upload rejects 512 KiB plus one byte before opening a channel", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc);
+  await assert.rejects(
+    client.installLuaApp(
+      { content_length: 524289, sha256: "a".repeat(64) },
+      [],
+    ),
+    /512 KiB.*URL/,
+  );
+  assert.equal(pc.channels.length, 0);
+  const { validLuaAppUpload } = await import("./lua_app.ts");
+  assert.equal(
+    validLuaAppUpload({ content_length: 524288, sha256: "a".repeat(64) }),
+    true,
+  );
+  assert.equal(
+    validLuaAppUpload({ content_length: 524289, sha256: "a".repeat(64) }),
+    false,
+  );
 });

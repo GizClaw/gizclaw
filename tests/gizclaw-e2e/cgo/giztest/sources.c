@@ -11,6 +11,7 @@
 #include "../../../../sdk/c/gizclaw/generated/payload/enums.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/firmware.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/icon.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/payload/lua_app.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/mhs_v0.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/social.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/system.pb.c"

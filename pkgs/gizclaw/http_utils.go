@@ -11,6 +11,7 @@ import (
 	"mime"
 	"net"
 	"net/http"
+	"path"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -27,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
 
 func authenticateFiberAPIKey(ctx *fiber.Ctx, server *apikey.Server) (apikey.Principal, bool) {
@@ -441,7 +443,8 @@ func fiberHTTPHandler(app *fiber.App) http.Handler {
 		req := fasthttp.AcquireRequest()
 		defer fasthttp.ReleaseRequest(req)
 
-		if r.Body != nil {
+		streamUpload := r.Method == http.MethodPost && strings.EqualFold(path.Clean(r.URL.Path), "/gizclaw/v1/device/lua-app/install")
+		if r.Body != nil && !streamUpload {
 			n, err := io.Copy(req.BodyWriter(), r.Body)
 			req.Header.SetContentLength(int(n))
 			if err != nil {
@@ -470,6 +473,12 @@ func fiberHTTPHandler(app *fiber.App) http.Handler {
 
 		var fctx fasthttp.RequestCtx
 		fctx.Init(req, remoteAddr, nil)
+		var uploadBody io.ReadCloser
+		if streamUpload && r.Body != nil {
+			uploadBody = gizhttp.InterruptibleRequestBody(w, r.Body)
+			fctx.Request.SetBodyStream(uploadBody, -1)
+			defer fctx.Request.CloseBodyStream()
+		}
 		fctx.SetUserValue("__local_user_context__", r.Context())
 		func() {
 			defer func() {
@@ -482,6 +491,9 @@ func fiberHTTPHandler(app *fiber.App) http.Handler {
 			}()
 			app.Handler()(&fctx)
 		}()
+		if uploadBody != nil {
+			_ = uploadBody.Close()
+		}
 
 		fctx.Response.Header.VisitAll(func(k, v []byte) {
 			w.Header().Add(string(k), string(v))

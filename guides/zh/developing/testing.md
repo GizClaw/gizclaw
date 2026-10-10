@@ -1784,7 +1784,7 @@ G05 直接通过 owner API key 顺序播放索引 0→1→0，逐次核对设备
 
 ## Lua 应用 Giztest simulator
 
-Go Giztest 的 `client_rpc.response.lua_apps` 安装有状态的设备 simulator，三个操作共用同一份状态。配置字段为 `capacity_bytes`（0–64 MiB 的包文件及更新暂存预算）、`installed`（预置的已安装应用目录）和可选 `packages`（HTTPS URL 到 base64 编码的真实 `.lua-app.tar.zlib` archive）。预置目录不模拟内置固件文件；容量预算由本次动态安装的包文件消耗。未配置 URL fixture 时，simulator 使用 HTTPS GET，跟随至多 10 次同样受校验的 HTTPS redirect，并传播请求取消。
+Go Giztest 的 `client_rpc.response.lua_apps` 安装有状态的设备 simulator，三个操作共用同一份状态。配置字段为 `capacity_bytes`（0–64 MiB 的包文件及更新暂存预算）、`installed`（预置的已安装应用目录）和可选 `packages`（HTTP(S) URL 到 base64 编码的真实 `.lua-app.tar.zlib` archive）。预置目录不模拟内置固件文件；容量预算由本次动态安装的包文件消耗。未配置 URL fixture 时，simulator 使用 HTTP(S) GET，跟随至多 10 次同样受校验的 HTTP(S) redirect，并传播请求取消。两种合法 data URL 按块解码后进入同一个包校验器，编码后含前缀最多 256 KiB。
 
 Simulator 分块解压 zlib，解析 USTAR，核对 manifest、文件大小和 SHA-256，拒绝路径穿越、链接、重复文件、截断和尾随数据。容量不足时返回 `UNIMPLEMENTED`，旧版本与目录保持不变。安装成功后的 `list` 查询读取真实 simulator 状态；`run` 校验应用存在并记录实际字符串参数，不执行 Lua VM。请求记录仅在 `/requests` 断言需要时开启，沿用普通 Giztest evidence contract。
 
@@ -1804,3 +1804,16 @@ GIZCLAW_RUNTIME_TOOL_CASE_FILTER=LUA01 GIZCLAW_RUNTIME_TOOL_REPEAT=1 \
 ```
 
 该命令需要现有 Runtime Tool 凭据，保留真实模型回复与设备接收回执；结果属于指定子集，不代表完整 Runtime Tool 压力矩阵。
+
+
+### Lua App Binary 跨仓库验收
+
+`tests/gizclaw-e2e/lua-app/verify_install.py` 对已启动的 GizOS host 经真实 Server/Edge 执行模型无关的验收。它只调用 HTTP/RPC，并读取 GizOS 提供的存档探针；包解析、安装、目录、用户存档和 entry/首帧 golden 的实现与断言由 GizOS 拥有。协议单测中的 byte sink 不代表安装验收。
+
+使用 GizOS 打包器生成超过 65535 字节的真实 `.lua-app.tar.zlib`，让 host 的 HTTP(S) fixture 可访问。通过 `GIZCLAW_LUA_APP_API_KEY` 提供绑定该 host 的 API Key；命令行不携带 Key。`--gizos-probe` 指定 GizOS 提供的只读可执行探针，输出 JSON 的 `app` 和 `userdata_sha256`，启动后还需 `last_run: {app_id, params}` 供脚本核对真实参数；验收前应已有用户存档。`--url` 可重复以覆盖 HTTP 与 HTTPS，`--endpoint` 可重复以分别经过 Server 与 Edge。
+
+```sh
+python3 tests/gizclaw-e2e/lua-app/verify_install.py   --endpoint http://127.0.0.1:9820 --endpoint http://127.0.0.1:9821   --package /tmp/gizos-fixtures/neon_burrow.lua-app.tar.zlib   --url http://host-fixture/apps/neon_burrow.lua-app.tar.zlib   --app-id neon_burrow --version 0.1.0 --params '{"mode":"single"}'   --gizos-probe /tmp/gizos-fixtures/probe --receipt /tmp/lua-install-receipt.json
+```
+
+脚本验证 URL、两种 data URL、Binary 安装及 list/run 参数，Binary 压缩包最多 512 KiB，超限必须通过 HTTP(S) URL 安装；声明 524289 字节的直推请求应返回 `413 LUA_APP_PACKAGE_TOO_LARGE`。截断、超长、错 SHA 和主动取消后重新读取探针，确认应用及存档保留。data URL 测试样本必须在 256 KiB 编码上限内。GizOS 的探针还应记录收到的 launch params，并在其自身 E2E 校验真实入口与首帧 golden。未启动 GizOS host 或未提供探针时，不把协议测试或旧 Giztest simulator 作为设备安装通过的依据。无 handler 与最终错误映射另由 C/Go/JS/Flutter provider 和 Server HTTP tests 覆盖。

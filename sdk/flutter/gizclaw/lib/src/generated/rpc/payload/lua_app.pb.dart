@@ -249,6 +249,11 @@ class ClientLuaAppInstallRequest extends $pb.GeneratedMessage {
       $pb.GeneratedMessage.$_defaultFor<ClientLuaAppInstallRequest>(create);
   static ClientLuaAppInstallRequest? _defaultInstance;
 
+  /// HTTP(S): 1..1024 UTF-8 bytes, no credentials or fragment.
+  /// Inline zlib package: data:application/zlib;base64,<base64> or
+  /// data:application/octet-stream;base64,<base64>; at most 262144 ASCII
+  /// bytes including the prefix. Strict canonical Base64, no whitespace.
+  /// Device decodes blocks directly into its bounded inflater.
   @$pb.TagNumber(1)
   $core.String get url => $_getSZ(0);
   @$pb.TagNumber(1)
@@ -326,6 +331,86 @@ class ClientLuaAppInstallResponse extends $pb.GeneratedMessage {
   void clearApp() => $_clearField(1);
   @$pb.TagNumber(1)
   LuaAppInfo ensureApp() => $_ensure(0);
+}
+
+/// One ordered stream: small RpcRequest metadata, Binary body frames, request
+/// EOS, then final ClientLuaAppInstallResponse and response EOS. No replay.
+/// The device uses the URL tool's installer. Validate compressed length/SHA-256,
+/// manifest, every file, two tar zero blocks and zlib EOS before atomic publish.
+/// Failure/cancel/timeout preserves the previous application and user data.
+class ClientLuaAppInstallStreamRequest extends $pb.GeneratedMessage {
+  factory ClientLuaAppInstallStreamRequest({
+    $core.int? contentLength,
+    $core.String? sha256,
+  }) {
+    final result = create();
+    if (contentLength != null) result.contentLength = contentLength;
+    if (sha256 != null) result.sha256 = sha256;
+    return result;
+  }
+
+  ClientLuaAppInstallStreamRequest._();
+
+  factory ClientLuaAppInstallStreamRequest.fromBuffer(
+          $core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientLuaAppInstallStreamRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientLuaAppInstallStreamRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aI(1, _omitFieldNames ? '' : 'contentLength',
+        fieldType: $pb.PbFieldType.OU3)
+    ..aOS(2, _omitFieldNames ? '' : 'sha256')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientLuaAppInstallStreamRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientLuaAppInstallStreamRequest copyWith(
+          void Function(ClientLuaAppInstallStreamRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientLuaAppInstallStreamRequest))
+          as ClientLuaAppInstallStreamRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientLuaAppInstallStreamRequest create() =>
+      ClientLuaAppInstallStreamRequest._();
+  @$core.override
+  ClientLuaAppInstallStreamRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientLuaAppInstallStreamRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientLuaAppInstallStreamRequest>(
+          create);
+  static ClientLuaAppInstallStreamRequest? _defaultInstance;
+
+  /// Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+  /// must use the URL install tool. Devices
+  /// enforce their own smaller storage/inflation limits. Total deadline 120s.
+  @$pb.TagNumber(1)
+  $core.int get contentLength => $_getIZ(0);
+  @$pb.TagNumber(1)
+  set contentLength($core.int value) => $_setUnsignedInt32(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasContentLength() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearContentLength() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get sha256 => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set sha256($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasSha256() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearSha256() => $_clearField(2);
 }
 
 /// Select an app_id returned by lua.app.list. Parameters map directly to GizOS

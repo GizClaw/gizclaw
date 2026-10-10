@@ -13,6 +13,8 @@
 #define GZC_RPC_MAX_REQUEST_RX_SIZE \
   (GZC_RPC_MAX_ENVELOPE_SIZE + (17u * 4u))
 #define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
+#define GZC_LUA_APP_MAX_BYTES (512u * 1024u)
+const gzc_rpc_stream_provider_t *gzc_client_lua_app_provider_internal(gzc_client_t *client);
 int64_t gzc_client_instant_ms_internal(gzc_client_t *client);
 int gzc_client_write_timeout_ms_internal(gzc_client_t *client);
 int gzc_client_dispatch_rpc_internal(
@@ -818,7 +820,8 @@ typedef enum {
   GZC_INBOUND_ENVELOPE = 0,
   GZC_INBOUND_WAIT_EOS = 1,
   GZC_INBOUND_SPEED_BODY = 2,
-  GZC_INBOUND_TERMINAL = 3
+  GZC_INBOUND_TERMINAL = 3,
+  GZC_INBOUND_INSTALL_BODY = 4
 } gzc_inbound_phase_t;
 
 struct gzc_rpc_inbound {
@@ -847,7 +850,20 @@ struct gzc_rpc_inbound {
   bool write_blocked;
   bool close_after_write;
   bool close_requested;
+  const gzc_rpc_stream_provider_t *provider;
+  void *provider_session;
+  bool provider_blocked;
+  int64_t install_deadline_ms;
 };
+
+static void inbound_close_provider(struct gzc_rpc_inbound *inbound, int status) {
+  if (inbound->provider_session != NULL) {
+    void *session = inbound->provider_session;
+    inbound->provider_session = NULL;
+    inbound->provider->close(session, status);
+  }
+  inbound->provider_blocked = false;
+}
 
 typedef struct {
   gzc_buf_t *out;
@@ -987,6 +1003,7 @@ static int inbound_send_response_payload(
 }
 
 static int inbound_close_transport(struct gzc_rpc_inbound *inbound, int rc) {
+  inbound_close_provider(inbound, rc == GZC_OK ? GZC_ERR_RPC : rc);
   inbound->phase = GZC_INBOUND_TERMINAL;
   if (inbound->tx_offset < inbound->tx.len) {
     inbound->close_after_write = true;
@@ -1106,6 +1123,40 @@ static int inbound_decode_request(struct gzc_rpc_inbound *inbound, const uint8_t
     inbound->phase = GZC_INBOUND_SPEED_BODY;
     return GZC_OK;
   }
+  if (request.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_LUA_APP_INSTALL) {
+    gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest metadata =
+        gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_init_zero;
+    if (!payload_arg.seen || len > 1024u ||
+        !pb_decode(&payload_stream, gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_fields, &metadata) ||
+        metadata.content_length == 0 || metadata.content_length > GZC_LUA_APP_MAX_BYTES ||
+        strlen(metadata.sha256) != 64u) {
+      return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT, "invalid archive metadata");
+    }
+    for (size_t i = 0; i < 64u; i++) {
+      char c = metadata.sha256[i];
+      if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F'))) {
+        return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT, "invalid archive digest");
+      }
+    }
+    inbound->provider = gzc_client_lua_app_provider_internal(inbound->client);
+    if (inbound->provider == NULL) {
+      return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED, "installer unavailable");
+    }
+    inbound->upload_expected = metadata.content_length;
+    inbound->install_deadline_ms = gzc_client_instant_ms_internal(inbound->client) + 120000;
+    int rc = inbound->provider->begin(inbound->provider->userdata, (int)request.method,
+                                      gzc_str_from_parts((const char *)inbound->payload.data, inbound->payload.len),
+                                      &inbound->provider_session);
+    if (rc != GZC_OK || inbound->provider_session == NULL) {
+      inbound_close_provider(inbound, rc == GZC_OK ? GZC_ERR_RPC : rc);
+      return inbound_error(inbound,
+                           rc == GZC_ERR_UNSUPPORTED ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED : rc == GZC_ERR_INVALID_ARGUMENT ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT
+                                                                                                                                            : gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
+                           "installer begin failed");
+    }
+    inbound->phase = GZC_INBOUND_INSTALL_BODY;
+    return GZC_OK;
+  }
   if (inbound_is_client_method(request.method)) {
     if (!payload_arg.seen) {
       return inbound_error(inbound,
@@ -1196,14 +1247,25 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
   memset(&provider_response, 0, sizeof(provider_response));
   provider_response.inbound = inbound;
   gzc_buf_init(&provider_response.encoded_response);
-  int rc = gzc_client_dispatch_rpc_internal(
-      inbound->client,
-      (int)inbound->method,
-      gzc_str_from_parts(
-          (const char *)inbound->payload.data,
-          inbound->payload.len),
-      inbound_provider_respond,
-      &provider_response);
+  int rc;
+  if (inbound->provider != NULL) {
+    rc = inbound->provider->finish(inbound->provider_session,
+                                   inbound_provider_respond, &provider_response);
+    if (rc == GZC_ERR_WOULD_BLOCK && !provider_response.responded) {
+      gzc_buf_free(&provider_response.encoded_response, inbound->platform);
+      inbound->provider_blocked = true;
+      return rc;
+    }
+  } else {
+    rc = gzc_client_dispatch_rpc_internal(
+        inbound->client,
+        (int)inbound->method,
+        gzc_str_from_parts(
+            (const char *)inbound->payload.data,
+            inbound->payload.len),
+        inbound_provider_respond,
+        &provider_response);
+  }
   if (rc == GZC_ERR_UNSUPPORTED) {
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
     return inbound_error(
@@ -1251,6 +1313,7 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
   if (rc != GZC_OK) {
     return inbound_close_transport(inbound, rc);
   }
+  inbound_close_provider(inbound, GZC_OK);
   inbound->request_done = true;
   inbound->response_envelope_sent = true;
   inbound->response_eos_sent = true;
@@ -1301,6 +1364,33 @@ static int inbound_process_frame(struct gzc_rpc_inbound *inbound, const gzc_rpc_
     if (inbound->method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_ALL_PING) {
       return inbound_finish_ping(inbound);
     }
+    return inbound_finish_provider(inbound);
+  }
+  if (inbound->phase == GZC_INBOUND_INSTALL_BODY) {
+    inbound->provider_blocked = false;
+    if (frame->type == GZC_RPC_FRAME_BINARY) {
+      if (frame->len == 0 || frame->len > inbound->upload_expected - inbound->upload_received) {
+        return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT, "archive exceeds declared length");
+      }
+      int rc = inbound->provider->write(inbound->provider_session, frame->data, frame->len);
+      if (rc == GZC_ERR_WOULD_BLOCK) {
+        inbound->provider_blocked = true;
+        return rc;
+      }
+      if (rc != GZC_OK) {
+        inbound_close_provider(inbound, rc);
+        return inbound_error(inbound,
+                             rc == GZC_ERR_INVALID_ARGUMENT ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT : rc == GZC_ERR_UNSUPPORTED ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED
+                                                                                                                                                 : gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL,
+                             "archive write failed");
+      }
+      inbound->upload_received += frame->len;
+      return GZC_OK;
+    }
+    if (frame->type != GZC_RPC_FRAME_EOS || inbound->upload_received != inbound->upload_expected) {
+      return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT, "invalid archive EOS or length");
+    }
+    inbound->request_done = true;
     return inbound_finish_provider(inbound);
   }
   if (inbound->phase == GZC_INBOUND_SPEED_BODY) {
@@ -1377,6 +1467,15 @@ int gzc_rpc_inbound_feed(
   if (is_text) {
     return inbound_close_transport(inbound, GZC_OK);
   }
+  if (len > GZC_RPC_MAX_REQUEST_RX_SIZE ||
+      inbound->rx.len > GZC_RPC_MAX_REQUEST_RX_SIZE - len) {
+    return inbound_close_transport(inbound, GZC_ERR_RPC);
+  }
+  if (inbound->phase == GZC_INBOUND_INSTALL_BODY &&
+      (len > 2u * (GZC_RPC_MAX_FRAME_SIZE + 4u) ||
+       inbound->rx.len > 2u * (GZC_RPC_MAX_FRAME_SIZE + 4u) - len)) {
+    return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_RESOURCE_EXHAUSTED, "archive ingress limit exceeded");
+  }
   int rc = gzc_buf_append(&inbound->rx, inbound->platform, data, len);
   if (rc != GZC_OK) {
     return inbound_close_transport(inbound, rc);
@@ -1396,6 +1495,8 @@ int gzc_rpc_inbound_feed(
       return inbound_close_transport(inbound, GZC_OK);
     }
     rc = inbound_process_frame(inbound, &frame);
+    if (rc == GZC_ERR_WOULD_BLOCK && inbound->provider_blocked)
+      return GZC_OK;
     inbound_consume(&inbound->rx, frame_len);
     if (rc != GZC_OK) {
       return rc;
@@ -1413,6 +1514,17 @@ int gzc_rpc_inbound_feed(
 int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
   if (inbound == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (inbound->phase == GZC_INBOUND_INSTALL_BODY) {
+    if (gzc_client_instant_ms_internal(inbound->client) >= inbound->install_deadline_ms) {
+      inbound_close_provider(inbound, GZC_ERR_TIMEOUT);
+      return inbound_error(inbound, gizclaw_rpc_v1_StatusCode_STATUS_CODE_DEADLINE_EXCEEDED, "installation deadline exceeded");
+    }
+    if (inbound->provider_blocked) {
+      int rc = gzc_rpc_inbound_feed(inbound, NULL, 0, false);
+      if (rc != GZC_OK || inbound->provider_blocked)
+        return rc;
+    }
   }
   uint8_t chunk[4096];
   size_t download_frames = 0;
@@ -1508,6 +1620,13 @@ int gzc_rpc_inbound_backend_timeout_ms(
   if (inbound == NULL) {
     return requested_timeout_ms;
   }
+  if (inbound->phase == GZC_INBOUND_INSTALL_BODY) {
+    int64_t remaining = inbound->install_deadline_ms - gzc_client_instant_ms_internal(inbound->client);
+    if (remaining <= 0 || inbound->provider_blocked)
+      return 0;
+    if (requested_timeout_ms < 0 || remaining < requested_timeout_ms)
+      requested_timeout_ms = (int)remaining;
+  }
   if (inbound->tx_offset < inbound->tx.len) {
     if (!inbound->write_blocked) {
       return 0;
@@ -1540,6 +1659,7 @@ void gzc_rpc_inbound_destroy(struct gzc_rpc_inbound *inbound) {
   if (inbound == NULL) {
     return;
   }
+  inbound_close_provider(inbound, GZC_ERR_CLOSED);
   const gzc_platform_t *platform = inbound->platform;
   gzc_buf_free(&inbound->rx, platform);
   gzc_buf_free(&inbound->envelope, platform);
@@ -1547,4 +1667,8 @@ void gzc_rpc_inbound_destroy(struct gzc_rpc_inbound *inbound) {
   gzc_buf_free(&inbound->payload, platform);
   gzc_buf_free(&inbound->tx, platform);
   platform->free(platform->userdata, inbound);
+}
+
+bool gzc_rpc_inbound_blocked(struct gzc_rpc_inbound *inbound) {
+  return inbound != NULL && inbound->provider_blocked && !inbound->request_done;
 }

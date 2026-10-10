@@ -51,6 +51,54 @@ func runPeerControlGiztest(t *testing.T, scenario string, steps, cleanup int, ru
 
 func runPeerControlGiztestWithChannels(t *testing.T, scenario string, steps, cleanup, channelsPerSession int, run func(context.Context, string, string) ([]byte, error), setup ...func(*gizclaw.Server, *gizcli.Client)) {
 	t.Helper()
+	withPeerControlServer(t, channelsPerSession, func(ctx context.Context, srv *gizclaw.Server, admin *gizcli.Client, serverURL, edgeURL string) {
+		t.Setenv("GIZCLAW_TEST_ENDPOINT", edgeURL)
+		t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "local-peer-sync-test-token")
+		for _, configure := range setup {
+			configure(srv, admin)
+		}
+		root, err := filepath.Abs(filepath.Join("..", "..", ".."))
+		if err != nil {
+			t.Fatal(err)
+		}
+		file := filepath.Join(root, "tests", "gizclaw-e2e", "giztest", scenario)
+		reportPath := filepath.Join(t.TempDir(), filepath.Base(scenario)+".report.json")
+		output, runErr := run(ctx, file, reportPath)
+		reportData, readErr := os.ReadFile(reportPath)
+		if runErr != nil || readErr != nil {
+			t.Fatalf("%s Giztest failed: %v, report: %v\n%s\n%s", scenario, runErr, readErr, output, reportData)
+		}
+		var report struct {
+			Status string `json:"status"`
+			Tasks  []struct {
+				Steps []struct {
+					ID     string `json:"id"`
+					Status string `json:"status"`
+				} `json:"steps"`
+				Cleanup []struct {
+					ID     string `json:"id"`
+					Status string `json:"status"`
+				} `json:"cleanup"`
+			} `json:"tasks"`
+		}
+		if err := json.Unmarshal(reportData, &report); err != nil {
+			t.Fatal(err)
+		}
+		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != steps || len(report.Tasks[0].Cleanup) != cleanup {
+			t.Fatalf("Giztest must execute every step: %s", reportData)
+		}
+		for _, step := range append(report.Tasks[0].Steps, report.Tasks[0].Cleanup...) {
+			if step.Status != "passed" {
+				t.Fatalf("step %s: %s", step.ID, step.Status)
+			}
+		}
+		t.Logf("%s: %d steps and %d cleanup steps passed\n%s", scenario, steps, cleanup, output)
+	})
+}
+
+// withPeerControlServer owns the real Server, Edge and admin transport fixture.
+func withPeerControlServer(t *testing.T, channelsPerSession int, run func(context.Context, *gizclaw.Server, *gizcli.Client, string, string)) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 120*time.Second)
 	defer cancel()
 	cfg := validLayeredConfig(t.TempDir())
@@ -115,47 +163,7 @@ func runPeerControlGiztestWithChannels(t *testing.T, scenario string, steps, cle
 		t.Fatal(err)
 	}
 	edgeURL := startPeerSyncGiztestEdge(t, ctx, edgeKey, httpServer.URL, srv.PublicKey(), channelsPerSession)
-	t.Setenv("GIZCLAW_TEST_ENDPOINT", edgeURL)
-	t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "local-peer-sync-test-token")
-	for _, configure := range setup {
-		configure(srv.Server, admin)
-	}
-	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
-	if err != nil {
-		t.Fatal(err)
-	}
-	file := filepath.Join(root, "tests", "gizclaw-e2e", "giztest", scenario)
-	reportPath := filepath.Join(t.TempDir(), filepath.Base(scenario)+".report.json")
-	output, runErr := run(ctx, file, reportPath)
-	reportData, readErr := os.ReadFile(reportPath)
-	if runErr != nil || readErr != nil {
-		t.Fatalf("%s Giztest failed: %v, report: %v\n%s\n%s", scenario, runErr, readErr, output, reportData)
-	}
-	var report struct {
-		Status string `json:"status"`
-		Tasks  []struct {
-			Steps []struct {
-				ID     string `json:"id"`
-				Status string `json:"status"`
-			} `json:"steps"`
-			Cleanup []struct {
-				ID     string `json:"id"`
-				Status string `json:"status"`
-			} `json:"cleanup"`
-		} `json:"tasks"`
-	}
-	if err := json.Unmarshal(reportData, &report); err != nil {
-		t.Fatal(err)
-	}
-	if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != steps || len(report.Tasks[0].Cleanup) != cleanup {
-		t.Fatalf("Giztest must execute every step: %s", reportData)
-	}
-	for _, step := range append(report.Tasks[0].Steps, report.Tasks[0].Cleanup...) {
-		if step.Status != "passed" {
-			t.Fatalf("step %s: %s", step.ID, step.Status)
-		}
-	}
-	t.Logf("%s: %d steps and %d cleanup steps passed\n%s", scenario, steps, cleanup, output)
+	run(ctx, srv.Server, admin, httpServer.URL, edgeURL)
 }
 
 func startPeerSyncGiztestEdge(t *testing.T, ctx context.Context, key *giznet.KeyPair, serverURL string, serverKey giznet.PublicKey, channelsPerSession int) string {
