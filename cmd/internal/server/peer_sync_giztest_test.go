@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizedge"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
 
@@ -41,7 +43,57 @@ func TestPeerSyncGiztest(t *testing.T) {
 }
 
 func runPeerSyncGiztest(t *testing.T, run func(context.Context, string, string) ([]byte, error)) {
-	runPeerControlGiztest(t, "server.peer.sync.giztest.yaml", 23, 2, run)
+	runPeerControlGiztest(t, "server.peer.sync.giztest.yaml", 25, 2, run)
+}
+
+func TestPeerSyncIdleStreamAssertion(t *testing.T) {
+	doc, err := giztest.LoadDocument("../../../tests/gizclaw-e2e/giztest/server.peer.sync.giztest.yaml", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pattern := ""
+	for _, step := range doc.Steps {
+		if step.ID == "unchanged_sync" {
+			pattern = step.Expect["/raw"].Pattern
+		}
+	}
+	if pattern == "" {
+		t.Fatal("idle sync must restrict the complete event stream")
+	}
+	check, err := regexp.Compile(pattern)
+	if err != nil {
+		t.Fatal(err)
+	}
+	frame := func(event string, fields map[string]any) string {
+		fields["event"] = event
+		data, err := json.Marshal(fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return fmt.Sprintf("event: %s\ndata: %s\n\n", event, data)
+	}
+	done := frame("done", map[string]any{"timestamp": 1})
+	runtime := frame("upsert", map[string]any{"key": "/gizclaw/v1/device/runtime", "data": map[string]any{"online": true, "rx_bytes": 42}})
+	contact := frame("upsert", map[string]any{"key": "/gizclaw/v1/contacts/changed", "data": map[string]any{"name": "changed"}})
+	for _, tc := range []struct {
+		name, stream string
+		want         bool
+	}{
+		{"unchanged", done, true},
+		{"transport activity", runtime + done, true},
+		{"domain change", contact + done, false},
+		{"duplicate runtime", runtime + runtime + done, false},
+		{"duplicate done", done + done, false},
+		{"reset", frame("reset", map[string]any{}) + done, false},
+		{"deletion", frame("delete", map[string]any{"key": "/gizclaw/v1/contacts/changed"}) + done, false},
+		{"incomplete", runtime, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := check.MatchString(tc.stream); got != tc.want {
+				t.Fatalf("idle stream accepted=%t, want %t", got, tc.want)
+			}
+		})
+	}
 }
 
 func runPeerControlGiztest(t *testing.T, scenario string, steps, cleanup int, run func(context.Context, string, string) ([]byte, error), setup ...func(*gizclaw.Server, *gizcli.Client)) {

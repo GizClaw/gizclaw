@@ -683,7 +683,10 @@ Go/C、JS、Flutter 使用 `api/giztest/testdata/http_sse_vectors.json` 校验�
 新增/多次更新后的最终值、删除、设备重连、过期检查点，以及非法时间戳与缺失/失效/撤销 Key。
 `go test ./cmd/internal/server -run '^TestPeerSyncGiztest$' -count=1` 使用临时状态启动真实
 Server 和 Edge，设备经 Gateway/WebRTC 建连，SSE 请求通过 Edge 转发到 authoritative Server。
-报告要求 23 个步骤与 2 个清理步骤全部通过，普通 Go CI 同样执行。
+报告要求 25 个步骤与 2 个清理步骤全部通过，普通 Go CI 同样执行。
+场景通过设备 Ping 验证 runtime 增量。后续无领域变更的同步只允许 done，或因传输收尾帧更新
+last-seen/字节计数而产生的一条 runtime upsert 再加 done；其他资源变化、重复事件和 reset 都失败。
+HTTP 回归使用固定连接快照，仍严格断言完全无变化时只有一条 done。
 
 JavaScript 和原生 Flutter 复用相同场景：构建 Flutter runner 后设置
 `GIZCLAW_SYNC_FLUTTER_RUNNER` 为其可执行文件路径，运行

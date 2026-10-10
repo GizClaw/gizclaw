@@ -736,8 +736,13 @@ reconnect, stale checkpoints, and invalid timestamps or missing/invalid/revoked
 API keys. `go test ./cmd/internal/server -run '^TestPeerSyncGiztest$' -count=1`
 starts real Server and Edge processes over temporary state. Devices connect
 through Gateway/WebRTC, and Edge forwards HTTP SSE to the authoritative Server.
-The report requires all 23 steps and both cleanup steps to pass; ordinary Go CI
+The report requires all 25 steps and both cleanup steps to pass; ordinary Go CI
 runs this test too.
+The scenario uses a device Ping to verify a runtime delta. With no domain changes,
+the next sync permits only done, or one runtime upsert followed by done when
+transport close frames update last-seen or byte counters. Other resource changes,
+duplicate events, and reset fail. HTTP regression tests use a fixed connection
+snapshot and still require exactly one done when the complete state is unchanged.
 
 JavaScript and native Flutter reuse the same scenario. Build the Flutter runner,
 set `GIZCLAW_SYNC_FLUTTER_RUNNER` to its executable, and run
