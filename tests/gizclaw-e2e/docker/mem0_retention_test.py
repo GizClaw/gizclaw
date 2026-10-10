@@ -103,6 +103,39 @@ class RetentionTest(unittest.TestCase):
             results = list(pool.map(lambda _: self.memory.get(self.kept), range(16)))
         self.assertTrue(all(result["memory"] == "retained original fact" for result in results))
 
+    def test_background_role_children_remain_application_owned(self):
+        admin_dsn = os.environ["MEM0_POSTGRES_ADMIN_DSN"]
+        day = datetime.now(timezone.utc) + timedelta(days=200)
+        with psycopg.connect(admin_dsn) as admin:
+            for store in self.cleanup.stores:
+                parent = "public." + retention._name(store.collection_name, "records")
+                admin.execute("SELECT partman.create_partition_time(%s,ARRAY[%s]::timestamptz[])", (parent, day))
+                mismatched = admin.execute("""
+                    SELECT count(*) FROM pg_inherits AS inheritance
+                    JOIN pg_class AS child ON child.oid=inheritance.inhrelid
+                    JOIN pg_class AS parent ON parent.oid=inheritance.inhparent
+                    WHERE parent.oid=to_regclass(%s) AND child.relowner<>parent.relowner
+                """, (parent,)).fetchone()[0]
+                self.assertEqual(mismatched, 0)
+        self.cleanup.maintain()
+
+    def test_failed_maintenance_is_detected_and_existing_children_can_be_repaired(self):
+        admin_dsn = os.environ["MEM0_POSTGRES_ADMIN_DSN"]
+        parent = "public." + retention._name(self.collection, "records")
+        day = datetime.now(timezone.utc) + timedelta(days=220)
+        try:
+            with psycopg.connect(admin_dsn) as admin:
+                admin.execute("UPDATE partman.part_config SET inherit_privileges=false WHERE parent_table=%s", (parent,))
+                admin.execute("SELECT partman.create_partition_time(%s,ARRAY[%s]::timestamptz[])", (parent, day))
+            with self.assertRaisesRegex(RuntimeError, "maintenance did not complete"):
+                with psycopg.connect(self.dsn) as application:
+                    self.cleanup._maintain_partitions(application, parent)
+        finally:
+            with psycopg.connect(admin_dsn) as admin:
+                admin.execute("UPDATE partman.part_config SET inherit_privileges=true WHERE parent_table=%s", (parent,))
+                admin.execute("SELECT partman.reapply_privileges(%s)", (parent,))
+        self.cleanup.maintain()
+
     def test_entity_cleanup_preserves_live_links_and_removes_orphans(self):
         kept, orphan, malformed = [str(uuid.uuid4()) for _ in range(3)]
         store = self.memory.entity_store

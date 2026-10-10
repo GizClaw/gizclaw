@@ -14,7 +14,7 @@ PostgreSQL 启动参数需要包含 `shared_preload_libraries=pg_partman_bgw`，
 
 Compose 使用一个可重复执行的初始化服务。它基于同一 PostgreSQL 镜像，entrypoint 为 `bootstrap-partman`；环境变量 `PGHOST`、`PGUSER`、`PGPASSWORD` 选择管理员连接，`PG_PARTMAN_DATABASES` 是逗号分隔的既有应用数据库清单。管理员凭据由部署环境注入，不写入配置或镜像。初始化服务在 PostgreSQL 健康后运行，应用通过 `condition: service_completed_successfully` 等待它。
 
-初始化服务以管理员身份为每个数据库安装 pgvector 与 pg_partman，并给该数据库 owner 登记所需权限；已有 volume 也会执行，因此不依赖只运行一次的 docker-entrypoint-initdb.d。已有数据库和业务 role 的创建仍由部署层负责。数据库 owner 必须对应应用连接身份。示例见 `tests/gizclaw-e2e/docker/compose.memory.yaml`，它保持 Server 与 Mem0 数据库、role 相互隔离。
+初始化服务以管理员身份为每个数据库安装 pgvector 与 pg_partman，并给该数据库 owner 登记所需权限。分区继承父表的 owner 和权限；初始化服务也会修复已有子分区，确保管理员后台维护创建的分区仍可由应用角色维护。已有 volume 也会执行，因此不依赖只运行一次的 docker-entrypoint-initdb.d。已有数据库和业务 role 的创建仍由部署层负责。数据库 owner 必须对应应用连接身份。示例见 `tests/gizclaw-e2e/docker/compose.memory.yaml`，它保持 Server 与 Mem0 数据库、role 相互隔离。
 
 ## 保留边界
 

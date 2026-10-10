@@ -315,7 +315,7 @@ func (p SQLDailyPartitions) register(ctx context.Context, tx *sqlx.Tx) error {
 			return ExternalSQLError("storage: register pg_partman partition parent", err)
 		}
 	}
-	result, err := tx.ExecContext(ctx, "UPDATE partman.part_config SET retention=$2, retention_keep_table=false, infinite_time_partitions=true WHERE parent_table=$1 AND control=$3 AND epoch='nanoseconds' AND partition_interval='1 day'", parent, fmt.Sprintf("%f seconds", p.Retention.Seconds()), p.Column)
+	result, err := tx.ExecContext(ctx, "UPDATE partman.part_config SET retention=$2, retention_keep_table=false, infinite_time_partitions=true, inherit_privileges=true WHERE parent_table=$1 AND control=$3 AND epoch='nanoseconds' AND partition_interval='1 day'", parent, fmt.Sprintf("%f seconds", p.Retention.Seconds()), p.Column)
 	if err != nil {
 		return ExternalSQLError("storage: configure pg_partman retention", err)
 	}

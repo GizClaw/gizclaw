@@ -43,6 +43,7 @@ class Retention:
         legacy = _name(collection, "legacy")
         with psycopg.connect(self.dsn, connect_timeout=5) as db:
             db.execute("SET LOCAL TIME ZONE 'UTC'")
+            self._lock_maintenance(db)
             db.execute("SELECT pg_advisory_xact_lock(hashtext('gizclaw.mem0.retention'), hashtext(%s))", (collection,))
             if not db.execute("SELECT EXISTS(SELECT 1 FROM pg_extension e JOIN pg_namespace n ON n.oid=e.extnamespace WHERE e.extname='pg_partman' AND n.nspname='partman')").fetchone()[0]:
                 raise RuntimeError("Mem0 PGVector retention requires pg_partman in schema partman")
@@ -88,7 +89,7 @@ class Retention:
                 db.execute("SELECT partman.create_parent(%s,'expires_at','1 day',p_premake:=92,p_default_table:=false,p_jobmon:=false)", (parent,))
             db.execute("""
                 UPDATE partman.part_config SET retention='0 seconds', retention_keep_table=false,
-                    infinite_time_partitions=true WHERE parent_table=%s
+                    infinite_time_partitions=true, inherit_privileges=true WHERE parent_table=%s
             """, (parent,))
             if migrate:
                 days = db.execute(sql.SQL("""
@@ -117,9 +118,23 @@ class Retention:
                     sql.Identifier(_name(collection, "hnsw")), sql.Identifier(records)))
             db.execute(sql.SQL("CREATE INDEX IF NOT EXISTS {} ON {} USING gin(to_tsvector('simple',payload->>'text_lemmatized'))").format(
                 sql.Identifier(_name(collection, "keyword")), sql.Identifier(records)))
-            db.execute("SELECT partman.run_maintenance(%s,p_analyze:=false,p_jobmon:=false)", (parent,))
+            self._maintain_partitions(db, parent)
         # Do not run the SDK's CREATE TABLE/INDEX statements against the view.
         store._collection_ensured = True
+
+    @staticmethod
+    def _lock_maintenance(db):
+        db.execute("SELECT pg_advisory_xact_lock(hashtext('pg_partman run_maintenance'))")
+
+    @staticmethod
+    def _maintain_partitions(db, parent):
+        Retention._lock_maintenance(db)
+        db.execute("SELECT partman.run_maintenance(%s,p_analyze:=false,p_jobmon:=false)", (parent,))
+        # pg_partman catches per-parent failures and reports a warning instead
+        # of raising. A failed maintenance attempt clears this timestamp.
+        maintained = db.execute("SELECT maintenance_last_run IS NOT NULL FROM partman.part_config WHERE parent_table=%s", (parent,)).fetchone()
+        if not maintained or not maintained[0]:
+            raise RuntimeError(f"pg_partman maintenance did not complete for {parent}")
 
     def maintain(self):
         now = datetime.now(timezone.utc)
@@ -128,12 +143,13 @@ class Retention:
             db.execute("SET LOCAL TIME ZONE 'UTC'")
             db.execute("SET LOCAL statement_timeout='30s'")
             db.execute("SET LOCAL lock_timeout='5s'")
+            self._lock_maintenance(db)
             if not db.execute("SELECT pg_try_advisory_xact_lock(hashtext('gizclaw.mem0.retention'), hashtext(%s))", (self.memory.collection_name,)).fetchone()[0]:
                 return
             schema = db.execute("SELECT current_schema()").fetchone()[0]
             for store in self.stores:
                 parent = schema + "." + _name(store.collection_name, "records")
-                db.execute("SELECT partman.run_maintenance(%s,p_analyze:=false,p_jobmon:=false)", (parent,))
+                self._maintain_partitions(db, parent)
                 keys = _name(store.collection_name, "keys")
                 rows = db.execute(sql.SQL("DELETE FROM {} WHERE expires_at <= %s RETURNING id").format(sql.Identifier(keys)), (now,)).fetchall()
                 expired_ids.extend(str(row[0]) for row in rows)
