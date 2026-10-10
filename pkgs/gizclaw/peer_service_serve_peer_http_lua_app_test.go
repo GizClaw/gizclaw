@@ -5,13 +5,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 )
@@ -140,3 +144,70 @@ func TestLuaAppHTTPFinalErrorMapping(t *testing.T) {
 		})
 	}
 }
+
+func TestLuaAppHTTPArchiveSizeLimit(t *testing.T) {
+	for _, size := range []int{524288, 524289} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			f := newDeviceHTTPFixture(t)
+			data := bytes.Repeat([]byte{42}, size)
+			digest := sha256.Sum256(data)
+			var dials atomic.Int32
+			received := make(chan int, 1)
+			f.manager.SetPeerUp(f.owner, &luaUploadConn{serve: func(conn net.Conn) {
+				dials.Add(1)
+				req, err := rpcapi.ReadRequest(conn)
+				if err != nil {
+					return
+				}
+				total := 0
+				for {
+					frame, err := rpcapi.ReadFrame(conn)
+					if err != nil {
+						return
+					}
+					if frame.Type == rpcapi.FrameTypeEOS {
+						break
+					}
+					total += len(frame.Payload)
+				}
+				received <- total
+				payload := new(rpcapi.RPCPayload)
+				_ = payload.FromClientLuaAppInstallResponse(&rpcpb.ClientLuaAppInstallResponse{App: &rpcpb.LuaAppInfo{AppId: "demo", Version: "1.0.0"}})
+				_ = rpcapi.WriteResponseForMethod(conn, req.Method, &rpcapi.RPCResponse{Id: req.Id, Result: payload})
+				_ = rpcapi.WriteEOS(conn)
+			}})
+			reader := &luaCountedReader{Reader: bytes.NewReader(data)}
+			request := httptest.NewRequest("POST", fmt.Sprintf("/gizclaw/v1/device/lua-app/install?content_length=%d&sha256=%x", size, digest), reader)
+			request.Header.Set("Content-Type", "application/octet-stream")
+			request.Header.Set("Authorization", "Bearer "+f.secret)
+			response := httptest.NewRecorder()
+			f.handler.ServeHTTP(response, request)
+			if size == 524288 {
+				if response.Code != 200 {
+					t.Fatalf("%d %s", response.Code, response.Body)
+				}
+				if <-received != size {
+					t.Fatal("incomplete maximum-size archive")
+				}
+			} else {
+				failure := decodeJSON[apitypes.ErrorResponse](t, response)
+				if response.Code != 413 || failure.Error.Code != "LUA_APP_PACKAGE_TOO_LARGE" {
+					t.Fatalf("%d %+v", response.Code, failure)
+				}
+				if reader.reads != 0 || dials.Load() != 0 {
+					t.Fatal("oversized archive was read or dispatched")
+				}
+				if !strings.Contains(failure.Error.Message, "HTTP(S) URL") {
+					t.Fatalf("missing URL install guidance: %+v", failure)
+				}
+			}
+		})
+	}
+}
+
+type luaCountedReader struct {
+	io.Reader
+	reads int
+}
+
+func (r *luaCountedReader) Read(buffer []byte) (int, error) { r.reads++; return r.Reader.Read(buffer) }

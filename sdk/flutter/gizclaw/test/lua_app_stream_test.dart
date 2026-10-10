@@ -41,8 +41,27 @@ Future<void> _waitFor(bool Function() ready) async {
 }
 
 void main() {
+  test(
+    'Binary caller rejects 512 KiB plus one before opening transport',
+    () async {
+      final factory = FakeDataChannelFactory();
+      final client = PeerRpcClient(factory);
+      await expectLater(
+        client.installLuaApp(
+          ClientLuaAppInstallStreamRequest(
+            contentLength: 524289,
+            sha256: 'a' * 64,
+          ),
+          const Stream<Uint8List>.empty(),
+        ),
+        throwsArgumentError,
+      );
+      expect(factory.channels, isEmpty);
+    },
+  );
+
   test('Binary provider verifies exact length and SHA before finish', () async {
-    final bytes = Uint8List(164484);
+    final bytes = Uint8List(524288);
     final hash = (const DartSha256())
         .hashSync(bytes)
         .bytes

@@ -252,6 +252,7 @@ export function classifyGizClawControlError(
   }
   switch (status) {
     case 400:
+    case 413:
       return "invalidRequest";
     case 401:
       return "unauthorized";
@@ -715,11 +716,11 @@ export function createGizClawControlClient(
   return {
     client,
     installLuaApp(archive, sha256, signal) {
-      if (
-        archive.size < 1 ||
-        archive.size > 16 * 1024 * 1024 ||
-        !/^[a-fA-F0-9]{64}$/.test(sha256)
-      )
+      if (archive.size > 512 * 1024)
+        throw new TypeError(
+          "compressed archive exceeds 512 KiB; install via an HTTP(S) URL",
+        );
+      if (archive.size < 1 || !/^[a-fA-F0-9]{64}$/.test(sha256))
         throw new TypeError("invalid archive metadata");
       const signals = [AbortSignal.timeout(120000)];
       if (options.signal != null) signals.push(options.signal);

@@ -1059,7 +1059,7 @@ test("Lua archive control sends one raw body with metadata and no retry", async 
   const h = harness([json(200, result)]);
   assert.deepEqual(
     await h.client.installLuaApp(
-      new Blob(["*".repeat(164484)]),
+      new Blob(["*".repeat(524288)]),
       "a".repeat(64),
     ),
     result,
@@ -1067,7 +1067,26 @@ test("Lua archive control sends one raw body with metadata and no retry", async 
   const seen = h.single();
   assert.equal(seen.method, "POST");
   assert.equal(seen.url.pathname, "/gizclaw/v1/device/lua-app/install");
-  assert.equal(seen.url.searchParams.get("content_length"), "164484");
+  assert.equal(seen.url.searchParams.get("content_length"), "524288");
   assert.equal(seen.headers.get("content-type"), "application/octet-stream");
-  assert.equal(seen.body.length, 164484);
+  assert.equal(seen.body.length, 524288);
+});
+
+test("Lua Binary control rejects oversize before sending and classifies 413", () => {
+  const client = createGizClawControlClient({
+    baseUrl,
+    apiKey,
+    fetch: async () => {
+      assert.fail("oversized request was sent");
+    },
+  });
+  assert.throws(
+    () =>
+      client.installLuaApp(new Blob([new Uint8Array(524289)]), "a".repeat(64)),
+    /512 KiB.*URL/,
+  );
+  assert.equal(
+    classifyGizClawControlError(413, "LUA_APP_PACKAGE_TOO_LARGE"),
+    "invalidRequest",
+  );
 });

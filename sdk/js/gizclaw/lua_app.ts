@@ -113,7 +113,7 @@ export function validLuaAppUpload(
     typeof value.content_length === "number" &&
     Number.isInteger(value.content_length) &&
     value.content_length > 0 &&
-    value.content_length <= 16 * 1024 * 1024 &&
+    value.content_length <= 512 * 1024 &&
     typeof value.sha256 === "string" &&
     /^[a-fA-F0-9]{64}$/.test(value.sha256)
   );

@@ -2772,10 +2772,10 @@ static void lua_stream_close(void *session, int status) {
 
 static int test_lua_stream(gzc_client_t *client, fake_webrtc_t *fake, lua_stream_test_t *sink) {
   const gzc_platform_t *platform = fake->platform;
-  for (int variant = 0; variant < 6; variant++) {
+  for (int variant = 0; variant < 8; variant++) {
     *sink = (lua_stream_test_t){.block=true,.finish_block=variant==4};
     gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest metadata = gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_init_zero;
-    metadata.content_length = 164484u;
+    metadata.content_length = variant==6 ? 524288u : variant==7 ? 524289u : 164484u;
     memset(metadata.sha256, 'a', 64u);
     uint8_t encoded[128];
     pb_ostream_t output = pb_ostream_from_buffer(encoded, sizeof(encoded));
@@ -2788,8 +2788,17 @@ static int test_lua_stream(gzc_client_t *client, fake_webrtc_t *fake, lua_stream
     gzc_buf_reset(&fake->sent);
     if (append_test_frame(platform,&frames,GZC_RPC_FRAME_BINARY,request.data,request.len) != GZC_OK) return 1;
     fake->callbacks.on_channel_message(fake->callbacks.userdata,&fake->peer,&fake->remote_channels[0],NULL,frames.data,frames.len,false);
+    if (variant==7) {
+      if (gzc_client_poll(client,0)!=GZC_OK) return 1;
+      gzc_rpc_frame_t frame; gzc_rpc_response_t response;
+      if (gzc_rpc_frame_decode(fake->sent.data,first_frame_size(&fake->sent),&frame)!=GZC_OK ||
+          gzc_rpc_decode_response_envelope(gzc_str_from_parts((const char *)frame.data,frame.len),&response)!=GZC_OK ||
+          expect(response.has_error && response.error.code==gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT && sink->closed==0,"reject 512 KiB plus one before begin")!=0) return 1;
+      gzc_buf_free(&request,platform);gzc_buf_free(&frames,platform);
+      continue;
+    }
     uint8_t chunk[8192] = {0};
-    size_t total = variant == 1 ? 163000u : variant == 2 ? 164485u : (variant == 3 || variant == 5) ? 8192u : 164484u;
+    size_t total = variant==6 ? 524288u : variant == 1 ? 163000u : variant == 2 ? 164485u : (variant == 3 || variant == 5) ? 8192u : 164484u;
     for (size_t n = 0; n < total;) {
       size_t take = total-n < sizeof(chunk) ? total-n : sizeof(chunk);
       gzc_buf_reset(&frames);
@@ -2812,8 +2821,8 @@ static int test_lua_stream(gzc_client_t *client, fake_webrtc_t *fake, lua_stream
       if (gzc_client_poll(client,0) != GZC_OK) return 1;
     }
     if (variant == 4) close_remote_rpc(fake,0);
-    if (expect(sink->closed == 1 && sink->finish == (variant == 0), "stream finish/abort owns cleanup once") != 0) return 1;
-    if (variant == 0 && expect(sink->bytes == 164484u && sink->chunks > 2 && sink->outcome == GZC_OK,"large archive chunks survive WOULD_BLOCK") != 0) return 1;
+    if (expect(sink->closed == 1 && sink->finish == (variant == 0 || variant==6), "stream finish/abort owns cleanup once") != 0) return 1;
+    if ((variant == 0 || variant==6) && expect(sink->bytes == metadata.content_length && sink->chunks > 2 && sink->outcome == GZC_OK,"large archive chunks survive WOULD_BLOCK") != 0) return 1;
     gzc_buf_free(&request,platform);gzc_buf_free(&frames,platform);
   }
   return 0;

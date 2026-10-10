@@ -27,6 +27,7 @@ gzc_control_error_kind_t gzc_control_classify(int status_code, gzc_str_t code) {
   }
   switch (status_code) {
   case 400:
+  case 413:
     return GZC_CONTROL_ERROR_INVALID_REQUEST;
   case 401:
     return GZC_CONTROL_ERROR_UNAUTHORIZED;

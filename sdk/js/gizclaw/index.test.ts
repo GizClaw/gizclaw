@@ -4875,7 +4875,7 @@ test("MHS provider reads all HWDs and discovers installed handlers", async () =>
 });
 
 test("Lua app Binary provider verifies ordered chunks, SHA and terminal ownership", async () => {
-  const bytes = new Uint8Array(164484).fill(0xaa);
+  const bytes = new Uint8Array(524288).fill(0xaa);
   const digest = Array.from(sha256(bytes), (x) =>
     x.toString(16).padStart(2, "0"),
   ).join("");
@@ -4904,9 +4904,9 @@ test("Lua app Binary provider verifies ordered chunks, SHA and terminal ownershi
           };
     const source =
       kind === "short"
-        ? bytes.subarray(0, 164483)
+        ? bytes.subarray(0, 524287)
         : kind === "long"
-          ? new Uint8Array(164485)
+          ? new Uint8Array(524289)
           : bytes;
     const chunks = [];
     for (let offset = 0; offset < source.length; offset += 8192)
@@ -4995,4 +4995,26 @@ test("Lua data URL keeps the 256 KiB compatibility boundary", async () => {
   }
   assert.equal(validLuaAppInstall({ url: "http://apps.test/app" }), true);
   assert.equal(validLuaAppInstall({ url: "https://apps.test/app" }), true);
+});
+
+test("Lua Binary upload rejects 512 KiB plus one byte before opening a channel", async () => {
+  const pc = new FakePeerConnection();
+  const client = new WebRTCRPCClient(pc);
+  await assert.rejects(
+    client.installLuaApp(
+      { content_length: 524289, sha256: "a".repeat(64) },
+      [],
+    ),
+    /512 KiB.*URL/,
+  );
+  assert.equal(pc.channels.length, 0);
+  const { validLuaAppUpload } = await import("./lua_app.ts");
+  assert.equal(
+    validLuaAppUpload({ content_length: 524288, sha256: "a".repeat(64) }),
+    true,
+  );
+  assert.equal(
+    validLuaAppUpload({ content_length: 524289, sha256: "a".repeat(64) }),
+    false,
+  );
 });

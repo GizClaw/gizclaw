@@ -66,8 +66,8 @@ def main():
     args = parser.parse_args()
     key = os.environ['GIZCLAW_LUA_APP_API_KEY']
     package = args.package.read_bytes()
-    if not 65535 < len(package) <= 16 * 1024 * 1024:
-        raise ValueError('acceptance package must exceed one RPC frame and be at most 16 MiB')
+    if not 65535 < len(package) <= 512 * 1024:
+        raise ValueError('acceptance package must exceed one RPC frame and be at most 512 KiB')
     sha = hashlib.sha256(package).hexdigest()
     params = json.loads(args.params)
     if not isinstance(params, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in params.items()):
@@ -111,6 +111,11 @@ def main():
         time.sleep(0.2)
         assert snapshot(args.gizos_probe) == before, 'cancellation changed application or saved data'
         checks.append('cancel')
+        oversize = 'device/lua-app/install?' + urllib.parse.urlencode({'content_length': 524289, 'sha256': sha})
+        result = request(endpoint, key, oversize, b'', 'application/octet-stream', 413)
+        assert result['error']['code'] == 'LUA_APP_PACKAGE_TOO_LARGE', result
+        assert snapshot(args.gizos_probe) == before, 'oversize changed application or saved data'
+        checks.append('oversize')
         check_app(request(endpoint, key, path, package, 'application/octet-stream'))
         checks.append('binary')
         catalog = tool(endpoint, key, 'lua.app.list', {})['apps']

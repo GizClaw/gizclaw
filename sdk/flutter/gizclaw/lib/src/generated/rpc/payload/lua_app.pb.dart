@@ -391,7 +391,8 @@ class ClientLuaAppInstallStreamRequest extends $pb.GeneratedMessage {
           create);
   static ClientLuaAppInstallStreamRequest? _defaultInstance;
 
-  /// Compressed archive bytes, 1..16777216 (16 MiB transfer ceiling). Devices
+  /// Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+  /// must use the URL install tool. Devices
   /// enforce their own smaller storage/inflation limits. Total deadline 120s.
   @$pb.TagNumber(1)
   $core.int get contentLength => $_getIZ(0);

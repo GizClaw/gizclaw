@@ -286,7 +286,8 @@ func (x *ClientLuaAppInstallResponse) GetApp() *LuaAppInfo {
 // Failure/cancel/timeout preserves the previous application and user data.
 type ClientLuaAppInstallStreamRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// Compressed archive bytes, 1..16777216 (16 MiB transfer ceiling). Devices
+	// Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+	// must use the URL install tool. Devices
 	// enforce their own smaller storage/inflation limits. Total deadline 120s.
 	ContentLength uint32 `protobuf:"varint,1,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	Sha256        string `protobuf:"bytes,2,opt,name=sha256,proto3" json:"sha256,omitempty"` // Required compressed SHA-256, 64 hex digits.

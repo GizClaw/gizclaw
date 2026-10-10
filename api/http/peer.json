@@ -3320,7 +3320,7 @@
       "post": {
         "operationId": "installLuaApp",
         "summary": "Stream a Lua application package to the API key owner device",
-        "description": "Single request; no replay. Forward bounded Binary frames to client.lua.app.install. Success means device installation and atomic publication completed. The device owns format-1 lua-app manifest, tar, zlib and file validation. Failures preserve the old application and user data. Maximum 16 MiB and 120 seconds.",
+        "description": "Single request; no replay. Forward bounded Binary frames to client.lua.app.install. Success means device installation and atomic publication completed. The device owns format-1 lua-app manifest, tar, zlib and file validation. Failures preserve the old application and user data. Maximum 512 KiB and 120 seconds. Larger compressed archives must use the lua.app.install HTTP(S) URL download tool.",
         "tags": [
           "DeviceControl"
         ],
@@ -3333,7 +3333,7 @@
               "type": "integer",
               "format": "int64",
               "minimum": 1,
-              "maximum": 16777216
+              "maximum": 524288
             },
             "description": "Compressed archive bytes; must equal body length. Chunked HTTP is supported."
           },
@@ -3359,7 +3359,8 @@
             "application/octet-stream": {
               "schema": {
                 "type": "string",
-                "format": "binary"
+                "format": "binary",
+                "maxLength": 524288
               }
             }
           }
@@ -3405,6 +3406,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/LuaAppInstallResult"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "LUA_APP_PACKAGE_TOO_LARGE: compressed archive exceeds 512 KiB. Install larger archives with the lua.app.install HTTP(S) URL download tool.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./shared.json#/components/schemas/ErrorResponse"
                 }
               }
             }

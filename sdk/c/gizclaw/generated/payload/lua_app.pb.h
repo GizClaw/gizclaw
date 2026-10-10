@@ -55,7 +55,8 @@ typedef struct _gizclaw_rpc_v1_ClientLuaAppInstallResponse {
  manifest, every file, two tar zero blocks and zlib EOS before atomic publish.
  Failure/cancel/timeout preserves the previous application and user data. */
 typedef struct _gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest {
-    /* Compressed archive bytes, 1..16777216 (16 MiB transfer ceiling). Devices
+    /* Compressed archive bytes, 1..524288 (512 KiB transfer ceiling). Larger archives
+ must use the URL install tool. Devices
  enforce their own smaller storage/inflation limits. Total deadline 120s. */
     uint32_t content_length;
     char sha256[65]; /* Required compressed SHA-256, 64 hex digits. */

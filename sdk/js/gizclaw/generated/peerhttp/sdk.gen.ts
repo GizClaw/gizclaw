@@ -634,7 +634,7 @@ export const syncPeer = <ThrowOnError extends boolean = false>(options: Options<
 /**
  * Stream a Lua application package to the API key owner device
  *
- * Single request; no replay. Forward bounded Binary frames to client.lua.app.install. Success means device installation and atomic publication completed. The device owns format-1 lua-app manifest, tar, zlib and file validation. Failures preserve the old application and user data. Maximum 16 MiB and 120 seconds.
+ * Single request; no replay. Forward bounded Binary frames to client.lua.app.install. Success means device installation and atomic publication completed. The device owns format-1 lua-app manifest, tar, zlib and file validation. Failures preserve the old application and user data. Maximum 512 KiB and 120 seconds. Larger compressed archives must use the lua.app.install HTTP(S) URL download tool.
  */
 export const installLuaApp = <ThrowOnError extends boolean = false>(options: Options<InstallLuaAppData, ThrowOnError>): RequestResult<InstallLuaAppResponses, InstallLuaAppErrors, ThrowOnError> => (options.client ?? client).post<InstallLuaAppResponses, InstallLuaAppErrors, ThrowOnError>({
     bodySerializer: null,

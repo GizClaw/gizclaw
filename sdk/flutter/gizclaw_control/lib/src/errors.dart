@@ -139,7 +139,7 @@ GizClawControlErrorKind classifyGizClawControlError(
     return deviceKind;
   }
   return switch (statusCode) {
-    400 => GizClawControlErrorKind.invalidRequest,
+    400 || 413 => GizClawControlErrorKind.invalidRequest,
     401 => GizClawControlErrorKind.unauthorized,
     403 => GizClawControlErrorKind.forbidden,
     404 => GizClawControlErrorKind.notFound,

@@ -3957,6 +3957,10 @@ export type InstallLuaAppErrors = {
      */
     409: ErrorResponse;
     /**
+     * LUA_APP_PACKAGE_TOO_LARGE: compressed archive exceeds 512 KiB. Install larger archives with the lua.app.install HTTP(S) URL download tool.
+     */
+    413: ErrorResponse;
+    /**
      * The API key operation failed.
      */
     500: ErrorResponse;

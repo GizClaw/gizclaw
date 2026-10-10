@@ -102,3 +102,17 @@ func TestLuaAppNilPayloadsAreRejected(t *testing.T) {
 		t.Fatal("nil installer payload accepted")
 	}
 }
+
+func TestLuaAppBinaryArchiveSizeLimit(t *testing.T) {
+	for _, size := range []uint32{1, 524288, 524289} {
+		request := &rpcpb.ClientLuaAppInstallStreamRequest{ContentLength: size, Sha256: strings.Repeat("a", 64)}
+		err := ValidateLuaAppRequest(request)
+		if (err == nil) != (size <= 524288) {
+			t.Fatalf("length %d: %v", size, err)
+		}
+	}
+	// The limit applies to bytes pushed directly, not HTTP(S) download URLs.
+	if err := ValidateLuaAppRequest(&rpcpb.ClientLuaAppInstallRequest{Url: "https://apps.test/large.lua-app.tar.zlib"}); err != nil {
+		t.Fatal(err)
+	}
+}

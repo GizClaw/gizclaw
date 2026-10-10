@@ -1816,4 +1816,4 @@ GIZCLAW_RUNTIME_TOOL_CASE_FILTER=LUA01 GIZCLAW_RUNTIME_TOOL_REPEAT=1 \
 python3 tests/gizclaw-e2e/lua-app/verify_install.py   --endpoint http://127.0.0.1:9820 --endpoint http://127.0.0.1:9821   --package /tmp/gizos-fixtures/neon_burrow.lua-app.tar.zlib   --url http://host-fixture/apps/neon_burrow.lua-app.tar.zlib   --app-id neon_burrow --version 0.1.0 --params '{"mode":"single"}'   --gizos-probe /tmp/gizos-fixtures/probe --receipt /tmp/lua-install-receipt.json
 ```
 
-脚本验证 URL、两种 data URL、Binary 安装及 list/run 参数；截断、超长、错 SHA 和主动取消后重新读取探针，确认应用及存档保留。data URL 测试样本必须在 256 KiB 编码上限内。GizOS 的探针还应记录收到的 launch params，并在其自身 E2E 校验真实入口与首帧 golden。未启动 GizOS host 或未提供探针时，不把协议测试或旧 Giztest simulator 作为设备安装通过的依据。无 handler 与最终错误映射另由 C/Go/JS/Flutter provider 和 Server HTTP tests 覆盖。
+脚本验证 URL、两种 data URL、Binary 安装及 list/run 参数，Binary 压缩包最多 512 KiB，超限必须通过 HTTP(S) URL 安装；声明 524289 字节的直推请求应返回 `413 LUA_APP_PACKAGE_TOO_LARGE`。截断、超长、错 SHA 和主动取消后重新读取探针，确认应用及存档保留。data URL 测试样本必须在 256 KiB 编码上限内。GizOS 的探针还应记录收到的 launch params，并在其自身 E2E 校验真实入口与首帧 golden。未启动 GizOS host 或未提供探针时，不把协议测试或旧 Giztest simulator 作为设备安装通过的依据。无 handler 与最终错误映射另由 C/Go/JS/Flutter provider 和 Server HTTP tests 覆盖。

@@ -113,8 +113,12 @@ class PeerRpcClient {
     String? id,
     Duration timeout = const Duration(seconds: 120),
   }) async {
+    if (metadata.contentLength > 512 * 1024) {
+      throw ArgumentError(
+        'compressed archive exceeds 512 KiB; install via an HTTP(S) URL',
+      );
+    }
     if (metadata.contentLength < 1 ||
-        metadata.contentLength > 16 * 1024 * 1024 ||
         !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(metadata.sha256)) {
       throw ArgumentError('invalid Lua app upload metadata');
     }

@@ -74,11 +74,11 @@ C 使用 `gzc_control_get_device_gnss_reporting` / `gzc_control_set_device_gnss_
 
 包格式以 GizOS [固定版本的公共打包器](https://github.com/GizClaw/gizos/blob/604492cc10e2b86b730a365288694d4bf1fc76ab/libs/lua/app_package.py) 为准。USTAR 在文件边界后必须包含两个完整的 512 字节全零结束块；其后的填充也只能是完整的全零块。zlib 校验成功不能代替 tar 完整性验证。
 
-`client.lua.app.install`（RPC 139）是独立的上传 contract，不属于 `ClientTool`。首个小型 Protobuf `RpcRequest` 的 payload 为 `ClientLuaAppInstallStreamRequest { uint32 content_length; string sha256; }`；压缩包长度范围 1–16777216 字节，SHA-256 必填且为 64 位十六进制。随后同一有序 stream 接收多个 Binary 帧，单帧最多 65535 字节，最后是请求 EOS。禁止用 Protobuf bytes、Base64 envelope 或多次 RPC 拼装包体。总期限 120 秒；16 MiB 限制传输工作量，设备继续施加较低的存储、文件数量及解压限制。
+`client.lua.app.install`（RPC 139）是独立的上传 contract，不属于 `ClientTool`。首个小型 Protobuf `RpcRequest` 的 payload 为 `ClientLuaAppInstallStreamRequest { uint32 content_length; string sha256; }`；压缩包长度范围 1–524288 字节，SHA-256 必填且为 64 位十六进制。随后同一有序 stream 接收多个 Binary 帧，单帧最多 65535 字节，最后是请求 EOS。禁止用 Protobuf bytes、Base64 envelope 或多次 RPC 拼装包体。总期限 120 秒；Binary 直推最多 512 KiB；更大的压缩包必须通过 `lua.app.install` 的 HTTP(S) URL 下载，设备继续施加较低的存储、文件数量及解压限制。
 
 设备必须复用 URL 安装器，边收边解压、校验并写暂存文件，完整压缩包不落盘。压缩长度与 SHA-256、manifest、全部文件长度与摘要、两个 tar 结束零块和 zlib EOS 均通过后才原子发布，并发送 `ClientLuaAppInstallResponse` 与响应 EOS。错误、取消、超时或中断都清理暂存状态，保留旧应用与用户数据；失败不重放。早期拒绝可在上传完成前发送最终错误。
 
-控制入口 `POST /gizclaw/v1/device/lua-app/install?content_length=N&sha256=HEX` 使用 `application/octet-stream` 原始请求体，支持 chunked HTTP。鉴权仍绑定 API Key owner；Server/Edge 只转发字节，不持有另一份解包器。返回 `{ "app": ... }`，错误沿用 `DEVICE_REJECTED`、`DEVICE_UNSUPPORTED`、`DEVICE_TIMEOUT` 和脱敏 `DEVICE_ERROR`。列表及启动仍使用 URL Tool 所在的 `tool/v0/invoke` 入口。
+控制入口 `POST /gizclaw/v1/device/lua-app/install?content_length=N&sha256=HEX` 使用 `application/octet-stream` 原始请求体，支持 chunked HTTP。鉴权仍绑定 API Key owner；Server/Edge 只转发字节，不持有另一份解包器。声明长度超过上限时在联系设备前返回 `413 LUA_APP_PACKAGE_TOO_LARGE`，提示通过 HTTP(S) URL 安装。返回 `{ "app": ... }`，错误沿用 `DEVICE_REJECTED`、`DEVICE_UNSUPPORTED`、`DEVICE_TIMEOUT` 和脱敏 `DEVICE_ERROR`。列表及启动仍使用 URL Tool 所在的 `tool/v0/invoke` 入口。
 
 C 设备通过 `gzc_client_config_t.lua_app_install` 安装借用的 `gzc_rpc_stream_provider_t`，只有实际注册才在 `client.rpc.methods.list` 公布 139：
 

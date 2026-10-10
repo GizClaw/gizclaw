@@ -570,6 +570,10 @@ export class WebRTCRPCClient {
     body: AsyncIterable<Uint8Array> | Iterable<Uint8Array>,
     options: RPCCallOptions = {},
   ): Promise<ClientLuaAppInstallResponse> {
+    if (metadata.content_length > 512 * 1024)
+      throw new Error(
+        "compressed archive exceeds 512 KiB; install via an HTTP(S) URL",
+      );
     if (!validLuaAppUpload(metadata))
       throw new Error("invalid Lua app metadata");
     async function* checked(): AsyncIterable<Uint8Array> {

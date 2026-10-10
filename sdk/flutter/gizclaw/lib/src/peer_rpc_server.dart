@@ -474,7 +474,7 @@ class _InboundPeerRpcChannel {
           request.payload,
         );
         if (metadata.contentLength < 1 ||
-            metadata.contentLength > 16 * 1024 * 1024 ||
+            metadata.contentLength > 512 * 1024 ||
             !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(metadata.sha256)) {
           throw const FormatException('invalid upload metadata');
         }

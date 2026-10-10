@@ -13,7 +13,7 @@
 #define GZC_RPC_MAX_REQUEST_RX_SIZE \
   (GZC_RPC_MAX_ENVELOPE_SIZE + (17u * 4u))
 #define GZC_RPC_DOWNLOAD_FRAMES_PER_POLL 16u
-#define GZC_LUA_APP_MAX_BYTES (16u * 1024u * 1024u)
+#define GZC_LUA_APP_MAX_BYTES (512u * 1024u)
 const gzc_rpc_stream_provider_t *gzc_client_lua_app_provider_internal(gzc_client_t *client);
 int64_t gzc_client_instant_ms_internal(gzc_client_t *client);
 int gzc_client_write_timeout_ms_internal(gzc_client_t *client);

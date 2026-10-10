@@ -7450,6 +7450,7 @@ type InstallLuaAppResponse struct {
 	JSON403      *Forbidden
 	JSON404      *externalRef0.ErrorResponse
 	JSON409      *DeviceOffline
+	JSON413      *externalRef0.ErrorResponse
 	JSON500      *InternalError
 	JSON501      *DeviceUnsupported
 	JSON502      *DeviceError
@@ -10463,6 +10464,13 @@ func ParseInstallLuaAppResponse(rsp *http.Response) (*InstallLuaAppResponse, err
 			return nil, err
 		}
 		response.JSON409 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 413:
+		var dest externalRef0.ErrorResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON413 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 500:
 		var dest InternalError
@@ -16305,6 +16313,15 @@ type InstallLuaApp409JSONResponse struct{ DeviceOfflineJSONResponse }
 func (response InstallLuaApp409JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
 	ctx.Response().Header.Set("Content-Type", "application/json")
 	ctx.Status(409)
+
+	return ctx.JSON(&response)
+}
+
+type InstallLuaApp413JSONResponse externalRef0.ErrorResponse
+
+func (response InstallLuaApp413JSONResponse) VisitInstallLuaAppResponse(ctx *fiber.Ctx) error {
+	ctx.Response().Header.Set("Content-Type", "application/json")
+	ctx.Status(413)
 
 	return ctx.JSON(&response)
 }

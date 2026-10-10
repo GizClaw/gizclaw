@@ -25,8 +25,11 @@ func (s *peerHTTP) InstallLuaApp(ctx context.Context, request peerhttp.InstallLu
 	if typeErr != nil || contentType != "application/octet-stream" {
 		return clientToolFailure(invalidDeviceRequest("expected application/octet-stream")), nil
 	}
-	if request.Params.ContentLength < 1 || request.Params.ContentLength > rpcapi.LuaAppArchiveMaxBytes || request.Body == nil {
+	if request.Params.ContentLength < 1 || request.Body == nil {
 		return clientToolFailure(invalidDeviceRequest("invalid archive length")), nil
+	}
+	if request.Params.ContentLength > rpcapi.LuaAppArchiveMaxBytes {
+		return clientToolFailure(&deviceControlError{Status: http.StatusRequestEntityTooLarge, Code: "LUA_APP_PACKAGE_TOO_LARGE", Message: "compressed archive exceeds 512 KiB; install via an HTTP(S) URL"}), nil
 	}
 	metadata := &rpcpb.ClientLuaAppInstallStreamRequest{ContentLength: uint32(request.Params.ContentLength), Sha256: request.Params.Sha256}
 	if rpcapi.ValidateLuaAppRequest(metadata) != nil {

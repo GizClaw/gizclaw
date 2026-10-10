@@ -44,7 +44,7 @@ func (s *archiveSink) Finish(ctx context.Context) (*rpcpb.ClientLuaAppInstallRes
 func (s *archiveSink) Close(err error) { s.closed = true; s.outcome = err }
 
 func TestLuaAppBinaryLifecycle(t *testing.T) {
-	archive := bytes.Repeat([]byte{0x78, 0x9c, 0xaa}, 54828) // 164484 bytes, protocol data only.
+	archive := bytes.Repeat([]byte{0xaa}, 524288) // 512 KiB boundary, protocol data only.
 	sum := sha256.Sum256(archive)
 	digest := hex.EncodeToString(sum[:])
 	for _, tc := range []struct {

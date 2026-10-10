@@ -97,9 +97,12 @@ class GizClawControlClient {
     Duration timeout = const Duration(seconds: 120),
   }) async {
     if (_closed) throw StateError('client is closed');
-    if (contentLength < 1 ||
-        contentLength > 16 * 1024 * 1024 ||
-        !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(sha256)) {
+    if (contentLength > 512 * 1024) {
+      throw ArgumentError(
+        'compressed archive exceeds 512 KiB; install via an HTTP(S) URL',
+      );
+    }
+    if (contentLength < 1 || !RegExp(r'^[a-fA-F0-9]{64}$').hasMatch(sha256)) {
       throw ArgumentError('invalid Lua app upload metadata');
     }
     final aborted = Completer<void>();

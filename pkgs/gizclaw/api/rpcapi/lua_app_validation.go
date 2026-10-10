@@ -24,8 +24,8 @@ func luaAppText(value string, limit int) bool {
 // bounded 1 MiB receive limit. HTTP(S) URLs retain the 1024-byte address limit.
 const LuaAppDataURLMaxBytes = 256 * 1024
 
-// LuaAppArchiveMaxBytes bounds a single compressed Binary upload to 16 MiB.
-const LuaAppArchiveMaxBytes = 16 * 1024 * 1024
+// LuaAppArchiveMaxBytes bounds a single compressed Binary upload to 512 KiB.
+const LuaAppArchiveMaxBytes = 512 * 1024
 
 func validLuaAppInstallSource(source string) bool {
 	if !luaAppText(source, LuaAppDataURLMaxBytes) || strings.ContainsFunc(source, func(r rune) bool { return unicode.IsSpace(r) || r == '\\' }) {

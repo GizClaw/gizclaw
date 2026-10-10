@@ -2079,7 +2079,7 @@ int gzc_control_install_lua_app(gzc_control_client_t *client,
     gzc_control_call_t *call, const uint8_t *archive, size_t length,
     gzc_str_t sha256, gzc_str_t *out_app_json) {
   if (client == NULL || call == NULL || archive == NULL || out_app_json == NULL ||
-      length == 0 || length > 16u * 1024u * 1024u || sha256.data == NULL || sha256.len != 64u) return GZC_ERR_INVALID_ARGUMENT;
+      length == 0 || length > 512u * 1024u || sha256.data == NULL || sha256.len != 64u) return GZC_ERR_INVALID_ARGUMENT;
   for (size_t i=0;i<sha256.len;i++) {
     char c=sha256.data[i];
     if (!((c>='0'&&c<='9')||(c>='a'&&c<='f')||(c>='A'&&c<='F'))) return GZC_ERR_INVALID_ARGUMENT;

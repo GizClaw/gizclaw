@@ -1353,15 +1353,18 @@ static void test_lua_upload(void) {
   gzc_control_client_t client; stub_t stub = {0}; gzc_http_vtable_t http;
   init_client(&client,&stub,&http);
   uint8_t scratch[1024],response[2048];
-  static uint8_t archive[164484];
+  static uint8_t archive[524288];
   gzc_control_call_t call; gzc_control_call_init(&call,scratch,sizeof(scratch),response,sizeof(response));
   stub.status_code=200;stub.response_body="{\"app\":{\"app_id\":\"demo\",\"version\":\"1.0.0\"}}";
   gzc_str_t app;
   const char *sha="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
   check(gzc_control_install_lua_app(&client,&call,archive,sizeof(archive),gzc_str_from_cstr(sha),&app)==GZC_OK,"Lua upload success");
   check(stub.binary && stub.body_length==sizeof(archive) && stub.body_view==archive && stub.retry_count==0,"Lua upload borrows binary body without replay");
-  check(strstr(stub.url,"/device/lua-app/install?content_length=164484&sha256=")!=NULL,"Lua upload metadata URL");
+  check(strstr(stub.url,"/device/lua-app/install?content_length=524288&sha256=")!=NULL,"Lua upload metadata URL");
   check_str(app,"{\"app_id\":\"demo\",\"version\":\"1.0.0\"}","Lua installed app response");
+  int calls=stub.free_calls;
+  check(gzc_control_install_lua_app(&client,&call,archive,524289u,gzc_str_from_cstr(sha),&app)==GZC_ERR_INVALID_ARGUMENT && stub.free_calls==calls,"reject oversized archive before HTTP");
+  check(gzc_control_classify(413,gzc_str_from_cstr("LUA_APP_PACKAGE_TOO_LARGE"))==GZC_CONTROL_ERROR_INVALID_REQUEST,"classify oversized archive response");
 }
 
 int main(void) {

@@ -129,7 +129,8 @@ typedef struct {
   const gzc_tool_handler_t *tool_handlers;
   size_t tool_handler_count;
   /* Borrowed for client lifetime; NULL means client.lua.app.install unsupported.
-   * Metadata is ClientLuaAppInstallStreamRequest. Maximum duration: 120 seconds.
+   * Metadata is ClientLuaAppInstallStreamRequest. Maximum archive: 512 KiB;
+   * larger archives use the URL tool. Maximum duration: 120 seconds.
    * URL installation remains a separate tool handler using the same installer. */
   const gzc_rpc_stream_provider_t *lua_app_install;
 } gzc_client_config_t;
