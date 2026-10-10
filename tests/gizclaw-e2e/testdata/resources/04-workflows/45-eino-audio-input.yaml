@@ -1,7 +1,7 @@
 # One Workflow that declares both live-audio paths: the streaming ASR Model and
 # the chat_model node that receives push-to-talk audio. The e2e-giztest
 # RuntimeProfile binding selects the model path, where the audio-input Model
-# transcribes the audio in the same reply; a Workspace audio_input parameter
+# runs parallel reply and transcription requests; a Workspace audio_input parameter
 # selects asr, where the ASR Model transcribes first and the Model gets text.
 # benchmark.eino-audio-input-comparison compares both on one recording; the
 # multilingual reply Voice speaks every sample language.

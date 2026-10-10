@@ -9,8 +9,9 @@ import (
 const transcriptExtraKey = "genx.input_transcript"
 
 // TranscriptMessage returns the stream message a ChatModel component sends,
-// ahead of its reply, to report the transcript of the audio in its latest user
-// message. The AudioTranscript node publishes it as the turn's user text.
+// anywhere in its reply stream, to report the transcript of the audio in its
+// latest user message. The AudioTranscript node publishes it as the turn's
+// user text.
 func TranscriptMessage(text string) *schema.Message {
 	return &schema.Message{Role: schema.User, Content: text, Extra: map[string]any{transcriptExtraKey: true}}
 }

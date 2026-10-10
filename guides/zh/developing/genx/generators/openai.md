@@ -27,4 +27,14 @@ OpenAI-compatible 只表示 provider protocol compatibility；credential、endpo
 
 ## Doubao 音频输入
 
-`pkgs/genx/generators/doubaochat` 包装 Volc 方舟 Doubao chat completions 的 `OpenAIGenerator`。Doubao Seed chat Model 接受音频输入，但 API 不返回输入转写。请求中 user message 的音频 Blob 会合并为一个 API 接受的 Blob：raw Opus packet、Ogg/Opus 与 signed 16-bit PCM 解码为 16 kHz 单声道 WAV，MP3 与单个 WAV 原样传递。最新 user message 含音频时，适配追加一条 system 指令：先写一整句回复，再单独一行 `<asr>逐字转写</asr>`，然后继续回复。这样首段回复不等待转写。适配从 streaming 文本中切掉第一段 `<asr>` segment（无论出现在开头、中间还是结尾），只暂扣可能是开标签前缀的尾部字符，并在该段闭合时输出一个 `genx.NewInputTranscriptChunk` 构造的 `RoleUser`、`genx.InputTranscriptLabel` chunk；转写以第一个闭合标签或换行结束，容忍 `</asr]` 这类错写，流结束时未闭合的段仍作为转写上报。回复中没有该段时照常输出回复并记录一条告警日志，不报告转写。纯文本请求原样转发；`Invoke` 只转换音频。peergenx 为 `support_text_only` 不为 true 的 Volc `chat_completions` Model 装配该适配，并用同一条件通过 `Service.AcceptsAudioInput` 回答“这个 Model 是否接受音频输入”；Eino factory 据此决定 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
+`pkgs/genx/generators/doubaochat` 包装 Volc 方舟 Doubao chat completions 的 `OpenAIGenerator`。Doubao Seed chat Model 接受音频输入，但 API 不返回独立的输入转写字段。适配合并每个 user message 的音频 Blob：raw Opus packet、Ogg/Opus 与 signed 16-bit PCM 解码为 16 kHz 单声道 WAV，MP3 与单个 WAV 原样传递。
+
+最新 user message 含音频时，适配对同一 Model 并行发起两个独立请求。回复请求保留调用方原有的 prompts、history、Tools、CoT 和参数，只替换已转换的音频，不注入 ASR 指令。转写请求只包含当前音频与组件内置的纯转写提示，不带业务 prompt、history、Tools 或 CoT；它要求返回只有一个字符串字段的 JSON 对象 `{"transcript":"逐字转写"}`，空字符串表示没有语音。
+
+对外仍是一条 `genx.Stream`。回复 chunk 原样透传，不解析、增加或删除业务正文中的 `<asr>`；转写结果通过 `genx.NewInputTranscriptChunk` 作为 `RoleUser`、`genx.InputTranscriptLabel` sideband 发布。两个请求独立启动和发布结果，回复首字不等待 ASR，ASR 也不等待回复完成；外层 stream 正常结束前会等待两者都完成。调用方不需要提供转写 prompt，也不需要改变可见回复格式。两次请求的上游用量分别记录，正常结束的 `State.Usage()` 返回两者合计。
+
+转写请求最多等待 30 秒，设置 2048 completion tokens，最多读取 64 KiB 文本。缺少字段、重复或额外字段、非字符串值、无效 JSON 或上游错误都使外层 stream 明确失败，不把回复正文当作转写。任一路失败、调用方取消或关闭 stream 时，会取消另一请求并回收两条上游流；不发起额外恢复或重试请求。
+
+纯文本请求原样转发；`Invoke` 只转换音频。peergenx 为 `support_text_only` 不为 true 的 Volc `chat_completions` Model 装配该适配，并用同一条件通过 `Service.AcceptsAudioInput` 回答“这个 Model 是否接受音频输入”；Eino factory 据此决定 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
+
+标准 Docker E2E 的 `eino-lite-native-audio.asr-roundtrip.giztest.yaml` 使用 `doubao-lite-audio-chat`（`doubao-seed-2-1-lite-260915`）。对应 Workflow 不声明业务 prompt、`asr_model` 或回复 Voice；Giztest 先合成固定输入录音，再断言运行路径为 `AUDIO_INPUT_PATH_MODEL`、Lite 返回正确的独立 transcript 与非空回复，回复正文没有 ASR 标签。输入合成只用于准备录音，不参与识别；转写由 Lite 适配内部的独立请求完成。
