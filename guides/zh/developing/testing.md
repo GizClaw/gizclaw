@@ -79,6 +79,24 @@ Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registr
 
 CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
 
+### RegistrationToken 并发注册
+
+```sh
+npm ci && npm run build:console
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**'
+bash tests/gizclaw-e2e/run_registration_load_tests.sh
+```
+
+将 `<os>-<arch>` 替换为本机平台，例如 `darwin-arm64` 或 `linux-amd64`。入口需要 Go、Docker、Python 3；使用固定 digest 的 PostgreSQL 17 与 Redis 8.4.6，分别限制为 2 CPU / 1 GiB 和 1 CPU / 256 MiB，PG `max_connections=300`，Server/Go Giztest 默认 `GOMAXPROCS=8`。无需模型凭据。结束时只清理本次创建的两个容器与卷，原始证据保存在 ignored `.testbench/registration-*`；也可传第一个参数指定证据目录。
+
+默认 PG 数据使用 Docker volume。`GIZCLAW_TEST_REGISTRATION_PG_TMPFS=1` 改用容器内 256 MiB 内存盘，仍受同一 1 GiB 内存限制约束，可排除宿主磁盘长时间停顿对锁粒度诊断的干扰；它不验证磁盘持久化性能。前后对比必须使用相同存储选项，并保留 `settings.txt` 与 `containers.json`。
+
+`GIZCLAW_TEST_REGISTRATION_CONCURRENCY` 指定 2–128 个不同公钥，默认 64。测试在独立 SQL schema 和 Redis prefix 中启动生产 Server，Admin HTTP 建立 Profile 与 Token，Go Giztest 经真实 WebRTC 执行注册与同公钥四次重试。握手仍启用 registration-token policy；夹具串行安排 signaling 请求，以满足同 Token 同时查询拒绝的准入限制，然后通过 HTTP rendezvous 同时释放全部注册 RPC。报告的 RPC 时延不包括握手和 rendezvous，不代表未受控握手突发的容量。
+
+场景覆盖共享 Token、独立 Token、已有 20,000 条激活的共享 Token、给 owner 写入增加固定 20 ms 的共享/独立 Token 对照，以及有限额 Token 用完名额后仍能重试的串行对照。20 ms 是观察事务锁范围的诊断夹具，不是生产时延预测。有限额 Token 仍须串行保护数量，不能用不限次数的吞吐结果代表它。每个场景校验激活数与 owner 绑定数，保存实际 Giztest 文档、报告、错误、每 10 ms 的 PG 活跃事务与 blocking PID、`pg_stat_statements`、容器配置、二进制 SHA-256 和源码信息。汇总提供注册与重试吞吐、p50/p95/p99、采样等待者与事务时间；采样中的 query age 不是 PostgreSQL 精确的累计 lock wait time。没有采到等待不等于证明从未等待。
+
+`TestPostgreSQLRegistrationIndependentProgress` 在一个 owner 被外部事务阻塞时验证同 Token 的另一 owner 能提交，并保留有限额 Token 和同 owner 的串行对照。其他 `TestPostgreSQLRegistration*` 回归通过实际 blocking PID 安排最后一个名额、等待期间新增限额、Token 更新/删除先后顺序和取消回滚。它们通过 `GIZCLAW_TEST_POSTGRES_DSN` 运行，不依赖进程内锁共享；SQLite 生命周期与并发回归仍在普通 `go test` 中运行。
+
 ### Docker 准入与封禁
 
 ```sh
