@@ -22,9 +22,9 @@ type ProfileService interface {
 }
 
 // PingFriendGroup rallies the caller's Friend Group named req.Name: every
-// other member whose device is connected to this Server receives
+// other reachable member's device receives
 // client.social.ping carrying that member's own name for the Group. Any member
-// may rally. Offline members are skipped without waiting; when none is online
+// may rally. Local and cross-Server devices share a bounded ACK deadline; when none responds
 // the call answers NOT_ONLINE. One rally per Group per socialutil.PingWindow,
 // shared by all members; a rally that reaches no device does not consume it.
 func (s *Server) PingFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupPingRequest) (rpcapi.FriendGroupPingResponse, error) {
@@ -59,7 +59,7 @@ func (s *Server) PingFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	displayName := s.pingDisplayName(ctx, owner)
 	targets := make([]socialutil.PingTarget, 0, len(members))
 	for _, member := range members {
-		if member.PeerPublicKey == owner || !s.Pings.PeerOnline(member.PeerPublicKey) {
+		if member.PeerPublicKey == owner {
 			continue
 		}
 		targets = append(targets, socialutil.PingTarget{

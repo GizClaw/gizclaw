@@ -64,3 +64,4 @@ The RPC method prefix describes who provides the capability, not which file the 
 - [Client Provided to Server](./client-provided-to-server): Server calls, device capabilities implemented by Client.
 - [Server Provided to Client](./server-provided-to-client): Client calls, products and resource capabilities implemented by Server.
 - [Server Provided to Edge-node](./server-provided-to-edge-node): Edge-node call, routing control capability implemented by Server.
+- [Edge Provided to Server](./server-provided-to-edge-node#notification-delivery-and-reverse-relay): configured upstream Servers call Edge social notification routing.

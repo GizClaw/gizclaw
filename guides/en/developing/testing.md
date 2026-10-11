@@ -2212,3 +2212,26 @@ GIZCLAW_TEST_MEM0_ENDPOINT=http://127.0.0.1:8000 \
 `GIZCLAW_E2E_MEM0_API_KEY` authenticates Mem0. Authenticated Admin HTTP binds real resources in a temporary SQLite Server. Only the local Profile selects native Lite and the test Mem0 service; the original multirole adventure, animal guessing, topic and main chat Workflows retain their business Graphs and prompts. Original Giztests exercise two audio turns, the text opening, reply EOS and cleanup over real WebRTC. Main chat keeps Doubao Realtime and additionally tests the same Workflow with external ASR for PTT, continuous realtime, interruption and next-turn recovery.
 
 Evidence includes source Graph/document SHA-256, scenario reports, sanitized transparent Ark/Mem0 observations and provider usage. Observers forward real upstream responses. The native Lite phase requires successful audio transcription and text reply requests, positive usage and no independent BigASR usage; external ASR phases require actual ASR usage. This test incurs real provider charges and stays outside CI. It does not qualify physical devices or deployments. Never commit its reports or logs.
+
+## Cross-Server notification Docker acceptance
+
+```sh
+GIZCLAW_E2E_SOCIAL_PING_ONLY=1 GIZCLAW_E2E_TEST_RUN='^TestSocialPingCrossServer$' bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+Run from the repository root; provider credentials are unnecessary. The existing
+two-Server, two-Edge, shared Social KV and LiveKit Compose harness uses actual
+Go SDK WebRTC devices. The source reaches Server A through the relay Edge, the
+target reaches Server B through the other Edge, and a local target connects
+directly to Server A. Coverage includes local delivery, cross-Server Friend and
+mixed Group pings, delayed ACKs, delivery counts, offline and timeout paths,
+connection replacement, internal RPC rejection for ordinary devices, relationship
+permissions and shared rate limits.
+
+`verify_social_ping_evidence.py` requires the relay to differ from target ingress
+and correlates the source relay, Edge route and target device ACK by request ID.
+The harness then stops both Edges and verifies bounded remote failure while
+local delivery still succeeds. Test output, redacted service logs and correlated
+evidence remain in ignored `tests/gizclaw-e2e/testdata/multi-server/`. The harness
+removes its Compose containers and volumes on exit. This is Docker protocol
+client acceptance; physical devices and deployment require separate validation.

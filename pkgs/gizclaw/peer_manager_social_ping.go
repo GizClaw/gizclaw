@@ -4,12 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"log/slog"
+	"slices"
 	"strings"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -21,7 +22,7 @@ var (
 
 // socialPingTimeout bounds one client.social.ping push. A device that does not
 // acknowledge in time counts as not reached; the push is never retried.
-const socialPingTimeout = 3 * time.Second
+const socialPingTimeout = SocialPingDeliveryTimeout
 
 // PeerOnline reports whether publicKey has an active connection on this
 // Server. It is the same connection state Runtime.online reports.
@@ -75,8 +76,8 @@ func (m *Manager) peerRunStatus(publicKey giznet.PublicKey) (giznet.Conn, func(c
 	return state.conn, state.runStatus
 }
 
-// DeliverSocialPing pushes one client.social.ping over the Peer's active
-// connection on this Server and returns once the device acknowledged it.
+// DeliverSocialPing prefers the active local Peer, otherwise uses one trusted
+// connected Edge to route to the owning Server. Success requires a device ACK.
 func (m *Manager) DeliverSocialPing(ctx context.Context, publicKey string, request rpcapi.ClientSocialPingRequest) error {
 	key, err := parseSocialPingPeer(publicKey)
 	if err != nil {
@@ -84,10 +85,67 @@ func (m *Manager) DeliverSocialPing(ctx context.Context, publicKey string, reque
 	}
 	callCtx, cancel := context.WithTimeout(ctx, socialPingTimeout)
 	defer cancel()
-	_, err = callPeerRPC(m, callCtx, key, func(client *rpcClient, conn net.Conn) (*rpcapi.ClientSocialPingResponse, error) {
-		return client.PingSocial(callCtx, conn, "client.social.ping", request)
-	})
+	if _, ok := m.Peer(key); ok {
+		return m.deliverLocalSocialPing(callCtx, key, request)
+	}
+	deadline, _ := callCtx.Deadline()
+	delivery := &rpcpb.SocialPingDeliveryRequest{
+		TargetPeerPublicKey: key.String(),
+		Ping: &rpcpb.ClientSocialPingRequest{FromPeerPublicKey: request.FromPeerPublicKey,
+			FromDisplayName: request.FromDisplayName, FriendGroupName: request.FriendGroupName},
+		DeadlineUnixMs: deadline.UnixMilli(),
+	}
+	for _, edge := range m.socialPingRelays() {
+		if !m.allowActivePeerRole(callCtx, edge.PublicKey(), apitypes.PeerRoleEdgeNode) {
+			continue
+		}
+		// Never try another relay after a request may have reached a device.
+		err := CallSocialPingDelivery(callCtx, edge, rpcapi.RPCMethodEdgeSocialPingRelay, delivery)
+		slog.DebugContext(callCtx, "social ping relayed", "target_peer_public_key", publicKey,
+			"edge_public_key", edge.PublicKey().String(), "acknowledged", err == nil)
+		return err
+	}
+	return ErrDeviceOffline
+}
+
+// deliverLocalSocialPing is terminal: an Edge-delivered request cannot use
+// another Edge when the target is offline or the assignment is stale.
+func (m *Manager) deliverLocalSocialPing(ctx context.Context, key giznet.PublicKey, request rpcapi.ClientSocialPingRequest) error {
+	peer, ok := m.Peer(key)
+	if !ok {
+		return ErrDeviceOffline
+	}
+	stream, err := dialSocialPingStream(ctx, peer, ServicePeerRPC)
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+	stop := context.AfterFunc(ctx, func() { _ = stream.Close() })
+	defer stop()
+	_, err = (&rpcClient{}).PingSocial(ctx, stream, "client.social.ping", request)
 	return err
+}
+
+func (m *Manager) socialPingRelays() []giznet.Conn {
+	m.mu.RLock()
+	var relays []giznet.Conn
+	for _, state := range m.peers {
+		if state.deleting {
+			continue
+		}
+		for conn := range state.edgeTransports {
+			relays = append(relays, conn)
+		}
+	}
+	m.mu.RUnlock()
+	relays = slices.DeleteFunc(relays, func(conn giznet.Conn) bool {
+		info := conn.PeerInfo()
+		return info != nil && info.State == giznet.PeerStateOffline
+	})
+	slices.SortFunc(relays, func(a, b giznet.Conn) int {
+		return strings.Compare(a.PublicKey().String(), b.PublicKey().String())
+	})
+	return relays
 }
 
 func parseSocialPingPeer(publicKey string) (giznet.PublicKey, error) {

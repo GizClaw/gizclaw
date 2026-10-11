@@ -83,6 +83,8 @@ export type EdgeRPCMethodName = Extract<
   | "server.peer.assign"
   | "server.route.resolve"
   | "server.api_key.resolve"
+  | "server.social.ping.deliver"
+  | "edge.social.ping.relay"
 >;
 export type StreamingPeerRPCMethodName = Extract<
   RPCMethodName,

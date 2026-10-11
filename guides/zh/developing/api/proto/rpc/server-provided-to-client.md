@@ -49,7 +49,7 @@ Friend Group 消息是群组绑定 Workspace History 的只读投影。list/get/
 
 ## 社交提醒与公开资料
 
-`server.friend.ping`（123）接收调用方好友的 `name`；`server.friend_group.ping`（124）接收调用方自己对群的本地 `name`，任何成员都可以集结，不限 owner。两者对三种预期结果返回 typed response 而不是 RPC error：`result` 为 `SOCIAL_PING_RESULT_DELIVERED` 时携带 `delivered_count`（确认收到 `client.social.ping` 的目标设备数）；没有目标设备在线或无人确认时为 `SOCIAL_PING_RESULT_NOT_ONLINE`；限流时为 `SOCIAL_PING_RESULT_RATE_LIMITED`，并携带向上取整的 `retry_after_seconds`。未知好友或群、以及非成员调用仍返回 `NOT_FOUND`；Server 无法触达设备时返回 `UNAVAILABLE`。Server 读取与 `Runtime.online` 相同的连接状态，从不等待离线设备，也不排队补发。限流、推送与多 Server 边界见 [services/social](/zh/developing/gizclaw/services/social#好友呼叫与群集结)。
+`server.friend.ping`（123）接收调用方好友的 `name`；`server.friend_group.ping`（124）接收调用方自己对群的本地 `name`，任何成员都可以集结，不限 owner。两者对三种预期结果返回 typed response 而不是 RPC error：`result` 为 `SOCIAL_PING_RESULT_DELIVERED` 时携带 `delivered_count`（确认收到 `client.social.ping` 的目标设备数）；没有目标设备在线或无人确认时为 `SOCIAL_PING_RESULT_NOT_ONLINE`；限流时为 `SOCIAL_PING_RESULT_RATE_LIMITED`，并携带向上取整的 `retry_after_seconds`。未知好友或群、以及非成员调用仍返回 `NOT_FOUND`；Server 无法触达设备时返回 `UNAVAILABLE`。Server 优先本地直推，也可通过可信 Edge 路由到目标归属 Server；路由与设备 ACK 共用 3 秒时限，不排队。限流、推送与多 Server 边界见 [services/social](/zh/developing/gizclaw/services/social#好友呼叫与群集结)。
 
 `server.profile.get`（125）接收 1–16 个规范的 `peer_public_keys`，按请求顺序为每个不重复的 key 返回一个 `PublicProfile`，只包含该 Peer 通过 `server.info.put` 自己设置的 `display_name` 与 `emoji`。它不要求好友或群关系，设备可以用它把成员列表里的 public key 显示为名字。不存在、已删除或 pending deletion 的 Peer 只返回 key；在线状态、硬件、SN、IMEI、状态与位置一律不投影。key 列表为空、超过 16 个或含非规范 key 时返回 `INVALID_ARGUMENT`。
 

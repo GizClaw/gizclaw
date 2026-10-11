@@ -28,6 +28,12 @@ mkdir -p "$workspace_dir"
   echo "    - listen: 0.0.0.0:9821"
   echo "gateway:"
   echo "  enabled: true"
+  if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+    echo "system-log:"
+    echo "  level: debug"
+    echo "  sinks:"
+    echo "    - kind: stderr"
+  fi
 } > "$config_file"
 
 exec /usr/local/bin/gizclaw edge serve "$workspace_dir"

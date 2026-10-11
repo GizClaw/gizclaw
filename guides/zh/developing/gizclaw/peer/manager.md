@@ -39,3 +39,10 @@ Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失�
 设备自设调试权限与 SN/IMEI 多值查询见 [Public API](../../api/http/public)。
 
 角色准入读取 Peer service 的当前 KV 状态与删除围栏，要求 active 与精确 role；Firmware 展示投影不参与该判定。它不缓存权限，固件 SQL 变慢不会阻塞服务打开；KV 自身错误仍拒绝。
+
+## 社交通知投递
+
+`peer_manager_social_ping.go` 拥有本地优先的 social ping 投递与可信 Edge 选择。
+`PeerOnline`、`PeerPresence` 和 `PeerRunningWorkspace` 仍读取本 Server 的当前连接；
+召集不按这些本地状态过滤异机目标。路径、ACK 时限与共享窗口见
+[services/social](../services/social#好友呼叫与群集结)。

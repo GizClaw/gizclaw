@@ -695,3 +695,13 @@ envelope parser; its current gateway policy does not interpret credentials or fo
 logical tunnels. The Server setting does not repeat handshake admission for those logical clients
 and must not be treated as a registration requirement for all Edge ingress. Product registration
 and resource authorization remain with the authoritative Server.
+
+## Cross-Server social notifications
+
+Edge exposes reverse notification RPC to configured upstream Servers. It uses
+existing Peer assignments and multi-Server upstreams to reach the owning Server,
+without holding the target device ingress connection. Only supported social
+pings are accepted; success requires a device ACK, with no broadcast, queue or
+retry. The owning upstream must be configured and reachable; a returned endpoint
+cannot introduce a new trusted Server. See [Edge RPC](./gizclaw/rpc/edge#cross-server-notifications)
+for the contract, authorization and cancellation boundaries.

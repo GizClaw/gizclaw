@@ -31,7 +31,9 @@ provider_credentials=(
   GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY
 )
 GIZCLAW_E2E_SFU_PROVIDER=0
-if [[ -f "$env_file" ]]; then
+if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+  echo "==> provider-free social notification acceptance"
+elif [[ -f "$env_file" ]]; then
   if require_gizclaw_e2e_credentials "$env_file" "${provider_credentials[@]}"; then
     GIZCLAW_E2E_SFU_PROVIDER=1
   else
@@ -130,7 +132,20 @@ export GIZCLAW_TEST_REGISTRATION_TOKEN_A GIZCLAW_TEST_REGISTRATION_TOKEN_B
 
 echo "==> go multi-server tests"
 compose run --rm -T tests \
-  -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1
+  -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1 | tee "$report_dir/go-tests.log"
+
+if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+  compose logs --no-color server-a server-b edge-a edge-b 2>&1 \
+    | python3 -B "$script_dir/setup/redact_diagnostics.py" > "$report_dir/social-ping-services.log"
+  python3 -B "$script_dir/setup/verify_social_ping_evidence.py" \
+    "$report_dir/go-tests.log" "$report_dir/social-ping-services.log" "$report_dir/social-ping-evidence.json"
+  echo "==> stop both Edge processes and verify bounded relay failure and local delivery"
+  compose stop edge-a edge-b
+  compose run --rm --no-deps -T -e GIZCLAW_E2E_EXPECT_NO_RELAY=1 tests \
+    -test.run '^TestSocialPingWithoutRelay$' -test.parallel 1 | tee "$report_dir/social-ping-no-relay.log"
+  echo "==> social notification Docker e2e completed; service evidence: $report_dir/social-ping-services.log"
+  exit 0
+fi
 
 if compose exec -T redis redis-cli --scan --pattern '*runs*' | grep -q .; then
   echo "shared Redis unexpectedly contains PeerRun keys" >&2

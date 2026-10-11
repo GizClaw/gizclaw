@@ -33,4 +33,10 @@ PB_BIND(gizclaw_rpc_v1_ServerAPIKeyResolveRequest, gizclaw_rpc_v1_ServerAPIKeyRe
 PB_BIND(gizclaw_rpc_v1_ServerAPIKeyResolveResponse, gizclaw_rpc_v1_ServerAPIKeyResolveResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_SocialPingDeliveryRequest, gizclaw_rpc_v1_SocialPingDeliveryRequest, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_SocialPingDeliveryResponse, gizclaw_rpc_v1_SocialPingDeliveryResponse, AUTO)
+
+
 

@@ -121,13 +121,15 @@ Friend and Friend Group lists share `socialutil.PresenceService` and `PresenceFi
 
 1. The caller's relationship is resolved first: the Friend relationship by name, or the caller's own Group name and current membership. An unknown name answers `NOT_FOUND` before anything else is read.
 2. If the rate window is closed, the call answers `RATE_LIMITED` with the seconds left, without touching any device.
-3. Targets are filtered by `PeerOnline`, the same connection state `Runtime.online` reports. A rally skips the caller. With no target online the call answers `NOT_ONLINE` at once; nothing is sent, and no window opens.
+3. Enumerate targets from the relationship, excluding the caller for a rally. The local online table must not filter targets on another Server.
 4. The window is claimed atomically (`CreateIfAbsent`). Losing that race answers `RATE_LIMITED`.
 5. `client.social.ping` is pushed to every target concurrently, each with a 3-second acknowledgement timeout and no retry. A rally carries each recipient's own local Group name, and every push carries the sender's `display_name` when it has set one. When no device acknowledges, the window is released with compare-and-delete and the call answers `NOT_ONLINE`, so an unreachable target never costs the caller a minute. Otherwise it answers `DELIVERED` with the number of acknowledging devices.
 
 The window is fixed at one minute (`socialutil.PingWindow`), not configurable, and lives in the shared Social KV with a store deadline: `friend-ping-windows/<relationID>` in the Friend store, shared by both directions of a pair, and `friend-group-ping-windows/<groupID>` in the Friend Group store, shared by all members. The backend (Redis TTL in production) deletes it when it closes, so no cleanup loop runs, and every Server enforces the same window.
 
-Online state and delivery are Server-local, like every other Server→device RPC. A target whose connection lives on a different Server is reported as not online, and pings are never queued for later delivery. The Server pushes only pings the caller may send, so devices do not recheck the relationship. Cross-Server delivery is not provided.
+Manager prefers the target's active local Peer connection. Otherwise it selects a connected transport with the active `edge-node` role. Edge resolves the existing PK → Server assignment and selects the configured upstream belonging to that Server, which performs local delivery only. The path is originating Server → relay Edge → owning Server → target Peer; the relay does not need the target's ingress connection.
+
+Routing and the device ACK share one three-second deadline. Edge receipt does not count as delivery; only a device ACK contributes to `delivered_count`. Offline targets, ACK timeouts, unconfigured upstreams and unavailable relays do not count. There is no queue, broadcast or retry, and the target Server cannot relay again. `Runtime.online` and list presence retain their local Server view. The originating Social service still enforces relationships and the shared rate window. Ordinary devices cannot open the internal Edge service or invoke either internal method through public Peer RPC. See [Edge RPC](../rpc/edge) for the internal contract and trust boundaries.
 
 `server.profile.get` returns the public profile of 1–16 Peers by public key without any relationship check: only the `display_name` and `emoji` a Peer set through `server.info.put` (`peer.Server.GetPublicProfile`). A missing, deleted, or pending-deletion Peer comes back with only its key.
 

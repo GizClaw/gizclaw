@@ -117,13 +117,15 @@ Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部�
 
 1. 先解析调用方的关系：按 name 找到好友关系，或按调用方自己的群 name 找到群并确认其当前成员身份。name 未知时直接返回 `NOT_FOUND`。
 2. 限流窗口未结束时返回 `RATE_LIMITED` 与剩余秒数，不接触任何设备。
-3. 用 `PeerOnline` 过滤目标，它与 `Runtime.online` 读取同一份连接状态；集结时排除调用方。没有目标在线时立即返回 `NOT_ONLINE`，不发送任何内容，也不开启窗口。
+3. 按关系枚举目标；集结时排除调用方。本 Server 的在线表不能过滤异机目标。
 4. 用 `CreateIfAbsent` 原子占用窗口，竞争失败时返回 `RATE_LIMITED`。
 5. 并发向每个目标推送 `client.social.ping`，每个推送 3 秒内等待确认，不重试。集结时每个接收方收到它自己对该群的本地 name；发起方设置了 `display_name` 时一并携带。没有任何设备确认时，用 compare-and-delete 释放窗口并返回 `NOT_ONLINE`，触达不了的目标不会让调用方白等一分钟；否则返回 `DELIVERED` 与确认设备数。
 
 窗口固定为一分钟（`socialutil.PingWindow`），不可配置，以 store deadline 保存在共享 Social KV：好友窗口是 Friend store 中的 `friend-ping-windows/<relationID>`，一对好友双向共享；群窗口是 Friend Group store 中的 `friend-group-ping-windows/<groupID>`，全体成员共享。窗口结束后由 KV backend（生产部署为 Redis TTL）删除，不运行清理循环，所有 Server 执行同一个窗口。
 
-在线状态与推送和其他 Server→设备 RPC 一样是 Server 本地的：连接在另一台 Server 上的目标被视为不在线，提醒也不会排队补发。Server 只推送调用方有权发出的提醒，设备无需再校验关系。当前不提供跨 Server 推送。
+Manager 优先通过目标的有效本地 Peer connection 推送；没有本地连接时，从已连接且具有 active `edge-node` role 的 transport 中选择一个 Edge。Edge 使用现有 PK → Server assignment 查询，在配置的多 Server 上游中找到目标归属 Server，调用仅做本地投递的内部 RPC。路径为“发起 Server → 中继 Edge → 目标 Server → 目标 Peer”；中继 Edge 无需持有目标 ingress connection。
+
+路由与设备 ACK 共用一个 3 秒 deadline。Edge 接收请求不算送达，只有目标设备 ACK 才计入 `delivered_count`。目标离线、ACK 超时、上游未配置或中继不可用均不计入；不排队、不广播、不重试，目标 Server 不继续中继。原有 `Runtime.online` 和列表 presence 仍是本 Server 视角。关系授权与共享限流仍由发起 Server 的 Social service 执行，普通设备不能打开内部 Edge service 或从普通 Peer RPC 调用这两个内部方法。内部 contract 与信任边界见 [Edge RPC](../rpc/edge)。
 
 `server.profile.get` 按 public key 批量（1–16 个）返回 Peer 的公开资料，不做任何关系校验：只包含该 Peer 通过 `server.info.put` 设置的 `display_name` 与 `emoji`（`peer.Server.GetPublicProfile`）。不存在、已删除或 pending deletion 的 Peer 只返回 key。
 

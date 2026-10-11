@@ -22,6 +22,8 @@ GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Run
 
 当前代码支持 Edge 配置多个 authoritative Server upstream，并按 API Key owner 的固定 Peer assignment 路由业务 HTTP 请求。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力；Friend 与 Friend Group 通过共享 Social KV 和 SFU Workspace 实现跨 Server 语音，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
 
+好友与分组召集支持经可信 Edge 路由到目标归属 Server，成功以设备 ACK 为准，见 [社交通知](gizclaw/services/social#好友呼叫与群集结)。
+
 ## 运行时架构
 
 ```mermaid

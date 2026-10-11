@@ -15,10 +15,12 @@ import (
 )
 
 type edgeRPCServer struct {
-	callerPublicKey string
-	routes          *peerroute.Server
-	apiKeys         *apikey.Server
-	isPeerRetiring  func() bool
+	notifications         *Manager
+	authorizeNotification func(context.Context) bool
+	callerPublicKey       string
+	routes                *peerroute.Server
+	apiKeys               *apikey.Server
+	isPeerRetiring        func() bool
 }
 
 func (s *edgeRPCServer) Handle(conn net.Conn) error {
@@ -33,6 +35,8 @@ func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Reason: "PEER_CONN_RETIRING", Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
 	}
 	switch req.Method {
+	case rpcapi.RPCMethodServerSocialPingDeliver:
+		return s.handleSocialPingDelivery(ctx, req), nil
 	case rpcapi.RPCMethodServerPeerLookup:
 		return s.handleLookup(ctx, req), nil
 	case rpcapi.RPCMethodServerPeerAssign:
@@ -44,6 +48,31 @@ func (s *edgeRPCServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*
 	default:
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnimplemented, Message: fmt.Sprintf("unknown method: %s", req.Method)}.RPCResponse(), nil
 	}
+}
+
+func (s *edgeRPCServer) handleSocialPingDelivery(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {
+	if s.notifications == nil || s.authorizeNotification == nil || !s.authorizeNotification(ctx) {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodePermissionDenied, Message: "trusted active Edge required"}.RPCResponse()
+	}
+	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsSocialPingDeliveryRequest)
+	if err != nil {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: "invalid notification"}.RPCResponse()
+	}
+	callCtx, cancel, err := SocialPingDeliveryContext(ctx, params)
+	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) {
+			return socialPingDeliveryError(req.Id, err)
+		}
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
+	}
+	defer cancel()
+	key, _ := parseSocialPingPeer(params.TargetPeerPublicKey)
+	ping := rpcapi.ClientSocialPingRequest{FromPeerPublicKey: params.Ping.FromPeerPublicKey,
+		FromDisplayName: params.Ping.FromDisplayName, FriendGroupName: params.Ping.FriendGroupName}
+	if err := s.notifications.deliverLocalSocialPing(callCtx, key, ping); err != nil {
+		return socialPingDeliveryError(req.Id, err)
+	}
+	return edgeRPCResult(req.Id, &rpcpb.SocialPingDeliveryResponse{}, (*rpcapi.RPCPayload).FromSocialPingDeliveryResponse)
 }
 
 func (s *edgeRPCServer) handleAPIKeyResolve(ctx context.Context, req *rpcapi.RPCRequest) *rpcapi.RPCResponse {

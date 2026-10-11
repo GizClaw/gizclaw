@@ -39,3 +39,11 @@ Friends read these text profile fields through `server.friend.info.get` or the i
 See [Public API](../../api/http/public) for device-owned debug access and multi-match SN/IMEI lookup.
 
 Role admission reads current Peer KV status and deletion fences, requiring active status and an exact role. Firmware display projection is excluded. Authority is not cached; slow firmware SQL cannot block service opens, while KV errors still deny access.
+
+## Social notification delivery
+
+`peer_manager_social_ping.go` owns local-first social ping delivery and trusted
+Edge selection. `PeerOnline`, `PeerPresence` and `PeerRunningWorkspace` retain
+the local Server connection view; pings do not filter remote targets by that
+view. See [services/social](../services/social#ping-and-rally) for the path, ACK
+deadline and shared rate windows.

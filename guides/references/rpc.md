@@ -213,7 +213,7 @@ RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP 
 
 ## Edge RPC
 
-以下方法由 Server 提供给 Edge-node，必须使用 `createEdgeRPCClient` 或对应的 Edge RPC transport；普通 `createPeerRPCClient` 不接受这些 method。
+以下内部方法共用 `ServiceEdgeRPC`（0x31）；Server 提供路由与终端投递，Edge 向其配置上游 Server 提供反向中继。使用 `createEdgeRPCClient` 或对应的 Edge RPC transport；普通 `createPeerRPCClient` 不接受这些 method。
 
 | ID | Method | 作用 |
 | ---: | --- | --- |
@@ -221,6 +221,8 @@ RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP 
 | 84 | `server.peer.assign` | 原子 claim 缺少 assignment 的 Peer，或刷新同 owner metadata；其他 owner 返回 conflict，`expected_version` 不能转移归属。 |
 | 85 | `server.route.resolve` | 只读解析目标 Peer 当前的固定 Server route/assignment。 |
 | 99 | `server.api_key.resolve` | 认证 Edge 收到的 Bearer credential，并返回其 owner Peer 现有的 assignment；不创建、移动或刷新 assignment。 |
+| 149 | `edge.social.ping.relay` | 已验证配置上游 Server 调用 Edge；按目标 PK 的固定 Server assignment 中继社交通知，等待目标设备 ACK。 |
+| 150 | `server.social.ping.deliver` | active Edge 调用归属 Server；仅向本地目标 Peer 投递 `client.social.ping` 并等待 ACK，不继续中继。 |
 
 ## 未指定值
 

@@ -199,3 +199,42 @@ final $typed_data.Uint8List serverAPIKeyResolveResponseDescriptor =
     $convert.base64Decode(
         'ChtTZXJ2ZXJBUElLZXlSZXNvbHZlUmVzcG9uc2USPgoKYXNzaWdubWVudBgBIAEoCzIeLmdpem'
         'NsYXcucnBjLnYxLlBlZXJBc3NpZ25tZW50Ugphc3NpZ25tZW50');
+
+@$core.Deprecated('Use socialPingDeliveryRequestDescriptor instead')
+const SocialPingDeliveryRequest$json = {
+  '1': 'SocialPingDeliveryRequest',
+  '2': [
+    {
+      '1': 'target_peer_public_key',
+      '3': 1,
+      '4': 1,
+      '5': 9,
+      '10': 'targetPeerPublicKey'
+    },
+    {
+      '1': 'ping',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ClientSocialPingRequest',
+      '10': 'ping'
+    },
+    {'1': 'deadline_unix_ms', '3': 3, '4': 1, '5': 3, '10': 'deadlineUnixMs'},
+  ],
+};
+
+/// Descriptor for `SocialPingDeliveryRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List socialPingDeliveryRequestDescriptor = $convert.base64Decode(
+    'ChlTb2NpYWxQaW5nRGVsaXZlcnlSZXF1ZXN0EjMKFnRhcmdldF9wZWVyX3B1YmxpY19rZXkYAS'
+    'ABKAlSE3RhcmdldFBlZXJQdWJsaWNLZXkSOwoEcGluZxgCIAEoCzInLmdpemNsYXcucnBjLnYx'
+    'LkNsaWVudFNvY2lhbFBpbmdSZXF1ZXN0UgRwaW5nEigKEGRlYWRsaW5lX3VuaXhfbXMYAyABKA'
+    'NSDmRlYWRsaW5lVW5peE1z');
+
+@$core.Deprecated('Use socialPingDeliveryResponseDescriptor instead')
+const SocialPingDeliveryResponse$json = {
+  '1': 'SocialPingDeliveryResponse',
+};
+
+/// Descriptor for `SocialPingDeliveryResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List socialPingDeliveryResponseDescriptor =
+    $convert.base64Decode('ChpTb2NpYWxQaW5nRGVsaXZlcnlSZXNwb25zZQ==');

@@ -5,6 +5,7 @@
 #define PB_GIZCLAW_RPC_V1_PAYLOAD_EDGE_PB_H_INCLUDED
 #include <pb.h>
 #include "payload/enums.pb.h"
+#include "payload/social.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40
 #error Regenerate this file with the current version of nanopb generator.
@@ -58,6 +59,20 @@ typedef struct _gizclaw_rpc_v1_ServerAPIKeyResolveResponse {
     gizclaw_rpc_v1_PeerAssignment assignment;
 } gizclaw_rpc_v1_ServerAPIKeyResolveResponse;
 
+/* Internal notification delivery on authenticated Server/Edge connections.
+ Success means the target device acknowledged client.social.ping. */
+typedef struct _gizclaw_rpc_v1_SocialPingDeliveryRequest {
+    char target_peer_public_key[65];
+    bool has_ping;
+    gizclaw_rpc_v1_ClientSocialPingRequest ping;
+    /* One end-to-end deadline, preserved by the relay. Never queued or retried. */
+    int64_t deadline_unix_ms;
+} gizclaw_rpc_v1_SocialPingDeliveryRequest;
+
+typedef struct _gizclaw_rpc_v1_SocialPingDeliveryResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_SocialPingDeliveryResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -73,6 +88,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_init_default {false, gizclaw_rpc_v1_PeerAssignment_init_default}
 #define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_init_default {""}
 #define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_init_default {false, gizclaw_rpc_v1_PeerAssignment_init_default}
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_init_default {"", false, gizclaw_rpc_v1_ClientSocialPingRequest_init_default, 0}
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_init_default {0}
 #define gizclaw_rpc_v1_PeerAssignment_init_zero  {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRole_MIN, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerPeerLookupRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerPeerLookupResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
@@ -82,6 +99,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
 #define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_init_zero {""}
 #define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_init_zero {false, gizclaw_rpc_v1_PeerAssignment_init_zero}
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_init_zero {"", false, gizclaw_rpc_v1_ClientSocialPingRequest_init_zero, 0}
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_init_zero {0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_PeerAssignment_peer_public_key_tag 1
@@ -99,6 +118,9 @@ extern "C" {
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_assignment_tag 1
 #define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_api_key_tag 1
 #define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_assignment_tag 1
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_target_peer_public_key_tag 1
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_ping_tag 2
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_deadline_unix_ms_tag 3
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_PeerAssignment_FIELDLIST(X, a) \
@@ -156,6 +178,19 @@ X(a, STATIC,   OPTIONAL, MESSAGE,  assignment,        1)
 #define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_DEFAULT NULL
 #define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_assignment_MSGTYPE gizclaw_rpc_v1_PeerAssignment
 
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   target_peer_public_key,   1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  ping,              2) \
+X(a, STATIC,   SINGULAR, INT64,    deadline_unix_ms,   3)
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_DEFAULT NULL
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_ping_MSGTYPE gizclaw_rpc_v1_ClientSocialPingRequest
+
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_DEFAULT NULL
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerAssignment_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerLookupRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerLookupResponse_msg;
@@ -165,6 +200,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRouteResolveRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerRouteResolveResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerAPIKeyResolveRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerAPIKeyResolveResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SocialPingDeliveryRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_SocialPingDeliveryResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_PeerAssignment_fields &gizclaw_rpc_v1_PeerAssignment_msg
@@ -176,6 +213,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerAPIKeyResolveResponse_msg;
 #define gizclaw_rpc_v1_ServerRouteResolveResponse_fields &gizclaw_rpc_v1_ServerRouteResolveResponse_msg
 #define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_fields &gizclaw_rpc_v1_ServerAPIKeyResolveRequest_msg
 #define gizclaw_rpc_v1_ServerAPIKeyResolveResponse_fields &gizclaw_rpc_v1_ServerAPIKeyResolveResponse_msg
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_fields &gizclaw_rpc_v1_SocialPingDeliveryRequest_msg
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_fields &gizclaw_rpc_v1_SocialPingDeliveryResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_PeerAssignment_size depends on runtime parameters */
@@ -186,8 +225,10 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerAPIKeyResolveResponse_msg;
 /* gizclaw_rpc_v1_ServerRouteResolveRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerRouteResolveResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ServerAPIKeyResolveResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_EDGE_PB_H_MAX_SIZE gizclaw_rpc_v1_ServerAPIKeyResolveRequest_size
+#define GIZCLAW_RPC_V1_PAYLOAD_EDGE_PB_H_MAX_SIZE gizclaw_rpc_v1_SocialPingDeliveryRequest_size
 #define gizclaw_rpc_v1_ServerAPIKeyResolveRequest_size 97
+#define gizclaw_rpc_v1_SocialPingDeliveryRequest_size 663
+#define gizclaw_rpc_v1_SocialPingDeliveryResponse_size 0
 
 #ifdef __cplusplus
 } /* extern "C" */

@@ -4,6 +4,39 @@ import 'package:protobuf/protobuf.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('internal social delivery preserves its ping and deadline', () {
+    for (final entry in {
+      'edge.social.ping.relay': 149,
+      'server.social.ping.deliver': 150,
+    }.entries) {
+      expect(rpcMethodByName(entry.key).id, entry.value);
+      final request = SocialPingDeliveryRequest(
+        targetPeerPublicKey: 'target',
+        ping: ClientSocialPingRequest(
+          fromPeerPublicKey: 'sender',
+          friendGroupName: 'my-group',
+        ),
+        deadlineUnixMs: Int64(1800000000123),
+      );
+      final decoded =
+          decodeRpcRequestPayload(
+                entry.key,
+                encodeRpcRequestPayload(entry.key, request),
+              )
+              as SocialPingDeliveryRequest;
+      expect(decoded.targetPeerPublicKey, 'target');
+      expect(decoded.ping.friendGroupName, 'my-group');
+      expect(decoded.deadlineUnixMs, request.deadlineUnixMs);
+      expect(
+        decodeRpcResponsePayload(
+          entry.key,
+          encodeRpcResponsePayload(entry.key, SocialPingDeliveryResponse()),
+        ),
+        isA<SocialPingDeliveryResponse>(),
+      );
+    }
+  });
+
   test('contains canonical workflow and workspace RPC method IDs', () {
     expect(rpcMethodByName('server.firmware.get').id, 22);
     expect(rpcMethodByName('server.workflow.list').id, 32);

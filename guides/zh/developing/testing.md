@@ -1918,3 +1918,22 @@ GIZCLAW_TEST_MEM0_ENDPOINT=http://127.0.0.1:8000 \
 `GIZCLAW_E2E_MEM0_API_KEY` 用于 Mem0 鉴权。测试通过已认证 Admin HTTP 在临时 SQLite Server 中绑定真实资源；只为本地 Profile 选择原生 Lite Model 和测试 Mem0，读取原始冒险多角色、猜动物、专题与主聊天 Workflow，保持业务图和 prompt。原始 Giztest 经真实 WebRTC 验证两轮语音、文本开场、回复 EOS 与 cleanup。主聊天仍使用 Doubao Realtime，并额外验证同一个 Workflow 外挂 ASR 的 PTT、连续 realtime、打断及下一轮恢复。
 
 证据目录保存原始图和测试文档 SHA-256、各场景报告、透明 Ark／Mem0 观察器的脱敏记录与 provider 用量。观察器转发真实上游响应；原生 Lite 阶段必须有成功的音频转写和文本回复请求、正用量且无独立 BigASR 用量，外挂 ASR 阶段必须记录实际 ASR 用量。该测试产生真实费用，不进入 CI，也不代表设备或部署验收；报告和日志不得提交。
+
+## 跨 Server 召集通知 Docker 验收
+
+```sh
+GIZCLAW_E2E_SOCIAL_PING_ONLY=1 GIZCLAW_E2E_TEST_RUN='^TestSocialPingCrossServer$' bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+在仓库根目录运行；不需要 Provider credential。沿用双 Server、双 Edge、共享 Social KV
+及 LiveKit 的 Compose harness，使用实际 Go SDK WebRTC 设备客户端。源设备经中继 Edge
+接入 Server A，目标经另一台 Edge 接入 Server B，本地目标直连 Server A。
+测试覆盖本地直推、跨 Server 好友与混合分组召集、延迟 ACK、ACK 计数、离线与超时、
+断连替换、普通设备调用内部 RPC 的拒绝、关系权限和共享限流。
+
+`verify_social_ping_evidence.py` 从测试拓扑与服务日志核对中继确实不同于目标 ingress，
+并要求同一 request ID 关联源 Server 的 relay、Edge 的 route 与目标 Server 的设备 ACK。
+随后 harness 停止两个 Edge 进程，验证在线异机目标有界失败，本地直推仍成功。
+测试输出、脱敏服务日志和关联证据写入 ignored 的
+`tests/gizclaw-e2e/testdata/multi-server/`；退出时删除该 Compose project 的容器和卷。
+这是 Docker 协议客户端验收，不代替物理设备测试或部署验收。
