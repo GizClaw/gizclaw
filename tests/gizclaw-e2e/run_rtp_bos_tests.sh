@@ -59,6 +59,12 @@ cleanup() {
 trap cleanup EXIT
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_dir/tests/docker-images/common.sh"
+gizclaw_image_env "$arch"
+gizclaw_require_images ubuntu
+gizclaw_require_local_builder
 npm ci && npm run build:console
 image_dir="$run_dir/image"
 mkdir -p "$image_dir/bin" "$image_dir/tests/gizclaw-e2e/docker"
@@ -68,12 +74,14 @@ if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
   go build -o "$image_dir/bin/monitor-seed" ./tests/gizclaw-e2e/cmd/multiserver-seed
   go build -o "$image_dir/bin/monitor-fixture" ./tests/gizclaw-e2e/cmd/monitor-fixture
 else
-  base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
-  if ! docker image inspect "$base" >/dev/null 2>&1; then
-    docker build -f "$repo_dir/build/gizclaw/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
-  fi
+  # shellcheck source=setup/docker-base.sh
+  # shellcheck disable=SC1091
+  source "$repo_dir/tests/gizclaw-e2e/setup/docker-base.sh"
+  base_image=""
+  build_gizclaw_e2e_base "$repo_dir" "linux/$arch"
+  base="$base_image"
   python3 "$script_dir/testdata/rtp-bos/overlay.py" "$repo_dir" "$image_dir/bin" docker
-  docker run --rm --entrypoint /bin/bash \
+  docker run --pull=never --rm --entrypoint /bin/bash \
     -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
     -v "$(go env GOMODCACHE):/root/go/pkg/mod" \
     -v "gizclaw-rtp-bos-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
@@ -85,11 +93,14 @@ cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 mkdir -p "$image_dir/tests/gizclaw-e2e/testdata"
 cp -R "$script_dir/testdata/rtp-bos" "$image_dir/tests/gizclaw-e2e/testdata/"
 cp -R "$script_dir/testdata/audio" "$image_dir/tests/gizclaw-e2e/testdata/"
-docker build -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+gizclaw_dockerfile_require_bases "$script_dir/docker/Dockerfile.audioplayer" "$image_dir" "$GIZCLAW_E2E_UBUNTU_IMAGE"
+docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$GIZCLAW_E2E_UBUNTU_IMAGE" -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
+gizclaw_register_built_image "$GIZCLAW_MONITOR_IMAGE"
+gizclaw_compose_require_images "${compose[@]:2}"
+docker run --pull=never --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
-"${compose[@]}" up -d --wait server edge
-"${compose[@]}" run --rm seed -server server:9820 -profile-id rtp-bos -token-id rtp-bos -token monitor-test -rtp-bos
-"${compose[@]}" run --rm test \
+"${compose[@]}" up --pull never -d --wait server edge
+"${compose[@]}" run --pull never --rm seed -server server:9820 -profile-id rtp-bos -token-id rtp-bos -token monitor-test -rtp-bos
+"${compose[@]}" run --pull never --rm test \
   /src/tests/gizclaw-e2e/testdata/rtp-bos/audio.giztest.yaml \
   --output /reports/giztest.json

@@ -13,6 +13,10 @@ if [[ -f "$env_path" ]]; then
   set +a
 fi
 
+# shellcheck source=../../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$e2e_dir/../docker-images/common.sh"
+gizclaw_image_env "${GIZCLAW_DOCKER_ARCH:-}"
 project="${GIZCLAW_E2E_DOCKER_PROJECT:-}"
 compose_file="${GIZCLAW_E2E_DOCKER_COMPOSE_FILE:-$e2e_dir/docker/docker-compose.yaml}"
 compose_args=(-f "$compose_file")
@@ -61,7 +65,7 @@ cleanup_project_resources() {
   done < <(docker volume ls -q --filter "label=com.docker.compose.project=$project")
 }
 
-# A canceled `docker compose up` plugin can finish creating a resource after
+# A canceled `docker compose up --pull never` plugin can finish creating a resource after
 # `docker compose down` returns. Require two consecutive empty observations so
 # cleanup completion means that this exact project has actually settled.
 for _ in 1 2 3 4 5; do

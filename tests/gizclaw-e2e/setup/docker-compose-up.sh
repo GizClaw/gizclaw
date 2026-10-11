@@ -468,6 +468,15 @@ GIZCLAW_E2E_GATEWAY_MAX_PENDING_HANDSHAKES=${GIZCLAW_E2E_GATEWAY_MAX_PENDING_HAN
 GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE=${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-}
 GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES=${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}
 GIZCLAW_E2E_DOCKER_IMAGES_BUILT=${GIZCLAW_E2E_DOCKER_IMAGES_BUILT:-}
+GIZCLAW_DOCKER_ARCH=${GIZCLAW_DOCKER_ARCH:-}
+GIZCLAW_E2E_UBUNTU_IMAGE=${GIZCLAW_E2E_UBUNTU_IMAGE:-}
+GIZCLAW_E2E_PYTHON_IMAGE=${GIZCLAW_E2E_PYTHON_IMAGE:-}
+GIZCLAW_E2E_REDIS_IMAGE=${GIZCLAW_E2E_REDIS_IMAGE:-}
+GIZCLAW_E2E_LIVEKIT_IMAGE=${GIZCLAW_E2E_LIVEKIT_IMAGE:-}
+GIZCLAW_E2E_COTURN_IMAGE=${GIZCLAW_E2E_COTURN_IMAGE:-}
+GIZCLAW_E2E_PGVECTOR_IMAGE=${GIZCLAW_E2E_PGVECTOR_IMAGE:-}
+GIZCLAW_E2E_NETSHOOT_IMAGE=${GIZCLAW_E2E_NETSHOOT_IMAGE:-}
+GIZCLAW_E2E_POSTGRES_IMAGE=${GIZCLAW_E2E_POSTGRES_IMAGE:-}
 GIZCLAW_TEST_ENDPOINT=$GIZCLAW_E2E_EDGE_ENDPOINT
 GIZCLAW_TEST_REGISTRATION_TOKEN=$GIZCLAW_TEST_REGISTRATION_TOKEN
 EOF
@@ -744,20 +753,24 @@ export GIZCLAW_E2E_DOCKER_SERVER_BIND="${GIZCLAW_E2E_DOCKER_SERVER_BIND:-0.0.0.0
 capacity_build_required=0
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE="${GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE:-$GIZCLAW_E2E_DOCKER_PROJECT-service}"
-  if [[ "${GIZCLAW_E2E_DOCKER_RETAIN_LOCAL_IMAGES:-}" == "1" ]] &&
-    docker image inspect "$GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE" >/dev/null 2>&1; then
-    GIZCLAW_E2E_DOCKER_IMAGES_BUILT=0
-    echo "==> reuse capacity service image: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
-  else
-    capacity_build_required=1
-    GIZCLAW_E2E_DOCKER_IMAGES_BUILT=1
-    echo "==> build capacity service image: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
-  fi
+  capacity_build_required=1
+  GIZCLAW_E2E_DOCKER_IMAGES_BUILT=1
+  echo "==> build current capacity service source: $GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE"
   export GIZCLAW_E2E_GATEWAY_CAPACITY_IMAGE GIZCLAW_E2E_DOCKER_IMAGES_BUILT
 fi
 
 docker_platform="$(docker_native_platform)"
 export DOCKER_DEFAULT_PLATFORM="$docker_platform"
+# shellcheck source=../../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_root/tests/docker-images/common.sh"
+gizclaw_image_env "${docker_platform#linux/}"
+for argument in "$@"; do
+  if [[ "$argument" == --pull* ]]; then
+    echo "Compose pull policy is fixed to never by the E2E image contract" >&2
+    exit 2
+  fi
+done
 # Persist the selected Compose file before builds, including failed builds.
 docker_env="$(materialize_runtime_config)"
 echo "==> docker e2e env: $docker_env"
@@ -776,8 +789,7 @@ for argument in "$@"; do
 done
 if [[ "$mem0_selected" == 1 ]]; then
   export GIZCLAW_E2E_MEM0_BASE_IMAGE="${GIZCLAW_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:${docker_platform//\//-}-cn-base}"
-  TARGET=base PLATFORM="$docker_platform" BASE_IMAGE="$GIZCLAW_E2E_MEM0_BASE_IMAGE" \
-    "$repo_root/build/build-mem0.sh" cn
+  gizclaw_prepare_mem0_base "$docker_platform" "$GIZCLAW_E2E_MEM0_BASE_IMAGE" cn
 fi
 
 if [[ "${capacity_build_required:-0}" == "1" ]]; then
@@ -804,6 +816,7 @@ fi
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   compose_files+=(-f "$gateway_relay_compose_file")
 fi
+gizclaw_compose_require_images -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}"
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "gateway capacity modes do not accept docker compose arguments" >&2
@@ -812,7 +825,7 @@ if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-cap
   if [[ "$capacity_build_required" == "1" ]]; then
     docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge edge2 coturn-a coturn-b
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up --pull never -d --no-build turn server edge edge2 coturn-a coturn-b
 elif [[ "$topology_mode" == "gateway-native-channels-2048" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "--gateway-native-channels-2048 does not accept docker compose arguments" >&2
@@ -821,7 +834,7 @@ elif [[ "$topology_mode" == "gateway-native-channels-2048" ]]; then
   if [[ "$capacity_build_required" == "1" ]]; then
     docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge coturn-a coturn-b
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up --pull never -d --no-build turn server edge coturn-a coturn-b
 elif [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
   if [[ $# -gt 0 ]]; then
     echo "--gateway-relay-recovery does not accept docker compose arguments" >&2
@@ -830,11 +843,11 @@ elif [[ "$topology_mode" == "gateway-relay-recovery" ]]; then
   if [[ "$capacity_build_required" == "1" ]]; then
     docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build server
   fi
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --no-build turn server edge coturn-a coturn-b gateway-fault
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up --pull never -d --no-build turn server edge coturn-a coturn-b gateway-fault
 elif [[ $# -gt 0 ]]; then
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up "$@"
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up --pull never "$@"
 else
-  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up -d --build
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" up --pull never -d --build
 fi
 
 edge_tcp_port="$(docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" -f "$compose_file" port --protocol tcp edge 9821 | awk -F: '{print $NF}')"

@@ -66,15 +66,23 @@ cleanup() {
 trap cleanup EXIT
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64|aarch64) arch=arm64;; esac
-base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
-if ! docker image inspect "$base" >/dev/null 2>&1; then
-  docker build -f "$repo_dir/build/gizclaw/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
-fi
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_dir/tests/docker-images/common.sh"
+gizclaw_image_env "$arch"
+gizclaw_require_images ubuntu
+gizclaw_require_local_builder
+# shellcheck source=setup/docker-base.sh
+# shellcheck disable=SC1091
+source "$repo_dir/tests/gizclaw-e2e/setup/docker-base.sh"
+base_image=""
+build_gizclaw_e2e_base "$repo_dir" "linux/$arch"
+base="$base_image"
 if [[ ! -d node_modules ]]; then npm ci; fi
 npm run build:console
 image_dir="$run_dir/image"
 python3 "$script_dir/testdata/runtime-tools/source_receipt.py" "$repo_dir" "$GIZCLAW_MONITOR_REPORTS/source-before.json"
-docker run --rm --entrypoint /bin/bash \
+docker run --pull=never --rm --entrypoint /bin/bash \
   -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
   -v "$(go env GOMODCACHE):/root/go/pkg/mod" \
   -v "gizclaw-runtime-tools-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
@@ -103,8 +111,11 @@ shasum -a 256 "$image_dir/bin/"* > "$GIZCLAW_MONITOR_REPORTS/binaries.sha256"
 git rev-parse HEAD > "$GIZCLAW_MONITOR_REPORTS/base-commit.txt"
 git diff --binary HEAD > "$GIZCLAW_MONITOR_REPORTS/source.patch"
 
-docker build -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm --user "$run_user" -v "$state_dir:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+gizclaw_dockerfile_require_bases "$script_dir/docker/Dockerfile.audioplayer" "$image_dir" "$GIZCLAW_E2E_UBUNTU_IMAGE"
+docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$GIZCLAW_E2E_UBUNTU_IMAGE" -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
+gizclaw_register_built_image "$GIZCLAW_MONITOR_IMAGE"
+gizclaw_compose_require_images "${compose[@]:2}"
+docker run --pull=never --rm --user "$run_user" -v "$state_dir:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 python3 - "$state_dir/server/config.yaml" <<'PYPROFILE'
 from pathlib import Path
 import sys
@@ -117,10 +128,11 @@ config += "\nprofiling:\n  enabled: true\n  store: runtime-tool-profiling\n"
 path.write_text(config)
 PYPROFILE
 touch "$state_dir/fixture.env"
-"${compose[@]}" up -d --wait server edge toolcontrol
-"${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test validate -f /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest'
+"${compose[@]}" up --pull never -d --wait server edge toolcontrol
+"${compose[@]}" run --pull never --rm --entrypoint /bin/bash test -lc 'gizclaw test validate -f /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest'
 set +e
-"${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test run --parallel "$GIZCLAW_RUNTIME_TOOL_PARALLEL" --evidence full --output /reports/giztest.json /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest/*.giztest.yaml'
+# shellcheck disable=SC2016 # Expanded inside the test container.
+"${compose[@]}" run --pull never --rm --entrypoint /bin/bash test -lc 'gizclaw test run --parallel "$GIZCLAW_RUNTIME_TOOL_PARALLEL" --evidence full --output /reports/giztest.json /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest/*.giztest.yaml'
 run_status=$?
 python3 "$script_dir/testdata/runtime-tools/report.py" "$GIZCLAW_MONITOR_REPORTS"
 score_status=$?

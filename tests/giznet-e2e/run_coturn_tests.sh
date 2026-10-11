@@ -103,6 +103,11 @@ if ! command -v openssl >/dev/null 2>&1 || ! command -v python3 >/dev/null 2>&1;
   exit 1
 fi
 
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_root/tests/docker-images/common.sh"
+gizclaw_image_env
+gizclaw_require_images coturn
 readonly relay_width=32
 GIZNET_COTURN_PUBLIC_IP="$(detect_public_ip)"
 GIZNET_COTURN_STATIC_LISTEN_PORT="$(pick_udp_port)"
@@ -145,7 +150,7 @@ export GIZNET_COTURN_REST_URL="turn:127.0.0.1:$GIZNET_COTURN_REST_LISTEN_PORT?tr
 export GIZNET_COTURN_ARTIFACT="$artifact_path"
 
 echo "==> start pinned Coturn interoperability fixture"
-docker compose -p "$project" -f "$compose_file" up -d --wait coturn-static coturn-rest
+docker compose -p "$project" -f "$compose_file" up --pull never -d --wait coturn-static coturn-rest
 
 echo "==> run fixed Giznet Coturn interoperability and measurements"
 (cd "$repo_root" && go test -count=1 -v \

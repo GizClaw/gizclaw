@@ -1,5 +1,6 @@
 x-coturn: &coturn
-  image: coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
+  image: ${GIZCLAW_E2E_COTURN_IMAGE:?run the image preflight}
+  pull_policy: never
   entrypoint: ["/usr/local/bin/gizclaw-coturn-entrypoint"]
   environment:
     GIZCLAW_COTURN_LISTEN_PORT: "3478"
@@ -21,6 +22,7 @@ x-coturn: &coturn
 
 services:
   coturn-static:
+    pull_policy: never
     <<: *coturn
     environment:
       GIZCLAW_COTURN_AUTH_MODE: static
@@ -37,6 +39,7 @@ services:
       - "${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}:${GIZNET_COTURN_STATIC_RELAY_MIN_PORT:?set by run_coturn_tests.sh}-${GIZNET_COTURN_STATIC_RELAY_MAX_PORT:?set by run_coturn_tests.sh}:${GIZNET_COTURN_STATIC_RELAY_MIN_PORT:?set by run_coturn_tests.sh}-${GIZNET_COTURN_STATIC_RELAY_MAX_PORT:?set by run_coturn_tests.sh}/udp"
 
   coturn-rest:
+    pull_policy: never
     <<: *coturn
     environment:
       GIZCLAW_COTURN_AUTH_MODE: rest

@@ -1,5 +1,6 @@
 services:
   server:
+    pull_policy: never
     entrypoint:
       - /src/tests/gizclaw-e2e/docker/entrypoint-server.sh
       - volc-log

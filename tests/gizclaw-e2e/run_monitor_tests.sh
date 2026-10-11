@@ -21,16 +21,19 @@ cleanup() {
 trap cleanup EXIT
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
-base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
-if ! docker image inspect "$base" >/dev/null 2>&1; then
-  docker build -f "$repo_dir/build/gizclaw/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
-fi
+# shellcheck source=setup/docker-base.sh
+# shellcheck disable=SC1091
+source "$repo_dir/tests/gizclaw-e2e/setup/docker-base.sh"
+base_image=""
+build_gizclaw_e2e_base "$repo_dir" "linux/$arch"
+base="$base_image"
+
 # Build the browser assets on the host and native Linux binaries with persistent
 # caches. Only binaries, contracts and fixtures enter the runtime image.
 npm ci && npm run build:console
 image_dir="$run_dir/image"
 mkdir -p "$image_dir/bin" "$image_dir/tests/gizclaw-e2e/docker" "$image_dir/tests/gizclaw-e2e/testdata/audio" "$image_dir/tests/gizclaw-e2e/giztest"
-docker run --rm --entrypoint /bin/bash \
+docker run --pull=never --rm --entrypoint /bin/bash \
   -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
   -v "${GIZCLAW_MONITOR_MODCACHE:-gizclaw-monitor-modcache}:/gomod" \
   -v "${GIZCLAW_MONITOR_BUILDCACHE:-gizclaw-monitor-buildcache}:/cache" \
@@ -41,15 +44,18 @@ docker run --rm --entrypoint /bin/bash \
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/server.monitor.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
 cp "$script_dir/testdata/audio/sfu-tone.ogg" "$image_dir/tests/gizclaw-e2e/testdata/audio/"
-docker build --build-arg "BASE_IMAGE=$base" -f "$script_dir/docker/Dockerfile.monitor" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+gizclaw_dockerfile_require_bases "$repo_dir/tests/gizclaw-e2e/docker/Dockerfile.monitor" "$image_dir" "$base"
+docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$base" -f "$script_dir/docker/Dockerfile.monitor" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
+gizclaw_register_built_image "$GIZCLAW_MONITOR_IMAGE"
+gizclaw_compose_require_images "${compose[@]:2}"
+docker run --pull=never --rm -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
-"${compose[@]}" up -d --wait server edge
-"${compose[@]}" run --rm seed
-"${compose[@]}" run --rm fixture > "$run_dir/fixture.json"
+"${compose[@]}" up --pull never -d --wait server edge
+"${compose[@]}" run --pull never --rm seed
+"${compose[@]}" run --pull never --rm fixture > "$run_dir/fixture.json"
 python3 - "$run_dir/fixture.json" "$GIZCLAW_MONITOR_STATE/fixture.env" <<'PY'
 import json, pathlib, sys
 values = json.loads(pathlib.Path(sys.argv[1]).read_text())
 pathlib.Path(sys.argv[2]).write_text("".join(f"{key}={value}\n" for key, value in values.items()))
 PY
-"${compose[@]}" run --rm test
+"${compose[@]}" run --pull never --rm test

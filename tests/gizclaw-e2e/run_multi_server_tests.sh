@@ -59,19 +59,12 @@ docker_platform="linux/amd64"
 case "$(docker info --format '{{.Architecture}}')" in
   aarch64 | arm64) docker_platform="linux/arm64" ;;
 esac
-platform_slug="${docker_platform//\//-}"
-if [[ -z "${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-}" ]]; then
-  GIZCLAW_E2E_DOCKER_BASE_IMAGE="gizclaw-go:${platform_slug}-cn-base"
-  if [[ "$docker_platform" == "linux/arm64" ]] && docker image inspect gizclaw-go:linux-arm64-cn-base-go1.26.4 >/dev/null 2>&1; then
-    GIZCLAW_E2E_DOCKER_BASE_IMAGE="gizclaw-go:linux-arm64-cn-base-go1.26.4"
-  fi
-fi
-export GIZCLAW_E2E_DOCKER_BASE_IMAGE
-if ! docker image inspect "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" >/dev/null 2>&1; then
-  base_dockerfile="${GIZCLAW_E2E_DOCKER_BASE_DOCKERFILE:-$repo_root/build/gizclaw/Dockerfile.cn.base}"
-  echo "==> build missing e2e base image $GIZCLAW_E2E_DOCKER_BASE_IMAGE from $base_dockerfile"
-  docker build --platform="$docker_platform" -f "$base_dockerfile" -t "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" "$repo_root/build"
-fi
+# shellcheck source=setup/docker-base.sh
+# shellcheck disable=SC1091
+source "$script_dir/setup/docker-base.sh"
+base_image=""
+build_gizclaw_e2e_base "$repo_root" "$docker_platform"
+export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
 
 compose() {
   docker compose -p "$project" -f "$compose_file" "$@"
@@ -94,8 +87,8 @@ trap cleanup EXIT
 mkdir -p "$bin_dir" "$report_dir"
 module_cache="$(go env GOMODCACHE)"
 build_cache="$(go env GOCACHE)"
-if [[ "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]]; then
-  docker run --rm --entrypoint /bin/bash \
+{
+  docker run --pull=never --rm --entrypoint /bin/bash \
     -v "$repo_root:/src" \
     -v "$module_cache:/root/go/pkg/mod" \
     -v "$build_cache:/root/.cache/go-build" \
@@ -105,9 +98,10 @@ if [[ "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$tes
       && go build -o tests/gizclaw-e2e/testdata/bin/gizclaw-linux ./cmd/gizclaw \
       && go build -o tests/gizclaw-e2e/testdata/bin/multiserver-seed-linux ./tests/gizclaw-e2e/cmd/multiserver-seed \
       && go test -c -tags gizclaw_e2e -o tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux ./tests/gizclaw-e2e/go/multiserver'
-fi
+}
 
-compose up --build --wait redis livekit server-a server-b edge-a edge-b
+gizclaw_compose_require_images -p "$project" -f "$compose_file"
+compose up --pull never --build --wait redis livekit server-a server-b edge-a edge-b
 
 seed_server() {
   local server="$1" token_id="$2" admin_env="$3"
@@ -115,7 +109,7 @@ seed_server() {
   # each Server is seeded independently and Peers register with the token of
   # the Server they are homed on. SFU activation never reads another Peer's
   # profile, so nothing catalog-related is shared between the Servers.
-  compose run --rm -T seed -server "$server" -profile-id multi-server-sfu \
+  compose run --pull never --rm -T seed -server "$server" -profile-id multi-server-sfu \
     -token-id "$token_id" -admin-key-env "$admin_env" \
     -monitor-workflow-id workspace-reload-echo | tail -n 1
 }
@@ -129,7 +123,7 @@ fi
 export GIZCLAW_TEST_REGISTRATION_TOKEN_A GIZCLAW_TEST_REGISTRATION_TOKEN_B
 
 echo "==> go multi-server tests"
-compose run --rm -T tests \
+compose run --pull never --rm -T tests \
   -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1
 
 if compose exec -T redis redis-cli --scan --pattern '*runs*' | grep -q .; then
@@ -199,7 +193,7 @@ fi
 report_name="sfu-report.json"
 rm -f "$report_dir/$report_name"
 echo "==> giztest SFU scenarios: ${scenarios[*]}"
-if ! GIZCLAW_E2E_GIZTEST_REPORT_NAME="$report_name" compose run --rm -T giztest "${scenarios[@]}"; then
+if ! GIZCLAW_E2E_GIZTEST_REPORT_NAME="$report_name" compose run --pull never --rm -T giztest "${scenarios[@]}"; then
   echo "SFU giztest scenarios failed; report: $report_dir/$report_name" >&2
   print_giztest_failures "$report_dir/$report_name"
   exit 1

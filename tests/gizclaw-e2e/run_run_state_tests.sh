@@ -7,7 +7,12 @@ evidence="${1:-$repo_root/tests/gizclaw-e2e/.testbench/run-state-$(date +%Y%m%d-
 mkdir -p "$evidence/overlay" "$evidence/tls"
 evidence="$(cd "$evidence" && pwd)"
 run_id="gizclaw-run-state-$(date +%s)-$$"
-pg_image='postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_root/tests/docker-images/common.sh"
+gizclaw_image_env
+gizclaw_require_images postgres
+pg_image="$GIZCLAW_E2E_POSTGRES_IMAGE"
 cleanup() {
   docker logs "$run_id-pg" >"$evidence/postgres.log" 2>&1 || true
   docker rm -f -v "$run_id-pg" >/dev/null 2>&1 || true
@@ -16,7 +21,7 @@ trap cleanup EXIT
 openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=localhost' \
   -keyout "$evidence/tls/server.key" -out "$evidence/tls/server.crt" \
   >"$evidence/tls/generation.log" 2>&1
-docker run -d --name "$run_id-pg" --cpus 4 --memory 1g \
+docker run --pull=never -d --name "$run_id-pg" --cpus 4 --memory 1g \
   --tmpfs '/var/lib/postgresql/data:rw,size=256m' \
   --mount "type=bind,source=$evidence/tls,target=/tls,readonly" \
   -e POSTGRES_USER=gizclaw -e POSTGRES_PASSWORD=local-run-state-fixture -e POSTGRES_DB=gizclaw \
@@ -32,7 +37,8 @@ for _ in {1..120}; do
 done
 docker exec "$run_id-pg" psql -U gizclaw -d gizclaw -v ON_ERROR_STOP=1 \
   -c 'CREATE EXTENSION pg_stat_statements' >"$evidence/postgres-setup.log"
-export GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw:local-run-state-fixture@$(docker port "$run_id-pg" 5432)/gizclaw?sslmode=require"
+GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw:local-run-state-fixture@$(docker port "$run_id-pg" 5432)/gizclaw?sslmode=require"
+export GIZCLAW_TEST_POSTGRES_DSN
 export GIZCLAW_TEST_RUN_STATE=1
 export GIZCLAW_TEST_RUN_STATE_CONCURRENCY="${GIZCLAW_TEST_RUN_STATE_CONCURRENCY:-64}"
 export GOMAXPROCS="${GOMAXPROCS:-8}"

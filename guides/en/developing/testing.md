@@ -16,6 +16,47 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## Docker image preflight
+
+Local Docker E2E loads pinned third-party images from the existing
+`https://static-volc.gizclaw.com/releases/GizClaw/deploy/container-images/v1/`
+CDN route. `tests/docker-images/catalog.json` owns the exact Ubuntu, Python,
+Redis, LiveKit, Coturn, pgvector, netshoot and PostgreSQL sources for
+`linux/amd64` and `linux/arm64`. Source tags and digests remain fixed.
+The preflight requires Python 3.11 or newer, Docker Compose and Buildx; its Python
+code uses the standard library without additional packages.
+
+The entrypoints download `manifest.json` and `image.tar.gz`, bind the canonical
+source/platform/reference, verify compressed size/SHA256 and archive config/layer
+identities, then load and prove the local image identity. The local reference is
+`gizclaw-tos/cache:<source-key>-<arch>`, where source-key is SHA256 of the exact
+UTF-8 source string without a trailing newline. Compose receives these references
+through `GIZCLAW_E2E_<ID>_IMAGE`. Missing or corrupt delivery/cache objects fail;
+there is no Registry fallback.
+
+Server, Edge, Mem0 and test fixtures still build the current checkout. Their
+Ubuntu/Python bases are preloaded first, and builds require the Docker Buildx
+driver sharing that local image store. Compose services use `pull_policy: never`,
+builds disable pulling, and startup/run commands use `--pull never`. Package
+downloads through APT, Go, npm and pip retain their existing source settings;
+this image policy does not make source compilation fully offline.
+
+The default immutable archive cache is `.tmp/container-images/<source-key>/<arch>`.
+`GIZCLAW_CONTAINER_IMAGE_CACHE_DIR` selects another cache directory. Normal runs
+refresh the small manifest and require byte equality with cached metadata, then
+verify/reuse the existing archive. `GIZCLAW_CONTAINER_CACHE_ONLY=1` permits only
+already cached manifests/archives. Cache corruption is reported rather than
+silently replaced. Cleanup derives image references locally and does not download
+archives. `GIZCLAW_E2E_CREDENTIAL_FILE` selects an existing credential file for the
+standard full lane; its default remains `tests/gizclaw-e2e/.env`.
+
+Use the existing setup and test entrypoints so their preflight runs before Compose.
+An individual dependency can also be prepared with
+`bash tests/docker-images/load.sh redis`; it prints the verified local reference.
+`python3 tests/docker-images/test_loader.py` covers local HTTP/cache failures,
+Docker archive/storage variants, shell integration and the checked-in Compose
+inventory without live AI services. Actual source-build/service E2E is separate.
+
 ## Isolating audio timing tests
 
 CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:
@@ -221,15 +262,15 @@ requires Admin provisioning. This switch governs Server signaling only and does
 not protect client handshakes terminated at Edge.
 
 The base-image builders in `setup/docker-compose-up.sh` and `setup/build-linux-cgo.sh`
-share `setup/docker-base.sh`. Unset source overrides preserve `Dockerfile.cn.base`'s
-CN defaults and existing CN image tag. Overrides use a separate `custom-base` tag
-and always evaluate the Docker build, so a cached CN image cannot hide changed
-sources; Docker layer caching still applies. `GIZCLAW_E2E_DOCKER_BASE_IMAGE` can
-select an explicit output tag. CI supplies the official sources below; APT selects
+share `setup/docker-base.sh`. Ubuntu always comes from the verified catalog archive.
+Unset package-source overrides retain `Dockerfile.cn.base`'s CN mirrors and CN
+output tag. Overrides use a separate `custom-base` tag. Every invocation evaluates
+the current Dockerfile and arguments, while retaining Docker layer caching.
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` selects an explicit output tag; arbitrary base-image
+sources must be admitted in the catalog. CI supplies the official package sources below; APT selects
 `APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
 
 ```sh
-GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
 GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
 GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
 GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \

@@ -4,8 +4,10 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
-env_file="$script_dir/.env"
+env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$script_dir/.env}"
+export GIZCLAW_E2E_CREDENTIAL_FILE="$env_file"
 # shellcheck source=setup/credentials.sh
+# shellcheck disable=SC1091
 source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestAdminLogStreamVolcSmoke)$'

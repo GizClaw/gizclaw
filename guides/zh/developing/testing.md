@@ -11,6 +11,40 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## Docker 镜像准备
+
+本地 Docker E2E 从现有 CDN 路由
+`https://static-volc.gizclaw.com/releases/GizClaw/deploy/container-images/v1/`
+加载固定第三方镜像。`tests/docker-images/catalog.json` 维护 Ubuntu、Python、Redis、
+LiveKit、Coturn、pgvector、netshoot、PostgreSQL 的精确 source，支持 `linux/amd64`
+和 `linux/arm64`，不替换原 tag/digest。
+准备步骤需要 Python 3.11 或更新版本、Docker Compose 和 Buildx；Python 部分仅使用
+标准库，无需安装额外包。
+
+入口下载 `manifest.json` 与 `image.tar.gz`，绑定规范 source、平台和引用，检查压缩
+文件大小、SHA256、归档 config/layer 身份，再导入并证明本地镜像身份。本地 tag 为
+`gizclaw-tos/cache:<source-key>-<arch>`；source-key 是原始 UTF-8 source 字符串
+不带末尾换行的 SHA256。Compose 通过 `GIZCLAW_E2E_<ID>_IMAGE` 获取这些引用。
+交付或缓存对象缺失、损坏时直接失败，不回退 Registry。
+
+Server、Edge、Mem0 和测试夹具继续构建当前工作树源码，Ubuntu/Python 基础镜像先
+预加载。构建必须使用共享本地镜像库的 Docker Buildx driver。Compose 服务设置
+`pull_policy: never`，构建关闭 pulling，启动/run 命令使用 `--pull never`。
+APT、Go、npm、pip 依赖下载保留原有包源设置；镜像策略不意味着源码编译完全离线。
+
+归档默认缓存在 `.tmp/container-images/<source-key>/<arch>`，可通过
+`GIZCLAW_CONTAINER_IMAGE_CACHE_DIR` 指定目录。普通运行刷新小清单，要求它与缓存
+元数据逐字节一致，然后重新校验并复用归档。`GIZCLAW_CONTAINER_CACHE_ONLY=1`
+只允许使用已有清单与归档；缓存损坏会报错，不静默替换。清理入口仅在本地推导
+镜像引用，不下载归档。标准完整 lane 可通过 `GIZCLAW_E2E_CREDENTIAL_FILE` 选择已有
+凭据文件，默认仍为 `tests/gizclaw-e2e/.env`。
+
+通过现有 setup 和测试入口启动，使准备步骤先于 Compose 执行。单独准备一个依赖可运行
+`bash tests/docker-images/load.sh redis`，输出经验证的本地引用。
+`python3 tests/docker-images/test_loader.py` 使用本地 HTTP/缓存失败夹具验证归档与
+Docker 存储差异、shell 集成和已提交 Compose 清单，不访问真实 AI 服务；实际源码构建
+与服务 E2E 属于独立验收。
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：
@@ -179,14 +213,14 @@ Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调
 登记 Admin，且该开关只约束 Server signaling，不保护 Edge 终止的客户端握手。
 
 `setup/docker-compose-up.sh` 与 `setup/build-linux-cgo.sh` 通过 `setup/docker-base.sh`
-共用基础镜像构建参数。不设置源覆盖变量时保留 `Dockerfile.cn.base` 的 CN 默认值和
-原有 CN 镜像 tag。设置覆盖变量时使用独立的 `custom-base` tag，并始终执行 Docker build，
-避免已有 CN 镜像掩盖源变化；仍可命中 Docker layer cache。
-`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 使用以下官方源，APT 根据架构
+共用基础镜像构建参数。Ubuntu 始终来自已校验的 catalog 归档；不设置包源覆盖变量时
+保留 `Dockerfile.cn.base` 的 CN mirrors 和 CN 输出 tag，设置覆盖变量时使用独立的
+`custom-base` tag。每次都评估当前 Dockerfile 与参数，同时复用 Docker layer cache。
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag；其他基础镜像 source 必须先登记
+到 catalog。CI 使用以下官方包源，APT 根据架构
 选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
 
 ```sh
-GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
 GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
 GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
 GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \

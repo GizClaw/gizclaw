@@ -53,6 +53,10 @@ trap cleanup EXIT
 
 {
   platform="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')"
+  # shellcheck source=../docker-images/common.sh
+  # shellcheck disable=SC1091
+  source "$repo_root/tests/docker-images/common.sh"
+  gizclaw_image_env "${platform#linux/}"
   base_flavor=()
   suffix=base
   if [[ "${GIZCLAW_LOCOMO_E2E_MEM0_BASE_FLAVOR:-}" == cn ]]; then
@@ -63,11 +67,11 @@ trap cleanup EXIT
     exit 2
   fi
   export GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE="${GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:${platform//\//-}-$suffix}"
-  TARGET=base PLATFORM="$platform" BASE_IMAGE="$GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE" \
-    "$repo_root/build/build-mem0.sh" ${base_flavor[@]+"${base_flavor[@]}"}
+  gizclaw_prepare_mem0_base "$platform" "$GIZCLAW_LOCOMO_E2E_MEM0_BASE_IMAGE" "${base_flavor[0]:-}"
 }
 
-docker compose --project-name "$project_name" --file "$compose_file" up --detach --build --wait "${services[@]}"
+gizclaw_compose_require_images --project-name "$project_name" --file "$compose_file"
+docker compose --project-name "$project_name" --file "$compose_file" up --pull never --detach --build --wait "${services[@]}"
 export GIZCLAW_LOCOMO_E2E_MEM0_SELF_HOSTED_URL="http://127.0.0.1:${mem0_port}"
 export GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL="http://127.0.0.1:${mem0_pgvector_port}"
 

@@ -72,6 +72,12 @@ PYBACKUP
 trap 'cleanup' EXIT
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_dir/tests/docker-images/common.sh"
+gizclaw_image_env "$arch"
+gizclaw_require_images ubuntu
+gizclaw_require_local_builder
 npm ci && npm run build:console
 image_dir="$run_dir/image"
 mkdir -p "$image_dir/bin" "$image_dir/tests/gizclaw-e2e/docker" "$image_dir/tests/gizclaw-e2e/giztest"
@@ -82,13 +88,15 @@ if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
   go build -overlay "$image_dir/overlay.json" -o "$image_dir/bin/monitor-seed" ./tests/gizclaw-e2e/cmd/multiserver-seed
   go build -o "$image_dir/bin/monitor-fixture" ./tests/gizclaw-e2e/cmd/monitor-fixture
 else
-  base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
-  if ! docker image inspect "$base" >/dev/null 2>&1; then
-    docker build -f "$repo_dir/build/gizclaw/Dockerfile.cn.base" -t "$base" "$repo_dir/build"
-  fi
+  # shellcheck source=setup/docker-base.sh
+  # shellcheck disable=SC1091
+  source "$repo_dir/tests/gizclaw-e2e/setup/docker-base.sh"
+  base_image=""
+  build_gizclaw_e2e_base "$repo_dir" "linux/$arch"
+  base="$base_image"
   python3 "$script_dir/testdata/slow-tts/overlay.py" "$repo_dir" "$image_dir/bin" docker
   python3 "$script_dir/testdata/observer-lifecycle/overlay.py" "$repo_dir" "$image_dir/bin" docker
-  docker run --rm --entrypoint /bin/bash \
+  docker run --pull=never --rm --entrypoint /bin/bash \
     -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
     -v "$(go env GOMODCACHE):/root/go/pkg/mod" \
     -v "gizclaw-observer-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
@@ -111,8 +119,11 @@ for path in Path(sys.argv[1]).glob('slow-tts.eino.*.giztest.yaml'):
 PYHISTORY
 cp -R "$script_dir/testdata/observer-lifecycle" "$image_dir/tests/gizclaw-e2e/testdata/"
 cp "$script_dir/testdata/observer-lifecycle/eino.json" "$image_dir/tests/gizclaw-e2e/testdata/slow-tts/eino.json"
-docker build -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+gizclaw_dockerfile_require_bases "$script_dir/docker/Dockerfile.audioplayer" "$image_dir" "$GIZCLAW_E2E_UBUNTU_IMAGE"
+docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$GIZCLAW_E2E_UBUNTU_IMAGE" -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
+gizclaw_register_built_image "$GIZCLAW_MONITOR_IMAGE"
+gizclaw_compose_require_images "${compose[@]:2}"
+docker run --pull=never --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 python3 - "$GIZCLAW_MONITOR_STATE/server/config.yaml" <<'PYPROFILE'
 from pathlib import Path
 import sys
@@ -120,8 +131,8 @@ p=Path(sys.argv[1]);s=p.read_text().replace('stores:\n','stores:\n  profiling:\n
 p.write_text(s+'\nprofiling:\n  enabled: true\n  store: profiling\npending_deletion:\n  scan_interval: 1s\n')
 PYPROFILE
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
-"${compose[@]}" up -d --wait server edge
-"${compose[@]}" run --rm seed -server server:9820 -profile-id slow-tts -token-id slow-tts -token monitor-test -slow-tts
+"${compose[@]}" up --pull never -d --wait server edge
+"${compose[@]}" run --pull never --rm seed -server server:9820 -profile-id slow-tts -token-id slow-tts -token monitor-test -slow-tts
 go version -m "$image_dir/bin/gizclaw" > "$GIZCLAW_MONITOR_REPORTS/binary-build.txt"
 "${compose[@]}" exec -T server curl -fsS http://127.0.0.1:9820/server-info > "$GIZCLAW_MONITOR_REPORTS/server-info.json"
 "${compose[@]}" exec -T edge curl -fsS http://127.0.0.1:9821/server-info > "$GIZCLAW_MONITOR_REPORTS/edge-info.json"
@@ -129,16 +140,16 @@ sleep 3
 date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/before.time"
 run_status=0
 for round in 1 2 3; do
-  "${compose[@]}" run --rm test /src/tests/gizclaw-e2e/testdata/observer-lifecycle/first-response.giztest.yaml --parallel 3 --output "/reports/first-response-$round.json" || run_status=1
+  "${compose[@]}" run --pull never --rm test /src/tests/gizclaw-e2e/testdata/observer-lifecycle/first-response.giztest.yaml --parallel 3 --output "/reports/first-response-$round.json" || run_status=1
   date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/after-first-$round.time"
 done
-"${compose[@]}" run --rm test \
+"${compose[@]}" run --pull never --rm test \
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/disconnect.giztest.yaml \
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/run-stop.giztest.yaml \
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/workspace-delete.giztest.yaml \
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/peer-delete.giztest.yaml \
   --parallel 2 --output /reports/lifecycle.json || run_status=1
-"${compose[@]}" run --rm test /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml /src/tests/gizclaw-e2e/giztest/slow-tts.eino.push-to-talk.giztest.yaml --output /reports/slow-tts.json || run_status=1
+"${compose[@]}" run --pull never --rm test /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml /src/tests/gizclaw-e2e/giztest/slow-tts.eino.push-to-talk.giztest.yaml --output /reports/slow-tts.json || run_status=1
 date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/after-all.time"
 sleep 20
 date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/delayed.time"

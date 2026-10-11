@@ -50,13 +50,13 @@ if [[ -n "${PIP_INDEX_URL:-}" ]]; then
   fi
   base_args+=(--build-arg "PIP_INDEX_URL=$PIP_INDEX_URL")
 fi
-docker build --platform "$platform" -f "$base_dockerfile" \
+docker build --pull=false --platform "$platform" -f "$base_dockerfile" \
   ${base_args[@]+"${base_args[@]}"} -t "$base_image" "$repo_root"
 if [[ "$target" == base ]]; then
   exit 0
 fi
 image="${IMAGE:-gizclaw-mem0:${platform_slug}}"
-docker build --provenance=false --platform "$platform" --target "$target" \
+docker build --pull=false --provenance=false --platform "$platform" --target "$target" \
   --build-arg "BASE_IMAGE=$base_image" --build-arg "VERSION=$build_version" \
   --build-arg "SOURCE_COMMIT=$build_commit" -f "$repo_root/build/mem0/Dockerfile" \
   -t "$image" "$repo_root"

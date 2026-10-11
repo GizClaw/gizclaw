@@ -7,8 +7,13 @@ evidence="${1:-$repo_root/tests/gizclaw-e2e/.testbench/registration-$(date +%Y%m
 mkdir -p "$evidence"
 evidence="$(cd "$evidence" && pwd)"
 run_id="gizclaw-registration-$(date +%s)-$$"
-pg_image='postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
-redis_image='redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823'
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_root/tests/docker-images/common.sh"
+gizclaw_image_env
+gizclaw_require_images postgres redis
+pg_image="$GIZCLAW_E2E_POSTGRES_IMAGE"
+redis_image="$GIZCLAW_E2E_REDIS_IMAGE"
 cleanup() {
   docker logs "$run_id-pg" >"$evidence/postgres.log" 2>&1 || true
   docker rm -f -v "$run_id-pg" "$run_id-redis" >/dev/null 2>&1 || true
@@ -18,13 +23,13 @@ pg_storage=()
 if [[ "${GIZCLAW_TEST_REGISTRATION_PG_TMPFS:-0}" == "1" ]]; then
   pg_storage=(--tmpfs '/var/lib/postgresql/data:rw,size=256m')
 fi
-docker run -d --name "$run_id-pg" --cpus 2 --memory 1g \
+docker run --pull=never -d --name "$run_id-pg" --cpus 2 --memory 1g \
   "${pg_storage[@]}" \
   -e POSTGRES_USER=gizclaw -e POSTGRES_PASSWORD=local-registration-fixture -e POSTGRES_DB=gizclaw \
   -p 127.0.0.1::5432 "$pg_image" \
   -c max_connections=300 -c log_lock_waits=on -c deadlock_timeout=50ms \
   -c shared_preload_libraries=pg_stat_statements -c track_io_timing=on >/dev/null
-docker run -d --name "$run_id-redis" --cpus 1 --memory 256m \
+docker run --pull=never -d --name "$run_id-redis" --cpus 1 --memory 256m \
   -p 127.0.0.1::6379 "$redis_image" redis-server --save '' --appendonly no >/dev/null
 for _ in {1..120}; do
   if docker exec "$run_id-pg" pg_isready -h 127.0.0.1 -U gizclaw -d gizclaw >/dev/null 2>&1 && \

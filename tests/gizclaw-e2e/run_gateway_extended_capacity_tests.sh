@@ -887,7 +887,7 @@ run_case() {
   fi
   coturn_artifact="${artifact%.json}-coturn.json"
   jq -n \
-    --arg image "coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978" \
+    --arg image "$GIZCLAW_E2E_COTURN_IMAGE" \
     --arg version "4.7.0" \
     --arg upstream_path "$gateway_upstream_path" \
     --argjson before_a_alloc "$before_a_alloc" --argjson before_a_recv "$before_a_recv" --argjson before_a_sent "$before_a_sent" \
@@ -902,6 +902,7 @@ run_case() {
       upstream_path: $upstream_path,
       passed: true,
       image: $image,
+      pull_policy: "never",
       version: $version,
       expected_gateway_allocations_per_edge: 4,
       expected_control_allocations_per_edge: 1,

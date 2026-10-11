@@ -1,4 +1,5 @@
-FROM ubuntu:24.04
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
 RUN apt-get update && apt-get install --no-install-recommends -y ca-certificates curl libstdc++6 && rm -rf /var/lib/apt/lists/*
 WORKDIR /src
 COPY bin/ /usr/local/bin/

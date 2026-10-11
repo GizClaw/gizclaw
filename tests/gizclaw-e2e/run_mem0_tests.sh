@@ -15,6 +15,10 @@ fi
 export GIZCLAW_E2E_MEM0_API_KEY
 GIZCLAW_E2E_MEM0_API_KEY="$(python3 -c 'import secrets; print(secrets.token_hex(24))')"
 platform="$(docker version --format '{{.Server.Os}}/{{.Server.Arch}}')"
+# shellcheck source=../docker-images/common.sh
+# shellcheck disable=SC1091
+source "$repo_root/tests/docker-images/common.sh"
+gizclaw_image_env "${platform#linux/}"
 export GIZCLAW_E2E_MEM0_BASE_IMAGE="${GIZCLAW_E2E_MEM0_BASE_IMAGE:-gizclaw-mem0:${platform//\//-}-base}"
 cat > "$run_dir/ports.yaml" <<'PORTS'
 services:
@@ -38,9 +42,10 @@ cleanup() {
 }
 trap cleanup EXIT
 cd "$repo_root"
-TARGET=base PLATFORM="$platform" BASE_IMAGE="$GIZCLAW_E2E_MEM0_BASE_IMAGE" "$repo_root/build/build-mem0.sh"
+gizclaw_prepare_mem0_base "$platform" "$GIZCLAW_E2E_MEM0_BASE_IMAGE"
+gizclaw_compose_require_images "${compose[@]:2}"
 "${compose[@]}" build mem0
-"${compose[@]}" up --detach --wait --wait-timeout 420 mem0
+"${compose[@]}" up --pull never --detach --wait --wait-timeout 420 mem0
 GIZCLAW_TEST_MEM0_ENDPOINT="http://$("${compose[@]}" port mem0 8000)"
 GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw_server:gizclaw_server@$("${compose[@]}" port postgres 5432)/gizclaw_server?sslmode=disable"
 export GIZCLAW_TEST_MEM0_ENDPOINT GIZCLAW_TEST_POSTGRES_DSN

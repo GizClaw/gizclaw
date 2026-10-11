@@ -20,25 +20,31 @@ cleanup() {
 trap cleanup EXIT
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
-base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
-if ! docker image inspect "$base" >/dev/null 2>&1; then
-  docker build -f build/gizclaw/Dockerfile.cn.base -t "$base" build
-fi
+# shellcheck source=setup/docker-base.sh
+# shellcheck disable=SC1091
+source "$repo_dir/tests/gizclaw-e2e/setup/docker-base.sh"
+base_image=""
+build_gizclaw_e2e_base "$repo_dir" "linux/$arch"
+base="$base_image"
+
 if [[ "${GIZCLAW_QUOTA_SKIP_HOST_BUILD:-}" != "1" ]]; then
   npm ci
   npm run build:console
 fi
 image_dir="$run_dir/image"
 mkdir -p "$image_dir/bin" "$image_dir/tests/gizclaw-e2e/docker" "$image_dir/tests/gizclaw-e2e/giztest"
-docker run --rm --entrypoint /bin/bash -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
+docker run --pull=never --rm --entrypoint /bin/bash -v "$repo_dir:/src" -v "$image_dir/bin:/out" \
   -v "${GIZCLAW_QUOTA_MODCACHE:-gizclaw-monitor-modcache}:/gomod" \
   -v "${GIZCLAW_QUOTA_BUILDCACHE:-gizclaw-monitor-buildcache}:/cache" \
   -e GOMODCACHE=/gomod -e GOCACHE=/cache "$base" -lc \
   'cd /src && go build -o /out/gizclaw ./cmd/gizclaw && go build -o /out/quota-fixture ./tests/gizclaw-e2e/cmd/quota-fixture'
 cp -R tests/gizclaw-e2e/docker/monitor "$image_dir/tests/gizclaw-e2e/docker/"
 cp -R tests/gizclaw-e2e/giztest/quota "$image_dir/tests/gizclaw-e2e/giztest/"
-docker build --build-arg "BASE_IMAGE=$base" -f tests/gizclaw-e2e/docker/Dockerfile.monitor -t "$GIZCLAW_QUOTA_IMAGE" "$image_dir"
-docker run --rm -v "$GIZCLAW_QUOTA_STATE:/state" --entrypoint quota-fixture "$GIZCLAW_QUOTA_IMAGE" -init /state
-"${compose[@]}" up -d --wait fixture server edge
-"${compose[@]}" run --rm seed
-"${compose[@]}" run --rm test
+gizclaw_dockerfile_require_bases "$repo_dir/tests/gizclaw-e2e/docker/Dockerfile.monitor" "$image_dir" "$base"
+docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$base" -f tests/gizclaw-e2e/docker/Dockerfile.monitor -t "$GIZCLAW_QUOTA_IMAGE" "$image_dir"
+gizclaw_register_built_image "$GIZCLAW_QUOTA_IMAGE"
+gizclaw_compose_require_images "${compose[@]:2}"
+docker run --pull=never --rm -v "$GIZCLAW_QUOTA_STATE:/state" --entrypoint quota-fixture "$GIZCLAW_QUOTA_IMAGE" -init /state
+"${compose[@]}" up --pull never -d --wait fixture server edge
+"${compose[@]}" run --pull never --rm seed
+"${compose[@]}" run --pull never --rm test

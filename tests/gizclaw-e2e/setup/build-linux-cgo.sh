@@ -54,7 +54,7 @@ temporary_output="$verification_dir/gizclaw-linux"
 temporary_output_relative="${temporary_output#"$repo_root/"}"
 
 echo "==> Linux CGO build started: platform=$docker_platform image=$base_image output=$output_path"
-docker run --rm \
+docker run --pull=never --rm \
   --name "$builder_container" \
   --platform "$docker_platform" \
   --user "$(id -u):$(id -g)" \
@@ -94,7 +94,7 @@ else
   exit 2
 fi
 
-docker run --rm \
+docker run --pull=never --rm \
   --platform "$docker_platform" \
   --env GIZCLAW_E2E_EXPECTED_BINARY_SHA256="$output_sha256" \
   --volume "$verification_dir:/gizclaw-bin:ro" \

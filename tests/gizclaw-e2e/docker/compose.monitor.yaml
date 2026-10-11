@@ -1,6 +1,7 @@
 services:
   server:
     image: ${GIZCLAW_MONITOR_IMAGE:?}
+    pull_policy: never
     env_file: ["${GIZCLAW_MONITOR_STATE:?}/runtime.env"]
     entrypoint: [gizclaw, serve, --force, /workspace]
     volumes: ["${GIZCLAW_MONITOR_STATE}/server:/workspace"]
@@ -11,6 +12,7 @@ services:
       retries: 60
   edge:
     image: ${GIZCLAW_MONITOR_IMAGE}
+    pull_policy: never
     env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env"]
     entrypoint: [gizclaw, edge, serve, /workspace]
     volumes: ["${GIZCLAW_MONITOR_STATE}/edge:/workspace"]
@@ -23,6 +25,7 @@ services:
       retries: 60
   seed:
     image: ${GIZCLAW_MONITOR_IMAGE}
+    pull_policy: never
     env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env"]
     entrypoint: [monitor-seed]
     command: [-server, "server:9820", -profile-id, monitor-test, -token-id, monitor-test, -token, monitor-test, -monitor-workflow-id, monitor-echo]
@@ -30,6 +33,7 @@ services:
       server: {condition: service_healthy}
   fixture:
     image: ${GIZCLAW_MONITOR_IMAGE}
+    pull_policy: never
     environment: {GIZCLAW_TEST_REGISTRATION_TOKEN: monitor-test}
     entrypoint: [monitor-fixture]
     command: [-endpoint, "edge:9821", -data, /data, -audio, /src/tests/gizclaw-e2e/testdata/audio/sfu-tone.ogg]
@@ -38,6 +42,7 @@ services:
       edge: {condition: service_healthy}
   test:
     image: ${GIZCLAW_MONITOR_IMAGE}
+    pull_policy: never
     env_file: ["${GIZCLAW_MONITOR_STATE}/runtime.env", "${GIZCLAW_MONITOR_STATE}/fixture.env"]
     environment:
       GIZCLAW_TEST_ENDPOINT: edge:9821

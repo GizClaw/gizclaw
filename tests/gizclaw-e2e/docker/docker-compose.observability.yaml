@@ -1,6 +1,8 @@
 services:
   metrics-sink:
+    pull_policy: never
     build:
+      pull: false
       context: ../../..
       dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
       args:
@@ -17,6 +19,7 @@ services:
       start_period: 60s
 
   server:
+    pull_policy: never
     depends_on:
       metrics-sink:
         condition: service_healthy
@@ -26,6 +29,7 @@ services:
       GIZCLAW_E2E_METRICS_QUERY_URL: http://metrics-sink:9090
 
   edge:
+    pull_policy: never
     depends_on:
       metrics-sink:
         condition: service_healthy
@@ -35,6 +39,7 @@ services:
       GIZCLAW_E2E_METRICS_QUERY_URL: http://metrics-sink:9090
 
   edge2:
+    pull_policy: never
     depends_on:
       metrics-sink:
         condition: service_healthy

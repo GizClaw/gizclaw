@@ -1,6 +1,7 @@
 # Admission uses only Server and Edge. Keep this file independent of the
 # provider stack: Compose interpolates required variables even for unused services.
 x-build: &build
+  pull: false
   context: ../../..
   dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
   args:
@@ -9,6 +10,7 @@ x-build: &build
 
 services:
   server:
+    pull_policy: never
     build: *build
     environment:
       GIZCLAW_E2E_ADMISSION_ONLY: "1"
@@ -25,6 +27,7 @@ services:
       - "${GIZCLAW_E2E_DOCKER_ADMIN_BIND:-127.0.0.1}:${GIZCLAW_E2E_DOCKER_ADMIN_PORT:-9820}:9820/tcp"
 
   edge: &edge
+    pull_policy: never
     build: *build
     entrypoint: ["/src/tests/gizclaw-e2e/docker/entrypoint-edge.sh"]
     depends_on:
@@ -45,6 +48,7 @@ services:
       start_period: 300s
 
   edge2:
+    pull_policy: never
     <<: *edge
     environment:
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:-127.0.0.1:9820}

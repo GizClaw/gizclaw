@@ -1,6 +1,7 @@
 services:
   postgres:
-    image: pgvector/pgvector:pg17@sha256:cf134a767f474095eeba57e0117be8e568e011a63f33fbf252f14c9b760f8e6f
+    image: ${GIZCLAW_E2E_PGVECTOR_IMAGE:?run the image preflight}
+    pull_policy: never
     environment:
       POSTGRES_USER: gizclaw_bootstrap
       POSTGRES_PASSWORD: gizclaw_bootstrap
@@ -15,7 +16,9 @@ services:
       start_period: 120s
 
   mem0:
+    pull_policy: never
     build:
+      pull: false
       context: ../../..
       dockerfile: build/mem0/Dockerfile
       target: test
