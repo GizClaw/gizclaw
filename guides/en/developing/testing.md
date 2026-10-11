@@ -16,46 +16,42 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
-## Docker image preflight
+## Docker image preparation
 
-Local Docker E2E loads pinned third-party images from the existing
-`https://static-volc.gizclaw.com/releases/GizClaw/deploy/container-images/v1/`
-CDN route. `tests/docker-images/catalog.json` owns the exact Ubuntu, Python,
-Redis, LiveKit, Coturn, pgvector, netshoot and PostgreSQL sources for
-`linux/amd64` and `linux/arm64`. Source tags and digests remain fixed.
-The preflight requires Python 3.11 or newer, Docker Compose and Buildx; its Python
-code uses the standard library without additional packages.
+Local Docker E2E downloads image archives from
+`https://static-volc.gizclaw.com/releases/GizClaw/deploy/container-images/v1/`.
+The fixed Ubuntu, Python, Redis, LiveKit, Coturn, pgvector, netshoot and PostgreSQL
+sources live in `gizclaw_image_sources` in `tests/docker-images/common.sh`.
+Both `linux/amd64` and `linux/arm64` use the original pinned sources.
 
-The entrypoints download `manifest.json` and `image.tar.gz`, bind the canonical
-source/platform/reference, verify compressed size/SHA256 and archive config/layer
-identities, then load and prove the local image identity. The local reference is
-`gizclaw-tos/cache:<source-key>-<arch>`, where source-key is SHA256 of the exact
-UTF-8 source string without a trailing newline. Compose receives these references
-through `GIZCLAW_E2E_<ID>_IMAGE`. Missing or corrupt delivery/cache objects fail;
-there is no Registry fallback.
+The Shell helper selects the native platform, downloads `image.tar.gz`, and calls
+`docker load`. Compose receives the restored local image names through
+`GIZCLAW_E2E_<ID>_IMAGE`. No Python loader, separate JSON catalog, manifest fetch,
+archive checksum pass or custom image-identity proof is required in this local
+path. Deploy owns the published-archive acceptance. Download and Docker import
+errors stop setup; there is no Registry fallback. SHA256 of the source string is
+used only to locate the CDN directory, not to verify downloaded archive bytes.
 
-Server, Edge, Mem0 and test fixtures still build the current checkout. Their
-Ubuntu/Python bases are preloaded first, and builds require the Docker Buildx
-driver sharing that local image store. Compose services use `pull_policy: never`,
-builds disable pulling, and startup/run commands use `--pull never`. Package
-downloads through APT, Go, npm and pip retain their existing source settings;
-this image policy does not make source compilation fully offline.
+Already loaded images are reused. Downloaded archives are cached under
+`.tmp/container-images/<source-key>/<arch>`; `GIZCLAW_CONTAINER_IMAGE_CACHE_DIR`
+selects another directory. `GIZCLAW_CONTAINER_CACHE_ONLY=1` permits only already
+loaded images or cached archives. Downloads use temporary files and rename only
+after curl succeeds. Cleanup derives names locally without downloading images.
 
-The default immutable archive cache is `.tmp/container-images/<source-key>/<arch>`.
-`GIZCLAW_CONTAINER_IMAGE_CACHE_DIR` selects another cache directory. Normal runs
-refresh the small manifest and require byte equality with cached metadata, then
-verify/reuse the existing archive. `GIZCLAW_CONTAINER_CACHE_ONLY=1` permits only
-already cached manifests/archives. Cache corruption is reported rather than
-silently replaced. Cleanup derives image references locally and does not download
-archives. `GIZCLAW_E2E_CREDENTIAL_FILE` selects an existing credential file for the
-standard full lane; its default remains `tests/gizclaw-e2e/.env`.
+Server, Edge, Mem0 and test fixtures still build the current checkout on the
+preloaded Ubuntu/Python bases. Builds use the Docker Buildx driver sharing the
+local image store. Compose services use `pull_policy: never`, builds disable
+pulling, and startup/run commands use `--pull never`. APT, Go, npm and pip retain
+their existing package-source settings; source compilation may still download
+packages. `GIZCLAW_E2E_CREDENTIAL_FILE` selects an existing credential file for the
+standard full lane, defaulting to `tests/gizclaw-e2e/.env`.
 
-Use the existing setup and test entrypoints so their preflight runs before Compose.
-An individual dependency can also be prepared with
-`bash tests/docker-images/load.sh redis`; it prints the verified local reference.
-`python3 tests/docker-images/test_loader.py` covers local HTTP/cache failures,
-Docker archive/storage variants, shell integration and the checked-in Compose
-inventory without live AI services. Actual source-build/service E2E is separate.
+Use the existing setup/test entrypoints to prepare the images before Compose.
+`bash tests/docker-images/load.sh redis` prepares one image and prints its local
+reference. `bash tests/docker-images/test_loader.sh` exercises download, import,
+reuse and failure handling with recorded curl/Docker fixtures. Image preparation
+uses Shell, curl, Docker and the system source-key hash utility; other existing
+E2E tools retain their own prerequisites.
 
 ## Isolating audio timing tests
 
@@ -262,12 +258,12 @@ requires Admin provisioning. This switch governs Server signaling only and does
 not protect client handshakes terminated at Edge.
 
 The base-image builders in `setup/docker-compose-up.sh` and `setup/build-linux-cgo.sh`
-share `setup/docker-base.sh`. Ubuntu always comes from the verified catalog archive.
+share `setup/docker-base.sh`. Ubuntu always comes from the downloaded CDN archive.
 Unset package-source overrides retain `Dockerfile.cn.base`'s CN mirrors and CN
 output tag. Overrides use a separate `custom-base` tag. Every invocation evaluates
 the current Dockerfile and arguments, while retaining Docker layer caching.
 `GIZCLAW_E2E_DOCKER_BASE_IMAGE` selects an explicit output tag; arbitrary base-image
-sources must be admitted in the catalog. CI supplies the official package sources below; APT selects
+sources must be added to the fixed source list. CI supplies the official package sources below; APT selects
 `APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
 
 ```sh
@@ -627,7 +623,7 @@ chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 
-Standard runners exclude cross-server `sfu.*` documents, which are verified by `run_multi_server_tests.sh` with its two-Server environment. The intentionally failing `failure-cleanup.giztest.yaml` runs only in its dedicated cleanup phase, outside the successful JavaScript, Flutter, C, and standard Go scenario batches.
+Standard runners exclude cross-server `sfu.*` documents, which are verified by `run_multi_server_tests.sh` with its two-Server environment. The recursive JavaScript/Flutter batches also exclude `quota/`, whose fixture environment is supplied by `setup/run-quota.sh`. The intentionally failing `failure-cleanup.giztest.yaml` runs only in its dedicated cleanup phase, outside the successful JavaScript, Flutter, C, and standard Go scenario batches.
 
 The standard JavaScript batch uses `setup/run_js_giztest.py` to start a separate Node process for each document, with at most four processes running concurrently. This isolates native WebRTC lifetimes between scenarios. Each process has a 600-second external deadline; timeouts, process failures, and scenario failures remain failures in the combined report.
 

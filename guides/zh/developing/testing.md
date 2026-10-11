@@ -13,37 +13,35 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 
 ## Docker 镜像准备
 
-本地 Docker E2E 从现有 CDN 路由
+本地 Docker E2E 从
 `https://static-volc.gizclaw.com/releases/GizClaw/deploy/container-images/v1/`
-加载固定第三方镜像。`tests/docker-images/catalog.json` 维护 Ubuntu、Python、Redis、
-LiveKit、Coturn、pgvector、netshoot、PostgreSQL 的精确 source，支持 `linux/amd64`
-和 `linux/arm64`，不替换原 tag/digest。
-准备步骤需要 Python 3.11 或更新版本、Docker Compose 和 Buildx；Python 部分仅使用
-标准库，无需安装额外包。
+下载镜像归档。Ubuntu、Python、Redis、LiveKit、Coturn、pgvector、netshoot、PostgreSQL
+的固定 source 直接放在 `tests/docker-images/common.sh` 的 `gizclaw_image_sources`
+函数中；`linux/amd64` 和 `linux/arm64` 都沿用原有 tag/digest。
 
-入口下载 `manifest.json` 与 `image.tar.gz`，绑定规范 source、平台和引用，检查压缩
-文件大小、SHA256、归档 config/layer 身份，再导入并证明本地镜像身份。本地 tag 为
-`gizclaw-tos/cache:<source-key>-<arch>`；source-key 是原始 UTF-8 source 字符串
-不带末尾换行的 SHA256。Compose 通过 `GIZCLAW_E2E_<ID>_IMAGE` 获取这些引用。
-交付或缓存对象缺失、损坏时直接失败，不回退 Registry。
+Shell helper 选择本机架构，下载 `image.tar.gz`，再执行 `docker load`。
+Compose 通过 `GIZCLAW_E2E_<ID>_IMAGE` 获取恢复后的本地镜像名。本地这条路径不需要
+Python 下载器、独立 JSON catalog、清单下载、额外归档哈希校验或自定义镜像身份证明。
+发布归档的验收由 Deploy 负责；下载或 Docker 导入失败时停止，不回退 Registry。
+Source 字符串的 SHA256 仅用于定位 CDN 目录，不用于校验下载的归档字节。
 
-Server、Edge、Mem0 和测试夹具继续构建当前工作树源码，Ubuntu/Python 基础镜像先
-预加载。构建必须使用共享本地镜像库的 Docker Buildx driver。Compose 服务设置
-`pull_policy: never`，构建关闭 pulling，启动/run 命令使用 `--pull never`。
-APT、Go、npm、pip 依赖下载保留原有包源设置；镜像策略不意味着源码编译完全离线。
+已加载的镜像直接复用。下载归档缓存在 `.tmp/container-images/<source-key>/<arch>`，
+可通过 `GIZCLAW_CONTAINER_IMAGE_CACHE_DIR` 指定目录。
+`GIZCLAW_CONTAINER_CACHE_ONLY=1` 只允许使用已加载镜像或已有归档。下载先写临时文件，
+curl 成功后才改为缓存文件名；清理入口仅在本地推导镜像名，不下载镜像。
 
-归档默认缓存在 `.tmp/container-images/<source-key>/<arch>`，可通过
-`GIZCLAW_CONTAINER_IMAGE_CACHE_DIR` 指定目录。普通运行刷新小清单，要求它与缓存
-元数据逐字节一致，然后重新校验并复用归档。`GIZCLAW_CONTAINER_CACHE_ONLY=1`
-只允许使用已有清单与归档；缓存损坏会报错，不静默替换。清理入口仅在本地推导
-镜像引用，不下载归档。标准完整 lane 可通过 `GIZCLAW_E2E_CREDENTIAL_FILE` 选择已有
-凭据文件，默认仍为 `tests/gizclaw-e2e/.env`。
+Server、Edge、Mem0 和测试夹具继续使用预加载的 Ubuntu/Python 基础镜像构建当前
+工作树源码。构建使用共享本地镜像库的 Docker Buildx driver。Compose 服务设置
+`pull_policy: never`，构建关闭 pulling，启动/run 使用 `--pull never`。
+APT、Go、npm、pip 保留原有包源，源码编译仍可能下载依赖。
+标准完整 lane 的 `GIZCLAW_E2E_CREDENTIAL_FILE` 可选择已有凭据文件，默认仍为
+`tests/gizclaw-e2e/.env`。
 
-通过现有 setup 和测试入口启动，使准备步骤先于 Compose 执行。单独准备一个依赖可运行
-`bash tests/docker-images/load.sh redis`，输出经验证的本地引用。
-`python3 tests/docker-images/test_loader.py` 使用本地 HTTP/缓存失败夹具验证归档与
-Docker 存储差异、shell 集成和已提交 Compose 清单，不访问真实 AI 服务；实际源码构建
-与服务 E2E 属于独立验收。
+通过现有 setup/测试入口启动，使镜像准备先于 Compose 执行。
+`bash tests/docker-images/load.sh redis` 可单独准备镜像并输出本地引用；
+`bash tests/docker-images/test_loader.sh` 使用记录式 curl/Docker 夹具验证下载、导入、
+复用和失败处理。镜像准备仅使用 Shell、curl、Docker 和系统 source-key 哈希工具；
+其他已有 E2E 工具仍保留各自的前置依赖。
 
 ## 音频时序测试的运行隔离
 
@@ -213,11 +211,11 @@ Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调
 登记 Admin，且该开关只约束 Server signaling，不保护 Edge 终止的客户端握手。
 
 `setup/docker-compose-up.sh` 与 `setup/build-linux-cgo.sh` 通过 `setup/docker-base.sh`
-共用基础镜像构建参数。Ubuntu 始终来自已校验的 catalog 归档；不设置包源覆盖变量时
+共用基础镜像构建参数。Ubuntu 始终来自已下载的 CDN 归档；不设置包源覆盖变量时
 保留 `Dockerfile.cn.base` 的 CN mirrors 和 CN 输出 tag，设置覆盖变量时使用独立的
 `custom-base` tag。每次都评估当前 Dockerfile 与参数，同时复用 Docker layer cache。
 `GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag；其他基础镜像 source 必须先登记
-到 catalog。CI 使用以下官方包源，APT 根据架构
+到固定 source 函数。CI 使用以下官方包源，APT 根据架构
 选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
 
 ```sh
@@ -569,7 +567,7 @@ cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 
-标准 runner 不执行 `sfu.*` 跨服务器文档；这些文档由 `run_multi_server_tests.sh` 配置双 Server 环境并验收。`failure-cleanup.giztest.yaml` 是故意失败的夹具，只在专门的失败清理阶段运行，不混入 JavaScript、Flutter、C 或标准 Go 的成功场景批次。
+标准 runner 不执行 `sfu.*` 跨服务器文档；这些文档由 `run_multi_server_tests.sh` 配置双 Server 环境并验收。递归收集文档的 JavaScript/Flutter 批次也排除 `quota/`，其 fixture 环境由 `setup/run-quota.sh` 提供。`failure-cleanup.giztest.yaml` 是故意失败的夹具，只在专门的失败清理阶段运行，不混入 JavaScript、Flutter、C 或标准 Go 的成功场景批次。
 
 标准 JavaScript 批次通过 `setup/run_js_giztest.py` 为每份文档启动独立 Node 进程，最多四个进程并行，避免不同场景共用原生 WebRTC 生命周期。每个进程有 600 秒外部期限；超时、进程异常和场景失败均保留在合并报告中。
 

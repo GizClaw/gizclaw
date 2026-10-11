@@ -11,10 +11,10 @@ build_gizclaw_e2e_base() {
   # shellcheck source=../../docker-images/common.sh
   # shellcheck disable=SC1091
   source "$repo_root/tests/docker-images/common.sh"
-  canonical="$(python3 "$repo_root/tests/docker-images/load.py" source ubuntu)" || return
+  canonical="$(gizclaw_image_source ubuntu)" || return
   case "${GIZCLAW_E2E_DOCKER_BASE_FROM:-}" in
     "" | ubuntu:24.04 | docker.io/library/ubuntu:24.04 | docker.1ms.run/library/ubuntu:24.04 | "$canonical") ;;
-    *) echo "E2E Ubuntu must use the pinned catalog source; declare other bases in the TOS image catalog" >&2; return 2 ;;
+    *) echo "E2E Ubuntu must use the pinned catalog source; add other bases to the pinned image sources" >&2; return 2 ;;
   esac
   gizclaw_image_env "${docker_platform#linux/}" || return
   gizclaw_require_images ubuntu || return
@@ -38,7 +38,6 @@ build_gizclaw_e2e_base() {
   done
   base_image="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:${platform_slug}-${variant}-base}"
   dockerfile="${GIZCLAW_E2E_DOCKER_BASE_DOCKERFILE:-$repo_root/build/gizclaw/Dockerfile.cn.base}"
-  gizclaw_dockerfile_require_bases "$dockerfile" "$repo_root/build" "$GIZCLAW_E2E_UBUNTU_IMAGE" || return
   # Evaluate the current Dockerfile and mirror arguments each time; layer caches apply.
   echo "==> build e2e Docker base $base_image for $docker_platform"
   docker build --pull=false --platform="$docker_platform" \

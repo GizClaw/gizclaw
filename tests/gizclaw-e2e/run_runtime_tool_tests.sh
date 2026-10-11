@@ -111,9 +111,7 @@ shasum -a 256 "$image_dir/bin/"* > "$GIZCLAW_MONITOR_REPORTS/binaries.sha256"
 git rev-parse HEAD > "$GIZCLAW_MONITOR_REPORTS/base-commit.txt"
 git diff --binary HEAD > "$GIZCLAW_MONITOR_REPORTS/source.patch"
 
-gizclaw_dockerfile_require_bases "$script_dir/docker/Dockerfile.audioplayer" "$image_dir" "$GIZCLAW_E2E_UBUNTU_IMAGE"
 docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$GIZCLAW_E2E_UBUNTU_IMAGE" -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-gizclaw_register_built_image "$GIZCLAW_MONITOR_IMAGE"
 gizclaw_compose_require_images "${compose[@]:2}"
 docker run --pull=never --rm --user "$run_user" -v "$state_dir:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 python3 - "$state_dir/server/config.yaml" <<'PYPROFILE'

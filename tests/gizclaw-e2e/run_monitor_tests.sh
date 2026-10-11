@@ -44,9 +44,7 @@ docker run --pull=never --rm --entrypoint /bin/bash \
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/server.monitor.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
 cp "$script_dir/testdata/audio/sfu-tone.ogg" "$image_dir/tests/gizclaw-e2e/testdata/audio/"
-gizclaw_dockerfile_require_bases "$repo_dir/tests/gizclaw-e2e/docker/Dockerfile.monitor" "$image_dir" "$base"
 docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$base" -f "$script_dir/docker/Dockerfile.monitor" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-gizclaw_register_built_image "$GIZCLAW_MONITOR_IMAGE"
 gizclaw_compose_require_images "${compose[@]:2}"
 docker run --pull=never --rm -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"

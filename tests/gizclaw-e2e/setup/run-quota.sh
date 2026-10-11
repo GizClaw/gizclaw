@@ -40,9 +40,7 @@ docker run --pull=never --rm --entrypoint /bin/bash -v "$repo_dir:/src" -v "$ima
   'cd /src && go build -o /out/gizclaw ./cmd/gizclaw && go build -o /out/quota-fixture ./tests/gizclaw-e2e/cmd/quota-fixture'
 cp -R tests/gizclaw-e2e/docker/monitor "$image_dir/tests/gizclaw-e2e/docker/"
 cp -R tests/gizclaw-e2e/giztest/quota "$image_dir/tests/gizclaw-e2e/giztest/"
-gizclaw_dockerfile_require_bases "$repo_dir/tests/gizclaw-e2e/docker/Dockerfile.monitor" "$image_dir" "$base"
 docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$base" -f tests/gizclaw-e2e/docker/Dockerfile.monitor -t "$GIZCLAW_QUOTA_IMAGE" "$image_dir"
-gizclaw_register_built_image "$GIZCLAW_QUOTA_IMAGE"
 gizclaw_compose_require_images "${compose[@]:2}"
 docker run --pull=never --rm -v "$GIZCLAW_QUOTA_STATE:/state" --entrypoint quota-fixture "$GIZCLAW_QUOTA_IMAGE" -init /state
 "${compose[@]}" up --pull never -d --wait fixture server edge

@@ -92,6 +92,7 @@ jobs:
           build/release-contract-test.sh
           tests/docker-images/common.sh
           tests/docker-images/load.sh
+          tests/docker-images/test_loader.sh
           tools/c-sdk/package_source.sh
           tools/c-sdk/source_archive_test.sh
           tools/c-sdk/verify_source_archive.sh
@@ -110,8 +111,8 @@ jobs:
       - name: Test offline release contracts
         run: build/release-contract-test.sh
 
-      - name: Test offline E2E image preflight
-        run: python3 tests/docker-images/test_loader.py
+      - name: Test E2E image download helpers
+        run: bash tests/docker-images/test_loader.sh
 
       - name: Verify committed C SDK generation
         run: |

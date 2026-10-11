@@ -338,7 +338,8 @@ run_js_rpc_tests() {
 # and script Workflow. Slow TTS scenarios require the provider-only build
 # overlay. Keep both out of unrelated provider/SDK environments.
 standard_sdk_giztest_files() {
-	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
+	# Quota documents require the fixture started by setup/run-quota.sh.
+	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -path "$script_dir/giztest/quota/*" ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
 }
 
 run_js_giztest() {
