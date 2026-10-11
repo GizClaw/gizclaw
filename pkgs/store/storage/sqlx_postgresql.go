@@ -15,7 +15,7 @@ func newPostgreSQL(name string, cfg PostgreSQLConfig) (*sqlx.DB, error) {
 	}
 	maxOpen := cfg.MaxOpenConns
 	if maxOpen == 0 {
-		maxOpen = 32
+		maxOpen = 128
 	}
 	idleTime := cfg.ConnMaxIdleTime
 	if idleTime == 0 {

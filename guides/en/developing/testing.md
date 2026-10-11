@@ -45,7 +45,7 @@ The same binary runs `natural` without injection, then a `slow-connect` causal c
 
 `GIZCLAW_TEST_RUN_STATE_BASE_REF=v0.29.4` compiles only that ref's `newPostgreSQL` factory as the baseline, keeping the rest of the source and harness identical. It is not a full old-release run. Save baseline and fixed runs in different directories; the negative baseline control can exit nonzero. Reports preserve source, binary SHA-256, actual documents, every step/finalizer, permission-stage logs, DBStats/goroutine samples every 20ms, PostgreSQL backend/lock samples, `pg_stat_statements` and driver connection/SQL/Rows/Tx timing. The driver observer preserves pq's current `Driver.Open` contract without replacing SQL or timeout results. `analysis.json` separates failing tasks from repeated log records. No sampled lock waits does not prove none occurred.
 
-With an existing local `GIZCLAW_TEST_POSTGRES_DSN`, run reuse, capacity waiting, cancellation, Rows/Tx return and idle reclamation regressions:
+With an existing local `GIZCLAW_TEST_POSTGRES_DSN` configured with `max_connections=300`, run reuse, capacity waiting, cancellation, Rows/Tx return and idle reclamation regressions. The reuse regression holds all 128 default-pool connections simultaneously, then checks that later bursts reuse the same PostgreSQL backends:
 
 ```sh
 go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/store-e2e

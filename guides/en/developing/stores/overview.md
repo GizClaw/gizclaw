@@ -114,7 +114,7 @@ A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the back
 
 ### PostgreSQL connection pools
 
-Each PostgreSQL physical Storage opens sessions on demand, with a default limit of 32 open connections and 32 retained idle connections. The `database/sql` maintenance worker releases connections after one minute continuously idle; active connections are unaffected. Requests exceeding capacity wait for a connection subject to their context. Stores borrow the pool; closing physical Storage closes all its sessions.
+Each PostgreSQL physical Storage opens sessions on demand, with a default limit of 128 open connections and 128 retained idle connections. The `database/sql` maintenance worker releases connections after one minute continuously idle; active connections are unaffected. Requests exceeding capacity wait for a connection subject to their context. Stores borrow the pool; closing physical Storage closes all its sessions.
 
 Go callers use `PostgreSQLConfig.MaxOpenConns` and `ConnMaxIdleTime`. Server YAML configures the same pool:
 
@@ -123,7 +123,7 @@ storage:
   runtime:
     kind: postgresql
     dsn: ${RUNTIME_POSTGRES_DSN}
-    max_open_conns: 32
+    max_open_conns: 128
     conn_max_idle_time: 1m
 ```
 

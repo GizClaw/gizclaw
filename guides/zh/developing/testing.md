@@ -60,7 +60,7 @@ bash tests/gizclaw-e2e/run_run_state_tests.sh
 
 设置 `GIZCLAW_TEST_RUN_STATE_BASE_REF=v0.29.4` 可以只用该 ref 的 `newPostgreSQL` factory 编译基线，其他源码与夹具保持相同；它不是运行完整旧 release。分别为基线和修复版本保存不同目录，基线的负向控制可返回非零状态。报告保存源码、二进制 SHA-256、实际文档、全部步骤/finally、权限 stage 日志、每 20ms 的 DBStats/协程数、PG backend/锁样本、`pg_stat_statements` 和 driver 建连/SQL/Rows/Tx 时序。driver observer 保留当前 pq 的 `Driver.Open` contract，不替换 SQL 或超时返回。`analysis.json` 区分失败任务与重复日志；采样未见锁等待不等于证明从未等待。
 
-已有本地 `GIZCLAW_TEST_POSTGRES_DSN` 时，连接复用、容量等待、取消、Rows/Tx 归还和空闲回收回归使用：
+已有配置 `max_connections=300` 的本地 `GIZCLAW_TEST_POSTGRES_DSN` 时，可以运行以下连接复用、容量等待、取消、Rows/Tx 归还和空闲回收回归。连接复用回归会同时持有默认池的 128 条连接，再检查后续突发是否复用同一组 PostgreSQL backend：
 
 ```sh
 go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/store-e2e

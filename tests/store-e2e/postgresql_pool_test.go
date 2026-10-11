@@ -38,13 +38,10 @@ func postgresPool(t *testing.T, config storage.PostgreSQLConfig) *sqlx.DB {
 // connection churn. Later bursts must reuse the same real PostgreSQL backends.
 func TestPostgreSQLPoolReusesBursts(t *testing.T) {
 	db := postgresPool(t, storage.PostgreSQLConfig{})
-	if stats := db.Stats(); stats.OpenConnections != 1 {
-		t.Fatalf("pool must open sessions lazily: %+v", stats)
+	if stats := db.Stats(); stats.MaxOpenConnections != 128 || stats.OpenConnections != 1 {
+		t.Fatalf("default pool must allow 128 sessions and open them lazily: %+v", stats)
 	}
-	burst := 16
-	if capacity := db.Stats().MaxOpenConnections; capacity > 0 && capacity < burst {
-		burst = capacity
-	}
+	burst := db.Stats().MaxOpenConnections
 	backends := make(map[int]bool)
 	for round := range 4 {
 		var connections []*sql.Conn

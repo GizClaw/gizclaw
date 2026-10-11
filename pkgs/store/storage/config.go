@@ -57,8 +57,8 @@ func (SQLiteConfig) storageKind() string { return KindSQLite }
 
 // PostgreSQLConfig configures one PostgreSQL connection pool. The pool keeps
 // up to MaxOpenConns idle sessions for reuse and releases idle sessions after
-// ConnMaxIdleTime. Zero values select 32 connections and one minute; negative
-// values are invalid. Connections are opened on demand, not at construction.
+// ConnMaxIdleTime. Zero values select 128 connections and one minute; negative
+// values are invalid. Additional connections are opened on demand.
 type PostgreSQLConfig struct {
 	DSN             string
 	MaxOpenConns    int

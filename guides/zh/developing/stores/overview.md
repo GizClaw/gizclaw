@@ -113,7 +113,7 @@ SQL backend 错误在补充具体 Store 操作上下文后保留底层 error ide
 
 ### PostgreSQL 连接池
 
-每个 PostgreSQL physical Storage 按需打开连接，默认最多 32 条，并保留最多 32 条空闲连接供后续查询复用。连接连续空闲 1 分钟后由 `database/sql` 的维护任务回收；正在使用的连接不受空闲回收影响。请求超过池容量时等待可用连接，等待服从请求 context。Store 只借用池，关闭 physical Storage 才会关闭全部连接。
+每个 PostgreSQL physical Storage 按需打开连接，默认最多 128 条，并保留最多 128 条空闲连接供后续查询复用。连接连续空闲 1 分钟后由 `database/sql` 的维护任务回收；正在使用的连接不受空闲回收影响。请求超过池容量时等待可用连接，等待服从请求 context。Store 只借用池，关闭 physical Storage 才会关闭全部连接。
 
 Go 调用方使用 `PostgreSQLConfig.MaxOpenConns` 和 `ConnMaxIdleTime`；Server YAML 的配置位置如下：
 
@@ -122,7 +122,7 @@ storage:
   runtime:
     kind: postgresql
     dsn: ${RUNTIME_POSTGRES_DSN}
-    max_open_conns: 32
+    max_open_conns: 128
     conn_max_idle_time: 1m
 ```
 
