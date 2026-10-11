@@ -108,4 +108,4 @@ spec:
         node_trigger_mode: any_predecessor
       branches: []
     conversation:
-      starts: peer
+      initiative: peer

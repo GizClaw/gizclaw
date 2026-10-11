@@ -1,6 +1,6 @@
 {
   "conversation": {
-    "starts": "peer",
+    "initiative": "peer",
     "continue_from": "keep-speaking"
   },
   "voice_adapter": {

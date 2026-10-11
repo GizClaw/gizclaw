@@ -35,6 +35,20 @@ func TestValidate(t *testing.T) {
 	if err := Validate(valid); err != nil {
 		t.Fatalf("Validate(valid) error = %v", err)
 	}
+	t.Run("initiative", func(t *testing.T) {
+		for _, value := range []apitypes.EinoConversationInitiative{"agent", "peer", "invalid", ""} {
+			spec := cloneSpec(t, valid)
+			spec.Conversation = &apitypes.EinoConversation{Initiative: &value}
+			err := Validate(spec)
+			if value.Valid() {
+				if err != nil {
+					t.Fatalf("Validate(%q) = %v", value, err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "conversation.initiative") {
+				t.Fatalf("Validate(%q) = %v, want initiative error", value, err)
+			}
+		}
+	})
 
 	t.Run("continuation field", func(t *testing.T) {
 		spec := cloneSpec(t, valid)

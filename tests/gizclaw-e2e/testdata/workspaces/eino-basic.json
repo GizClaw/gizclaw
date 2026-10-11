@@ -186,7 +186,7 @@
         ]
       },
       "conversation": {
-        "starts": "peer"
+        "initiative": "peer"
       },
       "voice_adapter": {
         "asr_model": "asr",

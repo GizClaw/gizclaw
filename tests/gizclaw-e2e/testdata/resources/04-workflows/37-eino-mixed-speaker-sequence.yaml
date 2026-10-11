@@ -65,4 +65,4 @@ spec:
         旁白: narrator
         弟弟: minimax-boy
     conversation:
-      starts: peer
+      initiative: peer

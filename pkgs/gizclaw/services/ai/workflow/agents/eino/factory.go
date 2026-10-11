@@ -768,22 +768,22 @@ func closeMemory(closer io.Closer) error {
 }
 
 func mapInitiative(conversation *apitypes.EinoConversation, parameters *apitypes.WorkspaceParameters) genxeino.InitiativePolicy {
-	starts := apitypes.EinoConversationStartsPeer
-	if conversation != nil && conversation.Starts != nil {
-		starts = *conversation.Starts
+	initiative := apitypes.EinoConversationInitiativePeer
+	if conversation != nil && conversation.Initiative != nil {
+		initiative = *conversation.Initiative
 	}
 	policy := apitypes.ConversationParametersAgentInitiativePolicyOnReload
 	if parameters != nil {
 		if value, err := parameters.AsEinoWorkspaceParameters(); err == nil && value.Conversation != nil {
 			if value.Conversation.Initiative != nil {
-				starts = apitypes.EinoConversationStarts(*value.Conversation.Initiative)
+				initiative = apitypes.EinoConversationInitiative(*value.Conversation.Initiative)
 			}
 			if value.Conversation.AgentInitiativePolicy != nil {
 				policy = *value.Conversation.AgentInitiativePolicy
 			}
 		}
 	}
-	if starts != apitypes.EinoConversationStartsAgent {
+	if initiative != apitypes.EinoConversationInitiativeAgent {
 		return genxeino.InitiativeDisabled
 	}
 	if policy == apitypes.ConversationParametersAgentInitiativePolicyOnceWhenEmpty {

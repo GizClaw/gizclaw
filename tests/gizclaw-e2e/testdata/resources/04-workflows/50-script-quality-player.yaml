@@ -123,4 +123,4 @@ spec:
         - turn
         - mode
     conversation:
-      starts: peer
+      initiative: peer

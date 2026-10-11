@@ -23,6 +23,9 @@ import (
 // construct. Runtime model resolution and Store capability checks remain
 // AgentHost responsibilities.
 func Validate(public apitypes.EinoWorkflowSpec) error {
+	if public.Conversation != nil && public.Conversation.Initiative != nil && !public.Conversation.Initiative.Valid() {
+		return fmt.Errorf("conversation.initiative: unsupported value %q", *public.Conversation.Initiative)
+	}
 	if err := validateVoiceAdapter(public); err != nil {
 		return fmt.Errorf("voice_adapter: %w", err)
 	}

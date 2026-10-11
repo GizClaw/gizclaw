@@ -44,4 +44,4 @@ spec:
       branches: []
       outputs:
       - {node: assistant, field: answer, name: assistant, mime_type: text/plain, primary: true}
-    conversation: {starts: peer}
+    conversation: {initiative: peer}

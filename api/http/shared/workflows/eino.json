@@ -36,9 +36,11 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "starts": {
+          "initiative": {
             "type": "string",
-            "enum": ["peer", "agent"]
+            "enum": ["peer", "agent"],
+            "default": "peer",
+            "description": "Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default."
           },
           "continue_from": {
             "type": "string",
