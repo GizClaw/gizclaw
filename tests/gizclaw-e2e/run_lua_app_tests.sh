@@ -63,7 +63,6 @@ fi
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/testdata/lua-app/server.device.lua_app.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
 docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$GIZCLAW_E2E_UBUNTU_IMAGE" -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-gizclaw_compose_require_images "${compose[@]:2}"
 docker run --pull=never --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" up --pull never -d --wait server edge

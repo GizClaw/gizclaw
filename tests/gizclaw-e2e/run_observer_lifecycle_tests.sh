@@ -120,7 +120,6 @@ PYHISTORY
 cp -R "$script_dir/testdata/observer-lifecycle" "$image_dir/tests/gizclaw-e2e/testdata/"
 cp "$script_dir/testdata/observer-lifecycle/eino.json" "$image_dir/tests/gizclaw-e2e/testdata/slow-tts/eino.json"
 docker build --pull=false --platform "linux/$arch" --build-arg "BASE_IMAGE=$GIZCLAW_E2E_UBUNTU_IMAGE" -f "$script_dir/docker/Dockerfile.audioplayer" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-gizclaw_compose_require_images "${compose[@]:2}"
 docker run --pull=never --rm --user "$run_user" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 python3 - "$GIZCLAW_MONITOR_STATE/server/config.yaml" <<'PYPROFILE'
 from pathlib import Path
