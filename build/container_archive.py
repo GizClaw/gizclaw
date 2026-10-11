@@ -2,6 +2,7 @@
 """Inspect Docker save archives and validate the Release container contract."""
 
 import gzip
+from functools import lru_cache
 import hashlib
 import json
 from pathlib import Path, PurePosixPath
@@ -339,16 +340,30 @@ def verify_saved_config(stream, reference, arch, expected_digest):
             matches_reference(manifest[0]["RepoTags"], reference), "loaded image config identity mismatch")
 
 
+@lru_cache(maxsize=1)
+def docker_api_minor():
+    versions = subprocess.check_output(
+        ["docker", "version", "--format", "{{.Client.APIVersion}} {{.Server.APIVersion}}"], timeout=30).decode().split()
+    require(len(versions) == 2 and all(re.fullmatch(r"1\.[0-9]+", version) for version in versions),
+            "unsupported Docker API version")
+    return min(int(version.split(".")[1]) for version in versions)
+
+
+def docker_platform_options(arch, minimum_api):
+    require(arch in ("amd64", "arm64"), "unsupported Docker architecture")
+    return ["--platform", "linux/" + arch] if docker_api_minor() >= minimum_api else []
+
+
 def prove_loaded_image(reference, arch, proof):
     inspected = parse_json(subprocess.check_output(
-        ["docker", "image", "inspect", "--format", "{{json .}}", reference], timeout=30))
+        ["docker", "image", "inspect", *docker_platform_options(arch, 49), "--format", "{{json .}}", reference], timeout=30))
     require(re.fullmatch(r"sha256:[0-9a-f]{64}", inspected["Id"]) and inspected["Os"] == "linux" and inspected["Architecture"] == arch, "loaded image platform mismatch")
     known = set(proof.get("_load_ids", [])) | {proof.get(field) for field in
                                            ("config_digest", "archive_manifest_digest", "archive_index_digest")}
     if inspected["Id"] not in known:
         # Containerd may reuse compressed layers when importing a classic tar,
         # producing a new manifest ID. Only exact saved config bytes permit it.
-        with subprocess.Popen(["docker", "image", "save", reference], stdout=subprocess.PIPE,
+        with subprocess.Popen(["docker", "image", "save", *docker_platform_options(arch, 48), reference], stdout=subprocess.PIPE,
                               stderr=subprocess.DEVNULL) as process:
             timer = threading.Timer(120, process.kill)
             timer.daemon = True

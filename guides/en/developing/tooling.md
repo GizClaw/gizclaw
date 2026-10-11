@@ -293,7 +293,10 @@ does not imply prior registry publication. A containerd import of a classic arch
 reuse compressed layers and produce a new manifest ID. Acceptance then re-exports that
 local image with bounded `docker save` and permits the new ID only if its sole
 config SHA256 exactly matches the archived `config_digest`. Deploy owns TOS hosting
-and server downloads/deployment. This repository does not publish or delete GHCR
+and server downloads/deployment. Where supported by the negotiated Docker API,
+inspection and re-export explicitly select the requested platform so a cached
+multi-platform index cannot substitute the daemon's native platform. Older
+daemons still require an exact platform/config match. This repository does not publish or delete GHCR
 packages; historical GHCR images and Releases remain available for rollback.
 Debian, C, Flutter, npm and Terraform provider entry fields and names are unchanged.
 Validate older schemas using scripts from their source tags.

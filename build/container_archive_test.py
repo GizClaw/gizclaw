@@ -11,6 +11,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+from unittest import mock
 
 import container_archive as contract
 
@@ -277,6 +278,23 @@ class ArchiveTest(unittest.TestCase):
                                         (proof["image_reference"], "amd64", "sha256:" + "0" * 64)):
             with self.subTest(reference=reference, arch=arch), self.assertRaises(ValueError):
                 contract.verify_saved_config(io.BytesIO(raw), reference, arch, digest)
+
+    def test_loaded_image_selects_requested_platform(self):
+        proof = self.inspect()
+        for version in ("1.54", "1.47"):
+            contract.docker_api_minor.cache_clear()
+            self.addCleanup(contract.docker_api_minor.cache_clear)
+
+            def daemon(command, **kwargs):
+                if command[:2] == ["docker", "version"]:
+                    return f"{version} {version}".encode()
+                # A containerd index defaults to the daemon's native platform.
+                arch = "amd64" if "--platform" in command or version == "1.47" else "arm64"
+                return json.dumps({"Id": proof["config_digest"], "Os": "linux", "Architecture": arch}).encode()
+
+            with self.subTest(version=version), mock.patch.object(contract.subprocess, "check_output", side_effect=daemon) as call:
+                self.assertEqual(contract.prove_loaded_image(proof["image_reference"], "amd64", proof), proof["config_digest"])
+                self.assertEqual("--platform" in call.call_args.args[0], version == "1.54")
 
     def test_entry_keys_and_identity(self):
         entry = self.inspect(component="mem0")
