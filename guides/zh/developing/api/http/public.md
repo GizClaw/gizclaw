@@ -154,6 +154,8 @@ HTTP `result` 使用所选响应消息的 SDK JSON 投影。若 Protobuf 响应�
 
 连接前 `/server-info` 返回 authoritative Server 的 `public_key`、软件 `version`、`build_commit` 和传输能力。经过 Edge 时构建字段仍属于 authoritative Server，`transport` 描述 Edge 路由。
 
+Lua app 卸载使用 `{"tool":"lua.app.uninstall","args":{"app_id":"tetris"}}`；成功为 `{"result":{}}`，保留用户数据，重复卸载成功。预装身份的持久隐藏、清理失败与 SDK 用法见 [Lua 应用](../proto/rpc/client-provided-to-server#lua-应用)。
+
 ## 设备调试访问与匿名标识查询
 
 设备通过自身已认证连接调用 `server.runtime.put`，设置 `{ "debug_mode": "readonly" }`。

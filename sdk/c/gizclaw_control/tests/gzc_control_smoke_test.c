@@ -1372,6 +1372,11 @@ static void test_lua_upload(void) {
   int calls = stub.free_calls;
   check(gzc_control_install_lua_app(&client, &call, archive, 524289u, gzc_str_from_cstr(sha), &app) == GZC_ERR_INVALID_ARGUMENT && stub.free_calls == calls, "reject oversized archive before HTTP");
   check(gzc_control_classify(413, gzc_str_from_cstr("LUA_APP_PACKAGE_TOO_LARGE")) == GZC_CONTROL_ERROR_INVALID_REQUEST, "classify oversized archive response");
+  stub.response_body = "{\"result\":{}}";
+  check(gzc_control_uninstall_lua_app(&client, &call, gzc_str_from_cstr("demo")) == GZC_OK, "Lua uninstall success");
+  check(strcmp(stub.body, "{\"tool\":\"lua.app.uninstall\",\"args\":{\"app_id\":\"demo\"}}") == 0 && stub.retry_count == 0, "Lua uninstall typed identity without replay");
+  calls = stub.free_calls;
+  check(gzc_control_uninstall_lua_app(&client, &call, gzc_str_from_cstr("../demo")) == GZC_ERR_INVALID_ARGUMENT && stub.free_calls == calls, "reject unsafe uninstall before HTTP");
 }
 
 int main(void) {

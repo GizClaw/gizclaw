@@ -150,6 +150,7 @@ gizclaw.rpc.v1.ClientLuaAppInstallRequest.url type:FT_CALLBACK
 gizclaw.rpc.v1.ClientLuaAppInstallRequest.sha256 max_size:65
 gizclaw.rpc.v1.ClientLuaAppInstallStreamRequest.sha256 max_size:65
 gizclaw.rpc.v1.ClientLuaAppRunRequest.app_id max_size:33
+gizclaw.rpc.v1.ClientLuaAppUninstallRequest.app_id max_size:33
 gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry.key max_size:65
 gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry.value max_size:1025
 

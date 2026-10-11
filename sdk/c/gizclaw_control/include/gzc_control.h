@@ -1282,6 +1282,12 @@ int gzc_control_install_lua_app(gzc_control_client_t *client,
                                 gzc_control_call_t *call, const uint8_t *archive, size_t length,
                                 gzc_str_t sha256, gzc_str_t *out_app_json);
 
+/* Idempotently uninstalls an app through tool/v0, preserving user storage.
+ * app_id is borrowed for this call: 1..32 ASCII package identity bytes.
+ * Success follows persistent removal and mutable package cleanup. No replay. */
+int gzc_control_uninstall_lua_app(gzc_control_client_t *client,
+                                  gzc_control_call_t *call, gzc_str_t app_id);
+
 #ifdef __cplusplus
 }
 #endif

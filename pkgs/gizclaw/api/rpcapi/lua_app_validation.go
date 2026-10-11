@@ -59,6 +59,10 @@ func ValidateLuaAppRequest(message proto.Message) error {
 		return nil
 	case *rpcpb.ClientLuaAppListRequest:
 		return nil
+	case *rpcpb.ClientLuaAppUninstallRequest:
+		if !luaAppID.MatchString(request.AppId) {
+			return invalid
+		}
 	case *rpcpb.ClientLuaAppInstallRequest:
 		if !validLuaAppInstallSource(request.Url) {
 			return invalid
@@ -112,7 +116,7 @@ func ValidateLuaAppResponse(message proto.Message) error {
 		if !check(response.App) {
 			return invalid
 		}
-	case *rpcpb.ClientLuaAppRunResponse:
+	case *rpcpb.ClientLuaAppRunResponse, *rpcpb.ClientLuaAppUninstallResponse:
 	default:
 		return invalid
 	}

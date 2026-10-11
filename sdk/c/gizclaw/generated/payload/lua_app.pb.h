@@ -82,6 +82,22 @@ typedef struct _gizclaw_rpc_v1_ClientLuaAppRunResponse {
     char dummy_field;
 } gizclaw_rpc_v1_ClientLuaAppRunResponse;
 
+/* Remove an app from the device's persistent catalog, including a preinstalled
+ identity or an installed override. Preserve its independent user storage.
+ Idempotent: an absent app succeeds. Success means it cannot be listed or
+ launched, including after restart, and mutable package files were reclaimed.
+ Immutable preinstalled files remain in the firmware. Reinstallation makes
+ the identity available again. No automatic replay after timeout.
+ An index publication failure preserves the app. Cleanup can fail after
+ publication; the app stays unavailable and a repeated uninstall retries it. */
+typedef struct _gizclaw_rpc_v1_ClientLuaAppUninstallRequest {
+    char app_id[33]; /* Same stable package identity and bounds as LuaAppInfo. */
+} gizclaw_rpc_v1_ClientLuaAppUninstallRequest;
+
+typedef struct _gizclaw_rpc_v1_ClientLuaAppUninstallResponse {
+    char dummy_field;
+} gizclaw_rpc_v1_ClientLuaAppUninstallResponse;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -97,6 +113,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_init_default {"", {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_init_default {"", ""}
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_init_default {0}
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_init_default {""}
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_init_default {0}
 #define gizclaw_rpc_v1_LuaAppInfo_init_zero      {"", "", false, "", false, ""}
 #define gizclaw_rpc_v1_ClientLuaAppListRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientLuaAppListResponse_init_zero {{{NULL}, NULL}}
@@ -106,6 +124,8 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_init_zero {"", {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_init_zero {"", ""}
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_init_zero {0}
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_init_zero {""}
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_init_zero {0}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_LuaAppInfo_app_id_tag     1
@@ -122,6 +142,7 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_params_tag 2
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_key_tag 1
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_value_tag 2
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_app_id_tag 1
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_LuaAppInfo_FIELDLIST(X, a) \
@@ -179,6 +200,16 @@ X(a, STATIC,   SINGULAR, STRING,   value,             2)
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   app_id,            1)
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_FIELDLIST(X, a) \
+
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_DEFAULT NULL
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_LuaAppInfo_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppListRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppListResponse_msg;
@@ -188,6 +219,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppInstallStreamRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppUninstallRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppUninstallResponse_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_LuaAppInfo_fields &gizclaw_rpc_v1_LuaAppInfo_msg
@@ -199,6 +232,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunResponse_msg;
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_fields &gizclaw_rpc_v1_ClientLuaAppRunRequest_msg
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_fields &gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_msg
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_fields &gizclaw_rpc_v1_ClientLuaAppRunResponse_msg
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_fields &gizclaw_rpc_v1_ClientLuaAppUninstallRequest_msg
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_fields &gizclaw_rpc_v1_ClientLuaAppUninstallResponse_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ClientLuaAppListResponse_size depends on runtime parameters */
@@ -210,6 +245,8 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientLuaAppRunResponse_msg;
 #define gizclaw_rpc_v1_ClientLuaAppListRequest_size 0
 #define gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry_size 1093
 #define gizclaw_rpc_v1_ClientLuaAppRunResponse_size 0
+#define gizclaw_rpc_v1_ClientLuaAppUninstallRequest_size 34
+#define gizclaw_rpc_v1_ClientLuaAppUninstallResponse_size 0
 #define gizclaw_rpc_v1_LuaAppInfo_size           1225
 
 #ifdef __cplusplus

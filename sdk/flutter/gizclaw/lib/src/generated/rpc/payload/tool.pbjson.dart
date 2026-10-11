@@ -46,6 +46,7 @@ const ClientTool$json = {
     {'1': 'CLIENT_TOOL_LUA_APP_RUN', '2': 24, '3': {}},
     {'1': 'CLIENT_TOOL_GNSS_REPORTING_GET', '2': 25, '3': {}},
     {'1': 'CLIENT_TOOL_GNSS_REPORTING_SET', '2': 26, '3': {}},
+    {'1': 'CLIENT_TOOL_LUA_APP_UNINSTALL', '2': 27, '3': {}},
   ],
 };
 
@@ -108,7 +109,9 @@ final $typed_data.Uint8List clientToolDescriptor = $convert.base64Decode(
     'b3J0aW5nR2V0UmVxdWVzdBoeQ2xpZW50R25zc1JlcG9ydGluZ0dldFJlc3BvbnNlEnsKHkNMSU'
     'VOVF9UT09MX0dOU1NfUkVQT1JUSU5HX1NFVBAaGlfK8xhTChJnbnNzLnJlcG9ydGluZy5zZXQS'
     'HUNsaWVudEduc3NSZXBvcnRpbmdTZXRSZXF1ZXN0Gh5DbGllbnRHbnNzUmVwb3J0aW5nU2V0Um'
-    'VzcG9uc2U=');
+    'VzcG9uc2USdwodQ0xJRU5UX1RPT0xfTFVBX0FQUF9VTklOU1RBTEwQGxpUyvMYUAoRbHVhLmFw'
+    'cC51bmluc3RhbGwSHENsaWVudEx1YUFwcFVuaW5zdGFsbFJlcXVlc3QaHUNsaWVudEx1YUFwcF'
+    'VuaW5zdGFsbFJlc3BvbnNl');
 
 @$core.Deprecated('Use clientToolOptionsDescriptor instead')
 const ClientToolOptions$json = {

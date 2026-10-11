@@ -816,6 +816,12 @@ const clientToolsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientGnssReportingSetRequest',
     responseType: 'ClientGnssReportingSetResponse',
   ),
+  'lua.app.uninstall': RpcMethodDescriptor(
+    id: 27,
+    name: 'lua.app.uninstall',
+    requestType: 'ClientLuaAppUninstallRequest',
+    responseType: 'ClientLuaAppUninstallResponse',
+  ),
 };
 const clientToolNamesById = <int, String>{
   1: 'info.get',
@@ -844,6 +850,7 @@ const clientToolNamesById = <int, String>{
   24: 'lua.app.run',
   25: 'gnss.reporting.get',
   26: 'gnss.reporting.set',
+  27: 'lua.app.uninstall',
 };
 RpcMethodDescriptor clientToolByName(String name) =>
     clientToolsByName[name] ??

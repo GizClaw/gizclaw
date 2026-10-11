@@ -255,6 +255,10 @@ export type ClientLuaAppRunRequest = {
   "params"?: Record<string, string>;
 };
 export type ClientLuaAppRunResponse = Record<string, never>;
+export type ClientLuaAppUninstallRequest = {
+  "app_id": string;
+};
+export type ClientLuaAppUninstallResponse = Record<string, never>;
 export type ClientMhsV0ReadRequest = {
   "id": string;
   "hwd": ClientHwd;
@@ -1698,7 +1702,8 @@ const TOOL_REQUEST_MESSAGES: Record<string, string> = {
   "23": "ClientLuaAppInstallRequest",
   "24": "ClientLuaAppRunRequest",
   "25": "ClientGnssReportingGetRequest",
-  "26": "ClientGnssReportingSetRequest"
+  "26": "ClientGnssReportingSetRequest",
+  "27": "ClientLuaAppUninstallRequest"
 };
 const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "ClientGetInfoResponse",
@@ -1726,7 +1731,8 @@ const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "23": "ClientLuaAppInstallResponse",
   "24": "ClientLuaAppRunResponse",
   "25": "ClientGnssReportingGetResponse",
-  "26": "ClientGnssReportingSetResponse"
+  "26": "ClientGnssReportingSetResponse",
+  "27": "ClientLuaAppUninstallResponse"
 };
 const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "WifiHwdReadResponse",
@@ -2590,6 +2596,18 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
     ]
   },
   "ClientLuaAppRunResponse": {
+    "fields": []
+  },
+  "ClientLuaAppUninstallRequest": {
+    "fields": [
+      {
+        "name": "app_id",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientLuaAppUninstallResponse": {
     "fields": []
   },
   "ClientMhsV0ReadRequest": {
@@ -8260,6 +8278,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "lua_app_install": 23,
       "lua_app_list": 22,
       "lua_app_run": 24,
+      "lua_app_uninstall": 27,
       "run_workspace_set": 20,
       "social_ping": 21,
       "sound_play": 7,
@@ -8296,7 +8315,8 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "23": "lua_app_install",
       "24": "lua_app_run",
       "25": "gnss_reporting_get",
-      "26": "gnss_reporting_set"
+      "26": "gnss_reporting_set",
+      "27": "lua_app_uninstall"
     }
   },
   "ConversationParametersAgentInitiativePolicy": {

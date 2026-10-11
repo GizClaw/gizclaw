@@ -3058,8 +3058,8 @@ int main(void) {
   config.mhs_read = test_rpc_provider;
   config.mhs_write = test_rpc_provider;
   config.mhs_userdata = &rpc_provider;
-  fake_tool_handler_t tool_providers[21];
-  gzc_tool_handler_t tool_handlers[20];
+  fake_tool_handler_t tool_providers[27];
+  gzc_tool_handler_t tool_handlers[27];
   size_t installed_count = 0u;
   for (int tool = 1; tool <= 21; tool++) {
     if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_WIFI_SCAN)
@@ -3072,6 +3072,8 @@ int main(void) {
         .userdata = &tool_providers[tool - 1],
     };
   }
+  tool_providers[26] = (fake_tool_handler_t){.provider = &rpc_provider, .tool = gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL};
+  tool_handlers[installed_count++] = (gzc_tool_handler_t){.tool = gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL, .handler = test_tool_handler, .userdata = &tool_providers[26]};
   config.tool_handlers = tool_handlers;
   config.tool_handler_count = installed_count;
   lua_stream_test_t lua_stream = {0};
@@ -5521,8 +5523,9 @@ int main(void) {
   if (test_social_profile_payload_bounds() != 0) {
     return 1;
   }
-  /* Every procedure keeps dispatch coverage; Wi-Fi scan is deliberately absent. */
-  for (int tool = 1; tool <= 21; tool++) {
+  /* Wi-Fi scan is absent. Uninstall covers valid, malformed and repeated calls. */
+  for (int step = 1; step <= 24; step++) {
+    const int tool = step <= 21 ? step : gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL;
     gzc_buf_t params;
     gzc_buf_t invoke;
     gzc_buf_init(&params);
@@ -5530,6 +5533,12 @@ int main(void) {
     if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_DEVICE_FIND) {
       rc = append_test_proto_varint(platform, &params, 1, 8000);
       if (expect(rc == GZC_OK, "encode find duration") != 0)
+        return 1;
+    }
+    if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL) {
+      const char *id = step == 23 ? "demo\n" : "demo";
+      rc = append_test_proto_bytes(platform, &params, 1, (const uint8_t *)id, strlen(id));
+      if (expect(rc == GZC_OK, "encode uninstall identity") != 0)
         return 1;
     }
     rc = append_test_proto_varint(platform, &invoke, 1, (uint64_t)tool);
@@ -5560,7 +5569,10 @@ int main(void) {
     if (rc == GZC_OK)
       rc = gzc_rpc_decode_response_envelope(
           gzc_str_from_parts((const char *)inbound_frame.data, inbound_frame.len), &inbound_response);
-    if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_WIFI_SCAN) {
+    if (step == 23) {
+      if (expect(rc == GZC_OK && inbound_response.has_error && inbound_response.error.code == gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT && rpc_provider.call_count == before, "invalid uninstall identity never reaches provider") != 0)
+        return 1;
+    } else if (tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_WIFI_SCAN) {
       if (expect(rc == GZC_OK && inbound_response.has_error &&
                      inbound_response.error.code == gizclaw_rpc_v1_StatusCode_STATUS_CODE_UNIMPLEMENTED &&
                      rpc_provider.call_count == before,

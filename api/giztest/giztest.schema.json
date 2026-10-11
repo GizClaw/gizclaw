@@ -522,7 +522,8 @@
             "lua.app.install",
             "lua.app.run",
             "gnss.reporting.get",
-            "gnss.reporting.set"
+            "gnss.reporting.set",
+            "lua.app.uninstall"
           ]
         },
         "observe_only": {

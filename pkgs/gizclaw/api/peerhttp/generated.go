@@ -311,6 +311,21 @@ func (e ClientToolLuaAppRunInvokeTool) Valid() bool {
 	}
 }
 
+// Defines values for ClientToolLuaAppUninstallInvokeTool.
+const (
+	LuaAppUninstall ClientToolLuaAppUninstallInvokeTool = "lua.app.uninstall"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolLuaAppUninstallInvokeTool enum.
+func (e ClientToolLuaAppUninstallInvokeTool) Valid() bool {
+	switch e {
+	case LuaAppUninstall:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolRunWorkspaceSetInvokeTool.
 const (
 	RunWorkspaceSet ClientToolRunWorkspaceSetInvokeTool = "run.workspace.set"
@@ -377,6 +392,7 @@ const (
 	ClientToolV0ListResponseToolsLuaAppInstall             ClientToolV0ListResponseTools = "lua.app.install"
 	ClientToolV0ListResponseToolsLuaAppList                ClientToolV0ListResponseTools = "lua.app.list"
 	ClientToolV0ListResponseToolsLuaAppRun                 ClientToolV0ListResponseTools = "lua.app.run"
+	ClientToolV0ListResponseToolsLuaAppUninstall           ClientToolV0ListResponseTools = "lua.app.uninstall"
 	ClientToolV0ListResponseToolsRunWorkspaceSet           ClientToolV0ListResponseTools = "run.workspace.set"
 	ClientToolV0ListResponseToolsSocialPing                ClientToolV0ListResponseTools = "social.ping"
 	ClientToolV0ListResponseToolsSoundPlay                 ClientToolV0ListResponseTools = "sound.play"
@@ -426,6 +442,8 @@ func (e ClientToolV0ListResponseTools) Valid() bool {
 	case ClientToolV0ListResponseToolsLuaAppList:
 		return true
 	case ClientToolV0ListResponseToolsLuaAppRun:
+		return true
+	case ClientToolV0ListResponseToolsLuaAppUninstall:
 		return true
 	case ClientToolV0ListResponseToolsRunWorkspaceSet:
 		return true
@@ -702,6 +720,11 @@ type ClientLuaAppRunArgs struct {
 	Params *map[string]string `json:"params,omitempty"`
 }
 
+// ClientLuaAppUninstallArgs Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
+type ClientLuaAppUninstallArgs struct {
+	AppId string `json:"app_id"`
+}
+
 // ClientToolAudioplayerGetInvoke defines model for ClientToolAudioplayerGetInvoke.
 type ClientToolAudioplayerGetInvoke struct {
 	Args map[string]interface{}             `json:"args"`
@@ -878,6 +901,16 @@ type ClientToolLuaAppRunInvoke struct {
 
 // ClientToolLuaAppRunInvokeTool defines model for ClientToolLuaAppRunInvoke.Tool.
 type ClientToolLuaAppRunInvokeTool string
+
+// ClientToolLuaAppUninstallInvoke defines model for ClientToolLuaAppUninstallInvoke.
+type ClientToolLuaAppUninstallInvoke struct {
+	// Args Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
+	Args ClientLuaAppUninstallArgs           `json:"args"`
+	Tool ClientToolLuaAppUninstallInvokeTool `json:"tool"`
+}
+
+// ClientToolLuaAppUninstallInvokeTool defines model for ClientToolLuaAppUninstallInvoke.Tool.
+type ClientToolLuaAppUninstallInvokeTool string
 
 // ClientToolRunWorkspaceSetInvoke defines model for ClientToolRunWorkspaceSetInvoke.
 type ClientToolRunWorkspaceSetInvoke struct {
@@ -2347,6 +2380,34 @@ func (t *ClientToolV0InvokeRequest) MergeClientToolGnssReportingSetInvoke(v Clie
 	return err
 }
 
+// AsClientToolLuaAppUninstallInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolLuaAppUninstallInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolLuaAppUninstallInvoke() (ClientToolLuaAppUninstallInvoke, error) {
+	var body ClientToolLuaAppUninstallInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolLuaAppUninstallInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolLuaAppUninstallInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolLuaAppUninstallInvoke(v ClientToolLuaAppUninstallInvoke) error {
+	v.Tool = "lua.app.uninstall"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolLuaAppUninstallInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolLuaAppUninstallInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolLuaAppUninstallInvoke(v ClientToolLuaAppUninstallInvoke) error {
+	v.Tool = "lua.app.uninstall"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ClientToolV0InvokeRequest) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"tool"`
@@ -2399,6 +2460,8 @@ func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
 		return t.AsClientToolLuaAppListInvoke()
 	case "lua.app.run":
 		return t.AsClientToolLuaAppRunInvoke()
+	case "lua.app.uninstall":
+		return t.AsClientToolLuaAppUninstallInvoke()
 	case "run.workspace.set":
 		return t.AsClientToolRunWorkspaceSetInvoke()
 	case "social.ping":

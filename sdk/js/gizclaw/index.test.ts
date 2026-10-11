@@ -4710,6 +4710,51 @@ test("Lua app providers discover, install and preserve string launch parameters"
   );
 });
 
+test("Lua uninstall discovers its handler and rejects invalid IDs", async () => {
+  const calls: unknown[] = [];
+  const handlers: GizClawPeerRPCHandlers = {
+    tools: {
+      [CLIENT_TOOL_IDS["lua.app.uninstall"]]: (request) => {
+        calls.push(request);
+        return {};
+      },
+    },
+  };
+  const list = await serveInboundClientRPC("client.tool.v0.list", {}, handlers);
+  assert.deepEqual(list.result, { tools: [27] });
+  for (let i = 0; i < 2; i++) {
+    const response = await serveInboundClientRPC(
+      "lua.app.uninstall",
+      { app_id: "demo" },
+      handlers,
+    );
+    assert.deepEqual(response.result, {});
+    assert.equal(response.error, undefined);
+  }
+  for (const app_id of [
+    "",
+    "../demo",
+    "demo/x",
+    "Demo",
+    "a\0b",
+    "a".repeat(33),
+  ]) {
+    const response = await serveInboundClientRPC(
+      "lua.app.uninstall",
+      { app_id },
+      handlers,
+    );
+    assert.equal(response.error?.code, STATUS_CODE_INVALID_ARGUMENT);
+  }
+  assert.equal(calls.length, 2);
+  const absent = await serveInboundClientRPC(
+    "lua.app.uninstall",
+    { app_id: "demo" },
+    {},
+  );
+  assert.equal(absent.error?.code, STATUS_CODE_UNIMPLEMENTED);
+});
+
 test("Lua launch parameters preserve prototype-shaped map keys", () => {
   const request = {
     app_id: "tetris",

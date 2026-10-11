@@ -201,7 +201,7 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 		return opts, invalidDeviceRequest("invalid tool arguments")
 	}
 	switch message.(type) {
-	case *rpcpb.ClientLuaAppListRequest, *rpcpb.ClientLuaAppInstallRequest, *rpcpb.ClientLuaAppRunRequest:
+	case *rpcpb.ClientLuaAppListRequest, *rpcpb.ClientLuaAppInstallRequest, *rpcpb.ClientLuaAppRunRequest, *rpcpb.ClientLuaAppUninstallRequest:
 		if err := rpcapi.ValidateLuaAppRequest(message); err != nil {
 			return invalid()
 		}

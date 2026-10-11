@@ -523,6 +523,112 @@ class ClientLuaAppRunResponse extends $pb.GeneratedMessage {
   static ClientLuaAppRunResponse? _defaultInstance;
 }
 
+/// Remove an app from the device's persistent catalog, including a preinstalled
+/// identity or an installed override. Preserve its independent user storage.
+/// Idempotent: an absent app succeeds. Success means it cannot be listed or
+/// launched, including after restart, and mutable package files were reclaimed.
+/// Immutable preinstalled files remain in the firmware. Reinstallation makes
+/// the identity available again. No automatic replay after timeout.
+/// An index publication failure preserves the app. Cleanup can fail after
+/// publication; the app stays unavailable and a repeated uninstall retries it.
+class ClientLuaAppUninstallRequest extends $pb.GeneratedMessage {
+  factory ClientLuaAppUninstallRequest({
+    $core.String? appId,
+  }) {
+    final result = create();
+    if (appId != null) result.appId = appId;
+    return result;
+  }
+
+  ClientLuaAppUninstallRequest._();
+
+  factory ClientLuaAppUninstallRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientLuaAppUninstallRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientLuaAppUninstallRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'appId')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientLuaAppUninstallRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientLuaAppUninstallRequest copyWith(
+          void Function(ClientLuaAppUninstallRequest) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientLuaAppUninstallRequest))
+          as ClientLuaAppUninstallRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientLuaAppUninstallRequest create() =>
+      ClientLuaAppUninstallRequest._();
+  @$core.override
+  ClientLuaAppUninstallRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientLuaAppUninstallRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientLuaAppUninstallRequest>(create);
+  static ClientLuaAppUninstallRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get appId => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set appId($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasAppId() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearAppId() => $_clearField(1);
+}
+
+class ClientLuaAppUninstallResponse extends $pb.GeneratedMessage {
+  factory ClientLuaAppUninstallResponse() => create();
+
+  ClientLuaAppUninstallResponse._();
+
+  factory ClientLuaAppUninstallResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ClientLuaAppUninstallResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ClientLuaAppUninstallResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientLuaAppUninstallResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ClientLuaAppUninstallResponse copyWith(
+          void Function(ClientLuaAppUninstallResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as ClientLuaAppUninstallResponse))
+          as ClientLuaAppUninstallResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ClientLuaAppUninstallResponse create() =>
+      ClientLuaAppUninstallResponse._();
+  @$core.override
+  ClientLuaAppUninstallResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ClientLuaAppUninstallResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ClientLuaAppUninstallResponse>(create);
+  static ClientLuaAppUninstallResponse? _defaultInstance;
+}
+
 const $core.bool _omitFieldNames =
     $core.bool.fromEnvironment('protobuf.omit_field_names');
 const $core.bool _omitMessageNames =

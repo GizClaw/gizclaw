@@ -1013,6 +1013,23 @@ test("device tools: list installed procedures and invoke a typed tool", async ()
   assert.equal(error.kind, "deviceUnsupported");
 });
 
+test("Lua uninstall uses the typed route once and preserves device errors", async () => {
+  const h = harness([
+    json(200, { result: {} }),
+    errorResponse(501, "DEVICE_UNSUPPORTED"),
+  ]);
+  await h.client.uninstallLuaApp("demo");
+  assert.deepEqual(JSON.parse(h.seen[0]!.body), {
+    tool: "lua.app.uninstall",
+    args: { app_id: "demo" },
+  });
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/tool/v0/invoke");
+  const error = await failure(h.client.uninstallLuaApp("demo"));
+  assert.equal(error.kind, "deviceUnsupported");
+  await assert.rejects(h.client.uninstallLuaApp("demo\n"), TypeError);
+  assert.equal(h.seen.length, 2);
+});
+
 test("MHS control uses generated HWD routes and preserves device errors", async () => {
   const value = {
     id: "led.status",

@@ -161,6 +161,8 @@ Offline maps to `409 DEVICE_OFFLINE`, an uninstalled tool or MHS handler to `501
 
 Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Through an Edge, build fields remain those of the authoritative Server while the `transport` object selects the Edge route.
 
+Lua app uninstall uses `{"tool":"lua.app.uninstall","args":{"app_id":"tetris"}}` and returns `{"result":{}}`, preserving user data and succeeding on repeated calls. Persistent preinstalled removal, cleanup failures and SDK usage are defined under [Lua applications](../proto/rpc/client-provided-to-server#lua-applications).
+
 ## Device debug access and anonymous lookup
 
 An authenticated device calls `server.runtime.put` with `{"debug_mode":"readonly"}`.

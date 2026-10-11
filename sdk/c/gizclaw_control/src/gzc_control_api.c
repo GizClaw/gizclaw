@@ -2075,6 +2075,28 @@ int gzc_control_ping_device(gzc_control_client_t *client, gzc_control_call_t *ca
   return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
 }
 
+int gzc_control_uninstall_lua_app(gzc_control_client_t *client,
+                                  gzc_control_call_t *call, gzc_str_t app_id) {
+  if (check_args(client, call) != GZC_OK || app_id.data == NULL ||
+      app_id.len == 0u || app_id.len > 32u)
+    return GZC_ERR_INVALID_ARGUMENT;
+  for (size_t i = 0; i < app_id.len; ++i) {
+    char c = app_id.data[i];
+    if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' ||
+          c == '-' || (i != 0u && c == '.')))
+      return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_control_builder_t builder;
+  builder_tool_begin(&builder, client, call, "lua.app.uninstall");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_str(&writer, "app_id", app_id);
+  gzc_str_t body = builder_body(&builder, &writer);
+  return builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
+}
+
 int gzc_control_install_lua_app(gzc_control_client_t *client,
                                 gzc_control_call_t *call, const uint8_t *archive, size_t length,
                                 gzc_str_t sha256, gzc_str_t *out_app_json) {

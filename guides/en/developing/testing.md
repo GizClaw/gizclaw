@@ -2183,6 +2183,9 @@ This Go lane runs isolated Docker Server, Edge and real WebRTC Peer processes to
 bash tests/gizclaw-e2e/run_lua_app_tests.sh
 ```
 
+`server.device.lua_app.uninstall` covers removal, repeated uninstall, an empty catalog, launch returning 404, invalid-ID rejection before device RPC, and reinstallation. This suite uses the device simulator; real GizOS storage, saved data and preinstalled hiding are covered by the cross-repository acceptance script and GizOS host/device E2E.
+
+
 Scenarios are in `tests/gizclaw-e2e/testdata/lua-app/`; the simulator belongs to the Go runner. Go, JavaScript, Flutter and C have separate protobuf/handler regressions. Simulator and SDK success does not qualify downloads or game execution on physical hardware.
 
 The real-model `LUA01` case in the Runtime Tool lane requests the Tetris game in single-player, easy mode. It requires application discovery followed by exactly one `lua.app.run`, with the received `app_id=tetris`, `mode=single` and `difficulty=easy`:

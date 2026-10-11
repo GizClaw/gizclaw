@@ -199,6 +199,7 @@ RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP 
 | 21 | `social.ping` | Server 调用设备：通知好友呼叫或 Friend Group 集结，携带发起方 public key、可选 `display_name` 与接收方自己的 `friend_group_name`。 |
 | 25 | `gnss.reporting.get` | 读取设备的 GNSS 上报开关，返回显式 boolean `enabled`。 |
 | 26 | `gnss.reporting.set` | 按显式 boolean `enabled` 设置设备的 GNSS 上报开关，返回设备实际生效值；Server 只转发。 |
+| 27 | `lua.app.uninstall` | 按 `app_id` 幂等卸载，持久隐藏预装身份，回收可写包并保留用户数据；再次安装同 ID 重新启用。 |
 
 ## 独立流式语音
 

@@ -179,3 +179,25 @@ const ClientLuaAppRunResponse$json = {
 /// Descriptor for `ClientLuaAppRunResponse`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List clientLuaAppRunResponseDescriptor =
     $convert.base64Decode('ChdDbGllbnRMdWFBcHBSdW5SZXNwb25zZQ==');
+
+@$core.Deprecated('Use clientLuaAppUninstallRequestDescriptor instead')
+const ClientLuaAppUninstallRequest$json = {
+  '1': 'ClientLuaAppUninstallRequest',
+  '2': [
+    {'1': 'app_id', '3': 1, '4': 1, '5': 9, '10': 'appId'},
+  ],
+};
+
+/// Descriptor for `ClientLuaAppUninstallRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientLuaAppUninstallRequestDescriptor =
+    $convert.base64Decode(
+        'ChxDbGllbnRMdWFBcHBVbmluc3RhbGxSZXF1ZXN0EhUKBmFwcF9pZBgBIAEoCVIFYXBwSWQ=');
+
+@$core.Deprecated('Use clientLuaAppUninstallResponseDescriptor instead')
+const ClientLuaAppUninstallResponse$json = {
+  '1': 'ClientLuaAppUninstallResponse',
+};
+
+/// Descriptor for `ClientLuaAppUninstallResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List clientLuaAppUninstallResponseDescriptor =
+    $convert.base64Decode('Ch1DbGllbnRMdWFBcHBVbmluc3RhbGxSZXNwb25zZQ==');

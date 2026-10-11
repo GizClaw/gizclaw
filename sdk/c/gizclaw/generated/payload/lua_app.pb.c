@@ -33,4 +33,10 @@ PB_BIND(gizclaw_rpc_v1_ClientLuaAppRunRequest_ParamsEntry, gizclaw_rpc_v1_Client
 PB_BIND(gizclaw_rpc_v1_ClientLuaAppRunResponse, gizclaw_rpc_v1_ClientLuaAppRunResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ClientLuaAppUninstallRequest, gizclaw_rpc_v1_ClientLuaAppUninstallRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ClientLuaAppUninstallResponse, gizclaw_rpc_v1_ClientLuaAppUninstallResponse, AUTO)
+
+
 

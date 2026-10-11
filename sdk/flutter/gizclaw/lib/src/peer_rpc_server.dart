@@ -1420,6 +1420,10 @@ bool _validToolArguments(GeneratedMessage request) {
     payload.ClientGnssReportingSetRequest r => r.hasEnabled(),
     payload.ClientLuaAppInstallRequest r => _validLuaAppInstall(r),
     payload.ClientLuaAppRunRequest r => _validLuaAppRun(r),
+    payload.ClientLuaAppUninstallRequest r =>
+      r.appId.isNotEmpty &&
+          RegExp(r'^[a-z0-9_-][a-z0-9_.-]{0,31}$').stringMatch(r.appId) ==
+              r.appId,
     payload.ClientDeviceSoundPlayRequest r =>
       text(r.sound, 32) && (!r.hasDurationMs() || r.durationMs >= 0),
     payload.ClientDeviceFindRequest r =>
