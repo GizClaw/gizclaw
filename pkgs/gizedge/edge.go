@@ -101,6 +101,7 @@ func servePreparedContext(ctx context.Context, cfg Config) (serveErr error) {
 		return err
 	}
 	defer upstreamTransport.Close()
+	cfg.notifications = upstreamTransport
 
 	var gateway *Gateway
 	if cfg.Gateway.Enabled {
@@ -255,7 +256,12 @@ func dialUpstream(
 	cfg Config,
 	upstreamURL *url.URL,
 	relaySelector *upstreamRelaySelector,
-) (giznet.Conn, giznet.Listener, *upstreamRelayAttempt, *gizwebrtc.ICECandidatePairObservation, error) {
+) (resultConn giznet.Conn, resultListener giznet.Listener, resultAttempt *upstreamRelayAttempt, resultObservation *gizwebrtc.ICECandidatePairObservation, resultErr error) {
+	defer func() {
+		if resultErr == nil && cfg.notifications != nil {
+			cfg.notifications.listenNotifications(resultConn)
+		}
+	}()
 	if cfg.selectedUpstream.PublicKey.IsZero() {
 		return nil, nil, nil, nil, fmt.Errorf("edge: missing upstream.public-key")
 	}
@@ -322,12 +328,14 @@ type upstreamTransport struct {
 	semOnce sync.Once
 	sem     chan struct{}
 
-	mu           sync.Mutex
-	conn         giznet.Conn
-	listener     giznet.Listener
-	relayAttempt *upstreamRelayAttempt
-	connEpoch    uint64
-	closed       bool
+	mu            sync.Mutex
+	conn          giznet.Conn
+	listener      giznet.Listener
+	relayAttempt  *upstreamRelayAttempt
+	connEpoch     uint64
+	closed        bool
+	connecting    chan struct{}
+	connectCancel context.CancelFunc
 
 	// lastResponse records when a forwarded request last received response
 	// headers; recent traffic already proves liveness, so periodic probes skip.
@@ -630,24 +638,71 @@ func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, giznet
 }
 
 func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-	if t.closed {
-		return nil, 0, giznet.ErrConnClosed
+	ctx := t.ctx
+	if ctx == nil {
+		ctx = context.Background()
 	}
-	if t.conn != nil {
-		return t.conn, t.connEpoch, nil
+	return t.currentConnContext(ctx)
+}
+
+// currentConnContext shares connection establishment without holding mu over
+// network I/O. Both dialing and waiting for another dial respect the caller.
+func (t *upstreamTransport) currentConnContext(ctx context.Context) (giznet.Conn, uint64, error) {
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, 0, err
+		}
+		t.mu.Lock()
+		if t.closed {
+			t.mu.Unlock()
+			return nil, 0, giznet.ErrConnClosed
+		}
+		if t.conn != nil {
+			conn, epoch := t.conn, t.connEpoch
+			t.mu.Unlock()
+			return conn, epoch, nil
+		}
+		if pending := t.connecting; pending != nil {
+			t.mu.Unlock()
+			select {
+			case <-ctx.Done():
+				return nil, 0, ctx.Err()
+			case <-pending:
+				continue
+			}
+		}
+		pending := make(chan struct{})
+		dialCtx, cancel := context.WithCancel(ctx)
+		t.connecting, t.connectCancel = pending, cancel
+		t.mu.Unlock()
+		stop := func() bool { return false }
+		if t.ctx != nil {
+			stop = context.AfterFunc(t.ctx, cancel)
+		}
+		conn, listener, relayAttempt, observation, err := dialUpstream(dialCtx, t.cfg, t.upstreamURL, t.relay)
+		stop()
+		cancel()
+		t.mu.Lock()
+		closed := t.closed
+		if err == nil && !closed {
+			t.conn, t.listener, t.relayAttempt = conn, listener, relayAttempt
+			t.connEpoch++
+		}
+		epoch := t.connEpoch
+		t.connecting, t.connectCancel = nil, nil
+		close(pending)
+		t.mu.Unlock()
+		if err != nil {
+			return nil, 0, err
+		}
+		if closed {
+			_ = conn.Close()
+			_ = listener.Close()
+			return nil, 0, giznet.ErrConnClosed
+		}
+		logUpstreamICE("control", "control", epoch, relayAttempt, observation)
+		return conn, epoch, nil
 	}
-	conn, listener, relayAttempt, observation, err := dialUpstream(t.ctx, t.cfg, t.upstreamURL, t.relay)
-	if err != nil {
-		return nil, 0, err
-	}
-	t.conn = conn
-	t.listener = listener
-	t.relayAttempt = relayAttempt
-	t.connEpoch++
-	logUpstreamICE("control", "control", t.connEpoch, relayAttempt, observation)
-	return conn, t.connEpoch, nil
 }
 
 func upstreamConnectionFailed(conn giznet.Conn, err error) bool {
@@ -677,6 +732,9 @@ func (t *upstreamTransport) Close() error {
 	t.mu.Lock()
 	alreadyClosed := t.closed
 	t.closed = true
+	if t.connectCancel != nil {
+		t.connectCancel()
+	}
 	err := t.closeLocked()
 	t.mu.Unlock()
 	if t.monitorStop != nil && !alreadyClosed {

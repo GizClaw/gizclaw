@@ -569,3 +569,11 @@ Server 的 `peer-admission: registration-token` 只检查到该 Server 的 WebRT
 当前 gateway policy 不解释 credential，也不把它传入 logical tunnel。Server 端的
 此开关不会对这些 logical clients 重新执行握手准入，不能把它当作整个 Edge ingress
 的注册要求。产品注册与资源权限仍由 authoritative Server 处理。
+
+## 跨 Server 社交通知
+
+Edge 为配置上游 Server 提供反向通知 RPC，使用现有 Peer assignment 查询和多 Server
+上游连接，把通知送到目标归属 Server；中继无需承载目标设备的 ingress connection。
+通知只允许受支持的 social ping，设备 ACK 前不会成功，不广播、不排队、不重试。
+目标上游必须已配置且可达；不从响应 endpoint 动态信任新 Server。
+协议、权限和取消边界见 [Edge RPC](./gizclaw/rpc/edge#跨-server-通知)。

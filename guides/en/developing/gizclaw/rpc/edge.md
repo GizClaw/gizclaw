@@ -1,5 +1,28 @@
 # Edge Routing
 
+## Cross-Server notifications
+
+`edge.social.ping.relay` (149) is provided by Edge to its configured,
+identity-verified upstream Servers. `server.social.ping.deliver` (150) is
+provided by Server to active Edges. Both use physical `ServiceEdgeRPC` (0x31)
+and `SocialPingDeliveryRequest`: target PK, `ClientSocialPingRequest` and
+`deadline_unix_ms`. The empty `SocialPingDeliveryResponse` succeeds only
+after the device ACK. The device still receives the existing `client.social.ping`.
+
+Manager prefers the local Peer, otherwise selects a connected trusted Edge in
+PK order without switching relay after sending. Edge registers reverse handlers
+on outbound control and gateway pool Server connections, never device ingress.
+It resolves the existing assignment and sends one deliver to the matching
+configured Server. The target rechecks the active Edge role and delivers locally
+only, preventing loops. Offline targets return NOT_FOUND, timeouts
+DEADLINE_EXCEEDED, and unavailable transport or relay UNAVAILABLE. Social
+adapters count only device ACKs and retain public results and window release.
+
+Every hop preserves the deadline and request correlation ID, with a local
+three-second cap. Success, cancellation, disconnection and timeout close the
+request stream; the existing lifecycle owns the parent connection. Concurrent
+upstream reconnects share one cancelable dial without network I/O under the mutex.
+
 `Implementation file: rpc_edge.go`
 
 Define `edgeRPCServer`, process Peer lookup, assignment, route resolve, and API-key

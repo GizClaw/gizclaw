@@ -150,10 +150,8 @@ func PingDisplayName(name *string) *string {
 	return new(*name)
 }
 
-// PingDelivery reaches the devices connected to this Server. Online reads the
-// same connection state as Runtime.online; Deliver pushes one
-// client.social.ping and returns once the device acknowledged it.
+// PingDelivery reaches local or remote devices. A delivery succeeds only after
+// the device acknowledges client.social.ping, within the delivery deadline.
 type PingDelivery interface {
-	PeerOnline(peerPublicKey string) bool
 	DeliverSocialPing(ctx context.Context, peerPublicKey string, request rpcapi.ClientSocialPingRequest) error
 }

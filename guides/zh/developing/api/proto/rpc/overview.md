@@ -64,3 +64,4 @@ RPC method 前缀描述谁提供能力，不是请求从哪个文件发出：
 - [Client Provided to Server](./client-provided-to-server)：Server 调用、Client 实现的设备能力。
 - [Server Provided to Client](./server-provided-to-client)：Client 调用、Server 实现的产品与资源能力。
 - [Server Provided to Edge-node](./server-provided-to-edge-node)：Edge-node 调用、Server 实现的路由控制能力。
+- [Edge 提供给 Server 的中继](./server-provided-to-edge-node#通知投递与反向中继)：配置上游 Server 调用、Edge 实现的社交通知路由。

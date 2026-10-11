@@ -15,7 +15,8 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import 'enums.pbenum.dart' as $0;
+import 'enums.pbenum.dart' as $1;
+import 'social.pb.dart' as $0;
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
@@ -24,7 +25,7 @@ class PeerAssignment extends $pb.GeneratedMessage {
     $core.String? peerPublicKey,
     $core.String? serverPublicKey,
     $core.String? serverEndpoint,
-    $0.PeerRole? role,
+    $1.PeerRole? role,
     $fixnum.Int64? version,
     $core.String? updatedAt,
   }) {
@@ -54,8 +55,8 @@ class PeerAssignment extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'peerPublicKey')
     ..aOS(2, _omitFieldNames ? '' : 'serverPublicKey')
     ..aOS(3, _omitFieldNames ? '' : 'serverEndpoint')
-    ..aE<$0.PeerRole>(4, _omitFieldNames ? '' : 'role',
-        enumValues: $0.PeerRole.values)
+    ..aE<$1.PeerRole>(4, _omitFieldNames ? '' : 'role',
+        enumValues: $1.PeerRole.values)
     ..aInt64(5, _omitFieldNames ? '' : 'version')
     ..aOS(6, _omitFieldNames ? '' : 'updatedAt')
     ..hasRequiredFields = false;
@@ -107,9 +108,9 @@ class PeerAssignment extends $pb.GeneratedMessage {
   void clearServerEndpoint() => $_clearField(3);
 
   @$pb.TagNumber(4)
-  $0.PeerRole get role => $_getN(3);
+  $1.PeerRole get role => $_getN(3);
   @$pb.TagNumber(4)
-  set role($0.PeerRole value) => $_setField(4, value);
+  set role($1.PeerRole value) => $_setField(4, value);
   @$pb.TagNumber(4)
   $core.bool hasRole() => $_has(3);
   @$pb.TagNumber(4)
@@ -601,6 +602,132 @@ class ServerAPIKeyResolveResponse extends $pb.GeneratedMessage {
   void clearAssignment() => $_clearField(1);
   @$pb.TagNumber(1)
   PeerAssignment ensureAssignment() => $_ensure(0);
+}
+
+/// Internal notification delivery on authenticated Server/Edge connections.
+/// Success means the target device acknowledged client.social.ping.
+class SocialPingDeliveryRequest extends $pb.GeneratedMessage {
+  factory SocialPingDeliveryRequest({
+    $core.String? targetPeerPublicKey,
+    $0.ClientSocialPingRequest? ping,
+    $fixnum.Int64? deadlineUnixMs,
+  }) {
+    final result = create();
+    if (targetPeerPublicKey != null)
+      result.targetPeerPublicKey = targetPeerPublicKey;
+    if (ping != null) result.ping = ping;
+    if (deadlineUnixMs != null) result.deadlineUnixMs = deadlineUnixMs;
+    return result;
+  }
+
+  SocialPingDeliveryRequest._();
+
+  factory SocialPingDeliveryRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SocialPingDeliveryRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SocialPingDeliveryRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'targetPeerPublicKey')
+    ..aOM<$0.ClientSocialPingRequest>(2, _omitFieldNames ? '' : 'ping',
+        subBuilder: $0.ClientSocialPingRequest.create)
+    ..aInt64(3, _omitFieldNames ? '' : 'deadlineUnixMs')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SocialPingDeliveryRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SocialPingDeliveryRequest copyWith(
+          void Function(SocialPingDeliveryRequest) updates) =>
+      super.copyWith((message) => updates(message as SocialPingDeliveryRequest))
+          as SocialPingDeliveryRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SocialPingDeliveryRequest create() => SocialPingDeliveryRequest._();
+  @$core.override
+  SocialPingDeliveryRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SocialPingDeliveryRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SocialPingDeliveryRequest>(create);
+  static SocialPingDeliveryRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get targetPeerPublicKey => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set targetPeerPublicKey($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasTargetPeerPublicKey() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearTargetPeerPublicKey() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $0.ClientSocialPingRequest get ping => $_getN(1);
+  @$pb.TagNumber(2)
+  set ping($0.ClientSocialPingRequest value) => $_setField(2, value);
+  @$pb.TagNumber(2)
+  $core.bool hasPing() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearPing() => $_clearField(2);
+  @$pb.TagNumber(2)
+  $0.ClientSocialPingRequest ensurePing() => $_ensure(1);
+
+  /// One end-to-end deadline, preserved by the relay. Never queued or retried.
+  @$pb.TagNumber(3)
+  $fixnum.Int64 get deadlineUnixMs => $_getI64(2);
+  @$pb.TagNumber(3)
+  set deadlineUnixMs($fixnum.Int64 value) => $_setInt64(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasDeadlineUnixMs() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearDeadlineUnixMs() => $_clearField(3);
+}
+
+class SocialPingDeliveryResponse extends $pb.GeneratedMessage {
+  factory SocialPingDeliveryResponse() => create();
+
+  SocialPingDeliveryResponse._();
+
+  factory SocialPingDeliveryResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory SocialPingDeliveryResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'SocialPingDeliveryResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SocialPingDeliveryResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  SocialPingDeliveryResponse copyWith(
+          void Function(SocialPingDeliveryResponse) updates) =>
+      super.copyWith(
+              (message) => updates(message as SocialPingDeliveryResponse))
+          as SocialPingDeliveryResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static SocialPingDeliveryResponse create() => SocialPingDeliveryResponse._();
+  @$core.override
+  SocialPingDeliveryResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static SocialPingDeliveryResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<SocialPingDeliveryResponse>(create);
+  static SocialPingDeliveryResponse? _defaultInstance;
 }
 
 const $core.bool _omitFieldNames =

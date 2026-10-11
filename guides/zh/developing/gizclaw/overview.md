@@ -54,7 +54,7 @@ pkgs/gizclaw/
 | `ServicePeerOpenAI` | `0x02` | 通过 Peer connection 暴露 OpenAI-compatible HTTP | 任何连接 identity |
 | `ServiceAdminHTTP` | `0x10` | 资源管理与运维 HTTP API | active `admin` Peer |
 | `ServiceEdgeHTTP` | `0x30` | Edge 向权威 Server 转发 public API 请求 | active `edge-node` Peer |
-| `ServiceEdgeRPC` | `0x31` | Edge 查询 Peer、分配 Peer 与解析路由 | active `edge-node` Peer |
+| `ServiceEdgeRPC` | `0x31` | Edge 查询、分配和解析路由；Server/Edge 双向内部社交通知 | Server 侧为 active `edge-node`，Edge 侧为已配置 Server |
 
 ```mermaid
 classDiagram
@@ -100,7 +100,7 @@ classDiagram
 - **Peer OpenAI-compatible HTTP**：将 OpenAI-compatible handler 放在独立 service stream 上，不与 Peer HTTP 的 bootstrap、signaling endpoint 混用。
 - **Admin HTTP**：为具有 active `admin` role 的 Peer 提供资源管理 surface。它覆盖 RuntimeProfile、RegistrationToken、workflow、firmware、credential、model、AI tenant、workspace、Peer 与 social resource；各领域入口见 [Peer Services](./peer/service/overview)。
 - **Edge HTTP**：Edge 使用 incoming token 的 Peer identity，把 browser/device public API 请求转发到权威 Server；它不是 Admin surface。
-- **Edge RPC**：只提供 `server.peer.lookup`、`server.peer.assign` 和 `server.route.resolve` 三个 edge-node control method；实现边界见 [Edge RPC](./rpc/edge)。
+- **Edge RPC**：提供 Peer assignment、route/API Key resolve 与双向内部社交通知投递；实现边界见 [Edge RPC](./rpc/edge)。
 - **Edge tunnel namespace**：Edge transport 完成认证并激活后，Server 才在该 physical
   PeerConnection 注册 `giznet/v2/tunnel/`。canonical control label 声明 logical client
   identity，packet 与每条 service 的原生 channel 被聚合为普通 logical `giznet.Conn`；

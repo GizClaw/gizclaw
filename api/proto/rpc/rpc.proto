@@ -173,4 +173,6 @@ enum RpcMethod {
   RPC_METHOD_SERVER_FRIEND_PING = 123 [(rpc_method) = { name: "server.friend.ping" request: "FriendPingRequest" response: "FriendPingResponse" }];
   RPC_METHOD_SERVER_FRIEND_GROUP_PING = 124 [(rpc_method) = { name: "server.friend_group.ping" request: "FriendGroupPingRequest" response: "FriendGroupPingResponse" }];
   RPC_METHOD_SERVER_PROFILE_GET = 125 [(rpc_method) = { name: "server.profile.get" request: "ProfileGetRequest" response: "ProfileGetResponse" }];
+  RPC_METHOD_EDGE_SOCIAL_PING_RELAY = 149 [(rpc_method) = { name: "edge.social.ping.relay" request: "SocialPingDeliveryRequest" response: "SocialPingDeliveryResponse" }];
+  RPC_METHOD_SERVER_SOCIAL_PING_DELIVER = 150 [(rpc_method) = { name: "server.social.ping.deliver" request: "SocialPingDeliveryRequest" response: "SocialPingDeliveryResponse" }];
 }

@@ -22,6 +22,8 @@ Code review should use these boundaries to determine whether changes are in the 
 
 The current code supports multiple configured authoritative Server upstreams and routes business HTTP requests by the API key owner's fixed Peer assignment. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities; Friend and Friend Group voice works across Servers through the shared Social KV and the SFU Workspace, see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
 
+Friend and Group pings route through trusted Edges to the owning Server and require a device ACK; see [social notifications](gizclaw/services/social#ping-and-rally).
+
 ## Runtime architecture
 
 ```mermaid

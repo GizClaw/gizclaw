@@ -1223,6 +1223,12 @@ export type ServerSetRunWorkspaceRequest = AgentSelection;
 export type ServerSetRunWorkspaceResponse = PeerRunWorkspaceState;
 export type ServerStopRunRequest = Record<string, never>;
 export type ServerStopRunResponse = PeerRunStatus;
+export type SocialPingDeliveryRequest = {
+  "target_peer_public_key": string;
+  "ping": ClientSocialPingRequest;
+  "deadline_unix_ms": number;
+};
+export type SocialPingDeliveryResponse = Record<string, never>;
 export type SpeakerHwdReadResponse = {
   "volume_percent"?: number;
   "muted"?: boolean;
@@ -1503,6 +1509,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.rpc.methods.list": "ClientRpcMethodsListRequest",
   "client.tool.v0.invoke": "ClientToolV0InvokeRequest",
   "client.tool.v0.list": "ClientToolV0ListRequest",
+  "edge.social.ping.relay": "SocialPingDeliveryRequest",
   "server.api_key.create": "APIKeyCreateRequest",
   "server.api_key.list": "APIKeyListRequest",
   "server.api_key.resolve": "ServerAPIKeyResolveRequest",
@@ -1564,6 +1571,7 @@ const REQUEST_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.set": "ServerSetRunWorkspaceRequest",
   "server.runtime.get": "ServerGetRuntimeRequest",
   "server.runtime.put": "ServerPutRuntimeRequest",
+  "server.social.ping.deliver": "SocialPingDeliveryRequest",
   "server.speech.extract": "SpeechExtractRequest",
   "server.speech.synthesize": "SpeechSynthesizeRequest",
   "server.speech.transcribe": "SpeechTranscribeRequest",
@@ -1594,6 +1602,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "client.rpc.methods.list": "ClientRpcMethodsListResponse",
   "client.tool.v0.invoke": "ClientToolV0InvokeResponse",
   "client.tool.v0.list": "ClientToolV0ListResponse",
+  "edge.social.ping.relay": "SocialPingDeliveryResponse",
   "server.api_key.create": "APIKeyCreateResponse",
   "server.api_key.list": "APIKeyListResponse",
   "server.api_key.resolve": "ServerAPIKeyResolveResponse",
@@ -1655,6 +1664,7 @@ const RESPONSE_PAYLOAD_MESSAGES: Record<string, string> = {
   "server.run.workspace.set": "ServerSetRunWorkspaceResponse",
   "server.runtime.get": "ServerGetRuntimeResponse",
   "server.runtime.put": "ServerPutRuntimeResponse",
+  "server.social.ping.deliver": "SocialPingDeliveryResponse",
   "server.speech.extract": "SpeechExtractResponse",
   "server.speech.synthesize": "SpeechSynthesizeResponse",
   "server.speech.transcribe": "SpeechTranscribeResponse",
@@ -6990,6 +7000,28 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "SocialPingDeliveryRequest": {
+    "fields": [
+      {
+        "name": "target_peer_public_key",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "ping",
+        "number": 2,
+        "type": "ClientSocialPingRequest"
+      },
+      {
+        "name": "deadline_unix_ms",
+        "number": 3,
+        "type": "int64"
+      }
+    ]
+  },
+  "SocialPingDeliveryResponse": {
+    "fields": []
+  },
   "SpeakerHwdReadResponse": {
     "fields": [
       {
@@ -8615,6 +8647,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "client_rpc_methods_list": 137,
       "client_tool_v0_invoke": 135,
       "client_tool_v0_list": 136,
+      "edge_social_ping_relay": 149,
       "server_api_key_create": 96,
       "server_api_key_list": 97,
       "server_api_key_resolve": 99,
@@ -8676,6 +8709,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "server_run_workspace_set": 12,
       "server_runtime_get": 7,
       "server_runtime_put": 112,
+      "server_social_ping_deliver": 150,
       "server_speech_extract": 94,
       "server_speech_synthesize": 92,
       "server_speech_transcribe": 91,
@@ -8788,7 +8822,9 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "136": "client_tool_v0_list",
       "137": "client_rpc_methods_list",
       "138": "server_firmware_metadata_get",
-      "139": "client_lua_app_install"
+      "139": "client_lua_app_install",
+      "149": "edge_social_ping_relay",
+      "150": "server_social_ping_deliver"
     }
   },
   "SocialPingResult": {

@@ -28,6 +28,7 @@ func newOrderedUpstreamTransport(ctx context.Context, cfg Config) (*orderedUpstr
 		return nil, err
 	}
 	transport := &orderedUpstreamTransport{entries: make([]*upstreamTransport, 0, len(upstreams))}
+	cfg.notifications = transport
 	for index, upstream := range upstreams {
 		entryConfig := cfg.withUpstream(upstream)
 		endpoint, err := upstreamConfigURL(upstream, fmt.Sprintf("upstreams[%d]", index))

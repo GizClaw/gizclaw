@@ -467,11 +467,110 @@ func (x *ServerAPIKeyResolveResponse) GetAssignment() *PeerAssignment {
 	return nil
 }
 
+// Internal notification delivery on authenticated Server/Edge connections.
+// Success means the target device acknowledged client.social.ping.
+type SocialPingDeliveryRequest struct {
+	state               protoimpl.MessageState   `protogen:"open.v1"`
+	TargetPeerPublicKey string                   `protobuf:"bytes,1,opt,name=target_peer_public_key,json=targetPeerPublicKey,proto3" json:"target_peer_public_key,omitempty"`
+	Ping                *ClientSocialPingRequest `protobuf:"bytes,2,opt,name=ping,proto3" json:"ping,omitempty"`
+	// One end-to-end deadline, preserved by the relay. Never queued or retried.
+	DeadlineUnixMs int64 `protobuf:"varint,3,opt,name=deadline_unix_ms,json=deadlineUnixMs,proto3" json:"deadline_unix_ms,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *SocialPingDeliveryRequest) Reset() {
+	*x = SocialPingDeliveryRequest{}
+	mi := &file_payload_edge_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialPingDeliveryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialPingDeliveryRequest) ProtoMessage() {}
+
+func (x *SocialPingDeliveryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_edge_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialPingDeliveryRequest.ProtoReflect.Descriptor instead.
+func (*SocialPingDeliveryRequest) Descriptor() ([]byte, []int) {
+	return file_payload_edge_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *SocialPingDeliveryRequest) GetTargetPeerPublicKey() string {
+	if x != nil {
+		return x.TargetPeerPublicKey
+	}
+	return ""
+}
+
+func (x *SocialPingDeliveryRequest) GetPing() *ClientSocialPingRequest {
+	if x != nil {
+		return x.Ping
+	}
+	return nil
+}
+
+func (x *SocialPingDeliveryRequest) GetDeadlineUnixMs() int64 {
+	if x != nil {
+		return x.DeadlineUnixMs
+	}
+	return 0
+}
+
+type SocialPingDeliveryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SocialPingDeliveryResponse) Reset() {
+	*x = SocialPingDeliveryResponse{}
+	mi := &file_payload_edge_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SocialPingDeliveryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SocialPingDeliveryResponse) ProtoMessage() {}
+
+func (x *SocialPingDeliveryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_edge_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SocialPingDeliveryResponse.ProtoReflect.Descriptor instead.
+func (*SocialPingDeliveryResponse) Descriptor() ([]byte, []int) {
+	return file_payload_edge_proto_rawDescGZIP(), []int{10}
+}
+
 var File_payload_edge_proto protoreflect.FileDescriptor
 
 const file_payload_edge_proto_rawDesc = "" +
 	"\n" +
-	"\x12payload/edge.proto\x12\x0egizclaw.rpc.v1\x1a\x13payload/enums.proto\"\xf4\x01\n" +
+	"\x12payload/edge.proto\x12\x0egizclaw.rpc.v1\x1a\x13payload/enums.proto\x1a\x14payload/social.proto\"\xf4\x01\n" +
 	"\x0ePeerAssignment\x12&\n" +
 	"\x0fpeer_public_key\x18\x01 \x01(\tR\rpeerPublicKey\x12*\n" +
 	"\x11server_public_key\x18\x02 \x01(\tR\x0fserverPublicKey\x12'\n" +
@@ -505,7 +604,12 @@ const file_payload_edge_proto_rawDesc = "" +
 	"\x1bServerAPIKeyResolveResponse\x12>\n" +
 	"\n" +
 	"assignment\x18\x01 \x01(\v2\x1e.gizclaw.rpc.v1.PeerAssignmentR\n" +
-	"assignmentB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"assignment\"\xb7\x01\n" +
+	"\x19SocialPingDeliveryRequest\x123\n" +
+	"\x16target_peer_public_key\x18\x01 \x01(\tR\x13targetPeerPublicKey\x12;\n" +
+	"\x04ping\x18\x02 \x01(\v2'.gizclaw.rpc.v1.ClientSocialPingRequestR\x04ping\x12(\n" +
+	"\x10deadline_unix_ms\x18\x03 \x01(\x03R\x0edeadlineUnixMs\"\x1c\n" +
+	"\x1aSocialPingDeliveryResponseB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_edge_proto_rawDescOnce sync.Once
@@ -519,7 +623,7 @@ func file_payload_edge_proto_rawDescGZIP() []byte {
 	return file_payload_edge_proto_rawDescData
 }
 
-var file_payload_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_payload_edge_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_payload_edge_proto_goTypes = []any{
 	(*PeerAssignment)(nil),              // 0: gizclaw.rpc.v1.PeerAssignment
 	(*ServerPeerLookupRequest)(nil),     // 1: gizclaw.rpc.v1.ServerPeerLookupRequest
@@ -530,19 +634,23 @@ var file_payload_edge_proto_goTypes = []any{
 	(*ServerRouteResolveResponse)(nil),  // 6: gizclaw.rpc.v1.ServerRouteResolveResponse
 	(*ServerAPIKeyResolveRequest)(nil),  // 7: gizclaw.rpc.v1.ServerAPIKeyResolveRequest
 	(*ServerAPIKeyResolveResponse)(nil), // 8: gizclaw.rpc.v1.ServerAPIKeyResolveResponse
-	(PeerRole)(0),                       // 9: gizclaw.rpc.v1.PeerRole
+	(*SocialPingDeliveryRequest)(nil),   // 9: gizclaw.rpc.v1.SocialPingDeliveryRequest
+	(*SocialPingDeliveryResponse)(nil),  // 10: gizclaw.rpc.v1.SocialPingDeliveryResponse
+	(PeerRole)(0),                       // 11: gizclaw.rpc.v1.PeerRole
+	(*ClientSocialPingRequest)(nil),     // 12: gizclaw.rpc.v1.ClientSocialPingRequest
 }
 var file_payload_edge_proto_depIdxs = []int32{
-	9, // 0: gizclaw.rpc.v1.PeerAssignment.role:type_name -> gizclaw.rpc.v1.PeerRole
-	0, // 1: gizclaw.rpc.v1.ServerPeerLookupResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
-	0, // 2: gizclaw.rpc.v1.ServerPeerAssignResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
-	0, // 3: gizclaw.rpc.v1.ServerRouteResolveResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
-	0, // 4: gizclaw.rpc.v1.ServerAPIKeyResolveResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	11, // 0: gizclaw.rpc.v1.PeerAssignment.role:type_name -> gizclaw.rpc.v1.PeerRole
+	0,  // 1: gizclaw.rpc.v1.ServerPeerLookupResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
+	0,  // 2: gizclaw.rpc.v1.ServerPeerAssignResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
+	0,  // 3: gizclaw.rpc.v1.ServerRouteResolveResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
+	0,  // 4: gizclaw.rpc.v1.ServerAPIKeyResolveResponse.assignment:type_name -> gizclaw.rpc.v1.PeerAssignment
+	12, // 5: gizclaw.rpc.v1.SocialPingDeliveryRequest.ping:type_name -> gizclaw.rpc.v1.ClientSocialPingRequest
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_payload_edge_proto_init() }
@@ -551,6 +659,7 @@ func file_payload_edge_proto_init() {
 		return
 	}
 	file_payload_enums_proto_init()
+	file_payload_social_proto_init()
 	file_payload_edge_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -558,7 +667,7 @@ func file_payload_edge_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_edge_proto_rawDesc), len(file_payload_edge_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

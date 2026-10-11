@@ -207,6 +207,8 @@ const (
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_PING                       RpcMethod = 123
 	RpcMethod_RPC_METHOD_SERVER_FRIEND_GROUP_PING                 RpcMethod = 124
 	RpcMethod_RPC_METHOD_SERVER_PROFILE_GET                       RpcMethod = 125
+	RpcMethod_RPC_METHOD_EDGE_SOCIAL_PING_RELAY                   RpcMethod = 149
+	RpcMethod_RPC_METHOD_SERVER_SOCIAL_PING_DELIVER               RpcMethod = 150
 )
 
 // Enum value maps for RpcMethod.
@@ -302,6 +304,8 @@ var (
 		123: "RPC_METHOD_SERVER_FRIEND_PING",
 		124: "RPC_METHOD_SERVER_FRIEND_GROUP_PING",
 		125: "RPC_METHOD_SERVER_PROFILE_GET",
+		149: "RPC_METHOD_EDGE_SOCIAL_PING_RELAY",
+		150: "RPC_METHOD_SERVER_SOCIAL_PING_DELIVER",
 	}
 	RpcMethod_value = map[string]int32{
 		"RPC_METHOD_UNSPECIFIED":                              0,
@@ -394,6 +398,8 @@ var (
 		"RPC_METHOD_SERVER_FRIEND_PING":                       123,
 		"RPC_METHOD_SERVER_FRIEND_GROUP_PING":                 124,
 		"RPC_METHOD_SERVER_PROFILE_GET":                       125,
+		"RPC_METHOD_EDGE_SOCIAL_PING_RELAY":                   149,
+		"RPC_METHOD_SERVER_SOCIAL_PING_DELIVER":               150,
 	}
 )
 
@@ -967,7 +973,7 @@ const file_rpc_proto_rawDesc = "" +
 	"\x14STATUS_CODE_INTERNAL\x10\r\x12\x1b\n" +
 	"\x17STATUS_CODE_UNAVAILABLE\x10\x0e\x12\x19\n" +
 	"\x15STATUS_CODE_DATA_LOSS\x10\x0f\x12\x1f\n" +
-	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x9aU\n" +
+	"\x1bSTATUS_CODE_UNAUTHENTICATED\x10\x10*\x9dW\n" +
 	"\tRpcMethod\x12\x1a\n" +
 	"\x16RPC_METHOD_UNSPECIFIED\x10\x00\x12\x83\x01\n" +
 	"!RPC_METHOD_CLIENT_LUA_APP_INSTALL\x10\x8b\x01\x1a[\xc2\xf3\x18W\n" +
@@ -1148,7 +1154,11 @@ const file_rpc_proto_rawDesc = "" +
 	"#RPC_METHOD_SERVER_FRIEND_GROUP_PING\x10|\x1aO\xc2\xf3\x18K\n" +
 	"\x18server.friend_group.ping\x12\x16FriendGroupPingRequest\x1a\x17FriendGroupPingResponse\x12b\n" +
 	"\x1dRPC_METHOD_SERVER_PROFILE_GET\x10}\x1a?\xc2\xf3\x18;\n" +
-	"\x12server.profile.get\x12\x11ProfileGetRequest\x1a\x12ProfileGetResponse:d\n" +
+	"\x12server.profile.get\x12\x11ProfileGetRequest\x1a\x12ProfileGetResponse\x12{\n" +
+	"!RPC_METHOD_EDGE_SOCIAL_PING_RELAY\x10\x95\x01\x1aS\xc2\xf3\x18O\n" +
+	"\x16edge.social.ping.relay\x12\x19SocialPingDeliveryRequest\x1a\x1aSocialPingDeliveryResponse\x12\x83\x01\n" +
+	"%RPC_METHOD_SERVER_SOCIAL_PING_DELIVER\x10\x96\x01\x1aW\xc2\xf3\x18S\n" +
+	"\x1aserver.social.ping.deliver\x12\x19SocialPingDeliveryRequest\x1a\x1aSocialPingDeliveryResponse:d\n" +
 	"\n" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

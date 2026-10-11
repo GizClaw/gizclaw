@@ -2048,6 +2048,28 @@ test("createPeerRPCClient calls generated typed RPC methods", async () => {
   ]);
 });
 
+test("internal social notification payloads preserve nested ping and deadline", () => {
+  for (const method of [
+    "edge.social.ping.relay",
+    "server.social.ping.deliver",
+  ] as const) {
+    const request = {
+      target_peer_public_key: "target",
+      ping: { from_peer_public_key: "sender", friend_group_name: "my-group" },
+      deadline_unix_ms: 1_800_000_000_123,
+    };
+    const decoded = decodeRPCRequestPayload(
+      method,
+      encodeRPCRequestPayload(method, request),
+    );
+    assert.deepEqual(decoded, request);
+    assert.deepEqual(
+      decodeRPCResponsePayload(method, encodeRPCResponsePayload(method, {})),
+      {},
+    );
+  }
+});
+
 test("createPeerRPCClient calls friend ping and profile methods", async () => {
   const calls: Array<{ method: string; params: unknown }> = [];
   const results: Record<string, unknown> = {

@@ -606,6 +606,8 @@ func (e RPCMethod) Valid() bool {
 	switch e {
 	case RPCMethodClientLuaAppInstall, RPCMethodClientToolV0Invoke, RPCMethodClientToolV0List, RPCMethodClientRPCMethodsList:
 		return true
+	case RPCMethodEdgeSocialPingRelay, RPCMethodServerSocialPingDeliver:
+		return true
 	case RPCMethodAllPing:
 		return true
 	case RPCMethodAllSpeedTestRun:
@@ -2131,6 +2133,11 @@ type StatusCode int
 
 // RPCMethod defines model for RPCMethod.
 type RPCMethod string
+
+const (
+	RPCMethodEdgeSocialPingRelay     RPCMethod = "edge.social.ping.relay"
+	RPCMethodServerSocialPingDeliver RPCMethod = "server.social.ping.deliver"
+)
 
 // RPCRequest defines model for RPCRequest.
 type RPCRequest struct {

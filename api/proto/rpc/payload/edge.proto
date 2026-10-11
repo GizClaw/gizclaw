@@ -5,6 +5,7 @@ syntax = "proto3";
 package gizclaw.rpc.v1;
 
 import "payload/enums.proto";
+import "payload/social.proto";
 
 option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
 
@@ -48,4 +49,16 @@ message ServerAPIKeyResolveRequest {
 
 message ServerAPIKeyResolveResponse {
   PeerAssignment assignment = 1;
+}
+
+// Internal notification delivery on authenticated Server/Edge connections.
+// Success means the target device acknowledged client.social.ping.
+message SocialPingDeliveryRequest {
+  string target_peer_public_key = 1;
+  ClientSocialPingRequest ping = 2;
+  // One end-to-end deadline, preserved by the relay. Never queued or retried.
+  int64 deadline_unix_ms = 3;
+}
+
+message SocialPingDeliveryResponse {
 }

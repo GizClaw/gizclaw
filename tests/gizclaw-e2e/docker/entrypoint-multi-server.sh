@@ -55,6 +55,7 @@ perl -0pi -e '
   s/(  friends:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/(  friend-groups:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/^services:\n/services:\n  sfu:\n    url: $ENV{GIZCLAW_E2E_LIVEKIT_URL}\n    api_key_file: $ENV{GIZCLAW_E2E_SFU_DIR}\/api_key\n    api_secret_file: $ENV{GIZCLAW_E2E_SFU_DIR}\/api_secret\n/m;
+  s/level: info/level: debug/ if $ENV{GIZCLAW_E2E_SOCIAL_PING_ONLY};
 ' "$config_file"
 
 if ! grep -q '^  sfu:$' "$config_file"; then

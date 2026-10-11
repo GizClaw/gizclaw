@@ -54,7 +54,7 @@ pkgs/gizclaw/
 | `ServicePeerOpenAI` | `0x02` | Expose OpenAI-compatible HTTP through Peer connection | Any connection identity |
 | `ServiceAdminHTTP` | `0x10` | Resource Management and Operation HTTP API | active `admin` Peer |
 | `ServiceEdgeHTTP` | `0x30` | Edge forwards public API requests to the authoritative Server | active `edge-node` Peer |
-| `ServiceEdgeRPC` | `0x31` | Edge queries Peer, allocates Peer and resolves routes | active `edge-node` Peer |
+| `ServiceEdgeRPC` | `0x31` | Edge lookup, assignment and routes; bidirectional internal social notifications | active `edge-node` on Server; configured Server on Edge |
 
 ```mermaid
 classDiagram
@@ -100,7 +100,7 @@ The "any connection identity" here is a service-level policy, not a `PeerRole`. 
 - **Peer OpenAI-compatible HTTP**: Place the OpenAI-compatible handler on an independent service stream and do not mix it with the bootstrap and signaling endpoints of Peer HTTP.
 - **Admin HTTP**: Provides the resource-management surface for a Peer with the active `admin` role. It covers RuntimeProfile, RegistrationToken, workflow, firmware, credential, model, AI tenant, workspace, Peer, and social resources; see [Peer Services](./peer/service/overview).
 - **Edge HTTP**: Edge uses the Peer identity of the incoming token to forward browser/device public API requests to the authoritative Server; it is not an Admin surface.
-- **Edge RPC**: Only three edge-node control methods `server.peer.lookup`, `server.peer.assign` and `server.route.resolve` are provided; see [Edge RPC](./rpc/edge) for implementation boundaries.
+- **Edge RPC**: Provides Peer assignment, route/API-key resolution and bidirectional internal social notification delivery; see [Edge RPC](./rpc/edge) for implementation boundaries.
 - **Edge tunnel namespace**: After an Edge transport is authenticated and
   activated, the Server registers `giznet/v2/tunnel/` on that physical
   PeerConnection. Canonical control labels declare logical client identity;

@@ -16,8 +16,8 @@ import (
 var ErrPingUnavailable = errors.New("social: ping delivery is not configured")
 
 // PingFriend pushes client.social.ping to the device of the caller's Friend
-// named req.Name. It never waits for an offline device: a Friend that is not
-// connected to this Server answers NOT_ONLINE at once. One ping per friend
+// named req.Name. Local and cross-Server targets share a bounded device ACK
+// deadline; an unreached Friend answers NOT_ONLINE. One ping per friend
 // pair per socialutil.PingWindow; both directions share the window, and a
 // ping that reaches no device does not consume it.
 func (s *Server) PingFriend(ctx context.Context, owner string, req rpcapi.FriendPingRequest) (rpcapi.FriendPingResponse, error) {
@@ -42,9 +42,6 @@ func (s *Server) PingFriend(ctx context.Context, owner string, req rpcapi.Friend
 	}
 	if remaining > 0 {
 		return friendPingRateLimited(remaining), nil
-	}
-	if !s.Pings.PeerOnline(target) {
-		return rpcapi.FriendPingResponse{Result: rpcapi.SocialPingResultNotOnline}, nil
 	}
 	request := rpcapi.ClientSocialPingRequest{FromPeerPublicKey: owner, FromDisplayName: s.pingDisplayName(ctx, owner)}
 	claim, remaining, claimed, err := socialutil.ClaimPingWindow(ctx, store, window, now)

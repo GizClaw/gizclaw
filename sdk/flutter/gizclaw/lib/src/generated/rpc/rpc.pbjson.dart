@@ -162,6 +162,8 @@ const RpcMethod$json = {
     {'1': 'RPC_METHOD_SERVER_FRIEND_PING', '2': 123, '3': {}},
     {'1': 'RPC_METHOD_SERVER_FRIEND_GROUP_PING', '2': 124, '3': {}},
     {'1': 'RPC_METHOD_SERVER_PROFILE_GET', '2': 125, '3': {}},
+    {'1': 'RPC_METHOD_EDGE_SOCIAL_PING_RELAY', '2': 149, '3': {}},
+    {'1': 'RPC_METHOD_SERVER_SOCIAL_PING_DELIVER', '2': 150, '3': {}},
   ],
 };
 
@@ -363,7 +365,12 @@ final $typed_data.Uint8List rpcMethodDescriptor = $convert.base64Decode(
     'RfR1JPVVBfUElORxB8Gk/C8xhLChhzZXJ2ZXIuZnJpZW5kX2dyb3VwLnBpbmcSFkZyaWVuZEdy'
     'b3VwUGluZ1JlcXVlc3QaF0ZyaWVuZEdyb3VwUGluZ1Jlc3BvbnNlEmIKHVJQQ19NRVRIT0RfU0'
     'VSVkVSX1BST0ZJTEVfR0VUEH0aP8LzGDsKEnNlcnZlci5wcm9maWxlLmdldBIRUHJvZmlsZUdl'
-    'dFJlcXVlc3QaElByb2ZpbGVHZXRSZXNwb25zZQ==');
+    'dFJlcXVlc3QaElByb2ZpbGVHZXRSZXNwb25zZRJ7CiFSUENfTUVUSE9EX0VER0VfU09DSUFMX1'
+    'BJTkdfUkVMQVkQlQEaU8LzGE8KFmVkZ2Uuc29jaWFsLnBpbmcucmVsYXkSGVNvY2lhbFBpbmdE'
+    'ZWxpdmVyeVJlcXVlc3QaGlNvY2lhbFBpbmdEZWxpdmVyeVJlc3BvbnNlEoMBCiVSUENfTUVUSE'
+    '9EX1NFUlZFUl9TT0NJQUxfUElOR19ERUxJVkVSEJYBGlfC8xhTChpzZXJ2ZXIuc29jaWFsLnBp'
+    'bmcuZGVsaXZlchIZU29jaWFsUGluZ0RlbGl2ZXJ5UmVxdWVzdBoaU29jaWFsUGluZ0RlbGl2ZX'
+    'J5UmVzcG9uc2U=');
 
 @$core.Deprecated('Use rpcResponseDescriptor instead')
 const RpcResponse$json = {

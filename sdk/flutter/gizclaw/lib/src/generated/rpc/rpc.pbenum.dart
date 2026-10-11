@@ -292,6 +292,10 @@ class RpcMethod extends $pb.ProtobufEnum {
       124, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_FRIEND_GROUP_PING');
   static const RpcMethod RPC_METHOD_SERVER_PROFILE_GET =
       RpcMethod._(125, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_PROFILE_GET');
+  static const RpcMethod RPC_METHOD_EDGE_SOCIAL_PING_RELAY = RpcMethod._(
+      149, _omitEnumNames ? '' : 'RPC_METHOD_EDGE_SOCIAL_PING_RELAY');
+  static const RpcMethod RPC_METHOD_SERVER_SOCIAL_PING_DELIVER = RpcMethod._(
+      150, _omitEnumNames ? '' : 'RPC_METHOD_SERVER_SOCIAL_PING_DELIVER');
 
   static const $core.List<RpcMethod> values = <RpcMethod>[
     RPC_METHOD_UNSPECIFIED,
@@ -384,6 +388,8 @@ class RpcMethod extends $pb.ProtobufEnum {
     RPC_METHOD_SERVER_FRIEND_PING,
     RPC_METHOD_SERVER_FRIEND_GROUP_PING,
     RPC_METHOD_SERVER_PROFILE_GET,
+    RPC_METHOD_EDGE_SOCIAL_PING_RELAY,
+    RPC_METHOD_SERVER_SOCIAL_PING_DELIVER,
   ];
 
   static final $core.Map<$core.int, RpcMethod> _byValue =

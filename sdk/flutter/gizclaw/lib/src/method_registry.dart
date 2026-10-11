@@ -549,6 +549,18 @@ const rpcMethodsByName = <String, RpcMethodDescriptor>{
     requestType: 'ProfileGetRequest',
     responseType: 'ProfileGetResponse',
   ),
+  'edge.social.ping.relay': RpcMethodDescriptor(
+    id: 149,
+    name: 'edge.social.ping.relay',
+    requestType: 'SocialPingDeliveryRequest',
+    responseType: 'SocialPingDeliveryResponse',
+  ),
+  'server.social.ping.deliver': RpcMethodDescriptor(
+    id: 150,
+    name: 'server.social.ping.deliver',
+    requestType: 'SocialPingDeliveryRequest',
+    responseType: 'SocialPingDeliveryResponse',
+  ),
 };
 
 const rpcMethodNamesById = <int, String>{
@@ -641,6 +653,8 @@ const rpcMethodNamesById = <int, String>{
   123: 'server.friend.ping',
   124: 'server.friend_group.ping',
   125: 'server.profile.get',
+  149: 'edge.social.ping.relay',
+  150: 'server.social.ping.deliver',
 };
 
 RpcMethodDescriptor rpcMethodByName(String name) {

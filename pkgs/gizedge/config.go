@@ -28,6 +28,7 @@ type Config struct {
 	WebRTC           WebRTCConfig
 	Upstreams        []UpstreamConfig
 	selectedUpstream UpstreamConfig
+	notifications    *orderedUpstreamTransport
 	HTTP             HTTPConfig
 	TURN             TURNConfig
 	Gateway          GatewayConfig

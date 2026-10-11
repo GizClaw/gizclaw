@@ -102,7 +102,7 @@ RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，
 | `0x10` | `ServiceAdminHTTP` | Admin HTTP API。 |
 | `0x20` | `EventStreamAgent` | 长期双向 Peer Event Stream；名称为兼容标识。 |
 | `0x30` | `ServiceEdgeHTTP` | Edge-node HTTP forwarding。 |
-| `0x31` | `ServiceEdgeRPC` | Edge-node control RPC。 |
+| `0x31` | `ServiceEdgeRPC` | Edge-node 路由控制 RPC；配置上游 Server 与 active Edge 的双向内部社交通知。 |
 
 ### Gateway native channels
 

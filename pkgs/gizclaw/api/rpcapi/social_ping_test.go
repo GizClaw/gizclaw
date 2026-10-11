@@ -12,9 +12,11 @@ func TestSocialPingAndProfileMethodRegistry(t *testing.T) {
 		id                int32
 		request, response string
 	}{
-		RPCMethodServerFriendPing:      {123, "FriendPingRequest", "FriendPingResponse"},
-		RPCMethodServerFriendGroupPing: {124, "FriendGroupPingRequest", "FriendGroupPingResponse"},
-		RPCMethodServerProfileGet:      {125, "ProfileGetRequest", "ProfileGetResponse"},
+		RPCMethodServerFriendPing:        {123, "FriendPingRequest", "FriendPingResponse"},
+		RPCMethodServerFriendGroupPing:   {124, "FriendGroupPingRequest", "FriendGroupPingResponse"},
+		RPCMethodServerProfileGet:        {125, "ProfileGetRequest", "ProfileGetResponse"},
+		RPCMethodEdgeSocialPingRelay:     {149, "SocialPingDeliveryRequest", "SocialPingDeliveryResponse"},
+		RPCMethodServerSocialPingDeliver: {150, "SocialPingDeliveryRequest", "SocialPingDeliveryResponse"},
 	}
 	for method, tc := range want {
 		if !method.Valid() {
