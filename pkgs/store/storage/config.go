@@ -1,5 +1,7 @@
 package storage
 
+import "time"
+
 // Kind constants identify concrete physical storage backends in external
 // configuration. Programmatic callers select a backend with the matching
 // concrete Config implementation instead of setting a Kind field.
@@ -53,9 +55,14 @@ type SQLiteConfig struct {
 
 func (SQLiteConfig) storageKind() string { return KindSQLite }
 
-// PostgreSQLConfig configures one PostgreSQL connection pool.
+// PostgreSQLConfig configures one PostgreSQL connection pool. The pool keeps
+// up to MaxOpenConns idle sessions for reuse and releases idle sessions after
+// ConnMaxIdleTime. Zero values select 128 connections and one minute; negative
+// values are invalid. Additional connections are opened on demand.
 type PostgreSQLConfig struct {
-	DSN string
+	DSN             string
+	MaxOpenConns    int
+	ConnMaxIdleTime time.Duration
 }
 
 func (PostgreSQLConfig) storageKind() string { return KindPostgreSQL }

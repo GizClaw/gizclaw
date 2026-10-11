@@ -44,6 +44,31 @@ GIZCLAW_TEST_PG_LOG_EVIDENCE="$(mktemp -d)" GIZCLAW_TEST_PG_LOG_DELAY_MS=5 \
 
 `summary.json` 保存全部写入计数、吞吐和 Append 延迟，`locks.json` 保存 `pg_stat_activity`、等待类型与 blocker PID 样本。设置 `GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE` 可保留 giztest 报告和 runner 日志。所有数据均为本地合成输入；日志与报告不得提交到仓库。
 
+## PostgreSQL run-state 与输入权限
+
+```sh
+npm ci && npm run build:console
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/ncnn/models/**'
+bash tests/gizclaw-e2e/run_run_state_tests.sh
+```
+
+将 `<os>-<arch>` 替换为宿主平台。入口需要 Go、Docker、Python 3 和 OpenSSL；使用固定 digest 的 PostgreSQL 17，限制为 4 CPU / 1 GiB、256 MiB tmpfs 和 300 个连接，仅在回环地址监听，启用 TLS 与 SCRAM。测试不读取云模型凭据，不接触部署状态。ASR 从真实上行音频生成固定 transcript，Eino Graph 回显文本，TTS 输出有效 Opus；Server、WebRTC、Go Giztest、PG runtime/metadata 和输入权限调用链使用被测实现。临时 schema、Server、Peer 与本次容器在结束时清理，证据保留在 ignored `.testbench/run-state-*`，也可通过第一个参数选择证据目录。
+
+默认 64 个不同公钥各完成初始语音、12 秒后台刷新窗口、再次语音和另一个 Workspace 的切换后语音。`GIZCLAW_TEST_RUN_STATE_CONCURRENCY` 接受 2–128；`GIZCLAW_TEST_RUN_STATE_SETTLE=70s` 延长结束后观察，检查默认空闲连接回收与协程收敛。测试保留生产的 2 秒权限预算与 5 秒刷新周期，要求文本/音频 EOS 和非空音频，数据库失败继续拒绝输入。
+
+同一二进制依次执行无注入 `natural` 和 `slow-connect` 因果对照。后者先让池承接一次并发突发，再通过 TCP 代理给新连接在 TLS/认证之前增加固定 2.5 秒延迟；已有连接、SQL、取消连接均不延迟。这个控制用于证明建连尾延迟与连接复用的关系，不是生产延迟、容量或地域差异的估计。
+
+设置 `GIZCLAW_TEST_RUN_STATE_BASE_REF=v0.29.4` 可以只用该 ref 的 `newPostgreSQL` factory 编译基线，其他源码与夹具保持相同；它不是运行完整旧 release。分别为基线和修复版本保存不同目录，基线的负向控制可返回非零状态。报告保存源码、二进制 SHA-256、实际文档、全部步骤/finally、权限 stage 日志、每 20ms 的 DBStats/协程数、PG backend/锁样本、`pg_stat_statements` 和 driver 建连/SQL/Rows/Tx 时序。driver observer 保留当前 pq 的 `Driver.Open` contract，不替换 SQL 或超时返回。`analysis.json` 区分失败任务与重复日志；采样未见锁等待不等于证明从未等待。
+
+已有配置 `max_connections=300` 的本地 `GIZCLAW_TEST_POSTGRES_DSN` 时，可以运行以下连接复用、容量等待、取消、Rows/Tx 归还和空闲回收回归。连接复用回归会同时持有默认池的 128 条连接，再检查后续突发是否复用同一组 PostgreSQL backend：
+
+```sh
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/store-e2e
+go test -count=1 -run '^TestPostgreSQLInputPermission' ./pkgs/gizclaw
+```
+
+输入权限回归使用真实 PG 与确定性 Social binding，覆盖普通语音边界、SFU 后台撤权及真实 PG 表锁超时后的拒绝和恢复。它不代替真实 SFU 媒体转发、远程模型或物理设备验收。
+
 ## API Key 与设备标识数量限制
 
 `bash tests/gizclaw-e2e/run_resource_limit_tests.sh` 构建四种 runner 并运行完整数量限制 lane。
