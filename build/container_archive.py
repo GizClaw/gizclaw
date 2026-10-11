@@ -125,9 +125,12 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
     archive_index_digest = None
     if "index.json" in documents:
         index = parse_json(documents["index.json"])
-        require(index["schemaVersion"] == 2 and len(index["manifests"]) == 1,
-                "OCI archive must name exactly one image")
-        root = index["manifests"][0]
+        require(index["schemaVersion"] == 2 and len(index["manifests"]) > 0, "invalid OCI archive index")
+        named = [item for item in index["manifests"] if
+                 "io.containerd.image.name" in item.get("annotations", {}) or
+                 "org.opencontainers.image.ref.name" in item.get("annotations", {})]
+        require(len(named) == 1, "OCI archive must name exactly one image")
+        root = named[0]
         annotations = root.get("annotations", {})
         if "io.containerd.image.name" in annotations:
             require(annotations["io.containerd.image.name"] == "docker.io/library/" + expected["image_reference"],
@@ -156,8 +159,10 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
             node = document(descriptor)
             require(node["schemaVersion"] == 2, "invalid OCI schema")
             annotation = descriptor.get("annotations", {})
-            if annotation.get("vnd.docker.reference.type") == "attestation-manifest":
-                require(descriptor.get("platform") == {"os": "unknown", "architecture": "unknown"},
+            if (annotation.get("vnd.docker.reference.type") == "attestation-manifest" or
+                    "io.containerd.manifest.subject" in annotation):
+                require(descriptor.get("platform", {"os": "unknown", "architecture": "unknown"}) ==
+                        {"os": "unknown", "architecture": "unknown"},
                         "attestation must declare an unknown platform")
                 attestations.append((descriptor, node))
             elif "manifests" in node:
@@ -172,7 +177,8 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
 
         if "manifests" in document(root):
             archive_index_digest = root["digest"]
-        walk(root, 0)
+        for descriptor in index["manifests"]:
+            walk(descriptor, 0)
         require(len(leaves) == 1, "OCI archive must contain one runnable platform image")
         descriptor, node = leaves[0]
         archive_manifest_digest = descriptor["digest"]
@@ -181,7 +187,9 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
                 [verify_blob(item) for item in node["layers"]] == layers,
                 "OCI and Docker archive identities differ")
         for descriptor, node in attestations:
-            require(descriptor["annotations"].get("vnd.docker.reference.digest") == archive_manifest_digest,
+            bindings = [value for field, value in descriptor["annotations"].items()
+                        if field in ("vnd.docker.reference.digest", "io.containerd.manifest.subject")]
+            require(len(bindings) > 0 and all(value == archive_manifest_digest for value in bindings),
                     "attestation is not bound to the runnable image")
             attestation_config = document(node["config"])
             attestation_layers = [verify_blob(item) for item in node["layers"]]

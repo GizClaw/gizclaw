@@ -60,7 +60,7 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
                     index = {"schemaVersion": 2, "manifests": [{"digest": "sha256:" + oci_digest,
                              "size": len(oci_manifest), "annotations": {
                                  "io.containerd.image.name": "docker.io/library/" + expected["image_reference"]}}]}
-                    if layout == "containerd-index":
+                    if layout in ("containerd-index", "containerd-referrer"):
                         statement = {"_type": "https://in-toto.io/Statement/v1", "predicateType": "https://slsa.dev/provenance/v1",
                                      "subject": [{"name": "image", "digest": {"sha256": oci_digest}}]}
                         if attestation_case == "subject":
@@ -91,6 +91,13 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
                         inner_index = json.dumps({"schemaVersion": 2, "manifests": [runnable, att_descriptor]}).encode()
                         inner_digest = hashlib.sha256(inner_index).hexdigest()
                         index["manifests"][0].update(digest="sha256:" + inner_digest, size=len(inner_index))
+                        if layout == "containerd-referrer":
+                            att_descriptor["annotations"] = {"io.containerd.manifest.subject": "sha256:" + oci_digest}
+                            att_descriptor.pop("platform")
+                            if attestation_case == "target":
+                                att_descriptor["annotations"]["io.containerd.manifest.subject"] = "sha256:" + "0" * 64
+                            index["manifests"].append(att_descriptor)
+                            index["manifests"][0].update(digest="sha256:" + oci_digest, size=len(oci_manifest))
                         members.extend([("blobs/sha256/" + statement_digest, statement_bytes),
                                         ("blobs/sha256/" + att_config_digest, att_config_bytes),
                                         ("blobs/sha256/" + att_digest, att_manifest),
@@ -119,7 +126,7 @@ class ArchiveTest(unittest.TestCase):
         return contract.inspect_archive(make_archive(self.directory, **kwargs), component, TAG, COMMIT, arch)
 
     def test_classic_and_containerd_layouts(self):
-        for layout in ("classic", "containerd", "containerd-index"):
+        for layout in ("classic", "containerd", "containerd-index", "containerd-referrer"):
             for component in ("runtime", "mem0"):
                 for arch in ("amd64", "arm64"):
                     with self.subTest(layout=layout, component=component, arch=arch):
@@ -157,6 +164,12 @@ class ArchiveTest(unittest.TestCase):
         for case in ("subject", "target", "platform", "config"):
             with self.subTest(case=case), self.assertRaises(ValueError):
                 self.inspect(layout="containerd-index", attestation_case=case)
+
+    def test_subject_bound_referrers(self):
+        self.inspect(layout="containerd-referrer")
+        for case in ("subject", "target", "config"):
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                self.inspect(layout="containerd-referrer", attestation_case=case)
 
     def test_wrong_manifest_or_layer(self):
         mutations = [lambda m: m.append(copy.deepcopy(m[0])),
