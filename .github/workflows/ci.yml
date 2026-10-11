@@ -75,7 +75,12 @@ jobs:
           build/build-runtime-image.sh
           build/check-runtime-image.sh
           build/runtime-entrypoint.sh
-          build/publish-runtime-image.sh
+          build/package-container-image.sh
+          build/build-container-receipt.sh
+          build/check-container-archive.sh
+          build/reuse-container-archive.sh
+          build/build-mem0.sh
+          build/check-mem0-image.sh
           build/check-container-receipt.sh
           build/check-release-source.sh
           build/build-terraform-provider.sh
@@ -156,7 +161,10 @@ jobs:
             --source-commit "$source_commit" \
             --architecture amd64
           build/build-runtime-image.sh "$package" 0.0.0 "$source_commit" "$source_epoch" amd64
-          build/check-runtime-image.sh "gizclaw-runtime:${source_commit}-amd64" 0.0.0 "$source_commit" amd64 "$(sha256sum "$BINARY" | cut -d ' ' -f1)"
+          mkdir -p .tmp/release
+          cp "$package" .tmp/release/
+          build/package-container-image.sh runtime "gizclaw-runtime:${source_commit}-amd64" .tmp/release .tmp/container-metadata v0.0.0 "$source_commit" amd64
+          build/check-container-archive.sh .tmp/container-metadata/container-runtime-amd64.json v0.0.0 "$source_commit" .tmp/release
 
   runtime-arm64:
     name: Production Runtime (arm64)
@@ -196,7 +204,40 @@ jobs:
             --source-epoch "$source_epoch" --architecture arm64 --output "$package"
           build/check-deb.sh --package "$package" --version 0.0.0 --source-commit "$source_commit" --architecture arm64
           build/build-runtime-image.sh "$package" 0.0.0 "$source_commit" "$source_epoch" arm64
-          build/check-runtime-image.sh "gizclaw-runtime:${source_commit}-arm64" 0.0.0 "$source_commit" arm64 "$(sha256sum "$BINARY" | cut -d ' ' -f1)"
+          mkdir -p .tmp/release
+          cp "$package" .tmp/release/
+          build/package-container-image.sh runtime "gizclaw-runtime:${source_commit}-arm64" .tmp/release .tmp/container-metadata v0.0.0 "$source_commit" arm64
+          build/check-container-archive.sh .tmp/container-metadata/container-runtime-arm64.json v0.0.0 "$source_commit" .tmp/release
+
+  mem0-image:
+    name: Mem0 Image Archive (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - name: Test, export, load and run the delivered image format
+        env:
+          SOURCE_COMMIT: ${{ github.sha }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          TARGET=test PLATFORM="linux/$ARCH" IMAGE=mem0-contract-test build/build-mem0.sh
+          docker run --rm mem0-contract-test --help
+          image="gizclaw-mem0:${SOURCE_COMMIT}-${ARCH}"
+          PLATFORM="linux/$ARCH" IMAGE="$image" BUILD_VERSION=0.0.0 BUILD_COMMIT="$SOURCE_COMMIT" build/build-mem0.sh
+          build/package-container-image.sh mem0 "$image" .tmp/release .tmp/container-metadata v0.0.0 "$SOURCE_COMMIT" "$ARCH"
+          build/check-container-archive.sh ".tmp/container-metadata/container-mem0-${ARCH}.json" v0.0.0 "$SOURCE_COMMIT" .tmp/release
 
   quality:
     name: Quality

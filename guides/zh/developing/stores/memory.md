@@ -114,6 +114,9 @@ PYTHONPATH=cmd/mem0 .tmp/mem0-venv/bin/python -m gizclaw_mem0 \
 容器示例在仓库根目录执行，沿用已注入的凭据；连接托管 PG 时数据库数据与向量索引
 保存在 PG，本地 `/data` 保存 SDK 的 SQLite history。该 volume 应持久化：
 
+正式 Release 的 Mem0 镜像通过 GitHub Release 归档交付；按[容器镜像](../../using/container#选择与校验-release)
+选择 component `mem0` 和主机架构，校验后 `docker load`。以下命令演示本地源码构建。
+
 ```sh
 PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh
 # 国内依赖源：同一应用 Dockerfile，选择 CN base

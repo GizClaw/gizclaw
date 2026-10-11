@@ -7,7 +7,7 @@ ARG CREATED
 LABEL org.opencontainers.image.title="GizClaw" \
       org.opencontainers.image.description="GizClaw Server and CLI" \
       org.opencontainers.image.source="https://github.com/GizClaw/gizclaw" \
-      org.opencontainers.image.url="https://github.com/orgs/GizClaw/packages/container/package/gizclaw" \
+      org.opencontainers.image.url="https://github.com/GizClaw/gizclaw/releases" \
       org.opencontainers.image.documentation="https://github.com/GizClaw/gizclaw/blob/main/guides/en/using/container.md" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
       org.opencontainers.image.version="${VERSION}" \

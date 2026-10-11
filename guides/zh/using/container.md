@@ -1,24 +1,38 @@
 # 容器镜像
 
-正式 Release 提供 `ghcr.io/gizclaw/gizclaw:vMAJOR.MINOR.PATCH`，支持
-`linux/amd64` 与 `linux/arm64`。镜像包含 GizClaw 程序及其运行库、系统 CA 和 curl。
+正式 Release 为 Runtime 和 Mem0 各提供 `linux/amd64`、`linux/arm64` 的 Docker save
+gzip 镜像包。Runtime 包含 GizClaw 程序及运行库、系统 CA 和 curl。
 Mem0、LiveKit、数据库独立运行；生产可以连接托管 PostgreSQL。
 
 ## 选择与校验 Release
 
 下载所选 Release 的文件，按[仓库发布](../developing/tooling#仓库发布)校验
-`SHA256SUMS`、`release-manifest.json`，然后取得不可变镜像引用：
+`SHA256SUMS`、schema 8 `release-manifest.json` 和 source commit。然后按主机架构
+选择 schema 2 `container-image.json` 中的归档，校验并加载：
 
 ```sh
-export GIZCLAW_IMAGE="$(jq -er .reference container-image.json)"
-docker pull "$GIZCLAW_IMAGE"
-docker run --rm "$GIZCLAW_IMAGE" --version
-docker run --rm "$GIZCLAW_IMAGE" --help
+arch=amd64 # arm64 主机设为 arm64
+entry="$(jq -ce --arg arch "$arch" '.images[] | select(.component == "runtime" and .architecture == $arch)' container-image.json)"
+archive="$(jq -er .name <<<"$entry")"
+printf '%s  %s\n' "$(jq -er .sha256 <<<"$entry")" "$archive" | sha256sum --check
+docker load --input "$archive"
+reference="$(jq -er .image_reference <<<"$entry")"
+export GIZCLAW_IMAGE="$(docker image inspect --format '{{.Id}}' "$reference")"
+jq -e --arg id "$GIZCLAW_IMAGE" '$id == .config_digest or $id == .archive_manifest_digest' <<<"$entry"
+docker image inspect "$GIZCLAW_IMAGE" | jq -e --arg arch "$arch" \
+  --arg version "$(jq -er .version <<<"$entry")" --arg commit "$(jq -er .source_commit <<<"$entry")" '
+  .[0] | .Os == "linux" and .Architecture == $arch and
+  .Config.Labels["org.opencontainers.image.version"] == $version and
+  .Config.Labels["org.opencontainers.image.revision"] == $commit'
+docker run --rm --pull never "$GIZCLAW_IMAGE" --version
+docker run --rm --pull never "$GIZCLAW_IMAGE" --help
 ```
 
-Compose 固定 index digest，Docker 自动选择主机架构。OCI metadata 与 receipt 绑定
-版本和源码 commit；receipt 还提供各平台镜像 digest 与程序 SHA-256。Package 为 public，
-拉取无需登录。发布流程及首次包可见性见 [GHCR 运行镜像](../developing/tooling#ghcr-运行镜像)。
+加载后的 tag 为 `gizclaw-runtime:<tag>-<arch>`；运行和 Compose 固定经验证的本地
+image ID。归档 SHA256 与 image ID 是不同身份，不作为 registry digest 使用。
+Mem0 选择 `.component == "mem0"` 并采用相同校验和加载步骤，配置与运行见
+[自托管 Mem0](../developing/stores/memory#自托管-mem0-服务)。完整文件命名、清单字段
+及下游消费契约见[容器镜像归档](../developing/tooling#容器镜像归档)。
 
 ## Workspace 与配置
 
@@ -50,7 +64,8 @@ identity、admin public key 和 PostgreSQL DSN。下例采用上述默认 listen
 ```yaml
 services:
   gizclaw:
-    image: ${GIZCLAW_IMAGE:?set the Release index digest reference}
+    image: ${GIZCLAW_IMAGE:?set the verified local image ID}
+    pull_policy: never
     init: true
     restart: unless-stopped
     stop_grace_period: 30s
@@ -88,16 +103,20 @@ volumes:
 
 ## 本地验证
 
-Linux 原生 CI 为两个架构从源码构建，执行与 Release 相同的运行 gate。
+Linux 原生 CI 为两个架构从源码构建，执行与 Release 相同的归档与运行 gate。
 对已校验 package 复现：
 
 ```sh
+mkdir -p .tmp/container-assets
+cp "$PACKAGE" ".tmp/container-assets/gizclaw_${VERSION}_${ARCH}.deb"
 build/build-runtime-image.sh "$PACKAGE" "$VERSION" "$SOURCE_COMMIT" "$SOURCE_EPOCH" "$ARCH"
-build/check-runtime-image.sh "gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}" \
-  "$VERSION" "$SOURCE_COMMIT" "$ARCH" "$BINARY_SHA256"
+build/package-container-image.sh runtime "gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}" \
+  .tmp/container-assets .tmp/container-metadata "v$VERSION" "$SOURCE_COMMIT" "$ARCH"
+build/check-container-archive.sh ".tmp/container-metadata/container-runtime-${ARCH}.json" \
+  "v$VERSION" "$SOURCE_COMMIT" .tmp/container-assets
 ```
 
-Gate 使用临时配置和独立 volume，无需 provider credential，退出时清理容器与
-volume。验证 CLI、运行库、CA、非 root 执行、配置与数据挂载、健康检查、数据与
-identity 跨重启保留、并发 workspace 拒绝、优雅停止与强制停止恢复。发布后在两个原生 runner 上按 digest 匿名拉取，
-重新执行这些验证。
+Gate 校验压缩文件与 image ID，再 `docker load` 实际交付包。运行验证使用临时配置与
+独立 volume，无需 provider credential，退出时清理容器与 volume。保留 CLI、运行库、
+CA、非 root、配置与数据挂载、健康检查、数据与 identity 跨重启保留、并发 workspace
+拒绝、优雅停止与强制停止恢复。正式发布前还在两个新的原生 runner 上加载并重复验收。

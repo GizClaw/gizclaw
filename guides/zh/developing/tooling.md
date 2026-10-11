@@ -105,21 +105,18 @@ prerelease Release。push `main` 不会构建或发布 Release。
 
 每个 Release 严格包含两个 Debian package、四个 Terraform provider 包、一个独立 C SDK
 源码包及其 checksum sidecar、两个 Flutter SDK hosted pub 包、两个 npm SDK 包、`release-manifest.json` 和
-`SHA256SUMS`，加上容器 receipt `container-image.json`，共十五个文件，不发布
+`SHA256SUMS`，加上容器交付清单 `container-image.json` 与四个镜像压缩包，共十九个文件，不发布
 Linux raw executable。Debian package 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得
 `<version>`。平台无关的源码 payload 命名为 `gizclaw-c-sdk-<version>.tar.gz`，相邻的
 `.sha256` 保存该源码包的 digest 与规范文件名。Terraform provider 包命名为
 `terraform-provider-gizclaw_<version>_{darwin,linux}_{amd64,arm64}.zip`，provider 版本与
 Release 版本相同；安装与使用见 [Terraform Provider](/zh/using/terraform)。
 
-Mem0 服务另以 GHCR Docker package 发布：`ghcr.io/gizclaw/gizclaw-mem0:<tag>`，
-包含 Linux amd64/arm64，架构 tag 为 `<tag>-amd64` 与 `<tag>-arm64`。镜像来自同一
-source commit，OCI label 记录 Release version/revision；构建文件为
-`build/mem0/Dockerfile`，Python 入口为 `cmd/mem0/gizclaw_mem0`。服务的测试 target
-通过后才构建 runtime 镜像。此 package 在 protected SemVer Release 成功后发布，
-不加入 Release 的十四个文件或 `release-manifest.json`。重新运行仅接受 source/version
-相同的架构镜像和 digest/platform 相同的 multiarch tag；不覆盖已有版本。GHCR 发布
-失败会使 workflow 失败，已创建的 Release 可在重跑时通过原有完整性校验后继续发布。
+Runtime 与 Mem0 各交付 `linux/amd64`、`linux/arm64` 两个独立的 Docker save gzip
+镜像包；四个包均为正式 Release assets，必须生成并验证成功后才能发布 Release。
+Mem0 使用同一 source commit，OCI label 记录 Release version/revision；构建文件为
+`build/mem0/Dockerfile`，Python 入口为 `cmd/mem0/gizclaw_mem0`。原生 runner 先执行
+`test` target，再导出并加载 `runtime` 镜像，校验版本、CLI 与非 root Python 服务入口。
 使用方法见[自托管 Mem0 服务](./stores/memory#自托管-mem0-服务)。
 
 `build/build-mem0.sh [cn]` 选择 `build/mem0/Dockerfile.base` 或
@@ -191,15 +188,15 @@ module `gizclaw_c_sdk`、版本与 source commit；`dart-package` entry 绑定 p
 版本与 source commit；`npm-package` entry 绑定完整 scoped npm 包名、版本与 source commit；Debian entry 还绑定 package metadata
 与 `/usr/bin/gizclaw`；`terraform-provider` entry 还绑定 provider `gizclaw`、版本与 zip 内的
 可执行文件名。Formal rerun 只有在现有 published Release 的 metadata 与
-全部十五个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
+全部十九个下载文件逐字节一致时才是 idempotent success。首次上传失败留下的 exact-tag
 draft 也必须通过相同的 metadata、inventory、digest 与逐字节校验，workflow 才会发布
 同一个 draft。Partial、tag moved、重复 exact-tag Release 或任何 mismatch 都会 fail
 closed；workflow 从不删除、替换或覆盖已发布的 SemVer Release。下游 Homebrew 与 APT
 channel 各自负责签名、托管、保留策略和 live installation acceptance。
 
-`release-manifest.json` 使用 `schema_version: 7`，`assets` 必须包含 12 个 payload，
+`release-manifest.json` 使用 `schema_version: 8`，`assets` 必须包含 16 个 payload，
 按名称以 `LC_ALL=C` 排序。加上 C SDK `.sha256` sidecar、manifest 与 `SHA256SUMS`，
-Release 文件总数为 15。消费者必须显式校验 schema 7 和完整资产集合；不同 schema 的资产集合
+Release 文件总数为 19。消费者必须显式校验 schema 8 和完整资产集合；不同 schema 的资产集合
 不可混用。npm entry 只有以下字段：
 
 | 字段 | 类型与约束 |
@@ -216,38 +213,68 @@ Release 文件总数为 15。消费者必须显式校验 schema 7 和完整资�
 交叉校验。npm entry 不含 `os`、`architecture`、`module`、`installed_path`、`provider`
 或 `executable`。
 
-### GHCR 运行镜像
+### 容器镜像归档
 
-正式 tag 的 Linux jobs 从同一份通过 Debian 校验的 package 构建
-`build/gizclaw/Dockerfile.runtime`，不再次编译可执行程序。固定 Ubuntu 24.04 base index，
-安装 package 声明的 shared libraries、系统 CA 与 curl；镜像以 UID/GID 10001 运行。
-Mem0、LiveKit 与 PostgreSQL 由外部服务提供。启动、挂载与 Compose 示例见
+Runtime 从同一份通过 Debian 校验的 package 构建 `build/gizclaw/Dockerfile.runtime`，
+不再次编译程序。固定 Ubuntu 24.04 base index，安装 package 声明的 shared libraries、
+系统 CA 与 curl；以 UID/GID 10001 运行。启动、挂载与 Compose 示例见
 [容器镜像](/zh/using/container)。
 
-两个原生 runner 都运行 `build/check-runtime-image.sh`，校验 CLI、`ldd`、CA、
-read-only 配置、SQLite/filesystem 持久化、`/server-info` 构建身份、健康检查、重启和
-SIGTERM 退出、workspace 独占和强制停止恢复。通过后上传完整 image archive；GHCR publisher 只推送这些已验证的
-镜像，不重建二进制或运行层。
+镜像包命名为 `gizclaw-runtime_<version>_linux_<arch>.tar.gz` 与
+`gizclaw-mem0_<version>_linux_<arch>.tar.gz`，其中 `<version>` 为 tag 去掉 `v`，
+`<arch>` 为 `amd64` 或 `arm64`。`build/package-container-image.sh` 以 `docker save`
+和 `gzip -n` 导出，不重建运行层；可直接使用 `docker load --input <archive>`。
+加载后仅恢复一个架构的引用 `gizclaw-runtime:<tag>-<arch>` 或
+`gizclaw-mem0:<tag>-<arch>`；没有 multiarch registry tag 或浮动 `latest`。
 
-`ghcr.io/gizclaw/gizclaw:vMAJOR.MINOR.PATCH` 是两架构 index，仅含 `linux/amd64` 与
-`linux/arm64`。不发布浮动 `latest`。`build-<tag>-<source_commit>-<arch>` 是组装 index 的
-内部 staging tag。Publisher 只有 `contents: read` 与 `packages: write`，使用官方
-`docker/login-action` 和当前仓库的 `GITHUB_TOKEN`。已存在的版本或 staging tag 必须
-具有一致的 OCI source/version/base 与 Debian 二进制 SHA-256，否则失败；不会覆盖。
-同一版本 rerun 复用现有 digest，运行层的软件包更新通过新正式版本发布。
+`container-image.json` 保留 `kind: container-image`，进入 manifest 与 `SHA256SUMS`。
+该清单使用 schema 2，顶层字段为 `schema_version`、`tag`、`version`、`source_commit`
+和 `images`。`images` 严格按 component（`mem0`、`runtime`）及 architecture
+（`amd64`、`arm64`）排序，包含四条记录；这些记录与 schema 8 manifest 的四条
+`kind: container-archive` entry 完全相同：
 
-`container-image.json` 作为 `kind: container-image` payload 进入 schema 7 manifest 与
-`SHA256SUMS`。Receipt schema 1 记录 image、tag、version、source_commit、base_image、
-index digest、可直接用于 Compose 的 `reference`，以及两个平台的 digest 和
-binary_sha256。`build/check-container-receipt.sh` 从 `.deb` 内部重新计算 binary digest。
-校验旧 Release 时必须使用该 tag 对应的脚本，不能以 schema 7 校验其他 schema。
+| 字段 | 类型与约束 |
+| --- | --- |
+| `name` | 上述规范镜像包文件名 |
+| `kind` / `component` | `container-archive` / `runtime` 或 `mem0` |
+| `os` / `architecture` | `linux` / `amd64` 或 `arm64` |
+| `format` | 固定 `docker-save+gzip` |
+| `version` / `source_commit` | tag 去掉 `v` / 同一完整 40 位 Git SHA |
+| `size` | 压缩文件字节数，正整数 |
+| `sha256` | 压缩文件 SHA256，64 位小写十六进制 |
+| `image_reference` | 加载后恢复的本地架构 tag |
+| `image_id` | `sha256:<64 hex>`，构建端 Docker 实际观测的 `.Id` |
+| `config_digest` | `sha256:<64 hex>`，归档内 Docker image config 的 SHA256 |
+| `archive_manifest_digest` | 仅 OCI/containerd 布局存在，归档内单架构 manifest 的 SHA256 |
+| `binary_sha256` | 仅 Runtime 存在，镜像与同架构 `.deb` 中 `/usr/bin/gizclaw` 的 SHA256 |
 
-GHCR Package 使用 public 可见性，允许 Deploy 无 credential 拉取。首次发布后若 GitHub
-仍将包设为 private，管理员在 Package settings 改为 public 并 rerun failed jobs；不扩张
-Actions token 权限。两个原生 `container-pull` jobs 使用空 Docker credential config，从
-实际 index digest 匿名拉取并重新运行完整容器 gate；成功后才发布正式 GitHub Release。
-若包已上传而后续步骤失败，保留现有 tag/digest，再修复或 rerun，不删除或替换资产。
-普通 PR/main CI 执行两个原生架构的构建与运行验证，没有 Packages 写权限。
+归档 `sha256`、本地 `image_id` 与 registry manifest/index digest 是不同身份，不能互换。
+清单不提供 registry `digest`、`reference` 或 `platforms` 字段。Deploy 消费者应校验
+schema 8、全部 19 个资产及 source identity，再从 schema 2 的 `images` 选择 component
+和架构，校验文件大小与 SHA256 后 `docker load`，核对恢复的引用、image ID、平台及
+OCI version/revision，随后按 image ID 运行。传统 Docker 的 `.Id` 对应 `config_digest`，
+containerd 存储可能对应 `archive_manifest_digest`；构建端 `image_id` 必须属于这两者，
+消费端允许匹配任一经归档验证的身份，并固定该端实际加载的 `.Id`。归档内 manifest
+身份不代表曾发布到 registry。TOS 托管与服务器端下载部署由 Deploy
+负责。本仓库不发布或删除 GHCR package，历史 GHCR 镜像与 Release 保留供回滚。
+Debian、C、Flutter、npm 与 Terraform provider entry 的字段和命名保持不变。
+旧 schema 的 Release 必须使用其 source tag 对应的验证器。
+
+`build/container_archive.py` 在不提取文件的情况下检查 gzip、Docker save manifest、
+唯一 tag、config SHA256、全部 layer diff IDs、平台、非 root 用户与 OCI 身份；
+`build/check-container-receipt.sh` 另从 `.deb` 重算程序 SHA256。
+`build/check-container-archive.sh` 校验实际交付字节后导入镜像，并核对加载后的 image ID。
+Runtime 完整运行 gate 保留 CLI、`ldd`、CA、只读配置、SQLite/filesystem 持久化、
+`/server-info` 身份、健康检查、重启、workspace 独占、SIGTERM 退出与强制停止恢复。
+Mem0 保留 test target 和运行入口验证。正式发布前，`container-load` 在两个新的原生
+runner 上从归档再次执行这些运行检查；PR/main CI 同样覆盖四个归档的生成、加载与运行。
+
+正式重跑时，`build/reuse-container-archive.sh` 仅从 exact-tag published Release 或完整
+同 tag draft 下载原始镜像包，核对 source、manifest、checksum、receipt、归档与 Debian
+程序身份后复用原字节，再次执行运行 gate。只有明确不存在该 tag 的 Release 才能新建
+镜像包；权限、网络、部分上传、旧 schema 或身份冲突均失败。最终 publisher 仍下载全部
+资产并逐字节比较后才接受幂等发布；不会覆盖已有资产。Actions 中的独立 metadata parts
+仅用于组装交付清单，不进入正式 Release。
 
 ## Mutex scope inventory
 

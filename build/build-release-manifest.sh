@@ -27,13 +27,17 @@ done
 }
 [[ "$debian_version" == "${tag#v}" ]] || { echo "SemVer tag and Debian version differ" >&2; exit 2; }
 [[ "$source_commit" =~ ^[0-9a-f]{40}$ ]] || { echo "invalid source commit" >&2; exit 2; }
-for command_name in dpkg-deb jq sha256sum tar unzip; do
+for command_name in dpkg-deb jq sha256sum tar unzip python3; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
 provider_executable="terraform-provider-gizclaw_v${debian_version}"
 expected=(
   "container-image.json"
+  "gizclaw-runtime_${debian_version}_linux_amd64.tar.gz"
+  "gizclaw-runtime_${debian_version}_linux_arm64.tar.gz"
+  "gizclaw-mem0_${debian_version}_linux_amd64.tar.gz"
+  "gizclaw-mem0_${debian_version}_linux_arm64.tar.gz"
   "gizclaw_${debian_version}_amd64.deb"
   "gizclaw_${debian_version}_arm64.deb"
   "gizclaw-c-sdk-${debian_version}.tar.gz"
@@ -78,6 +82,9 @@ while IFS= read -r name; do
     kind=container-image
     "$(dirname "${BASH_SOURCE[0]}")/check-container-receipt.sh" "$artifact" "$tag" "$source_commit" "$asset_dir"
     extra="$(jq -cn --arg version "$debian_version" --arg source_commit "$source_commit" '{version:$version,source_commit:$source_commit}')"
+  elif [[ "$name" == gizclaw-runtime_*.tar.gz || "$name" == gizclaw-mem0_*.tar.gz ]]; then
+    kind=container-archive
+    extra="$(jq -ce --arg name "$name" '.images[] | select(.name == $name) | del(.name,.kind,.size,.sha256)' "$asset_dir/container-image.json")"
   elif [[ "$name" == *.deb ]]; then
     kind=deb
     os=linux
@@ -162,7 +169,7 @@ jq -n \
   --arg source_commit "$source_commit" \
   --argjson assets "$assets_json" '
     {
-      schema_version: 7,
+      schema_version: 8,
       repository: "GizClaw/gizclaw",
       go_module: "github.com/GizClaw/gizclaw-go",
       release_channel: "stable",

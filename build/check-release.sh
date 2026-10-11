@@ -27,7 +27,7 @@ esac
   exit 2
 }
 [[ -d "$asset_dir" && ! -L "$asset_dir" ]] || { echo "asset directory must be regular" >&2; exit 2; }
-for command_name in cmp dpkg-deb jq od sha256sum tar unzip; do
+for command_name in cmp dpkg-deb jq od sha256sum tar unzip python3; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
@@ -53,6 +53,10 @@ version="${tag#v}"
 release_expected="$(printf '%s\n' \
   SHA256SUMS \
   container-image.json \
+  "gizclaw-runtime_${version}_linux_amd64.tar.gz" \
+  "gizclaw-runtime_${version}_linux_arm64.tar.gz" \
+  "gizclaw-mem0_${version}_linux_amd64.tar.gz" \
+  "gizclaw-mem0_${version}_linux_arm64.tar.gz" \
   "flutter-gizclaw-${version}.tar.gz" \
   "flutter-gizclaw_control-${version}.tar.gz" \
   "gizclaw-c-sdk-${version}.tar.gz" \
@@ -73,7 +77,7 @@ jq -e \
   --arg tag "$tag" \
   --arg version "$version" --arg source_commit "$source_commit" '
   keys == ["assets","debian_version","go_module","go_module_version","release_channel","repository","schema_version","source_commit","tag","workflow"] and
-  .schema_version == 7 and
+  .schema_version == 8 and
   .repository == "GizClaw/gizclaw" and
   .go_module == "github.com/GizClaw/gizclaw-go" and
   .release_channel == "stable" and
@@ -81,14 +85,18 @@ jq -e \
   .go_module_version == $tag and
   .debian_version == $version and
   .source_commit == $source_commit and .workflow == ".github/workflows/release.yml" and
-  (.assets | length == 12) and
+  (.assets | length == 16) and
   ([.assets[].name] == ([.assets[].name] | sort)) and
-  ([.assets[].name] | unique | length == 12) and
+  ([.assets[].name] | unique | length == 16) and
   ([.assets[] | {name,kind,os,architecture}] == [
     {name:"container-image.json",kind:"container-image",os:null,architecture:null},
     {name:("flutter-gizclaw-" + $version + ".tar.gz"),kind:"dart-package",os:null,architecture:null},
     {name:("flutter-gizclaw_control-" + $version + ".tar.gz"),kind:"dart-package",os:null,architecture:null},
     {name:("gizclaw-c-sdk-" + $version + ".tar.gz"),kind:"source",os:null,architecture:null},
+    {name:("gizclaw-mem0_" + $version + "_linux_amd64.tar.gz"),kind:"container-archive",os:"linux",architecture:"amd64"},
+    {name:("gizclaw-mem0_" + $version + "_linux_arm64.tar.gz"),kind:"container-archive",os:"linux",architecture:"arm64"},
+    {name:("gizclaw-runtime_" + $version + "_linux_amd64.tar.gz"),kind:"container-archive",os:"linux",architecture:"amd64"},
+    {name:("gizclaw-runtime_" + $version + "_linux_arm64.tar.gz"),kind:"container-archive",os:"linux",architecture:"arm64"},
     {name:("gizclaw_" + $version + "_amd64.deb"),kind:"deb",os:"linux",architecture:"amd64"},
     {name:("gizclaw_" + $version + "_arm64.deb"),kind:"deb",os:"linux",architecture:"arm64"},
     {name:("npm-gizclaw-" + $version + ".tgz"),kind:"npm-package",os:null,architecture:null},
@@ -99,9 +107,12 @@ jq -e \
     {name:("terraform-provider-gizclaw_" + $version + "_linux_arm64.zip"),kind:"terraform-provider",os:"linux",architecture:"arm64"}
   ]) and
   all(.assets[];
-    (keys | all(. == "architecture" or . == "executable" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "provider" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
+    (keys | all(. == "architecture" or . == "component" or . == "format" or . == "image_reference" or . == "image_id" or . == "config_digest" or . == "archive_manifest_digest" or . == "binary_sha256" or . == "executable" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "provider" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
     (.name | type == "string" and length > 0) and
-    (.kind == "container-image" or .kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package" or .kind == "npm-package") and
+    (.kind == "container-archive" or .kind == "container-image" or .kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package" or .kind == "npm-package") and
+    (if .kind != "container-archive" then
+      ((has("component") or has("format") or has("image_reference") or has("image_id") or has("config_digest") or has("archive_manifest_digest") or has("binary_sha256")) | not)
+     else true end) and
     (.size | type == "number" and . > 0 and floor == .) and
     (.sha256 | test("^[0-9a-f]{64}$")) and
     (if .kind == "deb" then
@@ -122,6 +133,8 @@ jq -e \
       (.package == "gizclaw" or .package == "gizclaw_control") and
       .version == $version and .source_commit == $source_commit and
       ((has("os") or has("architecture") or has("module") or has("installed_path") or has("provider") or has("executable")) | not)
+     elif .kind == "container-archive" then
+      .version == $version and .source_commit == $source_commit
      elif .kind == "container-image" then
       .name == "container-image.json" and .version == $version and .source_commit == $source_commit and
       (keys == ["kind","name","sha256","size","source_commit","version"])
@@ -137,6 +150,8 @@ expected_payloads="$(
   {
     printf '%s\n' \
       container-image.json \
+      "gizclaw-runtime_${version}_linux_amd64.tar.gz" "gizclaw-runtime_${version}_linux_arm64.tar.gz" \
+      "gizclaw-mem0_${version}_linux_amd64.tar.gz" "gizclaw-mem0_${version}_linux_arm64.tar.gz" \
       "flutter-gizclaw-${version}.tar.gz" "flutter-gizclaw_control-${version}.tar.gz" \
       "gizclaw-c-sdk-${version}.tar.gz" \
       "npm-gizclaw-${version}.tgz" "npm-gizclaw-control-${version}.tgz" \
@@ -258,8 +273,8 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
       .target_commitish == $source_commit and
       .draft == $expected_draft and
       .prerelease == false and
-      (.assets | length == 15) and
-      ([.assets[].name] | unique | length == 15) and
+      (.assets | length == 19) and
+      ([.assets[].name] | unique | length == 19) and
       all(.assets[];
         (keys | all(. == "name" or . == "size")) and
         (.name | type == "string" and length > 0) and
@@ -275,5 +290,8 @@ if [[ "$requested_mode" == draft || "$requested_mode" == published ]]; then
 fi
 
 "$(dirname "${BASH_SOURCE[0]}")/check-container-receipt.sh" "$asset_dir/container-image.json" "$tag" "$source_commit" "$asset_dir"
+
+jq -e --slurpfile receipt "$asset_dir/container-image.json" \
+  '[.assets[] | select(.kind == "container-archive")] == $receipt[0].images' "$manifest" >/dev/null
 
 printf '%s\n' "validated ${requested_mode} release $tag"

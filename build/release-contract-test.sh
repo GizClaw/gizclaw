@@ -4,7 +4,7 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-for command_name in dpkg-deb jq sha256sum tar unzip zip; do
+for command_name in dpkg-deb jq sha256sum tar unzip zip python3; do
   command -v "$command_name" >/dev/null 2>&1 || { echo "required command not found: $command_name" >&2; exit 2; }
 done
 
@@ -59,9 +59,16 @@ grep -Fq 'tools/flutter-sdk/package_archive.sh' "$release_workflow"
 grep -Fq 'tools/flutter-sdk/consume_archives.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$ci_workflow"
-grep -Fq 'packages: write' "$release_workflow"
-grep -Fq 'build/check-runtime-image.sh' "$ci_workflow"
-grep -Fq -- '- container-pull' <<<"$semver_publisher"
+if grep -Eiq 'packages: write|docker/login-action|docker login|docker push|--push|imagetools|ghcr' "$release_workflow"; then
+  echo "Release must deliver image archives without registry publication or pulls" >&2
+  exit 1
+fi
+grep -Fq 'build/check-container-archive.sh' "$ci_workflow"
+grep -Fq -- '- container-load' <<<"$semver_publisher"
+grep -Fq -- '- mem0-image' <<<"$semver_publisher"
+grep -Fq 'needs: [prepare, linux, mem0-image]' "$release_workflow"
+mem0_builder="$(awk '/^  mem0-image:/{selected=1} /^  linux:/{selected=0} selected' "$release_workflow")"
+grep -Fq 'needs: prepare' <<<"$mem0_builder"
 if grep -Eq 'packages: write|docker/login-action|docker push|--push' "$ci_workflow"; then
   echo "PR CI must not publish container packages" >&2
   exit 1
@@ -217,13 +224,7 @@ make_formal_payloads() {
   make_fixture_deb amd64 "$directory/gizclaw_${version}_amd64.deb"
   make_fixture_deb arm64 "$directory/gizclaw_${version}_arm64.deb"
   binary_digest="$(sha256sum "$fixture_binary" | cut -d ' ' -f1)"
-  jq -n --arg tag "$tag" --arg version "$version" --arg commit "$source_commit" --arg binary "$binary_digest" '
-    {schema_version:1,image:"ghcr.io/gizclaw/gizclaw",tag:$tag,version:$version,source_commit:$commit,
-     digest:("sha256:" + ("a" * 64)),reference:("ghcr.io/gizclaw/gizclaw@sha256:" + ("a" * 64)),
-     base_image:"ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3",
-     platforms:[{os:"linux",architecture:"amd64",digest:("sha256:" + ("b" * 64)),binary_sha256:$binary},
-                {os:"linux",architecture:"arm64",digest:("sha256:" + ("c" * 64)),binary_sha256:$binary}]}
-  ' >"$directory/container-image.json"
+  python3 "$repo_root/build/container_archive_test.py" fixtures "$directory" "$tag" "$source_commit" "$binary_digest"
   make_fixture_dart_package gizclaw "$directory/flutter-gizclaw-${version}.tar.gz"
   make_fixture_dart_package gizclaw_control "$directory/flutter-gizclaw_control-${version}.tar.gz"
   make_fixture_npm_package gizclaw "$directory/npm-gizclaw-${version}.tgz"
@@ -342,7 +343,7 @@ mv "$formal_unstable/changed.json" "$formal_unstable/release-manifest.json"
 expect_failure "per-run manifest value" "$repo_root/build/check-release.sh" semver "$formal_unstable" "$tag" "$source_commit"
 
 jq -e --arg version "$version" --arg source_commit "$source_commit" '
-  .schema_version == 7 and
+  .schema_version == 8 and
   ([.assets[] | select(.kind == "terraform-provider")] | length == 4) and
   all(.assets[] | select(.kind == "terraform-provider");
     .provider == "gizclaw" and .version == $version and .source_commit == $source_commit and
@@ -430,13 +431,13 @@ expect_failure "Flutter SDK archive replaced after manifest" "$repo_root/build/c
   semver "$dart_tampered" "$tag" "$source_commit"
 
 jq -e --arg version "$version" --arg source_commit "$source_commit" '
-  .schema_version == 7 and (.assets | length == 12) and
+  .schema_version == 8 and (.assets | length == 16) and
   [.assets[] | select(.kind == "npm-package") | {name,package,version,source_commit}] == [
     {name:("npm-gizclaw-" + $version + ".tgz"),package:"@gizclaw/gizclaw",version:$version,source_commit:$source_commit},
     {name:("npm-gizclaw-control-" + $version + ".tgz"),package:"@gizclaw/gizclaw-control",version:$version,source_commit:$source_commit}
   ]
 ' "$payloads/release-manifest.json" >/dev/null
-jq -e '.assets | length == 15' "$published_json" >/dev/null
+jq -e '.assets | length == 19' "$published_json" >/dev/null
 
 npm_missing="$fixture_root/npm-missing"
 cp -a "$payloads" "$npm_missing"
@@ -474,7 +475,7 @@ expect_failure "npm manifest inside archive mismatches Release" "$repo_root/buil
   semver "$npm_tampered" "$tag" "$source_commit"
 grep -Fq 'npm package manifest does not match release identity' "$fixture_root/failure.stderr"
 
-for mutation in '.schema_version = 6' '.schema_version = 8' \
+for mutation in '.schema_version = 7' '.schema_version = 9' \
   '(.assets[] | select(.kind == "npm-package") | .package) = "gizclaw"' \
   '(.assets[] | select(.kind == "npm-package") | .version) = "0.0.1"' \
   '(.assets[] | select(.kind == "npm-package") | .source_commit) = "2222222222222222222222222222222222222222"' \
@@ -532,15 +533,21 @@ if [[ "$(uname -s)" == Linux && "$(dpkg --print-architecture)" == amd64 ]]; then
 fi
 
 
-for case_name in digest platform commit binary reference; do
+python3 "$repo_root/build/container_archive_test.py"
+
+for case_name in digest platform commit binary reference image_id size duplicate legacy; do
   receipt_invalid="$fixture_root/receipt-invalid-$case_name"
   make_formal_payloads "$receipt_invalid"
   case "$case_name" in
-    digest) filter='.digest = "sha256:short"' ;;
-    platform) filter='.platforms[1].architecture = "amd64"' ;;
+    digest) filter='.images[0].sha256 = ("d" * 64)' ;;
+    platform) filter='.images[1].architecture = "amd64"' ;;
     commit) filter='.source_commit = "2222222222222222222222222222222222222222"' ;;
-    binary) filter='.platforms[0].binary_sha256 = ("d" * 64)' ;;
-    reference) filter='.reference = "ghcr.io/gizclaw/gizclaw:v0.0.0"' ;;
+    binary) filter='.images[2].binary_sha256 = ("d" * 64)' ;;
+    reference) filter='.images[0].image_reference = "other:v0.0.0"' ;;
+    image_id) filter='.images[0].image_id = ("sha256:" + ("d" * 64))' ;;
+    size) filter='.images[0].size += 1' ;;
+    duplicate) filter='.images[1] = .images[0]' ;;
+    legacy) filter='.schema_version = 1' ;;
   esac
   jq "$filter" "$receipt_invalid/container-image.json" >"$fixture_root/receipt.json"
   cp "$fixture_root/receipt.json" "$receipt_invalid/container-image.json"
@@ -548,39 +555,106 @@ for case_name in digest platform commit binary reference; do
     --asset-dir "$receipt_invalid" --tag "$tag" --debian-version "$version" --source-commit "$source_commit"
 done
 
-# An existing version, denied login or network failure must never permit a push.
+# A tampered archive must fail before any Docker import or execution.
 cat >"$fake_bin/docker" <<'EOF'
 #!/usr/bin/env bash
-set -euo pipefail
 printf '%s\n' "$*" >>"$MOCK_DOCKER_LOG"
-[[ "$1 $2 $3" == 'buildx imagetools inspect' ]] || exit 1
-case "$MOCK_REGISTRY_STATE" in
-  denied) echo 'ERROR: denied: permission_denied' >&2; exit 1 ;;
-  network) echo 'ERROR: TLS handshake timeout' >&2; exit 1 ;;
-  existing)
-    if [[ "$*" == *--raw* ]]; then
-      printf '%s\n' '{"mediaType":"application/vnd.oci.image.index.v1+json","annotations":{"org.opencontainers.image.revision":"wrong-source","org.opencontainers.image.version":"0.0.0"},"manifests":[]}'
-    else
-      printf '%s\n' '{"digest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
-    fi
-    ;;
-esac
+exit 1
 EOF
 chmod 0755 "$fake_bin/docker"
-mock_image_dir="$fixture_root/mock-images"
-mkdir -p "$mock_image_dir"
-for arch in amd64 arm64; do
-  sha256sum "$fixture_binary" | cut -d ' ' -f1 >"$mock_image_dir/binary-$arch.sha256"
+entry="$fixture_root/entry.json"
+jq '.images[0]' "$payloads/container-image.json" >"$entry"
+corrupt="$fixture_root/corrupt-archive"
+cp -a "$payloads" "$corrupt"
+printf tampered >>"$corrupt/gizclaw-mem0_${version}_linux_amd64.tar.gz"
+docker_log="$fixture_root/docker.log"
+expect_failure "corrupt archive must not reach Docker" env \
+  PATH="$fake_bin:$PATH" MOCK_DOCKER_LOG="$docker_log" \
+  "$repo_root/build/check-container-archive.sh" "$entry" "$tag" "$source_commit" "$corrupt"
+[[ ! -s "$docker_log" ]] || { echo "corrupt archive reached Docker" >&2; exit 1; }
+
+for component in runtime mem0; do
+  for arch in amd64 arm64; do
+    name="gizclaw-${component}_${version}_linux_${arch}.tar.gz"
+    missing="$fixture_root/missing-${component}-${arch}"
+    cp -a "$payloads" "$missing"
+    rm "$missing/$name"
+    expect_failure "missing $component $arch archive" "$repo_root/build/check-release.sh" semver "$missing" "$tag" "$source_commit"
+  done
 done
-for registry_state in denied network existing; do
-  docker_log="$fixture_root/docker-$registry_state.log"
-  expect_failure "registry $registry_state must fail without replacing a version" env \
-    PATH="$fake_bin:$PATH" MOCK_REGISTRY_STATE="$registry_state" MOCK_DOCKER_LOG="$docker_log" \
-    "$repo_root/build/publish-runtime-image.sh" "$mock_image_dir" "$payloads" "$tag" "$source_commit"
-  if grep -Eq '(^push |^tag |imagetools create)' "$docker_log"; then
-    echo "unexpected registry mutation: $registry_state" >&2
-    exit 1
+
+# Archive identity in the manifest must equal the receipt, even with valid hashes.
+manifest_conflict="$fixture_root/manifest-conflict"
+cp -a "$payloads" "$manifest_conflict"
+jq '(.assets[] | select(.kind == "container-archive") | .image_id) = ("sha256:" + ("d" * 64))' \
+  "$manifest_conflict/release-manifest.json" >"$fixture_root/manifest.json"
+cp "$fixture_root/manifest.json" "$manifest_conflict/release-manifest.json"
+(cd "$manifest_conflict" && sha256sum -- * | sed '/  SHA256SUMS$/d' >"$fixture_root/checksums")
+cp "$fixture_root/checksums" "$manifest_conflict/SHA256SUMS"
+expect_failure "manifest/receipt image identity conflict" "$repo_root/build/check-release.sh" semver "$manifest_conflict" "$tag" "$source_commit"
+
+# Exact-tag reruns reuse the original compressed bytes, including complete drafts.
+cat >"$fake_bin/gh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+if [[ "$*" == 'api --paginate --slurp repos/GizClaw/gizclaw/releases?per_page=100' ]]; then
+  [[ "${MOCK_GH_FAILURE:-false}" != true ]] || exit 1
+  cat "$MOCK_RELEASE_PAGES"
+else
+  asset_id="${!#}"
+  asset_id="${asset_id##*/}"
+  name="$(jq -er --argjson id "$asset_id" '.assets[] | select(.id == $id) | .name' "$MOCK_RELEASE_JSON")"
+  cat "$MOCK_ASSET_ROOT/$name"
+fi
+EOF
+chmod 0755 "$fake_bin/gh"
+reuse_json="$fixture_root/reuse-release.json"
+jq '.assets |= (to_entries | map(.value + {id:(.key + 1)}))' "$published_json" >"$reuse_json"
+for state in published draft; do
+  if [[ "$state" == draft ]]; then
+    jq '.draft = true' "$reuse_json" >"$fixture_root/draft-reuse.json"
+    cp "$fixture_root/draft-reuse.json" "$reuse_json"
   fi
+  jq -s '[.]' "$reuse_json" >"$release_pages"
+  for component in runtime mem0; do
+    for arch in amd64 arm64; do
+      reuse_dir="$fixture_root/reuse-${state}-${component}-${arch}"
+      mkdir -p "$reuse_dir/assets" "$reuse_dir/metadata"
+      if [[ "$component" == runtime ]]; then
+        cp "$payloads/gizclaw_${version}_${arch}.deb" "$reuse_dir/assets/"
+      fi
+      env PATH="$fake_bin:$PATH" MOCK_RELEASE_PAGES="$release_pages" MOCK_RELEASE_JSON="$reuse_json" \
+        MOCK_ASSET_ROOT="$payloads" "$repo_root/build/reuse-container-archive.sh" \
+        "$component" "$reuse_dir/assets" "$reuse_dir/metadata" "$tag" "$source_commit" "$arch"
+      cmp "$payloads/gizclaw-${component}_${version}_linux_${arch}.tar.gz" \
+        "$reuse_dir/assets/gizclaw-${component}_${version}_linux_${arch}.tar.gz"
+    done
+  done
 done
+for case_name in moved partial tampered denied duplicate; do
+  jq '.' "$reuse_json" >"$fixture_root/invalid-reuse.json"
+  case "$case_name" in
+    moved) jq '.target_commitish = "2222222222222222222222222222222222222222"' "$reuse_json" >"$fixture_root/invalid-reuse.json" ;;
+    partial) jq '.assets = .assets[:-1]' "$reuse_json" >"$fixture_root/invalid-reuse.json" ;;
+  esac
+  if [[ "$case_name" == duplicate ]]; then
+    jq -s '[[.[0],.[0]]]' "$fixture_root/invalid-reuse.json" >"$release_pages"
+  else
+    jq -s '[.]' "$fixture_root/invalid-reuse.json" >"$release_pages"
+  fi
+  remote_assets="$payloads"
+  if [[ "$case_name" == tampered ]]; then remote_assets="$corrupt"; fi
+  gh_failure=false
+  if [[ "$case_name" == denied ]]; then gh_failure=true; fi
+  expect_failure "rerun must reject $case_name Release" env PATH="$fake_bin:$PATH" \
+    MOCK_GH_FAILURE="$gh_failure" MOCK_RELEASE_PAGES="$release_pages" MOCK_RELEASE_JSON="$fixture_root/invalid-reuse.json" \
+    MOCK_ASSET_ROOT="$remote_assets" "$repo_root/build/reuse-container-archive.sh" \
+    mem0 "$fixture_root/rejected-$case_name" "$fixture_root/rejected-metadata-$case_name" "$tag" "$source_commit" amd64
+done
+printf '%s\n' '[[]]' >"$release_pages"
+status=0
+env PATH="$fake_bin:$PATH" MOCK_RELEASE_PAGES="$release_pages" \
+  "$repo_root/build/reuse-container-archive.sh" mem0 "$fixture_root/absent" "$fixture_root/absent-metadata" "$tag" "$source_commit" amd64 || status=$?
+[[ "$status" == 3 ]] || { echo "only a missing exact-tag Release permits a new archive build" >&2; exit 1; }
 
 printf '%s\n' "release contract tests passed"

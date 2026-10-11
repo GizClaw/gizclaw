@@ -132,6 +132,11 @@ Build/run the container from the repository root with credentials already in the
 process environment. With managed PostgreSQL, records and vector indexes live in
 PG; `/data` holds the SDK's SQLite history and needs a persistent volume:
 
+Formal Mem0 images are delivered as GitHub Release archives. Follow
+[Container Image](../../using/container#select-and-verify-a-release) to select
+component `mem0` and the host architecture, verify and load. The commands below
+demonstrate local source builds.
+
 ```sh
 PLATFORM=linux/amd64 IMAGE=gizclaw-mem0 build/build-mem0.sh
 # Domestic dependency source, same application Dockerfile with a CN base

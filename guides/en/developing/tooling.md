@@ -112,7 +112,7 @@ publish a Release.
 Each Release contains exactly two Debian packages, four Terraform provider
 packages, one standalone C SDK source archive, its checksum sidecar, two
 Flutter SDK hosted pub archives, two npm SDK packages, `release-manifest.json`, and `SHA256SUMS`,
-fifteen files in total, including the container receipt `container-image.json`; it does not
+nineteen files in total, including `container-image.json` and four image archives; it does not
 publish raw Linux executables. The Debian packages use `<version>` from the tag
 in `gizclaw_<version>_{amd64,arm64}.deb`. The platform-neutral source payload is
 named `gizclaw-c-sdk-<version>.tar.gz`; its adjacent `.sha256` contains the
@@ -121,17 +121,13 @@ archive digest and canonical filename. The Terraform provider packages are named
 provider version equals the Release version; see
 [Terraform Provider](/en/using/terraform) for installation and usage.
 
-The Mem0 service is also published as a GHCR Docker package:
-`ghcr.io/gizclaw/gizclaw-mem0:<tag>` for Linux amd64/arm64, with architecture tags
-`<tag>-amd64` and `<tag>-arm64`. It uses the same source commit and records Release
-version/revision in OCI labels. The build definition is `build/mem0/Dockerfile`
-and the Python entry point is `cmd/mem0/gizclaw_mem0`. The test target must pass
-before building the runtime image. Publication follows a successful protected
-SemVer Release; this package is separate from its fourteen files and
-`release-manifest.json`. Reruns accept only matching source/version architecture
-images and matching digest/platform multiarch tags, without replacing existing
-versions. A GHCR failure fails the workflow; a rerun verifies the existing
-Release's integrity before continuing package publication. See the
+Runtime and Mem0 each deliver separate `linux/amd64` and `linux/arm64` Docker
+save gzip archives. All four are mandatory formal Release assets and must pass
+validation before publication. Mem0 uses the same source commit and OCI
+version/revision labels. Its build definition is `build/mem0/Dockerfile` and
+Python entry point is `cmd/mem0/gizclaw_mem0`. Native runners execute the `test`
+target before exporting/loading the `runtime` image and checking version, CLI
+and non-root Python service entry point. See the
 [self-hosted Mem0 service](./stores/memory#self-hosted-mem0-service) for usage.
 
 `build/build-mem0.sh [cn]` selects `build/mem0/Dockerfile.base` or
@@ -217,7 +213,7 @@ package name, version, and source commit; `npm-package` entries bind the full sc
 npm package name, version, and source commit. Debian entries also bind package metadata and
 `/usr/bin/gizclaw`; `terraform-provider` entries also bind provider `gizclaw`,
 the version, and the executable name inside the zip. A formal rerun accepts an
-existing published Release only when its metadata and all fifteen downloaded files
+existing published Release only when its metadata and all nineteen downloaded files
 match byte-for-byte. An
 exact-tag draft left by an interrupted first upload must pass the same metadata,
 inventory, digest, and byte-for-byte checks before the workflow publishes that
@@ -226,10 +222,10 @@ closed. The workflow never deletes, replaces, or overwrites a published SemVer
 Release. Downstream Homebrew and APT channels independently own their signing,
 hosting, retention, and live installation acceptance.
 
-`release-manifest.json` uses `schema_version: 7`. Its `assets` contains exactly
-12 payloads sorted by name with `LC_ALL=C`. The C SDK `.sha256` sidecar, manifest,
-and `SHA256SUMS` bring the Release inventory to 15 files. Consumers must explicitly
-validate schema 7 and the complete asset set; asset sets from different schemas
+`release-manifest.json` uses `schema_version: 8`. Its `assets` contains exactly
+16 payloads sorted by name with `LC_ALL=C`. The C SDK `.sha256` sidecar, manifest,
+and `SHA256SUMS` bring the Release inventory to 19 files. Consumers must explicitly
+validate schema 8 and the complete asset set; asset sets from different schemas
 cannot be mixed. Each npm entry has only these fields:
 
 | Field | Type and constraint |
@@ -246,45 +242,79 @@ Manifest generation and validation cross-check `name` and `version` read from
 `package/package.json` inside each tarball. npm entries have no `os`, `architecture`,
 `module`, `installed_path`, `provider`, or `executable` fields.
 
-### GHCR runtime image
+### Container image archives
 
-The native Linux jobs package the same verified Debian executable using
-`build/gizclaw/Dockerfile.runtime`; they do not compile a second executable. The runtime
-uses a pinned Ubuntu 24.04 base index, package-derived shared libraries, system
-CA certificates and curl, and runs as UID/GID 10001. Mem0, LiveKit and PostgreSQL
-remain external services. See [Container Image](/en/using/container) for startup,
-mounts and Compose usage.
+Runtime packages the same verified Debian executable using
+`build/gizclaw/Dockerfile.runtime`, without recompiling it. The pinned Ubuntu
+24.04 base supplies package-derived shared libraries, CA certificates and curl;
+the image runs as UID/GID 10001. See [Container Image](/en/using/container) for
+startup, mounts and Compose usage.
 
-Both native runners execute `build/check-runtime-image.sh`: CLI, `ldd`, CA,
-read-only config, SQLite/filesystem persistence, `/server-info` build identity,
-health, restart, exclusive workspace ownership, graceful SIGTERM exit and forced-stop recovery. They upload complete verified image
-archives. Publication pushes these images without rebuilding the binary or
-runtime layers.
+Archives are named `gizclaw-runtime_<version>_linux_<arch>.tar.gz` and
+`gizclaw-mem0_<version>_linux_<arch>.tar.gz`, where `<version>` is the tag without
+`v` and `<arch>` is `amd64` or `arm64`. `build/package-container-image.sh` exports
+with `docker save` and `gzip -n`, without rebuilding runtime layers. Load them
+directly with `docker load --input <archive>`. Each archive restores exactly one
+local architecture reference: `gizclaw-runtime:<tag>-<arch>` or
+`gizclaw-mem0:<tag>-<arch>`. There is no multiarch registry tag or floating `latest`.
 
-`ghcr.io/gizclaw/gizclaw:vMAJOR.MINOR.PATCH` is an index containing exactly
-`linux/amd64` and `linux/arm64`. There is no floating `latest` tag.
-`build-<tag>-<source_commit>-<arch>` tags stage platform manifests. The publisher has
-only `contents: read` and `packages: write`, and logs in with the official
-`docker/login-action` and this repository's `GITHUB_TOKEN`. Existing version and
-staging tags must match the OCI source/version/base and packaged executable
-SHA-256; mismatches fail without overwriting. Reruns reuse the existing digest;
-runtime dependency updates require a new formal version.
+`container-image.json` remains a `kind: container-image` manifest payload covered
+by `SHA256SUMS`. Receipt schema 2 has top-level fields `schema_version`, `tag`,
+`version`, `source_commit` and `images`. Its four `images` entries are ordered by
+component (`mem0`, `runtime`) and architecture (`amd64`, `arm64`). They exactly
+match the four `kind: container-archive` entries in manifest schema 8:
 
-`container-image.json` is a `kind: container-image` payload in manifest schema 7
-and `SHA256SUMS`. Receipt schema 1 records image, tag, version, source_commit,
-base_image, index digest, a Compose-ready `reference`, and both platform digests
-and binary_sha256 values. `build/check-container-receipt.sh` recomputes binary
-hashes inside the Debian packages. Validate older releases with scripts from
-their source tag, rather than using schema 7 against another schema.
+| Field | Type and constraint |
+| --- | --- |
+| `name` | Canonical image archive filename above |
+| `kind` / `component` | `container-archive` / `runtime` or `mem0` |
+| `os` / `architecture` | `linux` / `amd64` or `arm64` |
+| `format` | Constant `docker-save+gzip` |
+| `version` / `source_commit` | Tag without `v` / same full 40-character Git SHA |
+| `size` | Positive integer: compressed file size in bytes |
+| `sha256` | Compressed file SHA256: 64 lowercase hex digits |
+| `image_reference` | Local architecture tag restored by loading |
+| `image_id` | `sha256:<64 hex>`: build Docker's observed `.Id` |
+| `config_digest` | `sha256:<64 hex>`: SHA256 of the archived image config |
+| `archive_manifest_digest` | OCI/containerd layout only: SHA256 of the archived single-platform manifest |
+| `binary_sha256` | Runtime only: `/usr/bin/gizclaw` SHA256 in the image and matching `.deb` |
 
-The Package must be public so Deploy can pull without credentials. GitHub may
-initially create it as private: an administrator sets public visibility in Package
-settings and reruns failed jobs. Actions token permissions need no expansion.
-Both native `container-pull` jobs use empty Docker credential configuration to
-pull the actual index digest anonymously and repeat the runtime gate; only then
-can the formal GitHub Release publish. If later steps fail after upload, retain
-the existing tags/digests, fix or rerun, and never replace assets. Ordinary PR/main
-CI builds and runs both native architectures without Packages write permission.
+Archive `sha256`, local `image_id` and registry manifest/index digests identify
+different objects and cannot be interchanged. The receipt has no registry
+`digest`, `reference` or `platforms` fields. Deploy consumers must validate schema
+8, all 19 assets and source identity, select a component/architecture in schema
+2 `images`, verify size/SHA256, load, check the restored reference, image ID,
+platform and OCI version/revision, then run by image ID. Classic Docker's `.Id`
+is `config_digest`; containerd storage may use `archive_manifest_digest`. The
+build's `image_id` must match one of these. Consumers may match either verified
+archive identity and pin their actual loaded `.Id`. An archived manifest digest
+does not imply prior registry publication. Deploy owns TOS hosting
+and server downloads/deployment. This repository does not publish or delete GHCR
+packages; historical GHCR images and Releases remain available for rollback.
+Debian, C, Flutter, npm and Terraform provider entry fields and names are unchanged.
+Validate older schemas using scripts from their source tags.
+
+`build/container_archive.py` checks gzip, Docker save manifest, the sole tag,
+config SHA256, all layer diff IDs, platform, non-root user and OCI identity
+without extracting files. `build/check-container-receipt.sh` also recomputes the
+Debian executable hash. `build/check-container-archive.sh` verifies the delivered
+bytes before importing and checking the loaded image ID. The complete Runtime
+gate retains CLI, `ldd`, CA, read-only config, SQLite/filesystem persistence,
+`/server-info` identity, health, restart, exclusive workspace ownership, SIGTERM
+exit and forced-stop recovery. Mem0 retains its test target and runtime entry
+checks. Before formal publication, `container-load` repeats runtime acceptance
+from archives on two fresh native runners. PR/main CI also exports, loads and
+runs all four archives.
+
+For reruns, `build/reuse-container-archive.sh` downloads the original compressed
+bytes only from an exact-tag published Release or complete draft. It checks
+source, manifest, checksums, receipt, archive and Debian identity before reuse
+and repeats runtime acceptance. Only an explicitly absent exact-tag Release
+permits a new archive build. Permission/transport errors, partial uploads,
+older schemas or identity conflicts fail closed. The final publisher still
+downloads and compares every asset byte-for-byte before accepting an idempotent
+Release and never replaces assets. Separate Actions metadata parts only assemble
+the receipt and are excluded from the formal inventory.
 
 ## Mutex scope inventory
 

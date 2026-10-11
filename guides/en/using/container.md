@@ -1,28 +1,42 @@
 # Container Image
 
-Formal Releases provide `ghcr.io/gizclaw/gizclaw:vMAJOR.MINOR.PATCH` for
-`linux/amd64` and `linux/arm64`. The image contains the GizClaw executable and
-its runtime libraries, CA certificates and curl. Run Mem0, LiveKit and database
-services separately; production may use managed PostgreSQL.
+Formal Releases provide Docker save gzip archives for Runtime and Mem0 on
+`linux/amd64` and `linux/arm64`. Runtime includes the GizClaw executable,
+runtime libraries, CA certificates and curl. Run Mem0, LiveKit and databases
+separately; production may use managed PostgreSQL.
 
 ## Select and verify a Release
 
-Download the selected Release's files, verify `SHA256SUMS` and
-`release-manifest.json` using [Repository Releases](../developing/tooling#repository-releases),
-and read the immutable image reference:
+Download the selected Release's files and verify `SHA256SUMS`, schema 8
+`release-manifest.json` and source commit using
+[Repository Releases](../developing/tooling#repository-releases). Select the host
+architecture in schema 2 `container-image.json`, verify and load the archive:
 
 ```sh
-export GIZCLAW_IMAGE="$(jq -er .reference container-image.json)"
-docker pull "$GIZCLAW_IMAGE"
-docker run --rm "$GIZCLAW_IMAGE" --version
-docker run --rm "$GIZCLAW_IMAGE" --help
+arch=amd64 # Set arm64 on an arm64 host.
+entry="$(jq -ce --arg arch "$arch" '.images[] | select(.component == "runtime" and .architecture == $arch)' container-image.json)"
+archive="$(jq -er .name <<<"$entry")"
+printf '%s  %s\n' "$(jq -er .sha256 <<<"$entry")" "$archive" | sha256sum --check
+docker load --input "$archive"
+reference="$(jq -er .image_reference <<<"$entry")"
+export GIZCLAW_IMAGE="$(docker image inspect --format '{{.Id}}' "$reference")"
+jq -e --arg id "$GIZCLAW_IMAGE" '$id == .config_digest or $id == .archive_manifest_digest' <<<"$entry"
+docker image inspect "$GIZCLAW_IMAGE" | jq -e --arg arch "$arch" \
+  --arg version "$(jq -er .version <<<"$entry")" --arg commit "$(jq -er .source_commit <<<"$entry")" '
+  .[0] | .Os == "linux" and .Architecture == $arch and
+  .Config.Labels["org.opencontainers.image.version"] == $version and
+  .Config.Labels["org.opencontainers.image.revision"] == $commit'
+docker run --rm --pull never "$GIZCLAW_IMAGE" --version
+docker run --rm --pull never "$GIZCLAW_IMAGE" --help
 ```
 
-Use the index digest in Compose. Docker selects the host architecture. OCI
-labels and receipt bind the version to the source commit; receipt also contains
-the individual platform and executable digests. The Package is public and needs
-no login for pulls. Publishing and first-package visibility are described in the
-[GHCR release contract](../developing/tooling#ghcr-runtime-image).
+Loading restores `gizclaw-runtime:<tag>-<arch>`. Pin the verified local image ID
+for running and Compose. Archive SHA256 and image ID identify different objects
+and are not registry digests. For Mem0, select `.component == "mem0"` and follow
+the same verification/loading steps; configuration and startup are documented in
+[self-hosted Mem0](../developing/stores/memory#self-hosted-mem0-service). See
+[Container image archives](../developing/tooling#container-image-archives) for
+filenames, receipt fields and the downstream consumption contract.
 
 ## Workspace and configuration
 
@@ -60,7 +74,8 @@ The example assumes the default listener above:
 ```yaml
 services:
   gizclaw:
-    image: ${GIZCLAW_IMAGE:?set the Release index digest reference}
+    image: ${GIZCLAW_IMAGE:?set the verified local image ID}
+    pull_policy: never
     init: true
     restart: unless-stopped
     stop_grace_period: 30s
@@ -100,17 +115,22 @@ directly without this default-workspace lock.
 
 ## Local runtime verification
 
-Native Linux CI builds each architecture from source and runs the same runtime
+Native Linux CI builds each architecture and runs the same archive/runtime
 gate used by Release. To reproduce it for a verified package:
 
 ```sh
+mkdir -p .tmp/container-assets
+cp "$PACKAGE" ".tmp/container-assets/gizclaw_${VERSION}_${ARCH}.deb"
 build/build-runtime-image.sh "$PACKAGE" "$VERSION" "$SOURCE_COMMIT" "$SOURCE_EPOCH" "$ARCH"
-build/check-runtime-image.sh "gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}" \
-  "$VERSION" "$SOURCE_COMMIT" "$ARCH" "$BINARY_SHA256"
+build/package-container-image.sh runtime "gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}" \
+  .tmp/container-assets .tmp/container-metadata "v$VERSION" "$SOURCE_COMMIT" "$ARCH"
+build/check-container-archive.sh ".tmp/container-metadata/container-runtime-${ARCH}.json" \
+  "v$VERSION" "$SOURCE_COMMIT" .tmp/container-assets
 ```
 
-The gate uses temporary config, an isolated volume and no provider credentials;
-it removes its containers and volume on exit. It verifies CLI, runtime libraries,
-CA, non-root execution, config/data mounts, health, persistence, identity across
-restart, graceful stop and forced-stop recovery. Publication repeats these checks after anonymous
-pulls by digest on both native runners.
+The gate verifies archive bytes and image ID before loading the delivered package.
+Runtime acceptance uses temporary config and an isolated volume without provider
+credentials; containers and the volume are removed on exit. It retains CLI,
+runtime libraries, CA, non-root execution, mounts, health, persistence, identity
+across restart, exclusive workspace ownership, graceful stop and forced-stop
+recovery. Before publication, two fresh native runners load and repeat acceptance.

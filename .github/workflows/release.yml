@@ -59,13 +59,12 @@ jobs:
           } >>"$GITHUB_OUTPUT"
 
   mem0-image:
-    name: Mem0 Docker ${{ matrix.arch }}
-    needs: [prepare, publish-semver]
+    name: Mem0 Image Archive (${{ matrix.arch }})
+    needs: prepare
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 30
     permissions:
       contents: read
-      packages: write
     strategy:
       fail-fast: false
       matrix:
@@ -75,76 +74,45 @@ jobs:
           - arch: arm64
             runner: ubuntu-24.04-arm
     steps:
-      - name: Check out released source
+      - name: Check out selected source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
-      - name: Build, test and publish immutable architecture image
+      - name: Test, export or reuse and load the immutable image archive
         env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
           ARCH: ${{ matrix.arch }}
         run: |
           set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}-mem0"
-          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
           TARGET=test PLATFORM="linux/$ARCH" IMAGE=mem0-contract-test build/build-mem0.sh
           docker run --rm mem0-contract-test --help
-          ref="$image:$RELEASE_TAG-$ARCH"
-          if docker manifest inspect "$ref" >/dev/null 2>manifest-error.txt; then
-            docker pull "$ref"
-            test "$(docker inspect --format '{{.Architecture}}' "$ref")" = "$ARCH"
-            test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$ref")" = "$SOURCE_COMMIT"
-            test "$(docker inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$ref")" = "$VERSION"
-            exit 0
-          fi
-          if ! grep -Eq 'manifest unknown|no such manifest' manifest-error.txt; then
-            cat manifest-error.txt >&2
+          status=0
+          build/reuse-container-archive.sh mem0 .tmp/release .tmp/container-metadata "$TAG" "$SOURCE_COMMIT" "$ARCH" || status=$?
+          if [[ "$status" == 3 ]]; then
+            image="gizclaw-mem0:${SOURCE_COMMIT}-${ARCH}"
+            PLATFORM="linux/$ARCH" IMAGE="$image" BUILD_VERSION="$VERSION" BUILD_COMMIT="$SOURCE_COMMIT" build/build-mem0.sh
+            build/package-container-image.sh mem0 "$image" .tmp/release .tmp/container-metadata "$TAG" "$SOURCE_COMMIT" "$ARCH"
+          elif [[ "$status" != 0 ]]; then
             exit 1
           fi
-          PLATFORM="linux/$ARCH" IMAGE="$ref" BUILD_VERSION="$VERSION" BUILD_COMMIT="$SOURCE_COMMIT" build/build-mem0.sh
-          test "$(docker run --rm "$ref" --version)" = "$VERSION"
-          docker run --rm --entrypoint python "$ref" -c \
-            'import os; from gizclaw_mem0 import server; assert os.getuid() == 10001; assert server.app is not None'
-          docker push "$ref"
-
-  mem0-package:
-    name: Publish Mem0 Multiarch Docker Package
-    needs: [prepare, mem0-image]
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Publish or verify the immutable release tag
-        env:
-          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-        run: |
-          set -euo pipefail
-          image="ghcr.io/${GITHUB_REPOSITORY,,}-mem0"
-          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
-          amd64_digest="$(docker buildx imagetools inspect "$image:$RELEASE_TAG-amd64" --format '{{json .Manifest}}' | jq -er .digest)"
-          arm64_digest="$(docker buildx imagetools inspect "$image:$RELEASE_TAG-arm64" --format '{{json .Manifest}}' | jq -er .digest)"
-          if docker manifest inspect "$image:$RELEASE_TAG" > manifest.json 2>manifest-error.txt; then
-            jq -e --arg amd64 "$amd64_digest" --arg arm64 "$arm64_digest" '
-              [.manifests[] | {digest, platform: {os: .platform.os, architecture: .platform.architecture}}]
-              | sort_by(.platform.architecture) == [
-                {digest: $amd64, platform: {os: "linux", architecture: "amd64"}},
-                {digest: $arm64, platform: {os: "linux", architecture: "arm64"}}
-              ]
-            ' manifest.json
-          else
-            if ! grep -Eq 'manifest unknown|no such manifest' manifest-error.txt; then
-              cat manifest-error.txt >&2
-              exit 1
-            fi
-            docker buildx imagetools create --tag "$image:$RELEASE_TAG" \
-              "$image@$amd64_digest" "$image@$arm64_digest"
-          fi
+          build/check-container-archive.sh ".tmp/container-metadata/container-mem0-${ARCH}.json" "$TAG" "$SOURCE_COMMIT" .tmp/release
+      - name: Upload Mem0 Release archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: assets-mem0-${{ matrix.arch }}
+          path: .tmp/release/*
+          compression-level: 0
+          if-no-files-found: error
+      - name: Upload container metadata part
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: container-metadata-mem0-${{ matrix.arch }}
+          path: .tmp/container-metadata/*
+          if-no-files-found: error
 
   linux:
     name: Linux ${{ matrix.arch }} Release Asset
@@ -221,28 +189,33 @@ jobs:
             --source-commit "$SOURCE_COMMIT" \
             --architecture "${{ matrix.arch }}"
 
-      - name: Build and run production image from the verified Debian package
+      - name: Export or reuse and load the production image archive
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.prepare.outputs.tag }}
           VERSION: ${{ needs.prepare.outputs.version }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
           SOURCE_EPOCH: ${{ needs.prepare.outputs.source_epoch }}
-          BINARY: ${{ runner.temp }}/gizclaw-linux-${{ matrix.arch }}
           ARCH: ${{ matrix.arch }}
         run: |
-          build/build-runtime-image.sh ".tmp/release/gizclaw_${VERSION}_${ARCH}.deb" "$VERSION" "$SOURCE_COMMIT" "$SOURCE_EPOCH" "$ARCH"
-          binary_digest="$(sha256sum "$BINARY" | cut -d ' ' -f1)"
-          image="gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}"
-          build/check-runtime-image.sh "$image" "$VERSION" "$SOURCE_COMMIT" "$ARCH" "$binary_digest"
-          mkdir -p .tmp/runtime
-          docker save --output ".tmp/runtime/runtime-${ARCH}.tar" "$image"
-          printf '%s\n' "$binary_digest" >".tmp/runtime/binary-${ARCH}.sha256"
+          set -euo pipefail
+          status=0
+          build/reuse-container-archive.sh runtime .tmp/release .tmp/container-metadata "$TAG" "$SOURCE_COMMIT" "$ARCH" || status=$?
+          if [[ "$status" == 3 ]]; then
+            build/build-runtime-image.sh ".tmp/release/gizclaw_${VERSION}_${ARCH}.deb" "$VERSION" "$SOURCE_COMMIT" "$SOURCE_EPOCH" "$ARCH"
+            image="gizclaw-runtime:${SOURCE_COMMIT}-${ARCH}"
+            build/package-container-image.sh runtime "$image" .tmp/release .tmp/container-metadata "$TAG" "$SOURCE_COMMIT" "$ARCH"
+          elif [[ "$status" != 0 ]]; then
+            exit 1
+          fi
+          build/check-container-archive.sh ".tmp/container-metadata/container-runtime-${ARCH}.json" "$TAG" "$SOURCE_COMMIT" .tmp/release
 
-      - name: Upload verified production image
+      - name: Upload container metadata part
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: runtime-${{ matrix.arch }}
-          path: .tmp/runtime/*
-          compression-level: 0
+          name: container-metadata-runtime-${{ matrix.arch }}
+          path: .tmp/container-metadata/*
           if-no-files-found: error
 
       - name: Upload Linux release asset
@@ -250,6 +223,7 @@ jobs:
         with:
           name: assets-linux-${{ matrix.arch }}
           path: .tmp/release/*
+          compression-level: 0
           if-no-files-found: error
 
   c-sdk:
@@ -459,76 +433,52 @@ jobs:
           if-no-files-found: error
 
   container-image:
-    if: github.repository == 'GizClaw/gizclaw'
-    name: Publish Immutable GHCR Image
-    needs: [prepare, linux, c-sdk, flutter-sdk, js-sdk, terraform-provider]
+    name: Verify Container Delivery Receipt
+    needs: [prepare, linux, mem0-image]
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 20
     permissions:
       contents: read
-      packages: write
-    outputs:
-      reference: ${{ steps.publish.outputs.reference }}
     steps:
       - name: Check out selected source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
-          fetch-depth: 0
-
-      - name: Set up pinned Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
-        with:
-          version: v0.33.0
-
-      - name: Verify current protected source and formal tag ruleset
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ needs.prepare.outputs.tag }}
-          SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-        run: build/check-release-source.sh "$GH_REPO" "$TAG" "$SOURCE_COMMIT"
-
-      - name: Log in to GHCR with the repository token
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Download verified image archives
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-        with:
-          pattern: runtime-*
-          path: .tmp/runtime
-          merge-multiple: true
-
-      - name: Download matching Debian packages
+      - name: Download Runtime archives and matching Debian packages
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           pattern: assets-linux-*
           path: .tmp/packages
           merge-multiple: true
-
-      - name: Publish or verify the immutable version and record its digest
-        id: publish
+      - name: Download Mem0 archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: assets-mem0-*
+          path: .tmp/packages
+          merge-multiple: true
+      - name: Download all container metadata parts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          pattern: container-metadata-*
+          path: .tmp/container-metadata
+          merge-multiple: true
+      - name: Bind all four image archives to source and Debian binaries
         env:
           TAG: ${{ needs.prepare.outputs.tag }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
-        run: build/publish-runtime-image.sh .tmp/runtime .tmp/packages "$TAG" "$SOURCE_COMMIT"
-
-      - name: Upload registry receipt
+        run: build/build-container-receipt.sh .tmp/container-metadata .tmp/packages "$TAG" "$SOURCE_COMMIT"
+      - name: Upload container delivery receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: assets-container-image
           path: .tmp/packages/container-image.json
           if-no-files-found: error
 
-  container-pull:
-    name: GHCR Anonymous Runtime (${{ matrix.arch }})
+  container-load:
+    name: Release Archive Runtime (${{ matrix.arch }})
     needs: [prepare, container-image]
     runs-on: ${{ matrix.runner }}
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
     strategy:
@@ -544,31 +494,38 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ needs.prepare.outputs.source_commit }}
-
-      - name: Download registry receipt
+      - name: Download native Runtime archive and Debian package
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: assets-linux-${{ matrix.arch }}
+          path: .tmp/packages
+      - name: Download native Mem0 archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: assets-mem0-${{ matrix.arch }}
+          path: .tmp/packages
+      - name: Download container delivery receipt
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
         with:
           name: assets-container-image
-          path: .tmp/receipt
-
-      - name: Pull and run the published digest without registry credentials
+          path: .tmp/packages
+      - name: Verify, import and run both delivered images on a fresh native runner
         env:
-          IMAGE: ${{ needs.container-image.outputs.reference }}
-          VERSION: ${{ needs.prepare.outputs.version }}
+          TAG: ${{ needs.prepare.outputs.tag }}
           SOURCE_COMMIT: ${{ needs.prepare.outputs.source_commit }}
           ARCH: ${{ matrix.arch }}
         run: |
-          export DOCKER_CONFIG
-          DOCKER_CONFIG="$(mktemp -d)"
-          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
-          docker pull --platform "linux/$ARCH" "$IMAGE" || {
-            echo 'GHCR must allow anonymous pulls. For first publication, set the GizClaw package visibility to public and rerun failed jobs.' >&2
-            exit 1
-          }
-          binary_digest="$(jq -er --arg arch "$ARCH" '.platforms[] | select(.architecture == $arch) | .binary_sha256' .tmp/receipt/container-image.json)"
-          build/check-runtime-image.sh "$IMAGE" "$VERSION" "$SOURCE_COMMIT" "$ARCH" "$binary_digest"
+          set -euo pipefail
+          for component in runtime mem0; do
+            build/check-container-receipt.sh .tmp/packages/container-image.json "$TAG" "$SOURCE_COMMIT" .tmp/packages "$component" "$ARCH"
+            jq --arg component "$component" --arg arch "$ARCH" \
+              '.images[] | select(.component == $component and .architecture == $arch)' \
+              .tmp/packages/container-image.json >.tmp/entry.json
+            build/check-container-archive.sh .tmp/entry.json "$TAG" "$SOURCE_COMMIT" .tmp/packages
+          done
 
   publish-semver:
+    if: github.repository == 'GizClaw/gizclaw'
     name: Publish Protected SemVer Release
     needs:
       - prepare
@@ -578,7 +535,8 @@ jobs:
       - js-sdk
       - terraform-provider
       - container-image
-      - container-pull
+      - container-load
+      - mem0-image
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -677,7 +635,7 @@ jobs:
               --verify-tag \
               --target "$SOURCE_COMMIT" \
               --title "$TAG" \
-              --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT. Container: $(jq -r .reference .tmp/publish/container-image.json)."
+              --notes "Formal GizClaw $TAG release from $SOURCE_COMMIT. Runtime and Mem0 Docker image archives are included; see container-image.json for checksums and local image identities."
             lookup_release
           elif [[ "$lookup_status" -ne 0 ]]; then
             exit "$lookup_status"
