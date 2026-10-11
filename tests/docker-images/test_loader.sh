@@ -39,7 +39,10 @@ while (($#)); do
 done
 [[ "$fail_flag" == 1 && -n "$output" && -n "$url" ]]
 printf 'curl %s\n' "$url" >> "$MOCK_COMMANDS"
-[[ "${MOCK_CURL_FAIL:-0}" != 1 ]] || exit 22
+if [[ "${MOCK_CURL_FAIL:-0}" == 1 ]]; then
+  printf 'partial archive bytes\n' > "$output"
+  exit 18
+fi
 printf 'Docker archive fixture\n' > "$output"
 CURL
 chmod +x "$work/bin/docker" "$work/bin/curl"
