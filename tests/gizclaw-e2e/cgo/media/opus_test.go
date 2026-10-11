@@ -87,7 +87,7 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 			Id: profileName,
 			Spec: apitypes.RuntimeProfileSpec{
 				Resources: resources,
-				Workflows: apitypes.RuntimeProfileWorkflows(runtimeBindings(map[string]string{"realtime-workflow": "doubao-realtime-conversation"})),
+				Workflows: runtimeWorkflowBindings(map[string]string{"realtime-workflow": "doubao-realtime-conversation"}),
 			},
 		},
 	)
@@ -119,12 +119,12 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 	return tokenResp.JSON200.Token
 }
 
-func runtimeBindings(
+func runtimeWorkflowBindings(
 	resources map[string]string,
-) map[string]apitypes.RuntimeProfileBinding {
-	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(resources))
+) apitypes.RuntimeProfileWorkflows {
+	bindings := make(apitypes.RuntimeProfileWorkflows, len(resources))
 	for alias, resourceID := range resources {
-		bindings[alias] = apitypes.RuntimeProfileBinding{
+		bindings[alias] = apitypes.RuntimeProfileWorkflowBinding{
 			ResourceId: resourceID,
 			I18n: map[string]apitypes.RuntimeProfileI18nText{
 				"en":    {DisplayName: alias},
@@ -134,5 +134,3 @@ func runtimeBindings(
 	}
 	return bindings
 }
-
-func ptr[T any](value T) *T { return &value }

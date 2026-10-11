@@ -39,7 +39,7 @@ func TestAdminAPIModelsListGetPaginationAndMutation(t *testing.T) {
 	created, err := env.api.CreateModelWithResponse(env.ctx, adminhttp.ModelUpsert{
 		Id:          name,
 		Kind:        apitypes.ModelKindLlm,
-		DisplayName: ptr("Admin API mutation model"),
+		DisplayName: new("Admin API mutation model"),
 		Provider: apitypes.ModelProvider{
 			Kind: apitypes.ModelProviderKindOpenaiTenant,
 			Id:   seed.Provider.Id,

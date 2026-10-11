@@ -39,7 +39,7 @@ func TestAdminAPICredentialsListGetPaginationAndMutation(t *testing.T) {
 	created, err := env.api.CreateCredentialWithResponse(env.ctx, adminhttp.CredentialUpsert{
 		Id:          name,
 		Provider:    "openai",
-		Description: ptr("Admin API mutation credential"),
+		Description: new("Admin API mutation credential"),
 		Body:        openAICredentialBody(t, "sk-e2e-admin-mut"),
 	})
 	if err != nil {

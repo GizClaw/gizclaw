@@ -40,8 +40,8 @@ func TestAdminLogStreamVolcSmoke(t *testing.T) {
 	for time.Now().Before(deadline) {
 		now := time.Now().UTC()
 		resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: ptr("request_id:" + requestID), StartTimeMs: ptr(now.Add(-5 * time.Minute).UnixMilli()),
-			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(10)),
+			Filter: new("request_id:" + requestID), StartTimeMs: new(now.Add(-5 * time.Minute).UnixMilli()),
+			EndTimeMs: new(now.Add(time.Minute).UnixMilli()), Limit: new(int32(10)),
 		})
 		if err != nil {
 			t.Fatalf("StreamServerLogs error: %v", err)
@@ -71,8 +71,8 @@ func TestAdminConversationAuditLogs(t *testing.T) {
 		now := time.Now().UTC()
 		filter := `boundary:agent_input AND event:text AND content:"` + observabilityConversationPrompt + `"`
 		resp, err := h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: &filter, StartTimeMs: ptr(now.Add(-30 * time.Minute).UnixMilli()),
-			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(10)),
+			Filter: &filter, StartTimeMs: new(now.Add(-30 * time.Minute).UnixMilli()),
+			EndTimeMs: new(now.Add(time.Minute).UnixMilli()), Limit: new(int32(10)),
 		})
 		if err != nil {
 			t.Fatalf("query input: %v", err)
@@ -91,8 +91,8 @@ func TestAdminConversationAuditLogs(t *testing.T) {
 		}
 		filter = "session_id:" + input["session_id"] + " AND event:*"
 		resp, err = h.api.StreamServerLogsWithResponse(h.ctx, &adminhttp.StreamServerLogsParams{
-			Filter: &filter, StartTimeMs: ptr(now.Add(-30 * time.Minute).UnixMilli()),
-			EndTimeMs: ptr(now.Add(time.Minute).UnixMilli()), Limit: ptr(int32(1000)),
+			Filter: &filter, StartTimeMs: new(now.Add(-30 * time.Minute).UnixMilli()),
+			EndTimeMs: new(now.Add(time.Minute).UnixMilli()), Limit: new(int32(1000)),
 		})
 		if err != nil {
 			t.Fatalf("query conversation: %v", err)
@@ -161,7 +161,7 @@ func decodeLogStreamEntries(t *testing.T, body string) []struct {
 		Fields  map[string]string `json:"fields"`
 		Message string            `json:"message"`
 	}
-	for _, block := range strings.Split(body, "\n\n") {
+	for block := range strings.SplitSeq(body, "\n\n") {
 		lines := strings.Split(block, "\n")
 		if len(lines) < 2 || lines[0] != "event: log" || !strings.HasPrefix(lines[1], "data: ") {
 			continue

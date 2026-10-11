@@ -165,7 +165,7 @@ func collectAdminPages[T any](t *testing.T, limit int32, call func(cursor *strin
 	var out []T
 	var cursor *string
 	seen := make(map[string]bool)
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		items, hasNext, nextCursor := call(cursor, limit)
 		out = append(out, items...)
 		if !hasNext {
@@ -189,7 +189,7 @@ func collectAdminPagesInt[T any](t *testing.T, limit int, call func(cursor *stri
 	var out []T
 	var cursor *string
 	seen := make(map[string]bool)
-	for i := 0; i < 10000; i++ {
+	for i := range 10000 {
 		items, hasNext, nextCursor := call(cursor, limit)
 		out = append(out, items...)
 		if !hasNext {
@@ -208,14 +208,10 @@ func collectAdminPagesInt[T any](t *testing.T, limit int, call func(cursor *stri
 	return out
 }
 
-func ptr[T any](value T) *T {
-	return &value
-}
-
 func openAICredentialBody(t *testing.T, apiKey string) apitypes.CredentialBody {
 	t.Helper()
 	var body apitypes.CredentialBody
-	if err := body.FromOpenAICredentialBody(apitypes.OpenAICredentialBody{ApiKey: ptr(apiKey)}); err != nil {
+	if err := body.FromOpenAICredentialBody(apitypes.OpenAICredentialBody{ApiKey: new(apiKey)}); err != nil {
 		t.Fatalf("build OpenAI credential body: %v", err)
 	}
 	return body
@@ -226,8 +222,8 @@ func openAIModelProviderData(t *testing.T, upstream string) apitypes.ModelProvid
 	var body apitypes.ModelProviderData
 	if err := body.FromOpenAITenantModelProviderData(apitypes.OpenAITenantModelProviderData{
 		UpstreamModel:     upstream,
-		UseSystemRole:     ptr(true),
-		SupportJsonOutput: ptr(true),
+		UseSystemRole:     new(true),
+		SupportJsonOutput: new(true),
 	}); err != nil {
 		t.Fatalf("build OpenAI model provider data: %v", err)
 	}
@@ -262,7 +258,7 @@ func mutationName(base string) string {
 func firmwareSlots(description string) apitypes.FirmwareSlots {
 	return apitypes.FirmwareSlots{
 		Stable: apitypes.FirmwareSlot{
-			Description: ptr(description),
+			Description: new(description),
 		},
 	}
 }

@@ -42,10 +42,10 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 	name := mutationName("firmware")
 	upsert := adminhttp.FirmwareUpsert{
 		Id:          name,
-		Description: ptr("Admin API mutation firmware"),
+		Description: new("Admin API mutation firmware"),
 		Slots: apitypes.FirmwareSlots{
 			Stable: apitypes.FirmwareSlot{
-				Description: ptr("stable package"),
+				Description: new("stable package"),
 				Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 					Url:    "https://downloads.example.com/firmware/stable.tar.zlib",
 					Sha256: firmwarePackageSHA256,
@@ -53,7 +53,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 				},
 			},
 			Beta: apitypes.FirmwareSlot{
-				Description: ptr("beta package"),
+				Description: new("beta package"),
 				Package: &apitypes.FirmwarePackage{Version: new("1.2.3"),
 					Url:    "https://downloads.example.com/firmware/beta.tar.zlib",
 					Sha256: "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789",
@@ -89,7 +89,7 @@ func TestAdminAPIFirmwaresListGetAndConfigurePackages(t *testing.T) {
 		}
 	})
 
-	upsert.Description = ptr("Admin API updated firmware")
+	upsert.Description = new("Admin API updated firmware")
 	put, err := env.api.PutFirmwareWithResponse(env.ctx, firmwareID, upsert)
 	if err != nil {
 		t.Fatalf("put firmware: %v", err)

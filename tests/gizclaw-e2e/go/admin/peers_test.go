@@ -56,12 +56,12 @@ func TestAdminAPIRefreshPeerInvokesClientInfoAndIdentifiers(t *testing.T) {
 	defer peer.Close()
 	peer.Device = apitypes.DeviceInfo{
 		Hardware: &apitypes.HardwareInfo{
-			Manufacturer:     ptr("GizClaw"),
-			Model:            ptr("E2E Admin Refresh"),
-			HardwareRevision: ptr("rev-a"),
+			Manufacturer:     new("GizClaw"),
+			Model:            new("E2E Admin Refresh"),
+			HardwareRevision: new("rev-a"),
 		},
 		Identifiers: &apitypes.DeviceIdentifiers{
-			Sn:     ptr("admin-refresh-client-rpc"),
+			Sn:     new("admin-refresh-client-rpc"),
 			Labels: &[]apitypes.PeerLabel{{Key: "mode", Value: "client-rpc"}},
 		},
 	}

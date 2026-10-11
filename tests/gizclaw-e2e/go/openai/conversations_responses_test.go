@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime/debug"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -388,7 +388,7 @@ func timingStats(samples []responseTiming, value func(responseTiming) int64) map
 	for _, sample := range samples {
 		values = append(values, value(sample))
 	}
-	sort.Slice(values, func(i, j int) bool { return values[i] < values[j] })
+	slices.Sort(values)
 	return map[string]int64{"min": values[0], "median": values[len(values)/2], "max": values[len(values)-1]}
 }
 

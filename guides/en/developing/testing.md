@@ -707,6 +707,10 @@ SDK:
 | Flutter | the built `giztest` desktop binary (`tests/gizclaw-e2e/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
 | C | the built `giztest-c` binary (`tests/gizclaw-e2e/cgo/giztest`) | `sdk/c/gizclaw` through cgo | `sdk/c/gizclaw_control` |
 
+The cgo RPC fixtures and C Giztest runner compile the current C SDK sources and
+required nanopb payloads, including `lua_app.pb.c`. Keep both C source lists aligned
+when generated payloads change.
+
 All four accept the same command line (`validate -f <path>`, `run <path>
 --parallel N --output <report>`) and write the same report JSON structure. The
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,

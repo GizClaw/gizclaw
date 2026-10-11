@@ -142,7 +142,7 @@ func contactResource(t *testing.T, id, name, owner string) apitypes.Resource {
 		Spec: apitypes.ContactSpec{
 			OwnerPublicKey: owner,
 			Name:           name,
-			DisplayName:    ptr("Invalid Contact"),
+			DisplayName:    new("Invalid Contact"),
 		},
 	}); err != nil {
 		t.Fatalf("build contact resource: %v", err)
@@ -179,8 +179,8 @@ func friendGroupResource(t *testing.T, id, name, owner, displayName, description
 		Spec: apitypes.FriendGroupSpec{
 			OwnerPublicKey: owner,
 			Name:           name,
-			DisplayName:    ptr(displayName),
-			Description:    ptr(description),
+			DisplayName:    new(displayName),
+			Description:    new(description),
 		},
 	}); err != nil {
 		t.Fatalf("build friend group resource: %v", err)

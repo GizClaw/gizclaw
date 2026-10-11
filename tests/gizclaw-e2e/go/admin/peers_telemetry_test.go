@@ -32,7 +32,7 @@ func TestPeerTelemetryAdminQueriesFromProtocolPath(t *testing.T) {
 
 	now := time.Now().UTC()
 	start := now.Add(-40 * time.Minute).Truncate(time.Second)
-	for i := 0; i < 12; i++ {
+	for i := range 12 {
 		if err := peer.SendTelemetryFrame(peerTelemetryFixtureFrame(uint32(i+1), start.Add(time.Duration(i)*2*time.Minute), i)); err != nil {
 			t.Fatalf("send telemetry frame %d: %v", i, err)
 		}

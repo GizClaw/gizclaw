@@ -643,6 +643,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 | Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
 | C | 构建后的 `giztest-c` 二进制（`tests/gizclaw-e2e/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
 
+CGo RPC 夹具与 C Giztest runner 直接编译当前 C SDK 源码及所需的 nanopb payload，
+包括 `lua_app.pb.c`。生成 payload 变化时，同步维护两处 C 源码编译清单。
+
 四者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
 并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为

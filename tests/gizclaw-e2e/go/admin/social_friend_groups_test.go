@@ -19,7 +19,7 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 	created, err := env.api.CreateFriendGroupWithResponse(env.ctx, adminhttp.AdminFriendGroupCreateRequest{
 		Id:             groupID,
 		Name:           mutationName("friend-group"),
-		Description:    ptr("Admin API friend group"),
+		Description:    new("Admin API friend group"),
 		OwnerPublicKey: env.adminKey,
 	})
 	if err != nil {
@@ -44,8 +44,8 @@ func TestAdminAPIFriendGroupsMembersAndInviteToken(t *testing.T) {
 
 	updated, err := env.api.PutFriendGroupWithResponse(env.ctx, groupID, adminhttp.AdminFriendGroupPutRequest{
 		Id:          groupID,
-		DisplayName: ptr("Renamed Group"),
-		Description: ptr("renamed"),
+		DisplayName: new("Renamed Group"),
+		Description: new("renamed"),
 	})
 	if err != nil {
 		t.Fatalf("put friend group: %v", err)

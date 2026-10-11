@@ -53,7 +53,7 @@ func TestAdminAPIPeerFriendsListGetCreateDelete(t *testing.T) {
 		return item.Id
 	})
 
-	peerRows, err := env.api.ListPeerFriendsWithResponse(env.ctx, env.peerKey, &adminhttp.ListPeerFriendsParams{Limit: ptr(10)})
+	peerRows, err := env.api.ListPeerFriendsWithResponse(env.ctx, env.peerKey, &adminhttp.ListPeerFriendsParams{Limit: new(10)})
 	if err != nil {
 		t.Fatalf("list peer friends: %v", err)
 	}

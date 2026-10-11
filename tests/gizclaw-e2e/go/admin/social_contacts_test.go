@@ -20,8 +20,8 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 		Id:             contactID,
 		OwnerPublicKey: env.adminKey,
 		Name:           contactName,
-		DisplayName:    ptr("Admin API Contact"),
-		PhoneNumber:    ptr(phone),
+		DisplayName:    new("Admin API Contact"),
+		PhoneNumber:    new(phone),
 	})
 	if err != nil {
 		t.Fatalf("create contact: %v", err)
@@ -36,7 +36,7 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 		Id:             mutationName("contact-dup-id"),
 		OwnerPublicKey: env.adminKey,
 		Name:           mutationName("contact-dup"),
-		PhoneNumber:    ptr(phone),
+		PhoneNumber:    new(phone),
 	})
 	if err != nil {
 		t.Fatalf("create duplicate phone contact: %v", err)
@@ -55,7 +55,7 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 	}
 
 	ownerRows := collectAdminPagesInt(t, 1, func(cursor *string, limit int) ([]adminhttp.AdminContactObject, bool, *string) {
-		resp, err := env.api.ListContactsWithResponse(env.ctx, &adminhttp.ListContactsParams{OwnerPublicKey: ptr(env.adminKey), Cursor: cursor, Limit: &limit})
+		resp, err := env.api.ListContactsWithResponse(env.ctx, &adminhttp.ListContactsParams{OwnerPublicKey: new(env.adminKey), Cursor: cursor, Limit: &limit})
 		if err != nil {
 			t.Fatalf("list owner contacts: %v", err)
 		}
@@ -89,8 +89,8 @@ func TestAdminAPIContactsListGetCreatePutDelete(t *testing.T) {
 
 	updated, err := env.api.PutContactWithResponse(env.ctx, env.adminKey, contactID, adminhttp.AdminContactPutRequest{
 		Id:          contactID,
-		DisplayName: ptr("Renamed Contact"),
-		PhoneNumber: ptr(phone + "1"),
+		DisplayName: new("Renamed Contact"),
+		PhoneNumber: new(phone + "1"),
 	})
 	if err != nil {
 		t.Fatalf("put contact: %v", err)
