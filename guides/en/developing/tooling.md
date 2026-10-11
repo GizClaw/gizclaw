@@ -302,7 +302,12 @@ Validate older schemas using scripts from their source tags.
 config SHA256, all uncompressed layer diff IDs, platform, non-root user and OCI identity
 without extracting files. OCI indexes permit one runnable platform image plus
 attestations bound through descriptors, config/layers and in-toto subjects;
-extra runnable platforms or identity conflicts fail. `build/check-container-receipt.sh` also recomputes the
+extra runnable platforms or identity conflicts fail. Config filenames may be
+`<sha256>.json`, `sha256:<sha256>` or `blobs/sha256/<sha256>`; each must match the
+config's content hash. Docker Hub short names, `docker.io/` and `index.docker.io/`
+aliases must retain the same repository and explicit tag. Empty-config OCI
+attestations require the exact `{}` config bytes, a content-verified native
+manifest subject and matching in-toto subjects. `build/check-container-receipt.sh` also recomputes the
 Debian executable hash. `build/check-container-archive.sh` verifies the delivered
 bytes before importing and checking the loaded image ID. The complete Runtime
 gate retains CLI, `ldd`, CA, read-only config, SQLite/filesystem persistence,

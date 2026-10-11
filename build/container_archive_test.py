@@ -19,8 +19,11 @@ COMMIT = "1" * 40
 
 
 def make_archive(directory, component="runtime", arch="amd64", layout="classic",
-                 mutate_config=None, mutate_manifest=None, mutate_index=None, bad_layer=False, unsafe=False, attestation_case=None):
+                 mutate_config=None, mutate_manifest=None, mutate_index=None, bad_layer=False, unsafe=False,
+                 attestation_case=None, reference=None, oci_reference=None, bad_config_name=False):
     expected = contract.identity(component, TAG, COMMIT, arch)
+    if reference is not None:
+        expected["image_reference"] = reference
     path = directory / expected["name"]
     layer = b"layer contents for the archive integrity fixture"
     layer_digest = hashlib.sha256(layer).hexdigest()
@@ -40,10 +43,14 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
         mutate_config(config)
     config_bytes = json.dumps(config).encode()
     config_digest = hashlib.sha256(config_bytes).hexdigest()
-    config_name = config_digest + ".json" if layout == "classic" else "blobs/sha256/" + config_digest
+    config_name = (config_digest + ".json" if layout == "classic" else
+                   "sha256:" + config_digest if layout == "sdk" else "blobs/sha256/" + config_digest)
+    if bad_config_name:
+        config_name = config_name.replace(config_digest, "0" * 64)
     layer_bytes = layer if layout == "classic" else gzip.compress(layer, mtime=0)
     layer_blob_digest = hashlib.sha256(layer_bytes).hexdigest()
-    layer_name = "layer/layer.tar" if layout == "classic" else "blobs/sha256/" + layer_blob_digest
+    layer_name = ("layer/layer.tar" if layout == "classic" else
+                  layer_blob_digest + ".tar.gz" if layout == "sdk" else "blobs/sha256/" + layer_blob_digest)
     manifest = [{"Config": config_name, "Layers": [layer_name], "RepoTags": [expected["image_reference"]]}]
     if mutate_manifest:
         mutate_manifest(manifest)
@@ -59,8 +66,8 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
                     oci_digest = hashlib.sha256(oci_manifest).hexdigest()
                     index = {"schemaVersion": 2, "manifests": [{"digest": "sha256:" + oci_digest,
                              "size": len(oci_manifest), "annotations": {
-                                 "io.containerd.image.name": "docker.io/library/" + expected["image_reference"]}}]}
-                    if layout in ("containerd-index", "containerd-referrer"):
+                                 "io.containerd.image.name": oci_reference or "docker.io/library/" + expected["image_reference"]}}]}
+                    if layout in ("containerd-index", "containerd-referrer", "containerd-empty"):
                         statement = {"_type": "https://in-toto.io/Statement/v1", "predicateType": "https://slsa.dev/provenance/v1",
                                      "subject": [{"name": "image", "digest": {"sha256": oci_digest}}]}
                         if attestation_case == "subject":
@@ -71,12 +78,26 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
                                       "rootfs": {"type": "layers", "diff_ids": ["sha256:" + statement_digest]}}
                         if attestation_case == "config":
                             att_config["architecture"] = arch
-                        att_config_bytes = json.dumps(att_config).encode()
+                        att_config_bytes = b"{}" if layout == "containerd-empty" else json.dumps(att_config).encode()
+                        if layout == "containerd-empty" and attestation_case == "nonempty":
+                            att_config_bytes = b'{"unexpected":true}'
                         att_config_digest = hashlib.sha256(att_config_bytes).hexdigest()
-                        att_manifest = json.dumps({"schemaVersion": 2,
+                        att_node = {"schemaVersion": 2,
                                        "config": {"digest": "sha256:" + att_config_digest, "size": len(att_config_bytes)},
                                        "layers": [{"digest": "sha256:" + statement_digest, "size": len(statement_bytes),
-                                                   "mediaType": "application/vnd.in-toto+json"}]}).encode()
+                                                   "mediaType": "application/vnd.in-toto+json"}]}
+                        if layout == "containerd-empty":
+                            att_node["config"].update(mediaType="application/vnd.oci.empty.v1+json", data="e30=")
+                            att_node["subject"] = {"digest": "sha256:" + oci_digest, "size": len(oci_manifest)}
+                            if attestation_case == "missing-subject":
+                                del att_node["subject"]
+                            elif attestation_case == "subject-size":
+                                att_node["subject"]["size"] += 1
+                            elif attestation_case == "subject-digest":
+                                att_node["subject"]["digest"] = "sha256:" + "0" * 64
+                            elif attestation_case == "inline-config":
+                                att_node["config"]["data"] = "bm90IGVtcHR5"
+                        att_manifest = json.dumps(att_node).encode()
                         att_digest = hashlib.sha256(att_manifest).hexdigest()
                         att_descriptor = {"digest": "sha256:" + att_digest, "size": len(att_manifest),
                                           "platform": {"os": "unknown", "architecture": "unknown"},
@@ -91,7 +112,7 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
                         inner_index = json.dumps({"schemaVersion": 2, "manifests": [runnable, att_descriptor]}).encode()
                         inner_digest = hashlib.sha256(inner_index).hexdigest()
                         index["manifests"][0].update(digest="sha256:" + inner_digest, size=len(inner_index))
-                        if layout == "containerd-referrer":
+                        if layout in ("containerd-referrer", "containerd-empty"):
                             att_descriptor["annotations"] = {"io.containerd.manifest.subject": "sha256:" + oci_digest}
                             att_descriptor.pop("platform")
                             if attestation_case == "target":
@@ -126,13 +147,46 @@ class ArchiveTest(unittest.TestCase):
         return contract.inspect_archive(make_archive(self.directory, **kwargs), component, TAG, COMMIT, arch)
 
     def test_classic_and_containerd_layouts(self):
-        for layout in ("classic", "containerd", "containerd-index", "containerd-referrer"):
+        for layout in ("classic", "sdk", "containerd", "containerd-index", "containerd-referrer", "containerd-empty"):
             for component in ("runtime", "mem0"):
                 for arch in ("amd64", "arm64"):
                     with self.subTest(layout=layout, component=component, arch=arch):
                         entry = self.inspect(layout=layout, component=component, arch=arch)
                         self.assertEqual(entry["image_reference"], f"gizclaw-{component}:{TAG}-{arch}")
                         self.assertNotEqual(entry["sha256"], entry["image_id"].removeprefix("sha256:"))
+
+    def test_docker_hub_reference_aliases(self):
+        for name, aliases in (("gizclaw-runtime", ("gizclaw-runtime", "library/gizclaw-runtime",
+                                                 "docker.io/gizclaw-runtime", "index.docker.io/gizclaw-runtime",
+                                                 "docker.io/library/gizclaw-runtime", "index.docker.io/library/gizclaw-runtime")),
+                              ("gizclaw-tos/cache", ("gizclaw-tos/cache", "docker.io/gizclaw-tos/cache",
+                                                    "index.docker.io/gizclaw-tos/cache"))):
+            expected = name + ":test-tag"
+            for alias in aliases:
+                for layout in ("classic", "sdk", "containerd"):
+                    with self.subTest(name=name, alias=alias, layout=layout):
+                        path = make_archive(self.directory, layout=layout, reference=alias + ":test-tag",
+                                            oci_reference=alias + ":test-tag")
+                        proof = contract.inspect_docker_archive(path, expected, "amd64")
+                        with gzip.open(path, "rb") as stream:
+                            contract.verify_saved_config(stream, expected, "amd64", proof["config_digest"])
+            for wrong in (name + ":other-tag", "other/repository:test-tag", "example.com/" + expected,
+                          "registry-1.docker.io/" + expected, "docker.io/other-namespace/" + name + ":test-tag"):
+                with self.subTest(wrong=wrong), self.assertRaises(ValueError):
+                    path = make_archive(self.directory, reference=wrong)
+                    contract.inspect_docker_archive(path, expected, "amd64")
+            with self.assertRaises(ValueError):
+                path = make_archive(self.directory, layout="containerd", reference=expected,
+                                    oci_reference="example.com/" + expected)
+                contract.inspect_docker_archive(path, expected, "amd64")
+
+    def test_sdk_config_filename_hash(self):
+        path = make_archive(self.directory, layout="sdk")
+        proof = contract.inspect_archive(path, "runtime", TAG, COMMIT, "amd64")
+        with gzip.open(path, "rb") as stream:
+            contract.verify_saved_config(stream, proof["image_reference"], "amd64", proof["config_digest"])
+        with self.assertRaises(ValueError):
+            self.inspect(layout="sdk", bad_config_name=True)
 
     def test_wrong_config_identity(self):
         mutations = [lambda c: c.update(architecture="arm64"),
@@ -170,6 +224,13 @@ class ArchiveTest(unittest.TestCase):
         for case in ("subject", "target", "config"):
             with self.subTest(case=case), self.assertRaises(ValueError):
                 self.inspect(layout="containerd-referrer", attestation_case=case)
+
+    def test_empty_config_subject_bound_referrers(self):
+        self.inspect(layout="containerd-empty")
+        for case in ("subject", "target", "nonempty", "missing-subject", "subject-size", "subject-digest", "inline-config"):
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                self.inspect(layout="containerd-empty", attestation_case=case)
+        self.inspect(layout="containerd-empty", mutate_index=lambda i: i["manifests"][1].pop("annotations"))
 
     def test_wrong_manifest_or_layer(self):
         mutations = [lambda m: m.append(copy.deepcopy(m[0])),

@@ -267,6 +267,10 @@ Debian、C、Flutter、npm 与 Terraform provider entry 的字段和命名保持
 唯一 tag、config SHA256、全部解压后的 layer diff IDs、平台、非 root 用户与 OCI 身份；
 OCI index 只允许一个可运行的平台镜像，以及通过 descriptor、config/layer 和 in-toto
 subject 绑定到该镜像的 attestation；拒绝额外平台镜像或身份冲突。
+Config 文件名支持 `<sha256>.json`、`sha256:<sha256>` 和 `blobs/sha256/<sha256>`，
+均须匹配 config 内容哈希。Docker Hub 短名、`docker.io/` 和 `index.docker.io/` 别名
+必须指向同一 repository 和显式 tag。使用空 config 的 OCI attestation 必须具有精确的
+`{}` config 字节、经内容校验的原生 manifest subject，以及匹配的 in-toto subjects。
 `build/check-container-receipt.sh` 另从 `.deb` 重算程序 SHA256。
 `build/check-container-archive.sh` 校验实际交付字节后导入镜像，并核对加载后的 image ID。
 Runtime 完整运行 gate 保留 CLI、`ldd`、CA、只读配置、SQLite/filesystem 持久化、
