@@ -188,6 +188,23 @@ func TestValidateResourceJSONEinoPromptMessageForms(t *testing.T) {
 	}
 }
 
+func TestValidateResourceJSONEinoIgnoresStarts(t *testing.T) {
+	t.Parallel()
+	for _, conversation := range []string{
+		`{"starts":"agent"}`,
+		`{"starts":{"obsolete":true}}`,
+		`{"starts":null,"initiative":"agent"}`,
+		`{"starts":"agent","initiative":"peer"}`,
+	} {
+		input := strings.Replace(validEinoWorkflowResource, `"eino":{"graph":`, `"eino":{"conversation":`+conversation+`,"graph":`, 1)
+		for _, document := range []string{input, `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"ResourceList","spec":{"items":[` + input + `]}}`} {
+			if err := ValidateResourceJSON([]byte(document)); err != nil {
+				t.Fatalf("ignored starts rejected: %v", err)
+			}
+		}
+	}
+}
+
 func TestValidateResourceJSONEinoErrorUsesSelectedFullPointer(t *testing.T) {
 	input := strings.Replace(validEinoWorkflowResource, `{"placeholder":"history","optional":true}`, `{"role":"system"}`, 1)
 	err := ValidateResourceJSON([]byte(input))

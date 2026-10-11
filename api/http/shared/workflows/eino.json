@@ -42,6 +42,12 @@
             "default": "peer",
             "description": "Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default."
           },
+          "starts": {
+            "nullable": true,
+            "deprecated": true,
+            "x-deprecated-reason": "Ignored legacy input; use initiative.",
+            "description": "Ignored legacy input. Only initiative controls the opening party. This value is discarded and is never returned or stored."
+          },
           "continue_from": {
             "type": "string",
             "minLength": 1,

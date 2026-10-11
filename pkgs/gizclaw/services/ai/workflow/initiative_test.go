@@ -26,8 +26,9 @@ func TestStoredEinoConversationInitiative(t *testing.T) {
 		{"default", `{}`, nil},
 		{"agent", `{"initiative":"agent"}`, new(apitypes.EinoConversationInitiativeAgent)},
 		{"peer", `{"initiative":"peer"}`, new(apitypes.EinoConversationInitiativePeer)},
-		{"stored agent", `{"starts":"agent"}`, new(apitypes.EinoConversationInitiativeAgent)},
-		{"stored peer", `{"starts":"peer"}`, new(apitypes.EinoConversationInitiativePeer)},
+		{"ignored stored agent", `{"starts":"agent"}`, nil},
+		{"ignored stored peer", `{"starts":"peer"}`, nil},
+		{"ignored stored value", `{"starts":{"obsolete":true}}`, nil},
 		{"canonical peer wins", `{"initiative":"peer","starts":"agent"}`, new(apitypes.EinoConversationInitiativePeer)},
 		{"canonical agent wins", `{"initiative":"agent","starts":"peer"}`, new(apitypes.EinoConversationInitiativeAgent)},
 	} {
@@ -46,6 +47,9 @@ func TestStoredEinoConversationInitiative(t *testing.T) {
 				t.Fatalf("GetWorkflow() = %#v", response)
 			}
 			initiative := got.Spec.Eino.Conversation.Initiative
+			if got.Spec.Eino.Conversation.Starts != nil {
+				t.Fatal("GetWorkflow() retained the ignored starts value")
+			}
 			if (initiative == nil) != (test.want == nil) || initiative != nil && *initiative != *test.want {
 				t.Fatalf("initiative = %v, want %v", initiative, test.want)
 			}

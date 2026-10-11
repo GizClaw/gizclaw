@@ -3711,6 +3711,10 @@ type EinoConversation struct {
 
 	// Initiative Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default.
 	Initiative *EinoConversationInitiative `json:"initiative,omitempty"`
+
+	// Starts Ignored legacy input. Only initiative controls the opening party. This value is discarded and is never returned or stored.
+	// Deprecated: Ignored legacy input; use initiative.
+	Starts interface{} `json:"starts,omitempty"`
 }
 
 // EinoConversationInitiative Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default.

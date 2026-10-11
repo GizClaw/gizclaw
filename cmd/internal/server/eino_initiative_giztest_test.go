@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/adminapi"
@@ -37,6 +38,10 @@ func TestEinoInitiativeGiztest(t *testing.T) {
 			"outputs":[{"node":"opening","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]
 		}}`
 		workflows := apitypes.RuntimeProfileWorkflows{}
+		api, err := admin.ServerAdminClient()
+		if err != nil {
+			t.Fatal(err)
+		}
 		for _, value := range []string{"agent", "peer", "default"} {
 			var spec apitypes.EinoWorkflowSpec
 			if err := json.Unmarshal([]byte(graph), &spec); err != nil {
@@ -46,8 +51,24 @@ func TestEinoInitiativeGiztest(t *testing.T) {
 				spec.Conversation = &apitypes.EinoConversation{Initiative: new(apitypes.EinoConversationInitiative(value))}
 			}
 			id := "initiative-" + value
-			if _, err := adminapi.CreateWorkflow(t.Context(), admin, apitypes.Workflow{Id: id, Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &spec}}); err != nil {
+			body, err := json.Marshal(apitypes.Workflow{Id: id, Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &spec}})
+			if err != nil {
 				t.Fatal(err)
+			}
+			if value == "default" {
+				// Send the obsolete field over HTTP without the client's JSON
+				// adapter dropping it before it reaches the Server.
+				body = []byte(strings.Replace(string(body), `"eino":{`, `"eino":{"conversation":{"starts":"agent"},`, 1))
+			}
+			created, err := api.CreateWorkflowWithBodyWithResponse(t.Context(), "application/json", bytes.NewReader(body))
+			if err != nil || created == nil || created.JSON200 == nil {
+				t.Fatalf("CreateWorkflow() = %+v, %v", created, err)
+			}
+			if bytes.Contains(created.Body, []byte(`"starts"`)) {
+				t.Fatalf("Server returned the ignored starts field: %s", created.Body)
+			}
+			if value == "default" && (created.JSON200.Spec.Eino.Conversation == nil || created.JSON200.Spec.Eino.Conversation.Initiative != nil || created.JSON200.Spec.Eino.Conversation.Starts != nil) {
+				t.Fatalf("Server retained or promoted starts: %+v", created.JSON200.Spec.Eino.Conversation)
 			}
 			workflows[value] = apitypes.RuntimeProfileWorkflowBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Opening"}, "zh-CN": {DisplayName: "开场"}}}
 		}

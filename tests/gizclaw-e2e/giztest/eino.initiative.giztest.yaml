@@ -1,6 +1,6 @@
 # User Story:
 # As a Workspace owner,
-# I want Workspace initiative to override the Workflow opening default,
+# I want Workspace initiative to override the Workflow opening default and obsolete starts to be ignored,
 # So that agent opening uses the same setting name at both configuration layers.
 version: gizclaw.test/v1alpha1
 name: eino.initiative
@@ -125,6 +125,8 @@ steps:
     rpc: {method: server.run.workspace.reload, request: {}}
   - id: absent_initiative_defaults_to_peer
     client: peer
+    # This Workflow's raw HTTP definition includes starts: agent. That ignored
+    # field must produce neither an opening nor a History entry.
     peer_stream: {mode: listen, duration: 1s}
     expect:
       /events: {equals: 0}

@@ -388,11 +388,6 @@ func scanWorkflow(row interface{ Scan(...any) error }) (apitypes.Workflow, error
 	if fields == nil {
 		return doc, errors.New("workflow: null configuration")
 	}
-	if driver == string(apitypes.WorkflowDriverEino) {
-		if err := normalizeStoredEinoInitiative(fields); err != nil {
-			return doc, err
-		}
-	}
 	encodedDriver, err := json.Marshal(driver)
 	if err != nil {
 		return doc, err
@@ -407,40 +402,6 @@ func scanWorkflow(row interface{ Scan(...any) error }) (apitypes.Workflow, error
 	}
 	doc, _, err = validateWorkflow(doc, "")
 	return doc, err
-}
-
-// normalizeStoredEinoInitiative reads the former field name only from database
-// rows. Public requests and all subsequent writes use conversation.initiative.
-func normalizeStoredEinoInitiative(fields map[string]json.RawMessage) error {
-	if len(fields["eino"]) == 0 {
-		return nil
-	}
-	var eino map[string]json.RawMessage
-	if err := json.Unmarshal(fields["eino"], &eino); err != nil {
-		return err
-	}
-	if len(eino["conversation"]) == 0 {
-		return nil
-	}
-	var conversation map[string]json.RawMessage
-	if err := json.Unmarshal(eino["conversation"], &conversation); err != nil {
-		return err
-	}
-	starts, present := conversation["starts"]
-	if !present {
-		return nil
-	}
-	if _, present := conversation["initiative"]; !present {
-		conversation["initiative"] = starts
-	}
-	delete(conversation, "starts")
-	raw, err := json.Marshal(conversation)
-	if err != nil {
-		return err
-	}
-	eino["conversation"] = raw
-	fields["eino"], err = json.Marshal(eino)
-	return err
 }
 
 func normalizeListParams(cursor *string, limit *int32) (string, int) {

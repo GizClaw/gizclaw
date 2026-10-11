@@ -899,7 +899,10 @@ func TestAdminValidateEinoInitiative(t *testing.T) {
 		{"agent", `"initiative":"agent"`, ""},
 		{"default", ``, ""},
 		{"invalid", `"initiative":"other"`, "initiative"},
-		{"retired name", `"starts":"agent"`, "starts"},
+		{"ignored retired name", `"starts":"agent"`, ""},
+		{"ignored retired value", `"starts":{"obsolete":true}`, ""},
+		{"ignored retired field with initiative", `"starts":"agent","initiative":"peer"`, ""},
+		{"other unknown field", `"start":"agent"`, "start"},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			cmd := NewCmd()
