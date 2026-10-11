@@ -21,6 +21,10 @@ import (
 
 const maxSupersededInputRoutes = 64
 
+// Continuations are assistant messages, not synthetic user turns. Keep their
+// model context bounded while each delivered generation is recorded separately.
+const maxContinuationMessages = 8
+
 // Transformer owns one immutable compiled Eino Graph. Transform may be called
 // concurrently; every call receives independent invocation-local run state.
 type Transformer struct {
@@ -482,6 +486,9 @@ func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previ
 
 func (session *session) launch(run *turnRun, inputID string) <-chan struct{} {
 	cancel := run.cancel
+	if session.transformer.config.ContinueFrom != "" {
+		run.messageID = genx.NewStreamID()
+	}
 	run.automaticPrimary = session.transformer.graph.definition.Compile.PrimaryOutputMode == PrimaryFirstOutput
 	for _, output := range session.transformer.graph.definition.Outputs {
 		outputID := genx.NewStreamID()
@@ -561,6 +568,9 @@ type turnRun struct {
 	emittedPrimary   int
 	deliveredBytes   int
 	delivered        strings.Builder
+	messageID        string
+	messageDelivered bool
+	userRecorded     bool
 	changed          chan struct{}
 	interruptionDone chan struct{}
 }
@@ -583,6 +593,7 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 	if !run.accepting {
 		return streamkit.ErrInactiveResponse
 	}
+	chunk.Ctrl = &genx.StreamCtrl{MessageID: run.messageID}
 	route, ok := run.routes[output.Name]
 	if !ok {
 		return fmt.Errorf("eino: output route %q is not active", output.Name)
@@ -619,7 +630,9 @@ func (run *turnRun) startAutomaticRoute(route outputRoute) (outputRoute, error) 
 	}
 	route.response = response
 	run.routes[route.definition.Name] = route
-	if err := run.session.invocation.Emit(response, newOutputRouteBegin(route.streamID, route.definition.MIMEType)); err != nil {
+	begin := newOutputRouteBegin(route.streamID, route.definition.MIMEType)
+	begin.Ctrl.MessageID = run.messageID
+	if err := run.session.invocation.Emit(response, begin); err != nil {
 		return route, err
 	}
 	return route, nil
@@ -721,6 +734,9 @@ func (run *turnRun) observe(chunk *genx.MessageChunk) {
 	if !known || (!run.automaticPrimary && chunk.Ctrl.StreamID != run.primary.streamID) {
 		run.mu.Unlock()
 		return
+	}
+	if chunk.Ctrl.MessageEnd && chunk.Ctrl.MessageID == run.messageID {
+		run.messageDelivered = true
 	}
 	switch part := chunk.Part.(type) {
 	case genx.Text:
@@ -833,10 +849,9 @@ func (run *turnRun) beginRoutes() error {
 		if !ok {
 			return fmt.Errorf("eino: output route %q is not registered", output.Name)
 		}
-		if err := run.session.invocation.Emit(
-			route.response,
-			newOutputRouteBegin(route.response.StreamID(), output.MIMEType),
-		); err != nil {
+		begin := newOutputRouteBegin(route.response.StreamID(), output.MIMEType)
+		begin.Ctrl.MessageID = run.messageID
+		if err := run.session.invocation.Emit(route.response, begin); err != nil {
 			return fmt.Errorf("eino: begin output route %q: %w", output.Name, err)
 		}
 	}
@@ -875,8 +890,12 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	case !run.initiative:
 		messages = append(messages, schemaUserMessage(run.user, run.parts))
 	}
+	observationID := run.anchorID
+	if config.ContinueFrom != "" {
+		observationID = run.messageID
+	}
 	state, err := newRunState(config.fields, graphInput{
-		ObservationID: run.anchorID,
+		ObservationID: observationID,
 		Text:          run.user,
 		Messages:      messages,
 		Parts:         run.parts,
@@ -893,7 +912,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 		run.ctx,
 		toolrun.New(config.ToolInvoker, config.MaxToolCalls),
 	)
-	if err := run.session.transformer.graph.execute(runContext, state); err != nil {
+	if err := run.executeGraph(runContext, state); err != nil {
 		return state, version, err
 	}
 	if run.automaticPrimary && !run.primaryChosen {
@@ -903,6 +922,108 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 		return state, version, fmt.Errorf("eino: primary output was not produced: %w", err)
 	}
 	return state, version, nil
+}
+
+func (run *turnRun) executeGraph(ctx context.Context, state *runState) error {
+	config := run.session.transformer.config
+	if config.ContinueFrom == "" {
+		return run.session.transformer.graph.execute(ctx, state)
+	}
+	baseMessages := cloneMessages(state.input.Messages)
+	var recent []*schema.Message
+	for {
+		if ctx.Err() != nil {
+			return context.Cause(ctx)
+		}
+		run.mu.Lock()
+		before := run.emittedPrimary
+		run.mu.Unlock()
+		// A skipped writer cannot reuse true from the previous iteration.
+		if err := state.set(config.ContinueFrom, false); err != nil {
+			return err
+		}
+		if err := run.session.transformer.graph.execute(ctx, state); err != nil {
+			return err
+		}
+		value, err := state.value(config.ContinueFrom)
+		if err != nil {
+			return err
+		}
+		continueSpeaking := value.(bool)
+		run.mu.Lock()
+		produced := run.emittedPrimary > before
+		run.mu.Unlock()
+		if !produced && continueSpeaking {
+			return errors.New("eino: continuation requires newly published narration")
+		}
+		if !produced {
+			return nil
+		}
+		value, err = state.value(config.primary.Field)
+		if err != nil {
+			return err
+		}
+		text := value.(string)
+		if strings.TrimSpace(text) == "" && continueSpeaking {
+			return errors.New("eino: continuation requires nonempty narration")
+		}
+		// Do not generate arbitrarily far ahead of the consumer. Cancellation
+		// releases this wait and finalizes only the observed prefix.
+		run.waitUntilDelivered()
+		if ctx.Err() != nil {
+			return context.Cause(ctx)
+		}
+		if err := run.endMessage(ctx); err != nil {
+			return err
+		}
+		run.mu.Lock()
+		delivered := run.delivered.String()
+		run.mu.Unlock()
+		if err := run.recordMessage(ctx, state, delivered, false); err != nil {
+			return err
+		}
+		if !continueSpeaking {
+			return nil
+		}
+		recent = append(recent, schema.AssistantMessage(text, nil))
+		if len(recent) > maxContinuationMessages {
+			recent = recent[len(recent)-maxContinuationMessages:]
+		}
+		messages := append(slices.Clone(baseMessages), cloneMessages(recent)...)
+		run.mu.Lock()
+		run.messageID = genx.NewStreamID()
+		run.messageDelivered = false
+		messageID := run.messageID
+		run.mu.Unlock()
+		state.mu.Lock()
+		state.input.Messages = messages
+		state.input.ObservationID = messageID
+		state.mu.Unlock()
+	}
+}
+
+func (run *turnRun) endMessage(ctx context.Context) error {
+	run.mu.Lock()
+	route, messageID := run.primary, run.messageID
+	run.mu.Unlock()
+	if err := run.session.invocation.Emit(route.response, &genx.MessageChunk{
+		Part: genx.Text(""), Ctrl: &genx.StreamCtrl{MessageID: messageID, MessageEnd: true},
+	}); err != nil {
+		return err
+	}
+	for {
+		run.mu.Lock()
+		delivered := run.messageDelivered
+		run.mu.Unlock()
+		if delivered {
+			return nil
+		}
+		select {
+		case <-run.changed:
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		}
+	}
 }
 
 func schemaUserMessage(text string, parts []any) *schema.Message {
@@ -976,17 +1097,38 @@ func (run *turnRun) waitUntilDelivered() {
 }
 
 func (run *turnRun) finalize(ctx context.Context, state *runState, version, delivered string, failed bool) error {
-	user := run.userText()
-	if err := run.session.transformer.history.append(ctx, historyMessages(user, delivered), failed); err != nil {
-		return err
-	}
-	if err := observeMemory(ctx, run.session.transformer.config.Memory, state, run.anchorID, user, delivered, failed); err != nil {
+	if err := run.recordMessage(ctx, state, delivered, failed); err != nil {
 		return err
 	}
 	if failed {
 		return nil
 	}
 	return commitPersistentState(ctx, run.session.transformer.config.State, state, version)
+}
+
+func (run *turnRun) recordMessage(ctx context.Context, state *runState, delivered string, failed bool) error {
+	user := run.userText()
+	if run.userRecorded {
+		user = ""
+	}
+	if run.userRecorded && delivered == "" {
+		return nil
+	}
+	if err := run.session.transformer.history.append(ctx, historyMessages(user, delivered), failed); err != nil {
+		return err
+	}
+	run.userRecorded = true
+	run.mu.Lock()
+	run.delivered.Reset()
+	observationID := run.messageID
+	run.mu.Unlock()
+	if observationID == "" {
+		observationID = run.anchorID
+	}
+	if err := observeMemory(ctx, run.session.transformer.config.Memory, state, observationID, user, delivered, failed); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (run *turnRun) finishRoutes(cause error, interrupted bool) {

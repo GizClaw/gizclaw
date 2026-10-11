@@ -760,18 +760,18 @@ func (e EinoChatModelNodeType) Valid() bool {
 	}
 }
 
-// Defines values for EinoConversationStarts.
+// Defines values for EinoConversationInitiative.
 const (
-	EinoConversationStartsAgent EinoConversationStarts = "agent"
-	EinoConversationStartsPeer  EinoConversationStarts = "peer"
+	EinoConversationInitiativeAgent EinoConversationInitiative = "agent"
+	EinoConversationInitiativePeer  EinoConversationInitiative = "peer"
 )
 
-// Valid indicates whether the value is a known member of the EinoConversationStarts enum.
-func (e EinoConversationStarts) Valid() bool {
+// Valid indicates whether the value is a known member of the EinoConversationInitiative enum.
+func (e EinoConversationInitiative) Valid() bool {
 	switch e {
-	case EinoConversationStartsAgent:
+	case EinoConversationInitiativeAgent:
 		return true
-	case EinoConversationStartsPeer:
+	case EinoConversationInitiativePeer:
 		return true
 	default:
 		return false
@@ -3706,11 +3706,19 @@ type EinoChatModelNodeType string
 
 // EinoConversation defines model for EinoConversation.
 type EinoConversation struct {
-	Starts *EinoConversationStarts `json:"starts,omitempty"`
+	// ContinueFrom Boolean root State field with replace merge. True repeats the Graph within the same user turn and continuous playback stream; false ends it. Each generation is saved as a separate History entry before the next generation. Requires one text/plain string output with replace merge and text input (ASR may precede the Graph); speaker_voices is unsupported. Interruption cancels the current generation and preserves its delivered prefix.
+	ContinueFrom *string `json:"continue_from,omitempty"`
+
+	// Initiative Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default.
+	Initiative *EinoConversationInitiative `json:"initiative,omitempty"`
+
+	// Starts Ignored legacy input. Only initiative controls the opening party. This value is discarded and is never returned or stored.
+	// Deprecated: Ignored legacy input; use initiative.
+	Starts interface{} `json:"starts,omitempty"`
 }
 
-// EinoConversationStarts defines model for EinoConversation.Starts.
-type EinoConversationStarts string
+// EinoConversationInitiative Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default.
+type EinoConversationInitiative string
 
 // EinoEdge defines model for EinoEdge.
 type EinoEdge struct {

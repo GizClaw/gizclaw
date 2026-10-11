@@ -61,6 +61,12 @@ type MessageChunk struct {
 
 // StreamCtrl controls Stream routing and state.
 type StreamCtrl struct {
+	// MessageID groups one generated message's text and audio inside a longer
+	// StreamID. MessageEnd closes that message's current MIME channel without
+	// ending the playback stream. Both fields are process-local metadata.
+	MessageID  string `json:"-"`
+	MessageEnd bool   `json:"-"`
+
 	// TextInterim marks a replaceable recognition hypothesis, not a committed
 	// text delta. Audio Dock exposes it as transcript but excludes its text from
 	// Agent input. Lifecycle flags still apply. This attribute is process-local.

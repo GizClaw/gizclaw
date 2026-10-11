@@ -332,7 +332,7 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
     ]
   },
   "conversation": {
-    "starts": "peer"
+    "initiative": "peer"
   }
 }`), &graph); err != nil {
 		t.Fatal(err)

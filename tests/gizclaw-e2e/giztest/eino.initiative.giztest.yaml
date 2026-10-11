@@ -1,0 +1,151 @@
+# User Story:
+# As a Workspace owner,
+# I want Workspace initiative to override the Workflow opening default and obsolete starts to be ignored,
+# So that agent opening uses the same setting name at both configuration layers.
+version: gizclaw.test/v1alpha1
+name: eino.initiative
+timeout: 45s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workflow_agent: {direction: input, type: string, value: agent}
+  workflow_peer: {direction: input, type: string, value: peer}
+  workflow_default: {direction: input, type: string, value: default}
+  workspace_agent: {direction: input, type: string, generate: token}
+  workspace_peer_override: {direction: input, type: string, generate: token}
+  workspace_agent_override: {direction: input, type: string, generate: token}
+  workspace_default: {direction: input, type: string, generate: token}
+steps:
+  - id: register
+    client: peer
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create_workflow_agent
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_agent}
+        workflow_name: ${workflow_agent}
+        parameters:
+          eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO}
+  - id: select_workflow_agent
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_agent}"}}
+  - id: reload_workflow_agent_opens
+    client: peer
+    rpc: {method: server.run.workspace.reload, request: {}}
+  - id: workflow_agent_opens
+    client: peer
+    # The constant Graph can finish during reload, before this capture begins.
+    # Attach the downlink, then verify the complete opening in durable History.
+    peer_stream: {mode: listen, duration: 1s}
+  - id: workflow_agent_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect:
+      /items: {count: 1}
+      /items/0/text: {equals: Opening.}
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+  - id: create_peer_override
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_peer_override}
+        workflow_name: ${workflow_agent}
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            conversation: {initiative: CONVERSATION_PARAMETERS_INITIATIVE_PEER}
+  - id: select_peer_override
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_peer_override}"}}
+  - id: reload_workspace_peer_prevents_opening
+    client: peer
+    rpc: {method: server.run.workspace.reload, request: {}}
+  - id: workspace_peer_prevents_opening
+    client: peer
+    peer_stream: {mode: listen, duration: 1s}
+    expect:
+      /events: {equals: 0}
+      /streams: {equals: 0}
+  - id: workspace_peer_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10}}
+    expect:
+      /items: {equals: []}
+  - id: create_agent_override
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_agent_override}
+        workflow_name: ${workflow_peer}
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            conversation: {initiative: CONVERSATION_PARAMETERS_INITIATIVE_AGENT}
+  - id: select_agent_override
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_agent_override}"}}
+  - id: reload_workspace_agent_opens
+    client: peer
+    rpc: {method: server.run.workspace.reload, request: {}}
+  - id: workspace_agent_opens
+    client: peer
+    peer_stream: {mode: listen, duration: 1s}
+  - id: workspace_agent_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10}}
+    retry: {attempts: 10, on: [assertion], delay: 100ms}
+    expect:
+      /items: {count: 1}
+      /items/0/text: {equals: Opening.}
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+  - id: create_default
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_default}
+        workflow_name: ${workflow_default}
+        parameters:
+          eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO}
+  - id: select_default
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_default}"}}
+  - id: reload_absent_initiative_defaults_to_peer
+    client: peer
+    rpc: {method: server.run.workspace.reload, request: {}}
+  - id: absent_initiative_defaults_to_peer
+    client: peer
+    # This Workflow's raw HTTP definition includes starts: agent. That ignored
+    # field must produce neither an opening nor a History entry.
+    peer_stream: {mode: listen, duration: 1s}
+    expect:
+      /events: {equals: 0}
+      /streams: {equals: 0}
+  - id: default_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 10}}
+    expect:
+      /items: {equals: []}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_agent}"}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_peer_override}"}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_agent_override}"}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_default}"}}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}

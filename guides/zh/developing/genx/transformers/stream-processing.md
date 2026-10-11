@@ -35,6 +35,8 @@ provider 请求，串行 pipeline 会在每个 segment 边界留下一整个首�
 segment 的音频一产出就发出，不等下一个 segment 被切出，否则每条回复的首音都要多等模型
 生成完第二句话。
 
+连续讲述由 Audio Dock 通过 invocation context 启用 TTS 背压；emitter 在锁外等待每个音频 chunk 的最终交付，取消或丢弃会释放等待。`TTSMeta.MessageID` 来自该正文的消息 identity，随每个 synthesis job 保留，避免下一段输入覆盖在途音频的归属。收到 `MessageEnd` 时 flush 该段，发出对应音频消息边界；播放 channel 继续保持打开。
+
 共享 emitter 默认在 synthesis failure 时终止。Provider 可用内部 `TTSSegmentError` 明确标记
 已记录的单段失败：emitter 保留该段已经发出的音频，继续后续段，并在所有段完成后结束 route。
 如果整条 route 没有产生音频，则以第一条单段失败结束，而不是发送成功的空 EOS。该标记

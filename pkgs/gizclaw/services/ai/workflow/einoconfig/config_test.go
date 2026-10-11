@@ -35,6 +35,53 @@ func TestValidate(t *testing.T) {
 	if err := Validate(valid); err != nil {
 		t.Fatalf("Validate(valid) error = %v", err)
 	}
+	t.Run("initiative", func(t *testing.T) {
+		for _, value := range []apitypes.EinoConversationInitiative{"agent", "peer", "invalid", ""} {
+			spec := cloneSpec(t, valid)
+			spec.Conversation = &apitypes.EinoConversation{Initiative: &value}
+			err := Validate(spec)
+			if value.Valid() {
+				if err != nil {
+					t.Fatalf("Validate(%q) = %v", value, err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), "conversation.initiative") {
+				t.Fatalf("Validate(%q) = %v, want initiative error", value, err)
+			}
+		}
+	})
+
+	t.Run("continuation field", func(t *testing.T) {
+		spec := cloneSpec(t, valid)
+		field := "answer"
+		spec.Conversation = &apitypes.EinoConversation{ContinueFrom: &field}
+		if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "ContinueFrom") {
+			t.Fatalf("Validate(non-boolean continuation)=%v", err)
+		}
+	})
+
+	t.Run("continuation contract", func(t *testing.T) {
+		spec := cloneSpec(t, valid)
+		field := "continue"
+		spec.Conversation = &apitypes.EinoConversation{ContinueFrom: &field}
+		spec.Graph.State.Fields = append(spec.Graph.State.Fields, apitypes.EinoStateField{
+			Name: field, Type: "boolean", Merge: "replace",
+		})
+		if err := Validate(spec); err != nil {
+			t.Fatal(err)
+		}
+		for _, name := range []string{"", "  ", "missing"} {
+			candidate := cloneSpec(t, spec)
+			candidate.Conversation.ContinueFrom = &name
+			if err := Validate(candidate); err == nil {
+				t.Fatalf("accepted invalid continuation field %q", name)
+			}
+		}
+		speakers := map[string]string{"Host": "host"}
+		spec.VoiceAdapter = &apitypes.VoiceAdapter{SpeakerVoices: &speakers}
+		if err := Validate(spec); err == nil || !strings.Contains(err.Error(), "speaker_voices") {
+			t.Fatalf("accepted unpaced speaker switching: %v", err)
+		}
+	})
 
 	t.Run("voice adapter", func(t *testing.T) {
 		spec := cloneSpec(t, valid)

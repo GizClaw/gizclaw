@@ -2351,7 +2351,20 @@ export type EinoChatModelNode = EinoNodeBase & {
 };
 
 export type EinoConversation = {
-    starts?: 'peer' | 'agent';
+    /**
+     * Who starts the conversation when the workspace runtime opens. Workspace parameters.conversation.initiative overrides this default.
+     */
+    initiative?: 'peer' | 'agent';
+    /**
+     * Ignored legacy input. Only initiative controls the opening party. This value is discarded and is never returned or stored.
+     *
+     * @deprecated
+     */
+    starts?: unknown;
+    /**
+     * Boolean root State field with replace merge. True repeats the Graph within the same user turn and continuous playback stream; false ends it. Each generation is saved as a separate History entry before the next generation. Requires one text/plain string output with replace merge and text input (ASR may precede the Graph); speaker_voices is unsupported. Interruption cancels the current generation and preserves its delivered prefix.
+     */
+    continue_from?: string;
 };
 
 export type EinoEdge = {

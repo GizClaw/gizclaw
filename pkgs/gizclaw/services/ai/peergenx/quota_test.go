@@ -115,6 +115,41 @@ type openingQuotaStream struct {
 	closes int
 }
 
+type observedQuotaFixture struct {
+	openingQuotaStream
+	deferred  bool
+	observed  *genx.MessageChunk
+	abandoned *genx.MessageChunk
+}
+
+func (s *observedQuotaFixture) DeferOutputObservation()                { s.deferred = true }
+func (s *observedQuotaFixture) ObserveOutput(chunk *genx.MessageChunk) { s.observed = chunk }
+func (s *observedQuotaFixture) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	s.abandoned = chunk
+}
+
+func TestQuotaPreservesProviderDeliveryObservation(t *testing.T) {
+	provider := &observedQuotaFixture{}
+	stream := newQuotaStream(t.Context(), provider, func() {})
+	defer stream.Close()
+	observer, ok := stream.(quotaOutputObserver)
+	if !ok {
+		t.Fatal("quota hid provider delivery observation")
+	}
+	chunk := &genx.MessageChunk{Part: genx.Text("spoken")}
+	observer.DeferOutputObservation()
+	observer.ObserveOutput(chunk)
+	observer.AbandonOutputObservation(chunk)
+	if !provider.deferred || provider.observed != chunk || provider.abandoned != chunk {
+		t.Fatalf("quota did not forward exact delivery identities: %+v", provider)
+	}
+	plain := newQuotaStream(t.Context(), &openingQuotaStream{}, func() {})
+	defer plain.Close()
+	if _, ok := plain.(quotaOutputObserver); ok {
+		t.Fatal("quota advertised observation for an unsupported provider")
+	}
+}
+
 func (*openingQuotaStream) Next() (*genx.MessageChunk, error) { return nil, io.EOF }
 func (s *openingQuotaStream) Close() error                    { s.closes++; return nil }
 func (s *openingQuotaStream) CloseWithError(cause error) error {

@@ -11,6 +11,19 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## 音频时序测试的运行隔离
+
+根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：
+
+```sh
+go test -count=1 -p 1 ./...
+go test -race -count=1 -p 1 ./...
+```
+
+Giztest 的 `audio_pacing.max_interval_ms` 使用 PeerStream 读取时的真实单调时钟，包含本地发送、接收 goroutine 的调度延迟。并行编译、编码和其他测试可以让正常的 20ms 音频循环失去 CPU，因此这个间隔不能单独归因为 Provider 停顿。`underruns` 另按 500ms 预缓冲重放客户端消耗，用于区分包间隔超限与实际缓冲耗尽。
+
+TTS 协议夹具按累计媒体 deadline 发包。线程延迟后补发已经到期的帧，避免逐包重设相对 timer 把调度延迟累计到后续音频；显式注入的 900ms 断流仍必须被原有时序断言拒绝。真实 Provider 与物理设备验收仍属于独立验证。
+
 ## PostgreSQL History 并发与回收
 
 设置 `GIZCLAW_TEST_POSTGRES_DSN` 指向隔离的本地 PostgreSQL 17 实例，并为测试实例配置 `max_connections=300` 后运行：
@@ -1505,6 +1518,50 @@ go test -race -tags gizclaw_locomo_e2e \
 git lfs fsck
 ```
 
+
+## 连续播讲与逐段 History Giztest
+
+在仓库根目录执行：
+
+```sh
+go test ./cmd/internal/server -run '^TestContinuousPodcastGiztest$' -count=1 -timeout=150s
+```
+
+测试启动临时 SQLite Server、Edge 和真实 WebRTC 连接，通过生产 Eino、MiniMax
+LLM/TTS adapter、AudioDock、Workspace History 和 Go Giztest CLI，执行
+`tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml`。本地确定性
+HTTP SSE 与 WebSocket 夹具替代远端模型和语音服务，无需外部凭据或 Docker。
+
+场景包含 20 个步骤、6 个 parallel 子步骤和 3 个清理步骤。持续播放期间要求只有
+一条播放流、音频 pacing 无 underrun、History 持续增加且每条只有一段生成文本，
+并分别下载两段 History 的音频。后续验证模型与 TTS I/O 正在进行时被打断、停止后
+恢复原主题、播讲中切换主题及再次恢复。夹具还检查 continuation 没有新增用户输入，
+生成次数超过单次 Graph step budget，模型上下文中的本轮 assistant 段数不超过 8。
+
+默认报告随临时目录清理；设置 `GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE` 可保留
+`podcast.giztest.json` 和 `runner.log`。测试结束清理 Workspace、Peer 和本地服务。
+这项测试验证本地协议与运行链，不代替真实云 Provider、物理设备或部署验收。
+
+真实 Provider 验收使用 `TestContinuousPodcastLiveGiztest` 和同目录的
+`live.giztest.yaml`。先通过 `tests/gizclaw-e2e/setup/credentials.sh` 的
+`require_gizclaw_e2e_credentials` 加载 `GIZCLAW_E2E_VOLC_ARK_API_KEY`、
+`GIZCLAW_E2E_DOUBAO_APP_ID`、`GIZCLAW_E2E_DOUBAO_API_KEY`，再显式执行：
+
+```sh
+GIZCLAW_TEST_PODCAST_LIVE_WORKFLOW=/path/to/raids/examples/podcast/eino.yaml \
+GIZCLAW_TEST_PODCAST_LIVE_EVIDENCE="$(mktemp -d)" \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestContinuousPodcastLiveGiztest$' -count=1 -timeout=12m -v
+```
+
+该测试原样加载给定播客 Graph 与 prompt，绑定豆包 2.1 Lite 和清新女声 2.0，
+通过临时 Server/Edge/WebRTC 运行 20 个步骤、8 个 parallel 子步骤及停止清理。
+观察初始连续播讲 100 秒，并验证暂停、恢复原主题、播讲中切换火星主题和恢复新主题。
+透明 Ark observer 只转发真实响应；验收将每条 Agent History 与一条尚未匹配的
+真实模型生成文本核对，允许被打断段保留已交付前缀，并要求模型与 TTS 均有正数用量。
+报告包含原始 Graph/document hash、模型回复、完整 Workspace History、匹配计数、
+两段 Ogg 音频、Provider 用量和 Workspace/Peer 清理结果。真实调用会计费，套件只在
+本地显式运行，不进入 CI；报告、凭据与日志不得提交。它不验证实物设备或部署。
 
 ## 多角色音频确定性 Giztest
 

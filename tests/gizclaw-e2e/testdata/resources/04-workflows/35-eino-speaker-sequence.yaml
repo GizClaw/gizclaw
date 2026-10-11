@@ -66,4 +66,4 @@ spec:
         狐狸: assistant-voice
         小鸟: story-bird
     conversation:
-      starts: peer
+      initiative: peer

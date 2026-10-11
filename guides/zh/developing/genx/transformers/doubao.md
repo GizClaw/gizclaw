@@ -119,6 +119,8 @@ Realtime Dialogue 默认请求 `tts.audio_config` 为 16 kHz、单声道 `pcm_s1
 
 Realtime Duplex 使用 provider server VAD 连续划分 utterance。Control route BOS 与同 StreamID 的 audio MIME BOS 打开本地输入 segment；audio MIME EOS 和 control route EOS 只负责按各自边界关闭本地 codec/segment，不发送 `input_audio_buffer.commit`。BOS 或 EOS chunk 如果同时携带 audio data，Adapter 必须先发送该 payload，再完成对应边界转换；非 audio MIME 边界不能提前关闭 audio segment。
 
+Provider session 的事件流完成后，属于本轮的成功空 audio/control EOS 只关闭本地输入，不创建新 session。下一轮 BOS、携带最终音频数据的 EOS 和输入错误仍保留给后续处理，避免遗漏 payload 或错误。
+
 Provider 的 `ResponseID` 与 `QuestionID` 是协议元数据，同一逻辑 response 的不同 event 也可能给出不同值，因此不能作为 GenX route identity。Adapter 为当前 response 创建一个稳定的自有 StreamID，assistant text 与 audio MIME channel 共用该 StreamID，并各自发出完整 BOS/data/EOS。Provider transcription delta 可能是 token，也可能是累计 hypothesis；Adapter 只发布相对已输出内容新增的后缀，重复 hypothesis 不产生重复语义内容。
 
 ## Realtime Duplex function-tool 续跑

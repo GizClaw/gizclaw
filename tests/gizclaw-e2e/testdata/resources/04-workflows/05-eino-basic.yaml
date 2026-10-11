@@ -115,7 +115,7 @@ spec:
           mime_type: text/plain
           primary: true
     conversation:
-      starts: peer
+      initiative: peer
     voice_adapter:
       asr_model: asr
       default_voice: narrator

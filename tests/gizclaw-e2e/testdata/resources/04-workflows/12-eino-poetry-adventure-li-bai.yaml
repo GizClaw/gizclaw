@@ -191,7 +191,7 @@ spec:
       fields:
         - game
     conversation:
-      starts: peer
+      initiative: peer
     voice_adapter:
       asr_model: asr
       default_voice: narrator

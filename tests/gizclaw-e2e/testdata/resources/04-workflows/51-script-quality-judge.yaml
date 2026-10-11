@@ -59,4 +59,4 @@ spec:
           mime_type: text/plain
           primary: true
     conversation:
-      starts: peer
+      initiative: peer

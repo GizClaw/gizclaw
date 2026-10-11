@@ -503,7 +503,10 @@ jobs:
       - name: Run tests
         env:
           GOFLAGS: -mod=readonly
-        run: go test -count=1 ./...
+        # Wall-clock audio pacing tests share this runner with every package.
+        # Keep the complete suite, but avoid concurrent compiler/test processes
+        # starving 20ms provider and receiver goroutines.
+        run: go test -count=1 -p 1 ./...
 
       - name: Run e2e fixture tests
         env:
@@ -698,7 +701,7 @@ jobs:
         uses: ./.github/actions/build-console
 
       - name: Run root module race tests
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -p 1 ./...
 
   javascript:
     name: JavaScript And Guides

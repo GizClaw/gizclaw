@@ -880,6 +880,48 @@ func TestAdminValidateEinoWorkflowResource(t *testing.T) {
 	}
 }
 
+func TestAdminValidateEinoInitiative(t *testing.T) {
+	const file = "../../../../tests/gizclaw-e2e/testdata/resources/04-workflows/05-eino-basic.yaml"
+	fixture, err := os.ReadFile(file)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := prepareResourceData(file, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const field = `"initiative":"peer"`
+	if !strings.Contains(string(prepared), field) {
+		t.Fatalf("fixture has no %s", field)
+	}
+	for _, test := range []struct{ name, replacement, want string }{
+		{"peer", field, ""},
+		{"agent", `"initiative":"agent"`, ""},
+		{"default", ``, ""},
+		{"invalid", `"initiative":"other"`, "initiative"},
+		{"ignored retired name", `"starts":"agent"`, ""},
+		{"ignored retired value", `"starts":{"obsolete":true}`, ""},
+		{"ignored retired field with initiative", `"starts":"agent","initiative":"peer"`, ""},
+		{"other unknown field", `"start":"agent"`, "start"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			cmd := NewCmd()
+			cmd.SetIn(strings.NewReader(strings.Replace(string(prepared), field, test.replacement, 1)))
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+			cmd.SetArgs([]string{"validate", "-f", "-"})
+			err := cmd.Execute()
+			if test.want == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want %s", err, test.want)
+			}
+		})
+	}
+}
+
 func TestAdminValidateAudioInputResources(t *testing.T) {
 	t.Setenv("GIZCLAW_E2E_MEM0_API_KEY", "giztest-offline-key")
 	const resources = "../../../../tests/gizclaw-e2e/testdata/resources/"

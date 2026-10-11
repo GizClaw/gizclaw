@@ -495,6 +495,12 @@ func TestDoubaoRealtimeDuplexClosesInterruptedTurnsBeforeReplacementBOS(t *testi
 		}
 	}
 	if len(assistantIDs) != 3 {
+		for index, chunk := range chunks {
+			if chunk != nil && chunk.Ctrl != nil {
+				mimeType, _ := chunk.MIMEType()
+				t.Logf("chunk %d: stream=%s source=%s mime=%s bos=%t eos=%t error=%q", index, chunk.Ctrl.StreamID, chunk.Ctrl.SourceStreamID, mimeType, chunk.IsBeginOfStream(), chunk.IsEndOfStream(), chunk.Ctrl.Error)
+			}
+		}
 		t.Fatalf("assistant response IDs = %v, want three ordered responses", assistantIDs)
 	}
 	requireDoubaoRealtimeDuplexHandoffOrder(t, chunks, assistantIDs[0], assistantIDs[1])

@@ -1,0 +1,178 @@
+# User Story:
+# As a listener using real model and speech providers,
+# I want continuous narration with separate History entries and audio,
+# So that I can pause, resume and change topic while it is speaking.
+version: gizclaw.test/v1alpha1
+name: eino-podcast.live-continuous-history
+timeout: 9m
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace_name: {direction: input, type: string, env: GIZCLAW_TEST_PODCAST_LIVE_WORKSPACE}
+  first_section: {direction: output, type: string}
+  second_section: {direction: output, type: string}
+steps:
+  - id: register
+    client: peer
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: podcast
+        parameters: {eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO}}
+  - id: select
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_name}"}}
+  - id: continuous_playback
+    timeout: 110s
+    parallel:
+      - id: initial_playback
+        client: peer
+        peer_stream: {mode: listen, duration: 100s}
+      - id: start
+        client: peer
+        delay: 250ms
+        peer_stream:
+          mode: text
+          input: 给我讲为什么天空是蓝色的，讲完后继续讲光和颜色的日常科学。
+          completion: first_response
+          first_text_timeout: 10s
+          first_audio_timeout: 15s
+    expect:
+      /initial_playback/streams: {equals: 1}
+      /initial_playback/text: {min_length: 300}
+      /initial_playback/audio_pacing/packets: {minimum: 2000}
+      /initial_playback/audio_pacing/mean_packet_ms: {equals: 20}
+      /initial_playback/audio_pacing/max_interval_ms: {maximum: 150}
+      /initial_playback/audio_pacing/underruns: {equals: 0}
+  - id: separate_history_while_speaking
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    expect:
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+      /items/0/text: {min_length: 80, max_length: 600}
+      /items/0/replay_available: {equals: true}
+      /items/1/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+      /items/1/text: {min_length: 80, max_length: 600}
+      /items/1/replay_available: {equals: true}
+    capture: {first_section: /items/0/name, second_section: /items/1/name}
+  - id: history_keeps_advancing_without_input
+    client: peer
+    timeout: 90s
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 8s}
+    expect:
+      /items/0/name: {not_contains: "${first_section}"}
+      /items/0/text: {min_length: 80, max_length: 600}
+      /items/0/replay_available: {equals: true}
+  - id: first_section_audio
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${first_section}"}
+      max_bytes: 8388608
+    expect: {/bytes: {minimum: 1000}}
+  - id: second_section_audio
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${second_section}"}
+      max_bytes: 8388608
+    expect: {/bytes: {minimum: 1000}}
+  - id: interrupt_and_pause
+    client: peer
+    timeout: 20s
+    peer_stream: {mode: text, input: 先停一下, reply_observation: 1s}
+    expect: {/reply: {contains: 先停在这里}, /text_eos: {equals: true}, /audio_eos: {equals: true}, /response_count: {minimum: 1, maximum: 2}}
+  - id: paused_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    expect: {/items/0/text: {contains: 先停在这里, max_length: 30}, /items/0/replay_available: {equals: true}, /items/2/text: {min_length: 80}}
+  - id: pre_interrupt_section_still_replays
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${first_section}"}
+      max_bytes: 8388608
+    expect: {/bytes: {minimum: 1000}}
+  - id: resume_science
+    timeout: 85s
+    parallel:
+      - id: science_playback
+        client: peer
+        peer_stream: {mode: listen, duration: 75s}
+      - id: science_resume
+        client: peer
+        delay: 250ms
+        peer_stream: {mode: text, input: 继续刚才关于天空颜色和光散射的科普，接着往下讲。, completion: first_response, first_text_timeout: 10s, first_audio_timeout: 15s}
+    expect: {/science_playback/streams: {equals: 1}, /science_playback/text: {min_length: 100}, /science_playback/audio_pacing/underruns: {equals: 0}, /science_playback/audio_pacing/packets: {minimum: 1000}}
+  - id: resumed_science_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 20, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    expect: {/items/0/text: {min_length: 80, contains_any: [天空, 散射, 光, 颜色, 蓝色, 彩虹]}, /items/0/replay_available: {equals: true}}
+  - id: change_topic_during_playback
+    timeout: 85s
+    parallel:
+      - id: redirect_playback
+        client: peer
+        peer_stream: {mode: listen, duration: 75s}
+      - id: change_topic
+        client: peer
+        delay: 250ms
+        peer_stream: {mode: text, input: 换个话题，讲太阳系里的火星，之后继续讲火星探索。, completion: first_response, first_text_timeout: 10s, first_audio_timeout: 15s}
+    expect:
+      /redirect_playback/streams: {minimum: 1, maximum: 2}
+      /redirect_playback/text: {contains: 火星, min_length: 100}
+      /redirect_playback/audio_pacing/packets: {minimum: 1000}
+  - id: redirected_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 20, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    expect: {/items/0/text: {contains: 火星, min_length: 80, max_length: 600}, /items/0/replay_available: {equals: true}}
+  - id: pause_new_topic
+    client: peer
+    timeout: 20s
+    peer_stream: {mode: text, input: 暂停, reply_observation: 1s}
+    expect: {/reply: {contains: 先停在这里}, /text_eos: {equals: true}, /audio_eos: {equals: true}, /response_count: {minimum: 1, maximum: 2}}
+  - id: resume_new_topic
+    timeout: 85s
+    parallel:
+      - id: space_playback
+        client: peer
+        peer_stream: {mode: listen, duration: 75s}
+      - id: space_resume
+        client: peer
+        delay: 250ms
+        peer_stream: {mode: text, input: 继续刚才的火星播客，从上次没讲完的地方接着讲。, completion: first_response, first_text_timeout: 10s, first_audio_timeout: 15s}
+    expect: {/space_playback/streams: {equals: 1}, /space_playback/text: {contains: 火星, min_length: 100}, /space_playback/audio_pacing/underruns: {equals: 0}, /space_playback/audio_pacing/packets: {minimum: 1000}}
+  - id: resumed_new_topic_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 20, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    expect: {/items/0/text: {contains: 火星, min_length: 80, max_length: 600}, /items/0/replay_available: {equals: true}}
+  - id: final_pause
+    client: peer
+    timeout: 20s
+    peer_stream: {mode: text, input: 停止播客, reply_observation: 1s}
+    expect: {/reply: {contains: 先停在这里}, /text_eos: {equals: true}, /audio_eos: {equals: true}, /response_count: {minimum: 1, maximum: 2}}
+  - id: final_history
+    client: peer
+    rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    expect: {/items/0/text: {contains: 先停在这里, max_length: 30}, /items/1/text: {non_empty: true}}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+report:
+  redact: [registration_token]

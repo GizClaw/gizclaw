@@ -44,6 +44,8 @@ entry identity，而不是仅收到时间戳；它只是有界且可丢弃的提
 high-water receipt，丢弃不会改变已持久化 History。observer 不执行 GenX 调用。
 导入或旧 History 没有该 origin。
 
+连续播讲的 `StreamCtrl.MessageID` 是一条播放 route 内的生成边界。Recorder 按 message identity 区分记录；该段各 MIME channel 的 `MessageEnd` 到齐后立即落库，因此一次持续播放可以产生多条 History，每条只包含对应段的文字和音频。播放 EOS 仍关闭整条 route，并收尾被打断的当前段。 连续消息只在最终交付确认时录制，包装器预读的后缀不进入记录。Producer EOF 不会抢先结束仍有 deferred delivery 的 History；输出关闭会取消 source、等待在途确认与转发退出，再保存已交付的当前段。
+
 Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part 的 control EOS 的 `Ctrl.Error` 去除首尾空白后以 `interrupted` 开头时，同一 StreamID 的所有待写入 entry 都标记为中断。落库时，中断且没有非空白定稿文本的 entry 被丢弃，并关闭其 PCM encoder；`Ctrl.TextInterim` 文本不计入定稿。已有定稿文本的中断 entry 仍保留，正常结束的纯音频 entry 仍可保存。
 
 一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。History 记录是尽力而为的，从不让实时输出失败：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。

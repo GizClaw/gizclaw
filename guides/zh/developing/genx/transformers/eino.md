@@ -258,6 +258,18 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 ## State、History 与 Memory
 
+### 同一 turn 内连续讲述
+
+`Config.ContinueFrom` 指向 root State 中使用 `replace` 的 boolean field。每次 Graph 成功执行后，true 请求同一用户 turn 内的下一次生成，false 结束播讲。每次执行前该字段重置为 false，Graph 必须主动写入 true；每次执行拥有独立的 `MaxRunSteps` 预算，播讲没有固定迭代次数。
+
+此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。续讲必须发布新的非空白正文，避免空输出忙循环。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
+
+每轮交付后立即追加一条 assistant History；最初的用户消息只记录一次。Workspace History 同样每轮保存一条，并将该轮文字与音频对应为可重播记录。用户打断会取消当前生成、丢弃未交付后缀，并单独记录当前轮已交付的前缀；完成的旧段不合并、不重写。恢复或换主题建立新的用户 turn，仍按每轮生成分段保存。
+
+Transformer 在文字交付及消息边界确认后才开始下一轮。产品 factory 对 Voice 启用 [Audio Dock 背压](../agentkit#连续讲述背压)，等待对应 TTS 音频交付，避免长期积压；该模式不支持 `speaker_voices`。每次交付的正文随后释放，续讲上下文保留最近八段，`Limits.MaxOutputBytes` 约束 Transformer 待交付缓冲。Memory observation 使用每段独立的 identity；持久 State 仍在整个 turn 成功结束时提交。
+
+产品 Workflow 用 `spec.eino.conversation.continue_from` 选择该 State field。Graph 应生成短小、自然承接且以完整句子结束的正文；不需要额外的“继续”用户 turn。
+
 产品 Workflow 可以通过 `state_persistence.fields` 选择持久化字段；Server 的 `services.agent_host.persistence.state_store` 引用 SQL Store，状态保存在 `graph_states`，删除边界保存在 `graph_state_scopes`。首次加载缺失字段时按声明类型初始化零值；重载后只恢复选择的字段。Object/List 中的嵌套整数保留 signed 64-bit 精度，整值浮点数通过可选 snapshot 类型提示保留其 numeric type。 新快照使用 format version 1；无版本快照保持原有 JSON float64 解码，直到一次正常成功的 CAS 写入。内部对话 History 使用 `services.agent_host.persistence.history_store` 的 mutable log。
 
 Persistent State 是可选能力：

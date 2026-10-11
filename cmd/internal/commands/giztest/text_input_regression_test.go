@@ -525,7 +525,7 @@ func TestDeviceTextSequences(t *testing.T) {
 					expected := value.(string)
 					if step.PeerStream.Mode == "push-to-talk" {
 						value, _ = testOggOpus(t)
-						expected = "spoken questionspoken question"
+						expected = "spoken question"
 						step.PeerStream.Pacing = "0ms"
 						if workflow == "doubao-realtime" {
 							step.PeerStream.Mode = "realtime"
@@ -546,9 +546,11 @@ func TestDeviceTextSequences(t *testing.T) {
 					if object["text_eos"] != true {
 						t.Fatalf("%s missing text EOS: %v", step.ID, object)
 					}
-					texts := object["text"].([]string)
-					if strings.Join(texts, "") != expected {
-						t.Fatalf("%s reply mismatch: got %q want %q", step.ID, texts, expected)
+					// ASR display text is independent of the assistant reply. Its
+					// arrival order must not duplicate or replace the reply contract.
+					reply, ok := object["reply"].(string)
+					if !ok || reply != expected {
+						t.Fatalf("%s reply mismatch: got %q want %q (observed text: %q)", step.ID, reply, expected, object["text"])
 					}
 				}
 			})

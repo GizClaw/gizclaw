@@ -16,6 +16,19 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## Isolating audio timing tests
+
+CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:
+
+```sh
+go test -count=1 -p 1 ./...
+go test -race -count=1 -p 1 ./...
+```
+
+Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerStream reads, including local sender and receiver goroutine scheduling delays. Concurrent compilation, encoding and other tests can deprive a healthy 20ms audio loop of CPU, so the interval alone cannot establish a Provider stall. `underruns` separately replays client consumption with a 500ms prebuffer, distinguishing a packet-gap violation from exhausted playback buffering.
+
+The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
+
 ## PostgreSQL History concurrency and retention
 
 Set `GIZCLAW_TEST_POSTGRES_DSN` to an isolated local PostgreSQL 17 instance configured with `max_connections=300`:
@@ -1788,6 +1801,62 @@ The standard GizClaw Docker runner owns a mandatory `go:openai` phase under `tes
 Successful runs write redacted monotonic timing evidence below ignored `tests/gizclaw-e2e/testdata/openai-compatibility/`. Artifacts contain only schema/version, target/case, bounded media sizes, numeric phase timings, and status; they must not contain credentials, IDs, prompts, transcripts, generated text, media, URLs, or provider errors. A tagged compile is diagnostic only and does not replace `bash tests/gizclaw-e2e/run_tests.sh`.
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
+
+## Continuous narration and per-section History Giztest
+
+Run from the repository root:
+
+```sh
+go test ./cmd/internal/server -run '^TestContinuousPodcastGiztest$' -count=1 -timeout=150s
+```
+
+The test starts a temporary SQLite Server, Edge and real WebRTC connections. It
+runs `tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml` through
+production Eino, MiniMax LLM/TTS adapters, AudioDock, Workspace History and the Go
+Giztest CLI. Deterministic local HTTP SSE and WebSocket fixtures replace the
+remote model and speech services; no external credentials or Docker are needed.
+
+The scenario executes 20 steps, six parallel children and three cleanup steps.
+While narration continues, it requires one playback stream, audio pacing without
+underruns, advancing History with one generated section per entry, and separate
+audio downloads for two entries. It then interrupts active model and TTS I/O,
+stops and resumes the original topic, redirects during playback, and resumes the
+new topic. Provider receipts also require no synthetic user inputs, more
+generations than the per-execution Graph step budget, and at most eight current
+turn assistant sections in model context.
+
+Reports are temporary by default. Set `GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE` to
+retain `podcast.giztest.json` and `runner.log`. The test cleans up the Workspace,
+Peer and local services. This validates the local protocol and runtime path;
+live cloud providers, physical devices and deployment require separate acceptance.
+
+Live provider acceptance uses `TestContinuousPodcastLiveGiztest` and the adjacent
+`live.giztest.yaml`. Load `GIZCLAW_E2E_VOLC_ARK_API_KEY`,
+`GIZCLAW_E2E_DOUBAO_APP_ID` and `GIZCLAW_E2E_DOUBAO_API_KEY` with
+`require_gizclaw_e2e_credentials` from `tests/gizclaw-e2e/setup/credentials.sh`,
+then run explicitly:
+
+```sh
+GIZCLAW_TEST_PODCAST_LIVE_WORKFLOW=/path/to/raids/examples/podcast/eino.yaml \
+GIZCLAW_TEST_PODCAST_LIVE_EVIDENCE="$(mktemp -d)" \
+  go test -tags=gizclaw_provider_e2e ./cmd/internal/server \
+  -run '^TestContinuousPodcastLiveGiztest$' -count=1 -timeout=12m -v
+```
+
+The test loads the supplied podcast Graph and prompts unchanged, binds Doubao
+2.1 Lite and the Qingxin female 2.0 Voice, and runs 20 steps, eight parallel
+children and stop cleanup through temporary Server/Edge/WebRTC. It observes
+100 seconds of initial narration, pause, resumption, redirection to Mars during
+playback, and resumption of the new topic. The transparent Ark observer only
+forwards real responses. Each Agent History must match one unused real model
+generation, allowing the delivered prefix of an interrupted section. Both model
+and TTS usage must be positive.
+
+Evidence includes source Graph/document hashes, model replies, complete Workspace
+History, matching counts, two Ogg audio files, provider usage, and Workspace/Peer
+cleanup results. Real calls incur charges. This lane runs locally and explicitly,
+outside CI; never commit reports, credentials or logs. It does not qualify
+physical devices or deployments.
 
 ## Deterministic multi-role audio Giztest
 

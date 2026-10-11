@@ -261,6 +261,18 @@ Apart from the audio turns above, non-text routes bypass the Transformer unchang
 
 ## State, History, and Memory
 
+### Continuous narration within one turn
+
+`Config.ContinueFrom` names a boolean root State field with `replace` merge. After each successful Graph execution, true requests another generation within the same user turn; false ends narration. The field resets to false before each execution, so the Graph must explicitly request continuation. Each execution has an independent `MaxRunSteps` budget; narration has no fixed iteration count.
+
+This mode requires one `text/plain` string output with `replace` merge and text input to the Graph; audio may be transcribed beforehand. Continuation must publish new, non-whitespace narration, preventing an empty busy loop. State is retained, and `input.messages` contains the original input followed by the last eight generations without synthetic user messages. Each generation has its own process-local `StreamCtrl.MessageID`; `MessageEnd` ends that message's MIME channel while the playback StreamID and BOS/EOS stay continuous.
+
+Each delivered generation immediately appends one assistant History message; the original user message is recorded only once. Workspace History likewise saves one entry per generation, pairing its text and audio for replay. User interruption cancels active generation, discards undelivered suffixes, and records the current generation's delivered prefix separately. Completed entries are neither merged nor rewritten. Resuming or redirecting creates a new user turn, still saving one entry per generation.
+
+The Transformer starts another generation only after text delivery and message-boundary acknowledgement. For Voice output, the product factory enables [Audio Dock backpressure](../agentkit#continuous-narration-backpressure) to wait for corresponding TTS audio delivery and prevent sustained accumulation; `speaker_voices` is unsupported in this mode. Delivered text is released after each generation, continuation context retains eight sections, and `Limits.MaxOutputBytes` bounds queued Transformer output. Memory observation uses a separate identity per message; persistent State still commits only when the entire turn completes successfully.
+
+Product Workflows select the State field with `spec.eino.conversation.continue_from`. Graphs should generate short, naturally connected sections ending in complete sentences without additional user “continue” turns.
+
 Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.persistence.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Nested object/list integers retain signed 64-bit precision, and integral floating-point values retain their numeric type through optional snapshot type hints. New snapshots use format version 1; unversioned snapshots retain their previous JSON float64 decoding until a normal successful CAS write. Internal conversation History uses the mutable log referenced by `services.agent_host.persistence.history_store`.
 
 Persistent State is optional:

@@ -96,6 +96,8 @@ The two Adapters can share GenX Stream, audio conversion, StreamID, and lifecycl
 
 Realtime Duplex relies on provider server VAD to segment continuous utterances. A control-route BOS and an audio MIME BOS with the same StreamID open the local input segment. Audio MIME EOS and control-route EOS close only their corresponding local codec/segment boundaries and do not send `input_audio_buffer.commit`. When a BOS or EOS chunk also carries audio data, the Adapter sends that payload before applying the boundary transition. Non-audio MIME boundaries cannot close the audio segment early.
 
+After a provider session event stream completes, a successful empty audio/control EOS only closes the completed local input; it does not open another session. A new BOS, data-bearing audio EOS and input errors remain available to subsequent processing.
+
 Provider `ResponseID` and `QuestionID` values are protocol metadata and may differ between events for one logical response, so they are not GenX route identity. The Adapter creates one stable owned StreamID for the current response; assistant text and audio MIME channels share that StreamID and each emit a complete BOS/data/EOS lifecycle. A provider transcription delta may be either a token or a cumulative hypothesis; the Adapter publishes only the suffix not already emitted and does not duplicate semantic content for repeated hypotheses.
 
 ## Realtime Duplex function-tool continuation

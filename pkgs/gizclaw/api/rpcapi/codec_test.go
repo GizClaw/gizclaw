@@ -713,7 +713,7 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	}
 
 	eino := EinoWorkflowSpec{
-		Conversation: &map[string]any{"starts": "agent"},
+		Conversation: &map[string]any{"initiative": "agent"},
 		VoiceAdapter: &map[string]any{
 			"asr_model":     "speech.asr",
 			"default_voice": "speech.voice",
@@ -754,7 +754,7 @@ func TestPayloadCodecRoundTripsNewWorkflowContracts(t *testing.T) {
 	if decodedEino.Graph["name"] != eino.Graph["name"] {
 		t.Fatalf("Eino workflow round trip = %#v", decodedEino)
 	}
-	if decodedEino.Conversation == nil || (*decodedEino.Conversation)["starts"] != "agent" {
+	if decodedEino.Conversation == nil || (*decodedEino.Conversation)["initiative"] != "agent" {
 		t.Fatalf("Eino conversation round trip = %#v", decodedEino.Conversation)
 	}
 	if decodedEino.VoiceAdapter == nil || (*decodedEino.VoiceAdapter)["asr_model"] != "speech.asr" ||
