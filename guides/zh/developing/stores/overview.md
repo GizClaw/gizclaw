@@ -111,6 +111,25 @@ SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为�
 
 SQL backend 错误在补充具体 Store 操作上下文后保留底层 error identity，受信任的调用方可以通过 Go error chain 检查具体原因。公开错误文本只描述失败的 Store 操作，不包含可能携带绑定值、DSN 或连接信息的 driver 原始文本；HTTP/RPC surface 不得向客户端泄露这些细节。
 
+### PostgreSQL 连接池
+
+每个 PostgreSQL physical Storage 按需打开连接，默认最多 32 条，并保留最多 32 条空闲连接供后续查询复用。连接连续空闲 1 分钟后由 `database/sql` 的维护任务回收；正在使用的连接不受空闲回收影响。请求超过池容量时等待可用连接，等待服从请求 context。Store 只借用池，关闭 physical Storage 才会关闭全部连接。
+
+Go 调用方使用 `PostgreSQLConfig.MaxOpenConns` 和 `ConnMaxIdleTime`；Server YAML 的配置位置如下：
+
+```yaml
+storage:
+  runtime:
+    kind: postgresql
+    dsn: ${RUNTIME_POSTGRES_DSN}
+    max_open_conns: 32
+    conn_max_idle_time: 1m
+```
+
+省略或零值选择默认值；负值无效，空闲时间使用 Go duration 格式。空闲连接上限与打开连接上限相同，避免周期性并发查询结束后只保留少量连接、下一轮又重复 TLS 与认证。配置作用于一个 physical Storage，不是整个 Server 或整个数据库；同名 Storage 的多个消费者共享容量，不同 Storage 即使 DSN 相同也各有自己的池。配置容量时应合计所有 Server 和 Storage 的连接预算。
+
+诊断时分别观察 `DB.Stats()` 的 `InUse`、`Idle`、`WaitCount`、`WaitDuration`、`MaxIdleClosed` 和 `MaxIdleTimeClosed`，结合新建连接耗时、PG SQL 耗时、锁与事务证据。连接数包含正在建立的连接；`WaitCount` 只表示容量不足时的池等待，不计 TLS/认证耗时。提高复用率不能消除慢 SQL、锁阻塞或冷启动连接故障，也不能替代请求 deadline。
+
 ### 进程 SQLite DSN 契约
 
 `pkgs/store/storage` 接受 modernc SQLite DSN，并继续支持 `_pragma` 等

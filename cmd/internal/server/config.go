@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -344,6 +345,8 @@ type storageFileConfig struct {
 	Kind            string `yaml:"kind"`
 	Dir             string `yaml:"dir"`
 	DSN             string `yaml:"dsn"`
+	MaxOpenConns    int    `yaml:"max_open_conns"`
+	ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
 	URL             string `yaml:"url"`
 	TLSCAFile       string `yaml:"tls_ca_file"`
 	RemoteWriteURL  string `yaml:"remote_write_url"`
@@ -372,7 +375,18 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 	case storage.KindSQLite:
 		return storage.SQLiteConfig{Dir: cfg.Dir, DSN: cfg.DSN}, nil
 	case storage.KindPostgreSQL:
-		return storage.PostgreSQLConfig{DSN: cfg.DSN}, nil
+		var idleTime time.Duration
+		if cfg.ConnMaxIdleTime != "" {
+			var err error
+			idleTime, err = time.ParseDuration(cfg.ConnMaxIdleTime)
+			if err != nil {
+				return nil, fmt.Errorf("invalid postgresql conn_max_idle_time")
+			}
+		}
+		if cfg.MaxOpenConns < 0 || idleTime < 0 {
+			return nil, fmt.Errorf("postgresql pool settings must be nonnegative")
+		}
+		return storage.PostgreSQLConfig{DSN: cfg.DSN, MaxOpenConns: cfg.MaxOpenConns, ConnMaxIdleTime: idleTime}, nil
 	case storage.KindClickHouse:
 		return storage.ClickHouseConfig{DSN: cfg.DSN}, nil
 	case storage.KindRedis:
@@ -1389,7 +1403,7 @@ func validateStorageConfigShape(value any) error {
 		storage.KindMemory:        {"kind": {}},
 		storage.KindFilesystemDir: {"kind": {}, "dir": {}},
 		storage.KindSQLite:        {"kind": {}, "dir": {}, "dsn": {}},
-		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}},
+		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}, "max_open_conns": {}, "conn_max_idle_time": {}},
 		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
 		storage.KindRedis:         {"kind": {}, "url": {}, "tls_ca_file": {}},
 		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
@@ -1412,6 +1426,13 @@ func validateStorageConfigShape(value any) error {
 		for field := range mapping {
 			if _, ok := allowed[field]; !ok {
 				return fmt.Errorf("server: storage.%s field %q is invalid for kind %s", name, field, kind)
+			}
+		}
+		if kind == storage.KindPostgreSQL {
+			if capacity, exists := mapping["max_open_conns"]; exists {
+				if _, err := strconv.Atoi(fmt.Sprint(capacity)); err != nil {
+					return fmt.Errorf("server: storage.%s max_open_conns must be an integer", name)
+				}
 			}
 		}
 	}

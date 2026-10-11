@@ -112,6 +112,25 @@ A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the back
 
 `storage.SQLTable` is the single owner of SQLite/PostgreSQL borrowed-table dialect, identifier, quoting, initialization, and schema-inspection behavior; callers can construct it only from a validated pool and table name. KV, Metrics, and Log continue owning their business table definitions but consume this storage capability directly, without a separate SQL backend helper package.
 
+### PostgreSQL connection pools
+
+Each PostgreSQL physical Storage opens sessions on demand, with a default limit of 32 open connections and 32 retained idle connections. The `database/sql` maintenance worker releases connections after one minute continuously idle; active connections are unaffected. Requests exceeding capacity wait for a connection subject to their context. Stores borrow the pool; closing physical Storage closes all its sessions.
+
+Go callers use `PostgreSQLConfig.MaxOpenConns` and `ConnMaxIdleTime`. Server YAML configures the same pool:
+
+```yaml
+storage:
+  runtime:
+    kind: postgresql
+    dsn: ${RUNTIME_POSTGRES_DSN}
+    max_open_conns: 32
+    conn_max_idle_time: 1m
+```
+
+Omitted or zero values select the defaults; negative values are invalid and idle time uses Go duration syntax. Idle capacity equals open capacity so periodic query bursts reuse sessions rather than repeatedly performing TLS and authentication. Capacity belongs to one physical Storage, not the entire Server or database. Consumers of the same named Storage share capacity; different Storage entries have separate pools even with identical DSNs. Budget connections across all Servers and Storage entries.
+
+Diagnose `DB.Stats()` values including `InUse`, `Idle`, `WaitCount`, `WaitDuration`, `MaxIdleClosed`, and `MaxIdleTimeClosed` alongside connection-establishment durations, PostgreSQL statement durations, locks and transactions. Open connection counts include connections being established. `WaitCount` measures capacity waits, not TLS/authentication. Reuse does not eliminate slow SQL, lock contention or cold connection failures, and does not replace request deadlines.
+
 ### Process SQLite DSN contract
 
 `pkgs/store/storage` accepts modernc SQLite DSNs and continues to support

@@ -56,3 +56,6 @@
 !speaker-segments/*.giztest.yaml
 !runtime-profile/
 !runtime-profile/*.giztest.yaml
+!run-state-postgres/
+!run-state-postgres/*.go
+!run-state-postgres/*.py

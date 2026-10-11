@@ -11,7 +11,7 @@ func TestConfigImplementationsHaveOnlyBackendFieldsAndNoSerializationTags(t *tes
 		reflect.TypeFor[MemoryConfig]():        {},
 		reflect.TypeFor[FilesystemDirConfig](): {"Dir"},
 		reflect.TypeFor[SQLiteConfig]():        {"Dir", "DSN"},
-		reflect.TypeFor[PostgreSQLConfig]():    {"DSN"},
+		reflect.TypeFor[PostgreSQLConfig]():    {"DSN", "MaxOpenConns", "ConnMaxIdleTime"},
 		reflect.TypeFor[ClickHouseConfig]():    {"DSN"},
 		reflect.TypeFor[RedisConfig]():         {"URL", "TLSCAFile"},
 		reflect.TypeFor[PrometheusConfig]():    {"RemoteWriteURL", "QueryURL", "BearerToken"},

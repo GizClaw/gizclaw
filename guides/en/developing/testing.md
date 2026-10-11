@@ -29,6 +29,31 @@ Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerSt
 
 The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
 
+## PostgreSQL run-state and input permissions
+
+```sh
+npm ci && npm run build:console
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/ncnn/models/**'
+bash tests/gizclaw-e2e/run_run_state_tests.sh
+```
+
+Replace `<os>-<arch>` with the host platform. This entrypoint requires Go, Docker, Python 3 and OpenSSL. It provisions digest-pinned PostgreSQL 17 with 4 CPU, 1 GiB RAM, 256 MiB tmpfs, 300 connections, loopback-only access, TLS and SCRAM. It reads no cloud provider credentials or deployment state. Deterministic ASR consumes real uplink audio, an Eino Graph echoes text, and TTS produces valid Opus. Server, WebRTC, Go Giztest, PostgreSQL runtime/metadata and the permission path use the tested implementation. Temporary schemas, Server, Peers and the invocation's container are cleaned up; evidence remains under ignored `.testbench/run-state-*` or the directory supplied as the first argument.
+
+By default 64 distinct public keys each complete initial voice input, a 12-second background refresh window, another voice turn and voice after selecting a second Workspace. `GIZCLAW_TEST_RUN_STATE_CONCURRENCY` accepts 2–128. `GIZCLAW_TEST_RUN_STATE_SETTLE=70s` extends observation after load to check default idle-session reclamation and goroutine convergence. The production two-second permission budget and five-second refresh interval remain unchanged. Scenarios require text/audio EOS and nonempty audio; database failures continue to reject input.
+
+The same binary runs `natural` without injection, then a `slow-connect` causal control. The latter warms a concurrent burst before a TCP proxy adds 2.5 seconds to new sessions before TLS/authentication. Established sessions, SQL and cancellation connections are unaffected. This control demonstrates the interaction of connection reuse and establishment tails; it does not estimate production latency, capacity or regional differences.
+
+`GIZCLAW_TEST_RUN_STATE_BASE_REF=v0.29.4` compiles only that ref's `newPostgreSQL` factory as the baseline, keeping the rest of the source and harness identical. It is not a full old-release run. Save baseline and fixed runs in different directories; the negative baseline control can exit nonzero. Reports preserve source, binary SHA-256, actual documents, every step/finalizer, permission-stage logs, DBStats/goroutine samples every 20ms, PostgreSQL backend/lock samples, `pg_stat_statements` and driver connection/SQL/Rows/Tx timing. The driver observer preserves pq's current `Driver.Open` contract without replacing SQL or timeout results. `analysis.json` separates failing tasks from repeated log records. No sampled lock waits does not prove none occurred.
+
+With an existing local `GIZCLAW_TEST_POSTGRES_DSN`, run reuse, capacity waiting, cancellation, Rows/Tx return and idle reclamation regressions:
+
+```sh
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/store-e2e
+go test -count=1 -run '^TestPostgreSQLInputPermission' ./pkgs/gizclaw
+```
+
+The permission regression uses real PostgreSQL and a deterministic Social binding resolver to check ordinary voice boundaries, background SFU revocation, and fail-closed behavior/recovery under a real table lock. It does not qualify real SFU media forwarding, remote models or physical devices.
+
 ## PostgreSQL History concurrency and retention
 
 Set `GIZCLAW_TEST_POSTGRES_DSN` to an isolated local PostgreSQL 17 instance configured with `max_connections=300`:
