@@ -245,7 +245,8 @@ Runtime 从同一份通过 Debian 校验的 package 构建 `build/gizclaw/Docker
 | `image_reference` | 加载后恢复的本地架构 tag |
 | `image_id` | `sha256:<64 hex>`，构建端 Docker 实际观测的 `.Id` |
 | `config_digest` | `sha256:<64 hex>`，归档内 Docker image config 的 SHA256 |
-| `archive_manifest_digest` | 仅 OCI/containerd 布局存在，归档内单架构 manifest 的 SHA256 |
+| `archive_manifest_digest` | 仅 OCI/containerd 布局存在，归档内可运行平台 manifest 的 SHA256 |
+| `archive_index_digest` | 归档有 OCI image index 时存在，该 index blob 的 SHA256 |
 | `binary_sha256` | 仅 Runtime 存在，镜像与同架构 `.deb` 中 `/usr/bin/gizclaw` 的 SHA256 |
 
 归档 `sha256`、本地 `image_id` 与 registry manifest/index digest 是不同身份，不能互换。
@@ -253,7 +254,7 @@ Runtime 从同一份通过 Debian 校验的 package 构建 `build/gizclaw/Docker
 schema 8、全部 19 个资产及 source identity，再从 schema 2 的 `images` 选择 component
 和架构，校验文件大小与 SHA256 后 `docker load`，核对恢复的引用、image ID、平台及
 OCI version/revision，随后按 image ID 运行。传统 Docker 的 `.Id` 对应 `config_digest`，
-containerd 存储可能对应 `archive_manifest_digest`；构建端 `image_id` 必须属于这两者，
+containerd 存储可能对应 `archive_manifest_digest` 或 `archive_index_digest`；构建端 `image_id` 必须属于这三者，
 消费端允许匹配任一经归档验证的身份，并固定该端实际加载的 `.Id`。归档内 manifest
 身份不代表曾发布到 registry。TOS 托管与服务器端下载部署由 Deploy
 负责。本仓库不发布或删除 GHCR package，历史 GHCR 镜像与 Release 保留供回滚。
@@ -261,7 +262,9 @@ Debian、C、Flutter、npm 与 Terraform provider entry 的字段和命名保持
 旧 schema 的 Release 必须使用其 source tag 对应的验证器。
 
 `build/container_archive.py` 在不提取文件的情况下检查 gzip、Docker save manifest、
-唯一 tag、config SHA256、全部 layer diff IDs、平台、非 root 用户与 OCI 身份；
+唯一 tag、config SHA256、全部解压后的 layer diff IDs、平台、非 root 用户与 OCI 身份；
+OCI index 只允许一个可运行的平台镜像，以及通过 descriptor、config/layer 和 in-toto
+subject 绑定到该镜像的 attestation；拒绝额外平台镜像或身份冲突。
 `build/check-container-receipt.sh` 另从 `.deb` 重算程序 SHA256。
 `build/check-container-archive.sh` 校验实际交付字节后导入镜像，并核对加载后的 image ID。
 Runtime 完整运行 gate 保留 CLI、`ldd`、CA、只读配置、SQLite/filesystem 持久化、

@@ -276,7 +276,8 @@ match the four `kind: container-archive` entries in manifest schema 8:
 | `image_reference` | Local architecture tag restored by loading |
 | `image_id` | `sha256:<64 hex>`: build Docker's observed `.Id` |
 | `config_digest` | `sha256:<64 hex>`: SHA256 of the archived image config |
-| `archive_manifest_digest` | OCI/containerd layout only: SHA256 of the archived single-platform manifest |
+| `archive_manifest_digest` | OCI/containerd layout only: SHA256 of the runnable platform manifest |
+| `archive_index_digest` | Present when the archive has an OCI image index: SHA256 of that index blob |
 | `binary_sha256` | Runtime only: `/usr/bin/gizclaw` SHA256 in the image and matching `.deb` |
 
 Archive `sha256`, local `image_id` and registry manifest/index digests identify
@@ -285,8 +286,8 @@ different objects and cannot be interchanged. The receipt has no registry
 8, all 19 assets and source identity, select a component/architecture in schema
 2 `images`, verify size/SHA256, load, check the restored reference, image ID,
 platform and OCI version/revision, then run by image ID. Classic Docker's `.Id`
-is `config_digest`; containerd storage may use `archive_manifest_digest`. The
-build's `image_id` must match one of these. Consumers may match either verified
+is `config_digest`; containerd storage may use `archive_manifest_digest` or
+`archive_index_digest`. The build's `image_id` must match one of these three. Consumers may match any verified
 archive identity and pin their actual loaded `.Id`. An archived manifest digest
 does not imply prior registry publication. Deploy owns TOS hosting
 and server downloads/deployment. This repository does not publish or delete GHCR
@@ -295,8 +296,10 @@ Debian, C, Flutter, npm and Terraform provider entry fields and names are unchan
 Validate older schemas using scripts from their source tags.
 
 `build/container_archive.py` checks gzip, Docker save manifest, the sole tag,
-config SHA256, all layer diff IDs, platform, non-root user and OCI identity
-without extracting files. `build/check-container-receipt.sh` also recomputes the
+config SHA256, all uncompressed layer diff IDs, platform, non-root user and OCI identity
+without extracting files. OCI indexes permit one runnable platform image plus
+attestations bound through descriptors, config/layers and in-toto subjects;
+extra runnable platforms or identity conflicts fail. `build/check-container-receipt.sh` also recomputes the
 Debian executable hash. `build/check-container-archive.sh` verifies the delivered
 bytes before importing and checking the loaded image ID. The complete Runtime
 gate retains CLI, `ldd`, CA, read-only config, SQLite/filesystem persistence,

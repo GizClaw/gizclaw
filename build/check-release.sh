@@ -107,11 +107,11 @@ jq -e \
     {name:("terraform-provider-gizclaw_" + $version + "_linux_arm64.zip"),kind:"terraform-provider",os:"linux",architecture:"arm64"}
   ]) and
   all(.assets[];
-    (keys | all(. == "architecture" or . == "component" or . == "format" or . == "image_reference" or . == "image_id" or . == "config_digest" or . == "archive_manifest_digest" or . == "binary_sha256" or . == "executable" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "provider" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
+    (keys | all(. == "architecture" or . == "component" or . == "format" or . == "image_reference" or . == "image_id" or . == "config_digest" or . == "archive_manifest_digest" or . == "archive_index_digest" or . == "binary_sha256" or . == "executable" or . == "installed_path" or . == "kind" or . == "module" or . == "name" or . == "os" or . == "package" or . == "provider" or . == "sha256" or . == "size" or . == "source_commit" or . == "version")) and
     (.name | type == "string" and length > 0) and
     (.kind == "container-archive" or .kind == "container-image" or .kind == "deb" or .kind == "source" or .kind == "terraform-provider" or .kind == "dart-package" or .kind == "npm-package") and
     (if .kind != "container-archive" then
-      ((has("component") or has("format") or has("image_reference") or has("image_id") or has("config_digest") or has("archive_manifest_digest") or has("binary_sha256")) | not)
+      ((has("component") or has("format") or has("image_reference") or has("image_id") or has("config_digest") or has("archive_manifest_digest") or has("archive_index_digest") or has("binary_sha256")) | not)
      else true end) and
     (.size | type == "number" and . > 0 and floor == .) and
     (.sha256 | test("^[0-9a-f]{64}$")) and

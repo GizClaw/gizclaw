@@ -65,9 +65,10 @@ class HashingReader:
         return data
 
 
-def inspect_archive(path, component, tag, commit, arch, observed_image_id=None):
-    expected = identity(component, tag, commit, arch)
-    require(path.name == expected["name"], "noncanonical container archive filename")
+def inspect_docker_archive(path, reference, arch, observed_image_id=None):
+    """Prove a Docker archive's sole runnable image and bound OCI attestations."""
+    require(arch in ("amd64", "arm64"), "unsupported archive architecture")
+    expected = {"image_reference": reference}
     regular_file(path)
     # Never extract paths. Hash every layer against the uncompressed diff IDs
     # in the config, which are part of the Docker image ID.
@@ -114,6 +115,108 @@ def inspect_archive(path, component, tag, commit, arch, observed_image_id=None):
     require(config_path in (hashes[config_path] + ".json", "blobs/sha256/" + hashes[config_path]),
             "image config filename does not match its SHA256")
     require(config["os"] == "linux" and config["architecture"] == arch, "archive platform mismatch")
+    layers = image["Layers"]
+    require(config["rootfs"]["type"] == "layers" and isinstance(layers, list) and len(layers) > 0 and
+            ["sha256:" + diff_hashes.get(layer, "missing") for layer in layers] == config["rootfs"]["diff_ids"],
+            "archive layer integrity mismatch")
+    # Containerd stores an OCI index alongside Docker's manifest.json. Ensure
+    # both loaders describe the same sole image, config and layer chain.
+    archive_manifest_digest = None
+    archive_index_digest = None
+    if "index.json" in documents:
+        index = parse_json(documents["index.json"])
+        require(index["schemaVersion"] == 2 and len(index["manifests"]) == 1,
+                "OCI archive must name exactly one image")
+        root = index["manifests"][0]
+        annotations = root.get("annotations", {})
+        if "io.containerd.image.name" in annotations:
+            require(annotations["io.containerd.image.name"] == "docker.io/library/" + expected["image_reference"],
+                    "OCI archive reference mismatch")
+        if "org.opencontainers.image.ref.name" in annotations:
+            require(annotations["org.opencontainers.image.ref.name"] == expected["image_reference"].rsplit(":", 1)[1],
+                    "OCI archive tag mismatch")
+
+        def document(descriptor):
+            require(re.fullmatch(r"sha256:[0-9a-f]{64}", descriptor["digest"]), "invalid OCI descriptor digest")
+            blob = "blobs/sha256/" + descriptor["digest"].removeprefix("sha256:")
+            require(blob in documents and sizes[blob] == descriptor["size"], "invalid OCI JSON blob")
+            return parse_json(documents[blob])
+
+        def verify_blob(descriptor):
+            require(re.fullmatch(r"sha256:[0-9a-f]{64}", descriptor["digest"]), "invalid OCI blob digest")
+            blob = "blobs/sha256/" + descriptor["digest"].removeprefix("sha256:")
+            require(blob in hashes and sizes[blob] == descriptor["size"], "missing or wrong-sized OCI blob")
+            return blob
+
+        leaves, attestations, visited = [], [], set()
+
+        def walk(descriptor, depth):
+            require(depth <= 4 and descriptor["digest"] not in visited, "duplicate or excessively nested OCI graph")
+            visited.add(descriptor["digest"])
+            node = document(descriptor)
+            require(node["schemaVersion"] == 2, "invalid OCI schema")
+            annotation = descriptor.get("annotations", {})
+            if annotation.get("vnd.docker.reference.type") == "attestation-manifest":
+                require(descriptor.get("platform") == {"os": "unknown", "architecture": "unknown"},
+                        "attestation must declare an unknown platform")
+                attestations.append((descriptor, node))
+            elif "manifests" in node:
+                require(len(node["manifests"]) > 0, "empty OCI index")
+                for child in node["manifests"]:
+                    walk(child, depth + 1)
+            else:
+                platform = descriptor.get("platform", {"os": "linux", "architecture": arch})
+                require(platform.get("os") == "linux" and platform.get("architecture") == arch,
+                        "OCI runnable image platform mismatch")
+                leaves.append((descriptor, node))
+
+        if "manifests" in document(root):
+            archive_index_digest = root["digest"]
+        walk(root, 0)
+        require(len(leaves) == 1, "OCI archive must contain one runnable platform image")
+        descriptor, node = leaves[0]
+        archive_manifest_digest = descriptor["digest"]
+        require(node["config"]["digest"] == config_digest and
+                node["config"]["size"] == sizes[config_path] and
+                [verify_blob(item) for item in node["layers"]] == layers,
+                "OCI and Docker archive identities differ")
+        for descriptor, node in attestations:
+            require(descriptor["annotations"].get("vnd.docker.reference.digest") == archive_manifest_digest,
+                    "attestation is not bound to the runnable image")
+            attestation_config = document(node["config"])
+            attestation_layers = [verify_blob(item) for item in node["layers"]]
+            require(attestation_config.get("os") == "unknown" and
+                    attestation_config.get("architecture") == "unknown" and
+                    attestation_config["rootfs"]["type"] == "layers" and
+                    attestation_config["rootfs"]["diff_ids"] ==
+                    ["sha256:" + diff_hashes[name] for name in attestation_layers],
+                    "invalid attestation config/layer identity")
+            require(len(node["layers"]) > 0, "empty attestation")
+            for item in node["layers"]:
+                require(item["mediaType"] == "application/vnd.in-toto+json", "unsupported attestation layer")
+                statement = document(item)
+                require(statement.get("_type") in ("https://in-toto.io/Statement/v0.1", "https://in-toto.io/Statement/v1") and
+                        len(statement.get("subject", [])) > 0 and
+                        all(subject.get("digest", {}).get("sha256") == archive_manifest_digest.removeprefix("sha256:")
+                            for subject in statement["subject"]), "attestation subject identity mismatch")
+    with path.open("rb") as stream:
+        archive_sha256 = digest(stream)
+    require(observed_image_id is None or observed_image_id in (config_digest, archive_manifest_digest, archive_index_digest),
+            "observed Docker image ID is absent from the archive")
+    result = {"size": path.stat().st_size, "sha256": archive_sha256,
+                         "image_id": observed_image_id or config_digest, "config_digest": config_digest, "_config": config}
+    if archive_manifest_digest:
+        result["archive_manifest_digest"] = archive_manifest_digest
+    if archive_index_digest:
+        result["archive_index_digest"] = archive_index_digest
+    return result
+
+
+def inspect_archive(path, component, tag, commit, arch, observed_image_id=None):
+    expected = identity(component, tag, commit, arch)
+    require(path.name == expected["name"], "noncanonical container archive filename")
+    result = inspect_docker_archive(path, expected["image_reference"], arch, observed_image_id)
+    config = result.pop("_config")
     labels = config["config"]["Labels"]
     require(labels["org.opencontainers.image.version"] == tag[1:] and
             labels["org.opencontainers.image.revision"] == commit and
@@ -127,52 +230,18 @@ def inspect_archive(path, component, tag, commit, arch, observed_image_id=None):
         require(labels["org.opencontainers.image.base.digest"] ==
                 "sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3",
                 "runtime base image mismatch")
-    layers = image["Layers"]
-    require(config["rootfs"]["type"] == "layers" and isinstance(layers, list) and len(layers) > 0 and
-            ["sha256:" + diff_hashes.get(layer, "missing") for layer in layers] == config["rootfs"]["diff_ids"],
-            "archive layer integrity mismatch")
-    # Containerd stores an OCI index alongside Docker's manifest.json. Ensure
-    # both loaders describe the same sole image, config and layer chain.
-    archive_manifest_digest = None
-    if "index.json" in documents:
-        index = parse_json(documents["index.json"])
-        for _ in range(4):
-            require(index["schemaVersion"] == 2 and len(index["manifests"]) == 1,
-                    "OCI archive must describe exactly one image")
-            descriptor = index["manifests"][0]
-            annotations = descriptor.get("annotations", {})
-            if "io.containerd.image.name" in annotations:
-                require(annotations["io.containerd.image.name"] == "docker.io/library/" + expected["image_reference"],
-                        "OCI archive reference mismatch")
-            blob = "blobs/sha256/" + descriptor["digest"].removeprefix("sha256:")
-            require(blob in documents and sizes[blob] == descriptor["size"], "invalid OCI manifest blob")
-            index = parse_json(documents[blob])
-            if "manifests" not in index:
-                archive_manifest_digest = descriptor["digest"]
-                break
-        require(index.get("schemaVersion") == 2 and "config" in index and
-                index["config"]["digest"] == config_digest and index["config"]["size"] == sizes[config_path] and
-                ["blobs/sha256/" + item["digest"].removeprefix("sha256:") for item in index["layers"]] == layers and
-                [item["size"] for item in index["layers"]] == [sizes[name] for name in layers],
-                "OCI and Docker archive identities differ")
-    with path.open("rb") as stream:
-        archive_sha256 = digest(stream)
-    require(observed_image_id is None or observed_image_id in (config_digest, archive_manifest_digest),
-            "observed Docker image ID is absent from the archive")
-    result = expected | {"size": path.stat().st_size, "sha256": archive_sha256,
-                         "image_id": observed_image_id or config_digest, "config_digest": config_digest}
-    if archive_manifest_digest:
-        result["archive_manifest_digest"] = archive_manifest_digest
-    return result
+    return expected | result
 
 
 def validate_entry(entry, tag, commit):
     expected = identity(entry["component"], tag, commit, entry["architecture"])
     keys = set(expected) | {"size", "sha256", "image_id", "config_digest"}
-    if "archive_manifest_digest" in entry:
-        keys.add("archive_manifest_digest")
-        require(re.fullmatch(r"sha256:[0-9a-f]{64}", entry["archive_manifest_digest"]),
-                "invalid archive manifest digest")
+    for field in ("archive_manifest_digest", "archive_index_digest"):
+        if field in entry:
+            keys.add(field)
+            require(re.fullmatch(r"sha256:[0-9a-f]{64}", entry[field]), f"invalid {field}")
+    require("archive_index_digest" not in entry or "archive_manifest_digest" in entry,
+            "an archive index requires a runnable manifest identity")
     if entry["component"] == "runtime":
         keys.add("binary_sha256")
         require(re.fullmatch(r"[0-9a-f]{64}", entry["binary_sha256"]), "invalid binary SHA256")
@@ -182,7 +251,7 @@ def validate_entry(entry, tag, commit):
             re.fullmatch(r"[0-9a-f]{64}", entry["sha256"]) and
             re.fullmatch(r"sha256:[0-9a-f]{64}", entry["image_id"]) and
             re.fullmatch(r"sha256:[0-9a-f]{64}", entry["config_digest"]) and
-            entry["image_id"] in (entry["config_digest"], entry.get("archive_manifest_digest")),
+            entry["image_id"] in (entry["config_digest"], entry.get("archive_manifest_digest"), entry.get("archive_index_digest")),
             "invalid archive size, SHA256 or image ID")
 
 

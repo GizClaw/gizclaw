@@ -19,7 +19,7 @@ COMMIT = "1" * 40
 
 
 def make_archive(directory, component="runtime", arch="amd64", layout="classic",
-                 mutate_config=None, mutate_manifest=None, mutate_index=None, bad_layer=False, unsafe=False):
+                 mutate_config=None, mutate_manifest=None, mutate_index=None, bad_layer=False, unsafe=False, attestation_case=None):
     expected = contract.identity(component, TAG, COMMIT, arch)
     path = directory / expected["name"]
     layer = b"layer contents for the archive integrity fixture"
@@ -52,7 +52,7 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
             with tarfile.open(fileobj=compressed, mode="w") as archive:
                 members = [(config_name, config_bytes), (layer_name, layer_bytes + b"tampered" if bad_layer else layer_bytes),
                            ("manifest.json", json.dumps(manifest).encode())]
-                if layout == "containerd":
+                if layout.startswith("containerd"):
                     oci_manifest = json.dumps({"schemaVersion": 2,
                                                "config": {"digest": "sha256:" + config_digest, "size": len(config_bytes)},
                                                "layers": [{"digest": "sha256:" + layer_blob_digest, "size": len(layer_bytes)}]}).encode()
@@ -60,6 +60,41 @@ def make_archive(directory, component="runtime", arch="amd64", layout="classic",
                     index = {"schemaVersion": 2, "manifests": [{"digest": "sha256:" + oci_digest,
                              "size": len(oci_manifest), "annotations": {
                                  "io.containerd.image.name": "docker.io/library/" + expected["image_reference"]}}]}
+                    if layout == "containerd-index":
+                        statement = {"_type": "https://in-toto.io/Statement/v1", "predicateType": "https://slsa.dev/provenance/v1",
+                                     "subject": [{"name": "image", "digest": {"sha256": oci_digest}}]}
+                        if attestation_case == "subject":
+                            statement["subject"][0]["digest"]["sha256"] = "0" * 64
+                        statement_bytes = json.dumps(statement).encode()
+                        statement_digest = hashlib.sha256(statement_bytes).hexdigest()
+                        att_config = {"os": "unknown", "architecture": "unknown",
+                                      "rootfs": {"type": "layers", "diff_ids": ["sha256:" + statement_digest]}}
+                        if attestation_case == "config":
+                            att_config["architecture"] = arch
+                        att_config_bytes = json.dumps(att_config).encode()
+                        att_config_digest = hashlib.sha256(att_config_bytes).hexdigest()
+                        att_manifest = json.dumps({"schemaVersion": 2,
+                                       "config": {"digest": "sha256:" + att_config_digest, "size": len(att_config_bytes)},
+                                       "layers": [{"digest": "sha256:" + statement_digest, "size": len(statement_bytes),
+                                                   "mediaType": "application/vnd.in-toto+json"}]}).encode()
+                        att_digest = hashlib.sha256(att_manifest).hexdigest()
+                        att_descriptor = {"digest": "sha256:" + att_digest, "size": len(att_manifest),
+                                          "platform": {"os": "unknown", "architecture": "unknown"},
+                                          "annotations": {"vnd.docker.reference.type": "attestation-manifest",
+                                                          "vnd.docker.reference.digest": "sha256:" + oci_digest}}
+                        if attestation_case == "target":
+                            att_descriptor["annotations"]["vnd.docker.reference.digest"] = "sha256:" + "0" * 64
+                        if attestation_case == "platform":
+                            att_descriptor["platform"]["architecture"] = arch
+                        runnable = {"digest": "sha256:" + oci_digest, "size": len(oci_manifest),
+                                    "platform": {"os": "linux", "architecture": arch}}
+                        inner_index = json.dumps({"schemaVersion": 2, "manifests": [runnable, att_descriptor]}).encode()
+                        inner_digest = hashlib.sha256(inner_index).hexdigest()
+                        index["manifests"][0].update(digest="sha256:" + inner_digest, size=len(inner_index))
+                        members.extend([("blobs/sha256/" + statement_digest, statement_bytes),
+                                        ("blobs/sha256/" + att_config_digest, att_config_bytes),
+                                        ("blobs/sha256/" + att_digest, att_manifest),
+                                        ("blobs/sha256/" + inner_digest, inner_index)])
                     if mutate_index:
                         mutate_index(index)
                     members.extend([("blobs/sha256/" + oci_digest, oci_manifest), ("index.json", json.dumps(index).encode())])
@@ -84,7 +119,7 @@ class ArchiveTest(unittest.TestCase):
         return contract.inspect_archive(make_archive(self.directory, **kwargs), component, TAG, COMMIT, arch)
 
     def test_classic_and_containerd_layouts(self):
-        for layout in ("classic", "containerd"):
+        for layout in ("classic", "containerd", "containerd-index"):
             for component in ("runtime", "mem0"):
                 for arch in ("amd64", "arm64"):
                     with self.subTest(layout=layout, component=component, arch=arch):
@@ -112,6 +147,16 @@ class ArchiveTest(unittest.TestCase):
         self.assertNotEqual(containerd["image_id"], containerd["config_digest"])
         with self.assertRaises(ValueError):
             contract.inspect_archive(path, "runtime", TAG, COMMIT, "amd64", "sha256:" + "0" * 64)
+
+    def test_index_image_id_and_attestations(self):
+        path = make_archive(self.directory, layout="containerd-index")
+        config = contract.inspect_archive(path, "runtime", TAG, COMMIT, "amd64")
+        actual = contract.inspect_archive(path, "runtime", TAG, COMMIT, "amd64", config["archive_index_digest"])
+        self.assertEqual(actual["image_id"], actual["archive_index_digest"])
+        self.assertNotEqual(actual["image_id"], actual["archive_manifest_digest"])
+        for case in ("subject", "target", "platform", "config"):
+            with self.subTest(case=case), self.assertRaises(ValueError):
+                self.inspect(layout="containerd-index", attestation_case=case)
 
     def test_wrong_manifest_or_layer(self):
         mutations = [lambda m: m.append(copy.deepcopy(m[0])),

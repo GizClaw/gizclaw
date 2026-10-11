@@ -10,8 +10,8 @@ reference="$(jq -er .image_reference "$entry")"
 arch="$(jq -er .architecture "$entry")"
 docker load --input "$asset_dir/$archive"
 image_id="$(docker image inspect --format '{{.Id}}' "$reference")"
-# Classic Docker identifies the config; containerd may identify the manifest.
-jq -e --arg id "$image_id" '$id == .config_digest or $id == .archive_manifest_digest' "$entry" >/dev/null
+# Classic Docker identifies the config; containerd may identify a manifest or its OCI index.
+jq -e --arg id "$image_id" '$id == .config_digest or $id == .archive_manifest_digest or $id == .archive_index_digest' "$entry" >/dev/null
 if [[ "$(jq -er .component "$entry")" == runtime ]]; then
   "$repo_root/build/check-runtime-image.sh" "$image_id" "${tag#v}" "$commit" "$arch" "$(jq -er .binary_sha256 "$entry")"
 else
