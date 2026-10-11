@@ -926,6 +926,15 @@ func (t *Transformer) processLoop(
 					return nil, nil
 				}
 				if chunk != nil {
+					// A completed provider session may win the race with the
+					// caller's final empty audio/control EOS. That boundary closes
+					// the completed input; it must not open another session.
+					if !chunk.IsBeginOfStream() && realtimeAudioInputEOS(chunk) && genx.StreamError(chunk.Ctrl) == nil {
+						blob, _ := chunk.Part.(*genx.Blob)
+						if blob == nil || len(blob.Data) == 0 {
+							continue
+						}
+					}
 					if chunk.IsBeginOfStream() && chunk.Ctrl != nil {
 						interruptAssistantState(chunk.Ctrl.StreamID)
 					}
