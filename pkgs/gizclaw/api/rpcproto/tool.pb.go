@@ -65,6 +65,7 @@ const (
 	ClientTool_CLIENT_TOOL_LUA_APP_RUN                 ClientTool = 24
 	ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET          ClientTool = 25
 	ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET          ClientTool = 26
+	ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL           ClientTool = 27
 )
 
 // Enum value maps for ClientTool.
@@ -97,6 +98,7 @@ var (
 		24: "CLIENT_TOOL_LUA_APP_RUN",
 		25: "CLIENT_TOOL_GNSS_REPORTING_GET",
 		26: "CLIENT_TOOL_GNSS_REPORTING_SET",
+		27: "CLIENT_TOOL_LUA_APP_UNINSTALL",
 	}
 	ClientTool_value = map[string]int32{
 		"CLIENT_TOOL_UNSPECIFIED":                 0,
@@ -126,6 +128,7 @@ var (
 		"CLIENT_TOOL_LUA_APP_RUN":                 24,
 		"CLIENT_TOOL_GNSS_REPORTING_GET":          25,
 		"CLIENT_TOOL_GNSS_REPORTING_SET":          26,
+		"CLIENT_TOOL_LUA_APP_UNINSTALL":           27,
 	}
 )
 
@@ -442,7 +445,7 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\b_payload\"\x19\n" +
 	"\x17ClientToolV0ListRequest\"L\n" +
 	"\x18ClientToolV0ListResponse\x120\n" +
-	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xe2\x18\n" +
+	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xdb\x19\n" +
 	"\n" +
 	"ClientTool\x12\x1b\n" +
 	"\x17CLIENT_TOOL_UNSPECIFIED\x10\x00\x12U\n" +
@@ -499,7 +502,9 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\x1eCLIENT_TOOL_GNSS_REPORTING_GET\x10\x19\x1aW\xca\xf3\x18S\n" +
 	"\x12gnss.reporting.get\x12\x1dClientGnssReportingGetRequest\x1a\x1eClientGnssReportingGetResponse\x12{\n" +
 	"\x1eCLIENT_TOOL_GNSS_REPORTING_SET\x10\x1a\x1aW\xca\xf3\x18S\n" +
-	"\x12gnss.reporting.set\x12\x1dClientGnssReportingSetRequest\x1a\x1eClientGnssReportingSetResponse:g\n" +
+	"\x12gnss.reporting.set\x12\x1dClientGnssReportingSetRequest\x1a\x1eClientGnssReportingSetResponse\x12w\n" +
+	"\x1dCLIENT_TOOL_LUA_APP_UNINSTALL\x10\x1b\x1aT\xca\xf3\x18P\n" +
+	"\x11lua.app.uninstall\x12\x1cClientLuaAppUninstallRequest\x1a\x1dClientLuaAppUninstallResponse:g\n" +
 	"\vclient_tool\x12!.google.protobuf.EnumValueOptions\x18\xb9\x8e\x03 \x01(\v2!.gizclaw.rpc.v1.ClientToolOptionsR\n" +
 	"clientToolB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

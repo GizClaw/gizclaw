@@ -27,7 +27,7 @@ func ValidateClientToolRequest(message proto.Message) error {
 		if request == nil || request.Enabled == nil {
 			return invalid
 		}
-	case *rpcpb.ClientLuaAppListRequest, *rpcpb.ClientLuaAppInstallRequest, *rpcpb.ClientLuaAppRunRequest:
+	case *rpcpb.ClientLuaAppListRequest, *rpcpb.ClientLuaAppInstallRequest, *rpcpb.ClientLuaAppRunRequest, *rpcpb.ClientLuaAppUninstallRequest:
 		return ValidateLuaAppRequest(message)
 	case *rpcpb.ClientDeviceSoundPlayRequest:
 		if !text(request.Sound, 32) || request.GetDurationMs() < 0 {

@@ -88,3 +88,27 @@ func (t RPCPayload) AsClientLuaAppRunResponse() (*rpcpb.ClientLuaAppRunResponse,
 func (t *RPCPayload) FromClientLuaAppRunResponse(v *rpcpb.ClientLuaAppRunResponse) error {
 	return t.encode("ClientLuaAppRunResponse", v)
 }
+
+// AsClientLuaAppUninstallRequest decodes the protobuf payload.
+func (t RPCPayload) AsClientLuaAppUninstallRequest() (*rpcpb.ClientLuaAppUninstallRequest, error) {
+	body := new(rpcpb.ClientLuaAppUninstallRequest)
+	err := t.decode("ClientLuaAppUninstallRequest", body)
+	return body, err
+}
+
+// FromClientLuaAppUninstallRequest encodes the protobuf payload.
+func (t *RPCPayload) FromClientLuaAppUninstallRequest(v *rpcpb.ClientLuaAppUninstallRequest) error {
+	return t.encode("ClientLuaAppUninstallRequest", v)
+}
+
+// AsClientLuaAppUninstallResponse decodes the protobuf payload.
+func (t RPCPayload) AsClientLuaAppUninstallResponse() (*rpcpb.ClientLuaAppUninstallResponse, error) {
+	body := new(rpcpb.ClientLuaAppUninstallResponse)
+	err := t.decode("ClientLuaAppUninstallResponse", body)
+	return body, err
+}
+
+// FromClientLuaAppUninstallResponse encodes the protobuf payload.
+func (t *RPCPayload) FromClientLuaAppUninstallResponse(v *rpcpb.ClientLuaAppUninstallResponse) error {
+	return t.encode("ClientLuaAppUninstallResponse", v)
+}

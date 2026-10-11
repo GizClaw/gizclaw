@@ -418,6 +418,46 @@ void main() {
     );
   });
 
+  test('Lua uninstall validates IDs before invoking the provider', () async {
+    var calls = 0;
+    final handlers = GizClawPeerRpcHandlers(
+      deviceInfo: () => DeviceInfo(name: 'lua-test'),
+      tools: {
+        ClientTool.CLIENT_TOOL_LUA_APP_UNINSTALL: (message) {
+          expect((message as ClientLuaAppUninstallRequest).appId, 'demo');
+          calls++;
+          return ClientLuaAppUninstallResponse();
+        },
+      },
+    );
+    for (final id in [
+      'demo',
+      'demo',
+      '../demo',
+      '',
+      'a\u0000b',
+      'A',
+      'demo\n',
+    ]) {
+      final channel = FakeDataChannel('giznet/v1/service/0');
+      addTearDown(channel.close);
+      serveGizClawPeerRpcChannel(channel, handlers: handlers);
+      final result = await _callInbound(
+        channel,
+        id: 'uninstall',
+        method: rpc.RpcMethod.RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+        methodName: 'lua.app.uninstall',
+        request: ClientLuaAppUninstallRequest(appId: id),
+      );
+      if (id == 'demo') {
+        expect(result.hasStatus(), isFalse);
+      } else {
+        expect(result.status.code, rpc.StatusCode.STATUS_CODE_INVALID_ARGUMENT);
+      }
+    }
+    expect(calls, 2);
+  });
+
   test('Lua app launch forwards string parameters', () async {
     final channel = FakeDataChannel('giznet/v1/service/0');
     addTearDown(channel.close);

@@ -41,7 +41,8 @@ typedef enum _gizclaw_rpc_v1_ClientTool {
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_INSTALL = 23,
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_RUN = 24,
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET = 25,
-    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET = 26
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET = 26,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL = 27
 } gizclaw_rpc_v1_ClientTool;
 
 /* Struct definitions */
@@ -92,8 +93,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _gizclaw_rpc_v1_ClientTool_MIN gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED
-#define _gizclaw_rpc_v1_ClientTool_MAX gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET
-#define _gizclaw_rpc_v1_ClientTool_ARRAYSIZE ((gizclaw_rpc_v1_ClientTool)(gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET+1))
+#define _gizclaw_rpc_v1_ClientTool_MAX gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL
+#define _gizclaw_rpc_v1_ClientTool_ARRAYSIZE ((gizclaw_rpc_v1_ClientTool)(gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL+1))
 
 
 #define gizclaw_rpc_v1_ClientToolV0InvokeRequest_tool_ENUMTYPE gizclaw_rpc_v1_ClientTool

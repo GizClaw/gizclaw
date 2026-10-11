@@ -5070,6 +5070,9 @@
           },
           {
             "$ref": "#/components/schemas/ClientToolGnssReportingSetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolLuaAppUninstallInvoke"
           }
         ],
         "discriminator": {
@@ -5100,7 +5103,8 @@
             "lua.app.install": "#/components/schemas/ClientToolLuaAppInstallInvoke",
             "lua.app.run": "#/components/schemas/ClientToolLuaAppRunInvoke",
             "gnss.reporting.get": "#/components/schemas/ClientToolGnssReportingGetInvoke",
-            "gnss.reporting.set": "#/components/schemas/ClientToolGnssReportingSetInvoke"
+            "gnss.reporting.set": "#/components/schemas/ClientToolGnssReportingSetInvoke",
+            "lua.app.uninstall": "#/components/schemas/ClientToolLuaAppUninstallInvoke"
           }
         }
       },
@@ -5140,7 +5144,8 @@
                 "lua.app.install",
                 "lua.app.run",
                 "gnss.reporting.get",
-                "gnss.reporting.set"
+                "gnss.reporting.set",
+                "lua.app.uninstall"
               ]
             }
           }
@@ -5507,6 +5512,41 @@
           "description": {
             "type": "string",
             "maxLength": 1024
+          }
+        }
+      },
+      "ClientLuaAppUninstallArgs": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "app_id"
+        ],
+        "properties": {
+          "app_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32,
+            "pattern": "^[a-z0-9_-][a-z0-9_.-]{0,31}$"
+          }
+        },
+        "description": "Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again."
+      },
+      "ClientToolLuaAppUninstallInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tool",
+          "args"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "lua.app.uninstall"
+            ]
+          },
+          "args": {
+            "$ref": "#/components/schemas/ClientLuaAppUninstallArgs"
           }
         }
       }

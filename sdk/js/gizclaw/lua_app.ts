@@ -2,6 +2,7 @@ import type {
   ClientLuaAppInstallRequest,
   ClientLuaAppInstallStreamRequest,
   ClientLuaAppRunRequest,
+  ClientLuaAppUninstallRequest,
   LuaAppInfo,
 } from "./generated/rpc/payload-codec.ts";
 
@@ -23,6 +24,16 @@ export function validLuaAppInfo(value: unknown): value is LuaAppInfo {
     version.test(value.version) &&
     (value.display_name == null || text(value.display_name, 128)) &&
     (value.description == null || text(value.description, 1024))
+  );
+}
+
+export function validLuaAppUninstall(
+  value: unknown,
+): value is ClientLuaAppUninstallRequest {
+  return (
+    object(value) &&
+    typeof value.app_id === "string" &&
+    appID.exec(value.app_id)?.[0] === value.app_id
   );
 }
 

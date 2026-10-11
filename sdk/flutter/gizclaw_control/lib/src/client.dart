@@ -87,6 +87,20 @@ class GizClawControlClient {
     }
   }
 
+  /// Idempotently uninstalls an app, preserving user data. Never retries.
+  Future<void> uninstallLuaApp(String appId) {
+    if (appId.isEmpty ||
+        RegExp(r'^[a-z0-9_-][a-z0-9_.-]{0,31}$').stringMatch(appId) != appId) {
+      throw ArgumentError.value(appId, 'appId', 'invalid Lua app ID');
+    }
+    return _tool<void>(
+      'lua.app.uninstall',
+      (_) {},
+      body: {'app_id': appId},
+      operation: 'uninstallLuaApp',
+    );
+  }
+
   /// Streams a .lua-app.tar.zlib package to the bound device. The result is
   /// returned only after installation. Cancellation/timeout aborts; never retries.
   Future<JsonObject> installLuaApp(

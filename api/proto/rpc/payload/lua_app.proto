@@ -61,3 +61,17 @@ message ClientLuaAppRunRequest {
 }
 message ClientLuaAppRunResponse {
 }
+
+// Remove an app from the device's persistent catalog, including a preinstalled
+// identity or an installed override. Preserve its independent user storage.
+// Idempotent: an absent app succeeds. Success means it cannot be listed or
+// launched, including after restart, and mutable package files were reclaimed.
+// Immutable preinstalled files remain in the firmware. Reinstallation makes
+// the identity available again. No automatic replay after timeout.
+// An index publication failure preserves the app. Cleanup can fail after
+// publication; the app stays unavailable and a repeated uninstall retries it.
+message ClientLuaAppUninstallRequest {
+  string app_id = 1; // Same stable package identity and bounds as LuaAppInfo.
+}
+message ClientLuaAppUninstallResponse {
+}

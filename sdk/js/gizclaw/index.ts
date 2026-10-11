@@ -5,6 +5,7 @@ import {
   validLuaAppInfo,
   validLuaAppInstall,
   validLuaAppRun,
+  validLuaAppUninstall,
 } from "./lua_app.ts";
 import {
   RPC_METHOD_IDS,
@@ -3047,6 +3048,13 @@ async function answerDeviceProcedure(
       case CLIENT_TOOL_IDS["lua.app.run"]: {
         if (!validLuaAppRun(request.params)) return invalid();
         const handler = handlers?.tools?.[CLIENT_TOOL_IDS["lua.app.run"]];
+        return handler == null
+          ? unsupported()
+          : ok(await handler(request.params));
+      }
+      case CLIENT_TOOL_IDS["lua.app.uninstall"]: {
+        if (!validLuaAppUninstall(request.params)) return invalid();
+        const handler = handlers?.tools?.[CLIENT_TOOL_IDS["lua.app.uninstall"]];
         return handler == null
           ? unsupported()
           : ok(await handler(request.params));

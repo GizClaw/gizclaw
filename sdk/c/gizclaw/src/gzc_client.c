@@ -2010,6 +2010,36 @@ static bool valid_lua_app_source(gzc_str_t source) {
   return true;
 }
 
+static bool valid_lua_app_uninstall(gzc_str_t payload) {
+  pb_istream_t stream = pb_istream_from_buffer((const pb_byte_t *)payload.data, payload.len);
+  bool seen = false;
+  while (stream.bytes_left != 0u) {
+    pb_wire_type_t wire;
+    uint32_t tag;
+    bool eof;
+    if (!pb_decode_tag(&stream, &wire, &tag, &eof) || eof)
+      return false;
+    if (tag == 1u) {
+      uint64_t size;
+      if (seen || wire != PB_WT_STRING || !pb_decode_varint(&stream, &size) ||
+          size == 0u || size > 32u || size > stream.bytes_left)
+        return false;
+      const char *id = payload.data + payload.len - stream.bytes_left;
+      for (size_t i = 0; i < (size_t)size; ++i) {
+        char c = id[i];
+        if (!((c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' ||
+              c == '-' || (i != 0u && c == '.')))
+          return false;
+      }
+      if (!pb_read(&stream, NULL, (size_t)size))
+        return false;
+      seen = true;
+    } else if (!pb_skip_field(&stream, wire))
+      return false;
+  }
+  return seen;
+}
+
 static bool valid_lua_app_install(gzc_str_t payload) {
   gizclaw_rpc_v1_ClientLuaAppInstallRequest request = gizclaw_rpc_v1_ClientLuaAppInstallRequest_init_zero;
   gzc_str_t source = {NULL, 0};
@@ -2120,7 +2150,8 @@ int gzc_client_dispatch_rpc_internal(
     if (!pb_decode(&stream, gizclaw_rpc_v1_ClientToolV0InvokeRequest_fields,
                    &request) ||
         !valid_protobuf(payload) ||
-        (request.tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_INSTALL && !valid_lua_app_install(payload))) {
+        (request.tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_INSTALL && !valid_lua_app_install(payload)) ||
+        (request.tool == gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL && !valid_lua_app_uninstall(payload))) {
       return provider_error(respond, respond_userdata,
                             gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                             "invalid tool request");

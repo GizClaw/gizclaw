@@ -129,6 +129,25 @@ func TestLuaAppSimulatorDownloadInstallListRun(t *testing.T) {
 	}
 }
 
+func TestLuaAppSimulatorUninstallReclaimsCapacity(t *testing.T) {
+	fixture := &luaAppFixture{
+		operation: make(chan struct{}, 1), used: 4,
+		apps:  map[string]*rpcpb.LuaAppInfo{"demo": {AppId: "demo", Version: "1.0.0"}},
+		files: map[string]map[string][]byte{"demo": {"demo.lua": []byte("text")}},
+	}
+	for range 2 {
+		if _, err := fixture.invoke(t.Context(), &rpcpb.ClientLuaAppUninstallRequest{AppId: "demo"}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if fixture.used != 0 || len(fixture.apps) != 0 || len(fixture.files) != 0 {
+		t.Fatal("uninstall did not reclaim the catalog and payload capacity")
+	}
+	if _, err := fixture.invoke(t.Context(), &rpcpb.ClientLuaAppRunRequest{AppId: "demo"}); err == nil {
+		t.Fatal("uninstalled application can still run")
+	}
+}
+
 func TestLuaAppSimulatorHTTPAndDataURLs(t *testing.T) {
 	data := luaArchive(t, "1.0.0", map[string]string{"tetris.lua": "return args.mode"}, false)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

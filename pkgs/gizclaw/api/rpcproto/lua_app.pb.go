@@ -433,6 +433,94 @@ func (*ClientLuaAppRunResponse) Descriptor() ([]byte, []int) {
 	return file_payload_lua_app_proto_rawDescGZIP(), []int{7}
 }
 
+// Remove an app from the device's persistent catalog, including a preinstalled
+// identity or an installed override. Preserve its independent user storage.
+// Idempotent: an absent app succeeds. Success means it cannot be listed or
+// launched, including after restart, and mutable package files were reclaimed.
+// Immutable preinstalled files remain in the firmware. Reinstallation makes
+// the identity available again. No automatic replay after timeout.
+// An index publication failure preserves the app. Cleanup can fail after
+// publication; the app stays unavailable and a repeated uninstall retries it.
+type ClientLuaAppUninstallRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	AppId         string                 `protobuf:"bytes,1,opt,name=app_id,json=appId,proto3" json:"app_id,omitempty"` // Same stable package identity and bounds as LuaAppInfo.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientLuaAppUninstallRequest) Reset() {
+	*x = ClientLuaAppUninstallRequest{}
+	mi := &file_payload_lua_app_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientLuaAppUninstallRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientLuaAppUninstallRequest) ProtoMessage() {}
+
+func (x *ClientLuaAppUninstallRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_lua_app_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientLuaAppUninstallRequest.ProtoReflect.Descriptor instead.
+func (*ClientLuaAppUninstallRequest) Descriptor() ([]byte, []int) {
+	return file_payload_lua_app_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ClientLuaAppUninstallRequest) GetAppId() string {
+	if x != nil {
+		return x.AppId
+	}
+	return ""
+}
+
+type ClientLuaAppUninstallResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClientLuaAppUninstallResponse) Reset() {
+	*x = ClientLuaAppUninstallResponse{}
+	mi := &file_payload_lua_app_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClientLuaAppUninstallResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClientLuaAppUninstallResponse) ProtoMessage() {}
+
+func (x *ClientLuaAppUninstallResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_lua_app_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClientLuaAppUninstallResponse.ProtoReflect.Descriptor instead.
+func (*ClientLuaAppUninstallResponse) Descriptor() ([]byte, []int) {
+	return file_payload_lua_app_proto_rawDescGZIP(), []int{9}
+}
+
 var File_payload_lua_app_proto protoreflect.FileDescriptor
 
 const file_payload_lua_app_proto_rawDesc = "" +
@@ -464,7 +552,10 @@ const file_payload_lua_app_proto_rawDesc = "" +
 	"\vParamsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x19\n" +
-	"\x17ClientLuaAppRunResponseB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"\x17ClientLuaAppRunResponse\"5\n" +
+	"\x1cClientLuaAppUninstallRequest\x12\x15\n" +
+	"\x06app_id\x18\x01 \x01(\tR\x05appId\"\x1f\n" +
+	"\x1dClientLuaAppUninstallResponseB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_lua_app_proto_rawDescOnce sync.Once
@@ -478,7 +569,7 @@ func file_payload_lua_app_proto_rawDescGZIP() []byte {
 	return file_payload_lua_app_proto_rawDescData
 }
 
-var file_payload_lua_app_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_payload_lua_app_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_payload_lua_app_proto_goTypes = []any{
 	(*LuaAppInfo)(nil),                       // 0: gizclaw.rpc.v1.LuaAppInfo
 	(*ClientLuaAppListRequest)(nil),          // 1: gizclaw.rpc.v1.ClientLuaAppListRequest
@@ -488,17 +579,19 @@ var file_payload_lua_app_proto_goTypes = []any{
 	(*ClientLuaAppInstallStreamRequest)(nil), // 5: gizclaw.rpc.v1.ClientLuaAppInstallStreamRequest
 	(*ClientLuaAppRunRequest)(nil),           // 6: gizclaw.rpc.v1.ClientLuaAppRunRequest
 	(*ClientLuaAppRunResponse)(nil),          // 7: gizclaw.rpc.v1.ClientLuaAppRunResponse
-	nil,                                      // 8: gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
+	(*ClientLuaAppUninstallRequest)(nil),     // 8: gizclaw.rpc.v1.ClientLuaAppUninstallRequest
+	(*ClientLuaAppUninstallResponse)(nil),    // 9: gizclaw.rpc.v1.ClientLuaAppUninstallResponse
+	nil,                                      // 10: gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
 }
 var file_payload_lua_app_proto_depIdxs = []int32{
-	0, // 0: gizclaw.rpc.v1.ClientLuaAppListResponse.apps:type_name -> gizclaw.rpc.v1.LuaAppInfo
-	0, // 1: gizclaw.rpc.v1.ClientLuaAppInstallResponse.app:type_name -> gizclaw.rpc.v1.LuaAppInfo
-	8, // 2: gizclaw.rpc.v1.ClientLuaAppRunRequest.params:type_name -> gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	0,  // 0: gizclaw.rpc.v1.ClientLuaAppListResponse.apps:type_name -> gizclaw.rpc.v1.LuaAppInfo
+	0,  // 1: gizclaw.rpc.v1.ClientLuaAppInstallResponse.app:type_name -> gizclaw.rpc.v1.LuaAppInfo
+	10, // 2: gizclaw.rpc.v1.ClientLuaAppRunRequest.params:type_name -> gizclaw.rpc.v1.ClientLuaAppRunRequest.ParamsEntry
+	3,  // [3:3] is the sub-list for method output_type
+	3,  // [3:3] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_payload_lua_app_proto_init() }
@@ -514,7 +607,7 @@ func file_payload_lua_app_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_lua_app_proto_rawDesc), len(file_payload_lua_app_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

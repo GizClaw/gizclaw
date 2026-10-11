@@ -579,10 +579,12 @@ export type ClientToolV0InvokeRequest = ({
     tool: 'gnss.reporting.get';
 } & ClientToolGnssReportingGetInvoke) | ({
     tool: 'gnss.reporting.set';
-} & ClientToolGnssReportingSetInvoke);
+} & ClientToolGnssReportingSetInvoke) | ({
+    tool: 'lua.app.uninstall';
+} & ClientToolLuaAppUninstallInvoke);
 
 export type ClientToolV0ListResponse = {
-    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run' | 'gnss.reporting.get' | 'gnss.reporting.set'>;
+    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run' | 'gnss.reporting.get' | 'gnss.reporting.set' | 'lua.app.uninstall'>;
 };
 
 export type ClientToolV0InvokeResponse = {
@@ -721,6 +723,18 @@ export type LuaAppInfo = {
     version: string;
     display_name?: string;
     description?: string;
+};
+
+/**
+ * Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
+ */
+export type ClientLuaAppUninstallArgs = {
+    app_id: string;
+};
+
+export type ClientToolLuaAppUninstallInvoke = {
+    tool: 'lua.app.uninstall';
+    args: ClientLuaAppUninstallArgs;
 };
 
 export type AudioPlayerItem = {

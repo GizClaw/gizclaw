@@ -50,3 +50,36 @@ func TestLuaAppProviderDiscoveryAndParameters(t *testing.T) {
 		t.Fatalf("missing=%v", missing)
 	}
 }
+
+func TestLuaAppUninstallProvider(t *testing.T) {
+	device := &Client{}
+	var calls int
+	if err := device.HandleClientTool(rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL, func(_ context.Context, message proto.Message) (proto.Message, error) {
+		if message.(*rpcpb.ClientLuaAppUninstallRequest).AppId != "demo" {
+			t.Fatal("uninstall identity changed")
+		}
+		calls++
+		return &rpcpb.ClientLuaAppUninstallResponse{}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	list := deviceControlDispatch(t, device, rpcapi.RPCMethodClientToolV0List, nil)
+	listed, err := list.Result.AsClientToolV0ListResponse()
+	if err != nil || len(listed.Tools) != 3 || listed.Tools[2] != rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL {
+		t.Fatalf("list=%v err=%v", listed, err)
+	}
+	for _, id := range []string{"demo", "demo", "../demo"} {
+		response := deviceControlDispatch(t, device, rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL, func(p *rpcapi.RPCPayload) error {
+			return p.FromClientLuaAppUninstallRequest(&rpcpb.ClientLuaAppUninstallRequest{AppId: id})
+		})
+		if id == "demo" && response.Error != nil {
+			t.Fatal(response.Error)
+		}
+		if id != "demo" && (response.Error == nil || response.Error.Code != rpcapi.StatusCodeInvalidArgument) {
+			t.Fatalf("invalid ID response=%v", response)
+		}
+	}
+	if calls != 2 {
+		t.Fatalf("handler calls=%d", calls)
+	}
+}

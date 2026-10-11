@@ -1,10 +1,34 @@
 import 'dart:convert';
+
 import 'package:gizclaw_control/gizclaw_control.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test(
+    'Lua uninstall sends one typed request and rejects unsafe IDs',
+    () async {
+      var calls = 0;
+      final client = GizClawControlClient(
+        baseUrl: Uri.parse('https://example.test'),
+        apiKey: 'test-key',
+        httpClient: MockClient((request) async {
+          calls++;
+          expect(request.url.path, '/gizclaw/v1/device/tool/v0/invoke');
+          expect(jsonDecode(request.body), {
+            'tool': 'lua.app.uninstall',
+            'args': {'app_id': 'demo'},
+          });
+          return http.Response('{"result":{}}', 200);
+        }),
+      );
+      addTearDown(client.close);
+      await client.uninstallLuaApp('demo');
+      expect(() => client.uninstallLuaApp('demo\n'), throwsArgumentError);
+      expect(calls, 1);
+    },
+  );
   test(
     'oversized Binary control requires URL before reading or sending',
     () async {

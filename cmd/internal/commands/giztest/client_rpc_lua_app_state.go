@@ -113,6 +113,13 @@ func (f *luaAppFixture) invoke(ctx context.Context, message proto.Message) (prot
 		return &rpcpb.ClientLuaAppListResponse{Apps: apps}, nil
 	case *rpcpb.ClientLuaAppInstallRequest:
 		return f.install(ctx, request)
+	case *rpcpb.ClientLuaAppUninstallRequest:
+		for _, content := range f.files[request.AppId] {
+			f.used -= int64(len(content))
+		}
+		delete(f.apps, request.AppId)
+		delete(f.files, request.AppId)
+		return &rpcpb.ClientLuaAppUninstallResponse{}, nil
 	case *rpcpb.ClientLuaAppRunRequest:
 		if f.apps[request.AppId] == nil {
 			return nil, rpcapi.Error{Code: rpcapi.StatusCodeNotFound, Message: "Lua app is not installed"}

@@ -606,6 +606,8 @@ export interface GizClawControlFriendGroups {
 }
 
 export interface GizClawControlClient {
+  /** Persistently uninstalls an app, preserving user data. Never retries. */
+  uninstallLuaApp(appId: string, signal?: AbortSignal): Promise<void>;
   /** Uploads a complete archive as a raw body. AbortSignal cancels; never retries. */
   installLuaApp(
     archive: Blob,
@@ -715,6 +717,18 @@ export function createGizClawControlClient(
 
   return {
     client,
+    async uninstallLuaApp(appId, signal) {
+      if (/^[a-z0-9_-][a-z0-9_.-]{0,31}$/.exec(appId)?.[0] !== appId)
+        throw new TypeError("invalid Lua app ID");
+      await unwrap(
+        "uninstallLuaApp",
+        invokeClientTool({
+          ...common,
+          signal: signal ?? common.signal,
+          body: { tool: "lua.app.uninstall", args: { app_id: appId } },
+        }),
+      );
+    },
     installLuaApp(archive, sha256, signal) {
       if (archive.size > 512 * 1024)
         throw new TypeError(

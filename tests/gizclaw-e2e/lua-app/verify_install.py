@@ -129,6 +129,20 @@ def main():
             observed = snapshot(args.gizos_probe)
         else:
             raise AssertionError('GizOS did not observe the exact launch parameters')
+        saved = observed['userdata_sha256']
+        for _ in range(2):
+            assert tool(endpoint, key, 'lua.app.uninstall', {'app_id': args.app_id}) == {}
+        assert not any(a['app_id'] == args.app_id for a in tool(endpoint, key, 'lua.app.list', {})['apps'])
+        removed = snapshot(args.gizos_probe)
+        assert removed['app'] is None and removed['userdata_sha256'] == saved
+        missing = request(endpoint, key, 'device/tool/v0/invoke', json.dumps({
+            'tool': 'lua.app.run', 'args': {'app_id': args.app_id}}).encode(), expected=404)
+        assert missing['error']['code'] == 'LUA_APP_NOT_FOUND'
+        checks.append('uninstall_idempotent_userdata_preserved')
+        check_app(request(endpoint, key, path, package, 'application/octet-stream'))
+        restored = snapshot(args.gizos_probe)
+        assert restored['app']['app_id'] == args.app_id and restored['userdata_sha256'] == saved
+        checks.append('reinstall_userdata_preserved')
         receipt['endpoints'].append({'endpoint': endpoint, 'checks': checks, 'catalog': catalog, 'run': run,
                                      'gizos': observed})
     args.receipt.write_text(json.dumps(receipt, indent=2, ensure_ascii=False) + '\n')

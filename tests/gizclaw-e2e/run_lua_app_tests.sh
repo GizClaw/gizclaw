@@ -64,4 +64,5 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
   /src/tests/gizclaw-e2e/giztest/server.device.lua_app.no_space.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/server.device.lua_app.invalid.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/server.device.lua_app.unsupported.giztest.yaml \
+  /src/tests/gizclaw-e2e/giztest/server.device.lua_app.uninstall.giztest.yaml \
   --output /reports/giztest.json
