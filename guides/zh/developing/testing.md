@@ -11,6 +11,19 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## 音频时序测试的运行隔离
+
+根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：
+
+```sh
+go test -count=1 -p 1 ./...
+go test -race -count=1 -p 1 ./...
+```
+
+Giztest 的 `audio_pacing.max_interval_ms` 使用 PeerStream 读取时的真实单调时钟，包含本地发送、接收 goroutine 的调度延迟。并行编译、编码和其他测试可以让正常的 20ms 音频循环失去 CPU，因此这个间隔不能单独归因为 Provider 停顿。`underruns` 另按 500ms 预缓冲重放客户端消耗，用于区分包间隔超限与实际缓冲耗尽。
+
+TTS 协议夹具按累计媒体 deadline 发包。线程延迟后补发已经到期的帧，避免逐包重设相对 timer 把调度延迟累计到后续音频；显式注入的 900ms 断流仍必须被原有时序断言拒绝。真实 Provider 与物理设备验收仍属于独立验证。
+
 ## PostgreSQL History 并发与回收
 
 设置 `GIZCLAW_TEST_POSTGRES_DSN` 指向隔离的本地 PostgreSQL 17 实例，并为测试实例配置 `max_connections=300` 后运行：

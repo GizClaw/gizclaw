@@ -16,6 +16,19 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## Isolating audio timing tests
+
+CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:
+
+```sh
+go test -count=1 -p 1 ./...
+go test -race -count=1 -p 1 ./...
+```
+
+Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerStream reads, including local sender and receiver goroutine scheduling delays. Concurrent compilation, encoding and other tests can deprive a healthy 20ms audio loop of CPU, so the interval alone cannot establish a Provider stall. `underruns` separately replays client consumption with a 500ms prebuffer, distinguishing a packet-gap violation from exhausted playback buffering.
+
+The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
+
 ## PostgreSQL History concurrency and retention
 
 Set `GIZCLAW_TEST_POSTGRES_DSN` to an isolated local PostgreSQL 17 instance configured with `max_connections=300`:

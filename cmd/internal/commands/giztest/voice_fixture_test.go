@@ -257,15 +257,20 @@ func (f voiceFixtureTTS) Transform(ctx context.Context, input genx.Stream) (genx
 			return
 		}
 		otherID := genx.NewStreamID()
-		ticker := time.NewTicker(20 * time.Millisecond)
-		defer ticker.Stop()
+		schedule := voiceFixturePacketSchedule{}
+		timer := time.NewTimer(time.Hour)
+		if !timer.Stop() {
+			<-timer.C
+		}
+		defer timer.Stop()
 		for i, packet := range f.packets {
 			if f.provider.fault == "truncate" && i == len(f.packets)/2 {
 				_ = output.Done(genx.Usage{})
 				return
 			}
+			period := 20 * time.Millisecond
 			if len(f.provider.delays) > 0 {
-				ticker.Reset(f.provider.delays[i%len(f.provider.delays)])
+				period = f.provider.delays[i%len(f.provider.delays)]
 			}
 			if f.provider.fault == "stall" && i == 30 {
 				timer := time.NewTimer(900 * time.Millisecond)
@@ -277,11 +282,17 @@ func (f voiceFixtureTTS) Transform(ctx context.Context, input genx.Stream) (genx
 					return
 				}
 			}
-			select {
-			case <-ctx.Done():
+			if delay := schedule.waitDuration(time.Now(), period); delay > 0 {
+				timer.Reset(delay)
+				select {
+				case <-ctx.Done():
+					_ = output.Stream().CloseWithError(ctx.Err())
+					return
+				case <-timer.C:
+				}
+			} else if ctx.Err() != nil {
 				_ = output.Stream().CloseWithError(ctx.Err())
 				return
-			case <-ticker.C:
 			}
 			if f.provider.fault != "overlap" || i != 5 {
 				if err := output.Add(&genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: id, BeginOfStream: i == 0}}); err != nil {
@@ -299,6 +310,18 @@ func (f voiceFixtureTTS) Transform(ctx context.Context, input genx.Stream) (genx
 		_ = output.Done(genx.Usage{})
 	}()
 	return output.Stream(), nil
+}
+
+// Provider audio follows its media timeline. A delayed goroutine catches up;
+// it must not reset the clock and carry every scheduling delay into later packets.
+type voiceFixturePacketSchedule struct{ next time.Time }
+
+func (s *voiceFixturePacketSchedule) waitDuration(now time.Time, period time.Duration) time.Duration {
+	if s.next.IsZero() {
+		s.next = now
+	}
+	s.next = s.next.Add(period)
+	return max(0, s.next.Sub(now))
 }
 
 type voiceFixtureResources struct{}
