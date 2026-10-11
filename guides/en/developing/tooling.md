@@ -289,7 +289,10 @@ platform and OCI version/revision, then run by image ID. Classic Docker's `.Id`
 is `config_digest`; containerd storage may use `archive_manifest_digest` or
 `archive_index_digest`. The build's `image_id` must match one of these three. Consumers may match any verified
 archive identity and pin their actual loaded `.Id`. An archived manifest digest
-does not imply prior registry publication. Deploy owns TOS hosting
+does not imply prior registry publication. A containerd import of a classic archive may
+reuse compressed layers and produce a new manifest ID. Acceptance then re-exports that
+local image with bounded `docker save` and permits the new ID only if its sole
+config SHA256 exactly matches the archived `config_digest`. Deploy owns TOS hosting
 and server downloads/deployment. This repository does not publish or delete GHCR
 packages; historical GHCR images and Releases remain available for rollback.
 Debian, C, Flutter, npm and Terraform provider entry fields and names are unchanged.

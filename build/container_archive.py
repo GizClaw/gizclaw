@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import tarfile
+import threading
 
 
 def require(condition, message):
@@ -31,6 +32,12 @@ def parse_json(data):
 def regular_file(path):
     require(path.is_file() and not path.is_symlink() and path.stat().st_size > 0,
             f"expected regular nonempty file: {path}")
+
+
+def json_file(path):
+    regular_file(path)
+    require(path.stat().st_size <= 1024**2, "oversized container metadata")
+    return parse_json(path.read_bytes())
 
 
 def digest(stream):
@@ -123,6 +130,7 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
     # both loaders describe the same sole image, config and layer chain.
     archive_manifest_digest = None
     archive_index_digest = None
+    index_ids = set()
     if "index.json" in documents:
         index = parse_json(documents["index.json"])
         require(index["schemaVersion"] == 2 and len(index["manifests"]) > 0, "invalid OCI archive index")
@@ -167,8 +175,11 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
                 attestations.append((descriptor, node))
             elif "manifests" in node:
                 require(len(node["manifests"]) > 0, "empty OCI index")
+                before = len(leaves)
                 for child in node["manifests"]:
                     walk(child, depth + 1)
+                require(len(leaves) - before == 1, "OCI index must select one runnable image")
+                index_ids.add(descriptor["digest"])
             else:
                 platform = descriptor.get("platform", {"os": "linux", "architecture": arch})
                 require(platform.get("os") == "linux" and platform.get("architecture") == arch,
@@ -217,6 +228,27 @@ def inspect_docker_archive(path, reference, arch, observed_image_id=None):
         result["archive_manifest_digest"] = archive_manifest_digest
     if archive_index_digest:
         result["archive_index_digest"] = archive_index_digest
+    load_ids = {config_digest, *index_ids}
+    if archive_manifest_digest:
+        load_ids.add(archive_manifest_digest)
+    # Alternate OCI/Docker media encodings can describe the identical config
+    # and compressed layers. Their IDs are independently content-proved too.
+    for name, data in documents.items():
+        if not name.startswith("blobs/sha256/"):
+            continue
+        try:
+            node = parse_json(data)
+        except ValueError:
+            continue
+        if (isinstance(node, dict) and node.get("schemaVersion") == 2 and
+                isinstance(node.get("config"), dict) and isinstance(node.get("layers"), list) and
+                all(isinstance(item, dict) for item in node["layers"]) and
+                node["config"].get("digest") == config_digest and
+                node["config"].get("size") == sizes[config_path] and
+                [{"digest": item.get("digest"), "size": item.get("size")} for item in node.get("layers", [])] ==
+                [{"digest": "sha256:" + hashes[layer], "size": sizes[layer]} for layer in layers]):
+            load_ids.add("sha256:" + hashes[name])
+    result["_load_ids"] = sorted(load_ids)
     return result
 
 
@@ -225,6 +257,7 @@ def inspect_archive(path, component, tag, commit, arch, observed_image_id=None):
     require(path.name == expected["name"], "noncanonical container archive filename")
     result = inspect_docker_archive(path, expected["image_reference"], arch, observed_image_id)
     config = result.pop("_config")
+    result.pop("_load_ids")
     labels = config["config"]["Labels"]
     require(labels["org.opencontainers.image.version"] == tag[1:] and
             labels["org.opencontainers.image.revision"] == commit and
@@ -239,6 +272,59 @@ def inspect_archive(path, component, tag, commit, arch, observed_image_id=None):
                 "sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3",
                 "runtime base image mismatch")
     return expected | result
+
+
+def verify_saved_config(stream, reference, arch, expected_digest):
+    """Prove a locally re-exported image's config without trusting its inspect ID."""
+    require(re.fullmatch(r"sha256:[0-9a-f]{64}", expected_digest), "invalid expected config digest")
+    config_names = {expected_digest[7:] + ".json", "blobs/sha256/" + expected_digest[7:]}
+    found, manifest, total = set(), None, 0
+    with tarfile.open(fileobj=stream, mode="r|") as archive:
+        for count, member in enumerate(archive):
+            total += member.size
+            require(count < 100000 and total <= 16 * 1024**3, "loaded image export exceeds validation bounds")
+            if member.name in config_names or member.name == "manifest.json":
+                require(member.isfile() and member.size <= 1024**2, "invalid exported config/manifest")
+                data = archive.extractfile(member).read()
+                if member.name == "manifest.json":
+                    require(manifest is None, "duplicate exported Docker manifest")
+                    manifest = parse_json(data)
+                else:
+                    config = parse_json(data)
+                    require("sha256:" + hashlib.sha256(data).hexdigest() == expected_digest and
+                            config["os"] == "linux" and config["architecture"] == arch,
+                            "loaded image config/platform mismatch")
+                    found.add(member.name)
+    while chunk := stream.read(1024 * 1024):
+        total += len(chunk)
+        require(total <= 16 * 1024**3, "loaded image export exceeds validation bounds")
+    require(isinstance(manifest, list) and len(manifest) == 1 and manifest[0]["Config"] in found and
+            manifest[0]["RepoTags"] == [reference], "loaded image config identity mismatch")
+
+
+def prove_loaded_image(reference, arch, proof):
+    inspected = parse_json(subprocess.check_output(
+        ["docker", "image", "inspect", "--format", "{{json .}}", reference], timeout=30))
+    require(re.fullmatch(r"sha256:[0-9a-f]{64}", inspected["Id"]) and inspected["Os"] == "linux" and inspected["Architecture"] == arch, "loaded image platform mismatch")
+    known = set(proof.get("_load_ids", [])) | {proof.get(field) for field in
+                                           ("config_digest", "archive_manifest_digest", "archive_index_digest")}
+    if inspected["Id"] not in known:
+        # Containerd may reuse compressed layers when importing a classic tar,
+        # producing a new manifest ID. Only exact saved config bytes permit it.
+        with subprocess.Popen(["docker", "image", "save", reference], stdout=subprocess.PIPE,
+                              stderr=subprocess.DEVNULL) as process:
+            timer = threading.Timer(120, process.kill)
+            timer.daemon = True
+            timer.start()
+            try:
+                verify_saved_config(process.stdout, reference, arch, proof["config_digest"])
+                require(process.wait(timeout=10) == 0, "loaded image export failed")
+            finally:
+                timer.cancel()
+                if process.poll() is None:
+                    process.kill()
+                    process.wait()
+    return inspected["Id"]
 
 
 def validate_entry(entry, tag, commit):
@@ -286,17 +372,26 @@ def check_entry(entry, tag, commit, directory):
 
 
 def main(args):
-    if len(args) in (6, 7) and args[0] == "inspect":
+    if len(args) == 4 and args[0] == "loaded":
+        _, filename, reference, arch = args
+        if filename == "-":
+            data = sys.stdin.buffer.read(65537)
+            require(len(data) <= 65536, "oversized loaded-image metadata")
+            entry = parse_json(data)
+        else:
+            entry = json_file(Path(filename))
+        validate_entry(entry, "v" + entry["version"], entry["source_commit"])
+        require(entry["image_reference"] == reference and entry["architecture"] == arch, "loaded reference mismatch")
+        print(prove_loaded_image(reference, arch, entry))
+    elif len(args) in (6, 7) and args[0] == "inspect":
         _, filename, component, tag, commit, arch, *observed = args
         print(json.dumps(inspect_archive(Path(filename), component, tag, commit, arch, *observed), sort_keys=True))
     elif len(args) == 5 and args[0] == "entry":
         _, filename, tag, commit, directory = args
-        regular_file(Path(filename))
-        check_entry(parse_json(Path(filename).read_bytes()), tag, commit, Path(directory))
+        check_entry(json_file(Path(filename)), tag, commit, Path(directory))
     elif len(args) in (5, 7) and args[0] == "receipt":
         _, filename, tag, commit, directory, *selection = args
-        regular_file(Path(filename))
-        receipt = parse_json(Path(filename).read_bytes())
+        receipt = json_file(Path(filename))
         require(set(receipt) == {"schema_version", "tag", "version", "source_commit", "images"} and
                 receipt["schema_version"] == 2 and receipt["tag"] == tag and
                 receipt["version"] == tag[1:] and receipt["source_commit"] == commit,

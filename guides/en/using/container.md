@@ -10,7 +10,8 @@ separately; production may use managed PostgreSQL.
 Download the selected Release's files and verify `SHA256SUMS`, schema 8
 `release-manifest.json` and source commit using
 [Repository Releases](../developing/tooling#repository-releases). Select the host
-architecture in schema 2 `container-image.json`, verify and load the archive:
+architecture in schema 2 `container-image.json`, verify and load the archive. Run
+these commands from the matching source-tag checkout; adjust downloaded file paths as needed:
 
 ```sh
 arch=amd64 # Set arm64 on an arm64 host.
@@ -19,8 +20,7 @@ archive="$(jq -er .name <<<"$entry")"
 printf '%s  %s\n' "$(jq -er .sha256 <<<"$entry")" "$archive" | sha256sum --check
 docker load --input "$archive"
 reference="$(jq -er .image_reference <<<"$entry")"
-export GIZCLAW_IMAGE="$(docker image inspect --format '{{.Id}}' "$reference")"
-jq -e --arg id "$GIZCLAW_IMAGE" '$id == .config_digest or $id == .archive_manifest_digest or $id == .archive_index_digest' <<<"$entry"
+export GIZCLAW_IMAGE="$(printf '%s\n' "$entry" | python3 build/container_archive.py loaded - "$reference" "$arch")"
 docker image inspect "$GIZCLAW_IMAGE" | jq -e --arg arch "$arch" \
   --arg version "$(jq -er .version <<<"$entry")" --arg commit "$(jq -er .source_commit <<<"$entry")" '
   .[0] | .Os == "linux" and .Architecture == $arch and

@@ -206,6 +206,17 @@ class ArchiveTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             contract.parse_json('{"image_id":"one","image_id":"two"}')
 
+    def test_reexported_classic_config_proof(self):
+        path = make_archive(self.directory)
+        proof = contract.inspect_archive(path, "runtime", TAG, COMMIT, "amd64")
+        raw = gzip.decompress(path.read_bytes())
+        contract.verify_saved_config(io.BytesIO(raw), proof["image_reference"], "amd64", proof["config_digest"])
+        for reference, arch, digest in (("other:tag", "amd64", proof["config_digest"]),
+                                        (proof["image_reference"], "arm64", proof["config_digest"]),
+                                        (proof["image_reference"], "amd64", "sha256:" + "0" * 64)):
+            with self.subTest(reference=reference, arch=arch), self.assertRaises(ValueError):
+                contract.verify_saved_config(io.BytesIO(raw), reference, arch, digest)
+
     def test_entry_keys_and_identity(self):
         entry = self.inspect(component="mem0")
         contract.validate_entry(entry, TAG, COMMIT)

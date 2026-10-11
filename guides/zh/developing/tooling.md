@@ -256,7 +256,9 @@ schema 8、全部 19 个资产及 source identity，再从 schema 2 的 `images`
 OCI version/revision，随后按 image ID 运行。传统 Docker 的 `.Id` 对应 `config_digest`，
 containerd 存储可能对应 `archive_manifest_digest` 或 `archive_index_digest`；构建端 `image_id` 必须属于这三者，
 消费端允许匹配任一经归档验证的身份，并固定该端实际加载的 `.Id`。归档内 manifest
-身份不代表曾发布到 registry。TOS 托管与服务器端下载部署由 Deploy
+身份不代表曾发布到 registry。若 containerd 导入传统归档时复用压缩 layer，可能生成
+新的 manifest ID；验收会对该本地镜像执行有大小/成员/时间限制的 `docker save`，
+仅在导出的唯一镜像 config SHA256 与归档 `config_digest` 完全一致时接受该新 ID。TOS 托管与服务器端下载部署由 Deploy
 负责。本仓库不发布或删除 GHCR package，历史 GHCR 镜像与 Release 保留供回滚。
 Debian、C、Flutter、npm 与 Terraform provider entry 的字段和命名保持不变。
 旧 schema 的 Release 必须使用其 source tag 对应的验证器。

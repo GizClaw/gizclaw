@@ -8,7 +8,8 @@ Mem0、LiveKit、数据库独立运行；生产可以连接托管 PostgreSQL。
 
 下载所选 Release 的文件，按[仓库发布](../developing/tooling#仓库发布)校验
 `SHA256SUMS`、schema 8 `release-manifest.json` 和 source commit。然后按主机架构
-选择 schema 2 `container-image.json` 中的归档，校验并加载：
+选择 schema 2 `container-image.json` 中的归档，校验并加载。以下命令在对应 source tag
+的仓库根目录执行；下载文件位于其他目录时相应调整路径：
 
 ```sh
 arch=amd64 # arm64 主机设为 arm64
@@ -17,8 +18,7 @@ archive="$(jq -er .name <<<"$entry")"
 printf '%s  %s\n' "$(jq -er .sha256 <<<"$entry")" "$archive" | sha256sum --check
 docker load --input "$archive"
 reference="$(jq -er .image_reference <<<"$entry")"
-export GIZCLAW_IMAGE="$(docker image inspect --format '{{.Id}}' "$reference")"
-jq -e --arg id "$GIZCLAW_IMAGE" '$id == .config_digest or $id == .archive_manifest_digest or $id == .archive_index_digest' <<<"$entry"
+export GIZCLAW_IMAGE="$(printf '%s\n' "$entry" | python3 build/container_archive.py loaded - "$reference" "$arch")"
 docker image inspect "$GIZCLAW_IMAGE" | jq -e --arg arch "$arch" \
   --arg version "$(jq -er .version <<<"$entry")" --arg commit "$(jq -er .source_commit <<<"$entry")" '
   .[0] | .Os == "linux" and .Architecture == $arch and
