@@ -29,6 +29,47 @@ Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerSt
 
 The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
 
+## Shared Eino History query load
+
+Prepare the embedded console and audio LFS libraries, then set
+`GIZCLAW_TEST_POSTGRES_DSN` to a dedicated local PostgreSQL 17 instance with
+`max_connections=300`:
+
+```sh
+bash tests/gizclaw-e2e/run_history_query_tests.sh .tmp/history-query-evidence
+```
+
+This entrypoint requires a loopback database URL. Seed 7919 produces 930,000
+`eino.history` messages across 31 TTL daily partitions and 1,000 scope/agent/context
+groups. Both revisions reuse the seeded rows; each run removes only previous
+non-seed history in its dedicated fixture schema. The baseline uses a Go overlay
+for the two LogStore SQL files from `v0.31.1`, with identical working-tree Server,
+Eino, Giztest and fixture code. `GIZCLAW_TEST_HISTORY_QUERY_BASE_REF` selects another
+existing local ref. This is not a complete old-release run.
+
+Each phase warms the default 128 connections, then executes 160 simultaneous
+History queries, half existing and half absent scopes, four writers with 32 real
+Appends each, and 32 shared-pool `SELECT 1` probes. Their two-second deadline
+measures lightweight SQL waiting, not the complete permission check. Eight real
+WebRTC Giztest sessions then run alongside 16 absent-scope readers and four
+writers appending every 20ms. The two-second first-text limit, persisted History,
+all steps and cleanup assertions remain enforced. The Eino Graph is a deterministic
+script; History loading and writing use the production implementation without
+artificial SQL delays.
+
+Evidence includes bound SQL, index definitions, `EXPLAIN (ANALYZE, BUFFERS)`, examined
+rows, query/write latency, throughput, DBStats pool waits, lightweight probes,
+Giztest reports and `comparison.json`. If installed, `public.pg_stat_statements`
+provides a local-database snapshot of matching SQL shapes. A baseline timeout can
+exit nonzero; the script requires the fixed phase to pass and checks identical
+fixture metadata. Do not commit evidence or synthetic schemas. When analysis is
+finished, remove only the dedicated `gzc_history_query_*` schema printed by the
+script. This test does not establish production failure attribution or capacity.
+
+Regular PostgreSQL CI covers LogStore attribute semantics, selective execution
+plans, index creation over existing data, new-partition inheritance and cursor
+compatibility. The large load fixture is opt-in.
+
 ## PostgreSQL run-state and input permissions
 
 ```sh

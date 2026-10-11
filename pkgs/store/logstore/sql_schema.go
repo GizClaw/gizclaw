@@ -24,6 +24,8 @@ var sqlLogIndexes = []struct {
 	{purpose: "expiry_idx", columns: "expires_at_unix_nano", want: []string{"expires_at_unix_nano"}},
 }
 
+const postgresAttributesIndexPurpose = "attributes_idx"
+
 func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table, keysTable storage.SQLTable, ttl time.Duration) error {
 	payloadType := "BLOB"
 	if table.Dialect() == storage.SQLDialectPostgreSQL {
@@ -60,6 +62,20 @@ func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table, keysTable storage.
 		}
 		statements = append(statements, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s (%s)", quoted, table.Quoted(), index.columns))
 	}
+	if table.Dialect() == storage.SQLDialectPostgreSQL {
+		name, err := storage.SQLIndexName(table, postgresAttributesIndexPurpose)
+		if err != nil {
+			return err
+		}
+		quoted, err := storage.QuoteSQLIdentifier(table.Dialect(), name)
+		if err != nil {
+			return err
+		}
+		// Index the existing TEXT representation without rewriting records or
+		// changing the column contract. Parent indexes cover existing children
+		// and are inherited by every later expiration partition.
+		statements = append(statements, fmt.Sprintf("CREATE INDEX IF NOT EXISTS %s ON %s USING GIN ((attributes_json::jsonb) jsonb_path_ops)", quoted, table.Quoted()))
+	}
 	if partitioned {
 		name, err := storage.SQLIndexName(keysTable, "expiry_idx")
 		if err != nil {
@@ -76,6 +92,37 @@ func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table, keysTable storage.
 		))
 	}
 	return storage.EnsureSQLTable(ctx, db, table, statements...)
+}
+
+func (store *SQLStore) checkPostgresAttributesIndex(ctx context.Context) error {
+	name, err := storage.SQLIndexName(store.table, postgresAttributesIndexPurpose)
+	if err != nil {
+		return err
+	}
+	var compatible bool
+	err = store.db.GetContext(ctx, &compatible, `
+		SELECT EXISTS (
+			SELECT 1 FROM pg_index metadata
+			JOIN pg_class data_table ON data_table.oid = metadata.indrelid
+			JOIN pg_namespace backend ON backend.oid = data_table.relnamespace
+			JOIN pg_class index_table ON index_table.oid = metadata.indexrelid
+			JOIN pg_am access_method ON access_method.oid = index_table.relam
+			JOIN pg_opclass operator_class ON operator_class.oid = metadata.indclass[0]
+			JOIN pg_namespace operator_namespace ON operator_namespace.oid = operator_class.opcnamespace
+			WHERE backend.nspname = current_schema() AND data_table.relname = $1 AND index_table.relname = $2
+			  AND metadata.indisvalid AND metadata.indisready AND NOT metadata.indisunique
+			  AND metadata.indpred IS NULL AND metadata.indnatts = 1 AND metadata.indnkeyatts = 1
+			  AND metadata.indkey[0] = 0 AND access_method.amname = 'gin'
+			  AND operator_namespace.nspname = 'pg_catalog' AND operator_class.opcname = 'jsonb_path_ops'
+			  AND pg_get_indexdef(metadata.indexrelid, 1, true) = '(attributes_json::jsonb)'
+		)`, store.table.Name(), name)
+	if err != nil {
+		return fmt.Errorf("logstore: inspect postgres attributes index: %w", err)
+	}
+	if !compatible {
+		return fmt.Errorf("logstore: incompatible postgres attributes index %q", name)
+	}
+	return nil
 }
 
 const postgresAuxiliaryPrefixLimit = 53

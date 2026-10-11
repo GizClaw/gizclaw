@@ -134,6 +134,9 @@ func (store *SQLStore) checkSchema(ctx context.Context) error {
 			return fmt.Errorf("logstore: incompatible sql table %q index %q: %w", store.table.Name(), name, err)
 		}
 	}
+	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+		return store.checkPostgresAttributesIndex(ctx)
+	}
 	return nil
 }
 
@@ -613,6 +616,14 @@ func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, no
 		args = append(args, query.Text)
 	}
 	for _, matcher := range query.Matchers {
+		if store.table.Dialect() == storage.SQLDialectPostgreSQL && matcher.Op == MatchEqual {
+			// Containment on the indexed expression lets PostgreSQL find a
+			// selective attribute set before sorting/limiting a shared stream.
+			// Keep each matcher separate so conflicting values remain ANDed.
+			parts = append(parts, "attributes_json::jsonb @> jsonb_build_object(?::text, ?::text)")
+			args = append(args, matcher.Name, matcher.Value)
+			continue
+		}
 		predicate := "EXISTS (SELECT 1 FROM " + attributes + " AS attr WHERE attr.key = ?"
 		args = append(args, matcher.Name)
 		switch matcher.Op {

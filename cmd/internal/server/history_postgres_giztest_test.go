@@ -33,23 +33,50 @@ import (
 // history and internal Eino history all use their production implementations.
 // A PostgreSQL trigger gives every history writer the same database cost.
 func TestPostgreSQLHistoryGiztest(t *testing.T) {
+	runPostgreSQLHistoryGiztest(t, false)
+}
+
+// The opt-in query load uses retained Eino history and no artificial delay.
+func TestPostgreSQLHistoryQueryGiztest(t *testing.T) {
+	if os.Getenv("GIZCLAW_TEST_HISTORY_QUERY_LOAD") != "1" {
+		t.Skip("set GIZCLAW_TEST_HISTORY_QUERY_LOAD=1 for the retained-history load case")
+	}
+	runPostgreSQLHistoryGiztest(t, true)
+}
+
+func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
+	t.Helper()
 	dsn := os.Getenv("GIZCLAW_TEST_POSTGRES_DSN")
 	if dsn == "" {
 		t.Skip("GIZCLAW_TEST_POSTGRES_DSN is required")
 	}
-	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
+	timeout := 90 * time.Second
+	if queryLoad {
+		timeout = 10 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), timeout)
 	defer cancel()
 	table := fmt.Sprintf("gzc_history_giztest_%d", time.Now().UnixNano())
 	schema := table + "_schema"
+	keep := queryLoad && os.Getenv("GIZCLAW_TEST_HISTORY_QUERY_SCHEMA") != ""
+	if keep {
+		schema = os.Getenv("GIZCLAW_TEST_HISTORY_QUERY_SCHEMA")
+		table = "gizclaw_flowcraft_history"
+		if err := storage.ValidateSQLIdentifier(schema); err != nil || !strings.HasPrefix(schema, "gzc_history_query_") {
+			t.Fatal("fixture schema must be a SQL identifier starting with gzc_history_query_")
+		}
+	}
 	bootstrap, err := sqlx.ConnectContext(ctx, "postgres", dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = bootstrap.Close() })
-	if _, err := bootstrap.ExecContext(ctx, `CREATE SCHEMA "`+schema+`"`); err != nil {
+	if _, err := bootstrap.ExecContext(ctx, `CREATE SCHEMA IF NOT EXISTS "`+schema+`"`); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = bootstrap.Exec(`DROP SCHEMA "` + schema + `" CASCADE`) })
+	if !keep {
+		t.Cleanup(func() { _, _ = bootstrap.Exec(`DROP SCHEMA "` + schema + `" CASCADE`) })
+	}
 	parsed, err := url.Parse(dsn)
 	if err != nil || (parsed.Scheme != "postgres" && parsed.Scheme != "postgresql") {
 		t.Fatal("GIZCLAW_TEST_POSTGRES_DSN must be a PostgreSQL URL")
@@ -63,11 +90,13 @@ func TestPostgreSQLHistoryGiztest(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = db.Close() })
-	t.Cleanup(func() {
-		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `" CASCADE`)
-		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `_keys"`)
-		_, _ = db.Exec(`DROP FUNCTION IF EXISTS "` + table + `_delay"() CASCADE`)
-	})
+	if !keep {
+		t.Cleanup(func() {
+			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `" CASCADE`)
+			_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `_keys"`)
+			_, _ = db.Exec(`DROP FUNCTION IF EXISTS "` + table + `_delay"() CASCADE`)
+		})
+	}
 	cfg := validLayeredConfig(t.TempDir())
 	// Use PostgreSQL for metadata and run state too, matching the deployment
 	// and keeping SQLite's single-connection metadata queue out of this load.
@@ -77,6 +106,14 @@ func TestPostgreSQLHistoryGiztest(t *testing.T) {
 	cfg.Stores["workspace-history"] = stores.Config{Kind: stores.KindLogMutable, Storage: "history-pg", Table: table, TTL: 30 * 24 * time.Hour}
 	cfg.Stores["eino-state"] = stores.Config{Kind: stores.KindSQL, Storage: "business-db"}
 	cfg.Services.AgentHost.Persistence = &AgentHostPersistenceConfig{StateStore: "eino-state", HistoryStore: "workspace-history"}
+	if queryLoad {
+		historyConfig := cfg.Stores["workspace-history"]
+		historyConfig.Storage = "business-db"
+		cfg.Stores["workspace-history"] = historyConfig
+		runConfig := cfg.Stores["peer-runs"]
+		runConfig.Storage = "business-db"
+		cfg.Stores["peer-runs"] = runConfig
+	}
 	key, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -136,35 +173,63 @@ func TestPostgreSQLHistoryGiztest(t *testing.T) {
 	if err := json.Unmarshal(data, &graph); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: "history-echo", Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &graph}}); err != nil {
+	workflowID, profileID, registrationToken := "history-echo", "history-postgres", "local-history-postgres"
+	if keep {
+		suffix := fmt.Sprintf("-%d", time.Now().UnixNano())
+		workflowID += suffix
+		profileID += suffix
+		registrationToken += suffix
+	}
+	if _, err := adminapi.CreateWorkflow(ctx, admin, apitypes.Workflow{Id: workflowID, Spec: apitypes.WorkflowSpec{Driver: apitypes.WorkflowDriverEino, Eino: &graph}}); err != nil {
 		t.Fatal(err)
 	}
-	profile := adminhttp.RuntimeProfileUpsert{Id: "history-postgres", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"history-echo": {ResourceId: "history-echo", I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "History echo"}, "zh-CN": {DisplayName: "历史回声"}}}}}}
+	profile := adminhttp.RuntimeProfileUpsert{Id: profileID, Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"history-echo": {ResourceId: workflowID, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "History echo"}, "zh-CN": {DisplayName: "历史回声"}}}}}}
 	if _, err := adminapi.CreateRuntimeProfile(ctx, admin, profile); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := adminapi.CreateRegistrationToken(ctx, admin, adminhttp.RegistrationTokenUpsert{Id: "history-postgres", Token: "local-history-postgres", RuntimeProfileId: profile.Id}); err != nil {
+	if _, err := adminapi.CreateRegistrationToken(ctx, admin, adminhttp.RegistrationTokenUpsert{Id: profileID, Token: registrationToken, RuntimeProfileId: profile.Id}); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("GIZCLAW_TEST_ENDPOINT", httpServer.URL)
-	t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", "local-history-postgres")
+	t.Setenv("GIZCLAW_TEST_REGISTRATION_TOKEN", registrationToken)
+	reportDir := os.Getenv("GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE")
+	if reportDir == "" {
+		reportDir = t.TempDir()
+	}
+	if err := os.MkdirAll(reportDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if queryLoad {
+		pool, err := srv.storage.SQL("business-db")
+		if err != nil {
+			t.Fatal(err)
+		}
+		stop := startPostgreSQLHistoryQueryLoad(t, ctx, pool, db, dsn, table, reportDir)
+		defer stop()
+	}
 	load, err := logstore.NewSQLStoreWithDBAndTTL(db, table, 30*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = load.Close() })
-	if _, err := db.Exec(`CREATE FUNCTION "` + table + `_delay"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.030); RETURN NEW; END $$`); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(`CREATE TRIGGER history_delay BEFORE INSERT ON "` + table + `" FOR EACH ROW EXECUTE FUNCTION "` + table + `_delay"()`); err != nil {
-		t.Fatal(err)
+	if !queryLoad {
+		if _, err := db.Exec(`CREATE FUNCTION "` + table + `_delay"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.030); RETURN NEW; END $$`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := db.Exec(`CREATE TRIGGER history_delay BEFORE INSERT ON "` + table + `" FOR EACH ROW EXECUTE FUNCTION "` + table + `_delay"()`); err != nil {
+			t.Fatal(err)
+		}
 	}
 	const writers, batches = 96, 8
+	writerCount := writers
+	if queryLoad {
+		writerCount = 0
+	}
 	db.SetMaxOpenConns(writers + 4)
 	db.SetMaxIdleConns(writers + 4)
 	errs := make([]error, writers)
 	var workers sync.WaitGroup
-	for writer := range writers {
+	for writer := range writerCount {
 		workers.Go(func() {
 			for batch := range batches {
 				_, err := load.Append(ctx, []logstore.Record{{Stream: fmt.Sprintf("load-workspace-%d", writer), ID: fmt.Sprintf("%d", batch), Kind: "message", Time: time.Now().UTC()}})
@@ -175,19 +240,12 @@ func TestPostgreSQLHistoryGiztest(t *testing.T) {
 			}
 		})
 	}
-	reportDir := os.Getenv("GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE")
-	if reportDir == "" {
-		reportDir = t.TempDir()
-	}
-	if err := os.MkdirAll(reportDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
 	command := giztestcmd.NewCmd()
 	var output bytes.Buffer
 	command.SetOut(&output)
 	command.SetErr(&output)
 	reportPath := filepath.Join(reportDir, "giztest.json")
-	command.SetArgs([]string{"run", "--parallel", "8", "--output", reportPath, filepath.Join(root, "history.giztest.yaml")})
+	command.SetArgs([]string{"run", "--parallel", "8", "--seed", "7919", "--output", reportPath, filepath.Join(root, "history.giztest.yaml")})
 	runErr := command.ExecuteContext(ctx)
 	workers.Wait()
 	for _, err := range errs {
@@ -199,13 +257,13 @@ func TestPostgreSQLHistoryGiztest(t *testing.T) {
 	if err := db.GetContext(ctx, &rows, `SELECT COUNT(*) FROM "`+table+`" WHERE stream LIKE 'load-workspace-%'`); err != nil {
 		t.Fatal(err)
 	}
-	if rows != writers*batches {
+	if !queryLoad && rows != writers*batches {
 		t.Errorf("load persisted %d rows, want %d", rows, writers*batches)
 	}
 	if err := os.WriteFile(filepath.Join(reportDir, "runner.log"), output.Bytes(), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	t.Logf("same load: %d independent streams, %d persisted rows, 30ms database work per row; report: %s\n%s", writers, rows, reportPath, output.String())
+	t.Logf("query load=%t; report: %s\n%s", queryLoad, reportPath, output.String())
 	if runErr != nil {
 		t.Fatal(runErr)
 	}

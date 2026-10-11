@@ -44,6 +44,39 @@ GIZCLAW_TEST_PG_LOG_EVIDENCE="$(mktemp -d)" GIZCLAW_TEST_PG_LOG_DELAY_MS=5 \
 
 `summary.json` 保存全部写入计数、吞吐和 Append 延迟，`locks.json` 保存 `pg_stat_activity`、等待类型与 blocker PID 样本。设置 `GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE` 可保留 giztest 报告和 runner 日志。所有数据均为本地合成输入；日志与报告不得提交到仓库。
 
+## 共享 Eino History 查询负载
+
+准备内嵌控制台和音频 LFS 库，并设置指向隔离的本地 PostgreSQL 17 的
+`GIZCLAW_TEST_POSTGRES_DSN`（`max_connections=300`）。执行：
+
+```sh
+bash tests/gizclaw-e2e/run_history_query_tests.sh .tmp/history-query-evidence
+```
+
+此入口只接受回环数据库地址。它固定 7919 seed，在 31 个 TTL 日分区中准备
+930,000 条 `eino.history` message、1,000 组 scope/agent/context。两个版本复用同一份
+seed 数据；每轮只清理专用 fixture schema 中先前运行产生的非 seed history。
+baseline 默认通过 Go overlay 使用 `v0.31.1` 的两个 LogStore SQL 文件，其他 Server、
+Eino、Giztest 与夹具代码完全相同；可用 `GIZCLAW_TEST_HISTORY_QUERY_BASE_REF` 指定
+另一个已存在的本地 ref。它不是旧 release 的完整运行。
+
+每轮预热默认 128 个连接，执行 160 个并发 History 查询（已有与空 scope 各半）、
+4 个 writer 各 32 次真实 Append，以及 32 次共享 pool 的 `SELECT 1` 探测；探测的
+2 秒期限只衡量轻量 SQL 的等待，不代替完整权限检查。随后在 16 个后台空 scope
+reader 和 4 个每 20ms 写入一次的 writer 下运行 8 个真实 WebRTC giztest 会话，
+保留 2 秒首字门槛、持久 History、全部步骤和 cleanup 断言。Eino Graph 是确定性的
+脚本，History 加载与写入使用 production implementation，没有人工 SQL 延迟。
+
+输出包含实际绑定 SQL、索引定义、`EXPLAIN (ANALYZE, BUFFERS)`、扫描量、查询及
+写入延迟、吞吐、DBStats pool 等待、轻量探测、giztest 报告和 `comparison.json`。
+若安装了 `public.pg_stat_statements`，还保存匹配 SQL 形状的本地数据库快照。
+baseline 的超时可以使该轮测试非零退出，最终脚本要求修复版本通过，并校验两轮
+fixture 元数据一致。证据和保留的合成 schema 不应提交；不需要继续分析时，只删除
+输出中列出的专用 `gzc_history_query_*` schema。此测试不证明线上失败归因或容量。
+
+普通 PostgreSQL CI 运行 LogStore 的属性语义、选择性执行计划、已有数据补建索引、
+新分区继承和 cursor 兼容回归；大型负载夹具需显式启用。
+
 ## PostgreSQL run-state 与输入权限
 
 ```sh

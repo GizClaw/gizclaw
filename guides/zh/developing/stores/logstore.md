@@ -84,7 +84,11 @@ Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timest
 
 ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 normalized selector、text、millisecond-aligned `[Start, End)` 和 order，允许 continuation 修改 limit，并保持 16 KiB bound。相同 records 可以跨三种 SQL driver continuation。SQLite/PostgreSQL 的 text matching 保持 case-sensitive literal，attribute matcher 在 validated flat map 上执行；逻辑 Store 不关闭共享 pool。
 
-SQLite/PostgreSQL 将时间、selector、区分大小写的字面文本、属性存在性与等值条件、排序和 `LIMIT` 全部交给数据库执行；每页最多返回 `limit + 1` 条记录，用额外一条判断是否存在下一页。Driver 在每次打开时以 `IF NOT EXISTS` 创建 `(time, stream, id)`、`(stream, kind, severity)`、`(stream, time, id)` 与过期时间索引；单 stream 查询（例如一个 Workspace 的 History）经 `(stream, time, id)` 按时间范围有序定位，不需要对该 stream 的全部记录排序。已有表会在下次打开时补建缺失索引，大表补建期间会短暂阻塞写入。属性名称作为绑定值匹配 flat JSON 的 key，点号不会被解释成 JSON 路径。
+SQLite/PostgreSQL 将时间、selector、区分大小写的字面文本、属性条件、排序和 `LIMIT` 全部交给数据库执行；每页最多返回 `limit + 1` 条记录，用额外一条判断是否存在下一页。Driver 在每次打开时以 `IF NOT EXISTS` 创建 `(time, stream, id)`、`(stream, kind, severity)`、`(stream, time, id)` 与过期时间索引。没有选择性属性条件时，单 stream 查询可经 `(stream, time, id)` 按时间范围有序定位。
+
+PostgreSQL 还在现有 TEXT 列上创建 `USING GIN ((attributes_json::jsonb) jsonb_path_ops)` 表达式索引。属性 `=` 转换为参数化的 JSON containment，让共享 stream 中的 scope、agent、context 等属性参与索引查找，再对匹配记录排序和分页。每个 matcher 独立 AND，重复或冲突条件不会被覆盖。`!=`、`exists`、`not-exists` 和 SQLite 的匹配方式保持不变；属性名称和值始终绑定，点号仍是 flat key 的字面内容。Record、cursor、时间范围和 TTL contract 不变。
+
+已有表在下次打开时补建缺失索引，不重写 record。PostgreSQL 在父表上建索引，覆盖已有日分区，后续分区自动继承；打开时校验 GIN method、表达式、operator class 和有效状态，拒绝同名的不兼容索引。初始化受 30 秒期限限制，补建索引会在整个构建期间阻塞写入；大表升级应先验证构建耗时并安排维护窗口。
 
 ## Process logging
 
