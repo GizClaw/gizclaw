@@ -325,7 +325,9 @@ LiveKit，固定音频来自仓库内的 Ogg/Opus。每任务三个 SFU particip
 保留三人广播、移除者零音频、未移除者正常收听、设备 ping 和加回后的双向媒体检查。
 这两个入口跳过依赖 SQLite 文件布局的 Go multi-server 套件；该套件仍由默认入口单独运行。
 
-默认 UDP 范围为 `50000–60000`。设置 `GIZCLAW_E2E_LIVEKIT_UDP_END=50100` 可执行窄范围
+默认使用 UDP mux：`rtc.udp_port: 7882-7889`，共享八个 ICE UDP 监听端口，
+不随 participant 数分配更多端口。`port_range_start/end` 为 0，避免覆盖复用模式。
+设置 `GIZCLAW_E2E_LIVEKIT_UDP_MODE=range` 和 `GIZCLAW_E2E_LIVEKIT_UDP_END=50100` 可执行窄范围
 负对照：Go SDK 的 publisher/subscriber 使用独立 ICE transport，96 个 participant
 需要 192 个 IPv4 UDP socket，101 个端口不能承载全部入房。端口预算应按所有 Room 的实际
 participant 和尚未回收的连接计算。

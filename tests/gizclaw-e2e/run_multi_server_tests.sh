@@ -20,6 +20,7 @@ giztest_dir="tests/gizclaw-e2e/giztest"
 sfu_case="${GIZCLAW_E2E_SFU_CASE:-}"
 sfu_repeat="${GIZCLAW_E2E_SFU_REPEAT:-1}"
 sfu_delay="${GIZCLAW_E2E_SFU_TERMINAL_DELAY_MS:-0}"
+sfu_udp_mode="${GIZCLAW_E2E_LIVEKIT_UDP_MODE:-mux}"
 sfu_udp_end="${GIZCLAW_E2E_LIVEKIT_UDP_END:-60000}"
 probe_dir=""
 compose_files=(-f "$compose_file")
@@ -29,7 +30,20 @@ fi
 if [[ ! "$sfu_udp_end" =~ ^[0-9]{5}$ ]] || ((sfu_udp_end <= 50000 || sfu_udp_end > 65535)); then
   echo "SFU UDP range end must be 50001..65535" >&2; exit 2
 fi
-export GIZCLAW_E2E_LIVEKIT_UDP_END="$sfu_udp_end"
+case "$sfu_udp_mode" in
+  mux)
+    if [[ -n "${GIZCLAW_E2E_LIVEKIT_UDP_END:-}" ]]; then
+      echo "SFU UDP range end requires GIZCLAW_E2E_LIVEKIT_UDP_MODE=range" >&2; exit 2
+    fi
+    export GIZCLAW_E2E_LIVEKIT_UDP_PORT=7882-7889
+    export GIZCLAW_E2E_LIVEKIT_UDP_START=0 GIZCLAW_E2E_LIVEKIT_UDP_END=0
+    ;;
+  range)
+    export GIZCLAW_E2E_LIVEKIT_UDP_PORT=0 GIZCLAW_E2E_LIVEKIT_UDP_START=50000
+    export GIZCLAW_E2E_LIVEKIT_UDP_END="$sfu_udp_end"
+    ;;
+  *) echo "SFU UDP mode must be mux or range" >&2; exit 2 ;;
+esac
 if ((sfu_delay > 0)) && [[ "$sfu_case" != removal ]]; then
   echo "SFU terminal delay requires the removal case" >&2; exit 2
 fi
@@ -184,16 +198,16 @@ if [[ -n "$sfu_case" ]]; then
     "/src/$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml" \
     /reports/sfu-case.giztest.yaml "$sfu_case" "$sfu_repeat" "${GIZCLAW_E2E_SFU_ACCEPT_REVOCATION:-1}" "$sfu_delay"
   python3 -B - "$server_bin" "$report_dir/sfu-run.json" "${GIZCLAW_E2E_SFU_BINARY_REVISION:-$(git -C "$repo_root" rev-parse HEAD)}" \
-    "$sfu_case" "$sfu_repeat" "$GIZCLAW_E2E_GIZTEST_PARALLEL" "$sfu_delay" "${GIZCLAW_E2E_LIVEKIT_UDP_END:-60000}" "$repo_root" <<'PY'
+    "$sfu_case" "$sfu_repeat" "$GIZCLAW_E2E_GIZTEST_PARALLEL" "$sfu_delay" "$sfu_udp_mode" "$GIZCLAW_E2E_LIVEKIT_UDP_PORT" "$GIZCLAW_E2E_LIVEKIT_UDP_START" "$GIZCLAW_E2E_LIVEKIT_UDP_END" "$repo_root" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
-binary, report, revision, case, repeat, parallel, delay, udp_end, repository = sys.argv[1:]
+binary, report, revision, case, repeat, parallel, delay, udp_mode, udp_port, udp_start, udp_end, repository = sys.argv[1:]
 dirty = subprocess.check_output(["git", "-C", repository, "status", "--porcelain"])
 diff = subprocess.check_output(["git", "-C", repository, "diff", "HEAD"])
 pathlib.Path(report).write_text(json.dumps({
     "revision": revision, "binary_sha256": hashlib.sha256(pathlib.Path(binary).read_bytes()).hexdigest(),
     "fixture_source_dirty": bool(dirty), "fixture_diff_sha256": hashlib.sha256(diff).hexdigest(),
     "case": case, "tasks": int(repeat), "parallel": int(parallel), "sfu_peers_per_task": 3,
-    "terminal_delay_ms": int(delay), "udp_start": 50000, "udp_end": int(udp_end),
+    "terminal_delay_ms": int(delay), "udp_mode": udp_mode, "udp_port": udp_port, "udp_start": int(udp_start), "udp_end": int(udp_end),
     "topology": "2 Servers, 2 Edges, LiveKit, shared Redis, separate PostgreSQL databases",
 }, indent=2) + "\n")
 PY
