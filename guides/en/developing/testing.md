@@ -362,6 +362,38 @@ The provider-free SFU scenarios cover these boundaries:
 
 Media assertions check actual Opus bytes and packet counts without retrying media steps; runtime waits are bounded. The rapid-add case exercises the revocation/activation race window without guaranteeing a particular interleaving. Each scenario uses isolated Peers and resources and cleans up runtimes, social resources, and Peers in `finally`. The report is written to `tests/gizclaw-e2e/testdata/multi-server/sfu-report.json`. These cases do not verify device speaker playback or speech transcripts.
 
+The provider-free system LogStore pressure diagnostic runs Carol admission, real audio
+first output, Bob stop/cancellation and the full member removal/re-add recovery control:
+
+```sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_LOG_PRESSURE_BASE_REF=b913ace9e8b31890f67b0cb47f99cb38d41862c9 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-before \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-after \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+`LOG_PRESSURE_BASE_REF` replaces only that ref's three `pkgs/gizlog` implementation
+files; other Server, SFU, SDK and fixture sources remain identical. It does not run
+an entire old release. The negative baseline exits nonzero after still executing all
+independent phases and recovery. Individual `logging-join`, `logging-media` and
+`logging-stop` cases are also supported. An explicit build overlay installs a gated
+in-memory LogStore and internal control listener only on Server B. Normal CLI builds
+do not link the fixture or add production configuration or published ports. The
+fixture uses INFO stderr and Store sinks, waits for the real worker to enter Append,
+allows fill headroom for the fixed worker pool’s in-flight batches, fills the actual 1024-job queue
+and pauses for at most four seconds while honoring worker context. Recovery records
+accepted identities and duplicate counts. RPC deadlines remain one second and first
+audio is limited to 1500 ms. Full listen windows, byte/packet counts, revocation EOS,
+removed-member silence, surviving-member audio and rejoin checks remain intact.
+Each phase preserves its Giztest document/report, pre-release goroutine snapshot and
+post-recovery queue/acceptance counts, together with source and binary SHA-256 receipts.
+Reports, synthetic identities and media stay in ignored local evidence and must not
+be committed or uploaded. This verifies media/cancellation isolation from system log
+pressure, not real TLS service throughput or the cause of a backend slowdown.
+
 ### Cloud ObjectStore conformance
 
 The same tagged package contains `TestObjectStore`. Select exactly one

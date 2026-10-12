@@ -325,6 +325,32 @@ LiveKit，固定音频来自仓库内的 Ogg/Opus。每任务三个 SFU particip
 保留三人广播、移除者零音频、未移除者正常收听、设备 ping 和加回后的双向媒体检查。
 这两个入口跳过依赖 SQLite 文件布局的 Go multi-server 套件；该套件仍由默认入口单独运行。
 
+日志 Store 反压回归固定使用一个三客户端任务，依次验证 Carol 入房、实际音频首输出、
+Bob 停止与取消清理，最后执行完整成员移除/加回恢复控制：
+
+```sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_LOG_PRESSURE_BASE_REF=b913ace9e8b31890f67b0cb47f99cb38d41862c9 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-before \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-after \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+`LOG_PRESSURE_BASE_REF` 只替换该 ref 的三个 `pkgs/gizlog` 实现文件，其他 Server、
+SFU、SDK 和夹具源码相同；它不是完整旧 release 的运行结果。基线预期非零退出，
+仍执行全部独立阶段和恢复控制。`logging-join`、`logging-media`、`logging-stop`
+可单独诊断。构建 overlay 仅给 Server B 安装内存 gated LogStore 和内部控制 listener，
+正常 CLI 不链接该夹具，不新增生产配置或公网端口。夹具使用 INFO 的 stderr 与 Store sink，
+等待真实 worker 进入 Append，再按固定 worker pool 的在途批次留出填充余量，
+填满实际 1024-job 队列，再暂停最多四秒；Store 遵守 worker context，恢复后记录接受的
+key 数和重复数。RPC deadline 固定一秒，音频首输出限 1500 ms；原有完整 listen 窗口、
+字节/包数、撤权 EOS、移除者静音、剩余成员收听和重新入房断言均保留。
+每阶段保存 Giztest 文档/报告、释放前协程快照与恢复后的队列/接受计数，另存源码与
+二进制 SHA-256。结果、合成身份和媒体仅留在 ignored 本地目录，不提交或上传。
+该测试证明媒体与取消能隔离系统日志压力，不证明真实 TLS 服务的吞吐或变慢原因。
+
 默认使用 UDP mux：`rtc.udp_port: 7882-7889`，共享八个 ICE UDP 监听端口，
 不随 participant 数分配更多端口。`port_range_start/end` 为 0，避免覆盖复用模式。
 设置 `GIZCLAW_E2E_LIVEKIT_UDP_MODE=range` 和 `GIZCLAW_E2E_LIVEKIT_UDP_END=50100` 可执行窄范围

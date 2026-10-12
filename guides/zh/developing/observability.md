@@ -109,9 +109,15 @@ GenX stream、Transformer 的 EOS/cancel/backpressure 指标由 `pkgs/genx` 的 
 
 ### 输出格式
 
-每次带 Store sink 的 `NewLogger` 创建独立的有界队列与一个 worker，供该 logger 的全部 Store sink 共用，队列最多保留 1024 次写入。不同 logger 之间不保证写入顺序，cleanup 只排空所属 logger；共享 Store 的所有 logger 都必须完成 cleanup 后，registry 才能关闭 Store。仅 stderr 的 logger 不启动 worker。队列满时调用方等待空位，不静默丢弃已接收的审计记录。同一 sink 的相邻记录最多按 64 条合批，不等待凑满批次。每批后台写入及其重试共用 5 秒期限；部分接受时只按顺序重试未接受的后缀，不重放已接受前缀。错误或零进展后等待 10 ms 再重试，到期报告剩余记录数并返回 cleanup 错误。失败只向 stderr 报告 sink 名称和剩余记录数，不输出 provider 错误正文；logger cleanup 在关闭 registry-owned Store 之前排空队列，整个排空共用 5 秒期限，写入失败或无法完成排空会返回错误。队列不持久化，进程崩溃可能丢失未排空记录。日志查询存在短暂的队列延迟；调用方返回不再表示 Store 已持久化。
+每次带 Store sink 的 `NewLogger` 创建独立的有界队列与固定 4 个 worker，供该 logger 的全部 Store sink 共用，队列最多保留 1024 次写入。批次可并行写入，跨批次不保证完成顺序；记录保留调用时捕获的时间戳。cleanup 等待所属 logger 的全部 worker 排空；共享 Store 的所有 logger 都必须完成 cleanup 后，registry 才能关闭 Store。仅 stderr 的 logger 不启动 worker。
+
+Store 准入不等待网络或队列空位。队列满时拒绝本次新记录，handler 返回 `gizlog.ErrStoreQueueFull`，不驱逐已接受记录，也不为每条日志创建 goroutine。`slog.Info` 等便捷方法和标准 `log.Print`/`log.Printf` 忽略 handler error，所以后台队列会向 stderr 聚合报告 `system log store records rejected`，摘要字段为 sink 名称 `store`、`reason=full|projection` 和拒绝数 `records`，保留常规时间、源码和配置中的 `node_id` 元数据；不复制原始消息、Peer/请求身份或 provider 错误。队列调度循环每秒报告，不等待 Store worker 返回；cleanup 刷新剩余计数。只要曾因容量拒绝记录，cleanup 即使成功排空也返回 `ErrStoreQueueFull`。这不是无损审计通道。Context 用于记录关联信息，已取消的 context 仍尝试非阻塞准入，避免丢掉取消诊断。
+
+同一 sink 的相邻记录最多按 64 条合批，不等待凑满批次。每批后台写入及其重试共用 5 秒期限；部分接受时只按顺序重试未接受的后缀，不重放已接受前缀。错误或零进展后等待 10 ms 再重试，到期报告剩余记录数并返回 cleanup 错误。写入失败只向 stderr 报告 sink 名称和剩余记录数，不输出 provider 错误正文；整个 cleanup 排空共用 5 秒期限，Store 必须遵守 context。队列不持久化，进程崩溃、后台写入失败或未能排空都可能丢失未持久化记录。日志调用成功只表示队列接受，查询可能滞后，不能据此确认 Store 持久化。stderr sink 和直接业务 LogStore 写入仍同步；拒绝摘要由后台队列输出，不会在媒体、RTC 回调或取消调用中等待 stderr。
 
 代码继续直接使用全局 `slog`，优先通过 `slog.LogAttrs(ctx, ...)` 输出 scalar attributes。配置化 logger 自动为 stderr 和 Store sink 增加调用源码；Store record 使用 `source_file` 和十进制 `source_line`。配置了 `system_log.node_id` 时，每个 sink 还包含完全相同的 `node_id`。该值由 Deploy 显式注入稳定的逻辑节点名，GizClaw 不根据 IP、hostname、endpoint 或 public key 推断节点身份。
+
+LiveKit SFU connector 把 SDK 的 `Debugw`、`Infow`、`Warnw`、`Errorw` 直接映射为 `slog` 的 DEBUG、INFO、WARN、ERROR，不经过会丢失级别的标准 `log` 转接。每个 Room 使用 attachment context 保留认证 Peer 关联，取消后的诊断仍可记录；SDK 内部 Pion 使用跟随进程 `slog.Default` 的 logger，不绑定某个 Room 的 Peer。WARN sink 会保留 SDK 与 Pion 的 WARN/ERROR，并过滤其 DEBUG/INFO。SDK logger 只复制 transport/state 枚举字段，错误只标记 `error_present`，不复制原始 provider 错误、SDP、ICE server、candidate 或 HTTP response 属性。
 
 AgentHost 把已认证 Peer 的 `peer_public_key` 放入 Agent 执行 context；使用 context-aware `slog` 的 provider 日志会继承该字段。启动、存储和其他没有 Peer owner 的进程级日志省略该字段，不能伪造身份。Volc TLS handler 将 `level`、`msg` 和每个 scalar attribute 保存为独立字段；`StreamServerLogs` 再规范化为：
 
@@ -347,7 +353,7 @@ GenX 的统一内容日志使用 `genx: stream`。查询 scope 为 `peer_public_
 
 `agent_terminal.terminal_class` 只能是 `completed`、`interrupted`、`provider_error`、`transform_error`、`stream_error`、`caller_canceled` 或 `deadline_exceeded`。`turn_terminal` 在既有有界布尔值之外增加 `agent_transform_started`、`agent_terminal_observed`、`produced_modalities`、`delivered_modalities` 与五组排序去重的 class：`source_part_classes`（`text`、`audio`、`control`、`other`），`source_label_classes` 和 `peer_event_label_classes`（`assistant`、`transcript`、`history`、`empty`、`other`），`peer_event_types`（`bos`、`eos`、`text_delta`、`text_done`），以及 `peer_event_kinds`（`text`、`audio`、`video`、`mixed`、`unspecified`）。这些字段在不记录 raw label 或 payload 的前提下区分 zero output、transcript-only、audio-only、仅 EOS/interruption、Agent failure 与 downstream delivery failure。封闭的 `result` 取值为 `success`、`replaced`、`interrupted`、`canceled`、`timeout`、`closed`、`runtime_error` 和 `incomplete`；terminal 或 interruption 的封闭 `reason` 取值为 `completed`、`input_replaced`、`control_interrupt`、`expected_interruption`、`caller_canceled`、`deadline_exceeded`、`stream_closed`、`internal_error` 和 `state_limit`。Raw error 绝不被复制。
 
-Lifecycle stage 日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长；对话内容日志按句子和固定生命周期事件增长，未完文本有固定内存上限。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。观察器不重试、不重排 stream 数据，也不接管 Peer、AgentHost、provider、interruption、timeout 或 cleanup 生命周期；配置化 Store sink 在完成记录投影后进入所属 logger 的有界队列，由单个 worker 按入队顺序写入；观察时刻和调用源码仍在调用方捕获。stderr 与直接业务 LogStore 写入保持同步。
+Lifecycle stage 日志量只随 turn 数乘固定 stage 集合增长，不随 packet、audio frame、text delta 或 control fragment 增长；对话内容日志按句子和固定生命周期事件增长，未完文本有固定内存上限。Active 与 recently replaced state 有固定上限，completed state 会被释放；connection teardown 会为每个仍保留的 incomplete turn 输出一次 terminal summary，再清空 correlation map。观察器不重试、不重排 stream 数据，也不接管 Peer、AgentHost、provider、interruption、timeout 或 cleanup 生命周期；配置化 Store sink 在完成记录投影后进入所属 logger 的有界队列，由固定 4 个 worker 并行写入，跨批次完成顺序不保证；观察时刻和调用源码仍在调用方捕获。stderr 与直接业务 LogStore 写入保持同步。
 
 Server 为每个 direct 或 Edge logical Peer 构造 connection、turn 与 Agent-runtime observer；对话审计内容不是可选字段，也没有独立关闭配置。日志 sink 仍负责持久化与级别策略，但 runtime 不再因为启动时 `INFO` 被过滤而跳过内容关联状态。
 

@@ -1,0 +1,5 @@
+services:
+  server-b:
+    environment:
+      # Available only in the explicit build overlay, never in a normal CLI.
+      GIZCLAW_E2E_LOG_PRESSURE_ADDRESS: 0.0.0.0:9789
