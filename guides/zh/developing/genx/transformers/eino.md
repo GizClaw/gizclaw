@@ -260,7 +260,7 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 ### 同一 turn 内连续讲述
 
-`Config.ContinueFrom` 指向 root State 中使用 `replace` 的 boolean field。每次 Graph 成功执行后，true 请求同一用户 turn 内的下一次生成，false 结束播讲。每次执行前该字段重置为 false，Graph 必须主动写入 true；每次执行拥有独立的 `MaxRunSteps` 预算，播讲没有固定迭代次数。
+`Config.ContinueFrom` 指向 root State 中使用 `replace` 的 boolean field。每次 Graph 成功执行后，true 请求同一用户 turn 内的下一次生成，false 结束播讲。每次执行前该字段重置为 false，Graph 必须主动写入 true；每次根 Graph 生成拥有独立的 `MaxRunSteps` 与 `MaxToolCalls` 预算及 call-ID set，播讲没有固定迭代次数。逐段搜索等工具调用不会累计耗尽整段播讲的默认 32 次额度。
 
 此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。续讲必须发布新的非空白正文，避免空输出忙循环。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
 
@@ -298,7 +298,7 @@ Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph
 
 Provider、Store、Script、component、cancellation、byte limit 和 optimistic-concurrency runtime error 都会让所有 active route 以 error EOS 终止。失败的 Graph run 不提交 persistent State。
 
-Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一个 root `Transform` invocation 的 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。独立 invocation 可以并发执行同一 invoker 并复用 provider call ID；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
+Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一次根 Graph 生成中的所有 ChatModel、模型工具续跑和 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。`ContinueFrom` 的下一次根 Graph 生成取得新的有界额度与 call-ID set，因此可以复用前一段的 provider call ID；同一次生成内重复 ID 或超额调用仍在进入 `ToolInvoker` 前失败。若调用 context 已携带上层工具作用域，则继续共用其额度与 ID，不通过子 Transformer 或内部续讲绕过上层限制。独立 invocation 可以并发执行同一 invoker；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
 
 Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user message，保留系统提示、历史以及多模态输入。
 

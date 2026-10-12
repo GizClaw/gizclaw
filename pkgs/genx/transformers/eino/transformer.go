@@ -908,11 +908,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err := recallMemory(run.ctx, config.Memory, state); err != nil {
 		return nil, "", err
 	}
-	runContext := toolrun.WithContext(
-		run.ctx,
-		toolrun.New(config.ToolInvoker, config.MaxToolCalls),
-	)
-	if err := run.executeGraph(runContext, state); err != nil {
+	if err := run.executeGraph(run.ctx, state); err != nil {
 		return state, version, err
 	}
 	if run.automaticPrimary && !run.primaryChosen {
@@ -926,8 +922,14 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 
 func (run *turnRun) executeGraph(ctx context.Context, state *runState) error {
 	config := run.session.transformer.config
+	execute := func() error {
+		// Each root generation owns its ToolCalls. Child Graphs and model
+		// continuations share this context; an inherited scope is preserved.
+		generationContext := toolrun.WithContext(ctx, toolrun.New(config.ToolInvoker, config.MaxToolCalls))
+		return run.session.transformer.graph.execute(generationContext, state)
+	}
 	if config.ContinueFrom == "" {
-		return run.session.transformer.graph.execute(ctx, state)
+		return execute()
 	}
 	baseMessages := cloneMessages(state.input.Messages)
 	var recent []*schema.Message
@@ -942,7 +944,7 @@ func (run *turnRun) executeGraph(ctx context.Context, state *runState) error {
 		if err := state.set(config.ContinueFrom, false); err != nil {
 			return err
 		}
-		if err := run.session.transformer.graph.execute(ctx, state); err != nil {
+		if err := execute(); err != nil {
 			return err
 		}
 		value, err := state.value(config.ContinueFrom)
