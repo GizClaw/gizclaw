@@ -57,6 +57,12 @@ type MessageChunk struct {
 	Part     Part
 	ToolCall *ToolCall
 	Ctrl     *StreamCtrl
+
+	// HistoryText retains semantic text removed by a presentation adapter,
+	// such as speaker markers consumed by Audio Dock. A non-nil value replaces
+	// this chunk's Text part only when recording delivered conversation History.
+	// It is process-local and must never be sent to a provider or peer.
+	HistoryText *Text `json:"-"`
 }
 
 // StreamCtrl controls Stream routing and state.
@@ -182,6 +188,10 @@ func (c *MessageChunk) Clone() *MessageChunk {
 	chk := &MessageChunk{
 		Role: c.Role,
 		Name: c.Name,
+	}
+	if c.HistoryText != nil {
+		text := *c.HistoryText
+		chk.HistoryText = &text
 	}
 	if c.Part != nil {
 		chk.Part = c.Part.clone()

@@ -134,8 +134,8 @@ func runMixedProviderVoices(t *testing.T, fixture, fault string) {
 		t.Fatalf("TTS calls=%d, want narrator and fox segments", provider.calls.Load())
 	}
 	entry := waitMixedVoiceHistory(t, history)
-	if entry.Text != "The narrator begins. I am the fox." || len(entry.Assets) != 1 || entry.Assets[0].MIMEType != "audio/ogg; codecs=opus" {
-		t.Fatalf("history entry = %+v, want reply text with one Ogg/Opus asset", entry)
+	if entry.Text != "The narrator begins. 【fox】I am the fox." || len(entry.Assets) != 1 || entry.Assets[0].MIMEType != "audio/ogg; codecs=opus" {
+		t.Fatalf("history entry = %+v, want semantic reply text with speaker markers and one Ogg/Opus asset", entry)
 	}
 	reader, err := history.ReadAsset(t.Context(), entry.Assets[0].Name)
 	if err != nil {

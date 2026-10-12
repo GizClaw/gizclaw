@@ -1341,6 +1341,9 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
 			return err
 		}
+		if chunk.HistoryText != nil && typ == historyEntryTypeAgent {
+			part = *chunk.HistoryText
+		}
 		if string(part) != "" && (chunk.Ctrl == nil || !chunk.Ctrl.TextInterim) {
 			entry.text.WriteString(string(part))
 			if typ == historyEntryTypeAgent {

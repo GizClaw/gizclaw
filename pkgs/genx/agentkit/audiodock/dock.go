@@ -372,6 +372,11 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		if textChunk || text != "" {
 			textChunk = true
 			chunk.Part = text
+			historyText := genx.Text("")
+			if text != "" {
+				historyText = route.speakers.takeHistoryText()
+			}
+			chunk.HistoryText = &historyText
 		}
 	}
 	var pipe *ttsPipe
@@ -1084,6 +1089,7 @@ func (r *dockRun) emitDeferredEOS(route *dockRoute, ctrl *genx.StreamCtrl) error
 	emitted := source.Clone()
 	if text, ok := emitted.Part.(genx.Text); ok && text != "" {
 		emitted.Part = genx.Text("")
+		emitted.HistoryText = nil
 		emitted.Ctrl.BeginOfStream = false
 	}
 	if emitted.Ctrl == nil {

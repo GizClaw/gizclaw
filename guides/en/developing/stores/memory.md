@@ -22,6 +22,8 @@ Server binds `services.workspace.history_store` to a `kind: sql` Store and owns 
 
 The Workspace recorder writes conversation history. AgentHost records completed raw text before passing its terminal to the Agent; audio input still uses transcript output, and input echoes do not add another record. For Eino messages, cancellation or stop uses an independent five-second finalization context to attempt to persist delivered content with its interruption flag; undelivered content is excluded. Eino receives a read-only view of these same messages, renders recent role/content, excludes the current input and waits for previously delivered messages to finish recording. Recording and playback use the same message ID, without a second Eino persistence namespace. Standalone Eino without a Reader retains bounded process-local history. Read-only History does not disable long-term Memory Recall/Observe.
 
+Audio Dock removes recognized `【speaker】` voice routing markers from live text. Delivered chunks retain their semantic text in process-local `HistoryText`, and the Host writes it to the same History text column. Eino therefore retains speaker context without another persisted copy. Undelivered suffixes and marker-only prefixes do not become separate History entries.
+
 ### History migration
 
 `gizclaw history-migrate <dir>` performs the one-time offline conversion. Back up the database, stop every Server writing to it, and update `<dir>/config.yaml` to the final configuration: Workspace History references a SQL Store; remove `services.agent_host.persistence.history_store` and the old History LogStore declarations. Other LogStores must also stop referencing PostgreSQL.
@@ -39,6 +41,7 @@ gizclaw history-migrate /srv/gizclaw \
 Supply the actual old parent names. Both arguments may be the same when the streams shared a table. The command opens only the final History SQL connector; it does not start Server, edit configuration or generate identity keys. Dry-run validates sources and reports retained, expired and discarded Eino counts without initializing the destination.
 
 The import preserves unexpired Workspace IDs, roles, text, creation times, original expiration and audio references. It neither moves nor uploads audio, and never imports old Eino data. Batched copying is verified field by field. Copying, the completion receipt and source deletion commit in one transaction. Old parents, attached partitions, dedicated identity tables and generated, unshared partman templates are removed. Incompatible schemas, unknown records, target conflicts or external dependencies roll back the whole operation; deletion does not use `CASCADE`. Repeating a successful run reads the completion receipt without importing again. Verify completion before starting the new Server. Version rollback after successful deletion requires restoring the database backup.
+
 
 
 ## Contract

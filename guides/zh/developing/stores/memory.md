@@ -14,9 +14,11 @@ Server 的 `services.workspace.history_store` 引用 `kind: sql` Store，固定�
 
 Workspace 的记录器是对话写入方。AgentHost 在交给 Agent 前记录完成的原始文本输入；音频输入仍由转写输出记录，重复的输入回显不会新增一条记录。对于 Eino 消息，取消或停止时使用独立的 5 秒超时上下文尝试保存已交付部分，并标记中断；未交付部分不进入记录。Eino 接收同一份数据的只读 view，读取近期的 role/content；读取排除当前输入并等待上轮已交付消息完成记录。录音和回放共享这条消息的 ID，不创建第二套 Eino 持久化历史。直接使用 Eino 且未传入 Reader 时，仍可使用有界的进程内历史。History 只读不改变长期 Memory 的 Recall/Observe。
 
+Audio Dock 的实时文本会去掉已识别的 `【说话人】` 语音路由标记；已送达 chunk 通过进程内 `HistoryText` 保留原始语义文本，Host 将它写入同一条 History 的 text 列。Eino 因此仍能读取角色标记，不需要第二份持久化记录。未送达后缀与纯标记前缀不会单独成为 History。
+
 ### History migration
 
-`gizclaw history-migrate <dir>` 是一次性、离线的 History 转换入口。执行前备份数据库，停止所有使用该数据库的 Server 写入实例，并将 `<dir>/config.yaml` 更新为最终配置：Workspace History 使用 SQL Store，移除 `services.agent_host.persistence.history_store` 及旧 History LogStore 声明；其他 LogStore 也不能再引用 PostgreSQL。
+`gizclaw history-migrate <dir>` 是一次性、离线的 History 转换入口。执行前备份数据库，停止所有使用该数据库的 Server 写入实例，并将 `<dir>/config.yaml` 更新为最终配置：Workspace History 使用 SQL Store，移除 `services.agent_host.persistence.history_store` 及旧 History LogStore 声明；其他 LogStore 使用日志服务 backend。
 
 ```sh
 gizclaw history-migrate /srv/gizclaw \
@@ -31,6 +33,7 @@ gizclaw history-migrate /srv/gizclaw \
 参数必须填写实际的旧父表名。两套 stream 共用一张旧表时，两参数可以相同。命令只打开最终 History Store 选择的 SQL connector，不启动 Server、不改配置或生成身份。Dry-run 校验源数据并报告保留、过期及丢弃的 Eino 记录数，不建立目标表。
 
 正式执行保留未过期 Workspace 消息的原 ID、角色、文本、创建时间、原到期时间和音频对象引用，不搬动或重新上传音频；旧 Eino 数据不导入。分批复制后逐字段校验，复制、完成标记和旧表删除在同一事务提交。旧父表、附属分区、专属身份表及自动生成且未共享的 partman 模板被删除。遇到不兼容 schema、未知记录、目标冲突或外部依赖时整体回滚，不使用 `CASCADE`。成功后的重复执行读取完成标记，不重新导入。启动新 Server 前确认迁移成功；成功删除后的版本回退需要恢复数据库备份。
+
 
 
 ## 契约
