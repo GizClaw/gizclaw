@@ -497,14 +497,14 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Download verified image archives
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: runtime-*
           path: .tmp/runtime
           merge-multiple: true
 
       - name: Download matching Debian packages
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           pattern: assets-linux-*
           path: .tmp/packages
@@ -546,7 +546,7 @@ jobs:
           ref: ${{ needs.prepare.outputs.source_commit }}
 
       - name: Download registry receipt
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           name: assets-container-image
           path: .tmp/receipt
@@ -591,7 +591,7 @@ jobs:
           fetch-depth: 0
 
       - name: Download and merge all required release artifacts
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
         with:
           path: .tmp/download
           pattern: "assets-*"
