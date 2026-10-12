@@ -172,7 +172,7 @@ func validateRedisKVPrefixes(configs map[string]Config, physical *storage.Storag
 		if err != nil {
 			return &ConfigError{Name: name, Err: fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)}
 		}
-		if kind != storage.KindRedis {
+		if kind != storage.KindRedis && kind != storage.KindRedisReadWrite {
 			continue
 		}
 		prefix, err := parseKeyPrefix(cfg.Prefix)
@@ -253,7 +253,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		if cfg.TTL != 0 {
 			return fmt.Errorf("stores: keyvalue %q does not support ttl", name)
 		}
-		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && storageKind != storage.KindRedis && !isSQL {
+		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && storageKind != storage.KindRedis && storageKind != storage.KindRedisReadWrite && !isSQL {
 			return fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
 		if err := invalid(cfg.Database != "", "database"); err != nil {
@@ -516,7 +516,7 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindRedis && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
+	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindRedis && kind != storage.KindRedisReadWrite && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
 		return nil, fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
 	var base kv.Store
@@ -552,6 +552,20 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 		base, err = kv.NewRedisWithClient(client, nil)
 		if err != nil {
 			return nil, fmt.Errorf("stores: keyvalue %q use redis storage %q: %w", name, cfg.Storage, err)
+		}
+		r.kvRoots[cfg.Storage] = base
+	case storage.KindRedisReadWrite:
+		if existing := r.kvRoots[cfg.Storage]; existing != nil {
+			base = existing
+			break
+		}
+		read, write, err := r.storage.RedisReadWrite(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q resolve redis.readwrite storage %q: %w", name, cfg.Storage, err)
+		}
+		base, err = kv.NewRedisReadWriteWithClients(read, write, nil)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q use redis.readwrite storage %q: %w", name, cfg.Storage, err)
 		}
 		r.kvRoots[cfg.Storage] = base
 	case storage.KindSQLite, storage.KindPostgreSQL:

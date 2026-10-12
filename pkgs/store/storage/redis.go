@@ -16,6 +16,11 @@ import (
 
 const redisReadinessTimeout = 5 * time.Second
 
+type redisReadWriteClients struct {
+	read  *redis.Client
+	write *redis.Client
+}
+
 // Redis returns the named physical Redis client. The Storage registry owns
 // the client and closes it with the other physical resources.
 func (s *Storage) Redis(name string) (*redis.Client, error) {
@@ -31,11 +36,54 @@ func (s *Storage) Redis(name string) (*redis.Client, error) {
 	return client, nil
 }
 
+// RedisReadWrite returns the named read and write Redis clients, in that order.
+// The Storage registry owns both clients and closes them with its other resources.
+func (s *Storage) RedisReadWrite(name string) (read, write *redis.Client, err error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.closed {
+		return nil, nil, errors.New("storage: registry is closed")
+	}
+	clients, ok := s.redisReadWrite[name]
+	if !ok {
+		return nil, nil, fmt.Errorf("storage: redis.readwrite %q not found", name)
+	}
+	return clients.read, clients.write, nil
+}
+
 func newRedis(name string, cfg RedisConfig) (*redis.Client, error) {
 	options, err := redisOptions(name, cfg)
 	if err != nil {
 		return nil, err
 	}
+	return openRedis(name, options)
+}
+
+func newRedisReadWrite(name string, cfg RedisReadWriteConfig) (redisReadWriteClients, error) {
+	readOptions, err := redisOptions(name+"/read", cfg.Read)
+	if err != nil {
+		return redisReadWriteClients{}, err
+	}
+	writeOptions, err := redisOptions(name+"/write", cfg.Write)
+	if err != nil {
+		return redisReadWriteClients{}, err
+	}
+	if readOptions.DB != writeOptions.DB {
+		return redisReadWriteClients{}, fmt.Errorf("storage: redis.readwrite %q endpoints must use the same database", name)
+	}
+	write, err := openRedis(name+"/write", writeOptions)
+	if err != nil {
+		return redisReadWriteClients{}, err
+	}
+	read, err := openRedis(name+"/read", readOptions)
+	if err != nil {
+		_ = write.Close()
+		return redisReadWriteClients{}, err
+	}
+	return redisReadWriteClients{read: read, write: write}, nil
+}
+
+func openRedis(name string, options *redis.Options) (*redis.Client, error) {
 	client := redis.NewClient(options)
 	ctx, cancel := context.WithTimeout(context.Background(), redisReadinessTimeout)
 	defer cancel()

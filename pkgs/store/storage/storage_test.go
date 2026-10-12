@@ -22,8 +22,9 @@ func TestNewNilConfigs(t *testing.T) {
 
 func TestNewRejectsNilConfigAndEmptyName(t *testing.T) {
 	for name, configs := range map[string]map[string]Config{
-		"nil config": {"x": (*BadgerConfig)(nil)},
-		"empty name": {"": MemoryConfig{}},
+		"nil config":                 {"x": (*BadgerConfig)(nil)},
+		"nil redis readwrite config": {"x": (*RedisReadWriteConfig)(nil)},
+		"empty name":                 {"": MemoryConfig{}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			_, err := New(configs)

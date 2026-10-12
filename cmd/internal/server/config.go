@@ -349,6 +349,10 @@ type storageFileConfig struct {
 	ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
 	URL             string `yaml:"url"`
 	TLSCAFile       string `yaml:"tls_ca_file"`
+	ReadURL         string `yaml:"read_url"`
+	WriteURL        string `yaml:"write_url"`
+	ReadTLSCAFile   string `yaml:"read_tls_ca_file"`
+	WriteTLSCAFile  string `yaml:"write_tls_ca_file"`
 	RemoteWriteURL  string `yaml:"remote_write_url"`
 	QueryURL        string `yaml:"query_url"`
 	BearerToken     string `yaml:"bearer_token"`
@@ -391,6 +395,11 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 		return storage.ClickHouseConfig{DSN: cfg.DSN}, nil
 	case storage.KindRedis:
 		return storage.RedisConfig{URL: cfg.URL, TLSCAFile: cfg.TLSCAFile}, nil
+	case storage.KindRedisReadWrite:
+		return storage.RedisReadWriteConfig{
+			Read:  storage.RedisConfig{URL: cfg.ReadURL, TLSCAFile: cfg.ReadTLSCAFile},
+			Write: storage.RedisConfig{URL: cfg.WriteURL, TLSCAFile: cfg.WriteTLSCAFile},
+		}, nil
 	case storage.KindPrometheus:
 		return storage.PrometheusConfig{
 			RemoteWriteURL: cfg.RemoteWriteURL,
@@ -1399,19 +1408,20 @@ func validateStorageConfigShape(value any) error {
 		return fmt.Errorf("server: storage must be a mapping")
 	}
 	allowedByKind := map[string]map[string]struct{}{
-		storage.KindBadger:        {"kind": {}, "dir": {}},
-		storage.KindMemory:        {"kind": {}},
-		storage.KindFilesystemDir: {"kind": {}, "dir": {}},
-		storage.KindSQLite:        {"kind": {}, "dir": {}, "dsn": {}},
-		storage.KindPostgreSQL:    {"kind": {}, "dsn": {}, "max_open_conns": {}, "conn_max_idle_time": {}},
-		storage.KindClickHouse:    {"kind": {}, "dsn": {}},
-		storage.KindRedis:         {"kind": {}, "url": {}, "tls_ca_file": {}},
-		storage.KindPrometheus:    {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
-		storage.KindVolcTLS:       {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
-		storage.KindVolcTOS:       {"kind": {}, "endpoint": {}, "region": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "session_token": {}},
-		storage.KindAliyunOSS:     {"kind": {}, "endpoint": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "security_token": {}},
-		storage.KindGCS:           {"kind": {}, "bucket": {}, "credentials_file": {}},
-		storage.KindAzureBlob:     {"kind": {}, "account_url": {}, "container": {}},
+		storage.KindBadger:         {"kind": {}, "dir": {}},
+		storage.KindMemory:         {"kind": {}},
+		storage.KindFilesystemDir:  {"kind": {}, "dir": {}},
+		storage.KindSQLite:         {"kind": {}, "dir": {}, "dsn": {}},
+		storage.KindPostgreSQL:     {"kind": {}, "dsn": {}, "max_open_conns": {}, "conn_max_idle_time": {}},
+		storage.KindClickHouse:     {"kind": {}, "dsn": {}},
+		storage.KindRedis:          {"kind": {}, "url": {}, "tls_ca_file": {}},
+		storage.KindRedisReadWrite: {"kind": {}, "read_url": {}, "write_url": {}, "read_tls_ca_file": {}, "write_tls_ca_file": {}},
+		storage.KindPrometheus:     {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},
+		storage.KindVolcTLS:        {"kind": {}, "endpoint": {}, "region": {}, "access_key_id": {}, "access_key_secret": {}},
+		storage.KindVolcTOS:        {"kind": {}, "endpoint": {}, "region": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "session_token": {}},
+		storage.KindAliyunOSS:      {"kind": {}, "endpoint": {}, "bucket": {}, "access_key_id": {}, "access_key_secret": {}, "security_token": {}},
+		storage.KindGCS:            {"kind": {}, "bucket": {}, "credentials_file": {}},
+		storage.KindAzureBlob:      {"kind": {}, "account_url": {}, "container": {}},
 	}
 	for name, entry := range registry {
 		mapping, ok := entry.(map[string]any)

@@ -86,6 +86,24 @@ func TestValidateRedisURLMatchesStorageParsing(t *testing.T) {
 	}
 }
 
+func TestRedisReadWriteValidatesBothEndpointsBeforeNetwork(t *testing.T) {
+	valid := RedisConfig{URL: "redis://127.0.0.1:1/0"}
+	for name, cfg := range map[string]RedisReadWriteConfig{
+		"missing read":        {Write: valid},
+		"missing write":       {Read: valid},
+		"different databases": {Read: valid, Write: RedisConfig{URL: "redis://127.0.0.1:2/1"}},
+		"invalid read TLS":    {Read: RedisConfig{URL: "rediss://127.0.0.1:1/0?skip_verify=true"}, Write: valid},
+		"invalid write TLS":   {Read: valid, Write: RedisConfig{URL: "rediss://127.0.0.1:2/0?skip_verify=true"}},
+	} {
+		t.Run(name, func(t *testing.T) {
+			physical, err := New(map[string]Config{"redis": cfg})
+			if physical != nil || err == nil {
+				t.Fatalf("New() = %v, %v, want configuration error", physical, err)
+			}
+		})
+	}
+}
+
 func TestRedisOptionsDoesNotExposeURLSecrets(t *testing.T) {
 	const secret = "leaked-password"
 	_, err := redisOptions("cache", RedisConfig{URL: "rediss://user:" + secret + "@%zz"})

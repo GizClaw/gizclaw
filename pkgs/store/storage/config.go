@@ -6,19 +6,20 @@ import "time"
 // configuration. Programmatic callers select a backend with the matching
 // concrete Config implementation instead of setting a Kind field.
 const (
-	KindBadger        = "badger"
-	KindMemory        = "memory"
-	KindFilesystemDir = "filesystem.dir"
-	KindSQLite        = "sqlite"
-	KindPostgreSQL    = "postgresql"
-	KindClickHouse    = "clickhouse"
-	KindRedis         = "redis"
-	KindPrometheus    = "prometheus"
-	KindVolcTLS       = "volc-tls"
-	KindVolcTOS       = "volc-tos"
-	KindAliyunOSS     = "aliyun-oss"
-	KindGCS           = "gcs"
-	KindAzureBlob     = "azure-blob"
+	KindBadger         = "badger"
+	KindMemory         = "memory"
+	KindFilesystemDir  = "filesystem.dir"
+	KindSQLite         = "sqlite"
+	KindPostgreSQL     = "postgresql"
+	KindClickHouse     = "clickhouse"
+	KindRedis          = "redis"
+	KindRedisReadWrite = "redis.readwrite"
+	KindPrometheus     = "prometheus"
+	KindVolcTLS        = "volc-tls"
+	KindVolcTOS        = "volc-tos"
+	KindAliyunOSS      = "aliyun-oss"
+	KindGCS            = "gcs"
+	KindAzureBlob      = "azure-blob"
 )
 
 // Config is a closed set of physical backend configurations accepted by New.
@@ -82,6 +83,16 @@ type RedisConfig struct {
 }
 
 func (RedisConfig) storageKind() string { return KindRedis }
+
+// RedisReadWriteConfig configures independent Redis read and write connections.
+// Both endpoints must address the same logical database in one replication
+// group. The caller owns replication and a stable writable primary endpoint.
+type RedisReadWriteConfig struct {
+	Read  RedisConfig
+	Write RedisConfig
+}
+
+func (RedisReadWriteConfig) storageKind() string { return KindRedisReadWrite }
 
 // PrometheusConfig configures one Prometheus API client and its remote-write
 // endpoint.
@@ -147,7 +158,7 @@ func normalizeConfig(config Config) (Config, error) {
 	case nil:
 		return nil, errNilConfig
 	case BadgerConfig, MemoryConfig, FilesystemDirConfig, SQLiteConfig,
-		PostgreSQLConfig, ClickHouseConfig, RedisConfig, PrometheusConfig, VolcTLSConfig,
+		PostgreSQLConfig, ClickHouseConfig, RedisConfig, RedisReadWriteConfig, PrometheusConfig, VolcTLSConfig,
 		VolcTOSConfig, AliyunOSSConfig, GCSConfig, AzureBlobConfig:
 		return cfg, nil
 	case *BadgerConfig:
@@ -181,6 +192,11 @@ func normalizeConfig(config Config) (Config, error) {
 		}
 		return *cfg, nil
 	case *RedisConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return *cfg, nil
+	case *RedisReadWriteConfig:
 		if cfg == nil {
 			return nil, errNilConfig
 		}
