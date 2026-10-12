@@ -78,7 +78,7 @@ def run_sample(binary, document, artifact_dir, sample):
     env = dict(os.environ, GIZCLAW_AUDIO_SAMPLE_VOICE=sample["voice"], GIZCLAW_AUDIO_SAMPLE_TEXT=sample["text"])
     print(f"==> sample={sample['id']} language={sample['language']}", flush=True)
     completed = subprocess.run(
-        [binary, "test", "run", "--parallel", "1", "--output", report_path, document],
+        [binary, "test", "run", "--parallel", "1", "--report", report_path, document],
         env=env, capture_output=True, text=True)
     with open(os.path.join(artifact_dir, "runs", f"{sample['id']}.log"), "w", encoding="utf-8") as handle:
         handle.write(completed.stdout)

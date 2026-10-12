@@ -99,7 +99,7 @@ echo "==> run repeat-1 workspace relay gate"
 single_report="$artifact_dir/workspace-relay-1.json"
 (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
 	--parallel 1 \
-	--output "$single_report" \
+	--report "$single_report" \
 	"$script_dir/giztest/workspace-relay.workflow-tester.giztest.yaml")
 verify_report "$single_report" 1
 
@@ -107,7 +107,7 @@ echo "==> run multimodal realtime workspace relay gate"
 multimodal_report="$artifact_dir/workspace-relay-multimodal-1.json"
 (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
 	--parallel 1 \
-	--output "$multimodal_report" \
+	--report "$multimodal_report" \
 	"$script_dir/giztest/workspace-relay.doubao-realtime-workflow-tester.giztest.yaml")
 verify_report "$multimodal_report" 1
 
@@ -115,7 +115,7 @@ echo "==> run repeat-20 workspace relay gate"
 benchmark_report="$artifact_dir/workspace-relay-20.json"
 (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
 	--parallel 20 \
-	--output "$benchmark_report" \
+	--report "$benchmark_report" \
 	"$script_dir/giztest/benchmark.workspace-relay.workflow-tester-20.giztest.yaml")
 verify_report "$benchmark_report" 20
 

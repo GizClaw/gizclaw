@@ -112,7 +112,7 @@ func TestContinuousPodcastLiveGiztest(t *testing.T) {
 		command.SetOut(&output)
 		command.SetErr(&output)
 		reportPath := filepath.Join(evidence, "podcast-live.giztest.json")
-		command.SetArgs([]string{"run", "--parallel", "1", "--output", reportPath, document})
+		command.SetArgs([]string{"run", "--parallel", "1", "--report", reportPath, document})
 		runErr := command.ExecuteContext(ctx)
 		if err := os.WriteFile(filepath.Join(evidence, "runner.log"), output.Bytes(), 0600); err != nil {
 			t.Fatal(err)

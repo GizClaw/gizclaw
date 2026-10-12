@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; media-src data:; connect-src 'none'; base-uri 'none'">
+  <title>{{ .Title }} · Giztest 测试记录</title>
+  <style>
+    :root{color-scheme:light;--ink:#182c31;--muted:#687d82;--line:#d9e3e3;--accent:#127b72}
+    *{box-sizing:border-box}body{margin:0;background:#f4f7f6;color:var(--ink);font:14px/1.6 system-ui,-apple-system,sans-serif}main{max-width:1400px;margin:auto;padding:28px}h1{font-size:26px;margin:0 0 8px;overflow-wrap:anywhere}#summary{color:var(--muted);margin-bottom:20px}
+    button,select,input{font:inherit}button,select{border:1px solid var(--line);border-radius:8px;background:white;padding:7px 13px;cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #92d8cf;outline-offset:2px}#play{color:white;background:var(--accent);border-color:var(--accent)}
+    .player{position:sticky;top:0;z-index:2;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px;background:#ffffffef;border:1px solid var(--line);border-radius:10px;margin-bottom:20px}#seek{flex:1;min-width:160px;accent-color:var(--accent)}#clock{font-variant-numeric:tabular-nums;color:var(--muted)}
+    #notice{white-space:pre-wrap;color:#9c402b;background:#fff2e8;padding:12px;border-radius:8px;margin-bottom:12px}#notice:empty{display:none}.table-wrap{overflow-x:auto;background:white;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{color:var(--muted);font-weight:600;background:#edf4f2}th:nth-child(1){width:66px}th:nth-child(2){width:220px}th:nth-child(3){width:100px}th:nth-child(4){width:86px}.active{background:#eaf7f3}.future{opacity:.5}.step-name{font-weight:700}.meta{font-size:12px;color:var(--muted);margin-top:3px}.passed{color:#287247}.failed,.error{color:#a23826}.body,pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:7px 0}.message{border-left:3px solid #a9ccc5;padding-left:10px;margin:10px 0}.audio{margin:12px 0}audio{display:block;width:100%;max-width:520px;height:36px;margin-top:6px}.control{color:var(--muted);font-size:12px}.evidence{font-size:12px;color:var(--muted)}.empty{text-align:center;color:var(--muted);padding:25px}tr:last-child td{border-bottom:0}
+    @media(max-width:760px){main{padding:16px}table{min-width:720px}h1{font-size:22px}.player{gap:8px}#seek{flex-basis:100%}}
+  </style>
+</head>
+<body>
+<main>
+  <h1>{{ .Title }}</h1>
+  <div id="summary"></div>
+  <div class="player">
+    <button id="play" type="button">开始回放</button>
+    <button id="reset" type="button">重置</button>
+    <label for="speed">速度</label>
+    <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+    <input id="seek" type="range" min="0" value="0" step="10" aria-label="流程回放进度">
+    <span id="clock"></span>
+  </div>
+  <div id="notice" role="status" aria-live="polite"></div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>序号</th><th>测试步骤</th><th>时间</th><th>结果</th><th>步骤数据、对话与音频</th></tr></thead>
+    <tbody id="steps"></tbody>
+  </table></div>
+</main>
+<script id="recording-data" type="application/json">{{ .Data }}</script>
+<script>{{ .Player }}</script>
+</body>
+</html>

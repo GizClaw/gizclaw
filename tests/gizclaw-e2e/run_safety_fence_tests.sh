@@ -69,17 +69,17 @@ set +a
 "$binary" test run \
 	"$script_dir/giztest/server.workspace.safety-fence.roundtrip.giztest.yaml" \
 	"$script_dir/giztest/server.workspace.safety-fence.missing-profile.giztest.yaml" \
-	--parallel 2 --output "$report_dir/rpc.json"
+	--parallel 2 --report "$report_dir/rpc.json"
 
 "$binary" test run "$script_dir"/giztest/safety-fence-*.giztest.yaml \
-	--parallel 5 --output "$report_dir/provider.json"
+	--parallel 5 --report "$report_dir/provider.json"
 
 "$binary" test run "$script_dir/giztest/server.device.runtime_profile.get.giztest.yaml" \
-	--parallel 1 --output "$report_dir/http.json"
+	--parallel 1 --report "$report_dir/http.json"
 
 GIZCLAW_TEST_EDGE_A="$GIZCLAW_E2E_EDGE_ENDPOINT" \
 	GIZCLAW_TEST_EDGE_B="$GIZCLAW_E2E_EDGE2_ENDPOINT" \
 	GIZCLAW_TEST_REGISTRATION_TOKEN_A="$GIZCLAW_TEST_REGISTRATION_TOKEN" \
 	GIZCLAW_TEST_REGISTRATION_TOKEN_B="$GIZCLAW_TEST_REGISTRATION_TOKEN" \
 	"$binary" test run "$script_dir/giztest/sfu.workspace.switch.giztest.yaml" \
-	--parallel 1 --output "$report_dir/sfu.json"
+	--parallel 1 --report "$report_dir/sfu.json"

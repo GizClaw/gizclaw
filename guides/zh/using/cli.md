@@ -68,7 +68,7 @@ endpoint。所有文件先整体通过校验，才会创建临时身份或产生
 
 ```sh
 gizclaw test validate -f tests/gizclaw-e2e/giztest
-gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
+gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --report report.json
 ```
 
 人工调试一份语音场景时，使用无并发的 `test play`：
@@ -88,19 +88,57 @@ assistant EOS 冲刷尾部并等待该轮队列播放完成后再切换说话者
 下行音频收到和开始播放的毫秒数，并输出每轮 packet 音频时长及到包间隔。普通 Giztest 也可通过
 `peer_stream` 结果的 `/audio_pacing` 路径断言 packet 数、音频时钟、平均/P95/最大间隔和累计漂移。
 默认只实时播放而不写文件。需要保留测试记录时，`-o` / `--output` 必须指向一个尚不存在的
-新目录；执行结束后其中包含脱敏的 `report.json`，收到音频时还包含
-`audio.ogg`，其中按试听顺序包含 user 与 assistant 的完整对话。没有音频时不会生成伪造的空 Ogg。执行或播放失败也会尽量保存失败 report
+新目录；执行结束后包含独立 HTML、报告、对话文本和分段音频。没有音频时不会生成空音频文件。执行或播放失败也会尽量保存失败 report
 和已经收到的有界音频，再返回非零状态。
+
+### 导出单个测试的独立 HTML
+
+每次运行一个 Giztest 文件，指定 `--output`（短参数 `-o`）即可生成可分发的记录目录：
+
+```sh
+gizclaw test run scenario.giztest.yaml --output ./out
+```
+
+`--output` 只接受一个普通 Giztest 文件，输出目录须不存在且父目录须已存在。
+文件中的 repeat、并行步骤和 finally 都保存在这一份记录中。不指定输出时按通常方式验收。
+
+```text
+out/
+├── index.html       # Go template 渲染的独立 HTML，包含全部步骤、文本及分段音频数据
+├── report.json      # 验收报告
+├── replay.json      # 本次测试记录的数据
+├── transcript.txt   # 对话文本
+└── audio/           # 原始 Ogg/Opus 和分段 WAV
+```
+
+页面按序号展示步骤、操作、结果、证据、对话和音频，所有内容都直接显示在同一页面中，
+没有下载或报告跳转链接。点击“开始回放”后，当前步骤高亮；到文本事件时显示回复，
+到音频事件时自动播放对应片段。每段也可以使用该步骤内的音频控件单独试听。
+不生成合并的完整对话音频文件。
+
+生成时通过 Go `html/template` 渲染，CSS、JavaScript、测试数据和分段音频都内嵌在 HTML 中。
+分发整个目录或只复制 `index.html` 都可以离线回放，不依赖 Giztest、Go、源码模板、Web Server，
+也不读取其他 JSON 或音频文件。`audio/` 保存的原始文件仅供分析或再次使用。
+
+音频片段按媒体时钟播放，不模拟包间网络抖动。prepared speech 和 relay 转发的重复音频
+可单独试听，自动回放不重复播放。无音频的测试不生成空音频文件。
+失败或 Ctrl+C/SIGTERM 也会保存已记录内容与失败结果。录制最多保留 128 MiB 文本/编码音频
+及 200,000 个媒体/控制 chunk，超限或音频导出失败明确标注部分记录并返回执行错误。
+
+`test play -o <目录>` 使用同一记录结构。自动化只需要汇总 JSON 时使用
+`test run --report <文件>`；该模式仍支持多个文件及目录。`--report` 指向输出目录内时只允许
+根目录的 `report.json`。`--evidence full` 接受 `--output` 或 `--report` 作为目的地。
+录制不改变验收断言，默认 JSON evidence 仍保持脱敏。输出的文本和语音应按敏感记录处理。
 
 Play 需要支持当前平台的 cgo、libopus 和 PortAudio native runtime，并在创建远端 client
 前检查这些条件。记录目录中的音频是操作者显式选择落盘的真实 response 内容，应按敏感
-文件处理。普通 `test run` 不打开音频设备，也不产生额外音频文件。
+文件处理。普通 `test run` 不打开音频设备；显式设置 `--output` 才额外保存会话媒体。
 
-`--evidence redacted` 是默认模式。`--evidence full` 必须同时提供 `--output`，只把有界的
-`workspace_relay` 逐轮与终轮文本写入该 JSON report，不向终端打印。完整 evidence report
-仍不包含输入、展开变量、凭据、资源 ID 或音频 payload；首包探针包含临时关联 packet ID。
-模型或 tester 文本可能含私密内容，
-必须按敏感文件处理。
+`--evidence redacted` 是默认模式。`--evidence full` 必须同时提供 `--output` 或 `--report`，
+把有界的 `workspace_relay` 逐轮与终轮文本、`peer_stream` 输入与输出、speech 转写，
+以及受支持 RPC 的目录或 Workspace 证据写入 JSON report，不自动向终端打印。
+音频输入可能以 Base64 字节进入完整 evidence report，首包探针还包含临时关联 packet ID。
+这些证据可能含私密对话或资源内容，必须按敏感文件处理。
 
 YAML 的 `repeat` 是每个文件的任务数，`--parallel` 是所有文件共享的最大 worker 数。
 目录输入递归发现文件并稳定排序。每个任务有独立的临时 clients、variables 和 cleanup；
@@ -375,7 +413,7 @@ quality:
 
 声明 `expect: {/quality/passed: {equals: true}}` 才是质量通过门槛；每项结果可从
 `/quality/criteria` 断言。默认 report 只记录分数、门槛、结果及证据轮次；
-`--evidence full --output <report.json>` 才保存原因和原文引用，不在终端自动打印它们。
+`--evidence full --report <report.json>` 才保存原因和原文引用，不在终端自动打印它们。
 模型评分是启发式质量评估；格式与引用验证不等于评分已有人类背书。此能力评估文字
 剧情，音色、播放体验和设备效果仍使用对应音频/设备验收。
 
@@ -414,9 +452,9 @@ CLI 只覆盖显式给出的字段，优先级为 CLI > 文档 > 默认；显式
 
 ```sh
 gizclaw test run scenario.giztest.yaml --parallel 16 \
-  --start-jitter 30s --stagger 0 --step-jitter 3s --seed 42 --output jitter.json
+  --start-jitter 30s --stagger 0 --step-jitter 3s --seed 42 --report jitter.json
 gizclaw test run scenario.giztest.yaml --parallel 16 \
-  --start-jitter 0 --stagger 0 --step-jitter 0 --seed 42 --output lockstep.json
+  --start-jitter 0 --stagger 0 --step-jitter 0 --seed 42 --report lockstep.json
 ```
 
 `seed` / `--seed` 是 `0..9007199254740991` 内的整数，零也是有效 seed。未提供 CLI seed 时

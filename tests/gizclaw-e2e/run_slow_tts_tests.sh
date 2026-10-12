@@ -94,4 +94,4 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
   /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/slow-tts.eino.push-to-talk.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/slow-tts.eino-sequential.realtime.giztest.yaml \
-  --output /reports/giztest.json
+  --report /reports/giztest.json

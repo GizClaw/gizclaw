@@ -33,7 +33,7 @@ func TestIdentifierLimitGiztestsGo(t *testing.T) {
 				var output bytes.Buffer
 				command.SetOut(&output)
 				command.SetErr(&output)
-				command.SetArgs([]string{"run", file, "--parallel", "1", "--output", report})
+				command.SetArgs([]string{"run", file, "--parallel", "1", "--report", report})
 				err := command.ExecuteContext(ctx)
 				return output.Bytes(), err
 			}, func(srv *gizclaw.Server, admin *gizcli.Client) {

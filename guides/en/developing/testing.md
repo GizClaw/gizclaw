@@ -743,8 +743,10 @@ SDK:
 | Flutter | the built `giztest` desktop binary (`tests/gizclaw-e2e/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
 | C | the built `giztest-c` binary (`tests/gizclaw-e2e/cgo/giztest`) | `sdk/c/gizclaw` through cgo | `sdk/c/gizclaw_control` |
 
-All four accept the same command line (`validate -f <path>`, `run <path>
---parallel N --output <report>`) and write the same report JSON structure. The
+All four support `validate -f <path>` and `run <path> --parallel N` and write the
+same report JSON structure. The Go CLI uses `--report <file>` for aggregate JSON
+and `--output <directory>` to render one Giztest file as a standalone HTML flow recording. The other three SDK
+runners use `--output <report-file>` for JSON and do not provide replay exports. The
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,
 `output` and `reconnect` step kinds; a document using any other step kind, or
 an `audio` or `binary` variable, is reported as skipped on stderr rather than
@@ -810,7 +812,7 @@ worker pool and write every task and cleanup result to a redacted JSON report:
 ```sh
 gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
-  --output tests/gizclaw-e2e/testdata/giztest-report.json
+  --report tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
 `server.runtime_profile.tags.giztest.yaml` uses real WebRTC RPC to verify unfiltered, single-tag, and multi-tag Workflow queries with AND semantics, no match or OR across age tags, invalid tags, list pagination with selector-bound cursors, get projection, and Workspace creation by alias. `server.device.runtime_profile.get.giztest.yaml` checks the corresponding Public HTTP filter. Local `go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` runs the RPC scenario and, after an Admin Profile update, `testdata/runtime-profile/updated.giztest.yaml` to confirm the rotated SQLite snapshot is visible over RPC. The Public HTTP scenario runs in the standard Giztest environment.
@@ -1145,10 +1147,11 @@ audio EOS boundary. `idle_timeout` bounds inactivity per active turn, resets on
 active-side progress, and records deadline, client, turn, last-event, and
 observed-media evidence when it fires. Audio relays retain bounded assistant
 text for assertion and terminal capture without forwarding duplicate text.
-Reports remain content-free by default; local `--evidence full --output <path>`
+Reports remain content-free by default; local `--evidence full --report <path>`
 adds bounded relay text plus the transcript a `server.speech.transcribe` step
-recognized, and produces a sensitive artifact without adding inputs,
-credentials, IDs, or audio payloads.
+recognized. Full evidence can also retain PeerStream inputs, audio bytes and
+supported RPC resource evidence; see [CLI usage](/en/using/cli) for its content
+and standalone recording behavior. Treat these artifacts as sensitive.
 `workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
 pair inside the standard gate;
 `workspace-relay.doubao-realtime-workflow-tester.giztest.yaml` proves text

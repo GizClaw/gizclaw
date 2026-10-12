@@ -98,7 +98,7 @@ run_case() {
 	local report="$artifact_dir/${target}-${mode}-p${parallel}.json"
 	echo "==> qualify target=$target mode=$mode parallel=$parallel"
 	if ! GIZCLAW_TEST_ENDPOINT="$endpoint" "$gizclaw_binary" test run \
-		--parallel "$parallel" --output "$report" "$path"; then
+		--parallel "$parallel" --report "$report" "$path"; then
 		run_status=1
 	fi
 }
@@ -111,7 +111,7 @@ run_roundtrip() {
 	local report="$artifact_dir/${target}-${mode}-roundtrip.json"
 	echo "==> verify terminal roundtrip target=$target mode=$mode"
 	if ! GIZCLAW_TEST_ENDPOINT="$endpoint" "$gizclaw_binary" test run \
-		--parallel 1 --output "$report" "$path"; then
+		--parallel 1 --report "$report" "$path"; then
 		run_status=1
 	fi
 }

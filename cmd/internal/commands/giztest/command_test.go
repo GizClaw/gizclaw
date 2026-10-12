@@ -121,7 +121,7 @@ func TestRunCanceledContextWritesUnstartedTaskReport(t *testing.T) {
 	output := filepath.Join(t.TempDir(), "report.json")
 	cmd := NewCmd()
 	cmd.SetContext(ctx)
-	cmd.SetArgs([]string{"run", path, "--seed=0", "--output", output})
+	cmd.SetArgs([]string{"run", path, "--seed=0", "--report", output})
 	err := cmd.Execute()
 	if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitExecution {
 		t.Fatalf("error = %#v", err)
@@ -155,7 +155,7 @@ func TestRunBarrierTimingZeroOverrides(t *testing.T) {
 			output := filepath.Join(t.TempDir(), "report.json")
 			cmd = NewCmd()
 			cmd.SetContext(ctx)
-			cmd.SetArgs([]string{"run", path, "--" + strings.ReplaceAll(field, "_", "-") + "=0", "--output", output})
+			cmd.SetArgs([]string{"run", path, "--" + strings.ReplaceAll(field, "_", "-") + "=0", "--report", output})
 			err = cmd.Execute()
 			if coded, ok := err.(interface{ ExitCode() int }); !ok || coded.ExitCode() != exitExecution {
 				t.Fatalf("zero override did not reach execution: %#v", err)

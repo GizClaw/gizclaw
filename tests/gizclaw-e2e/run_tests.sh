@@ -422,7 +422,7 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-10.giztest.yaml"
 		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-interrupt-10.giztest.yaml"
 	)
-	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --output "$report")
+	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --report "$report")
 }
 
 # The C runner is pointed at the whole scenario directory, like the JavaScript
@@ -451,7 +451,7 @@ run_failure_cleanup_giztest() {
 	if (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
 		"$script_dir/giztest/all.ping.giztest.yaml" \
 		"$script_dir/giztest/failure-cleanup.giztest.yaml" \
-		--parallel 2 --output "$report"); then
+		--parallel 2 --report "$report"); then
 		echo "failure-cleanup Giztest unexpectedly passed" >&2
 		return 1
 	fi
@@ -470,7 +470,7 @@ run_input_mode_mismatch_giztest() {
 	local report="$script_dir/testdata/giztest-input-mode-mismatch-report.json"
 	if (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
 		"$script_dir/negative/issue1330-realtime-mode-mismatch.giztest.yaml" \
-		--output "$report"); then
+		--report "$report"); then
 		echo "realtime input on a push-to-talk Workspace unexpectedly passed" >&2
 		return 1
 	fi

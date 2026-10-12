@@ -734,6 +734,9 @@ jobs:
       - name: Test maintained workspaces
         run: npm test --workspaces --if-present
 
+      - name: Test Giztest offline replay controls
+        run: node --test cmd/internal/commands/giztest/replay_html_test.mjs
+
       - name: Install guide dependencies
         run: npm --prefix guides ci
 

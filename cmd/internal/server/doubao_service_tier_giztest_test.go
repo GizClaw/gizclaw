@@ -359,7 +359,7 @@ func TestDoubaoServiceTierGiztest(t *testing.T) {
 	var output bytes.Buffer
 	command.SetOut(&output)
 	command.SetErr(&output)
-	command.SetArgs([]string{"run", "--parallel", "1", "--output", filepath.Join(reportDir, "giztest.json"), filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "doubao-service-tier", "fast.giztest.yaml")})
+	command.SetArgs([]string{"run", "--parallel", "1", "--report", filepath.Join(reportDir, "giztest.json"), filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "doubao-service-tier", "fast.giztest.yaml")})
 	runErr := command.ExecuteContext(ctx)
 	// Closing the observer drains handlers before the receipts are inspected.
 	observer.Close()

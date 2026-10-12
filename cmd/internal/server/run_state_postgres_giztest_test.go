@@ -261,7 +261,7 @@ func TestPostgreSQLRunStateGiztest(t *testing.T) {
 	command.SetOut(&output)
 	command.SetErr(&output)
 	reportPath := filepath.Join(root, "giztest.json")
-	command.SetArgs([]string{"run", filepath.Join(root, "documents"), "--parallel", strconv.Itoa(concurrency), "--seed", "1", "--output", reportPath})
+	command.SetArgs([]string{"run", filepath.Join(root, "documents"), "--parallel", strconv.Itoa(concurrency), "--seed", "1", "--report", reportPath})
 	phase.Store("voice")
 	runErr := command.ExecuteContext(ctx)
 	proxy.delay.Store(0)
