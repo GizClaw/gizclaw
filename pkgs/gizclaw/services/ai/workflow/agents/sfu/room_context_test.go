@@ -14,12 +14,14 @@ import (
 
 func TestLiveKitConnectHonorsCancellationDuringSignaling(t *testing.T) {
 	entered := make(chan struct{}, 1)
+	signalingClosed := make(chan struct{})
 	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/rtc" {
 			entered <- struct{}{}
 			select {
 			case <-r.Context().Done():
+				close(signalingClosed)
 			case <-release:
 			}
 		}
@@ -52,6 +54,11 @@ func TestLiveKitConnectHonorsCancellationDuringSignaling(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("cancelled join continued waiting for signaling")
+	}
+	select {
+	case <-signalingClosed:
+	case <-time.After(time.Second):
+		t.Fatal("signaling socket stayed open after cancellation")
 	}
 }
 

@@ -162,6 +162,10 @@ LiveKit Join 接收该 context；SDK 内部仍有独立的 ICE／publish timer�
 取消时主动断开 Room 并释放调用方，不让旧初始化继续占用 Peer 的 Runtime transition。
 初始化失败也会关闭尚未 active 的 Room。替换同一 Peer 的 attachment 会取消其尚未完成的
 Join，等旧 attachment 释放后才建立替代连接。
+SDK 在 WebSocket upgrade 完成后才登记 signal connection；其底层 Gorilla DialContext
+对 pending HTTP response 使用 deadline，单独取消 context 不会中断该读取。Connector
+通过每次初始化独立的 HTTP trace 登记这条专用 TCP connection，在取消时关闭尚未移交的
+socket，避免调用方退出后才建立迟到的 LiveKit session；成功初始化后解除这项关闭责任。
 
 上行：GenX `audio/opus` chunk 携带裸 Opus frame，session 按帧写入本地 48 kHz Opus track，不解码也不重新编码。session 把上行切成 talk utterance（第一个有声帧打开，Device EOS 或 `talk_hangover` 关闭），并在 Room 的 reliable data channel 上以 topic `gizclaw.sfu.talk` 发布 BOS/EOS；Device 的 BOS/EOS 不创建或销毁 Room，也不断开 participant。
 

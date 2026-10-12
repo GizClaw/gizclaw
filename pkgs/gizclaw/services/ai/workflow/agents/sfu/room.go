@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
+	"net/http/httptrace"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/livekit/protocol/auth"
@@ -76,6 +79,7 @@ type roomConnector interface {
 const (
 	livekitTokenTTL         = 2 * time.Minute
 	livekitDefaultConnectTO = 15 * time.Second
+	livekitCancelCloseTO    = 250 * time.Millisecond
 )
 
 // livekitConnector joins LiveKit Rooms with Server-held API credentials.
@@ -134,7 +138,41 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 	room := lksdk.NewRoom(callback)
 	var disconnectOnce sync.Once
 	disconnect := func() { disconnectOnce.Do(room.Disconnect) }
-	stopCancel := context.AfterFunc(ctx, disconnect)
+	// Gorilla's DialContext applies a deadline to the HTTP upgrade, but a
+	// cancellation alone does not interrupt its pending ReadResponse. The SDK
+	// does not own that socket until DialContext returns. Track the dedicated
+	// signaling socket so cancellation also stops this earlier I/O boundary.
+	var pendingSocket atomic.Pointer[net.Conn]
+	var handedOff atomic.Bool
+	closePendingSocket := func() {
+		if pending := pendingSocket.Swap(nil); pending != nil {
+			_ = (*pending).Close()
+		}
+	}
+	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+		if info.Conn == nil || handedOff.Load() {
+			return
+		}
+		conn := info.Conn
+		pendingSocket.Store(&conn)
+		if handedOff.Load() {
+			pendingSocket.CompareAndSwap(&conn, nil)
+			return
+		}
+		if ctx.Err() != nil {
+			closePendingSocket()
+		}
+	}})
+	cancelInitialization := func() {
+		// Give an already joined participant a bounded chance to send Leave.
+		// Gorilla resets the write deadline for each frame; force the dedicated
+		// socket closed if the SDK's disconnect blocks on a signaling write.
+		forceClose := time.AfterFunc(livekitCancelCloseTO, closePendingSocket)
+		disconnect()
+		forceClose.Stop()
+		closePendingSocket()
+	}
+	stopCancel := context.AfterFunc(ctx, cancelInitialization)
 	defer stopCancel()
 	// SDK signaling accepts a context, but its ICE wait and PublishTrack have
 	// their own bounded timers. Keep those waits off the runtime transition
@@ -150,22 +188,24 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 			client, err = nil, fmt.Errorf("sfu: initialize room: %w", cause)
 		}
 		if err != nil {
-			disconnect()
+			cancelInitialization()
 		}
 		result <- connectResult{client, err}
 	}()
 	select {
 	case <-ctx.Done():
-		disconnect()
+		cancelInitialization()
 		return nil, fmt.Errorf("sfu: initialize room: %w", ctx.Err())
 	case initialized := <-result:
 		if !stopCancel() || ctx.Err() != nil {
-			disconnect()
+			cancelInitialization()
 			return nil, fmt.Errorf("sfu: initialize room: %w", ctx.Err())
 		}
 		if initialized.err != nil {
 			return nil, initialized.err
 		}
+		handedOff.Store(true)
+		pendingSocket.Store(nil)
 		return initialized.client, nil
 	}
 }
