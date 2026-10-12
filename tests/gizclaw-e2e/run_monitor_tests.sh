@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Isolated, model-free Monitor API acceptance through giztest and real stores.
+# Isolated, model-free Monitor API acceptance with SQL History and the real
+# Volc TLS driver against a local HTTP protocol fixture.
 set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "$script_dir/../.." && pwd)"
@@ -37,7 +38,8 @@ docker run --rm --entrypoint /bin/bash \
   -e GOMODCACHE=/gomod -e GOCACHE=/cache "$base" -lc 'cd /src \
     && go build -o /out/gizclaw ./cmd/gizclaw \
     && go build -o /out/monitor-seed ./tests/gizclaw-e2e/cmd/multiserver-seed \
-    && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture'
+    && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture \
+    && go build -o /out/log-sink ./tests/gizclaw-e2e/cmd/log-sink'
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/server.monitor.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
 cp "$script_dir/testdata/audio/sfu-tone.ogg" "$image_dir/tests/gizclaw-e2e/testdata/audio/"

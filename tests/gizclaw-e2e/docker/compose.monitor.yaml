@@ -1,8 +1,18 @@
 services:
+  log-sink:
+    image: ${GIZCLAW_MONITOR_IMAGE:?}
+    entrypoint: [log-sink]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9091/health"]
+      interval: 1s
+      timeout: 3s
+      retries: 60
   server:
     image: ${GIZCLAW_MONITOR_IMAGE:?}
     env_file: ["${GIZCLAW_MONITOR_STATE:?}/runtime.env"]
     entrypoint: [gizclaw, serve, --force, /workspace]
+    depends_on:
+      log-sink: {condition: service_healthy}
     volumes: ["${GIZCLAW_MONITOR_STATE}/server:/workspace"]
     healthcheck:
       test: [CMD, curl, -fsS, "http://127.0.0.1:9820/server-info"]

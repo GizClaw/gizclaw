@@ -1056,24 +1056,15 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 	}
 }
 
-func TestParseConfigReadsEinoHistoryClickHouse(t *testing.T) {
-	cfg, err := parseConfigData([]byte(`
-stores:
-  eino-history:
-    kind: log.mutable
-    storage: analytics
-    database: default
-    table: gizclaw_eino_history
-`))
-	if err != nil {
-		t.Fatal(err)
-	}
-	store := cfg.Stores["eino-history"]
-	if store.Kind != stores.KindLogMutable {
-		t.Fatalf("eino history store = %+v", store)
-	}
-	if store.Database != "default" || store.Table != "gizclaw_eino_history" {
-		t.Fatalf("clickhouse config = %+v", store)
+func TestParseConfigRejectsMutableLogAndDatabaseLogScope(t *testing.T) {
+	for _, fields := range []string{
+		"kind: log.mutable\n    storage: analytics\n",
+		"kind: log.immutable\n    storage: database\n    table: logs\n",
+		"kind: log.immutable\n    storage: volc\n    ttl: 24h\n",
+	} {
+		if _, err := parseConfigData([]byte("stores:\n  logs:\n    " + fields)); err == nil {
+			t.Fatalf("unsupported LogStore accepted: %s", fields)
+		}
 	}
 }
 
@@ -1092,14 +1083,9 @@ stores:
     kind: metrics
     storage: database
     table: metric_samples
-  logs:
-    kind: log.immutable
-    storage: database
-    table: log_records
   history:
-    kind: log.mutable
+    kind: sql
     storage: database
-    table: history_records
 `))
 	if err != nil {
 		t.Fatal(err)
@@ -1108,7 +1094,7 @@ stores:
 		t.Fatalf("stores.state = %+v, want prefix-scoped keyvalue Store", state)
 	}
 	for name, table := range map[string]string{
-		"telemetry": "metric_samples", "logs": "log_records", "history": "history_records",
+		"telemetry": "metric_samples",
 	} {
 		if got := cfg.Stores[name].Table; got != table {
 			t.Fatalf("stores.%s.table = %q, want %q", name, got, table)
@@ -1165,8 +1151,8 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 	if cfg.Services == nil || cfg.Services.AgentHost == nil || cfg.Services.AgentHost.Persistence == nil || cfg.Services.Metrics == nil || cfg.Services.SystemLog == nil {
 		t.Fatalf("complete services block = %+v", cfg.Services)
 	}
-	if len(cfg.Storage) != 3 {
-		t.Fatalf("storage count = %d, want 3", len(cfg.Storage))
+	if len(cfg.Storage) != 4 {
+		t.Fatalf("storage count = %d, want 4", len(cfg.Storage))
 	}
 	for _, name := range []string{
 		"logs", "metrics", "eino-state", "peers", "peer-runs",
@@ -1188,13 +1174,14 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 			if logical.Storage != wantStorage || logical.Prefix == "" || logical.Table != "" {
 				t.Fatalf("stores.%s = %+v, want prefix-scoped %s KV Store", name, logical, wantStorage)
 			}
-		case stores.KindMetrics, stores.KindLogImmutable, stores.KindLogMutable:
+		case stores.KindMetrics:
 			wantStorage := "database"
-			if name == "logs" {
-				wantStorage = "local-runtime"
-			}
 			if logical.Storage != wantStorage || logical.Table == "" {
 				t.Fatalf("stores.%s = %+v, want table-scoped database Store", name, logical)
+			}
+		case stores.KindLogImmutable:
+			if logical.Storage != "volc-logs" || logical.Table != "" || logical.TopicID != "" {
+				t.Fatalf("stores.%s = %+v, want topic-scoped logging service", name, logical)
 			}
 		}
 	}
@@ -1246,11 +1233,11 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.agent_host.persistence.state_store", services.AgentHost.Persistence.StateStore, stores.KindSQL)
 	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
 	if services.SystemLog.QueryStore != "" {
-		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable, stores.KindLogMutable)
+		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable)
 	}
 	for index, sink := range services.SystemLog.Sinks {
 		if sink.Kind == gizlog.SinkStore {
-			expect(fmt.Sprintf("services.system_log.sinks[%d].store", index), sink.Store, stores.KindLogImmutable, stores.KindLogMutable)
+			expect(fmt.Sprintf("services.system_log.sinks[%d].store", index), sink.Store, stores.KindLogImmutable)
 		}
 	}
 

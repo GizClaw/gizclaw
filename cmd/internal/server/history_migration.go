@@ -32,9 +32,6 @@ func MigrateWorkspaceHistory(ctx context.Context, directory, workspaceTable, ein
 		return result, fmt.Errorf("history migration: workspace.history_store must reference a sql Store")
 	}
 	for name, logical := range file.Stores {
-		if (logical.Kind == stores.KindLogMutable || logical.Kind == stores.KindLogImmutable) && file.Storage[logical.Storage].Kind == storage.KindPostgreSQL {
-			return result, fmt.Errorf("history migration: stores.%s still uses the retired PostgreSQL LogStore backend", name)
-		}
 		if logical.Storage == history.Storage && (logical.Table == workspaceTable || logical.Table == einoTable) {
 			return result, fmt.Errorf("history migration: stores.%s still references a source table; update the final configuration first", name)
 		}

@@ -52,8 +52,7 @@ flowchart TB
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
 | `metrics` | `metrics.Store`；`memory`、Prometheus、ClickHouse，或 SQLite/PostgreSQL table |
-| `log.immutable` | `logstore.ImmutableStore`；Volc topic、ClickHouse table 或 SQLite table |
-| `log.mutable` | `logstore.MutableStore`；ClickHouse 或 SQLite table |
+| `log.immutable` | `logstore.ImmutableStore`；Volc TLS topic |
 
 | Storage kind | 物理配置 |
 | --- | --- |
@@ -105,9 +104,9 @@ Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 Y
 transport、retry policy 与关闭；逻辑 ObjectStore 借用 client，只应用一次 prefix，
 且不关闭 client。因此多个不重叠的逻辑 prefix 可以共享同一个 cloud connector。
 
-SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。SQL Metrics 和 SQLite Log Store 继续声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。Registry 只独立校验每一份声明，不保留表名，也不比较不同 Store 声明。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在；PostgreSQL 在同一事务内执行这些语句，并用按当前 schema 与物理表名派生的事务级 advisory lock 串行化，因此多个进程或 adapter 同时初始化同一张新表不会因 catalog 冲突失败。随后校验当前 adapter 所要求的列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会在该 adapter 构造时失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
+SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。SQL Metrics 声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。Registry 只独立校验每一份声明，不保留表名，也不比较不同 Store 声明。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在；PostgreSQL 在同一事务内执行这些语句，并用按当前 schema 与物理表名派生的事务级 advisory lock 串行化，因此多个进程或 adapter 同时初始化同一张新表不会因 catalog 冲突失败。随后校验当前 adapter 所要求的列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会在该 adapter 构造时失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
 
-`storage.SQLTable` 是 SQLite/PostgreSQL 借用表的唯一 dialect、identifier、quoting、初始化和 schema inspection owner；它只能由校验后的 pool 与表名构造。KV、Metrics 和 Log 继续拥有各自的业务表定义，但直接消费这个 storage capability，不再经过独立的 SQL backend helper package。
+`storage.SQLTable` 是 SQLite/PostgreSQL 借用表的唯一 dialect、identifier、quoting、初始化和 schema inspection owner；它只能由校验后的 pool 与表名构造。KV 和 Metrics 拥有各自的业务表定义，但直接消费这个 storage capability，不再经过独立的 SQL backend helper package。
 
 SQL backend 错误在补充具体 Store 操作上下文后保留底层 error identity，受信任的调用方可以通过 Go error chain 检查具体原因。公开错误文本只描述失败的 Store 操作，不包含可能携带绑定值、DSN 或连接信息的 driver 原始文本；HTTP/RPC surface 不得向客户端泄露这些细节。
 

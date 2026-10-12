@@ -1312,7 +1312,7 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 The observability entrypoint sends one real AI text turn through Edge to the
 Server. Server and Edge `giz_webrtc_*`/`giz_edge_webrtc_*` samples go to an
 E2E-only Prometheus Remote Write protocol fixture, while Server system logs go
-to an isolated SQLite `log.immutable` Store. Acceptance queries the fixture for
+through the real Volc TLS driver into a local TLS HTTP protocol fixture. Acceptance queries the fixture for
 the core metric families and `node_role=application|edge`, then uses Admin Log
 Query to retrieve the user input, the AI response actually delivered, and the
 `turn_started`, `agent_input_first_push`, `output_first_event`, and

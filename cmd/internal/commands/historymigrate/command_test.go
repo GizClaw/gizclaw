@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -21,16 +20,23 @@ func TestCommandDryRunMigrationAndIdempotentRepeat(t *testing.T) {
 	}
 	db.SetMaxOpenConns(1)
 	defer db.Close()
-	legacy, err := logstore.NewSQLStoreWithDB(db, "old_workspace")
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = logstore.NewSQLStoreWithDB(db, "old_eino")
-	if err != nil {
-		t.Fatal(err)
+	// Freeze the retired schema here so migration never depends on a runtime
+	// SQL LogStore implementation.
+	for _, table := range []string{"old_workspace", "old_eino"} {
+		_, err := db.Exec(`CREATE TABLE ` + table + ` (
+			stream TEXT NOT NULL, id TEXT NOT NULL, timestamp_unix_nano BIGINT NOT NULL,
+			kind TEXT NOT NULL, severity TEXT NOT NULL, message TEXT NOT NULL,
+			attributes_json TEXT NOT NULL, payload_json BLOB NOT NULL, expires_at_unix_nano BIGINT NOT NULL,
+			PRIMARY KEY (stream, id))`)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	now := time.Now().UTC()
-	if _, err := legacy.Append(t.Context(), []logstore.Record{{Stream: "workspace.history/demo", ID: now.Format("20060102T150405.000000000Z") + "-1", Kind: "agent", Time: now, Message: "retained", Payload: []byte(`{"version":1,"name":"assistant","replay_available":true}`)}}); err != nil {
+	_, err = db.Exec(`INSERT INTO old_workspace VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		"workspace.history/demo", now.Format("20060102T150405.000000000Z")+"-1", now.UnixNano(),
+		"agent", "", "retained", "{}", []byte(`{"version":1,"name":"assistant","replay_available":true}`), now.Add(24*time.Hour).UnixNano())
+	if err != nil {
 		t.Fatal(err)
 	}
 	config := []byte("storage:\n  database:\n    kind: sqlite\n    dir: data.sqlite\n  files:\n    kind: filesystem.dir\n    dir: objects\nstores:\n  history:\n    kind: sql\n    storage: database\n  assets:\n    kind: objectstore\n    storage: files\n    prefix: history\n    ttl: 24h\nservices:\n  workspace:\n    history_store: history\n    history_assets_store: assets\n")

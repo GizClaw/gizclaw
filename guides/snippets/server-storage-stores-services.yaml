@@ -16,6 +16,13 @@ storage:
     kind: postgresql
     dsn: ${GIZCLAW_POSTGRES_DSN}
 
+  volc-logs:
+    kind: volc-tls
+    endpoint: ${VOLC_TLS_ENDPOINT}
+    region: ${VOLC_TLS_REGION}
+    access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
+    access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
+
   local-assets:
     kind: filesystem.dir
     dir: data/files
@@ -29,8 +36,8 @@ storage:
 stores:
   logs:
     kind: log.immutable
-    storage: local-runtime
-    table: gizclaw_logs
+    storage: volc-logs
+    topic_id: ${VOLC_TLS_TOPIC_ID}
 
   metrics:
     kind: metrics

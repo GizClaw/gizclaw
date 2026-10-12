@@ -1,16 +1,14 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` provides reusable structured records, backend-neutral queries, and cursor pagination. Immutable drivers support append and query; mutable drivers additionally support replacing or deleting one record. Conversation, event, and audit producers retain ownership of authorization and canonical resources; optional retention is configured on the logical Store and enforced by its driver without changing the LogStore interface.
+`pkgs/store/logstore` provides structured records, backend-neutral queries, and cursor pagination over logging services. LogStore supports append and query; event and audit producers own authorization and canonical resources. Retention belongs to the logging service.
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
 ## Contract
 
-`Appender.Append` returns a `RecordKey` for every accepted record. On a partial failure, the returned keys are the accepted prefix in input order. A key is the stable `Stream` and caller-generated `ID` pair. `ImmutableStore` combines append, query, and lifecycle capabilities. `MutableStore` extends it with `Replace` and `Delete`; callers that need mutation must resolve this capability explicitly.
+`Appender.Append` returns a `RecordKey` for each accepted record. On partial failure, the result is the accepted prefix in input order. A key combines the stable `Stream` with a caller-generated `ID`. `ImmutableStore` combines append, query, and lifecycle capabilities.
 
-`Replace` changes the record at one existing key and preserves that key. It is not an upsert and returns `ErrNotFound` when the key does not exist. `Delete` removes exactly one existing key and also returns `ErrNotFound` for a missing key.
-
-A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity, message, indexed scalar attributes, and an unindexed JSON payload. Attribute names are canonical dotted paths of at most 128 bytes; each segment matches `[A-Za-z_][A-Za-z0-9_-]*`, and scalar/object prefix conflicts are rejected.
+`Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity, message, indexed scalar attributes, and an unindexed JSON payload. Attribute names are canonical dotted paths of at most 128 bytes; each segment matches `[A-Za-z_][A-Za-z0-9_-]*`, and scalar/object prefix conflicts are rejected.
 
 `Query` is structured and never accepts a backend expression. Its time window is the millisecond-aligned half-open interval `[Start, End)`. Stream, kind, and severity are OR sets that are ANDed across fields; text is a case-sensitive literal phrase; attributes support `=`, `!=`, `exists`, and `not-exists`. Page limits are 1–1000. Opaque cursors bind selectors, text, time, and order while allowing a different continuation limit.
 
@@ -19,10 +17,8 @@ A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity,
 | Driver | Capability | Notes |
 | --- | --- | --- |
 | Volc TLS | `ImmutableStore` | PutLogsV2 and SearchLogs over one TLS SDK client; mutations are unsupported |
-| ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
-| SQLite | `MutableStore` | Dedicated relational table, atomic append/replace/delete, and the shared SQL cursor |
 
-Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Workspace and Eino conversation history use the [Memory History Store](./memory#conversation-history), independently of LogStore. PostgreSQL LogStore configuration is rejected explicitly. Physical connection ownership remains under `storage`.
+Each logical Log Store declares `log.immutable` and is resolved through `Stores.Log`. The current implementation is Volc TLS; SQLite, PostgreSQL, and ClickHouse database backends are unsupported, and `log.mutable` is not registered. Workspace and Eino conversation history use the [Memory History Store](./memory#conversation-history). Physical connection ownership remains under `storage`.
 
 ### Volc TLS
 
@@ -52,33 +48,6 @@ Generic records use provider source `gizclaw` and filename `logstore`; process-l
 Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. Physical Storage owns one TLS SDK client; topic-scoped Stores use that same client for reads and writes without creating a producer or second client.
 
 For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records whose provider source is `gizclaw` and filename is `slog`. They participate in the same provider-side ordering and cursor instead of being fetched and merged separately. This is record compatibility only; the removed Server `log` configuration remains unsupported.
-
-### ClickHouse
-
-```yaml
-storage:
-  analytics:
-    kind: clickhouse
-    dsn: ${CLICKHOUSE_DSN}
-stores:
-  events:
-    kind: log.mutable
-    storage: analytics
-    database: gizclaw
-    table: events
-```
-
-The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
-
-The logical `database` field is optional when the physical DSN already selects one. With `ttl`, the driver writes an `expires_at` value and creates or validates a table-level `TTL expires_at` deletion expression; Get and Query hide expired rows before asynchronous merges physically remove them. The ClickHouse driver does not impose an additional local payload-size limit. Logical Metrics and Log Stores may share one physical pool without owning it.
-
-### SQLite
-
-Each logical Store declares a dedicated `table`. Records are keyed by `(stream, id)`, retain UTC nanosecond timestamps, and page in stable `(time, stream, id)` order. Flat attributes use canonical JSON; payloads retain their original JSON bytes. Append writes a complete batch atomically. Replace requires an existing key and cannot change time or extend retention. Get/Delete return `ErrNotFound` for missing keys.
-
-With `ttl`, expiration is calculated from the actual write time. Get/Query hide expired records; Append and explicit `Maintain` reclaim expired physical rows. Logical Stores never close the borrowed pool.
-
-SQLite and ClickHouse share the version-1 opaque cursor. It binds the normalized selector, text, millisecond-aligned `[Start, End)` and ordering, permits a changed continuation limit, and retains the 16 KiB bound. SQLite pushes time, selector, literal case-sensitive text, flat attribute predicates, ordering and `LIMIT` into SQL, returning at most `limit + 1` records.
 
 ## Process logging
 

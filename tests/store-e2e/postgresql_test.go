@@ -17,7 +17,6 @@ import (
 
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
@@ -289,9 +288,19 @@ func TestPostgreSQLMetrics(t *testing.T) {
 }
 
 func TestPostgreSQLLogBackendIsRetired(t *testing.T) {
-	db := openPostgreSQL(t)
+	physical, err := storage.New(map[string]storage.Config{
+		"database": storage.PostgreSQLConfig{DSN: requiredEnvironment(t, "GIZCLAW_TEST_POSTGRES_DSN")},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer physical.Close()
+	db, err := physical.SQL("database")
+	if err != nil {
+		t.Fatal(err)
+	}
 	table := uniqueTable("retired_log")
-	if _, err := logstore.NewSQLStoreWithDB(db, table); err == nil || !strings.Contains(err.Error(), "unsupported") {
+	if _, err := stores.New(map[string]stores.Config{"logs": {Kind: stores.KindLogImmutable, Storage: "database", Table: table}}, physical); err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("PostgreSQL LogStore=%v", err)
 	}
 	var exists bool

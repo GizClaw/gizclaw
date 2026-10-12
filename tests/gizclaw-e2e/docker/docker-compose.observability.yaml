@@ -1,4 +1,17 @@
 services:
+  log-sink:
+    build:
+      context: ../../..
+      dockerfile: tests/gizclaw-e2e/docker/Dockerfile.server
+      args:
+        BASE_IMAGE: ${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-amd64-cn-base}
+    entrypoint: [go, run, ./tests/gizclaw-e2e/cmd/log-sink]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9091/health"]
+      interval: 1s
+      timeout: 1s
+      retries: 120
+      start_period: 60s
   metrics-sink:
     build:
       context: ../../..
@@ -18,6 +31,8 @@ services:
 
   server:
     depends_on:
+      log-sink:
+        condition: service_healthy
       metrics-sink:
         condition: service_healthy
     environment:

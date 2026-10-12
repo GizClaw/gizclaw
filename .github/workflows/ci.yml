@@ -549,7 +549,7 @@ jobs:
             -e POSTGRES_USER=gizclaw -e POSTGRES_PASSWORD=gizclaw -e POSTGRES_DB=gizclaw_test \
             gizclaw-postgres-test postgres -c max_connections=300
           for attempt in $(seq 1 60); do
-            if docker exec gizclaw-postgres-test pg_isready -U gizclaw -d gizclaw_test; then break; fi
+            if docker exec gizclaw-postgres-test pg_isready -h 127.0.0.1 -U gizclaw -d gizclaw_test; then break; fi
             echo "Waiting for PostgreSQL ($attempt/60)"
             sleep 1
           done

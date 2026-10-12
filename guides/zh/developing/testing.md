@@ -1130,7 +1130,7 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 
 Observability 入口让真实 AI 文本回合经 Edge 进入 Server。Server 与 Edge 的
 `giz_webrtc_*`/`giz_edge_webrtc_*` 样本写入 E2E 专用的 Prometheus Remote Write
-协议 fixture；Server system log 同时写入隔离的 SQLite `log.immutable` Store。验收会从
+协议 fixture；Server system log 通过真实 Volc TLS driver 写入本地 TLS HTTP 协议 fixture。验收会从
 fixture 查询核心 metric family 与 `node_role=application|edge`，并通过 Admin Log Query
 按同一 `(peer_public_key, tunnel_session_id, turn_index)` 查回用户原文、实际投递的 AI
 回复，以及 `turn_started`、`agent_input_first_push`、`output_first_event`、

@@ -1,14 +1,12 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` 提供跨业务领域复用的结构化 record、backend-neutral 查询与 cursor 分页。Immutable driver 支持追加与查询；mutable driver 还支持替换或删除单条 record。Conversation、event、audit 等生产者仍拥有 authorization 与 canonical resource；可选 retention 配在逻辑 Store 上，由 driver 执行，不改变 LogStore interface。
+`pkgs/store/logstore` 提供日志服务上的结构化 record、backend-neutral 查询与 cursor 分页。LogStore 支持追加与查询，event、audit 等生产者拥有 authorization 与 canonical resource；retention 由日志服务管理。
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
 ## Contract
 
-`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`ImmutableStore` 组合追加、查询和生命周期能力；`MutableStore` 在此基础上增加 `Replace` 与 `Delete`，需要修改能力的调用方必须显式解析这个 capability。
-
-`Replace` 修改一个已存在 key 对应的 record，并保持该 key 不变；它不是 upsert，key 不存在时返回 `ErrNotFound`。`Delete` 只删除一个已存在 key，key 不存在时也返回 `ErrNotFound`。
+`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`ImmutableStore` 组合追加、查询和生命周期能力。
 
 `Record` 必须提供 `ID`、时间、`Stream` 与 `Kind`，并可附带 severity、message、indexed scalar attributes 和不索引的 JSON payload。Attribute 使用最长 128 bytes 的 canonical dotted path；每段匹配 `[A-Za-z_][A-Za-z0-9_-]*`，scalar/object prefix conflict 会被拒绝。
 
@@ -19,10 +17,8 @@
 | Driver | Capability | 说明 |
 | --- | --- | --- |
 | Volc TLS | `ImmutableStore` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
-| ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
-| SQLite | `MutableStore` | 独立关系表、原子 append/replace/delete 与共享 SQL cursor |
 
-每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Workspace 与 Eino 的对话历史使用 [Memory History Store](./memory#conversation-history)，不经过 LogStore。PostgreSQL LogStore 配置会被明确拒绝。物理连接 ownership 始终属于 `storage`。
+每个逻辑 Log Store 声明 `log.immutable`，通过 `Stores.Log` 获取。当前实现为 Volc TLS；不支持 SQLite、PostgreSQL 或 ClickHouse 数据库 backend，也不注册 `log.mutable`。Workspace 与 Eino 的对话历史使用 [Memory History Store](./memory#conversation-history)，不经过 LogStore。物理连接 ownership 属于 `storage`。
 
 ### Volc TLS
 
@@ -52,33 +48,6 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。物理 Storage 只持有一个 TLS SDK client，topic-scoped Store 用同一个 client 读写，不创建 producer 或第二个 client。
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
-
-### ClickHouse
-
-```yaml
-storage:
-  analytics:
-    kind: clickhouse
-    dsn: ${CLICKHOUSE_DSN}
-stores:
-  events:
-    kind: log.mutable
-    storage: analytics
-    database: gizclaw
-    table: events
-```
-
-Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。
-
-物理 DSN 已选择 database 时可以省略逻辑 `database` 字段。配置 `ttl` 后，driver 会写入 `expires_at`，并创建或校验 table-level `TTL expires_at` 删除表达式；异步 merge 物理删除前，Get 与 Query 已隐藏过期 row。ClickHouse driver 不额外施加本地 payload 大小限制。逻辑 Metrics 与 Log Store 可以共享一个物理 pool，但不拥有它。
-
-### SQLite
-
-每个逻辑 Store 声明独立的 `table`。Record 用 `(stream, id)` 唯一标识，时间保存为 UTC nanoseconds，并按 `(time, stream, id)` 稳定分页。Flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个事务中写入完整 batch；Replace 只能修改已有 key，不能改变 time 或延长 retention；Get/Delete 对缺失 key 返回 `ErrNotFound`。
-
-配置 `ttl` 后，过期时间按实际写入时间计算，Get/Query 隐藏过期记录，Append 和显式 `Maintain` 回收过期物理 row。逻辑 Store 不关闭借用的连接池。
-
-SQLite 和 ClickHouse 共用 version-1 opaque cursor。Cursor 绑定 normalized selector、text、毫秒对齐的 `[Start, End)` 和 order，允许 continuation 修改 limit，并保留 16 KiB bound。SQLite 将时间、selector、区分大小写的字面文本、flat attribute 条件、排序和 `LIMIT` 下推到数据库；查询至多返回 `limit + 1` 条记录。
 
 ## Process logging
 

@@ -2,8 +2,9 @@ package store
 
 import (
 	"context"
-	"encoding/json"
+	"errors"
 	"io"
+	"net/http/httptest"
 	"path/filepath"
 	"reflect"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	physicalstorage "github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/volctlsfixture"
 )
 
 func TestKeyValueUsesCompatiblePhysicalStorage(t *testing.T) {
@@ -111,7 +113,6 @@ func TestStoreKindsRejectIncompatibleStorageKinds(t *testing.T) {
 		{"sql", Config{Kind: KindSQL, Storage: "files"}, physicalstorage.KindFilesystemDir},
 		{"metrics", Config{Kind: KindMetrics, Storage: "files"}, physicalstorage.KindFilesystemDir},
 		{"log.immutable", Config{Kind: KindLogImmutable, Storage: "memory"}, physicalstorage.KindMemory},
-		{"log.mutable", Config{Kind: KindLogMutable, Storage: "memory"}, physicalstorage.KindMemory},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := New(map[string]Config{"store": test.config}, physical)
@@ -243,7 +244,7 @@ func TestSQLUsesCompatibleDatabaseStorage(t *testing.T) {
 	}
 }
 
-func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing.T) {
+func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetrics(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
 		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
 	})
@@ -254,8 +255,6 @@ func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing
 	registry, err := New(map[string]Config{
 		"kv":      {Kind: KindKeyValue, Storage: "database", Prefix: "kv-items"},
 		"metrics": {Kind: KindMetrics, Storage: "database", Table: "metric_samples"},
-		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: "immutable_logs"},
-		"history": {Kind: KindLogMutable, Storage: "database", Table: "mutable_logs"},
 		"raw":     {Kind: KindSQL, Storage: "database"},
 	}, physical)
 	if err != nil {
@@ -276,19 +275,6 @@ func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing
 	}
 	now := time.UnixMilli(1000).UTC()
 	if err := metricStore.Append(ctx, []metrics.Sample{{Name: "test", Timestamp: now, Value: 1}}); err != nil {
-		t.Fatal(err)
-	}
-	logStore, err := registry.Log("logs")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := logStore.Append(ctx, []logstore.Record{{ID: "one", Stream: "events", Kind: "created", Time: now, Payload: json.RawMessage(`{"ok":true}`)}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := registry.MutableLog("logs"); err == nil {
-		t.Fatal("immutable declaration exposed mutable capability")
-	}
-	if _, err := registry.MutableLog("history"); err != nil {
 		t.Fatal(err)
 	}
 	raw, err := registry.SQL("raw")
@@ -318,7 +304,7 @@ func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing
 	if err := rows.Close(); err != nil {
 		t.Fatal(err)
 	}
-	wantTables := []string{"gizclaw_kv_d2f54ce9c501c385_members", "immutable_logs", "kv-items", "metric_samples", "mutable_logs"}
+	wantTables := []string{"gizclaw_kv_d2f54ce9c501c385_members", "kv-items", "metric_samples"}
 	if !reflect.DeepEqual(tables, wantTables) {
 		t.Fatalf("SQLite tables = %v, want only business tables %v", tables, wantTables)
 	}
@@ -328,8 +314,6 @@ func TestSQLiteSupportsPrefixScopedKVAndTableScopedMetricAndLogStores(t *testing
 	reopened, err := New(map[string]Config{
 		"kv":      {Kind: KindKeyValue, Storage: "database", Prefix: "kv-items"},
 		"metrics": {Kind: KindMetrics, Storage: "database", Table: "metric_samples"},
-		"logs":    {Kind: KindLogImmutable, Storage: "database", Table: "immutable_logs"},
-		"history": {Kind: KindLogMutable, Storage: "database", Table: "mutable_logs"},
 	}, physical)
 	if err != nil {
 		t.Fatalf("reopen existing SQLite business tables: %v", err)
@@ -419,45 +403,25 @@ func TestSQLiteMetricsStoresShareTable(t *testing.T) {
 	}
 }
 
-func TestSQLiteImmutableAndMutableLogsShareTable(t *testing.T) {
-	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
-		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
-	})
+func TestLogStoresRejectDatabaseBackends(t *testing.T) {
+	for _, kind := range []string{physicalstorage.KindSQLite, physicalstorage.KindPostgreSQL, physicalstorage.KindClickHouse} {
+		t.Run(kind, func(t *testing.T) {
+			err := validateConfigFields("logs", Config{Kind: KindLogImmutable, Storage: "database", Table: "logs"}, kind)
+			if err == nil || !strings.Contains(err.Error(), "requires a logging service") {
+				t.Fatalf("database LogStore error = %v", err)
+			}
+		})
+	}
+}
+
+func TestMutableLogKindIsUnsupported(t *testing.T) {
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{"memory": physicalstorage.MemoryConfig{}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = physical.Close() })
-	registry, err := New(map[string]Config{
-		"reader": {Kind: KindLogImmutable, Storage: "database", Table: "shared_logs"},
-		"writer": {Kind: KindLogMutable, Storage: "database", Table: "shared_logs"},
-	}, physical)
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = registry.Close() })
-	reader, err := registry.Log("reader")
-	if err != nil {
-		t.Fatal(err)
-	}
-	writer, err := registry.MutableLog("writer")
-	if err != nil {
-		t.Fatal(err)
-	}
-	ctx := context.Background()
-	record := logstore.Record{
-		ID: "shared", Time: time.UnixMilli(1000).UTC(), Stream: "events", Kind: "created",
-	}
-	if _, err := writer.Append(ctx, []logstore.Record{record}); err != nil {
-		t.Fatal(err)
-	}
-	page, err := reader.Query(ctx, logstore.Query{
-		Streams: []string{"events"}, Start: record.Time, End: record.Time.Add(time.Second), Limit: 10, Order: logstore.OrderAsc,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(page.Records) != 1 || page.Records[0].ID != record.ID {
-		t.Fatalf("immutable alias query = %+v, want record %q", page, record.ID)
+	defer physical.Close()
+	if _, err := New(map[string]Config{"logs": {Kind: "log.mutable", Storage: "memory"}}, physical); err == nil || !strings.Contains(err.Error(), "unknown kind") {
+		t.Fatalf("mutable LogStore error = %v", err)
 	}
 }
 
@@ -582,5 +546,69 @@ func TestConfigHasNoSerializationTags(t *testing.T) {
 		if field.Tag.Get("yaml") != "" || field.Tag.Get("json") != "" || field.Tag.Get("mapstructure") != "" {
 			t.Fatalf("Config.%s has serialization tag %q", field.Name, field.Tag)
 		}
+	}
+}
+
+func TestLogStoreUsesLoggingServiceTopics(t *testing.T) {
+	server := httptest.NewServer(volctlsfixture.NewHandler())
+	defer server.Close()
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"tls": physicalstorage.VolcTLSConfig{Endpoint: server.URL, Region: "test", AccessKeyID: "fixture", AccessKeySecret: "fixture"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer physical.Close()
+	registry, err := New(map[string]Config{
+		"logs":  {Kind: KindLogImmutable, Storage: "tls", TopicID: "logs"},
+		"audit": {Kind: KindLogImmutable, Storage: "tls", TopicID: "audit"},
+	}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer registry.Close()
+	logs, err := registry.Log("logs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	records := []logstore.Record{
+		{ID: "a", Time: now, Stream: "system", Kind: "log", Message: "request completed", Attributes: map[string]string{"peer_public_key": "owner"}},
+		{ID: "b", Time: now.Add(time.Millisecond), Stream: "system", Kind: "log", Message: "request completed", Attributes: map[string]string{"peer_public_key": "owner"}},
+		{ID: "other", Time: now, Stream: "system", Kind: "log", Message: "request completed", Attributes: map[string]string{"peer_public_key": "other"}},
+	}
+	if _, err := logs.Append(t.Context(), records); err != nil {
+		t.Fatal(err)
+	}
+	audit, err := registry.Log("audit")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := audit.Append(t.Context(), records[:1]); err != nil {
+		t.Fatal(err)
+	}
+	query := logstore.Query{Streams: []string{"system"}, Kinds: []string{"log"}, Text: "request completed", Matchers: []logstore.AttributeMatcher{{Name: "peer_public_key", Op: logstore.MatchEqual, Value: "owner"}}, Start: now, End: now.Add(time.Second), Limit: 1, Order: logstore.OrderDesc}
+	first, err := logs.Query(t.Context(), query)
+	if err != nil || len(first.Records) != 1 || first.Records[0].ID != "b" || !first.HasNext {
+		t.Fatalf("first page=%+v err=%v", first, err)
+	}
+	if _, err := logs.Append(t.Context(), []logstore.Record{{ID: "new", Time: now.Add(2 * time.Millisecond), Stream: "system", Kind: "log", Message: "request completed", Attributes: map[string]string{"peer_public_key": "owner"}}}); err != nil {
+		t.Fatal(err)
+	}
+	query.Cursor = first.NextCursor
+	query.Limit = 10
+	second, err := logs.Query(t.Context(), query)
+	if err != nil || len(second.Records) != 1 || second.Records[0].ID != "a" || second.HasNext {
+		t.Fatalf("second page=%+v err=%v", second, err)
+	}
+	query.Matchers[0].Value = "other"
+	if _, err := logs.Query(t.Context(), query); !errors.Is(err, logstore.ErrCursorMismatch) {
+		t.Fatalf("foreign cursor=%v", err)
+	}
+	query.Cursor = ""
+	query.Matchers[0].Value = "owner"
+	page, err := audit.Query(t.Context(), query)
+	if err != nil || len(page.Records) != 1 || page.Records[0].ID != "a" {
+		t.Fatalf("topic isolation=%+v err=%v", page, err)
 	}
 }

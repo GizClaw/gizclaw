@@ -25,7 +25,6 @@ const (
 	KindKeyValue     = "keyvalue"
 	KindMetrics      = "metrics"
 	KindLogImmutable = "log.immutable"
-	KindLogMutable   = "log.mutable"
 	KindObjectStore  = "objectstore"
 	KindSQL          = "sql"
 )
@@ -67,7 +66,6 @@ type Stores struct {
 	objects      map[string]objectstore.ObjectStore
 	metrics      map[string]metrics.Store
 	logs         map[string]logstore.ImmutableStore
-	mutableLogs  map[string]struct{}
 	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
 	ttls         map[string]time.Duration
@@ -89,15 +87,14 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 		return nil, err
 	}
 	s := &Stores{
-		storage:     physical,
-		kvs:         make(map[string]kv.Store),
-		kvRoots:     make(map[string]kv.Store),
-		objects:     make(map[string]objectstore.ObjectStore),
-		metrics:     make(map[string]metrics.Store),
-		logs:        make(map[string]logstore.ImmutableStore),
-		mutableLogs: make(map[string]struct{}),
-		sqls:        make(map[string]*sqlx.DB),
-		ttls:        make(map[string]time.Duration),
+		storage: physical,
+		kvs:     make(map[string]kv.Store),
+		kvRoots: make(map[string]kv.Store),
+		objects: make(map[string]objectstore.ObjectStore),
+		metrics: make(map[string]metrics.Store),
+		logs:    make(map[string]logstore.ImmutableStore),
+		sqls:    make(map[string]*sqlx.DB),
+		ttls:    make(map[string]time.Duration),
 	}
 	ok := false
 	defer func() {
@@ -139,15 +136,12 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.metrics[name] = st
-		case KindLogImmutable, KindLogMutable:
+		case KindLogImmutable:
 			st, err := s.newLog(name, cfg)
 			if err != nil {
 				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.logs[name] = st
-			if cfg.Kind == KindLogMutable {
-				s.mutableLogs[name] = struct{}{}
-			}
 			s.logicClosers = append(s.logicClosers, st)
 		default:
 			return nil, &ConfigError{Name: name, Err: fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)}
@@ -324,45 +318,15 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			return nil
 		}
 		return invalid(cfg.Table != "", "table")
-	case KindLogImmutable, KindLogMutable:
-		if storageKind == storage.KindPostgreSQL {
-			return fmt.Errorf("stores: log %q PostgreSQL backend is unsupported", name)
+	case KindLogImmutable:
+		if storageKind != storage.KindVolcTLS {
+			return fmt.Errorf("stores: log %q requires a logging service; storage %q kind %q is unsupported", name, cfg.Storage, storageKind)
 		}
-		if cfg.TTL < 0 {
-			return fmt.Errorf("stores: %s %q ttl must be positive", cfg.Kind, name)
+		if cfg.TTL != 0 || cfg.Prefix != "" || cfg.Database != "" || cfg.Table != "" {
+			return fmt.Errorf("stores: log %q supports only storage and topic_id; retention belongs to the logging service", name)
 		}
-		if cfg.TTL != 0 && storageKind == storage.KindVolcTLS {
-			return fmt.Errorf("stores: log %q volc-tls storage does not support ttl", name)
-		}
-		if storageKind != storage.KindClickHouse && storageKind != storage.KindVolcTLS && !isSQL {
-			return fmt.Errorf("stores: %s %q does not support storage %q kind %q", cfg.Kind, name, cfg.Storage, storageKind)
-		}
-		if cfg.Kind == KindLogMutable && storageKind == storage.KindVolcTLS {
-			return fmt.Errorf("stores: %s %q does not support volc-tls", cfg.Kind, name)
-		}
-		if err := invalid(cfg.Prefix != "", "prefix"); err != nil {
-			return err
-		}
-		if isSQL {
-			if cfg.Database != "" || cfg.TopicID != "" {
-				return fmt.Errorf("stores: %s %q SQL storage does not support database or topic_id", cfg.Kind, name)
-			}
-			return requireSQLTable()
-		}
-		if storageKind == storage.KindVolcTLS {
-			if cfg.Database != "" || cfg.Table != "" {
-				return fmt.Errorf("stores: log %q volc-tls storage does not support database or table", name)
-			}
-			if cfg.TopicID == "" {
-				return fmt.Errorf("stores: log %q volc-tls storage requires topic_id", name)
-			}
-			return nil
-		}
-		if cfg.TopicID != "" {
-			return fmt.Errorf("stores: log %q clickhouse storage does not support topic_id", name)
-		}
-		if cfg.Table == "" {
-			return fmt.Errorf("stores: log %q requires table for clickhouse storage", name)
+		if strings.TrimSpace(cfg.TopicID) == "" {
+			return fmt.Errorf("stores: log %q volc-tls storage requires topic_id", name)
 		}
 	default:
 		return fmt.Errorf("stores: %q has unknown kind %q", name, cfg.Kind)
@@ -476,25 +440,6 @@ func (r *Stores) Log(name string) (logstore.ImmutableStore, error) {
 		return nil, fmt.Errorf("stores: log %q not found", name)
 	}
 	return s, nil
-}
-
-// MutableLog returns the named log store when its driver supports record
-// replacement and deletion.
-func (r *Stores) MutableLog(name string) (logstore.MutableStore, error) {
-	if _, ok := r.mutableLogs[name]; !ok {
-		if _, exists := r.logs[name]; exists {
-			return nil, fmt.Errorf("stores: log %q is not declared %s", name, KindLogMutable)
-		}
-	}
-	store, err := r.Log(name)
-	if err != nil {
-		return nil, err
-	}
-	mutable, ok := store.(logstore.MutableStore)
-	if !ok {
-		return nil, fmt.Errorf("stores: log %q does not support mutable records", name)
-	}
-	return mutable, nil
 }
 
 // Close releases logical stores. Physical storage is always caller-owned.
@@ -654,50 +599,22 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 	if err != nil {
 		return nil, fmt.Errorf("stores: log %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	switch kind {
-	case storage.KindSQLite:
-		db, err := r.storage.SQL(cfg.Storage)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q resolve %s storage %q: %w", name, kind, cfg.Storage, err)
-		}
-		store, err := logstore.NewSQLStoreWithDBAndTTL(db, cfg.Table, cfg.TTL)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q %s table %q: %w", name, kind, cfg.Table, err)
-		}
-		return store, nil
-	case storage.KindClickHouse:
-		db, err := r.storage.SQL(cfg.Storage)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q resolve clickhouse storage %q: %w", name, cfg.Storage, err)
-		}
-		store, err := logstore.NewClickHouseStoreWithDBAndTTL(db.DB, cfg.Database, cfg.Table, cfg.TTL)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q clickhouse: %w", name, err)
-		}
-		return store, nil
-	case storage.KindVolcTLS:
-		if cfg.Kind == KindLogMutable {
-			return nil, fmt.Errorf("stores: %s %q does not support volc-tls", cfg.Kind, name)
-		}
-		if cfg.Database != "" || cfg.Table != "" {
-			return nil, fmt.Errorf("stores: log %q volc-tls storage does not support database or table", name)
-		}
-		client, err := r.storage.VolcTLS(cfg.Storage)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q resolve volc-tls storage %q: %w", name, cfg.Storage, err)
-		}
-		connector, err := logstore.NewVolcConnectorWithClient(client)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
-		}
-		st, err := connector.Store(cfg.TopicID)
-		if err != nil {
-			return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
-		}
-		return st, nil
-	default:
-		return nil, fmt.Errorf("stores: %s %q does not support storage %q kind %q", cfg.Kind, name, cfg.Storage, kind)
+	if kind != storage.KindVolcTLS {
+		return nil, fmt.Errorf("stores: log %q requires a logging service; storage %q kind %q is unsupported", name, cfg.Storage, kind)
 	}
+	client, err := r.storage.VolcTLS(cfg.Storage)
+	if err != nil {
+		return nil, fmt.Errorf("stores: log %q resolve volc-tls storage %q: %w", name, cfg.Storage, err)
+	}
+	connector, err := logstore.NewVolcConnectorWithClient(client)
+	if err != nil {
+		return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
+	}
+	st, err := connector.Store(cfg.TopicID)
+	if err != nil {
+		return nil, fmt.Errorf("stores: log %q volc-tls: %w", name, err)
+	}
+	return st, nil
 }
 
 func (r *Stores) newSQL(name string, cfg Config) (*sqlx.DB, error) {

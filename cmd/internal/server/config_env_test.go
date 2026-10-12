@@ -74,6 +74,9 @@ stores:
     kind: log.immutable
     storage: ${T_KIND}
     topic_id: ${T_ZERO_PADDED}
+  assets:
+    kind: objectstore
+    storage: files
     ttl: ${T_TTL}
 services:
   peer:
@@ -123,8 +126,11 @@ profiling:
 	if got := cfg.Storage["${T_KIND}"]; got != (storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "postgres://gizclaw:pa$word@db:5432/gizclaw"}) {
 		t.Fatalf("storage = %+v", cfg.Storage)
 	}
-	if got := cfg.Stores["logs"]; got != (storeFileConfig{Kind: "log.immutable", Storage: "postgresql", TopicID: "007", TTL: "2160h"}) {
+	if got := cfg.Stores["logs"]; got != (storeFileConfig{Kind: "log.immutable", Storage: "postgresql", TopicID: "007"}) {
 		t.Fatalf("stores.logs = %+v", got)
+	}
+	if cfg.Stores["assets"].TTL != "2160h" {
+		t.Fatalf("assets ttl = %q", cfg.Stores["assets"].TTL)
 	}
 	services := cfg.Services
 	if services == nil || services.Peer == nil || services.Peer.Store != "business" || services.SFU == nil || services.SystemLog == nil {
