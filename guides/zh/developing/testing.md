@@ -1016,6 +1016,17 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
   `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
   在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
+- `peer_stream.allowed_terminal_error` 只适用于 listen，可声明一条旧 logical stream 的
+  预期 EOS。`code`、`message`、`stream_id`、`label` 和 `retryable` 全部必填，均按字面值
+  精确匹配；不接受变量、子串或正则。一条窗口最多接受一次匹配的 EOS，随后继续收听到原定
+  窗口结束，所有音频仍计入 `audio_bytes` 和 `packets`，包括与该 EOS 同一个 chunk 的
+  payload。错误缺字段、不匹配、重复、非 EOS、stream 提前关闭和取消仍使步骤失败。
+  `terminal_errors`、`accepted_terminal_errors` 和 `terminal_error_events` 保存错误码、
+  stream ID、label、retryable、接收时间偏移和匹配结果。成员移除场景先用 RPC 验证被移除
+  Peer 仍选择原 Workspace 且 Runtime 已停止／错误，再仅允许该 Peer 的
+  `AGENT_OUTPUT_ERROR`、`sfu: workspace access revoked`、`agent-output-error`、`agent`、
+  `retryable: true` EOS；其他成员的 listen 不声明该例外。Runtime RPC 状态不是客户端
+  Peer Event 消费的确认，不能用固定 sleep 代替这种显式契约。
 - SFU 发送探针通过 `measure_first_packet: true` 和 `completion: input_sent` 记录首个
   非空 Opus 包。相同 task 的 listen 按唯一 packet ID 和发送者关联收包，独立报告启动等待与
   收发延迟；空数组表示没有可证明的对应首包，不表示零延迟。字段、单调时钟边界与旧
