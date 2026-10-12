@@ -1,5 +1,5 @@
 x-coturn: &coturn
-  image: coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
+  image: gizcr.gizclaw.com/docker.io/coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
   entrypoint: ["/usr/local/bin/gizclaw-coturn-entrypoint"]
   environment: &coturn-environment
     GIZCLAW_COTURN_AUTH_MODE: static
@@ -130,7 +130,7 @@ services:
         ipv4_address: ${GIZCLAW_E2E_GATEWAY_RELAY_TURN_B_IP:?set by docker-compose-up.sh}
 
   gateway-fault:
-    image: nicolaka/netshoot:v0.13@sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b
+    image: gizcr.gizclaw.com/docker.io/nicolaka/netshoot:v0.13@sha256:a20c2531bf35436ed3766cd6cfe89d352b050ccc4d7005ce6400adf97503da1b
     network_mode: service:edge
     cap_add:
       - NET_ADMIN

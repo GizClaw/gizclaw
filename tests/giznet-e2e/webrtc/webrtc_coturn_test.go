@@ -40,7 +40,6 @@ type coturnMetrics struct {
 
 func TestWebRTCCoturn(t *testing.T) {
 	for _, fixture := range coturnFixtures(t) {
-		fixture := fixture
 		t.Run(fixture.name, func(t *testing.T) {
 			t.Run("packet_and_service_stream", func(t *testing.T) {
 				testCoturnPacketAndServiceStream(t, fixture)

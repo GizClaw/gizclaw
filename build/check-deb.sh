@@ -101,7 +101,7 @@ command -v docker >/dev/null 2>&1 || { echo "required command not found: docker"
 package_dir="$(cd "$(dirname "$package_path")" && pwd)"
 docker run --rm --platform "linux/$architecture" \
   --volume "$package_dir:/packages:ro" \
-  ubuntu:24.04 \
+  gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
   bash -euc '
     export DEBIAN_FRONTEND=noninteractive
     package="/packages/$1"

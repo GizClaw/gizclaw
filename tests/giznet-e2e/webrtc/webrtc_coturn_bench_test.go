@@ -26,7 +26,7 @@ const (
 	coturnRTTSamples        = 200
 	coturnThroughputSamples = 3
 	coturnThroughputBytes   = 32 * 1024 * 1024
-	coturnImage             = "coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978"
+	coturnImage             = "gizcr.gizclaw.com/docker.io/coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978"
 )
 
 type coturnMeasurementPath struct {
@@ -128,7 +128,6 @@ func TestCoturnTransportMeasurements(t *testing.T) {
 	artifact.Docker = commandOutput(t, "docker", "version", "--format", "{{.Server.Os}}/{{.Server.Arch}} {{.Server.Version}}")
 
 	for _, path := range paths {
-		path := path
 		t.Run(path.Name, func(t *testing.T) {
 			artifact.Paths = append(artifact.Paths, measureCoturnPath(t, path))
 		})

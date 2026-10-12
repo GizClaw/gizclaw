@@ -1,5 +1,5 @@
 x-coturn: &coturn
-  image: coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
+  image: gizcr.gizclaw.com/docker.io/coturn/coturn:4.7.0-r0@sha256:99bf5bf6ab1c119862d0c3d2dfb2bbf805a86a131492cab18c148be64ae7d978
   entrypoint: ["/usr/local/bin/gizclaw-coturn-entrypoint"]
   environment:
     GIZCLAW_COTURN_LISTEN_PORT: "3478"

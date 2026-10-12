@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=docker.1ms.run/library/ubuntu:24.04
+ARG BASE_IMAGE=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
 FROM ${BASE_IMAGE} AS base
 
 ARG APT_MIRROR=http://mirrors.tuna.tsinghua.edu.cn/ubuntu

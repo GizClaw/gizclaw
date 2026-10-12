@@ -521,7 +521,7 @@ jobs:
       contents: read
     services:
       postgres:
-        image: postgres:17
+        image: gizcr.gizclaw.com/docker.io/library/postgres:17
         env:
           POSTGRES_USER: gizclaw
           POSTGRES_PASSWORD: gizclaw
@@ -583,7 +583,7 @@ jobs:
       contents: read
     services:
       clickhouse:
-        image: clickhouse/clickhouse-server:25.8@sha256:aec6fb9892becb6a20eb8d57708b8cf9c777b2ad1f4eb70bbece7a70eaed9fd0
+        image: gizcr.gizclaw.com/docker.io/clickhouse/clickhouse-server:25.8@sha256:aec6fb9892becb6a20eb8d57708b8cf9c777b2ad1f4eb70bbece7a70eaed9fd0
         env:
           CLICKHOUSE_USER: gizclaw
           CLICKHOUSE_PASSWORD: gizclaw
@@ -881,7 +881,7 @@ jobs:
     permissions:
       contents: read
     env:
-      GIZCLAW_E2E_DOCKER_BASE_FROM: ubuntu:24.04
+      GIZCLAW_E2E_DOCKER_BASE_FROM: gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
       GIZCLAW_E2E_APT_MIRROR: http://archive.ubuntu.com/ubuntu
       GIZCLAW_E2E_APT_PORTS_MIRROR: http://ports.ubuntu.com/ubuntu-ports
       GIZCLAW_E2E_GO_MIRROR: https://go.dev/dl

@@ -133,6 +133,10 @@ base；CN 是构建源选择，不改变模型、API 或镜像运行行为。
 Go 程序和基础镜像的 Dockerfile 位于 `build/gizclaw/`；
 `build/build-linux.sh` 选择标准或 CN 基础镜像并导出 `gizclaw` executable。
 
+标准与 CN 构建、Runtime 包装和 Debian 验证通过
+[DCDN Registry](testing#docker-镜像来源) 拉取 Ubuntu/Python 镜像。
+Runtime 的 OCI base label 与发布 receipt 记录上游 Ubuntu 名称和固定 digest。
+
 Flutter SDK 包命名为 `flutter-gizclaw-<version>.tar.gz` 与
 `flutter-gizclaw_control-<version>.tar.gz`，采用 pub hosted archive 布局：archive 根目录直接是
 package 根，只包含 `pubspec.yaml`、`LICENSE` 与 Git 跟踪的 `lib/**/*.dart`。
