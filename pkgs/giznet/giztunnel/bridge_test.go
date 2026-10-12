@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -226,7 +227,7 @@ func TestBridgeStreamDrainsOppositeDirectionBeforeClosing(t *testing.T) {
 	right := newBridgeTestConn()
 	done := make(chan struct{})
 	go func() {
-		bridgeStream(left, right)
+		bridgeStream(left, right, false)
 		close(done)
 	}()
 
@@ -260,6 +261,127 @@ func TestBridgeStreamDrainsOppositeDirectionBeforeClosing(t *testing.T) {
 			t.Fatalf("%s stream was not closed", name)
 		}
 	}
+}
+
+func TestBridgeServiceCancellationKeepsOtherStreamsUsable(t *testing.T) {
+	left, right := newBridgeAggregateTestConn(), newBridgeAggregateTestConn()
+	defer left.Close()
+	defer right.Close()
+	initiator, provider := newBridgeTestConn(), newBridgeTestConn()
+	otherInitiator, otherProvider := newBridgeTestConn(), newBridgeTestConn()
+	defer initiator.Close()
+	defer provider.Close()
+	defer otherInitiator.Close()
+	defer otherProvider.Close()
+	right.dial = func(service uint64) (net.Conn, error) {
+		if service == 0 {
+			return provider, nil
+		}
+		return otherProvider, nil
+	}
+	done := make(chan error, 1)
+	go func() {
+		_, err := BridgeWithServiceCancellation(left, right, 0)
+		done <- err
+	}()
+	left.accepts <- bridgeAcceptResult{service: 0, stream: initiator}
+	left.accepts <- bridgeAcceptResult{service: 1, stream: otherInitiator}
+	initiator.reads <- bridgeTestRead{err: io.EOF}
+	select {
+	case <-provider.closed:
+	case <-time.After(time.Second):
+		t.Fatal("initiator cancellation did not reach the provider")
+	}
+	for _, parent := range []*bridgeAggregateTestConn{left, right} {
+		select {
+		case <-parent.closed:
+			t.Fatal("one cancelled service closed its parent connection")
+		default:
+		}
+	}
+	otherInitiator.reads <- bridgeTestRead{data: []byte("still connected")}
+	select {
+	case payload := <-otherProvider.writes:
+		if string(payload) != "still connected" {
+			t.Fatalf("other stream payload = %q", payload)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("another service stopped making progress")
+	}
+	otherInitiator.reads <- bridgeTestRead{err: io.EOF}
+	otherProvider.reads <- bridgeTestRead{err: io.EOF}
+	for _, stream := range []*bridgeTestConn{otherInitiator, otherProvider} {
+		select {
+		case <-stream.closed:
+		case <-time.After(time.Second):
+			t.Fatal("completed service did not close")
+		}
+	}
+	left.accepts <- bridgeAcceptResult{err: io.EOF}
+	select {
+	case err := <-done:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("bridge did not shut down")
+	}
+}
+
+func TestBridgeServiceCancellationStillDrainsProviderResponse(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		left, right := newBridgeTestConn(), newBridgeTestConn()
+		defer left.Close()
+		defer right.Close()
+		done := make(chan struct{})
+		go func() { bridgeStream(left, right, true); close(done) }()
+		right.reads <- bridgeTestRead{data: []byte("complete response")}
+		right.reads <- bridgeTestRead{err: io.EOF}
+		synctest.Wait()
+		if payload := <-left.writes; string(payload) != "complete response" {
+			t.Fatalf("response = %q", payload)
+		}
+		select {
+		case <-left.closed:
+			t.Fatal("provider response was closed before the initiator consumed it")
+		default:
+		}
+		left.reads <- bridgeTestRead{err: io.EOF}
+		synctest.Wait()
+		select {
+		case <-done:
+		default:
+			t.Fatal("completed response did not release its bridge")
+		}
+	})
+}
+
+func TestBridgeDefaultStillDrainsInitiatorRequest(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		left, right := newBridgeTestConn(), newBridgeTestConn()
+		defer left.Close()
+		defer right.Close()
+		done := make(chan struct{})
+		go func() { bridgeStream(left, right, false); close(done) }()
+		left.reads <- bridgeTestRead{data: []byte("request tail")}
+		left.reads <- bridgeTestRead{err: io.EOF}
+		synctest.Wait()
+		if payload := <-right.writes; string(payload) != "request tail" {
+			t.Fatalf("request = %q", payload)
+		}
+		select {
+		case <-right.closed:
+			t.Fatal("unlisted service lost its request drain")
+		default:
+		}
+		right.reads <- bridgeTestRead{err: io.EOF}
+		synctest.Wait()
+		select {
+		case <-done:
+		default:
+			t.Fatal("completed request did not release its bridge")
+		}
+	})
 }
 
 type bridgeTestRead struct {

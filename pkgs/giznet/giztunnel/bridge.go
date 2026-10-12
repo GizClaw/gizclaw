@@ -83,6 +83,24 @@ func Bridge(left, right giznet.Conn) error {
 // between two Giznet connections and returns a bounded diagnostic summary.
 // Its returned error and connection-close behavior are compatible with Bridge.
 func BridgeWithObservation(left, right giznet.Conn) (BridgeObservation, error) {
+	return bridgeWithObservation(left, right, nil)
+}
+
+// BridgeWithServiceCancellation forwards connections like BridgeWithObservation,
+// but closes the destination stream immediately when the initiator closes a
+// listed service stream. Callers must only list services whose initiator keeps
+// the stream open until the provider has completed its response. Provider-first
+// closes still drain the response, and unlisted services retain normal draining.
+// The service IDs are copied before the forwarding goroutines start.
+func BridgeWithServiceCancellation(left, right giznet.Conn, services ...uint64) (BridgeObservation, error) {
+	cancelServices := make(map[uint64]bool, len(services))
+	for _, service := range services {
+		cancelServices[service] = true
+	}
+	return bridgeWithObservation(left, right, cancelServices)
+}
+
+func bridgeWithObservation(left, right giznet.Conn, cancelServices map[uint64]bool) (BridgeObservation, error) {
 	if enabler, ok := left.(giznet.ServiceAcceptEnabler); ok {
 		enabler.EnableServiceAccept()
 	}
@@ -106,10 +124,10 @@ func BridgeWithObservation(left, right giznet.Conn) (BridgeObservation, error) {
 		}
 	}
 	go func() {
-		reportTerminal(bridgeServices(leftServices, right, bridgeDirectionLeftToRight, state))
+		reportTerminal(bridgeServices(leftServices, right, bridgeDirectionLeftToRight, state, cancelServices))
 	}()
 	go func() {
-		reportTerminal(bridgeServices(rightServices, left, bridgeDirectionRightToLeft, state))
+		reportTerminal(bridgeServices(rightServices, left, bridgeDirectionRightToLeft, state, cancelServices))
 	}()
 	go func() {
 		reportTerminal(bridgePackets(left, right, bridgeDirectionLeftToRight))
@@ -131,6 +149,7 @@ func bridgeServices(
 	destination giznet.Conn,
 	direction string,
 	state *bridgeObservationState,
+	cancelServices map[uint64]bool,
 ) bridgeLoopResult {
 	for {
 		service, sourceStream, err := source.AcceptService()
@@ -148,30 +167,32 @@ func bridgeServices(
 			state.recordOpenRejection(direction, err)
 			continue
 		}
-		go bridgeStream(sourceStream, destinationStream)
+		go bridgeStream(sourceStream, destinationStream, cancelServices[service])
 	}
 }
 
-func bridgeStream(left, right net.Conn) {
-	done := make(chan struct{}, 2)
+func bridgeStream(left, right net.Conn, cancelOnInitiatorClose bool) {
+	done := make(chan bool, 2)
 	go func() {
 		_, _ = io.Copy(left, right)
-		done <- struct{}{}
+		done <- false
 	}()
 	go func() {
 		_, _ = io.Copy(right, left)
-		done <- struct{}{}
+		done <- true
 	}()
-	<-done
+	initiatorClosed := <-done
 	// A full-close transport can report EOF after its final writes while the
 	// opposite endpoint is still consuming those bytes. Let that endpoint close
 	// in response before forcing teardown, otherwise its queued response can be
 	// discarded by an eager DataChannel close.
-	timer := time.NewTimer(bridgeStreamDrainTimeout)
-	defer timer.Stop()
-	select {
-	case <-done:
-	case <-timer.C:
+	if !cancelOnInitiatorClose || !initiatorClosed {
+		timer := time.NewTimer(bridgeStreamDrainTimeout)
+		defer timer.Stop()
+		select {
+		case <-done:
+		case <-timer.C:
+		}
 	}
 	_ = left.Close()
 	_ = right.Close()
