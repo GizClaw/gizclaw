@@ -62,16 +62,17 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 	if config.FloorIdle <= 0 {
 		config.FloorIdle = DefaultFloorIdle
 	}
+	logger := f.Logger
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger = logger.With("workspace", workspaceID)
 	connector := f.connector
 	if connector == nil {
 		if strings.TrimSpace(config.URL) == "" || config.APIKey == "" || config.APISecret == "" {
 			return nil, errors.New("sfu: services.sfu is not configured on this Server")
 		}
-		connector = livekitConnector{apiKey: config.APIKey, apiSecret: config.APISecret}
-	}
-	logger := f.Logger
-	if logger == nil {
-		logger = slog.Default()
+		connector = livekitConnector{apiKey: config.APIKey, apiSecret: config.APISecret, logger: logger}
 	}
 	return &Agent{
 		workspaceID:   workspaceID,
@@ -79,7 +80,7 @@ func (f Factory) NewAgent(_ context.Context, spec agenthost.Spec) (agenthost.Age
 		config:        config,
 		bindings:      f.Bindings,
 		connector:     connector,
-		logger:        logger.With("workspace", workspaceID),
+		logger:        logger,
 		sessions:      make(map[string]*session),
 	}, nil
 }

@@ -63,6 +63,12 @@ func (s *Store) Observe(handler slog.Handler) slog.Handler {
 func (h *observedHandler) Handle(ctx context.Context, record slog.Record) error {
 	h.store.entries.Add(1)
 	category := 4
+	record.Attrs(func(attr slog.Attr) bool {
+		if attr.Key == "sdk" && attr.Value.String() == "livekit" {
+			category = 1
+		}
+		return true
+	})
 	switch {
 	case strings.HasPrefix(record.Message, "local log pressure"):
 		category = 0

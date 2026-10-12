@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/http/httptrace"
 	"sync"
@@ -86,6 +87,7 @@ const (
 type livekitConnector struct {
 	apiKey    string
 	apiSecret string
+	logger    *slog.Logger
 }
 
 func (c livekitConnector) connect(ctx context.Context, params connectParams, events roomEvents) (roomClient, error) {
@@ -135,7 +137,9 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 	}
 	ctx, cancel := context.WithTimeout(ctx, livekitDefaultConnectTO)
 	defer cancel()
+	installLiveKitLogger()
 	room := lksdk.NewRoom(callback)
+	room.SetLogger(newLiveKitLogger(ctx, c.logger))
 	var disconnectOnce sync.Once
 	disconnect := func() { disconnectOnce.Do(room.Disconnect) }
 	// Gorilla's DialContext applies a deadline to the HTTP upgrade, but a

@@ -128,6 +128,8 @@ every sink also receives that exact `node_id`. Deploy injects a stable logical
 node name; GizClaw never derives one from an IP address, hostname, endpoint, or
 public key.
 
+The LiveKit SFU connector maps SDK `Debugw`, `Infow`, `Warnw` and `Errorw` directly to slog DEBUG, INFO, WARN and ERROR, bypassing the standard log bridge that loses severity. Each Room keeps the authenticated Peer correlation from its attachment context, including cancellation diagnostics. The SDK’s internal Pion logger follows the process `slog.Default` without binding one Room’s Peer. WARN sinks retain SDK/Pion WARN and ERROR while filtering DEBUG and INFO. The SDK logger copies only transport/state enum fields and marks errors with `error_present`; it omits raw provider errors, SDP, ICE server, candidate and HTTP response attributes.
+
 AgentHost binds the authenticated Peer `peer_public_key` to the Agent execution
 context. Provider records emitted through context-aware `slog` calls inherit
 that field. Startup, storage, and other process-global records without a Peer

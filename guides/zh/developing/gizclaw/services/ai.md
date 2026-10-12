@@ -157,6 +157,8 @@ voice_adapter:
 
 Factory 持有 Server 级 `services.sfu` credential 与 `BindingResolver`。每个 Workspace 在一台 Server 上只构造一个共享 Agent；每次 Transform 把调用 Peer 作为一个 LiveKit participant attach 到 Room，participant identity 就是 Peer public key，attach 的生命周期由 Transform context 拥有。attach 前先通过 `BindingResolver` 校验权威 membership，`ErrNotMember`、`ErrRevoked`、`ErrNotBound` 都 fail closed；连接失败作为 reload failure 返回。
 
+Connector 为每个 LiveKit Room 显式安装保留 SDK 原始级别的结构化 logger；内部 Pion 使用进程 logger。级别、取消诊断 context 和 SDK 字段边界见 [Observability](/zh/developing/observability#结构化日志)。
+
 初次 Join 和 Track publish 使用 attachment 自己的 context，并共享 15 秒初始化上限。
 LiveKit Join 接收该 context；SDK 内部仍有独立的 ICE／publish timer，因此 connector 在
 取消时主动断开 Room 并释放调用方，不让旧初始化继续占用 Peer 的 Runtime transition。
