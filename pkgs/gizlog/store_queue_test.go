@@ -85,7 +85,7 @@ func TestStoreSinkDoesNotBlockFirstResponseOnNetwork(t *testing.T) {
 	}
 }
 
-func TestStoreQueueBackpressurePreservesAcceptedRecords(t *testing.T) {
+func TestStoreQueueRejectsOverloadAndPreservesAcceptedRecords(t *testing.T) {
 	store := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{})}
 	q := newStoreQueue(slog.NewTextHandler(io.Discard, nil))
 	q.jobs = make(chan storeJob, 2)
@@ -98,7 +98,9 @@ func TestStoreQueueBackpressurePreservesAcceptedRecords(t *testing.T) {
 		_, err := appender.Append(ctx, []logstore.Record{{ID: id, Attributes: map[string]string{"captured": id}}})
 		return err
 	}
-	if err := appendRecord(t.Context(), "1"); err != nil {
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if err := appendRecord(ctx, "1"); err != nil {
 		t.Fatal(err)
 	}
 	<-store.entered
@@ -107,13 +109,11 @@ func TestStoreQueueBackpressurePreservesAcceptedRecords(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	if err := appendRecord(ctx, "rejected"); !errors.Is(err, context.Canceled) {
+	if err := appendRecord(ctx, "rejected"); !errors.Is(err, ErrStoreQueueFull) {
 		t.Fatalf("full queue error=%v", err)
 	}
 	unblock()
-	if err := q.close(); err != nil {
+	if err := q.close(); !errors.Is(err, ErrStoreQueueFull) {
 		t.Fatal(err)
 	}
 	if err := appendRecord(t.Context(), "closed"); !errors.Is(err, errStoreQueueClosed) {
@@ -130,6 +130,56 @@ func TestStoreQueueBackpressurePreservesAcceptedRecords(t *testing.T) {
 	}
 	if !slices.Equal(ids, []string{"1", "2", "3"}) {
 		t.Fatalf("accepted records=%v", ids)
+	}
+}
+
+type gatedReportHandler struct {
+	slog.Handler
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (h *gatedReportHandler) Handle(ctx context.Context, record slog.Record) error {
+	close(h.entered)
+	<-h.release
+	return h.Handler.Handle(ctx, record)
+}
+
+func TestStoreQueueOverloadCoalescesWithoutBlockingOnFallback(t *testing.T) {
+	var output bytes.Buffer
+	fallback := &gatedReportHandler{Handler: slog.NewTextHandler(&output, nil), entered: make(chan struct{}), release: make(chan struct{})}
+	q := newStoreQueue(fallback)
+	q.jobs = make(chan storeJob, 1)
+	job := storeJob{name: "logs", records: []logstore.Record{{ID: "accepted"}}}
+	if err := q.enqueue(t.Context(), job); err != nil {
+		t.Fatal(err)
+	}
+	for range 1000 {
+		if err := q.enqueue(t.Context(), job); !errors.Is(err, ErrStoreQueueFull) {
+			t.Fatalf("overload: %v", err)
+		}
+	}
+	// Block a real rejection summary, then prove producers still finish.
+	done := make(chan struct{})
+	go func() { q.reportRejections(); close(done) }()
+	<-fallback.entered
+	var release sync.Once
+	unblock := func() { release.Do(func() { close(fallback.release) }) }
+	defer func() { unblock(); <-done; q.cancel() }()
+	returned := make(chan error, 1)
+	go func() { returned <- q.enqueue(t.Context(), job) }()
+	select {
+	case err := <-returned:
+		if !errors.Is(err, ErrStoreQueueFull) {
+			t.Fatalf("overload: %v", err)
+		}
+	case <-time.After(500 * time.Millisecond):
+		t.Fatal("producer waited for stderr reporting")
+	}
+	unblock()
+	<-done
+	if !strings.Contains(output.String(), "records=1000") || !strings.Contains(output.String(), "reason=full") {
+		t.Fatalf("missing aggregate rejection count: %s", output.String())
 	}
 }
 
@@ -174,7 +224,7 @@ func TestStoreQueueConcurrentCloseKeepsEveryAcceptedRecord(t *testing.T) {
 			_, err := appender.Append(t.Context(), []logstore.Record{{ID: id}})
 			if err == nil {
 				results <- id
-			} else if !errors.Is(err, errStoreQueueClosed) {
+			} else if !errors.Is(err, errStoreQueueClosed) && !errors.Is(err, ErrStoreQueueFull) {
 				t.Errorf("append: %v", err)
 			}
 		})
@@ -185,7 +235,7 @@ func TestStoreQueueConcurrentCloseKeepsEveryAcceptedRecord(t *testing.T) {
 	unblock()
 	writers.Wait()
 	close(results)
-	if err := <-closed; err != nil {
+	if err := <-closed; err != nil && !errors.Is(err, ErrStoreQueueFull) {
 		t.Fatal(err)
 	}
 	want := []string{"first"}

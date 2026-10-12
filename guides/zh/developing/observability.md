@@ -109,7 +109,11 @@ GenX stream、Transformer 的 EOS/cancel/backpressure 指标由 `pkgs/genx` 的 
 
 ### 输出格式
 
-每次带 Store sink 的 `NewLogger` 创建独立的有界队列与一个 worker，供该 logger 的全部 Store sink 共用，队列最多保留 1024 次写入。不同 logger 之间不保证写入顺序，cleanup 只排空所属 logger；共享 Store 的所有 logger 都必须完成 cleanup 后，registry 才能关闭 Store。仅 stderr 的 logger 不启动 worker。队列满时调用方等待空位，不静默丢弃已接收的审计记录。同一 sink 的相邻记录最多按 64 条合批，不等待凑满批次。每批后台写入及其重试共用 5 秒期限；部分接受时只按顺序重试未接受的后缀，不重放已接受前缀。错误或零进展后等待 10 ms 再重试，到期报告剩余记录数并返回 cleanup 错误。失败只向 stderr 报告 sink 名称和剩余记录数，不输出 provider 错误正文；logger cleanup 在关闭 registry-owned Store 之前排空队列，整个排空共用 5 秒期限，写入失败或无法完成排空会返回错误。队列不持久化，进程崩溃可能丢失未排空记录。日志查询存在短暂的队列延迟；调用方返回不再表示 Store 已持久化。
+每次带 Store sink 的 `NewLogger` 创建独立的有界队列与一个 worker，供该 logger 的全部 Store sink 共用，队列最多保留 1024 次写入。不同 logger 之间不保证写入顺序，cleanup 只排空所属 logger；共享 Store 的所有 logger 都必须完成 cleanup 后，registry 才能关闭 Store。仅 stderr 的 logger 不启动 worker。
+
+Store 准入不等待网络或队列空位。队列满时拒绝本次新记录，handler 返回 `gizlog.ErrStoreQueueFull`，不驱逐已接受记录，也不为每条日志创建 goroutine。`slog.Info` 等便捷方法和标准 `log.Print`/`log.Printf` 忽略 handler error，所以 worker 会向 stderr 聚合报告 `system log store records rejected`，摘要字段为 sink 名称 `store`、`reason=full|projection` 和拒绝数 `records`，保留常规时间、源码和配置中的 `node_id` 元数据；不复制原始消息、Peer/请求身份或 provider 错误。worker 可用时每秒报告，慢 Store 会延迟报告，cleanup 刷新剩余计数。只要曾因容量拒绝记录，cleanup 即使成功排空也返回 `ErrStoreQueueFull`。这不是无损审计通道。Context 用于记录关联信息，已取消的 context 仍尝试非阻塞准入，避免丢掉取消诊断。
+
+同一 sink 的相邻记录最多按 64 条合批，不等待凑满批次。每批后台写入及其重试共用 5 秒期限；部分接受时只按顺序重试未接受的后缀，不重放已接受前缀。错误或零进展后等待 10 ms 再重试，到期报告剩余记录数并返回 cleanup 错误。写入失败只向 stderr 报告 sink 名称和剩余记录数，不输出 provider 错误正文；整个 cleanup 排空共用 5 秒期限，Store 必须遵守 context。队列不持久化，进程崩溃、后台写入失败或未能排空都可能丢失未持久化记录。日志调用成功只表示队列接受，查询可能滞后，不能据此确认 Store 持久化。stderr sink 和直接业务 LogStore 写入仍同步；拒绝摘要由后台 worker 输出，不会在媒体、RTC 回调或取消调用中等待 stderr。
 
 代码继续直接使用全局 `slog`，优先通过 `slog.LogAttrs(ctx, ...)` 输出 scalar attributes。配置化 logger 自动为 stderr 和 Store sink 增加调用源码；Store record 使用 `source_file` 和十进制 `source_line`。配置了 `system_log.node_id` 时，每个 sink 还包含完全相同的 `node_id`。该值由 Deploy 显式注入稳定的逻辑节点名，GizClaw 不根据 IP、hostname、endpoint 或 public key 推断节点身份。
 

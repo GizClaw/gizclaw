@@ -48,7 +48,7 @@ if ((sfu_delay > 0)) && [[ "$sfu_case" != removal ]]; then
   echo "SFU terminal delay requires the removal case" >&2; exit 2
 fi
 if [[ -n "$sfu_case" ]]; then
-  case "$sfu_case" in startup | removal) ;; *) echo "SFU case must be startup or removal" >&2; exit 2 ;; esac
+  case "$sfu_case" in startup | removal | logging | logging-join | logging-media | logging-stop) ;; *) echo "unsupported SFU case" >&2; exit 2 ;; esac
   if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
     echo "SFU and social notification cases are separate runs" >&2; exit 2
   fi
@@ -56,6 +56,12 @@ if [[ -n "$sfu_case" ]]; then
     echo "SFU repeat must be 1..64" >&2; exit 2
   fi
   compose_files+=(-f "$script_dir/docker/docker-compose.sfu-regression.yaml")
+  if [[ "$sfu_case" == logging* ]]; then
+    if ((sfu_repeat != 1)); then
+      echo "logging pressure uses one deterministic three-Peer task" >&2; exit 2
+    fi
+    compose_files+=(-f "$script_dir/docker/docker-compose.logging-pressure.yaml")
+  fi
   export GIZCLAW_E2E_GIZTEST_PARALLEL="${GIZCLAW_E2E_GIZTEST_PARALLEL:-$sfu_repeat}"
   if [[ ! "$GIZCLAW_E2E_GIZTEST_PARALLEL" =~ ^[1-9][0-9]?$ ]] || ((GIZCLAW_E2E_GIZTEST_PARALLEL > 64)); then
     echo "SFU parallel must be 1..64" >&2; exit 2
@@ -145,8 +151,18 @@ cleanup() {
         cp "$report_dir/$artifact" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/$artifact"
       fi
     done
+    if [[ "$sfu_case" == logging* ]]; then
+      compose exec -T server-b curl -fsS http://127.0.0.1:9789/profile > "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/blocked-goroutines.txt" || true
+      compose exec -T server-b curl -fsS http://127.0.0.1:9789/status > "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/log-store-status.json" || true
+      for artifact in "$report_dir"/logging-*; do
+        [[ ! -f "$artifact" ]] || cp "$artifact" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/"
+      done
+    fi
     if [[ -n "$probe_dir" && -f "$probe_dir/injection.patch" ]]; then
       cp "$probe_dir/injection.patch" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/injection.patch"
+      if [[ -f "$probe_dir/logging-source.json" ]]; then
+        cp "$probe_dir/logging-source.json" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/logging-source.json"
+      fi
     fi
   fi
   if (( status != 0 )); then
@@ -165,10 +181,18 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$bin_dir" "$report_dir"
+if [[ -n "$sfu_case" ]]; then
+  report_dir="$(cd "$report_dir" && pwd -P)"
+  export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
+fi
 probe_mount=(-e GIZCLAW_E2E_SFU_PROBE_OVERLAY=)
 if ((sfu_delay > 0)); then
   probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-sfu-probe.XXXXXX")"
   python3 -B "$script_dir/setup/prepare-sfu-probe.py" "$repo_root/pkgs/gizclaw/peer_conn.go" "$probe_dir" "$sfu_delay"
+  probe_mount=(-v "$probe_dir:/probe:ro" -e GIZCLAW_E2E_SFU_PROBE_OVERLAY=/probe/overlay.json)
+elif [[ "$sfu_case" == logging* ]]; then
+  probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-logging-probe.XXXXXX")"
+  python3 -B "$script_dir/setup/prepare-logging-probe.py" "$repo_root/pkgs/gizlog/logger.go" "$probe_dir" "${GIZCLAW_E2E_LOG_PRESSURE_BASE_REF:-}"
   probe_mount=(-v "$probe_dir:/probe:ro" -e GIZCLAW_E2E_SFU_PROBE_OVERLAY=/probe/overlay.json)
 fi
 module_cache="$(go env GOMODCACHE)"
@@ -193,10 +217,12 @@ if [[ -n "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
   cp "$GIZCLAW_E2E_SFU_BINARY" "$server_bin"
 fi
 if [[ -n "$sfu_case" ]]; then
+  prepare_case="$sfu_case"
+  [[ "$prepare_case" != logging ]] || prepare_case=logging-join
   docker run --rm --entrypoint node -v "$repo_root:/src" -v "$report_dir:/reports" \
     "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" /src/tests/gizclaw-e2e/setup/prepare-sfu-case.mjs \
     "/src/$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml" \
-    /reports/sfu-case.giztest.yaml "$sfu_case" "$sfu_repeat" "${GIZCLAW_E2E_SFU_ACCEPT_REVOCATION:-1}" "$sfu_delay"
+    /reports/sfu-case.giztest.yaml "$prepare_case" "$sfu_repeat" "${GIZCLAW_E2E_SFU_ACCEPT_REVOCATION:-1}" "$sfu_delay"
   python3 -B - "$server_bin" "$report_dir/sfu-run.json" "${GIZCLAW_E2E_SFU_BINARY_REVISION:-$(git -C "$repo_root" rev-parse HEAD)}" \
     "$sfu_case" "$sfu_repeat" "$GIZCLAW_E2E_GIZTEST_PARALLEL" "$sfu_delay" "$sfu_udp_mode" "$GIZCLAW_E2E_LIVEKIT_UDP_PORT" "$GIZCLAW_E2E_LIVEKIT_UDP_START" "$GIZCLAW_E2E_LIVEKIT_UDP_END" "$repo_root" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
@@ -215,13 +241,23 @@ fi
 
 compose up --build --wait redis livekit server-a server-b edge-a edge-b
 
+if [[ "$sfu_case" == logging* ]]; then
+  # Every role uses the same Dockerfile and binaries. Reuse the built image
+  # for diagnostic runners instead of rebuilding the source snapshot per case.
+  for role in seed giztest tests; do
+    docker tag "$project-server-b" "$project-$role"
+  done
+fi
+
 seed_server() {
   local server="$1" token_id="$2" admin_env="$3"
+  local build_flags=()
+  [[ "$sfu_case" != logging* ]] || build_flags=(--no-deps --pull never)
   # RuntimeProfile, Workflow and RegistrationToken are Server-local catalog:
   # each Server is seeded independently and Peers register with the token of
   # the Server they are homed on. SFU activation never reads another Peer's
   # profile, so nothing catalog-related is shared between the Servers.
-  compose run --rm -T seed -server "$server" -profile-id multi-server-sfu \
+  compose run "${build_flags[@]}" --rm -T seed -server "$server" -profile-id multi-server-sfu \
     -token-id "$token_id" -admin-key-env "$admin_env" \
     -monitor-workflow-id workspace-reload-echo | tail -n 1
 }
@@ -295,6 +331,30 @@ for task in report.get("tasks", []):
             print(f"    child {child.get('id')} {child.get('operation')} client={child.get('client', '')} status={child.get('status')} error={child.get('error', '')}")
 PY
 }
+
+if [[ "$sfu_case" == logging ]]; then
+  failed=0
+  for phase in logging-join logging-media logging-stop logging-recovery; do
+    compose exec -T server-b curl -fsS http://127.0.0.1:9789/status > "$report_dir/$phase-before-store-status.json"
+    if [[ "$phase" == logging-recovery ]]; then
+      cp "$repo_root/$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml" "$report_dir/$phase.giztest.yaml"
+    else
+      docker run --rm --entrypoint node -v "$repo_root:/src" -v "$report_dir:/reports" \
+        "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" /src/tests/gizclaw-e2e/setup/prepare-sfu-case.mjs \
+        "/src/$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml" \
+        "/reports/$phase.giztest.yaml" "$phase" 1 1 0
+    fi
+    if ! GIZCLAW_E2E_GIZTEST_REPORT_NAME="$phase-report.json" compose run --no-deps --pull never --rm -T giztest "/reports/$phase.giztest.yaml"; then
+      failed=1
+      print_giztest_failures "$report_dir/$phase-report.json"
+    fi
+    if [[ "$phase" != logging-recovery ]]; then
+      compose exec -T server-b curl -fsS http://127.0.0.1:9789/profile > "$report_dir/$phase-goroutines.txt"
+    fi
+    compose exec -T server-b curl -fsS http://127.0.0.1:9789/status > "$report_dir/$phase-store-status.json"
+  done
+  exit "$failed"
+fi
 
 scenarios=(
   "$giztest_dir/sfu.friend.cross-server.audio-bytes.giztest.yaml"

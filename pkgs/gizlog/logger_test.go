@@ -147,23 +147,31 @@ func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 func TestStoreFailureReportingHandlerReportsWithoutProviderText(t *testing.T) {
 	storeErr := errors.New("provider body contains a secret")
 	fallbackState := &recordingState{}
+	queue := newStoreQueue(&recordingHandler{min: slog.LevelInfo, state: fallbackState})
 	handler := newStoreFailureReportingHandler(
 		&recordingHandler{min: slog.LevelInfo, err: storeErr},
-		&recordingHandler{min: slog.LevelInfo, state: fallbackState},
+		queue,
 		"logs",
 	)
 	err := handler.Handle(context.Background(), slog.NewRecord(time.Now(), slog.LevelInfo, "original", 0))
 	if !errors.Is(err, storeErr) {
 		t.Fatalf("Handle() error = %v", err)
 	}
-	if len(fallbackState.records) != 1 || fallbackState.records[0].Message != "system log store sink failed" {
+	if len(fallbackState.records) != 0 {
+		t.Fatal("failure reporting ran on the producer")
+	}
+	go queue.run()
+	if err := queue.close(); err != nil {
+		t.Fatal(err)
+	}
+	if len(fallbackState.records) != 1 || fallbackState.records[0].Message != "system log store records rejected" {
 		t.Fatalf("fallback records = %#v", fallbackState.records)
 	}
 	if fallbackState.attrs["store"] != "logs" || strings.Contains(fallbackState.records[0].Message, "provider body") {
 		t.Fatalf("fallback attrs = %#v record = %#v", fallbackState.attrs, fallbackState.records[0])
 	}
 	frame, _ := runtime.CallersFrames([]uintptr{fallbackState.records[0].PC}).Next()
-	if !strings.HasSuffix(frame.File, "store_failure.go") || frame.Line <= 0 {
+	if !strings.HasSuffix(frame.File, "store_queue.go") || frame.Line <= 0 {
 		t.Fatalf("fallback source = %s:%d", frame.File, frame.Line)
 	}
 }
