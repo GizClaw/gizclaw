@@ -5,8 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 )
@@ -25,7 +26,7 @@ func newTestObjectStore(t testing.TB) *objectstore.Root {
 	return store
 }
 
-func newTestWorkspaceHistoryLog(t testing.TB) logstore.MutableRecordStore {
+func newTestWorkspaceHistoryLog(t testing.TB) memory.HistoryStore {
 	t.Helper()
 	db, err := sqlx.Open("sqlite", filepath.Join(t.TempDir(), "history.sqlite"))
 	if err != nil {
@@ -33,7 +34,7 @@ func newTestWorkspaceHistoryLog(t testing.TB) logstore.MutableRecordStore {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	store, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	store, err := memory.NewSQLHistoryStore(t.Context(), db, "workspace_history", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

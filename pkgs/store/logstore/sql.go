@@ -6,14 +6,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
-	"github.com/lib/pq"
 )
 
 const sqlLogInitializationTimeout = 30 * time.Second
@@ -23,18 +21,14 @@ type preparedSQLRecord struct {
 	attributes string
 }
 
-// SQLStore implements MutableStore over one logical SQLite or PostgreSQL
-// table. A retained PostgreSQL Store owns daily child partitions and a global
-// key table behind that logical parent. The supplied pool is borrowed and is
-// never closed by this adapter.
+// SQLStore implements MutableStore over one logical SQLite table. The supplied
+// pool is borrowed and is never closed by this adapter. PostgreSQL LogStore is
+// unsupported; conversation history uses memory.HistoryStore.
 type SQLStore struct {
-	db          *sqlx.DB
-	table       storage.SQLTable
-	quoted      string
-	keysTable   storage.SQLTable
-	quotedKeys  string
-	ttl         time.Duration
-	partitioned bool
+	db     *sqlx.DB
+	table  storage.SQLTable
+	quoted string
+	ttl    time.Duration
 
 	mu     sync.RWMutex
 	closed bool
@@ -59,34 +53,17 @@ func NewSQLStoreWithDBAndTTL(db *sqlx.DB, table string, ttl time.Duration) (*SQL
 func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string, ttl time.Duration) (*SQLStore, error) {
 	sqlTable, err := storage.PrepareSQLTable(db, "log", table)
 	if err != nil {
-		return nil, fmt.Errorf("logstore: sql table %q: %w", table, err)
-	}
-	partitioned := sqlTable.Dialect() == storage.SQLDialectPostgreSQL && ttl > 0
-	var keysTable storage.SQLTable
-	if partitioned {
-		keysName, err := postgresAuxiliaryName(sqlTable.Name(), "keys")
-		if err != nil {
-			return nil, fmt.Errorf("logstore: derive postgres key table: %w", err)
-		}
-		keysTable, err = storage.PrepareSQLTable(db, "log", keysName)
-		if err != nil {
-			return nil, fmt.Errorf("logstore: prepare postgres key table: %w", err)
-		}
-	}
-	if err := ensureSQLSchema(ctx, db, sqlTable, keysTable, ttl); err != nil {
-		return nil, fmt.Errorf("logstore: initialize sql table %q: %w", table, err)
-	}
-	store := &SQLStore{
-		db: db, table: sqlTable, quoted: sqlTable.Quoted(),
-		keysTable: keysTable, quotedKeys: keysTable.Quoted(), ttl: ttl, partitioned: partitioned,
-	}
-	if err := store.checkSchema(ctx); err != nil {
 		return nil, err
 	}
-	if partitioned {
-		if err := store.maintainPostgresPartitions(ctx); err != nil {
-			return nil, err
-		}
+	if sqlTable.Dialect() != storage.SQLDialectSQLite {
+		return nil, errors.New("logstore: PostgreSQL backend is unsupported; use memory.HistoryStore for conversation history")
+	}
+	if err := ensureSQLSchema(ctx, db, sqlTable); err != nil {
+		return nil, err
+	}
+	store := &SQLStore{db: db, table: sqlTable, quoted: sqlTable.Quoted(), ttl: ttl}
+	if err := store.checkSchema(ctx); err != nil {
+		return nil, err
 	}
 	return store, nil
 }
@@ -94,48 +71,24 @@ func newSQLStoreWithDB(ctx context.Context, db *sqlx.DB, table string, ttl time.
 func (store *SQLStore) checkSchema(ctx context.Context) error {
 	columns, err := storage.SQLColumns(ctx, store.db, store.table)
 	if err != nil {
-		return fmt.Errorf("logstore: inspect sql table %q: %w", store.table.Name(), err)
-	}
-	payloadType := "BLOB"
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
-		payloadType = "BYTEA"
-	}
-	primaryKeyStream, primaryKeyID := 1, 2
-	expirationNullable := true
-	if store.partitioned {
-		primaryKeyStream, primaryKeyID = 0, 0
-		expirationNullable = false
+		return err
 	}
 	want := map[string]storage.SQLColumn{
-		"stream":               {Type: "TEXT", Nullable: false, PrimaryKeyPosition: primaryKeyStream},
-		"id":                   {Type: "TEXT", Nullable: false, PrimaryKeyPosition: primaryKeyID},
-		"timestamp_unix_nano":  {Type: "BIGINT", Nullable: false},
-		"expires_at_unix_nano": {Type: "BIGINT", Nullable: expirationNullable},
-		"kind":                 {Type: "TEXT", Nullable: false},
-		"severity":             {Type: "TEXT", Nullable: false},
-		"message":              {Type: "TEXT", Nullable: false},
-		"attributes_json":      {Type: "TEXT", Nullable: false},
-		"payload_json":         {Type: payloadType, Nullable: false},
+		"stream": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2},
+		"timestamp_unix_nano": {Type: "BIGINT"}, "expires_at_unix_nano": {Type: "BIGINT", Nullable: true},
+		"kind": {Type: "TEXT"}, "severity": {Type: "TEXT"}, "message": {Type: "TEXT"}, "attributes_json": {Type: "TEXT"}, "payload_json": {Type: "BLOB"},
 	}
 	if err := storage.ValidateSQLColumns(columns, want); err != nil {
-		return fmt.Errorf("logstore: incompatible sql table %q: %w", store.table.Name(), err)
-	}
-	if store.partitioned {
-		if err := store.checkPostgresPartitionSchema(ctx); err != nil {
-			return err
-		}
+		return err
 	}
 	for _, index := range sqlLogIndexes {
 		name, err := storage.SQLIndexName(store.table, index.purpose)
 		if err != nil {
-			return fmt.Errorf("logstore: derive sql table %q index: %w", store.table.Name(), err)
+			return err
 		}
 		if err := storage.ValidateSQLIndexColumns(ctx, store.db, store.table, name, index.want); err != nil {
-			return fmt.Errorf("logstore: incompatible sql table %q index %q: %w", store.table.Name(), name, err)
+			return fmt.Errorf("logstore: incompatible index: %w", err)
 		}
-	}
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
-		return store.checkPostgresAttributesIndex(ctx)
 	}
 	return nil
 }
@@ -188,31 +141,8 @@ func (store *SQLStore) Append(ctx context.Context, records []Record) ([]RecordKe
 		}
 		prepared = append(prepared, preparedSQLRecord{record: cloneRecord(record), attributes: string(encoded)})
 	}
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
-		// All batches reserve unique identities in the same order, including
-		// unpartitioned tables whose primary key is on the record itself.
-		slices.SortFunc(prepared, func(a, b preparedSQLRecord) int {
-			if order := strings.Compare(a.record.Stream, b.record.Stream); order != 0 {
-				return order
-			}
-			return strings.Compare(a.record.ID, b.record.ID)
-		})
-	}
-	expiresAt, err := store.appendSQLRecords(ctx, prepared)
-	if err != nil {
-		var pgError *pq.Error
-		if !store.partitioned || !errors.As(err, &pgError) || pgError.Code != "23514" ||
-			!strings.HasPrefix(pgError.Message, "no partition of relation") {
-			return nil, err
-		}
-		// The failed transaction, including key reservations and parent locks,
-		// has rolled back before DDL starts. Warm writes never visit this path.
-		if err := store.preparePostgresPartitions(ctx, expiresAt); err != nil {
-			return nil, err
-		}
-		if _, err := store.appendSQLRecords(ctx, prepared); err != nil {
-			return nil, err
-		}
+	if _, err := store.appendSQLRecords(ctx, prepared); err != nil {
+		return nil, err
 	}
 	keys := make([]RecordKey, len(records))
 	for index, record := range records {
@@ -227,9 +157,6 @@ func (store *SQLStore) appendSQLRecords(ctx context.Context, prepared []prepared
 		return time.Time{}, err
 	}
 	defer tx.Rollback()
-	if err := store.lockPostgresParent(ctx, tx); err != nil {
-		return time.Time{}, err
-	}
 	now := time.Now().UTC()
 	expiration := now.Add(store.ttl)
 	var expiresAt any
@@ -239,22 +166,10 @@ func (store *SQLStore) appendSQLRecords(ctx context.Context, prepared []prepared
 			return expiration, fmt.Errorf("logstore: record expiration: %w", err)
 		}
 	}
-	if store.ttl > 0 && !store.partitioned {
+	if store.ttl > 0 {
 		cleanup := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE expires_at_unix_nano IS NOT NULL AND expires_at_unix_nano <= ?")
 		if _, err := tx.ExecContext(ctx, cleanup, now.UnixNano()); err != nil {
 			return expiration, storage.ExternalSQLError("logstore: delete expired sql records", err)
-		}
-	}
-	if store.partitioned {
-		deleteExpiredKey := "DELETE FROM " + store.quotedKeys + " WHERE stream = $1 AND id = $2 AND expires_at_unix_nano <= $3"
-		insertKey := "INSERT INTO " + store.quotedKeys + " (stream, id, expires_at_unix_nano) VALUES ($1, $2, $3)"
-		for _, item := range prepared {
-			if _, err := tx.ExecContext(ctx, deleteExpiredKey, item.record.Stream, item.record.ID, now.UnixNano()); err != nil {
-				return expiration, storage.ExternalSQLError("logstore: release expired postgres record key", err)
-			}
-			if _, err := tx.ExecContext(ctx, insertKey, item.record.Stream, item.record.ID, expiresAt); err != nil {
-				return expiration, storage.ExternalSQLError("logstore: reserve postgres record key", err)
-			}
 		}
 	}
 	query := store.db.Rebind("INSERT INTO " + store.quoted + " (stream, id, timestamp_unix_nano, expires_at_unix_nano, kind, severity, message, attributes_json, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -482,15 +397,6 @@ func (store *SQLStore) Delete(ctx context.Context, key RecordKey) error {
 	if err := requireOneRow(result); err != nil {
 		return err
 	}
-	if store.partitioned {
-		result, err := tx.ExecContext(ctx, "DELETE FROM "+store.quotedKeys+" WHERE stream = $1 AND id = $2", key.Stream, key.ID)
-		if err != nil {
-			return storage.ExternalSQLError("logstore: delete postgres record key", err)
-		}
-		if err := requireOneRow(result); err != nil {
-			return fmt.Errorf("logstore: delete postgres record key: %w", err)
-		}
-	}
 	if err := tx.Commit(); err != nil {
 		return storage.ExternalSQLError("logstore: commit sql delete", err)
 	}
@@ -508,9 +414,7 @@ func (store *SQLStore) Close() error {
 	return nil
 }
 
-// Maintain prepares expiration days and reclaims fully expired PostgreSQL
-// partitions and their keys, or expired SQLite rows. Callers can run it without
-// new writes; GizClaw Server schedules it for its history stores.
+// Maintain reclaims expired SQLite records without requiring new writes.
 func (store *SQLStore) Maintain(ctx context.Context) error {
 	unlock, err := store.lock()
 	if err != nil {
@@ -520,40 +424,12 @@ func (store *SQLStore) Maintain(ctx context.Context) error {
 	if store.ttl == 0 {
 		return ctx.Err()
 	}
-	if store.partitioned {
-		return store.maintainPostgresPartitions(ctx)
-	}
 	_, err = store.db.ExecContext(ctx, store.db.Rebind("DELETE FROM "+store.quoted+" WHERE expires_at_unix_nano <= ?"), time.Now().UTC().UnixNano())
 	return storage.ExternalSQLError("logstore: expire sql records", err)
 }
 
-func (store *SQLStore) beginWrite(ctx context.Context, key RecordKey) (*sqlx.Tx, error) {
-	tx, err := store.beginTransaction(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if err := store.lockPostgresParent(ctx, tx); err != nil {
-		_ = tx.Rollback()
-		return nil, err
-	}
-	if store.partitioned {
-		// Use the same identity-first order as Append. Deleting a record before
-		// its registry row would invert that order and could deadlock a reuse.
-		var expiration int64
-		query := "SELECT expires_at_unix_nano FROM " + store.quotedKeys + " WHERE stream = $1 AND id = $2 FOR UPDATE"
-		if err := tx.GetContext(ctx, &expiration, query, key.Stream, key.ID); err != nil {
-			_ = tx.Rollback()
-			if errors.Is(err, sql.ErrNoRows) {
-				return nil, ErrNotFound
-			}
-			return nil, storage.ExternalSQLError("logstore: lock postgres record key", err)
-		}
-		if expiration <= time.Now().UTC().UnixNano() {
-			_ = tx.Rollback()
-			return nil, ErrNotFound
-		}
-	}
-	return tx, nil
+func (store *SQLStore) beginWrite(ctx context.Context, _ RecordKey) (*sqlx.Tx, error) {
+	return store.beginTransaction(ctx)
 }
 
 func (store *SQLStore) beginTransaction(ctx context.Context) (*sqlx.Tx, error) {
@@ -565,17 +441,6 @@ func (store *SQLStore) beginTransaction(ctx context.Context) (*sqlx.Tx, error) {
 		return nil, storage.ExternalSQLError("logstore: begin sql transaction", err)
 	}
 	return tx, nil
-}
-
-func (store *SQLStore) lockPostgresParent(ctx context.Context, tx *sqlx.Tx) error {
-	if store.partitioned {
-		// ROW EXCLUSIVE is compatible with other writers. Take it before any
-		// key row so maintenance/partition DDL cannot form a parent-key cycle.
-		if _, err := tx.ExecContext(ctx, "LOCK TABLE ONLY "+store.quoted+" IN ROW EXCLUSIVE MODE"); err != nil {
-			return storage.ExternalSQLError("logstore: protect postgres partition parent", err)
-		}
-	}
-	return nil
 }
 
 func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, nowUnixNano int64, limit int) (string, []any, error) {
@@ -601,29 +466,15 @@ func (store *SQLStore) buildQuery(query sqlBoundQuery, position *sqlPosition, no
 	appendSet("stream", query.Streams)
 	appendSet("kind", query.Kinds)
 	appendSet("severity", query.Severities)
-	// Both supported dialects filter in SQL before applying the page limit.
+	// SQLite filters in SQL before applying the page limit.
 	// Iterate the flat JSON object so dotted attribute names remain literal keys.
 	attributes := "json_each(attributes_json)"
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
-		attributes = "jsonb_each_text(attributes_json::jsonb)"
-	}
 	if query.Text != "" {
 		predicate := "instr(message, ?) > 0"
-		if store.table.Dialect() == storage.SQLDialectPostgreSQL {
-			predicate = "strpos(message, ?) > 0"
-		}
 		parts = append(parts, predicate)
 		args = append(args, query.Text)
 	}
 	for _, matcher := range query.Matchers {
-		if store.table.Dialect() == storage.SQLDialectPostgreSQL && matcher.Op == MatchEqual {
-			// Containment on the indexed expression lets PostgreSQL find a
-			// selective attribute set before sorting/limiting a shared stream.
-			// Keep each matcher separate so conflicting values remain ANDed.
-			parts = append(parts, "attributes_json::jsonb @> jsonb_build_object(?::text, ?::text)")
-			args = append(args, matcher.Name, matcher.Value)
-			continue
-		}
 		predicate := "EXISTS (SELECT 1 FROM " + attributes + " AS attr WHERE attr.key = ?"
 		args = append(args, matcher.Name)
 		switch matcher.Op {

@@ -270,7 +270,7 @@ Transformer 在文字交付及消息边界确认后才开始下一轮。产品 f
 
 产品 Workflow 用 `spec.eino.conversation.continue_from` 选择该 State field。Graph 应生成短小、自然承接且以完整句子结束的正文；不需要额外的“继续”用户 turn。
 
-产品 Workflow 可以通过 `state_persistence.fields` 选择持久化字段；Server 的 `services.agent_host.persistence.state_store` 引用 SQL Store，状态保存在 `graph_states`，删除边界保存在 `graph_state_scopes`。首次加载缺失字段时按声明类型初始化零值；重载后只恢复选择的字段。Object/List 中的嵌套整数保留 signed 64-bit 精度，整值浮点数通过可选 snapshot 类型提示保留其 numeric type。 新快照使用 format version 1；无版本快照保持原有 JSON float64 解码，直到一次正常成功的 CAS 写入。内部对话 History 使用 `services.agent_host.persistence.history_store` 的 mutable log。
+产品 Workflow 可以通过 `state_persistence.fields` 选择持久化字段；Server 的 `services.agent_host.persistence.state_store` 引用 SQL Store，状态保存在 `graph_states`，删除边界保存在 `graph_state_scopes`。首次加载缺失字段时按声明类型初始化零值；重载后只恢复选择的字段。Object/List 中的嵌套整数保留 signed 64-bit 精度，整值浮点数通过可选 snapshot 类型提示保留其 numeric type。 新快照使用 format version 1；无版本快照保持原有 JSON float64 解码，直到一次正常成功的 CAS 写入。对话 History 复用 Workspace 的 `memory.HistoryStore`，Eino 只读。
 
 Persistent State 是可选能力：
 
@@ -284,7 +284,7 @@ State: &eino.StatePersistenceConfig{
 
 Store 在 Graph 前加载 versioned snapshot。只有配置列出的 field 会被校验并复制进新的 local State。成功 primary EOS 之前立即用 compare-and-swap 提交最终 field。Failure、cancellation、interruption、invalid State 或 conflict 都不会覆盖此前 snapshot。
 
-History 使用可选的 `logstore.MutableStore`、稳定 scope、Agent ID、ContextID 和有界 query limit。没有 Store 时，Transformer 使用有界的 Agent-local History。Record 按顺序保存 user 与真正 pull-visible 的 assistant message；被中断的 assistant record 带 interruption marker。
+History 接收可选的 `memory.HistoryReader`，通过 `Scope` 选择会话，并以有界 limit 读取近期的 user/assistant 文本。外部 Reader 模式不调用 Append，也不保留第二份持久化历史；宿主负责完整的原始文本输入、ASR transcript 和已交付回复的记录，以及下一轮读取前的写入完成屏障。`ExcludeTurnID` 排除当前输入，避免历史与当前 user message 重复。没有 Reader 时使用有界 Agent-local History。
 
 Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph 前执行，把有序 fact 渲染为 `- text` 行，写入声明的 string State field，并加入 `memory.recalled`。Recall 的 query 文本为空时（例如 Agent 主动开场 turn）跳过 Store，写入空结果而不是让本次 run 失败。Observe 在 delivery observation 后执行，只提交 pull-visible turn 与显式声明的 State fact binding。
 

@@ -2,6 +2,37 @@
 
 [`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) 是 Agent runtime 共用的 provider-neutral 长期记忆边界。Mem0 Cloud、自托管 Mem0 和 Volc 适配器位于 `mem0` 与 `volc` 子包。
 
+## Conversation History
+
+`memory.HistoryStore` 保存通用、有序的 user/assistant 消息；`memory.HistoryReader` 只提供查询。它们与长期事实的 `memory.Store` 独立，不要求 Mem0 或 Volc provider 实现聊天历史。
+
+`NewSQLHistoryStore(ctx, db, table, ttl)` 借用 `*sqlx.DB`，支持 PostgreSQL 与本地 SQLite。Conversation、ID、TurnID、role、actor、origin、文本、创建时间、过期时间和中断状态均保存为列；音频引用使用独立关系表，二进制仍由 ObjectStore 拥有。`(conversation_id, created_at_unix_nano, id)` 索引用于稳定分页，独立身份表保证跨分区的 `(conversation_id, id)` 唯一性。Append 是完整 batch 事务，重复 key 不替换内容或延长过期时间。
+
+PostgreSQL 使用 `pg_partman` 管理按 `expires_at_unix_nano` 划分的 UTC 日分区，epoch 为 nanoseconds。分区键已经是到期时间，因此 partman retention 使用 `0 seconds`，并设置 `retention_keep_table=false`；查询即时隐藏过期消息，维护时物理删除完全过期的日分区。仓库 PostgreSQL 镜像固定 `pg_partman 5.5.0`。扩展需预先安装在 `partman` schema，应用角色需具备该 schema 的使用/创建权限、配置表权限和函数执行权限；构造函数不安装扩展。
+
+Server 的 `services.workspace.history_store` 引用 `kind: sql` Store，固定业务表名为 `gizclaw_history`。消息的保留周期使用 `services.workspace.history_assets_store` 对应 ObjectStore 的正数 `ttl`，只配置一处。Server 启动后立即维护，此后每小时维护，关闭时取消并等待维护退出。独立调用者自行调度 `Maintain`。
+
+Workspace 的记录器是对话写入方。AgentHost 在交给 Agent 前记录完成的原始文本输入；音频输入仍由转写输出记录，重复的输入回显不会新增一条记录。对于 Eino 消息，取消或停止时使用独立的 5 秒超时上下文尝试保存已交付部分，并标记中断；未交付部分不进入记录。Eino 接收同一份数据的只读 view，读取近期的 role/content；读取排除当前输入并等待上轮已交付消息完成记录。录音和回放共享这条消息的 ID，不创建第二套 Eino 持久化历史。直接使用 Eino 且未传入 Reader 时，仍可使用有界的进程内历史。History 只读不改变长期 Memory 的 Recall/Observe。
+
+### History migration
+
+`gizclaw history-migrate <dir>` 是一次性、离线的 History 转换入口。执行前备份数据库，停止所有使用该数据库的 Server 写入实例，并将 `<dir>/config.yaml` 更新为最终配置：Workspace History 使用 SQL Store，移除 `services.agent_host.persistence.history_store` 及旧 History LogStore 声明；其他 LogStore 也不能再引用 PostgreSQL。
+
+```sh
+gizclaw history-migrate /srv/gizclaw \
+  --workspace-table gizclaw_workspace_history \
+  --eino-table gizclaw_flowcraft_history --dry-run
+
+gizclaw history-migrate /srv/gizclaw \
+  --workspace-table gizclaw_workspace_history \
+  --eino-table gizclaw_flowcraft_history
+```
+
+参数必须填写实际的旧父表名。两套 stream 共用一张旧表时，两参数可以相同。命令只打开最终 History Store 选择的 SQL connector，不启动 Server、不改配置或生成身份。Dry-run 校验源数据并报告保留、过期及丢弃的 Eino 记录数，不建立目标表。
+
+正式执行保留未过期 Workspace 消息的原 ID、角色、文本、创建时间、原到期时间和音频对象引用，不搬动或重新上传音频；旧 Eino 数据不导入。分批复制后逐字段校验，复制、完成标记和旧表删除在同一事务提交。旧父表、附属分区、专属身份表及自动生成且未共享的 partman 模板被删除。遇到不兼容 schema、未知记录、目标冲突或外部依赖时整体回滚，不使用 `CASCADE`。成功后的重复执行读取完成标记，不重新导入。启动新 Server 前确认迁移成功；成功删除后的版本回退需要恢复数据库备份。
+
+
 ## 契约
 
 每次操作都携带结构化 `Scope`。`AppID`、`UserID`、`AgentID` 和 `RunID` 是四个相互独立的可选路由维度；公共契约不定义 App→User→Agent→Run 层级，也不把 `RunID` 解释为通用 Conversation。空字段表示没有选择该维度，不表示 wildcard、继承或全局可见。

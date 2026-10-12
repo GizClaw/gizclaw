@@ -14,7 +14,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow/agents/sfu"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
 type peerAgentHostTestResolver struct{}
@@ -45,29 +44,10 @@ func (r *peerAgentWorkspaceTestResolver) ResolveRunWorkspaceSelection(_ context.
 	return apitypes.Workspace{Id: "01K1HZZZ9PV2KYRHZJ4V94Z0DQ", Name: name}, nil
 }
 
-type peerAgentHostHistoryStore struct{}
-
-func (*peerAgentHostHistoryStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
-	keys := make([]logstore.RecordKey, len(records))
-	for index, record := range records {
-		keys[index] = record.Key()
-	}
-	return keys, nil
-}
-func (*peerAgentHostHistoryStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
-	return logstore.Page{}, nil
-}
-func (*peerAgentHostHistoryStore) Replace(context.Context, logstore.Record) error { return nil }
-func (*peerAgentHostHistoryStore) Delete(context.Context, logstore.RecordKey) error {
-	return nil
-}
-func (*peerAgentHostHistoryStore) Close() error { return nil }
-
 func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	base := agenthost.New(peerAgentHostTestResolver{})
-	history := &peerAgentHostHistoryStore{}
 	state, _ := sqltest.New(t)
-	got := newPeerAgentHost(base, nil, nil, nil, history, state, t.TempDir(), nil, sfu.Factory{})
+	got := newPeerAgentHost(base, nil, nil, nil, state, t.TempDir(), nil, sfu.Factory{})
 	if got == nil {
 		t.Fatal("newPeerAgentHost() = nil", sfu.Factory{})
 	}
@@ -102,9 +82,7 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if !ok {
 		t.Fatalf("Eino factory = %T, want eino.Factory", registered)
 	}
-	if statefulFactory.History != history {
-		t.Fatal("Eino factory did not receive history store")
-	}
+
 	if statefulFactory.State != state {
 		t.Fatal("Eino factory did not receive state store")
 	}
@@ -112,17 +90,15 @@ func TestNewPeerAgentHostRegistersBuiltInAgents(t *testing.T) {
 	if !ok {
 		t.Fatal("eino agent was not registered")
 	}
-	einoFactory, ok := registered.(eino.Factory)
+	_, ok = registered.(eino.Factory)
 	if !ok {
 		t.Fatalf("eino factory = %T, want eino.Factory", registered)
 	}
-	if einoFactory.History != history {
-		t.Fatal("eino factory did not receive history store")
-	}
+
 }
 
 func TestNewPeerAgentHostNilBase(t *testing.T) {
-	if got := newPeerAgentHost(nil, nil, nil, nil, nil, nil, "", nil, sfu.Factory{}); got != nil {
+	if got := newPeerAgentHost(nil, nil, nil, nil, nil, "", nil, sfu.Factory{}); got != nil {
 		t.Fatalf("newPeerAgentHost(nil) = %#v, want nil", got)
 	}
 }

@@ -99,9 +99,8 @@ The main capability groups are:
 | `services.api_key.store` | `keyvalue`; stores API keys, secret indexes, and owner indexes, and must be shared for multi-Server API routing |
 | login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
 | `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
-| `services.workspace.history_store` | `log.mutable` |
+| `services.workspace.history_store` | `sql` |
 | `services.agent_host.persistence.state_store` | `sql` |
-| `services.agent_host.persistence.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval`, `reconnect_timeout`, `talk_hangover`, and `floor_idle` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
 | `services.system_log.query_store` and Store sinks | immutable Log capability |

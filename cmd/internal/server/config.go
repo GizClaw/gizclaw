@@ -97,11 +97,10 @@ type AgentHostConfig struct {
 	Persistence  *AgentHostPersistenceConfig `yaml:"persistence"`
 }
 
-// AgentHostPersistenceConfig binds shared Agent state and internal history to
+// AgentHostPersistenceConfig binds shared Agent state to
 // logical Stores owned by the command-layer Store Registry.
 type AgentHostPersistenceConfig struct {
-	StateStore   string `yaml:"state_store"`
-	HistoryStore string `yaml:"history_store"`
+	StateStore string `yaml:"state_store"`
 }
 
 // ServicesConfig is the fixed service-to-Store binding schema. Unlike the
@@ -1220,9 +1219,6 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 			if err := validateStoreReference("services.agent_host.persistence.state_store", cfg.AgentHost.Persistence.StateStore); err != nil {
 				return err
 			}
-			if err := validateStoreReference("services.agent_host.persistence.history_store", cfg.AgentHost.Persistence.HistoryStore); err != nil {
-				return err
-			}
 		}
 	}
 	if cfg.PeerUsage != nil && strings.TrimSpace(cfg.PeerUsage.Store) == "" {
@@ -1587,12 +1583,12 @@ func validateAgentHostConfigShape(path string, value any) error {
 		}
 		for field := range persistence {
 			switch field {
-			case "state_store", "history_store":
+			case "state_store":
 			default:
 				return fmt.Errorf("server: %s.persistence has unknown field %q", path, field)
 			}
 		}
-		for _, field := range []string{"state_store", "history_store"} {
+		for _, field := range []string{"state_store"} {
 			if reference, exists := persistence[field]; exists {
 				if err := validateFileStoreReference(path+".persistence."+field, reference); err != nil {
 					return err

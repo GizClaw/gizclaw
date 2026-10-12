@@ -70,7 +70,7 @@ func TestEinoInitiativeGiztest(t *testing.T) {
 			if value == "default" && (created.JSON200.Spec.Eino.Conversation == nil || created.JSON200.Spec.Eino.Conversation.Initiative != nil || created.JSON200.Spec.Eino.Conversation.Starts != nil) {
 				t.Fatalf("Server retained or promoted starts: %+v", created.JSON200.Spec.Eino.Conversation)
 			}
-			workflows[value] = apitypes.RuntimeProfileWorkflowBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Opening"}, "zh-CN": {DisplayName: "开场"}}}
+			workflows["initiative-"+value] = apitypes.RuntimeProfileWorkflowBinding{ResourceId: id, I18n: map[string]apitypes.RuntimeProfileI18nText{"en": {DisplayName: "Opening"}, "zh-CN": {DisplayName: "开场"}}}
 		}
 		profile := adminhttp.RuntimeProfileUpsert{Id: "peer-sync-giztest", Spec: apitypes.RuntimeProfileSpec{Workflows: workflows}}
 		if _, err := adminapi.PutRuntimeProfile(t.Context(), admin, profile.Id, profile); err != nil {

@@ -2,14 +2,11 @@ package eino
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/schema"
 )
@@ -59,83 +56,39 @@ func TestPersistentStateAdversarialLoadAndCommitFailures(t *testing.T) {
 
 func TestHistoryAdversarialStoreRecordsAndFailures(t *testing.T) {
 	t.Parallel()
-	storeErr := errors.New("history unavailable")
-	history := &conversationHistory{
-		config: &HistoryConfig{
-			Store: &adversarialHistoryStore{queryErr: storeErr}, Scope: "scope", Limit: 10,
-		},
-		agentID: "agent", contextID: "context",
+	failure := errors.New("history unavailable")
+	reader := &adversarialHistoryStore{queryErr: failure}
+	history := &conversationHistory{config: &HistoryConfig{Store: reader, Scope: "scope", Limit: 10}}
+	if _, err := history.load(t.Context()); !errors.Is(err, failure) {
+		t.Fatalf("load=%v", err)
 	}
-	if _, err := history.load(t.Context()); err == nil || !strings.Contains(err.Error(), storeErr.Error()) {
-		t.Fatalf("history.load() error = %v", err)
+	reader.queryErr = nil
+	reader.page = memory.HistoryPage{Entries: []memory.HistoryEntry{{ConversationID: "other", Role: memory.RoleUser, Text: "private"}}}
+	if _, err := history.load(t.Context()); err == nil {
+		t.Fatal("accepted another conversation")
 	}
-
-	invalidJSON := logstore.Record{
-		ID: "invalid-json", Time: time.Now(), Stream: historyStream, Kind: historyKind,
-		Payload: []byte("{"),
+	reader.page = memory.HistoryPage{Entries: []memory.HistoryEntry{{ConversationID: "scope", Role: memory.RoleTool, Text: "tool"}}}
+	if _, err := history.load(t.Context()); err == nil {
+		t.Fatal("accepted unsupported role")
 	}
-	history.config.Store = &adversarialHistoryStore{page: logstore.Page{Records: []logstore.Record{invalidJSON}}}
-	if _, err := history.load(t.Context()); err == nil || !strings.Contains(err.Error(), "decode History") {
-		t.Fatalf("history.load(invalid JSON) error = %v", err)
-	}
-	payload, err := json.Marshal(map[string]any{"version": historyVersion + 1})
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-	history.config.Store = &adversarialHistoryStore{page: logstore.Page{Records: []logstore.Record{{
-		ID: "unsupported", Time: time.Now(), Stream: historyStream, Kind: historyKind, Payload: payload,
-	}}}}
-	if _, err := history.load(t.Context()); err == nil || !strings.Contains(err.Error(), "unsupported History") {
-		t.Fatalf("history.load(unsupported) error = %v", err)
-	}
-
-	firstPayload, err := json.Marshal(struct {
-		Version int             `json:"version"`
-		Message *schema.Message `json:"message"`
-	}{Version: historyVersion, Message: schema.UserMessage("first")})
-	if err != nil {
-		t.Fatalf("Marshal(first) error = %v", err)
-	}
-	secondPayload, err := json.Marshal(struct {
-		Version int             `json:"version"`
-		Message *schema.Message `json:"message"`
-	}{Version: historyVersion, Message: schema.AssistantMessage("second", nil)})
-	if err != nil {
-		t.Fatalf("Marshal(second) error = %v", err)
-	}
-	now := time.Now().UTC()
-	history.config.Store = &adversarialHistoryStore{page: logstore.Page{Records: []logstore.Record{
-		{ID: "b", Time: now.Add(time.Second), Payload: secondPayload},
-		{ID: "a", Time: now, Payload: firstPayload},
-	}}}
+	reader.page = memory.HistoryPage{Entries: []memory.HistoryEntry{{ConversationID: "scope", Role: memory.RoleAssistant, Text: "second"}, {ConversationID: "scope", Role: memory.RoleUser, Text: "first"}}}
 	messages, err := history.load(t.Context())
-	if err != nil || len(messages) != 2 || messages[0].Content != "first" || messages[1].Content != "second" {
-		t.Fatalf("history.load(sorted) = %#v, %v", messages, err)
+	if err != nil || len(messages) != 2 || messages[0].Content != "first" {
+		t.Fatalf("messages=%+v err=%v", messages, err)
 	}
-
-	history.config.Store = &adversarialHistoryStore{appendErr: storeErr}
-	if err := history.append(t.Context(), []*schema.Message{schema.UserMessage("hello")}, false); err == nil ||
-		!strings.Contains(err.Error(), storeErr.Error()) {
-		t.Fatalf("history.append() error = %v", err)
+	if err := history.append(t.Context(), []*schema.Message{schema.UserMessage("new")}, false); err != nil {
+		t.Fatal(err)
 	}
-	history.config.Store = &adversarialHistoryStore{shortAppend: true}
-	if err := history.append(t.Context(), []*schema.Message{schema.UserMessage("hello")}, true); err == nil ||
-		!strings.Contains(err.Error(), "accepted 0 of 1") {
-		t.Fatalf("history.append(short) error = %v", err)
+	if len(reader.page.Entries) != 2 || len(history.live) != 0 {
+		t.Fatal("external History reader was written or shadowed")
 	}
-	if err := history.append(t.Context(), nil, false); err != nil {
-		t.Fatalf("history.append(empty) error = %v", err)
-	}
-
 	local := &conversationHistory{config: &HistoryConfig{Limit: 2}}
-	if err := local.append(t.Context(), []*schema.Message{
-		schema.UserMessage("one"), schema.AssistantMessage("two", nil), schema.UserMessage("three"),
-	}, false); err != nil {
-		t.Fatalf("local.append() error = %v", err)
+	if err := local.append(t.Context(), []*schema.Message{schema.UserMessage("one"), schema.AssistantMessage("two", nil), schema.UserMessage("three")}, false); err != nil {
+		t.Fatal(err)
 	}
 	messages, err = local.load(t.Context())
 	if err != nil || len(messages) != 2 || messages[0].Content != "two" {
-		t.Fatalf("local.load() = %#v, %v", messages, err)
+		t.Fatalf("local=%+v err=%v", messages, err)
 	}
 }
 
@@ -266,38 +219,13 @@ func (store adversarialStateStore) CompareAndSwap(
 }
 
 type adversarialHistoryStore struct {
-	page        logstore.Page
-	queryErr    error
-	appendErr   error
-	shortAppend bool
+	page     memory.HistoryPage
+	queryErr error
 }
 
-func (store *adversarialHistoryStore) Append(
-	_ context.Context,
-	records []logstore.Record,
-) ([]logstore.RecordKey, error) {
-	if store.appendErr != nil {
-		return nil, store.appendErr
-	}
-	if store.shortAppend {
-		return nil, nil
-	}
-	keys := make([]logstore.RecordKey, len(records))
-	for index, record := range records {
-		keys[index] = record.Key()
-	}
-	return keys, nil
-}
-
-func (store *adversarialHistoryStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
+func (store *adversarialHistoryStore) Query(context.Context, memory.HistoryQuery) (memory.HistoryPage, error) {
 	return store.page, store.queryErr
 }
-
-func (*adversarialHistoryStore) Replace(context.Context, logstore.Record) error { return nil }
-func (*adversarialHistoryStore) Delete(context.Context, logstore.RecordKey) error {
-	return nil
-}
-func (*adversarialHistoryStore) Close() error { return nil }
 
 type adversarialMemoryStore struct {
 	mu            sync.Mutex

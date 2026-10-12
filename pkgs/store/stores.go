@@ -325,6 +325,9 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		}
 		return invalid(cfg.Table != "", "table")
 	case KindLogImmutable, KindLogMutable:
+		if storageKind == storage.KindPostgreSQL {
+			return fmt.Errorf("stores: log %q PostgreSQL backend is unsupported", name)
+		}
 		if cfg.TTL < 0 {
 			return fmt.Errorf("stores: %s %q ttl must be positive", cfg.Kind, name)
 		}
@@ -652,7 +655,7 @@ func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error
 		return nil, fmt.Errorf("stores: log %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
 	switch kind {
-	case storage.KindSQLite, storage.KindPostgreSQL:
+	case storage.KindSQLite:
 		db, err := r.storage.SQL(cfg.Storage)
 		if err != nil {
 			return nil, fmt.Errorf("stores: log %q resolve %s storage %q: %w", name, kind, cfg.Storage, err)

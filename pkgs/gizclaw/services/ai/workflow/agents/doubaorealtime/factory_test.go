@@ -11,12 +11,13 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -329,7 +330,7 @@ func newTestDoubaoRealtimeHistory(t testing.TB) *workspace.HistoryStore {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	records, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	records, err := memory.NewSQLHistoryStore(t.Context(), db, "workspace_history", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

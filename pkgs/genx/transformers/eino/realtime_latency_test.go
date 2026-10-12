@@ -9,7 +9,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
@@ -247,11 +246,11 @@ type latencyHistory struct {
 	delay      time.Duration
 }
 
-func (s *latencyHistory) Query(ctx context.Context, q logstore.Query) (logstore.Page, error) {
+func (s *latencyHistory) Query(ctx context.Context, q memory.HistoryQuery) (memory.HistoryPage, error) {
 	s.start.Store(time.Now().UnixNano())
 	defer func() { s.end.Store(time.Now().UnixNano()) }()
 	if !latencyWait(ctx, s.delay) {
-		return logstore.Page{}, ctx.Err()
+		return memory.HistoryPage{}, ctx.Err()
 	}
 	return s.recordingHistoryStore.Query(ctx, q)
 }

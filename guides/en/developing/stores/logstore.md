@@ -20,9 +20,9 @@ A `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity,
 | --- | --- | --- |
 | Volc TLS | `ImmutableStore` | PutLogsV2 and SearchLogs over one TLS SDK client; mutations are unsupported |
 | ClickHouse | `MutableStore` | Dedicated MergeTree table with synchronous replace and delete mutations |
-| SQLite / PostgreSQL | `MutableStore` | Dedicated relational table, atomic append/replace/delete, and the shared SQL cursor |
+| SQLite | `MutableStore` | Dedicated relational table, atomic append/replace/delete, and the shared SQL cursor |
 
-Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Volc TLS cannot satisfy the mutable record capability required by Workspace History or Eino History. Physical connection ownership remains under `storage`.
+Every logical Log Store declares `log.immutable` or `log.mutable`. `Stores.Log` accepts both declarations, while `Stores.MutableLog` accepts only `log.mutable`. Workspace and Eino conversation history use the [Memory History Store](./memory#conversation-history), independently of LogStore. PostgreSQL LogStore configuration is rejected explicitly. Physical connection ownership remains under `storage`.
 
 ### Volc TLS
 
@@ -61,34 +61,24 @@ storage:
     kind: clickhouse
     dsn: ${CLICKHOUSE_DSN}
 stores:
-  eino-history:
+  events:
     kind: log.mutable
     storage: analytics
     database: gizclaw
-    table: eino_history
+    table: events
 ```
 
 The driver creates and validates a dedicated `MergeTree` table, partitioned by month and ordered by `(timestamp, stream, id)`. `Append` serializes duplicate checks and synchronous batch insertion within one store instance, then returns keys only after commit. `Query` translates the structured contract directly to parameterized ClickHouse SQL and pages by `(timestamp, stream, id)` without a separate index. `Replace` uses a synchronous `ALTER UPDATE`, and `Delete` uses a synchronous `ALTER DELETE`; both target exactly one `(stream, id)` pair. The driver rejects duplicate keys instead of silently mutating multiple rows.
 
 The logical `database` field is optional when the physical DSN already selects one. With `ttl`, the driver writes an `expires_at` value and creates or validates a table-level `TTL expires_at` deletion expression; Get and Query hide expired rows before asynchronous merges physically remove them. The ClickHouse driver does not impose an additional local payload-size limit. Logical Metrics and Log Stores may share one physical pool without owning it.
 
-### SQLite / PostgreSQL
+### SQLite
 
-Each logical Store requires a dedicated `table`. The relational Store uniquely keys records by `(stream, id)`, stores time as UTC nanoseconds, and pages in stable `(time, stream, id)` order. Flat attributes use canonical JSON, while payload JSON retains its original bytes. Append rejects duplicates and writes a complete batch in one transaction. Get reads one exact `(stream, id)` key. Replace is not an upsert and cannot change time. Get and Delete return `ErrNotFound` for a missing key. Replace does not extend retention. Immutable and mutable declarations use the same implementation, but the registry exposes mutation only for `log.mutable`. Workspace History requires `MutableRecordStore`: text and structured metadata remain in LogStore, while ObjectStore contains only binary assets referenced by a record.
+Each logical Store declares a dedicated `table`. Records are keyed by `(stream, id)`, retain UTC nanosecond timestamps, and page in stable `(time, stream, id)` order. Flat attributes use canonical JSON; payloads retain their original JSON bytes. Append writes a complete batch atomically. Replace requires an existing key and cannot change time or extend retention. Get/Delete return `ErrNotFound` for missing keys.
 
-With `ttl`, both drivers assign `expires_at_unix_nano` from the backend write time and filter expired records from Get and Query. SQLite removes expired physical rows during subsequent appends. PostgreSQL creates the configured `table` as a range-partitioned parent over `expires_at_unix_nano`; callers always query that parent. Initialization and maintenance prepare the required UTC expiration day and its following day.
+With `ttl`, expiration is calculated from the actual write time. Get/Query hide expired records; Append and explicit `Maintain` reclaim expired physical rows. Logical Stores never close the borrowed pool.
 
-Normal Append runs only the record transaction: independent `(stream, id)` keys write concurrently, batches reserve identities in canonical key order and return keys in input order, and Replace/Delete lock the identity row before changing its record. An Append that encounters a missing partition rolls back its entire transaction, prepares partitions under the DDL advisory lock in a separate transaction, then recomputes write time and TTL and retries once. Existing-partition writes do not acquire that advisory lock, enumerate partitions or take a table lock that serializes writers.
-
-`SQLStore.Maintain` reclaims fully expired day partitions and their identities in a separate transaction, taking the parent DDL lock before identity cleanup to preserve parent→key→record ordering. Server schedules hourly maintenance for Workspace and internal Eino History after Listen and cancels and joins it before closing stores. Reclamation therefore also runs without new writes; standalone callers can invoke Maintain directly. A companion `<table>_keys` table preserves `(stream, id)` uniqueness across all daily partitions. Partition and key-table lifecycle is automatic and requires no caller-selected child table.
-
-ClickHouse, SQLite, and PostgreSQL share the version-1 opaque cursor. It binds normalized selectors, text, the millisecond-aligned `[Start, End)` interval, and order while allowing a continuation to change its limit, with the same 16 KiB bound. Identical records can continue across all three SQL drivers. SQLite/PostgreSQL text matching remains case-sensitive and literal, attribute matchers run over the validated flat map, and the logical Store never closes its shared pool.
-
-SQLite/PostgreSQL execute time and selector filters, case-sensitive literal text matching, attribute predicates, ordering, and `LIMIT` in the database. Each page returns at most `limit + 1` rows to determine continuation. Every open creates the `(time, stream, id)`, `(stream, kind, severity)`, `(stream, time, id)`, and expiry indexes with `IF NOT EXISTS`. Without selective attribute predicates, a single-stream query can seek its time range in order through `(stream, time, id)`.
-
-PostgreSQL also creates an expression index over the existing TEXT column: `USING GIN ((attributes_json::jsonb) jsonb_path_ops)`. Attribute `=` becomes parameterized JSON containment, allowing scope, agent, context and other attributes in a shared stream to participate in index lookup before ordering and pagination. Every matcher remains a separate AND predicate, preserving duplicate and conflicting conditions. `!=`, `exists`, `not-exists`, and SQLite matching retain their existing behavior. Names and values remain bound, and dots remain literal flat keys. Record, cursor, time-range and TTL contracts are unchanged.
-
-Existing tables gain missing indexes on their next open without rewriting records. A PostgreSQL parent index covers existing daily partitions and is inherited by future partitions. Opening validates the GIN method, expression, operator class and validity, rejecting incompatible indexes with the expected name. Initialization has a 30-second deadline; index construction blocks writes for its duration. Validate build time and arrange a maintenance window before upgrading large tables.
+SQLite and ClickHouse share the version-1 opaque cursor. It binds the normalized selector, text, millisecond-aligned `[Start, End)` and ordering, permits a changed continuation limit, and retains the 16 KiB bound. SQLite pushes time, selector, literal case-sensitive text, flat attribute predicates, ordering and `LIMIT` into SQL, returning at most `limit + 1` records.
 
 ## Process logging
 

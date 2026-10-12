@@ -273,7 +273,7 @@ The Transformer starts another generation only after text delivery and message-b
 
 Product Workflows select the State field with `spec.eino.conversation.continue_from`. Graphs should generate short, naturally connected sections ending in complete sentences without additional user “continue” turns.
 
-Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.persistence.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Nested object/list integers retain signed 64-bit precision, and integral floating-point values retain their numeric type through optional snapshot type hints. New snapshots use format version 1; unversioned snapshots retain their previous JSON float64 decoding until a normal successful CAS write. Internal conversation History uses the mutable log referenced by `services.agent_host.persistence.history_store`.
+Product Workflows select persisted fields with `state_persistence.fields`. Server configuration `services.agent_host.persistence.state_store` references a SQL Store: `graph_states` stores snapshots and `graph_state_scopes` retains deletion fences. Missing selected fields receive their declared typed zero value on first load. Reload restores only selected fields. Nested object/list integers retain signed 64-bit precision, and integral floating-point values retain their numeric type through optional snapshot type hints. New snapshots use format version 1; unversioned snapshots retain their previous JSON float64 decoding until a normal successful CAS write. Conversation History reuses the Workspace `memory.HistoryStore`; Eino only reads it.
 
 Persistent State is optional:
 
@@ -287,7 +287,7 @@ State: &eino.StatePersistenceConfig{
 
 The Store loads one versioned snapshot before the Graph. Only configured fields are validated and copied into fresh local State. Immediately before successful primary EOS, final configured fields are committed with compare-and-swap. Failure, cancellation, interruption, invalid State, or conflict does not overwrite the prior snapshot.
 
-History uses an optional `logstore.MutableStore`, stable scope, Agent ID, ContextID, and bounded query limit. Without a Store, the Transformer keeps a bounded Agent-local History. Stored records contain ordered user and pull-visible assistant messages; interrupted assistant records contain an interruption marker.
+History accepts an optional `memory.HistoryReader`, selects its conversation through `Scope`, and reads recent user/assistant text with a bounded limit. External Reader mode never calls Append or persists a second history. The host records completed raw text input, ASR transcripts, and delivered replies, and provides the write-completion barrier before the next read. `ExcludeTurnID` excludes the current input, which is added separately to the model request. Without a Reader, History stays bounded and Agent-local.
 
 Memory uses an optional provider-neutral `memory.Store`. Each Recall declaration runs before the Graph, renders ordered facts as `- text` lines, writes its string State field, and contributes to `memory.recalled`. A Recall whose query text is blank, as in an agent-initiative turn, skips the Store and writes an empty result instead of failing the run. Observe runs after delivery observation. It submits pull-visible turns and explicitly declared State fact bindings only.
 

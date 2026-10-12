@@ -26,7 +26,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 )
@@ -42,7 +41,6 @@ const (
 type Factory struct {
 	GenX         *peergenx.Service
 	GenXForOwner func(context.Context, string) (*peergenx.Service, error)
-	History      logstore.MutableStore
 	State        *sqlx.DB
 	MemoryStores *memorystore.Registry
 	ServerRoot   string
@@ -106,8 +104,11 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		ToolInvoker: spec.ToolInvoker,
 		SafetyFence: spec.SafetyFencePrompt,
 		History: &genxeino.HistoryConfig{
-			Store: f.History, Scope: scope, Limit: 50,
+			Scope: workspaceID, Limit: 50,
 		},
+	}
+	if spec.Runtime.History != nil {
+		config.History.Store = spec.Runtime.History
 	}
 	if audioInput == apitypes.AudioInputPathModel && !genxeino.AcceptsAudioInput(config) {
 		config.TranscribeInput = func(ctx context.Context, audio []*genx.Blob) (string, error) {

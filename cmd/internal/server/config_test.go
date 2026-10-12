@@ -263,7 +263,7 @@ func TestParseConfigAgentHostPresence(t *testing.T) {
 				if cfg == nil || cfg.Persistence == nil || cfg.Persistence.StateStore != "state" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
-				if cfg.RuntimeStore != "" || cfg.Persistence.HistoryStore != "" {
+				if cfg.RuntimeStore != "" {
 					t.Fatalf("AgentHost partial fields = %+v", cfg)
 				}
 			},
@@ -276,7 +276,6 @@ services:
     runtime_store: runtime
     persistence:
       state_store: state
-      history_store: history
 `,
 			check: func(t *testing.T, cfg *AgentHostConfig) {
 				t.Helper()
@@ -284,8 +283,7 @@ services:
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 				if cfg.RuntimeStore != "runtime" ||
-					cfg.Persistence.StateStore != "state" ||
-					cfg.Persistence.HistoryStore != "history" {
+					cfg.Persistence.StateStore != "state" {
 					t.Fatalf("AgentHost = %+v", cfg)
 				}
 			},
@@ -322,9 +320,9 @@ func TestParseConfigRejectsInvalidAgentHost(t *testing.T) {
 		{"non-mapping persistence", "services:\n  agent_host:\n    persistence: state\n", "services.agent_host.persistence must be a mapping"},
 		{"unknown persistence field", "services:\n  agent_host:\n    persistence:\n      memories: memory\n", `unknown field "memories"`},
 		{"non-string state", "services:\n  agent_host:\n    persistence:\n      state_store: {}\n", "services.agent_host.persistence.state_store must be a string"},
-		{"non-string history", "services:\n  agent_host:\n    persistence:\n      history_store: true\n", "services.agent_host.persistence.history_store must be a string"},
+		{"non-string history", "services:\n  agent_host:\n    persistence:\n      history_store: true\n", "services.agent_host.persistence has unknown field"},
 		{"empty state", "services:\n  agent_host:\n    persistence:\n      state_store: ''\n", "services.agent_host.persistence.state_store must not be empty"},
-		{"whitespace history", "services:\n  agent_host:\n    persistence:\n      history_store: ' '\n", "services.agent_host.persistence.history_store must not be empty"},
+		{"whitespace history", "services:\n  agent_host:\n    persistence:\n      history_store: ' '\n", "services.agent_host.persistence has unknown field"},
 		{"legacy memory objects", "services:\n  agent_host:\n    persistence:\n      memory_objects_store: old\n", `unknown field "memory_objects_store"`},
 	}
 	for _, test := range tests {
@@ -377,8 +375,7 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	fileBlock := &AgentHostConfig{
 		RuntimeStore: "file-runtime",
 		Persistence: &AgentHostPersistenceConfig{
-			StateStore:   "file-state",
-			HistoryStore: "file-history",
+			StateStore: "file-state",
 		},
 	}
 	fileServices := &ServicesConfig{AgentHost: fileBlock}
@@ -399,7 +396,7 @@ func TestMergeFileConfigAgentHostBlock(t *testing.T) {
 	if replaced.Services != runtimeServices {
 		t.Fatalf("mergeFileConfig(replace) Services = %+v, want runtime block", replaced.Services)
 	}
-	if replaced.Services.AgentHost.RuntimeStore != "" || replaced.Services.AgentHost.Persistence.HistoryStore != "" {
+	if replaced.Services.AgentHost.RuntimeStore != "" {
 		t.Fatalf("mergeFileConfig(replace) field-merged blocks: %+v", replaced.Services)
 	}
 }
@@ -828,15 +825,15 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 
 	badWorkspaceHistoryCfg := validLayeredConfig(dir)
 	badWorkspaceHistoryCfg.Stores["workspace-history"] = stores.Config{Kind: stores.KindKeyValue, Storage: "memory", Prefix: "workspace-history"}
-	if _, err := New(badWorkspaceHistoryCfg); err == nil || !strings.Contains(err.Error(), `workspace.history_store "workspace-history" requires logstore.MutableStore`) {
+	if _, err := New(badWorkspaceHistoryCfg); err == nil || !strings.Contains(err.Error(), `workspace.history_store "workspace-history" requires *sqlx.DB`) {
 		t.Fatalf("New(bad workspace history store) = %v", err)
 	}
 
 	mismatchedWorkspaceHistoryTTL := validLayeredConfig(dir)
 	historyAssets := mismatchedWorkspaceHistoryTTL.Stores["workspace-history-assets"]
-	historyAssets.TTL = 31 * 24 * time.Hour
+	historyAssets.TTL = 0
 	mismatchedWorkspaceHistoryTTL.Stores["workspace-history-assets"] = historyAssets
-	if _, err := New(mismatchedWorkspaceHistoryTTL); err == nil || !strings.Contains(err.Error(), "history Store TTLs must be equal and positive") {
+	if _, err := New(mismatchedWorkspaceHistoryTTL); err == nil || !strings.Contains(err.Error(), "workspace history assets require positive retention") {
 		t.Fatalf("New(mismatched workspace history TTL) error = %v", err)
 	}
 
@@ -1172,7 +1169,7 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 		t.Fatalf("storage count = %d, want 3", len(cfg.Storage))
 	}
 	for _, name := range []string{
-		"logs", "metrics", "eino-history", "eino-state", "peers", "peer-runs",
+		"logs", "metrics", "eino-state", "peers", "peer-runs",
 		"api-keys", "credentials", "firmwares", "runtime-profiles", "models", "voices", "memory-layouts",
 		"provider-tenants", "workflows", "workspaces", "tools", "contacts", "friends", "friend-groups", "agenthost",
 		"workspace-history", "workspace-history-assets", "workspace-assets",
@@ -1192,7 +1189,11 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 				t.Fatalf("stores.%s = %+v, want prefix-scoped %s KV Store", name, logical, wantStorage)
 			}
 		case stores.KindMetrics, stores.KindLogImmutable, stores.KindLogMutable:
-			if logical.Storage != "database" || logical.Table == "" {
+			wantStorage := "database"
+			if name == "logs" {
+				wantStorage = "local-runtime"
+			}
+			if logical.Storage != wantStorage || logical.Table == "" {
 				t.Fatalf("stores.%s = %+v, want table-scoped database Store", name, logical)
 			}
 		}
@@ -1239,11 +1240,10 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 		expect(path, name, stores.KindKeyValue)
 	}
 	expect("services.workspace.assets_store", services.Workspace.AssetsStore, stores.KindObjectStore)
-	expect("services.workspace.history_store", services.Workspace.HistoryStore, stores.KindLogMutable)
+	expect("services.workspace.history_store", services.Workspace.HistoryStore, stores.KindSQL)
 	expect("services.workspace.history_assets_store", services.Workspace.HistoryAssetsStore, stores.KindObjectStore)
 	expect("services.agent_host.runtime_store", services.AgentHost.RuntimeStore, stores.KindObjectStore)
 	expect("services.agent_host.persistence.state_store", services.AgentHost.Persistence.StateStore, stores.KindSQL)
-	expect("services.agent_host.persistence.history_store", services.AgentHost.Persistence.HistoryStore, stores.KindLogMutable)
 	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
 	if services.SystemLog.QueryStore != "" {
 		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable, stores.KindLogMutable)
@@ -1524,7 +1524,7 @@ func validLayeredConfig(dir string) Config {
 			"friends":                  {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friends"},
 			"friend-groups":            {Kind: stores.KindKeyValue, Storage: "memory", Prefix: "friend-groups"},
 			"workspace-assets":         {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspaces"},
-			"workspace-history":        {Kind: stores.KindLogMutable, Storage: "business-db", Table: "workspace_history", TTL: 30 * 24 * time.Hour},
+			"workspace-history":        {Kind: stores.KindSQL, Storage: "business-db"},
 			"workspace-history-assets": {Kind: stores.KindObjectStore, Storage: "local-files", Prefix: "workspace-history", TTL: 30 * 24 * time.Hour},
 		},
 		Services: validServicesConfig(),

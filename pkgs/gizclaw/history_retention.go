@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 type historyMaintainer interface {
@@ -23,7 +23,7 @@ type historyRetention struct {
 	done     chan struct{}
 }
 
-func newHistoryRetention(stores ...logstore.ImmutableStore) *historyRetention {
+func newHistoryRetention(stores ...memory.HistoryStore) *historyRetention {
 	r := &historyRetention{interval: time.Hour}
 	for _, store := range stores {
 		if maintenance, ok := store.(historyMaintainer); ok {

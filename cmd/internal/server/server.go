@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
@@ -17,7 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -281,26 +282,6 @@ func resolveSQLStore(registry *stores.Stores, path, name string) (*sqlx.DB, erro
 	return store, nil
 }
 
-func resolveMutableLogStore(registry *stores.Stores, path, name string) (logstore.MutableStore, error) {
-	store, err := registry.MutableLog(name)
-	if err != nil {
-		return nil, serviceStoreReferenceError(path, name, "logstore.MutableStore", err)
-	}
-	return store, nil
-}
-
-func resolveMutableRecordStore(registry *stores.Stores, path, name string) (logstore.MutableRecordStore, error) {
-	store, err := resolveMutableLogStore(registry, path, name)
-	if err != nil {
-		return nil, err
-	}
-	records, ok := store.(logstore.MutableRecordStore)
-	if !ok {
-		return nil, serviceStoreReferenceError(path, name, "logstore.MutableRecordStore", errors.New("exact record reads are unsupported"))
-	}
-	return records, nil
-}
-
 func resolveMetricsStore(registry *stores.Stores, path, name string) (metrics.Store, error) {
 	store, err := registry.Metrics(name)
 	if err != nil {
@@ -366,7 +347,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	server.WorkspaceHistory, err = resolveMutableRecordStore(registry, "services.workspace.history_store", cfg.Workspace.HistoryStore)
+	historyDB, err := resolveSQLStore(registry, "services.workspace.history_store", cfg.Workspace.HistoryStore)
 	if err != nil {
 		return err
 	}
@@ -374,16 +355,18 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if err != nil {
 		return err
 	}
-	historyTTL, err := registry.TTL(cfg.Workspace.HistoryStore)
-	if err != nil {
-		return err
-	}
 	assetTTL, err := registry.TTL(cfg.Workspace.HistoryAssetsStore)
 	if err != nil {
 		return err
 	}
-	if historyTTL <= 0 || historyTTL != assetTTL {
-		return errors.New("server: services.workspace history Store TTLs must be equal and positive")
+	if assetTTL <= 0 {
+		return errors.New("server: workspace history assets require positive retention")
+	}
+	historyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	server.WorkspaceHistory, err = memory.NewSQLHistoryStore(historyCtx, historyDB, memory.DefaultHistoryTable, assetTTL)
+	if err != nil {
+		return fmt.Errorf("server: workspace history: %w", err)
 	}
 	server.WorkspaceAssets, err = resolveObjectStore(registry, "services.workspace.assets_store", cfg.Workspace.AssetsStore)
 	if err != nil {
@@ -421,12 +404,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 					return err
 				}
 			}
-			if persistence.HistoryStore != "" {
-				server.AgentHistory, err = resolveMutableLogStore(registry, "services.agent_host.persistence.history_store", persistence.HistoryStore)
-				if err != nil {
-					return err
-				}
-			}
+
 		}
 	}
 	if cfg.Metrics != nil {

@@ -22,7 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
@@ -95,7 +95,7 @@ func run() error {
 	}
 	defer db.Close()
 	db.SetMaxOpenConns(1)
-	records, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	records, err := memory.NewSQLHistoryStore(ctx, db, memory.DefaultHistoryTable, 30*24*time.Hour)
 	if err != nil {
 		return err
 	}

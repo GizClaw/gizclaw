@@ -519,21 +519,6 @@ jobs:
     timeout-minutes: 15
     permissions:
       contents: read
-    services:
-      postgres:
-        image: postgres:17
-        env:
-          POSTGRES_USER: gizclaw
-          POSTGRES_PASSWORD: gizclaw
-          POSTGRES_DB: gizclaw_test
-          POSTGRES_INITDB_ARGS: --set=max_connections=300
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U gizclaw -d gizclaw_test"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       GIZCLAW_TEST_POSTGRES_DSN: postgres://gizclaw:gizclaw@127.0.0.1:5432/gizclaw_test?sslmode=disable
     steps:
@@ -557,6 +542,20 @@ jobs:
       - name: Build embedded monitoring console
         uses: ./.github/actions/build-console
 
+      - name: Build and start PostgreSQL with pg_partman
+        run: |
+          docker build -f build/postgres/Dockerfile -t gizclaw-postgres-test .
+          docker run -d --name gizclaw-postgres-test -p 5432:5432 \
+            -e POSTGRES_USER=gizclaw -e POSTGRES_PASSWORD=gizclaw -e POSTGRES_DB=gizclaw_test \
+            gizclaw-postgres-test postgres -c max_connections=300
+          for attempt in $(seq 1 60); do
+            if docker exec gizclaw-postgres-test pg_isready -U gizclaw -d gizclaw_test; then break; fi
+            echo "Waiting for PostgreSQL ($attempt/60)"
+            sleep 1
+          done
+          docker exec gizclaw-postgres-test psql -U gizclaw -d gizclaw_test -v ON_ERROR_STOP=1 \
+            -c 'CREATE SCHEMA partman' -c 'CREATE EXTENSION pg_partman WITH SCHEMA partman'
+
       - name: Require PostgreSQL test DSN
         run: test -n "$GIZCLAW_TEST_POSTGRES_DSN"
 
@@ -566,7 +565,8 @@ jobs:
         run: |
           go test -count=1 -p 1 \
             ./cmd/internal/server \
-            ./pkgs/store/logstore \
+            ./pkgs/store/memory \
+            ./pkgs/gizclaw/services/ai/workspace \
             ./pkgs/gizclaw/services/system/runtimeprofile
           go test -tags=store_e2e -count=1 -p 1 \
             -run '^TestPostgreSQL' \

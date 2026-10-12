@@ -118,7 +118,7 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	}
 	host := newPeerAgentHost(
 		a.manager.AgentHost, nil, nil, a.manager.ownerGenX,
-		a.manager.AgentHistory, a.manager.GraphStateDB, a.manager.MemoryRoot, a.manager.MemoryStores,
+		a.manager.GraphStateDB, a.manager.MemoryRoot, a.manager.MemoryStores,
 		sfu.Factory{Config: a.manager.SFU, Bindings: a.manager.sfuBindings()},
 	)
 	resolver, ok := host.Resolver.(canonicalAgentResolver)
@@ -142,6 +142,9 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 		mu.Unlock()
 	})
 	inputStreamID := genx.NewStreamID()
+	if recorded, ok := workspace.RecordedHistoryInput(ctx, item.Id); ok && recorded.TurnID != "" {
+		inputStreamID = recorded.TurnID
+	}
 	input := &openAITextStream{chunks: []*genx.MessageChunk{
 		{Role: genx.RoleUser, Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: inputStreamID, BeginOfStream: true}},
 		{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: inputStreamID, EndOfStream: true}},

@@ -85,9 +85,8 @@ Edge 进程。
 | `services.api_key.store` | `keyvalue`；保存 API Key、secret index 与 owner index，多 Server API routing 时必须共享 |
 | login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
 | `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
-| `services.workspace.history_store` | `log.mutable` |
+| `services.workspace.history_store` | `sql` |
 | `services.agent_host.persistence.state_store` | `sql` |
-| `services.agent_host.persistence.history_store` | `log.mutable` |
 | `services.metrics.store` | `metrics` |
 | `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout`、`talk_hangover`、`floor_idle` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
 | `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
@@ -100,7 +99,7 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema，并安装日志与 metrics。取得 workspace PID ownership 后，可选 process profiling 解析其专用 ObjectStore 并发布 baseline；完成后才打开 public listener 并启动 `Server.Listen`。逻辑 Store 不关闭借用的 connector。Shutdown 会先 join profiling worker，再关闭 logging、逻辑 wrapper 与物理 connector。Process profiling 属于 `cmd/internal/server`；可复用的 `pkgs/gizclaw.Server` 不依赖 pprof。
 
-旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。开发环境应使用当前配置重新创建，不导入或转换旧数据。ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
+旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。Workspace History 的一次性 SQL 数据转换使用 [history-migrate](../../stores/memory#history-migration)。ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
 
 ### 完整配置
 

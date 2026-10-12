@@ -2,6 +2,7 @@ package logstore
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +14,13 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
+
+func TestSQLLogRejectsPostgreSQLBeforeInitialization(t *testing.T) {
+	db := sqlx.NewDb(&sql.DB{}, "postgres")
+	if _, err := NewSQLStoreWithDB(db, "retired_log"); err == nil || !strings.Contains(err.Error(), "unsupported") {
+		t.Fatalf("PostgreSQL constructor=%v", err)
+	}
+}
 
 func newSQLiteLog(t *testing.T) (*SQLStore, *sqlx.DB) {
 	t.Helper()
@@ -149,43 +157,6 @@ func TestSQLLogTTLIsEnforcedByStore(t *testing.T) {
 	var count int
 	if err := db.Get(&count, "SELECT COUNT(*) FROM log_records WHERE id = ?", record.ID); err != nil || count != 0 {
 		t.Fatalf("expired physical row count = %d, %v, want 0 after append cleanup", count, err)
-	}
-}
-
-func TestPostgresAuxiliaryNamesAndPartitionBounds(t *testing.T) {
-	short, err := postgresAuxiliaryName("workspace_history", "p20260901")
-	if err != nil || short != "workspace_history_p20260901" {
-		t.Fatalf("postgresAuxiliaryName(short) = %q, %v", short, err)
-	}
-	longBase := strings.Repeat("a", 63)
-	first, err := postgresAuxiliaryName(longBase, "p20260901")
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := postgresAuxiliaryName(longBase, "p20260902")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(first) > 63 || len(second) > 63 || first == second {
-		t.Fatalf("long auxiliary names = %q and %q", first, second)
-	}
-
-	db := sqlx.MustOpen("sqlite", ":memory:")
-	t.Cleanup(func() { _ = db.Close() })
-	table, err := storage.PrepareSQLTable(db, "log", "workspace_history")
-	if err != nil {
-		t.Fatal(err)
-	}
-	store := &SQLStore{table: table}
-	partition, err := store.postgresPartition(time.Date(2026, 9, 1, 23, 0, 0, 0, time.FixedZone("test", 8*60*60)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if partition.name != "workspace_history_p20260901" || !partition.day.Equal(time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)) {
-		t.Fatalf("partition = %+v", partition)
-	}
-	if partition.upper-partition.lower != int64(24*time.Hour) {
-		t.Fatalf("partition width = %d, want %d", partition.upper-partition.lower, 24*time.Hour)
 	}
 }
 

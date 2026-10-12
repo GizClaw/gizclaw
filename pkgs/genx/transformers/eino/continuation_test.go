@@ -2,7 +2,6 @@ package eino
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -65,8 +64,7 @@ func TestContinuationAudioBackpressure(t *testing.T) {
 					want.WriteString(text)
 					return map[string]any{"text": text, "continue": n < iterations}, nil
 				})
-				store := &recordingHistoryStore{events: &eventRecorder{}}
-				config.History = &HistoryConfig{Store: store, Scope: "podcast", Limit: 50}
+				config.History = &HistoryConfig{Scope: "podcast", Limit: 50}
 				transformer, err := New(t.Context(), config)
 				if err != nil {
 					t.Fatal(err)
@@ -151,7 +149,7 @@ func TestContinuationAudioBackpressure(t *testing.T) {
 					observer.ObserveOutput(chunk)
 				}
 				synctest.Wait()
-				messages := continuationRecordedMessages(t, store)
+				messages := continuationRecordedMessages(t, transformer.history)
 				if interrupt {
 					firstID := held.Ctrl.StreamID
 					var prefix strings.Builder
@@ -222,8 +220,7 @@ func TestContinuationSharesRouteAndRecordsEachGeneration(t *testing.T) {
 		return map[string]any{"text": text, "continue": calls < iterations}, nil
 	})
 	events := &eventRecorder{}
-	store := &recordingHistoryStore{events: events}
-	config.History = &HistoryConfig{Store: store, Scope: "podcast", Limit: 50}
+	config.History = &HistoryConfig{Scope: "podcast", Limit: 50}
 	memories := &recordingMemoryStore{events: events}
 	config.Memory = &MemoryConfig{Store: memories, Scope: memory.Scope{AppID: "podcast"}, Observe: ObservePolicy{Enabled: true}}
 	transformer, err := New(t.Context(), config)
@@ -261,7 +258,7 @@ func TestContinuationSharesRouteAndRecordsEachGeneration(t *testing.T) {
 	if begins != 1 || ends != 1 {
 		t.Fatalf("BOS=%d EOS=%d, want one uninterrupted route", begins, ends)
 	}
-	messages := continuationRecordedMessages(t, store)
+	messages := continuationRecordedMessages(t, transformer.history)
 	if len(messages) != iterations+1 || continuationAssistantText(messages) != want.String() {
 		t.Fatalf("History=%+v, want one user and one assistant message per generation", messages)
 	}
@@ -270,10 +267,11 @@ func TestContinuationSharesRouteAndRecordsEachGeneration(t *testing.T) {
 			t.Fatalf("generation %d History=%+v", i+1, message)
 		}
 	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if len(store.records) != iterations+1 {
-		t.Fatalf("persisted records=%d, want one user and %d narration segments", len(store.records), iterations)
+	transformer.history.mu.Lock()
+	count := len(transformer.history.live)
+	transformer.history.mu.Unlock()
+	if count != iterations+1 {
+		t.Fatalf("local records=%d, want one user and %d narration segments", count, iterations)
 	}
 	memories.mu.Lock()
 	defer memories.mu.Unlock()
@@ -308,8 +306,7 @@ func TestContinuationInterruptCancelsGenerationAndRecordsOnePrefix(t *testing.T)
 		}
 		return map[string]any{"text": fmt.Sprintf("topic %d. ", n), "continue": true}, nil
 	})
-	store := &recordingHistoryStore{events: &eventRecorder{}}
-	config.History = &HistoryConfig{Store: store, Scope: "podcast", Limit: 50}
+	config.History = &HistoryConfig{Scope: "podcast", Limit: 50}
 	transformer, err := New(ctx, config)
 	if err != nil {
 		t.Fatal(err)
@@ -346,9 +343,9 @@ func TestContinuationInterruptCancelsGenerationAndRecordsOnePrefix(t *testing.T)
 	case <-ctx.Done():
 		t.Fatal("next generation did not start")
 	}
-	store.mu.Lock()
-	recordsBeforeInterruption := len(store.records)
-	store.mu.Unlock()
+	transformer.history.mu.Lock()
+	recordsBeforeInterruption := len(transformer.history.live)
+	transformer.history.mu.Unlock()
 	if recordsBeforeInterruption != 3 {
 		t.Fatalf("History before interruption=%d, want one user and two completed generations", recordsBeforeInterruption)
 	}
@@ -371,14 +368,14 @@ func TestContinuationInterruptCancelsGenerationAndRecordsOnePrefix(t *testing.T)
 	if interrupted != 1 || joinedText(chunks) != "stopped" || calls.Load() != 3 {
 		t.Fatalf("interrupted=%d suffix=%q calls=%d", interrupted, joinedText(chunks), calls.Load())
 	}
-	messages := continuationRecordedMessages(t, store)
+	messages := continuationRecordedMessages(t, transformer.history)
 	if len(messages) != 5 || continuationAssistantText(messages[:3]) != delivered.String() || messages[4].Content != "stopped" {
 		t.Fatalf("History=%+v, want completed generations followed by the replacement reply", messages)
 	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if len(store.records) != 5 || store.records[1].Attributes["interrupted"] != "" || store.records[2].Attributes["interrupted"] != "" {
-		t.Fatalf("History records=%+v", store.records)
+	transformer.history.mu.Lock()
+	defer transformer.history.mu.Unlock()
+	if len(transformer.history.live) != 5 {
+		t.Fatalf("History records=%+v", transformer.history.live)
 	}
 }
 
@@ -528,21 +525,11 @@ func TestContinuationStopResumeAndRedirect(t *testing.T) {
 	})
 }
 
-func continuationRecordedMessages(t *testing.T, store *recordingHistoryStore) []*schema.Message {
+func continuationRecordedMessages(t *testing.T, history *conversationHistory) []*schema.Message {
 	t.Helper()
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	messages := make([]*schema.Message, 0, len(store.records))
-	for _, record := range store.records {
-		var payload struct {
-			Message *schema.Message `json:"message"`
-		}
-		if err := json.Unmarshal(record.Payload, &payload); err != nil {
-			t.Fatal(err)
-		}
-		messages = append(messages, payload.Message)
-	}
-	return messages
+	history.mu.Lock()
+	defer history.mu.Unlock()
+	return cloneMessages(history.live)
 }
 
 func TestContinuationValidation(t *testing.T) {

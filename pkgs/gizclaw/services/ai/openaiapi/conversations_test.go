@@ -14,12 +14,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+
 	"github.com/idy/ai-server-shell/backend"
 	shellopenai "github.com/idy/ai-server-shell/openai"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -502,7 +503,7 @@ func testOpenAIRuntimeStore(t *testing.T, objects objectstore.ObjectStore) works
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	history, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	history, err := memory.NewSQLHistoryStore(t.Context(), db, "workspace_history", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

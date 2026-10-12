@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -65,22 +65,12 @@ func TestPostgreSQLHistoryRetentionWithoutWrites(t *testing.T) {
 		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `" CASCADE`)
 		_, _ = db.Exec(`DROP TABLE IF EXISTS "` + table + `_keys"`)
 	})
-	store, err := logstore.NewSQLStoreWithDBAndTTL(db, table, 30*24*time.Hour)
+	store, err := memory.NewSQLHistoryStore(t.Context(), db, table, 30*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = store.Close() })
-	today := time.Now().UTC().Truncate(24 * time.Hour)
-	yesterday := today.AddDate(0, 0, -1)
-	child := table + "_p" + yesterday.Format("20060102")
-	if _, err := db.Exec(fmt.Sprintf(`CREATE TABLE "%s" PARTITION OF "%s" FOR VALUES FROM (%d) TO (%d)`, child, table, yesterday.UnixNano(), today.UnixNano())); err != nil {
-		t.Fatal(err)
-	}
-	expiry := yesterday.Add(time.Hour).UnixNano()
-	if _, err := db.Exec(`INSERT INTO "`+table+`_keys" (stream,id,expires_at_unix_nano) VALUES ('idle','expired',$1)`, expiry); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := db.Exec(`INSERT INTO "`+table+`" (stream,id,timestamp_unix_nano,expires_at_unix_nano,kind,severity,message,attributes_json,payload_json) VALUES ('idle','expired',1,$1,'message','','','{}',$2)`, expiry, []byte{}); err != nil {
+	expiry := time.Now().UTC().Truncate(24 * time.Hour).Add(-23 * time.Hour)
+	if err := store.Append(t.Context(), []memory.HistoryEntry{{ConversationID: "idle", ID: "expired", Role: memory.RoleUser, Text: "expired", CreatedAt: expiry.Add(-time.Hour), ExpiresAt: &expiry}}); err != nil {
 		t.Fatal(err)
 	}
 	r := newHistoryRetention(store)
@@ -92,11 +82,11 @@ func TestPostgreSQLHistoryRetentionWithoutWrites(t *testing.T) {
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		var childExists bool
-		if err := db.GetContext(ctx, &childExists, `SELECT to_regclass(current_schema() || '.' || $1) IS NOT NULL`, child); err != nil {
+		var rows int
+		if err := db.GetContext(ctx, &rows, `SELECT count(*) FROM "`+table+`" WHERE id='expired'`); err != nil {
 			t.Fatal(err)
 		}
-		if !childExists {
+		if rows == 0 {
 			break
 		}
 		select {
@@ -105,8 +95,7 @@ func TestPostgreSQLHistoryRetentionWithoutWrites(t *testing.T) {
 		case <-ticker.C:
 		}
 	}
-	var keys int
-	if err := db.Get(&keys, `SELECT COUNT(*) FROM "`+table+`_keys"`); err != nil || keys != 0 {
-		t.Fatalf("idle history keys = %d, %v; want 0", keys, err)
+	if _, err := store.Get(t.Context(), memory.HistoryKey{ConversationID: "idle", ID: "expired"}); err == nil {
+		t.Fatal("expired history remained readable")
 	}
 }

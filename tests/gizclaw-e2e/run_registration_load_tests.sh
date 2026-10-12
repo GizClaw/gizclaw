@@ -7,7 +7,8 @@ evidence="${1:-$repo_root/tests/gizclaw-e2e/.testbench/registration-$(date +%Y%m
 mkdir -p "$evidence"
 evidence="$(cd "$evidence" && pwd)"
 run_id="gizclaw-registration-$(date +%s)-$$"
-pg_image='postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
+pg_image='gizclaw-history-postgres:fixture'
+docker build -f build/postgres/Dockerfile -t "$pg_image" . >"$evidence/postgres-build.log" 2>&1
 redis_image='redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823'
 cleanup() {
   docker logs "$run_id-pg" >"$evidence/postgres.log" 2>&1 || true
@@ -34,7 +35,7 @@ for _ in {1..120}; do
   sleep 0.5
 done
 docker exec "$run_id-pg" psql -U gizclaw -d gizclaw -v ON_ERROR_STOP=1 \
-  -c 'CREATE EXTENSION pg_stat_statements' >"$evidence/postgres-setup.log"
+  -c 'CREATE EXTENSION pg_stat_statements' -c 'CREATE SCHEMA partman' -c 'CREATE EXTENSION pg_partman WITH SCHEMA partman' >"$evidence/postgres-setup.log"
 GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw:local-registration-fixture@$(docker port "$run_id-pg" 5432)/gizclaw?sslmode=disable"
 GIZCLAW_TEST_REDIS_URL="redis://$(docker port "$run_id-redis" 6379)/0"
 export GIZCLAW_TEST_POSTGRES_DSN GIZCLAW_TEST_REDIS_URL

@@ -40,7 +40,7 @@ readiness probe，并在逻辑 Stores 之后关闭 transport。逻辑 `objectsto
 
 逻辑 Store 可以独立配置正数 `ttl`；此时普通 `Put` 由选定 ObjectStore driver 设置
 deadline，service 不需要 TTL setter 或逐次传 deadline。Workspace History 在专用 asset
-Store 上独立配置该值，并要求它与 History LogStore TTL 相同。
+Store 上配置该值，SQL History Store 同时使用这个保留周期。
 
 Startup probe 只确认配置身份能够找到并读取既有 bucket/container，不能证明 Put/Delete
 authorization。相关权限失败会作为经过 redaction 的 runtime ObjectStore error 返回；完整

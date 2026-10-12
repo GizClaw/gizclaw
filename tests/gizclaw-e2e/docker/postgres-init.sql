@@ -7,3 +7,11 @@ REVOKE CONNECT ON DATABASE gizclaw_server FROM PUBLIC;
 REVOKE CONNECT ON DATABASE gizclaw_mem0 FROM PUBLIC;
 \connect gizclaw_mem0
 CREATE EXTENSION vector;
+
+\connect gizclaw_server
+CREATE SCHEMA partman;
+CREATE EXTENSION pg_partman WITH SCHEMA partman;
+GRANT USAGE,CREATE ON SCHEMA partman TO gizclaw_server;
+GRANT ALL ON ALL TABLES IN SCHEMA partman TO gizclaw_server;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA partman TO gizclaw_server;
+GRANT EXECUTE ON ALL PROCEDURES IN SCHEMA partman TO gizclaw_server;

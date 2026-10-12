@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -35,11 +35,11 @@ type RuntimeCleanupStore interface {
 
 type ObjectRuntimeStore struct {
 	Objects       objectstore.ObjectStore
-	History       logstore.MutableRecordStore
+	History       memory.HistoryStore
 	HistoryAssets objectstore.ObjectStore
 }
 
-func NewObjectRuntimeStore(objects objectstore.ObjectStore, history logstore.MutableRecordStore, historyAssets objectstore.ObjectStore) ObjectRuntimeStore {
+func NewObjectRuntimeStore(objects objectstore.ObjectStore, history memory.HistoryStore, historyAssets objectstore.ObjectStore) ObjectRuntimeStore {
 	return ObjectRuntimeStore{Objects: objects, History: history, HistoryAssets: historyAssets}
 }
 

@@ -29,7 +29,7 @@ storage:
 stores:
   logs:
     kind: log.immutable
-    storage: database
+    storage: local-runtime
     table: gizclaw_logs
 
   metrics:
@@ -37,16 +37,9 @@ stores:
     storage: database
     table: gizclaw_metrics
 
-  eino-history:
-    kind: log.mutable
-    storage: database
-    table: gizclaw_eino_history
-
   workspace-history:
-    kind: log.mutable
+    kind: sql
     storage: database
-    table: gizclaw_workspace_history
-    ttl: 720h
 
   workspace-history-assets:
     kind: objectstore
@@ -196,7 +189,6 @@ services:
     runtime_store: agenthost
     persistence:
       state_store: eino-state
-      history_store: eino-history
   metrics:
     store: metrics
   system_log:

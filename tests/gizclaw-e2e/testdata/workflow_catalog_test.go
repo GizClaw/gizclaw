@@ -92,11 +92,16 @@ func TestServerWorkspaceFixtureHasNoImplicitOrUnconsumedStoreEntries(t *testing.
 		t.Fatalf("workspace history asset binding = %v", workspace["history_assets_store"])
 	}
 	history := stores["workspace-history"].(map[string]any)
-	if history["kind"] != "log.mutable" || history["storage"] != "business-db" || history["table"] != "workspace_history" || history["ttl"] != "720h" {
+	if history["kind"] != "sql" || history["storage"] != "business-db" {
 		t.Fatalf("workspace history Store = %#v", history)
 	}
+	for _, legacy := range []string{"table", "ttl"} {
+		if _, exists := history[legacy]; exists {
+			t.Fatalf("workspace history SQL Store has legacy field %q", legacy)
+		}
+	}
 	historyAssets := stores["workspace-history-assets"].(map[string]any)
-	if historyAssets["kind"] != "objectstore" || historyAssets["ttl"] != history["ttl"] {
+	if historyAssets["kind"] != "objectstore" || historyAssets["ttl"] != "720h" {
 		t.Fatalf("workspace history asset Store = %#v", historyAssets)
 	}
 }

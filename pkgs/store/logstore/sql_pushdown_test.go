@@ -1,16 +1,9 @@
 package logstore
 
 import (
-	"context"
-	"crypto/rand"
 	"fmt"
-	"os"
-	"strings"
 	"testing"
 	"time"
-
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 )
 
 func TestSQLLogQueryFiltersBeforePageLimit(t *testing.T) {
@@ -18,30 +11,7 @@ func TestSQLLogQueryFiltersBeforePageLimit(t *testing.T) {
 		store, _ := newSQLiteLog(t)
 		testSQLLogQueryPushdown(t, store)
 	})
-	t.Run("postgres", func(t *testing.T) {
-		dsn := os.Getenv("GIZCLAW_TEST_POSTGRES_DSN")
-		if dsn == "" {
-			t.Skip("set GIZCLAW_TEST_POSTGRES_DSN for PostgreSQL integration")
-		}
-		db, err := sqlx.ConnectContext(t.Context(), "postgres", dsn)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = db.Close() })
-		store, err := NewSQLStoreWithDB(db, "log_pushdown_"+strings.ToLower(rand.Text()))
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() {
-			_ = store.Close()
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			if _, err := db.ExecContext(ctx, "DROP TABLE "+store.quoted); err != nil {
-				t.Error(err)
-			}
-		})
-		testSQLLogQueryPushdown(t, store)
-	})
+
 }
 
 func testSQLLogQueryPushdown(t *testing.T, store *SQLStore) {
