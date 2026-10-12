@@ -17,6 +17,43 @@ seed_bin="$bin_dir/multiserver-seed-linux"
 report_dir="$script_dir/testdata/multi-server"
 env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$script_dir/.env}"
 giztest_dir="tests/gizclaw-e2e/giztest"
+sfu_case="${GIZCLAW_E2E_SFU_CASE:-}"
+sfu_repeat="${GIZCLAW_E2E_SFU_REPEAT:-1}"
+sfu_delay="${GIZCLAW_E2E_SFU_TERMINAL_DELAY_MS:-0}"
+sfu_udp_end="${GIZCLAW_E2E_LIVEKIT_UDP_END:-60000}"
+probe_dir=""
+compose_files=(-f "$compose_file")
+if [[ ! "$sfu_delay" =~ ^(0|[1-9][0-9]{0,4})$ ]] || ((sfu_delay > 10000)); then
+  echo "SFU terminal delay must be 0..10000 milliseconds" >&2; exit 2
+fi
+if [[ ! "$sfu_udp_end" =~ ^[0-9]{5}$ ]] || ((sfu_udp_end <= 50000 || sfu_udp_end > 65535)); then
+  echo "SFU UDP range end must be 50001..65535" >&2; exit 2
+fi
+export GIZCLAW_E2E_LIVEKIT_UDP_END="$sfu_udp_end"
+if ((sfu_delay > 0)) && [[ "$sfu_case" != removal ]]; then
+  echo "SFU terminal delay requires the removal case" >&2; exit 2
+fi
+if [[ -n "$sfu_case" ]]; then
+  case "$sfu_case" in startup | removal) ;; *) echo "SFU case must be startup or removal" >&2; exit 2 ;; esac
+  if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+    echo "SFU and social notification cases are separate runs" >&2; exit 2
+  fi
+  if [[ ! "$sfu_repeat" =~ ^[1-9][0-9]?$ ]] || ((sfu_repeat > 64)); then
+    echo "SFU repeat must be 1..64" >&2; exit 2
+  fi
+  compose_files+=(-f "$script_dir/docker/docker-compose.sfu-regression.yaml")
+  export GIZCLAW_E2E_GIZTEST_PARALLEL="${GIZCLAW_E2E_GIZTEST_PARALLEL:-$sfu_repeat}"
+  if [[ ! "$GIZCLAW_E2E_GIZTEST_PARALLEL" =~ ^[1-9][0-9]?$ ]] || ((GIZCLAW_E2E_GIZTEST_PARALLEL > 64)); then
+    echo "SFU parallel must be 1..64" >&2; exit 2
+  fi
+  if [[ "$sfu_case" == startup ]] && ((GIZCLAW_E2E_GIZTEST_PARALLEL < sfu_repeat)); then
+    echo "SFU startup barrier requires parallel >= repeat" >&2; exit 2
+  fi
+  case "${GIZCLAW_E2E_SFU_ACCEPT_REVOCATION:-1}" in 0 | 1) ;; *) echo "SFU accept revocation must be 0 or 1" >&2; exit 2 ;; esac
+  report_dir="$report_dir/$project"
+  export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
+  export GIZCLAW_E2E_GIZTEST_EVIDENCE=full
+fi
 
 # shellcheck source=setup/credentials.sh
 # shellcheck disable=SC1091
@@ -31,7 +68,9 @@ provider_credentials=(
   GIZCLAW_E2E_VOLC_OPENAPI_ACCESS_KEY
 )
 GIZCLAW_E2E_SFU_PROVIDER=0
-if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+if [[ -n "$sfu_case" ]]; then
+  echo "==> provider-free SFU $sfu_case: $sfu_repeat tasks, parallel=$GIZCLAW_E2E_GIZTEST_PARALLEL, terminal delay=${sfu_delay}ms"
+elif [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
   echo "==> provider-free social notification acceptance"
 elif [[ -f "$env_file" ]]; then
   if require_gizclaw_e2e_credentials "$env_file" "${provider_credentials[@]}"; then
@@ -55,6 +94,8 @@ random_hex() {
 GIZCLAW_E2E_LIVEKIT_API_KEY="e2e$(random_hex 8)"
 GIZCLAW_E2E_LIVEKIT_API_SECRET="$(random_hex 32)"
 export GIZCLAW_E2E_LIVEKIT_API_KEY GIZCLAW_E2E_LIVEKIT_API_SECRET
+GIZCLAW_E2E_SFU_PG_PASSWORD="$(random_hex 24)"
+export GIZCLAW_E2E_SFU_PG_PASSWORD
 export GIZCLAW_TEST_REGISTRATION_TOKEN_A="" GIZCLAW_TEST_REGISTRATION_TOKEN_B=""
 
 docker_platform="linux/amd64"
@@ -76,17 +117,33 @@ if ! docker image inspect "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" >/dev/null 2>&1; then
 fi
 
 compose() {
-  docker compose -p "$project" -f "$compose_file" "$@"
+  docker compose -p "$project" "${compose_files[@]}" "$@"
 }
 
 cleanup() {
   status=$?
+  if [[ -n "${GIZCLAW_E2E_SFU_EVIDENCE_DIR:-}" ]]; then
+    mkdir -p "$GIZCLAW_E2E_SFU_EVIDENCE_DIR"
+    compose logs --no-color 2>&1 | python3 -B "$script_dir/setup/redact_diagnostics.py" \
+      > "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/services.log" || true
+    for artifact in sfu-report.json sfu-case.giztest.yaml sfu-run.json; do
+      if [[ -f "$report_dir/$artifact" ]]; then
+        cp "$report_dir/$artifact" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/$artifact"
+      fi
+    done
+    if [[ -n "$probe_dir" && -f "$probe_dir/injection.patch" ]]; then
+      cp "$probe_dir/injection.patch" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/injection.patch"
+    fi
+  fi
   if (( status != 0 )); then
     compose ps --all >&2 || true
     compose logs --no-color --tail 800 2>&1 \
       | python3 -B "$script_dir/setup/redact_diagnostics.py" >&2 || true
   fi
   compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+  if [[ -n "$probe_dir" ]]; then
+    rm -rf "$probe_dir"
+  fi
   if [[ "${GIZCLAW_E2E_KEEP_BINARIES:-}" != 1 ]]; then
     rm -f "$server_bin" "$test_bin" "$seed_bin"
   fi
@@ -94,19 +151,52 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$bin_dir" "$report_dir"
+probe_mount=(-e GIZCLAW_E2E_SFU_PROBE_OVERLAY=)
+if ((sfu_delay > 0)); then
+  probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-sfu-probe.XXXXXX")"
+  python3 -B "$script_dir/setup/prepare-sfu-probe.py" "$repo_root/pkgs/gizclaw/peer_conn.go" "$probe_dir" "$sfu_delay"
+  probe_mount=(-v "$probe_dir:/probe:ro" -e GIZCLAW_E2E_SFU_PROBE_OVERLAY=/probe/overlay.json)
+fi
 module_cache="$(go env GOMODCACHE)"
 build_cache="$(go env GOCACHE)"
-if [[ "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]]; then
+if [[ "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]] || [[ -n "$sfu_case" && -z "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
   docker run --rm --entrypoint /bin/bash \
     -v "$repo_root:/src" \
     -v "$module_cache:/root/go/pkg/mod" \
     -v "$build_cache:/root/.cache/go-build" \
+    "${probe_mount[@]}" \
     "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" \
     -lc 'cd /src \
       && npm ci && npm run build:console \
-      && go build -o tests/gizclaw-e2e/testdata/bin/gizclaw-linux ./cmd/gizclaw \
+      && probe_args=() \
+      && if [[ -n "${GIZCLAW_E2E_SFU_PROBE_OVERLAY:-}" ]]; then probe_args=(-overlay "$GIZCLAW_E2E_SFU_PROBE_OVERLAY"); fi \
+      && go build "${probe_args[@]}" -o tests/gizclaw-e2e/testdata/bin/gizclaw-linux ./cmd/gizclaw \
       && go build -o tests/gizclaw-e2e/testdata/bin/multiserver-seed-linux ./tests/gizclaw-e2e/cmd/multiserver-seed \
       && go test -c -tags gizclaw_e2e -o tests/gizclaw-e2e/testdata/bin/multiserver-e2e-linux ./tests/gizclaw-e2e/go/multiserver'
+fi
+if [[ -n "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
+  : "${GIZCLAW_E2E_SFU_BINARY_REVISION:?identify the supplied baseline binary revision}"
+  cp "$GIZCLAW_E2E_SFU_BINARY" "$server_bin"
+fi
+if [[ -n "$sfu_case" ]]; then
+  docker run --rm --entrypoint node -v "$repo_root:/src" -v "$report_dir:/reports" \
+    "$GIZCLAW_E2E_DOCKER_BASE_IMAGE" /src/tests/gizclaw-e2e/setup/prepare-sfu-case.mjs \
+    "/src/$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml" \
+    /reports/sfu-case.giztest.yaml "$sfu_case" "$sfu_repeat" "${GIZCLAW_E2E_SFU_ACCEPT_REVOCATION:-1}" "$sfu_delay"
+  python3 -B - "$server_bin" "$report_dir/sfu-run.json" "${GIZCLAW_E2E_SFU_BINARY_REVISION:-$(git -C "$repo_root" rev-parse HEAD)}" \
+    "$sfu_case" "$sfu_repeat" "$GIZCLAW_E2E_GIZTEST_PARALLEL" "$sfu_delay" "${GIZCLAW_E2E_LIVEKIT_UDP_END:-60000}" "$repo_root" <<'PY'
+import hashlib, json, pathlib, subprocess, sys
+binary, report, revision, case, repeat, parallel, delay, udp_end, repository = sys.argv[1:]
+dirty = subprocess.check_output(["git", "-C", repository, "status", "--porcelain"])
+diff = subprocess.check_output(["git", "-C", repository, "diff", "HEAD"])
+pathlib.Path(report).write_text(json.dumps({
+    "revision": revision, "binary_sha256": hashlib.sha256(pathlib.Path(binary).read_bytes()).hexdigest(),
+    "fixture_source_dirty": bool(dirty), "fixture_diff_sha256": hashlib.sha256(diff).hexdigest(),
+    "case": case, "tasks": int(repeat), "parallel": int(parallel), "sfu_peers_per_task": 3,
+    "terminal_delay_ms": int(delay), "udp_start": 50000, "udp_end": int(udp_end),
+    "topology": "2 Servers, 2 Edges, LiveKit, shared Redis, separate PostgreSQL databases",
+}, indent=2) + "\n")
+PY
 fi
 
 compose up --build --wait redis livekit server-a server-b edge-a edge-b
@@ -130,9 +220,11 @@ if [[ -z "$GIZCLAW_TEST_REGISTRATION_TOKEN_A" || -z "$GIZCLAW_TEST_REGISTRATION_
 fi
 export GIZCLAW_TEST_REGISTRATION_TOKEN_A GIZCLAW_TEST_REGISTRATION_TOKEN_B
 
-echo "==> go multi-server tests"
-compose run --rm -T tests \
-  -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1 | tee "$report_dir/go-tests.log"
+if [[ -z "$sfu_case" ]]; then
+  echo "==> go multi-server tests"
+  compose run --rm -T tests \
+    -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1 | tee "$report_dir/go-tests.log"
+fi
 
 if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
   compose logs --no-color server-a server-b edge-a edge-b 2>&1 \
@@ -210,6 +302,9 @@ if [[ "$GIZCLAW_E2E_SFU_PROVIDER" == 1 ]]; then
   )
 else
   echo "==> provider-gated SFU scenarios skipped (GIZCLAW_E2E_SFU_PROVIDER=0)"
+fi
+if [[ -n "$sfu_case" ]]; then
+  scenarios=(/reports/sfu-case.giztest.yaml)
 fi
 report_name="sfu-report.json"
 rm -f "$report_dir/$report_name"
