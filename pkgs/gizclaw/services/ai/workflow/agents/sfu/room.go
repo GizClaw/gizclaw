@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/livekit/protocol/auth"
@@ -84,6 +85,9 @@ type livekitConnector struct {
 }
 
 func (c livekitConnector) connect(ctx context.Context, params connectParams, events roomEvents) (roomClient, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("sfu: connect to room: %w", err)
+	}
 	token, err := c.mintToken(params)
 	if err != nil {
 		return nil, err
@@ -125,14 +129,52 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 			},
 		},
 	}
-	timeout := livekitDefaultConnectTO
-	if deadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
-			timeout = remaining
-		}
+	ctx, cancel := context.WithTimeout(ctx, livekitDefaultConnectTO)
+	defer cancel()
+	room := lksdk.NewRoom(callback)
+	var disconnectOnce sync.Once
+	disconnect := func() { disconnectOnce.Do(room.Disconnect) }
+	stopCancel := context.AfterFunc(ctx, disconnect)
+	defer stopCancel()
+	// SDK signaling accepts a context, but its ICE wait and PublishTrack have
+	// their own bounded timers. Keep those waits off the runtime transition
+	// caller so cancellation can close the participant and release that gate.
+	type connectResult struct {
+		client *livekitRoom
+		err    error
 	}
-	room, err := lksdk.ConnectToRoomWithToken(params.URL, token, callback, lksdk.WithAutoSubscribe(true), lksdk.WithConnectTimeout(timeout))
-	if err != nil {
+	result := make(chan connectResult, 1)
+	go func() {
+		client, err := initializeLiveKitRoom(ctx, room, params.URL, token, disconnect)
+		if cause := ctx.Err(); cause != nil {
+			client, err = nil, fmt.Errorf("sfu: initialize room: %w", cause)
+		}
+		if err != nil {
+			disconnect()
+		}
+		result <- connectResult{client, err}
+	}()
+	select {
+	case <-ctx.Done():
+		disconnect()
+		return nil, fmt.Errorf("sfu: initialize room: %w", ctx.Err())
+	case initialized := <-result:
+		if !stopCancel() || ctx.Err() != nil {
+			disconnect()
+			return nil, fmt.Errorf("sfu: initialize room: %w", ctx.Err())
+		}
+		if initialized.err != nil {
+			return nil, initialized.err
+		}
+		return initialized.client, nil
+	}
+}
+
+func initializeLiveKitRoom(ctx context.Context, room *lksdk.Room, url, token string, disconnect func()) (*livekitRoom, error) {
+	if err := room.JoinWithContextAndToken(ctx, url, token, lksdk.WithAutoSubscribe(true), lksdk.WithConnectTimeout(livekitDefaultConnectTO)); err != nil {
+		return nil, fmt.Errorf("sfu: connect to room: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("sfu: connect to room: %w", err)
 	}
 	track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
@@ -141,7 +183,6 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 		Channels:  2,
 	}, "audio", "gizclaw")
 	if err != nil {
-		room.Disconnect()
 		return nil, fmt.Errorf("sfu: create local audio track: %w", err)
 	}
 	publication, err := room.LocalParticipant.PublishTrack(track, &lksdk.TrackPublicationOptions{
@@ -149,10 +190,9 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 		Source: livekit.TrackSource_MICROPHONE,
 	})
 	if err != nil {
-		room.Disconnect()
 		return nil, fmt.Errorf("sfu: publish local audio track: %w", err)
 	}
-	return &livekitRoom{room: room, track: track, publication: publication}, nil
+	return &livekitRoom{room: room, track: track, publication: publication, disconnect: disconnect}, nil
 }
 
 func (c livekitConnector) mintToken(params connectParams) (string, error) {
@@ -189,6 +229,7 @@ type livekitRoom struct {
 	room        *lksdk.Room
 	track       *webrtc.TrackLocalStaticSample
 	publication *lksdk.LocalTrackPublication
+	disconnect  func()
 }
 
 func (r *livekitRoom) WriteAudio(sample media.Sample) error {
@@ -204,5 +245,5 @@ func (r *livekitRoom) Disconnect() {
 		_ = r.room.LocalParticipant.UnpublishTrack(r.publication.SID())
 		r.publication = nil
 	}
-	r.room.Disconnect()
+	r.disconnect()
 }
