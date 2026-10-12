@@ -39,6 +39,7 @@ if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
   go build -o "$image_dir/bin/gizclaw" ./cmd/gizclaw
   go build -o "$image_dir/bin/monitor-seed" ./tests/gizclaw-e2e/cmd/multiserver-seed
   go build -o "$image_dir/bin/monitor-fixture" ./tests/gizclaw-e2e/cmd/monitor-fixture
+  go build -o "$image_dir/bin/log-sink" ./tests/gizclaw-e2e/cmd/log-sink
 else
   base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
   if ! docker image inspect "$base" >/dev/null 2>&1; then
@@ -50,7 +51,8 @@ else
     -v "gizclaw-audioplayer-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
       && go build -o /out/gizclaw ./cmd/gizclaw \
       && go build -o /out/monitor-seed ./tests/gizclaw-e2e/cmd/multiserver-seed \
-      && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture'
+      && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture \
+      && go build -o /out/log-sink ./tests/gizclaw-e2e/cmd/log-sink'
 fi
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/server.device.audioplayer.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"

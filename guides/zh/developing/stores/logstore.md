@@ -49,6 +49,12 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
 
+## 日志切换
+
+启动前配置已有 Volc TLS topic 及其兼容 index，并将 LogStore 绑定改为 `log.immutable`、`volc-tls` 和 `topic_id`；不需要日志查询时可以只配置 stderr sink。切换后，Admin/Monitor 日志查询只读取新 topic。
+
+旧 SQL 日志表和记录由数据库 owner 保留。Server 不会将它们导入 Volc TLS，也不会删除它们；需要保留旧日志检索时，在切换前使用数据库工具导出或归档，并通过数据库工具读取归档。GizClaw 不提供旧数据库日志读取路径。`history-migrate` 只迁移显式选择的 Workspace/Eino History 表；遇到通用日志混入源表时拒绝迁移并保留源数据。
+
 ## Process logging
 
 `services.system_log` 是 Server 自身的 `slog` pipeline，不是产品 record 写入 API：

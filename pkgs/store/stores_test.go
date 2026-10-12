@@ -612,3 +612,53 @@ func TestLogStoreUsesLoggingServiceTopics(t *testing.T) {
 		t.Fatalf("topic isolation=%+v err=%v", page, err)
 	}
 }
+
+func TestLoggingServiceCutoverPreservesArchivedSQLLogs(t *testing.T) {
+	server := httptest.NewServer(volctlsfixture.NewHandler())
+	defer server.Close()
+	physical, err := physicalstorage.New(map[string]physicalstorage.Config{
+		"database": physicalstorage.SQLiteConfig{DSN: ":memory:"},
+		"tls":      physicalstorage.VolcTLSConfig{Endpoint: server.URL, Region: "test", AccessKeyID: "fixture", AccessKeySecret: "fixture"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer physical.Close()
+	db, err := physical.SQL("database")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// This is operator-owned archive data, not a surviving SQL LogStore.
+	if _, err := db.Exec(`CREATE TABLE archived_logs (id TEXT PRIMARY KEY, message TEXT NOT NULL); INSERT INTO archived_logs VALUES ('old', 'retained')`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := New(map[string]Config{"logs": {Kind: KindLogImmutable, Storage: "database", Table: "archived_logs"}}, physical); err == nil {
+		t.Fatal("retired SQL logging configuration was accepted")
+	}
+	registry, err := New(map[string]Config{"logs": {Kind: KindLogImmutable, Storage: "tls", TopicID: "new-topic"}}, physical)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer registry.Close()
+	logs, err := registry.Log("logs")
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Millisecond)
+	query := logstore.Query{Start: now.Add(-time.Hour), End: now.Add(time.Hour), Limit: 10, Order: logstore.OrderAsc}
+	page, err := logs.Query(t.Context(), query)
+	if err != nil || len(page.Records) != 0 {
+		t.Fatalf("archive was unexpectedly imported: %+v, %v", page, err)
+	}
+	if _, err := logs.Append(t.Context(), []logstore.Record{{ID: "new", Time: now, Stream: "system", Kind: "log", Message: "current"}}); err != nil {
+		t.Fatal(err)
+	}
+	page, err = logs.Query(t.Context(), query)
+	if err != nil || len(page.Records) != 1 || page.Records[0].ID != "new" {
+		t.Fatalf("new-topic records=%+v, %v", page, err)
+	}
+	var message string
+	if err := db.Get(&message, `SELECT message FROM archived_logs WHERE id='old'`); err != nil || message != "retained" {
+		t.Fatalf("cutover changed archived data: %q, %v", message, err)
+	}
+}

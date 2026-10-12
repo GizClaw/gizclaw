@@ -67,6 +67,7 @@ if [[ "$(go env GOOS)/$(go env GOARCH)" == "linux/$arch" ]]; then
   go build -overlay "$image_dir/overlay.json" -o "$image_dir/bin/gizclaw" ./cmd/gizclaw
   go build -o "$image_dir/bin/monitor-seed" ./tests/gizclaw-e2e/cmd/multiserver-seed
   go build -o "$image_dir/bin/monitor-fixture" ./tests/gizclaw-e2e/cmd/monitor-fixture
+  go build -o "$image_dir/bin/log-sink" ./tests/gizclaw-e2e/cmd/log-sink
 else
   base="${GIZCLAW_E2E_DOCKER_BASE_IMAGE:-gizclaw-go:linux-$arch-cn-base}"
   if ! docker image inspect "$base" >/dev/null 2>&1; then
@@ -79,7 +80,8 @@ else
     -v "gizclaw-rtp-bos-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
       && go build -overlay /out/overlay.json -o /out/gizclaw ./cmd/gizclaw \
       && go build -o /out/monitor-seed ./tests/gizclaw-e2e/cmd/multiserver-seed \
-      && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture'
+      && go build -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture \
+      && go build -o /out/log-sink ./tests/gizclaw-e2e/cmd/log-sink'
 fi
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 mkdir -p "$image_dir/tests/gizclaw-e2e/testdata"

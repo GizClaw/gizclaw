@@ -35,12 +35,28 @@ cleanup() {
 trap cleanup EXIT
 docker volume create "$volume" >/dev/null
 # Reuse the documented full configuration and its actual production Store wiring.
-# SQLite makes this packaging gate independent of remote databases and providers.
+# SQLite and stderr keep this packaging gate independent of remote databases
+# and provisioned logging services. The production image contains no test sink.
 # shellcheck disable=SC2016 # Literal placeholders belong to the mounted YAML.
 sed -e '/^identity:/,+1d' -e '/^admin-public-key:/d' \
   -e 's/kind: postgresql/kind: sqlite/' -e 's|dsn: ${GIZCLAW_POSTGRES_DSN}|dir: data/database|' \
   -e '/^  sfu:/,/^  agent_host:/{ /^  agent_host:/!d; }' \
-  "$repo_root/guides/snippets/server-storage-stores-services.yaml" >"$work/config.yaml"
+  "$repo_root/guides/snippets/server-storage-stores-services.yaml" |
+  awk '
+/^[^ ]/ { section = $0; skip = 0 }
+/^  [^ ]/ { skip = 0 }
+section == "storage:" && /^  volc-logs:/ { skip = 1; next }
+section == "stores:" && /^  logs:/ { skip = 1; next }
+section == "services:" && /^  system_log:/ {
+  print "  system_log:"
+  print "    level: info"
+  print "    sinks:"
+  print "      - kind: stderr"
+  skip = 1
+  next
+}
+!skip { print }
+' >"$work/config.yaml"
 # Config is read-only; generate identity outside it and supply it through env.
 key="$(docker run --rm --platform "$platform" "$image" gen-key)"
 [[ -n "$key" ]]

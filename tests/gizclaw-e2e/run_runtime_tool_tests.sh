@@ -80,7 +80,8 @@ docker run --rm --entrypoint /bin/bash \
   -v "gizclaw-runtime-tools-buildcache:/root/.cache/go-build" "$base" -lc 'cd /src \
     && CGO_ENABLED=1 GOMAXPROCS=2 GOGC=25 GOMEMLIMIT=768MiB go build -p 2 -ldflags="-s -w" -o /out/gizclaw ./cmd/gizclaw \
     && CGO_ENABLED=1 GOMAXPROCS=2 GOGC=25 GOMEMLIMIT=768MiB go build -p 2 -ldflags="-s -w" -o /out/monitor-seed ./tests/gizclaw-e2e/cmd/multiserver-seed \
-    && CGO_ENABLED=1 GOMAXPROCS=2 GOGC=25 GOMEMLIMIT=768MiB go build -p 2 -ldflags="-s -w" -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture'
+    && CGO_ENABLED=1 GOMAXPROCS=2 GOGC=25 GOMEMLIMIT=768MiB go build -p 2 -ldflags="-s -w" -o /out/monitor-fixture ./tests/gizclaw-e2e/cmd/monitor-fixture \
+    && CGO_ENABLED=1 GOMAXPROCS=2 GOGC=25 GOMEMLIMIT=768MiB go build -p 2 -ldflags="-s -w" -o /out/log-sink ./tests/gizclaw-e2e/cmd/log-sink'
 python3 "$script_dir/testdata/runtime-tools/source_receipt.py" "$repo_dir" "$GIZCLAW_MONITOR_REPORTS/source-after.json"
 if ! cmp -s "$GIZCLAW_MONITOR_REPORTS/source-before.json" "$GIZCLAW_MONITOR_REPORTS/source-after.json"; then
  printf 'Runtime sources changed during Docker build; this attempt cannot qualify.\n' >&2
@@ -120,6 +121,7 @@ touch "$state_dir/fixture.env"
 "${compose[@]}" up -d --wait server edge toolcontrol
 "${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test validate -f /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest'
 set +e
+# shellcheck disable=SC2016 # Expanded by the container shell.
 "${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test run --parallel "$GIZCLAW_RUNTIME_TOOL_PARALLEL" --evidence full --output /reports/giztest.json /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest/*.giztest.yaml'
 run_status=$?
 python3 "$script_dir/testdata/runtime-tools/report.py" "$GIZCLAW_MONITOR_REPORTS"

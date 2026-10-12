@@ -49,6 +49,12 @@ Queries use SearchLogs search expressions and provider Context, never SQL analys
 
 For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records whose provider source is `gizclaw` and filename is `slog`. They participate in the same provider-side ordering and cursor instead of being fetched and merged separately. This is record compatibility only; the removed Server `log` configuration remains unsupported.
 
+## Logging cutover
+
+Before startup, provision the Volc TLS topic and compatible index, then bind the LogStore using `log.immutable`, `volc-tls` and `topic_id`. Stderr alone is available when log querying is unnecessary. After cutover, Admin/Monitor log queries read only the new topic.
+
+Existing SQL log tables and records remain owned by the database operator. Server neither imports them into Volc TLS nor deletes them. Export or archive them with database tools before cutover when retained log access is required, and use database tools to read that archive. GizClaw provides no legacy database log reader. `history-migrate` operates only on explicitly selected Workspace/Eino History tables; generic logs mixed into a source cause migration to fail without deleting source data.
+
 ## Process logging
 
 `system_log` controls the Server's `slog` pipeline and is not the product-record write API:
