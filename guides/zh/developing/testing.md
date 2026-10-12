@@ -821,6 +821,8 @@ Assistant terminal completion 在首个完整回复后继续收集 250 ms；`rep
 `first_audio_ms`、`second_input_audio_ms`、`first_audio_eos_ms` 和第二轮 EOS 标记。
 Doubao、Eino 的 `*-overlapping-input.giztest.yaml` 分别覆盖两种输入模式；
 这些场景由 Go runner 执行，JavaScript 和 Flutter runner 按不支持的 `peer_stream` 跳过。
+PTT 重叠场景显式设置 `hold_before_audio: 0ms`，在控制 BOS 后立即发送音频。
+控制 BOS 会打断旧回复；默认的 500 ms 按住门限用于其它 PTT 场景，不能保证第二轮音频先于旧回复 EOS。
 
 空的 assistant BOS 不建立回复归属；只有实际文本或音频内容才确定第一轮和第二轮回复。用例使用单句中文数数请求，减少录音内部停顿造成的额外 VAD 轮次。
 

@@ -69,6 +69,7 @@ steps:
       mode: push-to-talk
       input: ${input_audio}
       pacing: 20ms
+      hold_before_audio: 0ms
       overlap_input: true
     expect:
       /session_connection_reused:

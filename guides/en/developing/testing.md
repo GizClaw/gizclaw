@@ -893,11 +893,14 @@ sent before receipt of the first response's audio EOS. Both responses must close
 and audio routes; the second must contain text and audio and complete without errors.
 A first response reporting `interrupted` after the second input is allowed and recorded as
 `first_response_interrupted`; the test does not require a particular provider interruption policy.
-Only `mode`, `input`, and `pacing` can accompany this option; use the step `timeout` for the bound.
+Only `mode`, `input`, `pacing`, and PTT `hold_before_audio` can accompany this option; use the step `timeout` for the bound.
 Results include `input_overlap`, `session_connection_reused`, `second_input_sent`,
 `first_audio_ms`, `second_input_audio_ms`, `first_audio_eos_ms`, and second-response EOS flags.
 The Doubao, Eino, and Eino `*-overlapping-input.giztest.yaml` scenarios cover both input
 modes in the Go runner. JavaScript and Flutter runners skip the unsupported `peer_stream` operation.
+PTT overlap scenarios explicitly set `hold_before_audio: 0ms` to send audio immediately after
+control BOS. Control BOS interrupts the old response; the default 500 ms button hold belongs
+to other PTT scenarios and cannot guarantee that second-input audio precedes the old response's EOS.
 
 Empty assistant BOS events do not establish response ownership; actual text or audio content does. The scenarios use a single Chinese counting request to reduce extra VAD turns caused by pauses within the recording.
 
