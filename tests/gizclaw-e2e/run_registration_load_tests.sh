@@ -7,8 +7,8 @@ evidence="${1:-$repo_root/tests/gizclaw-e2e/.testbench/registration-$(date +%Y%m
 mkdir -p "$evidence"
 evidence="$(cd "$evidence" && pwd)"
 run_id="gizclaw-registration-$(date +%s)-$$"
-pg_image='postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
-redis_image='redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823'
+pg_image='gizcr.gizclaw.com/docker.io/library/postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
+redis_image='gizcr.gizclaw.com/docker.io/library/redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823'
 cleanup() {
   docker logs "$run_id-pg" >"$evidence/postgres.log" 2>&1 || true
   docker rm -f -v "$run_id-pg" "$run_id-redis" >/dev/null 2>&1 || true

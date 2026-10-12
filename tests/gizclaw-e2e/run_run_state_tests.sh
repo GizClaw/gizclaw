@@ -7,7 +7,7 @@ evidence="${1:-$repo_root/tests/gizclaw-e2e/.testbench/run-state-$(date +%Y%m%d-
 mkdir -p "$evidence/overlay" "$evidence/tls"
 evidence="$(cd "$evidence" && pwd)"
 run_id="gizclaw-run-state-$(date +%s)-$$"
-pg_image='postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
+pg_image='gizcr.gizclaw.com/docker.io/library/postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24'
 cleanup() {
   docker logs "$run_id-pg" >"$evidence/postgres.log" 2>&1 || true
   docker rm -f -v "$run_id-pg" >/dev/null 2>&1 || true
@@ -32,7 +32,8 @@ for _ in {1..120}; do
 done
 docker exec "$run_id-pg" psql -U gizclaw -d gizclaw -v ON_ERROR_STOP=1 \
   -c 'CREATE EXTENSION pg_stat_statements' >"$evidence/postgres-setup.log"
-export GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw:local-run-state-fixture@$(docker port "$run_id-pg" 5432)/gizclaw?sslmode=require"
+GIZCLAW_TEST_POSTGRES_DSN="postgres://gizclaw:local-run-state-fixture@$(docker port "$run_id-pg" 5432)/gizclaw?sslmode=require"
+export GIZCLAW_TEST_POSTGRES_DSN
 export GIZCLAW_TEST_RUN_STATE=1
 export GIZCLAW_TEST_RUN_STATE_CONCURRENCY="${GIZCLAW_TEST_RUN_STATE_CONCURRENCY:-64}"
 export GOMAXPROCS="${GOMAXPROCS:-8}"

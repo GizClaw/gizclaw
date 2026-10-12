@@ -11,6 +11,22 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## Docker 镜像来源
+
+Go、Runtime 与 Mem0 的构建基础镜像、包验证容器、Docker E2E 的第三方服务，以及
+CI 数据库 service 容器默认从 GizClaw DCDN Registry `gizcr.gizclaw.com` 拉取。
+镜像路径包含上游仓库：Docker Hub 官方镜像使用 `docker.io/library/`，组织镜像
+使用 `docker.io/<组织>/`。例如：
+
+```text
+gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
+gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6
+```
+
+已固定的版本和上游 SHA256 digest 保持不变。Server、Edge、Mem0 与测试 fixture
+仍从当前 checkout 构建；`GIZCLAW_E2E_DOCKER_BASE_FROM` 和 `PYTHON_BASE_IMAGE`
+可显式覆盖拉取的基础镜像。
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：
@@ -215,11 +231,12 @@ Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调
 共用基础镜像构建参数。不设置源覆盖变量时保留 `Dockerfile.cn.base` 的 CN 默认值和
 原有 CN 镜像 tag。设置覆盖变量时使用独立的 `custom-base` tag，并始终执行 Docker build，
 避免已有 CN 镜像掩盖源变化；仍可命中 Docker layer cache。
-`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 使用以下官方源，APT 根据架构
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 通过 DCDN 拉取 Ubuntu，并使用
+以下包源，APT 根据架构
 选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
 
 ```sh
-GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_DOCKER_BASE_FROM=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
 GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
 GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
 GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \

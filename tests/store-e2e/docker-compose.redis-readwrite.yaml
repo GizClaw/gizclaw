@@ -1,6 +1,6 @@
 services:
   primary:
-    image: redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
+    image: gizcr.gizclaw.com/docker.io/library/redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
     command: [redis-server, --save, "", --appendonly, "no"]
     ports:
       - "127.0.0.1::6379"
@@ -12,7 +12,7 @@ services:
       timeout: 2s
       retries: 30
   replica:
-    image: redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
+    image: gizcr.gizclaw.com/docker.io/library/redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
     command: [redis-server, --save, "", --appendonly, "no", --replicaof, primary, "6379", --replica-read-only, "yes"]
     ports:
       - "127.0.0.1::6379"

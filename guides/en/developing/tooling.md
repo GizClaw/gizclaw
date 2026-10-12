@@ -147,6 +147,11 @@ Go build and base-image Dockerfiles live in `build/gizclaw/`.
 `build/build-linux.sh` chooses the standard/CN base and exports the `gizclaw`
 executable.
 
+Standard/CN builds, Runtime packaging and Debian validation pull Ubuntu/Python
+images through the [DCDN Registry](testing#docker-image-sources). Runtime OCI
+base labels and publication receipts identify the upstream Ubuntu name and
+pinned digest.
+
 The Flutter SDK archives are named `flutter-gizclaw-<version>.tar.gz` and
 `flutter-gizclaw_control-<version>.tar.gz` and use the pub hosted archive
 layout: the archive root is the package root and contains only `pubspec.yaml`,

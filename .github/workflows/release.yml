@@ -195,7 +195,7 @@ jobs:
           file "$BINARY"
           docker run --rm --platform linux/${{ matrix.arch }} \
             --volume "$BINARY:/gizclaw:ro" \
-            ubuntu:24.04 \
+            gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
             sh -c 'test "$(/gizclaw --version)" = "gizclaw version $1" && /gizclaw --help >/dev/null' \
             sh "$BUILD_VERSION"
 

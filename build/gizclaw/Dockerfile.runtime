@@ -1,5 +1,5 @@
 # Runtime packaging only: the executable comes from the verified Release .deb.
-FROM ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
+FROM gizcr.gizclaw.com/docker.io/library/ubuntu:24.04@sha256:008173c23f95b170204355c12626cb5a965d779a7e1283b09e9cffbb1bf33ca3
 
 ARG VERSION
 ARG SOURCE_COMMIT

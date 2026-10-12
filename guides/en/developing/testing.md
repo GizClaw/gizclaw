@@ -16,6 +16,23 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## Docker image sources
+
+Go, Runtime and Mem0 build bases, package-validation containers, third-party
+Docker E2E services and CI database service containers default to the GizClaw
+DCDN Registry at `gizcr.gizclaw.com`. Image paths include the upstream registry:
+Docker Hub official images use `docker.io/library/`, and organization images
+use `docker.io/<organization>/`. For example:
+
+```text
+gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
+gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6
+```
+
+Existing versions and upstream SHA256 digests are retained. Server, Edge, Mem0
+and test fixtures build from the current checkout. `GIZCLAW_E2E_DOCKER_BASE_FROM`
+and `PYTHON_BASE_IMAGE` explicitly override the base image to pull.
+
 ## Isolating audio timing tests
 
 CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:
@@ -266,11 +283,12 @@ share `setup/docker-base.sh`. Unset source overrides preserve `Dockerfile.cn.bas
 CN defaults and existing CN image tag. Overrides use a separate `custom-base` tag
 and always evaluate the Docker build, so a cached CN image cannot hide changed
 sources; Docker layer caching still applies. `GIZCLAW_E2E_DOCKER_BASE_IMAGE` can
-select an explicit output tag. CI supplies the official sources below; APT selects
+select an explicit output tag. CI pulls Ubuntu through DCDN and uses the package
+sources below; APT selects
 `APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
 
 ```sh
-GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_DOCKER_BASE_FROM=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
 GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
 GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
 GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \
