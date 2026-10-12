@@ -306,6 +306,40 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 媒体断言检查实际 Opus 字节和包数，不重试媒体步骤；运行状态等待有明确上限。快速加回用例覆盖撤权检查与重新激活的竞争窗口，不保证每次都命中某一种执行顺序。每个场景使用独立 Peer 和资源，`finally` 清理运行时、社交资源和 Peer；完整报告位于 `tests/gizclaw-e2e/testdata/multi-server/sfu-report.json`。这些用例不验证设备扬声器播放或转写内容。
 
+两类不依赖 Provider 的本地 SFU 回归可分别运行：
+
+```sh
+GIZCLAW_E2E_SFU_CASE=startup GIZCLAW_E2E_SFU_REPEAT=32 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-sfu-startup \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+GIZCLAW_E2E_SFU_CASE=removal GIZCLAW_E2E_SFU_REPEAT=4 \
+  GIZCLAW_E2E_SFU_TERMINAL_DELAY_MS=1500 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-sfu-removal \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+这两个入口使用两台真实 Server、两台 Edge、共享 Redis、独立 PostgreSQL 数据库和
+LiveKit，固定音频来自仓库内的 Ogg/Opus。每任务三个 SFU participant；`REPEAT` 是任务数，
+默认同时运行这些任务，不能把它当作单房间人数。先以 1、4、16 个任务验证基线，再增加突发。
+`startup` 在选择 Workspace 前用 barrier 对齐任务，并保留广播字节和首包检查；`removal`
+保留三人广播、移除者零音频、未移除者正常收听、设备 ping 和加回后的双向媒体检查。
+这两个入口跳过依赖 SQLite 文件布局的 Go multi-server 套件；该套件仍由默认入口单独运行。
+
+默认使用 UDP mux：`rtc.udp_port: 7882-7889`，共享八个 ICE UDP 监听端口，
+不随 participant 数分配更多端口。`port_range_start/end` 为 0，避免覆盖复用模式。
+设置 `GIZCLAW_E2E_LIVEKIT_UDP_MODE=range` 和 `GIZCLAW_E2E_LIVEKIT_UDP_END=50100` 可执行窄范围
+负对照：Go SDK 的 publisher/subscriber 使用独立 ICE transport，96 个 participant
+需要 192 个 IPv4 UDP socket，101 个端口不能承载全部入房。端口预算应按所有 Room 的实际
+participant 和尚未回收的连接计算。
+
+`TERMINAL_DELAY_MS` 是明确的故障注入：只在本地构建 overlay 中延迟真实撤权 EOS，
+不改变错误内容或 Runtime 状态，也不进入正常 Server 二进制。设为 0 可运行自然时序；
+设置 `GIZCLAW_E2E_SFU_ACCEPT_REVOCATION=0` 可验证严格的旧 listen 契约会拒绝迟到撤权。
+不能把注入复现计为自然复现。入口保存独立的 `sfu-report.json`、派生场景、二进制 SHA256、
+源码版本／dirty 标记、拓扑、并发和注入参数，以及脱敏服务日志；退出时只清理本次 Compose
+project 和 volume。外部基线二进制可通过 `GIZCLAW_E2E_SFU_BINARY` 提供，同时必须设置
+`GIZCLAW_E2E_SFU_BINARY_REVISION`；不支持新字段的基线 CLI 需要上述严格契约选项。
+
 ### Cloud ObjectStore conformance
 
 同一个 tagged package 包含 `TestObjectStore`。通过
@@ -1016,6 +1050,17 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
   `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
   在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
+- `peer_stream.allowed_terminal_error` 只适用于 listen，可声明一条旧 logical stream 的
+  预期 EOS。`code`、`message`、`stream_id`、`label` 和 `retryable` 全部必填，均按字面值
+  精确匹配；不接受变量、子串或正则。一条窗口最多接受一次匹配的 EOS，随后继续收听到原定
+  窗口结束，所有音频仍计入 `audio_bytes` 和 `packets`，包括与该 EOS 同一个 chunk 的
+  payload。错误缺字段、不匹配、重复、非 EOS、stream 提前关闭和取消仍使步骤失败。
+  `terminal_errors`、`accepted_terminal_errors` 和 `terminal_error_events` 保存错误码、
+  stream ID、label、retryable、接收时间偏移和匹配结果。成员移除场景先用 RPC 验证被移除
+  Peer 仍选择原 Workspace 且 Runtime 已停止／错误，再仅允许该 Peer 的
+  `AGENT_OUTPUT_ERROR`、`sfu: workspace access revoked`、`agent-output-error`、`agent`、
+  `retryable: true` EOS；其他成员的 listen 不声明该例外。Runtime RPC 状态不是客户端
+  Peer Event 消费的确认，不能用固定 sleep 代替这种显式契约。
 - SFU 发送探针通过 `measure_first_packet: true` 和 `completion: input_sent` 记录首个
   非空 Opus 包。相同 task 的 listen 按唯一 packet ID 和发送者关联收包，独立报告启动等待与
   收发延迟；空数组表示没有可证明的对应首包，不表示零延迟。字段、单调时钟边界与旧

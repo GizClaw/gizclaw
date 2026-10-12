@@ -194,8 +194,8 @@ func (s *session) params() connectParams {
 
 // connect performs the initial join synchronously so Transform can report
 // an unreachable SFU as a reload failure.
-func (s *session) connect(ctx context.Context) error {
-	client, err := s.connector.connect(ctx, s.params(), s)
+func (s *session) connect() error {
+	client, err := s.connector.connect(s.ctx, s.params(), s)
 	if err != nil {
 		return err
 	}

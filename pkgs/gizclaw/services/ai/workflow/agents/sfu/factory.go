@@ -146,7 +146,7 @@ func (a *Agent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, 
 		a.mu.Unlock()
 		break
 	}
-	if err := s.connect(ctx); err != nil {
+	if err := s.connect(); err != nil {
 		// finish releases the claim and closes done, so a Transform already
 		// waiting in retire is not left blocked on a session that never ran.
 		s.finish(err)

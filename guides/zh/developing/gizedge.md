@@ -54,6 +54,12 @@ sequenceDiagram
 
 Edge 不在本地执行 GizClaw domain handler，也不建立第二套业务权限模型。
 
+Gateway 仅对 `ServicePeerRPC` 启用发起方关闭即取消的 forwarding 规则。RPC request EOS
+只是 framing，客户端仍保持 channel 等待 response EOS；客户端提前关闭该 channel 时，
+Edge 立即关闭这条上游 RPC stream，让 authoritative Server 取消仍在进行的 SFU Join
+等操作。Provider 先关闭时仍排空响应，其他 service 的排空规则、父 Peer connection 和
+并行通话都不受单条 RPC 取消影响。
+
 ### Gateway lifecycle 日志
 
 每次 logical-session attempt 都以 `gizclaw: peer stream lifecycle` 记录

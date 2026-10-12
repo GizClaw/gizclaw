@@ -200,6 +200,12 @@ Observation 记录首个 terminal 的 `service` 或 `packet` path、`left_to_rig
 `buffer_limit`、`context_canceled`、`deadline_exceeded` 或 `other` 封闭 error class。
 因此 EOF 与 closed error 对 `Bridge` caller 仍返回 nil，但诊断类别不会丢失。
 
+`BridgeWithServiceCancellation` 由调用方显式列出需要传播取消的 service ID；Giznet 不解释
+产品 RPC。只可选择发起方会保持 channel 到响应完成的请求／响应服务：发起方先关闭时，
+bridge 立即关闭对应 destination stream，使 provider 观察到取消，不关闭父连接或其他
+service。Provider 先完成并关闭时仍等待响应被发起方消费；未列出的 service 保留原有的
+双向排空和 30 秒上限。这避免把正常的单向传输尾部当作取消。
+
 Destination service open 达到 established session 的 per-session 或 association active-channel
 capacity 时，会等待已有 lease 释放，而不是立即拒绝已经 accept 的 source stream。Lease
 释放会唤醒等待者重新准入。Caller context 和内部有界 timeout 限制等待时间；容量在

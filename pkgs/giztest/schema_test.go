@@ -11,6 +11,38 @@ func TestEmbeddedSchemaCompiles(t *testing.T) {
 	}
 }
 
+func TestListenAllowedTerminalErrorContract(t *testing.T) {
+	valid := validDocument + `  - id: removed_listen
+    client: peer
+    peer_stream:
+      mode: listen
+      duration: 1s
+      allowed_terminal_error:
+        code: AGENT_OUTPUT_ERROR
+        message: "sfu: workspace access revoked"
+        stream_id: agent-output-error
+        label: agent
+        retryable: true
+`
+	if _, err := LoadDocument(writeTestDocument(t, valid), nil); err != nil {
+		t.Fatal(err)
+	}
+	for name, document := range map[string]string{
+		"input mode":        strings.Replace(valid, "mode: listen", "mode: text\n      input: hello", 1),
+		"missing stream":    strings.Replace(valid, "        stream_id: agent-output-error\n", "", 1),
+		"missing retryable": strings.Replace(valid, "        retryable: true\n", "", 1),
+		"blank code":        strings.Replace(valid, "code: AGENT_OUTPUT_ERROR", "code: ' '", 1),
+		"reference":         strings.Replace(valid, "label: agent", "label: '${peer}'", 1),
+		"unknown matcher":   valid + "        pattern: '.*'\n",
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := LoadDocument(writeTestDocument(t, document), nil); err == nil {
+				t.Fatal("accepted an incomplete or non-literal terminal expectation")
+			}
+		})
+	}
+}
+
 func TestFirstPacketTimingInputContract(t *testing.T) {
 	valid := validDocument + "  - id: send\n    client: peer\n    peer_stream:\n      mode: push-to-talk\n      input: audio\n      completion: input_sent\n      measure_first_packet: true\n"
 	if _, err := LoadDocument(writeTestDocument(t, valid), nil); err != nil {

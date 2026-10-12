@@ -753,7 +753,10 @@ func (g *Gateway) bridgeLogicalSession(client giznet.Conn, logical *giztunnel.Co
 	defer g.removeSession(session)
 	done := make(chan struct{})
 	go g.enforceIdle(session, done)
-	observation, err := giztunnel.BridgeWithObservation(client, logical)
+	// RPC callers keep their channel open through response EOS. An initiator
+	// close therefore cancels that request; delaying it would hide cancellation
+	// from the authoritative Server while an SFU join is still pending.
+	observation, err := giztunnel.BridgeWithServiceCancellation(client, logical, gizclaw.ServicePeerRPC)
 	close(done)
 	result, reason := gatewayBridgeLifecycleResult(observation, err)
 	metricLabels := []gizmetrics.Label{{Name: "result", Value: result}, {Name: "reason", Value: reason}}
