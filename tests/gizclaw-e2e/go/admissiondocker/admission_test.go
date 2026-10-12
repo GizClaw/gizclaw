@@ -48,13 +48,14 @@ func TestDockerAdmission(t *testing.T) {
 		return nil
 	}
 	for _, runner := range []struct {
-		name    string
-		command []string
+		name       string
+		command    []string
+		reportFlag string
 	}{
-		{"Go", []string{cli, "test"}},
-		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts")}},
-		{"C", []string{os.Getenv("GIZCLAW_ADMISSION_C_RUNNER"), "test"}},
-		{"Flutter", []string{os.Getenv("GIZCLAW_ADMISSION_FLUTTER_RUNNER")}},
+		{"Go", []string{cli, "test"}, "--report"},
+		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts")}, "--output"},
+		{"C", []string{os.Getenv("GIZCLAW_ADMISSION_C_RUNNER"), "test"}, "--output"},
+		{"Flutter", []string{os.Getenv("GIZCLAW_ADMISSION_FLUTTER_RUNNER")}, "--output"},
 	} {
 		t.Run(runner.name, func(t *testing.T) {
 			if runner.command[0] == "" {
@@ -64,7 +65,7 @@ func TestDockerAdmission(t *testing.T) {
 				PublicEndpoint: "http://" + os.Getenv("GIZCLAW_E2E_EDGE_ENDPOINT"),
 				Endpoint:       "http://" + endpoint, Documents: filepath.Join(root, "tests/gizclaw-e2e/testdata/admission"),
 				Run: func(ctx context.Context, file, report string) ([]byte, error) {
-					args := append(append([]string{}, runner.command[1:]...), "run", file, "--parallel", "1", "--output", report)
+					args := append(append([]string{}, runner.command[1:]...), "run", file, "--parallel", "1", runner.reportFlag, report)
 					command := exec.CommandContext(ctx, runner.command[0], args...)
 					command.Dir = root
 					return command.CombinedOutput()
