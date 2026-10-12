@@ -955,18 +955,15 @@ func (run *turnRun) executeGraph(ctx context.Context, state *runState, version *
 		run.mu.Lock()
 		produced := run.emittedPrimary > before
 		run.mu.Unlock()
-		if !produced && continueSpeaking {
-			return errors.New("eino: continuation requires newly published narration")
-		}
 		if !produced {
-			return nil
+			return errors.New("eino: continuation requires newly published narration")
 		}
 		value, err = state.value(config.primary.Field)
 		if err != nil {
 			return err
 		}
 		text := value.(string)
-		if strings.TrimSpace(text) == "" && continueSpeaking {
+		if strings.TrimSpace(text) == "" {
 			return errors.New("eino: continuation requires nonempty narration")
 		}
 		// Do not generate arbitrarily far ahead of the consumer. Cancellation

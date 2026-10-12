@@ -46,6 +46,8 @@ type Config struct {
 	// successful Graph execution, the same turn executes the Graph again,
 	// retaining State and a bounded window of its preceding narration. All
 	// iterations share one output route; each generation is a History message.
+	// Every execution must publish fresh nonempty narration, including the
+	// terminal execution that sets this field to false.
 	ContinueFrom string
 	// SafetyFence is host-selected safety prompt text exposed to every run,
 	// including child Graphs, through the input.safety_fence binding. The

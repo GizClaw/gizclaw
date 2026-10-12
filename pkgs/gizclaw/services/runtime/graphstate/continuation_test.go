@@ -431,3 +431,38 @@ func TestContinuationCheckpointRejectsFailedGeneration(t *testing.T) {
 		})
 	}
 }
+
+func TestContinuationCheckpointRejectsEmptyTerminalGeneration(t *testing.T) {
+	for _, text := range []string{"", " \n\t"} {
+		t.Run(fmt.Sprintf("text=%q", text), func(t *testing.T) {
+			f := newContinuationFixture(t, 2)
+			lambda := f.config.Lambdas.(checkpointLambdas)["narrate"]
+			lambda.Lambda = compose.InvokableLambda(func(_ context.Context, input map[string]any) (map[string]any, error) {
+				if input["cursor"] == int64(2) {
+					return map[string]any{"text": text}, nil
+				}
+				return map[string]any{"text": "section 1"}, nil
+			})
+			f.config.Lambdas.(checkpointLambdas)["narrate"] = lambda
+			input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+			checkpointInput(t, input, "news")
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+			output, observer := checkpointOutput(t, f.config, input.Stream())
+			var terminal string
+			for _, chunk := range drainCheckpointOutput(t, output, observer) {
+				if chunk.IsEndOfStream() {
+					terminal = chunk.Ctrl.Error
+				}
+			}
+			if !strings.Contains(terminal, "narration") {
+				t.Fatalf("empty terminal generation reported success: EOS=%q", terminal)
+			}
+			snapshot := requireCheckpointCursor(t, f, 1)
+			if f.probe.attempts.Load() != 1 || !reflect.DeepEqual(snapshot.Fields["played"], []any{int64(1)}) {
+				t.Fatalf("empty terminal generation advanced checkpoint: attempts=%d snapshot=%+v", f.probe.attempts.Load(), snapshot)
+			}
+		})
+	}
+}

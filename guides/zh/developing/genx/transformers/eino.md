@@ -262,7 +262,7 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 `Config.ContinueFrom` 指向 root State 中使用 `replace` 的 boolean field。每次 Graph 成功执行后，true 请求同一用户 turn 内的下一次生成，false 结束播讲。每次执行前该字段重置为 false，Graph 必须主动写入 true；每次根 Graph 生成拥有独立的 `MaxRunSteps` 与 `MaxToolCalls` 预算及 call-ID set，播讲没有固定迭代次数。逐段搜索等工具调用不会累计耗尽整段播讲的默认 32 次额度。
 
-此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。续讲必须发布新的非空白正文，避免空输出忙循环。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
+此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。每次执行都必须发布新的非空白正文，包括将 `ContinueFrom` 设为 false 的最后一次；跳过输出或空白正文以 error EOS 终止，不提交本段 State。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
 
 每轮交付后立即追加一条 assistant History；最初的用户消息只记录一次。Workspace History 同样每轮保存一条，并将该轮文字与音频对应为可重播记录。用户打断会取消当前生成、丢弃未交付后缀，并单独记录当前轮已交付的前缀；完成的旧段不合并、不重写。恢复或换主题建立新的用户 turn，仍按每轮生成分段保存。
 
