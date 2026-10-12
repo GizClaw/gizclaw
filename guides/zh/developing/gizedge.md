@@ -92,7 +92,7 @@ Edge workspace 配置描述当前节点运行所需的基础信息：
 - 可选 TURN listener、public endpoint、relay address、credential 和 relay port range。
 - 可选 gateway 容量、upstream pool、buffer、idle 和 drain 边界。
 - 可选 Prometheus Remote Write/query metrics backend。
-- 可选把进程日志 fan-out 到 stderr 和由 Volc TLS 支撑的 immutable LogStore。
+- 可选把进程日志 fan-out 到 stderr 和由 Volc TLS 支撑的 LogStore。
 
 `webrtc.listen` 是 WebRTC transport 的本地 bind tuple，同时必须等于
 `http.listeners[0].listen`。Edge 在同一 host 和数字端口上打开独立的
@@ -126,7 +126,7 @@ metrics:
 
 独立命令省略 `system-log` 时，Edge 进程日志保持 info-level stderr 默认值；嵌入式 Edge
 在未配置该 block 时保留宿主已有的进程 logger。需要持久化同一批结构化
-记录时，声明一个 Volc TLS physical storage、一个 immutable logical LogStore，并让 sink
+记录时，声明一个 Volc TLS physical storage、一个 logical LogStore，并让 sink
 引用该 Store：
 
 ```yaml
@@ -139,7 +139,7 @@ storage:
     access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
 system-log:
@@ -155,7 +155,7 @@ system-log:
 进程的每条 stderr 和持久化日志。GizClaw 不用写入端 IP、hostname、endpoint 或 Edge
 public key 猜测该值。省略时保持本地与嵌入式 runtime 的兼容行为，但持久化部署应显式配置。
 
-Edge 只接受 `volc-tls` physical storage 和 `log.immutable` logical Store。在打开 listener
+Edge 只接受 `volc-tls` physical storage 和 `log` logical Store。在打开 listener
 或连接 upstream 之前，Edge 会验证配置、Store 引用、credential、topic index 和 logger
 sink。Edge runtime 停止后再恢复此前的进程 logger，并关闭 logical 和 physical logging
 资源。Edge 不支持 `system-log.query_store`，也不暴露 Server Admin 日志查询 API；operator

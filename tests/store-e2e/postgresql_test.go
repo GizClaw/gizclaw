@@ -300,7 +300,7 @@ func TestPostgreSQLLogBackendIsRetired(t *testing.T) {
 		t.Fatal(err)
 	}
 	table := uniqueTable("retired_log")
-	if _, err := stores.New(map[string]stores.Config{"logs": {Kind: stores.KindLogImmutable, Storage: "database", Table: table}}, physical); err == nil || !strings.Contains(err.Error(), "unsupported") {
+	if _, err := stores.New(map[string]stores.Config{"logs": {Kind: stores.KindLog, Storage: "database", Table: table}}, physical); err == nil || !strings.Contains(err.Error(), "unsupported") {
 		t.Fatalf("PostgreSQL LogStore=%v", err)
 	}
 	var exists bool

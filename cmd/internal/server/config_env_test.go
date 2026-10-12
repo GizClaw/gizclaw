@@ -71,7 +71,7 @@ storage:
     dsn: "${T_DSN}"
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: ${T_KIND}
     topic_id: ${T_ZERO_PADDED}
   assets:
@@ -126,7 +126,7 @@ profiling:
 	if got := cfg.Storage["${T_KIND}"]; got != (storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "postgres://gizclaw:pa$word@db:5432/gizclaw"}) {
 		t.Fatalf("storage = %+v", cfg.Storage)
 	}
-	if got := cfg.Stores["logs"]; got != (storeFileConfig{Kind: "log.immutable", Storage: "postgresql", TopicID: "007"}) {
+	if got := cfg.Stores["logs"]; got != (storeFileConfig{Kind: "log", Storage: "postgresql", TopicID: "007"}) {
 		t.Fatalf("stores.logs = %+v", got)
 	}
 	if cfg.Stores["assets"].TTL != "2160h" {

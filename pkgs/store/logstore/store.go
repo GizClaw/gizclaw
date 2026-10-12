@@ -37,8 +37,8 @@ type Querier interface {
 	Query(context.Context, Query) (Page, error)
 }
 
-// ImmutableStore is a complete append, query, and lifecycle capability.
-type ImmutableStore interface {
+// Store provides append, query, and lifecycle operations for a logging service.
+type Store interface {
 	Appender
 	Querier
 	Close() error
@@ -62,7 +62,7 @@ type Record struct {
 	Payload    json.RawMessage
 }
 
-// Key returns the immutable identity of record.
+// Key returns the stable identity of record.
 func (record Record) Key() RecordKey {
 	return RecordKey{Stream: record.Stream, ID: record.ID}
 }

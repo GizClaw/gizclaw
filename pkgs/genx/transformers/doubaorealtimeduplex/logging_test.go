@@ -105,7 +105,7 @@ func (s *peerLogStore) waitFor(t *testing.T, message string) logstore.Record {
 
 type peerLogResolver struct{ store *peerLogStore }
 
-func (r peerLogResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
+func (r peerLogResolver) Log(string) (logstore.Store, error) { return r.store, nil }
 
 func installPeerLogStore(t *testing.T) *peerLogStore {
 	t.Helper()

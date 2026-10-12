@@ -416,7 +416,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	if cfg.SystemLog != nil && cfg.SystemLog.QueryStore != "" {
 		queryStore, err := registry.Log(cfg.SystemLog.QueryStore)
 		if err != nil {
-			return serviceStoreReferenceError("services.system_log.query_store", cfg.SystemLog.QueryStore, "logstore.ImmutableStore", err)
+			return serviceStoreReferenceError("services.system_log.query_store", cfg.SystemLog.QueryStore, "logstore.Store", err)
 		}
 		server.ServerLogQuery, err = gizclaw.NewServerLogQueryService(queryStore)
 		if err != nil {
@@ -430,7 +430,7 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 			}
 			if _, err := registry.Log(sink.Store); err != nil {
 				path := fmt.Sprintf("services.system_log.sinks[%d].store", index)
-				return serviceStoreReferenceError(path, sink.Store, "logstore.ImmutableStore", err)
+				return serviceStoreReferenceError(path, sink.Store, "logstore.Store", err)
 			}
 		}
 	}

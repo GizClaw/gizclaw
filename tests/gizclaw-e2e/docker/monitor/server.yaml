@@ -34,7 +34,7 @@ stores:
     kind: sql
     storage: business-db
   monitor-logs:
-    kind: log.immutable
+    kind: log
     storage: monitor-tls
     topic_id: monitor
   peers:

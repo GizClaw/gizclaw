@@ -112,7 +112,7 @@ func TestStoreKindsRejectIncompatibleStorageKinds(t *testing.T) {
 		{"objectstore", Config{Kind: KindObjectStore, Storage: "memory"}, physicalstorage.KindMemory},
 		{"sql", Config{Kind: KindSQL, Storage: "files"}, physicalstorage.KindFilesystemDir},
 		{"metrics", Config{Kind: KindMetrics, Storage: "files"}, physicalstorage.KindFilesystemDir},
-		{"log.immutable", Config{Kind: KindLogImmutable, Storage: "memory"}, physicalstorage.KindMemory},
+		{"log", Config{Kind: KindLog, Storage: "memory"}, physicalstorage.KindMemory},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			_, err := New(map[string]Config{"store": test.config}, physical)
@@ -406,7 +406,7 @@ func TestSQLiteMetricsStoresShareTable(t *testing.T) {
 func TestLogStoresRejectDatabaseBackends(t *testing.T) {
 	for _, kind := range []string{physicalstorage.KindSQLite, physicalstorage.KindPostgreSQL, physicalstorage.KindClickHouse} {
 		t.Run(kind, func(t *testing.T) {
-			err := validateConfigFields("logs", Config{Kind: KindLogImmutable, Storage: "database", Table: "logs"}, kind)
+			err := validateConfigFields("logs", Config{Kind: KindLog, Storage: "database", Table: "logs"}, kind)
 			if err == nil || !strings.Contains(err.Error(), "requires a logging service") {
 				t.Fatalf("database LogStore error = %v", err)
 			}
@@ -414,14 +414,16 @@ func TestLogStoresRejectDatabaseBackends(t *testing.T) {
 	}
 }
 
-func TestMutableLogKindIsUnsupported(t *testing.T) {
+func TestLogStoreVariantsAreUnsupported(t *testing.T) {
 	physical, err := physicalstorage.New(map[string]physicalstorage.Config{"memory": physicalstorage.MemoryConfig{}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer physical.Close()
-	if _, err := New(map[string]Config{"logs": {Kind: "log.mutable", Storage: "memory"}}, physical); err == nil || !strings.Contains(err.Error(), "unknown kind") {
-		t.Fatalf("mutable LogStore error = %v", err)
+	for _, kind := range []string{"log.immutable", "log.mutable"} {
+		if _, err := New(map[string]Config{"logs": {Kind: kind, Storage: "memory"}}, physical); err == nil || !strings.Contains(err.Error(), "unknown kind") {
+			t.Fatalf("LogStore kind %q error = %v", kind, err)
+		}
 	}
 }
 
@@ -560,8 +562,8 @@ func TestLogStoreUsesLoggingServiceTopics(t *testing.T) {
 	}
 	defer physical.Close()
 	registry, err := New(map[string]Config{
-		"logs":  {Kind: KindLogImmutable, Storage: "tls", TopicID: "logs"},
-		"audit": {Kind: KindLogImmutable, Storage: "tls", TopicID: "audit"},
+		"logs":  {Kind: KindLog, Storage: "tls", TopicID: "logs"},
+		"audit": {Kind: KindLog, Storage: "tls", TopicID: "audit"},
 	}, physical)
 	if err != nil {
 		t.Fatal(err)
@@ -632,10 +634,10 @@ func TestLoggingServiceCutoverPreservesArchivedSQLLogs(t *testing.T) {
 	if _, err := db.Exec(`CREATE TABLE archived_logs (id TEXT PRIMARY KEY, message TEXT NOT NULL); INSERT INTO archived_logs VALUES ('old', 'retained')`); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := New(map[string]Config{"logs": {Kind: KindLogImmutable, Storage: "database", Table: "archived_logs"}}, physical); err == nil {
+	if _, err := New(map[string]Config{"logs": {Kind: KindLog, Storage: "database", Table: "archived_logs"}}, physical); err == nil {
 		t.Fatal("retired SQL logging configuration was accepted")
 	}
-	registry, err := New(map[string]Config{"logs": {Kind: KindLogImmutable, Storage: "tls", TopicID: "new-topic"}}, physical)
+	registry, err := New(map[string]Config{"logs": {Kind: KindLog, Storage: "tls", TopicID: "new-topic"}}, physical)
 	if err != nil {
 		t.Fatal(err)
 	}

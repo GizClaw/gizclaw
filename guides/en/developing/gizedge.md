@@ -87,7 +87,7 @@ The Edge workspace configuration describes the basic information required to run
 - Optional TURN listener, public endpoint, relay address, credential and relay port range.
 - Optional gateway capacity, upstream pool, buffer, idle, and drain bounds.
 - An optional Prometheus Remote Write/query metrics backend.
-- Optional process-log fan-out to stderr and an immutable LogStore backed by
+- Optional process-log fan-out to stderr and an LogStore backed by
   Volc TLS.
 
 `webrtc.listen` is the WebRTC transport bind tuple and must also equal
@@ -128,7 +128,7 @@ Edge process logging remains info-level stderr when `system-log` is omitted in
 the standalone command. An embedded Edge does not replace its host's existing
 process logger unless this block is present.
 To persist the same structured records, declare one Volc TLS physical storage,
-one immutable logical LogStore, and reference that Store from a sink:
+one logical LogStore, and reference that Store from a sink:
 
 ```yaml
 storage:
@@ -140,7 +140,7 @@ storage:
     access_key_secret: ${GIZCLAW_VOLC_LOG_ACCESS_KEY_SECRET}
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${GIZCLAW_VOLC_LOG_TOPIC_ID}
 system-log:
@@ -158,7 +158,7 @@ that process. GizClaw does not infer it from the writer IP, hostname, endpoint,
 or Edge public key. Omitting it preserves local and embedded compatibility, but
 persisted deployments should configure it explicitly.
 
-Edge accepts only `volc-tls` physical storage and `log.immutable` logical
+Edge accepts only `volc-tls` physical storage and `log` logical
 Stores. Configuration, Store references, credentials, topic index, and logger
 sinks are validated before listeners or upstream connections open. Shutdown
 restores the previous process logger and closes logical and physical logging

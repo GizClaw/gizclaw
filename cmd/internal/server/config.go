@@ -1365,15 +1365,15 @@ func validateConfigShape(node ast.Node) error {
 		if kind == "memory" {
 			return fmt.Errorf("server: stores.%s kind %q is no longer supported; configure MemoryLayout resources and RuntimeProfile memory bindings instead", name, kind)
 		}
-		if kind == "log" || kind == "log.mutable" {
-			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s with a logging service", name, kind, store.KindLogImmutable)
+		if kind == "log.immutable" || kind == "log.mutable" {
+			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s with a logging service", name, kind, store.KindLog)
 		}
 		allowedFields := map[string]map[string]struct{}{
-			store.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
-			store.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}, "ttl": {}},
-			store.KindSQL:          {"kind": {}, "storage": {}},
-			store.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},
-			store.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}},
+			store.KindKeyValue:    {"kind": {}, "storage": {}, "prefix": {}},
+			store.KindObjectStore: {"kind": {}, "storage": {}, "prefix": {}, "ttl": {}},
+			store.KindSQL:         {"kind": {}, "storage": {}},
+			store.KindMetrics:     {"kind": {}, "storage": {}, "table": {}, "database": {}},
+			store.KindLog:         {"kind": {}, "storage": {}, "topic_id": {}},
 		}
 		allowed, knownKind := allowedFields[kind]
 		if !knownKind {

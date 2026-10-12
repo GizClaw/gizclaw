@@ -79,7 +79,7 @@ connection 或其他在线 Peer。Resource declaration 与 provider Credential �
 
 Host process 在启动时解析一次 `agent_host` Server Config 引用，并把 borrowed Store interface 注入 GizClaw Server、Peer Manager 与已注册 Workflow factory。Store Registry 仍是这些共享 backend 的唯一 owner；AgentHost、Workspace reload、Eino 和 per-Agent adapter 都不能关闭它们。
 
-`runtime_store` ObjectStore 保存 Workspace runtime metadata 与 runtime object；Workspace History 文本与结构化 metadata 使用 `services.workspace.history_store`，二进制 replay asset 使用 `services.workspace.history_assets_store`。通用状态与内部 History 通过 `services.agent_host.persistence.state_store` 与 `history_store` 绑定 SQL 和 mutable Log，由 Server 的 `GraphStateDB` 与 `AgentHistory` 注入使用相同契约的 Workflow factory。Eino 消费这组借用能力及 provider-neutral Memory；绑定不依赖执行器名称。
+`runtime_store` ObjectStore 保存 Workspace runtime metadata 与 runtime object；唯一的对话 History 使用 `services.workspace.history_store` 绑定的 SQL `memory.HistoryStore`，二进制 replay asset 使用 `services.workspace.history_assets_store`。通用状态通过 `services.agent_host.persistence.state_store` 绑定 SQL，由 Server 的 `GraphStateDB` 注入 Workflow factory。Eino 接收同一份 Workspace History 的 `memory.HistoryReader`，只读取历史，不追加第二份持久化记录；长期 Memory 仍使用独立的 provider-neutral 契约。
 
 Eino 依据所选 MemoryLayout policy，把 `Scope.AppID` 绑定到 Workspace 或 owner Peer 共享边界。User、Agent 与 Run 维度保持独立，Peer public key 不会替换 UserID。声明 Memory policy 的 Graph 必须有可用 Store；构造失败会使初始化或 reload 显式失败。
 

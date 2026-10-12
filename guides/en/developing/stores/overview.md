@@ -7,7 +7,7 @@
 ```text
 pkgs/store/
 ├── kv/           # Ordered hierarchical key-value store
-├── logstore/     # Searchable immutable/mutable records and log drivers
+├── logstore/     # Log append, query and logging service drivers
 ├── memory/       # Observation extraction, fact recall, and provider adapters
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
@@ -19,7 +19,7 @@ pkgs/store/
 | Package | Core Boundary | Key Consumers |
 | --- | --- | --- |
 | [kv](./kv) | Ordered hierarchical key, CRUD and range traversal | GizClaw services, other stores |
-| [logstore](./logstore) | Structured record append/mutation, backend-neutral query and pagination | Process logs and conversation/event producers |
+| [logstore](./logstore) | Structured record append, backend-neutral query and pagination | Process logs and event/audit producers |
 | [memory](./memory) | Raw observations, fact recall/update/delete, and asynchronous operations | Agent runtimes and memory evaluation harnesses |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
 | [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace assets, HNSW |
@@ -52,7 +52,7 @@ flowchart TB
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
 | `metrics` | `metrics.Store`; `memory`, Prometheus, ClickHouse, or a SQLite/PostgreSQL table |
-| `log.immutable` | `logstore.ImmutableStore`; Volc TLS topic |
+| `log` | `logstore.Store`; Volc TLS topic |
 
 | Storage kind | Physical configuration |
 | --- | --- |

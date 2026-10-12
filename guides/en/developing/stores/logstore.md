@@ -6,7 +6,7 @@
 
 ## Contract
 
-`Appender.Append` returns a `RecordKey` for each accepted record. On partial failure, the result is the accepted prefix in input order. A key combines the stable `Stream` with a caller-generated `ID`. `ImmutableStore` combines append, query, and lifecycle capabilities.
+`Appender.Append` returns a `RecordKey` for each accepted record. On partial failure, the result is the accepted prefix in input order. A key combines the stable `Stream` with a caller-generated `ID`. `Store` combines append, query, and lifecycle capabilities as the single complete log interface.
 
 `Record` requires an `ID`, time, `Stream`, and `Kind`, and can carry severity, message, indexed scalar attributes, and an unindexed JSON payload. Attribute names are canonical dotted paths of at most 128 bytes; each segment matches `[A-Za-z_][A-Za-z0-9_-]*`, and scalar/object prefix conflicts are rejected.
 
@@ -16,9 +16,9 @@
 
 | Driver | Capability | Notes |
 | --- | --- | --- |
-| Volc TLS | `ImmutableStore` | PutLogsV2 and SearchLogs over one TLS SDK client; mutations are unsupported |
+| Volc TLS | `Store` | PutLogsV2 and SearchLogs over one TLS SDK client; mutations are unsupported |
 
-Each logical Log Store declares `log.immutable` and is resolved through `Stores.Log`. The current implementation is Volc TLS; SQLite, PostgreSQL, and ClickHouse database backends are unsupported, and `log.mutable` is not registered. Workspace and Eino conversation history use the [Memory History Store](./memory#conversation-history). Physical connection ownership remains under `storage`.
+Each logical Log Store declares `log` and is resolved through `Stores.Log`. The current implementation is Volc TLS; SQLite, PostgreSQL, and ClickHouse database backends are unsupported, with one Store interface and no mutable/immutable variants. Workspace and Eino conversation history use the [Memory History Store](./memory#conversation-history). Physical connection ownership remains under `storage`.
 
 ### Volc TLS
 
@@ -32,7 +32,7 @@ storage:
     access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${VOLC_TLS_TOPIC_ID}
 ```
@@ -51,7 +51,7 @@ For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records w
 
 ## Logging cutover
 
-Before startup, provision the Volc TLS topic and compatible index, then bind the LogStore using `log.immutable`, `volc-tls` and `topic_id`. Stderr alone is available when log querying is unnecessary. After cutover, Admin/Monitor log queries read only the new topic.
+Before startup, provision the Volc TLS topic and compatible index, then bind the LogStore using `log`, `volc-tls` and `topic_id`. Stderr alone is available when log querying is unnecessary. After cutover, Admin/Monitor log queries read only the new topic.
 
 Existing SQL log tables and records remain owned by the database operator. Server neither imports them into Volc TLS nor deletes them. Export or archive them with database tools before cutover when retained log access is required, and use database tools to read that archive. GizClaw provides no legacy database log reader. `history-migrate` operates only on explicitly selected Workspace/Eino History tables; generic logs mixed into a source cause migration to fail without deleting source data.
 

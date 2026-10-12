@@ -7,7 +7,7 @@
 ```text
 pkgs/store/
 ├── kv/           # Ordered hierarchical key-value store
-├── logstore/     # 可查询的 immutable/mutable record 与 log driver
+├── logstore/     # 日志追加、查询与日志服务 driver
 ├── memory/       # Observation extraction、fact recall 与 provider adapters
 ├── metrics/      # Time-series sample write and query
 ├── objectstore/  # Prefix-addressable binary object storage
@@ -19,7 +19,7 @@ pkgs/store/
 | Package | 核心边界 | 主要消费者 |
 | --- | --- | --- |
 | [kv](./kv) | 有序层级 key、CRUD 与范围遍历 | GizClaw services、其他 stores |
-| [logstore](./logstore) | 追加/修改结构化 record、backend-neutral 查询与分页 | 进程日志、conversation/event 等生产者 |
+| [logstore](./logstore) | 追加结构化 record、backend-neutral 查询与分页 | 进程日志、event/audit 等生产者 |
 | [memory](./memory) | 原始 observation、fact recall/update/delete 与异步 operation | Agent runtime、memory evaluation harness |
 | [metrics](./metrics) | Sample 写入、instant/range query 与 aggregation | Peer telemetry、Server metrics |
 | [objectstore](./objectstore) | Binary object、prefix list/delete 与 expiration | Firmware、workspace assets、HNSW |
@@ -52,7 +52,7 @@ flowchart TB
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
 | `metrics` | `metrics.Store`；`memory`、Prometheus、ClickHouse，或 SQLite/PostgreSQL table |
-| `log.immutable` | `logstore.ImmutableStore`；Volc TLS topic |
+| `log` | `logstore.Store`；Volc TLS topic |
 
 | Storage kind | 物理配置 |
 | --- | --- |

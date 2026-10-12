@@ -81,29 +81,30 @@ Edge 进程。
 | Service 字段 | 所需能力 |
 | --- | --- |
 | `services.peer.store` | `keyvalue`；保存共享 Peer record 与固定 Server route |
-| `services.peer_run.store` | 独立的 `keyvalue`；保存当前 Server 本地的 Peer 状态与 Agent selection |
+| `services.peer_run.store` | `sql`；保存当前 Server 本地的 Peer 状态与 Agent selection |
 | `services.api_key.store` | `keyvalue`；保存 API Key、secret index 与 owner index，多 Server API routing 时必须共享 |
-| login、credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、toolkit、contact、friend 与 Friend Group | 各一个 `keyvalue`；内部 collection prefix 由代码拥有 |
+| credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、workspace、toolkit 与 contact | `sql`；业务表由服务拥有 |
+| friend 与 Friend Group | `keyvalue`；内部 collection prefix 由代码拥有 |
 | `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
 | `services.workspace.history_store` | `sql` |
 | `services.agent_host.persistence.state_store` | `sql` |
 | `services.metrics.store` | `metrics` |
 | `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout`、`talk_hangover`、`floor_idle` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
-| `services.system_log.query_store` 与 Store sink | immutable Log 能力 |
+| `services.system_log.query_store` 与 Store sink | `log`，对应 `logstore.Store` |
 
-Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容、Agent 内部 History 不可变或出现未知字段时，Server 会在打开 listener 前失败。
+Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容或出现未知字段时，Server 会在打开 listener 前失败。
 
-`services.agent_host.persistence` 是通用状态与内部 History 的唯一绑定入口。两个引用均可省略；Eino Workflow 声明 `state_persistence` 时必须配置 SQL `state_store`。`services.agent_host.eino` 与 `services.agent_host.flowcraft` 均为未知字段，即使与 `persistence` 同时出现也会被拒绝。Store 名称与执行器无关；调整配置入口时保留原来的物理连接、History table 和 Workspace scope，不会搬移、清空或重建已有数据。
+`services.agent_host.persistence.state_store` 绑定通用 SQL 状态，并由 Server 的 `GraphStateDB` 注入 Workflow factory；Eino Workflow 声明 `state_persistence` 时必须提供该引用。Workspace 的 `services.workspace.history_store` 是唯一对话 History 绑定，Eino 接收它的 `memory.HistoryReader`，不再声明内部 History Store。`services.agent_host.eino` 与 `services.agent_host.flowcraft` 是未知字段。
 
-多 Server 拓扑中，各 Server 可以把 Peer、Friend 和 Friend Group 控制面 Store 绑定到同一个 Redis 7.0 connector 下互不重叠的 prefix。`services.peer_run.store` 仍然必填，必须与 `services.peer.store` 不同，但可以使用任意受支持的 `keyvalue` backend；Server 会在该 binding 下保留代码拥有的 `runs` namespace。Client activation 会在发布 connection 或启动 service work 之前原子 claim 未分配 Peer，或校验已有的固定 Server owner。RuntimeProfile、Workspace、History、Memory、asset 与其他 runtime Store 仍保持 Server 本地；这种组合不提供 Workspace routing 或 failover。
+多 Server 拓扑中，各 Server 可以把 Peer、Friend 和 Friend Group 控制面 Store 绑定到同一个 Redis 7.0 connector 下互不重叠的 prefix。`services.peer_run.store` 使用 Server 本地 SQL Store 保存运行状态。Client activation 会在发布 connection 或启动 service work 之前原子 claim 未分配 Peer，或校验已有的固定 Server owner。RuntimeProfile、Workspace、History、Memory、asset 与其他 runtime Store 仍保持 Server 本地；这种组合不提供 Workspace routing 或 failover。
 
 启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema，并安装日志与 metrics。取得 workspace PID ownership 后，可选 process profiling 解析其专用 ObjectStore 并发布 baseline；完成后才打开 public listener 并启动 `Server.Listen`。逻辑 Store 不关闭借用的 connector。Shutdown 会先 join profiling worker，再关闭 logging、逻辑 wrapper 与物理 connector。Process profiling 属于 `cmd/internal/server`；可复用的 `pkgs/gizclaw.Server` 不依赖 pprof。
 
-旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称、通用 `kind: log` 和 `gizclaw migrate` 命令均不受支持。Workspace History 的一次性 SQL 数据转换使用 [history-migrate](../../stores/memory#history-migration)。ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
+旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称和 `gizclaw migrate` 命令均不受支持。Workspace History 的一次性 SQL 数据转换使用 [history-migrate](../../stores/memory#history-migration)。ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
 
 ### 完整配置
 
-下面的完整生产配置让 prefix-scoped KV、table-scoped Metrics、和 immutable/mutable Log Store 借用同一个 PostgreSQL pool，并让 ObjectStore 使用独立 filesystem root。SQL KV 的 prefix 由后端直接映射为物理表；配置没有 `table` 字段。所有逻辑 SQL Store 在 listener 启动前直接保证业务表与索引存在，再精确校验 schema；不会创建 version/history 表。任何一个失败都会终止启动而不会回退到其他 backend。SQLite 本地部署使用相同 `stores` 与 `services`，只把 `storage.database` 改为 `kind: sqlite` 和 `dir`/`dsn`。
+下面的配置让 prefix-scoped KV、table-scoped Metrics 和服务拥有的 SQL 数据使用 PostgreSQL pool，LogStore 使用独立的 Volc TLS topic，ObjectStore 使用 filesystem root。SQL KV 的 prefix 直接映射为物理表；服务负责初始化并校验各自的 SQL 业务表与索引，Workspace History 由 `memory.HistoryStore` 管理。本地 SQLite 部署只调整 SQL connector 的 `kind` 和 `dir`/`dsn`；日志仍使用日志服务或 stderr，配置细节见 [LogStore](../../stores/logstore)。
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 

@@ -140,7 +140,7 @@ skip_metrics_memory { next }
 }
 /^services:/ {
   print "  logs:"
-  print "    kind: log.immutable"
+  print "    kind: log"
   print "    storage: observability-tls"
   print "    topic_id: observability"
   print ""
@@ -207,7 +207,7 @@ function quote_yaml(value) {
 }
 /^services:/ {
   print "  logs:"
-  print "    kind: log.immutable"
+  print "    kind: log"
   print "    storage: volc-logs"
   print "    topic_id: " quote_yaml(topic_id)
   print ""

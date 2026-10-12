@@ -52,7 +52,7 @@ func TestInstallEdgeLoggingRejectsInvalidStorageBeforeInstallingLogger(t *testin
 			"volc-logs": storage.VolcTLSConfig{},
 		},
 		Stores: map[string]store.Config{
-			"logs": {Kind: store.KindLogImmutable, Storage: "volc-logs", TopicID: "topic"},
+			"logs": {Kind: store.KindLog, Storage: "volc-logs", TopicID: "topic"},
 		},
 		SystemLog: gizlog.Config{Sinks: []gizlog.SinkConfig{{Kind: gizlog.SinkStore, Store: "logs"}}},
 	}

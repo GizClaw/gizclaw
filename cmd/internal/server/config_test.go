@@ -668,14 +668,14 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 		})
 	}
 	logical, err := (storeFileConfig{
-		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
+		Kind: stores.KindLog, Storage: "storage", Prefix: "prefix",
 		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic", TTL: "2160h",
 	}).runtimeConfig()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if logical != (stores.Config{
-		Kind: stores.KindLogImmutable, Storage: "storage", Prefix: "prefix",
+		Kind: stores.KindLog, Storage: "storage", Prefix: "prefix",
 		Database: "expanded/database", Table: "expanded/table", TopicID: "expanded/topic", TTL: 90 * 24 * time.Hour,
 	}) {
 		t.Fatalf("store runtime config = %+v", logical)
@@ -851,7 +851,7 @@ func TestNewWithLayeredStorageReportsStoreErrors(t *testing.T) {
 
 	wrongLogSinkCfg := validLayeredConfig(dir)
 	wrongLogSinkCfg.Services.SystemLog = &gizlog.Config{Sinks: []gizlog.SinkConfig{{Kind: gizlog.SinkStore, Store: "metrics"}}}
-	if _, err := New(wrongLogSinkCfg); err == nil || !strings.Contains(err.Error(), "logstore.ImmutableStore") {
+	if _, err := New(wrongLogSinkCfg); err == nil || !strings.Contains(err.Error(), "logstore.Store") {
 		t.Fatalf("New(wrong system log sink) = %v", err)
 	}
 
@@ -1056,11 +1056,12 @@ func TestParseConfigRejectsUnknownLoggingFields(t *testing.T) {
 	}
 }
 
-func TestParseConfigRejectsMutableLogAndDatabaseLogScope(t *testing.T) {
+func TestParseConfigRejectsLogVariantsAndDatabaseScope(t *testing.T) {
 	for _, fields := range []string{
+		"kind: log.immutable\n    storage: volc\n",
 		"kind: log.mutable\n    storage: analytics\n",
-		"kind: log.immutable\n    storage: database\n    table: logs\n",
-		"kind: log.immutable\n    storage: volc\n    ttl: 24h\n",
+		"kind: log\n    storage: database\n    table: logs\n",
+		"kind: log\n    storage: volc\n    ttl: 24h\n",
 	} {
 		if _, err := parseConfigData([]byte("stores:\n  logs:\n    " + fields)); err == nil {
 			t.Fatalf("unsupported LogStore accepted: %s", fields)
@@ -1179,7 +1180,7 @@ func TestParseCompleteServerConfigurationExample(t *testing.T) {
 			if logical.Storage != wantStorage || logical.Table == "" {
 				t.Fatalf("stores.%s = %+v, want table-scoped database Store", name, logical)
 			}
-		case stores.KindLogImmutable:
+		case stores.KindLog:
 			if logical.Storage != "volc-logs" || logical.Table != "" || logical.TopicID != "" {
 				t.Fatalf("stores.%s = %+v, want topic-scoped logging service", name, logical)
 			}
@@ -1233,11 +1234,11 @@ func assertCompleteServerConfigInventory(t *testing.T, cfg ConfigFile) {
 	expect("services.agent_host.persistence.state_store", services.AgentHost.Persistence.StateStore, stores.KindSQL)
 	expect("services.metrics.store", services.Metrics.Store, stores.KindMetrics)
 	if services.SystemLog.QueryStore != "" {
-		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLogImmutable)
+		expect("services.system_log.query_store", services.SystemLog.QueryStore, stores.KindLog)
 	}
 	for index, sink := range services.SystemLog.Sinks {
 		if sink.Kind == gizlog.SinkStore {
-			expect(fmt.Sprintf("services.system_log.sinks[%d].store", index), sink.Store, stores.KindLogImmutable)
+			expect(fmt.Sprintf("services.system_log.sinks[%d].store", index), sink.Store, stores.KindLog)
 		}
 	}
 

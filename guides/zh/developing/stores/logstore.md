@@ -6,7 +6,7 @@
 
 ## Contract
 
-`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`ImmutableStore` 组合追加、查询和生命周期能力。
+`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`Store` 组合追加、查询和生命周期能力，仅提供一种完整日志接口。
 
 `Record` 必须提供 `ID`、时间、`Stream` 与 `Kind`，并可附带 severity、message、indexed scalar attributes 和不索引的 JSON payload。Attribute 使用最长 128 bytes 的 canonical dotted path；每段匹配 `[A-Za-z_][A-Za-z0-9_-]*`，scalar/object prefix conflict 会被拒绝。
 
@@ -16,9 +16,9 @@
 
 | Driver | Capability | 说明 |
 | --- | --- | --- |
-| Volc TLS | `ImmutableStore` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
+| Volc TLS | `Store` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
 
-每个逻辑 Log Store 声明 `log.immutable`，通过 `Stores.Log` 获取。当前实现为 Volc TLS；不支持 SQLite、PostgreSQL 或 ClickHouse 数据库 backend，也不注册 `log.mutable`。Workspace 与 Eino 的对话历史使用 [Memory History Store](./memory#conversation-history)，不经过 LogStore。物理连接 ownership 属于 `storage`。
+每个逻辑 Log Store 声明 `log`，通过 `Stores.Log` 获取。当前实现为 Volc TLS；不支持 SQLite、PostgreSQL 或 ClickHouse 数据库 backend，也不区分 mutable/immutable 类型。Workspace 与 Eino 的对话历史使用 [Memory History Store](./memory#conversation-history)，不经过 LogStore。物理连接 ownership 属于 `storage`。
 
 ### Volc TLS
 
@@ -32,7 +32,7 @@ storage:
     access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${VOLC_TLS_TOPIC_ID}
 ```
@@ -51,7 +51,7 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 
 ## 日志切换
 
-启动前配置已有 Volc TLS topic 及其兼容 index，并将 LogStore 绑定改为 `log.immutable`、`volc-tls` 和 `topic_id`；不需要日志查询时可以只配置 stderr sink。切换后，Admin/Monitor 日志查询只读取新 topic。
+启动前配置已有 Volc TLS topic 及其兼容 index，并将 LogStore 绑定改为 `log`、`volc-tls` 和 `topic_id`；不需要日志查询时可以只配置 stderr sink。切换后，Admin/Monitor 日志查询只读取新 topic。
 
 旧 SQL 日志表和记录由数据库 owner 保留。Server 不会将它们导入 Volc TLS，也不会删除它们；需要保留旧日志检索时，在切换前使用数据库工具导出或归档，并通过数据库工具读取归档。GizClaw 不提供旧数据库日志读取路径。`history-migrate` 只迁移显式选择的 Workspace/Eino History 表；遇到通用日志混入源表时拒绝迁移并保留源数据。
 

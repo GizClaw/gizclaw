@@ -154,8 +154,8 @@ type storeFileConfig struct {
 }
 
 func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
-	if cfg.Kind != store.KindLogImmutable {
-		return store.Config{}, fmt.Errorf("only %s is supported", store.KindLogImmutable)
+	if cfg.Kind != store.KindLog {
+		return store.Config{}, fmt.Errorf("only %s is supported", store.KindLog)
 	}
 	return store.Config{
 		Kind: cfg.Kind, Storage: cfg.Storage, TopicID: os.ExpandEnv(cfg.TopicID),
@@ -519,8 +519,8 @@ func (cfg Config) validateSystemLog() error {
 		}
 	}
 	for name, logical := range cfg.Stores {
-		if logical.Kind != store.KindLogImmutable {
-			return fmt.Errorf("edge: stores.%s only supports %s", name, store.KindLogImmutable)
+		if logical.Kind != store.KindLog {
+			return fmt.Errorf("edge: stores.%s only supports %s", name, store.KindLog)
 		}
 		if _, ok := cfg.Storage[logical.Storage]; !ok {
 			return fmt.Errorf("edge: stores.%s references missing storage.%s", name, logical.Storage)

@@ -111,9 +111,9 @@ Config rules:
 - Required service bindings never default from a Store name, kind, prefix, or another Store.
 - Concrete physical kinds are `badger`, `memory`, `filesystem.dir`, `sqlite`, `postgresql`, `clickhouse`, `prometheus`, and `volc-tls`; no nested driver selector is accepted.
 - Prometheus and Volc TLS are physical connector kinds. Their endpoints and credentials belong under `storage`.
-- The five logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, and `log.immutable`.
+- The five logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, and `log`.
 - Keyvalue Stores may use Badger or memory. SQLite/PostgreSQL keyvalue Stores require one single-segment `prefix`; the backend uses it as the physical table name, `table` is invalid, and encoded keys do not repeat the prefix. Metrics Stores may additionally use Prometheus, ClickHouse, SQLite, or PostgreSQL.
-- `log.immutable` uses a logging service; the current backend is Volc TLS with `topic_id` and provider-owned retention. SQL LogStore backends and `log.mutable` are unsupported. SQL-backed Metrics require `table`.
+- `log` uses a logging service; the current backend is Volc TLS with `topic_id` and provider-owned retention. LogStore has one `logstore.Store` interface with append/query/close and no mutable/immutable variants or SQL backends. SQL-backed Metrics require `table`.
 - SQLite/PostgreSQL KV uses the physical table derived from `prefix`; Metrics uses its explicit `table`. Physical names are unqualified ASCII values of at most 63 bytes. Compatible declarations may share a table; each adapter validates its required schema.
 - SQL-backed logical Stores directly ensure their table and indexes with idempotent DDL, then validate the exact schema. They create no version or history table and borrow the physical pool. Close logical Stores before Storage; they never close the pool themselves.
 - Public vecstore and graph packages remain available but are not Server Store kinds.

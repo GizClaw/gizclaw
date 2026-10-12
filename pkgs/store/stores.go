@@ -22,11 +22,11 @@ import (
 
 // Kind constants for logical store categories.
 const (
-	KindKeyValue     = "keyvalue"
-	KindMetrics      = "metrics"
-	KindLogImmutable = "log.immutable"
-	KindObjectStore  = "objectstore"
-	KindSQL          = "sql"
+	KindKeyValue    = "keyvalue"
+	KindMetrics     = "metrics"
+	KindLog         = "log"
+	KindObjectStore = "objectstore"
+	KindSQL         = "sql"
 )
 
 // Config describes one logical Store entry. Serialization belongs to callers.
@@ -65,7 +65,7 @@ type Stores struct {
 	kvRoots      map[string]kv.Store
 	objects      map[string]objectstore.ObjectStore
 	metrics      map[string]metrics.Store
-	logs         map[string]logstore.ImmutableStore
+	logs         map[string]logstore.Store
 	sqls         map[string]*sqlx.DB
 	logicClosers []io.Closer
 	ttls         map[string]time.Duration
@@ -92,7 +92,7 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 		kvRoots: make(map[string]kv.Store),
 		objects: make(map[string]objectstore.ObjectStore),
 		metrics: make(map[string]metrics.Store),
-		logs:    make(map[string]logstore.ImmutableStore),
+		logs:    make(map[string]logstore.Store),
 		sqls:    make(map[string]*sqlx.DB),
 		ttls:    make(map[string]time.Duration),
 	}
@@ -136,7 +136,7 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 				return nil, &ConfigError{Name: name, Err: err}
 			}
 			s.metrics[name] = st
-		case KindLogImmutable:
+		case KindLog:
 			st, err := s.newLog(name, cfg)
 			if err != nil {
 				return nil, &ConfigError{Name: name, Err: err}
@@ -318,7 +318,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			return nil
 		}
 		return invalid(cfg.Table != "", "table")
-	case KindLogImmutable:
+	case KindLog:
 		if storageKind != storage.KindVolcTLS {
 			return fmt.Errorf("stores: log %q requires a logging service; storage %q kind %q is unsupported", name, cfg.Storage, storageKind)
 		}
@@ -433,8 +433,8 @@ func (r *Stores) Metrics(name string) (metrics.Store, error) {
 	return s, nil
 }
 
-// Log returns the named logstore.ImmutableStore.
-func (r *Stores) Log(name string) (logstore.ImmutableStore, error) {
+// Log returns the named logstore.Store.
+func (r *Stores) Log(name string) (logstore.Store, error) {
 	s, ok := r.logs[name]
 	if !ok {
 		return nil, fmt.Errorf("stores: log %q not found", name)
@@ -591,7 +591,7 @@ func (r *Stores) newMetrics(name string, cfg Config) (metrics.Store, error) {
 	}
 }
 
-func (r *Stores) newLog(name string, cfg Config) (logstore.ImmutableStore, error) {
+func (r *Stores) newLog(name string, cfg Config) (logstore.Store, error) {
 	if cfg.Storage == "" {
 		return nil, fmt.Errorf("stores: log %q requires storage reference", name)
 	}

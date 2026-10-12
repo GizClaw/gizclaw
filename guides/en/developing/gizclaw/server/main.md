@@ -95,29 +95,30 @@ The main capability groups are:
 | Service fields | Capability |
 | --- | --- |
 | `services.peer.store` | `keyvalue`; owns shared Peer records and fixed Server routes |
-| `services.peer_run.store` | distinct `keyvalue`; owns Server-local Peer status and Agent selection state |
+| `services.peer_run.store` | `sql`; owns Server-local Peer status and Agent selection state |
 | `services.api_key.store` | `keyvalue`; stores API keys, secret indexes, and owner indexes, and must be shared for multi-Server API routing |
-| login, credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, toolkit, contact, friend, and Friend Group | one `keyvalue` each; code owns internal collection prefixes |
+| credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, workspace, toolkit and contact | `sql`; services own their business tables |
+| friend and Friend Group | `keyvalue`; code owns internal collection prefixes |
 | `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
 | `services.workspace.history_store` | `sql` |
 | `services.agent_host.persistence.state_store` | `sql` |
 | `services.metrics.store` | `metrics` |
 | `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval`, `reconnect_timeout`, `talk_hangover`, and `floor_idle` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
-| `services.system_log.query_store` and Store sinks | immutable Log capability |
+| `services.system_log.query_store` and Store sinks | `log`, providing `logstore.Store` |
 
-Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, immutable internal Agent History, and unknown fields fail before listeners open.
+Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, and unknown fields fail before listeners open.
 
-`services.agent_host.persistence` is the sole binding for shared state and internal History. Both references are optional; an Eino Workflow declaring `state_persistence` requires the SQL `state_store`. `services.agent_host.eino` and `services.agent_host.flowcraft` are unknown fields and are rejected even beside `persistence`. Store names are independent of the executor. Keep the same physical connection, History table, and Workspace scope when updating the binding; existing data is not moved, cleared, or rebuilt.
+`services.agent_host.persistence.state_store` binds shared SQL state, injected into Workflow factories as `GraphStateDB`; an Eino Workflow declaring `state_persistence` requires that reference. `services.workspace.history_store` is the sole conversation History binding, and Eino receives its `memory.HistoryReader` without an internal History Store. `services.agent_host.eino` and `services.agent_host.flowcraft` are unknown fields.
 
-In a multi-Server topology, all Servers may bind Peer, Friend, and Friend Group control-plane Stores to distinct prefixes on one Redis 7.0 connector. `services.peer_run.store` remains mandatory and distinct from `services.peer.store`, but it may use any supported `keyvalue` backend; the Server retains its code-owned `runs` namespace below that binding. Client activation atomically claims an unassigned Peer or verifies the existing fixed Server owner before publishing the connection or starting service work. RuntimeProfile, Workspace, History, Memory, assets, and other runtime Stores remain Server-local; this composition does not provide Workspace routing or failover.
+In a multi-Server topology, all Servers may bind Peer, Friend, and Friend Group control-plane Stores to distinct prefixes on one Redis 7.0 connector. `services.peer_run.store` uses a Server-local SQL Store for runtime state. Client activation atomically claims an unassigned Peer or verifies the existing fixed Server owner before publishing the connection or starting service work. RuntimeProfile, Workspace, History, Memory, assets, and other runtime Stores remain Server-local; this composition does not provide Workspace routing or failover.
 
 Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, and installs logging and metrics. After workspace PID ownership is acquired, optional process profiling resolves its dedicated ObjectStore and publishes a baseline; only then are public listeners opened and `Server.Listen` started. Logical Stores never close borrowed connectors. Shutdown joins the profiling worker before closing logging, logical wrappers, and physical connectors. Process profiling belongs to `cmd/internal/server`; the reusable `pkgs/gizclaw.Server` has no pprof dependency.
 
-The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, generic `kind: log`, and `gizclaw migrate` command are unsupported. Recreate development workspaces with the current configuration; no old data is imported or transformed. ClickHouse Store table initialization remains active schema lifecycle, not old-data migration.
+The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, and `gizclaw migrate` command are unsupported. One-time Workspace History conversion uses [history-migrate](../../stores/memory#history-migration). ClickHouse Store table initialization remains active schema lifecycle, not old-data migration.
 
 ### Complete configuration
 
-The complete production configuration below lets prefix-scoped KV, table-scoped Metrics, and immutable/mutable Log Stores borrow one PostgreSQL pool while ObjectStores use a separate filesystem root. The SQL backend maps each KV prefix directly to its physical table; the KV declaration has no `table` field. Every logical SQL Store directly ensures its business table and indexes, then validates the exact schema before listeners start; no version or history table is created. Any failure stops startup without a backend fallback. A local SQLite deployment keeps the same `stores` and `services` and changes only `storage.database` to `kind: sqlite` with `dir` or `dsn`.
+The configuration below shares a PostgreSQL pool across prefix-scoped KV, table-scoped Metrics and service-owned SQL data. LogStore uses a separate Volc TLS topic, and ObjectStores use filesystem roots. SQL KV maps each prefix directly to its physical table; services initialize and validate their SQL tables and indexes, while `memory.HistoryStore` owns Workspace History. Local SQLite deployments change only the SQL connector kind and `dir`/`dsn`; logging still uses a logging service or stderr. See [LogStore](../../stores/logstore) for configuration.
 
 <<< ../../../../snippets/server-storage-stores-services.yaml{yaml}
 

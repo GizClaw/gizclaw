@@ -22,8 +22,8 @@ func (s *identityLogStore) Append(_ context.Context, records []logstore.Record) 
 func (*identityLogStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
 	return logstore.Page{}, nil
 }
-func (*identityLogStore) Close() error                                  { return nil }
-func (s *identityLogStore) Log(string) (logstore.ImmutableStore, error) { return s, nil }
+func (*identityLogStore) Close() error                         { return nil }
+func (s *identityLogStore) Log(string) (logstore.Store, error) { return s, nil }
 
 func TestCompletionIdentitySurvivesProductionLogger(t *testing.T) {
 	store := &identityLogStore{}

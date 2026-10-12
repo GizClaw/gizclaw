@@ -35,7 +35,7 @@ storage:
 # is expressed directly on the Store.
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${VOLC_TLS_TOPIC_ID}
 
