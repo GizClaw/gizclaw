@@ -34,8 +34,12 @@ type Config struct {
 	// An error or exhausted corrections publishes no unverified reply text.
 	// Independent invocations may call the callback concurrently.
 	VerifyToolResponse func(context.Context, genx.ToolConversation, string) (string, error)
-	MaxToolCalls       int
-	Limits             Limits
+	// MaxToolCalls bounds ToolCalls within one root Graph execution, including
+	// child Graphs and model tool continuations. Zero uses genx.DefaultMaxToolCalls.
+	// ContinueFrom starts a fresh budget and call-ID set for each generation;
+	// an inherited ToolCall scope remains shared.
+	MaxToolCalls int
+	Limits       Limits
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
 	// ContinueFrom names a boolean root State field. When true after a
