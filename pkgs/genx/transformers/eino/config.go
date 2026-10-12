@@ -81,7 +81,10 @@ type Limits struct {
 	MaxOutputBytes int
 }
 
-// StatePersistenceConfig enables optimistic persistent Graph state.
+// StatePersistenceConfig selects optimistic persistent Graph state fields.
+// Ordinary turns commit before successful primary EOS. ContinueFrom commits
+// each generation after its delivery acknowledgement and History recording;
+// interrupted or failed generations leave the last completed checkpoint intact.
 type StatePersistenceConfig struct {
 	Store  StateStore
 	Scope  string

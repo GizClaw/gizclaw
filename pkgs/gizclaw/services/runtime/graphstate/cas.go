@@ -97,7 +97,7 @@ type stateField struct {
 	FloatPaths []string        `json:"float_paths,omitempty"`
 }
 
-// CompareAndSwap persists one completed turn only if its loaded revision is current.
+// CompareAndSwap persists one completed checkpoint only if its loaded revision is current.
 // The SQL scope lock also fences concurrent Workspace retirement across processes.
 func (s *Store) CompareAndSwap(ctx context.Context, contextID, expected string, values map[string]any) (genxeino.StateSnapshot, error) {
 	if s == nil || s.db == nil {

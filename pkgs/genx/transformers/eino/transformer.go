@@ -908,7 +908,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err := recallMemory(run.ctx, config.Memory, state); err != nil {
 		return nil, "", err
 	}
-	if err := run.executeGraph(run.ctx, state); err != nil {
+	if err := run.executeGraph(run.ctx, state, &version); err != nil {
 		return state, version, err
 	}
 	if run.automaticPrimary && !run.primaryChosen {
@@ -920,7 +920,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	return state, version, nil
 }
 
-func (run *turnRun) executeGraph(ctx context.Context, state *runState) error {
+func (run *turnRun) executeGraph(ctx context.Context, state *runState, version *string) error {
 	config := run.session.transformer.config
 	execute := func() error {
 		// Each root generation owns its ToolCalls. Child Graphs and model
@@ -984,6 +984,13 @@ func (run *turnRun) executeGraph(ctx context.Context, state *runState) error {
 		if err := run.recordMessage(ctx, state, delivered, false); err != nil {
 			return err
 		}
+		// Only a delivered, acknowledged and recorded generation advances its
+		// selected State. Keep the returned CAS revision for the next generation.
+		nextVersion, err := commitPersistentState(ctx, config.State, state, *version)
+		if err != nil {
+			return err
+		}
+		*version = nextVersion
 		if !continueSpeaking {
 			return nil
 		}
@@ -1102,10 +1109,11 @@ func (run *turnRun) finalize(ctx context.Context, state *runState, version, deli
 	if err := run.recordMessage(ctx, state, delivered, failed); err != nil {
 		return err
 	}
-	if failed {
+	if failed || run.session.transformer.config.ContinueFrom != "" {
 		return nil
 	}
-	return commitPersistentState(ctx, run.session.transformer.config.State, state, version)
+	_, err := commitPersistentState(ctx, run.session.transformer.config.State, state, version)
+	return err
 }
 
 func (run *turnRun) recordMessage(ctx context.Context, state *runState, delivered string, failed bool) error {
