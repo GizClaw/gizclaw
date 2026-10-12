@@ -73,7 +73,7 @@ func (r *Redis) RangeOrderedMembers(ctx context.Context, key Key, query OrderedR
 	if query.Before != nil {
 		max = "(" + *query.Before
 	}
-	members, err := r.client.ZRangeByLex(ctx, string(r.opts.encode(key)), &redis.ZRangeBy{Min: min, Max: max, Count: int64(query.Limit)}).Result()
+	members, err := r.reader.ZRangeByLex(ctx, string(r.opts.encode(key)), &redis.ZRangeBy{Min: min, Max: max, Count: int64(query.Limit)}).Result()
 	return members, setRedisError(err)
 }
 

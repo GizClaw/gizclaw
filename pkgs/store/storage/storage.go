@@ -37,20 +37,21 @@ func (e *ConfigError) Unwrap() error { return e.Err }
 
 // Storage owns physical backend instances and configured memory markers.
 type Storage struct {
-	mu         sync.Mutex
-	closed     bool
-	configs    map[string]Config
-	badgers    map[string]*badger.DB
-	dirs       map[string]*os.Root
-	sqls       map[string]*sqlx.DB
-	redis      map[string]*redis.Client
-	prometheus map[string]prometheusResource
-	volcs      map[string]tls.Client
-	tos        map[string]volcTOSResource
-	aliyunOSS  map[string]aliyunOSSResource
-	gcs        map[string]gcsResource
-	azureBlob  map[string]azureBlobResource
-	closers    []io.Closer
+	mu             sync.Mutex
+	closed         bool
+	configs        map[string]Config
+	badgers        map[string]*badger.DB
+	dirs           map[string]*os.Root
+	sqls           map[string]*sqlx.DB
+	redis          map[string]*redis.Client
+	redisReadWrite map[string]redisReadWriteClients
+	prometheus     map[string]prometheusResource
+	volcs          map[string]tls.Client
+	tos            map[string]volcTOSResource
+	aliyunOSS      map[string]aliyunOSSResource
+	gcs            map[string]gcsResource
+	azureBlob      map[string]azureBlobResource
+	closers        []io.Closer
 }
 
 // New creates a Storage registry, validates every configured physical backend,
@@ -59,17 +60,18 @@ type Storage struct {
 // are used as provided by the caller.
 func New(configs map[string]Config) (*Storage, error) {
 	s := &Storage{
-		configs:    make(map[string]Config, len(configs)),
-		badgers:    make(map[string]*badger.DB),
-		dirs:       make(map[string]*os.Root),
-		sqls:       make(map[string]*sqlx.DB),
-		redis:      make(map[string]*redis.Client),
-		prometheus: make(map[string]prometheusResource),
-		volcs:      make(map[string]tls.Client),
-		tos:        make(map[string]volcTOSResource),
-		aliyunOSS:  make(map[string]aliyunOSSResource),
-		gcs:        make(map[string]gcsResource),
-		azureBlob:  make(map[string]azureBlobResource),
+		configs:        make(map[string]Config, len(configs)),
+		badgers:        make(map[string]*badger.DB),
+		dirs:           make(map[string]*os.Root),
+		sqls:           make(map[string]*sqlx.DB),
+		redis:          make(map[string]*redis.Client),
+		redisReadWrite: make(map[string]redisReadWriteClients),
+		prometheus:     make(map[string]prometheusResource),
+		volcs:          make(map[string]tls.Client),
+		tos:            make(map[string]volcTOSResource),
+		aliyunOSS:      make(map[string]aliyunOSSResource),
+		gcs:            make(map[string]gcsResource),
+		azureBlob:      make(map[string]azureBlobResource),
 	}
 	ok := false
 	defer func() {
@@ -199,6 +201,13 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		if err == nil {
 			s.redis[name] = client
 			s.closers = append(s.closers, client)
+		}
+	case RedisReadWriteConfig:
+		var clients redisReadWriteClients
+		clients, err = newRedisReadWrite(name, cfg)
+		if err == nil {
+			s.redisReadWrite[name] = clients
+			s.closers = append(s.closers, clients.write, clients.read)
 		}
 	case PrometheusConfig:
 		var resource prometheusResource

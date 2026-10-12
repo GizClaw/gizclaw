@@ -7,19 +7,20 @@ import (
 
 func TestConfigImplementationsHaveOnlyBackendFieldsAndNoSerializationTags(t *testing.T) {
 	wantFields := map[reflect.Type][]string{
-		reflect.TypeFor[BadgerConfig]():        {"Dir"},
-		reflect.TypeFor[MemoryConfig]():        {},
-		reflect.TypeFor[FilesystemDirConfig](): {"Dir"},
-		reflect.TypeFor[SQLiteConfig]():        {"Dir", "DSN"},
-		reflect.TypeFor[PostgreSQLConfig]():    {"DSN", "MaxOpenConns", "ConnMaxIdleTime"},
-		reflect.TypeFor[ClickHouseConfig]():    {"DSN"},
-		reflect.TypeFor[RedisConfig]():         {"URL", "TLSCAFile"},
-		reflect.TypeFor[PrometheusConfig]():    {"RemoteWriteURL", "QueryURL", "BearerToken"},
-		reflect.TypeFor[VolcTLSConfig]():       {"Endpoint", "Region", "AccessKeyID", "AccessKeySecret"},
-		reflect.TypeFor[VolcTOSConfig]():       {"Endpoint", "Region", "Bucket", "AccessKeyID", "AccessKeySecret", "SessionToken"},
-		reflect.TypeFor[AliyunOSSConfig]():     {"Endpoint", "Bucket", "AccessKeyID", "AccessKeySecret", "SecurityToken"},
-		reflect.TypeFor[GCSConfig]():           {"Bucket", "CredentialsFile"},
-		reflect.TypeFor[AzureBlobConfig]():     {"AccountURL", "Container"},
+		reflect.TypeFor[BadgerConfig]():         {"Dir"},
+		reflect.TypeFor[MemoryConfig]():         {},
+		reflect.TypeFor[FilesystemDirConfig]():  {"Dir"},
+		reflect.TypeFor[SQLiteConfig]():         {"Dir", "DSN"},
+		reflect.TypeFor[PostgreSQLConfig]():     {"DSN", "MaxOpenConns", "ConnMaxIdleTime"},
+		reflect.TypeFor[ClickHouseConfig]():     {"DSN"},
+		reflect.TypeFor[RedisConfig]():          {"URL", "TLSCAFile"},
+		reflect.TypeFor[RedisReadWriteConfig](): {"Read", "Write"},
+		reflect.TypeFor[PrometheusConfig]():     {"RemoteWriteURL", "QueryURL", "BearerToken"},
+		reflect.TypeFor[VolcTLSConfig]():        {"Endpoint", "Region", "AccessKeyID", "AccessKeySecret"},
+		reflect.TypeFor[VolcTOSConfig]():        {"Endpoint", "Region", "Bucket", "AccessKeyID", "AccessKeySecret", "SessionToken"},
+		reflect.TypeFor[AliyunOSSConfig]():      {"Endpoint", "Bucket", "AccessKeyID", "AccessKeySecret", "SecurityToken"},
+		reflect.TypeFor[GCSConfig]():            {"Bucket", "CredentialsFile"},
+		reflect.TypeFor[AzureBlobConfig]():      {"AccountURL", "Container"},
 	}
 	for typeOf, fields := range wantFields {
 		if typeOf.NumField() != len(fields) {

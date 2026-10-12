@@ -15,6 +15,7 @@
 | `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
 | `SQL` / `NewSQLWithDB` | 借用 SQLite/PostgreSQL pool；把逻辑 prefix 映射为物理表。 |
 | `Redis` / `NewRedisWithClient` | 借用单节点 Redis client，并保留完整的有序与原子 Store contract。 |
+| `Redis` / `NewRedisReadWriteWithClients` | 借用同一复制组的读、写 client；独立查询走读连接，mutation 及其条件判断走写连接。 |
 | `Prefixed` | 为已有 Store 增加固定 key namespace。 |
 
 ## Ownership 边界
@@ -43,6 +44,14 @@ services:
 SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；此时 `prefix: peers` 同时是后端物理表名。这个名称不能和同一 connector 上其他 KV prefix 或 Metrics/Log table 重复；关闭逻辑 Store 不会关闭共享数据库 pool。
 
 同一物理 connector 上的 Redis keyvalue Store 必须使用非空、规范且两两不重叠的 prefix。Adapter 使用精确 key 与集合操作，使用绝对 deadline，并在单个 Redis 节点上原子实现 batch、conditional create 与 compare-and-mutate；零 deadline 会移除已有 expiration。由于 Store contract 要求任意 key 原子性，不支持 Redis Cluster 或多 endpoint 分片。
+
+### Redis 读写分离
+
+`storage.kind: redis.readwrite` 通过 `read_url` 和 `write_url` 选择同一复制组的两个入口，逻辑 Store 仍为 `kind: keyvalue`，业务继续使用 `kv.Store`。普通 `storage.kind: redis` 保持一个连接处理全部操作；没有副本的部署使用普通 backend，无需更改业务绑定。配置示例见 [Store 总览](./overview)。
+
+`Get`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 只使用读连接。`Set`、`Delete`、batch、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
+
+读写分离是显式允许复制延迟的选择：成功写入后立即查询仍可能得到旧值或不存在，多个独立查询也不构成快照。只为能容忍这些结果的消费者选择该 backend；要求写后立即可见或撤权立即生效的 Store 继续绑定普通 Redis 主节点连接。读端故障直接返回错误，不自动回退主节点；写端故障也不向只读副本写入。两个 URL 的逻辑数据库编号必须一致，部署层负责保证它们属于同一复制组并维护稳定的写入入口。
 
 Peer record 与 route 共用 `services.peer.store` 指定的 Store。PeerRun 状态和每台 Server 的 Admin Peer 列表使用本机业务 SQL 表，不枚举中心 Redis。
 

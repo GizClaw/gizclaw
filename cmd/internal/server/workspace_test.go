@@ -111,6 +111,12 @@ func testStorageFileConfigs(configs map[string]storage.Config) map[string]storag
 			out[name] = storageFileConfig{Kind: storage.KindClickHouse, DSN: cfg.DSN}
 		case storage.RedisConfig:
 			out[name] = storageFileConfig{Kind: storage.KindRedis, URL: cfg.URL, TLSCAFile: cfg.TLSCAFile}
+		case storage.RedisReadWriteConfig:
+			out[name] = storageFileConfig{
+				Kind:    storage.KindRedisReadWrite,
+				ReadURL: cfg.Read.URL, WriteURL: cfg.Write.URL,
+				ReadTLSCAFile: cfg.Read.TLSCAFile, WriteTLSCAFile: cfg.Write.TLSCAFile,
+			}
 		case storage.PrometheusConfig:
 			out[name] = storageFileConfig{
 				Kind: storage.KindPrometheus, RemoteWriteURL: cfg.RemoteWriteURL,

@@ -279,6 +279,24 @@ credential 或 Store payload。
 
 Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client 可见性、排序、expiration、batch、conditional-create race、compare-and-mutate race、prefix 隔离与 connector lifecycle。被选中的 endpoint 必须是 Redis 7.0 单节点；Redis Cluster 不属于 Store contract。
 
+Redis 读写分离有独立的 Docker gate：
+
+```sh
+bash tests/store-e2e/run_redis_readwrite_tests.sh
+```
+
+入口需要 Go、Docker Compose 和本机平台的 Git LFS 原生音频库；运行前按本页其他 Go E2E 入口拉取对应平台的 `third_party/audio/prebuilt` 资产。它启动固定 digest 的 Redis 8.4.6 主节点和只读副本，两者各限制为 1 CPU / 256 MiB，只在本机回环地址发布随机端口。它运行普通 Redis 回归和 `TestReadWriteRedis...` 用例，验证真实复制、全部查询走副本、写入及 Lua 条件判断走主节点、跨 prefix 原子 root、读端失败不回退主节点，以及连接关闭。测试关闭写 client 后仍要求所有查询成功，并关闭读 client 验证主节点仍可写。日志和拓扑保存在 ignored `.testbench/redis-readwrite-*`，结束时只清理本次 Compose project 的容器、网络和卷。
+
+已有隔离的主从环境时可以显式提供两个入口运行同一组测试：
+
+```sh
+GIZCLAW_TEST_REDIS_DSN='redis://127.0.0.1:6379/15' \
+GIZCLAW_TEST_REDIS_READ_DSN='redis://127.0.0.1:6380/15' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestReadWriteRedis' ./tests/store-e2e
+```
+
+这组测试要求读端是只读副本且属于写端的复制组，不验证自动选主、跨地域复制性能、设备端通知或生产部署。
+
 无需 credential 的多 Server Docker gate 为：
 
 ```sh

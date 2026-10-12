@@ -617,6 +617,17 @@ func TestFileStoreConfigsConvertEveryFieldExplicitly(t *testing.T) {
 				URL: "rediss://expanded:6379/0", TLSCAFile: "/run/secrets/expanded-redis-ca.pem",
 			},
 		},
+		"redis.readwrite": {
+			file: storageFileConfig{
+				Kind:    storage.KindRedisReadWrite,
+				ReadURL: "rediss://reader:6379/0", WriteURL: "rediss://writer:6379/0",
+				ReadTLSCAFile: "/run/secrets/read-ca.pem", WriteTLSCAFile: "/run/secrets/write-ca.pem",
+			},
+			want: storage.RedisReadWriteConfig{
+				Read:  storage.RedisConfig{URL: "rediss://reader:6379/0", TLSCAFile: "/run/secrets/read-ca.pem"},
+				Write: storage.RedisConfig{URL: "rediss://writer:6379/0", TLSCAFile: "/run/secrets/write-ca.pem"},
+			},
+		},
 		"prometheus": {
 			file: storageFileConfig{
 				Kind: storage.KindPrometheus, RemoteWriteURL: "expanded/write",

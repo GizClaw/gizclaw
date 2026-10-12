@@ -48,7 +48,7 @@ flowchart TB
 
 | Store kind | 接口与 scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`；Badger/memory 使用可选 key prefix；Redis 使用必填且不重叠的 key prefix；SQLite/PostgreSQL 使用必填 prefix，后端将它作为物理表名 |
+| `keyvalue` | `kv.Store`；Badger/memory 使用可选 key prefix；Redis 和 Redis 读写分离使用必填且不重叠的 key prefix；SQLite/PostgreSQL 使用必填 prefix，后端将它作为物理表名 |
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
 | `metrics` | `metrics.Store`；`memory`、Prometheus、ClickHouse，或 SQLite/PostgreSQL table |
@@ -67,6 +67,7 @@ flowchart TB
 | `sqlite` | `dir` 或 `dsn` 二选一 |
 | `postgresql`、`clickhouse` | `dsn` |
 | `redis` | 单节点 `redis://` 或 `rediss://` URL；`rediss://` 可通过 `tls_ca_file` 增加 PEM CA 证书；不支持 Redis Cluster |
+| `redis.readwrite` | 同一复制组、同一逻辑数据库的 `read_url` 与 `write_url`；可分别配置 `read_tls_ca_file`、`write_tls_ca_file`；只支持 `keyvalue` Store，读取允许复制延迟 |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
 
@@ -80,6 +81,20 @@ storage:
     tls_ca_file: /run/secrets/volc-redis-ca.pem
 ```
 
+部署只提供一个 Redis 入口时继续使用 `kind: redis`。部署具备主从复制和稳定的主节点写入入口后，可以把同一个 Storage 条目切换为读写分离，`stores` 与 `services` 的绑定保持不变：
+
+```yaml
+storage:
+  redis:
+    kind: redis.readwrite
+    read_url: ${GIZCLAW_REDIS_READ_URL}
+    write_url: ${GIZCLAW_REDIS_WRITE_URL}
+    read_tls_ca_file: /run/secrets/replica-ca.pem
+    write_tls_ca_file: /run/secrets/primary-ca.pem
+```
+
+两个 CA 字段均为可选项，只能用于对应的 `rediss://` 入口。两个连接都由 Storage 打开、检查 readiness 并关闭。复制拓扑和主节点切换由部署层维护；客户端不会自动发现副本或把读取错误转发给写入入口。读写与一致性边界见 [KV Store](./kv)。
+
 公共 Go API 不使用包含 `Kind` 和所有 backend 字段的通用属性结构。`storage.Config`
 是由 package 封闭的配置接口，每个 backend 只暴露自身有效的字段：
 
@@ -92,7 +107,7 @@ physical, err := storage.New(map[string]storage.Config{
 ```
 
 具体实现包括 `BadgerConfig`、`MemoryConfig`、`FilesystemDirConfig`、
-`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`RedisConfig`、`PrometheusConfig`、
+`SQLiteConfig`、`PostgreSQLConfig`、`ClickHouseConfig`、`RedisConfig`、`RedisReadWriteConfig`、`PrometheusConfig`、
 `VolcTLSConfig`、`VolcTOSConfig`、`AliyunOSSConfig`、`GCSConfig` 和
 `AzureBlobConfig`。因此 Go 调用方不能为 PostgreSQL 传入 `dir`，也不能为
 Badger 传入 DSN 或 provider credential。`cmd/internal/server` 保留扁平 YAML DTO，
