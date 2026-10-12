@@ -163,6 +163,10 @@ func (s *relaySide) resetTurn() {
 }
 
 func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step giztest.Step, input any, audioCaptureMaxBytes int, fullEvidence bool, observers ...audioObserver) (operationResult, error) {
+	return invokeWorkspaceRelayRecorded(ctx, clients, step, input, audioCaptureMaxBytes, fullEvidence, nil, observers...)
+}
+
+func invokeWorkspaceRelayRecorded(ctx context.Context, clients *clientSet, step giztest.Step, input any, audioCaptureMaxBytes int, fullEvidence bool, capture *replayCapture, observers ...audioObserver) (operationResult, error) {
 	op := step.WorkspaceRelay
 	if op == nil {
 		return operationResult{}, fmt.Errorf("workspace_relay operation required")
@@ -184,7 +188,7 @@ func invokeWorkspaceRelay(ctx context.Context, clients *clientSet, step giztest.
 		_ = firstStream.Close()
 		return operationResult{}, fmt.Errorf("open %s PeerStream: %w", op.SecondClient, err)
 	}
-	return runWorkspaceRelayWithEvidence(ctx, op, firstStream, secondStream, input, audioCaptureMaxBytes, fullEvidence, observers...)
+	return runWorkspaceRelayWithEvidence(ctx, op, capture.wrap(op.FirstClient, firstStream), capture.wrap(op.SecondClient, secondStream), input, audioCaptureMaxBytes, fullEvidence, observers...)
 }
 
 // runWorkspaceRelay owns the paired streams for one bounded relay: it pushes

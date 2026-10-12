@@ -62,11 +62,12 @@ func TestContinuousPodcastGiztest(t *testing.T) {
 			t.Fatal(err)
 		}
 		reportPath := filepath.Join(reportDir, "podcast.giztest.json")
+		replayDir := filepath.Join(reportDir, "out")
 		command := giztestcmd.NewCmd()
 		var output bytes.Buffer
 		command.SetOut(&output)
 		command.SetErr(&output)
-		command.SetArgs([]string{"run", "--parallel", "1", "--output", reportPath, filepath.Join(root, "continuous.giztest.yaml")})
+		command.SetArgs([]string{"run", "--parallel", "1", "--report", reportPath, "--output", replayDir, filepath.Join(root, "continuous.giztest.yaml")})
 		runErr := command.ExecuteContext(ctx)
 		if err := os.WriteFile(filepath.Join(reportDir, "runner.log"), output.Bytes(), 0600); err != nil {
 			t.Fatal(err)
@@ -82,6 +83,41 @@ func TestContinuousPodcastGiztest(t *testing.T) {
 		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 20 || len(report.Tasks[0].Cleanup) != 3 {
 			t.Fatalf("podcast Giztest did not execute every step: %s", data)
 		}
+		pages, err := filepath.Glob(filepath.Join(replayDir, "index.html"))
+		if err != nil || len(pages) != 1 {
+			t.Fatalf("missing per-test replay: %v, %v", pages, err)
+		}
+		var replay struct {
+			Report giztest.Report `json:"report"`
+			Events []struct {
+				Audio string `json:"audio"`
+			} `json:"events"`
+		}
+		replayJSON, err := os.ReadFile(filepath.Join(filepath.Dir(pages[0]), "replay.json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := json.Unmarshal(replayJSON, &replay); err != nil {
+			t.Fatal(err)
+		}
+		if len(replay.Report.Tasks) != 1 {
+			t.Fatal("replay includes other tests")
+		}
+		audioClips := 0
+		for _, event := range replay.Events {
+			if event.Audio == "" {
+				continue
+			}
+			clip, err := os.ReadFile(filepath.Join(filepath.Dir(pages[0]), filepath.FromSlash(event.Audio)))
+			if err != nil || len(clip) <= 44 || string(clip[:4]) != "RIFF" {
+				t.Fatalf("replay references missing or invalid WAV: %s, %v", event.Audio, err)
+			}
+			audioClips++
+		}
+		if audioClips == 0 {
+			t.Fatal("real Giztest replay did not save conversation audio")
+		}
+		t.Logf("per-test HTML with %d local WAV clips: %s", audioClips, pages[0])
 		children := 0
 		for _, steps := range [][]giztest.StepReport{report.Tasks[0].Steps, report.Tasks[0].Cleanup} {
 			for _, step := range steps {

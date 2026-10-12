@@ -54,7 +54,7 @@ for pair in 1 2 3 4 5; do
 		eino_baseline) test_file="$eino_baseline" ;;
 		esac
 		report="$artifact_dir/runs/pair-${pair}-${driver}.json"
-		"$gizclaw_binary" test run --parallel 1 --output "$report" "$test_file"
+		"$gizclaw_binary" test run --parallel 1 --report "$report" "$test_file"
 		reports+=("$report")
 	done
 done

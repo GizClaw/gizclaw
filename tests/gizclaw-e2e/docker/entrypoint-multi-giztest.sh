@@ -27,4 +27,4 @@ export GIZCLAW_TEST_SFU_TONE_OGG_BASE64
 
 mkdir -p "$(dirname "$report")"
 cd "$repo_root"
-exec /usr/local/bin/gizclaw test run "$@" --parallel "${GIZCLAW_E2E_GIZTEST_PARALLEL:-1}" --evidence "$evidence" --output "$report"
+exec /usr/local/bin/gizclaw test run "$@" --parallel "${GIZCLAW_E2E_GIZTEST_PARALLEL:-1}" --evidence "$evidence" --report "$report"

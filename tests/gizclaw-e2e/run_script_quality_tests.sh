@@ -98,7 +98,7 @@ for name in "${selected_cases[@]}"; do
     report="$artifact_dir/$name.json"
     echo "==> screenplay quality: $name"
     if ! "$script_dir/testdata/bin/gizclaw" test run --parallel 1 --evidence full \
-        --output "$report" "$script_dir/giztest/script-quality.$name.giztest.yaml"; then
+        --report "$report" "$script_dir/giztest/script-quality.$name.giztest.yaml"; then
         status=1
     fi
     python3 "$script_dir/setup/script_quality_report.py" "$report" || status=1

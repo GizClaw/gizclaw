@@ -217,7 +217,7 @@ func TestSelfHostedMem0Giztest(t *testing.T) {
 		report := filepath.Join(t.TempDir(), name+".json")
 		command.SetOut(&output)
 		command.SetErr(&output)
-		command.SetArgs([]string{"run", "--parallel", "1", "--output", report, filepath.Join(root, "giztest", name+".giztest.yaml")})
+		command.SetArgs([]string{"run", "--parallel", "1", "--report", report, filepath.Join(root, "giztest", name+".giztest.yaml")})
 		if err := command.ExecuteContext(ctx); err != nil {
 			body, _ := os.ReadFile(report)
 			t.Fatalf("Giztest %s: %v\n%s\n%s", name, err, output.String(), body)

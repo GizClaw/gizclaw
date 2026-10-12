@@ -58,3 +58,6 @@ openteam/
 /web/console/assets_generated.go
 
 .testbench/
+
+# Local Giztest conversation exports
+/out/

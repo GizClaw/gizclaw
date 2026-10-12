@@ -329,7 +329,7 @@ func TestRuntimeProfileAudioGiztests(t *testing.T) {
 			var output bytes.Buffer
 			command.SetOut(&output)
 			command.SetErr(&output)
-			command.SetArgs([]string{"run", "--parallel", "1", "--output", filepath.Join(evidence, name+".json"), path})
+			command.SetArgs([]string{"run", "--parallel", "1", "--report", filepath.Join(evidence, name+".json"), path})
 			err := command.ExecuteContext(ctx)
 			if writeErr := os.WriteFile(filepath.Join(evidence, name+".log"), output.Bytes(), 0600); writeErr != nil {
 				t.Fatal(writeErr)

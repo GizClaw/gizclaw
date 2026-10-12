@@ -704,8 +704,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 | Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
 | C | 构建后的 `giztest-c` 二进制（`tests/gizclaw-e2e/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
 
-四者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
-并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
+四者都支持 `validate -f <路径>` 与 `run <路径> --parallel N`，并写出相同结构的 report JSON。
+Go CLI 用 `--report <文件>` 保存汇总 JSON，用 `--output <目录>` 将一个 Giztest 文件渲染为独立 HTML 流程记录。
+其他三个 SDK runner 用 `--output <报告文件>` 保存 JSON，暂不提供回放目录。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
 skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc`、`http` 与 `reconnect`，
 对不支持的文档同样记为 skipped 并指出具体 step 与 operation。三者都直接指向整个场景
@@ -788,7 +789,7 @@ key 或输出。`clients` 可声明同一任务内同时在线的多个设备。
 ```sh
 gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
-  --output tests/gizclaw-e2e/testdata/giztest-report.json
+  --report tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
 `server.runtime_profile.tags.giztest.yaml` 通过真实 WebRTC RPC 校验 Workflow 的无 tag、单 tag、多个普通 tag 取交集、无匹配、不同年龄 tag 不做 OR、非法 tag、list 分页与 cursor selector、get 投影以及按 alias 创建 Workspace；`server.device.runtime_profile.get.giztest.yaml` 校验相同 tag 的 Public HTTP 过滤。本地 `go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` 运行前者，并在 Admin 更新 Profile 后运行 `testdata/runtime-profile/updated.giztest.yaml`，验证新 SQLite 快照经 RPC 可见；Public HTTP 场景由标准 Giztest 环境执行。
@@ -1031,9 +1032,10 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 把 text 转发与 Opus audio EOS 轮次边界分开；`idle_timeout` 按 active 轮次限制不活动时间，
 由 active 侧进展重置，触发时记录 deadline、client、turn、最后事件和已观察媒体。audio relay
 保留有界 assistant 文本用于断言和终轮 capture，但不重复转发文本。默认 report 不含内容；
-本地 `--evidence full --output <path>` 才写入有界 relay 文本以及
-`server.speech.transcribe` 步骤识别出的 transcript，产物属于敏感文件，但仍不包含
-输入、凭据、ID 或音频 payload。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
+本地 `--evidence full --report <path>` 才写入有界 relay 文本以及
+`server.speech.transcribe` 步骤识别出的 transcript。完整 evidence 还可能包含 PeerStream
+输入、音频字节及受支持 RPC 的资源证据，具体内容和独立记录行为见 [CLI 使用说明](/zh/using/cli)。
+这些产物属于敏感记录。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
 运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
 验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行

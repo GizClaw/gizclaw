@@ -66,4 +66,4 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
   /src/tests/gizclaw-e2e/giztest/server.device.audioplayer.rejected.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/server.device.audioplayer.unsupported.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/server.device.audioplayer.telemetry.giztest.yaml \
-  --output /reports/giztest.json
+  --report /reports/giztest.json

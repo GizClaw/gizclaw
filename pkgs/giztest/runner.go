@@ -39,6 +39,10 @@ type Options struct {
 	In io.Reader
 	// Out is where an output step writes and where progress is reported.
 	Out io.Writer
+	// ObserveOutput receives the bounded text of a successful output step.
+	// It may run concurrently for different tasks; observers must not block.
+	// Secret variables are rejected before this callback runs.
+	ObserveOutput func(context.Context, StepRequest, string)
 	// parallelCancelGrace shortens the wait for the cancelled children of a
 	// parallel step in runner tests; zero uses the package default.
 	parallelCancelGrace time.Duration
@@ -206,6 +210,7 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 	timeout, _ := item.doc.taskTimeout()
 	ctx, cancel := context.WithTimeout(parent, timeout)
 	defer cancel()
+	ctx = context.WithValue(ctx, taskIDKey{}, result.TaskID)
 	vars, err := NewVariables(item.doc.Variables)
 	if err != nil {
 		item.barrier.Abort(err)
@@ -230,7 +235,7 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 	if err != nil {
 		item.barrier.Abort(err)
 		result.Error = SafeError(err, redactions...)
-		result.Cleanup, _ = runFinalizers(parent, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
+		result.Cleanup, _ = runFinalizers(ctx, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
 		result.DurationMS = time.Since(started).Milliseconds()
 		return result
 	}
@@ -282,7 +287,7 @@ func runTask(parent context.Context, item task, opts Options) TaskReport {
 		failed = true
 	}
 	var cleanupErr error
-	result.Cleanup, cleanupErr = runFinalizers(parent, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
+	result.Cleanup, cleanupErr = runFinalizers(ctx, item.doc.Path, item.doc.Finally, session, vars, item.barrier, opts, redactions)
 	if cleanupErr != nil {
 		if result.Error == "" {
 			result.Error = SafeError(cleanupErr, redactions...)
@@ -546,7 +551,14 @@ func runStepOnce(ctx context.Context, documentPath string, step Step, session Se
 			evidence = map[string]any{"participants": barrier.total}
 		}
 	case "output":
-		evidence, err = emitOutput(opts.Out, vars, step.Output.Variable)
+		evidence, err = emitOutput(opts.Out, vars, step.Output.Variable, func(text string) {
+			if opts.ObserveOutput != nil {
+				for _, secret := range redactions {
+					text = strings.ReplaceAll(text, secret, "[REDACTED]")
+				}
+				opts.ObserveOutput(stepCtx, StepRequest{DocumentPath: documentPath, Step: step, Vars: vars, Cleanup: cleanup}, text)
+			}
+		})
 	case "review":
 		err = runReview(opts.In, opts.Out, step.ReviewOp.Message)
 	case "parallel":
