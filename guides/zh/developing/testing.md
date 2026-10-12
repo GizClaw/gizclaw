@@ -343,7 +343,7 @@ SFU、SDK 和夹具源码相同；它不是完整旧 release 的运行结果。�
 仍执行全部独立阶段和恢复控制。`logging-join`、`logging-media`、`logging-stop`
 可单独诊断。构建 overlay 仅给 Server B 安装内存 gated LogStore 和内部控制 listener，
 正常 CLI 不链接该夹具，不新增生产配置或公网端口。夹具使用 INFO 的 stderr 与 Store sink，
-等待真实 worker 进入 Append，
+等待真实 worker 进入 Append，再按固定 worker pool 的在途批次留出填充余量，
 填满实际 1024-job 队列，再暂停最多四秒；Store 遵守 worker context，恢复后记录接受的
 key 数和重复数。RPC deadline 固定一秒，音频首输出限 1500 ms；原有完整 listen 窗口、
 字节/包数、撤权 EOS、移除者静音、剩余成员收听和重新入房断言均保留。

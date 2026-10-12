@@ -47,9 +47,10 @@ type StoreResolver interface {
 }
 
 // NewLogger builds an independent logger. Store-backed handlers borrow registry
-// stores. Each logger with Store sinks owns one bounded queue and worker shared
-// by those sinks; cleanup drains only that logger. Callers must clean up every
-// borrowing logger before closing the registry. Stderr-only loggers need no worker.
+// stores. Each logger with Store sinks owns one bounded queue and four workers
+// shared by those sinks; batches can complete out of order. Cleanup drains only
+// that logger. Callers must clean up every borrowing logger before closing the
+// registry. Stderr-only loggers need no worker.
 // Store admission rejects new records immediately when full. Slog's convenience
 // methods ignore handler errors; cleanup returns ErrStoreQueueFull if capacity
 // rejected any records, and the worker reports rejection counts to stderr.

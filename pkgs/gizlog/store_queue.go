@@ -13,6 +13,7 @@ import (
 )
 
 const storeQueueCapacity = 1024
+const storeQueueWorkers = 4
 const storeWriteTimeout = 5 * time.Second
 
 var errStoreQueueClosed = errors.New("system log store queue is closed")
@@ -34,8 +35,8 @@ type storeJob struct {
 	records []logstore.Record
 }
 
-// storeQueue owns one ordered worker for all configured Store sinks. Projection
-// happens on the caller before enqueue, preserving caller metadata and values.
+// storeQueue owns a bounded queue and fixed worker pool for configured Store
+// sinks. Projection happens on the caller, preserving metadata and values.
 // Admission never waits for the worker or fallback: a full queue rejects new
 // records, while previously accepted records are never evicted to make room.
 type storeQueue struct {
@@ -51,7 +52,7 @@ type storeQueue struct {
 	overflow  bool
 	rejected  map[storeRejection]uint64
 	timeout   time.Duration
-	err       error // worker-owned until done closes
+	err       error // worker writes hold mu; cleanup reads after done closes
 }
 
 func newStoreQueue(fallback slog.Handler) *storeQueue {
@@ -107,6 +108,16 @@ func (q *storeQueue) run() {
 	defer q.reportRejections()
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
+	batches := make(chan storeJob)
+	var workers sync.WaitGroup
+	for range storeQueueWorkers {
+		workers.Go(func() {
+			for job := range batches {
+				q.writeBatch(job)
+			}
+		})
+	}
+	defer func() { close(batches); workers.Wait() }()
 	var pending *storeJob
 	for {
 		var job storeJob
@@ -125,8 +136,8 @@ func (q *storeQueue) run() {
 				job = next
 			}
 		}
-		// Batch only adjacent writes for the same configured sink. Never wait to
-		// fill a batch or reorder writes across differently configured sinks.
+		// Collect adjacent jobs before dispatch so each batch has one sink.
+		// Batches can complete out of order across the fixed worker pool.
 	collect:
 		for len(job.records) < 64 {
 			select {
@@ -143,26 +154,34 @@ func (q *storeQueue) run() {
 				break collect
 			}
 		}
-		ctx, cancel := context.WithTimeout(q.ctx, q.timeout)
-		remaining, err := appendStoreRecords(ctx, job.store, job.records)
-		cancel()
-		if err != nil {
-			q.err = errStoreQueueWrite
-			// Never copy provider errors or conversation payloads to the fallback.
-			var pcs [1]uintptr
-			runtime.Callers(1, pcs[:])
-			failure := slog.NewRecord(time.Now(), slog.LevelError, "system log store sink failed", pcs[0])
-			failure.AddAttrs(slog.String("store", job.name), slog.Int("records", len(remaining)))
-			_ = q.fallback.Handle(context.Background(), failure)
-		}
-		// Report at most once a second during a busy drain as well as when
-		// idle. A slow backend delays reports, never producer admission.
-		select {
-		case <-ticker.C:
-			q.reportRejections()
-		default:
+	dispatch:
+		for {
+			select {
+			case batches <- job:
+				break dispatch
+			case <-ticker.C:
+				q.reportRejections()
+			}
 		}
 	}
+}
+
+func (q *storeQueue) writeBatch(job storeJob) {
+	ctx, cancel := context.WithTimeout(q.ctx, q.timeout)
+	remaining, err := appendStoreRecords(ctx, job.store, job.records)
+	cancel()
+	if err == nil {
+		return
+	}
+	q.mu.Lock()
+	q.err = errStoreQueueWrite
+	q.mu.Unlock()
+	// Never copy provider errors or conversation payloads to the fallback.
+	var pcs [1]uintptr
+	runtime.Callers(1, pcs[:])
+	failure := slog.NewRecord(time.Now(), slog.LevelError, "system log store sink failed", pcs[0])
+	failure.AddAttrs(slog.String("store", job.name), slog.Int("records", len(remaining)))
+	_ = q.fallback.Handle(context.Background(), failure)
 }
 
 // appendStoreRecords retries only the unaccepted suffix under the batch's

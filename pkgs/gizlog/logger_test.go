@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,11 +15,14 @@ import (
 )
 
 type loggerTestStore struct {
+	mu      sync.Mutex
 	records []logstore.Record
 	closes  int
 }
 
 func (s *loggerTestStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.records = append(s.records, records...)
 	keys := make([]logstore.RecordKey, len(records))
 	for index, record := range records {
@@ -29,14 +33,19 @@ func (s *loggerTestStore) Append(_ context.Context, records []logstore.Record) (
 func (*loggerTestStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
 	return logstore.Page{}, nil
 }
-func (s *loggerTestStore) Close() error { s.closes++; return nil }
+func (s *loggerTestStore) Close() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.closes++
+	return nil
+}
 
 type loggerTestResolver struct{ store *loggerTestStore }
 
 func (r loggerTestResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
 
 type namedLoggerTestResolver struct {
-	stores map[string]*orderedLoggerTestStore
+	stores map[string]*loggerTestStore
 }
 
 func (r namedLoggerTestResolver) Log(name string) (logstore.ImmutableStore, error) {
@@ -46,24 +55,6 @@ func (r namedLoggerTestResolver) Log(name string) (logstore.ImmutableStore, erro
 	}
 	return store, nil
 }
-
-type orderedLoggerTestStore struct {
-	name  string
-	order *[]string
-}
-
-func (s *orderedLoggerTestStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
-	keys := make([]logstore.RecordKey, len(records))
-	for i, record := range records {
-		*s.order = append(*s.order, s.name)
-		keys[i] = record.Key()
-	}
-	return keys, nil
-}
-func (*orderedLoggerTestStore) Query(context.Context, logstore.Query) (logstore.Page, error) {
-	return logstore.Page{}, nil
-}
-func (*orderedLoggerTestStore) Close() error { return nil }
 
 func TestConfigIsZero(t *testing.T) {
 	if !((Config{}).IsZero()) {
@@ -176,11 +167,10 @@ func TestStoreFailureReportingHandlerReportsWithoutProviderText(t *testing.T) {
 	}
 }
 
-func TestNewLoggerFansOutToNamedStoresInConfiguredOrder(t *testing.T) {
-	var order []string
-	resolver := namedLoggerTestResolver{stores: map[string]*orderedLoggerTestStore{
-		"first":  {name: "first", order: &order},
-		"second": {name: "second", order: &order},
+func TestNewLoggerFansOutToNamedStoresWithSinkLevels(t *testing.T) {
+	resolver := namedLoggerTestResolver{stores: map[string]*loggerTestStore{
+		"first":  {},
+		"second": {},
 	}}
 	logger, cleanup, err := NewLogger(Config{Level: "info", Sinks: []SinkConfig{
 		{Kind: SinkStore, Store: "first"},
@@ -194,9 +184,15 @@ func TestNewLoggerFansOutToNamedStoresInConfiguredOrder(t *testing.T) {
 	if err := cleanup(); err != nil {
 		t.Fatal(err)
 	}
-	want := []string{"first", "first", "second"}
-	if !slices.Equal(order, want) {
-		t.Fatalf("append order = %v, want %v", order, want)
+	for name, want := range map[string][]string{"first": {"info", "warn"}, "second": {"warn"}} {
+		var messages []string
+		for _, record := range resolver.stores[name].records {
+			messages = append(messages, record.Message)
+		}
+		slices.Sort(messages)
+		if !slices.Equal(messages, want) {
+			t.Fatalf("store %s messages = %v, want %v", name, messages, want)
+		}
 	}
 }
 

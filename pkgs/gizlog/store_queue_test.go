@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,6 +21,9 @@ type gatedLogStore struct {
 	entered chan struct{}
 	release chan struct{}
 	once    sync.Once
+	active  atomic.Int32
+	maximum atomic.Int32
+	calls   chan struct{}
 	mu      sync.Mutex
 	records []logstore.Record
 	batches []int
@@ -27,6 +31,19 @@ type gatedLogStore struct {
 }
 
 func (s *gatedLogStore) Append(ctx context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	active := s.active.Add(1)
+	defer s.active.Add(-1)
+	for old := s.maximum.Load(); old < active; old = s.maximum.Load() {
+		if s.maximum.CompareAndSwap(old, active) {
+			break
+		}
+	}
+	if s.calls != nil {
+		select {
+		case s.calls <- struct{}{}:
+		default:
+		}
+	}
 	s.once.Do(func() { close(s.entered) })
 	select {
 	case <-s.release:
@@ -86,7 +103,7 @@ func TestStoreSinkDoesNotBlockFirstResponseOnNetwork(t *testing.T) {
 }
 
 func TestStoreQueueRejectsOverloadAndPreservesAcceptedRecords(t *testing.T) {
-	store := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{})}
+	store := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{}), calls: make(chan struct{}, storeQueueWorkers)}
 	q := newStoreQueue(slog.NewTextHandler(io.Discard, nil))
 	q.jobs = make(chan storeJob, 2)
 	go q.run()
@@ -100,17 +117,29 @@ func TestStoreQueueRejectsOverloadAndPreservesAcceptedRecords(t *testing.T) {
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if err := appendRecord(ctx, "1"); err != nil {
-		t.Fatal(err)
-	}
-	<-store.entered
-	for _, id := range []string{"2", "3"} {
-		if err := appendRecord(t.Context(), id); err != nil {
+	var accepted []string
+	for i := range storeQueueWorkers {
+		id := fmt.Sprint(i)
+		if err := appendRecord(ctx, id); err != nil {
 			t.Fatal(err)
 		}
+		accepted = append(accepted, id)
+		select {
+		case <-store.calls:
+		case <-time.After(time.Second):
+			t.Fatal("worker did not enter Store")
+		}
 	}
-	if err := appendRecord(ctx, "rejected"); !errors.Is(err, ErrStoreQueueFull) {
-		t.Fatalf("full queue error=%v", err)
+	for i := storeQueueWorkers; ; i++ {
+		id := fmt.Sprint(i)
+		err := appendRecord(ctx, id)
+		if errors.Is(err, ErrStoreQueueFull) {
+			break
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		accepted = append(accepted, id)
 	}
 	unblock()
 	if err := q.close(); !errors.Is(err, ErrStoreQueueFull) {
@@ -125,11 +154,99 @@ func TestStoreQueueRejectsOverloadAndPreservesAcceptedRecords(t *testing.T) {
 	for _, record := range store.records {
 		ids = append(ids, record.ID)
 	}
-	if !slices.Equal(store.batches, []int{1, 2}) {
-		t.Fatalf("batches=%v", store.batches)
-	}
-	if !slices.Equal(ids, []string{"1", "2", "3"}) {
+	slices.Sort(ids)
+	slices.Sort(accepted)
+	if !slices.Equal(ids, accepted) {
 		t.Fatalf("accepted records=%v", ids)
+	}
+}
+
+func TestStoreQueueRunsFourWorkersAndJoinsThemOnClose(t *testing.T) {
+	store := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{}), calls: make(chan struct{}, storeQueueWorkers)}
+	q := newStoreQueue(slog.NewTextHandler(io.Discard, nil))
+	go q.run()
+	var release sync.Once
+	unblock := func() { release.Do(func() { close(store.release) }) }
+	defer func() { unblock(); _ = q.close() }()
+	for i := range storeQueueWorkers {
+		if err := q.enqueue(t.Context(), storeJob{store: store, name: "logs", records: []logstore.Record{{ID: fmt.Sprint(i)}}}); err != nil {
+			t.Fatal(err)
+		}
+		select {
+		case <-store.calls:
+		case <-time.After(time.Second):
+			t.Fatal("workers did not write concurrently")
+		}
+	}
+	if err := q.enqueue(t.Context(), storeJob{store: store, name: "logs", records: []logstore.Record{{ID: "queued"}}}); err != nil {
+		t.Fatal(err)
+	}
+	closed := make(chan error, 1)
+	go func() { closed <- q.close() }()
+	<-q.stopping
+	select {
+	case err := <-closed:
+		t.Fatalf("close returned with workers still blocked: %v", err)
+	case <-time.After(20 * time.Millisecond):
+	}
+	unblock()
+	if err := <-closed; err != nil {
+		t.Fatal(err)
+	}
+	if active, maximum := store.active.Load(), store.maximum.Load(); active != 0 || maximum != 4 {
+		t.Fatalf("active=%d maximum=%d; want 0 and 4", active, maximum)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	var ids []string
+	for _, record := range store.records {
+		ids = append(ids, record.ID)
+	}
+	slices.Sort(ids)
+	if !slices.Equal(ids, []string{"0", "1", "2", "3", "queued"}) {
+		t.Fatalf("drained records=%v", ids)
+	}
+}
+
+func TestStoreQueueFreeWorkersProgressWhileAnotherStoreBlocks(t *testing.T) {
+	slow := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{})}
+	fast := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{})}
+	close(fast.release)
+	q := newStoreQueue(slog.NewTextHandler(io.Discard, nil))
+	go q.run()
+	defer func() { close(slow.release); _ = q.close() }()
+	if err := q.enqueue(t.Context(), storeJob{store: slow, name: "slow", records: []logstore.Record{{ID: "slow"}}}); err != nil {
+		t.Fatal(err)
+	}
+	<-slow.entered
+	if err := q.enqueue(t.Context(), storeJob{store: fast, name: "fast", records: []logstore.Record{{ID: "fast"}}}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-fast.entered:
+	case <-time.After(time.Second):
+		t.Fatal("available workers waited for the blocked Store")
+	}
+}
+
+func TestStoreQueueBatchesAdjacentRecordsUpTo64(t *testing.T) {
+	store := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{})}
+	close(store.release)
+	q := newStoreQueue(slog.NewTextHandler(io.Discard, nil))
+	for i := range 140 {
+		if err := q.enqueue(t.Context(), storeJob{store: store, name: "logs", records: []logstore.Record{{ID: fmt.Sprint(i)}}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	go q.run()
+	if err := q.close(); err != nil {
+		t.Fatal(err)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	slices.Sort(store.batches)
+	if !slices.Equal(store.batches, []int{12, 64, 64}) || len(store.records) != 140 {
+		t.Fatalf("batches=%v records=%d", store.batches, len(store.records))
 	}
 }
 
@@ -253,8 +370,10 @@ func TestStoreQueueConcurrentCloseKeepsEveryAcceptedRecord(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Fatalf("persisted=%v accepted=%v", got, want)
 	}
-	if store.records[0].Attributes["value"] != "original" {
-		t.Fatal("queued record retained mutable attributes")
+	for _, record := range store.records {
+		if record.ID == "first" && record.Attributes["value"] != "original" {
+			t.Fatal("queued record retained mutable attributes")
+		}
 	}
 }
 

@@ -383,7 +383,7 @@ independent phases and recovery. Individual `logging-join`, `logging-media` and
 in-memory LogStore and internal control listener only on Server B. Normal CLI builds
 do not link the fixture or add production configuration or published ports. The
 fixture uses INFO stderr and Store sinks, waits for the real worker to enter Append,
-fills the actual 1024-job queue
+allows fill headroom for the fixed worker pool’s in-flight batches, fills the actual 1024-job queue
 and pauses for at most four seconds while honoring worker context. Recovery records
 accepted identities and duplicate counts. RPC deadlines remain one second and first
 audio is limited to 1500 ms. Full listen windows, byte/packet counts, revocation EOS,

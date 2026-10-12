@@ -193,7 +193,7 @@ func (s *Store) Start(address string, logger *slog.Logger, pending func() int, c
 			http.Error(w, "worker did not reach gate", 500)
 			return
 		}
-		for i := 0; pending() < capacity && i < capacity && ctx.Err() == nil; i++ {
+		for i := 0; pending() < capacity && i < 2*capacity && ctx.Err() == nil; i++ {
 			s.fill.Add(1)
 			logger.InfoContext(ctx, "local log pressure queue fill", "index", i)
 		}
