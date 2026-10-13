@@ -238,7 +238,7 @@ jobs:
           printf '%s\n' "$binary_digest" >".tmp/runtime/binary-${ARCH}.sha256"
 
       - name: Upload verified production image
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: runtime-${{ matrix.arch }}
           path: .tmp/runtime/*
@@ -246,7 +246,7 @@ jobs:
           if-no-files-found: error
 
       - name: Upload Linux release asset
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: assets-linux-${{ matrix.arch }}
           path: .tmp/release/*
@@ -305,7 +305,7 @@ jobs:
             --source-commit "$SOURCE_COMMIT"
 
       - name: Upload C SDK source release assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: assets-c-sdk-source
           path: |
@@ -361,7 +361,7 @@ jobs:
           tools/flutter-sdk/consume_archives.sh --asset-dir .tmp/release --version "$VERSION"
 
       - name: Upload Flutter SDK release assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: assets-flutter-sdk
           path: .tmp/release/flutter-*.tar.gz
@@ -414,7 +414,7 @@ jobs:
           tools/js-sdk/consume_tarballs.sh --asset-dir .tmp/release --version "$VERSION"
 
       - name: Upload JavaScript SDK release assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: assets-js-sdk
           path: .tmp/release/npm-*.tgz
@@ -452,7 +452,7 @@ jobs:
             --output-dir .tmp/release
 
       - name: Upload Terraform provider release assets
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: assets-terraform-provider
           path: .tmp/release/terraform-provider-gizclaw_*.zip
@@ -518,7 +518,7 @@ jobs:
         run: build/publish-runtime-image.sh .tmp/runtime .tmp/packages "$TAG" "$SOURCE_COMMIT"
 
       - name: Upload registry receipt
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: assets-container-image
           path: .tmp/packages/container-image.json
