@@ -43,7 +43,7 @@ Seed V2 的可继续分段失败在 child TTS 内处理，Audio Dock 继续合�
 不为失败句子创建额外 EOS，也不重播音频。整条回复无音频的 provider 失败仍沿用既有
 error EOS；已经投递的回复文字保留。具体策略见 [Seed V2 分段失败](./transformers/doubao#seed-v2-分段失败)。
 
-`Config.UnknownSpeakerPolicy` 默认为 `UnknownSpeakerPreserve`。`UnknownSpeakerDefaultVoice` 启用 [AI services](../gizclaw/services/ai#同一回复内按说话人分段) 中的有界段首未知标记语法，并清除上一说话人覆盖，由 `ResolveVoice` 重新选择该输出的音色。`SpeakerVoices` 为空时，清理标记保留每个 publisher 原有的 TTS 路由，按 publisher 隔离跨 chunk 前缀与语义 History。即使原本首个可合成文本块只有被剥离的标记，`VoiceResolver` 仍使用该块的路由元数据；后续省略的 Label/MessageID 继承同一 publisher 的元数据。response 结束时，剩余的字面前缀用各自 publisher 的元数据交付。与普通文字 route 相同，resolver 返回空 pattern 时关闭合成，清理后的文字仍交付；Eino 公共 contract 在启用时要求默认 Voice。此策略不引入 goroutine、timer、模型调用或完整回复缓冲。
+`Config.UnknownSpeakerPolicy` 默认为 `UnknownSpeakerPreserve`。`UnknownSpeakerDefaultVoice` 启用 [AI services](../gizclaw/services/ai#同一回复内按说话人分段) 中的有界段首未知标记语法，并清除上一说话人覆盖，由 `ResolveVoice` 重新选择该输出的音色。speaker map 为空或非空时，清理都会保留各 publisher 的路由元数据，后续省略的 Label/MessageID 由同一 publisher 的元数据补齐；已配置的角色分段继续使用显式 Voice。`SpeakerVoices` 为空时，还保留每个 publisher 原有的 TTS 路由，按 publisher 隔离跨 chunk 前缀与语义 History。即使原本首个可合成文本块只有被剥离的标记，`VoiceResolver` 仍使用该块的路由元数据。response 结束时，剩余的字面前缀用各自 publisher 的元数据交付。与普通文字 route 相同，resolver 返回空 pattern 时关闭合成，清理后的文字仍交付；Eino 公共 contract 在启用时要求默认 Voice。此策略不引入 goroutine、timer、模型调用或完整回复缓冲。
 
 ## 连续讲述背压
 

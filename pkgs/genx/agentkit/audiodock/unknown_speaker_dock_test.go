@@ -265,28 +265,57 @@ func TestUnknownSpeakerKeepsPublisherVoiceSelection(t *testing.T) {
 }
 
 func TestUnknownSpeakerKeepsInitialPublisherVoiceMetadata(t *testing.T) {
-	for _, first := range []string{"【伙伴】", "【伙"} {
-		t.Run(first, func(t *testing.T) {
+	for _, tc := range []struct {
+		name, first                         string
+		speakerMap, knownPrefix, controlEOS bool
+	}{
+		{name: "empty map marker only", first: "【伙伴】"},
+		{name: "empty map split marker", first: "【伙"},
+		{name: "speaker map marker only", first: "【伙伴】", speakerMap: true},
+		{name: "speaker map split marker", first: "【伙", speakerMap: true},
+		{name: "known then unknown marker only", first: "【伙伴】", speakerMap: true, knownPrefix: true},
+		{name: "known then unknown split marker", first: "【伙", speakerMap: true, knownPrefix: true},
+		{name: "empty map unclosed control EOS", first: "【未闭", controlEOS: true},
+		{name: "known then unclosed control EOS", first: "【未闭", speakerMap: true, knownPrefix: true, controlEOS: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			rest := "body"
-			if first == "【伙" {
+			if tc.first == "【伙" {
 				rest = "伴】body"
+			}
+			var voices map[string]string
+			if tc.speakerMap {
+				voices = map[string]string{"known": "voice/known"}
+			}
+			modelChunks := []*genx.MessageChunk{
+				{Role: genx.RoleModel, Name: "narrator", Part: genx.Text(tc.first), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "voice/label", MessageID: "original-message", BeginOfStream: true}},
+				{Role: genx.RoleModel, Name: "narrator", Part: genx.Text(rest), Ctrl: &genx.StreamCtrl{StreamID: "reply"}},
+				{Role: genx.RoleModel, Name: "narrator", Part: genx.Text(" second"), Ctrl: &genx.StreamCtrl{StreamID: "reply", EndOfStream: true}},
+			}
+			wantText, wantHistory, wantAudio := "body second", "【伙伴】body second", "default:body second"
+			if tc.controlEOS {
+				modelChunks = []*genx.MessageChunk{modelChunks[0], {Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "reply", EndOfStream: true}}}
+				wantText, wantHistory, wantAudio = tc.first, tc.first, "default:"+tc.first
+			}
+			if tc.knownPrefix {
+				modelChunks[0].Ctrl.BeginOfStream = false
+				modelChunks = append([]*genx.MessageChunk{{Role: genx.RoleModel, Name: "narrator", Part: genx.Text("【known】known\n"), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "voice/label", MessageID: "original-message", BeginOfStream: true}}}, modelChunks...)
+				wantText, wantHistory, wantAudio = "known\n"+wantText, "【known】known\n"+wantHistory, "known:known"+wantAudio
 			}
 			requests := make(chan VoiceRequest, 1)
 			tts := muxFunc(func(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-				if pattern != "voice/label" {
+				prefix := "default:"
+				if pattern == "voice/known" {
+					prefix = "known:"
+				} else if pattern != "voice/label" {
 					return nil, errors.New("wrong publisher voice")
 				}
 				return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{}, "audio/opus", func(_ context.Context, text string, _ streamkit.TTSMeta, _ string, emit func([]byte) error) error {
-					return emit([]byte(text))
+					return emit([]byte(prefix + text))
 				}), nil
 			})
 			dock, err := New(Config{
-				Agent: fixedAgentOutput(
-					&genx.MessageChunk{Role: genx.RoleModel, Name: "narrator", Part: genx.Text(first), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "voice/label", MessageID: "original-message", BeginOfStream: true}},
-					&genx.MessageChunk{Role: genx.RoleModel, Name: "narrator", Part: genx.Text(rest), Ctrl: &genx.StreamCtrl{StreamID: "reply"}},
-					&genx.MessageChunk{Role: genx.RoleModel, Name: "narrator", Part: genx.Text(" second"), Ctrl: &genx.StreamCtrl{StreamID: "reply", EndOfStream: true}},
-				),
-				TTS: tts,
+				Agent: fixedAgentOutput(modelChunks...), TTS: tts, SpeakerVoices: voices,
 				ResolveVoice: func(_ context.Context, request VoiceRequest) (string, error) {
 					requests <- request
 					return request.Label, nil
@@ -306,25 +335,29 @@ func TestUnknownSpeakerKeepsInitialPublisherVoiceMetadata(t *testing.T) {
 				if item.Ctrl != nil && item.Ctrl.Error != "" {
 					t.Fatalf("stream error: %+v", item.Ctrl)
 				}
-				if body, ok := item.Part.(genx.Text); ok && body != "" {
+				if part, ok := item.Part.(genx.Text); ok && part != "" {
 					if item.Name != "narrator" || item.Ctrl == nil || item.Ctrl.Label != "voice/label" || item.Ctrl.MessageID != "original-message" {
 						t.Fatalf("publisher delivery metadata lost: %+v", item)
 					}
-					text.WriteString(string(body))
+					text.WriteString(string(part))
 					if item.HistoryText != nil {
 						history.WriteString(string(*item.HistoryText))
 					}
 				}
-				if body, ok := item.Part.(*genx.Blob); ok {
-					audio.Write(body.Data)
+				if part, ok := item.Part.(*genx.Blob); ok {
+					audio.Write(part.Data)
 				}
 			}
-			if text.String() != "body second" || audio.String() != "body second" || history.String() != "【伙伴】body second" {
-				t.Fatalf("text=%q audio=%q history=%q", text.String(), audio.String(), history.String())
+			if text.String() != wantText || audio.String() != wantAudio || history.String() != wantHistory {
+				t.Fatalf("text=%q audio=%q history=%q want text=%q audio=%q history=%q", text.String(), audio.String(), history.String(), wantText, wantAudio, wantHistory)
+			}
+			wantRequestText := genx.Text(tc.first)
+			if tc.speakerMap && !tc.controlEOS {
+				wantRequestText = "body"
 			}
 			select {
 			case request := <-requests:
-				if request.Name != "narrator" || request.Label != "voice/label" || request.Chunk == nil || request.Chunk.Part != genx.Text(first) || request.Chunk.Ctrl == nil || request.Chunk.Ctrl.MessageID != "original-message" {
+				if request.Name != "narrator" || request.Label != "voice/label" || request.Chunk == nil || request.Chunk.Part != wantRequestText || request.Chunk.Ctrl == nil || request.Chunk.Ctrl.MessageID != "original-message" {
 					t.Fatalf("initial VoiceResolver request lost: %+v", request)
 				}
 			default:
@@ -335,77 +368,96 @@ func TestUnknownSpeakerKeepsInitialPublisherVoiceMetadata(t *testing.T) {
 }
 
 func TestUnknownSpeakerInterruptDropsPublisherPrefixes(t *testing.T) {
-	invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{})
-	defer invocation.Cancel(context.Canceled)
-	model := streamkit.NewOutput(streamkit.OutputConfig{})
-	source, err := streamkit.NewResponseStream(model)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer source.Close()
-	started, canceled := make(chan struct{}), make(chan struct{})
-	tts := muxFunc(func(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
-		if pattern == "active" {
-			close(started)
-			<-ctx.Done()
-			close(canceled)
-			return nil, ctx.Err()
+	for _, speakerMap := range []bool{false, true} {
+		name := "empty map"
+		if speakerMap {
+			name = "speaker map"
 		}
-		return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{}, "audio/opus", func(_ context.Context, text string, _ streamkit.TTSMeta, _ string, emit func([]byte) error) error {
-			return emit([]byte(text))
-		}), nil
-	})
-	dock, err := New(Config{Agent: fixedAgentOutput(), TTS: tts, ResolveVoice: func(_ context.Context, request VoiceRequest) (string, error) { return request.Name, nil }, UnknownSpeakerPolicy: UnknownSpeakerDefaultVoice})
-	if err != nil {
-		t.Fatal(err)
-	}
-	run := &dockRun{dock: dock, invocation: invocation, source: source, routes: make(map[string]*dockRoute), discardSourceIDs: make(map[string]bool)}
-	for _, item := range []*genx.MessageChunk{
-		{Role: genx.RoleModel, Name: "pending", Part: genx.Text("【未闭"), Ctrl: &genx.StreamCtrl{StreamID: "old", BeginOfStream: true}},
-		{Role: genx.RoleModel, Name: "active", Part: genx.Text("【伙伴】spoken"), Ctrl: &genx.StreamCtrl{StreamID: "old"}},
-	} {
-		if err := run.forwardModelChunk(t.Context(), item); err != nil {
-			t.Fatal(err)
-		}
-	}
-	select {
-	case <-started:
-	case <-time.After(3 * time.Second):
-		t.Fatal("publisher TTS startup timeout")
-	}
-	if err := run.beginInputTurn("replacement"); err != nil {
-		t.Fatal(err)
-	}
-	select {
-	case <-canceled:
-	case <-time.After(3 * time.Second):
-		t.Fatal("publisher TTS was not canceled")
-	}
-	for _, item := range []*genx.MessageChunk{
-		{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "old", EndOfStream: true}},
-		{Role: genx.RoleModel, Name: "fresh", Part: genx.Text("【新伙伴】new reply"), Ctrl: &genx.StreamCtrl{StreamID: "new", BeginOfStream: true, EndOfStream: true}},
-	} {
-		if err := run.forwardModelChunk(t.Context(), item); err != nil {
-			t.Fatal(err)
-		}
-	}
-	run.tts.Wait()
-	if err := invocation.Output().Close(); err != nil {
-		t.Fatal(err)
-	}
-	var text, history, audio strings.Builder
-	for _, item := range readAll(t, invocation.Output()) {
-		if body, ok := item.Part.(genx.Text); ok {
-			text.WriteString(string(body))
-		}
-		if item.HistoryText != nil {
-			history.WriteString(string(*item.HistoryText))
-		}
-		if body, ok := item.Part.(*genx.Blob); ok {
-			audio.Write(body.Data)
-		}
-	}
-	if text.String() != "new reply" || history.String() != "【新伙伴】new reply" || audio.String() != "new reply" {
-		t.Fatalf("stale publisher output after interrupt: text=%q history=%q audio=%q", text.String(), history.String(), audio.String())
+		t.Run(name, func(t *testing.T) {
+			invocation := streamkit.NewInvocation(t.Context(), streamkit.OutputConfig{})
+			defer invocation.Cancel(context.Canceled)
+			model := streamkit.NewOutput(streamkit.OutputConfig{})
+			source, err := streamkit.NewResponseStream(model)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer source.Close()
+			started, canceled := make(chan struct{}), make(chan struct{})
+			tts := muxFunc(func(ctx context.Context, pattern string, input genx.Stream) (genx.Stream, error) {
+				if pattern == "active" {
+					close(started)
+					<-ctx.Done()
+					close(canceled)
+					return nil, ctx.Err()
+				}
+				return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{}, "audio/opus", func(_ context.Context, text string, _ streamkit.TTSMeta, _ string, emit func([]byte) error) error {
+					return emit([]byte(text))
+				}), nil
+			})
+			var voices map[string]string
+			initial := []*genx.MessageChunk{
+				{Role: genx.RoleModel, Name: "pending", Part: genx.Text("【未闭"), Ctrl: &genx.StreamCtrl{StreamID: "old", Label: "old-pending", MessageID: "old-pending-message", BeginOfStream: true}},
+				{Role: genx.RoleModel, Name: "active", Part: genx.Text("【伙伴】spoken"), Ctrl: &genx.StreamCtrl{StreamID: "old", Label: "old-active", MessageID: "old-active-message"}},
+			}
+			if speakerMap {
+				voices = map[string]string{"known": "active"}
+				initial[0], initial[1] = initial[1], initial[0]
+				initial[0].Part = genx.Text("【known】spoken")
+				initial[0].Ctrl.BeginOfStream, initial[1].Ctrl.BeginOfStream = true, false
+			}
+			dock, err := New(Config{Agent: fixedAgentOutput(), TTS: tts, ResolveVoice: func(_ context.Context, request VoiceRequest) (string, error) { return request.Name, nil }, SpeakerVoices: voices, UnknownSpeakerPolicy: UnknownSpeakerDefaultVoice})
+			if err != nil {
+				t.Fatal(err)
+			}
+			run := &dockRun{dock: dock, invocation: invocation, source: source, routes: make(map[string]*dockRoute), discardSourceIDs: make(map[string]bool)}
+			for _, item := range initial {
+				if err := run.forwardModelChunk(t.Context(), item); err != nil {
+					t.Fatal(err)
+				}
+			}
+			select {
+			case <-started:
+			case <-time.After(3 * time.Second):
+				t.Fatal("publisher TTS startup timeout")
+			}
+			if err := run.beginInputTurn("replacement"); err != nil {
+				t.Fatal(err)
+			}
+			select {
+			case <-canceled:
+			case <-time.After(3 * time.Second):
+				t.Fatal("publisher TTS was not canceled")
+			}
+			for _, item := range []*genx.MessageChunk{
+				{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "old", EndOfStream: true}},
+				{Role: genx.RoleModel, Name: "fresh", Part: genx.Text("【新伙伴】new reply"), Ctrl: &genx.StreamCtrl{StreamID: "new", Label: "fresh-route", MessageID: "fresh-message", BeginOfStream: true, EndOfStream: true}},
+			} {
+				if err := run.forwardModelChunk(t.Context(), item); err != nil {
+					t.Fatal(err)
+				}
+			}
+			run.tts.Wait()
+			if err := invocation.Output().Close(); err != nil {
+				t.Fatal(err)
+			}
+			var text, history, audio strings.Builder
+			for _, item := range readAll(t, invocation.Output()) {
+				if part, ok := item.Part.(genx.Text); ok {
+					if part != "" && (item.Name != "fresh" || item.Ctrl == nil || item.Ctrl.Label != "fresh-route" || item.Ctrl.MessageID != "fresh-message") {
+						t.Fatalf("old publisher metadata after interrupt: %+v", item)
+					}
+					text.WriteString(string(part))
+				}
+				if item.HistoryText != nil {
+					history.WriteString(string(*item.HistoryText))
+				}
+				if part, ok := item.Part.(*genx.Blob); ok {
+					audio.Write(part.Data)
+				}
+			}
+			if text.String() != "new reply" || history.String() != "【新伙伴】new reply" || audio.String() != "new reply" {
+				t.Fatalf("stale publisher output after interrupt: text=%q history=%q audio=%q", text.String(), history.String(), audio.String())
+			}
+		})
 	}
 }
