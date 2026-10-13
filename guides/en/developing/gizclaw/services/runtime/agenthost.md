@@ -51,6 +51,8 @@ Workspace History recognizes interruption by StreamID: when a typed MIME channel
 
 One History entry keeps a route's audio in arrival order. When the audio MIME type changes within a route, such as a multi-voice reply mixing Ogg/Opus and MP3 providers, each MIME run becomes its own segment; persistence converts every segment to Opus packets (Ogg/Opus unpacked, MP3 decoded, PCM encoded) and stores them as one `audio/ogg; codecs=opus` asset. History recording is best-effort and never fails the live output: a chunk that cannot be recorded, an entry that cannot be encoded, or a failed History append drops only that entry and logs a `workspace history entry dropped` warning, while the stream continues to the device and other entries are still stored.
 
+The RuntimeRegistry, lease and output-probe stream wrappers forward production observers, deferred delivery acknowledgements and abandonment notifications to the same underlying stream. Wrapping a Host output must preserve these capabilities so continuous History and State checkpoints follow the final consumer’s delivery boundary.
+
 ## Current-Peer Tool scope
 
 Tool execution has a separate context from Workspace-owner Resource access. The

@@ -103,7 +103,7 @@ func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
 	}
 }
 
-func TestServiceProductionObserverCrossesHistoryLeaseAndProbe(t *testing.T) {
+func TestServiceProductionObserverCrossesHistoryRuntimeLeaseAndProbe(t *testing.T) {
 	upstream := newBlockingHistoryStream()
 	t.Cleanup(func() { _ = upstream.Close() })
 	agent := wrapHistoryAgent(
@@ -117,7 +117,7 @@ func TestServiceProductionObserverCrossesHistoryLeaseAndProbe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	lease := &leaseStream{Stream: historyOutput}
+	lease := &leaseStream{Stream: &quiescingStream{Stream: historyOutput, transform: &runtimeTransform{}}}
 	probe := newOutputProbe(lease)
 	consumer := &productionObserverConsumer{
 		producedOwner: make(chan int64, 1),
@@ -2203,7 +2203,7 @@ func (s *blockingHistoryStream) CloseWithError(err error) error {
 
 func TestProductionObserverWrappersReportUnsupportedProducer(t *testing.T) {
 	stream := historyStreamFromChunks()
-	probe := newOutputProbe(&leaseStream{Stream: stream})
+	probe := newOutputProbe(&leaseStream{Stream: &quiescingStream{Stream: stream, transform: &runtimeTransform{}}})
 	if probe.SetOutputProductionObserver(func(*genx.MessageChunk) { t.Error("unexpected callback") }) {
 		t.Fatal("wrappers claimed a producer callback that the underlying stream cannot install")
 	}

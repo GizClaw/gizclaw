@@ -41,7 +41,7 @@ func (*sdkLogStore) Query(context.Context, logstore.Query) (logstore.Page, error
 
 func (*sdkLogStore) Close() error { return nil }
 
-func (s *sdkLogStore) Log(string) (logstore.ImmutableStore, error) { return s, nil }
+func (s *sdkLogStore) Log(string) (logstore.Store, error) { return s, nil }
 
 func sdkTestLogger(t *testing.T, level string) (*slog.Logger, *sdkLogStore, func() error) {
 	t.Helper()

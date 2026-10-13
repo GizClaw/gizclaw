@@ -264,11 +264,11 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。每次执行都必须发布新的非空白正文，包括将 `ContinueFrom` 设为 false 的最后一次；跳过输出或空白正文以 error EOS 终止，不提交本段 State。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
 
-每轮交付后立即追加一条 assistant History；最初的用户消息只记录一次。Workspace History 同样每轮保存一条，并将该轮文字与音频对应为可重播记录。用户打断会取消当前生成、丢弃未交付后缀，并单独记录当前轮已交付的前缀；完成的旧段不合并、不重写。恢复或换主题建立新的用户 turn，仍按每轮生成分段保存。
+配置外部 History reader 时，Host 每轮交付后保存一条权威 assistant History，并将该轮文字与音频对应为可重播记录；最初的用户消息只记录一次。Eino 只读这些记录，不追加第二份持久化副本。没有 reader 时，Eino 保留有界的本地 History。用户打断会取消当前生成、丢弃未交付后缀，并单独记录当前轮已交付的前缀；完成的旧段不合并、不重写。恢复或换主题建立新的用户 turn，仍按每轮生成分段保存。
 
 Transformer 在文字交付及消息边界确认后才开始下一轮。产品 factory 对 Voice 启用 [Audio Dock 背压](../agentkit#连续讲述背压)，等待对应 TTS 音频交付，避免长期积压；该模式不支持 `speaker_voices`。每次交付的正文随后释放，续讲上下文保留最近八段，`Limits.MaxOutputBytes` 约束 Transformer 待交付缓冲。Memory observation 使用每段独立的 identity。
 
-配置持久 State 时，每段完整交付、`MessageEnd` 确认及该段内部 History/Memory 记录成功后，才对 `StatePersistenceConfig.Fields` 选择的字段执行 CAS；成功返回的 version 用于下一段，最终 turn 收尾不重复 CAS。缓存队列、已播游标等字段因此可以在持续播讲中形成检查点。中断、生成失败、未确认消息边界或记录失败的当前段不提交这些字段，恢复时加载最后一个成功检查点。CAS 冲突以 error EOS 终止，保留并发写入者的状态及此前完成的检查点。History 与 State 是有序的两次存储操作，不是跨 Store 原子事务；CAS 失败前已经保存的 History 不回滚。
+配置持久 State 时，每段完整交付、`MessageEnd` 确认及该段内部 Memory 处理和无 reader 时的本地 History 更新成功后，才对 `StatePersistenceConfig.Fields` 选择的字段执行 CAS；外部 History reader 模式下，Host 在转发交付确认前尝试写入唯一的持久化 History；该写入保持 best-effort，失败会记录日志，但不阻止 State CAS。成功返回的 version 用于下一段，最终 turn 收尾不重复 CAS。缓存队列、已播游标等字段因此可以在持续播讲中形成检查点。中断、生成失败或未确认消息边界的当前段不提交这些字段，恢复时加载最后一个成功检查点。CAS 冲突以 error EOS 终止，保留并发写入者的状态及此前完成的检查点。Host 成功写入 History 时，该写入先于 State CAS，但两者不是跨 Store 原子事务；CAS 失败前已经保存的 History 不回滚。
 
 产品 Workflow 用 `spec.eino.conversation.continue_from` 选择该 State field。Graph 应生成短小、自然承接且以完整句子结束的正文；不需要额外的“继续”用户 turn。
 

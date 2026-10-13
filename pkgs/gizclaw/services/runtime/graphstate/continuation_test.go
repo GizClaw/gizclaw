@@ -2,10 +2,10 @@ package graphstate
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -15,9 +15,12 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/cloudwego/eino/compose"
-	"github.com/cloudwego/eino/schema"
 )
 
 type checkpointReceipt struct {
@@ -60,7 +63,7 @@ func (l checkpointLambdas) ResolveLambda(_ context.Context, name string) (genxei
 type continuationFixture struct {
 	state   *Store
 	probe   *checkpointProbe
-	history *logstore.SQLStore
+	history *workspace.HistoryStore
 	config  genxeino.Config
 }
 
@@ -73,11 +76,20 @@ func newContinuationFixture(t *testing.T, total int64) *continuationFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	history, err := logstore.NewSQLStoreWithDB(db, "continuation_history")
+	records, err := memory.NewSQLHistoryStore(t.Context(), db, "continuation_history", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = history.Close() })
+	root, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = root.Close() })
+	objects, err := objectstore.NewRoot(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	history := workspace.NewHistoryStore(records, objects, "context")
 	probe := &checkpointProbe{StateStore: state, receipts: make(chan checkpointReceipt, 16)}
 	f := &continuationFixture{state: state, probe: probe, history: history}
 	f.config = genxeino.Config{
@@ -151,16 +163,32 @@ func checkpointInput(t *testing.T, builder *genx.StreamBuilder, text string) {
 	}
 }
 
-func checkpointOutput(t *testing.T, config genxeino.Config, input genx.Stream) (genx.Stream, checkpointObserver) {
+type checkpointResolver struct{ history *workspace.HistoryStore }
+
+func (r checkpointResolver) Resolve(context.Context, string) (agenthost.Spec, error) {
+	return agenthost.Spec{
+		Workspace: apitypes.Workspace{Id: "context"}, AgentType: "eino",
+		Runtime: workspace.Runtime{History: r.history},
+	}, nil
+}
+
+func checkpointOutput(t *testing.T, f *continuationFixture, input genx.Stream) (genx.Stream, checkpointObserver) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	t.Cleanup(cancel)
-	transformer, err := genxeino.New(ctx, config)
+	// The Host is the sole History writer; Eino reads that same SQL History.
+	host := agenthost.New(checkpointResolver{history: f.history})
+	if err := host.Register("eino", agenthost.FactoryFunc(func(ctx context.Context, _ agenthost.Spec) (genx.Transformer, error) {
+		return genxeino.New(ctx, f.config)
+	})); err != nil {
+		t.Fatal(err)
+	}
+	agent, release, err := host.OpenAgent(ctx, "context")
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = transformer.Close() })
-	output, err := transformer.Transform(ctx, input)
+	t.Cleanup(release)
+	output, err := agent.Transform(ctx, input)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -170,9 +198,9 @@ func checkpointOutput(t *testing.T, config genxeino.Config, input genx.Stream) (
 	return output, observer
 }
 
-func checkpointHistory(ctx context.Context, history logstore.MutableStore) ([]logstore.Record, error) {
-	page, err := history.Query(ctx, logstore.Query{Streams: []string{"eino.history"}, Start: time.Unix(0, 0), End: time.Now().Add(time.Hour).Truncate(time.Millisecond), Order: logstore.OrderAsc, Limit: 50})
-	return page.Records, err
+func checkpointHistory(ctx context.Context, history memory.HistoryReader) ([]memory.HistoryEntry, error) {
+	page, err := history.Query(ctx, memory.HistoryQuery{ConversationID: "context", Limit: 50})
+	return page.Entries, err
 }
 
 func drainCheckpointOutput(t *testing.T, output genx.Stream, observer checkpointObserver) []*genx.MessageChunk {
@@ -180,7 +208,7 @@ func drainCheckpointOutput(t *testing.T, output genx.Stream, observer checkpoint
 	var chunks []*genx.MessageChunk
 	for {
 		chunk, err := output.Next()
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
 			return chunks
 		}
 		if err != nil {
@@ -214,6 +242,11 @@ func TestContinuationCheckpointsFollowDeliveredHistory(t *testing.T) {
 			}
 			var acknowledged atomic.Int64
 			f.probe.before = func(ctx context.Context, _ string, _ string, fields map[string]any) error {
+				// Continuous messages flush at the delivered generation boundary;
+				// ordinary routes retain their existing final-EOS recording policy.
+				if !continuous {
+					return nil
+				}
 				cursor := fields["cursor"].(int64)
 				records, err := checkpointHistory(ctx, f.history)
 				if err != nil {
@@ -229,15 +262,19 @@ func TestContinuationCheckpointsFollowDeliveredHistory(t *testing.T) {
 			if err := input.Done(genx.Usage{}); err != nil {
 				t.Fatal(err)
 			}
-			output, observer := checkpointOutput(t, f.config, input.Stream())
+			output, observer := checkpointOutput(t, f, input.Stream())
 			streamID, begins, ends := "", 0, 0
 			for {
 				chunk, err := output.Next()
-				if errors.Is(err, io.EOF) {
+				if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
 					break
 				}
 				if err != nil {
 					t.Fatal(err)
+				}
+				if chunk.Ctrl.Label == "workspace.history.updated" {
+					observer.ObserveOutput(chunk)
+					continue
 				}
 				if chunk.Ctrl.Error != "" {
 					t.Fatal(chunk.Ctrl.Error)
@@ -260,6 +297,10 @@ func TestContinuationCheckpointsFollowDeliveredHistory(t *testing.T) {
 				observer.ObserveOutput(chunk)
 			}
 			requireCheckpointCursor(t, f, want)
+			records, err := checkpointHistory(t.Context(), f.history)
+			if err != nil || len(records) != int(want)+1 {
+				t.Fatalf("authoritative History=%+v err=%v, want user plus %d assistant messages", records, err, want)
+			}
 			if f.probe.attempts.Load() != int32(want) || len(f.probe.receipts) != int(want) || begins != 1 || ends != 1 {
 				t.Fatalf("CAS attempts=%d commits=%d BOS/EOS=%d/%d, want %d writes", f.probe.attempts.Load(), len(f.probe.receipts), begins, ends, want)
 			}
@@ -280,7 +321,7 @@ func TestContinuationInterruptResumesFromLastSQLCheckpoint(t *testing.T) {
 		t.Run(fmt.Sprintf("hold-boundary=%t", holdBoundary), func(t *testing.T) {
 			f := newContinuationFixture(t, 5)
 			input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
-			output, observer := checkpointOutput(t, f.config, input.Stream())
+			output, observer := checkpointOutput(t, f, input.Stream())
 			checkpointInput(t, input, "news")
 			boundaries := 0
 			var held *genx.MessageChunk
@@ -330,7 +371,7 @@ func TestContinuationInterruptResumesFromLastSQLCheckpoint(t *testing.T) {
 			}
 			prefixes := 0
 			for _, record := range records {
-				if record.Attributes["interrupted"] == "true" {
+				if record.Interrupted {
 					prefixes++
 				}
 			}
@@ -343,7 +384,7 @@ func TestContinuationInterruptResumesFromLastSQLCheckpoint(t *testing.T) {
 			if err := resume.Done(genx.Usage{}); err != nil {
 				t.Fatal(err)
 			}
-			resumed, resumedObserver := checkpointOutput(t, f.config, resume.Stream())
+			resumed, resumedObserver := checkpointOutput(t, f, resume.Stream())
 			var text strings.Builder
 			for _, chunk := range drainCheckpointOutput(t, resumed, resumedObserver) {
 				if chunk.Ctrl.Error != "" {
@@ -361,21 +402,10 @@ func TestContinuationInterruptResumesFromLastSQLCheckpoint(t *testing.T) {
 	}
 }
 
-type rejectingCheckpointHistory struct {
-	logstore.MutableStore
-}
+type rejectingCheckpointHistoryReader struct{}
 
-func (h rejectingCheckpointHistory) Append(ctx context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
-	for _, record := range records {
-		var payload struct{ Message *schema.Message }
-		if err := json.Unmarshal(record.Payload, &payload); err != nil {
-			return nil, err
-		}
-		if payload.Message != nil && payload.Message.Content == "section 2" {
-			return nil, errors.New("History rejected section 2")
-		}
-	}
-	return h.MutableStore.Append(ctx, records)
+func (rejectingCheckpointHistoryReader) Query(context.Context, memory.HistoryQuery) (memory.HistoryPage, error) {
+	return memory.HistoryPage{}, errors.New("History read failed")
 }
 
 func TestContinuationCheckpointRejectsFailedGeneration(t *testing.T) {
@@ -400,8 +430,8 @@ func TestContinuationCheckpointRejectsFailedGeneration(t *testing.T) {
 					wantCursor, wantAttempts, wantError = 0, 0, "narration"
 				}
 			case "history":
-				f.config.History.Store = rejectingCheckpointHistory{MutableStore: f.history}
-				wantError = "History rejected section 2"
+				f.config.History.Store = rejectingCheckpointHistoryReader{}
+				wantCursor, wantAttempts, wantError = 0, 0, "History read failed"
 			case "conflict":
 				wantCursor, wantAttempts, wantError = 99, 2, "revision conflict"
 				f.probe.before = func(ctx context.Context, scope, version string, fields map[string]any) error {
@@ -417,7 +447,7 @@ func TestContinuationCheckpointRejectsFailedGeneration(t *testing.T) {
 			if err := input.Done(genx.Usage{}); err != nil {
 				t.Fatal(err)
 			}
-			output, observer := checkpointOutput(t, f.config, input.Stream())
+			output, observer := checkpointOutput(t, f, input.Stream())
 			var terminal string
 			for _, chunk := range drainCheckpointOutput(t, output, observer) {
 				if chunk.IsEndOfStream() {
@@ -449,7 +479,7 @@ func TestContinuationCheckpointRejectsEmptyTerminalGeneration(t *testing.T) {
 			if err := input.Done(genx.Usage{}); err != nil {
 				t.Fatal(err)
 			}
-			output, observer := checkpointOutput(t, f.config, input.Stream())
+			output, observer := checkpointOutput(t, f, input.Stream())
 			var terminal string
 			for _, chunk := range drainCheckpointOutput(t, output, observer) {
 				if chunk.IsEndOfStream() {
