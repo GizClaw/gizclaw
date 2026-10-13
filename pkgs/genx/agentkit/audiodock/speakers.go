@@ -11,7 +11,8 @@ import (
 // speakerParser retains prefixes of configured markers. When explicitly enabled,
 // it also recognizes bounded unknown markers at paragraph starts. Other text
 // passes through immediately; incomplete markers flush literally on EOS.
-// Its state belongs exclusively to the model reader for one response.
+// Its state belongs exclusively to the model reader for one response, or one
+// publisher within a response when no configured speaker segmentation is used.
 type speakerParser struct {
 	pending string
 	history strings.Builder

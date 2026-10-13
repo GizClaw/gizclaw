@@ -73,8 +73,8 @@ func normalizeConfig(config Config) (Config, error) {
 		return Config{}, fmt.Errorf("audiodock: invalid UnknownSpeakerPolicy %q", config.UnknownSpeakerPolicy)
 	}
 	config.SpeakerVoices = maps.Clone(config.SpeakerVoices)
-	if config.Backpressure && config.speakerSegmentsEnabled() {
-		return Config{}, fmt.Errorf("audiodock: Backpressure does not support speaker segmentation")
+	if config.Backpressure && config.speakerParsingEnabled() {
+		return Config{}, fmt.Errorf("audiodock: Backpressure does not support speaker marker parsing")
 	}
 	for name, pattern := range config.SpeakerVoices {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, "【】") || strings.TrimSpace(pattern) == "" {
@@ -84,7 +84,7 @@ func normalizeConfig(config Config) (Config, error) {
 	return config, nil
 }
 
-func (config Config) speakerSegmentsEnabled() bool {
+func (config Config) speakerParsingEnabled() bool {
 	return len(config.SpeakerVoices) != 0 || config.UnknownSpeakerPolicy == UnknownSpeakerDefaultVoice
 }
 

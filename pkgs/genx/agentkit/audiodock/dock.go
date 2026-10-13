@@ -161,11 +161,56 @@ type dockRoute struct {
 	deliveryMu      sync.Mutex
 	pendingTerminal map[string]*genx.MessageChunk
 	speakers        speakerParser
-	lastSegment     *ttsPipe
+	// Without mapped speaker voices, parsing follows the existing publisher
+	// TTS ownership. These states belong only to the model reader.
+	speakerPublishers     map[string]*speakerPublisher
+	speakerPublisherOrder []*speakerPublisher
+	lastSegment           *ttsPipe
 	// segmentAudioMIME is the audio MIME type of the first speaker segment.
 	// Consumers decode one response route as one audio stream, so every later
 	// segment must use the same MIME type. It is guarded by mu.
 	segmentAudioMIME string
+}
+
+type speakerPublisher struct {
+	name   string
+	parser speakerParser
+	// metadata contains no body or History text; it only owns a pending
+	// publisher prefix's Role, Name, message identity, and source route.
+	metadata *genx.MessageChunk
+	// The first pre-cleanup speech-eligible chunk owns VoiceResolver metadata.
+	// Release its snapshot as soon as the TTS pipe is created; never delay body
+	// delivery or retain later body chunks for voice selection.
+	voiceChunk     *genx.MessageChunk
+	voiceInputSeen bool
+}
+
+func (route *dockRoute) speakerPublisher(chunk *genx.MessageChunk) *speakerPublisher {
+	name := strings.TrimSpace(chunk.Name)
+	if route.speakerPublishers == nil {
+		route.speakerPublishers = make(map[string]*speakerPublisher)
+	}
+	publisher := route.speakerPublishers[name]
+	if publisher == nil {
+		publisher = &speakerPublisher{name: name}
+		route.speakerPublishers[name] = publisher
+		route.speakerPublisherOrder = append(route.speakerPublisherOrder, publisher)
+	}
+	if text, ok := chunk.Part.(genx.Text); ok && text != "" {
+		if publisher.voiceInputSeen && publisher.metadata != nil && publisher.metadata.Ctrl != nil {
+			if chunk.Ctrl == nil {
+				chunk.Ctrl = &genx.StreamCtrl{}
+			}
+			if chunk.Ctrl.Label == "" {
+				chunk.Ctrl.Label = publisher.metadata.Ctrl.Label
+			}
+			if chunk.Ctrl.MessageID == "" {
+				chunk.Ctrl.MessageID = publisher.metadata.Ctrl.MessageID
+			}
+		}
+		publisher.metadata = &genx.MessageChunk{Role: chunk.Role, Name: chunk.Name, Ctrl: cloneCtrl(chunk.Ctrl)}
+	}
+	return publisher
 }
 
 type dockTTSRoute struct {
@@ -360,11 +405,59 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	if err != nil {
 		return err
 	}
+	// A response terminal closes every publisher, including a publisher whose
+	// only remaining text is a split prefix. Flush it with its own metadata.
+	if r.dock.config.UnknownSpeakerPolicy == UnknownSpeakerDefaultVoice && len(r.dock.config.SpeakerVoices) == 0 && chunk.IsEndOfStream() {
+		name := strings.TrimSpace(chunk.Name)
+		terminalText, _ := chunk.Part.(genx.Text)
+		for _, publisher := range route.speakerPublisherOrder {
+			// A content-bearing terminal completes its own split candidate in
+			// the regular feed. A control-only terminal can lack message metadata.
+			if (publisher.name == name && terminalText != "") || publisher.parser.pending == "" {
+				continue
+			}
+			flush := publisher.metadata.Clone()
+			flush.Part = genx.Text("")
+			flush.Ctrl = cloneCtrl(flush.Ctrl)
+			if flush.Ctrl == nil {
+				flush.Ctrl = &genx.StreamCtrl{}
+			}
+			flush.Ctrl.BeginOfStream = false
+			flush.Ctrl.EndOfStream = false
+			flush.Ctrl.MessageEnd = false
+			flush.Ctrl.ResponseEpochEnd = false
+			genx.SetStreamError(flush.Ctrl, nil)
+			flush.Ctrl.ErrorCode = ""
+			flush.Ctrl.ErrorRetryable = false
+			flush.Ctrl.FailureClass = ""
+			// This derived chunk is not a producer acknowledgement: the source
+			// ResponseStream only acknowledges pointers it returned from Next.
+			if err := r.forwardModelChunkOnRoute(ctx, route, flush, true); err != nil {
+				return err
+			}
+		}
+	}
+	return r.forwardModelChunkOnRoute(ctx, route, chunk, false)
+}
+
+func (r *dockRun) forwardModelChunkOnRoute(ctx context.Context, route *dockRoute, chunk *genx.MessageChunk, finalSpeakers bool) error {
 	text, textChunk := chunk.Part.(genx.Text)
 	var segments []speakerText
-	if r.dock.config.speakerSegmentsEnabled() && (textChunk || chunk.IsEndOfStream()) {
-		route.speakers.normalizeUnknown = r.dock.config.UnknownSpeakerPolicy == UnknownSpeakerDefaultVoice
-		segments = route.speakers.feed(string(text), chunk.IsEndOfStream(), r.dock.config.SpeakerVoices)
+	var publisher *speakerPublisher
+	if r.dock.config.speakerParsingEnabled() && (textChunk || chunk.IsEndOfStream()) {
+		parser := &route.speakers
+		if len(r.dock.config.SpeakerVoices) == 0 {
+			publisher = route.speakerPublisher(chunk)
+			parser = &publisher.parser
+			if !publisher.voiceInputSeen && strings.TrimSpace(string(text)) != "" {
+				publisher.voiceInputSeen = true
+				if r.dock.config.TTS != nil {
+					publisher.voiceChunk = chunk.Clone()
+				}
+			}
+		}
+		parser.normalizeUnknown = r.dock.config.UnknownSpeakerPolicy == UnknownSpeakerDefaultVoice
+		segments = parser.feed(string(text), chunk.IsEndOfStream() || finalSpeakers, r.dock.config.SpeakerVoices)
 		var cleaned strings.Builder
 		for _, segment := range segments {
 			cleaned.WriteString(segment.text)
@@ -375,14 +468,14 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 			chunk.Part = text
 			historyText := genx.Text("")
 			if text != "" {
-				historyText = route.speakers.takeHistoryText()
+				historyText = parser.takeHistoryText()
 			}
 			chunk.HistoryText = &historyText
 		}
 	}
 	var pipe *ttsPipe
 	hasSpeech := strings.TrimSpace(string(text)) != ""
-	if r.dock.config.speakerSegmentsEnabled() && text != "" && route.hasTTSPipes() {
+	if len(r.dock.config.SpeakerVoices) != 0 && text != "" && route.hasTTSPipes() {
 		hasSpeech = true
 	}
 	// Whitespace belongs in the same delivery queue as preceding narration.
@@ -447,8 +540,13 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	route.ttsEmitMu.Unlock()
 
 	if resolveTTS {
-		if !r.dock.config.speakerSegmentsEnabled() {
-			pipe = r.ttsPipe(ctx, route, chunk, "", "")
+		if len(r.dock.config.SpeakerVoices) == 0 {
+			voiceChunk := chunk
+			if publisher != nil && publisher.voiceChunk != nil {
+				voiceChunk = publisher.voiceChunk
+				publisher.voiceChunk = nil
+			}
+			pipe = r.ttsPipe(ctx, route, voiceChunk, "", "")
 		} else {
 			for _, segment := range segments {
 				if segment.text == "" {
