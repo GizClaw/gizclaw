@@ -116,6 +116,8 @@ Startup strictly parses the configuration, opens physical connectors, builds log
 
 The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, and `gizclaw migrate` command are unsupported. One-time Workspace History conversion uses [history-migrate](../../stores/memory#history-migration). ClickHouse Store table initialization remains active schema lifecycle, not old-data migration.
 
+Before initializing Workspace History, Server checks its SQL connector for legacy History records. Remaining records stop startup with actual source parent names; run the offline [History migration](../../stores/memory#history-migration) before retrying.
+
 ### Complete configuration
 
 The configuration below shares a PostgreSQL pool across prefix-scoped KV, table-scoped Metrics and service-owned SQL data. LogStore uses a separate Volc TLS topic, and ObjectStores use filesystem roots. SQL KV maps each prefix directly to its physical table; services initialize and validate their SQL tables and indexes, while `memory.HistoryStore` owns Workspace History. Local SQLite deployments change only the SQL connector kind and `dir`/`dsn`; logging still uses a logging service or stderr. See [LogStore](../../stores/logstore) for configuration.

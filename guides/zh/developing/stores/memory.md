@@ -16,6 +16,8 @@ Workspace 的记录器是对话写入方。AgentHost 在交给 Agent 前记录�
 
 Audio Dock 的实时文本会去掉已识别的 `【说话人】` 语音路由标记；已送达 chunk 通过进程内 `HistoryText` 保留原始语义文本，Host 将它写入同一条 History 的 text 列。Eino 因此仍能读取角色标记，不需要第二份持久化记录。未送达后缀与纯标记前缀不会单独成为 History。
 
+Server 在创建或打开新 History 表前，会只读检查最终 History SQL connector 当前 schema 的表结构和 stream。发现 `workspace.history/`、`eino.history` 或 `flowcraft.history` 的旧记录时，启动失败并报告实际父表名，提示先执行 `history-migrate`；不会按默认表名猜测，也不会在启动时自动迁移或删除数据。已存在的新表或迁移完成标记不能绕过仍存在的旧记录。空旧表和不含 History stream 的通用日志归档不阻止启动；检测查询失败同样会终止启动。旧表必须保留在同一个 SQL connector/schema，迁移 flags 填实际旧父表名。
+
 ### History migration
 
 `gizclaw history-migrate <dir>` 是一次性、离线的 History 转换入口。执行前备份数据库，停止所有使用该数据库的 Server 写入实例，并将 `<dir>/config.yaml` 更新为最终配置：Workspace History 使用 SQL Store，移除 `services.agent_host.persistence.history_store` 及旧 History LogStore 声明；其他 LogStore 使用日志服务 backend。

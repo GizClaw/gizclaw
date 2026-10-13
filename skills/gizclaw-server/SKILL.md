@@ -126,7 +126,7 @@ Config rules:
 - `services.workspace.history_store` requires a `sql` Store backed by SQLite or PostgreSQL for the single `memory.HistoryStore`; Eino reads that same Workspace History without appending a second copy. `services.workspace.history_assets_store` selects the ObjectStore for replay assets, and its positive `ttl` determines History retention. PostgreSQL uses pg_partman expiration partitions.
 - `services.system_log` defaults to info-level stderr when omitted.
 - Service-internal collections use code-owned prefixes; expanded bindings such as `route_store`, `invite_token_store`, and `member_store` are unsupported.
-- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not import or rewrite existing data automatically.
+- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, and `gizclaw migrate` are unsupported. Use the explicit offline `gizclaw history-migrate` command for legacy Workspace History. Before initializing History, Server checks the selected SQL connector/schema for legacy History streams, reports actual parent table names and stops if records remain; it never auto-imports or deletes sources during startup.
 
 Service-managed edit flow:
 

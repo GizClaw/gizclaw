@@ -24,6 +24,8 @@ The Workspace recorder writes conversation history. AgentHost records completed 
 
 Audio Dock removes recognized `【speaker】` voice routing markers from live text. Delivered chunks retain their semantic text in process-local `HistoryText`, and the Host writes it to the same History text column. Eino therefore retains speaker context without another persisted copy. Undelivered suffixes and marker-only prefixes do not become separate History entries.
 
+Before creating or opening the new History table, Server performs a read-only check of table structure and streams in the final History SQL connector’s current schema. Legacy records with `workspace.history/`, `eino.history` or `flowcraft.history` stop startup with the actual parent table names and a `history-migrate` instruction. Startup neither guesses default names nor migrates or deletes data. Existing destination tables and completion receipts do not bypass remaining legacy records. Empty old tables and generic log archives without History streams do not block; inspection errors fail startup. Keep the old sources in the same SQL connector/schema and pass their actual parent names to the migration flags.
+
 ### History migration
 
 `gizclaw history-migrate <dir>` performs the one-time offline conversion. Back up the database, stop every Server writing to it, and update `<dir>/config.yaml` to the final configuration: Workspace History references a SQL Store; remove `services.agent_host.persistence.history_store` and the old History LogStore declarations. Other LogStores must also stop referencing PostgreSQL.

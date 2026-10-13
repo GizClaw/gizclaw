@@ -11,6 +11,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	runtimepeer "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
@@ -364,6 +365,9 @@ func configureServiceStores(server *gizclaw.Server, registry *stores.Stores, cfg
 	}
 	historyCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
+	if err := workspace.CheckHistoryMigration(historyCtx, historyDB); err != nil {
+		return fmt.Errorf("server: workspace history: %w", err)
+	}
 	server.WorkspaceHistory, err = memory.NewSQLHistoryStore(historyCtx, historyDB, memory.DefaultHistoryTable, assetTTL)
 	if err != nil {
 		return fmt.Errorf("server: workspace history: %w", err)
