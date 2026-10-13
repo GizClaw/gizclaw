@@ -224,37 +224,54 @@ func TestHandlerWithoutRecoveryPolicyLeavesFailedTasksAlone(t *testing.T) {
 	}
 }
 
-func TestRecoveryProbePanicPreservesFailureAndWorkerProgress(t *testing.T) {
-	source := KVSource{Store: kv.NewMemory(nil), SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
-	failed := seedFailedRecoveryTask(t, source, "panic-probe", time.Now().Add(-time.Minute))
-	good := seedFailedRecoveryTask(t, source, "good-after-panic", time.Now().Add(-time.Minute))
-	handler := &automaticKVHandler{finalizingKVHandler: finalizingKVHandler{kind: KindPeer, source: source}, probe: func(_ context.Context, task Task) (bool, error) {
-		if task.Record.ResourceID == "panic-probe" {
-			panic("probe failure")
-		}
-		return true, nil
-	}}
-	registry := NewRegistry()
-	if err := registry.Register(source, handler); err != nil {
-		t.Fatal(err)
-	}
-	processor, err := NewProcessor(registry, recoveryTestConfig(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, task := range []Task{failed, good} {
-		observed := task
-		processor.process(t.Context(), dispatchItem{source: source, ref: Reference{Source: task.Source, DeletionID: task.Record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}, failed: &observed})
-	}
-	after, err := source.GetTask(t.Context(), failed.Record.DeletionID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !sameFailedObservation(after, failed) {
-		t.Fatal("panicked read-only probe changed failure")
-	}
-	if _, err := source.GetTask(t.Context(), good.Record.DeletionID); !errors.Is(err, ErrNotFound) {
-		t.Fatal("worker did not progress after probe panic")
+func TestRecoveryProbeFailurePreservesFailureAndWorkerProgress(t *testing.T) {
+	for _, scenario := range []string{"error", "timeout", "panic"} {
+		t.Run(scenario, func(t *testing.T) {
+			source := KVSource{Store: kv.NewMemory(nil), SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+			failed := seedFailedRecoveryTask(t, source, "failed-probe", time.Now().Add(-time.Minute))
+			good := seedFailedRecoveryTask(t, source, "good-after-probe", time.Now().Add(-time.Minute))
+			handler := &automaticKVHandler{finalizingKVHandler: finalizingKVHandler{kind: KindPeer, source: source}, probe: func(ctx context.Context, task Task) (bool, error) {
+				if task.Record.ResourceID != "failed-probe" {
+					return true, nil
+				}
+				switch scenario {
+				case "error":
+					return true, errors.New("home database unavailable")
+				case "timeout":
+					<-ctx.Done()
+					return true, ctx.Err()
+				default:
+					panic("probe failure")
+				}
+			}}
+			registry := NewRegistry()
+			if err := registry.Register(source, handler); err != nil {
+				t.Fatal(err)
+			}
+			cfg := recoveryTestConfig()
+			cfg.AttemptTimeout = 50 * time.Millisecond
+			processor, err := NewProcessor(registry, cfg, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, task := range []Task{failed, good} {
+				observed := task
+				processor.process(t.Context(), dispatchItem{source: source, ref: Reference{Source: task.Source, DeletionID: task.Record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}, failed: &observed})
+			}
+			after, err := source.GetTask(t.Context(), failed.Record.DeletionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !sameFailedObservation(after, failed) {
+				t.Fatal("unsuccessful read-only probe changed failure")
+			}
+			if _, err := source.GetTask(t.Context(), good.Record.DeletionID); !errors.Is(err, ErrNotFound) {
+				t.Fatal("worker did not progress after probe failure")
+			}
+			if handler.calls.Load() != 1 {
+				t.Fatalf("finalizations=%d, want only the unaffected task", handler.calls.Load())
+			}
+		})
 	}
 }
 
