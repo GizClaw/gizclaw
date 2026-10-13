@@ -6,6 +6,9 @@ repo_root="$(cd "$script_dir/../.." && pwd)"
 project="gizclaw-pending-recovery-${RANDOM}-$$"
 export RECOVERY_ROOT="$script_dir/.testbench/$project"
 export RECOVERY_POSTGRES_IMAGE="${RECOVERY_POSTGRES_IMAGE:-gizclaw-pending-recovery-postgres}"
+RECOVERY_UID="$(id -u)"
+RECOVERY_GID="$(id -g)"
+export RECOVERY_UID RECOVERY_GID
 architecture="$(docker info --format '{{.Architecture}}')"
 case "$architecture" in aarch64|arm64) platform=linux-arm64;; x86_64|amd64) platform=linux-amd64;; *) echo 'unsupported Docker architecture' >&2;exit 2;; esac
 export RECOVERY_BASE_IMAGE="${RECOVERY_BASE_IMAGE:-gizclaw-go:$platform-base}"

@@ -2060,7 +2060,7 @@ bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
 
 该独立 Docker lane 从当前源码构建 Server 和测试程序，启动共享 Redis、真实只读副本、两个独立 PostgreSQL 实例与两个独立 Server。每个 PostgreSQL 安装仓库固定版本的 pg_partman，并使用独立的 512 MiB tmpfs 数据目录；Server 使用各自 SQL 与文件对象目录，通过 WebRTC Admin API 触发和观察删除。无需生产配置或 Provider credential。
 
-CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运行同一入口，保留脱敏的测试日志 artifact。普通 Go 和 race jobs 同时覆盖自动恢复的条件重试、分页、共用 worker 进度，以及探测错误、超时、取消和 panic 后失败状态不变。
+CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运行同一入口，保留脱敏的测试日志 artifact。Server 和测试容器使用宿主用户的 UID/GID，确保 Linux 上生成的状态与资源可在退出时清理。普通 Go 和 race jobs 同时覆盖自动恢复的条件重试、分页、共用 worker 进度，以及探测错误、超时、取消和 panic 后失败状态不变。
 
 验收直接检查 Firmware 投影删除、Workspace 行与对象清理、每个 home 的 failed 自动恢复（不发 operator retry）、超过一页的 backlog 越过异常记录、重复扫描、显式重试、错误／未知 home、真实 Peer 替换、旧计划遗漏 home 数据和活跃／无关区域数据保留。runner 在 SQL owner-binding 删除被真实行锁阻塞后杀死 home Server，确认 running lease 保留，重启后验证过期租约恢复和启动时自动发现持久化的旧 failed；home 停机期间，另一地区保持该 failed 不变。另一个场景断开只读副本复制，验证管理选择与清理仍使用中央 writer。完成条件包含 marker、locator、plan、task 和索引实际消失，以及永久 tombstone、route 和 API Key retired fence 保留。
 

@@ -16,6 +16,7 @@ x-postgres: &postgres
     retries: 60
 x-server: &server
   image: ${RECOVERY_BASE_IMAGE:?built by runner}
+  user: "${RECOVERY_UID:?set by runner}:${RECOVERY_GID:?set by runner}"
   entrypoint: [/binaries/gizclaw, serve, --force, /state]
   healthcheck:
     test: [CMD, curl, -fsS, http://127.0.0.1:9820/server-info]
@@ -58,6 +59,7 @@ services:
       - ${RECOVERY_ROOT}/server-b:/state
   tests:
     image: ${RECOVERY_BASE_IMAGE}
+    user: "${RECOVERY_UID:?set by runner}:${RECOVERY_GID:?set by runner}"
     entrypoint: [/binaries/recovery.test, -test.v, -test.timeout=3m]
     volumes:
       - ${RECOVERY_ROOT}/bin:/binaries:ro
