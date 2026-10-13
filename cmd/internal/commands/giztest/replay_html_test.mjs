@@ -361,15 +361,95 @@ test("replay reveals replies and plays each audio segment when reached", () => {
   assert.equal(ui.evaluate("messages[0].body.textContent"), "");
   ui.evaluate("tick(600)");
   assert.equal(ui.evaluate("messages[0].body.textContent"), "first");
+  assert.equal(
+    ui.evaluate("timelineEvents.some(e=>e.at>cursor&&!e.node.hidden)"),
+    false,
+  );
   assert.equal(ui.evaluate("clips[0].node.paused"), false);
   assert.equal(
     ui.evaluate("clips[0].node.src"),
     "data:audio/wav;base64,UklGRg==",
   );
-  ui.evaluate("tick(1000)");
+  ui.evaluate("clips[0].node.currentTime=0.5; tick(1000)");
   assert.equal(ui.evaluate("messages[0].body.textContent"), "first reply");
   ui.elements.get("play").fire("click");
   assert.equal(ui.evaluate("clips[0].node.paused"), true);
+});
+
+test("the event clock follows audible media time and stays still during buffering", () => {
+  const ui = player([
+    { kind: "text", text: "first", offset_ms: 100 },
+    { kind: "text", text: " later", offset_ms: 900 },
+    { kind: "audio", audio_data: "audio", offset_ms: 500, duration_ms: 2000 },
+  ]);
+  ui.elements.get("play").fire("click");
+  ui.evaluate("tick(600); tick(2000)");
+  assert.equal(ui.evaluate("cursor"), 600);
+  assert.equal(ui.elements.get("clock").textContent, "0:00.6 / 0:04.0");
+  assert.equal(ui.evaluate("messages[0].body.textContent"), "first");
+  ui.evaluate("clips[0].node.currentTime=0.7; tick(7000)");
+  assert.equal(ui.evaluate("cursor"), 1200);
+  assert.equal(ui.evaluate("messages[0].body.textContent"), "first later");
+});
+
+test("playing a segment seeks the shared absolute event timeline", () => {
+  const ui = player([
+    { kind: "text", text: "opening", offset_ms: 100 },
+    { kind: "text", text: " segment", offset_ms: 1200 },
+    { kind: "audio", audio_data: "audio", offset_ms: 1000, duration_ms: 2000 },
+  ]);
+  ui.evaluate("clips[0].button.fire('click'); tick(0)");
+  assert.equal(ui.evaluate("cursor"), 1000);
+  assert.equal(ui.evaluate("clips[0].node.hidden"), true);
+  assert.equal(ui.evaluate("clips[0].node.currentTime"), 0);
+  assert.equal(ui.evaluate("messages[0].body.textContent"), "opening");
+  ui.evaluate("clips[0].node.currentTime=0.8; tick(9000)");
+  assert.equal(ui.evaluate("cursor"), 1800);
+  assert.equal(ui.elements.get("clock").textContent, "0:01.8 / 0:04.0");
+  assert.equal(ui.evaluate("messages[0].body.textContent"), "opening segment");
+  ui.evaluate(
+    "clips[0].node.currentTime=2; clips[0].node.ended=true; tick(10000)",
+  );
+  assert.equal(ui.evaluate("cursor"), 3000);
+  assert.equal(ui.evaluate("playing"), false);
+});
+
+test("pausing retains the current audio position and resumes from it", () => {
+  const ui = player([
+    { kind: "audio", audio_data: "audio", offset_ms: 500, duration_ms: 2000 },
+  ]);
+  ui.elements.get("play").fire("click");
+  ui.evaluate("tick(600); clips[0].node.currentTime=0.9");
+  ui.elements.get("play").fire("click");
+  assert.equal(ui.evaluate("cursor"), 1400);
+  assert.equal(ui.evaluate("playing"), false);
+  ui.elements.get("play").fire("click");
+  ui.evaluate("tick(0)");
+  assert.equal(ui.evaluate("clips[0].node.currentTime"), 0.9);
+  assert.equal(ui.evaluate("cursor"), 1400);
+});
+
+test("silent gaps resume from the end of media without accumulated clock drift", () => {
+  const ui = player([
+    { kind: "audio", audio_data: "first", offset_ms: 500, duration_ms: 500 },
+    { kind: "audio", audio_data: "second", offset_ms: 2000, duration_ms: 1000 },
+  ]);
+  ui.elements.get("play").fire("click");
+  ui.evaluate(
+    "tick(600); clips[0].node.currentTime=0.5; clips[0].node.ended=true; tick(7000)",
+  );
+  assert.equal(ui.evaluate("cursor"), 1000);
+  ui.evaluate("tick(7500)");
+  assert.equal(ui.evaluate("cursor"), 1500);
+  ui.evaluate("tick(8000)");
+  assert.equal(ui.evaluate("cursor"), 2000);
+  assert.equal(ui.evaluate("clips[1].node.paused"), false);
+});
+
+test("timestamps round across minute boundaries on one clock", () => {
+  const ui = player();
+  assert.equal(ui.evaluate("fmt(59999.99)"), "1:00.0");
+  assert.equal(ui.evaluate("fmt(60000)"), "1:00.0");
 });
 
 test("seeking and playback speed apply to inline segment audio", () => {

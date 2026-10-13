@@ -7,8 +7,10 @@ const el = (tag, cls, text) => {
   if (text !== undefined) node.textContent = text;
   return node;
 };
-const fmt = (ms) =>
-  `${Math.floor(ms / 60000)}:${((ms / 1000) % 60).toFixed(1).padStart(4, "0")}`;
+const fmt = (ms) => {
+  const ticks = Math.max(0, Math.round(ms / 100));
+  return `${Math.floor(ticks / 600)}:${((ticks % 600) / 10).toFixed(1).padStart(4, "0")}`;
+};
 const tasks = data.report.tasks || [];
 const base = tasks.length
   ? Math.min(
@@ -23,6 +25,7 @@ const rowKey = (path, task, cleanup, parent, step) =>
 const rows = [],
   clips = [],
   messages = [],
+  timelineEvents = [],
   rowMap = new Map();
 let number = 0,
   cursor = 0,
@@ -38,6 +41,7 @@ let number = 0,
   rate = 1,
   frame = 0,
   audioGeneration = 0,
+  segmentClip = null,
   lastFocus = null;
 const warnings = [];
 if (data.truncated) warnings.push("录制达到容量上限，以下为已保存的部分记录。");
@@ -46,6 +50,10 @@ const notice = (message) => {
   $("notice").textContent = [...warnings, message].filter(Boolean).join("\n");
 };
 notice("");
+function appendEvent(row, node, at) {
+  row.content.append(node);
+  timelineEvents.push({ node, at });
+}
 $("summary").textContent =
   `${data.report.status === "passed" ? "验收通过" : "验收失败"} · ${tasks.length} 次执行 · ${fmt(data.report.duration_ms)} · ${new Date(data.report.started_at).toLocaleString()}`;
 
@@ -307,8 +315,8 @@ recordedEvents.forEach((event, eventIndex) => {
     if (!message) {
       const box = el("div", "message");
       const body = el("div", "body");
-      box.append(el("div", "meta", label), body);
-      row.content.append(box);
+      box.append(el("div", "meta", `${fmt(at)} · ${label}`), body);
+      appendEvent(row, box, at);
       message = { body, parts: [], count: -1 };
       row.messages.set(key, message);
       messages.push(message);
@@ -319,12 +327,14 @@ recordedEvents.forEach((event, eventIndex) => {
     if (original !== undefined) {
       while (audioCopies.has(original)) original = audioCopies.get(original);
       const source = recordedEvents[original];
-      row.content.append(
+      appendEvent(
+        row,
         el(
           "div",
           "control audio-reference",
           `${label} · 同一录音已在 ${source.step} 中展示，回放只播放一次。`,
         ),
+        at,
       );
       return;
     }
@@ -333,16 +343,18 @@ recordedEvents.forEach((event, eventIndex) => {
       el(
         "div",
         "meta",
-        `${label} · ${((event.duration_ms || 0) / 1000).toFixed(2)} s`,
+        `${fmt(at)} · ${label} · 时长 ${fmt(event.duration_ms || 0)}`,
       ),
     );
     const audio = el("audio");
-    audio.controls = true;
+    // A segment uses the same transport and absolute clock as the full replay.
+    // Independent native controls would create a second, unsynchronized clock.
+    audio.hidden = true;
     audio.preload = "none";
     audio.src = event.audio_data;
     audio.setAttribute("aria-label", `${row.step.id} ${event.role || ""} 音频`);
     box.append(audio);
-    row.content.append(box);
+    appendEvent(row, box, at);
     const relayKey = JSON.stringify([
       event.path,
       event.task_id,
@@ -355,12 +367,31 @@ recordedEvents.forEach((event, eventIndex) => {
       event.direction !== "prepared" &&
       (!forwarded || !relaySent.has(relayKey));
     if (forwarded) relaySent.add(relayKey);
-    clips.push({
+    const button = el("button", "segment-play", "播放此段");
+    button.type = "button";
+    button.setAttribute(
+      "aria-label",
+      `从 ${fmt(at)} 播放 ${row.step.id} 的音频`,
+    );
+    box.append(button);
+    const clip = {
       node: audio,
+      button,
       offset: at,
       duration: event.duration_ms || 0,
       auto,
       active: false,
+    };
+    clips.push(clip);
+    button.addEventListener("click", () => {
+      if (playing && clip.active) {
+        pause();
+        return;
+      }
+      pause();
+      cursor = clip.offset;
+      segmentClip = clip;
+      startPlayback();
     });
     duration = Math.max(duration, at + (event.duration_ms || 0));
     audio.addEventListener("error", () => {
@@ -376,8 +407,10 @@ recordedEvents.forEach((event, eventIndex) => {
       .filter(Boolean)
       .join(" · ");
     if (text)
-      row.content.append(
+      appendEvent(
+        row,
         el("div", "control", `${fmt(at)} · ${label} · ${text}`),
+        at,
       );
   }
 });
@@ -394,19 +427,44 @@ $("play").disabled = !rows.length;
 function stopAudio() {
   audioGeneration++;
   clips.forEach((clip) => {
-    clip.node.pause();
     clip.active = false;
+    clip.node.pause();
+    clip.button.textContent = "播放此段";
   });
 }
 function pause() {
+  const master = clips.find((clip) => clip.active && !clip.node.ended);
+  if (playing && master) cursor = clipPosition(master);
   playing = false;
   cancelAnimationFrame(frame);
   stopAudio();
   $("play").textContent = "继续回放";
+  update(true);
+}
+function clipPosition(clip) {
+  const local = Math.max(
+    0,
+    Math.min(clip.duration, clip.node.currentTime * 1000),
+  );
+  return Math.min(duration, clip.offset + (Number.isFinite(local) ? local : 0));
+}
+function startPlayback() {
+  stopAudio();
+  if (cursor >= duration) cursor = 0;
+  playing = true;
+  origin = cursor;
+  started = performance.now();
+  $("play").textContent = "暂停";
+  notice("");
+  update(true);
+  frame = requestAnimationFrame(tick);
 }
 function update(progress) {
   $("seek").value = String(cursor);
   $("clock").textContent = `${fmt(cursor)} / ${fmt(duration)}`;
+  timelineEvents.forEach(({ node, at }) => {
+    node.hidden = progress && at > cursor;
+  });
   let focus = null;
   rows.forEach((row) => {
     const active =
@@ -444,26 +502,43 @@ function update(progress) {
 }
 function tick(now) {
   if (!playing) return;
-  cursor = Math.min(duration, origin + (now - started) * rate);
+  const master = clips.find((clip) => clip.active);
+  if (master) {
+    // Media time remains still while the browser loads or buffers audio. The
+    // event clock must remain still with it, including in a background tab.
+    cursor = master.node.ended
+      ? master.offset + master.duration
+      : clipPosition(master);
+    origin = cursor;
+    started = now;
+  } else {
+    cursor = Math.min(duration, origin + (now - started) * rate);
+  }
+  if (segmentClip && cursor >= segmentClip.offset + segmentClip.duration) {
+    pause();
+    return;
+  }
   update(true);
   clips.forEach((clip) => {
     const active =
-      clip.auto &&
+      (segmentClip ? clip === segmentClip : clip.auto) &&
       cursor >= clip.offset &&
       cursor < clip.offset + clip.duration;
     if (active && !clip.active) {
       clip.active = true;
+      clip.button.textContent = "暂停此段";
       clip.node.currentTime = Math.max(0, (cursor - clip.offset) / 1000);
       clip.node.playbackRate = rate;
       const generation = audioGeneration;
       clip.node.play().catch(() => {
         if (!playing || !clip.active || generation !== audioGeneration) return;
         pause();
-        notice("浏览器未能开始播放当前步骤的音频，请使用该步骤的音频控件。 ");
+        notice("浏览器未能开始播放当前步骤的音频，请点击播放此段重试。");
       });
     } else if (!active && clip.active) {
       clip.node.pause();
       clip.active = false;
+      clip.button.textContent = "播放此段";
     }
   });
   if (cursor >= duration) {
@@ -478,24 +553,19 @@ $("play").addEventListener("click", () => {
     pause();
     return;
   }
-  stopAudio();
-  if (cursor >= duration) cursor = 0;
-  playing = true;
-  origin = cursor;
-  started = performance.now();
-  $("play").textContent = "暂停";
-  notice("");
-  update(true);
-  frame = requestAnimationFrame(tick);
+  segmentClip = null;
+  startPlayback();
 });
 $("reset").addEventListener("click", () => {
   pause();
+  segmentClip = null;
   cursor = 0;
   update(false);
   $("play").textContent = "开始回放";
 });
 $("seek").addEventListener("input", () => {
   stopAudio();
+  segmentClip = null;
   cursor = Number($("seek").value);
   origin = cursor;
   started = performance.now();
