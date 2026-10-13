@@ -25,7 +25,11 @@ services/system/
 
 公共 processor 不包含任何资源删除 policy，也不会在 handler 返回后执行 generic complete。领域 handler 必须重新验证 marker、当前 lease 与准确 resource generation，然后在一个领域原子边界内删除资源及 source-owned marker、locator 和 task state。Outcome 分为 `deferred`、有界 retryable failure 与 terminal `failed`；operator retry 会保留 replay phase。完成的 task 立即消失，不保留 receipt 或 history。Production registry 包含 `friend_group/friend_group`、`workspace/workspace` 与 `peer/peer`；任一 source 只声明自己拥有且已注册 handler 的 kind。Peer handler 是跨领域协调者，但实际清理由各领域的 narrow adapter 完成；Peer 最终只在自己的 KV 留下永久 tombstone。
 
-共享 Peer task 在认领前执行领域的只读 admission；归属其他 Server 的任务留给 home worker，不消耗 lease 或重试次数。Admin retry 也执行 admission，拒绝时保留原 failed 状态与错误。`queued`、到期 `retry_wait` 和租约过期 `running` 在启动后继续；`failed` 不自动重排队。在线批量恢复复用这些状态转换，见 [CLI](../../../using/cli#pendingdeletion-恢复)。
+共享 Peer task 在认领前执行领域的只读 admission；归属其他 Server 的任务留给 home worker，不消耗 lease 或重试次数。Admin retry 也执行 admission，拒绝时保留原 failed 状态与错误。`queued`、到期 `retry_wait` 和租约过期 `running` 在启动后继续；普通终态 `failed` 不会被无限重试。领域通过只读 `FailedRecovery` policy 明确批准的历史缺陷，可在启动和每轮 scan 中自动恢复：每个 source/kind 每轮只读最多 `pending_deletion.page_size` 条 failed 索引，独立游标越过不安全记录，probe 与实际执行共用 dispatch、workers 和 attempt timeout。重新排队原子比较已观察的 marker generation、phase、错误、次数及时间；并发新失败不会被旧 probe 覆盖。
+
+Peer 自动 policy 只批准 `phase=finalize`、`peer_replacement_ambiguous` 且 version-2 plan 唯一差异为 SQL Firmware 投影的记录，仍须核对固定 home、完整原始 Peer 和本区空的 Contact/Social/Workspace 快照。归属 Server 自动重新排队、升级计划并执行领域清理，不需要运维命令。计划升级为 version 3 后不再通过此 policy 重置预算；后续失败沿用普通有界 retry／failed 规则。取消或 probe 错误不改变 failed 状态。`recovery_probe`、`recovery_rejected`、`recovery_queued` 和扫描／转换错误进入现有有界 metrics。
+
+在线批量恢复用于可选运维和诊断，复用同一状态转换，见 [CLI](../../../using/cli#pendingdeletion-恢复)。
 
 Admin list/get/retry、processor 与领域一致性校验显式使用 Redis writer 读取。领域 finalization 可以附加准确原记录的 CAS 条件，并与 task lease 及索引删除在同一原子 mutation 提交。读取主库不等于跨 Redis、SQL 和 Provider 的全局事务。
 

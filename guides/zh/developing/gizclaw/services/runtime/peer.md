@@ -35,7 +35,7 @@ Social system Workspace 可以在多个区域落库，现有共享记录不包�
 
 支持读取 version 2 的无子资源计划：完整 Peer 字段必须一致，只允许计划含 SQL Firmware 投影而当前 KV 不含该字段的差异；在 home Server 重新检查 Contact、Social 与 Workspace 均为空后，条件写入有 home 与原始 generation 的计划。旧计划有子资源、home 发现计划遗漏的数据或 plan 版本不受支持时保留原计划，返回 `retirement_scope_ambiguous` 或 `retirement_plan_unsupported`。真实 KV Firmware 改变、其他字段改变和 Peer 缺失均不能绕过保护。
 
-完成时同一 guarded KV mutation 删除 Peer payload、secondary index、plan、marker、locator、task 与任务索引，并在 `by-pubkey/<public-key>` 写入唯一的 `{"version":1,"state":"deleted"}` tombstone。Admin get/list 从 sentinel 派生 `{public_key,status=deleted}`；其他入口返回 `PEER_DELETED`，同一 public key 永久不能重新注册。固定 route 与 API Key retired marker 保留：前者保留 home 证据并防止重指派，后者是并发凭据创建围栏。恢复入口见 [CLI PendingDeletion](../../../../using/cli#pendingdeletion-恢复)。
+完成时同一 guarded KV mutation 删除 Peer payload、secondary index、plan、marker、locator、task 与任务索引，并在 `by-pubkey/<public-key>` 写入唯一的 `{"version":1,"state":"deleted"}` tombstone。Admin get/list 从 sentinel 派生 `{public_key,status=deleted}`；其他入口返回 `PEER_DELETED`，同一 public key 永久不能重新注册。固定 route 与 API Key retired marker 保留：前者保留 home 证据并防止重指派，后者是并发凭据创建围栏。home Server 会在启动和后台扫描中自动发现符合精确 Firmware 误判条件的旧 failed：要求 finalize 阶段、对应错误码、旧计划带 SQL Firmware 而 raw KV 不带、无子资源且本区快照为空。恢复和正常任务使用同一有界 worker，原任务状态经 CAS 才重新排队；升级后的计划不再自动重置重试次数。归属不明、真实替换、缺失和不明确区域依赖保持 failed。可选运维入口见 [CLI PendingDeletion](../../../../using/cli#pendingdeletion-恢复)。
 
 Edge bootstrap 对已是 active Edge 的记录不重复写入。多个 Server 同时初始化同一 Edge 时，CAS 冲突最多重读重试 8 次；每次从最新记录合并角色和状态，保留并发更新的元数据与标识符索引，删除围栏仍然生效。
 

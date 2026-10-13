@@ -484,6 +484,8 @@ jitter 和 3 秒 think time，16 个任务各请求三次长语音回复。它�
 
 ## PendingDeletion 恢复
 
+正常删除由归属 Server 的后台 worker 自动完成。已确认的旧 Firmware 投影误判 failed 也由 home Server 在启动和后续扫描时自动核查并恢复，无需先执行 CLI。它只处理符合精确错误、旧计划、raw generation 和本区空快照条件的记录；其他终态失败保持可诊断状态。下面的在线命令用于可选预览、诊断和显式重试，不是正常清理的必经步骤。
+
 `admin pending-deletions` 使用当前或指定 context 连接在线区域 Server。`recover` 默认只读，一次最多扫描 500 条 failed task，并输出逐条候选、`source/kind/last_error_code` 分组计数及 `next_cursor`；数量仅代表这一页。`--source` 必填，`--kind`、`--error-code`、`--from` 和 `--until` 限定范围；时间使用 RFC3339，前者包含、后者不包含。
 
 ```sh
@@ -504,7 +506,7 @@ gizclaw admin pending-deletions get <deletion-id> --source peer --context region
 | --- | --- |
 | `peer_home_mismatch` | 从固定 route 确认 home，在该区域 Server 的 context 上重试；不重指派 route。 |
 | `peer_home_unknown`／`peer_home_invalid` | 保留 marker，核查原始注册、route 与各区域数据归属；不能靠本区空表或手写 owner 猜测。 |
-| `peer_replacement_ambiguous` | 修复投影比较的 Server 可恢复受支持的旧计划；真实 KV generation 改变仍拒绝，保留原记录与计划供核查。 |
+| `peer_replacement_ambiguous` | home Server 自动恢复经核实的旧 Firmware 投影误判；真实 KV generation 改变仍拒绝，保留原记录与计划供核查。 |
 | `social_cleanup_failed` | 先修复确切 Social 存储或依赖错误，再用相同 retry；涉及跨区域副本的记录仍须完成各区域证据核查。 |
 | `retirement_scope_ambiguous`／`social_replica_scope_unknown` | 保留任务和围栏；当前入口不提供强制完成或跳过区域依赖的参数。核查计划选中的精确 ID 与对应区域，不能以删除 task 替代领域清理。 |
 | `peer_record_missing` | 核查记录是否损坏、丢失或被外部删除；没有准确原始 generation 时不能通过本入口完成。 |

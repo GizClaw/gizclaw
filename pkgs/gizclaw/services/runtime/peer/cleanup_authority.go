@@ -137,3 +137,50 @@ func peerFingerprint(raw []byte) string {
 	sum := sha256.Sum256(raw)
 	return hex.EncodeToString(sum[:])
 }
+
+// CanRecoverFailed authorizes one automatic recovery only for a proven legacy
+// Firmware display-projection failure. A version-3 plan cannot reset its retry
+// budget through this policy; uncertain identity or regional data is retained.
+func (h DeletionHandler) CanRecoverFailed(ctx context.Context, task pendingdeletion.Task) (bool, error) {
+	if task.Status != pendingdeletion.StatusFailed || task.Phase != pendingdeletion.PhaseFinalize || task.LastErrorCode != "peer_replacement_ambiguous" {
+		return false, nil
+	}
+	ctx = kv.WithPrimaryReads(ctx)
+	key, err := validatePeerDeletionClaim(pendingdeletion.Claim{Task: task})
+	if err != nil {
+		return false, err
+	}
+	if err := h.checkHome(ctx, key); err != nil {
+		return false, err
+	}
+	current, raw, err := h.retainedPeer(ctx, key)
+	if err != nil {
+		return false, err
+	}
+	if current.FirmwareId != nil {
+		return false, nil
+	}
+	data, err := h.Server.Store.Get(ctx, peerRetirementPlanKey(task.Record.DeletionID))
+	if errors.Is(err, kv.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	plan, err := validateRetirementPlan(data, pendingdeletion.Claim{Task: task}, key)
+	if err != nil {
+		return false, err
+	}
+	if plan.Version != 2 || plan.Peer.FirmwareId == nil || *plan.Peer.FirmwareId == "" {
+		return false, nil
+	}
+	if err := h.checkPlan(plan, current, raw); err != nil {
+		return false, err
+	}
+	if _, _, err := h.emptyLegacyHome(ctx, key); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+var _ pendingdeletion.FailedRecovery = DeletionHandler{}

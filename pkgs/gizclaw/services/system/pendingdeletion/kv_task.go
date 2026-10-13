@@ -138,6 +138,30 @@ func (s KVSource) Retry(ctx context.Context, deletionID string, now time.Time) (
 	if task.Status != StatusFailed {
 		return Task{}, ErrConflict
 	}
+	return s.requeueFailed(ctx, task, raw, now)
+}
+
+// RetryFailed requeues only the unchanged failed observation approved by a
+// domain recovery probe. The write and every task index update share one CAS.
+func (s KVSource) RetryFailed(ctx context.Context, observed Task, now time.Time) (Task, error) {
+	ctx = kv.WithPrimaryReads(ctx)
+	if err := ValidateTask(observed); err != nil {
+		return Task{}, err
+	}
+	if observed.Source != s.Name() {
+		return Task{}, ErrConflict
+	}
+	current, raw, err := s.loadTask(ctx, observed.Record.DeletionID)
+	if err != nil {
+		return Task{}, err
+	}
+	if !sameFailedObservation(current, observed) {
+		return Task{}, ErrConflict
+	}
+	return s.requeueFailed(ctx, current, raw, now)
+}
+
+func (s KVSource) requeueFailed(ctx context.Context, task Task, raw []byte, now time.Time) (Task, error) {
 	task.Status = StatusQueued
 	task.FailureCount = 0
 	task.NextAttemptAt = now

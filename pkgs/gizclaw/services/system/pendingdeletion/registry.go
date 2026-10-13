@@ -64,6 +64,11 @@ func (r *Registry) Register(source Source, handlers ...Handler) error {
 		if isNilInterface(handler) {
 			return fmt.Errorf("pending deletion: source %q has nil handler", name)
 		}
+		if _, recovers := handler.(FailedRecovery); recovers {
+			if _, conditional := source.(FailedRecoverySource); !conditional {
+				return fmt.Errorf("pending deletion: source %q lacks conditional failed recovery", name)
+			}
+		}
 		kind := handler.Kind()
 		if !owned[kind] {
 			return fmt.Errorf("pending deletion: source %q handler owns unadvertised kind %q", name, kind)

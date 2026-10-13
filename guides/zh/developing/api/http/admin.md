@@ -53,4 +53,4 @@ Resource 专属 Spec 与 Resource 放在同一文件；Admin API 不应通过 `s
 
 RegistrationToken create/put 接受 enabled（默认 true）、可空 expires_at 与 max_activations，响应返回 activation_count。修改只限制新激活，保留已有设备绑定；具体事务、迁移和幂等语义见 [RuntimeProfile 与设备注册](../../gizclaw/services/runtime-profile#registrationtoken)。
 
-Peer retry 在原状态转换前校验固定 home 与原始 Peer generation；归属其他区域、未知归属、记录缺失、generation 改变或缺少区域来源的计划返回 `409` 及领域安全错误码，原 failed 状态不变。管理读取与执行一致性校验使用中央 Redis writer。`200` retry 表示已排队；必须继续 get 或使用 [在线恢复 CLI](../../../using/cli#pendingdeletion-恢复) 观察执行结果。`failed` 不会因为 Server 重启而自动恢复。
+Peer retry 在原状态转换前校验固定 home 与原始 Peer generation；归属其他区域、未知归属、记录缺失、generation 改变或缺少区域来源的计划返回 `409` 及领域安全错误码，原 failed 状态不变。管理读取与执行一致性校验使用中央 Redis writer。`200` retry 表示已排队；必须继续 get 或使用 [在线恢复 CLI](../../../using/cli#pendingdeletion-恢复) 观察执行结果。普通 `failed` 不会因为 Server 重启而盲目重试；已确认的旧 Firmware 投影误判由固定 home Server 的后台 policy 自动恢复，受同样的归属、generation 和区域数据校验保护。

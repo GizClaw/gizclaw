@@ -586,6 +586,8 @@ benchmarks without changing what their defaults measure.
 
 ## PendingDeletion recovery
 
+Normal deletion runs automatically on the owning Server. Proven legacy Firmware projection failures are also discovered and recovered by that home Server on startup and later scans, without a CLI call. Eligibility requires the precise error, version-2 plan, raw generation and empty fresh home snapshot. Other terminal failures remain retained. These online commands provide optional preview, diagnosis and explicit retry.
+
 `admin pending-deletions recover` connects to an online regional Server and defaults to read-only preview. `--source` is required. Each invocation scans at most `--limit` failed tasks (default 100, maximum 500), optionally filtering by `--kind`, `--error-code`, inclusive RFC3339 `--from` and exclusive `--until`. NDJSON output includes candidates, counts by source/kind/error and the next cursor. Counts cover this page only.
 
 ```sh

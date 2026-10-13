@@ -546,3 +546,98 @@ func TestPeerRetirementRequiresReplicaProofOnlyForSelectedSocialWorkspaces(t *te
 	plan.Social.Friends = []friend.PeerRetirementFriend{{FirstPeer: "retiring", SecondPeer: "foreign"}}
 	requireDeletionOutcome(t, checkSocialRetirementScope(plan), "social_replica_scope_unknown")
 }
+
+func TestAutomaticPeerRecoveryRequiresExactLegacyProjectionAndHomeProof(t *testing.T) {
+	for _, scenario := range []string{"eligible", "new_plan", "missing_projection", "different_error", "wrong_phase", "replacement", "persisted_firmware", "unknown_home", "foreign_home", "hidden_home_workspace", "legacy_children"} {
+		t.Run(scenario, func(t *testing.T) {
+			h, claim, adapters, key := newDeletionFixture(t)
+			plan, err := h.loadOrCreatePlan(t.Context(), claim, key)
+			if err != nil {
+				t.Fatal(err)
+			}
+			claim, err = h.Source.Checkpoint(t.Context(), claim, pendingdeletion.PhaseFinalize, claim.UpdatedAt.Add(time.Second))
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan.Version = 2
+			plan.HomeServer = ""
+			plan.PeerFingerprint = ""
+			plan.Peer.FirmwareId = new("registration-firmware")
+			code := "peer_replacement_ambiguous"
+			switch scenario {
+			case "new_plan":
+				plan.Version = retirementPlanVersion
+				plan.HomeServer = h.Server.ServerPublicKey.String()
+			case "missing_projection":
+				plan.Peer.FirmwareId = nil
+			case "different_error":
+				code = "social_cleanup_failed"
+			case "wrong_phase":
+				claim, err = h.Source.Checkpoint(t.Context(), claim, pendingdeletion.PhaseValidate, claim.UpdatedAt.Add(time.Second))
+				if err != nil {
+					t.Fatal(err)
+				}
+			case "replacement", "persisted_firmware":
+				current, err := h.Server.getStored(t.Context(), key)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if scenario == "replacement" {
+					current.UpdatedAt = current.UpdatedAt.Add(time.Second)
+				} else {
+					current.FirmwareId = new("different-persisted-firmware")
+				}
+				data, err := json.Marshal(current)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if err := h.Server.Store.Set(t.Context(), peerKey(key.String()), data); err != nil {
+					t.Fatal(err)
+				}
+			case "unknown_home":
+				h.Assignments = deletionAssignmentFunc(func(context.Context, giznet.PublicKey) (apitypes.PeerAssignment, error) {
+					return apitypes.PeerAssignment{}, peerroute.ErrAssignmentNotFound
+				})
+			case "foreign_home":
+				h.Server.ServerPublicKey = giznet.PublicKey{101}
+			case "hidden_home_workspace":
+				h.Workspaces = pendingWorkspaceAdapters{adapters}
+			case "legacy_children":
+				plan.WorkspaceIDs = []string{"unproven-child"}
+			}
+			data, err := json.Marshal(plan)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := h.Server.Store.Set(t.Context(), peerRetirementPlanKey(claim.Record.DeletionID), data); err != nil {
+				t.Fatal(err)
+			}
+			if err := h.Source.Fail(t.Context(), claim, code, "retained diagnostic", true, claim.UpdatedAt.Add(time.Second), claim.UpdatedAt.Add(time.Second), 3); err != nil {
+				t.Fatal(err)
+			}
+			task, err := h.Source.GetTask(t.Context(), claim.Record.DeletionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rawBefore, err := h.Server.Store.Get(t.Context(), kv.Key{"pending-deletion", "task", claim.Record.DeletionID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			eligible, probeErr := h.CanRecoverFailed(t.Context(), task)
+			if scenario == "eligible" {
+				if !eligible || probeErr != nil {
+					t.Fatalf("eligible=%v error=%v", eligible, probeErr)
+				}
+			} else if eligible {
+				t.Fatal("unsafe task eligible for automatic recovery")
+			}
+			rawAfter, err := h.Server.Store.Get(t.Context(), kv.Key{"pending-deletion", "task", claim.Record.DeletionID})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(rawAfter) != string(rawBefore) || adapters.sessionCalls+adapters.bindingCalls+adapters.quiesceCalls != 0 {
+				t.Fatal("eligibility probe mutated task or domain data")
+			}
+		})
+	}
+}

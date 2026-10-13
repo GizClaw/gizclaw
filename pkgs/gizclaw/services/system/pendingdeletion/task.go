@@ -122,6 +122,19 @@ type TaskAdmission interface {
 	CheckTask(context.Context, Task) error
 }
 
+// FailedRecovery is an optional domain policy for automatic recovery of a
+// narrowly identified historical defect. The probe must be read-only; false
+// or an error retains the failed task unchanged.
+type FailedRecovery interface {
+	CanRecoverFailed(context.Context, Task) (bool, error)
+}
+
+// FailedRecoverySource conditionally requeues the exact failed observation.
+// A concurrent retry, new failure or marker generation must return ErrConflict.
+type FailedRecoverySource interface {
+	RetryFailed(context.Context, Task, time.Time) (Task, error)
+}
+
 // OutcomeClass selects the durable transition after a handler error.
 type OutcomeClass string
 

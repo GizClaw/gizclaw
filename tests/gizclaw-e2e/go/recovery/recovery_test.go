@@ -133,7 +133,7 @@ func (f *fixture) seedWorkspace(t *testing.T, home int, owner, id string) {
 	must(t, f.regions[home].history.Append(t.Context(), []memory.HistoryEntry{{ConversationID: id, ID: "history-fixture", Role: memory.RoleUser, Text: "fixture message", CreatedAt: time.Now().UTC(), Assets: []memory.HistoryAsset{{Name: assetName, MIMEType: "audio/opus", Bytes: 13}}}}))
 }
 
-func (f *fixture) seedFailed(t *testing.T, item apitypes.Peer, code string, legacy bool) pendingdeletion.Task {
+func (f *fixture) seedFailed(t *testing.T, item apitypes.Peer, code string, legacy bool, beforeFail ...func(pendingdeletion.Record)) pendingdeletion.Task {
 	t.Helper()
 	// Future eligibility prevents live workers claiming the fixture between
 	// its atomic publication and the controlled terminal transition.
@@ -158,6 +158,9 @@ func (f *fixture) seedFailed(t *testing.T, item apitypes.Peer, code string, lega
 		must(t, f.records.Set(t.Context(), kv.Key{"peer-retirement-plans", record.DeletionID}, data))
 		claim, err = f.source.Checkpoint(t.Context(), claim, pendingdeletion.PhaseFinalize, now)
 		must(t, err)
+	}
+	for _, prepare := range beforeFail {
+		prepare(record)
 	}
 	must(t, f.source.Fail(t.Context(), claim, code, "isolated fixture failure", true, now, now, 10))
 	task, err := f.source.GetTask(t.Context(), record.DeletionID)
@@ -308,19 +311,25 @@ func TestRegionalRecovery(t *testing.T) {
 		t.Log("home PG Workspace/binding/History and object/audio assets removed; API Keys revoked; Redis task/marker/locator/plan/index removed; permanent fences retained")
 	})
 
-	t.Run("legacy_failed_recovery_and_foreign_retry", func(t *testing.T) {
-		item := f.seedPeer(t, 0)
-		task := f.seedFailed(t, item, "peer_replacement_ambiguous", true)
-		retryTask(t, f.regions[1], task, 409, "peer_home_mismatch")
-		after, err := f.source.GetTask(t.Context(), task.Record.DeletionID)
-		must(t, err)
-		if after.Status != pendingdeletion.StatusFailed || after.LastErrorCode != task.LastErrorCode {
-			t.Fatal("foreign retry changed failed task")
-		}
-		retryTask(t, f.regions[0], task, 200, "")
-		f.requireComplete(t, item, task.Record.DeletionID, 0)
-		retryTask(t, f.regions[0], task, 404, "")
-	})
+	for home := range 2 {
+		t.Run(fmt.Sprintf("automatic_legacy_recovery_home_%d", home), func(t *testing.T) {
+			release := holdWorkspaceSnapshots(t, f.regions[home])
+			item := f.seedPeer(t, home)
+			task := f.seedFailed(t, item, "peer_replacement_ambiguous", true)
+			retryTask(t, f.regions[1-home], task, 409, "peer_home_mismatch")
+			after, err := f.source.GetTask(t.Context(), task.Record.DeletionID)
+			must(t, err)
+			if after.Status != pendingdeletion.StatusFailed || !after.UpdatedAt.Equal(task.UpdatedAt) || after.LastErrorCode != task.LastErrorCode {
+				t.Fatal("foreign Server changed failed state while home proof was blocked")
+			}
+			release()
+			// No retry request is issued to the home Server. Its worker must
+			// discover, validate and complete the historical failure itself.
+			f.requireComplete(t, item, task.Record.DeletionID, home)
+			retryTask(t, f.regions[home], task, 404, "")
+			t.Log("home automatically recovered its failed legacy task without operator retry; foreign retry preserved failed state")
+		})
+	}
 
 	t.Run("second_region_owns_its_cleanup", func(t *testing.T) {
 		item := f.seedPeer(t, 1)
@@ -338,25 +347,26 @@ func TestRegionalRecovery(t *testing.T) {
 					home = -1
 				}
 				item := f.seedPeer(t, home)
-				task := f.seedFailed(t, item, "peer_replacement_ambiguous", true)
 				want := ""
-				switch scenario {
-				case "replacement":
-					changed := item
-					changed.UpdatedAt = changed.UpdatedAt.Add(time.Second)
-					data, err := json.Marshal(changed)
-					must(t, err)
-					must(t, f.records.Set(t.Context(), kv.Key{"by-pubkey", item.PublicKey}, data))
-					want = "peer_replacement_ambiguous"
-				case "unknown":
-					want = "peer_home_unknown"
-				case "missing":
-					must(t, f.records.Delete(t.Context(), kv.Key{"by-pubkey", item.PublicKey}))
-					want = "peer_record_missing"
-				case "hidden_home_data":
-					f.seedWorkspace(t, 0, item.PublicKey, "hidden-home-data")
-					want = "retirement_scope_ambiguous"
-				}
+				task := f.seedFailed(t, item, "peer_replacement_ambiguous", true, func(pendingdeletion.Record) {
+					switch scenario {
+					case "replacement":
+						changed := item
+						changed.UpdatedAt = changed.UpdatedAt.Add(time.Second)
+						data, err := json.Marshal(changed)
+						must(t, err)
+						must(t, f.records.Set(t.Context(), kv.Key{"by-pubkey", item.PublicKey}, data))
+						want = "peer_replacement_ambiguous"
+					case "unknown":
+						want = "peer_home_unknown"
+					case "missing":
+						must(t, f.records.Delete(t.Context(), kv.Key{"by-pubkey", item.PublicKey}))
+						want = "peer_record_missing"
+					case "hidden_home_data":
+						f.seedWorkspace(t, 0, item.PublicKey, "hidden-home-data")
+						want = "retirement_scope_ambiguous"
+					}
+				})
 				if scenario == "hidden_home_data" {
 					retryTask(t, f.regions[0], task, 200, "")
 					await(t, 10*time.Second, func() bool {
@@ -375,6 +385,32 @@ func TestRegionalRecovery(t *testing.T) {
 			})
 		}
 	})
+	t.Run("automatic_backlog_pages_past_unsafe_failures", func(t *testing.T) {
+		unsafe, err := f.source.ListTasks(t.Context(), pendingdeletion.SourceListOptions{Statuses: map[pendingdeletion.Status]bool{pendingdeletion.StatusFailed: true}, Limit: 100})
+		must(t, err)
+		if len(unsafe) < 4 {
+			t.Fatal("unsafe retained controls are missing")
+		}
+		var peers []apitypes.Peer
+		var tasks []pendingdeletion.Task
+		for i := range 24 {
+			item := f.seedPeer(t, i%2)
+			peers = append(peers, item)
+			tasks = append(tasks, f.seedFailed(t, item, "peer_replacement_ambiguous", true))
+		}
+		for i, task := range tasks {
+			f.requireComplete(t, peers[i], task.Record.DeletionID, i%2)
+		}
+		for _, before := range unsafe {
+			after, err := f.source.GetTask(t.Context(), before.Record.DeletionID)
+			must(t, err)
+			if after.Status != before.Status || after.FailureCount != before.FailureCount || after.LastErrorCode != before.LastErrorCode || !after.UpdatedAt.Equal(before.UpdatedAt) {
+				t.Fatal("automatic backlog scan reset an unsafe failure")
+			}
+		}
+		t.Log("24 legacy failures exceeded one page and completed automatically across both homes; retained unsafe failures and retry budgets were unchanged")
+	})
+
 	canary, err := f.records.Get(t.Context(), kv.Key{"unrelated", "canary"})
 	must(t, err)
 	if string(canary) != "keep" {
@@ -483,19 +519,31 @@ func TestPrepareInterruptedRecovery(t *testing.T) {
 		exists, _ := f.redis.Exists(t.Context(), "api-keys:retired:"+item.PublicKey).Result()
 		return err == nil && state.Status == pendingdeletion.StatusRunning && exists == 1
 	})
-	data, err := json.Marshal(struct {
-		Peer apitypes.Peer
-		Task string
-	}{item, task.Record.DeletionID})
+	state := interruptionState{Peer: item, Task: task.Record.DeletionID}
+	data, err := json.Marshal(state)
 	must(t, err)
 	must(t, os.WriteFile("/evidence/interrupted.json", data, 0600))
 	await(t, 30*time.Second, func() bool { _, err := os.Stat("/evidence/server-killed"); return err == nil })
-	state, err := f.source.GetTask(t.Context(), task.Record.DeletionID)
+	running, err := f.source.GetTask(t.Context(), task.Record.DeletionID)
 	must(t, err)
-	if state.Status != pendingdeletion.StatusRunning {
-		t.Fatalf("crash did not preserve live lease: %s", state.Status)
+	if running.Status != pendingdeletion.StatusRunning {
+		t.Fatalf("crash did not preserve live lease: %s", running.Status)
 	}
 	must(t, tx.Rollback())
+	state.LegacyPeer = f.seedPeer(t, 0)
+	legacy := f.seedFailed(t, state.LegacyPeer, "peer_replacement_ambiguous", true)
+	state.LegacyTask = legacy.Record.DeletionID
+	// Only the foreign Server is alive. Two scan intervals must not let it
+	// requeue work whose SQL authority belongs to the stopped home.
+	time.Sleep(600 * time.Millisecond)
+	retained, err := f.source.GetTask(t.Context(), legacy.Record.DeletionID)
+	must(t, err)
+	if retained.Status != pendingdeletion.StatusFailed || !retained.UpdatedAt.Equal(legacy.UpdatedAt) {
+		t.Fatal("foreign Server recovered a stopped home's task")
+	}
+	data, err = json.Marshal(state)
+	must(t, err)
+	must(t, os.WriteFile("/evidence/interrupted.json", data, 0600))
 	t.Log("real home worker killed after API-key retirement while SQL binding deletion was blocked; task and lease retained")
 }
 
@@ -504,15 +552,13 @@ func TestResumeInterruptedRecovery(t *testing.T) {
 		t.Skip("requires killed home worker")
 	}
 	f := openFixture(t)
-	var state struct {
-		Peer apitypes.Peer
-		Task string
-	}
+	var state interruptionState
 	data, err := os.ReadFile("/evidence/interrupted.json")
 	must(t, err)
 	must(t, json.Unmarshal(data, &state))
 	f.requireComplete(t, state.Peer, state.Task, 0)
-	t.Log("restarted home worker reclaimed expired lease and completed exact task")
+	f.requireComplete(t, state.LegacyPeer, state.LegacyTask, 0)
+	t.Log("restarted home worker resumed the expired lease and automatically recovered its persisted legacy failure without operator retry")
 }
 
 func TestRecoveryReadsCentralWriterDespiteStaleReplica(t *testing.T) {
@@ -522,6 +568,7 @@ func TestRecoveryReadsCentralWriterDespiteStaleReplica(t *testing.T) {
 	// A real read-only replica is disconnected after initial synchronization.
 	must(t, replica.ReplicaOf(t.Context(), "127.0.0.1", "1").Err())
 	defer func() { must(t, replica.ReplicaOf(context.Background(), "redis", "6379").Err()) }()
+	release := holdWorkspaceSnapshots(t, f.regions[0])
 	item := f.seedPeer(t, 0)
 	task := f.seedFailed(t, item, "peer_replacement_ambiguous", true)
 	if count, err := replica.Exists(t.Context(), "peers:records:pending-deletion:task:"+task.Record.DeletionID).Result(); err != nil || count != 0 {
@@ -538,9 +585,9 @@ func TestRecoveryReadsCentralWriterDespiteStaleReplica(t *testing.T) {
 	if !found {
 		t.Fatal("Admin list read stale regional replica")
 	}
-	retryTask(t, f.regions[0], task, 200, "")
+	release()
 	f.requireComplete(t, item, task.Record.DeletionID, 0)
-	t.Log("Admin selection, retry, handler and atomic finalization used central writer while regional reader lacked the task")
+	t.Log("Admin selection and automatic recovery used central writer while regional reader lacked the task")
 }
 
 func await(t *testing.T, timeout time.Duration, check func() bool) {
@@ -571,4 +618,28 @@ func required(t *testing.T, name string) string {
 		t.Fatalf("%s is required", name)
 	}
 	return v
+}
+
+type interruptionState struct {
+	Peer       apitypes.Peer
+	Task       string
+	LegacyPeer apitypes.Peer
+	LegacyTask string
+}
+
+func holdWorkspaceSnapshots(t *testing.T, r region) func() {
+	t.Helper()
+	tx, err := r.db.BeginTxx(t.Context(), nil)
+	must(t, err)
+	_, err = tx.ExecContext(t.Context(), `LOCK TABLE workspaces IN ACCESS EXCLUSIVE MODE`)
+	must(t, err)
+	released := false
+	release := func() {
+		if !released {
+			must(t, tx.Rollback())
+			released = true
+		}
+	}
+	t.Cleanup(release)
+	return release
 }

@@ -327,16 +327,9 @@ func (h DeletionHandler) currentTime() time.Time {
 // adoptLegacyPlan only adopts a dependency-free legacy plan after inspecting
 // the real home SQL and Social stores. It cannot erase a broader old snapshot.
 func (h DeletionHandler) adoptLegacyPlan(ctx context.Context, claim pendingdeletion.Claim, key giznet.PublicKey, old []byte, current apitypes.Peer, raw []byte) (retirementPlan, error) {
-	snapshot, err := h.Workspaces.SnapshotPeerWorkspaces(ctx, key.String())
+	snapshot, socialSnapshot, err := h.emptyLegacyHome(ctx, key)
 	if err != nil {
-		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Home Workspace snapshot failed", err)
-	}
-	socialSnapshot, err := h.Social.SnapshotPeerSocial(ctx, key.String())
-	if err != nil {
-		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Home Social snapshot failed", err)
-	}
-	if len(snapshot.Workspaces)+len(socialSnapshot.Contacts)+len(socialSnapshot.Friends)+len(socialSnapshot.Groups) != 0 {
-		return retirementPlan{}, pendingdeletion.Terminal("retirement_scope_ambiguous", "Home data is absent from the legacy retirement plan; retain the plan for regional repair", nil)
+		return retirementPlan{}, err
 	}
 	plan := retirementPlan{Version: retirementPlanVersion, HomeServer: h.Server.ServerPublicKey.String(), PeerFingerprint: peerFingerprint(raw), MarkerFingerprint: claim.MarkerFingerprint, Peer: current, Workspaces: snapshot, Social: socialSnapshot}
 	data, err := json.Marshal(plan)
@@ -354,4 +347,22 @@ func (h DeletionHandler) adoptLegacyPlan(ctx context.Context, claim pendingdelet
 		return retirementPlan{}, pendingdeletion.ErrConflict
 	}
 	return plan, nil
+}
+
+func (h DeletionHandler) emptyLegacyHome(ctx context.Context, key giznet.PublicKey) (workspace.PeerRetirementSnapshot, social.PeerSnapshot, error) {
+	if h.Workspaces == nil || h.Social == nil {
+		return workspace.PeerRetirementSnapshot{}, social.PeerSnapshot{}, pendingdeletion.Retryable("service_unavailable", "Home retirement services are unavailable", nil)
+	}
+	snapshot, err := h.Workspaces.SnapshotPeerWorkspaces(ctx, key.String())
+	if err != nil {
+		return workspace.PeerRetirementSnapshot{}, social.PeerSnapshot{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Home Workspace snapshot failed", err)
+	}
+	socialSnapshot, err := h.Social.SnapshotPeerSocial(ctx, key.String())
+	if err != nil {
+		return workspace.PeerRetirementSnapshot{}, social.PeerSnapshot{}, pendingdeletion.Retryable("social_snapshot_failed", "Home Social snapshot failed", err)
+	}
+	if len(snapshot.Workspaces)+len(socialSnapshot.Contacts)+len(socialSnapshot.Friends)+len(socialSnapshot.Groups) != 0 {
+		return workspace.PeerRetirementSnapshot{}, social.PeerSnapshot{}, pendingdeletion.Terminal("retirement_scope_ambiguous", "Home data is absent from the legacy retirement plan; retain the plan for regional repair", nil)
+	}
+	return snapshot, socialSnapshot, nil
 }

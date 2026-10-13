@@ -235,3 +235,54 @@ func TestKVFinalizeRejectsUnsafeDomainKeys(t *testing.T) {
 		t.Fatalf("task after rejected finalize = %v", err)
 	}
 }
+
+func TestConditionalFailedRetryRejectsNewFailureAndGeneration(t *testing.T) {
+	for _, change := range []string{"unchanged", "new_failure", "new_generation"} {
+		t.Run(change, func(t *testing.T) {
+			source := KVSource{Store: kv.NewMemory(nil), SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+			now := time.Now().Add(-time.Minute)
+			observed := seedFailedRecoveryTask(t, source, "conditional-recovery", now)
+			if change != "unchanged" {
+				if _, err := source.Retry(t.Context(), observed.Record.DeletionID, now.Add(2*time.Second)); err != nil {
+					t.Fatal(err)
+				}
+				claim, ok, err := source.Claim(t.Context(), Reference{Source: source.Name(), DeletionID: observed.Record.DeletionID, MarkerFingerprint: observed.MarkerFingerprint}, now.Add(2*time.Second), time.Minute)
+				if err != nil || !ok {
+					t.Fatal(err)
+				}
+				if change == "new_generation" {
+					if err := source.Finalize(t.Context(), claim, now.Add(2*time.Second), nil); err != nil {
+						t.Fatal(err)
+					}
+					seedFailedRecoveryTask(t, source, "conditional-recovery", now.Add(3*time.Second))
+				} else if err := source.Fail(t.Context(), claim, "different_failure", "new safe error", true, now.Add(3*time.Second), now.Add(3*time.Second), 3); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := source.GetTask(t.Context(), observed.Record.DeletionID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			retried, err := source.RetryFailed(t.Context(), observed, time.Now())
+			if change == "unchanged" {
+				if err != nil || retried.Status != StatusQueued || retried.Phase != PhaseFinalize || retried.FailureCount != 0 {
+					t.Fatalf("retry=%+v, %v", retried, err)
+				}
+				if _, err := source.RetryFailed(t.Context(), observed, time.Now()); !errors.Is(err, ErrConflict) {
+					t.Fatalf("repeated observation=%v", err)
+				}
+			} else {
+				if !errors.Is(err, ErrConflict) {
+					t.Fatalf("stale recovery=%v", err)
+				}
+				after, err := source.GetTask(t.Context(), observed.Record.DeletionID)
+				if err != nil {
+					t.Fatal(err)
+				}
+				if !sameFailedObservation(after, before) {
+					t.Fatal("stale probe overwrote new failure")
+				}
+			}
+		})
+	}
+}
