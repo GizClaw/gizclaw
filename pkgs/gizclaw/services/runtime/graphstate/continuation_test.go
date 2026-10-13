@@ -76,9 +76,22 @@ func newContinuationFixture(t *testing.T, total int64) *continuationFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	records, err := memory.NewSQLHistoryStore(t.Context(), db, "continuation_history", 0)
+	records, err := memory.NewSQLHistoryStore(t.Context(), db, "continuation_history", time.Hour)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if db.DriverName() == "postgres" {
+		var schema string
+		if err := db.Get(&schema, "SELECT current_schema()"); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := db.ExecContext(ctx, "DELETE FROM partman.part_config WHERE parent_table=$1", schema+".continuation_history"); err != nil {
+				t.Error(err)
+			}
+		})
 	}
 	root, err := os.OpenRoot(t.TempDir())
 	if err != nil {
