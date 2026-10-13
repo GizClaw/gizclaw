@@ -383,12 +383,7 @@ func (s *HistoryStore) CleanupExpired(ctx context.Context) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
-	return s.scanRecords(ctx, false, func(entry HistoryEntry) error {
-		if entry.ExpiresAt == nil || s.now().Before(*entry.ExpiresAt) {
-			return nil
-		}
-		return s.deleteEntry(ctx, entry)
-	})
+	return s.cleanupRecords(ctx, s.now())
 }
 
 // DeleteAll removes every history record and referenced asset for this
@@ -400,9 +395,7 @@ func (s *HistoryStore) DeleteAll(ctx context.Context) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
-	return s.scanRecords(ctx, false, func(entry HistoryEntry) error {
-		return s.deleteEntry(ctx, entry)
-	})
+	return s.cleanupRecords(ctx, time.Time{})
 }
 
 // Empty reports whether the Workspace has any retained history records.
@@ -571,31 +564,13 @@ func historyIDTime(id string) (time.Time, error) {
 	return parsed.UTC(), nil
 }
 
-func (s *HistoryStore) scanRecords(ctx context.Context, descending bool, visit func(HistoryEntry) error) error {
-	var cursor *memory.HistoryPosition
-	for {
-		page, err := s.Records.Query(ctx, memory.HistoryQuery{
-			ConversationID: s.Workspace,
-			Start:          time.Unix(0, 0).UTC(),
-			End:            time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC),
-			Limit:          memory.MaxHistoryQueryLimit,
-			Descending:     descending,
-			Cursor:         cursor,
-		})
-		if err != nil {
-			return fmt.Errorf("workspace history: query records: %w", err)
+func (s *HistoryStore) cleanupRecords(ctx context.Context, before time.Time) error {
+	return memory.CleanupHistory(ctx, s.Records, memory.HistoryCleanupQuery{ConversationID: s.Workspace, Before: before}, func(_ memory.HistoryKey, asset memory.HistoryAsset) error {
+		if err := s.Objects.Delete(asset.Name); err != nil && !isNotExist(err) {
+			return err
 		}
-		for _, record := range page.Entries {
-			entry := historyEntryFromMemory(record)
-			if err := visit(entry); err != nil {
-				return err
-			}
-		}
-		if page.Next == nil {
-			return nil
-		}
-		cursor = page.Next
-	}
+		return nil
+	})
 }
 
 func (s *HistoryStore) deleteEntry(ctx context.Context, entry HistoryEntry) error {

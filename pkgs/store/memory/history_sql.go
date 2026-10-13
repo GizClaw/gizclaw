@@ -455,8 +455,9 @@ func (store *SQLHistoryStore) Delete(ctx context.Context, key HistoryKey) error 
 	return nil
 }
 
-// Maintain reclaims expired references and delegates PostgreSQL child creation
-// and removal to pg_partman. The caller owns scheduling and cancellation.
+// Maintain reclaims expired content and delegates PostgreSQL partitions to
+// pg_partman. Identities with assets survive until CleanupHistory deletes the
+// binary objects and acknowledges removal, including after a partition is gone.
 func (store *SQLHistoryStore) Maintain(ctx context.Context) error {
 	tx, err := store.db.BeginTxx(ctx, nil)
 	if err != nil {
@@ -469,16 +470,12 @@ func (store *SQLHistoryStore) Maintain(ctx context.Context) error {
 		}
 	}
 	now := time.Now().UTC().UnixNano()
-	_, err = tx.ExecContext(ctx, tx.Rebind("DELETE FROM "+store.assets.Quoted()+" WHERE EXISTS (SELECT 1 FROM "+store.keys.Quoted()+" k WHERE k.conversation_id="+store.assets.Quoted()+".conversation_id AND k.id="+store.assets.Quoted()+".id AND k.expires_at_unix_nano <= ?)"), now)
-	if err != nil {
-		return storage.ExternalSQLError("history: reclaim asset references", err)
-	}
 	if store.table.Dialect() == storage.SQLDialectSQLite {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+store.table.Quoted()+" WHERE expires_at_unix_nano <= ?", now); err != nil {
 			return err
 		}
 	}
-	if _, err := tx.ExecContext(ctx, tx.Rebind("DELETE FROM "+store.keys.Quoted()+" WHERE expires_at_unix_nano <= ?"), now); err != nil {
+	if _, err := tx.ExecContext(ctx, tx.Rebind("DELETE FROM "+store.keys.Quoted()+" WHERE expires_at_unix_nano <= ? AND NOT EXISTS (SELECT 1 FROM "+store.assets.Quoted()+" a WHERE a.conversation_id="+store.keys.Quoted()+".conversation_id AND a.id="+store.keys.Quoted()+".id)"), now); err != nil {
 		return err
 	}
 	return storage.ExternalSQLError("history: commit retention", tx.Commit())

@@ -73,7 +73,7 @@ func TestPostgreSQLHistoryRetentionWithoutWrites(t *testing.T) {
 	if err := store.Append(t.Context(), []memory.HistoryEntry{{ConversationID: "idle", ID: "expired", Role: memory.RoleUser, Text: "expired", CreatedAt: expiry.Add(-time.Hour), ExpiresAt: &expiry}}); err != nil {
 		t.Fatal(err)
 	}
-	r := newHistoryRetention(store)
+	r := newHistoryRetention(nil, store)
 	r.interval = 10 * time.Millisecond
 	r.start(t.Context())
 	defer r.close()

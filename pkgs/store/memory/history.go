@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -17,6 +18,9 @@ type HistoryReader interface {
 // Implementations borrow their connection and do not start background workers.
 type HistoryStore interface {
 	HistoryReader
+	// QueryCleanup reads identities and assets for maintenance, including
+	// expired messages whose content partitions have already been removed.
+	QueryCleanup(context.Context, HistoryCleanupQuery) (HistoryCleanupPage, error)
 	Append(context.Context, []HistoryEntry) error
 	Get(context.Context, HistoryKey) (HistoryEntry, error)
 	Delete(context.Context, HistoryKey) error
@@ -83,6 +87,61 @@ type HistoryQuery struct {
 type HistoryPage struct {
 	Entries []HistoryEntry
 	Next    *HistoryPosition
+}
+
+// HistoryCleanupQuery selects maintenance records in (conversation, ID) order.
+// Before includes only records expiring at or before that time. An empty
+// conversation selects all conversations and requires a nonzero Before.
+type HistoryCleanupQuery struct {
+	ConversationID string
+	Before         time.Time
+	Cursor         *HistoryKey
+	Limit          int
+}
+
+// HistoryCleanupEntry keeps only the identity and caller-owned binary assets.
+type HistoryCleanupEntry struct {
+	Key    HistoryKey
+	Assets []HistoryAsset
+}
+
+// HistoryCleanupPage is a stable page even when previously visited keys vanish.
+type HistoryCleanupPage struct {
+	Entries []HistoryCleanupEntry
+	Next    *HistoryKey
+}
+
+// CleanupHistory deletes binary assets before acknowledging each identity's
+// removal. Failed deletion leaves references available for an idempotent retry.
+// Store retention may remove content independently, but must keep these references.
+func CleanupHistory(ctx context.Context, store HistoryStore, query HistoryCleanupQuery, deleteAsset func(HistoryKey, HistoryAsset) error) error {
+	query.Limit = 200
+	for {
+		page, err := store.QueryCleanup(ctx, query)
+		if err != nil {
+			return err
+		}
+		for _, entry := range page.Entries {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			for _, asset := range entry.Assets {
+				if deleteAsset == nil {
+					return fmt.Errorf("history: binary asset cleanup is required")
+				}
+				if err := deleteAsset(entry.Key, asset); err != nil {
+					return err
+				}
+			}
+			if err := store.Delete(ctx, entry.Key); err != nil && !errors.Is(err, ErrNotFound) {
+				return err
+			}
+		}
+		if page.Next == nil {
+			return nil
+		}
+		query.Cursor = page.Next
+	}
 }
 
 // MaxHistoryQueryLimit bounds allocations and individual history reads.

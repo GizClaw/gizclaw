@@ -320,7 +320,7 @@ func (s *Server) init() error {
 	if s == nil {
 		return errors.New("gizclaw: nil server")
 	}
-	s.historyRetention = newHistoryRetention(s.WorkspaceHistory)
+	s.historyRetention = newHistoryRetention(s.WorkspaceHistoryAssets, s.WorkspaceHistory)
 	switch {
 	case s.LocalStatic.Private.IsZero():
 		return errors.New("gizclaw: empty local static private key")

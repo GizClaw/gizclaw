@@ -10,7 +10,9 @@
 
 PostgreSQL 使用 `pg_partman` 管理按 `expires_at_unix_nano` 划分的 UTC 日分区，epoch 为 nanoseconds。分区键已经是到期时间，因此 partman retention 使用 `0 seconds`，并设置 `retention_keep_table=false`；查询即时隐藏过期消息，维护时物理删除完全过期的日分区。仓库 PostgreSQL 镜像固定 `pg_partman 5.5.0`。扩展需预先安装在 `partman` schema，应用角色需具备该 schema 的使用/创建权限、配置表权限和函数执行权限；构造函数不安装扩展。
 
-Server 的 `services.workspace.history_store` 引用 `kind: sql` Store，固定业务表名为 `gizclaw_history`。消息的保留周期使用 `services.workspace.history_assets_store` 对应 ObjectStore 的正数 `ttl`，只配置一处。Server 启动后立即维护，此后每小时维护，关闭时取消并等待维护退出。独立调用者自行调度 `Maintain`。
+Server 的 `services.workspace.history_store` 引用 `kind: sql` Store，固定业务表名为 `gizclaw_history`。消息的保留周期使用 `services.workspace.history_assets_store` 对应 ObjectStore 的正数 `ttl`，只配置一处。Server 启动后立即维护，此后每小时维护，关闭时取消并等待维护退出。独立调用者自行调度 `Maintain`，并将二进制删除函数传给 `CleanupHistory`。
+
+`HistoryStore.QueryCleanup` 是独立、有界的身份与音频引用维护查询；普通 `Query`、`Get` 仍隐藏过期消息。指定 Workspace 时只清理该会话，全局扫描必须提供过期截止时间。`Maintain` 可以移除过期正文及 PostgreSQL 分区，但仍有二进制引用的身份记录会保留。`CleanupHistory` 先删除二进制，再删除引用；对象删除失败时保留引用供下次重试。Server 对空闲 Workspace 也执行这两步。Workspace 的 `CleanupExpired` 与 `DeleteAll` 使用该维护路径，正文回收后仍能找到待清理的过期音频。
 
 Workspace 的记录器是对话写入方。AgentHost 在交给 Agent 前记录完成的原始文本输入；音频输入仍由转写输出记录，重复的输入回显不会新增一条记录。对于 Eino 消息，取消或停止时使用独立的 5 秒超时上下文尝试保存已交付部分，并标记中断；未交付部分不进入记录。Eino 接收同一份数据的只读 view，读取近期的 role/content；读取排除当前输入并等待上轮已交付消息完成记录。录音和回放共享这条消息的 ID，不创建第二套 Eino 持久化历史。直接使用 Eino 且未传入 Reader 时，仍可使用有界的进程内历史。History 只读不改变长期 Memory 的 Recall/Observe。
 

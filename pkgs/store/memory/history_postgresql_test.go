@@ -55,11 +55,12 @@ func TestPostgreSQLHistoryColumnsAndPartmanRetention(t *testing.T) {
 	if epoch != "nanoseconds" || interval != "1 day" || retention != "0 seconds" || keep {
 		t.Fatalf("partman=%s %s %s keep=%t", epoch, interval, retention, keep)
 	}
-	// Expired partitions and identity/asset rows are physically reclaimed even
-	// without another Append. Use an explicit old day to test partition removal.
+	// Content partitions expire without another Append; asset references remain
+	// available until the owning ObjectStore acknowledges binary deletion.
 	old := now.Add(-72 * time.Hour)
 	oldEntry := entry
 	oldEntry.ID = "old"
+	oldEntry.Assets = []HistoryAsset{{Name: "audio/old.ogg", MIMEType: "audio/ogg", Bytes: 42}}
 	oldEntry.CreatedAt = old.Add(-time.Hour)
 	oldEntry.ExpiresAt = &old
 	if err := store.Append(t.Context(), []HistoryEntry{oldEntry}); err != nil {
@@ -72,11 +73,26 @@ func TestPostgreSQLHistoryColumnsAndPartmanRetention(t *testing.T) {
 	if err := db.Get(&count, "SELECT count(*) FROM messages WHERE id='old'"); err != nil || count != 0 {
 		t.Fatalf("expired rows=%d err=%v", count, err)
 	}
-	if err := db.Get(&count, "SELECT count(*) FROM "+store.keys.Quoted()+" WHERE id='old'"); err != nil || count != 0 {
+	if err := db.Get(&count, "SELECT count(*) FROM "+store.keys.Quoted()+" WHERE id='old'"); err != nil || count != 1 {
 		t.Fatalf("expired identities=%d err=%v", count, err)
 	}
-	if err := db.Get(&count, "SELECT count(*) FROM "+store.assets.Quoted()+" WHERE id='old'"); err != nil || count != 0 {
+	if err := db.Get(&count, "SELECT count(*) FROM "+store.assets.Quoted()+" WHERE id='old'"); err != nil || count != 1 {
 		t.Fatalf("expired assets=%d err=%v", count, err)
+	}
+	deleted := 0
+	if err := CleanupHistory(t.Context(), store, HistoryCleanupQuery{Before: now}, func(key HistoryKey, asset HistoryAsset) error {
+		if key != oldEntry.Key() || asset.Name != "audio/old.ogg" {
+			t.Fatalf("unexpected cleanup: %+v %+v", key, asset)
+		}
+		deleted++
+		return nil
+	}); err != nil || deleted != 1 {
+		t.Fatalf("cleanup after partition removal: deleted=%d err=%v", deleted, err)
+	}
+	for _, table := range []string{store.keys.Quoted(), store.assets.Quoted()} {
+		if err := db.Get(&count, "SELECT count(*) FROM "+table+" WHERE id='old'"); err != nil || count != 0 {
+			t.Fatalf("acknowledged cleanup retained rows: count=%d err=%v", count, err)
+		}
 	}
 	if _, err := store.Get(t.Context(), entry.Key()); err != nil {
 		t.Fatalf("live history lost: %v", err)
