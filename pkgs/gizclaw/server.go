@@ -633,7 +633,7 @@ func (s *Server) init() error {
 	if err := pendingDeletionRegistry.Register(
 		peerPendingDeletionSource,
 		peer.DeletionHandler{
-			Server: peersServer, Source: peerPendingDeletionSource,
+			Server: peersServer, Source: peerPendingDeletionSource, Assignments: manager.PeerRoutes,
 			Social:     social.PeerRetirement{Contacts: contactServer, Friends: friendServer, FriendGroups: friendGroupServer},
 			Workspaces: workspaceServer,
 			APIKeys:    apiKeyServer, RuntimeProfiles: runtimeProfileServer, Quiescer: manager,

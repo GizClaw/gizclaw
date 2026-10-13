@@ -72,3 +72,7 @@ Shouldn't be placed here:
 - Edge proxy token forwarding.
 - CLI config, storage backend creation and process life cycle.
 - Generic helper put in to avoid selecting domain ownership.
+
+## Regional deletion admission
+
+Shared Peer tasks perform read-only domain admission before claim and Admin retry. Foreign-home tasks remain available to their home worker without consuming leases or retry budget. Rejected retries preserve failed state and its error. Startup resumes queued, due retry-wait and expired running work; terminal failed tasks require explicit retry. Admin list/get/retry and the cleanup call chain use explicit central-writer reads. Domain finalization can add exact record CAS conditions to the same task/index mutation. These reads do not create a transaction spanning Redis, regional SQL and providers. See [online recovery](../../../using/cli#pendingdeletion-recovery).

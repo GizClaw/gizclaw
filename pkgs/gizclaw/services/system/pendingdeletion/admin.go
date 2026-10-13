@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/uuid"
 )
 
@@ -60,6 +61,7 @@ func NewAdmin(registry *Registry, wake func()) *Admin {
 
 // List returns active tasks in (created_at, source, deletion_id) order.
 func (a *Admin) List(ctx context.Context, request ListRequest) (ListResult, error) {
+	ctx = kv.WithPrimaryReads(ctx)
 	if a == nil || a.registry == nil {
 		return ListResult{}, errors.New("pending deletion: admin is not configured")
 	}
@@ -137,6 +139,7 @@ func (a *Admin) List(ctx context.Context, request ListRequest) (ListResult, erro
 
 // Get returns one active task from an explicit source.
 func (a *Admin) Get(ctx context.Context, sourceName, deletionID string) (Task, error) {
+	ctx = kv.WithPrimaryReads(ctx)
 	source, err := a.requireSource(sourceName)
 	if err != nil {
 		return Task{}, err
@@ -156,12 +159,29 @@ func (a *Admin) Get(ctx context.Context, sourceName, deletionID string) (Task, e
 
 // Retry requeues one failed active task.
 func (a *Admin) Retry(ctx context.Context, sourceName, deletionID string) (Task, error) {
+	ctx = kv.WithPrimaryReads(ctx)
 	source, err := a.requireSource(sourceName)
 	if err != nil {
 		return Task{}, err
 	}
 	if !validDeletionID(deletionID) {
 		return Task{}, fmt.Errorf("%w: invalid deletion ID", ErrInvalid)
+	}
+	current, err := source.GetTask(ctx, deletionID)
+	if err != nil {
+		return Task{}, err
+	}
+	if err := ValidateTask(current); err != nil {
+		return Task{}, err
+	}
+	if current.Status != StatusFailed {
+		return Task{}, ErrConflict
+	}
+	_, handler, _ := a.registry.lookup(sourceName, current.Record.Kind)
+	if admission, ok := handler.(TaskAdmission); ok {
+		if err := admission.CheckTask(ctx, current); err != nil {
+			return Task{}, err
+		}
 	}
 	task, err := source.Retry(ctx, deletionID, a.now().UTC())
 	if err != nil {

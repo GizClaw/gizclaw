@@ -479,3 +479,45 @@ type noopHandler struct{}
 
 func (*noopHandler) Kind() Kind                          { return KindPeer }
 func (*noopHandler) Handle(context.Context, Claim) error { return nil }
+
+type admissionKVHandler struct {
+	finalizingKVHandler
+	admission error
+}
+
+func (h *admissionKVHandler) CheckTask(context.Context, Task) error { return h.admission }
+
+func TestProcessorDoesNotClaimForeignHomeTask(t *testing.T) {
+	ctx := t.Context()
+	source := KVSource{Store: kv.NewMemory(nil), SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	record, err := New(KindPeer, "foreign", nil, ReasonPeerDelete, map[string]string{"public_key": "foreign"}, time.Now().Add(-time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := CreateOrGet(ctx, source.Store, record); err != nil {
+		t.Fatal(err)
+	}
+	registry := NewRegistry()
+	handler := &admissionKVHandler{finalizingKVHandler: finalizingKVHandler{kind: KindPeer, source: source}, admission: ErrNotLocal}
+	if err := registry.Register(source, handler); err != nil {
+		t.Fatal(err)
+	}
+	processor, err := NewProcessor(registry, DefaultConfig(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refs, _, err := source.ScanDue(ctx, time.Now(), 10, "")
+	if err != nil || len(refs) != 1 {
+		t.Fatalf("refs=%v err=%v", refs, err)
+	}
+	processor.process(ctx, dispatchItem{source: source, ref: refs[0]})
+	task, err := source.GetTask(ctx, record.DeletionID)
+	if err != nil || task.Status != StatusQueued || task.LeaseToken != "" || handler.calls.Load() != 0 {
+		t.Fatalf("foreign task=%+v, %v", task, err)
+	}
+	handler.admission = nil
+	processor.process(ctx, dispatchItem{source: source, ref: refs[0]})
+	if _, err := source.GetTask(ctx, record.DeletionID); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("home did not finalize: %v", err)
+	}
+}

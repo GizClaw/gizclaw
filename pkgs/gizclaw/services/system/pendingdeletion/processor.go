@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
@@ -111,7 +112,7 @@ func (p *Processor) Start(parent context.Context) {
 	if p.started || len(p.registry.sources()) == 0 {
 		return
 	}
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithCancel(kv.WithPrimaryReads(parent))
 	p.cancel = cancel
 	p.done = make(chan struct{})
 	p.started = true
@@ -235,6 +236,21 @@ func (p *Processor) worker(ctx context.Context, dispatch <-chan dispatchItem) {
 }
 
 func (p *Processor) process(ctx context.Context, item dispatchItem) {
+	ctx = kv.WithPrimaryReads(ctx)
+	// Shared sources may contain work owned by another regional SQL pool.
+	// Check before claiming so a foreign worker cannot starve the home worker.
+	task, err := item.source.GetTask(ctx, item.ref.DeletionID)
+	if err != nil || task.MarkerFingerprint != item.ref.MarkerFingerprint {
+		return
+	}
+	_, candidate, ok := p.registry.lookup(item.source.Name(), task.Record.Kind)
+	if ok {
+		if admission, ok := candidate.(TaskAdmission); ok {
+			if errors.Is(admission.CheckTask(ctx, task), ErrNotLocal) {
+				return
+			}
+		}
+	}
 	now := p.now().UTC()
 	claim, claimed, err := item.source.Claim(ctx, item.ref, now, p.config.LeaseDuration)
 	if err != nil || !claimed {

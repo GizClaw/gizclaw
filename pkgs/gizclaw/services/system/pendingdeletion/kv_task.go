@@ -165,6 +165,19 @@ func (s KVSource) Finalize(ctx context.Context, claim Claim, now time.Time, dele
 // FinalizeWithEntries atomically replaces caller-owned domain records while
 // consuming the exact marker and task. It is used for permanent tombstones.
 func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time.Time, entries []kv.Entry, deleteKeys []kv.Key, removeMembers ...kv.SetMembers) error {
+	return s.FinalizeGuarded(ctx, claim, now, nil, entries, deleteKeys, removeMembers...)
+}
+
+// FinalizeGuarded compares exact domain records in the same mutation as task
+// consumption. Conditions must use the source Store's logical key namespace.
+func (s KVSource) FinalizeGuarded(ctx context.Context, claim Claim, now time.Time, conditions []kv.Condition, entries []kv.Entry, deleteKeys []kv.Key, removeMembers ...kv.SetMembers) error {
+	ctx = kv.WithPrimaryReads(ctx)
+	for _, condition := range conditions {
+		if err := validateFinalizeDomainKey(condition.Key); err != nil {
+			return err
+		}
+	}
+
 	if err := s.validateTaskSource(); err != nil {
 		return err
 	}
@@ -230,7 +243,7 @@ func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time
 		}
 	}
 	_, removeIndexes := kvTaskIndexChanges(&task, nil)
-	matched, err := s.Store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: kvTaskKey(claim.Record.DeletionID), Expected: raw}}, Entries: entries, DeleteKeys: keys, RemoveMembers: removeMembers, RemoveOrderedMembers: removeIndexes})
+	matched, err := s.Store.ApplyMutation(ctx, kv.Mutation{Conditions: append(append([]kv.Condition(nil), conditions...), kv.Condition{Key: kvTaskKey(claim.Record.DeletionID), Expected: raw}), Entries: entries, DeleteKeys: keys, RemoveMembers: removeMembers, RemoveOrderedMembers: removeIndexes})
 	if err != nil {
 		return err
 	}

@@ -74,3 +74,60 @@ func TestRedisReadWriteDoesNotFallBackToWriter(t *testing.T) {
 		t.Fatalf("RangeOrderedMembers() error = %v, want the closed reader error", err)
 	}
 }
+
+type primaryReadHook struct{ calls int }
+
+func (h *primaryReadHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+func (h *primaryReadHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return next
+}
+func (h *primaryReadHook) ProcessHook(redis.ProcessHook) redis.ProcessHook {
+	return func(_ context.Context, cmd redis.Cmder) error {
+		h.calls++
+		switch result := cmd.(type) {
+		case *redis.StringCmd:
+			result.SetVal("value")
+		case *redis.BoolCmd:
+			result.SetVal(true)
+		case *redis.StringSliceCmd:
+			result.SetVal([]string{"member"})
+		default:
+			return errors.New("unexpected read command")
+		}
+		return nil
+	}
+}
+
+func TestExplicitPrimaryReadsCrossPrefixedViewsWithoutChangingOrdinaryReads(t *testing.T) {
+	reader := redis.NewClient(&redis.Options{Addr: "reader.invalid:6379"})
+	writer := redis.NewClient(&redis.Options{Addr: "writer.invalid:6379"})
+	t.Cleanup(func() { _ = reader.Close(); _ = writer.Close() })
+	readHook, writeHook := &primaryReadHook{}, &primaryReadHook{}
+	reader.AddHook(readHook)
+	writer.AddHook(writeHook)
+	root, err := NewRedisReadWriteWithClients(reader, writer, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := Prefixed(Prefixed(root, Key{"outer"}), Key{"inner"})
+	query := func(ctx context.Context) {
+		if _, err := store.Get(ctx, Key{"record"}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.HasMember(ctx, Key{"set"}, "member"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.ListMembers(ctx, Key{"set"}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.RangeOrderedMembers(ctx, Key{"ordered"}, OrderedRange{Limit: 1}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	query(t.Context())
+	query(WithPrimaryReads(t.Context()))
+	query(t.Context())
+	if readHook.calls != 8 || writeHook.calls != 4 {
+		t.Fatalf("reader=%d writer=%d", readHook.calls, writeHook.calls)
+	}
+}

@@ -481,3 +481,33 @@ Go 与 C runner 执行上述调度，且都支持四个 CLI 覆盖参数。JavaS
 jitter 和 3 秒 think time，16 个任务各请求三次长语音回复。它断言回复完成且包含文字、音频，
 并保留 `audio_pacing.underruns` 与 `minimum_buffer_ms` 供独立分析；完成通过不代表没有饥饿。
 其余原有基准可用上面的 CLI 参数执行 realistic load，不改变文件本身的默认测量含义。
+
+## PendingDeletion 恢复
+
+`admin pending-deletions` 使用当前或指定 context 连接在线区域 Server。`recover` 默认只读，一次最多扫描 500 条 failed task，并输出逐条候选、`source/kind/last_error_code` 分组计数及 `next_cursor`；数量仅代表这一页。`--source` 必填，`--kind`、`--error-code`、`--from` 和 `--until` 限定范围；时间使用 RFC3339，前者包含、后者不包含。
+
+```sh
+gizclaw admin pending-deletions recover --context region-a --source peer \
+  --error-code peer_replacement_ambiguous --limit 100
+gizclaw admin pending-deletions recover --context region-a --source peer \
+  --error-code peer_replacement_ambiguous --limit 100 --execute --interval 200ms --wait 2m
+gizclaw admin pending-deletions get <deletion-id> --source peer --context region-a
+```
+
+执行使用相同的 list/get/retry API，不直接删 Redis key。先完整输出本页 preview，再按序重新读取候选并重试；已变化的状态报告 `changed`。请求并发固定为 1，最小间隔 100ms，业务执行并发由 Server 的 `pending_deletion.workers` 决定。`--wait` 默认零，只报告 queued；设置正值时全批次最多等待 30 分钟，输出 completed、failed 或 pending。拒绝、状态变化、请求失败或等待结束仍有 pending 时非零退出；已成功的操作不回滚。
+
+把输出的 `next_cursor` 传给下一次相同 filter 的命令可以有界推进。游标仅表示列表位置，不是全局快照或授权凭据。任务执行时仍会重新检查 home、marker、lease 和 generation。中断前逐条结果已输出；若请求已发出但结果缺失，先 get 对应 ID 确认状态。再次运行只选择 failed，queued/running 不会再次认领；completed 的 task 已被领域 finalization 消费。不要把 queued 或 CLI 返回 0 当成清理完成。
+
+错误处理按领域证据进行：
+
+| 错误 | 处理路径 |
+| --- | --- |
+| `peer_home_mismatch` | 从固定 route 确认 home，在该区域 Server 的 context 上重试；不重指派 route。 |
+| `peer_home_unknown`／`peer_home_invalid` | 保留 marker，核查原始注册、route 与各区域数据归属；不能靠本区空表或手写 owner 猜测。 |
+| `peer_replacement_ambiguous` | 修复投影比较的 Server 可恢复受支持的旧计划；真实 KV generation 改变仍拒绝，保留原记录与计划供核查。 |
+| `social_cleanup_failed` | 先修复确切 Social 存储或依赖错误，再用相同 retry；涉及跨区域副本的记录仍须完成各区域证据核查。 |
+| `retirement_scope_ambiguous`／`social_replica_scope_unknown` | 保留任务和围栏；当前入口不提供强制完成或跳过区域依赖的参数。核查计划选中的精确 ID 与对应区域，不能以删除 task 替代领域清理。 |
+| `peer_record_missing` | 核查记录是否损坏、丢失或被外部删除；没有准确原始 generation 时不能通过本入口完成。 |
+| Memory／对象／SQL 暂时失败 | 恢复对应服务后重试；所有 child Workspace task 完成并验证 absent 前保留 owner binding。 |
+
+成功会回收精确 task、marker、locator、retirement plan 与任务索引，保留永久 Peer deleted 墓碑、API Key retired 围栏、固定 route、全局配置和无关数据。PeerRun 仍是本区诊断目录。部署更新与实际生产执行是独立运维步骤。

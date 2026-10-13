@@ -75,6 +75,8 @@ PendingDeletion 拒绝访问。
 
 Friend、Friend Group 与 Peer Store 通过共享 KV backend（multi-server 部署使用同一个 Redis）成为 source of truth，因此 invite token、relationship、membership 与 SFU binding 对所有 Server 可见。Workspace、Workflow 与 RuntimeProfile catalog 仍是 Server 本地。跨 Server 加好友与跨 Server 加群都是受支持的操作：创建与成员变更路径不比较 Peer 的固定 Server assignment，`PeerAssignments` 只用于 Peer 归属路由与 Peer Event 投递。
 
+Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 Social KV 没有完整的副本目录或区域完成凭据；选择 Friend／自己拥有的 Friend Group Workspace 的 Peer retirement plan 保留为 `social_replica_scope_unknown`，不能仅在 home SQL 中检查 marker 就完成。旧计划缺少区域来源时返回 `retirement_scope_ambiguous`。普通 Friend Group PendingDeletion 只验证共享关系、binding、membership 和 durable retirement receipt，不宣称所有地区 Workspace 物理删除。Contact 是区域 SQL 数据，跟随正确 home Server 的 Peer adapter 清理。
+
 多 Server 只共享逻辑身份，不共享进程内对象：
 
 | 全局一致（共享 Social KV） | Server 本地 |
@@ -300,3 +302,5 @@ Friend 与 Friend Group 通过 Workspace ID 和系统生成的规范名称直接
 邀请令牌默认有效期为 `socialutil.DefaultInviteTokenTTL`（5 分钟），设备 RPC 只使用这个默认值：已有有效令牌时原样返回，否则新建。`friend.Server.CreateFriendInviteTokenWithTTL` 与 `friendgroup.Server.CreateFriendGroupInviteTokenWithTTL` 额外接受调用方给出的有效期，范围由 `socialutil.MinInviteTokenTTL`（1 分钟）与 `socialutil.MaxInviteTokenTTL`（7 天）限定，越界返回 `socialutil.ErrInvalidInviteTokenTTL`。带有效期时新建令牌按该值过期；已有有效令牌保留原值，只把有效期延长到当前时间加请求值，从不缩短，KV deadline 随之更新。Peer HTTP 的 `ttl_seconds` 使用这条路径。
 
 Peer 的好友和群组分页另有按 owner 隔离的有序索引，保存转义后的关系／群组 ID。创建、加入、退出和删除在同一 mutation 中维护该索引。分页将游标和 `limit + 1` 下推存储，仅加载最多 `limit` 条详细记录；返回游标仍为原始 ID。遇到并发删除时允许当前页少于 limit，游标按已读取的索引位置前进，不回退全量集合读取。
+
+Peer 只退出别人拥有的群时，由共享 membership adapter 移除自身成员关系；其他成员和该群 Workspace 保留，不把它当作当前 Peer 的子资源清理。

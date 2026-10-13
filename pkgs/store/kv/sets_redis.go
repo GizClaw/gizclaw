@@ -22,13 +22,13 @@ func (r *Redis) RemoveMembers(ctx context.Context, key Key, members ...string) e
 
 // HasMember tests membership without enumerating the collection.
 func (r *Redis) HasMember(ctx context.Context, key Key, member string) (bool, error) {
-	result, err := r.reader.SIsMember(ctx, string(r.opts.encode(key)), member).Result()
+	result, err := r.readClient(ctx).SIsMember(ctx, string(r.opts.encode(key)), member).Result()
 	return result, setRedisError(err)
 }
 
 // ListMembers reads one exact collection. Missing collections return no members.
 func (r *Redis) ListMembers(ctx context.Context, key Key) ([]string, error) {
-	result, err := r.reader.SMembers(ctx, string(r.opts.encode(key))).Result()
+	result, err := r.readClient(ctx).SMembers(ctx, string(r.opts.encode(key))).Result()
 	return result, setRedisError(err)
 }
 
