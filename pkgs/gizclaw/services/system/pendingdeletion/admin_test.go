@@ -138,3 +138,46 @@ func TestAdminTreatsInvalidPersistedTasksAsInternalErrors(t *testing.T) {
 		t.Fatalf("Get() error = %v, want internal source error", err)
 	}
 }
+
+func TestAdminRejectedAdmissionPreservesFailedState(t *testing.T) {
+	ctx := t.Context()
+	source := KVSource{Store: kv.NewMemory(nil), SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	now := time.Now()
+	record, err := New(KindPeer, "foreign", nil, ReasonPeerDelete, map[string]string{"public_key": "foreign"}, now.Add(-time.Second))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := CreateOrGet(ctx, source.Store, record); err != nil {
+		t.Fatal(err)
+	}
+	refs, _, err := source.ScanDue(ctx, now, 10, "")
+	if err != nil || len(refs) != 1 {
+		t.Fatal(err)
+	}
+	claim, ok, err := source.Claim(ctx, refs[0], now, time.Minute)
+	if err != nil || !ok {
+		t.Fatal(err)
+	}
+	if err := source.Fail(ctx, claim, "original_failure", "safe message", true, now, now, 10); err != nil {
+		t.Fatal(err)
+	}
+	registry := NewRegistry()
+	if err := registry.Register(source, &admissionKVHandler{finalizingKVHandler: finalizingKVHandler{kind: KindPeer, source: source}, admission: ErrNotLocal}); err != nil {
+		t.Fatal(err)
+	}
+	admin := NewAdmin(registry, func() { t.Error("rejected retry woke processor") })
+	before, err := admin.Get(ctx, source.Name(), record.DeletionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := admin.Retry(ctx, source.Name(), record.DeletionID); !errors.Is(err, ErrNotLocal) {
+		t.Fatalf("retry=%v", err)
+	}
+	after, err := admin.Get(ctx, source.Name(), record.DeletionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Status != before.Status || after.LastErrorCode != before.LastErrorCode || after.FailureCount != before.FailureCount || !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("rejected task changed: %+v", after)
+	}
+}

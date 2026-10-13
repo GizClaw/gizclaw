@@ -2295,3 +2295,15 @@ local delivery still succeeds. Test output, redacted service logs and correlated
 evidence remain in ignored `tests/gizclaw-e2e/testdata/multi-server/`. The harness
 removes its Compose containers and volumes on exit. This is Docker protocol
 client acceptance; physical devices and deployment require separate validation.
+
+## Regional PendingDeletion recovery
+
+```sh
+bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
+```
+
+This isolated Docker lane builds the current Server and test binaries, runs shared Redis plus a real read-only replica and two independent PostgreSQL/Server instances, and invokes Admin APIs over WebRTC. Each PostgreSQL cluster uses a separate 512 MiB tmpfs data directory. It checks actual SQL rows, file objects, task/marker/locator/plan/index removal and permanent tombstone/route/API-key fences. Cases cover Firmware projection, normal cleanup, automatic failed recovery on both homes with no operator retry, a multi-page backlog past unsafe records, repeated scans/calls, foreign/unknown home, replacement, omitted home data and unrelated data preservation. The runner kills the home Server while a real SQL row lock blocks binding deletion, then verifies expired-lease recovery and startup discovery of a persisted legacy failure. The foreign Server leaves that failed task unchanged while its home is stopped. Another case disconnects replication and verifies authoritative management and cleanup reads.
+
+CI runs the same entry point in the `Regional PendingDeletion Recovery` job for every PR and main push, retaining redacted test logs as an artifact. Server and test containers use the host user's UID/GID so generated state and assets can be cleaned up on Linux. Ordinary Go and race jobs also cover conditional recovery, paging, shared worker progress, and unchanged failed state after probe errors, timeouts, cancellation and panics.
+
+Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMem0 or self-hosted Mem0 provider deletion, nor completion of distributed Social Workspace replicas. Unsupported scopes remain retained. The runner uses only its generated Compose project, removes containers, volumes, binaries and configuration on exit, and retains ignored `.testbench` evidence logs.

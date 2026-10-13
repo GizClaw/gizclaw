@@ -52,3 +52,5 @@ shared/ ← resources/ ← shared.json ← admin.json
 Resource-specific Spec and Resource are placed in the same file; the Admin API should not load the entire Resource graph indirectly through `shared.json`.
 
 RegistrationToken create/put accepts enabled (default true), nullable expires_at and max_activations; responses include activation_count. Edits restrict new activations while retaining device bindings. See [RuntimeProfile and registration](../../gizclaw/services/runtime-profile#registrationtoken) for transactions, migration, and idempotence.
+
+Peer retry validates fixed home and retained generation before changing failed state. Foreign or unknown home, missing records, replacement and ambiguous regional plans return `409` with safe domain error metadata. Management reads use the central Redis writer. A retry `200` means queued; inspect subsequent state or use [online recovery](../../../using/cli#pendingdeletion-recovery) to observe completion. Restart does not blindly requeue ordinary failed tasks. The fixed home Server automatically recovers only proven legacy Firmware projection failures under the domain-specific read-only recovery policy.

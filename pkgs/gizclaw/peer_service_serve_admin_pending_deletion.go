@@ -121,6 +121,13 @@ func pendingDeletionProjection(task pendingdeletion.Task) apitypes.PendingDeleti
 }
 
 func pendingDeletionError(err error) (int, apitypes.ErrorResponse) {
+	if errors.Is(err, pendingdeletion.ErrNotLocal) {
+		return 409, apitypes.NewErrorResponse("peer_home_mismatch", "Retry this task on its fixed home Server")
+	}
+	if outcome, ok := errors.AsType[*pendingdeletion.OutcomeError](err); ok {
+		return 409, apitypes.NewErrorResponse(outcome.Code, outcome.Message)
+	}
+
 	switch {
 	case errors.Is(err, pendingdeletion.ErrInvalid):
 		return 400, apitypes.NewErrorResponse("INVALID_PENDING_DELETION_REQUEST", "pending deletion request is invalid")

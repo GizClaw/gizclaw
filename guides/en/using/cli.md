@@ -583,3 +583,25 @@ audio and records `audio_pacing.underruns` and `minimum_buffer_ms` for separate
 analysis; passing completion does not imply starvation-free playback.
 Use the CLI overrides above to measure realistic load with other existing
 benchmarks without changing what their defaults measure.
+
+## PendingDeletion recovery
+
+Normal deletion runs automatically on the owning Server. Proven legacy Firmware projection failures are also discovered and recovered by that home Server on startup and later scans, without a CLI call. Eligibility requires the precise error, version-2 plan, raw generation and empty fresh home snapshot. Other terminal failures remain retained. These online commands provide optional preview, diagnosis and explicit retry.
+
+`admin pending-deletions recover` connects to an online regional Server and defaults to read-only preview. `--source` is required. Each invocation scans at most `--limit` failed tasks (default 100, maximum 500), optionally filtering by `--kind`, `--error-code`, inclusive RFC3339 `--from` and exclusive `--until`. NDJSON output includes candidates, counts by source/kind/error and the next cursor. Counts cover this page only.
+
+```sh
+gizclaw admin pending-deletions recover --context region-a --source peer \
+  --error-code peer_replacement_ambiguous --limit 100
+gizclaw admin pending-deletions recover --context region-a --source peer \
+  --error-code peer_replacement_ambiguous --limit 100 --execute --interval 200ms --wait 2m
+gizclaw admin pending-deletions get <deletion-id> --context region-a --source peer
+```
+
+Execution emits the preview first, then rechecks and retries each selected task through existing Admin APIs. Request concurrency is one with a minimum 100ms interval; Server workers own domain cleanup concurrency. A changed candidate is reported as changed. Without `--wait`, queued is the only success claim. A positive wait (maximum 30 minutes for the batch) reports completed, failed or pending. Rejections, changed state, request failures and unfinished waits exit nonzero without rolling back successful work.
+
+Use `next_cursor` with the same filters to advance in bounded pages. The cursor is a list position, not a global snapshot or authority token. Cancellation leaves durable progress; if a request was sent without an output result, get that task before retrying. A repeated run selects only failed tasks, while queued/running work remains owned by the existing processor.
+
+Retry `peer_home_mismatch` on the fixed home Server without reassigning its route. Repair specific transient SQL, Social, Memory or object-service failures before retry. Unknown home, missing Peer records, actual generation changes, legacy regional ambiguity and Social replicas without completion evidence remain fenced; this command has no force-complete or dependency-skip mode. A queued response or CLI exit zero does not prove business deletion.
+
+Domain completion removes exact task, marker, locator, plan and task-index entries. Permanent Peer tombstones, API Key retired fences, fixed routes, local PeerRun diagnostic rows and unrelated/global resources remain. Deployment and production execution are separate operations.

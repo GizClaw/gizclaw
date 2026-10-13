@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
@@ -63,6 +64,7 @@ func (c Config) Validate() error {
 type dispatchItem struct {
 	source Source
 	ref    Reference
+	failed *Task
 }
 
 // Processor scans durable sources and executes bounded deletion attempts.
@@ -79,8 +81,9 @@ type Processor struct {
 	started bool
 	active  atomic.Int64
 
-	scanStart   int
-	scanCursors map[string]string
+	scanStart     int
+	scanCursors   map[string]string
+	failedCursors map[string]failedRecoveryCursor
 }
 
 // NewProcessor validates and constructs a stopped processor.
@@ -92,12 +95,13 @@ func NewProcessor(registry *Registry, config Config, metricsStore metrics.Store)
 		return nil, err
 	}
 	return &Processor{
-		registry:    registry,
-		config:      config,
-		metrics:     metricsStore,
-		now:         time.Now,
-		wake:        make(chan struct{}, 1),
-		scanCursors: make(map[string]string),
+		registry:      registry,
+		config:        config,
+		metrics:       metricsStore,
+		now:           time.Now,
+		wake:          make(chan struct{}, 1),
+		scanCursors:   make(map[string]string),
+		failedCursors: make(map[string]failedRecoveryCursor),
 	}, nil
 }
 
@@ -111,12 +115,13 @@ func (p *Processor) Start(parent context.Context) {
 	if p.started || len(p.registry.sources()) == 0 {
 		return
 	}
-	ctx, cancel := context.WithCancel(parent)
+	ctx, cancel := context.WithCancel(kv.WithPrimaryReads(parent))
 	p.cancel = cancel
 	p.done = make(chan struct{})
 	p.started = true
 	p.scanStart = 0
 	p.scanCursors = make(map[string]string)
+	p.failedCursors = make(map[string]failedRecoveryCursor)
 	go p.run(ctx, p.done)
 }
 
@@ -222,6 +227,10 @@ func (p *Processor) scan(ctx context.Context, dispatch chan<- dispatchItem) {
 		} else {
 			p.scanCursors[source.Name()] = next
 		}
+		if p.scanFailedRecovery(ctx, source, dispatch) {
+			p.scanStart = (i + 1) % len(sources)
+			return
+		}
 	}
 }
 
@@ -235,6 +244,29 @@ func (p *Processor) worker(ctx context.Context, dispatch <-chan dispatchItem) {
 }
 
 func (p *Processor) process(ctx context.Context, item dispatchItem) {
+	ctx = kv.WithPrimaryReads(ctx)
+	if item.failed != nil {
+		task, recovered := p.recoverFailed(ctx, item)
+		if !recovered {
+			return
+		}
+		item.failed = nil
+		item.ref = Reference{Source: task.Source, DeletionID: task.Record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}
+	}
+	// Shared sources may contain work owned by another regional SQL pool.
+	// Check before claiming so a foreign worker cannot starve the home worker.
+	task, err := item.source.GetTask(ctx, item.ref.DeletionID)
+	if err != nil || task.MarkerFingerprint != item.ref.MarkerFingerprint {
+		return
+	}
+	_, candidate, ok := p.registry.lookup(item.source.Name(), task.Record.Kind)
+	if ok {
+		if admission, ok := candidate.(TaskAdmission); ok {
+			if errors.Is(admission.CheckTask(ctx, task), ErrNotLocal) {
+				return
+			}
+		}
+	}
 	now := p.now().UTC()
 	claim, claimed, err := item.source.Claim(ctx, item.ref, now, p.config.LeaseDuration)
 	if err != nil || !claimed {

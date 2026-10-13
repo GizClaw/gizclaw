@@ -14,6 +14,8 @@ var (
 	ErrNotFound = errors.New("pending deletion: task not found")
 	// ErrConflict reports a conditional transition that no longer applies.
 	ErrConflict = errors.New("pending deletion: task conflict")
+	// ErrNotLocal reports a task whose fixed home belongs to another Server.
+	ErrNotLocal = errors.New("pending deletion: task belongs to another Server")
 	// ErrInvalid reports invalid operator input or persisted task state.
 	ErrInvalid = errors.New("pending deletion: invalid task")
 )
@@ -110,6 +112,27 @@ type SourceStats interface {
 type Handler interface {
 	Kind() Kind
 	Handle(context.Context, Claim) error
+}
+
+// TaskAdmission is an optional read-only safety check before claim and retry.
+// ErrNotLocal leaves shared work for its home Server without taking a lease.
+// Other failures are recorded by the handler after claim; operator retry
+// rejects them without changing failed state.
+type TaskAdmission interface {
+	CheckTask(context.Context, Task) error
+}
+
+// FailedRecovery is an optional domain policy for automatic recovery of a
+// narrowly identified historical defect. The probe must be read-only; false
+// or an error retains the failed task unchanged.
+type FailedRecovery interface {
+	CanRecoverFailed(context.Context, Task) (bool, error)
+}
+
+// FailedRecoverySource conditionally requeues the exact failed observation.
+// A concurrent retry, new failure or marker generation must return ErrConflict.
+type FailedRecoverySource interface {
+	RetryFailed(context.Context, Task, time.Time) (Task, error)
 }
 
 // OutcomeClass selects the durable transition after a handler error.

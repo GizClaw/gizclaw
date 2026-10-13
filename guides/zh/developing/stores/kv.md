@@ -49,7 +49,9 @@ SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；
 
 `storage.kind: redis.readwrite` 通过 `read_url` 和 `write_url` 选择同一复制组的两个入口，逻辑 Store 仍为 `kind: keyvalue`，业务继续使用 `kv.Store`。普通 `storage.kind: redis` 保持一个连接处理全部操作；没有副本的部署使用普通 backend，无需更改业务绑定。配置示例见 [Store 总览](./overview)。
 
-`Get`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 只使用读连接。`Set`、`Delete`、batch、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
+`Get`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 默认使用读连接。`Set`、`Delete`、batch、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
+
+`kv.WithPrimaryReads(ctx)` 显式将一次操作及其调用链中的 point、Set 与 ordered-set 读取绑定到 writer；它穿过 `Prefixed`，不创建连接，也不改变其他请求的读端选择。PendingDeletion 管理、扫描和清理使用该 context，确保归属、任务和 absent 校验读取中央主库。普通读取仍不自动 fallback；主库读取之间也不构成快照，最终提交仍须使用原子条件。
 
 读写分离是显式允许复制延迟的选择：成功写入后立即查询仍可能得到旧值或不存在，多个独立查询也不构成快照。只为能容忍这些结果的消费者选择该 backend；要求写后立即可见或撤权立即生效的 Store 继续绑定普通 Redis 主节点连接。读端故障直接返回错误，不自动回退主节点；写端故障也不向只读副本写入。两个 URL 的逻辑数据库编号必须一致，部署层负责保证它们属于同一复制组并维护稳定的写入入口。
 
