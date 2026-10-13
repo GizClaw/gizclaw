@@ -2058,7 +2058,7 @@ GIZCLAW_E2E_SOCIAL_PING_ONLY=1 GIZCLAW_E2E_TEST_RUN='^TestSocialPingCrossServer$
 bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
 ```
 
-该独立 Docker lane 从当前源码构建 Server 和测试程序，启动共享 Redis、真实只读副本、两个独立 PostgreSQL 实例与两个独立 Server。每个 PostgreSQL 安装仓库固定版本的 pg_partman；Server 使用各自 SQL 与文件对象目录，通过 WebRTC Admin API 触发和观察删除。无需生产配置或 Provider credential。
+该独立 Docker lane 从当前源码构建 Server 和测试程序，启动共享 Redis、真实只读副本、两个独立 PostgreSQL 实例与两个独立 Server。每个 PostgreSQL 安装仓库固定版本的 pg_partman，并使用独立的 512 MiB tmpfs 数据目录；Server 使用各自 SQL 与文件对象目录，通过 WebRTC Admin API 触发和观察删除。无需生产配置或 Provider credential。
 
 CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运行同一入口，保留脱敏的测试日志 artifact。普通 Go 和 race jobs 同时覆盖自动恢复的条件重试、分页、共用 worker 进度，以及探测错误、超时、取消和 panic 后失败状态不变。
 
