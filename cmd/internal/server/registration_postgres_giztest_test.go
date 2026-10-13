@@ -135,7 +135,7 @@ func TestPostgreSQLRegistrationGiztest(t *testing.T) {
 			command.SetOut(&output)
 			command.SetErr(&output)
 			reportPath := filepath.Join(root, "giztest.json")
-			command.SetArgs([]string{"run", documents, "--parallel", strconv.Itoa(concurrency), "--seed", "1", "--output", reportPath})
+			command.SetArgs([]string{"run", documents, "--parallel", strconv.Itoa(concurrency), "--seed", "1", "--report", reportPath})
 			runErr := command.ExecuteContext(ctx)
 			stopMonitor()
 			if err := os.WriteFile(filepath.Join(root, "runner.log"), output.Bytes(), 0o600); err != nil {

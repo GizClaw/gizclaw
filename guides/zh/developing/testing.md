@@ -11,6 +11,22 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## Docker 镜像来源
+
+Go、Runtime 与 Mem0 的构建基础镜像、包验证容器、Docker E2E 的第三方服务，以及
+CI 数据库 service 容器默认从 GizClaw DCDN Registry `gizcr.gizclaw.com` 拉取。
+镜像路径包含上游仓库：Docker Hub 官方镜像使用 `docker.io/library/`，组织镜像
+使用 `docker.io/<组织>/`。例如：
+
+```text
+gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
+gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6
+```
+
+已固定的版本和上游 SHA256 digest 保持不变。Server、Edge、Mem0 与测试 fixture
+仍从当前 checkout 构建；`GIZCLAW_E2E_DOCKER_BASE_FROM` 和 `PYTHON_BASE_IMAGE`
+可显式覆盖拉取的基础镜像。
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：
@@ -184,11 +200,12 @@ Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调
 共用基础镜像构建参数。不设置源覆盖变量时保留 `Dockerfile.cn.base` 的 CN 默认值和
 原有 CN 镜像 tag。设置覆盖变量时使用独立的 `custom-base` tag，并始终执行 Docker build，
 避免已有 CN 镜像掩盖源变化；仍可命中 Docker layer cache。
-`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 使用以下官方源，APT 根据架构
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 通过 DCDN 拉取 Ubuntu，并使用
+以下包源，APT 根据架构
 选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
 
 ```sh
-GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_DOCKER_BASE_FROM=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
 GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
 GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
 GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \
@@ -248,6 +265,24 @@ credential 或 Store payload。
 
 Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client 可见性、排序、expiration、batch、conditional-create race、compare-and-mutate race、prefix 隔离与 connector lifecycle。被选中的 endpoint 必须是 Redis 7.0 单节点；Redis Cluster 不属于 Store contract。
 
+Redis 读写分离有独立的 Docker gate：
+
+```sh
+bash tests/store-e2e/run_redis_readwrite_tests.sh
+```
+
+入口需要 Go、Docker Compose 和本机平台的 Git LFS 原生音频库；运行前按本页其他 Go E2E 入口拉取对应平台的 `third_party/audio/prebuilt` 资产。它启动固定 digest 的 Redis 8.4.6 主节点和只读副本，两者各限制为 1 CPU / 256 MiB，只在本机回环地址发布随机端口。它运行普通 Redis 回归和 `TestReadWriteRedis...` 用例，验证真实复制、全部查询走副本、写入及 Lua 条件判断走主节点、跨 prefix 原子 root、读端失败不回退主节点，以及连接关闭。测试关闭写 client 后仍要求所有查询成功，并关闭读 client 验证主节点仍可写。日志和拓扑保存在 ignored `.testbench/redis-readwrite-*`，结束时只清理本次 Compose project 的容器、网络和卷。
+
+已有隔离的主从环境时可以显式提供两个入口运行同一组测试：
+
+```sh
+GIZCLAW_TEST_REDIS_DSN='redis://127.0.0.1:6379/15' \
+GIZCLAW_TEST_REDIS_READ_DSN='redis://127.0.0.1:6380/15' \
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestReadWriteRedis' ./tests/store-e2e
+```
+
+这组测试要求读端是只读副本且属于写端的复制组，不验证自动选主、跨地域复制性能、设备端通知或生产部署。
+
 无需 credential 的多 Server Docker gate 为：
 
 ```sh
@@ -274,6 +309,66 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 | `friend-group.members-in-room` | `server.friend_group.members.list` 的 `in_room`：在线但未运行时为 false，选择群 Workspace 后为 true，运行另一个群的 Workspace、`server.run.stop` 与断线重连后为 false，同一 Server 上的其他成员看到相同结果；全程 `online` 为 true |
 
 媒体断言检查实际 Opus 字节和包数，不重试媒体步骤；运行状态等待有明确上限。快速加回用例覆盖撤权检查与重新激活的竞争窗口，不保证每次都命中某一种执行顺序。每个场景使用独立 Peer 和资源，`finally` 清理运行时、社交资源和 Peer；完整报告位于 `tests/gizclaw-e2e/testdata/multi-server/sfu-report.json`。这些用例不验证设备扬声器播放或转写内容。
+
+两类不依赖 Provider 的本地 SFU 回归可分别运行：
+
+```sh
+GIZCLAW_E2E_SFU_CASE=startup GIZCLAW_E2E_SFU_REPEAT=32 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-sfu-startup \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+GIZCLAW_E2E_SFU_CASE=removal GIZCLAW_E2E_SFU_REPEAT=4 \
+  GIZCLAW_E2E_SFU_TERMINAL_DELAY_MS=1500 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-sfu-removal \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+这两个入口使用两台真实 Server、两台 Edge、共享 Redis、独立 PostgreSQL 数据库和
+LiveKit，固定音频来自仓库内的 Ogg/Opus。每任务三个 SFU participant；`REPEAT` 是任务数，
+默认同时运行这些任务，不能把它当作单房间人数。先以 1、4、16 个任务验证基线，再增加突发。
+`startup` 在选择 Workspace 前用 barrier 对齐任务，并保留广播字节和首包检查；`removal`
+保留三人广播、移除者零音频、未移除者正常收听、设备 ping 和加回后的双向媒体检查。
+这两个入口跳过依赖 SQLite 文件布局的 Go multi-server 套件；该套件仍由默认入口单独运行。
+
+日志 Store 反压回归固定使用一个三客户端任务，依次验证 Carol 入房、实际音频首输出、
+Bob 停止与取消清理，最后执行完整成员移除/加回恢复控制：
+
+```sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_LOG_PRESSURE_BASE_REF=b913ace9e8b31890f67b0cb47f99cb38d41862c9 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-before \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-after \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+`LOG_PRESSURE_BASE_REF` 只替换该 ref 的三个 `pkgs/gizlog` 实现文件，其他 Server、
+SFU、SDK 和夹具源码相同；它不是完整旧 release 的运行结果。基线预期非零退出，
+仍执行全部独立阶段和恢复控制。`logging-join`、`logging-media`、`logging-stop`
+可单独诊断。构建 overlay 仅给 Server B 安装内存 gated LogStore 和内部控制 listener，
+正常 CLI 不链接该夹具，不新增生产配置或公网端口。夹具使用 INFO 的 stderr 与 Store sink，
+等待真实 worker 进入 Append，再按固定 worker pool 的在途批次留出填充余量，
+填满实际 1024-job 队列，再暂停最多四秒；Store 遵守 worker context，恢复后记录接受的
+key 数和重复数。RPC deadline 固定一秒，音频首输出限 1500 ms；原有完整 listen 窗口、
+字节/包数、撤权 EOS、移除者静音、剩余成员收听和重新入房断言均保留。
+每阶段保存 Giztest 文档/报告、释放前协程快照与恢复后的队列/接受计数，另存源码与
+二进制 SHA-256。结果、合成身份和媒体仅留在 ignored 本地目录，不提交或上传。
+该测试证明媒体与取消能隔离系统日志压力，不证明真实 TLS 服务的吞吐或变慢原因。
+
+默认使用 UDP mux：`rtc.udp_port: 7882-7889`，共享八个 ICE UDP 监听端口，
+不随 participant 数分配更多端口。`port_range_start/end` 为 0，避免覆盖复用模式。
+设置 `GIZCLAW_E2E_LIVEKIT_UDP_MODE=range` 和 `GIZCLAW_E2E_LIVEKIT_UDP_END=50100` 可执行窄范围
+负对照：Go SDK 的 publisher/subscriber 使用独立 ICE transport，96 个 participant
+需要 192 个 IPv4 UDP socket，101 个端口不能承载全部入房。端口预算应按所有 Room 的实际
+participant 和尚未回收的连接计算。
+
+`TERMINAL_DELAY_MS` 是明确的故障注入：只在本地构建 overlay 中延迟真实撤权 EOS，
+不改变错误内容或 Runtime 状态，也不进入正常 Server 二进制。设为 0 可运行自然时序；
+设置 `GIZCLAW_E2E_SFU_ACCEPT_REVOCATION=0` 可验证严格的旧 listen 契约会拒绝迟到撤权。
+不能把注入复现计为自然复现。入口保存独立的 `sfu-report.json`、派生场景、二进制 SHA256、
+源码版本／dirty 标记、拓扑、并发和注入参数，以及脱敏服务日志；退出时只清理本次 Compose
+project 和 volume。外部基线二进制可通过 `GIZCLAW_E2E_SFU_BINARY` 提供，同时必须设置
+`GIZCLAW_E2E_SFU_BINARY_REVISION`；不支持新字段的基线 CLI 需要上述严格契约选项。
 
 ### Cloud ObjectStore conformance
 
@@ -615,8 +710,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 | Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
 | C | 构建后的 `giztest-c` 二进制（`tests/gizclaw-e2e/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
 
-四者接受相同的命令行（`validate -f <路径>`、`run <路径> --parallel N --output <报告>`）
-并写出相同结构的 report JSON。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
+四者都支持 `validate -f <路径>` 与 `run <路径> --parallel N`，并写出相同结构的 report JSON。
+Go CLI 用 `--report <文件>` 保存汇总 JSON，用 `--output <目录>` 将一个 Giztest 文件渲染为独立 HTML 流程记录。
+其他三个 SDK runner 用 `--output <报告文件>` 保存 JSON，暂不提供回放目录。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
 skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc`、`http` 与 `reconnect`，
 对不支持的文档同样记为 skipped 并指出具体 step 与 operation。三者都直接指向整个场景
@@ -699,7 +795,7 @@ key 或输出。`clients` 可声明同一任务内同时在线的多个设备。
 ```sh
 gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
-  --output tests/gizclaw-e2e/testdata/giztest-report.json
+  --report tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
 `server.runtime_profile.tags.giztest.yaml` 通过真实 WebRTC RPC 校验 Workflow 的无 tag、单 tag、多个普通 tag 取交集、无匹配、不同年龄 tag 不做 OR、非法 tag、list 分页与 cursor selector、get 投影以及按 alias 创建 Workspace；`server.device.runtime_profile.get.giztest.yaml` 校验相同 tag 的 Public HTTP 过滤。本地 `go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` 运行前者，并在 Admin 更新 Profile 后运行 `testdata/runtime-profile/updated.giztest.yaml`，验证新 SQLite 快照经 RPC 可见；Public HTTP 场景由标准 Giztest 环境执行。
@@ -944,9 +1040,10 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 把 text 转发与 Opus audio EOS 轮次边界分开；`idle_timeout` 按 active 轮次限制不活动时间，
 由 active 侧进展重置，触发时记录 deadline、client、turn、最后事件和已观察媒体。audio relay
 保留有界 assistant 文本用于断言和终轮 capture，但不重复转发文本。默认 report 不含内容；
-本地 `--evidence full --output <path>` 才写入有界 relay 文本以及
-`server.speech.transcribe` 步骤识别出的 transcript，产物属于敏感文件，但仍不包含
-输入、凭据、ID 或音频 payload。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
+本地 `--evidence full --report <path>` 才写入有界 relay 文本以及
+`server.speech.transcribe` 步骤识别出的 transcript。完整 evidence 还可能包含 PeerStream
+输入、音频字节及受支持 RPC 的资源证据，具体内容和独立记录行为见 [CLI 使用说明](/zh/using/cli)。
+这些产物属于敏感记录。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
 运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
 验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
 一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
@@ -989,6 +1086,17 @@ SFU Workspace 广播场景的回应出现在房间里的其他 client 上，而�
   `interrupt_after`、`idle_timeout`、`completion`、`terminal_label`、`require_text`、
   `require_audio`、`wait_for_history`、`session`、`keep_open` 或 `await_rearm`；PeerStream
   在时长结束前关闭、step/文档 timeout 到期或收到 terminal error 时步骤失败。
+- `peer_stream.allowed_terminal_error` 只适用于 listen，可声明一条旧 logical stream 的
+  预期 EOS。`code`、`message`、`stream_id`、`label` 和 `retryable` 全部必填，均按字面值
+  精确匹配；不接受变量、子串或正则。一条窗口最多接受一次匹配的 EOS，随后继续收听到原定
+  窗口结束，所有音频仍计入 `audio_bytes` 和 `packets`，包括与该 EOS 同一个 chunk 的
+  payload。错误缺字段、不匹配、重复、非 EOS、stream 提前关闭和取消仍使步骤失败。
+  `terminal_errors`、`accepted_terminal_errors` 和 `terminal_error_events` 保存错误码、
+  stream ID、label、retryable、接收时间偏移和匹配结果。成员移除场景先用 RPC 验证被移除
+  Peer 仍选择原 Workspace 且 Runtime 已停止／错误，再仅允许该 Peer 的
+  `AGENT_OUTPUT_ERROR`、`sfu: workspace access revoked`、`agent-output-error`、`agent`、
+  `retryable: true` EOS；其他成员的 listen 不声明该例外。Runtime RPC 状态不是客户端
+  Peer Event 消费的确认，不能用固定 sleep 代替这种显式契约。
 - SFU 发送探针通过 `measure_first_packet: true` 和 `completion: input_sent` 记录首个
   非空 Opus 包。相同 task 的 listen 按唯一 packet ID 和发送者关联收包，独立报告启动等待与
   收发延迟；空数组表示没有可证明的对应首包，不表示零延迟。字段、单调时钟边界与旧

@@ -16,6 +16,23 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## Docker image sources
+
+Go, Runtime and Mem0 build bases, package-validation containers, third-party
+Docker E2E services and CI database service containers default to the GizClaw
+DCDN Registry at `gizcr.gizclaw.com`. Image paths include the upstream registry:
+Docker Hub official images use `docker.io/library/`, and organization images
+use `docker.io/<organization>/`. For example:
+
+```text
+gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
+gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6
+```
+
+Existing versions and upstream SHA256 digests are retained. Server, Edge, Mem0
+and test fixtures build from the current checkout. `GIZCLAW_E2E_DOCKER_BASE_FROM`
+and `PYTHON_BASE_IMAGE` explicitly override the base image to pull.
+
 ## Isolating audio timing tests
 
 CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:
@@ -227,11 +244,12 @@ share `setup/docker-base.sh`. Unset source overrides preserve `Dockerfile.cn.bas
 CN defaults and existing CN image tag. Overrides use a separate `custom-base` tag
 and always evaluate the Docker build, so a cached CN image cannot hide changed
 sources; Docker layer caching still applies. `GIZCLAW_E2E_DOCKER_BASE_IMAGE` can
-select an explicit output tag. CI supplies the official sources below; APT selects
+select an explicit output tag. CI pulls Ubuntu through DCDN and uses the package
+sources below; APT selects
 `APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
 
 ```sh
-GIZCLAW_E2E_DOCKER_BASE_FROM=ubuntu:24.04 \
+GIZCLAW_E2E_DOCKER_BASE_FROM=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
 GIZCLAW_E2E_APT_MIRROR=http://archive.ubuntu.com/ubuntu \
 GIZCLAW_E2E_APT_PORTS_MIRROR=http://ports.ubuntu.com/ubuntu-ports \
 GIZCLAW_E2E_GO_MIRROR=https://go.dev/dl \
@@ -322,6 +340,38 @@ The provider-free SFU scenarios cover these boundaries:
 | `friend-group.members-in-room` | `in_room` on `server.friend_group.members.list`: false while online without a runtime, true after selecting the Group's Workspace, false while running another Group's Workspace, after `server.run.stop` and after a reconnect; another member on the same Server sees the same values; `online` stays true throughout |
 
 Media assertions check actual Opus bytes and packet counts without retrying media steps; runtime waits are bounded. The rapid-add case exercises the revocation/activation race window without guaranteeing a particular interleaving. Each scenario uses isolated Peers and resources and cleans up runtimes, social resources, and Peers in `finally`. The report is written to `tests/gizclaw-e2e/testdata/multi-server/sfu-report.json`. These cases do not verify device speaker playback or speech transcripts.
+
+The provider-free system LogStore pressure diagnostic runs Carol admission, real audio
+first output, Bob stop/cancellation and the full member removal/re-add recovery control:
+
+```sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_LOG_PRESSURE_BASE_REF=b913ace9e8b31890f67b0cb47f99cb38d41862c9 \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-before \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+GIZCLAW_E2E_SFU_CASE=logging \
+  GIZCLAW_E2E_SFU_EVIDENCE_DIR=/tmp/gizclaw-log-pressure-after \
+  bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+`LOG_PRESSURE_BASE_REF` replaces only that ref's three `pkgs/gizlog` implementation
+files; other Server, SFU, SDK and fixture sources remain identical. It does not run
+an entire old release. The negative baseline exits nonzero after still executing all
+independent phases and recovery. Individual `logging-join`, `logging-media` and
+`logging-stop` cases are also supported. An explicit build overlay installs a gated
+in-memory LogStore and internal control listener only on Server B. Normal CLI builds
+do not link the fixture or add production configuration or published ports. The
+fixture uses INFO stderr and Store sinks, waits for the real worker to enter Append,
+allows fill headroom for the fixed worker pool’s in-flight batches, fills the actual 1024-job queue
+and pauses for at most four seconds while honoring worker context. Recovery records
+accepted identities and duplicate counts. RPC deadlines remain one second and first
+audio is limited to 1500 ms. Full listen windows, byte/packet counts, revocation EOS,
+removed-member silence, surviving-member audio and rejoin checks remain intact.
+Each phase preserves its Giztest document/report, pre-release goroutine snapshot and
+post-recovery queue/acceptance counts, together with source and binary SHA-256 receipts.
+Reports, synthetic identities and media stay in ignored local evidence and must not
+be committed or uploaded. This verifies media/cancellation isolation from system log
+pressure, not real TLS service throughput or the cause of a backend slowdown.
 
 ### Cloud ObjectStore conformance
 
@@ -674,8 +724,10 @@ SDK:
 | Flutter | the built `giztest` desktop binary (`tests/gizclaw-e2e/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
 | C | the built `giztest-c` binary (`tests/gizclaw-e2e/cgo/giztest`) | `sdk/c/gizclaw` through cgo | `sdk/c/gizclaw_control` |
 
-All four accept the same command line (`validate -f <path>`, `run <path>
---parallel N --output <report>`) and write the same report JSON structure. The
+All four support `validate -f <path>` and `run <path> --parallel N` and write the
+same report JSON structure. The Go CLI uses `--report <file>` for aggregate JSON
+and `--output <directory>` to render one Giztest file as a standalone HTML flow recording. The other three SDK
+runners use `--output <report-file>` for JSON and do not provide replay exports. The
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,
 `output` and `reconnect` step kinds; a document using any other step kind, or
 an `audio` or `binary` variable, is reported as skipped on stderr rather than
@@ -741,7 +793,7 @@ worker pool and write every task and cleanup result to a redacted JSON report:
 ```sh
 gizclaw test validate -f tests/gizclaw-e2e/giztest
 gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 \
-  --output tests/gizclaw-e2e/testdata/giztest-report.json
+  --report tests/gizclaw-e2e/testdata/giztest-report.json
 ```
 
 `server.runtime_profile.tags.giztest.yaml` uses real WebRTC RPC to verify unfiltered, single-tag, and multi-tag Workflow queries with AND semantics, no match or OR across age tags, invalid tags, list pagination with selector-bound cursors, get projection, and Workspace creation by alias. `server.device.runtime_profile.get.giztest.yaml` checks the corresponding Public HTTP filter. Local `go test ./cmd/internal/server -run '^TestRuntimeProfileAndWorkspaceToolkitGiztest$' -count=1` runs the RPC scenario and, after an Admin Profile update, `testdata/runtime-profile/updated.giztest.yaml` to confirm the rotated SQLite snapshot is visible over RPC. The Public HTTP scenario runs in the standard Giztest environment.
@@ -1079,10 +1131,11 @@ audio EOS boundary. `idle_timeout` bounds inactivity per active turn, resets on
 active-side progress, and records deadline, client, turn, last-event, and
 observed-media evidence when it fires. Audio relays retain bounded assistant
 text for assertion and terminal capture without forwarding duplicate text.
-Reports remain content-free by default; local `--evidence full --output <path>`
+Reports remain content-free by default; local `--evidence full --report <path>`
 adds bounded relay text plus the transcript a `server.speech.transcribe` step
-recognized, and produces a sensitive artifact without adding inputs,
-credentials, IDs, or audio payloads.
+recognized. Full evidence can also retain PeerStream inputs, audio bytes and
+supported RPC resource evidence; see [CLI usage](/en/using/cli) for its content
+and standalone recording behavior. Treat these artifacts as sensitive.
 `workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
 pair inside the standard gate;
 `workspace-relay.doubao-realtime-workflow-tester.giztest.yaml` proves text

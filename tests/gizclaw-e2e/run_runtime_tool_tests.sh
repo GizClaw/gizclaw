@@ -122,7 +122,7 @@ touch "$state_dir/fixture.env"
 "${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test validate -f /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest'
 set +e
 # shellcheck disable=SC2016 # Expanded by the container shell.
-"${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test run --parallel "$GIZCLAW_RUNTIME_TOOL_PARALLEL" --evidence full --output /reports/giztest.json /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest/*.giztest.yaml'
+"${compose[@]}" run --rm --entrypoint /bin/bash test -lc 'gizclaw test run --parallel "$GIZCLAW_RUNTIME_TOOL_PARALLEL" --evidence full --report /reports/giztest.json /src/tests/gizclaw-e2e/testdata/runtime-tools/giztest/*.giztest.yaml'
 run_status=$?
 python3 "$script_dir/testdata/runtime-tools/report.py" "$GIZCLAW_MONITOR_REPORTS"
 score_status=$?

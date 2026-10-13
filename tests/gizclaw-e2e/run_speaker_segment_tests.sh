@@ -93,4 +93,4 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" run --rm test \
   /src/tests/gizclaw-e2e/giztest/speaker-segments.eino.realtime.giztest.yaml \
   /src/tests/gizclaw-e2e/giztest/speaker-segments.eino.realtime.giztest.yaml \
-  --output /reports/giztest.json
+  --report /reports/giztest.json

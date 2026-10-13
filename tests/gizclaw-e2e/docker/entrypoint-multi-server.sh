@@ -31,6 +31,8 @@ done
 # Server-local business SQLite file, so a Social Workspace retirement
 # exercises one single-connection SQLite handle exactly as a real
 # deployment would.
+# The SFU regression overlay selects separate PostgreSQL databases instead;
+# it keeps the same Server-local catalog and shared Social KV ownership.
 mkdir -p "$workspace_dir/data" "$sfu_dir"
 umask 077
 printf '%s\n' "$GIZCLAW_E2E_LIVEKIT_API_KEY" >"$sfu_dir/api_key"
@@ -61,6 +63,10 @@ perl -0pi -e '
 if ! grep -q '^  sfu:$' "$config_file"; then
   echo "services.sfu was not written into $config_file" >&2
   exit 1
+fi
+
+if [[ -n "${GIZCLAW_E2E_POSTGRES_DSN:-}" ]]; then
+  perl -0pi -e 's/    kind: sqlite\n    dir: data\/business.sqlite/    kind: postgresql\n    dsn: $ENV{GIZCLAW_E2E_POSTGRES_DSN}/' "$config_file"
 fi
 
 exec /usr/local/bin/gizclaw serve --force "$workspace_dir"

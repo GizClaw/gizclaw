@@ -74,9 +74,14 @@ func (m agenthostLoggingMux) Transform(ctx context.Context, _ string, _ genx.Str
 	return m.output, nil
 }
 
-type agenthostLogStore struct{ records []logstore.Record }
+type agenthostLogStore struct {
+	mu      sync.Mutex
+	records []logstore.Record
+}
 
 func (s *agenthostLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.records = append(s.records, records...)
 	keys := make([]logstore.RecordKey, len(records))
 	for index, record := range records {

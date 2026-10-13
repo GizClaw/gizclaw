@@ -245,7 +245,7 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 	command.SetOut(&output)
 	command.SetErr(&output)
 	reportPath := filepath.Join(reportDir, "giztest.json")
-	command.SetArgs([]string{"run", "--parallel", "8", "--seed", "7919", "--output", reportPath, filepath.Join(root, "history.giztest.yaml")})
+	command.SetArgs([]string{"run", "--parallel", "8", "--seed", "7919", "--report", reportPath, filepath.Join(root, "history.giztest.yaml")})
 	runErr := command.ExecuteContext(ctx)
 	workers.Wait()
 	for _, err := range errs {

@@ -3,15 +3,21 @@ package observability
 import (
 	"context"
 	"log/slog"
+	"sync"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 )
 
-type identityLogStore struct{ records []logstore.Record }
+type identityLogStore struct {
+	mu      sync.Mutex
+	records []logstore.Record
+}
 
 func (s *identityLogStore) Append(_ context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.records = append(s.records, records...)
 	keys := make([]logstore.RecordKey, len(records))
 	for i, record := range records {

@@ -9,7 +9,7 @@ evidence="$(cd "$evidence" && pwd)"
 run_id="gizclaw-registration-$(date +%s)-$$"
 pg_image='gizclaw-history-postgres:fixture'
 docker build -f build/postgres/Dockerfile -t "$pg_image" . >"$evidence/postgres-build.log" 2>&1
-redis_image='redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823'
+redis_image='gizcr.gizclaw.com/docker.io/library/redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823'
 cleanup() {
   docker logs "$run_id-pg" >"$evidence/postgres.log" 2>&1 || true
   docker rm -f -v "$run_id-pg" "$run_id-redis" >/dev/null 2>&1 || true

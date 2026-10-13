@@ -11,10 +11,12 @@ import (
 	redis "github.com/redis/go-redis/v9"
 )
 
-// Redis is a Store backed by a single Redis server. The physical storage
-// registry owns the client; Close therefore does not close it.
+// Redis is a Store backed by one Redis replication group. Ordinary stores use
+// one client; read/write stores use independent clients and allow stale reads.
+// The physical storage registry owns the clients; Close does not close them.
 type Redis struct {
 	client *redis.Client
+	reader *redis.Client
 	opts   *Options
 }
 
@@ -24,11 +26,26 @@ func NewRedisWithClient(client *redis.Client, opts *Options) (*Redis, error) {
 	if client == nil {
 		return nil, errors.New("kv: redis client is nil")
 	}
-	return &Redis{client: client, opts: opts}, nil
+	return &Redis{client: client, reader: client, opts: opts}, nil
+}
+
+// NewRedisReadWriteWithClients creates a Store that borrows separate read and
+// write clients, in that order. Get and collection queries use read; mutations
+// and their atomic conditions use write. Reads may lag successful writes and
+// read errors never fall back to write. Both clients must address the same
+// logical database in one replication group. This constructor opens no connections.
+func NewRedisReadWriteWithClients(read, write *redis.Client, opts *Options) (*Redis, error) {
+	if read == nil || write == nil {
+		return nil, errors.New("kv: redis read and write clients are required")
+	}
+	if read.Options().DB != write.Options().DB {
+		return nil, errors.New("kv: redis read and write clients must use the same database")
+	}
+	return &Redis{client: write, reader: read, opts: opts}, nil
 }
 
 func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
-	value, err := r.client.Get(ctx, string(r.opts.encode(key))).Bytes()
+	value, err := r.reader.Get(ctx, string(r.opts.encode(key))).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, ErrNotFound
 	}

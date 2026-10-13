@@ -8,7 +8,7 @@ import (
 
 const maxOutputTextBytes = 4096
 
-func emitOutput(w io.Writer, vars *Variables, name string) (map[string]any, error) {
+func emitOutput(w io.Writer, vars *Variables, name string, observers ...func(string)) (map[string]any, error) {
 	item, ok := vars.values[name]
 	if !ok || item.data == nil {
 		return nil, fmt.Errorf("output variable %q unavailable", name)
@@ -28,5 +28,8 @@ func emitOutput(w io.Writer, vars *Variables, name string) (map[string]any, erro
 		}
 	}
 	fmt.Fprintf(w, "%s=%s\n", name, text)
+	for _, observe := range observers {
+		observe(text)
+	}
 	return map[string]any{"variable": name, "type": item.spec.Type, "bytes": len(text), "truncated": truncated}, nil
 }

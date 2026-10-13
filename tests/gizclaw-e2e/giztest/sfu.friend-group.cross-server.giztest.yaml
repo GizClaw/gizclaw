@@ -595,11 +595,9 @@ steps:
       request:
         friend_group_name: ${group_name}
         name: ${carol_member}
-  # carol is homed on the other Server, so her SFU runtime is cancelled by the
-  # bounded binding recheck rather than by the removal call itself. Wait for
-  # that cancellation before listening: otherwise the revocation lands in the
-  # middle of the listen and ends the stream with the revoked error instead of
-  # leaving it silent.
+  # Runtime state and Peer Event delivery use different streams. Wait for
+  # revocation, then allow only that old runtime's exact terminal EOS while
+  # observing the entire silence window.
   - id: carol_runtime_revoked
     client: carol
     retry: {attempts: 10, on: [assertion], delay: 1s}
@@ -616,6 +614,12 @@ steps:
         peer_stream:
           mode: listen
           duration: 8s
+          allowed_terminal_error:
+            code: AGENT_OUTPUT_ERROR
+            message: "sfu: workspace access revoked"
+            stream_id: agent-output-error
+            label: agent
+            retryable: true
       - id: alice_speak_after_removal
         client: alice
         peer_stream:

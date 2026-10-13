@@ -157,6 +157,18 @@ voice_adapter:
 
 Factory 持有 Server 级 `services.sfu` credential 与 `BindingResolver`。每个 Workspace 在一台 Server 上只构造一个共享 Agent；每次 Transform 把调用 Peer 作为一个 LiveKit participant attach 到 Room，participant identity 就是 Peer public key，attach 的生命周期由 Transform context 拥有。attach 前先通过 `BindingResolver` 校验权威 membership，`ErrNotMember`、`ErrRevoked`、`ErrNotBound` 都 fail closed；连接失败作为 reload failure 返回。
 
+Connector 为每个 LiveKit Room 显式安装保留 SDK 原始级别的结构化 logger；内部 Pion 使用进程 logger。级别、取消诊断 context 和 SDK 字段边界见 [Observability](/zh/developing/observability#结构化日志)。
+
+初次 Join 和 Track publish 使用 attachment 自己的 context，并共享 15 秒初始化上限。
+LiveKit Join 接收该 context；SDK 内部仍有独立的 ICE／publish timer，因此 connector 在
+取消时主动断开 Room 并释放调用方，不让旧初始化继续占用 Peer 的 Runtime transition。
+初始化失败也会关闭尚未 active 的 Room。替换同一 Peer 的 attachment 会取消其尚未完成的
+Join，等旧 attachment 释放后才建立替代连接。
+SDK 在 WebSocket upgrade 完成后才登记 signal connection；其底层 Gorilla DialContext
+对 pending HTTP response 使用 deadline，单独取消 context 不会中断该读取。Connector
+通过每次初始化独立的 HTTP trace 登记这条专用 TCP connection，在取消时关闭尚未移交的
+socket，避免调用方退出后才建立迟到的 LiveKit session；成功初始化后解除这项关闭责任。
+
 上行：GenX `audio/opus` chunk 携带裸 Opus frame，session 按帧写入本地 48 kHz Opus track，不解码也不重新编码。session 把上行切成 talk utterance（第一个有声帧打开，Device EOS 或 `talk_hangover` 关闭），并在 Room 的 reliable data channel 上以 topic `gizclaw.sfu.talk` 发布 BOS/EOS；Device 的 BOS/EOS 不创建或销毁 Room，也不断开 participant。
 
 下行：session 按 data channel 上的远端 utterance 维护 floor，同一时刻只转发一位持有者的 Opus packet（经 RTP 重排缓冲），其他 participant 的 packet 丢弃并计数；本 Peer 发言期间不转发任何下行（半双工）。转发的 packet 以 `agenthost.OpusPassthroughMIME`（`audio/opus; passthrough=1`）标记，每次 floor 持有使用新的 `stream_id`，`label` 为 participant identity；`MixerOutput` 不解码它们，`PeerConn` 直接把 payload 写入 Device 的 Opus Track。floor 在持有者 EOS、`floor_idle` 无有声 packet、Track mute/unsubscribe、participant 离开或本 Peer 开始发言时释放，由最早仍打开的远端 utterance 接手；这些事件只关闭对应 route，不结束整个 Workspace output。规则细节见 [services/social](/zh/developing/gizclaw/services/social#媒体与下行)。

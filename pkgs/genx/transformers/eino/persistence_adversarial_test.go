@@ -44,12 +44,12 @@ func TestPersistentStateAdversarialLoadAndCommitFailures(t *testing.T) {
 	if err != nil {
 		t.Fatalf("newRunState() error = %v", err)
 	}
-	if err := commitPersistentState(t.Context(), &StatePersistenceConfig{
+	if _, err := commitPersistentState(t.Context(), &StatePersistenceConfig{
 		Store: adversarialStateStore{compareErr: storeErr}, Scope: "scope", Fields: []string{"answer"},
 	}, state, "v1"); err == nil || !strings.Contains(err.Error(), storeErr.Error()) {
 		t.Fatalf("commitPersistentState() error = %v", err)
 	}
-	if err := commitPersistentState(t.Context(), nil, state, ""); err != nil {
+	if _, err := commitPersistentState(t.Context(), nil, state, ""); err != nil {
 		t.Fatalf("commitPersistentState(nil) error = %v", err)
 	}
 }

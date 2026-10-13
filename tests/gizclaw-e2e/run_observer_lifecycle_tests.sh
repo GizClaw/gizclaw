@@ -131,7 +131,7 @@ sleep 3
 date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/before.time"
 run_status=0
 for round in 1 2 3; do
-  "${compose[@]}" run --rm test /src/tests/gizclaw-e2e/testdata/observer-lifecycle/first-response.giztest.yaml --parallel 3 --output "/reports/first-response-$round.json" || run_status=1
+  "${compose[@]}" run --rm test /src/tests/gizclaw-e2e/testdata/observer-lifecycle/first-response.giztest.yaml --parallel 3 --report "/reports/first-response-$round.json" || run_status=1
   date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/after-first-$round.time"
 done
 "${compose[@]}" run --rm test \
@@ -139,8 +139,8 @@ done
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/run-stop.giztest.yaml \
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/workspace-delete.giztest.yaml \
   /src/tests/gizclaw-e2e/testdata/observer-lifecycle/peer-delete.giztest.yaml \
-  --parallel 2 --output /reports/lifecycle.json || run_status=1
-"${compose[@]}" run --rm test /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml /src/tests/gizclaw-e2e/giztest/slow-tts.eino.push-to-talk.giztest.yaml --output /reports/slow-tts.json || run_status=1
+  --parallel 2 --report /reports/lifecycle.json || run_status=1
+"${compose[@]}" run --rm test /src/tests/gizclaw-e2e/giztest/slow-tts.eino.realtime.giztest.yaml /src/tests/gizclaw-e2e/giztest/slow-tts.eino.push-to-talk.giztest.yaml --report /reports/slow-tts.json || run_status=1
 date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/after-all.time"
 sleep 20
 date -u +%FT%TZ > "$GIZCLAW_MONITOR_REPORTS/delayed.time"

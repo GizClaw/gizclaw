@@ -290,6 +290,7 @@ steps:
       request: {}
     expect:
       /runtime_state: {pattern: "^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$"}
+      /selected_workspace_name: {equals: "${alice_workspace}"}
   - id: bob_still_connected_after_removal
     client: bob
     rpc: {method: all.ping, request: {client_send_time: 0}}
@@ -298,7 +299,15 @@ steps:
     parallel:
       - id: bob_listen_removed
         client: bob
-        peer_stream: {mode: listen, duration: 8s}
+        peer_stream:
+          mode: listen
+          duration: 8s
+          allowed_terminal_error:
+            code: AGENT_OUTPUT_ERROR
+            message: "sfu: workspace access revoked"
+            stream_id: agent-output-error
+            label: agent
+            retryable: true
       - id: carol_listen_alice_removed
         client: carol
         peer_stream: {mode: listen, duration: 8s}

@@ -60,7 +60,7 @@ services:
       - /src/tests/gizclaw-e2e/giztest/server.monitor.logs.giztest.yaml
       - /src/tests/gizclaw-e2e/giztest/server.monitor.audio.giztest.yaml
       - /src/tests/gizclaw-e2e/giztest/server.monitor.node.giztest.yaml
-      - --output
+      - --report
       - /reports/giztest.json
     volumes: ["${GIZCLAW_MONITOR_REPORTS:?}:/reports"]
     depends_on:

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 	"log/slog"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -48,7 +49,6 @@ func TestPeerLogStoreCleanupFlushesBacklogAfterWait(t *testing.T) {
 type peerLogStore struct {
 	mu       sync.Mutex
 	records  []logstore.Record
-	cursor   int // waitFor consumes records in order
 	appended chan struct{}
 }
 
@@ -78,10 +78,10 @@ func (*peerLogStore) Close() error { return nil }
 func (s *peerLogStore) next(message string) (logstore.Record, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for s.cursor < len(s.records) {
-		record := s.records[s.cursor]
-		s.cursor++
+	// Concurrent batches may finish out of order. Keep unmatched records.
+	for i, record := range s.records {
 		if record.Message == message {
+			s.records = slices.Delete(s.records, i, i+1)
 			return record, true
 		}
 	}

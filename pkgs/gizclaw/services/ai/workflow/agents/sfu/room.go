@@ -4,6 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
+	"net"
+	"net/http/httptrace"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/livekit/protocol/auth"
@@ -75,15 +80,20 @@ type roomConnector interface {
 const (
 	livekitTokenTTL         = 2 * time.Minute
 	livekitDefaultConnectTO = 15 * time.Second
+	livekitCancelCloseTO    = 250 * time.Millisecond
 )
 
 // livekitConnector joins LiveKit Rooms with Server-held API credentials.
 type livekitConnector struct {
 	apiKey    string
 	apiSecret string
+	logger    *slog.Logger
 }
 
 func (c livekitConnector) connect(ctx context.Context, params connectParams, events roomEvents) (roomClient, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("sfu: connect to room: %w", err)
+	}
 	token, err := c.mintToken(params)
 	if err != nil {
 		return nil, err
@@ -125,14 +135,90 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 			},
 		},
 	}
-	timeout := livekitDefaultConnectTO
-	if deadline, ok := ctx.Deadline(); ok {
-		if remaining := time.Until(deadline); remaining > 0 && remaining < timeout {
-			timeout = remaining
+	ctx, cancel := context.WithTimeout(ctx, livekitDefaultConnectTO)
+	defer cancel()
+	installLiveKitLogger()
+	room := lksdk.NewRoom(callback)
+	room.SetLogger(newLiveKitLogger(ctx, c.logger))
+	var disconnectOnce sync.Once
+	disconnect := func() { disconnectOnce.Do(room.Disconnect) }
+	// Gorilla's DialContext applies a deadline to the HTTP upgrade, but a
+	// cancellation alone does not interrupt its pending ReadResponse. The SDK
+	// does not own that socket until DialContext returns. Track the dedicated
+	// signaling socket so cancellation also stops this earlier I/O boundary.
+	var pendingSocket atomic.Pointer[net.Conn]
+	var handedOff atomic.Bool
+	closePendingSocket := func() {
+		if pending := pendingSocket.Swap(nil); pending != nil {
+			_ = (*pending).Close()
 		}
 	}
-	room, err := lksdk.ConnectToRoomWithToken(params.URL, token, callback, lksdk.WithAutoSubscribe(true), lksdk.WithConnectTimeout(timeout))
-	if err != nil {
+	ctx = httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{GotConn: func(info httptrace.GotConnInfo) {
+		if info.Conn == nil || handedOff.Load() {
+			return
+		}
+		conn := info.Conn
+		pendingSocket.Store(&conn)
+		if handedOff.Load() {
+			pendingSocket.CompareAndSwap(&conn, nil)
+			return
+		}
+		if ctx.Err() != nil {
+			closePendingSocket()
+		}
+	}})
+	cancelInitialization := func() {
+		// Give an already joined participant a bounded chance to send Leave.
+		// Gorilla resets the write deadline for each frame; force the dedicated
+		// socket closed if the SDK's disconnect blocks on a signaling write.
+		forceClose := time.AfterFunc(livekitCancelCloseTO, closePendingSocket)
+		disconnect()
+		forceClose.Stop()
+		closePendingSocket()
+	}
+	stopCancel := context.AfterFunc(ctx, cancelInitialization)
+	defer stopCancel()
+	// SDK signaling accepts a context, but its ICE wait and PublishTrack have
+	// their own bounded timers. Keep those waits off the runtime transition
+	// caller so cancellation can close the participant and release that gate.
+	type connectResult struct {
+		client *livekitRoom
+		err    error
+	}
+	result := make(chan connectResult, 1)
+	go func() {
+		client, err := initializeLiveKitRoom(ctx, room, params.URL, token, disconnect)
+		if cause := ctx.Err(); cause != nil {
+			client, err = nil, fmt.Errorf("sfu: initialize room: %w", cause)
+		}
+		if err != nil {
+			cancelInitialization()
+		}
+		result <- connectResult{client, err}
+	}()
+	select {
+	case <-ctx.Done():
+		cancelInitialization()
+		return nil, fmt.Errorf("sfu: initialize room: %w", ctx.Err())
+	case initialized := <-result:
+		if !stopCancel() || ctx.Err() != nil {
+			cancelInitialization()
+			return nil, fmt.Errorf("sfu: initialize room: %w", ctx.Err())
+		}
+		if initialized.err != nil {
+			return nil, initialized.err
+		}
+		handedOff.Store(true)
+		pendingSocket.Store(nil)
+		return initialized.client, nil
+	}
+}
+
+func initializeLiveKitRoom(ctx context.Context, room *lksdk.Room, url, token string, disconnect func()) (*livekitRoom, error) {
+	if err := room.JoinWithContextAndToken(ctx, url, token, lksdk.WithAutoSubscribe(true), lksdk.WithConnectTimeout(livekitDefaultConnectTO)); err != nil {
+		return nil, fmt.Errorf("sfu: connect to room: %w", err)
+	}
+	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("sfu: connect to room: %w", err)
 	}
 	track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
@@ -141,7 +227,6 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 		Channels:  2,
 	}, "audio", "gizclaw")
 	if err != nil {
-		room.Disconnect()
 		return nil, fmt.Errorf("sfu: create local audio track: %w", err)
 	}
 	publication, err := room.LocalParticipant.PublishTrack(track, &lksdk.TrackPublicationOptions{
@@ -149,10 +234,9 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 		Source: livekit.TrackSource_MICROPHONE,
 	})
 	if err != nil {
-		room.Disconnect()
 		return nil, fmt.Errorf("sfu: publish local audio track: %w", err)
 	}
-	return &livekitRoom{room: room, track: track, publication: publication}, nil
+	return &livekitRoom{room: room, track: track, publication: publication, disconnect: disconnect}, nil
 }
 
 func (c livekitConnector) mintToken(params connectParams) (string, error) {
@@ -189,6 +273,7 @@ type livekitRoom struct {
 	room        *lksdk.Room
 	track       *webrtc.TrackLocalStaticSample
 	publication *lksdk.LocalTrackPublication
+	disconnect  func()
 }
 
 func (r *livekitRoom) WriteAudio(sample media.Sample) error {
@@ -204,5 +289,5 @@ func (r *livekitRoom) Disconnect() {
 		_ = r.room.LocalParticipant.UnpublishTrack(r.publication.SID())
 		r.publication = nil
 	}
-	r.room.Disconnect()
+	r.disconnect()
 }

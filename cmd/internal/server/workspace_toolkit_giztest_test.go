@@ -128,7 +128,7 @@ func TestRuntimeProfileAndWorkspaceToolkitGiztest(t *testing.T) {
 		reportPath := filepath.Join(t.TempDir(), filepath.Base(path)+".report.json")
 		command.SetOut(&output)
 		command.SetErr(&output)
-		command.SetArgs([]string{"run", "--parallel", "1", "--output", reportPath, path})
+		command.SetArgs([]string{"run", "--parallel", "1", "--report", reportPath, path})
 		if err := command.ExecuteContext(ctx); err != nil {
 			report, _ := os.ReadFile(reportPath)
 			t.Fatalf("Giztest %s: %v\n%s\n%s", path, err, output.String(), report)

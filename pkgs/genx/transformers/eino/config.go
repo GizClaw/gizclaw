@@ -33,14 +33,20 @@ type Config struct {
 	// An error or exhausted corrections publishes no unverified reply text.
 	// Independent invocations may call the callback concurrently.
 	VerifyToolResponse func(context.Context, genx.ToolConversation, string) (string, error)
-	MaxToolCalls       int
-	Limits             Limits
+	// MaxToolCalls bounds ToolCalls within one root Graph execution, including
+	// child Graphs and model tool continuations. Zero uses genx.DefaultMaxToolCalls.
+	// ContinueFrom starts a fresh budget and call-ID set for each generation;
+	// an inherited ToolCall scope remains shared.
+	MaxToolCalls int
+	Limits       Limits
 	// Initiative controls the optional empty-input Graph turn.
 	Initiative InitiativePolicy
 	// ContinueFrom names a boolean root State field. When true after a
 	// successful Graph execution, the same turn executes the Graph again,
 	// retaining State and a bounded window of its preceding narration. All
 	// iterations share one output route; each generation is a History message.
+	// Every execution must publish fresh nonempty narration, including the
+	// terminal execution that sets this field to false.
 	ContinueFrom string
 	// SafetyFence is host-selected safety prompt text exposed to every run,
 	// including child Graphs, through the input.safety_fence binding. The
@@ -76,7 +82,10 @@ type Limits struct {
 	MaxOutputBytes int
 }
 
-// StatePersistenceConfig enables optimistic persistent Graph state.
+// StatePersistenceConfig selects optimistic persistent Graph state fields.
+// Ordinary turns commit before successful primary EOS. ContinueFrom commits
+// each generation after its delivery acknowledgement and History recording;
+// interrupted or failed generations leave the last completed checkpoint intact.
 type StatePersistenceConfig struct {
 	Store  StateStore
 	Scope  string

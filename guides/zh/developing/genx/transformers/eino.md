@@ -260,13 +260,15 @@ Output buffer 不依赖 downstream pull，最多增长到 `Limits.MaxOutputBytes
 
 ### 同一 turn 内连续讲述
 
-`Config.ContinueFrom` 指向 root State 中使用 `replace` 的 boolean field。每次 Graph 成功执行后，true 请求同一用户 turn 内的下一次生成，false 结束播讲。每次执行前该字段重置为 false，Graph 必须主动写入 true；每次执行拥有独立的 `MaxRunSteps` 预算，播讲没有固定迭代次数。
+`Config.ContinueFrom` 指向 root State 中使用 `replace` 的 boolean field。每次 Graph 成功执行后，true 请求同一用户 turn 内的下一次生成，false 结束播讲。每次执行前该字段重置为 false，Graph 必须主动写入 true；每次根 Graph 生成拥有独立的 `MaxRunSteps` 与 `MaxToolCalls` 预算及 call-ID set，播讲没有固定迭代次数。逐段搜索等工具调用不会累计耗尽整段播讲的默认 32 次额度。
 
-此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。续讲必须发布新的非空白正文，避免空输出忙循环。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
+此模式要求单一 `text/plain` string output，且其 State merge 为 `replace`；Graph 接收文本，音频可在进入 Graph 前转写。每次执行都必须发布新的非空白正文，包括将 `ContinueFrom` 设为 false 的最后一次；跳过输出或空白正文以 error EOS 终止，不提交本段 State。State 保留，`input.messages` 在原始输入后附加最近八次生成；内部续讲不创建用户消息。每轮正文使用独立的进程内 `StreamCtrl.MessageID`，`MessageEnd` 结束该正文的 MIME channel，播放 route 的 StreamID 与 BOS/EOS 保持连续。
 
 每轮交付后立即追加一条 assistant History；最初的用户消息只记录一次。Workspace History 同样每轮保存一条，并将该轮文字与音频对应为可重播记录。用户打断会取消当前生成、丢弃未交付后缀，并单独记录当前轮已交付的前缀；完成的旧段不合并、不重写。恢复或换主题建立新的用户 turn，仍按每轮生成分段保存。
 
-Transformer 在文字交付及消息边界确认后才开始下一轮。产品 factory 对 Voice 启用 [Audio Dock 背压](../agentkit#连续讲述背压)，等待对应 TTS 音频交付，避免长期积压；该模式不支持 `speaker_voices`。每次交付的正文随后释放，续讲上下文保留最近八段，`Limits.MaxOutputBytes` 约束 Transformer 待交付缓冲。Memory observation 使用每段独立的 identity；持久 State 仍在整个 turn 成功结束时提交。
+Transformer 在文字交付及消息边界确认后才开始下一轮。产品 factory 对 Voice 启用 [Audio Dock 背压](../agentkit#连续讲述背压)，等待对应 TTS 音频交付，避免长期积压；该模式不支持 `speaker_voices`。每次交付的正文随后释放，续讲上下文保留最近八段，`Limits.MaxOutputBytes` 约束 Transformer 待交付缓冲。Memory observation 使用每段独立的 identity。
+
+配置持久 State 时，每段完整交付、`MessageEnd` 确认及该段内部 History/Memory 记录成功后，才对 `StatePersistenceConfig.Fields` 选择的字段执行 CAS；成功返回的 version 用于下一段，最终 turn 收尾不重复 CAS。缓存队列、已播游标等字段因此可以在持续播讲中形成检查点。中断、生成失败、未确认消息边界或记录失败的当前段不提交这些字段，恢复时加载最后一个成功检查点。CAS 冲突以 error EOS 终止，保留并发写入者的状态及此前完成的检查点。History 与 State 是有序的两次存储操作，不是跨 Store 原子事务；CAS 失败前已经保存的 History 不回滚。
 
 产品 Workflow 用 `spec.eino.conversation.continue_from` 选择该 State field。Graph 应生成短小、自然承接且以完整句子结束的正文；不需要额外的“继续”用户 turn。
 
@@ -282,7 +284,7 @@ State: &eino.StatePersistenceConfig{
 }
 ```
 
-Store 在 Graph 前加载 versioned snapshot。只有配置列出的 field 会被校验并复制进新的 local State。成功 primary EOS 之前立即用 compare-and-swap 提交最终 field。Failure、cancellation、interruption、invalid State 或 conflict 都不会覆盖此前 snapshot。
+Store 在 Graph 前加载 versioned snapshot。只有配置列出的 field 会被校验并复制进新的 local State。普通 turn 在成功 primary EOS 之前用 compare-and-swap 提交最终 field；连续生成按上面的每段交付边界提交。Failure、cancellation、interruption、invalid State 或 conflict 不提交当前失败段，也不覆盖已完成段的检查点。
 
 History 接收可选的 `memory.HistoryReader`，通过 `Scope` 选择会话，并以有界 limit 读取近期的 user/assistant 文本。外部 Reader 模式不调用 Append，也不保留第二份持久化历史；宿主负责完整的原始文本输入、ASR transcript 和已交付回复的记录，以及下一轮读取前的写入完成屏障。`ExcludeTurnID` 排除当前输入，避免历史与当前 user message 重复。没有 Reader 时使用有界 Agent-local History。
 
@@ -296,9 +298,9 @@ Memory 使用可选的 provider-neutral `memory.Store`。每个 Recall 在 Graph
 
 `New` 会拒绝非法 name、node union、State type、merge、port、binding、component schema、output MIME、重复 output ownership、unreachable node、不能到达 `end` 的 node、未知 routing target、impossible fan-in、concurrent writer、非法 cycle、超过 16 层的递归 nesting 和不完整的 Store config。Error 会包含 Graph path 以及对应 node 或 field。
 
-Provider、Store、Script、component、cancellation、byte limit 和 optimistic-concurrency runtime error 都会让所有 active route 以 error EOS 终止。失败的 Graph run 不提交 persistent State。
+Provider、Store、Script、component、cancellation、byte limit 和 optimistic-concurrency runtime error 都会让所有 active route 以 error EOS 终止。失败的普通 turn 或连续生成中的失败段不提交 persistent State；此前完整交付并提交的连续段保留。
 
-Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一个 root `Transform` invocation 的 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。独立 invocation 可以并发执行同一 invoker 并复用 provider call ID；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
+Eino Transformer 只依赖 GenX `ToolInvoker` interface，不接收 RuntimeProfile、Toolkit policy、resource 或 Executor registry 细节。一次根 Graph 生成中的所有 ChatModel、模型工具续跑和 nested Graph 共用 call-ID set 与 `MaxToolCalls` budget；provider call ID 留在 Eino 内部，并与 `InvokeTool` 返回的 raw JSON result 关联。零值采用 32，负数非法。`ContinueFrom` 的下一次根 Graph 生成取得新的有界额度与 call-ID set，因此可以复用前一段的 provider call ID；同一次生成内重复 ID 或超额调用仍在进入 `ToolInvoker` 前失败。若调用 context 已携带上层工具作用域，则继续共用其额度与 ID，不通过子 Transformer 或内部续讲绕过上层限制。独立 invocation 可以并发执行同一 invoker；解析、执行、非法 result JSON、cancellation、重复 ID 和额度耗尽错误只影响当前 invocation。
 
 Agent 主动开场时，ChatModel 会省略 Prompt 渲染出的无内容 user message，保留系统提示、历史以及多模态输入。
 

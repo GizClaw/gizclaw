@@ -1,9 +1,13 @@
 package giztestcmd
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
@@ -64,36 +68,42 @@ func newPlayCmd() *cobra.Command {
 			if err := validatePlayDocument(args[0], docs); err != nil {
 				return codedError(exitValidation, err)
 			}
-			var record *playRecord
+			var record *replayRecord
 			if output != "" {
-				record, err = newPlayRecord(output)
+				record, err = newReplayRecord(output)
 				if err != nil {
 					return codedError(exitValidation, err)
 				}
-				defer record.abort()
+				defer record.directory.abort()
 			}
 			session, err := newPlaySession(cmd.OutOrStdout())
 			if err != nil {
 				return codedError(exitExecution, err)
 			}
-			session.discardRecording = record == nil
+			session.discardRecording = true
 			if err := session.cue(); err != nil {
 				_ = session.close()
 				return codedError(exitExecution, err)
 			}
-			report := giztest.Run(cmd.Context(), docs, giztest.Options{
-				Driver:   newDriver(false, session.observe),
-				Parallel: 1,
-				In:       os.Stdin,
-				Out:      cmd.OutOrStdout(),
+			testDriver := newDriver(false, session.observe)
+			testDriver.recording = record
+			ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
+			defer stop()
+			report := giztest.Run(ctx, docs, giztest.Options{
+				Driver:        testDriver,
+				Parallel:      1,
+				In:            os.Stdin,
+				Out:           cmd.OutOrStdout(),
+				ObserveOutput: record.observeOutput,
 			})
 			if closeErr := session.close(); closeErr != nil {
 				markPlayReportFailed(&report, fmt.Errorf("close playback: %w", closeErr))
 			}
 			if record != nil {
-				if err := record.commit(report, session.packets); err != nil {
+				if err := record.commit(report); err != nil {
 					return codedError(exitExecution, err)
 				}
+				printReplayPaths(cmd.OutOrStdout(), record)
 			}
 			receivedMS, playbackMS := session.latencySummary()
 			recordPath := "disabled"
@@ -110,7 +120,7 @@ func newPlayCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVarP(&output, "output", "o", "", "write report.json and received audio.ogg to a new record directory")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "export each test's HTML, text and audio into a new output directory")
 	return cmd
 }
 
@@ -154,18 +164,35 @@ func newRunCmd() *cobra.Command {
 	var parallel int
 	var output string
 	var evidence string
+	var outDirectory string
 	cmd := &cobra.Command{Use: "run <file-or-directory>...", Short: "giztest.Run Giztest documents", Args: func(_ *cobra.Command, args []string) error {
 		if len(args) == 0 {
 			return codedError(exitValidation, fmt.Errorf("run requires at least one file or directory"))
 		}
 		return nil
 	}, RunE: func(cmd *cobra.Command, args []string) error {
-		if err := validateRunOptions(parallel, output, evidence); err != nil {
+		validationOutput := output
+		if outDirectory != "" && validationOutput == "" {
+			validationOutput = filepath.Join(outDirectory, "report.json")
+		}
+		if err := validateRunOptions(parallel, validationOutput, evidence); err != nil {
+			return codedError(exitValidation, err)
+		}
+		if err := validateReplayReportOutput(outDirectory, output); err != nil {
 			return codedError(exitValidation, err)
 		}
 		paths, err := giztest.Discover(args)
 		if err != nil {
 			return codedError(exitValidation, err)
+		}
+		if outDirectory != "" {
+			if len(args) != 1 || len(paths) != 1 {
+				return codedError(exitValidation, fmt.Errorf("--output records one Giztest file per command"))
+			}
+			info, err := os.Stat(args[0])
+			if err != nil || !info.Mode().IsRegular() {
+				return codedError(exitValidation, fmt.Errorf("--output requires one regular Giztest file"))
+			}
 		}
 		fullEvidence := evidence == "full"
 		timing := commandTiming(cmd)
@@ -181,18 +208,32 @@ func newRunCmd() *cobra.Command {
 		if err := giztest.ValidateTiming(docs, timing); err != nil {
 			return codedError(exitValidation, err)
 		}
+		var record *replayRecord
+		if outDirectory != "" {
+			record, err = newReplayRecord(outDirectory)
+			if err != nil {
+				return codedError(exitValidation, err)
+			}
+			defer record.directory.abort()
+		}
 		ctx, stop := signal.NotifyContext(cmd.Context(), os.Interrupt, syscall.SIGTERM)
 		defer stop()
 		fmt.Fprintf(cmd.OutOrStdout(), "Giztest starting: %d documents, parallel=%d\n", len(docs), parallel)
+		testDriver := newDriver(fullEvidence, nil)
+		testDriver.recording = record
 		report := giztest.Run(ctx, docs, giztest.Options{
-			Timing:   timing,
-			Driver:   newDriver(fullEvidence, nil),
-			Parallel: parallel,
-			In:       os.Stdin,
-			Out:      cmd.OutOrStdout(),
+			Timing:        timing,
+			Driver:        testDriver,
+			Parallel:      parallel,
+			In:            os.Stdin,
+			Out:           cmd.OutOrStdout(),
+			ObserveOutput: record.observeOutput,
 		})
-		if err := giztest.WriteReport(output, report); err != nil {
+		if err := writeRunReports(output, record, report); err != nil {
 			return codedError(exitExecution, err)
+		}
+		if record != nil {
+			printReplayPaths(cmd.OutOrStdout(), record)
 		}
 		fmt.Fprintf(cmd.OutOrStdout(), "Giztest %s: %d tasks in %dms\n", report.Status, len(report.Tasks), report.DurationMS)
 		if report.Status != "passed" {
@@ -204,10 +245,48 @@ func newRunCmd() *cobra.Command {
 		return nil
 	}}
 	cmd.Flags().IntVar(&parallel, "parallel", 1, "maximum concurrent tasks across all selected documents")
-	cmd.Flags().StringVar(&output, "output", "", "write an atomic JSON report")
+	cmd.Flags().StringVar(&output, "report", "", "write a separate atomic JSON acceptance report")
+	cmd.Flags().StringVarP(&outDirectory, "output", "o", "", "render one Giztest file's standalone HTML, data and audio into a new directory")
 	cmd.Flags().StringVar(&evidence, "evidence", "redacted", "report evidence mode: redacted or full (full may contain sensitive relay text)")
 	addTimingFlags(cmd)
 	return cmd
+}
+
+func writeRunReports(output string, record *replayRecord, report giztest.Report) error {
+	reportErr := giztest.WriteReport(output, report)
+	if record == nil {
+		return reportErr
+	}
+	return errors.Join(reportErr, record.commit(report))
+}
+
+func printReplayPaths(out io.Writer, record *replayRecord) {
+	fmt.Fprintf(out, "Giztest output: %s (%d test replays)\n", record.directory.target, len(record.pages))
+	for _, page := range record.pages {
+		fmt.Fprintln(out, filepath.Join(record.directory.target, filepath.FromSlash(page)))
+	}
+}
+
+func validateReplayReportOutput(directory, report string) error {
+	if directory == "" || report == "" {
+		return nil
+	}
+	root, err := filepath.Abs(directory)
+	if err != nil {
+		return err
+	}
+	path, err := filepath.Abs(report)
+	if err != nil {
+		return err
+	}
+	relative, err := filepath.Rel(root, path)
+	if err != nil {
+		return err
+	}
+	if relative != "report.json" && relative != ".." && !strings.HasPrefix(relative, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("--report inside --output must be report.json to avoid overwriting replay files")
+	}
+	return nil
 }
 
 func validateRunOptions(parallel int, output, evidence string) error {
@@ -218,7 +297,7 @@ func validateRunOptions(parallel int, output, evidence string) error {
 		return fmt.Errorf("evidence must be redacted or full")
 	}
 	if evidence == "full" && output == "" {
-		return fmt.Errorf("full evidence requires --output")
+		return fmt.Errorf("full evidence requires --output or --report")
 	}
 	return nil
 }

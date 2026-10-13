@@ -36,6 +36,6 @@ set +a
 "$script_dir/testdata/bin/gizclaw" test run \
   "$script_dir/giztest/review.chat.giztest.yaml" \
   "$script_dir/giztest/review.social.giztest.yaml" \
-  --parallel 1 --output "$script_dir/testdata/giztest-human-review-report.json"
+  --parallel 1 --report "$script_dir/testdata/giztest-human-review-report.json"
 
 echo "==> human-review e2e run completed"

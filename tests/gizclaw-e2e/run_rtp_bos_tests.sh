@@ -94,4 +94,4 @@ touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" run --rm seed -server server:9820 -profile-id rtp-bos -token-id rtp-bos -token monitor-test -rtp-bos
 "${compose[@]}" run --rm test \
   /src/tests/gizclaw-e2e/testdata/rtp-bos/audio.giztest.yaml \
-  --output /reports/giztest.json
+  --report /reports/giztest.json

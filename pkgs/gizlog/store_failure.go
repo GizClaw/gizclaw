@@ -4,18 +4,16 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"runtime"
-	"time"
 )
 
 type storeFailureReportingHandler struct {
-	handler  slog.Handler
-	fallback slog.Handler
-	store    string
+	handler slog.Handler
+	queue   *storeQueue
+	store   string
 }
 
-func newStoreFailureReportingHandler(handler, fallback slog.Handler, store string) slog.Handler {
-	return &storeFailureReportingHandler{handler: handler, fallback: fallback, store: store}
+func newStoreFailureReportingHandler(handler slog.Handler, queue *storeQueue, store string) slog.Handler {
+	return &storeFailureReportingHandler{handler: handler, queue: queue, store: store}
 }
 
 func (h *storeFailureReportingHandler) Enabled(ctx context.Context, level slog.Level) bool {
@@ -24,20 +22,16 @@ func (h *storeFailureReportingHandler) Enabled(ctx context.Context, level slog.L
 
 func (h *storeFailureReportingHandler) Handle(ctx context.Context, record slog.Record) error {
 	err := h.handler.Handle(ctx, record)
-	if err == nil {
-		return nil
+	if err != nil && !errors.Is(err, ErrStoreQueueFull) && !errors.Is(err, errStoreQueueClosed) {
+		h.queue.rejectProjection(h.store)
 	}
-	var pcs [1]uintptr
-	runtime.Callers(1, pcs[:])
-	failure := slog.NewRecord(time.Now(), slog.LevelError, "system log store sink failed", pcs[0])
-	failure.AddAttrs(slog.String("store", h.store))
-	return errors.Join(err, h.fallback.Handle(context.Background(), failure))
+	return err
 }
 
 func (h *storeFailureReportingHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &storeFailureReportingHandler{handler: h.handler.WithAttrs(attrs), fallback: h.fallback, store: h.store}
+	return &storeFailureReportingHandler{handler: h.handler.WithAttrs(attrs), queue: h.queue, store: h.store}
 }
 
 func (h *storeFailureReportingHandler) WithGroup(name string) slog.Handler {
-	return &storeFailureReportingHandler{handler: h.handler.WithGroup(name), fallback: h.fallback, store: h.store}
+	return &storeFailureReportingHandler{handler: h.handler.WithGroup(name), queue: h.queue, store: h.store}
 }

@@ -180,7 +180,7 @@ done
 report_path="$artifact_dir/giztest-concurrency-${concurrency}.json"
 (cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run \
 	--parallel "$concurrency" \
-	--output "$report_path" \
+	--report "$report_path" \
 	"${workflow_paths[@]}")
 python3 - "$report_path" "$concurrency" <<'PY'
 import json

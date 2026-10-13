@@ -35,9 +35,12 @@ func loadPersistentState(ctx context.Context, config *StatePersistenceConfig, fi
 	return values, snapshot.Version, nil
 }
 
-func commitPersistentState(ctx context.Context, config *StatePersistenceConfig, state *runState, version string) error {
+func commitPersistentState(ctx context.Context, config *StatePersistenceConfig, state *runState, version string) (string, error) {
 	if config == nil {
-		return nil
+		return version, nil
+	}
+	if ctx.Err() != nil {
+		return version, context.Cause(ctx)
 	}
 	values := make(map[string]any, len(config.Fields))
 	for _, name := range config.Fields {
@@ -47,10 +50,11 @@ func commitPersistentState(ctx context.Context, config *StatePersistenceConfig, 
 		}
 		values[name] = value
 	}
-	if _, err := config.Store.CompareAndSwap(ctx, config.Scope, version, values); err != nil {
-		return fmt.Errorf("eino: commit State: %w", err)
+	snapshot, err := config.Store.CompareAndSwap(ctx, config.Scope, version, values)
+	if err != nil {
+		return version, fmt.Errorf("eino: commit State: %w", err)
 	}
-	return nil
+	return snapshot.Version, nil
 }
 
 func recallMemory(ctx context.Context, config *MemoryConfig, state *runState) error {

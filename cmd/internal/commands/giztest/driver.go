@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -20,6 +21,7 @@ type driver struct {
 	fullEvidence  bool
 	audioObserver audioObserver
 	speechCache   *speechFixtureCache
+	recording     *replayRecord
 
 	// The remaining fields substitute transports in this package's tests.
 	// They are nil in production.
@@ -91,7 +93,11 @@ func (d *driver) Open(ctx context.Context, doc *giztest.Document, vars *giztest.
 	if clients == nil {
 		return nil, err
 	}
-	return &session{driver: d, clients: clients, streams: newPeerStreamSessions(), packetClock: newPeerPacketClock()}, err
+	var redactions []string
+	if d.recording != nil {
+		redactions = replayRedactions(doc, vars)
+	}
+	return &session{driver: d, clients: clients, streams: newPeerStreamSessions(), packetClock: newPeerPacketClock(), taskID: giztest.TaskID(ctx), redactions: redactions}, err
 }
 
 // session is one task's set of dialed clients plus the peer streams the
@@ -101,6 +107,34 @@ type session struct {
 	clients     *clientSet
 	streams     *peerStreamSessions
 	packetClock *peerPacketClock
+	taskID      string
+	redactions  []string
+}
+
+func (s *session) replayCapture(req giztest.StepRequest) *replayCapture {
+	if s.driver.recording == nil {
+		return nil
+	}
+	capture := s.driver.recording.capture(req.DocumentPath, s.taskID, req)
+	if capture != nil {
+		capture.redactions = s.redactions
+	}
+	return capture
+}
+
+func replayRedactions(doc *giztest.Document, vars *giztest.Variables) []string {
+	var redactions []string
+	for name, spec := range doc.Variables {
+		if !spec.Secret && !slices.Contains(doc.Report.Redact, name) {
+			continue
+		}
+		value, err := vars.Resolve("${" + name + "}")
+		if text, ok := value.(string); err == nil && ok && text != "" {
+			redactions = append(redactions, text)
+		}
+	}
+	slices.SortFunc(redactions, func(a, b string) int { return len(b) - len(a) })
+	return redactions
 }
 
 func (s *session) Fingerprints() map[string]string { return s.clients.fingerprints() }
@@ -177,6 +211,7 @@ func (s *session) Execute(ctx context.Context, req giztest.StepRequest) (giztest
 func (s *session) executeSpeech(ctx context.Context, req giztest.StepRequest) (giztest.StepResult, error) {
 	step := req.Step
 	vars := req.Vars
+	capture := s.replayCapture(req)
 	client, err := s.clients.get(step.Client)
 	if err != nil {
 		return giztest.StepResult{}, err
@@ -197,9 +232,15 @@ func (s *session) executeSpeech(ctx context.Context, req giztest.StepRequest) (g
 	invoke := func() (operationResult, error) {
 		return invokeSpeech(ctx, client, step, request, input, inputSpec, outputSpec, s.driver.fullEvidence)
 	}
+	recordedResult := func(result operationResult) giztest.StepResult {
+		if capture != nil {
+			capture.observeSpeech(step, request, result)
+		}
+		return result.stepResult()
+	}
 	if step.Speech.Cache != "run" {
 		result, err := invoke()
-		return result.stepResult(), err
+		return recordedResult(result), err
 	}
 	key, err := speechFixtureKey(req.DocumentPath, step, request, outputSpec)
 	if err != nil {
@@ -215,11 +256,11 @@ func (s *session) executeSpeech(ctx context.Context, req giztest.StepRequest) (g
 	} else {
 		result.evidence["cache"] = "miss"
 	}
-	return result.stepResult(), err
+	return recordedResult(result), err
 }
 
 func (s *session) executePeerStream(ctx context.Context, req giztest.StepRequest) (giztest.StepResult, error) {
-	invocation, err := s.preparePeerStream(req.Step, req.Step, req.Vars)
+	invocation, err := s.preparePeerStream(req.Step, req.Step, req.Vars, s.replayCapture(req))
 	if err != nil {
 		return giztest.StepResult{}, err
 	}
@@ -265,7 +306,7 @@ func (s *session) PrepareParallel(req giztest.StepRequest) (giztest.ParallelChil
 	if req.Parent != nil {
 		captureStep = giztest.Step{ID: step.ID, Capture: giztest.ParallelChildCaptures(*req.Parent, step.ID)}
 	}
-	invocation, err := s.preparePeerStream(step, captureStep, req.Vars)
+	invocation, err := s.preparePeerStream(step, captureStep, req.Vars, s.replayCapture(req))
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +329,7 @@ type peerStreamInvocation struct {
 // preparePeerStream resolves the step input and the /audio capture bound.
 // captureStep owns the capture map: the step itself, or the child-scoped view
 // of the capture map of the parallel step that owns it.
-func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztest.Variables) (peerStreamInvocation, error) {
+func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztest.Variables, captures ...*replayCapture) (peerStreamInvocation, error) {
 	client, err := s.clients.get(step.Client)
 	if err != nil {
 		return peerStreamInvocation{}, err
@@ -312,6 +353,22 @@ func (s *session) preparePeerStream(step, captureStep giztest.Step, vars *giztes
 	open := openClientPeerStream(client)
 	if s.driver.openPeerStream != nil {
 		open = s.driver.openPeerStream(client)
+	}
+	if len(captures) > 0 && captures[0] != nil {
+		capture := captures[0]
+		originalOpen := open
+		open = func() (peerStream, error) {
+			stream, err := originalOpen()
+			if err != nil {
+				return stream, err
+			}
+			return capture.wrap(step.Client, stream), nil
+		}
+		if s.streams != nil {
+			if held := s.streams.items[step.PeerStream.Session]; held != nil {
+				bindReplayCapture(held.stream, capture)
+			}
+		}
 	}
 	return peerStreamInvocation{client: client, open: open, step: step, input: input, audioCaptureMaxBytes: audioCaptureMaxBytes, observer: s.driver.audioObserver, packetClock: s.packetClock}, nil
 }
@@ -352,6 +409,7 @@ func (p peerStreamInvocation) Run(ctx context.Context) (giztest.StepResult, erro
 func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepRequest) (giztest.StepResult, error) {
 	step := req.Step
 	vars := req.Vars
+	capture := s.replayCapture(req)
 	input, err := vars.Resolve(step.WorkspaceRelay.Input)
 	if err != nil {
 		return giztest.StepResult{}, err
@@ -398,12 +456,14 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 	defer stopKeepalive()
 	var result operationResult
 	if s.driver.openRelayStreams == nil {
-		result, err = invokeWorkspaceRelay(
-			relayCtx, s.clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, s.driver.audioObserver)
+		result, err = invokeWorkspaceRelayRecorded(
+			relayCtx, s.clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, capture, s.driver.audioObserver)
 	} else {
 		var first, second relayStream
 		first, second, err = s.driver.openRelayStreams()
 		if err == nil {
+			first = capture.wrap(step.WorkspaceRelay.FirstClient, first)
+			second = capture.wrap(step.WorkspaceRelay.SecondClient, second)
 			result, err = runWorkspaceRelayWithEvidence(
 				relayCtx, step.WorkspaceRelay, first, second, input, audioCaptureMaxBytes,
 				s.driver.fullEvidence, s.driver.audioObserver)

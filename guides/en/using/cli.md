@@ -75,7 +75,7 @@ created:
 
 ```sh
 gizclaw test validate -f tests/gizclaw-e2e/giztest
-gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --output report.json
+gizclaw test run tests/gizclaw-e2e/giztest --parallel 10 --report report.json
 ```
 
 For manual debugging of one voice scenario, use the non-concurrent `test play`
@@ -104,23 +104,68 @@ packet count, encoded audio clock, mean/P95/maximum interval, and cumulative
 drift.
 By default, play mode only streams to the audio device and writes no files.
 To preserve a run, `-o` / `--output` must name a new directory. The committed record contains a
-redacted `report.json` and, when audio arrived, `audio.ogg` containing the full
-user-and-assistant conversation in playback order; an empty Ogg is not
-invented when no audio arrived. Execution or playback failures still preserve
+standalone HTML, report, conversation text and segment audio. No empty audio file
+is invented when no audio arrived. Execution or playback failures still preserve
 the failed report and any bounded audio already received when the record can be
 committed, then return non-zero.
+
+### Export one test as a standalone HTML recording
+
+Run one Giztest file with `--output` (short option `-o`) to create a distributable recording:
+
+```sh
+gizclaw test run scenario.giztest.yaml --output ./out
+```
+
+`--output` requires one regular Giztest file, a new destination directory and
+an existing parent. Repeats, parallel steps and finally results are included in
+that recording. Execution without an output directory remains ordinary acceptance.
+
+```text
+out/
+├── index.html       # Go-template-rendered HTML with steps, text and segment audio embedded
+├── report.json      # Acceptance report
+├── replay.json      # Test recording data
+├── transcript.txt   # Conversation text
+└── audio/           # Original Ogg/Opus and segment WAV files
+```
+
+The page displays numbered steps, operations, results, evidence, conversation
+and audio together. It has no download or report-navigation links. Starting
+replay highlights the current step, reveals replies at their recorded times and
+plays the corresponding audio segments when reached. Each step also exposes
+its own audio controls. No merged full-conversation audio file is produced.
+
+Go `html/template` renders the HTML with inline CSS, JavaScript, recording data
+and segment audio. Distribute the whole directory or just `index.html`: playback
+requires no Giztest executable, Go runtime, source template, web server, external
+JSON or media files. Files under `audio/` are retained for analysis and reuse.
+
+Segments follow the media clock rather than packet jitter. Prepared speech and
+duplicate relay uploads are individually playable and not played twice during
+automatic replay. Audio-free tests do not create empty audio files. Failures and
+Ctrl+C/SIGTERM preserve collected content and failed results. Recording is bounded
+to 128 MiB of text/encoded audio and 200,000 media/control chunks. Limit or audio
+export failures explicitly mark partial records and return an execution error.
+
+`test play -o <directory>` uses the same layout. Automation needing aggregate
+JSON uses `test run --report <file>`, which still accepts multiple files and
+directories. A report inside the output directory must be its root `report.json`.
+Full evidence accepts `--output` or `--report`. Recording does not change
+assertions or default redacted JSON evidence. Treat recorded text and audio as sensitive.
 
 Play requires cgo, libopus, and a PortAudio native runtime supported on the
 current platform; it checks these before creating a remote client. The audio
 in the record directory is real response content explicitly persisted by the
 operator and must be treated as sensitive. Normal `test run` never opens an
-audio device or writes an additional audio file.
+audio device; it saves additional conversation media only with explicit `--output`.
 
-`--evidence redacted` is the default. `--evidence full` requires `--output`
-and writes bounded `workspace_relay` per-turn and terminal text into that JSON
-report without printing it to the terminal. Treat a full-evidence report as
-sensitive; it still excludes inputs, expanded variables, credentials, resource IDs, and
-audio payloads, but model or tester text may contain private content.
+`--evidence redacted` is the default. `--evidence full` requires `--output` or
+`--report` and adds bounded relay per-turn and terminal text, `peer_stream` input
+and output, speech transcripts, and catalog or Workspace evidence from supported
+RPCs to the JSON report without automatically printing it. Audio inputs may
+appear as Base64 bytes, and first-packet probes include temporary correlation
+IDs. Treat this evidence as sensitive conversation and resource content.
 
 YAML `repeat` is the task count for that file. `--parallel` is the maximum
 worker count shared by all files. Directory discovery is recursive and stable.
@@ -447,7 +492,7 @@ responses to 64 KiB and JSON depth 8; judging has a one-minute deadline.
 Use `expect: {/quality/passed: {equals: true}}` to enforce acceptance; individual
 results are available under `/quality/criteria`. Default reports retain scores,
 thresholds, verdicts and cited turn numbers. Only explicit
-`--evidence full --output <report.json>` records explanations and exact quotes;
+`--evidence full --report <report.json>` records explanations and exact quotes;
 these are not automatically printed to the terminal. LLM scores are heuristic;
 format/citation validation is not human endorsement. This evaluates text
 storytelling; voice and device experience use their corresponding acceptance.
@@ -498,9 +543,9 @@ default. An explicit `0` disables the corresponding document delay:
 
 ```sh
 gizclaw test run scenario.giztest.yaml --parallel 16 \
-  --start-jitter 30s --stagger 0 --step-jitter 3s --seed 42 --output jitter.json
+  --start-jitter 30s --stagger 0 --step-jitter 3s --seed 42 --report jitter.json
 gizclaw test run scenario.giztest.yaml --parallel 16 \
-  --start-jitter 0 --stagger 0 --step-jitter 0 --seed 42 --output lockstep.json
+  --start-jitter 0 --stagger 0 --step-jitter 0 --seed 42 --report lockstep.json
 ```
 
 `seed` / `--seed` is an integer in `0..9007199254740991`; zero is a valid seed.

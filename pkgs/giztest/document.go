@@ -163,6 +163,9 @@ type SpeechOperation struct {
 	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
+	// AllowedTerminalError permits at most one exactly matching EOS during a
+	// listen window. The window and audio accounting continue after that EOS.
+	AllowedTerminalError *PeerStreamTerminalErrorExpectation `json:"allowed_terminal_error,omitempty" yaml:"allowed_terminal_error,omitempty"`
 	// TextDone sends the complete text in TEXT_DONE after a control-only BOS.
 	TextDone bool `json:"text_done,omitempty" yaml:"text_done,omitempty"`
 	// Timestamp selects zero (default) or current Unix milliseconds for input.
@@ -206,6 +209,16 @@ type PeerStreamOperation struct {
 	// spoken frame the way a device releases its key right after speech.
 	// Synthesized input otherwise ends with silence a device never sends.
 	TrimTrailingSilence bool `json:"trim_trailing_silence,omitempty" yaml:"trim_trailing_silence,omitempty"`
+}
+
+// PeerStreamTerminalErrorExpectation identifies a previous logical stream's
+// expected terminal notification. Every field is a literal, exact match.
+type PeerStreamTerminalErrorExpectation struct {
+	Code      string `json:"code" yaml:"code"`
+	Message   string `json:"message" yaml:"message"`
+	StreamID  string `json:"stream_id" yaml:"stream_id"`
+	Label     string `json:"label" yaml:"label"`
+	Retryable bool   `json:"retryable" yaml:"retryable"`
 }
 type OutputOperation struct {
 	Variable string `json:"variable" yaml:"variable"`
@@ -1048,6 +1061,19 @@ func collectReferences(v any) []string {
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
 	op := step.PeerStream
+	if expected := op.AllowedTerminalError; expected != nil {
+		if op.Mode != "listen" {
+			return fmt.Errorf("step %s allowed_terminal_error requires listen mode", step.ID)
+		}
+		for name, value := range map[string]string{
+			"code": expected.Code, "message": expected.Message,
+			"stream_id": expected.StreamID, "label": expected.Label,
+		} {
+			if strings.TrimSpace(value) == "" || strings.Contains(value, "${") {
+				return fmt.Errorf("step %s allowed_terminal_error %s requires a nonblank literal", step.ID, name)
+			}
+		}
+	}
 	if op.MeasureFirstPacket && (op.Mode != "push-to-talk" || op.Completion != "input_sent" || op.EmptyInput || op.OverlapInput || op.InterruptAfter != "") {
 		return fmt.Errorf("step %s measure_first_packet requires nonempty push-to-talk input_sent without overlap or interruption", step.ID)
 	}

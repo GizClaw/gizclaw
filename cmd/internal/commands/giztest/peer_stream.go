@@ -394,6 +394,8 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 	var pacing peerAudioPacing
 	audioBytes, packets, events, droppedText := 0, 0, 0, 0
 	streams := make(map[string]struct{})
+	var terminalEvents []map[string]any
+	acceptedTerminalErrors := 0
 	var firstTextMS, firstTranscriptMS, firstAudioMS, lastEventMS int64
 	firstTextObserved, firstTranscriptObserved := false, false
 	var lead peerAudioLead
@@ -404,11 +406,17 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 		}
 	}()
 	evidence := func() map[string]any {
-		return mapsWith(map[string]any{
+		result := mapsWith(map[string]any{
 			"mode": "listen", "duration_ms": duration.Milliseconds(), "events": events, "audio_bytes": audioBytes,
 			"packets": packets, "streams": len(streams), "first_text_ms": firstTextMS,
 			"first_transcript_ms": firstTranscriptMS, "first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS,
 		}, lead.fields())
+		if len(terminalEvents) != 0 {
+			result["terminal_errors"] = len(terminalEvents)
+			result["accepted_terminal_errors"] = acceptedTerminalErrors
+			result["terminal_error_events"] = terminalEvents
+		}
+		return result
 	}
 	counters := func() string {
 		return fmt.Sprintf("events=%d audio_bytes=%d packets=%d streams=%d", events, audioBytes, packets, len(streams))
@@ -426,6 +434,11 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 			"first_audio_ms": firstAudioMS, "last_event_ms": lastEventMS, "duration_ms": duration.Milliseconds(),
 			"listened_ms": time.Since(started).Milliseconds(), "dropped_text": droppedText,
 		}, lead.fields())
+		if len(terminalEvents) != 0 {
+			object["terminal_errors"] = len(terminalEvents)
+			object["accepted_terminal_errors"] = acceptedTerminalErrors
+			object["terminal_error_events"] = terminalEvents
+		}
 		result := evidence()
 		if summary := pacing.summary(); summary != nil {
 			object["audio_pacing"] = summary
@@ -485,9 +498,18 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 					streams[id] = struct{}{}
 				}
 				if terminalError := peerStreamTerminalError(result.chunk); terminalError != "" {
-					failed := evidence()
-					failed["terminal_errors"] = 1
-					return operationResult{evidence: failed}, fmt.Errorf("peer_stream terminal error: %s", terminalError)
+					ctrl := result.chunk.Ctrl
+					accepted := acceptedTerminalErrors == 0 && matchesAllowedTerminalError(op.AllowedTerminalError, result.chunk)
+					terminalEvents = append(terminalEvents, map[string]any{
+						"code": ctrl.ErrorCode, "stream_id": ctrl.StreamID, "label": ctrl.Label,
+						"retryable": ctrl.ErrorRetryable, "elapsed_ms": elapsed.Milliseconds(), "accepted": accepted,
+					})
+					if !accepted {
+						return operationResult{evidence: evidence()}, fmt.Errorf("peer_stream terminal error: %s", terminalError)
+					}
+					acceptedTerminalErrors++
+					// Even an accepted EOS can carry a payload. Account for it
+					// below so an expected error cannot conceal forbidden audio.
 				}
 			}
 			switch part := result.chunk.Part.(type) {
@@ -545,6 +567,16 @@ func listenPeerStream(ctx context.Context, stream peerStream, step giztest.Step,
 			}
 		}
 	}
+}
+
+func matchesAllowedTerminalError(expected *giztest.PeerStreamTerminalErrorExpectation, chunk *genx.MessageChunk) bool {
+	if expected == nil || chunk == nil || chunk.Ctrl == nil || !chunk.IsEndOfStream() {
+		return false
+	}
+	ctrl := chunk.Ctrl
+	return ctrl.ErrorCode == expected.Code && ctrl.Error == expected.Message &&
+		ctrl.StreamID == expected.StreamID && ctrl.Label == expected.Label &&
+		ctrl.ErrorRetryable == expected.Retryable
 }
 
 // opusPacketsDuration sums the RTP clock of every packet.
