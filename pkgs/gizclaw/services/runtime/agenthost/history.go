@@ -204,6 +204,11 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 		a.notifyHistoryUpdated(entry.CreatedAt)
 		notifyWorkspaceHistory(ctx, a.history.Workspace, entry)
 	})
+	_, recorder.inputRecorded = workspace.RecordedHistoryInput(ctx, a.history.Workspace)
+	ctx = workspace.WithHistoryReadBarrier(ctx, recorder.waitForText)
+	if input != nil {
+		input = &historyInputStream{Stream: input, ctx: ctx, recorder: recorder}
+	}
 	agentOutput, err := a.Agent.Transform(ctx, input)
 	if err != nil {
 		a.clearOutput(outputKey, outputState)
@@ -371,7 +376,16 @@ func (o *historyOutput) finishMessageHistory() {
 	if o.forwardingDone != nil {
 		<-o.forwardingDone
 	}
-	o.recorder.flushAll(o.historyContext)
+	o.recorder.markUnfinishedMessagesInterrupted()
+	ctx := o.historyContext
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	// Delivery already happened. Caller cancellation must not erase it, while
+	// a bounded context keeps shutdown from waiting indefinitely for storage.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	o.recorder.flushAll(ctx)
 	o.recorder.discard()
 }
 
@@ -1142,12 +1156,17 @@ func historyReplayPendingInterrupts(pending map[historyForwardChunkKey]historyFo
 }
 
 type historyRecorder struct {
-	history *workspace.HistoryStore
-	gearID  string
-	notify  func(workspace.HistoryEntry)
+	history       *workspace.HistoryStore
+	inputRecorded bool
+	gearID        string
+	notify        func(workspace.HistoryEntry)
 
-	mu      sync.Mutex
-	pending map[string]*historyPendingEntry
+	mu          sync.Mutex
+	pending     map[string]*historyPendingEntry
+	pendingText map[string]struct{}
+	textChanged chan struct{}
+	textError   error
+	textInputs  []string
 }
 
 type historyPendingEntry struct {
@@ -1184,10 +1203,12 @@ type historyAudioSegment struct {
 
 func newHistoryRecorder(history *workspace.HistoryStore, gearID string, notify func(workspace.HistoryEntry)) *historyRecorder {
 	return &historyRecorder{
-		history: history,
-		gearID:  strings.TrimSpace(gearID),
-		notify:  notify,
-		pending: make(map[string]*historyPendingEntry),
+		history:     history,
+		gearID:      strings.TrimSpace(gearID),
+		notify:      notify,
+		pending:     make(map[string]*historyPendingEntry),
+		pendingText: make(map[string]struct{}),
+		textChanged: make(chan struct{}),
 	}
 }
 
@@ -1195,7 +1216,7 @@ func (r *historyRecorder) ObserveOutput(ctx context.Context, chunk *genx.Message
 	typ := historyEntryTypeAgent
 	gearID := ""
 	if chunk.Role == genx.RoleUser {
-		if r == nil || strings.TrimSpace(r.gearID) == "" {
+		if r == nil || r.inputRecorded || r.recordedTextInput(historyChunkStreamID(chunk)) {
 			return nil
 		}
 		typ = historyEntryTypeGear
@@ -1222,14 +1243,19 @@ func (r *historyRecorder) discardMatching(keep func(*historyPendingEntry) bool) 
 	}
 	r.mu.Lock()
 	entries := make([]*historyPendingEntry, 0, len(r.pending))
+	var droppedKeys []string
 	for key, entry := range r.pending {
 		if keep != nil && keep(entry) {
 			continue
 		}
 		entries = append(entries, entry)
 		delete(r.pending, key)
+		droppedKeys = append(droppedKeys, key)
 	}
 	r.mu.Unlock()
+	for _, key := range droppedKeys {
+		r.finishText(key, nil)
+	}
 	for _, entry := range entries {
 		if entry != nil {
 			entry.closeAudio()
@@ -1315,8 +1341,14 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
 			return err
 		}
+		if chunk.HistoryText != nil && typ == historyEntryTypeAgent {
+			part = *chunk.HistoryText
+		}
 		if string(part) != "" && (chunk.Ctrl == nil || !chunk.Ctrl.TextInterim) {
 			entry.text.WriteString(string(part))
+			if typ == historyEntryTypeAgent {
+				r.markText(r.key(recordChunk, typ))
+			}
 		}
 	case *genx.Blob:
 		var ok bool
@@ -1373,6 +1405,16 @@ func (r *historyRecorder) markInterrupted(streamID string) {
 	defer r.mu.Unlock()
 	for _, entry := range r.pending {
 		if entry != nil && entry.streamID == streamID {
+			entry.interrupted = true
+		}
+	}
+}
+
+func (r *historyRecorder) markUnfinishedMessagesInterrupted() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, entry := range r.pending {
+		if entry != nil && entry.typ == historyEntryTypeAgent && entry.messageID != "" {
 			entry.interrupted = true
 		}
 	}
@@ -1603,7 +1645,7 @@ func (r *historyRecorder) flushRoute(ctx context.Context, streamID string) error
 	})
 }
 
-func (r *historyRecorder) flush(ctx context.Context, key string) error {
+func (r *historyRecorder) flush(ctx context.Context, key string) (err error) {
 	r.mu.Lock()
 	entry := r.pending[key]
 	delete(r.pending, key)
@@ -1611,6 +1653,7 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 	if entry == nil {
 		return nil
 	}
+	defer func() { r.finishText(key, err) }()
 	if entry.failed || (entry.interrupted && strings.TrimSpace(entry.text.String()) == "") {
 		entry.closeAudio()
 		return nil
@@ -1633,12 +1676,14 @@ func (r *historyRecorder) flush(ctx context.Context, key string) error {
 		return nil
 	}
 	req := workspace.AppendHistoryRequest{
-		Type:      entry.typ,
-		GearID:    entry.gearID,
-		Origin:    workspace.HistoryOriginAgentHost,
-		Name:      entry.name,
-		Text:      text,
-		CreatedAt: entry.createdAt,
+		Type:        entry.typ,
+		GearID:      entry.gearID,
+		Origin:      workspace.HistoryOriginAgentHost,
+		Name:        entry.name,
+		Text:        text,
+		CreatedAt:   entry.createdAt,
+		TurnID:      entry.streamID,
+		Interrupted: entry.interrupted,
 	}
 	if len(packets) > 0 {
 		audio, err := historyOggOpusAsset(packets)

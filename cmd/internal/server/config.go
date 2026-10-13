@@ -97,11 +97,10 @@ type AgentHostConfig struct {
 	Persistence  *AgentHostPersistenceConfig `yaml:"persistence"`
 }
 
-// AgentHostPersistenceConfig binds shared Agent state and internal history to
+// AgentHostPersistenceConfig binds shared Agent state to
 // logical Stores owned by the command-layer Store Registry.
 type AgentHostPersistenceConfig struct {
-	StateStore   string `yaml:"state_store"`
-	HistoryStore string `yaml:"history_store"`
+	StateStore string `yaml:"state_store"`
 }
 
 // ServicesConfig is the fixed service-to-Store binding schema. Unlike the
@@ -1229,9 +1228,6 @@ func validateServicesConfig(cfg *ServicesConfig) error {
 			if err := validateStoreReference("services.agent_host.persistence.state_store", cfg.AgentHost.Persistence.StateStore); err != nil {
 				return err
 			}
-			if err := validateStoreReference("services.agent_host.persistence.history_store", cfg.AgentHost.Persistence.HistoryStore); err != nil {
-				return err
-			}
 		}
 	}
 	if cfg.PeerUsage != nil && strings.TrimSpace(cfg.PeerUsage.Store) == "" {
@@ -1378,16 +1374,15 @@ func validateConfigShape(node ast.Node) error {
 		if kind == "memory" {
 			return fmt.Errorf("server: stores.%s kind %q is no longer supported; configure MemoryLayout resources and RuntimeProfile memory bindings instead", name, kind)
 		}
-		if kind == "log" {
-			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s or %s", name, kind, store.KindLogImmutable, store.KindLogMutable)
+		if kind == "log.immutable" || kind == "log.mutable" {
+			return fmt.Errorf("server: stores.%s kind %q is not supported; use %s with a logging service", name, kind, store.KindLog)
 		}
 		allowedFields := map[string]map[string]struct{}{
-			store.KindKeyValue:     {"kind": {}, "storage": {}, "prefix": {}},
-			store.KindObjectStore:  {"kind": {}, "storage": {}, "prefix": {}, "ttl": {}},
-			store.KindSQL:          {"kind": {}, "storage": {}},
-			store.KindMetrics:      {"kind": {}, "storage": {}, "table": {}, "database": {}},
-			store.KindLogImmutable: {"kind": {}, "storage": {}, "topic_id": {}, "database": {}, "table": {}, "ttl": {}},
-			store.KindLogMutable:   {"kind": {}, "storage": {}, "database": {}, "table": {}, "ttl": {}},
+			store.KindKeyValue:    {"kind": {}, "storage": {}, "prefix": {}},
+			store.KindObjectStore: {"kind": {}, "storage": {}, "prefix": {}, "ttl": {}},
+			store.KindSQL:         {"kind": {}, "storage": {}},
+			store.KindMetrics:     {"kind": {}, "storage": {}, "table": {}, "database": {}},
+			store.KindLog:         {"kind": {}, "storage": {}, "topic_id": {}},
 		}
 		allowed, knownKind := allowedFields[kind]
 		if !knownKind {
@@ -1597,12 +1592,12 @@ func validateAgentHostConfigShape(path string, value any) error {
 		}
 		for field := range persistence {
 			switch field {
-			case "state_store", "history_store":
+			case "state_store":
 			default:
 				return fmt.Errorf("server: %s.persistence has unknown field %q", path, field)
 			}
 		}
-		for _, field := range []string{"state_store", "history_store"} {
+		for _, field := range []string{"state_store"} {
 			if reference, exists := persistence[field]; exists {
 				if err := validateFileStoreReference(path+".persistence."+field, reference); err != nil {
 					return err

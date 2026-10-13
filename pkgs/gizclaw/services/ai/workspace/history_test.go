@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
 func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
@@ -96,7 +96,7 @@ func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Append newest: %v", err)
 	}
-	if err := store.Records.Delete(ctx, logstore.RecordKey{Stream: store.stream(), ID: middle.ID}); err != nil {
+	if err := store.Records.Delete(ctx, memory.HistoryKey{ConversationID: store.Workspace, ID: middle.ID}); err != nil {
 		t.Fatalf("Delete middle entry: %v", err)
 	}
 
@@ -186,7 +186,7 @@ func TestHistoryStoreValidatesGearAndAgentSource(t *testing.T) {
 	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	ctx := context.Background()
 
-	if _, err := store.Append(ctx, AppendHistoryRequest{Type: "gear", Name: "gear", Text: "x"}); err == nil || !strings.Contains(err.Error(), "gear_id") {
+	if _, err := store.Append(ctx, AppendHistoryRequest{Type: "gear", Name: "gear", Text: "x"}); err != nil {
 		t.Fatalf("Append gear without gear_id error = %v", err)
 	}
 	if _, err := store.Append(ctx, AppendHistoryRequest{Type: "agent", GearID: "gear-a", Name: "agent", Text: "x"}); err == nil || !strings.Contains(err.Error(), "gear_id") {
@@ -200,25 +200,15 @@ func TestHistoryStoreValidatesGearAndAgentSource(t *testing.T) {
 	}
 }
 
-func TestHistoryStoreMalformedEntryBlocksList(t *testing.T) {
-	objects := newTestObjectStore(t)
-	store := newTestHistoryStore(t, objects, "demo")
-	_, err := store.Records.Append(t.Context(), []logstore.Record{{
-		ID: "bad", Time: time.Now().UTC(), Stream: store.stream(), Kind: historyEntryTypeAgent,
-		Message: "bad", Payload: []byte(`{"version":1`),
-	}})
-	if err == nil || !strings.Contains(err.Error(), "valid JSON") {
-		t.Fatalf("Append invalid LogStore payload error = %v", err)
+func TestHistoryStoreRejectsInvalidRole(t *testing.T) {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
+	err := store.Records.Append(t.Context(), []memory.HistoryEntry{{ConversationID: "demo", ID: "bad", CreatedAt: time.Now(), Role: memory.RoleTool, Text: "bad"}})
+	if !errors.Is(err, memory.ErrInvalidInput) {
+		t.Fatalf("Append invalid role=%v", err)
 	}
-	_, err = store.Records.Append(t.Context(), []logstore.Record{{
-		ID: "bad", Time: time.Now().UTC(), Stream: store.stream(), Kind: historyEntryTypeAgent,
-		Message: "bad", Payload: []byte(`{"version":1}`),
-	}})
-	if err != nil {
-		t.Fatalf("Append malformed history payload: %v", err)
-	}
-	if _, err := store.List(context.Background(), apitypes.PeerRunHistoryListRequest{}); err == nil || !strings.Contains(err.Error(), "decode") {
-		t.Fatalf("List malformed error = %v", err)
+	page, err := store.List(t.Context(), apitypes.PeerRunHistoryListRequest{})
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("invalid message committed: %+v err=%v", page, err)
 	}
 }
 

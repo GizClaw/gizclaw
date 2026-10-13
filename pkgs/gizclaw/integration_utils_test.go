@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 
@@ -21,7 +23,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -198,7 +199,7 @@ func completeExternalTestServer(t testing.TB, server *gizclaw.Server) *gizclaw.S
 	if server.PeerRunDB == nil {
 		server.PeerRunDB = db
 	}
-	history, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	history, err := memory.NewSQLHistoryStore(t.Context(), db, "workspace_history", 0)
 	if err != nil {
 		t.Fatalf("open test workspace history: %v", err)
 	}

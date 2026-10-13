@@ -4,13 +4,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/jmoiron/sqlx"
 	"net"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 	"unicode/utf8"
+
+	"github.com/jmoiron/sqlx"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -43,7 +44,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
@@ -153,7 +153,6 @@ type Manager struct {
 	Contacts     *contact.Server
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server
-	AgentHistory logstore.MutableStore // Server-owned internal history borrowed by Workflow factories.
 	GraphStateDB *sqlx.DB
 	MemoryRoot   string
 	MemoryStores *memorystore.Registry

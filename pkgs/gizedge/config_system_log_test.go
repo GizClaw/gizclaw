@@ -40,7 +40,7 @@ storage:
     access_key_secret: ${EDGE_LOG_ACCESS_KEY_SECRET}
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${EDGE_LOG_TOPIC_ID}
 system-log:
@@ -65,7 +65,7 @@ system-log:
 		t.Fatalf("Storage[volc-logs] = %#v", physical)
 	}
 	logical := cfg.Stores["logs"]
-	if logical.Kind != store.KindLogImmutable || logical.Storage != "volc-logs" || logical.TopicID != "test-topic" {
+	if logical.Kind != store.KindLog || logical.Storage != "volc-logs" || logical.TopicID != "test-topic" {
 		t.Fatalf("Stores[logs] = %#v", logical)
 	}
 	if cfg.SystemLog.Level != "info" || cfg.SystemLog.NodeID != "edge-a" || len(cfg.SystemLog.Sinks) != 2 ||
@@ -123,8 +123,9 @@ http:
 		want string
 	}{
 		{name: "storage kind", body: "storage:\n  logs:\n    kind: memory\n", want: "storage.logs: only volc-tls is supported"},
-		{name: "mutable log", body: "stores:\n  logs:\n    kind: log.mutable\n    storage: volc-logs\n", want: "stores.logs: only log.immutable is supported"},
-		{name: "missing physical", body: "stores:\n  logs:\n    kind: log.immutable\n    storage: volc-logs\n", want: "references missing storage.volc-logs"},
+		{name: "immutable log", body: "stores:\n  logs:\n    kind: log.immutable\n    storage: volc-logs\n", want: "stores.logs: only log is supported"},
+		{name: "mutable log", body: "stores:\n  logs:\n    kind: log.mutable\n    storage: volc-logs\n", want: "stores.logs: only log is supported"},
+		{name: "missing physical", body: "stores:\n  logs:\n    kind: log\n    storage: volc-logs\n", want: "references missing storage.volc-logs"},
 		{name: "missing sink", body: "system-log:\n  sinks:\n    - kind: store\n      store: logs\n", want: "store \"logs\" is not configured"},
 		{name: "query store", body: "system-log:\n  query_store: logs\n  sinks:\n    - kind: store\n      store: logs\n", want: "system-log.query_store is not supported"},
 		{name: "level", body: "system-log:\n  level: verbose\n", want: "system-log.level"},

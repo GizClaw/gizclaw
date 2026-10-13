@@ -179,6 +179,9 @@ type dockTTSChildRouteKey struct {
 }
 
 type ttsPipe struct {
+	// messageID is protected by the owning route.mu. Non-backpressure TTS
+	// providers may omit it from their generated audio chunks.
+	messageID     string
 	name          string
 	input         *streamkit.Output
 	output        genx.Stream
@@ -369,6 +372,11 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 		if textChunk || text != "" {
 			textChunk = true
 			chunk.Part = text
+			historyText := genx.Text("")
+			if text != "" {
+				historyText = route.speakers.takeHistoryText()
+			}
+			chunk.HistoryText = &historyText
 		}
 	}
 	var pipe *ttsPipe
@@ -584,6 +592,9 @@ func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.Mes
 	route.mu.Lock()
 	defer route.mu.Unlock()
 	if pipe, resolved := route.ttsPipes[key]; resolved {
+		if pipe.messageID == "" && chunk.Ctrl != nil {
+			pipe.messageID = chunk.Ctrl.MessageID
+		}
 		return pipe
 	}
 	if segmentKey != "" && strings.TrimSpace(string(chunk.Part.(genx.Text))) == "" {
@@ -599,6 +610,9 @@ func (r *dockRun) ttsPipe(ctx context.Context, route *dockRoute, chunk *genx.Mes
 		name:   chunk.Name,
 		input:  streamkit.NewOutput(inputConfig),
 		cancel: cancel,
+	}
+	if chunk.Ctrl != nil {
+		pipe.messageID = chunk.Ctrl.MessageID
 	}
 	if segmentKey != "" {
 		pipe.pattern = pattern
@@ -786,6 +800,9 @@ func (r *dockRun) forwardTTS(route *dockRoute, pipe *ttsPipe) {
 			return
 		}
 		route.mu.Lock()
+		if !r.dock.config.Backpressure && emitted.Ctrl.MessageID == "" {
+			emitted.Ctrl.MessageID = pipe.messageID
+		}
 		merged := route.ttsRoutes[mimeType]
 		if merged == nil {
 			merged = &dockTTSRoute{}
@@ -1072,6 +1089,7 @@ func (r *dockRun) emitDeferredEOS(route *dockRoute, ctrl *genx.StreamCtrl) error
 	emitted := source.Clone()
 	if text, ok := emitted.Part.(genx.Text); ok && text != "" {
 		emitted.Part = genx.Text("")
+		emitted.HistoryText = nil
 		emitted.Ctrl.BeginOfStream = false
 	}
 	if emitted.Ctrl == nil {

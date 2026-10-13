@@ -22,7 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/jmoiron/sqlx"
@@ -61,7 +61,7 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 	keep := queryLoad && os.Getenv("GIZCLAW_TEST_HISTORY_QUERY_SCHEMA") != ""
 	if keep {
 		schema = os.Getenv("GIZCLAW_TEST_HISTORY_QUERY_SCHEMA")
-		table = "gizclaw_flowcraft_history"
+		table = memory.DefaultHistoryTable
 		if err := storage.ValidateSQLIdentifier(schema); err != nil || !strings.HasPrefix(schema, "gzc_history_query_") {
 			t.Fatal("fixture schema must be a SQL identifier starting with gzc_history_query_")
 		}
@@ -97,15 +97,16 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 			_, _ = db.Exec(`DROP FUNCTION IF EXISTS "` + table + `_delay"() CASCADE`)
 		})
 	}
+	table = memory.DefaultHistoryTable
 	cfg := validLayeredConfig(t.TempDir())
 	// Use PostgreSQL for metadata and run state too, matching the deployment
 	// and keeping SQLite's single-connection metadata queue out of this load.
 	cfg.Storage["business-db"] = storage.PostgreSQLConfig{DSN: dsn}
 	cfg.Storage["peer-runs-db"] = storage.PostgreSQLConfig{DSN: dsn}
 	cfg.Storage["history-pg"] = storage.PostgreSQLConfig{DSN: dsn}
-	cfg.Stores["workspace-history"] = stores.Config{Kind: stores.KindLogMutable, Storage: "history-pg", Table: table, TTL: 30 * 24 * time.Hour}
+	cfg.Stores["workspace-history"] = stores.Config{Kind: stores.KindSQL, Storage: "history-pg"}
 	cfg.Stores["eino-state"] = stores.Config{Kind: stores.KindSQL, Storage: "business-db"}
-	cfg.Services.AgentHost.Persistence = &AgentHostPersistenceConfig{StateStore: "eino-state", HistoryStore: "workspace-history"}
+	cfg.Services.AgentHost.Persistence = &AgentHostPersistenceConfig{StateStore: "eino-state"}
 	if queryLoad {
 		historyConfig := cfg.Stores["workspace-history"]
 		historyConfig.Storage = "business-db"
@@ -207,11 +208,10 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 		stop := startPostgreSQLHistoryQueryLoad(t, ctx, pool, db, dsn, table, reportDir)
 		defer stop()
 	}
-	load, err := logstore.NewSQLStoreWithDBAndTTL(db, table, 30*24*time.Hour)
+	load, err := memory.NewSQLHistoryStore(ctx, db, table, 30*24*time.Hour)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _ = load.Close() })
 	if !queryLoad {
 		if _, err := db.Exec(`CREATE FUNCTION "` + table + `_delay"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(0.030); RETURN NEW; END $$`); err != nil {
 			t.Fatal(err)
@@ -232,7 +232,7 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 	for writer := range writerCount {
 		workers.Go(func() {
 			for batch := range batches {
-				_, err := load.Append(ctx, []logstore.Record{{Stream: fmt.Sprintf("load-workspace-%d", writer), ID: fmt.Sprintf("%d", batch), Kind: "message", Time: time.Now().UTC()}})
+				err := load.Append(ctx, []memory.HistoryEntry{{ConversationID: fmt.Sprintf("load-workspace-%d", writer), ID: fmt.Sprintf("%d", batch), Role: memory.RoleUser, Text: "load", CreatedAt: time.Now().UTC()}})
 				if err != nil {
 					errs[writer] = err
 					return
@@ -254,7 +254,7 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 		}
 	}
 	var rows int
-	if err := db.GetContext(ctx, &rows, `SELECT COUNT(*) FROM "`+table+`" WHERE stream LIKE 'load-workspace-%'`); err != nil {
+	if err := db.GetContext(ctx, &rows, `SELECT COUNT(*) FROM "`+table+`" WHERE conversation_id LIKE 'load-workspace-%'`); err != nil {
 		t.Fatal(err)
 	}
 	if !queryLoad && rows != writers*batches {

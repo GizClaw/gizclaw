@@ -13,9 +13,9 @@ clients:
 variables:
   endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
   registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
-  workflow_agent: {direction: input, type: string, value: agent}
-  workflow_peer: {direction: input, type: string, value: peer}
-  workflow_default: {direction: input, type: string, value: default}
+  workflow_agent: {direction: input, type: string, value: initiative-agent}
+  workflow_peer: {direction: input, type: string, value: initiative-peer}
+  workflow_default: {direction: input, type: string, value: initiative-default}
   workspace_agent: {direction: input, type: string, generate: token}
   workspace_peer_override: {direction: input, type: string, generate: token}
   workspace_agent_override: {direction: input, type: string, generate: token}

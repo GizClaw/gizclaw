@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+
 	"github.com/jmoiron/sqlx"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -16,7 +18,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/workspacetest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -39,7 +40,7 @@ func TestWorkspaceHistoryListHonorsOrderAndTimeRange(t *testing.T) {
 	}
 	logDB.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = logDB.Close() })
-	records, err := logstore.NewSQLStoreWithDB(logDB, "workspace_history")
+	records, err := memory.NewSQLHistoryStore(t.Context(), logDB, "workspace_history", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

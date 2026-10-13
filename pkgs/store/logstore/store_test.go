@@ -53,10 +53,7 @@ func TestRecordKeyAndEmptyAppendContract(t *testing.T) {
 	if err != nil || len(keys) != 0 {
 		t.Fatalf("empty Append() = %+v, %v", keys, err)
 	}
-	var immutable ImmutableStore = &VolcStore{}
-	if _, mutable := immutable.(MutableStore); mutable {
-		t.Fatal("VolcStore unexpectedly satisfies MutableStore")
-	}
+
 }
 
 func TestValidateAttributeNameContract(t *testing.T) {

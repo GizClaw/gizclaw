@@ -128,18 +128,21 @@ function quote_yaml(value) {
 skip_metrics_memory && /^  [^ ]/ { skip_metrics_memory = 0 }
 skip_metrics_memory { next }
 /^stores:/ {
-  print "  observability-db:"
-  print "    kind: sqlite"
-  print "    dir: data/observability.sqlite"
+  print "  observability-tls:"
+  print "    kind: volc-tls"
+  print "    endpoint: http://log-sink:9091"
+  print "    region: test-region"
+  print "    access_key_id: fixture-key"
+  print "    access_key_secret: fixture-secret"
   print ""
   print $0
   next
 }
 /^services:/ {
   print "  logs:"
-  print "    kind: log.immutable"
-  print "    storage: observability-db"
-  print "    table: gizclaw_e2e_logs"
+  print "    kind: log"
+  print "    storage: observability-tls"
+  print "    topic_id: observability"
   print ""
   print $0
   next
@@ -204,7 +207,7 @@ function quote_yaml(value) {
 }
 /^services:/ {
   print "  logs:"
-  print "    kind: log.immutable"
+  print "    kind: log"
   print "    storage: volc-logs"
   print "    topic_id: " quote_yaml(topic_id)
   print ""

@@ -26,7 +26,7 @@ services:
     store: telemetry
 ```
 
-ClickHouse is a physical SQL connector. The DSN and pool are configured once; each logical Metrics Store selects only a table. Several Metrics or Log Stores can share the pool, and closing one logical Store never closes it.
+ClickHouse is a physical SQL connector. The DSN and pool are configured once; each logical Metrics Store selects only a table. Several Metrics Stores can share the pool, and closing one logical Store never closes it.
 
 ```yaml
 storage:

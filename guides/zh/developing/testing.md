@@ -42,56 +42,25 @@ TTS 协议夹具按累计媒体 deadline 发包。线程延迟后补发已经到
 
 ## PostgreSQL History 并发与回收
 
-设置 `GIZCLAW_TEST_POSTGRES_DSN` 指向隔离的本地 PostgreSQL 17 实例，并为测试实例配置 `max_connections=300` 后运行：
+使用隔离的 PostgreSQL 17，安装 `pg_partman 5.5.0` 到 `partman` schema，配置 `max_connections=300`，并设置 `GIZCLAW_TEST_POSTGRES_DSN`。
 
 ```sh
-go test -tags=store_e2e -count=1 -run '^TestPostgreSQLLog' ./tests/store-e2e
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLHistory' ./tests/store-e2e
+go test -count=1 ./pkgs/store/memory ./pkgs/gizclaw/services/ai/workspace
 go test -count=1 -run '^TestPostgreSQLHistory' ./cmd/internal/server ./pkgs/gizclaw
 ```
 
-Store 回归覆盖独立 record 的并发进度、同 key 冲突和整批回滚、缺分区并发创建、UTC 跨日、到期身份重用、mutation 与维护交错，以及无新写入时的回收。`TestPostgreSQLHistoryGiztest` 启动真实 Server/WebRTC、8 个独立 Workspace 和 96 个同表写入 stream，每个 stream 写入 8 条记录；PG trigger 为每条记录增加固定 30ms 工作。确定性的 Eino echo Graph 消除外部模型波动，元数据、run state、Workspace 和内部 Eino History 均使用独立 schema 中的真实 PG；场景保留 2 秒首字门槛，再完成一轮对话以等待实际 EOS 和持久 history，并检查全部 cleanup。它不验证外部模型或首音频。
+回归覆盖跨分区唯一性、冲突 batch 原子回滚、独立消息并发进度、无新写入的分区回收，以及 Workspace 导入、原音频引用、失败回滚和旧表删除。`TestPostgreSQLHistoryGiztest` 使用真实 Server/WebRTC、8 个 Workspace 和 96 个并发 writer，每个 writer 写入 8 条记录，trigger 每条增加 30ms 数据库工作；确定性 Graph 保留 2 秒首字、EOS、持久化及 cleanup 断言，不调用外部模型。
 
-可选负载测试固定 128 个独立 stream、每个 stream 4 个批次、每批 4 条记录。为不同版本保存独立目录，使用相同数据库参数和延迟值：
-
-```sh
-GIZCLAW_TEST_PG_LOG_EVIDENCE="$(mktemp -d)" GIZCLAW_TEST_PG_LOG_DELAY_MS=5 \
-  go test -tags=store_e2e -count=1 -v -run '^TestPostgreSQLLogAppendLoad$' ./tests/store-e2e
-```
-
-`summary.json` 保存全部写入计数、吞吐和 Append 延迟，`locks.json` 保存 `pg_stat_activity`、等待类型与 blocker PID 样本。设置 `GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE` 可保留 giztest 报告和 runner 日志。所有数据均为本地合成输入；日志与报告不得提交到仓库。
-
-## 共享 Eino History 查询负载
-
-准备内嵌控制台和音频 LFS 库，并设置指向隔离的本地 PostgreSQL 17 的
-`GIZCLAW_TEST_POSTGRES_DSN`（`max_connections=300`）。执行：
+## 共享 History 查询负载
 
 ```sh
 bash tests/gizclaw-e2e/run_history_query_tests.sh .tmp/history-query-evidence
 ```
 
-此入口只接受回环数据库地址。它固定 7919 seed，在 31 个 TTL 日分区中准备
-930,000 条 `eino.history` message、1,000 组 scope/agent/context。两个版本复用同一份
-seed 数据；每轮只清理专用 fixture schema 中先前运行产生的非 seed history。
-baseline 默认通过 Go overlay 使用 `v0.31.1` 的两个 LogStore SQL 文件，其他 Server、
-Eino、Giztest 与夹具代码完全相同；可用 `GIZCLAW_TEST_HISTORY_QUERY_BASE_REF` 指定
-另一个已存在的本地 ref。它不是旧 release 的完整运行。
+入口仅接受回环 DSN，并要求上述 partman 环境。固定 seed 7919，在 31 个到期日分区中准备 930,000 条列式消息、1,000 个会话；随后运行 160 个 reader、4 个 writer、32 个共享连接池探测，并在后台读写下执行 8 个 WebRTC Giztest 会话。
 
-每轮预热默认 128 个连接，执行 160 个并发 History 查询（已有与空 scope 各半）、
-4 个 writer 各 32 次真实 Append，以及 32 次共享 pool 的 `SELECT 1` 探测；探测的
-2 秒期限只衡量轻量 SQL 的等待，不代替完整权限检查。随后在 16 个后台空 scope
-reader 和 4 个每 20ms 写入一次的 writer 下运行 8 个真实 WebRTC giztest 会话，
-保留 2 秒首字门槛、持久 History、全部步骤和 cleanup 断言。Eino Graph 是确定性的
-脚本，History 加载与写入使用 production implementation，没有人工 SQL 延迟。
-
-输出包含实际绑定 SQL、索引定义、`EXPLAIN (ANALYZE, BUFFERS)`、扫描量、查询及
-写入延迟、吞吐、DBStats pool 等待、轻量探测、giztest 报告和 `comparison.json`。
-若安装了 `public.pg_stat_statements`，还保存匹配 SQL 形状的本地数据库快照。
-baseline 的超时可以使该轮测试非零退出，最终脚本要求修复版本通过，并校验两轮
-fixture 元数据一致。证据和保留的合成 schema 不应提交；不需要继续分析时，只删除
-输出中列出的专用 `gzc_history_query_*` schema。此测试不证明线上失败归因或容量。
-
-普通 PostgreSQL CI 运行 LogStore 的属性语义、选择性执行计划、已有数据补建索引、
-新分区继承和 cursor 兼容回归；大型负载夹具需显式启用。
+输出包含源码摘要、夹具信息、实际 SQL、索引、`EXPLAIN (ANALYZE, BUFFERS)`、查询和写入延迟、连接池等待、Giztest 报告与 `summary.json`。大负载需显式运行；普通 CI 运行较小的功能和迁移回归。合成 schema 保留以便分析，只清理输出中指定的 `gzc_history_query_*` schema。结果不代表线上归因、外部模型或物理设备容量。
 
 ## PostgreSQL run-state 与输入权限
 
@@ -101,7 +70,7 @@ git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/n
 bash tests/gizclaw-e2e/run_run_state_tests.sh
 ```
 
-将 `<os>-<arch>` 替换为宿主平台。入口需要 Go、Docker、Python 3 和 OpenSSL；使用固定 digest 的 PostgreSQL 17，限制为 4 CPU / 1 GiB、256 MiB tmpfs 和 300 个连接，仅在回环地址监听，启用 TLS 与 SCRAM。测试不读取云模型凭据，不接触部署状态。ASR 从真实上行音频生成固定 transcript，Eino Graph 回显文本，TTS 输出有效 Opus；Server、WebRTC、Go Giztest、PG runtime/metadata 和输入权限调用链使用被测实现。临时 schema、Server、Peer 与本次容器在结束时清理，证据保留在 ignored `.testbench/run-state-*`，也可通过第一个参数选择证据目录。
+将 `<os>-<arch>` 替换为宿主平台。入口需要 Go、Docker、Python 3 和 OpenSSL；使用仓库固定版本的 PostgreSQL 17/pg_partman 镜像，限制为 4 CPU / 1 GiB、256 MiB tmpfs 和 300 个连接，仅在回环地址监听，启用 TLS 与 SCRAM。测试不读取云模型凭据，不接触部署状态。ASR 从真实上行音频生成固定 transcript，Eino Graph 回显文本，TTS 输出有效 Opus；Server、WebRTC、Go Giztest、PG runtime/metadata 和输入权限调用链使用被测实现。临时 schema、Server、Peer 与本次容器在结束时清理，证据保留在 ignored `.testbench/run-state-*`，也可通过第一个参数选择证据目录。
 
 默认 64 个不同公钥各完成初始语音、12 秒后台刷新窗口、再次语音和另一个 Workspace 的切换后语音。`GIZCLAW_TEST_RUN_STATE_CONCURRENCY` 接受 2–128；`GIZCLAW_TEST_RUN_STATE_SETTLE=70s` 延长结束后观察，检查默认空闲连接回收与协程收敛。测试保留生产的 2 秒权限预算与 5 秒刷新周期，要求文本/音频 EOS 和非空音频，数据库失败继续拒绝输入。
 
@@ -174,7 +143,7 @@ git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**'
 bash tests/gizclaw-e2e/run_registration_load_tests.sh
 ```
 
-将 `<os>-<arch>` 替换为本机平台，例如 `darwin-arm64` 或 `linux-amd64`。入口需要 Go、Docker、Python 3；使用固定 digest 的 PostgreSQL 17 与 Redis 8.4.6，分别限制为 2 CPU / 1 GiB 和 1 CPU / 256 MiB，PG `max_connections=300`，Server/Go Giztest 默认 `GOMAXPROCS=8`。无需模型凭据。结束时只清理本次创建的两个容器与卷，原始证据保存在 ignored `.testbench/registration-*`；也可传第一个参数指定证据目录。
+将 `<os>-<arch>` 替换为本机平台，例如 `darwin-arm64` 或 `linux-amd64`。入口需要 Go、Docker、Python 3；使用仓库固定版本的 PostgreSQL 17/pg_partman 镜像 与 Redis 8.4.6，分别限制为 2 CPU / 1 GiB 和 1 CPU / 256 MiB，PG `max_connections=300`，Server/Go Giztest 默认 `GOMAXPROCS=8`。无需模型凭据。结束时只清理本次创建的两个容器与卷，原始证据保存在 ignored `.testbench/registration-*`；也可传第一个参数指定证据目录。
 
 默认 PG 数据使用 Docker volume。`GIZCLAW_TEST_REGISTRATION_PG_TMPFS=1` 改用容器内 256 MiB 内存盘，仍受同一 1 GiB 内存限制约束，可排除宿主磁盘长时间停顿对锁粒度诊断的干扰；它不验证磁盘持久化性能。前后对比必须使用相同存储选项，并保留 `settings.txt` 与 `containers.json`。
 
@@ -669,6 +638,8 @@ cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 
 JavaScript runner 使用 `protoc` 从仓库 RPC Schema 生成临时描述符，将场景的 Protobuf JSON 请求转换为 SDK 对象，并将响应转回 Protobuf JSON 后执行断言。枚举、oneof、默认字段和 64 位整数均遵循同一 Schema；未知字段和非法枚举不会被忽略。`npm run giztest` 和 `npm run test:giztest-unit` 自动准备描述符。
 
+标准 catalog 还包含 `initiative-agent`、`initiative-peer` 和 `initiative-default` 三个确定性开场 Workflow，供 `eino.initiative.giztest.yaml` 验证统一 History 和 Workspace 覆盖规则；专用 Go Giztest 另检查旧 `starts` 字段的忽略行为。
+
 ### 手动环境
 
 标准 Docker 环境包含单节点 LiveKit，并为每次启动生成临时 SFU 凭据，供群组 RPC、事件流和社交测试使用。LiveKit 只在 Compose 网络中提供服务，不发布主机端口；清理环境时一起删除。
@@ -946,6 +917,8 @@ Assistant terminal completion 在首个完整回复后继续收集 250 ms；`rep
 `first_audio_ms`、`second_input_audio_ms`、`first_audio_eos_ms` 和第二轮 EOS 标记。
 Doubao、Eino 的 `*-overlapping-input.giztest.yaml` 分别覆盖两种输入模式；
 这些场景由 Go runner 执行，JavaScript 和 Flutter runner 按不支持的 `peer_stream` 跳过。
+PTT 重叠场景显式设置 `hold_before_audio: 0ms`，在控制 BOS 后立即发送音频。
+控制 BOS 会打断旧回复；默认的 500 ms 按住门限用于其它 PTT 场景，不能保证第二轮音频先于旧回复 EOS。
 
 空的 assistant BOS 不建立回复归属；只有实际文本或音频内容才确定第一轮和第二轮回复。用例使用单句中文数数请求，减少录音内部停顿造成的额外 VAD 轮次。
 
@@ -1265,7 +1238,7 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 
 Observability 入口让真实 AI 文本回合经 Edge 进入 Server。Server 与 Edge 的
 `giz_webrtc_*`/`giz_edge_webrtc_*` 样本写入 E2E 专用的 Prometheus Remote Write
-协议 fixture；Server system log 同时写入隔离的 SQLite `log.immutable` Store。验收会从
+协议 fixture；Server system log 通过真实 Volc TLS driver 写入本地 TLS HTTP 协议 fixture。验收会从
 fixture 查询核心 metric family 与 `node_role=application|edge`，并通过 Admin Log Query
 按同一 `(peer_public_key, tunnel_session_id, turn_index)` 查回用户原文、实际投递的 AI
 回复，以及 `turn_started`、`agent_input_first_push`、`output_first_event`、

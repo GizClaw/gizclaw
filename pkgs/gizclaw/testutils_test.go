@@ -3,9 +3,10 @@ package gizclaw
 import (
 	"testing"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -80,7 +81,7 @@ func completeTestServer(t testing.TB, server *Server) *Server {
 		server.PeerRunDB = server.WorkspaceDB
 	}
 	if server.WorkspaceHistory == nil {
-		store, err := logstore.NewSQLStoreWithDB(server.WorkspaceDB, "workspace_history")
+		store, err := memory.NewSQLHistoryStore(t.Context(), server.WorkspaceDB, "workspace_history", 0)
 		if err != nil {
 			t.Fatalf("open test workspace history: %v", err)
 		}

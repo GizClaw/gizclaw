@@ -50,6 +50,8 @@ Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part
 
 一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。History 记录是尽力而为的，从不让实时输出失败：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
 
+RuntimeRegistry、lease 与 output-probe 的 stream wrapper 都向同一底层流转发 production observer、延迟交付确认和放弃通知。包装 Host output 时必须保留这些能力，连续 History 与 State 检查点才能遵循最终 consumer 的交付边界。
+
 ## 当前 Peer 的 Tool scope
 
 Workflow 使用 `sfu` driver 的 Workspace 是空的运行入口：`ServiceResolver` 只返回
@@ -79,7 +81,7 @@ connection 或其他在线 Peer。Resource declaration 与 provider Credential �
 
 Host process 在启动时解析一次 `agent_host` Server Config 引用，并把 borrowed Store interface 注入 GizClaw Server、Peer Manager 与已注册 Workflow factory。Store Registry 仍是这些共享 backend 的唯一 owner；AgentHost、Workspace reload、Eino 和 per-Agent adapter 都不能关闭它们。
 
-`runtime_store` ObjectStore 保存 Workspace runtime metadata 与 runtime object；Workspace History 文本与结构化 metadata 使用 `services.workspace.history_store`，二进制 replay asset 使用 `services.workspace.history_assets_store`。通用状态与内部 History 通过 `services.agent_host.persistence.state_store` 与 `history_store` 绑定 SQL 和 mutable Log，由 Server 的 `GraphStateDB` 与 `AgentHistory` 注入使用相同契约的 Workflow factory。Eino 消费这组借用能力及 provider-neutral Memory；绑定不依赖执行器名称。
+`runtime_store` ObjectStore 保存 Workspace runtime metadata 与 runtime object；唯一的对话 History 使用 `services.workspace.history_store` 绑定的 SQL `memory.HistoryStore`，二进制 replay asset 使用 `services.workspace.history_assets_store`。通用状态通过 `services.agent_host.persistence.state_store` 绑定 SQL，由 Server 的 `GraphStateDB` 注入 Workflow factory。Eino 接收同一份 Workspace History 的 `memory.HistoryReader`，只读取历史，不追加第二份持久化记录；长期 Memory 仍使用独立的 provider-neutral 契约。
 
 Eino 依据所选 MemoryLayout policy，把 `Scope.AppID` 绑定到 Workspace 或 owner Peer 共享边界。User、Agent 与 Run 维度保持独立，Peer public key 不会替换 UserID。声明 Memory policy 的 Graph 必须有可用 Store；构造失败会使初始化或 reload 显式失败。
 

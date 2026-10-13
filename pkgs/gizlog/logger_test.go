@@ -42,13 +42,13 @@ func (s *loggerTestStore) Close() error {
 
 type loggerTestResolver struct{ store *loggerTestStore }
 
-func (r loggerTestResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
+func (r loggerTestResolver) Log(string) (logstore.Store, error) { return r.store, nil }
 
 type namedLoggerTestResolver struct {
 	stores map[string]*loggerTestStore
 }
 
-func (r namedLoggerTestResolver) Log(name string) (logstore.ImmutableStore, error) {
+func (r namedLoggerTestResolver) Log(name string) (logstore.Store, error) {
 	store, ok := r.stores[name]
 	if !ok {
 		return nil, errors.New("missing store")

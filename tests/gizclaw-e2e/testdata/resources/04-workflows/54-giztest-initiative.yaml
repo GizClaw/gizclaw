@@ -1,0 +1,48 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: giztest-initiative-agent
+      spec:
+        driver: eino
+        eino:
+          conversation: {initiative: agent}
+          graph: &opening_graph
+            name: opening
+            compile: {node_trigger_mode: any_predecessor}
+            state:
+              fields: [{name: answer, type: string, merge: replace}]
+            nodes:
+              - id: opening
+                type: script
+                language: starlark
+                entrypoint: run
+                source: |
+                  def run(input):
+                      return {"answer": "Opening."}
+                outputs: {answer: answer}
+                limits: {max_execution_steps: 1000, timeout: 1s, max_input_bytes: 1024, max_output_bytes: 1024}
+            edges: [{from: start, to: opening}, {from: opening, to: end}]
+            branches: []
+            outputs:
+              - {node: opening, field: answer, name: assistant, mime_type: text/plain, primary: true}
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: giztest-initiative-peer
+      spec:
+        driver: eino
+        eino:
+          conversation: {initiative: peer}
+          graph: *opening_graph
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata:
+        id: giztest-initiative-default
+      spec:
+        driver: eino
+        eino:
+          graph: *opening_graph

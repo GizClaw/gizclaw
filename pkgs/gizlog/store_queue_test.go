@@ -67,7 +67,7 @@ func (s *gatedLogStore) Close() error { s.mu.Lock(); defer s.mu.Unlock(); s.clos
 
 type gatedLogResolver struct{ store *gatedLogStore }
 
-func (r gatedLogResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
+func (r gatedLogResolver) Log(string) (logstore.Store, error) { return r.store, nil }
 
 func TestStoreSinkDoesNotBlockFirstResponseOnNetwork(t *testing.T) {
 	store := &gatedLogStore{entered: make(chan struct{}), release: make(chan struct{})}

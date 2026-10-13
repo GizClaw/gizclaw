@@ -2,11 +2,14 @@ package gizclaw
 
 import (
 	"context"
+	"errors"
+	"io/fs"
 	"log/slog"
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
 type historyMaintainer interface {
@@ -23,17 +26,40 @@ type historyRetention struct {
 	done     chan struct{}
 }
 
-func newHistoryRetention(stores ...logstore.ImmutableStore) *historyRetention {
+func newHistoryRetention(assets objectstore.ObjectStore, stores ...memory.HistoryStore) *historyRetention {
 	r := &historyRetention{interval: time.Hour}
 	for _, store := range stores {
 		if maintenance, ok := store.(historyMaintainer); ok {
-			r.stores = append(r.stores, maintenance)
+			r.stores = append(r.stores, historyAssetMaintenance{historyMaintainer: maintenance, store: store, assets: assets})
 		}
 	}
 	if len(r.stores) == 0 {
 		return nil
 	}
 	return r
+}
+
+type historyAssetMaintenance struct {
+	historyMaintainer
+	store  memory.HistoryStore
+	assets objectstore.ObjectStore
+}
+
+func (m historyAssetMaintenance) Maintain(ctx context.Context) error {
+	if err := m.historyMaintainer.Maintain(ctx); err != nil {
+		return err
+	}
+	var deleteAsset func(memory.HistoryKey, memory.HistoryAsset) error
+	if m.assets != nil {
+		deleteAsset = func(_ memory.HistoryKey, asset memory.HistoryAsset) error {
+			err := m.assets.Delete(asset.Name)
+			if errors.Is(err, fs.ErrNotExist) {
+				return nil
+			}
+			return err
+		}
+	}
+	return memory.CleanupHistory(ctx, m.store, memory.HistoryCleanupQuery{Before: time.Now().UTC()}, deleteAsset)
 }
 
 func (r *historyRetention) start(parent context.Context) {

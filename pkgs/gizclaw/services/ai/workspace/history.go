@@ -3,7 +3,6 @@ package workspace
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +14,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -38,10 +37,10 @@ const (
 
 var historyIDSeq atomic.Uint64
 
-// HistoryStore persists structured workspace history in a LogStore and keeps
+// HistoryStore persists structured workspace history in a memory.HistoryStore and keeps
 // only binary assets in object storage.
 type HistoryStore struct {
-	Records      logstore.MutableRecordStore
+	Records      memory.HistoryStore
 	Objects      objectstore.ObjectStore
 	Workspace    string
 	ObjectPrefix string
@@ -64,6 +63,8 @@ type HistoryEntry struct {
 	ReplayAvailable bool           `json:"replay_available"`
 	Assets          []HistoryAsset `json:"assets,omitempty"`
 	ExpiresAt       *time.Time     `json:"expires_at,omitempty"`
+	TurnID          string         `json:"turn_id,omitempty"`
+	Interrupted     bool           `json:"interrupted,omitempty"`
 }
 
 // HistoryAsset references a stored history asset.
@@ -76,13 +77,15 @@ type HistoryAsset struct {
 
 // AppendHistoryRequest describes one entry to append.
 type AppendHistoryRequest struct {
-	Type      string
-	GearID    string
-	Origin    string
-	Name      string
-	Text      string
-	CreatedAt time.Time
-	Asset     *AppendHistoryAsset
+	Type        string
+	GearID      string
+	Origin      string
+	Name        string
+	Text        string
+	CreatedAt   time.Time
+	Asset       *AppendHistoryAsset
+	TurnID      string
+	Interrupted bool
 }
 
 // AppendHistoryAsset is an optional binary asset attached to a history entry.
@@ -92,7 +95,7 @@ type AppendHistoryAsset struct {
 }
 
 // NewHistoryStore constructs a HistoryStore for one workspace runtime.
-func NewHistoryStore(records logstore.MutableRecordStore, objects objectstore.ObjectStore, workspace string) *HistoryStore {
+func NewHistoryStore(records memory.HistoryStore, objects objectstore.ObjectStore, workspace string) *HistoryStore {
 	return &HistoryStore{
 		Records:      records,
 		Objects:      objects,
@@ -115,13 +118,15 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 		createdAt = now
 	}
 	entry := HistoryEntry{
-		ID:        historyID(createdAt, now),
-		Type:      strings.TrimSpace(req.Type),
-		GearID:    strings.TrimSpace(req.GearID),
-		Origin:    strings.TrimSpace(req.Origin),
-		Name:      strings.TrimSpace(req.Name),
-		Text:      req.Text,
-		CreatedAt: createdAt.UTC(),
+		ID:          historyID(createdAt, now),
+		Type:        strings.TrimSpace(req.Type),
+		GearID:      strings.TrimSpace(req.GearID),
+		Origin:      strings.TrimSpace(req.Origin),
+		Name:        strings.TrimSpace(req.Name),
+		Text:        req.Text,
+		CreatedAt:   createdAt.UTC(),
+		TurnID:      req.TurnID,
+		Interrupted: req.Interrupted,
 	}
 	if entry.Type == "" {
 		entry.Type = historyEntryTypeAgent
@@ -147,25 +152,12 @@ func (s *HistoryStore) Append(ctx context.Context, req AppendHistoryRequest) (Hi
 		hasReplayContent = true
 	}
 	entry.ReplayAvailable = hasReplayContent
-	record, err := historyRecord(entry, s.stream())
-	if err != nil {
-		for _, name := range written {
-			_ = s.Objects.Delete(name)
-		}
-		return HistoryEntry{}, err
-	}
-	keys, err := s.Records.Append(ctx, []logstore.Record{record})
+	err := s.Records.Append(ctx, []memory.HistoryEntry{s.memoryEntry(entry)})
 	if err != nil {
 		for _, name := range written {
 			_ = s.Objects.Delete(name)
 		}
 		return HistoryEntry{}, fmt.Errorf("workspace history: append record: %w", err)
-	}
-	if len(keys) != 1 || keys[0] != record.Key() {
-		for _, name := range written {
-			_ = s.Objects.Delete(name)
-		}
-		return HistoryEntry{}, fmt.Errorf("workspace history: LogStore accepted %d of 1 records", len(keys))
 	}
 	if s.RecordActivity != nil {
 		if err := s.RecordActivity(ctx, entry); err != nil {
@@ -350,17 +342,14 @@ func (s *HistoryStore) Get(ctx context.Context, id string) (HistoryEntry, error)
 	if id == "" {
 		return HistoryEntry{}, fmt.Errorf("workspace history: history_id is required")
 	}
-	record, err := s.Records.Get(ctx, logstore.RecordKey{Stream: s.stream(), ID: id})
-	if errors.Is(err, logstore.ErrNotFound) {
+	record, err := s.Records.Get(ctx, memory.HistoryKey{ConversationID: s.Workspace, ID: id})
+	if errors.Is(err, memory.ErrNotFound) {
 		return HistoryEntry{}, fs.ErrNotExist
 	}
 	if err != nil {
 		return HistoryEntry{}, err
 	}
-	entry, err := historyEntryFromRecord(record, s.stream())
-	if err != nil {
-		return HistoryEntry{}, err
-	}
+	entry := historyEntryFromMemory(record)
 	if s.entryExpired(entry) {
 		if err := s.deleteEntry(ctx, entry); err != nil {
 			return HistoryEntry{}, err
@@ -394,12 +383,7 @@ func (s *HistoryStore) CleanupExpired(ctx context.Context) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
-	return s.scanRecords(ctx, logstore.OrderAsc, func(entry HistoryEntry) error {
-		if entry.ExpiresAt == nil || s.now().Before(*entry.ExpiresAt) {
-			return nil
-		}
-		return s.deleteEntry(ctx, entry)
-	})
+	return s.cleanupRecords(ctx, s.now())
 }
 
 // DeleteAll removes every history record and referenced asset for this
@@ -411,9 +395,7 @@ func (s *HistoryStore) DeleteAll(ctx context.Context) error {
 	if err := s.validate(); err != nil {
 		return err
 	}
-	return s.scanRecords(ctx, logstore.OrderAsc, func(entry HistoryEntry) error {
-		return s.deleteEntry(ctx, entry)
-	})
+	return s.cleanupRecords(ctx, time.Time{})
 }
 
 // Empty reports whether the Workspace has any retained history records.
@@ -473,11 +455,8 @@ func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHis
 	if !order.Valid() {
 		return nil, false, nil, fmt.Errorf("workspace history: unsupported order %q", order)
 	}
-	queryOrder := logstore.OrderAsc
-	if order == apitypes.PeerRunHistoryListRequestOrderDesc {
-		queryOrder = logstore.OrderDesc
-	}
-	start, end, err := historyQueryBounds(cursor, queryOrder)
+	descending := order == apitypes.PeerRunHistoryListRequestOrderDesc
+	start, end, err := historyQueryBounds(cursor, descending)
 	if err != nil {
 		return nil, false, nil, err
 	}
@@ -491,33 +470,36 @@ func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHis
 		return nil, false, nil, nil
 	}
 	out := make([]HistoryEntry, 0, limit)
-	storeCursor := ""
+	var storeCursor *memory.HistoryPosition
+	if cursor != "" {
+		at, err := historyIDTime(cursor)
+		if err != nil {
+			return nil, false, nil, err
+		}
+		storeCursor = &memory.HistoryPosition{CreatedAt: at, ID: cursor}
+	}
 	for {
-		page, err := s.Records.Query(ctx, logstore.Query{
-			Streams: []string{s.stream()},
-			Kinds:   []string{historyEntryTypeGear, historyEntryTypeAgent},
-			Text:    filter.Text,
-			Start:   start,
-			End:     end,
+		page, err := s.Records.Query(ctx, memory.HistoryQuery{
+			ConversationID: s.Workspace,
+			Text:           filter.Text,
+			Start:          start,
+			End:            end,
 			// One extra record detects has_next; entries skipped below are
 			// refilled by the next store page.
-			Limit:  limit + 1,
-			Order:  queryOrder,
-			Cursor: storeCursor,
+			Limit:      limit + 1,
+			Descending: descending,
+			Cursor:     storeCursor,
 		})
 		if err != nil {
 			return nil, false, nil, fmt.Errorf("workspace history: query records: %w", err)
 		}
-		for _, record := range page.Records {
-			entry, err := historyEntryFromRecord(record, s.stream())
-			if err != nil {
-				return nil, false, nil, err
-			}
+		for _, record := range page.Entries {
+			entry := historyEntryFromMemory(record)
 			if cursor != "" {
-				if queryOrder == logstore.OrderDesc && entry.ID >= cursor {
+				if descending && entry.ID >= cursor {
 					continue
 				}
-				if queryOrder == logstore.OrderAsc && entry.ID <= cursor {
+				if !descending && entry.ID <= cursor {
 					continue
 				}
 			}
@@ -533,10 +515,10 @@ func (s *HistoryStore) listMatching(ctx context.Context, req apitypes.PeerRunHis
 				return out[:limit], true, &next, nil
 			}
 		}
-		if !page.HasNext {
+		if page.Next == nil {
 			return out, false, nil, nil
 		}
-		storeCursor = page.NextCursor
+		storeCursor = page.Next
 	}
 }
 
@@ -552,69 +534,7 @@ func (s *HistoryStore) writeAsset(id string, asset AppendHistoryAsset) (HistoryA
 	}, nil
 }
 
-type historyPayload struct {
-	Version         int            `json:"version"`
-	GearID          string         `json:"gear_id,omitempty"`
-	Origin          string         `json:"origin,omitempty"`
-	Name            string         `json:"name"`
-	ReplayAvailable bool           `json:"replay_available"`
-	Assets          []HistoryAsset `json:"assets,omitempty"`
-	ExpiresAt       *time.Time     `json:"expires_at,omitempty"`
-}
-
-func historyRecord(entry HistoryEntry, stream string) (logstore.Record, error) {
-	payload, err := json.Marshal(historyPayload{
-		Version: historyRecordVersion, GearID: entry.GearID, Origin: entry.Origin,
-		Name: entry.Name, ReplayAvailable: entry.ReplayAvailable,
-		Assets: entry.Assets, ExpiresAt: entry.ExpiresAt,
-	})
-	if err != nil {
-		return logstore.Record{}, fmt.Errorf("workspace history: encode record: %w", err)
-	}
-	attributes := map[string]string{
-		"actor_name":     entry.Name,
-		"schema_version": strconv.Itoa(historyRecordVersion),
-	}
-	if entry.GearID != "" {
-		attributes["gear_id"] = entry.GearID
-	}
-	if entry.Origin != "" {
-		attributes["origin"] = entry.Origin
-	}
-	record := logstore.Record{
-		ID: entry.ID, Time: entry.CreatedAt, Stream: stream, Kind: entry.Type,
-		Message: entry.Text, Attributes: attributes, Payload: payload,
-	}
-	if err := logstore.ValidateRecord(record); err != nil {
-		return logstore.Record{}, fmt.Errorf("workspace history: encode record: %w", err)
-	}
-	return record, nil
-}
-
-func historyEntryFromRecord(record logstore.Record, stream string) (HistoryEntry, error) {
-	if record.Stream != stream {
-		return HistoryEntry{}, fmt.Errorf("workspace history: record %q belongs to stream %q", record.ID, record.Stream)
-	}
-	var payload historyPayload
-	if err := json.Unmarshal(record.Payload, &payload); err != nil {
-		return HistoryEntry{}, fmt.Errorf("workspace history: decode record %q: %w", record.ID, err)
-	}
-	if payload.Version != historyRecordVersion {
-		return HistoryEntry{}, fmt.Errorf("workspace history: record %q has unsupported version %d", record.ID, payload.Version)
-	}
-	entry := HistoryEntry{
-		ID: record.ID, Type: record.Kind, GearID: payload.GearID,
-		Origin: payload.Origin, Name: payload.Name, Text: record.Message,
-		CreatedAt: record.Time.UTC(), ReplayAvailable: payload.ReplayAvailable,
-		Assets: payload.Assets, ExpiresAt: payload.ExpiresAt,
-	}
-	if err := validateHistoryEntry(entry); err != nil {
-		return HistoryEntry{}, fmt.Errorf("workspace history: decode record %q: %w", record.ID, err)
-	}
-	return entry, nil
-}
-
-func historyQueryBounds(cursor string, order logstore.Order) (time.Time, time.Time, error) {
+func historyQueryBounds(cursor string, descending bool) (time.Time, time.Time, error) {
 	start := time.Unix(0, 0).UTC()
 	end := time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC)
 	if cursor == "" {
@@ -624,7 +544,7 @@ func historyQueryBounds(cursor string, order logstore.Order) (time.Time, time.Ti
 	if err != nil {
 		return time.Time{}, time.Time{}, fmt.Errorf("%w: %v", ErrInvalidHistoryCursor, err)
 	}
-	if order == logstore.OrderDesc {
+	if descending {
 		end = boundary.Truncate(time.Millisecond).Add(time.Millisecond)
 	} else {
 		start = boundary.Truncate(time.Millisecond)
@@ -644,35 +564,13 @@ func historyIDTime(id string) (time.Time, error) {
 	return parsed.UTC(), nil
 }
 
-func (s *HistoryStore) scanRecords(ctx context.Context, order logstore.Order, visit func(HistoryEntry) error) error {
-	cursor := ""
-	for {
-		page, err := s.Records.Query(ctx, logstore.Query{
-			Streams: []string{s.stream()},
-			Kinds:   []string{historyEntryTypeGear, historyEntryTypeAgent},
-			Start:   time.Unix(0, 0).UTC(),
-			End:     time.Date(2262, 1, 1, 0, 0, 0, 0, time.UTC),
-			Limit:   logstore.MaxLimit,
-			Order:   order,
-			Cursor:  cursor,
-		})
-		if err != nil {
-			return fmt.Errorf("workspace history: query records: %w", err)
+func (s *HistoryStore) cleanupRecords(ctx context.Context, before time.Time) error {
+	return memory.CleanupHistory(ctx, s.Records, memory.HistoryCleanupQuery{ConversationID: s.Workspace, Before: before}, func(_ memory.HistoryKey, asset memory.HistoryAsset) error {
+		if err := s.Objects.Delete(asset.Name); err != nil && !isNotExist(err) {
+			return err
 		}
-		for _, record := range page.Records {
-			entry, err := historyEntryFromRecord(record, s.stream())
-			if err != nil {
-				return err
-			}
-			if err := visit(entry); err != nil {
-				return err
-			}
-		}
-		if !page.HasNext {
-			return nil
-		}
-		cursor = page.NextCursor
-	}
+		return nil
+	})
 }
 
 func (s *HistoryStore) deleteEntry(ctx context.Context, entry HistoryEntry) error {
@@ -681,7 +579,7 @@ func (s *HistoryStore) deleteEntry(ctx context.Context, entry HistoryEntry) erro
 			return err
 		}
 	}
-	if err := s.Records.Delete(ctx, logstore.RecordKey{Stream: s.stream(), ID: entry.ID}); err != nil && !errors.Is(err, logstore.ErrNotFound) {
+	if err := s.Records.Delete(ctx, memory.HistoryKey{ConversationID: s.Workspace, ID: entry.ID}); err != nil && !errors.Is(err, memory.ErrNotFound) {
 		return err
 	}
 	return nil
@@ -710,9 +608,6 @@ func validateHistoryEntry(entry HistoryEntry) error {
 	}
 	switch entry.Type {
 	case historyEntryTypeGear:
-		if strings.TrimSpace(entry.GearID) == "" {
-			return fmt.Errorf("gear_id is required for gear history")
-		}
 	case historyEntryTypeAgent:
 		if strings.TrimSpace(entry.GearID) != "" {
 			return fmt.Errorf("gear_id must be empty for agent history")

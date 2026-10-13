@@ -111,10 +111,10 @@ Config rules:
 - Required service bindings never default from a Store name, kind, prefix, or another Store.
 - Concrete physical kinds are `badger`, `memory`, `filesystem.dir`, `sqlite`, `postgresql`, `clickhouse`, `prometheus`, and `volc-tls`; no nested driver selector is accepted.
 - Prometheus and Volc TLS are physical connector kinds. Their endpoints and credentials belong under `storage`.
-- The six logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, `log.immutable`, and `log.mutable`.
+- The five logical Store kinds are `keyvalue`, `sql`, `objectstore`, `metrics`, and `log`.
 - Keyvalue Stores may use Badger or memory. SQLite/PostgreSQL keyvalue Stores require one single-segment `prefix`; the backend uses it as the physical table name, `table` is invalid, and encoded keys do not repeat the prefix. Metrics Stores may additionally use Prometheus, ClickHouse, SQLite, or PostgreSQL.
-- `log.immutable` may use Volc TLS, ClickHouse, SQLite, or PostgreSQL; `log.mutable` may use ClickHouse, SQLite, or PostgreSQL. SQL-backed Metrics and Log Stores require `table`.
-- SQLite/PostgreSQL KV declarations claim the physical table derived from `prefix`; Metrics and Log declarations claim their explicit `table`. Physical names are unqualified ASCII values of at most 63 bytes and must be distinct on one connector (ASCII case-insensitive on SQLite, exact on PostgreSQL); the complete claim set is validated before any DDL.
+- `log` uses a logging service; the current backend is Volc TLS with `topic_id` and provider-owned retention. LogStore has one `logstore.Store` interface with append/query/close and no mutable/immutable variants or SQL backends. SQL-backed Metrics require `table`.
+- SQLite/PostgreSQL KV uses the physical table derived from `prefix`; Metrics uses its explicit `table`. Physical names are unqualified ASCII values of at most 63 bytes. Compatible declarations may share a table; each adapter validates its required schema.
 - SQL-backed logical Stores directly ensure their table and indexes with idempotent DDL, then validate the exact schema. They create no version or history table and borrow the physical pool. Close logical Stores before Storage; they never close the pool themselves.
 - Public vecstore and graph packages remain available but are not Server Store kinds.
 - `memory` is a stateless marker; every logical Store entry creates its own in-process backend.
@@ -123,10 +123,10 @@ Config rules:
 - Relative physical paths are resolved from the workspace. Logical Store values are not rewritten.
 - `services.agent_host`, `services.metrics`, `services.system_log`, and `services.sfu` are optional; all other built-in service blocks are required.
 - `services.sfu` binds the Server to one LiveKit signaling `url` with `api_key_file` and `api_secret_file` read at startup (optional `recheck_interval`, `reconnect_timeout`, `talk_hangover`, `floor_idle`). Omitting it disables Friend and Friend Group SFU Workspaces; credentials never enter Stores, Peer APIs, events, or logs.
-- `services.workspace.history_store` requires a `log.mutable` Store for structured History records; `services.workspace.history_assets_store` is the separate ObjectStore for referenced binary replay assets. Both Stores require the same positive `ttl`.
+- `services.workspace.history_store` requires a `sql` Store backed by SQLite or PostgreSQL for the single `memory.HistoryStore`; Eino reads that same Workspace History without appending a second copy. `services.workspace.history_assets_store` selects the ObjectStore for replay assets, and its positive `ttl` determines History retention. PostgreSQL uses pg_partman expiration partitions.
 - `services.system_log` defaults to info-level stderr when omitted.
 - Service-internal collections use code-owned prefixes; expanded bindings such as `route_store`, `invite_token_store`, and `member_store` are unsupported.
-- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, generic `kind: log`, and `gizclaw migrate` are unsupported. Stop and recreate incompatible development services; do not import or rewrite existing data automatically.
+- Old top-level pseudo-service blocks, nested Storage drivers, one-layer Stores, and `gizclaw migrate` are unsupported. Use the explicit offline `gizclaw history-migrate` command for legacy Workspace History. Before initializing History, Server checks the selected SQL connector/schema for legacy History streams, reports actual parent table names and stops if records remain; it never auto-imports or deletes sources during startup.
 
 Service-managed edit flow:
 

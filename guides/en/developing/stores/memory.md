@@ -10,6 +10,44 @@ select it by connection type. Cloud `mem0` categories, multilingual and decay
 options remain independent. Self-hosted model/embedding/pgvector configuration
 belongs to the service deployment. Existing Cloud-only layouts remain valid.
 
+## Conversation History
+
+`memory.HistoryStore` persists generic ordered user/assistant messages; `memory.HistoryReader` provides queries only. These contracts are independent of the long-term fact `memory.Store`; Mem0 and Volc providers do not implement conversation history.
+
+`NewSQLHistoryStore(ctx, db, table, ttl)` borrows a `*sqlx.DB` and supports PostgreSQL and local SQLite. Conversation, ID, TurnID, role, actor, origin, text, creation time, expiration and interruption are columns. Asset references use a separate relational table; ObjectStore owns the binary bytes. The `(conversation_id, created_at_unix_nano, id)` index supports stable pagination, and an identity table enforces `(conversation_id, id)` uniqueness across partitions. Append commits the complete batch or none of it; duplicate keys cannot replace content or extend expiration.
+
+PostgreSQL uses `pg_partman` to manage UTC daily partitions on `expires_at_unix_nano`, with the nanoseconds epoch. Because this is already the expiration timestamp, partman retention is `0 seconds`, with `retention_keep_table=false`. Queries immediately hide expired messages; maintenance physically drops fully expired daily partitions. The repository PostgreSQL image pins `pg_partman 5.5.0`. Install the extension in schema `partman` beforehand and grant the application role schema usage/create, configuration-table privileges and function execution. The constructor does not install extensions.
+
+Server binds `services.workspace.history_store` to a `kind: sql` Store and owns the fixed table `gizclaw_history`. Message retention comes from the positive `ttl` of `services.workspace.history_assets_store`, so it is configured once. Server maintains it immediately after starting and hourly thereafter, then cancels and joins maintenance during shutdown. Standalone callers schedule `Maintain` and `CleanupHistory` with their binary-asset deleter themselves.
+
+`HistoryStore.QueryCleanup` is a separate bounded maintenance scan over identities and asset references; ordinary `Query` and `Get` continue to hide expired messages. A Workspace selection scopes cleanup, and a global scan requires an expiration cutoff. `Maintain` can remove expired content and PostgreSQL partitions while preserving identities that still reference binary assets. `CleanupHistory` deletes those objects before deleting their references; an object-delete failure preserves the references for retry. Server runs both steps even for idle Workspaces. Workspace `CleanupExpired` and `DeleteAll` use this maintenance path, so expired audio remains reachable after content reclamation.
+
+The Workspace recorder writes conversation history. AgentHost records completed raw text before passing its terminal to the Agent; audio input still uses transcript output, and input echoes do not add another record. For Eino messages, cancellation or stop uses an independent five-second finalization context to attempt to persist delivered content with its interruption flag; undelivered content is excluded. Eino receives a read-only view of these same messages, renders recent role/content, excludes the current input and waits for previously delivered messages to finish recording. Recording and playback use the same message ID, without a second Eino persistence namespace. Standalone Eino without a Reader retains bounded process-local history. Read-only History does not disable long-term Memory Recall/Observe.
+
+Audio Dock removes recognized `【speaker】` voice routing markers from live text. Delivered chunks retain their semantic text in process-local `HistoryText`, and the Host writes it to the same History text column. Eino therefore retains speaker context without another persisted copy. Undelivered suffixes and marker-only prefixes do not become separate History entries.
+
+Before creating or opening the new History table, Server performs a read-only check of table structure and streams in the final History SQL connector’s current schema. Legacy records with `workspace.history/`, `eino.history` or `flowcraft.history` stop startup with the actual parent table names and a `history-migrate` instruction. Startup neither guesses default names nor migrates or deletes data. Existing destination tables and completion receipts do not bypass remaining legacy records. Empty old tables and generic log archives without History streams do not block; inspection errors fail startup. Keep the old sources in the same SQL connector/schema and pass their actual parent names to the migration flags.
+
+### History migration
+
+`gizclaw history-migrate <dir>` performs the one-time offline conversion. Back up the database, stop every Server writing to it, and update `<dir>/config.yaml` to the final configuration: Workspace History references a SQL Store; remove `services.agent_host.persistence.history_store` and the old History LogStore declarations. Other LogStores must also stop referencing PostgreSQL.
+
+```sh
+gizclaw history-migrate /srv/gizclaw \
+  --workspace-table gizclaw_workspace_history \
+  --eino-table gizclaw_flowcraft_history --dry-run
+
+gizclaw history-migrate /srv/gizclaw \
+  --workspace-table gizclaw_workspace_history \
+  --eino-table gizclaw_flowcraft_history
+```
+
+Supply the actual old parent names. Both arguments may be the same when the streams shared a table. The command opens only the final History SQL connector; it does not start Server, edit configuration or generate identity keys. Dry-run validates sources and reports retained, expired and discarded Eino counts without initializing the destination.
+
+The import preserves unexpired Workspace IDs, roles, text, creation times, original expiration and audio references. It neither moves nor uploads audio, and never imports old Eino data. Batched copying is verified field by field. Copying, the completion receipt and source deletion commit in one transaction. Old parents, attached partitions, dedicated identity tables and generated, unshared partman templates are removed. Incompatible schemas, unknown records, target conflicts or external dependencies roll back the whole operation; deletion does not use `CASCADE`. Repeating a successful run reads the completion receipt without importing again. Verify completion before starting the new Server. Version rollback after successful deletion requires restoring the database backup.
+
+
+
 ## Contract
 
 Every operation carries a structured `Scope`. `AppID`, `UserID`, `AgentID`, and `RunID` are four independent optional routing dimensions. The common contract does not define an App→User→Agent→Run hierarchy and does not interpret `RunID` as a universal Conversation. An empty field means that dimension was not selected; it is not a wildcard, inherited value, or global-visibility marker.

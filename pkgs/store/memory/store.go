@@ -1,4 +1,4 @@
-// Package memory defines the provider-neutral long-term memory contract.
+// Package memory defines provider-neutral facts and ordered conversation history.
 package memory
 
 import (

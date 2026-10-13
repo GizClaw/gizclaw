@@ -27,7 +27,15 @@ func TestSpeakerParser(t *testing.T) {
 			for split := 0; split <= len(runes); split++ {
 				p := speakerParser{}
 				parts := p.feed(string(runes[:split]), false, voices)
-				parts = append(parts, p.feed(string(runes[split:]), true, voices)...)
+				var canonical strings.Builder
+				if len(parts) != 0 {
+					canonical.WriteString(string(p.takeHistoryText()))
+				}
+				last := p.feed(string(runes[split:]), true, voices)
+				if len(last) != 0 {
+					canonical.WriteString(string(p.takeHistoryText()))
+				}
+				parts = append(parts, last...)
 				var text strings.Builder
 				var patterns []string
 				for _, part := range parts {
@@ -39,6 +47,9 @@ func TestSpeakerParser(t *testing.T) {
 				got := strings.Join(patterns, ",")
 				if tc.name == "split" {
 					got = strings.TrimPrefix(got, ",")
+				}
+				if tc.want != "" && canonical.String() != tc.input {
+					t.Fatalf("split %d: canonical=%q, want %q", split, canonical.String(), tc.input)
 				}
 				if text.String() != tc.want || got != tc.patterns {
 					t.Fatalf("split %d: text=%q patterns=%q", split, text.String(), got)
@@ -316,5 +327,45 @@ func TestSpeakerSegmentsRejectMixedAudioMIME(t *testing.T) {
 		if !strings.Contains(terminal, `speaker segment audio "audio/mpeg" differs from response audio "audio/ogg"`) {
 			t.Fatalf("terminal=%q, want mixed audio MIME error", terminal)
 		}
+	}
+}
+
+func TestSpeakerHistoryTextOnContentBearingTerminal(t *testing.T) {
+	const semantic = "【甲】one【乙】two"
+	agent := transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+		return &sliceStream{chunks: []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: genx.Text(semantic), Ctrl: &genx.StreamCtrl{StreamID: "reply", BeginOfStream: true, EndOfStream: true}},
+		}}, nil
+	})
+	tts := muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+		for {
+			if _, err := input.Next(); err != nil {
+				break
+			}
+		}
+		return &sliceStream{chunks: []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte("audio")}, Ctrl: &genx.StreamCtrl{StreamID: "tts", BeginOfStream: true, EndOfStream: true}},
+		}}, nil
+	})
+	dock, err := New(Config{Agent: agent, TTS: tts, ResolveVoice: fixedVoice("default"), SpeakerVoices: map[string]string{"甲": "first", "乙": "second"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	output, err := dock.Transform(t.Context(), emptyStream{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	var live, history strings.Builder
+	for _, chunk := range readAll(t, output) {
+		if part, ok := chunk.Part.(genx.Text); ok {
+			live.WriteString(string(part))
+			if chunk.HistoryText != nil {
+				history.WriteString(string(*chunk.HistoryText))
+			}
+		}
+	}
+	if live.String() != "onetwo" || history.String() != semantic {
+		t.Fatalf("terminal duplicated or lost semantic text: live=%q history=%q", live.String(), history.String())
 	}
 }

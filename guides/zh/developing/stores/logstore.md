@@ -1,14 +1,12 @@
 # pkgs/store/logstore
 
-`pkgs/store/logstore` 提供跨业务领域复用的结构化 record、backend-neutral 查询与 cursor 分页。Immutable driver 支持追加与查询；mutable driver 还支持替换或删除单条 record。Conversation、event、audit 等生产者仍拥有 authorization 与 canonical resource；可选 retention 配在逻辑 Store 上，由 driver 执行，不改变 LogStore interface。
+`pkgs/store/logstore` 提供日志服务上的结构化 record、backend-neutral 查询与 cursor 分页。LogStore 支持追加与查询，event、audit 等生产者拥有 authorization 与 canonical resource；retention 由日志服务管理。
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/logstore)
 
 ## Contract
 
-`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`ImmutableStore` 组合追加、查询和生命周期能力；`MutableStore` 在此基础上增加 `Replace` 与 `Delete`，需要修改能力的调用方必须显式解析这个 capability。
-
-`Replace` 修改一个已存在 key 对应的 record，并保持该 key 不变；它不是 upsert，key 不存在时返回 `ErrNotFound`。`Delete` 只删除一个已存在 key，key 不存在时也返回 `ErrNotFound`。
+`Appender.Append` 会为每条已接受的 record 返回一个 `RecordKey`。发生部分失败时，返回值是按输入顺序排列的已接受前缀。Key 是稳定的 `Stream` 与调用方生成的 `ID` 组合。`Store` 组合追加、查询和生命周期能力，仅提供一种完整日志接口。
 
 `Record` 必须提供 `ID`、时间、`Stream` 与 `Kind`，并可附带 severity、message、indexed scalar attributes 和不索引的 JSON payload。Attribute 使用最长 128 bytes 的 canonical dotted path；每段匹配 `[A-Za-z_][A-Za-z0-9_-]*`，scalar/object prefix conflict 会被拒绝。
 
@@ -18,11 +16,9 @@
 
 | Driver | Capability | 说明 |
 | --- | --- | --- |
-| Volc TLS | `ImmutableStore` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
-| ClickHouse | `MutableStore` | 独立 MergeTree 表与同步 replace/delete mutation |
-| SQLite / PostgreSQL | `MutableStore` | 独立关系表、原子 append/replace/delete 与共享 SQL cursor |
+| Volc TLS | `Store` | 同一 TLS SDK client 上的 PutLogsV2 与 SearchLogs；不支持 mutation |
 
-每个逻辑 Log Store 都必须声明 `log.immutable` 或 `log.mutable`。`Stores.Log` 接受两种声明，`Stores.MutableLog` 只接受 `log.mutable`。Volc TLS 不能满足 Workspace History 或 Eino History 所需的可变记录能力。物理连接 ownership 始终属于 `storage`。
+每个逻辑 Log Store 声明 `log`，通过 `Stores.Log` 获取。当前实现为 Volc TLS；不支持 SQLite、PostgreSQL 或 ClickHouse 数据库 backend，也不区分 mutable/immutable 类型。Workspace 与 Eino 的对话历史使用 [Memory History Store](./memory#conversation-history)，不经过 LogStore。物理连接 ownership 属于 `storage`。
 
 ### Volc TLS
 
@@ -36,7 +32,7 @@ storage:
     access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
 stores:
   logs:
-    kind: log.immutable
+    kind: log
     storage: volc-logs
     topic_id: ${VOLC_TLS_TOPIC_ID}
 ```
@@ -53,42 +49,11 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
 
-### ClickHouse
+## 日志切换
 
-```yaml
-storage:
-  analytics:
-    kind: clickhouse
-    dsn: ${CLICKHOUSE_DSN}
-stores:
-  eino-history:
-    kind: log.mutable
-    storage: analytics
-    database: gizclaw
-    table: eino_history
-```
+启动前配置已有 Volc TLS topic 及其兼容 index，并将 LogStore 绑定改为 `log`、`volc-tls` 和 `topic_id`；不需要日志查询时可以只配置 stderr sink。切换后，Admin/Monitor 日志查询只读取新 topic。
 
-Driver 会创建并校验独立 `MergeTree` 表，按月分区，并按 `(timestamp, stream, id)` 排序。`Append` 会在同一 store instance 内串行执行查重与同步 batch insert，只在 commit 后返回 key；`Query` 把结构化 contract 直接转换为参数化 ClickHouse SQL，通过 `(timestamp, stream, id)` 分页，不建立额外分页索引。`Replace` 使用同步 `ALTER UPDATE`，`Delete` 使用同步 `ALTER DELETE`；二者都只针对一个 `(stream, id)`。发现重复 key 时会报错，不会静默修改多行。
-
-物理 DSN 已选择 database 时可以省略逻辑 `database` 字段。配置 `ttl` 后，driver 会写入 `expires_at`，并创建或校验 table-level `TTL expires_at` 删除表达式；异步 merge 物理删除前，Get 与 Query 已隐藏过期 row。ClickHouse driver 不额外施加本地 payload 大小限制。逻辑 Metrics 与 Log Store 可以共享一个物理 pool，但不拥有它。
-
-### SQLite / PostgreSQL
-
-每个逻辑 Store 必须声明独立 `table`。关系 Store 用 `(stream, id)` 唯一标识 record，以 UTC nanoseconds 保存 time，并按 `(time, stream, id)` 稳定分页；flat attributes 使用 canonical JSON，payload 保留原始 JSON bytes。Append 在一个 transaction 中查重并写入完整 batch；Get 按 `(stream, id)` 精确读取；Replace 不是 upsert，不能改变 time；Get 与 Delete 对缺失 key 返回 `ErrNotFound`；Replace 不延长 retention。Immutable 与 mutable 声明使用同一实现，但 Registry 只对 `log.mutable` 暴露 mutation capability。Workspace History 需要 `MutableRecordStore`，把文本和结构化 metadata 保存在 LogStore，ObjectStore 只保存 record 引用的二进制 asset。
-
-配置 `ttl` 后，两种 driver 都按 backend 实际写入时间设置 `expires_at_unix_nano`，并从 Get 与 Query 过滤过期 record。SQLite 在后续 append 时清理过期物理 row。PostgreSQL 把配置的 `table` 创建为按 `expires_at_unix_nano` range partition 的父表，调用方始终查询该父表；driver 在初始化和维护时准备所需的 UTC 日分区及下一日分区。
-
-正常 Append 只做记录事务：独立 `(stream, id)` 并发，批量按 canonical key 顺序预留唯一身份，并按输入顺序返回 key；Replace/Delete 先锁身份行，再修改记录。缺分区的 Append 会完整回滚，单独取得 DDL advisory lock 建分区，再重新计算写入时间与 TTL 并重试一次。已有分区的写入不取得该 advisory lock、不枚举分区，也不执行全表串行锁。
-
-`SQLStore.Maintain` 在独立事务中删除已完全过期的日分区及其身份行；涉及回收时先取得 parent DDL lock，维持 parent→key→record 的锁顺序。Server 在 Listen 后每小时维护 Workspace 和内部 Eino History，Close 先取消并等待维护退出，因此没有新写入时也能回收；独立调用方可以直接调用 Maintain。配套的 `<table>_keys` 表维持跨所有日分区的 `(stream, id)` 唯一性。分区与 key 表生命周期完全自动，调用方不选择子表。
-
-ClickHouse、SQLite 和 PostgreSQL 共用 version-1 opaque cursor：它绑定 normalized selector、text、millisecond-aligned `[Start, End)` 和 order，允许 continuation 修改 limit，并保持 16 KiB bound。相同 records 可以跨三种 SQL driver continuation。SQLite/PostgreSQL 的 text matching 保持 case-sensitive literal，attribute matcher 在 validated flat map 上执行；逻辑 Store 不关闭共享 pool。
-
-SQLite/PostgreSQL 将时间、selector、区分大小写的字面文本、属性条件、排序和 `LIMIT` 全部交给数据库执行；每页最多返回 `limit + 1` 条记录，用额外一条判断是否存在下一页。Driver 在每次打开时以 `IF NOT EXISTS` 创建 `(time, stream, id)`、`(stream, kind, severity)`、`(stream, time, id)` 与过期时间索引。没有选择性属性条件时，单 stream 查询可经 `(stream, time, id)` 按时间范围有序定位。
-
-PostgreSQL 还在现有 TEXT 列上创建 `USING GIN ((attributes_json::jsonb) jsonb_path_ops)` 表达式索引。属性 `=` 转换为参数化的 JSON containment，让共享 stream 中的 scope、agent、context 等属性参与索引查找，再对匹配记录排序和分页。每个 matcher 独立 AND，重复或冲突条件不会被覆盖。`!=`、`exists`、`not-exists` 和 SQLite 的匹配方式保持不变；属性名称和值始终绑定，点号仍是 flat key 的字面内容。Record、cursor、时间范围和 TTL contract 不变。
-
-已有表在下次打开时补建缺失索引，不重写 record。PostgreSQL 在父表上建索引，覆盖已有日分区，后续分区自动继承；打开时校验 GIN method、表达式、operator class 和有效状态，拒绝同名的不兼容索引。初始化受 30 秒期限限制，补建索引会在整个构建期间阻塞写入；大表升级应先验证构建耗时并安排维护窗口。
+旧 SQL 日志表和记录由数据库 owner 保留。Server 不会将它们导入 Volc TLS，也不会删除它们；需要保留旧日志检索时，在切换前使用数据库工具导出或归档，并通过数据库工具读取归档。GizClaw 不提供旧数据库日志读取路径。`history-migrate` 只迁移显式选择的 Workspace/Eino History 表；遇到通用日志混入源表时拒绝迁移并保留源数据。
 
 ## Process logging
 

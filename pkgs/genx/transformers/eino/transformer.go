@@ -65,7 +65,7 @@ func New(ctx context.Context, source Config) (*Transformer, error) {
 	transformer := &Transformer{
 		config: config, graph: graph, contextID: contextID,
 		history: &conversationHistory{
-			config: config.History, agentID: config.Agent.ID, contextID: contextID,
+			config: config.History,
 		},
 	}
 	transformer.taskContext, transformer.cancelTasks = context.WithCancelCause(context.Background())
@@ -448,6 +448,9 @@ func (session *session) startTurn(user, inputID string, parts []any, previous <-
 	if strings.TrimSpace(user) == "" && len(parts) == 0 && (len(initiative) == 0 || !initiative[0]) {
 		return previous
 	}
+	if session.transformer.config.History != nil && session.transformer.config.History.Store != nil && inputID == "" {
+		inputID = genx.NewStreamID()
+	}
 	runCtx, cancel := context.WithCancelCause(session.invocation.Context())
 	run := &turnRun{
 		session: session, user: user, parts: parts, ctx: runCtx, cancel: cancel,
@@ -485,8 +488,9 @@ func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previ
 }
 
 func (session *session) launch(run *turnRun, inputID string) <-chan struct{} {
+	run.inputID = inputID
 	cancel := run.cancel
-	if session.transformer.config.ContinueFrom != "" {
+	if session.transformer.config.ContinueFrom != "" || session.transformer.config.History != nil && session.transformer.config.History.Store != nil {
 		run.messageID = genx.NewStreamID()
 	}
 	run.automaticPrimary = session.transformer.graph.definition.Compile.PrimaryOutputMode == PrimaryFirstOutput
@@ -540,6 +544,7 @@ func newOutputRoutePart(mimeType string, data []byte) genx.Part {
 }
 
 type turnRun struct {
+	inputID string
 	session *session
 	user    string
 	parts   []any
@@ -879,7 +884,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	if err != nil {
 		return nil, "", err
 	}
-	history, err := run.session.transformer.history.load(run.ctx)
+	history, err := run.session.transformer.history.load(run.ctx, run.inputID)
 	if err != nil {
 		return nil, "", err
 	}

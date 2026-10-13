@@ -26,7 +26,7 @@ services:
     store: telemetry
 ```
 
-ClickHouse 是物理 SQL connector。DSN 与 pool 只配置一次；每个逻辑 Metrics Store 只选择 table。多个 Metrics 或 Log Store 可以共享 pool，关闭其中一个逻辑 Store 不会关闭 pool。
+ClickHouse 是物理 SQL connector。DSN 与 pool 只配置一次；每个逻辑 Metrics Store 只选择 table。多个 Metrics Store 可以共享 pool，关闭其中一个逻辑 Store 不会关闭 pool。
 
 ```yaml
 storage:

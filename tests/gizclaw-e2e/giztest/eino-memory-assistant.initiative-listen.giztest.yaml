@@ -23,6 +23,7 @@ variables:
     direction: input
     type: string
     generate: token
+  history_name: {direction: output, type: string}
 steps:
 - id: register_peer
   client: peer
@@ -64,15 +65,37 @@ steps:
   expect:
     /audio_bytes:
       minimum: 1
+- id: stop_after_opening
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
 - id: verify_history
   client: peer
   rpc:
-    method: server.run.workspace.history
+    method: server.workspace.history.list
     request:
+      workspace_name: "${workspace_name}"
+      order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_DESC
       limit: 20
+  retry: {attempts: 10, on: [assertion], delay: 600ms}
+  capture: {history_name: /items/0/name}
   expect:
     "/items":
       non_empty: true
+    "/items/0/type":
+      equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
+    "/items/0/replay_available":
+      equals: true
+    "/items/0/text":
+      non_empty: true
+- id: download_opening_audio
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: "${workspace_name}", history_name: "${history_name}"}
+    max_bytes: 1048576
+  expect: {/bytes: {minimum: 100}}
 finally:
 - client: peer
   rpc:

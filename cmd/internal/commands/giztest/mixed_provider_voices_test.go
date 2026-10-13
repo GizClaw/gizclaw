@@ -20,7 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
@@ -134,8 +134,8 @@ func runMixedProviderVoices(t *testing.T, fixture, fault string) {
 		t.Fatalf("TTS calls=%d, want narrator and fox segments", provider.calls.Load())
 	}
 	entry := waitMixedVoiceHistory(t, history)
-	if entry.Text != "The narrator begins. I am the fox." || len(entry.Assets) != 1 || entry.Assets[0].MIMEType != "audio/ogg; codecs=opus" {
-		t.Fatalf("history entry = %+v, want reply text with one Ogg/Opus asset", entry)
+	if entry.Text != "The narrator begins. 【fox】I am the fox." || len(entry.Assets) != 1 || entry.Assets[0].MIMEType != "audio/ogg; codecs=opus" {
+		t.Fatalf("history entry = %+v, want semantic reply text with speaker markers and one Ogg/Opus asset", entry)
 	}
 	reader, err := history.ReadAsset(t.Context(), entry.Assets[0].Name)
 	if err != nil {
@@ -179,7 +179,7 @@ func newMixedVoiceHistory(t *testing.T) *workspace.HistoryStore {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
-	records, err := logstore.NewSQLStoreWithDB(db, "workspace_history")
+	records, err := memory.NewSQLHistoryStore(t.Context(), db, "workspace_history", 0)
 	if err != nil {
 		t.Fatal(err)
 	}

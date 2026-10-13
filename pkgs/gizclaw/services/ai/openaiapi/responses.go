@@ -94,7 +94,7 @@ func (s *Server) createResponse(ctx context.Context, request backend.Request) (b
 	}
 	userItemID := newItemID("msg")
 	userHistory, err := s.Workspaces.AppendConversationHistory(ctx, workspaceItem.Id, workspace.AppendHistoryRequest{
-		Type: "gear", GearID: userItemID, Origin: workspace.HistoryOriginOpenAI, Name: "user", Text: text, CreatedAt: createdAt,
+		Type: "gear", GearID: userItemID, Origin: workspace.HistoryOriginOpenAI, Name: "user", Text: text, CreatedAt: createdAt, TurnID: userItemID,
 	})
 	if err != nil {
 		responseRuntime.release(workspaceItem.Id, active)
@@ -120,7 +120,7 @@ func (s *Server) createResponse(ctx context.Context, request backend.Request) (b
 		responseRuntime.release(workspaceItem.Id, active)
 		return backend.Response{}, internal(err)
 	}
-	job := responseJob{server: s, workspace: workspaceItem, runtime: runtime, record: record, outputItemID: outputItemID, input: text, active: active}
+	job := responseJob{server: s, workspace: workspaceItem, runtime: runtime, record: record, outputItemID: outputItemID, input: text, active: active, inputHistory: userHistory}
 	if background {
 		go func() { _, _ = job.run(context.WithoutCancel(ctx), nil) }()
 		return s.responseJSON(ctx, runtime, record)
@@ -142,12 +142,14 @@ type responseJob struct {
 	record       workspace.OpenAIResponse
 	outputItemID string
 	input        string
+	inputHistory workspace.HistoryEntry
 	active       *activeResponse
 }
 
 func (j *responseJob) run(parent context.Context, delta func(string) error) (workspace.OpenAIResponse, error) {
 	runtime := j.server.responseRuntime()
 	ctx, cancel := runtime.context(parent, j.active)
+	ctx = workspace.WithRecordedHistoryInput(ctx, j.workspace.Id, j.inputHistory)
 	defer cancel()
 	defer runtime.release(j.workspace.Id, j.active)
 	entries, err := j.server.Executor.ExecuteWorkspaceText(ctx, j.workspace, j.input, delta)

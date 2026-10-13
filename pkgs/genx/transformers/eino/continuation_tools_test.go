@@ -78,8 +78,7 @@ func TestContinuationToolBudgetAndIDsResetPerGeneration(t *testing.T) {
 						return map[string]string{"headline": query}, nil
 					})
 					config.MaxToolCalls = maximum
-					store := &recordingHistoryStore{events: &eventRecorder{}}
-					config.History = &HistoryConfig{Store: store, Scope: "news", Limit: iterations + 1}
+					config.History = &HistoryConfig{Scope: "news", Limit: iterations + 1}
 					transformer, err := New(t.Context(), config)
 					if err != nil {
 						t.Fatal(err)
@@ -124,7 +123,7 @@ func TestContinuationToolBudgetAndIDsResetPerGeneration(t *testing.T) {
 					if begins != 1 || ends != 1 || len(messageIDs) != iterations || messageIDs[""] {
 						t.Fatalf("BOS/EOS=%d/%d message IDs=%v", begins, ends, messageIDs)
 					}
-					messages := continuationRecordedMessages(t, store)
+					messages := continuationRecordedMessages(t, transformer.history)
 					if len(messages) != iterations+1 || messages[0].Role != schema.User {
 						t.Fatalf("History has %d entries, want one user and %d sections", len(messages), iterations)
 					}

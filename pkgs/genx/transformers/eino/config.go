@@ -12,7 +12,6 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -105,9 +104,11 @@ type StateStore interface {
 	CompareAndSwap(context.Context, string, string, map[string]any) (StateSnapshot, error)
 }
 
-// HistoryConfig enables ordered short-term conversation History.
+// HistoryConfig reads caller-owned conversation History. Scope selects the
+// conversation; only the caller persists messages. Without Store, History stays
+// bounded and local to this Transformer. The host owns input recording.
 type HistoryConfig struct {
-	Store logstore.MutableStore
+	Store memory.HistoryReader
 	Scope string
 	Limit int
 }
@@ -1325,8 +1326,8 @@ func (config *normalizedConfig) validateOptionalConfig() error {
 	}
 	if config.History != nil {
 		config.History.Scope = strings.TrimSpace(config.History.Scope)
-		if config.History.Limit <= 0 || config.History.Limit > logstore.MaxLimit {
-			return fmt.Errorf("eino: History.Limit must be between 1 and %d", logstore.MaxLimit)
+		if config.History.Limit <= 0 || config.History.Limit > memory.MaxHistoryQueryLimit {
+			return fmt.Errorf("eino: History.Limit must be between 1 and %d", memory.MaxHistoryQueryLimit)
 		}
 	}
 	if config.Memory != nil {

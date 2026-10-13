@@ -46,46 +46,15 @@ Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerSt
 
 The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
 
-## Shared Eino History query load
-
-Prepare the embedded console and audio LFS libraries, then set
-`GIZCLAW_TEST_POSTGRES_DSN` to a dedicated local PostgreSQL 17 instance with
-`max_connections=300`:
+## Shared History query load
 
 ```sh
 bash tests/gizclaw-e2e/run_history_query_tests.sh .tmp/history-query-evidence
 ```
 
-This entrypoint requires a loopback database URL. Seed 7919 produces 930,000
-`eino.history` messages across 31 TTL daily partitions and 1,000 scope/agent/context
-groups. Both revisions reuse the seeded rows; each run removes only previous
-non-seed history in its dedicated fixture schema. The baseline uses a Go overlay
-for the two LogStore SQL files from `v0.31.1`, with identical working-tree Server,
-Eino, Giztest and fixture code. `GIZCLAW_TEST_HISTORY_QUERY_BASE_REF` selects another
-existing local ref. This is not a complete old-release run.
+The entrypoint accepts only loopback PostgreSQL 17 with `pg_partman 5.5.0` installed in schema `partman` and `max_connections=300`. Seed 7919 prepares 930,000 column-based messages across 31 expiration-day partitions and 1,000 conversations. It then runs 160 readers, four writers, 32 shared-pool probes, and eight real WebRTC Giztest sessions under background database traffic.
 
-Each phase warms the default 128 connections, then executes 160 simultaneous
-History queries, half existing and half absent scopes, four writers with 32 real
-Appends each, and 32 shared-pool `SELECT 1` probes. Their two-second deadline
-measures lightweight SQL waiting, not the complete permission check. Eight real
-WebRTC Giztest sessions then run alongside 16 absent-scope readers and four
-writers appending every 20ms. The two-second first-text limit, persisted History,
-all steps and cleanup assertions remain enforced. The Eino Graph is a deterministic
-script; History loading and writing use the production implementation without
-artificial SQL delays.
-
-Evidence includes bound SQL, index definitions, `EXPLAIN (ANALYZE, BUFFERS)`, examined
-rows, query/write latency, throughput, DBStats pool waits, lightweight probes,
-Giztest reports and `comparison.json`. If installed, `public.pg_stat_statements`
-provides a local-database snapshot of matching SQL shapes. A baseline timeout can
-exit nonzero; the script requires the fixed phase to pass and checks identical
-fixture metadata. Do not commit evidence or synthetic schemas. When analysis is
-finished, remove only the dedicated `gzc_history_query_*` schema printed by the
-script. This test does not establish production failure attribution or capacity.
-
-Regular PostgreSQL CI covers LogStore attribute semantics, selective execution
-plans, index creation over existing data, new-partition inheritance and cursor
-compatibility. The large load fixture is opt-in.
+Evidence includes source hashes, fixture information, actual SQL, indexes, `EXPLAIN (ANALYZE, BUFFERS)`, query/write latency, pool waiting, Giztest reports and `summary.json`. Large loads are opt-in; ordinary CI runs smaller functional/migration regressions. The synthetic `gzc_history_query_*` schema is retained for inspection. Results do not qualify production attribution, remote models or physical-device capacity.
 
 ## PostgreSQL run-state and input permissions
 
@@ -95,7 +64,7 @@ git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/n
 bash tests/gizclaw-e2e/run_run_state_tests.sh
 ```
 
-Replace `<os>-<arch>` with the host platform. This entrypoint requires Go, Docker, Python 3 and OpenSSL. It provisions digest-pinned PostgreSQL 17 with 4 CPU, 1 GiB RAM, 256 MiB tmpfs, 300 connections, loopback-only access, TLS and SCRAM. It reads no cloud provider credentials or deployment state. Deterministic ASR consumes real uplink audio, an Eino Graph echoes text, and TTS produces valid Opus. Server, WebRTC, Go Giztest, PostgreSQL runtime/metadata and the permission path use the tested implementation. Temporary schemas, Server, Peers and the invocation's container are cleaned up; evidence remains under ignored `.testbench/run-state-*` or the directory supplied as the first argument.
+Replace `<os>-<arch>` with the host platform. This entrypoint requires Go, Docker, Python 3 and OpenSSL. It provisions the repository-pinned PostgreSQL 17/pg_partman image with 4 CPU, 1 GiB RAM, 256 MiB tmpfs, 300 connections, loopback-only access, TLS and SCRAM. It reads no cloud provider credentials or deployment state. Deterministic ASR consumes real uplink audio, an Eino Graph echoes text, and TTS produces valid Opus. Server, WebRTC, Go Giztest, PostgreSQL runtime/metadata and the permission path use the tested implementation. Temporary schemas, Server, Peers and the invocation's container are cleaned up; evidence remains under ignored `.testbench/run-state-*` or the directory supplied as the first argument.
 
 By default 64 distinct public keys each complete initial voice input, a 12-second background refresh window, another voice turn and voice after selecting a second Workspace. `GIZCLAW_TEST_RUN_STATE_CONCURRENCY` accepts 2–128. `GIZCLAW_TEST_RUN_STATE_SETTLE=70s` extends observation after load to check default idle-session reclamation and goroutine convergence. The production two-second permission budget and five-second refresh interval remain unchanged. Scenarios require text/audio EOS and nonempty audio; database failures continue to reject input.
 
@@ -114,23 +83,15 @@ The permission regression uses real PostgreSQL and a deterministic Social bindin
 
 ## PostgreSQL History concurrency and retention
 
-Set `GIZCLAW_TEST_POSTGRES_DSN` to an isolated local PostgreSQL 17 instance configured with `max_connections=300`:
+Use isolated PostgreSQL 17 with `pg_partman 5.5.0` in schema `partman`, `max_connections=300`, and `GIZCLAW_TEST_POSTGRES_DSN`:
 
 ```sh
-go test -tags=store_e2e -count=1 -run '^TestPostgreSQLLog' ./tests/store-e2e
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLHistory' ./tests/store-e2e
+go test -count=1 ./pkgs/store/memory ./pkgs/gizclaw/services/ai/workspace
 go test -count=1 -run '^TestPostgreSQLHistory' ./cmd/internal/server ./pkgs/gizclaw
 ```
 
-Store regressions cover independent-record progress, same-key conflicts and atomic rollback, concurrent missing-partition creation, UTC day boundaries, expired-key reuse, mutations interleaved with maintenance, and reclamation without writes. `TestPostgreSQLHistoryGiztest` runs real Server/WebRTC, eight independent Workspaces and 96 streams writing eight records each to the same table. A PostgreSQL trigger adds 30ms of work to every record. A deterministic Eino echo Graph removes external model variability; metadata, run state, Workspace and internal Eino History use real PostgreSQL in an isolated schema. The scenario retains the two-second first-text deadline, then completes a dialogue turn to await real EOS and persisted history, and checks all cleanup steps. It does not qualify an external model or first audio.
-
-The optional load uses 128 independent streams, four batches per stream and four records per batch. Save separate evidence directories for different versions and use identical database settings and delay:
-
-```sh
-GIZCLAW_TEST_PG_LOG_EVIDENCE="$(mktemp -d)" GIZCLAW_TEST_PG_LOG_DELAY_MS=5 \
-  go test -tags=store_e2e -count=1 -v -run '^TestPostgreSQLLogAppendLoad$' ./tests/store-e2e
-```
-
-`summary.json` records persisted counts, throughput and Append latency. `locks.json` records `pg_stat_activity`, wait types and blocker PID samples. Set `GIZCLAW_TEST_HISTORY_GIZTEST_EVIDENCE` to retain the Giztest report and runner log. Inputs are synthetic and local; do not commit logs or reports.
+Regressions cover cross-partition identity, atomic conflicting batches, independent-message progress, retention without writes, Workspace import, original audio references, rollback and source deletion. `TestPostgreSQLHistoryGiztest` uses real Server/WebRTC, eight Workspaces and 96 writers with eight records each; a trigger adds 30ms per row. A deterministic Graph preserves the two-second first-text, EOS, persistence and cleanup assertions without remote models.
 
 The default Docker Giztest stack uses real self-hosted GizClaw Mem0 with pgvector.
 Server and Mem0 share one PostgreSQL instance using separate databases and
@@ -683,6 +644,8 @@ The standard JavaScript batch uses `setup/run_js_giztest.py` to start a separate
 
 The JavaScript runner uses `protoc` to generate temporary descriptors from the repository RPC schema. It converts scenario Protobuf JSON requests into SDK objects and converts responses back into Protobuf JSON before assertions. Enums, oneofs, default fields, and 64-bit integers follow the same schema; unknown fields and invalid enums are rejected. Both `npm run giztest` and `npm run test:giztest-unit` prepare the descriptors automatically.
 
+The standard catalog also includes deterministic `initiative-agent`, `initiative-peer`, and `initiative-default` opening Workflows for `eino.initiative.giztest.yaml` to verify shared History and Workspace overrides. The dedicated Go Giztest additionally checks that the obsolete `starts` field is ignored.
+
 ### Manual environment
 
 The standard Docker environment includes a single-node LiveKit with temporary SFU credentials generated for each setup. Group RPC, event-stream, and social tests use this service inside the Compose network. LiveKit publishes no host ports and is removed with the test environment.
@@ -982,11 +945,14 @@ sent before receipt of the first response's audio EOS. Both responses must close
 and audio routes; the second must contain text and audio and complete without errors.
 A first response reporting `interrupted` after the second input is allowed and recorded as
 `first_response_interrupted`; the test does not require a particular provider interruption policy.
-Only `mode`, `input`, and `pacing` can accompany this option; use the step `timeout` for the bound.
+Only `mode`, `input`, `pacing`, and PTT `hold_before_audio` can accompany this option; use the step `timeout` for the bound.
 Results include `input_overlap`, `session_connection_reused`, `second_input_sent`,
 `first_audio_ms`, `second_input_audio_ms`, `first_audio_eos_ms`, and second-response EOS flags.
 The Doubao, Eino, and Eino `*-overlapping-input.giztest.yaml` scenarios cover both input
 modes in the Go runner. JavaScript and Flutter runners skip the unsupported `peer_stream` operation.
+PTT overlap scenarios explicitly set `hold_before_audio: 0ms` to send audio immediately after
+control BOS. Control BOS interrupts the old response; the default 500 ms button hold belongs
+to other PTT scenarios and cannot guarantee that second-input audio precedes the old response's EOS.
 
 Empty assistant BOS events do not establish response ownership; actual text or audio content does. The scenarios use a single Chinese counting request to reduce extra VAD turns caused by pauses within the recording.
 
@@ -1399,7 +1365,7 @@ GIZCLAW_E2E_VOLC_LOG_TOPIC_ID=... \
 The observability entrypoint sends one real AI text turn through Edge to the
 Server. Server and Edge `giz_webrtc_*`/`giz_edge_webrtc_*` samples go to an
 E2E-only Prometheus Remote Write protocol fixture, while Server system logs go
-to an isolated SQLite `log.immutable` Store. Acceptance queries the fixture for
+through the real Volc TLS driver into a local TLS HTTP protocol fixture. Acceptance queries the fixture for
 the core metric families and `node_role=application|edge`, then uses Admin Log
 Query to retrieve the user input, the AI response actually delivered, and the
 `turn_started`, `agent_input_first_push`, `output_first_event`, and

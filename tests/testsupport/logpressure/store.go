@@ -100,7 +100,7 @@ func (h *observedHandler) WithGroup(group string) slog.Handler {
 }
 
 // Log resolves the sole synthetic sink without touching a production registry.
-func (s *Store) Log(string) (logstore.ImmutableStore, error) { return s, nil }
+func (s *Store) Log(string) (logstore.Store, error) { return s, nil }
 
 // Append honors each production worker deadline and records accepted identities.
 func (s *Store) Append(ctx context.Context, records []logstore.Record) ([]logstore.RecordKey, error) {

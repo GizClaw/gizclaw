@@ -98,7 +98,7 @@ func (*agenthostLogStore) Close() error { return nil }
 
 type agenthostLogResolver struct{ store *agenthostLogStore }
 
-func (r agenthostLogResolver) Log(string) (logstore.ImmutableStore, error) { return r.store, nil }
+func (r agenthostLogResolver) Log(string) (logstore.Store, error) { return r.store, nil }
 
 func TestServiceReloadAppliesPendingAndStop(t *testing.T) {
 	ctx := context.Background()

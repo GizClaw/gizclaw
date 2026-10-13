@@ -23,14 +23,20 @@ storage:
   business-db:
     kind: sqlite
     dir: data/business.sqlite
+  monitor-tls:
+    kind: volc-tls
+    endpoint: http://log-sink:9091
+    region: test-region
+    access_key_id: fixture-key
+    access_key_secret: fixture-secret
 stores:
   peer-usage:
     kind: sql
     storage: business-db
   monitor-logs:
-    kind: log.immutable
-    storage: business-db
-    table: monitor_logs
+    kind: log
+    storage: monitor-tls
+    topic_id: monitor
   peers:
     kind: keyvalue
     storage: memory
@@ -73,10 +79,8 @@ stores:
     kind: sql
     storage: business-db
   workspace-history:
-    kind: log.mutable
+    kind: sql
     storage: business-db
-    table: workspace_history
-    ttl: 720h
   workspace-history-assets:
     kind: objectstore
     storage: local-files

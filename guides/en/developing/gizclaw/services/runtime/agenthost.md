@@ -51,6 +51,8 @@ Workspace History recognizes interruption by StreamID: when a typed MIME channel
 
 One History entry keeps a route's audio in arrival order. When the audio MIME type changes within a route, such as a multi-voice reply mixing Ogg/Opus and MP3 providers, each MIME run becomes its own segment; persistence converts every segment to Opus packets (Ogg/Opus unpacked, MP3 decoded, PCM encoded) and stores them as one `audio/ogg; codecs=opus` asset. History recording is best-effort and never fails the live output: a chunk that cannot be recorded, an entry that cannot be encoded, or a failed History append drops only that entry and logs a `workspace history entry dropped` warning, while the stream continues to the device and other entries are still stored.
 
+The RuntimeRegistry, lease and output-probe stream wrappers forward production observers, deferred delivery acknowledgements and abandonment notifications to the same underlying stream. Wrapping a Host output must preserve these capabilities so continuous History and State checkpoints follow the final consumer’s delivery boundary.
+
 ## Current-Peer Tool scope
 
 Tool execution has a separate context from Workspace-owner Resource access. The
@@ -84,7 +86,7 @@ Tool's immutable execution name. Non-idempotent Tool execution is never retried.
 
 The host process resolves `agent_host` Server Config references once at startup and injects borrowed Store interfaces into the GizClaw Server, Peer Manager, and registered Workflow factories. The Store Registry remains the only owner of those shared backends. AgentHost, Workspace reload, Eino, and per-Agent adapters must not close them.
 
-`runtime_store` stores Workspace runtime metadata and runtime objects. Workspace History text and structured metadata use `services.workspace.history_store`; binary replay assets use `services.workspace.history_assets_store`. Shared state and internal History bind SQL and mutable Log through `services.agent_host.persistence.state_store` and `history_store`. The Server injects `GraphStateDB` and `AgentHistory` into Workflow factories using those contracts. Eino consumes these borrowed capabilities and provider-neutral Memory; the binding is independent of the executor name.
+`runtime_store` stores Workspace runtime metadata and runtime objects. The sole conversation History uses the SQL `memory.HistoryStore` bound by `services.workspace.history_store`; binary replay assets use `services.workspace.history_assets_store`. Shared state binds SQL through `services.agent_host.persistence.state_store` and is injected into Workflow factories as `GraphStateDB`. Eino receives the same Workspace History as a `memory.HistoryReader` and never appends a second durable copy. Long-term Memory retains its independent provider-neutral contract.
 
 Eino binds `Scope.AppID` to Workspace or the owner Peer boundary according to the selected MemoryLayout policy. User, Agent, and Run dimensions stay independent; the public key never replaces UserID. A Graph declaring Memory policy requires an available Store, and construction failure fails initialization or reload explicitly.
 

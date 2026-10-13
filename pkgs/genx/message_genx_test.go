@@ -226,3 +226,19 @@ func TestInterimTextControlCloneIsProcessLocal(t *testing.T) {
 		t.Fatalf("interim status leaked to wire: %s", encoded)
 	}
 }
+
+func TestHistoryTextIsProcessLocalAndSurvivesClone(t *testing.T) {
+	semantic := Text("【speaker】hello")
+	chunk := &MessageChunk{Part: Text("hello"), HistoryText: &semantic}
+	clone := chunk.Clone()
+	if clone.HistoryText == nil || *clone.HistoryText != semantic || clone.HistoryText == chunk.HistoryText {
+		t.Fatalf("semantic text was lost or aliased: %+v", clone)
+	}
+	data, err := json.Marshal(clone)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "speaker") || strings.Contains(string(data), "HistoryText") {
+		t.Fatalf("semantic metadata leaked into JSON: %s", data)
+	}
+}

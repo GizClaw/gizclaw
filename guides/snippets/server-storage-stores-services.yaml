@@ -16,6 +16,13 @@ storage:
     kind: postgresql
     dsn: ${GIZCLAW_POSTGRES_DSN}
 
+  volc-logs:
+    kind: volc-tls
+    endpoint: ${VOLC_TLS_ENDPOINT}
+    region: ${VOLC_TLS_REGION}
+    access_key_id: ${VOLC_TLS_ACCESS_KEY_ID}
+    access_key_secret: ${VOLC_TLS_ACCESS_KEY_SECRET}
+
   local-assets:
     kind: filesystem.dir
     dir: data/files
@@ -28,25 +35,18 @@ storage:
 # is expressed directly on the Store.
 stores:
   logs:
-    kind: log.immutable
-    storage: database
-    table: gizclaw_logs
+    kind: log
+    storage: volc-logs
+    topic_id: ${VOLC_TLS_TOPIC_ID}
 
   metrics:
     kind: metrics
     storage: database
     table: gizclaw_metrics
 
-  eino-history:
-    kind: log.mutable
-    storage: database
-    table: gizclaw_eino_history
-
   workspace-history:
-    kind: log.mutable
+    kind: sql
     storage: database
-    table: gizclaw_workspace_history
-    ttl: 720h
 
   workspace-history-assets:
     kind: objectstore
@@ -196,7 +196,6 @@ services:
     runtime_store: agenthost
     persistence:
       state_store: eino-state
-      history_store: eino-history
   metrics:
     store: metrics
   system_log:

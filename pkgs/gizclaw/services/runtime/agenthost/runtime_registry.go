@@ -69,6 +69,35 @@ type quiescingStream struct {
 	transform *runtimeTransform
 }
 
+var _ OutputObservationStream = (*quiescingStream)(nil)
+var _ outputObservationAbandoner = (*quiescingStream)(nil)
+var _ OutputProductionObserver = (*quiescingStream)(nil)
+
+func (s *quiescingStream) DeferOutputObservation() {
+	if observer, ok := s.Stream.(OutputObservationStream); ok {
+		observer.DeferOutputObservation()
+	}
+}
+
+func (s *quiescingStream) ObserveOutput(chunk *genx.MessageChunk) {
+	if observer, ok := s.Stream.(OutputObservationStream); ok {
+		observer.ObserveOutput(chunk)
+	}
+}
+
+func (s *quiescingStream) AbandonOutputObservation(chunk *genx.MessageChunk) {
+	if abandoner, ok := s.Stream.(outputObservationAbandoner); ok {
+		abandoner.AbandonOutputObservation(chunk)
+	}
+}
+
+func (s *quiescingStream) SetOutputProductionObserver(observe func(*genx.MessageChunk)) bool {
+	if observer, ok := s.Stream.(OutputProductionObserver); ok {
+		return observer.SetOutputProductionObserver(observe)
+	}
+	return false
+}
+
 func (a *quiescingAgent) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if a == nil || a.generation == nil || a.generation.registry == nil {
 		return nil, errWorkspaceQuiesced

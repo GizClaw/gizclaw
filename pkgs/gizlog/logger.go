@@ -43,7 +43,7 @@ func (installation *defaultLoggerInstallation) close() error {
 
 // StoreResolver resolves named LogStores without transferring ownership.
 type StoreResolver interface {
-	Log(string) (logstore.ImmutableStore, error)
+	Log(string) (logstore.Store, error)
 }
 
 // NewLogger builds an independent logger. Store-backed handlers borrow registry

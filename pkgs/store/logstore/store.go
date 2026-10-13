@@ -1,4 +1,4 @@
-// Package logstore defines business-neutral searchable record stores.
+// Package logstore defines structured records and queries for logging services.
 package logstore
 
 import (
@@ -25,8 +25,6 @@ var (
 	// ErrCursorMismatch identifies a cursor that is malformed, unsupported, or
 	// bound to different query fields.
 	ErrCursorMismatch = errors.New("logstore: cursor mismatch")
-	// ErrNotFound identifies a mutable record key that does not exist.
-	ErrNotFound = errors.New("logstore: record not found")
 )
 
 // Appender appends complete records and returns the accepted keys in input order.
@@ -39,32 +37,11 @@ type Querier interface {
 	Query(context.Context, Query) (Page, error)
 }
 
-// Getter reads one exact record key.
-type Getter interface {
-	Get(context.Context, RecordKey) (Record, error)
-}
-
-// ImmutableStore is a complete append, query, and lifecycle capability.
-type ImmutableStore interface {
+// Store provides append, query, and lifecycle operations for a logging service.
+type Store interface {
 	Appender
 	Querier
 	Close() error
-}
-
-// MutableStore can replace and delete individual records in addition to the
-// immutable capabilities. Replace is not an upsert.
-type MutableStore interface {
-	ImmutableStore
-	Replace(context.Context, Record) error
-	Delete(context.Context, RecordKey) error
-}
-
-// MutableRecordStore combines mutable log operations with exact-key reads.
-// Domain repositories that expose a stable record identity require this
-// capability instead of reconstructing exact reads through a paged query.
-type MutableRecordStore interface {
-	MutableStore
-	Getter
 }
 
 // RecordKey identifies one record within a stream.
@@ -85,7 +62,7 @@ type Record struct {
 	Payload    json.RawMessage
 }
 
-// Key returns the immutable identity of record.
+// Key returns the stable identity of record.
 func (record Record) Key() RecordKey {
 	return RecordKey{Stream: record.Stream, ID: record.ID}
 }

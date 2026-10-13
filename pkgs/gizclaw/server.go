@@ -43,7 +43,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
@@ -74,7 +74,7 @@ type Server struct {
 	VoiceDB                *sqlx.DB
 	MemoryLayoutDB         *sqlx.DB
 	WorkspaceDB            *sqlx.DB
-	WorkspaceHistory       logstore.MutableRecordStore
+	WorkspaceHistory       memory.HistoryStore
 	WorkspaceHistoryAssets objectstore.ObjectStore
 	WorkflowDB             *sqlx.DB
 	ToolDB                 *sqlx.DB
@@ -86,7 +86,6 @@ type Server struct {
 	MetricsStore           metrics.Store
 	PendingDeletionConfig  pendingdeletion.Config
 	ServerLogQuery         ServerLogQueryService
-	AgentHistory           logstore.MutableStore // Shared internal history borrowed by compatible Workflow factories.
 	GraphStateDB           *sqlx.DB
 	// SFU is the Server-held SFU connector configuration; a zero value
 	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
@@ -321,7 +320,7 @@ func (s *Server) init() error {
 	if s == nil {
 		return errors.New("gizclaw: nil server")
 	}
-	s.historyRetention = newHistoryRetention(s.WorkspaceHistory, s.AgentHistory)
+	s.historyRetention = newHistoryRetention(s.WorkspaceHistoryAssets, s.WorkspaceHistory)
 	switch {
 	case s.LocalStatic.Private.IsZero():
 		return errors.New("gizclaw: empty local static private key")
@@ -444,7 +443,6 @@ func (s *Server) init() error {
 		}
 		_ = manager.BroadcastPeerEvent(recipient, event)
 	}
-	manager.AgentHistory = s.AgentHistory
 	if s.GraphStateDB != nil {
 		if err := graphstate.Initialize(context.Background(), s.GraphStateDB); err != nil {
 			return fmt.Errorf("initialize graph state: %w", err)

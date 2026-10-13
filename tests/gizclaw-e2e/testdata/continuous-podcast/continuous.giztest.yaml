@@ -113,7 +113,9 @@ steps:
     expect:
       /items/0/text: {equals: 'Paused. '}
       /items/0/replay_available: {equals: true}
-      /items/1/text: {pattern: '^science:[0-9]+\.\s*$'}
+      /items/1/text: {equals: stop}
+      /items/1/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+      /items/2/text: {pattern: '^science:[0-9]+\.\s*$'}
   - id: interrupt_generation_and_synthesis
     client: peer
     timeout: 10s
@@ -178,7 +180,11 @@ steps:
     client: peer
     rpc: {method: server.run.workspace.history, request: {limit: 10, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}
     retry: {attempts: 10, on: [assertion], delay: 100ms}
-    expect: {/items/0/text: {equals: 'Paused. '}, /items/1/text: {pattern: '^space:[0-9]+\.\s*$'}}
+    expect:
+      /items/0/text: {equals: 'Paused. '}
+      /items/1/text: {equals: stop}
+      /items/1/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+      /items/2/text: {pattern: '^space:[0-9]+\.\s*$'}
 finally:
   - client: peer
     rpc: {method: server.run.stop, request: {}}

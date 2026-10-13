@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
 
@@ -75,21 +74,14 @@ func TestHistoryAndMemoryUseStableScopesAndDeliveryOrder(t *testing.T) {
 		t.Fatalf("output = %q", got)
 	}
 	if got := events.snapshot(); !slices.Equal(got, []string{
-		"history.query", "memory.recall", "history.append", "memory.observe",
+		"history.query", "memory.recall", "memory.observe",
 	}) {
 		t.Fatalf("event order = %v", got)
 	}
 
 	history.mu.Lock()
-	if len(history.records) != 2 {
-		t.Fatalf("History records = %d, want user and assistant", len(history.records))
-	}
-	for _, record := range history.records {
-		if record.Attributes["agent_id"] != "assistant" ||
-			record.Attributes["context_id"] != "conversation-7" ||
-			record.Attributes["scope"] != "history-scope" {
-			t.Fatalf("History attributes = %#v", record.Attributes)
-		}
+	if history.query.ConversationID != "history-scope" || history.query.ExcludeTurnID == "" {
+		t.Fatalf("history query=%+v", history.query)
 	}
 	history.mu.Unlock()
 
@@ -182,41 +174,17 @@ func (recorder *eventRecorder) snapshot() []string {
 type recordingHistoryStore struct {
 	mu      sync.Mutex
 	events  *eventRecorder
-	records []logstore.Record
-	query   logstore.Query
+	query   memory.HistoryQuery
+	entries []memory.HistoryEntry
 }
 
-func (store *recordingHistoryStore) Append(
-	_ context.Context,
-	records []logstore.Record,
-) ([]logstore.RecordKey, error) {
-	store.events.add("history.append")
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	store.records = append(store.records, records...)
-	keys := make([]logstore.RecordKey, len(records))
-	for index, record := range records {
-		keys[index] = record.Key()
-	}
-	return keys, nil
-}
-
-func (store *recordingHistoryStore) Query(
-	_ context.Context,
-	query logstore.Query,
-) (logstore.Page, error) {
+func (store *recordingHistoryStore) Query(_ context.Context, query memory.HistoryQuery) (memory.HistoryPage, error) {
 	store.events.add("history.query")
 	store.mu.Lock()
+	defer store.mu.Unlock()
 	store.query = query
-	store.mu.Unlock()
-	return logstore.Page{}, nil
+	return memory.HistoryPage{Entries: store.entries}, nil
 }
-
-func (*recordingHistoryStore) Replace(context.Context, logstore.Record) error { return nil }
-func (*recordingHistoryStore) Delete(context.Context, logstore.RecordKey) error {
-	return nil
-}
-func (*recordingHistoryStore) Close() error { return nil }
 
 type recordingMemoryStore struct {
 	mu           sync.Mutex

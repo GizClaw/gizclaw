@@ -91,7 +91,7 @@ Doubao Realtime factory 拥有产品层 precedence，不解释 provider model fa
 
 #### Eino 组合边界
 
-Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owner 的 Model、Voice、Memory alias、SQL State、内部 History 和 Audio Dock。`state_persistence.fields` 显式选择状态字段；`services.agent_host.persistence.state_store` 与 `history_store` 分别选择 SQL 和 mutable Log。MemoryLayout 拥有 provider policy，Graph 拥有 Recall/Observe 和 direct Fact 映射。Workspace metadata 提供稳定 Agent identity，完整 RuntimeProfile alias 按 opaque flat key 精确解析。
+Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owner 的 Model、Voice、Memory alias、SQL State、内部 History 和 Audio Dock。`state_persistence.fields` 显式选择状态字段；`services.agent_host.persistence.state_store` 选择 SQL State；History 只读复用 Workspace 的 `memory.HistoryStore`。MemoryLayout 拥有 provider policy，Graph 拥有 Recall/Observe 和 direct Fact 映射。Workspace metadata 提供稳定 Agent identity，完整 RuntimeProfile alias 按 opaque flat key 精确解析。
 
 #### DashScope、Doubao Duplex 与 Eino 边界
 
@@ -179,7 +179,7 @@ socket，避免调用方退出后才建立迟到的 LiveKit session；成功初�
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。
 
-Workspace 配置显式指定一个 resource Store、一个 mutable History LogStore、一个 History asset ObjectStore 与一个通用 asset ObjectStore；Workflow lookup 由 Workflow Service 组合提供，不再通过 `services.workspace` 重复配置 Workflow Store。History 的文本和结构化 metadata 写入 `services.workspace.history_store`，音频等二进制 replay asset 只写入 `services.workspace.history_assets_store`，History record 按 name 保存引用。两个 History Store 各自独立声明相同的正数 `ttl`（随仓配置使用 `720h`），启动时会拒绝缺失或不相等的值。过期过滤由各自 driver 执行，Workspace 不计算逐 record 或逐 object deadline。PostgreSQL History 由 Server 定期维护已完全过期的日分区，即使没有新写入也会回收；正常写入与缺分区处理见 [LogStore](/zh/developing/stores/logstore)。
+Workspace 配置显式指定 resource SQL Store、History SQL Store、History asset ObjectStore 和通用 asset ObjectStore。History 使用 `memory.HistoryStore` 列式存储，Eino 读取同一份消息，宿主只记录一次。History asset Store 的正数 `ttl` 同时选择消息保留周期；PostgreSQL 的 UTC 到期日分区交给 `pg_partman` 创建和回收，Server 定期运行维护。二进制录音由 ObjectStore 保存，消息只持有其引用。配置、生命周期和一次性迁移见 [Memory History](../../stores/memory#conversation-history)。
 
 Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入 `system: false`；领域拥有的创建同时写入 `system: true` 与唯一且不可变的 `owner_public_key`。通用 put 只能修改 system Workspace 的 input mode；owner、Workflow、领域 mode、history/transcript policy、labels、toolkit 或其他 driver 参数的变化都会被拒绝。通用 delete 始终拒绝 system Workspace。删除用户 Workspace 时，会原子创建或复用一条 `kind=workspace` PendingDeletion，并立即拒绝该 Workspace 的选择、运行、history/icon 与 mutation；Admin Workspace get/list 仍可诊断 retained record；Peer owner 索引列举则跳过该记录，一条未完成的异步删除不会让整次列举失败。Production handler quiesce runtime，仅清除当前 memory binding 中属于该 Workspace 的隔离记忆（见 [Memory Store](/zh/developing/stores/memory#memorylayout、runtimeprofile-与-workflow)），删除 exact History/runtime/icon/object/filesystem artifact，验证记忆与 artifact 都 absent 后原子删除 Workspace、index 与 mutable task state；记忆仍有残留时返回 retryable `memory_residual`，下次重试再次清除。内部 system lifecycle surface 只提供给拥有该 Workspace 的 Social service；Social relationship 或 Peer retirement 为选中的 system Workspace 创建同样的 handoff。
 

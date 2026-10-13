@@ -145,8 +145,8 @@ func TestHistoryMessageReadAheadIsNotRecordedBeforeDelivery(t *testing.T) {
 		t.Run(fmt.Sprintf("deliver-prefix=%v", deliver), func(t *testing.T) {
 			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 			source := historyStreamFromChunks(
-				&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("delivered"), Ctrl: &genx.StreamCtrl{StreamID: "playback", Label: "assistant", MessageID: "generation", BeginOfStream: true}},
-				&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("undelivered"), Ctrl: &genx.StreamCtrl{StreamID: "playback", Label: "assistant", MessageID: "generation"}},
+				&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("delivered"), HistoryText: historyText("【甲】delivered"), Ctrl: &genx.StreamCtrl{StreamID: "playback", Label: "assistant", MessageID: "generation", BeginOfStream: true}},
+				&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text("undelivered"), HistoryText: historyText("【乙】undelivered"), Ctrl: &genx.StreamCtrl{StreamID: "playback", Label: "assistant", MessageID: "generation"}},
 				&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "playback", Label: "assistant", MessageID: "generation", MessageEnd: true}},
 				&genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "playback", Label: "assistant", EndOfStream: true, ResponseEpochEnd: true}},
 			)
@@ -180,7 +180,7 @@ func TestHistoryMessageReadAheadIsNotRecordedBeforeDelivery(t *testing.T) {
 				t.Fatal(err)
 			}
 			if deliver {
-				if len(page.Items) != 1 || page.Items[0].Text != "delivered" {
+				if len(page.Items) != 1 || page.Items[0].Text != "【甲】delivered" {
 					t.Fatalf("History included an unobserved suffix or duplicate acknowledgement: %+v", page.Items)
 				}
 			} else if len(page.Items) != 0 {
@@ -188,4 +188,9 @@ func TestHistoryMessageReadAheadIsNotRecordedBeforeDelivery(t *testing.T) {
 			}
 		})
 	}
+}
+
+func historyText(value string) *genx.Text {
+	text := genx.Text(value)
+	return &text
 }

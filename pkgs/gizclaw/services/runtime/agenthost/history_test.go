@@ -25,7 +25,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/schema"
@@ -103,7 +103,7 @@ func TestHistoryAgentForwardsFinalOutputObservation(t *testing.T) {
 	}
 }
 
-func TestServiceProductionObserverCrossesHistoryLeaseAndProbe(t *testing.T) {
+func TestServiceProductionObserverCrossesHistoryRuntimeLeaseAndProbe(t *testing.T) {
 	upstream := newBlockingHistoryStream()
 	t.Cleanup(func() { _ = upstream.Close() })
 	agent := wrapHistoryAgent(
@@ -117,7 +117,7 @@ func TestServiceProductionObserverCrossesHistoryLeaseAndProbe(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Transform() error = %v", err)
 	}
-	lease := &leaseStream{Stream: historyOutput}
+	lease := &leaseStream{Stream: &quiescingStream{Stream: historyOutput, transform: &runtimeTransform{}}}
 	probe := newOutputProbe(lease)
 	consumer := &productionObserverConsumer{
 		producedOwner: make(chan int64, 1),
@@ -351,7 +351,7 @@ func TestHistoryAgentUnsupportedState(t *testing.T) {
 	}
 }
 
-func TestHistoryAgentSkipsGearHistoryWithoutGearID(t *testing.T) {
+func TestHistoryAgentRecordsTextInputWithoutGearID(t *testing.T) {
 	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 	agent := wrapHistoryAgent(historyInputDrainingAgent{
 		historyTestAgent: historyTestAgent{output: historyStreamFromChunks()},
@@ -371,7 +371,7 @@ func TestHistoryAgentSkipsGearHistoryWithoutGearID(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListHistory() error = %v", err)
 	}
-	if len(resp.Items) != 0 {
+	if len(resp.Items) != 1 || resp.Items[0].Text != "hello" || resp.Items[0].Type != historyEntryTypeGear || resp.Items[0].GearId != nil {
 		t.Fatalf("history items = %+v", resp.Items)
 	}
 }
@@ -949,7 +949,7 @@ func TestHistoryRecorderDropsInterruptedEntryWithoutText(t *testing.T) {
 
 func TestHistoryRecorderNotifiesOnlyAfterDurableAppend(t *testing.T) {
 	history := workspace.NewHistoryStore(
-		failingHistoryLogStore{MutableRecordStore: newTestHistoryLogStore(t)},
+		failingHistoryLogStore{HistoryStore: newTestHistoryLogStore(t)},
 		newTestObjectStore(t),
 		"demo",
 	)
@@ -2004,11 +2004,11 @@ func cloneHistoryChunks(chunks []*genx.MessageChunk) []*genx.MessageChunk {
 }
 
 type failingHistoryLogStore struct {
-	logstore.MutableRecordStore
+	memory.HistoryStore
 }
 
-func (f failingHistoryLogStore) Append(context.Context, []logstore.Record) ([]logstore.RecordKey, error) {
-	return nil, errors.New("forced history write failure")
+func (f failingHistoryLogStore) Append(context.Context, []memory.HistoryEntry) error {
+	return errors.New("forced history write failure")
 }
 
 func (a historyTestAgent) Transform(context.Context, genx.Stream) (genx.Stream, error) {
@@ -2203,7 +2203,7 @@ func (s *blockingHistoryStream) CloseWithError(err error) error {
 
 func TestProductionObserverWrappersReportUnsupportedProducer(t *testing.T) {
 	stream := historyStreamFromChunks()
-	probe := newOutputProbe(&leaseStream{Stream: stream})
+	probe := newOutputProbe(&leaseStream{Stream: &quiescingStream{Stream: stream, transform: &runtimeTransform{}}})
 	if probe.SetOutputProductionObserver(func(*genx.MessageChunk) { t.Error("unexpected callback") }) {
 		t.Fatal("wrappers claimed a producer callback that the underlying stream cannot install")
 	}
@@ -2247,8 +2247,8 @@ func TestFiniteHostHistoryPreservesDialogueAndQuotaTerminal(t *testing.T) {
 			})); err != nil {
 				t.Fatal(err)
 			}
-			observed := 0
-			ctx := WithWorkspaceHistoryObserver(t.Context(), func(context.Context, string, workspace.HistoryEntry) { observed++ })
+			var observed atomic.Int32
+			ctx := WithWorkspaceHistoryObserver(t.Context(), func(context.Context, string, workspace.HistoryEntry) { observed.Add(1) })
 			input := historyStreamFromChunks(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("hello"), Ctrl: &genx.StreamCtrl{StreamID: "input", BeginOfStream: true}}, &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "input", EndOfStream: true}})
 			output, err := host.Transform(ctx, "finite-workspace", input)
 			if err != nil {
@@ -2275,11 +2275,11 @@ func TestFiniteHostHistoryPreservesDialogueAndQuotaTerminal(t *testing.T) {
 				}
 			}
 			if cause != nil {
-				if !errors.Is(terminal, cause) {
-					t.Fatalf("terminal=%v text=%q observed=%d", terminal, text, observed)
+				if !errors.Is(terminal, cause) || observed.Load() != 1 {
+					t.Fatalf("terminal=%v text=%q observed=%d", terminal, text, observed.Load())
 				}
-			} else if text != "allowed" || observed != 1 {
-				t.Fatalf("text=%q observed=%d", text, observed)
+			} else if text != "allowed" || observed.Load() != 2 {
+				t.Fatalf("text=%q observed=%d", text, observed.Load())
 			}
 		})
 	}

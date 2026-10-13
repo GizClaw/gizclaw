@@ -3,6 +3,8 @@ package audiodock
 import (
 	"strings"
 	"unicode/utf8"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
 // speakerParser retains only a prefix of a configured marker. All other text
@@ -10,6 +12,7 @@ import (
 // Its state belongs exclusively to the model reader for one response.
 type speakerParser struct {
 	pending string
+	history strings.Builder
 	pattern string
 	segment int
 }
@@ -33,6 +36,8 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 		}
 	}
 	text = p.pending + text
+	original := text
+	defer func() { p.history.WriteString(original[:len(original)-len(p.pending)]) }()
 	p.pending = ""
 	for text != "" {
 		start := strings.Index(text, "【")
@@ -83,4 +88,12 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 		text = text[len("【"):]
 	}
 	return result
+}
+
+// takeHistoryText releases only text whose presentation has been emitted. A
+// split or marker-only prefix stays buffered until actual text is available.
+func (p *speakerParser) takeHistoryText() genx.Text {
+	text := genx.Text(p.history.String())
+	p.history.Reset()
+	return text
 }
