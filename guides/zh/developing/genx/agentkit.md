@@ -35,7 +35,7 @@ dock, err := audiodock.New(audiodock.Config{
 
 `Config.SpeakerVoices` 将说话人名字映射为 TTS mux pattern，使用 response 内的增量解析器剥离已配置的 `【名字】`。当前段与下一预取段最多同时启动两个 provider 会话，后续段等待前段完成；所有输出仍按段串行并共享最终 MIME 生命周期，因此所有段必须输出同一种音频 MIME：首段的音频 MIME 固定为该 response 的音频 MIME，后续段若不同，会以错误结束该 response 的音频与文字，而不是再开一条音频 MIME channel。调用方应为各段选择输出格式一致的 TTS pattern。未配置时继续按 publisher 解析 `ResolveVoice`。
 
-实时文本去掉这些标记时，同一 chunk 的进程内 `HistoryText` 保留已解析的语义文本。它只在 chunk 确认送达后写入对话 History，不进入 Peer 或 Provider wire payload；跨 chunk 的半个标记会等到可显示文本出现后一起记录。
+实时文本去掉已配置或归一化的未知标记时，同一 chunk 的进程内 `HistoryText` 保留已解析的语义文本。它只在 chunk 确认送达后写入对话 History，不进入 Peer 或 Provider wire payload；跨 chunk 的半个标记会等到可显示文本出现后一起记录。
 
 Audio Dock 返回的 stream 由 consumer 持有；`Close` 与 `CloseWithError` 取消整个 invocation，并释放尚未完成的 delivery acknowledgement。Producer 内部的正常完成仍保留缓冲供读取。已经开始的 delivery observer 会继续完成；取消后的 terminal 不再创建新的确认等待。
 
@@ -43,9 +43,11 @@ Seed V2 的可继续分段失败在 child TTS 内处理，Audio Dock 继续合�
 不为失败句子创建额外 EOS，也不重播音频。整条回复无音频的 provider 失败仍沿用既有
 error EOS；已经投递的回复文字保留。具体策略见 [Seed V2 分段失败](./transformers/doubao#seed-v2-分段失败)。
 
+`Config.UnknownSpeakerPolicy` 默认为 `UnknownSpeakerPreserve`。`UnknownSpeakerDefaultVoice` 启用 [AI services](../gizclaw/services/ai#同一回复内按说话人分段) 中的有界段首未知标记语法，并清除上一说话人覆盖，由 `ResolveVoice` 重新选择该输出的音色。与普通文字 route 相同，resolver 返回空 pattern 时关闭合成，清理后的文字仍交付；Eino 公共 contract 在启用时要求默认 Voice。此策略不引入 goroutine、timer、模型调用或完整回复缓冲。
+
 ## 连续讲述背压
 
-`Config.Backpressure` 用于单一 publisher 的连续讲述，不支持 `SpeakerVoices`。正文在 TTS 读取后才发布，交付确认传回文本 Agent；共享 TTS emitter 每次发出一个音频 chunk 后等待最终消费者确认，同时保留原有的两个有界句子合成任务。TTS 输入队列限制为 4 MiB，超限会明确报错。TTS output 必须支持 deferred output observation；产品 Quota wrapper 与 Eino 输入检查 wrapper 保留该 capability。
+`Config.Backpressure` 用于单一 publisher 的连续讲述，不支持说话人分段（`SpeakerVoices` 或 `UnknownSpeakerDefaultVoice`）。正文在 TTS 读取后才发布，交付确认传回文本 Agent；共享 TTS emitter 每次发出一个音频 chunk 后等待最终消费者确认，同时保留原有的两个有界句子合成任务。TTS 输入队列限制为 4 MiB，超限会明确报错。TTS output 必须支持 deferred output observation；产品 Quota wrapper 与 Eino 输入检查 wrapper 保留该 capability。
 
 空白 chunk 也按顺序进入已打开的 TTS 输入队列，避免换行提前越过尚未消费的正文；播讲文字与 History 保留模型生成的原始段落顺序。
 

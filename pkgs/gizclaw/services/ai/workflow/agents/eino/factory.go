@@ -392,15 +392,19 @@ func wrapAudio(
 ) (genx.Transformer, error) {
 	config := audiodock.Config{Agent: core, ASR: asr, Backpressure: backpressure}
 	defaultVoice := stringPointerValue(voice.DefaultVoice)
+	if voice.UnknownSpeakerPolicy != nil {
+		config.UnknownSpeakerPolicy = audiodock.UnknownSpeakerPolicy(*voice.UnknownSpeakerPolicy)
+	}
 	nodeVoices := map[string]string(nil)
 	if voice.NodeVoices != nil {
 		nodeVoices = maps.Clone(*voice.NodeVoices)
 	}
 	// Speaker segments of one reply share one audio route, so every Voice
 	// that can speak in it is asked for the same streaming format.
-	segmentFormat := voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0
+	segmentFormat := voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0 ||
+		config.UnknownSpeakerPolicy == audiodock.UnknownSpeakerDefaultVoice
 	voicePattern := einoVoicePatternFor(segmentFormat, speechRatePercent)
-	if segmentFormat {
+	if voice.SpeakerVoices != nil && len(*voice.SpeakerVoices) != 0 {
 		config.SpeakerVoices = make(map[string]string, len(*voice.SpeakerVoices))
 		for name, alias := range *voice.SpeakerVoices {
 			config.SpeakerVoices[name] = voicePattern(alias)

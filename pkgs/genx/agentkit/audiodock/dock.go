@@ -362,7 +362,8 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	}
 	text, textChunk := chunk.Part.(genx.Text)
 	var segments []speakerText
-	if len(r.dock.config.SpeakerVoices) != 0 && (textChunk || chunk.IsEndOfStream()) {
+	if r.dock.config.speakerSegmentsEnabled() && (textChunk || chunk.IsEndOfStream()) {
+		route.speakers.normalizeUnknown = r.dock.config.UnknownSpeakerPolicy == UnknownSpeakerDefaultVoice
 		segments = route.speakers.feed(string(text), chunk.IsEndOfStream(), r.dock.config.SpeakerVoices)
 		var cleaned strings.Builder
 		for _, segment := range segments {
@@ -381,7 +382,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	}
 	var pipe *ttsPipe
 	hasSpeech := strings.TrimSpace(string(text)) != ""
-	if len(r.dock.config.SpeakerVoices) != 0 && text != "" && route.hasTTSPipes() {
+	if r.dock.config.speakerSegmentsEnabled() && text != "" && route.hasTTSPipes() {
 		hasSpeech = true
 	}
 	// Whitespace belongs in the same delivery queue as preceding narration.
@@ -446,7 +447,7 @@ func (r *dockRun) forwardModelChunk(ctx context.Context, chunk *genx.MessageChun
 	route.ttsEmitMu.Unlock()
 
 	if resolveTTS {
-		if len(r.dock.config.SpeakerVoices) == 0 {
+		if !r.dock.config.speakerSegmentsEnabled() {
 			pipe = r.ttsPipe(ctx, route, chunk, "", "")
 		} else {
 			for _, segment := range segments {

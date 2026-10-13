@@ -23,6 +23,17 @@ type VoiceRequest struct {
 // An empty pattern disables synthesis for that route.
 type VoiceResolver func(context.Context, VoiceRequest) (string, error)
 
+// UnknownSpeakerPolicy controls paragraph-leading markers not in SpeakerVoices.
+type UnknownSpeakerPolicy string
+
+const (
+	// UnknownSpeakerPreserve keeps unconfigured markers literal.
+	UnknownSpeakerPreserve UnknownSpeakerPolicy = "preserve"
+	// UnknownSpeakerDefaultVoice strips bounded paragraph-leading unknown
+	// markers and restores the route VoiceResolver selection.
+	UnknownSpeakerDefaultVoice UnknownSpeakerPolicy = "default_voice"
+)
+
 // Config declares one reusable Audio Dock.
 type Config struct {
 	// Agent is the required downstream text Transformer.
@@ -35,6 +46,9 @@ type Config struct {
 	ResolveVoice VoiceResolver
 	// SpeakerVoices maps recognized speaker names to TTS mux patterns.
 	SpeakerVoices map[string]string
+	// UnknownSpeakerPolicy defaults to preserve. The opt-in default_voice policy
+	// strips bounded unknown paragraph-leading markers and uses ResolveVoice.
+	UnknownSpeakerPolicy UnknownSpeakerPolicy
 	// Backpressure couples Agent delivery to TTS input consumption and forwards
 	// audio delivery acknowledgements to the shared TTS emitter. Use it for
 	// continuous narration with a single publisher and no speaker switching.
@@ -51,9 +65,16 @@ func normalizeConfig(config Config) (Config, error) {
 	if config.TTS != nil && config.ResolveVoice == nil {
 		return Config{}, fmt.Errorf("audiodock: TTS requires ResolveVoice")
 	}
+	switch config.UnknownSpeakerPolicy {
+	case "", UnknownSpeakerPreserve:
+		config.UnknownSpeakerPolicy = UnknownSpeakerPreserve
+	case UnknownSpeakerDefaultVoice:
+	default:
+		return Config{}, fmt.Errorf("audiodock: invalid UnknownSpeakerPolicy %q", config.UnknownSpeakerPolicy)
+	}
 	config.SpeakerVoices = maps.Clone(config.SpeakerVoices)
-	if config.Backpressure && len(config.SpeakerVoices) != 0 {
-		return Config{}, fmt.Errorf("audiodock: Backpressure does not support SpeakerVoices")
+	if config.Backpressure && config.speakerSegmentsEnabled() {
+		return Config{}, fmt.Errorf("audiodock: Backpressure does not support speaker segmentation")
 	}
 	for name, pattern := range config.SpeakerVoices {
 		if strings.TrimSpace(name) == "" || strings.ContainsAny(name, "【】") || strings.TrimSpace(pattern) == "" {
@@ -61,6 +82,10 @@ func normalizeConfig(config Config) (Config, error) {
 		}
 	}
 	return config, nil
+}
+
+func (config Config) speakerSegmentsEnabled() bool {
+	return len(config.SpeakerVoices) != 0 || config.UnknownSpeakerPolicy == UnknownSpeakerDefaultVoice
 }
 
 func resolveVoice(ctx context.Context, resolver VoiceResolver, chunk *genx.MessageChunk) (string, error) {

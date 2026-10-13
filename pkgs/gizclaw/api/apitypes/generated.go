@@ -2623,6 +2623,24 @@ func (e ToolType) Valid() bool {
 	}
 }
 
+// Defines values for VoiceAdapterUnknownSpeakerPolicy.
+const (
+	VoiceAdapterUnknownSpeakerPolicyDefaultVoice VoiceAdapterUnknownSpeakerPolicy = "default_voice"
+	VoiceAdapterUnknownSpeakerPolicyPreserve     VoiceAdapterUnknownSpeakerPolicy = "preserve"
+)
+
+// Valid indicates whether the value is a known member of the VoiceAdapterUnknownSpeakerPolicy enum.
+func (e VoiceAdapterUnknownSpeakerPolicy) Valid() bool {
+	switch e {
+	case VoiceAdapterUnknownSpeakerPolicyDefaultVoice:
+		return true
+	case VoiceAdapterUnknownSpeakerPolicyPreserve:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for VoiceProviderKind.
 const (
 	VoiceProviderKindDashscopeTenant VoiceProviderKind = "dashscope-tenant"
@@ -5878,7 +5896,13 @@ type VoiceAdapter struct {
 
 	// SpeakerVoices Map speaker names to Voice aliases. Names must be nonblank and contain neither 【 nor 】. Recognized streaming markers are stripped from device text.
 	SpeakerVoices *map[string]string `json:"speaker_voices,omitempty"`
+
+	// UnknownSpeakerPolicy Opt-in default_voice reserves paragraph-leading short 【name】 markers for speakers: unknown names of 1-32 Unicode code points are stripped and use the output route Voice (node_voices, then default_voice). Known names retain speaker_voices. Names permit letters, numbers, combining marks, symbols, quotation marks, spaces, hyphen, underscore, period, middle dot and ZWJ; blank, nested, malformed, overlong and inline bracket text remains literal. Requires default_voice and does not support conversation.continue_from.
+	UnknownSpeakerPolicy *VoiceAdapterUnknownSpeakerPolicy `json:"unknown_speaker_policy,omitempty"`
 }
+
+// VoiceAdapterUnknownSpeakerPolicy Opt-in default_voice reserves paragraph-leading short 【name】 markers for speakers: unknown names of 1-32 Unicode code points are stripped and use the output route Voice (node_voices, then default_voice). Known names retain speaker_voices. Names permit letters, numbers, combining marks, symbols, quotation marks, spaces, hyphen, underscore, period, middle dot and ZWJ; blank, nested, malformed, overlong and inline bracket text remains literal. Requires default_voice and does not support conversation.continue_from.
+type VoiceAdapterUnknownSpeakerPolicy string
 
 // VoiceProvider defines model for VoiceProvider.
 type VoiceProvider struct {

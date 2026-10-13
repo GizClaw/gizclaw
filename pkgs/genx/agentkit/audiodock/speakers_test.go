@@ -331,41 +331,52 @@ func TestSpeakerSegmentsRejectMixedAudioMIME(t *testing.T) {
 }
 
 func TestSpeakerHistoryTextOnContentBearingTerminal(t *testing.T) {
-	const semantic = "【甲】one【乙】two"
-	agent := transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
-		return &sliceStream{chunks: []*genx.MessageChunk{
-			{Role: genx.RoleModel, Part: genx.Text(semantic), Ctrl: &genx.StreamCtrl{StreamID: "reply", BeginOfStream: true, EndOfStream: true}},
-		}}, nil
-	})
-	tts := muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
-		for {
-			if _, err := input.Next(); err != nil {
-				break
+	for _, tc := range []struct {
+		name, semantic, live string
+		voices               map[string]string
+		policy               UnknownSpeakerPolicy
+	}{
+		{name: "known inline speakers", semantic: "【甲】one【乙】two", live: "onetwo", voices: map[string]string{"甲": "first", "乙": "second"}},
+		{name: "known and unknown speakers", semantic: "【甲】one\n【乙】two", live: "one\ntwo", voices: map[string]string{"甲": "first"}, policy: UnknownSpeakerDefaultVoice},
+		{name: "unknown speakers only", semantic: "【甲】one\n【乙】two", live: "one\ntwo", policy: UnknownSpeakerDefaultVoice},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			agent := transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+				return &sliceStream{chunks: []*genx.MessageChunk{
+					{Role: genx.RoleModel, Part: genx.Text(tc.semantic), Ctrl: &genx.StreamCtrl{StreamID: "reply", BeginOfStream: true, EndOfStream: true}},
+				}}, nil
+			})
+			tts := muxFunc(func(_ context.Context, _ string, input genx.Stream) (genx.Stream, error) {
+				for {
+					if _, err := input.Next(); err != nil {
+						break
+					}
+				}
+				return &sliceStream{chunks: []*genx.MessageChunk{
+					{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte("audio")}, Ctrl: &genx.StreamCtrl{StreamID: "tts", BeginOfStream: true, EndOfStream: true}},
+				}}, nil
+			})
+			dock, err := New(Config{Agent: agent, TTS: tts, ResolveVoice: fixedVoice("default"), SpeakerVoices: tc.voices, UnknownSpeakerPolicy: tc.policy})
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-		return &sliceStream{chunks: []*genx.MessageChunk{
-			{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte("audio")}, Ctrl: &genx.StreamCtrl{StreamID: "tts", BeginOfStream: true, EndOfStream: true}},
-		}}, nil
-	})
-	dock, err := New(Config{Agent: agent, TTS: tts, ResolveVoice: fixedVoice("default"), SpeakerVoices: map[string]string{"甲": "first", "乙": "second"}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	output, err := dock.Transform(t.Context(), emptyStream{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer output.Close()
-	var live, history strings.Builder
-	for _, chunk := range readAll(t, output) {
-		if part, ok := chunk.Part.(genx.Text); ok {
-			live.WriteString(string(part))
-			if chunk.HistoryText != nil {
-				history.WriteString(string(*chunk.HistoryText))
+			output, err := dock.Transform(t.Context(), emptyStream{})
+			if err != nil {
+				t.Fatal(err)
 			}
-		}
-	}
-	if live.String() != "onetwo" || history.String() != semantic {
-		t.Fatalf("terminal duplicated or lost semantic text: live=%q history=%q", live.String(), history.String())
+			defer output.Close()
+			var live, history strings.Builder
+			for _, chunk := range readAll(t, output) {
+				if part, ok := chunk.Part.(genx.Text); ok {
+					live.WriteString(string(part))
+					if chunk.HistoryText != nil {
+						history.WriteString(string(*chunk.HistoryText))
+					}
+				}
+			}
+			if live.String() != tc.live || history.String() != tc.semantic {
+				t.Fatalf("terminal duplicated or lost semantic text: live=%q history=%q", live.String(), history.String())
+			}
+		})
 	}
 }
