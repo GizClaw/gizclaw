@@ -123,8 +123,172 @@ tasks.forEach((task) => {
   }
 });
 
+// Recording keeps both ends of a transfer. Playback uses the original reply
+// once; a new reply with identical bytes is still a separate utterance.
+function firstAudioPackets(uri) {
+  const match = /^data:audio\/(ogg|wav);base64,(.*)$/.exec(uri);
+  if (!match) return null;
+  let bytes;
+  try {
+    bytes = Uint8Array.from(atob(match[2]), (char) => char.charCodeAt(0));
+  } catch {
+    return null;
+  }
+  const signature = (offset, text) =>
+    [...text].every(
+      (char, index) => bytes[offset + index] === char.charCodeAt(0),
+    );
+  if (match[1] === "wav") {
+    // The native exporter writes a fixed mono L16/16 kHz WAV header.
+    if (
+      bytes.length <= 44 ||
+      !signature(0, "RIFF") ||
+      !signature(8, "WAVEfmt ") ||
+      !signature(36, "data")
+    )
+      return null;
+    return {
+      format: Array.from(bytes.slice(8, 36)).join(","),
+      packets: [bytes.slice(44, 3244)],
+    };
+  }
+  const packets = [],
+    pending = [];
+  let offset = 0;
+  while (offset < bytes.length && packets.length < 5) {
+    if (!signature(offset, "OggS") || offset + 27 > bytes.length) return null;
+    const segments = bytes[offset + 26];
+    const lengths = bytes.slice(offset + 27, offset + 27 + segments);
+    let position = offset + 27 + segments;
+    if (lengths.length !== segments) return null;
+    for (const length of lengths) {
+      if (position + length > bytes.length) return null;
+      pending.push(...bytes.slice(position, position + length));
+      position += length;
+      if (length < 255) {
+        const packet = Uint8Array.from(pending);
+        pending.length = 0;
+        const header = String.fromCharCode(...packet.slice(0, 8));
+        if (header !== "OpusHead" && header !== "OpusTags")
+          packets.push(packet);
+        if (packets.length === 5) break;
+      }
+    }
+    offset = position;
+  }
+  return { format: "opus", packets };
+}
+function audioPrefixMatches(short, full, count, cache) {
+  for (const uri of [short, full]) {
+    if (!cache.has(uri)) cache.set(uri, firstAudioPackets(uri));
+  }
+  const prefix = cache.get(short),
+    complete = cache.get(full);
+  if (
+    !prefix ||
+    !complete ||
+    prefix.format !== complete.format ||
+    prefix.packets.length === 0
+  )
+    return false;
+  if (prefix.format === "opus" && prefix.packets.length !== count) return false;
+  return prefix.packets.every((packet, index) => {
+    const other = complete.packets[index];
+    return (
+      other &&
+      (prefix.format !== "opus" || packet.length === other.length) &&
+      packet.length <= other.length &&
+      packet.every((byte, position) => byte === other[position])
+    );
+  });
+}
+function audioReferences(events) {
+  const references = new Map(),
+    replies = new Map(),
+    listeners = new Map();
+  const prefixes = new Map();
+  const scope = (event, extra) =>
+    JSON.stringify([event.path, event.task_id, ...extra]);
+  const rowFor = (event) =>
+    rowMap.get(
+      rowKey(
+        event.path,
+        event.task_id,
+        event.cleanup,
+        event.parent,
+        event.step,
+      ),
+    );
+  const listenKey = (event, time) =>
+    scope(event, [event.parent, event.client, event.role, time]);
+  events.forEach((event, index) => {
+    if (event.kind !== "audio" || !event.audio_data) return;
+    const key = scope(event, [event.audio_data]);
+    const original = replies.get(key);
+    if (
+      event.direction === "sent" &&
+      original !== undefined &&
+      event.client &&
+      event.client !== events[original].client
+    ) {
+      references.set(index, original);
+    }
+    if (event.direction === "received" && event.role === "assistant") {
+      replies.set(key, index);
+      if (event.parent && rowFor(event)?.step.evidence?.mode === "listen") {
+        const bucket = listenKey(event, Math.floor(event.offset_ms));
+        const previous = listeners.get(bucket);
+        if (
+          previous === undefined ||
+          event.duration_ms > events[previous].duration_ms
+        )
+          listeners.set(bucket, index);
+      }
+    }
+  });
+  events.forEach((event, index) => {
+    const integrity = rowFor(event)?.step.evidence?.audio_integrity;
+    // A first-response probe only records a few startup packets. The sibling
+    // listener on that same connection records the actual continuous reply.
+    if (
+      !event.parent ||
+      event.direction !== "received" ||
+      event.role !== "assistant" ||
+      !(event.packets > 0 && event.packets <= 5) ||
+      !(event.duration_ms > 0 && event.duration_ms <= 100) ||
+      integrity?.open !== 1 ||
+      integrity.max_active !== 1 ||
+      integrity.violations !== 0
+    )
+      return;
+    for (const time of [
+      Math.floor(event.offset_ms) - 1,
+      Math.floor(event.offset_ms),
+      Math.floor(event.offset_ms) + 1,
+    ]) {
+      const original = listeners.get(listenKey(event, time));
+      if (
+        original !== undefined &&
+        Math.abs(events[original].offset_ms - event.offset_ms) < 1 &&
+        events[original].duration_ms > event.duration_ms &&
+        audioPrefixMatches(
+          event.audio_data,
+          events[original].audio_data,
+          event.packets,
+          prefixes,
+        )
+      ) {
+        references.set(index, original);
+        break;
+      }
+    }
+  });
+  return references;
+}
+const recordedEvents = data.events || [];
+const audioCopies = audioReferences(recordedEvents);
 const relaySent = new Set();
-(data.events || []).forEach((event) => {
+recordedEvents.forEach((event, eventIndex) => {
   const row = rowMap.get(
     rowKey(event.path, event.task_id, event.cleanup, event.parent, event.step),
   );
@@ -151,6 +315,19 @@ const relaySent = new Set();
     }
     message.parts.push({ at, text: event.text });
   } else if (event.kind === "audio" && event.audio_data) {
+    let original = audioCopies.get(eventIndex);
+    if (original !== undefined) {
+      while (audioCopies.has(original)) original = audioCopies.get(original);
+      const source = recordedEvents[original];
+      row.content.append(
+        el(
+          "div",
+          "control audio-reference",
+          `${label} · 同一录音已在 ${source.step} 中展示，回放只播放一次。`,
+        ),
+      );
+      return;
+    }
     const box = el("div", "audio");
     box.append(
       el(

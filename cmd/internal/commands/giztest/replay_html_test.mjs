@@ -91,6 +91,7 @@ function player(events = [], overrides = {}) {
   );
   elements.get("recording-data").textContent = JSON.stringify(data);
   const context = vm.createContext({
+    atob,
     document: {
       getElementById: (id) => elements.get(id),
       createElement: (tag) => new Element(tag),
@@ -117,6 +118,232 @@ test("one numbered table shows steps, evidence and replies without links", () =>
   assert.equal(ui.evaluate("messages[0].body.textContent"), "你好 </script>");
   assert.doesNotMatch(template, /<a\s|href=|src=/);
   assert.doesNotMatch(source, /fetch\s*\(|XMLHttpRequest|innerHTML/);
+});
+
+test("forwarded reply audio is referenced and does not play twice", () => {
+  const audio = "data:audio/wav;base64,UklGRg==";
+  const ui = player([
+    {
+      kind: "audio",
+      client: "host",
+      audio_data: audio,
+      offset_ms: 100,
+      duration_ms: 1000,
+    },
+    {
+      kind: "audio",
+      client: "listener",
+      direction: "sent",
+      role: "user",
+      audio_data: audio,
+      offset_ms: 1500,
+      duration_ms: 1000,
+    },
+  ]);
+  assert.equal(ui.evaluate("clips.length"), 1);
+  assert.equal(ui.evaluate("audioCopies.size"), 1);
+  assert.equal(ui.evaluate("data.events.length"), 2);
+  ui.elements.get("play").fire("click");
+  ui.evaluate("tick(1600)");
+  assert.equal(ui.evaluate("clips.some(clip=>!clip.node.paused)"), false);
+});
+
+test("independent replies and same-client inputs remain audible", () => {
+  const audio = "data:audio/wav;base64,UklGRg==";
+  const ui = player([
+    {
+      kind: "audio",
+      client: "host",
+      audio_data: audio,
+      offset_ms: 100,
+      duration_ms: 100,
+    },
+    {
+      kind: "audio",
+      client: "host",
+      audio_data: audio,
+      offset_ms: 500,
+      duration_ms: 100,
+    },
+    {
+      kind: "audio",
+      client: "host",
+      direction: "sent",
+      audio_data: audio,
+      offset_ms: 800,
+      duration_ms: 100,
+    },
+    {
+      kind: "audio",
+      client: "listener",
+      direction: "sent",
+      audio_data: "different",
+      offset_ms: 1000,
+      duration_ms: 100,
+    },
+  ]);
+  assert.equal(ui.evaluate("clips.length"), 4);
+  assert.equal(ui.evaluate("audioCopies.size"), 0);
+});
+
+test("a separate task never references another task's reply", () => {
+  const task = (id) => ({
+    path: "scene.yaml",
+    task_id: id,
+    name: "scene",
+    status: "passed",
+    duration_ms: 4000,
+    steps: [{ id: "turn", operation: "peer_stream", status: "passed" }],
+  });
+  const audio = "data:audio/wav;base64,UklGRg==";
+  const ui = player([], {
+    report: {
+      status: "failed",
+      started_at: "2026-10-13T00:00:00Z",
+      duration_ms: 4000,
+      tasks: [task("a"), task("b")],
+    },
+    events: [
+      {
+        path: "scene.yaml",
+        task_id: "a",
+        step: "turn",
+        kind: "audio",
+        direction: "received",
+        role: "assistant",
+        client: "host",
+        audio_data: audio,
+        offset_ms: 100,
+        duration_ms: 100,
+      },
+      {
+        path: "scene.yaml",
+        task_id: "b",
+        step: "turn",
+        kind: "audio",
+        direction: "sent",
+        role: "user",
+        client: "listener",
+        audio_data: audio,
+        offset_ms: 800,
+        duration_ms: 100,
+      },
+    ],
+  });
+  assert.equal(ui.evaluate("clips.length"), 2);
+  assert.equal(ui.evaluate("audioCopies.size"), 0);
+  assert.match(ui.elements.get("summary").textContent, /验收失败/);
+});
+
+function wav(samples, value) {
+  const bytes = Buffer.alloc(44 + samples * 2, value);
+  bytes.write("RIFF", 0);
+  bytes.writeUInt32LE(bytes.length - 8, 4);
+  bytes.write("WAVEfmt ", 8);
+  bytes.writeUInt32LE(16, 16);
+  bytes.writeUInt16LE(1, 20);
+  bytes.writeUInt16LE(1, 22);
+  bytes.writeUInt32LE(16000, 24);
+  bytes.writeUInt32LE(32000, 28);
+  bytes.writeUInt16LE(2, 32);
+  bytes.writeUInt16LE(16, 34);
+  bytes.write("data", 36);
+  bytes.writeUInt32LE(samples * 2, 40);
+  return "data:audio/wav;base64," + bytes.toString("base64");
+}
+function parallelAudio(
+  probe,
+  full,
+  integrity = { open: 1, max_active: 1, violations: 0 },
+) {
+  const task = {
+    path: "scene.yaml",
+    task_id: "scene-0000",
+    name: "scene",
+    status: "passed",
+    duration_ms: 4000,
+    steps: [
+      {
+        id: "both",
+        operation: "parallel",
+        status: "passed",
+        children: [
+          {
+            id: "probe",
+            client: "host",
+            operation: "peer_stream",
+            status: "passed",
+            evidence: { audio_integrity: integrity },
+          },
+          {
+            id: "listen",
+            client: "host",
+            operation: "peer_stream",
+            status: "passed",
+            evidence: { mode: "listen" },
+          },
+        ],
+      },
+    ],
+  };
+  return player([], {
+    report: {
+      status: "passed",
+      started_at: "2026-10-13T00:00:00Z",
+      duration_ms: 4000,
+      tasks: [task],
+    },
+    events: [
+      {
+        path: task.path,
+        task_id: task.task_id,
+        parent: "both",
+        step: "probe",
+        kind: "audio",
+        direction: "received",
+        role: "assistant",
+        client: "host",
+        audio_data: probe,
+        offset_ms: 500,
+        duration_ms: 20,
+        packets: 1,
+      },
+      {
+        path: task.path,
+        task_id: task.task_id,
+        parent: "both",
+        step: "listen",
+        kind: "audio",
+        direction: "received",
+        role: "assistant",
+        client: "host",
+        audio_data: full,
+        offset_ms: 500.004,
+        duration_ms: 1000,
+        packets: 50,
+      },
+    ],
+  });
+}
+test("the startup probe references the full recording of the same audio", () => {
+  const ui = parallelAudio(wav(320, 11), wav(16000, 11));
+  assert.equal(ui.evaluate("clips.length"), 1);
+  assert.equal(ui.evaluate("clips[0].duration"), 1000);
+  assert.equal(ui.evaluate("audioCopies.size"), 1);
+});
+test("different or overlapping streams are not hidden as startup copies", () => {
+  for (const ui of [
+    parallelAudio(wav(320, 11), wav(16000, 22)),
+    parallelAudio(wav(320, 11), wav(16000, 11), {
+      open: 2,
+      max_active: 2,
+      violations: 1,
+    }),
+    parallelAudio("malformed", "also-malformed"),
+  ]) {
+    assert.equal(ui.evaluate("clips.length"), 2);
+    assert.equal(ui.evaluate("audioCopies.size"), 0);
+  }
 });
 
 test("replay reveals replies and plays each audio segment when reached", () => {

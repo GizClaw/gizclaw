@@ -741,6 +741,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 
 四者都支持 `validate -f <路径>` 与 `run <路径> --parallel N`，并写出相同结构的 report JSON。
 Go CLI 用 `--report <文件>` 保存汇总 JSON，用 `--output <目录>` 将一个 Giztest 文件渲染为独立 HTML 流程记录。
+HTML 回放只播放一次跨客户端转发的同一段回复音频；转发步骤保留同一录音的引用说明。
+同一连接的并行启动探测短录音已有完整听音记录时也只展示引用。
+独立的新回复、不同执行任务的音频和原始测试数据仍分别保留，验收结果保持原值。
 其他三个 SDK runner 用 `--output <报告文件>` 保存 JSON，暂不提供回放目录。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
 skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc`、`http` 与 `reconnect`，
