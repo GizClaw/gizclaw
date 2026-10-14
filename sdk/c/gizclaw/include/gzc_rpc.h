@@ -1,6 +1,7 @@
 #ifndef GZC_RPC_H
 #define GZC_RPC_H
 
+#include "gizclaw_rpc.pb.h"
 #include "gzc_client.h"
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
@@ -15,7 +16,6 @@
 #include "payload/system.pb.h"
 #include "payload/tool.pb.h"
 #include "payload/workspace.pb.h"
-#include "gizclaw_rpc.pb.h"
 
 #ifdef __cplusplus
 extern "C" {

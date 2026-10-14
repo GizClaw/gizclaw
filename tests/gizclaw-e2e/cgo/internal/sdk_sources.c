@@ -1,4 +1,5 @@
 #include "../../../../sdk/c/gizclaw/generated/events/peer_event.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/gizclaw_rpc.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/giznet/admission.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/google/protobuf/struct.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/ai.pb.c"
@@ -13,7 +14,6 @@
 #include "../../../../sdk/c/gizclaw/generated/payload/system.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/tool.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/workspace.pb.c"
-#include "../../../../sdk/c/gizclaw/generated/gizclaw_rpc.pb.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_buffer.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_client.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_common.c"

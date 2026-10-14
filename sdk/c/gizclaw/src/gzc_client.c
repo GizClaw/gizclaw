@@ -1,12 +1,12 @@
 #include "gzc_client.h"
 
+#include "gizclaw_rpc.pb.h"
 #include "gzc_client_internal.h"
 #include "gzc_json.h"
 #include "gzc_rpc_frame.h"
 #include "payload/lua_app.pb.h"
 #include "payload/system.pb.h"
 #include "payload/tool.pb.h"
-#include "gizclaw_rpc.pb.h"
 
 #include <pb_decode.h>
 #include <pb_encode.h>
@@ -1326,7 +1326,7 @@ static void on_channel_message(
         gzc_rpc_inbound_destroy(inbound);
       }
       bool late_transport_error = request_closed &&
-          (rc == GZC_ERR_WEBRTC || rc == GZC_ERR_CLOSED);
+                                  (rc == GZC_ERR_WEBRTC || rc == GZC_ERR_CLOSED);
       if (rc != GZC_OK && !late_transport_error) {
         client->dispatch_error = rc;
       }
@@ -1936,7 +1936,7 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
       /* A failed reply to a caller that already closed its RPC is scoped to
          that completed request. peer_poll failures above remain Peer-wide. */
       bool late_transport_error = request_closed &&
-          (rc == GZC_ERR_WEBRTC || rc == GZC_ERR_CLOSED);
+                                  (rc == GZC_ERR_WEBRTC || rc == GZC_ERR_CLOSED);
       if (rc != GZC_OK && !late_transport_error) {
         return rc;
       }
