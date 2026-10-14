@@ -337,8 +337,8 @@ func TestSpeakerHistoryTextOnContentBearingTerminal(t *testing.T) {
 		policy               UnknownSpeakerPolicy
 	}{
 		{name: "known inline speakers", semantic: "【甲】one【乙】two", live: "onetwo", voices: map[string]string{"甲": "first", "乙": "second"}},
-		{name: "known and unknown speakers", semantic: "【甲】one\n【乙】two", live: "one\ntwo", voices: map[string]string{"甲": "first"}, policy: UnknownSpeakerDefaultVoice},
-		{name: "unknown speakers only", semantic: "【甲】one\n【乙】two", live: "one\ntwo", policy: UnknownSpeakerDefaultVoice},
+		{name: "known and unknown speakers", semantic: "【甲】one\n【乙】two", live: "one\n乙: two", voices: map[string]string{"甲": "first"}, policy: UnknownSpeakerDefaultVoice},
+		{name: "unknown speakers only", semantic: "【甲】one\n【乙】two", live: "甲: one\n乙: two", policy: UnknownSpeakerDefaultVoice},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			agent := transformerFunc(func(context.Context, genx.Stream) (genx.Stream, error) {

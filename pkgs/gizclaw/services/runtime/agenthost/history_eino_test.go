@@ -125,11 +125,12 @@ func TestEinoHistoryPreservesSpeakerContext(t *testing.T) {
 		docked bool
 		voices map[string]string
 		policy audiodock.UnknownSpeakerPolicy
+		live   string
 	}{
 		{name: "plain"},
-		{name: "known speakers", docked: true, voices: map[string]string{"林知": "voice/a", "阿澈": "voice/b"}},
-		{name: "known and unknown speakers", docked: true, voices: map[string]string{"林知": "voice/a"}, policy: audiodock.UnknownSpeakerDefaultVoice},
-		{name: "unknown speakers only", docked: true, policy: audiodock.UnknownSpeakerDefaultVoice},
+		{name: "known speakers", docked: true, voices: map[string]string{"林知": "voice/a", "阿澈": "voice/b"}, live: "我支持四号。\n我反对四号。"},
+		{name: "known and unknown speakers", docked: true, voices: map[string]string{"林知": "voice/a"}, policy: audiodock.UnknownSpeakerDefaultVoice, live: "我支持四号。\n阿澈: 我反对四号。"},
+		{name: "unknown speakers only", docked: true, policy: audiodock.UnknownSpeakerDefaultVoice, live: "林知: 我支持四号。\n阿澈: 我反对四号。"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
@@ -202,8 +203,8 @@ func TestEinoHistoryPreservesSpeakerContext(t *testing.T) {
 					}
 				}
 			}
-			if tc.docked && first != "我支持四号。\n我反对四号。" {
-				t.Fatalf("speaker markers leaked into live text: %q", first)
+			if tc.docked && first != tc.live {
+				t.Fatalf("live speaker attribution=%q want %q", first, tc.live)
 			}
 			if second != "past=2;markers=2" {
 				t.Fatalf("model history lost speaker markers: %s", second)

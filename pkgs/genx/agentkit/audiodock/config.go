@@ -29,8 +29,8 @@ type UnknownSpeakerPolicy string
 const (
 	// UnknownSpeakerPreserve keeps unconfigured markers literal.
 	UnknownSpeakerPreserve UnknownSpeakerPolicy = "preserve"
-	// UnknownSpeakerDefaultVoice strips bounded paragraph-leading unknown
-	// markers and restores the route VoiceResolver selection.
+	// UnknownSpeakerDefaultVoice renders bounded unknown paragraph-leading
+	// markers as audible name attribution and restores the route VoiceResolver.
 	UnknownSpeakerDefaultVoice UnknownSpeakerPolicy = "default_voice"
 )
 
@@ -47,7 +47,7 @@ type Config struct {
 	// SpeakerVoices maps recognized speaker names to TTS mux patterns.
 	SpeakerVoices map[string]string
 	// UnknownSpeakerPolicy defaults to preserve. The opt-in default_voice policy
-	// strips bounded unknown paragraph-leading markers and uses ResolveVoice.
+	// renders unknown markers as "name: " with actual body text and uses ResolveVoice.
 	UnknownSpeakerPolicy UnknownSpeakerPolicy
 	// Backpressure couples Agent delivery to TTS input consumption and forwards
 	// audio delivery acknowledgements to the shared TTS emitter. Use it for

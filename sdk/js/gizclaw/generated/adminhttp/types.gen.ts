@@ -2654,7 +2654,7 @@ export type VoiceAdapter = {
         [key: string]: string;
     };
     /**
-     * Opt-in default_voice reserves paragraph-leading short 【name】 markers for speakers: unknown names of 1-32 Unicode code points are stripped and use the output route Voice (node_voices, then default_voice). Known names retain speaker_voices. Names permit letters, numbers, combining marks, symbols, quotation marks, spaces, hyphen, underscore, period, middle dot and ZWJ; blank, nested, malformed, overlong and inline bracket text remains literal. Requires default_voice and does not support conversation.continue_from.
+     * Opt-in default_voice reserves paragraph-leading short 【name】 markers for speakers: unknown names of 1-32 Unicode code points render as name plus colon and space with actual body text and use the output route Voice (node_voices, then default_voice). Marker-only segments stay silent; canonical History preserves the original marker and body. Known names retain speaker_voices. Names permit letters, numbers, combining marks, symbols, quotation marks, spaces, hyphen, underscore, period, middle dot and ZWJ; blank, nested, malformed, overlong and inline bracket text remains literal. Requires default_voice and does not support conversation.continue_from.
      */
     unknown_speaker_policy?: 'preserve' | 'default_voice';
     node_voices?: {

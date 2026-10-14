@@ -27,11 +27,11 @@ func TestUnknownSpeakerParser(t *testing.T) {
 		name, input string
 		want        []speakerRun
 	}{
-		{"unknown first", "【陌生人】你好", []speakerRun{{"你好", ""}}},
-		{"known unknown known", "【狐】你好\n【陌生人】见面\n【旁白】故事", []speakerRun{{"你好\n", "fox"}, {"见面\n", ""}, {"故事", "narrator"}}},
+		{"unknown first", "【陌生人】你好", []speakerRun{{"陌生人: 你好", ""}}},
+		{"known unknown known", "【狐】你好\n【陌生人】见面\n【旁白】故事", []speakerRun{{"你好\n", "fox"}, {"陌生人: 见面\n", ""}, {"故事", "narrator"}}},
 		{"inline annotation", "【狐】正文【注释】原文", []speakerRun{{"正文", "fox"}, {"【注释】原文", ""}}},
-		{"paragraph indentation", "\n\t 【陌生人】你好", []speakerRun{{"\n\t 你好", ""}}},
-		{"CRLF", "【狐】甲\r\n【陌生人】乙", []speakerRun{{"甲\r\n", "fox"}, {"乙", ""}}},
+		{"paragraph indentation", "\n\t 【陌生人】你好", []speakerRun{{"\n\t 陌生人: 你好", ""}}},
+		{"CRLF", "【狐】甲\r\n【陌生人】乙", []speakerRun{{"甲\r\n", "fox"}, {"陌生人: 乙", ""}}},
 		{"punctuated annotation", "【注释：请注意】原文", []speakerRun{{"【注释：请注意】原文", ""}}},
 		{"ordinary brackets", "(甲)[乙]《丙》〔丁〕（戊）", []speakerRun{{"(甲)[乙]《丙》〔丁〕（戊）", ""}}},
 		{"empty", "【】原文", []speakerRun{{"【】原文", ""}}},
@@ -40,12 +40,19 @@ func TestUnknownSpeakerParser(t *testing.T) {
 		{"unknown interrupted by newline", "【陌\n生】原文", []speakerRun{{"【陌\n生】原文", ""}}},
 		{"nested", "【外【陌生】原文", []speakerRun{{"【外【陌生】原文", ""}}},
 		{"adjacent unknown known", "【陌生人】【狐】甲", []speakerRun{{"甲", "fox"}}},
-		{"adjacent known unknown", "【狐】【陌生人】甲", []speakerRun{{"甲", ""}}},
+		{"adjacent known unknown", "【狐】【陌生人】甲", []speakerRun{{"陌生人: 甲", ""}}},
+		{"adjacent unknown unknown", "【旧伙伴】【新伙伴】甲", []speakerRun{{"新伙伴: 甲", ""}}},
+		{"unknown keeps one attribution", "【新伙伴】甲乙丙", []speakerRun{{"新伙伴: 甲乙丙", ""}}},
+		{"unknown body indentation", "【新伙伴】 \t\u3000甲", []speakerRun{{" \t\u3000新伙伴: 甲", ""}}},
+		{"unknown body after newline", "【新伙伴】 \r\n甲", []speakerRun{{" \r\n新伙伴: 甲", ""}}},
+		{"unknown whitespace without body", "【新伙伴】 \t\n", []speakerRun{{" \t\n", ""}}},
+		{"empty unknown separated from known", "【新伙伴】 \n【狐】甲", []speakerRun{{" \n", ""}, {"甲", "fox"}}},
+		{"unknown then known", "【新伙伴】甲\n【狐】乙", []speakerRun{{"新伙伴: 甲\n", ""}, {"乙", "fox"}}},
 		{"markers without text", "【狐】【陌生人】【旁白】", nil},
-		{"Unicode and spaces", "【Dr. Élodie 猫👩‍🚀】Hello", []speakerRun{{"Hello", ""}}},
-		{"quoted annotation", "【伙伴替“甲”说话】你好", []speakerRun{{"你好", ""}}},
-		{"combining", "【A\u0308猫】Hello", []speakerRun{{"Hello", ""}}},
-		{"max unknown", "【" + strings.Repeat("猫", 32) + "】甲", []speakerRun{{"甲", ""}}},
+		{"Unicode and spaces", "【Dr. Élodie 猫👩‍🚀】Hello", []speakerRun{{"Dr. Élodie 猫👩‍🚀: Hello", ""}}},
+		{"quoted annotation", "【伙伴替“甲”说话】你好", []speakerRun{{"伙伴替“甲”说话: 你好", ""}}},
+		{"combining", "【A\u0308猫】Hello", []speakerRun{{"A\u0308猫: Hello", ""}}},
+		{"max unknown", "【" + strings.Repeat("猫", 32) + "】甲", []speakerRun{{strings.Repeat("猫", 32) + ": 甲", ""}}},
 		{"overlong unknown", "【" + strings.Repeat("猫", 33) + "】甲", []speakerRun{{"【" + strings.Repeat("猫", 33) + "】甲", ""}}},
 		{"configured above unknown byte bound", "【" + strings.Repeat("🦊", 40) + "】甲", []speakerRun{{"甲", "longemoji"}}},
 		{"long configured", "【" + strings.Repeat("长", 40) + "】甲", []speakerRun{{"甲", "long"}}},
@@ -151,13 +158,33 @@ func TestUnknownSpeakerBodyEmitsBeforeEOS(t *testing.T) {
 		}
 	}
 	got := p.feed("第一字", false, nil)
-	if len(got) != 1 || got[0].text != "第一字" || got[0].pattern != "" {
+	if len(got) != 1 || got[0].text != "陌生人: 第一字" || got[0].pattern != "" {
 		t.Fatalf("body waits for EOS: %#v", got)
 	}
 }
 
+func TestUnknownSpeakerAttributionIsBoundedAndEmptyMarkersStaySilent(t *testing.T) {
+	name := strings.Repeat("🦊", maxUnknownSpeakerRunes)
+	p := speakerParser{normalizeUnknown: true}
+	if got := p.feed("【"+name+"】", false, nil); len(got) != 0 {
+		t.Fatalf("marker alone became speech: %#v", got)
+	}
+	if len(p.unknownName) != maxUnknownSpeakerRunes*utf8.UTFMax || p.pending != "" {
+		t.Fatalf("unbounded name or lookahead: name=%d pending=%d", len(p.unknownName), len(p.pending))
+	}
+	if got := p.feed("", true, nil); len(got) != 0 || p.unknownName != "" {
+		t.Fatalf("EOS emitted an empty speaker or retained its name: %#v", got)
+	}
+	p = speakerParser{normalizeUnknown: true}
+	p.feed("【旧伙伴】", false, nil)
+	got := p.feed("【狐】正文", false, map[string]string{"狐": "fox"})
+	if !slices.Equal(parserRuns(got), []speakerRun{{"正文", "fox"}}) {
+		t.Fatalf("empty unknown speaker contaminated a known voice: %#v", got)
+	}
+}
+
 func FuzzUnknownSpeakerChunkBoundaries(f *testing.F) {
-	for _, input := range []string{"【狐】你好\n【新猫】喵", "【注释：保留】正文", "【未知👩‍🚀】你好", "【", "正文【括号】\n【新狐】你好"} {
+	for _, input := range []string{"【狐】你好\n【新猫】喵", "【注释：保留】正文", "【未知👩‍🚀】你好", "【", "正文【括号】\n【新狐】你好", "【新猫】 \t\r\n甲", "【新猫】 \n【狐】甲"} {
 		f.Add(input, uint8(3))
 	}
 	f.Fuzz(func(t *testing.T, input string, width uint8) {

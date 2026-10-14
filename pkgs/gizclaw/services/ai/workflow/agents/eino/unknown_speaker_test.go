@@ -22,8 +22,8 @@ func TestWrapAudioUnknownSpeakerPolicy(t *testing.T) {
 	}{
 		{"legacy", nil, false, "【陌生人】你好", "voice/story.default"},
 		{"explicit preserve", &preserve, false, "【陌生人】你好", "voice/story.default"},
-		{"default fallback", &normalize, false, "你好", "voice/story.default?format=ogg_opus"},
-		{"node fallback", &normalize, true, "你好", "voice/story.node?format=ogg_opus"},
+		{"default fallback", &normalize, false, "陌生人: 你好", "voice/story.default?format=ogg_opus"},
+		{"node fallback", &normalize, true, "陌生人: 你好", "voice/story.node?format=ogg_opus"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			var mu sync.Mutex

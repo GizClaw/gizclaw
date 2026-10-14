@@ -21,6 +21,9 @@ type speakerParser struct {
 	// normalizeUnknown is opt-in; the zero value preserves existing parsing.
 	normalizeUnknown bool
 	lineHasText      bool
+	// unknownName is at most the already-validated marker's 32 code points.
+	// It becomes audible attribution only when this speaker has actual text.
+	unknownName string
 }
 
 type speakerText struct {
@@ -34,6 +37,13 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 	emit := func(text string) {
 		if text == "" {
 			return
+		}
+		if p.unknownName != "" {
+			body := strings.TrimLeftFunc(text, unicode.IsSpace)
+			if body != "" {
+				text = text[:len(text)-len(body)] + p.unknownName + ": " + body
+				p.unknownName = ""
+			}
 		}
 		if p.normalizeUnknown {
 			for _, r := range text {
@@ -52,7 +62,12 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 	}
 	text = p.pending + text
 	original := text
-	defer func() { p.history.WriteString(original[:len(original)-len(p.pending)]) }()
+	defer func() {
+		p.history.WriteString(original[:len(original)-len(p.pending)])
+		if final {
+			p.unknownName = ""
+		}
+	}()
 	p.pending = ""
 	for text != "" {
 		start := strings.Index(text, "【")
@@ -83,6 +98,7 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 			}
 		}
 		if matched != "" {
+			p.unknownName = ""
 			pattern := voices[matched]
 			if p.pattern != pattern {
 				p.segment++
@@ -102,6 +118,7 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 					p.segment++
 					p.pattern = ""
 				}
+				p.unknownName = strings.Clone(text[len("【") : length-len("】")])
 				text = text[length:]
 				continue
 			}
