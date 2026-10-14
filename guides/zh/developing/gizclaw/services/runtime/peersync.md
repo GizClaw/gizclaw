@@ -13,6 +13,8 @@ Peer HTTP 组装现有读取能力，生成 [Public API](../../../api/http/publi
 Server 复用 `services.peer.store`，按 `peer-sync/<owner>/head` 与
 `peer-sync/<owner>/checkpoints/<timestamp>` 精确寻址。通过 KV `ApplyMutation`
 原子比较 head、提交新检查点和删除淘汰的检查点，不枚举数据库 key。
+读取 head 与历史检查点使用强一致视图，避免地区副本延迟把已提交基线误判为丢失，
+或反复以旧 head 执行条件提交。
 每个 owner 最多保存 64 个检查点，每个检查点保留最多 24 小时；head 同样设置过期时间。
 同毫秒请求或时钟回退时按 owner 单调增加时间戳；时间戳保持 JavaScript safe integer。
 并发提交使用有界条件重试，取消和存储失败不会产生成功完成事件。

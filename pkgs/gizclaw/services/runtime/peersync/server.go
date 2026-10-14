@@ -119,7 +119,7 @@ func (s *Server) loadCheckpoint(ctx context.Context, owner giznet.PublicKey, tim
 	if timestamp == 0 || timestamp < s.clock().Add(-retention).UnixMilli() {
 		return checkpoint{}, false, nil
 	}
-	data, err := s.Store.Get(ctx, checkpointKey(owner, timestamp))
+	data, err := kv.WithStrongReads(s.Store).Get(ctx, checkpointKey(owner, timestamp))
 	if errors.Is(err, kv.ErrNotFound) {
 		return checkpoint{}, false, nil
 	}
@@ -139,11 +139,12 @@ func (s *Server) saveCheckpoint(ctx context.Context, owner giznet.PublicKey, val
 		return 0, err
 	}
 	key := stateKey(owner, "head")
+	store := kv.WithStrongReads(s.Store)
 	for range 32 {
 		if err := ctx.Err(); err != nil {
 			return 0, err
 		}
-		expected, err := s.Store.Get(ctx, key)
+		expected, err := store.Get(ctx, key)
 		if err != nil && !errors.Is(err, kv.ErrNotFound) {
 			return 0, fmt.Errorf("peersync: load head: %w", err)
 		}
@@ -183,7 +184,7 @@ func (s *Server) saveCheckpoint(ctx context.Context, owner giznet.PublicKey, val
 			return 0, err
 		}
 		deadline := now.Add(retention)
-		committed, err := s.Store.ApplyMutation(ctx, kv.Mutation{
+		committed, err := store.ApplyMutation(ctx, kv.Mutation{
 			Conditions: []kv.Condition{{Key: key, Expected: expected}},
 			Entries: []kv.Entry{
 				{Key: key, Value: headData, Deadline: deadline},

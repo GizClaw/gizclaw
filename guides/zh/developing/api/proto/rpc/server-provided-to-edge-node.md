@@ -17,7 +17,7 @@ sequenceDiagram
     Server-->>Edge: typed response / RPC error
 ```
 
-Server 使用独立 Edge RPC dispatch，接受 route methods 和终端通知投递。普通 Client RPC surface 即使共享同一 `rpc.proto` registry，也不能因为 method 可解码就获得调用权限；role authorization 与 service exposure 必须同时限制 Edge control plane。
+Server 使用独立 Edge RPC dispatch，接受 route methods 和终端通知投递。普通 Client RPC surface 即使共享同一 `gizclaw_rpc.proto` registry，也不能因为 method 可解码就获得调用权限；role authorization 与 service exposure 必须同时限制 Edge control plane。
 
 `server.api_key.resolve` 允许 Edge 把收到的 Bearer credential 交给 Server 的 API Key service
 认证，并取得 owner Peer 的固定 assignment。多 Server 部署让 Server 共享受保护的 API Key Redis

@@ -771,9 +771,6 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		h.streamLifecycle.finish("peer_input", terminalErr)
 	}()
 	for {
-		if h.isRetiring() {
-			return ErrPeerConnRetiring
-		}
 		event, err := readPeerStreamEvent(stream)
 		if err != nil {
 			if errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed) {
@@ -783,10 +780,15 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 			return err
 		}
 		if h.isRetiring() {
-			return ErrPeerConnRetiring
+			// Keep the mandatory Event transport alive for the delete RPC's
+			// acknowledgement. Its terminal callback owns association close.
+			continue
 		}
 		authorized, err := h.authorizeInputEvent(h.logContext(), event)
 		if err != nil {
+			if h.isRetiring() {
+				continue
+			}
 			return err
 		}
 		if !authorized {
@@ -798,6 +800,9 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 			return err
 		}
 		if err := h.pushAgentInputChunk(h.logContext(), chunk); err != nil {
+			if h.isRetiring() || errors.Is(err, ErrPeerConnRetiring) {
+				continue
+			}
 			return err
 		}
 		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS &&
@@ -1306,6 +1311,9 @@ func (h *PeerConn) serveDirectPackets() error {
 				continue
 			}
 			if err := h.pushAuthorizedAudioChunk(h.logContext(), chunk); err != nil {
+				if h.isRetiring() || errors.Is(err, ErrPeerConnRetiring) {
+					continue
+				}
 				return err
 			}
 		case EventStreamTelemetry:

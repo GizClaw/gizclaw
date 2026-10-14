@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -51,14 +51,14 @@ func CheckHistoryMigration(ctx context.Context, db *sqlx.DB) error {
 		Name   string
 	}
 	if err := db.SelectContext(ctx, &tables, statement); err != nil {
-		return storage.ExternalSQLError("history migration check: inspect legacy tables", err)
+		return sqlmeta.ExternalSQLError("history migration check: inspect legacy tables", err)
 	}
 	var pending []string
 	for _, table := range tables {
 		quoted := quoteHistoryCatalogName(table.Schema) + "." + quoteHistoryCatalogName(table.Name)
 		var exists bool
 		if err := db.GetContext(ctx, &exists, "SELECT EXISTS(SELECT 1 FROM "+quoted+" WHERE stream LIKE 'workspace.history/%' OR stream IN ('eino.history','flowcraft.history'))"); err != nil {
-			return storage.ExternalSQLError(fmt.Sprintf("history migration check: inspect table %s", quoted), err)
+			return sqlmeta.ExternalSQLError(fmt.Sprintf("history migration check: inspect table %s", quoted), err)
 		}
 		if exists {
 			pending = append(pending, quoted)

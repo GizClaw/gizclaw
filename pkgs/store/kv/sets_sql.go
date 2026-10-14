@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -227,7 +227,7 @@ func (s *SQL) ApplyMutation(ctx context.Context, mutation Mutation) (applied boo
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return false, storage.ExternalSQLError("kv: commit collection mutation", err)
+		return false, sqlmeta.ExternalSQLError("kv: commit collection mutation", err)
 	}
 	return true, nil
 }
@@ -236,5 +236,5 @@ func sqlCollectionError(err error) error {
 	if err == nil || errors.Is(err, ErrWrongType) || errors.Is(err, ErrMemberLimit) || errors.Is(err, ErrInvalidDeadline) || errors.Is(err, ErrStoreClosed) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return err
 	}
-	return storage.ExternalSQLError("kv: sql collection operation", err)
+	return sqlmeta.ExternalSQLError("kv: sql collection operation", err)
 }

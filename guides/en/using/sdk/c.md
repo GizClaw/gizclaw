@@ -51,6 +51,8 @@ Friend and Friend Group routes map to the `gzc_control_*_friend*` and `gzc_contr
 
 Each members-list item carries optional `online` (Server-local connection state), `last_seen_at` (RFC 3339 UTC; absent when unknown or the read failed) and `in_room` (whether the device is running the Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room; true implies online); members returned by add, put and join omit all three. C uses `has_online` + `online`, `last_seen_at` (`gzc_str_t`) and `has_in_room` + `in_room`.
 
+When an inbound RPC caller closes its channel, a late reply that returns `GZC_ERR_WEBRTC` or `GZC_ERR_CLOSED` terminates that RPC only. Peer polling continues for other channels. Peer transport failures and local write deadlines still return errors to the caller.
+
 ### MHS v0 HWDs
 
 `gzc_rpc.h` exports `payload/mhs_v0.pb.h`. A device provider handles `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE` (133/134): decode the outer instance `id` and `ClientHwd`, then decode or encode the HWD-specific inner protobuf payload. Wifi, ble, modem, battery and mic provide read only; display, led and speaker provide read/write. `client.rpc.methods.list` includes only installed RPC handlers. Response bytes remain borrowed until the respond callback returns. See the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server) for errors and instance rules.

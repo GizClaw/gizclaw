@@ -81,9 +81,10 @@ type Server struct {
 	random     io.Reader
 }
 
-// NewServer creates an API key service over store.
+// NewServer creates an API key service whose authority reads always use a
+// strong view of store, including when ordinary reads allow replica lag.
 func NewServer(store kv.Store) *Server {
-	return &Server{Store: store, now: time.Now, random: rand.Reader}
+	return &Server{Store: kv.WithStrongReads(store), now: time.Now, random: rand.Reader}
 }
 
 // Create issues one API key for a canonical device owner.
@@ -104,7 +105,7 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		return Created{}, err
 	}
 	defer release()
-	if _, err := s.Store.Get(ctx, retiredKey(owner)); err == nil {
+	if _, err := kv.WithStrongReads(s.Store).Get(ctx, retiredKey(owner)); err == nil {
 		return Created{}, ErrOwnerRetired
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return Created{}, err
@@ -142,7 +143,7 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		if created {
 			return Created{Key: item, Secret: secret}, nil
 		}
-		if _, err := s.Store.Get(ctx, retiredKey(owner)); err == nil {
+		if _, err := kv.WithStrongReads(s.Store).Get(ctx, retiredKey(owner)); err == nil {
 			return Created{}, ErrOwnerRetired
 		} else if !errors.Is(err, kv.ErrNotFound) {
 			return Created{}, err
@@ -156,7 +157,7 @@ func (s *Server) Authenticate(ctx context.Context, secret string) (Principal, er
 	if s == nil || s.Store == nil || !validSecret(secret) {
 		return Principal{}, ErrInvalidAPIKey
 	}
-	name, err := s.Store.Get(ctx, secretKey(secret))
+	name, err := kv.WithStrongReads(s.Store).Get(ctx, secretKey(secret))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return Principal{}, ErrInvalidAPIKey
@@ -210,7 +211,7 @@ func (s *Server) ListOwner(ctx context.Context, owner, cursor string, limit int)
 		return ListResult{}, err
 	}
 	defer release()
-	names, err := s.Store.ListMembers(ctx, ownerPrefix(owner))
+	names, err := kv.WithStrongReads(s.Store).ListMembers(ctx, ownerPrefix(owner))
 	if err != nil {
 		return ListResult{}, err
 	}
@@ -302,7 +303,7 @@ func (s *Server) CleanupPeer(ctx context.Context, owner string) error {
 	if err := s.Store.Set(ctx, retiredKey(owner), []byte("retired")); err != nil {
 		return err
 	}
-	names, err := s.Store.ListMembers(ctx, ownerPrefix(owner))
+	names, err := kv.WithStrongReads(s.Store).ListMembers(ctx, ownerPrefix(owner))
 	if err != nil {
 		return err
 	}
@@ -356,7 +357,7 @@ func (s *Server) randomParts() (string, string, error) {
 }
 
 func (s *Server) load(ctx context.Context, name string) (Key, error) {
-	data, err := s.Store.Get(ctx, recordKey(name))
+	data, err := kv.WithStrongReads(s.Store).Get(ctx, recordKey(name))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return Key{}, ErrNotFound

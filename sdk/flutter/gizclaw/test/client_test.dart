@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
+import 'package:gizclaw/src/generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 

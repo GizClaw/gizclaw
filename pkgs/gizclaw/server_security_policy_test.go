@@ -197,13 +197,16 @@ func TestRoleServicesPreserveLookupContextAndBlockedDenial(t *testing.T) {
 			}
 			store := &serviceContextStore{Store: base}
 			peers.Store = store
-			ctx := context.Background()
+			type contextKey struct{}
+			ctx := context.WithValue(t.Context(), contextKey{}, "original")
 			allowed := manager.allowService(ctx, key, test.service)
 			if allowed != (status == apitypes.PeerRegistrationStatusActive) {
 				t.Fatalf("role service %x with status %s: allowed=%v", test.service, status, allowed)
 			}
-			if store.readContext != ctx {
-				t.Fatal("role service replaced its original lookup context")
+			// A consistency view may derive the context to select a strong
+			// backend read; caller values and cancellation must remain intact.
+			if store.readContext.Value(contextKey{}) != "original" || store.readContext.Done() != ctx.Done() {
+				t.Fatal("role service lost its caller context")
 			}
 			if _, hasDeadline := store.readContext.Deadline(); hasDeadline {
 				t.Fatal("role service added a deadline")

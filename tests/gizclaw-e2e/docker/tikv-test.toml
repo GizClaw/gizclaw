@@ -1,0 +1,9 @@
+# Functional E2E uses a bounded temporary filesystem, not a production SSD.
+# Default multi-GiB reservations would classify this small filesystem as full.
+[storage]
+reserve-space = "64MiB"
+reserve-raft-space = "32MiB"
+
+# Leave memory available for Raft, write buffers and the temporary data files.
+[storage.block-cache]
+capacity = "128MiB"

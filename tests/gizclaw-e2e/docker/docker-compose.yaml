@@ -1,12 +1,14 @@
 services:
-  redis:
-    image: gizcr.gizclaw.com/docker.io/library/redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 1s
-      timeout: 1s
-      retries: 60
+  tikv-pd:
+    extends: {file: compose.tikv.yaml, service: tikv-pd}
+  tikv-leader:
+    extends: {file: compose.tikv.yaml, service: tikv-leader}
+  tikv-replication-proxy:
+    extends: {file: compose.tikv.yaml, service: tikv-replication-proxy}
+  tikv-learner:
+    extends: {file: compose.tikv.yaml, service: tikv-learner}
+  tikv-init:
+    extends: {file: compose.tikv.yaml, service: tikv-init}
 
   livekit:
     image: gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6@sha256:e37d68f172556d02aa77968b9fc55ef481468c0315fa38e4fa6c56ce72e3a815
@@ -90,7 +92,8 @@ services:
       GIZCLAW_E2E_RESOURCE_PATHS: ${GIZCLAW_E2E_RESOURCE_PATHS:-}
       GIZCLAW_E2E_SYNC_VOLC_TENANT_ID: ${GIZCLAW_E2E_SYNC_VOLC_TENANT_ID-volc-main}
       GIZCLAW_E2E_PRESERVE_DATA_ON_RESTART: ${GIZCLAW_E2E_PRESERVE_DATA_ON_RESTART:-}
-      GIZCLAW_E2E_PERSISTENT_KV: ${GIZCLAW_E2E_PERSISTENT_KV:-}
+      GIZCLAW_E2E_TIKV_PD: tikv-pd:2379
+      GIZCLAW_E2E_TIKV_STALE_DELAY: 60s
       GIZCLAW_E2E_PROFILING: ${GIZCLAW_E2E_PROFILING:-}
       GIZCLAW_E2E_SERVER_ENDPOINT: ${GIZCLAW_E2E_SERVER_ENDPOINT:?set by docker-compose-up.sh}
       GIZCLAW_E2E_TURN_ENDPOINT: ${GIZCLAW_E2E_TURN_ENDPOINT:?set by docker-compose-up.sh}
@@ -103,8 +106,8 @@ services:
         condition: service_healthy
       mem0:
         condition: service_healthy
-      redis:
-        condition: service_healthy
+      tikv-init:
+        condition: service_completed_successfully
       turn:
         condition: service_healthy
     volumes:

@@ -281,6 +281,7 @@ func (p *peerAudioPacing) summary() map[string]any {
 	result["max_interval_ms"] = float64(maximumGap) / float64(time.Millisecond)
 	result["max_interval_after_packet"] = maximumGapAfterPacket
 	result["max_interval_start_ms"] = float64(p.arrivals[maximumGapAfterPacket-1]) / float64(time.Millisecond)
+	result["max_interval_started_at"] = p.firstAt.Add(p.arrivals[maximumGapAfterPacket-1]).UTC().Format(time.RFC3339Nano)
 	result["drift_ms"] = float64(drift) / float64(time.Millisecond)
 	result["absolute_drift_ms"] = float64(absDrift) / float64(time.Millisecond)
 	result["buffer_surplus_ms"] = float64(-drift) / float64(time.Millisecond)

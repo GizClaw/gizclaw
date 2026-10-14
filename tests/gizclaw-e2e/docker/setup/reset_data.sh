@@ -95,6 +95,10 @@ init_data() {
   fi
 
   if [[ ! -x "$fixture_apply_bin" ]]; then
+    if [[ "${GIZCLAW_E2E_PREBUILT_CLI:-0}" == "1" ]]; then
+      echo "prebuilt fixture apply helper is missing: $fixture_apply_bin" >&2
+      exit 1
+    fi
     (cd "$repo_root" && go build -o "$fixture_apply_bin" ./tests/gizclaw-e2e/internal/fixtureapply)
   fi
   local fixture_args=(

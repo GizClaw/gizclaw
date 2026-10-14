@@ -405,16 +405,21 @@ type peerAudioRoute struct {
 	owner    *genx.MessageChunk
 }
 
+const maxCompletedPeerAudioRoutes = 64
+
 type peerAudioRouteAggregator struct {
-	active  map[peerAudioRouteKey]struct{}
-	retired map[peerAudioRouteKey]struct{}
-	epoch   peerAudioRoute
+	active         map[peerAudioRouteKey]struct{}
+	retired        map[peerAudioRouteKey]struct{}
+	completed      map[peerAudioRouteKey]struct{}
+	completedOrder []peerAudioRouteKey
+	epoch          peerAudioRoute
 }
 
 func newPeerAudioRouteAggregator() *peerAudioRouteAggregator {
 	return &peerAudioRouteAggregator{
-		active:  make(map[peerAudioRouteKey]struct{}),
-		retired: make(map[peerAudioRouteKey]struct{}),
+		active:    make(map[peerAudioRouteKey]struct{}),
+		retired:   make(map[peerAudioRouteKey]struct{}),
+		completed: make(map[peerAudioRouteKey]struct{}),
 	}
 }
 
@@ -476,11 +481,19 @@ func (a *peerAudioRouteAggregator) consumeChunk(chunk *genx.MessageChunk, event 
 		if _, exists := a.active[key]; !exists {
 			if _, retired := a.retired[key]; retired {
 				delete(a.retired, key)
+				a.recordCompleted(key)
+				return false, nil
+			}
+			// The Peer can receive EOS before the producer receives its final
+			// delivery acknowledgement. A new input may then cancel that same
+			// completed route; its late control terminal must be idempotent.
+			if _, completed := a.completed[key]; completed && chunk != nil && isRouteControlError(chunk.Ctrl) {
 				return false, nil
 			}
 			return false, fmt.Errorf("gizclaw: unmatched audio EOS stream_id=%q mime=%q", key.streamID, key.mimeType)
 		}
 		delete(a.active, key)
+		a.recordCompleted(key)
 		if len(a.active) != 0 {
 			return false, nil
 		}
@@ -490,6 +503,22 @@ func (a *peerAudioRouteAggregator) consumeChunk(chunk *genx.MessageChunk, event 
 	default:
 		return true, nil
 	}
+}
+
+func (a *peerAudioRouteAggregator) recordCompleted(key peerAudioRouteKey) {
+	if _, exists := a.completed[key]; exists {
+		return
+	}
+	if a.completed == nil {
+		a.completed = make(map[peerAudioRouteKey]struct{})
+	}
+	if len(a.completedOrder) == maxCompletedPeerAudioRoutes {
+		delete(a.completed, a.completedOrder[0])
+		copy(a.completedOrder, a.completedOrder[1:])
+		a.completedOrder = a.completedOrder[:len(a.completedOrder)-1]
+	}
+	a.completedOrder = append(a.completedOrder, key)
+	a.completed[key] = struct{}{}
 }
 
 func peerAudioRouteOwner(chunk *genx.MessageChunk) *genx.MessageChunk {
@@ -516,6 +545,7 @@ func (a *peerAudioRouteAggregator) consumeRouteEOS(chunk *genx.MessageChunk) *ev
 	for key := range a.active {
 		if key.streamID == streamID {
 			delete(a.active, key)
+			a.recordCompleted(key)
 			removed = true
 		}
 	}

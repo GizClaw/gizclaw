@@ -3,7 +3,7 @@
 syntax = "proto3";
 
 import "payload/audioplayer.proto";
-import "rpc.proto";
+import "gizclaw_rpc.proto";
 import "payload/mhs_v0.proto";
 
 package gizclaw.rpc.v1;

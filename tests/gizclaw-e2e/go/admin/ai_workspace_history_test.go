@@ -215,7 +215,7 @@ func registerAdminHistoryPeers(t *testing.T, env *adminAPIHarness, peers ...*giz
 		profileName = "admin-workspace-history"
 		tokenName   = "admin-workspace-history"
 	)
-	binding := apitypes.RuntimeProfileBinding{
+	binding := apitypes.RuntimeProfileWorkflowBinding{
 		ResourceId: adminHistoryWorkflowID,
 		I18n: map[string]apitypes.RuntimeProfileI18nText{
 			"en":    {DisplayName: "Echo"},

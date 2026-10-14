@@ -69,8 +69,12 @@ func TestSocialPingCrossServer(t *testing.T) {
 		}
 	})
 	var timeoutCalls atomic.Int32
-	_ = timeout.HandleSocialPing(func(ctx context.Context, _ rpcapi.ClientSocialPingRequest) error {
+	timeoutStarted := make(chan time.Time, 8)
+	_ = timeout.HandleSocialPing(func(ctx context.Context, req rpcapi.ClientSocialPingRequest) error {
 		timeoutCalls.Add(1)
+		if req.FriendGroupName == nil {
+			timeoutStarted <- time.Now()
+		}
 		<-ctx.Done()
 		return ctx.Err()
 	})
@@ -212,11 +216,17 @@ func TestSocialPingCrossServer(t *testing.T) {
 
 	t.Run("unacknowledged_friend_releases_window", func(t *testing.T) {
 		friend := socialPingFriends(t, ctx, a, timeout)
-		start := time.Now()
 		missed, err := a.PingFriend(ctx, "social-friend-timeout", rpcapi.FriendPingRequest{Name: friend})
 		requireFriendPing(t, missed, err, rpcapi.SocialPingResultNotOnline, 0)
-		if time.Since(start) > 4*time.Second {
-			t.Fatal("unacknowledged friend exceeded bound")
+		// Authentication and membership transactions precede delivery. Measure
+		// its deadline from the device call, independently of storage latency.
+		select {
+		case start := <-timeoutStarted:
+			if time.Since(start) > 4*time.Second {
+				t.Fatal("unacknowledged friend exceeded delivery bound")
+			}
+		default:
+			t.Fatal("unacknowledged friend never reached the device")
 		}
 		_ = timeout.HandleSocialPing(func(context.Context, rpcapi.ClientSocialPingRequest) error { return nil })
 		delivered, err := a.PingFriend(ctx, "social-friend-timeout-retry", rpcapi.FriendPingRequest{Name: friend})

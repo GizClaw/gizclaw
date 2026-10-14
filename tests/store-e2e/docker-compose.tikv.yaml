@@ -1,0 +1,51 @@
+services:
+  redis:
+    image: gizcr.gizclaw.com/docker.io/library/redis:8.4.6-alpine@sha256:12da49daa000c2be4d55118574f889c8cc298140ecf343d04f345c818f227823
+    command: [redis-server, --save, "", --appendonly, "no"]
+    tmpfs: [/data]
+    cpus: 1
+    mem_limit: 128m
+  redis-cluster:
+    extends: {service: redis}
+    command: [redis-server, --save, "", --appendonly, "no", --cluster-enabled, "yes"]
+  pd:
+    image: gizcr.gizclaw.com/docker.io/pingcap/pd:v8.5.6@sha256:c26dbbaaf95f2d5e15402f40f829f8dc26f5b2a39d8d90d74c30a9de7689521b
+    command: [--name=pd, --data-dir=/data, --client-urls=http://0.0.0.0:2379, --advertise-client-urls=http://pd:2379, --peer-urls=http://0.0.0.0:2380, --advertise-peer-urls=http://pd:2380, --initial-cluster=pd=http://pd:2380]
+    tmpfs: [/data]
+    cpus: 1
+    mem_limit: 512m
+  leader:
+    image: gizcr.gizclaw.com/docker.io/pingcap/tikv:v8.5.6@sha256:8d0b99d78b9b6fe5a9389d3680835386a3afb572168fc87bf7ddb27ab1359919
+    command: [--addr=0.0.0.0:20160, --advertise-addr=leader:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=center]
+    depends_on: [pd]
+    tmpfs: [/data]
+    cpus: 2
+    mem_limit: 2g
+  gate:
+    image: gizcr.gizclaw.com/docker.io/pingcap/pd:v8.5.6@sha256:c26dbbaaf95f2d5e15402f40f829f8dc26f5b2a39d8d90d74c30a9de7689521b
+    entrypoint: [/test/replication-proxy]
+    volumes: ["${TIKV_E2E_BIN_DIR:?}:/test:ro"]
+    depends_on: [leader]
+    cpus: 1
+    mem_limit: 128m
+  learner:
+    image: gizcr.gizclaw.com/docker.io/pingcap/tikv:v8.5.6@sha256:8d0b99d78b9b6fe5a9389d3680835386a3afb572168fc87bf7ddb27ab1359919
+    command: [--addr=0.0.0.0:20160, --advertise-addr=gate:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=local]
+    depends_on: [pd, gate]
+    tmpfs: [/data]
+    cpus: 2
+    mem_limit: 2g
+  tests:
+    image: gizcr.gizclaw.com/docker.io/pingcap/pd:v8.5.6@sha256:c26dbbaaf95f2d5e15402f40f829f8dc26f5b2a39d8d90d74c30a9de7689521b
+    entrypoint: [/test/store.test]
+    command: [-test.v, -test.run=^TestTiKV, -test.timeout=5m]
+    volumes: ["${TIKV_E2E_BIN_DIR:?}:/test:ro"]
+    environment:
+      GIZCLAW_TEST_TIKV_PD: pd:2379
+      GIZCLAW_TEST_TIKV_PROXY: http://gate:8080
+      GIZCLAW_TEST_MIGRATION_REDIS: redis://redis:6379/0
+      GIZCLAW_TEST_MIGRATION_CLUSTER_REDIS: redis://redis-cluster:6379/0
+      GIZCLAW_TEST_MIGRATION_CLI: /test/gizclaw
+    depends_on: [leader, learner, redis, redis-cluster]
+    cpus: 2
+    mem_limit: 2g

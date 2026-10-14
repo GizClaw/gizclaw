@@ -8,7 +8,7 @@ sfu_dir="$workspace_dir/sfu"
 
 : "${GIZCLAW_E2E_SERVER_PRIVATE_KEY:?missing GIZCLAW_E2E_SERVER_PRIVATE_KEY}"
 : "${GIZCLAW_E2E_SERVER_ENDPOINT:?missing GIZCLAW_E2E_SERVER_ENDPOINT}"
-: "${GIZCLAW_E2E_REDIS_DSN:?missing GIZCLAW_E2E_REDIS_DSN}"
+: "${GIZCLAW_E2E_TIKV_PD:?missing GIZCLAW_E2E_TIKV_PD}"
 : "${GIZCLAW_E2E_ADMIN_PUBLIC_KEY:?missing GIZCLAW_E2E_ADMIN_PUBLIC_KEY}"
 : "${GIZCLAW_E2E_LIVEKIT_URL:?missing GIZCLAW_E2E_LIVEKIT_URL}"
 : "${GIZCLAW_E2E_LIVEKIT_HTTP_URL:?missing GIZCLAW_E2E_LIVEKIT_HTTP_URL}"
@@ -27,7 +27,7 @@ until curl -fsS -o /dev/null "$GIZCLAW_E2E_LIVEKIT_HTTP_URL/"; do
 done
 
 # Store layout: peers, friends and friend-groups are the shared Social KV in
-# Redis; runtime-profiles, workspaces and workflows use the template's
+# TiKV; runtime-profiles, workspaces and workflows use the template's
 # Server-local business SQLite file, so a Social Workspace retirement
 # exercises one single-connection SQLite handle exactly as a real
 # deployment would.
@@ -42,7 +42,6 @@ cp "$repo_root/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template"
 
 GIZCLAW_E2E_SERVER_PRIVATE_KEY="$GIZCLAW_E2E_SERVER_PRIVATE_KEY" \
 GIZCLAW_E2E_SERVER_ENDPOINT="$GIZCLAW_E2E_SERVER_ENDPOINT" \
-GIZCLAW_E2E_REDIS_DSN="$GIZCLAW_E2E_REDIS_DSN" \
 GIZCLAW_E2E_ADMIN_PUBLIC_KEY="$GIZCLAW_E2E_ADMIN_PUBLIC_KEY" \
 GIZCLAW_E2E_LIVEKIT_URL="$GIZCLAW_E2E_LIVEKIT_URL" \
 GIZCLAW_E2E_SFU_DIR="$sfu_dir" \
@@ -51,14 +50,11 @@ perl -0pi -e '
   s/endpoint: \$\{GIZCLAW_E2E_SERVER_ENDPOINT\}/endpoint: $ENV{GIZCLAW_E2E_SERVER_ENDPOINT}/;
   s/admin-public-key: "6Ww6ANsXDCf91Yp7Tvi65hqpywjMmXqAoZDiq33kfCee"/admin-public-key: "$ENV{GIZCLAW_E2E_ADMIN_PUBLIC_KEY}"/;
   s/ice-servers:\n(?:  .*\n)+?(?=edge-nodes:)/""/e;
-  s/storage:\n/storage:\n  shared-redis:\n    kind: redis\n    url: $ENV{GIZCLAW_E2E_REDIS_DSN}\n/;
-  s/(  peers:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
-  s/(  api-keys:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
-  s/(  friends:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
-  s/(  friend-groups:\n    kind: keyvalue\n    storage:) memory/$1 shared-redis/;
   s/^services:\n/services:\n  sfu:\n    url: $ENV{GIZCLAW_E2E_LIVEKIT_URL}\n    api_key_file: $ENV{GIZCLAW_E2E_SFU_DIR}\/api_key\n    api_secret_file: $ENV{GIZCLAW_E2E_SFU_DIR}\/api_secret\n/m;
   s/level: info/level: debug/ if $ENV{GIZCLAW_E2E_SOCIAL_PING_ONLY};
 ' "$config_file"
+
+"$repo_root/tests/gizclaw-e2e/docker/setup/configure-tikv.sh" "$config_file"
 
 if ! grep -q '^  sfu:$' "$config_file"; then
   echo "services.sfu was not written into $config_file" >&2
@@ -68,5 +64,7 @@ fi
 if [[ -n "${GIZCLAW_E2E_POSTGRES_DSN:-}" ]]; then
   perl -0pi -e 's/    kind: sqlite\n    dir: data\/business.sqlite/    kind: postgresql\n    dsn: $ENV{GIZCLAW_E2E_POSTGRES_DSN}/' "$config_file"
 fi
+
+printf '\npending_deletion:\n  scan_interval: 1s\n' >> "$config_file"
 
 exec /usr/local/bin/gizclaw serve --force "$workspace_dir"

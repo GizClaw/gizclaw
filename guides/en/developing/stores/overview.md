@@ -48,7 +48,7 @@ flowchart TB
 
 | Store kind | Interface and scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`; optional key prefix for Badger/memory, a required non-overlapping key prefix for Redis, or a required prefix that SQLite/PostgreSQL uses as its physical table name |
+| `keyvalue` | `kv.Store`; optional key prefix for Badger/memory, a required non-overlapping key prefix for Redis and TiKV, or a required prefix that SQLite/PostgreSQL uses as its physical table name |
 | `sql` | borrowed `*sqlx.DB` physical pool; service owns its schema |
 | `objectstore` | `objectstore.ObjectStore`; optional object prefix |
 | `metrics` | `metrics.Store`; `memory`, Prometheus, ClickHouse, or a SQLite/PostgreSQL table |
@@ -66,6 +66,7 @@ flowchart TB
 | `sqlite` | exactly one of `dir` or `dsn` |
 | `postgresql`, `clickhouse` | `dsn` |
 | `redis` | Single-node `redis://` or `rediss://` URL; `rediss://` can add PEM CA certificates through `tls_ca_file`; Redis Cluster is not supported |
+| `tikv` | `pd_addresses`; optional `tls_ca_file`, `tls_cert_file`, `tls_key_file`; optional paired `stale_read_delay` / `read_labels`; see [KV](./kv#tikv) |
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
 
@@ -93,7 +94,7 @@ physical, err := storage.New(map[string]storage.Config{
 
 The concrete implementations are `BadgerConfig`, `MemoryConfig`,
 `FilesystemDirConfig`, `SQLiteConfig`, `PostgreSQLConfig`, `ClickHouseConfig`,
-`RedisConfig`, `PrometheusConfig`, `VolcTLSConfig`, `VolcTOSConfig`, `AliyunOSSConfig`,
+`RedisConfig`, `RedisReadWriteConfig`, `TiKVConfig`, `PrometheusConfig`, `VolcTLSConfig`, `VolcTOSConfig`, `AliyunOSSConfig`,
 `GCSConfig`, and `AzureBlobConfig`. A Go caller therefore cannot pass a
 directory to PostgreSQL or a DSN/provider credential to Badger.
 `cmd/internal/server` retains the flat YAML DTO and explicitly converts each
@@ -109,7 +110,7 @@ logical prefixes may therefore share one cloud connector.
 
 A SQLite/PostgreSQL KV Store declares only one single-segment `prefix`; the backend uses it directly as the quoted physical table name and does not repeat that prefix inside encoded keys. SQL Metrics declare `table`. These physical names are unqualified ASCII names of at most 63 bytes; a KV prefix may also contain `-`. The registry validates each declaration independently and does not reserve table names or compare one Store declaration with another. Construction directly ensures the table and indexes with idempotent `CREATE ... IF NOT EXISTS`. PostgreSQL runs those statements in one transaction serialized by a transaction advisory lock derived from the current schema and physical table name, so concurrent processes or adapters initializing the same new table do not fail on catalog conflicts. Construction then validates the exact columns, primary key, identity, and indexes required by that adapter. It creates no schema version or history table and never imports or rewrites existing backend data. A compatible existing table is reused; an incompatible definition fails when that adapter is constructed. Logical `Close` changes only adapter state and never closes the borrowed `*sqlx.DB`.
 
-`storage.SQLTable` is the single owner of SQLite/PostgreSQL borrowed-table dialect, identifier, quoting, initialization, and schema-inspection behavior; callers can construct it only from a validated pool and table name. KV and Metrics own their business table definitions but consume this storage capability directly, without a separate SQL backend helper package.
+`sqlmeta.SQLTable` owns borrowed SQLite/PostgreSQL table dialects, identifiers, quoting, initialization and schema inspection. KV, Metrics and History consume this capability independently of the physical connector registry, so SDK metrics do not import TiKV, PD or other server-side connection implementations.
 
 ### PostgreSQL connection pools
 

@@ -294,6 +294,7 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
       }
     };
     _channel.onMessage = (message) {
+      if (_messages.isClosed) return;
       if (message.isBinary) {
         _messages.add(Uint8List.fromList(message.binary));
       } else {
@@ -301,6 +302,7 @@ class FlutterWebRtcDataChannel implements GizClawDataChannel {
       }
     };
     _channel.onDataChannelState = (state) {
+      if (_states.isClosed) return;
       _state = _convertState(state);
       _states.add(_state);
       if (state == rtc.RTCDataChannelState.RTCDataChannelClosing ||

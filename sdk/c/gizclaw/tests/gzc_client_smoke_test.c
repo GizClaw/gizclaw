@@ -5468,6 +5468,29 @@ int main(void) {
     return 1;
   }
 
+  /* A caller may time out and close this RPC while its device handler runs.
+     A failed late response closes only that channel; the Peer stays usable. */
+  announce_remote_rpc(&fake_webrtc, 0);
+  fake_webrtc.fail_send_call = fake_webrtc.send_calls + 1;
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  rc = gzc_client_poll(client, 0);
+  fake_webrtc.fail_send_call = 0;
+  if (expect(rc == GZC_OK, "late inbound response failure preserves Peer poll") != 0) {
+    return 1;
+  }
+  announce_remote_rpc(&fake_webrtc, 0);
+  fake_webrtc.callbacks.on_channel_message(
+      fake_webrtc.callbacks.userdata, &fake_webrtc.peer,
+      &fake_webrtc.remote_channels[0], NULL,
+      inbound_framed.data, inbound_framed.len, false);
+  if (expect(gzc_client_poll(client, 0) == GZC_OK,
+             "Peer serves another RPC after a failed late response") != 0) {
+    return 1;
+  }
+
   announce_remote_rpc(&fake_webrtc, 0);
   gzc_buf_reset(&inbound_request);
   gzc_buf_reset(&inbound_framed);

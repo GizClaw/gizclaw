@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/jmoiron/sqlx"
 )
@@ -72,7 +73,9 @@ type Stores struct {
 }
 
 // New creates logical stores on top of already-opened physical storage
-// backends. The caller always owns the physical storage lifecycle.
+// backends. TiKV roots start a bounded expiration worker owned by Stores;
+// Close cancels and joins it. The caller owns the physical storage lifecycle
+// and must close Stores before Storage.
 func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) {
 	if physical == nil && needsPhysicalStorage(configs) {
 		return nil, fmt.Errorf("stores: storage registry is nil")
@@ -83,7 +86,7 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	if err := validateObjectStorePrefixes(configs); err != nil {
 		return nil, err
 	}
-	if err := validateRedisKVPrefixes(configs, physical); err != nil {
+	if err := validateRemoteKVPrefixes(configs, physical); err != nil {
 		return nil, err
 	}
 	s := &Stores{
@@ -152,7 +155,7 @@ func New(configs map[string]Config, physical *storage.Storage) (*Stores, error) 
 	return s, nil
 }
 
-func validateRedisKVPrefixes(configs map[string]Config, physical *storage.Storage) error {
+func validateRemoteKVPrefixes(configs map[string]Config, physical *storage.Storage) error {
 	type logicalStore struct {
 		name   string
 		prefix string
@@ -166,7 +169,7 @@ func validateRedisKVPrefixes(configs map[string]Config, physical *storage.Storag
 		if err != nil {
 			return &ConfigError{Name: name, Err: fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)}
 		}
-		if kind != storage.KindRedis && kind != storage.KindRedisReadWrite {
+		if kind != storage.KindRedis && kind != storage.KindRedisReadWrite && kind != storage.KindTiKV {
 			continue
 		}
 		prefix, err := parseKeyPrefix(cfg.Prefix)
@@ -175,10 +178,10 @@ func validateRedisKVPrefixes(configs map[string]Config, physical *storage.Storag
 		}
 		canonical := strings.Join(prefix, "/")
 		if canonical == "" {
-			return &ConfigError{Name: name, Err: fmt.Errorf("stores: redis keyvalue %q requires a non-empty prefix", name)}
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: remote keyvalue %q requires a non-empty prefix", name)}
 		}
 		if cfg.Prefix != canonical {
-			return &ConfigError{Name: name, Err: fmt.Errorf("stores: redis keyvalue %q prefix %q is not clean; use %q", name, cfg.Prefix, canonical)}
+			return &ConfigError{Name: name, Err: fmt.Errorf("stores: remote keyvalue %q prefix %q is not clean; use %q", name, cfg.Prefix, canonical)}
 		}
 		groups[cfg.Storage] = append(groups[cfg.Storage], logicalStore{name: name, prefix: canonical})
 	}
@@ -189,7 +192,7 @@ func validateRedisKVPrefixes(configs map[string]Config, physical *storage.Storag
 				a, b := logical[i], logical[j]
 				if a.prefix == b.prefix || strings.HasPrefix(a.prefix, b.prefix+"/") || strings.HasPrefix(b.prefix, a.prefix+"/") {
 					err := fmt.Errorf(
-						"stores: physical redis %q has overlapping prefixes for logical stores %q (%q) and %q (%q)",
+						"stores: physical remote KV %q has overlapping prefixes for logical stores %q (%q) and %q (%q)",
 						physicalName, a.name, a.prefix, b.name, b.prefix,
 					)
 					return &ConfigError{Name: a.name, Err: &ConfigError{Name: b.name, Err: err}}
@@ -237,7 +240,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		if cfg.Table == "" {
 			return fmt.Errorf("stores: %s %q requires table for %s storage", cfg.Kind, name, storageKind)
 		}
-		if err := storage.ValidateSQLIdentifier(cfg.Table); err != nil {
+		if err := sqlmeta.ValidateSQLIdentifier(cfg.Table); err != nil {
 			return fmt.Errorf("stores: %s %q table %q: %w", cfg.Kind, name, cfg.Table, err)
 		}
 		return nil
@@ -247,7 +250,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 		if cfg.TTL != 0 {
 			return fmt.Errorf("stores: keyvalue %q does not support ttl", name)
 		}
-		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && storageKind != storage.KindRedis && storageKind != storage.KindRedisReadWrite && !isSQL {
+		if storageKind != storage.KindBadger && storageKind != storage.KindMemory && storageKind != storage.KindRedis && storageKind != storage.KindRedisReadWrite && storageKind != storage.KindTiKV && !isSQL {
 			return fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, storageKind)
 		}
 		if err := invalid(cfg.Database != "", "database"); err != nil {
@@ -266,7 +269,7 @@ func validateConfigFields(name string, cfg Config, storageKind string) error {
 			if cfg.Prefix == "" {
 				return fmt.Errorf("stores: keyvalue %q requires prefix for %s storage", name, storageKind)
 			}
-			if err := storage.ValidateSQLTableName(cfg.Prefix); err != nil {
+			if err := sqlmeta.ValidateSQLTableName(cfg.Prefix); err != nil {
 				return fmt.Errorf("stores: keyvalue %q prefix %q: %w", name, cfg.Prefix, err)
 			}
 			return nil
@@ -464,7 +467,7 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 	}
-	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindRedis && kind != storage.KindRedisReadWrite && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
+	if kind != storage.KindBadger && kind != storage.KindMemory && kind != storage.KindRedis && kind != storage.KindRedisReadWrite && kind != storage.KindTiKV && kind != storage.KindSQLite && kind != storage.KindPostgreSQL {
 		return nil, fmt.Errorf("stores: keyvalue %q does not support storage %q kind %q", name, cfg.Storage, kind)
 	}
 	var base kv.Store
@@ -488,6 +491,22 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 			return nil, fmt.Errorf("stores: keyvalue %q resolve storage %q: %w", name, cfg.Storage, err)
 		}
 		base = kv.NewMemory(nil)
+	case storage.KindTiKV:
+		if existing := r.kvRoots[cfg.Storage]; existing != nil {
+			base = existing
+			break
+		}
+		client, readConfig, err := r.storage.TiKV(cfg.Storage)
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q resolve tikv storage %q: %w", name, cfg.Storage, err)
+		}
+		root, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{StaleReadDelay: readConfig.StaleReadDelay, Labels: readConfig.ReadLabels}, nil)
+		base = root
+		if err != nil {
+			return nil, fmt.Errorf("stores: keyvalue %q use tikv storage %q: %w", name, cfg.Storage, err)
+		}
+		r.logicClosers = append(r.logicClosers, startTiKVExpiryWorker(root))
+		r.kvRoots[cfg.Storage] = base
 	case storage.KindRedis:
 		if existing := r.kvRoots[cfg.Storage]; existing != nil {
 			base = existing

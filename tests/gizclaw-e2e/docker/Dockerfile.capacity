@@ -8,6 +8,7 @@ WORKDIR /src
 # compilation so every Server and Edge runs the exact same executable.
 COPY --chmod=755 tests/gizclaw-e2e/docker/setup/envsubst.pl /usr/local/bin/envsubst
 COPY --chmod=755 tests/gizclaw-e2e/docker/entrypoint-server.sh tests/gizclaw-e2e/docker/entrypoint-edge.sh /src/tests/gizclaw-e2e/docker/
+COPY --chmod=755 tests/gizclaw-e2e/docker/setup/configure-tikv.sh /src/tests/gizclaw-e2e/docker/setup/configure-tikv.sh
 COPY --chmod=755 tests/gizclaw-e2e/docker/setup/reset_data.sh /src/tests/gizclaw-e2e/docker/setup/reset_data.sh
 COPY tests/gizclaw-e2e/setup/credentials.sh /src/tests/gizclaw-e2e/setup/credentials.sh
 COPY tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template /src/tests/gizclaw-e2e/testdata/server-workspace/config.yaml.template

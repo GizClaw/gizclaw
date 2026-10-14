@@ -48,7 +48,7 @@ flowchart TB
 
 | Store kind | 接口与 scope |
 | --- | --- |
-| `keyvalue` | `kv.Store`；Badger/memory 使用可选 key prefix；Redis 和 Redis 读写分离使用必填且不重叠的 key prefix；SQLite/PostgreSQL 使用必填 prefix，后端将它作为物理表名 |
+| `keyvalue` | `kv.Store`；Badger/memory 使用可选 key prefix；Redis、Redis 读写分离和 TiKV 使用必填且不重叠的 key prefix；SQLite/PostgreSQL 使用必填 prefix，后端将它作为物理表名 |
 | `sql` | 借用物理 `*sqlx.DB` pool；schema 由 service 拥有 |
 | `objectstore` | `objectstore.ObjectStore`；可选 object prefix |
 | `metrics` | `metrics.Store`；`memory`、Prometheus、ClickHouse，或 SQLite/PostgreSQL table |
@@ -67,6 +67,7 @@ flowchart TB
 | `postgresql`、`clickhouse` | `dsn` |
 | `redis` | 单节点 `redis://` 或 `rediss://` URL；`rediss://` 可通过 `tls_ca_file` 增加 PEM CA 证书；不支持 Redis Cluster |
 | `redis.readwrite` | 同一复制组、同一逻辑数据库的 `read_url` 与 `write_url`；可分别配置 `read_tls_ca_file`、`write_tls_ca_file`；只支持 `keyvalue` Store，读取允许复制延迟 |
+| `tikv` | `pd_addresses`；可选 `tls_ca_file`、`tls_cert_file`、`tls_key_file`；可选成对的 `stale_read_delay` / `read_labels`，详见 [KV](./kv#tikv) |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
 
@@ -121,7 +122,7 @@ transport、retry policy 与关闭；逻辑 ObjectStore 借用 client，只应�
 
 SQLite/PostgreSQL KV 只声明一个单段 `prefix`；后端把它直接作为带引号的物理表名，表内 key 不再重复增加该 prefix。SQL Metrics 声明 `table`。这些物理名称都必须是未限定、最长 63 bytes 的 ASCII 名称；KV prefix 还可包含 `-`。Registry 只独立校验每一份声明，不保留表名，也不比较不同 Store 声明。构造函数直接用幂等的 `CREATE ... IF NOT EXISTS` 保证业务表与索引存在；PostgreSQL 在同一事务内执行这些语句，并用按当前 schema 与物理表名派生的事务级 advisory lock 串行化，因此多个进程或 adapter 同时初始化同一张新表不会因 catalog 冲突失败。随后校验当前 adapter 所要求的列、主键、identity 和索引；它不创建 schema version/history 表，也不导入或重写既有 backend 数据。兼容的既有表会直接复用，不兼容的定义会在该 adapter 构造时失败。逻辑 `Close` 只关闭 adapter 状态，不关闭借用的 `*sqlx.DB`。
 
-`storage.SQLTable` 是 SQLite/PostgreSQL 借用表的唯一 dialect、identifier、quoting、初始化和 schema inspection owner；它只能由校验后的 pool 与表名构造。KV 和 Metrics 拥有各自的业务表定义，但直接消费这个 storage capability，不再经过独立的 SQL backend helper package。
+`sqlmeta.SQLTable` 拥有 SQLite/PostgreSQL 借用表的 dialect、identifier、quoting、初始化与 schema inspection。KV、Metrics 和 History 直接使用这个独立于物理 connector registry 的能力；SDK metrics 不会因此引入 TiKV、PD 或其他服务端连接实现。
 
 SQL backend 错误在补充具体 Store 操作上下文后保留底层 error identity，受信任的调用方可以通过 Go error chain 检查具体原因。公开错误文本只描述失败的 Store 操作，不包含可能携带绑定值、DSN 或连接信息的 driver 原始文本；HTTP/RPC surface 不得向客户端泄露这些细节。
 

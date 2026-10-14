@@ -15,6 +15,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/prometheus/client_golang/api"
 	redis "github.com/redis/go-redis/v9"
+	"github.com/tikv/client-go/v2/tikv"
 	"github.com/volcengine/volc-sdk-golang/service/tls"
 )
 
@@ -44,6 +45,7 @@ type Storage struct {
 	dirs           map[string]*os.Root
 	sqls           map[string]*sqlx.DB
 	redis          map[string]*redis.Client
+	tikvs          map[string]*tikv.KVStore
 	redisReadWrite map[string]redisReadWriteClients
 	prometheus     map[string]prometheusResource
 	volcs          map[string]tls.Client
@@ -65,6 +67,7 @@ func New(configs map[string]Config) (*Storage, error) {
 		dirs:           make(map[string]*os.Root),
 		sqls:           make(map[string]*sqlx.DB),
 		redis:          make(map[string]*redis.Client),
+		tikvs:          make(map[string]*tikv.KVStore),
 		redisReadWrite: make(map[string]redisReadWriteClients),
 		prometheus:     make(map[string]prometheusResource),
 		volcs:          make(map[string]tls.Client),
@@ -194,6 +197,13 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		if err == nil {
 			s.sqls[name] = st
 			s.closers = append(s.closers, st)
+		}
+	case TiKVConfig:
+		var client *tikv.KVStore
+		client, err = newTiKV(name, cfg)
+		if err == nil {
+			s.tikvs[name] = client
+			s.closers = append(s.closers, client)
 		}
 	case RedisConfig:
 		var client *redis.Client

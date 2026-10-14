@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
-import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
+import 'package:gizclaw/src/generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:test/test.dart';
 
@@ -199,6 +199,41 @@ void main() {
     await channel.close();
     expect(native.closeCalls, 1);
   });
+
+  test('native cleanup can repeat an already reported closed event', () async {
+    final native = _FakeRtcDataChannel(
+      initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      emitClosedOnClose: true,
+    );
+    final channel = FlutterWebRtcDataChannel(native);
+    final states = <GizClawDataChannelState>[];
+    final done = channel.states.forEach(states.add);
+    native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosed);
+    await channel.close();
+    await channel.close();
+    await done;
+    expect(states, [GizClawDataChannelState.closed]);
+    expect(native.closeCalls, 1);
+  });
+
+  test(
+    'late native messages and states cannot reopen a closed channel',
+    () async {
+      final native = _FakeRtcDataChannel(
+        initialState: rtc.RTCDataChannelState.RTCDataChannelOpen,
+      );
+      final channel = FlutterWebRtcDataChannel(native);
+      native.emitState(rtc.RTCDataChannelState.RTCDataChannelClosed);
+      expect(() => native.emitMessage('late'), returnsNormally);
+      expect(() => native.emitBinaryMessage(Uint8List(1)), returnsNormally);
+      expect(
+        () => native.emitState(rtc.RTCDataChannelState.RTCDataChannelOpen),
+        returnsNormally,
+      );
+      expect(channel.state, GizClawDataChannelState.closed);
+      await channel.close();
+    },
+  );
 
   for (final missing in ['peerConnection', 'data_channel']) {
     test(
@@ -1026,6 +1061,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
     this.bufferedAmountValue = 0,
     this.drainBufferedAmountOnRead,
     this.failSendCall,
+    this.emitClosedOnClose = false,
     rtc.RTCDataChannelState? initialState,
     String label = 'test',
     this.nativeReady = false,
@@ -1039,6 +1075,7 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
   final bool nativeReady;
   final int? drainBufferedAmountOnRead;
   final int? failSendCall;
+  final bool emitClosedOnClose;
   rtc.RTCDataChannelState? _state;
   int bufferedAmountReads = 0;
   int closeCalls = 0;
@@ -1089,6 +1126,9 @@ class _FakeRtcDataChannel extends rtc.RTCDataChannel {
     final error = closeError;
     if (error != null) throw error;
     _state = rtc.RTCDataChannelState.RTCDataChannelClosed;
+    if (emitClosedOnClose) {
+      onDataChannelState?.call(rtc.RTCDataChannelState.RTCDataChannelClosed);
+    }
   }
 
   @override

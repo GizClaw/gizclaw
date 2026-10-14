@@ -6,7 +6,7 @@ import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:cryptography/dart.dart' show DartSha256;
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 
-import 'generated/rpc/rpc.pb.dart' as rpc;
+import 'generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'generated/rpc/payload.pb.dart' as payload;
 import 'method_registry.dart';
 import 'payload_codec.dart';

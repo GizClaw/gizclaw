@@ -1,4 +1,5 @@
-package storage
+// Package sqlmeta validates SQL Store tables and metadata on borrowed pools.
+package sqlmeta
 
 import (
 	"context"
@@ -13,7 +14,7 @@ import (
 )
 
 // Keep this persisted hash input stable so existing table indexes retain their
-// names after the helper ownership moves into storage.
+// names across package ownership boundaries.
 const sqlIndexNamespacePrefix = "gizclaw/store/sql" + "backend/v1\x00"
 
 var (
@@ -75,7 +76,7 @@ func ExternalSQLError(operation string, err error) error {
 	if err == nil {
 		return nil
 	}
-	external := &externalOperationError{operation: operation, err: err}
+	external := &externalSQLOperationError{operation: operation, err: err}
 	var state sqlStateError
 	if errors.As(err, &state) && sqlStateRE.MatchString(state.SQLState()) {
 		external.sqlState = state.SQLState()
@@ -266,3 +267,17 @@ func asciiLower(value string) string {
 		return r
 	}, value)
 }
+
+type externalSQLOperationError struct {
+	operation string
+	sqlState  string
+	err       error
+}
+
+func (e *externalSQLOperationError) Error() string {
+	if e.sqlState != "" {
+		return e.operation + " failed (SQLSTATE " + e.sqlState + ")"
+	}
+	return e.operation + " failed"
+}
+func (e *externalSQLOperationError) Unwrap() error { return e.err }

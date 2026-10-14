@@ -192,6 +192,7 @@ func getStoredRecord(ctx context.Context, store kv.Store, deletionID string) (Re
 
 // HasLocator reports whether any deletion event exists for a resource locator.
 func HasLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (bool, error) {
+	store = kv.WithStrongReads(store)
 	if store == nil {
 		return false, errors.New("pending deletion: KV store not configured")
 	}

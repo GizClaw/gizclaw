@@ -101,10 +101,8 @@ if [[ "${GIZCLAW_E2E_PROFILING:-}" == "1" ]]; then
   ' "$workspace_dir/config.yaml" > "$workspace_dir/config.yaml.tmp"
   mv "$workspace_dir/config.yaml.tmp" "$workspace_dir/config.yaml"
 fi
-if [[ "${GIZCLAW_E2E_PERSISTENT_KV:-}" == "1" ]]; then
-
-  perl -0pi -e 's/  memory:\n    kind: memory/  memory:\n    kind: badger\n    dir: data\/state.badger/' \
-    "$workspace_dir/config.yaml"
+if [[ "${GIZCLAW_E2E_ADMISSION_ONLY:-}" != "1" ]]; then
+  "$setup_dir/configure-tikv.sh" "$workspace_dir/config.yaml"
 fi
 if [[ "${GIZCLAW_E2E_OBSERVABILITY:-}" == "1" ]]; then
   : "${GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL:?missing GIZCLAW_E2E_METRICS_REMOTE_WRITE_URL}"

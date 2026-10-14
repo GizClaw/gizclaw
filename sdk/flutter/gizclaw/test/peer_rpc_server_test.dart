@@ -2,7 +2,7 @@ import 'dart:typed_data';
 
 import 'package:fixnum/fixnum.dart' as fixnum;
 import 'package:fixnum/fixnum.dart' show Int64;
-import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
+import 'package:gizclaw/src/generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'package:gizclaw/gizclaw.dart';
 import 'package:protobuf/protobuf.dart' show GeneratedMessage;
 import 'package:test/test.dart';

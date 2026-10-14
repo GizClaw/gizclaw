@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: rpc.proto
+// source: gizclaw_rpc.proto
 
 package rpcpb
 
@@ -98,11 +98,11 @@ func (x StatusCode) String() string {
 }
 
 func (StatusCode) Descriptor() protoreflect.EnumDescriptor {
-	return file_rpc_proto_enumTypes[0].Descriptor()
+	return file_gizclaw_rpc_proto_enumTypes[0].Descriptor()
 }
 
 func (StatusCode) Type() protoreflect.EnumType {
-	return &file_rpc_proto_enumTypes[0]
+	return &file_gizclaw_rpc_proto_enumTypes[0]
 }
 
 func (x StatusCode) Number() protoreflect.EnumNumber {
@@ -111,7 +111,7 @@ func (x StatusCode) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use StatusCode.Descriptor instead.
 func (StatusCode) EnumDescriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{0}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{0}
 }
 
 type RpcMethod int32
@@ -414,11 +414,11 @@ func (x RpcMethod) String() string {
 }
 
 func (RpcMethod) Descriptor() protoreflect.EnumDescriptor {
-	return file_rpc_proto_enumTypes[1].Descriptor()
+	return file_gizclaw_rpc_proto_enumTypes[1].Descriptor()
 }
 
 func (RpcMethod) Type() protoreflect.EnumType {
-	return &file_rpc_proto_enumTypes[1]
+	return &file_gizclaw_rpc_proto_enumTypes[1]
 }
 
 func (x RpcMethod) Number() protoreflect.EnumNumber {
@@ -427,7 +427,7 @@ func (x RpcMethod) Number() protoreflect.EnumNumber {
 
 // Deprecated: Use RpcMethod.Descriptor instead.
 func (RpcMethod) EnumDescriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{1}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{1}
 }
 
 type RpcResponse struct {
@@ -444,7 +444,7 @@ type RpcResponse struct {
 
 func (x *RpcResponse) Reset() {
 	*x = RpcResponse{}
-	mi := &file_rpc_proto_msgTypes[0]
+	mi := &file_gizclaw_rpc_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -456,7 +456,7 @@ func (x *RpcResponse) String() string {
 func (*RpcResponse) ProtoMessage() {}
 
 func (x *RpcResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[0]
+	mi := &file_gizclaw_rpc_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -469,7 +469,7 @@ func (x *RpcResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcResponse.ProtoReflect.Descriptor instead.
 func (*RpcResponse) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{0}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *RpcResponse) GetId() string {
@@ -535,7 +535,7 @@ type RpcStreamFrame struct {
 
 func (x *RpcStreamFrame) Reset() {
 	*x = RpcStreamFrame{}
-	mi := &file_rpc_proto_msgTypes[1]
+	mi := &file_gizclaw_rpc_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -547,7 +547,7 @@ func (x *RpcStreamFrame) String() string {
 func (*RpcStreamFrame) ProtoMessage() {}
 
 func (x *RpcStreamFrame) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[1]
+	mi := &file_gizclaw_rpc_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -560,7 +560,7 @@ func (x *RpcStreamFrame) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcStreamFrame.ProtoReflect.Descriptor instead.
 func (*RpcStreamFrame) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{1}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *RpcStreamFrame) GetId() string {
@@ -641,7 +641,7 @@ type RpcStatus struct {
 
 func (x *RpcStatus) Reset() {
 	*x = RpcStatus{}
-	mi := &file_rpc_proto_msgTypes[2]
+	mi := &file_gizclaw_rpc_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -653,7 +653,7 @@ func (x *RpcStatus) String() string {
 func (*RpcStatus) ProtoMessage() {}
 
 func (x *RpcStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[2]
+	mi := &file_gizclaw_rpc_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -666,7 +666,7 @@ func (x *RpcStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcStatus.ProtoReflect.Descriptor instead.
 func (*RpcStatus) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{2}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *RpcStatus) GetCode() StatusCode {
@@ -704,7 +704,7 @@ type ErrorInfo struct {
 
 func (x *ErrorInfo) Reset() {
 	*x = ErrorInfo{}
-	mi := &file_rpc_proto_msgTypes[3]
+	mi := &file_gizclaw_rpc_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -716,7 +716,7 @@ func (x *ErrorInfo) String() string {
 func (*ErrorInfo) ProtoMessage() {}
 
 func (x *ErrorInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[3]
+	mi := &file_gizclaw_rpc_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -729,7 +729,7 @@ func (x *ErrorInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorInfo.ProtoReflect.Descriptor instead.
 func (*ErrorInfo) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{3}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ErrorInfo) GetReason() string {
@@ -754,7 +754,7 @@ type RpcStreamEnd struct {
 
 func (x *RpcStreamEnd) Reset() {
 	*x = RpcStreamEnd{}
-	mi := &file_rpc_proto_msgTypes[4]
+	mi := &file_gizclaw_rpc_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -766,7 +766,7 @@ func (x *RpcStreamEnd) String() string {
 func (*RpcStreamEnd) ProtoMessage() {}
 
 func (x *RpcStreamEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[4]
+	mi := &file_gizclaw_rpc_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -779,7 +779,7 @@ func (x *RpcStreamEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcStreamEnd.ProtoReflect.Descriptor instead.
 func (*RpcStreamEnd) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{4}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{4}
 }
 
 type RpcMethodOptions struct {
@@ -793,7 +793,7 @@ type RpcMethodOptions struct {
 
 func (x *RpcMethodOptions) Reset() {
 	*x = RpcMethodOptions{}
-	mi := &file_rpc_proto_msgTypes[5]
+	mi := &file_gizclaw_rpc_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -805,7 +805,7 @@ func (x *RpcMethodOptions) String() string {
 func (*RpcMethodOptions) ProtoMessage() {}
 
 func (x *RpcMethodOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[5]
+	mi := &file_gizclaw_rpc_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -818,7 +818,7 @@ func (x *RpcMethodOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcMethodOptions.ProtoReflect.Descriptor instead.
 func (*RpcMethodOptions) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{5}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *RpcMethodOptions) GetName() string {
@@ -853,7 +853,7 @@ type RpcRequest struct {
 
 func (x *RpcRequest) Reset() {
 	*x = RpcRequest{}
-	mi := &file_rpc_proto_msgTypes[6]
+	mi := &file_gizclaw_rpc_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -865,7 +865,7 @@ func (x *RpcRequest) String() string {
 func (*RpcRequest) ProtoMessage() {}
 
 func (x *RpcRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_rpc_proto_msgTypes[6]
+	mi := &file_gizclaw_rpc_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -878,7 +878,7 @@ func (x *RpcRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RpcRequest.ProtoReflect.Descriptor instead.
 func (*RpcRequest) Descriptor() ([]byte, []int) {
-	return file_rpc_proto_rawDescGZIP(), []int{6}
+	return file_gizclaw_rpc_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RpcRequest) GetId() string {
@@ -902,28 +902,28 @@ func (x *RpcRequest) GetPayload() []byte {
 	return nil
 }
 
-var file_rpc_proto_extTypes = []protoimpl.ExtensionInfo{
+var file_gizclaw_rpc_proto_extTypes = []protoimpl.ExtensionInfo{
 	{
 		ExtendedType:  (*descriptorpb.EnumValueOptions)(nil),
 		ExtensionType: (*RpcMethodOptions)(nil),
 		Field:         51000,
 		Name:          "gizclaw.rpc.v1.rpc_method",
 		Tag:           "bytes,51000,opt,name=rpc_method",
-		Filename:      "rpc.proto",
+		Filename:      "gizclaw_rpc.proto",
 	},
 }
 
 // Extension fields to descriptorpb.EnumValueOptions.
 var (
 	// optional gizclaw.rpc.v1.RpcMethodOptions rpc_method = 51000;
-	E_RpcMethod = &file_rpc_proto_extTypes[0]
+	E_RpcMethod = &file_gizclaw_rpc_proto_extTypes[0]
 )
 
-var File_rpc_proto protoreflect.FileDescriptor
+var File_gizclaw_rpc_proto protoreflect.FileDescriptor
 
-const file_rpc_proto_rawDesc = "" +
+const file_gizclaw_rpc_proto_rawDesc = "" +
 	"\n" +
-	"\trpc.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"v\n" +
+	"\x11gizclaw_rpc.proto\x12\x0egizclaw.rpc.v1\x1a google/protobuf/descriptor.proto\"v\n" +
 	"\vRpcResponse\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1a\n" +
 	"\apayload\x18\x02 \x01(\fH\x00R\apayload\x123\n" +
@@ -1163,20 +1163,20 @@ const file_rpc_proto_rawDesc = "" +
 	"rpc_method\x12!.google.protobuf.EnumValueOptions\x18\xb8\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.RpcMethodOptionsR\trpcMethodB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
-	file_rpc_proto_rawDescOnce sync.Once
-	file_rpc_proto_rawDescData []byte
+	file_gizclaw_rpc_proto_rawDescOnce sync.Once
+	file_gizclaw_rpc_proto_rawDescData []byte
 )
 
-func file_rpc_proto_rawDescGZIP() []byte {
-	file_rpc_proto_rawDescOnce.Do(func() {
-		file_rpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_rpc_proto_rawDesc), len(file_rpc_proto_rawDesc)))
+func file_gizclaw_rpc_proto_rawDescGZIP() []byte {
+	file_gizclaw_rpc_proto_rawDescOnce.Do(func() {
+		file_gizclaw_rpc_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_gizclaw_rpc_proto_rawDesc), len(file_gizclaw_rpc_proto_rawDesc)))
 	})
-	return file_rpc_proto_rawDescData
+	return file_gizclaw_rpc_proto_rawDescData
 }
 
-var file_rpc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
-var file_rpc_proto_goTypes = []any{
+var file_gizclaw_rpc_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_gizclaw_rpc_proto_msgTypes = make([]protoimpl.MessageInfo, 7)
+var file_gizclaw_rpc_proto_goTypes = []any{
 	(StatusCode)(0),                       // 0: gizclaw.rpc.v1.StatusCode
 	(RpcMethod)(0),                        // 1: gizclaw.rpc.v1.RpcMethod
 	(*RpcResponse)(nil),                   // 2: gizclaw.rpc.v1.RpcResponse
@@ -1188,7 +1188,7 @@ var file_rpc_proto_goTypes = []any{
 	(*RpcRequest)(nil),                    // 8: gizclaw.rpc.v1.RpcRequest
 	(*descriptorpb.EnumValueOptions)(nil), // 9: google.protobuf.EnumValueOptions
 }
-var file_rpc_proto_depIdxs = []int32{
+var file_gizclaw_rpc_proto_depIdxs = []int32{
 	4, // 0: gizclaw.rpc.v1.RpcResponse.status:type_name -> gizclaw.rpc.v1.RpcStatus
 	4, // 1: gizclaw.rpc.v1.RpcStreamFrame.status:type_name -> gizclaw.rpc.v1.RpcStatus
 	6, // 2: gizclaw.rpc.v1.RpcStreamFrame.end:type_name -> gizclaw.rpc.v1.RpcStreamEnd
@@ -1204,38 +1204,38 @@ var file_rpc_proto_depIdxs = []int32{
 	0, // [0:6] is the sub-list for field type_name
 }
 
-func init() { file_rpc_proto_init() }
-func file_rpc_proto_init() {
-	if File_rpc_proto != nil {
+func init() { file_gizclaw_rpc_proto_init() }
+func file_gizclaw_rpc_proto_init() {
+	if File_gizclaw_rpc_proto != nil {
 		return
 	}
-	file_rpc_proto_msgTypes[0].OneofWrappers = []any{
+	file_gizclaw_rpc_proto_msgTypes[0].OneofWrappers = []any{
 		(*RpcResponse_Payload)(nil),
 		(*RpcResponse_Status)(nil),
 	}
-	file_rpc_proto_msgTypes[1].OneofWrappers = []any{
+	file_gizclaw_rpc_proto_msgTypes[1].OneofWrappers = []any{
 		(*RpcStreamFrame_Payload)(nil),
 		(*RpcStreamFrame_Status)(nil),
 		(*RpcStreamFrame_End)(nil),
 	}
-	file_rpc_proto_msgTypes[6].OneofWrappers = []any{}
+	file_gizclaw_rpc_proto_msgTypes[6].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rpc_proto_rawDesc), len(file_rpc_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_gizclaw_rpc_proto_rawDesc), len(file_gizclaw_rpc_proto_rawDesc)),
 			NumEnums:      2,
 			NumMessages:   7,
 			NumExtensions: 1,
 			NumServices:   0,
 		},
-		GoTypes:           file_rpc_proto_goTypes,
-		DependencyIndexes: file_rpc_proto_depIdxs,
-		EnumInfos:         file_rpc_proto_enumTypes,
-		MessageInfos:      file_rpc_proto_msgTypes,
-		ExtensionInfos:    file_rpc_proto_extTypes,
+		GoTypes:           file_gizclaw_rpc_proto_goTypes,
+		DependencyIndexes: file_gizclaw_rpc_proto_depIdxs,
+		EnumInfos:         file_gizclaw_rpc_proto_enumTypes,
+		MessageInfos:      file_gizclaw_rpc_proto_msgTypes,
+		ExtensionInfos:    file_gizclaw_rpc_proto_extTypes,
 	}.Build()
-	File_rpc_proto = out.File
-	file_rpc_proto_goTypes = nil
-	file_rpc_proto_depIdxs = nil
+	File_gizclaw_rpc_proto = out.File
+	file_gizclaw_rpc_proto_goTypes = nil
+	file_gizclaw_rpc_proto_depIdxs = nil
 }

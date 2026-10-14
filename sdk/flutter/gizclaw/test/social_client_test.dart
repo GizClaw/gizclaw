@@ -1,5 +1,5 @@
 import 'package:gizclaw/src/client.dart';
-import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
+import 'package:gizclaw/src/generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
 import 'package:gizclaw/src/payload_codec.dart';
 import 'package:gizclaw/src/rpc_frame.dart';

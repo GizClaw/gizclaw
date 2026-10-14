@@ -11,7 +11,6 @@ export GIZCLAW_E2E_DOCKER_PROJECT="gizclaw-pending-deletion-$project_suffix"
 export GIZCLAW_E2E_DOCKER_ENV="$script_dir/testdata/docker/$GIZCLAW_E2E_DOCKER_PROJECT.env"
 export GIZCLAW_E2E_SYNC_VOLC_TENANT_ID=""
 export GIZCLAW_E2E_PRESERVE_DATA_ON_RESTART=1
-export GIZCLAW_E2E_PERSISTENT_KV=1
 
 # shellcheck source=setup/credentials.sh
 # shellcheck disable=SC1091

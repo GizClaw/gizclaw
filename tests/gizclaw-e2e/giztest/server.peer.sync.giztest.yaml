@@ -120,7 +120,7 @@ steps:
         not_contains: sync-foreign-${resource_name}
     capture:
       initial_checkpoint: /last_event/data/timestamp
-  - id: unchanged_sync
+  - id: resume_checkpoint
     client: controller
     http:
       method: GET
@@ -131,8 +131,10 @@ steps:
         Authorization: Bearer ${device_key}
       status: 200
     expect:
-      /events:
-        count: 1
+      # Native RPC close handshakes can advance runtime traffic counters.
+      # Resume permits that singleton update, never reset or domain changes.
+      /raw:
+        pattern: '^(event: upsert\ndata: [^\n]*"key":"/gizclaw/v1/device/runtime"\}\n\n)?event: done\ndata: [^\n]+\n\n$'
       /last_event/event:
         equals: done
     capture:

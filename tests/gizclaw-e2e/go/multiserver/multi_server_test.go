@@ -3,7 +3,9 @@
 package multiserver_test
 
 import (
+	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -22,8 +24,11 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
-	redis "github.com/redis/go-redis/v9"
+	"github.com/tikv/client-go/v2/config/retry"
+	"github.com/tikv/client-go/v2/oracle"
+	"github.com/tikv/client-go/v2/tikv"
 	_ "modernc.org/sqlite"
 )
 
@@ -34,7 +39,7 @@ func TestSharedAssignmentRoutesAcrossBothEdges(t *testing.T) {
 	edgeB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_EDGE_B"))
 	stateA := requiredEnv(t, "GIZCLAW_E2E_SERVER_A_STATE")
 	stateB := requiredEnv(t, "GIZCLAW_E2E_SERVER_B_STATE")
-	shared := openRedis(t)
+	shared := openSharedTiKV(t)
 	if serverA.PublicKey.Equal(serverB.PublicKey) {
 		t.Fatal("the two Servers use the same identity")
 	}
@@ -99,13 +104,13 @@ func TestSharedAssignmentRoutesAcrossBothEdges(t *testing.T) {
 		t.Fatalf("close Peer C fixed-owner client: %v", err)
 	}
 
-	sharedBeforeForeign := redisSnapshot(t, shared)
+	sharedBeforeForeign := sharedSnapshot(t, shared)
 	serverARunsBeforeForeign := sqlTableSnapshot(t, stateA, "peer_runs")
 	serverBRunsBeforeForeign := sqlTableSnapshot(t, stateB, "peer_runs")
 	connectMustFail(t, peerA, serverB, serverB.PublicKey, "peer A admitted by foreign Server B")
 	connectMustFail(t, peerB, serverA, serverA.PublicKey, "peer B admitted by foreign Server A")
 	connectMustFail(t, peerC, serverA, serverA.PublicKey, "Peer C admitted by foreign Server A")
-	assertSnapshotEqual(t, "shared Redis after foreign admission", sharedBeforeForeign, redisSnapshot(t, shared))
+	assertSnapshotEqual(t, "shared TiKV after foreign admission", sharedBeforeForeign, sharedSnapshot(t, shared))
 	assertSnapshotEqual(t, "Server A PeerRun after foreign admission", serverARunsBeforeForeign, sqlTableSnapshot(t, stateA, "peer_runs"))
 	assertSnapshotEqual(t, "Server B PeerRun after foreign admission", serverBRunsBeforeForeign, sqlTableSnapshot(t, stateB, "peer_runs"))
 
@@ -136,7 +141,7 @@ func TestSharedAssignmentRoutesAcrossBothEdges(t *testing.T) {
 			}
 		})
 	}
-	assertSnapshotEqual(t, "shared Redis after local-only telemetry", sharedBeforeForeign, redisSnapshot(t, shared))
+	assertSnapshotEqual(t, "shared TiKV after local-only telemetry", sharedBeforeForeign, sharedSnapshot(t, shared))
 
 	// A failed foreign admission must not transfer ownership. Reconnect through
 	// the Edge whose bootstrap order starts with the foreign Server.
@@ -203,7 +208,7 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	serverB := fetchServer(t, requiredEnv(t, "GIZCLAW_E2E_SERVER_B"))
 	stateA := requiredEnv(t, "GIZCLAW_E2E_SERVER_A_STATE")
 	stateB := requiredEnv(t, "GIZCLAW_E2E_SERVER_B_STATE")
-	shared := openRedis(t)
+	shared := openSharedTiKV(t)
 	peerA, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -237,7 +242,7 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create Friend invite: %v", err)
 	}
-	sharedBeforeFriend := redisSnapshot(t, shared)
+	sharedBeforeFriend := sharedSnapshot(t, shared)
 	friend, err := clientA.AddFriend(ctx, "friend-add", rpcapi.FriendAddRequest{InviteToken: friendInvite.InviteToken})
 	if err != nil {
 		t.Fatalf("cross-server Friend creation: %v", err)
@@ -248,8 +253,8 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	if friend.WorkspaceName == nil || *friend.WorkspaceName == "" {
 		t.Fatalf("cross-server Friend has no Workspace: %+v", friend)
 	}
-	if snapshotsEqual(sharedBeforeFriend, redisSnapshot(t, shared)) {
-		t.Fatal("shared Redis did not record the cross-server Friend")
+	if snapshotsEqual(sharedBeforeFriend, sharedSnapshot(t, shared)) {
+		t.Fatal("shared TiKV did not record the cross-server Friend")
 	}
 	ownerFriends, err := clientB.ListFriends(ctx, "friend-owner-list", rpcapi.FriendListRequest{})
 	if err != nil {
@@ -297,7 +302,7 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create FriendGroup invite: %v", err)
 	}
-	sharedBeforeJoin := redisSnapshot(t, shared)
+	sharedBeforeJoin := sharedSnapshot(t, shared)
 	joined, err := clientA.JoinFriendGroup(ctx, "friend-group-join", rpcapi.FriendGroupJoinRequest{
 		InviteToken: groupInvite.InviteToken,
 		Name:        "server-b-room",
@@ -308,8 +313,8 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	if joined.Group.WorkspaceName == nil || *joined.Group.WorkspaceName != *group.WorkspaceName {
 		t.Fatalf("FriendGroup Workspace differs across Servers: owner=%q member=%v", *group.WorkspaceName, joined.Group.WorkspaceName)
 	}
-	if snapshotsEqual(sharedBeforeJoin, redisSnapshot(t, shared)) {
-		t.Fatal("shared Redis did not record the cross-server FriendGroup membership")
+	if snapshotsEqual(sharedBeforeJoin, sharedSnapshot(t, shared)) {
+		t.Fatal("shared TiKV did not record the cross-server FriendGroup membership")
 	}
 	groupName := group.Name
 	members, err := clientB.ListFriendGroupMembers(ctx, "friend-group-owner-members", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &groupName})
@@ -336,57 +341,60 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 		t.Fatalf("member FriendGroups = %+v, want one Group with Workspace %q", groups.Items, *group.WorkspaceName)
 	}
 
-	// Social mutations never move PeerRun ownership or leak it into Redis.
+	// Social mutations never move PeerRun ownership or leak it into TiKV.
 	assertPeerRunAbsent(t, stateB, peerA.Public)
 	assertPeerRunAbsent(t, stateA, peerB.Public)
-	for key := range redisSnapshot(t, shared) {
-		if strings.Contains(key, "runs") {
-			t.Fatalf("shared Redis holds PeerRun key %q", key)
+	for key := range sharedSnapshot(t, shared) {
+		if strings.Contains(key, "peer_runs") {
+			t.Fatalf("shared TiKV holds PeerRun key %q", key)
 		}
 	}
 }
 
 type byteSnapshot map[string][]byte
 
-func openRedis(t *testing.T) *redis.Client {
+func openSharedTiKV(t *testing.T) *tikv.KVStore {
 	t.Helper()
-	options, err := redis.ParseURL(requiredEnv(t, "GIZCLAW_E2E_REDIS_DSN"))
+	physical, err := storage.New(map[string]storage.Config{"shared": storage.TiKVConfig{PDAddresses: []string{requiredEnv(t, "GIZCLAW_E2E_TIKV_PD")}}})
 	if err != nil {
-		t.Fatalf("parse Redis E2E DSN: %v", err)
+		t.Fatalf("open isolated shared TiKV: %v", err)
 	}
-	client := redis.NewClient(options)
-	t.Cleanup(func() { _ = client.Close() })
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := client.Ping(ctx).Err(); err != nil {
-		t.Fatalf("ping shared Redis: %v", err)
+	t.Cleanup(func() { _ = physical.Close() })
+	client, _, err := physical.TiKV("shared")
+	if err != nil {
+		t.Fatal(err)
 	}
 	return client
 }
 
-func redisSnapshot(t *testing.T, client *redis.Client) byteSnapshot {
+// The fixture owns the entire TxnKV keyspace. A raw, fresh snapshot verifies
+// that transport and local-only telemetry did not mutate shared persistence.
+func sharedSnapshot(t *testing.T, client *tikv.KVStore) byteSnapshot {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
-	keys := make([]string, 0)
-	iterator := client.Scan(ctx, 0, "*", 0).Iterator()
-	for iterator.Next(ctx) {
-		keys = append(keys, iterator.Val())
+	ts, err := client.GetTimestampWithRetry(retry.NewBackofferWithVars(ctx, 5000, nil), oracle.GlobalTxnScope)
+	if err != nil {
+		t.Fatalf("shared TiKV timestamp: %v", err)
 	}
-	if err := iterator.Err(); err != nil {
-		t.Fatalf("scan shared Redis: %v", err)
+	snapshot := client.GetSnapshot(ts)
+	snapshot.SetKVReadTimeout(5 * time.Second)
+	it, err := snapshot.Iter(nil, nil)
+	if err != nil {
+		t.Fatalf("scan shared TiKV: %v", err)
 	}
-	sort.Strings(keys)
-	snapshot := make(byteSnapshot, len(keys))
-	for _, key := range keys {
-		// DUMP captures strings and collection values without assuming a Redis type.
-		value, err := client.Dump(ctx, key).Bytes()
-		if err != nil {
-			t.Fatalf("read shared Redis snapshot key %q: %v", key, err)
+	defer it.Close()
+	result := make(byteSnapshot)
+	for it.Valid() {
+		if err := ctx.Err(); err != nil {
+			t.Fatal(err)
 		}
-		snapshot[key] = value
+		result[string(it.Key())] = bytes.Clone(it.Value())
+		if err := it.Next(); err != nil {
+			t.Fatalf("read shared TiKV snapshot: %v", err)
+		}
 	}
-	return snapshot
+	return result
 }
 
 func sqlTableSnapshot(t *testing.T, path, table string) byteSnapshot {
@@ -452,12 +460,12 @@ func assertSnapshotEqual(t *testing.T, name string, before, after byteSnapshot) 
 	for key, beforeValue := range before {
 		afterValue, ok := after[key]
 		if !ok || string(beforeValue) != string(afterValue) {
-			changed = append(changed, key)
+			changed = append(changed, fmt.Sprintf("key-sha256:%x", sha256.Sum256([]byte(key))))
 		}
 	}
 	for key := range after {
 		if _, ok := before[key]; !ok {
-			changed = append(changed, key)
+			changed = append(changed, fmt.Sprintf("key-sha256:%x", sha256.Sum256([]byte(key))))
 		}
 	}
 	sort.Strings(changed)

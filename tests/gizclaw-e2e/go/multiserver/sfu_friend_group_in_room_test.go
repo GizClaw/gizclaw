@@ -19,7 +19,7 @@ import (
 // stays online.
 //
 // The file name sorts this test after multi_server_test.go on purpose:
-// deleting the Group queues asynchronous cleanup in the shared Redis, and
+// deleting the Group queues asynchronous cleanup in shared TiKV, and
 // TestSharedAssignmentRoutesAcrossBothEdges requires that store to be
 // quiescent while it compares snapshots.
 func TestFriendGroupMembersReportInRoom(t *testing.T) {

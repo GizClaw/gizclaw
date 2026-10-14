@@ -309,3 +309,50 @@ func TestReadWriteRedisBorrowedClientsDoNotBlockClose(t *testing.T) {
 		}
 	}
 }
+
+func TestReadWriteRedisStrongViews(t *testing.T) {
+	for _, failure := range []string{"reader", "writer"} {
+		t.Run(failure, func(t *testing.T) {
+			f := newReadWriteRedisFixture(t)
+			ctx := t.Context()
+			if err := f.first.Set(ctx, kv.Key{"record"}, []byte("current")); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := f.first.ApplyMutation(ctx, kv.Mutation{AddMembers: []kv.SetMembers{{Key: kv.Key{"set"}, Members: []string{"a"}}}, AddOrderedMembers: []kv.SetMembers{{Key: kv.Key{"ordered"}, Members: []string{"a"}}}}); err != nil {
+				t.Fatal(err)
+			}
+			f.waitForReplica(t)
+			strong := kv.WithStrongReads(f.first)
+			if failure == "reader" {
+				if err := f.read.Close(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := f.first.Get(ctx, kv.Key{"record"}); !errors.Is(err, redis.ErrClosed) {
+					t.Fatalf("ordinary read did not use failed reader: %v", err)
+				}
+				if value, err := strong.Get(ctx, kv.Key{"record"}); err != nil || string(value) != "current" {
+					t.Fatalf("strong Get=%q %v", value, err)
+				}
+				if member, err := strong.HasMember(ctx, kv.Key{"set"}, "a"); err != nil || !member {
+					t.Fatalf("strong HasMember=%v %v", member, err)
+				}
+				if members, err := strong.ListMembers(ctx, kv.Key{"set"}); err != nil || len(members) != 1 {
+					t.Fatalf("strong ListMembers=%v %v", members, err)
+				}
+				if members, err := strong.RangeOrderedMembers(ctx, kv.Key{"ordered"}, kv.OrderedRange{Limit: 1}); err != nil || len(members) != 1 {
+					t.Fatalf("strong RangeOrderedMembers=%v %v", members, err)
+				}
+			} else {
+				if err := f.write.Close(); err != nil {
+					t.Fatal(err)
+				}
+				if _, err := f.first.Get(ctx, kv.Key{"record"}); err != nil {
+					t.Fatalf("ordinary reader is unavailable: %v", err)
+				}
+				if _, err := strong.Get(ctx, kv.Key{"record"}); !errors.Is(err, redis.ErrClosed) {
+					t.Fatalf("strong read fell back to replica: %v", err)
+				}
+			}
+		})
+	}
+}

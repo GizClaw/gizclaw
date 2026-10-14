@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from rpc.proto.
+// Generated from gizclaw_rpc.proto.
 
 // @dart = 3.3
 

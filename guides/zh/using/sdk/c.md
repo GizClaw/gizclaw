@@ -51,6 +51,8 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 
 成员列表的每项带可选的 `online`（Server 本地连接状态）、`last_seen_at`（RFC 3339 UTC；未知或读取失败时省略）与 `in_room`（设备是否正在本 Server 上运行这个群的 Workspace，即是否在群的 SFU Room 里；为 true 时必然在线），add、put、join 返回的成员不带这三个字段。C 使用 `has_online` + `online`、`last_seen_at`（`gzc_str_t`）与 `has_in_room` + `in_room`。
 
+设备侧入站 RPC 的调用方关闭通道后，迟到回复产生的 `GZC_ERR_WEBRTC` 或 `GZC_ERR_CLOSED` 只结束该 RPC。Peer polling 继续处理其他通道；底层 Peer transport 错误以及本地写入 deadline 仍向调用方返回错误。
+
 ### MHS v0 HWD
 
 `gzc_rpc.h` 导出 `payload/mhs_v0.pb.h`。设备 provider 处理 `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE`（133/134）：先解码外层实例 `id`、`ClientHwd`，再按 HWD 解码或编码内层 protobuf payload。wifi、ble、modem、battery、mic 只提供 read；display、led、speaker 提供 read/write。`client.rpc.methods.list` 只列出真实安装的 RPC handler。响应 bytes 在 respond callback 返回前必须保持有效。详细错误与实例约束见 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。

@@ -188,7 +188,8 @@ func fetchServerInfoWithRetry(ctx context.Context, serverURL string) (gizcli.Ser
 // services, and returns once the Peer HTTP service answers. Cancelling ctx
 // stops server-info requests, the WebRTC dial, and the readiness wait; a
 // client that was already dialed is closed. The caller owns the returned
-// client and must Close it.
+// client and must Close it. Readiness probes share a five-second budget,
+// bounded by ctx; Serve exit cancels an in-flight probe.
 func Connect(ctx context.Context, opts Options) (*gizcli.Client, error) {
 	c, serverPK, serverAddr, err := dialOptions(ctx, opts)
 	if err != nil {
@@ -197,32 +198,47 @@ func Connect(ctx context.Context, opts Options) (*gizcli.Client, error) {
 	if err := dialClient(c, serverPK, serverAddr); err != nil {
 		return nil, err
 	}
+	readyCtx, cancelReady := context.WithTimeout(ctx, connectReadyTimeout)
+	defer cancelReady()
 	errCh := make(chan error, 1)
+	serveDone := make(chan struct{})
 	serve := serveClient
 	go func() {
+		defer close(serveDone)
 		errCh <- serve(c)
 	}()
-	deadline := time.Now().Add(connectReadyTimeout)
-	for time.Now().Before(deadline) {
+	// Only the bounded readiness monitor retains readyCtx. The long-lived
+	// Serve worker must not retain the caller's context after Connect returns.
+	go func() {
 		select {
-		case err := <-errCh:
-			_ = c.Close()
-			if err != nil {
-				return nil, err
-			}
-			return nil, fmt.Errorf("gizclaw: client stopped before ready")
-		default:
+		case <-serveDone:
+			cancelReady()
+		case <-readyCtx.Done():
 		}
-		if err := probeReady(ctx, c); err == nil {
+	}()
+	for readyCtx.Err() == nil {
+		if err := probeReady(readyCtx, c); err == nil && readyCtx.Err() == nil {
 			return c, nil
 		}
-		if err := sleepContext(ctx, connectPollInterval); err != nil {
-			_ = c.Close()
-			return nil, err
+		if err := sleepContext(readyCtx, connectPollInterval); err != nil {
+			break
+		}
+	}
+	// Select the readiness error before Close can make Serve return an error
+	// caused by our own cleanup. Caller cancellation keeps its original cause.
+	readyErr := context.Cause(ctx)
+	if readyErr == nil {
+		select {
+		case readyErr = <-errCh:
+			if readyErr == nil {
+				readyErr = fmt.Errorf("gizclaw: client stopped before ready")
+			}
+		default:
+			readyErr = fmt.Errorf("gizclaw: timeout waiting for client readiness: %w", context.Cause(readyCtx))
 		}
 	}
 	_ = c.Close()
-	return nil, fmt.Errorf("gizclaw: timeout waiting for client readiness")
+	return nil, readyErr
 }
 
 func sleepContext(ctx context.Context, delay time.Duration) error {
@@ -243,12 +259,10 @@ func probePeerHTTPReady(ctx context.Context, c *gizcli.Client) error {
 	if c.PeerConn() == nil {
 		return fmt.Errorf("gizclaw: client is not connected")
 	}
-	probeCtx, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
-	defer cancel()
 	api, err := c.PeerHTTPClient()
 	if err != nil {
 		return err
 	}
-	_, err = api.GetServerInfoWithResponse(probeCtx)
+	_, err = api.GetServerInfoWithResponse(ctx)
 	return err
 }

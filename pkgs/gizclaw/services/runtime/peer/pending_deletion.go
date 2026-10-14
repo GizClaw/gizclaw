@@ -7,9 +7,10 @@ import (
 
 const PendingDeletionSourceName = "peer"
 
+// PendingDeletionSource reads Peer deletion tasks through a strong Store view.
 func PendingDeletionSource(store kv.Store) pendingdeletion.KVSource {
 	return pendingdeletion.KVSource{
-		Store: store, SourceName: PendingDeletionSourceName,
+		Store: kv.WithStrongReads(store), SourceName: PendingDeletionSourceName,
 		OwnedKinds: []pendingdeletion.Kind{pendingdeletion.KindPeer},
 	}
 }

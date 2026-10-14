@@ -175,10 +175,9 @@ Future<_StepOutcome> _runStep(
     if (http['response_format'] == 'sse') {
       final text = result.body;
       if (text is! String) throw StateError('SSE response must be text');
-      return _StepOutcome(
-        value: decodeHttpEventStream(text),
-        evidence: evidence,
-      );
+      final projection = decodeHttpEventStream(text);
+      evidence['sse_events'] = summarizeHttpEventStream(projection);
+      return _StepOutcome(value: projection, evidence: evidence);
     }
     return _StepOutcome(value: result.body, evidence: evidence);
   }

@@ -123,7 +123,7 @@ profiling:
 		t.Fatalf("monitor.token = %q", cfg.Monitor.Token)
 	}
 	// Mapping keys stay literal; a "$" inside an expanded value is not expanded again.
-	if got := cfg.Storage["${T_KIND}"]; got != (storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "postgres://gizclaw:pa$word@db:5432/gizclaw"}) {
+	if got := cfg.Storage["${T_KIND}"]; !reflect.DeepEqual(got, storageFileConfig{Kind: storage.KindPostgreSQL, DSN: "postgres://gizclaw:pa$word@db:5432/gizclaw"}) {
 		t.Fatalf("storage = %+v", cfg.Storage)
 	}
 	if got := cfg.Stores["logs"]; got != (storeFileConfig{Kind: "log", Storage: "postgresql", TopicID: "007"}) {

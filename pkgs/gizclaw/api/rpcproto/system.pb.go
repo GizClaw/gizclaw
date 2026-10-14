@@ -3673,7 +3673,7 @@ var File_payload_system_proto protoreflect.FileDescriptor
 
 const file_payload_system_proto_rawDesc = "" +
 	"\n" +
-	"\x14payload/system.proto\x12\x0egizclaw.rpc.v1\x1a\x19payload/audioplayer.proto\x1a\trpc.proto\x1a\x14payload/mhs_v0.proto\"\x1d\n" +
+	"\x14payload/system.proto\x12\x0egizclaw.rpc.v1\x1a\x19payload/audioplayer.proto\x1a\x11gizclaw_rpc.proto\x1a\x14payload/mhs_v0.proto\"\x1d\n" +
 	"\x1bClientGetIdentifiersRequest\"W\n" +
 	"\x1cClientGetIdentifiersResponse\x127\n" +
 	"\x05value\x18\x01 \x01(\v2!.gizclaw.rpc.v1.DeviceIdentifiersR\x05value\"\x16\n" +
@@ -4109,7 +4109,7 @@ func file_payload_system_proto_init() {
 		return
 	}
 	file_payload_audioplayer_proto_init()
-	file_rpc_proto_init()
+	file_gizclaw_rpc_proto_init()
 	file_payload_mhs_v0_proto_init()
 	file_payload_system_proto_msgTypes[6].OneofWrappers = []any{}
 	file_payload_system_proto_msgTypes[8].OneofWrappers = []any{}

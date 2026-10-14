@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -24,9 +24,9 @@ const DefaultHistoryTable = "gizclaw_history"
 type SQLHistoryStore struct {
 	db       *sqlx.DB
 	tx       *sqlx.Tx
-	table    storage.SQLTable
-	keys     storage.SQLTable
-	assets   storage.SQLTable
+	table    sqlmeta.SQLTable
+	keys     sqlmeta.SQLTable
+	assets   sqlmeta.SQLTable
 	ttl      time.Duration
 	prepared *sync.Map
 }
@@ -38,26 +38,26 @@ func NewSQLHistoryStore(ctx context.Context, db *sqlx.DB, table string, ttl time
 	if ttl < 0 {
 		return nil, fmt.Errorf("%w: history retention must not be negative", ErrInvalidInput)
 	}
-	parent, err := storage.PrepareSQLTable(db, "sql", table)
+	parent, err := sqlmeta.PrepareSQLTable(db, "sql", table)
 	if err != nil {
 		return nil, err
 	}
-	if parent.Dialect() == storage.SQLDialectPostgreSQL && ttl == 0 {
+	if parent.Dialect() == sqlmeta.SQLDialectPostgreSQL && ttl == 0 {
 		return nil, fmt.Errorf("%w: PostgreSQL history requires positive retention", ErrInvalidInput)
 	}
-	keysName, err := storage.SQLIndexName(parent, "history_keys")
+	keysName, err := sqlmeta.SQLIndexName(parent, "history_keys")
 	if err != nil {
 		return nil, err
 	}
-	assetsName, err := storage.SQLIndexName(parent, "history_assets")
+	assetsName, err := sqlmeta.SQLIndexName(parent, "history_assets")
 	if err != nil {
 		return nil, err
 	}
-	keys, err := storage.PrepareSQLTable(db, "sql", keysName)
+	keys, err := sqlmeta.PrepareSQLTable(db, "sql", keysName)
 	if err != nil {
 		return nil, err
 	}
-	assets, err := storage.PrepareSQLTable(db, "sql", assetsName)
+	assets, err := sqlmeta.PrepareSQLTable(db, "sql", assetsName)
 	if err != nil {
 		return nil, err
 	}
@@ -91,16 +91,16 @@ func (store *SQLHistoryStore) executor() sqlx.ExtContext {
 
 func (store *SQLHistoryStore) initialize(ctx context.Context) error {
 	partition, primaryKey, nullable := "", "conversation_id,id", ""
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		partition = " PARTITION BY RANGE (expires_at_unix_nano)"
 		primaryKey += ",expires_at_unix_nano"
 		nullable = " NOT NULL"
 	}
-	index, err := storage.SQLIndexName(store.table, "conversation_page_idx")
+	index, err := sqlmeta.SQLIndexName(store.table, "conversation_page_idx")
 	if err != nil {
 		return err
 	}
-	expiryIndex, err := storage.SQLIndexName(store.keys, "expiry_idx")
+	expiryIndex, err := sqlmeta.SQLIndexName(store.keys, "expiry_idx")
 	if err != nil {
 		return err
 	}
@@ -111,43 +111,43 @@ func (store *SQLHistoryStore) initialize(ctx context.Context) error {
 		"CREATE TABLE IF NOT EXISTS " + store.assets.Quoted() + " (conversation_id TEXT NOT NULL,id TEXT NOT NULL,position BIGINT NOT NULL,name TEXT NOT NULL,mime_type TEXT NOT NULL,bytes BIGINT NOT NULL,expires_at_unix_nano BIGINT,PRIMARY KEY(conversation_id,id,position))",
 		"CREATE INDEX IF NOT EXISTS \"" + expiryIndex + "\" ON " + store.keys.Quoted() + " (expires_at_unix_nano)",
 	}
-	if err := storage.EnsureSQLTable(ctx, store.db, store.table, statements...); err != nil {
+	if err := sqlmeta.EnsureSQLTable(ctx, store.db, store.table, statements...); err != nil {
 		return err
 	}
-	columns, err := storage.SQLColumns(ctx, store.db, store.table)
+	columns, err := sqlmeta.SQLColumns(ctx, store.db, store.table)
 	if err != nil {
 		return err
 	}
-	want := map[string]storage.SQLColumn{}
+	want := map[string]sqlmeta.SQLColumn{}
 	for _, column := range []string{"conversation_id", "id", "turn_id", "role", "actor_id", "origin", "actor_name", "text"} {
-		want[column] = storage.SQLColumn{Type: "TEXT", Nullable: false}
+		want[column] = sqlmeta.SQLColumn{Type: "TEXT", Nullable: false}
 	}
-	want["conversation_id"] = storage.SQLColumn{Type: "TEXT", PrimaryKeyPosition: 1}
-	want["id"] = storage.SQLColumn{Type: "TEXT", PrimaryKeyPosition: 2}
-	want["created_at_unix_nano"] = storage.SQLColumn{Type: "BIGINT"}
-	want["interrupted"] = storage.SQLColumn{Type: "BIGINT"}
-	want["expires_at_unix_nano"] = storage.SQLColumn{Type: "BIGINT", Nullable: nullable == ""}
+	want["conversation_id"] = sqlmeta.SQLColumn{Type: "TEXT", PrimaryKeyPosition: 1}
+	want["id"] = sqlmeta.SQLColumn{Type: "TEXT", PrimaryKeyPosition: 2}
+	want["created_at_unix_nano"] = sqlmeta.SQLColumn{Type: "BIGINT"}
+	want["interrupted"] = sqlmeta.SQLColumn{Type: "BIGINT"}
+	want["expires_at_unix_nano"] = sqlmeta.SQLColumn{Type: "BIGINT", Nullable: nullable == ""}
 	if partition != "" {
-		want["expires_at_unix_nano"] = storage.SQLColumn{Type: "BIGINT", PrimaryKeyPosition: 3}
+		want["expires_at_unix_nano"] = sqlmeta.SQLColumn{Type: "BIGINT", PrimaryKeyPosition: 3}
 	}
-	if err := storage.ValidateSQLColumns(columns, want); err != nil {
+	if err := sqlmeta.ValidateSQLColumns(columns, want); err != nil {
 		return fmt.Errorf("history: incompatible message table: %w", err)
 	}
-	if err := storage.ValidateSQLIndexColumns(ctx, store.db, store.table, index, []string{"conversation_id", "created_at_unix_nano", "id"}); err != nil {
+	if err := sqlmeta.ValidateSQLIndexColumns(ctx, store.db, store.table, index, []string{"conversation_id", "created_at_unix_nano", "id"}); err != nil {
 		return err
 	}
-	keyColumns, err := storage.SQLColumns(ctx, store.db, store.keys)
+	keyColumns, err := sqlmeta.SQLColumns(ctx, store.db, store.keys)
 	if err != nil {
 		return err
 	}
-	if err := storage.ValidateSQLColumns(keyColumns, map[string]storage.SQLColumn{"conversation_id": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2}, "expires_at_unix_nano": {Type: "BIGINT", Nullable: nullable == ""}}); err != nil {
+	if err := sqlmeta.ValidateSQLColumns(keyColumns, map[string]sqlmeta.SQLColumn{"conversation_id": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2}, "expires_at_unix_nano": {Type: "BIGINT", Nullable: nullable == ""}}); err != nil {
 		return fmt.Errorf("history: incompatible identity table: %w", err)
 	}
-	assetColumns, err := storage.SQLColumns(ctx, store.db, store.assets)
+	assetColumns, err := sqlmeta.SQLColumns(ctx, store.db, store.assets)
 	if err != nil {
 		return err
 	}
-	if err := storage.ValidateSQLColumns(assetColumns, map[string]storage.SQLColumn{"conversation_id": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2}, "position": {Type: "BIGINT", PrimaryKeyPosition: 3}, "name": {Type: "TEXT"}, "mime_type": {Type: "TEXT"}, "bytes": {Type: "BIGINT"}, "expires_at_unix_nano": {Type: "BIGINT", Nullable: true}}); err != nil {
+	if err := sqlmeta.ValidateSQLColumns(assetColumns, map[string]sqlmeta.SQLColumn{"conversation_id": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2}, "position": {Type: "BIGINT", PrimaryKeyPosition: 3}, "name": {Type: "TEXT"}, "mime_type": {Type: "TEXT"}, "bytes": {Type: "BIGINT"}, "expires_at_unix_nano": {Type: "BIGINT", Nullable: true}}); err != nil {
 		return fmt.Errorf("history: incompatible asset table: %w", err)
 	}
 	if partition != "" {
@@ -157,7 +157,7 @@ func (store *SQLHistoryStore) initialize(ctx context.Context) error {
 }
 
 func historyNano(at time.Time) (int64, error) {
-	return storage.SQLUnixNano(at.UTC())
+	return sqlmeta.SQLUnixNano(at.UTC())
 }
 
 func historyExpiration(at *time.Time) any {
@@ -221,13 +221,13 @@ func (store *SQLHistoryStore) Append(ctx context.Context, entries []HistoryEntry
 		var err error
 		tx, err = store.db.BeginTxx(ctx, nil)
 		if err != nil {
-			return storage.ExternalSQLError("history: begin append", err)
+			return sqlmeta.ExternalSQLError("history: begin append", err)
 		}
 		defer tx.Rollback()
 	}
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		if _, err := tx.ExecContext(ctx, "LOCK TABLE ONLY "+store.table.Quoted()+" IN ROW EXCLUSIVE MODE"); err != nil {
-			return storage.ExternalSQLError("history: protect append parent", err)
+			return sqlmeta.ExternalSQLError("history: protect append parent", err)
 		}
 	}
 	for _, entry := range prepared {
@@ -236,7 +236,7 @@ func (store *SQLHistoryStore) Append(ctx context.Context, entries []HistoryEntry
 		}
 	}
 	if store.tx == nil {
-		return storage.ExternalSQLError("history: commit append", tx.Commit())
+		return sqlmeta.ExternalSQLError("history: commit append", tx.Commit())
 	}
 	return nil
 }
@@ -248,7 +248,7 @@ func (store *SQLHistoryStore) appendEntry(ctx context.Context, tx *sqlx.Tx, entr
 		if errors.As(err, &state) && state.SQLState() == "23505" || strings.Contains(err.Error(), "UNIQUE constraint failed") {
 			return fmt.Errorf("%w: history message already exists", ErrConflict)
 		}
-		return storage.ExternalSQLError("history: reserve message identity", err)
+		return sqlmeta.ExternalSQLError("history: reserve message identity", err)
 	}
 	interrupted := 0
 	if entry.Interrupted {
@@ -256,12 +256,12 @@ func (store *SQLHistoryStore) appendEntry(ctx context.Context, tx *sqlx.Tx, entr
 	}
 	_, err = tx.ExecContext(ctx, tx.Rebind("INSERT INTO "+store.table.Quoted()+" (conversation_id,id,turn_id,role,actor_id,origin,actor_name,text,created_at_unix_nano,expires_at_unix_nano,interrupted) VALUES (?,?,?,?,?,?,?,?,?,?,?)"), entry.ConversationID, entry.ID, entry.TurnID, string(entry.Role), entry.ActorID, entry.Origin, entry.Name, entry.Text, entry.CreatedAt.UTC().UnixNano(), historyExpiration(entry.ExpiresAt), interrupted)
 	if err != nil {
-		return storage.ExternalSQLError("history: append message", err)
+		return sqlmeta.ExternalSQLError("history: append message", err)
 	}
 	for position, asset := range entry.Assets {
 		_, err := tx.ExecContext(ctx, tx.Rebind("INSERT INTO "+store.assets.Quoted()+" (conversation_id,id,position,name,mime_type,bytes,expires_at_unix_nano) VALUES (?,?,?,?,?,?,?)"), entry.ConversationID, entry.ID, position, asset.Name, asset.MIMEType, asset.Bytes, historyExpiration(asset.ExpiresAt))
 		if err != nil {
-			return storage.ExternalSQLError("history: append asset reference", err)
+			return sqlmeta.ExternalSQLError("history: append asset reference", err)
 		}
 	}
 	return nil
@@ -291,7 +291,7 @@ func (store *SQLHistoryStore) Query(ctx context.Context, query HistoryQuery) (Hi
 	}
 	if query.Text != "" {
 		predicate := "instr(text, ?) > 0"
-		if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+		if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 			predicate = "strpos(text, ?) > 0"
 		}
 		where = append(where, predicate)
@@ -341,7 +341,7 @@ func (store *SQLHistoryStore) read(ctx context.Context, statement string, args .
 	executor := store.executor()
 	rows, err := executor.QueryContext(ctx, store.db.Rebind(statement), args...)
 	if err != nil {
-		return nil, storage.ExternalSQLError("history: query messages", err)
+		return nil, sqlmeta.ExternalSQLError("history: query messages", err)
 	}
 	var entries []HistoryEntry
 	for rows.Next() {
@@ -350,7 +350,7 @@ func (store *SQLHistoryStore) read(ctx context.Context, statement string, args .
 		var expiration sql.NullInt64
 		if err := rows.Scan(&entry.ConversationID, &entry.ID, &entry.TurnID, &entry.Role, &entry.ActorID, &entry.Origin, &entry.Name, &entry.Text, &created, &expiration, &interrupted); err != nil {
 			rows.Close()
-			return nil, storage.ExternalSQLError("history: decode message", err)
+			return nil, sqlmeta.ExternalSQLError("history: decode message", err)
 		}
 		entry.CreatedAt = time.Unix(0, created).UTC()
 		entry.ExpiresAt = historyTime(expiration)
@@ -363,7 +363,7 @@ func (store *SQLHistoryStore) read(ctx context.Context, statement string, args .
 	}
 	if err := rows.Err(); err != nil {
 		rows.Close()
-		return nil, storage.ExternalSQLError("history: read messages", err)
+		return nil, sqlmeta.ExternalSQLError("history: read messages", err)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -381,7 +381,7 @@ func (store *SQLHistoryStore) read(ctx context.Context, statement string, args .
 	assetArgs := append([]any{entries[0].ConversationID}, ids...)
 	assetRows, err := executor.QueryContext(ctx, store.db.Rebind("SELECT id,name,mime_type,bytes,expires_at_unix_nano FROM "+store.assets.Quoted()+" WHERE conversation_id=? AND id IN ("+placeholders+") ORDER BY id,position"), assetArgs...)
 	if err != nil {
-		return nil, storage.ExternalSQLError("history: query assets", err)
+		return nil, sqlmeta.ExternalSQLError("history: query assets", err)
 	}
 	defer assetRows.Close()
 	for assetRows.Next() {
@@ -389,13 +389,13 @@ func (store *SQLHistoryStore) read(ctx context.Context, statement string, args .
 		var asset HistoryAsset
 		var expiration sql.NullInt64
 		if err := assetRows.Scan(&id, &asset.Name, &asset.MIMEType, &asset.Bytes, &expiration); err != nil {
-			return nil, storage.ExternalSQLError("history: decode asset", err)
+			return nil, sqlmeta.ExternalSQLError("history: decode asset", err)
 		}
 		asset.ExpiresAt = historyTime(expiration)
 		index := positions[id]
 		entries[index].Assets = append(entries[index].Assets, asset)
 	}
-	return entries, storage.ExternalSQLError("history: read assets", assetRows.Err())
+	return entries, sqlmeta.ExternalSQLError("history: read assets", assetRows.Err())
 }
 
 // Get reads an exact, unexpired message key.
@@ -428,19 +428,19 @@ func (store *SQLHistoryStore) Delete(ctx context.Context, key HistoryKey) error 
 		}
 		defer tx.Rollback()
 	}
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		if _, err := tx.ExecContext(ctx, "LOCK TABLE ONLY "+store.table.Quoted()+" IN ROW EXCLUSIVE MODE"); err != nil {
-			return storage.ExternalSQLError("history: protect deletion parent", err)
+			return sqlmeta.ExternalSQLError("history: protect deletion parent", err)
 		}
 	}
-	for _, table := range []storage.SQLTable{store.assets, store.table} {
+	for _, table := range []sqlmeta.SQLTable{store.assets, store.table} {
 		if _, err := tx.ExecContext(ctx, tx.Rebind("DELETE FROM "+table.Quoted()+" WHERE conversation_id=? AND id=?"), key.ConversationID, key.ID); err != nil {
-			return storage.ExternalSQLError("history: delete message data", err)
+			return sqlmeta.ExternalSQLError("history: delete message data", err)
 		}
 	}
 	result, err := tx.ExecContext(ctx, tx.Rebind("DELETE FROM "+store.keys.Quoted()+" WHERE conversation_id=? AND id=?"), key.ConversationID, key.ID)
 	if err != nil {
-		return storage.ExternalSQLError("history: delete message identity", err)
+		return sqlmeta.ExternalSQLError("history: delete message identity", err)
 	}
 	count, err := result.RowsAffected()
 	if err != nil {
@@ -450,7 +450,7 @@ func (store *SQLHistoryStore) Delete(ctx context.Context, key HistoryKey) error 
 		return ErrNotFound
 	}
 	if store.tx == nil {
-		return storage.ExternalSQLError("history: commit deletion", tx.Commit())
+		return sqlmeta.ExternalSQLError("history: commit deletion", tx.Commit())
 	}
 	return nil
 }
@@ -464,13 +464,13 @@ func (store *SQLHistoryStore) Maintain(ctx context.Context) error {
 		return err
 	}
 	defer tx.Rollback()
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		if err := store.maintainPartman(ctx, tx); err != nil {
 			return err
 		}
 	}
 	now := time.Now().UTC().UnixNano()
-	if store.table.Dialect() == storage.SQLDialectSQLite {
+	if store.table.Dialect() == sqlmeta.SQLDialectSQLite {
 		if _, err := tx.ExecContext(ctx, "DELETE FROM "+store.table.Quoted()+" WHERE expires_at_unix_nano <= ?", now); err != nil {
 			return err
 		}
@@ -478,5 +478,5 @@ func (store *SQLHistoryStore) Maintain(ctx context.Context) error {
 	if _, err := tx.ExecContext(ctx, tx.Rebind("DELETE FROM "+store.keys.Quoted()+" WHERE expires_at_unix_nano <= ? AND NOT EXISTS (SELECT 1 FROM "+store.assets.Quoted()+" a WHERE a.conversation_id="+store.keys.Quoted()+".conversation_id AND a.id="+store.keys.Quoted()+".id)"), now); err != nil {
 		return err
 	}
-	return storage.ExternalSQLError("history: commit retention", tx.Commit())
+	return sqlmeta.ExternalSQLError("history: commit retention", tx.Commit())
 }

@@ -34,7 +34,7 @@ void main() {
     '--plugin=protoc-gen-dart=${_protocGenDart(package)}',
     '--dart_out=$outDir',
     '--descriptor_set_out=$descriptorSet',
-    '$repo/api/proto/rpc/rpc.proto',
+    '$repo/api/proto/rpc/gizclaw_rpc.proto',
     ...payloadFiles,
   ];
   final result = Process.runSync('protoc', protocArgs);
@@ -50,11 +50,11 @@ void main() {
   _writePayloadBarrels(outDir, payloadFiles);
 
   final methods = _parseRpcMethods(
-    File('$repo/api/proto/rpc/rpc.proto').readAsStringSync(),
+    File('$repo/api/proto/rpc/gizclaw_rpc.proto').readAsStringSync(),
   );
   if (methods.isEmpty) {
     throw StateError(
-      'api/proto/rpc/rpc.proto did not define any rpc_method values',
+      'api/proto/rpc/gizclaw_rpc.proto did not define any rpc_method values',
     );
   }
   final tools = _parseRpcMethods(

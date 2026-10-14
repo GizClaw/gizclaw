@@ -605,3 +605,7 @@ Use `next_cursor` with the same filters to advance in bounded pages. The cursor 
 Retry `peer_home_mismatch` on the fixed home Server without reassigning its route. Repair specific transient SQL, Social, Memory or object-service failures before retry. Unknown home, missing Peer records, actual generation changes, legacy regional ambiguity and Social replicas without completion evidence remain fenced; this command has no force-complete or dependency-skip mode. A queued response or CLI exit zero does not prove business deletion.
 
 Domain completion removes exact task, marker, locator, plan and task-index entries. Permanent Peer tombstones, API Key retired fences, fixed routes, local PeerRun diagnostic rows and unrelated/global resources remain. Deployment and production execution are separate operations.
+
+## Offline Redis KV migration to TiKV
+
+`gizclaw kv-migrate <dir> --source redis-old --target tikv` imports logical Store prefixes from the workspace and verifies both directions. Stop all source/destination writers, run `--dry-run`, import and `--verify-only`, then change Store bindings and restore service only after verification succeeds. See [offline KV migration](../developing/stores/kv#redis-tikv-migration) for supported types, TTLs, retries, conflicts and rollback boundaries.

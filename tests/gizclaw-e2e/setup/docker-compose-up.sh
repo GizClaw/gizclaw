@@ -767,6 +767,9 @@ source "$script_dir/docker-base.sh"
 base_image=""
 build_gizclaw_e2e_base "$repo_root" "$docker_platform"
 export GIZCLAW_E2E_DOCKER_BASE_IMAGE="$base_image"
+if [[ "$stack_mode" != admission ]]; then
+  bash "$script_dir/prepare-tikv.sh"
+fi
 
 mem0_selected=0
 if [[ "$stack_mode" != "admission" && "$topology_mode" == "full" ]]; then mem0_selected=1; fi
@@ -801,6 +804,10 @@ fi
 if [[ "$stack_mode" == "observability" ]]; then
   compose_files+=(-f "$observability_compose_file")
 fi
+if [[ "$stack_mode" != admission ]]; then
+  docker compose -p "$GIZCLAW_E2E_DOCKER_PROJECT" "${compose_files[@]}" build tikv-init tikv-replication-proxy
+fi
+
 if [[ "$topology_mode" == "gateway-capacity" || "$topology_mode" == "gateway-capacity-direct" || "$topology_mode" == "gateway-native-channels-2048" || "$topology_mode" == "gateway-relay-recovery" ]]; then
   compose_files+=(-f "$gateway_relay_compose_file")
 fi
