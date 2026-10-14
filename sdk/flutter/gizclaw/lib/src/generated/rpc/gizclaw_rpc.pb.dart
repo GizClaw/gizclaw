@@ -1,6 +1,6 @@
 // This is a generated file - do not edit.
 //
-// Generated from rpc.proto.
+// Generated from gizclaw_rpc.proto.
 
 // @dart = 3.3
 
@@ -14,11 +14,11 @@ import 'dart:core' as $core;
 
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import 'rpc.pbenum.dart';
+import 'gizclaw_rpc.pbenum.dart';
 
 export 'package:protobuf/protobuf.dart' show GeneratedMessageGenericExtensions;
 
-export 'rpc.pbenum.dart';
+export 'gizclaw_rpc.pbenum.dart';
 
 enum RpcResponse_Body { payload, status, notSet }
 
@@ -583,7 +583,7 @@ class RpcRequest extends $pb.GeneratedMessage {
   void clearPayload() => $_clearField(3);
 }
 
-class Rpc {
+class Gizclaw_rpc {
   static final rpcMethod = $pb.Extension<RpcMethodOptions>(
       _omitMessageNames ? '' : 'google.protobuf.EnumValueOptions',
       _omitFieldNames ? '' : 'rpcMethod',

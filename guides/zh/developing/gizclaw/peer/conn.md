@@ -67,7 +67,7 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 在启动任何 RPC、HTTP、packet 或 audio loop 前，`PeerConn` 先绑定 Event Stream，
 再原子确保 durable Peer generation 并把准确 connection 发布到 `Manager`，因此
 不存在“Peer 已 online 但没有 Event transport”的窗口，立即到达的
-`server.register` 也不会早于 connection activation。`server.peer.delete` 开始时，准确的 connection 会进入 retiring，其 Manager 条目会在 durable mutation 前进入 deleting。该 public key 的新工作、registration 与 replacement activation 会被拒绝，但 store 操作不会阻塞其他 Peer。mutation 成功后只条件摘除同一 generation；失败时也只在它仍是 current generation 时恢复。当前删除 RPC 的 transport 会保留到 acknowledgement 与 EOS 写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。
+`server.register` 也不会早于 connection activation。`server.peer.delete` 开始时，准确的 connection 会进入 retiring，其 Manager 条目会在 durable mutation 前进入 deleting。该 public key 的新工作、registration 与 replacement activation 会被拒绝，但 store 操作不会阻塞其他 Peer。mutation 成功后只条件摘除同一 generation；失败时也只在它仍是 current generation 时恢复。retiring 期间继续消费并丢弃迟到的 Event 与 direct audio packet；输入路径不会因退休围栏提前关闭 mandatory Event transport，完整 association 的关闭由删除 RPC 的 terminal callback 持有。当前删除 RPC 的 transport 会保留到 acknowledgement 与 EOS 写入尝试结束；无论 response 或 EOS 写入是否成功，terminal action 都会关闭完整 Giznet connection。
 
 下行 encoder 是 `ApplicationAudio` 下的 16kHz mono libopus encoder，complexity 固定为 2。Server 为每条连接的 Peer 各编码一路；complexity 不可配置，也不随负载调整。
 
@@ -78,6 +78,8 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。
 
 `PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing，以及 SFU passthrough 下行：带 `agenthost.OpusPassthroughMIME` 的 chunk 由 `peerAgentOutput` 在 mixer 之前认领，payload 原样、按收到的节奏写入 Device Opus Track，不解码、不混音、不走 pacer；mixer 出口与 passthrough 共用一把写锁串行写 Track。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期（passthrough route 的 BOS/EOS 也经同一 aggregator 成对发出），因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
+
+输出聚合器最多保留 64 个已完成 audio MIME route 的 identity。Peer 已收到 EOS、producer 尚未收到交付确认时，下一轮输入可能触发旧 route 的迟到 interruption EOS；该终态不重复下发，也不终止新一轮 runtime。普通重复 EOS、未知 route 的 EOS 和不匹配的 MIME 仍然报错。
 
 Agent input runtime 替换时，Realtime Source 把已捕获的旧 user-audio route 交给
 `PeerConn`。`PeerConn` 在 `inputAccessMu` 内只删除匹配旧 ID 的

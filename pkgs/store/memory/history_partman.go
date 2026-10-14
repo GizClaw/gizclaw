@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
 func (store *SQLHistoryStore) partmanParent(ctx context.Context, tx *sqlx.Tx) (string, error) {
 	var schema string
 	if err := tx.GetContext(ctx, &schema, "SELECT current_schema()"); err != nil {
-		return "", storage.ExternalSQLError("history: resolve partition schema", err)
+		return "", sqlmeta.ExternalSQLError("history: resolve partition schema", err)
 	}
-	if err := storage.ValidateSQLIdentifier(schema); err != nil {
+	if err := sqlmeta.ValidateSQLIdentifier(schema); err != nil {
 		return "", err
 	}
 	return schema + "." + store.table.Name(), nil
@@ -26,7 +26,7 @@ func (store *SQLHistoryStore) initializePartman(ctx context.Context) error {
 		return err
 	}
 	defer tx.Rollback()
-	if err := storage.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
+	if err := sqlmeta.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
 		return err
 	}
 	for _, operation := range []string{"run_maintenance", "drop_partition_time"} {
@@ -50,18 +50,18 @@ func (store *SQLHistoryStore) initializePartman(ctx context.Context) error {
 	}
 	var registered bool
 	if err := tx.GetContext(ctx, &registered, "SELECT EXISTS(SELECT 1 FROM partman.part_config WHERE parent_table=$1)", parent); err != nil {
-		return storage.ExternalSQLError("history: inspect pg_partman registration", err)
+		return sqlmeta.ExternalSQLError("history: inspect pg_partman registration", err)
 	}
 	if !registered {
 		if _, err := tx.ExecContext(ctx, "SELECT partman.create_parent($1, 'expires_at_unix_nano', '1 day', p_epoch := 'nanoseconds', p_premake := 2, p_start_partition := $2, p_default_table := false, p_jobmon := false)", parent, time.Now().UTC().Truncate(24*time.Hour).Format(time.RFC3339)); err != nil {
-			return storage.ExternalSQLError("history: register pg_partman parent", err)
+			return sqlmeta.ExternalSQLError("history: register pg_partman parent", err)
 		}
 	}
 	// The partition key is already the exact expiration timestamp. Adding the
 	// message retention window again here would retain expired content twice.
 	result, err := tx.ExecContext(ctx, "UPDATE partman.part_config SET retention='0 seconds',retention_keep_table=false,infinite_time_partitions=true,inherit_privileges=true WHERE parent_table=$1 AND control='expires_at_unix_nano' AND epoch='nanoseconds' AND partition_interval='1 day'", parent)
 	if err != nil {
-		return storage.ExternalSQLError("history: configure pg_partman retention", err)
+		return sqlmeta.ExternalSQLError("history: configure pg_partman retention", err)
 	}
 	count, err := result.RowsAffected()
 	if err != nil || count != 1 {
@@ -78,7 +78,7 @@ func (store *SQLHistoryStore) initializePartman(ctx context.Context) error {
 		return err
 	}
 	if err := tx.Commit(); err != nil {
-		return storage.ExternalSQLError("history: commit pg_partman initialization", err)
+		return sqlmeta.ExternalSQLError("history: commit pg_partman initialization", err)
 	}
 	day := time.Now().UTC().Add(store.ttl).Truncate(24 * time.Hour)
 	store.prepared.Store(day, struct{}{})
@@ -87,7 +87,7 @@ func (store *SQLHistoryStore) initializePartman(ctx context.Context) error {
 }
 
 func (store *SQLHistoryStore) preparePartitions(ctx context.Context, entries []HistoryEntry) error {
-	if store.table.Dialect() != storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() != sqlmeta.SQLDialectPostgreSQL {
 		return nil
 	}
 	days := make(map[time.Time]struct{})
@@ -116,7 +116,7 @@ func (store *SQLHistoryStore) preparePartitions(ctx context.Context, entries []H
 		}
 		defer tx.Rollback()
 	}
-	if err := storage.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
+	if err := sqlmeta.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
 		return err
 	}
 	if store.tx == nil {
@@ -153,7 +153,7 @@ func (store *SQLHistoryStore) preparePartmanDays(ctx context.Context, tx *sqlx.T
 	for _, at := range days {
 		for _, day := range []time.Time{at.UTC().Truncate(24 * time.Hour), at.UTC().Truncate(24*time.Hour).AddDate(0, 0, 1)} {
 			if _, err := tx.ExecContext(ctx, "SELECT partman.create_partition_time($1, ARRAY[$2]::timestamptz[])", parent, day); err != nil {
-				return storage.ExternalSQLError("history: prepare expiration partition", err)
+				return sqlmeta.ExternalSQLError("history: prepare expiration partition", err)
 			}
 		}
 	}
@@ -164,7 +164,7 @@ func (store *SQLHistoryStore) maintainPartman(ctx context.Context, tx *sqlx.Tx) 
 	if _, err := tx.ExecContext(ctx, "SET LOCAL TIME ZONE 'UTC'"); err != nil {
 		return err
 	}
-	if err := storage.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
+	if err := sqlmeta.LockPostgreSQLTable(ctx, tx, store.table); err != nil {
 		return err
 	}
 	for _, operation := range []string{"run_maintenance", "drop_partition_time"} {
@@ -173,14 +173,14 @@ func (store *SQLHistoryStore) maintainPartman(ctx context.Context, tx *sqlx.Tx) 
 		}
 	}
 	if _, err := tx.ExecContext(ctx, "LOCK TABLE ONLY "+store.table.Quoted()+" IN ACCESS EXCLUSIVE MODE"); err != nil {
-		return storage.ExternalSQLError("history: protect retention parent", err)
+		return sqlmeta.ExternalSQLError("history: protect retention parent", err)
 	}
 	parent, err := store.partmanParent(ctx, tx)
 	if err != nil {
 		return err
 	}
 	if _, err := tx.ExecContext(ctx, "SELECT partman.run_maintenance(p_parent_table := $1,p_analyze := false,p_jobmon := false)", parent); err != nil {
-		return storage.ExternalSQLError("history: run pg_partman maintenance", err)
+		return sqlmeta.ExternalSQLError("history: run pg_partman maintenance", err)
 	}
 	return store.preparePartmanDays(ctx, tx, []time.Time{time.Now().UTC().Add(store.ttl)})
 }

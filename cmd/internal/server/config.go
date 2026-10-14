@@ -341,30 +341,35 @@ type IdentityConfig struct {
 }
 
 type storageFileConfig struct {
-	Kind            string `yaml:"kind"`
-	Dir             string `yaml:"dir"`
-	DSN             string `yaml:"dsn"`
-	MaxOpenConns    int    `yaml:"max_open_conns"`
-	ConnMaxIdleTime string `yaml:"conn_max_idle_time"`
-	URL             string `yaml:"url"`
-	TLSCAFile       string `yaml:"tls_ca_file"`
-	ReadURL         string `yaml:"read_url"`
-	WriteURL        string `yaml:"write_url"`
-	ReadTLSCAFile   string `yaml:"read_tls_ca_file"`
-	WriteTLSCAFile  string `yaml:"write_tls_ca_file"`
-	RemoteWriteURL  string `yaml:"remote_write_url"`
-	QueryURL        string `yaml:"query_url"`
-	BearerToken     string `yaml:"bearer_token"`
-	Endpoint        string `yaml:"endpoint"`
-	Region          string `yaml:"region"`
-	AccessKeyID     string `yaml:"access_key_id"`
-	AccessKeySecret string `yaml:"access_key_secret"`
-	Bucket          string `yaml:"bucket"`
-	SessionToken    string `yaml:"session_token"`
-	SecurityToken   string `yaml:"security_token"`
-	CredentialsFile string `yaml:"credentials_file"`
-	AccountURL      string `yaml:"account_url"`
-	Container       string `yaml:"container"`
+	Kind            string            `yaml:"kind"`
+	Dir             string            `yaml:"dir"`
+	DSN             string            `yaml:"dsn"`
+	MaxOpenConns    int               `yaml:"max_open_conns"`
+	ConnMaxIdleTime string            `yaml:"conn_max_idle_time"`
+	URL             string            `yaml:"url"`
+	PDAddresses     []string          `yaml:"pd_addresses"`
+	StaleReadDelay  string            `yaml:"stale_read_delay"`
+	ReadLabels      map[string]string `yaml:"read_labels"`
+	TLSCertFile     string            `yaml:"tls_cert_file"`
+	TLSKeyFile      string            `yaml:"tls_key_file"`
+	TLSCAFile       string            `yaml:"tls_ca_file"`
+	ReadURL         string            `yaml:"read_url"`
+	WriteURL        string            `yaml:"write_url"`
+	ReadTLSCAFile   string            `yaml:"read_tls_ca_file"`
+	WriteTLSCAFile  string            `yaml:"write_tls_ca_file"`
+	RemoteWriteURL  string            `yaml:"remote_write_url"`
+	QueryURL        string            `yaml:"query_url"`
+	BearerToken     string            `yaml:"bearer_token"`
+	Endpoint        string            `yaml:"endpoint"`
+	Region          string            `yaml:"region"`
+	AccessKeyID     string            `yaml:"access_key_id"`
+	AccessKeySecret string            `yaml:"access_key_secret"`
+	Bucket          string            `yaml:"bucket"`
+	SessionToken    string            `yaml:"session_token"`
+	SecurityToken   string            `yaml:"security_token"`
+	CredentialsFile string            `yaml:"credentials_file"`
+	AccountURL      string            `yaml:"account_url"`
+	Container       string            `yaml:"container"`
 }
 
 func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
@@ -392,6 +397,20 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 		return storage.PostgreSQLConfig{DSN: cfg.DSN, MaxOpenConns: cfg.MaxOpenConns, ConnMaxIdleTime: idleTime}, nil
 	case storage.KindClickHouse:
 		return storage.ClickHouseConfig{DSN: cfg.DSN}, nil
+	case storage.KindTiKV:
+		var delay time.Duration
+		if cfg.StaleReadDelay != "" {
+			var err error
+			delay, err = time.ParseDuration(cfg.StaleReadDelay)
+			if err != nil {
+				return nil, fmt.Errorf("tikv stale_read_delay must be a duration")
+			}
+		}
+		tikvConfig := storage.TiKVConfig{PDAddresses: cfg.PDAddresses, TLSCAFile: cfg.TLSCAFile, TLSCertFile: cfg.TLSCertFile, TLSKeyFile: cfg.TLSKeyFile, StaleReadDelay: delay, ReadLabels: cfg.ReadLabels}
+		if err := storage.ValidateTiKVConfig(tikvConfig); err != nil {
+			return nil, err
+		}
+		return tikvConfig, nil
 	case storage.KindRedis:
 		return storage.RedisConfig{URL: cfg.URL, TLSCAFile: cfg.TLSCAFile}, nil
 	case storage.KindRedisReadWrite:
@@ -1409,6 +1428,7 @@ func validateStorageConfigShape(value any) error {
 		storage.KindSQLite:         {"kind": {}, "dir": {}, "dsn": {}},
 		storage.KindPostgreSQL:     {"kind": {}, "dsn": {}, "max_open_conns": {}, "conn_max_idle_time": {}},
 		storage.KindClickHouse:     {"kind": {}, "dsn": {}},
+		storage.KindTiKV:           {"kind": {}, "pd_addresses": {}, "tls_ca_file": {}, "tls_cert_file": {}, "tls_key_file": {}, "stale_read_delay": {}, "read_labels": {}},
 		storage.KindRedis:          {"kind": {}, "url": {}, "tls_ca_file": {}},
 		storage.KindRedisReadWrite: {"kind": {}, "read_url": {}, "write_url": {}, "read_tls_ca_file": {}, "write_tls_ca_file": {}},
 		storage.KindPrometheus:     {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},

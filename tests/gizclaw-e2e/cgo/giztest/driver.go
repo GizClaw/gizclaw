@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giznetpb"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"google.golang.org/protobuf/proto"
 )
 
 // driver runs Giztest steps with the two C SDKs: sdk/c/gizclaw dials the
@@ -469,6 +470,7 @@ type deviceClient struct {
 	commands chan func(*cSession)
 	stopped  chan struct{}
 	closeOne chan struct{}
+	pollErr  error
 }
 
 // channels reads the current poll goroutine's channel triple.
@@ -543,6 +545,9 @@ func (c *deviceClient) run(commands chan func(*cSession), stopped, closeOne chan
 			return
 		default:
 			if pollErr := cSession.Poll(10); pollErr != nil {
+				c.mu.Lock()
+				c.pollErr = pollErr
+				c.mu.Unlock()
 				return
 			}
 		}
@@ -562,10 +567,24 @@ func (c *deviceClient) reconnect(ctx context.Context) error {
 	ready := make(chan error, 1)
 	c.mu.Lock()
 	c.commands, c.stopped, c.closeOne = commands, stopped, closeOne
+	c.pollErr = nil
 	c.mu.Unlock()
 	go c.run(commands, stopped, closeOne, ready, nil)
 	select {
 	case err := <-ready:
+		if err != nil {
+			return err
+		}
+		// Transport establishment can precede Manager activation. Require
+		// a reply on the replacement before following HTTP control steps.
+		payload, err := proto.Marshal(&rpcpb.PingRequest{ClientSendTime: time.Now().UnixMilli()})
+		if err != nil {
+			return err
+		}
+		result, err := c.callRPC(ctx, uint32(rpcpb.RpcMethod_RPC_METHOD_ALL_PING), payload)
+		if err == nil && result.errorCode != 0 {
+			err = &rpcError{method: "all.ping", code: result.errorCode, message: result.message, reason: result.reason}
+		}
 		return err
 	case <-ctx.Done():
 		close(closeOne)
@@ -591,7 +610,7 @@ func (c *deviceClient) submit(ctx context.Context, fn func(*cSession)) error {
 	select {
 	case commands <- wrapped:
 	case <-stopped:
-		return fmt.Errorf("client %s is closed", c.name)
+		return c.closedError()
 	case <-ctx.Done():
 		return context.Cause(ctx)
 	}
@@ -599,10 +618,20 @@ func (c *deviceClient) submit(ctx context.Context, fn func(*cSession)) error {
 	case <-done:
 		return nil
 	case <-stopped:
-		return fmt.Errorf("client %s closed during the call", c.name)
+		return c.closedError()
 	case <-ctx.Done():
 		return context.Cause(ctx)
 	}
+}
+
+func (c *deviceClient) closedError() error {
+	c.mu.Lock()
+	pollErr := c.pollErr
+	c.mu.Unlock()
+	if pollErr != nil {
+		return fmt.Errorf("client %s poll stopped: %w", c.name, pollErr)
+	}
+	return fmt.Errorf("client %s is closed", c.name)
 }
 
 // callRPC bounds the C call by the step's remaining deadline, so a cancelled

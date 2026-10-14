@@ -1,4 +1,4 @@
-// Code generated from api/proto/rpc/rpc.proto and api/proto/rpc/payload/*.proto; DO NOT EDIT.
+// Code generated from api/proto/rpc/gizclaw_rpc.proto and api/proto/rpc/payload/*.proto; DO NOT EDIT.
 
 package rpcapi
 

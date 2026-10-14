@@ -13,6 +13,7 @@ func TestConfigImplementationsHaveOnlyBackendFieldsAndNoSerializationTags(t *tes
 		reflect.TypeFor[SQLiteConfig]():         {"Dir", "DSN"},
 		reflect.TypeFor[PostgreSQLConfig]():     {"DSN", "MaxOpenConns", "ConnMaxIdleTime"},
 		reflect.TypeFor[ClickHouseConfig]():     {"DSN"},
+		reflect.TypeFor[TiKVConfig]():           {"PDAddresses", "TLSCAFile", "TLSCertFile", "TLSKeyFile", "StaleReadDelay", "ReadLabels"},
 		reflect.TypeFor[RedisConfig]():          {"URL", "TLSCAFile"},
 		reflect.TypeFor[RedisReadWriteConfig](): {"Read", "Write"},
 		reflect.TypeFor[PrometheusConfig]():     {"RemoteWriteURL", "QueryURL", "BearerToken"},

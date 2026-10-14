@@ -8,7 +8,7 @@ Peer RPC 是 Giznet Peer connection 上的请求、响应和 stream contract。�
 
 ```text
 api/proto/rpc/
-├── rpc.proto          # request、response、error、stream 与 method registry
+├── gizclaw_rpc.proto          # request、response、error、stream 与 method registry
 ├── nanopb.options     # C/nanopb 生成配置
 └── payload/
     ├── ai.proto
@@ -23,9 +23,9 @@ api/proto/rpc/
     └── workspace.proto
 ```
 
-`rpc.proto` 统一拥有核心 RPC protocol：`RpcRequest`、`RpcResponse`、`RpcStreamFrame`、`RpcStatus`、`ErrorInfo`、`StatusCode`、`RpcMethodOptions` 和完整 `RpcMethod` registry。Request 与 Response 属于同一 envelope contract，不拆成 `peer.proto` 与 `common.proto`。
+`gizclaw_rpc.proto` 统一拥有核心 RPC protocol：`RpcRequest`、`RpcResponse`、`RpcStreamFrame`、`RpcStatus`、`ErrorInfo`、`StatusCode`、`RpcMethodOptions` 和完整 `RpcMethod` registry。Request 与 Response 属于同一 envelope contract，不拆成 `peer.proto` 与 `common.proto`。
 
-`nanopb.options` 只控制 C/nanopb 的生成行为，不定义 wire message。`payload/` 按领域拥有 method-specific messages，避免核心 `rpc.proto` 吸收业务 DTO。
+`nanopb.options` 只控制 C/nanopb 的生成行为，不定义 wire message。`payload/` 按领域拥有 method-specific messages，避免核心 `gizclaw_rpc.proto` 吸收业务 DTO。
 
 ## 生成与运行关系
 

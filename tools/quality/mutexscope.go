@@ -380,6 +380,7 @@ func mutexScopeRisks(source string) []string {
 		{".do(", "external-call"}, {".push(", "external-call"}, {".list(", "store-scan"}, {".get(", "store-io"},
 		{".set(", "store-io"}, {".put(", "store-io"}, {".lock(", "nested-lock"},
 		{".rlock(", "nested-lock"},
+		{".write(", "writer-call"},
 	}
 	for _, check := range checks {
 		if strings.Contains(" "+lower, check.value) {

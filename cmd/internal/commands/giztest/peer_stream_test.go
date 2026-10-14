@@ -258,6 +258,9 @@ func TestPeerAudioPacingSummarizesPacketClockAndArrivalGaps(t *testing.T) {
 	if summary["max_interval_after_packet"] != 2 || summary["max_interval_start_ms"] != float64(20) {
 		t.Fatalf("maximum interval location = %#v", summary)
 	}
+	if summary["max_interval_started_at"] != "1970-01-01T00:00:01.02Z" {
+		t.Fatalf("maximum interval timestamp = %v", summary["max_interval_started_at"])
+	}
 }
 
 func TestPeerAudioPacingOmitsUnavailableIntervals(t *testing.T) {

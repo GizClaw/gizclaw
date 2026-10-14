@@ -22,7 +22,7 @@ api/
     │   ├── admission.proto     # Giznet admission credential
     │   └── nanopb.options      # bounded C strings
     ├── rpc/
-    │   ├── rpc.proto           # request、response、error、stream 与 method registry
+    │   ├── gizclaw_rpc.proto           # request、response、error、stream 与 method registry
     │   ├── nanopb.options      # C/nanopb 生成配置
     │   └── payload/            # 按领域划分的 method payload
     └── telemetry/

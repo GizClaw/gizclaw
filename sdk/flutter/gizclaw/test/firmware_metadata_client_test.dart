@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:gizclaw/gizclaw.dart';
 import 'package:gizclaw/src/generated/rpc/payload.pb.dart' as payload;
-import 'package:gizclaw/src/generated/rpc/rpc.pb.dart' as rpc;
+import 'package:gizclaw/src/generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'package:test/test.dart';
 
 import 'fake_transport.dart';

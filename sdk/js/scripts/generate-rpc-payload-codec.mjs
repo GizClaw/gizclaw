@@ -3,7 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const peerProtoURL = new URL(
-  "../../../api/proto/rpc/rpc.proto",
+  "../../../api/proto/rpc/gizclaw_rpc.proto",
   import.meta.url,
 );
 const payloadProtoDirURL = new URL(
@@ -47,7 +47,7 @@ const hwds = parseHwdRegistry(payloadProtoText);
 
 if (methods.length === 0) {
   throw new Error(
-    "api/proto/rpc/rpc.proto must define RpcMethod entries before generating RPC payload codec.",
+    "api/proto/rpc/gizclaw_rpc.proto must define RpcMethod entries before generating RPC payload codec.",
   );
 }
 

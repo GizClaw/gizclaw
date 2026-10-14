@@ -463,6 +463,54 @@ func TestConnectTimesOut(t *testing.T) {
 	}
 }
 
+func TestConnectBoundsBlockingReadinessProbe(t *testing.T) {
+	resetConnectHooks(t)
+	connectReadyTimeout = 50 * time.Millisecond
+	serveBlock := make(chan struct{})
+	t.Cleanup(func() { close(serveBlock) })
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
+	}
+	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error { return nil }
+	serveClient = func(*gizcli.Client) error { <-serveBlock; return nil }
+	bounded := false
+	probeReady = func(ctx context.Context, _ *gizcli.Client) error {
+		deadline, ok := ctx.Deadline()
+		if !ok || time.Until(deadline) > connectReadyTimeout {
+			return errors.New("unbounded readiness probe")
+		}
+		bounded = true
+		<-ctx.Done()
+		return context.Cause(ctx)
+	}
+	_, err := Connect(context.Background(), Options{Context: "local"})
+	if !bounded || !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("bounded=%v, Connect error=%v", bounded, err)
+	}
+}
+
+func TestConnectServeFailureCancelsBlockingProbe(t *testing.T) {
+	resetConnectHooks(t)
+	entered := make(chan struct{})
+	dialOptions = func(context.Context, Options) (*gizcli.Client, giznet.PublicKey, string, error) {
+		return &gizcli.Client{}, giznet.PublicKey{}, "127.0.0.1:9820", nil
+	}
+	dialClient = func(*gizcli.Client, giznet.PublicKey, string) error { return nil }
+	want := errors.New("serve failed during readiness probe")
+	serveClient = func(*gizcli.Client) error { <-entered; return want }
+	probeReady = func(ctx context.Context, _ *gizcli.Client) error {
+		close(entered)
+		<-ctx.Done()
+		return context.Cause(ctx)
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	_, err := Connect(ctx, Options{Context: "local"})
+	if !errors.Is(err, want) {
+		t.Fatalf("Connect error=%v, want %v", err, want)
+	}
+}
+
 func TestProbePeerHTTPReadyNilClient(t *testing.T) {
 	err := probePeerHTTPReady(context.Background(), nil)
 	if err == nil {
@@ -542,6 +590,13 @@ func TestProbePeerHTTPReadyConnectedClient(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
+		// A valid Peer HTTP response may take longer than 200ms while the
+		// Server completes connection admission and resolves remote KV state.
+		select {
+		case <-time.After(350 * time.Millisecond):
+		case <-r.Context().Done():
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"build_commit":"test","public_key":"server","server_time":1}`))
 	}))
@@ -561,7 +616,9 @@ func TestProbePeerHTTPReadyConnectedClient(t *testing.T) {
 		}
 	}()
 
-	if err := probePeerHTTPReady(context.Background(), client); err != nil {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	if err := probePeerHTTPReady(ctx, client); err != nil {
 		t.Fatalf("probePeerHTTPReady error = %v", err)
 	}
 }

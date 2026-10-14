@@ -1,0 +1,39 @@
+x-fixture-build: &fixture-build
+  context: ../../..
+  dockerfile: tests/gizclaw-e2e/docker/Dockerfile.tikv-fixture
+
+services:
+  tikv-pd:
+    image: gizcr.gizclaw.com/docker.io/pingcap/pd:v8.5.6@sha256:c26dbbaaf95f2d5e15402f40f829f8dc26f5b2a39d8d90d74c30a9de7689521b
+    command: [--config=/etc/pd.toml, --name=pd, --data-dir=/data, --client-urls=http://0.0.0.0:2379, --advertise-client-urls=http://tikv-pd:2379, --peer-urls=http://0.0.0.0:2380, --advertise-peer-urls=http://tikv-pd:2380, --initial-cluster=pd=http://tikv-pd:2380]
+    volumes: ["./tikv-pd.toml:/etc/pd.toml:ro"]
+    tmpfs: ["/data:rw,size=256m"]
+    cpus: 2
+    mem_limit: 1g
+  tikv-leader:
+    image: gizcr.gizclaw.com/docker.io/pingcap/tikv:v8.5.6@sha256:8d0b99d78b9b6fe5a9389d3680835386a3afb572168fc87bf7ddb27ab1359919
+    command: [--config=/etc/tikv-test.toml, --addr=0.0.0.0:20160, --advertise-addr=tikv-leader:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=tikv-pd:2379, --labels=region=center]
+    depends_on: [tikv-pd]
+    tmpfs: ["/data:rw,size=1g"]
+    volumes: ["./tikv-test.toml:/etc/tikv-test.toml:ro"]
+    cpus: 2
+    mem_limit: 4g
+  tikv-replication-proxy:
+    build: *fixture-build
+    entrypoint: [/usr/local/bin/tikv-replication-proxy, -leader, tikv-leader, -target, "tikv-learner:20160"]
+    depends_on: [tikv-leader]
+    cpus: 1
+    mem_limit: 128m
+  tikv-learner:
+    image: gizcr.gizclaw.com/docker.io/pingcap/tikv:v8.5.6@sha256:8d0b99d78b9b6fe5a9389d3680835386a3afb572168fc87bf7ddb27ab1359919
+    command: [--config=/etc/tikv-test.toml, --addr=0.0.0.0:20160, --advertise-addr=tikv-replication-proxy:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=tikv-pd:2379, --labels=region=local]
+    depends_on: [tikv-pd, tikv-replication-proxy]
+    tmpfs: ["/data:rw,size=1g"]
+    volumes: ["./tikv-test.toml:/etc/tikv-test.toml:ro"]
+    cpus: 2
+    mem_limit: 4g
+  tikv-init:
+    build: *fixture-build
+    entrypoint: [/usr/local/bin/tikv-fixture, -pd, "tikv-pd:2379"]
+    depends_on: [tikv-leader, tikv-learner]
+    restart: "no"

@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/jmoiron/sqlx"
@@ -62,7 +63,7 @@ func runPostgreSQLHistoryGiztest(t *testing.T, queryLoad bool) {
 	if keep {
 		schema = os.Getenv("GIZCLAW_TEST_HISTORY_QUERY_SCHEMA")
 		table = memory.DefaultHistoryTable
-		if err := storage.ValidateSQLIdentifier(schema); err != nil || !strings.HasPrefix(schema, "gzc_history_query_") {
+		if err := sqlmeta.ValidateSQLIdentifier(schema); err != nil || !strings.HasPrefix(schema, "gzc_history_query_") {
 			t.Fatal("fixture schema must be a SQL identifier starting with gzc_history_query_")
 		}
 	}

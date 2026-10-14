@@ -197,3 +197,17 @@ func edgeParams[T any](t *testing.T, encode func(*rpcapi.RPCPayload, T) error, v
 	}
 	return &payload
 }
+
+func (p edgeTestPeers) EnsureAvailable(ctx context.Context, key giznet.PublicKey) error {
+	_, err := p.LoadPeer(ctx, key)
+	return err
+}
+
+func TestEdgeRPCDeletionFencesDenyRouting(t *testing.T) {
+	for _, err := range []error{peer.ErrPeerPendingDeletion, peer.ErrPeerDeleted, peer.ErrPeerBlocked} {
+		response := edgeRPCError("request", err)
+		if response.Error.Code != rpcapi.StatusCodePermissionDenied {
+			t.Fatalf("deletion fence mapped to %v", response.Error.Code)
+		}
+	}
+}

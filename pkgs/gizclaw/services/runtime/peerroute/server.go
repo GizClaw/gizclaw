@@ -24,7 +24,9 @@ var (
 	ErrPeerNotAssignable  = errors.New("peerroute: peer role is not assignable")
 )
 
+// PeerStore reads Peer authority and checks current deletion fences.
 type PeerStore interface {
+	EnsureAvailable(context.Context, giznet.PublicKey) error
 	LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error)
 }
 
@@ -35,6 +37,7 @@ type Server struct {
 	ServerEndpoint  string
 }
 
+// Lookup strongly reads an assignment without changing ownership.
 func (s *Server) Lookup(ctx context.Context, publicKey giznet.PublicKey) (apitypes.PeerAssignment, error) {
 	if publicKey.IsZero() {
 		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
@@ -42,6 +45,7 @@ func (s *Server) Lookup(ctx context.Context, publicKey giznet.PublicKey) (apityp
 	return s.get(ctx, publicKey)
 }
 
+// Resolve verifies current Peer availability and returns its fixed assignment.
 func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes.PeerAssignment, error) {
 	if target.IsZero() {
 		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
@@ -51,6 +55,9 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 	}
 	if s.Peers == nil {
 		return apitypes.PeerAssignment{}, ErrPeerStoreNil
+	}
+	if err := s.Peers.EnsureAvailable(ctx, target); err != nil {
+		return apitypes.PeerAssignment{}, err
 	}
 	peer, err := s.Peers.LoadPeer(ctx, target)
 	if err != nil {
@@ -63,6 +70,8 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 	return s.get(ctx, target)
 }
 
+// Assign claims an absent owner or atomically refreshes this Server's metadata.
+// An expected version never authorizes transfer to another Server.
 func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expectedVersion *int64) (apitypes.PeerAssignment, error) {
 	if publicKey.IsZero() {
 		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
@@ -72,6 +81,9 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 	}
 	if s.Peers == nil {
 		return apitypes.PeerAssignment{}, ErrPeerStoreNil
+	}
+	if err := s.Peers.EnsureAvailable(ctx, publicKey); err != nil {
+		return apitypes.PeerAssignment{}, err
 	}
 	peer, err := s.Peers.LoadPeer(ctx, publicKey)
 	if err != nil {
@@ -233,7 +245,7 @@ func (s *Server) store() (kv.Store, error) {
 	if s == nil || s.Store == nil {
 		return nil, ErrStoreNil
 	}
-	return s.Store, nil
+	return kv.WithStrongReads(s.Store), nil
 }
 
 func ParsePublicKey(value string) (giznet.PublicKey, error) {

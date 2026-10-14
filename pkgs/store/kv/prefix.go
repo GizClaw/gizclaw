@@ -29,10 +29,12 @@ func SharedAtomicStore(stores ...Store) (Store, []Key, bool) {
 	}
 	roots := make([]Store, len(stores))
 	prefixes := make([]Key, len(stores))
+	strongReads := false
 	for i, store := range stores {
 		if store == nil {
 			return nil, nil, false
 		}
+		strongReads = strongReads || isStrongView(store)
 		roots[i], prefixes[i] = atomicStoreView(store)
 	}
 	for _, root := range roots[1:] {
@@ -40,12 +42,32 @@ func SharedAtomicStore(stores ...Store) (Store, []Key, bool) {
 			return nil, nil, false
 		}
 	}
+	if strongReads {
+		return WithStrongReads(roots[0]), prefixes, true
+	}
 	return roots[0], prefixes, true
+}
+
+func isStrongView(store Store) bool {
+	for {
+		if _, ok := store.(*strongReadStore); ok {
+			return true
+		}
+		view, ok := store.(*prefixedStore)
+		if !ok {
+			return false
+		}
+		store = view.base
+	}
 }
 
 func atomicStoreView(store Store) (Store, Key) {
 	var prefix Key
 	for {
+		if strong, ok := store.(*strongReadStore); ok {
+			store = strong.Store
+			continue
+		}
 		view, ok := store.(*prefixedStore)
 		if !ok {
 			return store, prefix

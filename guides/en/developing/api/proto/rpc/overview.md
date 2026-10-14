@@ -8,7 +8,7 @@ See the [RPC API Reference](/references/rpc) for the complete method IDs, names,
 
 ```text
 api/proto/rpc/
-├── rpc.proto          # request, response, error, stream, and method registry
+├── gizclaw_rpc.proto          # request, response, error, stream, and method registry
 ├── nanopb.options     # C/nanopb generation configuration
 └── payload/
     ├── ai.proto
@@ -23,9 +23,9 @@ api/proto/rpc/
     └── workspace.proto
 ```
 
-`rpc.proto` unifiedly owns the core RPC protocols: `RpcRequest`, `RpcResponse`, `RpcStreamFrame`, `RpcStatus`, `ErrorInfo`, `StatusCode`, `RpcMethodOptions` and the complete `RpcMethod` registry. Request and Response belong to the same envelope contract and are not split into `peer.proto` and `common.proto`.
+`gizclaw_rpc.proto` unifiedly owns the core RPC protocols: `RpcRequest`, `RpcResponse`, `RpcStreamFrame`, `RpcStatus`, `ErrorInfo`, `StatusCode`, `RpcMethodOptions` and the complete `RpcMethod` registry. Request and Response belong to the same envelope contract and are not split into `peer.proto` and `common.proto`.
 
-`nanopb.options` Only controls the generation behavior of C/nanopb and does not define wire messages. `payload/` Have method-specific messages by domain to avoid core `rpc.proto` absorbing business DTOs.
+`nanopb.options` Only controls the generation behavior of C/nanopb and does not define wire messages. `payload/` Have method-specific messages by domain to avoid core `gizclaw_rpc.proto` absorbing business DTOs.
 
 ## The relationship between generation and running
 

@@ -48,6 +48,11 @@ func TestRedisKV(t *testing.T) {
 	prefix := kv.Key{"gizclaw-store-e2e", fmt.Sprintf("%d", time.Now().UnixNano())}
 	first := kv.Prefixed(firstRoot, prefix)
 	second := kv.Prefixed(secondRoot, prefix)
+	assertSharedKV(t, first, second)
+}
+
+func assertSharedKV(t *testing.T, first, second kv.Store) {
+	t.Helper()
 	t.Run("resource-limits", func(t *testing.T) { assertSharedResourceLimits(t, first, second) })
 	t.Cleanup(func() {
 		_ = first.BatchDelete(context.Background(), []kv.Key{

@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -252,7 +252,7 @@ func TestSQLRejectsIncompatibleSchemaAndRollsBackCanceledMutation(t *testing.T) 
 	if value, err := store.Get(context.Background(), Key{"stable"}); err != nil || string(value) != "value" {
 		t.Fatalf("Get(stable) = %q, %v", value, err)
 	}
-	index, err := storage.SQLIndexName(store.table, "expires_idx")
+	index, err := sqlmeta.SQLIndexName(store.table, "expires_idx")
 	if err != nil {
 		t.Fatal(err)
 	}

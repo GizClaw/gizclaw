@@ -109,6 +109,8 @@ func testStorageFileConfigs(configs map[string]storage.Config) map[string]storag
 			out[name] = storageFileConfig{Kind: storage.KindPostgreSQL, DSN: cfg.DSN}
 		case storage.ClickHouseConfig:
 			out[name] = storageFileConfig{Kind: storage.KindClickHouse, DSN: cfg.DSN}
+		case storage.TiKVConfig:
+			out[name] = storageFileConfig{Kind: storage.KindTiKV, PDAddresses: cfg.PDAddresses, TLSCAFile: cfg.TLSCAFile, TLSCertFile: cfg.TLSCertFile, TLSKeyFile: cfg.TLSKeyFile, StaleReadDelay: cfg.StaleReadDelay.String(), ReadLabels: cfg.ReadLabels}
 		case storage.RedisConfig:
 			out[name] = storageFileConfig{Kind: storage.KindRedis, URL: cfg.URL, TLSCAFile: cfg.TLSCAFile}
 		case storage.RedisReadWriteConfig:

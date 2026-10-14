@@ -17,7 +17,7 @@ sequenceDiagram
     Server-->>Edge: typed response / RPC error
 ```
 
-Server uses independent Edge RPC dispatch for route methods and terminal notification delivery. Even if the ordinary Client RPC surface shares the same `rpc.proto` registry, it cannot obtain the calling permission because the method can be decoded; role authorization and service exposure must limit the Edge control plane at the same time.
+Server uses independent Edge RPC dispatch for route methods and terminal notification delivery. Even if the ordinary Client RPC surface shares the same `gizclaw_rpc.proto` registry, it cannot obtain the calling permission because the method can be decoded; role authorization and service exposure must limit the Edge control plane at the same time.
 
 `server.api_key.resolve` lets the Edge submit an incoming Bearer credential to
 the Server API-key service and obtain the owner Peer's fixed assignment. In a

@@ -17,7 +17,9 @@ full state. Clients stage the response and commit state and timestamp on done.
 The Server reuses `services.peer.store`, addressing
 `peer-sync/<owner>/head` and `peer-sync/<owner>/checkpoints/<timestamp>` exactly.
 KV `ApplyMutation` atomically compares the head, saves the new checkpoint, and
-removes evicted checkpoints without enumerating database keys. Each owner retains
+removes evicted checkpoints without enumerating database keys. Head and checkpoint
+reads use a strong view so regional replica lag cannot hide a committed baseline
+or repeatedly supply an obsolete head for conditional writes. Each owner retains
 at most 64 checkpoints for at most 24 hours; the head also expires. Timestamps
 increase monotonically per owner even within one millisecond or after clock
 rollback, and remain JavaScript safe integers. Conditional writes use bounded

@@ -15,7 +15,7 @@
 #include "payload/system.pb.h"
 #include "payload/tool.pb.h"
 #include "payload/workspace.pb.h"
-#include "rpc.pb.h"
+#include "gizclaw_rpc.pb.h"
 
 #ifdef __cplusplus
 extern "C" {

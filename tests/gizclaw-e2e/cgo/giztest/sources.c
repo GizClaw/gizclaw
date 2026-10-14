@@ -17,7 +17,7 @@
 #include "../../../../sdk/c/gizclaw/generated/payload/system.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/tool.pb.c"
 #include "../../../../sdk/c/gizclaw/generated/payload/workspace.pb.c"
-#include "../../../../sdk/c/gizclaw/generated/rpc.pb.c"
+#include "../../../../sdk/c/gizclaw/generated/gizclaw_rpc.pb.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_buffer.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_client.c"
 #include "../../../../sdk/c/gizclaw/src/gzc_common.c"

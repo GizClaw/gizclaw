@@ -100,7 +100,7 @@ A method-name prefix identifies the capability provider:
 - `client.*`: device capabilities provided by a Client and called by the Server.
 - `runtime.*`: calls owned by the runtime contract.
 
-See the [RPC API Reference](/references/rpc) for the purpose of every available method. The wire contract, method IDs, and error codes remain authoritative in [`api/proto/rpc/rpc.proto`](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/rpc.proto); request and response messages are defined under `api/proto/rpc/payload/`.
+See the [RPC API Reference](/references/rpc) for the purpose of every available method. The wire contract, method IDs, and error codes remain authoritative in [`api/proto/rpc/gizclaw_rpc.proto`](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/gizclaw_rpc.proto); request and response messages are defined under `api/proto/rpc/payload/`.
 
 ### TypeScript
 

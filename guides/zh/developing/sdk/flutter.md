@@ -41,6 +41,8 @@ adapter。Generated Protobuf 与 method registry 提交到仓库，普通 App bu
 缺失 Peer/channel 结果视为已关闭；其他错误继续传播。event session 收到 EOS 或
 channel done 后，先向订阅者报告终止，再完成 native 清理，不增加断开计时器。
 
+关闭后的重复 native state 与 message callback 会被忽略，已关闭通道不会重新变为 open，也不会再次向已结束的 Dart stream 写入。
+
 ```sh
 cd sdk/flutter/gizclaw
 flutter pub get

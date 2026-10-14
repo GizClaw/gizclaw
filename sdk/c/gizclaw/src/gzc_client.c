@@ -6,7 +6,7 @@
 #include "payload/lua_app.pb.h"
 #include "payload/system.pb.h"
 #include "payload/tool.pb.h"
-#include "rpc.pb.h"
+#include "gizclaw_rpc.pb.h"
 
 #include <pb_decode.h>
 #include <pb_encode.h>
@@ -1316,7 +1316,8 @@ static void on_channel_message(
     if (channel == client->inbound_channels[i] && client->inbound[i] != NULL) {
       gzc_rpc_inbound_t *inbound = client->inbound[i];
       int rc = gzc_rpc_inbound_feed(inbound, data, len, is_text);
-      if (gzc_rpc_inbound_close_requested(inbound)) {
+      bool request_closed = gzc_rpc_inbound_close_requested(inbound);
+      if (request_closed) {
         client->inbound[i] = NULL;
         client->inbound_channels[i] = NULL;
         if (client->config.webrtc->channel_close != NULL) {
@@ -1324,7 +1325,9 @@ static void on_channel_message(
         }
         gzc_rpc_inbound_destroy(inbound);
       }
-      if (rc != GZC_OK) {
+      bool late_transport_error = request_closed &&
+          (rc == GZC_ERR_WEBRTC || rc == GZC_ERR_CLOSED);
+      if (rc != GZC_OK && !late_transport_error) {
         client->dispatch_error = rc;
       }
       return;
@@ -1921,7 +1924,8 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
       gzc_rpc_inbound_t *inbound = client->inbound[i];
       gzc_rtc_channel_t *channel = client->inbound_channels[i];
       rc = gzc_rpc_inbound_poll(inbound);
-      if (gzc_rpc_inbound_close_requested(inbound)) {
+      bool request_closed = gzc_rpc_inbound_close_requested(inbound);
+      if (request_closed) {
         client->inbound[i] = NULL;
         client->inbound_channels[i] = NULL;
         if (channel != NULL && client->config.webrtc->channel_close != NULL) {
@@ -1929,7 +1933,11 @@ int gzc_client_poll(gzc_client_t *client, int timeout_ms) {
         }
         gzc_rpc_inbound_destroy(inbound);
       }
-      if (rc != GZC_OK) {
+      /* A failed reply to a caller that already closed its RPC is scoped to
+         that completed request. peer_poll failures above remain Peer-wide. */
+      bool late_transport_error = request_closed &&
+          (rc == GZC_ERR_WEBRTC || rc == GZC_ERR_CLOSED);
+      if (rc != GZC_OK && !late_transport_error) {
         return rc;
       }
     }

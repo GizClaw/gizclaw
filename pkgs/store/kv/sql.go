@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -23,7 +23,7 @@ const sqlInitializationTimeout = 30 * time.Second
 type SQL struct {
 	db      *sqlx.DB
 	opts    *Options
-	table   storage.SQLTable
+	table   sqlmeta.SQLTable
 	quoted  string
 	members string
 
@@ -40,18 +40,18 @@ func NewSQLWithDB(db *sqlx.DB, prefix string, options *Options) (*SQL, error) {
 }
 
 func newSQLWithDB(ctx context.Context, db *sqlx.DB, prefix string, options *Options) (*SQL, error) {
-	table, err := storage.PrepareSQLTable(db, "kv", prefix)
+	table, err := sqlmeta.PrepareSQLTable(db, "kv", prefix)
 	if err != nil {
 		return nil, fmt.Errorf("kv: sql prefix %q: %w", prefix, err)
 	}
 	if err := ensureSQLSchema(ctx, db, table); err != nil {
 		return nil, fmt.Errorf("kv: initialize sql prefix %q: %w", prefix, err)
 	}
-	membersName, err := storage.SQLIndexName(table, "members")
+	membersName, err := sqlmeta.SQLIndexName(table, "members")
 	if err != nil {
 		return nil, err
 	}
-	members, err := storage.QuoteSQLIdentifier(table.Dialect(), membersName)
+	members, err := sqlmeta.QuoteSQLIdentifier(table.Dialect(), membersName)
 	if err != nil {
 		return nil, err
 	}
@@ -63,28 +63,28 @@ func newSQLWithDB(ctx context.Context, db *sqlx.DB, prefix string, options *Opti
 }
 
 func (store *SQL) checkSchema(ctx context.Context) error {
-	columns, err := storage.SQLColumns(ctx, store.db, store.table)
+	columns, err := sqlmeta.SQLColumns(ctx, store.db, store.table)
 	if err != nil {
 		return fmt.Errorf("kv: inspect sql table %q: %w", store.table.Name(), err)
 	}
 	binaryType := "BLOB"
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		binaryType = "BYTEA"
 	}
-	want := map[string]storage.SQLColumn{
+	want := map[string]sqlmeta.SQLColumn{
 		"encoded_key":          {Type: binaryType, Nullable: false, PrimaryKeyPosition: 1},
 		"value":                {Type: binaryType, Nullable: false},
 		"value_kind":           {Type: "BIGINT", Nullable: false},
 		"expires_at_unix_nano": {Type: "BIGINT", Nullable: true},
 	}
-	if err := storage.ValidateSQLColumns(columns, want); err != nil {
+	if err := sqlmeta.ValidateSQLColumns(columns, want); err != nil {
 		return fmt.Errorf("kv: incompatible sql table %q: %w", store.table.Name(), err)
 	}
-	index, err := storage.SQLIndexName(store.table, "expires_idx")
+	index, err := sqlmeta.SQLIndexName(store.table, "expires_idx")
 	if err != nil {
 		return fmt.Errorf("kv: derive sql table %q expiration index: %w", store.table.Name(), err)
 	}
-	if err := storage.ValidateSQLIndexColumns(ctx, store.db, store.table, index, []string{"expires_at_unix_nano"}); err != nil {
+	if err := sqlmeta.ValidateSQLIndexColumns(ctx, store.db, store.table, index, []string{"expires_at_unix_nano"}); err != nil {
 		return fmt.Errorf("kv: incompatible sql table %q expiration index: %w", store.table.Name(), err)
 	}
 	return nil
@@ -126,7 +126,7 @@ func (store *SQL) getUnlocked(ctx context.Context, key Key) ([]byte, error) {
 		return nil, ErrNotFound
 	}
 	if err != nil {
-		return nil, storage.ExternalSQLError("kv: get sql key", err)
+		return nil, sqlmeta.ExternalSQLError("kv: get sql key", err)
 	}
 	if expires.Valid && expires.Int64 <= time.Now().UnixNano() {
 		// Cleanup is best effort; the expired value remains logically absent
@@ -144,7 +144,7 @@ func (store *SQL) getUnlocked(ctx context.Context, key Key) ([]byte, error) {
 // so a concurrent refresh cannot be removed by a stale read.
 func (store *SQL) cleanupExpiredRead(ctx context.Context, encoded []byte) error {
 	query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
-	if store.table.Dialect() != storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() != sqlmeta.SQLDialectPostgreSQL {
 		_, err := store.db.ExecContext(ctx, query, encoded, time.Now().UnixNano())
 		return err
 	}
@@ -199,7 +199,7 @@ func (store *SQL) BatchMutate(ctx context.Context, entries []Entry, keys []Key) 
 	}
 	// Upsert and delete already replace/remove expired target rows. Avoid a
 	// separate expiry DELETE on the PostgreSQL ordinary-write hot path.
-	if store.table.Dialect() != storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() != sqlmeta.SQLDialectPostgreSQL {
 		if err := store.cleanupExpired(ctx, tx, now.UnixNano(), mutationKeys); err != nil {
 			return err
 		}
@@ -215,11 +215,11 @@ func (store *SQL) BatchMutate(ctx context.Context, entries []Entry, keys []Key) 
 	deleteQuery := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ?")
 	for _, key := range keys {
 		if _, err := tx.ExecContext(ctx, deleteQuery, store.opts.encode(key)); err != nil {
-			return storage.ExternalSQLError("kv: delete sql key", err)
+			return sqlmeta.ExternalSQLError("kv: delete sql key", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return storage.ExternalSQLError("kv: commit sql mutation", err)
+		return sqlmeta.ExternalSQLError("kv: commit sql mutation", err)
 	}
 	return nil
 }
@@ -277,11 +277,11 @@ func (store *SQL) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries
 		insert := store.db.Rebind("INSERT INTO " + store.quoted + " (encoded_key, value, expires_at_unix_nano) VALUES (?, ?, ?) ON CONFLICT(encoded_key) DO NOTHING")
 		result, err := tx.ExecContext(ctx, insert, guard.key, guard.value, guard.expires)
 		if err != nil {
-			return nil, nil, false, storage.ExternalSQLError("kv: claim sql guard", err)
+			return nil, nil, false, sqlmeta.ExternalSQLError("kv: claim sql guard", err)
 		}
 		rows, err := result.RowsAffected()
 		if err != nil {
-			return nil, nil, false, storage.ExternalSQLError("kv: inspect sql guard claim", err)
+			return nil, nil, false, sqlmeta.ExternalSQLError("kv: inspect sql guard claim", err)
 		}
 		if rows == 0 {
 			_ = tx.Rollback()
@@ -303,7 +303,7 @@ func (store *SQL) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return nil, nil, false, storage.ExternalSQLError("kv: commit sql conditional create", err)
+		return nil, nil, false, sqlmeta.ExternalSQLError("kv: commit sql conditional create", err)
 	}
 	return nil, nil, true, nil
 }
@@ -347,11 +347,11 @@ func (store *SQL) CompareAndMutate(ctx context.Context, guard Key, expected []by
 	deleteQuery := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ?")
 	for _, key := range keys {
 		if _, err := tx.ExecContext(ctx, deleteQuery, store.opts.encode(key)); err != nil {
-			return false, storage.ExternalSQLError("kv: delete compared sql key", err)
+			return false, sqlmeta.ExternalSQLError("kv: delete compared sql key", err)
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return false, storage.ExternalSQLError("kv: commit sql compare-and-mutate", err)
+		return false, sqlmeta.ExternalSQLError("kv: commit sql compare-and-mutate", err)
 	}
 	return true, nil
 }
@@ -381,7 +381,7 @@ func (store *SQL) prepare(entries []Entry, now time.Time) ([]sqlEntry, error) {
 			if !entry.Deadline.After(now) {
 				return nil, ErrInvalidDeadline
 			}
-			nanoseconds, err := storage.SQLUnixNano(entry.Deadline)
+			nanoseconds, err := sqlmeta.SQLUnixNano(entry.Deadline)
 			if err != nil {
 				return nil, fmt.Errorf("kv: invalid SQL deadline: %w", ErrInvalidDeadline)
 			}
@@ -402,9 +402,9 @@ func (store *SQL) beginWrite(ctx context.Context, keys [][]byte) (*sqlx.Tx, erro
 	}
 	tx, err := store.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return nil, storage.ExternalSQLError("kv: begin sql transaction", err)
+		return nil, sqlmeta.ExternalSQLError("kv: begin sql transaction", err)
 	}
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		// Transaction advisory locks also protect absent guards. Every mutation
 		// participates, including ordinary Set/Delete. Sort lock IDs (rather
 		// than keys) so even hash collisions cannot introduce lock-order cycles.
@@ -417,7 +417,7 @@ func (store *SQL) beginWrite(ctx context.Context, keys [][]byte) (*sqlx.Tx, erro
 		for _, id := range slices.Compact(ids) {
 			if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock($1)", id); err != nil {
 				_ = tx.Rollback()
-				return nil, storage.ExternalSQLError("kv: lock sql key", err)
+				return nil, sqlmeta.ExternalSQLError("kv: lock sql key", err)
 			}
 		}
 	}
@@ -437,20 +437,20 @@ func (store *SQL) mutationKeys(entries []Entry, keys []Key) [][]byte {
 }
 
 func (store *SQL) cleanupExpired(ctx context.Context, tx *sqlx.Tx, now int64, keys [][]byte) error {
-	if store.table.Dialect() == storage.SQLDialectPostgreSQL {
+	if store.table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		// Do not touch unrelated rows: that would reintroduce contention and
 		// acquire row locks outside the canonical mutation lock order.
 		query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE encoded_key = ? AND expires_at_unix_nano <= ?")
 		for _, key := range keys {
 			if _, err := tx.ExecContext(ctx, query, key, now); err != nil {
-				return storage.ExternalSQLError("kv: clean expired sql key", err)
+				return sqlmeta.ExternalSQLError("kv: clean expired sql key", err)
 			}
 		}
 		return nil
 	}
 	query := store.db.Rebind("DELETE FROM " + store.quoted + " WHERE expires_at_unix_nano IS NOT NULL AND expires_at_unix_nano <= ?")
 	if _, err := tx.ExecContext(ctx, query, now); err != nil {
-		return storage.ExternalSQLError("kv: clean expired sql keys", err)
+		return sqlmeta.ExternalSQLError("kv: clean expired sql keys", err)
 	}
 	return nil
 }
@@ -458,7 +458,7 @@ func (store *SQL) cleanupExpired(ctx context.Context, tx *sqlx.Tx, now int64, ke
 func (store *SQL) upsert(ctx context.Context, tx *sqlx.Tx, entry sqlEntry) error {
 	query := store.db.Rebind("INSERT INTO " + store.quoted + " (encoded_key, value, expires_at_unix_nano) VALUES (?, ?, ?) ON CONFLICT(encoded_key) DO UPDATE SET value = excluded.value, value_kind = 0, expires_at_unix_nano = excluded.expires_at_unix_nano")
 	if _, err := tx.ExecContext(ctx, query, entry.key, entry.value, entry.expires); err != nil {
-		return storage.ExternalSQLError("kv: upsert sql key", err)
+		return sqlmeta.ExternalSQLError("kv: upsert sql key", err)
 	}
 	return nil
 }
@@ -470,7 +470,7 @@ func (store *SQL) txGet(ctx context.Context, tx *sqlx.Tx, key Key) ([]byte, bool
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, false, nil
 		}
-		return nil, false, storage.ExternalSQLError("kv: inspect sql guard", err)
+		return nil, false, sqlmeta.ExternalSQLError("kv: inspect sql guard", err)
 	}
 	return append([]byte(nil), value...), true, nil
 }

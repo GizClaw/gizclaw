@@ -513,3 +513,7 @@ gizclaw admin pending-deletions get <deletion-id> --source peer --context region
 | Memory／对象／SQL 暂时失败 | 恢复对应服务后重试；所有 child Workspace task 完成并验证 absent 前保留 owner binding。 |
 
 成功会回收精确 task、marker、locator、retirement plan 与任务索引，保留永久 Peer deleted 墓碑、API Key retired 围栏、固定 route、全局配置和无关数据。PeerRun 仍是本区诊断目录。部署更新与实际生产执行是独立运维步骤。
+
+## 离线迁移 Redis KV 到 TiKV
+
+`gizclaw kv-migrate <dir> --source redis-old --target tikv` 按 workspace 中的逻辑 Store prefix 导入并双向校验 KV 数据。停止全部源、目标写入者后，依次执行 `--dry-run`、导入和 `--verify-only`，校验成功后再修改 Store binding 并恢复服务。完整的数据类型、TTL、重复执行、冲突和回切边界见 [KV 离线迁移](../developing/stores/kv#redis-tikv-migration)。

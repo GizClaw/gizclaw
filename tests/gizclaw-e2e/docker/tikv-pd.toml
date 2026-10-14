@@ -1,0 +1,3 @@
+# The local Docker lab shares disk I/O with SDK and application builds.
+# Preserve disk-backed metadata while tolerating bounded host scheduling stalls.
+lease = 15

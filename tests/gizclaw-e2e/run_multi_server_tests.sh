@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Multi-server E2E: two GizClaw Servers sharing one Social KV, two Edges, one
-# single-node LiveKit and a giztest runner. Runs the Go multi-server suite,
+# Multi-server E2E: two GizClaw Servers sharing TiKV with a regional Learner,
+# two Edges, one single-node LiveKit and a giztest runner. Runs the Go suite,
 # then the SFU giztest scenarios. Provider-backed (TTS/ASR) scenarios only run
 # when tests/gizclaw-e2e/.env carries the Volc/Doubao credentials; the
 # provider-free audio scenarios always run.
@@ -14,7 +14,7 @@ bin_dir="$script_dir/testdata/bin"
 server_bin="$bin_dir/gizclaw-linux"
 test_bin="$bin_dir/multiserver-e2e-linux"
 seed_bin="$bin_dir/multiserver-seed-linux"
-report_dir="$script_dir/testdata/multi-server"
+report_dir="$script_dir/testdata/multi-server/$project"
 env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$script_dir/.env}"
 giztest_dir="tests/gizclaw-e2e/giztest"
 sfu_case="${GIZCLAW_E2E_SFU_CASE:-}"
@@ -70,7 +70,6 @@ if [[ -n "$sfu_case" ]]; then
     echo "SFU startup barrier requires parallel >= repeat" >&2; exit 2
   fi
   case "${GIZCLAW_E2E_SFU_ACCEPT_REVOCATION:-1}" in 0 | 1) ;; *) echo "SFU accept revocation must be 0 or 1" >&2; exit 2 ;; esac
-  report_dir="$report_dir/$project"
   export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
   export GIZCLAW_E2E_GIZTEST_EVIDENCE=full
 fi
@@ -142,11 +141,20 @@ compose() {
 
 cleanup() {
   status=$?
+  if [[ -f "$report_dir/e2e-run.json" ]]; then
+    python3 -B - "$report_dir/e2e-run.json" "$status" <<'PY'
+import json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+receipt = json.loads(path.read_text())
+receipt["exit_status"] = int(sys.argv[2])
+path.write_text(json.dumps(receipt, indent=2) + "\n")
+PY
+  fi
   if [[ -n "${GIZCLAW_E2E_SFU_EVIDENCE_DIR:-}" ]]; then
     mkdir -p "$GIZCLAW_E2E_SFU_EVIDENCE_DIR"
     compose logs --no-color 2>&1 | python3 -B "$script_dir/setup/redact_diagnostics.py" \
       > "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/services.log" || true
-    for artifact in sfu-report.json sfu-case.giztest.yaml sfu-run.json; do
+    for artifact in go-tests.log e2e-run.json images.txt topology.json sfu-report.json sfu-case.giztest.yaml sfu-run.json; do
       if [[ -f "$report_dir/$artifact" ]]; then
         cp "$report_dir/$artifact" "$GIZCLAW_E2E_SFU_EVIDENCE_DIR/$artifact"
       fi
@@ -181,10 +189,9 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$bin_dir" "$report_dir"
-if [[ -n "$sfu_case" ]]; then
-  report_dir="$(cd "$report_dir" && pwd -P)"
-  export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
-fi
+bash "$script_dir/setup/prepare-tikv.sh"
+report_dir="$(cd "$report_dir" && pwd -P)"
+export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
 probe_mount=(-e GIZCLAW_E2E_SFU_PROBE_OVERLAY=)
 if ((sfu_delay > 0)); then
   probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-sfu-probe.XXXXXX")"
@@ -234,20 +241,34 @@ pathlib.Path(report).write_text(json.dumps({
     "fixture_source_dirty": bool(dirty), "fixture_diff_sha256": hashlib.sha256(diff).hexdigest(),
     "case": case, "tasks": int(repeat), "parallel": int(parallel), "sfu_peers_per_task": 3,
     "terminal_delay_ms": int(delay), "udp_mode": udp_mode, "udp_port": udp_port, "udp_start": int(udp_start), "udp_end": int(udp_end),
-    "topology": "2 Servers, 2 Edges, LiveKit, shared Redis, separate PostgreSQL databases",
+    "topology": "2 Servers, 2 Edges, LiveKit, shared TiKV, separate PostgreSQL databases",
 }, indent=2) + "\n")
 PY
 fi
 
-compose up --build --wait redis livekit server-a server-b edge-a edge-b
-
-if [[ "$sfu_case" == logging* ]]; then
-  # Every role uses the same Dockerfile and binaries. Reuse the built image
-  # for diagnostic runners instead of rebuilding the source snapshot per case.
-  for role in seed giztest tests; do
-    docker tag "$project-server-b" "$project-$role"
-  done
-fi
+python3 -B - "$repo_root" "$report_dir/e2e-run.json" "$project" "$server_bin" "$test_bin" "$seed_bin" "$GIZCLAW_E2E_SFU_PROVIDER" <<'PY'
+import hashlib, json, pathlib, subprocess, sys
+repository, report, project, server, tests, seed, provider = sys.argv[1:]
+diff = subprocess.check_output(["git", "-C", repository, "diff", "HEAD"])
+pathlib.Path(report).write_text(json.dumps({
+    "project": project,
+    "revision": subprocess.check_output(["git", "-C", repository, "rev-parse", "HEAD"], text=True).strip(),
+    "source_diff_sha256": hashlib.sha256(diff).hexdigest(),
+    "binary_sha256": {pathlib.Path(p).name: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in [server, tests, seed]},
+    "topology": "2 Servers, 2 Edges, LiveKit, PD, center voter, regional Learner with Raft gate; separate local SQL databases",
+    "provider_scenarios_enabled": bool(int(provider)),
+}, indent=2) + "\n")
+PY
+compose config --images > "$report_dir/images.txt"
+# All application roles share one Dockerfile and the same compiled binaries.
+# Build that source snapshot once and tag it for each role.
+compose build server-a tikv-init
+for role in server-b edge-a edge-b seed giztest tests; do
+  docker tag "$project-server-a" "$project-$role"
+done
+docker tag "$project-tikv-init" "$project-tikv-replication-proxy"
+compose up --no-build --wait --wait-timeout 180 tikv-init livekit server-a server-b edge-a edge-b
+compose logs --no-color --no-log-prefix tikv-init > "$report_dir/topology.json"
 
 seed_server() {
   local server="$1" token_id="$2" admin_env="$3"
@@ -289,21 +310,14 @@ if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
   exit 0
 fi
 
-if compose exec -T redis redis-cli --scan --pattern '*runs*' | grep -q .; then
-  echo "shared Redis unexpectedly contains PeerRun keys" >&2
-  exit 1
-fi
-
 for edge in edge-a edge-b; do
-  if compose exec -T "$edge" env \
-    | grep -Eq '^(REDIS_URL|REDIS_DSN|GIZCLAW_E2E_REDIS_DSN)='; then
-    echo "$edge unexpectedly received Redis credentials" >&2
+  if compose exec -T "$edge" env | grep -Eq '^GIZCLAW_E2E_TIKV_'; then
+    echo "$edge unexpectedly received TiKV connector configuration" >&2
     exit 1
   fi
 done
-
-if compose logs --no-color edge-a edge-b | grep -Fq 'redis://redis:6379/0'; then
-  echo "Edge diagnostics exposed the Redis DSN" >&2
+if compose logs --no-color edge-a edge-b | grep -Fq 'tikv-pd:2379'; then
+  echo "Edge diagnostics exposed the TiKV connector address" >&2
   exit 1
 fi
 

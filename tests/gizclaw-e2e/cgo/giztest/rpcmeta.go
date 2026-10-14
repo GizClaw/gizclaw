@@ -13,7 +13,7 @@ import (
 	"google.golang.org/protobuf/types/dynamicpb"
 )
 
-// methodInfo is the wire metadata `api/proto/rpc/rpc.proto` attaches to one
+// methodInfo is the wire metadata `api/proto/rpc/gizclaw_rpc.proto` attaches to one
 // RPC method: its numeric id and its request and response message names.
 type methodInfo struct {
 	id       rpcpb.RpcMethod

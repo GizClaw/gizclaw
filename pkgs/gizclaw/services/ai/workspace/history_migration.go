@@ -10,7 +10,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/logstore"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -46,18 +46,18 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 		return report, fmt.Errorf("history migration: positive retention is required")
 	}
 	for _, name := range []string{options.WorkspaceTable, options.EinoTable} {
-		if err := storage.ValidateSQLIdentifier(name); err != nil {
+		if err := sqlmeta.ValidateSQLIdentifier(name); err != nil {
 			return report, err
 		}
 		if name == memory.DefaultHistoryTable || name == historyMigrationReceipt {
 			return report, fmt.Errorf("history migration: a source aliases the target")
 		}
 	}
-	workspaceTable, err := storage.PrepareSQLTable(db, "sql", options.WorkspaceTable)
+	workspaceTable, err := sqlmeta.PrepareSQLTable(db, "sql", options.WorkspaceTable)
 	if err != nil {
 		return report, err
 	}
-	einoTable, err := storage.PrepareSQLTable(db, "sql", options.EinoTable)
+	einoTable, err := sqlmeta.PrepareSQLTable(db, "sql", options.EinoTable)
 	if err != nil {
 		return report, err
 	}
@@ -75,26 +75,26 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 	if !workspaceExists || !einoExists {
 		return report, fmt.Errorf("history migration: both dedicated source tables must exist")
 	}
-	for _, table := range []storage.SQLTable{workspaceTable, einoTable} {
+	for _, table := range []sqlmeta.SQLTable{workspaceTable, einoTable} {
 		if err := validateLegacyHistorySchema(ctx, db, table); err != nil {
 			return report, err
 		}
-		if table.Dialect() == storage.SQLDialectPostgreSQL {
+		if table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 			keysName := legacyHistoryKeysName(table.Name())
 			exists, err := historyTableExists(ctx, db, keysName)
 			if err != nil {
 				return report, err
 			}
 			if exists {
-				keys, err := storage.PrepareSQLTable(db, "sql", keysName)
+				keys, err := sqlmeta.PrepareSQLTable(db, "sql", keysName)
 				if err != nil {
 					return report, err
 				}
-				columns, err := storage.SQLColumns(ctx, db, keys)
+				columns, err := sqlmeta.SQLColumns(ctx, db, keys)
 				if err != nil {
 					return report, err
 				}
-				if err := storage.ValidateSQLColumns(columns, map[string]storage.SQLColumn{"stream": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2}, "expires_at_unix_nano": {Type: "BIGINT"}}); err != nil {
+				if err := sqlmeta.ValidateSQLColumns(columns, map[string]sqlmeta.SQLColumn{"stream": {Type: "TEXT", PrimaryKeyPosition: 1}, "id": {Type: "TEXT", PrimaryKeyPosition: 2}, "expires_at_unix_nano": {Type: "BIGINT"}}); err != nil {
 					return report, fmt.Errorf("history migration: source identity table is incompatible: %w", err)
 				}
 			}
@@ -112,7 +112,7 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 		return report, err
 	}
 	defer tx.Rollback()
-	if workspaceTable.Dialect() == storage.SQLDialectPostgreSQL {
+	if workspaceTable.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		for _, operation := range []string{"run_maintenance", "drop_partition_time"} {
 			if _, err := tx.ExecContext(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", "pg_partman "+operation); err != nil {
 				return report, err
@@ -121,7 +121,7 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 		// Includes attached children. Old writers cannot change either source
 		// between validation, copying and source removal.
 		if _, err := tx.ExecContext(ctx, "LOCK TABLE "+workspaceTable.Quoted()+","+einoTable.Quoted()+" IN ACCESS EXCLUSIVE MODE"); err != nil {
-			return report, storage.ExternalSQLError("history migration: lock source tables", err)
+			return report, sqlmeta.ExternalSQLError("history migration: lock source tables", err)
 		}
 	}
 	var invalid int
@@ -167,7 +167,7 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 	for {
 		rows, err := tx.QueryContext(ctx, tx.Rebind("SELECT stream,id,timestamp_unix_nano,expires_at_unix_nano,kind,message,attributes_json,payload_json FROM "+workspaceTable.Quoted()+" WHERE stream LIKE 'workspace.history/%' AND (stream,id) > (?,?) ORDER BY stream,id LIMIT 256"), lastStream, lastID)
 		if err != nil {
-			return report, storage.ExternalSQLError("history migration: read source batch", err)
+			return report, sqlmeta.ExternalSQLError("history migration: read source batch", err)
 		}
 		batch := make([]memory.HistoryEntry, 0, 256)
 		count := 0
@@ -262,7 +262,7 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 	if _, err := tx.ExecContext(ctx, tx.Rebind("INSERT INTO "+historyMigrationReceipt+" (id,workspace_table,eino_table,messages,expired,eino_discarded) VALUES (1,?,?,?,?,?)"), options.WorkspaceTable, options.EinoTable, report.Messages, report.Expired, report.DiscardedEino); err != nil {
 		return report, err
 	}
-	for _, table := range []storage.SQLTable{workspaceTable, einoTable} {
+	for _, table := range []sqlmeta.SQLTable{workspaceTable, einoTable} {
 		if len(report.DroppedTables) > 0 && report.DroppedTables[0] == table.Name() {
 			continue
 		}
@@ -271,7 +271,7 @@ func MigrateHistory(ctx context.Context, db *sqlx.DB, options HistoryMigration) 
 		}
 	}
 	if err := tx.Commit(); err != nil {
-		return report, storage.ExternalSQLError("history migration: commit import and source deletion", err)
+		return report, sqlmeta.ExternalSQLError("history migration: commit import and source deletion", err)
 	}
 	return report, nil
 }
@@ -302,8 +302,8 @@ func historyTableExists(ctx context.Context, db *sqlx.DB, table string) (bool, e
 	return exists, err
 }
 
-func validateLegacyHistorySchema(ctx context.Context, db *sqlx.DB, table storage.SQLTable) error {
-	if table.Dialect() == storage.SQLDialectPostgreSQL {
+func validateLegacyHistorySchema(ctx context.Context, db *sqlx.DB, table sqlmeta.SQLTable) error {
+	if table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		var child bool
 		if err := db.GetContext(ctx, &child, "SELECT EXISTS(SELECT 1 FROM pg_inherits WHERE inhrelid=to_regclass(quote_ident(current_schema())||'.'||quote_ident($1)))", table.Name()); err != nil {
 			return err
@@ -312,12 +312,12 @@ func validateLegacyHistorySchema(ctx context.Context, db *sqlx.DB, table storage
 			return fmt.Errorf("history migration: source %q is a child partition; select its logical parent", table.Name())
 		}
 	}
-	columns, err := storage.SQLColumns(ctx, db, table)
+	columns, err := sqlmeta.SQLColumns(ctx, db, table)
 	if err != nil {
 		return err
 	}
 	payload := "BLOB"
-	if table.Dialect() == storage.SQLDialectPostgreSQL {
+	if table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		payload = "BYTEA"
 	}
 	want := map[string]string{"stream": "TEXT", "id": "TEXT", "timestamp_unix_nano": "BIGINT", "expires_at_unix_nano": "BIGINT", "kind": "TEXT", "severity": "TEXT", "message": "TEXT", "attributes_json": "TEXT", "payload_json": payload}
@@ -352,12 +352,12 @@ func completedHistoryMigration(ctx context.Context, db *sqlx.DB, options History
 	return result, nil
 }
 
-func dropLegacyHistoryTable(ctx context.Context, tx *sqlx.Tx, table storage.SQLTable, report *HistoryMigrationResult) error {
+func dropLegacyHistoryTable(ctx context.Context, tx *sqlx.Tx, table sqlmeta.SQLTable, report *HistoryMigrationResult) error {
 	var template string
-	if table.Dialect() == storage.SQLDialectPostgreSQL {
+	if table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		keys := legacyHistoryKeysName(table.Name())
 		if _, err := tx.ExecContext(ctx, "DROP TABLE IF EXISTS \""+keys+"\""); err != nil {
-			return storage.ExternalSQLError("history migration: remove retired identities", err)
+			return sqlmeta.ExternalSQLError("history migration: remove retired identities", err)
 		}
 		var schema string
 		if err := tx.GetContext(ctx, &schema, "SELECT current_schema()"); err != nil {
@@ -376,7 +376,7 @@ func dropLegacyHistoryTable(ctx context.Context, tx *sqlx.Tx, table storage.SQLT
 	}
 	// No CASCADE: an unrelated dependency prevents deletion and rolls back.
 	if _, err := tx.ExecContext(ctx, "DROP TABLE "+table.Quoted()); err != nil {
-		return storage.ExternalSQLError("history migration: remove retired history parent", err)
+		return sqlmeta.ExternalSQLError("history migration: remove retired history parent", err)
 	}
 	if strings.HasPrefix(template, "partman.template_") {
 		var users int
@@ -385,7 +385,7 @@ func dropLegacyHistoryTable(ctx context.Context, tx *sqlx.Tx, table storage.SQLT
 		}
 		if users == 0 {
 			name := strings.TrimPrefix(template, "partman.")
-			if err := storage.ValidateSQLIdentifier(name); err != nil {
+			if err := sqlmeta.ValidateSQLIdentifier(name); err != nil {
 				return err
 			}
 			if _, err := tx.ExecContext(ctx, "DROP TABLE IF EXISTS partman.\""+name+"\""); err != nil {

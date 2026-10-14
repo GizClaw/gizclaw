@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -21,12 +21,12 @@ func historyStoreForTest(t *testing.T, db *sqlx.DB, table string) *memory.SQLHis
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, err := storage.PrepareSQLTable(db, "sql", table)
+	parent, err := sqlmeta.PrepareSQLTable(db, "sql", table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys, _ := storage.SQLIndexName(parent, "history_keys")
-	assets, _ := storage.SQLIndexName(parent, "history_assets")
+	keys, _ := sqlmeta.SQLIndexName(parent, "history_keys")
+	assets, _ := sqlmeta.SQLIndexName(parent, "history_assets")
 	t.Cleanup(func() {
 		var schema string
 		_ = db.Get(&schema, "SELECT current_schema()")
@@ -83,8 +83,8 @@ func TestPostgreSQLHistoryIndependentRecordProgress(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	parent, _ := storage.PrepareSQLTable(db, "sql", table)
-	keys, _ := storage.SQLIndexName(parent, "history_keys")
+	parent, _ := sqlmeta.PrepareSQLTable(db, "sql", table)
+	keys, _ := sqlmeta.SQLIndexName(parent, "history_keys")
 	tx, err := db.BeginTxx(t.Context(), nil)
 	if err != nil {
 		t.Fatal(err)

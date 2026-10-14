@@ -4,32 +4,32 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 )
 
-func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table storage.SQLTable) error {
+func ensureSQLSchema(ctx context.Context, db *sqlx.DB, table sqlmeta.SQLTable) error {
 	binaryType := "BLOB"
-	if table.Dialect() == storage.SQLDialectPostgreSQL {
+	if table.Dialect() == sqlmeta.SQLDialectPostgreSQL {
 		binaryType = "BYTEA"
 	}
-	indexName, err := storage.SQLIndexName(table, "expires_idx")
+	indexName, err := sqlmeta.SQLIndexName(table, "expires_idx")
 	if err != nil {
 		return err
 	}
-	quotedIndex, err := storage.QuoteSQLIdentifier(table.Dialect(), indexName)
+	quotedIndex, err := sqlmeta.QuoteSQLIdentifier(table.Dialect(), indexName)
 	if err != nil {
 		return err
 	}
-	membersName, err := storage.SQLIndexName(table, "members")
+	membersName, err := sqlmeta.SQLIndexName(table, "members")
 	if err != nil {
 		return err
 	}
-	members, err := storage.QuoteSQLIdentifier(table.Dialect(), membersName)
+	members, err := sqlmeta.QuoteSQLIdentifier(table.Dialect(), membersName)
 	if err != nil {
 		return err
 	}
-	return storage.EnsureSQLTable(
+	return sqlmeta.EnsureSQLTable(
 		ctx,
 		db,
 		table,

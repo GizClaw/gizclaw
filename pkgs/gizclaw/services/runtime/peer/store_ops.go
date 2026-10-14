@@ -832,7 +832,7 @@ func (s *Server) store() (kv.Store, error) {
 	if s.Store == nil {
 		return nil, errors.New("peer: store not configured")
 	}
-	return s.Store, nil
+	return kv.WithStrongReads(s.Store), nil
 }
 
 func (s *Server) peerRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {

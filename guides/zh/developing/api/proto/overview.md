@@ -8,7 +8,7 @@ api/proto/
 │   ├── admission.proto
 │   └── nanopb.options
 ├── rpc/
-│   ├── rpc.proto
+│   ├── gizclaw_rpc.proto
 │   ├── nanopb.options
 │   └── payload/
 └── telemetry/

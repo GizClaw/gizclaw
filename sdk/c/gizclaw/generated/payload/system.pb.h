@@ -5,7 +5,7 @@
 #define PB_GIZCLAW_RPC_V1_PAYLOAD_SYSTEM_PB_H_INCLUDED
 #include <pb.h>
 #include "payload/audioplayer.pb.h"
-#include "rpc.pb.h"
+#include "gizclaw_rpc.pb.h"
 #include "payload/mhs_v0.pb.h"
 
 #if PB_PROTO_HEADER_VERSION != 40

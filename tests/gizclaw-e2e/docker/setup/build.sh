@@ -8,4 +8,5 @@ bin_path="$bin_dir/gizclaw"
 
 mkdir -p "$bin_dir"
 (cd "$repo_root" && go build -o "$bin_path" ./cmd/gizclaw)
+(cd "$repo_root" && go build -o "$bin_dir/gizclaw-e2e-fixture-apply" ./tests/gizclaw-e2e/internal/fixtureapply)
 echo "$bin_path"

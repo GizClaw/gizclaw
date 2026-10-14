@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 )
 
 // QueryCleanup reads bounded maintenance identities independently of message
@@ -43,14 +43,14 @@ func (store *SQLHistoryStore) QueryCleanup(ctx context.Context, query HistoryCle
 	executor := store.executor()
 	rows, err := executor.QueryContext(ctx, store.db.Rebind("SELECT conversation_id,id FROM "+store.keys.Quoted()+" WHERE "+strings.Join(where, " AND ")+" ORDER BY conversation_id,id LIMIT ?"), args...)
 	if err != nil {
-		return HistoryCleanupPage{}, storage.ExternalSQLError("history: query cleanup identities", err)
+		return HistoryCleanupPage{}, sqlmeta.ExternalSQLError("history: query cleanup identities", err)
 	}
 	var page HistoryCleanupPage
 	for rows.Next() {
 		var entry HistoryCleanupEntry
 		if err := rows.Scan(&entry.Key.ConversationID, &entry.Key.ID); err != nil {
 			rows.Close()
-			return HistoryCleanupPage{}, storage.ExternalSQLError("history: decode cleanup identity", err)
+			return HistoryCleanupPage{}, sqlmeta.ExternalSQLError("history: decode cleanup identity", err)
 		}
 		page.Entries = append(page.Entries, entry)
 	}
@@ -59,7 +59,7 @@ func (store *SQLHistoryStore) QueryCleanup(ctx context.Context, query HistoryCle
 		err = closeErr
 	}
 	if err != nil {
-		return HistoryCleanupPage{}, storage.ExternalSQLError("history: read cleanup identities", err)
+		return HistoryCleanupPage{}, sqlmeta.ExternalSQLError("history: read cleanup identities", err)
 	}
 	if len(page.Entries) > query.Limit {
 		page.Entries = page.Entries[:query.Limit]
@@ -78,7 +78,7 @@ func (store *SQLHistoryStore) QueryCleanup(ctx context.Context, query HistoryCle
 	pairs := strings.TrimSuffix(strings.Repeat("(?,?),", len(page.Entries)), ",")
 	rows, err = executor.QueryContext(ctx, store.db.Rebind("SELECT conversation_id,id,name,mime_type,bytes,expires_at_unix_nano FROM "+store.assets.Quoted()+" WHERE (conversation_id,id) IN ("+pairs+") ORDER BY conversation_id,id,position"), args...)
 	if err != nil {
-		return HistoryCleanupPage{}, storage.ExternalSQLError("history: query cleanup assets", err)
+		return HistoryCleanupPage{}, sqlmeta.ExternalSQLError("history: query cleanup assets", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -86,11 +86,11 @@ func (store *SQLHistoryStore) QueryCleanup(ctx context.Context, query HistoryCle
 		var asset HistoryAsset
 		var expiration sql.NullInt64
 		if err := rows.Scan(&key.ConversationID, &key.ID, &asset.Name, &asset.MIMEType, &asset.Bytes, &expiration); err != nil {
-			return HistoryCleanupPage{}, storage.ExternalSQLError("history: decode cleanup asset", err)
+			return HistoryCleanupPage{}, sqlmeta.ExternalSQLError("history: decode cleanup asset", err)
 		}
 		asset.ExpiresAt = historyTime(expiration)
 		i := positions[key]
 		page.Entries[i].Assets = append(page.Entries[i].Assets, asset)
 	}
-	return page, storage.ExternalSQLError("history: read cleanup assets", rows.Err())
+	return page, sqlmeta.ExternalSQLError("history: read cleanup assets", rows.Err())
 }

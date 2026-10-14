@@ -181,7 +181,7 @@ func edgeRPCResult[T any](id string, value T, encode func(*rpcapi.RPCPayload, T)
 func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
 	code := rpcapi.StatusCodeInternal
 	switch {
-	case errors.Is(err, apikey.ErrInvalidAPIKey):
+	case errors.Is(err, apikey.ErrInvalidAPIKey), errors.Is(err, peer.ErrPeerPendingDeletion), errors.Is(err, peer.ErrPeerDeleted), errors.Is(err, peer.ErrPeerBlocked):
 		code = rpcapi.StatusCodePermissionDenied
 	case errors.Is(err, peerroute.ErrInvalidPublicKey), errors.Is(err, peerroute.ErrPeerNotAssignable):
 		code = rpcapi.StatusCodeInvalidArgument

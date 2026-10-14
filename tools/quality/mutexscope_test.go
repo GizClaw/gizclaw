@@ -9,6 +9,13 @@ import (
 	"testing"
 )
 
+func TestMutexScopeRisksIncludesWriterCalls(t *testing.T) {
+	risks := mutexScopeRisks("writer.mu.Lock(); defer writer.mu.Unlock(); return writer.output.Write(data)")
+	if !slices.Equal(risks, []string{"writer-call"}) {
+		t.Fatalf("writer critical section risks = %v", risks)
+	}
+}
+
 func TestInventoryFunctionMutexScopesCoversReleaseAndControlFlow(t *testing.T) {
 	source := []byte(`package fixture
 import "sync"

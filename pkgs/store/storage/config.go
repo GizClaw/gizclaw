@@ -1,6 +1,10 @@
 package storage
 
-import "time"
+import (
+	"maps"
+	"slices"
+	"time"
+)
 
 // Kind constants identify concrete physical storage backends in external
 // configuration. Programmatic callers select a backend with the matching
@@ -12,6 +16,7 @@ const (
 	KindSQLite         = "sqlite"
 	KindPostgreSQL     = "postgresql"
 	KindClickHouse     = "clickhouse"
+	KindTiKV           = "tikv"
 	KindRedis          = "redis"
 	KindRedisReadWrite = "redis.readwrite"
 	KindPrometheus     = "prometheus"
@@ -93,6 +98,21 @@ type RedisReadWriteConfig struct {
 }
 
 func (RedisReadWriteConfig) storageKind() string { return KindRedisReadWrite }
+
+// TiKVConfig configures a transactional TiKV cluster discovered through PD.
+// ReadLabels and StaleReadDelay opt ordinary reads into regional Learners.
+// Strong reads and all mutations always use fresh leader transactions.
+// TLS files apply to PD, its etcd endpoint, and TiKV RPCs.
+type TiKVConfig struct {
+	PDAddresses    []string
+	TLSCAFile      string
+	TLSCertFile    string
+	TLSKeyFile     string
+	StaleReadDelay time.Duration
+	ReadLabels     map[string]string
+}
+
+func (TiKVConfig) storageKind() string { return KindTiKV }
 
 // PrometheusConfig configures one Prometheus API client and its remote-write
 // endpoint.
@@ -191,6 +211,15 @@ func normalizeConfig(config Config) (Config, error) {
 			return nil, errNilConfig
 		}
 		return *cfg, nil
+	case TiKVConfig:
+		cfg.PDAddresses = slices.Clone(cfg.PDAddresses)
+		cfg.ReadLabels = maps.Clone(cfg.ReadLabels)
+		return cfg, nil
+	case *TiKVConfig:
+		if cfg == nil {
+			return nil, errNilConfig
+		}
+		return normalizeConfig(*cfg)
 	case *RedisConfig:
 		if cfg == nil {
 			return nil, errNilConfig

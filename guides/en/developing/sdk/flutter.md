@@ -44,6 +44,8 @@ observing channel closure or starting cleanup of its owning Peer; unrelated erro
 remain errors. Event-session EOS/channel-done notifications reach subscribers
 before native cleanup finishes. No disconnect timer is added.
 
+Duplicate native state and message callbacks after closure are ignored. A closed channel remains terminal and does not append to already closed Dart streams.
+
 ```sh
 cd sdk/flutter/gizclaw
 flutter pub get

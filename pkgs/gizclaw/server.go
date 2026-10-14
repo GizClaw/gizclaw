@@ -374,16 +374,20 @@ func (s *Server) init() error {
 	peerRouteStore := kv.Prefixed(s.PeerStore, kv.Key{"routes"})
 	workspaceDB := s.WorkspaceDB
 	apiKeyStore := s.APIKeyStore
-	friendInviteTokenStore := kv.Prefixed(s.FriendStore, kv.Key{"invite-tokens"})
-	friendStore := kv.Prefixed(s.FriendStore, kv.Key{"friends"})
-	friendGroupStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"groups"})
-	friendGroupInviteTokenStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"invite-tokens"})
-	friendGroupMemberStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"members"})
-	friendGroupBelongStore := kv.Prefixed(s.FriendGroupStore, kv.Key{"belongs"})
+	// Social membership is authority and also supplies Peer retirement plans.
+	// A replica must not hide recently committed relationships during deletion.
+	friendRoot := kv.WithStrongReads(s.FriendStore)
+	friendGroupRoot := kv.WithStrongReads(s.FriendGroupStore)
+	friendInviteTokenStore := kv.Prefixed(friendRoot, kv.Key{"invite-tokens"})
+	friendStore := kv.Prefixed(friendRoot, kv.Key{"friends"})
+	friendGroupStore := kv.Prefixed(friendGroupRoot, kv.Key{"groups"})
+	friendGroupInviteTokenStore := kv.Prefixed(friendGroupRoot, kv.Key{"invite-tokens"})
+	friendGroupMemberStore := kv.Prefixed(friendGroupRoot, kv.Key{"members"})
+	friendGroupBelongStore := kv.Prefixed(friendGroupRoot, kv.Key{"belongs"})
 	// Keep auxiliary records and pending-deletion work inside the configured
 	// namespace. Domain mutations resolve the common atomic root and restore
 	// the full prefix of each participating view themselves.
-	friendGroupRelationshipStore := s.FriendGroupStore
+	friendGroupRelationshipStore := friendGroupRoot
 	if !kv.SupportsCreateIfAbsent(peerStore) {
 		return fmt.Errorf("gizclaw: peer store: %w", kv.ErrCreateIfAbsentUnsupported)
 	}

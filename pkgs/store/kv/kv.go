@@ -115,6 +115,9 @@ type compareAndMutateStore interface {
 // compare-and-mutate capability. Prefixed stores inherit support from their
 // underlying store.
 func SupportsCompareAndMutate(store Store) bool {
+	if strong, ok := store.(*strongReadStore); ok {
+		return SupportsCompareAndMutate(strong.Store)
+	}
 	if prefixed, ok := store.(*prefixedStore); ok {
 		return SupportsCompareAndMutate(prefixed.base)
 	}
@@ -126,6 +129,9 @@ func SupportsCompareAndMutate(store Store) bool {
 // conditional-create capability. Prefixed stores inherit support from their
 // underlying store.
 func SupportsCreateIfAbsent(store Store) bool {
+	if strong, ok := store.(*strongReadStore); ok {
+		return SupportsCreateIfAbsent(strong.Store)
+	}
 	if prefixed, ok := store.(*prefixedStore); ok {
 		return SupportsCreateIfAbsent(prefixed.base)
 	}
@@ -136,6 +142,9 @@ func SupportsCreateIfAbsent(store Store) bool {
 // SupportsCreateIfAllAbsent reports whether store can atomically require
 // several uniqueness keys to be absent before creating one record set.
 func SupportsCreateIfAllAbsent(store Store) bool {
+	if strong, ok := store.(*strongReadStore); ok {
+		return SupportsCreateIfAllAbsent(strong.Store)
+	}
 	if prefixed, ok := store.(*prefixedStore); ok {
 		return SupportsCreateIfAllAbsent(prefixed.base)
 	}

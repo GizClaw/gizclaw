@@ -22,10 +22,11 @@ COPY . .
 RUN npm run build:console
 RUN find tests/gizclaw-e2e/docker -name '*.sh' -exec chmod +x {} +
 
-# Admission starts three copies of the CLI on small CI runners. Build it once
-# in the image, before any container health or fixture-readiness checks begin.
-ARG PREBUILD_CLI=0
-RUN if [ "$PREBUILD_CLI" = "1" ]; then tests/gizclaw-e2e/docker/setup/build.sh; fi
+# Build once before starting storage and application processes. Cold concurrent
+# compiler I/O must not delay PD heartbeats or Edge upstream admission.
+ARG PREBUILD_CLI=1
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    if [ "$PREBUILD_CLI" = "1" ]; then tests/gizclaw-e2e/docker/setup/build.sh; fi
 ENV GIZCLAW_E2E_PREBUILT_CLI=${PREBUILD_CLI}
 
 ENTRYPOINT ["/src/tests/gizclaw-e2e/docker/entrypoint-server.sh"]

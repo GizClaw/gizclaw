@@ -11,6 +11,8 @@ require_gizclaw_e2e_credentials "$env_file"
 default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestAdminLogStreamVolcSmoke)$'
 go_test_timeout="45m"
 full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-5400}"
+continue_on_failure="${GIZCLAW_E2E_CONTINUE_ON_FAILURE:-0}"
+failed_phases=()
 gate_started=$SECONDS
 docker_env_path="$(mktemp "${TMPDIR:-/tmp}/gizclaw-e2e-run.XXXXXX")"
 rm -f "$docker_env_path"
@@ -88,7 +90,7 @@ phase_deadline_seconds() {
 	local phase="$1"
 	case "$phase" in
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
-		docker:setup) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
+		docker:setup | docker:multi-server) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
 		giztest:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
@@ -110,12 +112,16 @@ stop_full_watchdog() {
 	if [[ -z "$full_watchdog_pid" ]]; then
 		return
 	fi
-	kill "$full_watchdog_pid" >/dev/null 2>&1 || true
+	terminate_process_tree "$full_watchdog_pid" TERM
 	wait "$full_watchdog_pid" >/dev/null 2>&1 || true
 	full_watchdog_pid=""
 }
 
 validate_deadlines() {
+	case "$continue_on_failure" in
+		0 | 1) ;;
+		*) echo "GIZCLAW_E2E_CONTINUE_ON_FAILURE must be 0 or 1" >&2; exit 2 ;;
+	esac
 	require_positive_seconds GIZCLAW_E2E_FULL_DEADLINE_SECONDS "$full_deadline_seconds"
 	local phase deadline
 	for phase in preflight:validate docker:setup docker:cleanup giztest:standard giztest:c-sdk cli go:validate; do
@@ -260,7 +266,7 @@ run_timed() {
 	local watchdog_pid="$!"
 	wait "$command_pid" || status=$?
 	active_command_pid=""
-	kill "$watchdog_pid" >/dev/null 2>&1 || true
+	terminate_process_tree "$watchdog_pid" TERM
 	wait "$watchdog_pid" >/dev/null 2>&1 || true
 	if [[ -f "$marker" ]]; then
 		status=124
@@ -271,6 +277,30 @@ run_timed() {
 		collect_failure_diagnostics
 	fi
 	return "$status"
+}
+
+# Diagnostic runs retain each failed phase and exercise the remaining SDKs.
+# Keep run_timed outside a conditional: testing a shell function's status would
+# disable errexit inside its phase functions and could hide an earlier failure.
+run_suite_phase() {
+	if [[ "$continue_on_failure" != 1 ]]; then
+		run_timed "$@"
+		return
+	fi
+	active_phase="$1"
+	(
+		trap - EXIT INT TERM
+		run_timed "$@"
+	) &
+	local supervisor_pid="$!"
+	active_command_pid="$supervisor_pid"
+	local status=0
+	wait "$supervisor_pid" || status=$?
+	active_command_pid=""
+	if ((status != 0)); then
+		failed_phases+=("$1:$status")
+	fi
+	return 0
 }
 
 prepare_node_dependencies() {
@@ -291,7 +321,10 @@ build_host_cli() {
 # sdk/c/gizclaw_control instead of the Go SDK, so it needs nanopb in place.
 build_c_giztest_runner() {
 	mkdir -p "$script_dir/testdata/bin"
-	(cd "$repo_root" && go build -o "$script_dir/testdata/bin/giztest-c" ./tests/gizclaw-e2e/cgo/giztest)
+	# Go's cgo cache does not track C files included outside the package. Both
+	# bridges include the SDK tree, so rebuild them before checking this checkout.
+	(cd "$repo_root" && go build -a -o "$script_dir/testdata/bin/giztest-c" ./tests/gizclaw-e2e/cgo/giztest)
+	(cd "$repo_root" && go test -a -tags gizclaw_e2e -run '^$' ./tests/gizclaw-e2e/cgo/internal)
 }
 
 start_docker_stack() {
@@ -335,8 +368,9 @@ run_js_rpc_tests() {
 # Monitor scenarios need the dedicated runner's node token, retained assets
 # and script Workflow. Slow TTS scenarios require the provider-only build
 # overlay. Keep both out of unrelated provider/SDK environments.
+# Quota documents require setup/run-quota.sh's tokens and provider fixtures.
 standard_sdk_giztest_files() {
-	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
+	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -path "$script_dir/giztest/quota/*" ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
 }
 
 run_js_giztest() {
@@ -507,24 +541,31 @@ set -a
 source "$docker_env_path"
 set +a
 
-run_timed "javascript" run_js_rpc_tests
-run_timed "giztest:javascript" run_js_giztest
-run_timed "giztest:flutter" run_flutter_giztest
-run_timed "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
-run_timed "cgo:telemetry" run_pkg "./tests/gizclaw-e2e/cgo/telemetry"
-run_timed "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
-run_timed "cgo:media" run_pkg "./tests/gizclaw-e2e/cgo/media"
-run_timed "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
-run_timed "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
-run_timed "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
-run_timed "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
-run_timed "terraform" bash "$script_dir/run_terraform_provider_tests.sh"
-run_timed "giztest:standard" run_standard_giztest
-run_timed "giztest:failure-cleanup" run_failure_cleanup_giztest
-run_timed "giztest:input-mode-mismatch" run_input_mode_mismatch_giztest
-run_timed "giztest:c-sdk" run_c_giztest
+run_suite_phase "javascript" run_js_rpc_tests
+run_suite_phase "giztest:javascript" run_js_giztest
+run_suite_phase "giztest:flutter" run_flutter_giztest
+run_suite_phase "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
+run_suite_phase "cgo:telemetry" run_pkg "./tests/gizclaw-e2e/cgo/telemetry"
+run_suite_phase "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
+run_suite_phase "cgo:media" run_pkg "./tests/gizclaw-e2e/cgo/media"
+run_suite_phase "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
+run_suite_phase "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
+run_suite_phase "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
+run_suite_phase "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
+run_suite_phase "terraform" bash "$script_dir/run_terraform_provider_tests.sh"
+run_suite_phase "giztest:standard" run_standard_giztest
+run_suite_phase "giztest:failure-cleanup" run_failure_cleanup_giztest
+run_suite_phase "giztest:input-mode-mismatch" run_input_mode_mismatch_giztest
+run_suite_phase "giztest:c-sdk" run_c_giztest
 
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
 stack_started=0
+
+run_suite_phase "docker:multi-server" bash "$script_dir/run_multi_server_tests.sh"
+
+if ((${#failed_phases[@]} > 0)); then
+	echo "e2e failed phases: ${failed_phases[*]}" >&2
+	exit 1
+fi
 
 echo "==> e2e run completed"

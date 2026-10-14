@@ -44,17 +44,8 @@ func NewRedisReadWriteWithClients(read, write *redis.Client, opts *Options) (*Re
 	return &Redis{client: write, reader: read, opts: opts}, nil
 }
 
-type primaryReadsKey struct{}
-
-// WithPrimaryReads binds all KV reads in this operation to the write authority.
-// Redis read/write stores use their writer for point and collection reads;
-// other stores keep their existing behavior. This does not provide a snapshot.
-func WithPrimaryReads(ctx context.Context) context.Context {
-	return context.WithValue(ctx, primaryReadsKey{}, true)
-}
-
 func (r *Redis) readClient(ctx context.Context) *redis.Client {
-	if primary, _ := ctx.Value(primaryReadsKey{}).(bool); primary {
+	if requiresStrongReads(ctx) {
 		return r.client
 	}
 	return r.reader

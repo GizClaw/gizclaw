@@ -262,3 +262,8 @@ func (s *countingPeerRouteStore) BatchMutate(ctx context.Context, entries []kv.E
 func activeClientPeer() apitypes.Peer {
 	return apitypes.Peer{Status: apitypes.PeerRegistrationStatusActive, Role: apitypes.PeerRoleClient}
 }
+
+func (p testPeers) EnsureAvailable(ctx context.Context, key giznet.PublicKey) error {
+	_, err := p.LoadPeer(ctx, key)
+	return err
+}

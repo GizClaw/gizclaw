@@ -121,10 +121,10 @@ func createMediaRegistrationToken(t *testing.T, h *clitest.Harness) string {
 
 func runtimeBindings(
 	resources map[string]string,
-) map[string]apitypes.RuntimeProfileBinding {
-	bindings := make(map[string]apitypes.RuntimeProfileBinding, len(resources))
+) apitypes.RuntimeProfileWorkflows {
+	bindings := make(apitypes.RuntimeProfileWorkflows, len(resources))
 	for alias, resourceID := range resources {
-		bindings[alias] = apitypes.RuntimeProfileBinding{
+		bindings[alias] = apitypes.RuntimeProfileWorkflowBinding{
 			ResourceId: resourceID,
 			I18n: map[string]apitypes.RuntimeProfileI18nText{
 				"en":    {DisplayName: alias},

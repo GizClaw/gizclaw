@@ -15,7 +15,7 @@ import 'dart:core' as $core;
 import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
-import '../rpc.pbenum.dart' as $2;
+import '../gizclaw_rpc.pbenum.dart' as $2;
 import 'audioplayer.pb.dart' as $0;
 import 'mhs_v0.pbenum.dart' as $1;
 

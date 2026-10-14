@@ -36,7 +36,7 @@ Peer connection、独立 OpenAI HTTP 调用和 Workspace owner 的 `peergenx.Ser
 
 ## 小时、日分区与保留
 
-小时是统计粒度，UTC 日是 PostgreSQL 分区粒度。PG 父表按 `hour_unix_nano` range partition，子表命名为 `peer_model_usage_hourly_pYYYYMMDD`；只读写父表，PG 自动路由子表。初始化和批次写入准备所需日及下一日分区，删除完全早于保留边界的日分区。共享 `storage.SQLDailyPartitions` 也被 LogStore 使用；History 的到期时间分区和 `_keys` 清理语义保持不变。
+小时是统计粒度，UTC 日是 PostgreSQL 分区粒度。PG 父表按 `hour_unix_nano` range partition，子表命名为 `peer_model_usage_hourly_pYYYYMMDD`；只读写父表，PG 自动路由子表。初始化和批次写入准备所需日及下一日分区，删除完全早于保留边界的日分区。共享 `sqlmeta.SQLDailyPartitions` 也被 LogStore 使用；History 的到期时间分区和 `_keys` 清理语义保持不变。
 
 保留边界是当前 UTC 小时减 90 天。查询立即隐藏更早小时；PG 物理删除按整日完成，SQLite 删除过期 row。后台每小时执行一次空闲维护，因此没有新用量时也会回收旧数据。不存在单独总量表、分区登记表或每 Peer 一张表。
 

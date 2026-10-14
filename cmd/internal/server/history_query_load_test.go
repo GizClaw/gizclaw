@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 )
@@ -31,15 +31,15 @@ const (
 // layout. COPY-like SQL keeps preparation practical; live writes use Append.
 func seedPostgreSQLHistoryQuery(t *testing.T, ctx context.Context, db *sqlx.DB, table, evidence string) {
 	t.Helper()
-	parent, err := storage.PrepareSQLTable(db, "sql", table)
+	parent, err := sqlmeta.PrepareSQLTable(db, "sql", table)
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys, err := storage.SQLIndexName(parent, "history_keys")
+	keys, err := sqlmeta.SQLIndexName(parent, "history_keys")
 	if err != nil {
 		t.Fatal(err)
 	}
-	assets, err := storage.SQLIndexName(parent, "history_assets")
+	assets, err := sqlmeta.SQLIndexName(parent, "history_assets")
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1017,8 +1017,12 @@ func (h *Harness) waitForSetupServerReady() {
 
 	setupConfigHome := e2eConfigHome(h.RepoRoot)
 	setupContext := setupAdminContextName()
+	deadline := time.Now().Add(readyTimeout)
 	if err := waitUntil(readyTimeout, func() error {
-		return h.probeSetupServer(setupConfigHome, setupContext, 2*time.Second)
+		// The CLI process must finish native startup, signaling and its RPC.
+		// A short per-attempt limit can repeatedly kill an otherwise ready
+		// Server's probe before it reaches the network.
+		return h.probeSetupServer(setupConfigHome, setupContext, time.Until(deadline))
 	}); err != nil {
 		h.t.Fatalf("setup server did not become ready: %v\nstart the Docker e2e stack with bash tests/gizclaw-e2e/setup/docker-compose-up.sh", err)
 	}

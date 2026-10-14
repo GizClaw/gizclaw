@@ -49,3 +49,20 @@ Map<String, Object?> decodeHttpEventStream(String text) {
   }
   return result;
 }
+
+/// Retains event names and resource keys without recording resource payloads.
+List<Map<String, Object?>> summarizeHttpEventStream(
+  Map<String, Object?> projection,
+) {
+  final events = projection['events'];
+  if (events is! List) throw const FormatException('missing SSE events');
+  return [
+    for (final event in events)
+      if (event is Map && event['event'] is String)
+        {
+          'event': event['event'],
+          if (event['data'] case final Map data)
+            if (data['key'] is String) 'key': data['key'],
+        },
+  ];
+}

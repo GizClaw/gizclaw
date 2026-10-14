@@ -99,7 +99,7 @@ Method name 的前缀表示能力提供方：
 - `client.*`：Client 提供、Server 调用的设备能力。
 - `runtime.*`：由 runtime contract 拥有的调用。
 
-每个可用 method 的作用见 [RPC API Reference](/references/rpc)。Wire contract、method ID 和 error code 以 [`api/proto/rpc/rpc.proto`](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/rpc.proto) 为准；每个 method 的 request/response message 定义在 `api/proto/rpc/payload/`。
+每个可用 method 的作用见 [RPC API Reference](/references/rpc)。Wire contract、method ID 和 error code 以 [`api/proto/rpc/gizclaw_rpc.proto`](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/gizclaw_rpc.proto) 为准；每个 method 的 request/response message 定义在 `api/proto/rpc/payload/`。
 
 ### TypeScript
 

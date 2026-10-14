@@ -122,7 +122,12 @@ func newOpenAIHarness(t *testing.T) *openAIHarness {
 
 func openAIRuntimeProfile(t *testing.T) apitypes.RuntimeProfileSpec {
 	t.Helper()
-	workflows := apitypes.RuntimeProfileWorkflows{"shared": binding("eino-chat-assistant")}
+	workflows := apitypes.RuntimeProfileWorkflows{"shared": {
+		ResourceId: "eino-chat-assistant",
+		I18n: map[string]apitypes.RuntimeProfileI18nText{
+			"en": {DisplayName: "shared"}, "zh-CN": {DisplayName: "shared"},
+		},
+	}}
 	models := map[string]apitypes.RuntimeProfileBinding{"llm": binding("doubao-lite-chat"), "asr": binding("volc-bigasr-sauc")}
 	voices := map[string]apitypes.RuntimeProfileBinding{"narrator": binding("volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts")}
 	connection := apitypes.RuntimeProfileMemoryConnection{}

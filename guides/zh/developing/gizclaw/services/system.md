@@ -31,7 +31,7 @@ Peer 自动 policy 只批准 `phase=finalize`、`peer_replacement_ambiguous` 且
 
 在线批量恢复用于可选运维和诊断，复用同一状态转换，见 [CLI](../../../using/cli#pendingdeletion-恢复)。
 
-Admin list/get/retry、processor 与领域一致性校验显式使用 Redis writer 读取。领域 finalization 可以附加准确原记录的 CAS 条件，并与 task lease 及索引删除在同一原子 mutation 提交。读取主库不等于跨 Redis、SQL 和 Provider 的全局事务。
+Admin list/get/retry、processor 与领域一致性校验显式使用 Redis writer 或 TiKV authority 强读。领域 finalization 可以附加准确原记录的 CAS 条件，并与 task lease 及索引删除在同一原子 mutation 提交。读取主库不等于跨 Redis、SQL 和 Provider 的全局事务。
 
 Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active depth、最老 active age、claim、active worker、phase latency、deferral、retry、terminal failure、transition error 与 completion；resource ID、owner、deletion ID、descriptor、fingerprint、lease token 和 error text 都不会成为 label。Metrics store 失败不会停止 cleanup。
 

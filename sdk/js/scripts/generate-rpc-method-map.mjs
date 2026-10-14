@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, writeFile } from "node:fs/promises";
 
 const rpcProtoURL = new URL(
-  "../../../api/proto/rpc/rpc.proto",
+  "../../../api/proto/rpc/gizclaw_rpc.proto",
   import.meta.url,
 );
 const outputURL = new URL(
@@ -33,7 +33,7 @@ const hwds = parseHwdRegistry(
 
 if (!Array.isArray(methods) || methods.length === 0) {
   throw new Error(
-    "api/proto/rpc/rpc.proto must define RpcMethod entries before generating RPC TypeScript.",
+    "api/proto/rpc/gizclaw_rpc.proto must define RpcMethod entries before generating RPC TypeScript.",
   );
 }
 
