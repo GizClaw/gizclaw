@@ -72,8 +72,13 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 		if strings.TrimSpace(config.ContinueFrom) == "" {
 			return errors.New("conversation.continue_from must name a boolean root State field")
 		}
-		if public.VoiceAdapter != nil && public.VoiceAdapter.SpeakerVoices != nil && len(*public.VoiceAdapter.SpeakerVoices) != 0 {
-			return errors.New("conversation.continue_from does not support voice_adapter.speaker_voices")
+		if public.VoiceAdapter != nil {
+			if public.VoiceAdapter.SpeakerVoices != nil && len(*public.VoiceAdapter.SpeakerVoices) != 0 {
+				return errors.New("conversation.continue_from does not support voice_adapter.speaker_voices")
+			}
+			if public.VoiceAdapter.UnknownSpeakerPolicy != nil && *public.VoiceAdapter.UnknownSpeakerPolicy == apitypes.VoiceAdapterUnknownSpeakerPolicyDefaultVoice {
+				return errors.New("conversation.continue_from does not support voice_adapter.unknown_speaker_policy=default_voice")
+			}
 		}
 	}
 	return genxeino.ValidateConfig(config)
@@ -88,6 +93,17 @@ func validateVoiceAdapter(public apitypes.EinoWorkflowSpec) error {
 		return err
 	}
 	defaultVoice := strings.TrimSpace(stringValue(adapter.DefaultVoice))
+	if adapter.UnknownSpeakerPolicy != nil {
+		switch *adapter.UnknownSpeakerPolicy {
+		case apitypes.VoiceAdapterUnknownSpeakerPolicyPreserve:
+		case apitypes.VoiceAdapterUnknownSpeakerPolicyDefaultVoice:
+			if defaultVoice == "" {
+				return errors.New("unknown_speaker_policy=default_voice requires default_voice")
+			}
+		default:
+			return errors.New("unknown_speaker_policy must be preserve or default_voice")
+		}
+	}
 	var nodeVoices map[string]string
 	if adapter.NodeVoices != nil {
 		nodeVoices = *adapter.NodeVoices

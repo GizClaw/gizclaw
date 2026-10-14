@@ -147,9 +147,11 @@ voice_adapter:
 
 模型输出 `【旁白】山路很静。【孙悟空】师父小心！【唐僧】悟空莫急。` 时，设备文字不含这些已配置标记，音频依次使用三种音色。跨 chunk 的标记前缀暂存，普通文字立即转发，不等待 TTS。未知的 `【名字】` 与正文中的其它括号原样保留，并回落到该输出原有的 node/default 音色选择。开头没有标记时也使用原有选择。
 
-每段 TTS 输入按顺序送入；当前段输出期间允许下一段提前合成，音频按段串行合并为单个流。连续相同音色标记不启动额外会话，空段不产生音频。用户插话会取消当前段、预取段和排队段。未配置或配置为空时保留原有行为。预取可隐藏下一段的合成延迟；真实 provider 是否能连续播放仍取决于文本生成速度和合成吞吐。
+`unknown_speaker_policy` 默认为 `preserve`。显式设为 `default_voice` 时，段首（允许缩进）的 `【名字】` 被保留为说话人语法：最多 32 个 Unicode code point 的未知名字随实际正文呈现为 `名字: `，并回落到该输出原有的 `node_voices` / `default_voice` 选择。文字与 TTS 收到该可听归属，语义 History 保留原始标记与正文；只有标记的空段不发声。speaker map 为空或非空时，归一化都会保留首个仅含标记的块所携带的 publisher 路由元数据；空 map 继续使用原有的按 publisher 选 Voice 逻辑。名字允许字母、数字、组合标记、符号、引号、空格、`-`、`_`、`.`、`·` 和 ZWJ。空名字、纯空格、说明性标点、嵌套括号、超长名字、正文中的括号及 EOS 时未闭合的标记原样保留。因此启用后，段首短 `【注释】` 也属于 speaker 语法；需要此类标题的调用方使用 `preserve`。已配置名字保留原匹配语义与长度。每个 publisher 的未知名字前瞻最多暂存 134 字节 UTF-8（左括号、32 个最大宽度字符及跨 chunk 的末尾字符）；完整标记之后的正文无需等 EOS 即可输出。已校验的名字额外最多占用 128 字节 UTF-8，保留至正文、下一标记或 EOS；正文空白直接转发，不缓冲。可能匹配已配置名字的前缀仍按该配置长度暂存，所以总前瞻上界取这一限制与配置内最长 marker 长度的较大值。这是大小上限，不承诺上游停止产出时的墙钟等待时长。该策略要求 `default_voice`，不支持 `conversation.continue_from`；不配置策略时保留原行为，包括 speaker map 为空时不启用分段。
 
-同一回复的所有段共用一条音频 route，而设备 mixer 把同一 route 上的每种音频 MIME 当作独立 track 解码，回复中途切换 MIME 会导致各段乱序播放。因此 `speaker_voices` 非空时，voice adapter 对回复中所有可能发声的 Voice（speaker、node 与 default Voice）都请求 `format=ogg_opus`（`peergenx.SegmentVoiceFormat`），覆盖各 Voice 的 `provider_data.format`。Volc 与 MiniMax Voice 都以 `audio/ogg` 流式输出该格式，旁白与角色来自不同 provider 时无需逐个 Voice 覆盖格式。workflow 回复中所有内置 Voice provider 的默认格式也是 `ogg_opus`：MiniMax 不提供 Opus 容器，因此请求 16 kHz 单声道 PCM 并在本地编码 Ogg/Opus。多音色回复之外，Voice 的 `provider_data.format` 仍然生效；语音合成 API 仍按调用方接受的媒体类型选择格式。如果某个 TTS provider 仍为后续段返回不同的音频 MIME，AudioDock 会以写明两种 MIME 的错误结束该回复的音频，而不是把它们混在一起。
+每段 TTS 输入按顺序送入；当前段输出期间允许下一段提前合成，音频按段串行合并为单个流。连续相同音色标记不启动额外会话，空段不产生音频。用户插话会取消当前段、预取段和排队段。默认 `preserve` 策略下，未配置或配置为空时保留原有行为。预取可隐藏下一段的合成延迟；真实 provider 是否能连续播放仍取决于文本生成速度和合成吞吐。
+
+同一回复的所有段共用一条音频 route，而设备 mixer 把同一 route 上的每种音频 MIME 当作独立 track 解码，回复中途切换 MIME 会导致各段乱序播放。因此 `speaker_voices` 非空或 `unknown_speaker_policy` 为 `default_voice` 时，voice adapter 对回复中所有可能发声的 Voice（speaker、node 与 default Voice）都请求 `format=ogg_opus`（`peergenx.SegmentVoiceFormat`），覆盖各 Voice 的 `provider_data.format`。Volc 与 MiniMax Voice 都以 `audio/ogg` 流式输出该格式，旁白与角色来自不同 provider 时无需逐个 Voice 覆盖格式。workflow 回复中所有内置 Voice provider 的默认格式也是 `ogg_opus`：MiniMax 不提供 Opus 容器，因此请求 16 kHz 单声道 PCM 并在本地编码 Ogg/Opus。多音色回复之外，Voice 的 `provider_data.format` 仍然生效；语音合成 API 仍按调用方接受的媒体类型选择格式。如果某个 TTS provider 仍为后续段返回不同的音频 MIME，AudioDock 会以写明两种 MIME 的错误结束该回复的音频，而不是把它们混在一起。
 
 #### SFU 组合边界
 

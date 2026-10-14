@@ -120,12 +120,19 @@ func testEinoReadsTheOnlyWorkspaceHistory(t *testing.T, docked, noIDs bool) {
 }
 
 func TestEinoHistoryPreservesSpeakerContext(t *testing.T) {
-	for _, docked := range []bool{false, true} {
-		name := "plain"
-		if docked {
-			name = "speaker_dock"
-		}
-		t.Run(name, func(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		docked bool
+		voices map[string]string
+		policy audiodock.UnknownSpeakerPolicy
+		live   string
+	}{
+		{name: "plain"},
+		{name: "known speakers", docked: true, voices: map[string]string{"林知": "voice/a", "阿澈": "voice/b"}, live: "我支持四号。\n我反对四号。"},
+		{name: "known and unknown speakers", docked: true, voices: map[string]string{"林知": "voice/a"}, policy: audiodock.UnknownSpeakerDefaultVoice, live: "我支持四号。\n阿澈: 我反对四号。"},
+		{name: "unknown speakers only", docked: true, policy: audiodock.UnknownSpeakerDefaultVoice, live: "林知: 我支持四号。\n阿澈: 我反对四号。"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
 			records := newTestHistoryLogStore(t)
@@ -141,8 +148,8 @@ func TestEinoHistoryPreservesSpeakerContext(t *testing.T) {
 			}
 			defer transformer.Close()
 			var composed genx.Transformer = transformer
-			if docked {
-				composed, err = audiodock.New(audiodock.Config{Agent: transformer, SpeakerVoices: map[string]string{"林知": "voice/a", "阿澈": "voice/b"}})
+			if tc.docked {
+				composed, err = audiodock.New(audiodock.Config{Agent: transformer, SpeakerVoices: tc.voices, UnknownSpeakerPolicy: tc.policy})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -196,11 +203,21 @@ func TestEinoHistoryPreservesSpeakerContext(t *testing.T) {
 					}
 				}
 			}
-			if docked && first != "我支持四号。\n我反对四号。" {
-				t.Fatalf("speaker markers leaked into live text: %q", first)
+			if tc.docked && first != tc.live {
+				t.Fatalf("live speaker attribution=%q want %q", first, tc.live)
 			}
 			if second != "past=2;markers=2" {
 				t.Fatalf("model history lost speaker markers: %s", second)
+			}
+			page, err := records.Query(t.Context(), memory.HistoryQuery{ConversationID: "conversation", Limit: 10})
+			if err != nil || len(page.Entries) != 4 {
+				t.Fatalf("speaker history duplicated or lost: %+v err=%v", page, err)
+			}
+			want := []string{"first", "【林知】我支持四号。\n【阿澈】我反对四号。", "second", "past=2;markers=2"}
+			for index, entry := range page.Entries {
+				if entry.Text != want[index] {
+					t.Fatalf("history[%d]=%q want %q", index, entry.Text, want[index])
+				}
 			}
 		})
 	}

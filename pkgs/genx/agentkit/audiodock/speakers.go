@@ -2,19 +2,28 @@ package audiodock
 
 import (
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-// speakerParser retains only a prefix of a configured marker. All other text
-// can pass through immediately, including unmatched and incomplete brackets.
-// Its state belongs exclusively to the model reader for one response.
+// speakerParser retains prefixes of configured markers. When explicitly enabled,
+// it also recognizes bounded unknown markers at paragraph starts. Other text
+// passes through immediately; incomplete markers flush literally on EOS.
+// Its state belongs exclusively to the model reader for one response, or one
+// publisher within a response when no configured speaker segmentation is used.
 type speakerParser struct {
 	pending string
 	history strings.Builder
 	pattern string
 	segment int
+	// normalizeUnknown is opt-in; the zero value preserves existing parsing.
+	normalizeUnknown bool
+	lineHasText      bool
+	// unknownName is at most the already-validated marker's 32 code points.
+	// It becomes audible attribution only when this speaker has actual text.
+	unknownName string
 }
 
 type speakerText struct {
@@ -29,6 +38,22 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 		if text == "" {
 			return
 		}
+		if p.unknownName != "" {
+			body := strings.TrimLeftFunc(text, unicode.IsSpace)
+			if body != "" {
+				text = text[:len(text)-len(body)] + p.unknownName + ": " + body
+				p.unknownName = ""
+			}
+		}
+		if p.normalizeUnknown {
+			for _, r := range text {
+				if r == '\n' || r == '\r' {
+					p.lineHasText = false
+				} else if !unicode.IsSpace(r) {
+					p.lineHasText = true
+				}
+			}
+		}
 		if len(result) > 0 && result[len(result)-1].segment == p.segment {
 			result[len(result)-1].text += text
 		} else {
@@ -37,7 +62,12 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 	}
 	text = p.pending + text
 	original := text
-	defer func() { p.history.WriteString(original[:len(original)-len(p.pending)]) }()
+	defer func() {
+		p.history.WriteString(original[:len(original)-len(p.pending)])
+		if final {
+			p.unknownName = ""
+		}
+	}()
 	p.pending = ""
 	for text != "" {
 		start := strings.Index(text, "【")
@@ -68,6 +98,7 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 			}
 		}
 		if matched != "" {
+			p.unknownName = ""
 			pattern := voices[matched]
 			if p.pattern != pattern {
 				p.segment++
@@ -80,6 +111,22 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 			p.pending = text
 			break
 		}
+		if p.normalizeUnknown && !p.lineHasText {
+			length, incomplete := unknownSpeakerMarker(text)
+			if length != 0 {
+				if p.pattern != "" {
+					p.segment++
+					p.pattern = ""
+				}
+				p.unknownName = strings.Clone(text[len("【") : length-len("】")])
+				text = text[length:]
+				continue
+			}
+			if incomplete && !final {
+				p.pending = text
+				break
+			}
+		}
 		if p.pattern != "" {
 			p.segment++
 			p.pattern = ""
@@ -88,6 +135,52 @@ func (p *speakerParser) feed(text string, final bool, voices map[string]string) 
 		text = text[len("【"):]
 	}
 	return result
+}
+
+// The opt-in syntax reserves paragraph-leading 【name】 for speakers. Thirty-two
+// code points bound an unknown name to at most 128 UTF-8 bytes. Known names keep
+// their configured semantics, including names longer than this unknown bound.
+const maxUnknownSpeakerRunes = 32
+
+// unknownSpeakerMarker examines at most maxUnknownSpeakerRunes+1 code points.
+// A nonzero length is a complete marker; incomplete retains a possible prefix.
+// Empty labels, punctuation used in prose, nesting, and line breaks are literal.
+func unknownSpeakerMarker(text string) (length int, incomplete bool) {
+	nameRunes, hasName := 0, false
+	for offset := len("【"); offset < len(text); {
+		if !utf8.FullRuneInString(text[offset:]) {
+			return 0, true
+		}
+		r, size := utf8.DecodeRuneInString(text[offset:])
+		if r == utf8.RuneError && size == 1 {
+			return 0, false
+		}
+		if r == '】' {
+			if hasName {
+				return offset + size, false
+			}
+			return 0, false
+		}
+		if nameRunes == maxUnknownSpeakerRunes || !unknownSpeakerRune(r) {
+			return 0, false
+		}
+		nameRunes++
+		hasName = hasName || r != ' '
+		offset += size
+	}
+	return 0, true
+}
+
+func unknownSpeakerRune(r rune) bool {
+	if unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsMark(r) ||
+		unicode.IsSymbol(r) || unicode.Is(unicode.Pi, r) || unicode.Is(unicode.Pf, r) {
+		return true
+	}
+	switch r {
+	case ' ', '-', '_', '.', '·', '\u200d', '\'', '"':
+		return true
+	}
+	return false
 }
 
 // takeHistoryText releases only text whose presentation has been emitted. A
