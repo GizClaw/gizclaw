@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
+	"time"
 	"unicode"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -14,8 +16,7 @@ import (
 )
 
 const (
-	defaultTTSSegmentMaxRunes      = 80
-	defaultTTSFirstSegmentMinRunes = 8
+	defaultTTSSegmentMaxRunes = 80
 
 	// ttsLookahead is how many segments may be synthesized ahead of the one
 	// being emitted. Every segment costs a fresh provider request, so a serial
@@ -39,28 +40,28 @@ type TTSMeta struct {
 	Name         string
 	Label        string
 	StreamID     string
-	SegmentIndex int // one-based within the input route
+	SegmentIndex int // one-based synthesis request within the input route
 	MessageID    string
 }
 
 type ttsStreamState struct {
-	meta      TTSMeta
-	segmenter *ttsSentenceSegmenter
-	response  *Response
-	emitter   *ttsSegmentEmitter
+	meta     TTSMeta // input-loop owned; synthesis jobs receive immutable copies
+	response *Response
+	ctx      context.Context
+	cancel   context.CancelFunc
+	input    chan ttsInput
+	done     chan struct{}
+	err      error // published by closing done
 }
 
-// cancelPending abandons every segment still in flight. Their goroutines
+// cancelPending abandons unsubmitted text and every batch still in flight. Their goroutines
 // observe the cancelled context and exit; audio they still hand over is
 // rejected by the retired response.
 func (s *ttsStreamState) cancelPending() {
-	if s.emitter != nil {
-		s.emitter.abort()
-		s.emitter = nil
-	}
+	s.cancel()
 }
 
-// ttsSegmentEmitter emits one stream's segments in order, each as soon as its
+// ttsSegmentEmitter emits one stream's synthesis batches in order, each as soon as its
 // provider produces audio. Emission runs beside the text loop rather than
 // waiting for the next segment to be cut: a first segment held until the model
 // finishes its second sentence would reach the listener only after that whole
@@ -73,20 +74,22 @@ type ttsSegmentEmitter struct {
 	queue      chan *ttsSegmentJob
 	done       chan struct{}
 	failed     chan struct{}
+	changed    chan struct{}
 	err        error
 	segmentErr error
-	emitted    bool
+	emitted    atomic.Bool
 }
 
 func newTTSSegmentEmitter(ctx context.Context, emit func(context.Context, TTSMeta, []byte) error) *ttsSegmentEmitter {
 	ctx, cancel := context.WithCancel(ctx)
 	e := &ttsSegmentEmitter{
-		ctx:    ctx,
-		cancel: cancel,
-		slots:  make(chan struct{}, ttsLookahead+1),
-		queue:  make(chan *ttsSegmentJob, ttsLookahead+1),
-		done:   make(chan struct{}),
-		failed: make(chan struct{}),
+		ctx:     ctx,
+		cancel:  cancel,
+		slots:   make(chan struct{}, ttsLookahead+1),
+		queue:   make(chan *ttsSegmentJob, ttsLookahead+1),
+		done:    make(chan struct{}),
+		failed:  make(chan struct{}),
+		changed: make(chan struct{}, 1),
 	}
 	go e.run(emit)
 	return e
@@ -101,7 +104,8 @@ func (e *ttsSegmentEmitter) run(emit func(context.Context, TTSMeta, []byte) erro
 		} else if emitErr, synthErr := job.drain(func(data []byte) error {
 			err := emit(e.ctx, job.meta, data)
 			if err == nil && len(data) > 0 {
-				e.emitted = true
+				e.emitted.Store(true)
+				e.notify()
 			}
 			return err
 		}); emitErr != nil {
@@ -117,6 +121,7 @@ func (e *ttsSegmentEmitter) run(emit func(context.Context, TTSMeta, []byte) erro
 			}
 		}
 		<-e.slots
+		e.notify()
 	}
 }
 
@@ -126,27 +131,36 @@ func (e *ttsSegmentEmitter) fail(err error) {
 	e.err = err
 	close(e.failed)
 	e.cancel()
+	e.notify()
 }
 
-// enqueue starts synthesizing segment once a lookahead slot is free and queues
-// it behind the segments already accepted.
-func (e *ttsSegmentEmitter) enqueue(start func(context.Context) *ttsSegmentJob) error {
-	select {
-	case e.slots <- struct{}{}:
-	case <-e.ctx.Done():
-	}
+// tryEnqueue reserves a synthesis slot before taking text out of the batch.
+// While all slots are occupied, pending text remains available for merging.
+func (e *ttsSegmentEmitter) tryEnqueue(start func(context.Context) *ttsSegmentJob) (bool, error) {
 	// A failure also cancels ctx, so the recorded failure takes precedence;
 	// fail writes err before closing failed.
 	select {
 	case <-e.failed:
-		return e.err
+		return false, e.err
 	default:
 	}
 	if err := e.ctx.Err(); err != nil {
-		return err
+		return false, err
+	}
+	select {
+	case e.slots <- struct{}{}:
+	default:
+		return false, nil
 	}
 	e.queue <- start(e.ctx)
-	return nil
+	return true, nil
+}
+
+func (e *ttsSegmentEmitter) notify() {
+	select {
+	case e.changed <- struct{}{}:
+	default:
+	}
 }
 
 // finish waits until every accepted segment has been emitted.
@@ -154,7 +168,7 @@ func (e *ttsSegmentEmitter) finish() error {
 	close(e.queue)
 	<-e.done
 	e.cancel()
-	if e.err == nil && !e.emitted {
+	if e.err == nil && !e.emitted.Load() {
 		return e.segmentErr
 	}
 	return e.err
@@ -185,12 +199,42 @@ type ttsSegmentJob struct {
 }
 
 func startTTSSegment(ctx context.Context, segment string, meta TTSMeta, mimeType string, synthesize TTSSynthesizer) *ttsSegmentJob {
+	return startMeasuredTTSSegment(ctx, segment, meta, mimeType, synthesize, nil, nil)
+}
+
+func startMeasuredTTSSegment(ctx context.Context, segment string, meta TTSMeta, mimeType string, synthesize TTSSynthesizer, measureFactory func() func([]byte) time.Duration, budget *ttsSynthesisBudget) *ttsSegmentJob {
 	jobCtx, cancel := context.WithCancel(ctx)
 	job := &ttsSegmentJob{meta: meta, cancel: cancel, done: make(chan error, 1)}
 	job.ready = sync.NewCond(&job.mu)
 	stop := context.AfterFunc(jobCtx, job.stop)
+	if budget != nil {
+		budget.start()
+	}
 	go func() {
-		err := synthesize(jobCtx, segment, meta, mimeType, job.push)
+		started := time.Now()
+		var measure func([]byte) time.Duration
+		if measureFactory != nil {
+			measure = measureFactory()
+		}
+		firstAudio := true
+		emit := func(data []byte) error {
+			if err := job.push(data); err != nil {
+				return err
+			}
+			if budget != nil && measure != nil {
+				duration := measure(data)
+				latency := time.Duration(0)
+				if duration > 0 && firstAudio {
+					latency, firstAudio = time.Since(started), false
+				}
+				budget.observe(duration, latency)
+			}
+			return nil
+		}
+		err := synthesize(jobCtx, segment, meta, mimeType, emit)
+		if budget != nil {
+			budget.finish()
+		}
 		stop()
 		job.seal()
 		job.done <- err
@@ -284,124 +328,100 @@ type TTSSegmentError struct {
 func (e *TTSSegmentError) Error() string { return e.Err.Error() }
 func (e *TTSSegmentError) Unwrap() error { return e.Err }
 
-// TTSSynthesizer streams one text segment to a provider. emit accepts already
+// TTSSynthesizer streams one submitted text batch to a provider. emit accepts already
 // normalized container bytes and attaches canonical route metadata.
 type TTSSynthesizer func(context.Context, string, TTSMeta, string, func([]byte) error) error
 
-// NewTTSStream starts the shared non-provider-specific TTS pipeline. It
+// NewTTSStream starts the shared client-segmented TTS pipeline. It
 // returns immediately; each call owns its invocation, output, segmentation,
-// cancellation, and response state.
+// batching, cancellation, and response state. genx.WithTTSBatching controls
+// the invocation's request size and collection budgets.
 func NewTTSStream(ctx context.Context, input genx.Stream, config OutputConfig, mimeType string, synthesize TTSSynthesizer) *Output {
+	return NewMeasuredTTSStream(ctx, input, config, mimeType, synthesize, nil)
+}
+
+// NewMeasuredTTSStream supplies one serial audio-duration meter per provider
+// request. Meters consume normalized output bytes and return newly available
+// media duration; headers and incomplete frames return zero. The shared pipeline
+// uses these observations to collect subsequent text within the audio budget.
+// Before audio is measured, an available lookahead slot can prefetch the next
+// confirmed phrase instead of spending a playback budget that does not exist.
+// synthesize must call its audio callback serially. A nil meter falls back to
+// collecting until the preceding synthesis returns.
+func NewMeasuredTTSStream(ctx context.Context, input genx.Stream, config OutputConfig, mimeType string, synthesize TTSSynthesizer, measureFactory func() func([]byte) time.Duration) *Output {
 	invocation := NewInvocation(ctx, config)
-	go runTTS(invocation, input, mimeType, synthesize)
+	go runTTS(invocation, input, mimeType, func(state *ttsStreamState, invocation *Invocation, mimeType string) error {
+		return state.run(invocation, mimeType, synthesize, measureFactory)
+	})
 	return invocation.Output()
 }
 
-func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesize TTSSynthesizer) {
+type ttsStateRunner func(*ttsStreamState, *Invocation, string) error
+
+func runTTS(invocation *Invocation, input genx.Stream, mimeType string, run ttsStateRunner) {
 	ctx := invocation.Context()
+	// A provider failure or output cancellation must release a blocked Next.
+	inputClosed := make(chan struct{})
+	stopInput := context.AfterFunc(ctx, func() {
+		defer close(inputClosed)
+		_ = input.CloseWithError(context.Cause(ctx))
+	})
+	inputFinished := false
+	defer func() {
+		if !inputFinished && !stopInput() {
+			<-inputClosed
+		}
+	}()
 	states := make(map[string]*ttsStreamState)
 	defer func() {
 		for _, state := range states {
 			state.cancelPending()
 		}
+		for _, state := range states {
+			<-state.done
+		}
 	}()
 
 	stateFor := func(chunk *genx.MessageChunk) (*ttsStreamState, error) {
-		streamID := inputStreamID(chunk)
-		state := states[streamID]
+		key := inputStreamID(chunk)
+		state := states[key]
 		if state == nil {
-			meta := TTSMeta{StreamID: streamID}
+			meta := TTSMeta{StreamID: key}
 			updateTTSMeta(&meta, chunk)
 			response, err := invocation.StartResponse(ResponseConfig{
-				StreamID: meta.StreamID,
-				Role:     meta.Role,
-				Name:     meta.Name,
-				Label:    meta.Label,
+				StreamID: meta.StreamID, Role: meta.Role, Name: meta.Name, Label: meta.Label,
 			}, mimeType)
 			if err != nil {
 				return nil, err
 			}
 			meta.StreamID = response.StreamID()
-			state = &ttsStreamState{
-				meta:      meta,
-				segmenter: newTTSSentenceSegmenter(defaultTTSSegmentMaxRunes),
-				response:  response,
-			}
-			states[streamID] = state
 			if err := invocation.Emit(response, &genx.MessageChunk{
 				Part: &genx.Blob{MIMEType: mimeType},
 				Ctrl: &genx.StreamCtrl{BeginOfStream: true, MessageID: meta.MessageID},
 			}); err != nil {
-				delete(states, streamID)
 				return nil, err
 			}
+			state = newTTSState(ctx, invocation, response, meta, mimeType, run)
+			states[key] = state
 		} else {
-			updateTTSMeta(&state.meta, chunk)
+			meta := state.meta
+			updateTTSMeta(&meta, chunk)
+			if !sameTTSSpeech(state.meta, meta) {
+				if err := state.send(ttsInput{meta: state.meta, finish: true}); err != nil {
+					return nil, err
+				}
+			}
+			state.meta = meta
 		}
 		return state, nil
 	}
-
-	flushState := func(state *ttsStreamState, all bool) error {
-		for _, segment := range state.segmenter.Segments(all) {
-			if !hasReadableTTSSpokenText(segment) {
-				continue
-			}
-			state.meta.SegmentIndex++
-			debugTTSSegment(ctx, state.meta, segment, all)
-			if state.emitter == nil {
-				response := state.response
-				state.emitter = newTTSSegmentEmitter(ctx, func(emitCtx context.Context, meta TTSMeta, data []byte) error {
-					return emitTTSAudio(emitCtx, invocation, response, &genx.MessageChunk{
-						Part: &genx.Blob{MIMEType: mimeType, Data: data},
-						Ctrl: &genx.StreamCtrl{MessageID: meta.MessageID},
-					})
-				})
-			}
-			// Synthesis starts as soon as the text is segmented, not when the
-			// segment's turn to be emitted arrives, so its first-audio latency
-			// runs while the preceding segment is still being delivered.
-			meta := state.meta
-			if err := state.emitter.enqueue(func(jobCtx context.Context) *ttsSegmentJob {
-				return startTTSSegment(jobCtx, segment, meta, mimeType, synthesize)
-			}); err != nil {
-				state.cancelPending()
-				return err
-			}
-		}
-		if all && state.emitter != nil {
-			err := state.emitter.finish()
-			state.emitter = nil
+	closeState := func(key string, state *ttsStreamState) error {
+		if err := state.send(ttsInput{meta: state.meta, finish: true, endStream: true}); err != nil {
 			return err
 		}
-		return nil
-	}
-
-	closeState := func(key string, state *ttsStreamState, errorText string) error {
-		if errorText == "" {
-			if err := flushState(state, true); err != nil {
-				state.cancelPending()
-				return err
-			}
-		} else {
-			state.cancelPending()
-		}
-		if err := invocation.FinishResponse(state.response, errorText); err != nil {
-			return err
-		}
+		<-state.done
 		delete(states, key)
-		if errorText != "" {
-			return errors.New(errorText)
-		}
-		return nil
-	}
-
-	closeAll := func() error {
-		for key, state := range states {
-			if err := closeState(key, state, ""); err != nil {
-				return err
-			}
-		}
-		return nil
+		return state.err
 	}
 
 	for {
@@ -411,9 +431,17 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 				_ = invocation.Fail(err)
 				return
 			}
-			if err := closeAll(); err != nil {
-				_ = invocation.Fail(err)
-				return
+			// The reader already reached its normal terminal boundary. Do not
+			// turn successful completion into cancellation of the upstream.
+			if !stopInput() {
+				<-inputClosed
+			}
+			inputFinished = true
+			for key, state := range states {
+				if err := closeState(key, state); err != nil {
+					_ = invocation.Fail(err)
+					return
+				}
 			}
 			_ = invocation.Close()
 			return
@@ -421,60 +449,43 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, synthesi
 		if chunk == nil {
 			continue
 		}
-
 		key := inputStreamID(chunk)
 		if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 			if state := states[key]; state != nil {
-				updateTTSMeta(&state.meta, chunk)
 				state.cancelPending()
 				_ = invocation.Interrupt(state.response, chunk.Ctrl.Error)
+				<-state.done
 				delete(states, key)
 			} else if err := invocation.Output().Push(chunk); err != nil {
 				return
 			}
 			continue
 		}
-
-		text, isText := chunk.Part.(genx.Text)
-		if isText {
+		if text, ok := chunk.Part.(genx.Text); ok {
 			state, err := stateFor(chunk)
 			if err != nil {
 				_ = invocation.Fail(err)
 				return
 			}
-			if text != "" {
-				state.segmenter.WriteString(string(text))
-				if err := flushState(state, false); err != nil {
-					_ = invocation.Fail(err)
-					return
-				}
+			messageEnd := chunk.Ctrl != nil && chunk.Ctrl.MessageEnd && !chunk.IsEndOfStream()
+			if err := state.send(ttsInput{meta: state.meta, text: string(text), finish: messageEnd || chunk.IsEndOfStream(), messageEnd: messageEnd, endStream: chunk.IsEndOfStream()}); err != nil {
+				_ = invocation.Fail(err)
+				return
 			}
 			if chunk.IsEndOfStream() {
-				if err := closeState(key, state, ""); err != nil {
-					_ = invocation.Fail(err)
-					return
-				}
-			}
-			if chunk.Ctrl != nil && chunk.Ctrl.MessageEnd && !chunk.IsEndOfStream() {
-				if err := flushState(state, true); err != nil {
-					_ = invocation.Fail(err)
-					return
-				}
-				if err := emitTTSAudio(ctx, invocation, state.response, &genx.MessageChunk{
-					Part: &genx.Blob{MIMEType: mimeType},
-					Ctrl: &genx.StreamCtrl{MessageID: state.meta.MessageID, MessageEnd: true},
-				}); err != nil {
-					_ = invocation.Fail(err)
+				<-state.done
+				delete(states, key)
+				if state.err != nil {
+					_ = invocation.Fail(state.err)
 					return
 				}
 			}
 			continue
 		}
-
 		if chunk.IsEndOfStream() {
 			if state := states[key]; state != nil {
 				updateTTSMeta(&state.meta, chunk)
-				if err := closeState(key, state, ""); err != nil {
+				if err := closeState(key, state); err != nil {
 					_ = invocation.Fail(err)
 					return
 				}
@@ -498,7 +509,7 @@ func hasReadableTTSSpokenText(text string) bool {
 		return false
 	}
 	for _, r := range text {
-		if unicode.IsLetter(r) || unicode.IsNumber(r) {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) || unicode.IsSymbol(r) {
 			return true
 		}
 	}

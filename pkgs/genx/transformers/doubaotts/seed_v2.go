@@ -99,7 +99,9 @@ func NewSeedV2(config SeedV2Config) (*SeedV2, error) {
 // The context governs provider work and the invocation-local output lifetime.
 func (t *SeedV2) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	ctx = streamlog.StartStage(ctx, "doubaotts_seed", streamlog.Model{Provider: "volc", Model: t.resourceID, Kind: "tts"})
-	return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize), nil
+	return streamkit.NewMeasuredTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize, func() func([]byte) time.Duration {
+		return audiostream.NewDurationMeter(t.mimeType(), t.sampleRate, 1).Add
+	}), nil
 }
 
 func (t *SeedV2) synthesize(ctx context.Context, text string, meta streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {

@@ -41,7 +41,7 @@ When live text drops these markers, process-local `HistoryText` on the same chun
 
 ## Continuous narration backpressure
 
-`Config.Backpressure` supports continuous narration from a single publisher and rejects `SpeakerVoices`. Text is published when TTS reads it, forwarding delivery acknowledgement to the text Agent. The shared TTS emitter waits for final consumer acknowledgement after each audio chunk while retaining its two bounded sentence-synthesis jobs. The TTS input queue has a 4 MiB limit and fails explicitly on overflow. TTS output must support deferred output observation; the product Quota wrapper and Eino input guard preserve that capability.
+`Config.Backpressure` supports continuous narration from a single publisher and rejects `SpeakerVoices`. Text is published when TTS reads it, forwarding delivery acknowledgement to the text Agent. TTS waits for final consumer acknowledgement after each audio chunk. Client segmentation retains two bounded synthesis batches; native text streaming uses a provider session and confirms delivery before acknowledging a message flush. The TTS input queue has a 4 MiB limit and fails explicitly on overflow. TTS output must support deferred output observation; the product Quota wrapper and Eino input guard preserve that capability.
 
 Whitespace chunks also enter an open TTS input queue in order. Paragraph breaks
 cannot overtake text awaiting consumption, so narration and History retain the

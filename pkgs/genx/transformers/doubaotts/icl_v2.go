@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -81,7 +82,9 @@ func NewICLV2(config ICLV2Config) (*ICLV2, error) {
 // The context governs provider work and the invocation-local output lifetime.
 func (t *ICLV2) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	ctx = streamlog.StartStage(ctx, "doubaotts_icl", streamlog.Model{Provider: "volc", Model: doubaospeech.ResourceVoiceCloneV2, Kind: "tts"})
-	return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize), nil
+	return streamkit.NewMeasuredTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize, func() func([]byte) time.Duration {
+		return audiostream.NewDurationMeter(t.mimeType(), t.sampleRate, 1).Add
+	}), nil
 }
 
 func (t *ICLV2) synthesize(ctx context.Context, text string, _ streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {

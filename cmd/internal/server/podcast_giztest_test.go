@@ -26,7 +26,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
-	"github.com/coder/websocket"
 )
 
 type podcastRequestReceipt struct {
@@ -213,7 +212,7 @@ func setupPodcastGiztest(t *testing.T, ctx context.Context, admin *gizcli.Client
 }
 
 func (f *podcastProtocolFixture) serve(w http.ResponseWriter, r *http.Request) {
-	if strings.EqualFold(r.Header.Get("Upgrade"), "websocket") {
+	if r.URL.Path == "/v1/t2a_v2" {
 		f.speech(w, r)
 		return
 	}
@@ -281,46 +280,53 @@ func (f *podcastProtocolFixture) serve(w http.ResponseWriter, r *http.Request) {
 }
 
 func (f *podcastProtocolFixture) speech(w http.ResponseWriter, r *http.Request) {
-	conn, err := websocket.Accept(w, r, nil)
-	if err != nil {
+	var request struct {
+		Text          string `json:"text"`
+		Stream        bool   `json:"stream"`
+		StreamOptions struct {
+			ExcludeAggregatedAudio bool `json:"exclude_aggregated_audio"`
+		} `json:"stream_options"`
+	}
+	if err := json.NewDecoder(io.LimitReader(r.Body, 1<<20)).Decode(&request); err != nil || r.Method != http.MethodPost || !request.Stream || !request.StreamOptions.ExcludeAggregatedAudio {
+		http.Error(w, "invalid speech request", http.StatusBadRequest)
 		return
 	}
-	defer conn.Close(websocket.StatusNormalClosure, "")
 	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
 	defer cancel()
-	write := func(event string, data any, final bool) error {
-		payload, err := json.Marshal(map[string]any{"event": event, "data": data, "is_final": final, "base_resp": map[string]any{"status_code": 0, "status_msg": "success"}})
+	w.Header().Set("Content-Type", "text/event-stream")
+	write := func(audio []byte, final bool) error {
+		status := 1
+		if final {
+			status = 2
+		}
+		payload, err := json.Marshal(map[string]any{"data": map[string]any{"audio": hex.EncodeToString(audio), "status": status}, "base_resp": map[string]any{"status_code": 0, "status_msg": "success"}})
 		if err != nil {
 			return err
 		}
-		return conn.Write(ctx, websocket.MessageText, payload)
-	}
-	read := func() (map[string]any, error) {
-		_, data, err := conn.Read(ctx)
+		_, err = fmt.Fprintf(w, "data: %s\n\n", payload)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		var message map[string]any
-		err = json.Unmarshal(data, &message)
-		return message, err
+		w.(http.Flusher).Flush()
+		return nil
 	}
-	if err := write("connected_success", nil, false); err != nil {
+	pcm, slow := podcastSpeechPCM(request.Text)
+	for offset := 0; offset < len(pcm); offset += 640 {
+		if err := write(pcm[offset:offset+640], false); err != nil {
+			return
+		}
+	}
+	if slow {
+		<-ctx.Done()
+		if ctx.Err() != context.DeadlineExceeded {
+			f.speechCancelled.Add(1)
+		}
 		return
 	}
-	if _, err := read(); err != nil {
-		return
-	}
-	if err := write("task_started", nil, false); err != nil {
-		return
-	}
-	message, err := read()
-	if err != nil {
-		return
-	}
-	text, _ := message["text"].(string)
-	if _, err := read(); err != nil {
-		return
-	}
+	_ = write(nil, true)
+}
+
+func podcastSpeechPCM(text string) ([]byte, bool) {
 	samples, frequency := 3200, 440.0
 	if strings.HasPrefix(text, "space:") {
 		frequency = 880
@@ -333,19 +339,5 @@ func (f *podcastProtocolFixture) speech(w http.ResponseWriter, r *http.Request) 
 	for i := range samples {
 		binary.LittleEndian.PutUint16(pcm[2*i:], uint16(int16(12000*math.Sin(2*math.Pi*frequency*float64(i)/16000))))
 	}
-	for offset := 0; offset < len(pcm); offset += 640 {
-		if err := write("task_result", map[string]any{"audio": hex.EncodeToString(pcm[offset : offset+640])}, false); err != nil {
-			return
-		}
-	}
-	if slow {
-		if _, err := read(); err != nil && ctx.Err() != context.DeadlineExceeded {
-			f.speechCancelled.Add(1)
-		}
-		return
-	}
-	if err := write("task_continued", map[string]any{"audio": ""}, true); err != nil {
-		return
-	}
-	_ = write("task_finished", nil, false)
+	return pcm, slow
 }

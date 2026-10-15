@@ -6,6 +6,7 @@ import (
 	"io"
 	"reflect"
 	"slices"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -30,18 +31,22 @@ func TestTTSStreamPreservesInputRouteMetadata(t *testing.T) {
 		},
 	}, doneErr: io.EOF}
 
-	var texts []string
 	output := NewTTSStream(context.Background(), input, OutputConfig{InitialCapacity: 8}, "audio/mpeg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
-		texts = append(texts, text)
 		return emit([]byte("audio:" + text))
 	})
 
 	chunks := collectTransformerChunks(t, output)
-	if want := []string{"你好，世界。"}; !reflect.DeepEqual(texts, want) {
+	var texts []string
+	for _, chunk := range chunks {
+		if audio, ok := chunk.Part.(*genx.Blob); ok && len(audio.Data) > 0 {
+			texts = append(texts, strings.TrimPrefix(string(audio.Data), "audio:"))
+		}
+	}
+	if want := []string{"你好，", "世界。"}; !reflect.DeepEqual(texts, want) {
 		t.Fatalf("synthesized texts = %#v, want %#v", texts, want)
 	}
-	if len(chunks) != 3 {
-		t.Fatalf("got %d output chunks, want BOS/data/EOS", len(chunks))
+	if len(chunks) != 4 {
+		t.Fatalf("got %d output chunks, want BOS/two data chunks/EOS", len(chunks))
 	}
 	for index, chunk := range chunks {
 		if chunk.Ctrl == nil || chunk.Ctrl.StreamID != "input-stream" || chunk.Ctrl.Label != "speech" {
@@ -60,8 +65,36 @@ func TestTTSStreamPreservesInputRouteMetadata(t *testing.T) {
 	if blob, ok := chunks[1].Part.(*genx.Blob); !ok || len(blob.Data) == 0 || chunks[1].IsBeginOfStream() || chunks[1].IsEndOfStream() {
 		t.Fatalf("data chunk = %#v", chunks[1])
 	}
-	if !chunks[2].IsEndOfStream() {
-		t.Fatalf("terminal chunk = %#v", chunks[2])
+	if !chunks[3].IsEndOfStream() {
+		t.Fatalf("terminal chunk = %#v", chunks[3])
+	}
+}
+
+func TestTTSStreamIsolatesLexicalStateAcrossRoutesAndMessages(t *testing.T) {
+	input := &testStream{chunks: []*genx.MessageChunk{
+		{Part: genx.Text("前面的正文。<node>隐藏控制。"), Ctrl: &genx.StreamCtrl{StreamID: "a", MessageID: "a1"}},
+		{Part: genx.Text("这一笔金额是1,"), Ctrl: &genx.StreamCtrl{StreamID: "b", MessageID: "b1"}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "a", MessageID: "a1", MessageEnd: true}},
+		{Part: genx.Text("下一条消息可以正常朗读。"), Ctrl: &genx.StreamCtrl{StreamID: "a", MessageID: "a2", MessageEnd: true}},
+		{Part: genx.Text("000元。"), Ctrl: &genx.StreamCtrl{StreamID: "b", MessageID: "b1", EndOfStream: true}},
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "a", MessageID: "a2", EndOfStream: true}},
+	}, doneErr: io.EOF}
+	output := NewTTSStream(t.Context(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
+		return emit([]byte(text))
+	})
+	spoken := map[string]string{}
+	for _, chunk := range collectTransformerChunks(t, output) {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) != 0 {
+			spoken[chunk.Ctrl.StreamID+"/"+chunk.Ctrl.MessageID] += string(blob.Data)
+		}
+	}
+	want := map[string]string{
+		"a/a1": "前面的正文。",
+		"a/a2": "下一条消息可以正常朗读。",
+		"b/b1": "这一笔金额是1,000元。",
+	}
+	if !reflect.DeepEqual(spoken, want) {
+		t.Fatalf("synthesized message text = %q, want %q", spoken, want)
 	}
 }
 
@@ -123,7 +156,7 @@ func TestTTSStreamBuffersInterleavedStreamIDs(t *testing.T) {
 	mu.Lock()
 	defer mu.Unlock()
 	slices.Sort(got)
-	want := []string{"s1:好的，我来讲一个。", "s2:第二条消息已经来了，"}
+	want := []string{"s1:好的，", "s1:我来讲一个。", "s2:第二条消息已经来了，"}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("synthesized texts = %#v, want %#v", got, want)
 	}
@@ -216,15 +249,21 @@ func TestTTSSegmentQueueReleasesBlockedProviderOnCancel(t *testing.T) {
 // A segment must therefore start while its predecessor is still emitting.
 func TestTTSStreamSynthesizesAheadWhilePriorSegmentEmits(t *testing.T) {
 	input := &testStream{chunks: []*genx.MessageChunk{
-		{Part: genx.Text("第一句话已经说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
-		{Part: genx.Text("第二句话也说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
-		{Part: genx.Text("第三句话同样说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
+		{Part: genx.Text("第一句话说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
+		{Part: genx.Text("第二句话说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
+		{Part: genx.Text("第三句话说完了。"), Ctrl: &genx.StreamCtrl{StreamID: "s1"}},
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true}},
 	}, doneErr: io.EOF}
 
 	started := make(chan string, 4)
 	release := make(chan struct{})
-	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
+	config := genx.DefaultTTSBatchConfig()
+	config.MaxRunes = 14 // Two eight-rune sentences cannot share one request.
+	ctx, err := genx.WithTTSBatching(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	output := NewTTSStream(ctx, input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
 		started <- text
 		<-release
 		return emit([]byte("audio:" + text))
@@ -245,7 +284,7 @@ func TestTTSStreamSynthesizesAheadWhilePriorSegmentEmits(t *testing.T) {
 	// flight while neither has been allowed to finish.
 	inFlight := []string{await("first segment"), await("lookahead segment")}
 	slices.Sort(inFlight)
-	if want := []string{"第一句话已经说完了。", "第二句话也说完了。"}; !reflect.DeepEqual(inFlight, want) {
+	if want := []string{"第一句话说完了。", "第二句话说完了。"}; !reflect.DeepEqual(inFlight, want) {
 		t.Fatalf("in-flight syntheses = %#v, want %#v", inFlight, want)
 	}
 	// Lookahead is bounded: the third segment waits for the first to be emitted
@@ -264,7 +303,7 @@ func TestTTSStreamSynthesizesAheadWhilePriorSegmentEmits(t *testing.T) {
 			audio = append(audio, string(blob.Data))
 		}
 	}
-	want := []string{"audio:第一句话已经说完了。", "audio:第二句话也说完了。", "audio:第三句话同样说完了。"}
+	want := []string{"audio:第一句话说完了。", "audio:第二句话说完了。", "audio:第三句话说完了。"}
 	if !reflect.DeepEqual(audio, want) {
 		t.Fatalf("emitted audio = %#v, want %#v in segment order", audio, want)
 	}
@@ -314,6 +353,29 @@ func TestTTSStreamEmitsFirstSegmentBeforeNextSegmentIsCut(t *testing.T) {
 	if want := []string{"audio:第二句还在生成。"}; !reflect.DeepEqual(rest, want) {
 		t.Fatalf("remaining audio = %#v, want %#v", rest, want)
 	}
+}
+
+func TestTTSStreamStartsAtObservedWhitespaceWhileInputStalls(t *testing.T) {
+	input := newChanStream()
+	started := make(chan string, 1)
+	output := NewTTSStream(t.Context(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
+		started <- text
+		return emit([]byte(text))
+	})
+	t.Cleanup(func() { _ = output.Close() })
+	input.send(&genx.MessageChunk{Part: genx.Text("slow-science:1. "), Ctrl: &genx.StreamCtrl{StreamID: "s1"}})
+	select {
+	case text := <-started:
+		if text != "slow-science:1." {
+			t.Fatalf("first synthesis = %q", text)
+		}
+	case <-time.After(3 * time.Second):
+		input.close()
+		t.Fatal("observed sentence whitespace did not start synthesis before the next input")
+	}
+	input.send(&genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true}})
+	input.close()
+	collectTransformerChunks(t, output)
 }
 
 // A failed segment abandons the segments behind it, and text that keeps
@@ -380,13 +442,17 @@ func TestTTSStreamPassesThroughNonTextWithoutFlushing(t *testing.T) {
 		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "s1", EndOfStream: true}},
 	}, doneErr: io.EOF}
 
-	var texts []string
 	output := NewTTSStream(context.Background(), input, OutputConfig{}, "audio/ogg", func(_ context.Context, text string, _ TTSMeta, _ string, emit func([]byte) error) error {
-		texts = append(texts, text)
-		return emit([]byte("audio"))
+		return emit([]byte(text))
 	})
 	chunks := collectTransformerChunks(t, output)
-	if want := []string{"好的，我来讲一个。"}; !reflect.DeepEqual(texts, want) {
+	var texts []string
+	for _, chunk := range chunks {
+		if audio, ok := chunk.Part.(*genx.Blob); ok && audio.MIMEType == "audio/ogg" && len(audio.Data) > 0 {
+			texts = append(texts, string(audio.Data))
+		}
+	}
+	if want := []string{"好的，", "我来讲一个。"}; !reflect.DeepEqual(texts, want) {
 		t.Fatalf("synthesized texts = %#v, want %#v", texts, want)
 	}
 	for _, chunk := range chunks {

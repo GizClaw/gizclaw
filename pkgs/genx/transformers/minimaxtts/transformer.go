@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"strings"
 	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -31,6 +32,18 @@ const (
 	oggOpusSampleRate = 16000
 	oggOpusChannels   = 1
 	providerFormatPCM = "pcm"
+)
+
+// Transport selects a streaming MiniMax speech protocol.
+type Transport string
+
+const (
+	// TransportBidi sends incremental text and delegates sentence buffering to MiniMax.
+	TransportBidi Transport = "bidi"
+	// TransportHTTP uses HTTP/SSE with pooled connections and no task handshake.
+	TransportHTTP Transport = "http"
+	// TransportWebSocket selects the explicit WebSocket task protocol.
+	TransportWebSocket Transport = "websocket"
 )
 
 // Transformer is a TTS transformer using MiniMax text-to-speech API.
@@ -64,6 +77,7 @@ type Transformer struct {
 	// languageBoost is the MiniMax language_boost value; empty lets MiniMax
 	// infer the language from the text.
 	languageBoost string
+	transport     Transport
 
 	// oggSerial hands each encoded Ogg segment a distinct logical bitstream
 	// serial so concatenated segments form a valid chained Ogg stream.
@@ -88,6 +102,9 @@ type Config struct {
 	// LanguageBoost is a MiniMax language_boost value such as "Japanese".
 	// Use LanguageBoost to derive it from a language code.
 	LanguageBoost string
+	// Transport defaults to HTTP/SSE with client segmentation and batching.
+	// Native bidirectional streaming and ordinary WebSocket are opt-in.
+	Transport Transport
 }
 
 // New creates a configured MiniMax Transformer without opening a provider
@@ -102,6 +119,13 @@ func New(config Config) (*Transformer, error) {
 	}
 	if strings.TrimSpace(config.VoiceID) == "" {
 		return nil, fmt.Errorf("minimaxtts: voice ID is required")
+	}
+	config.Transport = Transport(strings.ToLower(strings.TrimSpace(string(config.Transport))))
+	if config.Transport == "" {
+		config.Transport = TransportHTTP
+	}
+	if config.Transport != TransportBidi && config.Transport != TransportHTTP && config.Transport != TransportWebSocket {
+		return nil, fmt.Errorf("minimaxtts: unsupported transport %q", config.Transport)
 	}
 	return newTransformer(config), nil
 }
@@ -120,6 +144,7 @@ func newTransformer(config Config) *Transformer {
 		bitrate:    positiveDefault(config.BitRate, 128000),
 
 		languageBoost: strings.TrimSpace(config.LanguageBoost),
+		transport:     config.Transport,
 	}
 }
 
@@ -185,10 +210,26 @@ func normalizeFormat(format string) string {
 // The context governs provider work and the invocation-local output lifetime.
 func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	ctx = streamlog.StartStage(ctx, "minimaxtts", streamlog.Model{Provider: "minimax", Model: t.model, Kind: "tts"})
-	return streamkit.NewTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize), nil
+	if t.transport == TransportBidi {
+		return streamkit.NewStreamingTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.openBidi), nil
+	}
+	return streamkit.NewMeasuredTTSStream(ctx, input, streamkit.OutputConfig{InitialCapacity: 100}, t.mimeType(), t.synthesize, func() func([]byte) time.Duration {
+		return audiostream.NewDurationMeter(t.mimeType(), t.sampleRate, 1).Add
+	}), nil
 }
 
-func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {
+func (t *Transformer) synthesize(ctx context.Context, text string, meta streamkit.TTSMeta, mimeType string, emit func([]byte) error) error {
+	if t.transport == TransportBidi {
+		return fmt.Errorf("minimaxtts: bidi synthesis requires streaming text input")
+	}
+	ctx, timing := newSynthesisTiming(ctx, meta, t.transport)
+	forward := emit
+	emit = func(data []byte) error {
+		if len(data) > 0 {
+			timing.mark(&timing.firstOutput)
+		}
+		return forward(data)
+	}
 	slog.LogAttrs(
 		ctx,
 		slog.LevelInfo,
@@ -196,6 +237,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 		slog.String("model", t.model),
 		slog.String("voice_id", t.voiceID),
 		slog.String("language_boost", t.languageBoost),
+		slog.String("transport", string(t.transport)),
 	)
 	speed := t.speed
 	vol := t.vol
@@ -215,7 +257,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 		defer encoder.discard()
 	}
 
-	stream, err := t.client.Speech.OpenWebSocket(ctx, minimax.SpeechWebSocketRequest{
+	next, closeStream, err := t.openSpeech(ctx, minimax.SpeechStreamRequest{
 		Model:         t.model,
 		Text:          text,
 		VoiceID:       t.voiceID,
@@ -224,6 +266,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 		Pitch:         &pitch,
 		Emotion:       t.emotion,
 		LanguageBoost: t.languageBoost,
+		StreamOptions: &minimax.SpeechStreamOptions{ExcludeAggregatedAudio: true},
 		AudioSetting: &minimax.SpeechAudioSetting{
 			Format:     providerFormat,
 			SampleRate: &sampleRate,
@@ -233,7 +276,7 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	if err != nil {
 		return err
 	}
-	defer stream.Close()
+	defer closeStream()
 
 	emitAudio := emit
 	if encoder != nil {
@@ -241,9 +284,12 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 	}
 	normalizer := audiostream.NewNormalizer(mimeType)
 	for {
-		chunk, nextErr := stream.Next(ctx)
+		chunk, nextErr := next()
 		if nextErr != nil {
 			if nextErr == io.EOF {
+				if t.transport == TransportHTTP {
+					return fmt.Errorf("minimaxtts: HTTP speech stream ended without a terminal event")
+				}
 				break
 			}
 			return nextErr
@@ -260,9 +306,12 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 			})
 		}
 		if len(chunk.Audio) > 0 {
+			timing.mark(&timing.firstProviderAudio)
+			started := time.Now()
 			if err := emitAudio(normalizer.Normalize(chunk.Audio)); err != nil {
 				return err
 			}
+			timing.logFirst(ctx, time.Since(started))
 		}
 		if chunk.Done {
 			break
@@ -275,6 +324,32 @@ func (t *Transformer) synthesize(ctx context.Context, text string, _ streamkit.T
 		return encoder.finish()
 	}
 	return nil
+}
+
+func (t *Transformer) openSpeech(ctx context.Context, request minimax.SpeechStreamRequest) (func() (*minimax.SpeechChunk, error), func() error, error) {
+	if t.transport == TransportHTTP {
+		stream, err := t.client.Speech.OpenStream(ctx, request)
+		if err != nil {
+			return nil, nil, err
+		}
+		return stream.Next, stream.Close, nil
+	}
+	stream, err := t.client.Speech.OpenWebSocket(ctx, minimax.SpeechWebSocketRequest{
+		Model: request.Model, Text: request.Text, VoiceID: request.VoiceID,
+		Speed: request.Speed, Vol: request.Vol, Pitch: request.Pitch,
+		Emotion: request.Emotion, LanguageBoost: request.LanguageBoost,
+		AudioSetting: request.AudioSetting,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+	return func() (*minimax.SpeechChunk, error) {
+		chunk, err := stream.Next(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &minimax.SpeechChunk{Audio: chunk.Audio, UsageCharacters: chunk.UsageCharacters, Done: chunk.Done}, nil
+	}, stream.Close, nil
 }
 
 // nextOggSerial returns a distinct Ogg logical bitstream serial for the next

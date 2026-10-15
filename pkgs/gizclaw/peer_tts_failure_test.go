@@ -72,6 +72,14 @@ func TestPeerTTSSegmentFailureLifecycle(t *testing.T) {
 			}
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
+			// Failure lifecycle is per submitted request. Keep the three
+			// numbered sentences separate while normal TTS may batch them.
+			batching := genx.DefaultTTSBatchConfig()
+			batching.MaxRunes = 24
+			ctx, err = genx.WithTTSBatching(ctx, batching)
+			if err != nil {
+				t.Fatal(err)
+			}
 			output, err := dock.Transform(ctx, &peerStreamSliceStream{})
 			if err != nil {
 				t.Fatal(err)

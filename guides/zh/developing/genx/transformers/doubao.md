@@ -54,7 +54,9 @@ GizClaw 的 Volc ASR Builder 接受 `vad_segment_duration`、`end_window_size` �
 
 ### Seed V2 分段失败
 
-`doubaotts.SeedV2` 每个可朗读 segment 只请求一次上游，不重试、不切换 Voice、不合成替代内容。
+流式 TTS 的候选断句、攒批时间预算和请求长度由[共享 TTS pipeline](./stream-processing#tts-stream-processing)统一管理；单次调用可通过 `genx.WithTTSBatching` 调整。候选 segment 可合并为一个 provider 请求，`SegmentIndex` 按实际提交的 synthesis request 递增。
+
+`doubaotts.SeedV2` 每个已提交的可朗读 batch 只请求一次上游，不重试、不切换 Voice、不合成替代内容。
 规范化后的音频仍在收到时增量输出；不会等待整段成功，不增加缓存或完成等待。某段 provider
 失败（包括截断和成功终态却没有规范化音频）时，该段结束，后续段继续按原顺序合成和输出。
 失败前已经发出的音频保留，不回滚、不重播。

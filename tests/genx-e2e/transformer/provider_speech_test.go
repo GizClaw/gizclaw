@@ -28,7 +28,7 @@ import (
 const (
 	miniMaxAPIKeyEnv  = "GIZCLAW_GENX_E2E_MINIMAX_API_KEY"
 	miniMaxBaseURLEnv = "GIZCLAW_GENX_E2E_MINIMAX_BASE_URL"
-	miniMaxTTSModel   = "speech-2.6-hd"
+	miniMaxTTSModel   = "speech-2.6-turbo"
 
 	doubaoASRChunkDuration        = 100 * time.Millisecond
 	doubaoASRChunkSize            = 3200

@@ -27,11 +27,11 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	if _, err := New(Config{Client: client, Model: "speech-model"}); err == nil {
+	if _, err := New(Config{Transport: TransportHTTP, Client: client, Model: "speech-model"}); err == nil {
 		t.Fatal("New() accepted an empty voice ID")
 	}
 	for _, model := range []string{"", " \t\n "} {
-		if _, err := New(Config{Client: client, VoiceID: "voice", Model: model}); err == nil || !strings.Contains(err.Error(), "model is required") {
+		if _, err := New(Config{Transport: TransportHTTP, Client: client, VoiceID: "voice", Model: model}); err == nil || !strings.Contains(err.Error(), "model is required") {
 			t.Fatalf("New(Model: %q) error = %v, want model is required", model, err)
 		}
 	}
@@ -49,7 +49,7 @@ func TestConfigValidationDefaultsAndPointerCopies(t *testing.T) {
 	speed := 0.0
 	volume := 0.0
 	pitch := -2
-	configured, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-2.6-turbo", Speed: &speed, Volume: &volume, Pitch: &pitch})
+	configured, err := New(Config{Transport: TransportHTTP, Client: client, VoiceID: "voice", Model: "speech-2.6-turbo", Speed: &speed, Volume: &volume, Pitch: &pitch})
 	if err != nil {
 		t.Fatalf("New(explicit values) error = %v", err)
 	}
@@ -110,7 +110,7 @@ func TestSynthesizeOmitsLanguageBoostByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model"})
+	transformer, err := New(Config{Transport: TransportHTTP, Client: client, VoiceID: "voice", Model: "speech-model"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -161,6 +161,7 @@ func TestSynthesizeMapsTypedConfigToProviderRequest(t *testing.T) {
 	volume := 1.5
 	pitch := -2
 	transformer, err := New(Config{
+		Transport:  TransportHTTP,
 		Client:     client,
 		VoiceID:    "voice",
 		Model:      " speech-model ",
@@ -239,7 +240,7 @@ func TestTransformerConcurrentCallsAreIndependent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("minimax.NewClient() error = %v", err)
 	}
-	transformer, err := New(Config{Client: client, VoiceID: "voice", Model: "speech-model"})
+	transformer, err := New(Config{Transport: TransportHTTP, Client: client, VoiceID: "voice", Model: "speech-model"})
 	if err != nil {
 		t.Fatalf("New() error = %v", err)
 	}
@@ -292,11 +293,31 @@ func newMiniMaxTTSTestServer(t *testing.T, requests chan<- map[string]any) *http
 	return newMiniMaxTTSTestServerWithAudio(t, requests, []string{"01", "02"})
 }
 
-// newMiniMaxTTSTestServerWithAudio serves one WebSocket synthesis whose
-// task_result events carry the given hex audio payloads in order.
+// newMiniMaxTTSTestServerWithAudio serves both supported speech transports.
 func newMiniMaxTTSTestServerWithAudio(t *testing.T, requests chan<- map[string]any, audioHex []string) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodPost {
+			var body map[string]any
+			if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+				t.Error(err)
+				return
+			}
+			options, _ := body["stream_options"].(map[string]any)
+			if request.URL.Path != "/v1/t2a_v2" || body["stream"] != true || options["exclude_aggregated_audio"] != true {
+				t.Errorf("invalid streaming request: path=%s body=%v", request.URL.Path, body)
+			}
+			if requests != nil {
+				requests <- body
+			}
+			w.Header().Set("Content-Type", "text/event-stream")
+			for _, audio := range audioHex {
+				fmt.Fprintf(w, "data: {\"data\":{\"audio\":%q,\"status\":1}}\n\n", audio)
+				w.(http.Flusher).Flush()
+			}
+			fmt.Fprint(w, "data: {\"data\":{\"audio\":\"\",\"status\":2},\"extra_info\":{\"usage_characters\":5}}\n\n")
+			return
+		}
 		conn, err := websocket.Accept(w, request, nil)
 		if err != nil {
 			t.Errorf("accept websocket: %v", err)

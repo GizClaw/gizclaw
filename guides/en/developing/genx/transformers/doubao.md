@@ -50,7 +50,9 @@ When external ASR returns an empty final text, Doubao Realtime completes that PT
 
 ### Seed V2 segment failures
 
-`doubaotts.SeedV2` requests each readable segment once, without retrying, switching voices, or synthesizing replacement content. A provider failure, including truncation or completion without normalized audio, ends that segment and lets later segments continue in order. Already emitted audio is retained without replay or rollback.
+The [shared TTS pipeline](./stream-processing#tts-stream-processing) manages candidate boundaries, collection budgets, and request lengths. `genx.WithTTSBatching` configures one invocation. Several candidate segments can share one provider request, and `SegmentIndex` counts submitted synthesis requests.
+
+`doubaotts.SeedV2` requests each submitted readable batch once, without retrying, switching voices, or synthesizing replacement content. A provider failure, including truncation or completion without normalized audio, ends that batch and lets later batches continue in order. Already emitted audio is retained without replay or rollback.
 
 Each segment failure logs one ERROR `doubao tts: segment failed` with `stream_id`, one-based `segment_index`, and `error`. Structured SDK errors additionally provide `code`, `message`, `request_id`, `trace_id`, and `log_id`. The operational log does not copy synthesis text, audio, or credentials.
 

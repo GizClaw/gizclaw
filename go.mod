@@ -14,8 +14,9 @@ require (
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260930205933-50d45a88f66e
 	github.com/GizClaw/doubao-speech-go v0.0.0-20260930205927-014e9dcccdff
-	github.com/GizClaw/minimax-go v0.0.0-20260930210119-8ef796d023e1
+	github.com/GizClaw/minimax-go v0.0.0-20261015022517-d0792c7b8772
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
+	github.com/clipperhouse/uax29/v2 v2.7.0
 	github.com/cloudwego/eino v0.9.13
 	github.com/coder/websocket v1.8.15
 	github.com/dgraph-io/badger/v4 v4.9.6
