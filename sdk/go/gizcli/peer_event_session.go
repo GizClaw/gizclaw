@@ -6,6 +6,9 @@ import (
 	"net"
 	"sync"
 	"time"
+
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 )
 
 const peerEventSubscriberQueueSize = 256
@@ -18,6 +21,10 @@ type peerEventSession struct {
 	mu      sync.Mutex
 	subs    map[*peerEventConn]struct{}
 	closed  bool
+
+	// Only active Opus routing metadata is retained, never prior media or text.
+	audioStartID string
+	audioStart   []byte
 }
 
 func newPeerEventSession(stream net.Conn, onFailure func()) *peerEventSession {
@@ -46,6 +53,9 @@ func (s *peerEventSession) subscribe() (net.Conn, error) {
 	if s.closed {
 		return nil, io.ErrClosedPipe
 	}
+	// This prefix is installed before publication can enqueue newer events.
+	// Read drains it before the live queue, without callbacks under s.mu.
+	conn.read = bytes.Clone(s.audioStart)
 	s.subs[conn] = struct{}{}
 	return conn, nil
 }
@@ -68,12 +78,31 @@ func (s *peerEventSession) readLoop() {
 			}
 			return
 		}
-		s.publish(frame.Bytes())
+		s.publishEvent(frame.Bytes(), event)
 	}
 }
 
 func (s *peerEventSession) publish(frame []byte) {
+	s.publishEvent(frame, nil)
+}
+
+func (s *peerEventSession) publishEvent(frame []byte, event *eventpb.PeerEvent) {
 	s.mu.Lock()
+	if s.closed {
+		s.mu.Unlock()
+		return
+	}
+	if event != nil {
+		if bos := event.GetBos(); bos != nil && bos.Kind == eventpb.StreamKind_STREAM_KIND_AUDIO {
+			s.audioStartID, s.audioStart = "", nil
+			if bos.StreamId != "" && (bos.MimeType == "" || isOpusBlob(&genx.Blob{MIMEType: bos.MimeType})) {
+				s.audioStartID, s.audioStart = bos.StreamId, bytes.Clone(frame)
+			}
+		}
+		if eos := event.GetEos(); eos != nil && eos.Kind == eventpb.StreamKind_STREAM_KIND_AUDIO && eos.StreamId == s.audioStartID {
+			s.audioStartID, s.audioStart = "", nil
+		}
+	}
 	subs := make([]*peerEventConn, 0, len(s.subs))
 	for sub := range s.subs {
 		subs = append(subs, sub)
@@ -125,6 +154,7 @@ func (s *peerEventSession) shutdown() bool {
 		return false
 	}
 	s.closed = true
+	s.audioStartID, s.audioStart = "", nil
 	subs := make([]*peerEventConn, 0, len(s.subs))
 	for sub := range s.subs {
 		subs = append(subs, sub)
