@@ -45,7 +45,7 @@ error EOS；已经投递的回复文字保留。具体策略见 [Seed V2 分段�
 
 ## 连续讲述背压
 
-`Config.Backpressure` 用于单一 publisher 的连续讲述，不支持 `SpeakerVoices`。正文在 TTS 读取后才发布，交付确认传回文本 Agent；共享 TTS emitter 每次发出一个音频 chunk 后等待最终消费者确认，同时保留原有的两个有界句子合成任务。TTS 输入队列限制为 4 MiB，超限会明确报错。TTS output 必须支持 deferred output observation；产品 Quota wrapper 与 Eino 输入检查 wrapper 保留该 capability。
+`Config.Backpressure` 用于单一 publisher 的连续讲述，不支持 `SpeakerVoices`。正文在 TTS 读取后才发布，交付确认传回文本 Agent；TTS 每次发出一个音频 chunk 后等待最终消费者确认。客户端断句模式保留两个有界 batch 合成任务；原生文本流模式使用 provider 会话并在消息 flush 后确认音频交付。TTS 输入队列限制为 4 MiB，超限会明确报错。TTS output 必须支持 deferred output observation；产品 Quota wrapper 与 Eino 输入检查 wrapper 保留该 capability。
 
 空白 chunk 也按顺序进入已打开的 TTS 输入队列，避免换行提前越过尚未消费的正文；播讲文字与 History 保留模型生成的原始段落顺序。
 

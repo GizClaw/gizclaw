@@ -71,6 +71,14 @@ func TestSeedV2ContinuesAfterSegmentFailure(t *testing.T) {
 			logs := installPeerLogStore(t)
 			ctx, cancel := context.WithTimeout(gizlog.WithPeerPublicKey(t.Context(), "peer-test"), 5*time.Second)
 			defer cancel()
+			// Exercise three independently failing synthesis requests even
+			// when normal scheduling would merge the numbered sentences.
+			batching := genx.DefaultTTSBatchConfig()
+			batching.MaxRunes = 24
+			ctx, err := genx.WithTTSBatching(ctx, batching)
+			if err != nil {
+				t.Fatal(err)
+			}
 			output, err := newSeedV2ForTest(t, server.URL, "pcm").Transform(ctx, &seedV2TestStream{chunks: []*genx.MessageChunk{
 				{Role: genx.RoleModel, Part: genx.Text("Sentence number 1!"), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "assistant", BeginOfStream: true}},
 				{Role: genx.RoleModel, Part: genx.Text("Sentence number 2!"), Ctrl: &genx.StreamCtrl{StreamID: "reply", Label: "assistant"}},

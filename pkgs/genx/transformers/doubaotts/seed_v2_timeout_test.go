@@ -64,6 +64,14 @@ func TestSeedV2ContinuesAfterHTTPClientTimeout(t *testing.T) {
 			defer server.Close()
 			logs := installPeerLogStore(t)
 			ctx := gizlog.WithPeerPublicKey(t.Context(), "peer-test")
+			// Keep one numbered sentence per request to isolate timeout policy
+			// from the default audio-budget batching policy.
+			batching := genx.DefaultTTSBatchConfig()
+			batching.MaxRunes = 24
+			ctx, err := genx.WithTTSBatching(ctx, batching)
+			if err != nil {
+				t.Fatal(err)
+			}
 			transformer, err := NewSeedV2(SeedV2Config{
 				Client:  doubaospeech.NewClient("test", doubaospeech.WithBaseURL(server.URL), doubaospeech.WithTimeout(250*time.Millisecond)),
 				Speaker: "test-speaker", Format: "pcm",

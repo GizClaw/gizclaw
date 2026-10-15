@@ -3,14 +3,15 @@ package peergenx
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/coder/websocket"
 )
 
 // TestDefaultBuilderSendsMiniMaxLanguageBoostFromVoicePattern checks that a
@@ -29,6 +30,8 @@ func TestDefaultBuilderSendsMiniMaxLanguageBoostFromVoicePattern(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.pattern, func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancel()
 			starts := make(chan map[string]any, 1)
 			server := newMiniMaxLanguageTestServer(t, starts)
 			defer server.Close()
@@ -37,7 +40,7 @@ func TestDefaultBuilderSendsMiniMaxLanguageBoostFromVoicePattern(t *testing.T) {
 			if err != nil {
 				t.Fatalf("splitPatternParams() error = %v", err)
 			}
-			transformer, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
+			transformer, err := (DefaultBuilder{}).BuildTransformer(ctx, TransformerConfig{
 				Pattern: test.pattern,
 				Voice: &apitypes.Voice{
 					Id: "translator",
@@ -56,7 +59,7 @@ func TestDefaultBuilderSendsMiniMaxLanguageBoostFromVoicePattern(t *testing.T) {
 			if err != nil {
 				t.Fatalf("BuildTransformer() error = %v", err)
 			}
-			output, err := transformer.Transform(context.Background(), &miniMaxLanguageTestStream{chunks: []*genx.MessageChunk{
+			output, err := transformer.Transform(ctx, &miniMaxLanguageTestStream{chunks: []*genx.MessageChunk{
 				{Part: genx.Text("今日は東京駅で会いましょう。"), Ctrl: &genx.StreamCtrl{StreamID: "tts"}},
 				{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "tts", EndOfStream: true}},
 			}})
@@ -66,10 +69,18 @@ func TestDefaultBuilderSendsMiniMaxLanguageBoostFromVoicePattern(t *testing.T) {
 			defer output.Close()
 			for {
 				if _, err := output.Next(); err != nil {
+					if !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
+						t.Fatal(err)
+					}
 					break
 				}
 			}
-			start := <-starts
+			var start map[string]any
+			select {
+			case start = <-starts:
+			case <-ctx.Done():
+				t.Fatal("provider did not receive a speech request")
+			}
 			if start["language_boost"] != test.want {
 				t.Fatalf("language_boost = %#v, want %#v", start["language_boost"], test.want)
 			}
@@ -80,46 +91,23 @@ func TestDefaultBuilderSendsMiniMaxLanguageBoostFromVoicePattern(t *testing.T) {
 func newMiniMaxLanguageTestServer(t *testing.T, starts chan<- map[string]any) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		conn, err := websocket.Accept(w, request, nil)
-		if err != nil {
-			t.Errorf("accept websocket: %v", err)
+		var body map[string]any
+		if err := json.NewDecoder(io.LimitReader(request.Body, 1<<20)).Decode(&body); err != nil {
+			t.Errorf("decode speech request: %v", err)
+			http.Error(w, "invalid body", http.StatusBadRequest)
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
-		ctx := request.Context()
-		ok := map[string]any{"status_code": 0, "status_msg": "success"}
-		write := func(value map[string]any) bool {
-			data, _ := json.Marshal(value)
-			return conn.Write(ctx, websocket.MessageText, data) == nil
-		}
-		read := func() (map[string]any, bool) {
-			_, data, err := conn.Read(ctx)
-			if err != nil {
-				return nil, false
-			}
-			var value map[string]any
-			return value, json.Unmarshal(data, &value) == nil
-		}
-		if !write(map[string]any{"event": "connected_success", "base_resp": ok}) {
+		options, _ := body["stream_options"].(map[string]any)
+		if request.Method != http.MethodPost || request.URL.Path != "/v1/t2a_v2" || body["stream"] != true || options["exclude_aggregated_audio"] != true {
+			t.Errorf("unexpected speech request: %s %s %v", request.Method, request.URL.Path, body)
+			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
-		start, valid := read()
-		if !valid {
-			t.Errorf("read start message")
-			return
+		starts <- body
+		w.Header().Set("Content-Type", "text/event-stream")
+		if _, err := io.WriteString(w, "data: {\"data\":{\"audio\":\"0102\",\"status\":1}}\n\ndata: {\"data\":{\"status\":2}}\n\n"); err != nil {
+			t.Errorf("write speech event: %v", err)
 		}
-		starts <- start
-		if !write(map[string]any{"event": "task_started", "base_resp": ok}) {
-			return
-		}
-		if _, valid := read(); !valid { // task_continue
-			return
-		}
-		if _, valid := read(); !valid { // task_finish
-			return
-		}
-		_ = write(map[string]any{"event": "task_result", "data": map[string]any{"audio": "0102"}, "base_resp": ok})
-		_ = write(map[string]any{"event": "task_finished", "base_resp": ok})
 	}))
 }
 

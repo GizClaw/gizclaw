@@ -1071,8 +1071,9 @@ func (b DefaultBuilder) buildMiniMaxTTS(cfg TransformerConfig) (genx.Transformer
 		return nil, fmt.Errorf("%w: voice %q missing provider_data.model", ErrInvalid, cfg.Voice.Id)
 	}
 	clientConfig := minimax.Config{
-		APIKey:  apiKey,
-		BaseURL: firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL),
+		HTTPClient: b.HTTPClient,
+		APIKey:     apiKey,
+		BaseURL:    firstString(cfg.Tenant.MiniMax.BaseUrl, body.BaseUrl, defaultMiniMaxBaseURL),
 	}
 	client, err := minimax.NewClient(clientConfig)
 	if err != nil {

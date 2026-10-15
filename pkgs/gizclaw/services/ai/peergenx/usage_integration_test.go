@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerusage"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/coder/websocket"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -160,70 +159,28 @@ func (v configuredUsageVoices) GetVoice(_ context.Context, request adminhttp.Get
 func newConfiguredUsageSpeechServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		conn, err := websocket.Accept(w, request, nil)
-		if err != nil {
-			t.Errorf("accept speech websocket: %v", err)
+		var body map[string]any
+		if err := json.NewDecoder(io.LimitReader(request.Body, 1<<20)).Decode(&body); err != nil {
+			t.Errorf("decode speech request: %v", err)
+			http.Error(w, "invalid body", http.StatusBadRequest)
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
-		ctx, cancel := context.WithTimeout(request.Context(), 5*time.Second)
-		defer cancel()
-		write := func(value map[string]any) bool {
-			data, err := json.Marshal(value)
-			if err == nil {
-				err = conn.Write(ctx, websocket.MessageText, data)
-			}
-			if err != nil {
-				t.Errorf("write speech event: %v", err)
-			}
-			return err == nil
-		}
-		read := func(event string) map[string]any {
-			_, data, err := conn.Read(ctx)
-			var value map[string]any
-			if err == nil {
-				err = json.Unmarshal(data, &value)
-			}
-			if err != nil || value["event"] != event {
-				t.Errorf("speech event = %v, error = %v, want %s", value, err, event)
-				return nil
-			}
-			return value
-		}
-		ok := map[string]any{"status_code": 0, "status_msg": "success"}
-		if !write(map[string]any{"event": "connected_success", "base_resp": ok}) {
+		options, _ := body["stream_options"].(map[string]any)
+		if request.Method != http.MethodPost || request.URL.Path != "/v1/t2a_v2" || request.Header.Get("Authorization") != "Bearer test-key" || body["stream"] != true || options["exclude_aggregated_audio"] != true {
+			t.Errorf("unexpected speech request: %s %s %v", request.Method, request.URL.Path, body)
+			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
-		start := read("task_start")
-		if start == nil {
-			return
+		voice, _ := body["voice_setting"].(map[string]any)
+		if body["model"] != "billing-speech" || voice["voice_id"] != "speaker-id" || body["text"] != "hello" {
+			t.Errorf("speech model = %v, voice = %v, text = %v", body["model"], voice, body["text"])
 		}
-		voice, _ := start["voice_setting"].(map[string]any)
-		if start["model"] != "billing-speech" || voice["voice_id"] != "speaker-id" {
-			t.Errorf("speech model = %v, voice = %v", start["model"], voice)
-		}
-		if !write(map[string]any{"event": "task_started", "base_resp": ok}) {
-			return
-		}
-		continued := read("task_continue")
-		if continued == nil {
-			return
-		}
-		if continued["text"] != "hello" {
-			t.Errorf("speech text = %v", continued["text"])
-		}
-		if read("task_finish") == nil {
-			return
-		}
-		if !write(map[string]any{"event": "task_result", "data": map[string]any{"audio": "01020304"}, "base_resp": ok}) {
-			return
-		}
+		w.Header().Set("Content-Type", "text/event-stream")
 		// Deliberately differs from the input's character count: billing must
 		// use the provider-reported quantity rather than estimate from text.
-		if !write(map[string]any{"event": "task_continued", "is_final": true, "data": map[string]any{"audio": ""}, "extra_info": map[string]any{"usage_characters": 37}, "base_resp": ok}) {
-			return
+		if _, err := io.WriteString(w, "data: {\"data\":{\"audio\":\"01020304\",\"status\":1}}\n\ndata: {\"data\":{\"status\":2},\"extra_info\":{\"usage_characters\":37}}\n\n"); err != nil {
+			t.Errorf("write speech event: %v", err)
 		}
-		write(map[string]any{"event": "task_finished", "base_resp": ok})
 	}))
 }
 
