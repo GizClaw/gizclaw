@@ -251,8 +251,64 @@ tasks.forEach((task) => {
   }
 });
 
-// Recording keeps both ends of a transfer. Playback uses the original reply
-// once; a new reply with identical bytes is still a separate utterance.
+// Content equality verifies a declared transfer; it never establishes one.
+// Bindings retain input/capture variable names, not their resolved values.
+const bindingKey = (binding) =>
+  JSON.stringify([
+    rowKey(
+      binding.path,
+      binding.task_id,
+      binding.cleanup,
+      binding.parent,
+      binding.step,
+    ),
+    binding.attempt || 1,
+  ]);
+const bindings = new Map(),
+  inputSources = new Map(),
+  producers = new Map();
+for (const binding of data.bindings || []) {
+  const key = bindingKey(binding);
+  bindings.set(key, binding);
+  const variableKey = (name) =>
+    JSON.stringify([binding.path, binding.task_id, name]);
+  const source = producers.get(variableKey(binding.input_variable));
+  if (source) inputSources.set(key, source);
+  for (const [name, pointer] of Object.entries(binding.captures || {})) {
+    const kind = pointer.endsWith("/audio")
+      ? "audio"
+      : ["/text", "/reply", "/terminal/text"].includes(pointer)
+        ? "text"
+        : null;
+    const client = pointer.startsWith("/terminal/")
+      ? binding.terminal_client
+      : binding.client;
+    if (kind && client) producers.set(variableKey(name), { key, client, kind });
+  }
+}
+function transferOwners(event, kind) {
+  const key = bindingKey(event),
+    binding = bindings.get(key),
+    owners = [];
+  if (!binding || (binding.client && binding.client !== event.client))
+    return owners;
+  const source = inputSources.get(key);
+  if (source?.kind === kind && source.client !== event.client)
+    owners.push(source);
+  const pair = binding.relay_clients;
+  if (
+    pair?.length === 2 &&
+    pair.includes(event.client) &&
+    binding.relay_media === kind
+  ) {
+    const client = pair.find((client) => client !== event.client);
+    if (client) owners.push({ key, client, kind });
+  }
+  return owners;
+}
+
+// Recording keeps both ends of a proven transfer. A new reply or independent
+// input with identical bytes is still a separate utterance.
 function firstAudioPackets(uri) {
   const match = /^data:audio\/(ogg|wav);base64,(.*)$/.exec(uri);
   if (!match) return null;
@@ -351,18 +407,22 @@ function audioReferences(events) {
     scope(event, [event.parent, event.client, event.role, time]);
   events.forEach((event, index) => {
     if (event.kind !== "audio" || !event.audio_data) return;
-    const key = scope(event, [event.audio_data]);
-    const original = replies.get(key);
-    if (
-      event.direction === "sent" &&
-      original !== undefined &&
-      event.client &&
-      event.client !== events[original].client
-    ) {
-      references.set(index, original);
+    if (event.direction === "sent" && event.client) {
+      for (const owner of transferOwners(event, "audio")) {
+        const original = replies.get(
+          scope(event, [owner.key, owner.client, event.audio_data]),
+        );
+        if (original !== undefined) {
+          references.set(index, original);
+          break;
+        }
+      }
     }
     if (event.direction === "received" && event.role === "assistant") {
-      replies.set(key, index);
+      replies.set(
+        scope(event, [bindingKey(event), event.client, event.audio_data]),
+        index,
+      );
       if (event.parent && rowFor(event)?.step.evidence?.mode === "listen") {
         const bucket = listenKey(event, Math.floor(event.offset_ms));
         const previous = listeners.get(bucket);
@@ -416,6 +476,18 @@ function audioReferences(events) {
 const recordedEvents = (data.events || [])
   .map((event) => ({ ...event }))
   .sort((a, b) => a.offset_ms - b.offset_ms);
+if (
+  !data.bindings?.length &&
+  recordedEvents.some(
+    (event) =>
+      event.direction === "sent" && ["audio", "text"].includes(event.kind),
+  )
+) {
+  warnings.push(
+    "旧记录未保存转发来源；相同内容的输入会保留，避免误隐藏独立对话。",
+  );
+  notice("");
+}
 const routeSegments = new Map();
 recordedEvents.forEach((event) => {
   const key = JSON.stringify([
@@ -445,8 +517,8 @@ recordedEvents.forEach((event) => {
   routeSegments.set(key, state);
 });
 const audioCopies = audioReferences(recordedEvents);
-// Copies are only inferred from a proven transferred recording or an exact
-// complete text transfer. Independent received replies are never collapsed.
+// Copies require declared transfer provenance plus matching media. Independent
+// received replies and sent inputs are never collapsed by content alone.
 const textCopies = new Map(),
   textReplies = new Map(),
   textGroups = new Map(),
@@ -501,26 +573,24 @@ for (const [key, group] of textGroups) {
 const repliesByText = new Map();
 for (const reply of textReplies.values()) {
   const key = JSON.stringify([
-    reply.event.path,
-    reply.event.task_id,
+    bindingKey(reply.event),
+    reply.event.client,
     reply.text.trim(),
   ]);
-  if (!repliesByText.has(key)) repliesByText.set(key, new Map());
-  const owners = repliesByText.get(key);
-  if (!owners.has(reply.event.client)) owners.set(reply.event.client, []);
-  owners.get(reply.event.client).push(reply);
+  if (!repliesByText.has(key)) repliesByText.set(key, []);
+  repliesByText.get(key).push(reply);
 }
-for (const owners of repliesByText.values())
-  for (const replies of owners.values()) replies.sort((a, b) => a.end - b.end);
+for (const replies of repliesByText.values())
+  replies.sort((a, b) => a.end - b.end);
 for (const group of textGroups.values()) {
   const event = group.event;
   if (event.direction !== "sent" || !event.client) continue;
   let match;
-  const owners = repliesByText.get(
-    JSON.stringify([event.path, event.task_id, group.text.trim()]),
-  );
-  for (const [owner, replies] of owners || []) {
-    if (!owner || owner === event.client) continue;
+  for (const owner of transferOwners(event, "text")) {
+    const replies =
+      repliesByText.get(
+        JSON.stringify([owner.key, owner.client, group.text.trim()]),
+      ) || [];
     let lo = 0,
       hi = replies.length;
     while (lo < hi) {

@@ -44,7 +44,9 @@ function player(events = [], overrides = {}, runtime = {}) {
     steps: [
       {
         id: "turn",
-        operation: "peer_stream",
+        operation: overrides.bindings?.some((binding) => binding.relay_clients)
+          ? "workspace_relay"
+          : "peer_stream",
         status: "passed",
         start_offset_ms: 0,
         duration_ms: 3000,
@@ -220,6 +222,73 @@ function audio(overrides = {}) {
 }
 const json = (ui, expression) =>
   JSON.parse(ui.evaluate(`JSON.stringify(${expression})`));
+const relayBindings = (media) => [
+  {
+    path: "scene.yaml",
+    task_id: "scene-0000",
+    step: "turn",
+    attempt: 1,
+    relay_clients: ["host", "listener"],
+    relay_media: media,
+  },
+];
+
+function variableTransferFixture(media, adjust = () => {}) {
+  const binding = { path: "scene.yaml", task_id: "scene-0000", attempt: 1 };
+  const bindings = [
+    {
+      ...binding,
+      step: "produce",
+      client: "host",
+      captures: { captured: media === "audio" ? "/audio" : "/reply" },
+    },
+    {
+      ...binding,
+      step: "consume",
+      client: "listener",
+      input_variable: "captured",
+    },
+  ];
+  adjust(bindings);
+  const content =
+    media === "audio"
+      ? { kind: "audio", audio_data: wav(3200, 11), duration_ms: 100 }
+      : { kind: "text", text: "相同的内容" };
+  return player(
+    [
+      { ...content, step: "produce", client: "host", offset_ms: 100 },
+      { ...content, step: "unrelated", client: "third", offset_ms: 500 },
+      {
+        ...content,
+        step: "consume",
+        client: "listener",
+        role: "user",
+        direction: "sent",
+        offset_ms: 1000,
+      },
+    ],
+    {
+      bindings,
+      report: {
+        status: "passed",
+        started_at: "2026-10-16T00:00:00Z",
+        duration_ms: 4000,
+        tasks: [
+          {
+            path: binding.path,
+            task_id: binding.task_id,
+            status: "passed",
+            steps: ["produce", "unrelated", "consume"].map((id) => ({
+              id,
+              operation: "peer_stream",
+              status: "passed",
+            })),
+          },
+        ],
+      },
+    },
+  );
+}
 
 test("one numbered table shows steps, evidence and replies without links", () => {
   const ui = player([{ kind: "text", text: "你好 </script>", offset_ms: 100 }]);
@@ -529,24 +598,27 @@ test("timestamps round across minute boundaries", () => {
 });
 test("forwarded reply audio is referenced and does not play twice", async () => {
   const audio = "data:audio/wav;base64,UklGRg==";
-  const ui = player([
-    {
-      kind: "audio",
-      client: "host",
-      audio_data: audio,
-      offset_ms: 100,
-      duration_ms: 1000,
-    },
-    {
-      kind: "audio",
-      client: "listener",
-      direction: "sent",
-      role: "user",
-      audio_data: audio,
-      offset_ms: 1500,
-      duration_ms: 1000,
-    },
-  ]);
+  const ui = player(
+    [
+      {
+        kind: "audio",
+        client: "host",
+        audio_data: audio,
+        offset_ms: 100,
+        duration_ms: 1000,
+      },
+      {
+        kind: "audio",
+        client: "listener",
+        direction: "sent",
+        role: "user",
+        audio_data: audio,
+        offset_ms: 1500,
+        duration_ms: 1000,
+      },
+    ],
+    { bindings: relayBindings("audio") },
+  );
   assert.equal(ui.evaluate("clips.length"), 1);
   assert.equal(ui.evaluate("audioCopies.size"), 1);
   assert.equal(ui.evaluate("data.events.length"), 2);
@@ -592,6 +664,108 @@ test("independent replies and same-client inputs remain audible", () => {
   ]);
   assert.equal(ui.evaluate("clips.length"), 4);
   assert.equal(ui.evaluate("audioCopies.size"), 0);
+});
+
+test("identical independent input from another client is not a transfer", async () => {
+  const sound = wav(3200, 11);
+  const ui = player([
+    { kind: "text", client: "host", text: "相同的内容", offset_ms: 100 },
+    audio({ client: "host", audio_data: sound, offset_ms: 200 }),
+    {
+      kind: "text",
+      client: "listener",
+      direction: "sent",
+      role: "user",
+      stream: 2,
+      text: "相同的内容",
+      offset_ms: 1000,
+    },
+    audio({
+      client: "listener",
+      direction: "sent",
+      role: "user",
+      stream: 2,
+      audio_data: sound,
+      offset_ms: 1100,
+    }),
+    {
+      kind: "text",
+      client: "listener",
+      role: "transcript",
+      stream: 3,
+      text: "仍保留输入的识别文字",
+      offset_ms: 1200,
+    },
+  ]);
+  await ui.click("overview");
+  assert.equal(ui.evaluate("audioCopies.size"), 0);
+  assert.equal(ui.evaluate("textCopies.size"), 0);
+  assert.equal(ui.evaluate("clips.length"), 2);
+  assert.equal(ui.evaluate("conversationFrames.length"), 2);
+  assert.match(frameText(ui)[1], /仍保留输入的识别文字/);
+  await ui.click();
+  assert.equal(
+    ui.sounds.length,
+    2,
+    "both original and independent input are scheduled",
+  );
+});
+
+test("captured-variable transfers choose their declared source over an identical unrelated reply", () => {
+  for (const media of ["audio", "text"]) {
+    const ui = variableTransferFixture(media);
+    assert.equal(
+      ui.evaluate(
+        media === "audio" ? "audioCopies.get(2)" : "textCopies.get(2)",
+      ),
+      0,
+    );
+    assert.equal(ui.evaluate("conversationFrames.length"), 2);
+  }
+});
+
+test("transfer bindings must match the capture media, attempt, client and task", () => {
+  const cases = [
+    (bindings) => (bindings[0].captures.captured = "/configuration"),
+    (bindings) => (bindings[0].attempt = 2),
+    (bindings) => (bindings[0].client = "another-source"),
+    (bindings) => (bindings[1].client = "another-consumer"),
+    (bindings) => (bindings[1].task_id = "another-task"),
+    (bindings) => delete bindings[1].input_variable,
+  ];
+  for (const media of ["audio", "text"]) {
+    for (const adjust of cases) {
+      const ui = variableTransferFixture(media, adjust);
+      assert.equal(ui.evaluate("audioCopies.size + textCopies.size"), 0);
+      assert.equal(ui.evaluate("conversationFrames.length"), 3);
+    }
+  }
+});
+
+test("relay provenance is restricted to the declared pair, media and capture scope", () => {
+  for (const change of [
+    (binding) => (binding.relay_clients = ["host", "another-listener"]),
+    (binding) => (binding.relay_media = "text"),
+    (binding) => (binding.attempt = 2),
+    (binding) => (binding.step = "another-step"),
+  ]) {
+    const bindings = relayBindings("audio");
+    change(bindings[0]);
+    const ui = player(
+      [
+        audio({ client: "host", offset_ms: 100 }),
+        audio({
+          client: "listener",
+          role: "user",
+          direction: "sent",
+          offset_ms: 1000,
+        }),
+      ],
+      { bindings },
+    );
+    assert.equal(ui.evaluate("audioCopies.size"), 0);
+    assert.equal(ui.evaluate("clips.length"), 2);
+  }
 });
 
 test("a separate task never references another task's reply", () => {
@@ -993,49 +1167,52 @@ test("dialogue frames have stable numbers and locating a frame seeks its real ti
 test("forwarded audio and its ASR are references while the receiver's own reply remains a frame", async () => {
   const a = wav(16000, 11),
     b = wav(16000, 22);
-  const ui = player([
-    { kind: "text", client: "host", text: "这是一条新闻。", offset_ms: 100 },
-    audio({
-      client: "host",
-      offset_ms: 200,
-      duration_ms: 1000,
-      audio_data: a,
-      audio_timing: [{ offset_ms: 200, duration_ms: 1000 }],
-    }),
-    audio({
-      client: "listener",
-      direction: "sent",
-      role: "user",
-      stream: 2,
-      offset_ms: 2000,
-      duration_ms: 1000,
-      audio_data: a,
-      audio_timing: [{ offset_ms: 2000, duration_ms: 1000 }],
-    }),
-    {
-      kind: "text",
-      client: "listener",
-      role: "transcript",
-      stream: 3,
-      text: "这是一条新闻。",
-      offset_ms: 2400,
-    },
-    {
-      kind: "text",
-      client: "listener",
-      stream: 4,
-      text: "来源是哪家媒体？",
-      offset_ms: 3500,
-    },
-    audio({
-      client: "listener",
-      stream: 4,
-      offset_ms: 3600,
-      duration_ms: 1000,
-      audio_data: b,
-      audio_timing: [{ offset_ms: 3600, duration_ms: 1000 }],
-    }),
-  ]);
+  const ui = player(
+    [
+      { kind: "text", client: "host", text: "这是一条新闻。", offset_ms: 100 },
+      audio({
+        client: "host",
+        offset_ms: 200,
+        duration_ms: 1000,
+        audio_data: a,
+        audio_timing: [{ offset_ms: 200, duration_ms: 1000 }],
+      }),
+      audio({
+        client: "listener",
+        direction: "sent",
+        role: "user",
+        stream: 2,
+        offset_ms: 2000,
+        duration_ms: 1000,
+        audio_data: a,
+        audio_timing: [{ offset_ms: 2000, duration_ms: 1000 }],
+      }),
+      {
+        kind: "text",
+        client: "listener",
+        role: "transcript",
+        stream: 3,
+        text: "这是一条新闻。",
+        offset_ms: 2400,
+      },
+      {
+        kind: "text",
+        client: "listener",
+        stream: 4,
+        text: "来源是哪家媒体？",
+        offset_ms: 3500,
+      },
+      audio({
+        client: "listener",
+        stream: 4,
+        offset_ms: 3600,
+        duration_ms: 1000,
+        audio_data: b,
+        audio_timing: [{ offset_ms: 3600, duration_ms: 1000 }],
+      }),
+    ],
+    { bindings: relayBindings("audio") },
+  );
   await ui.click("overview");
   assert.deepEqual(frameText(ui), ["这是一条新闻。", "来源是哪家媒体？"]);
   assert.equal(ui.evaluate("clips.length"), 2);
@@ -1056,50 +1233,53 @@ test("forwarded audio and its ASR are references while the receiver's own reply 
 });
 
 test("streamed forwarded text is one utterance and two independent identical answers remain separate", async () => {
-  const ui = player([
-    { kind: "text", client: "host", text: "你好", offset_ms: 100 },
-    {
-      kind: "text",
-      client: "listener",
-      direction: "sent",
-      role: "user",
-      stream: 2,
-      text: "你好",
-      offset_ms: 110,
-    },
-    { kind: "text", client: "host", text: "世界", offset_ms: 200 },
-    {
-      kind: "text",
-      client: "listener",
-      direction: "sent",
-      role: "user",
-      stream: 2,
-      text: "世界",
-      offset_ms: 210,
-    },
-    {
-      kind: "text",
-      client: "listener",
-      role: "transcript",
-      stream: 3,
-      text: "你好世界",
-      offset_ms: 300,
-    },
-    {
-      kind: "text",
-      client: "listener",
-      stream: 4,
-      text: "明白",
-      offset_ms: 1000,
-    },
-    {
-      kind: "text",
-      client: "listener",
-      stream: 5,
-      text: "明白",
-      offset_ms: 2000,
-    },
-  ]);
+  const ui = player(
+    [
+      { kind: "text", client: "host", text: "你好", offset_ms: 100 },
+      {
+        kind: "text",
+        client: "listener",
+        direction: "sent",
+        role: "user",
+        stream: 2,
+        text: "你好",
+        offset_ms: 110,
+      },
+      { kind: "text", client: "host", text: "世界", offset_ms: 200 },
+      {
+        kind: "text",
+        client: "listener",
+        direction: "sent",
+        role: "user",
+        stream: 2,
+        text: "世界",
+        offset_ms: 210,
+      },
+      {
+        kind: "text",
+        client: "listener",
+        role: "transcript",
+        stream: 3,
+        text: "你好世界",
+        offset_ms: 300,
+      },
+      {
+        kind: "text",
+        client: "listener",
+        stream: 4,
+        text: "明白",
+        offset_ms: 1000,
+      },
+      {
+        kind: "text",
+        client: "listener",
+        stream: 5,
+        text: "明白",
+        offset_ms: 2000,
+      },
+    ],
+    { bindings: relayBindings("text") },
+  );
   await ui.click("overview");
   assert.deepEqual(frameText(ui), ["你好世界", "明白", "明白"]);
 });
@@ -1172,53 +1352,56 @@ test("reusing a completed stream ID keeps two independent replies as separate nu
 
 test("an ASR route keeps its original input owner when another forwarded input arrives", async () => {
   const sound = wav(16000, 11);
-  const ui = player([
-    { kind: "text", client: "host", text: "新闻。", offset_ms: 50 },
-    audio({
-      client: "host",
-      audio_data: sound,
-      offset_ms: 100,
-      audio_timing: [{ offset_ms: 100, duration_ms: 1000 }],
-      duration_ms: 1000,
-    }),
-    audio({
-      client: "listener",
-      role: "user",
-      direction: "sent",
-      stream: 2,
-      offset_ms: 300,
-      audio_data: wav(16000, 22),
-      audio_timing: [{ offset_ms: 300, duration_ms: 1000 }],
-      duration_ms: 1000,
-    }),
-    {
-      kind: "control",
-      client: "listener",
-      role: "transcript",
-      stream: 3,
-      mime: "text/plain",
-      bos: true,
-      offset_ms: 400,
-    },
-    audio({
-      client: "listener",
-      role: "user",
-      direction: "sent",
-      stream: 4,
-      offset_ms: 2000,
-      audio_data: sound,
-      audio_timing: [{ offset_ms: 2000, duration_ms: 1000 }],
-      duration_ms: 1000,
-    }),
-    {
-      kind: "text",
-      client: "listener",
-      role: "transcript",
-      stream: 3,
-      text: "独立的用户输入",
-      offset_ms: 2500,
-    },
-  ]);
+  const ui = player(
+    [
+      { kind: "text", client: "host", text: "新闻。", offset_ms: 50 },
+      audio({
+        client: "host",
+        audio_data: sound,
+        offset_ms: 100,
+        audio_timing: [{ offset_ms: 100, duration_ms: 1000 }],
+        duration_ms: 1000,
+      }),
+      audio({
+        client: "listener",
+        role: "user",
+        direction: "sent",
+        stream: 2,
+        offset_ms: 300,
+        audio_data: wav(16000, 22),
+        audio_timing: [{ offset_ms: 300, duration_ms: 1000 }],
+        duration_ms: 1000,
+      }),
+      {
+        kind: "control",
+        client: "listener",
+        role: "transcript",
+        stream: 3,
+        mime: "text/plain",
+        bos: true,
+        offset_ms: 400,
+      },
+      audio({
+        client: "listener",
+        role: "user",
+        direction: "sent",
+        stream: 4,
+        offset_ms: 2000,
+        audio_data: sound,
+        audio_timing: [{ offset_ms: 2000, duration_ms: 1000 }],
+        duration_ms: 1000,
+      }),
+      {
+        kind: "text",
+        client: "listener",
+        role: "transcript",
+        stream: 3,
+        text: "独立的用户输入",
+        offset_ms: 2500,
+      },
+    ],
+    { bindings: relayBindings("audio") },
+  );
   await ui.click("overview");
   assert.deepEqual(frameText(ui), ["新闻。", "独立的用户输入"]);
 });

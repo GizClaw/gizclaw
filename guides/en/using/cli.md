@@ -145,6 +145,10 @@ between Workflows and their ASR transcripts remain as references in the details;
 the original utterance appears and plays once. Matching startup probes reference
 the full recording too. Independent replies remain separate even if their content
 is identical. Ordinary user audio and its recognized text share one input card.
+Transfer suppression requires recorded input-variable/output-capture bindings, or
+the declared client pair and media of the same `workspace_relay`, plus matching
+content. Content equality alone is insufficient. Older recordings without these
+bindings retain identical inputs rather than inferring forwarding.
 
 The timing column labels step start, duration, first text and first audio on the
 same millisecond clock as the progress bar. When a transcript EOS is recorded,

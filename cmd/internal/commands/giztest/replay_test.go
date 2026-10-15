@@ -47,6 +47,63 @@ func readReplay(t *testing.T, directory string) replayData {
 	return replay
 }
 
+func TestReplayBindingsRetainDeclaredMediaProvenance(t *testing.T) {
+	record, err := newReplayRecord(filepath.Join(t.TempDir(), "out"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer record.directory.abort()
+	producer := giztest.Step{ID: "produce", Client: "host", PeerStream: &giztest.PeerStreamOperation{Mode: "text", Input: "private-resolved-value"}, Capture: map[string]string{"clip": "/audio", "quote": "/reply", "secret": "/config/token"}}
+	record.capture("scene.yaml", "task", giztest.StepRequest{Step: producer})
+	producer.Capture["clip"] = "/config/token"
+	parent := giztest.Step{ID: "parallel", Capture: map[string]string{"news": "/listen/audio", "other": "/probe/audio", "secret": "/listen/config/token"}}
+	child := giztest.Step{ID: "listen", Client: "host", PeerStream: &giztest.PeerStreamOperation{Mode: "listen"}}
+	for range 2 {
+		record.capture("scene.yaml", "task", giztest.StepRequest{Step: child, Parent: &parent})
+	}
+	record.capture("scene.yaml", "task", giztest.StepRequest{Step: giztest.Step{ID: "consume", Client: "listener", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", Input: "${news}"}}})
+	record.capture("scene.yaml", "task", giztest.StepRequest{Cleanup: true, Step: giztest.Step{ID: "relay", WorkspaceRelay: &giztest.WorkspaceRelayOperation{FirstClient: "host", SecondClient: "listener", Media: "audio", TerminalClient: "host"}, Capture: map[string]string{"final": "/terminal/audio"}}})
+	data, _ := record.snapshot()
+	if len(data.Bindings) != 5 {
+		t.Fatalf("bindings = %#v", data.Bindings)
+	}
+	first, listen, retry, consumer, relay := data.Bindings[0], data.Bindings[1], data.Bindings[2], data.Bindings[3], data.Bindings[4]
+	if first.InputVariable != "" || len(first.Captures) != 2 || first.Captures["clip"] != "/audio" || first.Captures["quote"] != "/reply" {
+		t.Fatalf("producer = %#v", first)
+	}
+	if listen.Parent != "parallel" || len(listen.Captures) != 1 || listen.Captures["news"] != "/audio" || retry.Attempt != 2 {
+		t.Fatalf("child bindings = %#v / %#v", listen, retry)
+	}
+	if consumer.InputVariable != "news" || consumer.Client != "listener" || consumer.Path != "scene.yaml" || consumer.TaskID != "task" {
+		t.Fatalf("consumer = %#v", consumer)
+	}
+	if !relay.Cleanup || len(relay.RelayClients) != 2 || relay.RelayClients[1] != "listener" || relay.RelayMedia != "audio" || relay.TerminalClient != "host" || relay.Captures["final"] != "/terminal/audio" {
+		t.Fatalf("relay = %#v", relay)
+	}
+	encoded, err := json.Marshal(data)
+	if err != nil || bytes.Contains(encoded, []byte("private-resolved-value")) || bytes.Contains(encoded, []byte("/config/token")) {
+		t.Fatalf("binding serialization retained non-media input/configuration: %s, error=%v", encoded, err)
+	}
+}
+
+func TestReplayBindingAttemptsAreBounded(t *testing.T) {
+	record, err := newReplayRecord(filepath.Join(t.TempDir(), "out"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer record.directory.abort()
+	record.maxChunks = 2
+	req := giztest.StepRequest{Step: giztest.Step{ID: "retry"}}
+	for range 2 {
+		if record.capture("scene.yaml", "task", req) == nil {
+			t.Fatal("capture was truncated before reaching its limit")
+		}
+	}
+	if record.capture("scene.yaml", "task", req) != nil || !record.truncated || len(record.bindings) != 2 {
+		t.Fatal("repeated capture attempts exceeded the binding limit")
+	}
+}
+
 func TestReplayPacketTimesAndTerminalDataArePreserved(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "out")
 	record, err := newReplayRecord(directory)

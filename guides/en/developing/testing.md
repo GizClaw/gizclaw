@@ -778,8 +778,10 @@ and `--output <directory>` to render one Giztest file as a standalone HTML flow 
 Events, audio chunk arrivals and transport closure share the `report.started_at`
 origin. The HTML schedules queued audio, silence and interruptions on that timeline;
 ordinary EOS does not discard queued audio. See [CLI usage](/en/using/cli) for controls
-and older-recording limitations. The other three SDK
-runners use `--output <report-file>` for JSON and do not provide replay exports. The
+and older-recording limitations.
+Replay regression tests cover input/capture bindings, declared relay pairs and
+identical independent inputs: `node --test cmd/internal/commands/giztest/replay_html_test.mjs`.
+The other three SDK runners use `--output <report-file>` for JSON and do not provide replay exports. The
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,
 `output` and `reconnect` step kinds; a document using any other step kind, or
 an `audio` or `binary` variable, is reported as skipped on stderr rather than

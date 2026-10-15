@@ -44,6 +44,7 @@ type replayRecord struct {
 	directory           *playRecord
 	mu                  sync.Mutex
 	events              []replayEvent
+	bindings            []replayBinding
 	audio               map[string]*replayAudio
 	tracks              []*replayAudio
 	streams             map[string]int
@@ -106,12 +107,30 @@ type replayCapture struct {
 	redactions []string
 }
 
+// replayBinding retains declared media provenance without resolved values.
+// Variables are task-scoped and assigned once by the Giztest runner.
+type replayBinding struct {
+	Path           string            `json:"path"`
+	TaskID         string            `json:"task_id"`
+	Step           string            `json:"step"`
+	Parent         string            `json:"parent,omitempty"`
+	Cleanup        bool              `json:"cleanup,omitempty"`
+	Attempt        int               `json:"attempt"`
+	Client         string            `json:"client,omitempty"`
+	InputVariable  string            `json:"input_variable,omitempty"`
+	Captures       map[string]string `json:"captures,omitempty"`
+	RelayClients   []string          `json:"relay_clients,omitempty"`
+	RelayMedia     string            `json:"relay_media,omitempty"`
+	TerminalClient string            `json:"terminal_client,omitempty"`
+}
+
 type replayData struct {
-	Version   string         `json:"version"`
-	Report    giztest.Report `json:"report"`
-	Events    []replayEvent  `json:"events"`
-	Truncated bool           `json:"truncated"`
-	Errors    []string       `json:"errors,omitempty"`
+	Version   string          `json:"version"`
+	Report    giztest.Report  `json:"report"`
+	Events    []replayEvent   `json:"events"`
+	Bindings  []replayBinding `json:"bindings,omitempty"`
+	Truncated bool            `json:"truncated"`
+	Errors    []string        `json:"errors,omitempty"`
 }
 
 func newReplayRecord(path string) (*replayRecord, error) {
@@ -128,14 +147,43 @@ func (r *replayRecord) capture(path, taskID string, req giztest.StepRequest) *re
 		parent = req.Parent.ID
 	}
 	key := fmt.Sprintf("%s\x00%s\x00%t\x00%s\x00%s", path, taskID, req.Cleanup, parent, req.Step.ID)
+	binding := replayBinding{Path: path, TaskID: taskID, Step: req.Step.ID, Parent: parent, Cleanup: req.Cleanup, Client: req.Step.Client}
+	var input any
+	if op := req.Step.PeerStream; op != nil {
+		input = op.Input
+	} else if op := req.Step.WorkspaceRelay; op != nil {
+		input = op.Input
+		binding.RelayClients = []string{op.FirstClient, op.SecondClient}
+		binding.RelayMedia, binding.TerminalClient = op.Media, op.TerminalClient
+	}
+	if text, ok := input.(string); ok {
+		if match := giztest.ReferencePattern.FindStringSubmatch(text); match != nil {
+			binding.InputVariable = match[1]
+		}
+	}
+	captures := req.Step.Capture
+	if req.Parent != nil {
+		captures = giztest.ParallelChildCaptures(*req.Parent, req.Step.ID)
+	}
+	for name, pointer := range captures {
+		switch pointer {
+		case "/audio", "/text", "/reply", "/terminal/audio", "/terminal/text":
+			if binding.Captures == nil {
+				binding.Captures = make(map[string]string)
+			}
+			binding.Captures[name] = pointer
+		}
+	}
 	r.mu.Lock()
-	if r.truncated || r.sealed || len(r.attempts) >= r.maxChunks {
+	if r.truncated || r.sealed || len(r.bindings) >= r.maxChunks {
 		r.truncated = r.truncated || !r.sealed
 		r.mu.Unlock()
 		return nil
 	}
 	r.attempts[key]++
 	attempt := r.attempts[key]
+	binding.Attempt = attempt
+	r.bindings = append(r.bindings, binding)
 	r.mu.Unlock()
 	return &replayCapture{record: r, key: fmt.Sprintf("%s\x00%d", key, attempt), base: replayEvent{Path: path, TaskID: taskID, Step: req.Step.ID, Parent: parent, Cleanup: req.Cleanup, Attempt: attempt}}
 }
@@ -333,7 +381,7 @@ func (r *replayRecord) snapshot() (replayData, []*replayAudio) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.sealed = true
-	return replayData{Version: "v1", Events: slices.Clone(r.events), Truncated: r.truncated}, slices.Clone(r.tracks)
+	return replayData{Version: "v1", Events: slices.Clone(r.events), Bindings: slices.Clone(r.bindings), Truncated: r.truncated}, slices.Clone(r.tracks)
 }
 
 func (r *replayRecord) commit(report giztest.Report) error {
