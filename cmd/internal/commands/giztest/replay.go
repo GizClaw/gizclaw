@@ -53,38 +53,50 @@ type replayRecord struct {
 	truncated           bool
 	sealed              bool
 	pages               []string
+	connections         atomic.Int64
 }
 
 type replayEvent struct {
-	At            time.Time `json:"-"`
-	OffsetMS      float64   `json:"offset_ms"`
-	Path          string    `json:"path"`
-	TaskID        string    `json:"task_id"`
-	Step          string    `json:"step"`
-	Parent        string    `json:"parent,omitempty"`
-	Cleanup       bool      `json:"cleanup,omitempty"`
-	Attempt       int       `json:"attempt,omitempty"`
-	Client        string    `json:"client,omitempty"`
-	Direction     string    `json:"direction,omitempty"`
-	Role          string    `json:"role,omitempty"`
-	Stream        int       `json:"stream,omitempty"`
-	Kind          string    `json:"kind"`
-	MIME          string    `json:"mime,omitempty"`
-	Text          string    `json:"text,omitempty"`
-	Interim       bool      `json:"interim,omitempty"`
-	BOS           bool      `json:"bos,omitempty"`
-	EOS           bool      `json:"eos,omitempty"`
-	Error         string    `json:"error,omitempty"`
-	Audio         string    `json:"audio,omitempty"`
-	OriginalAudio string    `json:"original_audio,omitempty"`
-	AudioData     string    `json:"audio_data,omitempty"`
-	DurationMS    float64   `json:"duration_ms,omitempty"`
-	Packets       int       `json:"packets,omitempty"`
+	At            time.Time           `json:"-"`
+	OffsetMS      float64             `json:"offset_ms"`
+	Path          string              `json:"path"`
+	TaskID        string              `json:"task_id"`
+	Step          string              `json:"step"`
+	Parent        string              `json:"parent,omitempty"`
+	Cleanup       bool                `json:"cleanup,omitempty"`
+	Attempt       int                 `json:"attempt,omitempty"`
+	Client        string              `json:"client,omitempty"`
+	Direction     string              `json:"direction,omitempty"`
+	Role          string              `json:"role,omitempty"`
+	Stream        int                 `json:"stream,omitempty"`
+	Connection    int64               `json:"connection,omitempty"`
+	Kind          string              `json:"kind"`
+	Action        string              `json:"action,omitempty"`
+	MIME          string              `json:"mime,omitempty"`
+	Text          string              `json:"text,omitempty"`
+	Interim       bool                `json:"interim,omitempty"`
+	BOS           bool                `json:"bos,omitempty"`
+	EOS           bool                `json:"eos,omitempty"`
+	Error         string              `json:"error,omitempty"`
+	Audio         string              `json:"audio,omitempty"`
+	OriginalAudio string              `json:"original_audio,omitempty"`
+	AudioData     string              `json:"audio_data,omitempty"`
+	DurationMS    float64             `json:"duration_ms,omitempty"`
+	Packets       int                 `json:"packets,omitempty"`
+	AudioTiming   []replayAudioTiming `json:"audio_timing,omitempty"`
+}
+
+// replayAudioTiming describes observed delivery, not a device playback receipt.
+// Offsets share the report's StartedAt origin with all other replay events.
+type replayAudioTiming struct {
+	OffsetMS   float64 `json:"offset_ms"`
+	DurationMS float64 `json:"duration_ms"`
 }
 
 type replayAudio struct {
 	event  int
 	chunks [][]byte
+	times  []time.Time
 }
 
 type replayCapture struct {
@@ -160,12 +172,15 @@ func (c *replayCapture) observeSpeech(step giztest.Step, request any, result ope
 	}
 }
 
-func (c *replayCapture) observe(client, direction string, chunk *genx.MessageChunk, at time.Time) {
+func (c *replayCapture) observe(client, direction string, chunk *genx.MessageChunk, at time.Time, connection ...int64) {
 	if c == nil || chunk == nil {
 		return
 	}
 	event := c.base
 	event.At, event.Client, event.Direction = at, client, direction
+	if len(connection) > 0 {
+		event.Connection = connection[0]
+	}
 	event.Role = "assistant"
 	if direction == "sent" {
 		event.Role = "user"
@@ -201,6 +216,11 @@ func (c *replayCapture) observe(client, direction string, chunk *genx.MessageChu
 		}
 	}
 	key := c.key + "\x00" + client + "\x00" + direction + "\x00" + streamID
+	if event.Connection != 0 {
+		// A retained transport may be rebound to another step. Keep its route
+		// identity stable so terminal events can stop earlier queued audio.
+		key = fmt.Sprintf("%d\x00%s\x00%s", event.Connection, direction, streamID)
+	}
 	c.record.appendEvent(event, key, audio)
 }
 
@@ -223,22 +243,31 @@ func (r *replayRecord) appendEvent(event replayEvent, key string, audio []byte) 
 	}
 	event.Stream = stream
 	// A text EOS does not close the accompanying audio channel.
-	audioKey := key + "\x00audio"
+	audioKey := fmt.Sprintf("%s\x00%t\x00%s\x00%s\x00%d", key, event.Cleanup, event.Parent, event.Step, event.Attempt)
 	if len(audio) > 0 {
 		track := r.audio[audioKey]
 		if track == nil {
 			track = &replayAudio{event: len(r.events)}
 			r.audio[audioKey] = track
 			r.tracks = append(r.tracks, track)
-			r.events = append(r.events, event)
+			media := event
+			media.BOS, media.EOS, media.Error = false, false, ""
+			r.events = append(r.events, media)
 		}
 		track.chunks = append(track.chunks, bytes.Clone(audio))
-		if event.EOS {
+		track.times = append(track.times, event.At)
+		if event.EOS || event.Error != "" {
 			delete(r.audio, audioKey)
+		}
+		// Lifecycle flags may accompany a data packet, including the last
+		// packet of an interrupted response. Do not lose their actual time.
+		if event.BOS || event.EOS || event.Error != "" {
+			event.Kind = "control"
+			r.events = append(r.events, event)
 		}
 		return
 	}
-	if event.EOS && relayOpusMIME(event.MIME) {
+	if event.Error != "" || (event.EOS && relayOpusMIME(event.MIME)) {
 		delete(r.audio, audioKey)
 	}
 	r.events = append(r.events, event)
@@ -246,8 +275,10 @@ func (r *replayRecord) appendEvent(event replayEvent, key string, audio []byte) 
 
 type replayPeerStream struct {
 	peerStream
-	client  string
-	capture atomic.Pointer[replayCapture]
+	client     string
+	connection int64
+	closed     atomic.Bool
+	capture    atomic.Pointer[replayCapture]
 }
 
 func bindReplayCapture(stream peerStream, capture *replayCapture) {
@@ -263,26 +294,39 @@ func (c *replayCapture) wrap(client string, stream peerStream) peerStream {
 	if c == nil {
 		return stream
 	}
-	wrapped := &replayPeerStream{peerStream: stream, client: client}
+	wrapped := &replayPeerStream{peerStream: stream, client: client, connection: c.record.connections.Add(1)}
 	wrapped.capture.Store(c)
 	return wrapped
 }
 
 func (s *replayPeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	capture := s.capture.Load()
+	at := time.Now()
 	if err := s.peerStream.Push(ctx, chunk); err != nil {
 		return err
 	}
-	capture.observe(s.client, "sent", chunk, time.Now())
+	capture.observe(s.client, "sent", chunk, at, s.connection)
 	return nil
 }
 
 func (s *replayPeerStream) Next() (*genx.MessageChunk, error) {
 	chunk, err := s.peerStream.Next()
 	if chunk != nil {
-		s.capture.Load().observe(s.client, "received", chunk, time.Now())
+		s.capture.Load().observe(s.client, "received", chunk, time.Now(), s.connection)
 	}
 	return chunk, err
+}
+
+func (s *replayPeerStream) Close() error {
+	if s.closed.CompareAndSwap(false, true) {
+		if capture := s.capture.Load(); capture != nil {
+			event := capture.base
+			event.At, event.Client = time.Now(), s.client
+			event.Kind, event.Action, event.Connection = "control", "close", s.connection
+			capture.record.appendEvent(event, fmt.Sprintf("%d\x00close", s.connection), nil)
+		}
+	}
+	return s.peerStream.Close()
 }
 
 func (r *replayRecord) snapshot() (replayData, []*replayAudio) {
@@ -322,7 +366,7 @@ func writeTestReplay(directory string, data replayData, tracks []*replayAudio) e
 	for _, track := range tracks {
 		event := &data.Events[track.event]
 		name := fmt.Sprintf("audio/%06d.ogg", track.event+1)
-		packets, err := replayPackets(track.chunks)
+		packets, timing, err := replayPackets(track, data.Report.StartedAt)
 		if err == nil {
 			err = writePlayAudio(filepath.Join(directory, filepath.FromSlash(name)), packets)
 		}
@@ -332,8 +376,9 @@ func writeTestReplay(directory string, data replayData, tracks []*replayAudio) e
 			continue
 		}
 		event.Audio, event.Packets = name, len(packets)
-		for _, packet := range packets {
-			event.DurationMS += float64(codecconv.OpusPacketRTPTicks(packet)) / 48
+		event.AudioTiming = timing
+		for _, chunk := range timing {
+			event.DurationMS += chunk.DurationMS
 		}
 		// WAV plays directly from file://; the original Opus is also retained.
 		wavName := strings.TrimSuffix(name, ".ogg") + ".wav"
@@ -445,19 +490,25 @@ func writeReplayWAV(path string, packets [][]byte) (err error) {
 	return file.Sync()
 }
 
-func replayPackets(chunks [][]byte) ([][]byte, error) {
+func replayPackets(track *replayAudio, started time.Time) ([][]byte, []replayAudioTiming, error) {
 	var packets [][]byte
-	for _, chunk := range chunks {
+	timing := make([]replayAudioTiming, 0, len(track.chunks))
+	for i, chunk := range track.chunks {
 		decoded, err := decodeOpusPackets(chunk)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
+		arrival := replayAudioTiming{OffsetMS: max(0, packetMilliseconds(track.times[i].Sub(started)))}
+		for _, packet := range decoded {
+			arrival.DurationMS += float64(codecconv.OpusPacketRTPTicks(packet)) / 48
+		}
+		timing = append(timing, arrival)
 		packets = append(packets, decoded...)
 	}
 	if len(packets) == 0 {
-		return nil, errors.New("no Opus packets")
+		return nil, nil, errors.New("no Opus packets")
 	}
-	return packets, nil
+	return packets, timing, nil
 }
 
 func replayTranscript(data replayData) string {

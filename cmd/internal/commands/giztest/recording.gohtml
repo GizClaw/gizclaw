@@ -4,33 +4,54 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; media-src data:; connect-src 'none'; base-uri 'none'">
-  <title>{{ .Title }} · Giztest 测试记录</title>
+  <title>{{ .Title }} · 对话重放</title>
   <style>
-    :root{color-scheme:light;--ink:#182c31;--muted:#687d82;--line:#d9e3e3;--accent:#127b72}
-    *{box-sizing:border-box}body{margin:0;background:#f4f7f6;color:var(--ink);font:14px/1.6 system-ui,-apple-system,sans-serif}main{max-width:1400px;margin:auto;padding:28px}h1{font-size:26px;margin:0 0 8px;overflow-wrap:anywhere}#summary{color:var(--muted);margin-bottom:20px}
-    button,select,input{font:inherit}button,select{border:1px solid var(--line);border-radius:8px;background:white;padding:7px 13px;cursor:pointer}button:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #92d8cf;outline-offset:2px}#play{color:white;background:var(--accent);border-color:var(--accent)}
-    .player{position:sticky;top:0;z-index:2;display:flex;gap:12px;align-items:center;flex-wrap:wrap;padding:14px;background:#ffffffef;border:1px solid var(--line);border-radius:10px;margin-bottom:20px}#seek{flex:1;min-width:160px;accent-color:var(--accent)}#clock{font-variant-numeric:tabular-nums;color:var(--muted)}
-    #notice{white-space:pre-wrap;color:#9c402b;background:#fff2e8;padding:12px;border-radius:8px;margin-bottom:12px}#notice:empty{display:none}.table-wrap{overflow-x:auto;background:white;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:14px 16px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{color:var(--muted);font-weight:600;background:#edf4f2}th:nth-child(1){width:66px}th:nth-child(2){width:220px}th:nth-child(3){width:100px}th:nth-child(4){width:86px}.active{background:#eaf7f3}.future{opacity:.5}.step-name{font-weight:700}.meta{font-size:12px;color:var(--muted);margin-top:3px}.passed{color:#287247}.failed,.error{color:#a23826}.body,pre{white-space:pre-wrap;overflow-wrap:anywhere;margin:7px 0}.message{border-left:3px solid #a9ccc5;padding-left:10px;margin:10px 0}.audio{margin:12px 0}audio{display:block;width:100%;max-width:520px;height:36px;margin-top:6px}.control{color:var(--muted);font-size:12px}.evidence{font-size:12px;color:var(--muted)}.empty{text-align:center;color:var(--muted);padding:25px}tr:last-child td{border-bottom:0}
-    @media(max-width:760px){main{padding:16px}table{min-width:720px}h1{font-size:22px}.player{gap:8px}#seek{flex-basis:100%}}
+    :root{color-scheme:light;--ink:#20343a;--muted:#71858a;--line:#dce7e6;--accent:#117e73;--paper:#fff;--back:#f2f6f5}
+    *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:var(--back);color:var(--ink);font:15px/1.6 system-ui,-apple-system,sans-serif}main{max-width:1220px;margin:auto;padding:32px 28px 56px}h1{font-size:30px;line-height:1.25;margin:0 0 8px;letter-spacing:-.6px}.scenario{font-size:13px;color:var(--muted);overflow-wrap:anywhere}#summary{color:var(--muted);font-size:13px;margin-top:6px;margin-bottom:24px}
+    button,select,input{font:inherit}button,select{border:1px solid var(--line);border-radius:9px;background:var(--paper);padding:8px 13px;cursor:pointer}button:disabled{opacity:.45;cursor:default}button:focus-visible,select:focus-visible,input:focus-visible,summary:focus-visible{outline:3px solid #8ed9cd;outline-offset:3px}#play{background:var(--accent);color:white;border-color:var(--accent);min-width:100px;font-weight:650}
+    .player{position:sticky;top:12px;z-index:2;padding:15px 18px;margin-bottom:26px;border:1px solid var(--line);border-radius:15px;background:#fffffffa;box-shadow:0 6px 24px #20343a08}.transport,.progress{display:flex;gap:10px;align-items:center;flex-wrap:wrap}.transport label{font-size:12px;color:var(--muted)}.transport .spacer{flex:1}.progress{margin-top:12px}#seek{flex:1;min-width:180px;accent-color:var(--accent)}#clock{font:12px/1.4 ui-monospace,SFMono-Regular,monospace;color:var(--muted);white-space:nowrap}#frame-index{width:68px;padding:7px 9px;border:1px solid var(--line);border-radius:8px;background:white;font-variant-numeric:tabular-nums}#frame-state{font-size:12px;color:var(--muted);margin-top:8px}
+    #notice{white-space:pre-wrap;color:#95502e;background:#fff2e7;padding:12px 15px;border:1px solid #f0ddcc;border-radius:10px;margin-bottom:22px;font-size:12px}#notice:empty{display:none}.section-heading{display:flex;gap:12px;align-items:baseline;margin:0 auto 16px;max-width:900px}.section-heading h2{font-size:18px;margin:0}.section-heading span{font-size:12px;color:var(--muted)}#conversation{max-width:900px;margin:auto;display:flex;flex-direction:column;gap:18px}.frame{border:1px solid var(--line);border-left:4px solid #98c9bd;background:var(--paper);border-radius:13px;padding:17px 21px;box-shadow:0 3px 12px #20343a03;scroll-margin:150px}.speaker-1{border-left-color:#b4a8d9;background:#fefcff}.speaker-2{border-left-color:#c8b78b}.speaker-3{border-left-color:#8fbad2}.frame.active{border-color:#64b5a7;box-shadow:0 0 0 3px #117e730c}.frame-header{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:10px}.frame-number{padding:3px 7px;border-radius:6px;background:#eef5f2;color:#3d7267;border-color:#dfebe5;font:12px/1.5 ui-monospace,SFMono-Regular,monospace}.speaker{font-size:14px;font-weight:700}.frame-direction{font-size:12px;color:var(--muted)}.frame-time{margin-left:auto;font:12px/1.5 ui-monospace,SFMono-Regular,monospace;color:var(--muted)}.body{white-space:pre-wrap;overflow-wrap:anywhere}.frame .body{font-size:17px;line-height:1.85;margin:5px 0 8px}.message{margin:0}.audio{margin-top:12px;padding-top:10px;border-top:1px solid #eaf0ed;display:flex;align-items:center;gap:12px;flex-wrap:wrap}.audio .meta{font-size:12px;color:var(--muted)}.segment-play{font-size:12px;padding:5px 10px;color:var(--accent)}.error{color:#a53f32}.empty{text-align:center;color:var(--muted);padding:44px 20px;border:1px dashed var(--line);border-radius:13px;background:#ffffff66;font-size:14px}
+    .technical{margin-top:38px;border-top:1px solid var(--line);padding-top:18px}.technical>summary{cursor:pointer;color:var(--muted);font-size:13px;list-style:revert;padding:7px 0}.table-wrap{overflow-x:auto;margin-top:14px;background:white;border:1px solid var(--line);border-radius:10px}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:12px}th,td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);overflow-wrap:anywhere}th{color:var(--muted);font-weight:600;background:#edf4f2}th:nth-child(1){width:62px}th:nth-child(2){width:200px}th:nth-child(3){width:185px}th:nth-child(4){width:70px}.step-name{font-weight:650}.meta,.control{font-size:12px;color:var(--muted);margin-top:4px}.passed{color:#337653}.failed{color:#a53f32}.future{opacity:.55}.timing{font-variant-numeric:tabular-nums}.timing .meta{white-space:nowrap}.raw-data summary{cursor:pointer;color:var(--muted)}pre.evidence{white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.6;margin:10px 0;padding:10px;background:#f4f7f6;border-radius:7px;max-height:380px;overflow:auto}.technical .frame{padding:12px;box-shadow:none}.technical .body{font-size:12px}.technical tr:last-child td{border-bottom:0}
+    @media(max-width:760px){main{padding:20px 15px 36px}h1{font-size:25px}.player{top:6px;padding:12px}.transport{gap:7px}.transport button,.transport select{padding:7px 9px}.transport .spacer{display:none}.progress{gap:7px}#seek{flex-basis:100%}.frame{padding:14px 15px}.frame .body{font-size:16px}.frame-time{font-size:11px}.technical table{min-width:740px}}
   </style>
 </head>
 <body>
 <main>
-  <h1>{{ .Title }}</h1>
+  <h1>对话重放</h1>
+  <div class="scenario">{{ .Title }}</div>
   <div id="summary"></div>
   <div class="player">
-    <button id="play" type="button">开始回放</button>
-    <button id="reset" type="button">重置</button>
-    <label for="speed">速度</label>
-    <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
-    <input id="seek" type="range" min="0" value="0" step="10" aria-label="流程回放进度">
-    <span id="clock"></span>
+    <div class="transport">
+      <button id="play" type="button">开始回放</button>
+      <button id="reset" type="button">重置</button>
+      <button id="overview" type="button">查看全部记录</button>
+      <label for="speed">速度</label>
+      <select id="speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
+      <span class="spacer"></span>
+      <label for="frame-index">第</label>
+      <input id="frame-index" type="number" min="1" value="1" step="1" aria-label="定位帧号">
+      <label for="frame-index">帧</label>
+      <button id="frame-jump" type="button" aria-controls="conversation">定位</button>
+    </div>
+    <div class="progress">
+      <input id="seek" type="range" min="0" value="0" step="1" aria-label="对话回放进度">
+      <span id="clock"></span>
+    </div>
+    <div id="frame-state"></div>
   </div>
   <div id="notice" role="status" aria-live="polite"></div>
-  <div class="table-wrap"><table>
-    <thead><tr><th>序号</th><th>测试步骤</th><th>时间</th><th>结果</th><th>步骤数据、对话与音频</th></tr></thead>
-    <tbody id="steps"></tbody>
-  </table></div>
+  <section aria-label="对话回放">
+    <div class="section-heading"><h2>对话</h2><span id="frame-count"></span></div>
+    <div id="conversation"></div>
+    <div id="empty-conversation" class="empty"></div>
+  </section>
+  <details id="technical" class="technical">
+    <summary>测试详情 · <span id="step-count"></span></summary>
+    <div class="table-wrap"><table>
+      <thead><tr><th>序号</th><th>测试步骤</th><th>时间（统一时间线）</th><th>结果</th><th>步骤数据</th></tr></thead>
+      <tbody id="steps"></tbody>
+    </table></div>
+  </details>
 </main>
 <script id="recording-data" type="application/json">{{ .Data }}</script>
 <script>{{ .Player }}</script>

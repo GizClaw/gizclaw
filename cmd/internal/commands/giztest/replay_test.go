@@ -47,6 +47,152 @@ func readReplay(t *testing.T, directory string) replayData {
 	return replay
 }
 
+func TestReplayPacketTimesAndTerminalDataArePreserved(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "out")
+	record, err := newReplayRecord(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer record.directory.abort()
+	started := time.Now()
+	capture := record.capture("scene.yaml", "scene-0000", giztest.StepRequest{Step: giztest.Step{ID: "turn"}})
+	for i, offset := range []time.Duration{200 * time.Millisecond, 200 * time.Millisecond, 800 * time.Millisecond} {
+		ctrl := &genx.StreamCtrl{StreamID: "private-route", Label: "assistant", BeginOfStream: i == 0}
+		if i == 2 {
+			ctrl.EndOfStream, ctrl.Error = true, "interrupted"
+		}
+		capture.observe("peer", "received", &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}, Ctrl: ctrl}, started.Add(offset), 7)
+	}
+	if err := record.commit(giztest.Report{StartedAt: started, DurationMS: 900, Status: "passed"}); err != nil {
+		t.Fatal(err)
+	}
+	replay := readReplay(t, directory)
+	if len(replay.Events) != 3 {
+		t.Fatalf("media, BOS and terminal events = %#v", replay.Events)
+	}
+	audio, begin, terminal := replay.Events[0], replay.Events[1], replay.Events[2]
+	if audio.DurationMS != 60 || audio.EOS || audio.Error != "" || audio.Connection != 7 {
+		t.Fatalf("audio = %#v", audio)
+	}
+	if !begin.BOS || begin.OffsetMS != 200 || !terminal.EOS || terminal.OffsetMS != 800 || !strings.Contains(terminal.Error, "interrupted") || terminal.Stream != audio.Stream {
+		t.Fatalf("begin/terminal = %#v / %#v", begin, terminal)
+	}
+	want := []float64{200, 200, 800}
+	if len(audio.AudioTiming) != len(want) {
+		t.Fatalf("audio timing = %#v", audio.AudioTiming)
+	}
+	for i, timing := range audio.AudioTiming {
+		if timing.OffsetMS != want[i] || timing.DurationMS != 20 {
+			t.Fatalf("chunk %d timing = %#v", i, timing)
+		}
+	}
+}
+
+func TestReplayCloseAndRouteIdentitySurviveCaptureRebinding(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "out")
+	record, err := newReplayRecord(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer record.directory.abort()
+	started := time.Now()
+	first := record.capture("scene.yaml", "scene-0000", giztest.StepRequest{Step: giztest.Step{ID: "listen"}})
+	raw := newFakeRelayStream()
+	stream := first.wrap("peer", raw)
+	raw.in <- &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}, Ctrl: &genx.StreamCtrl{StreamID: "private-route", Label: "assistant"}}
+	if _, err := stream.Next(); err != nil {
+		t.Fatal(err)
+	}
+	second := record.capture("scene.yaml", "scene-0000", giztest.StepRequest{Step: giztest.Step{ID: "interrupt"}})
+	bindReplayCapture(stream, second)
+	raw.in <- &genx.MessageChunk{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "private-route", Label: "assistant", EndOfStream: true, Error: "interrupted"}}
+	if _, err := stream.Next(); err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		if err := stream.Close(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := record.commit(giztest.Report{StartedAt: started, Status: "passed"}); err != nil {
+		t.Fatal(err)
+	}
+	events := readReplay(t, directory).Events
+	if len(events) != 3 || events[0].Step != "listen" || events[1].Step != "interrupt" || events[0].Stream != events[1].Stream {
+		t.Fatalf("route identity across steps = %#v", events)
+	}
+	if events[2].Action != "close" || events[2].Connection == 0 || events[2].Connection != events[0].Connection || events[2].OffsetMS < events[1].OffsetMS {
+		t.Fatalf("close event = %#v", events[2])
+	}
+}
+
+func TestReplayTimingKeepsMultiPacketChunkDuration(t *testing.T) {
+	var ogg bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&ogg, 16000, 1, [][]byte{{0xf8, 0xff, 0xfe}, {0xf8, 0xff, 0xfe}}); err != nil {
+		t.Fatal(err)
+	}
+	started := time.Now()
+	packets, timing, err := replayPackets(&replayAudio{chunks: [][]byte{ogg.Bytes()}, times: []time.Time{started.Add(100 * time.Millisecond)}}, started)
+	if err != nil || len(packets) != 2 || len(timing) != 1 || timing[0].OffsetMS != 100 || timing[0].DurationMS != 40 {
+		t.Fatalf("multi-packet timing = %#v, packets = %d, error = %v", timing, len(packets), err)
+	}
+}
+
+type replayBlockedPushStream struct {
+	peerStream
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (s *replayBlockedPushStream) Push(ctx context.Context, _ *genx.MessageChunk) error {
+	close(s.entered)
+	select {
+	case <-s.release:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func TestReplaySendTimePrecedesReplyWhilePushIsBlocked(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	directory := filepath.Join(t.TempDir(), "out")
+	record, err := newReplayRecord(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer record.directory.abort()
+	started := time.Now()
+	capture := record.capture("scene.yaml", "scene-0000", giztest.StepRequest{Step: giztest.Step{ID: "turn"}})
+	raw := newFakeRelayStream()
+	defer raw.Close()
+	blocked := &replayBlockedPushStream{peerStream: raw, entered: make(chan struct{}), release: make(chan struct{})}
+	stream := capture.wrap("peer", blocked)
+	done := make(chan error, 1)
+	go func() { done <- stream.Push(ctx, &genx.MessageChunk{Part: genx.Text("input")}) }()
+	select {
+	case <-blocked.entered:
+	case <-ctx.Done():
+		t.Fatal("sender did not enter Push")
+	}
+	raw.in <- &genx.MessageChunk{Part: genx.Text("reply")}
+	if _, err := stream.Next(); err != nil {
+		t.Fatal(err)
+	}
+	close(blocked.release)
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if err := record.commit(giztest.Report{StartedAt: started, Status: "passed"}); err != nil {
+		t.Fatal(err)
+	}
+	events := readReplay(t, directory).Events
+	if len(events) != 2 || events[0].Direction != "sent" || events[1].Direction != "received" || events[0].OffsetMS > events[1].OffsetMS {
+		t.Fatalf("send/receive causality = %#v", events)
+	}
+}
+
 func TestReplayRecordOfflineArtifactsAndAudioBoundaries(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("native Opus runtime unavailable")
