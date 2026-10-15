@@ -133,8 +133,11 @@ out/
 The page displays numbered steps, operations, results, evidence, conversation
 and audio together. It has no download or report-navigation links. Starting
 replay highlights the current step, reveals replies at their recorded times and
-plays the corresponding audio segments when reached. Each step also exposes
-its own audio controls. No merged full-conversation audio file is produced.
+plays the corresponding audio segments when reached. Playing one segment seeks
+the same recording timeline; playback, pause and seeking share its controls.
+The event clock follows actual media time and waits while audio buffers.
+Segments show their recording start and local duration; text and control events
+appear on that same timeline. No merged full-conversation audio file is produced.
 
 Go `html/template` renders the HTML with inline CSS, JavaScript, recording data
 and segment audio. Distribute the whole directory or just `index.html`: playback

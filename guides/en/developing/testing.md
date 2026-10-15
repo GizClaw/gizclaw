@@ -774,8 +774,12 @@ SDK:
 
 All four support `validate -f <path>` and `run <path> --parallel N` and write the
 same report JSON structure. The Go CLI uses `--report <file>` for aggregate JSON
-and `--output <directory>` to render one Giztest file as a standalone HTML flow recording. The other three SDK
-runners use `--output <report-file>` for JSON and do not provide replay exports. The
+and `--output <directory>` to render one Giztest file as a standalone HTML flow recording. The
+recording plays a reply once when its identical audio is forwarded to another
+client, and shows the transfer as a reference. A short parallel startup probe
+also references the full listen recording on the same connection. Independent
+replies, separate tasks, raw evidence and acceptance results remain intact.
+The other three SDK runners use `--output <report-file>` for JSON and do not provide replay exports. The
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,
 `output` and `reconnect` step kinds; a document using any other step kind, or
 an `audio` or `binary` variable, is reported as skipped on stderr rather than
