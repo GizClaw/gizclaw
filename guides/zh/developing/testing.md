@@ -759,6 +759,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 
 四者都支持 `validate -f <路径>` 与 `run <路径> --parallel N`，并写出相同结构的 report JSON。
 Go CLI 用 `--report <文件>` 保存汇总 JSON，用 `--output <目录>` 将一个 Giztest 文件渲染为独立 HTML 流程记录。
+录制中的事件、音频 chunk 到达和连接关闭共用 `report.started_at` 时间原点。HTML 按该时间线
+调度排队音频、静默和打断；普通 EOS 不清空待播音频。回放控件及旧记录的限制见 [CLI 使用说明](/zh/using/cli)。
+转发回归同时覆盖输入／捕获绑定、声明的 relay 客户端对和相同内容的独立输入；运行 `node --test cmd/internal/commands/giztest/replay_html_test.mjs`。
 其他三个 SDK runner 用 `--output <报告文件>` 保存 JSON，暂不提供回放目录。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
 skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc`、`http` 与 `reconnect`，
