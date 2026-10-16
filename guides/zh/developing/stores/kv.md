@@ -90,6 +90,8 @@ TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV
 
 `tests/store-e2e/run_tikv_tls_recovery_tests.sh` 使用两个独立 CA 的临时 PD/TiKV 集群验证 mTLS 与真实事务恢复。它在测试 TCP 代理上断开一个连接的传输，恢复后要求原 Storage client 继续读写，另一个 CA 的连接保持可用。该 gate 不重建 client、不访问线上集群，临时证书、数据、日志和二进制由测试目录及其 Compose project 拥有。
 
+测试代理先建立监听，runner 启动全部容器后再通过临时启动标记开启集群 bootstrap 计时。启动等待与事务恢复分别有界；原 client 仍须在 20 秒内恢复。失败时 CI 只上传明确列出的诊断日志和 source/Go 版本信息，证书、私钥、二进制及数据目录不进入 artifact。
+
 Entry 的绝对 deadline 与记录、过期索引在同一事务写入；零 deadline 会移除已有过期索引。读取立即把过期值视为不存在。Store Registry 为每个 TiKV root 启动一个可取消的清理 worker，只扫描内部 deadline 索引，每批最多 128 条、每轮最多 32 批且限制 15 秒；清空后间隔一分钟，仍有积压时一秒后继续。删除前在新事务重查记录的 deadline，并通过写冲突重试保护并发刷新。`Stores.Close` 取消并等待 worker，物理 Storage 随后关闭。直接使用 `NewTiKVWithClient` 的调用方可通过 `PurgeExpired` 执行同样的有界清理；这不推进集群 MVCC GC safe point。
 
 ### Redis → TiKV 离线迁移 {#redis-tikv-migration}

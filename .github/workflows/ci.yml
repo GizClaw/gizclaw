@@ -29,7 +29,21 @@ jobs:
       - name: Verify isolated mTLS transaction recovery
         env:
           GOFLAGS: -mod=readonly
-        run: tests/store-e2e/run_tikv_tls_recovery_tests.sh
+        run: tests/store-e2e/run_tikv_tls_recovery_tests.sh "${{ runner.temp }}/tikv-tls-recovery"
+      - name: Retain bounded fixture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: tikv-tls-recovery-diagnostics
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/tikv-tls-recovery/cluster.log
+            ${{ runner.temp }}/tikv-tls-recovery/startup.log
+            ${{ runner.temp }}/tikv-tls-recovery/pull.log
+            ${{ runner.temp }}/tikv-tls-recovery/cleanup.log
+            ${{ runner.temp }}/tikv-tls-recovery/source-revision.txt
+            ${{ runner.temp }}/tikv-tls-recovery/go-version.txt
 
   mem0-regression:
     name: Mem0 PGVector Regression

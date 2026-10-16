@@ -13,7 +13,7 @@ compose_file="$repo_root/tests/store-e2e/docker-compose.tikv-tls-recovery.yaml"
 compose() { docker compose -p "$project" -f "$compose_file" "$@"; }
 cleanup() {
   local cleanup_status=0
-  compose logs --no-color >"$evidence/cluster.log" 2>&1 || true
+  compose logs --no-color --timestamps >"$evidence/cluster.log" 2>&1 || true
   compose down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1 || cleanup_status=$?
   rm -rf "$fixture_dir" || cleanup_status=$?
   return "$cleanup_status"
@@ -35,11 +35,12 @@ git status --short >"$evidence/source-status.txt"
 go version >"$evidence/go-version.txt"
 compose pull pd-a pd-b probe tikv-a tikv-b >"$evidence/pull.log" 2>&1
 compose up -d pd-a pd-b probe tikv-a tikv-b >"$evidence/startup.log" 2>&1
+touch "$TIKV_TLS_FIXTURE_DIR/started"
 container="$(compose ps -a -q probe)"
 test -n "$container"
 status="$(docker wait "$container")"
-cleanup
 trap - EXIT
+cleanup
 compose_status="${status:-1}"
 case "$compose_status" in *[!0-9]*) echo 'Invalid fixture exit status' >&2; exit 1 ;; esac
 printf 'exit_code=%s\nevidence=%s\n' "$compose_status" "$evidence"

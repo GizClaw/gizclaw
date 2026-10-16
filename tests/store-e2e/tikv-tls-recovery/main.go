@@ -44,7 +44,7 @@ func main() {
 	case "certs":
 		err = generateFixtures(os.Args[2])
 	case "probe":
-		ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 		defer cancel()
 		err = probe(ctx, os.Args[2])
 	default:
@@ -316,6 +316,16 @@ func probe(ctx context.Context, root string) error {
 		return err
 	}
 	defer b.close()
+	// The listeners must exist before TiKV starts, but Docker startup time must
+	// not consume the bootstrap or same-client recovery budgets.
+	if err := waitFor(ctx, 2*time.Minute, func(context.Context) error {
+		_, err := os.Stat(filepath.Join(root, "started"))
+		return err
+	}); err != nil {
+		return fmt.Errorf("start fixture containers: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	defer cancel()
 	configs := map[string]storage.Config{"a": connectorConfig(root, "a"), "b": connectorConfig(root, "b")}
 	for _, name := range []string{"a", "b"} {
 		if err := waitCluster(ctx, configs[name].(storage.TiKVConfig)); err != nil {
@@ -349,9 +359,11 @@ func probe(ctx context.Context, root string) error {
 	}
 	a.breakTransport()
 	broken := make(chan error, 1)
+	brokenDone := make(chan struct{})
+	attempt, cancelAttempt := context.WithTimeout(ctx, 5*time.Second)
+	defer func() { cancelAttempt(); <-brokenDone }()
 	go func() {
-		attempt, cancel := context.WithTimeout(ctx, 5*time.Second)
-		defer cancel()
+		defer close(brokenDone)
 		_, err := stores["a"].Get(attempt, kv.Key{"tls-recovery", "a"})
 		broken <- err
 	}()
