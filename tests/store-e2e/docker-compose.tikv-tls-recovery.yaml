@@ -25,6 +25,10 @@ services:
     tmpfs: [/data]
     cpus: 2
     mem_limit: 2g
+    ulimits:
+      nofile:
+        soft: 1048576
+        hard: 1048576
   tikv-b:
     extends: {service: tikv-a}
     command: [--config=/fixtures/b/tikv.toml, --addr=0.0.0.0:20160, --advertise-addr=probe:20161, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd-b:2379]
