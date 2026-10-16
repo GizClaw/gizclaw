@@ -6,6 +6,8 @@ replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-202609302218
 
 replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260930230747-1193df5bc2d8
 
+replace github.com/tikv/client-go/v2 => github.com/GizClaw/tikv-client-go/v2 v2.0.0-20261016033931-138b7bc0a26a
+
 require (
 	cloud.google.com/go/storage v1.68.0
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.23.1
@@ -45,7 +47,7 @@ require (
 	github.com/livekit/server-sdk-go/v2 v2.18.1
 	github.com/oapi-codegen/runtime v1.7.0
 	github.com/openai/openai-go v1.12.0
-	github.com/pingcap/kvproto v0.0.0-20260820034643-9327469bb3ce
+	github.com/pingcap/kvproto v0.0.0-20261006010420-121875fd9777
 	github.com/pingcap/log v1.1.1-0.20221110025148-ca232912c9f3
 	github.com/pion/datachannel v1.6.3
 	github.com/pion/ice/v4 v4.4.4
@@ -56,6 +58,7 @@ require (
 	github.com/pion/turn/v4 v4.1.4
 	github.com/pion/webrtc/v4 v4.2.20
 	github.com/prometheus/client_golang v1.24.1
+	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/prometheus v0.314.0
 	github.com/redis/go-redis/v9 v9.20.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
@@ -210,7 +213,6 @@ require (
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
-	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.70.1 // indirect
 	github.com/prometheus/procfs v0.21.1 // indirect
 	github.com/puzpuzpuz/xsync/v4 v4.5.0 // indirect
