@@ -86,7 +86,9 @@ services:
 
 省略 `stale_read_delay` 和 `read_labels` 时，全部查询为强读。两者必须一起配置；delay 为 1ms 到 24h 的整毫秒时长。普通查询使用 PD 提供的时间戳减去 delay 并启用 Stale Read。SDK 将 labels 作为副本选择偏好；健康部署中优先地区完整 Learner，副本慢或不可用时可能选择其他副本或中心 Leader，读取的仍是同一历史时间戳。delay 指定历史快照时间，不保证副本能及时提供该快照。每次查询仍需访问 PD；不可用或已被 GC 的快照返回错误，不改读更旧的时间戳。副本放置、网络和 TiKV GC 保留窗口由部署管理，必须覆盖配置的 delay。
 
-TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd 和 TiKV RPC，不修改 client-go 的全局配置。Storage 负责关闭物理 client；逻辑 Store 和强读 view 不关闭该连接。
+TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV RPC 和故障恢复健康检查，不修改 client-go 的全局配置。恢复探测通过 `tikv.WithStoreLivenessSecurity` 接收同一 connector 的证书策略；不同 connector 即使访问同一地址，也不共享探测结果。显式无 TLS 的 connector 不继承其他连接的 TLS 配置，TLS 失败不回退到明文。Storage 负责关闭物理 client；逻辑 Store 和强读 view 不关闭该连接。
+
+`tests/store-e2e/run_tikv_tls_recovery_tests.sh` 使用两个独立 CA 的临时 PD/TiKV 集群验证 mTLS 与真实事务恢复。它在测试 TCP 代理上断开一个连接的传输，恢复后要求原 Storage client 继续读写，另一个 CA 的连接保持可用。该 gate 不重建 client、不访问线上集群，临时证书、数据、日志和二进制由测试目录及其 Compose project 拥有。
 
 Entry 的绝对 deadline 与记录、过期索引在同一事务写入；零 deadline 会移除已有过期索引。读取立即把过期值视为不存在。Store Registry 为每个 TiKV root 启动一个可取消的清理 worker，只扫描内部 deadline 索引，每批最多 128 条、每轮最多 32 批且限制 15 秒；清空后间隔一分钟，仍有积压时一秒后继续。删除前在新事务重查记录的 deadline，并通过写冲突重试保护并发刷新。`Stores.Close` 取消并等待 worker，物理 Storage 随后关闭。直接使用 `NewTiKVWithClient` 的调用方可通过 `PurgeExpired` 执行同样的有界清理；这不推进集群 MVCC GC safe point。
 

@@ -100,7 +100,8 @@ func newTiKV(name string, cfg TiKVConfig) (*tikv.KVStore, error) {
 		return nil, tiKVOpenError(name, "connect safe point", err)
 	}
 	rpc := tikv.NewRPCClient(tikv.WithSecurity(security), tikv.WithCodec(codec.GetCodec()))
-	store, err := tikv.NewKVStore(fmt.Sprintf("tikv-%d", client.GetClusterID(context.Background())), codec, safePoint, rpc)
+	store, err := tikv.NewKVStore(fmt.Sprintf("tikv-%d", client.GetClusterID(context.Background())), codec, safePoint, rpc,
+		tikv.WithStoreLivenessSecurity(security))
 	if err != nil {
 		_ = rpc.Close()
 		_ = safePoint.Close()
