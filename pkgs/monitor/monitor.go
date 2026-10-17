@@ -42,6 +42,9 @@ func (*configError) Error() string {
 type Node struct {
 	Role, PublicKey string
 	Version, Commit string
+	// OnlineDevices must only read the host's in-memory count. Nil means that
+	// device presence is unavailable, rather than a measured zero.
+	OnlineDevices func() int64
 }
 
 type nodeServer struct {
@@ -59,6 +62,7 @@ func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonit
 	snapshot.Transport.InboundServiceChannels = transport.InboundServiceChannels
 	snapshot.Transport.RxBytes = transport.RXBytes
 	snapshot.Transport.TxBytes = transport.TXBytes
+	snapshot.DeviceMetrics = s.deviceMetrics()
 	return monitorapi.GetNodeMonitor200JSONResponse(snapshot), nil
 }
 

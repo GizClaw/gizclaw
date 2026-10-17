@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	// DefaultFlushInterval is how often an installed recorder flushes dirty
-	// series to its store.
+	// DefaultFlushInterval is how often an installed recorder flushes counters,
+	// collected snapshots and dirty gauge/histogram series to its store.
 	DefaultFlushInterval = 10 * time.Second
 	// DefaultAppendTimeout bounds one periodic store append.
 	DefaultAppendTimeout = 5 * time.Second
@@ -41,6 +41,37 @@ type Label struct {
 
 // Option configures an installed store recorder.
 type Option func(*recorderConfig) error
+
+// WithLabels adds fixed process identity labels to every recorded series.
+// Call sites cannot override these labels. Values must be stable node metadata,
+// never device, session, request, or other unbounded identities.
+func WithLabels(labels ...Label) Option {
+	labels = append([]Label(nil), labels...)
+	return func(config *recorderConfig) error {
+		combined := append(append([]Label(nil), config.labels...), labels...)
+		canonical, err := canonicalLabels(combined, true)
+		if err != nil {
+			return fmt.Errorf("gizmetrics: process labels: %w", err)
+		}
+		config.labels = canonical
+		return nil
+	}
+}
+
+// WithCollector samples process-local atomic counters and gauges on every flush,
+// including shutdown. The collector must be bounded, non-blocking, and free of
+// network or storage I/O. It runs outside the recorder's state lock. Samples use
+// the flush timestamp and the same validation and series limit as other metrics;
+// their names and labels must not collide with push-recorded metrics.
+func WithCollector(collect func(time.Time) []storemetrics.Sample) Option {
+	return func(config *recorderConfig) error {
+		if collect == nil {
+			return errors.New("gizmetrics: collector is required")
+		}
+		config.collectors = append(config.collectors, collect)
+		return nil
+	}
+}
 
 // WithFlushInterval configures how often dirty series are flushed.
 func WithFlushInterval(interval time.Duration) Option {

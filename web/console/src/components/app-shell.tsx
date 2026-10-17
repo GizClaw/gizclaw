@@ -20,6 +20,7 @@ export function AppShell({
   breadcrumb,
   onExport,
   onLogout,
+  toolbar,
   children,
 }: {
   title: string;
@@ -29,6 +30,7 @@ export function AppShell({
   breadcrumb: string[];
   onExport: () => void;
   onLogout: () => void;
+  toolbar?: ReactNode;
   children: ReactNode;
 }) {
   return (
@@ -43,7 +45,7 @@ export function AppShell({
             CONSOLE
           </div>
         </div>
-        <nav className="flex gap-1.5 overflow-x-auto md:flex-col">
+        <nav className="flex w-full gap-1.5 overflow-x-auto md:w-auto md:flex-col">
           <div className="hidden px-2 text-[10px] tracking-[0.15em] text-muted-foreground md:block">
             {title.toUpperCase()}
           </div>
@@ -102,7 +104,7 @@ export function AppShell({
         </div>
       </aside>
       <div className="flex min-h-0 min-w-0 flex-1 flex-col md:ml-60">
-        <header className="flex h-14 items-center justify-between border-b border-border px-6 text-xs text-muted-foreground">
+        <header className="flex min-h-16 shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border px-6 py-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-2">
             {breadcrumb.map((part, index) => (
               <span key={part} className="flex items-center gap-2">
@@ -111,16 +113,19 @@ export function AppShell({
               </span>
             ))}
           </span>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="md:hidden"
-            onClick={onLogout}
-          >
-            <LogOut size={14} /> 退出
-          </Button>
+          <div className="flex items-center gap-2">
+            {toolbar}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="md:hidden"
+              onClick={onLogout}
+            >
+              <LogOut size={14} /> 退出
+            </Button>
+          </div>
         </header>
-        <main className="mx-auto flex w-full max-w-[1440px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-8">
+        <main className="mx-auto flex w-full max-w-[1440px] min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-5 py-6 sm:px-8 sm:py-8">
           {children}
         </main>
       </div>
@@ -144,7 +149,7 @@ function NavLink({
       href={href}
       aria-current={active ? "page" : undefined}
       className={cn(
-        "flex items-center gap-2.5 truncate rounded-md px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent/60",
+        "flex shrink-0 items-center gap-2.5 truncate rounded-md px-3 py-2.5 text-xs text-muted-foreground transition-colors hover:bg-accent/60",
         active && "bg-accent font-medium text-accent-foreground",
       )}
     >

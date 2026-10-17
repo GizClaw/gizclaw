@@ -63,3 +63,5 @@ MHS v0 由 GizClaw 定义八种 HWD。`api/proto/rpc/payload/mhs_v0.proto` 规�
 `tool/v0` 通过 `client.tool.v0.invoke`（135）承载操作。每次调用选择 27 个预定义 `ClientTool` 之一，并携带对应的 Protobuf 请求消息。设备通过 `client.tool.v0.list`（136）只公布实际安装的操作。`client.rpc.methods.list`（137）返回 `RpcMethod` 数字，用于识别协议 family 和版本。控制 App 使用 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke`；Server 在接触设备前验证有类型的参数。详见 [Peer HTTP](./http/public)、[设备 provider](./proto/rpc/client-provided-to-server) 与 [RPC Reference](/references/rpc)。
 
 `GET /gizclaw/v1/device/status` 读取 Server 保存的标识与遥测快照；实时调用 `device.status.get` 工具可以刷新该快照。
+
+Infrastructure Flow Feed 使用 `api/http/infra.json`，由 `pkgs/infraflow` 提供只读 AP 契约；见 [聚合帧与资源上限](../infra-flow)。

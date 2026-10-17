@@ -39,6 +39,43 @@ func (e MonitorErrorError) Valid() bool {
 	}
 }
 
+// Defines values for NodePeerTransportPeerKind.
+const (
+	Admin    NodePeerTransportPeerKind = "admin"
+	Device   NodePeerTransportPeerKind = "device"
+	Unknown  NodePeerTransportPeerKind = "unknown"
+	Upstream NodePeerTransportPeerKind = "upstream"
+)
+
+// Valid indicates whether the value is a known member of the NodePeerTransportPeerKind enum.
+func (e NodePeerTransportPeerKind) Valid() bool {
+	switch e {
+	case Admin:
+		return true
+	case Device:
+		return true
+	case Unknown:
+		return true
+	case Upstream:
+		return true
+	default:
+		return false
+	}
+}
+
+// MonitorDataChannels defines model for MonitorDataChannels.
+type MonitorDataChannels struct {
+	Native  uint64 `json:"native"`
+	Packet  uint64 `json:"packet"`
+	Service uint64 `json:"service"`
+}
+
+// MonitorDirections defines model for MonitorDirections.
+type MonitorDirections struct {
+	Rx uint64 `json:"rx"`
+	Tx uint64 `json:"tx"`
+}
+
 // MonitorError defines model for MonitorError.
 type MonitorError struct {
 	Error MonitorErrorError `json:"error"`
@@ -47,16 +84,38 @@ type MonitorError struct {
 // MonitorErrorError defines model for MonitorError.Error.
 type MonitorErrorError string
 
+// NodeDeviceMetrics Live in-memory device and physical transport counters. Absent on older nodes. Server and Edge online counts are different views and must not be added together.
+type NodeDeviceMetrics struct {
+	// OnlineDevices Distinct active device identities; omitted when the embedding host has no device count source.
+	OnlineDevices *uint64             `json:"online_devices,omitempty"`
+	Transports    []NodePeerTransport `json:"transports"`
+}
+
+// NodePeerTransport defines model for NodePeerTransport.
+type NodePeerTransport struct {
+	DataChannelMessagesTotal MonitorDirections         `json:"data_channel_messages_total"`
+	DataChannels             MonitorDataChannels       `json:"data_channels"`
+	PeerKind                 NodePeerTransportPeerKind `json:"peer_kind"`
+	RtpPacketsTotal          MonitorDirections         `json:"rtp_packets_total"`
+	RtpTracks                MonitorDirections         `json:"rtp_tracks"`
+}
+
+// NodePeerTransportPeerKind defines model for NodePeerTransport.PeerKind.
+type NodePeerTransportPeerKind string
+
 // NodeSnapshot defines model for NodeSnapshot.
 type NodeSnapshot struct {
 	// BuildCommit Source commit embedded in this process binary; "dev" for unversioned builds.
-	BuildCommit string    `json:"build_commit"`
-	Goroutines  int       `json:"goroutines"`
-	HeapBytes   uint64    `json:"heap_bytes"`
-	PublicKey   string    `json:"public_key"`
-	Role        string    `json:"role"`
-	Time        time.Time `json:"time"`
-	Transport   struct {
+	BuildCommit string `json:"build_commit"`
+
+	// DeviceMetrics Live in-memory device and physical transport counters. Absent on older nodes. Server and Edge online counts are different views and must not be added together.
+	DeviceMetrics *NodeDeviceMetrics `json:"device_metrics,omitempty"`
+	Goroutines    int                `json:"goroutines"`
+	HeapBytes     uint64             `json:"heap_bytes"`
+	PublicKey     string             `json:"public_key"`
+	Role          string             `json:"role"`
+	Time          time.Time          `json:"time"`
+	Transport     struct {
 		Connections int `json:"connections"`
 
 		// InboundServiceChannels Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels.

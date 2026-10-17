@@ -2,6 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import type { ConsoleServer } from "@/lib/config";
 import { loadNode, nodeErrorMessage, type NodeSnapshot } from "@/lib/api";
 import { rates, type Sample } from "@/lib/format";
+import {
+  messageRates,
+  type MessageRates,
+  type DeviceSample,
+} from "@/lib/node-metrics";
 
 const MAX_SAMPLES = 600;
 export type ServerState = {
@@ -10,6 +15,9 @@ export type ServerState = {
   error?: string;
   updatedAt?: number;
   samples: Sample[];
+  deviceRates?: MessageRates;
+  previousSnapshot?: NodeSnapshot;
+  deviceSamples?: DeviceSample[];
 };
 export type FleetState = Record<string, ServerState>;
 
@@ -28,6 +36,7 @@ export function useFleet(
   const counters = useRef<
     Map<string, { time: number; rx: number; tx: number }>
   >(new Map());
+  const previousSnapshots = useRef(new Map<string, NodeSnapshot>());
   const targets = useRef(servers);
   targets.current = servers;
   const ids = servers.map((server) => server.id).join(" ");
@@ -55,13 +64,17 @@ export function useFleet(
 
   useEffect(() => {
     if (paused || targets.current.length === 0) return;
+    // Configuration changes and a pause invalidate the old process baseline.
+    previousSnapshots.current.clear();
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
     const poll = async () => {
+      const polledAt = Date.now();
       await Promise.all(
         targets.current.map(async (server) => {
           try {
             const snapshot = await loadNode(server, controller.signal);
+            if (controller.signal.aborted) return;
             const time = Date.parse(snapshot.time) || Date.now();
             const counter = {
               time,
@@ -69,8 +82,10 @@ export function useFleet(
               tx: snapshot.transport.tx_bytes,
             };
             const sample = rates(counters.current.get(server.id), counter);
+            const previousSnapshot = previousSnapshots.current.get(server.id);
+            const deviceRates = messageRates(previousSnapshot, snapshot);
+            previousSnapshots.current.set(server.id, snapshot);
             counters.current.set(server.id, counter);
-            if (controller.signal.aborted) return;
             setFleet((state) => {
               const previous = state[server.id] ?? initial();
               return {
@@ -80,12 +95,23 @@ export function useFleet(
                   snapshot,
                   updatedAt: Date.now(),
                   samples: [...previous.samples, sample].slice(-MAX_SAMPLES),
+                  previousSnapshot,
+                  deviceRates,
+                  deviceSamples: [
+                    ...(previous.deviceSamples ?? []),
+                    {
+                      timestamp: polledAt,
+                      onlineDevices: snapshot.device_metrics?.online_devices,
+                      rates: deviceRates,
+                    },
+                  ].slice(-MAX_SAMPLES),
                 },
               };
             });
           } catch (error) {
             if (controller.signal.aborted) return;
             counters.current.delete(server.id);
+            previousSnapshots.current.delete(server.id);
             setFleet((state) => ({
               ...state,
               [server.id]: {
@@ -93,6 +119,12 @@ export function useFleet(
                 status: "error",
                 error: nodeErrorMessage(error),
                 updatedAt: Date.now(),
+                deviceRates: undefined,
+                previousSnapshot: undefined,
+                deviceSamples: [
+                  ...(state[server.id]?.deviceSamples ?? []),
+                  { timestamp: polledAt },
+                ].slice(-MAX_SAMPLES),
               },
             }));
           }

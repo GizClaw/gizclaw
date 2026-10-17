@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"net/http"
 	"strings"
 	"unicode/utf8"
@@ -88,6 +89,9 @@ func (s *PeerService) edgeHTTPHandlerForPeer(apiKeys *apikey.Server, peerPublicK
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle("/webrtc/v1/offer", publicHandler)
 	mux.Handle("/gizclaw/v1/", publicHandler)
+	if s.infraFlowHandler != nil {
+		mux.Handle(infraflow.Path, s.infraFlowHandler)
+	}
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(apiKeys))
 	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode), trustedEdge: peerPublicKey != ""})
 }

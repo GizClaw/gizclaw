@@ -29,10 +29,41 @@ export type NodeSnapshot = {
          */
         inbound_service_channels: number;
     };
+    device_metrics?: NodeDeviceMetrics;
 };
 
 export type MonitorError = {
     error: 'INVALID_MONITOR_TOKEN' | 'MONITOR_DISABLED';
+};
+
+export type MonitorDirections = {
+    rx: number;
+    tx: number;
+};
+
+export type MonitorDataChannels = {
+    packet: number;
+    service: number;
+    native: number;
+};
+
+export type NodePeerTransport = {
+    peer_kind: 'device' | 'upstream' | 'admin' | 'unknown';
+    rtp_tracks: MonitorDirections;
+    data_channels: MonitorDataChannels;
+    rtp_packets_total: MonitorDirections;
+    data_channel_messages_total: MonitorDirections;
+};
+
+/**
+ * Live in-memory device and physical transport counters. Absent on older nodes. Server and Edge online counts are different views and must not be added together.
+ */
+export type NodeDeviceMetrics = {
+    /**
+     * Distinct active device identities; omitted when the embedding host has no device count source.
+     */
+    online_devices?: number;
+    transports: Array<NodePeerTransport>;
 };
 
 export type GetNodeMonitorData = {
@@ -61,7 +92,7 @@ export type GetNodeMonitorError = GetNodeMonitorErrors[keyof GetNodeMonitorError
 
 export type GetNodeMonitorResponses = {
     /**
-     * Snapshot; counters measure process WebRTC service payload bytes, not wire traffic. Logs are bounded recent process records.
+     * Process-local runtime, device and transport snapshot; no business storage or metrics backend query.
      */
     200: NodeSnapshot;
 };

@@ -141,7 +141,9 @@ Tool 结果的 arguments 通过原生调用 ID 与同名提议精确关联，再
 
 ### Usage 计量
 
-Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage)，把 [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) 交给 context 中由 [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) 设置的 recorder。Generator 与 Transformer 都从各自 goroutine 调用它，recorder 必须并发安全且不能阻塞；没有 recorder 时记录被丢弃。Stream 终态中的 `Usage` 仍只供直接调用方参考，计量以 `UsageRecord` 为准。
+Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage)，记录进程 token counter，并把非零 [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) 交给 context 中由 [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) 设置的 recorder。Generator 与 Transformer 都从各自 goroutine 调用它，recorder 必须并发安全且不能阻塞。Token counter 只需要安装进程 metrics store，不依赖 Peer 用量回调或 SQL 计量配置；没有回调时不进行产品计量。Stream 终态中的 `Usage` 仍只供直接调用方参考，计量以 `UsageRecord` 为准。
+
+嵌套产品 scope 保留原始调用方的 callback，并只把用量交给最内层的产品 recorder。转发已有报告时通过 `UsageRecorderFromContext` 取得 callback 并直接调用，不能再次调用 `RecordUsage`，否则会重复统计进程 counter。指标与查询口径见 [Observability](../observability#model-token-usage)。
 
 每条记录带 provider、provider model/version/resource ID、modality（`text` 或 `audio`）和计费单位。`Input`、`CachedInput`、`Output` 互不包含：`CachedInput` 是按缓存价计费的输入，不计入 `Input`。同一 provider model 始终使用同一单位；不同 provider model 的单位不可比较，也不在 GenX 中换算。
 

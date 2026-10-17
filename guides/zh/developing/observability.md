@@ -210,7 +210,7 @@ Completion record 不输出 `error_message`。响应 message、`err.Error()`、v
 
 调用方通过 `AddCounter`、`SetGauge` 和 `ObserveHistogram` 记录数据。`InstallStore` 一次只允许安装一个 live recorder；安装前和 shutdown 后调用均为 no-op。默认 flush interval 是 10 秒，单次 append timeout 是 5 秒，逻辑 series 上限是 10,000，也可通过 `WithFlushInterval`、`WithAppendTimeout` 和 `WithMaxSeries` 调整。
 
-Counter 保存进程内单调累计值，gauge 保存最新值，histogram 导出累计的 `_bucket`、`_sum` 和 `_count` samples，并总是包含 `le=+Inf`。Metric name、label name、数值和 buckets 在进入聚合 map 前校验；非法 update、同一 series 改变类型/buckets 或超过 series 上限时丢弃并输出限频且不包含 label value 的 warning。业务调用不等待 `Store.Append`，失败或超时的 dirty samples 留待下一次 flush。
+Counter 保存进程内单调累计值，每次 flush 都发送已创建 counter 的当前值，包括没有变化的值，以便空闲窗口的速率回到零，后续增量也不会跨整个空闲期插值。Gauge 保存最新值，histogram 导出累计的 `_bucket`、`_sum` 和 `_count` samples，并总是包含 `le=+Inf`；两者仅在变更后发送，周期 collector 仍按每次 flush 采样。Metric name、label name、数值和 buckets 在进入聚合 map 前校验；非法 update、同一 series 改变类型/buckets 或超过 series 上限时丢弃并输出限频且不包含 label value 的 warning。业务调用不等待 `Store.Append`，失败或超时的 dirty samples 留待下一次 flush。
 
 `cmd/internal/server` 只在配置了名为 `metrics` 的 store 时安装 recorder。关闭顺序固定为 `gizclaw.Server`、recorder final flush、store registry；recorder 不关闭 store。Standalone Edge 使用顶层 `metrics` 配置直接连接 Prometheus Remote Write/query backend，并在关闭 HTTP、gateway 与 upstream 后 final flush，再关闭 backend connector。
 
@@ -219,6 +219,68 @@ Counter 保存进程内单调累计值，gauge 保存最新值，histogram 导�
 WebRTC transport 记录 signaling、dial、连接和 service DataChannel 的请求量、结果、时延与 active gauge。通用 labels 只使用有界的 `node_role=application|edge`、`role=client|server`、`direction=inbound|outbound` 和稳定 `result`；PubKey、session ID、service ID、URL、SDP 与内容都不进入 labels。
 
 Edge gateway 额外记录所有入口 signaling（包括在 WebRTC listener 之前被容量控制拒绝的请求）、pending admission、active logical session、burst SCTP、upstream 状态/占用、tunnel channel、logical-session establishment 和 bridge terminal。主要 metric families 为 `giz_webrtc_*` 与 `giz_edge_webrtc_*`。`giz_edge_webrtc_capacity_limit{resource=...}` 暴露与 active gauge 对应的配置上限。
+
+### 节点设备、通道与消息指标 {#node-device-channel-metrics}
+
+Server 和 Standalone Edge 安装进程 recorder 时为其全部 series 加入固定的
+`node_id`（本节点公钥）和 `node_type=server|edge`。它们连接各自配置的 Metrics Store，
+不要求共享 Prometheus。设备 telemetry 的 `peer_id` series 继续使用原有独立映射。
+
+以下指标每个 flush 周期采样一次，默认 10 秒，包括没有变化的值和零值；关闭时还会采样一次。
+来源是连接生命周期维护的内存计数，不遍历设备、不查询业务数据库，也不调用完整 Pion stats。
+RTP/DataChannel 每个成功消息只增加原子计数，不执行指标标签处理或网络写入。
+
+| Metric | 类型与口径 | 附加 labels |
+| --- | --- | --- |
+| `gizclaw_devices_online` | Gauge；Server 是已发布的 active Client identity 数，Edge 是已经建立 logical bridge 的不同 Client identity 数 | 无 |
+| `giz_webrtc_datachannels_active` | Gauge；已 detach 且尚未释放的物理 DataChannel 数，不包含 pending open | `node_role`, `role`, `peer_kind`, `channel_kind` |
+| `giz_webrtc_datachannel_messages_total` | Counter；成功写入或读取的完整 DataChannel message 数 | 上述 labels 和 `direction=rx|tx` |
+| `giz_webrtc_rtp_tracks_active` | Gauge；发送方向是已绑定的 Opus track，接收方向是已经协商的 Opus track，静音时也计数 | `node_role`, `role`, `peer_kind`, `direction=rx|tx` |
+| `giz_webrtc_rtp_packets_total` | Counter；实际成功发送或接收的 Opus RTP packet 数 | 同上 |
+
+`node_role=application|edge` 和 `role=client|server|unknown` 延续 transport 角色；其中
+`role` 是物理 WebRTC 的拨号/接收角色，不是业务 Peer role。`peer_kind` 只接受
+`device|upstream|admin|unknown`：Server 按本地 Admin/Edge 公钥配置分类，Edge 的 gateway
+入站为 device、向 Server 拨号为 upstream。库调用方通过 `ListenConfig.MetricsPeerKind` 和
+`DialConfig.MetricsPeerKind` 提供本地分类，未提供或未知值归入 unknown。
+`channel_kind=packet|service|native` 区分 direct packet、service stream 和原生 tunnel channel；
+通道 label、ID、公钥和 session ID 不进入这些维度。Detached channel 在本地或父连接关闭、终止读取/写入时释放；远端关闭允许先排空已入队消息。
+
+设备重连替换保持 Server 计数不变，旧 generation 的迟到退出不影响新连接；activation
+reservation、Admin、Edge-node、deleting 和已摘除的连接不计入在线设备。Edge 对同一公钥的
+并行 bridge 引用计数，最后一条 bridge 结束才减一。Edge/Server 的在线数不可直接相加作为
+全局唯一设备数；只统计权威 Server 才是 Server 视角的集群汇总。
+
+这些是物理传输指标。经过 Edge 的设备在 Edge 侧具有 RTP track，Server 侧的这条音频
+由 upstream DataChannel 承载，不会虚构一条 Server RTP track。字节流的一条 DataChannel
+message 被多次部分读取只计一次，超大短 buffer 重试不重复计数；一次大写入被切成多个
+DataChannel message 时按实际 message 数计数。这不是聊天消息或 RPC 调用次数。
+
+每秒速率建议读取一分钟窗口的平均值；每分钟数量使用 `increase`，其结果包含 Prometheus
+的窗口边界估算，可能有小数，并非逐秒原始事件记录。Counter 在进程重启后归零，查询先对
+每条 series 求 rate/increase 再汇总：
+
+```promql
+# 每节点在线设备
+gizclaw_devices_online
+
+# 设备侧 DataChannel message/s，按节点与收发方向汇总
+sum by (node_id, node_type, direction) (
+  rate(giz_webrtc_datachannel_messages_total{peer_kind="device"}[1m])
+)
+
+# 最近一分钟设备侧 RTP packet 数
+sum by (node_id, node_type, direction) (
+  increase(giz_webrtc_rtp_packets_total{peer_kind="device"}[1m])
+)
+```
+
+查询方必须校验最新 sample 时间；停止上报不等于零在线，也不能无限延用最后一个在线数。
+Monitor 使用同一组内存计数提供实时设备、通道和消息快照；控制台展示当前会话采样，长期历史仍保存在各节点的 Metrics Store，当前控制台不查询这部分历史。
+
+`gizmetrics.WithCollector` 用于只读、有界且无 I/O 的周期快照，并在 recorder state lock
+之外执行；返回值继续受名称、有限数值、label 冲突和 series 上限校验。
+`WithLabels` 为进程 series 固定身份，调用点不得覆盖这些 labels。
 
 ### 当前 Peer telemetry metrics
 
@@ -366,6 +428,47 @@ Lifecycle 诊断中的 stream identifier 保留稳定的 128-bit hash；GenX 内
 运行链路中的日志使用调用 context，保留已认证的请求或连接身份。SFU participant 生命周期和 talk 事件使用 attachment context；物理 upstream ICE、通道容量和节点启动日志使用节点、upstream ID、connection epoch 等自身维度，不绑定某个复用连接上的请求。StreamBuilder 不再逐片段警告未绑定工具，实际工具执行仍返回明确的缺失工具错误。Provider 文本发送片段由统一阶段聚合记录，不重复逐字输出。
 
 内部适配器改写 Stream ID 时保留进程内的 `source_stream_id`。只有它精确命中已观察的输入，才用于计算输入耗时；不据此生成或改变 ResponseEpoch，也不传输到设备协议。
+
+### 模型 Token 用量 {#model-token-usage}
+
+`genx.RecordUsage` 在供应商报告用量时递增 `genx_model_tokens_total`，沿用已安装的进程 metrics store。
+配置为 Prometheus/VMP 时，通过已有 Remote Write worker 默认每十秒批量写入；不访问 Peer 小时用量表、
+不读取业务数据库，也不为每个 token 或 stream chunk 发请求。
+
+GizClaw 在这里负责指标上报。VMP 的模型用量聚合、recording rules 和看板属于 Deploy 的监控配置边界；
+Monitor 继续读取节点内存快照，不增加这些指标的 VMP 查询或聚合接口。已有设备 telemetry 查询接口保持其独立契约。
+
+| Label | 口径 |
+| --- | --- |
+| `provider` | 供应商标识，例如 `openai`、`volc`、`gemini` |
+| `model` | 实际配置的计费 model、version 或 resource ID，与模型时延指标口径一致 |
+| `modality` | `text` 或 `audio` |
+| `token_type` | `input`、`cached_input` 或 `output`；三者互不包含 |
+
+Server 继续附加固定 `node_id`、`node_type`。这里不增加 Peer、用户、设备、session、request、stream、
+voice 或 workflow 标签。同一节点的一个 provider/model 最多六条 token series，活动量增加只改变累计值；
+全进程仍受默认 10,000 条逻辑 series 的上限约束。Adapter 必须提供稳定配置身份，不能传入用户提交的模型名；
+空身份、过长或含控制字符的身份、未知 modality 和负数量不进入 token metrics，原产品 callback 行为保持不变。
+
+仅 `unit=token` 进入此 counter。TTS 的字符数和 ASR 的毫秒数不能相加为 token；文本、音频和缓存用量
+由现有 `TokenUsage.Records` 拆为不重叠数量。Provider 不报告或取消前尚未收到的 usage 不估算，零用量
+不创建 series。嵌套产品 scope 只转发 callback，不再次观察同一报告。
+
+```promql
+# 各模型每秒 token 消耗，保留文本/音频与输入/缓存/输出区分
+sum by (provider, model, modality, token_type) (
+  rate(genx_model_tokens_total[5m])
+)
+
+# 各模型最近 24 小时 token 消耗，包含普通输入、缓存输入和输出
+sum by (provider, model) (
+  increase(genx_model_tokens_total[24h])
+)
+```
+
+先对每条节点 series 计算 rate/increase，再汇总以处理进程重启归零。Prometheus 会估算窗口边界；首个
+观测值之前没有基线，未 flush 的数据可能因进程异常退出丢失，因此这是运行监控口径，不是精确账单。
+如果节点使用不同的 VMP workspace，查询方需要分别查询后汇总，或显式配置统一指标 workspace。
 
 ### 语音与模型性能指标
 

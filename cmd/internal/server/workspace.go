@@ -264,10 +264,11 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	}
 	defer srv.Close()
 	monitorHandler := monitor.Handler(cfg.Monitor, monitor.Node{
-		Role:      "server",
-		PublicKey: cfg.KeyPair.Public.String(),
-		Version:   buildinfo.Version,
-		Commit:    buildinfo.Commit,
+		OnlineDevices: srv.Server.OnlineDevices,
+		Role:          "server",
+		PublicKey:     cfg.KeyPair.Public.String(),
+		Version:       buildinfo.Version,
+		Commit:        buildinfo.Commit,
 	}, srv)
 	for index := range preparedHTTP {
 		preparedHTTP[index].server.Handler = monitorHandler

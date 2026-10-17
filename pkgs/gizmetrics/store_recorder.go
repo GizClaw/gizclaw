@@ -26,6 +26,8 @@ type recorderConfig struct {
 	flushInterval time.Duration
 	appendTimeout time.Duration
 	maxSeries     int
+	labels        []Label
+	collectors    []func(time.Time) []storemetrics.Sample
 }
 
 type metricKind uint8
@@ -34,6 +36,7 @@ const (
 	metricKindCounter metricKind = iota + 1
 	metricKindGauge
 	metricKindHistogram
+	metricKindSnapshot
 )
 
 type metricSeries struct {
@@ -159,7 +162,11 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 		r.warn(ctx, "", "invalid metric name")
 		return
 	}
-	canonical, err := canonicalLabels(labels, kind == metricKindHistogram)
+	allLabels := labels
+	if len(r.config.labels) != 0 {
+		allLabels = append(append([]Label(nil), r.config.labels...), labels...)
+	}
+	canonical, err := canonicalLabels(allLabels, kind == metricKindHistogram)
 	if err != nil {
 		r.warn(ctx, name, err.Error())
 		return
@@ -167,7 +174,7 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 	key := seriesKey(name, canonical)
 
 	r.mu.Lock()
-	if r.closed {
+	if r.closed && kind != metricKindSnapshot {
 		r.mu.Unlock()
 		return
 	}
@@ -209,7 +216,7 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 			return
 		}
 		series.value = next
-	case metricKindGauge:
+	case metricKindGauge, metricKindSnapshot:
 		series.value = value
 	case metricKindHistogram:
 		next := series.value + value
@@ -238,7 +245,9 @@ func (r *storeRecorder) flush(ctx context.Context) error {
 	r.flushMu.Lock()
 	defer r.flushMu.Unlock()
 
-	pending := r.snapshot(time.Now().UTC())
+	timestamp := time.Now().UTC()
+	r.collect(ctx, timestamp)
+	pending := r.snapshot(timestamp)
 	if len(pending) == 0 {
 		return nil
 	}
@@ -259,12 +268,35 @@ func (r *storeRecorder) flush(ctx context.Context) error {
 	return nil
 }
 
+func (r *storeRecorder) collect(ctx context.Context, timestamp time.Time) {
+	for _, collect := range r.config.collectors {
+		samples := collect(timestamp)
+		if len(samples) > r.config.maxSeries {
+			r.warn(ctx, "", "collector exceeds maximum series")
+			samples = samples[:r.config.maxSeries]
+		}
+		for _, sample := range samples {
+			if !finite(sample.Value) {
+				r.warn(ctx, sample.Name, "collected value must be finite")
+				continue
+			}
+			labels := make([]Label, 0, len(sample.Labels))
+			for name, value := range sample.Labels {
+				labels = append(labels, Label{Name: name, Value: value})
+			}
+			r.record(ctx, metricKindSnapshot, sample.Name, sample.Value, nil, labels)
+		}
+	}
+}
+
 func (r *storeRecorder) snapshot(timestamp time.Time) []pendingSeries {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	pending := make([]pendingSeries, 0, len(r.series))
 	for key, series := range r.series {
-		if !series.dirty {
+		// Counters need periodic unchanged samples so idle windows yield zero
+		// rates and later activity is not interpolated across a long silence.
+		if !series.dirty && series.kind != metricKindCounter {
 			continue
 		}
 		pending = append(pending, pendingSeries{
@@ -379,7 +411,7 @@ func finite(value float64) bool {
 func seriesSamples(series *metricSeries, timestamp time.Time) []storemetrics.Sample {
 	labels := labelsMap(series.labels)
 	switch series.kind {
-	case metricKindCounter, metricKindGauge:
+	case metricKindCounter, metricKindGauge, metricKindSnapshot:
 		return []storemetrics.Sample{{Name: series.name, Labels: labels, Timestamp: timestamp, Value: series.value}}
 	case metricKindHistogram:
 		samples := make([]storemetrics.Sample, 0, len(series.buckets)+3)

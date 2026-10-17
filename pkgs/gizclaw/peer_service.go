@@ -69,6 +69,7 @@ type peerHTTP struct {
 
 // PeerService serves one peer connection.
 type PeerService struct {
+	infraFlowHandler   http.Handler
 	admin              *adminService
 	public             *peerHTTP
 	manager            *Manager

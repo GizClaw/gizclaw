@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
@@ -42,6 +43,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -83,10 +85,12 @@ type Server struct {
 	FriendStore            kv.Store
 	FriendGroupStore       kv.Store
 	WorkspaceAssets        objectstore.ObjectStore
-	MetricsStore           metrics.Store
-	PendingDeletionConfig  pendingdeletion.Config
-	ServerLogQuery         ServerLogQueryService
-	GraphStateDB           *sqlx.DB
+	// InfraFlowHandler serves the independently authenticated, shared KV activity feed.
+	InfraFlowHandler      http.Handler
+	MetricsStore          metrics.Store
+	PendingDeletionConfig pendingdeletion.Config
+	ServerLogQuery        ServerLogQueryService
+	GraphStateDB          *sqlx.DB
 	// SFU is the Server-held SFU connector configuration; a zero value
 	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
 	// writers so credentials never leave this struct.
@@ -104,6 +108,7 @@ type Server struct {
 	EdgeNodes              []giznet.PublicKey
 
 	manager                  *Manager
+	deviceCount              atomic.Int64
 	peerService              *PeerService
 	apiKeys                  *apikey.Server
 	listenerMu               sync.RWMutex
@@ -432,6 +437,7 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	manager.deviceCount = &s.deviceCount
 	manager.PeerQuota = peerquota.New(quotaReporter{manager: manager})
 	if s.PeerUsageDB != nil {
 		usageStore, err := peerusage.NewStore(context.Background(), s.PeerUsageDB)
@@ -720,8 +726,9 @@ func (s *Server) init() error {
 
 	s.manager = manager
 	s.peerService = &PeerService{
-		manager: manager,
-		apiKeys: apiKeyServer,
+		infraFlowHandler: s.InfraFlowHandler,
+		manager:          manager,
+		apiKeys:          apiKeyServer,
 		admin: &adminService{
 			Peers:                       peersServer,
 			CredentialAdminService:      credentialServer,
@@ -768,6 +775,9 @@ func (s *Server) init() error {
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
 	mux.Handle("/gizclaw/v1/", publicHandler)
+	if s.InfraFlowHandler != nil {
+		mux.Handle(infraflow.Path, s.InfraFlowHandler)
+	}
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(apiKeyServer))
 	s.httpHandler = observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceServerPublic})
 	return nil

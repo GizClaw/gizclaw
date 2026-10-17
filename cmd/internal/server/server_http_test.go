@@ -131,6 +131,27 @@ func TestNewWithOptionsInstallsAndFlushesMetricsRecorder(t *testing.T) {
 	if len(series) != 1 || len(series[0].Points) != 1 || series[0].Points[0].Value != 2 {
 		t.Fatalf("Latest() = %#v, want one sample with value 2", series)
 	}
+	if series[0].Labels["node_id"] != srv.Server.LocalStatic.Public.String() || series[0].Labels["node_type"] != "server" {
+		t.Fatalf("missing process identity: %+v", series[0].Labels)
+	}
+	devices, err := srv.Server.MetricsStore.Latest(t.Context(), metrics.LatestQuery{
+		Selector: metrics.Selector{Name: "gizclaw_devices_online"}, At: time.Now(), Lookback: time.Minute,
+	})
+	if err != nil || len(devices) != 1 || len(devices[0].Points) != 1 || devices[0].Points[0].Value != 0 {
+		t.Fatalf("initial device metrics = %+v, %v, want a fresh zero", devices, err)
+	}
+}
+
+func TestWebRTCMetricPeerKindsUseLocalNodeConfiguration(t *testing.T) {
+	admin, edge, device := giznet.PublicKey{1}, giznet.PublicKey{2}, giznet.PublicKey{3}
+	cfg := validLayeredConfig(t.TempDir())
+	cfg.AdminPublicKey, cfg.EdgeNodes = admin, []giznet.PublicKey{edge}
+	listener := webRTCListenConfig(cfg, gizclaw.PeerListenerOptions{}, nil)
+	for key, want := range map[giznet.PublicKey]string{admin: "admin", edge: "upstream", device: "device"} {
+		if got := listener.MetricsPeerKind(key); got != want {
+			t.Fatalf("peer classification = %q, want %q", got, want)
+		}
+	}
 }
 
 func TestNewWithOptionsWithoutMetricsStoreLeavesRecorderDisabled(t *testing.T) {

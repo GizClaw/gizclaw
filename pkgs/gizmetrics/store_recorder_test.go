@@ -103,8 +103,36 @@ func TestStoreRecorderRetainsDirtySeriesAfterFailure(t *testing.T) {
 	if err := recorder.flush(context.Background()); err != nil {
 		t.Fatalf("clean flush error = %v", err)
 	}
-	if got := len(store.appendBatches()); got != 2 {
-		t.Fatalf("append batches after clean flush = %d, want 2", got)
+	if got := len(store.appendBatches()); got != 3 {
+		t.Fatalf("append batches after clean counter flush = %d, want 3", got)
+	}
+	assertMetricSample(t, store.appendBatches()[2], "retry_total", map[string]string{"kind": "test"}, 2)
+}
+
+func TestStoreRecorderPublishesIdleCountersWithoutRepeatingCleanGauges(t *testing.T) {
+	store := &fakeMetricsStore{}
+	recorder := newStoreRecorder(store, recorderConfig{appendTimeout: time.Second, maxSeries: 10})
+	recorder.addCounter(t.Context(), "tokens_total", 7, nil)
+	recorder.setGauge(t.Context(), "last_usage", 7, nil)
+	if err := recorder.flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	if err := recorder.flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	recorder.addCounter(t.Context(), "tokens_total", 3, nil)
+	if err := recorder.flush(t.Context()); err != nil {
+		t.Fatal(err)
+	}
+	batches := store.appendBatches()
+	if len(batches) != 3 || len(batches[0]) != 2 || len(batches[1]) != 1 || len(batches[2]) != 1 {
+		t.Fatalf("periodic counter batches = %v", batches)
+	}
+	for i, want := range []float64{7, 7, 10} {
+		assertMetricSample(t, batches[i], "tokens_total", map[string]string{}, want)
+		if i > 0 && !batches[i][0].Timestamp.After(batches[i-1][0].Timestamp) {
+			t.Fatalf("counter timestamps did not advance: %v", batches)
+		}
 	}
 }
 

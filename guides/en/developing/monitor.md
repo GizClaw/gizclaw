@@ -44,6 +44,43 @@ authorization rechecked by the owning Server.
 
 ## Data semantics
 
+The cluster overview has two tabs: Node overview (the default) for node status
+and traffic, and Devices & channels for device counts, channels, message rates,
+and the corresponding node table. Node detail also has a Devices & channels tab
+alongside Node overview and Runtime snapshot. Tab changes reuse existing samples
+without starting additional polling.
+Node tables filter already loaded snapshots by name, address, region, and
+Server/Edge role. Before device measurements arrive, the device tab shows
+collection status and node details instead of empty tiles and charts, keeping
+upgrade requirements distinct from connection failures. Measured summaries and
+trends appear once available. Sampling-window and pause controls are in the top
+toolbar.
+
+The Devices & channels dashboard is backed by
+the optional `device_metrics` in `/monitor/api/node`. Updated Server/Edge nodes
+read these values from memory without business-database or Prometheus queries,
+including when no Metrics Store is configured. Server counts distinct activated
+Clients; Edge counts distinct Clients with an established bridge. These are
+separate views and are never added as globally unique devices.
+
+Physical RTP, packet/service/native DataChannels, and cumulative receive/send
+messages are separated by device/upstream/admin/unknown peer kind. Node detail
+shows this breakdown; Edge-terminated device audio reaches Server over upstream
+DataChannels. Messages/second uses differences between consecutive successful
+snapshots. The minute view multiplies that average rate by 60 and is an estimate,
+not an exact calendar-minute event total. Initial reads, restarts, identity or
+counter resets, failures, and cancellation invalidate the rate baseline.
+
+Charts retain at most 600 in-memory samples per node in this browser session and
+use 2/10/30-minute windows. Missing nodes leave gaps rather than plotting a partial
+sum as a complete fleet total. Older nodes that omit `device_metrics` retain
+their existing connection/traffic view and show a waiting-for-upgrade collection
+state. Missing measurements stay empty when old and updated nodes are mixed;
+connection counts never substitute for online devices. Fleet summaries show
+coverage, deduplicate node public keys, and exclude failed nodes' stale snapshots.
+Long-term history remains in each node's Metrics Store and is not queried by the
+current console. See [node metrics](observability#node-devices-channels-and-messages).
+
 Node connection counts are process-local WebRTC associations, including upstream
 connections. Service streams are counted separately. RX/TX are cumulative
 WebRTC service payload bytes since process start, excluding ICE/DTLS overhead.
@@ -52,7 +89,7 @@ node in parallel every five seconds, derives rates from the cumulative counters
 (a restart reads as zero, never a spike) and retains at most 600 samples per
 node with 2/10/30 minute windows.
 
-Logs are queried through the device persistent LogStore search API, with time ranges, text, level and pagination. Node snapshots contain the binary version and build commit, runtime status and transport counters; the console shows the version in the node list and snapshot tab.
+Logs are queried through the device persistent LogStore search API, with time ranges, text, level and pagination. Node snapshots contain the binary version and build commit, runtime status, device presence and physical transport counters; the console shows the version in the node list and snapshot tab.
 
 Telemetry splits in two: metric fields (`battery.*`, `network.rssi_dbm`,
 `network.signal_level`, `network.connected`, `system.*`, `gnss.*`) become stored

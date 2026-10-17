@@ -203,7 +203,7 @@ Logs never contain authorization headers, cookies, signatures, nonces, private k
 
 Callers record process values with `AddCounter`, `SetGauge`, and `ObserveHistogram`. Before `InstallStore` succeeds and after shutdown, those calls are concurrent-safe no-ops and start no worker. Only one live recorder can be installed.
 
-The defaults are a 10-second flush interval, a 5-second append timeout, and 10,000 logical series. `WithFlushInterval`, `WithAppendTimeout`, and `WithMaxSeries` override them. Counters keep monotonic process-local totals, gauges keep the latest value, and histograms export cumulative `_bucket`, `_sum`, and `_count` samples including `le=+Inf`.
+The defaults are a 10-second flush interval, a 5-second append timeout, and 10,000 logical series. `WithFlushInterval`, `WithAppendTimeout`, and `WithMaxSeries` override them. Counters keep monotonic process-local totals and publish their current values on every flush, including unchanged values, so idle windows return to zero rates and later increments are not interpolated across the entire silence. Gauges keep the latest value, and histograms export cumulative `_bucket`, `_sum`, and `_count` samples including `le=+Inf`; these two kinds publish only after changes, while periodic collectors sample on every flush.
 
 Metric names, label names, finite values, counter deltas, and histogram buckets are validated before aggregation. Invalid updates, changed series kinds or buckets, and updates beyond the series limit are dropped with rate-limited warnings that never include label values or raw invalid metric names. Business calls only take an in-process lock and never wait for `Store.Append`; failed or timed-out dirty batches remain available for retry.
 
@@ -214,6 +214,77 @@ Metric names, label names, finite values, counter deltas, and histogram buckets 
 The WebRTC transport records signaling, dials, connections, and service DataChannel request counts, outcomes, latency, and active gauges. Its bounded labels are `node_role=application|edge`, `role=client|server`, `direction=inbound|outbound`, and stable `result` values. Public keys, session IDs, service IDs, URLs, SDP, and content never become metric labels.
 
 The Edge gateway additionally records every ingress signaling request, including capacity rejection before the WebRTC listener, pending admissions, active logical sessions, burst SCTP use, upstream state/load, tunnel channels, logical-session establishment, and bridge terminals. The families use `giz_webrtc_*` and `giz_edge_webrtc_*`; `giz_edge_webrtc_capacity_limit{resource=...}` publishes configured ceilings corresponding to the active gauges.
+
+### Node devices, channels, and messages
+
+Server and Standalone Edge add fixed `node_id` (the node public key) and
+`node_type=server|edge` labels to all process-recorder series. Each node uses its
+own configured Metrics Store; a shared Prometheus is optional. Device telemetry
+retains its separate `peer_id` mapping.
+
+The following metrics are sampled every flush interval (10 seconds by default),
+including unchanged and zero values, and once more during shutdown. Lifecycle
+updates maintain in-memory counts; collection never enumerates devices, queries
+business storage, or calls full Pion stats. Each successful RTP/DataChannel
+message only increments an atomic counter, without label processing or I/O.
+
+| Metric | Type and meaning | Additional labels |
+| --- | --- | --- |
+| `gizclaw_devices_online` | Gauge: published active Client identities on Server; distinct Client identities with an established logical bridge on Edge | None |
+| `giz_webrtc_datachannels_active` | Gauge: detached, unreleased physical DataChannels; excludes pending opens | `node_role`, `role`, `peer_kind`, `channel_kind` |
+| `giz_webrtc_datachannel_messages_total` | Counter: complete DataChannel messages successfully written or read | Those labels plus `direction=rx|tx` |
+| `giz_webrtc_rtp_tracks_active` | Gauge: bound Opus send tracks, and negotiated Opus receive tracks, including silent uplinks | `node_role`, `role`, `peer_kind`, `direction=rx|tx` |
+| `giz_webrtc_rtp_packets_total` | Counter: actual successfully sent or received Opus RTP packets | Same |
+
+`node_role=application|edge` and `role=client|server|unknown` describe transport
+roles; `role` identifies the dialing/accepting endpoint, not the business Peer
+role. `peer_kind=device|upstream|admin|unknown` is determined from local
+configuration: Server recognizes its Admin/Edge public keys, and Edge labels
+gateway ingress as device and outgoing Server connections as upstream. Library
+hosts supply `ListenConfig.MetricsPeerKind` or `DialConfig.MetricsPeerKind`;
+missing or unsupported values become unknown. `channel_kind=packet|service|native`
+distinguishes direct packets, service streams, and native tunnel channels. Channel
+labels, IDs, peer keys, and session IDs never become these dimensions. Detached channels release on local or parent close or terminal reads/writes; remote closure permits queued messages to drain first.
+
+Server connection replacement preserves the device count; a late old-generation
+disconnect cannot decrement its replacement. Activation reservations, Admin,
+Edge-node, deleting, and detached connections are excluded. Edge reference-counts
+parallel bridges for each identity and decrements only after its last bridge ends.
+Edge and Server counts must not be added to obtain globally distinct devices;
+aggregate authoritative Server counts for the Server view.
+
+These are physical transport measurements. Edge-terminated device RTP is carried
+to Server over upstream DataChannels, so it does not create a Server RTP track.
+Repeated partial reads and short-buffer retries count one underlying message
+once. Large writes split into multiple DataChannel messages count each actual
+message. These counts do not represent chat messages or RPC calls.
+
+Use a one-minute rate for averaged messages/second. `increase` estimates the
+count in a minute, including Prometheus boundary extrapolation, and can return a
+fraction. These are not exact per-second event records. Counters reset on process
+restart; apply rate/increase before summing series:
+
+```promql
+gizclaw_devices_online
+
+sum by (node_id, node_type, direction) (
+  rate(giz_webrtc_datachannel_messages_total{peer_kind="device"}[1m])
+)
+
+sum by (node_id, node_type, direction) (
+  increase(giz_webrtc_rtp_packets_total{peer_kind="device"}[1m])
+)
+```
+
+Queries must check sample freshness: missing reports are not zero devices and
+must not carry the last online count indefinitely. Node Monitor exposes live device, channel, and message counts from the same
+atomic sources. The console charts its current browser session; long-term history
+remains in each node's Metrics Store and is not queried by the current console.
+
+`gizmetrics.WithCollector` runs bounded, read-only, I/O-free snapshots outside
+the recorder state lock. Metric names, finite values, label conflicts, and series
+limits are validated as for push metrics. `WithLabels` fixes process identity;
+call sites cannot override these labels.
 
 ### Peer telemetry
 
@@ -358,6 +429,50 @@ Lifecycle diagnostic stream identifiers retain their stable 128-bit hash; GenX c
 Runtime logs use the calling context to retain authenticated request or connection identity. SFU participant and talk events use the attachment context. Physical upstream ICE, channel capacity, and startup logs use node, upstream ID, and connection epoch dimensions rather than one request sharing the connection. StreamBuilder no longer warns per fragment about unbound tools; actual invocation still returns an explicit missing-tool error. Provider text-send fragments are covered by the shared stage aggregation instead of separate per-fragment logs.
 
 Internal Stream ID remapping retains process-local `source_stream_id` provenance. It contributes input latency only when it exactly matches an observed input; it neither changes ResponseEpoch ownership nor enters the device wire protocol.
+
+### Model token usage {#model-token-usage}
+
+`genx.RecordUsage` increments `genx_model_tokens_total` when the provider reports usage, using the installed process metrics store.
+With a Prometheus/VMP backend, the existing Remote Write worker batches writes every ten seconds by default. It does not query
+the Peer hourly usage table or business databases, or issue a request per token or stream chunk.
+
+GizClaw owns metric reporting here. Model usage aggregation, recording rules and dashboards in VMP belong to Deploy's monitoring
+configuration. Monitor continues to read node-local memory snapshots without adding VMP query or aggregation endpoints for these
+metrics. Existing device telemetry queries keep their separate contract.
+
+| Label | Meaning |
+| --- | --- |
+| `provider` | Vendor identity, such as `openai`, `volc`, or `gemini` |
+| `model` | Configured billing model, version, or resource ID, matching model latency metrics |
+| `modality` | `text` or `audio` |
+| `token_type` | Disjoint `input`, `cached_input`, or `output` |
+
+Server adds its fixed `node_id` and `node_type`. These counters add no Peer, user, device, session, request, stream, voice,
+or workflow labels. One provider/model has at most six token series per node; increasing activity changes totals rather than
+the number of series. The process-wide default limit remains 10,000 logical series. Adapters must supply stable configured
+identities, never user-submitted model names. Empty, oversized or control-character identities, unknown modalities, and negative
+quantities are excluded from token metrics without changing product callback delivery.
+
+Only `unit=token` enters this counter. TTS characters and ASR milliseconds are not added as tokens. Existing `TokenUsage.Records`
+splits text, audio and cached quantities into disjoint records. Missing or unreported usage after early cancellation is not
+estimated; zero usage creates no series. Nested product scopes forward callbacks without observing the same report again.
+
+```promql
+# Tokens/s by model, with modality and input/cache/output kept distinct
+sum by (provider, model, modality, token_type) (
+  rate(genx_model_tokens_total[5m])
+)
+
+# Tokens in the last 24 hours, including uncached input, cached input and output
+sum by (provider, model) (
+  increase(genx_model_tokens_total[24h])
+)
+```
+
+Apply rate/increase to each node series before summing to handle process counter resets. Prometheus extrapolates window
+boundaries, there is no baseline before the first sample, and an abnormal process exit can lose unflushed values; these are
+operational monitoring totals rather than exact bills. Nodes using different VMP workspaces require separate queries and
+consumer-side aggregation, or an explicitly configured shared metrics workspace.
 
 ### Speech and model latency metrics
 
