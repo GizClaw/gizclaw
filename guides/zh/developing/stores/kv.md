@@ -10,6 +10,7 @@
 | --- | --- |
 | `Key` / `Entry` | 表达分段 key 与读取结果。 |
 | `Store` | 定义精确 CRUD、集合操作与原子 mutation contract。 |
+| `Store.BatchGet` / `GetResult` | 所有 backend 必须实现的批量 byte record 点查；逐 key 返回值或错误。 |
 | `Options` | 配置 key separator 等 store 行为。 |
 | `Memory` / `NewMemory` | 进程内 ordered store。 |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
@@ -18,11 +19,20 @@
 | `Redis` / `NewRedisReadWriteWithClients` | 借用同一复制组的读、写 client；独立查询走读连接，mutation 及其条件判断走写连接。 |
 | `TiKV` / `NewTiKVWithClient` | 借用 TxnKV client，支持跨 Region 原子 mutation、集合和可配置的地区陈旧读。 |
 | `WithStrongReads` | 为权限、围栏和控制面读取选择最新已提交状态，保留 prefix 与原子 root。 |
+| `ReadDelay` | 返回普通 view 的固定历史快照窗口；共享 presence 的租约据此适配 TiKV 历史读。Redis 复制延迟不由客户端固定。 |
 | `Prefixed` | 为已有 Store 增加固定 key namespace。 |
 
 ## Ownership 边界
 
 `kv` 只定义 byte payload 与层级 key 语义，不解释 payload 的领域类型。序列化、resource validation、secondary index 和跨记录一致性由使用它的领域 service 负责。调用方应使用稳定 prefix 隔离数据，不能依赖其他领域的内部 key layout。
+
+## 批量点查
+
+调用方通过 `store.BatchGet(ctx, keys)` 读取一组明确的 byte record key，不枚举数据库。返回的 `GetResult` 与输入逐项对应，保留顺序、重复 key 和空 byte value；成功值的内存互相独立。缺失、过期或指向集合的 key 均返回 `ErrNotFound`，其他读取与解码错误逐项返回。单键 `Get` 遇到集合 key 仍返回 `ErrWrongType`。`Prefixed` 和 `WithStrongReads` 直接转发批量读取，保留 namespace 与读取 authority。
+
+`BatchGet` 是 `Store` 的必需方法。TiKV 为每次批量调用获取一次时间戳并创建一个快照，将全部 key 一次交给 SDK `BatchGet`，由 SDK 按 Region 和请求大小拆分并行读取。Redis 在选定读连接上发出一条原生 `MGET`，非 string key 与不存在的 key 都作为 `ErrNotFound` 返回。Memory、Badger 和 SQL 实现在 backend 内最多八路并发调用各自的单键读取，不新建连接；调用层不再探测可选批量接口。
+
+所有实现都继承 caller context，不为内部请求重置超时；backend 的有界单键读取在取消后不再启动排队 key 的存储读取。TiKV SDK 或 Redis `MGET` 整批失败时，该次调用的所有 key 都返回错误。Redis `MGET` 是单命令原子读取，TiKV 使用单次历史或强读快照；批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
 
 ## Server 组合
 
@@ -51,7 +61,7 @@ SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；
 
 `storage.kind: redis.readwrite` 通过 `read_url` 和 `write_url` 选择同一复制组的两个入口，逻辑 Store 仍为 `kind: keyvalue`，业务继续使用 `kv.Store`。普通 `storage.kind: redis` 保持一个连接处理全部操作；没有副本的部署使用普通 backend，无需更改业务绑定。配置示例见 [Store 总览](./overview)。
 
-`Get`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 默认使用读连接。`Set`、`Delete`、batch、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
+`Get`、`BatchGet`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 默认使用读连接。`Set`、`Delete`、`BatchSet`、`BatchDelete`、`BatchMutate`、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
 
 `kv.WithPrimaryReads(ctx)` 显式将一次操作及其调用链中的 point、Set 与 ordered-set 读取绑定到写入 authority（Redis writer 或 TiKV 强读）；它穿过 `Prefixed`，不创建连接，也不改变其他请求的读端选择。PendingDeletion 管理、扫描和清理使用该 context，确保归属、任务和 absent 校验读取中央主库。普通读取仍不自动 fallback；主库读取之间也不构成快照，最终提交仍须使用原子条件。
 
@@ -62,6 +72,8 @@ Peer record 与 route 共用 `services.peer.store` 指定的 Store。PeerRun 状
 ### TiKV
 
 `storage.kind: tikv` 通过 `pd_addresses` 中的 `host:port` 列表发现集群，使用 Transactional KV API。逻辑 `keyvalue` Store 使用必填、规范且互不重叠的 `prefix`，同一 connector 下共享一个跨 Region 原子 root。所有写入、条件读取和 collection counter 更新都使用新的中心事务；guard 也参与写冲突检测，避免 Snapshot Isolation 的跨 key write skew。只有明确的 write conflict 会有限重试，不重试提交结果不确定的错误。
+
+地区读的时间戳必须落在目标副本的 safe-ts 内，标签偏好不能替代这个条件。TiKV 默认每二十秒推进一次 Resolved TS；若使用五秒等更短的历史窗口，应结合 safe-ts 指标评估 `resolved-ts.advance-ts-interval`。缩短推进间隔会增加 CPU 和节点间流量，配置与限制见 [官方说明](https://docs.pingcap.com/tidb/stable/tikv-configuration-file/#advance-ts-interval)。
 
 ```yaml
 storage:

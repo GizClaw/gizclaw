@@ -1393,6 +1393,10 @@ func (s storeWithoutCreateIfAbsent) Get(ctx context.Context, key kv.Key) ([]byte
 	return s.store.Get(ctx, key)
 }
 
+func (s storeWithoutCreateIfAbsent) BatchGet(ctx context.Context, keys []kv.Key) []kv.GetResult {
+	return s.store.BatchGet(ctx, keys)
+}
+
 func (s storeWithoutCreateIfAbsent) Set(ctx context.Context, key kv.Key, value []byte) error {
 	return s.store.Set(ctx, key, value)
 }
@@ -1744,12 +1748,15 @@ func (s memberPresenceStub) PeerPresence(_ context.Context, key string) (bool, t
 // memberRoomStub answers in_room for the members running one Workspace and
 // records every Workspace name it was asked about.
 type memberRoomStub struct {
+	mu        sync.Mutex
 	workspace string
 	running   map[string]bool
 	asked     map[string]bool
 }
 
 func (s *memberRoomStub) PeerRunningWorkspace(_ context.Context, key, workspaceName string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.asked[workspaceName] = true
 	return workspaceName == s.workspace && s.running[key]
 }

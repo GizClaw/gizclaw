@@ -9,7 +9,8 @@
 | Symbol | Function |
 | --- | --- |
 | `Key` / `Entry` | Express segmentation keys and read results. |
-| `Store` | Define exact CRUD, collection operations and atomic mutations. |
+| `Store` | Define exact CRUD, required batch reads, collection operations and atomic mutations. |
+| `GetResult` | Own one batch value or per-key error in input order. |
 | `Options` | Configure store behaviors such as key separator. |
 | `Memory` / `NewMemory` | In-process ordered store. |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation. |
@@ -22,6 +23,14 @@
 ## Ownership Boundary
 
 `kv` Only defines the byte payload and hierarchical key semantics, and does not explain the field type of the payload. Serialization, resource validation, secondary index, and cross-record consistency are the responsibility of the domain service using it. Callers should use stable prefixes to isolate data and cannot rely on the internal key layout of other fields.
+
+## Batch reads
+
+Every Store implements `BatchGet(ctx, keys) []GetResult`; no optional interface or caller fallback is required. Results preserve input order and duplicates, and each successful byte slice is independently owned. Missing, expired and collection keys return `ErrNotFound`. Single-key `Get` retains `ErrWrongType`. Context cancellation and storage errors are reported per key; one failure does not require discarding independent successes.
+
+Redis executes one native `MGET` on the selected reader. Missing and non-string keys are absent; empty and binary strings remain values. TiKV uses one snapshot and one SDK BatchGet call for all keys; the SDK owns Region routing, internal request splitting and concurrency. No external eight-key batching is applied. Memory, Badger and SQL implement batches with at most eight concurrent point reads; queued work stops on cancellation. Prefix and strong-read views forward the required operation with their existing namespace and authority policy.
+
+There is no cross-backend atomic snapshot guarantee or snapshot shared with later calls. TiKV returns a batch-wide SDK error for every requested key when that call fails.
 
 ## Server composition
 

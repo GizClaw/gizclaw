@@ -284,6 +284,19 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
+
+仅运行共享 presence 的真实 TiKV Learner gate：
+
+```sh
+bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+```
+
+该用例在 PD 核实中心 voter 与地区 Learner 角色后，运行生产 `peerpresence.ReadBatch`，历史窗口为五秒。夹具通过 `tikv-test.toml` 将 `resolved-ts.advance-ts-interval` 设置为一秒；TiKV 的默认推进间隔为二十秒，不能据五秒窗口保证命中 Learner，部署应按实际 safe-ts 延迟选择窗口与推进频率，见 [TiKV 配置说明](https://docs.pingcap.com/tidb/stable/tikv-configuration-file/#advance-ts-interval)。更频繁推进会增加 CPU 和节点间流量。
+
+十个同属一台 Server 的在线 Peer 读取十份快照和一份租约；这些 key 位于同一 Region 时共两个 RPC，一批读取十个 Peer，另一批读取唯一 Server 租约。成功请求必须实际命中 Learner。测试同时运行十六个并发调用方，并记录五十次串行与批量状态查询的延迟。复制暂停期间，中心下线状态与 Learner 的旧在线／房间快照必须可区分；恢复后读取必须收敛。
+
+超时用例先预热连接，再通过测试专用 TCP proxy 阻塞真实 TiKV 响应，验证十项查询共用两秒预算，以及更短的 75 ms caller deadline。PD、Raft 和真实 TiKV 请求保持运行，测试不替换 KV 返回值。该 gate 进入 `TiKV Learner Presence` CI；它验证存储与 presence 读取路径，不包括成员授权、资料、HTTP/WebRTC、LiveKit、WAN 延迟或生产容量。Redis 主从与完整 Social RPC 行为由下面的 Redis gate 覆盖。
+
 迁移用例使用同一夹具中的真实 Redis 8.4.6 主节点，验证 binary/empty value、绝对 TTL、Set/零分 Sorted Set、大集合分页、中断后的幂等恢复、目标写入保护、双向校验和实际 CLI 切换配置。Redis 镜像同样从 gizcr 获取并固定 digest。只运行迁移相关测试：
 
 ```sh
@@ -293,7 +306,7 @@ bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migrati
 该模式仍运行真实 PD、中心 voter 和地区 Learner；额外的 deadline gate 直接比较 Redis 的绝对 expiration 与 TiKV 中已保存的 deadline，不用 sleep 阈值推断 TTL 是否保留。
 
 
-入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。数据目录使用临时内存文件系统，不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。
+入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。PD 的数据 tmpfs 为 256 MiB，两个 TiKV 各为 1 GiB；夹具将 KV／Raft 预留空间设为 64／32 MiB，block cache 设为 128 MiB，避免小容量 CI 环境被生产默认预留量判为磁盘已满。两个 TiKV 容器显式将 `nofile` 的软硬上限设为 262144，满足 TiKV 启动时的文件描述符检查，不依赖宿主机默认值。不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。失败时 CI 保留启动、集群、测试和拓扑诊断七天。
 
 测试先验证跨 client 原子 CRUD、batch、deadline、条件创建、CAS、集合与容量限制、prefix 和 borrowed lifecycle。地区测试在 seeded 数据已进入历史快照后切断中心到 Learner 的 Raft 流，保持查询通路可用，同时确认普通读仍返回旧 assignment、active Peer 和已撤销 key。实际 `peerroute`、Peer 删除 handler、API key service 必须通过强读观察首次 claim、assignment version 刷新、pending-deletion 围栏、永久 tombstone、撤权和 owner retirement。RPC 观测还要求成功的陈旧查询落在地区 Learner、强读落在中心 leader。另一个测试二进制验证有序集合边界、并发容量、跨 key write skew、过期记录物理回收及清理期间的并发刷新。
 
@@ -331,12 +344,15 @@ Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各�
 
 `TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
 
-`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频，`sfu.friend-group.members-in-room` 不收发音频，二者都不需要语音服务凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频；`sfu.friend-group.members-in-room` 与 `sfu.presence.cross-server` 不收发音频。这些场景都不需要语音服务凭据，在默认 multi-server gate 中运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+
+`sfu.presence.cross-server` 在两台 Server 的独立 registration token 下连接 Alice 和 Bob，经双方真实 RPC 查询好友 `online`／`last_seen_at` 与群成员 `online`／`in_room`。它依次断言未运行时在线但不在房间、双方运行群 Workspace 后均在房间、一方 stop 与另一方重连后双方仍在线但离开房间，以及无需重新注册即可再次进入原房间。列表从两台 Server 分别查询；随机公钥决定成员排序，因此只有在双方处于相同状态时才断言两个列表项。Presence 断言最多十次、间隔十秒，以容纳夹具的六十秒历史窗口。该文件在 `run_multi_server_tests.sh` 的默认场景中显式列出，由本地完整 `run_tests.sh` 的 `docker:multi-server` 阶段纳入。
 
 不依赖语音服务的 SFU 场景覆盖如下边界：
 
 | 场景（省略 `sfu.` 和 `.audio-bytes`） | 验证内容 |
 | --- | --- |
+| `presence.cross-server` | 两台 Server 分别查询异机好友在线与最后观察时间；群成员入房、停止／重连清空房间、同身份重入，允许共享 KV 历史读延迟 |
 | `friend.cross-server` | 两台 Server 上的好友双向 PTT 和可关联首包计时，发送方不收到自己的音频或生成首包接收样本 |
 | `friend-group.remove-readd` | 三客户端一发多收的首包关联；等待踢出撤权后被移除者无音频/首包样本，其余成员继续接收，加回并选择原 Workspace 后恢复双向音频 |
 | `friend-group.reconnect-readd` | 被踢出后重连仍无成员权限，加回后无需再次注册即可选择原 Workspace 并恢复双向音频 |

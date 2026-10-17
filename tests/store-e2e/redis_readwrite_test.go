@@ -11,11 +11,104 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	redis "github.com/redis/go-redis/v9"
 )
+
+func TestReadWriteRedisSharedPresence(t *testing.T) {
+	f := newReadWriteRedisFixture(t)
+	a := peerpresence.New(f.first, giznet.PublicKey{21})
+	b := peerpresence.New(f.first, giznet.PublicKey{22})
+	for _, s := range []*peerpresence.Service{a, b} {
+		if err := s.Start(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = s.Close() })
+	}
+	peer := giznet.PublicKey{23}
+	publisher := a.NewPublisher(peer)
+	want := peerpresence.Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
+	assertSnapshot := func() {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			got, err := b.Read(t.Context(), peer)
+			if err == nil && got == want {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("shared Redis snapshot = %+v, %v; want %+v", got, err, want)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	publisher.Publish(want)
+	assertSnapshot()
+	want.WorkspaceName = "another-room"
+	publisher.Publish(want)
+	assertSnapshot()
+	want.WorkspaceName = ""
+	publisher.Publish(want)
+	assertSnapshot()
+	want.Online = false
+	want.LastSeenAt = want.LastSeenAt.Add(time.Second)
+	publisher.Publish(want)
+	assertSnapshot()
+	want.Online, want.WorkspaceName = true, "room"
+	publisher = a.NewPublisher(peer)
+	publisher.Publish(want)
+	assertSnapshot()
+	f.waitForReplica(t)
+	// Both Peer and Server-lease reads must use the replica, including while
+	// the primary client is unavailable. A reader error must not fall back.
+	if err := f.write.Close(); err != nil {
+		t.Fatal(err)
+	}
+	assertSnapshot()
+	if err := f.read.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Read(t.Context(), peer); !errors.Is(err, redis.ErrClosed) {
+		t.Fatalf("closed reader = %v", err)
+	}
+}
+
+func TestReadWriteRedisContextDeadline(t *testing.T) {
+	f := newReadWriteRedisFixture(t)
+	for name, client := range map[string]*redis.Client{"reader": f.read, "writer": f.write} {
+		t.Run(name, func(t *testing.T) {
+			// Pause only this disposable Docker Redis endpoint. A healthy TCP
+			// connection whose next response is delayed must still respect the
+			// presence operation's deadline, rather than the socket default.
+			if err := client.Do(t.Context(), "CLIENT", "PAUSE", 1000, "ALL").Err(); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 75*time.Millisecond)
+			defer cancel()
+			start := time.Now()
+			var err error
+			if name == "reader" {
+				results := f.first.BatchGet(ctx, []kv.Key{{"one"}, {"two"}, {"three"}})
+				for _, result := range results {
+					if result.Err == nil {
+						t.Fatal("paused MGET returned a successful item")
+					}
+				}
+				err = results[0].Err
+			} else {
+				err = client.Ping(ctx).Err()
+			}
+			elapsed := time.Since(start)
+			if err == nil || elapsed >= 500*time.Millisecond {
+				t.Fatalf("delayed %s response: error=%v, context=%v, elapsed=%v", name, err, ctx.Err(), elapsed)
+			}
+		})
+	}
+}
 
 type readWriteRedisFixture struct {
 	physical *storage.Storage
@@ -115,6 +208,8 @@ func TestReadWriteRedisKV(t *testing.T) {
 	if err := f.first.BatchSet(ctx, []kv.Entry{
 		{Key: kv.Key{"batch"}, Value: []byte("value")},
 		{Key: kv.Key{"deleted"}, Value: []byte("value")},
+		{Key: kv.Key{"empty"}, Value: []byte{}},
+		{Key: kv.Key{"binary"}, Value: []byte{0, 255, ':'}},
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -173,6 +268,9 @@ func TestReadWriteRedisKV(t *testing.T) {
 	}, nil); err != nil {
 		t.Fatal(err)
 	}
+	if err := f.control.HSet(ctx, f.prefix+":first:hash", "field", "value").Err(); err != nil {
+		t.Fatal(err)
+	}
 	f.waitForReplica(t)
 	if err := f.read.Set(ctx, f.prefix+":readonly", "forbidden", 0).Err(); err == nil || !strings.HasPrefix(err.Error(), "READONLY") {
 		t.Fatal("read endpoint is not a read-only Redis replica")
@@ -185,6 +283,17 @@ func TestReadWriteRedisKV(t *testing.T) {
 		if value, err := f.first.Get(ctx, kv.Key{key}); err != nil || string(value) != want {
 			t.Fatalf("replica Get(%s) failed: %v", key, err)
 		}
+	}
+	results := f.first.BatchGet(ctx, []kv.Key{{"single"}, {"missing"}, {"single"}, {"empty"}, {"set"}, {"ordered"}, {"hash"}, {"binary"}})
+	if string(results[0].Value) != "value" || results[0].Err != nil || !errors.Is(results[1].Err, kv.ErrNotFound) || string(results[2].Value) != "value" || results[3].Err != nil || len(results[3].Value) != 0 || !errors.Is(results[4].Err, kv.ErrNotFound) || !errors.Is(results[5].Err, kv.ErrNotFound) || !errors.Is(results[6].Err, kv.ErrNotFound) || results[7].Err != nil || !slices.Equal(results[7].Value, []byte{0, 255, ':'}) {
+		t.Fatalf("replica mixed BatchGet with a closed writer = %+v", results)
+	}
+	if _, err := f.first.Get(ctx, kv.Key{"set"}); !errors.Is(err, kv.ErrWrongType) {
+		t.Fatalf("single Get type semantics changed: %v", err)
+	}
+	results[0].Value[0] = 'X'
+	if string(results[2].Value) != "value" {
+		t.Fatal("Redis duplicate results alias mutable bytes")
 	}
 	if value, err := f.second.Get(ctx, kv.Key{"joint"}); err != nil || string(value) != "second" {
 		t.Fatalf("second prefix replica Get() failed: %v", err)
@@ -223,6 +332,9 @@ func TestReadWriteRedisReaderFailureAndLifecycle(t *testing.T) {
 	}
 	if _, err := f.first.Get(t.Context(), kv.Key{"single"}); !errors.Is(err, redis.ErrClosed) {
 		t.Fatalf("reader failure silently fell back to the primary: %v", err)
+	}
+	if result := f.first.BatchGet(t.Context(), []kv.Key{{"single"}})[0]; !errors.Is(result.Err, redis.ErrClosed) {
+		t.Fatalf("batch reader failure silently fell back to the primary: %+v", result)
 	}
 	if err := f.first.Set(t.Context(), kv.Key{"single"}, []byte("written")); err != nil {
 		t.Fatalf("reader failure prevented primary write: %v", err)
@@ -333,6 +445,9 @@ func TestReadWriteRedisStrongViews(t *testing.T) {
 				if value, err := strong.Get(ctx, kv.Key{"record"}); err != nil || string(value) != "current" {
 					t.Fatalf("strong Get=%q %v", value, err)
 				}
+				if result := strong.BatchGet(ctx, []kv.Key{{"record"}})[0]; result.Err != nil || string(result.Value) != "current" {
+					t.Fatalf("strong BatchGet=%+v", result)
+				}
 				if member, err := strong.HasMember(ctx, kv.Key{"set"}, "a"); err != nil || !member {
 					t.Fatalf("strong HasMember=%v %v", member, err)
 				}
@@ -351,6 +466,9 @@ func TestReadWriteRedisStrongViews(t *testing.T) {
 				}
 				if _, err := strong.Get(ctx, kv.Key{"record"}); !errors.Is(err, redis.ErrClosed) {
 					t.Fatalf("strong read fell back to replica: %v", err)
+				}
+				if result := strong.BatchGet(ctx, []kv.Key{{"record"}})[0]; !errors.Is(result.Err, redis.ErrClosed) {
+					t.Fatalf("strong batch read fell back to replica: %+v", result)
 				}
 			}
 		})

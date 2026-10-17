@@ -1,0 +1,13 @@
+# Functional tests use a small tmpfs. Multi-GiB production reservations would
+# report it as full and prevent the initial Region from becoming ready.
+[storage]
+reserve-space = "64MiB"
+reserve-raft-space = "32MiB"
+
+[storage.block-cache]
+capacity = "128MiB"
+
+# Keep resolved timestamps within the fixture's five-second stale-read window.
+# The server default is 20s, which can send those reads back to the leader.
+[resolved-ts]
+advance-ts-interval = "1s"

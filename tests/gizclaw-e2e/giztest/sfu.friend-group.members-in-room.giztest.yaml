@@ -2,13 +2,13 @@
 # As a child whose device shows who is in the team Room,
 # I want server.friend_group.members.list to mark a member as in_room only while that member's device runs the team's Workspace,
 # So that my device can tell members who will hear a push-to-talk turn from members who are merely online.
-# No audio is exchanged, so no TTS/ASR credentials are needed. Both clients are
-# homed on the same Server because in_room is local to the answering Server.
+# No audio is exchanged, so no TTS/ASR credentials are needed. Both clients use
+# the same ingress; presence assertions allow shared KV replication delay.
 # A list is sorted by member key, so steps that expect one value per member
 # only run while the Group has one member or every member is in the same state.
 version: gizclaw.test/v1alpha1
 name: sfu.friend-group.members-in-room
-timeout: 3m
+timeout: 10m
 clients:
   alice:
     identity: ephemeral
@@ -70,6 +70,7 @@ steps:
   # Connected but running no Workspace: online, not in the Room.
   - id: idle_team
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}
@@ -97,6 +98,7 @@ steps:
       /selected_workspace_name: {equals: '${team_workspace}'}
   - id: in_team
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}
@@ -107,6 +109,7 @@ steps:
   # Running one Group's Workspace does not put the member in another Group's Room.
   - id: not_in_other
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${other_name}'}
@@ -134,6 +137,7 @@ steps:
       /selected_workspace_name: {equals: '${other_workspace}'}
   - id: left_team_for_other
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}
@@ -143,6 +147,7 @@ steps:
       /items/0/in_room: {equals: false}
   - id: in_other
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${other_name}'}
@@ -165,6 +170,7 @@ steps:
       /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
   - id: stopped_other
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${other_name}'}
@@ -190,6 +196,7 @@ steps:
       /member/in_room: {present: false}
   - id: bob_sees_nobody_in_team
     client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}
@@ -235,6 +242,7 @@ steps:
       /selected_workspace_name: {equals: '${team_workspace}'}
   - id: bob_sees_everyone_in_team
     client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}
@@ -246,6 +254,7 @@ steps:
       /items/1/in_room: {equals: true}
   - id: alice_sees_everyone_in_team
     client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}
@@ -287,7 +296,7 @@ steps:
       /runtime_state: {pattern: ^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$}
   - id: nobody_in_team_after_reconnect
     client: bob
-    retry: {attempts: 10, on: [assertion], delay: 1s}
+    retry: {attempts: 10, on: [assertion], delay: 10s}
     rpc:
       method: server.friend_group.members.list
       request: {friend_group_name: '${team_name}'}

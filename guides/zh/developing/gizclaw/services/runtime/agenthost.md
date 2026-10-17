@@ -38,6 +38,8 @@ flowchart TD
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
 
+`Service.OnStatusChanged` 在生命周期状态转换后、不持有状态 mutex 时通知连接层。连接层读取当前状态，并且只在 running Workspace 变化时发布 [共享在线状态](./peerpresence)。回调必须迅速返回，不执行阻塞式存储 I/O；普通 `Status` 查询不触发通知。
+
 AgentHost 写入的 History entry 会带内部 `origin=agenthost` 标记。通过
 `WithWorkspaceHistoryObserver` 挂接的请求级 History observer 会收到精确的已持久化
 entry identity，而不是仅收到时间戳；它只是有界且可丢弃的提示，不是 durable

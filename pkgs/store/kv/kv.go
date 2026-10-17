@@ -73,6 +73,13 @@ type Store interface {
 	// Get retrieves the value for a key. Returns ErrNotFound if not present.
 	Get(ctx context.Context, key Key) ([]byte, error)
 
+	// BatchGet reads byte records in input order, including duplicate keys.
+	// Missing, expired and collection keys report ErrNotFound. Each successful
+	// value is independently owned; other errors are returned per key. Reads
+	// honor ctx and Get's authority policy, without a cross-backend guarantee
+	// of an atomic snapshot or a snapshot shared with later calls.
+	BatchGet(ctx context.Context, keys []Key) []GetResult
+
 	// Set stores a key-value pair. Overwrites any existing value.
 	Set(ctx context.Context, key Key, value []byte) error
 

@@ -189,6 +189,49 @@ func (s *TiKV) Get(ctx context.Context, key Key) ([]byte, error) {
 	return bytes.Clone(value.payload), nil
 }
 
+// BatchGet reads all requested keys on one timestamp and snapshot. The SDK
+// handles Region routing, request splitting and concurrency under ctx.
+func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	results := make([]GetResult, len(keys))
+	if len(keys) == 0 {
+		return results
+	}
+	snapshot, err := s.snapshot(ctx)
+	if err != nil {
+		for i := range results {
+			results[i].Err = tiKVError("batch get snapshot", err)
+		}
+		return results
+	}
+	encoded := make([][]byte, len(keys))
+	for i, key := range keys {
+		encoded[i] = s.recordKey(key)
+	}
+	values, err := snapshot.BatchGet(ctx, encoded)
+	now := time.Now()
+	for i, key := range encoded {
+		result := &results[i]
+		if err != nil {
+			result.Err = tiKVError("batch get", err)
+			continue
+		}
+		raw, ok := values[string(key)]
+		if !ok {
+			result.Err = ErrNotFound
+			continue
+		}
+		value, err := decodeTiKVValue(raw.Value, now)
+		if err != nil {
+			result.Err = err
+		} else if value.kind != 0 {
+			result.Err = ErrNotFound
+		} else {
+			result.Value = bytes.Clone(value.payload)
+		}
+	}
+	return results
+}
+
 // update retries only definitive write conflicts, never uncertain commits.
 // A false callback result discards its entire buffer without committing.
 func (s *TiKV) update(ctx context.Context, fn func(*transaction.KVTxn) (bool, error)) (bool, error) {

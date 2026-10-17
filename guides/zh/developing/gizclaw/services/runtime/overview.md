@@ -9,6 +9,7 @@ services/runtime/
 ├── agent/           # Agent 选择、registry 和资源解析
 ├── agenthost/       # Agent instance、输入输出、stream 和 lifecycle
 ├── peer/            # Peer 资源、identity 和基础状态
+├── peerpresence/    # 共享在线状态、运行 Workspace 与 Server 租约
 ├── peerresource/    # 面向 peer 的跨领域资源聚合
 ├── peersync/        # Peer 状态同步检查点与摘要
 ├── peerroute/       # Peer assignment 与 edge route 数据
@@ -49,6 +50,10 @@ services/runtime/
 ### [peerrun](./peerrun)
 
 保存 peer 当前选择运行哪个 Agent 的状态。Agent definition 和 workspace 不属于这里；这里拥有的是 peer 到运行选择之间的关联。
+
+### [peerpresence](./peerpresence)
+
+在共享 Peer KV 中发布上线、下线和运行 Workspace 变化，为好友与群成员列表提供跨 Server 快照。Server 级租约使进程退出后不再显示在线；它不保存运行选择，也不把展示状态作为授权或投递依据。
 
 ### [peertelemetry](./peertelemetry)
 

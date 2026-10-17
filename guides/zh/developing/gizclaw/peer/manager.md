@@ -23,7 +23,8 @@
 | `activePeer` | 保存单个 Peer 当前生效的 connection。 |
 | [`Manager.SetPeerUp`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerUp) / [`SetPeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerDown) / [`ForcePeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.ForcePeerDown) | 管理 connection 上线、条件下线和强制下线。 |
 | `allowService` / `allowActivePeerRole` | 根据 Peer role 判断 Giznet service 准入。 |
-| [`Manager.Peer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.Peer) / [`PeerRuntime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.PeerRuntime) / `PeerPresence` / `PeerRunningWorkspace` | 查询在线 connection、runtime 快照、供好友与群成员列表使用的 `online` 与 `last_seen_at`，或供群成员列表 `in_room` 使用的“该 Peer 的当前连接是否正在运行指定 Workspace”。 |
+| [`Manager.Peer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.Peer) / [`PeerRuntime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.PeerRuntime) | 查询本地在线 connection 与 runtime 快照。 |
+| `PeerPresence` / `PeerRoomPresence` / `PeerRoomPresenceBatch` / `PeerRunningWorkspace` | 读取共享连接与运行 Workspace 状态，供列表投影 `online`、`last_seen_at` 与 `in_room`。批量入口保留输入顺序，使用 KV 批量读取，并继承 Social 层的整页预算。 |
 | [`Manager.EnsurePeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.EnsurePeer) | 确保持久化 Peer resource 存在。 |
 | [`Manager.RefreshPeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.RefreshPeer) / `refreshPeer` | 通过 Peer RPC 拉取设备信息，并将变化写回 Peer resource。 |
 | `peerRPCConn` / `callPeerRPC` | 打开 Peer RPC stream 并执行 typed RPC call。 |
@@ -47,6 +48,6 @@ Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失�
 ## 社交通知投递
 
 `peer_manager_social_ping.go` 拥有本地优先的 social ping 投递与可信 Edge 选择。
-`PeerOnline`、`PeerPresence` 和 `PeerRunningWorkspace` 仍读取本 Server 的当前连接；
-召集不按这些本地状态过滤异机目标。路径、ACK 时限与共享窗口见
+`PeerOnline` 读取本地连接；`PeerPresence` 和 `PeerRunningWorkspace` 查询共享 Peer KV。
+共享状态的发布与生命周期见 [共享在线状态](../services/runtime/peerpresence)。召集不按展示状态过滤异机目标。路径、ACK 时限与共享窗口见
 [services/social](../services/social#好友呼叫与群集结)。

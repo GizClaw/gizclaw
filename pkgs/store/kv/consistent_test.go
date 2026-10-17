@@ -4,7 +4,18 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
+
+func TestReadDelayFollowsStoreViews(t *testing.T) {
+	tikv := &TiKV{read: TiKVReadOptions{StaleReadDelay: time.Minute}}
+	if delay := ReadDelay(Prefixed(tikv, Key{"peers", "presence"})); delay != time.Minute {
+		t.Fatalf("prefixed delay = %v", delay)
+	}
+	if ReadDelay(Prefixed(WithStrongReads(tikv), Key{"peers"})) != 0 || ReadDelay(NewMemory(nil)) != 0 {
+		t.Fatal("strong or memory view has a historical read delay")
+	}
+}
 
 type consistencyProbe struct {
 	Store

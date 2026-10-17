@@ -131,6 +131,8 @@ func redisOptions(name string, cfg RedisConfig) (*redis.Options, error) {
 	if err != nil {
 		return nil, redisConfigError(name, "parse url", err)
 	}
+	// Apply caller context deadlines to socket I/O on both Redis endpoints.
+	options.ContextTimeoutEnabled = true
 	if cfg.TLSCAFile == "" {
 		return options, nil
 	}

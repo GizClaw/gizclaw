@@ -28,6 +28,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
+	"github.com/tikv/client-go/v2/util/async"
 )
 
 func tiKVHTTP(ctx context.Context, method, endpoint string, input, output any) error {
@@ -60,7 +61,7 @@ func tiKVHTTP(ctx context.Context, method, endpoint string, input, output any) e
 	return err
 }
 
-func configureTiKVLearner(t *testing.T, address string) {
+func configureTiKVLearner(t *testing.T, address string) map[string]string {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 90*time.Second)
 	defer cancel()
@@ -83,7 +84,7 @@ func configureTiKVLearner(t *testing.T, address string) {
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatal("PD readiness timeout")
+			t.Fatalf("PD readiness timeout: regions=%d stores=%d err=%v", regions.Count, stores.Count, err)
 		case <-ticker.C:
 		}
 	}
@@ -113,8 +114,9 @@ func configureTiKVLearner(t *testing.T, address string) {
 		var storeList struct {
 			Stores []struct {
 				Store struct {
-					ID     uint64                        `json:"id"`
-					Labels []struct{ Key, Value string } `json:"labels"`
+					ID      uint64                        `json:"id"`
+					Address string                        `json:"address"`
+					Labels  []struct{ Key, Value string } `json:"labels"`
 				} `json:"store"`
 			} `json:"stores"`
 		}
@@ -123,14 +125,17 @@ func configureTiKVLearner(t *testing.T, address string) {
 			err = tiKVHTTP(ctx, http.MethodGet, pdURL+"/stores", nil, &storeList)
 		}
 		center, local := uint64(0), uint64(0)
+		addresses := make(map[string]string)
 		for _, store := range storeList.Stores {
 			for _, label := range store.Store.Labels {
 				if label.Key == "region" {
 					if label.Value == "center" {
 						center = store.Store.ID
+						addresses["center"] = store.Store.Address
 					}
 					if label.Value == "local" {
 						local = store.Store.ID
+						addresses["local"] = store.Store.Address
 					}
 				}
 			}
@@ -147,7 +152,7 @@ func configureTiKVLearner(t *testing.T, address string) {
 		}
 		if ready {
 			t.Logf("verified %d regions: center leader store=%d, regional Learner store=%d", len(topology.Regions), center, local)
-			return
+			return addresses
 		}
 		select {
 		case <-ctx.Done():
@@ -160,6 +165,8 @@ func configureTiKVLearner(t *testing.T, address string) {
 type tiKVReadObservation struct {
 	Address string
 	Stale   bool
+	Version uint64
+	Keys    int
 }
 type observedTiKVClient struct {
 	tikv.Client
@@ -169,15 +176,34 @@ type observedTiKVClient struct {
 
 func (c *observedTiKVClient) SendRequest(ctx context.Context, address string, req *tikvrpc.Request, timeout time.Duration) (*tikvrpc.Response, error) {
 	resp, err := c.Client.SendRequest(ctx, address, req, timeout)
-	if err == nil && (req.Type == tikvrpc.CmdGet || req.Type == tikvrpc.CmdScan) {
+	c.record(address, req, resp, err)
+	return resp, err
+}
+
+func (c *observedTiKVClient) SendRequestAsync(ctx context.Context, address string, req *tikvrpc.Request, callback async.Callback[*tikvrpc.Response]) {
+	callback.Inject(func(resp *tikvrpc.Response, err error) (*tikvrpc.Response, error) {
+		c.record(address, req, resp, err)
+		return resp, err
+	})
+	c.Client.SendRequestAsync(ctx, address, req, callback)
+}
+
+func (c *observedTiKVClient) record(address string, req *tikvrpc.Request, resp *tikvrpc.Response, err error) {
+	if err == nil && (req.Type == tikvrpc.CmdGet || req.Type == tikvrpc.CmdBatchGet || req.Type == tikvrpc.CmdScan) {
 		regionError, decodeErr := resp.GetRegionError()
 		if decodeErr == nil && regionError == nil {
+			observation := tiKVReadObservation{Address: address, Stale: req.StaleRead}
+			switch req.Type {
+			case tikvrpc.CmdGet:
+				observation.Version, observation.Keys = req.Get().Version, 1
+			case tikvrpc.CmdBatchGet:
+				observation.Version, observation.Keys = req.BatchGet().Version, len(req.BatchGet().Keys)
+			}
 			c.mu.Lock()
-			c.reads = append(c.reads, tiKVReadObservation{address, req.StaleRead})
+			c.reads = append(c.reads, observation)
 			c.mu.Unlock()
 		}
 	}
-	return resp, err
 }
 func (c *observedTiKVClient) snapshot() []tiKVReadObservation {
 	c.mu.Lock()
@@ -187,7 +213,7 @@ func (c *observedTiKVClient) snapshot() []tiKVReadObservation {
 
 func TestTiKV(t *testing.T) {
 	address := requiredEnvironment(t, "GIZCLAW_TEST_TIKV_PD")
-	configureTiKVLearner(t, address)
+	addresses := configureTiKVLearner(t, address)
 	physical, err := storage.New(map[string]storage.Config{"central": storage.TiKVConfig{PDAddresses: []string{address}}})
 	if err != nil {
 		t.Fatal(err)
@@ -217,6 +243,7 @@ func TestTiKV(t *testing.T) {
 	t.Run("shared-kv-contract", func(t *testing.T) { assertSharedKV(t, kv.Prefixed(root, prefix), kv.Prefixed(secondRoot, prefix)) })
 	t.Run("registry", func(t *testing.T) { testTiKVRegistry(t, physical) })
 	t.Run("regional-replication-lag", func(t *testing.T) { testTiKVLag(t, client, observer) })
+	t.Run("presence-pages", func(t *testing.T) { testTiKVPresence(t, address, addresses) })
 }
 
 func testTiKVRegistry(t *testing.T, physical *storage.Storage) {

@@ -666,12 +666,12 @@ typedef struct {
   /* False when the member's Peer no longer exists. */
   bool has_info;
   gzc_control_peer_profile_info_t info;
-  /* Server-local presence, supplied only by the members list. */
+  /* Shared presence across Servers, supplied only by the members list. */
   bool has_online;
   bool online;
   gzc_str_t last_seen_at;
-  /* Whether the member's device runs the Group's Workspace on the answering
-   * Server, which attaches it to the SFU Room; true implies online. */
+  /* Whether the member runs the Group's Workspace on any Server, from the
+   * same shared snapshot as online; true implies online. */
   bool has_in_room;
   bool in_room;
 } gzc_control_friend_group_member_t;

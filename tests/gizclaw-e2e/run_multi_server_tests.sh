@@ -371,6 +371,7 @@ if [[ "$sfu_case" == logging ]]; then
 fi
 
 scenarios=(
+  "$giztest_dir/sfu.presence.cross-server.giztest.yaml"
   "$giztest_dir/sfu.friend.cross-server.audio-bytes.giztest.yaml"
   "$giztest_dir/sfu.friend-group.remove-readd.audio-bytes.giztest.yaml"
   "$giztest_dir/sfu.friend-group.reconnect-readd.audio-bytes.giztest.yaml"

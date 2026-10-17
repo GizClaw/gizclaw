@@ -200,15 +200,14 @@ typedef struct _gizclaw_rpc_v1_FriendGroupMemberObject {
     gizclaw_rpc_v1_FriendGroupMemberRole role;
     pb_callback_t updated_at;
     /* Member presence, set only by server.friend_group.members.list. online is
- whether the member's device is connected to the answering Server, the
- same state as Runtime.online. */
+ shared connection state across Servers, subject to replication delay. */
     bool has_online;
     bool online;
-    /* Last observed activity of the member's device in the Runtime.last_seen_at
- format. Absent when the Server has never observed the member. */
+    /* Last activity observed at a connection or running-Workspace transition,
+ in RFC 3339 UTC. Absent when unknown or the shared presence read failed. */
     pb_callback_t last_seen_at;
     /* Whether the member's device is running this Friend Group's Workspace on
- the answering Server, which is what attaches it to the Group's SFU Room.
+ any Server, according to the same shared presence snapshot as online.
  Set only by server.friend_group.members.list; true implies online. */
     bool has_in_room;
     bool in_room;
@@ -369,12 +368,11 @@ typedef struct _gizclaw_rpc_v1_FriendObject {
     pb_callback_t updated_at;
     pb_callback_t workspace_name;
     /* Friend presence and profile, set only by server.friend.list. online is
- whether the Friend's device is connected to the answering Server, the
- same state as Runtime.online. */
+ shared connection state across Servers, subject to replication delay. */
     bool has_online;
     bool online;
-    /* Last observed activity of the Friend's device in the Runtime.last_seen_at
- format. Absent when the Server has never observed the Friend. */
+    /* Last activity observed at a connection or running-Workspace transition,
+ in RFC 3339 UTC. Absent when unknown or the shared presence read failed. */
     pb_callback_t last_seen_at;
     /* The Friend's self-chosen display name and emoji from its profile. Absent
  when the Friend has not set them. */

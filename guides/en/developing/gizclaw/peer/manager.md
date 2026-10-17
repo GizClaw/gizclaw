@@ -48,7 +48,7 @@ an atomic value without enumerating peers or reading storage. See
 [node metrics](../../observability#node-devices-channels-and-messages).
 
 `peer_manager_social_ping.go` owns local-first social ping delivery and trusted
-Edge selection. `PeerOnline`, `PeerPresence` and `PeerRunningWorkspace` retain
-the local Server connection view; pings do not filter remote targets by that
-view. See [services/social](../services/social#ping-and-rally) for the path, ACK
+Edge selection. `PeerOnline` reads local connections; `PeerPresence` and `PeerRunningWorkspace`
+read shared Peer KV snapshots. See [Shared presence](../services/runtime/peerpresence)
+for publication and lifecycle. Pings do not filter targets by display presence. See [services/social](../services/social#ping-and-rally) for the path, ACK
 deadline and shared rate windows.

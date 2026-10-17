@@ -342,12 +342,15 @@ The Docker fixture gives PD metadata a 256 MiB tmpfs and each central/regional T
 
 `TestTiKVLearnerLagThroughBothEdges` uses the public Go SDK with real WebRTC and HTTP under replica lag. It seeds active Peers and credentials into a 60-second historical snapshot, then blocks center-to-Learner Raft streams while preserving regional reads. During the freeze, first claims through both Edges and cross-Edge reconnects must preserve the correct home. After SDK key revocation, HTTP through both Edges must immediately return 401. After SDK deletion of a Peer on each home, the test waits for the correct Server to remove its Workspace and owner binding, then requires both Edges to reject reconnects and old keys. The diagnostic client pins control reads to the Learner confirmed by PD; those reads must retain the old active Peers and key index and miss the new assignments. The test explicitly marks diagnostic requests, preserving their historical timestamp and Learner destination even when an SDK retry clears its stale-read flag. Application Server clients retain normal SDK routing. Label preferences permit SDK fallback from slow stores; the pinned route is only for test evidence. This proves the assertions run during replication lag; the gate does not measure WAN throughput or central-majority recovery.
 
-`sfu.*.audio-bytes` uses the committed Ogg/Opus fixture and `sfu.friend-group.members-in-room` exchanges no audio; neither needs speech-provider credentials and both always run. The other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
+`sfu.*.audio-bytes` uses the committed Ogg/Opus fixture; `sfu.friend-group.members-in-room` and `sfu.presence.cross-server` exchange no audio. These scenarios need no speech-provider credentials and run in the default multi-server gate. The other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
+
+`sfu.presence.cross-server` connects Alice and Bob using the two Servers' independently seeded registration tokens. Real RPCs from both sides read friend `online`/`last_seen_at` and member `online`/`in_room`. It asserts online outside the Room before a runtime starts, both members in the Room while running the group Workspace, online outside the Room after one stops and the other reconnects, and re-entry without registering again. Both Servers query each stage. Random public keys determine member order, so both entries are asserted only while their states match. Presence checks allow ten attempts spaced ten seconds apart for the fixture's sixty-second historical window. The default `run_multi_server_tests.sh` scenario list explicitly includes this file, so the local full `run_tests.sh` includes it through `docker:multi-server`.
 
 The provider-free SFU scenarios cover these boundaries:
 
 | Scenario (without `sfu.` and `.audio-bytes`) | Coverage |
 | --- | --- |
+| `presence.cross-server` | Both Servers query remote friend online/last-seen state and member room entry, stop/reconnect clearing and same-identity re-entry, allowing shared KV historical-read delay |
 | `friend.cross-server` | Bidirectional PTT and correlated first-packet timing between friends on different Servers, without self audio or packet samples |
 | `friend-group.remove-readd` | Three-client first-packet correlation; after revocation the removed member receives no audio or packet sample while the remaining member keeps receiving; re-add and select the original Workspace to restore both directions |
 | `friend-group.reconnect-readd` | Reconnect while removed without regaining membership; after re-add, select the original Workspace and restore both audio directions without registering again |
@@ -482,6 +485,15 @@ records how many purge rounds verification needed.
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
+
+To run only shared presence against a real TiKV Learner:
+
+```sh
+bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+```
+
+PD verifies the center voter and regional Learner roles before production `peerpresence.ReadBatch` reads five-second historical snapshots. The fixture advances resolved timestamps every second. Ten online Peers sharing one Server and application Region use eleven distinct keys in two successful Learner RPCs. Sixteen callers complete 160 pages. Frozen Raft replication preserves old online/room state until replication resumes. Test-only TCP proxies stall actual TiKV responses to verify a shared two-second page budget and a shorter 75 ms caller deadline. This CI gate covers KV and presence; Redis separately covers real Social RPC/WebRTC/LiveKit. Neither gate establishes WAN performance or production capacity.
+
 Migration tests use a real Redis 8.4.6 primary in the same fixture to verify binary/empty values, absolute TTLs, Sets/zero-score Sorted Sets, paged large collections, interrupted-import recovery, destination write protection, bidirectional verification and the actual CLI across a configuration cutover. Redis is also pinned by digest through gizcr. To run only migration-related tests:
 
 ```sh
@@ -491,7 +503,7 @@ bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migrati
 This mode retains real PD, the center voter and regional Learner. A separate deadline gate directly compares Redis absolute expiration with the stored TiKV deadline rather than inferring TTL preservation from sleep thresholds.
 
 
-This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. Data directories use temporary memory filesystems and expose no host ports. Tests verify placement rules and every Region's leader/Learner identities through PD.
+This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft, with a 128 MiB block cache, so production defaults do not classify small CI filesystems as full. Both TiKV containers set soft and hard `nofile` limits to 262144 to satisfy TiKV startup checks independently of host defaults. No host ports are exposed. Tests verify placement rules and every Region's leader/Learner identities through PD. Failed CI runs retain startup, cluster, test and topology diagnostics for seven days.
 
 The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Ordinary reads must still return the old assignment, active Peer, and revoked key. Real `peerroute`, Peer deletion-handler, and API key services must use strong reads for first claims, version refreshes, pending-deletion fences, permanent tombstones, revocation, and owner retirement. Successful stale RPCs must reach the regional Learner; strong reads must reach the central leader. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 

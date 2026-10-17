@@ -24,6 +24,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -166,6 +167,12 @@ func (s *Server) Listen() error {
 	if len(listeners) == 0 {
 		return giznet.ErrNilListener
 	}
+	if err := s.manager.Presence.Start(context.Background()); err != nil {
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
+		return err
+	}
 	s.listenerMu.Lock()
 	s.listeners = listeners
 	s.closed = false
@@ -272,6 +279,9 @@ func (s *Server) Close() error {
 		return nil
 	}
 	var errs []error
+	if s.manager != nil && s.manager.Presence != nil {
+		errs = append(errs, s.manager.Presence.Close())
+	}
 	s.listenerMu.Lock()
 	listeners := append([]giznet.Listener(nil), s.listeners...)
 	hadListeners := len(s.listeners) > 0
@@ -437,6 +447,7 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	manager.Presence = peerpresence.New(kv.Prefixed(s.PeerStore, kv.Key{"presence"}), s.LocalStatic.Public)
 	manager.deviceCount = &s.deviceCount
 	manager.PeerQuota = peerquota.New(quotaReporter{manager: manager})
 	if s.PeerUsageDB != nil {
