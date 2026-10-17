@@ -241,7 +241,7 @@ func (f *Feed) recent(ctx context.Context, env infraapi.Environment) (int64, []i
 		head, frames, err := f.load(ctx, env)
 		f.mu.Lock()
 		slot = &f.cache[index]
-		if !errors.Is(err, context.Canceled) {
+		if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 			slot.head, slot.frames, slot.err, slot.until = head, frames, err, time.Now().Add(Window)
 		}
 		slot.pending = nil

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	infraapi "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
@@ -54,6 +55,74 @@ func TestFeedFailureIsCachedAndCancellationIsHonored(t *testing.T) {
 	if _, err := feed.Read(ctx, infraapi.Prod, ""); !errors.Is(err, context.Canceled) {
 		t.Fatalf("cancelled cache read: %v", err)
 	}
+}
+
+type firstReaderDeadlineKV struct {
+	kv.Store
+	reads atomic.Int64
+}
+
+func (s *firstReaderDeadlineKV) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if s.reads.Add(1) == 1 {
+		<-ctx.Done()
+		return nil, ctx.Err()
+	}
+	return s.Store.Get(ctx, key)
+}
+
+func TestFeedReaderDeadlineDoesNotPoisonWaitingReaderOrSharedCache(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		memory := kv.NewMemory(nil)
+		seed, err := New(memory)
+		if err != nil {
+			t.Fatal(err)
+		}
+		end := time.Now().Truncate(Window)
+		if err := seed.Append(t.Context(), fixtureFrame(end, 1)); err != nil {
+			t.Fatal(err)
+		}
+		store := &firstReaderDeadlineKV{Store: memory}
+		feed, err := New(store)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		defer cancel()
+		first := make(chan error, 1)
+		go func() {
+			_, err := feed.Read(ctx, infraapi.Prod, "")
+			first <- err
+		}()
+		synctest.Wait() // The cache owner is blocked in KV on its own context.
+		type readResult struct {
+			page infraapi.Page
+			err  error
+		}
+		waiting := make(chan readResult, 1)
+		go func() {
+			page, err := feed.Read(t.Context(), infraapi.Prod, "")
+			waiting <- readResult{page: page, err: err}
+		}()
+		synctest.Wait() // The healthy reader waits for the same cache fill.
+		time.Sleep(time.Second)
+		synctest.Wait()
+		if err := <-first; !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("first reader error = %v", err)
+		}
+		result := <-waiting
+		if result.err != nil || len(result.page.Frames) != 1 || result.page.Cursor != strconvIDTest(end.UnixMilli()) {
+			t.Fatalf("healthy waiting reader inherited deadline: %+v, %v", result.page, result.err)
+		}
+		reads := store.reads.Load()
+		for range 20 {
+			if _, err := feed.Read(t.Context(), infraapi.Prod, result.page.Cursor); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if reads != MaxReadFrames+2 || store.reads.Load() != reads {
+			t.Fatalf("recovery/cache reads = %d/%d", reads, store.reads.Load())
+		}
+	})
 }
 
 func (s *measuredKV) Get(ctx context.Context, key kv.Key) ([]byte, error) {

@@ -30,6 +30,7 @@ API source 是 `api/http/infra.json`，生成的 strict Go server/client/model �
 首次连接只返回最新帧；连续游标最多补读三帧。未来、过期或不连续的游标返回 `reset: true` 和最新帧，
 不回放整个缓存。没有生产者时返回空 `frames` 和空游标。每个环境的最近帧共用五秒进程缓存，
 每次填充最多四次精确 KV Get；可重试的读取错误也短暂缓存，避免故障时重复读取。
+调用方的取消和 deadline 错误不进入共享缓存，健康的等待者可以立即重新加载。
 
 Server 显式配置逻辑 KV Store 与读取凭据后安装此 handler：
 

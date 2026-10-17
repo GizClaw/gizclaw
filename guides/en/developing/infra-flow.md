@@ -40,7 +40,8 @@ First connection returns only the latest frame. Continuous cursors can catch up
 by at most three frames; future, expired or discontinuous cursors reset to latest.
 Without a producer, frames and cursor are empty. A five-second per-environment
 process cache shares at most four exact KV reads per fill; temporary errors are
-also cached briefly. No HTTP write API exists. GET/OPTIONS are allowed; every
+also cached briefly. Caller cancellations and deadlines never enter that shared
+cache, so healthy waiters can immediately reload. No HTTP write API exists. GET/OPTIONS are allowed; every
 response is `no-store`. Invalid credentials return 401, invalid queries 400,
 and disabled/unavailable feeds 503. Reads have a two-second deadline.
 
