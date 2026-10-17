@@ -1470,6 +1470,7 @@ export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
   "prefix"?: string;
+  "system"?: boolean;
 };
 export type WorkspaceListResponse = {
   "has_next": boolean;
@@ -8066,6 +8067,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "system",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },

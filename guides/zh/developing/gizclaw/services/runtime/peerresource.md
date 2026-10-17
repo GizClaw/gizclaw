@@ -15,6 +15,10 @@ Workflow list 从平面的 `workflows` map 投影，可用最多 32 个普通字
 
 Peer 侧只有 Workspace 状态支持 create/put/delete。真实 Workflow、Model、Credential 和 Tool 统一由 Admin 修改。Workspace create 校验 `workflow_name`，在内部 label 中保存它；list 跳过已进入 pending deletion 的 Workspace。通用 labels 只是 Admin/storage 细节，不进入 Peer DTO。
 
+`server.workspace.list` 的可选 `system` 按持久化的 Workspace 分类筛选：省略返回全部可访问项，`false` 只返回普通 Workspace，`true` 只返回系统 Workspace（包括有成员访问权的共享 SFU）。省略持久化 `system` 的项按普通 Workspace 处理，与响应投影一致。它与去除首尾空白后的 `prefix` 取交集，在按 name 排序及分页前应用；`has_next` 和 `next_cursor` 只计算匹配项。游标绑定 Profile revision、规范化的 prefix 和 system 三态，切换条件、revision 变化或游标锚点已不存在时返回 `ABORTED`，调用方应从首屏重新查询。分页 limit 可以改变。无筛选条件时保留原有游标格式。
+
+`system=false` 不筛选 `available`：Workflow binding 失效的普通 Workspace 仍返回，供用户清理。名称、前缀和 Workflow 名称不决定 system 分类。通用 `server.workspace.delete` 仍拒绝系统 Workspace，系统生命周期由所属领域负责。
+
 Workspace create/put 的 `toolkit.tool_names` 只接受当前 Profile Tool aliases，按 alias 持久化。它不能按 canonical ID 或 HTTP `invoke_name` 选择资源。空列表禁用，省略不再收窄；失效 alias 原样读取，实际执行仍需当前 Profile Workflow binding 授权。目录与模型注入共用 [运行时 Tools](./toolkit) resolver。
 
 创建时省略 `toolkit` 或提供没有 `tool_names` 的空对象完全等价：内部存储 nil 策略，响应省略 `toolkit`，不再收窄 Profile Workflow binding 已授权的 aliases。显式空列表禁用全部工具。Protobuf 用可选 `tool_names` message 包装 repeated `value`；空列表在 wire 上是存在的空 message，在 JSON 中保持空数组。put 省略 `toolkit` 保留原策略，提供 `toolkit: {}` 则清除 Workspace 选择。Workflow resource 的旧 `spec.toolkit.tool_ids` 不授予运行时权限。

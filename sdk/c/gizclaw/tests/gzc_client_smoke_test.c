@@ -1640,6 +1640,34 @@ static int hex_nibble(char value) {
   return -1;
 }
 
+static int test_workspace_list_system_filter(void) {
+  for (int state = 0; state < 3; ++state) {
+    gizclaw_rpc_v1_WorkspaceListRequest request =
+        gizclaw_rpc_v1_WorkspaceListRequest_init_zero;
+    request.has_system = state != 0;
+    request.system = state == 2;
+    uint8_t encoded[8];
+    pb_ostream_t output = pb_ostream_from_buffer(encoded, sizeof(encoded));
+    if (!pb_encode(&output, gizclaw_rpc_v1_WorkspaceListRequest_fields,
+                   &request) ||
+        output.bytes_written != (state == 0 ? 0u : 2u) ||
+        (state != 0 && (encoded[0] != 0x20 || encoded[1] != request.system))) {
+      return 1;
+    }
+    gizclaw_rpc_v1_WorkspaceListRequest decoded =
+        gizclaw_rpc_v1_WorkspaceListRequest_init_zero;
+    pb_istream_t input =
+        pb_istream_from_buffer(encoded, output.bytes_written);
+    if (!pb_decode(&input, gizclaw_rpc_v1_WorkspaceListRequest_fields,
+                   &decoded) ||
+        decoded.has_system != request.has_system ||
+        decoded.system != request.system) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
 static int test_peer_event_golden_vectors(void) {
   static const char *const vectors[] = {
       "0801100152220a0873747265616d2d611001180220022a0475736572320a617564696f2f6f707573",
@@ -2943,6 +2971,9 @@ static int test_gnss_reporting_codec(void) {
 }
 
 int main(void) {
+  if (expect(test_workspace_list_system_filter() == 0,
+             "workspace list preserves omitted, false and true system") != 0)
+    return 1;
   if (test_gnss_reporting_codec() != 0)
     return 1;
   if (test_lua_app_codec() != 0)

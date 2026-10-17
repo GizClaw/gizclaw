@@ -4437,11 +4437,13 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
     $core.String? cursor,
     $fixnum.Int64? limit,
     $core.String? prefix,
+    $core.bool? system,
   }) {
     final result = create();
     if (cursor != null) result.cursor = cursor;
     if (limit != null) result.limit = limit;
     if (prefix != null) result.prefix = prefix;
+    if (system != null) result.system = system;
     return result;
   }
 
@@ -4461,6 +4463,7 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
     ..aOS(1, _omitFieldNames ? '' : 'cursor')
     ..aInt64(2, _omitFieldNames ? '' : 'limit')
     ..aOS(3, _omitFieldNames ? '' : 'prefix')
+    ..aOB(4, _omitFieldNames ? '' : 'system')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -4508,6 +4511,17 @@ class WorkspaceListRequest extends $pb.GeneratedMessage {
   $core.bool hasPrefix() => $_has(2);
   @$pb.TagNumber(3)
   void clearPrefix() => $_clearField(3);
+
+  /// Omit to list all accessible Workspaces; false selects ordinary Workspaces,
+  /// true selects system Workspaces. Intersects with prefix before pagination.
+  @$pb.TagNumber(4)
+  $core.bool get system => $_getBF(3);
+  @$pb.TagNumber(4)
+  set system($core.bool value) => $_setBool(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasSystem() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearSystem() => $_clearField(4);
 }
 
 class WorkspaceListResponse extends $pb.GeneratedMessage {
