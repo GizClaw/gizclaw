@@ -572,6 +572,13 @@ JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客
 等待确认，随后关闭父 Peer connection 并退出。写完响应 EOS 本身不代表远端已收到
 所有排队帧；缺少确认、无效确认和等待超时均失败。
 
+Flutter runner 支持 unary RPC 的 `retry`：2–10 次尝试，`on` 可选择
+`timeout`、`assertion`，省略时仅重试 timeout；正的 delay 最长五分钟。
+HTTP、其他 operation 和 `finally` 不接受此策略。失败尝试回滚其变量捕获，成功尝试
+保留捕获；报告记录每次尝试的状态、耗时、失败分类与脱敏错误。所有尝试和 delay
+共享原有任务 deadline，单次 RPC 使用剩余任务预算、显式 step timeout 与现有
+30 秒 RPC 上限中的最短值，由 SDK 结束超时请求后再进行下一次尝试。
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口

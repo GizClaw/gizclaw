@@ -543,6 +543,16 @@ thirty-second budget before closing the parent Peer connection and exiting.
 Writing response EOS alone does not establish remote delivery of queued frames;
 missing or invalid receipts and expired waits fail the test.
 
+The Flutter runner supports unary RPC `retry`: two through ten attempts, with
+`on` selecting `timeout` or `assertion` and defaulting to timeout alone. A positive
+delay may be at most five minutes. HTTP, other operations and `finally` reject
+this policy. Failed attempts roll back captured variables; successful captures
+remain available. Reports include every attempt's status, duration, classified
+failure and redacted error. Attempts and delays share the existing task deadline.
+Each RPC uses the shortest remaining task budget, explicit step timeout and
+existing thirty-second RPC limit, letting the SDK terminate a timed-out request
+before starting another attempt.
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints
