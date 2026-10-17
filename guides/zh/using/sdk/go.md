@@ -2,6 +2,14 @@
 
 本页将说明 Go SDK 的安装、client 初始化、认证、连接、API/RPC 调用和错误处理。
 
+Go API Reference：[gizcli](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)。
+
+## 接收正在播放的 Opus 流
+
+`gizcli.Client.OpenPeerStream` 和 `DialPeerEventStream` 的新订阅会先收到当前仍在播放的音频 BOS 元数据，然后接收实时事件和 Opus 包。因此，连续的 Giztest `listen` 窗口可以在播报中途接续接收，而不需要重新启动播报。
+
+连接只保留一个当前音频起始事件，不回放历史音频或文字。音频 EOS 清除对应路由；同 ID 的文字 EOS 和旧音频路由的延迟 EOS 不清除新路由。订阅的初始元数据与实时事件按顺序交付，连接结束后不保留路由。
+
 ## 握手准入凭证
 
 `gizwebrtc.DialConfig.Credential` 直接接收 `*giznetpb.AdmissionCredential`。调用方可设置

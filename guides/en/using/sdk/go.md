@@ -2,6 +2,20 @@
 
 This page will explain Go SDK installation, client initialization, authentication, connection, API/RPC calls and error handling.
 
+Go API reference: [gizcli](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli).
+
+## Joining active Opus output
+
+New `gizcli.Client.OpenPeerStream` and `DialPeerEventStream` subscribers receive
+the active audio BOS metadata before subsequent live events and Opus packets.
+Consecutive Giztest `listen` windows can therefore join an ongoing broadcast
+without restarting it.
+
+The connection retains one current audio start event, without replaying prior
+audio or text. Its audio EOS clears the route; a text EOS with the same ID or a
+delayed EOS for an older audio route does not clear the new route. Bootstrap and
+live events arrive in order, and connection shutdown discards the route.
+
 ## Handshake admission credentials
 
 `gizwebrtc.DialConfig.Credential` directly accepts `*giznetpb.AdmissionCredential` with
