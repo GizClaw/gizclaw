@@ -334,12 +334,15 @@ Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各�
 
 `TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
 
-`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频，`sfu.friend-group.members-in-room` 不收发音频，二者都不需要语音服务凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频；`sfu.friend-group.members-in-room` 与 `sfu.presence.cross-server` 不收发音频。这些场景都不需要语音服务凭据，在默认 multi-server gate 中运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+
+`sfu.presence.cross-server` 在两台 Server 的独立 registration token 下连接 Alice 和 Bob，经双方真实 RPC 查询好友 `online`／`last_seen_at` 与群成员 `online`／`in_room`。它依次断言未运行时在线但不在房间、双方运行群 Workspace 后均在房间、一方 stop 与另一方重连后双方仍在线但离开房间，以及无需重新注册即可再次进入原房间。列表从两台 Server 分别查询；随机公钥决定成员排序，因此只有在双方处于相同状态时才断言两个列表项。Presence 断言最多十次、间隔十秒，以容纳夹具的六十秒历史窗口。该文件在 `run_multi_server_tests.sh` 的默认场景中显式列出，由本地完整 `run_tests.sh` 的 `docker:multi-server` 阶段纳入。
 
 不依赖语音服务的 SFU 场景覆盖如下边界：
 
 | 场景（省略 `sfu.` 和 `.audio-bytes`） | 验证内容 |
 | --- | --- |
+| `presence.cross-server` | 两台 Server 分别查询异机好友在线与最后观察时间；群成员入房、停止／重连清空房间、同身份重入，允许共享 KV 历史读延迟 |
 | `friend.cross-server` | 两台 Server 上的好友双向 PTT 和可关联首包计时，发送方不收到自己的音频或生成首包接收样本 |
 | `friend-group.remove-readd` | 三客户端一发多收的首包关联；等待踢出撤权后被移除者无音频/首包样本，其余成员继续接收，加回并选择原 Workspace 后恢复双向音频 |
 | `friend-group.reconnect-readd` | 被踢出后重连仍无成员权限，加回后无需再次注册即可选择原 Workspace 并恢复双向音频 |

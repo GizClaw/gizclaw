@@ -1,0 +1,351 @@
+# User Story:
+# As a device whose friend is connected to another GizClaw Server,
+# I want friend and group member lists to show that device's shared online and Room state,
+# So that joining, stopping and reconnecting are visible across Servers without local connection or PeerRun SQL state.
+# Each Edge prefers a different Server, whose registration token is seeded only
+# in that Server's local catalog. No audio or speech-provider credentials are
+# needed. Presence assertions allow the fixture's 60-second historical reads.
+# Member ordering depends on random keys: assert both entries only at stages
+# where both devices have the same presence, and query from both Servers.
+version: gizclaw.test/v1alpha1
+name: sfu.presence.cross-server
+timeout: 15m
+clients:
+  alice:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_a}
+    registration_token: ${token_a}
+  bob:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${edge_b}
+    registration_token: ${token_b}
+variables:
+  edge_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_A
+  edge_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_EDGE_B
+  token_a:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_A
+    secret: true
+  token_b:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN_B
+    secret: true
+  team_name:
+    direction: input
+    type: string
+    generate: token
+  bob_invite:
+    direction: output
+    type: string
+    secret: true
+  bob_key:
+    direction: output
+    type: string
+  alice_key:
+    direction: output
+    type: string
+  team_invite:
+    direction: output
+    type: string
+    secret: true
+  team_workspace:
+    direction: output
+    type: string
+steps:
+  - id: bob_create_friend_invite
+    client: bob
+    rpc:
+      method: server.friend.invite_token.create
+      request: {}
+    capture:
+      bob_invite: /invite_token
+  - id: alice_add_remote_friend
+    client: alice
+    rpc:
+      method: server.friend.add
+      request: {invite_token: '${bob_invite}'}
+    capture:
+      bob_key: /peer_public_key
+    expect:
+      /peer_public_key: {non_empty: true}
+  - id: alice_sees_remote_friend_online
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/peer_public_key: {equals: '${bob_key}'}
+      /items/0/online: {equals: true}
+      /items/0/last_seen_at: {pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'}
+  - id: bob_sees_remote_friend_online
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend.list
+      request: {}
+    capture:
+      alice_key: /items/0/peer_public_key
+    expect:
+      /items: {count: 1}
+      /items/0/peer_public_key: {non_empty: true}
+      /items/0/online: {equals: true}
+      /items/0/last_seen_at: {pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'}
+  - id: alice_create_team
+    client: alice
+    rpc:
+      method: server.friend_group.create
+      request: {name: '${team_name}'}
+    capture:
+      team_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: alice_invite_to_team
+    client: alice
+    rpc:
+      method: server.friend_group.invite_token.create
+      request: {friend_group_name: '${team_name}'}
+    capture:
+      team_invite: /invite_token
+  - id: bob_join_remote_team
+    client: bob
+    rpc:
+      method: server.friend_group.join
+      request: {invite_token: '${team_invite}', name: '${team_name}'}
+    expect:
+      /group/workspace_name: {equals: '${team_workspace}'}
+      /member/peer_public_key: {equals: '${bob_key}'}
+  - id: alice_sees_both_online_outside_room
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+      /items/0/last_seen_at: {pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: false}
+      /items/1/last_seen_at: {pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'}
+  - id: bob_sees_both_online_outside_room
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: false}
+  - id: alice_enter_team
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: alice_team_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: bob_enter_team
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: bob_team_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: alice_sees_both_servers_in_room
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: true}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: true}
+  - id: bob_sees_both_servers_in_room
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: true}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: true}
+  # Bob stops on Server B. Alice's new connection on Server A retains its
+  # selected Workspace but starts without a runtime. Both must leave the Room.
+  - id: bob_stop
+    client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - id: bob_stopped
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {pattern: '^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$'}
+  - id: alice_reconnect_while_in_room
+    client: alice
+    reconnect: {await_ms: 30000}
+  - id: alice_selection_survives_without_runtime
+    client: alice
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /selected_workspace_name: {equals: '${team_workspace}'}
+      /runtime_state: {pattern: '^PEER_RUN_STATUS_STATE_(STOPPED|ERROR)$'}
+  - id: alice_sees_stopped_and_reconnected_members
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: false}
+  - id: bob_sees_stopped_and_reconnected_members
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: false}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: false}
+  - id: bob_still_sees_same_remote_friend
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/peer_public_key: {equals: '${alice_key}'}
+      /items/0/online: {equals: true}
+      /items/0/last_seen_at: {pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}T'}
+  # Both devices can re-enter the same shared Room without registering again.
+  - id: alice_reenter_team
+    client: alice
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+  - id: alice_reentered_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: bob_reenter_team
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${team_workspace}'}
+  - id: bob_reentered_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+      /selected_workspace_name: {equals: '${team_workspace}'}
+  - id: alice_sees_both_reentered
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: true}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: true}
+  - id: bob_sees_both_reentered
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 10s}
+    rpc:
+      method: server.friend_group.members.list
+      request: {friend_group_name: '${team_name}'}
+    expect:
+      /items: {count: 2}
+      /items/0/online: {equals: true}
+      /items/0/in_room: {equals: true}
+      /items/1/online: {equals: true}
+      /items/1/in_room: {equals: true}
+finally:
+  - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: alice
+    rpc:
+      method: server.friend_group.delete
+      request: {name: '${team_name}'}
+  - client: alice
+    rpc:
+      method: server.friend.delete
+      request: {name: '${bob_key}'}
+  - client: alice
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - client: bob
+    rpc:
+      method: server.peer.delete
+      request: {}
+report:
+  redact: [token_a, token_b, bob_invite, team_invite]
