@@ -15,6 +15,7 @@ const (
 	sessionIDKey  correlationKey = "session_id"
 	apiKeyNameKey correlationKey = "api_key_name"
 	streamIDKey   correlationKey = "stream_id"
+	workspaceKey  correlationKey = "workspace"
 )
 
 // NewID returns a server-generated, 128-bit random correlation identifier.
@@ -72,12 +73,17 @@ func WithStreamID(ctx context.Context, id string) context.Context {
 // StreamID returns the stream associated with this operation.
 func StreamID(ctx context.Context) string { return correlation(ctx, streamIDKey) }
 
+// WithWorkspace attaches the owning Workspace name to operation logs.
+func WithWorkspace(ctx context.Context, name string) context.Context {
+	return withCorrelation(ctx, workspaceKey, name)
+}
+
 func contextIdentityAttrs(ctx context.Context) []slog.Attr {
 	attrs := make([]slog.Attr, 0, 5)
 	if peer := PeerPublicKey(ctx); peer != "" {
 		attrs = append(attrs, slog.String("peer_public_key", peer))
 	}
-	for _, key := range []correlationKey{sessionIDKey, requestIDKey, apiKeyNameKey, streamIDKey} {
+	for _, key := range []correlationKey{sessionIDKey, requestIDKey, apiKeyNameKey, streamIDKey, workspaceKey} {
 		if value := correlation(ctx, key); value != "" {
 			attrs = append(attrs, slog.String(string(key), value))
 		}

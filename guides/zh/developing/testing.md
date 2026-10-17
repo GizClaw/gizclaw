@@ -27,6 +27,16 @@ gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6
 仍从当前 checkout 构建；`GIZCLAW_E2E_DOCKER_BASE_FROM` 和 `PYTHON_BASE_IMAGE`
 可显式覆盖拉取的基础镜像。
 
+### Doubao ASR 恢复 Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_asr_recovery_tests.sh
+```
+
+该入口先对本地 WebSocket fixture 运行九轮真实 SDK/transformer 协议预检，再启动隔离的本地 Docker Server、Edge 和 Giztest，不需要云凭据。构建 overlay 只替换 provider wiring：ASR 使用真实 `doubaoasr` transformer 与 Doubao SDK，连接进程内 loopback WebSocket fixture；文本 Agent 使用 Eino Script，TTS 使用有效 Opus fixture。第八个 PTT 输入返回 `55000000`，replacement 接收的 PCM 摘要必须与原始第八次输入完全一致；九轮固定问题序号、单次 transcript/reply、18 条 History 与第九轮续聊共同验证恢复没有重启 Workflow 或重复提交。Continuous ASR 在同一 provider session 内前七个 definite utterance 后恢复第八轮、并继续第九轮的边界由 transformer 回归单独覆盖。
+
+Server 明确配置 WARN 门槛。入口校验首次错误、`retry=1` start/success 的相同 ASR/连接/Workspace/输入标识，保留上下游 ID 区别，并拒绝 `output consumer failed` 或 `assistant route failed`。日志、Giztest 报告与源码摘要留在 ignored `.testbench/asr-recovery-*`。入口在本地 Go 基础镜像中编译协议预检和测试二进制，并以只读挂载在同一基础镜像启动 Server、Edge 与 runner；报告记录二进制摘要。退出时只清理本次 Compose project、编译容器与运行状态，复用共享基础镜像和 Go cache。该验证属于本地协议和 Server 集成，不代表真实供应商或物理设备验收。
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：

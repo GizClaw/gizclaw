@@ -119,7 +119,7 @@ Store 准入不等待网络或队列空位。队列满时拒绝本次新记录�
 
 LiveKit SFU connector 把 SDK 的 `Debugw`、`Infow`、`Warnw`、`Errorw` 直接映射为 `slog` 的 DEBUG、INFO、WARN、ERROR，不经过会丢失级别的标准 `log` 转接。每个 Room 使用 attachment context 保留认证 Peer 关联，取消后的诊断仍可记录；SDK 内部 Pion 使用跟随进程 `slog.Default` 的 logger，不绑定某个 Room 的 Peer。WARN sink 会保留 SDK 与 Pion 的 WARN/ERROR，并过滤其 DEBUG/INFO。SDK logger 只复制 transport/state 枚举字段，错误只标记 `error_present`，不复制原始 provider 错误、SDP、ICE server、candidate 或 HTTP response 属性。
 
-AgentHost 把已认证 Peer 的 `peer_public_key` 放入 Agent 执行 context；使用 context-aware `slog` 的 provider 日志会继承该字段。启动、存储和其他没有 Peer owner 的进程级日志省略该字段，不能伪造身份。Volc TLS handler 将 `level`、`msg` 和每个 scalar attribute 保存为独立字段；`StreamServerLogs` 再规范化为：
+AgentHost 把已认证 Peer 的 `peer_public_key`、连接 `session_id` 与当前 `workspace` 放入 Agent 执行 context；使用 context-aware `slog` 的 provider 日志会继承该字段。启动、存储和其他没有 Peer owner 的进程级日志省略该字段，不能伪造身份。Volc TLS handler 将 `level`、`msg` 和每个 scalar attribute 保存为独立字段；`StreamServerLogs` 再规范化为：
 
 | 返回字段 | 含义 |
 | --- | --- |

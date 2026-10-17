@@ -12,6 +12,10 @@ import (
 )
 
 func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile, tokenID, token string) error {
+	return seedASRVoiceFixture(ctx, api, profile, tokenID, token, "rtp-bos")
+}
+
+func seedASRVoiceFixture(ctx context.Context, api *adminhttp.ClientWithResponses, profile, tokenID, token, fixture string) error {
 	// Deliberately unusable outside the provider-only test build overlay.
 	if err := seedProvider(ctx, api, volcCredentials{appID: "local-fixture", apiKey: "local-fixture", searchKey: "local-fixture", arkKey: "local-fixture", accessKeyID: "local-fixture", accessKey: "local-fixture"}); err != nil {
 		return err
@@ -19,7 +23,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 	spec := runtimeProfileSpec(true)
 	workflows := map[string]apitypes.RuntimeProfileWorkflowBinding{}
 	for _, driver := range []string{"eino"} {
-		data, err := os.ReadFile("tests/gizclaw-e2e/testdata/rtp-bos/" + driver + ".json")
+		data, err := os.ReadFile("tests/gizclaw-e2e/testdata/" + fixture + "/" + driver + ".json")
 		if err != nil {
 			return err
 		}
@@ -27,7 +31,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 		if err := json.Unmarshal(data, &workflow); err != nil {
 			return err
 		}
-		id := "rtp-bos-" + driver
+		id := fixture + "-" + driver
 		if err := upsertWorkflow(ctx, api, adminhttp.WorkflowUpsert{Id: id, Spec: workflow}); err != nil {
 			return err
 		}
@@ -42,7 +46,7 @@ func seedRTPBOS(ctx context.Context, api *adminhttp.ClientWithResponses, profile
 	}
 	_, err := upsertRegistrationToken(ctx, api, adminhttp.RegistrationTokenUpsert{Id: tokenID, Token: token, RuntimeProfileId: profile})
 	if err == nil {
-		fmt.Println("rtp-bos fixture seeded")
+		fmt.Println(fixture + " fixture seeded")
 	}
 	return err
 }
