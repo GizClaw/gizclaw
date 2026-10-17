@@ -245,6 +245,106 @@ func TestMysteryOfferedInvestigationAndRemainingLocations(t *testing.T) {
 	}
 }
 
+func TestWerewolfReviewKeepsVisibleAddresseeAndPublicBallots(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
+		t.Run(path, func(t *testing.T) {
+			graph := fixtureGraph(t, path)
+			for i := range graph.Nodes {
+				if graph.Nodes[i].ID == "roles" {
+					graph.Nodes[i].Inputs["text"] = genxeino.Binding{From: "command"}
+				}
+			}
+			graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "command", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
+			game := map[string]any{
+				"roles": map[string]any{"1": "平民", "2": "平民", "3": "狼人", "4": "狼人", "5": "预言家", "6": "女巫", "7": "猎人", "8": "平民"},
+				"log": []any{
+					map[string]any{"day": int64(1), "votes": map[string]any{"1": int64(4), "2": int64(6), "3": int64(7), "4": int64(1), "6": int64(2), "7": int64(3), "8": int64(4)}},
+					map[string]any{"day": int64(2), "votes": map[string]any{"2": int64(3), "3": int64(8), "6": int64(2), "7": int64(3), "8": int64(6)}},
+				},
+				"speeches": map[string]any{}, "next_votes": map[string]any{},
+			}
+			public := `{"phase":"ended","alive":[2,6,7,8],"dead":[5,4,1,3],"winner":"好人"}`
+			resolve := func(command string, current map[string]any) []any {
+				return runFixtureScript(t, graph, "roles", map[string]any{
+					"game": current, "command": command, "public_input": command, "context": public, "public_history": []*schema.Message{},
+				})["actors"].([]any)
+			}
+			publish := func(current map[string]any, actors []any, reply string) map[string]any {
+				return runFixtureScript(t, graph, "publish", map[string]any{
+					"game": current, "audit_due": false, "official": "本局已结束。", "context": public, "actors": actors, "replies": []any{reply},
+				})["game"].(map[string]any)
+			}
+			actors := resolve("作为5号预言家，你怎么看首夜出局？", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "周岚" {
+				t.Fatalf("explicit eliminated responder = %v", actors)
+			}
+			game = publish(game, actors, "我首夜已经出局，没有留下公开查验结果，可以复盘已有的公开信息。")
+			actors = resolve("那如果你当时还在场，会怎么看2号的发言？", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "周岚" {
+				t.Fatalf("pronoun or mentioned suspect replaced the visible responder: %v", actors)
+			}
+			var view struct {
+				Votes []struct {
+					Day   int64            `json:"day"`
+					Votes map[string]int64 `json:"votes"`
+				} `json:"votes"`
+			}
+			if err := json.Unmarshal([]byte(actors[0].(map[string]any)["public"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			if len(view.Votes) != 2 || view.Votes[0].Day != 1 || view.Votes[0].Votes["3"] != 7 || view.Votes[1].Day != 2 || view.Votes[1].Votes["3"] != 8 {
+				t.Fatalf("settled public ballot history = %#v", view)
+			}
+			actors = resolve("请林知回应你对2号的怀疑", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "林知" {
+				t.Fatalf("continuity overrode an explicit new responder: %v", actors)
+			}
+			game = publish(game, actors, "天亮了，进入第3夜。")
+			actors = resolve("那你为什么这样判断？", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "周岚" {
+				t.Fatalf("unpublished model ruling replaced the last visible responder: %v", actors)
+			}
+		})
+	}
+}
+
+func TestWerewolfPostGameHelpPreservesCompletedGame(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
+		t.Run(path, func(t *testing.T) {
+			game := runFixtureRules(t, path, "开始", map[string]any{})["game"].(map[string]any)
+			game["roles"] = map[string]any{"1": "平民", "2": "平民", "3": "狼人", "4": "狼人", "5": "预言家", "6": "女巫", "7": "猎人", "8": "平民"}
+			game["phase"], game["winner"], game["dead"] = "ended", "好人", []any{int64(3), int64(4)}
+			game["last_addressees"] = []any{int64(5)}
+			before, err := json.Marshal(game)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := runFixtureRules(t, path, "对局已经结束，请说明合法复盘操作有哪些？", game)
+			after, err := json.Marshal(result["game"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(before) != string(after) {
+				t.Fatalf("review help mutated the completed game: before=%s after=%s", before, after)
+			}
+			var view struct {
+				Answered bool `json:"answered"`
+			}
+			if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			official := result["official"].(string)
+			if !view.Answered || !strings.Contains(official, "实际票型") || !strings.Contains(official, "出局原因") || !strings.Contains(official, "角色当时的判断") {
+				t.Fatalf("legal review help lacked actionable questions: %s", official)
+			}
+			reset := runFixtureRules(t, path, "重新开始", result["game"].(map[string]any))["game"].(map[string]any)
+			if _, retained := reset["last_addressees"]; retained {
+				t.Fatal("a new game retained an earlier game's review addressee")
+			}
+		})
+	}
+}
+
 func TestNativeWerewolfRulesAndPrivacy(t *testing.T) {
 	initial := runRules(t, "werewolf", "开始", map[string]any{})
 	game := initial["game"].(map[string]any)

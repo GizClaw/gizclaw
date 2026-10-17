@@ -619,7 +619,13 @@ an explicit current-chapter agreement, renewed after an objection, before advanc
 A separate clause asking for character reactions preserves a confirmed choice;
 a question in the choice clause or an explicit objection cannot confirm one. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
-skills. The quality player tracks its 20 utterances in native State, advances the
+skills. Post-game pronoun follow-ups retain the last visible responder unless a
+new recipient is named. Review actors receive all settled public ballots; rule
+help lists supported review questions without restarting the game. The referee
+states the unique-highest-vote rule and permits eliminated roles to review.
+NPCs discuss already-executed game facts in character, without treating game
+dialogue as a request to operate external Tools.
+The quality player tracks its 20 utterances in native State, advances the
 main objective, asks distinct review questions and then says farewell. It does
 not invent completion when the objective remains unfinished.
 
