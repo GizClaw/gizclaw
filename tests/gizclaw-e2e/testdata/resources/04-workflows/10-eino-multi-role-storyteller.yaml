@@ -61,12 +61,22 @@ spec:
                 uncertain = False
                 if choice:
                     uncertain = choice[2] in ["？", "?"] or bool(regex_find(choice[1].strip(), ("(?:^(?:谁|什么|哪|是否|怎么|如何|为什么)|(?:吗|么|好不好|行不行|可不可以|能不能)$)", "")))
-                    boundary = "(?:^|[，,。；;？！!?])[ ]*"
-                    clause = "[^，,。；;？！!?]*"
                     people = "(?:悟空|孙悟空|大圣|唐僧|师父|八戒|猪八戒|妖怪|老妖怪|青面老妖怪|大家|各位|你们)"
-                    followups = regex_replace(text[len(choice[0]):], (boundary + people + "(?:[、和与]" + people + ")*[，,][ ]*" + clause + "[？?]", "g"), "。")
-                    permission = boundary + "(?:请问[，, ]*)?(?:(?:这个安排|这个决定|这种安排|这样安排|这么安排|这样选择|我这样做|我们这样做|这么做|这样|我们|我|那么|那)[ ]*){0,2}(?:(?:可以|可行|合适|行|能)" + clause + "(?:[吗么](?:[，,。；;？！!?]|$)|[？?])|(?:可不可以|行不行|能不能|能否|是否|好不好)" + clause + "(?:[，,。；;？！!?]|$))"
-                    uncertain = uncertain or bool(regex_find(followups, (permission, "")))
+                    recipient = "(?:(?:请问|请|麻烦|问问|想问问|想问|听听|想听|我想问问|我想问|我想听听|那么|那)[ ]*)?" + people
+                    followups = text[len(choice[0]):].replace("，", ",").replace("。", ";").replace("；", ";").replace("？", "?").replace("！", "!")
+                    addressed = False
+                    for fragment in regex_find(followups, ("[^,;?!]+[,;?!]?", "g")) or []:
+                        ending = fragment[-1] if fragment[-1] in ",;?!" else ""
+                        body = (fragment[:-1] if ending else fragment).strip()
+                        named = bool(regex_find(body, ("^" + recipient, "")))
+                        vocative = bool(regex_find(body, ("^" + recipient + "(?:[、和与 ]*" + people + ")*(?:二位|两位|几位)?$", "")))
+                        asking = ending == "?" or any([word in body for word in ["是否", "为什么", "怎么", "如何", "可不可以", "行不行", "能不能", "好不好"]]) or bool(regex_find(body, ("[吗么]$", "")))
+                        if asking and not (named or addressed):
+                            uncertain = True
+                        if vocative and ending == ",":
+                            addressed = True
+                        elif asking or ending in ";?!":
+                            addressed = False
                 if choice and not objection and not uncertain:
                     agreement = text
                 game["agreement"] = agreement

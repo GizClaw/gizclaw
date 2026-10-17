@@ -617,8 +617,8 @@ use 0.2. Journey advances only through a complete affirmative continuation comma
 questions and negations leave the chapter unchanged. Ensemble stories also require
 an explicit current-chapter agreement, renewed after an objection, before advancing.
 A separate clause asking for character reactions preserves a confirmed choice;
-a question in the choice clause, a separate permission request such as “is that
-allowed?”, or an explicit objection cannot confirm one. Werewolf
+a question in the choice clause, an unaddressed follow-up question such as “is
+that allowed?”, or an explicit objection cannot confirm one. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
 skills. Post-game pronoun follow-ups retain the last visible responder unless a
 new recipient is named. Review actors receive all settled public ballots; rule
