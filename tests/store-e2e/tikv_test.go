@@ -84,7 +84,7 @@ func configureTiKVLearner(t *testing.T, address string) map[string]string {
 		}
 		select {
 		case <-ctx.Done():
-			t.Fatal("PD readiness timeout")
+			t.Fatalf("PD readiness timeout: regions=%d stores=%d err=%v", regions.Count, stores.Count, err)
 		case <-ticker.C:
 		}
 	}

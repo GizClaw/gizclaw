@@ -472,6 +472,15 @@ records how many purge rounds verification needed.
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
+
+To run only shared presence against a real TiKV Learner:
+
+```sh
+bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+```
+
+PD verifies the center voter and regional Learner roles before production `peerpresence.ReadBatch` reads five-second historical snapshots. The fixture advances resolved timestamps every second. Ten online Peers sharing one Server and application Region use eleven distinct keys in two successful Learner RPCs. Sixteen callers complete 160 pages. Frozen Raft replication preserves old online/room state until replication resumes. Test-only TCP proxies stall actual TiKV responses to verify a shared two-second page budget and a shorter 75 ms caller deadline. This CI gate covers KV and presence; Redis separately covers real Social RPC/WebRTC/LiveKit. Neither gate establishes WAN performance or production capacity.
+
 Migration tests use a real Redis 8.4.6 primary in the same fixture to verify binary/empty values, absolute TTLs, Sets/zero-score Sorted Sets, paged large collections, interrupted-import recovery, destination write protection, bidirectional verification and the actual CLI across a configuration cutover. Redis is also pinned by digest through gizcr. To run only migration-related tests:
 
 ```sh
@@ -481,7 +490,7 @@ bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migrati
 This mode retains real PD, the center voter and regional Learner. A separate deadline gate directly compares Redis absolute expiration with the stored TiKV deadline rather than inferring TTL preservation from sleep thresholds.
 
 
-This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. Data directories use temporary memory filesystems and expose no host ports. Tests verify placement rules and every Region's leader/Learner identities through PD.
+This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft, with a 128 MiB block cache, so production defaults do not classify small CI filesystems as full. No host ports are exposed. Tests verify placement rules and every Region's leader/Learner identities through PD. Failed CI runs retain startup, cluster, test and topology diagnostics for seven days.
 
 The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Ordinary reads must still return the old assignment, active Peer, and revoked key. Real `peerroute`, Peer deletion-handler, and API key services must use strong reads for first claims, version refreshes, pending-deletion fences, permanent tombstones, revocation, and owner retirement. Successful stale RPCs must reach the regional Learner; strong reads must reach the central leader. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 

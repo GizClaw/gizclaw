@@ -563,6 +563,20 @@ jobs:
           cache: true
       - name: Verify bulk presence reads through a real TiKV Learner
         run: bash tests/store-e2e/run_tikv_tests.sh "${{ runner.temp }}/tikv-presence" --presence-only
+      - name: Retain TiKV presence fixture diagnostics
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: tikv-presence-diagnostics
+          retention-days: 7
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/tikv-presence/cluster.log
+            ${{ runner.temp }}/tikv-presence/startup.log
+            ${{ runner.temp }}/tikv-presence/test.log
+            ${{ runner.temp }}/tikv-presence/final-topology.json
+            ${{ runner.temp }}/tikv-presence/tikv-test.toml
+            ${{ runner.temp }}/tikv-presence/source-revision.txt
 
   redis-presence:
     name: Redis Shared Presence

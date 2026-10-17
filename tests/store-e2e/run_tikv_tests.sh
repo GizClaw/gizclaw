@@ -20,6 +20,7 @@ printf '%s\n' "$project" >"$evidence/project.txt"
 compose_file="$repo_root/tests/store-e2e/docker-compose.tikv.yaml"
 compose() { docker compose -p "$project" -f "$compose_file" "$@"; }
 cleanup() {
+  compose ps -a --format json >"$evidence/final-topology.json" 2>&1 || true
   compose logs --no-color >"$evidence/cluster.log" 2>&1 || true
   compose down --volumes --remove-orphans >"$evidence/cleanup.log" 2>&1
 }
@@ -65,4 +66,5 @@ printf 'exit_code=%s\nevidence=%s\n' "$status" "$evidence"
 cat "$evidence/test.log"
 if [ -f "$evidence/collections.log" ]; then cat "$evidence/collections.log"; fi
 if [ -f "$evidence/migration-deadline.log" ]; then cat "$evidence/migration-deadline.log"; fi
+if [ "$status" -ne 0 ]; then tail -80 "$evidence/cluster.log"; fi
 exit "$status"

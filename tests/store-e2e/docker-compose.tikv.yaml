@@ -11,7 +11,7 @@ services:
   pd:
     image: gizcr.gizclaw.com/docker.io/pingcap/pd:v8.5.6@sha256:c26dbbaaf95f2d5e15402f40f829f8dc26f5b2a39d8d90d74c30a9de7689521b
     command: [--name=pd, --data-dir=/data, --client-urls=http://0.0.0.0:2379, --advertise-client-urls=http://pd:2379, --peer-urls=http://0.0.0.0:2380, --advertise-peer-urls=http://pd:2380, --initial-cluster=pd=http://pd:2380]
-    tmpfs: [/data]
+    tmpfs: ["/data:rw,size=256m"]
     cpus: 1
     mem_limit: 512m
   leader:
@@ -19,7 +19,7 @@ services:
     command: [--config=/etc/tikv/test.toml, --addr=0.0.0.0:20160, --advertise-addr=leader:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=center]
     volumes: ["./tikv-test.toml:/etc/tikv/test.toml:ro"]
     depends_on: [pd]
-    tmpfs: [/data]
+    tmpfs: ["/data:rw,size=1g"]
     cpus: 2
     mem_limit: 2g
   gate:
@@ -34,7 +34,7 @@ services:
     command: [--config=/etc/tikv/test.toml, --addr=0.0.0.0:20160, --advertise-addr=gate:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=local]
     volumes: ["./tikv-test.toml:/etc/tikv/test.toml:ro"]
     depends_on: [pd, gate]
-    tmpfs: [/data]
+    tmpfs: ["/data:rw,size=1g"]
     cpus: 2
     mem_limit: 2g
   tests:
