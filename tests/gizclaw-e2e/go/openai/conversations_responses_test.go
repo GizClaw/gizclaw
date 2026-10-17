@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -90,6 +91,13 @@ func TestOpenAIConversationsResponsesTextAndAudioComposition(t *testing.T) {
 	var foreign e2eConversation
 	if err := env.other.Get(env.ctx, "conversations/"+conversation.ID, nil, &foreign); err == nil {
 		t.Fatalf("foreign Peer read Conversation %q", conversation.ID)
+	}
+	var foreignResponse e2eResponse
+	err = env.other.Post(env.ctx, "responses", map[string]any{
+		"conversation": conversation.ID, "model": "shared", "input": "unauthorized turn",
+	}, &foreignResponse)
+	if apiErr, ok := errors.AsType[*openai.Error](err); !ok || apiErr.StatusCode != http.StatusNotFound {
+		t.Fatalf("foreign Peer Response: want 404, got response=%#v err=%v", foreignResponse, err)
 	}
 	workspaceName := conversation.ID[len("conv_"):]
 	distinctWorkspaceName := distinct.ID[len("conv_"):]
