@@ -88,8 +88,8 @@ github.com/ClickHouse/clickhouse-go/v2 v2.48.0/go.mod h1:lBjUCPRG6RpRQdMbkXq+JV8
 github.com/DataDog/datadog-go v3.2.0+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/GizClaw/dashscope-realtime-go v0.0.0-20260930205933-50d45a88f66e h1:UjguVlr7S17WPnjanEiAsPaRRoa3b+mmA8P6mnTqBkU=
 github.com/GizClaw/dashscope-realtime-go v0.0.0-20260930205933-50d45a88f66e/go.mod h1:9J5t3V2iMH+OZD1kSoJxRQHEaNTU1L2T7KQwCxKjhfE=
-github.com/GizClaw/doubao-speech-go v0.0.0-20261017163029-95c16a049465 h1:60NItA/N58Czod4a0GvmXVuWFc1LTVOJSzbMs3yw4FA=
-github.com/GizClaw/doubao-speech-go v0.0.0-20261017163029-95c16a049465/go.mod h1:4R3wUAZkYk1BSgzv+QVF+2SZPu3VDy8NvaQdNRYGgBs=
+github.com/GizClaw/doubao-speech-go v0.0.0-20261017164041-5f118f425696 h1:JjEvv97lV+xXbwwgosID1UGCPl1nXB5RJVD+S73VHOg=
+github.com/GizClaw/doubao-speech-go v0.0.0-20261017164041-5f118f425696/go.mod h1:4R3wUAZkYk1BSgzv+QVF+2SZPu3VDy8NvaQdNRYGgBs=
 github.com/GizClaw/minimax-go v0.0.0-20261015022517-d0792c7b8772 h1:QJd8CXiAvFYcWa/xBJBMoSyOpjmX3CAKRL/AYaZtoBs=
 github.com/GizClaw/minimax-go v0.0.0-20261015022517-d0792c7b8772/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
 github.com/GizClaw/pion-sctp v0.0.0-20260930221805-07dcddc21e92 h1:gFfFVkJV9hBb3IMvV//rVHDMst7rUqSe0quCFDoatf4=
