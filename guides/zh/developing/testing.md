@@ -778,7 +778,7 @@ Server apply 可能静默忽略 Schema 未声明的字段，因此 reset 成功�
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social 和 Workflow 行为。
-- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
+- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。 根 help 校验完整的产品命令清单。`history-migrate` 与 `kv-migrate` 分别由已有的 `cmd/internal/commands/historymigrate/command_test.go` 与 `cmd/internal/commands/kvmigrate/command_test.go` 拥有验证；其他命令组沿用各自的 E2E story owner。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 - `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
 

@@ -788,7 +788,7 @@ values for `${...}` references.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, and Workflow behavior.
-- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
+- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients. Root help checks the complete product-command inventory. The maintenance commands `history-migrate` and `kv-migrate` route to their existing `cmd/internal/commands/historymigrate/command_test.go` and `cmd/internal/commands/kvmigrate/command_test.go` owners; other command groups retain their E2E story owners.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 - `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.
 
