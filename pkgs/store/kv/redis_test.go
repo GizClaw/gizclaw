@@ -34,54 +34,80 @@ func TestRedisCanceledContextRetainsIdentity(t *testing.T) {
 	}
 }
 
-type batchPipelineHook struct{ sizes []int }
-
-func (h *batchPipelineHook) DialHook(next redis.DialHook) redis.DialHook { return next }
-func (h *batchPipelineHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
-	return next
+type mgetReadHook struct {
+	sizes  []int
+	values []any
 }
-func (h *batchPipelineHook) ProcessPipelineHook(redis.ProcessPipelineHook) redis.ProcessPipelineHook {
-	return func(_ context.Context, commands []redis.Cmder) error {
-		h.sizes = append(h.sizes, len(commands))
-		for _, command := range commands {
-			command.(*redis.StringCmd).SetVal("value")
+
+func (h *mgetReadHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+func (h *mgetReadHook) ProcessHook(redis.ProcessHook) redis.ProcessHook {
+	return func(_ context.Context, command redis.Cmder) error {
+		if command.Name() != "mget" {
+			return errors.New("expected native MGET")
 		}
+		h.sizes = append(h.sizes, len(command.Args())-1)
+		command.(*redis.SliceCmd).SetVal(h.values)
 		return nil
 	}
 }
+func (h *mgetReadHook) ProcessPipelineHook(redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return func(context.Context, []redis.Cmder) error {
+		return errors.New("MGET must not use a GET pipeline")
+	}
+}
 
-func TestRedisBatchGetUsesOnePipeline(t *testing.T) {
+func TestRedisBatchGetUsesMGET(t *testing.T) {
 	client := redis.NewClient(&redis.Options{Addr: "reader.invalid:6379"})
 	t.Cleanup(func() { _ = client.Close() })
-	hook := &batchPipelineHook{}
+	hook := &mgetReadHook{values: []any{"value", nil, "", "value", nil, "\x00\xff", "a", "b", "c", "d"}}
 	client.AddHook(hook)
 	store, err := NewRedisWithClient(client, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	keys := make([]Key, 10)
-	for i := range keys {
-		keys[i] = Key{"peer"}
-	}
-	results := BatchGet(t.Context(), Prefixed(store, Key{"tenant"}), keys)
+	keys := []Key{{"record"}, {"missing"}, {"empty"}, {"record"}, {"set"}, {"binary"}, {"a"}, {"b"}, {"c"}, {"d"}}
+	results := Prefixed(store, Key{"tenant"}).BatchGet(t.Context(), keys)
 	if len(hook.sizes) != 1 || hook.sizes[0] != len(keys) || len(results) != len(keys) {
-		t.Fatalf("batch of ten keys was split: pipeline sizes=%v, results=%d", hook.sizes, len(results))
+		t.Fatalf("batch of ten keys was split: MGET sizes=%v, results=%d", hook.sizes, len(results))
 	}
-	for _, result := range results {
-		if result.Err != nil || string(result.Value) != "value" {
+	for i, result := range results {
+		if hook.values[i] == nil {
+			if !errors.Is(result.Err, ErrNotFound) {
+				t.Fatalf("missing/non-string result = %+v", result)
+			}
+		} else if result.Err != nil || string(result.Value) != hook.values[i].(string) {
 			t.Fatalf("batch result = %+v", result)
 		}
 	}
-	BatchGet(t.Context(), store, nil)
+	results[0].Value[0] = 'X'
+	if string(results[3].Value) != "value" {
+		t.Fatal("duplicate MGET results share mutable bytes")
+	}
+	store.BatchGet(t.Context(), nil)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	for _, result := range BatchGet(ctx, store, keys) {
+	for _, result := range store.BatchGet(ctx, keys) {
 		if !errors.Is(result.Err, context.Canceled) {
 			t.Fatalf("canceled batch result = %+v", result)
 		}
 	}
 	if len(hook.sizes) != 1 {
-		t.Fatalf("empty or canceled batch issued another pipeline: %v", hook.sizes)
+		t.Fatalf("empty or canceled batch issued another MGET: %v", hook.sizes)
+	}
+}
+
+func TestRedisBatchGetRejectsMalformedReply(t *testing.T) {
+	for _, values := range [][]any{{}, {int64(1)}} {
+		client := redis.NewClient(&redis.Options{Addr: "reader.invalid:6379"})
+		t.Cleanup(func() { _ = client.Close() })
+		client.AddHook(&mgetReadHook{values: values})
+		store, err := NewRedisWithClient(client, nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if result := store.BatchGet(t.Context(), []Key{{"key"}})[0]; result.Err == nil || errors.Is(result.Err, ErrNotFound) {
+			t.Fatalf("malformed MGET reply = %+v", result)
+		}
 	}
 }
 

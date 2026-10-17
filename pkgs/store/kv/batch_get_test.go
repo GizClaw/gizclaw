@@ -33,9 +33,12 @@ func TestBatchGetContract(t *testing.T) {
 				t.Fatal(err)
 			}
 			keys := []Key{{"record"}, {"missing"}, {"empty"}, {"record"}, {"set"}}
-			results := BatchGet(t.Context(), store, keys)
-			if len(results) != len(keys) || string(results[0].Value) != "value" || results[0].Err != nil || !errors.Is(results[1].Err, ErrNotFound) || results[2].Err != nil || len(results[2].Value) != 0 || string(results[3].Value) != "value" || !errors.Is(results[4].Err, ErrWrongType) {
+			results := store.BatchGet(t.Context(), keys)
+			if len(results) != len(keys) || string(results[0].Value) != "value" || results[0].Err != nil || !errors.Is(results[1].Err, ErrNotFound) || results[2].Err != nil || len(results[2].Value) != 0 || string(results[3].Value) != "value" || !errors.Is(results[4].Err, ErrNotFound) {
 				t.Fatalf("mixed batch = %+v", results)
+			}
+			if _, err := store.Get(t.Context(), Key{"set"}); !errors.Is(err, ErrWrongType) {
+				t.Fatalf("single Get must retain its type error: %v", err)
 			}
 			results[0].Value[0] = 'X'
 			if string(results[3].Value) != "value" {
@@ -45,7 +48,7 @@ func TestBatchGetContract(t *testing.T) {
 			if err != nil || string(value) != "value" {
 				t.Fatalf("result mutation changed stored value: %q, %v", value, err)
 			}
-			if results := BatchGet(t.Context(), store, nil); len(results) != 0 {
+			if results := store.BatchGet(t.Context(), nil); len(results) != 0 {
 				t.Fatalf("empty batch = %+v", results)
 			}
 		})
@@ -67,7 +70,7 @@ func TestBatchGetPreservesPrefixAndConsistency(t *testing.T) {
 	probe := &batchReadProbe{Store: NewMemory(nil)}
 	store := Prefixed(WithStrongReads(Prefixed(probe, Key{"outer"})), Key{"inner"})
 	key := Key{"record"}
-	BatchGet(t.Context(), store, []Key{key})
+	store.BatchGet(t.Context(), []Key{key})
 	if !probe.strong || len(probe.keys) != 1 || !slices.Equal(probe.keys[0], Key{"outer", "inner", "record"}) || !slices.Equal(key, Key{"record"}) {
 		t.Fatalf("batch view lost scope or consistency: %+v, strong=%v, key=%v", probe.keys, probe.strong, key)
 	}
@@ -80,7 +83,11 @@ type batchGetFunc struct {
 
 func (s batchGetFunc) Get(ctx context.Context, key Key) ([]byte, error) { return s.get(ctx, key) }
 
-func TestBatchGetFallbackBoundsReadsAndCancellation(t *testing.T) {
+func (s batchGetFunc) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	return batchGet(ctx, keys, s.Get)
+}
+
+func TestPointReadBatchBoundsReadsAndCancellation(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		var calls atomic.Int32
 		ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
@@ -91,7 +98,7 @@ func TestBatchGetFallbackBoundsReadsAndCancellation(t *testing.T) {
 			return nil, ctx.Err()
 		}}
 		started := time.Now()
-		results := BatchGet(ctx, store, make([]Key, 10))
+		results := store.BatchGet(ctx, make([]Key, 10))
 		if time.Since(started) != 50*time.Millisecond || calls.Load() != batchGetConcurrency {
 			t.Fatalf("elapsed=%s provider calls=%d", time.Since(started), calls.Load())
 		}
@@ -110,7 +117,7 @@ func TestBatchGetExpiredRecord(t *testing.T) {
 			t.Fatal(err)
 		}
 		time.Sleep(time.Second)
-		if result := BatchGet(t.Context(), store, []Key{{"expired"}})[0]; !errors.Is(result.Err, ErrNotFound) {
+		if result := store.BatchGet(t.Context(), []Key{{"expired"}})[0]; !errors.Is(result.Err, ErrNotFound) {
 			t.Fatalf("expired result = %+v", result)
 		}
 	})

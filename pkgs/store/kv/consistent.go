@@ -65,7 +65,7 @@ func (s *strongReadStore) Get(ctx context.Context, key Key) ([]byte, error) {
 }
 
 func (s *strongReadStore) BatchGet(ctx context.Context, keys []Key) []GetResult {
-	return BatchGet(strongReadContext(ctx), s.Store, keys)
+	return s.Store.BatchGet(strongReadContext(ctx), keys)
 }
 
 func (s *strongReadStore) HasMember(ctx context.Context, key Key, member string) (bool, error) {

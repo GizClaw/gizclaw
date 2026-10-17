@@ -10,7 +10,7 @@
 | --- | --- |
 | `Key` / `Entry` | 表达分段 key 与读取结果。 |
 | `Store` | 定义精确 CRUD、集合操作与原子 mutation contract。 |
-| `BatchGetter` / `BatchGet` / `GetResult` | 可选批量点查能力，以及最多八路并发的单键兼容路径；逐 key 返回值或错误。 |
+| `Store.BatchGet` / `GetResult` | 所有 backend 必须实现的批量 byte record 点查；逐 key 返回值或错误。 |
 | `Options` | 配置 key separator 等 store 行为。 |
 | `Memory` / `NewMemory` | 进程内 ordered store。 |
 | `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
@@ -28,11 +28,11 @@
 
 ## 批量点查
 
-调用方通过 `kv.BatchGet(ctx, store, keys)` 读取一组明确的 key，不枚举数据库。返回的 `GetResult` 与输入逐项对应，保留顺序、重复 key、空 byte value、`ErrNotFound` 和 `ErrWrongType`；成功值的内存互相独立。单个 key 失败不会覆盖其他成功结果。`Prefixed` 和 `WithStrongReads` 保留批量能力、namespace 与读取 authority。
+调用方通过 `store.BatchGet(ctx, keys)` 读取一组明确的 byte record key，不枚举数据库。返回的 `GetResult` 与输入逐项对应，保留顺序、重复 key 和空 byte value；成功值的内存互相独立。缺失、过期或指向集合的 key 均返回 `ErrNotFound`，其他读取与解码错误逐项返回。单键 `Get` 遇到集合 key 仍返回 `ErrWrongType`。`Prefixed` 和 `WithStrongReads` 直接转发批量读取，保留 namespace 与读取 authority。
 
-`BatchGetter` 是可选能力，不增加 `Store` 必须实现的方法。TiKV 为每次批量调用获取一次时间戳并创建一个快照，将全部 key 一次交给 SDK `BatchGet`，由 SDK 按 Region 和请求大小拆分并行读取。Redis 在选定读连接上将全部 `GET` 放进同一个 pipeline，保留集合 key 的 wrong-type 错误。最多八路并发只用于未实现批量能力的 backend：兼容路径并发调用其 `Get`，不新建连接。
+`BatchGet` 是 `Store` 的必需方法。TiKV 为每次批量调用获取一次时间戳并创建一个快照，将全部 key 一次交给 SDK `BatchGet`，由 SDK 按 Region 和请求大小拆分并行读取。Redis 在选定读连接上发出一条原生 `MGET`，非 string key 与不存在的 key 都作为 `ErrNotFound` 返回。Memory、Badger 和 SQL 实现在 backend 内最多八路并发调用各自的单键读取，不新建连接；调用层不再探测可选批量接口。
 
-原生批量与兼容读取都继承 caller context，不为内部请求重置超时；兼容路径取消后不再启动排队 key 的存储读取。TiKV SDK 整批失败时，该次调用的所有 key 都返回错误。批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
+所有实现都继承 caller context，不为内部请求重置超时；backend 的有界单键读取在取消后不再启动排队 key 的存储读取。TiKV SDK 或 Redis `MGET` 整批失败时，该次调用的所有 key 都返回错误。Redis `MGET` 是单命令原子读取，TiKV 使用单次历史或强读快照；批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
 
 ## Server 组合
 

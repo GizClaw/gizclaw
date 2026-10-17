@@ -19,7 +19,7 @@ type batchReadStore struct {
 
 func (s *batchReadStore) BatchGet(ctx context.Context, keys []kv.Key) []kv.GetResult {
 	s.batches = append(s.batches, keys)
-	return kv.BatchGet(ctx, s.Store, keys)
+	return s.Store.BatchGet(ctx, keys)
 }
 
 func TestReadBatchDeduplicatesLeasesAndIsolatesErrors(t *testing.T) {

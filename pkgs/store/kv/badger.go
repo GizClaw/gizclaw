@@ -108,6 +108,11 @@ func (b *Badger) Get(ctx context.Context, key Key) ([]byte, error) {
 	return val, err
 }
 
+// BatchGet reads byte records with bounded concurrency under ctx.
+func (b *Badger) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	return batchGet(ctx, keys, b.Get)
+}
+
 func (b *Badger) Set(ctx context.Context, key Key, value []byte) error {
 	release, err := b.acquire()
 	if err != nil {

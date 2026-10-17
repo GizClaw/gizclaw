@@ -248,7 +248,7 @@ func (s *Service) ReadBatch(ctx context.Context, peers []giznet.PublicKey) []Rea
 	records := make([]record, len(peers))
 	leaseIndices := make(map[string]int)
 	var leaseKeys []kv.Key
-	for i, value := range kv.BatchGet(ctx, s.store, keys) {
+	for i, value := range s.store.BatchGet(ctx, keys) {
 		if errors.Is(value.Err, kv.ErrNotFound) {
 			continue
 		}
@@ -274,7 +274,7 @@ func (s *Service) ReadBatch(ctx context.Context, peers []giznet.PublicKey) []Rea
 		}
 		results[i].Snapshot = record.Snapshot
 	}
-	values := kv.BatchGet(ctx, s.store, leaseKeys)
+	values := s.store.BatchGet(ctx, leaseKeys)
 	leases := make([]lease, len(values))
 	for i := range values {
 		if values[i].Err == nil {

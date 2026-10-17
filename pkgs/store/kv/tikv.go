@@ -224,7 +224,7 @@ func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
 		if err != nil {
 			result.Err = err
 		} else if value.kind != 0 {
-			result.Err = ErrWrongType
+			result.Err = ErrNotFound
 		} else {
 			result.Value = bytes.Clone(value.payload)
 		}

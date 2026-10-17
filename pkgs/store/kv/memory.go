@@ -59,6 +59,11 @@ func (m *Memory) Get(ctx context.Context, key Key) ([]byte, error) {
 	return cp, nil
 }
 
+// BatchGet reads byte records with bounded concurrency under ctx.
+func (m *Memory) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	return batchGet(ctx, keys, m.Get)
+}
+
 func (m *Memory) Set(ctx context.Context, key Key, value []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err

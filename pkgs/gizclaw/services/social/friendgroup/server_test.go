@@ -1393,6 +1393,10 @@ func (s storeWithoutCreateIfAbsent) Get(ctx context.Context, key kv.Key) ([]byte
 	return s.store.Get(ctx, key)
 }
 
+func (s storeWithoutCreateIfAbsent) BatchGet(ctx context.Context, keys []kv.Key) []kv.GetResult {
+	return s.store.BatchGet(ctx, keys)
+}
+
 func (s storeWithoutCreateIfAbsent) Set(ctx context.Context, key kv.Key, value []byte) error {
 	return s.store.Set(ctx, key, value)
 }

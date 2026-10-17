@@ -265,8 +265,8 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 		if err := store.AddMembers(ctx, kv.Key{"set"}, "member"); err != nil {
 			t.Fatal(err)
 		}
-		results := kv.BatchGet(kv.WithPrimaryReads(ctx), store, []kv.Key{{"value"}, {"missing"}, {"value"}, {"empty"}, {"set"}})
-		if string(results[0].Value) != "value" || results[0].Err != nil || !errors.Is(results[1].Err, kv.ErrNotFound) || string(results[2].Value) != "value" || results[3].Err != nil || len(results[3].Value) != 0 || !errors.Is(results[4].Err, kv.ErrWrongType) {
+		results := store.BatchGet(kv.WithPrimaryReads(ctx), []kv.Key{{"value"}, {"missing"}, {"value"}, {"empty"}, {"set"}})
+		if string(results[0].Value) != "value" || results[0].Err != nil || !errors.Is(results[1].Err, kv.ErrNotFound) || string(results[2].Value) != "value" || results[3].Err != nil || len(results[3].Value) != 0 || !errors.Is(results[4].Err, kv.ErrNotFound) {
 			t.Fatalf("TiKV mixed batch = %+v", results)
 		}
 		results[0].Value[0] = 'X'

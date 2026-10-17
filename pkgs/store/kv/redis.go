@@ -65,9 +65,8 @@ func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
 	return value, nil
 }
 
-// BatchGet pipelines ordinary GET commands on the selected reader. Unlike
-// MGET, GET retains ErrWrongType for collection keys. One pipeline reads the
-// whole batch and never falls back to the writer on reader errors.
+// BatchGet uses one MGET on the selected reader. Missing and non-string keys
+// report ErrNotFound; reader errors never fall back to the writer.
 func (r *Redis) BatchGet(ctx context.Context, keys []Key) []GetResult {
 	results := make([]GetResult, len(keys))
 	if len(keys) == 0 {
@@ -79,22 +78,27 @@ func (r *Redis) BatchGet(ctx context.Context, keys []Key) []GetResult {
 		}
 		return results
 	}
-	pipe := r.readClient(ctx).Pipeline()
-	commands := make([]*redis.StringCmd, len(keys))
+	encoded := make([]string, len(keys))
 	for i, key := range keys {
-		commands[i] = pipe.Get(ctx, string(r.opts.encode(key)))
+		encoded[i] = string(r.opts.encode(key))
 	}
-	_, _ = pipe.Exec(ctx) // Each command retains its own value or error.
-	for i, command := range commands {
+	values, err := r.readClient(ctx).MGet(ctx, encoded...).Result()
+	if err == nil && len(values) != len(keys) {
+		err = errors.New("invalid MGET response length")
+	}
+	for i := range keys {
 		result := &results[i]
-		result.Value, result.Err = command.Bytes()
-		switch {
-		case errors.Is(result.Err, redis.Nil):
+		if err != nil {
+			result.Err = redisOperationError("batch get", err)
+			continue
+		}
+		switch value := values[i].(type) {
+		case nil:
 			result.Err = ErrNotFound
-		case result.Err != nil && strings.HasPrefix(result.Err.Error(), "WRONGTYPE"):
-			result.Err = ErrWrongType
-		case result.Err != nil:
-			result.Err = redisOperationError("batch get", result.Err)
+		case string:
+			result.Value = []byte(value)
+		default:
+			result.Err = redisOperationError("batch get", errors.New("invalid MGET response type"))
 		}
 	}
 	return results
