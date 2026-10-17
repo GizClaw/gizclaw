@@ -89,9 +89,11 @@ func (s *PeerService) edgeHTTPHandlerForPeer(apiKeys *apikey.Server, peerPublicK
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle("/webrtc/v1/offer", publicHandler)
 	mux.Handle("/gizclaw/v1/", publicHandler)
-	if s.infraFlowHandler != nil {
-		mux.Handle(infraflow.Path, s.infraFlowHandler)
+	infraFlowHandler := s.infraFlowHandler
+	if infraFlowHandler == nil {
+		infraFlowHandler = infraflow.Handler(infraflow.Config{}, nil, nil)
 	}
+	mux.Handle(infraflow.Path, infraFlowHandler)
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(apiKeys))
 	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode), trustedEdge: peerPublicKey != ""})
 }

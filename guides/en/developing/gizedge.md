@@ -708,4 +708,4 @@ for the contract, authorization and cancellation boundaries.
 
 ### Infrastructure aggregate reads
 
-`/gizclaw/v1/infra/flows` reads shared KV activity frames through a configured upstream. Server verifies its independent read token. Only this exact path bypasses device API-key owner lookup; adjacent routes retain their existing authorization. Read limits and Server configuration are documented in [Infrastructure Flow Feed](infra-flow).
+`/gizclaw/v1/infra/flows` is an exact public read-only route for shared KV infrastructure aggregates through a configured upstream. It needs no token or device API-key/owner lookup. Server and Edge preserve cross-origin GET/OPTIONS, 405 and no-store; adjacent routes retain existing authorization. Read limits, configuration and deployment acceptance are documented in [Infrastructure Flow Feed](infra-flow).

@@ -19,10 +19,6 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
-const (
-	FlowReadTokenScopes flowReadTokenContextKey = "FlowReadToken.Scopes"
-)
-
 // Defines values for Environment.
 const (
 	Dev   Environment = "dev"
@@ -52,7 +48,6 @@ const (
 	FLOWFEEDDISABLED    ErrorError = "FLOW_FEED_DISABLED"
 	FLOWFEEDUNAVAILABLE ErrorError = "FLOW_FEED_UNAVAILABLE"
 	INVALIDFLOWQUERY    ErrorError = "INVALID_FLOW_QUERY"
-	INVALIDFLOWTOKEN    ErrorError = "INVALID_FLOW_TOKEN"
 )
 
 // Valid indicates whether the value is a known member of the ErrorError enum.
@@ -63,8 +58,6 @@ func (e ErrorError) Valid() bool {
 	case FLOWFEEDUNAVAILABLE:
 		return true
 	case INVALIDFLOWQUERY:
-		return true
-	case INVALIDFLOWTOKEN:
 		return true
 	default:
 		return false
@@ -147,9 +140,6 @@ type Page struct {
 	ServerTime int64   `json:"server_time"`
 }
 
-// flowReadTokenContextKey is the context key for FlowReadToken security scheme
-type flowReadTokenContextKey string
-
 // ReadInfraFlowsParams defines parameters for ReadInfraFlows.
 type ReadInfraFlowsParams struct {
 	Environment Environment `form:"environment" json:"environment"`
@@ -231,10 +221,25 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 type ClientInterface interface {
 	// ReadInfraFlows request
 	ReadInfraFlows(ctx context.Context, params *ReadInfraFlowsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PreflightInfraFlows request
+	PreflightInfraFlows(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
 func (c *Client) ReadInfraFlows(ctx context.Context, params *ReadInfraFlowsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReadInfraFlowsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) PreflightInfraFlows(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPreflightInfraFlowsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -307,6 +312,33 @@ func NewReadInfraFlowsRequest(server string, params *ReadInfraFlowsParams) (*htt
 	return req, nil
 }
 
+// NewPreflightInfraFlowsRequest generates requests for PreflightInfraFlows
+func NewPreflightInfraFlowsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/gizclaw/v1/infra/flows")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest(http.MethodOptions, queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 func (c *Client) applyEditors(ctx context.Context, req *http.Request, additionalEditors []RequestEditorFn) error {
 	for _, r := range c.RequestEditors {
 		if err := r(ctx, req); err != nil {
@@ -352,6 +384,9 @@ func WithBaseURL(baseURL string) ClientOption {
 type ClientWithResponsesInterface interface {
 	// ReadInfraFlowsWithResponse request
 	ReadInfraFlowsWithResponse(ctx context.Context, params *ReadInfraFlowsParams, reqEditors ...RequestEditorFn) (*ReadInfraFlowsResponse, error)
+
+	// PreflightInfraFlowsWithResponse request
+	PreflightInfraFlowsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreflightInfraFlowsResponse, error)
 }
 
 type ReadInfraFlowsResponse struct {
@@ -359,7 +394,6 @@ type ReadInfraFlowsResponse struct {
 	HTTPResponse *http.Response
 	JSON200      *Page
 	JSON400      *Error
-	JSON401      *Error
 	JSON503      *Error
 }
 
@@ -387,6 +421,35 @@ func (r ReadInfraFlowsResponse) ContentType() string {
 	return ""
 }
 
+type PreflightInfraFlowsResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+}
+
+// Status returns HTTPResponse.Status
+func (r PreflightInfraFlowsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PreflightInfraFlowsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+// ContentType is a convenience method to retrieve the Content-Type value from the HTTP response headers
+func (r PreflightInfraFlowsResponse) ContentType() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Header.Get("Content-Type")
+	}
+	return ""
+}
+
 // ReadInfraFlowsWithResponse request returning *ReadInfraFlowsResponse
 func (c *ClientWithResponses) ReadInfraFlowsWithResponse(ctx context.Context, params *ReadInfraFlowsParams, reqEditors ...RequestEditorFn) (*ReadInfraFlowsResponse, error) {
 	rsp, err := c.ReadInfraFlows(ctx, params, reqEditors...)
@@ -394,6 +457,15 @@ func (c *ClientWithResponses) ReadInfraFlowsWithResponse(ctx context.Context, pa
 		return nil, err
 	}
 	return ParseReadInfraFlowsResponse(rsp)
+}
+
+// PreflightInfraFlowsWithResponse request returning *PreflightInfraFlowsResponse
+func (c *ClientWithResponses) PreflightInfraFlowsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*PreflightInfraFlowsResponse, error) {
+	rsp, err := c.PreflightInfraFlows(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePreflightInfraFlowsResponse(rsp)
 }
 
 // ParseReadInfraFlowsResponse parses an HTTP response from a ReadInfraFlowsWithResponse call
@@ -424,13 +496,6 @@ func ParseReadInfraFlowsResponse(rsp *http.Response) (*ReadInfraFlowsResponse, e
 		}
 		response.JSON400 = &dest
 
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 401:
-		var dest Error
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON401 = &dest
-
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 503:
 		var dest Error
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -443,11 +508,30 @@ func ParseReadInfraFlowsResponse(rsp *http.Response) (*ReadInfraFlowsResponse, e
 	return response, nil
 }
 
+// ParsePreflightInfraFlowsResponse parses an HTTP response from a PreflightInfraFlowsWithResponse call
+func ParsePreflightInfraFlowsResponse(rsp *http.Response) (*PreflightInfraFlowsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PreflightInfraFlowsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	return response, nil
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
 	// (GET /gizclaw/v1/infra/flows)
 	ReadInfraFlows(w http.ResponseWriter, r *http.Request, params ReadInfraFlowsParams)
+
+	// (OPTIONS /gizclaw/v1/infra/flows)
+	PreflightInfraFlows(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -464,12 +548,6 @@ func (siw *ServerInterfaceWrapper) ReadInfraFlows(w http.ResponseWriter, r *http
 
 	var err error
 	_ = err
-
-	ctx := r.Context()
-
-	ctx = context.WithValue(ctx, FlowReadTokenScopes, []string{})
-
-	r = r.WithContext(ctx)
 
 	// Parameter object where we will unmarshal all parameters from the context
 	var params ReadInfraFlowsParams
@@ -502,6 +580,20 @@ func (siw *ServerInterfaceWrapper) ReadInfraFlows(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ReadInfraFlows(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PreflightInfraFlows operation middleware
+func (siw *ServerInterfaceWrapper) PreflightInfraFlows(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PreflightInfraFlows(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -632,6 +724,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	}
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/gizclaw/v1/infra/flows", wrapper.ReadInfraFlows)
+	m.HandleFunc(http.MethodOptions+" "+options.BaseURL+"/gizclaw/v1/infra/flows", wrapper.PreflightInfraFlows)
 
 	return m
 }
@@ -672,20 +765,6 @@ func (response ReadInfraFlows400JSONResponse) VisitReadInfraFlowsResponse(w http
 	return err
 }
 
-type ReadInfraFlows401JSONResponse Error
-
-func (response ReadInfraFlows401JSONResponse) VisitReadInfraFlowsResponse(w http.ResponseWriter) error {
-
-	var buf bytes.Buffer
-	if err := json.NewEncoder(&buf).Encode(response); err != nil {
-		return err
-	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(401)
-	_, err := buf.WriteTo(w)
-	return err
-}
-
 type ReadInfraFlows405Response struct {
 }
 
@@ -708,11 +787,29 @@ func (response ReadInfraFlows503JSONResponse) VisitReadInfraFlowsResponse(w http
 	return err
 }
 
+type PreflightInfraFlowsRequestObject struct {
+}
+
+type PreflightInfraFlowsResponseObject interface {
+	VisitPreflightInfraFlowsResponse(w http.ResponseWriter) error
+}
+
+type PreflightInfraFlows204Response struct {
+}
+
+func (response PreflightInfraFlows204Response) VisitPreflightInfraFlowsResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
 	// (GET /gizclaw/v1/infra/flows)
 	ReadInfraFlows(ctx context.Context, request ReadInfraFlowsRequestObject) (ReadInfraFlowsResponseObject, error)
+
+	// (OPTIONS /gizclaw/v1/infra/flows)
+	PreflightInfraFlows(ctx context.Context, request PreflightInfraFlowsRequestObject) (PreflightInfraFlowsResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -763,6 +860,30 @@ func (sh *strictHandler) ReadInfraFlows(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ReadInfraFlowsResponseObject); ok {
 		if err := validResponse.VisitReadInfraFlowsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PreflightInfraFlows operation middleware
+func (sh *strictHandler) PreflightInfraFlows(w http.ResponseWriter, r *http.Request) {
+	var request PreflightInfraFlowsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PreflightInfraFlows(ctx, request.(PreflightInfraFlowsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PreflightInfraFlows")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PreflightInfraFlowsResponseObject); ok {
+		if err := validResponse.VisitPreflightInfraFlowsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

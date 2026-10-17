@@ -23,8 +23,9 @@ API source 是 `api/http/infra.json`，生成的 strict Go server/client/model �
 
 ## AP 读取接口
 
-`GET /gizclaw/v1/infra/flows?environment=prod&cursor=<上次游标>` 使用独立的
-`Authorization: Bearer gizclaw_mk_...` 读取凭据。设备 API Key 和设备公钥不授予读取权限。
+`GET /gizclaw/v1/infra/flows?environment=prod&cursor=<上次游标>` 是公开只读接口，浏览器可直接匿名读取。
+不需要 Authorization、token 或 owner 身份；即使携带旧凭据，也不会查询设备 Key 或归属。
+公开内容只有基础设施有向链路的窗口汇总，不含用户、设备、Peer、会话或原始事件记录。
 环境只能是 `dev|e2e|prod|trial`，不接受任意查询、用户过滤或可变 limit。
 
 首次连接只返回最新帧；连续游标最多补读三帧。未来、过期或不连续的游标返回 `reset: true` 和最新帧，
@@ -32,21 +33,47 @@ API source 是 `api/http/infra.json`，生成的 strict Go server/client/model �
 每次填充最多四次精确 KV Get；可重试的读取错误也短暂缓存，避免故障时重复读取。
 调用方的取消和 deadline 错误不进入共享缓存，健康的等待者可以立即重新加载。
 
-Server 显式配置逻辑 KV Store 与读取凭据后安装此 handler：
+Server 显式配置逻辑 KV Store 后启用读取：
 
 ```yaml
 infra_flow:
   store: infra-windows
-  read_token: ${GIZCLAW_INFRA_FLOW_READ_TOKEN}
 ```
 
 `infra-windows` 必须是 `stores` 中已配置的 `kind: keyvalue`，建议使用独立 prefix。空配置关闭接口，
-不会建立隐式内存 Store。Server 普通 HTTP 与可信 Edge HTTP 都挂载这个独立认证的精确路径；
-其他客户端路径继续走既有权限规则。Edge 将它路由到可达的配置 upstream，由 Server 验证读取 token，
-不执行设备 API-key owner 查询。所有 Server 应读取同一环境的共享 KV；AP DNS 选择哪个区域不影响游标。
+不会建立隐式内存 Store。为兼容旧配置，`read_token` 字段仍可解析，但其值完全忽略；缺失、空值、
+旧值或未设置的环境变量都不影响启用。仅配置旧 token 而不配置 Store 时仍关闭接口。
+Server 普通 HTTP 与可信 Edge HTTP 都挂载这个公开的精确路径；Edge 将它路由到可达的配置 upstream，
+不执行设备 API-key 或 owner 查询。相邻路径（包括结尾斜杠）继续走既有权限规则，
+Monitor、设备、Peer 和 Admin 的授权保持独立。所有 Server 应读取同一环境的共享 KV；AP DNS 选择哪个区域不影响游标。
 
-请求仅允许 GET/OPTIONS，成功与失败都为 `no-store`。401 表示 token 无效，400 表示查询非法，
-503 表示未配置或 KV 暂不可用。请求有两秒读取期限，没有公开 HTTP 写入接口。
+请求仅允许 GET/OPTIONS，其他方法返回 405 和 `Allow: GET,OPTIONS`。Server 与 Edge 的成功、错误和预检响应
+都为 `no-store`，允许跨域读取，回显 Origin 并带 `Vary: Origin`；无 Origin 时为 `*`。
+`Access-Control-Allow-Methods` 固定为 `GET,OPTIONS`，允许的请求头为 `Authorization,Content-Type`，不启用浏览器凭证。
+OPTIONS 无需查询参数或可用 KV，返回 204。400 表示查询非法，503 表示未配置或 KV 暂不可用；
+Edge 无法连接 upstream 时沿用代理的 502 `UPSTREAM_ERROR`。请求有两秒读取期限，没有公开 HTTP 写入接口。
+
+各环境 AP 使用同一个路径和对应的 `environment` 查询：
+
+| 环境 | AP |
+| --- | --- |
+| `dev` | `https://ap.dev.gizclaw.com` |
+| `e2e` | `https://ap.e2e.gizclaw.com` |
+| `prod` | `https://ap.gizclaw.com` |
+| `trial` | `https://ap.trial.gizclaw.com` |
+
+例如浏览器直接 GET `https://ap.dev.gizclaw.com/gizclaw/v1/infra/flows?environment=dev`，无需附加凭据。
+AP 是否支持本契约取决于实际部署版本及 KV 配置，代码与本地测试不代表线上验收。
+
+## 发布、部署与验收
+
+现有 AP 生效需要独立发布包含此契约的 GizClaw 二进制与 runtime image，再由 Deploy 使用正式
+Release/Provider snapshot 准备配置和部署计划。确认各环境 Server 的 `infra_flow.store` 指向显式配置的共享 KV，
+并分别升级 Server 与 Edge；发布、Deploy Apply 和流量切换属于独立操作。
+没有生产者时，启用的 feed 返回空帧；真实基础设施活动仍需由明确拥有配置链路计数的聚合任务写入共享 KV。
+
+部署后逐个 AP 匿名验证 GET、跨域 OPTIONS、非法环境/游标、405、no-store 与设备/Monitor/Admin 权限隔离，
+并检查返回帧的 `environment`、游标、时间和 `simulated`，才能确认线上数据覆盖和新鲜度。
 
 ## 本地模拟与消费者
 
@@ -67,13 +94,18 @@ make infra-globe-build
 npm run dev --workspace @gizclaw/infra-globe -- --port 5176 --strictPort
 ```
 
-打开 `http://127.0.0.1:5176/flow-feed.html`。该页通过本地代理读取真实 Go AP 接口；
-token 仅用于当前进程的模拟数据。SDK 根据聚合帧计算窗口速率和加权平均耗时，每帧最多抽取 16 个
+打开 `http://127.0.0.1:5176/flow-feed.html`。本地 Go 示例也可直接匿名读取：
+
+```sh
+curl 'http://127.0.0.1:9819/gizclaw/v1/infra/flows?environment=prod'
+```
+
+`/demo/config` 返回拓扑、路径与显式模拟标记，不包含 token。SDK 根据聚合帧计算窗口速率和加权平均耗时，每帧最多抽取 16 个
 动画光点，活动光点总数不超过 24，绘制最多 30 FPS，空闲停止。暂停或隐藏页面取消读取与动画。
 光点表示聚合活动，不对应单个请求，P50/P95/P99 也不从这些代表光点计算。
 
 验证包含 KV 槽位与编码大小边界、百万倍计数、CAS 冲突、环境隔离、游标补读、缓存、
-generated client、独立鉴权，以及 Edge 路由不会触发设备归属查询。
+generated client 匿名 GET/OPTIONS、配置兼容、读取期限，以及 Server/Edge 权限隔离和无需设备归属查询的路由。
 
 ```sh
 go test -race ./pkgs/infraflow/... -count=3

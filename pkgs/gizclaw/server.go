@@ -86,7 +86,7 @@ type Server struct {
 	FriendStore            kv.Store
 	FriendGroupStore       kv.Store
 	WorkspaceAssets        objectstore.ObjectStore
-	// InfraFlowHandler serves the independently authenticated, shared KV activity feed.
+	// InfraFlowHandler serves the public read-only, shared KV activity feed.
 	InfraFlowHandler      http.Handler
 	MetricsStore          metrics.Store
 	PendingDeletionConfig pendingdeletion.Config
@@ -786,9 +786,11 @@ func (s *Server) init() error {
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
 	mux.Handle("/gizclaw/v1/", publicHandler)
-	if s.InfraFlowHandler != nil {
-		mux.Handle(infraflow.Path, s.InfraFlowHandler)
+	infraFlowHandler := s.InfraFlowHandler
+	if infraFlowHandler == nil {
+		infraFlowHandler = infraflow.Handler(infraflow.Config{}, nil, nil)
 	}
+	mux.Handle(infraflow.Path, infraFlowHandler)
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(apiKeyServer))
 	s.httpHandler = observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceServerPublic})
 	return nil
