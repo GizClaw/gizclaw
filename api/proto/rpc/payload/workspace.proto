@@ -29,6 +29,8 @@ message PeerRunHistoryEntry {
   bool replay_available = 5;
   string text = 6;
   PeerRunHistoryEntryType type = 7;
+  // A retained Ogg/Opus recording exists independently of text replay.
+  bool audio_available = 8;
 }
 
 message PeerRunHistoryListRequest {

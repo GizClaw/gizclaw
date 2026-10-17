@@ -158,6 +158,7 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
     $core.bool? replayAvailable,
     $core.String? text,
     $4.PeerRunHistoryEntryType? type,
+    $core.bool? audioAvailable,
   }) {
     final result = create();
     if (createdAt != null) result.createdAt = createdAt;
@@ -167,6 +168,7 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
     if (replayAvailable != null) result.replayAvailable = replayAvailable;
     if (text != null) result.text = text;
     if (type != null) result.type = type;
+    if (audioAvailable != null) result.audioAvailable = audioAvailable;
     return result;
   }
 
@@ -191,6 +193,7 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'text')
     ..aE<$4.PeerRunHistoryEntryType>(7, _omitFieldNames ? '' : 'type',
         enumValues: $4.PeerRunHistoryEntryType.values)
+    ..aOB(8, _omitFieldNames ? '' : 'audioAvailable')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -274,6 +277,16 @@ class PeerRunHistoryEntry extends $pb.GeneratedMessage {
   $core.bool hasType() => $_has(6);
   @$pb.TagNumber(7)
   void clearType() => $_clearField(7);
+
+  /// A retained Ogg/Opus recording exists independently of text replay.
+  @$pb.TagNumber(8)
+  $core.bool get audioAvailable => $_getBF(7);
+  @$pb.TagNumber(8)
+  set audioAvailable($core.bool value) => $_setBool(7, value);
+  @$pb.TagNumber(8)
+  $core.bool hasAudioAvailable() => $_has(7);
+  @$pb.TagNumber(8)
+  void clearAudioAvailable() => $_clearField(8);
 }
 
 class PeerRunHistoryListRequest extends $pb.GeneratedMessage {

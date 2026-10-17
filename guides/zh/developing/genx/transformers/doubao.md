@@ -152,6 +152,13 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 | Realtime | 连续发送 audio，由 provider VAD 划分用户 utterance；输入 EOS 只关闭本地 segment。 |
 | Text | 同一 StreamID 的文本片段在 EOS 合并提交，不接受 audio input。 |
 
+Realtime 模式为每个识别句保存输入音频。Adapter 在该句 transcript EOS 之前，以同一
+segment StreamID 发布完整的 `history.user_audio` BOS、音频和 EOS，使文字与录音写入同一条
+Workspace History。连续两句各自消费本句音频，不重用上一句录音；replacement provider session
+使用独立缓存，新的输入 route、无 transcript 的 ASR 结束和纯文字轮次都丢弃尚未识别的缓存。
+已发布 final transcript 后的 ASR 结束不会丢弃下一句已开始缓存的音频。缓存最多保存 16 MiB 或
+65536 个输入 chunk；超过上限时记录一次 warning，该句只保留文字，下一句重新录音，不影响实时对话。
+
 三种模式都将带 `StreamID` 的文本片段按一条用户消息累积，在 EOS 时调用一次 provider `SendText`；累计上限为 1 MiB，超限终止本次 Transform。新输入 ID 替换尚未提交的旧文本，重复 EOS 不会重复提交；输入 EOF 不提交缺少 EOS 的片段。带错误的 EOS 丢弃缓存并返回失败，不向 provider 提交文本。没有 `StreamID` 的 text chunk 直接作为一条完整消息提交。
 
 音频模式也接受纯文字轮次：可以先发送纯控制 BOS，再发送包含全文和 EOS 的 text chunk，或者在同一 StreamID 上分片后用 text EOS 提交。Push-to-Talk 在提交文字前完成本地输入边界、打开回复输出并绑定 response；不调用 `EndASR`，不等待 `ASREnded`，也不合成 ASR transcript。Realtime 在提交时绑定本轮 response StreamID、开启新的 response epoch 和回复期限，因此之前的语音或文字回复不会吞掉这一轮。正常回复完成后，同一 session 可继续接收语音或文字。

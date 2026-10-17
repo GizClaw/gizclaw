@@ -34,6 +34,8 @@ typedef struct _gizclaw_rpc_v1_PeerRunHistoryEntry {
     bool replay_available;
     pb_callback_t text;
     gizclaw_rpc_v1_PeerRunHistoryEntryType type;
+    /* A retained Ogg/Opus recording exists independently of text replay. */
+    bool audio_available;
 } gizclaw_rpc_v1_PeerRunHistoryEntry;
 
 typedef struct _gizclaw_rpc_v1_PeerRunHistoryListRequest {
@@ -469,7 +471,7 @@ extern "C" {
 /* Initializer values for message structs */
 #define gizclaw_rpc_v1_AgentSelection_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunAgent_init_default {false, gizclaw_rpc_v1_AgentSelection_init_default, false, gizclaw_rpc_v1_AgentSelection_init_default}
-#define gizclaw_rpc_v1_PeerRunHistoryEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunHistoryEntryType_MIN}
+#define gizclaw_rpc_v1_PeerRunHistoryEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunHistoryEntryType_MIN, 0}
 #define gizclaw_rpc_v1_PeerRunHistoryListRequest_init_default {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_PeerRunHistoryListRequestOrder_MIN}
 #define gizclaw_rpc_v1_PeerRunHistoryListResponse_init_default {0, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_init_default {{{NULL}, NULL}}
@@ -538,7 +540,7 @@ extern "C" {
 #define gizclaw_rpc_v1_WorkspaceParametersSetResponse_init_default {false, gizclaw_rpc_v1_Workspace_init_default}
 #define gizclaw_rpc_v1_AgentSelection_init_zero  {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunAgent_init_zero    {false, gizclaw_rpc_v1_AgentSelection_init_zero, false, gizclaw_rpc_v1_AgentSelection_init_zero}
-#define gizclaw_rpc_v1_PeerRunHistoryEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunHistoryEntryType_MIN}
+#define gizclaw_rpc_v1_PeerRunHistoryEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, 0, {{NULL}, NULL}, _gizclaw_rpc_v1_PeerRunHistoryEntryType_MIN, 0}
 #define gizclaw_rpc_v1_PeerRunHistoryListRequest_init_zero {{{NULL}, NULL}, false, 0, false, _gizclaw_rpc_v1_PeerRunHistoryListRequestOrder_MIN}
 #define gizclaw_rpc_v1_PeerRunHistoryListResponse_init_zero {0, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerRunHistoryPlayRequest_init_zero {{{NULL}, NULL}}
@@ -617,6 +619,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_replay_available_tag 5
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_text_tag 6
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_type_tag 7
+#define gizclaw_rpc_v1_PeerRunHistoryEntry_audio_available_tag 8
 #define gizclaw_rpc_v1_PeerRunHistoryListRequest_cursor_tag 1
 #define gizclaw_rpc_v1_PeerRunHistoryListRequest_limit_tag 2
 #define gizclaw_rpc_v1_PeerRunHistoryListRequest_order_tag 3
@@ -789,7 +792,8 @@ X(a, CALLBACK, SINGULAR, STRING,   name,              3) \
 X(a, CALLBACK, SINGULAR, STRING,   actor_name,        4) \
 X(a, STATIC,   SINGULAR, BOOL,     replay_available,   5) \
 X(a, CALLBACK, SINGULAR, STRING,   text,              6) \
-X(a, STATIC,   SINGULAR, UENUM,    type,              7)
+X(a, STATIC,   SINGULAR, UENUM,    type,              7) \
+X(a, STATIC,   SINGULAR, BOOL,     audio_available,   8)
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerRunHistoryEntry_DEFAULT NULL
 

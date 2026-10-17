@@ -129,8 +129,10 @@ type PeerRunHistoryEntry struct {
 	ReplayAvailable bool                    `protobuf:"varint,5,opt,name=replay_available,json=replayAvailable,proto3" json:"replay_available,omitempty"`
 	Text            string                  `protobuf:"bytes,6,opt,name=text,proto3" json:"text,omitempty"`
 	Type            PeerRunHistoryEntryType `protobuf:"varint,7,opt,name=type,proto3,enum=gizclaw.rpc.v1.PeerRunHistoryEntryType" json:"type,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// A retained Ogg/Opus recording exists independently of text replay.
+	AudioAvailable bool `protobuf:"varint,8,opt,name=audio_available,json=audioAvailable,proto3" json:"audio_available,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PeerRunHistoryEntry) Reset() {
@@ -210,6 +212,13 @@ func (x *PeerRunHistoryEntry) GetType() PeerRunHistoryEntryType {
 		return x.Type
 	}
 	return PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED
+}
+
+func (x *PeerRunHistoryEntry) GetAudioAvailable() bool {
+	if x != nil {
+		return x.AudioAvailable
+	}
+	return false
 }
 
 type PeerRunHistoryListRequest struct {
@@ -3860,7 +3869,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\apending\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.AgentSelectionH\x01R\apending\x88\x01\x01B\t\n" +
 	"\a_activeB\n" +
 	"\n" +
-	"\b_pending\"\x8d\x02\n" +
+	"\b_pending\"\xb6\x02\n" +
 	"\x13PeerRunHistoryEntry\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12\x1c\n" +
@@ -3870,7 +3879,8 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"actor_name\x18\x04 \x01(\tR\tactorName\x12)\n" +
 	"\x10replay_available\x18\x05 \x01(\bR\x0freplayAvailable\x12\x12\n" +
 	"\x04text\x18\x06 \x01(\tR\x04text\x12;\n" +
-	"\x04type\x18\a \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04typeB\n" +
+	"\x04type\x18\a \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04type\x12'\n" +
+	"\x0faudio_available\x18\b \x01(\bR\x0eaudioAvailableB\n" +
 	"\n" +
 	"\b_gear_id\"\xbd\x01\n" +
 	"\x19PeerRunHistoryListRequest\x12\x1b\n" +

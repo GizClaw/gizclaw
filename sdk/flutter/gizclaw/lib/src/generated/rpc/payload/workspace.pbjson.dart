@@ -91,6 +91,7 @@ const PeerRunHistoryEntry$json = {
       '6': '.gizclaw.rpc.v1.PeerRunHistoryEntryType',
       '10': 'type'
     },
+    {'1': 'audio_available', '3': 8, '4': 1, '5': 8, '10': 'audioAvailable'},
   ],
   '8': [
     {'1': '_gear_id'},
@@ -103,7 +104,8 @@ final $typed_data.Uint8List peerRunHistoryEntryDescriptor = $convert.base64Decod
     'dnZWFyX2lkGAIgASgJSABSBmdlYXJJZIgBARISCgRuYW1lGAMgASgJUgRuYW1lEh0KCmFjdG9y'
     'X25hbWUYBCABKAlSCWFjdG9yTmFtZRIpChByZXBsYXlfYXZhaWxhYmxlGAUgASgIUg9yZXBsYX'
     'lBdmFpbGFibGUSEgoEdGV4dBgGIAEoCVIEdGV4dBI7CgR0eXBlGAcgASgOMicuZ2l6Y2xhdy5y'
-    'cGMudjEuUGVlclJ1bkhpc3RvcnlFbnRyeVR5cGVSBHR5cGVCCgoIX2dlYXJfaWQ=');
+    'cGMudjEuUGVlclJ1bkhpc3RvcnlFbnRyeVR5cGVSBHR5cGUSJwoPYXVkaW9fYXZhaWxhYmxlGA'
+    'ggASgIUg5hdWRpb0F2YWlsYWJsZUIKCghfZ2Vhcl9pZA==');
 
 @$core.Deprecated('Use peerRunHistoryListRequestDescriptor instead')
 const PeerRunHistoryListRequest$json = {

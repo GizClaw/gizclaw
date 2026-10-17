@@ -1,12 +1,103 @@
 package doubaorealtime
 
 import (
+	"bytes"
 	"errors"
 	"strings"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
+
+func TestRealtimeHistoryAudioOwnsEachTranscriptSegment(t *testing.T) {
+	history := &realtimeHistoryAudio{}
+	data := []byte{1, 0, 2, 0}
+	chunk := &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: data}, Ctrl: &genx.StreamCtrl{StreamID: "microphone", BeginOfStream: true}}
+	if err := history.append(chunk, "microphone"); err != nil {
+		t.Fatal(err)
+	}
+	data[0] = 9
+	first := history.take("microphone:rt:1")
+	if len(first) != 1 || !bytes.Equal(first[0].Part.(*genx.Blob).Data, []byte{1, 0, 2, 0}) || first[0].Ctrl.StreamID != "microphone:rt:1" {
+		t.Fatalf("first recording = %#v", first)
+	}
+	if chunk.Ctrl.StreamID != "microphone" || !chunk.IsBeginOfStream() {
+		t.Fatal("recording mutated the live input")
+	}
+	if got := history.take("microphone:rt:2"); len(got) != 0 {
+		t.Fatal("an utterance reused the previous recording")
+	}
+	if err := history.append(chunk, "microphone"); err != nil {
+		t.Fatal(err)
+	}
+	second := history.take("microphone:rt:2")
+	if len(second) != 1 || second[0].Part.(*genx.Blob).Data[0] != 9 || second[0].Ctrl.StreamID != "microphone:rt:2" {
+		t.Fatalf("second recording = %#v", second)
+	}
+	if err := history.append(chunk, "microphone"); err != nil {
+		t.Fatal(err)
+	}
+	if err := history.append(chunk, "replacement"); err != nil {
+		t.Fatal(err)
+	}
+	if got := history.take("replacement:rt:1"); len(got) != 1 {
+		t.Fatalf("replacement retained %d chunks, want only its own input", len(got))
+	}
+}
+
+func TestRealtimeHistoryAudioRejectsOversizedRecordingUntilNextSegment(t *testing.T) {
+	history := &realtimeHistoryAudio{}
+	tooLarge := &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, realtimeHistoryAudioMaxBytes+1)}}
+	if err := history.append(tooLarge, "input"); err == nil {
+		t.Fatal("oversized input was accepted")
+	}
+	next := &genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0}}}
+	if err := history.append(next, "input"); err != nil {
+		t.Fatal(err)
+	}
+	if got := history.take("input:rt:1"); len(got) != 0 {
+		t.Fatal("an incomplete recording was presented as complete")
+	}
+	if err := history.append(next, "input"); err != nil {
+		t.Fatal(err)
+	}
+	if got := history.take("input:rt:2"); len(got) != 1 {
+		t.Fatal("recording did not recover for the next utterance")
+	}
+}
+
+func TestRealtimeHistoryAudioConcurrentInputAndTranscriptCompletion(t *testing.T) {
+	history := &realtimeHistoryAudio{}
+	const count = 1000
+	ready := make(chan error)
+	go func() {
+		defer close(ready)
+		for i := range count {
+			ready <- history.append(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{byte(i), byte(i >> 8)}}}, "input")
+		}
+	}()
+	seen := make(map[int]bool)
+	collect := func(chunks []*genx.MessageChunk) {
+		for _, chunk := range chunks {
+			data := chunk.Part.(*genx.Blob).Data
+			id := int(data[0]) | int(data[1])<<8
+			if seen[id] {
+				t.Errorf("audio frame %d was recorded twice", id)
+			}
+			seen[id] = true
+		}
+	}
+	for err := range ready {
+		if err != nil {
+			t.Error(err)
+		}
+		collect(history.take("input:rt:1"))
+	}
+	collect(history.take("input:rt:2"))
+	if len(seen) != count {
+		t.Fatalf("recorded %d distinct frames, want %d", len(seen), count)
+	}
+}
 
 type failingHistoryOutput struct {
 	chunks []*genx.MessageChunk

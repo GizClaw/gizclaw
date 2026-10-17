@@ -409,7 +409,9 @@ func (s *HistoryStore) Empty(ctx context.Context) (bool, error) {
 }
 
 func (e HistoryEntry) Public() apitypes.PeerRunHistoryEntry {
+	_, audioAvailable := e.oggAudioAsset()
 	item := apitypes.PeerRunHistoryEntry{
+		AudioAvailable:  audioAvailable,
 		Name:            e.ID,
 		Type:            apitypes.PeerRunHistoryEntryType(e.Type),
 		ActorName:       e.Name,
@@ -421,6 +423,15 @@ func (e HistoryEntry) Public() apitypes.PeerRunHistoryEntry {
 		item.GearId = &e.GearID
 	}
 	return item
+}
+
+func (e HistoryEntry) oggAudioAsset() (HistoryAsset, bool) {
+	for _, asset := range e.Assets {
+		if strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg") || strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg; codecs=opus") {
+			return asset, true
+		}
+	}
+	return HistoryAsset{}, false
 }
 
 func (s *HistoryStore) listInternal(ctx context.Context, req apitypes.PeerRunHistoryListRequest) ([]HistoryEntry, bool, *string, error) {
