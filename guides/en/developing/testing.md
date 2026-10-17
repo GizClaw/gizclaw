@@ -713,9 +713,12 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo, Go
 Admin/OpenAI, CLI, Terraform provider, and Giztest phases in order, and performs one bounded
-cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
+cleanup. The total deadline defaults to 6 hours. Per-phase defaults
 are 15 minutes, with 30 minutes for Docker setup and CLI, 45 minutes for live
-chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
+chat, and 5 minutes for cleanup. The five sequential text-quality cases have a
+separate 4-hour phase budget for their original document limits and stack setup;
+individual test timeouts and assertions remain unchanged. Positive integer seconds
+may be supplied in:
 
 - `GIZCLAW_E2E_FULL_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`
@@ -723,6 +726,7 @@ chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
 - `GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
+- `GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 C/cgo preflight forces both bridges that directly include repository C SDK sources to rebuild, preventing Go's cgo cache from reusing modified C files outside the package directory.

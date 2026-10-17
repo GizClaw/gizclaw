@@ -10,7 +10,7 @@ source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestAdminLogStreamVolcSmoke)$'
 go_test_timeout="45m"
-full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-5400}"
+full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-21600}"
 continue_on_failure="${GIZCLAW_E2E_CONTINUE_ON_FAILURE:-0}"
 failed_phases=()
 gate_started=$SECONDS
@@ -92,6 +92,7 @@ phase_deadline_seconds() {
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
 		docker:setup | docker:multi-server) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
+		giztest:script-quality) echo "${GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS:-14400}" ;;
 		giztest:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
 		*) echo "${GIZCLAW_E2E_PHASE_DEADLINE_SECONDS:-900}" ;;

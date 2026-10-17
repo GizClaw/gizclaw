@@ -704,9 +704,9 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Go Admin/OpenAI、CLI、
-Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 90 分钟；
+Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 6 小时；
 各 phase 默认 15 分钟，Docker setup 和 CLI 为 30 分钟，live chat 为 45 分钟，
-cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
+cleanup 为 5 分钟。五组串行文本质量场景使用独立的 4 小时阶段预算，包含各文档原有上限及其栈初始化；单条测试超时与断言保持原值。可通过以下正整数秒变量覆盖：
 
 - `GIZCLAW_E2E_FULL_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`
@@ -714,6 +714,7 @@ cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 - `GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
+- `GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 C/cgo preflight 会强制重新编译两个直接 include 仓库 C SDK 的 bridge，避免 Go 的 cgo cache 复用包目录外已修改的 C 源文件。
