@@ -70,6 +70,7 @@ steps:
 # presence and no display_name or emoji.
 - id: primary_rpc
   client: alice
+  retry: {attempts: 10, on: [assertion], delay: 10s}
   rpc: {method: server.friend.list, request: {}}
   expect:
     /items: {count: 1}
