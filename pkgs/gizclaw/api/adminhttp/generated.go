@@ -234,12 +234,17 @@ type AdminSocialFriendCreateRequest struct {
 
 // AdminWorkspaceHistoryEntry defines model for AdminWorkspaceHistoryEntry.
 type AdminWorkspaceHistoryEntry struct {
-	ActorName string    `json:"actor_name"`
-	CreatedAt time.Time `json:"created_at"`
+	ActorName string `json:"actor_name"`
+
+	// AudioAvailable Whether this retained entry references a stored Ogg/Opus recording. Text replay availability does not imply audio availability.
+	AudioAvailable bool      `json:"audio_available"`
+	CreatedAt      time.Time `json:"created_at"`
 
 	// GearId Originating gear ID. Required for gear entries and omitted for agent entries.
-	GearId          *string                              `json:"gear_id,omitempty"`
-	Id              string                               `json:"id"`
+	GearId *string `json:"gear_id,omitempty"`
+	Id     string  `json:"id"`
+
+	// ReplayAvailable Whether retained text or assets can be replayed. This does not guarantee a stored recording; use audio_available for audio playback controls.
 	ReplayAvailable bool                                 `json:"replay_available"`
 	Text            string                               `json:"text"`
 	Type            externalRef1.PeerRunHistoryEntryType `json:"type"`

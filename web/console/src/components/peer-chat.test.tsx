@@ -6,10 +6,12 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { GizClawControlError } from "@gizclaw/gizclaw-control";
 import type { HistoryRequest } from "@/lib/peers";
 import { PeerChat } from "@/components/peer-chat";
 
 const loadHistory = vi.fn();
+const loadHistoryAudio = vi.fn();
 vi.mock("@/lib/peers", () => ({
   loadWorkspaces: () =>
     Promise.resolve([
@@ -24,7 +26,7 @@ vi.mock("@/lib/peers", () => ({
       },
     ]),
   loadHistory: (...args: unknown[]) => loadHistory(...args),
-  loadHistoryAudio: vi.fn(),
+  loadHistoryAudio: (...args: unknown[]) => loadHistoryAudio(...args),
 }));
 
 const peer = {
@@ -41,6 +43,7 @@ const entry = (name: string, text: string) => ({
   text,
   created_at: new Date(2026, 5, 2, 12).toISOString(),
   replay_available: false,
+  audio_available: false,
 });
 
 const page = (items: ReturnType<typeof entry>[], nextCursor?: string) => ({
@@ -67,6 +70,39 @@ afterEach(cleanup);
 describe("peer chat", () => {
   beforeEach(() => {
     loadHistory.mockReset();
+    loadHistoryAudio.mockReset();
+  });
+
+  it("keeps text replay separate from recording availability", async () => {
+    loadHistory.mockResolvedValue(
+      page([
+        { ...entry("text-only", "retained text"), replay_available: true },
+      ]),
+    );
+    render(<PeerChat peer={peer} />);
+    await screen.findByText("retained text");
+    expect(screen.queryByLabelText("播放录音")).toBeNull();
+    expect(screen.getByText("无录音")).not.toBeNull();
+    expect(loadHistoryAudio).not.toHaveBeenCalled();
+  });
+
+  it("marks a missing recording unavailable without repeating the download", async () => {
+    loadHistory.mockResolvedValue(
+      page([
+        { ...entry("recording", "retained audio"), audio_available: true },
+      ]),
+    );
+    loadHistoryAudio.mockRejectedValue(
+      new GizClawControlError("notFound", "history audio not found", {
+        status: 404,
+        code: "HISTORY_NOT_FOUND",
+      }),
+    );
+    render(<PeerChat peer={peer} />);
+    fireEvent.click(await screen.findByLabelText("播放录音"));
+    await screen.findByText("无可用录音");
+    expect(screen.queryByLabelText("播放录音")).toBeNull();
+    expect(loadHistoryAudio).toHaveBeenCalledTimes(1);
   });
 
   it("asks the server for newest entries first", async () => {

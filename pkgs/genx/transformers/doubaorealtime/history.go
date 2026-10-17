@@ -11,6 +11,58 @@ import (
 
 const historyFallbackOpusPacketDurationMS = 20
 
+const (
+	realtimeHistoryAudioMaxBytes  = 16 << 20
+	realtimeHistoryAudioMaxChunks = 1 << 16
+)
+
+// realtimeHistoryAudio retains input until the provider closes a transcript.
+// Input and provider events run concurrently; taking a segment transfers its
+// ownership before any output is published. Replacement sessions own a new buffer.
+type realtimeHistoryAudio struct {
+	mu       sync.Mutex
+	streamID string
+	chunks   []*genx.MessageChunk
+	bytes    int
+	failed   bool
+}
+
+func (h *realtimeHistoryAudio) append(chunk *genx.MessageChunk, streamID string) error {
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil || len(blob.Data) == 0 {
+		return nil
+	}
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.streamID != streamID {
+		h.streamID = streamID
+		h.chunks, h.bytes, h.failed = nil, 0, false
+	}
+	if h.failed {
+		return nil
+	}
+	if len(blob.Data) > realtimeHistoryAudioMaxBytes-h.bytes || len(h.chunks) >= realtimeHistoryAudioMaxChunks {
+		h.chunks, h.bytes, h.failed = nil, 0, true
+		return fmt.Errorf("doubao realtime: user history audio exceeds buffer limit")
+	}
+	next := historyUserAudioChunk(chunk, streamID)
+	next.Part = &genx.Blob{MIMEType: canonicalHistoryAudioMIME(blob.MIMEType), Data: append([]byte(nil), blob.Data...)}
+	h.chunks = append(h.chunks, next)
+	h.bytes += len(blob.Data)
+	return nil
+}
+
+func (h *realtimeHistoryAudio) take(streamID string) []*genx.MessageChunk {
+	h.mu.Lock()
+	chunks := h.chunks
+	h.chunks, h.bytes, h.failed = nil, 0, false
+	h.mu.Unlock()
+	for _, chunk := range chunks {
+		chunk.Ctrl.StreamID = streamID
+	}
+	return chunks
+}
+
 func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.MessageChunk {
 	if strings.TrimSpace(streamID) == "" {
 		streamID = "audio"

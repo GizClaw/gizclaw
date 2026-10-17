@@ -1121,6 +1121,9 @@ func (t *Transformer) processSession(
 	var realtimeSpokenEpoch uint64
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
+	// A provider VAD segment, rather than the long-lived input route, owns
+	// realtime user audio. Publish it before that segment's transcript EOS.
+	historyAudio := &realtimeHistoryAudio{}
 	// initiativeActive is set while the hidden opening query owns the
 	// assistant route. Push-to-talk event routing is bypassed for that
 	// response because no push-to-talk turn produced it.
@@ -1330,6 +1333,9 @@ func (t *Transformer) processSession(
 		initiativeStarted := false
 		closeInputSegment := func(errText string) error {
 			inputStreamID := streamIDs.endInputSegment()
+			if err := pushHistoryAudioSegment(output, inputStreamID, historyAudio.take(inputStreamID)); err != nil {
+				return err
+			}
 			doneChunk := &genx.MessageChunk{
 				Role: genx.RoleUser,
 				Part: genx.Text(""),
@@ -2062,6 +2068,11 @@ func (t *Transformer) processSession(
 					t.pushInputEOSError(output, streamID, err)
 					audioInputs.closeStream(streamID)
 					return err
+				}
+				if t.mode == ModeRealtime {
+					if err := historyAudio.append(chunk, streamID); err != nil {
+						slog.WarnContext(ctx, "doubao: user history audio unavailable", "error", err)
+					}
 				}
 				for _, audio := range frames {
 					if len(audio) == 0 {

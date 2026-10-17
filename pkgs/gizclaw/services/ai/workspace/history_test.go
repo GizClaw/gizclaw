@@ -79,6 +79,34 @@ func TestHistoryStoreAppendListAndReadAsset(t *testing.T) {
 	}
 }
 
+func TestHistoryRecordingAvailabilityRequiresOggAttachment(t *testing.T) {
+	store := newTestHistoryStore(t, newTestObjectStore(t), "recordings")
+	for _, test := range []struct {
+		name  string
+		asset *AppendHistoryAsset
+		audio bool
+	}{
+		{name: "text only"},
+		{name: "Ogg recording", asset: &AppendHistoryAsset{MIMEType: "audio/ogg; codecs=opus", Data: []byte("OggS")}, audio: true},
+		{name: "other media", asset: &AppendHistoryAsset{MIMEType: "audio/opus", Data: []byte("opus")}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			entry, err := store.Append(t.Context(), AppendHistoryRequest{Type: "gear", Name: "transcript", Text: "retained text", Asset: test.asset})
+			if err != nil {
+				t.Fatal(err)
+			}
+			stored, err := store.Get(t.Context(), entry.ID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			public := stored.Public()
+			if !public.ReplayAvailable || public.AudioAvailable != test.audio {
+				t.Fatalf("history availability = %+v", public)
+			}
+		})
+	}
+}
+
 func TestHistoryStoreListSupportsDescAndMissingCursorBoundary(t *testing.T) {
 	store := newTestHistoryStore(t, newTestObjectStore(t), "demo")
 	base := time.Date(2026, 6, 21, 12, 0, 0, 0, time.UTC)

@@ -131,6 +131,10 @@ go build ./cmd/gizclaw
 `INVALID_REQUEST`。浏览历史不启动 Agent。音频通过同路径下的
 `/{historyId}/audio.ogg` 认证读取。
 
+每条记录的 `audio_available` 表示保留的 metadata 中存在 Ogg/Opus 录音附件，控制台据此显示
+录音按钮；`replay_available` 同时涵盖文字回放，不能用来判断有无录音。列表不逐条访问对象存储。
+附件在读取时已经不存在而返回 404 时，控制台把该条目标为无可用录音。
+
 `GET /gizclaw/v1/device/telemetry/{field}/latest` 返回单个字段的最新采样；
 `GET /gizclaw/v1/device/telemetry` 按明确的时间区间返回该字段的采样序列。
 

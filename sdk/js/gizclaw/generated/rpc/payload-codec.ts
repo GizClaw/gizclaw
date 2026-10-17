@@ -962,6 +962,7 @@ export type PeerRunHistoryEntry = {
   "replay_available": boolean;
   "text": string;
   "type": PeerRunHistoryEntryType;
+  "audio_available": boolean;
 };
 export type PeerRunHistoryListRequest = {
   "cursor"?: string;
@@ -5768,6 +5769,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "type",
         "number": 7,
         "type": "PeerRunHistoryEntryType"
+      },
+      {
+        "name": "audio_available",
+        "number": 8,
+        "type": "bool"
       }
     ]
   },
