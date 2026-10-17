@@ -1270,19 +1270,19 @@ type FriendGroupList struct {
 type FriendGroupMember struct {
 	CreatedAt *time.Time `json:"created_at,omitempty"`
 
-	// InRoom Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by the members list; absent on add, put, delete and join responses.
+	// InRoom Whether the member's device is running this Friend Group's Workspace on any Server, according to the same shared presence snapshot as online. True implies online. Set only by the members list; absent on add, put, delete and join responses.
 	InRoom *bool `json:"in_room,omitempty"`
 
 	// Info Public profile of another Peer, taken from its device name and emoji. Omitted when the Peer no longer exists.
 	Info *PeerProfileInfo `json:"info,omitempty"`
 
-	// LastSeenAt Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses.
+	// LastSeenAt Last activity observed at a connection or running-Workspace transition, in UTC. Set only by the members list; absent when unknown or the shared presence read failed, and on add, put, delete and join responses.
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 
 	// Name Member name, equal to peer_public_key.
 	Name string `json:"name"`
 
-	// Online Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by the members list; absent on add, put, delete and join responses.
+	// Online Shared connection state across Servers, subject to replication delay. Set only by the members list; absent on add, put, delete and join responses.
 	Online        *bool           `json:"online,omitempty"`
 	PeerPublicKey string          `json:"peer_public_key"`
 	Role          FriendGroupRole `json:"role"`

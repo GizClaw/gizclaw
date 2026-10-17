@@ -34,9 +34,8 @@ type ProfileService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 }
 
-// PresenceService reads a Peer's connection state as Runtime.online and
-// Runtime.last_seen_at report it. lastSeenAt is the zero time when the Server
-// has never observed the Peer.
+// PresenceService reads a Peer's shared connection presence. lastSeenAt is the
+// zero time when no transition has been observed or the presence read failed.
 type PresenceService = socialutil.PresenceService
 
 // ErrSFUNotConfigured reports that the Server has no SFU URL, so no Friend

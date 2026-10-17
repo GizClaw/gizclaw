@@ -1390,8 +1390,7 @@ func (s *Server) ListFriendGroupMembers(ctx context.Context, owner string, req r
 	for i := range page.Items {
 		item := &page.Items[i]
 		peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
-		item.Online, item.LastSeenAt = socialutil.PresenceFields(ctx, s.Presence, peerPublicKey)
-		item.InRoom = socialutil.InRoomField(ctx, s.Rooms, peerPublicKey, workspaceName)
+		item.Online, item.LastSeenAt, item.InRoom = socialutil.MemberPresenceFields(ctx, s.Presence, s.Rooms, peerPublicKey, workspaceName)
 	}
 	return page, nil
 }

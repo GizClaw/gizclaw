@@ -95,6 +95,9 @@ type Service struct {
 	Source          StreamSource
 	Consumer        StreamConsumer
 	OnConsumerError func(context.Context, string, error)
+	// OnStatusChanged observes lifecycle transitions outside the state mutex.
+	// It may read Status and must return promptly without blocking I/O.
+	OnStatusChanged func()
 	Logger          *slog.Logger
 	Now             func() time.Time
 
@@ -718,6 +721,7 @@ func (s *Service) Shutdown(ctx context.Context) (apitypes.PeerRunStatus, error) 
 	if s == nil {
 		return stoppedStatus(time.Now()), nil
 	}
+	defer s.notifyStatusChanged()
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -927,6 +931,7 @@ func (s *Service) swap(next *runtime) *runtime {
 }
 
 func (s *Service) publishWithCommit(next *runtime, now time.Time, commit func() error) (apitypes.PeerRunStatus, bool, error) {
+	defer s.notifyStatusChanged()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.closed {
@@ -944,6 +949,7 @@ func (s *Service) publishWithCommit(next *runtime, now time.Time, commit func() 
 }
 
 func (s *Service) publishFailure(next *runtime, now time.Time) (apitypes.PeerRunStatus, bool) {
+	defer s.notifyStatusChanged()
 	message := agentReloadFailedMessage
 	status := apitypes.PeerRunStatus{
 		State:         apitypes.PeerRunStatusStateError,
@@ -1003,6 +1009,7 @@ func (s *Service) currentRuntimeForFeature(ctx context.Context) (*runtime, error
 }
 
 func (s *Service) consume(ctx context.Context, rt *runtime) {
+	defer s.notifyStatusChanged()
 	defer close(rt.done)
 	defer rt.releaseOnce()
 	defer func() {
@@ -1050,6 +1057,7 @@ func (s *Service) consume(ctx context.Context, rt *runtime) {
 }
 
 func (s *Service) failRuntime(rt *runtime, err error) bool {
+	defer s.notifyStatusChanged()
 	now := s.now()
 	message := err.Error()
 	if code, safe, _, ok := genx.PublicErrorDetails(err); ok {
@@ -1087,6 +1095,7 @@ func (s *Service) setErrorStatus(workspace string, err error) apitypes.PeerRunSt
 }
 
 func (s *Service) setStatus(state apitypes.PeerRunStatusState, workspace string, message *string, startedAt *time.Time) apitypes.PeerRunStatus {
+	defer s.notifyStatusChanged()
 	now := s.now()
 	status := apitypes.PeerRunStatus{
 		State:     state,
@@ -1104,6 +1113,12 @@ func (s *Service) setStatus(state apitypes.PeerRunStatusState, workspace string,
 	}
 	s.status = status
 	return status
+}
+
+func (s *Service) notifyStatusChanged() {
+	if s.OnStatusChanged != nil {
+		s.OnStatusChanged()
+	}
 }
 
 func (s *Service) now() time.Time {

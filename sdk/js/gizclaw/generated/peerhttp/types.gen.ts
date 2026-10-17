@@ -353,15 +353,15 @@ export type FriendGroupMember = {
     updated_at?: string;
     info?: PeerProfileInfo;
     /**
-     * Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by the members list; absent on add, put, delete and join responses.
+     * Shared connection state across Servers, subject to replication delay. Set only by the members list; absent on add, put, delete and join responses.
      */
     online?: boolean;
     /**
-     * Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses.
+     * Last activity observed at a connection or running-Workspace transition, in UTC. Set only by the members list; absent when unknown or the shared presence read failed, and on add, put, delete and join responses.
      */
     last_seen_at?: string;
     /**
-     * Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by the members list; absent on add, put, delete and join responses.
+     * Whether the member's device is running this Friend Group's Workspace on any Server, according to the same shared presence snapshot as online. True implies online. Set only by the members list; absent on add, put, delete and join responses.
      */
     in_room?: boolean;
 };

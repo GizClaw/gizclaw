@@ -95,11 +95,11 @@ Every `FriendObject` in `server.friend.list` carries the Friend's presence and p
 
 | Field | Source | When absent |
 | --- | --- | --- |
-| `online` | `Manager.PeerPresence`, the same connection state `PeerOnline` and `Runtime.online` read | Always present on a listed Friend |
-| `last_seen_at` | The same, in the `Runtime.last_seen_at` format: it advances with connection activity while online, and is the last activity recorded when the connection went down while offline | The Server has never observed the Friend |
+| `online` | `Manager.PeerPresence`, reading shared Peer KV connection state | Always present on a listed Friend |
+| `last_seen_at` | Last connection activity observed at an online, offline or running-Workspace transition, in RFC 3339 UTC | No transition has been observed, or the shared read failed |
 | `display_name`, `emoji` | The profile the Friend set through `server.info.put`, as `server.friend.info.get` returns it | The Friend has not set it |
 
-Presence is Server-local, like pings: a Friend connected to a different Server is listed as not online, and `last_seen_at` reads the shared Peer Run record. A profile or presence read that fails only leaves that field out; it never fails the page.
+Servers sharing the same Peer KV can read presence for Friends connected to each other. These queries never read `peer_runs` SQL. Redis read/write separation uses the reader and accepts replication lag. A shared read failure returns `online=false` without `last_seen_at`; it does not fall back to SQL or the primary, or fail the page. A failed profile read omits the affected profile fields.
 
 ## Member list presence
 
@@ -107,13 +107,15 @@ Presence is Server-local, like pings: a Friend connected to a different Server i
 
 | Field | Source | When absent |
 | --- | --- | --- |
-| `online` | `Manager.PeerPresence`, the same Server-local connection state as `Runtime.online` | Presence is not configured |
-| `last_seen_at` | The same, in RFC 3339 UTC; offline members fall back to persisted Peer Run activity | Never observed, last-seen read failed, or presence is not configured |
-| `in_room` | `Manager.PeerRunningWorkspace`: the member's active connection on this Server is running the Workspace bound to the Group | Rooms is not configured, or the Group's Workspace binding cannot be read |
+| `online` | `Manager.PeerRoomPresence`, reading a shared connection snapshot | Presence is not configured |
+| `last_seen_at` | Last activity observed at a transition, from the same snapshot, in RFC 3339 UTC | Never observed, last-seen read failed, or presence is not configured |
+| `in_room` | The same snapshot reports the member online and running the Workspace bound to the Group | Rooms is not configured, or the Group's Workspace binding cannot be read |
 
-Friend and Friend Group lists share `socialutil.PresenceService` and `PresenceFields`. A failed last-seen read never fails the page. Members connected to another Server are reported offline. Admin member lists and add, put, delete and join responses omit all three fields.
+`socialutil.MemberPresenceFields` reads one shared snapshot per member, so the fields cannot straddle different transitions. Members connected to another Server can be online and in the Room. Admin member lists and add, put, delete and join responses omit all three fields.
 
-`online` only says the device has a connection to the Server; `in_room` says the device is in the Group's SFU Room right now. A device joins the Room by running the Group's Workspace, so `in_room` reads the Peer Run state of that connection: it is true while the state is running and the Workspace name matches the Workspace bound to the Group, and false while the runtime is starting, stopping or failed, runs another Workspace, after `server.run.stop`, or when the device is offline. It does not read the persisted `Runtime.active_workspace_name`, which survives a stopped runtime and a disconnect. `in_room` being true implies `online` is true; like `online` it is Server-local, so a member connected to another Server is reported false. A brief SFU reconnect inside the Room does not change it.
+`online` means the device has a connection to a Server; `in_room` means it is running the Group's SFU Workspace. Starting, stopping, error, stop, Workspace switch and disconnect publish that the device is outside the Room. A replacement connection does not inherit the old runtime. The query does not read persisted `Runtime.active_workspace_name`. `in_room=true` always accompanies `online=true`, subject to shared-read delay. Brief SFU reconnects do not change it.
+
+Presence lives in the `presence` namespace of `services.peer.store`. Only online, offline and running-Workspace transitions publish Peer state; traffic, telemetry and queries do not. A Server-wide lease handles process shutdown or failure without per-Peer heartbeats. `Runtime.online` and `PeerOnline` continue to serve local connection operations. See [Shared presence](runtime/peerpresence) for lifecycle and failure behavior.
 
 ## Ping and rally
 
@@ -129,7 +131,7 @@ The window is fixed at one minute (`socialutil.PingWindow`), not configurable, a
 
 Manager prefers the target's active local Peer connection. Otherwise it selects a connected transport with the active `edge-node` role. Edge resolves the existing PK → Server assignment and selects the configured upstream belonging to that Server, which performs local delivery only. The path is originating Server → relay Edge → owning Server → target Peer; the relay does not need the target's ingress connection.
 
-Routing and the device ACK share one three-second deadline. Edge receipt does not count as delivery; only a device ACK contributes to `delivered_count`. Offline targets, ACK timeouts, unconfigured upstreams and unavailable relays do not count. There is no queue, broadcast or retry, and the target Server cannot relay again. `Runtime.online` and list presence retain their local Server view. The originating Social service still enforces relationships and the shared rate window. Ordinary devices cannot open the internal Edge service or invoke either internal method through public Peer RPC. See [Edge RPC](../rpc/edge) for the internal contract and trust boundaries.
+Routing and the device ACK share one three-second deadline. Edge receipt does not count as delivery; only a device ACK contributes to `delivered_count`. Offline targets, ACK timeouts, unconfigured upstreams and unavailable relays do not count. There is no queue, broadcast or retry, and the target Server cannot relay again. `Runtime.online` retains the local Server view; list presence reads shared snapshots. The originating Social service still enforces relationships and the shared rate window. Ordinary devices cannot open the internal Edge service or invoke either internal method through public Peer RPC. See [Edge RPC](../rpc/edge) for the internal contract and trust boundaries.
 
 `server.profile.get` returns the public profile of 1–16 Peers by public key without any relationship check: only the `display_name` and `emoji` a Peer set through `server.info.put` (`peer.Server.GetPublicProfile`). A missing, deleted, or pending-deletion Peer comes back with only its key.
 

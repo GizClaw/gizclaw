@@ -43,6 +43,6 @@ Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失�
 ## 社交通知投递
 
 `peer_manager_social_ping.go` 拥有本地优先的 social ping 投递与可信 Edge 选择。
-`PeerOnline`、`PeerPresence` 和 `PeerRunningWorkspace` 仍读取本 Server 的当前连接；
-召集不按这些本地状态过滤异机目标。路径、ACK 时限与共享窗口见
+`PeerOnline` 读取本地连接；`PeerPresence` 和 `PeerRunningWorkspace` 查询共享 Peer KV。
+共享状态的发布与生命周期见 [共享在线状态](../services/runtime/peerpresence)。召集不按展示状态过滤异机目标。路径、ACK 时限与共享窗口见
 [services/social](../services/social#好友呼叫与群集结)。

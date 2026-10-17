@@ -528,6 +528,7 @@ func (h *PeerConn) initAgentHost() {
 			LifecycleDisabled: h.streamLifecycleDisabled,
 		},
 		OnConsumerError: h.broadcastAgentOutputError,
+		OnStatusChanged: func() { manager.refreshPeerRunPresence(h.Conn.PublicKey(), h.Conn) },
 	}
 	if h.rpc != nil {
 		h.rpc.peerRunRuntime = h.agentHost

@@ -1,8 +1,28 @@
 package kv
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type strongReadsKey struct{}
+
+// ReadDelay returns the configured historical snapshot delay of ordinary
+// reads. It is zero for strong views and backends without a fixed delay,
+// including Redis replicas whose replication lag is not bounded by the client.
+// Lease owners can account for TiKV historical reads in their validity window.
+func ReadDelay(store Store) time.Duration {
+	switch s := store.(type) {
+	case *strongReadStore:
+		return 0
+	case *prefixedStore:
+		return ReadDelay(s.base)
+	case *TiKV:
+		return s.read.StaleReadDelay
+	default:
+		return 0
+	}
+}
 
 // WithPrimaryReads binds reads in this operation and its call chain to the
 // write authority. Redis read/write stores use the writer; TiKV bypasses

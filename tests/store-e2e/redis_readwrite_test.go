@@ -11,11 +11,91 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	redis "github.com/redis/go-redis/v9"
 )
+
+func TestReadWriteRedisSharedPresence(t *testing.T) {
+	f := newReadWriteRedisFixture(t)
+	a := peerpresence.New(f.first, giznet.PublicKey{21})
+	b := peerpresence.New(f.first, giznet.PublicKey{22})
+	for _, s := range []*peerpresence.Service{a, b} {
+		if err := s.Start(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = s.Close() })
+	}
+	peer := giznet.PublicKey{23}
+	want := peerpresence.Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
+	assertSnapshot := func() {
+		t.Helper()
+		deadline := time.Now().Add(5 * time.Second)
+		for {
+			got, err := b.Read(t.Context(), peer)
+			if err == nil && got == want {
+				return
+			}
+			if time.Now().After(deadline) {
+				t.Fatalf("shared Redis snapshot = %+v, %v; want %+v", got, err, want)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	}
+	a.Publish(peer, want)
+	assertSnapshot()
+	want.WorkspaceName = "another-room"
+	a.Publish(peer, want)
+	assertSnapshot()
+	want.WorkspaceName = ""
+	a.Publish(peer, want)
+	assertSnapshot()
+	want.Online = false
+	want.LastSeenAt = want.LastSeenAt.Add(time.Second)
+	a.Publish(peer, want)
+	assertSnapshot()
+	want.Online, want.WorkspaceName = true, "room"
+	a.Publish(peer, want)
+	assertSnapshot()
+	f.waitForReplica(t)
+	// Both Peer and Server-lease reads must use the replica, including while
+	// the primary client is unavailable. A reader error must not fall back.
+	if err := f.write.Close(); err != nil {
+		t.Fatal(err)
+	}
+	assertSnapshot()
+	if err := f.read.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := b.Read(t.Context(), peer); !errors.Is(err, redis.ErrClosed) {
+		t.Fatalf("closed reader = %v", err)
+	}
+}
+
+func TestReadWriteRedisContextDeadline(t *testing.T) {
+	f := newReadWriteRedisFixture(t)
+	for name, client := range map[string]*redis.Client{"reader": f.read, "writer": f.write} {
+		t.Run(name, func(t *testing.T) {
+			// Pause only this disposable Docker Redis endpoint. A healthy TCP
+			// connection whose next response is delayed must still respect the
+			// presence operation's deadline, rather than the socket default.
+			if err := client.Do(t.Context(), "CLIENT", "PAUSE", 1000, "ALL").Err(); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 75*time.Millisecond)
+			defer cancel()
+			start := time.Now()
+			err := client.Ping(ctx).Err()
+			elapsed := time.Since(start)
+			if err == nil || elapsed >= 500*time.Millisecond {
+				t.Fatalf("delayed %s response: error=%v, context=%v, elapsed=%v", name, err, ctx.Err(), elapsed)
+			}
+		})
+	}
+}
 
 type readWriteRedisFixture struct {
 	physical *storage.Storage

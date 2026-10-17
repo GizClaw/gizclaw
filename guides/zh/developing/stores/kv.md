@@ -18,6 +18,7 @@
 | `Redis` / `NewRedisReadWriteWithClients` | 借用同一复制组的读、写 client；独立查询走读连接，mutation 及其条件判断走写连接。 |
 | `TiKV` / `NewTiKVWithClient` | 借用 TxnKV client，支持跨 Region 原子 mutation、集合和可配置的地区陈旧读。 |
 | `WithStrongReads` | 为权限、围栏和控制面读取选择最新已提交状态，保留 prefix 与原子 root。 |
+| `ReadDelay` | 返回普通 view 的固定历史快照窗口；共享 presence 的租约据此适配 TiKV 历史读。Redis 复制延迟不由客户端固定。 |
 | `Prefixed` | 为已有 Store 增加固定 key namespace。 |
 
 ## Ownership 边界

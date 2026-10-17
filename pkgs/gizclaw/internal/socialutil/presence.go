@@ -5,9 +5,8 @@ import (
 	"time"
 )
 
-// PresenceService reads a Peer's connection state as Runtime.online and
-// Runtime.last_seen_at report it. lastSeenAt is the zero time when the Server
-// has never observed the Peer or the last-seen read failed.
+// PresenceService reads shared connection presence. lastSeenAt is the zero
+// time when no transition has been observed or the presence read failed.
 type PresenceService interface {
 	PeerPresence(ctx context.Context, peerPublicKey string) (online bool, lastSeenAt time.Time)
 }
@@ -25,8 +24,8 @@ func PresenceFields(ctx context.Context, service PresenceService, peerPublicKey 
 	return &online, new(lastSeenAt.UTC())
 }
 
-// RoomPresenceService reports whether a Peer's device is running a Workspace
-// on this Server. Running a Friend Group's Workspace is what attaches the
+// RoomPresenceService reports whether a Peer's device is running a Workspace.
+// Running a Friend Group's Workspace is what attaches the
 // device to the Group's SFU Room, so the answer implies the Peer is online.
 type RoomPresenceService interface {
 	PeerRunningWorkspace(ctx context.Context, peerPublicKey, workspaceName string) bool
@@ -40,4 +39,27 @@ func InRoomField(ctx context.Context, service RoomPresenceService, peerPublicKey
 		return nil
 	}
 	return new(service.PeerRunningWorkspace(ctx, peerPublicKey, workspaceName))
+}
+
+type roomPresenceSnapshotService interface {
+	PeerRoomPresence(context.Context, string, string) (bool, time.Time, bool)
+}
+
+// MemberPresenceFields reads one shared snapshot when supported by presence.
+// Legacy providers retain their separate presence and room interfaces.
+func MemberPresenceFields(ctx context.Context, presence PresenceService, rooms RoomPresenceService, publicKey, workspace string) (*bool, *time.Time, *bool) {
+	combined, ok := presence.(roomPresenceSnapshotService)
+	if !ok || rooms == nil {
+		online, seen := PresenceFields(ctx, presence, publicKey)
+		return online, seen, InRoomField(ctx, rooms, publicKey, workspace)
+	}
+	online, seen, inRoom := combined.PeerRoomPresence(ctx, publicKey, workspace)
+	var lastSeen *time.Time
+	if !seen.IsZero() {
+		lastSeen = new(seen.UTC())
+	}
+	if workspace == "" {
+		return &online, lastSeen, nil
+	}
+	return &online, lastSeen, &inRoom
 }
