@@ -510,12 +510,19 @@ class ScenarioClient {
 
   /// Sends one unary Peer RPC by name and returns the decoded response as
   /// snake_case JSON.
-  Future<Object?> callRpc(String method, Object? params) async {
+  Future<Object?> callRpc(
+    String method,
+    Object? params, {
+    Duration? timeout,
+  }) async {
     final request = scenarioRequest(method, params);
     try {
       final response = await _client.rpc.call<GeneratedMessage>(
         method,
         request,
+        timeout: timeout == null || timeout > _rpcTimeout
+            ? _rpcTimeout
+            : timeout,
       );
       return camelToSnakeKeys(unwrapValueMessage(response));
     } on RpcStatus catch (error) {

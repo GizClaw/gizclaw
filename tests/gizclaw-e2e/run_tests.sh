@@ -10,7 +10,7 @@ source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 default_skip_regexp='^(TestHumanReview|TestServerSocialRPCHumanReview|TestAdminLogStreamVolcSmoke)$'
 go_test_timeout="45m"
-full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-5400}"
+full_deadline_seconds="${GIZCLAW_E2E_FULL_DEADLINE_SECONDS:-21600}"
 continue_on_failure="${GIZCLAW_E2E_CONTINUE_ON_FAILURE:-0}"
 failed_phases=()
 gate_started=$SECONDS
@@ -92,6 +92,7 @@ phase_deadline_seconds() {
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
 		docker:setup | docker:multi-server) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
+		giztest:script-quality) echo "${GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS:-14400}" ;;
 		giztest:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
 		*) echo "${GIZCLAW_E2E_PHASE_DEADLINE_SECONDS:-900}" ;;
@@ -124,7 +125,7 @@ validate_deadlines() {
 	esac
 	require_positive_seconds GIZCLAW_E2E_FULL_DEADLINE_SECONDS "$full_deadline_seconds"
 	local phase deadline
-	for phase in preflight:validate docker:setup docker:cleanup giztest:standard giztest:c-sdk cli go:validate; do
+	for phase in preflight:validate docker:setup docker:cleanup giztest:standard giztest:c-sdk giztest:script-quality cli go:validate; do
 		deadline="$(phase_deadline_seconds "$phase")"
 		require_positive_seconds "deadline for $phase" "$deadline"
 	done
@@ -434,7 +435,7 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 	local -a files=()
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort
+			! -name 'benchmark.*' ! -name 'review.*' ! -name 'script-quality.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort
 	)
 	files+=(
 		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-1.giztest.yaml"
@@ -528,6 +529,7 @@ start_full_watchdog
 run_timed "preflight:diagnostic-redaction" python3 -B "$setup_dir/redact_diagnostics_test.py"
 run_timed "preflight:js-process-isolation" python3 -B "$setup_dir/run_js_giztest_test.py"
 run_timed "preflight:audio-input-comparison" python3 -B "$setup_dir/audio_input_comparison_test.py"
+run_timed "preflight:script-quality-isolation" python3 -B "$setup_dir/run_script_quality_lane_test.py"
 run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb
 
@@ -561,6 +563,7 @@ run_suite_phase "giztest:c-sdk" run_c_giztest
 run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
 stack_started=0
 
+run_suite_phase "giztest:script-quality" python3 -B "$setup_dir/run_script_quality_lane.py"
 run_suite_phase "docker:multi-server" bash "$script_dir/run_multi_server_tests.sh"
 
 if ((${#failed_phases[@]} > 0)); then

@@ -338,6 +338,8 @@ It runs TiKV 8.5.6 (PD, a central voter and a full regional Learner), two Server
 
 The main `run_tests.sh` also runs this two-Server gate after the standard SDK scenarios and their stack cleanup. Both `docker-compose.yaml` and the multi-server stack bind Peers, assignments, API keys, Friends and FriendGroups to TiKV; each Server retains its own business SQL database. External services including PD, TiKV and LiveKit use images from `gizcr.gizclaw.com` with pinned digests. Server, Edge, fixture and runner images are built from local sources, with build bases also from gizcr. TiKV data uses project-scoped temporary memory filesystems removed with that project. Standard Docker images precompile the CLI and fixture apply helper during image construction. Server, Edge and initialization use those binaries directly.
 
+The common `server.friend.list`, `server.friend_group.members.list`, and `server.friend_groups.http` documents also wait for shared presence to enter the historical view. The first RPC presence check allows ten assertion-only attempts spaced ten seconds apart. The HTTP document waits through the corresponding member-list RPC before executing its original HTTP presence and permission assertions; HTTP steps have no retry policy. The native foreign-admission and telemetry checks compare durable assignment and business records while excluding the exact runtime-presence record prefix, which changes on legitimate connections and lease renewal. SQL PeerRun isolation and fixed-home routing assertions remain strict.
+
 The Docker fixture gives PD metadata a 256 MiB tmpfs and each central/regional TiKV a 1 GiB tmpfs to isolate local Docker storage I/O stalls. It sets the [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) to 15 seconds in `tikv-pd.toml`. `tikv-test.toml` sets reserved space to 64 MiB, reserved Raft space to 32 MiB, and block cache to 128 MiB, with a 4 GiB memory limit per TiKV container, to match the small fixture. RocksDB, Raft and Learner replication run normally. Data lasts only for this test; the fixture does not validate SSD performance or TiKV/PD restart durability.
 
 `TestTiKVLearnerLagThroughBothEdges` uses the public Go SDK with real WebRTC and HTTP under replica lag. It seeds active Peers and credentials into a 60-second historical snapshot, then blocks center-to-Learner Raft streams while preserving regional reads. During the freeze, first claims through both Edges and cross-Edge reconnects must preserve the correct home. After SDK key revocation, HTTP through both Edges must immediately return 401. After SDK deletion of a Peer on each home, the test waits for the correct Server to remove its Workspace and owner binding, then requires both Edges to reject reconnects and old keys. The diagnostic client pins control reads to the Learner confirmed by PD; those reads must retain the old active Peers and key index and miss the new assignments. The test explicitly marks diagnostic requests, preserving their historical timestamp and Learner destination even when an SDK retry clears its stale-read flag. Application Server clients retain normal SDK routing. Label preferences permit SDK fallback from slow stores; the pinned route is only for test evidence. This proves the assertions run during replication lag; the gate does not measure WAN throughput or central-majority recovery.
@@ -534,6 +536,34 @@ exception described below: its Go test names are the supported selectors.
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
 
+The JavaScript History audio interoperability probe receives a client receipt
+over its private stdin control channel. The client verifies all metadata and
+binary payload bytes before acknowledging. The probe waits within its existing
+thirty-second budget before closing the parent Peer connection and exiting.
+Writing response EOS alone does not establish remote delivery of queued frames;
+missing or invalid receipts and expired waits fail the test.
+
+The Flutter runner supports unary RPC `retry`: two through ten attempts, with
+`on` selecting `timeout` or `assertion` and defaulting to timeout alone. A positive
+delay may be at most five minutes. HTTP, other operations and `finally` reject
+this policy. Failed attempts roll back captured variables; successful captures
+remain available. Reports include every attempt's status, duration, classified
+failure and redacted error. Attempts and delays share the existing task deadline.
+Each RPC uses the shortest remaining task budget, explicit step timeout and
+existing thirty-second RPC limit, letting the SDK terminate a timed-out request
+before starting another attempt.
+
+Mystery rules recognize investigation of both `沈知秋房间` and `沈知秋的房间`,
+acquiring the same two motive clues. Solving still requires every independent
+evidence condition and an explicit correct accusation.
+
+Journey narration
+distinguishes chapter entry from a response to an in-chapter action and includes
+the previous setting in transition context. Entry does not choose for the player;
+action responses resolve consequences, and transitions first settle outstanding
+small events. This context adds no persistent conversation records and preserves
+chapter order, continuation commands and the final review boundary.
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints
@@ -613,11 +643,25 @@ Candidate prompts separate history from the current input, repeat authoritative
 State beside that input. Werewolf characters use temperature 0.3; other candidates
 use 0.2. Journey advances only through a complete affirmative continuation command;
 questions and negations leave the chapter unchanged. Ensemble stories also require
-an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
+an explicit current-chapter agreement, renewed after an objection, before advancing.
+A separate clause asking for character reactions preserves a confirmed choice;
+a question in the choice clause, an unaddressed follow-up question such as “is
+that allowed?”, or an explicit objection cannot confirm one. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
-skills. The quality player tracks its 20 utterances in native State, advances the
+skills. Post-game pronoun follow-ups retain the last visible responder unless a
+new recipient is named. Review actors receive all settled public ballots; rule
+help lists supported review questions without restarting the game. The referee
+states the unique-highest-vote rule and permits eliminated roles to review.
+NPCs discuss already-executed game facts in character, without treating game
+dialogue as a request to operate external Tools.
+The quality player tracks its 20 utterances in native State, advances the
 main objective, asks distinct review questions and then says farewell. It does
 not invent completion when the objective remains unfinished.
+
+Mystery rules accept offered actions such as inspecting the back corridor and
+derive remaining supported investigation locations from missing evidence. Hints
+do not disclose undiscovered clues. The method, timing, route and both motive
+clues must still be complete before an explicit correct accusation solves the case.
 
 `eino_catalog_test.go` compiles actual Resource and Workspace configurations,
 executes their native pipelines, and checks illegal actions, private projections,
@@ -697,9 +741,12 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo, Go
 Admin/OpenAI, CLI, Terraform provider, and Giztest phases in order, and performs one bounded
-cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
+cleanup. The total deadline defaults to 6 hours. Per-phase defaults
 are 15 minutes, with 30 minutes for Docker setup and CLI, 45 minutes for live
-chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
+chat, and 5 minutes for cleanup. The five sequential text-quality cases have a
+separate 4-hour phase budget for their original document limits and stack setup;
+individual test timeouts and assertions remain unchanged. Positive integer seconds
+may be supplied in:
 
 - `GIZCLAW_E2E_FULL_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`
@@ -707,6 +754,7 @@ chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
 - `GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
+- `GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 C/cgo preflight forces both bridges that directly include repository C SDK sources to rebuild, preventing Go's cgo cache from reusing modified C files outside the package directory.
@@ -781,12 +829,12 @@ values for `${...}` references.
 
 ### Suite ownership
 
-- `go/admin` validates typed contracts with the generated Admin HTTP client.
+- `go/admin` validates typed contracts with the generated Admin HTTP client. Its History pagination case waits for the Agent output of each echo turn and verifies all six Gear-input/Agent-output entries across three pages, including replay availability, absent text-only audio, stable IDs, and detail lookup.
 - `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, and Workflow behavior.
-- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
+- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients. Root help checks the complete product-command inventory. The maintenance commands `history-migrate` and `kv-migrate` route to their existing `cmd/internal/commands/historymigrate/command_test.go` and `cmd/internal/commands/kvmigrate/command_test.go` owners; other command groups retain their E2E story owners.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 - `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.
 
@@ -2240,6 +2288,13 @@ boundaries, responsiveness, progression and closure. Each criterion requires
 3/4. Deterministic rule tests remain separate from model quality assessment.
 
 Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
+
+The complete `run_tests.sh` entrypoint finishes the ordinary voice and SDK cases,
+cleans that stack, runs the complete text-quality owner, and then performs
+multi-server acceptance. All five `script-quality.*` documents run in the text
+phase with character labels preserved. The child creates fresh test identities
+and network settings while retaining explicit credential-file, build-image and
+report options. An inherited case-subset setting cannot reduce full-gate coverage.
 
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh

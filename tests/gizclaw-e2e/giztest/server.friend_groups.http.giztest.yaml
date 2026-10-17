@@ -115,6 +115,17 @@ steps:
     /member/online: {present: false}
     /member/last_seen_at: {present: false}
     /member/in_room: {present: false}
+# Wait for the configured historical KV view before checking HTTP presence.
+- id: wait_for_shared_presence
+  client: bob
+  retry: {attempts: 10, on: [assertion], delay: 10s}
+  rpc:
+    method: server.friend_group.members.list
+    request: {friend_group_name: "${group_name}"}
+  expect:
+    /items: {count: 2}
+    /items/0/online: {equals: true}
+    /items/1/online: {equals: true}
 - id: list_members
   client: bob
   http:

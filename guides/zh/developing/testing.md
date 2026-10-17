@@ -340,6 +340,8 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 主 `run_tests.sh` 在标准 SDK 场景和该 stack 清理完成后，也运行这个双 Server gate。标准 `docker-compose.yaml` 与 multi-server stack 的 Peer、assignment、API key、Friend 和 FriendGroup 使用同一 TiKV connector；业务 SQL 仍由各 Server 独立持有。PD、TiKV、LiveKit 等外部服务镜像全部从 `gizcr.gizclaw.com` 拉取并固定 digest；Server、Edge、fixture 与 runner 从本地源码构建，构建基础镜像同样来自 gizcr。TiKV 数据使用项目独立的临时内存文件系统，结束时随该 project 清理。标准 Docker 镜像在构建时预编译 CLI 和 fixture apply 辅助程序，Server、Edge 与初始化流程直接使用这些构建产物。
 
+通用的 `server.friend.list`、`server.friend_group.members.list` 与 `server.friend_groups.http` 场景也等待共享 presence 进入历史视图。首次 RPC 状态断言最多十次、间隔十秒，只重试 assertion。HTTP 场景先经对应的成员列表 RPC 等待状态可见，再执行原有 HTTP 状态与权限断言；HTTP step 不设置重试策略。 原生 foreign-admission 与 telemetry 检查比较 assignment 和业务记录，排除会随合法连接及租约续期变化的精确 runtime-presence record prefix；SQL PeerRun 隔离与固定归属路由断言保持严格。
+
 Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各配置 1 GiB tmpfs，隔离本机 Docker 存储 I/O 停顿；通过 `tikv-pd.toml` 将 [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) 设为 15 秒。`tikv-test.toml` 将预留空间设为 64 MiB、Raft 预留空间设为 32 MiB、block cache 设为 128 MiB，TiKV 容器各有 4 GiB 内存上限，匹配小型夹具容量。仍运行真实 RocksDB、Raft 和 Learner 数据复制。数据只在本次测试内有效；该夹具不验收 SSD 性能或 TiKV/PD 重启持久性。
 
 `TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
@@ -565,6 +567,26 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
+JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
+客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
+等待确认，随后关闭父 Peer connection 并退出。写完响应 EOS 本身不代表远端已收到
+所有排队帧；缺少确认、无效确认和等待超时均失败。
+
+Flutter runner 支持 unary RPC 的 `retry`：2–10 次尝试，`on` 可选择
+`timeout`、`assertion`，省略时仅重试 timeout；正的 delay 最长五分钟。
+HTTP、其他 operation 和 `finally` 不接受此策略。失败尝试回滚其变量捕获，成功尝试
+保留捕获；报告记录每次尝试的状态、耗时、失败分类与脱敏错误。所有尝试和 delay
+共享原有任务 deadline，单次 RPC 使用剩余任务预算、显式 step timeout 与现有
+30 秒 RPC 上限中的最短值，由 SDK 结束超时请求后再进行下一次尝试。
+
+剧本杀规则同时识别“沈知秋房间”和“沈知秋的房间”的调查动作，取得相同的两条
+动机证据；破案仍要求全部独立证据与明确正确指认。
+
+旅程叙述区分进入章节与回应本章
+动作，并在转场上下文中带上前一章：进入章节不替玩家选择，回应动作先落实后果，
+转场先收束未决的小事件。该上下文不增加持久化会话记录，也不改变章节顺序、
+“继续”命令或最后的复盘边界。
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
@@ -621,10 +643,18 @@ VoiceAdapter 在同一音频路由内按角色选择 Voice。首响应测量包�
 候选 Prompt 将历史与本轮输入分开，并在本轮输入旁重新提供权威 State；狼人杀角色
 模型温度为 0.3，其他候选为 0.2。
 旅程只通过完整的肯定继续指令顺序推进，疑问或否定不会翻章。多角色故事还须先以
-“我选择……”确认本章约定；提出异议后须重新确认，才允许继续。狼人杀只识别明确行动分句，讨论旧票或否定技能
-不会执行行动。质量玩家以原生 State 记录20次发言的进度，先推进主线，再提出不同复盘问题，
+“我选择……”确认本章约定；确定选择之后的独立分句可以询问角色反应，不会丢弃选择。
+选择分句自身的疑问、后续未指明角色对象的疑问（如“可以吗”“好吗”），以及明确异议，都不能确认约定；
+提出异议后须重新确认，才允许继续。狼人杀只识别明确行动分句，讨论旧票或否定技能
+不会执行行动。终局后未指定新对象的“你”追问保留上一位实际发言的角色；复盘角色可读取完整公开票型。
+规则帮助列出可问的复盘问题，不重启对局；法官明确唯一最高票规则，并说明出局角色也可复盘。
+NPC 只按角色讨论规则已经执行的桌游事实，不把角色对白当成调用外部 Tool 的请求。
+质量玩家以原生 State 记录20次发言的进度，先推进主线，再提出不同复盘问题，
 最后告别；它不会为未完成的主线编造结局。
 这些配置仍须通过实际 Provider 对话评分，Prompt 中声明要求本身不证明质量达标。
+
+密室规则接受“勘察后廊”等已提供的调查动作，并从尚缺证据推导可继续调查的地点。
+地点提示不透露未发现线索；密室手法、死亡时间、行动路线和两条动机证据仍须齐全，再明确指认才能结案。
 
 `eino_catalog_test.go` 编译 Resource 和 Workspace 的实际配置，执行完整原生节点链，
 并验证非法行动、私密信息投影、证据不足、错误答案和通关后的状态。
@@ -694,9 +724,9 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Go Admin/OpenAI、CLI、
-Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 90 分钟；
+Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 6 小时；
 各 phase 默认 15 分钟，Docker setup 和 CLI 为 30 分钟，live chat 为 45 分钟，
-cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
+cleanup 为 5 分钟。五组串行文本质量场景使用独立的 4 小时阶段预算，包含各文档原有上限及其栈初始化；单条测试超时与断言保持原值。可通过以下正整数秒变量覆盖：
 
 - `GIZCLAW_E2E_FULL_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`
@@ -704,6 +734,7 @@ cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 - `GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
+- `GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 C/cgo preflight 会强制重新编译两个直接 include 仓库 C SDK 的 bridge，避免 Go 的 cgo cache 复用包目录外已修改的 C 源文件。
@@ -771,12 +802,12 @@ Server apply 可能静默忽略 Schema 未声明的字段，因此 reset 成功�
 
 ### Suite ownership
 
-- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。
+- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。 History 分页场景等待每轮 echo 的 Agent 输出，跨三页验证三轮共六条 Gear 输入／Agent 输出记录，包括 replay 可用性、纯文本无音频、稳定 ID 与详情查询。
 - `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social 和 Workflow 行为。
-- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
+- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。 根 help 校验完整的产品命令清单。`history-migrate` 与 `kv-migrate` 分别由已有的 `cmd/internal/commands/historymigrate/command_test.go` 与 `cmd/internal/commands/kvmigrate/command_test.go` 拥有验证；其他命令组沿用各自的 E2E story owner。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 - `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
 
@@ -1985,6 +2016,9 @@ Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以�
 针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
 
 质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
+
+完整 `run_tests.sh` 先执行普通语音与 SDK 场景并清理其 Docker 栈，再调用完整文本质量入口，最后执行多 Server 验收。
+五个 `script-quality.*` 文档全部由文本质量阶段执行，角色标签得以保留。子阶段重新生成自己的网络与身份配置，保留显式凭据文件、构建镜像和报告选项；继承的局部用例选择不会缩减完整门禁的五组覆盖。
 
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh

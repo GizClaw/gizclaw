@@ -93,6 +93,17 @@ class Variables {
 
   VariableEntry? operator [](String name) => _entries[name];
 
+  /// Captures variable bindings before an attempt. Entries are immutable and
+  /// captures replace bindings rather than modifying their JSON values.
+  Map<String, VariableEntry> snapshot() => Map.of(_entries);
+
+  /// Discards all captures made by a failed attempt.
+  void restore(Map<String, VariableEntry> snapshot) {
+    _entries
+      ..clear()
+      ..addAll(snapshot);
+  }
+
   /// Lists the secret string values to mask in reported errors, longest first
   /// so a longer secret is masked before one of its prefixes.
   List<String> redactions([List<String> requested = const []]) {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -150,7 +151,12 @@ func TestNativeEinoScenarioGraphs(t *testing.T) {
 
 func runRules(t *testing.T, name, command string, game map[string]any) map[string]any {
 	t.Helper()
-	graph := fixtureGraph(t, "workspaces/eino-"+name+".json")
+	return runFixtureRules(t, "workspaces/eino-"+name+".json", command, game)
+}
+
+func runFixtureRules(t *testing.T, path, command string, game map[string]any) map[string]any {
+	t.Helper()
+	graph := fixtureGraph(t, path)
 	for index := range graph.Nodes {
 		if graph.Nodes[index].ID == "rules" {
 			graph.Nodes[index].Inputs["text"] = genxeino.Binding{From: "command"}
@@ -158,6 +164,202 @@ func runRules(t *testing.T, name, command string, game map[string]any) map[strin
 	}
 	graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "command", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
 	return runFixtureScript(t, graph, "rules", map[string]any{"game": game, "command": command})
+}
+
+func TestStoryChoiceBeforeCharacterReactionQuestion(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/10-eino-multi-role-storyteller.yaml", "workspaces/eino-multi-role-storyteller.json"} {
+		t.Run(path, func(t *testing.T) {
+			for _, tc := range []struct {
+				command string
+				advance bool
+			}{
+				{"我选择让妖怪守山，取经后偿还旧债，悟空觉得可行吗？", true},
+				{"我确认师徒共同护山；悟空怎么看？", true},
+				{"我选择让妖怪守山,唐僧是否同意？", true},
+				{"我选择让妖怪守山，悟空，这样可以吗？", true},
+				{"我选择让妖怪守山，大家，这个安排是否可行？", true},
+				{"我选择让妖怪守山，老妖怪，这样可以吗？", true},
+				{"我选择让妖怪守山，请问悟空，觉得可行吗？", true},
+				{"我选择让妖怪守山，我想听听大家怎么看？", true},
+				{"我选择让妖怪守山，悟空觉得可行吗？唐僧是否同意？", true},
+				{"我选择让妖怪守山，可以先给猴群留足粮食。", true},
+				{"我选择让妖怪守山", true},
+				{"我选择让妖怪守山，可以吗？", false},
+				{"我选择让妖怪守山，好吗？", false},
+				{"我选择让妖怪守山，允许吗？", false},
+				{"我选择让妖怪守山，这样行吗？", false},
+				{"我选择让妖怪守山，可不可以？", false},
+				{"我选择让妖怪守山，这个安排是否可行？", false},
+				{"我选择让妖怪守山，取经后偿还旧债，我这样做可以吗？", false},
+				{"我选择让妖怪守山，悟空觉得可行吗？可以吗？", false},
+				{"我选择让妖怪守山，悟空，这样可以吗？可以吗？", false},
+				{"我选择谁来守山？", false},
+				{"我选择 谁来守山", false},
+				{"我选择哪位守山", false},
+				{"我选择让妖怪守山？", false},
+				{"我选择让妖怪守山可以吗，先问一下", false},
+				{"我选择让妖怪守山，但我不同意这个约定", false},
+				{"我选择？", false},
+				{"继续", false},
+			} {
+				t.Run(tc.command, func(t *testing.T) {
+					game := runFixtureRules(t, path, "开始", map[string]any{})["game"].(map[string]any)
+					game = runFixtureRules(t, path, tc.command, game)["game"].(map[string]any)
+					if game["chapter"] != int64(0) || game["progress"] != int64(0) {
+						t.Fatalf("choice advanced without continuation: %v", game)
+					}
+					game = runFixtureRules(t, path, "继续", game)["game"].(map[string]any)
+					want := int64(0)
+					if tc.advance {
+						want = 1
+					}
+					if game["chapter"] != want || game["progress"] != want {
+						t.Fatalf("continued chapter = %v, want %d", game, want)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestMysteryOfferedInvestigationAndRemainingLocations(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/11-eino-murder-mystery.yaml", "workspaces/eino-murder-mystery.json"} {
+		t.Run(path, func(t *testing.T) {
+			var view struct {
+				Clues         []string `json:"clues"`
+				NextLocations []string `json:"next_locations"`
+				Culprit       *string  `json:"culprit"`
+				Solution      *string  `json:"solution"`
+			}
+			result := runFixtureRules(t, path, "勘察后廊的出入口痕迹", map[string]any{})
+			if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(view.Clues, "后廊有湿脚印和雨水路线。") || slices.Contains(view.NextLocations, "后廊") || !slices.Contains(view.NextLocations, "沈知秋房间") || view.Culprit != nil || view.Solution != nil {
+				t.Fatalf("offered investigation did not acquire private-safe evidence: %#v", view)
+			}
+			game := result["game"].(map[string]any)
+			result = runFixtureRules(t, path, "检查门锁、壁炉、留声机和遗嘱", game)
+			if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(view.NextLocations, []string{"沈知秋房间"}) || strings.Contains(result["context"].(string), "生父") || view.Culprit != nil || view.Solution != nil {
+				t.Fatalf("remaining motive investigation leaked or lost its supported location: %#v", view)
+			}
+			game = result["game"].(map[string]any)
+			game = runFixtureRules(t, path, "指认沈知秋", game)["game"].(map[string]any)
+			if game["solved"] != false {
+				t.Fatal("partial motive evidence solved the case")
+			}
+			game = runFixtureRules(t, path, "查看旧报纸", game)["game"].(map[string]any)
+			if game["solved"] != false {
+				t.Fatal("completed evidence solved the case without an accusation")
+			}
+			if game = runFixtureRules(t, path, "指认沈知秋", game)["game"].(map[string]any); game["solved"] != true {
+				t.Fatal("complete evidence and correct accusation did not solve the case")
+			}
+		})
+	}
+}
+
+func TestWerewolfReviewKeepsVisibleAddresseeAndPublicBallots(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
+		t.Run(path, func(t *testing.T) {
+			graph := fixtureGraph(t, path)
+			for i := range graph.Nodes {
+				if graph.Nodes[i].ID == "roles" {
+					graph.Nodes[i].Inputs["text"] = genxeino.Binding{From: "command"}
+				}
+			}
+			graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "command", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
+			game := map[string]any{
+				"roles": map[string]any{"1": "平民", "2": "平民", "3": "狼人", "4": "狼人", "5": "预言家", "6": "女巫", "7": "猎人", "8": "平民"},
+				"log": []any{
+					map[string]any{"day": int64(1), "votes": map[string]any{"1": int64(4), "2": int64(6), "3": int64(7), "4": int64(1), "6": int64(2), "7": int64(3), "8": int64(4)}},
+					map[string]any{"day": int64(2), "votes": map[string]any{"2": int64(3), "3": int64(8), "6": int64(2), "7": int64(3), "8": int64(6)}},
+				},
+				"speeches": map[string]any{}, "next_votes": map[string]any{},
+			}
+			public := `{"phase":"ended","alive":[2,6,7,8],"dead":[5,4,1,3],"winner":"好人"}`
+			resolve := func(command string, current map[string]any) []any {
+				return runFixtureScript(t, graph, "roles", map[string]any{
+					"game": current, "command": command, "public_input": command, "context": public, "public_history": []*schema.Message{},
+				})["actors"].([]any)
+			}
+			publish := func(current map[string]any, actors []any, reply string) map[string]any {
+				return runFixtureScript(t, graph, "publish", map[string]any{
+					"game": current, "audit_due": false, "official": "本局已结束。", "context": public, "actors": actors, "replies": []any{reply},
+				})["game"].(map[string]any)
+			}
+			actors := resolve("作为5号预言家，你怎么看首夜出局？", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "周岚" {
+				t.Fatalf("explicit eliminated responder = %v", actors)
+			}
+			game = publish(game, actors, "我首夜已经出局，没有留下公开查验结果，可以复盘已有的公开信息。")
+			actors = resolve("那如果你当时还在场，会怎么看2号的发言？", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "周岚" {
+				t.Fatalf("pronoun or mentioned suspect replaced the visible responder: %v", actors)
+			}
+			var view struct {
+				Votes []struct {
+					Day   int64            `json:"day"`
+					Votes map[string]int64 `json:"votes"`
+				} `json:"votes"`
+			}
+			if err := json.Unmarshal([]byte(actors[0].(map[string]any)["public"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			if len(view.Votes) != 2 || view.Votes[0].Day != 1 || view.Votes[0].Votes["3"] != 7 || view.Votes[1].Day != 2 || view.Votes[1].Votes["3"] != 8 {
+				t.Fatalf("settled public ballot history = %#v", view)
+			}
+			actors = resolve("请林知回应你对2号的怀疑", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "林知" {
+				t.Fatalf("continuity overrode an explicit new responder: %v", actors)
+			}
+			game = publish(game, actors, "天亮了，进入第3夜。")
+			actors = resolve("那你为什么这样判断？", game)
+			if len(actors) != 1 || actors[0].(map[string]any)["name"] != "周岚" {
+				t.Fatalf("unpublished model ruling replaced the last visible responder: %v", actors)
+			}
+		})
+	}
+}
+
+func TestWerewolfPostGameHelpPreservesCompletedGame(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
+		t.Run(path, func(t *testing.T) {
+			game := runFixtureRules(t, path, "开始", map[string]any{})["game"].(map[string]any)
+			game["roles"] = map[string]any{"1": "平民", "2": "平民", "3": "狼人", "4": "狼人", "5": "预言家", "6": "女巫", "7": "猎人", "8": "平民"}
+			game["phase"], game["winner"], game["dead"] = "ended", "好人", []any{int64(3), int64(4)}
+			game["last_addressees"] = []any{int64(5)}
+			before, err := json.Marshal(game)
+			if err != nil {
+				t.Fatal(err)
+			}
+			result := runFixtureRules(t, path, "对局已经结束，请说明合法复盘操作有哪些？", game)
+			after, err := json.Marshal(result["game"])
+			if err != nil {
+				t.Fatal(err)
+			}
+			if string(before) != string(after) {
+				t.Fatalf("review help mutated the completed game: before=%s after=%s", before, after)
+			}
+			var view struct {
+				Answered bool `json:"answered"`
+			}
+			if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			official := result["official"].(string)
+			if !view.Answered || !strings.Contains(official, "实际票型") || !strings.Contains(official, "出局原因") || !strings.Contains(official, "角色当时的判断") {
+				t.Fatalf("legal review help lacked actionable questions: %s", official)
+			}
+			reset := runFixtureRules(t, path, "重新开始", result["game"].(map[string]any))["game"].(map[string]any)
+			if _, retained := reset["last_addressees"]; retained {
+				t.Fatal("a new game retained an earlier game's review addressee")
+			}
+		})
+	}
 }
 
 func TestNativeWerewolfRulesAndPrivacy(t *testing.T) {
@@ -1011,6 +1213,66 @@ func TestNativeWerewolfPublishesOneCompleteAssistantTurn(t *testing.T) {
 				t.Fatalf("incomplete assistant turn BOS=%d EOS=%d text=%s", begins, ends, text)
 			}
 
+		})
+	}
+}
+
+func TestMysteryPossessiveRoomInvestigations(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/11-eino-murder-mystery.yaml", "workspaces/eino-murder-mystery.json"} {
+		t.Run(path, func(t *testing.T) {
+			for _, command := range []string{"接下来我调查沈知秋的房间", "勘察沈知秋的房间"} {
+				result := runFixtureRules(t, path, command, map[string]any{})
+				var view struct {
+					Clues []string `json:"clues"`
+				}
+				if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+					t.Fatal(err)
+				}
+				if !slices.Contains(view.Clues, "遗嘱草稿牵涉大半遗产。") || !slices.Contains(view.Clues, "旧报纸揭示沈知秋生父与沈鹤年的旧仇。") {
+					t.Fatalf("offered possessive room name did not acquire the room's motive evidence: %v", view.Clues)
+				}
+				if result["game"].(map[string]any)["solved"] != false {
+					t.Fatal("room search solved the case without the remaining evidence and accusation")
+				}
+			}
+		})
+	}
+}
+
+func TestJourneyChapterEntryAndResponseContext(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/08-eino-journey.yaml", "workspaces/eino-journey.json"} {
+		t.Run(path, func(t *testing.T) {
+			run := func(command string, game map[string]any) (map[string]any, map[string]any) {
+				t.Helper()
+				result := runFixtureRules(t, path, command, game)
+				var view map[string]any
+				if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+					t.Fatal(err)
+				}
+				return result["game"].(map[string]any), view
+			}
+			game, view := run("开始", map[string]any{})
+			if view["entering_chapter"] != true || view["previous_setting"] != "" {
+				t.Fatalf("journey context did not distinguish chapter entry: %v", view)
+			}
+			game, view = run("我选择跟悟空同行，请他说说自己的看法", game)
+			if view["entering_chapter"] != false || game["setting"] != "花果山" {
+				t.Fatalf("an in-chapter response was treated as a new scene: %v", view)
+			}
+			for _, setting := range []string{"天宫", "启程", "试炼", "三国", "取经"} {
+				previous := game["setting"]
+				game, view = run("继续", game)
+				if game["setting"] != setting || view["entering_chapter"] != true || view["previous_setting"] != previous {
+					t.Fatalf("transition lost the prior chapter or changed order: %v", view)
+				}
+			}
+			game, view = run("说说之前的选择如何影响了结局", game)
+			if view["entering_chapter"] != false || view["previous_setting"] != "" || game["setting"] != "取经" {
+				t.Fatalf("final review reopened a chapter: %v", view)
+			}
+			if _, exists := game["entering_chapter"]; exists {
+				t.Fatal("turn-local chapter context leaked into persistent game state")
+			}
 		})
 	}
 }
