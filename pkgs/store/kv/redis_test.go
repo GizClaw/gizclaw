@@ -34,6 +34,57 @@ func TestRedisCanceledContextRetainsIdentity(t *testing.T) {
 	}
 }
 
+type batchPipelineHook struct{ sizes []int }
+
+func (h *batchPipelineHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+func (h *batchPipelineHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return next
+}
+func (h *batchPipelineHook) ProcessPipelineHook(redis.ProcessPipelineHook) redis.ProcessPipelineHook {
+	return func(_ context.Context, commands []redis.Cmder) error {
+		h.sizes = append(h.sizes, len(commands))
+		for _, command := range commands {
+			command.(*redis.StringCmd).SetVal("value")
+		}
+		return nil
+	}
+}
+
+func TestRedisBatchGetUsesOnePipeline(t *testing.T) {
+	client := redis.NewClient(&redis.Options{Addr: "reader.invalid:6379"})
+	t.Cleanup(func() { _ = client.Close() })
+	hook := &batchPipelineHook{}
+	client.AddHook(hook)
+	store, err := NewRedisWithClient(client, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := make([]Key, 10)
+	for i := range keys {
+		keys[i] = Key{"peer"}
+	}
+	results := BatchGet(t.Context(), Prefixed(store, Key{"tenant"}), keys)
+	if len(hook.sizes) != 1 || hook.sizes[0] != len(keys) || len(results) != len(keys) {
+		t.Fatalf("batch of ten keys was split: pipeline sizes=%v, results=%d", hook.sizes, len(results))
+	}
+	for _, result := range results {
+		if result.Err != nil || string(result.Value) != "value" {
+			t.Fatalf("batch result = %+v", result)
+		}
+	}
+	BatchGet(t.Context(), store, nil)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	for _, result := range BatchGet(ctx, store, keys) {
+		if !errors.Is(result.Err, context.Canceled) {
+			t.Fatalf("canceled batch result = %+v", result)
+		}
+	}
+	if len(hook.sizes) != 1 {
+		t.Fatalf("empty or canceled batch issued another pipeline: %v", hook.sizes)
+	}
+}
+
 func TestRedisReadWriteRequiresCompatibleClients(t *testing.T) {
 	read := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	write := redis.NewClient(&redis.Options{Addr: "127.0.0.1:2"})

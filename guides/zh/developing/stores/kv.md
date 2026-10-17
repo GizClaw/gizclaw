@@ -30,9 +30,9 @@
 
 调用方通过 `kv.BatchGet(ctx, store, keys)` 读取一组明确的 key，不枚举数据库。返回的 `GetResult` 与输入逐项对应，保留顺序、重复 key、空 byte value、`ErrNotFound` 和 `ErrWrongType`；成功值的内存互相独立。单个 key 失败不会覆盖其他成功结果。`Prefixed` 和 `WithStrongReads` 保留批量能力、namespace 与读取 authority。
 
-`BatchGetter` 是可选能力，不增加 `Store` 必须实现的方法。TiKV 为每次批量调用获取一次时间戳并创建一个快照，再按最多八个 key 顺序分块调用 SDK `BatchGet`；同一块跨 Region 的并行请求因此最多八路，所有块仍使用同一个快照。Redis 在选定读连接上按最多八条 `GET` 做 pipeline，保留集合 key 的 wrong-type 错误。其他 backend 最多八路并发调用 `Get`，不新建连接。
+`BatchGetter` 是可选能力，不增加 `Store` 必须实现的方法。TiKV 为每次批量调用获取一次时间戳并创建一个快照，将全部 key 一次交给 SDK `BatchGet`，由 SDK 按 Region 和请求大小拆分并行读取。Redis 在选定读连接上将全部 `GET` 放进同一个 pipeline，保留集合 key 的 wrong-type 错误。最多八路并发只用于未实现批量能力的 backend：兼容路径并发调用其 `Get`，不新建连接。
 
-所有分块和兼容读取继承同一个 caller context，不为排队 key 重置超时；取消后不再启动其存储读取。TiKV 一块请求整体失败时，该块中的 key 都返回错误；先前成功的块保留。批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
+原生批量与兼容读取都继承 caller context，不为内部请求重置超时；兼容路径取消后不再启动排队 key 的存储读取。TiKV SDK 整批失败时，该次调用的所有 key 都返回错误。批量 contract 不承诺所有 backend 都使用原子快照，也不把多次 `BatchGet` 合成同一个快照。产品层负责设置整页预算，KV 层不内置业务超时。
 
 ## Server 组合
 

@@ -123,14 +123,14 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 		keys := 0
 		for _, read := range reads {
 			keys += read.Keys
-			if read.Address != addresses["local"] || !read.Stale || read.Keys > 8 {
-				t.Fatalf("presence did not use bounded regional reads: %+v", reads)
+			if read.Address != addresses["local"] || !read.Stale {
+				t.Fatalf("presence did not use regional reads: %+v", reads)
 			}
 		}
-		if keys != 11 || len(reads) != 3 || reads[0].Version != reads[1].Version {
+		if keys != 11 || len(reads) != 2 || reads[0].Keys != 10 || reads[1].Keys != 1 {
 			t.Fatalf("want 10 Peer keys on one snapshot plus one unique lease, got %+v", reads)
 		}
-		t.Logf("10 online Peers: %d Learner RPCs, %d keys; Peer chunks share snapshot %d", len(reads), keys, reads[0].Version)
+		t.Logf("10 online Peers: %d Learner RPCs, %d keys; one Peer batch on snapshot %d", len(reads), keys, reads[0].Version)
 	})
 
 	t.Run("local-latency-and-concurrent-pages", func(t *testing.T) {

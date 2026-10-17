@@ -189,9 +189,8 @@ func (s *TiKV) Get(ctx context.Context, key Key) ([]byte, error) {
 	return bytes.Clone(value.payload), nil
 }
 
-// BatchGet uses one timestamp and snapshot for the batch. Sequential chunks
-// limit each SDK fan-out to at most eight keys/Regions, while all chunks retain
-// that snapshot and the caller's original deadline.
+// BatchGet reads all requested keys on one timestamp and snapshot. The SDK
+// handles Region routing, request splitting and concurrency under ctx.
 func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
 	results := make([]GetResult, len(keys))
 	if len(keys) == 0 {
@@ -204,39 +203,30 @@ func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
 		}
 		return results
 	}
-	for start := 0; start < len(keys); start += batchGetConcurrency {
-		end := min(start+batchGetConcurrency, len(keys))
-		encoded := make([][]byte, end-start)
-		for i := range encoded {
-			encoded[i] = s.recordKey(keys[start+i])
+	encoded := make([][]byte, len(keys))
+	for i, key := range keys {
+		encoded[i] = s.recordKey(key)
+	}
+	values, err := snapshot.BatchGet(ctx, encoded)
+	now := time.Now()
+	for i, key := range encoded {
+		result := &results[i]
+		if err != nil {
+			result.Err = tiKVError("batch get", err)
+			continue
 		}
-		if err := ctx.Err(); err != nil {
-			for i := start; i < len(keys); i++ {
-				results[i].Err = err
-			}
-			break
+		raw, ok := values[string(key)]
+		if !ok {
+			result.Err = ErrNotFound
+			continue
 		}
-		values, err := snapshot.BatchGet(ctx, encoded)
-		now := time.Now()
-		for i, key := range encoded {
-			result := &results[start+i]
-			if err != nil {
-				result.Err = tiKVError("batch get", err)
-				continue
-			}
-			raw, ok := values[string(key)]
-			if !ok {
-				result.Err = ErrNotFound
-				continue
-			}
-			value, err := decodeTiKVValue(raw.Value, now)
-			if err != nil {
-				result.Err = err
-			} else if value.kind != 0 {
-				result.Err = ErrWrongType
-			} else {
-				result.Value = bytes.Clone(value.payload)
-			}
+		value, err := decodeTiKVValue(raw.Value, now)
+		if err != nil {
+			result.Err = err
+		} else if value.kind != 0 {
+			result.Err = ErrWrongType
+		} else {
+			result.Value = bytes.Clone(value.payload)
 		}
 	}
 	return results

@@ -66,35 +66,35 @@ func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
 }
 
 // BatchGet pipelines ordinary GET commands on the selected reader. Unlike
-// MGET, GET retains ErrWrongType for collection keys. Batches contain at most
-// eight commands and never fall back to the writer on reader errors.
+// MGET, GET retains ErrWrongType for collection keys. One pipeline reads the
+// whole batch and never falls back to the writer on reader errors.
 func (r *Redis) BatchGet(ctx context.Context, keys []Key) []GetResult {
 	results := make([]GetResult, len(keys))
-	for start := 0; start < len(keys); start += batchGetConcurrency {
-		end := min(start+batchGetConcurrency, len(keys))
-		if err := ctx.Err(); err != nil {
-			for i := start; i < len(keys); i++ {
-				results[i].Err = err
-			}
-			break
+	if len(keys) == 0 {
+		return results
+	}
+	if err := ctx.Err(); err != nil {
+		for i := range results {
+			results[i].Err = err
 		}
-		pipe := r.readClient(ctx).Pipeline()
-		commands := make([]*redis.StringCmd, end-start)
-		for i := range commands {
-			commands[i] = pipe.Get(ctx, string(r.opts.encode(keys[start+i])))
-		}
-		_, _ = pipe.Exec(ctx) // Each command retains its own value or error.
-		for i, command := range commands {
-			result := &results[start+i]
-			result.Value, result.Err = command.Bytes()
-			switch {
-			case errors.Is(result.Err, redis.Nil):
-				result.Err = ErrNotFound
-			case result.Err != nil && strings.HasPrefix(result.Err.Error(), "WRONGTYPE"):
-				result.Err = ErrWrongType
-			case result.Err != nil:
-				result.Err = redisOperationError("batch get", result.Err)
-			}
+		return results
+	}
+	pipe := r.readClient(ctx).Pipeline()
+	commands := make([]*redis.StringCmd, len(keys))
+	for i, key := range keys {
+		commands[i] = pipe.Get(ctx, string(r.opts.encode(key)))
+	}
+	_, _ = pipe.Exec(ctx) // Each command retains its own value or error.
+	for i, command := range commands {
+		result := &results[i]
+		result.Value, result.Err = command.Bytes()
+		switch {
+		case errors.Is(result.Err, redis.Nil):
+			result.Err = ErrNotFound
+		case result.Err != nil && strings.HasPrefix(result.Err.Error(), "WRONGTYPE"):
+			result.Err = ErrWrongType
+		case result.Err != nil:
+			result.Err = redisOperationError("batch get", result.Err)
 		}
 	}
 	return results
