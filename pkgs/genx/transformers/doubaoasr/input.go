@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/streamlog"
 )
 
 const asrInputQueueChunks = 4096
@@ -21,7 +22,8 @@ type asrInputRead struct {
 }
 
 // asrInput watches replacement BOS while the ASR sender is recovering. Its
-// bounded read-ahead lets a replacement cancel a blocked recovery upload.
+// bounded read-ahead owns its queued chunks and lets a replacement cancel a
+// blocked recovery upload.
 type asrInput struct {
 	ctx    context.Context
 	reads  chan asrInputRead
@@ -35,7 +37,7 @@ func newASRInput(ctx context.Context, input genx.Stream, output *bufferStream) *
 	go func() {
 		defer close(s.reads)
 		for {
-			chunk, err := input.Next()
+			chunk, err := streamlog.ReadInput(ctx, input)
 			var size int64
 			if chunk != nil {
 				if chunk.IsBeginOfStream() && chunk.Ctrl != nil {
@@ -53,6 +55,9 @@ func newASRInput(ctx context.Context, input genx.Stream, output *bufferStream) *
 			if s.queued.Add(size) > asrRecoveryByteLimit {
 				_ = output.Fail(errASRInputQueueLimit)
 				return
+			}
+			if chunk != nil {
+				chunk = chunk.Clone()
 			}
 			select {
 			case s.reads <- asrInputRead{chunk: chunk, err: err, bytes: size}:

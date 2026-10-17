@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
 	"log/slog"
 	"slices"
@@ -25,6 +26,42 @@ type recoveryProvider struct {
 	closed chan struct{}
 	once   sync.Once
 	send   func(context.Context, []byte, bool) error
+}
+
+type borrowedASRInput struct {
+	chunk genx.MessageChunk
+	data  []byte
+	read  int
+	done  chan struct{}
+}
+
+func (s *borrowedASRInput) Next() (*genx.MessageChunk, error) {
+	s.read++
+	s.data[0] = byte(s.read)
+	s.chunk.Ctrl.StreamID = fmt.Sprint(s.read)
+	if s.read == 3 {
+		close(s.done)
+		return nil, io.EOF
+	}
+	return &s.chunk, nil
+}
+func (*borrowedASRInput) Close() error               { return nil }
+func (*borrowedASRInput) CloseWithError(error) error { return nil }
+
+func TestASRInputOwnsQueuedChunks(t *testing.T) {
+	data := []byte{0}
+	source := &borrowedASRInput{data: data, done: make(chan struct{}), chunk: genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: data}, Ctrl: &genx.StreamCtrl{}}}
+	reader := newASRInput(t.Context(), source, newBufferStream(2))
+	awaitRecovery(t, source.done)
+	for i := 1; i <= 2; i++ {
+		chunk, err := reader.next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := chunk.Part.(*genx.Blob).Data[0]; got != byte(i) || chunk.Ctrl.StreamID != fmt.Sprint(i) {
+			t.Fatalf("queued input reused producer storage: data=%d ctrl=%#v", got, chunk.Ctrl)
+		}
+	}
 }
 
 func newRecoveryProvider() *recoveryProvider {

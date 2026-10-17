@@ -523,7 +523,6 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	for {
 
 		chunk, err := inputReader.next()
-		streamlog.ObserveInputRead(ctx, chunk, err)
 		if err != nil {
 			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
 				if session != nil {
