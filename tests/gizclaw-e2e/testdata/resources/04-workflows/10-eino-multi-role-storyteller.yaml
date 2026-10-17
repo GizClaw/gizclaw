@@ -57,8 +57,11 @@ spec:
                 objection = any([word in text for word in ["不要继续", "不同意", "不接受", "先解释", "先别", "先等等"]])
                 if objection:
                     agreement = ""
-                choice = regex_find(text, ("^(?:我|我们)(?:选择|决定|确认|同意|承诺|负责|愿意)(.+)$", ""))
-                if choice and not any([word in text for word in ["？", "?", "是否", "为什么", "怎么", "如何"]]):
+                choice = regex_find(text, ("^(?:我|我们)(?:选择|决定|确认|同意|承诺|负责|愿意)([^，,。；;？！!?]+)([，,。；;？！!?]|$)", ""))
+                uncertain = False
+                if choice:
+                    uncertain = choice[2] in ["？", "?"] or bool(regex_find(choice[1], ("(?:^(?:谁|什么|哪|是否|怎么|如何|为什么)|(?:吗|么|好不好|行不行|可不可以|能不能)$)", "")))
+                if choice and not objection and not uncertain:
                     agreement = text
                 game["agreement"] = agreement
                 if continuing and agreement and game["chapter"] < len(places) - 1:

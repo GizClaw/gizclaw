@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -150,7 +151,12 @@ func TestNativeEinoScenarioGraphs(t *testing.T) {
 
 func runRules(t *testing.T, name, command string, game map[string]any) map[string]any {
 	t.Helper()
-	graph := fixtureGraph(t, "workspaces/eino-"+name+".json")
+	return runFixtureRules(t, "workspaces/eino-"+name+".json", command, game)
+}
+
+func runFixtureRules(t *testing.T, path, command string, game map[string]any) map[string]any {
+	t.Helper()
+	graph := fixtureGraph(t, path)
 	for index := range graph.Nodes {
 		if graph.Nodes[index].ID == "rules" {
 			graph.Nodes[index].Inputs["text"] = genxeino.Binding{From: "command"}
@@ -158,6 +164,85 @@ func runRules(t *testing.T, name, command string, game map[string]any) map[strin
 	}
 	graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "command", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
 	return runFixtureScript(t, graph, "rules", map[string]any{"game": game, "command": command})
+}
+
+func TestStoryChoiceBeforeCharacterReactionQuestion(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/10-eino-multi-role-storyteller.yaml", "workspaces/eino-multi-role-storyteller.json"} {
+		t.Run(path, func(t *testing.T) {
+			for _, tc := range []struct {
+				command string
+				advance bool
+			}{
+				{"我选择让妖怪守山，取经后偿还旧债，悟空觉得可行吗？", true},
+				{"我确认师徒共同护山；悟空怎么看？", true},
+				{"我选择让妖怪守山,唐僧是否同意？", true},
+				{"我选择让妖怪守山", true},
+				{"我选择谁来守山？", false},
+				{"我选择哪位守山", false},
+				{"我选择让妖怪守山？", false},
+				{"我选择让妖怪守山可以吗，先问一下", false},
+				{"我选择让妖怪守山，但我不同意这个约定", false},
+				{"我选择？", false},
+				{"继续", false},
+			} {
+				t.Run(tc.command, func(t *testing.T) {
+					game := runFixtureRules(t, path, "开始", map[string]any{})["game"].(map[string]any)
+					game = runFixtureRules(t, path, tc.command, game)["game"].(map[string]any)
+					if game["chapter"] != int64(0) || game["progress"] != int64(0) {
+						t.Fatalf("choice advanced without continuation: %v", game)
+					}
+					game = runFixtureRules(t, path, "继续", game)["game"].(map[string]any)
+					want := int64(0)
+					if tc.advance {
+						want = 1
+					}
+					if game["chapter"] != want || game["progress"] != want {
+						t.Fatalf("continued chapter = %v, want %d", game, want)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestMysteryOfferedInvestigationAndRemainingLocations(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/11-eino-murder-mystery.yaml", "workspaces/eino-murder-mystery.json"} {
+		t.Run(path, func(t *testing.T) {
+			var view struct {
+				Clues         []string `json:"clues"`
+				NextLocations []string `json:"next_locations"`
+				Culprit       *string  `json:"culprit"`
+				Solution      *string  `json:"solution"`
+			}
+			result := runFixtureRules(t, path, "勘察后廊的出入口痕迹", map[string]any{})
+			if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(view.Clues, "后廊有湿脚印和雨水路线。") || slices.Contains(view.NextLocations, "后廊") || !slices.Contains(view.NextLocations, "沈知秋房间") || view.Culprit != nil || view.Solution != nil {
+				t.Fatalf("offered investigation did not acquire private-safe evidence: %#v", view)
+			}
+			game := result["game"].(map[string]any)
+			result = runFixtureRules(t, path, "检查门锁、壁炉、留声机和遗嘱", game)
+			if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Equal(view.NextLocations, []string{"沈知秋房间"}) || strings.Contains(result["context"].(string), "生父") || view.Culprit != nil || view.Solution != nil {
+				t.Fatalf("remaining motive investigation leaked or lost its supported location: %#v", view)
+			}
+			game = result["game"].(map[string]any)
+			game = runFixtureRules(t, path, "指认沈知秋", game)["game"].(map[string]any)
+			if game["solved"] != false {
+				t.Fatal("partial motive evidence solved the case")
+			}
+			game = runFixtureRules(t, path, "查看旧报纸", game)["game"].(map[string]any)
+			if game["solved"] != false {
+				t.Fatal("completed evidence solved the case without an accusation")
+			}
+			if game = runFixtureRules(t, path, "指认沈知秋", game)["game"].(map[string]any); game["solved"] != true {
+				t.Fatal("complete evidence and correct accusation did not solve the case")
+			}
+		})
+	}
 }
 
 func TestNativeWerewolfRulesAndPrivacy(t *testing.T) {

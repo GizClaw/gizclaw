@@ -615,11 +615,18 @@ Candidate prompts separate history from the current input, repeat authoritative
 State beside that input. Werewolf characters use temperature 0.3; other candidates
 use 0.2. Journey advances only through a complete affirmative continuation command;
 questions and negations leave the chapter unchanged. Ensemble stories also require
-an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
+an explicit current-chapter agreement, renewed after an objection, before advancing.
+A separate clause asking for character reactions preserves a confirmed choice;
+a question in the choice clause or an explicit objection cannot confirm one. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
 skills. The quality player tracks its 20 utterances in native State, advances the
 main objective, asks distinct review questions and then says farewell. It does
 not invent completion when the objective remains unfinished.
+
+Mystery rules accept offered actions such as inspecting the back corridor and
+derive remaining supported investigation locations from missing evidence. Hints
+do not disclose undiscovered clues. The method, timing, route and both motive
+clues must still be complete before an explicit correct accusation solves the case.
 
 `eino_catalog_test.go` compiles actual Resource and Workspace configurations,
 executes their native pipelines, and checks illegal actions, private projections,
