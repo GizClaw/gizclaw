@@ -1121,6 +1121,9 @@ func (t *Transformer) processSession(
 	var realtimeSpokenEpoch uint64
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
+	// A provider VAD segment, rather than the long-lived input route, owns
+	// realtime user audio. Publish it before that segment's transcript EOS.
+	historyAudio := &realtimeHistoryAudio{}
 	// initiativeActive is set while the hidden opening query owns the
 	// assistant route. Push-to-talk event routing is bypassed for that
 	// response because no push-to-talk turn produced it.
@@ -1330,6 +1333,9 @@ func (t *Transformer) processSession(
 		initiativeStarted := false
 		closeInputSegment := func(errText string) error {
 			inputStreamID := streamIDs.endInputSegment()
+			if err := pushHistoryAudioSegment(output, inputStreamID, historyAudio.take(inputStreamID)); err != nil {
+				return err
+			}
 			doneChunk := &genx.MessageChunk{
 				Role: genx.RoleUser,
 				Part: genx.Text(""),
@@ -1524,6 +1530,11 @@ func (t *Transformer) processSession(
 					epoch := assistant.nextEpoch()
 					realtimeSpoken = &doubaoRealtimeSpokenResponse{expectsContent: semanticASR || realtimeTextHasSemantic(event.Text) || realtimeTextHasSemantic(realtimeASRText(event.Payload))}
 					realtimeSpokenEpoch = epoch
+					if t.mode == ModeRealtime && !semanticASR {
+						// No transcript claimed this segment. Its audio must not
+						// become part of the next recognized utterance.
+						historyAudio.discard()
+					}
 					semanticASR = false
 					responseStreamID := ""
 					switch {
@@ -2063,6 +2074,11 @@ func (t *Transformer) processSession(
 					audioInputs.closeStream(streamID)
 					return err
 				}
+				if t.mode == ModeRealtime {
+					if err := historyAudio.append(chunk, streamID); err != nil {
+						slog.WarnContext(ctx, "doubao: user history audio unavailable", "error", err)
+					}
+				}
 				for _, audio := range frames {
 					if len(audio) == 0 {
 						continue
@@ -2121,6 +2137,7 @@ func (t *Transformer) processSession(
 					markAssistantPending(pttResponse.streamID, epoch)
 					pttResponses.add(pttResponse)
 				} else if t.mode == ModeRealtime {
+					historyAudio.discard()
 					responseStreamID := streamIDs.endInputSegment()
 					assistant.setAccept(true)
 					epoch := assistant.nextEpoch()

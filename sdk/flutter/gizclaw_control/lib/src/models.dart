@@ -1023,6 +1023,7 @@ class WorkspaceHistoryEntry {
     required this.text,
     required this.createdAt,
     required this.replayAvailable,
+    required this.audioAvailable,
   });
 
   factory WorkspaceHistoryEntry.fromJson(Object? json) {
@@ -1035,6 +1036,7 @@ class WorkspaceHistoryEntry {
       text: readString(object, 'text'),
       createdAt: readDateTime(object, 'created_at'),
       replayAvailable: readBool(object, 'replay_available'),
+      audioAvailable: readBool(object, 'audio_available'),
     );
   }
 
@@ -1051,6 +1053,9 @@ class WorkspaceHistoryEntry {
   /// Whether the entry kept replayable media. It does not guarantee that Ogg
   /// audio exists.
   final bool replayAvailable;
+
+  /// Whether this entry references a retained Ogg/Opus recording.
+  final bool audioAvailable;
 }
 
 /// Body of `POST /gizclaw/v1/device/tool/v0/invoke`.

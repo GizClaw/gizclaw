@@ -201,14 +201,12 @@ func (s *Server) AdminReadWorkspaceHistoryAudio(ctx context.Context, workspaceNa
 	if err != nil {
 		return nil, 0, err
 	}
-	for _, asset := range entry.Assets {
-		if strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg") || strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg; codecs=opus") {
-			r, err := store.ReadAsset(ctx, asset.Name)
-			if err != nil {
-				return nil, 0, err
-			}
-			return r, asset.Bytes, nil
+	if asset, ok := entry.oggAudioAsset(); ok {
+		r, err := store.ReadAsset(ctx, asset.Name)
+		if err != nil {
+			return nil, 0, err
 		}
+		return r, asset.Bytes, nil
 	}
 	return nil, 0, fs.ErrNotExist
 }
@@ -223,14 +221,12 @@ func (s *Server) ReadWorkspaceHistoryAudioByID(ctx context.Context, workspaceNam
 	if err != nil {
 		return nil, 0, err
 	}
-	for _, asset := range entry.Assets {
-		if strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg") || strings.EqualFold(strings.TrimSpace(asset.MIMEType), "audio/ogg; codecs=opus") {
-			r, err := store.ReadAsset(ctx, asset.Name)
-			if err != nil {
-				return nil, 0, err
-			}
-			return r, asset.Bytes, nil
+	if asset, ok := entry.oggAudioAsset(); ok {
+		r, err := store.ReadAsset(ctx, asset.Name)
+		if err != nil {
+			return nil, 0, err
 		}
+		return r, asset.Bytes, nil
 	}
 	return nil, 0, fs.ErrNotExist
 }

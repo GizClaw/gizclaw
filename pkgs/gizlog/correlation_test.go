@@ -12,7 +12,7 @@ func TestCorrelationIdentityWinsAndDoesNotLeakToSibling(t *testing.T) {
 	var buf bytes.Buffer
 	logger := slog.New(newContextHandler(slog.NewJSONHandler(&buf, &slog.HandlerOptions{AddSource: true}), nil)).With("request_id", "stale")
 	ctx := WithAPIKeyName(WithSessionID(WithRequestID(WithPeerPublicKey(t.Context(), "peer"), "server-id"), "session"), "key-name")
-	logger.InfoContext(WithStreamID(ctx, "stream"), "first", "request_id", "forged")
+	logger.InfoContext(WithWorkspace(WithStreamID(ctx, "stream"), "animals"), "first", "request_id", "forged")
 	logger.InfoContext(WithRequestID(t.Context(), "sibling-id"), "second")
 	lines := strings.Split(strings.TrimSpace(buf.String()), "\n")
 	var first, second map[string]any
@@ -22,7 +22,7 @@ func TestCorrelationIdentityWinsAndDoesNotLeakToSibling(t *testing.T) {
 	if err := json.Unmarshal([]byte(lines[1]), &second); err != nil {
 		t.Fatal(err)
 	}
-	for key, value := range map[string]string{"peer_public_key": "peer", "session_id": "session", "request_id": "server-id", "api_key_name": "key-name", "stream_id": "stream"} {
+	for key, value := range map[string]string{"peer_public_key": "peer", "session_id": "session", "request_id": "server-id", "api_key_name": "key-name", "stream_id": "stream", "workspace": "animals"} {
 		if first[key] != value {
 			t.Fatalf("%s: %v", key, first)
 		}
@@ -30,7 +30,7 @@ func TestCorrelationIdentityWinsAndDoesNotLeakToSibling(t *testing.T) {
 	if strings.Count(lines[0], `"request_id"`) != 1 || first["source"] == nil {
 		t.Fatalf("duplicate identity or missing source: %s", lines[0])
 	}
-	if second["request_id"] != "sibling-id" || second["peer_public_key"] != nil || second["api_key_name"] != nil {
+	if second["request_id"] != "sibling-id" || second["peer_public_key"] != nil || second["api_key_name"] != nil || second["workspace"] != nil {
 		t.Fatalf("identity leaked: %v", second)
 	}
 }

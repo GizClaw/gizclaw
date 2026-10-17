@@ -59,6 +59,7 @@ func run() error {
 		runtimeTools      = flag.Bool("runtime-tools", false, "Seed Profile alias and real model device Tool acceptance")
 		controlListen     = flag.String("control-listen", ":9822", "Internal test-control HTTP listener for runtime Tools")
 		rtpBOS            = flag.Bool("rtp-bos", false, "Seed local RTP BOS regression workflows")
+		asrRecovery       = flag.Bool("asr-recovery", false, "Seed local ASR recovery regression workflow")
 		speakerSegments   = flag.Bool("speaker-segments", false, "Seed isolated speaker segment fixtures")
 		slowTTS           = flag.Bool("slow-tts", false, "Seed local slow TTS regression workflows")
 		server            = flag.String("server", "", "Server endpoint, e.g. server-a:9820")
@@ -124,6 +125,9 @@ func run() error {
 	}
 	if *rtpBOS {
 		return seedRTPBOS(ctx, api, *profileID, *tokenID, *token)
+	}
+	if *asrRecovery {
+		return seedASRVoiceFixture(ctx, api, *profileID, *tokenID, *token, "asr-recovery")
 	}
 	if *speakerSegments {
 		return seedVoiceFixture(ctx, api, *profileID, *tokenID, *token, "speaker-segments")

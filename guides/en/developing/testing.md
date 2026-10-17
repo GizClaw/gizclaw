@@ -33,6 +33,16 @@ Existing versions and upstream SHA256 digests are retained. Server, Edge, Mem0
 and test fixtures build from the current checkout. `GIZCLAW_E2E_DOCKER_BASE_FROM`
 and `PYTHON_BASE_IMAGE` explicitly override the base image to pull.
 
+### Doubao ASR recovery Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_asr_recovery_tests.sh
+```
+
+This lane first checks nine real SDK/transformer turns against the local WebSocket fixture, then starts isolated Docker Server/Edge/Giztest without cloud credentials. A disposable build overlay changes only provider wiring: the real `doubaoasr` transformer and Doubao SDK connect to a process-local loopback WebSocket fixture, while Eino Script and valid Opus fixtures supply deterministic replies. The eighth PTT input returns `55000000`; replacement PCM must hash identically to the original eighth recording. Nine sequential question numbers, one transcript/reply each, eighteen History entries, and the ninth turn prove recovery does not restart the Workflow or duplicate committed turns. Transformer regressions separately cover continuous ASR recovering its eighth utterance after seven committed utterances within the same provider session, then continuing the ninth.
+
+The Server explicitly uses a WARN threshold. The runner checks the original error and correlated `retry=1` start/success, distinct local/upstream IDs, and absence of output-consumer or assistant-route failures. Logs, Giztest reports, and source hashes remain in ignored `.testbench/asr-recovery-*`. The local Go base compiles the protocol preflight and binaries; read-only mounts run Server, Edge, and Giztest from that same base, and the manifest records the binary digest. Cleanup removes only this Compose project, compiler container, and runtime state; the base and Go cache are reused. This is local protocol/Server integration evidence, not cloud-provider or physical-device acceptance.
+
 ## Isolating audio timing tests
 
 CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:

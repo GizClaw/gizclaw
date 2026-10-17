@@ -130,9 +130,9 @@ public key.
 
 The LiveKit SFU connector maps SDK `Debugw`, `Infow`, `Warnw` and `Errorw` directly to slog DEBUG, INFO, WARN and ERROR, bypassing the standard log bridge that loses severity. Each Room keeps the authenticated Peer correlation from its attachment context, including cancellation diagnostics. The SDK’s internal Pion logger follows the process `slog.Default` without binding one Room’s Peer. WARN sinks retain SDK/Pion WARN and ERROR while filtering DEBUG and INFO. The SDK logger copies only transport/state enum fields and marks errors with `error_present`; it omits raw provider errors, SDP, ICE server, candidate and HTTP response attributes.
 
-AgentHost binds the authenticated Peer `peer_public_key` to the Agent execution
-context. Provider records emitted through context-aware `slog` calls inherit
-that field. Startup, storage, and other process-global records without a Peer
+AgentHost binds the authenticated Peer `peer_public_key`, connection `session_id`,
+and current `workspace` to the Agent execution context. Provider records emitted
+through context-aware `slog` calls inherit these fields. Startup, storage, and other process-global records without a Peer
 owner omit it instead of fabricating an identity. Admin `GET /logs/stream`
 returns `node_id`, `source_file`, `source_line`, and applicable
 `peer_public_key` values in the entry's scalar `fields` map without changing

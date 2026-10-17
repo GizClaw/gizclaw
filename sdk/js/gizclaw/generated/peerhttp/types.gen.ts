@@ -1064,7 +1064,14 @@ export type PeerRunHistoryEntry = {
     actor_name: string;
     text: string;
     created_at: string;
+    /**
+     * Whether retained text or assets can be replayed. This does not guarantee a stored recording; use audio_available for audio playback controls.
+     */
     replay_available: boolean;
+    /**
+     * Whether this retained entry references a stored Ogg/Opus recording. Text replay availability does not imply audio availability.
+     */
+    audio_available: boolean;
 };
 
 export type PeerRunHistoryListResponse = {

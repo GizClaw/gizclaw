@@ -207,6 +207,7 @@ void main() {
               'text': 'tell me a story',
               'created_at': '2026-09-01T10:00:00Z',
               'replay_available': true,
+              'audio_available': true,
             },
             {
               'name': '20260901T100001.000000000Z-b',
@@ -215,6 +216,7 @@ void main() {
               'text': 'Once upon a time',
               'created_at': '2026-09-01T10:00:01Z',
               'replay_available': false,
+              'audio_available': false,
             },
           ],
           'has_next': true,
@@ -248,6 +250,8 @@ void main() {
       expect(page.nextCursor, '20260901T100001.000000000Z-b');
       expect(page.items.map((item) => item.type), ['gear', 'agent']);
       expect(page.items.first.gearId, 'device-key');
+      expect(page.items.first.audioAvailable, isTrue);
+      expect(page.items.last.audioAvailable, isFalse);
       expect(page.items.last.gearId, isNull);
       expect(page.items.last.createdAt, DateTime.utc(2026, 9, 1, 10, 0, 1));
     });
