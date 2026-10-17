@@ -60,7 +60,13 @@ spec:
                 choice = regex_find(text, ("^(?:我|我们)(?:选择|决定|确认|同意|承诺|负责|愿意)([^，,。；;？！!?]+)([，,。；;？！!?]|$)", ""))
                 uncertain = False
                 if choice:
-                    uncertain = choice[2] in ["？", "?"] or bool(regex_find(choice[1], ("(?:^(?:谁|什么|哪|是否|怎么|如何|为什么)|(?:吗|么|好不好|行不行|可不可以|能不能)$)", "")))
+                    uncertain = choice[2] in ["？", "?"] or bool(regex_find(choice[1].strip(), ("(?:^(?:谁|什么|哪|是否|怎么|如何|为什么)|(?:吗|么|好不好|行不行|可不可以|能不能)$)", "")))
+                    boundary = "(?:^|[，,。；;？！!?])[ ]*"
+                    clause = "[^，,。；;？！!?]*"
+                    people = "(?:悟空|孙悟空|大圣|唐僧|师父|八戒|猪八戒|妖怪|老妖怪|青面老妖怪|大家|各位|你们)"
+                    followups = regex_replace(text[len(choice[0]):], (boundary + people + "(?:[、和与]" + people + ")*[，,][ ]*" + clause + "[？?]", "g"), "。")
+                    permission = boundary + "(?:请问[，, ]*)?(?:(?:这个安排|这个决定|这种安排|这样安排|这么安排|这样选择|我这样做|我们这样做|这么做|这样|我们|我|那么|那)[ ]*){0,2}(?:(?:可以|可行|合适|行|能)" + clause + "(?:[吗么](?:[，,。；;？！!?]|$)|[？?])|(?:可不可以|行不行|能不能|能否|是否|好不好)" + clause + "(?:[，,。；;？！!?]|$))"
+                    uncertain = uncertain or bool(regex_find(followups, (permission, "")))
                 if choice and not objection and not uncertain:
                     agreement = text
                 game["agreement"] = agreement
