@@ -183,17 +183,26 @@ func TestRecoveryContinuesEighthUtteranceWithoutReplayingHistory(t *testing.T) {
 	current := bytes.Repeat([]byte{8}, 3200)
 	pushRecoveryAudio(t, input, "guess", current, false, false)
 	awaitRecovery(t, first.sent)
+	// Repeated committed utterances in an incremental/full result must not
+	// disable the current uncommitted window or replay the earlier turns.
+	cumulative := &doubaospeech.ASRV2Result{Text: "eighth interim"}
+	for i := 1; i <= 7; i++ {
+		cumulative.Utterances = append(cumulative.Utterances, recoveryResult(fmt.Sprint(i), (i-1)*100, i*100).Utterances...)
+	}
+	first.events <- asrResult{value: cumulative}
 	first.events <- asrResult{err: recoveryFailure()}
 	replayed := awaitRecovery(t, second.sent)
 	if !bytes.Equal(replayed.data, current) || replayed.isLast {
 		t.Fatalf("replayed prior committed audio: %d bytes", len(replayed.data))
 	}
+	second.events <- asrResult{value: &doubaospeech.ASRV2Result{Text: "eighth interim"}}
 	second.events <- asrResult{value: recoveryResult("eighth", 0, 100)}
 	chunks, text := readRecoveryTranscript(t, output)
 	if text != "eighth" {
 		t.Fatalf("transcript=%q", text)
 	}
 	audioBytes := 0
+	interims := 0
 	for _, chunk := range chunks {
 		if chunk.Ctrl.StreamID != "guess:asr:8" {
 			t.Fatalf("wrong recovery route: %#v", chunk.Ctrl)
@@ -201,6 +210,12 @@ func TestRecoveryContinuesEighthUtteranceWithoutReplayingHistory(t *testing.T) {
 		if blob, ok := chunk.Part.(*genx.Blob); ok {
 			audioBytes += len(blob.Data)
 		}
+		if chunk.Ctrl.TextInterim {
+			interims++
+		}
+	}
+	if interims != 1 {
+		t.Fatalf("duplicate interim transcript across retry: %d", interims)
 	}
 	if audioBytes != len(current) {
 		t.Fatalf("history audio=%d, want %d", audioBytes, len(current))
@@ -799,5 +814,64 @@ func TestRecoveryLogsOriginalStartAndSuccessAtWarn(t *testing.T) {
 	}
 	if got := session.AudioDuration(); got != 200*time.Millisecond {
 		t.Fatalf("billed retry usage=%s", got)
+	}
+}
+
+func TestRecoveryInterimOnlyCompletionLogsFailureWithMetadata(t *testing.T) {
+	handler := &recoveryLogHandler{records: make(chan slog.Record, 16)}
+	previous := slog.Default()
+	slog.SetDefault(slog.New(handler))
+	defer slog.SetDefault(previous)
+	ctx, cancel := context.WithTimeout(gizlog.WithSessionID(t.Context(), "session"), 3*time.Second)
+	defer cancel()
+	first, second := newRecoveryProvider(), newRecoveryProvider()
+	var opens atomic.Int32
+	route := newDoubaoASRRouteState(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn"}})
+	session, err := newRecoveringSession(ctx, doubaoASRSessionConfig{format: "pcm", sampleRate: 16000, channels: 1, bits: 16}, route, true, time.Second, func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error) {
+		if opens.Add(1) == 1 {
+			return first, nil
+		}
+		return second, nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer session.Close()
+	done := make(chan error, 1)
+	go func() {
+		for _, err := range session.Recv() {
+			if err != nil {
+				done <- err
+				return
+			}
+		}
+		done <- nil
+	}()
+	if err := session.SendAudio(ctx, make([]byte, 3200), false); err != nil {
+		t.Fatal(err)
+	}
+	first.events <- asrResult{err: recoveryFailure()}
+	awaitRecovery(t, second.sent)
+	second.events <- asrResult{value: &doubaospeech.ASRV2Result{Text: "private interim", ReqID: "replacement-id", ConnectID: "replacement-connect", TraceID: "replacement-trace", LogID: "replacement-log"}}
+	close(second.events)
+	if err := awaitRecovery(t, done); !errors.Is(err, errASRIncompleteResult) {
+		t.Fatalf("incomplete result=%v", err)
+	}
+	for _, message := range []string{"doubao asr: attempt failed", "doubao asr: retry start", "doubao asr: retry failure"} {
+		record := awaitRecovery(t, handler.records)
+		if record.Message != message {
+			t.Fatalf("log=%s, want %s", record.Message, message)
+		}
+		attrs := map[string]any{}
+		record.Attrs(func(a slog.Attr) bool { attrs[a.Key] = a.Value.Any(); return true })
+		if strings.Contains(fmt.Sprint(attrs), "private interim") {
+			t.Fatal("retry log leaked transcript")
+		}
+		if message == "doubao asr: retry failure" && (attrs["error_code"] != "ASR_INCOMPLETE_RESULT" || attrs["retry"] != int64(1) || attrs["upstream_reqid"] != "replacement-id" || attrs["upstream_connect_id"] != "replacement-connect" || attrs["upstream_trace_id"] != "replacement-trace" || attrs["upstream_log_id"] != "replacement-log") {
+			t.Fatalf("missing final provider metadata: %v", attrs)
+		}
+	}
+	if opens.Load() != 2 {
+		t.Fatalf("attempts=%d", opens.Load())
 	}
 }

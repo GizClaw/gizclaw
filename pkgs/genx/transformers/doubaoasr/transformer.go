@@ -1244,7 +1244,6 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 	resultCount := 0
 	textCount := 0
 	var receivedGeneration uint64
-	lastText := ""
 	lastInterimText := ""
 	lastUtteranceCount := 0
 	lastFinal := false
@@ -1389,7 +1388,6 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 			}
 		}
 		resultCount++
-		lastText = result.Text
 		lastUtteranceCount = len(result.Utterances)
 		lastFinal = result.IsFinal
 
@@ -1427,8 +1425,8 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 				}
 			}
 			if interimText != "" && interimText != lastInterimText {
-				lastInterimText = interimText
 				emitTranscriptText(interimText, false)
+				lastInterimText = interimText
 			}
 		}
 		if !emittedResultText && result.IsFinal && strings.TrimSpace(result.Text) != "" && textCount == 0 {
@@ -1447,7 +1445,7 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 			finish(nil)
 			return
 		}
-		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_text=%q last_utterances=%d", resultCount, lastFinal, lastText, lastUtteranceCount)
+		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_utterances=%d", resultCount, lastFinal, lastUtteranceCount)
 		closeTranscript(err.Error())
 		finish(err)
 		return

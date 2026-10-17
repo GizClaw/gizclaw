@@ -2,7 +2,9 @@ package doubaoasr
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"iter"
 	"log/slog"
@@ -20,9 +22,11 @@ const (
 	asrRecoveryByteLimit  = 2 << 20
 	asrRecoveryTimeout    = 15 * time.Second
 	asrServerError        = 55000000
+	asrCheckpointLimit    = 1024
 )
 
 var errASRRecoveryTimeout = errors.New("doubao asr: recovery timeout")
+var errASRIncompleteResult = errors.New("doubao asr: transcript ended before a definite result")
 
 type asrSend struct {
 	data []byte
@@ -71,6 +75,9 @@ type recoveringSession struct {
 	sent            int64
 	providerBase    int64
 	last            bool
+	seenUtterances  map[[32]byte]struct{}
+	sawInterim      bool
+	lastMetadata    *doubaospeech.ASRV2Result
 }
 
 func newRecoveringSession(ctx context.Context, cfg doubaoASRSessionConfig, route *doubaoASRRouteState, continuous bool, timeout time.Duration, open func(context.Context, doubaoASRSessionConfig) (doubaoASRSession, error), activate ...func(*recoveringSession)) (*recoveringSession, error) {
@@ -191,10 +198,11 @@ func (s *recoveringSession) run(ready chan<- error) {
 			timer.Stop()
 		}
 		if s.retrying {
-			s.log("retry failure", s.err, nil, "terminated")
+			s.log("retry failure", s.err, s.lastMetadata, "terminated")
 		}
 	}()
 	start := func() error {
+		s.lastMetadata = nil
 		attemptCtx, cancelAttempt = context.WithCancelCause(s.ctx)
 		readCtx, stopAttempt := attemptCtx, cancelAttempt
 		if s.retrying {
@@ -353,6 +361,10 @@ func (s *recoveringSession) run(ready chan<- error) {
 			}
 		case result, ok := <-events:
 			if !ok {
+				if s.retrying && !s.recovered && s.sawInterim {
+					s.err = errASRIncompleteResult
+					return
+				}
 				ended = true
 				s.recovered = true
 				events = nil
@@ -366,6 +378,15 @@ func (s *recoveringSession) run(ready chan<- error) {
 			}
 			if result.value == nil {
 				continue
+			}
+			s.lastMetadata = &doubaospeech.ASRV2Result{ReqID: result.value.ReqID, ConnectID: result.value.ConnectID, TraceID: result.value.TraceID, LogID: result.value.LogID}
+			if !result.value.IsFinal && strings.TrimSpace(result.value.Text) != "" {
+				s.sawInterim = true
+			}
+			for _, utterance := range result.value.Utterances {
+				if !utterance.Definite && strings.TrimSpace(utterance.Text) != "" {
+					s.sawInterim = true
+				}
 			}
 			value := s.checkpoint(result.value)
 			select {
@@ -416,12 +437,27 @@ func (s *recoveringSession) checkpoint(result *doubaospeech.ASRV2Result) *doubao
 	valid := true
 	for i := range copy.Utterances {
 		utt := &copy.Utterances[i]
-		if utt.Definite && strings.TrimSpace(utt.Text) != "" && (utt.StartTime < 0 || utt.EndTime <= utt.StartTime || int64(utt.EndTime) > (s.sent-s.providerBase)*1000/bps) {
-			valid = false
-		}
+		localStart, localEnd := utt.StartTime, utt.EndTime
 		utt.StartTime += offsetMS
 		utt.EndTime += offsetMS
 		if utt.Definite && strings.TrimSpace(utt.Text) != "" {
+			// Match receiveResults' exact timed-text identity. Cumulative
+			// provider frames may contain only previously committed utterances.
+			key := sha256.Sum256(fmt.Appendf(nil, "%d:%d:%s", utt.StartTime, utt.EndTime, utt.Text))
+			if _, exists := s.seenUtterances[key]; exists {
+				continue
+			}
+			if len(s.seenUtterances) >= asrCheckpointLimit {
+				s.unsafe = "checkpoint_limit"
+			} else {
+				if s.seenUtterances == nil {
+					s.seenUtterances = make(map[[32]byte]struct{})
+				}
+				s.seenUtterances[key] = struct{}{}
+			}
+			if localStart < 0 || localEnd <= localStart || int64(localEnd) > (s.sent-s.providerBase)*1000/bps || int64(utt.StartTime)*bps/1000 < s.base {
+				valid = false
+			}
 			definite = true
 			if int64(utt.EndTime)*bps/1000 > s.base {
 				commits++
@@ -432,6 +468,7 @@ func (s *recoveringSession) checkpoint(result *doubaospeech.ASRV2Result) *doubao
 	if !definite && (!result.IsFinal || strings.TrimSpace(result.Text) == "") {
 		return &copy
 	}
+	s.sawInterim = false
 	if s.retrying {
 		s.recovered = true
 		s.recoveredResult = &doubaospeech.ASRV2Result{ReqID: result.ReqID, ConnectID: result.ConnectID, TraceID: result.TraceID, LogID: result.LogID}
@@ -456,6 +493,9 @@ func (s *recoveringSession) checkpoint(result *doubaospeech.ASRV2Result) *doubao
 
 func (s *recoveringSession) log(event string, err error, result *doubaospeech.ASRV2Result, reason string) {
 	stream, _ := s.route.current()
+	if result == nil {
+		result = s.lastMetadata
+	}
 	segment := s.segment
 	if s.retrying {
 		segment = s.retrySegment
@@ -473,9 +513,41 @@ func (s *recoveringSession) log(event string, err error, result *doubaospeech.AS
 	if apiErr, ok := doubaospeech.AsError(err); ok {
 		attrs = append(attrs, slog.Int("error_code", apiErr.Code), slog.String("upstream_reqid", apiErr.ReqID),
 			slog.String("upstream_connect_id", apiErr.ConnectID), slog.String("upstream_trace_id", apiErr.TraceID), slog.String("upstream_log_id", apiErr.LogID))
-	} else if result != nil {
-		attrs = append(attrs, slog.Int("error_code", 0), slog.String("upstream_reqid", result.ReqID), slog.String("upstream_connect_id", result.ConnectID),
-			slog.String("upstream_trace_id", result.TraceID), slog.String("upstream_log_id", result.LogID))
+		if result != nil {
+			if apiErr.ReqID == "" && result.ReqID != "" {
+				attrs = append(attrs, slog.String("upstream_last_reqid", result.ReqID))
+			}
+			if apiErr.ConnectID == "" && result.ConnectID != "" {
+				attrs = append(attrs, slog.String("upstream_last_connect_id", result.ConnectID))
+			}
+			if apiErr.TraceID == "" && result.TraceID != "" {
+				attrs = append(attrs, slog.String("upstream_last_trace_id", result.TraceID))
+			}
+			if apiErr.LogID == "" && result.LogID != "" {
+				attrs = append(attrs, slog.String("upstream_last_log_id", result.LogID))
+			}
+		}
+	} else {
+		if err == nil {
+			attrs = append(attrs, slog.Int("error_code", 0))
+		} else {
+			code := "ASR_STREAM_ERROR"
+			switch {
+			case errors.Is(err, errASRRecoveryTimeout):
+				code = "ASR_RECOVERY_TIMEOUT"
+			case errors.Is(err, errASRIncompleteResult):
+				code = "ASR_INCOMPLETE_RESULT"
+			case errors.Is(err, context.Canceled):
+				code = "CANCELED"
+			case errors.Is(err, context.DeadlineExceeded):
+				code = "DEADLINE_EXCEEDED"
+			}
+			attrs = append(attrs, slog.String("error_code", code))
+		}
+		if result != nil {
+			attrs = append(attrs, slog.String("upstream_reqid", result.ReqID), slog.String("upstream_connect_id", result.ConnectID),
+				slog.String("upstream_trace_id", result.TraceID), slog.String("upstream_log_id", result.LogID))
+		}
 	}
 	slog.LogAttrs(s.ctx, slog.LevelWarn, "doubao asr: "+event, attrs...)
 }
