@@ -66,9 +66,11 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 	t.Cleanup(func() { _ = writer.Close(); _ = reader.Close() })
 	peers := make([]giznet.PublicKey, 10)
 	seen := time.Now().UTC()
+	publishers := make([]*peerpresence.Publisher, len(peers))
 	for i := range peers {
 		peers[i] = giznet.PublicKey{byte(i + 50)}
-		writer.Publish(peers[i], peerpresence.Snapshot{Online: true, LastSeenAt: seen, WorkspaceName: "room"})
+		publishers[i] = writer.NewPublisher(peers[i])
+		publishers[i].Publish(peerpresence.Snapshot{Online: true, LastSeenAt: seen, WorkspaceName: "room"})
 	}
 	assertOnline := func(results []peerpresence.ReadResult) error {
 		if len(results) != len(peers) {
@@ -184,7 +186,7 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 				t.Error(err)
 			}
 		}()
-		writer.Publish(peers[0], peerpresence.Snapshot{LastSeenAt: seen})
+		publishers[0].Publish(peerpresence.Snapshot{LastSeenAt: seen})
 		await(t, func() error {
 			snapshot, err := writer.Read(kv.WithPrimaryReads(ctx), peers[0])
 			if err != nil || snapshot.Online {

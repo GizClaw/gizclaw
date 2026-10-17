@@ -32,7 +32,14 @@ func TestReadBatchDeduplicatesLeasesAndIsolatesErrors(t *testing.T) {
 		online bool
 	}{{3, a, true}, {4, a, true}, {5, b, true}, {6, a, false}} {
 		snapshot := Snapshot{Online: entry.online, LastSeenAt: seen, WorkspaceName: "room"}
-		entry.server.Publish(giznet.PublicKey{entry.peer}, snapshot)
+		publisher := entry.server.NewPublisher(giznet.PublicKey{entry.peer})
+		if !entry.online {
+			online := snapshot
+			online.Online = true
+			publisher.Publish(online)
+			awaitSnapshot(t, entry.server, giznet.PublicKey{entry.peer}, online)
+		}
+		publisher.Publish(snapshot)
 		if !entry.online {
 			snapshot.WorkspaceName = ""
 		}

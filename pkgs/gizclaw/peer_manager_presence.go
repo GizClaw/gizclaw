@@ -13,7 +13,7 @@ import (
 
 // publishPeerPresenceLocked queues a transition while m.mu orders generations.
 // Publish only copies state and starts a worker; it performs no storage I/O.
-func (m *Manager) publishPeerPresenceLocked(key giznet.PublicKey, state *activePeer, observed giznet.Conn) {
+func (m *Manager) publishPeerPresenceLocked(state *activePeer, observed giznet.Conn) {
 	if m.Presence == nil {
 		return
 	}
@@ -31,7 +31,9 @@ func (m *Manager) publishPeerPresenceLocked(key giznet.PublicKey, state *activeP
 	if snapshot.LastSeenAt.IsZero() {
 		snapshot.LastSeenAt = time.Now().UTC()
 	}
-	m.Presence.Publish(key, snapshot)
+	if state != nil && state.presencePublisher != nil {
+		state.presencePublisher.Publish(snapshot)
+	}
 }
 
 // refreshPeerRunPresence observes a runtime transition outside the Manager lock.
@@ -62,7 +64,7 @@ func (m *Manager) refreshPeerRunPresence(key giznet.PublicKey, conn giznet.Conn)
 	}
 	if current.runningWorkspace != workspace {
 		current.runningWorkspace = workspace
-		m.publishPeerPresenceLocked(key, current, conn)
+		m.publishPeerPresenceLocked(current, conn)
 	}
 }
 

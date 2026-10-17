@@ -52,14 +52,15 @@ func TestSharedTransitionsAndExpiredLease(t *testing.T) {
 	store := kv.NewMemory(nil)
 	a, b := startService(t, store, 1), startService(t, store, 2)
 	peer := giznet.PublicKey{3}
+	publisher := a.NewPublisher(peer)
 	want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	awaitSnapshot(t, b, peer, want)
 	want.WorkspaceName = ""
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	awaitSnapshot(t, b, peer, want)
 	want.WorkspaceName = "another-room"
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	awaitSnapshot(t, b, peer, want)
 	// A lease may still be returned by a lagging replica after its wall-clock
 	// deadline. A read must reject it without refreshing any Peer record.
@@ -76,17 +77,18 @@ func TestRestartFencesOldPublisherAndClose(t *testing.T) {
 	store := kv.NewMemory(nil)
 	old := startService(t, store, 1)
 	peer := giznet.PublicKey{2}
+	oldPublisher := old.NewPublisher(peer)
 	want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "old"}
-	old.Publish(peer, want)
+	oldPublisher.Publish(want)
 	awaitSnapshot(t, old, peer, want)
 	next := startService(t, store, 1)
 	offline := want
 	offline.Online, offline.WorkspaceName = false, ""
 	awaitSnapshot(t, next, peer, offline)
 	want.WorkspaceName = "new"
-	next.Publish(peer, want)
+	next.NewPublisher(peer).Publish(want)
 	awaitSnapshot(t, next, peer, want)
-	old.Publish(peer, offline)
+	oldPublisher.Publish(offline)
 	select {
 	case <-old.ctx.Done():
 	case <-time.After(time.Second):
@@ -111,7 +113,7 @@ type blockingStore struct {
 }
 
 func (s *blockingStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
-	if len(mutation.Entries) == 1 && mutation.Entries[0].Key.String() == peerKey(s.peer).String() {
+	if len(mutation.Entries) > 0 && mutation.Entries[0].Key.String() == peerKey(s.peer).String() {
 		s.once.Do(func() {
 			close(s.entered)
 			select {
@@ -127,26 +129,27 @@ func TestTransitionsCoalesceWithoutBlockingOtherPeers(t *testing.T) {
 	peer := giznet.PublicKey{2}
 	store := &blockingStore{Store: kv.NewMemory(nil), peer: peer, entered: make(chan struct{}), release: make(chan struct{})}
 	s := startService(t, store, 1)
+	publisher := s.NewPublisher(peer)
 	want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "old"}
-	s.Publish(peer, want)
+	publisher.Publish(want)
 	select {
 	case <-store.entered:
 	case <-time.After(time.Second):
 		t.Fatal("writer did not start")
 	}
 	want.WorkspaceName = "next"
-	s.Publish(peer, want)
+	publisher.Publish(want)
 	want.Online, want.WorkspaceName = false, ""
-	s.Publish(peer, want)
+	publisher.Publish(want)
 	other := giznet.PublicKey{3}
 	otherState := Snapshot{Online: true, LastSeenAt: want.LastSeenAt}
-	s.Publish(other, otherState)
+	s.NewPublisher(other).Publish(otherState)
 	awaitSnapshot(t, s, other, otherState)
 	close(store.release)
 	awaitSnapshot(t, s, peer, want)
 	// A replacement after the offline writer retires must publish normally.
 	want.Online, want.WorkspaceName = true, "replacement"
-	s.Publish(peer, want)
+	s.NewPublisher(peer).Publish(want)
 	awaitSnapshot(t, s, peer, want)
 }
 
@@ -154,7 +157,7 @@ func TestCloseCancelsBlockedWriter(t *testing.T) {
 	peer := giznet.PublicKey{2}
 	store := &blockingStore{Store: kv.NewMemory(nil), peer: peer, entered: make(chan struct{}), release: make(chan struct{})}
 	s := startService(t, store, 1)
-	s.Publish(peer, Snapshot{Online: true})
+	s.NewPublisher(peer).Publish(Snapshot{Online: true})
 	<-store.entered
 	done := make(chan error, 1)
 	go func() { done <- s.Close() }()
@@ -178,7 +181,7 @@ func TestParentCancellationStopsBlockedWriter(t *testing.T) {
 	if err := s.Start(ctx); err != nil {
 		t.Fatal(err)
 	}
-	s.Publish(peer, Snapshot{Online: true})
+	s.NewPublisher(peer).Publish(Snapshot{Online: true})
 	<-store.entered
 	cancel()
 	done := make(chan struct{})

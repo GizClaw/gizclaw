@@ -30,6 +30,7 @@ func TestReadWriteRedisSharedPresence(t *testing.T) {
 		t.Cleanup(func() { _ = s.Close() })
 	}
 	peer := giznet.PublicKey{23}
+	publisher := a.NewPublisher(peer)
 	want := peerpresence.Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
 	assertSnapshot := func() {
 		t.Helper()
@@ -45,20 +46,21 @@ func TestReadWriteRedisSharedPresence(t *testing.T) {
 			time.Sleep(10 * time.Millisecond)
 		}
 	}
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	assertSnapshot()
 	want.WorkspaceName = "another-room"
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	assertSnapshot()
 	want.WorkspaceName = ""
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	assertSnapshot()
 	want.Online = false
 	want.LastSeenAt = want.LastSeenAt.Add(time.Second)
-	a.Publish(peer, want)
+	publisher.Publish(want)
 	assertSnapshot()
 	want.Online, want.WorkspaceName = true, "room"
-	a.Publish(peer, want)
+	publisher = a.NewPublisher(peer)
+	publisher.Publish(want)
 	assertSnapshot()
 	f.waitForReplica(t)
 	// Both Peer and Server-lease reads must use the replica, including while

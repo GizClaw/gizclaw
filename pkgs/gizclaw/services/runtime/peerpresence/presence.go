@@ -4,6 +4,7 @@
 package peerpresence
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"encoding/json"
@@ -43,9 +44,36 @@ type lease struct {
 }
 
 type pending struct {
-	snapshot Snapshot
-	revision uint64
-	running  bool
+	publisher *Publisher
+	snapshot  Snapshot
+	revision  uint64
+	running   bool
+}
+
+type ownership struct {
+	expected    []byte
+	initialized bool
+	claimed     bool
+	fenced      bool
+}
+
+// Publisher owns the presence token of one accepted Peer connection. Keep it
+// for that connection's entire lifetime, including temporary offline states.
+// Only a new accepted connection should receive a new Publisher.
+// The zero value must not be used.
+type Publisher struct {
+	service *Service
+	peer    giznet.PublicKey
+	token   string
+	// Only the service's serial Peer writer accesses ownership. Keeping it on
+	// the Publisher preserves fencing when an offline worker is retired.
+	ownership ownership
+}
+
+// NewPublisher creates a connection-scoped publisher without storage I/O or
+// workers. Its first online transition may claim the Peer at the authority.
+func (s *Service) NewPublisher(peer giznet.PublicKey) *Publisher {
+	return &Publisher{service: s, peer: peer, token: rand.Text()}
 }
 
 // Service owns a Server generation, its lease and asynchronous per-Peer writers.
@@ -72,9 +100,10 @@ func New(store kv.Store, server giznet.PublicKey) *Service {
 		ctx: ctx, cancel: cancel, pending: make(map[giznet.PublicKey]*pending)}
 }
 
-func generationKey(server string) kv.Key   { return kv.Key{"servers", server, "generation"} }
-func leaseKey(server string) kv.Key        { return kv.Key{"servers", server, "lease"} }
-func peerKey(peer giznet.PublicKey) kv.Key { return kv.Key{"peers", peer.String()} }
+func generationKey(server string) kv.Key    { return kv.Key{"servers", server, "generation"} }
+func leaseKey(server string) kv.Key         { return kv.Key{"servers", server, "lease"} }
+func peerKey(peer giznet.PublicKey) kv.Key  { return kv.Key{"peers", peer.String()} }
+func ownerKey(peer giznet.PublicKey) kv.Key { return kv.Key{"owners", peer.String()} }
 
 func (s *Service) leaseEntry() kv.Entry {
 	expires := time.Now().UTC().Add(leaseDuration + kv.ReadDelay(s.store))
@@ -147,9 +176,12 @@ func (s *Service) renew() {
 }
 
 // Publish queues the latest connection transition without storage I/O. Calls
-// for a Peer must arrive in connection order. Writes for different Peers can
-// progress independently; a failed write retries until superseded or closed.
-func (s *Service) Publish(peer giznet.PublicKey, snapshot Snapshot) {
+// for a Peer must arrive in connection order. Reuse this Publisher for all of
+// its connection's Workspace and offline transitions, including rollback.
+// Writes for different Peers progress independently; failures retry until
+// superseded or closed.
+func (publisher *Publisher) Publish(snapshot Snapshot) {
+	s, peer := publisher.service, publisher.peer
 	if peer.IsZero() {
 		return
 	}
@@ -166,9 +198,10 @@ func (s *Service) Publish(peer giznet.PublicKey, snapshot Snapshot) {
 	if p == nil {
 		p = &pending{}
 		s.pending[peer] = p
-	} else if p.snapshot == snapshot {
+	} else if p.publisher == publisher && p.snapshot == snapshot {
 		return
 	}
+	p.publisher = publisher
 	p.snapshot = snapshot
 	p.revision++
 	if !p.running {
@@ -182,19 +215,11 @@ func (s *Service) write(peer giznet.PublicKey, p *pending) {
 	defer s.workers.Done()
 	for s.ctx.Err() == nil {
 		s.mu.Lock()
-		snapshot, revision := p.snapshot, p.revision
+		publisher, snapshot, revision := p.publisher, p.snapshot, p.revision
 		s.mu.Unlock()
-		value, _ := json.Marshal(record{Snapshot: snapshot, Server: s.server, Generation: s.generation})
 		ctx, cancel := context.WithTimeout(s.ctx, writeTimeout)
-		matched, err := s.store.ApplyMutation(ctx, kv.Mutation{
-			Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}},
-			Entries:    []kv.Entry{{Key: peerKey(peer), Value: value}},
-		})
+		err := s.writeTransition(ctx, publisher, snapshot)
 		cancel()
-		if err == nil && !matched {
-			s.cancel()
-			return
-		}
 		if err != nil {
 			slog.Warn("peerpresence: publish Peer transition", "peer_public_key", peer.String(), "error", err)
 			timer := time.NewTimer(time.Second)
@@ -217,6 +242,88 @@ func (s *Service) write(peer giznet.PublicKey, p *pending) {
 		}
 		s.mu.Unlock()
 	}
+}
+
+// writeTransition claims a connection once, then fences every later transition
+// at the write authority. Retaining the original claim condition across errors
+// prevents an uncertain commit from reclaiming ownership after another Server.
+func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, snapshot Snapshot) error {
+	peer, owner := publisher.peer, &publisher.ownership
+	if owner.fenced {
+		return nil
+	}
+	ctx = kv.WithPrimaryReads(ctx)
+	token := []byte(s.generation + "/" + publisher.token)
+	if !snapshot.Online && !owner.claimed {
+		// A coalesced disconnect cannot claim another connection's Peer. If
+		// an online attempt lost its response, revoke it only if it committed.
+		if !owner.initialized {
+			return nil
+		}
+		current, err := s.readOwner(ctx, peer)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(current, token) {
+			return nil
+		}
+		owner.expected, owner.claimed = token, true
+	}
+	if !owner.initialized {
+		expected, err := s.readOwner(ctx, peer)
+		if err != nil {
+			return err
+		}
+		owner.expected, owner.initialized = expected, true
+	}
+	value, _ := json.Marshal(record{Snapshot: snapshot, Server: s.server, Generation: s.generation})
+	for {
+		mutation := kv.Mutation{
+			Conditions: []kv.Condition{
+				{Key: generationKey(s.server), Expected: []byte(s.generation)},
+				{Key: ownerKey(peer), Expected: owner.expected},
+			},
+			Entries: []kv.Entry{{Key: peerKey(peer), Value: value}},
+		}
+		if !owner.claimed {
+			mutation.Entries = append(mutation.Entries, kv.Entry{Key: ownerKey(peer), Value: token})
+		}
+		matched, err := s.store.ApplyMutation(ctx, mutation)
+		if err != nil {
+			return err
+		}
+		if matched {
+			owner.expected, owner.claimed = token, true
+			return nil
+		}
+		generation, err := s.store.Get(ctx, generationKey(s.server))
+		if errors.Is(err, kv.ErrNotFound) || (err == nil && !bytes.Equal(generation, []byte(s.generation))) {
+			s.cancel()
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		current, err := s.readOwner(ctx, peer)
+		if err != nil {
+			return err
+		}
+		if !bytes.Equal(current, token) {
+			owner.fenced = true
+			return nil
+		}
+		// An earlier attempt committed but its response was lost. Continue
+		// using the committed token rather than claiming the Peer again.
+		owner.expected, owner.claimed = token, true
+	}
+}
+
+func (s *Service) readOwner(ctx context.Context, peer giznet.PublicKey) ([]byte, error) {
+	value, err := s.store.Get(ctx, ownerKey(peer))
+	if errors.Is(err, kv.ErrNotFound) {
+		return nil, nil
+	}
+	return value, err
 }
 
 // Read returns the shared snapshot using ordinary Store reads. Missing, expired
