@@ -203,9 +203,11 @@ Logs never contain authorization headers, cookies, signatures, nonces, private k
 
 Callers record process values with `AddCounter`, `SetGauge`, and `ObserveHistogram`. Before `InstallStore` succeeds and after shutdown, those calls are concurrent-safe no-ops and start no worker. Only one live recorder can be installed.
 
-The defaults are a 10-second flush interval, a 5-second append timeout, and 10,000 logical series. `WithFlushInterval`, `WithAppendTimeout`, and `WithMaxSeries` override them. Counters keep monotonic process-local totals and publish their current values on every flush, including unchanged values, so idle windows return to zero rates and later increments are not interpolated across the entire silence. Gauges keep the latest value, and histograms export cumulative `_bucket`, `_sum`, and `_count` samples including `le=+Inf`; these two kinds publish only after changes, while periodic collectors sample on every flush.
+The defaults are a 10-second flush interval, a 5-second append timeout, and 10,000 logical series. `WithFlushInterval`, `WithAppendTimeout`, and `WithMaxSeries` override them. Counters keep monotonic process-local totals; `AddCounter` publishes only after changes. Callers that need continuous rate sampling opt in through `AddPeriodicCounters`: after their first update, these series publish on every flush, including unchanged values, so idle windows return to zero rates. A batch reuses a bounded recorder-owned label/series cache. Cache hits with up to four call-site labels avoid label copies, sorting and key construction, and update the batch under one short state lock. Cache entries and logical series are each capped by `WithMaxSeries` and released with the recorder, without retaining per-request, per-token or per-user history. Wider label sets use the ordinary validation path.
 
-Metric names, label names, finite values, counter deltas, and histogram buckets are validated before aggregation. Invalid updates, changed series kinds or buckets, and updates beyond the series limit are dropped with rate-limited warnings that never include label values or raw invalid metric names. Business calls only take an in-process lock and never wait for `Store.Append`; failed or timed-out dirty batches remain available for retry.
+Gauges keep the latest value, and histograms export cumulative `_bucket`, `_sum`, and `_count` samples including `le=+Inf`; these kinds publish only after changes, while periodic collectors sample on every flush. Flush captures values and mutable histogram bucket counts under the state lock, then constructs label maps, expands buckets and writes to the store outside that lock. A successful append only cleans series whose versions have not changed, preserving concurrent increments.
+
+Metric names, label names and histogram buckets are validated at registration; every increment still checks finite, non-negative deltas and total overflow. Invalid updates, changed series kinds or buckets, and updates beyond the series limit are dropped with rate-limited warnings that never include label values or raw invalid metric names. Business calls only take an in-process lock and never wait for `Store.Append`; failed or timed-out dirty batches remain available for retry.
 
 `cmd/internal/server` installs the recorder only when the `metrics` store exists. Shutdown order is `gizclaw.Server`, final recorder flush, then the store registry. The recorder never closes the store and no implicit memory store is created. Standalone Edge connects its top-level `metrics` configuration directly to a Prometheus Remote Write/query backend; shutdown final-flushes after HTTP, gateway, and upstream teardown, then closes the backend connector.
 
@@ -435,6 +437,9 @@ Internal Stream ID remapping retains process-local `source_stream_id` provenance
 `genx.RecordUsage` increments `genx_model_tokens_total` when the provider reports usage, using the installed process metrics store.
 With a Prometheus/VMP backend, the existing Remote Write worker batches writes every ten seconds by default. It does not query
 the Peer hourly usage table or business databases, or issue a request per token or stream chunk.
+
+Each usage report combines nonzero input, cached_input and output quantities into one periodic counter batch, reusing registered
+labels and taking the aggregation lock once on cache hits. Existing HTTP/RPC counters do not gain idle heartbeats.
 
 GizClaw owns metric reporting here. Model usage aggregation, recording rules and dashboards in VMP belong to Deploy's monitoring
 configuration. Monitor continues to read node-local memory snapshots without adding VMP query or aggregation endpoints for these

@@ -37,6 +37,7 @@ const (
 	metricKindGauge
 	metricKindHistogram
 	metricKindSnapshot
+	metricKindPeriodicCounter
 )
 
 type metricSeries struct {
@@ -49,21 +50,23 @@ type metricSeries struct {
 	count      uint64
 	version    uint64
 	dirty      bool
+	periodic   bool
 }
 
 type pendingSeries struct {
 	key     string
 	version uint64
-	samples []storemetrics.Sample
+	series  metricSeries
 }
 
 type storeRecorder struct {
 	store  storemetrics.Store
 	config recorderConfig
 
-	mu     sync.Mutex
-	series map[string]*metricSeries
-	closed bool
+	mu           sync.Mutex
+	series       map[string]*metricSeries
+	counterCache map[counterCacheKey]*metricSeries
+	closed       bool
 
 	flushMu sync.Mutex
 	stop    chan struct{}
@@ -157,10 +160,14 @@ func (r *storeRecorder) observeHistogram(ctx context.Context, name string, value
 	r.record(ctx, metricKindHistogram, name, value, buckets, labels)
 }
 
-func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string, value float64, buckets []float64, labels []Label) {
+func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string, value float64, buckets []float64, labels []Label) *metricSeries {
+	periodic := kind == metricKindPeriodicCounter
+	if periodic {
+		kind = metricKindCounter
+	}
 	if !validMetricName(name) {
 		r.warn(ctx, "", "invalid metric name")
-		return
+		return nil
 	}
 	allLabels := labels
 	if len(r.config.labels) != 0 {
@@ -169,21 +176,21 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 	canonical, err := canonicalLabels(allLabels, kind == metricKindHistogram)
 	if err != nil {
 		r.warn(ctx, name, err.Error())
-		return
+		return nil
 	}
 	key := seriesKey(name, canonical)
 
 	r.mu.Lock()
 	if r.closed && kind != metricKindSnapshot {
 		r.mu.Unlock()
-		return
+		return nil
 	}
 	series := r.series[key]
 	if series == nil {
 		if len(r.series) >= r.config.maxSeries {
 			r.mu.Unlock()
 			r.warn(ctx, name, "maximum series reached")
-			return
+			return nil
 		}
 		series = &metricSeries{
 			kind:   kind,
@@ -199,12 +206,12 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 	if series.kind != kind {
 		r.mu.Unlock()
 		r.warn(ctx, name, "metric kind changed for existing series")
-		return
+		return nil
 	}
 	if kind == metricKindHistogram && !slices.Equal(series.buckets, buckets) {
 		r.mu.Unlock()
 		r.warn(ctx, name, "histogram buckets changed for existing series")
-		return
+		return nil
 	}
 
 	switch kind {
@@ -213,7 +220,7 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 		if !finite(next) {
 			r.mu.Unlock()
 			r.warn(ctx, name, "counter total must remain finite")
-			return
+			return nil
 		}
 		series.value = next
 	case metricKindGauge, metricKindSnapshot:
@@ -223,7 +230,7 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 		if !finite(next) {
 			r.mu.Unlock()
 			r.warn(ctx, name, "histogram sum must remain finite")
-			return
+			return nil
 		}
 		series.value = next
 		series.count++
@@ -235,7 +242,9 @@ func (r *storeRecorder) record(ctx context.Context, kind metricKind, name string
 	}
 	series.version++
 	series.dirty = true
+	series.periodic = series.periodic || periodic
 	r.mu.Unlock()
+	return series
 }
 
 func (r *storeRecorder) flush(ctx context.Context) error {
@@ -247,13 +256,13 @@ func (r *storeRecorder) flush(ctx context.Context) error {
 
 	timestamp := time.Now().UTC()
 	r.collect(ctx, timestamp)
-	pending := r.snapshot(timestamp)
+	pending := r.snapshot()
 	if len(pending) == 0 {
 		return nil
 	}
 	var samples []storemetrics.Sample
 	for _, item := range pending {
-		samples = append(samples, item.samples...)
+		samples = append(samples, seriesSamples(&item.series, timestamp)...)
 	}
 	appendCtx, cancel := context.WithTimeout(ctx, r.config.appendTimeout)
 	err := r.store.Append(appendCtx, samples)
@@ -289,20 +298,26 @@ func (r *storeRecorder) collect(ctx context.Context, timestamp time.Time) {
 	}
 }
 
-func (r *storeRecorder) snapshot(timestamp time.Time) []pendingSeries {
+func (r *storeRecorder) snapshot() []pendingSeries {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	pending := make([]pendingSeries, 0, len(r.series))
+	var pending []pendingSeries
 	for key, series := range r.series {
-		// Counters need periodic unchanged samples so idle windows yield zero
-		// rates and later activity is not interpolated across a long silence.
-		if !series.dirty && series.kind != metricKindCounter {
+		if !series.dirty && !series.periodic {
 			continue
 		}
+		if pending == nil {
+			pending = make([]pendingSeries, 0, len(r.series))
+		}
+		// Labels and bucket bounds are immutable after registration. Only the
+		// mutable histogram counts need a deep copy; sample/map construction
+		// happens after releasing mu, using this consistent captured value.
+		captured := *series
+		captured.bucketHits = slices.Clone(series.bucketHits)
 		pending = append(pending, pendingSeries{
 			key:     key,
 			version: series.version,
-			samples: seriesSamples(series, timestamp),
+			series:  captured,
 		})
 	}
 	return pending

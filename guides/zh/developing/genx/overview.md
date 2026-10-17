@@ -145,6 +145,9 @@ Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.
 
 嵌套产品 scope 保留原始调用方的 callback，并只把用量交给最内层的产品 recorder。转发已有报告时通过 `UsageRecorderFromContext` 取得 callback 并直接调用，不能再次调用 `RecordUsage`，否则会重复统计进程 counter。指标与查询口径见 [Observability](../observability#model-token-usage)。
 
+每份报告的三种非零 token 数量合为一个 `gizmetrics.AddPeriodicCounters` 批次，复用有界的已注册标签与
+series；缓存命中时仅获取一次聚合锁，不在 stream chunk 或 token 路径处理标签或写入 Store。
+
 每条记录带 provider、provider model/version/resource ID、modality（`text` 或 `audio`）和计费单位。`Input`、`CachedInput`、`Output` 互不包含：`CachedInput` 是按缓存价计费的输入，不计入 `Input`。同一 provider model 始终使用同一单位；不同 provider model 的单位不可比较，也不在 GenX 中换算。
 
 | Provider 能力 | 单位 | 来源 |

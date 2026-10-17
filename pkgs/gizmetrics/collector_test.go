@@ -25,7 +25,7 @@ func TestCollectorReportsUnchangedCountersAndShutdownZeroWithNodeIdentity(t *tes
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = shutdown(t.Context()) })
-	recorder := processRecorder.Load().recorder.(*storeRecorder)
+	recorder := processRecorder.Load().recorder
 	AddCounter(t.Context(), "requests_total", 3)
 	// A caller cannot spoof the process identity.
 	AddCounter(t.Context(), "spoofed_total", 1, Label{Name: "node_id", Value: "server-b"})

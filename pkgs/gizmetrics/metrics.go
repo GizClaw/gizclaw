@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	// DefaultFlushInterval is how often an installed recorder flushes counters,
-	// collected snapshots and dirty gauge/histogram series to its store.
+	// DefaultFlushInterval is how often an installed recorder flushes periodic
+	// counters, collected snapshots and other dirty series to its store.
 	DefaultFlushInterval = 10 * time.Second
 	// DefaultAppendTimeout bounds one periodic store append.
 	DefaultAppendTimeout = 5 * time.Second
@@ -107,14 +107,8 @@ func WithMaxSeries(maxSeries int) Option {
 	}
 }
 
-type recorder interface {
-	addCounter(context.Context, string, float64, []Label)
-	setGauge(context.Context, string, float64, []Label)
-	observeHistogram(context.Context, string, float64, []float64, []Label)
-}
-
 type recorderSlot struct {
-	recorder recorder
+	recorder *storeRecorder
 }
 
 var (

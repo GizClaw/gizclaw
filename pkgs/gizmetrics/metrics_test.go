@@ -18,6 +18,7 @@ func TestDefaultRecorderIsConcurrentNoop(t *testing.T) {
 		group.Go(func() {
 			for range 1_000 {
 				AddCounter(context.Background(), "invalid metric name", -1, Label{Name: "bad-label", Value: "value"})
+				AddPeriodicCounters(context.Background(), "invalid metric name", CounterDelta{Value: -1})
 				SetGauge(context.Background(), "gauge", math.NaN())
 				ObserveHistogram(context.Background(), "histogram", 1, nil)
 			}

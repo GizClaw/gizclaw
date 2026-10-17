@@ -210,7 +210,19 @@ Completion record 不输出 `error_message`。响应 message、`err.Error()`、v
 
 调用方通过 `AddCounter`、`SetGauge` 和 `ObserveHistogram` 记录数据。`InstallStore` 一次只允许安装一个 live recorder；安装前和 shutdown 后调用均为 no-op。默认 flush interval 是 10 秒，单次 append timeout 是 5 秒，逻辑 series 上限是 10,000，也可通过 `WithFlushInterval`、`WithAppendTimeout` 和 `WithMaxSeries` 调整。
 
-Counter 保存进程内单调累计值，每次 flush 都发送已创建 counter 的当前值，包括没有变化的值，以便空闲窗口的速率回到零，后续增量也不会跨整个空闲期插值。Gauge 保存最新值，histogram 导出累计的 `_bucket`、`_sum` 和 `_count` samples，并总是包含 `le=+Inf`；两者仅在变更后发送，周期 collector 仍按每次 flush 采样。Metric name、label name、数值和 buckets 在进入聚合 map 前校验；非法 update、同一 series 改变类型/buckets 或超过 series 上限时丢弃并输出限频且不包含 label value 的 warning。业务调用不等待 `Store.Append`，失败或超时的 dirty samples 留待下一次 flush。
+Counter 保存进程内单调累计值，`AddCounter` 仅在变更后发送。需要持续速率采样的调用方显式使用
+`AddPeriodicCounters`：该批次中的 series 自首次更新起，每次 flush 都发送累计值，包括没有变化的值，
+让空闲窗口的速率回到零。批次复用 recorder 内有界的标签与 series 缓存；常用的四个及以下调用方标签
+在命中缓存后不再复制、排序或拼接标签 key，一次批次在同一个短临界区内更新。缓存与逻辑 series 分别受
+`WithMaxSeries` 限制，随 recorder 释放，不按请求、token 或用户积累历史。更宽的标签组合走普通校验路径。
+
+Gauge 保存最新值，histogram 导出累计的 `_bucket`、`_sum` 和 `_count` samples，并总是包含
+`le=+Inf`；两者仅在变更后发送，周期 collector 仍按每次 flush 采样。Flush 在状态锁内只捕获数值和
+可变 histogram bucket 计数，标签 map 构造、bucket 展开和 Store 写入均在锁外执行；成功后仅清理版本
+未变化的 series，保留刷新期间收到的新增量。Metric name、label name、数值和 buckets 在注册时校验，
+每次增量仍检查有限性、非负性和累计值溢出；非法 update、同一 series 改变类型/buckets 或超过 series
+上限时丢弃并输出限频且不包含 label value 的 warning。业务调用不等待 `Store.Append`，失败或超时的
+dirty samples 留待下一次 flush。
 
 `cmd/internal/server` 只在配置了名为 `metrics` 的 store 时安装 recorder。关闭顺序固定为 `gizclaw.Server`、recorder final flush、store registry；recorder 不关闭 store。Standalone Edge 使用顶层 `metrics` 配置直接连接 Prometheus Remote Write/query backend，并在关闭 HTTP、gateway 与 upstream 后 final flush，再关闭 backend connector。
 
@@ -434,6 +446,9 @@ Lifecycle 诊断中的 stream identifier 保留稳定的 128-bit hash；GenX 内
 `genx.RecordUsage` 在供应商报告用量时递增 `genx_model_tokens_total`，沿用已安装的进程 metrics store。
 配置为 Prometheus/VMP 时，通过已有 Remote Write worker 默认每十秒批量写入；不访问 Peer 小时用量表、
 不读取业务数据库，也不为每个 token 或 stream chunk 发请求。
+
+每份用量报告将非零的 input、cached_input、output 合为一个周期 counter 批次，复用已注册标签，
+命中缓存时仅获取一次聚合锁；不为既有 HTTP/RPC counter 开启空闲保活。
 
 GizClaw 在这里负责指标上报。VMP 的模型用量聚合、recording rules 和看板属于 Deploy 的监控配置边界；
 Monitor 继续读取节点内存快照，不增加这些指标的 VMP 查询或聚合接口。已有设备 telemetry 查询接口保持其独立契约。

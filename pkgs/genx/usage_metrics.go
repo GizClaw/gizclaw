@@ -18,21 +18,27 @@ func recordTokenMetrics(ctx context.Context, record UsageRecord) {
 		record.Input < 0 || record.CachedInput < 0 || record.Output < 0 {
 		return
 	}
-	labels := []gizmetrics.Label{
+	base := [4]gizmetrics.Label{
 		{Name: "provider", Value: record.Provider},
 		{Name: "model", Value: record.Model},
 		{Name: "modality", Value: string(record.Modality)},
 		{Name: "token_type"},
 	}
+	var labels [3][4]gizmetrics.Label
+	var deltas [3]gizmetrics.CounterDelta
+	count := 0
 	for _, quantity := range [...]struct {
 		kind  string
 		count int64
 	}{{"input", record.Input}, {"cached_input", record.CachedInput}, {"output", record.Output}} {
 		if quantity.count > 0 {
-			labels[3].Value = quantity.kind
-			gizmetrics.AddCounter(ctx, "genx_model_tokens_total", float64(quantity.count), labels...)
+			labels[count] = base
+			labels[count][3].Value = quantity.kind
+			deltas[count] = gizmetrics.CounterDelta{Value: float64(quantity.count), Labels: labels[count][:]}
+			count++
 		}
 	}
+	gizmetrics.AddPeriodicCounters(ctx, "genx_model_tokens_total", deltas[:count]...)
 }
 
 func validUsageMetricIdentity(value string, maxBytes int) bool {

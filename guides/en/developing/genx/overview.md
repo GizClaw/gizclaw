@@ -139,6 +139,9 @@ Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/giz
 
 Nested product scopes preserve the original caller callback and deliver usage only to the innermost product recorder. Forward an existing report by calling the callback from `UsageRecorderFromContext` directly, without another `RecordUsage` call that would observe process counters twice. Metric and query semantics are documented in [Observability](../observability#model-token-usage).
 
+The three nonzero token quantities in a report share one `gizmetrics.AddPeriodicCounters` batch, reusing bounded registered
+labels and series. A cache hit takes the aggregation lock once; stream chunks and individual tokens do no label processing or Store I/O.
+
 Each record carries the provider, the provider model, version, or resource ID, the modality (`text` or `audio`), and the billing unit. `Input`, `CachedInput`, and `Output` are disjoint: `CachedInput` is input billed at the cache rate and is not part of `Input`. A provider model always reports in the same unit; units of different provider models are not comparable and GenX does not convert them.
 
 | Provider capability | Unit | Source |
