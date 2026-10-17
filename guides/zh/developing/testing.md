@@ -643,6 +643,15 @@ Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/R
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+Workspace 列表筛选的共享场景是 `server.workspace.list.giztest.yaml`。它创建两个真实 SFU 群 Workspace 和四个普通 Workspace，用 36 个步骤覆盖 `system` 省略／false／true、prefix 交集、空结果、跨页筛选、limit 变化、条件切换及失效游标，并验证通用删除拒绝系统项；最后执行三步清理。普通项包含与 SFU 同前缀的名称，系统项排在普通项之前，防止按名称推断分类或在分页后过滤。每个步骤和清理都必须通过，skipped 不计为通过。
+
+```sh
+go test ./cmd/internal/server -run '^TestWorkspaceListGiztestGo$' -count=1
+bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+```
+
+第一条随普通 Go 测试执行；第二条在临时 Server、Edge、SQLite 和真实 WebRTC 上执行 Go、JavaScript、C 与原生 Flutter 四个 runner，CI 的 Admission SDK E2E 同样运行它。C SDK smoke test 另用 nanopb 构造三态请求，通过 `gzc_rpc_request_start` / `gzc_rpc_request_result` 检查实际请求 envelope 内的 selector presence、cursor、limit、prefix，以及空终页和 Profile identity 的响应解码。上述测试不启动 Agent、外部模型或 SFU 媒体连接，不替代 LiveKit 媒体和 H106 硬件验收。
+
 固件 metadata 的共享场景是 `server.firmware.metadata.get.giztest.yaml`。
 它覆盖对象、字符串、数组、数字、布尔值和显式 `null`，大整数精度、缺失或非法 key、
 平面 key 匹配、重连后的绑定，以及原有 stable channel。每次执行包含 16 个步骤和一次

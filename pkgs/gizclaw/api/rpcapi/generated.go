@@ -2611,6 +2611,8 @@ type WorkspaceListRequest struct {
 	Cursor *string `json:"cursor,omitempty"`
 	Limit  *int    `json:"limit,omitempty"`
 	Prefix *string `json:"prefix,omitempty"`
+	// System selects ordinary (false) or system (true) Workspaces; nil lists both.
+	System *bool `json:"system,omitempty"`
 }
 
 // WorkspaceListResponse defines model for WorkspaceListResponse.

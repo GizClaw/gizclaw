@@ -22,6 +22,8 @@ RuntimeProfile 的 Workflow binding 是平面 map，Peer 边界把每个 binding
 
 Workspace create 必须传 `workflow_name`。Server 把该 Peer name 解析为当前 RuntimeProfile binding，并通过内部 Workspace label 保存该 name。Workspace list 无必填筛选条件；Peer 响应不包含通用 labels。删除 binding 不会隐藏或删除已有 Workspace；name 再次可解析前 reload/run 返回 not found。
 
+`server.workspace.list` 可传 `system=false` 只列出普通 Workspace，或 `system=true` 只列出系统 Workspace；省略时列出全部可访问项。它与 `prefix` 在分页前取交集，不隐藏 `available=false` 的普通 Workspace。分页游标绑定筛选条件和 Profile revision，条件改变时返回 `ABORTED`。完整分页语义见 [Peer Resources](../../../gizclaw/services/runtime/peerresource)。
+
 ## 调用关系
 
 ```mermaid

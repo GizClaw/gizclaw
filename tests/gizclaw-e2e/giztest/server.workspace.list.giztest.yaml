@@ -1,14 +1,15 @@
 # User Story:
-# As a GizClaw Peer API consumer,
-# I want exercise the server.workspace.list behavior through its real transport,
-# So that the generated RPC contract is verified end to end.
+# As a Workspace owner cleaning conversation archives,
+# I want ordinary/system filters to survive every SDK and every page,
+# So that SFU records never occupy or hide deletable results.
+# Both SFU names sort before all user names, including the social-named user.
 version: gizclaw.test/v1alpha1
 name: server.workspace.list
 clients:
   peer:
     identity: ephemeral
     connection: webrtc
-    access_point: "${endpoint}"
+    access_point: ${endpoint}
 variables:
   endpoint:
     direction: input
@@ -23,21 +24,447 @@ variables:
     direction: input
     type: string
     generate: token
+  group_workspace:
+    direction: output
+    type: string
+  system_first_name:
+    direction: output
+    type: string
+  system_second_name:
+    direction: output
+    type: string
+  ordinary_cursor:
+    direction: output
+    type: string
+  system_cursor:
+    direction: output
+    type: string
+  last_cursor:
+    direction: output
+    type: string
 steps:
-- id: register_peer
-  client: peer
-  rpc:
-    method: server.register
-    request:
-      token: "${registration_token}"
-- id: primary_rpc
-  client: peer
-  rpc:
-    method: server.workspace.list
-    request: {}
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: empty_omitted
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request: {}
+    expect: &a1
+      /items:
+        count: 0
+      /has_next:
+        equals: false
+      /next_cursor:
+        present: false
+  - id: empty_false
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: false
+    expect: *a1
+  - id: empty_true
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: true
+    expect: *a1
+  - id: create_group_one
+    client: peer
+    rpc:
+      method: server.friend_group.create
+      request:
+        name: ${resource_name}-one
+    expect:
+      /workspace_name:
+        non_empty: true
+    capture:
+      group_workspace: /workspace_name
+  - id: create_group_two
+    client: peer
+    rpc:
+      method: server.friend_group.create
+      request:
+        name: ${resource_name}-two
+    expect:
+      /workspace_name:
+        non_empty: true
+  - id: create_a
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: zz-${resource_name}-a
+        workflow_name: eino-chat-assistant
+  - id: create_b
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: zz-${resource_name}-b
+        workflow_name: eino-chat-assistant
+  - id: create_c
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: zz-${resource_name}-c
+        workflow_name: eino-chat-assistant
+  - id: create_social_named_user
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: social-user-${resource_name}
+        workflow_name: eino-chat-assistant
+  - id: omitted_includes_both
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request: {}
+    expect:
+      /items:
+        count: 6
+      /items/0/system:
+        equals: true
+      /items/1/system:
+        equals: true
+      /items/2/name:
+        equals: social-user-${resource_name}
+      /items/2/system:
+        equals: false
+      /has_next:
+        equals: false
+    capture:
+      system_first_name: /items/0/name
+      system_second_name: /items/1/name
+  - id: ordinary_first_page
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: false
+        limit: 2
+    expect:
+      /items:
+        count: 2
+      /items/0/name:
+        equals: social-user-${resource_name}
+      /items/0/system:
+        equals: false
+      /items/1/name:
+        equals: zz-${resource_name}-a
+      /items/1/system:
+        equals: false
+      /has_next:
+        equals: true
+      /next_cursor:
+        non_empty: true
+    capture:
+      ordinary_cursor: /next_cursor
+  - id: ordinary_second_page
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: false
+        limit: 2
+        cursor: ${ordinary_cursor}
+    expect:
+      /items:
+        count: 2
+      /items/0/name:
+        equals: zz-${resource_name}-b
+      /items/0/system:
+        equals: false
+      /items/1/name:
+        equals: zz-${resource_name}-c
+      /items/1/system:
+        equals: false
+      /has_next:
+        equals: false
+      /next_cursor:
+        present: false
+  - id: system_first_page
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: true
+        limit: 1
+    expect:
+      /items:
+        count: 1
+      /items/0/name:
+        equals: ${system_first_name}
+      /items/0/system:
+        equals: true
+      /has_next:
+        equals: true
+    capture:
+      system_cursor: /next_cursor
+  - id: system_second_page
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: true
+        limit: 1
+        cursor: ${system_cursor}
+    expect:
+      /items:
+        count: 1
+      /items/0/name:
+        equals: ${system_second_name}
+      /items/0/system:
+        equals: true
+      /has_next:
+        equals: false
+      /next_cursor:
+        present: false
+  - id: system_prefix_excludes_users
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: social-group-
+        system: false
+    expect: *a1
+  - id: system_prefix_matches
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: social-group-
+        system: true
+    expect:
+      /items:
+        count: 2
+      /items/0/system:
+        equals: true
+      /items/1/system:
+        equals: true
+  - id: exact_system_prefix
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: ${group_workspace}
+        system: true
+    expect:
+      /items:
+        count: 1
+      /items/0/name:
+        equals: ${group_workspace}
+  - id: exact_system_prefix_has_no_user
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: ${group_workspace}
+        system: false
+    expect: *a1
+  - id: mixed_prefix_users
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: social-
+        system: false
+    expect:
+      /items:
+        count: 1
+      /items/0/name:
+        equals: social-user-${resource_name}
+      /items/0/system:
+        equals: false
+  - id: mixed_prefix_system
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: social-
+        system: true
+    expect:
+      /items:
+        count: 2
+      /items/0/system:
+        equals: true
+      /items/1/system:
+        equals: true
+  - id: user_prefix_matches
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: zz-${resource_name}
+        system: false
+    expect:
+      /items:
+        count: 3
+      /has_next:
+        equals: false
+  - id: user_prefix_has_no_system
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: zz-${resource_name}
+        system: true
+    expect: *a1
+  - id: blank_prefix_is_unfiltered
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: "  "
+    expect:
+      /items:
+        count: 6
+      /has_next:
+        equals: false
+  - id: no_matches
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        prefix: ${resource_name}-missing
+        system: false
+    expect: *a1
+  - id: cursor_cannot_omit_filter
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: ${ordinary_cursor}
+    expect_error:
+      code: 10
+  - id: cursor_cannot_change_system
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: ${system_cursor}
+        system: false
+    expect_error:
+      code: 10
+  - id: cursor_cannot_change_prefix
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: ${ordinary_cursor}
+        prefix: zz-${resource_name}
+        system: false
+    expect_error:
+      code: 10
+  - id: cursor_can_change_limit
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: ${ordinary_cursor}
+        system: false
+        limit: 1
+    expect:
+      /items:
+        count: 1
+      /items/0/name:
+        equals: zz-${resource_name}-b
+      /has_next:
+        equals: true
+    capture:
+      last_cursor: /next_cursor
+  - id: cursor_last_page
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: ${last_cursor}
+        system: false
+        limit: 1
+    expect:
+      /items:
+        count: 1
+      /items/0/name:
+        equals: zz-${resource_name}-c
+      /has_next:
+        equals: false
+      /next_cursor:
+        present: false
+  - id: invalid_cursor
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: invalid!
+        system: false
+    expect_error:
+      code: 10
+  - id: generic_system_delete_forbidden
+    client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${group_workspace}
+    expect_error:
+      code: 10
+  - id: rejected_delete_keeps_systems
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: true
+    expect:
+      /items:
+        count: 2
+  - id: delete_cursor_anchor
+    client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: zz-${resource_name}-a
+  - id: deleted_anchor_aborts
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        cursor: ${ordinary_cursor}
+        system: false
+    expect_error:
+      code: 10
+  - id: remaining_users
+    client: peer
+    rpc:
+      method: server.workspace.list
+      request:
+        system: false
+    expect:
+      /items:
+        count: 3
+      /has_next:
+        equals: false
 finally:
-- id: cleanup_peer
-  client: peer
-  rpc:
-    method: server.peer.delete
-    request: {}
+  - id: delete_group_one
+    client: peer
+    rpc:
+      method: server.friend_group.delete
+      request:
+        name: ${resource_name}-one
+  - id: delete_group_two
+    client: peer
+    rpc:
+      method: server.friend_group.delete
+      request:
+        name: ${resource_name}-two
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

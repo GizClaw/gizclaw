@@ -923,6 +923,31 @@ test("RPC find, social ping and profile methods preserve IDs and payloads", () =
   );
 });
 
+test("workspace list preserves the optional system filter on the wire", () => {
+  for (const system of [undefined, false, true]) {
+    const request = system === undefined ? {} : { system };
+    const wire = encodeRPCRequestPayload("server.workspace.list", request);
+    assert.deepEqual(
+      wire,
+      system === undefined
+        ? new Uint8Array()
+        : new Uint8Array([0x20, system ? 1 : 0]),
+    );
+    assert.deepEqual(
+      decodeRPCRequestPayload("server.workspace.list", wire),
+      request,
+    );
+    const combined = { ...request, prefix: "h106-", limit: 2, cursor: "next" };
+    assert.deepEqual(
+      decodeRPCRequestPayload(
+        "server.workspace.list",
+        encodeRPCRequestPayload("server.workspace.list", combined),
+      ),
+      combined,
+    );
+  }
+});
+
 test("RPC payload codec decodes omitted proto3 defaults", () => {
   assert.deepEqual(
     decodeRPCResponsePayload("all.speed_test.run", new Uint8Array()),
