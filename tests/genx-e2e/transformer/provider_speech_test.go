@@ -35,7 +35,7 @@ const (
 	doubaoASRShortUtteranceStart  = 640 * time.Millisecond
 	doubaoASRShortUtteranceEnd    = 2560 * time.Millisecond
 	doubaoASRDefiniteDeadline     = 5 * time.Second
-	doubaoASRMinimumLatencySaving = time.Second
+	doubaoASRMinimumLatencySaving = 250 * time.Millisecond
 	doubaoASRTunedLatencyLimit    = 1500 * time.Millisecond
 	doubaoASRLiveFrameDuration    = 20 * time.Millisecond
 	doubaoASRLiveFrameSize        = 640
@@ -253,19 +253,23 @@ func TestDoubaoSAUCEndpointingReducesShortUtteranceLatency(t *testing.T) {
 	audio := shortASRPCM(t, pcm.Bytes(), doubaoASRShortUtteranceStart, doubaoASRShortUtteranceEnd)
 	client := doubaospeech.NewClient(appID, doubaospeech.WithAPIKey(apiKey))
 
-	baseline := runDoubaoASREndpointingTrial(t, client, audio, nil, nil)
+	// Configure both trials explicitly: async single-pass defaults can defer
+	// short-utterance endpointing until ten seconds of audio have arrived.
+	baselineWindow := 800
+	forceToSpeechTime := 1000
+	baseline := runDoubaoASREndpointingTrial(t, client, audio, &baselineWindow, &forceToSpeechTime)
 	endWindowSize := 200
-	forceToSpeechTime := 0
 	tuned := runDoubaoASREndpointingTrial(t, client, audio, &endWindowSize, &forceToSpeechTime)
 
 	saving := baseline.latency - tuned.latency
 	t.Logf(
-		"Doubao ASR short-utterance latency: default=%s tuned=%s saving=%s default_text=%q tuned_text=%q",
+		"Doubao ASR short-utterance latency: baseline_800ms=%s tuned_200ms=%s saving=%s baseline_text=%q tuned_text=%q resource=%s",
 		baseline.latency,
 		tuned.latency,
 		saving,
 		baseline.text,
 		tuned.text,
+		doubaospeech.ResourceASRStreamV2,
 	)
 	if tuned.text != baseline.text {
 		t.Fatalf("tuned transcript = %q, want baseline transcript %q", tuned.text, baseline.text)
@@ -300,6 +304,7 @@ func runDoubaoASREndpointingTrial(
 	realtimePacing := false
 	transformer, err := doubaoasr.New(doubaoasr.Config{
 		Client:            client,
+		ResourceID:        doubaospeech.ResourceASRStreamV2,
 		RealtimePacing:    &realtimePacing,
 		EndWindowSize:     endWindowSize,
 		ForceToSpeechTime: forceToSpeechTime,
