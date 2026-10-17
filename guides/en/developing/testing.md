@@ -635,6 +635,15 @@ coverage without the unrelated provider-backed suites:
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+The shared Workspace list scenario is `server.workspace.list.giztest.yaml`. It creates two real SFU group Workspaces and four ordinary Workspaces, then uses 36 steps to cover omitted/false/true `system`, prefix intersections, empty results, filtered pagination, changing limits, changed selectors, invalid cursors and forbidden generic system deletion. Three cleanup steps retire the groups and Peer. An ordinary name shares the Social prefix, and both system names sort before every ordinary name, detecting name-based classification and filtering after pagination. Every step and cleanup must pass; skipped execution is not success.
+
+```sh
+go test ./cmd/internal/server -run '^TestWorkspaceListGiztestGo$' -count=1
+bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+```
+
+The first runs with ordinary Go tests. The second runs Go, JavaScript, C and native Flutter runners against temporary Server, Edge and SQLite state over real WebRTC; CI also executes it in Admission SDK E2E. The C SDK smoke test separately builds three-state nanopb requests and exercises `gzc_rpc_request_start` / `gzc_rpc_request_result`, inspecting selector presence, cursor, limit and prefix inside the actual request envelope, plus empty terminal-page and Profile identity decoding. These tests start no Agent, external model or SFU media connection, and do not replace LiveKit media or H106 hardware acceptance.
+
 The shared firmware metadata scenario is `server.firmware.metadata.get.giztest.yaml`.
 It covers objects, strings, arrays, numbers, booleans, explicit null, large integer precision,
 missing or invalid keys, exact flat-key matching, binding after reconnect, and the existing

@@ -908,6 +908,8 @@ jobs:
           pactl set-default-source gizclaw_admission.monitor
       - name: Run registration-token admission across all SDKs
         run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_tests.sh
+      - name: Verify Workspace list filters across all SDKs
+        run: xvfb-run -a bash tests/gizclaw-e2e/run_workspace_list_tests.sh
 
   admission-docker-e2e:
     name: Admission Docker E2E
