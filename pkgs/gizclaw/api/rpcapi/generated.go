@@ -1963,7 +1963,8 @@ type PeerRunAgent struct {
 
 // PeerRunHistoryEntry defines model for PeerRunHistoryEntry.
 type PeerRunHistoryEntry struct {
-	CreatedAt time.Time `json:"created_at"`
+	AudioAvailable bool      `json:"audio_available"`
+	CreatedAt      time.Time `json:"created_at"`
 
 	// GearId Originating gear id. Required for gear entries and omitted for agent entries.
 	ActorName       string                  `json:"actor_name"`

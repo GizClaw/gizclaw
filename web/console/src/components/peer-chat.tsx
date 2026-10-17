@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { ArrowLeft, Pause, Play, Search, X } from "lucide-react";
+import { GizClawControlError } from "@gizclaw/gizclaw-control";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -685,10 +686,10 @@ function Message({
           <span className="text-muted-foreground">此记录没有文本</span>
         )}
       </p>
-      {item.replay_available ? (
+      {item.audio_available ? (
         <HistoryAudio peer={peer} workspace={workspace} history={item.name} />
       ) : (
-        <span />
+        <span className="text-[10px] text-muted-foreground">无录音</span>
       )}
     </article>
   );
@@ -708,6 +709,7 @@ function HistoryAudio({
   const [playing, setPlaying] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
   // A download started here must not outlive the row: leaving the workspace,
   // page or device while it is pending would otherwise start playback on a
   // component that no longer exists and leak its object URL.
@@ -771,6 +773,10 @@ function HistoryAudio({
       .catch((failure: unknown) => {
         if (controller.signal.aborted) return;
         setPlaying(false);
+        if (failure instanceof GizClawControlError && failure.status === 404) {
+          setUnavailable(true);
+          return;
+        }
         setError(nodeErrorMessage(failure));
       })
       .finally(() => {
@@ -778,6 +784,12 @@ function HistoryAudio({
         if (!controller.signal.aborted) setBusy(false);
       });
   };
+
+  if (unavailable) {
+    return (
+      <span className="text-[10px] text-muted-foreground">无可用录音</span>
+    );
+  }
 
   return (
     <span className="flex items-center gap-1.5">

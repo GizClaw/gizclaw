@@ -618,6 +618,9 @@ func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *test
 		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
 			continue
 		}
+		if chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
+			continue
+		}
 		mimeType, ok := chunk.MIMEType()
 		if !ok {
 			continue
@@ -720,6 +723,9 @@ func TestTransformerRealtimeResponseDeadlineClosesEveryOpenedRoute(t *testing.T)
 			t.Fatalf("Next() before all routes closed = %v; routes=%#v", nextErr, routes)
 		}
 		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
+			continue
+		}
+		if chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
 			continue
 		}
 		mimeType, ok := chunk.MIMEType()

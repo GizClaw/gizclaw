@@ -792,6 +792,17 @@ JavaScript 与 Flutter 省略该字段。
 
 ### Giztest 场景
 
+`doubao-realtime-conversation.realtime-recording-history.giztest.yaml` 在临时设备上开启只读访问，
+复用实时连接连续说两句，并检查两条用户 History 的文字、独立 ID 与 `audio_available`。
+同一场景通过公钥认证的 HTTP 下载验证两份 Ogg 都返回 200，再通过 RPC 下载并重新转写，
+确认每份录音只包含对应句子的暗号。它使用标准 Docker 环境的真实 Realtime、TTS 和 ASR
+Provider，结束时清理 Workspace 与 Peer：
+
+```sh
+gizclaw test run tests/gizclaw-e2e/giztest/doubao-realtime-conversation.realtime-recording-history.giztest.yaml \
+  --parallel 1 --report realtime-recording-history.json
+```
+
 文字输入的 `peer_stream` 使用 `mode: text`。`text_done: true` 发送纯控制 BOS 与包含全文的 TEXT_DONE 两条事件；不设置时保留 BOS、TEXT_DELTA、空 TEXT_DONE 三条事件。`timestamp: zero` 是默认值，`timestamp: unix_ms` 给同轮两个事件使用当前 Unix 毫秒值。`label` 可为文字或音频输入指定相同的 route label，默认 `user`。
 
 `TestDeviceTextInputGiztest` 读取 `tests/gizclaw-e2e/testdata/text-input/` 中的 Giztest 文档，执行 Go runner 的真实 `peer_stream` operation、RealtimeStream 和三个 driver 的 Transformer。Doubao SDK 通过内存 HTTP/WebSocket 连接到本地 provider fixture；Eino 使用本地 typed Graph，Eino 使用本地 Generator，外挂 TTS 输出可解码的非静音 Opus。此测试不需要凭据或本地端口，验证零/Unix 毫秒时间戳、PTT/Realtime、直接文字及语音后文字；它不替代真实 Server/WebRTC 或产品 Graph 的验收。

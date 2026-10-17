@@ -235,6 +235,7 @@ export const historyPage = z.object({
       text: z.string(),
       created_at: z.string(),
       replay_available: z.boolean(),
+      audio_available: z.boolean(),
     }),
   ),
   has_next: z.boolean(),
