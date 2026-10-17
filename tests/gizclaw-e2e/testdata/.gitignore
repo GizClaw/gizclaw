@@ -46,6 +46,11 @@
 
 !rtp-bos/
 !rtp-bos/*
+!asr-recovery/
+!asr-recovery/*.go
+!asr-recovery/*.py
+!asr-recovery/*.json
+!asr-recovery/*.giztest.yaml
 !slow-tts/
 !slow-tts/*.go
 !slow-tts/*.py

@@ -196,6 +196,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 	}
 	s.logger().InfoContext(gizlog.WithSessionID(gizlog.WithPeerPublicKey(ctx, s.PublicKey.String()), s.SessionID), "agenthost: runtime starting", "workspace", workspaceName)
 	baseCtx := s.runtimeLogContext(ctx)
+	baseCtx = gizlog.WithWorkspace(baseCtx, workspaceName)
 	baseCtx = WithResourceAccess(withHistoryGearID(baseCtx, s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
 	if profileSnapshot != nil {
 		baseCtx = withRuntimeProfile(baseCtx, *profileSnapshot)

@@ -52,6 +52,7 @@ type Transformer struct {
 	realtimePacing  bool
 	emitInterim     bool
 	finalizeTimeout time.Duration
+	recoveryTimeout time.Duration
 
 	vadSegmentDuration *int
 	endWindowSize      *int
@@ -132,6 +133,7 @@ func newTransformer(config Config) *Transformer {
 		chunkSize:       config.ChunkSize,
 		realtimePacing:  boolValue(config.RealtimePacing, true),
 		finalizeTimeout: doubaoASRFinalizeTimeout,
+		recoveryTimeout: asrRecoveryTimeout,
 
 		vadSegmentDuration: cloneInt(config.VADSegmentDuration),
 		endWindowSize:      cloneInt(config.EndWindowSize),
@@ -175,7 +177,17 @@ func firstNonEmpty(value, fallback string) string {
 // pacing timers, and result forwarding.
 func (t *Transformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	ctx = streamlog.StartStage(ctx, "doubaoasr", streamlog.Model{Provider: "volc", Model: t.resourceID, Kind: "asr"})
+	ctx, cancel := context.WithCancel(ctx)
 	output := newBufferStream(100, ctx)
+	go func() {
+		select {
+		case <-ctx.Done():
+			_ = output.CloseWithError(ctx.Err())
+		case <-output.Done():
+		}
+		cancel()
+		_ = input.CloseWithError(ctx.Err())
+	}()
 
 	go t.transformLoop(ctx, input, output)
 
@@ -190,10 +202,17 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	// dial or audio send operation.
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
+	inputReader := newASRInput(ctx, input, output)
+	var discardStreamID string
 
 	// Track last chunk for metadata
 	var lastChunk *genx.MessageChunk
 	var session doubaoASRSession
+	defer func() {
+		if session != nil {
+			_ = session.Close()
+		}
+	}()
 	var resultsCh chan *genx.MessageChunk
 	var resultsDone chan error
 	var resultsForwarded chan struct{}
@@ -301,7 +320,8 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if t.newSession != nil {
 			openSession = t.newSession
 		}
-		next, err := openSession(ctx, cfg)
+		sessionRoute = newDoubaoASRRouteState(sourceChunk)
+		next, err := newRecoveringSession(ctx, cfg, sessionRoute, t.emitInterim, t.recoveryTimeout, openSession, inputReader.activate)
 		if err != nil {
 			return err
 		}
@@ -315,19 +335,25 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			historyAudio = newDoubaoASRHistoryAudioBuffer(cfg)
 		}
 		sessionSourceChunk = sourceChunk
-		sessionRoute = newDoubaoASRRouteState(sourceChunk)
 		lastSessionTranscriptBegan = false
 		resultsCh = make(chan *genx.MessageChunk, 100)
 		resultsDone = make(chan error, 1)
 		resultsForwarded = make(chan struct{})
-		go t.receiveResults(ctx, session, sessionSourceChunk, sessionRoute, historyAudio, resultsCh, resultsDone)
+		providerDone := make(chan error, 1)
+		go t.receiveResults(ctx, session, sessionSourceChunk, sessionRoute, historyAudio, resultsCh, providerDone)
 		// Forward results to output as they arrive
 		forwarded := resultsForwarded
 		resultStream := resultsCh
+		completed := resultsDone
 		go func() {
 			defer close(forwarded)
 			for chunk := range resultStream {
 				output.Push(chunk)
+			}
+			err := <-providerDone
+			completed <- err
+			if err != nil && ctx.Err() == nil && next.ctx.Err() == nil && (!t.emitInterim || !isRecoverableRealtimeSessionError(err)) {
+				_ = output.Fail(err)
 			}
 		}()
 		return nil
@@ -370,6 +396,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			_ = session.Close()
 		}
 		session = nil
+		inputReader.active.Store(nil)
 		resultsCh = nil
 		resultsDone = nil
 		resultsForwarded = nil
@@ -411,7 +438,13 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	}
 
 	// Helper to finish current session
-	finishSession := func() error {
+	finishSession := func() (result error) {
+		finishingRoute := sessionRoute
+		defer func() {
+			if finishingRoute != nil && finishingRoute.interruption() != "" {
+				result = nil
+			}
+		}()
 		if session == nil {
 			return nil
 		}
@@ -478,13 +511,18 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if sessionRoute != nil {
 			sessionRoute.interrupt("interrupted")
 		}
-		return finishSession()
+		_ = session.Close()
+		if resultsForwarded != nil {
+			<-resultsForwarded
+		}
+		clearSession()
+		return nil
 	}
 
 	// Process input stream
 	for {
 
-		chunk, err := streamlog.ReadInput(ctx, input)
+		chunk, err := inputReader.next()
 		if err != nil {
 			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
 				if session != nil {
@@ -519,6 +557,24 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if chunk == nil {
 			continue
 		}
+		if sessionRoute != nil && sessionRoute.interruption() != "" {
+			discardStreamID, _ = sessionRoute.current()
+			if err := interruptSession(); err != nil {
+				output.CloseWithError(err)
+				return
+			}
+			if !t.emitInterim {
+				if err := closeHistoryStream(discardStreamID, "audio/pcm"); err != nil {
+					return
+				}
+			}
+		}
+		if discardStreamID != "" {
+			if !chunk.IsBeginOfStream() || chunk.Ctrl == nil || chunk.Ctrl.StreamID == discardStreamID {
+				continue
+			}
+			discardStreamID = ""
+		}
 
 		lastChunk = chunk
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.StreamID) != "" {
@@ -538,11 +594,15 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		// Check for EoS marker with audio MIME type
 		if chunk.IsEndOfStream() {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
+				finishingRoute := sessionRoute
 				if t.emitInterim {
 					activeStreamID = ""
 					if err := finishSession(); err != nil {
 						output.CloseWithError(err)
 						return
+					}
+					if finishingRoute != nil && finishingRoute.interruption() != "" {
+						discardStreamID, _ = finishingRoute.current()
 					}
 					continue
 				}
@@ -560,6 +620,10 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				if err := finishSession(); err != nil {
 					output.CloseWithError(err)
 					return
+				}
+				if finishingRoute != nil && finishingRoute.interruption() != "" {
+					discardStreamID, _ = finishingRoute.current()
+					continue
 				}
 				if !t.emitInterim {
 					if err := emitTranscriptEOS(sourceChunk); err != nil {
@@ -613,6 +677,11 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			// Start session on first audio chunk after MIME-based format detection.
 			if session == nil {
 				if err := startSession(cfg, sourceChunkForStream(chunk, historyStreamID)); err != nil {
+					if sessionRoute != nil && sessionRoute.interruption() != "" {
+						discardStreamID = historyStreamID
+						clearSession()
+						continue
+					}
 					output.CloseWithError(err)
 					return
 				}
@@ -646,6 +715,9 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					}
 				}
 				if sendErr != nil {
+					if sessionRoute != nil && sessionRoute.interruption() != "" {
+						continue
+					}
 					session.Close()
 					output.CloseWithError(sendErr)
 					return
@@ -1171,7 +1243,7 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 	seenUtterances := map[string]struct{}{}
 	resultCount := 0
 	textCount := 0
-	lastText := ""
+	var receivedGeneration uint64
 	lastInterimText := ""
 	lastUtteranceCount := 0
 	lastFinal := false
@@ -1307,8 +1379,15 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 			finish(nil)
 			return
 		}
+		if source, ok := session.(*recoveringSession); ok {
+			if generation := source.resultGeneration(); generation != receivedGeneration {
+				// A replacement can finish with final text without timed utterances.
+				// Prior generations' definite text must not suppress that fallback.
+				textCount = 0
+				receivedGeneration = generation
+			}
+		}
 		resultCount++
-		lastText = result.Text
 		lastUtteranceCount = len(result.Utterances)
 		lastFinal = result.IsFinal
 
@@ -1346,8 +1425,8 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 				}
 			}
 			if interimText != "" && interimText != lastInterimText {
-				lastInterimText = interimText
 				emitTranscriptText(interimText, false)
+				lastInterimText = interimText
 			}
 		}
 		if !emittedResultText && result.IsFinal && strings.TrimSpace(result.Text) != "" && textCount == 0 {
@@ -1366,7 +1445,7 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 			finish(nil)
 			return
 		}
-		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_text=%q last_utterances=%d", resultCount, lastFinal, lastText, lastUtteranceCount)
+		err := fmt.Errorf("doubao asr returned no text: results=%d last_final=%t last_utterances=%d", resultCount, lastFinal, lastUtteranceCount)
 		closeTranscript(err.Error())
 		finish(err)
 		return
