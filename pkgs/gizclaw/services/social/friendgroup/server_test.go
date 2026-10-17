@@ -1744,12 +1744,15 @@ func (s memberPresenceStub) PeerPresence(_ context.Context, key string) (bool, t
 // memberRoomStub answers in_room for the members running one Workspace and
 // records every Workspace name it was asked about.
 type memberRoomStub struct {
+	mu        sync.Mutex
 	workspace string
 	running   map[string]bool
 	asked     map[string]bool
 }
 
 func (s *memberRoomStub) PeerRunningWorkspace(_ context.Context, key, workspaceName string) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.asked[workspaceName] = true
 	return workspaceName == s.workspace && s.running[key]
 }

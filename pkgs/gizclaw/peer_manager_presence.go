@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -82,4 +83,38 @@ func (m *Manager) PeerRoomPresence(ctx context.Context, publicKey, workspace str
 	}
 	workspace = strings.TrimSpace(workspace)
 	return snapshot.Online, snapshot.LastSeenAt, snapshot.Online && workspace != "" && snapshot.WorkspaceName == workspace
+}
+
+// PeerRoomPresenceBatch reads a list page through the shared presence Store's
+// bulk reads. Legacy Managers without shared presence retain their local
+// per-Peer behavior, with bounded concurrency and the caller's page deadline.
+func (m *Manager) PeerRoomPresenceBatch(ctx context.Context, publicKeys []string, workspace string) []peerpresence.Snapshot {
+	snapshots := make([]peerpresence.Snapshot, len(publicKeys))
+	if m.Presence == nil {
+		socialutil.ReadPresencePage(ctx, len(publicKeys), func(ctx context.Context, i int) {
+			if ctx.Err() != nil {
+				return
+			}
+			online, seen, inRoom := m.PeerRoomPresence(ctx, publicKeys[i], workspace)
+			snapshots[i] = peerpresence.Snapshot{Online: online, LastSeenAt: seen}
+			if inRoom {
+				snapshots[i].WorkspaceName = workspace
+			}
+		})
+		return snapshots
+	}
+	var keys []giznet.PublicKey
+	var indices []int
+	for i, publicKey := range publicKeys {
+		if key, err := parseSocialPingPeer(publicKey); err == nil {
+			keys = append(keys, key)
+			indices = append(indices, i)
+		}
+	}
+	for i, result := range m.Presence.ReadBatch(ctx, keys) {
+		if result.Err == nil {
+			snapshots[indices[i]] = result.Snapshot
+		}
+	}
+	return snapshots
 }

@@ -99,6 +99,8 @@ Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 
 
 共享同一 Peer KV 的 Server 能查询彼此连接上的好友状态。查询不读取 `peer_runs` SQL；普通 Redis 使用同一连接，`redis.readwrite` 使用读端并接受复制延迟。共享读取失败时返回 `online=false` 并省略 `last_seen_at`，不回退 SQL 或主库，不使整页失败。资料读取失败时省略相应资料字段。
 
+好友与群成员列表按整页批量读取状态，再去重读取涉及的 Server 租约。状态补充共用两秒预算，更短的请求 deadline 优先；群的可选 Workspace binding 查询包含在该预算内。前置关系授权、分页和资料查询仍使用请求自己的 context。批量读取的并发与后端实现见 [KV 批量点查](/zh/developing/stores/kv#批量点查)，超时后保留列表和已成功的结果。
+
 ## 群成员列表的在线状态
 
 `server.friend_group.members.list` 与 `GET /gizclaw/v1/friend-groups/{friendGroupName}/members` 携带成员在线状态。先完成名称解析与 `requireRead`，确认调用方已经是成员后，再为当前页补充状态。

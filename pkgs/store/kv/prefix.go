@@ -98,6 +98,14 @@ func (s *prefixedStore) Get(ctx context.Context, key Key) ([]byte, error) {
 	return s.base.Get(ctx, s.prefixedKey(key))
 }
 
+func (s *prefixedStore) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	prefixed := make([]Key, len(keys))
+	for i, key := range keys {
+		prefixed[i] = s.prefixedKey(key)
+	}
+	return BatchGet(ctx, s.base, prefixed)
+}
+
 func (s *prefixedStore) Set(ctx context.Context, key Key, value []byte) error {
 	return s.base.Set(ctx, s.prefixedKey(key), value)
 }

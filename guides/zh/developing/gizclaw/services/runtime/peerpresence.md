@@ -12,6 +12,10 @@ Manager 在连接上线、下线、替换、退役和运行 Workspace 变化时�
 
 运行时由 Server 从现有 Peer KV 自动组装。多台 Server 必须共享该 Store 的物理 namespace；只共享 Social Store 不足以共享 presence。单节点 `redis`、`redis.readwrite` 和其他已有 KV backend 都沿用现有配置，不新增 service binding。
 
+列表使用 `ReadBatch` 先批量读取当前页的 Peer 快照，再按 Server 去重读取租约。两轮共享最多两秒的 presence 预算；调用方更短的 deadline 优先。群的可选 Workspace binding 查询也包含在这份预算内，前置关系授权、分页与好友资料查询沿用请求自身的 context。返回顺序与分页不变，单项失败或排队项超时保守显示离线并省略最后观察时间，已经读到的离线历史不因其他项超时而丢失。
+
+批量 I/O 由 [KV 层](/zh/developing/stores/kv#批量点查) 负责。TiKV 每批复用一个历史快照，Redis 使用读端 pipeline，其他 backend 最多八路并发；Peer 与租约的两轮批量读取不承诺共用一个快照。只提供旧单项 presence 接口的 Go 调用方保留最多八路并发的兼容读取。
+
 ## Server 租约
 
 每次 Server 启动创建独立 generation，并每十秒续期一条 Server 租约，不逐个续期 Peer。默认有效期三十秒；TiKV 配置历史读时额外加上 `kv.ReadDelay` 返回的历史窗口，避免健康租约在历史快照中已经过期。地区历史读仍会延迟首次上线及后续变化的可见性。
@@ -22,4 +26,4 @@ Server 进程关闭会取消并等待全部 worker，不关闭借用的 KV Store
 
 ## 验证
 
-`go test -race ./pkgs/gizclaw/services/runtime/peerpresence ./pkgs/gizclaw` 覆盖租约过期、进程 generation 替换、迟到状态、断线、运行转换与 SQL 不可用时的跨 Manager 查询。真实 Redis 主从验证由 `tests/store-e2e/run_redis_readwrite_tests.sh` 运行。
+`go test -race ./pkgs/gizclaw/services/runtime/peerpresence ./pkgs/gizclaw` 覆盖租约过期、进程 generation 替换、迟到状态、断线、运行转换与 SQL 不可用时的跨 Manager 查询。批量测试覆盖租约去重、部分损坏、未知 Peer，以及两轮查询共享的 deadline。真实 Redis 主从验证由 `tests/store-e2e/run_redis_readwrite_tests.sh` 运行；真实 TiKV Learner 的批量读取、复制滞后和 TCP 响应阻塞验证由 `tests/store-e2e/run_tikv_tests.sh <evidence-dir> --presence-only` 运行，范围见[测试与 E2E](/zh/developing/testing#tikv-docker-e2e)。

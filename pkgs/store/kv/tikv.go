@@ -189,6 +189,59 @@ func (s *TiKV) Get(ctx context.Context, key Key) ([]byte, error) {
 	return bytes.Clone(value.payload), nil
 }
 
+// BatchGet uses one timestamp and snapshot for the batch. Sequential chunks
+// limit each SDK fan-out to at most eight keys/Regions, while all chunks retain
+// that snapshot and the caller's original deadline.
+func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	results := make([]GetResult, len(keys))
+	if len(keys) == 0 {
+		return results
+	}
+	snapshot, err := s.snapshot(ctx)
+	if err != nil {
+		for i := range results {
+			results[i].Err = tiKVError("batch get snapshot", err)
+		}
+		return results
+	}
+	for start := 0; start < len(keys); start += batchGetConcurrency {
+		end := min(start+batchGetConcurrency, len(keys))
+		encoded := make([][]byte, end-start)
+		for i := range encoded {
+			encoded[i] = s.recordKey(keys[start+i])
+		}
+		if err := ctx.Err(); err != nil {
+			for i := start; i < len(keys); i++ {
+				results[i].Err = err
+			}
+			break
+		}
+		values, err := snapshot.BatchGet(ctx, encoded)
+		now := time.Now()
+		for i, key := range encoded {
+			result := &results[start+i]
+			if err != nil {
+				result.Err = tiKVError("batch get", err)
+				continue
+			}
+			raw, ok := values[string(key)]
+			if !ok {
+				result.Err = ErrNotFound
+				continue
+			}
+			value, err := decodeTiKVValue(raw.Value, now)
+			if err != nil {
+				result.Err = err
+			} else if value.kind != 0 {
+				result.Err = ErrWrongType
+			} else {
+				result.Value = bytes.Clone(value.payload)
+			}
+		}
+	}
+	return results
+}
+
 // update retries only definitive write conflicts, never uncertain commits.
 // A false callback result discards its entire buffer without committing.
 func (s *TiKV) update(ctx context.Context, fn func(*transaction.KVTxn) (bool, error)) (bool, error) {

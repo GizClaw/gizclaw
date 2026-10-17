@@ -1,0 +1,4 @@
+# Keep resolved timestamps within the fixture's five-second stale-read window.
+# The server default is 20s, which can send those reads back to the leader.
+[resolved-ts]
+advance-ts-interval = "1s"

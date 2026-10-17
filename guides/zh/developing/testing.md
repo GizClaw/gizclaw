@@ -274,6 +274,19 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
+
+仅运行共享 presence 的真实 TiKV Learner gate：
+
+```sh
+bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+```
+
+该用例在 PD 核实中心 voter 与地区 Learner 角色后，运行生产 `peerpresence.ReadBatch`，历史窗口为五秒。夹具通过 `tikv-test.toml` 将 `resolved-ts.advance-ts-interval` 设置为一秒；TiKV 的默认推进间隔为二十秒，不能据五秒窗口保证命中 Learner，部署应按实际 safe-ts 延迟选择窗口与推进频率，见 [TiKV 配置说明](https://docs.pingcap.com/tidb/stable/tikv-configuration-file/#advance-ts-interval)。更频繁推进会增加 CPU 和节点间流量。
+
+十个同属一台 Server 的在线 Peer 读取十份快照和一份租约；在该夹具的单 Region 中形成三个 RPC，Peer 分块使用同一历史时间戳，成功请求必须实际命中 Learner。测试同时运行十六个并发调用方，并记录五十次串行与批量状态查询的延迟。复制暂停期间，中心下线状态与 Learner 的旧在线／房间快照必须可区分；恢复后读取必须收敛。
+
+超时用例先预热连接，再通过测试专用 TCP proxy 阻塞真实 TiKV 响应，验证十项查询共用两秒预算，以及更短的 75 ms caller deadline。PD、Raft 和真实 TiKV 请求保持运行，测试不替换 KV 返回值。该 gate 进入 `TiKV Learner Presence` CI；它验证存储与 presence 读取路径，不包括成员授权、资料、HTTP/WebRTC、LiveKit、WAN 延迟或生产容量。Redis 主从与完整 Social RPC 行为由下面的 Redis gate 覆盖。
+
 迁移用例使用同一夹具中的真实 Redis 8.4.6 主节点，验证 binary/empty value、绝对 TTL、Set/零分 Sorted Set、大集合分页、中断后的幂等恢复、目标写入保护、双向校验和实际 CLI 切换配置。Redis 镜像同样从 gizcr 获取并固定 digest。只运行迁移相关测试：
 
 ```sh

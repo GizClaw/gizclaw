@@ -16,7 +16,8 @@ services:
     mem_limit: 512m
   leader:
     image: gizcr.gizclaw.com/docker.io/pingcap/tikv:v8.5.6@sha256:8d0b99d78b9b6fe5a9389d3680835386a3afb572168fc87bf7ddb27ab1359919
-    command: [--addr=0.0.0.0:20160, --advertise-addr=leader:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=center]
+    command: [--config=/etc/tikv/test.toml, --addr=0.0.0.0:20160, --advertise-addr=leader:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=center]
+    volumes: ["./tikv-test.toml:/etc/tikv/test.toml:ro"]
     depends_on: [pd]
     tmpfs: [/data]
     cpus: 2
@@ -30,7 +31,8 @@ services:
     mem_limit: 128m
   learner:
     image: gizcr.gizclaw.com/docker.io/pingcap/tikv:v8.5.6@sha256:8d0b99d78b9b6fe5a9389d3680835386a3afb572168fc87bf7ddb27ab1359919
-    command: [--addr=0.0.0.0:20160, --advertise-addr=gate:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=local]
+    command: [--config=/etc/tikv/test.toml, --addr=0.0.0.0:20160, --advertise-addr=gate:20160, --status-addr=0.0.0.0:20180, --data-dir=/data, --pd=pd:2379, --labels=region=local]
+    volumes: ["./tikv-test.toml:/etc/tikv/test.toml:ro"]
     depends_on: [pd, gate]
     tmpfs: [/data]
     cpus: 2

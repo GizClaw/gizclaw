@@ -71,6 +71,15 @@ func TestSharedPeerPresenceFollowsRuntimeAcrossManagers(t *testing.T) {
 		if query.PeerOnline(key.String()) {
 			t.Fatal("shared presence changed the querying Server's local connection index")
 		}
+		batch := query.PeerRoomPresenceBatch(ctx, []string{key.String(), "invalid-key", giznet.PublicKey{4}.String(), key.String()}, "room")
+		for _, i := range []int{0, 3} {
+			if batch[i].Online != online || !batch[i].LastSeenAt.Equal(seen) || (batch[i].WorkspaceName == "room") != inRoom {
+				t.Fatalf("batch presence[%d] = %+v", i, batch[i])
+			}
+		}
+		if batch[1] != (peerpresence.Snapshot{}) || batch[2] != (peerpresence.Snapshot{}) {
+			t.Fatalf("invalid/unknown batch presence = %+v", batch)
+		}
 	}
 	assertPresence(true, false)
 	if _, err := runtime.Reload(ctx); err != nil {

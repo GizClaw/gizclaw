@@ -1386,12 +1386,10 @@ func (s *Server) ListFriendGroupMembers(ctx context.Context, owner string, req r
 	if err != nil {
 		return rpcapi.FriendGroupMemberListResponse{}, err
 	}
+	ctx, cancel := context.WithTimeout(ctx, socialutil.PresencePageTimeout)
+	defer cancel()
 	workspaceName := s.roomWorkspaceName(ctx, friendGroupID)
-	for i := range page.Items {
-		item := &page.Items[i]
-		peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
-		item.Online, item.LastSeenAt, item.InRoom = socialutil.MemberPresenceFields(ctx, s.Presence, s.Rooms, peerPublicKey, workspaceName)
-	}
+	socialutil.AddMemberPresence(ctx, s.Presence, s.Rooms, workspaceName, page.Items)
 	return page, nil
 }
 

@@ -223,42 +223,83 @@ func (s *Service) write(peer giznet.PublicKey, p *pending) {
 // or replaced Server leases make a stored Peer offline without losing its last
 // observed time. Storage errors are returned and never fall back to SQL.
 func (s *Service) Read(ctx context.Context, peer giznet.PublicKey) (Snapshot, error) {
+	result := s.ReadBatch(ctx, []giznet.PublicKey{peer})[0]
+	return result.Snapshot, result.Err
+}
+
+// ReadResult contains one Peer's validated snapshot or its read/decode error.
+// A missing Peer is a successful, empty offline snapshot.
+type ReadResult struct {
+	Snapshot Snapshot
+	Err      error
+}
+
+// ReadBatch reads Peer records together, then reads each referenced Server's
+// lease once. Both rounds share a two-second budget and preserve input order.
+// Individual failures do not discard other Peers' successful snapshots.
+func (s *Service) ReadBatch(ctx context.Context, peers []giznet.PublicKey) []ReadResult {
 	ctx, cancel := context.WithTimeout(ctx, writeTimeout)
 	defer cancel()
-	value, err := s.store.Get(ctx, peerKey(peer))
-	if errors.Is(err, kv.ErrNotFound) {
-		return Snapshot{}, nil
+	keys := make([]kv.Key, len(peers))
+	for i, peer := range peers {
+		keys[i] = peerKey(peer)
 	}
-	if err != nil {
-		return Snapshot{}, err
+	results := make([]ReadResult, len(peers))
+	records := make([]record, len(peers))
+	leaseIndices := make(map[string]int)
+	var leaseKeys []kv.Key
+	for i, value := range kv.BatchGet(ctx, s.store, keys) {
+		if errors.Is(value.Err, kv.ErrNotFound) {
+			continue
+		}
+		if value.Err != nil {
+			results[i].Err = value.Err
+			continue
+		}
+		record := &records[i]
+		if err := json.Unmarshal(value.Value, record); err != nil {
+			results[i].Err = fmt.Errorf("peerpresence: decode Peer: %w", err)
+			continue
+		}
+		var server giznet.PublicKey
+		if err := server.UnmarshalText([]byte(record.Server)); err != nil || server.IsZero() || server.String() != record.Server || record.Generation == "" {
+			results[i].Err = errors.New("peerpresence: invalid Peer record")
+			continue
+		}
+		if !record.Online {
+			record.WorkspaceName = ""
+		} else if _, ok := leaseIndices[record.Server]; !ok {
+			leaseIndices[record.Server] = len(leaseKeys)
+			leaseKeys = append(leaseKeys, leaseKey(record.Server))
+		}
+		results[i].Snapshot = record.Snapshot
 	}
-	var record record
-	if err := json.Unmarshal(value, &record); err != nil {
-		return Snapshot{}, fmt.Errorf("peerpresence: decode Peer: %w", err)
-	}
-	var server giznet.PublicKey
-	if err := server.UnmarshalText([]byte(record.Server)); err != nil || server.IsZero() || server.String() != record.Server || record.Generation == "" {
-		return Snapshot{}, errors.New("peerpresence: invalid Peer record")
-	}
-	if !record.Online {
-		record.WorkspaceName = ""
-		return record.Snapshot, nil
-	}
-	value, err = s.store.Get(ctx, leaseKey(record.Server))
-	if err != nil && !errors.Is(err, kv.ErrNotFound) {
-		return Snapshot{}, err
-	}
-	var lease lease
-	if err == nil {
-		if err := json.Unmarshal(value, &lease); err != nil {
-			return Snapshot{}, fmt.Errorf("peerpresence: decode Server lease: %w", err)
+	values := kv.BatchGet(ctx, s.store, leaseKeys)
+	leases := make([]lease, len(values))
+	for i := range values {
+		if values[i].Err == nil {
+			if err := json.Unmarshal(values[i].Value, &leases[i]); err != nil {
+				values[i].Err = fmt.Errorf("peerpresence: decode Server lease: %w", err)
+			}
 		}
 	}
-	if lease.Generation != record.Generation || !time.Now().Before(lease.ExpiresAt) {
-		record.Online = false
-		record.WorkspaceName = ""
+	now := time.Now()
+	for i := range results {
+		result, record := &results[i], &records[i]
+		if result.Err != nil || !record.Online {
+			continue
+		}
+		index := leaseIndices[record.Server]
+		if err := values[index].Err; err != nil && !errors.Is(err, kv.ErrNotFound) {
+			*result = ReadResult{Err: err}
+			continue
+		}
+		if leases[index].Generation != record.Generation || !now.Before(leases[index].ExpiresAt) {
+			result.Snapshot.Online = false
+			result.Snapshot.WorkspaceName = ""
+		}
 	}
-	return record.Snapshot, nil
+	return results
 }
 
 // Close cancels all workers and revokes only this generation's Server lease.
