@@ -63,6 +63,12 @@ func (h *realtimeHistoryAudio) take(streamID string) []*genx.MessageChunk {
 	return chunks
 }
 
+func (h *realtimeHistoryAudio) discard() {
+	h.mu.Lock()
+	h.chunks, h.bytes, h.failed = nil, 0, false
+	h.mu.Unlock()
+}
+
 func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.MessageChunk {
 	if strings.TrimSpace(streamID) == "" {
 		streamID = "audio"

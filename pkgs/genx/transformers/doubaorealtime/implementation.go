@@ -1530,6 +1530,11 @@ func (t *Transformer) processSession(
 					epoch := assistant.nextEpoch()
 					realtimeSpoken = &doubaoRealtimeSpokenResponse{expectsContent: semanticASR || realtimeTextHasSemantic(event.Text) || realtimeTextHasSemantic(realtimeASRText(event.Payload))}
 					realtimeSpokenEpoch = epoch
+					if t.mode == ModeRealtime && !semanticASR {
+						// No transcript claimed this segment. Its audio must not
+						// become part of the next recognized utterance.
+						historyAudio.discard()
+					}
 					semanticASR = false
 					responseStreamID := ""
 					switch {
@@ -2132,6 +2137,7 @@ func (t *Transformer) processSession(
 					markAssistantPending(pttResponse.streamID, epoch)
 					pttResponses.add(pttResponse)
 				} else if t.mode == ModeRealtime {
+					historyAudio.discard()
 					responseStreamID := streamIDs.endInputSegment()
 					assistant.setAccept(true)
 					epoch := assistant.nextEpoch()
