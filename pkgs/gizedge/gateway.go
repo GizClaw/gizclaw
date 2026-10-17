@@ -65,11 +65,12 @@ type Gateway struct {
 	admissions      map[giznet.PublicKey][]*gatewayAdmission
 	admissionNotify chan struct{}
 
-	sessionMu  sync.Mutex
-	sessions   map[*gatewaySession]struct{}
-	sessionWG  sync.WaitGroup
-	acceptDone chan struct{}
-	closeOnce  sync.Once
+	sessionMu      sync.Mutex
+	sessions       map[*gatewaySession]struct{}
+	deviceSessions map[giznet.PublicKey]int
+	sessionWG      sync.WaitGroup
+	acceptDone     chan struct{}
+	closeOnce      sync.Once
 }
 
 type gatewayAdmission struct {
@@ -104,6 +105,7 @@ func newGateway(
 	}
 	listener, err := (&gizwebrtc.ListenConfig{
 		MetricsNodeRole:              "edge",
+		MetricsPeerKind:              func(giznet.PublicKey) string { return "device" },
 		ICEUDPAddr:                   cfg.WebRTC.Listen,
 		PublicICEUDPAddr:             publicGatewayICEAddr(cfg.WebRTC.Endpoint),
 		ICELite:                      true,
@@ -888,13 +890,34 @@ func (g *Gateway) enforceIdle(session *gatewaySession, done <-chan struct{}) {
 }
 
 func (g *Gateway) addSession(session *gatewaySession) {
+	key := session.client.PublicKey()
 	g.sessionMu.Lock()
+	defer g.sessionMu.Unlock()
+	if _, exists := g.sessions[session]; exists {
+		return
+	}
 	g.sessions[session] = struct{}{}
-	g.sessionMu.Unlock()
+	if g.deviceSessions == nil {
+		g.deviceSessions = make(map[giznet.PublicKey]int)
+	}
+	if g.deviceSessions[key] == 0 && g.cfg.deviceCount != nil {
+		g.cfg.deviceCount.Add(1)
+	}
+	g.deviceSessions[key]++
 }
 
 func (g *Gateway) removeSession(session *gatewaySession) {
+	key := session.client.PublicKey()
 	g.sessionMu.Lock()
+	if _, exists := g.sessions[session]; exists {
+		g.deviceSessions[key]--
+		if g.deviceSessions[key] == 0 {
+			delete(g.deviceSessions, key)
+			if g.cfg.deviceCount != nil {
+				g.cfg.deviceCount.Add(-1)
+			}
+		}
+	}
 	delete(g.sessions, session)
 	g.sessionMu.Unlock()
 	_ = session.close()

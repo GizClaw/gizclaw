@@ -1,0 +1,298 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Infrastructure Flow Feed",
+    "version": "1.0.0",
+    "description": "Fixed five-second aggregate frames backed by an explicitly configured KV Store. No per-user series or public write API."
+  },
+  "paths": {
+    "/gizclaw/v1/infra/flows": {
+      "get": {
+        "operationId": "readInfraFlows",
+        "security": [
+          {
+            "FlowReadToken": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "environment",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/Environment"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[0-9]{1,16}$",
+              "maxLength": 16
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Bounded recent aggregation frames. No raw user or session records.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid environment or cursor.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid independent read token.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Feed disabled or unavailable.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Read-only endpoint; Allow: GET,OPTIONS."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "FlowReadToken": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Independent gizclaw_mk_ read token; never a device API key."
+      }
+    },
+    "schemas": {
+      "Environment": {
+        "type": "string",
+        "enum": [
+          "dev",
+          "e2e",
+          "prod",
+          "trial"
+        ]
+      },
+      "FlowKind": {
+        "type": "string",
+        "enum": [
+          "request",
+          "audio",
+          "sync",
+          "asset"
+        ]
+      },
+      "Flow": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "target",
+          "kind",
+          "count",
+          "bytes",
+          "duration_sum_ms",
+          "duration_count"
+        ],
+        "properties": {
+          "source": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "target": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80,
+            "pattern": "^[A-Za-z0-9_.:-]+$"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/FlowKind"
+          },
+          "count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "bytes": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "duration_sum_ms": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "format": "double"
+          },
+          "duration_count": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "Frame": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "environment",
+          "window_start",
+          "window_end",
+          "simulated",
+          "flows"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "environment": {
+            "$ref": "#/components/schemas/Environment"
+          },
+          "window_start": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 8640000000000000
+          },
+          "window_end": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 8640000000000000
+          },
+          "simulated": {
+            "type": "boolean"
+          },
+          "flows": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "#/components/schemas/Flow"
+            }
+          }
+        }
+      },
+      "Limits": {
+        "type": "object",
+        "required": [
+          "window_ms",
+          "max_flows",
+          "retention_frames",
+          "max_read_frames"
+        ],
+        "properties": {
+          "window_ms": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 5000
+          },
+          "max_flows": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 64
+          },
+          "retention_frames": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 120
+          },
+          "max_read_frames": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 3
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "cursor",
+          "reset",
+          "server_time",
+          "frames",
+          "limits"
+        ],
+        "properties": {
+          "cursor": {
+            "type": "string",
+            "maxLength": 16
+          },
+          "reset": {
+            "type": "boolean"
+          },
+          "server_time": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 8640000000000000
+          },
+          "frames": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {
+              "$ref": "#/components/schemas/Frame"
+            }
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string",
+            "enum": [
+              "INVALID_FLOW_TOKEN",
+              "FLOW_FEED_DISABLED",
+              "INVALID_FLOW_QUERY",
+              "FLOW_FEED_UNAVAILABLE"
+            ]
+          }
+        }
+      }
+    }
+  }
+}

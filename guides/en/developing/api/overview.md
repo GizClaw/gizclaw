@@ -63,3 +63,5 @@ Control apps discover instances with `GET /gizclaw/v1/device/mhs/v0/manifest`, t
 `tool/v0` carries procedures through `client.tool.v0.invoke` (135). Each request selects one of the 27 predefined `ClientTool` values and carries that tool's encoded request message. Devices advertise only installed tools through `client.tool.v0.list` (136). `client.rpc.methods.list` (137) returns numeric `RpcMethod` values to identify supported protocol families and versions. Control apps use `GET /gizclaw/v1/device/tool/v0/tools` and `POST /gizclaw/v1/device/tool/v0/invoke`; the Server validates typed arguments before contacting the device. See [Peer HTTP](./http/public), [device providers](./proto/rpc/client-provided-to-server), and [RPC reference](/references/rpc).
 
 `GET /gizclaw/v1/device/status` reads the Server's stored identity and telemetry snapshot; a live `device.status.get` tool call can refresh that snapshot.
+
+Infrastructure Flow Feed is a read-only AP surface owned by `api/http/infra.json` and `pkgs/infraflow`; see [aggregate frames and resource limits](../infra-flow).

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"net/http"
 	"strings"
 
@@ -159,6 +160,9 @@ func (t *orderedUpstreamTransport) entryForAssignment(assignment *rpcpb.PeerAssi
 }
 
 func isAPIKeyRoutedPath(path string) bool {
+	if path == infraflow.Path {
+		return false
+	}
 	return strings.HasPrefix(path, "/gizclaw/v1/") || strings.HasPrefix(path, "/openai/v1/")
 }
 

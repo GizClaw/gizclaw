@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
@@ -39,6 +40,7 @@ type Config struct {
 
 	systemLogConfigured bool
 	build               BuildInfo
+	deviceCount         *atomic.Int64
 }
 
 // WebRTCConfig defines the Edge WebRTC transport bind and published tuples.

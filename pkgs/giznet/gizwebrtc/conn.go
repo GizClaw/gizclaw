@@ -27,9 +27,10 @@ const serviceOpenTimeout = 10 * time.Second
 var ErrServiceOpen = errors.New("gizwebrtc: service open")
 
 type Conn struct {
-	pk       giznet.PublicKey
-	role     string
-	nodeRole string
+	pk              giznet.PublicKey
+	role            string
+	nodeRole        string
+	metricsPeerKind string
 
 	pc     *webrtc.PeerConnection
 	policy giznet.SecurityPolicy
@@ -62,19 +63,20 @@ type Conn struct {
 	nativeChannels   map[*NativeChannel]struct{}
 	nativeInbound    map[*webrtc.DataChannel]struct{}
 
-	readCh         chan directPacket
-	readyCh        chan struct{}
-	closeCh        chan struct{}
-	once           sync.Once
-	closed         atomic.Bool
-	closeMu        sync.RWMutex
-	closeErr       error
-	rxBytes        atomic.Uint64
-	txBytes        atomic.Uint64
-	lastSeen       atomic.Int64
-	metricsMu      sync.Mutex
-	metricsActive  bool
-	metricsStarted time.Time
+	readCh            chan directPacket
+	readyCh           chan struct{}
+	closeCh           chan struct{}
+	once              sync.Once
+	closed            atomic.Bool
+	closeMu           sync.RWMutex
+	closeErr          error
+	rxBytes           atomic.Uint64
+	txBytes           atomic.Uint64
+	lastSeen          atomic.Int64
+	metricsMu         sync.Mutex
+	metricsActive     bool
+	metricsStarted    time.Time
+	rtpReceiveMetrics *rtpMetrics
 
 	audioTrack sampleWriter
 }
@@ -97,16 +99,6 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	if err != nil {
 		return nil, err
 	}
-	rtpSender, err := pc.AddTrack(audioTrack)
-	if err != nil {
-		return nil, err
-	}
-	go func() {
-		_ = drainRTCP(func(buffer []byte) error {
-			_, _, err := rtpSender.Read(buffer)
-			return err
-		})
-	}()
 	c := &Conn{
 		pk:             pk,
 		role:           role,
@@ -124,6 +116,16 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		closeCh:        make(chan struct{}),
 		audioTrack:     audioTrack,
 	}
+	rtpSender, err := pc.AddTrack(&meteredAudioTrack{TrackLocal: audioTrack, conn: c})
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		_ = drainRTCP(func(buffer []byte) error {
+			_, _, err := rtpSender.Read(buffer)
+			return err
+		})
+	}()
 	c.touch()
 	pc.OnDataChannel(c.handleDataChannel)
 	pc.OnTrack(func(track *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
@@ -132,6 +134,7 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 				_ = receiver.Stop()
 				return
 			}
+			c.markRTPReceiveEstablished()
 			go c.readRemoteOpus(track)
 		}
 	})
@@ -295,7 +298,8 @@ func (c *Conn) DialContext(ctx context.Context, service uint64) (net.Conn, error
 		resultErr = err
 		return nil, resultErr
 	}
-	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
+	metered := c.meterDataChannel(raw, channelService)
+	stream := newDataChannelConn(metered, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes
 	stream.activity = &c.lastSeen
@@ -454,6 +458,10 @@ func (c *Conn) close(cause error) error {
 	c.once.Do(func() {
 		c.closed.Store(true)
 		c.metricsMu.Lock()
+		if c.rtpReceiveMetrics != nil {
+			c.rtpReceiveMetrics.active.Add(-1)
+			c.rtpReceiveMetrics = nil
+		}
 		if c.metricsActive {
 			c.metricsActive = false
 			labels := []gizmetrics.Label{{Name: "node_role", Value: normalizedMetricsNodeRole(c.nodeRole)}, {Name: "role", Value: c.metricsRole()}}
@@ -601,7 +609,8 @@ func (c *Conn) handleDataChannel(dc *webrtc.DataChannel) {
 			c.services[service] = l
 		}
 		c.serviceMu.Unlock()
-		stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
+		metered := c.meterDataChannel(raw, channelService)
+		stream := newDataChannelConn(metered, dc, c.localAddr, c.remoteAddr)
 		stream.rx = &c.rxBytes
 		stream.tx = &c.txBytes
 		stream.activity = &c.lastSeen
@@ -682,11 +691,12 @@ func (c *Conn) reservePacketDataChannel(dc *webrtc.DataChannel) bool {
 
 func (c *Conn) setPacket(dc *webrtc.DataChannel, raw datachannel.ReadWriteCloserDeadliner) {
 	c.packetMu.Lock()
-	if c.packetDC != dc || c.packetRaw != nil {
+	if c.closed.Load() || c.packetDC != dc || c.packetRaw != nil {
 		c.packetMu.Unlock()
 		_ = raw.Close()
 		return
 	}
+	raw = c.meterDataChannel(raw, channelPacket)
 	c.packetRaw = raw
 	c.packetMu.Unlock()
 	c.markMetricsEstablished()
@@ -765,6 +775,7 @@ func (c *Conn) markMetricsEstablished() {
 	if c == nil {
 		return
 	}
+	receivingOpus := c.hasNegotiatedOpusReceiver()
 	c.metricsMu.Lock()
 	defer c.metricsMu.Unlock()
 	if c.closed.Load() || c.metricsActive {
@@ -772,6 +783,9 @@ func (c *Conn) markMetricsEstablished() {
 	}
 	c.metricsStarted = time.Now()
 	c.metricsActive = true
+	if receivingOpus {
+		c.markRTPReceiveEstablishedLocked()
+	}
 	labels := []gizmetrics.Label{{Name: "node_role", Value: normalizedMetricsNodeRole(c.nodeRole)}, {Name: "role", Value: c.metricsRole()}}
 	gizmetrics.AddCounter(context.Background(), metricConnections, 1, labels...)
 	adjustActiveMetric(context.Background(), metricConnectionsActive, c.nodeRole, c.metricsRole(), 1)
@@ -790,12 +804,14 @@ func (c *Conn) writeOpus(payload []byte) (int, error) {
 }
 
 func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
+	counts := &c.trafficMetrics().rtp[0]
 	for {
 		pkt, _, err := track.ReadRTP()
 		if err != nil {
 			_ = c.closeWithError(fmt.Errorf("gizwebrtc: read remote opus: %w", err))
 			return
 		}
+		counts.packets.Add(1)
 		c.enqueueRemoteOpusFrame(pkt.Payload)
 	}
 }

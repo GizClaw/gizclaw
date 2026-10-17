@@ -85,3 +85,5 @@ Deprecation provides migration guidance without changing callability or the wire
 - Internal compatibility paths, tests and giztest bridges continue using the old APIs. If a lint fires, add a reasoned suppression only at the affected call; do not weaken global gates or remove old tests.
 
 See the [MHS v0 HWD design](./overview#mhs-v0-hwd) for instance and read/write contracts.
+
+Infrastructure Flow Feed (`api/http/infra.json`) generates strict Go server/client/models with `go generate ./pkgs/infraflow/api` and control SDK `generated/infra` with `npm --prefix sdk/js run gen:sdk`. See [Infra Flow](../infra-flow) for consumers, KV boundaries and local integration.

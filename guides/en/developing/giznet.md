@@ -43,6 +43,11 @@ It is a general transport adapter that only connects HTTP and giznet and does no
 
 WebRTC implementation details related to Pion are left in this subdirectory. The upper-layer GizClaw service relies on the giznet boundary and does not directly diffuse WebRTC types to the business layer.
 
+Physical RTP track, DataChannel, and message counts update at actual
+bind/detach/read/write/close boundaries. `MetricsSnapshot` reads fixed-dimension
+atomic counters for a host's periodic recorder. See
+[node metrics](observability#node-devices-channels-and-messages) for semantics and queries.
+
 `DialConfig.OnTiming` optionally receives one `DialTiming` snapshot before
 `Dial` returns. It reports client PeerConnection, offer, ICE gathering,
 signaling, remote-description, ICE-connected, DTLS-connected, and DataChannel

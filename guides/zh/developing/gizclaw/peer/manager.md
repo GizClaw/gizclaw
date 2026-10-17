@@ -10,6 +10,10 @@
 
 这个前缀拥有 Server 视角的在线连接索引和跨连接操作，不拥有 Peer 持久化模型。Peer 资源本身属于 `services/runtime/peer`。
 
+设备在线 gauge 与连接发布、替换、摘除和删除围栏在同一临界区更新；周期采样只读取原子值，
+不遍历 Peer 或读取持久化存储。计数与节点身份语义见
+[节点指标](../../observability#node-device-channel-metrics)。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

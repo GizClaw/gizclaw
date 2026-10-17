@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ConsoleServer } from "@/lib/config";
 import type { NodeSnapshot } from "@/lib/api";
@@ -73,5 +73,63 @@ describe("useFleet", () => {
     );
     const last = loadNode.mock.calls.at(-1)?.[0] as ConsoleServer;
     expect(last.monitorToken).toBe(rotated.monitorToken);
+  });
+
+  it("does not let an aborted old response replace the new node's rate baseline", async () => {
+    let finishOld: (value: NodeSnapshot) => void = () => {};
+    let finishNext: (value: NodeSnapshot) => void = () => {};
+    const oldResponse = new Promise<NodeSnapshot>((resolve) => {
+      finishOld = resolve;
+    });
+    const nextResponse = new Promise<NodeSnapshot>((resolve) => {
+      finishNext = resolve;
+    });
+    const measured = (
+      key: string,
+      seconds: number,
+      count: number,
+    ): NodeSnapshot => ({
+      ...snapshot,
+      public_key: key,
+      time: new Date(seconds * 1000).toISOString(),
+      uptime_seconds: seconds,
+      device_metrics: {
+        online_devices: 1,
+        transports: [
+          {
+            peer_kind: "device",
+            rtp_tracks: { rx: 1, tx: 1 },
+            data_channels: { packet: 1, service: 1, native: 0 },
+            rtp_packets_total: { rx: count, tx: count },
+            data_channel_messages_total: { rx: count, tx: count },
+          },
+        ],
+      },
+    });
+    let newCalls = 0;
+    loadNode.mockImplementation((target: ConsoleServer) => {
+      if (target.url === "https://old.example.com") return oldResponse;
+      newCalls++;
+      if (newCalls === 1) return Promise.resolve(measured("new-node", 15, 10));
+      if (newCalls === 2) return nextResponse;
+      return new Promise<NodeSnapshot>(() => {});
+    });
+    const { result, rerender } = renderHook(
+      ({ target }: { target: ConsoleServer }) => useFleet([target], 20),
+      { initialProps: { target: server() } },
+    );
+    await waitFor(() => expect(loadNode).toHaveBeenCalled());
+    rerender({ target: server({ url: "https://new.example.com" }) });
+    await waitFor(() =>
+      expect(result.current["server-1"]?.snapshot?.public_key).toBe("new-node"),
+    );
+    await act(async () => {
+      finishOld(measured("old-node", 10, 500));
+    });
+    await waitFor(() => expect(newCalls).toBeGreaterThanOrEqual(2));
+    await act(async () => {
+      finishNext(measured("new-node", 20, 20));
+    });
+    expect(result.current["server-1"]?.deviceRates?.messagesRx).toBe(2);
   });
 });

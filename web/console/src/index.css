@@ -113,3 +113,39 @@
 .log-scroll::-webkit-scrollbar-thumb:hover {
   background: #4f4a40;
 }
+
+/* A compact section switch for fleet and node monitoring. */
+.monitor-tabs {
+  width: fit-content;
+  max-width: 100%;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--secondary);
+}
+.monitor-tabs [data-slot="tabs-trigger"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 16px;
+  border: 0;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.monitor-tabs [data-slot="tabs-trigger"][data-state="active"] {
+  background: var(--card);
+  color: var(--foreground);
+  box-shadow:
+    0 1px 3px #1414130d,
+    0 0 0 1px #14141305;
+}
+@media (max-width: 420px) {
+  .monitor-tabs [data-slot="tabs-trigger"] {
+    padding-inline: 10px;
+  }
+}

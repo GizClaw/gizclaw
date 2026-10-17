@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 )
 
 func TestOrderedUpstreamTransportRetriesSafeRequestOnNextUpstream(t *testing.T) {
@@ -25,6 +26,27 @@ func TestOrderedUpstreamTransportRetriesSafeRequestOnNextUpstream(t *testing.T) 
 	_, err = transport.RoundTrip(request)
 	if !errors.Is(err, firstErr) || !errors.Is(err, secondErr) {
 		t.Fatalf("RoundTrip error = %v, want both upstream errors", err)
+	}
+}
+
+func TestOrderedTransportInfraFeedDoesNotResolveDeviceOwnership(t *testing.T) {
+	conn := &routeRPCGiznetConn{failingGiznetConn: &failingGiznetConn{state: giznet.PeerStateEstablished}, httpServerID: "feed"}
+	transport := &orderedUpstreamTransport{entries: []*upstreamTransport{{conn: conn, connEpoch: 1}}}
+	request, err := http.NewRequest(http.MethodGet, "http://gizclaw"+infraflow.Path+"?environment=prod", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Authorization", "Bearer gizclaw_mk_flow_reader")
+	response, err := transport.RoundTrip(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.Header.Get("X-Test-Server") != "feed" || conn.calls.Load() != 0 {
+		t.Fatal("infra feed performed per-device route resolution")
+	}
+	if !isAPIKeyRoutedPath(infraflow.Path + "/other") {
+		t.Fatal("feed routing exception widened")
 	}
 }
 

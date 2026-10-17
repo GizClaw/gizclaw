@@ -16,7 +16,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Snapshot; counters measure process WebRTC service payload bytes, not wire traffic. Logs are bounded recent process records.",
+            "description": "Process-local runtime, device and transport snapshot; no business storage or metrics backend query.",
             "content": {
               "application/json": {
                 "schema": {
@@ -138,6 +138,9 @@
                 "description": "Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels."
               }
             }
+          },
+          "device_metrics": {
+            "$ref": "#/components/schemas/NodeDeviceMetrics"
           }
         }
       },
@@ -153,6 +156,105 @@
               "INVALID_MONITOR_TOKEN",
               "MONITOR_DISABLED"
             ]
+          }
+        }
+      },
+      "MonitorDirections": {
+        "type": "object",
+        "required": [
+          "rx",
+          "tx"
+        ],
+        "properties": {
+          "rx": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "tx": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "MonitorDataChannels": {
+        "type": "object",
+        "required": [
+          "packet",
+          "service",
+          "native"
+        ],
+        "properties": {
+          "packet": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "service": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          },
+          "native": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0
+          }
+        }
+      },
+      "NodePeerTransport": {
+        "type": "object",
+        "required": [
+          "peer_kind",
+          "rtp_tracks",
+          "data_channels",
+          "rtp_packets_total",
+          "data_channel_messages_total"
+        ],
+        "properties": {
+          "peer_kind": {
+            "type": "string",
+            "enum": [
+              "device",
+              "upstream",
+              "admin",
+              "unknown"
+            ]
+          },
+          "rtp_tracks": {
+            "$ref": "#/components/schemas/MonitorDirections"
+          },
+          "data_channels": {
+            "$ref": "#/components/schemas/MonitorDataChannels"
+          },
+          "rtp_packets_total": {
+            "$ref": "#/components/schemas/MonitorDirections"
+          },
+          "data_channel_messages_total": {
+            "$ref": "#/components/schemas/MonitorDirections"
+          }
+        }
+      },
+      "NodeDeviceMetrics": {
+        "type": "object",
+        "description": "Live in-memory device and physical transport counters. Absent on older nodes. Server and Edge online counts are different views and must not be added together.",
+        "required": [
+          "transports"
+        ],
+        "properties": {
+          "online_devices": {
+            "type": "integer",
+            "format": "uint64",
+            "minimum": 0,
+            "description": "Distinct active device identities; omitted when the embedding host has no device count source."
+          },
+          "transports": {
+            "type": "array",
+            "maxItems": 4,
+            "items": {
+              "$ref": "#/components/schemas/NodePeerTransport"
+            }
           }
         }
       }

@@ -35,7 +35,13 @@ func providerUsageContext(ctx context.Context, record genx.UsageRecorder) contex
 	if original, ok := ctx.Value(usageParentKey{}).(context.Context); ok {
 		parent = original
 	}
-	child := genx.WithUsageRecorder(ctx, func(item genx.UsageRecord) { genx.RecordUsage(parent, item); record(item) })
+	caller := genx.UsageRecorderFromContext(parent)
+	child := genx.WithUsageRecorder(ctx, func(item genx.UsageRecord) {
+		if caller != nil {
+			caller(item)
+		}
+		record(item)
+	})
 	return context.WithValue(child, usageParentKey{}, parent)
 }
 

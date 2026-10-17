@@ -66,6 +66,37 @@ are retained in memory with 2/10/30 minute display windows. Fleet traffic sums
 per-node samples into 5-second buckets. Node snapshots contain build identity,
 runtime status and transport counters; log search uses the persistent LogStore.
 
+The cluster overview defaults to the Node overview tab with runtime status,
+traffic, and the node table. A second Devices & channels tab contains device
+metrics, trends, and a node table focused on those counts. Every node detail page
+also places device metrics in a separate tab alongside Node overview and Runtime
+snapshot. Tabs share the existing fleet poller and retained samples.
+The overview uses one divided summary strip instead of separate metric cards.
+Node tables support name/address/region search and Server/Edge filters; these
+controls only filter already loaded snapshots. Connection state, traffic
+directions, process resources, and build identity have separate visual columns.
+
+Before any device metrics have arrived, the device tab shows one collection-state
+panel with coverage and a node-by-node status table. It does not render empty
+metric tiles or an empty trend chart. Connection failures remain distinct from
+old nodes that need an upgrade. Once measurements arrive, compact summaries and
+session trends appear; historical measurements remain available after a failed
+poll. The sampling-window and pause controls live in the shared top toolbar.
+Its optional `device_metrics` snapshot is read from node-local atomic counts,
+with no business database or Prometheus query. Server and Edge online-device
+counts are separate, node aliases are deduplicated by public key, and current
+totals exclude unreadable nodes. Coverage is always visible. Old nodes without
+these fields show an upgrade status; unavailable individual measurements remain
+empty, never substituted connection counts or invented zeroes.
+
+Message rates use consecutive successful snapshots of the same process. A node
+restart, public-key change, counter reset, cancellation or failed poll resets the
+baseline. A per-minute view is explicitly an extrapolated estimate from the
+sampled rate. Device and message trends use the same session-only sampling
+windows; incomplete fleet buckets remain gaps. Node detail breaks physical
+resources down into device, upstream, admin and unknown peer kinds. Long-term
+Metrics Store history is not read by this console.
+
 ## Layout
 
 Sidebar navigation lists the cluster overview and every node; below 768px it
