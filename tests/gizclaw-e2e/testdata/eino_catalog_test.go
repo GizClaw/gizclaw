@@ -1238,3 +1238,41 @@ func TestMysteryPossessiveRoomInvestigations(t *testing.T) {
 		})
 	}
 }
+
+func TestJourneyChapterEntryAndResponseContext(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/08-eino-journey.yaml", "workspaces/eino-journey.json"} {
+		t.Run(path, func(t *testing.T) {
+			run := func(command string, game map[string]any) (map[string]any, map[string]any) {
+				t.Helper()
+				result := runFixtureRules(t, path, command, game)
+				var view map[string]any
+				if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+					t.Fatal(err)
+				}
+				return result["game"].(map[string]any), view
+			}
+			game, view := run("开始", map[string]any{})
+			if view["entering_chapter"] != true || view["previous_setting"] != "" {
+				t.Fatalf("journey context did not distinguish chapter entry: %v", view)
+			}
+			game, view = run("我选择跟悟空同行，请他说说自己的看法", game)
+			if view["entering_chapter"] != false || game["setting"] != "花果山" {
+				t.Fatalf("an in-chapter response was treated as a new scene: %v", view)
+			}
+			for _, setting := range []string{"天宫", "启程", "试炼", "三国", "取经"} {
+				previous := game["setting"]
+				game, view = run("继续", game)
+				if game["setting"] != setting || view["entering_chapter"] != true || view["previous_setting"] != previous {
+					t.Fatalf("transition lost the prior chapter or changed order: %v", view)
+				}
+			}
+			game, view = run("说说之前的选择如何影响了结局", game)
+			if view["entering_chapter"] != false || view["previous_setting"] != "" || game["setting"] != "取经" {
+				t.Fatalf("final review reopened a chapter: %v", view)
+			}
+			if _, exists := game["entering_chapter"]; exists {
+				t.Fatal("turn-local chapter context leaked into persistent game state")
+			}
+		})
+	}
+}

@@ -557,6 +557,13 @@ Mystery rules recognize investigation of both `沈知秋房间` and `沈知秋�
 acquiring the same two motive clues. Solving still requires every independent
 evidence condition and an explicit correct accusation.
 
+Journey narration
+distinguishes chapter entry from a response to an in-chapter action and includes
+the previous setting in transition context. Entry does not choose for the player;
+action responses resolve consequences, and transitions first settle outstanding
+small events. This context adds no persistent conversation records and preserves
+chapter order, continuation commands and the final review boundary.
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints
