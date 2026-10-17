@@ -5,6 +5,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { Readable } from "node:stream";
+import { finished } from "node:stream/promises";
 import { promisify } from "node:util";
 
 import { connectGiznetWebRTCFromEndpoint } from "@gizclaw/gizclaw";
@@ -30,7 +31,7 @@ async function main(): Promise<void> {
   }
   const probe = spawn(probePath, ["--audio-downloads"], {
     cwd: repoRoot,
-    stdio: ["ignore", "pipe", "pipe"],
+    stdio: ["pipe", "pipe", "pipe"],
   });
   let stderr = "";
   probe.stderr.setEncoding("utf8");
@@ -42,7 +43,9 @@ async function main(): Promise<void> {
     code: number | null;
     signal: NodeJS.Signals | null;
   }>((resolve) => {
-    probe.once("exit", (code, signal) => resolve({ code, signal }));
+    // close follows stdout/stderr draining, so a fast successful exit cannot
+    // win the race against its final protocol line.
+    probe.once("close", (code, signal) => resolve({ code, signal }));
   });
 
   let pc: wrtc.RTCPeerConnection | undefined;
@@ -78,6 +81,10 @@ async function main(): Promise<void> {
       new TextDecoder().decode(workspace.body),
       "workspace-audio-payload",
     );
+
+    const receipt = finished(probe.stdin);
+    probe.stdin.end('{"received":true}\n');
+    await receipt;
 
     assert.deepEqual(
       JSON.parse(await nextProbeLine(lines, exit, () => stderr)),

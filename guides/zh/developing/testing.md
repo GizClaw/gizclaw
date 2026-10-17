@@ -567,6 +567,11 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
+JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
+客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
+等待确认，随后关闭父 Peer connection 并退出。写完响应 EOS 本身不代表远端已收到
+所有排队帧；缺少确认、无效确认和等待超时均失败。
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口

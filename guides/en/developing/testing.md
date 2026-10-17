@@ -536,6 +536,13 @@ exception described below: its Go test names are the supported selectors.
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
 
+The JavaScript History audio interoperability probe receives a client receipt
+over its private stdin control channel. The client verifies all metadata and
+binary payload bytes before acknowledging. The probe waits within its existing
+thirty-second budget before closing the parent Peer connection and exiting.
+Writing response EOS alone does not establish remote delivery of queued frames;
+missing or invalid receipts and expired waits fail the test.
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints
