@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 
 from pathlib import Path
-import unittest
-from unittest import mock
+import unittest.mock
 
 import run_script_quality_lane as lane
 
@@ -50,7 +49,7 @@ class QualityLaneTests(unittest.TestCase):
 
     def test_child_failure_reaches_the_complete_gate(self):
         root = Path("/task/repository")
-        with mock.patch.object(lane.subprocess, "call", return_value=7) as child:
+        with unittest.mock.patch.object(lane.subprocess, "call", return_value=7) as child:
             self.assertEqual(lane.run_lane(root, {"GIZCLAW_TEST_ENDPOINT": "old"}), 7)
         child.assert_called_once_with(
             ["bash", str(root / "tests/gizclaw-e2e/run_script_quality_tests.sh")],
