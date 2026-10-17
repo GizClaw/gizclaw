@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client/index.ts';
 import { client } from './client.gen.ts';
-import type { ReadInfraFlowsData, ReadInfraFlowsErrors, ReadInfraFlowsResponses } from './types.gen.ts';
+import type { PreflightInfraFlowsData, PreflightInfraFlowsResponses, ReadInfraFlowsData, ReadInfraFlowsErrors, ReadInfraFlowsResponses } from './types.gen.ts';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -18,8 +18,12 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
     meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
 
-export const readInfraFlows = <ThrowOnError extends boolean = false>(options: Options<ReadInfraFlowsData, ThrowOnError>): RequestResult<ReadInfraFlowsResponses, ReadInfraFlowsErrors, ThrowOnError> => (options.client ?? client).get<ReadInfraFlowsResponses, ReadInfraFlowsErrors, ThrowOnError>({
-    security: [{ scheme: 'bearer', type: 'http' }],
-    url: '/gizclaw/v1/infra/flows',
-    ...options
-});
+/**
+ * Anonymous bounded infrastructure reads. Authorization is neither required nor used; device API keys, owner identity and Monitor credentials are not consulted.
+ */
+export const readInfraFlows = <ThrowOnError extends boolean = false>(options: Options<ReadInfraFlowsData, ThrowOnError>): RequestResult<ReadInfraFlowsResponses, ReadInfraFlowsErrors, ThrowOnError> => (options.client ?? client).get<ReadInfraFlowsResponses, ReadInfraFlowsErrors, ThrowOnError>({ url: '/gizclaw/v1/infra/flows', ...options });
+
+/**
+ * Anonymous CORS preflight, including when the feed is disabled. Allows GET/OPTIONS and returns no-store with Access-Control-Allow-Origin.
+ */
+export const preflightInfraFlows = <ThrowOnError extends boolean = false>(options?: Options<PreflightInfraFlowsData, ThrowOnError>): RequestResult<PreflightInfraFlowsResponses, unknown, ThrowOnError> => (options?.client ?? client).options<PreflightInfraFlowsResponses, unknown, ThrowOnError>({ url: '/gizclaw/v1/infra/flows', ...options });

@@ -33,7 +33,8 @@ Server 在加载 `config.yaml` 时、shape 校验之前，对每个标量值展�
 Server 的 `webrtc.listen` 定义 WebRTC transport tuple，并且必须等于
 `http.listeners[0].listen`。`http.listeners` 必填，也可以声明多个唯一的 TCP 地址；每个 listener
 都服务 `/server-info` 与 signaling。直接访问 Public API 和 OpenAI-compatible API 会始终被拒绝，
-因为业务 API 只能经 Edge 访问。listener 可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
+因为业务 API 只能经 Edge 访问。公开只读的精确路径 `/gizclaw/v1/infra/flows` 可直接匿名 GET/OPTIONS，
+其显式 KV Store 配置与边界见 [Infra Flow](../../infra-flow)。listener 可通过同时提供 `tls.cert-file` 与 `tls.key-file` 启用
 TLS 1.2 及以上的 HTTPS。证书路径在[环境变量展开](#环境变量展开)后相对 workspace 解析。空列表、重复地址、
 单边或无效证书会在服务流量前失败。
 

@@ -4,9 +4,7 @@ package main
 
 import (
 	"context"
-	"crypto/rand"
 	_ "embed"
-	"encoding/base64"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -112,16 +110,11 @@ func run() error {
 		}
 	}()
 	defer func() { stop(); <-done }()
-	random := make([]byte, 32)
-	if _, err := rand.Read(random); err != nil {
-		return err
-	}
-	token := "gizclaw_mk_" + base64.RawURLEncoding.EncodeToString(random)
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /demo/config", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Cache-Control", "no-store")
-		_ = json.NewEncoder(w).Encode(map[string]any{"topology": json.RawMessage(topology), "endpoint": infraflow.Path, "token": token, "simulated": true, "scale": scale.Load()})
+		_ = json.NewEncoder(w).Encode(map[string]any{"topology": json.RawMessage(topology), "endpoint": infraflow.Path, "simulated": true, "scale": scale.Load()})
 	})
 	mux.HandleFunc("POST /demo/scale", func(w http.ResponseWriter, r *http.Request) {
 		var input struct {
@@ -137,7 +130,7 @@ func run() error {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(input)
 	})
-	api := infraflow.Handler(infraflow.Config{Store: "local-demo", ReadToken: token}, feed, mux)
+	api := infraflow.Handler(infraflow.Config{Store: "local-demo"}, feed, mux)
 	server := &http.Server{Addr: *listen, Handler: api, ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 30 * time.Second}
 	errCh := make(chan error, 1)
 	go func() { errCh <- server.ListenAndServe() }()
