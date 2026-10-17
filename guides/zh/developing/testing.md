@@ -296,7 +296,7 @@ bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migrati
 该模式仍运行真实 PD、中心 voter 和地区 Learner；额外的 deadline gate 直接比较 Redis 的绝对 expiration 与 TiKV 中已保存的 deadline，不用 sleep 阈值推断 TTL 是否保留。
 
 
-入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。PD 的数据 tmpfs 为 256 MiB，两个 TiKV 各为 1 GiB；夹具将 KV／Raft 预留空间设为 64／32 MiB，block cache 设为 128 MiB，避免小容量 CI 环境被生产默认预留量判为磁盘已满。不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。失败时 CI 保留启动、集群、测试和拓扑诊断七天。
+入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。PD 的数据 tmpfs 为 256 MiB，两个 TiKV 各为 1 GiB；夹具将 KV／Raft 预留空间设为 64／32 MiB，block cache 设为 128 MiB，避免小容量 CI 环境被生产默认预留量判为磁盘已满。两个 TiKV 容器显式将 `nofile` 的软硬上限设为 262144，满足 TiKV 启动时的文件描述符检查，不依赖宿主机默认值。不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。失败时 CI 保留启动、集群、测试和拓扑诊断七天。
 
 测试先验证跨 client 原子 CRUD、batch、deadline、条件创建、CAS、集合与容量限制、prefix 和 borrowed lifecycle。地区测试在 seeded 数据已进入历史快照后切断中心到 Learner 的 Raft 流，保持查询通路可用，同时确认普通读仍返回旧 assignment、active Peer 和已撤销 key。实际 `peerroute`、Peer 删除 handler、API key service 必须通过强读观察首次 claim、assignment version 刷新、pending-deletion 围栏、永久 tombstone、撤权和 owner retirement。RPC 观测还要求成功的陈旧查询落在地区 Learner、强读落在中心 leader。另一个测试二进制验证有序集合边界、并发容量、跨 key write skew、过期记录物理回收及清理期间的并发刷新。
 

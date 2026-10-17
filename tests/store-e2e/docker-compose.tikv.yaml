@@ -20,6 +20,8 @@ services:
     volumes: ["./tikv-test.toml:/etc/tikv/test.toml:ro"]
     depends_on: [pd]
     tmpfs: ["/data:rw,size=1g"]
+    ulimits:
+      nofile: {soft: 262144, hard: 262144}
     cpus: 2
     mem_limit: 2g
   gate:
@@ -35,6 +37,8 @@ services:
     volumes: ["./tikv-test.toml:/etc/tikv/test.toml:ro"]
     depends_on: [pd, gate]
     tmpfs: ["/data:rw,size=1g"]
+    ulimits:
+      nofile: {soft: 262144, hard: 262144}
     cpus: 2
     mem_limit: 2g
   tests:
