@@ -326,7 +326,8 @@ func TestManagerDeletingReservationRejectsBlockedReplacementEnsure(t *testing.T)
 	<-blockingStore.entered
 	ensureErr := make(chan error, 1)
 	go func() {
-		ensureErr <- manager.ensureActivatingPeer(context.Background(), key, state, newConn)
+		_, err := manager.ensureActivatingPeer(context.Background(), key, state, newConn)
+		ensureErr <- err
 	}()
 	select {
 	case err := <-ensureErr:

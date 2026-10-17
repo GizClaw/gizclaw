@@ -112,3 +112,49 @@ test("monitor requests follow client cancellation", async () => {
     assert.equal(observed.aborted, true, `${kind} must propagate abort`);
   }
 });
+
+test("node monitor preserves device counters and accepts snapshots from older nodes", async () => {
+  const deviceMetrics = {
+    online_devices: 3,
+    transports: [
+      {
+        peer_kind: "device",
+        rtp_tracks: { rx: 3, tx: 3 },
+        data_channels: { packet: 3, service: 4, native: 0 },
+        rtp_packets_total: { rx: 100, tx: 200 },
+        data_channel_messages_total: { rx: 300, tx: 400 },
+      },
+    ],
+  };
+  for (const supported of [false, true]) {
+    const node = createGizClawNodeMonitorClient({
+      baseUrl: "https://monitor.example",
+      token: "gizclaw_mk_test",
+      fetch: async () =>
+        Response.json({
+          public_key: "node",
+          role: "server",
+          version: "dev",
+          build_commit: "dev",
+          time: "2026-10-17T00:00:00Z",
+          uptime_seconds: 10,
+          goroutines: 1,
+          heap_bytes: 0,
+          transport: {
+            connections: 4,
+            services: 0,
+            inbound_service_channels: 0,
+            rx_bytes: 0,
+            tx_bytes: 0,
+          },
+          ...(supported ? { device_metrics: deviceMetrics } : {}),
+        }),
+    });
+    const snapshot = await node.get();
+    assert.equal(
+      snapshot.device_metrics?.online_devices,
+      supported ? 3 : undefined,
+    );
+    if (supported) assert.deepEqual(snapshot.device_metrics, deviceMetrics);
+  }
+});

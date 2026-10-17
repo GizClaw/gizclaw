@@ -1,5 +1,11 @@
 import type { ReactNode } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 /** Numeric tile: label, measured value, and what the value is measured from. */
 export function MetricCard({
@@ -19,7 +25,9 @@ export function MetricCard({
         <CardTitle className="text-[11px] font-normal text-muted-foreground">
           {label}
         </CardTitle>
-        {icon && <span className="text-muted-foreground/70">{icon}</span>}
+        {icon && (
+          <CardAction className="text-muted-foreground/60">{icon}</CardAction>
+        )}
       </CardHeader>
       <CardContent className="flex flex-col gap-1.5">
         <strong

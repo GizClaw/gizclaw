@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
@@ -26,6 +27,7 @@ type Config struct {
 	// PeerAdmission selects open (default) or registration-token admission.
 	PeerAdmission   string
 	Monitor         monitor.Config
+	InfraFlow       infraflow.Config
 	WorkspaceRoot   string `yaml:"-"`
 	KeyPair         *giznet.KeyPair
 	WebRTC          WebRTCConfig
@@ -481,6 +483,7 @@ func (cfg storeFileConfig) runtimeConfig() (store.Config, error) {
 type ConfigFile struct {
 	PeerAdmission   string                       `yaml:"peer-admission"`
 	Monitor         monitor.Config               `yaml:"monitor"`
+	InfraFlow       infraflow.Config             `yaml:"infra_flow"`
 	Identity        IdentityConfig               `yaml:"identity"`
 	WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 	HTTP            *HTTPConfig                  `yaml:"http"`
@@ -542,6 +545,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	var raw struct {
 		PeerAdmission   string                       `yaml:"peer-admission"`
 		Monitor         monitor.Config               `yaml:"monitor"`
+		InfraFlow       infraflow.Config             `yaml:"infra_flow"`
 		Identity        *IdentityConfig              `yaml:"identity"`
 		WebRTC          *WebRTCConfig                `yaml:"webrtc"`
 		HTTP            *HTTPConfig                  `yaml:"http"`
@@ -597,6 +601,7 @@ func parseConfigData(data []byte) (ConfigFile, error) {
 	cfg := ConfigFile{
 		PeerAdmission:   raw.PeerAdmission,
 		Monitor:         raw.Monitor,
+		InfraFlow:       raw.InfraFlow,
 		Identity:        identity,
 		WebRTC:          raw.WebRTC,
 		HTTP:            raw.HTTP,
@@ -774,6 +779,9 @@ func DefaultConfig() Config {
 }
 
 func mergeFileConfig(cfg Config, fileCfg ConfigFile) (Config, error) {
+	if cfg.InfraFlow == (infraflow.Config{}) {
+		cfg.InfraFlow = fileCfg.InfraFlow
+	}
 	if cfg.Monitor.Token == "" {
 		cfg.Monitor = fileCfg.Monitor
 	}
@@ -959,6 +967,9 @@ func prepareConfig(cfg Config) (Config, error) {
 		}
 		cfg.Services.SystemLog = &logCfg
 	}
+	if err := cfg.InfraFlow.Validate(); err != nil {
+		return Config{}, err
+	}
 	if err := cfg.Monitor.Validate(); err != nil {
 		return Config{}, err
 	}
@@ -983,6 +994,9 @@ func (cfg Config) validate() error {
 		return err
 	}
 	if err := validateHostPort("webrtc.endpoint", cfg.WebRTC.Endpoint); err != nil {
+		return err
+	}
+	if err := cfg.InfraFlow.Validate(); err != nil {
 		return err
 	}
 	if err := cfg.Monitor.Validate(); err != nil {

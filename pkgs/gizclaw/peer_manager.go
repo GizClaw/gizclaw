@@ -58,6 +58,8 @@ const maxDeviceSNBytes = 256
 
 type activePeer struct {
 	conn           giznet.Conn
+	role           apitypes.PeerRole
+	countedDevice  bool
 	edgeTransports map[giznet.Conn]struct{}
 	activating     giznet.Conn
 	registration   *runtimeprofile.Registration
@@ -100,9 +102,11 @@ func (m *Manager) activateEdgeTransport(ctx context.Context, conn giznet.Conn) e
 		state.edgeTransports = make(map[giznet.Conn]struct{})
 	}
 	state.edgeTransports[conn] = struct{}{}
+	state.role = apitypes.PeerRoleEdgeNode
 	if state.conn == nil {
 		state.conn = conn
 	}
+	m.updateDeviceCountLocked(state)
 	return nil
 }
 
@@ -126,7 +130,7 @@ func (m *Manager) setEdgeTransportDown(publicKey giznet.PublicKey, conn giznet.C
 		}
 	}
 	if len(state.edgeTransports) == 0 && state.conn == nil && state.activating == nil {
-		delete(m.peers, publicKey)
+		m.removePeerLocked(publicKey)
 	}
 }
 
@@ -170,8 +174,9 @@ type Manager struct {
 	ProviderTenants providertenants.ProviderTenantsAdminService
 	Metrics         metrics.Store
 
-	mu    sync.RWMutex
-	peers map[giznet.PublicKey]*activePeer
+	mu          sync.RWMutex
+	peers       map[giznet.PublicKey]*activePeer
+	deviceCount *atomic.Int64
 
 	telemetryStatusMu    sync.Mutex
 	telemetryStatusLocks map[giznet.PublicKey]*telemetryStatusLock
@@ -181,6 +186,7 @@ func NewManager(peersService *peer.Server) *Manager {
 	return &Manager{
 		Peers:                peersService,
 		peers:                make(map[giznet.PublicKey]*activePeer),
+		deviceCount:          new(atomic.Int64),
 		telemetryStatusLocks: make(map[giznet.PublicKey]*telemetryStatusLock),
 	}
 }
@@ -207,6 +213,7 @@ func (m *Manager) QuiescePeer(_ context.Context, publicKey giznet.PublicKey) err
 		return nil
 	}
 	state.deleting = true
+	m.updateDeviceCountLocked(state)
 	state.registration = nil
 	retire := state.retire
 	if state.activating != nil {
@@ -305,6 +312,8 @@ func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.Publ
 	return err == nil && allowed
 }
 
+// SetPeerUp publishes a Client connection already accepted by the caller.
+// Server admission instead uses activatePeer to validate the durable Peer role.
 func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -327,6 +336,8 @@ func (m *Manager) setPeerUpLocked(publicKey giznet.PublicKey, conn giznet.Conn) 
 		state.runStatus = nil
 	}
 	state.conn = conn
+	state.role = apitypes.PeerRoleClient
+	m.updateDeviceCountLocked(state)
 	state.activating = nil
 	if oldConn == conn {
 		return nil
@@ -362,12 +373,13 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	state.activating = conn
 	m.mu.Unlock()
 
-	if err := m.ensureActivatingPeer(ctx, publicKey, state, conn); err != nil {
+	role, err := m.ensureActivatingPeer(ctx, publicKey, state, conn)
+	if err != nil {
 		m.mu.Lock()
 		if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.activating == conn {
 			current.activating = nil
 			if current.conn == nil {
-				delete(m.peers, publicKey)
+				m.removePeerLocked(publicKey)
 			}
 		}
 		m.mu.Unlock()
@@ -389,6 +401,8 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 		current.events = nil
 	}
 	current.conn = conn
+	current.role = role
+	m.updateDeviceCountLocked(current)
 	return oldConn, nil
 }
 
@@ -542,7 +556,7 @@ func resolveWorkspaceByID(
 	}
 }
 
-func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) error {
+func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) (apitypes.PeerRole, error) {
 	peerRecord, err := m.Peers.EnsureConnectedPeerGuarded(ctx, publicKey, func() error {
 		m.mu.RLock()
 		defer m.mu.RUnlock()
@@ -556,17 +570,19 @@ func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.Pub
 		return nil
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	if peerRecord.Role == apitypes.PeerRoleClient && m.PeerRoutes != nil {
 		if _, err := m.PeerRoutes.Assign(ctx, publicKey, nil); err != nil {
-			return err
+			return "", err
 		}
 	}
 	if m.Peers.LocalRuns != nil {
-		return m.Peers.LocalRuns.RememberPeer(ctx, publicKey, peerRecord.CreatedAt)
+		if err := m.Peers.LocalRuns.RememberPeer(ctx, publicKey, peerRecord.CreatedAt); err != nil {
+			return "", err
+		}
 	}
-	return nil
+	return peerRecord.Role, nil
 }
 
 func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn, beginRetiring func() func()) error {
@@ -582,6 +598,7 @@ func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicK
 	previousRegistration := state.registration
 	state.registration = nil
 	state.deleting = true
+	m.updateDeviceCountLocked(state)
 	var rollbackRetiring func()
 	if beginRetiring != nil {
 		rollbackRetiring = beginRetiring()
@@ -593,13 +610,14 @@ func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicK
 		current, currentOK := m.peers[publicKey]
 		if currentOK && current == state && current.deleting {
 			current.deleting = false
+			m.updateDeviceCountLocked(current)
 			if current.conn == conn {
 				current.registration = previousRegistration
 				if rollbackRetiring != nil {
 					rollbackRetiring()
 				}
 			} else if current.conn == nil && current.activating == nil {
-				delete(m.peers, publicKey)
+				m.removePeerLocked(publicKey)
 			}
 		}
 		m.mu.Unlock()
@@ -607,7 +625,7 @@ func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicK
 	}
 	m.mu.Lock()
 	if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.deleting {
-		delete(m.peers, publicKey)
+		m.removePeerLocked(publicKey)
 	}
 	m.mu.Unlock()
 	return nil
@@ -639,7 +657,7 @@ func (m *Manager) retirePeer(publicKey giznet.PublicKey, conn giznet.Conn, retir
 	if !ok || state.conn != conn {
 		return
 	}
-	delete(m.peers, publicKey)
+	m.removePeerLocked(publicKey)
 }
 
 func (m *Manager) PeerRegistration(publicKey giznet.PublicKey) (runtimeprofile.Registration, bool) {
@@ -719,9 +737,10 @@ func (m *Manager) SetPeerDown(publicKey giznet.PublicKey, conn giznet.Conn) {
 		state.conn = nil
 		state.registration = nil
 		state.runStatus = nil
+		m.updateDeviceCountLocked(state)
 		return
 	}
-	delete(m.peers, publicKey)
+	m.removePeerLocked(publicKey)
 }
 
 // DetachPeerConnections removes every local connection and activation
@@ -749,7 +768,7 @@ func (m *Manager) DetachPeerConnections(publicKey giznet.PublicKey) func() {
 		for conn := range state.edgeTransports {
 			connections[conn] = struct{}{}
 		}
-		delete(m.peers, publicKey)
+		m.removePeerLocked(publicKey)
 	}
 	m.mu.Unlock()
 	return func() {
@@ -779,9 +798,10 @@ func (m *Manager) forcePeerDown(publicKey giznet.PublicKey) giznet.Conn {
 	if state.deleting || state.activating != nil {
 		state.conn = nil
 		state.registration = nil
+		m.updateDeviceCountLocked(state)
 		return conn
 	}
-	delete(m.peers, publicKey)
+	m.removePeerLocked(publicKey)
 	return conn
 }
 

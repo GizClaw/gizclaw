@@ -129,6 +129,7 @@ func (s *upstreamRelaySelector) dialUpstream(
 		var timing gizwebrtc.DialTiming
 		listener, conn, err := s.dial(attemptCtx, cfg.KeyPair, cfg.selectedUpstream.PublicKey, gizwebrtc.DialConfig{
 			MetricsNodeRole:       "edge",
+			MetricsPeerKind:       "upstream",
 			SignalingURL:          upstreamSignalingURL(upstreamURL),
 			ICEServers:            []gizwebrtc.ICEServer{server},
 			ICETransportPolicy:    webrtc.ICETransportPolicyRelay,

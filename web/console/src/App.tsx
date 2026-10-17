@@ -176,22 +176,28 @@ export function App() {
       ]}
       onExport={() => setConfigOpen(true)}
       onLogout={logout}
+      toolbar={
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Select
+            aria-label="流量时间窗口"
+            value={windowSeconds}
+            onChange={(event) => setWindowSeconds(Number(event.target.value))}
+          >
+            <option value={120}>最近 2 分钟</option>
+            <option value={600}>最近 10 分钟</option>
+            <option value={1800}>最近 30 分钟</option>
+          </Select>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPaused(!paused)}
+          >
+            {paused ? <Play size={14} /> : <Pause size={14} />}
+            {paused ? "继续轮询" : "暂停轮询"}
+          </Button>
+        </div>
+      }
     >
-      <div className="flex flex-wrap items-center justify-end gap-2">
-        <Select
-          aria-label="流量时间窗口"
-          value={windowSeconds}
-          onChange={(event) => setWindowSeconds(Number(event.target.value))}
-        >
-          <option value={120}>最近 2 分钟</option>
-          <option value={600}>最近 10 分钟</option>
-          <option value={1800}>最近 30 分钟</option>
-        </Select>
-        <Button variant="outline" size="sm" onClick={() => setPaused(!paused)}>
-          {paused ? <Play size={14} /> : <Pause size={14} />}
-          {paused ? "继续轮询" : "暂停轮询"}
-        </Button>
-      </div>
       {storageError && (
         <Alert>
           <AlertTitle>本地配置保存失败</AlertTitle>

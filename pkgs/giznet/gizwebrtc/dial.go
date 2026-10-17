@@ -32,7 +32,9 @@ var errDialICEAttempt = errors.New("gizwebrtc: ICE establishment attempt")
 type DialConfig struct {
 	// MetricsNodeRole identifies the process initiating this dial. Values other
 	// than "edge" use the application default.
-	MetricsNodeRole    string
+	MetricsNodeRole string
+	// MetricsPeerKind is device, upstream, admin, or unknown. Other values use unknown.
+	MetricsPeerKind    string
 	API                *webrtc.API
 	HTTPClient         *http.Client
 	SignalingURL       string
@@ -289,6 +291,7 @@ func dialAttempt(
 		return nil, nil, err
 	}
 	conn.nodeRole = normalizedMetricsNodeRole(cfg.MetricsNodeRole)
+	conn.metricsPeerKind = metricsPeerKinds[metricsPeerKindIndex(cfg.MetricsPeerKind)]
 	ordered := false
 	maxRetransmits := uint16(0)
 	packetDC, err := pc.CreateDataChannel(packetLabel, &webrtc.DataChannelInit{

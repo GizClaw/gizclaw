@@ -410,6 +410,7 @@ func (c *Conn) newNativeChannel(
 	dc *webrtc.DataChannel,
 	raw datachannel.ReadWriteCloserDeadliner,
 ) *NativeChannel {
+	raw = c.meterDataChannel(raw, channelNative)
 	stream := newDataChannelConn(raw, dc, c.localAddr, c.remoteAddr)
 	stream.rx = &c.rxBytes
 	stream.tx = &c.txBytes

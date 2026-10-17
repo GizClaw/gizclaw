@@ -63,21 +63,32 @@ func WithUsageRecorder(ctx context.Context, record UsageRecorder) context.Contex
 	return context.WithValue(ctx, usageRecorderKey{}, record)
 }
 
-// RecordUsage reports records to the recorder ctx carries. Records without any
-// quantity are dropped. Provider adapters call it with the usage the provider
-// reported; usage a provider never reports, for example of a response the
-// caller canceled before the provider's usage event, is not recorded.
+// UsageRecorderFromContext returns the callback ctx carries, or nil. Forwarding
+// code calls this callback directly rather than reporting the same usage to
+// RecordUsage again, which would count process metrics twice.
+func UsageRecorderFromContext(ctx context.Context) UsageRecorder {
+	if ctx == nil {
+		return nil
+	}
+	record, _ := ctx.Value(usageRecorderKey{}).(UsageRecorder)
+	return record
+}
+
+// RecordUsage observes provider token metrics and forwards nonzero records to
+// the recorder ctx carries, if any. Metrics do not require a usage callback.
+// Provider adapters call it once per usage report; usage a provider never
+// reports, for example after early cancellation, is not estimated or recorded.
 func RecordUsage(ctx context.Context, records ...UsageRecord) {
 	if ctx == nil {
 		return
 	}
-	record, _ := ctx.Value(usageRecorderKey{}).(UsageRecorder)
-	if record == nil {
-		return
-	}
+	record := UsageRecorderFromContext(ctx)
 	for _, item := range records {
 		if !item.IsZero() {
-			record(item)
+			recordTokenMetrics(ctx, item)
+			if record != nil {
+				record(item)
+			}
 		}
 	}
 }

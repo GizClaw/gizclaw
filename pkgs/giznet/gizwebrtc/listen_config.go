@@ -32,6 +32,10 @@ type ListenConfig struct {
 	// MetricsNodeRole identifies this listener as an application server or an
 	// Edge ingress. Values other than "edge" use the application default.
 	MetricsNodeRole string
+	// MetricsPeerKind classifies authenticated transport identities using local
+	// configuration only. Returned labels are limited to device, upstream, admin,
+	// and unknown. Nil or unrecognized values use unknown.
+	MetricsPeerKind func(giznet.PublicKey) string
 	// API optionally supplies a preconfigured Pion API. When nil, Listen
 	// builds one from the ICE and cipher settings below.
 	API *webrtc.API

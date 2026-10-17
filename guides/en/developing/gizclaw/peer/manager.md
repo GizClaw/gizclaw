@@ -42,6 +42,11 @@ Role admission reads current Peer KV status and deletion fences, requiring activ
 
 ## Social notification delivery
 
+The device-online gauge updates with connection publication, replacement,
+detachment, and deletion fences under the same lock. Periodic collection reads
+an atomic value without enumerating peers or reading storage. See
+[node metrics](../../observability#node-devices-channels-and-messages).
+
 `peer_manager_social_ping.go` owns local-first social ping delivery and trusted
 Edge selection. `PeerOnline`, `PeerPresence` and `PeerRunningWorkspace` retain
 the local Server connection view; pings do not filter remote targets by that

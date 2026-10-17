@@ -1,0 +1,282 @@
+{
+  "nodes": [
+    {
+      "id": "bj:edge",
+      "name": "北京 Edge",
+      "region": "bj",
+      "lat": 39.9,
+      "lon": 116.4,
+      "kind": "edge",
+      "category": "host",
+      "role": "Edge",
+      "sample": true,
+      "services": [
+        "Edge"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "bj:edge",
+          "logicalNames": [
+            "bj:edge"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "hk:edge",
+      "name": "香港 Edge",
+      "region": "hk",
+      "lat": 22.3,
+      "lon": 114.2,
+      "kind": "edge",
+      "category": "host",
+      "role": "Edge",
+      "sample": true,
+      "services": [
+        "Edge"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "hk:edge",
+          "logicalNames": [
+            "hk:edge"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "sg:edge",
+      "name": "新加坡 Edge",
+      "region": "sg",
+      "lat": 1.35,
+      "lon": 103.82,
+      "kind": "edge",
+      "category": "host",
+      "role": "Edge",
+      "sample": true,
+      "services": [
+        "Edge"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "sg:edge",
+          "logicalNames": [
+            "sg:edge"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "bj:server",
+      "name": "北京 Server",
+      "region": "bj",
+      "lat": 40.4,
+      "lon": 115.6,
+      "kind": "server",
+      "category": "host",
+      "role": "Server",
+      "sample": true,
+      "services": [
+        "Server"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "bj:server",
+          "logicalNames": [
+            "bj:server"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "sh:server",
+      "name": "上海 Server",
+      "region": "sh",
+      "lat": 31.2,
+      "lon": 121.5,
+      "kind": "server",
+      "category": "host",
+      "role": "Server",
+      "sample": true,
+      "services": [
+        "Server"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "sh:server",
+          "logicalNames": [
+            "sh:server"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "gz:server",
+      "name": "广州 Server",
+      "region": "gz",
+      "lat": 23.13,
+      "lon": 113.26,
+      "kind": "server",
+      "category": "host",
+      "role": "Server",
+      "sample": true,
+      "services": [
+        "Server"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "gz:server",
+          "logicalNames": [
+            "gz:server"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "sh:kv",
+      "name": "中心 KV",
+      "region": "sh",
+      "lat": 30.5,
+      "lon": 122.2,
+      "kind": "database",
+      "category": "database",
+      "role": "KV",
+      "sample": true,
+      "services": [
+        "KV"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "sh:kv",
+          "logicalNames": [
+            "sh:kv"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    },
+    {
+      "id": "hk:assets",
+      "name": "资源节点",
+      "region": "hk",
+      "lat": 21.8,
+      "lon": 114.8,
+      "kind": "storage",
+      "category": "storage",
+      "role": "TOS",
+      "sample": true,
+      "services": [
+        "TOS"
+      ],
+      "description": "本地模拟节点，不代表生产资源",
+      "members": [
+        {
+          "name": "hk:assets",
+          "logicalNames": [
+            "hk:assets"
+          ],
+          "provider": "local-demo",
+          "environment": "prod",
+          "status": "simulated",
+          "evidence": []
+        }
+      ]
+    }
+  ],
+  "links": [
+    {
+      "source": "bj:edge",
+      "target": "bj:server",
+      "kind": "request"
+    },
+    {
+      "source": "bj:edge",
+      "target": "bj:server",
+      "kind": "audio"
+    },
+    {
+      "source": "hk:edge",
+      "target": "sh:server",
+      "kind": "request"
+    },
+    {
+      "source": "hk:edge",
+      "target": "sh:server",
+      "kind": "audio"
+    },
+    {
+      "source": "sg:edge",
+      "target": "gz:server",
+      "kind": "request"
+    },
+    {
+      "source": "sg:edge",
+      "target": "gz:server",
+      "kind": "audio"
+    },
+    {
+      "source": "bj:server",
+      "target": "sh:kv",
+      "kind": "sync"
+    },
+    {
+      "source": "sh:server",
+      "target": "sh:kv",
+      "kind": "sync"
+    },
+    {
+      "source": "gz:server",
+      "target": "sh:kv",
+      "kind": "sync"
+    },
+    {
+      "source": "hk:assets",
+      "target": "bj:edge",
+      "kind": "asset"
+    },
+    {
+      "source": "hk:assets",
+      "target": "hk:edge",
+      "kind": "asset"
+    },
+    {
+      "source": "hk:assets",
+      "target": "sg:edge",
+      "kind": "asset"
+    }
+  ]
+}

@@ -196,6 +196,9 @@ func (l *Listener) acceptOffer(
 		return "", nil, timing, err
 	}
 	conn.nodeRole = normalizedMetricsNodeRole(l.cfg.MetricsNodeRole)
+	if l.cfg.MetricsPeerKind != nil {
+		conn.metricsPeerKind = metricsPeerKinds[metricsPeerKindIndex(l.cfg.MetricsPeerKind(clientPK))]
+	}
 	if l.cfg.AggregateServices {
 		conn.EnableServiceAccept()
 	}
