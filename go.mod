@@ -15,7 +15,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/storage/azblob v1.8.0
 	github.com/ClickHouse/clickhouse-go/v2 v2.48.0
 	github.com/GizClaw/dashscope-realtime-go v0.0.0-20260930205933-50d45a88f66e
-	github.com/GizClaw/doubao-speech-go v0.0.0-20261017154126-d72f14bf7519
+	github.com/GizClaw/doubao-speech-go v0.0.0-20261017163029-95c16a049465
 	github.com/GizClaw/minimax-go v0.0.0-20261015022517-d0792c7b8772
 	github.com/aliyun/aliyun-oss-go-sdk v3.0.2+incompatible
 	github.com/clipperhouse/uax29/v2 v2.7.0
