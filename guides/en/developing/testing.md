@@ -553,6 +553,10 @@ Each RPC uses the shortest remaining task budget, explicit step timeout and
 existing thirty-second RPC limit, letting the SDK terminate a timed-out request
 before starting another attempt.
 
+Mystery rules recognize investigation of both `沈知秋房间` and `沈知秋的房间`,
+acquiring the same two motive clues. Solving still requires every independent
+evidence condition and an explicit correct accusation.
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints

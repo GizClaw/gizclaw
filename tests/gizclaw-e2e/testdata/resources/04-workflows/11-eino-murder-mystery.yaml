@@ -48,7 +48,7 @@ spec:
           source: |
             def run(input):
                 game = json.decode(json.encode(input["game"]))
-                text = input["text"]
+                text = input["text"].replace("沈知秋的房间", "沈知秋房间")
                 reset = not game or "重新开始" in text
                 if reset:
                     game = {"found": [], "solved": False, "attempts": 0}

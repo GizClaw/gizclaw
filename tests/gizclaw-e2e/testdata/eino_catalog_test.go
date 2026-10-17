@@ -1216,3 +1216,25 @@ func TestNativeWerewolfPublishesOneCompleteAssistantTurn(t *testing.T) {
 		})
 	}
 }
+
+func TestMysteryPossessiveRoomInvestigations(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/11-eino-murder-mystery.yaml", "workspaces/eino-murder-mystery.json"} {
+		t.Run(path, func(t *testing.T) {
+			for _, command := range []string{"接下来我调查沈知秋的房间", "勘察沈知秋的房间"} {
+				result := runFixtureRules(t, path, command, map[string]any{})
+				var view struct {
+					Clues []string `json:"clues"`
+				}
+				if err := json.Unmarshal([]byte(result["context"].(string)), &view); err != nil {
+					t.Fatal(err)
+				}
+				if !slices.Contains(view.Clues, "遗嘱草稿牵涉大半遗产。") || !slices.Contains(view.Clues, "旧报纸揭示沈知秋生父与沈鹤年的旧仇。") {
+					t.Fatalf("offered possessive room name did not acquire the room's motive evidence: %v", view.Clues)
+				}
+				if result["game"].(map[string]any)["solved"] != false {
+					t.Fatal("room search solved the case without the remaining evidence and accusation")
+				}
+			}
+		})
+	}
+}

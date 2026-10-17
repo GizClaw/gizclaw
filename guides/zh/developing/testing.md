@@ -579,6 +579,9 @@ HTTP、其他 operation 和 `finally` 不接受此策略。失败尝试回滚其
 共享原有任务 deadline，单次 RPC 使用剩余任务预算、显式 step timeout 与现有
 30 秒 RPC 上限中的最短值，由 SDK 结束超时请求后再进行下一次尝试。
 
+剧本杀规则同时识别“沈知秋房间”和“沈知秋的房间”的调查动作，取得相同的两条
+动机证据；破案仍要求全部独立证据与明确正确指认。
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
