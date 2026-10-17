@@ -26,46 +26,58 @@ func TestAdminAPIWorkspaceHistoryListAndGetFromWorkflowWorkspace(t *testing.T) {
 	_, workspaceID, texts := createAdminWorkflowWorkspaceHistory(t, env)
 	order := adminhttp.Asc
 	limit := 2
+	var cursor *string
+	seen := make(map[string]struct{}, len(texts)*2)
+	var previousCreatedAt time.Time
 
-	history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{
-		Limit: &limit,
-		Order: &order,
-	})
-	if err != nil {
-		t.Fatalf("list workspace history: %v", err)
-	}
-	requireStatusOK(t, history, history.Body)
-	if history.JSON200 == nil || len(history.JSON200.Items) != 2 || !history.JSON200.HasNext || history.JSON200.NextCursor == nil {
-		t.Fatalf("workspace history list = %#v", history.JSON200)
-	}
-	first := history.JSON200.Items[0]
-	if first.Id == "" || first.Text == "" || !first.ReplayAvailable || first.GearId != nil || string(first.Type) != "agent" {
-		t.Fatalf("first workspace history = %#v", first)
-	}
-	if first.Text != texts[0] {
-		t.Fatalf("first workspace history text = %q", first.Text)
-	}
-
-	next, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{
-		Limit:  &limit,
-		Cursor: history.JSON200.NextCursor,
-		Order:  &order,
-	})
-	if err != nil {
-		t.Fatalf("list workspace history next page: %v", err)
-	}
-	requireStatusOK(t, next, next.Body)
-	if next.JSON200 == nil || len(next.JSON200.Items) != 1 || next.JSON200.Items[0].Text != texts[2] {
-		t.Fatalf("workspace history next page = %#v", next.JSON200)
-	}
-
-	get, err := env.api.GetWorkspaceHistoryWithResponse(env.ctx, workspaceID, first.Id)
-	if err != nil {
-		t.Fatalf("get workspace history: %v", err)
-	}
-	requireStatusOK(t, get, get.Body)
-	if get.JSON200 == nil || get.JSON200.Id != first.Id || get.JSON200.Text != first.Text {
-		t.Fatalf("workspace history get = %#v, want %#v", get.JSON200, first)
+	for turn, text := range texts {
+		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{
+			Limit: &limit, Cursor: cursor, Order: &order,
+		})
+		if err != nil {
+			t.Fatalf("list workspace history turn %d: %v", turn+1, err)
+		}
+		requireStatusOK(t, history, history.Body)
+		if history.JSON200 == nil || len(history.JSON200.Items) != 2 {
+			t.Fatalf("workspace history page %d = %#v", turn+1, history.JSON200)
+		}
+		for index, item := range history.JSON200.Items {
+			wantType, wantActor := "gear", "transcript"
+			if index == 1 {
+				wantType, wantActor = "agent", "assistant"
+			}
+			if item.Id == "" || item.CreatedAt.Before(previousCreatedAt) || item.Text != text || string(item.Type) != wantType || item.ActorName != wantActor || !item.ReplayAvailable || item.AudioAvailable {
+				t.Fatalf("workspace history turn %d entry %d = %#v", turn+1, index, item)
+			}
+			if _, duplicate := seen[item.Id]; duplicate {
+				t.Fatalf("workspace history repeated entry %q", item.Id)
+			}
+			seen[item.Id] = struct{}{}
+			previousCreatedAt = item.CreatedAt
+			if wantType == "gear" && (item.GearId == nil || *item.GearId == "") || wantType == "agent" && item.GearId != nil {
+				t.Fatalf("workspace history actor identity = %#v", item)
+			}
+			get, err := env.api.GetWorkspaceHistoryWithResponse(env.ctx, workspaceID, item.Id)
+			if err != nil {
+				t.Fatalf("get workspace history %q: %v", item.Id, err)
+			}
+			requireStatusOK(t, get, get.Body)
+			if get.JSON200 == nil || get.JSON200.Id != item.Id || get.JSON200.Text != item.Text || get.JSON200.Type != item.Type || get.JSON200.AudioAvailable != item.AudioAvailable || get.JSON200.ReplayAvailable != item.ReplayAvailable {
+				t.Fatalf("workspace history get = %#v, want %#v", get.JSON200, item)
+			}
+		}
+		hasNext := turn+1 < len(texts)
+		if history.JSON200.HasNext != hasNext {
+			t.Fatalf("workspace history page %d has_next = %v, want %v", turn+1, history.JSON200.HasNext, hasNext)
+		}
+		if hasNext {
+			if history.JSON200.NextCursor == nil || *history.JSON200.NextCursor == "" || cursor != nil && *history.JSON200.NextCursor == *cursor {
+				t.Fatalf("workspace history page %d did not advance its cursor", turn+1)
+			}
+		} else if history.JSON200.NextCursor != nil {
+			t.Fatalf("final workspace history page has cursor %q", *history.JSON200.NextCursor)
+		}
+		cursor = history.JSON200.NextCursor
 	}
 }
 
@@ -295,7 +307,7 @@ func waitForAdminWorkspaceHistoryText(t *testing.T, env *adminAPIHarness, worksp
 		history, err := env.api.ListWorkspaceHistoryWithResponse(env.ctx, workspaceID, &adminhttp.ListWorkspaceHistoryParams{Limit: &limit})
 		if err == nil && history.JSON200 != nil {
 			for _, item := range history.JSON200.Items {
-				if item.Text == text {
+				if item.Text == text && string(item.Type) == "agent" {
 					return
 				}
 			}

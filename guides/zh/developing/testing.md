@@ -773,7 +773,7 @@ Server apply 可能静默忽略 Schema 未声明的字段，因此 reset 成功�
 
 ### Suite ownership
 
-- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。
+- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。 History 分页场景等待每轮 echo 的 Agent 输出，跨三页验证三轮共六条 Gear 输入／Agent 输出记录，包括 replay 可用性、纯文本无音频、稳定 ID 与详情查询。
 - `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。

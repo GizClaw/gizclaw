@@ -783,7 +783,7 @@ values for `${...}` references.
 
 ### Suite ownership
 
-- `go/admin` validates typed contracts with the generated Admin HTTP client.
+- `go/admin` validates typed contracts with the generated Admin HTTP client. Its History pagination case waits for the Agent output of each echo turn and verifies all six Gear-input/Agent-output entries across three pages, including replay availability, absent text-only audio, stable IDs, and detail lookup.
 - `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
