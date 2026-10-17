@@ -547,6 +547,9 @@ jobs:
           GOFLAGS: -mod=readonly
         run: go test -count=1 ./tests/gizclaw-e2e/testdata
 
+      - name: Test screenplay lane isolation
+        run: python3 -B tests/gizclaw-e2e/setup/run_script_quality_lane_test.py
+
   tikv-presence:
     name: TiKV Learner Presence
     runs-on: ubuntu-24.04

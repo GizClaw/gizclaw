@@ -1996,6 +1996,9 @@ Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以�
 
 质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
 
+完整 `run_tests.sh` 先执行普通语音与 SDK 场景并清理其 Docker 栈，再调用完整文本质量入口，最后执行多 Server 验收。
+五个 `script-quality.*` 文档全部由文本质量阶段执行，角色标签得以保留。子阶段重新生成自己的网络与身份配置，保留显式凭据文件、构建镜像和报告选项；继承的局部用例选择不会缩减完整门禁的五组覆盖。
+
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh
 # 只选指定剧本；凭据仍来自标准 credential 文件

@@ -2257,6 +2257,13 @@ boundaries, responsiveness, progression and closure. Each criterion requires
 
 Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
 
+The complete `run_tests.sh` entrypoint finishes the ordinary voice and SDK cases,
+cleans that stack, runs the complete text-quality owner, and then performs
+multi-server acceptance. All five `script-quality.*` documents run in the text
+phase with character labels preserved. The child creates fresh test identities
+and network settings while retaining explicit credential-file, build-image and
+report options. An inherited case-subset setting cannot reduce full-gate coverage.
+
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh
 GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
