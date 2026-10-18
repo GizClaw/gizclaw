@@ -50,3 +50,54 @@ func TestRealtimeStreamKeepsQueuedEmptyTurnBeforeNextBOS(t *testing.T) {
 		})
 	}
 }
+
+func TestRealtimeStreamKeepsEmptyEOSAfterBOSRead(t *testing.T) {
+	now := time.UnixMilli(1000)
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0), WithRealtimeStreamNow(func() time.Time { return now }))
+	defer stream.Close()
+	begin := &MessageChunk{Ctrl: &StreamCtrl{StreamID: "empty", Label: "user", BeginOfStream: true}}
+	if err := stream.Push(t.Context(), begin); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := stream.Next(); err != nil || got != begin {
+		t.Fatalf("begin=%v err=%v", got, err)
+	}
+	end := &MessageChunk{Ctrl: &StreamCtrl{StreamID: "empty", Label: "user", EndOfStream: true}}
+	next := &MessageChunk{Ctrl: &StreamCtrl{StreamID: "next", Label: "user", BeginOfStream: true}}
+	for _, chunk := range []*MessageChunk{end, next} {
+		if err := stream.Push(t.Context(), chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := stream.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := stream.Next(); err != nil || got != end {
+		t.Fatalf("prefetched begin lost its queued terminal: got=%v err=%v want=%v", got, err, end)
+	}
+}
+
+func TestRealtimeStreamKeepsMIMEBeginWithQueuedControlEnd(t *testing.T) {
+	for _, endLabel := range []string{"user", ""} {
+		t.Run("end_label="+endLabel, func(t *testing.T) {
+			stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+			defer stream.Close()
+			begin := &MessageChunk{Part: &Blob{MIMEType: "audio/opus"}, Ctrl: &StreamCtrl{StreamID: "old", Label: "user", BeginOfStream: true}}
+			end := &MessageChunk{Ctrl: &StreamCtrl{StreamID: "old", Label: endLabel, EndOfStream: true}}
+			next := &MessageChunk{Ctrl: &StreamCtrl{StreamID: "next", Label: "user", BeginOfStream: true}}
+			for _, chunk := range []*MessageChunk{begin, end, next} {
+				if err := stream.Push(t.Context(), chunk); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := stream.Close(); err != nil {
+				t.Fatal(err)
+			}
+			for index, want := range []*MessageChunk{begin, end, next} {
+				if got, err := stream.Next(); err != nil || got != want {
+					t.Fatalf("boundary %d=%v err=%v want=%v", index, got, err, want)
+				}
+			}
+		})
+	}
+}

@@ -95,8 +95,9 @@ type Stream interface {
 
 `RealtimeStream` assigns zero timestamps after both delivered and pending timestamps,
 preserving arrival order. When a new BOS evicts pending audio from an older route
-with the same usage, an already-closed control route whose BOS remains queued also
-keeps its EOS. A slow consumer can finish that turn before beginning the next;
+with the same usage, an already-queued control EOS and any queued MIME BOS for
+that closed route remain, including when its begin was already prefetched.
+A slow consumer can finish that turn before beginning the next;
 old audio boundaries explicitly later than the new BOS are still evicted.
 
 `StreamCtrl.MessageID` identifies one generated message within a continuous playback route; its text and corresponding audio share the ID. `MessageEnd` completes that message’s current MIME channel without changing StreamID or emitting playback EOS. Recorders save one History entry after all observed MIME channels of that message complete. Both fields survive `Clone` and are process-local composition and recording metadata, excluded from JSON and Peer wire formats.

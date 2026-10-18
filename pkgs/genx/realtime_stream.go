@@ -273,22 +273,23 @@ func (s *RealtimeStream) dropSupersededStreamLocked(next *MessageChunk) {
 	if nextID == "" || s.heap.Len() == 0 {
 		return
 	}
-	queuedControlBegins := make(map[[2]string]struct{})
+	closedControlRoutes := make(map[string]struct{})
 	for _, item := range s.heap {
-		if item.chunk.Part == nil && item.chunk.IsBeginOfStream() {
-			id, label := realtimeChunkRoute(item.chunk)
-			queuedControlBegins[[2]string{id, label}] = struct{}{}
+		if item.chunk.Part == nil && item.chunk.IsEndOfStream() &&
+			(next.Ctrl.Timestamp <= 0 || item.timestamp <= next.Ctrl.Timestamp) {
+			id, _ := realtimeChunkRoute(item.chunk)
+			closedControlRoutes[id] = struct{}{}
 		}
 	}
 	items := s.heap[:0]
 	for _, item := range s.heap {
 		id, label := realtimeChunkRoute(item.chunk)
-		_, hasControlBegin := queuedControlBegins[[2]string{id, label}]
-		// Keep a closed control route intact while a slow consumer is opening.
-		// Dropping only its EOS would leave the retained BOS capturing forever.
-		closedControlRoute := hasControlBegin && item.chunk.Part == nil && item.chunk.IsEndOfStream() &&
-			(next.Ctrl.Timestamp <= 0 || item.timestamp <= next.Ctrl.Timestamp)
-		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) && !closedControlRoute {
+		_, closedControlRoute := closedControlRoutes[id]
+		// A reader may have prefetched BOS while EOS still waits in this heap.
+		// Retain its ordered control EOS and any queued MIME BOS, so eviction
+		// cannot orphan either side of an already closed input turn.
+		keepBoundary := closedControlRoute && (item.chunk.IsBeginOfStream() || (item.chunk.Part == nil && item.chunk.IsEndOfStream()))
+		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) && !keepBoundary {
 			continue
 		}
 		items = append(items, item)

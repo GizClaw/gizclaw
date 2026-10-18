@@ -102,8 +102,9 @@ type Stream interface {
 | `Timestamp` | Chunk 的毫秒时间戳，供 `RealtimeStream` 排序和延迟处理；值为零时，`RealtimeStream` 会按当前时间补充单调递增值。 |
 
 `RealtimeStream` 为零时间戳同时参考已交付与仍排队的最大时间戳，保持到达顺序。
-新 BOS 淘汰同用途旧 route 的待处理音频时，若已结束的纯控制 route 的 BOS 仍在队列，
-会同时保留其 EOS，使慢消费者先结束这轮再开始下一轮；明确晚于新 BOS 的旧音频边界仍被淘汰。
+新 BOS 淘汰同用途旧 route 的待处理音频时，保留此前已经排队的 control EOS，
+以及这条已结束 route 仍在排队的 MIME BOS。无论开始标记是否已被预读，慢消费者都能
+先结束这轮再开始下一轮；明确晚于新 BOS 的旧音频边界仍被淘汰。
 
 `StreamCtrl.MessageID` 标识同一播放 route 内的一次生成，文字与对应音频携带相同 MessageID。`MessageEnd` 关闭该消息的当前 MIME channel，不改变 StreamID，也不发送播放 EOS。Recorder 在该消息所有已声明 MIME channel 完成后保存一条 History。两个字段跨 `Clone` 保留，只用于进程内组合与记录，不进入 JSON 或 Peer wire。
 
