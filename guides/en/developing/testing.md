@@ -56,6 +56,12 @@ Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerSt
 
 `audio_integrity.violation_reasons` counts invalid logical boundaries such as missing stream IDs, duplicate starts or ends, starts after an end, and payload or end markers without a start. EOS and RTP use independent transports. The Go SDK ignores raw tail packets after EOS and before the next audio BOS; Giztest also ignores payload-only audio chunks for a known-ended stream. `audio_integrity.ignored_post_eos_packets` counts packets ignored by the SDK and Giztest during the current operation's observation window. This is normal receiver accounting and does not increase `violations`. Ignored packets do not enter the audio digest, playback, pacing or response count. Unknown streams without BOS, duplicate boundaries and malformed control chunks still fail; existing timing and underrun limits remain in force.
 
+The dedicated functional regression runs `tests/gizclaw-e2e/testdata/peer-audio/post-eos.giztest.yaml` over a real local WebRTC connection. The fixture waits for the Go SDK's `Next` to deliver audio EOS before sending two late RTP packets. The first step asserts an ignored count of 2 and verifies that the delivered digest, playback and response count contain only valid audio. The second step reuses the same PeerStream, verifies that a fresh BOS resumes delivery, and checks operation-local ignored accounting. This case requires no model or Provider credentials and uses an observed boundary rather than random network reordering or sleeps to establish the order.
+
+```sh
+go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
+```
+
 Integrity checks apply to delivered logical audio; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
 
 `audio_pacing.max_interval_started_at` records the UTC start of the largest packet gap, allowing correlation across sessions and Server logs to identify simultaneous stalls.
