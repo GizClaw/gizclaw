@@ -105,6 +105,8 @@ type Stream interface {
 新 BOS 淘汰同用途旧 route 的待处理音频时，保留此前已经排队的 control EOS，
 以及这条已结束 route 仍在排队的 MIME BOS。无论开始标记是否已被预读，慢消费者都能
 先结束这轮再开始下一轮；明确晚于新 BOS 的旧音频边界仍被淘汰。
+保留的 MIME BOS 只声明 channel；若同时携带旧音频，队列会丢弃该 payload，
+不修改 producer 的原始 chunk，也不影响新 route 的音频。
 
 `StreamCtrl.MessageID` 标识同一播放 route 内的一次生成，文字与对应音频携带相同 MessageID。`MessageEnd` 关闭该消息的当前 MIME channel，不改变 StreamID，也不发送播放 EOS。Recorder 在该消息所有已声明 MIME channel 完成后保存一条 History。两个字段跨 `Clone` 保留，只用于进程内组合与记录，不进入 JSON 或 Peer wire。
 

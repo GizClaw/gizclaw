@@ -101,3 +101,37 @@ func TestRealtimeStreamKeepsMIMEBeginWithQueuedControlEnd(t *testing.T) {
 		})
 	}
 }
+
+func TestRealtimeStreamDropsSupersededMIMEBeginPayload(t *testing.T) {
+	stream := NewRealtimeStream(WithRealtimeStreamDelay(0))
+	defer stream.Close()
+	blob := &Blob{MIMEType: "audio/opus", Data: []byte{1, 2, 3}}
+	begin := &MessageChunk{Part: blob, Ctrl: &StreamCtrl{StreamID: "old", Label: "user", BeginOfStream: true}}
+	end := &MessageChunk{Ctrl: &StreamCtrl{StreamID: "old", Label: "user", EndOfStream: true}}
+	next := &MessageChunk{Part: &Blob{MIMEType: "audio/opus", Data: []byte{4, 5, 6}}, Ctrl: &StreamCtrl{StreamID: "next", Label: "user", BeginOfStream: true}}
+	for _, chunk := range []*MessageChunk{begin, end, next} {
+		if err := stream.Push(t.Context(), chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := stream.Close(); err != nil {
+		t.Fatal(err)
+	}
+	got, err := stream.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	audio, ok := got.Part.(*Blob)
+	if !ok || !got.IsBeginOfStream() || got.Ctrl.StreamID != "old" || audio.MIMEType != blob.MIMEType || len(audio.Data) != 0 {
+		t.Fatalf("superseded MIME begin leaked audio: %v", got)
+	}
+	if len(blob.Data) != 3 {
+		t.Fatal("eviction modified the caller's payload")
+	}
+	if got, err := stream.Next(); err != nil || got != end {
+		t.Fatalf("end=%v err=%v", got, err)
+	}
+	if got, err := stream.Next(); err != nil || got != next || len(got.Part.(*Blob).Data) != 3 {
+		t.Fatalf("new input changed: %v err=%v", got, err)
+	}
+}

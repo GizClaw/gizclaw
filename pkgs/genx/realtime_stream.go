@@ -289,8 +289,17 @@ func (s *RealtimeStream) dropSupersededStreamLocked(next *MessageChunk) {
 		// Retain its ordered control EOS and any queued MIME BOS, so eviction
 		// cannot orphan either side of an already closed input turn.
 		keepBoundary := closedControlRoute && (item.chunk.IsBeginOfStream() || (item.chunk.Part == nil && item.chunk.IsEndOfStream()))
-		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) && !keepBoundary {
-			continue
+		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) {
+			if !keepBoundary {
+				continue
+			}
+			if blob, ok := item.chunk.Part.(*Blob); ok && blob != nil && len(blob.Data) > 0 {
+				// A MIME BOS may also carry data. Keep its declaration without
+				// replaying obsolete audio or mutating the producer's chunk.
+				boundary := *item.chunk
+				boundary.Part = &Blob{MIMEType: blob.MIMEType}
+				item.chunk = &boundary
+			}
 		}
 		items = append(items, item)
 	}
