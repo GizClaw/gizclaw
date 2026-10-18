@@ -1384,6 +1384,9 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		if chunk.Part == nil {
 			return r.flushRoute(ctx, historyChunkStreamID(recordChunk))
 		}
+		if typ == historyEntryTypeAgent && chunk.Ctrl != nil && chunk.Ctrl.ResponseEpochEnd {
+			return r.completeResponseRoute(ctx, recordChunk, typ)
+		}
 		if entry == nil || !entry.channelsComplete() {
 			return nil
 		}
@@ -1426,7 +1429,7 @@ func historyAgentRouteChannelEOS(chunk *genx.MessageChunk, part any) bool {
 	}
 	name := strings.TrimSpace(chunk.Name)
 	label := strings.TrimSpace(chunk.Ctrl.Label)
-	if name == "" || label == "" || name != label {
+	if !chunk.Ctrl.ResponseEpochEnd && (name == "" || label == "" || name != label) {
 		return false
 	}
 	switch value := part.(type) {
@@ -1439,7 +1442,19 @@ func historyAgentRouteChannelEOS(chunk *genx.MessageChunk, part any) bool {
 	}
 }
 
+// completeResponseRoute closes the delivered response across message and
+// component names. The response epoch, not the component name, owns this end.
+func (r *historyRecorder) completeResponseRoute(ctx context.Context, chunk *genx.MessageChunk, typ string) error {
+	streamID, label := historyChunkStreamID(chunk), historyChunkLabel(chunk)
+	return r.flushMatching(ctx, func(entry *historyPendingEntry) bool {
+		return entry == nil || entry.typ != typ || entry.streamID != streamID || entry.label != label
+	})
+}
+
 func (r *historyRecorder) completeRouteChannel(ctx context.Context, chunk *genx.MessageChunk, typ, mimeType string) error {
+	if chunk.Ctrl.ResponseEpochEnd {
+		return r.completeResponseRoute(ctx, chunk, typ)
+	}
 	return r.completeChannels(ctx, chunk, typ, mimeType, false)
 }
 
