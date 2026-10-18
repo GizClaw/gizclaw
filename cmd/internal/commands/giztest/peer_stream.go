@@ -3,11 +3,13 @@ package giztestcmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -34,6 +36,10 @@ type peerStream interface {
 	Push(ctx context.Context, chunk *genx.MessageChunk) error
 	Next() (*genx.MessageChunk, error)
 	Close() error
+}
+
+type peerStreamAudioDiagnostics interface {
+	IgnoredPostEOSAudioPackets() uint64
 }
 
 // peerStreamOpener dials one logical PeerStream for a peer_stream step.
@@ -663,6 +669,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	if op.OverlapInput {
 		return invokeOverlappingPeerInput(ctx, stream, op, input)
 	}
+	diagnostics, hasAudioDiagnostics := stream.(peerStreamAudioDiagnostics)
+	var ignoredPostEOSAtStart uint64
+	if hasAudioDiagnostics {
+		ignoredPostEOSAtStart = diagnostics.IgnoredPostEOSAudioPackets()
+	}
 	var observeAudio audioObserver
 	if len(observers) > 0 {
 		observeAudio = observers[0]
@@ -1104,7 +1115,12 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			object["input_ms"] = inputDuration.Milliseconds()
 			object["pushed_packets"] = pushedPackets
 		}
-		object["audio_integrity"] = audioIntegrity.summary()
+		integritySummary := audioIntegrity.summary()
+		if hasAudioDiagnostics {
+			ignored := audioIntegrity.ignoredPostEOSPackets + diagnostics.IgnoredPostEOSAudioPackets() - ignoredPostEOSAtStart
+			integritySummary["ignored_post_eos_packets"] = json.Number(strconv.FormatUint(ignored, 10))
+		}
+		object["audio_integrity"] = integritySummary
 		maps.Copy(object, lead.fields())
 		if inputSent {
 			object["input_sent"] = true
@@ -1139,7 +1155,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			evidence["input_ms"] = inputDuration.Milliseconds()
 			evidence["pushed_packets"] = pushedPackets
 		}
-		integrityEvidence := audioIntegrity.summary()
+		integrityEvidence := maps.Clone(integritySummary)
 		delete(integrityEvidence, "sha256")
 		evidence["audio_integrity"] = integrityEvidence
 		evidence["audio_bytes"] = audioBytes
@@ -1359,11 +1375,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			if result.chunk == nil {
 				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream returned an empty chunk")
 			}
-			events++
-			lastEventMS = eventElapsed.Milliseconds()
-			if replyTimer == nil {
-				armIdle()
-			}
 			label := ""
 			actualStreamID := ""
 			if result.chunk.Ctrl != nil {
@@ -1375,6 +1386,14 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				case genx.Text, *genx.Blob:
 					label = "assistant"
 				}
+			}
+			if label == "assistant" && !audioIntegrity.observe(result.chunk) {
+				continue
+			}
+			events++
+			lastEventMS = eventElapsed.Milliseconds()
+			if replyTimer == nil {
+				armIdle()
 			}
 			rearm := result.chunk.Ctrl != nil && result.chunk.Ctrl.ErrorCode == "INPUT_ROUTE_RELOADED"
 			if responseComplete && observeReply && session != nil && (rearm || (label != "assistant" && peerStreamTerminalError(result.chunk) == "")) {
@@ -1403,9 +1422,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream empty turn produced assistant content")
 					}
 				}
-			}
-			if label == "assistant" {
-				audioIntegrity.observe(result.chunk)
 			}
 			if skipEarlierResponses && label == "assistant" && actualStreamID != "" {
 				if !earlierResponses[actualStreamID] && responses[actualStreamID] == nil && result.receivedAt.Before(inputCommitStartedAt) {

@@ -54,7 +54,9 @@ go test -race -count=1 -p 1 ./...
 
 Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerStream reads, including local sender and receiver goroutine scheduling delays. Concurrent compilation, encoding and other tests can deprive a healthy 20ms audio loop of CPU, so the interval alone cannot establish a Provider stall. `underruns` separately replays client consumption with a 500ms prebuffer, distinguishing a packet-gap violation from exhausted playback buffering.
 
-`audio_integrity.violation_reasons` counts missing stream IDs, duplicate starts or ends, starts or payload after an end, and payload or end markers without a start. It checks audio stream boundaries and packet order; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
+`audio_integrity.violation_reasons` counts invalid logical boundaries such as missing stream IDs, duplicate starts or ends, starts after an end, and payload or end markers without a start. EOS and RTP use independent transports. The Go SDK ignores raw tail packets after EOS and before the next audio BOS; Giztest also ignores payload-only audio chunks for a known-ended stream. `audio_integrity.ignored_post_eos_packets` counts packets ignored by the SDK and Giztest during the current operation's observation window. This is normal receiver accounting and does not increase `violations`. Ignored packets do not enter the audio digest, playback, pacing or response count. Unknown streams without BOS, duplicate boundaries and malformed control chunks still fail; existing timing and underrun limits remain in force.
+
+Integrity checks apply to delivered logical audio; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
 
 `audio_pacing.max_interval_started_at` records the UTC start of the largest packet gap, allowing correlation across sessions and Server logs to identify simultaneous stalls.
 

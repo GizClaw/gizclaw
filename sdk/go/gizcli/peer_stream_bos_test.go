@@ -160,7 +160,7 @@ func TestPeerStreamInitialBOSTimeout(t *testing.T) {
 	}
 }
 
-func TestPeerStreamDoesNotReassignPostEOSAudio(t *testing.T) {
+func TestPeerStreamIgnoresPostEOSAudio(t *testing.T) {
 	s := &PeerStream{out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
 	defer s.Close()
 	for _, e := range []*eventpb.PeerEvent{bosEvent("old", "assistant", ""), eosEvent("old", "assistant", "", nil)} {
@@ -176,9 +176,141 @@ func TestPeerStreamDoesNotReassignPostEOSAudio(t *testing.T) {
 	if err := s.pushMergedPacket([]byte{1}); err != nil {
 		t.Fatal(err)
 	}
-	c := <-s.out
-	if c.Ctrl.StreamID != "audio" || len(s.startupAudio) != 0 {
-		t.Fatalf("late packet silently reassigned: %v", c)
+	select {
+	case c := <-s.out:
+		t.Fatalf("post-EOS packet was delivered: %v", c)
+	default:
+	}
+	if s.IgnoredPostEOSAudioPackets() != 1 || len(s.startupAudio) != 0 {
+		t.Fatalf("ignored=%d, buffered=%d", s.IgnoredPostEOSAudioPackets(), len(s.startupAudio))
+	}
+	text, err := peerStreamEventToChunk(textEvent("next", "assistant", "still alive"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pushMergedEvent(text); err != nil {
+		t.Fatal(err)
+	}
+	if c := <-s.out; c != text {
+		t.Fatal("post-EOS audio prevented text delivery")
+	}
+	bos, err := peerStreamEventToChunk(bosEvent("next", "assistant", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pushMergedEvent(bos); err != nil {
+		t.Fatal(err)
+	}
+	<-s.out
+	if err := s.pushMergedPacket([]byte{2}); err != nil {
+		t.Fatal(err)
+	}
+	if c := <-s.out; c.Ctrl.StreamID != "next" || !bytes.Equal(c.Part.(*genx.Blob).Data, []byte{2}) {
+		t.Fatalf("next BOS did not resume audio: %v", c)
+	}
+	if s.IgnoredPostEOSAudioPackets() != 1 {
+		t.Fatal("valid next-turn audio was counted as ignored")
+	}
+}
+
+func TestPeerStreamEOSBeforeInitialBOSDiscardsOrphanAudio(t *testing.T) {
+	s := &PeerStream{out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
+	defer s.Close()
+	if err := s.pushMergedPacket([]byte{1}); err != nil {
+		t.Fatal(err)
+	}
+	eos, err := peerStreamEventToChunk(eosEvent("old", "assistant", "", nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pushMergedEvent(eos); err != nil {
+		t.Fatal(err)
+	}
+	<-s.out
+	for range 128 {
+		if err := s.pushMergedPacket([]byte{2}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(s.out) != 0 || len(s.startupAudio) != 0 || s.startupBytes != 0 || s.IgnoredPostEOSAudioPackets() != 128 {
+		t.Fatalf("ended audio was retained: ignored=%d, queued=%d, buffered=%d", s.IgnoredPostEOSAudioPackets(), len(s.out), len(s.startupAudio))
+	}
+	bos, err := peerStreamEventToChunk(bosEvent("next", "assistant", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pushMergedEvent(bos); err != nil {
+		t.Fatal(err)
+	}
+	if c := <-s.out; !c.IsBeginOfStream() || len(s.out) != 0 {
+		t.Fatal("old startup audio escaped into the next BOS")
+	}
+}
+
+func TestPeerStreamNewBOSDiscardsQueuedPostEOSAudio(t *testing.T) {
+	packets := make(chan []byte, 2)
+	s := &PeerStream{packets: packets, out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
+	defer s.Close()
+	for _, event := range []*eventpb.PeerEvent{bosEvent("old", "assistant", ""), eosEvent("old", "assistant", "", nil)} {
+		chunk, err := peerStreamEventToChunk(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.pushMergedEvent(chunk); err != nil {
+			t.Fatal(err)
+		}
+		<-s.out
+	}
+	packets <- []byte{1}
+	packets <- []byte{2}
+	bos, err := peerStreamEventToChunk(bosEvent("next", "assistant", ""))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.pushMergedEvent(bos); err != nil {
+		t.Fatal(err)
+	}
+	<-s.out
+	if len(packets) != 0 || s.IgnoredPostEOSAudioPackets() != 2 {
+		t.Fatalf("queued tail packets survived the new BOS: queued=%d ignored=%d", len(packets), s.IgnoredPostEOSAudioPackets())
+	}
+	if err := s.pushMergedPacket([]byte{3}); err != nil {
+		t.Fatal(err)
+	}
+	if chunk := <-s.out; chunk.Ctrl.StreamID != "next" || !bytes.Equal(chunk.Part.(*genx.Blob).Data, []byte{3}) {
+		t.Fatalf("fresh audio was not delivered: %v", chunk)
+	}
+}
+
+func TestPeerStreamInputEOSDoesNotEndOutputAudio(t *testing.T) {
+	s := &PeerStream{out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
+	defer s.Close()
+	for _, event := range []*eventpb.PeerEvent{
+		bosEvent("reply", "assistant", ""),
+		eosEvent("input", "user", "", &eventpb.EventError{Code: "INPUT_ROUTE_RELOADED", Retryable: true}),
+	} {
+		chunk, err := peerStreamEventToChunk(event)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := s.pushMergedEvent(chunk); err != nil {
+			t.Fatal(err)
+		}
+		<-s.out
+	}
+	if err := s.pushMergedPacket([]byte{1}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case chunk := <-s.out:
+		if chunk.Ctrl.StreamID != "reply" || chunk.Ctrl.Label != "assistant" {
+			t.Fatalf("input EOS changed output ownership: %v", chunk)
+		}
+	default:
+		t.Fatal("input EOS suppressed active output audio")
+	}
+	if s.IgnoredPostEOSAudioPackets() != 0 {
+		t.Fatal("input EOS caused valid output audio to be ignored")
 	}
 }
 

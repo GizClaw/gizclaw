@@ -6,6 +6,7 @@ import (
 	"io"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -39,9 +40,12 @@ type PeerStream struct {
 	// Only mergeOutput owns startup audio. RTP has no logical stream ID, so
 	// packets after a completed epoch must not be reassigned to a later BOS.
 	audioStarted   bool
+	audioEnded     bool
 	startupExpired bool
 	startupAudio   []*genx.MessageChunk
 	startupBytes   int
+
+	ignoredPostEOSPackets atomic.Uint64
 }
 
 type peerAudioInputReady struct {
@@ -61,6 +65,12 @@ type peerStreamEventResult struct {
 }
 
 var _ genx.Stream = (*PeerStream)(nil)
+
+// IgnoredPostEOSAudioPackets returns the cumulative number of Opus packets
+// discarded after a downlink audio EOS and before the next audio BOS.
+func (s *PeerStream) IgnoredPostEOSAudioPackets() uint64 {
+	return s.ignoredPostEOSPackets.Load()
+}
 
 func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 	if buffer < 1 {
@@ -335,7 +345,7 @@ func (s *PeerStream) mergeOutput() {
 }
 
 func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
-	if peerStreamChunkIsOpusControl(chunk) && chunk.IsEndOfStream() {
+	if peerStreamChunkIsOutputOpusControl(chunk) && (chunk.IsEndOfStream() || s.audioEnded && chunk.IsBeginOfStream()) {
 		if err := s.drainBufferedOpusPackets(); err != nil {
 			return err
 		}
@@ -344,7 +354,7 @@ func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
 	if err := s.pushOutput(chunk); err != nil {
 		return err
 	}
-	if peerStreamChunkIsOpusControl(chunk) && chunk.IsBeginOfStream() {
+	if peerStreamChunkIsOutputOpusControl(chunk) && chunk.IsBeginOfStream() {
 		s.audioStarted = true
 		pending := s.startupAudio
 		s.startupAudio = nil
@@ -376,6 +386,10 @@ func (s *PeerStream) drainBufferedOpusPackets() error {
 }
 
 func (s *PeerStream) pushMergedPacket(payload []byte) error {
+	if s.audioEnded && len(payload) > 0 {
+		s.ignoredPostEOSPackets.Add(1)
+		return nil
+	}
 	chunk, ok := opusPacketChunk(payload)
 	if !ok {
 		return nil
@@ -418,9 +432,10 @@ func (s *PeerStream) pushOutput(chunk *genx.MessageChunk) error {
 }
 
 func (s *PeerStream) observeAudioRouteBeforeOutput(chunk *genx.MessageChunk) {
-	if s == nil || !chunk.IsBeginOfStream() || !peerStreamChunkIsOpusControl(chunk) {
+	if s == nil || !chunk.IsBeginOfStream() || !peerStreamChunkIsOutputOpusControl(chunk) {
 		return
 	}
+	s.audioEnded = false
 	route := genx.StreamCtrl{}
 	if chunk.Ctrl != nil {
 		route.StreamID = chunk.Ctrl.StreamID
@@ -432,12 +447,15 @@ func (s *PeerStream) observeAudioRouteBeforeOutput(chunk *genx.MessageChunk) {
 }
 
 func (s *PeerStream) observeAudioRouteAfterOutput(chunk *genx.MessageChunk) {
-	if s == nil || !chunk.IsEndOfStream() || !peerStreamChunkIsOpusControl(chunk) {
+	if s == nil || !chunk.IsEndOfStream() || !peerStreamChunkIsOutputOpusControl(chunk) {
 		return
 	}
 	s.audioRouteMu.Lock()
 	s.audioRoute = genx.StreamCtrl{}
 	s.audioRouteMu.Unlock()
+	s.audioEnded = true
+	s.startupAudio = nil
+	s.startupBytes = 0
 }
 
 func (s *PeerStream) bindOpusPacketRoute(chunk *genx.MessageChunk) *genx.MessageChunk {
@@ -461,6 +479,11 @@ func (s *PeerStream) bindOpusPacketRoute(chunk *genx.MessageChunk) *genx.Message
 		next.Ctrl.Label = route.Label
 	}
 	return next
+}
+
+func peerStreamChunkIsOutputOpusControl(chunk *genx.MessageChunk) bool {
+	return peerStreamChunkIsOpusControl(chunk) &&
+		(chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != "user")
 }
 
 func peerStreamChunkIsOpusControl(chunk *genx.MessageChunk) bool {

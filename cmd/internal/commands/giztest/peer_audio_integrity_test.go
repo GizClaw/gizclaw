@@ -24,12 +24,11 @@ func TestPeerAudioIntegrityViolationReasons(t *testing.T) {
 		"payload_without_begin": 1,
 		"end_without_begin":     1,
 		"duplicate_begin":       1,
-		"payload_after_end":     1,
 		"duplicate_end":         1,
 		"begin_after_end":       1,
 	}
-	if p.violations != 7 {
-		t.Fatalf("violations = %d, want 7", p.violations)
+	if p.violations != 6 {
+		t.Fatalf("violations = %d, want 6", p.violations)
 	}
 	reasons, ok := p.summary()["violation_reasons"].(map[string]int)
 	if !ok || len(reasons) != len(want) {
@@ -51,7 +50,7 @@ func TestPeerAudioIntegrity(t *testing.T) {
 		{"route EOS", []*genx.MessageChunk{integrityChunk("a", true, false, "a"), {Ctrl: &genx.StreamCtrl{StreamID: "a", EndOfStream: true}}}, 1, 1, 0, 0},
 		{"sequential", []*genx.MessageChunk{integrityChunk("a", true, false, "a"), integrityChunk("a", false, true, ""), integrityChunk("b", true, true, "b")}, 2, 1, 0, 0},
 		{"overlap", []*genx.MessageChunk{integrityChunk("a", true, false, "a"), integrityChunk("b", true, false, "b"), integrityChunk("a", false, true, ""), integrityChunk("b", false, true, "")}, 2, 2, 0, 0},
-		{"late previous turn", []*genx.MessageChunk{integrityChunk("a", true, true, "a"), integrityChunk("b", true, false, "b"), integrityChunk("a", false, false, "late")}, 2, 1, 1, 1},
+		{"late previous turn", []*genx.MessageChunk{integrityChunk("a", true, true, "a"), integrityChunk("b", true, false, "b"), integrityChunk("a", false, false, "late")}, 2, 1, 1, 0},
 		{"duplicate child BOS", []*genx.MessageChunk{integrityChunk("a", true, false, "a"), integrityChunk("a", true, true, "b")}, 2, 1, 0, 1},
 		{"missing BOS", []*genx.MessageChunk{integrityChunk("a", false, false, "a")}, 0, 0, 0, 1},
 		{"missing EOS", []*genx.MessageChunk{integrityChunk("a", true, false, "a")}, 1, 1, 1, 0},
@@ -71,5 +70,24 @@ func TestPeerAudioIntegrity(t *testing.T) {
 	b.observe(integrityChunk("a", true, true, "voice-b"))
 	if a.summary()["sha256"] == b.summary()["sha256"] {
 		t.Fatal("different voice payloads have identical evidence")
+	}
+}
+
+func TestPeerAudioIntegrityIgnoresPostEOSPayload(t *testing.T) {
+	var p, expected peerAudioIntegrity
+	first := integrityChunk("old", true, true, "first")
+	p.observe(first)
+	expected.observe(first)
+	if p.observe(integrityChunk("old", false, false, "late")) {
+		t.Fatal("post-EOS payload was accepted")
+	}
+	next := integrityChunk("next", true, true, "second")
+	p.observe(next)
+	expected.observe(next)
+	if p.violations != 0 || p.ignoredPostEOSPackets != 1 || p.summary()["sha256"] != expected.summary()["sha256"] {
+		t.Fatalf("late payload changed delivered integrity: %v", p.summary())
+	}
+	if !p.observe(integrityChunk("unknown", false, false, "missing BOS")) || p.violations != 1 {
+		t.Fatal("post-EOS policy hid an unknown stream without BOS")
 	}
 }
