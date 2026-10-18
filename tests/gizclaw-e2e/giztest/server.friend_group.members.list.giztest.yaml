@@ -84,6 +84,7 @@ steps:
 # is in the Room.
 - id: primary_rpc
   client: alice
+  retry: {attempts: 10, on: [assertion], delay: 10s}
   rpc:
     method: server.friend_group.members.list
     request: {friend_group_name: "${group_name}"}

@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+suite_mode="full"
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+	echo "Usage: $0 [--functional]"
+	echo "--functional runs all functional suites and excludes screenplay and semantic tester grading."
+	exit 0
+fi
+if [[ "${1:-}" == "--functional" ]]; then
+	suite_mode="functional"
+	shift
+fi
+if (($# > 0)); then
+	echo "Usage: $0 [--functional]" >&2
+	exit 2
+fi
+
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
 setup_dir="$script_dir/setup"
@@ -432,7 +447,17 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 '
 	done
 	local -a files=()
-	while IFS= read -r file; do files+=("$file"); done < <(
+	while IFS= read -r file; do
+		if [[ "$suite_mode" == "functional" ]]; then
+			case "$(basename "$file")" in
+				script-quality.*.giztest.yaml | workspace-relay.workflow-tester.giztest.yaml | workspace-relay.doubao-realtime-workflow-tester.giztest.yaml)
+					echo "==> functional scope: omit semantic grading document $(basename "$file")"
+					continue
+					;;
+			esac
+		fi
+		files+=("$file")
+	done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
 			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort
 	)
@@ -523,6 +548,7 @@ PY
 }
 
 validate_deadlines
+echo "==> e2e suite mode=$suite_mode"
 start_full_watchdog
 
 run_timed "preflight:diagnostic-redaction" python3 -B "$setup_dir/redact_diagnostics_test.py"

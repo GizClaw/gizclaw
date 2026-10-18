@@ -17,7 +17,7 @@ func TestRootHelpUserStory(t *testing.T) {
 
 	result := h.RunCLI("--help")
 	result.MustSucceed(t)
-	for _, want := range []string{"serve", "service", "context", "gen-key", "connect", "admin", "edge", "test"} {
+	for _, want := range []string{"serve", "service", "context", "gen-key", "connect", "admin", "edge", "history-migrate", "kv-migrate", "test"} {
 		if !strings.Contains(result.Stdout, want) {
 			t.Fatalf("root help missing %q:\n%s", want, result.Stdout)
 		}
@@ -26,15 +26,22 @@ func TestRootHelpUserStory(t *testing.T) {
 		t.Fatalf("root help should not include old Play UI command:\n%s", result.Stdout)
 	}
 
-	want := []string{"admin", "connect", "context", "edge", "gen-key", "serve", "service", "test"}
+	want := []string{"admin", "connect", "context", "edge", "gen-key", "history-migrate", "kv-migrate", "serve", "service", "test"}
 	got := productCommands(result.Stdout)
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("product command inventory = %#v, want %#v\nhelp:\n%s", got, want, result.Stdout)
 	}
+	maintenanceOwners := map[string]string{
+		"history-migrate": "cmd/internal/commands/historymigrate/command_test.go",
+		"kv-migrate":      "cmd/internal/commands/kvmigrate/command_test.go",
+	}
 	for _, command := range got {
 		storyPath := filepath.Join(h.RepoRoot, "tests", "gizclaw-e2e", "cmd", command, "USER_STORIES.md")
+		if owner, maintenance := maintenanceOwners[command]; maintenance {
+			storyPath = filepath.Join(h.RepoRoot, owner)
+		}
 		if _, err := os.Stat(storyPath); err != nil {
-			t.Fatalf("top-level command %q has no e2e owner at %s: %v", command, storyPath, err)
+			t.Fatalf("top-level command %q has no test owner at %s: %v", command, storyPath, err)
 		}
 	}
 }

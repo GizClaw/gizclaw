@@ -31,6 +31,7 @@ class StepReport {
   int durationMs = 0;
   String? error;
   Map<String, Object?>? evidence;
+  List<Map<String, Object?>>? attempts;
 
   Map<String, Object?> toJson() => {
     'id': id,
@@ -41,6 +42,7 @@ class StepReport {
     'duration_ms': durationMs,
     if (error != null && error!.isNotEmpty) 'error': error,
     if (evidence != null && evidence!.isNotEmpty) 'evidence': evidence,
+    if (attempts != null) 'attempts': attempts,
   };
 }
 
@@ -110,6 +112,7 @@ Future<_StepOutcome> _runStep(
   Map<String, ScenarioClient> clients,
   Variables variables,
   IOSink out,
+  Duration? budget,
 ) async {
   final client = step.client == null ? null : clients[step.client];
 
@@ -122,7 +125,11 @@ Future<_StepOutcome> _runStep(
       rpc['request'] ?? const <String, Object?>{},
     );
     return _StepOutcome(
-      value: await client.callRpc(rpc['method'] as String, params),
+      value: await client.callRpc(
+        rpc['method'] as String,
+        params,
+        timeout: budget,
+      ),
     );
   }
 
@@ -294,14 +301,122 @@ Map<String, Map<String, Object?>> _resolveExpectations(
   };
 }
 
-class _StepResult {
-  const _StepResult(this.report, this.failure);
+/// One completed attempt, including its report and classified source error.
+class StepResult {
+  const StepResult(this.report, this.failure);
 
   final StepReport report;
   final Object? failure;
 }
 
-Future<_StepResult> _runStepReport(
+Duration? _stepBudget(Step step, Duration? taskBudget) {
+  final declared = step.timeout == null ? null : parseDuration(step.timeout!);
+  if (taskBudget == null) return declared;
+  return declared == null || taskBudget < declared ? taskBudget : declared;
+}
+
+/// Executes the retry policy with one task budget and transactional captures.
+/// [attempt] must complete its RPC before returning, including on timeout.
+Future<StepResult> runStepWithRetry(
+  Step step,
+  Variables variables,
+  Future<StepResult> Function(Duration? remaining) attempt, {
+  Duration? budget,
+  List<String> redactions = const [],
+  String? stage,
+}) async {
+  final retry = step.retry;
+  if (retry == null) return attempt(_stepBudget(step, budget));
+  final elapsed = Stopwatch()..start();
+  Duration? remaining() => budget == null ? null : budget - elapsed.elapsed;
+  final attempts = <Map<String, Object?>>[];
+  StepResult? result;
+  StepResult timedOut() {
+    final failure = TimeoutException('task deadline exceeded during RPC retry');
+    final report =
+        result?.report ??
+        StepReport(
+          id: step.id,
+          operation: step.operation,
+          stage: stage ?? step.operation,
+          client: step.client,
+        );
+    report.status = 'failed';
+    report.error = safeError(failure, redactions);
+    return StepResult(report, failure);
+  }
+
+  for (var number = 1; number <= retry.attempts; number++) {
+    var left = remaining();
+    if (left != null && left <= Duration.zero) {
+      result = timedOut();
+      break;
+    }
+    final snapshot = variables.snapshot();
+    result = await attempt(_stepBudget(step, left));
+    final failure = result.failure;
+    final kind = failure is AssertionFailure
+        ? 'assertion'
+        : failure is TimeoutException
+        ? 'timeout'
+        : failure == null
+        ? ''
+        : 'operation';
+    attempts.add({
+      'attempt': number,
+      'status': result.report.status,
+      'duration_ms': result.report.durationMs,
+      if (kind.isNotEmpty) 'failure_kind': kind,
+      if (result.report.error != null) 'error': result.report.error,
+      if (result.report.evidence != null)
+        'evidence': Map<String, Object?>.of(result.report.evidence!),
+    });
+    if (failure == null) break;
+    variables.restore(snapshot);
+    if (number == retry.attempts || !retry.on.contains(kind)) break;
+    left = remaining();
+    if (left != null && left <= Duration.zero) {
+      result = timedOut();
+      break;
+    }
+    if (retry.delay > Duration.zero) {
+      await Future<void>.delayed(
+        left != null && left < retry.delay ? left : retry.delay,
+      );
+    }
+  }
+  result!.report
+    ..attempts = attempts
+    ..durationMs = elapsed.elapsedMilliseconds;
+  return result;
+}
+
+Future<StepResult> _runStepReport(
+  Step step,
+  Map<String, ScenarioClient> clients,
+  Variables variables,
+  List<String> redactions,
+  String stage,
+  IOSink out, {
+  Duration? budget,
+}) => runStepWithRetry(
+  step,
+  variables,
+  (remaining) => _runStepAttempt(
+    step,
+    clients,
+    variables,
+    redactions,
+    stage,
+    out,
+    budget: remaining,
+  ),
+  budget: budget,
+  redactions: redactions,
+  stage: stage,
+);
+
+Future<StepResult> _runStepAttempt(
   Step step,
   Map<String, ScenarioClient> clients,
   Variables variables,
@@ -319,12 +434,15 @@ Future<_StepResult> _runStepReport(
   );
   Object? failure;
   var outcome = const _StepOutcome();
-  final stepTimeout = step.timeout == null
-      ? budget
-      : parseDuration(step.timeout!);
+  final stepTimeout = _stepBudget(step, budget);
   try {
-    final future = _runStep(step, clients, variables, out);
-    outcome = stepTimeout == null
+    if (stepTimeout != null && stepTimeout <= Duration.zero) {
+      throw TimeoutException('task deadline exceeded before step');
+    }
+    final future = _runStep(step, clients, variables, out, stepTimeout);
+    // Unary RPC owns its channel timeout; waiting for it prevents an outer
+    // Future.timeout from leaving a request active beside the next attempt.
+    outcome = stepTimeout == null || step.rpc != null
         ? await future
         : await future.timeout(stepTimeout);
   } catch (error) {
@@ -391,7 +509,7 @@ Future<_StepResult> _runStepReport(
       (failure == null && outcome.value != null
           ? const {'result': 'captured'}
           : null);
-  return _StepResult(report, failure);
+  return StepResult(report, failure);
 }
 
 Future<TaskReport> _runTask(

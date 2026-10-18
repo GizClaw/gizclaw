@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -104,13 +105,13 @@ func TestSharedAssignmentRoutesAcrossBothEdges(t *testing.T) {
 		t.Fatalf("close Peer C fixed-owner client: %v", err)
 	}
 
-	sharedBeforeForeign := sharedSnapshot(t, shared)
+	sharedBeforeForeign := durableSharedSnapshot(t, shared)
 	serverARunsBeforeForeign := sqlTableSnapshot(t, stateA, "peer_runs")
 	serverBRunsBeforeForeign := sqlTableSnapshot(t, stateB, "peer_runs")
 	connectMustFail(t, peerA, serverB, serverB.PublicKey, "peer A admitted by foreign Server B")
 	connectMustFail(t, peerB, serverA, serverA.PublicKey, "peer B admitted by foreign Server A")
 	connectMustFail(t, peerC, serverA, serverA.PublicKey, "Peer C admitted by foreign Server A")
-	assertSnapshotEqual(t, "shared TiKV after foreign admission", sharedBeforeForeign, sharedSnapshot(t, shared))
+	assertSnapshotEqual(t, "durable shared TiKV after foreign admission", sharedBeforeForeign, durableSharedSnapshot(t, shared))
 	assertSnapshotEqual(t, "Server A PeerRun after foreign admission", serverARunsBeforeForeign, sqlTableSnapshot(t, stateA, "peer_runs"))
 	assertSnapshotEqual(t, "Server B PeerRun after foreign admission", serverBRunsBeforeForeign, sqlTableSnapshot(t, stateB, "peer_runs"))
 
@@ -141,7 +142,7 @@ func TestSharedAssignmentRoutesAcrossBothEdges(t *testing.T) {
 			}
 		})
 	}
-	assertSnapshotEqual(t, "shared TiKV after local-only telemetry", sharedBeforeForeign, sharedSnapshot(t, shared))
+	assertSnapshotEqual(t, "durable shared TiKV after local-only telemetry", sharedBeforeForeign, durableSharedSnapshot(t, shared))
 
 	// A failed foreign admission must not transfer ownership. Reconnect through
 	// the Edge whose bootstrap order starts with the foreign Server.
@@ -365,6 +366,61 @@ func openSharedTiKV(t *testing.T) *tikv.KVStore {
 		t.Fatal(err)
 	}
 	return client
+}
+
+// The fixture uses the default KV encoding and the peers Store prefix.
+// Presence records change on legitimate connections and lease renewal; they
+// are display state rather than assignment or business-state ownership.
+const sharedPresenceLogicalPrefix = "peers:presence:"
+const sharedPresenceRecordPrefix = "gizclaw-kv\x00\x01\x01" + sharedPresenceLogicalPrefix
+const sharedExpiryIndexPrefix = "gizclaw-kv\x00\x01\x03"
+
+func durableSharedSnapshot(t *testing.T, client *tikv.KVStore) byteSnapshot {
+	t.Helper()
+	return withoutRuntimePresence(sharedSnapshot(t, client))
+}
+
+func withoutRuntimePresence(snapshot byteSnapshot) byteSnapshot {
+	result := maps.Clone(snapshot)
+	for key := range result {
+		presence := strings.HasPrefix(key, sharedPresenceRecordPrefix)
+		if strings.HasPrefix(key, sharedExpiryIndexPrefix) && len(key) >= len(sharedExpiryIndexPrefix)+8 {
+			// The physical TTL index stores an eight-byte deadline before the logical key.
+			presence = presence || strings.HasPrefix(key[len(sharedExpiryIndexPrefix)+8:], sharedPresenceLogicalPrefix)
+		}
+		if presence {
+			delete(result, key)
+		}
+	}
+	return result
+}
+
+func TestDurableSharedSnapshotRetainsOwnershipAndBusinessState(t *testing.T) {
+	const recordPrefix = "gizclaw-kv\x00\x01\x01"
+	before := byteSnapshot{
+		sharedPresenceRecordPrefix + "peers:public-key":  []byte("snapshot"),
+		sharedPresenceRecordPrefix + "owners:public-key": []byte("token"),
+		sharedPresenceRecordPrefix + "servers:server-a":  []byte("lease"),
+		recordPrefix + "peers:records:public-key":        []byte("peer"),
+		recordPrefix + "peers:assignments:public-key":    []byte("assignment"),
+		recordPrefix + "api-keys:index:key":              []byte("api-key"),
+		recordPrefix + "friends:records:relation":        []byte("relation"),
+		recordPrefix + "other:peers:presence:record":     []byte("unrelated"),
+	}
+	got := withoutRuntimePresence(before)
+	want := byteSnapshot{
+		recordPrefix + "peers:records:public-key":     []byte("peer"),
+		recordPrefix + "peers:assignments:public-key": []byte("assignment"),
+		recordPrefix + "api-keys:index:key":           []byte("api-key"),
+		recordPrefix + "friends:records:relation":     []byte("relation"),
+		recordPrefix + "other:peers:presence:record":  []byte("unrelated"),
+	}
+	if !maps.EqualFunc(got, want, bytes.Equal) {
+		t.Fatalf("durable snapshot changed ownership or business records")
+	}
+	if len(before) != 8 {
+		t.Fatal("filter mutated the source snapshot")
+	}
 }
 
 // The fixture owns the entire TxnKV keyspace. A raw, fresh snapshot verifies
@@ -724,4 +780,30 @@ func sqlDatabaseSnapshot(t *testing.T, path string) byteSnapshot {
 		snapshot[name] = data
 	}
 	return snapshot
+}
+
+func TestDurableSharedSnapshotIgnoresOnlyPresenceExpiry(t *testing.T) {
+	expiryKey := func(deadline uint64, logical string) string {
+		return string(append(binary.BigEndian.AppendUint64([]byte(sharedExpiryIndexPrefix), deadline), logical...))
+	}
+	durable := byteSnapshot{
+		"gizclaw-kv\x00\x01\x01peers:records:peer":        []byte("same"),
+		expiryKey(3, "friends:records:relation"):          []byte("business expiry"),
+		sharedExpiryIndexPrefix + "short":                 []byte("unknown"),
+		"other:" + sharedPresenceLogicalPrefix + "record": []byte("unrelated"),
+	}
+	before, after := maps.Clone(durable), maps.Clone(durable)
+	for _, server := range []string{"a", "b"} {
+		logical := sharedPresenceLogicalPrefix + "servers:" + server
+		before[expiryKey(1, logical)] = []byte{1}
+		after[expiryKey(2, logical)] = []byte{1}
+	}
+	for _, snapshot := range []byteSnapshot{before, after} {
+		if got := withoutRuntimePresence(snapshot); !maps.EqualFunc(got, durable, bytes.Equal) {
+			t.Fatalf("lease index filtering changed durable state: %v", got)
+		}
+		if len(snapshot) != len(durable)+2 {
+			t.Fatal("filter mutated the source snapshot")
+		}
+	}
 }

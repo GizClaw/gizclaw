@@ -118,6 +118,19 @@ class ClientSpec {
   final Map<String, Object?>? admissionCredential;
 }
 
+/// The unary RPC subset of the Go runner's bounded retry policy.
+class RetrySpec {
+  const RetrySpec({
+    required this.attempts,
+    this.on = const ['timeout'],
+    this.delay = Duration.zero,
+  });
+
+  final int attempts;
+  final List<String> on;
+  final Duration delay;
+}
+
 class Step {
   const Step({
     required this.id,
@@ -128,6 +141,7 @@ class Step {
     this.capture = const {},
     this.expect = const {},
     this.expectError,
+    this.retry,
   });
 
   final String id;
@@ -138,6 +152,7 @@ class Step {
   final Map<String, String> capture;
   final Map<String, Map<String, Object?>> expect;
   final Map<String, Object?>? expectError;
+  final RetrySpec? retry;
 
   Map<String, Object?>? get rpc => raw['rpc'] as Map<String, Object?>?;
   Map<String, Object?>? get clientRpc =>
@@ -239,6 +254,51 @@ List<String> collectReferences(Step step) {
 Never _fail(String path, String message) =>
     throw DocumentException(path, message);
 
+RetrySpec? _readRetry(String path, String id, Object? value) {
+  if (value == null) return null;
+  if (value is! Map<String, Object?> ||
+      value.keys.any((key) => !{'attempts', 'on', 'delay'}.contains(key))) {
+    _fail(path, 'step $id retry must be a policy object');
+  }
+  final attempts = value['attempts'];
+  if (attempts is! int || attempts < 2 || attempts > 10) {
+    _fail(path, 'step $id retry attempts must be between 2 and 10');
+  }
+  final kinds = value['on'];
+  var on = const ['timeout'];
+  if (kinds != null) {
+    if (kinds is! List<Object?> ||
+        kinds.isEmpty ||
+        kinds.any((kind) => kind != 'timeout' && kind != 'assertion') ||
+        kinds.toSet().length != kinds.length) {
+      _fail(
+        path,
+        'step $id retry on must contain unique timeout/assertion kinds',
+      );
+    }
+    on = List<String>.unmodifiable(kinds.cast<String>());
+  }
+  var delay = Duration.zero;
+  final rawDelay = value['delay'];
+  if (rawDelay != null && rawDelay != '') {
+    if (rawDelay is! String) {
+      _fail(path, 'step $id retry delay must be a duration string');
+    }
+    try {
+      delay = parseDuration(rawDelay);
+    } on FormatException {
+      _fail(path, 'step $id retry delay is invalid');
+    }
+    if (delay <= Duration.zero || delay > const Duration(minutes: 5)) {
+      _fail(
+        path,
+        'step $id retry delay must be positive and at most five minutes',
+      );
+    }
+  }
+  return RetrySpec(attempts: attempts, on: on, delay: delay);
+}
+
 /// Enforces the four-line user story header the Go runner requires before any
 /// YAML content.
 void validateUserStory(String path, String text) {
@@ -290,6 +350,7 @@ Step _readStep(String path, Map<String, Object?> raw, int index, bool isFinal) {
     expectError: raw['expect_error'] as Map<String, Object?>?,
     id: id,
     raw: raw,
+    retry: _readRetry(path, id, raw['retry']),
     saveAs: raw['save_as'] as String?,
     timeout: raw['timeout'] as String?,
   );
@@ -360,6 +421,9 @@ void _validateStep(
   }
   if (step.timeout != null && parseDuration(step.timeout!) <= Duration.zero) {
     _fail(path, 'step ${step.id} timeout must be positive');
+  }
+  if (step.retry != null && operation != 'rpc') {
+    _fail(path, 'step ${step.id} operation $operation does not support retry');
   }
   final clientRpc = step.clientRpc;
   if (clientRpc != null) {
@@ -461,6 +525,9 @@ void validateDocument(GiztestDocument document) {
     );
   }
   for (final step in document.finalizers) {
+    if (step.retry != null) {
+      _fail(path, 'step ${step.id} retry is not allowed in finally');
+    }
     if (step.clientRpc != null) {
       _fail(path, 'finally step ${step.id} cannot install a client RPC');
     }

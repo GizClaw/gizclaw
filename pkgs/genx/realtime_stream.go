@@ -240,7 +240,7 @@ func (s *RealtimeStream) chunkTimestampLocked(chunk *MessageChunk) int64 {
 	if s.lastEmitted >= 0 && ts <= s.lastEmitted {
 		ts = s.lastEmitted + 1
 	}
-	if chunk != nil && chunk.IsEndOfStream() && s.maxSeen >= 0 && ts <= s.maxSeen {
+	if s.maxSeen >= 0 && ts <= s.maxSeen {
 		ts = s.maxSeen + 1
 	}
 	if chunk != nil {
@@ -273,11 +273,33 @@ func (s *RealtimeStream) dropSupersededStreamLocked(next *MessageChunk) {
 	if nextID == "" || s.heap.Len() == 0 {
 		return
 	}
+	closedControlRoutes := make(map[string]struct{})
+	for _, item := range s.heap {
+		if item.chunk.Part == nil && item.chunk.IsEndOfStream() &&
+			(next.Ctrl.Timestamp <= 0 || item.timestamp <= next.Ctrl.Timestamp) {
+			id, _ := realtimeChunkRoute(item.chunk)
+			closedControlRoutes[id] = struct{}{}
+		}
+	}
 	items := s.heap[:0]
 	for _, item := range s.heap {
 		id, label := realtimeChunkRoute(item.chunk)
+		_, closedControlRoute := closedControlRoutes[id]
+		// A reader may have prefetched BOS while EOS still waits in this heap.
+		// Retain its ordered control EOS and any queued MIME BOS, so eviction
+		// cannot orphan either side of an already closed input turn.
+		keepBoundary := closedControlRoute && (item.chunk.IsBeginOfStream() || (item.chunk.Part == nil && item.chunk.IsEndOfStream()))
 		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) {
-			continue
+			if !keepBoundary {
+				continue
+			}
+			if blob, ok := item.chunk.Part.(*Blob); ok && blob != nil && len(blob.Data) > 0 {
+				// A MIME BOS may also carry data. Keep its declaration without
+				// replaying obsolete audio or mutating the producer's chunk.
+				boundary := *item.chunk
+				boundary.Part = &Blob{MIMEType: blob.MIMEType}
+				item.chunk = &boundary
+			}
 		}
 		items = append(items, item)
 	}

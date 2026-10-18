@@ -965,7 +965,7 @@ func genXModelContext(input []*schema.Message, options ...model.Option) (genx.Mo
 		builder.Params.MaxTokens = *common.MaxTokens
 	}
 	if common.Temperature != nil {
-		builder.Params.Temperature = *common.Temperature
+		builder.Params.SetTemperature(*common.Temperature)
 	}
 	if common.TopP != nil {
 		builder.Params.TopP = *common.TopP

@@ -340,6 +340,8 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 主 `run_tests.sh` 在标准 SDK 场景和该 stack 清理完成后，也运行这个双 Server gate。标准 `docker-compose.yaml` 与 multi-server stack 的 Peer、assignment、API key、Friend 和 FriendGroup 使用同一 TiKV connector；业务 SQL 仍由各 Server 独立持有。PD、TiKV、LiveKit 等外部服务镜像全部从 `gizcr.gizclaw.com` 拉取并固定 digest；Server、Edge、fixture 与 runner 从本地源码构建，构建基础镜像同样来自 gizcr。TiKV 数据使用项目独立的临时内存文件系统，结束时随该 project 清理。标准 Docker 镜像在构建时预编译 CLI 和 fixture apply 辅助程序，Server、Edge 与初始化流程直接使用这些构建产物。
 
+通用的 `server.friend.list`、`server.friend_group.members.list` 与 `server.friend_groups.http` 场景也等待共享 presence 进入历史视图。首次 RPC 状态断言最多十次、间隔十秒，只重试 assertion。HTTP 场景先经对应的成员列表 RPC 等待状态可见，再执行原有 HTTP 状态与权限断言；HTTP step 不设置重试策略。 原生 foreign-admission 与 telemetry 检查比较 assignment 和业务记录，仅排除会随合法连接及租约续期变化的 runtime-presence record 及其对应的 TiKV expiry-index 项；assignment 和业务记录的 expiry 项、格式异常的索引 key 与其他 namespace 仍参与严格比较；SQL PeerRun 隔离与固定归属路由断言保持严格。
+
 Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各配置 1 GiB tmpfs，隔离本机 Docker 存储 I/O 停顿；通过 `tikv-pd.toml` 将 [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) 设为 15 秒。`tikv-test.toml` 将预留空间设为 64 MiB、Raft 预留空间设为 32 MiB、block cache 设为 128 MiB，TiKV 容器各有 4 GiB 内存上限，匹配小型夹具容量。仍运行真实 RocksDB、Raft 和 Learner 数据复制。数据只在本次测试内有效；该夹具不验收 SSD 性能或 TiKV/PD 重启持久性。
 
 `TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
@@ -565,6 +567,27 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
+Eino concurrency 的 reload-initiative 功能探针使用只需一个数字回答的短算术输入，在原有 30 秒 step 预算内检查 route rearm、下一轮完整响应、终态错误与 History。它不评判答案语义，不改变生产 Prompt 或测试断言。
+
+功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh --functional`，执行相同的 JavaScript、
+Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest 与多 Server 套件。
+它仅排除五个 `script-quality.*` 文档，以及两个依赖模型语义裁决的
+`workspace-relay.workflow-tester`、`workspace-relay.doubao-realtime-workflow-tester` 文档。
+剧本评分与模型给出的语义裁决不属于功能验收；音频 packet 完整性、发送节奏、轮次完成、
+状态、权限和超时断言仍是功能门禁。默认命令保留原有完整文档集合，`--help` 说明两种模式。
+
+JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
+客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
+等待确认，随后关闭父 Peer connection 并退出。写完响应 EOS 本身不代表远端已收到
+所有排队帧；缺少确认、无效确认和等待超时均失败。
+
+Flutter runner 支持 unary RPC 的 `retry`：2–10 次尝试，`on` 可选择
+`timeout`、`assertion`，省略时仅重试 timeout；正的 delay 最长五分钟。
+HTTP、其他 operation 和 `finally` 不接受此策略。失败尝试回滚其变量捕获，成功尝试
+保留捕获；报告记录每次尝试的状态、耗时、失败分类与脱敏错误。所有尝试和 delay
+共享原有任务 deadline，单次 RPC 使用剩余任务预算、显式 step timeout 与现有
+30 秒 RPC 上限中的最短值，由 SDK 结束超时请求后再进行下一次尝试。
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
@@ -771,12 +794,12 @@ Server apply 可能静默忽略 Schema 未声明的字段，因此 reset 成功�
 
 ### Suite ownership
 
-- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。
+- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。 History 分页场景等待每轮 echo 的 Agent 输出，跨三页验证三轮共六条 Gear 输入／Agent 输出记录，包括 replay 可用性、纯文本无音频、稳定 ID 与详情查询。
 - `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social 和 Workflow 行为。
-- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
+- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。 根 help 校验完整的产品命令清单。`history-migrate` 与 `kv-migrate` 分别由已有的 `cmd/internal/commands/historymigrate/command_test.go` 与 `cmd/internal/commands/kvmigrate/command_test.go` 拥有验证；其他命令组沿用各自的 E2E story owner。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 - `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
 

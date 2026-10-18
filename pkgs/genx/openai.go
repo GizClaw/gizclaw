@@ -261,7 +261,7 @@ func (g *OpenAIGenerator) chatCompletion(mctx ModelContext, mp *ModelParams) (op
 		if mp.N > 0 {
 			params.N = param.NewOpt(int64(mp.N))
 		}
-		if mp.Temperature > 0 {
+		if mp.HasTemperature() {
 			params.Temperature = param.NewOpt(float64(mp.Temperature))
 		}
 		if mp.TopP > 0 {
@@ -313,8 +313,8 @@ func mergeModelParams(base, override *ModelParams) *ModelParams {
 	if override.N > 0 {
 		out.N = override.N
 	}
-	if override.Temperature > 0 {
-		out.Temperature = override.Temperature
+	if override.HasTemperature() {
+		out.SetTemperature(override.Temperature)
 	}
 	if override.TopP > 0 {
 		out.TopP = override.TopP

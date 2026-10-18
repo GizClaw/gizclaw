@@ -93,6 +93,15 @@ type Stream interface {
 | `EndOfStream` | The current chunk is an end boundary. A chunk with a Part ends that MIME channel; a control-only chunk ends the whole StreamID route. It can also carry final data or Error. |
 | `Timestamp` | The millisecond timestamp of the Chunk for `RealtimeStream` sorting and delayed processing; when the value is zero, `RealtimeStream` will supplement the monotonically increasing value based on the current time. |
 
+`RealtimeStream` assigns zero timestamps after both delivered and pending timestamps,
+preserving arrival order. When a new BOS evicts pending audio from an older route
+with the same usage, an already-queued control EOS and any queued MIME BOS for
+that closed route remain, including when its begin was already prefetched.
+A slow consumer can finish that turn before beginning the next;
+old audio boundaries explicitly later than the new BOS are still evicted.
+Retained MIME BOS chunks declare the channel only: any superseded audio payload
+is discarded without mutating the producer's chunk or the new route's audio.
+
 `StreamCtrl.MessageID` identifies one generated message within a continuous playback route; its text and corresponding audio share the ID. `MessageEnd` completes that message’s current MIME channel without changing StreamID or emitting playback EOS. Recorders save one History entry after all observed MIME channels of that message complete. Both fields survive `Clone` and are process-local composition and recording metadata, excluded from JSON and Peer wire formats.
 
 `StreamCtrl.ErrorCause` preserves the typed terminal cause only within this process, including across `MessageChunk.Clone`; JSON and Peer wire formats exclude it. Domain owners can implement `PublicError` to supply stable, sanitized code/message/retryable details. `SetStreamError` records the cause and these details; `StreamError` returns the retained cause, or an ordinary error for untyped wire text. Composition layers preserve causes through terminal routes without interpreting domain codes or parsing error strings.

@@ -338,6 +338,8 @@ It runs TiKV 8.5.6 (PD, a central voter and a full regional Learner), two Server
 
 The main `run_tests.sh` also runs this two-Server gate after the standard SDK scenarios and their stack cleanup. Both `docker-compose.yaml` and the multi-server stack bind Peers, assignments, API keys, Friends and FriendGroups to TiKV; each Server retains its own business SQL database. External services including PD, TiKV and LiveKit use images from `gizcr.gizclaw.com` with pinned digests. Server, Edge, fixture and runner images are built from local sources, with build bases also from gizcr. TiKV data uses project-scoped temporary memory filesystems removed with that project. Standard Docker images precompile the CLI and fixture apply helper during image construction. Server, Edge and initialization use those binaries directly.
 
+The common `server.friend.list`, `server.friend_group.members.list`, and `server.friend_groups.http` documents also wait for shared presence to enter the historical view. The first RPC presence check allows ten assertion-only attempts spaced ten seconds apart. The HTTP document waits through the corresponding member-list RPC before executing its original HTTP presence and permission assertions; HTTP steps have no retry policy. The native foreign-admission and telemetry checks compare durable assignment and business records while excluding runtime-presence records and only their matching TiKV expiry-index entries, which change on legitimate connections and lease renewal. Expiry entries for assignment and business records, malformed index keys and unrelated namespaces remain in the strict comparison. SQL PeerRun isolation and fixed-home routing assertions remain strict.
+
 The Docker fixture gives PD metadata a 256 MiB tmpfs and each central/regional TiKV a 1 GiB tmpfs to isolate local Docker storage I/O stalls. It sets the [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) to 15 seconds in `tikv-pd.toml`. `tikv-test.toml` sets reserved space to 64 MiB, reserved Raft space to 32 MiB, and block cache to 128 MiB, with a 4 GiB memory limit per TiKV container, to match the small fixture. RocksDB, Raft and Learner replication run normally. Data lasts only for this test; the fixture does not validate SSD performance or TiKV/PD restart durability.
 
 `TestTiKVLearnerLagThroughBothEdges` uses the public Go SDK with real WebRTC and HTTP under replica lag. It seeds active Peers and credentials into a 60-second historical snapshot, then blocks center-to-Learner Raft streams while preserving regional reads. During the freeze, first claims through both Edges and cross-Edge reconnects must preserve the correct home. After SDK key revocation, HTTP through both Edges must immediately return 401. After SDK deletion of a Peer on each home, the test waits for the correct Server to remove its Workspace and owner binding, then requires both Edges to reject reconnects and old keys. The diagnostic client pins control reads to the Learner confirmed by PD; those reads must retain the old active Peers and key index and miss the new assignments. The test explicitly marks diagnostic requests, preserving their historical timestamp and Learner destination even when an SDK retry clears its stale-read flag. Application Server clients retain normal SDK routing. Label preferences permit SDK fallback from slow stores; the pinned route is only for test evidence. This proves the assertions run during replication lag; the gate does not measure WAN throughput or central-majority recovery.
@@ -533,6 +535,35 @@ exception described below: its Go test names are the supported selectors.
 `tests/gizclaw-e2e` is the Docker-backed full GizClaw environment. Its Go tests
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
+
+The Eino concurrency reload-initiative probe synthesizes a closed one-digit arithmetic request. It checks route rearm, the next complete response, terminal errors and history within the original thirty-second step budget; answer semantics are not graded. This bounds the test stimulus without changing production prompts or assertions.
+
+The functional gate is `bash tests/gizclaw-e2e/run_tests.sh --functional`. It
+runs the same JavaScript, Flutter, C/cgo, Go Admin/OpenAI, CLI, Terraform,
+standard Giztest and multi-server suites. It excludes only the five
+`script-quality.*` documents and the two semantic-verdict documents
+`workspace-relay.workflow-tester` and `workspace-relay.doubao-realtime-workflow-tester`.
+Their screenplay scores and model-generated verdicts are outside functional
+acceptance. Audio packet integrity, pacing, turn completion, state, authorization
+and timeout assertions remain functional gates. The default invocation retains
+the complete existing document set; `--help` describes the two modes.
+
+The JavaScript History audio interoperability probe receives a client receipt
+over its private stdin control channel. The client verifies all metadata and
+binary payload bytes before acknowledging. The probe waits within its existing
+thirty-second budget before closing the parent Peer connection and exiting.
+Writing response EOS alone does not establish remote delivery of queued frames;
+missing or invalid receipts and expired waits fail the test.
+
+The Flutter runner supports unary RPC `retry`: two through ten attempts, with
+`on` selecting `timeout` or `assertion` and defaulting to timeout alone. A positive
+delay may be at most five minutes. HTTP, other operations and `finally` reject
+this policy. Failed attempts roll back captured variables; successful captures
+remain available. Reports include every attempt's status, duration, classified
+failure and redacted error. Attempts and delays share the existing task deadline.
+Each RPC uses the shortest remaining task budget, explicit step timeout and
+existing thirty-second RPC limit, letting the SDK terminate a timed-out request
+before starting another attempt.
 
 ```text
 tests/gizclaw-e2e/
@@ -781,12 +812,12 @@ values for `${...}` references.
 
 ### Suite ownership
 
-- `go/admin` validates typed contracts with the generated Admin HTTP client.
+- `go/admin` validates typed contracts with the generated Admin HTTP client. Its History pagination case waits for the Agent output of each echo turn and verifies all six Gear-input/Agent-output entries across three pages, including replay availability, absent text-only audio, stable IDs, and detail lookup.
 - `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, and Workflow behavior.
-- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
+- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients. Root help checks the complete product-command inventory. The maintenance commands `history-migrate` and `kv-migrate` route to their existing `cmd/internal/commands/historymigrate/command_test.go` and `cmd/internal/commands/kvmigrate/command_test.go` owners; other command groups retain their E2E story owners.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 - `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.
 

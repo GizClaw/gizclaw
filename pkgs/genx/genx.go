@@ -32,6 +32,7 @@ type Stream interface {
 	CloseWithError(error) error
 }
 
+// ModelParams contains provider-neutral model generation options.
 type ModelParams struct {
 	MaxTokens        int             `json:"max_tokens,omitzero"`
 	FrequencyPenalty float32         `json:"frequency_penalty,omitzero"`
@@ -42,6 +43,8 @@ type ModelParams struct {
 	TopK             float32         `json:"top_k,omitzero"`
 	Thinking         *ThinkingParams `json:"thinking,omitzero"`
 	ExtraFields      map[string]any  `json:"extra_fields,omitzero"`
+
+	temperatureSet bool
 }
 
 // ThinkingParams contains provider-neutral thinking controls for one model

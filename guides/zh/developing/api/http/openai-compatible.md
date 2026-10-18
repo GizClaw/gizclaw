@@ -28,6 +28,8 @@ GizClaw 通过当前兼容的 `github.com/idy/ai-server-shell` module 暴露有�
 
 Responses 只接受一个非空文本 user turn。音频兼容路径由 Audio Transcriptions、文本 Response 和 Audio Speech 组合；不支持 raw Responses audio、图片、文件、tool、provider policy override、beta route、未知 query key 与 list-Conversations。Workspace/Conversation 枚举仍使用 `server.workspace.list`。
 
+Chat Completions 保留调用方显式配置的 `temperature`，包括 `0`；省略温度时沿用模型的默认设置。
+
 不支持的 option 会在 mutation 前显式拒绝，不会被静默宣称已执行。Chat 额外消费 GizClaw 的 `thinking.enabled` 与 `thinking.level` option。Speech streaming 使用官方 `stream_format: "sse"`；原有非标准 `stream` alias 由 schema validation 拒绝。
 
 JSON、binary 与 ordered SSE response 均由 Shell 拥有并 framing。GenX stream 会在完成、失败、取消或 downstream disconnect 时关闭。系统不注册 Realtime 或 Responses WebSocket backend。
