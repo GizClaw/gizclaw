@@ -536,6 +536,16 @@ exception described below: its Go test names are the supported selectors.
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
 
+The functional gate is `bash tests/gizclaw-e2e/run_tests.sh --functional`. It
+runs the same JavaScript, Flutter, C/cgo, Go Admin/OpenAI, CLI, Terraform,
+standard Giztest and multi-server suites. It excludes only the five
+`script-quality.*` documents and the two semantic-verdict documents
+`workspace-relay.workflow-tester` and `workspace-relay.doubao-realtime-workflow-tester`.
+Their screenplay scores and model-generated verdicts are outside functional
+acceptance. Audio packet integrity, pacing, turn completion, state, authorization
+and timeout assertions remain functional gates. The default invocation retains
+the complete existing document set; `--help` describes the two modes.
+
 The JavaScript History audio interoperability probe receives a client receipt
 over its private stdin control channel. The client verifies all metadata and
 binary payload bytes before acknowledging. The probe waits within its existing
@@ -552,17 +562,6 @@ failure and redacted error. Attempts and delays share the existing task deadline
 Each RPC uses the shortest remaining task budget, explicit step timeout and
 existing thirty-second RPC limit, letting the SDK terminate a timed-out request
 before starting another attempt.
-
-Mystery rules recognize investigation of both `沈知秋房间` and `沈知秋的房间`,
-acquiring the same two motive clues. Solving still requires every independent
-evidence condition and an explicit correct accusation.
-
-Journey narration
-distinguishes chapter entry from a response to an in-chapter action and includes
-the previous setting in transition context. Entry does not choose for the player;
-action responses resolve consequences, and transitions first settle outstanding
-small events. This context adds no persistent conversation records and preserves
-chapter order, continuation commands and the final review boundary.
 
 ```text
 tests/gizclaw-e2e/
@@ -616,9 +615,7 @@ The final publisher rejects model declarations of phases, tallies, victory or
 private identities. Character history projects NPC dialogue and the player's
 public daytime statements, excluding private hints and night actions. Death records distinguish attacks,
 poison, exile and hunter shots. The final identity table is rendered directly by
-the referee and stays outside long-term Memory. Explicit Werewolf recipients, including vocatives such as “seat 8 Suhe, you…”, take priority over characters mentioned as background. A question addressed to one character gets that character alone; the existing maximum of two concurrent character calls is unchanged.
-
-Werewolf renders the referee
+the referee and stays outside long-term Memory. Werewolf renders the referee
 announcement in its rules node. Native Eino Batch calls at most two
 relevant characters in parallel with separate identities, wolf teammate
 knowledge, public dialogue and each character's last position. They do not share
@@ -645,25 +642,11 @@ Candidate prompts separate history from the current input, repeat authoritative
 State beside that input. Werewolf characters use temperature 0.3; other candidates
 use 0.2. Journey advances only through a complete affirmative continuation command;
 questions and negations leave the chapter unchanged. Ensemble stories also require
-an explicit current-chapter agreement, renewed after an objection, before advancing.
-A separate clause asking for character reactions preserves a confirmed choice;
-a question in the choice clause, an unaddressed follow-up question such as “is
-that allowed?”, or an explicit objection cannot confirm one. Werewolf
+an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
-skills. Post-game pronoun follow-ups retain the last visible responder unless a
-new recipient is named. Review actors receive all settled public ballots; rule
-help lists supported review questions without restarting the game. The referee
-states the unique-highest-vote rule and permits eliminated roles to review.
-NPCs discuss already-executed game facts in character, without treating game
-dialogue as a request to operate external Tools.
-The quality player tracks its 20 utterances in native State, advances the
+skills. The quality player tracks its 20 utterances in native State, advances the
 main objective, asks distinct review questions and then says farewell. It does
 not invent completion when the objective remains unfinished.
-
-Mystery rules accept offered actions such as inspecting the back corridor and
-derive remaining supported investigation locations from missing evidence. Hints
-do not disclose undiscovered clues. The method, timing, route and both motive
-clues must still be complete before an explicit correct accusation solves the case.
 
 `eino_catalog_test.go` compiles actual Resource and Workspace configurations,
 executes their native pipelines, and checks illegal actions, private projections,
@@ -743,12 +726,9 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 The full gate installs locked Node workspaces, initializes nanopb, builds the
 E2E CLI, starts Compose, waits for Server and Edge, runs JS, C/cgo, Go
 Admin/OpenAI, CLI, Terraform provider, and Giztest phases in order, and performs one bounded
-cleanup. The total deadline defaults to 6 hours. Per-phase defaults
+cleanup. The total deadline defaults to 90 minutes. Per-phase defaults
 are 15 minutes, with 30 minutes for Docker setup and CLI, 45 minutes for live
-chat, and 5 minutes for cleanup. The five sequential text-quality cases have a
-separate 4-hour phase budget for their original document limits and stack setup;
-individual test timeouts and assertions remain unchanged. Positive integer seconds
-may be supplied in:
+chat, and 5 minutes for cleanup. Positive integer seconds may be supplied in:
 
 - `GIZCLAW_E2E_FULL_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`
@@ -756,7 +736,6 @@ may be supplied in:
 - `GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
-- `GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 C/cgo preflight forces both bridges that directly include repository C SDK sources to rebuild, preventing Go's cgo cache from reusing modified C files outside the package directory.
@@ -2290,13 +2269,6 @@ boundaries, responsiveness, progression and closure. Each criterion requires
 3/4. Deterministic rule tests remain separate from model quality assessment.
 
 Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
-
-The complete `run_tests.sh` entrypoint finishes the ordinary voice and SDK cases,
-cleans that stack, runs the complete text-quality owner, and then performs
-multi-server acceptance. All five `script-quality.*` documents run in the text
-phase with character labels preserved. The child creates fresh test identities
-and network settings while retaining explicit credential-file, build-image and
-report options. An inherited case-subset setting cannot reduce full-gate coverage.
 
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh

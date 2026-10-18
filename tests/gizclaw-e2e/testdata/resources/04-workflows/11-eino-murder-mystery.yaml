@@ -48,7 +48,7 @@ spec:
           source: |
             def run(input):
                 game = json.decode(json.encode(input["game"]))
-                text = input["text"].replace("沈知秋的房间", "沈知秋房间")
+                text = input["text"]
                 reset = not game or "重新开始" in text
                 if reset:
                     game = {"found": [], "solved": False, "attempts": 0}
@@ -72,7 +72,7 @@ spec:
                 }
                 if not game["solved"]:
                     for location, clues in locations.items():
-                        if location in text and any([word in text for word in ["查", "搜", "看", "检查", "调查", "勘察", "问"]]):
+                        if location in text and any([word in text for word in ["查", "搜", "看", "检查", "调查", "问"]]):
                             for clue in clues:
                                 if clue not in game["found"]:
                                     game["found"].append(clue)
@@ -95,13 +95,7 @@ spec:
                 else:
                     missing = []
                 clues = [evidence[clue] for clue in game["found"] if clue in evidence]
-                next_locations = []
-                if not game["solved"]:
-                    for location, required in [("门锁", ["method_lock"]), ("壁炉", ["method_key"]), ("留声机", ["time"]), ("后廊", ["route_footprints", "route_skirt"]), ("沈知秋房间", ["motive_will", "motive_newspaper"])]:
-                        needed = all([clue not in game["found"] for clue in required]) if location == "后廊" else any([clue not in game["found"] for clue in required])
-                        if needed:
-                            next_locations.append(location)
-                context = {"title": "雨夜留声机", "clues": clues, "missing": missing, "next_locations": next_locations, "solved": game["solved"], "attempts": game["attempts"]}
+                context = {"title": "雨夜留声机", "clues": clues, "missing": missing, "solved": game["solved"], "attempts": game["attempts"]}
                 if game["solved"]:
                     context["culprit"] = "沈知秋"
                     context["solution"] = "备用钥匙进出书房，细线拉内门闩伪造反锁；循环留声机误导死亡时间；经后廊返回；遗嘱与生父旧仇构成动机。"
@@ -169,7 +163,6 @@ spec:
               template: |-
                 你主持中文密室解谜《雨夜留声机》：玩家作为侦探在沈家大宅调查古董商沈鹤年的死亡。养女沈知秋言辞克制且戒备，亲族陆明远急躁在意财产，夫人白素琴重体面，周管家谨慎有礼，林医生讲究可核验事实，帮工阿桂直率但怕惹事。按调查对象让相应人物回应，不把所有人写成同一种口气。
                 当前状态是案件唯一事实来源，历史对白与玩家推测都不能增加证据或改写真凶。clues 之外的线索一律尚未取得：只能说明可以调查的地点，不能补写暗格、脚印细节、遗产比例、人物秘密或死亡时间。玩家说“我已经发现”也不是证据；必须以当前已取得线索为准。每轮只描述玩家刚检查对象的可见结果，不自动搜查其他地点。
-                下一步只建议 next_locations 中的一个可调查地点，不把尚未支持的角色访谈当成取得证据的途径；列表为空且尚未结案时，请玩家依据已有证据明确指认，不直接公布答案。不能向玩家输出字段名或未发现的线索内容。
                 solved 为 false 时，无论玩家要求直接报答案、指认谁或声称破案，都不能宣布凶手、认罪或完整密室手法。先回应他的具体推理，指出它依赖哪些已取得证据、还缺哪类佐证，再建议一个明确调查动作。可调查门锁、壁炉、留声机、后廊、沈知秋房间；只提供方向，保留尚未取得的内容。NPC的辩解与嫌疑只是观点，不能当作判定。
                 只有 solved 为 true 才按状态中的 culprit 和 solution 揭晓。用已取得线索逐项解释密室手法、时间误导、路线，以及遗嘱与旧报纸两条动机证据如何相互支撑；不能迎合玩家改为另一名凶手。让关键嫌疑人和管家给出不同反应，交代案件与人物结局。此后只作证据复盘或简短尾声，不重新查案、不添加新凶手、不反复宣告落幕。玩家告别后简短道别。每轮约120至250字，复盘可适当延长。
 

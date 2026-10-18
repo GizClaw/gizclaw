@@ -567,6 +567,13 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
+功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh --functional`，执行相同的 JavaScript、
+Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest 与多 Server 套件。
+它仅排除五个 `script-quality.*` 文档，以及两个依赖模型语义裁决的
+`workspace-relay.workflow-tester`、`workspace-relay.doubao-realtime-workflow-tester` 文档。
+剧本评分与模型给出的语义裁决不属于功能验收；音频 packet 完整性、发送节奏、轮次完成、
+状态、权限和超时断言仍是功能门禁。默认命令保留原有完整文档集合，`--help` 说明两种模式。
+
 JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
 客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
 等待确认，随后关闭父 Peer connection 并退出。写完响应 EOS 本身不代表远端已收到
@@ -578,14 +585,6 @@ HTTP、其他 operation 和 `finally` 不接受此策略。失败尝试回滚其
 保留捕获；报告记录每次尝试的状态、耗时、失败分类与脱敏错误。所有尝试和 delay
 共享原有任务 deadline，单次 RPC 使用剩余任务预算、显式 step timeout 与现有
 30 秒 RPC 上限中的最短值，由 SDK 结束超时请求后再进行下一次尝试。
-
-剧本杀规则同时识别“沈知秋房间”和“沈知秋的房间”的调查动作，取得相同的两条
-动机证据；破案仍要求全部独立证据与明确正确指认。
-
-旅程叙述区分进入章节与回应本章
-动作，并在转场上下文中带上前一章：进入章节不替玩家选择，回应动作先落实后果，
-转场先收束未决的小事件。该上下文不增加持久化会话记录，也不改变章节顺序、
-“继续”命令或最后的复盘边界。
 
 ```text
 tests/gizclaw-e2e/
@@ -628,7 +627,6 @@ go test -count=1 ./tests/gizclaw-e2e/testdata
 阶段、计票、判胜和私密身份宣告。角色模型的历史投影 NPC 台词与玩家白天公开发言，
 不包含私密提示或玩家夜间操作。实际死亡记录分别标记袭击、毒药、放逐和猎人开枪。终局身份表也由法官直接渲染，
 不交给模型猜测。
-狼人杀点名提问优先选择明确受话者，包括“8号苏禾，你……”这样的呼语。背景中提到的其他角色不替换受话者；明确只问一人时只由该角色回答，最多两人的角色并发上限保持不变。
 狼人杀规则节点生成法官公示。Eino 原生 Batch 每轮最多并行调用两名相关角色，
 分别传入自身身份、狼队应知同伴、公开对话和上次个人立场，不共享完整身份表。
 角色发言前获得自己的本轮确定投票目标，该目标与规则随后提交的 NPC 票一致；
@@ -644,18 +642,10 @@ VoiceAdapter 在同一音频路由内按角色选择 Voice。首响应测量包�
 候选 Prompt 将历史与本轮输入分开，并在本轮输入旁重新提供权威 State；狼人杀角色
 模型温度为 0.3，其他候选为 0.2。
 旅程只通过完整的肯定继续指令顺序推进，疑问或否定不会翻章。多角色故事还须先以
-“我选择……”确认本章约定；确定选择之后的独立分句可以询问角色反应，不会丢弃选择。
-选择分句自身的疑问、后续未指明角色对象的疑问（如“可以吗”“好吗”），以及明确异议，都不能确认约定；
-提出异议后须重新确认，才允许继续。狼人杀只识别明确行动分句，讨论旧票或否定技能
-不会执行行动。终局后未指定新对象的“你”追问保留上一位实际发言的角色；复盘角色可读取完整公开票型。
-规则帮助列出可问的复盘问题，不重启对局；法官明确唯一最高票规则，并说明出局角色也可复盘。
-NPC 只按角色讨论规则已经执行的桌游事实，不把角色对白当成调用外部 Tool 的请求。
-质量玩家以原生 State 记录20次发言的进度，先推进主线，再提出不同复盘问题，
+“我选择……”确认本章约定；提出异议后须重新确认，才允许继续。狼人杀只识别明确行动分句，讨论旧票或否定技能
+不会执行行动。质量玩家以原生 State 记录20次发言的进度，先推进主线，再提出不同复盘问题，
 最后告别；它不会为未完成的主线编造结局。
 这些配置仍须通过实际 Provider 对话评分，Prompt 中声明要求本身不证明质量达标。
-
-密室规则接受“勘察后廊”等已提供的调查动作，并从尚缺证据推导可继续调查的地点。
-地点提示不透露未发现线索；密室手法、死亡时间、行动路线和两条动机证据仍须齐全，再明确指认才能结案。
 
 `eino_catalog_test.go` 编译 Resource 和 Workspace 的实际配置，执行完整原生节点链，
 并验证非法行动、私密信息投影、证据不足、错误答案和通关后的状态。
@@ -725,9 +715,9 @@ bash tests/gizclaw-e2e/run_pending_deletion_tests.sh
 
 完整 gate 会安装锁定的 Node workspace、初始化 nanopb submodule、构建 E2E CLI、
 启动 Compose、等待 Server 与 Edge，然后依次运行 JS、C/cgo、Go Admin/OpenAI、CLI、
-Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 6 小时；
+Terraform provider 和 Giztest 套件，最后执行一次有界清理。总 deadline 默认 90 分钟；
 各 phase 默认 15 分钟，Docker setup 和 CLI 为 30 分钟，live chat 为 45 分钟，
-cleanup 为 5 分钟。五组串行文本质量场景使用独立的 4 小时阶段预算，包含各文档原有上限及其栈初始化；单条测试超时与断言保持原值。可通过以下正整数秒变量覆盖：
+cleanup 为 5 分钟。可通过以下正整数秒变量覆盖：
 
 - `GIZCLAW_E2E_FULL_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_PHASE_DEADLINE_SECONDS`
@@ -735,7 +725,6 @@ cleanup 为 5 分钟。五组串行文本质量场景使用独立的 4 小时阶
 - `GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CHAT_DEADLINE_SECONDS`
-- `GIZCLAW_E2E_SCRIPT_QUALITY_DEADLINE_SECONDS`
 - `GIZCLAW_E2E_CLI_DEADLINE_SECONDS`
 
 C/cgo preflight 会强制重新编译两个直接 include 仓库 C SDK 的 bridge，避免 Go 的 cgo cache 复用包目录外已修改的 C 源文件。
@@ -2017,9 +2006,6 @@ Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以�
 针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
 
 质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
-
-完整 `run_tests.sh` 先执行普通语音与 SDK 场景并清理其 Docker 栈，再调用完整文本质量入口，最后执行多 Server 验收。
-五个 `script-quality.*` 文档全部由文本质量阶段执行，角色标签得以保留。子阶段重新生成自己的网络与身份配置，保留显式凭据文件、构建镜像和报告选项；继承的局部用例选择不会缩减完整门禁的五组覆盖。
 
 ```bash
 bash tests/gizclaw-e2e/run_script_quality_tests.sh
