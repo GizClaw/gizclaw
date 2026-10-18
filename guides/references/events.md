@@ -100,7 +100,15 @@ Server 下行只有一条固定 Opus media channel。多个 Agent source 同时�
 RTP media 与 reliable Event Stream 是两条独立 transport，接收端不能依赖两个
 transport callback 的 goroutine 调度顺序。SDK 将它们合并为逻辑 stream 时，
 应由一个 owner 串行交付，并在交付 audio EOS 前先交付当前已经收到的该轮 Opus
-packets；这个排序只处理本地 merge，不会开关 connection-scoped media track。
+packets。audio EOS 表示生产结束，不保证另一条 RTP 通道的尾包已经全部到达。
+Go SDK `PeerStream` 在下行 audio EOS 后、下一次 audio BOS 前忽略新的 Opus packets；这些
+迟到包不产生逻辑 audio chunk，也不会重新归属到后续轮次。下一次 audio BOS 恢复接收前，
+先忽略结束期间本地已排队的包。
+初次 BOS 前仍使用有界重排缓冲；若先收到 EOS，则清除该缓冲并等待 fresh BOS。
+该策略只管理本地逻辑流，不会开关 connection-scoped media track。没有逻辑 stream ID
+的 RTP 包在新 BOS 后仍按当前 route 接收；此策略不提供跨 BOS 的包归属证明。
+
+输入侧 `user` EOS（例如 `INPUT_ROUTE_RELOADED`）只管理输入 route，不会关闭助手下行音频。
 
 EOS 的 `error` 包含稳定 `code`、安全 fallback `message` 和 `retryable`。带 error
 的 EOS 只结束对应逻辑 stream，不关闭 service `0x20`，其他事件和后续 turn 仍可

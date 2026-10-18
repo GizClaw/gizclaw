@@ -2,6 +2,20 @@
 
 This page will explain Go SDK installation, client initialization, authentication, connection, API/RPC calls and error handling.
 
+## PeerStream audio completion
+
+`Client.OpenPeerStream` merges the Event Stream and Opus RTP into logical audio. Before delivering
+a downlink audio EOS it delivers packets already queued locally. Packets received after EOS and before
+the next audio BOS are ignored rather than emitted as unbound audio or retained for the next turn.
+Before BOS resumes reception, queued packets from the ended interval are discarded. Text events and connection lifetime remain independent.
+
+`PeerStream.IgnoredPostEOSAudioPackets()` safely reports the cumulative ignored count for that
+stream, including concurrent reads. EOS means production has ended; receiving tail packets does
+not add a fixed completion delay. This consumer policy leaves WebRTC/RTP, Server, Edge and wire
+schemas unchanged. Clients using raw media callbacks manage their own completion policy.
+
+Input-side `user` EOS, including `INPUT_ROUTE_RELOADED`, remains a control event and does not close assistant downlink audio.
+
 ## Handshake admission credentials
 
 `gizwebrtc.DialConfig.Credential` directly accepts `*giznetpb.AdmissionCredential` with

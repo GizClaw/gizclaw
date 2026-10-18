@@ -2,6 +2,18 @@
 
 本页将说明 Go SDK 的安装、client 初始化、认证、连接、API/RPC 调用和错误处理。
 
+## PeerStream 音频收尾
+
+`Client.OpenPeerStream` 将 Event Stream 与 Opus RTP 合并为逻辑音频流。在交付 audio EOS 前，
+它先交付当前已排队的音频；下行 audio EOS 后、下一次 audio BOS 前收到的包被忽略，不交付为无归属
+音频，也不追加给下一轮。BOS 恢复接收前先忽略结束期间已排队的包；text event 与连接生命周期继续独立运行。
+
+`PeerStream.IgnoredPostEOSAudioPackets()` 可并发读取该 stream 生命周期内累计忽略的包数。
+EOS 表示生产结束，接收端不会为等尾包添加固定延迟。这是逻辑流消费策略，不改变
+WebRTC/RTP、Server、Edge 或 wire Schema；使用原始 media callback 的客户端自行管理收尾。
+
+输入侧 `user` EOS（包括 `INPUT_ROUTE_RELOADED`）继续作为控制事件交付，不会关闭助手下行音频。
+
 ## 握手准入凭证
 
 `gizwebrtc.DialConfig.Credential` 直接接收 `*giznetpb.AdmissionCredential`。调用方可设置

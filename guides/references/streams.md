@@ -66,6 +66,11 @@ Event Stream 发送 fresh BOS。JavaScript Client 通过
 `replaceTrack`，不重新协商 WebRTC，也不创建、关闭或替换 Opus uplink、Opus downlink、
 Direct Packet DataChannel、physical `0x20` Event Stream 或 PeerConnection。
 
+EOS 结束逻辑音频流时，独立 RTP 通道仍可能交付尾包。Go SDK `PeerStream` 忽略
+EOS 后、下一次 audio BOS 前的包；原始 RTP 接收与 Peer connection 保持运行。
+`IgnoredPostEOSAudioPackets()` 返回该 `PeerStream` 生命周期内累计忽略的包数。
+使用原始 media callback 的客户端仍由自身的音频消费层执行结束后的忽略策略。
+
 ## Direct packets
 
 Direct packet channel 的每条消息由一个 protocol byte 和 payload 组成。`0x00`–`0x3f` 保留给 Giznet well-known protocols，`0x40`–`0xff` 可用于应用或自定义 protocol。

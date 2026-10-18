@@ -48,7 +48,15 @@ go test -race -count=1 -p 1 ./...
 
 Giztest 的 `audio_pacing.max_interval_ms` 使用 PeerStream 读取时的真实单调时钟，包含本地发送、接收 goroutine 的调度延迟。并行编译、编码和其他测试可以让正常的 20ms 音频循环失去 CPU，因此这个间隔不能单独归因为 Provider 停顿。`underruns` 另按 500ms 预缓冲重放客户端消耗，用于区分包间隔超限与实际缓冲耗尽。
 
-`audio_integrity.violation_reasons` 记录缺失 stream ID、重复开始或结束、结束后再次开始或收到数据，以及缺少开始的数据或结束标记各自的次数。它检查音频流边界及包顺序；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
+`audio_integrity.violation_reasons` 记录缺失 stream ID、重复开始或结束、结束后再次开始，以及缺少开始的数据或结束标记等非法逻辑边界。EOS 与 RTP 独立传输，EOS 后、下一次 audio BOS 前的原始尾包由 Go SDK 忽略；Giztest 也忽略已知结束流的纯音频迟到 payload。`audio_integrity.ignored_post_eos_packets` 记录当前操作观察窗口内 SDK 与 Giztest 忽略的包数，属于正常接收统计，不增加 `violations`。被忽略的包不进入音频摘要、播放、pacing 或 response 计数。未知流缺少 BOS、重复边界与非法控制 chunk 仍失败；本规则不改变已有时延或断流门槛。
+
+专用功能回归使用真实的本地 WebRTC 连接运行 `tests/gizclaw-e2e/testdata/peer-audio/post-eos.giztest.yaml`：fixture 等待 Go SDK 的 `Next` 交付 audio EOS 后，才经 RTP 发送两个迟到包，并在有界期限内确认 SDK 已忽略两包后才发送文本 EOS、进入下一轮。普通接收与首个 RTP 尾包接收延迟超过回复观察窗口的两个子场景运行相同断言。第一步断言忽略数为 2，交付摘要、播放和响应计数只包含有效音频；第二步复用同一个 PeerStream，验证新的 BOS 恢复交付，忽略计数按操作窗口重新计算。该 case 不调用模型，不需要 Provider 凭据，也不依赖随机网络重排或 sleep 建立边界顺序。
+
+```sh
+go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
+```
+
+完整性检查针对实际交付的逻辑音频；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
 
 `audio_pacing.max_interval_started_at` 记录最大包间隔开始的 UTC 时间，可与其他会话及 Server 日志对齐，识别多个会话是否在同一时刻停顿。
 

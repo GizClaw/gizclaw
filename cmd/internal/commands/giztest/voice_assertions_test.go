@@ -25,7 +25,9 @@ func TestMultiRoleVoiceAssertions(t *testing.T) {
 		{name: "wrong voice", field: "/audio_integrity/sha256", fault: "voice"},
 		{name: "interleave", field: "/audio_integrity/max_active", fault: "interleave"},
 		{name: "missing EOS", field: "/audio_integrity/open", fault: "truncate"},
-		{name: "late old packet", field: "/audio_integrity/violations", fault: "late"},
+		{name: "late old packet", field: "/audio_integrity/violations", fault: "late", pass: true},
+		{name: "late packet preserves digest", field: "/audio_integrity/sha256", fault: "late", pass: true},
+		{name: "unknown packet without BOS", field: "/audio_integrity/violations", fault: "missing_bos"},
 		{name: "interval at limit", field: "/audio_pacing/max_interval_ms", gap: 150 * time.Millisecond, pass: true},
 		{name: "interval over limit", field: "/audio_pacing/max_interval_ms", gap: 151 * time.Millisecond},
 		{name: "buffer covers gap", field: "/audio_pacing/underruns", gap: 500 * time.Millisecond, pass: true},
@@ -63,6 +65,9 @@ func TestMultiRoleVoiceAssertions(t *testing.T) {
 			}
 			if tc.fault == "late" {
 				integrity.observe(integrityChunk("a", false, false, "late"))
+			}
+			if tc.fault == "missing_bos" {
+				integrity.observe(integrityChunk("unknown", false, false, "missing BOS"))
 			}
 			d := &voiceAssertionDriver{driver: newDriver(false, nil), value: map[string]any{"audio_integrity": integrity.summary(), "audio_pacing": pacing.summary()}}
 			doc, err := giztest.LoadDocument("../../../../tests/gizclaw-e2e/testdata/eino-voices/multi-turn.giztest.yaml", d)

@@ -3,28 +3,31 @@ package giztestcmd
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"hash"
 	"mime"
+	"strconv"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
 // peerAudioIntegrity observes raw audio channel boundaries and payload, before
-// response filtering. It intentionally does not infer missing BOS/EOS. A caller
-// may retain it across turns to catch late packets from a completed response.
+// response filtering. It intentionally does not infer missing BOS/EOS. Payload
+// for a known-ended stream is ignored without changing the delivered digest.
 // The stream reader owns observe; summary is called after that reader's delivery.
 type peerAudioIntegrity struct {
 	active                         map[string]bool
 	ended                          map[string]bool
 	streams, maxActive, violations int
+	ignoredPostEOSPackets          uint64
 	violationReasons               map[string]int
 	digest                         hash.Hash
 }
 
-func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) {
+func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) bool {
 	if chunk == nil {
-		return
+		return true
 	}
 	if chunk.Part == nil && chunk.IsEndOfStream() && chunk.Ctrl != nil {
 		prefix := chunk.Ctrl.StreamID + "\x00"
@@ -34,7 +37,7 @@ func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) {
 				p.ended[id] = true
 			}
 		}
-		return
+		return true
 	}
 	mediaType, _ := chunk.MIMEType()
 	if base, params, err := mime.ParseMediaType(mediaType); err == nil {
@@ -42,7 +45,7 @@ func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) {
 	}
 	audio := strings.HasPrefix(mediaType, "audio/") || strings.HasPrefix(mediaType, "application/ogg")
 	if !audio {
-		return
+		return true
 	}
 	if p.active == nil {
 		p.active = make(map[string]bool)
@@ -50,9 +53,13 @@ func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) {
 	}
 	if chunk.Ctrl == nil || chunk.Ctrl.StreamID == "" {
 		p.violation("missing_stream_id")
-		return
+		return true
 	}
 	id := chunk.Ctrl.StreamID + "\x00" + mediaType
+	if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 && p.ended[id] && !chunk.IsBeginOfStream() && !chunk.IsEndOfStream() && chunk.Ctrl.Error == "" && chunk.Ctrl.ErrorCode == "" {
+		p.ignoredPostEOSPackets++
+		return false
+	}
 	if chunk.IsBeginOfStream() {
 		if p.ended[id] {
 			p.violation("begin_after_end")
@@ -85,6 +92,7 @@ func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) {
 		delete(p.active, id)
 		p.ended[id] = true
 	}
+	return true
 }
 
 func (p *peerAudioIntegrity) violation(reason string) {
@@ -96,7 +104,7 @@ func (p *peerAudioIntegrity) violation(reason string) {
 }
 
 func (p *peerAudioIntegrity) summary() map[string]any {
-	result := map[string]any{"streams": p.streams, "max_active": p.maxActive, "open": len(p.active), "violations": p.violations}
+	result := map[string]any{"streams": p.streams, "max_active": p.maxActive, "open": len(p.active), "violations": p.violations, "ignored_post_eos_packets": json.Number(strconv.FormatUint(p.ignoredPostEOSPackets, 10))}
 	if len(p.violationReasons) > 0 {
 		result["violation_reasons"] = p.violationReasons
 	}
