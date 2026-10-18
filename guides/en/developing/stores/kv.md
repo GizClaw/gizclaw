@@ -70,6 +70,7 @@ storage:
     tls_cert_file: /run/secrets/tikv-client.pem
     tls_key_file: /run/secrets/tikv-client-key.pem
     stale_read_delay: 5s
+    read_local_only: true
     read_labels:
       region: local
 stores:
@@ -82,7 +83,13 @@ services:
     store: peers
 ```
 
-Omit both `stale_read_delay` and `read_labels` for strong reads throughout. When enabled, both are required; the delay must be an integral number of milliseconds from 1ms to 24h. Ordinary queries subtract the delay from a PD timestamp and enable Stale Read. SDK labels express a replica preference: a healthy configured topology prefers the full regional Learner, while slow or unavailable replicas may cause selection of another replica or the central Leader at the same historical timestamp. The delay selects a historical snapshot; it does not guarantee replica availability. Every query still contacts PD. Unavailable or GC-expired snapshots return errors without selecting an older timestamp. Deployment owns replica placement, networking, and a TiKV GC retention window covering the configured delay.
+Omit both `stale_read_delay` and `read_labels` for strong reads throughout. Historical reads require both; the delay is an integral number of milliseconds from 1ms to 24h. Each operation subtracts that delay from one PD timestamp. Unavailable or GC-expired snapshots fail without selecting an older or latest timestamp. Deployment owns placement, safe-ts advancement and GC retention covering the delay.
+
+`read_local_only` defaults to `false`, preserving the SDK's soft label preference and possible leader fallback. Set it to `true` to open an independent historical-read client alongside the write client. Ordinary Get, BatchGet and Scan requests may then reach only Learner peers whose address and labels match the SDK's PD-backed cache. Forwarded data requests and other targets are rejected before transport; the SDK can retry another local candidate. There is no fallback from this read client to the writer.
+
+Region discovery, cache refresh, replica selection, retry, BatchGet splitting and scan pagination remain owned by the SDK. The adapter preserves the historical timestamp and Stale Read flag on native scans and retries. It adds no per-read topology queries. Read and write clients have independent RPC connections, PD clients and Region/health caches, so rejected read candidates do not invalidate the writer's routing state. `Storage` owns and closes both; logical stores borrow them.
+
+Writes, atomic conditions and `WithStrongReads`/`WithPrimaryReads` always use the original write client and leader semantics. PD metadata/TSO, safe-point maintenance and SDK lock/control traffic are outside the ordinary-data-read restriction. Local-only is not a network firewall or a completely offline read mode. All local candidates being unavailable or behind the requested safe-ts produces an SDK error or caller timeout, never a successful empty result or a different snapshot. NotFound is a valid result and does not trigger another data read. Caller cancellation reaches read RPCs and scanner metadata calls; native retry backoff checks cancellation at SDK checkpoints.
 
 The TLS CA and optional client certificate/key apply to PD, safe-point etcd, and TiKV RPC without mutating global client-go configuration. Storage closes the physical client; logical stores and strong views borrow it.
 

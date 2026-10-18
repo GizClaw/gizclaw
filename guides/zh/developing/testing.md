@@ -281,6 +281,18 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 
 ### TiKV Docker E2E
 
+使用原生 SDK 验证独立的本地读通道与写通道：
+
+```sh
+bash tests/store-e2e/run_tikv_policy_tests.sh
+GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY=true GIZCLAW_E2E_TIKV_POLICY_ONLY=1 \
+  GIZCLAW_E2E_CREDENTIAL_FILE=/dev/null bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+Store gate 在独立 Compose project 中启动一个 PD、中心 voter、两个地区 Learner 和 TCP 故障代理，不发布宿主端口。它观察同步和异步 RPC，区分 transport 前拒绝的候选与真正发出的本地数据请求。原生 SDK BatchGet 和 Scan 跨越真实 Region 分裂，并验证单个/全部 Learner 故障、NotFound、safe-ts 延迟、真实响应阻塞、调用方 deadline、恢复、强读与原子条件。证据写入 ignored `.testbench/tikv-policy-*`，退出时只清理本次 project。
+
+定向 multi-server 模式执行 `TestTiKVLearnerLagThroughBothEdges`、`TestWorkspaceReloadWithOptions` 和 `sfu.presence.cross-server`，验证复制冻结期间撤权/删除，以及连接不同 Server 的两个客户端的在线、当前房间、停止、重连和重入状态。收据记录 local-only 开关、用例选择和二进制哈希。省略 `GIZCLAW_E2E_TIKV_POLICY_ONLY` 时运行完整 multi-server 套件，local-only 开关默认 false。这些是本地功能验收，不代表 WAN 容量、中心 quorum 故障或生产验收。
+
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```

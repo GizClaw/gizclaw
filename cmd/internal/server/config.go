@@ -352,6 +352,7 @@ type storageFileConfig struct {
 	PDAddresses     []string          `yaml:"pd_addresses"`
 	StaleReadDelay  string            `yaml:"stale_read_delay"`
 	ReadLabels      map[string]string `yaml:"read_labels"`
+	ReadLocalOnly   bool              `yaml:"read_local_only"`
 	TLSCertFile     string            `yaml:"tls_cert_file"`
 	TLSKeyFile      string            `yaml:"tls_key_file"`
 	TLSCAFile       string            `yaml:"tls_ca_file"`
@@ -408,7 +409,7 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 				return nil, fmt.Errorf("tikv stale_read_delay must be a duration")
 			}
 		}
-		tikvConfig := storage.TiKVConfig{PDAddresses: cfg.PDAddresses, TLSCAFile: cfg.TLSCAFile, TLSCertFile: cfg.TLSCertFile, TLSKeyFile: cfg.TLSKeyFile, StaleReadDelay: delay, ReadLabels: cfg.ReadLabels}
+		tikvConfig := storage.TiKVConfig{PDAddresses: cfg.PDAddresses, TLSCAFile: cfg.TLSCAFile, TLSCertFile: cfg.TLSCertFile, TLSKeyFile: cfg.TLSKeyFile, StaleReadDelay: delay, ReadLabels: cfg.ReadLabels, ReadLocalOnly: cfg.ReadLocalOnly}
 		if err := storage.ValidateTiKVConfig(tikvConfig); err != nil {
 			return nil, err
 		}
@@ -1442,7 +1443,7 @@ func validateStorageConfigShape(value any) error {
 		storage.KindSQLite:         {"kind": {}, "dir": {}, "dsn": {}},
 		storage.KindPostgreSQL:     {"kind": {}, "dsn": {}, "max_open_conns": {}, "conn_max_idle_time": {}},
 		storage.KindClickHouse:     {"kind": {}, "dsn": {}},
-		storage.KindTiKV:           {"kind": {}, "pd_addresses": {}, "tls_ca_file": {}, "tls_cert_file": {}, "tls_key_file": {}, "stale_read_delay": {}, "read_labels": {}},
+		storage.KindTiKV:           {"kind": {}, "pd_addresses": {}, "tls_ca_file": {}, "tls_cert_file": {}, "tls_key_file": {}, "stale_read_delay": {}, "read_labels": {}, "read_local_only": {}},
 		storage.KindRedis:          {"kind": {}, "url": {}, "tls_ca_file": {}},
 		storage.KindRedisReadWrite: {"kind": {}, "read_url": {}, "write_url": {}, "read_tls_ca_file": {}, "write_tls_ca_file": {}},
 		storage.KindPrometheus:     {"kind": {}, "remote_write_url": {}, "query_url": {}, "bearer_token": {}},

@@ -18,7 +18,8 @@ import (
 	"github.com/tikv/pd/client/pkg/caller"
 )
 
-// TiKV returns a borrowed transactional client and its read configuration.
+// TiKV returns the borrowed transactional write client and read configuration.
+// Ordinary historical reads use TiKVReader when the connector restricts them.
 // Storage owns the client's lifetime. Returned configuration maps are copies.
 func (s *Storage) TiKV(name string) (*tikv.KVStore, TiKVConfig, error) {
 	s.mu.Lock()
@@ -61,13 +62,16 @@ func ValidateTiKVConfig(cfg TiKVConfig) error {
 			return errors.New("tikv read_labels requires non-empty clean keys and values")
 		}
 	}
+	if cfg.ReadLocalOnly && cfg.StaleReadDelay == 0 {
+		return errors.New("tikv read_local_only requires stale_read_delay and read_labels")
+	}
 	if (cfg.TLSCertFile == "") != (cfg.TLSKeyFile == "") || cfg.TLSCAFile == "" && cfg.TLSCertFile != "" {
 		return errors.New("tikv TLS requires tls_ca_file and a complete optional client certificate/key pair")
 	}
 	return nil
 }
 
-func newTiKV(name string, cfg TiKVConfig) (*tikv.KVStore, error) {
+func newTiKV(name string, cfg TiKVConfig, localRead bool) (*tikv.KVStore, error) {
 	if err := ValidateTiKVConfig(cfg); err != nil {
 		return nil, fmt.Errorf("storage: tikv %q: %w", name, err)
 	}
@@ -93,7 +97,11 @@ func newTiKV(name string, cfg TiKVConfig) (*tikv.KVStore, error) {
 	if err != nil {
 		return nil, tiKVOpenError(name, "connect PD", err)
 	}
-	codec := tikv.NewCodecPDClient(tikv.ModeTxn, client)
+	var metadata pd.Client = client
+	if localRead {
+		metadata = &tiKVReadPD{Client: client}
+	}
+	codec := tikv.NewCodecPDClient(tikv.ModeTxn, metadata)
 	safePoint, err := tikv.NewEtcdSafePointKV(cfg.PDAddresses, tlsConfig)
 	if err != nil {
 		client.Close()
@@ -107,6 +115,9 @@ func newTiKV(name string, cfg TiKVConfig) (*tikv.KVStore, error) {
 		_ = safePoint.Close()
 		client.Close()
 		return nil, tiKVOpenError(name, "open transactional client", err)
+	}
+	if localRead {
+		store.SetTiKVClient(newTiKVLocalReader(store, cfg.ReadLabels))
 	}
 	return store, nil
 }

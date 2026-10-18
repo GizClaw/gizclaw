@@ -18,12 +18,15 @@ import (
 )
 
 type proxy struct {
-	mu          sync.Mutex
-	frozen      bool
-	blocked     int
-	leaderIPs   map[string]bool
-	connections map[net.Conn]bool
-	target      string
+	mu           sync.Mutex
+	disconnected bool
+	frozen       bool
+	blocked      int
+	paused       chan struct{}
+	held         int
+	leaderIPs    map[string]bool
+	connections  map[net.Conn]bool
+	target       string
 }
 
 func (p *proxy) serve(ctx context.Context, source net.Conn) {
@@ -32,7 +35,7 @@ func (p *proxy) serve(ctx context.Context, source net.Conn) {
 	host, _, _ := net.SplitHostPort(source.RemoteAddr().String())
 	fromLeader := p.leaderIPs[host]
 	p.mu.Lock()
-	blocked := fromLeader && p.frozen
+	blocked := fromLeader && p.frozen || !fromLeader && p.disconnected
 	if blocked {
 		p.blocked++
 	} else {
@@ -51,14 +54,46 @@ func (p *proxy) serve(ctx context.Context, source net.Conn) {
 	defer target.Close()
 	var copies sync.WaitGroup
 	copies.Go(func() { _, _ = io.Copy(target, source); _ = target.Close(); _ = source.Close() })
-	_, _ = io.Copy(source, target)
+	if fromLeader {
+		_, _ = io.Copy(source, target)
+	} else {
+		p.copyResponses(ctx, source, target)
+	}
 	_ = source.Close()
 	_ = target.Close()
 	copies.Wait()
 }
 
+func (p *proxy) copyResponses(ctx context.Context, destination, source net.Conn) {
+	buffer := make([]byte, 64*1024)
+	for {
+		n, err := source.Read(buffer)
+		if n > 0 {
+			p.mu.Lock()
+			paused := p.paused
+			if paused != nil {
+				p.held++
+			}
+			p.mu.Unlock()
+			if paused != nil {
+				select {
+				case <-ctx.Done():
+					return
+				case <-paused:
+				}
+			}
+			if _, err := destination.Write(buffer[:n]); err != nil {
+				return
+			}
+		}
+		if err != nil {
+			return
+		}
+	}
+}
+
 func (p *proxy) control(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path != "/status" && r.URL.Path != "/freeze" && r.URL.Path != "/resume" {
+	if r.URL.Path != "/status" && r.URL.Path != "/freeze" && r.URL.Path != "/resume" && r.URL.Path != "/disconnect" && r.URL.Path != "/connect" && r.URL.Path != "/pause-reads" && r.URL.Path != "/resume-reads" {
 		http.NotFound(w, r)
 		return
 	}
@@ -68,7 +103,25 @@ func (p *proxy) control(w http.ResponseWriter, r *http.Request) {
 	}
 	var closeConnections []net.Conn
 	p.mu.Lock()
-	if r.URL.Path == "/freeze" {
+	if r.URL.Path == "/pause-reads" {
+		if p.paused == nil {
+			p.paused = make(chan struct{})
+		}
+	} else if r.URL.Path == "/resume-reads" {
+		if p.paused != nil {
+			close(p.paused)
+			p.paused = nil
+		}
+	} else if r.URL.Path == "/disconnect" {
+		p.disconnected = true
+		for conn, leader := range p.connections {
+			if !leader {
+				closeConnections = append(closeConnections, conn)
+			}
+		}
+	} else if r.URL.Path == "/connect" {
+		p.disconnected = false
+	} else if r.URL.Path == "/freeze" {
 		p.frozen = true
 		for conn, leader := range p.connections {
 			if leader {
@@ -80,9 +133,11 @@ func (p *proxy) control(w http.ResponseWriter, r *http.Request) {
 		p.frozen = false
 	}
 	status := struct {
-		Frozen  bool `json:"frozen"`
-		Blocked int  `json:"blocked"`
-	}{p.frozen, p.blocked}
+		Frozen       bool `json:"frozen"`
+		Disconnected bool `json:"disconnected"`
+		Blocked      int  `json:"blocked"`
+		Held         int  `json:"held"`
+	}{p.frozen, p.disconnected, p.blocked, p.held}
 	p.mu.Unlock()
 	for _, conn := range closeConnections {
 		_ = conn.Close()

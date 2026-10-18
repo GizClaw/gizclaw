@@ -66,7 +66,7 @@ flowchart TB
 | `sqlite` | exactly one of `dir` or `dsn` |
 | `postgresql`, `clickhouse` | `dsn` |
 | `redis` | Single-node `redis://` or `rediss://` URL; `rediss://` can add PEM CA certificates through `tls_ca_file`; Redis Cluster is not supported |
-| `tikv` | `pd_addresses`; optional `tls_ca_file`, `tls_cert_file`, `tls_key_file`; optional paired `stale_read_delay` / `read_labels`; see [KV](./kv#tikv) |
+| `tikv` | `pd_addresses`; optional `tls_ca_file`, `tls_cert_file`, `tls_key_file`; optional paired `stale_read_delay` / `read_labels`; optional `read_local_only`; see [KV](./kv#tikv) |
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
 

@@ -482,6 +482,18 @@ records how many purge rounds verification needed.
 
 ### TiKV Docker E2E
 
+Verify independent local-only read and write channels with the native SDK:
+
+```sh
+bash tests/store-e2e/run_tikv_policy_tests.sh
+GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY=true GIZCLAW_E2E_TIKV_POLICY_ONLY=1 \
+  GIZCLAW_E2E_CREDENTIAL_FILE=/dev/null bash tests/gizclaw-e2e/run_multi_server_tests.sh
+```
+
+The store gate starts one PD, a center voter, two regional Learners and TCP fault gates in an isolated Compose project, without host ports. It observes synchronous and asynchronous RPCs, distinguishing candidates rejected before transport from actual local data requests. Native SDK BatchGet and Scan cross real Region splits; single/all Learner failures, NotFound, safe-ts lag, real blocked responses, caller deadlines, recovery, strong reads and atomic guards are verified. Artifacts go to ignored `.testbench/tikv-policy-*`; exit cleanup removes only that project.
+
+The focused multi-server mode runs `TestTiKVLearnerLagThroughBothEdges`, `TestWorkspaceReloadWithOptions` and `sfu.presence.cross-server`, covering authority revocation/deletion during frozen replication and two clients' online/current-room/stop/reconnect/re-entry state. The receipt records the local-only flag, case selection and binary hashes. Omitting `GIZCLAW_E2E_TIKV_POLICY_ONLY` runs the full multi-server suite; the local-only flag defaults to false. These are local functional gates, not WAN capacity, center quorum-failure or production acceptance.
+
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```

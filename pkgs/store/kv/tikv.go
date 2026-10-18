@@ -12,6 +12,7 @@ import (
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/tikv/client-go/v2/config/retry"
 	tikverr "github.com/tikv/client-go/v2/error"
+	clientkv "github.com/tikv/client-go/v2/kv"
 	"github.com/tikv/client-go/v2/oracle"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
@@ -37,6 +38,7 @@ type TiKVReadOptions struct {
 // conditions by writing every guard, including absent guards.
 type TiKV struct {
 	client *tikv.KVStore
+	reader *tikv.KVStore
 	opts   *Options
 	read   TiKVReadOptions
 	labels []*metapb.StoreLabel
@@ -51,7 +53,7 @@ func NewTiKVWithClient(client *tikv.KVStore, read TiKVReadOptions, opts *Options
 	if read.StaleReadDelay < 0 || read.StaleReadDelay > 24*time.Hour || read.StaleReadDelay%time.Millisecond != 0 || (read.StaleReadDelay > 0) != (len(read.Labels) > 0) {
 		return nil, errors.New("kv: tikv stale reads require a delay from 1ms to 24h and store labels")
 	}
-	store := &TiKV{client: client, opts: opts, read: TiKVReadOptions{StaleReadDelay: read.StaleReadDelay}}
+	store := &TiKV{client: client, reader: client, opts: opts, read: TiKVReadOptions{StaleReadDelay: read.StaleReadDelay}}
 	for key, value := range read.Labels {
 		if key == "" || value == "" || strings.TrimSpace(key) != key || strings.TrimSpace(value) != value {
 			return nil, errors.New("kv: tikv read labels must not be empty")
@@ -60,6 +62,23 @@ func NewTiKVWithClient(client *tikv.KVStore, read TiKVReadOptions, opts *Options
 	}
 	slices.SortFunc(store.labels, func(a, b *metapb.StoreLabel) int { return strings.Compare(a.Key, b.Key) })
 	return store, nil
+}
+
+// NewTiKVWithClients borrows separate historical-read and write clients. The
+// clients must belong to the same cluster. The connector restricts the read
+// client when local-only reads are required; this adapter leaves Region routing,
+// batching and scans to the SDK.
+// Strong views and all mutations always use writeClient. Neither is closed here.
+func NewTiKVWithClients(readClient, writeClient *tikv.KVStore, read TiKVReadOptions, opts *Options) (*TiKV, error) {
+	if readClient == nil {
+		return nil, errors.New("kv: tikv read client is nil")
+	}
+	s, err := NewTiKVWithClient(writeClient, read, opts)
+	if err != nil {
+		return nil, err
+	}
+	s.reader = readClient
+	return s, nil
 }
 
 // The versioned application namespace is disjoint from member keys. Length
@@ -128,15 +147,19 @@ func (s *TiKV) snapshot(ctx context.Context) (*txnsnapshot.KVSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	ts, err := s.timestamp(ctx)
+	stale := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
+	client := s.client
+	if stale {
+		client = s.reader
+	}
+	ts, err := client.GetTimestampWithRetry(retry.NewBackofferWithVars(ctx, 5000, nil), oracle.GlobalTxnScope)
 	if err != nil {
 		return nil, err
 	}
-	stale := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
 	if stale {
 		ts = oracle.GoTimeToTS(oracle.GetTimeFromTS(ts).Add(-s.read.StaleReadDelay))
 	}
-	snapshot := s.client.GetSnapshot(ts)
+	snapshot := client.GetSnapshot(ts)
 	if stale {
 		snapshot.SetMatchStoreLabels(s.labels)
 		snapshot.SetIsStalenessReadOnly(true)
@@ -151,19 +174,35 @@ func (s *TiKV) snapshot(ctx context.Context) (*txnsnapshot.KVSnapshot, error) {
 		return nil, context.DeadlineExceeded
 	}
 	configureTiKVReadContext(ctx, snapshot, timeout)
+	if client != s.client {
+		snapshot.SetReplicaRead(clientkv.ReplicaReadLearner)
+		vars := clientkv.NewVariables(nil)
+		vars.KillSignalHandler = &tiKVReadContext{ctx: ctx}
+		snapshot.SetVars(vars)
+	}
 	return snapshot, nil
 }
 
 func configureTiKVReadContext(ctx context.Context, snapshot *txnsnapshot.KVSnapshot, timeout time.Duration) {
 	snapshot.SetKVReadTimeout(timeout)
-	snapshot.SetRPCInterceptor(interceptor.NewRPCInterceptor("gizclaw-context", func(next interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
-		return func(target string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
-			if err := ctx.Err(); err != nil {
-				return nil, err
-			}
-			return next(target, req)
+	snapshot.SetRPCInterceptor(&tiKVReadContext{ctx: ctx})
+}
+
+// Native SDK scanners attach this interceptor to a background context. The
+// physical read channel uses CallerContext to retain cancellation and deadline.
+// Get/BatchGet already inherit caller cancellation, including async requests.
+type tiKVReadContext struct{ ctx context.Context }
+
+func (c *tiKVReadContext) Name() string                   { return "gizclaw-context" }
+func (c *tiKVReadContext) CallerContext() context.Context { return c.ctx }
+func (c *tiKVReadContext) HandleSignal() error            { return c.ctx.Err() }
+func (c *tiKVReadContext) Wrap(next interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
+	return func(target string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
+		if err := c.ctx.Err(); err != nil {
+			return nil, err
 		}
-	}))
+		return next(target, req)
+	}
 }
 
 // Get reads one record using the configured consistency policy.

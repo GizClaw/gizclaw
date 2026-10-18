@@ -84,6 +84,7 @@ storage:
     tls_cert_file: /run/secrets/tikv-client.pem
     tls_key_file: /run/secrets/tikv-client-key.pem
     stale_read_delay: 5s
+    read_local_only: true
     read_labels:
       region: local
 stores:
@@ -96,7 +97,13 @@ services:
     store: peers
 ```
 
-省略 `stale_read_delay` 和 `read_labels` 时，全部查询为强读。两者必须一起配置；delay 为 1ms 到 24h 的整毫秒时长。普通查询使用 PD 提供的时间戳减去 delay 并启用 Stale Read。SDK 将 labels 作为副本选择偏好；健康部署中优先地区完整 Learner，副本慢或不可用时可能选择其他副本或中心 Leader，读取的仍是同一历史时间戳。delay 指定历史快照时间，不保证副本能及时提供该快照。每次查询仍需访问 PD；不可用或已被 GC 的快照返回错误，不改读更旧的时间戳。副本放置、网络和 TiKV GC 保留窗口由部署管理，必须覆盖配置的 delay。
+省略 `stale_read_delay` 和 `read_labels` 时全部查询为强读。历史读必须同时配置两者，delay 是 1ms–24h 的整毫秒时长；一次操作从一个 PD 时间戳减去 delay。不可用或已被 GC 的快照返回错误，不改读更旧或最新时间戳。部署负责副本放置、safe-ts 推进以及覆盖 delay 的 GC 保留窗口。
+
+`read_local_only` 默认 `false`，保留 SDK 标签软偏好和可能回退 leader 的行为。设置为 `true` 时，connector 在写客户端之外打开独立的历史读客户端。普通 Get、BatchGet、Scan 只允许发往角色为 Learner、地址和标签匹配 SDK 所维护 PD 缓存的副本；转发请求和其他目标在进入 transport 前被拒绝，SDK 可以继续尝试其他本地候选。读客户端不会切换到写客户端回退。
+
+Region 发现、缓存刷新、副本选择、重试、BatchGet 分批和扫描分页仍全部由 SDK 负责。适配层只在原生扫描与重试的发送入口保留历史时间戳和 Stale Read 标记，不增加逐次读取的拓扑查询。读写客户端各有 RPC 连接、PD 客户端与 Region/健康缓存，读端拒绝候选不会使写端的路由状态失效。`Storage` 创建并关闭两个客户端，逻辑 Store 只借用它们。
+
+写入、原子条件以及 `WithStrongReads`/`WithPrimaryReads` 始终使用原写客户端的 leader 语义。PD 元数据/TSO、safe-point 维护及 SDK 锁处理等控制流量不属于普通数据读限制；这个选项不是网络防火墙，也不是完全离线读取模式。本地候选全部不可用或 safe-ts 尚未覆盖所需快照时，返回 SDK 错误或调用方超时，不返回成功的空结果、不更换快照。NotFound 是有效结果，不触发再次数据读取。调用方取消会传到读 RPC 与扫描元数据请求，原生重试退避在 SDK 检查点检查取消。
 
 TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV RPC 和故障恢复健康检查，不修改 client-go 的全局配置。恢复探测通过 `tikv.WithStoreLivenessSecurity` 接收同一 connector 的证书策略；不同 connector 即使访问同一地址，也不共享探测结果。显式无 TLS 的 connector 不继承其他连接的 TLS 配置，TLS 失败不回退到明文。Storage 负责关闭物理 client；逻辑 Store 和强读 view 不关闭该连接。
 

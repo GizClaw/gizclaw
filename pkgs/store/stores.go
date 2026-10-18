@@ -500,7 +500,11 @@ func (r *Stores) newKV(name string, cfg Config) (kv.Store, error) {
 		if err != nil {
 			return nil, fmt.Errorf("stores: keyvalue %q resolve tikv storage %q: %w", name, cfg.Storage, err)
 		}
-		root, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{StaleReadDelay: readConfig.StaleReadDelay, Labels: readConfig.ReadLabels}, nil)
+		reader, err := r.storage.TiKVReader(cfg.Storage)
+		if err != nil {
+			return nil, err
+		}
+		root, err := kv.NewTiKVWithClients(reader, client, kv.TiKVReadOptions{StaleReadDelay: readConfig.StaleReadDelay, Labels: readConfig.ReadLabels}, nil)
 		base = root
 		if err != nil {
 			return nil, fmt.Errorf("stores: keyvalue %q use tikv storage %q: %w", name, cfg.Storage, err)

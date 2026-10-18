@@ -46,6 +46,7 @@ type Storage struct {
 	sqls           map[string]*sqlx.DB
 	redis          map[string]*redis.Client
 	tikvs          map[string]*tikv.KVStore
+	tikvReaders    map[string]*tikv.KVStore
 	redisReadWrite map[string]redisReadWriteClients
 	prometheus     map[string]prometheusResource
 	volcs          map[string]tls.Client
@@ -68,6 +69,7 @@ func New(configs map[string]Config) (*Storage, error) {
 		sqls:           make(map[string]*sqlx.DB),
 		redis:          make(map[string]*redis.Client),
 		tikvs:          make(map[string]*tikv.KVStore),
+		tikvReaders:    make(map[string]*tikv.KVStore),
 		redisReadWrite: make(map[string]redisReadWriteClients),
 		prometheus:     make(map[string]prometheusResource),
 		volcs:          make(map[string]tls.Client),
@@ -200,10 +202,18 @@ func (s *Storage) build(name string, configs map[string]Config, states map[strin
 		}
 	case TiKVConfig:
 		var client *tikv.KVStore
-		client, err = newTiKV(name, cfg)
+		client, err = newTiKV(name, cfg, false)
 		if err == nil {
 			s.tikvs[name] = client
 			s.closers = append(s.closers, client)
+			if cfg.ReadLocalOnly {
+				var reader *tikv.KVStore
+				reader, err = newTiKV(name, cfg, true)
+				if err == nil {
+					s.tikvReaders[name] = reader
+					s.closers = append(s.closers, reader)
+				}
+			}
 		}
 	case RedisConfig:
 		var client *redis.Client

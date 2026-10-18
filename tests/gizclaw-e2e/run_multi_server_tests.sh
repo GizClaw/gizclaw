@@ -17,7 +17,18 @@ seed_bin="$bin_dir/multiserver-seed-linux"
 report_dir="$script_dir/testdata/multi-server/$project"
 env_file="${GIZCLAW_E2E_CREDENTIAL_FILE:-$script_dir/.env}"
 giztest_dir="tests/gizclaw-e2e/giztest"
+export GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY="${GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY:-false}"
+case "$GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY" in true|false) ;; *) echo 'TiKV read-local-only must be true or false' >&2; exit 2 ;; esac
+policy_only="${GIZCLAW_E2E_TIKV_POLICY_ONLY:-0}"
+case "$policy_only" in 0|1) ;; *) echo 'TiKV policy-only must be 0 or 1' >&2; exit 2 ;; esac
+test_run="${GIZCLAW_E2E_TEST_RUN:-.}"
+if [[ "$policy_only" == 1 && -z "${GIZCLAW_E2E_TEST_RUN:-}" ]]; then
+  test_run='^Test(TiKVLearnerLagThroughBothEdges|WorkspaceReloadWithOptions)$'
+fi
 sfu_case="${GIZCLAW_E2E_SFU_CASE:-}"
+if [[ "$policy_only" == 1 ]] && [[ "$GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY" != true || -n "$sfu_case" || "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+  echo 'TiKV policy-only requires read-local-only=true and no other specialized case' >&2; exit 2
+fi
 sfu_repeat="${GIZCLAW_E2E_SFU_REPEAT:-1}"
 sfu_delay="${GIZCLAW_E2E_SFU_TERMINAL_DELAY_MS:-0}"
 sfu_udp_mode="${GIZCLAW_E2E_LIVEKIT_UDP_MODE:-mux}"
@@ -89,6 +100,8 @@ provider_credentials=(
 GIZCLAW_E2E_SFU_PROVIDER=0
 if [[ -n "$sfu_case" ]]; then
   echo "==> provider-free SFU $sfu_case: $sfu_repeat tasks, parallel=$GIZCLAW_E2E_GIZTEST_PARALLEL, terminal delay=${sfu_delay}ms"
+elif [[ "$policy_only" == 1 ]]; then
+  echo "==> provider-free TiKV policy, authority, Workspace and cross-Server presence acceptance"
 elif [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
   echo "==> provider-free social notification acceptance"
 elif [[ -f "$env_file" ]]; then
@@ -246,9 +259,9 @@ pathlib.Path(report).write_text(json.dumps({
 PY
 fi
 
-python3 -B - "$repo_root" "$report_dir/e2e-run.json" "$project" "$server_bin" "$test_bin" "$seed_bin" "$GIZCLAW_E2E_SFU_PROVIDER" <<'PY'
+python3 -B - "$repo_root" "$report_dir/e2e-run.json" "$project" "$server_bin" "$test_bin" "$seed_bin" "$GIZCLAW_E2E_SFU_PROVIDER" "$GIZCLAW_E2E_TIKV_READ_LOCAL_ONLY" "$policy_only" "$test_run" <<'PY'
 import hashlib, json, pathlib, subprocess, sys
-repository, report, project, server, tests, seed, provider = sys.argv[1:]
+repository, report, project, server, tests, seed, provider, read_local_only, policy_only, test_run = sys.argv[1:]
 diff = subprocess.check_output(["git", "-C", repository, "diff", "HEAD"])
 pathlib.Path(report).write_text(json.dumps({
     "project": project,
@@ -257,6 +270,7 @@ pathlib.Path(report).write_text(json.dumps({
     "binary_sha256": {pathlib.Path(p).name: hashlib.sha256(pathlib.Path(p).read_bytes()).hexdigest() for p in [server, tests, seed]},
     "topology": "2 Servers, 2 Edges, LiveKit, PD, center voter, regional Learner with Raft gate; separate local SQL databases",
     "provider_scenarios_enabled": bool(int(provider)),
+    "tikv_read_local_only": read_local_only == "true", "tikv_policy_only": bool(int(policy_only)), "go_test_run": test_run,
 }, indent=2) + "\n")
 PY
 compose config --images > "$report_dir/images.txt"
@@ -278,7 +292,7 @@ seed_server() {
   # each Server is seeded independently and Peers register with the token of
   # the Server they are homed on. SFU activation never reads another Peer's
   # profile, so nothing catalog-related is shared between the Servers.
-  compose run "${build_flags[@]}" --rm -T seed -server "$server" -profile-id multi-server-sfu \
+  compose run ${build_flags[@]+"${build_flags[@]}"} --rm -T seed -server "$server" -profile-id multi-server-sfu \
     -token-id "$token_id" -admin-key-env "$admin_env" \
     -monitor-workflow-id workspace-reload-echo | tail -n 1
 }
@@ -294,7 +308,7 @@ export GIZCLAW_TEST_REGISTRATION_TOKEN_A GIZCLAW_TEST_REGISTRATION_TOKEN_B
 if [[ -z "$sfu_case" ]]; then
   echo "==> go multi-server tests"
   compose run --rm -T tests \
-    -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1 | tee "$report_dir/go-tests.log"
+    -test.run "$test_run" -test.parallel 1 | tee "$report_dir/go-tests.log"
 fi
 
 if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
@@ -394,6 +408,9 @@ else
 fi
 if [[ -n "$sfu_case" ]]; then
   scenarios=(/reports/sfu-case.giztest.yaml)
+fi
+if [[ "$policy_only" == 1 ]]; then
+  scenarios=("$giztest_dir/sfu.presence.cross-server.giztest.yaml")
 fi
 report_name="sfu-report.json"
 rm -f "$report_dir/$report_name"

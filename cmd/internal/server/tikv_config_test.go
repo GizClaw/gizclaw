@@ -36,6 +36,7 @@ func TestParseTiKVConfiguration(t *testing.T) {
     kind: tikv
     pd_addresses: ["${TIKV_TEST_PD}"]
     stale_read_delay: 5s
+    read_local_only: true
     read_labels:
       region: local
 stores:
@@ -48,7 +49,7 @@ stores:
 		t.Fatal(err)
 	}
 	physical, err := cfg.Storage["state"].runtimeConfig()
-	want := storage.TiKVConfig{PDAddresses: []string{"pd.example.com:2379"}, StaleReadDelay: 5 * time.Second, ReadLabels: map[string]string{"region": "local"}}
+	want := storage.TiKVConfig{PDAddresses: []string{"pd.example.com:2379"}, StaleReadDelay: 5 * time.Second, ReadLabels: map[string]string{"region": "local"}, ReadLocalOnly: true}
 	if err != nil || !reflect.DeepEqual(physical, want) {
 		t.Fatalf("parsed TiKV config=%+v %v", physical, err)
 	}

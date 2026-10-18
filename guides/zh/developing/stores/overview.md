@@ -67,7 +67,7 @@ flowchart TB
 | `postgresql`、`clickhouse` | `dsn` |
 | `redis` | 单节点 `redis://` 或 `rediss://` URL；`rediss://` 可通过 `tls_ca_file` 增加 PEM CA 证书；不支持 Redis Cluster |
 | `redis.readwrite` | 同一复制组、同一逻辑数据库的 `read_url` 与 `write_url`；可分别配置 `read_tls_ca_file`、`write_tls_ca_file`；只支持 `keyvalue` Store，读取允许复制延迟 |
-| `tikv` | `pd_addresses`；可选 `tls_ca_file`、`tls_cert_file`、`tls_key_file`；可选成对的 `stale_read_delay` / `read_labels`，详见 [KV](./kv#tikv) |
+| `tikv` | `pd_addresses`；可选 `tls_ca_file`、`tls_cert_file`、`tls_key_file`；可选成对的 `stale_read_delay` / `read_labels`，以及可选的 `read_local_only`，详见 [KV](./kv#tikv) |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
 
