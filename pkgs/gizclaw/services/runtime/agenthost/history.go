@@ -1676,6 +1676,11 @@ func (r *historyRecorder) flush(ctx context.Context, key string) (err error) {
 	var packets [][]byte
 	for i, segment := range entry.audio {
 		segmentPackets, err := segment.opusPackets()
+		if entry.interrupted && errors.Is(err, errHistoryNoAudioPackets) {
+			// Cancellation may deliver Ogg headers before the first packet.
+			// Keep the delivered text and any other audio, without an empty asset.
+			continue
+		}
 		if err != nil {
 			for _, rest := range entry.audio[i+1:] {
 				if rest.pcmWriter != nil {
@@ -1775,6 +1780,8 @@ func historyOggOpusAsset(frames [][]byte) ([]byte, error) {
 	return out.Bytes(), nil
 }
 
+var errHistoryNoAudioPackets = errors.New("agenthost: history ogg opus has no audio packets")
+
 func historyOpusFramesFromOgg(data []byte) ([][]byte, error) {
 	var frames [][]byte
 	for packet, err := range codecconv.OggOpusPackets(bytes.NewReader(data)) {
@@ -1784,7 +1791,7 @@ func historyOpusFramesFromOgg(data []byte) ([][]byte, error) {
 		frames = append(frames, packet)
 	}
 	if len(frames) == 0 {
-		return nil, fmt.Errorf("agenthost: history ogg opus has no audio packets")
+		return nil, errHistoryNoAudioPackets
 	}
 	return frames, nil
 }

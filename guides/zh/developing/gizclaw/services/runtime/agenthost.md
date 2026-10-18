@@ -52,6 +52,8 @@ high-water receipt，丢弃不会改变已持久化 History。observer 不执行
 
 Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part 的 control EOS 的 `Ctrl.Error` 去除首尾空白后以 `interrupted` 开头时，同一 StreamID 的所有待写入 entry 都标记为中断。落库时，中断且没有非空白定稿文本的 entry 被丢弃，并关闭其 PCM encoder；`Ctrl.TextInterim` 文本不计入定稿。已有定稿文本的中断 entry 仍保留，正常结束的纯音频 entry 仍可保存。
 
+中断可能发生在 TTS 只交付 Ogg 头、尚未产生音频 packet 时。Recorder 只在中断记录中忽略这种空音频分段，保留已交付的定稿文本和其他实际音频，并正常完成下一轮的 History 文本读取屏障；不会保存空音频 asset。损坏的 Ogg、正常结束却没有音频 packet 的分段，以及没有音频的回放 asset 仍按错误处理。
+
 一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。History 记录是尽力而为的，从不让实时输出失败：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
 
 RuntimeRegistry、lease 与 output-probe 的 stream wrapper 都向同一底层流转发 production observer、延迟交付确认和放弃通知。包装 Host output 时必须保留这些能力，连续 History 与 State 检查点才能遵循最终 consumer 的交付边界。
