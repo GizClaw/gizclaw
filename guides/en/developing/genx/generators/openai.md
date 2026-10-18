@@ -20,6 +20,8 @@ OpenAI Adapter is implemented by `OpenAIGenerator` in the root package and adapt
 
 OpenAI-compatible only means provider protocol compatibility; credentials, endpoint and product model selection are provided by the caller.
 
+Call `ModelParams.SetTemperature(0)` to configure zero explicitly; `HasTemperature()` reports whether temperature is configured. A JSON `"temperature": 0` survives decoding, parameter merging, re-encoding, and request serialization. An absent or `null` field creates no explicit value. For compatibility, `ModelParams{Temperature: 0}` in existing Go struct literals remains unspecified. Explicit temperature overrides the Generator default while other unspecified parameters continue to inherit their defaults.
+
 Streaming `finish_reason: content_filter` maps to `StatusBlocked`, separately
 from `length`/`StatusTruncated` and network or decoding errors. When the provider
 supplies no refusal text, the error identifies

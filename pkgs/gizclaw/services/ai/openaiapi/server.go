@@ -457,7 +457,8 @@ func modelFromResource(model apitypes.Model) openAIModel {
 func buildModelContext(body *chatCompletionRequest) (genx.ModelContext, bool, error) {
 	var builder genx.ModelContextBuilder
 	if body.Temperature != nil {
-		builder.Params = &genx.ModelParams{Temperature: *body.Temperature}
+		builder.Params = &genx.ModelParams{}
+		builder.Params.SetTemperature(*body.Temperature)
 	}
 	if body.Thinking != nil {
 		if builder.Params == nil {

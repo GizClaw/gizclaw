@@ -391,3 +391,55 @@ func TestTranscriptionAudioMIME(t *testing.T) {
 		t.Fatal("header lookup is not case insensitive")
 	}
 }
+
+func TestHandleChatPreservesExplicitZeroTemperature(t *testing.T) {
+	key := mustKey(t)
+	for _, test := range []struct {
+		name  string
+		field string
+		want  *float32
+	}{
+		{name: "absent"},
+		{name: "null", field: `,"temperature":null`},
+		{name: "zero", field: `,"temperature":0`, want: new(float32(0))},
+		{name: "positive", field: `,"temperature":0.5`, want: new(float32(0.5))},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			received := make(chan genx.ModelContext, 1)
+			server := &Server{Caller: key.Public, Generator: generatorFunc(func(_ context.Context, _ string, value genx.ModelContext) (genx.Stream, error) {
+				received <- value
+				return newTextStream("hello"), nil
+			})}
+			body := json.RawMessage(`{"model":"chat","messages":[{"role":"user","content":"hello"}],"stream":true` + test.field + `}`)
+			response, err := server.Handle(context.Background(), requestFor(key.Public, backend.CapabilityChat, "createChatCompletion", body))
+			if err != nil {
+				t.Fatal(err)
+			}
+			collectEvents(t, response.Stream)
+			value := (<-received).Params()
+			if value.HasTemperature() != (test.want != nil) {
+				t.Fatalf("temperature presence changed: %#v", value)
+			}
+			if test.want != nil && value.Temperature != *test.want {
+				t.Fatalf("temperature value changed: %#v", value)
+			}
+			data, err := json.Marshal(value)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct {
+				Temperature *float32 `json:"temperature"`
+			}
+			if err := json.Unmarshal(data, &wire); err != nil {
+				t.Fatal(err)
+			}
+			if test.want == nil {
+				if wire.Temperature != nil {
+					t.Fatalf("unspecified temperature was synthesized: %s", data)
+				}
+			} else if wire.Temperature == nil || *wire.Temperature != *test.want {
+				t.Fatalf("explicit temperature was lost: %s", data)
+			}
+		})
+	}
+}

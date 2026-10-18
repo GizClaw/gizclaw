@@ -28,6 +28,8 @@ The composition layer binds the verified Peer identity, RuntimeProfile-scoped mo
 
 Responses accept one non-empty text user turn only. Audio compatibility is composed through Audio Transcriptions, a text Response, and Audio Speech; raw Responses audio, images, files, tools, provider policy overrides, beta routes, unknown query keys, and list-Conversations are unsupported. `server.workspace.list` remains the Workspace/Conversation enumeration surface.
 
+Chat Completions preserves an explicitly configured `temperature`, including `0`; omitting temperature leaves the model default in effect.
+
 Unsupported options are rejected before mutation instead of being silently claimed. Chat additionally consumes the GizClaw `thinking.enabled` and `thinking.level` option. Speech streaming uses the official `stream_format: "sse"`; the former non-standard `stream` alias is rejected by schema validation.
 
 JSON, binary, and ordered SSE responses are owned and framed by the Shell. GenX streams are closed on completion, failure, cancellation, or downstream disconnect. No Realtime or Responses WebSocket backend is registered.

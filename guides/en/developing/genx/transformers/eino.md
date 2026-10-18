@@ -90,6 +90,8 @@ Each Prompt message uses exactly one declaration form. A role message declares a
 
 Prompt, ChatModel, and Retriever components are added through Eino's native `AddChatTemplateNode`, `AddChatModelNode`, and `AddRetrieverNode` paths inside typed nested Graphs. Package-owned Transform, Script, Race, Batch, and State adapters use Eino Lambdas when no serializable native component contract exists.
 
+`ChatModel.Temperature` is optional. An explicit `0` reaches the resolved component as an Eino model option, and GizClaw's GenX bridge preserves that zero. Omitting temperature leaves the component default in effect.
+
 ChatModel uses the resolved Eino streaming interface. Text chunks are published incrementally when the model node owns a declared text output. When a `ToolInvoker` is configured, `ResolveTools` supplies function names, descriptions, and schemas through Eino model options. Correlated ToolCalls execute in model order through `InvokeTool(name, arguments)`, native tool messages are appended, and the same model node continues. Internal calls and results are not published. A requested text port fails when the completed model turn contains no text.
 
 A host can also configure `Config.VerifyToolResponse`, receiving the actual

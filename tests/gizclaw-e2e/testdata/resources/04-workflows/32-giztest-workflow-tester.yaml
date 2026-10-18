@@ -69,6 +69,7 @@ spec:
           type: chat_model
           model: llm
           max_tokens: 512
+          temperature: 0
           inputs:
             messages:
               from: messages
