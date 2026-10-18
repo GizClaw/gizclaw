@@ -1276,3 +1276,37 @@ func TestJourneyChapterEntryAndResponseContext(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeWerewolfVocativeKeepsActualAddressee(t *testing.T) {
+	for _, path := range []string{"resources/04-workflows/13-eino-werewolf.yaml", "workspaces/eino-werewolf.json"} {
+		graph := fixtureGraph(t, path)
+		for i := range graph.Nodes {
+			if graph.Nodes[i].ID == "roles" {
+				graph.Nodes[i].Inputs["text"] = genxeino.Binding{From: "command"}
+			}
+		}
+		graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "command", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
+		game := runRules(t, "werewolf", "开始", map[string]any{})["game"].(map[string]any)
+		for _, test := range []struct {
+			name, text string
+			names      []string
+		}{
+			{name: "recorded question", text: "我是3号猎人，昨晚1号被刀出局信息太少，我先暂时怀疑8号苏禾，你作为最后一个位置发言的人信息差最大，刚才阿澈和小满都在前置位表态，轮到你时一直没开口说明你昨夜的已知信息，我想听你解释你为什么一直保持沉默？", names: []string{"苏禾"}},
+			{name: "named vocative", text: "苏禾，你怎么看阿澈和小满的发言？", names: []string{"苏禾"}},
+			{name: "explicit pair", text: "请阿澈和小满解释为什么怀疑8号", names: []string{"阿澈", "小满"}},
+			{name: "explicit individual", text: "我想问问阿澈为什么投给8号而不是5号", names: []string{"阿澈"}},
+		} {
+			t.Run(path+"/"+test.name, func(t *testing.T) {
+				result := runFixtureScript(t, graph, "roles", map[string]any{"game": game, "command": test.text, "public_input": test.text, "context": `{"phase":"vote","alive":[2,3,4,5,6,7,8],"dead":[1],"winner":""}`, "public_history": []*schema.Message{}})
+				actors := result["actors"].([]any)
+				got := []string{}
+				for _, actor := range actors {
+					got = append(got, actor.(map[string]any)["name"].(string))
+				}
+				if !slices.Equal(got, test.names) {
+					t.Fatalf("question selected contextual mentions instead of its recipients: got %v want %v", got, test.names)
+				}
+			})
+		}
+	}
+}

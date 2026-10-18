@@ -398,6 +398,13 @@ spec:
                             selected.append(seat)
                     if not selected and ended:
                         selected = [seat for seat in available if game["roles"][str(seat)] in addressees]
+                    if not selected:
+                        for seat in available:
+                            name = names[str(seat)]
+                            vocative = "(?:" + str(seat) + "号(?:" + name + "|预言家|女巫|猎人|狼人|平民)?|" + name + ")[，, ]*你"
+                            if regex_find(text, (vocative, "")):
+                                selected.append(seat)
+                    directed = bool(selected)
                     if not selected and ended and "你" in text:
                         selected = [seat for seat in game.get("last_addressees", []) if seat in available]
                     if not selected:
@@ -406,7 +413,7 @@ spec:
                                 selected.append(seat)
                     if not selected:
                         selected = available[:1] if ended else available[:2]
-                    elif not ended and len(selected) == 1:
+                    elif not ended and not directed and len(selected) == 1:
                         selected += [seat for seat in available if seat not in selected][:1]
                     history = "\n".join([message.get("content", "") for message in input["history"]][-12:])
                     for seat in selected[:2]:

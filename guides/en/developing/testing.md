@@ -616,7 +616,9 @@ The final publisher rejects model declarations of phases, tallies, victory or
 private identities. Character history projects NPC dialogue and the player's
 public daytime statements, excluding private hints and night actions. Death records distinguish attacks,
 poison, exile and hunter shots. The final identity table is rendered directly by
-the referee and stays outside long-term Memory. Werewolf renders the referee
+the referee and stays outside long-term Memory. Explicit Werewolf recipients, including vocatives such as “seat 8 Suhe, you…”, take priority over characters mentioned as background. A question addressed to one character gets that character alone; the existing maximum of two concurrent character calls is unchanged.
+
+Werewolf renders the referee
 announcement in its rules node. Native Eino Batch calls at most two
 relevant characters in parallel with separate identities, wolf teammate
 knowledge, public dialogue and each character's last position. They do not share
