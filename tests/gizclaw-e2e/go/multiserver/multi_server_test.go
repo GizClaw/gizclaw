@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -370,7 +371,9 @@ func openSharedTiKV(t *testing.T) *tikv.KVStore {
 // The fixture uses the default KV encoding and the peers Store prefix.
 // Presence records change on legitimate connections and lease renewal; they
 // are display state rather than assignment or business-state ownership.
-const sharedPresenceRecordPrefix = "gizclaw-kv\x00\x01\x01peers:presence:"
+const sharedPresenceLogicalPrefix = "peers:presence:"
+const sharedPresenceRecordPrefix = "gizclaw-kv\x00\x01\x01" + sharedPresenceLogicalPrefix
+const sharedExpiryIndexPrefix = "gizclaw-kv\x00\x01\x03"
 
 func durableSharedSnapshot(t *testing.T, client *tikv.KVStore) byteSnapshot {
 	t.Helper()
@@ -380,7 +383,12 @@ func durableSharedSnapshot(t *testing.T, client *tikv.KVStore) byteSnapshot {
 func withoutRuntimePresence(snapshot byteSnapshot) byteSnapshot {
 	result := maps.Clone(snapshot)
 	for key := range result {
-		if strings.HasPrefix(key, sharedPresenceRecordPrefix) {
+		presence := strings.HasPrefix(key, sharedPresenceRecordPrefix)
+		if strings.HasPrefix(key, sharedExpiryIndexPrefix) && len(key) >= len(sharedExpiryIndexPrefix)+8 {
+			// The physical TTL index stores an eight-byte deadline before the logical key.
+			presence = presence || strings.HasPrefix(key[len(sharedExpiryIndexPrefix)+8:], sharedPresenceLogicalPrefix)
+		}
+		if presence {
 			delete(result, key)
 		}
 	}
@@ -772,4 +780,30 @@ func sqlDatabaseSnapshot(t *testing.T, path string) byteSnapshot {
 		snapshot[name] = data
 	}
 	return snapshot
+}
+
+func TestDurableSharedSnapshotIgnoresOnlyPresenceExpiry(t *testing.T) {
+	expiryKey := func(deadline uint64, logical string) string {
+		return string(append(binary.BigEndian.AppendUint64([]byte(sharedExpiryIndexPrefix), deadline), logical...))
+	}
+	durable := byteSnapshot{
+		"gizclaw-kv\x00\x01\x01peers:records:peer":        []byte("same"),
+		expiryKey(3, "friends:records:relation"):          []byte("business expiry"),
+		sharedExpiryIndexPrefix + "short":                 []byte("unknown"),
+		"other:" + sharedPresenceLogicalPrefix + "record": []byte("unrelated"),
+	}
+	before, after := maps.Clone(durable), maps.Clone(durable)
+	for _, server := range []string{"a", "b"} {
+		logical := sharedPresenceLogicalPrefix + "servers:" + server
+		before[expiryKey(1, logical)] = []byte{1}
+		after[expiryKey(2, logical)] = []byte{1}
+	}
+	for _, snapshot := range []byteSnapshot{before, after} {
+		if got := withoutRuntimePresence(snapshot); !maps.EqualFunc(got, durable, bytes.Equal) {
+			t.Fatalf("lease index filtering changed durable state: %v", got)
+		}
+		if len(snapshot) != len(durable)+2 {
+			t.Fatal("filter mutated the source snapshot")
+		}
+	}
 }

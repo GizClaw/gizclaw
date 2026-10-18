@@ -340,7 +340,7 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 主 `run_tests.sh` 在标准 SDK 场景和该 stack 清理完成后，也运行这个双 Server gate。标准 `docker-compose.yaml` 与 multi-server stack 的 Peer、assignment、API key、Friend 和 FriendGroup 使用同一 TiKV connector；业务 SQL 仍由各 Server 独立持有。PD、TiKV、LiveKit 等外部服务镜像全部从 `gizcr.gizclaw.com` 拉取并固定 digest；Server、Edge、fixture 与 runner 从本地源码构建，构建基础镜像同样来自 gizcr。TiKV 数据使用项目独立的临时内存文件系统，结束时随该 project 清理。标准 Docker 镜像在构建时预编译 CLI 和 fixture apply 辅助程序，Server、Edge 与初始化流程直接使用这些构建产物。
 
-通用的 `server.friend.list`、`server.friend_group.members.list` 与 `server.friend_groups.http` 场景也等待共享 presence 进入历史视图。首次 RPC 状态断言最多十次、间隔十秒，只重试 assertion。HTTP 场景先经对应的成员列表 RPC 等待状态可见，再执行原有 HTTP 状态与权限断言；HTTP step 不设置重试策略。 原生 foreign-admission 与 telemetry 检查比较 assignment 和业务记录，排除会随合法连接及租约续期变化的精确 runtime-presence record prefix；SQL PeerRun 隔离与固定归属路由断言保持严格。
+通用的 `server.friend.list`、`server.friend_group.members.list` 与 `server.friend_groups.http` 场景也等待共享 presence 进入历史视图。首次 RPC 状态断言最多十次、间隔十秒，只重试 assertion。HTTP 场景先经对应的成员列表 RPC 等待状态可见，再执行原有 HTTP 状态与权限断言；HTTP step 不设置重试策略。 原生 foreign-admission 与 telemetry 检查比较 assignment 和业务记录，仅排除会随合法连接及租约续期变化的 runtime-presence record 及其对应的 TiKV expiry-index 项；assignment 和业务记录的 expiry 项、格式异常的索引 key 与其他 namespace 仍参与严格比较；SQL PeerRun 隔离与固定归属路由断言保持严格。
 
 Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各配置 1 GiB tmpfs，隔离本机 Docker 存储 I/O 停顿；通过 `tikv-pd.toml` 将 [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) 设为 15 秒。`tikv-test.toml` 将预留空间设为 64 MiB、Raft 预留空间设为 32 MiB、block cache 设为 128 MiB，TiKV 容器各有 4 GiB 内存上限，匹配小型夹具容量。仍运行真实 RocksDB、Raft 和 Learner 数据复制。数据只在本次测试内有效；该夹具不验收 SSD 性能或 TiKV/PD 重启持久性。
 
