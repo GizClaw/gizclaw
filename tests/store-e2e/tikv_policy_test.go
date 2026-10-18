@@ -162,7 +162,7 @@ func TestTiKVLocalReadChannels(t *testing.T) {
 		}
 		return len(local) == 2 && center != ""
 	})
-	t.Logf("PD verified center=%s Learners in attempt order=%v", center, local)
+	t.Logf("PD verified center=%s Learners=%v", center, local)
 
 	reader, err := physical.TiKVReader("test")
 	if err != nil {
@@ -230,7 +230,7 @@ func TestTiKVLocalReadChannels(t *testing.T) {
 				t.Fatal("SDK retry/page changed snapshot")
 			}
 		}
-		t.Logf("actual local data RPCs=%d; non-local SDK candidates rejected before send=%d; first version=%d", sent, denied, ts)
+		t.Logf("completed local data RPCs=%d; non-local SDK candidates rejected before send=%d; first version=%d", sent, denied, ts)
 	}
 	t.Run("native-batch-and-cross-region-scan", func(t *testing.T) {
 		readObserver.take()
@@ -438,9 +438,40 @@ func TestTiKVLocalReadChannels(t *testing.T) {
 	})
 	t.Run("socket-deadlines-get-batch-scan", func(t *testing.T) {
 		for _, kind := range []tikvrpc.CmdType{tikvrpc.CmdGet, tikvrpc.CmdBatchGet, tikvrpc.CmdScan} {
+			operation := func(op context.Context) error {
+				switch kind {
+				case tikvrpc.CmdGet:
+					_, err := store.Get(op, keys[0])
+					return err
+				case tikvrpc.CmdBatchGet:
+					return store.BatchGet(op, keys)[0].Err
+				default:
+					_, err := store.ListMembers(op, set)
+					return err
+				}
+			}
+			// Recover routing after the preceding outages before timing a real
+			// response stall; scans must first read their collection metadata.
+			waitPolicy(t, ctx, func() bool {
+				op, cancel := context.WithTimeout(ctx, 2*time.Second)
+				defer cancel()
+				return operation(op) == nil
+			})
+			heldResponses := func() int {
+				held := 0
+				for _, addr := range local {
+					var status struct{ Held int }
+					if err := tiKVHTTP(ctx, http.MethodGet, "http://"+strings.Split(addr, ":")[0]+":8080/status", nil, &status); err != nil {
+						t.Fatal(err)
+					}
+					held += status.Held
+				}
+				return held
+			}
+			heldBefore := heldResponses()
 			var paused atomic.Bool
 			fault := &policyObserver{Client: readObserver, before: func(req *tikvrpc.Request) {
-				if req.Type == kind && paused.CompareAndSwap(false, true) {
+				if req.Type == kind && req.Peer.GetRole() == metapb.PeerRole_Learner && paused.CompareAndSwap(false, true) {
 					for _, addr := range local {
 						control(t, addr, "/pause-reads")
 					}
@@ -448,28 +479,23 @@ func TestTiKVLocalReadChannels(t *testing.T) {
 			}}
 			reader.SetTiKVClient(fault)
 			readObserver.take()
-			op, cancel := context.WithTimeout(ctx, 75*time.Millisecond)
+			op, cancel := context.WithTimeout(ctx, time.Second)
 			start := time.Now()
-			var err error
-			switch kind {
-			case tikvrpc.CmdGet:
-				_, err = store.Get(op, keys[0])
-			case tikvrpc.CmdBatchGet:
-				err = store.BatchGet(op, keys)[0].Err
-			case tikvrpc.CmdScan:
-				_, err = store.ListMembers(op, set)
-			}
+			err := operation(op)
 			elapsed := time.Since(start)
 			cancel()
 			reader.SetTiKVClient(readObserver)
 			for _, addr := range local {
 				control(t, addr, "/resume-reads")
 			}
-			if !paused.Load() || !errors.Is(err, context.DeadlineExceeded) || elapsed > 600*time.Millisecond {
+			if !paused.Load() || heldResponses() <= heldBefore || !errors.Is(err, context.DeadlineExceeded) || elapsed > 1500*time.Millisecond {
 				t.Fatalf("%s deadline elapsed=%v err=%v cause=%v (%T) paused=%t", kind, elapsed, err, errors.Unwrap(err), errors.Unwrap(err), paused.Load())
 			}
+			// Async BatchGet can stop its SDK run loop on cancellation before
+			// completion callbacks execute. The gate counter verifies real
+			// blocked responses independently of those completion observations.
 			assertLocal(t, readObserver.take(), true)
-			t.Logf("%s real response stall respected 75ms caller deadline: %v", kind, elapsed)
+			t.Logf("%s real response stall respected 1s caller deadline: %v", kind, elapsed)
 		}
 	})
 }
