@@ -43,7 +43,7 @@ export type Page = {
 };
 
 export type Error = {
-    error: 'INVALID_FLOW_TOKEN' | 'FLOW_FEED_DISABLED' | 'INVALID_FLOW_QUERY' | 'FLOW_FEED_UNAVAILABLE';
+    error: 'FLOW_FEED_DISABLED' | 'INVALID_FLOW_QUERY' | 'FLOW_FEED_UNAVAILABLE';
 };
 
 export type ReadInfraFlowsData = {
@@ -61,10 +61,6 @@ export type ReadInfraFlowsErrors = {
      * Invalid environment or cursor.
      */
     400: Error;
-    /**
-     * Invalid independent read token.
-     */
-    401: Error;
     /**
      * Read-only endpoint; Allow: GET,OPTIONS.
      */
@@ -85,3 +81,19 @@ export type ReadInfraFlowsResponses = {
 };
 
 export type ReadInfraFlowsResponse = ReadInfraFlowsResponses[keyof ReadInfraFlowsResponses];
+
+export type PreflightInfraFlowsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/gizclaw/v1/infra/flows';
+};
+
+export type PreflightInfraFlowsResponses = {
+    /**
+     * Cross-origin read preflight accepted; no response body.
+     */
+    204: void;
+};
+
+export type PreflightInfraFlowsResponse = PreflightInfraFlowsResponses[keyof PreflightInfraFlowsResponses];

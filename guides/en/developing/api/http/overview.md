@@ -1,6 +1,6 @@
 # HTTP API
 
-GizClaw Server maintains three repository-owned OpenAPI surfaces plus one limited OpenAI-compatible surface supplied by AI Server Shell. Their callers, authentication methods, and business boundaries remain independent.
+GizClaw Server maintains four repository-owned OpenAPI surfaces plus one limited OpenAI-compatible surface supplied by AI Server Shell. Their callers, authentication methods, and business boundaries remain independent.
 
 ## Surface
 
@@ -9,6 +9,7 @@ GizClaw Server maintains three repository-owned OpenAPI surfaces plus one limite
 | `admin.json` | Administrator manages resources, Peer, Telemetry and operation and maintenance actions | `pkgs/gizclaw/api/adminhttp` |
 | `peer.json` | Server info, WebRTC offer, and the API-key-bound device key management, device, control, and contact surface | `pkgs/gizclaw/api/peerhttp` |
 | `monitor.json` | Node operators read process-local snapshots using an independent Monitor Token | `pkgs/monitor/api` |
+| `infra.json` | Any browser reads bounded infrastructure aggregates anonymously; an explicit KV Store enables the feed | `pkgs/infraflow/api` |
 | `github.com/idy/ai-server-shell` | OpenAI-compatible model, chat and audio subset | `services/ai/openaiapi` backend adapter |
 
 ## Request flow
@@ -52,6 +53,6 @@ For repository-owned surfaces, OpenAPI has path, method, parameters, wire DTO an
 
 Design information: [Shared and Resources](./shared-resources) · [Dependency Rules](./type-dependencies)
 
-Monitor routing and generation ownership: [Monitor](../../monitor).
+Monitor routing and generation ownership: [Monitor](../../monitor). The public aggregate route, resource bounds and configuration are documented in [Infra Flow](../../infra-flow).
 
 For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](./quota).

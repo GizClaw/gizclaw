@@ -2,13 +2,10 @@ package infraflow
 
 import (
 	"context"
-	"crypto/sha256"
-	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -16,26 +13,27 @@ import (
 	infraapi "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
 )
 
-// Config binds a dedicated KV namespace and an independent read credential.
-// An empty configuration disables the feed; it never creates an implicit Store.
+// Config binds a dedicated KV namespace for the public read-only feed.
+// An empty Store disables the feed; it never creates an implicit Store.
 type Config struct {
-	Store     string `yaml:"store"`
+	Store string `yaml:"store"`
+	// Deprecated: ReadToken is ignored. Infrastructure aggregates are public.
 	ReadToken string `yaml:"read_token" json:"-"`
 }
 
-// Validate expands the token and requires an explicit Store/credential pair.
+// Validate checks the optional logical Store name. Legacy ReadToken is ignored.
 func (c *Config) Validate() error {
-	c.ReadToken = os.ExpandEnv(c.ReadToken)
-	if c.Store == "" && c.ReadToken == "" {
-		return nil
-	}
-	if c.Store == "" || !strings.HasPrefix(c.ReadToken, "gizclaw_mk_") || len(c.ReadToken) < 43 || len(c.ReadToken) > 512 {
-		return errors.New("infra_flow requires a KV store and independent gizclaw_mk_ read_token")
+	if strings.TrimSpace(c.Store) != c.Store {
+		return errors.New("infra_flow.store must not contain surrounding whitespace")
 	}
 	return nil
 }
 
 type flowServer struct{ feed *Feed }
+
+func (s *flowServer) PreflightInfraFlows(context.Context, infraapi.PreflightInfraFlowsRequestObject) (infraapi.PreflightInfraFlowsResponseObject, error) {
+	return infraapi.PreflightInfraFlows204Response{}, nil
+}
 
 func (s *flowServer) ReadInfraFlows(ctx context.Context, request infraapi.ReadInfraFlowsRequestObject) (infraapi.ReadInfraFlowsResponseObject, error) {
 	cursor := ""
@@ -62,14 +60,13 @@ func validCursor(cursor string) bool {
 	return err == nil && len(cursor) <= 16 && value > 0 && value <= 8640000000000000 && value%Window.Milliseconds() == 0 && strconv.FormatInt(value, 10) == cursor
 }
 
-// Handler mounts the generated read-only AP API. It borrows Feed, starts no
-// producer, and authenticates before reading KV. User/API-key tokens grant no access.
+// Handler mounts the generated public read-only AP API. It borrows Feed, starts
+// no producer, and validates bounded queries before reading KV. It ignores credentials.
 func Handler(cfg Config, feed *Feed, next http.Handler) http.Handler {
 	validConfig := cfg.Validate() == nil
 	if next == nil {
 		next = http.NotFoundHandler()
 	}
-	hash := sha256.Sum256([]byte(cfg.ReadToken))
 	api := infraapi.HandlerWithOptions(infraapi.NewStrictHandler(&flowServer{feed: feed}, nil), infraapi.StdHTTPServerOptions{ErrorHandlerFunc: func(w http.ResponseWriter, _ *http.Request, _ error) {
 		writeError(w, http.StatusBadRequest, infraapi.INVALIDFLOWQUERY)
 	}})
@@ -90,7 +87,7 @@ func Handler(cfg Config, feed *Feed, next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Headers", "Authorization,Content-Type")
 		w.Header().Set("Access-Control-Allow-Methods", "GET,OPTIONS")
 		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusNoContent)
+			api.ServeHTTP(w, r)
 			return
 		}
 		if r.Method != http.MethodGet {
@@ -98,15 +95,8 @@ func Handler(cfg Config, feed *Feed, next http.Handler) http.Handler {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			return
 		}
-		if !validConfig || feed == nil || cfg.ReadToken == "" {
+		if !validConfig || feed == nil || cfg.Store == "" {
 			writeError(w, http.StatusServiceUnavailable, infraapi.FLOWFEEDDISABLED)
-			return
-		}
-		scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
-		candidate := sha256.Sum256([]byte(token))
-		if !ok || !strings.EqualFold(scheme, "Bearer") || subtle.ConstantTimeCompare(hash[:], candidate[:]) != 1 {
-			w.Header().Set("WWW-Authenticate", "Bearer")
-			writeError(w, http.StatusUnauthorized, infraapi.INVALIDFLOWTOKEN)
 			return
 		}
 		query, err := urlValues(r)

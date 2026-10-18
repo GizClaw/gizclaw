@@ -3,17 +3,13 @@
   "info": {
     "title": "Infrastructure Flow Feed",
     "version": "1.0.0",
-    "description": "Fixed five-second aggregate frames backed by an explicitly configured KV Store. No per-user series or public write API."
+    "description": "Public read-only five-second infrastructure aggregates backed by an explicitly configured KV Store. Anonymous GET/OPTIONS with no-store responses and cross-origin access. No per-user series or public write API."
   },
   "paths": {
     "/gizclaw/v1/infra/flows": {
       "get": {
         "operationId": "readInfraFlows",
-        "security": [
-          {
-            "FlowReadToken": []
-          }
-        ],
+        "security": [],
         "parameters": [
           {
             "name": "environment",
@@ -54,16 +50,6 @@
               }
             }
           },
-          "401": {
-            "description": "Invalid independent read token.",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "503": {
             "description": "Feed disabled or unavailable.",
             "content": {
@@ -77,18 +63,22 @@
           "405": {
             "description": "Read-only endpoint; Allow: GET,OPTIONS."
           }
+        },
+        "description": "Anonymous bounded infrastructure reads. Authorization is neither required nor used; device API keys, owner identity and Monitor credentials are not consulted."
+      },
+      "options": {
+        "operationId": "preflightInfraFlows",
+        "description": "Anonymous CORS preflight, including when the feed is disabled. Allows GET/OPTIONS and returns no-store with Access-Control-Allow-Origin.",
+        "security": [],
+        "responses": {
+          "204": {
+            "description": "Cross-origin read preflight accepted; no response body."
+          }
         }
       }
     }
   },
   "components": {
-    "securitySchemes": {
-      "FlowReadToken": {
-        "type": "http",
-        "scheme": "bearer",
-        "bearerFormat": "Independent gizclaw_mk_ read token; never a device API key."
-      }
-    },
     "schemas": {
       "Environment": {
         "type": "string",
@@ -285,7 +275,6 @@
           "error": {
             "type": "string",
             "enum": [
-              "INVALID_FLOW_TOKEN",
               "FLOW_FEED_DISABLED",
               "INVALID_FLOW_QUERY",
               "FLOW_FEED_UNAVAILABLE"

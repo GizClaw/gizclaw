@@ -272,6 +272,7 @@ type routeRPCGiznetConn struct {
 	calls         atomic.Int32
 	httpServerID  string
 	httpCalls     atomic.Int32
+	httpHandler   http.Handler
 }
 
 func (c *routeRPCGiznetConn) DialContext(_ context.Context, service uint64) (net.Conn, error) {
@@ -289,6 +290,14 @@ func (c *routeRPCGiznetConn) Dial(service uint64) (net.Conn, error) {
 				return
 			}
 			_ = request.Body.Close()
+			if c.httpHandler != nil {
+				recorder := httptest.NewRecorder()
+				c.httpHandler.ServeHTTP(recorder, request)
+				response := recorder.Result()
+				defer response.Body.Close()
+				_ = response.Write(server)
+				return
+			}
 			response := &http.Response{
 				StatusCode: http.StatusOK,
 				Status:     "200 OK",

@@ -32,6 +32,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
 	storemetrics "github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -975,6 +976,16 @@ func rewriteServerInfo(resp *http.Response, edgeEndpoint string, transport *serv
 func edgeCORSHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		setEdgeCORSHeaders(w.Header(), req.Header.Get("Origin"))
+		if req.URL.Path == infraflow.Path {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization,Content-Type")
+			if req.Method != http.MethodGet && req.Method != http.MethodOptions {
+				w.Header().Set("Allow", "GET,OPTIONS")
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+		}
 		if req.Method == http.MethodOptions && isEdgePeerHTTPPath(req.URL.Path) {
 			w.WriteHeader(http.StatusNoContent)
 			return

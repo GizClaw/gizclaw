@@ -283,30 +283,43 @@ func TestFeedConcurrentWritersCannotOverwriteOneWindow(t *testing.T) {
 	}
 }
 
-func TestGeneratedReadAPIAuthenticatesBeforeKVAndRejectsUnboundedQueries(t *testing.T) {
+func TestGeneratedReadAPIIsAnonymousAndRejectsUnboundedQueries(t *testing.T) {
 	store := &measuredKV{Store: kv.NewMemory(nil), keys: map[string]int{}}
 	feed, _ := New(store)
 	end := time.Now().Truncate(Window)
 	if err := feed.Append(t.Context(), fixtureFrame(end, 1)); err != nil {
 		t.Fatal(err)
 	}
-	token := "gizclaw_mk_" + strings.Repeat("x", 32)
-	server := httptest.NewServer(Handler(Config{Store: "flows", ReadToken: token}, feed, nil))
+	server := httptest.NewServer(Handler(Config{Store: "flows"}, feed, nil))
 	defer server.Close()
 	reads := store.gets.Load()
 	for _, test := range []struct {
-		method, query, token string
-		status               int
+		method, query string
+		status        int
 	}{
-		{"GET", "?environment=prod", "", 401},
-		{"POST", "?environment=prod", token, 405},
-		{"GET", "?environment=prod&environment=dev", token, 400},
-		{"GET", "?environment=user-123", token, 400},
-		{"GET", "?environment=prod&limit=999999", token, 400},
-		{"GET", "?environment=prod&cursor=-1", token, 400},
+		{"POST", "?environment=prod", 405},
+		{"HEAD", "?environment=prod", 405},
+		{"PUT", "?environment=prod", 405},
+		{"DELETE", "?environment=prod", 405},
+		{"PATCH", "?environment=prod", 405},
+		{"GET", "", 400},
+		{"GET", "?environment=", 400},
+		{"GET", "?environment=prod&environment=dev", 400},
+		{"GET", "?environment=user-123", 400},
+		{"GET", "?environment=PROD", 400},
+		{"GET", "?environment=prod&limit=999999", 400},
+		{"GET", "?environment=prod&cursor=", 400},
+		{"GET", "?environment=prod&cursor=-1", 400},
+		{"GET", "?environment=prod&cursor=0", 400},
+		{"GET", "?environment=prod&cursor=05000", 400},
+		{"GET", "?environment=prod&cursor=5001", 400},
+		{"GET", "?environment=prod&cursor=5000&cursor=10000", 400},
+		{"GET", "?environment=prod&cursor=8640000000005000", 400},
+		{"GET", "?environment=prod&cursor=" + strings.Repeat("1", 161), 400},
+		{"GET", "?environment=prod&cursor=%zz", 400},
 	} {
 		req, _ := http.NewRequestWithContext(t.Context(), test.method, server.URL+Path+test.query, nil)
-		req.Header.Set("Authorization", "Bearer "+test.token)
+		req.Header.Set("Origin", "https://globe.example")
 		response, err := server.Client().Do(req)
 		if err != nil {
 			t.Fatal(err)
@@ -314,6 +327,10 @@ func TestGeneratedReadAPIAuthenticatesBeforeKVAndRejectsUnboundedQueries(t *test
 		response.Body.Close()
 		if response.StatusCode != test.status {
 			t.Fatalf("%s -> %d want %d", test.query, response.StatusCode, test.status)
+		}
+		assertFlowCORS(t, response.Header, "https://globe.example")
+		if test.status == 405 && response.Header.Get("Allow") != "GET,OPTIONS" {
+			t.Fatal("method restriction changed")
 		}
 	}
 	if store.gets.Load() != reads {
@@ -323,14 +340,15 @@ func TestGeneratedReadAPIAuthenticatesBeforeKVAndRejectsUnboundedQueries(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	response, err := client.ReadInfraFlowsWithResponse(t.Context(), &infraapi.ReadInfraFlowsParams{Environment: infraapi.Prod}, func(_ context.Context, r *http.Request) error {
-		r.Header.Set("Authorization", "Bearer "+token)
-		return nil
-	})
+	response, err := client.ReadInfraFlowsWithResponse(t.Context(), &infraapi.ReadInfraFlowsParams{Environment: infraapi.Prod})
 	if err != nil || response.JSON200 == nil || len(response.JSON200.Frames) != 1 {
 		t.Fatalf("generated client: %+v %v", response, err)
 	}
 	if response.HTTPResponse.Header.Get("Cache-Control") != "no-store" {
 		t.Fatal("cache policy changed")
+	}
+	preflight, err := client.PreflightInfraFlowsWithResponse(t.Context())
+	if err != nil || preflight.StatusCode() != http.StatusNoContent {
+		t.Fatalf("generated preflight: %+v %v", preflight, err)
 	}
 }
