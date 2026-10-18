@@ -101,6 +101,10 @@ type Stream interface {
 | `EndOfStream` | 当前 chunk 是结束边界。携带 Part 时只结束对应 MIME channel；纯控制 chunk 则结束整个 StreamID route。它也可以携带最后一段 data 或 Error。 |
 | `Timestamp` | Chunk 的毫秒时间戳，供 `RealtimeStream` 排序和延迟处理；值为零时，`RealtimeStream` 会按当前时间补充单调递增值。 |
 
+`RealtimeStream` 为零时间戳同时参考已交付与仍排队的最大时间戳，保持到达顺序。
+新 BOS 淘汰同用途旧 route 的待处理音频时，若已结束的纯控制 route 的 BOS 仍在队列，
+会同时保留其 EOS，使慢消费者先结束这轮再开始下一轮；明确晚于新 BOS 的旧音频边界仍被淘汰。
+
 `StreamCtrl.MessageID` 标识同一播放 route 内的一次生成，文字与对应音频携带相同 MessageID。`MessageEnd` 关闭该消息的当前 MIME channel，不改变 StreamID，也不发送播放 EOS。Recorder 在该消息所有已声明 MIME channel 完成后保存一条 History。两个字段跨 `Clone` 保留，只用于进程内组合与记录，不进入 JSON 或 Peer wire。
 
 `StreamCtrl.ErrorCause` 只在进程内保留 typed terminal cause，跨 `MessageChunk.Clone` 保留，但从 JSON 与 Peer wire 排除。领域 owner 可以实现 `PublicError`，提供稳定、安全的 code/message/retryable。`SetStreamError` 同时记录 cause 和公开细节；`StreamError` 返回保留的 cause，未携带类型的 wire 文本仍然是普通 error。组合层在 terminal route 中传播 cause，不解释领域 code，也不解析错误字符串。

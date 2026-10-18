@@ -240,7 +240,7 @@ func (s *RealtimeStream) chunkTimestampLocked(chunk *MessageChunk) int64 {
 	if s.lastEmitted >= 0 && ts <= s.lastEmitted {
 		ts = s.lastEmitted + 1
 	}
-	if chunk != nil && chunk.IsEndOfStream() && s.maxSeen >= 0 && ts <= s.maxSeen {
+	if s.maxSeen >= 0 && ts <= s.maxSeen {
 		ts = s.maxSeen + 1
 	}
 	if chunk != nil {
@@ -273,10 +273,22 @@ func (s *RealtimeStream) dropSupersededStreamLocked(next *MessageChunk) {
 	if nextID == "" || s.heap.Len() == 0 {
 		return
 	}
+	queuedControlBegins := make(map[[2]string]struct{})
+	for _, item := range s.heap {
+		if item.chunk.Part == nil && item.chunk.IsBeginOfStream() {
+			id, label := realtimeChunkRoute(item.chunk)
+			queuedControlBegins[[2]string{id, label}] = struct{}{}
+		}
+	}
 	items := s.heap[:0]
 	for _, item := range s.heap {
 		id, label := realtimeChunkRoute(item.chunk)
-		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) {
+		_, hasControlBegin := queuedControlBegins[[2]string{id, label}]
+		// Keep a closed control route intact while a slow consumer is opening.
+		// Dropping only its EOS would leave the retained BOS capturing forever.
+		closedControlRoute := hasControlBegin && item.chunk.Part == nil && item.chunk.IsEndOfStream() &&
+			(next.Ctrl.Timestamp <= 0 || item.timestamp <= next.Ctrl.Timestamp)
+		if id != "" && id != nextID && realtimeRouteMatches(nextLabel, label) && isRealtimeAudioChunk(item.chunk) && !closedControlRoute {
 			continue
 		}
 		items = append(items, item)
