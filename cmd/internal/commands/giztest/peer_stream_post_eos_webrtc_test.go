@@ -22,12 +22,29 @@ import (
 // Signaling, SCTP events, RTP, SDK merging, Giztest assertions and playback
 // observation are real; neither a provider nor a timing race is needed.
 func TestPeerStreamPostEOSWebRTCGiztest(t *testing.T) {
+	for _, delay := range []time.Duration{0, replyObservationWindow + 100*time.Millisecond} {
+		t.Run(delay.String(), func(t *testing.T) {
+			runPostEOSWebRTCGiztest(t, delay)
+		})
+	}
+}
+
+func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration) {
+	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
-	client, remote, events := postEOSWebRTCClient(t, ctx)
 	first := voiceTonePacketsCount(t, 300, 1)[0]
 	second := voiceTonePacketsCount(t, 600, 1)[0]
 	late := voiceTonePacketsCount(t, 900, 2)
+	client, remote, events := postEOSWebRTCClient(t, ctx, late[0], tailDelay)
+	stream, err := client.OpenPeerStream(32)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = stream.Close() })
+	// The pre-fix SDK overlay has no diagnostic getter. Its negative control
+	// still runs to completion and fails the same functional YAML assertions.
+	diagnostics, _ := any(stream).(peerStreamAudioDiagnostics)
 	t.Setenv("GIZCLAW_TEST_POST_EOS_FIRST_DIGEST", voicePacketDigest([][]byte{first}))
 	t.Setenv("GIZCLAW_TEST_POST_EOS_SECOND_DIGEST", voicePacketDigest([][]byte{second}))
 	observed := make(chan *genx.MessageChunk, 32)
@@ -37,11 +54,11 @@ func TestPeerStreamPostEOSWebRTCGiztest(t *testing.T) {
 			played <- bytes.Clone(packet)
 		}
 		return nil
-	}), client: client, observed: observed}
+	}), stream: &postEOSObservedStream{PeerStream: stream, ctx: ctx, observed: observed}}
 	fixtureDone := make(chan error, 1)
 	go func() {
 		defer close(fixtureDone)
-		err := servePostEOSWebRTC(ctx, remote, events, observed, [][]byte{first, second}, late)
+		err := servePostEOSWebRTC(ctx, remote, events, observed, [][]byte{first, second}, late, diagnostics)
 		if err != nil {
 			cancel()
 		}
@@ -94,17 +111,12 @@ func TestPeerStreamPostEOSWebRTCGiztest(t *testing.T) {
 
 type postEOSWebRTCDriver struct {
 	*driver
-	client   *gizcli.Client
-	observed chan *genx.MessageChunk
+	stream peerStream
 }
 
-func (d *postEOSWebRTCDriver) Open(ctx context.Context, _ *giztest.Document, _ *giztest.Variables) (giztest.Session, error) {
-	stream, err := d.client.OpenPeerStream(32)
-	if err != nil {
-		return nil, err
-	}
+func (d *postEOSWebRTCDriver) Open(context.Context, *giztest.Document, *giztest.Variables) (giztest.Session, error) {
 	// Retain the reader across the two text steps, as in the voice fixture.
-	session := newPeerStreamSession("peer", &postEOSObservedStream{PeerStream: stream, ctx: ctx, observed: d.observed})
+	session := newPeerStreamSession("peer", d.stream)
 	session.startReader()
 	return &postEOSWebRTCSession{voiceFixtureSession: &voiceFixtureSession{session: session}, observer: d.audioObserver}, nil
 }
@@ -146,7 +158,7 @@ type postEOSWebRTCPolicy struct{}
 func (postEOSWebRTCPolicy) AllowPeer(context.Context, giznet.PeerAdmission) bool { return true }
 func (postEOSWebRTCPolicy) AllowService(giznet.PublicKey, uint64) bool           { return true }
 
-func postEOSWebRTCClient(t *testing.T, ctx context.Context) (*gizcli.Client, giznet.Conn, net.Conn) {
+func postEOSWebRTCClient(t *testing.T, ctx context.Context, late []byte, delay time.Duration) (*gizcli.Client, giznet.Conn, net.Conn) {
 	t.Helper()
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
@@ -164,7 +176,11 @@ func postEOSWebRTCClient(t *testing.T, ctx context.Context) (*gizcli.Client, giz
 	signaling := httptest.NewServer(listener.SignalingHandler())
 	t.Cleanup(signaling.Close)
 	client := &gizcli.Client{KeyPair: clientKey, DialTransport: func(key *giznet.KeyPair, _ giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
-		return gizwebrtc.Dial(ctx, key, serverKey.Public, gizwebrtc.DialConfig{SignalingURL: signaling.URL + gizwebrtc.SignalingPath, SecurityPolicy: policy})
+		local, conn, err := gizwebrtc.Dial(ctx, key, serverKey.Public, gizwebrtc.DialConfig{SignalingURL: signaling.URL + gizwebrtc.SignalingPath, SecurityPolicy: policy})
+		if err == nil && delay > 0 {
+			return local, &postEOSDelayedTailConn{Conn: conn, ctx: ctx, payload: late, delay: delay}, nil
+		}
+		return local, conn, err
 	}}
 	t.Cleanup(func() { _ = client.Close() })
 	if err := client.Dial(serverKey.Public, signaling.URL); err != nil {
@@ -193,7 +209,31 @@ func postEOSWebRTCClient(t *testing.T, ctx context.Context) (*gizcli.Client, giz
 	return client, remote, events
 }
 
-func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn, observed <-chan *genx.MessageChunk, audio, late [][]byte) error {
+type postEOSDelayedTailConn struct {
+	giznet.Conn
+	ctx     context.Context
+	payload []byte
+	delay   time.Duration
+}
+
+func (c *postEOSDelayedTailConn) Read(buf []byte) (byte, int, error) {
+	protocol, n, err := c.Conn.Read(buf)
+	if err != nil || protocol != giznet.ProtocolOpusPacket || !bytes.Equal(buf[:n], c.payload) {
+		return protocol, n, err
+	}
+	// Hold the first tail after real RTP reception for longer than Giztest's
+	// reply-observation window. Correctness must depend on receipt, not timing.
+	timer := time.NewTimer(c.delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return protocol, n, nil
+	case <-c.ctx.Done():
+		return protocol, 0, c.ctx.Err()
+	}
+}
+
+func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn, observed <-chan *genx.MessageChunk, audio, late [][]byte, diagnostics peerStreamAudioDiagnostics) error {
 	stop := context.AfterFunc(ctx, func() { _ = events.Close() })
 	defer stop()
 	if err := events.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
@@ -258,12 +298,35 @@ func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn
 					return err
 				}
 			}
+			if diagnostics != nil {
+				if err := awaitPostEOSIgnored(ctx, diagnostics, uint64(len(late))); err != nil {
+					return err
+				}
+			}
 		}
 		if err := gizcli.WritePeerStreamEvent(events, postEOSWebRTCControl(id, false, false)); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func awaitPostEOSIgnored(ctx context.Context, diagnostics peerStreamAudioDiagnostics, want uint64) error {
+	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	ticker := time.NewTicker(time.Millisecond)
+	defer ticker.Stop()
+	for {
+		got := diagnostics.IgnoredPostEOSAudioPackets()
+		if got >= want {
+			return nil
+		}
+		select {
+		case <-ticker.C:
+		case <-ctx.Done():
+			return fmt.Errorf("post-EOS receipt: ignored %d of %d packets: %w", got, want, ctx.Err())
+		}
+	}
 }
 
 func postEOSWebRTCControl(id string, begin, audio bool) *eventpb.PeerEvent {
