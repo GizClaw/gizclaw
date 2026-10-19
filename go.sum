@@ -567,8 +567,8 @@ github.com/julienschmidt/httprouter v1.3.0/go.mod h1:JR6WtHb+2LUe8TCKY3cZOxFyyO8
 github.com/jung-kurt/gofpdf v1.0.3-0.20190309125859-24315acbbda5/go.mod h1:7Id9E/uU8ce6rXgefFLlgrJj/GYY22cpxn+r32jIOes=
 github.com/jxskiss/base62 v1.1.0 h1:A5zbF8v8WXx2xixnAKD2w+abC+sIzYJX+nxmhA6HWFw=
 github.com/jxskiss/base62 v1.1.0/go.mod h1:HhWAlUXvxKThfOlZbcuFzsqwtF5TcqS9ru3y5GfjWAc=
-github.com/kaptinlin/jsonrepair v0.4.8 h1:9oaoEe/vaKgm8ko4TLjBLUEog6tBW6WUzZXLPL2yTCk=
-github.com/kaptinlin/jsonrepair v0.4.8/go.mod h1:eWRC42KDUT0MHkMplUN6necu59FQFqKOKe+86akpY3g=
+github.com/kaptinlin/jsonrepair v0.4.9 h1:IvUOD1Ag0LEGfsp26QamqoWSRtVPTcaVHt/nviMlLEo=
+github.com/kaptinlin/jsonrepair v0.4.9/go.mod h1:eWRC42KDUT0MHkMplUN6necu59FQFqKOKe+86akpY3g=
 github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0/go.mod h1:1NbS8ALrpOvjt0rHPNLyCIeMtbizbir8U//inJ+zuB8=
 github.com/kardianos/service v1.3.0 h1:/LGy+xPP2TM+GLTiCZ2di7cy0Jd/qrawlTUfqKYFdTI=
 github.com/kardianos/service v1.3.0/go.mod h1:E4V9ufUuY82F7Ztlu1eN9VXWIQxg8NoLQlmFe0MtrXc=
