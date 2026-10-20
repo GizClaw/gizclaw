@@ -12,6 +12,9 @@ import (
 
 // DialPeerEventStream opens a logical view of the connection-owned,
 // bidirectional Peer Event stream.
+// A subscriber joining active Opus output first receives its current audio
+// BOS metadata so subsequent packets retain their route. Prior media and text
+// are not replayed; completed audio routes are not retained.
 func (c *Client) DialPeerEventStream() (net.Conn, error) {
 	if c == nil {
 		return nil, fmt.Errorf("gizclaw: nil client")
