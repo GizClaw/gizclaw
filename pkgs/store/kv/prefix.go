@@ -50,6 +50,10 @@ func SharedAtomicStore(stores ...Store) (Store, []Key, bool) {
 
 func isStrongView(store Store) bool {
 	for {
+		if observed, ok := store.(*readObserver); ok {
+			store = observed.Store
+			continue
+		}
 		if _, ok := store.(*strongReadStore); ok {
 			return true
 		}
@@ -64,6 +68,10 @@ func isStrongView(store Store) bool {
 func atomicStoreView(store Store) (Store, Key) {
 	var prefix Key
 	for {
+		if observed, ok := store.(*readObserver); ok {
+			store = observed.Store
+			continue
+		}
 		if strong, ok := store.(*strongReadStore); ok {
 			store = strong.Store
 			continue

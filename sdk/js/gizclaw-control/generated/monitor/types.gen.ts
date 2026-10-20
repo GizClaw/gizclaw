@@ -30,6 +30,7 @@ export type NodeSnapshot = {
         inbound_service_channels: number;
     };
     device_metrics?: NodeDeviceMetrics;
+    infra_flows?: NodeInfraFlows;
 };
 
 export type MonitorError = {
@@ -65,6 +66,29 @@ export type NodeDeviceMetrics = {
     online_devices?: number;
     transports: Array<NodePeerTransport>;
 };
+
+/**
+ * Opt-in completed five-second infrastructure route counters owned by this Server. No device/session dimensions; absent when disabled or the window is incomplete. Generation changes on restart.
+ */
+export type NodeInfraFlows = {
+    environment: 'dev' | 'e2e' | 'prod' | 'trial';
+    generation: string;
+    flows: Array<Flow>;
+    window_start: number;
+    window_end: number;
+};
+
+export type Flow = {
+    source: string;
+    target: string;
+    kind: FlowKind;
+    count: number;
+    bytes: number;
+    duration_sum_ms: number;
+    duration_count: number;
+};
+
+export type FlowKind = 'request' | 'audio' | 'sync' | 'asset';
 
 export type GetNodeMonitorData = {
     body?: never;

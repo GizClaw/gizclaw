@@ -316,3 +316,11 @@ https://gizclaw.github.io/gizclaw/. When explaining concepts such as error
 codes, debug mode or configuration, the assistant searches the guides first,
 answers from them and links the page. The knowledge base changes with the code
 and cannot be imported or edited in the browser.
+
+## Infrastructure activity snapshots
+
+Servers with explicit capture configuration expose the latest complete five-second
+window in the optional `infra_flows` field of the same protected node response.
+Only configured infrastructure routes and aggregate values are included, without
+device, user, session or credential dimensions. See [Infra Flow](infra-flow#real-activity-collection-and-ownership)
+for coverage, configuration and lifecycle.

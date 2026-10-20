@@ -4,3 +4,5 @@ generate:
   strict-server: true
   client: true
   models: true
+import-mapping:
+  ./infra.json: github.com/GizClaw/gizclaw-go/pkgs/infraflow/api

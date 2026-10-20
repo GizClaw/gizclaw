@@ -741,8 +741,8 @@ pkgs/infraflow/api/generated.go:850:101: interface{} can be replaced by any
 pkgs/infraflow/api/generated.go:850:87: interface{} can be replaced by any
 pkgs/infraflow/api/generated.go:874:101: interface{} can be replaced by any
 pkgs/infraflow/api/generated.go:874:87: interface{} can be replaced by any
-pkgs/monitor/api/generated.go:638:101: interface{} can be replaced by any
-pkgs/monitor/api/generated.go:638:87: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:679:101: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:679:87: interface{} can be replaced by any
 sdk/go/mem0/generated.go:132:52: interface{} can be replaced by any
 sdk/go/mem0/generated.go:140:52: interface{} can be replaced by any
 sdk/go/mem0/generated.go:142:44: interface{} can be replaced by any

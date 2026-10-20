@@ -27,7 +27,7 @@ The aggregation job must have one explicit owner. Feed borrows the Store.
 Route IDs must map to published topology IDs. Node-wide totals cannot recover
 specific source/target traffic. A real producer reads configured route counters,
 with one accounting owner per directed route to prevent double counting. This
-module neither enumerates business records nor installs a real transport collector.
+module does not enumerate business records; Server installs the explicit activity capture below.
 
 ## Read API and wiring
 
@@ -90,12 +90,121 @@ followed by Deploy configuration and a reviewed plan using a formal Release/Prov
 snapshot. Bind each environment's Server `infra_flow.store` to an explicitly configured
 shared KV Store and upgrade both Server and Edge. Publication, Deploy Apply and traffic
 activation are independent operations. Without a producer, the enabled feed returns
-empty frames. Real activity still requires an explicitly owned aggregation job
-writing configured infrastructure-route counters to shared KV.
+empty frames. Enable the explicitly owned capture and producer below for real activity.
 
 After deployment, verify anonymous GET, cross-origin OPTIONS, invalid environment/cursor,
 405, no-store and device/Monitor/Admin permission isolation at every AP. Check frame
 environment, cursor, time and `simulated` to establish live coverage and freshness.
+
+## Real activity collection and ownership
+
+Server processes own opt-in collection, without an extra daemon or Metrics Store.
+Enable `producer` on exactly one designated Server per environment. Other Servers
+configure only `capture` and the shared Feed Store. Clusters enable independently;
+environments are fixed to `dev|e2e|trial|prod` and IDs must match the published topology.
+Each source declares its complete route set. Configuration rejects duplicate directed
+routes, source public keys, Edge/Store owners, and more than 64 routes.
+
+| Supported route | Unique owner | count | bytes | duration |
+| --- | --- | --- | --- | --- |
+| Configured Edge → authoritative Server | Receiving Server, matched by the trusted connection key in `edge-nodes` | Completed Edge HTTP and Edge control RPC calls, including errors | HTTP response body bytes actually written; RPC logical stream bytes actually read/written, including framing | Actual elapsed time of each completed call |
+| Server → named logical KV Store | Calling Server | Completed `Get`/`BatchGet` calls; one per batch, including missing/failed attempts | Returned value bytes | Actual elapsed time of each read call |
+
+Both use `kind: request`. HTTP and control RPC are separate operations on the same
+infrastructure route. HTTP bytes exclude request bodies and headers; RPC excludes
+ICE/DTLS overhead; KV excludes keys, protocol overhead and backend-internal reads.
+KV writes, collections, operations through shared atomic roots bypassing the logical
+view, device/Server audio, models, assets, replication and whole-host traffic are
+outside this collection coverage. Unattributed routes are absent. Feed polling is
+excluded from Edge activity, preventing the visualization from driving itself.
+
+Capture retains only the current and previous UTC-aligned five-second windows,
+assigning activity by completion time. Monitor reads the completed window without
+draining it, so multiple readers and scrape delay cannot steal counts or shift
+counter differences between windows. Restart changes generation. The partial startup
+window, partial windows after clock rollback, overflow and unavailable sources are
+omitted. Healthy idle routes report zero; missing sources never masquerade as zero.
+When every source is missing, no frame is written; consumers must check freshness.
+Failed or missed windows are discarded without replaying history in the next frame.
+
+Remote counters use the optional `infra_flows` field on the existing independently
+authenticated `/monitor/api/node`. The producer checks configured public key, Server
+role, environment, complete route set, snapshot time and window, rejecting stale or
+unknown routes and invalid counters. Each window has at most 64 concurrent sources,
+one request per source and 64 KiB per response, with one second for scraping and a
+separate one-second Feed write budget. Remote endpoints require HTTPS; only loopback
+tests allow HTTP. Redirects are disabled. Monitor tokens never enter public frames
+or failure logs. Failures emit bounded window warnings. A conflicting same-window
+publisher stops its worker without stopping business; operators must still configure
+one publisher per environment. Shutdown cancels and joins collection before closing
+Server and Stores, without publishing a partial shutdown window.
+
+This example captures and publishes on one Server. Store names refer to the normal
+`stores` inventory; replace example IDs, public key and Store name with explicit
+cluster mappings. Edge needs no new capture configuration; its key must already be
+in `edge-nodes`.
+
+```yaml
+infra_flow:
+  store: infra-windows
+  environment: e2e
+  capture:
+    node: server-shanghai
+    routes:
+      - source: edge-shanghai
+        target: server-shanghai
+        edge_public_key: ${EDGE_PUBLIC_KEY}
+      - source: server-shanghai
+        target: kv-shanghai
+        store: peer-records
+  producer: {}
+```
+
+For multiple Servers, add remote sources on the designated publisher. Remote nodes
+keep `capture`, omit `producer` and configure an independent `monitor.token`. The
+publisher's `routes` must exactly match each remote node's complete directed routes:
+
+```yaml
+infra_flow:
+  store: infra-windows
+  environment: e2e
+  producer:
+    sources:
+      - endpoint: https://server.example.invalid/monitor/api/node
+        public_key: ${SOURCE_SERVER_PUBLIC_KEY}
+        token: ${SOURCE_MONITOR_TOKEN}
+        routes:
+          - source: edge-shanghai
+            target: server-shanghai
+          - source: server-shanghai
+            target: kv-shanghai
+```
+
+Local `capture` routes are included automatically; do not configure them again as a
+remote source. The Feed Store cannot also be a capture target. Servers must contain
+`infra_flow.capture`, `producer` and Monitor `infra_flows` support; read-only-feed
+versions such as v0.33.8 and earlier cannot install this producer. Formal release
+and per-environment deployment require separate acceptance. Edge continues to use a
+version supporting the public feed. Older SDK consumers may ignore the optional
+Monitor field.
+
+Local acceptance uses independent real Server/Edge processes through the normal
+release startup path: two Servers share temporary SQLite KV, one exports capture
+through authenticated Monitor, and the other publishes Feed windows. Edge forwards
+HTTP and control RPC over real WebRTC. A normal business API key allows four HTTP
+calls and one control RPC to trigger five route activities and two real KV reads.
+Anonymous reads must return fresh `simulated: false` frames with matching bytes,
+duration samples, window, cursor, idle window and environment isolation. Separate
+deterministic tests cover failures, source validation, restart/overflow, cancellation
+and the 121-key bound.
+
+```sh
+go test ./cmd/internal/server -run '^TestInfraFlowProductionServerEdgeCollection$' -count=1 -v
+go test -race ./pkgs/infraflow/... ./pkgs/store/kv -count=1
+```
+
+This is loopback/SQLite protocol acceptance, not physical-device, TiKV, production
+VMP or deployed-AP acceptance.
 
 ## Local synthetic preview
 

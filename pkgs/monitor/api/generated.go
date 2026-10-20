@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	externalRef0 "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
 )
 
 const (
@@ -33,6 +35,30 @@ func (e MonitorErrorError) Valid() bool {
 	case INVALIDMONITORTOKEN:
 		return true
 	case MONITORDISABLED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NodeInfraFlowsEnvironment.
+const (
+	Dev   NodeInfraFlowsEnvironment = "dev"
+	E2e   NodeInfraFlowsEnvironment = "e2e"
+	Prod  NodeInfraFlowsEnvironment = "prod"
+	Trial NodeInfraFlowsEnvironment = "trial"
+)
+
+// Valid indicates whether the value is a known member of the NodeInfraFlowsEnvironment enum.
+func (e NodeInfraFlowsEnvironment) Valid() bool {
+	switch e {
+	case Dev:
+		return true
+	case E2e:
+		return true
+	case Prod:
+		return true
+	case Trial:
 		return true
 	default:
 		return false
@@ -91,6 +117,18 @@ type NodeDeviceMetrics struct {
 	Transports    []NodePeerTransport `json:"transports"`
 }
 
+// NodeInfraFlows Opt-in completed five-second infrastructure route counters owned by this Server. No device/session dimensions; absent when disabled or the window is incomplete. Generation changes on restart.
+type NodeInfraFlows struct {
+	Environment NodeInfraFlowsEnvironment `json:"environment"`
+	Flows       []externalRef0.Flow       `json:"flows"`
+	Generation  string                    `json:"generation"`
+	WindowEnd   int64                     `json:"window_end"`
+	WindowStart int64                     `json:"window_start"`
+}
+
+// NodeInfraFlowsEnvironment defines model for NodeInfraFlows.Environment.
+type NodeInfraFlowsEnvironment string
+
 // NodePeerTransport defines model for NodePeerTransport.
 type NodePeerTransport struct {
 	DataChannelMessagesTotal MonitorDirections         `json:"data_channel_messages_total"`
@@ -112,10 +150,13 @@ type NodeSnapshot struct {
 	DeviceMetrics *NodeDeviceMetrics `json:"device_metrics,omitempty"`
 	Goroutines    int                `json:"goroutines"`
 	HeapBytes     uint64             `json:"heap_bytes"`
-	PublicKey     string             `json:"public_key"`
-	Role          string             `json:"role"`
-	Time          time.Time          `json:"time"`
-	Transport     struct {
+
+	// InfraFlows Opt-in completed five-second infrastructure route counters owned by this Server. No device/session dimensions; absent when disabled or the window is incomplete. Generation changes on restart.
+	InfraFlows *NodeInfraFlows `json:"infra_flows,omitempty"`
+	PublicKey  string          `json:"public_key"`
+	Role       string          `json:"role"`
+	Time       time.Time       `json:"time"`
+	Transport  struct {
 		Connections int `json:"connections"`
 
 		// InboundServiceChannels Current remote-opened service DataChannels admitted across this process, including pending opens. Released on stream or parent connection close. Excludes locally opened, packet, and native tunnel channels.

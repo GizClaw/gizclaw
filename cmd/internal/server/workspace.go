@@ -265,6 +265,7 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 	defer srv.Close()
 	monitorHandler := monitor.Handler(cfg.Monitor, monitor.Node{
 		OnlineDevices: srv.Server.OnlineDevices,
+		InfraFlows:    srv.InfraFlowCounters.Snapshot,
 		Role:          "server",
 		PublicKey:     cfg.KeyPair.Public.String(),
 		Version:       buildinfo.Version,

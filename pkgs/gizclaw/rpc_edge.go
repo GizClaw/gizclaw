@@ -5,16 +5,20 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync/atomic"
+	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 type edgeRPCServer struct {
+	infraFlows            *infraflow.Counters
 	notifications         *Manager
 	authorizeNotification func(context.Context) bool
 	callerPublicKey       string
@@ -24,6 +28,12 @@ type edgeRPCServer struct {
 }
 
 func (s *edgeRPCServer) Handle(conn net.Conn) error {
+	if s.infraFlows != nil {
+		observed := &infraRPCConn{Conn: conn}
+		started := time.Now()
+		defer func() { s.infraFlows.Edge(s.callerPublicKey, observed.bytes.Load(), time.Since(started)) }()
+		conn = observed
+	}
 	return handleRPCWithStreamObserved(conn, s.dispatch, nil, &rpcObservationOptions{trustedEdge: true, peerPublicKey: s.callerPublicKey})
 }
 
@@ -195,4 +205,21 @@ func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
 		code = rpcapi.StatusCodeInternal
 	}
 	return rpcapi.Error{RequestID: id, Code: code, Message: err.Error()}.RPCResponse()
+}
+
+// infraRPCConn counts bytes actually consumed by the trusted control service.
+type infraRPCConn struct {
+	net.Conn
+	bytes atomic.Int64
+}
+
+func (c *infraRPCConn) Read(p []byte) (int, error) {
+	n, err := c.Conn.Read(p)
+	c.bytes.Add(int64(n))
+	return n, err
+}
+func (c *infraRPCConn) Write(p []byte) (int, error) {
+	n, err := c.Conn.Write(p)
+	c.bytes.Add(int64(n))
+	return n, err
 }

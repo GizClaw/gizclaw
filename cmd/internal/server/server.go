@@ -37,6 +37,8 @@ type CmdServer struct {
 	storage         *storage.Storage
 	ownsStores      bool
 	metricsShutdown func(context.Context) error
+	flowCancel      context.CancelFunc
+	flowDone        chan struct{}
 }
 
 func (s *CmdServer) Close() error {
@@ -44,6 +46,11 @@ func (s *CmdServer) Close() error {
 		return nil
 	}
 	var errs []error
+	if s.flowCancel != nil {
+		s.flowCancel()
+		<-s.flowDone
+		s.flowCancel = nil
+	}
 	if s.Server != nil {
 		errs = append(errs, s.Server.Close())
 		s.Server = nil
@@ -164,6 +171,28 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 			},
 		},
 	}
+	if cfg.InfraFlow.Capture != nil {
+		counters, captureErr := infraflow.NewCounters(cfg.InfraFlow.Environment, *cfg.InfraFlow.Capture)
+		if captureErr != nil {
+			return nil, captureErr
+		}
+		gizServer.InfraFlowCounters = counters
+		for _, route := range cfg.InfraFlow.Capture.Routes {
+			if route.EdgePublicKey != "" {
+				known := slices.ContainsFunc(cfg.EdgeNodes, func(key giznet.PublicKey) bool { return key.String() == route.EdgePublicKey })
+				if !known {
+					return nil, fmt.Errorf("server: infra_flow capture requires a configured Edge key")
+				}
+			} else {
+				if route.Store == cfg.InfraFlow.Store {
+					return nil, fmt.Errorf("server: infra_flow cannot observe its own feed Store")
+				}
+				if observeErr := ss.ObserveKVReads(route.Store, counters.StoreObserver(route.Store)); observeErr != nil {
+					return nil, fmt.Errorf("server: infra_flow capture Store: %w", observeErr)
+				}
+			}
+		}
+	}
 	if err := configureServiceStores(gizServer, ss, cfg.Services); err != nil {
 		return nil, err
 	}
@@ -224,6 +253,16 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	peerRecords := kv.Prefixed(gizServer.PeerStore, kv.Key{"records"})
 	if err := (&runtimepeer.Server{Store: peerRecords}).BootstrapEdgeNodes(context.Background(), cfg.EdgeNodes); err != nil {
 		return nil, err
+	}
+	if cfg.InfraFlow.Producer != nil {
+		producer, producerErr := infraflow.NewProducer(flowFeed, cfg.InfraFlow.Environment, gizServer.InfraFlowCounters, *cfg.InfraFlow.Producer)
+		if producerErr != nil {
+			return nil, producerErr
+		}
+		producerCtx, cancel := context.WithCancel(context.Background())
+		cmdSrv.flowCancel = cancel
+		cmdSrv.flowDone = make(chan struct{})
+		go func() { defer close(cmdSrv.flowDone); producer.Run(producerCtx) }()
 	}
 	return cmdSrv, nil
 }

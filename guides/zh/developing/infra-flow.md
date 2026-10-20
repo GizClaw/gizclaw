@@ -18,8 +18,7 @@ API source 是 `api/http/infra.json`，生成的 strict Go server/client/model �
 - KV 操作在聚合锁外执行，写入失败不会积累原始事件或无限重试。Feed 借用 Store，不接管连接关闭。
 
 源与目标使用已发布基础设施拓扑的稳定节点 ID。仅凭节点总流量不能生成精确链路；真实生产者需要按
-配置的链路读取计数，同一有向链路选择一个计数 owner，避免两端重复。此模块不枚举业务记录，也不自动
-安装真实网络采集器。
+配置的链路读取计数，同一有向链路选择一个计数 owner，避免两端重复。此模块不枚举业务记录；Server 按显式配置安装下面的真实活动采集。
 
 ## AP 读取接口
 
@@ -70,10 +69,96 @@ AP 是否支持本契约取决于实际部署版本及 KV 配置，代码与本�
 现有 AP 生效需要独立发布包含此契约的 GizClaw 二进制与 runtime image，再由 Deploy 使用正式
 Release/Provider snapshot 准备配置和部署计划。确认各环境 Server 的 `infra_flow.store` 指向显式配置的共享 KV，
 并分别升级 Server 与 Edge；发布、Deploy Apply 和流量切换属于独立操作。
-没有生产者时，启用的 feed 返回空帧；真实基础设施活动仍需由明确拥有配置链路计数的聚合任务写入共享 KV。
+没有生产者时，启用的 feed 返回空帧；真实活动需要按下节启用唯一归属的采集与发布。
 
 部署后逐个 AP 匿名验证 GET、跨域 OPTIONS、非法环境/游标、405、no-store 与设备/Monitor/Admin 权限隔离，
 并检查返回帧的 `environment`、游标、时间和 `simulated`，才能确认线上数据覆盖和新鲜度。
+
+## 真实活动采集与唯一归属
+
+采集由 Server 进程拥有，按配置启用，不需要额外守护进程或 Metrics Store。每个环境只在一台指定 Server
+配置 `producer`；其他 Server 只配置 `capture` 和共享 Feed Store。各集群可独立启用，环境只能是
+`dev|e2e|trial|prod`，节点 ID 必须对应已发布的拓扑。一个来源声明其完整链路集合，启动时拒绝重复链路、
+重复来源公钥、重复 Edge/Store 归属及超过 64 条链路的配置。
+
+| 支持的链路 | 唯一计数 owner | count | bytes | duration |
+| --- | --- | --- | --- | --- |
+| 已配置 Edge → authoritative Server | 接收该 Edge 的 Server；以可信连接公钥匹配 `edge-nodes` | 完成的 Edge HTTP 调用与 Edge 控制 RPC 调用，包含错误结果 | HTTP 实际写出的响应正文；RPC 实际读写的逻辑流字节（含 framing） | 对应调用的实际经过时间，每个完成样本一次 |
+| Server → 指定逻辑 KV Store | 调用该 Store 的 Server | 完成的 `Get` / `BatchGet`；整批算一次，含缺失/失败尝试 | 实际返回的 value 字节之和 | 对应读取调用的实际经过时间，每次调用一次 |
+
+这些都是 `kind: request`；同一 Edge 的 HTTP 与控制 RPC 是不同操作，可合并成一条基础设施链路。
+HTTP 字节不含请求体/headers；RPC 不含 ICE/DTLS 等外层开销；KV 不含 key、协议开销或服务内部事务读取。
+KV 写入、集合操作、通过共享原子 root 绕过逻辑视图的操作，以及设备/Server 音频、模型、资产、复制和整机网络流量
+均不属于当前采集覆盖。没有精确归属的链路不创建记录。只读 Feed 的轮询不计入 Edge 活动，避免可视化自激。
+
+采集单元只保留当前和上一个五秒 UTC 窗口，活动按完成时间归入窗口。Monitor 快照读取已完成窗口，
+不会 Drain 或偷走计数，所以多读者和抓取延迟不会导致双计或跨窗口差分。进程重启有新的 generation；
+启动的第一个不完整窗口、时钟回退后的不完整窗口、计数溢出及不可用来源均省略。
+健康的空闲链路返回零值。缺失来源不冒充零值；全部来源不可用时不写帧，读取端应依据时间检查新鲜度。
+暂停或写入失败不补写历史、不把丢失窗口累加到下一帧。
+
+远端计数通过已有且独立认证的 `/monitor/api/node` 可选字段 `infra_flows` 读取。生产者验证配置公钥、
+Server 角色、环境、完整链路集合、快照时间与目标窗口；拒绝旧窗口、未知链路及非法计数。
+每窗口至多 64 个并行来源、每来源一次请求、最多 64 KiB 响应，抓取共用一秒预算；写 Feed 另有一秒预算。
+远端要求 HTTPS，只有 loopback 本地测试允许 HTTP；禁止跟随重定向，Monitor Token 不进入公开 Feed 或故障日志。
+故障只输出有界的窗口警告。独立 publisher 的同窗口冲突会停止该 worker，业务继续运行；运营方仍须保证每环境
+仅一个启用的 publisher。停止时先取消并等待 worker，再关闭 Server 和 Store，不发布部分关闭窗口。
+
+下面是同一 Server 同时采集并发布的配置。Store 名引用正常的 `stores` 清单；替换示例节点 ID、公钥与
+Store 名为所在集群的真实映射。Edge 无需新增采集配置，公钥仍须在 `edge-nodes` 中。
+
+```yaml
+infra_flow:
+  store: infra-windows
+  environment: e2e
+  capture:
+    node: server-shanghai
+    routes:
+      - source: edge-shanghai
+        target: server-shanghai
+        edge_public_key: ${EDGE_PUBLIC_KEY}
+      - source: server-shanghai
+        target: kv-shanghai
+        store: peer-records
+  producer: {}
+```
+
+多 Server 环境在指定 publisher 上增加远端来源；远端只保留上述 `capture`，移除 `producer`，
+并配置独立 `monitor.token`。发布端的 `routes` 必须完整匹配远端声明的节点和方向：
+
+```yaml
+infra_flow:
+  store: infra-windows
+  environment: e2e
+  producer:
+    sources:
+      - endpoint: https://server.example.invalid/monitor/api/node
+        public_key: ${SOURCE_SERVER_PUBLIC_KEY}
+        token: ${SOURCE_MONITOR_TOKEN}
+        routes:
+          - source: edge-shanghai
+            target: server-shanghai
+          - source: server-shanghai
+            target: kv-shanghai
+```
+
+同一进程有本地 `capture` 时自动加入其链路，无需重复配置为远端来源。Feed Store 不能同时被配置为
+采集对象。Server 必须包含 `infra_flow.capture`、`producer` 和 Monitor `infra_flows` 的实现；
+仅支持公开 Feed 读取的 v0.33.8 及更早版本不能安装此生产者。正式发布和各环境部署后仍需独立验收。
+Edge 继续使用支持公开只读 Feed 的版本，SDK 可兼容忽略新的可选 Monitor 字段。
+
+本地验收使用真正的 Server/Edge 独立进程和正常发布启动路径：两个 Server 共用临时 SQLite KV，
+一个 Server 采集并通过受认证 Monitor 提供窗口，另一个负责写 Feed；Edge 经真实 WebRTC 转发 HTTP 与控制 RPC。
+测试创建正常业务 API Key，以四次 HTTP 与一次控制 RPC 触发五次链路活动、两次真实 KV 读取，
+再匿名读取新鲜 `simulated: false` 帧，并核对字节、时延样本、窗口、游标、空闲窗口和环境隔离。
+故障隔离、来源校验、重启/溢出、取消及 121 个 KV 键上限另由确定性测试验证。
+
+```sh
+go test ./cmd/internal/server -run '^TestInfraFlowProductionServerEdgeCollection$' -count=1 -v
+go test -race ./pkgs/infraflow/... ./pkgs/store/kv -count=1
+```
+
+这些是 loopback/SQLite 协议验收，不表示物理设备、TiKV、生产 VMP 或线上 AP 已通过。
 
 ## 本地模拟与消费者
 
