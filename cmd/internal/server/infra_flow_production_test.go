@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -161,35 +162,9 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 		}
 		return page
 	}
-	cursor := ""
-	var pending []infraapi.Frame
-	waitFrame := func(match func(infraapi.Frame) bool) infraapi.Frame {
-		t.Helper()
-		deadline := time.Now().Add(20 * time.Second)
-		for time.Now().Before(deadline) {
-			if len(pending) == 0 {
-				page := readPage(infraapi.E2e, cursor)
-				cursor = page.Cursor
-				if page.Reset {
-					t.Fatal("continuous cursor unexpectedly reset")
-				}
-				pending = page.Frames
-			}
-			for len(pending) > 0 {
-				frame := pending[0]
-				pending = pending[1:]
-				if frame.Simulated || frame.Environment != infraapi.E2e || frame.WindowEnd-frame.WindowStart != 5000 || frame.WindowEnd%5000 != 0 || len(frame.Flows) > 64 {
-					t.Fatalf("invalid production frame: %+v", frame)
-				}
-				if match(frame) {
-					return frame
-				}
-			}
-			time.Sleep(100 * time.Millisecond)
-		}
-		t.Fatal("no matching fresh production frame")
-		return infraapi.Frame{}
-	}
+	waitFrame := infraFlowAcceptanceReader(t, func(cursor string) infraapi.Page {
+		return readPage(infraapi.E2e, cursor)
+	})
 	_ = waitFrame(func(frame infraapi.Frame) bool { return len(frame.Flows) == 1 })
 	// Observe rotation explicitly: best-effort traffic must not rotate its own
 	// sampling budget, and the publisher can legitimately scrape after a boundary.
@@ -282,5 +257,84 @@ func TestInfraFlowProcess(t *testing.T) {
 	}
 	if err != nil && !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
+	}
+}
+
+// infraFlowAcceptanceReader consumes bounded response batches across matches.
+// Missing publication windows can legitimately reset a cursor to the latest frame.
+func infraFlowAcceptanceReader(t *testing.T, readPage func(string) infraapi.Page) func(func(infraapi.Frame) bool) infraapi.Frame {
+	t.Helper()
+	cursor := ""
+	var pending []infraapi.Frame
+	var lastEnd int64
+	return func(match func(infraapi.Frame) bool) infraapi.Frame {
+		t.Helper()
+		deadline := time.Now().Add(20 * time.Second)
+		for time.Now().Before(deadline) {
+			if len(pending) == 0 {
+				page := readPage(cursor)
+				cursor = page.Cursor
+				if page.Reset && len(page.Frames) > 1 {
+					t.Fatal("reset returned historical frames")
+				}
+				pending = page.Frames
+			}
+			for len(pending) > 0 {
+				frame := pending[0]
+				pending = pending[1:]
+				if frame.Simulated || frame.Environment != infraapi.E2e || frame.WindowEnd-frame.WindowStart != 5000 || frame.WindowEnd%5000 != 0 || len(frame.Flows) > 64 {
+					t.Fatalf("invalid production frame: %+v", frame)
+				}
+				if frame.WindowEnd <= lastEnd {
+					continue
+				}
+				lastEnd = frame.WindowEnd
+				if match(frame) {
+					return frame
+				}
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		t.Fatal("no matching fresh production frame")
+		return infraapi.Frame{}
+	}
+}
+
+func TestInfraFlowAcceptanceReaderAllowsGapResetAndBatchedFrames(t *testing.T) {
+	frame := func(end int64) infraapi.Frame {
+		return infraapi.Frame{Id: fmt.Sprint(end), Environment: infraapi.E2e, WindowStart: end - 5000, WindowEnd: end, Flows: []infraapi.Flow{}}
+	}
+	calls := 0
+	read := infraFlowAcceptanceReader(t, func(cursor string) infraapi.Page {
+		calls++
+		switch calls {
+		case 1:
+			if cursor != "" {
+				t.Fatal("unexpected initial cursor")
+			}
+			return infraapi.Page{Cursor: "5000", Frames: []infraapi.Frame{frame(5000)}}
+		case 2:
+			if cursor != "5000" {
+				t.Fatal("missing consumed cursor")
+			}
+			// Window 10000 was not published: the real Feed contract resets to latest.
+			return infraapi.Page{Cursor: "15000", Reset: true, Frames: []infraapi.Frame{frame(15000)}}
+		case 3:
+			if cursor != "15000" {
+				t.Fatal("reset cursor was not retained")
+			}
+			return infraapi.Page{Cursor: "25000", Frames: []infraapi.Frame{frame(20000), frame(25000)}}
+		default:
+			t.Fatal("reader discarded a pending frame and polled again")
+			return infraapi.Page{}
+		}
+	})
+	for _, end := range []int64{5000, 15000, 20000, 25000} {
+		if got := read(func(f infraapi.Frame) bool { return f.WindowEnd == end }); got.WindowEnd != end {
+			t.Fatalf("frame=%d want=%d", got.WindowEnd, end)
+		}
+	}
+	if calls != 3 {
+		t.Fatalf("polls=%d want=3", calls)
 	}
 }
