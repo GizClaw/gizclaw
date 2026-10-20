@@ -12,6 +12,43 @@ import 'package:test/test.dart';
 import 'fake_transport.dart';
 
 void main() {
+  for (final system in <bool?>[null, false, true]) {
+    test('workspace list preserves system=$system', () async {
+      final factory = FakeDataChannelFactory();
+      final client = GizClawClient(factory);
+      final future = client.listWorkspaces(
+        cursor: 'next',
+        limit: 2,
+        prefix: 'h106-',
+        system: system,
+      );
+      final request = await _request(factory, 0);
+      final body =
+          decodeRpcRequestPayload('server.workspace.list', request.payload)
+              as payload.WorkspaceListRequest;
+      expect(body.cursor, 'next');
+      expect(body.limit.toInt(), 2);
+      expect(body.prefix, 'h106-');
+      expect(body.hasSystem(), system != null);
+      expect(body.system, system ?? false);
+      expect(payloadFieldIsProto3Optional(body, 4), isTrue);
+      expect(
+        encodeRpcRequestPayload(
+          'server.workspace.list',
+          payload.WorkspaceListRequest(system: system),
+        ),
+        system == null ? <int>[] : <int>[0x20, system ? 1 : 0],
+      );
+      _respond(
+        factory.channels.single,
+        request.id,
+        'server.workspace.list',
+        payload.WorkspaceListResponse(),
+      );
+      expect((await future).items, isEmpty);
+    });
+  }
+
   test('workflow catalog carries profile-defined safety fence names', () {
     final response = payload.WorkflowListResponse(
       runtimeProfileName: 'profile',

@@ -40,7 +40,9 @@ example `url: ${GIZCLAW_SFU_URL}` under `services.sfu` or
 `http.listeners[0].listen`. `http.listeners` is required and may declare multiple
 unique TCP addresses. Every listener serves `/server-info` and signaling; direct
 Public API and OpenAI-compatible API requests are always denied because those
-business APIs are Edge-only. A listener may enable HTTPS with TLS 1.2 or newer by
+business APIs are Edge-only. The exact public read-only route `/gizclaw/v1/infra/flows`
+accepts anonymous GET/OPTIONS directly; see [Infra Flow](../../infra-flow) for its explicit
+KV Store configuration and bounds. A listener may enable HTTPS with TLS 1.2 or newer by
 providing both `tls.cert-file` and `tls.key-file`. Certificate paths resolve
 relative to the workspace after [environment expansion](#environment-expansion). An empty list,
 duplicate address, partial pair, or invalid certificate fails before traffic is

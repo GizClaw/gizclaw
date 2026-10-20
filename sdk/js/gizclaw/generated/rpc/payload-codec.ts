@@ -962,6 +962,7 @@ export type PeerRunHistoryEntry = {
   "replay_available": boolean;
   "text": string;
   "type": PeerRunHistoryEntryType;
+  "audio_available": boolean;
 };
 export type PeerRunHistoryListRequest = {
   "cursor"?: string;
@@ -1470,6 +1471,7 @@ export type WorkspaceListRequest = {
   "cursor"?: string;
   "limit"?: number;
   "prefix"?: string;
+  "system"?: boolean;
 };
 export type WorkspaceListResponse = {
   "has_next": boolean;
@@ -5768,6 +5770,11 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "type",
         "number": 7,
         "type": "PeerRunHistoryEntryType"
+      },
+      {
+        "name": "audio_available",
+        "number": 8,
+        "type": "bool"
       }
     ]
   },
@@ -8066,6 +8073,12 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 3,
         "optional": true,
         "type": "string"
+      },
+      {
+        "name": "system",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },

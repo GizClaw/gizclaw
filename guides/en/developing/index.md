@@ -179,3 +179,5 @@ Further entry point:
 - [Reference](/references/)
 
 See [Monitor](monitor) for console builds, authentication, and available data.
+
+The bounded KV activity frames and AP read interface for infrastructure visualization are described in [Infrastructure Flow Feed](infra-flow).

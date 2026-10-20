@@ -101,6 +101,13 @@ type Stream interface {
 | `EndOfStream` | 当前 chunk 是结束边界。携带 Part 时只结束对应 MIME channel；纯控制 chunk 则结束整个 StreamID route。它也可以携带最后一段 data 或 Error。 |
 | `Timestamp` | Chunk 的毫秒时间戳，供 `RealtimeStream` 排序和延迟处理；值为零时，`RealtimeStream` 会按当前时间补充单调递增值。 |
 
+`RealtimeStream` 为零时间戳同时参考已交付与仍排队的最大时间戳，保持到达顺序。
+新 BOS 淘汰同用途旧 route 的待处理音频时，保留此前已经排队的 control EOS，
+以及这条已结束 route 仍在排队的 MIME BOS。无论开始标记是否已被预读，慢消费者都能
+先结束这轮再开始下一轮；明确晚于新 BOS 的旧音频边界仍被淘汰。
+保留的 MIME BOS 只声明 channel；若同时携带旧音频，队列会丢弃该 payload，
+不修改 producer 的原始 chunk，也不影响新 route 的音频。
+
 `StreamCtrl.MessageID` 标识同一播放 route 内的一次生成，文字与对应音频携带相同 MessageID。`MessageEnd` 关闭该消息的当前 MIME channel，不改变 StreamID，也不发送播放 EOS。Recorder 在该消息所有已声明 MIME channel 完成后保存一条 History。两个字段跨 `Clone` 保留，只用于进程内组合与记录，不进入 JSON 或 Peer wire。
 
 `StreamCtrl.ErrorCause` 只在进程内保留 typed terminal cause，跨 `MessageChunk.Clone` 保留，但从 JSON 与 Peer wire 排除。领域 owner 可以实现 `PublicError`，提供稳定、安全的 code/message/retryable。`SetStreamError` 同时记录 cause 和公开细节；`StreamError` 返回保留的 cause，未携带类型的 wire 文本仍然是普通 error。组合层在 terminal route 中传播 cause，不解释领域 code，也不解析错误字符串。
@@ -141,7 +148,12 @@ Tool 结果的 arguments 通过原生调用 ID 与同名提议精确关联，再
 
 ### Usage 计量
 
-Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage)，把 [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) 交给 context 中由 [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) 设置的 recorder。Generator 与 Transformer 都从各自 goroutine 调用它，recorder 必须并发安全且不能阻塞；没有 recorder 时记录被丢弃。Stream 终态中的 `Usage` 仍只供直接调用方参考，计量以 `UsageRecord` 为准。
+Provider adapter 在 provider 报告用量时调用 [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage)，记录进程 token counter，并把非零 [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) 交给 context 中由 [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) 设置的 recorder。Generator 与 Transformer 都从各自 goroutine 调用它，recorder 必须并发安全且不能阻塞。Token counter 只需要安装进程 metrics store，不依赖 Peer 用量回调或 SQL 计量配置；没有回调时不进行产品计量。Stream 终态中的 `Usage` 仍只供直接调用方参考，计量以 `UsageRecord` 为准。
+
+嵌套产品 scope 保留原始调用方的 callback，并只把用量交给最内层的产品 recorder。转发已有报告时通过 `UsageRecorderFromContext` 取得 callback 并直接调用，不能再次调用 `RecordUsage`，否则会重复统计进程 counter。指标与查询口径见 [Observability](../observability#model-token-usage)。
+
+每份报告的三种非零 token 数量合为一个 `gizmetrics.AddPeriodicCounters` 批次，复用有界的已注册标签与
+series；缓存命中时仅获取一次聚合锁，不在 stream chunk 或 token 路径处理标签或写入 Store。
 
 每条记录带 provider、provider model/version/resource ID、modality（`text` 或 `audio`）和计费单位。`Input`、`CachedInput`、`Output` 互不包含：`CachedInput` 是按缓存价计费的输入，不计入 `Input`。同一 provider model 始终使用同一单位；不同 provider model 的单位不可比较，也不在 GenX 中换算。
 

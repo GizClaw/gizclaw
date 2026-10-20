@@ -1,0 +1,56 @@
+# User Story:
+# As a client receiving audio and EOS on independent WebRTC channels,
+# I want to ignore RTP received after audio EOS and accept the next audio BOS,
+# So that a late tail cannot become playback or an extra response.
+version: gizclaw.test/v1alpha1
+name: peer-audio.post-eos
+timeout: 15s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://fixture.invalid
+variables:
+  first_digest:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_POST_EOS_FIRST_DIGEST
+  second_digest:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_POST_EOS_SECOND_DIGEST
+steps:
+  - id: ignore_late_rtp
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: first
+    expect:
+      /reply: {equals: reply-1}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {equals: 1}
+      /audio_integrity/ignored_post_eos_packets: {equals: 2}
+      /audio_integrity/sha256: {equals: "${first_digest}"}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+      /audio_pacing/packets: {equals: 1}
+  - id: accept_next_bos
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: second
+    expect:
+      /reply: {equals: reply-2}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {equals: 1}
+      /audio_integrity/ignored_post_eos_packets: {equals: 0}
+      /audio_integrity/sha256: {equals: "${second_digest}"}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+      /audio_pacing/packets: {equals: 1}

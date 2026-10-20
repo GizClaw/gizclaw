@@ -1,5 +1,6 @@
 .git
 .DS_Store
+**/.env
 **/__pycache__
 **/*.pyc
 tests/locomo-e2e/reports

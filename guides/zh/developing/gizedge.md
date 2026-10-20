@@ -583,3 +583,7 @@ Edge 为配置上游 Server 提供反向通知 RPC，使用现有 Peer assignmen
 通知只允许受支持的 social ping，设备 ACK 前不会成功，不广播、不排队、不重试。
 目标上游必须已配置且可达；不从响应 endpoint 动态信任新 Server。
 协议、权限和取消边界见 [Edge RPC](./gizclaw/rpc/edge#跨-server-通知)。
+
+### 基础设施聚合帧读取
+
+`/gizclaw/v1/infra/flows` 是公开只读的精确路径，经配置的 upstream 读取共享 KV 基础设施聚合帧，无需 token，也不查询设备 API-key 或 owner。Server 与 Edge 均保留跨域 GET/OPTIONS、405 和 no-store；相邻路径继续走既有授权规则。读取上限、配置与部署验收见 [Infrastructure Flow Feed](infra-flow)。

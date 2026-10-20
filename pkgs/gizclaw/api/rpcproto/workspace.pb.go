@@ -129,8 +129,10 @@ type PeerRunHistoryEntry struct {
 	ReplayAvailable bool                    `protobuf:"varint,5,opt,name=replay_available,json=replayAvailable,proto3" json:"replay_available,omitempty"`
 	Text            string                  `protobuf:"bytes,6,opt,name=text,proto3" json:"text,omitempty"`
 	Type            PeerRunHistoryEntryType `protobuf:"varint,7,opt,name=type,proto3,enum=gizclaw.rpc.v1.PeerRunHistoryEntryType" json:"type,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	// A retained Ogg/Opus recording exists independently of text replay.
+	AudioAvailable bool `protobuf:"varint,8,opt,name=audio_available,json=audioAvailable,proto3" json:"audio_available,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *PeerRunHistoryEntry) Reset() {
@@ -210,6 +212,13 @@ func (x *PeerRunHistoryEntry) GetType() PeerRunHistoryEntryType {
 		return x.Type
 	}
 	return PeerRunHistoryEntryType_PEER_RUN_HISTORY_ENTRY_TYPE_UNSPECIFIED
+}
+
+func (x *PeerRunHistoryEntry) GetAudioAvailable() bool {
+	if x != nil {
+		return x.AudioAvailable
+	}
+	return false
 }
 
 type PeerRunHistoryListRequest struct {
@@ -3312,10 +3321,13 @@ func (x *WorkspaceHistoryListResponse) GetValue() *PeerRunHistoryListResponse {
 }
 
 type WorkspaceListRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Cursor        *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
-	Limit         *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Prefix        *string                `protobuf:"bytes,3,opt,name=prefix,proto3,oneof" json:"prefix,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	Cursor *string                `protobuf:"bytes,1,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
+	Limit  *int64                 `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Prefix *string                `protobuf:"bytes,3,opt,name=prefix,proto3,oneof" json:"prefix,omitempty"`
+	// Omit to list all accessible Workspaces; false selects ordinary Workspaces,
+	// true selects system Workspaces. Intersects with prefix before pagination.
+	System        *bool `protobuf:"varint,4,opt,name=system,proto3,oneof" json:"system,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -3369,6 +3381,13 @@ func (x *WorkspaceListRequest) GetPrefix() string {
 		return *x.Prefix
 	}
 	return ""
+}
+
+func (x *WorkspaceListRequest) GetSystem() bool {
+	if x != nil && x.System != nil {
+		return *x.System
+	}
+	return false
 }
 
 type WorkspaceListResponse struct {
@@ -3850,7 +3869,7 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\apending\x18\x02 \x01(\v2\x1e.gizclaw.rpc.v1.AgentSelectionH\x01R\apending\x88\x01\x01B\t\n" +
 	"\a_activeB\n" +
 	"\n" +
-	"\b_pending\"\x8d\x02\n" +
+	"\b_pending\"\xb6\x02\n" +
 	"\x13PeerRunHistoryEntry\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\x01 \x01(\tR\tcreatedAt\x12\x1c\n" +
@@ -3860,7 +3879,8 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"actor_name\x18\x04 \x01(\tR\tactorName\x12)\n" +
 	"\x10replay_available\x18\x05 \x01(\bR\x0freplayAvailable\x12\x12\n" +
 	"\x04text\x18\x06 \x01(\tR\x04text\x12;\n" +
-	"\x04type\x18\a \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04typeB\n" +
+	"\x04type\x18\a \x01(\x0e2'.gizclaw.rpc.v1.PeerRunHistoryEntryTypeR\x04type\x12'\n" +
+	"\x0faudio_available\x18\b \x01(\bR\x0eaudioAvailableB\n" +
 	"\n" +
 	"\b_gear_id\"\xbd\x01\n" +
 	"\x19PeerRunHistoryListRequest\x12\x1b\n" +
@@ -4132,14 +4152,16 @@ const file_payload_workspace_proto_rawDesc = "" +
 	"\x0e_start_time_msB\x0e\n" +
 	"\f_end_time_ms\"`\n" +
 	"\x1cWorkspaceHistoryListResponse\x12@\n" +
-	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\x8b\x01\n" +
+	"\x05value\x18\x01 \x01(\v2*.gizclaw.rpc.v1.PeerRunHistoryListResponseR\x05value\"\xb3\x01\n" +
 	"\x14WorkspaceListRequest\x12\x1b\n" +
 	"\x06cursor\x18\x01 \x01(\tH\x00R\x06cursor\x88\x01\x01\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\x03H\x01R\x05limit\x88\x01\x01\x12\x1b\n" +
-	"\x06prefix\x18\x03 \x01(\tH\x02R\x06prefix\x88\x01\x01B\t\n" +
+	"\x06prefix\x18\x03 \x01(\tH\x02R\x06prefix\x88\x01\x01\x12\x1b\n" +
+	"\x06system\x18\x04 \x01(\bH\x03R\x06system\x88\x01\x01B\t\n" +
 	"\a_cursorB\b\n" +
 	"\x06_limitB\t\n" +
-	"\a_prefix\"\x85\x02\n" +
+	"\a_prefixB\t\n" +
+	"\a_system\"\x85\x02\n" +
 	"\x15WorkspaceListResponse\x12\x19\n" +
 	"\bhas_next\x18\x01 \x01(\bR\ahasNext\x12/\n" +
 	"\x05items\x18\x02 \x03(\v2\x19.gizclaw.rpc.v1.WorkspaceR\x05items\x12$\n" +

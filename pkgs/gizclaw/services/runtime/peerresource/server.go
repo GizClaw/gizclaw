@@ -321,13 +321,16 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 		if prefix != "" && !strings.HasPrefix(item.Name, prefix) {
 			continue
 		}
+		if params.System != nil && valueOrZero(item.System) != *params.System {
+			continue
+		}
 		byName[item.Name] = item
 		names = append(names, item.Name)
 	}
 	sort.Strings(names)
-	pageNames, hasNext, nextCursor, conflict := pageAliases(names, params.Cursor, params.Limit, profile.Revision)
+	pageNames, hasNext, nextCursor, conflict := pageAliases(names, params.Cursor, params.Limit, workspaceListSelectorRevision(profile.Revision, prefix, params.System))
 	if conflict {
-		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile revision changed")
+		return statusError(req.Id, rpcapi.StatusCodeAborted, "runtime profile or workspace list filters changed")
 	}
 	page := make([]rpcapi.Workspace, 0, len(pageNames))
 	for _, name := range pageNames {
@@ -341,6 +344,22 @@ func (s *Server) handleWorkspaceList(ctx context.Context, req *rpcapi.RPCRequest
 		Items: page, HasNext: hasNext, NextCursor: nextCursor,
 		RuntimeProfileName: profile.Id, RuntimeProfileRevision: profile.Revision,
 	}, (*rpcapi.RPCPayload).FromWorkspaceListResponse)
+}
+
+func workspaceListSelectorRevision(revision, prefix string, system *bool) string {
+	// Preserve existing cursors for requests without filters.
+	if prefix == "" && system == nil {
+		return revision
+	}
+	selector := struct {
+		Revision string `json:"revision"`
+		Prefix   string `json:"prefix"`
+		System   *bool  `json:"system"`
+	}{Revision: revision, Prefix: prefix, System: system}
+	encoded, _ := json.Marshal(selector) // Strings and optional booleans always marshal.
+	hash := sha256.Sum256(encoded)
+	// Include the revision in the digest to keep filtered cursors compact.
+	return hex.EncodeToString(hash[:])
 }
 
 // getWorkspaceForList resolves one name during an enumeration. A pending

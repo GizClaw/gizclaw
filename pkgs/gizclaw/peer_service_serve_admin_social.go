@@ -754,6 +754,7 @@ func toRPCHistoryListResponse(resp apitypes.PeerRunHistoryListResponse) rpcapi.W
 
 func toRPCHistoryEntry(item apitypes.PeerRunHistoryEntry) rpcapi.PeerRunHistoryEntry {
 	return rpcapi.PeerRunHistoryEntry{
+		AudioAvailable:  item.AudioAvailable,
 		ActorName:       item.ActorName,
 		CreatedAt:       item.CreatedAt,
 		GearId:          item.GearId,
@@ -766,6 +767,7 @@ func toRPCHistoryEntry(item apitypes.PeerRunHistoryEntry) rpcapi.PeerRunHistoryE
 
 func toAdminHistoryEntry(item apitypes.PeerRunHistoryEntry) adminhttp.AdminWorkspaceHistoryEntry {
 	return adminhttp.AdminWorkspaceHistoryEntry{
+		AudioAvailable:  item.AudioAvailable,
 		ActorName:       item.ActorName,
 		CreatedAt:       item.CreatedAt,
 		GearId:          item.GearId,

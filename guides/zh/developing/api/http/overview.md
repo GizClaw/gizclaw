@@ -1,6 +1,6 @@
 # HTTP API
 
-GizClaw Server 对外维护三个仓库自有 OpenAPI surface，以及一个由 AI Server Shell 提供的受限 OpenAI-compatible surface。它们面向的 caller、认证方式和业务边界保持独立。
+GizClaw Server 对外维护四个仓库自有 OpenAPI surface，以及一个由 AI Server Shell 提供的受限 OpenAI-compatible surface。它们面向的 caller、认证方式和业务边界保持独立。
 
 ## Surface
 
@@ -9,6 +9,7 @@ GizClaw Server 对外维护三个仓库自有 OpenAPI surface，以及一个由 
 | `admin.json` | 管理员管理资源、Peer、Telemetry 和运维动作 | `pkgs/gizclaw/api/adminhttp` |
 | `peer.json` | Server info、WebRTC offer，以及 API Key 绑定设备的 Key 管理、device、控制与 Contact surface | `pkgs/gizclaw/api/peerhttp` |
 | `monitor.json` | 节点运维人员使用独立 Monitor Token 读取本进程快照 | `pkgs/monitor/api` |
+| `infra.json` | 任何浏览器匿名读取有界基础设施聚合帧，显式 KV Store 启用 | `pkgs/infraflow/api` |
 | `github.com/idy/ai-server-shell` | OpenAI-compatible model、chat 与 audio subset | `services/ai/openaiapi` backend adapter |
 
 ## 请求流
@@ -52,6 +53,6 @@ sequenceDiagram
 
 设计资料：[Shared 与 Resources](./shared-resources) · [依赖规则](./type-dependencies)
 
-Monitor 的路由和生成 ownership 见 [Monitor](../../monitor)。
+Monitor 的路由和生成 ownership 见 [Monitor](../../monitor)；公开聚合帧的路由、资源上限与配置见 [Infra Flow](../../infra-flow)。
 
 Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](./quota).

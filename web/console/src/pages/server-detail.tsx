@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Activity,
   ArrowDownLeft,
@@ -24,6 +25,7 @@ import type { ConsoleServer } from "@/lib/config";
 import type { ServerState } from "@/hooks/use-fleet";
 import { bytes, duration, host } from "@/lib/format";
 import { usePageView } from "@/assistant/page-view";
+import { NodeDeviceMetrics } from "@/components/node-device-metrics";
 
 export function ServerDetailPage({
   server,
@@ -34,11 +36,13 @@ export function ServerDetailPage({
   state: ServerState | undefined;
   windowSeconds: number;
 }) {
+  const [tab, setTab] = useState("traffic");
   const snapshot = state?.snapshot;
   const sample = state?.samples.at(-1);
   const live = state?.status === "online";
   usePageView({
     page: "节点详情",
+    tab,
     window_seconds: windowSeconds,
     node: {
       id: server.id,
@@ -49,6 +53,7 @@ export function ServerDetailPage({
     status: state?.status ?? "loading",
     error: state?.error,
     snapshot,
+    message_rates_per_second: live ? state?.deviceRates : undefined,
     rates: sample
       ? { rx_bytes_per_second: sample.rx, tx_bytes_per_second: sample.tx }
       : undefined,
@@ -83,79 +88,88 @@ export function ServerDetailPage({
           </AlertDescription>
         </Alert>
       )}
-      <Card className="gap-3">
-        <CardHeader>
-          <CardTitle className="text-xs">节点公钥</CardTitle>
-          <CardAction>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={!snapshot}
-              onClick={() => {
-                if (snapshot)
-                  void navigator.clipboard?.writeText(snapshot.public_key);
-              }}
-            >
-              <Copy size={14} /> 复制
-            </Button>
-          </CardAction>
-        </CardHeader>
-        <CardContent>
-          <code className="block truncate font-mono text-[11px] text-muted-foreground">
-            {snapshot?.public_key ?? "—"}
-          </code>
-        </CardContent>
-      </Card>
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <MetricCard
-          label="入站服务 DataChannel"
-          value={
-            snapshot ? String(snapshot.transport.inbound_service_channels) : "—"
-          }
-          note="对端打开、尚未释放（含待打开）"
-          icon={<ArrowDownLeft size={16} />}
-        />
-        <MetricCard
-          label="WebRTC 连接"
-          value={snapshot ? String(snapshot.transport.connections) : "—"}
-          note={
-            snapshot ? `${snapshot.transport.services} 个服务` : "当前活跃关联"
-          }
-          icon={<Wifi size={16} />}
-        />
-        <MetricCard
-          label="接收速率"
-          value={live && sample ? `${bytes(sample.rx)}/s` : "—"}
-          note={
-            snapshot ? `累计 ${bytes(snapshot.transport.rx_bytes)}` : "等待采样"
-          }
-          icon={<ArrowDownLeft size={16} />}
-        />
-        <MetricCard
-          label="发送速率"
-          value={live && sample ? `${bytes(sample.tx)}/s` : "—"}
-          note={
-            snapshot ? `累计 ${bytes(snapshot.transport.tx_bytes)}` : "等待采样"
-          }
-          icon={<ArrowUpRight size={16} />}
-        />
-        <MetricCard
-          label="运行时间"
-          value={snapshot ? duration(snapshot.uptime_seconds) : "—"}
-          note={
-            snapshot
-              ? `${snapshot.goroutines} goroutines · ${bytes(snapshot.heap_bytes)} 堆内存`
-              : "当前进程"
-          }
-          icon={<Activity size={16} />}
-        />
-      </div>
-      <Tabs defaultValue="traffic">
-        <TabsList>
-          <TabsTrigger value="traffic">流量</TabsTrigger>
+      <Tabs value={tab} onValueChange={setTab}>
+        <TabsList aria-label="节点视图" className="monitor-tabs">
+          <TabsTrigger value="traffic">节点概览</TabsTrigger>
+          <TabsTrigger value="devices">设备与通道</TabsTrigger>
           <TabsTrigger value="snapshot">运行快照</TabsTrigger>
         </TabsList>
         <TabsContent value="traffic">
+          <Card className="gap-3">
+            <CardHeader>
+              <CardTitle className="text-xs">节点公钥</CardTitle>
+              <CardAction>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={!snapshot}
+                  onClick={() => {
+                    if (snapshot)
+                      void navigator.clipboard?.writeText(snapshot.public_key);
+                  }}
+                >
+                  <Copy size={14} /> 复制
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent>
+              <code className="block truncate font-mono text-[11px] text-muted-foreground">
+                {snapshot?.public_key ?? "—"}
+              </code>
+            </CardContent>
+          </Card>
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+            <MetricCard
+              label="入站服务 DataChannel"
+              value={
+                snapshot
+                  ? String(snapshot.transport.inbound_service_channels)
+                  : "—"
+              }
+              note="对端打开、尚未释放（含待打开）"
+              icon={<ArrowDownLeft size={16} />}
+            />
+            <MetricCard
+              label="WebRTC 连接"
+              value={snapshot ? String(snapshot.transport.connections) : "—"}
+              note={
+                snapshot
+                  ? `${snapshot.transport.services} 个服务`
+                  : "当前活跃关联"
+              }
+              icon={<Wifi size={16} />}
+            />
+            <MetricCard
+              label="接收速率"
+              value={live && sample ? `${bytes(sample.rx)}/s` : "—"}
+              note={
+                snapshot
+                  ? `累计 ${bytes(snapshot.transport.rx_bytes)}`
+                  : "等待采样"
+              }
+              icon={<ArrowDownLeft size={16} />}
+            />
+            <MetricCard
+              label="发送速率"
+              value={live && sample ? `${bytes(sample.tx)}/s` : "—"}
+              note={
+                snapshot
+                  ? `累计 ${bytes(snapshot.transport.tx_bytes)}`
+                  : "等待采样"
+              }
+              icon={<ArrowUpRight size={16} />}
+            />
+            <MetricCard
+              label="运行时间"
+              value={snapshot ? duration(snapshot.uptime_seconds) : "—"}
+              note={
+                snapshot
+                  ? `${snapshot.goroutines} goroutines · ${bytes(snapshot.heap_bytes)} 堆内存`
+                  : "当前进程"
+              }
+              icon={<Activity size={16} />}
+            />
+          </div>
           <Card>
             <CardHeader>
               <CardTitle>流量趋势</CardTitle>
@@ -174,6 +188,13 @@ export function ServerDetailPage({
               />
             </CardContent>
           </Card>
+        </TabsContent>
+        <TabsContent value="devices">
+          <NodeDeviceMetrics
+            nodes={[{ server, state }]}
+            windowSeconds={windowSeconds}
+            single
+          />
         </TabsContent>
         <TabsContent value="snapshot">
           <Card>

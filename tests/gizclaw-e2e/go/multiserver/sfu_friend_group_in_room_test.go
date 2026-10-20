@@ -4,6 +4,7 @@ package multiserver_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,9 +15,9 @@ import (
 
 // TestFriendGroupMembersReportInRoom covers in_room on
 // server.friend_group.members.list against real Servers and LiveKit: a member
-// is in the Room only while its device runs the Group's Workspace on the
-// answering Server, so stopping the runtime takes it out of the Room while it
-// stays online.
+// is in the Room only while its device runs the Group's Workspace. Shared
+// presence converges after the configured historical KV read delay; stopping
+// the runtime takes the member out of the Room while it stays online.
 //
 // The file name sorts this test after multi_server_test.go on purpose:
 // deleting the Group queues asynchronous cleanup in shared TiKV, and
@@ -37,7 +38,7 @@ func TestFriendGroupMembersReportInRoom(t *testing.T) {
 	memberClient := connectAndServe(t, member, serverA, serverA.PublicKey, "in-room-member")
 	defer memberClient.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Minute)
 	defer cancel()
 	registerSocialPeer(t, ctx, ownerClient, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
 	registerSocialPeer(t, ctx, memberClient, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
@@ -91,20 +92,40 @@ func TestFriendGroupMembersReportInRoom(t *testing.T) {
 // member to be online with exactly the wanted in_room value.
 func assertInRoom(t *testing.T, ctx context.Context, client *gizcli.Client, id string, want map[string]bool) {
 	t.Helper()
-	members, err := client.ListFriendGroupMembers(ctx, id, rpcapi.FriendGroupMemberListRequest{FriendGroupName: new("in-room")})
-	if err != nil {
-		t.Fatalf("%s: list FriendGroup members: %v", id, err)
-	}
-	if len(members.Items) != len(want) {
-		t.Fatalf("%s: members = %+v, want %d", id, members.Items, len(want))
-	}
-	for _, item := range members.Items {
-		if item.PeerPublicKey == nil || item.Online == nil || !*item.Online || item.InRoom == nil {
-			t.Fatalf("%s: member without presence = %+v", id, item)
+	read := func() error {
+		members, err := client.ListFriendGroupMembers(ctx, id, rpcapi.FriendGroupMemberListRequest{FriendGroupName: new("in-room")})
+		if err != nil {
+			return err
 		}
-		inRoom, ok := want[*item.PeerPublicKey]
-		if !ok || *item.InRoom != inRoom {
-			t.Fatalf("%s: member %s in_room = %v, want %v", id, *item.PeerPublicKey, *item.InRoom, inRoom)
+		if len(members.Items) != len(want) {
+			return fmt.Errorf("members = %+v, want %d", members.Items, len(want))
+		}
+		for _, item := range members.Items {
+			if item.PeerPublicKey == nil || item.Online == nil || !*item.Online || item.InRoom == nil {
+				return fmt.Errorf("member without presence = %+v", item)
+			}
+			inRoom, ok := want[*item.PeerPublicKey]
+			if !ok || *item.InRoom != inRoom {
+				return fmt.Errorf("member %s in_room = %v, want %v", *item.PeerPublicKey, *item.InRoom, inRoom)
+			}
+		}
+		return nil
+	}
+	deadline := time.NewTimer(90 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(250 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		err := read()
+		if err == nil {
+			return
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatalf("%s: %v: %v", id, ctx.Err(), err)
+		case <-deadline.C:
+			t.Fatalf("%s: shared presence did not converge: %v", id, err)
+		case <-ticker.C:
 		}
 	}
 }

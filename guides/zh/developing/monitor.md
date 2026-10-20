@@ -40,7 +40,32 @@ fullcontrol 才允许音量和重启等操作，Server 每次重新校验权限�
 每 5 秒并行轮询所有节点，用累计计数换算速率（重启读作 0，而不是尖峰），每个节点最多保留
 600 个采样，提供 2/10/30 分钟窗口。
 
-日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照只返回二进制版本与构建提交、运行状态和传输计数；控制台在节点列表和运行快照中显示版本。
+集群总览分为“节点概览”和“设备与通道”两个 Tab，默认显示节点、流量与运行状态；
+设备数、通道、消息速率和对应节点列表集中在第二个 Tab。节点详情也通过“设备与通道”
+Tab 查看这些指标，并保留独立的“运行快照”Tab。切换 Tab 共用已有采样，不增加轮询。
+节点列表支持按名称、地址和区域搜索，以及 Server/Edge 类型筛选，均只过滤已读取的快照。
+尚无设备指标时，设备页显示采集状态与节点明细，区分等待升级、连接中与读取失败；
+取得指标后显示摘要与趋势。采样窗口和暂停控制位于顶部工具栏。
+
+“设备与通道”Tab 使用同一个 `/monitor/api/node` 响应中的可选
+`device_metrics`。新版 Server/Edge 直接读取在线设备和物理通道的内存计数，不查询业务
+数据库或 Prometheus；不依赖是否配置 Metrics Store。Server 返回已激活的不同 Client 数，
+Edge 返回已经建立 bridge 的不同 Client 数，两者分别展示，不相加作为全局设备数。
+物理 RTP、packet/service/native DataChannel 和累计收发消息按 device/upstream/admin/unknown
+区分，节点详情提供各类明细；经 Edge 接入的设备在 Server 侧使用上游 DataChannel。
+
+消息/秒是相邻两次有效快照的计数差除以时间差；消息/分钟是该平均速率乘以 60 的估算，
+不是自然分钟精确事件总数。首次采样、重启、节点身份改变、计数下降、断线与取消后的首轮
+不计算速率。在线趋势与消息趋势只保留当前浏览器会话的最多 600 个采样，窗口仍为
+2/10/30 分钟；节点缺失时曲线留空，不把剩余节点的小计画成完整集群总数。
+
+未返回 `device_metrics` 的旧节点继续显示原有连接和流量，设备采集状态显示“等待节点升级”；
+与新版节点混合展示时，缺失指标保持为空，不会用 WebRTC 连接数代替在线设备数。
+总览显示有效节点覆盖率并按节点公钥去重，
+读取失败的旧快照不参与当前汇总。长期历史仍保存在各节点配置的 Metrics Store，当前控制台
+不查询这部分历史。埋点口径见 [Observability](observability#node-device-channel-metrics)。
+
+日志通过设备的持久化 LogStore 搜索接口查询，支持时间范围、文本、级别与分页。节点快照返回二进制版本与构建提交、运行状态、设备在线与物理传输计数；控制台在节点列表和运行快照中显示版本。
 
 Telemetry 分两类：指标字段（`battery.*`、`network.rssi_dbm`、`network.signal_level`、
 `network.connected`、`system.*`、`gnss.*`）会写入采样存储，可按时间区间查询历史；只反映
@@ -105,6 +130,10 @@ go build ./cmd/gizclaw
 返回 400 `INVALID_HISTORY_CURSOR`；`start_time_ms` 不早于 `end_time_ms` 等非法参数返回 400
 `INVALID_REQUEST`。浏览历史不启动 Agent。音频通过同路径下的
 `/{historyId}/audio.ogg` 认证读取。
+
+每条记录的 `audio_available` 表示保留的 metadata 中存在 Ogg/Opus 录音附件，控制台据此显示
+录音按钮；`replay_available` 同时涵盖文字回放，不能用来判断有无录音。列表不逐条访问对象存储。
+附件在读取时已经不存在而返回 404 时，控制台把该条目标为无可用录音。
 
 `GET /gizclaw/v1/device/telemetry/{field}/latest` 返回单个字段的最新采样；
 `GET /gizclaw/v1/device/telemetry` 按明确的时间区间返回该字段的采样序列。

@@ -130,20 +130,50 @@ out/
 └── audio/           # Original Ogg/Opus and segment WAV files
 ```
 
-The page displays numbered steps, operations, results, evidence, conversation
-and audio together. It has no download or report-navigation links. Starting
-replay highlights the current step, reveals replies at their recorded times and
-plays the corresponding audio segments when reached. Each step also exposes
-its own audio controls. No merged full-conversation audio file is produced.
+The page centers on conversation cards. Each utterance has a stable frame number
+such as `#0001`, speaker, timestamp and segment audio, so feedback can identify
+“frame N”. Click its number or use the number field to locate it. Numbers within
+one recording stay unchanged across pause, seek, speed and complete-record views.
+Technical steps are collapsed under “Test details”, with large JSON separately
+collapsed. Prepared speech remains in those details rather than appearing as an
+utterance that has already occurred.
+
+Replay reveals speech and audio at their event times. Segment play buttons seek
+the same timeline; pause, seeking and speed apply to all parallel audio. No merged
+full-conversation audio file is produced. Proven audio or complete-text transfers
+between Workflows and their ASR transcripts remain as references in the details;
+the original utterance appears and plays once. Matching startup probes reference
+the full recording too. Independent replies remain separate even if their content
+is identical. Ordinary user audio and its recognized text share one input card.
+Transfer suppression requires recorded input-variable/output-capture bindings, or
+the declared client pair and media of the same `workspace_relay`, plus matching
+content. Content equality alone is insufficient. Older recordings without these
+bindings retain identical inputs rather than inferring forwarding.
+
+The timing column labels step start, duration, first text and first audio on the
+same millisecond clock as the progress bar. When a transcript EOS is recorded,
+it also shows the wait from recognition completion to first text/audio. Creating
+a text stream does not mean reply content has arrived. Events are hidden until
+their time is reached. “View all records” pauses replay and explicitly enters
+the complete-record view; reset returns to time zero with future events hidden.
 
 Go `html/template` renders the HTML with inline CSS, JavaScript, recording data
 and segment audio. Distribute the whole directory or just `index.html`: playback
 requires no Giztest executable, Go runtime, source template, web server, external
 JSON or media files. Files under `audio/` are retained for analysis and reuse.
 
-Segments follow the media clock rather than packet jitter. Prepared speech and
-duplicate relay uploads are individually playable and not played twice during
-automatic replay. Audio-free tests do not create empty audio files. Failures and
+Replay uses event offsets from `report.started_at`, preserving startup delays
+and silent waits. Each audio chunk retains its arrival time and media duration:
+bursts queue in order, and arrival gaps after the queue drains remain silent.
+Terminal errors such as `interrupted` and PeerStream closure discard the affected
+stream's queued audio at the event time. Ordinary EOS lets received audio finish.
+The browser decodes audio before starting the shared clock. These are Giztest
+send/receive observations, not physical speaker playback receipts. Older recordings
+without chunk times and closure events disclose that limitation; missing gaps or
+interruptions require a new recording.
+Prepared speech is individually playable. Relay copies and matching parallel
+startup probes appear as references and play only once; independent streams may
+overlap. Audio-free tests do not create empty audio files. Failures and
 Ctrl+C/SIGTERM preserve collected content and failed results. Recording is bounded
 to 128 MiB of text/encoded audio and 200,000 media/control chunks. Limit or audio
 export failures explicitly mark partial records and return an execution error.

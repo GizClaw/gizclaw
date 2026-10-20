@@ -212,7 +212,7 @@ func TestPeerIdentityMessagesUseCompactNameOnlyLayouts(t *testing.T) {
 		{(&rpcpb.FirmwareGetResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"channel", "description", "url", "sha256", "size", "version"}},
 		{(&rpcpb.FriendObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "peer_public_key", "updated_at", "workspace_name", "online", "last_seen_at", "display_name", "emoji"}},
 		{(&rpcpb.FriendGroupMemberObject{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "friend_group_name", "name", "peer_public_key", "role", "updated_at", "online", "last_seen_at", "in_room"}},
-		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type"}},
+		{(&rpcpb.PeerRunHistoryEntry{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "gear_id", "name", "actor_name", "replay_available", "text", "type", "audio_available"}},
 		{(&rpcpb.PeerRunRecallHit{}).ProtoReflect().Descriptor(), []protoreflect.Name{"created_at", "name", "metadata", "score", "snippet", "source_name", "source_type"}},
 		{(&rpcpb.ServerRegisterResponse{}).ProtoReflect().Descriptor(), []protoreflect.Name{"runtime_profile_name"}},
 	}

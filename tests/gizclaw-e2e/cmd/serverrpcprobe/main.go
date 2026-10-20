@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"time"
 
@@ -96,7 +97,32 @@ func runAudioDownloads() error {
 	if err := serverrpc.ServeAudioDownloads(ctx, conn); err != nil {
 		return err
 	}
+	// Keep the parent Peer connection alive until the SDK has received and
+	// checked every queued response frame. Closing it after WriteEOS alone
+	// can terminate SCTP before those frames reach the remote DataChannel.
+	if err := awaitAudioDownloadReceipt(ctx, os.Stdin); err != nil {
+		return err
+	}
 	return writeJSON(map[string]bool{"ok": true})
+}
+
+func awaitAudioDownloadReceipt(ctx context.Context, input io.ReadCloser) error {
+	stop := context.AfterFunc(ctx, func() { _ = input.Close() })
+	defer stop()
+	var receipt struct {
+		Received bool `json:"received"`
+	}
+	err := json.NewDecoder(input).Decode(&receipt)
+	if ctx.Err() != nil {
+		return fmt.Errorf("wait for audio download receipt: %w", ctx.Err())
+	}
+	if err != nil {
+		return fmt.Errorf("read audio download receipt: %w", err)
+	}
+	if !receipt.Received {
+		return fmt.Errorf("audio download was not acknowledged")
+	}
+	return nil
 }
 
 func runCase(ctx context.Context, server *serverrpc.Server, name string, run func(giznet.Conn) error) error {

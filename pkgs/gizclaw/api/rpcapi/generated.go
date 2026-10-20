@@ -1646,14 +1646,14 @@ type FriendGroupMemberObject struct {
 	CreatedAt       *time.Time `json:"created_at,omitempty"`
 	FriendGroupName *string    `json:"friend_group_name,omitempty"`
 
-	// InRoom Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by server.friend_group.members.list.
+	// InRoom Whether the member's device is running this Friend Group's Workspace on any Server, according to the same shared snapshot as Online. Set only by server.friend_group.members.list; true implies online.
 	InRoom *bool `json:"in_room,omitempty"`
 
-	// LastSeenAt Last observed activity of the member's device, as Runtime.last_seen_at reports it. Set only by server.friend_group.members.list and absent when the Server has never observed the member.
+	// LastSeenAt Last activity observed at a connection or running-Workspace transition. Set only by server.friend_group.members.list; absent when unknown or the shared presence read failed.
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 	Name       string     `json:"name"`
 
-	// Online Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by server.friend_group.members.list.
+	// Online Shared connection state across Servers, subject to replication delay. Set only by server.friend_group.members.list.
 	Online        *bool                  `json:"online,omitempty"`
 	PeerPublicKey *string                `json:"peer_public_key,omitempty"`
 	Role          *FriendGroupMemberRole `json:"role,omitempty"`
@@ -1742,11 +1742,11 @@ type FriendObject struct {
 	// Emoji The Friend's self-chosen emoji. Set only by server.friend.list and absent when the Friend has not set one.
 	Emoji *string `json:"emoji,omitempty"`
 
-	// LastSeenAt Last observed activity of the Friend's device, as Runtime.last_seen_at reports it. Set only by server.friend.list and absent when the Server has never observed the Friend.
+	// LastSeenAt Last activity observed at a connection or running-Workspace transition. Set only by server.friend.list; absent when unknown or the shared presence read failed.
 	LastSeenAt *time.Time `json:"last_seen_at,omitempty"`
 	Name       string     `json:"name"`
 
-	// Online Whether the Friend's device is connected to the answering Server, the same state as Runtime.online. Set only by server.friend.list.
+	// Online Shared connection state across Servers, subject to replication delay. Set only by server.friend.list.
 	Online        *bool      `json:"online,omitempty"`
 	PeerPublicKey *string    `json:"peer_public_key,omitempty"`
 	UpdatedAt     *time.Time `json:"updated_at,omitempty"`
@@ -1963,7 +1963,8 @@ type PeerRunAgent struct {
 
 // PeerRunHistoryEntry defines model for PeerRunHistoryEntry.
 type PeerRunHistoryEntry struct {
-	CreatedAt time.Time `json:"created_at"`
+	AudioAvailable bool      `json:"audio_available"`
+	CreatedAt      time.Time `json:"created_at"`
 
 	// GearId Originating gear id. Required for gear entries and omitted for agent entries.
 	ActorName       string                  `json:"actor_name"`
@@ -2610,6 +2611,8 @@ type WorkspaceListRequest struct {
 	Cursor *string `json:"cursor,omitempty"`
 	Limit  *int    `json:"limit,omitempty"`
 	Prefix *string `json:"prefix,omitempty"`
+	// System selects ordinary (false) or system (true) Workspaces; nil lists both.
+	System *bool `json:"system,omitempty"`
 }
 
 // WorkspaceListResponse defines model for WorkspaceListResponse.

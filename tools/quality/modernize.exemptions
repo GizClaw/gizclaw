@@ -1,474 +1,474 @@
-pkgs/gizclaw/api/adminhttp/generated.go:22320:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22371:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22389:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22418:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22447:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22476:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22520:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22538:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22567:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22596:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22625:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22669:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22687:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22716:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22745:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22774:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22818:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22836:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22865:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22894:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22923:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22967:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:22985:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23014:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23043:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23072:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23144:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23188:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23206:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23235:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23264:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23293:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23337:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23355:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23384:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23413:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23442:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23471:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23536:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23554:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23583:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23612:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23641:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23685:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23703:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23732:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23761:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23790:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23834:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23863:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23900:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23929:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23958:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:23987:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24016:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24045:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24097:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24126:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24163:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24200:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24229:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24258:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24287:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24367:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24440:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24485:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24564:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24609:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24654:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24698:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24716:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24745:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24774:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24803:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24840:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24877:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24914:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24958:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:24976:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25005:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25034:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25063:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25114:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25132:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25169:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25206:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25243:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25287:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25305:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25334:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25363:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25392:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25421:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25450:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25479:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25531:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25560:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25597:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25634:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25678:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25696:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25733:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25770:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25835:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25853:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25882:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25911:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25940:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:25984:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26002:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26031:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26060:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26089:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26118:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26162:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26180:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26209:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26238:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26267:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26318:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26347:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26376:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26405:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26478:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26515:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26552:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26589:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26626:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:26663:6: backward loop over slice can be modernized using slices.Backward
-pkgs/gizclaw/api/adminhttp/generated.go:32878:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32878:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32905:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32905:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32936:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32936:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32963:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32963:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32990:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:32990:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33023:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33023:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33050:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33050:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33081:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33081:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33108:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33108:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33135:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33135:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33168:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33168:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33195:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33195:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33226:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33226:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33253:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33253:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33280:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33280:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33313:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33313:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33340:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33340:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33371:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33371:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33398:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33398:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33425:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33425:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33458:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33458:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33485:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33485:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33516:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33516:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33543:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33543:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33570:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33570:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33603:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33603:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33630:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33630:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33657:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33657:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33688:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33688:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33715:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33715:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33742:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33742:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33775:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33775:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33802:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33802:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33833:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33833:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33860:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33860:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33887:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33887:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33920:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33920:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33947:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33947:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33974:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:33974:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34005:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34005:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34032:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34032:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34059:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34059:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34092:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34092:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34119:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34119:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34150:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34150:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34177:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34177:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34204:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34204:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34237:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34237:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34264:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34264:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34291:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34291:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34319:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34319:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34346:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34346:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34373:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34373:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34406:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34406:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34433:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34433:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34460:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34460:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34488:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34488:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34521:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34521:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34549:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34549:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34577:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34577:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34604:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34604:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34637:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34637:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34664:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34664:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34692:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34692:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34720:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34720:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34748:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34748:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34775:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34775:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34803:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34803:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34831:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34831:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34858:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34858:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34889:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34889:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34916:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34916:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34943:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34943:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34976:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:34976:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35004:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35004:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35032:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35032:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35076:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35076:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35103:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35103:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35134:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35134:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35161:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35161:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35188:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35188:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35221:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35221:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35248:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35248:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35279:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35279:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35307:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35307:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35335:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35335:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35369:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35369:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35396:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35396:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35427:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35427:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35454:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35454:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35481:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35481:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35514:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35514:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35541:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35541:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35568:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35568:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35601:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35601:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35629:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35629:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35662:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35662:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35690:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35690:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35724:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35724:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35751:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35751:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35782:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35782:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35810:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35810:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35838:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35838:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35865:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35865:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35896:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35896:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35923:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35923:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35950:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35950:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35983:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:35983:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36010:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36010:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36041:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36041:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36068:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36068:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36095:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36095:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36128:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36128:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36155:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36155:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36182:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36182:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36213:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36213:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36240:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36240:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36267:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36267:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36300:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36300:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36327:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36327:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36354:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36354:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36381:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36381:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36414:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36414:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36442:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36442:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36470:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36470:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36498:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36498:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36526:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36526:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36554:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36554:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36588:42: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:36588:56: interface{} can be replaced by any
-pkgs/gizclaw/api/adminhttp/generated.go:3812:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:3824:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:3836:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4045:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4057:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4266:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4278:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4487:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4499:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4708:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4720:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4929:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4941:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4953:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4965:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4977:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:4989:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5043:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5055:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5264:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5276:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5519:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5531:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5543:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5555:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5567:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5776:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5788:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:5997:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6009:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6328:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6340:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6643:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6651:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6659:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6669:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6681:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6693:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6752:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6760:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6768:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6776:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6784:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6843:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6897:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6909:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6921:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6933:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6945:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6957:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:6969:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7028:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7085:23: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7137:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7149:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7494:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7506:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7715:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7727:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7739:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7969:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:7981:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8312:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8324:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8520:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8532:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8708:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8720:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8732:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8744:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8756:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8965:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:8977:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9220:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9232:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9441:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9453:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9465:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9641:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9653:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9665:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9677:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/adminhttp/generated.go:9689:24: Ranging over SplitSeq is more efficient
-pkgs/gizclaw/api/apitypes/generated.go:10118:54: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:22325:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22376:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22394:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22423:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22452:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22481:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22525:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22543:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22572:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22601:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22630:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22674:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22692:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22721:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22750:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22779:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22823:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22841:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22870:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22899:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22928:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22972:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:22990:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23019:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23048:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23077:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23149:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23193:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23211:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23240:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23269:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23298:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23342:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23360:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23389:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23418:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23447:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23476:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23541:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23559:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23588:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23617:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23646:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23690:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23708:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23737:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23766:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23795:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23839:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23868:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23905:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23934:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23963:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:23992:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24021:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24050:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24102:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24131:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24168:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24205:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24234:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24263:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24292:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24372:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24445:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24490:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24569:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24614:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24659:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24703:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24721:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24750:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24779:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24808:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24845:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24882:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24919:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24963:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:24981:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25010:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25039:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25068:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25119:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25137:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25174:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25211:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25248:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25292:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25310:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25339:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25368:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25397:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25426:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25455:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25484:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25536:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25565:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25602:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25639:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25683:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25701:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25738:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25775:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25840:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25858:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25887:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25916:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25945:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:25989:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26007:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26036:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26065:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26094:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26123:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26167:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26185:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26214:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26243:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26272:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26323:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26352:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26381:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26410:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26483:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26520:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26557:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26594:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26631:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:26668:6: backward loop over slice can be modernized using slices.Backward
+pkgs/gizclaw/api/adminhttp/generated.go:32883:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32883:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32910:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32910:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32941:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32941:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32968:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32968:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32995:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:32995:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33028:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33028:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33055:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33055:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33086:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33086:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33113:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33113:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33140:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33140:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33173:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33173:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33200:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33200:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33231:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33231:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33258:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33258:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33285:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33285:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33318:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33318:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33345:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33345:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33376:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33376:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33403:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33403:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33430:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33430:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33463:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33463:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33490:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33490:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33521:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33521:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33548:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33548:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33575:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33575:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33608:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33608:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33635:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33635:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33662:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33662:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33693:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33693:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33720:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33720:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33747:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33747:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33780:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33780:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33807:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33807:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33838:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33838:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33865:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33865:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33892:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33892:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33925:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33925:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33952:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33952:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33979:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:33979:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34010:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34010:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34037:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34037:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34064:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34064:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34097:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34097:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34124:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34124:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34155:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34155:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34182:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34182:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34209:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34209:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34242:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34242:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34269:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34269:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34296:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34296:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34324:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34324:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34351:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34351:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34378:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34378:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34411:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34411:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34438:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34438:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34465:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34465:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34493:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34493:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34526:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34526:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34554:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34554:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34582:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34582:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34609:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34609:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34642:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34642:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34669:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34669:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34697:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34697:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34725:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34725:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34753:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34753:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34780:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34780:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34808:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34808:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34836:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34836:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34863:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34863:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34894:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34894:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34921:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34921:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34948:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34948:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34981:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:34981:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35009:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35009:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35037:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35037:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35081:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35081:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35108:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35108:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35139:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35139:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35166:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35166:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35193:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35193:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35226:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35226:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35253:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35253:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35284:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35284:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35312:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35312:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35340:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35340:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35374:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35374:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35401:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35401:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35432:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35432:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35459:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35459:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35486:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35486:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35519:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35519:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35546:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35546:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35573:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35573:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35606:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35606:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35634:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35634:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35667:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35667:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35695:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35695:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35729:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35729:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35756:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35756:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35787:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35787:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35815:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35815:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35843:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35843:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35870:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35870:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35901:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35901:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35928:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35928:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35955:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35955:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35988:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:35988:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36015:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36015:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36046:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36046:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36073:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36073:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36100:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36100:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36133:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36133:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36160:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36160:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36187:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36187:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36218:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36218:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36245:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36245:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36272:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36272:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36305:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36305:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36332:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36332:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36359:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36359:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36386:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36386:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36419:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36419:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36447:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36447:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36475:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36475:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36503:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36503:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36531:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36531:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36559:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36559:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36593:42: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:36593:56: interface{} can be replaced by any
+pkgs/gizclaw/api/adminhttp/generated.go:3817:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:3829:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:3841:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4050:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4062:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4271:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4283:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4492:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4504:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4713:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4725:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4934:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4946:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4958:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4970:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4982:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:4994:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5048:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5060:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5269:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5281:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5524:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5536:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5548:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5560:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5572:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5781:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:5793:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6002:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6014:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6333:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6345:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6648:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6656:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6664:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6674:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6686:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6698:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6757:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6765:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6773:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6781:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6789:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6848:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6902:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6914:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6926:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6938:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6950:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6962:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:6974:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7033:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7090:23: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7142:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7154:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7499:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7511:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7720:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7732:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7744:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7974:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:7986:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8317:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8329:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8525:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8537:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8713:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8725:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8737:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8749:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8761:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8970:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:8982:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9225:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9237:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9446:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9458:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9470:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9646:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9658:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9670:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9682:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/adminhttp/generated.go:9694:24: Ranging over SplitSeq is more efficient
+pkgs/gizclaw/api/apitypes/generated.go:10123:54: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3294:22: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3717:9: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:3776:11: interface{} can be replaced by any
@@ -478,26 +478,26 @@ pkgs/gizclaw/api/apitypes/generated.go:4286:22: interface{} can be replaced by a
 pkgs/gizclaw/api/apitypes/generated.go:4301:25: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4613:25: interface{} can be replaced by any
 pkgs/gizclaw/api/apitypes/generated.go:4769:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4885:45: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4898:31: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4905:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:4915:22: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5510:36: Omitempty has no effect on nested struct fields
-pkgs/gizclaw/api/apitypes/generated.go:5573:35: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5691:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5831:26: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:5838:21: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6020:25: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:6818:51: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:7891:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8164:50: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8293:52: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:8412:51: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9229:43: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9386:65: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9477:54: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9734:47: interface{} can be replaced by any
-pkgs/gizclaw/api/apitypes/generated.go:9807:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4890:45: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4903:31: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4910:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:4920:22: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5515:36: Omitempty has no effect on nested struct fields
+pkgs/gizclaw/api/apitypes/generated.go:5578:35: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5696:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5836:26: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:5843:21: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6025:25: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:6823:51: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:7896:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8169:50: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8298:52: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:8417:51: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9234:43: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9391:65: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9482:54: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9739:47: interface{} can be replaced by any
+pkgs/gizclaw/api/apitypes/generated.go:9812:43: interface{} can be replaced by any
 pkgs/gizclaw/api/eventproto/peer_event.pb.go:1373:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/peerhttp/generated.go:1107:38: interface{} can be replaced by any
 pkgs/gizclaw/api/peerhttp/generated.go:1110:38: interface{} can be replaced by any
@@ -731,14 +731,18 @@ pkgs/gizclaw/api/rpcproto/gnss.pb.go:255:19: reflect.TypeOf call can be simplifi
 pkgs/gizclaw/api/rpcproto/icon.pb.go:122:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/lua_app.pb.go:607:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/mhs_v0.pb.go:1453:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/social.pb.go:3708:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/social.pb.go:3706:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/system.pb.go:4139:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/rpcproto/tool.pb.go:556:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/gizclaw/api/rpcproto/workspace.pb.go:4388:19: reflect.TypeOf call can be simplified using TypeFor
+pkgs/gizclaw/api/rpcproto/workspace.pb.go:4410:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/gizclaw/api/telemetry/peer_telemetry.pb.go:1052:19: reflect.TypeOf call can be simplified using TypeFor
 pkgs/giznet/giznetpb/admission.pb.go:132:19: reflect.TypeOf call can be simplified using TypeFor
-pkgs/monitor/api/generated.go:579:101: interface{} can be replaced by any
-pkgs/monitor/api/generated.go:579:87: interface{} can be replaced by any
+pkgs/infraflow/api/generated.go:850:101: interface{} can be replaced by any
+pkgs/infraflow/api/generated.go:850:87: interface{} can be replaced by any
+pkgs/infraflow/api/generated.go:874:101: interface{} can be replaced by any
+pkgs/infraflow/api/generated.go:874:87: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:638:101: interface{} can be replaced by any
+pkgs/monitor/api/generated.go:638:87: interface{} can be replaced by any
 sdk/go/mem0/generated.go:132:52: interface{} can be replaced by any
 sdk/go/mem0/generated.go:140:52: interface{} can be replaced by any
 sdk/go/mem0/generated.go:142:44: interface{} can be replaced by any

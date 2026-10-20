@@ -43,9 +43,16 @@
 !multi-role-voices/
 !multi-role-voices/*.json
 !multi-role-voices/*.yaml
+!peer-audio/
+!peer-audio/post-eos.giztest.yaml
 
 !rtp-bos/
 !rtp-bos/*
+!asr-recovery/
+!asr-recovery/*.go
+!asr-recovery/*.py
+!asr-recovery/*.json
+!asr-recovery/*.giztest.yaml
 !slow-tts/
 !slow-tts/*.go
 !slow-tts/*.py

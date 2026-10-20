@@ -27,6 +27,16 @@ gizcr.gizclaw.com/docker.io/livekit/livekit-server:v1.13.6
 仍从当前 checkout 构建；`GIZCLAW_E2E_DOCKER_BASE_FROM` 和 `PYTHON_BASE_IMAGE`
 可显式覆盖拉取的基础镜像。
 
+### Doubao ASR 恢复 Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_asr_recovery_tests.sh
+```
+
+该入口先对本地 WebSocket fixture 运行九轮真实 SDK/transformer 协议预检，再启动隔离的本地 Docker Server、Edge 和 Giztest，不需要云凭据。构建 overlay 只替换 provider wiring：ASR 使用真实 `doubaoasr` transformer 与 Doubao SDK，连接进程内 loopback WebSocket fixture；文本 Agent 使用 Eino Script，TTS 使用有效 Opus fixture。第八个 PTT 输入返回 `55000000`，replacement 接收的 PCM 摘要必须与原始第八次输入完全一致；九轮固定问题序号、单次 transcript/reply、18 条 History 与第九轮续聊共同验证恢复没有重启 Workflow 或重复提交。Continuous ASR 在同一 provider session 内前七个 definite utterance 后恢复第八轮、并继续第九轮的边界由 transformer 回归单独覆盖。
+
+Server 明确配置 WARN 门槛。入口校验首次错误、`retry=1` start/success 的相同 ASR/连接/Workspace/输入标识，保留上下游 ID 区别，并拒绝 `output consumer failed` 或 `assistant route failed`。日志、Giztest 报告与源码摘要留在 ignored `.testbench/asr-recovery-*`。入口在本地 Go 基础镜像中编译协议预检和测试二进制，并以只读挂载在同一基础镜像启动 Server、Edge 与 runner；报告记录二进制摘要。退出时只清理本次 Compose project、编译容器与运行状态，复用共享基础镜像和 Go cache。该验证属于本地协议和 Server 集成，不代表真实供应商或物理设备验收。
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：
@@ -38,7 +48,15 @@ go test -race -count=1 -p 1 ./...
 
 Giztest 的 `audio_pacing.max_interval_ms` 使用 PeerStream 读取时的真实单调时钟，包含本地发送、接收 goroutine 的调度延迟。并行编译、编码和其他测试可以让正常的 20ms 音频循环失去 CPU，因此这个间隔不能单独归因为 Provider 停顿。`underruns` 另按 500ms 预缓冲重放客户端消耗，用于区分包间隔超限与实际缓冲耗尽。
 
-`audio_integrity.violation_reasons` 记录缺失 stream ID、重复开始或结束、结束后再次开始或收到数据，以及缺少开始的数据或结束标记各自的次数。它检查音频流边界及包顺序；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
+`audio_integrity.violation_reasons` 记录缺失 stream ID、重复开始或结束、结束后再次开始，以及缺少开始的数据或结束标记等非法逻辑边界。EOS 与 RTP 独立传输，EOS 后、下一次 audio BOS 前的原始尾包由 Go SDK 忽略；Giztest 也忽略已知结束流的纯音频迟到 payload。`audio_integrity.ignored_post_eos_packets` 记录当前操作观察窗口内 SDK 与 Giztest 忽略的包数，属于正常接收统计，不增加 `violations`。被忽略的包不进入音频摘要、播放、pacing 或 response 计数。未知流缺少 BOS、重复边界与非法控制 chunk 仍失败；本规则不改变已有时延或断流门槛。
+
+专用功能回归使用真实的本地 WebRTC 连接运行 `tests/gizclaw-e2e/testdata/peer-audio/post-eos.giztest.yaml`：fixture 等待 Go SDK 的 `Next` 交付 audio EOS 后，才经 RTP 发送两个迟到包，并在有界期限内确认 SDK 已忽略两包后才发送文本 EOS、进入下一轮。普通接收与首个 RTP 尾包接收延迟超过回复观察窗口的两个子场景运行相同断言。第一步断言忽略数为 2，交付摘要、播放和响应计数只包含有效音频；第二步复用同一个 PeerStream，验证新的 BOS 恢复交付，忽略计数按操作窗口重新计算。该 case 不调用模型，不需要 Provider 凭据，也不依赖随机网络重排或 sleep 建立边界顺序。
+
+```sh
+go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
+```
+
+完整性检查针对实际交付的逻辑音频；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
 
 `audio_pacing.max_interval_started_at` 记录最大包间隔开始的 UTC 时间，可与其他会话及 Server 日志对齐，识别多个会话是否在同一时刻停顿。
 
@@ -274,6 +292,19 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
+
+仅运行共享 presence 的真实 TiKV Learner gate：
+
+```sh
+bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+```
+
+该用例在 PD 核实中心 voter 与地区 Learner 角色后，运行生产 `peerpresence.ReadBatch`，历史窗口为五秒。夹具通过 `tikv-test.toml` 将 `resolved-ts.advance-ts-interval` 设置为一秒；TiKV 的默认推进间隔为二十秒，不能据五秒窗口保证命中 Learner，部署应按实际 safe-ts 延迟选择窗口与推进频率，见 [TiKV 配置说明](https://docs.pingcap.com/tidb/stable/tikv-configuration-file/#advance-ts-interval)。更频繁推进会增加 CPU 和节点间流量。
+
+十个同属一台 Server 的在线 Peer 读取十份快照和一份租约；这些 key 位于同一 Region 时共两个 RPC，一批读取十个 Peer，另一批读取唯一 Server 租约。成功请求必须实际命中 Learner。测试同时运行十六个并发调用方，并记录五十次串行与批量状态查询的延迟。复制暂停期间，中心下线状态与 Learner 的旧在线／房间快照必须可区分；恢复后读取必须收敛。
+
+超时用例先预热连接，再通过测试专用 TCP proxy 阻塞真实 TiKV 响应，验证十项查询共用两秒预算，以及更短的 75 ms caller deadline。PD、Raft 和真实 TiKV 请求保持运行，测试不替换 KV 返回值。该 gate 进入 `TiKV Learner Presence` CI；它验证存储与 presence 读取路径，不包括成员授权、资料、HTTP/WebRTC、LiveKit、WAN 延迟或生产容量。Redis 主从与完整 Social RPC 行为由下面的 Redis gate 覆盖。
+
 迁移用例使用同一夹具中的真实 Redis 8.4.6 主节点，验证 binary/empty value、绝对 TTL、Set/零分 Sorted Set、大集合分页、中断后的幂等恢复、目标写入保护、双向校验和实际 CLI 切换配置。Redis 镜像同样从 gizcr 获取并固定 digest。只运行迁移相关测试：
 
 ```sh
@@ -283,7 +314,7 @@ bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migrati
 该模式仍运行真实 PD、中心 voter 和地区 Learner；额外的 deadline gate 直接比较 Redis 的绝对 expiration 与 TiKV 中已保存的 deadline，不用 sleep 阈值推断 TTL 是否保留。
 
 
-入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。数据目录使用临时内存文件系统，不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。
+入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。PD 的数据 tmpfs 为 256 MiB，两个 TiKV 各为 1 GiB；夹具将 KV／Raft 预留空间设为 64／32 MiB，block cache 设为 128 MiB，避免小容量 CI 环境被生产默认预留量判为磁盘已满。两个 TiKV 容器显式将 `nofile` 的软硬上限设为 262144，满足 TiKV 启动时的文件描述符检查，不依赖宿主机默认值。不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。失败时 CI 保留启动、集群、测试和拓扑诊断七天。
 
 测试先验证跨 client 原子 CRUD、batch、deadline、条件创建、CAS、集合与容量限制、prefix 和 borrowed lifecycle。地区测试在 seeded 数据已进入历史快照后切断中心到 Learner 的 Raft 流，保持查询通路可用，同时确认普通读仍返回旧 assignment、active Peer 和已撤销 key。实际 `peerroute`、Peer 删除 handler、API key service 必须通过强读观察首次 claim、assignment version 刷新、pending-deletion 围栏、永久 tombstone、撤权和 owner retirement。RPC 观测还要求成功的陈旧查询落在地区 Learner、强读落在中心 leader。另一个测试二进制验证有序集合边界、并发容量、跨 key write skew、过期记录物理回收及清理期间的并发刷新。
 
@@ -317,16 +348,21 @@ bash tests/gizclaw-e2e/run_multi_server_tests.sh
 
 主 `run_tests.sh` 在标准 SDK 场景和该 stack 清理完成后，也运行这个双 Server gate。标准 `docker-compose.yaml` 与 multi-server stack 的 Peer、assignment、API key、Friend 和 FriendGroup 使用同一 TiKV connector；业务 SQL 仍由各 Server 独立持有。PD、TiKV、LiveKit 等外部服务镜像全部从 `gizcr.gizclaw.com` 拉取并固定 digest；Server、Edge、fixture 与 runner 从本地源码构建，构建基础镜像同样来自 gizcr。TiKV 数据使用项目独立的临时内存文件系统，结束时随该 project 清理。标准 Docker 镜像在构建时预编译 CLI 和 fixture apply 辅助程序，Server、Edge 与初始化流程直接使用这些构建产物。
 
+通用的 `server.friend.list`、`server.friend_group.members.list` 与 `server.friend_groups.http` 场景也等待共享 presence 进入历史视图。首次 RPC 状态断言最多十次、间隔十秒，只重试 assertion。HTTP 场景先经对应的成员列表 RPC 等待状态可见，再执行原有 HTTP 状态与权限断言；HTTP step 不设置重试策略。 原生 foreign-admission 与 telemetry 检查比较 assignment 和业务记录，仅排除会随合法连接及租约续期变化的 runtime-presence record 及其对应的 TiKV expiry-index 项；assignment 和业务记录的 expiry 项、格式异常的索引 key 与其他 namespace 仍参与严格比较；SQL PeerRun 隔离与固定归属路由断言保持严格。
+
 Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各配置 1 GiB tmpfs，隔离本机 Docker 存储 I/O 停顿；通过 `tikv-pd.toml` 将 [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) 设为 15 秒。`tikv-test.toml` 将预留空间设为 64 MiB、Raft 预留空间设为 32 MiB、block cache 设为 128 MiB，TiKV 容器各有 4 GiB 内存上限，匹配小型夹具容量。仍运行真实 RocksDB、Raft 和 Learner 数据复制。数据只在本次测试内有效；该夹具不验收 SSD 性能或 TiKV/PD 重启持久性。
 
 `TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
 
-`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频，`sfu.friend-group.members-in-room` 不收发音频，二者都不需要语音服务凭据，每次都运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+`sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频；`sfu.friend-group.members-in-room` 与 `sfu.presence.cross-server` 不收发音频。这些场景都不需要语音服务凭据，在默认 multi-server gate 中运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
+
+`sfu.presence.cross-server` 在两台 Server 的独立 registration token 下连接 Alice 和 Bob，经双方真实 RPC 查询好友 `online`／`last_seen_at` 与群成员 `online`／`in_room`。它依次断言未运行时在线但不在房间、双方运行群 Workspace 后均在房间、一方 stop 与另一方重连后双方仍在线但离开房间，以及无需重新注册即可再次进入原房间。列表从两台 Server 分别查询；随机公钥决定成员排序，因此只有在双方处于相同状态时才断言两个列表项。Presence 断言最多十次、间隔十秒，以容纳夹具的六十秒历史窗口。该文件在 `run_multi_server_tests.sh` 的默认场景中显式列出，由本地完整 `run_tests.sh` 的 `docker:multi-server` 阶段纳入。
 
 不依赖语音服务的 SFU 场景覆盖如下边界：
 
 | 场景（省略 `sfu.` 和 `.audio-bytes`） | 验证内容 |
 | --- | --- |
+| `presence.cross-server` | 两台 Server 分别查询异机好友在线与最后观察时间；群成员入房、停止／重连清空房间、同身份重入，允许共享 KV 历史读延迟 |
 | `friend.cross-server` | 两台 Server 上的好友双向 PTT 和可关联首包计时，发送方不收到自己的音频或生成首包接收样本 |
 | `friend-group.remove-readd` | 三客户端一发多收的首包关联；等待踢出撤权后被移除者无音频/首包样本，其余成员继续接收，加回并选择原 Workspace 后恢复双向音频 |
 | `friend-group.reconnect-readd` | 被踢出后重连仍无成员权限，加回后无需再次注册即可选择原 Workspace 并恢复双向音频 |
@@ -539,6 +575,27 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
+Eino concurrency 的 reload-initiative 功能探针使用只需一个数字回答的短算术输入，在原有 30 秒 step 预算内检查 route rearm、下一轮完整响应、终态错误与 History。它不评判答案语义，不改变生产 Prompt 或测试断言。
+
+功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh --functional`，执行相同的 JavaScript、
+Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest 与多 Server 套件。
+它仅排除五个 `script-quality.*` 文档，以及两个依赖模型语义裁决的
+`workspace-relay.workflow-tester`、`workspace-relay.doubao-realtime-workflow-tester` 文档。
+剧本评分与模型给出的语义裁决不属于功能验收；音频 packet 完整性、发送节奏、轮次完成、
+状态、权限和超时断言仍是功能门禁。默认命令保留原有完整文档集合，`--help` 说明两种模式。
+
+JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
+客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
+等待确认，随后关闭父 Peer connection 并退出。写完响应 EOS 本身不代表远端已收到
+所有排队帧；缺少确认、无效确认和等待超时均失败。
+
+Flutter runner 支持 unary RPC 的 `retry`：2–10 次尝试，`on` 可选择
+`timeout`、`assertion`，省略时仅重试 timeout；正的 delay 最长五分钟。
+HTTP、其他 operation 和 `finally` 不接受此策略。失败尝试回滚其变量捕获，成功尝试
+保留捕获；报告记录每次尝试的状态、耗时、失败分类与脱敏错误。所有尝试和 delay
+共享原有任务 deadline，单次 RPC 使用剩余任务预算、显式 step timeout 与现有
+30 秒 RPC 上限中的最短值，由 SDK 结束超时请求后再进行下一次尝试。
+
 ```text
 tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
@@ -632,6 +689,15 @@ Firmware OTA 变更可以只启动所需的 live stack，并执行相关 Admin/R
 ```bash
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
+
+Workspace 列表筛选的共享场景是 `server.workspace.list.giztest.yaml`。它创建两个真实 SFU 群 Workspace 和四个普通 Workspace，用 36 个步骤覆盖 `system` 省略／false／true、prefix 交集、空结果、跨页筛选、limit 变化、条件切换及失效游标，并验证通用删除拒绝系统项；最后执行三步清理。普通项包含与 SFU 同前缀的名称，系统项排在普通项之前，防止按名称推断分类或在分页后过滤。每个步骤和清理都必须通过，skipped 不计为通过。
+
+```sh
+go test ./cmd/internal/server -run '^TestWorkspaceListGiztestGo$' -count=1
+bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+```
+
+第一条随普通 Go 测试执行；第二条在临时 Server、Edge、SQLite 和真实 WebRTC 上执行 Go、JavaScript、C 与原生 Flutter 四个 runner，CI 的 Admission SDK E2E 同样运行它。C SDK smoke test 另用 nanopb 构造三态请求，通过 `gzc_rpc_request_start` / `gzc_rpc_request_result` 检查实际请求 envelope 内的 selector presence、cursor、limit、prefix，以及空终页和 Profile identity 的响应解码。上述测试不启动 Agent、外部模型或 SFU 媒体连接，不替代 LiveKit 媒体和 H106 硬件验收。
 
 固件 metadata 的共享场景是 `server.firmware.metadata.get.giztest.yaml`。
 它覆盖对象、字符串、数组、数字、布尔值和显式 `null`，大整数精度、缺失或非法 key、
@@ -736,12 +802,12 @@ Server apply 可能静默忽略 Schema 未声明的字段，因此 reset 成功�
 
 ### Suite ownership
 
-- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。
+- `go/admin` 使用 generated Admin HTTP client 验证 typed contract。 History 分页场景等待每轮 echo 的 Agent 输出，跨三页验证三轮共六条 Gear 输入／Agent 输出记录，包括 replay 可用性、纯文本无音频、稳定 ID 与详情查询。
 - `go/delete` 保留需要 Admin 观察、重启与 tombstone 的删除测试。
 - `go/edge` 保留 TURN relay、sibling-close、故障恢复和网络诊断。
 - `go/openai` 保留 OpenAI 兼容 API 的 typed SDK 测试。
 - `giztest/*.giztest.yaml` 验证 Peer RPC、conversation、social 和 Workflow 行为。
-- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。
+- `cmd` 通过 `os/exec` 运行 `testdata/bin/gizclaw`，不能用 `go run` 或 typed client 绕过 CLI。 根 help 校验完整的产品命令清单。`history-migrate` 与 `kv-migrate` 分别由已有的 `cmd/internal/commands/historymigrate/command_test.go` 与 `cmd/internal/commands/kvmigrate/command_test.go` 拥有验证；其他命令组沿用各自的 E2E story owner。
 - `js/admin` 验证 WebRTC Admin fetch；`js/rpc` 验证 peer 与 server-initiated RPC。
 - `js/giztest`、`flutter/giztest` 与 `cgo/giztest` 用各自语言的 SDK 执行同一批 giztest 场景，见下一节。
 
@@ -759,6 +825,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 
 四者都支持 `validate -f <路径>` 与 `run <路径> --parallel N`，并写出相同结构的 report JSON。
 Go CLI 用 `--report <文件>` 保存汇总 JSON，用 `--output <目录>` 将一个 Giztest 文件渲染为独立 HTML 流程记录。
+录制中的事件、音频 chunk 到达和连接关闭共用 `report.started_at` 时间原点。HTML 按该时间线
+调度排队音频、静默和打断；普通 EOS 不清空待播音频。回放控件及旧记录的限制见 [CLI 使用说明](/zh/using/cli)。
+转发回归同时覆盖输入／捕获绑定、声明的 relay 客户端对和相同内容的独立输入；运行 `node --test cmd/internal/commands/giztest/replay_html_test.mjs`。
 其他三个 SDK runner 用 `--output <报告文件>` 保存 JSON，暂不提供回放目录。JavaScript 与 Flutter runner 只实现 `rpc`、`client_rpc`、
 `http`、`output` 与 `reconnect` 五种 step，遇到其他 step 或 `audio`/`binary` 变量时把该文档记为
 skipped 并在 stderr 说明，绝不静默通过。C runner 实现 `rpc`、`client_rpc`、`http` 与 `reconnect`，
@@ -788,6 +857,17 @@ proto3 `optional`，Flutter runner 依据生成的 `payloadFieldIsProto3Optional
 JavaScript 与 Flutter 省略该字段。
 
 ### Giztest 场景
+
+`doubao-realtime-conversation.realtime-recording-history.giztest.yaml` 在临时设备上开启只读访问，
+复用实时连接连续说两句，并检查两条用户 History 的文字、独立 ID 与 `audio_available`。
+同一场景通过公钥认证的 HTTP 下载验证两份 Ogg 都返回 200，再通过 RPC 下载并重新转写，
+确认每份录音只包含对应句子的暗号。它使用标准 Docker 环境的真实 Realtime、TTS 和 ASR
+Provider，结束时清理 Workspace 与 Peer：
+
+```sh
+gizclaw test run tests/gizclaw-e2e/giztest/doubao-realtime-conversation.realtime-recording-history.giztest.yaml \
+  --parallel 1 --report realtime-recording-history.json
+```
 
 文字输入的 `peer_stream` 使用 `mode: text`。`text_done: true` 发送纯控制 BOS 与包含全文的 TEXT_DONE 两条事件；不设置时保留 BOS、TEXT_DELTA、空 TEXT_DONE 三条事件。`timestamp: zero` 是默认值，`timestamp: unix_ms` 给同轮两个事件使用当前 Unix 毫秒值。`label` 可为文字或音频输入指定相同的 route label，默认 `user`。
 

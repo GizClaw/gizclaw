@@ -20,6 +20,8 @@ OpenAI Adapter 由根包的 `OpenAIGenerator` 实现，把 OpenAI-compatible Cha
 
 OpenAI-compatible 只表示 provider protocol compatibility；credential、endpoint 和产品 model selection 由调用方提供。
 
+`ModelParams.SetTemperature(0)` 显式设置零温度，`HasTemperature()` 表示是否配置了温度。JSON 中的 `"temperature": 0` 在解码、参数合并、再次编码和请求发送时保留；缺省或 `null` 不创建显式值。为兼容现有 Go 结构体字面量，直接写 `ModelParams{Temperature: 0}` 仍按未设置处理。显式温度覆盖 Generator 默认温度，其他未设置参数继续继承默认值。
+
 流式响应的 `finish_reason: content_filter` 映射为 `StatusBlocked`，与 `length` 对应的
 `StatusTruncated` 及网络/解码错误分开。上游未给出 refusal 内容时，错误会明确标记
 `provider finish_reason=content_filter; refusal detail was not supplied`，不把空理由解释为

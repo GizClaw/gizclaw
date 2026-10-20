@@ -33,6 +33,16 @@ Existing versions and upstream SHA256 digests are retained. Server, Edge, Mem0
 and test fixtures build from the current checkout. `GIZCLAW_E2E_DOCKER_BASE_FROM`
 and `PYTHON_BASE_IMAGE` explicitly override the base image to pull.
 
+### Doubao ASR recovery Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_asr_recovery_tests.sh
+```
+
+This lane first checks nine real SDK/transformer turns against the local WebSocket fixture, then starts isolated Docker Server/Edge/Giztest without cloud credentials. A disposable build overlay changes only provider wiring: the real `doubaoasr` transformer and Doubao SDK connect to a process-local loopback WebSocket fixture, while Eino Script and valid Opus fixtures supply deterministic replies. The eighth PTT input returns `55000000`; replacement PCM must hash identically to the original eighth recording. Nine sequential question numbers, one transcript/reply each, eighteen History entries, and the ninth turn prove recovery does not restart the Workflow or duplicate committed turns. Transformer regressions separately cover continuous ASR recovering its eighth utterance after seven committed utterances within the same provider session, then continuing the ninth.
+
+The Server explicitly uses a WARN threshold. The runner checks the original error and correlated `retry=1` start/success, distinct local/upstream IDs, and absence of output-consumer or assistant-route failures. Logs, Giztest reports, and source hashes remain in ignored `.testbench/asr-recovery-*`. The local Go base compiles the protocol preflight and binaries; read-only mounts run Server, Edge, and Giztest from that same base, and the manifest records the binary digest. Cleanup removes only this Compose project, compiler container, and runtime state; the base and Go cache are reused. This is local protocol/Server integration evidence, not cloud-provider or physical-device acceptance.
+
 ## Isolating audio timing tests
 
 CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:
@@ -44,7 +54,15 @@ go test -race -count=1 -p 1 ./...
 
 Giztest's `audio_pacing.max_interval_ms` uses the real monotonic clock at PeerStream reads, including local sender and receiver goroutine scheduling delays. Concurrent compilation, encoding and other tests can deprive a healthy 20ms audio loop of CPU, so the interval alone cannot establish a Provider stall. `underruns` separately replays client consumption with a 500ms prebuffer, distinguishing a packet-gap violation from exhausted playback buffering.
 
-`audio_integrity.violation_reasons` counts missing stream IDs, duplicate starts or ends, starts or payload after an end, and payload or end markers without a start. It checks audio stream boundaries and packet order; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
+`audio_integrity.violation_reasons` counts invalid logical boundaries such as missing stream IDs, duplicate starts or ends, starts after an end, and payload or end markers without a start. EOS and RTP use independent transports. The Go SDK ignores raw tail packets after EOS and before the next audio BOS; Giztest also ignores payload-only audio chunks for a known-ended stream. `audio_integrity.ignored_post_eos_packets` counts packets ignored by the SDK and Giztest during the current operation's observation window. This is normal receiver accounting and does not increase `violations`. Ignored packets do not enter the audio digest, playback, pacing or response count. Unknown streams without BOS, duplicate boundaries and malformed control chunks still fail; existing timing and underrun limits remain in force.
+
+The dedicated functional regression runs `tests/gizclaw-e2e/testdata/peer-audio/post-eos.giztest.yaml` over a real local WebRTC connection. The fixture waits for the Go SDK's `Next` to deliver audio EOS before sending two late RTP packets, then confirms within a bounded deadline that the SDK ignored both packets before sending text EOS or starting the next turn. Normal reception and reception with the first RTP tail delayed beyond the reply-observation window run the same assertions. The first step asserts an ignored count of 2 and verifies that the delivered digest, playback and response count contain only valid audio. The second step reuses the same PeerStream, verifies that a fresh BOS resumes delivery, and checks operation-local ignored accounting. This case requires no model or Provider credentials and uses an observed boundary rather than random network reordering or sleeps to establish the order.
+
+```sh
+go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
+```
+
+Integrity checks apply to delivered logical audio; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
 
 `audio_pacing.max_interval_started_at` records the UTC start of the largest packet gap, allowing correlation across sessions and Server logs to identify simultaneous stalls.
 
@@ -328,16 +346,21 @@ It runs TiKV 8.5.6 (PD, a central voter and a full regional Learner), two Server
 
 The main `run_tests.sh` also runs this two-Server gate after the standard SDK scenarios and their stack cleanup. Both `docker-compose.yaml` and the multi-server stack bind Peers, assignments, API keys, Friends and FriendGroups to TiKV; each Server retains its own business SQL database. External services including PD, TiKV and LiveKit use images from `gizcr.gizclaw.com` with pinned digests. Server, Edge, fixture and runner images are built from local sources, with build bases also from gizcr. TiKV data uses project-scoped temporary memory filesystems removed with that project. Standard Docker images precompile the CLI and fixture apply helper during image construction. Server, Edge and initialization use those binaries directly.
 
+The common `server.friend.list`, `server.friend_group.members.list`, and `server.friend_groups.http` documents also wait for shared presence to enter the historical view. The first RPC presence check allows ten assertion-only attempts spaced ten seconds apart. The HTTP document waits through the corresponding member-list RPC before executing its original HTTP presence and permission assertions; HTTP steps have no retry policy. The native foreign-admission and telemetry checks compare durable assignment and business records while excluding runtime-presence records and only their matching TiKV expiry-index entries, which change on legitimate connections and lease renewal. Expiry entries for assignment and business records, malformed index keys and unrelated namespaces remain in the strict comparison. SQL PeerRun isolation and fixed-home routing assertions remain strict.
+
 The Docker fixture gives PD metadata a 256 MiB tmpfs and each central/regional TiKV a 1 GiB tmpfs to isolate local Docker storage I/O stalls. It sets the [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) to 15 seconds in `tikv-pd.toml`. `tikv-test.toml` sets reserved space to 64 MiB, reserved Raft space to 32 MiB, and block cache to 128 MiB, with a 4 GiB memory limit per TiKV container, to match the small fixture. RocksDB, Raft and Learner replication run normally. Data lasts only for this test; the fixture does not validate SSD performance or TiKV/PD restart durability.
 
 `TestTiKVLearnerLagThroughBothEdges` uses the public Go SDK with real WebRTC and HTTP under replica lag. It seeds active Peers and credentials into a 60-second historical snapshot, then blocks center-to-Learner Raft streams while preserving regional reads. During the freeze, first claims through both Edges and cross-Edge reconnects must preserve the correct home. After SDK key revocation, HTTP through both Edges must immediately return 401. After SDK deletion of a Peer on each home, the test waits for the correct Server to remove its Workspace and owner binding, then requires both Edges to reject reconnects and old keys. The diagnostic client pins control reads to the Learner confirmed by PD; those reads must retain the old active Peers and key index and miss the new assignments. The test explicitly marks diagnostic requests, preserving their historical timestamp and Learner destination even when an SDK retry clears its stale-read flag. Application Server clients retain normal SDK routing. Label preferences permit SDK fallback from slow stores; the pinned route is only for test evidence. This proves the assertions run during replication lag; the gate does not measure WAN throughput or central-majority recovery.
 
-`sfu.*.audio-bytes` uses the committed Ogg/Opus fixture and `sfu.friend-group.members-in-room` exchanges no audio; neither needs speech-provider credentials and both always run. The other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
+`sfu.*.audio-bytes` uses the committed Ogg/Opus fixture; `sfu.friend-group.members-in-room` and `sfu.presence.cross-server` exchange no audio. These scenarios need no speech-provider credentials and run in the default multi-server gate. The other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
+
+`sfu.presence.cross-server` connects Alice and Bob using the two Servers' independently seeded registration tokens. Real RPCs from both sides read friend `online`/`last_seen_at` and member `online`/`in_room`. It asserts online outside the Room before a runtime starts, both members in the Room while running the group Workspace, online outside the Room after one stops and the other reconnects, and re-entry without registering again. Both Servers query each stage. Random public keys determine member order, so both entries are asserted only while their states match. Presence checks allow ten attempts spaced ten seconds apart for the fixture's sixty-second historical window. The default `run_multi_server_tests.sh` scenario list explicitly includes this file, so the local full `run_tests.sh` includes it through `docker:multi-server`.
 
 The provider-free SFU scenarios cover these boundaries:
 
 | Scenario (without `sfu.` and `.audio-bytes`) | Coverage |
 | --- | --- |
+| `presence.cross-server` | Both Servers query remote friend online/last-seen state and member room entry, stop/reconnect clearing and same-identity re-entry, allowing shared KV historical-read delay |
 | `friend.cross-server` | Bidirectional PTT and correlated first-packet timing between friends on different Servers, without self audio or packet samples |
 | `friend-group.remove-readd` | Three-client first-packet correlation; after revocation the removed member receives no audio or packet sample while the remaining member keeps receiving; re-add and select the original Workspace to restore both directions |
 | `friend-group.reconnect-readd` | Reconnect while removed without regaining membership; after re-add, select the original Workspace and restore both audio directions without registering again |
@@ -472,6 +495,15 @@ records how many purge rounds verification needed.
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
+
+To run only shared presence against a real TiKV Learner:
+
+```sh
+bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+```
+
+PD verifies the center voter and regional Learner roles before production `peerpresence.ReadBatch` reads five-second historical snapshots. The fixture advances resolved timestamps every second. Ten online Peers sharing one Server and application Region use eleven distinct keys in two successful Learner RPCs. Sixteen callers complete 160 pages. Frozen Raft replication preserves old online/room state until replication resumes. Test-only TCP proxies stall actual TiKV responses to verify a shared two-second page budget and a shorter 75 ms caller deadline. This CI gate covers KV and presence; Redis separately covers real Social RPC/WebRTC/LiveKit. Neither gate establishes WAN performance or production capacity.
+
 Migration tests use a real Redis 8.4.6 primary in the same fixture to verify binary/empty values, absolute TTLs, Sets/zero-score Sorted Sets, paged large collections, interrupted-import recovery, destination write protection, bidirectional verification and the actual CLI across a configuration cutover. Redis is also pinned by digest through gizcr. To run only migration-related tests:
 
 ```sh
@@ -481,7 +513,7 @@ bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migrati
 This mode retains real PD, the center voter and regional Learner. A separate deadline gate directly compares Redis absolute expiration with the stored TiKV deadline rather than inferring TTL preservation from sleep thresholds.
 
 
-This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. Data directories use temporary memory filesystems and expose no host ports. Tests verify placement rules and every Region's leader/Learner identities through PD.
+This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft, with a 128 MiB block cache, so production defaults do not classify small CI filesystems as full. Both TiKV containers set soft and hard `nofile` limits to 262144 to satisfy TiKV startup checks independently of host defaults. No host ports are exposed. Tests verify placement rules and every Region's leader/Learner identities through PD. Failed CI runs retain startup, cluster, test and topology diagnostics for seven days.
 
 The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Ordinary reads must still return the old assignment, active Peer, and revoked key. Real `peerroute`, Peer deletion-handler, and API key services must use strong reads for first claims, version refreshes, pending-deletion fences, permanent tombstones, revocation, and owner retirement. Successful stale RPCs must reach the regional Learner; strong reads must reach the central leader. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 
@@ -511,6 +543,35 @@ exception described below: its Go test names are the supported selectors.
 `tests/gizclaw-e2e` is the Docker-backed full GizClaw environment. Its Go tests
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
+
+The Eino concurrency reload-initiative probe synthesizes a closed one-digit arithmetic request. It checks route rearm, the next complete response, terminal errors and history within the original thirty-second step budget; answer semantics are not graded. This bounds the test stimulus without changing production prompts or assertions.
+
+The functional gate is `bash tests/gizclaw-e2e/run_tests.sh --functional`. It
+runs the same JavaScript, Flutter, C/cgo, Go Admin/OpenAI, CLI, Terraform,
+standard Giztest and multi-server suites. It excludes only the five
+`script-quality.*` documents and the two semantic-verdict documents
+`workspace-relay.workflow-tester` and `workspace-relay.doubao-realtime-workflow-tester`.
+Their screenplay scores and model-generated verdicts are outside functional
+acceptance. Audio packet integrity, pacing, turn completion, state, authorization
+and timeout assertions remain functional gates. The default invocation retains
+the complete existing document set; `--help` describes the two modes.
+
+The JavaScript History audio interoperability probe receives a client receipt
+over its private stdin control channel. The client verifies all metadata and
+binary payload bytes before acknowledging. The probe waits within its existing
+thirty-second budget before closing the parent Peer connection and exiting.
+Writing response EOS alone does not establish remote delivery of queued frames;
+missing or invalid receipts and expired waits fail the test.
+
+The Flutter runner supports unary RPC `retry`: two through ten attempts, with
+`on` selecting `timeout` or `assertion` and defaulting to timeout alone. A positive
+delay may be at most five minutes. HTTP, other operations and `finally` reject
+this policy. Failed attempts roll back captured variables; successful captures
+remain available. Reports include every attempt's status, duration, classified
+failure and redacted error. Attempts and delays share the existing task deadline.
+Each RPC uses the shortest remaining task budget, explicit step timeout and
+existing thirty-second RPC limit, letting the SDK terminate a timed-out request
+before starting another attempt.
 
 ```text
 tests/gizclaw-e2e/
@@ -635,6 +696,15 @@ coverage without the unrelated provider-backed suites:
 bash tests/gizclaw-e2e/run_firmware_tests.sh
 ```
 
+The shared Workspace list scenario is `server.workspace.list.giztest.yaml`. It creates two real SFU group Workspaces and four ordinary Workspaces, then uses 36 steps to cover omitted/false/true `system`, prefix intersections, empty results, filtered pagination, changing limits, changed selectors, invalid cursors and forbidden generic system deletion. Three cleanup steps retire the groups and Peer. An ordinary name shares the Social prefix, and both system names sort before every ordinary name, detecting name-based classification and filtering after pagination. Every step and cleanup must pass; skipped execution is not success.
+
+```sh
+go test ./cmd/internal/server -run '^TestWorkspaceListGiztestGo$' -count=1
+bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+```
+
+The first runs with ordinary Go tests. The second runs Go, JavaScript, C and native Flutter runners against temporary Server, Edge and SQLite state over real WebRTC; CI also executes it in Admission SDK E2E. The C SDK smoke test separately builds three-state nanopb requests and exercises `gzc_rpc_request_start` / `gzc_rpc_request_result`, inspecting selector presence, cursor, limit and prefix inside the actual request envelope, plus empty terminal-page and Profile identity decoding. These tests start no Agent, external model or SFU media connection, and do not replace LiveKit media or H106 hardware acceptance.
+
 The shared firmware metadata scenario is `server.firmware.metadata.get.giztest.yaml`.
 It covers objects, strings, arrays, numbers, booleans, explicit null, large integer precision,
 missing or invalid keys, exact flat-key matching, binding after reconnect, and the existing
@@ -750,12 +820,12 @@ values for `${...}` references.
 
 ### Suite ownership
 
-- `go/admin` validates typed contracts with the generated Admin HTTP client.
+- `go/admin` validates typed contracts with the generated Admin HTTP client. Its History pagination case waits for the Agent output of each echo turn and verifies all six Gear-input/Agent-output entries across three pages, including replay availability, absent text-only audio, stable IDs, and detail lookup.
 - `go/delete` retains deletion checks that require Admin observation, restart, and tombstones.
 - `go/edge` retains TURN relay, sibling-close, failure recovery, and network diagnostics.
 - `go/openai` retains typed SDK coverage of the OpenAI-compatible API.
 - `giztest/*.giztest.yaml` covers Peer RPC, conversation, social, and Workflow behavior.
-- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients.
+- `cmd` executes `testdata/bin/gizclaw` with `os/exec`; it must not bypass the CLI with `go run` or typed clients. Root help checks the complete product-command inventory. The maintenance commands `history-migrate` and `kv-migrate` route to their existing `cmd/internal/commands/historymigrate/command_test.go` and `cmd/internal/commands/kvmigrate/command_test.go` owners; other command groups retain their E2E story owners.
 - `js/admin` covers WebRTC Admin fetch; `js/rpc` covers peer and server-initiated RPC.
 - `js/giztest`, `flutter/giztest`, and `cgo/giztest` run the same giztest scenarios with their own SDKs; see the next section.
 
@@ -774,8 +844,14 @@ SDK:
 
 All four support `validate -f <path>` and `run <path> --parallel N` and write the
 same report JSON structure. The Go CLI uses `--report <file>` for aggregate JSON
-and `--output <directory>` to render one Giztest file as a standalone HTML flow recording. The other three SDK
-runners use `--output <report-file>` for JSON and do not provide replay exports. The
+and `--output <directory>` to render one Giztest file as a standalone HTML flow recording.
+Events, audio chunk arrivals and transport closure share the `report.started_at`
+origin. The HTML schedules queued audio, silence and interruptions on that timeline;
+ordinary EOS does not discard queued audio. See [CLI usage](/en/using/cli) for controls
+and older-recording limitations.
+Replay regression tests cover input/capture bindings, declared relay pairs and
+identical independent inputs: `node --test cmd/internal/commands/giztest/replay_html_test.mjs`.
+The other three SDK runners use `--output <report-file>` for JSON and do not provide replay exports. The
 JavaScript and Flutter runners implement only the `rpc`, `client_rpc`, `http`,
 `output` and `reconnect` step kinds; a document using any other step kind, or
 an `audio` or `binary` variable, is reported as skipped on stderr rather than

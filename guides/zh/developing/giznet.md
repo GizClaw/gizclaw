@@ -44,6 +44,10 @@ pkgs/giznet/
 
 WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服务依赖 giznet boundary，不直接把 WebRTC 类型扩散到业务层。
 
+物理 RTP track、DataChannel 与消息计数在实际 bind/detach/read/write/close 边界更新，
+`MetricsSnapshot` 只读取固定维度的原子计数。宿主将其接入周期 recorder，语义和查询见
+[节点设备、通道与消息指标](observability#node-device-channel-metrics)。
+
 `DialConfig.OnTiming` 可选地在 `Dial` 返回前接收一次 `DialTiming` snapshot，记录客户端
 PeerConnection、offer、ICE gathering、signaling、remote description、ICE connected、
 DTLS connected 和 DataChannel ready timing，且不会向调用方暴露可变 Pion 对象。

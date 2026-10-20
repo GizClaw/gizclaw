@@ -3,11 +3,13 @@ package giztestcmd
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -2042,6 +2044,79 @@ func TestPeerStreamCountsTwoRepliesOnOneAudioDownlink(t *testing.T) {
 	object := result.assertion.(map[string]any)
 	if object["response_count"] != 2 || result.evidence["response_count"] != 2 {
 		t.Fatalf("two replies were hidden by the single downlink: %v, %v", object, result.evidence)
+	}
+}
+
+type postEOSDiagnosticStream struct {
+	*fakeRelayStream
+	ignored atomic.Uint64
+}
+
+func (s *postEOSDiagnosticStream) IgnoredPostEOSAudioPackets() uint64 {
+	return s.ignored.Load()
+}
+
+func (s *postEOSDiagnosticStream) Next() (*genx.MessageChunk, error) {
+	chunk, err := s.fakeRelayStream.Next()
+	if chunk != nil && chunk.IsEndOfStream() {
+		mediaType, _ := chunk.MIMEType()
+		if relayOpusMIME(mediaType) {
+			// The SDK reports raw packets it already discarded. They are absent
+			// from the logical stream the Giztest consumer receives.
+			s.ignored.Add(2)
+		}
+	}
+	return chunk, err
+}
+
+func TestPeerStreamAcceptsIgnoredPostEOSAudio(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	stream := &postEOSDiagnosticStream{fakeRelayStream: newFakeRelayStream()}
+	bos := assistantBlob("reply", nil, false)
+	bos.Ctrl.BeginOfStream = true
+	payload := testAudibleOpus(t)
+	for _, chunk := range []*genx.MessageChunk{
+		bos,
+		assistantText("reply", "answer", false),
+		assistantBlob("reply", payload, false),
+		assistantBlob("reply", nil, true),
+		assistantBlob("reply", payload, false),
+		assistantText("reply", "", true),
+	} {
+		stream.in <- chunk
+	}
+	var played [][]byte
+	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text"}}
+	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, step, "question", 1024*1024,
+		func(_, role string, packet []byte, end bool) error {
+			if role == "assistant" && len(packet) > 0 {
+				played = append(played, bytes.Clone(packet))
+			}
+			return nil
+		})
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	integrity := object["audio_integrity"].(map[string]any)
+	if object["response_count"] != 1 || object["audio_bytes"] != len(payload) || object["events"] != 5 {
+		t.Fatalf("late payload changed the reply: %v", object)
+	}
+	if integrity["violations"] != 0 || integrity["ignored_post_eos_packets"] != json.Number("3") {
+		t.Fatalf("ignored packets failed functional acceptance: %v", integrity)
+	}
+	if number, ok := giztest.NumericTarget(integrity["ignored_post_eos_packets"]); !ok || number != 3 {
+		t.Fatal("ignored-packet count cannot be used by numeric assertions")
+	}
+	if len(played) != 1 || !bytes.Equal(played[0], payload) {
+		t.Fatalf("late payload reached playback: %d packets", len(played))
+	}
+	if _, ok := integrity["sha256"]; !ok {
+		t.Fatal("assertion digest was removed while building evidence")
+	}
+	if result.evidence["audio_integrity"].(map[string]any)["ignored_post_eos_packets"] != json.Number("3") {
+		t.Fatal("ignored packet evidence was lost")
 	}
 }
 

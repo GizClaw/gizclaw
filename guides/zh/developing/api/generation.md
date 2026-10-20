@@ -85,3 +85,5 @@ Giznet 凭证使用 `protoc-gen-go`、`@bufbuild/protobuf` / `protoc-gen-es`、D
 - 内部兼容路径、tests 和 giztest bridge 继续调用旧接口。若 lint 报错，只在实际调用行添加有原因说明的局部 suppression；不全局降低门禁，不删除旧测试。
 
 HWD 实例与读写协议见 [MHS v0 设计](./overview#mhs-v0-hwd)。
+
+Infrastructure Flow Feed（`api/http/infra.json`）通过 `go generate ./pkgs/infraflow/api` 生成 strict Go server/client/models，通过 `npm --prefix sdk/js run gen:sdk` 生成 control SDK 的 `generated/infra`。消费者、KV 边界和本地集成验证见 [Infra Flow](../infra-flow)。

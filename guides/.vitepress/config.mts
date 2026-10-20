@@ -136,6 +136,7 @@ const zhDevelopingSidebar = [
                   { text: "Peer Resources", link: "/zh/developing/gizclaw/services/runtime/peerresource" },
                   { text: "Peer Route", link: "/zh/developing/gizclaw/services/runtime/peerroute" },
                   { text: "Peer Run", link: "/zh/developing/gizclaw/services/runtime/peerrun" },
+                  { text: "Peer Presence", link: "/zh/developing/gizclaw/services/runtime/peerpresence" },
                   { text: "Peer Telemetry", link: "/zh/developing/gizclaw/services/runtime/peertelemetry" },
                   { text: "Toolkit", link: "/zh/developing/gizclaw/services/runtime/toolkit" },
                 ],

@@ -950,3 +950,40 @@ func TestEinoVoicePatternCarriesSpeechRate(t *testing.T) {
 		}
 	}
 }
+
+func TestGenXModelContextPreservesExplicitZeroTemperature(t *testing.T) {
+	for _, test := range []struct {
+		name    string
+		options []model.Option
+		want    *float32
+	}{
+		{name: "unset"},
+		{name: "other parameter", options: []model.Option{model.WithMaxTokens(32)}},
+		{name: "explicit zero", options: []model.Option{model.WithTemperature(0)}, want: new(float32(0))},
+		{name: "positive", options: []model.Option{model.WithTemperature(0.5)}, want: new(float32(0.5))},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			value, err := genXModelContext([]*schema.Message{schema.UserMessage("hello")}, test.options...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := json.Marshal(value.Params())
+			if err != nil {
+				t.Fatal(err)
+			}
+			var wire struct {
+				Temperature *float32 `json:"temperature"`
+			}
+			if err := json.Unmarshal(data, &wire); err != nil {
+				t.Fatal(err)
+			}
+			if test.want == nil {
+				if wire.Temperature != nil {
+					t.Fatalf("unset temperature serialized: %s", data)
+				}
+			} else if wire.Temperature == nil || *wire.Temperature != *test.want {
+				t.Fatalf("temperature was lost or changed: %s", data)
+			}
+		})
+	}
+}

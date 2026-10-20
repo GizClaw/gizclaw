@@ -159,6 +159,11 @@ func (store *SQL) cleanupExpiredRead(ctx context.Context, encoded []byte) error 
 	return tx.Commit()
 }
 
+// BatchGet reads byte records with bounded concurrency under ctx.
+func (store *SQL) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	return batchGet(ctx, keys, store.Get)
+}
+
 // Set stores a non-expiring value.
 func (store *SQL) Set(ctx context.Context, key Key, value []byte) error {
 	return store.BatchSet(ctx, []Entry{{Key: key, Value: value}})

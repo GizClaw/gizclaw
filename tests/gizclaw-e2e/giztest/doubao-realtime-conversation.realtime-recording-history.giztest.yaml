@@ -1,0 +1,232 @@
+# User Story:
+# As a device owner with readonly access to realtime conversations,
+# I want both consecutive spoken turns to retain their matching recordings,
+# So that History playback downloads real audio instead of returning 404 for text-only entries.
+version: gizclaw.test/v1alpha1
+name: doubao-realtime-conversation.realtime-recording-history
+timeout: 360s
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace_name: {direction: input, type: string, generate: token}
+  workspace_id: {direction: output, type: string}
+  api_key: {direction: output, type: string, secret: true}
+  public_key: {direction: output, type: string}
+  first_history: {direction: output, type: string}
+  second_history: {direction: output, type: string}
+  first_audio: {direction: output, type: audio, max_bytes: 16777216, media_type: audio/ogg, codec: opus}
+  second_audio: {direction: output, type: audio, max_bytes: 16777216, media_type: audio/ogg, codec: opus}
+  first_recording: {direction: output, type: audio, max_bytes: 16777216, media_type: audio/ogg, codec: opus}
+  second_recording: {direction: output, type: audio, max_bytes: 16777216, media_type: audio/ogg, codec: opus}
+steps:
+  - id: register_peer
+    client: peer
+    rpc: {method: server.register, request: {token: "${registration_token}"}}
+  - id: create_key
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: realtime-recording-history}}
+    capture: {api_key: /api_key}
+  - id: capture_identity
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/telemetry/battery.percent/latest
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 200
+    capture: {public_key: /peer_public_key}
+  - id: enable_readonly
+    client: peer
+    rpc: {method: server.runtime.put, request: {debug_mode: readonly}}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: "${workspace_name}"
+        workflow_name: doubao-realtime-conversation
+        parameters:
+          doubao_realtime_workspace_parameters:
+            agent_type: DOUBAO_REALTIME_WORKSPACE_PARAMETERS_AGENT_TYPE_DOUBAO_REALTIME
+            input: WORKSPACE_INPUT_MODE_REALTIME
+  - id: select_workspace
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: "${workspace_name}"}}
+  - id: capture_owned_workspace
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /0/name: {equals: "${workspace_name}"}
+    capture: {workspace_id: /0/id}
+  - id: synthesize_first
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 第一条录音的暗号是红色苹果，请用一句话确认。
+        accepted_content_types: [audio/ogg]
+    save_as: first_audio
+  - id: synthesize_second
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 第二条录音的暗号是蓝色河马，请用一句话确认。
+        accepted_content_types: [audio/ogg]
+    save_as: second_audio
+  - id: first_utterance
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: realtime
+      session: microphone
+      keep_open: true
+      label: demo-home
+      input: "${first_audio}"
+      pacing: 20ms
+      idle_timeout: 45s
+      wait_for_history: true
+    expect:
+      /transcript: {contains: 红色苹果}
+      /reply: {non_empty: true}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_bytes: {minimum: 1}
+  - id: first_recording_metadata
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request:
+        workspace_name: "${workspace_name}"
+        order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+        limit: 10
+    retry: {attempts: 10, delay: 250ms, on: [assertion]}
+    expect:
+      /items: {count: 2}
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+      /items/0/text: {contains: 红色苹果}
+      /items/0/replay_available: {equals: true}
+      /items/0/audio_available: {equals: true}
+    capture: {first_history: /items/0/name}
+  - id: second_utterance_same_connection
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: realtime
+      session: microphone
+      keep_open: true
+      label: demo-home
+      input: "${second_audio}"
+      pacing: 20ms
+      idle_timeout: 45s
+      wait_for_history: true
+    expect:
+      /transcript: {contains: 蓝色河马}
+      /reply: {non_empty: true}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /audio_bytes: {minimum: 1}
+  - id: distinct_user_recordings
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request:
+        workspace_name: "${workspace_name}"
+        order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+        limit: 10
+    retry: {attempts: 10, delay: 250ms, on: [assertion]}
+    expect:
+      /items: {count: 4}
+      /items/0/name: {equals: "${first_history}"}
+      /items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+      /items/0/text: {contains: 红色苹果}
+      /items/0/audio_available: {equals: true}
+      /items/2/name: {non_empty: true, not_contains: "${first_history}"}
+      /items/2/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+      /items/2/text: {contains: 蓝色河马}
+      /items/2/replay_available: {equals: true}
+      /items/2/audio_available: {equals: true}
+    capture: {second_history: /items/2/name}
+  - id: readonly_history_metadata
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history?order=asc&limit=10
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      /items: {count: 4}
+      /items/0/name: {equals: "${first_history}"}
+      /items/0/type: {equals: gear}
+      /items/0/text: {contains: 红色苹果}
+      /items/0/audio_available: {equals: true}
+      /items/2/name: {equals: "${second_history}"}
+      /items/2/type: {equals: gear}
+      /items/2/text: {contains: 蓝色河马}
+      /items/2/audio_available: {equals: true}
+  - id: readonly_first_ogg
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/${first_history}/audio.ogg
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      "": {pattern: "^OggS", min_length: 100}
+  - id: readonly_second_ogg
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/workspaces/${workspace_id}/history/${second_history}/audio.ogg
+      headers: {Authorization: "Bearer gizclaw_pk_${public_key}"}
+      status: 200
+    expect:
+      "": {pattern: "^OggS", min_length: 100}
+  - id: download_first_recording
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${first_history}"}
+      max_bytes: 16777216
+    expect:
+      /bytes: {minimum: 100}
+    save_as: first_recording
+  - id: download_second_recording
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request: {workspace_name: "${workspace_name}", history_name: "${second_history}"}
+      max_bytes: 16777216
+    expect:
+      /bytes: {minimum: 100}
+    save_as: second_recording
+  - id: first_recording_matches_utterance
+    client: peer
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh}
+      input: "${first_recording}"
+    expect:
+      /transcript: {contains: 红色苹果, not_contains: 蓝色河马}
+  - id: second_recording_matches_utterance
+    client: peer
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh}
+      input: "${second_recording}"
+    expect:
+      /transcript: {contains: 蓝色河马, not_contains: 红色苹果}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc: {method: server.workspace.delete, request: {name: "${workspace_name}"}}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}

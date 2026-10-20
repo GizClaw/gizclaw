@@ -93,6 +93,15 @@ type Stream interface {
 | `EndOfStream` | The current chunk is an end boundary. A chunk with a Part ends that MIME channel; a control-only chunk ends the whole StreamID route. It can also carry final data or Error. |
 | `Timestamp` | The millisecond timestamp of the Chunk for `RealtimeStream` sorting and delayed processing; when the value is zero, `RealtimeStream` will supplement the monotonically increasing value based on the current time. |
 
+`RealtimeStream` assigns zero timestamps after both delivered and pending timestamps,
+preserving arrival order. When a new BOS evicts pending audio from an older route
+with the same usage, an already-queued control EOS and any queued MIME BOS for
+that closed route remain, including when its begin was already prefetched.
+A slow consumer can finish that turn before beginning the next;
+old audio boundaries explicitly later than the new BOS are still evicted.
+Retained MIME BOS chunks declare the channel only: any superseded audio payload
+is discarded without mutating the producer's chunk or the new route's audio.
+
 `StreamCtrl.MessageID` identifies one generated message within a continuous playback route; its text and corresponding audio share the ID. `MessageEnd` completes that message’s current MIME channel without changing StreamID or emitting playback EOS. Recorders save one History entry after all observed MIME channels of that message complete. Both fields survive `Clone` and are process-local composition and recording metadata, excluded from JSON and Peer wire formats.
 
 `StreamCtrl.ErrorCause` preserves the typed terminal cause only within this process, including across `MessageChunk.Clone`; JSON and Peer wire formats exclude it. Domain owners can implement `PublicError` to supply stable, sanitized code/message/retryable details. `SetStreamError` records the cause and these details; `StreamError` returns the retained cause, or an ordinary error for untyped wire text. Composition layers preserve causes through terminal routes without interpreting domain codes or parsing error strings.
@@ -135,7 +144,12 @@ IDs are omitted; names alone cannot distinguish calls. Unmatched results receive
 
 ### Usage metering
 
-Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage) as soon as the provider reports usage, handing a [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block; without a recorder the records are dropped. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.
+Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage) as soon as the provider reports usage, observing process token counters and handing nonzero [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) reports to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block. Token counters need only the installed process metrics store, independently of Peer callbacks or SQL metering configuration; without a callback there is no product metering. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.
+
+Nested product scopes preserve the original caller callback and deliver usage only to the innermost product recorder. Forward an existing report by calling the callback from `UsageRecorderFromContext` directly, without another `RecordUsage` call that would observe process counters twice. Metric and query semantics are documented in [Observability](../observability#model-token-usage).
+
+The three nonzero token quantities in a report share one `gizmetrics.AddPeriodicCounters` batch, reusing bounded registered
+labels and series. A cache hit takes the aggregation lock once; stream chunks and individual tokens do no label processing or Store I/O.
 
 Each record carries the provider, the provider model, version, or resource ID, the modality (`text` or `audio`), and the billing unit. `Input`, `CachedInput`, and `Output` are disjoint: `CachedInput` is input billed at the cache rate and is not part of `Input`. A provider model always reports in the same unit; units of different provider models are not comparable and GenX does not convert them.
 

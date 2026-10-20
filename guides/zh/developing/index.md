@@ -179,3 +179,4 @@ sequenceDiagram
 - [Reference](/references/)
 
 监控控制台的构建、认证和数据范围见 [Monitor](monitor)。
+基础设施地球使用的有界 KV 聚合帧与 AP 读取接口见 [Infrastructure Flow Feed](infra-flow)。

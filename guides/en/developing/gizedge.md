@@ -705,3 +705,7 @@ pings are accepted; success requires a device ACK, with no broadcast, queue or
 retry. The owning upstream must be configured and reachable; a returned endpoint
 cannot introduce a new trusted Server. See [Edge RPC](./gizclaw/rpc/edge#cross-server-notifications)
 for the contract, authorization and cancellation boundaries.
+
+### Infrastructure aggregate reads
+
+`/gizclaw/v1/infra/flows` is an exact public read-only route for shared KV infrastructure aggregates through a configured upstream. It needs no token or device API-key/owner lookup. Server and Edge preserve cross-origin GET/OPTIONS, 405 and no-store; adjacent routes retain existing authorization. Read limits, configuration and deployment acceptance are documented in [Infrastructure Flow Feed](infra-flow).

@@ -9,6 +9,7 @@ services/runtime/
 ├── agent/           # Agent selection, registry, and resource resolution
 ├── agenthost/       # Agent instances, input/output, streams, and lifecycle
 ├── peer/            # Peer resources, identity, and base state
+├── peerpresence/    # shared connection presence, running Workspace and Server leases
 ├── peerresource/    # cross-domain resource aggregation for peers
 ├── peersync/        # Peer state synchronization checkpoints and hashes
 ├── peerroute/       # Peer assignment and edge-route data
@@ -92,3 +93,7 @@ Owns external quota queries, cached decisions and authorization lifetimes for ac
 ### [peersync](./peersync)
 
 Owns owner Peer state checkpoints and compares projection hashes with the last complete synchronization. Domain services retain resource and authorization ownership; Peer HTTP serves finite SSE responses.
+
+### [Shared presence](./peerpresence)
+
+`peerpresence` publishes online, offline and running-Workspace transitions in shared Peer KV. Server-wide leases handle process failure. Friend and member lists read cross-Server snapshots without Peer Run SQL; display presence is not authority or delivery evidence.

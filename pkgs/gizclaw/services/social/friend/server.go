@@ -34,9 +34,8 @@ type ProfileService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 }
 
-// PresenceService reads a Peer's connection state as Runtime.online and
-// Runtime.last_seen_at report it. lastSeenAt is the zero time when the Server
-// has never observed the Peer.
+// PresenceService reads a Peer's shared connection presence. lastSeenAt is the
+// zero time when no transition has been observed or the presence read failed.
 type PresenceService = socialutil.PresenceService
 
 // ErrSFUNotConfigured reports that the Server has no SFU URL, so no Friend
@@ -639,19 +638,18 @@ func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.Frien
 			return rpcapi.FriendListResponse{}, errors.New("social: friend collection identity mismatch")
 		}
 		item := record.peerObject()
-		s.addFriendListDetails(ctx, &item)
+		s.addFriendListProfile(ctx, &item)
 		items = append(items, item)
 	}
+	socialutil.AddFriendPresence(ctx, s.Presence, items)
 	return rpcapi.FriendListResponse{Items: items, HasNext: hasNext, NextCursor: nextCursor}, nil
 }
 
-// addFriendListDetails adds the Friend's presence and profile to one
-// server.friend.list item. Presence and profile only decorate the list: a
-// Friend whose profile cannot be read is still listed, without a display
-// name or emoji.
-func (s *Server) addFriendListDetails(ctx context.Context, item *rpcapi.FriendObject) {
+// addFriendListProfile adds the Friend's profile to one server.friend.list item.
+// A Friend whose profile cannot be read is still listed, without a display name
+// or emoji.
+func (s *Server) addFriendListProfile(ctx context.Context, item *rpcapi.FriendObject) {
 	peerPublicKey := socialutil.StringValue(item.PeerPublicKey)
-	item.Online, item.LastSeenAt = socialutil.PresenceFields(ctx, s.Presence, peerPublicKey)
 	if s.Profiles == nil {
 		return
 	}

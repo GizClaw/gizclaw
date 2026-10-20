@@ -1023,6 +1023,7 @@ class WorkspaceHistoryEntry {
     required this.text,
     required this.createdAt,
     required this.replayAvailable,
+    required this.audioAvailable,
   });
 
   factory WorkspaceHistoryEntry.fromJson(Object? json) {
@@ -1035,6 +1036,7 @@ class WorkspaceHistoryEntry {
       text: readString(object, 'text'),
       createdAt: readDateTime(object, 'created_at'),
       replayAvailable: readBool(object, 'replay_available'),
+      audioAvailable: readBool(object, 'audio_available'),
     );
   }
 
@@ -1051,6 +1053,9 @@ class WorkspaceHistoryEntry {
   /// Whether the entry kept replayable media. It does not guarantee that Ogg
   /// audio exists.
   final bool replayAvailable;
+
+  /// Whether this entry references a retained Ogg/Opus recording.
+  final bool audioAvailable;
 }
 
 /// Body of `POST /gizclaw/v1/device/tool/v0/invoke`.
@@ -1510,17 +1515,17 @@ class FriendGroupMember {
   /// The member's public profile; absent when the member's Peer is gone.
   final PeerProfileInfo? info;
 
-  /// Whether the member's device is connected to the answering Server, the
-  /// same state as Runtime.online. Set only by the members list.
+  /// Shared connection state across Servers, subject to replication delay.
+  /// Set only by the members list.
   final bool? online;
 
-  /// Last observed activity of the member's device; absent when the Server
-  /// has never observed it and on non-list responses.
+  /// Last activity observed at a connection or running-Workspace transition;
+  /// absent when unknown, on shared read failure and on non-list responses.
   final DateTime? lastSeenAt;
 
-  /// Whether the member's device runs the Group's Workspace on the answering
-  /// Server, which attaches it to the SFU Room. True implies [online]. Set
-  /// only by the members list.
+  /// Whether the member runs the Group's Workspace on any Server, from the
+  /// same shared snapshot as [online]. True implies [online]. Set only by
+  /// the members list.
   final bool? inRoom;
 }
 

@@ -618,6 +618,9 @@ func TestTransformerRealtimeAudioIdleProviderErrorClosesEveryOpenedRoute(t *test
 		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
 			continue
 		}
+		if chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
+			continue
+		}
 		mimeType, ok := chunk.MIMEType()
 		if !ok {
 			continue
@@ -720,6 +723,9 @@ func TestTransformerRealtimeResponseDeadlineClosesEveryOpenedRoute(t *testing.T)
 			t.Fatalf("Next() before all routes closed = %v; routes=%#v", nextErr, routes)
 		}
 		if chunk == nil || chunk.Ctrl == nil || chunk.Part == nil {
+			continue
+		}
+		if chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
 			continue
 		}
 		mimeType, ok := chunk.MIMEType()
@@ -3575,5 +3581,55 @@ func TestTransformerRealtimeRecordsProviderUsage(t *testing.T) {
 	}
 	if !slices.Equal(records, want) {
 		t.Fatalf("usage records = %+v, want %+v", records, want)
+	}
+}
+
+func TestTransformerPTTQueuedEmptyTurnInRealtimeInput(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
+	endASR := make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv: endASR, endASR: endASR,
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRResponse, Text: "second transcript", QuestionID: "q-2"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
+			{Type: doubaospeech.EventChatResponse, Text: "second answer", QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}, QuestionID: "q-2", ReplyID: "r-2"},
+			{Type: doubaospeech.EventTTSFinished, QuestionID: "q-2", ReplyID: "r-2"},
+		},
+		blockAfterEvents: make(chan struct{}),
+	}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	transformer := newTransformer(nil, withDoubaoRealtimeOpener(opener), withMode(ModePushToTalk), withInputFormat("pcm"), withInputTranscode(false), withFormat("pcm"))
+	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
+	defer input.Close()
+	// A slow provider sees both completed input turns already queued. The
+	// empty turn has only route boundaries, as in the Docker PTT scenario.
+	chunks := []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "empty", BeginOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "empty", EndOfStream: true}},
+	}
+	chunks = append(chunks, pttTestTurn("second", 2)...)
+	for _, chunk := range chunks {
+		if err := input.Push(ctx, chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := input.Close(); err != nil {
+		t.Fatal(err)
+	}
+	output, err := transformer.transform(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	replies := drainRealtimeTestOutput(t, output)
+	if session.endASRCount() != 1 || opener.callCount() != 1 {
+		t.Fatalf("empty input reached the provider: EndASR=%d sessions=%d", session.endASRCount(), opener.callCount())
+	}
+	if !hasRealtimeTestText(replies, genx.RoleUser, "second transcript") || !hasRealtimeTestText(replies, genx.RoleModel, "second answer") {
+		t.Fatal("input after the queued empty turn did not complete")
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net"
+	"strings"
 	"sync"
 	"time"
 
@@ -93,13 +94,13 @@ func (s *peerEventSession) publishEvent(frame []byte, event *eventpb.PeerEvent) 
 		return
 	}
 	if event != nil {
-		if bos := event.GetBos(); bos != nil && bos.Kind == eventpb.StreamKind_STREAM_KIND_AUDIO {
+		if bos := event.GetBos(); bos != nil && bos.Kind == eventpb.StreamKind_STREAM_KIND_AUDIO && strings.TrimSpace(bos.Label) != "user" {
 			s.audioStartID, s.audioStart = "", nil
 			if bos.StreamId != "" && (bos.MimeType == "" || isOpusBlob(&genx.Blob{MIMEType: bos.MimeType})) {
 				s.audioStartID, s.audioStart = bos.StreamId, bytes.Clone(frame)
 			}
 		}
-		if eos := event.GetEos(); eos != nil && eos.Kind == eventpb.StreamKind_STREAM_KIND_AUDIO && eos.StreamId == s.audioStartID {
+		if eos := event.GetEos(); eos != nil && eos.Kind == eventpb.StreamKind_STREAM_KIND_AUDIO && strings.TrimSpace(eos.Label) != "user" && eos.StreamId == s.audioStartID {
 			s.audioStartID, s.audioStart = "", nil
 		}
 	}

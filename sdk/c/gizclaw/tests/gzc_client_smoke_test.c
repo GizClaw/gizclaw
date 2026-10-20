@@ -45,7 +45,8 @@ typedef enum {
   FAKE_RESPONSE_SPEECH_EXTRACT = 7,
   FAKE_RESPONSE_SPEED_TEST = 8,
   FAKE_RESPONSE_DEFERRED_PROTO = 9,
-  FAKE_RESPONSE_FIRMWARE_METADATA = 10
+  FAKE_RESPONSE_FIRMWARE_METADATA = 10,
+  FAKE_RESPONSE_WORKSPACE_LIST = 11
 } fake_response_mode_t;
 
 typedef struct {
@@ -1105,6 +1106,12 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
     if (rc == GZC_OK) {
       rc = append_test_proto_bytes(fake->platform, &response_result, 2, (const uint8_t *)"null", 4);
     }
+  } else if (fake->response_mode == FAKE_RESPONSE_WORKSPACE_LIST) {
+    /* An empty, terminal Workspace page is valid for every selector state. */
+    rc = append_test_proto_bytes(fake->platform, &response_result, 4, (const uint8_t *)"profile", 7);
+    if (rc == GZC_OK) {
+      rc = append_test_proto_bytes(fake->platform, &response_result, 5, (const uint8_t *)"revision", 8);
+    }
   } else {
     rc = append_test_proto_varint(fake->platform, &response_result, 1, 99);
   }
@@ -1638,6 +1645,34 @@ static int hex_nibble(char value) {
     return value - 'a' + 10;
   }
   return -1;
+}
+
+static int test_workspace_list_system_filter(void) {
+  for (int state = 0; state < 3; ++state) {
+    gizclaw_rpc_v1_WorkspaceListRequest request =
+        gizclaw_rpc_v1_WorkspaceListRequest_init_zero;
+    request.has_system = state != 0;
+    request.system = state == 2;
+    uint8_t encoded[8];
+    pb_ostream_t output = pb_ostream_from_buffer(encoded, sizeof(encoded));
+    if (!pb_encode(&output, gizclaw_rpc_v1_WorkspaceListRequest_fields,
+                   &request) ||
+        output.bytes_written != (state == 0 ? 0u : 2u) ||
+        (state != 0 && (encoded[0] != 0x20 || encoded[1] != request.system))) {
+      return 1;
+    }
+    gizclaw_rpc_v1_WorkspaceListRequest decoded =
+        gizclaw_rpc_v1_WorkspaceListRequest_init_zero;
+    pb_istream_t input =
+        pb_istream_from_buffer(encoded, output.bytes_written);
+    if (!pb_decode(&input, gizclaw_rpc_v1_WorkspaceListRequest_fields,
+                   &decoded) ||
+        decoded.has_system != request.has_system ||
+        decoded.system != request.system) {
+      return 1;
+    }
+  }
+  return 0;
 }
 
 static int test_peer_event_golden_vectors(void) {
@@ -2424,6 +2459,79 @@ static bool decode_metadata_value(pb_istream_t *stream, const pb_field_t *field,
   return true;
 }
 
+typedef struct {
+  gizclaw_rpc_v1_WorkspaceListRequest request;
+  metadata_value_t cursor;
+  metadata_value_t prefix;
+} workspace_list_capture_t;
+
+static bool decode_workspace_list_payload(pb_istream_t *stream, const pb_field_t *field, void **arg) {
+  (void)field;
+  workspace_list_capture_t *capture = (workspace_list_capture_t *)*arg;
+  return pb_decode(stream, gizclaw_rpc_v1_WorkspaceListRequest_fields, &capture->request);
+}
+
+static int test_workspace_list_rpc(gzc_client_t *client, fake_webrtc_t *fake) {
+  fake->response_mode = FAKE_RESPONSE_WORKSPACE_LIST;
+  for (int state = 0; state < 3; ++state) {
+    gizclaw_rpc_v1_WorkspaceListRequest request = gizclaw_rpc_v1_WorkspaceListRequest_init_zero;
+    request.has_system = state != 0;
+    request.system = state == 2;
+    request.has_limit = true;
+    request.limit = 2;
+    request.cursor.funcs.encode = encode_metadata_value;
+    request.cursor.arg = (void *)"page-one";
+    request.prefix.funcs.encode = encode_metadata_value;
+    request.prefix.arg = (void *)"archive-";
+    gzc_buf_t params;
+    gzc_buf_init(&params);
+    int rc = encode_test_pb_message(fake->platform, gizclaw_rpc_v1_WorkspaceListRequest_fields, &request, &params);
+    gzc_rpc_response_t response = {0};
+    if (rc == GZC_OK) {
+      rc = test_rpc_call(client, gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST, gzc_str_from_parts((const char *)params.data, params.len), &response);
+    }
+    gzc_buf_free(&params, fake->platform);
+    if (expect(rc == GZC_OK, "Workspace list request completes through the C RPC lifecycle") != 0) {
+      return 1;
+    }
+    gzc_rpc_frame_t frame;
+    rc = gzc_rpc_frame_decode(fake->sent.data, first_frame_size(&fake->sent), &frame);
+    workspace_list_capture_t capture = {0};
+    capture.request.cursor.funcs.decode = decode_metadata_value;
+    capture.request.cursor.arg = &capture.cursor;
+    capture.request.prefix.funcs.decode = decode_metadata_value;
+    capture.request.prefix.arg = &capture.prefix;
+    gizclaw_rpc_v1_RpcRequest envelope = gizclaw_rpc_v1_RpcRequest_init_zero;
+    envelope.payload.funcs.decode = decode_workspace_list_payload;
+    envelope.payload.arg = &capture;
+    if (rc == GZC_OK) {
+      rc = decode_test_pb_message(gzc_str_from_parts((const char *)frame.data, frame.len), gizclaw_rpc_v1_RpcRequest_fields, &envelope);
+    }
+    if (expect(rc == GZC_OK && frame.type == GZC_RPC_FRAME_BINARY && envelope.method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_WORKSPACE_LIST && capture.request.has_system == request.has_system && capture.request.system == request.system && capture.request.has_limit && capture.request.limit == 2 && strcmp(capture.cursor.value, "page-one") == 0 && strcmp(capture.prefix.value, "archive-") == 0, "C request envelope preserves system presence, cursor, limit and prefix") != 0) {
+      return 1;
+    }
+    gizclaw_rpc_v1_WorkspaceListResponse page = gizclaw_rpc_v1_WorkspaceListResponse_init_zero;
+    metadata_value_t profile = {0};
+    metadata_value_t revision = {0};
+    metadata_value_t cursor = {0};
+    size_t items = 0;
+    page.items.funcs.decode = count_repeated_message;
+    page.items.arg = &items;
+    page.next_cursor.funcs.decode = decode_metadata_value;
+    page.next_cursor.arg = &cursor;
+    page.runtime_profile_name.funcs.decode = decode_metadata_value;
+    page.runtime_profile_name.arg = &profile;
+    page.runtime_profile_revision.funcs.decode = decode_metadata_value;
+    page.runtime_profile_revision.arg = &revision;
+    rc = decode_test_pb_message(response.result_payload, gizclaw_rpc_v1_WorkspaceListResponse_fields, &page);
+    if (expect(rc == GZC_OK && items == 0 && !page.has_next && cursor.value[0] == '\0' && strcmp(profile.value, "profile") == 0 && strcmp(revision.value, "revision") == 0, "C Workspace list response decodes an empty terminal page and profile identity") != 0) {
+      return 1;
+    }
+  }
+  fake->response_mode = FAKE_RESPONSE_PROTO;
+  return 0;
+}
+
 static int test_firmware_metadata(void) {
   const char *values[] = {"{\"version\":\"1.2.3\",\"urls\":[\"https://firmware.example/ap.bin\",\"https://firmware.example/cp.bin\"]}", "\"hello\"", "9007199254740993", "true", "[1,\"x\",null]", "null"};
   for (size_t i = 0; i < sizeof(values) / sizeof(values[0]); ++i) {
@@ -2943,6 +3051,9 @@ static int test_gnss_reporting_codec(void) {
 }
 
 int main(void) {
+  if (expect(test_workspace_list_system_filter() == 0,
+             "workspace list preserves omitted, false and true system") != 0)
+    return 1;
   if (test_gnss_reporting_codec() != 0)
     return 1;
   if (test_lua_app_codec() != 0)
@@ -3934,6 +4045,9 @@ int main(void) {
     return 1;
   }
   if (test_firmware_metadata_getter(client, &fake_webrtc) != 0) {
+    return 1;
+  }
+  if (test_workspace_list_rpc(client, &fake_webrtc) != 0) {
     return 1;
   }
   if (expect(gizclaw_rpc_v1_RpcMethod_RPC_METHOD_SERVER_API_KEY_CREATE == 96, "API key create method id value") != 0) {

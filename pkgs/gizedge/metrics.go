@@ -28,7 +28,7 @@ const (
 
 var edgeDurationBuckets = []float64{0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10, 30, 60, 300}
 
-func installEdgeMetrics(cfg MetricsConfig) (func(context.Context) error, storemetrics.Store, error) {
+func installEdgeMetrics(cfg MetricsConfig, options ...gizmetrics.Option) (func(context.Context) error, storemetrics.Store, error) {
 	if cfg.RemoteWriteURL == "" && cfg.QueryURL == "" && cfg.BearerToken == "" {
 		return nil, nil, nil
 	}
@@ -40,7 +40,7 @@ func installEdgeMetrics(cfg MetricsConfig) (func(context.Context) error, storeme
 	if err != nil {
 		return nil, nil, err
 	}
-	shutdown, err := gizmetrics.InstallStore(store)
+	shutdown, err := gizmetrics.InstallStore(store, options...)
 	if err != nil {
 		return nil, nil, errors.Join(err, store.Close())
 	}

@@ -1,0 +1,229 @@
+# User Story:
+# As a voice user,
+# I want the eighth ASR turn to recover once after a provider timeout,
+# So that the ninth turn continues with exactly one History entry per speaker.
+version: gizclaw.test/v1alpha1
+name: asr-recovery.eino.push-to-talk
+clients:
+  audio_peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  tone:
+    direction: input
+    type: audio
+    env: LATENCY_TONE
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+  audio_workspace_name:
+    direction: input
+    type: string
+    generate: token
+steps:
+- id: audio_register_peer
+  client: audio_peer
+  rpc:
+    method: server.register
+    request:
+      token: ${registration_token}
+- id: audio_create_workspace
+  client: audio_peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: ${audio_workspace_name}
+      workflow_name: asr-recovery-eino
+      parameters:
+        eino_workspace_parameters:
+          agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+          input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+- id: audio_select_workspace
+  client: audio_peer
+  rpc:
+    method: server.run.workspace.set
+    request:
+      workspace_name: ${audio_workspace_name}
+- id: question_1
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 1"}
+    /reply: {equals: "question 1: answer 1"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_2
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 2"}
+    /reply: {equals: "question 2: answer 2"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_3
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 3"}
+    /reply: {equals: "question 3: answer 3"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_4
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 4"}
+    /reply: {equals: "question 4: answer 4"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_5
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 5"}
+    /reply: {equals: "question 5: answer 5"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_6
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 6"}
+    /reply: {equals: "question 6: answer 6"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_7
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 7"}
+    /reply: {equals: "question 7: answer 7"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_8
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 8"}
+    /reply: {equals: "question 8: answer 8"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: question_9
+  client: audio_peer
+  timeout: 30s
+  peer_stream:
+    mode: push-to-talk
+    input: ${tone}
+    pacing: 20ms
+    reply_observation: 500ms
+    wait_for_history: true
+  expect:
+    /transcript: {equals: "answer 9"}
+    /reply: {equals: "question 9: answer 9"}
+    /response_count: {equals: 1}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_integrity/violations: {equals: 0}
+- id: history_has_nine_turns
+  client: audio_peer
+  rpc:
+    method: server.workspace.history.list
+    request:
+      workspace_name: ${audio_workspace_name}
+      order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+      limit: 30
+  expect:
+    /items: {count: 18}
+    /items/14/text: {equals: "answer 8"}
+    /items/15/text: {equals: "question 8: answer 8"}
+    /items/16/text: {equals: "answer 9"}
+    /items/17/text: {equals: "question 9: answer 9"}
+finally:
+- client: audio_peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- client: audio_peer
+  rpc:
+    method: server.workspace.delete
+    request:
+      name: ${audio_workspace_name}
+- client: audio_peer
+  rpc:
+    method: server.peer.delete
+    request: {}
+timeout: 240s

@@ -29,6 +29,8 @@ message PeerRunHistoryEntry {
   bool replay_available = 5;
   string text = 6;
   PeerRunHistoryEntryType type = 7;
+  // A retained Ogg/Opus recording exists independently of text replay.
+  bool audio_available = 8;
 }
 
 message PeerRunHistoryListRequest {
@@ -338,6 +340,9 @@ message WorkspaceListRequest {
   optional string cursor = 1;
   optional int64 limit = 2;
   optional string prefix = 3;
+  // Omit to list all accessible Workspaces; false selects ordinary Workspaces,
+  // true selects system Workspaces. Intersects with prefix before pagination.
+  optional bool system = 4;
 }
 
 message WorkspaceListResponse {

@@ -2081,14 +2081,13 @@ type FriendGroupMemberObject struct {
 	Role            *FriendGroupMemberRole `protobuf:"varint,5,opt,name=role,proto3,enum=gizclaw.rpc.v1.FriendGroupMemberRole,oneof" json:"role,omitempty"`
 	UpdatedAt       *string                `protobuf:"bytes,6,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
 	// Member presence, set only by server.friend_group.members.list. online is
-	// whether the member's device is connected to the answering Server, the
-	// same state as Runtime.online.
+	// shared connection state across Servers, subject to replication delay.
 	Online *bool `protobuf:"varint,7,opt,name=online,proto3,oneof" json:"online,omitempty"`
-	// Last observed activity of the member's device in the Runtime.last_seen_at
-	// format. Absent when the Server has never observed the member.
+	// Last activity observed at a connection or running-Workspace transition,
+	// in RFC 3339 UTC. Absent when unknown or the shared presence read failed.
 	LastSeenAt *string `protobuf:"bytes,8,opt,name=last_seen_at,json=lastSeenAt,proto3,oneof" json:"last_seen_at,omitempty"`
 	// Whether the member's device is running this Friend Group's Workspace on
-	// the answering Server, which is what attaches it to the Group's SFU Room.
+	// any Server, according to the same shared presence snapshot as online.
 	// Set only by server.friend_group.members.list; true implies online.
 	InRoom        *bool `protobuf:"varint,9,opt,name=in_room,json=inRoom,proto3,oneof" json:"in_room,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -3178,11 +3177,10 @@ type FriendObject struct {
 	UpdatedAt     *string                `protobuf:"bytes,4,opt,name=updated_at,json=updatedAt,proto3,oneof" json:"updated_at,omitempty"`
 	WorkspaceName *string                `protobuf:"bytes,5,opt,name=workspace_name,json=workspaceName,proto3,oneof" json:"workspace_name,omitempty"`
 	// Friend presence and profile, set only by server.friend.list. online is
-	// whether the Friend's device is connected to the answering Server, the
-	// same state as Runtime.online.
+	// shared connection state across Servers, subject to replication delay.
 	Online *bool `protobuf:"varint,6,opt,name=online,proto3,oneof" json:"online,omitempty"`
-	// Last observed activity of the Friend's device in the Runtime.last_seen_at
-	// format. Absent when the Server has never observed the Friend.
+	// Last activity observed at a connection or running-Workspace transition,
+	// in RFC 3339 UTC. Absent when unknown or the shared presence read failed.
 	LastSeenAt *string `protobuf:"bytes,7,opt,name=last_seen_at,json=lastSeenAt,proto3,oneof" json:"last_seen_at,omitempty"`
 	// The Friend's self-chosen display name and emoji from its profile. Absent
 	// when the Friend has not set them.

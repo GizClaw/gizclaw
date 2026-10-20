@@ -93,11 +93,13 @@ Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 
 
 | 字段 | 来源 | 缺省 |
 | --- | --- | --- |
-| `online` | `Manager.PeerPresence`，与 `PeerOnline`、`Runtime.online` 读取同一份连接状态 | 总是出现在列表项中 |
-| `last_seen_at` | 同上，格式与 `Runtime.last_seen_at` 相同：在线时随连接活动前进，离线时是连接断开时记录的最后活动 | Server 从未观察到该好友时省略 |
+| `online` | `Manager.PeerPresence` 读取共享 Peer KV 中的连接状态 | 配置 Presence 时总是出现在列表项中 |
+| `last_seen_at` | 上线、下线或运行 Workspace 变化时观察到的最后连接活动，使用 RFC 3339 UTC | 未观察到该好友或共享读取失败时省略 |
 | `display_name`、`emoji` | 好友通过 `server.info.put` 设置的资料，与 `server.friend.info.get` 相同 | 未设置时省略 |
 
-在线状态与好友呼叫一样是 Server 本地的：连接在另一台 Server 上的好友显示为不在线，`last_seen_at` 读取共享的 Peer Run 记录。资料或在线状态读取失败只会让对应字段缺省，不会让整页列表失败。
+共享同一 Peer KV 的 Server 能查询彼此连接上的好友状态。查询不读取 `peer_runs` SQL；普通 Redis 使用同一连接，`redis.readwrite` 使用读端并接受复制延迟。共享读取失败时返回 `online=false` 并省略 `last_seen_at`，不回退 SQL 或主库，不使整页失败。资料读取失败时省略相应资料字段。
+
+好友与群成员列表按整页批量读取状态，再去重读取涉及的 Server 租约。状态补充共用两秒预算，更短的请求 deadline 优先；群的可选 Workspace binding 查询包含在该预算内。前置关系授权、分页和资料查询仍使用请求自己的 context。批量读取的并发与后端实现见 [KV 批量点查](/zh/developing/stores/kv#批量点查)，超时后保留列表和已成功的结果。
 
 ## 群成员列表的在线状态
 
@@ -105,13 +107,15 @@ Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 
 
 | 字段 | 来源 | 缺省 |
 | --- | --- | --- |
-| `online` | `Manager.PeerPresence`，与 `Runtime.online` 读取同一份 Server 本地连接状态 | 未配置 Presence 时省略 |
-| `last_seen_at` | 同上，使用 RFC 3339 UTC；离线时回落到持久化的 Peer Run 活动记录 | 从未观察到成员、最后活动读取失败或未配置 Presence 时省略 |
-| `in_room` | `Manager.PeerRunningWorkspace`：该成员在本 Server 上的当前连接正在运行这个群绑定的 Workspace | 未配置 Rooms 或群的 Workspace 绑定读取失败时省略 |
+| `online` | `Manager.PeerRoomPresence` 读取共享连接快照 | 未配置 Presence 时省略 |
+| `last_seen_at` | 同一快照中，最后一次状态变化时观察到的连接活动，使用 RFC 3339 UTC | 从未观察到成员、共享读取失败或未配置 Presence 时省略 |
+| `in_room` | 同一快照中，该成员在线且正在运行这个群绑定的 Workspace | 未配置 Rooms 或群的 Workspace 绑定读取失败时省略 |
 
-好友和群成员列表共用 `socialutil.PresenceService` 与 `PresenceFields`。最后活动读取失败不会让整页失败。连接在其他 Server 上的成员显示为离线。Admin 成员列表与 add、put、delete、join 响应均不携带这三个字段。
+群成员列表通过 `socialutil.MemberPresenceFields` 一次读取同一成员的共享快照，避免两次查询跨越状态变化。连接在其他 Server 上的成员也能显示在线和在房间中。Admin 成员列表与 add、put、delete、join 响应均不携带这三个字段。
 
-`online` 只表示设备与 Server 有连接，`in_room` 表示设备此刻在群的 SFU Room 里。设备通过运行群的 Workspace 加入 Room，所以 `in_room` 读取的是该连接的 Peer Run 运行状态：状态为 running 且 Workspace 名与群绑定的 Workspace 一致时为 true；runtime 处于 starting、stopping、error，运行的是其他 Workspace，`server.run.stop` 之后，或者设备离线时均为 false。它不读取 Server 持久化的 `Runtime.active_workspace_name`，后者在设备停止运行或离线后仍然保留。`in_room` 为 true 时 `online` 必为 true；它与 `online` 一样是 Server 本地的，连接在其他 Server 上的成员显示为 false。Room 内 SFU 连接的短暂重连不改变该值。
+`online` 表示设备与某台 Server 有连接，`in_room` 表示设备正在运行群的 SFU Workspace。runtime 的 starting、stopping、error、停止、切换或设备离线会发布不在该房间的状态；连接替换不会继承旧 runtime。它不读取持久化的 `Runtime.active_workspace_name`。`in_room=true` 必定同时返回 `online=true`，两者都受共享读延迟影响。Room 内 SFU 连接的短暂重连不改变该值。
+
+共享 presence 位于 `services.peer.store` 的 `presence` namespace，只在上线、下线和运行 Workspace 变化时发布，不随音频、遥测或每次查询更新。每台 Server 单独续期一条租约；进程退出或租约过期后，关联成员显示离线。`Runtime.online` 与 `PeerOnline` 仍用于本地连接操作。租约、故障和配置边界见 [共享在线状态](runtime/peerpresence)。
 
 ## 好友呼叫与群集结
 
@@ -127,7 +131,7 @@ Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 
 
 Manager 优先通过目标的有效本地 Peer connection 推送；没有本地连接时，从已连接且具有 active `edge-node` role 的 transport 中选择一个 Edge。Edge 使用现有 PK → Server assignment 查询，在配置的多 Server 上游中找到目标归属 Server，调用仅做本地投递的内部 RPC。路径为“发起 Server → 中继 Edge → 目标 Server → 目标 Peer”；中继 Edge 无需持有目标 ingress connection。
 
-路由与设备 ACK 共用一个 3 秒 deadline。Edge 接收请求不算送达，只有目标设备 ACK 才计入 `delivered_count`。目标离线、ACK 超时、上游未配置或中继不可用均不计入；不排队、不广播、不重试，目标 Server 不继续中继。原有 `Runtime.online` 和列表 presence 仍是本 Server 视角。关系授权与共享限流仍由发起 Server 的 Social service 执行，普通设备不能打开内部 Edge service 或从普通 Peer RPC 调用这两个内部方法。内部 contract 与信任边界见 [Edge RPC](../rpc/edge)。
+路由与设备 ACK 共用一个 3 秒 deadline。Edge 接收请求不算送达，只有目标设备 ACK 才计入 `delivered_count`。目标离线、ACK 超时、上游未配置或中继不可用均不计入；不排队、不广播、不重试，目标 Server 不继续中继。`Runtime.online` 仍是本 Server 视角，列表 presence 使用共享快照。关系授权与共享限流仍由发起 Server 的 Social service 执行，普通设备不能打开内部 Edge service 或从普通 Peer RPC 调用这两个内部方法。内部 contract 与信任边界见 [Edge RPC](../rpc/edge)。
 
 `server.profile.get` 按 public key 批量（1–16 个）返回 Peer 的公开资料，不做任何关系校验：只包含该 Peer 通过 `server.info.put` 设置的 `display_name` 与 `emoji`（`peer.Server.GetPublicProfile`）。不存在、已删除或 pending deletion 的 Peer 只返回 key。
 

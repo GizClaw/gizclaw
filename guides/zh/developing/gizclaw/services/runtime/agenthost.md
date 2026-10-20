@@ -38,6 +38,8 @@ flowchart TD
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
 
+`Service.OnStatusChanged` 在生命周期状态转换后、不持有状态 mutex 时通知连接层。连接层读取当前状态，并且只在 running Workspace 变化时发布 [共享在线状态](./peerpresence)。回调必须迅速返回，不执行阻塞式存储 I/O；普通 `Status` 查询不触发通知。
+
 AgentHost 写入的 History entry 会带内部 `origin=agenthost` 标记。通过
 `WithWorkspaceHistoryObserver` 挂接的请求级 History observer 会收到精确的已持久化
 entry identity，而不是仅收到时间戳；它只是有界且可丢弃的提示，不是 durable
@@ -46,7 +48,11 @@ high-water receipt，丢弃不会改变已持久化 History。observer 不执行
 
 连续播讲的 `StreamCtrl.MessageID` 是一条播放 route 内的生成边界。Recorder 按 message identity 区分记录；该段各 MIME channel 的 `MessageEnd` 到齐后立即落库，因此一次持续播放可以产生多条 History，每条只包含对应段的文字和音频。播放 EOS 仍关闭整条 route，并收尾被打断的当前段。 连续消息只在最终交付确认时录制，包装器预读的后缀不进入记录。Producer EOF 不会抢先结束仍有 deferred delivery 的 History；输出关闭会取消 source、等待在途确认与转发退出，再保存已交付的当前段。
 
+`ResponseEpochEnd` 明确结束同一 StreamID 与 route label 下已交付的响应。即使组件名称不同于 label，且终止 chunk 不含 MessageID，Recorder 仍保存该响应的所有具名消息与成对音频，完成持久化后才释放下一轮的 History 文本读取屏障。没有响应结束标记的具名成员 EOS 不会提前结束兄弟成员，其他 StreamID 或 label 的记录继续等待各自边界。
+
 Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part 的 control EOS 的 `Ctrl.Error` 去除首尾空白后以 `interrupted` 开头时，同一 StreamID 的所有待写入 entry 都标记为中断。落库时，中断且没有非空白定稿文本的 entry 被丢弃，并关闭其 PCM encoder；`Ctrl.TextInterim` 文本不计入定稿。已有定稿文本的中断 entry 仍保留，正常结束的纯音频 entry 仍可保存。
+
+中断可能发生在 TTS 只交付 Ogg 头、尚未产生音频 packet 时。Recorder 只在中断记录中忽略这种空音频分段，保留已交付的定稿文本和其他实际音频，并正常完成下一轮的 History 文本读取屏障；不会保存空音频 asset。损坏的 Ogg、正常结束却没有音频 packet 的分段，以及没有音频的回放 asset 仍按错误处理。
 
 一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。History 记录是尽力而为的，从不让实时输出失败：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
 

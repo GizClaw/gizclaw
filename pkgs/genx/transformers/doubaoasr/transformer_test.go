@@ -35,6 +35,8 @@ type fakeDoubaoASRSession struct {
 	recvErr       error
 	close         func() error
 	audioDuration time.Duration
+	closed        chan struct{}
+	closeOnce     sync.Once
 }
 
 type fakeDoubaoASROpen struct {
@@ -136,7 +138,7 @@ func collectTransformerChunks(t *testing.T, stream genx.Stream) []*genx.MessageC
 }
 
 func newFakeDoubaoASRSession() *fakeDoubaoASRSession {
-	return &fakeDoubaoASRSession{result: make(chan *doubaospeech.ASRV2Result, 1)}
+	return &fakeDoubaoASRSession{result: make(chan *doubaospeech.ASRV2Result, 1), closed: make(chan struct{})}
 }
 
 func (s *fakeDoubaoASRSession) SendAudio(_ context.Context, data []byte, isLast bool) error {
@@ -162,13 +164,21 @@ func (s *fakeDoubaoASRSession) Recv() iter.Seq2[*doubaospeech.ASRV2Result, error
 		if s.recvDone != nil {
 			defer close(s.recvDone)
 		}
-		for result := range s.result {
-			if !yield(result, nil) {
+		for {
+			select {
+			case result, ok := <-s.result:
+				if !ok {
+					if s.recvErr != nil {
+						yield(nil, s.recvErr)
+					}
+					return
+				}
+				if !yield(result, nil) {
+					return
+				}
+			case <-s.closed:
 				return
 			}
-		}
-		if s.recvErr != nil {
-			yield(nil, s.recvErr)
 		}
 	}
 }
@@ -176,6 +186,7 @@ func (s *fakeDoubaoASRSession) Recv() iter.Seq2[*doubaospeech.ASRV2Result, error
 func (s *fakeDoubaoASRSession) AudioDuration() time.Duration { return s.audioDuration }
 
 func (s *fakeDoubaoASRSession) Close() error {
+	defer s.closeOnce.Do(func() { close(s.closed) })
 	if s.close != nil {
 		return s.close()
 	}

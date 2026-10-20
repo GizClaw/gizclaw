@@ -11,10 +11,25 @@ the active audio BOS metadata before subsequent live events and Opus packets.
 Consecutive Giztest `listen` windows can therefore join an ongoing broadcast
 without restarting it.
 
-The connection retains one current audio start event, without replaying prior
+The connection retains one current downlink audio start event, without replaying prior
 audio or text. Its audio EOS clears the route; a text EOS with the same ID or a
-delayed EOS for an older audio route does not clear the new route. Bootstrap and
+delayed EOS for an older audio route does not clear the new route. Input-side
+`user` BOS/EOS events leave the downlink route intact. Bootstrap and
 live events arrive in order, and connection shutdown discards the route.
+
+## PeerStream audio completion
+
+`Client.OpenPeerStream` merges the Event Stream and Opus RTP into logical audio. Before delivering
+a downlink audio EOS it delivers packets already queued locally. Packets received after EOS and before
+the next audio BOS are ignored rather than emitted as unbound audio or retained for the next turn.
+Before BOS resumes reception, queued packets from the ended interval are discarded. Text events and connection lifetime remain independent.
+
+`PeerStream.IgnoredPostEOSAudioPackets()` safely reports the cumulative ignored count for that
+stream, including concurrent reads. EOS means production has ended; receiving tail packets does
+not add a fixed completion delay. This consumer policy leaves WebRTC/RTP, Server, Edge and wire
+schemas unchanged. Clients using raw media callbacks manage their own completion policy.
+
+Input-side `user` EOS, including `INPUT_ROUTE_RELOADED`, remains a control event and does not close assistant downlink audio.
 
 ## Handshake admission credentials
 

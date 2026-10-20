@@ -22,6 +22,8 @@ RuntimeProfile Workflow bindings form a flat map. The Peer boundary projects eac
 
 Workspace create requires `workflow_name`. The Server resolves that Peer name to the current RuntimeProfile binding and records the name through an internal Workspace label. Workspace list has no required filter, and generic labels are not part of the Peer response. Removing the binding does not hide or delete an existing Workspace; reload/run reports not found until the name resolves again.
 
+`server.workspace.list` accepts `system=false` for ordinary Workspaces or `system=true` for system Workspaces; omission lists all accessible items. It intersects with `prefix` before pagination and keeps ordinary Workspaces whose `available` value is false. Cursors bind to the filters and Profile revision; changed conditions return `ABORTED`. See [Peer Resources](../../../gizclaw/services/runtime/peerresource) for the complete pagination contract.
+
 ## Calling relationship
 
 ```mermaid

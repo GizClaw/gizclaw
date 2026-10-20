@@ -91,6 +91,7 @@ const PeerRunHistoryEntry$json = {
       '6': '.gizclaw.rpc.v1.PeerRunHistoryEntryType',
       '10': 'type'
     },
+    {'1': 'audio_available', '3': 8, '4': 1, '5': 8, '10': 'audioAvailable'},
   ],
   '8': [
     {'1': '_gear_id'},
@@ -103,7 +104,8 @@ final $typed_data.Uint8List peerRunHistoryEntryDescriptor = $convert.base64Decod
     'dnZWFyX2lkGAIgASgJSABSBmdlYXJJZIgBARISCgRuYW1lGAMgASgJUgRuYW1lEh0KCmFjdG9y'
     'X25hbWUYBCABKAlSCWFjdG9yTmFtZRIpChByZXBsYXlfYXZhaWxhYmxlGAUgASgIUg9yZXBsYX'
     'lBdmFpbGFibGUSEgoEdGV4dBgGIAEoCVIEdGV4dBI7CgR0eXBlGAcgASgOMicuZ2l6Y2xhdy5y'
-    'cGMudjEuUGVlclJ1bkhpc3RvcnlFbnRyeVR5cGVSBHR5cGVCCgoIX2dlYXJfaWQ=');
+    'cGMudjEuUGVlclJ1bkhpc3RvcnlFbnRyeVR5cGVSBHR5cGUSJwoPYXVkaW9fYXZhaWxhYmxlGA'
+    'ggASgIUg5hdWRpb0F2YWlsYWJsZUIKCghfZ2Vhcl9pZA==');
 
 @$core.Deprecated('Use peerRunHistoryListRequestDescriptor instead')
 const PeerRunHistoryListRequest$json = {
@@ -1693,19 +1695,22 @@ const WorkspaceListRequest$json = {
     {'1': 'cursor', '3': 1, '4': 1, '5': 9, '9': 0, '10': 'cursor', '17': true},
     {'1': 'limit', '3': 2, '4': 1, '5': 3, '9': 1, '10': 'limit', '17': true},
     {'1': 'prefix', '3': 3, '4': 1, '5': 9, '9': 2, '10': 'prefix', '17': true},
+    {'1': 'system', '3': 4, '4': 1, '5': 8, '9': 3, '10': 'system', '17': true},
   ],
   '8': [
     {'1': '_cursor'},
     {'1': '_limit'},
     {'1': '_prefix'},
+    {'1': '_system'},
   ],
 };
 
 /// Descriptor for `WorkspaceListRequest`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List workspaceListRequestDescriptor = $convert.base64Decode(
     'ChRXb3Jrc3BhY2VMaXN0UmVxdWVzdBIbCgZjdXJzb3IYASABKAlIAFIGY3Vyc29yiAEBEhkKBW'
-    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBEhsKBnByZWZpeBgDIAEoCUgCUgZwcmVmaXiIAQFCCQoH'
-    'X2N1cnNvckIICgZfbGltaXRCCQoHX3ByZWZpeA==');
+    'xpbWl0GAIgASgDSAFSBWxpbWl0iAEBEhsKBnByZWZpeBgDIAEoCUgCUgZwcmVmaXiIAQESGwoG'
+    'c3lzdGVtGAQgASgISANSBnN5c3RlbYgBAUIJCgdfY3Vyc29yQggKBl9saW1pdEIJCgdfcHJlZm'
+    'l4QgkKB19zeXN0ZW0=');
 
 @$core.Deprecated('Use workspaceListResponseDescriptor instead')
 const WorkspaceListResponse$json = {

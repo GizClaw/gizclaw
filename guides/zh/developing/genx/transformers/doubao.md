@@ -40,9 +40,23 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 收到显式 audio EOS 后，`doubaoasr.Transformer` 最多等待 provider finalization 一分钟。Provider 始终静默时，transformer 会关闭该 provider session，并以 `doubao asr: finalization timeout` 错误结束 output stream，而不是继承 caller 更长的生命周期 deadline。
 
-已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。Provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和下述例外之外的 timeout 继续按原有路径传播错误。
+已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。下述一次恢复范围之外的 provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和 timeout 继续传播错误。
 
-对于 PCM 输入，ASR 会在当前 provider session 内聚合较小的实时 frame，直到达到配置的 packet size；缺省为 100 ms（16 kHz、mono、signed 16-bit PCM 对应 `3200` bytes）。完整 packet 会立即按顺序发送，显式 audio EOS 把剩余 PCM 恰好发送一次并标记为 final；精确 packet boundary 使用既有空 terminal marker，不重复音频。压缩音频保持原始 packet boundary 和 final-packet 行为。Session cleanup 只清除本 session 的空 buffer，因此音频不会跨 audio route 或 replacement session。显式 route EOS 后 outer Transformer stream 仍保持打开，下一条 audio route 创建 replacement session 并独立绑定 transcript。Continuous ASR finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；其他 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
+对于 PCM 输入，ASR 会在当前 provider session 内聚合较小的实时 frame，直到达到配置的 packet size；缺省为 100 ms（16 kHz、mono、signed 16-bit PCM 对应 `3200` bytes）。完整 packet 会立即按顺序发送，显式 audio EOS 把剩余 PCM 恰好发送一次并标记为 final；精确 packet boundary 使用既有空 terminal marker，不重复音频。压缩音频保持原始 packet boundary 和 final-packet 行为。Session cleanup 只清除本 session 的空 buffer，因此音频不会跨 audio route 或 replacement session。显式 route EOS 后 outer Transformer stream 仍保持打开，下一条 audio route 创建 replacement session 并独立绑定 transcript。Continuous ASR finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；一次恢复范围之外的 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
+
+### ASR 一次恢复
+
+`doubaoasr.Transformer` 对上游 `55000000`（包括 BigASR business RPC timeout）在安全的当前输入边界自动恢复一次，总共最多两次尝试。恢复直接替换 ASR provider session，不重新执行 Workflow、Eino Graph、Memory 或 Tool。该策略不依赖最终 `STREAM_ERROR` 的 `Retryable` 投影。
+
+恢复只支持 PCM provider session；默认输入转换得到的 PCM 也属于此范围。Push-to-Talk 在尚未交付定稿文本时保留本轮音频。Continuous ASR 以新交付 definite utterance 的有效结束时间推进检查点，只保留其后的音频；累计结果中重复出现的已定稿 utterance 不改变检查点，也不关闭当前窗口的恢复能力。replacement 返回的 utterance 时间重新映射到原音频时间轴，保留原 transcript StreamID 和 History audio 范围。Interim 是可替换假设，不向 Agent 提交第二次定稿。
+
+输入观察器最多预读 4096 个 chunk、2 MiB Blob 数据，以便在重放上传阻塞时仍能看到 replacement BOS；超过任一预算即以明确的 input queue limit 错误结束。replacement BOS 只提前取消正在恢复的旧输入，已排队的旧后缀不会重新打开 session。每个未定稿窗口最多保留 15 秒且最多 2 MiB 音频；达到任一上限即放弃该 session 的恢复能力，识别仍可继续。重放临时副本受相同大小上限约束。每个逻辑 session 最多保留 1024 个定稿身份摘要用于累计结果去重，摘要不保留文本；超过该预算后关闭本 session 的恢复能力。恢复的连接、重放上传和等待 definite/final result 共用 15 秒期限；上传与结果均完成后才记录成功并释放该期限，下一轮继续使用健康 session。新的已确认 continuous utterance 才重置下一轮的一次重试额度。
+
+已提交部分 PTT 文本、缺失或无效的定稿时间边界、非 PCM、超出窗口、第二次失败，以及认证、配额、协议、输入和本地 finalization timeout 均不重放。正常空识别和 continuous packet-wait boundary 保持原有语义。取消、停止、切换 Workspace/输入模式、资源删除、断线或关闭 output 会取消对应 invocation；新的输入 BOS 替换 route 时先取消旧 session 并等待其 reader/sender 退出。旧 generation 的迟到结果不能进入 replacement route。重试失败仍交付原有可诊断错误终态，不额外把所有 `STREAM_ERROR` 标为可重试。
+
+首次失败先记录 WARN `doubao asr: attempt failed`，随后记录 WARN `doubao asr: retry start`，最后记录 WARN `doubao asr: retry success` 或 `doubao asr: retry failure`。成功恢复也使用 WARN，确保生产 WARN 门槛保留整条异常恢复证据；正常无重试成功不新增运维日志。字段包括 `retry=0/1`、`asr_request_id`（GizClaw 为本次逻辑 ASR session 生成）、`input_stream_id`、`transcript_stream_id`、`segment_index`、`duration_ms`、`retry_duration_ms`、`reason` 和错误。生产 logger 从 context 继承 `peer_public_key`、`session_id`、`workspace` 及已有入口 `request_id`；长期 runtime 不伪造入口请求 ID。
+
+结构化上游错误保留 `error_code`、`upstream_reqid`、`upstream_connect_id`、`upstream_trace_id` 和 `upstream_log_id`；缺失标识保持空值，不与 GizClaw ID 混用。重试成功优先记录 replacement result 的上游标识。本地超时或未定稿结束保留当前 attempt 最后可用的上游标识；结构化错误缺失的标识以独立 `upstream_last_*` 字段保留，不覆盖错误原值。只有 interim、没有定稿的结束记录 retry failure；本地错误诊断只包含计数和状态，不包含识别文本。运维重试日志不复制录音、识别文本、凭据或对话历史。各 provider attempt 的 billed audio 累加计入既有 ASR usage。
 
 ### ASR 断句参数
 
@@ -151,6 +165,13 @@ Transformer 自己管理 provider call ID、顺序、重复 ID 拒绝和 invocat
 | Push-to-Talk | BOS 开始一次按键讲话，audio chunks 属于当前 turn，EOS 结束输入并触发 `EndASR`。 |
 | Realtime | 连续发送 audio，由 provider VAD 划分用户 utterance；输入 EOS 只关闭本地 segment。 |
 | Text | 同一 StreamID 的文本片段在 EOS 合并提交，不接受 audio input。 |
+
+Realtime 模式为每个识别句保存输入音频。Adapter 在该句 transcript EOS 之前，以同一
+segment StreamID 发布完整的 `history.user_audio` BOS、音频和 EOS，使文字与录音写入同一条
+Workspace History。连续两句各自消费本句音频，不重用上一句录音；replacement provider session
+使用独立缓存，新的输入 route、无 transcript 的 ASR 结束和纯文字轮次都丢弃尚未识别的缓存。
+已发布 final transcript 后的 ASR 结束不会丢弃下一句已开始缓存的音频。缓存最多保存 16 MiB 或
+65536 个输入 chunk；超过上限时记录一次 warning，该句只保留文字，下一句重新录音，不影响实时对话。
 
 三种模式都将带 `StreamID` 的文本片段按一条用户消息累积，在 EOS 时调用一次 provider `SendText`；累计上限为 1 MiB，超限终止本次 Transform。新输入 ID 替换尚未提交的旧文本，重复 EOS 不会重复提交；输入 EOF 不提交缺少 EOS 的片段。带错误的 EOS 丢弃缓存并返回失败，不向 provider 提交文本。没有 `StreamID` 的 text chunk 直接作为一条完整消息提交。
 

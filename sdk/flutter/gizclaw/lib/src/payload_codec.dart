@@ -911,7 +911,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.Workspace': {4, 7, 9},
   'gizclaw.rpc.v1.WorkspaceCreateBody': {2, 4},
   'gizclaw.rpc.v1.WorkspaceHistoryListRequest': {1, 2, 3, 5, 6},
-  'gizclaw.rpc.v1.WorkspaceListRequest': {1, 2, 3},
+  'gizclaw.rpc.v1.WorkspaceListRequest': {1, 2, 3, 4},
   'gizclaw.rpc.v1.WorkspaceListResponse': {3},
   'gizclaw.rpc.v1.WorkspaceParametersPatch': {1, 2, 3, 5},
   'gizclaw.rpc.v1.WorkspacePutBody': {4, 7},

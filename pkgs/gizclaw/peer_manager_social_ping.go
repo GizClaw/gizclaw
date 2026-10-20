@@ -35,15 +35,17 @@ func (m *Manager) PeerOnline(publicKey string) bool {
 	return ok
 }
 
-// PeerRunningWorkspace reports whether publicKey's active connection on this
-// Server is running workspaceName right now. A Peer that is offline, has no
-// running runtime, or runs another Workspace answers false, as does a runtime
-// that is starting, stopping or failed.
+// PeerRunningWorkspace reads the shared running-Workspace presence when
+// configured. Otherwise it inspects the active local connection's runtime.
 func (m *Manager) PeerRunningWorkspace(ctx context.Context, publicKey, workspaceName string) bool {
 	workspaceName = strings.TrimSpace(workspaceName)
 	key, err := parseSocialPingPeer(publicKey)
 	if err != nil || workspaceName == "" {
 		return false
+	}
+	if m.Presence != nil {
+		_, _, inRoom := m.PeerRoomPresence(ctx, publicKey, workspaceName)
+		return inRoom
 	}
 	conn, status := m.peerRunStatus(key)
 	if status == nil {

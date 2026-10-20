@@ -65,6 +65,45 @@ func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
 	return value, nil
 }
 
+// BatchGet uses one MGET on the selected reader. Missing and non-string keys
+// report ErrNotFound; reader errors never fall back to the writer.
+func (r *Redis) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	results := make([]GetResult, len(keys))
+	if len(keys) == 0 {
+		return results
+	}
+	if err := ctx.Err(); err != nil {
+		for i := range results {
+			results[i].Err = err
+		}
+		return results
+	}
+	encoded := make([]string, len(keys))
+	for i, key := range keys {
+		encoded[i] = string(r.opts.encode(key))
+	}
+	values, err := r.readClient(ctx).MGet(ctx, encoded...).Result()
+	if err == nil && len(values) != len(keys) {
+		err = errors.New("invalid MGET response length")
+	}
+	for i := range keys {
+		result := &results[i]
+		if err != nil {
+			result.Err = redisOperationError("batch get", err)
+			continue
+		}
+		switch value := values[i].(type) {
+		case nil:
+			result.Err = ErrNotFound
+		case string:
+			result.Value = []byte(value)
+		default:
+			result.Err = redisOperationError("batch get", errors.New("invalid MGET response type"))
+		}
+	}
+	return results
+}
+
 func (r *Redis) Set(ctx context.Context, key Key, value []byte) error {
 	if err := r.client.Set(ctx, string(r.opts.encode(key)), value, 0).Err(); err != nil {
 		return redisOperationError("set", err)

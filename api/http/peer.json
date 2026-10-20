@@ -340,7 +340,7 @@
     "/gizclaw/v1/device/workspaces/{workspaceId}/history": {
       "get": {
         "operationId": "listDeviceWorkspaceHistory",
-        "description": "Query only the named owned Workspace. Optional limit is 1..200 (default 50); query is literal text with a 512 UTF-8 byte limit. Optional order is desc (default, newest first) or asc (oldest first). Optional start_time_ms (inclusive) and end_time_ms (exclusive) bound created_at in Unix milliseconds; either side may be omitted, so end_time_ms alone jumps to entries before a moment and start_time_ms alone reads entries from a moment onward. History is returned in the requested order as PeerRunHistoryListResponse (available, items, has_next, optional next_cursor). Each item has name (entry ID), type, actor_name, text, created_at, replay_available, and optional gear_id. Cursor is an exclusive entry-ID boundary formatted YYYYMMDDTHHMMSS.nnnnnnnnnZ-suffix: the previous next_cursor to continue in the same order, or any returned item name to page away from that item in the requested order. It is not an authorization token. Time bounds still apply to continuation requests. A well-formed boundary from another stream still queries only this owned Workspace. Malformed cursors return 400 INVALID_HISTORY_CURSOR; invalid query/limit/order or a start_time_ms not before end_time_ms returns 400 INVALID_REQUEST. Foreign or absent Workspace IDs return 404 WORKSPACE_NOT_FOUND. Shared Bearer/runtime errors apply. Missing service/history storage or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message.",
+        "description": "Query only the named owned Workspace. Optional limit is 1..200 (default 50); query is literal text with a 512 UTF-8 byte limit. Optional order is desc (default, newest first) or asc (oldest first). Optional start_time_ms (inclusive) and end_time_ms (exclusive) bound created_at in Unix milliseconds; either side may be omitted, so end_time_ms alone jumps to entries before a moment and start_time_ms alone reads entries from a moment onward. History is returned in the requested order as PeerRunHistoryListResponse (available, items, has_next, optional next_cursor). Each item has name (entry ID), type, actor_name, text, created_at, replay_available, audio_available, and optional gear_id. Cursor is an exclusive entry-ID boundary formatted YYYYMMDDTHHMMSS.nnnnnnnnnZ-suffix: the previous next_cursor to continue in the same order, or any returned item name to page away from that item in the requested order. It is not an authorization token. Time bounds still apply to continuation requests. A well-formed boundary from another stream still queries only this owned Workspace. Malformed cursors return 400 INVALID_HISTORY_CURSOR; invalid query/limit/order or a start_time_ms not before end_time_ms returns 400 INVALID_REQUEST. Foreign or absent Workspace IDs return 404 WORKSPACE_NOT_FOUND. Shared Bearer/runtime errors apply. Missing service/history storage or backend failures return 500 INTERNAL_ERROR. ErrorResponse carries error.code and error.message. audio_available identifies a retained Ogg/Opus attachment without reading object storage; playback controls must not infer audio availability from replay_available.",
         "summary": "Read history from a Workspace owned by the authenticated device",
         "tags": [
           "Device"
@@ -4438,16 +4438,16 @@
           },
           "online": {
             "type": "boolean",
-            "description": "Whether the member's device is connected to the answering Server, the same state as Runtime.online. Set only by the members list; absent on add, put, delete and join responses."
+            "description": "Shared connection state across Servers, subject to replication delay. Set only by the members list; absent on add, put, delete and join responses."
           },
           "last_seen_at": {
             "type": "string",
             "format": "date-time",
-            "description": "Last observed activity of the member's device in UTC, as Runtime.last_seen_at reports it. Set only by the members list; absent when never observed or the read failed, and on add, put, delete and join responses."
+            "description": "Last activity observed at a connection or running-Workspace transition, in UTC. Set only by the members list; absent when unknown or the shared presence read failed, and on add, put, delete and join responses."
           },
           "in_room": {
             "type": "boolean",
-            "description": "Whether the member's device is running this Friend Group's Workspace on the answering Server, which is what attaches it to the Group's SFU Room. True implies online. Set only by the members list; absent on add, put, delete and join responses."
+            "description": "Whether the member's device is running this Friend Group's Workspace on any Server, according to the same shared presence snapshot as online. True implies online. Set only by the members list; absent on add, put, delete and join responses."
           }
         }
       },

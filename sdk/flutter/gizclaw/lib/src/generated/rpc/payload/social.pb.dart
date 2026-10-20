@@ -2740,8 +2740,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   void clearUpdatedAt() => $_clearField(6);
 
   /// Member presence, set only by server.friend_group.members.list. online is
-  /// whether the member's device is connected to the answering Server, the
-  /// same state as Runtime.online.
+  /// shared connection state across Servers, subject to replication delay.
   @$pb.TagNumber(7)
   $core.bool get online => $_getBF(6);
   @$pb.TagNumber(7)
@@ -2751,8 +2750,8 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   @$pb.TagNumber(7)
   void clearOnline() => $_clearField(7);
 
-  /// Last observed activity of the member's device in the Runtime.last_seen_at
-  /// format. Absent when the Server has never observed the member.
+  /// Last activity observed at a connection or running-Workspace transition,
+  /// in RFC 3339 UTC. Absent when unknown or the shared presence read failed.
   @$pb.TagNumber(8)
   $core.String get lastSeenAt => $_getSZ(7);
   @$pb.TagNumber(8)
@@ -2763,7 +2762,7 @@ class FriendGroupMemberObject extends $pb.GeneratedMessage {
   void clearLastSeenAt() => $_clearField(8);
 
   /// Whether the member's device is running this Friend Group's Workspace on
-  /// the answering Server, which is what attaches it to the Group's SFU Room.
+  /// any Server, according to the same shared presence snapshot as online.
   /// Set only by server.friend_group.members.list; true implies online.
   @$pb.TagNumber(9)
   $core.bool get inRoom => $_getBF(8);
@@ -4148,8 +4147,7 @@ class FriendObject extends $pb.GeneratedMessage {
   void clearWorkspaceName() => $_clearField(5);
 
   /// Friend presence and profile, set only by server.friend.list. online is
-  /// whether the Friend's device is connected to the answering Server, the
-  /// same state as Runtime.online.
+  /// shared connection state across Servers, subject to replication delay.
   @$pb.TagNumber(6)
   $core.bool get online => $_getBF(5);
   @$pb.TagNumber(6)
@@ -4159,8 +4157,8 @@ class FriendObject extends $pb.GeneratedMessage {
   @$pb.TagNumber(6)
   void clearOnline() => $_clearField(6);
 
-  /// Last observed activity of the Friend's device in the Runtime.last_seen_at
-  /// format. Absent when the Server has never observed the Friend.
+  /// Last activity observed at a connection or running-Workspace transition,
+  /// in RFC 3339 UTC. Absent when unknown or the shared presence read failed.
   @$pb.TagNumber(7)
   $core.String get lastSeenAt => $_getSZ(6);
   @$pb.TagNumber(7)

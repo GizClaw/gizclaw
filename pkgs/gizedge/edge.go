@@ -28,11 +28,14 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
 	store "github.com/GizClaw/gizclaw-go/pkgs/store"
+	storemetrics "github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 )
 
@@ -75,7 +78,14 @@ func servePreparedContext(ctx context.Context, cfg Config) (serveErr error) {
 	defer func() {
 		serveErr = errors.Join(serveErr, closeLogging())
 	}()
-	shutdownMetrics, metricsStore, err := installEdgeMetrics(cfg.Metrics)
+	cfg.deviceCount = new(atomic.Int64)
+	shutdownMetrics, metricsStore, err := installEdgeMetrics(cfg.Metrics,
+		gizmetrics.WithLabels(gizmetrics.Label{Name: "node_id", Value: cfg.KeyPair.Public.String()}, gizmetrics.Label{Name: "node_type", Value: "edge"}),
+		gizmetrics.WithCollector(func(at time.Time) []storemetrics.Sample {
+			return []storemetrics.Sample{{Name: "gizclaw_devices_online", Timestamp: at, Value: float64(cfg.deviceCount.Load())}}
+		}),
+		gizmetrics.WithCollector(func(at time.Time) []storemetrics.Sample { return gizwebrtc.MetricsSnapshot(at, "edge") }),
+	)
 	if err != nil {
 		return fmt.Errorf("edge: configure metrics: %w", err)
 	}
@@ -124,10 +134,11 @@ func servePreparedContext(ctx context.Context, cfg Config) (serveErr error) {
 	}
 	proxy := newPeerHTTPProxy(cfg.WebRTC.Endpoint, upstreamTransport, transport)
 	handler := monitor.Handler(cfg.Monitor, monitor.Node{
-		Role:      "edge",
-		PublicKey: cfg.KeyPair.Public.String(),
-		Version:   cfg.build.Version,
-		Commit:    cfg.build.Commit,
+		OnlineDevices: cfg.deviceCount.Load,
+		Role:          "edge",
+		PublicKey:     cfg.KeyPair.Public.String(),
+		Version:       cfg.build.Version,
+		Commit:        cfg.build.Commit,
 	}, edgeIngressHandler(proxy, gateway))
 	httpRuntime, err := startEdgeHTTP(cfg.HTTP.Listeners, handler)
 	if err != nil {
@@ -277,6 +288,7 @@ func dialUpstream(
 	var timing gizwebrtc.DialTiming
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.selectedUpstream.PublicKey, gizwebrtc.DialConfig{
 		MetricsNodeRole:       "edge",
+		MetricsPeerKind:       "upstream",
 		SignalingURL:          upstreamSignalingURL(upstreamURL),
 		SecurityPolicy:        edgeSecurityPolicy{},
 		SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
@@ -964,6 +976,16 @@ func rewriteServerInfo(resp *http.Response, edgeEndpoint string, transport *serv
 func edgeCORSHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		setEdgeCORSHeaders(w.Header(), req.Header.Get("Origin"))
+		if req.URL.Path == infraflow.Path {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Access-Control-Allow-Methods", "GET,OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Authorization,Content-Type")
+			if req.Method != http.MethodGet && req.Method != http.MethodOptions {
+				w.Header().Set("Allow", "GET,OPTIONS")
+				w.WriteHeader(http.StatusMethodNotAllowed)
+				return
+			}
+		}
 		if req.Method == http.MethodOptions && isEdgePeerHTTPPath(req.URL.Path) {
 			w.WriteHeader(http.StatusNoContent)
 			return

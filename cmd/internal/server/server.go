@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
@@ -88,7 +90,7 @@ func writePrivateHTTPIngressDenied(w http.ResponseWriter) {
 }
 
 func isProtectedPublicHTTPRoute(path string) bool {
-	return strings.HasPrefix(path, "/gizclaw/v1/") || strings.HasPrefix(path, "/openai/v1/")
+	return path != infraflow.Path && (strings.HasPrefix(path, "/gizclaw/v1/") || strings.HasPrefix(path, "/openai/v1/"))
 }
 
 // New wires an already prepared in-memory config into a command server.
@@ -189,6 +191,19 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		SynthesisMaxOutputBytes:       cfg.Speech.Synthesis.MaxOutputBytes,
 		SynthesisRequestTimeout:       synthesisTimeout,
 	}
+	var flowFeed *infraflow.Feed
+	if cfg.InfraFlow.Store != "" {
+		flowStore, resolveErr := resolveKVStore(ss, "infra_flow.store", cfg.InfraFlow.Store)
+		if resolveErr != nil {
+			return nil, resolveErr
+		}
+		flowFeed, err = infraflow.New(flowStore)
+		if err != nil {
+			return nil, err
+		}
+	}
+	gizServer.InfraFlowHandler = infraflow.Handler(cfg.InfraFlow, flowFeed, nil)
+
 	policy := serverSecurityPolicy{admin: adminPublicKeySecurityPolicy{PublicKey: cfg.AdminPublicKey}}
 	if cfg.PeerAdmission == "registration-token" {
 		policy.admission = gizclaw.NewRegistrationTokenSecurityPolicy(gizServer)
@@ -196,7 +211,11 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 	gizServer.SecurityPolicy = policy
 
 	if gizServer.MetricsStore != nil {
-		metricsShutdown, err = gizmetrics.InstallStore(gizServer.MetricsStore)
+		metricsShutdown, err = gizmetrics.InstallStore(gizServer.MetricsStore,
+			gizmetrics.WithLabels(gizmetrics.Label{Name: "node_id", Value: cfg.KeyPair.Public.String()}, gizmetrics.Label{Name: "node_type", Value: "server"}),
+			gizmetrics.WithCollector(gizServer.DeviceMetricsSnapshot),
+			gizmetrics.WithCollector(func(at time.Time) []metrics.Sample { return gizwebrtc.MetricsSnapshot(at, "application") }),
+		)
 		if err != nil {
 			return nil, fmt.Errorf("server: install metrics recorder: %w", err)
 		}
@@ -212,6 +231,15 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 func webRTCListenConfig(cfg Config, opts gizclaw.PeerListenerOptions, iceTCPListener net.Listener) gizwebrtc.ListenConfig {
 	publicAddr := publicICEAddr(cfg)
 	listenConfig := gizwebrtc.ListenConfig{
+		MetricsPeerKind: func(key giznet.PublicKey) string {
+			if key == cfg.AdminPublicKey {
+				return "admin"
+			}
+			if slices.Contains(cfg.EdgeNodes, key) {
+				return "upstream"
+			}
+			return "device"
+		},
 		ICEUDPAddr:       cfg.ICEListenAddr(),
 		ICETCPListener:   iceTCPListener,
 		PublicICEUDPAddr: publicAddr,

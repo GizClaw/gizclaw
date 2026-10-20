@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
@@ -23,6 +24,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerquota"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
@@ -42,6 +44,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -83,10 +86,12 @@ type Server struct {
 	FriendStore            kv.Store
 	FriendGroupStore       kv.Store
 	WorkspaceAssets        objectstore.ObjectStore
-	MetricsStore           metrics.Store
-	PendingDeletionConfig  pendingdeletion.Config
-	ServerLogQuery         ServerLogQueryService
-	GraphStateDB           *sqlx.DB
+	// InfraFlowHandler serves the public read-only, shared KV activity feed.
+	InfraFlowHandler      http.Handler
+	MetricsStore          metrics.Store
+	PendingDeletionConfig pendingdeletion.Config
+	ServerLogQuery        ServerLogQueryService
+	GraphStateDB          *sqlx.DB
 	// SFU is the Server-held SFU connector configuration; a zero value
 	// disables SFU Workspaces. SFUURL mirrors SFU.URL for the Social binding
 	// writers so credentials never leave this struct.
@@ -104,6 +109,7 @@ type Server struct {
 	EdgeNodes              []giznet.PublicKey
 
 	manager                  *Manager
+	deviceCount              atomic.Int64
 	peerService              *PeerService
 	apiKeys                  *apikey.Server
 	listenerMu               sync.RWMutex
@@ -160,6 +166,12 @@ func (s *Server) Listen() error {
 	}
 	if len(listeners) == 0 {
 		return giznet.ErrNilListener
+	}
+	if err := s.manager.Presence.Start(context.Background()); err != nil {
+		for _, listener := range listeners {
+			_ = listener.Close()
+		}
+		return err
 	}
 	s.listenerMu.Lock()
 	s.listeners = listeners
@@ -267,6 +279,9 @@ func (s *Server) Close() error {
 		return nil
 	}
 	var errs []error
+	if s.manager != nil && s.manager.Presence != nil {
+		errs = append(errs, s.manager.Presence.Close())
+	}
 	s.listenerMu.Lock()
 	listeners := append([]giznet.Listener(nil), s.listeners...)
 	hadListeners := len(s.listeners) > 0
@@ -432,6 +447,8 @@ func (s *Server) init() error {
 		ICEServers:      s.ICEServers,
 	}
 	manager := NewManager(peersServer)
+	manager.Presence = peerpresence.New(kv.Prefixed(s.PeerStore, kv.Key{"presence"}), s.LocalStatic.Public)
+	manager.deviceCount = &s.deviceCount
 	manager.PeerQuota = peerquota.New(quotaReporter{manager: manager})
 	if s.PeerUsageDB != nil {
 		usageStore, err := peerusage.NewStore(context.Background(), s.PeerUsageDB)
@@ -720,8 +737,9 @@ func (s *Server) init() error {
 
 	s.manager = manager
 	s.peerService = &PeerService{
-		manager: manager,
-		apiKeys: apiKeyServer,
+		infraFlowHandler: s.InfraFlowHandler,
+		manager:          manager,
+		apiKeys:          apiKeyServer,
 		admin: &adminService{
 			Peers:                       peersServer,
 			CredentialAdminService:      credentialServer,
@@ -768,6 +786,11 @@ func (s *Server) init() error {
 	mux.Handle("/server-info", publicHandler)
 	mux.Handle(gizwebrtc.SignalingPath, publicHandler)
 	mux.Handle("/gizclaw/v1/", publicHandler)
+	infraFlowHandler := s.InfraFlowHandler
+	if infraFlowHandler == nil {
+		infraFlowHandler = infraflow.Handler(infraflow.Config{}, nil, nil)
+	}
+	mux.Handle(infraflow.Path, infraFlowHandler)
 	mux.Handle("/openai/v1/", s.peerOpenAIHTTPHandler(apiKeyServer))
 	s.httpHandler = observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceServerPublic})
 	return nil

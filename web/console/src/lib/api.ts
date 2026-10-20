@@ -6,6 +6,32 @@ import { z } from "zod";
 import type { ConsoleServer } from "@/lib/config";
 import { isLocal } from "@/lib/config";
 
+const count = z.number().int().nonnegative().finite();
+const directions = z.object({ rx: count, tx: count });
+export const nodeDeviceMetricsSchema = z.object({
+  online_devices: count.optional(),
+  transports: z
+    .array(
+      z.object({
+        peer_kind: z.enum(["device", "upstream", "admin", "unknown"]),
+        rtp_tracks: directions,
+        data_channels: z.object({
+          packet: count,
+          service: count,
+          native: count,
+        }),
+        rtp_packets_total: directions,
+        data_channel_messages_total: directions,
+      }),
+    )
+    .max(4)
+    .refine(
+      (rows) => new Set(rows.map((row) => row.peer_kind)).size === rows.length,
+      "重复的连接类型",
+    ),
+});
+export type NodeDeviceMetrics = z.infer<typeof nodeDeviceMetricsSchema>;
+
 export const nodeSchema = z.object({
   public_key: z.string(),
   role: z.string(),
@@ -16,6 +42,7 @@ export const nodeSchema = z.object({
   uptime_seconds: z.number(),
   goroutines: z.number(),
   heap_bytes: z.number(),
+  device_metrics: nodeDeviceMetricsSchema.optional(),
   transport: z.object({
     connections: z.number(),
     services: z.number(),

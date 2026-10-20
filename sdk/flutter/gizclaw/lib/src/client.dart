@@ -199,6 +199,7 @@ class GizClawClient {
     String? cursor,
     int? limit,
     String? prefix,
+    bool? system,
   }) {
     final request = payload.WorkspaceListRequest();
     if (cursor != null) {
@@ -209,6 +210,9 @@ class GizClawClient {
     }
     if (prefix != null) {
       request.prefix = prefix;
+    }
+    if (system != null) {
+      request.system = system;
     }
     return rpc.call<payload.WorkspaceListResponse>(
       'server.workspace.list',
