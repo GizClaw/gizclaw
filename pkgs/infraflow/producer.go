@@ -18,6 +18,7 @@ import (
 )
 
 const collectionTimeout = 2 * time.Second
+const sourceClockTolerance = 2 * time.Second
 const maxSnapshotBytes = 64 * 1024
 
 // SourceConfig pins a remote Monitor identity and its complete route ownership.
@@ -156,7 +157,9 @@ func NewProducer(feed *Feed, env infraapi.Environment, local *Counters, cfg Prod
 // is emitted, and the borrowed Store remains open.
 func (p *Producer) Run(ctx context.Context) {
 	defer p.client.CloseIdleConnections()
-	next := time.Now().Truncate(Window).Add(Window)
+	// Give source clocks the accepted freshness tolerance to close their window.
+	// This delays the single bounded scrape; it never adds retries or business work.
+	next := time.Now().Truncate(Window).Add(Window + sourceClockTolerance)
 	for {
 		timer := time.NewTimer(time.Until(next))
 		select {
@@ -165,7 +168,13 @@ func (p *Producer) Run(ctx context.Context) {
 			return
 		case <-timer.C:
 		}
-		end := time.Now().Truncate(Window)
+		now := time.Now()
+		end := now.Truncate(Window)
+		if now.Before(end.Add(sourceClockTolerance)) {
+			// A late wakeup can cross into another window before its grace ends.
+			next = end.Add(sourceClockTolerance)
+			continue
+		}
 		if err := p.collect(ctx, end); err != nil && ctx.Err() == nil {
 			// Deliberately avoid provider errors, URLs, tokens and payloads in logs.
 			slog.WarnContext(ctx, "infraflow: collection window unavailable", "environment", p.environment, "window_end", end.UnixMilli())
@@ -173,9 +182,9 @@ func (p *Producer) Run(ctx context.Context) {
 				return
 			}
 		}
-		next = end.Add(Window)
+		next = end.Add(Window + sourceClockTolerance)
 		if !time.Now().Before(next) {
-			next = time.Now().Truncate(Window).Add(Window)
+			next = time.Now().Truncate(Window).Add(Window + sourceClockTolerance)
 		}
 	}
 }
@@ -272,7 +281,7 @@ func (p *Producer) snapshot(ctx context.Context, source *counterSource, end time
 		if err := json.Unmarshal(data, &node); err != nil {
 			return nil, err
 		}
-		if node.PublicKey != source.config.PublicKey || node.Role != "server" || time.Since(node.Time) > collectionTimeout || time.Until(node.Time) > collectionTimeout {
+		if node.PublicKey != source.config.PublicKey || node.Role != "server" || time.Since(node.Time) > sourceClockTolerance || time.Until(node.Time) > sourceClockTolerance {
 			return nil, errors.New("infraflow: stale or mismatched Monitor identity")
 		}
 		snapshot = node.InfraFlows
@@ -283,11 +292,17 @@ func (p *Producer) snapshot(ctx context.Context, source *counterSource, end time
 	flows := make([]infraapi.Flow, len(source.routes))
 	for i, route := range source.routes {
 		index := slices.IndexFunc(snapshot.Flows, func(flow infraapi.Flow) bool { return routeKey(flow) == routeKey(route) })
-		if index < 0 || !validFlow(snapshot.Flows[index]) {
+		if index < 0 || !validCaptureFlow(snapshot.Flows[index]) {
 			return nil, errors.New("infraflow: counter route mismatch")
 		}
 		flows[i] = snapshot.Flows[index]
 	}
 	snapshot.Flows = flows
 	return snapshot, nil
+}
+
+func validCaptureFlow(flow infraapi.Flow) bool {
+	return validFlow(flow) && flow.Count <= MaxSamplesPerWindow &&
+		flow.DurationCount == flow.Count && (flow.Count > 0 || flow.Bytes == 0) &&
+		flow.Bytes <= maxSampleTotal && flow.DurationSumMs <= maxSampleTotal
 }

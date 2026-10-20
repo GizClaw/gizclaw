@@ -22,6 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 	infraapi "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
 	"github.com/GizClaw/gizclaw-go/pkgs/monitor"
+	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
 	stores "github.com/GizClaw/gizclaw-go/pkgs/store"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/storage"
 	"github.com/goccy/go-yaml"
@@ -185,8 +186,20 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 		return infraapi.Frame{}
 	}
 	_ = waitFrame(func(frame infraapi.Frame) bool { return len(frame.Flows) == 2 })
-	// Place a small controlled pulse well inside one complete fixed UTC window.
-	time.Sleep(time.Until(time.Now().Truncate(infraflow.Window).Add(infraflow.Window)) + 200*time.Millisecond)
+	// Observe rotation explicitly: best-effort traffic must not rotate its own
+	// sampling budget, and the publisher can legitimately scrape after a boundary.
+	time.Sleep(time.Until(time.Now().Truncate(infraflow.Window).Add(infraflow.Window)))
+	monitorClient, err := monitorapi.NewClientWithResponses("http://"+sourceAddr, monitorapi.WithHTTPClient(client))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rotated, err := monitorClient.GetNodeMonitorWithResponse(t.Context(), func(_ context.Context, r *http.Request) error {
+		r.Header.Set("Authorization", "Bearer "+token)
+		return nil
+	})
+	if err != nil || rotated.JSON200 == nil || rotated.JSON200.InfraFlows == nil || rotated.JSON200.InfraFlows.WindowEnd != time.Now().Truncate(infraflow.Window).UnixMilli() {
+		t.Fatalf("capture rotation barrier failed: %+v %v", rotated, err)
+	}
 	pulseStart := time.Now()
 	for range 4 {
 		response, err := client.Get("http://" + edgeAddr + "/server-info")

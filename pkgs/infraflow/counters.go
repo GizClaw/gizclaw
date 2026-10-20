@@ -43,6 +43,10 @@ type CaptureConfig struct {
 // This is a visual activity signal, not traffic accounting.
 const MaxSamplesPerWindow = 20
 
+// Reserve a numeric share for every possible route, so one source cannot consume
+// the frame-wide budget and suppress otherwise healthy sources.
+const maxSampleTotal = MaxCounter / MaxFlows
+
 // Observer admits a bounded number of observations without waiting. An exhausted
 // budget costs one atomic load: no clock read, allocation, mutex or I/O. Budget
 // replenishment and window rotation belong to Snapshot, outside business work.
@@ -187,7 +191,7 @@ func (c *Counters) add(route int, bytes int64, elapsed time.Duration) {
 		return
 	}
 	value := &c.values[route]
-	if value.Count < MaxSamplesPerWindow && bytes <= MaxCounter-value.Bytes && duration <= MaxCounter-value.DurationSumMs {
+	if value.Count < MaxSamplesPerWindow && bytes <= maxSampleTotal-value.Bytes && duration <= maxSampleTotal-value.DurationSumMs {
 		value.Count++
 		value.Bytes += bytes
 		value.DurationCount++

@@ -103,6 +103,10 @@ priority over completeness: dropped samples, missing observations and missing
 windows are acceptable. There is no replay, backfill or extrapolation into totals.
 Do not use these values for billing, analytics, throughput accounting or latency SLIs.
 
+Each route reserves one sixty-fourth of the frame's safe numeric capacity for
+sample bytes and elapsed time. Out-of-budget sources are omitted before merging,
+so malformed values cannot suppress healthy sources' frames.
+
 Each route retains at most 20 samples per five-second window. Background window
 rotation grants 20 sampling credits per route. Once exhausted, the hot path
 performs one atomic load, without clocks, allocations or locking.
@@ -148,7 +152,9 @@ Remote counters use the optional `infra_flows` field on the existing independent
 authenticated `/monitor/api/node`. The producer checks configured public key, Server
 role, environment, complete route set, snapshot time and window, rejecting stale or
 unknown routes and invalid counters. Each window has at most 64 concurrent sources,
-one request per source and 64 KiB per response, with one second for scraping and a
+one request per source and 64 KiB per response. The publisher waits two seconds
+after the boundary for source clocks to close their windows, matching the accepted
+clock tolerance. There is still only one scrape, with one second for scraping and a
 separate one-second Feed write budget. Remote endpoints require HTTPS; only loopback
 tests allow HTTP. Redirects are disabled. Monitor tokens never enter public frames
 or failure logs. Failures emit bounded window warnings. A conflicting same-window
@@ -213,7 +219,7 @@ calls and one control RPC to trigger five route activities and two real KV reads
 Anonymous reads must return fresh `simulated: false` frames with matching bytes,
 sample durations, window, cursor, the next window with no new samples and environment
 isolation. Separate deterministic tests cover failures, source validation, quota,
-drops, nonblocking business progress, restart, cancellation
+drops, clock skew, positive numeric overflow, nonblocking business progress, restart, cancellation
 and the 121-key bound.
 
 ```sh
