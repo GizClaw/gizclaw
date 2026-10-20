@@ -160,6 +160,9 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 			return ctx.Next()
 		}
 		normalizeOptionalJSONBody(ctx)
+		if token := bearerCredential(ctx.Get(fiber.HeaderAuthorization)); peerhttp.IsSignedBearerToken(token) {
+			return s.authorizeSignedPeerHTTP(ctx, token)
+		}
 		publicKey, debug, debugErr := peerhttp.DebugPublicKey(ctx.Get(fiber.HeaderAuthorization))
 		if debug && peerhttp.IsDebugDataPath(ctx.Path()) {
 			ctx.Set("Cache-Control", "no-store")

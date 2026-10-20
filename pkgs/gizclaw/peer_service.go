@@ -79,6 +79,7 @@ type PeerService struct {
 	openAIProtocolErr  error
 	openAIResponseOnce sync.Once
 	openAIResponses    *openaiapi.ResponseRuntime
+	allowAdminHTTP     func(giznet.PublicKey) bool
 }
 
 var _ peerhttp.StrictServerInterface = (*peerHTTP)(nil)

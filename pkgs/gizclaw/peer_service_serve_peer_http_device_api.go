@@ -39,9 +39,11 @@ func internalPublicHTTP() apitypes.ErrorResponse {
 	return apiError(publicHTTPInternalErrorCode, http.StatusText(http.StatusInternalServerError))
 }
 
-// publicHTTPOwner returns the owner Peer bound to the authenticated API key.
-// Handlers never accept a Peer selector from the request.
+// publicHTTPOwner returns the authenticated key owner or Server-authorized target.
 func publicHTTPOwner(ctx context.Context) (giznet.PublicKey, error) {
+	if target, ok := ctx.Value(signedPeerTargetKey{}).(giznet.PublicKey); ok {
+		return target, nil
+	}
 	owner := peerhttp.CallerPublicKey(ctx)
 	if owner.IsZero() {
 		return giznet.PublicKey{}, errPublicHTTPOwnerMissing
