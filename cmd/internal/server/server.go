@@ -178,18 +178,9 @@ func newWithOptions(cfg Config, newOpts newServerOptions) (srv *CmdServer, err e
 		}
 		gizServer.InfraFlowCounters = counters
 		for _, route := range cfg.InfraFlow.Capture.Routes {
-			if route.EdgePublicKey != "" {
-				known := slices.ContainsFunc(cfg.EdgeNodes, func(key giznet.PublicKey) bool { return key.String() == route.EdgePublicKey })
-				if !known {
-					return nil, fmt.Errorf("server: infra_flow capture requires a configured Edge key")
-				}
-			} else {
-				if route.Store == cfg.InfraFlow.Store {
-					return nil, fmt.Errorf("server: infra_flow cannot observe its own feed Store")
-				}
-				if observeErr := ss.ObserveKVReads(route.Store, counters.StoreObserver(route.Store)); observeErr != nil {
-					return nil, fmt.Errorf("server: infra_flow capture Store: %w", observeErr)
-				}
+			known := slices.ContainsFunc(cfg.EdgeNodes, func(key giznet.PublicKey) bool { return key.String() == route.EdgePublicKey })
+			if !known {
+				return nil, fmt.Errorf("server: infra_flow capture requires a configured Edge key")
 			}
 		}
 	}

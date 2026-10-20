@@ -15,8 +15,6 @@ func ReadDelay(store Store) time.Duration {
 	switch s := store.(type) {
 	case *strongReadStore:
 		return 0
-	case *readObserver:
-		return ReadDelay(s.Store)
 	case *prefixedStore:
 		return ReadDelay(s.base)
 	case *TiKV:

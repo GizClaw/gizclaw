@@ -172,9 +172,9 @@ func TestCollectionConfigurationRejectsDuplicateOwnershipAndCapacity(t *testing.
 		t.Fatal("unbounded route set accepted")
 	}
 	for _, cfg := range []CaptureConfig{
-		{Node: "server", Routes: []CaptureRoute{{Route: Route{"edge", "server"}, EdgePublicKey: "key", Store: "kv"}}},
+		{Node: "server", Routes: []CaptureRoute{{Route: Route{"edge", "server"}}}},
 		{Node: "server", Routes: []CaptureRoute{{Route: Route{"edge", "elsewhere"}, EdgePublicKey: "key"}}},
-		{Node: "server", Routes: []CaptureRoute{{Route: Route{"elsewhere", "kv"}, Store: "kv"}}},
+		{Node: "server", Routes: []CaptureRoute{{Route: Route{"server", "server"}, EdgePublicKey: "key"}}},
 		{Node: "server", Routes: []CaptureRoute{{Route: Route{"edge", "server"}, EdgePublicKey: "key"}, {Route: Route{"other", "server"}, EdgePublicKey: "key"}}},
 	} {
 		if _, err := NewCounters(infraapi.E2e, cfg); err == nil {
@@ -188,7 +188,7 @@ func TestProducerRemoteValidationAndFailureIsolation(t *testing.T) {
 	end := time.Now().Truncate(Window)
 	// Unit fault injection checks wire validation. Production activity acceptance
 	// is separately exercised by TestInfraFlowProductionServerEdgeCollection.
-	sourceSnapshot := monitorapi.NodeSnapshot{PublicKey: "remote", Role: "server", Time: time.Now(), InfraFlows: &monitorapi.NodeInfraFlows{Environment: monitorapi.E2e, Generation: "boot", WindowStart: end.Add(-Window).UnixMilli(), WindowEnd: end.UnixMilli(), Flows: []infraapi.Flow{{Source: "remote", Target: "kv", Kind: infraapi.Request, Count: 2, Bytes: 9, DurationCount: 2, DurationSumMs: 4}}}}
+	sourceSnapshot := monitorapi.NodeSnapshot{PublicKey: "remote", Role: "server", Time: time.Now(), InfraFlows: &monitorapi.NodeInfraFlows{Environment: monitorapi.E2e, Generation: "boot", WindowStart: end.Add(-Window).UnixMilli(), WindowEnd: end.UnixMilli(), Flows: []infraapi.Flow{{Source: "remote", Target: "remote-server", Kind: infraapi.Request, Count: 2, Bytes: 9, DurationCount: 2, DurationSumMs: 4}}}}
 	token := "gizclaw_mk_" + strings.Repeat("a", 32)
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer "+token {
@@ -198,7 +198,7 @@ func TestProducerRemoteValidationAndFailureIsolation(t *testing.T) {
 	}))
 	defer remote.Close()
 	feed, _ := New(kv.NewMemory(nil))
-	producer, err := NewProducer(feed, infraapi.E2e, c, ProducerConfig{Sources: []SourceConfig{{Endpoint: remote.URL + "/monitor/api/node", PublicKey: "remote", Token: token, Routes: []Route{{"remote", "kv"}}}}})
+	producer, err := NewProducer(feed, infraapi.E2e, c, ProducerConfig{Sources: []SourceConfig{{Endpoint: remote.URL + "/monitor/api/node", PublicKey: "remote", Token: token, Routes: []Route{{"remote", "remote-server"}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -242,7 +242,7 @@ func TestProducerSlowSourceCannotBlockHealthySourceOrShutdown(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := captureFixture(t, infraapi.E2e)
 		feed, _ := New(kv.NewMemory(nil))
-		producer, err := NewProducer(feed, infraapi.E2e, c, ProducerConfig{Sources: []SourceConfig{{Endpoint: "https://unavailable.example/monitor/api/node", PublicKey: "missing", Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{"remote", "storage"}}}}})
+		producer, err := NewProducer(feed, infraapi.E2e, c, ProducerConfig{Sources: []SourceConfig{{Endpoint: "https://unavailable.example/monitor/api/node", PublicKey: "missing", Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{"remote", "remote-server"}}}}})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -285,7 +285,7 @@ func TestProducerSingleScrapeAllowsSourceClockSkew(t *testing.T) {
 				store := kv.NewMemory(nil)
 				defer store.Close()
 				feed, _ := New(store)
-				p, err := NewProducer(feed, infraapi.E2e, nil, ProducerConfig{Sources: []SourceConfig{{Endpoint: "https://source.example/monitor/api/node", PublicKey: "remote", Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{"remote", "kv"}}}}})
+				p, err := NewProducer(feed, infraapi.E2e, nil, ProducerConfig{Sources: []SourceConfig{{Endpoint: "https://source.example/monitor/api/node", PublicKey: "remote", Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{"remote", "remote-server"}}}}})
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -294,7 +294,7 @@ func TestProducerSingleScrapeAllowsSourceClockSkew(t *testing.T) {
 					requests = append(requests, time.Now())
 					now := time.Now().Add(offset)
 					end := now.Truncate(Window)
-					node := monitorapi.NodeSnapshot{PublicKey: "remote", Role: "server", Time: now, InfraFlows: &monitorapi.NodeInfraFlows{Environment: monitorapi.E2e, Generation: "boot", WindowStart: end.Add(-Window).UnixMilli(), WindowEnd: end.UnixMilli(), Flows: []infraapi.Flow{{Source: "remote", Target: "kv", Kind: infraapi.Request, Count: 1, Bytes: 1, DurationCount: 1, DurationSumMs: 1}}}}
+					node := monitorapi.NodeSnapshot{PublicKey: "remote", Role: "server", Time: now, InfraFlows: &monitorapi.NodeInfraFlows{Environment: monitorapi.E2e, Generation: "boot", WindowStart: end.Add(-Window).UnixMilli(), WindowEnd: end.UnixMilli(), Flows: []infraapi.Flow{{Source: "remote", Target: "remote-server", Kind: infraapi.Request, Count: 1, Bytes: 1, DurationCount: 1, DurationSumMs: 1}}}}
 					data, err := json.Marshal(node)
 					return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(string(data)))}, err
 				})
@@ -335,7 +335,7 @@ func TestProducerRejectsPositiveOverflowWithoutSuppressingHealthySource(t *testi
 			feed, _ := New(store)
 			cfg := ProducerConfig{}
 			for _, name := range []string{"bad", "healthy"} {
-				cfg.Sources = append(cfg.Sources, SourceConfig{Endpoint: "https://" + name + ".example/monitor/api/node", PublicKey: name, Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{name, "kv"}}})
+				cfg.Sources = append(cfg.Sources, SourceConfig{Endpoint: "https://" + name + ".example/monitor/api/node", PublicKey: name, Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{name, "remote-server"}}})
 			}
 			p, err := NewProducer(feed, infraapi.E2e, nil, cfg)
 			if err != nil {
@@ -345,7 +345,7 @@ func TestProducerRejectsPositiveOverflowWithoutSuppressingHealthySource(t *testi
 			end := time.Now().Truncate(Window)
 			p.client.Transport = snapshotTransport(func(r *http.Request) (*http.Response, error) {
 				name := strings.TrimSuffix(r.URL.Host, ".example")
-				flow := infraapi.Flow{Source: name, Target: "kv", Kind: infraapi.Request, Count: 1, Bytes: 1, DurationCount: 1, DurationSumMs: 1}
+				flow := infraapi.Flow{Source: name, Target: "remote-server", Kind: infraapi.Request, Count: 1, Bytes: 1, DurationCount: 1, DurationSumMs: 1}
 				if name == "bad" {
 					flow.Count, flow.DurationCount, flow.Bytes, flow.DurationSumMs = scenario.count, scenario.count, scenario.bytes, scenario.duration
 				}
@@ -375,7 +375,7 @@ func TestProducerRejectsRedirectAndOversizedSnapshot(t *testing.T) {
 	}))
 	defer remote.Close()
 	feed, _ := New(kv.NewMemory(nil))
-	p, err := NewProducer(feed, infraapi.E2e, c, ProducerConfig{Sources: []SourceConfig{{Endpoint: remote.URL + "/monitor/api/node", PublicKey: "remote", Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{"remote", "storage"}}}}})
+	p, err := NewProducer(feed, infraapi.E2e, c, ProducerConfig{Sources: []SourceConfig{{Endpoint: remote.URL + "/monitor/api/node", PublicKey: "remote", Token: "gizclaw_mk_" + strings.Repeat("a", 32), Routes: []Route{{"remote", "remote-server"}}}}})
 	if err != nil {
 		t.Fatal(err)
 	}

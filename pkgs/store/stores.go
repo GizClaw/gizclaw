@@ -72,18 +72,6 @@ type Stores struct {
 	ttls         map[string]time.Duration
 }
 
-// ObserveKVReads installs a bounded in-memory read observer before Stores are
-// borrowed by services. It does not change Store ownership. The caller must not
-// mutate the registry concurrently or install multiple observers for one Store.
-func (s *Stores) ObserveKVReads(name string, observe kv.ReadObserver) error {
-	store, err := s.KV(name)
-	if err != nil {
-		return err
-	}
-	s.kvs[name] = kv.ObserveReads(store, observe)
-	return nil
-}
-
 // New creates logical stores on top of already-opened physical storage
 // backends. TiKV roots start a bounded expiration worker owned by Stores;
 // Close cancels and joins it. The caller owns the physical storage lifecycle

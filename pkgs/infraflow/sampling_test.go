@@ -7,7 +7,6 @@ import (
 	"time"
 
 	infraapi "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 func TestSamplingBudgetNeverRetriesOrRefillsFromTraffic(t *testing.T) {
@@ -41,29 +40,18 @@ func TestSamplingBudgetNeverRetriesOrRefillsFromTraffic(t *testing.T) {
 	})
 }
 
-func TestBusyCollectorCannotBlockBusinessReads(t *testing.T) {
+func TestBusyCollectorCannotBlockPeerObservations(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
-		c, err := NewCounters(infraapi.E2e, CaptureConfig{Node: "server", Routes: []CaptureRoute{{Route: Route{"server", "kv"}, Store: "records"}}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		base := kv.NewMemory(nil)
-		defer base.Close()
-		key := kv.Key{"record"}
-		if err := base.Set(t.Context(), key, []byte("unchanged")); err != nil {
-			t.Fatal(err)
-		}
-		store := kv.ObserveReads(base, c.StoreObserver("records"))
+		c := captureFixture(t, infraapi.E2e)
+		observer := c.EdgeObserver("edge-key")
 		c.mu.Lock() // Simulate a stalled collector holding all aggregation state.
 		done := make(chan struct{})
 		var work sync.WaitGroup
 		for range 8 {
 			work.Go(func() {
 				for range 10000 {
-					value, err := store.Get(t.Context(), key)
-					if err != nil || string(value) != "unchanged" {
-						t.Error("observation altered the business result")
-						return
+					if started, selected := observer.Begin(); selected {
+						observer.End(started, 1)
 					}
 				}
 			})
@@ -75,7 +63,7 @@ func TestBusyCollectorCannotBlockBusinessReads(t *testing.T) {
 		case <-time.After(time.Second):
 			c.mu.Unlock()
 			<-done
-			t.Fatal("collector lock delayed business")
+			t.Fatal("collector lock delayed peer observations")
 		}
 		if c.values[0].Count != 0 {
 			t.Fatal("contended samples were not dropped")

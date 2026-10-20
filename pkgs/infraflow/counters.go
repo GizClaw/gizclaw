@@ -10,7 +10,6 @@ import (
 
 	infraapi "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
 	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // Route configures an infrastructure identity, never a device or session.
@@ -23,13 +22,11 @@ func (r Route) flow() infraapi.Flow {
 	return infraapi.Flow{Source: r.Source, Target: r.Target, Kind: infraapi.Request}
 }
 
-// CaptureRoute assigns one local activity owner to one directed route.
-// EdgePublicKey selects both trusted Edge HTTP and control RPC completions.
-// Store selects Get/BatchGet reads on one logical KV Store. Exactly one is required.
+// CaptureRoute assigns one peer-surface activity owner to one directed route.
+// EdgePublicKey selects trusted Edge HTTP and control RPC completions.
 type CaptureRoute struct {
 	Route         `yaml:",inline"`
 	EdgePublicKey string `yaml:"edge_public_key"`
-	Store         string `yaml:"store"`
 }
 
 // CaptureConfig fixes the local route cells for the process lifetime.
@@ -90,7 +87,6 @@ type Counters struct {
 	routes        []infraapi.Flow
 	observers     []*Observer
 	edges         map[string]*Observer
-	stores        map[string]*Observer
 }
 
 // NewCounters validates and allocates a fixed route set without starting work.
@@ -98,7 +94,7 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 	if environmentIndex(env) < 0 || !idPattern.MatchString(cfg.Node) || len(cfg.Routes) == 0 || len(cfg.Routes) > MaxFlows {
 		return nil, errors.New("infraflow: invalid capture environment, node or capacity")
 	}
-	c := &Counters{environment: env, edges: map[string]*Observer{}, stores: map[string]*Observer{}}
+	c := &Counters{environment: env, edges: map[string]*Observer{}}
 	var generation [16]byte
 	if _, err := rand.Read(generation[:]); err != nil {
 		return nil, err
@@ -109,30 +105,20 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 	seen := map[string]bool{}
 	for i, r := range cfg.Routes {
 		flow := r.flow()
-		if !validFlow(flow) || seen[routeKey(flow)] || (r.EdgePublicKey == "") == (r.Store == "") {
+		if !validFlow(flow) || seen[routeKey(flow)] || r.EdgePublicKey == "" {
 			return nil, errors.New("infraflow: invalid or duplicate capture route")
 		}
 		seen[routeKey(flow)] = true
 		observer := &Observer{owner: c, route: i}
 		observer.remaining.Store(MaxSamplesPerWindow)
 		c.observers = append(c.observers, observer)
-		if r.EdgePublicKey != "" {
-			if r.Target != cfg.Node {
-				return nil, errors.New("infraflow: Edge route must target the capturing node")
-			}
-			if _, ok := c.edges[r.EdgePublicKey]; ok {
-				return nil, errors.New("infraflow: duplicate Edge counter owner")
-			}
-			c.edges[r.EdgePublicKey] = observer
-		} else {
-			if r.Source != cfg.Node {
-				return nil, errors.New("infraflow: Store route must originate at the capturing node")
-			}
-			if _, ok := c.stores[r.Store]; ok {
-				return nil, errors.New("infraflow: duplicate Store counter owner")
-			}
-			c.stores[r.Store] = observer
+		if r.Target != cfg.Node {
+			return nil, errors.New("infraflow: Edge route must target the capturing node")
 		}
+		if _, ok := c.edges[r.EdgePublicKey]; ok {
+			return nil, errors.New("infraflow: duplicate Edge counter owner")
+		}
+		c.edges[r.EdgePublicKey] = observer
 		c.routes = append(c.routes, flow)
 		c.values[i] = flow
 		c.previous[i] = flow
@@ -146,18 +132,6 @@ func (c *Counters) EdgeObserver(publicKey string) *Observer {
 		return nil
 	}
 	return c.edges[publicKey]
-}
-
-// StoreObserver binds the configured logical Store's bounded sampling gate.
-func (c *Counters) StoreObserver(name string) kv.ReadObserver {
-	if c == nil {
-		return nil
-	}
-	observer := c.stores[name]
-	if observer == nil {
-		return nil
-	}
-	return observer
 }
 
 func (c *Counters) rotate(end int64) {

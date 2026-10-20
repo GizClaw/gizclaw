@@ -103,6 +103,11 @@ priority over completeness: dropped samples, missing observations and missing
 windows are acceptable. There is no replay, backfill or extrapolation into totals.
 Do not use these values for billing, analytics, throughput accounting or latency SLIs.
 
+Capture is limited to infrastructure Peer-to-Peer request surfaces. The installed
+observers cover trusted Edge → Server HTTP and control RPC completions. Other
+Server/Mesh peer paths have no capture here. Database/KV calls and other operations
+inside a request are not instrumented; KV only stores and serves completed frames.
+
 Each route reserves one sixty-fourth of the frame's safe numeric capacity for
 sample bytes and elapsed time. Out-of-budget sources are omitted before merging,
 so malformed values cannot suppress healthy sources' frames.
@@ -115,27 +120,23 @@ installed only for selected calls. Completion tries to update fixed memory and
 immediately drops on contention, missed windows or capacity. Business never waits.
 Background reads own window rotation, quota refill and snapshot allocation. Without
 a reader/collector, the initial quota exhausts and timing/byte work stops. Sampling
-adds no business KV operations. Batches above 64 values keep call/duration samples
-without traversing results for byte accounting.
+adds no database instrumentation or business KV operations.
 
 Server processes own opt-in collection, without an extra daemon or Metrics Store.
 Enable `producer` on exactly one designated Server per environment. Other Servers
 configure only `capture` and the shared Feed Store. Clusters enable independently;
 environments are fixed to `dev|e2e|trial|prod` and IDs must match the published topology.
 Each source declares its complete route set. Configuration rejects duplicate directed
-routes, source public keys, Edge/Store owners, and more than 64 routes.
+routes, source public keys, Edge owners, and more than 64 routes.
 
 | Supported route | Unique owner | count | bytes | duration |
 | --- | --- | --- | --- | --- |
 | Configured Edge → authoritative Server | Receiving Server, matched by the trusted connection key in `edge-nodes` | Retained Edge HTTP/control RPC completion samples, including errors | HTTP response body bytes actually written by retained samples; retained RPC stream bytes actually read/written, including framing | Actual elapsed time of retained samples |
-| Server → named logical KV Store | Calling Server | Retained `Get`/`BatchGet` samples; one per batch, including missing/failed attempts | Returned value bytes of retained samples | Actual elapsed time of retained reads |
 
-Both use `kind: request`. HTTP and control RPC are separate operations on the same
+Peer request samples use `kind: request`. HTTP and control RPC are separate operations on the same
 infrastructure route. HTTP bytes exclude request bodies and headers; RPC excludes
-ICE/DTLS overhead; KV excludes keys, protocol overhead and backend-internal reads.
-KV writes, collections, operations through shared atomic roots bypassing the logical
-view, device/Server audio, models, assets, replication and whole-host traffic are
-outside this collection coverage. Unattributed routes are absent. Feed polling is
+ICE/DTLS overhead. Database reads/writes, device/Server audio, models, assets,
+replication and whole-host traffic are outside this collection coverage. Unattributed routes are absent. Feed polling is
 excluded from Edge activity, preventing the visualization from driving itself.
 
 Capture retains only the current and previous UTC-aligned five-second windows,
@@ -177,9 +178,6 @@ infra_flow:
       - source: edge-shanghai
         target: server-shanghai
         edge_public_key: ${EDGE_PUBLIC_KEY}
-      - source: server-shanghai
-        target: kv-shanghai
-        store: peer-records
   producer: {}
 ```
 
@@ -199,12 +197,10 @@ infra_flow:
         routes:
           - source: edge-shanghai
             target: server-shanghai
-          - source: server-shanghai
-            target: kv-shanghai
 ```
 
 Local `capture` routes are included automatically; do not configure them again as a
-remote source. The Feed Store cannot also be a capture target. Servers must contain
+remote source. The Feed Store is a frame persistence backend. Servers must contain
 `infra_flow.capture`, `producer` and Monitor `infra_flows` support; read-only-feed
 versions such as v0.33.8 and earlier cannot install this producer. Formal release
 and per-environment deployment require separate acceptance. Edge continues to use a
@@ -215,7 +211,8 @@ Local acceptance uses independent real Server/Edge processes through the normal
 release startup path: two Servers share temporary SQLite KV, one exports capture
 through authenticated Monitor, and the other publishes Feed windows. Edge forwards
 HTTP and control RPC over real WebRTC. A normal business API key allows four HTTP
-calls and one control RPC to trigger five route activities and two real KV reads.
+calls and one control RPC to trigger five peer-surface activities. Internal
+database work creates no additional Flow.
 Anonymous reads must return fresh `simulated: false` frames with matching bytes,
 sample durations, window, cursor, the next window with no new samples and environment
 isolation. Separate deterministic tests cover failures, source validation, quota,
@@ -224,15 +221,15 @@ and the 121-key bound.
 
 ```sh
 go test ./cmd/internal/server -run '^TestInfraFlowProductionServerEdgeCollection$' -count=1 -v
-go test -race ./pkgs/infraflow/... ./pkgs/store/kv -count=1
-go test ./pkgs/infraflow -run '^$' -bench 'ExhaustedSamplingGate|BusinessKVReadSampling' -benchmem -cpu 1,4
+go test -race ./pkgs/infraflow/... -count=1
+go test ./pkgs/infraflow -run '^$' -bench '^BenchmarkExhaustedSamplingGate$' -benchmem -cpu 1,4
 go test ./pkgs/gizclaw -run '^$' -bench '^BenchmarkHTTPActivitySampling$' -benchmem -cpu 1,4
 ```
 
 Comparison benchmarks use identical business/logging work to check added allocations
 and request handling cost. Completeness never justifies waiting for collection. A
-blocked-collector test holds the aggregation lock while 80,000 concurrent real Memory
-KV reads must finish normally.
+blocked-collector test holds the aggregation lock while 80,000 concurrent peer
+completion observations must return without waiting; contended samples are dropped.
 
 This is loopback/SQLite protocol acceptance, not physical-device, TiKV, production
 VMP or deployed-AP acceptance.

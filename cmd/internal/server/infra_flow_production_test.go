@@ -56,10 +56,9 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 		t.Fatal(err)
 	}
 	token := "gizclaw_mk_" + strings.Repeat("t", 32)
-	routes := []infraflow.Route{{Source: "edge-local", Target: "server-local"}, {Source: "server-local", Target: "kv-local"}}
+	routes := []infraflow.Route{{Source: "edge-local", Target: "server-local"}}
 	capture := &infraflow.CaptureConfig{Node: "server-local", Routes: []infraflow.CaptureRoute{
 		{Route: routes[0], EdgePublicKey: edgeKey.Public.String()},
-		{Route: routes[1], Store: "api-keys"},
 	}}
 	sourceRoot, publisherRoot := t.TempDir(), t.TempDir()
 	writeFlowWorkspace := func(root, addr string, key *giznet.KeyPair, flow infraflow.Config, monitorConfig monitor.Config, edges []giznet.PublicKey) {
@@ -185,7 +184,7 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 		t.Fatal("no matching fresh production frame")
 		return infraapi.Frame{}
 	}
-	_ = waitFrame(func(frame infraapi.Frame) bool { return len(frame.Flows) == 2 })
+	_ = waitFrame(func(frame infraapi.Frame) bool { return len(frame.Flows) == 1 })
 	// Observe rotation explicitly: best-effort traffic must not rotate its own
 	// sampling budget, and the publisher can legitimately scrape after a boundary.
 	time.Sleep(time.Until(time.Now().Truncate(infraflow.Window).Add(infraflow.Window)))
@@ -220,8 +219,8 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 	}
 	_, _ = io.Copy(io.Discard, response.Body)
 	response.Body.Close()
-	// The real API-key resolve control RPC reads its two persisted KV values,
-	// then rejects this deliberately unassigned owner at the route boundary.
+	// The real API-key resolve RPC reads persisted business data and rejects this
+	// unassigned owner. Only its peer-surface completion contributes a flow.
 	if response.StatusCode != http.StatusForbidden {
 		t.Fatalf("unassigned owner status: %s", response.Status)
 	}
@@ -230,25 +229,20 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 		t.Fatal("controlled pulse crossed window; exact-count evidence invalid")
 	}
 	active := waitFrame(func(frame infraapi.Frame) bool { return frame.WindowEnd == expectedEnd })
-	if len(active.Flows) != 2 {
+	if len(active.Flows) != 1 {
 		t.Fatalf("missing owned routes: %+v", active)
 	}
-	var edgeFlow, storeFlow infraapi.Flow
+	var edgeFlow infraapi.Flow
 	for _, flow := range active.Flows {
 		switch flow.Source {
 		case "edge-local":
 			edgeFlow = flow
-		case "server-local":
-			storeFlow = flow
 		default:
 			t.Fatal("unexpected topology node")
 		}
 	}
 	if edgeFlow.Target != "server-local" || edgeFlow.Count != 5 || edgeFlow.Bytes <= 0 || edgeFlow.DurationCount != 5 || edgeFlow.DurationSumMs <= 0 {
 		t.Fatalf("HTTP/RPC completion evidence: %+v", edgeFlow)
-	}
-	if storeFlow.Target != "kv-local" || storeFlow.Count != 2 || storeFlow.Bytes <= 0 || storeFlow.DurationCount != 2 || storeFlow.DurationSumMs <= 0 {
-		t.Fatalf("real KV read evidence: %+v", storeFlow)
 	}
 	idle := waitFrame(func(frame infraapi.Frame) bool { return frame.WindowStart == active.WindowEnd })
 	for _, flow := range idle.Flows {
@@ -259,7 +253,7 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 	if page := readPage(infraapi.Prod, ""); len(page.Frames) != 0 || page.Cursor != "" {
 		t.Fatal("production activity leaked environments")
 	}
-	t.Logf("real Server/Edge/RPC/shared-KV: window=%d..%d cursor=%s edge_count=%d edge_bytes=%d kv_reads=%d kv_bytes=%d simulated=false idle_window=%d", active.WindowStart, active.WindowEnd, active.Id, edgeFlow.Count, edgeFlow.Bytes, storeFlow.Count, storeFlow.Bytes, idle.WindowEnd)
+	t.Logf("real peer surface: window=%d..%d cursor=%s edge_count=%d edge_bytes=%d simulated=false idle_window=%d", active.WindowStart, active.WindowEnd, active.Id, edgeFlow.Count, edgeFlow.Bytes, idle.WindowEnd)
 }
 
 // TestInfraFlowProcess runs a normal command lifecycle in an isolated process;
