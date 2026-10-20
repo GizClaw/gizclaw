@@ -3601,7 +3601,7 @@
       "BearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "description": "API key gizclaw_sk_v1_<secret>, or gizclaw_pk_<canonical Base58 public key> for device debug access. Public-key bearer access requires the authoritative Server runtime mode to permit the operation. Raw public keys and query selectors are not supported."
+        "description": "Issued API key gizclaw_sk_v1_<secret>, or short-lived gizclaw_sig_v1_<payload>.<signature> signed with the existing Giznet PK/SK. Server verifies the signature and current Admin/Client authority for the signed target; device/contact/friend/group operations reuse existing handlers. The legacy gizclaw_pk_<canonical Base58 public key> debug bearer remains subject to device debug mode."
       }
     },
     "schemas": {
@@ -5551,5 +5551,20 @@
         }
       }
     }
+  },
+  "x-peer-http-signed-bearer": {
+    "format": "gizclaw_sig_v1_<payload>.<signature>; payload is unpadded base64url UTF-8 JSON; signature is unpadded base64url of 64 bytes.",
+    "algorithm": "XEdDSA over the existing 32-byte Giznet X25519 private key, with the converted Edwards public sign bit fixed to zero as specified by Signal XEdDSA. A fresh secret 64-byte random value is used for each signature. Verify with the issuer X25519 public key, rejecting low-order points. SK is never transmitted.",
+    "signed_message": "The exact ASCII gizclaw_sig_v1_<payload> prefix and payload, excluding the separating dot and signature. No algorithm negotiation.",
+    "claims": {
+      "iss": "Canonical Base58 caller public key.",
+      "aud": "Exactly gizclaw/peer-http/v1.",
+      "target": "Canonical Base58 resource Peer public key, included in the signature. Clients target themselves; Admin must select an active Client.",
+      "iat": "Positive issued-at Unix seconds; at most 30 seconds ahead of the verifier clock.",
+      "exp": "Expiry Unix seconds; strictly after iat and current time, and at most 300 seconds after iat."
+    },
+    "limits": "Token at most 2048 bytes; no role, grant or permission is trusted from token claims.",
+    "authorization": "Caller must have an active, available Peer record. Existing Admin service grant or Admin role permits an active Client target; ordinary Clients target themselves and retain the existing RuntimeProfile check. Only device/contact/friend/group operations are allowed.",
+    "routing": "AP uses ordinary HTTP forwarding and existing server.api_key.resolve with the entire Bearer in its existing api_key field. Server verifies signed credentials and current authority, returning only the signed target fixed assignment. Edge does not identify Admin or interpret roles. The target Server authenticates and authorizes again; no claim, reassignment or fallback on missing/unavailable target."
   }
 }

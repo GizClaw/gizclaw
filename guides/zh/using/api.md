@@ -181,3 +181,28 @@ TypeScript 使用 `@gizclaw/gizclaw/peerhttp` 生成的 `writeMhsHwd`、`getDevi
 - TypeScript 会话结束时关闭 `RTCPeerConnection`；Go 会话结束时关闭 `gizcli.Client`。连接断开后应重新连接，不要继续复用旧 client。
 
 接口的设计与生成规则见 [Admin API 开发说明](../developing/api/http/admin) 和 [Peer RPC 开发说明](../developing/api/proto/rpc/overview)。
+
+## 签名 Bearer 认证
+
+普通 AP HTTP 的既有接口还接受本地签名 Token。Go 使用
+`peerhttp.NewSignedBearerToken(keyPair, targetPublicKey, time.Minute)`（package
+`github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp`），处理错误后把返回值放入
+`Authorization: Bearer <token>`；生成 client 可沿用 `WithRequestEditorFn` 设置该 header。
+
+Token 使用现有 X25519 PK/SK 的 XEdDSA 签名；SK 留在本地，最长有效 5 分钟，到期重新签名。
+格式为 `gizclaw_sig_v1_<payload>.<signature>`，调用者、目标和有效期均在签名内；完整 wire
+定义见 `api/http/peer.json` 的 `x-peer-http-signed-bearer`。生产使用 HTTPS 并保护 Token。
+
+Server 验签后查询当前 active Peer 与删除围栏。Admin 角色或已有 `admin-public-key` grant
+可访问目标 active Client；普通 Client 只能访问自己，并保留 RuntimeProfile binding 检查。
+两者复用现有 device/contact/friend/group 读写 handler，不进入 API Key 管理。
+Edge 沿用 `server.api_key.resolve`，不判断角色；目标 Server 再次认证与授权。
+无效签名沿用 `401 INVALID_API_KEY`，无权限沿用 `403 API_KEY_OWNER_UNAVAILABLE`。
+原有随机 API Key 保持 owner 绑定；签名 HTTP 不依赖客户端 WebRTC 连接。
+
+售后读取仍使用现有接口：`/device` 返回资料和标识；SN/IMEI 反查返回全部匹配 PK；
+`/device/runtime` 返回在线与最后活动时间；`/device/status` 的 `firmware_version` 和
+`telemetry_observed_at.firmware_version` 是已上报固件及观测时间。
+`/device/telemetry/{field}/latest` 及 `/device/telemetry` 覆盖电量、充电、联网、RSSI、
+信号等级和运行时长；历史默认 240 点、最多 1000 点。离线读取已保存记录；缺状态为 `{}`，
+无采样为相应空数组。Go/JavaScript 沿用这些接口的既有生成方法，无需新增查询接口。

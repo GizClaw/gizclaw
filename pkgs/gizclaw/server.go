@@ -778,6 +778,9 @@ func (s *Server) init() error {
 			Profiles:      peersServer,
 		},
 	}
+	s.peerService.allowAdminHTTP = func(key giznet.PublicKey) bool {
+		return s.SecurityPolicy != nil && s.SecurityPolicy.AllowService(key, ServiceAdminHTTP)
+	}
 	s.peerService.public.DeviceReads = s.peerService.deviceReadsForAPIKey
 	manager.ToolCatalog.Devices = &runtimeDevices{public: s.peerService.public}
 	s.apiKeys = apiKeyServer
