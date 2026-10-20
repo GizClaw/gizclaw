@@ -23,8 +23,10 @@
 `server.peer.lookup` 与 `server.route.resolve` 只读。`server.peer.assign` 会为当前 Server 原子 claim 缺少 assignment 的 Client Peer；owner 相同时返回现有记录，并且只能刷新这个 owner 的 endpoint/role metadata。不同 Server owner 返回 conflict，记录不会被覆盖；`expected_version` 只检测 stale update，不能授权 ownership transfer。
 
 `server.api_key.resolve`（method ID 99）只通过已认证的 Edge RPC service 暴露。请求携带
-Bearer credential，Server 使用自己的 `services.api_key.store` 认证并从 API Key record 取得
-owner Peer，然后返回该 Peer 的现有 `PeerAssignment`。它不创建、移动或刷新 assignment。
+Bearer credential。随机 API Key 从 `services.api_key.store` 取得 owner；签名 Bearer 通过与
+HTTP 共用的 `resolveSignedPeerAccess` 验签并检查当前 Admin/Client 权限，取得签名目标。
+两者返回现有 `PeerAssignment`，不创建、移动或刷新 assignment；原有 HTTP 请求仍会再次
+认证与授权。
 无效/撤销 credential 返回 forbidden，missing/inactive owner route 返回 not found；错误不得回显 key。
 
 ## 跨 Server 通知

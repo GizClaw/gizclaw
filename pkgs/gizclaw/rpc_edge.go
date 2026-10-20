@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync/atomic"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
@@ -23,6 +24,7 @@ type edgeRPCServer struct {
 	callerPublicKey       string
 	routes                *peerroute.Server
 	apiKeys               *apikey.Server
+	resolveSignedBearer   func(context.Context, string) (signedPeerAccess, error)
 	isPeerRetiring        func() bool
 }
 
@@ -95,6 +97,16 @@ func (s *edgeRPCServer) handleAPIKeyResolve(ctx context.Context, req *rpcapi.RPC
 	params, err := edgeRequiredParams(req, rpcapi.RPCPayload.AsServerAPIKeyResolveRequest)
 	if err != nil {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}.RPCResponse()
+	}
+	if peerhttp.IsSignedBearerToken(params.ApiKey) {
+		if s.resolveSignedBearer == nil {
+			return edgeRPCError(req.Id, errors.New("signed Peer authorization unavailable"))
+		}
+		access, err := s.resolveSignedBearer(ctx, params.ApiKey)
+		if err != nil {
+			return edgeRPCError(req.Id, err)
+		}
+		return edgeRPCResult(req.Id, rpcpb.ServerAPIKeyResolveResponse{Assignment: peerroute.ToRPC(access.assignment)}, (*rpcapi.RPCPayload).FromServerAPIKeyResolveResponse)
 	}
 	principal, err := s.apiKeys.Authenticate(ctx, params.ApiKey)
 	if err != nil {
@@ -195,7 +207,7 @@ func edgeRPCError(id string, err error) *rpcapi.RPCResponse {
 		code = rpcapi.StatusCodePermissionDenied
 	case errors.Is(err, peerroute.ErrInvalidPublicKey), errors.Is(err, peerroute.ErrPeerNotAssignable):
 		code = rpcapi.StatusCodeInvalidArgument
-	case errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, peerroute.ErrPeerInactive), errors.Is(err, peer.ErrPeerNotFound), errors.Is(err, kv.ErrNotFound):
+	case errors.Is(err, errAPIKeyOwnerUnavailable), errors.Is(err, peerroute.ErrAssignmentNotFound), errors.Is(err, peerroute.ErrPeerInactive), errors.Is(err, peer.ErrPeerNotFound), errors.Is(err, kv.ErrNotFound):
 		code = rpcapi.StatusCodeNotFound
 	case errors.Is(err, peerroute.ErrVersionConflict):
 		code = rpcapi.StatusCodeAborted

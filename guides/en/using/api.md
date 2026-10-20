@@ -182,3 +182,32 @@ TypeScript uses the generated `writeMhsHwd`, `getDeviceStatus`, `listContacts`, 
 - Close the `RTCPeerConnection` when a TypeScript session ends and the `gizcli.Client` when a Go session ends. Reconnect after a disconnect instead of reusing a stale client.
 
 For design and generation details, see the [Admin API development guide](../developing/api/http/admin) and [Peer RPC development guide](../developing/api/proto/rpc/overview).
+
+## Signed Bearer authentication
+
+Existing AP HTTP operations also accept a locally signed token. In Go, call
+`peerhttp.NewSignedBearerToken(keyPair, targetPublicKey, time.Minute)` from
+`github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp`, handle the error, then send
+`Authorization: Bearer <token>` using the generated client's `WithRequestEditorFn`.
+
+XEdDSA uses the existing X25519 PK/SK; SK stays local. Tokens last at most five minutes.
+The format is `gizclaw_sig_v1_<payload>.<signature>`, binding caller, target and validity.
+See `x-peer-http-signed-bearer` in `api/http/peer.json` for the wire contract. Use HTTPS
+and protect the token itself as a credential.
+
+Server verifies the signature and current active Peer/deletion state. An Admin role or
+existing `admin-public-key` grant can select an active Client. Ordinary Clients remain
+self-scoped with the existing RuntimeProfile check. Existing device/contact/friend/group
+read/write handlers are reused; API-key management is excluded. Edge retains
+`server.api_key.resolve` and does not interpret roles; the home Server checks again.
+Invalid signatures use `401 INVALID_API_KEY`, denied access uses
+`403 API_KEY_OWNER_UNAVAILABLE`. Random API keys retain owner binding. Signed HTTP
+requires no client WebRTC connection.
+
+Support reads retain existing operations: `/device` returns profile and identifiers; SN/IMEI
+lookups return all matching public keys. `/device/runtime` returns online/last-activity state,
+and `/device/status` exposes reported `firmware_version` with
+`telemetry_observed_at.firmware_version`. Latest/range telemetry covers battery, charging,
+connectivity, RSSI, signal level and uptime; history defaults to 240 points with a 1000-point
+maximum. Offline reads retain stored data; missing status is `{}` and absent samples use
+empty arrays. Existing generated Go/JavaScript operations carry the same Bearer credential.
