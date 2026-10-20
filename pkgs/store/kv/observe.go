@@ -5,38 +5,56 @@ import (
 	"time"
 )
 
-// ObserveReads borrows a Store and observes completed Get and BatchGet calls.
-// The callback receives elapsed time and returned value bytes (not keys or
-// network overhead). BatchGet is one call. Missing/failed reads count as attempts.
-// The callback must be bounded and nonblocking. No values or keys are retained.
-// All other operations preserve the underlying Store's behavior and ownership.
-func ObserveReads(store Store, observe func(time.Duration, int64)) Store {
-	if observe == nil {
+const maxObservedBatchValues = 64
+
+// ReadObserver selects best-effort samples. Begin must return immediately and
+// End must not wait, perform I/O, or retain keys/values. Large batches report zero
+// observed bytes rather than traversing unbounded results. A false Begin bypasses
+// clocks, result traversal and completion callbacks in the borrowed Store view.
+type ReadObserver interface {
+	Begin() (time.Time, bool)
+	End(time.Time, int64)
+}
+
+// ObserveReads borrows a Store and samples Get/BatchGet without changing their
+// results, authority, optional capabilities or ownership. BatchGet is one sample.
+func ObserveReads(store Store, observer ReadObserver) Store {
+	if observer == nil {
 		return store
 	}
-	return &readObserver{Store: store, observe: observe}
+	return &readObserver{Store: store, observe: observer}
 }
 
 type readObserver struct {
 	Store
-	observe func(time.Duration, int64)
+	observe ReadObserver
 }
 
 func (s *readObserver) Get(ctx context.Context, key Key) ([]byte, error) {
-	started := time.Now()
+	started, sampled := s.observe.Begin()
+	if !sampled {
+		return s.Store.Get(ctx, key)
+	}
 	value, err := s.Store.Get(ctx, key)
-	s.observe(time.Since(started), int64(len(value)))
+	s.observe.End(started, int64(len(value)))
 	return value, err
 }
 
 func (s *readObserver) BatchGet(ctx context.Context, keys []Key) []GetResult {
-	started := time.Now()
+	started, sampled := s.observe.Begin()
+	if !sampled {
+		return s.Store.BatchGet(ctx, keys)
+	}
 	values := s.Store.BatchGet(ctx, keys)
+	if len(values) > maxObservedBatchValues {
+		s.observe.End(started, 0)
+		return values
+	}
 	var bytes int64
 	for _, value := range values {
 		bytes += int64(len(value.Value))
 	}
-	s.observe(time.Since(started), bytes)
+	s.observe.End(started, bytes)
 	return values
 }
 

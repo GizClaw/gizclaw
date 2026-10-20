@@ -33,8 +33,8 @@ Token 前缀为 `gizclaw_mk_`，其后至少 32 个字符，建议用 `openssl r
 入口仍返回 PRIVATE_INGRESS_DENIED，因此设备接口由接入点（Edge）提供。readonly 允许读取，
 fullcontrol 才允许音量和重启等操作，Server 每次重新校验权限。
 
-配置真实基础设施采集的 Server 还通过同一受保护响应的可选 `infra_flows` 返回最新完整五秒窗口。
-它只包含显式配置的节点链路与聚合数值，不含设备、用户、会话或凭据；完整覆盖和启用说明见 [Infra Flow](infra-flow#真实活动采集与唯一归属)。
+配置真实基础设施采集的 Server 还通过同一受保护响应的可选 `infra_flows` 返回最新完整五秒窗口中的尽力而为采样。
+它只包含显式配置的节点链路与保留样本数值，允许丢样，不能用作完整流量统计，不含设备、用户、会话或凭据；完整覆盖和启用说明见 [Infra Flow](infra-flow#真实活动采集与唯一归属)。
 
 ## 数据语义
 

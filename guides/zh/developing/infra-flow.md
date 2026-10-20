@@ -76,6 +76,15 @@ Release/Provider snapshot 准备配置和部署计划。确认各环境 Server �
 
 ## 真实活动采集与唯一归属
 
+这是展示用的低开销、尽力而为活动信号。优先保证业务路径，不追求完整记录：丢样、漏记和窗口缺失均允许，
+不补录、不重放、不按采样率推算总量，不用于计费、分析、吞吐统计或业务延迟 SLI。
+
+每条链路每五秒窗口最多保留 20 个样本，后台窗口轮转时补充 20 次采样额度。
+额度耗尽时热路径只读取一次原子值，不读时钟、不分配、不加锁；
+只有选中的请求才计时、计字节，RPC 也仅为选中请求安装字节观察层。选中样本完成后尝试更新固定内存单元，
+锁正被快照占用、窗口错过或达到容量时立即丢弃，业务不等待。窗口轮转、额度补充和快照分配都由后台读取完成。
+没有读者/采集任务时，初始额度耗尽后不会继续做计时和计字节工作。采样不增加任何业务 KV 操作。`BatchGet` 返回超过 64 项时只记录调用和耗时，不遍历结果计字节。
+
 采集由 Server 进程拥有，按配置启用，不需要额外守护进程或 Metrics Store。每个环境只在一台指定 Server
 配置 `producer`；其他 Server 只配置 `capture` 和共享 Feed Store。各集群可独立启用，环境只能是
 `dev|e2e|trial|prod`，节点 ID 必须对应已发布的拓扑。一个来源声明其完整链路集合，启动时拒绝重复链路、
@@ -83,18 +92,18 @@ Release/Provider snapshot 准备配置和部署计划。确认各环境 Server �
 
 | 支持的链路 | 唯一计数 owner | count | bytes | duration |
 | --- | --- | --- | --- | --- |
-| 已配置 Edge → authoritative Server | 接收该 Edge 的 Server；以可信连接公钥匹配 `edge-nodes` | 完成的 Edge HTTP 调用与 Edge 控制 RPC 调用，包含错误结果 | HTTP 实际写出的响应正文；RPC 实际读写的逻辑流字节（含 framing） | 对应调用的实际经过时间，每个完成样本一次 |
-| Server → 指定逻辑 KV Store | 调用该 Store 的 Server | 完成的 `Get` / `BatchGet`；整批算一次，含缺失/失败尝试 | 实际返回的 value 字节之和 | 对应读取调用的实际经过时间，每次调用一次 |
+| 已配置 Edge → authoritative Server | 接收该 Edge 的 Server；以可信连接公钥匹配 `edge-nodes` | 保留下来的 Edge HTTP/控制 RPC 完成样本，包含错误结果 | 保留样本实际写出的 HTTP 响应正文；RPC 样本实际读写的逻辑流字节（含 framing） | 保留样本的实际经过时间 |
+| Server → 指定逻辑 KV Store | 调用该 Store 的 Server | 保留下来的 `Get` / `BatchGet` 完成样本；整批算一次，含缺失/失败 | 保留样本实际返回的 value 字节之和 | 保留读取样本的实际经过时间 |
 
 这些都是 `kind: request`；同一 Edge 的 HTTP 与控制 RPC 是不同操作，可合并成一条基础设施链路。
 HTTP 字节不含请求体/headers；RPC 不含 ICE/DTLS 等外层开销；KV 不含 key、协议开销或服务内部事务读取。
 KV 写入、集合操作、通过共享原子 root 绕过逻辑视图的操作，以及设备/Server 音频、模型、资产、复制和整机网络流量
 均不属于当前采集覆盖。没有精确归属的链路不创建记录。只读 Feed 的轮询不计入 Edge 活动，避免可视化自激。
 
-采集单元只保留当前和上一个五秒 UTC 窗口，活动按完成时间归入窗口。Monitor 快照读取已完成窗口，
+采集单元只保留当前和上一个五秒 UTC 窗口，保留的样本按完成时间归入窗口。Monitor 快照读取已完成窗口，
 不会 Drain 或偷走计数，所以多读者和抓取延迟不会导致双计或跨窗口差分。进程重启有新的 generation；
-启动的第一个不完整窗口、时钟回退后的不完整窗口、计数溢出及不可用来源均省略。
-健康的空闲链路返回零值。缺失来源不冒充零值；全部来源不可用时不写帧，读取端应依据时间检查新鲜度。
+启动和时钟回退后的不完整窗口及不可用来源省略，过大的单个样本直接丢弃。
+零值只表示本窗口没有保留下来的样本，不能推断没有业务活动。全部来源不可用时不写帧，读取端依据时间检查新鲜度。
 暂停或写入失败不补写历史、不把丢失窗口累加到下一帧。
 
 远端计数通过已有且独立认证的 `/monitor/api/node` 可选字段 `infra_flows` 读取。生产者验证配置公钥、
@@ -150,13 +159,18 @@ Edge 继续使用支持公开只读 Feed 的版本，SDK 可兼容忽略新的�
 本地验收使用真正的 Server/Edge 独立进程和正常发布启动路径：两个 Server 共用临时 SQLite KV，
 一个 Server 采集并通过受认证 Monitor 提供窗口，另一个负责写 Feed；Edge 经真实 WebRTC 转发 HTTP 与控制 RPC。
 测试创建正常业务 API Key，以四次 HTTP 与一次控制 RPC 触发五次链路活动、两次真实 KV 读取，
-再匿名读取新鲜 `simulated: false` 帧，并核对字节、时延样本、窗口、游标、空闲窗口和环境隔离。
-故障隔离、来源校验、重启/溢出、取消及 121 个 KV 键上限另由确定性测试验证。
+再匿名读取新鲜 `simulated: false` 帧，并核对样本字节、时延、窗口、游标、无新增样本的下一窗口及环境隔离。
+故障隔离、来源校验、采样硬上限、丢样、不阻塞业务、重启、取消及 121 个 KV 键上限另由确定性测试验证。
 
 ```sh
 go test ./cmd/internal/server -run '^TestInfraFlowProductionServerEdgeCollection$' -count=1 -v
 go test -race ./pkgs/infraflow/... ./pkgs/store/kv -count=1
+go test ./pkgs/infraflow -run '^$' -bench 'ExhaustedSamplingGate|BusinessKVReadSampling' -benchmem -cpu 1,4
+go test ./pkgs/gizclaw -run '^$' -bench '^BenchmarkHTTPActivitySampling$' -benchmem -cpu 1,4
 ```
+
+对照基准使用相同业务与日志工作，检查开启采样后是否新增分配及请求处理开销；它们不把样本数量作为完整流量，
+也不以保全数据为由等待采集。阻塞测试在聚合锁被持有时并发执行 80,000 次真实 Memory KV 读取，要求业务照常完成。
 
 这些是 loopback/SQLite 协议验收，不表示物理设备、TiKV、生产 VMP 或线上 AP 已通过。
 

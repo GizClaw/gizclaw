@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
@@ -18,7 +17,7 @@ import (
 )
 
 type edgeRPCServer struct {
-	infraFlows            *infraflow.Counters
+	infraActivity         *infraflow.Observer
 	notifications         *Manager
 	authorizeNotification func(context.Context) bool
 	callerPublicKey       string
@@ -28,11 +27,12 @@ type edgeRPCServer struct {
 }
 
 func (s *edgeRPCServer) Handle(conn net.Conn) error {
-	if s.infraFlows != nil {
-		observed := &infraRPCConn{Conn: conn}
-		started := time.Now()
-		defer func() { s.infraFlows.Edge(s.callerPublicKey, observed.bytes.Load(), time.Since(started)) }()
-		conn = observed
+	if observer := s.infraActivity; conn != nil && observer != nil {
+		if started, sampled := observer.Begin(); sampled {
+			observed := &infraRPCConn{Conn: conn}
+			defer func() { observer.End(started, observed.bytes.Load()) }()
+			conn = observed
+		}
 	}
 	return handleRPCWithStreamObserved(conn, s.dispatch, nil, &rpcObservationOptions{trustedEdge: true, peerPublicKey: s.callerPublicKey})
 }

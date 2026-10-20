@@ -75,7 +75,7 @@ type Stores struct {
 // ObserveKVReads installs a bounded in-memory read observer before Stores are
 // borrowed by services. It does not change Store ownership. The caller must not
 // mutate the registry concurrently or install multiple observers for one Store.
-func (s *Stores) ObserveKVReads(name string, observe func(time.Duration, int64)) error {
+func (s *Stores) ObserveKVReads(name string, observe kv.ReadObserver) error {
 	store, err := s.KV(name)
 	if err != nil {
 		return err

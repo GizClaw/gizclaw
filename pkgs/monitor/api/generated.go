@@ -117,7 +117,7 @@ type NodeDeviceMetrics struct {
 	Transports    []NodePeerTransport `json:"transports"`
 }
 
-// NodeInfraFlows Opt-in completed five-second infrastructure route counters owned by this Server. No device/session dimensions; absent when disabled or the window is incomplete. Generation changes on restart.
+// NodeInfraFlows Opt-in best-effort activity samples for visualization, capped at 20 per route/five-second window. Drops and incomplete data are expected; not traffic accounting or analytics. No device/session dimensions; absent when disabled or the window is unavailable. Generation changes on restart.
 type NodeInfraFlows struct {
 	Environment NodeInfraFlowsEnvironment `json:"environment"`
 	Flows       []externalRef0.Flow       `json:"flows"`
@@ -151,7 +151,7 @@ type NodeSnapshot struct {
 	Goroutines    int                `json:"goroutines"`
 	HeapBytes     uint64             `json:"heap_bytes"`
 
-	// InfraFlows Opt-in completed five-second infrastructure route counters owned by this Server. No device/session dimensions; absent when disabled or the window is incomplete. Generation changes on restart.
+	// InfraFlows Opt-in best-effort activity samples for visualization, capped at 20 per route/five-second window. Drops and incomplete data are expected; not traffic accounting or analytics. No device/session dimensions; absent when disabled or the window is unavailable. Generation changes on restart.
 	InfraFlows *NodeInfraFlows `json:"infra_flows,omitempty"`
 	PublicKey  string          `json:"public_key"`
 	Role       string          `json:"role"`

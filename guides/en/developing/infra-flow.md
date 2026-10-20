@@ -98,6 +98,22 @@ environment, cursor, time and `simulated` to establish live coverage and freshne
 
 ## Real activity collection and ownership
 
+This is a low-overhead, best-effort visual activity signal. Business work takes
+priority over completeness: dropped samples, missing observations and missing
+windows are acceptable. There is no replay, backfill or extrapolation into totals.
+Do not use these values for billing, analytics, throughput accounting or latency SLIs.
+
+Each route retains at most 20 samples per five-second window. Background window
+rotation grants 20 sampling credits per route. Once exhausted, the hot path
+performs one atomic load, without clocks, allocations or locking.
+Only selected requests are timed and counted for bytes; RPC byte wrappers are
+installed only for selected calls. Completion tries to update fixed memory and
+immediately drops on contention, missed windows or capacity. Business never waits.
+Background reads own window rotation, quota refill and snapshot allocation. Without
+a reader/collector, the initial quota exhausts and timing/byte work stops. Sampling
+adds no business KV operations. Batches above 64 values keep call/duration samples
+without traversing results for byte accounting.
+
 Server processes own opt-in collection, without an extra daemon or Metrics Store.
 Enable `producer` on exactly one designated Server per environment. Other Servers
 configure only `capture` and the shared Feed Store. Clusters enable independently;
@@ -107,8 +123,8 @@ routes, source public keys, Edge/Store owners, and more than 64 routes.
 
 | Supported route | Unique owner | count | bytes | duration |
 | --- | --- | --- | --- | --- |
-| Configured Edge → authoritative Server | Receiving Server, matched by the trusted connection key in `edge-nodes` | Completed Edge HTTP and Edge control RPC calls, including errors | HTTP response body bytes actually written; RPC logical stream bytes actually read/written, including framing | Actual elapsed time of each completed call |
-| Server → named logical KV Store | Calling Server | Completed `Get`/`BatchGet` calls; one per batch, including missing/failed attempts | Returned value bytes | Actual elapsed time of each read call |
+| Configured Edge → authoritative Server | Receiving Server, matched by the trusted connection key in `edge-nodes` | Retained Edge HTTP/control RPC completion samples, including errors | HTTP response body bytes actually written by retained samples; retained RPC stream bytes actually read/written, including framing | Actual elapsed time of retained samples |
+| Server → named logical KV Store | Calling Server | Retained `Get`/`BatchGet` samples; one per batch, including missing/failed attempts | Returned value bytes of retained samples | Actual elapsed time of retained reads |
 
 Both use `kind: request`. HTTP and control RPC are separate operations on the same
 infrastructure route. HTTP bytes exclude request bodies and headers; RPC excludes
@@ -119,11 +135,12 @@ outside this collection coverage. Unattributed routes are absent. Feed polling i
 excluded from Edge activity, preventing the visualization from driving itself.
 
 Capture retains only the current and previous UTC-aligned five-second windows,
-assigning activity by completion time. Monitor reads the completed window without
+assigning retained samples by completion time. Monitor reads the completed window without
 draining it, so multiple readers and scrape delay cannot steal counts or shift
 counter differences between windows. Restart changes generation. The partial startup
-window, partial windows after clock rollback, overflow and unavailable sources are
-omitted. Healthy idle routes report zero; missing sources never masquerade as zero.
+window, partial windows after clock rollback and unavailable sources are omitted.
+Oversized samples are dropped. Zero only means no samples were retained, never
+proof that business was idle.
 When every source is missing, no frame is written; consumers must check freshness.
 Failed or missed windows are discarded without replaying history in the next frame.
 
@@ -194,14 +211,22 @@ through authenticated Monitor, and the other publishes Feed windows. Edge forwar
 HTTP and control RPC over real WebRTC. A normal business API key allows four HTTP
 calls and one control RPC to trigger five route activities and two real KV reads.
 Anonymous reads must return fresh `simulated: false` frames with matching bytes,
-duration samples, window, cursor, idle window and environment isolation. Separate
-deterministic tests cover failures, source validation, restart/overflow, cancellation
+sample durations, window, cursor, the next window with no new samples and environment
+isolation. Separate deterministic tests cover failures, source validation, quota,
+drops, nonblocking business progress, restart, cancellation
 and the 121-key bound.
 
 ```sh
 go test ./cmd/internal/server -run '^TestInfraFlowProductionServerEdgeCollection$' -count=1 -v
 go test -race ./pkgs/infraflow/... ./pkgs/store/kv -count=1
+go test ./pkgs/infraflow -run '^$' -bench 'ExhaustedSamplingGate|BusinessKVReadSampling' -benchmem -cpu 1,4
+go test ./pkgs/gizclaw -run '^$' -bench '^BenchmarkHTTPActivitySampling$' -benchmem -cpu 1,4
 ```
+
+Comparison benchmarks use identical business/logging work to check added allocations
+and request handling cost. Completeness never justifies waiting for collection. A
+blocked-collector test holds the aggregation lock while 80,000 concurrent real Memory
+KV reads must finish normally.
 
 This is loopback/SQLite protocol acceptance, not physical-device, TiKV, production
 VMP or deployed-AP acceptance.

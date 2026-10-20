@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	infraapi "github.com/GizClaw/gizclaw-go/pkgs/infraflow/api"
 	monitorapi "github.com/GizClaw/gizclaw-go/pkgs/monitor/api"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
 // Route configures an infrastructure identity, never a device or session.
@@ -36,21 +38,55 @@ type CaptureConfig struct {
 	Routes []CaptureRoute `yaml:"routes"`
 }
 
-// Counters retains current and previous fixed windows per configured route. Completions only
-// update memory; snapshots, network and KV work never run in the activity path.
+// MaxSamplesPerWindow caps retained samples per route/five-second window. Each
+// background window rotation grants this many start credits for bounded sampling.
+// This is a visual activity signal, not traffic accounting.
+const MaxSamplesPerWindow = 20
+
+// Observer admits a bounded number of observations without waiting. An exhausted
+// budget costs one atomic load: no clock read, allocation, mutex or I/O. Budget
+// replenishment and window rotation belong to Snapshot, outside business work.
+type Observer struct {
+	remaining atomic.Int32
+	owner     *Counters
+	route     int
+}
+
+// Begin admits one sample, or immediately skips it. There are no CAS retries.
+func (o *Observer) Begin() (time.Time, bool) {
+	if o == nil {
+		return time.Time{}, false
+	}
+	remaining := o.remaining.Load()
+	if remaining <= 0 || !o.remaining.CompareAndSwap(remaining, remaining-1) {
+		return time.Time{}, false
+	}
+	return time.Now(), true
+}
+
+// End records a sampled operation. Contention, a missed window or capacity drops
+// the sample; it never waits for snapshots or performs network/storage work.
+func (o *Observer) End(started time.Time, bytes int64) {
+	if o != nil {
+		o.owner.add(o.route, bytes, time.Since(started))
+	}
+}
+
+// Counters retains current and previous fixed windows of best-effort activity.
+// Business observations are sampled, bounded and drop instead of waiting.
 type Counters struct {
 	mu            sync.Mutex
 	environment   infraapi.Environment
 	generation    string
 	windowEnd     int64
 	firstEnd      int64
-	valid         bool
 	previousValid bool
 	values        [MaxFlows]infraapi.Flow
 	previous      [MaxFlows]infraapi.Flow
 	routes        []infraapi.Flow
-	edges         map[string]int
-	stores        map[string]int
+	observers     []*Observer
+	edges         map[string]*Observer
+	stores        map[string]*Observer
 }
 
 // NewCounters validates and allocates a fixed route set without starting work.
@@ -58,7 +94,7 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 	if environmentIndex(env) < 0 || !idPattern.MatchString(cfg.Node) || len(cfg.Routes) == 0 || len(cfg.Routes) > MaxFlows {
 		return nil, errors.New("infraflow: invalid capture environment, node or capacity")
 	}
-	c := &Counters{environment: env, edges: map[string]int{}, stores: map[string]int{}}
+	c := &Counters{environment: env, edges: map[string]*Observer{}, stores: map[string]*Observer{}}
 	var generation [16]byte
 	if _, err := rand.Read(generation[:]); err != nil {
 		return nil, err
@@ -66,7 +102,6 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 	c.generation = hex.EncodeToString(generation[:])
 	c.windowEnd = time.Now().Truncate(Window).Add(Window).UnixMilli()
 	c.firstEnd = c.windowEnd
-	c.valid = true
 	seen := map[string]bool{}
 	for i, r := range cfg.Routes {
 		flow := r.flow()
@@ -74,6 +109,9 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 			return nil, errors.New("infraflow: invalid or duplicate capture route")
 		}
 		seen[routeKey(flow)] = true
+		observer := &Observer{owner: c, route: i}
+		observer.remaining.Store(MaxSamplesPerWindow)
+		c.observers = append(c.observers, observer)
 		if r.EdgePublicKey != "" {
 			if r.Target != cfg.Node {
 				return nil, errors.New("infraflow: Edge route must target the capturing node")
@@ -81,7 +119,7 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 			if _, ok := c.edges[r.EdgePublicKey]; ok {
 				return nil, errors.New("infraflow: duplicate Edge counter owner")
 			}
-			c.edges[r.EdgePublicKey] = i
+			c.edges[r.EdgePublicKey] = observer
 		} else {
 			if r.Source != cfg.Node {
 				return nil, errors.New("infraflow: Store route must originate at the capturing node")
@@ -89,7 +127,7 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 			if _, ok := c.stores[r.Store]; ok {
 				return nil, errors.New("infraflow: duplicate Store counter owner")
 			}
-			c.stores[r.Store] = i
+			c.stores[r.Store] = observer
 		}
 		c.routes = append(c.routes, flow)
 		c.values[i] = flow
@@ -98,27 +136,24 @@ func NewCounters(env infraapi.Environment, cfg CaptureConfig) (*Counters, error)
 	return c, nil
 }
 
-// Edge records one completed trusted Edge HTTP or control RPC call. Bytes are
-// actual application payload bytes read/written, excluding transport overhead.
-func (c *Counters) Edge(publicKey string, bytes int64, elapsed time.Duration) {
+// EdgeObserver binds a configured trusted peer once, outside the request path.
+func (c *Counters) EdgeObserver(publicKey string) *Observer {
 	if c == nil {
-		return
+		return nil
 	}
-	if route, ok := c.edges[publicKey]; ok {
-		c.add(route, bytes, elapsed)
-	}
+	return c.edges[publicKey]
 }
 
-// StoreObserver returns a fixed-cell callback, or nil for an unconfigured Store.
-func (c *Counters) StoreObserver(name string) func(time.Duration, int64) {
+// StoreObserver binds the configured logical Store's bounded sampling gate.
+func (c *Counters) StoreObserver(name string) kv.ReadObserver {
 	if c == nil {
 		return nil
 	}
-	route, ok := c.stores[name]
-	if !ok {
+	observer := c.stores[name]
+	if observer == nil {
 		return nil
 	}
-	return func(elapsed time.Duration, bytes int64) { c.add(route, bytes, elapsed) }
+	return observer
 }
 
 func (c *Counters) rotate(end int64) {
@@ -133,24 +168,26 @@ func (c *Counters) rotate(end int64) {
 		c.previous[i] = route
 		if end == c.windowEnd+Window.Milliseconds() {
 			c.previous[i] = c.values[i]
-			c.previousValid = c.previousValid && c.valid
 		}
 		c.values[i] = route
+		c.observers[i].remaining.Store(MaxSamplesPerWindow)
 	}
-	c.valid = true
 	c.windowEnd = end
 }
 
 func (c *Counters) add(route int, bytes int64, elapsed time.Duration) {
 	duration := max(0, float64(elapsed)/float64(time.Millisecond))
 	bytes = max(0, bytes)
-	c.mu.Lock()
+	if !c.mu.TryLock() {
+		return
+	}
 	end := time.Now().Truncate(Window).Add(Window).UnixMilli()
-	c.rotate(end)
+	if end != c.windowEnd {
+		c.mu.Unlock()
+		return
+	}
 	value := &c.values[route]
-	if value.Count == MaxCounter || bytes > MaxCounter-value.Bytes || duration > MaxCounter-value.DurationSumMs {
-		c.valid = false
-	} else {
+	if value.Count < MaxSamplesPerWindow && bytes <= MaxCounter-value.Bytes && duration <= MaxCounter-value.DurationSumMs {
 		value.Count++
 		value.Bytes += bytes
 		value.DurationCount++
@@ -160,18 +197,20 @@ func (c *Counters) add(route int, bytes int64, elapsed time.Duration) {
 }
 
 // Snapshot returns the latest completed UTC-aligned five-second window for
-// authenticated Monitor. Startup's partial window and overflow are unavailable.
+// authenticated Monitor. Startup's partial window is unavailable. Missing samples
+// and zero-valued cells never claim complete activity or inactivity.
 // Snapshotting never drains a window, so readers and retries cannot steal counts.
 func (c *Counters) Snapshot() *monitorapi.NodeInfraFlows {
 	if c == nil {
 		return nil
 	}
+	flows := make([]infraapi.Flow, len(c.routes))
 	c.mu.Lock()
 	end := time.Now().Truncate(Window).Add(Window).UnixMilli()
 	c.rotate(end)
 	completed := c.windowEnd - Window.Milliseconds()
 	valid := c.previousValid
-	flows := append([]infraapi.Flow(nil), c.previous[:len(c.routes)]...)
+	copy(flows, c.previous[:len(c.routes)])
 	c.mu.Unlock()
 	if !valid {
 		return nil

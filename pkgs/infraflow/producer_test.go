@@ -19,7 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
-func captureFixture(t *testing.T, env infraapi.Environment) *Counters {
+func captureFixture(t testing.TB, env infraapi.Environment) *Counters {
 	t.Helper()
 	counters, err := NewCounters(env, CaptureConfig{Node: "server", Routes: []CaptureRoute{{Route: Route{"edge", "server"}, EdgePublicKey: "edge-key"}}})
 	if err != nil {
@@ -28,10 +28,17 @@ func captureFixture(t *testing.T, env infraapi.Environment) *Counters {
 	return counters
 }
 
+func recordTestActivity(c *Counters, key string, bytes int64, elapsed time.Duration) {
+	observer := c.EdgeObserver(key)
+	if _, ok := observer.Begin(); ok {
+		c.add(observer.route, bytes, elapsed)
+	}
+}
+
 func TestCaptureCompletedWindowsRestartIdleBoundsAndConcurrentProgress(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		c := captureFixture(t, infraapi.E2e)
-		c.Edge("edge-key", 10, time.Millisecond) // startup's partial window is omitted
+		recordTestActivity(c, "edge-key", 10, time.Millisecond) // startup's partial window is omitted
 		time.Sleep(time.Until(time.Now().Truncate(Window).Add(Window)))
 		if c.Snapshot() != nil {
 			t.Fatal("published partial startup window")
@@ -40,28 +47,29 @@ func TestCaptureCompletedWindowsRestartIdleBoundsAndConcurrentProgress(t *testin
 		for range 8 {
 			work.Go(func() {
 				for range 1000 {
-					c.Edge("edge-key", 2, 3*time.Millisecond)
-					c.Edge("unconfigured", 999, time.Hour)
+					recordTestActivity(c, "edge-key", 2, 3*time.Millisecond)
+					recordTestActivity(c, "unconfigured", 999, time.Hour)
 				}
 			})
 		}
 		work.Wait()
 		time.Sleep(Window)
 		frame := c.Snapshot()
-		if frame == nil || frame.Flows[0].Count != 8000 || frame.Flows[0].Bytes != 16000 || frame.Flows[0].DurationCount != 8000 || frame.Flows[0].DurationSumMs != 24000 || frame.WindowEnd-frame.WindowStart != 5000 {
+		if frame == nil || frame.Flows[0].Count < 1 || frame.Flows[0].Count > MaxSamplesPerWindow || frame.Flows[0].Bytes != frame.Flows[0].Count*2 || frame.Flows[0].DurationCount != frame.Flows[0].Count || frame.Flows[0].DurationSumMs != float64(frame.Flows[0].Count)*3 || frame.WindowEnd-frame.WindowStart != 5000 {
 			t.Fatalf("window: %+v", frame)
 		}
+		recorded := frame.Flows[0].Count
 		frame.Flows[0].Count = -1
-		if c.Snapshot().Flows[0].Count != 8000 {
+		if c.Snapshot().Flows[0].Count != recorded {
 			t.Fatal("snapshot shared mutable counters")
 		}
 		time.Sleep(Window)
 		if c.Snapshot().Flows[0].Count != 0 {
 			t.Fatal("idle window replayed activity")
 		}
-		c.Edge("edge-key", MaxCounter+1, time.Second)
+		recordTestActivity(c, "edge-key", MaxCounter+1, time.Second)
 		time.Sleep(Window)
-		if c.Snapshot() != nil {
+		if snapshot := c.Snapshot(); snapshot == nil || snapshot.Flows[0].Count != 0 {
 			t.Fatal("overflow became manufactured or invalid counters")
 		}
 		time.Sleep(Window)
@@ -77,7 +85,7 @@ func TestCaptureCompletedWindowsRestartIdleBoundsAndConcurrentProgress(t *testin
 			work.Go(func() {
 				for range 50 {
 					c.Snapshot()
-					c.Edge("edge-key", 1, time.Millisecond)
+					recordTestActivity(c, "edge-key", 1, time.Millisecond)
 				}
 			})
 		}
@@ -100,7 +108,7 @@ func TestProducerRealRunUsesFixedSlotsIdleCursorAndCancellation(t *testing.T) {
 		synctest.Wait()
 		time.Sleep(time.Until(time.Now().Truncate(Window).Add(Window)))
 		synctest.Wait()
-		c.Edge("edge-key", 123, 2*time.Millisecond)
+		recordTestActivity(c, "edge-key", 123, 2*time.Millisecond)
 		time.Sleep(Window)
 		synctest.Wait()
 		page, err := feed.Read(t.Context(), infraapi.E2e, "")
@@ -240,7 +248,8 @@ func TestProducerSlowSourceCannotBlockHealthySourceOrShutdown(t *testing.T) {
 		}
 		producer.client.Transport = snapshotTransport(func(r *http.Request) (*http.Response, error) { <-r.Context().Done(); return nil, r.Context().Err() })
 		time.Sleep(time.Until(time.Now().Truncate(Window).Add(Window)))
-		c.Edge("edge-key", 7, time.Millisecond)
+		c.Snapshot()
+		recordTestActivity(c, "edge-key", 7, time.Millisecond)
 		time.Sleep(Window)
 		end := time.Now()
 		if err := producer.collect(t.Context(), end); !errors.Is(err, context.DeadlineExceeded) {
@@ -302,7 +311,8 @@ func TestProducerWriteFailureIsBoundedAndDoesNotBacklog(t *testing.T) {
 			t.Fatal(err)
 		}
 		time.Sleep(time.Until(time.Now().Truncate(Window).Add(Window)))
-		c.Edge("edge-key", 5, time.Millisecond)
+		c.Snapshot()
+		recordTestActivity(c, "edge-key", 5, time.Millisecond)
 		time.Sleep(Window)
 		started := time.Now()
 		if err := p.collect(t.Context(), time.Now()); !errors.Is(err, context.DeadlineExceeded) {

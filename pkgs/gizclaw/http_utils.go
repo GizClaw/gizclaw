@@ -140,9 +140,30 @@ type httpObservationOptions struct {
 	infraFlows    *infraflow.Counters
 }
 
+type httpActivitySample struct {
+	observer *infraflow.Observer
+	started  time.Time
+	bytes    int64
+}
+
+func beginHTTPActivity(observer *infraflow.Observer, path string) *httpActivitySample {
+	if observer == nil || path == infraflow.Path {
+		return nil
+	}
+	started, selected := observer.Begin()
+	if !selected {
+		return nil
+	}
+	return &httpActivitySample{observer: observer, started: started}
+}
+
 func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Handler {
 	if next == nil {
 		next = http.NotFoundHandler()
+	}
+	var activity *infraflow.Observer
+	if opts.trustedEdge {
+		activity = opts.infraFlows.EdgeObserver(opts.peerPublicKey)
 	}
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		outcome := observability.NewOutcome(observability.TransportHTTP, opts.surface, "unknown")
@@ -173,8 +194,7 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 		ctx = observability.WithOutcome(ctx, outcome)
 		request = request.WithContext(ctx)
 
-		started := time.Now()
-		var written int64
+		sample := beginHTTPActivity(activity, request.URL.Path)
 		status := http.StatusOK
 		wroteHeader := false
 		var writeErr error
@@ -214,7 +234,9 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 						wroteHeader = true
 					}
 					n, err := next(p)
-					written += int64(n)
+					if sample != nil {
+						sample.bytes += int64(n)
+					}
 					if err != nil && writeErr == nil {
 						writeErr = err
 					}
@@ -231,7 +253,9 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 						captureBody(p)
 						return len(p), nil
 					})))
-					written += n
+					if sample != nil {
+						sample.bytes += n
+					}
 					if err != nil && writeErr == nil {
 						writeErr = err
 					}
@@ -261,8 +285,8 @@ func observeHTTPHandler(next http.Handler, opts httpObservationOptions) http.Han
 			if status >= http.StatusBadRequest {
 				outcome.SetErrorCode(observedHTTPErrorCode(writer.Header().Get("Content-Type"), body, overflow, status))
 			}
-			if opts.trustedEdge && request.URL.Path != infraflow.Path {
-				opts.infraFlows.Edge(opts.peerPublicKey, written, time.Since(started))
+			if sample != nil {
+				sample.observer.End(sample.started, sample.bytes)
 			}
 			observability.Log(request.Context(), outcome)
 			if panicValue != nil {

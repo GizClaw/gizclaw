@@ -101,9 +101,14 @@ type ErrorError string
 
 // Flow defines model for Flow.
 type Flow struct {
-	Bytes         int64    `json:"bytes"`
-	Count         int64    `json:"count"`
-	DurationCount int64    `json:"duration_count"`
+	// Bytes Payload bytes actually observed in the retained samples, not total link throughput.
+	Bytes int64 `json:"bytes"`
+
+	// Count Observed activity samples. Production capture is capped at 20 samples per route/window and may drop more; never treat this as total requests or extrapolate it.
+	Count         int64 `json:"count"`
+	DurationCount int64 `json:"duration_count"`
+
+	// DurationSumMs Elapsed milliseconds of retained samples only; not a service latency SLI.
 	DurationSumMs float64  `json:"duration_sum_ms"`
 	Kind          FlowKind `json:"kind"`
 	Source        string   `json:"source"`
