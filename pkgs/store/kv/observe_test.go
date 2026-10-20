@@ -51,3 +51,35 @@ func TestObserveReadsPreservesValuesCapabilitiesAuthorityAndAtomicViews(t *testi
 		t.Fatal("non-read operations were counted")
 	}
 }
+
+func TestReadObserverPreservesHistoricalDelayAndStrongViews(t *testing.T) {
+	backend := &TiKV{read: TiKVReadOptions{StaleReadDelay: time.Minute}}
+	observe := func(time.Duration, int64) {}
+	for _, view := range []Store{
+		ObserveReads(Prefixed(backend, Key{"scope"}), observe),
+		Prefixed(ObserveReads(backend, observe), Key{"scope"}),
+	} {
+		if delay := ReadDelay(view); delay != time.Minute {
+			t.Fatalf("observer hid historical delay: %v", delay)
+		}
+	}
+	for _, view := range []Store{
+		ObserveReads(WithStrongReads(backend), observe),
+		WithStrongReads(ObserveReads(backend, observe)),
+	} {
+		if delay := ReadDelay(view); delay != 0 {
+			t.Fatalf("strong observer view has delay: %v", delay)
+		}
+	}
+	base := NewMemory(nil)
+	t.Cleanup(func() { _ = base.Close() })
+	probe := &consistencyProbe{Store: base}
+	observed := ObserveReads(probe, observe)
+	if SupportsCreateIfAbsent(observed) || SupportsCreateIfAllAbsent(observed) || SupportsCompareAndMutate(observed) {
+		t.Fatal("observer invented optional capabilities")
+	}
+	_, _ = WithStrongReads(observed).Get(t.Context(), Key{"missing"})
+	if len(probe.observed) != 1 || !probe.observed[0] {
+		t.Fatal("observer lost primary-read authority")
+	}
+}
