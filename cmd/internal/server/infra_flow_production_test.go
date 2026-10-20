@@ -162,16 +162,22 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 		return page
 	}
 	cursor := ""
+	var pending []infraapi.Frame
 	waitFrame := func(match func(infraapi.Frame) bool) infraapi.Frame {
 		t.Helper()
 		deadline := time.Now().Add(20 * time.Second)
 		for time.Now().Before(deadline) {
-			page := readPage(infraapi.E2e, cursor)
-			cursor = page.Cursor
-			if page.Reset {
-				t.Fatal("continuous cursor unexpectedly reset")
+			if len(pending) == 0 {
+				page := readPage(infraapi.E2e, cursor)
+				cursor = page.Cursor
+				if page.Reset {
+					t.Fatal("continuous cursor unexpectedly reset")
+				}
+				pending = page.Frames
 			}
-			for _, frame := range page.Frames {
+			for len(pending) > 0 {
+				frame := pending[0]
+				pending = pending[1:]
 				if frame.Simulated || frame.Environment != infraapi.E2e || frame.WindowEnd-frame.WindowStart != 5000 || frame.WindowEnd%5000 != 0 || len(frame.Flows) > 64 {
 					t.Fatalf("invalid production frame: %+v", frame)
 				}
@@ -244,7 +250,9 @@ func TestInfraFlowProductionServerEdgeCollection(t *testing.T) {
 	if edgeFlow.Target != "server-local" || edgeFlow.Count != 5 || edgeFlow.Bytes <= 0 || edgeFlow.DurationCount != 5 || edgeFlow.DurationSumMs <= 0 {
 		t.Fatalf("HTTP/RPC completion evidence: %+v", edgeFlow)
 	}
-	idle := waitFrame(func(frame infraapi.Frame) bool { return frame.WindowStart == active.WindowEnd })
+	// A best-effort source may miss a window; the next available idle frame must
+	// have no replayed activity, regardless of a gap or a batched cursor response.
+	idle := waitFrame(func(frame infraapi.Frame) bool { return frame.WindowStart >= active.WindowEnd })
 	for _, flow := range idle.Flows {
 		if flow.Count != 0 || flow.Bytes != 0 || flow.DurationCount != 0 || flow.DurationSumMs != 0 {
 			t.Fatalf("idle replay: %+v", flow)
