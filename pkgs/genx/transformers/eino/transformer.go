@@ -226,6 +226,13 @@ func (session *session) run() {
 			continue
 		}
 		if acceptsAudio {
+			// The MIME EOS already consumed this audio turn. Its later outer
+			// EOS must not close the output transcript route while native
+			// transcription is still pending.
+			if !inAudio && activeAudioID != "" && chunk.Part == nil && chunk.IsEndOfStream() && chunk.Ctrl.Error == "" && messageStreamID(chunk) == activeAudioID {
+				activeAudioID = ""
+				continue
+			}
 			if blob, ok := audioInputBlob(chunk); ok || (inAudio && chunk.Part == nil && messageStreamID(chunk) == activeAudioID) {
 				streamID := messageStreamID(chunk)
 				if ok && (!inAudio || chunk.IsBeginOfStream() || streamID != activeAudioID) {
@@ -264,7 +271,6 @@ func (session *session) run() {
 					}
 					audio = nil
 					inAudio = false
-					activeAudioID = ""
 				}
 				continue
 			}

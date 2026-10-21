@@ -11,7 +11,60 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
+	"github.com/cloudwego/eino/schema"
 )
+
+func TestNativeAudioConsumesOnlyItsSuccessfulOuterEnd(t *testing.T) {
+	for _, direct := range []bool{false, true} {
+		t.Run(fmt.Sprintf("direct-model-%t", direct), func(t *testing.T) {
+			config := textConfig()
+			config.TranscribeInput = func(context.Context, []*genx.Blob) (string, error) { return "heard", nil }
+			if direct {
+				config = audioTranscriptConfig(&componentMapResolver{chat: &fakeChatModel{chunks: []*schema.Message{
+					TranscriptMessage("heard"), schema.AssistantMessage("reply", nil),
+				}}})
+			}
+			core, err := New(t.Context(), config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer core.Close()
+			input := newInputBuilder()
+			for _, chunk := range []*genx.MessageChunk{
+				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "speech", BeginOfStream: true}},
+				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, Error: "interrupted"}},
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "unrelated", EndOfStream: true}},
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
+			} {
+				if err := input.Add(chunk); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+			output, err := core.Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Fatal(err)
+			}
+			foreign, interrupted := false, false
+			for _, chunk := range drain(t, output) {
+				if chunk.Part != nil || !chunk.IsEndOfStream() {
+					continue
+				}
+				if chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" {
+					t.Fatal("consumed audio route EOS escaped into transcript output")
+				}
+				foreign = foreign || chunk.Ctrl.StreamID == "unrelated"
+				interrupted = interrupted || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "interrupted"
+			}
+			if !foreign || !interrupted {
+				t.Fatalf("unrelated EOS forwarded=%t, existing error EOS forwarded=%t", foreign, interrupted)
+			}
+		})
+	}
+}
 
 func TestInputTranscriptionPrecedesScriptsMemoryAndHistory(t *testing.T) {
 	memories := &recordingMemoryStore{events: &eventRecorder{}}
