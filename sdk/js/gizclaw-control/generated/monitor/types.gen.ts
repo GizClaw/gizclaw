@@ -30,6 +30,7 @@ export type NodeSnapshot = {
         inbound_service_channels: number;
     };
     device_metrics?: NodeDeviceMetrics;
+    infra_flows?: NodeInfraFlows;
 };
 
 export type MonitorError = {
@@ -65,6 +66,38 @@ export type NodeDeviceMetrics = {
     online_devices?: number;
     transports: Array<NodePeerTransport>;
 };
+
+/**
+ * Opt-in best-effort activity samples for visualization, capped at 20 per route/five-second window. Drops and incomplete data are expected; not traffic accounting or analytics. No device/session dimensions; absent when disabled or the window is unavailable. Generation changes on restart.
+ */
+export type NodeInfraFlows = {
+    environment: 'dev' | 'e2e' | 'prod' | 'trial';
+    generation: string;
+    flows: Array<Flow>;
+    window_start: number;
+    window_end: number;
+};
+
+export type Flow = {
+    source: string;
+    target: string;
+    kind: FlowKind;
+    /**
+     * Observed activity samples. Production capture is capped at 20 samples per route/window and may drop more; never treat this as total requests or extrapolate it.
+     */
+    count: number;
+    /**
+     * Payload bytes actually observed in the retained samples, not total link throughput.
+     */
+    bytes: number;
+    /**
+     * Elapsed milliseconds of retained samples only; not a service latency SLI.
+     */
+    duration_sum_ms: number;
+    duration_count: number;
+};
+
+export type FlowKind = 'request' | 'audio' | 'sync' | 'asset';
 
 export type GetNodeMonitorData = {
     body?: never;

@@ -95,7 +95,7 @@ func (s *PeerService) edgeHTTPHandlerForPeer(apiKeys *apikey.Server, peerPublicK
 	}
 	mux.Handle(infraflow.Path, infraFlowHandler)
 	mux.Handle("/openai/v1/", s.edgeOpenAIHTTPHandler(apiKeys))
-	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode), trustedEdge: peerPublicKey != ""})
+	return observeHTTPHandler(mux, httpObservationOptions{surface: observability.SurfaceEdgeHTTP, peerPublicKey: peerPublicKey, peerRole: string(apitypes.PeerRoleEdgeNode), trustedEdge: peerPublicKey != "", infraFlows: s.infraFlowCounters})
 }
 
 func (s *PeerService) edgeOpenAIHTTPHandler(apiKeys *apikey.Server) http.Handler {

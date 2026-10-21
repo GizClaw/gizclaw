@@ -12,8 +12,17 @@ export type Flow = {
     source: string;
     target: string;
     kind: FlowKind;
+    /**
+     * Observed activity samples. Production capture is capped at 20 samples per route/window and may drop more; never treat this as total requests or extrapolate it.
+     */
     count: number;
+    /**
+     * Payload bytes actually observed in the retained samples, not total link throughput.
+     */
     bytes: number;
+    /**
+     * Elapsed milliseconds of retained samples only; not a service latency SLI.
+     */
     duration_sum_ms: number;
     duration_count: number;
 };

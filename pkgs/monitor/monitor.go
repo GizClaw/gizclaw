@@ -45,6 +45,8 @@ type Node struct {
 	// OnlineDevices must only read the host's in-memory count. Nil means that
 	// device presence is unavailable, rather than a measured zero.
 	OnlineDevices func() int64
+	// InfraFlows reads explicitly configured, process-local route counters.
+	InfraFlows func() *monitorapi.NodeInfraFlows
 }
 
 type nodeServer struct {
@@ -63,6 +65,9 @@ func (s *nodeServer) GetNodeMonitor(_ context.Context, _ monitorapi.GetNodeMonit
 	snapshot.Transport.RxBytes = transport.RXBytes
 	snapshot.Transport.TxBytes = transport.TXBytes
 	snapshot.DeviceMetrics = s.deviceMetrics()
+	if s.node.InfraFlows != nil {
+		snapshot.InfraFlows = s.node.InfraFlows()
+	}
 	return monitorapi.GetNodeMonitor200JSONResponse(snapshot), nil
 }
 

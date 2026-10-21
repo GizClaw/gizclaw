@@ -3,7 +3,7 @@
   "info": {
     "title": "Infrastructure Flow Feed",
     "version": "1.0.0",
-    "description": "Public read-only five-second infrastructure aggregates backed by an explicitly configured KV Store. Anonymous GET/OPTIONS with no-store responses and cross-origin access. No per-user series or public write API."
+    "description": "Public read-only five-second infrastructure aggregates backed by an explicitly configured KV Store. Anonymous GET/OPTIONS with no-store responses and cross-origin access. No per-user series or public write API. Production activity is best-effort sampled for visualization; loss and incomplete counts are expected, and values are not traffic totals, billing or analytics."
   },
   "paths": {
     "/gizclaw/v1/infra/flows": {
@@ -130,19 +130,22 @@
             "type": "integer",
             "format": "int64",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "Observed activity samples. Production capture is capped at 20 samples per route/window and may drop more; never treat this as total requests or extrapolate it."
           },
           "bytes": {
             "type": "integer",
             "format": "int64",
             "minimum": 0,
-            "maximum": 9007199254740991
+            "maximum": 9007199254740991,
+            "description": "Payload bytes actually observed in the retained samples, not total link throughput."
           },
           "duration_sum_ms": {
             "type": "number",
             "minimum": 0,
             "maximum": 9007199254740991,
-            "format": "double"
+            "format": "double",
+            "description": "Elapsed milliseconds of retained samples only; not a service latency SLI."
           },
           "duration_count": {
             "type": "integer",

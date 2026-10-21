@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/infraflow"
 )
 
 const (
@@ -70,6 +71,7 @@ type peerHTTP struct {
 // PeerService serves one peer connection.
 type PeerService struct {
 	infraFlowHandler   http.Handler
+	infraFlowCounters  *infraflow.Counters
 	admin              *adminService
 	public             *peerHTTP
 	manager            *Manager

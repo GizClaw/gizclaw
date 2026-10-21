@@ -113,7 +113,7 @@ test("monitor requests follow client cancellation", async () => {
   }
 });
 
-test("node monitor preserves device counters and accepts snapshots from older nodes", async () => {
+test("node monitor preserves device and infrastructure counters and accepts older nodes", async () => {
   const deviceMetrics = {
     online_devices: 3,
     transports: [
@@ -123,6 +123,23 @@ test("node monitor preserves device counters and accepts snapshots from older no
         data_channels: { packet: 3, service: 4, native: 0 },
         rtp_packets_total: { rx: 100, tx: 200 },
         data_channel_messages_total: { rx: 300, tx: 400 },
+      },
+    ],
+  };
+  const infraFlows = {
+    environment: "e2e",
+    generation: "process-generation",
+    window_start: 1792195200000,
+    window_end: 1792195205000,
+    flows: [
+      {
+        source: "edge",
+        target: "server",
+        kind: "request",
+        count: 5,
+        bytes: 1169,
+        duration_sum_ms: 12,
+        duration_count: 5,
       },
     ],
   };
@@ -147,10 +164,13 @@ test("node monitor preserves device counters and accepts snapshots from older no
             rx_bytes: 0,
             tx_bytes: 0,
           },
-          ...(supported ? { device_metrics: deviceMetrics } : {}),
+          ...(supported
+            ? { device_metrics: deviceMetrics, infra_flows: infraFlows }
+            : {}),
         }),
     });
     const snapshot = await node.get();
+    assert.deepEqual(snapshot.infra_flows, supported ? infraFlows : undefined);
     assert.equal(
       snapshot.device_metrics?.online_devices,
       supported ? 3 : undefined,

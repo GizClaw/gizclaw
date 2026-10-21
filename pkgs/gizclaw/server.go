@@ -87,7 +87,9 @@ type Server struct {
 	FriendGroupStore       kv.Store
 	WorkspaceAssets        objectstore.ObjectStore
 	// InfraFlowHandler serves the public read-only, shared KV activity feed.
-	InfraFlowHandler      http.Handler
+	InfraFlowHandler http.Handler
+	// InfraFlowCounters observes only explicitly configured infrastructure peers.
+	InfraFlowCounters     *infraflow.Counters
 	MetricsStore          metrics.Store
 	PendingDeletionConfig pendingdeletion.Config
 	ServerLogQuery        ServerLogQueryService
@@ -737,9 +739,10 @@ func (s *Server) init() error {
 
 	s.manager = manager
 	s.peerService = &PeerService{
-		infraFlowHandler: s.InfraFlowHandler,
-		manager:          manager,
-		apiKeys:          apiKeyServer,
+		infraFlowHandler:  s.InfraFlowHandler,
+		infraFlowCounters: s.InfraFlowCounters,
+		manager:           manager,
+		apiKeys:           apiKeyServer,
 		admin: &adminService{
 			Peers:                       peersServer,
 			CredentialAdminService:      credentialServer,

@@ -369,7 +369,7 @@ func (h *PeerConn) serveEdgeRPC() error {
 	defer func() {
 		_ = listener.Close()
 	}()
-	server := &edgeRPCServer{callerPublicKey: h.Conn.PublicKey().String(), routes: h.Service.manager.PeerRoutes, apiKeys: h.Service.apiKeys, isPeerRetiring: h.isRetiring,
+	server := &edgeRPCServer{infraActivity: h.Service.infraFlowCounters.EdgeObserver(h.Conn.PublicKey().String()), callerPublicKey: h.Conn.PublicKey().String(), routes: h.Service.manager.PeerRoutes, apiKeys: h.Service.apiKeys, isPeerRetiring: h.isRetiring,
 		notifications:       h.Service.manager,
 		resolveSignedBearer: h.Service.resolveSignedPeerAccess,
 		authorizeNotification: func(ctx context.Context) bool {

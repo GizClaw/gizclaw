@@ -141,6 +141,9 @@
           },
           "device_metrics": {
             "$ref": "#/components/schemas/NodeDeviceMetrics"
+          },
+          "infra_flows": {
+            "$ref": "#/components/schemas/NodeInfraFlows"
           }
         }
       },
@@ -255,6 +258,51 @@
             "items": {
               "$ref": "#/components/schemas/NodePeerTransport"
             }
+          }
+        }
+      },
+      "NodeInfraFlows": {
+        "type": "object",
+        "description": "Opt-in best-effort activity samples for visualization, capped at 20 per route/five-second window. Drops and incomplete data are expected; not traffic accounting or analytics. No device/session dimensions; absent when disabled or the window is unavailable. Generation changes on restart.",
+        "required": [
+          "environment",
+          "generation",
+          "flows",
+          "window_start",
+          "window_end"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "environment": {
+            "type": "string",
+            "enum": [
+              "dev",
+              "e2e",
+              "prod",
+              "trial"
+            ]
+          },
+          "generation": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "flows": {
+            "type": "array",
+            "maxItems": 64,
+            "items": {
+              "$ref": "./infra.json#/components/schemas/Flow"
+            }
+          },
+          "window_start": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
+          },
+          "window_end": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0
           }
         }
       }

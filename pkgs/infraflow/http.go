@@ -16,7 +16,10 @@ import (
 // Config binds a dedicated KV namespace for the public read-only feed.
 // An empty Store disables the feed; it never creates an implicit Store.
 type Config struct {
-	Store string `yaml:"store"`
+	Store       string               `yaml:"store"`
+	Environment infraapi.Environment `yaml:"environment"`
+	Capture     *CaptureConfig       `yaml:"capture"`
+	Producer    *ProducerConfig      `yaml:"producer"`
 	// Deprecated: ReadToken is ignored. Infrastructure aggregates are public.
 	ReadToken string `yaml:"read_token" json:"-"`
 }
@@ -26,7 +29,7 @@ func (c *Config) Validate() error {
 	if strings.TrimSpace(c.Store) != c.Store {
 		return errors.New("infra_flow.store must not contain surrounding whitespace")
 	}
-	return nil
+	return c.validateCollection()
 }
 
 type flowServer struct{ feed *Feed }
