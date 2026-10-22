@@ -70,6 +70,8 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 	chunks := inputChunks(0)
 	started := time.Now()
 	var firstAudio, firstEnd, secondInput time.Time
+	var firstInputCommitStarted time.Time
+	earlierResponses := map[string]bool{}
 	var heldAt time.Time
 	hold := pushToTalkHoldThreshold
 	if op.HoldBeforeAudio != "" {
@@ -135,6 +137,9 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 			return fail(fmt.Errorf("overlapping input: %w", context.Cause(ctx)))
 		case <-send:
 			chunk := chunks[cursor]
+			if op.Mode == "text" && turn == 0 && chunk.IsEndOfStream() {
+				firstInputCommitStarted = time.Now()
+			}
 			if op.Mode == "push-to-talk" && cursor == 0 {
 				heldAt = time.Now()
 			}
@@ -188,6 +193,15 @@ func invokeOverlappingPeerInput(ctx context.Context, stream peerStream, op *gizt
 				hasText = strings.TrimSpace(string(part)) != ""
 			case *genx.Blob:
 				hasAudio = len(part.Data) > 0 && strings.HasPrefix(part.MIMEType, "audio/")
+			}
+			// A new subscription may receive the previous narration's tail.
+			// Text input commits at EOS; content received before that fence
+			// belongs to an earlier response, even if decoded after the push.
+			if op.Mode == "text" && response == nil && (hasText || hasAudio) && (firstInputCommitStarted.IsZero() || received.receivedAt.Before(firstInputCommitStarted)) {
+				earlierResponses[id] = true
+			}
+			if earlierResponses[id] {
+				continue
 			}
 			if response == nil {
 				// Empty route announcements and late terminals do not establish a reply.

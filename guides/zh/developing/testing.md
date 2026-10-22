@@ -893,6 +893,11 @@ Go runner 的 `overlap_input: true` 在 `mode: text` 时要求 `input` 为两条
 必须结束，第二轮必须有文字和音频，旧轮内容不得与新轮交错。它不使用 `interrupt_after`
 的关闭重开连接行为。该扩展由 Go runner 执行。
 
+新订阅可能收到上一轮播报的尾部。文字输入 EOS 提交前收到的旧回复按 StreamID 排除，
+其后到达的同 ID 尾包也不作为本轮回复；真正的本轮回复仍须满足重叠及结束条件。实现与
+确定性回归见 [重叠输入](https://github.com/GizClaw/gizclaw/blob/main/cmd/internal/commands/giztest/peer_stream_overlap.go)
+及同目录测试。
+
 空白文字可显式设置 `require_text: false`、`require_audio: false` 和正数 `idle_timeout`，
 观察无回复窗口；有效 assistant 文字、音频或 terminal error 均失败，窗口结束后才进入下一轮。
 这只适用于空白文字的 terminal completion，普通输入仍必须要求至少一种回复模态。

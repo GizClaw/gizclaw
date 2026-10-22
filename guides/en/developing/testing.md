@@ -1069,6 +1069,12 @@ sent before receipt of the first response's audio EOS. Both responses must close
 and audio routes; the second must contain text and audio and complete without errors.
 A first response reporting `interrupted` after the second input is allowed and recorded as
 `first_response_interrupted`; the test does not require a particular provider interruption policy.
+
+Go also supports text overlap with two nonblank text inputs. A new subscription can receive the prior
+narration's tail: responses received before the first text input's EOS commit are excluded by StreamID,
+including later packets with the same ID. The actual current response must still satisfy the overlap
+and completion conditions. See the [overlap implementation](https://github.com/GizClaw/gizclaw/blob/main/cmd/internal/commands/giztest/peer_stream_overlap.go)
+and its deterministic regressions.
 Only `mode`, `input`, `pacing`, and PTT `hold_before_audio` can accompany this option; use the step `timeout` for the bound.
 Results include `input_overlap`, `session_connection_reused`, `second_input_sent`,
 `first_audio_ms`, `second_input_audio_ms`, `first_audio_eos_ms`, and second-response EOS flags.
