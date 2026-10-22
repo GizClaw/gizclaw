@@ -1,151 +1,46 @@
 # Telemetry API
 
-`api/proto/telemetry/peer_telemetry.proto` 定义 Peer 向 Server 发送的 telemetry event wire format。它是高频单向事件流，不是 RPC method，也不是 Admin HTTP resource。
+Telemetry 用于设备向 Server 单向上报观测，区别于 RPC 请求和 Admin 资源管理。消息字段、枚举与单位由 [peer_telemetry.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/telemetry/peer_telemetry.proto) 定义；解码、状态投影与持久化见 [peertelemetry 源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/peertelemetry)。
 
-Direct packet protocol、可靠性与 transport 边界见 [Streams Reference](/references/streams#direct-packets)。
+传输语义见 [Direct packets](/references/streams#direct-packets)。
 
 ## 数据路径
 
 ```mermaid
-sequenceDiagram
-    participant Peer
-    participant Conn as Giznet Peer connection
-    participant Decoder as Telemetry decoder
-    participant Service as Peer Telemetry service
-    participant Store as Metrics store
-    participant Admin as Admin HTTP
-
-    Peer->>Conn: telemetry protobuf packet
-    Conn->>Decoder: protocol + payload
-    Decoder->>Service: typed telemetry event
-    Service->>Store: append/update metrics
-    Admin->>Service: query latest/aggregate
-    Service-->>Admin: telemetry view
+flowchart LR
+    Peer["设备观测"] --> Decode["解码与校验"]
+    Decode --> State["设备最新状态"]
+    Decode --> Metrics["可聚合的数值指标"]
+    State --> Read["已授权的状态查询"]
+    Metrics --> Read
 ```
 
-Telemetry Protobuf 拥有设备上报的 wire fields。Metrics store 拥有保存与查询语义；Admin HTTP 拥有面向管理员的 response contract。不要为了方便直接把 storage model 当 telemetry wire message，也不要让设备依赖 Admin response DTO。
+观测消息、状态快照与指标分别服务于上报、当前状态展示和时间序列分析，调用方应选择对应入口，不把持久化模型直接当作 wire message。
 
 ## 设计规则
 
-- 高频字段应保持紧凑、稳定并向后兼容。
-- 新字段必须明确单位、时间语义和缺省值；不能仅靠 Go 注释猜测。
-- Decoder 将 malformed 或超限输入视为不可信边界。
-- Aggregation、retention 和 query filtering 属于 service/store，不属于 wire schema。
-- Schema 变化后重新生成 Go 与 JavaScript telemetry code，并验证真实 packet decode 和 service ingestion。
+新增上报先修改 Schema，再同步生成 SDK 与实际收发方。数值指标应有明确单位；身份、版本和自由文本适合状态展示，不能随意变成高基数 metrics label。
+
+设备时间用于判断观测的新旧，不等同于 Server 收到 packet 的时间。具体校验和合并规则查阅上述处理代码。
 
 ## Activity 上报
 
-`Observation.activity`（field 16）使用 `ActivityObservation` 报告设备当前正在使用哪个功能，
-让运维直接看到设备在干什么，而不必从其他信号推断：
-
-| 字段 | 编号 | 类型 | 含义与校验 |
-| --- | --- | --- | --- |
-| `activity` | 1 | `string` | 稳定的机器可读功能 id，1–32 字节，匹配 `^[a-z0-9][a-z0-9_.-]{0,31}$`，例如 `idle`、`chat`、`audioplayer`、`ota`。 |
-| `detail` | 2 | `optional string` | 展示用的补充说明，最多 128 UTF‑8 字节。Server 从不解析，不得携带密钥或凭据。 |
-
-`activity` 不是指标：字符串随时间的变化没有可聚合的意义，需要回答的问题是"现在在干什么"，
-这正是状态快照表达的东西。因此它只进入 `PeerStatus.activity` 与 `PeerStatus.activity_detail`，
-不写入 metrics store，也不出现在 `PeerTelemetryField` 枚举或 label 中。
-
-`activity` 与 `detail` 作为一个整体合并：`detail` 描述的是与它一同到达的那个 activity，所以被接受的
-观测总是同时替换两者，未携带 `detail` 的观测会清除上一个 activity 遗留的说明。逐字段排序与
-battery、GNSS 相同，观测时间记录在 `telemetry_observed_at.activity`。
-
-`activity` 是设备自定义的开放取值：读取方必须原样保留未知值，并按 id 做本地化，不要解析字符串本身。
-不匹配模式的值按 `ErrInvalidFrame` 拒绝整个 frame；控制响应里携带的非法值则被丢弃而不是存储。
+Activity 用来回答“设备现在在做什么”，作为状态供界面展示。应用可以本地化已认识的活动标识，但应保留未知值；不要从活动字符串推导权限或指标含义。
 
 ## 固件版本上报
 
-`SystemObservation.firmware_version`（field 4）此前只做校验、不落库。现在它随观测时间进入
-`PeerStatus.firmware_version`，与逐包精确的 `firmware_sha256` 并列：digest 标识具体的包，
-版本号标识对外的 release。它同样只是状态而不是指标——把版本字符串写成 sample 会带来高基数 label
-风险，而它真正的用途是展示。逐字段排序保证迟到的旧上报不会把版本回滚。只有 1–128 字节的值会进入状态；空字符串或超长的值会被丢弃，但不会拒绝整帧，因为旧设备一直未经校验地发送这个字段。
+版本用于展示发布身份，digest 用于识别具体包。查询方不应把版本显示或单次遥测视为安装验收，应结合设备确认的升级状态。
 
 ## Network 上报
 
-`Observation.network`（field 12）使用 `NetworkObservation` 报告当前默认数据路由的信号与蜂窝身份：
+网络观测区分当前路由的信号、连接状态和蜂窝身份。没有可读身份时不制造占位值，也不继续上报已移除 SIM 的缓存身份。
 
-| 字段 | 编号 | 类型 | 含义与校验 |
-| --- | --- | --- | --- |
-| `rssi_dbm` | 1 | `optional double` | 接收信号强度，单位 dBm，必须有限；写入 `network.rssi_dbm` 指标。 |
-| `signal_level` | 2 | `optional double` | 设备定义的信号等级，必须有限；写入 `network.signal_level` 指标。 |
-| `rat` | 3 | `optional string` | 无线接入技术，例如 `lte`、`nr`、`wifi`；决定信号写入哪条路由的状态，本身不落库。 |
-| `operator` | 4 | `optional string` | 运营商名称；只用于校验，不落库。 |
-| `connected` | 5 | `optional bool` | 路由是否已连接；写入 `network.connected` 指标。 |
-| `imei` | 6 | `optional string` | 调制解调器硬件 IMEI，必须恰好 15 个 ASCII 数字（`^[0-9]{15}$`）。没有调制解调器的设备不设置。 |
-| `imsi` | 7 | `optional string` | 当前承载默认数据路由的 SIM 的 IMSI，6 到 15 个 ASCII 数字（`^[0-9]{6,15}$`）。无法读取 SIM 时不设置。 |
-
-`imei` 与 `imsi` 只对蜂窝路由有意义：`rat` 为 `wifi`（不区分大小写）时携带任一字段，整个 frame 按
-`ErrInvalidFrame` 拒绝；模式不匹配同样拒绝整个 frame，不产生部分状态写入。未携带 6、7 号字段的旧
-SDK frame 解码与存储行为不变。
-
-身份字符串不是指标：它们不进入 metrics store、`PeerTelemetryField` 枚举或 Prometheus 风格的 label，
-而是随观测时间进入 owner-scoped 的 `PeerStatus.network_imei` / `PeerStatus.network_imsi`，并在
-`PeerStatus.telemetry_observed_at` 下记录 `network_imei` / `network_imsi` 两个 RFC 3339 时间戳。逐字段排序
-与 battery、GNSS 相同：较旧的观测不会覆盖更新的已存值；与已存值相等的观测只刷新 `telemetry_observed_at` 时间戳，不额外推进
-`reported_at`；值与时间戳都未变化时不重写状态。telemetry 从不清除身份字段，设备丢失 SIM 后只是停止上报
-`imsi`；清除属于管理操作，不在 telemetry 范围内。
-
-信号同时投影进状态，供 App 直接显示当前信号：`rat` 为 `wifi` 时 `rssi_dbm` 写入 `PeerStatus.wifi_rssi_dbm`；
-其他非空 `rat` 把 `rssi_dbm` 与 `signal_level` 写入 `PeerStatus.cellular_rssi_dbm` / `PeerStatus.cellular_signal_level`。
-逐字段排序同 GNSS，并在 `telemetry_observed_at` 下记录同名时间戳；切换路由不清除另一条路由的最后值。未携带
-`rat` 的观测不指明路由，只写入指标，不改状态，因此旧设备的上报行为不变。
-
-`PeerStatus` 已由 Peer RPC `server.status.get`、`GET /gizclaw/v1/device/status` 等既有状态接口返回，
-这些新字段随之暴露，不新增 endpoint。Side-control 与 monitor 投影把它们当作不透明字符串。
-
-隐私范围：IMEI 与 IMSI 与 GNSS 一样是 owner-scoped 状态，不得出现在 Server、Edge 或 SDK 的日志、trace
-或错误信息中，校验错误只报告字段名。设备只为当前承载流量的 SIM 上报 `imsi`，不得上报已移除 SIM 的缓存值。
-telemetry 上报的 IMEI 与 `client.identifiers.get` 返回的 `DeviceIdentifiers.imeis` 是相互独立的来源，
-不合并，也不影响 `by-imei` 索引。
-
-Go 使用 `telemetrypb.NetworkObservation` 的 `Imei` / `Imsi`；JavaScript 使用 `networkTelemetry({ imei, imsi })`；
-C 使用 `gzc_telemetry_network_t` 的 `has_imei` / `imei` 与 `has_imsi` / `imsi`，编码前按上述长度与数字规则
-校验并在 `rat` 为 `wifi` 时返回 `GZC_ERR_INVALID_ARGUMENT`。字符串在调用期间借用。Flutter 没有 telemetry
-发送 surface，只通过生成的 `PeerStatus` 读取 `network_imei` / `network_imsi`。
+IMEI、IMSI 和 GNSS 是设备所属范围内的数据，只通过已授权状态查询展示，不写入日志、trace 或 metrics label。身份上报与设备标识索引的维护是不同路径，不能用其中一条隐式覆盖另一条。
 
 ## OTA 上报
 
-`Observation.ota`（field 14）使用 `OtaObservation`，在同一个 `update_id` 下报告一次升级尝试：
+一次升级尝试应保持同一个尝试标识，重新尝试使用新的标识。下载结束与安装成功是不同阶段，只有设备确认的最终状态才能用于展示成功。
 
-| 状态 | 数值 | 含义 |
-| --- | --- | --- |
-| `OTA_STATE_STARTED` | 1 | 设备开始本次升级。 |
-| `OTA_STATE_DOWNLOADING` | 2 | 正在下载，必须携带 `download_percent`。 |
-| `OTA_STATE_SUCCEEDED` | 3 | 设备确认升级成功；下载到 100% 不表示升级成功。 |
-| `OTA_STATE_FAILED` | 4 | 本次升级失败，可携带 `error_code` 和 `error_message`。 |
+状态查询读取 Server 保存的最新快照；设备离线后仍可能看到上次报告。遥测传输不提供业务确认或恰好一次交付，因此调用方不能将一次发送成功当作升级完成。
 
-`update_id` 是设备提供的非空尝试标识，最多 128 UTF-8 bytes；重试使用新的标识。
-`target_version` 可选，最多 128 UTF-8 bytes。`download_percent` 是有限的 0–100
-百分比，缺省表示未报告，显式 0 表示下载进度为零。错误字段只允许出现在失败状态，
-`error_code` 最多 128 UTF-8 bytes，`error_message` 最多 512 UTF-8 bytes。
-错误描述必须由设备提供安全诊断，不得包含 credential、签名 URL 或 secret。
-时间沿用 frame 的 `observed_at_unix_ms` 加 observation 的 `observed_at_delta_ms`。
-
-Go 使用 `Client.SendOTATelemetry(*telemetrypb.OtaObservation)`，JavaScript 使用
-`otaTelemetry`、`OtaState` 和已有发送接口。C 使用 `gzc_telemetry_ota_frame_t`、
-`gzc_telemetry_encode_ota_frame` 和 `gzc_client_send_ota_telemetry`；每个 C OTA frame
-携带一个 observation，字符串在调用期间借用，原有 C frame/observation 布局保持不变。
-Go 和 JavaScript 可以在同一个 frame 中混合多种 observation。Flutter 当前没有 telemetry
-发送 surface，本 contract 不增加独立的 Flutter transport。
-
-SDK 负责 wire 编码和发送，服务端负责上述语义校验，拒绝未指定或不支持的状态。
-服务端在整个 frame 校验通过后更新 runtime 状态。OTA payload（包括诊断文本）不写入
-日志，不写入数值 metrics，也不通过 telemetry latest/aggregate API 查询。长度受限的
-诊断字段按原文保留，不使用启发式 secret 检测，仅通过已有鉴权的设备状态接口返回。
-设备不应在诊断中包含 secret。
-
-最新 OTA 状态保存在设备 runtime 的 KV Store，通过 `PeerStatus.ota` 暴露。
-LiteLink 等 API Key 调用方读取 `GET /gizclaw/v1/device/status` 的 `ota`：
-`state`（`started`、`downloading`、`succeeded`、`failed`）、`update_id`、`observed_at`，以及
-可选的 `target_version`、`download_percent`、`error_code`、`error_message`。
-Peer RPC `server.status.get` 返回同一状态。HTTP/RPC 状态 SDK 保留未知未来 state 字符串。
-设备断开连接后仍可查询最后快照；`/device/runtime` 的连接统计不承载 OTA。
-
-runtime 以独立的 per-peer OTA record 原子比较更新。较旧时间戳不覆盖新状态；同一次
-尝试的终态不可退回下载中，下载百分比不可倒退；相同时间戳只能推进同一尝试。新尝试
-需要新的 `update_id` 和更晚时间，替换完整快照并清除旧错误和进度。同一尝试未报告的
-版本和进度保留上次值。音量等控制状态写入不能覆盖 OTA。
-
-上报沿用 direct packet 的发送与可靠性语义，不提供业务确认、重试或恰好一次交付。
-服务端按上述顺序规则维护最新快照；设备应节制进度上报频率。
+SDK 负责按 Schema 编码和发送，Server 负责校验与更新快照。状态转换与乱序处理见 [运行时 OTA 存储](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/ota.go)。诊断信息由设备提供，不应包含 secret 或带凭据的 URL。

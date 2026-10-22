@@ -1,5 +1,7 @@
 # Eino Transformer
 
+[Graph 定义与校验](https://github.com/GizClaw/gizclaw/tree/main/pkgs/genx/transformers/eino)
+
 `pkgs/genx/transformers/eino` 将 typed Eino Graph 封装为可并发复用的 `genx.Transformer`。该 package 自己负责 Graph 构造、State、streaming、History、Memory 与 turn lifecycle；它只依赖 GenX、Eino core、Starlark 和通用 Store，不导入 GizClaw Workspace、Workflow、Resource、AgentHost 或产品层 Toolkit 类型。
 
 ## 构造与所有权
@@ -28,31 +30,9 @@ transformer, err := eino.New(ctx, eino.Config{
 
 ## Graph contract
 
-`GraphDefinition` 显式声明 State field、typed node、edge、branch、compile 行为和 output：
+`GraphDefinition` 用于组合 State、node、路由和输出。
 
-```go
-type GraphDefinition struct {
-    Name     string
-    Compile  GraphCompileConfig
-    State    StateDefinition
-    Nodes    []NodeDefinition
-    Edges    []EdgeDefinition
-    Branches []BranchDefinition
-    Outputs  []OutputDefinition
-}
-```
-
-Binding 只接受以下 namespace：
-
-| Binding | 类型 | 值 |
-| --- | --- | --- |
-| `input.text` | `string` | 已完成的 user text turn。 |
-| `input.messages` | `messages` | 有序 History 加当前 user message；Agent 主动开场只有 History，不追加空 user message。 |
-| `input.parts` | `list` | defensive copy 后的非文本 input part。 |
-| `history.messages` | `messages` | 仅包含此前的有序 History。 |
-| `memory.recalled` | `string` | 合并后的 recall 渲染结果。 |
-| `input.safety_fence` | `string` | 宿主通过 `Config.SafetyFence` 提供的安全围栏文案，未选择时为空字符串；batch、race 与子图继承同一值。Transformer 不会自行放置它，未绑定的 Graph 不受影响。 |
-| State field 裸名称 | 声明类型 | 当前 invocation-local State value。 |
+Binding 的 namespace 与类型由上述 Graph 定义统一维护。
 
 Node input map 的 key 是 component input port；output map 的 key 是 node output port，value 是目标 State field。未知 binding、field、port 或类型不兼容都会在 `New` 失败。
 
@@ -71,20 +51,6 @@ Edge 映射到 Eino `AddEdge`。`first_match` 选择第一个命中的 route，�
 原生 parallelism 通过 Eino scheduler 执行 sibling path 并 join。`Race` 的语义不同：它执行隔离的 nested Graph，只保留一个 winner，取消 loser，并且只把 winner output 合并回 parent。所有选中工作都必须完成时使用 native fan-out；只允许一个结果生效时使用 `Race`。
 
 ## 支持的 node 与 port
-
-| Node | Input | Output |
-| --- | --- | --- |
-| `Prompt` | Template variable；message placeholder 必须绑定 `messages`。 | 仅 `messages`。 |
-| `ChatModel` | 仅 `messages`。 | `text`、`messages` 或两者。 |
-| `Retriever` | `Query` 是 string binding。 | 仅 `documents`。 |
-| `Transform` | Operation-specific typed port。 | Operation-specific typed port。 |
-| `Passthrough` | 仅 `value`。 | 仅同类型 `value`。 |
-| `Script` | 声明的 dictionary key。 | 声明的 dictionary key。 |
-| `Lambda` | Descriptor 声明的 port。 | Descriptor 声明的 port。 |
-| `Match` | 仅一个 `text` string binding。 | 仅一个 `matches` list。 |
-| `Subgraph` | Child Graph input 与 State initialization field。 | 全部 child Graph output name。 |
-| `Race` | 所有 nested Graph 共有的 input。 | 所有 nested Graph 共有的 output name。 |
-| `Batch` | `Items` 是 list binding。 | 一个保持顺序的 `items` list。 |
 
 每条 Prompt message 必须且只能使用一种声明形式。角色消息同时声明非空 `role` 和 `template`；占位消息声明非空 `placeholder`，可以设置 `optional`，但不能同时声明 `role` 或 `template`。占位名称必须对应绑定到 `messages` 的 Prompt input。
 
@@ -198,14 +164,6 @@ Starlark 提供 `json.encode` / `json.decode`、有界 RE2 `regex_find` / `regex
 ## Named Lambda
 
 Named Lambda 让 Go behavior 留在 serializable configuration 之外：
-
-```go
-type ResolvedLambda struct {
-    Lambda  *compose.Lambda
-    Inputs  map[string]StateType
-    Outputs map[string]StateType
-}
-```
 
 Resolver 在 `New` 执行。Descriptor 必须与全部 configured port 和 State type 匹配。Lambda ABI 是 `map[string]any` input 到 `map[string]any` output；应使用 `compose.InvokableLambda` 或同 shape 的 Eino Lambda。返回值必须包含所有 declared output port。Lambda 归调用方所有且必须支持并发调用。
 

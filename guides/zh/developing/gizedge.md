@@ -4,7 +4,7 @@
 
 启用 gateway 后，Edge 也是客户端 WebRTC transport 的终点，并把逻辑连接复用到有界的 Server upstream pool。Edge Node 仍不是业务数据的 owner；客户端 identity、最终授权、领域服务和资源存储均由上游 GizClaw Server 负责。
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizedge)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizedge)
 
 ## 目录结构
 
@@ -174,8 +174,7 @@ runtime 会在打开 listener 前失败，不能替换第一个 runtime 的 logg
 HTTP listener 按声明顺序启动，每个 listener 可省略 `tls` 提供明文 HTTP，或同时配置本地
 `cert-file` 与 `key-file` 提供 TLS 1.2 及以上的 HTTPS。地址必须唯一，证书对会在打开流量前加载；
 空列表、单边证书配置、无效证书或重复地址会使启动失败。`http.listeners` 必填，并且第一个地址
-必须等于 `webrtc.listen`。已移除的顶层 `listen`、`endpoint` 和 `tls` 配置都会被拒绝；
-证书只能配置在各 listener 内。证书路径支持环境变量。
+必须等于 `webrtc.listen`。证书只能配置在各 listener 内。证书路径支持环境变量。
 
 ```yaml
 webrtc:
@@ -303,183 +302,8 @@ Event/RPC 保留进度；association budget 是 32 MiB。reservation 要等 Data
 5 分钟无 activity 的 session 默认被回收。进程关闭时先停止新 admission，在 30 秒 drain
 deadline 内保留现有 session，超时后强制关闭。
 
-组合后的 nonterminal recovery 回归使用两个按 digest 固定的真实 Coturn member、relay-only
-upstream ICE、test-only silent UDP fault boundary，并阻断 direct Edge-to-Server UDP path：
-
-```bash
-bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
-```
-
-该测试证明初次 native channel 可以在本地 open 后达到完整 application-acceptance
-timeout，随后同一个 client 在 logical session acceptance 前经 alternate 完成 Register 和
-Ping。真实 relay host failure、drain、capacity 与 soak 仍属于 deployment acceptance，不由
-package E2E 代替。
-
-30,000 是可配置 harness 在具体主机上的容量模型目标，不是每条 upstream、每个 Edge 或任意硬件的无条件保证。harness 为每个 logical session 创建一个真实客户端 WebRTC PeerConnection；因此 load driver 本身也有显著内存、goroutine、FD 和 CPU 成本。达到 30,000 前必须为 load driver、各 Edge 和 Server 分别制定资源预算；单机不足时应在多个 load-driver 进程或主机间分片总 session 数，不能把降低 activity 或改用 synthetic session 当作通过。
-
-本机基线入口启动一个 Server 和两个独立身份的 Edge，建立并保持 100 个真实客户端
-PeerConnection。所有 session 先完成有界 ping，然后通过同一个 start barrier 同时执行
-每路 4 MiB upload，再同时执行每路 4 MiB download；测试最后继续保持连接一分钟并执行
-多轮 ping：
-
-```bash
-bash tests/gizclaw-e2e/run_gateway_capacity_tests.sh
-```
-
-默认 artifact 写入 ignored 的
-`tests/gizclaw-e2e/testdata/gateway-capacity-100.json`；可通过
-`GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` 选择其他输出路径。该入口要求 100/100
-session 建立成功、所有 ping 成功、无 unexpected disconnect 或 identity crossover，
-且两个 Edge 的每个 session 都有 upstream assignment。每个测速方向要求 100/100
-完整传输。固定 gate 同时要求每个方向达到 `200 Mbps` aggregate floor，并且不低于
-同一轮 32 MiB 单路 sustained baseline 的 0.8 倍。单路使用更大的 payload，避免短
-burst 把基线抬高而产生 flaky ratio；绝对门槛会拒绝旧的十几 Mbps association ceiling，
-保留倍率避免在单路已经跑满当前路径时错误要求线性扩展，同时仍拒绝明显并发退化。它只
-证明当前本机 Docker 拓扑的 100 路并发传输基线，不是
-30,000-session 实测，也不把本机 aggregate Mbps 当作其他网络的带宽承诺。
-
-容量 artifact 记录 load-driver 的 GOOS、GOARCH、Go version 和 logical CPU，并包含建立失败、周期 ping RTT、每轮及每个 Edge/upstream 的 RTT/失败汇总、unexpected disconnect、identity crossover、RSS、Go/runtime active CPU estimate、FD、heap、收发 bytes，以及 Edge/upstream 分布。upload/download 分别记录单路基线、由共享 wall-clock 计算的 100 路 aggregate Mbps、每路速率分位数、完整字节数、失败，以及每个 Edge/upstream 的聚合结果；不能把各客户端 duration 相加或取最大值替代共享起止区间。每个内存和 CPU 资源点都携带数据源；无法读取 Linux `/proc/self/statm` 时，`rss_bytes` 明确标记为 `go_memstats_sys` fallback，不能作为完整进程 RSS。平台无法读取 FD 时该值为 `-1`。达到 crossover、unexpected disconnect、测速失败、绝对 Mbps 或保留倍率阈值时命令以非零状态退出。
-
-固定的 500-session 验收入口为：
-
-```bash
-bash tests/gizclaw-e2e/run_gateway_capacity_500_tests.sh
-```
-
-它固定在 3 个全新的 one-Server/two-Edge stack 上，以 0 ramp 同时发起 500 个 Dial。每个
-Edge 恰好承载 250 个 session 和 4 条 upstream association。每轮要求 500/500 usable
-sessions，无失败、disconnect、restart 或 identity crossover，至少 20 sessions/s，Dial
-p95 不超过 1 秒且 p99 不超过 5 秒，并且每个方向精确传输 500 MiB、aggregate throughput
-不低于 200 Mbps。32 MiB 单路 baseline 和 aggregate ratio 只作为诊断数据；可发布 artifact
-必须记录最终 clean PR head。
-
-2026-08-02 在一台 Darwin/arm64、16 logical CPUs、Go 1.26.4 的主机上，以 OrbStack
-Linux/aarch64 Docker 运行 one-Server/two-Edge 拓扑并使用 direct container signaling
-endpoint，三轮 clean-head 测试均通过。每轮都建立 500/500 usable sessions，transfer
-failure 和 unexpected disconnect 均为 0，并且每个方向精确传输 500 MiB、速度超过
-200 Mbps。这些结果只验收该主机和拓扑；
-不代表 1,000 sessions、soak 或部署网络已经通过。1,000-session 重复运行、长时间 soak、各进程资源斜率和
-30,000-session 理论推算仍属于独立的扩展容量验收。
-
-固定的 relay-only 1,000-session burst 与 soak 入口为：
-
-```bash
-bash tests/gizclaw-e2e/run_gateway_capacity_1000_tests.sh
-bash tests/gizclaw-e2e/run_gateway_capacity_1000_soak_tests.sh
-```
-
-Burst 入口要求 clean head，并在三个全新的 one-Server/two-Edge/two-Coturn stack 上重复。
-每轮通过同一个 barrier、concurrency 1,000、zero ramp 同时释放 1,000 个 Dial，保持全部
-1,000 个 live session 30 秒，执行 final liveness 后有界清理。每台 Edge 必须通过四条
-gateway upstream 恰好承载 500 个 session；establishment、每方向精确 1,000 MiB
-（1,048,576,000 bytes）application transfer、200 Mbps aggregate、timing、resource、relay
-selection、十条 allocation、restart
-与 cleanup gate 均沿用较小档位的固定 contract。Load driver 固定并记录 `GOGC=200`，
-避免约 2 GiB client heap 的回收成为 synchronized transfer 的限制环节。长时间稳定性
-仍由当前 process CPU 与 completed-GC live-heap 证据把关；这个参数不改变 Edge、
-Server 或 Coturn 的 runtime behavior。
-
-Soak 入口先在同一个 clean head 上重跑全部三轮 burst，再用一个新 stack 以相同 zero-ramp
-方式建立 1,000 个 session 并保持 60 分钟。完整 liveness round 每 30 秒开始一次；独立的
-heartbeat 至少每 30 秒及每轮 liveness 的边界输出 active session、ping、disconnect、
-open FD、RSS、goroutine，以及 Docker role sample 数、历史 gap 与当前 age 证据。任一
-ping、disconnect、identity、round-duration gate 或 2.1 秒 resource sample gap 变为不可恢复
-时，runner 立即失败并清理；测速 run 运行中也至少每 15 秒输出 progress，不能把一直安静到
-60 分钟 deadline 视为正常运行。
-独立的
-initial/final upload 与 download checkpoint 均对每 session 精确传输 1 MiB、达到至少
-200 Mbps，并要求 final 每个方向的 aggregate 以及 per-session p01、p05、p50 throughput
-都保留 initial 的至少 80%。p95 与 p99 throughput 保留为快尾诊断，不作为退化 gate。
-Fresh stack 的 HTTP 与 ready-file readiness 等待每 15 秒输出 service state 与 elapsed
-time，不能把 Compose 启动后的静默当成 ready。
-有序验收从 clean head 构建一个按 run ID 隔离的 service image，并在各 repetition 间复用这
-一份完全相同的镜像。每轮仍重新创建 container、network、volume、port 与 credential；runner
-失败时只保留按 clean HEAD 隔离的镜像供同一 HEAD 重试；HEAD 改变后 tag 随之改变，整组
-验收完成后删除这份精确镜像。每个 fresh stack ready 后、测量前都执行 120 秒
-post-start 稳定窗口，并每 15 秒输出 container health；复用镜像的 repetition 也不例外。
-每轮 1,000-session fresh stack 清理后有固定 120 秒稳定窗口，并每 15 秒输出剩余时间，避免
-Docker VM 的延迟资源回收污染下一轮；upload gate 已失败时跳过不再有意义的 download。
-
-Artifact version 18 记录实际 hold boundary，并比较最初与最后十分钟。Ping 失败时，
-artifact 还会记录失败请求关闭前的 DataChannel ID、状态、buffered amount、收发字节数和
-parent association 状态，同时记录不含地址的 PeerConnection、ICE、SCTP 状态，以及 ICE
-包/字节和 SCTP 字节计数；随后在同一 association 上使用另一条全新的 DataChannel 执行一次
-有界诊断 Ping，并再次记录 parent 计数。诊断 Ping 不计入验收请求数，也不会把原始失败改判为通过。
-每轮 RTT p99 的
-median、RSS、open FD、最近一次 completed GC 的 Go live heap，以及 goroutine median，
-增长均不得超过 20%。当前 Go heap-object bytes 保留为诊断值，但因其会随正常 GC cycle
-波动而不作为增长 gate；采样过程不会强制触发 GC。
-CPU 与 network rate 同样采用 20% 相对门槛，并分别设置 0.10 core 与 1,024 bytes/s 绝对
-噪声下限；UDP/UDP6 socket median 采用 20% 门槛。RSS、CPU 与 open-FD sample 绑定同一
-process ID 和 start time；Docker role 的 `/proc/<pid>/net/{udp,udp6,dev}` 描述 container
-network namespace，并非只统计该进程持有的 socket 和 traffic。门槛覆盖 load driver、
-两台 Edge、两个 Coturn 与 Server，拒绝 process counter reset，并要求 resource sample gap
-不超过 2.1 秒。Darwin 与 Linux 上的 load driver 通过 `getrusage` 记录操作系统累计的
-process user+system CPU；其他平台保留明确标注来源的 Go runtime active-CPU fallback，
-避免把延迟更新的 runtime CPU class 误判为 process CPU 增长，同时不改变验收门槛。
-外部进程无法提供的 Go runtime metric，以及 load driver 无法提供的
-namespace socket/network metric，必须逐项明确标为 unsupported，不得伪造数值。
-
-Logical-session cleanup 上限为
-30 秒；Edge 存活期间按一秒间隔读取 source-qualified Coturn counter，要求十条 physical
-TURN allocation 始终保持存在，Edge 关闭后必须在 15 秒内归零。监控必须在 workload
-启动前产出第一条 sample，且毫秒 timestamp 不递减、相邻 gap 不超过 2.1 秒；只有不同的纳秒
-sample 截断到同一毫秒时才允许 timestamp 相等。这些命令只验收 artifact
-记录的 host、Docker engine、clean commit 与 topology，不是 30,000-session 或 WAN
-guarantee。
-
-2026-08-07，clean executable head
-`a2ff5b791a5c60c3b80052204717ac277e43c885` 在一台 Darwin/arm64、16 logical CPUs、
-Go 1.26.4、64 GiB RAM 的主机上只执行一次有序 relay-only 验收；service image 运行在
-OrbStack 2.2.1 Linux/aarch64 Docker，配置 16 logical CPUs 与 15.67 GiB RAM。三轮
-fresh-stack burst prerequisite 均建立 1,000/1,000 sessions，establishment rate 分别为
-159.90、1,118.18、158.99 sessions/s；Dial p95/p99 分别为 681.57/776.75 ms、
-749.00/806.92 ms、589.81/669.13 ms，同步 upload/download throughput 分别为
-453.54/482.89、415.54/455.50、484.35/413.58 Mbps。每轮均给两个 Edge 各分配
-500 sessions、每方向精确传输 1,000 MiB、保持十条 relay allocation 存活，并在没有
-correctness、liveness、exit 或 restart failure 的情况下完成有界清理。
-
-新的 60 分钟 soak stack 随后以 1,074.63 sessions/s 建立 1,000/1,000 sessions，Dial
-p95/p99 为 718.53/838.54 ms；122,000 次验收 Ping 全部完成，failure、disconnect 与
-identity crossover 均为 0。Initial upload/download 为 415.51/425.25 Mbps，final
-upload/download 为 424.20/524.18 Mbps；aggregate retention 为 102.09%/123.26%，
-per-session 验收 percentile 中最低 retention 为 96.66%。Late median round-p99 RTT
-下降 11.11%。两个 Edge 的 late-window RSS 分别增长 10.89% 与 16.49%，load driver
-为 -52.64%，Server 为 -0.65%，两个 Coturn member 均约为 -2.78%；load driver 的
-completed-GC live heap 增长 10.98%。六角色全部通过支持的资源 gate，每个角色至少提供
-3,679 个一秒 sample，最大 gap 为 1.033 秒。两个 Edge 全程保持 relay-only；logical
-cleanup 在 45.55 ms 内无失败完成，两个 Coturn member 均在 15 秒内从五条 allocation
-归零。后续 documentation-only commit 不改变这份已验收 executable。
-
-`max-upstreams` 是容量上限，不是应立即铺满的吞吐目标。单 association 会把大型并发
-burst 串行化；一次打开全部 slot 又会同时支付多条 SCTP 冷启动和拥塞恢复成本。默认的
-4-association 有界 warm pool 来自本机 100-session burst 的实测；更高 session 数的任务
-必须重新测量后再调整这个取舍。
-
-这组固定验收只建立 1,000-session burst 与 soak 边界，不据此推导更高 session 数的容量。
-可重复的 transport 与完整 Edge benchmark 命令为：
-
-```bash
-go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
-  -run '^$' -bench BenchmarkWebRTCServiceThroughput -benchtime=1x -count=5
-go test ./pkgs/gizedge \
-  -run '^$' -bench BenchmarkGatewayServiceThroughput -benchtime=1x -count=5
-```
-
-部署后的 Docker suite 会分别记录 upload-only 和 download-only 的单客户端与三客户端观测。
-默认只记录结果。受控 runner 可在链路仍有余量时设置最小客户端/聚合倍率，或根据独立测得
-的可用带宽设置分方向 aggregate Mbps 下限：
-
-```bash
-GIZCLAW_E2E_SPEED_MIN_UPLOAD_AGGREGATE_MBPS='<upload floor>' \
-GIZCLAW_E2E_SPEED_MIN_DOWNLOAD_AGGREGATE_MBPS='<download floor>' \
-go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge \
-  -run '^TestGatewaySpeedOneVersusThreeClients$' -count=1 -v
-```
-
-未饱和 runner 仍可使用 `GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` 和
-`GIZCLAW_E2E_SPEED_MIN_AGGREGATE_SCALE`。当单客户端已经接近可用链路上限时，不应只用
-倍率门槛判断。
+容量档位、relay recovery、burst、soak 与吞吐 benchmark 的入口、门槛和 artifact 说明统一见
+[Gateway 容量与中继验收](testing#gateway-capacity)。配置容量上限不代表部署性能保证。
 
 ### TURN
 
@@ -498,11 +322,8 @@ Dial 只选择一个 pool member，不能回退到 direct candidate。这是 Edg
 selected-ICE observation，供 Testing Guide 中的 gateway capacity 验收使用。它是诊断证据，
 不是 public API，也不构成 production performance 保证。
 
-2026-08-04 的本机 12 轮验收中，100/500 session 的 direct 与 relay 全部通过。100 session
-的 direct/Coturn 中位吞吐为 654/578 与 416/568 Mbps，500 session 为 476/612 与
-417/606 Mbps。去掉产品 Edge 和 Server 后，同一 clean head 的纯 Giznet 诊断仍复现了
-material upload 差异，因此结果没有指向 Edge pool、tunnel 或 Server capacity；本次实测
-owner boundary 是本机 Coturn relay path。完整 latency 表和非 production 边界见 Testing Guide。
+测试拓扑与 path、allocation、traffic 和 cleanup 检查见
+[Edge direct 与 Coturn capacity 对照](testing#gateway-relay-capacity)。
 
 ## 依赖关系
 
@@ -543,29 +364,20 @@ flowchart TB
 - Server storage backend、migration 和 workspace runtime 组装。
 - 全局 peer directory、mesh membership、跨 Server 数据同步或 route replication。
 
-这些内容分别属于 `pkgs/gizclaw`、`pkgs/giznet`、`cmd/internal/server`，或者仍是 server mesh 的后续设计范围。
+相关业务、传输与进程组装分别由 `pkgs/gizclaw`、`pkgs/giznet` 和 `cmd/internal/server` 拥有。
 
 ## 当前边界
 
-`pkgs/gizedge` 只读取非空、有序的复数 `upstreams`。每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。旧的单数 `upstream` 不再属于配置结构并会像其他未知字段一样被忽略；缺少有效的 `upstreams`、空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
+`pkgs/gizedge` 只读取非空、有序的复数 `upstreams`。每个 entry 都固定一套完整的 Server endpoint、public key、ICE policy 与 relay pool。缺少有效的 `upstreams`、空列表、重复 identity/endpoint 或不完整 entry 都会在 listener 打开前失败。
 
-公开 Go 配置 API 同样以复数列表为准：`Config.Upstreams` 是唯一的 Server 配置字段，`Config.BootstrapUpstreamURL()` 返回有序列表第一项的 URL。旧的 `Config.Upstream` 与语义含混的 `Config.UpstreamURL()` 均已移除，不提供兼容字段或 wrapper；选中具体 Server 后的 URL 只属于 Edge 内部 target 状态。
+公开 Go 配置 API 同样以复数列表为准：`Config.Upstreams` 是唯一的 Server 配置字段，`Config.BootstrapUpstreamURL()` 返回有序列表第一项的 URL。选中具体 Server 后的 URL 只属于 Edge 内部 target 状态。
 
 对于 authenticated logical Client session，Edge 会通过任意可达的已配置 Server 查询共享的固定 Peer assignment，确认返回的 Server identity 已在配置中，然后只获取该 Server 的 target pool。Assignment 不存在时，首次 claim 使用顺序中第一台可达 Server。Control、service、packet、audio、retry 与 teardown 始终固定在同一个 target；target transport 失败不能替换成其他 Server owner，也不能重放 application work。仅配置一个 entry 时仍走同一套路由和 Server admission 逻辑。
 
 Public `/server-info` 以及只有 API key、未建立 logical Peer session 的 HTTP/OpenAI request 继续通过顺序中第一台可达 bootstrap Server。Assignment 中的 endpoint metadata 不能覆盖 Edge 固定配置；relay selector、health 与 backoff 按 Server entry 隔离。
 
-它不等同于完整 server mesh：
-
-- Edge Node 使用显式配置的 Server 列表，不提供动态 mesh membership 或 service discovery。
-- `ServiceEdgeHTTP` 已用于 public request forwarding。
-- `giznet/v2/tunnel/` 原生 channel namespace 已用于有界 upstream pool 上的 logical client sessions；`ServiceEdgeTunnel 0x32` 已退役。
-- Edge control-plane RPC 与 certificate distribution 尚未完整实现。
-- Edge Node 不维护 mesh membership 或全局 peer/resource route registry。
-- Server 之间不存在由这个 package 提供的数据复制和事件同步。
-- 该 package 不在 Server 之间路由 Workspace、History 或 Social execution。Friend 与 Friend Group 的跨 Server 语音由 GizClaw Server 通过共享 Social KV 与 SFU Room 完成，Edge 不参与。
-
-因此，新增能力时要先判断它是当前 Edge ingress 的职责，还是 server mesh control plane 的未来工作；不能因为能力与公网入口有关就直接写进 `pkgs/gizedge`。
+Edge 使用显式 Server 列表，不维护动态 mesh membership 或全局路由，也不复制 Server 数据。
+跨 Server 语音由 GizClaw Server 的共享 Social KV 与 SFU Room 处理，见 [Social](gizclaw/services/social#sfu-workspace)。
 
 ## Server 握手准入边界
 

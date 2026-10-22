@@ -1,5 +1,7 @@
 # Observability
 
+[进程指标](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizmetrics) · [传输指标](https://github.com/GizClaw/gizclaw/blob/main/pkgs/giznet/gizwebrtc/metrics.go) · [遥测映射](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peertelemetry/mapper.go) · [模型指标](https://github.com/GizClaw/gizclaw/blob/main/pkgs/genx/model_metrics.go) · [用量指标](https://github.com/GizClaw/gizclaw/blob/main/pkgs/genx/usage_metrics.go)
+
 Observability 用日志回答“某一次请求发生了什么”，用 metrics 回答“系统整体发生了多少次、耗时如何、当前状态如何”。两类信号共享产品语义，但不共享完整字段集：日志可以携带单次请求的关联信息，metrics label 必须控制 cardinality。
 
 ## 状态边界
@@ -121,31 +123,7 @@ LiveKit SFU connector 把 SDK 的 `Debugw`、`Infow`、`Warnw`、`Errorw` 直接
 
 AgentHost 把已认证 Peer 的 `peer_public_key`、连接 `session_id` 与当前 `workspace` 放入 Agent 执行 context；使用 context-aware `slog` 的 provider 日志会继承该字段。启动、存储和其他没有 Peer owner 的进程级日志省略该字段，不能伪造身份。Volc TLS handler 将 `level`、`msg` 和每个 scalar attribute 保存为独立字段；`StreamServerLogs` 再规范化为：
 
-| 返回字段 | 含义 |
-| --- | --- |
-| `time_ms` / `time_ns` | backend 提供的日志时间；`time_ns` 可选。 |
-| `level` | 规范化后的日志 level。 |
-| `message` | `slog.Record.Message`，来自 backend 的 `msg`。 |
-| `source` | 当前 Volc sink 写入 `gizclaw`。 |
-| `path` | 当前 Volc sink 写入 `slog`。 |
-| `fields` | 除保留字段之外的结构化 scalar attributes，包括适用时的 `node_id`、`source_file`、`source_line` 和 `peer_public_key`。 |
-
 请求 completion record 使用稳定 message `gizclaw: request completed`。HTTP handler 每次完成输出一次；Peer RPC 在第一帧开始后输出一次，连接在新请求首帧之前正常 EOF 时不输出：
-
-| Attribute | HTTP | RPC | 可用于定位 | Metrics label |
-| --- | --- | --- | --- | --- |
-| `transport` | 是 | 是 | 协议 | 低基数，可用 |
-| `surface` | 是 | 是 | ingress | 低基数，可用 |
-| `operation` | 是 | 是 | handler / RPC method | 低基数，可用 |
-| `result` | 是 | 是 | 完成分类 | 低基数，可用 |
-| `status_class` | 是 | 是 | 聚合状态 | 低基数，可用 |
-| `duration_ms` | 是 | 是 | 单次耗时 | 不作为 label；使用 histogram value |
-| `method` / `route` / `status` | 是 | 否 | HTTP 请求与精确状态 | 仅 `method`、`status_class` 可作为通用 HTTP labels |
-| `rpc_code` | 否 | 响应包含 code 时 | JSON-RPC 或应用 code | 不直接作为通用 label |
-| `error_code` | 失败时 | 失败时 | 稳定领域错误 | 只有封闭且有界的 code 集合才可作为产品 metric label |
-| `request_id` | 是 | 是 | 单次请求关联 | 禁止作为 label |
-| `peer_public_key` / `peer_role` | 已认证且已知时 | 已认证且已知时 | 调用方身份 | 禁止作为进程请求 metric label |
-| `workspace_name`、`workflow_name`、`model_id`、`resource_kind`、`resource_name` | 已安全解析且需要时 | 已安全解析且需要时 | 领域上下文 | 禁止作为进程请求 metric label |
 
 格式示例：
 
@@ -164,7 +142,6 @@ time=2026-07-16T10:00:00Z level=WARN msg="gizclaw: request completed" transport=
 Streaming RPC 只在完整 stream handler 返回时输出一次 completion record；不输出 per-frame、audio、event payload 或成功 chunk 日志。
 
 `server.speech.extract` 只通过同一条 completion record 暴露封闭的阶段/类别 code。阶段包括 request、ASR、Extract Provider、结果解析、Schema 校验和 response 编码。即使 wire response 是通用 internal error，也不会记录 Provider 原始错误或 request/result 内容。
-
 
 HTTP completion 还记录 `request_path`（不含 query，最多 1024 bytes）、`client_ip`、`user_agent`（最多 512 bytes）。即使没有匹配的 route，也保留实际路径用于排查 404。公网 Edge 从 socket 地址提取 IP，覆盖内部转发头；Server 只在已认证的 Edge service 接受该 IP。其他 `X-Forwarded-For` / `X-Real-IP` 不作为可信来源；若入口前还有额外代理，socket IP 反映该代理。路径、IP、User-Agent 均只用于日志，不进入指标 labels。Console 对已注册接口和未注册路径统一显示 HTTP 方法、实际路径、IP、状态码和耗时；业务 operation、route 模板与 User-Agent 在完整字段中查看。历史记录缺少实际路径时回退到已有 route。
 
@@ -238,17 +215,9 @@ Server 和 Standalone Edge 安装进程 recorder 时为其全部 series 加入�
 `node_id`（本节点公钥）和 `node_type=server|edge`。它们连接各自配置的 Metrics Store，
 不要求共享 Prometheus。设备 telemetry 的 `peer_id` series 继续使用原有独立映射。
 
-以下指标每个 flush 周期采样一次，默认 10 秒，包括没有变化的值和零值；关闭时还会采样一次。
+节点指标每个 flush 周期采样一次，默认 10 秒，包括没有变化的值和零值；关闭时还会采样一次。
 来源是连接生命周期维护的内存计数，不遍历设备、不查询业务数据库，也不调用完整 Pion stats。
 RTP/DataChannel 每个成功消息只增加原子计数，不执行指标标签处理或网络写入。
-
-| Metric | 类型与口径 | 附加 labels |
-| --- | --- | --- |
-| `gizclaw_devices_online` | Gauge；Server 是已发布的 active Client identity 数，Edge 是已经建立 logical bridge 的不同 Client identity 数 | 无 |
-| `giz_webrtc_datachannels_active` | Gauge；已 detach 且尚未释放的物理 DataChannel 数，不包含 pending open | `node_role`, `role`, `peer_kind`, `channel_kind` |
-| `giz_webrtc_datachannel_messages_total` | Counter；成功写入或读取的完整 DataChannel message 数 | 上述 labels 和 `direction=rx|tx` |
-| `giz_webrtc_rtp_tracks_active` | Gauge；发送方向是已绑定的 Opus track，接收方向是已经协商的 Opus track，静音时也计数 | `node_role`, `role`, `peer_kind`, `direction=rx|tx` |
-| `giz_webrtc_rtp_packets_total` | Counter；实际成功发送或接收的 Opus RTP packet 数 | 同上 |
 
 `node_role=application|edge` 和 `role=client|server|unknown` 延续 transport 角色；其中
 `role` 是物理 WebRTC 的拨号/接收角色，不是业务 Peer role。`peer_kind` 只接受
@@ -298,22 +267,6 @@ Monitor 使用同一组内存计数提供实时设备、通道和消息快照；
 
 当前所有 Peer telemetry series 只有 `peer_id` label。它是设备查询的显式 identity 维度，不应复制到通用 HTTP/RPC 请求 metrics。
 
-| Metric | 含义 | 单位或取值 |
-| --- | --- | --- |
-| `gizclaw_peer_battery_percent` | 电池电量 | 0-100 percent |
-| `gizclaw_peer_battery_charging` | 是否充电 | 0 或 1 |
-| `gizclaw_peer_battery_voltage_mv` | 电池电压 | millivolt |
-| `gizclaw_peer_gnss_latitude` | 纬度 | degree |
-| `gizclaw_peer_gnss_longitude` | 经度 | degree |
-| `gizclaw_peer_gnss_altitude_m` | 海拔 | meter |
-| `gizclaw_peer_gnss_accuracy_m` | 定位精度 | meter |
-| `gizclaw_peer_network_rssi_dbm` | 网络 RSSI | dBm |
-| `gizclaw_peer_network_signal_level` | 设备报告的信号等级 | 原始数值 |
-| `gizclaw_peer_network_connected` | 是否联网 | 0 或 1 |
-| `gizclaw_peer_system_uptime_seconds` | 系统运行时间 | second |
-| `gizclaw_peer_system_free_memory_bytes` | 可用内存 | byte |
-| `gizclaw_peer_system_temperature_c` | 系统温度 | Celsius |
-
 查询示例：
 
 ```text
@@ -323,16 +276,7 @@ last_over_time(gizclaw_peer_system_temperature_c{peer_id="<public-key>"}[5m])
 
 ### 统一 HTTP server metrics
 
-通用 HTTP wrapper 定义以下 metric families：
-
-| Metric | 类型 | Labels |
-| --- | --- | --- |
-| `giz_http_server_requests_total` | Counter | `surface`, `operation`, `method`, `status_class`, `result` |
-| `giz_http_server_request_duration_seconds` | Histogram | `surface`, `operation`, `method`, `status_class`, `result`, exporter 增加的 `le` |
-| `giz_http_server_requests_in_flight` | Gauge | `surface`, `operation`, `method` |
-| `giz_http_server_response_bytes_total` | Counter | `surface`, `operation`, `method`, `status_class`, `result` |
-
-Duration buckets 是 `0.005`、`0.01`、`0.025`、`0.05`、`0.1`、`0.25`、`0.5`、`1`、`2.5`、`5` 和 `10` seconds。
+通用 HTTP wrapper 的 metric family、label 和 bucket 定义见 [handler.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizmetrics/httpmetrics/handler.go)。
 
 `method` 只保留 `GET`、`HEAD`、`POST`、`PUT`、`PATCH`、`DELETE`、`OPTIONS`、`CONNECT` 和 `TRACE`，其他值归一为 `OTHER`。In-flight gauge 在同一进程的多个 wrapper 实例之间按相同 label set 聚合。Wrapper 保留底层 writer 已支持的 `http.Flusher`、`http.Hijacker`、`io.ReaderFrom` 和 `http.Pusher`，记录 panic 后继续抛出，不改变 recovery policy。
 
@@ -369,13 +313,6 @@ nomination、支持的 counter 和可选的零起始 relay-member ordinal，这�
 日志及派生 capacity artifact 禁止包含 IP 地址、端口、TURN URL、SDP、candidate ID/body、
 foundation、priority、username、credential 或 mutable Pion value。没有 selected pair 时输出
 warning；仅凭配置不能宣称实际使用了 relay。
-
-2026-08-04 的本机验收把这些 selected-pair 记录与精确 Coturn allocation/traffic counter
-组合使用。全部 12 轮产品测试都证明了指定 path；同一 clean head 的纯 Giznet lane 随后
-复现 direct 818/798 Mbps 与 REST Coturn 488/526 Mbps，Coturn counter 同时增长约
-220/219 MB。该诊断不包含产品 Edge 和 Server，因此 material 产品差异归属于本机 Coturn
-relay path，而不是 Edge/Server resource owner。这里的 counter 支撑有界因果结论；仅凭
-配置不能得出该结论。
 
 ## Edge upstream liveness
 
@@ -453,13 +390,6 @@ Lifecycle 诊断中的 stream identifier 保留稳定的 128-bit hash；GenX 内
 GizClaw 在这里负责指标上报。VMP 的模型用量聚合、recording rules 和看板属于 Deploy 的监控配置边界；
 Monitor 继续读取节点内存快照，不增加这些指标的 VMP 查询或聚合接口。已有设备 telemetry 查询接口保持其独立契约。
 
-| Label | 口径 |
-| --- | --- |
-| `provider` | 供应商标识，例如 `openai`、`volc`、`gemini` |
-| `model` | 实际配置的计费 model、version 或 resource ID，与模型时延指标口径一致 |
-| `modality` | `text` 或 `audio` |
-| `token_type` | `input`、`cached_input` 或 `output`；三者互不包含 |
-
 Server 继续附加固定 `node_id`、`node_type`。这里不增加 Peer、用户、设备、session、request、stream、
 voice 或 workflow 标签。同一节点的一个 provider/model 最多六条 token series，活动量增加只改变累计值；
 全进程仍受默认 10,000 条逻辑 series 的上限约束。Adapter 必须提供稳定配置身份，不能传入用户提交的模型名；
@@ -488,18 +418,6 @@ sum by (provider, model) (
 ### 语音与模型性能指标
 
 以下 histogram 经 `gizmetrics` 写入配置的 metrics store，单位为秒；使用 `_count`、`_sum` 和累计 `_bucket` 查询次数、平均值与分位数。首输出只统计非空内容，每个实际请求或输出流只计一次；空结果、缺少输入归属或未到达的首输出不补零。
-
-| Metric | 计时起点 → 终点 |
-| --- | --- |
-| `genx_asr_first_text_seconds` | 首个非空输入音频 → 首个非空识别文本 |
-| `genx_asr_final_result_seconds` | 输入 EOS → 成功且有内容的识别文本流 EOS |
-| `genx_model_first_text_seconds` | 实际流式模型请求开始 → 首个非空回复文本 |
-| `genx_model_request_duration_seconds` | 实际流式模型请求开始 → 请求结束，包括失败和取消 |
-| `genx_tts_first_audio_seconds` | 首个非空输入文本 → 首个非空音频块 |
-| `genx_realtime_first_text_seconds` | 首个非空输入 → 实时模型首个回复文本 |
-| `genx_realtime_first_audio_seconds` | 首个非空输入 → 实时模型首个回复音频 |
-| `memory_recall_duration_seconds` | Recall 调用 → 返回，包括检索、过滤和结果加载 |
-| `genx_input_end_to_first_output_seconds` | 已知归属的输入 EOS → 首字或首音频输出 |
 
 模型请求指标覆盖 OpenAI-compatible 和 Gemini 的流式生成，包含 Eino 通过这些生成器发起的实际请求，排除调用前的 recall、工具和 workflow 准备。语音指标覆盖 Doubao ASR、AST、TTS、realtime/duplex、DashScope realtime 与 MiniMax TTS 的原生输出观察点。ASR 首字是 Transformer 实际暴露的首个文本；仅输出最终结果的模式不能解释为供应商首次 interim 的时间。Realtime 指标含输入持续时间，不能与文本模型 TTFT 混合比较。首音频表示服务端收到音频数据，不表示设备已播放。
 

@@ -16,12 +16,12 @@
 
 ## Shared 所有权
 
-`shared/` 当前按稳定 schema type 拆成细粒度物理文件。实际文件及其所有权族由 [HTTP Schema 依赖规则](./type-dependencies#shared-所有权映射) 维护；本页不复制第二份容易漂移的文件清单。
+`shared/` 按稳定 schema type 拆分，实际文件由 [shared 源码目录](https://github.com/GizClaw/gizclaw/tree/main/api/http/shared) 提供；放置规则见 [HTTP Schema 依赖规则](./type-dependencies#shared-所有权)。
 
 修改 Shared schema 时：
 
 - 从 `api/http/shared/` 中实际存在的 owner 文件开始，不使用按领域臆造的聚合文件名；
-- 跨 surface error、identity、runtime profile、registration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 按所有权映射定位；
+- 跨 surface error、identity、runtime profile、registration、firmware、credential、model、voice、tool、workflow、workspace 与 provider tenant values 从现有 owner 文件定位；
 - Public-only DTO 留在 `peer.json`，Admin endpoint 专属 DTO 留在 `admin.json`。OpenAI-compatible wire DTO 由本 schema graph 之外的 AI Server Shell 拥有；
 - Resource envelope、metadata、Apply contract 与 Resource union 留在 `resources/resource.json`，Resource 专属数据留在对应 `resources/<kind>.json`。
 

@@ -1,5 +1,7 @@
 # Terraform Provider
 
+[Provider Schema 与实现](https://github.com/GizClaw/gizclaw/tree/main/cmd/terraform-provider-gizclaw/internal/provider)
+
 `terraform-provider-gizclaw` 用 Terraform 声明式管理 GizClaw Admin Resource。Provider
 直接使用本地 GizClaw CLI context 中的 identity 连接 Server 的 Admin 服务，不调用本地
 `gizclaw` 可执行文件。它是纯 Go、`CGO_ENABLED=0` 构建的二进制，随每个正式 Release
@@ -97,11 +99,6 @@ provider "gizclaw" {
 }
 ```
 
-| 参数 | 默认值 | 含义 |
-| --- | --- | --- |
-| `context` | `GIZCLAW_CONTEXT`，都未设置时使用 CLI 的 current context | 读取 `$XDG_CONFIG_HOME/gizclaw/<context>/config.yaml`（未设置 `XDG_CONFIG_HOME` 时为 `~/.config/gizclaw`）中的 `identity.private-key` 与 `server.endpoint`。 |
-| `endpoint` | `GIZCLAW_ENDPOINT`，都未设置时使用 context 中的 `server.endpoint` | 替换 context 的 Server endpoint，只在本次 provider 进程中生效，不修改 `config.yaml`。必须是 `https://host[:port]`，不能包含 userinfo、path、query 或 fragment。 |
-
 Context 使用 [CLI](./cli) 的 `gizclaw context create` 创建；该 identity 必须是目标 Server
 的 Admin identity。Provider 在 configure 阶段加载 context 并校验 endpoint，context 不存在、
 identity 无效或 endpoint 不合法时直接报错。`context` 或 `endpoint` 在 plan 时仍为 unknown
@@ -125,15 +122,6 @@ resource "gizclaw_resource" "openai" {
   })
 }
 ```
-
-| 属性 | 类型 | 说明 |
-| --- | --- | --- |
-| `id` | computed | `<kind>/<resource_id>`。 |
-| `api_version` | optional, computed | 只接受 `gizclaw.admin/v1alpha1`；省略时保留已存储的值。修改会替换资源。 |
-| `kind` | required | 可按 ID 寻址的 Resource kind，例如 `Credential`、`Model`；不接受 `ResourceList` 或 `<Kind>Resource` 别名。修改会替换资源。 |
-| `resource_id` | required | Resource `metadata.id`，遵守 Admin API 的 caller-defined ID 规则（非空、无首尾空白、不超过 1024 字符、不是 `.` 或 `..`）。修改会替换资源。 |
-| `spec` | required, sensitive | `jsonencode(...)` 得到的 JSON object。 |
-| `input_revision` | optional, sensitive | 64 位小写 SHA-256。修改它会在 `spec` 不变时重新 apply，适合密钥等只写输入发生变化的场景。 |
 
 资源语义：
 
@@ -164,7 +152,6 @@ State schema 版本为 1。版本 0 的 state 使用 `name` 表示资源 ID，pr
 `gizclaw_resource` 的 Terraform state 保存 `spec`，其中可能包含展开前的 secret 占位符或明文
 secret。State backend 需要按 secret 存储管理。
 
-
 RegistrationToken 的 `spec` 可设置 `enabled`、`expires_at` 与 `max_activations`。Provider 把省略或 null 的 enabled 与 Server 默认 true 视为一致，把省略与 null 的限制视为一致；带外禁用或调整限制仍产生 drift。到期时间使用 Server 返回的规范 RFC3339 表达。激活数量由 Admin RegistrationToken 响应中的 `activation_count` 查看，不写入 Terraform spec；详见 [设备注册](/zh/developing/gizclaw/services/runtime-profile#registrationtoken)。
 
 ## `gizclaw_catalog`
@@ -185,14 +172,6 @@ resource "gizclaw_resource" "workflows" {
   spec        = jsonencode(jsondecode(each.value).spec)
 }
 ```
-
-| 属性 | 类型 | 说明 |
-| --- | --- | --- |
-| `sources` | required | 可复用的 catalog 目录，按优先级从低到高排列。 |
-| `product_sources` | required | 包含 RuntimeProfile 与 RegistrationToken manifest 的产品目录。 |
-| `credentials`、`tenants`、`voices`、`models`、`memory_layouts`、`workflows`、`firmwares`、`runtime_profiles`、`registration_tokens` | computed | 以 `<Kind>/<id>` 为 key、以选中 manifest 的 JSON 编码为值的 map。 |
-| `raids` | computed | 以 raid ID 为 key、以选中 `raid.json` 原始字节为值的 map。 |
-| `overridden_ids` | computed | 在多个 `sources` 中出现的 `<Kind>/<id>` 集合。 |
 
 catalog source 可以包含 `credentials/`、`tenants/`、`voices/`、`models/`、`memory-layouts/`、
 `workflows/`、`firmwares/` 与 `runtime-profiles/`；product source 只能包含 `runtime-profiles/` 与

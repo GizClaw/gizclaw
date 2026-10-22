@@ -1,5 +1,7 @@
 # Observability
 
+[Process metrics](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizmetrics) · [Transport metrics](https://github.com/GizClaw/gizclaw/blob/main/pkgs/giznet/gizwebrtc/metrics.go) · [Telemetry mapping](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peertelemetry/mapper.go) · [Model metrics](https://github.com/GizClaw/gizclaw/blob/main/pkgs/genx/model_metrics.go) · [Usage metrics](https://github.com/GizClaw/gizclaw/blob/main/pkgs/genx/usage_metrics.go)
+
 Observability uses logs to answer what happened to one request and metrics to describe counts, latency, and current state across the system. The signals share product semantics, but not every field: logs can carry request correlation fields, while metric labels must remain low-cardinality.
 
 ## Supported signals
@@ -224,19 +226,11 @@ Server and Standalone Edge add fixed `node_id` (the node public key) and
 own configured Metrics Store; a shared Prometheus is optional. Device telemetry
 retains its separate `peer_id` mapping.
 
-The following metrics are sampled every flush interval (10 seconds by default),
+Node metrics are sampled every flush interval (10 seconds by default),
 including unchanged and zero values, and once more during shutdown. Lifecycle
 updates maintain in-memory counts; collection never enumerates devices, queries
 business storage, or calls full Pion stats. Each successful RTP/DataChannel
 message only increments an atomic counter, without label processing or I/O.
-
-| Metric | Type and meaning | Additional labels |
-| --- | --- | --- |
-| `gizclaw_devices_online` | Gauge: published active Client identities on Server; distinct Client identities with an established logical bridge on Edge | None |
-| `giz_webrtc_datachannels_active` | Gauge: detached, unreleased physical DataChannels; excludes pending opens | `node_role`, `role`, `peer_kind`, `channel_kind` |
-| `giz_webrtc_datachannel_messages_total` | Counter: complete DataChannel messages successfully written or read | Those labels plus `direction=rx|tx` |
-| `giz_webrtc_rtp_tracks_active` | Gauge: bound Opus send tracks, and negotiated Opus receive tracks, including silent uplinks | `node_role`, `role`, `peer_kind`, `direction=rx|tx` |
-| `giz_webrtc_rtp_packets_total` | Counter: actual successfully sent or received Opus RTP packets | Same |
 
 `node_role=application|edge` and `role=client|server|unknown` describe transport
 roles; `role` identifies the dialing/accepting endpoint, not the business Peer
@@ -292,32 +286,9 @@ call sites cannot override these labels.
 
 Peer telemetry series use only the explicit `peer_id` identity label:
 
-| Metric | Meaning |
-| --- | --- |
-| `gizclaw_peer_battery_percent` | Battery percentage. |
-| `gizclaw_peer_battery_charging` | Charging state as 0 or 1. |
-| `gizclaw_peer_battery_voltage_mv` | Battery voltage in millivolts. |
-| `gizclaw_peer_gnss_latitude`, `gizclaw_peer_gnss_longitude` | GNSS coordinates in degrees. |
-| `gizclaw_peer_gnss_altitude_m`, `gizclaw_peer_gnss_accuracy_m` | Altitude and accuracy in metres. |
-| `gizclaw_peer_network_rssi_dbm` | Network RSSI in dBm. |
-| `gizclaw_peer_network_signal_level` | Device-reported signal level. |
-| `gizclaw_peer_network_connected` | Connectivity as 0 or 1. |
-| `gizclaw_peer_system_uptime_seconds` | System uptime. |
-| `gizclaw_peer_system_free_memory_bytes` | Free memory. |
-| `gizclaw_peer_system_temperature_c` | System temperature in Celsius. |
-
 ### Reusable HTTP metrics
 
 `httpmetrics.Wrap` records:
-
-| Metric | Type | Labels |
-| --- | --- | --- |
-| `giz_http_server_requests_total` | Counter | `surface`, `operation`, `method`, `status_class`, `result` |
-| `giz_http_server_request_duration_seconds` | Histogram | `surface`, `operation`, `method`, `status_class`, `result`, plus exported `le` |
-| `giz_http_server_requests_in_flight` | Gauge | `surface`, `operation`, `method` |
-| `giz_http_server_response_bytes_total` | Counter | `surface`, `operation`, `method`, `status_class`, `result` |
-
-Duration buckets are `0.005`, `0.01`, `0.025`, `0.05`, `0.1`, `0.25`, `0.5`, `1`, `2.5`, `5`, and `10` seconds. Methods are limited to `GET`, `HEAD`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`, `CONNECT`, and `TRACE`; every other value becomes `OTHER`. In-flight values aggregate across wrapper instances in the same process.
 
 The wrapper preserves `http.Flusher`, `http.Hijacker`, `io.ReaderFrom`, and `http.Pusher` when the underlying writer supports them. It records a panic and re-panics, leaving recovery policy unchanged. The operation resolver must return a stable registered name; raw paths, queries, request IDs, peer keys, and product identifiers never become labels.
 
@@ -351,15 +322,6 @@ The log and derived capacity artifact must never include IP addresses, ports,
 TURN URLs, SDP, candidate IDs or bodies, foundations, priorities, usernames,
 credentials, or mutable Pion values. Absence of a selected pair is a warning;
 configuration alone must not be reported as proof that relay was used.
-
-The 2026-08-04 local qualification combined these selected-pair records with
-exact Coturn allocation and traffic counters. All 12 product runs proved the
-requested path; a same-head pure-Giznet lane then reproduced direct 818/798
-Mbps versus REST Coturn 488/526 Mbps while Coturn counters grew by about
-220/219 MB. Because that diagnostic excludes the product Edge and Server, the
-material product delta is assigned to the local Coturn relay path rather than
-an Edge/Server resource owner. The counters support this bounded causal claim;
-configuration alone would not.
 
 ## Edge upstream liveness
 
@@ -445,13 +407,6 @@ GizClaw owns metric reporting here. Model usage aggregation, recording rules and
 configuration. Monitor continues to read node-local memory snapshots without adding VMP query or aggregation endpoints for these
 metrics. Existing device telemetry queries keep their separate contract.
 
-| Label | Meaning |
-| --- | --- |
-| `provider` | Vendor identity, such as `openai`, `volc`, or `gemini` |
-| `model` | Configured billing model, version, or resource ID, matching model latency metrics |
-| `modality` | `text` or `audio` |
-| `token_type` | Disjoint `input`, `cached_input`, or `output` |
-
 Server adds its fixed `node_id` and `node_type`. These counters add no Peer, user, device, session, request, stream, voice,
 or workflow labels. One provider/model has at most six token series per node; increasing activity changes totals rather than
 the number of series. The process-wide default limit remains 10,000 logical series. Adapters must supply stable configured
@@ -482,18 +437,6 @@ consumer-side aggregation, or an explicitly configured shared metrics workspace.
 ### Speech and model latency metrics
 
 These histograms use seconds and the configured `gizmetrics` store. Query `_count`, `_sum`, and cumulative `_bucket` series for counts, means, and quantiles. First-output observations require nonempty content and occur once per actual request or output stream. Empty results, unknown input ownership, and missing first output never produce synthetic zero samples.
-
-| Metric | Start → end |
-| --- | --- |
-| `genx_asr_first_text_seconds` | First nonempty input audio → first nonempty transcript |
-| `genx_asr_final_result_seconds` | Input EOS → successful nonempty transcript stream EOS |
-| `genx_model_first_text_seconds` | Actual streaming model request → first nonempty reply text |
-| `genx_model_request_duration_seconds` | Actual streaming model request → completion, including errors and cancellation |
-| `genx_tts_first_audio_seconds` | First nonempty input text → first nonempty audio chunk |
-| `genx_realtime_first_text_seconds` | First nonempty input → first realtime reply text |
-| `genx_realtime_first_audio_seconds` | First nonempty input → first realtime reply audio |
-| `memory_recall_duration_seconds` | Recall call → returned result, including retrieval, filtering, and hydration |
-| `genx_input_end_to_first_output_seconds` | Known owning input EOS → first text or audio output |
 
 Streaming OpenAI-compatible and Gemini generators measure actual provider calls, including those made by Eino, excluding preceding recall, tools, and workflow preparation. Native speech observation covers Doubao ASR, AST, TTS, realtime/duplex, DashScope realtime, and MiniMax TTS. ASR first text means the first transcript exposed by the Transformer; final-only modes do not measure the provider's first interim hypothesis. Realtime latency includes input duration and is distinct from text-model TTFT. First audio means server-observed data, not device playback.
 

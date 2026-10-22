@@ -1,6 +1,4 @@
-# CLI <Badge type="warning" text="WIP" />
-
-> This page currently only defines the directory and ownership of the CLI. The command tree, configuration, connection and running process still need to be added one by one.
+# CLI
 
 `cmd/gizclaw` is the executable entry of GizClaw CLI, `cmd/internal` saves the internal implementation of CLI assembly, commands, connections, logs, paths, services and local stores.
 

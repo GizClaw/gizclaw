@@ -1,6 +1,6 @@
 # Coding Conventions
 
-GizClaw is a Go-first, but not Go-only, repository. Source code, schemas, generated SDKs, C bindings, and documentation together form the product contract. Changes must preserve every boundary they cross.
+GizClaw is a Go-first, but not Go-only, repository. Code and schemas define product behavior; generated SDKs and C bindings consume those definitions, and documentation explains them. Changes must preserve every boundary they cross.
 
 ## Choose the applicable convention
 

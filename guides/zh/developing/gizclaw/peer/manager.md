@@ -1,6 +1,8 @@
 # Management
 
-`实现文件：peer_manager.go`
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+源码：[peer_manager.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_manager.go)
 
 `peer_manager.go` 维护 Server 当前可见的在线 Peer，并提供面向其他 GizClaw 组件的 Peer 操作入口。
 
@@ -13,23 +15,6 @@
 设备在线 gauge 与连接发布、替换、摘除和删除围栏在同一临界区更新；周期采样只读取原子值，
 不遍历 Peer 或读取持久化存储。计数与节点身份语义见
 [节点指标](../../observability#node-device-channel-metrics)。
-
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| [`Manager`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager) | 聚合领域 services，并维护 public key 到在线 connection 的索引。 |
-| [`NewManager`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#NewManager) | 创建 Manager，并设置 Peer service。 |
-| `activePeer` | 保存单个 Peer 当前生效的 connection。 |
-| [`Manager.SetPeerUp`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerUp) / [`SetPeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerDown) / [`ForcePeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.ForcePeerDown) | 管理 connection 上线、条件下线和强制下线。 |
-| `allowService` / `allowActivePeerRole` | 根据 Peer role 判断 Giznet service 准入。 |
-| [`Manager.Peer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.Peer) / [`PeerRuntime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.PeerRuntime) | 查询本地在线 connection 与 runtime 快照。 |
-| `PeerPresence` / `PeerRoomPresence` / `PeerRoomPresenceBatch` / `PeerRunningWorkspace` | 读取共享连接与运行 Workspace 状态，供列表投影 `online`、`last_seen_at` 与 `in_room`。批量入口保留输入顺序，使用 KV 批量读取，并继承 Social 层的整页预算。 |
-| [`Manager.EnsurePeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.EnsurePeer) | 确保持久化 Peer resource 存在。 |
-| [`Manager.RefreshPeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.RefreshPeer) / `refreshPeer` | 通过 Peer RPC 拉取设备信息，并将变化写回 Peer resource。 |
-| `peerRPCConn` / `callPeerRPC` | 打开 Peer RPC stream 并执行 typed RPC call。 |
-| `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | 按 public key 管理 telemetry status 更新锁的生命周期。 |
-| `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | 将 RPC refresh response 合并到持久化 Peer model。 |
 
 Connection activation 会先在 Manager 锁内为 public key 建立 reservation，再在不持有全局锁的情况下检查 durable Peer availability，并且只在 reservation 仍属于当前 connection 时发布它。blocked 状态、pending marker 或 permanent tombstone 会使 activation 失败；等待 self-delete 的 reconnect 不会复用旧记录或创建新 generation。尚未发布 connection 的 reservation 处于离线状态。replacement 正在执行 durable ensure 时，原 generation 继续可用；强制下线会清除原 generation，但不会丢弃 replacement reservation；新 connection 只有发布完成后才会启动 transport service loop。connection-scoped self-delete 会先发布 deleting 状态，再提交 durable marker；提交后 Manager quiesce 该 identity，replacement activation、registration 与 Server 主动 Peer RPC 都持续被 durable fence 拒绝，其他 Peer 保持可用。
 

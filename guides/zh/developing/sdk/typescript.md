@@ -1,6 +1,4 @@
-# TypeScript SDK <Badge type="warning" text="WIP" />
-
-> 本页说明两个 npm package 的目录、contract 边界、生成流程与发布契约；`@gizclaw/gizclaw` 的公开 surface 与 runtime 行为仍待逐项展开。
+# TypeScript SDK
 
 `sdk/js/` 是一个 npm workspace，包含两个可发布 package 与共享的生成脚本：
 

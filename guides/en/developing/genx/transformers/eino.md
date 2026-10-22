@@ -1,5 +1,7 @@
 # Eino Transformer
 
+[Graph definitions and validation](https://github.com/GizClaw/gizclaw/tree/main/pkgs/genx/transformers/eino)
+
 `pkgs/genx/transformers/eino` builds a typed Eino Graph and exposes it as a concurrently reusable `genx.Transformer`. The package owns Graph construction, state, streaming, History, Memory, and turn lifecycle. It depends on GenX, Eino core, Starlark, and generic Stores; it does not import GizClaw Workspace, Workflow, Resource, AgentHost, or product Toolkit types.
 
 ## Construction and ownership
@@ -28,31 +30,9 @@ An empty `Agent.ContextID` creates one opaque identity during `New`. That identi
 
 ## Graph contract
 
-`GraphDefinition` declares State fields, typed nodes, edges, branches, compile behavior, and explicit outputs:
+`GraphDefinition` combines State, nodes, routing, and outputs.
 
-```go
-type GraphDefinition struct {
-    Name     string
-    Compile  GraphCompileConfig
-    State    StateDefinition
-    Nodes    []NodeDefinition
-    Edges    []EdgeDefinition
-    Branches []BranchDefinition
-    Outputs  []OutputDefinition
-}
-```
-
-Bindings use this closed namespace:
-
-| Binding | Type | Value |
-| --- | --- | --- |
-| `input.text` | `string` | Completed user text turn. |
-| `input.messages` | `messages` | Ordered History followed by the current user message; agent initiative uses History alone without an empty user message. |
-| `input.parts` | `list` | Defensively copied non-text input parts. |
-| `history.messages` | `messages` | Ordered prior History only. |
-| `memory.recalled` | `string` | Combined rendered recall results. |
-| `input.safety_fence` | `string` | Host safety fence text from `Config.SafetyFence`, empty when none is selected; batch, race, and subgraph runs inherit it. The transformer never places it itself, so a Graph that does not bind it is unaffected. |
-| Bare State field name | Declared type | Current invocation-local State value. |
+Binding namespaces and types are owned by the Graph definitions linked above.
 
 Node input maps use component port names as keys. Node output maps use node output-port names as keys and declared State fields as values. Unknown bindings, fields, ports, or incompatible types fail in `New`.
 
@@ -71,20 +51,6 @@ Edges map to Eino `AddEdge`. `first_match` branches select the first matching ro
 Native parallelism executes sibling Graph paths and joins them through Eino scheduling. `Race` is different: it runs isolated nested Graphs, selects one winner, cancels losers, and merges only the winning Graph outputs. Use native fan-out when all selected work is required; use `Race` when only one result may survive.
 
 ## Supported nodes and ports
-
-| Node | Inputs | Outputs |
-| --- | --- | --- |
-| `Prompt` | Template variables; message placeholders require `messages`. | Exactly `messages`. |
-| `ChatModel` | Exactly `messages`. | `text`, `messages`, or both. |
-| `Retriever` | `Query` is a string binding. | Exactly `documents`. |
-| `Transform` | Operation-specific typed ports. | Operation-specific typed ports. |
-| `Passthrough` | Exactly `value`. | Exactly `value` with the same type. |
-| `Script` | Declared dictionary keys. | Declared dictionary keys. |
-| `Lambda` | Descriptor-defined ports. | Descriptor-defined ports. |
-| `Match` | Exactly one `text` string binding. | Exactly one `matches` list. |
-| `Subgraph` | Child Graph inputs and State initialization fields. | Every child Graph output name. |
-| `Race` | Common nested Graph inputs. | Common nested Graph output names. |
-| `Batch` | `Items` is a list binding. | Exactly one ordered `items` list. |
 
 Each Prompt message uses exactly one declaration form. A role message declares a non-empty `role` and `template`. A placeholder message declares a non-empty `placeholder` and may set `optional`; it cannot also declare `role` or `template`. The placeholder name must identify a Prompt input bound to `messages`.
 
@@ -203,14 +169,6 @@ Starlark provides `json.encode` / `json.decode`, bounded RE2 `regex_find` / `reg
 ## Named Lambda
 
 A named Lambda keeps Go behavior outside serializable configuration:
-
-```go
-type ResolvedLambda struct {
-    Lambda  *compose.Lambda
-    Inputs  map[string]StateType
-    Outputs map[string]StateType
-}
-```
 
 The resolver runs during `New`. The descriptor must match every configured port and State type. The Lambda ABI is `map[string]any` input to `map[string]any` output; use `compose.InvokableLambda` or another Eino Lambda with that shape. Returned values must contain every declared output port. Lambdas are caller-owned and must be safe for concurrent invocation.
 

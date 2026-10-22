@@ -1,10 +1,12 @@
 # pkgs/giznet
 
+[准入凭证 Schema](https://github.com/GizClaw/gizclaw/blob/main/api/proto/giznet/admission.proto)
+
 `pkgs/giznet` 是 GizClaw 的通用连接与传输层。它把上层服务与具体传输实现隔离开，使 GizClaw Server、Edge Node 和其他连接方能够使用统一的 peer connection、service stream 和 packet transport 能力。
 
 这个目录不拥有 GizClaw 的产品业务。它只负责建立连接、识别 peer、承载 stream 或 packet，以及提供传输边界上的安全策略入口。
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/giznet)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/giznet)
 
 ## 目录结构
 
@@ -64,12 +66,6 @@ contract。
 诊断直接读取 ICE transport 的 selected-pair 统计，保留全部可用 ICE candidate-pair 计数。
 不调用完整 PeerConnection.GetStats 的 RTP collector，因此 Pion 内部自动关闭连接时也不会
 与该 collector 的释放竞争。读取期间选中的 pair 改变或统计不可用时，不发布混合的计数。
-
-2026-08-04 的 same-head 因果诊断只使用这层 public Giznet transport，不包含产品 Edge 或
-Server。每方向三次 32 MiB 测得 direct 818/798 Mbps、REST Coturn 488/526 Mbps
-（relay/direct 为 0.597 和 0.659），Coturn receive/send counter 同时增长约 220/219 MB。
-结合产品矩阵，这在 Edge/Server boundary 之下复现了 material 差异，并把本机结果归因到
-Coturn relay path。它仍只是本机 Docker transport 诊断，不是 production 或 WAN SLA。
 
 `giznet.Conn` 保持 transport-independent 的 `Dial` surface。能够取消 pending service open
 的 transport 可以额外实现 `giznet.ContextDialer`。`gizwebrtc.Conn.DialContext` 在 context
@@ -282,14 +278,6 @@ flowchart TB
 不超过 4096 bytes；该传输上限独立于字符串上限。各 SDK
 在发送前检查这些上限。省略 credential 时发送裸 SDP；传入编码后为空的结构报错，
 不会隐式变成无凭证。有凭证时，AEAD 密封明文为：
-
-| 字段 | 长度 | 编码 |
-| --- | --- | --- |
-| 魔数 | 4 bytes | ASCII `GZOF` |
-| 信封版本 | 1 byte | `1` |
-| credential 长度 | 2 bytes | unsigned big-endian |
-| credential | 0–4096 bytes | `giznet.v1.AdmissionCredential` protobuf |
-| SDP | 剩余 bytes | UTF-8 |
 
 解密后没有魔数的整包按裸 SDP 处理，等价于空凭证；信封中的零长度 credential
 也表示无凭证。见魔数但信封版本未知、头部/凭证截断、长度超限、protobuf 解码失败

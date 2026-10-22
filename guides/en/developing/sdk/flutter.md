@@ -1,6 +1,4 @@
-# Flutter SDK <Badge type="warning" text="WIP" />
-
-> This page describes the directories, boundaries, and validation of the two Dart packages. The client, signaling, transport, RPC, and PIXA modules inside `gizclaw` are still to be expanded one by one.
+# Flutter SDK
 
 `sdk/flutter/` holds two packages, one per side of GizClaw:
 

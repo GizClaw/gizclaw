@@ -42,6 +42,12 @@ This PR changes guides/reviewing to document PR and commit format.
 This PR changes repo to close deterministic validation gaps.
 ```
 
+## PR 说明
+
+PR 描述简要说明改动目的、范围和验证结果，不要求固定模板。
+
+关联 Issue 可选，不要求为 PR 先创建 Issue，也不要求填写 `Closes`、`Fixes` 或 `Resolves`。已有相关 Issue 时按实际关系引用；没有关联 Issue 本身不构成审查阻塞。
+
 ## Commit 标题
 
 每个 review-ready commit 使用与 PR 相同的格式：
@@ -64,7 +70,7 @@ This commit changes {prefix} to {subject}.
 - 标题已经完整表达原因和结果时，可以不写 body。
 - 需要 body 时，标题后空一行，先解释为什么需要改变，再说明不可从 diff 直接得出的行为、边界或兼容影响。
 - 较大 commit 可以使用 `Summary`、`Impact` 和 `Validation` 等小节；验证命令必须是真实执行的命令，不能把未运行的检查写成通过。
-- Source Schema 和由它产生的 committed generated outputs 应在同一原子 change 中，除非 Issue 明确要求分阶段交付。
+- Source Schema 和由它产生的 committed generated outputs 应在同一原子 change 中，除非已确认的交付要求明确分阶段。
 - 临时 `fixup!`、`squash!`、`WIP`、merge residue 和只写“address review comments”的 commit 不得出现在 review-ready history 中。
 - 不写 secret、credential、私人路径、机器状态、日志转储或与变更无关的工具署名。
 

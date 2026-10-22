@@ -1,5 +1,7 @@
 # services/ai
 
+[定义与实现](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/ai)
+
 `pkgs/gizclaw/services/ai` 拥有 GizClaw 中可配置的 AI 资源和 provider integration，包括 credential、model、voice、workflow 和 workspace。它把这些资源整理成可被 Agent Runtime 消费的产品能力，但不负责 Agent instance 的在线生命周期。
 
 ## 目录结构
@@ -20,13 +22,13 @@ services/ai/
 
 ## 子目录职责
 
-### [credential](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/credential)
+### [credential](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential)
 
 拥有调用外部 AI provider 所需的 credential 资源及其持久化边界。Credential 是受保护的产品资源，不应泄漏到 workflow definition、workspace history 或通用 GenX abstraction。
 
 Credential 使用本地 SQL `credentials` 表，ID、Provider、描述、时间、版本号和创建标识分列保存，密钥配置保留 JSON。启动阶段创建表和 `(provider, id)` 索引，按 Provider 查询和分页直接由 SQL 执行。更新以版本号和创建标识为条件；省略密钥时，在冲突重试中重新读取最新配置，避免覆盖同时发生的密钥轮换。记录删除重建或持续冲突时，旧更新返回 `CREDENTIAL_CONFLICT`，不修改新记录。
 
-### [model](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/model)
+### [model](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model)
 
 拥有 GizClaw model catalog，并把持久化的 model 定义解析为 GenX 可以使用的模型能力。通用模型接口属于 `pkgs/genx`；具体 GizClaw model 资源和选择逻辑属于这里。
 
@@ -57,27 +59,27 @@ spec:
 
 拥有 connection-free `MemoryLayout` Admin 资源。一个 Layout 声明 Mem0 Cloud、自托管 Mem0 与 `volc_mem0` policy；实际 driver、endpoint、API key 与 project 由 RuntimeProfile memory binding 选择。详见 [Memory Store](/zh/developing/stores/memory)。
 
-### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/openaiapi)
+### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi)
 
 实现 GizClaw 对 `ai-server-shell/backend` 的 adapter，仅负责已支持的 model、chat、speech 与 transcription operation。标准 wire contract 与 transport 属于 AI Server Shell；exact route gate、verified Peer binding 与 voices 扩展属于根 `pkgs/gizclaw`。
 
-### [peergenx](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/peergenx)
+### [peergenx](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx)
 
 将 GizClaw peer 或 provider-backed generation 能力接入统一 GenX abstraction。Provider SDK integration 和 provider-specific resolution 留在这里，不应进入通用 `pkgs/genx`。
 
-### [providertenants](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/providertenants)
+### [providertenants](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants)
 
 拥有各 AI provider tenant 的产品资源，例如 provider endpoint、account-level 配置和 voice 同步所需信息。它可以依赖具体 provider SDK，但不能让 provider-specific 字段扩散到无关领域。
 
 ProviderTenants 使用本地 SQL `provider_tenants` 表，以 `(provider_kind, id)` 为联合主键，六类 Provider 可以独立使用同名 ID。凭据 ID、描述、创建与更新时间、同步时间分列保存，Provider 配置保留 JSON。启动时创建表和凭据查询索引；列表通过 Provider 范围、ID 游标与数量限制直接查询 SQL。配置更新保留创建和同步时间；同步完成只更新同步元数据，并核对配置版本标识，避免修改已更新或删除后重新创建的租户。Credential 与 Voice 由对应业务 Service 提供。
 
-### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
+### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice)
 
 拥有可供 Agent/GenX 选择的 voice 资源和 provider voice 映射。Audio codec、resampling 和 playback 等通用能力属于 `pkgs/audio`，不属于 voice catalog。
 
 Voice 使用本地 SQL `voices` 表，来源、Provider 类型与 ID、上游音色 ID、显示信息和时间分列存储；Provider 配置保留 JSON。列表按筛选组合和 ID 索引查询。同步在同一事务内锁定目标 Provider，按 64 条批量写入，保留原有 ID 与创建时间，再删除该 Provider 本次同步缺失的同步音色；手工音色不参与清理。任一批次失败会回滚整次同步。表和索引在启动阶段创建，不读取旧格式音色字段。
 
-### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
+### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow)
 
 拥有 workflow definition、driver 选择和 workflow 资源持久化。`workflow/agents` 保存具体 workflow engine 与 GizClaw Agent Host 之间的 integration，包括 SFU、AST Translate、DashScope Realtime、Doubao Realtime、Doubao Realtime Duplex 和 Eino。
 
@@ -120,11 +122,6 @@ Workflow `spec.eino.conversation.initiative` 选择开场方（`peer` 或 `agent
 #### Eino 音频输入路径
 
 Workspace `input` 为 `push-to-talk`（默认）或 `realtime`，仅决定读取 Profile binding 的哪一个 ASR Model：
-
-| 输入模式 | Profile 字段 | 配置 alias | 省略或 null |
-| --- | --- | --- | --- |
-| PTT | `spec.workflows.<alias>.ptt_asr_model` | 独立 ASR → 文本 → Model。 | 音频直接交给 Model。 |
-| Realtime | `spec.workflows.<alias>.realtime_asr_model` | 流式 ASR 断句 → 文本 → Model。 | 音频直接交给 Model。 |
 
 `agenthost` 解析 owner Profile 后把选中的 alias 放入内部 `Spec.ASRModel`。Factory 不读取 Workflow ASR 配置，也没有 Workspace 优先级或自动回落。错误的 ASR alias、Model kind 或构造错误会使 reload 失败。
 
@@ -175,7 +172,7 @@ socket，避免调用方退出后才建立迟到的 LiveKit session；成功初�
 
 生命周期：网络错误或 SFU 重启触发指数退避重连，超过 `reconnect_timeout` 则以错误终止；重连期间丢弃上行帧、释放 floor 并忘记远端 utterance（重连后由下一次 BOS 重新学习）。LiveKit 因同一 identity 从其他 Server 加入而断开（`DuplicateIdentity`）视为正常终止，不重连。session 按 `recheck_interval` 周期重读 binding，generation 变化、成员失效或 resolver 出错时以 `ErrRevoked` 立即停止转发。Transform context 取消（Workspace 切换、Peer 断开、撤权、Server shutdown）走同一条 teardown：停止消费 GenX input、停止写入 Track、关闭远端 reader、断开 participant、关闭输出 Stream。
 
-### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
+### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace)
 
 拥有 workspace 资源、workspace runtime storage 和 history。Workspace 是实例化 Agent 环境的持久化边界；运行中的 Agent、输入输出和 connection stream 由 Runtime 领域负责。
 
@@ -220,7 +217,3 @@ flowchart LR
 Workspace 创建按 owner 注册并 drain in-flight 工作。Runtime preparation 与调用者 initializer 在 coordinator mutex 外执行；退休只关闭目标 owner 的 admission，并在快照前等待该 owner 的创建。MemoryLayout 使用 SQL 原子更新和删除，不在 service 中持有覆盖数据库 I/O 的读改写锁。
 
 MemoryLayout 保存于 `memory_layouts` 业务表。ID 为主键，Mem0 Cloud、自托管 Mem0 和 VolcMem0 policy 分别存入独立 JSON 列；未公开的历史 policy 列作为原样保留的归档数据；该表不存 Memory 内容或运行时连接。Server 启动时建表并复用 SQL 连接池，列表按 ID 使用范围查询和 `LIMIT` 分页，完整替换仅更新已存在的行，不能把并发删除的记录重新写回。
-
-## Peer 小时用量
-
-可选 `services.peer_usage.store` 绑定 SQL pool，保存 provider 实际 model/resource ID 的小时数量；使用共享 SQL 日分区维护，并在关闭 pool 前 flush worker。完整字段、保留与持久化边界见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。

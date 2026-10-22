@@ -107,8 +107,6 @@ gizclaw/
 | `cmd` | 配置读取、dependency wiring、进程生命周期与 CLI UX | 可复用领域逻辑 | 对应 package 指引 |
 | `sdk` | 面向各语言的生成 contract 与客户端封装 | 独立定义另一套 wire contract | [API 生成](api/generation) |
 
-`pkgs/agent` 当前没有进入主要产品运行链，因此暂不作为开发指引入口；其能力真正被 Runtime 消费后，再按实际边界补充文档。
-
 ## 模块依赖方向
 
 ```mermaid

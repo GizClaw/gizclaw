@@ -1,4 +1,4 @@
-# TypeScript SDK <Badge type="warning" text="WIP" />
+# TypeScript SDK
 
 GizClaw ships two npm packages, split by role, both distributed as `v*` GitHub Release assets:
 
@@ -7,7 +7,7 @@ GizClaw ships two npm packages, split by role, both distributed as `v*` GitHub R
 | `@gizclaw/gizclaw` | `sdk/js/gizclaw` | Device side: run a browser or Node process as a GizClaw device/Peer, plus Admin HTTP, RPC, signaling, and Telemetry | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels |
 | `@gizclaw/gizclaw-control` | `sdk/js/gizclaw-control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1/*` |
 
-`@gizclaw/gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. Device-side client initialization, runtime requirements, and RPC calls are not documented yet; this page covers `@gizclaw/gizclaw-control` and device handshake admission credentials.
+`@gizclaw/gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. This page covers `@gizclaw/gizclaw-control` and device handshake admission credentials.
 
 ## Install `@gizclaw/gizclaw-control`
 
@@ -114,7 +114,3 @@ The exported `REGISTRATION_TOKEN_CREDENTIAL_TYPE` constant defines the built-in 
 Devices install `readMhsHwd` / `writeMhsHwd` on `deviceControl`. The outer RPC carries `id`, HWD and encoded protobuf `payload`; generated `CLIENT_HWD_IDS` and helpers such as `encodeClientHwdWriteRequestPayload` / `decodeClientHwdReadResponsePayload` select the message. Controllers first call `getMhsManifest()`, then `readMhsHwd({id:"speaker.main",hwd:"speaker"})` or `writeMhsHwd({id:"speaker.main",hwd:"speaker",value:{volume_percent:35}})`. Each call addresses one instance and writes return actual applied values.
 
 The manifest declares instances rather than field schemas. Wifi, ble, modem, battery and mic are read-only; display, led and speaker can be written. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
-
-## tool/v0 procedures
-
-Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. HWD instances use the bound RuntimeProfile MHS v0 manifest and its read/write calls.

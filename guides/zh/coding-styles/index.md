@@ -1,6 +1,6 @@
 # 编码规范
 
-GizClaw 是 Go-first、但并非 Go-only 的仓库。代码、Schema、生成 SDK、C binding 和文档共同组成一个产品 contract；编码时必须同时维护其实际跨越的边界。
+GizClaw 是 Go-first、但并非 Go-only 的仓库。代码和 Schema 定义产品行为，生成 SDK 与 C binding 消费这些定义；文档提供说明。编码时必须同时维护改动实际跨越的边界。
 
 ## 选择对应规范
 

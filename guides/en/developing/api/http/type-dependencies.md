@@ -45,35 +45,9 @@ Schema can only be entered `shared/` if at least one of the following conditions
 
 The need to generate Go or JavaScript symbols does not constitute a reason for Shared. There is only one owner schema and the owner is placed in the same file.
 
-### Shared ownership map
+### Shared ownership
 
-`shared/` uses fine-grained files for stable schema types instead of one aggregate file per domain. The current files are organized into these ownership families:
-
-| Ownership family | Current files | Owned schema |
-| --- | --- | --- |
-| Error | `error_payload.json`, `error_response.json` | `ErrorPayload`, `ErrorResponse` |
-| Device identity | `device_info.json`, `hardware_info.json`, `peer_imei.json`, `peer_label.json` | Device, hardware, and stable identity values |
-| Runtime, Peer, and Server state | `runtime.json`, `peer*.json`, `registration.json`, `server*.json` | Runtime, registration, Peer lifecycle, stream, telemetry, and Server values |
-| Runtime access | `runtime_profile*.json`, `registration_token.json` | Profile allow lists and device registration token metadata |
-| Configuration | `configuration.json`, `agent_selection.json`, `refresh_*.json` | Shared configuration, Agent selection, and refresh contracts |
-| Firmware | `firmware*.json` | Firmware, slot, external package, and spec values |
-| Credential | `credential*.json` | Credential body, spec, and values shared across Resources and APIs |
-| Model | `model*.json` | Model kind, provider, source, spec, and provider-specific typed data |
-| Voice | `voice*.json` | Voice provider, source, spec, and provider data |
-| Tool | `tool*.json`, `toolkit_policy.json` | Tool executor, trigger, source, spec, policy, and JSON schema values |
-| Workflow and Workspace | `workflow*.json`, `workspace*.json` | Workflow identity, owner, driver, variants, and Workspace source-qualified values |
-| Provider tenant | `*_tenant*.json` | Provider-specific tenant, spec, enum, and shared values |
-
-The glob entries group existing files by ownership; they are not literal file names to create. Before changing a schema, select an owner file that actually exists under `api/http/shared/`. Add a file only when no existing owner applies and the schema meets the Shared rules.
-
-Schemas outside these Shared ownership families must be defined in their owner file:
-
-- Public-only DTO put in `peer.json`.
-- Admin endpoint exclusive DTO is placed in `admin.json`.
-- Resource, exclusive `*Spec` and nested values ​​are put into corresponding `resources/<kind>.json`.
-- Resource envelope, metadata, kind, Apply contract and union are placed in `resources/resource.json`.
-
-To add `shared/*.json`, first prove that it has multiple independent consumers. If it introduces a new ownership family, update this map in the same change. Do not create a file first and leave it in Shared based on possible future reuse.
+Find the existing owner in the [Shared source directory](https://github.com/GizClaw/gizclaw/tree/main/api/http/shared). Add a Shared definition only when no suitable owner exists and multiple independent consumers need it. Domain-specific types remain with their Resource or API surface; language generation alone does not justify sharing.
 
 ## Resource rules
 

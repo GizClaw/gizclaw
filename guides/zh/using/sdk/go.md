@@ -1,6 +1,4 @@
-# Go SDK <Badge type="warning" text="WIP" />
-
-本页将说明 Go SDK 的安装、client 初始化、认证、连接、API/RPC 调用和错误处理。
+# Go SDK
 
 Go API Reference：[gizcli](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli)。
 
@@ -37,7 +35,3 @@ WebRTC/RTP、Server、Edge 或 wire Schema；使用原始 media callback 的客�
 通过 `gizcli.Client.HandleDeviceControl` 安装 `DeviceControlHandlers.ReadMhsHwd` 和 `WriteMhsHwd`。handler 收到 `rpcpb.ClientMhsV0ReadRequest` 或 `ClientMhsV0WriteRequest`，按 `ClientHwd` 用 `rpcapi.ClientHwdReadResponseMessage` / `ClientHwdWriteRequestFromBytes` 等注册表函数处理对应 protobuf。读写每次只针对一个 `id`；wifi、ble、modem、battery、mic 只读，display、led、speaker 可写。不存在的物理实例可返回 `ErrDeviceResourceNotFound`。
 
 RuntimeProfile manifest 离线可读，只声明实例 ID 和 HWD 类型；设备端驱动执行安全限制并在写入响应中返回实际生效值。完整契约见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
-
-## tool/v0 过程
-
-设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

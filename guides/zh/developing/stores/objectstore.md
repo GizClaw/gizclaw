@@ -1,5 +1,9 @@
 # pkgs/store/objectstore
 
+[Storage 配置实现](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/storage)
+
+[源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/objectstore)
+
 `pkgs/store/objectstore` 定义 provider-neutral、prefix-addressable 的 binary object
 storage。Object name 是相对的 slash-separated key；调用方可以流式读写单个 object、
 列举或删除 prefix，并设置 deadline 或 TTL。
@@ -7,14 +11,6 @@ storage。Object name 是相对的 slash-separated key；调用方可以流式�
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/objectstore)
 
 ## 契约与 ownership
-
-| 符号 | 作用 |
-| --- | --- |
-| `ObjectStore` | Get、流式覆盖、expiration、幂等 Delete、DeletePrefix 与 List |
-| `ObjectInfo` | Object name、size 与 deadline |
-| `Root` / `NewRoot` | 借用 rooted local filesystem handle |
-| `NewVolcTOS`、`NewAliyunOSS`、`NewGCS`、`NewAzureBlob` | 借用由物理 Storage 持有的 official cloud SDK client |
-| `LocalDirProvider` | 只识别 local filesystem-backed store |
 
 Name 必须是相对且规范化的 slash key。空 object name、absolute path、parent
 traversal 和保留的 `.objectstore-meta` namespace 会被拒绝。Put 精确替换一个
@@ -64,14 +60,6 @@ stores:
 ```
 
 支持的物理配置如下：
-
-| Kind | 必填字段 | 认证 |
-| --- | --- | --- |
-| `filesystem.dir` | `dir` | 进程 filesystem permission |
-| `volc-tos` | `endpoint`、`region`、`bucket`、`access_key_id`、`access_key_secret` | 可选 `session_token` |
-| `aliyun-oss` | `endpoint`、`bucket`、`access_key_id`、`access_key_secret` | 可选 `security_token` |
-| `gcs` | `bucket` | ADC，或可选 `credentials_file` |
-| `azure-blob` | `account_url`、`container` | `DefaultAzureCredential`（managed/workload identity、environment 或 developer credential） |
 
 Bucket/container 必须已经存在。Production endpoint 与 account URL 必须使用
 HTTPS。`${VAR}` 展开与 GCS credentials file 的 workspace 相对路径解析由

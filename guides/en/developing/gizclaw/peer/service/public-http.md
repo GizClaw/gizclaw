@@ -1,6 +1,6 @@
 # HTTP Service Entrypoints
 
-`Implementation file: peer_service_serve_peer_http.go`
+Source：[peer_service_serve_peer_http.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_service_serve_peer_http.go)
 
 Provides ordinary Peer Public HTTP and Edge Public HTTP, assembles API key, CORS, OpenAI API, Edge signaling routes, and the `/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` device extension, and performs access judgment of Edge client/signaling Peer.
 
@@ -19,18 +19,6 @@ Server ordinary HTTP and trusted Edge HTTP separately mount the exact public rea
 `deviceController` resolves the owner's active connection once under the owner command lock, opens one RPC stream per command on that same connection with a 5-second timeout, and forwards commands for one owner serially in arrival order. No connection answers `409 DEVICE_OFFLINE`, a timeout answers `504 DEVICE_TIMEOUT`, a device `INVALID_PARAMS` answers `400 DEVICE_REJECTED`, `METHOD_NOT_FOUND` answers `501 DEVICE_UNSUPPORTED`, and every other RPC error answers a redacted `502 DEVICE_ERROR`. After a device acknowledges `reboot`, the controller records the exact connection that answered before releasing the command lock and answers later commands with `409 DEVICE_OFFLINE` until that connection is replaced; a connection that reconnects during the acknowledgement is never mistaken for the rebooting one. The `volume.set` response is written through `StatusSync.ApplyDeviceStatus` under the owner's telemetry status lock, keeping per-field time ordering with telemetry reports.
 
 When a browser request carries `Origin`, Direct Server, Peer Public HTTP, and Edge Public HTTP return that actual origin and append `Origin` to `Vary` to isolate caches; non-browser requests retain `*` compatibility. An `OPTIONS` preflight for a supported path returns `204` directly and allows the device Public HTTP methods `GET`, `POST`, `PUT`, `DELETE`, and `OPTIONS`, together with the headers used by API keys, signaling, and request correlation.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| `servePublic` / `serveEdgePublic` | Start normal or Edge Public HTTP on the corresponding Giznet service. |
-| `publicHTTPHandlerWithOptions` | Assemble API key management, device extension, and signaling routes, and complete owner binding. |
-| `deviceController` | Serialize device control commands, map offline/timeout/device errors, and write back `PeerStatus`. |
-| `deviceReadsForAPIKey` | Build the owner-scoped `peerresource.DeviceReads` (reads and Workspace deletion) for an API key owner. |
-| `allowEdgeClientPeer` | Determine whether the Peer is allowed to serve as an Edge client. |
-| `allowEdgeSignalingPeer` | Determine whether the Peer is allowed to initiate signaling through the Edge. |
-| `setPeerHTTPCORSHeaders` | Set the CORS headers of the Peer HTTP surface. |
 
 ## MHS v0
 

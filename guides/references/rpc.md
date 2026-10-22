@@ -1,260 +1,69 @@
 # RPC API Reference
 
-本页由 `api/proto/rpc/gizclaw_rpc.proto` 的当前 registry 核对生成，列出全部 89 个 RPC method 及其用途。Method name 是调用时使用的稳定标识；数字 ID 是 Protobuf wire value，不应在应用代码中手写。TypeScript 使用 `RPC_METHODS`，Go 使用 `gizcli.Client` 的 typed 方法或 `rpcapi` registry。
+RPC 的 method 名称、数字 ID 和请求/响应类型由 [RPC registry](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/gizclaw_rpc.proto) 定义。参数与枚举见下列领域 Schema；调用方使用生成 SDK 或 typed registry，不手写数字 ID。
 
-`all.*` 由连接两端提供，`client.*` 由 Client/Device 提供，普通 `server.*` 与 `runtime.*` 由 Server 提供。最后一组 Edge RPC 使用独立 service `0x31`，只对 Edge-node 开放；其余方法使用 Peer RPC service `0x00`。
+[Go RPC API](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi) · [Go SDK](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/sdk/go/gizcli) · [调用方向说明](/zh/developing/api/proto/rpc/overview) · [Streams](./streams#rpc-streams)
 
 ## 连接诊断与设备信息
 
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 1 | `all.ping` | 验证 request/response 通路，并交换调用端发送时间与提供端当前时间。 |
-| 2 | `all.speed_test.run` | 按指定上下行长度在 RPC stream 上执行吞吐测试。 |
-| 5 | `server.info.get` | 读取当前 Peer 在 Server 上的设备资料与标识信息。 |
-| 6 | `server.info.put` | 更新当前 Peer 的 name、emoji 等可编辑设备资料，并返回完整资料。 |
-| 125 | `server.profile.get` | 按 public key 批量（1–16 个）读取任意 Peer 的公开资料，只含 `display_name` 与 `emoji`；不要求好友关系，不暴露在线状态、SN、位置等其他字段。 |
-| 7 | `server.runtime.get` | 读取当前 Peer 的在线状态、最后地址、最后在线时间、传输字节统计和调试模式。 |
-| 8 | `server.status.get` | 读取当前 Peer 最近上报的电量、充电、GNSS、音量、静音等状态。 |
-| 90 | `server.register` | 使用 RegistrationToken 为当前 Peer 选择 RuntimeProfile，持久化并返回 RuntimeProfile name；可选 Firmware binding 仅保存在服务端。 |
-| 93 | `server.peer.delete` | 原子创建或复用当前 Peer 的 pending-deletion handoff，同时保留 Peer；立即拒绝当前连接的新工作，尝试返回空 acknowledgement 与 EOS，随后无条件关闭完整连接。 |
+用于确认连接通路、读取设备资料和注册设备。消息定义见 [system.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/system.proto)。
 
 ## Agent 与运行中的 Workspace
 
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 9 | `server.run.agent.get` | 读取当前选中的运行 Agent。 |
-| 10 | `server.run.agent.set` | 选择运行 Agent，并返回选择后的 Agent 状态。 |
-| 11 | `server.run.workspace.get` | 读取当前、待切换和已选 Workspace 及其运行状态。 |
-| 12 | `server.run.workspace.set` | 选择要运行的 Workspace，并返回切换后的状态。 |
-| 13 | `server.run.workspace.reload` | 重新加载当前 Workspace 的运行实例。 |
-| 14 | `server.run.workspace.history` | 分页读取当前运行 Workspace 的 history。 |
-| 15 | `server.run.workspace.history.play` | 请求播放一条当前 Workspace history 的音频。 |
-| 16 | `server.run.workspace.memory.stats` | 读取当前 Workspace memory/recall backend 的统计信息。 |
-| 17 | `server.run.workspace.recall` | 按 query 和 filters 从当前 Workspace memory 中召回内容。 |
-| 18 | `server.run.reload` | 重新加载当前完整 run。 |
-| 19 | `server.run.status` | 读取 run 的 state、时间、Workspace 和错误/状态消息。 |
-| 20 | `server.run.stop` | 停止当前 run，并返回停止后的状态。 |
-| 21 | `server.run.say` | 请求当前 run 使用 RuntimeProfile `voice_name` 播报文本。 |
+运行选择与持久化 Workspace 是不同层次：停止运行不等于删除 Workspace。请求定义见 [workspace.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/workspace.proto)，运行关系见 [Agent Host](/zh/developing/gizclaw/peer/agent-host)。
 
 ## Firmware
 
-Firmware 不属于 RuntimeProfile catalog。RegistrationToken 可以为 Peer 绑定一个 Firmware；设备不列举或持久化选择 Firmware channel，只请求具体 channel 的 external package 配置。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 22 | `server.firmware.get` | 根据当前 Peer 绑定的 Firmware 和 request channel，返回 HTTPS `.tar.zlib` URL、SHA-256 与 archive size。 |
+设备从已绑定的 Firmware 获取发布信息，自行下载并校验包；GizClaw 负责资源绑定与查询。见 [firmware.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/firmware.proto) 与 [Firmware 使用说明](/zh/developing/gizclaw/rpc/firmware)。
 
 ## Workspace 与 history
 
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 24 | `server.workspace.list` | 按必填 Collection 精确筛选并分页列出当前 Peer 的 Workspace。 |
-| 25 | `server.workspace.get` | 按 name 读取一个 Workspace。 |
-| 26 | `server.workspace.create` | 使用 Collection 与 RuntimeProfile `workflow_name` 创建当前 Peer 的 Workspace。 |
-| 27 | `server.workspace.put` | 更新当前 Peer 拥有的 Workspace 配置。 |
-| 110 | `server.workspace.parameters.set` | 按当前 Workflow driver 更新 Workspace 的受支持参数，不修改 `agent_type`。 |
-| 120 | `server.run.workspace.reload-with-options` | 应用受支持参数、选择目标 Workspace 并执行一次 reload，返回实际运行状态。 |
-| 112 | `server.runtime.put` | 设备设置自身 Runtime 的 `debug_mode`（`off`、`readonly` 或 `fullcontrol`），由所属 Server 存储并执行访问权限检查。 |
-| 28 | `server.workspace.delete` | 为当前 Peer 拥有的用户 Workspace 原子创建或复用 pending-deletion handoff，同时保留 Workspace；system Workspace 不可删除。 |
-| 29 | `server.workspace.history.list` | 分页列出指定 Workspace 的 history。 |
-| 30 | `server.workspace.history.get` | 读取指定 Workspace 的一条 history。 |
-| 31 | `server.workspace.history.audio.download` | 返回 history 音频 metadata，并通过 binary frames 传输音频 bytes。 |
-| 88 | `server.workspace.icon.download` | 按 Workspace name 和格式返回 icon metadata，并通过 binary frames 传输图片 bytes。 |
-
-`server.workspace.parameters.set` 的 `parameters` 是局部更新：当前支持 `input`、`conversation.initiative`、`conversation.agent_initiative_policy`（`eino` 和 `doubao_realtime` driver）以及 `tts_speech_rate_percent`、`safety_fence_level`，未提供的字段保持不变。`tts_speech_rate_percent` 是合成语音的语速，按 provider 正常语速的百分比表示（50..200，100 为正常），适用于所有会合成语音的 driver（`eino`、`doubao_realtime`、`doubao_realtime_duplex`、`dash_scope_realtime`、`asttranslate`）；缺省沿用 Workflow 自己的配置，设置后覆盖 Workflow 中各 provider 的静态语速，从下一次 reload 起生效，超出范围返回 `INVALID_ARGUMENT`。请求不接受 `agent_type`；Server 根据 Workspace 绑定的 Workflow driver 选择参数类型。合法但不受该 driver 或 system Workspace 领域支持的字段忽略；围栏标识符格式无效或 patch 为空仍返回 `INVALID_ARGUMENT`。共享 SFU Workspace 校验当前成员身份后接受 no-op，不改变输入模式或共享配置。
+Workspace 管理配置，对话 History 保存已经交付的内容；回放通过独立下载获得音频。消息定义见 [workspace.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/workspace.proto)，使用方式见 [Workspace History](/zh/developing/gizclaw/rpc/workspace-history)。
 
 ## Workflow、Model 与 Voice catalog
 
-Workflow、Model 与 Voice 由当前 RuntimeProfile 投影为 Peer name catalog。RuntimeProfile 内部 binding key 可以是 alias，但 Peer RPC 的对象 identity 统一使用 `name`，引用统一使用 `<kind>_name`。没有独立 Peer alias 的对象会把 canonical Admin ID 或内部 record ID 原样投影成 `name`。`display_name` 只表示展示文本，`actor_name` 只表示行为主体；业务 DTO 不使用 `id`，RPC envelope 的 correlation `id` 除外。响应携带 RuntimeProfile name 与 revision，不暴露 provider、tenant、credential 或 ownership。真实资源统一通过 Admin API 管理。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 32 | `server.workflow.list` | 按可选 tags 分页列出当前 RuntimeProfile 的 Workflow names，并返回可选安全围栏 name 与展示名。 |
-| 33 | `server.workflow.get` | 按 name 读取 RuntimeProfile Workflow projection。 |
-| 34 | `server.model.list` | 分页列出当前 RuntimeProfile 的 Model names。 |
-| 35 | `server.model.get` | 按 name 读取 RuntimeProfile Model projection。 |
-| 36 | `server.voice.list` | 分页列出当前 RuntimeProfile 的 Voice names。 |
-| 37 | `server.voice.get` | 按 name 读取 RuntimeProfile Voice projection。 |
+Peer 使用当前 RuntimeProfile 中的名称访问资源，Admin 管理实际资源。投影消息见 [ai.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/ai.proto)，资源绑定说明见 [RuntimeProfile](/zh/developing/gizclaw/services/runtime-profile)。
 
 ## Contact 与 Friend
 
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 38 | `server.contact.list` | 分页列出当前 Peer 的联系人。 |
-| 39 | `server.contact.get` | 按当前 Peer 作用域内的 name 读取联系人。 |
-| 40 | `server.contact.create` | 使用 caller-supplied name 为当前 Peer 创建联系人。 |
-| 41 | `server.contact.put` | 按 name 更新当前 Peer 的联系人；name 不可变。 |
-| 42 | `server.contact.delete` | 按 name 删除当前 Peer 的联系人。 |
-| 43 | `server.friend.invite_token.get` | 读取当前 Peer 仍有效的好友邀请码及过期时间。 |
-| 44 | `server.friend.invite_token.create` | 为当前 Peer 创建或轮换好友邀请码。 |
-| 45 | `server.friend.invite_token.clear` | 清除当前 Peer 的好友邀请码。 |
-| 46 | `server.friend.add` | 使用另一个 Peer 的好友邀请码建立好友关系。 |
-| 47 | `server.friend.list` | 分页列出当前 Peer 的好友关系；每项附带好友的 `online`、`last_seen_at`（从未见过时省略）、`display_name` 与 `emoji`。 |
-| 48 | `server.friend.delete` | 删除一条好友关系及其关联资源。 |
-| 89 | `server.friend.info.get` | 读取指定好友对当前 Peer 可见的 name 和 emoji。 |
-| 123 | `server.friend.ping` | 呼叫指定好友：好友设备在线则推送 `tool/v0 social.ping`，返回 `delivered`；不在线立即返回 `not_online`；同一好友对每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
+联系人目录与好友关系分别由所属服务管理。消息定义见 [social.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/social.proto)，权限与交互说明见 [Social](/zh/developing/gizclaw/services/social)。
 
 ## Friend Group
 
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 49 | `server.friend_group.list` | 分页列出当前 Peer 加入的 Friend Group。 |
-| 50 | `server.friend_group.get` | 按当前成员自己的本地 name 读取 Friend Group 及当前 Peer 的 group role。 |
-| 51 | `server.friend_group.create` | 使用 owner-local name 创建 Friend Group。 |
-| 52 | `server.friend_group.put` | 按本地 name 更新 Friend Group 的 `display_name` 或 description；本地 name 不可变。 |
-| 53 | `server.friend_group.delete` | 删除 Friend Group 及其关联资源。 |
-| 54 | `server.friend_group.invite_token.get` | 读取指定 Friend Group 的邀请码及过期时间。 |
-| 55 | `server.friend_group.invite_token.create` | 为指定 Friend Group 创建或轮换邀请码。 |
-| 56 | `server.friend_group.invite_token.clear` | 清除指定 Friend Group 的邀请码。 |
-| 57 | `server.friend_group.join` | 使用邀请码和 joining Peer 选择的本地 name 加入 Friend Group。 |
-| 58 | `server.friend_group.members.list` | 分页列出指定 Friend Group 的成员，仅成员可读；每项携带同一共享快照中的 `online`、可选 UTC `last_seen_at` 与 `in_room`，表示设备是否在线及正在任意 Server 运行该群 Workspace。 |
-| 59 | `server.friend_group.members.add` | 向 Friend Group 添加成员并设置 member/admin role。 |
-| 60 | `server.friend_group.members.put` | 修改 Friend Group 成员的 member/admin role。 |
-| 61 | `server.friend_group.members.delete` | 从 Friend Group 删除成员。 |
-| 124 | `server.friend_group.ping` | 任意成员集结 Friend Group：向除自己外所有在线成员推送 `tool/v0 social.ping`，返回送达数；无人在线返回 `not_online`；每个群每分钟一次，超出返回 `rate_limited` 与剩余秒数。 |
-
+群名由当前成员的命名空间解析，群成员资格决定可见性。消息定义见 [social.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/social.proto)。
 
 ## Tool
 
-RuntimeProfile 的 Tool catalog 仍向 Peer 投影名称，支持服务端 HTTP Tool；它与设备的预定义 `ClientTool` 是不同的目录。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 80 | `server.tool.list` | 分页列出当前 RuntimeProfile 的 Tool names。 |
-| 81 | `server.tool.get` | 按 name 读取 RuntimeProfile Tool projection。 |
+RuntimeProfile 的服务端 Tool catalog 与设备提供的操作是不同能力。Catalog 消息定义见 [ai.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/ai.proto)，组合方式见 [Runtime Tools](/zh/developing/gizclaw/services/runtime/toolkit)。
 
 ## App Config
 
-`app_config` 是当前 RuntimeProfile 的不透明设备配置下发通道。Server 原样存储并返回每个 value，从不解析；Peer 只能读，没有写入方法。value 上限 4096 字节、最多 64 个 key，因此 list 只返回 key，单个 value 通过 get 按需读取，设备可以使用静态缓冲区解码。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 121 | `server.app_config.list` | 分页列出当前 RuntimeProfile 的 app_config keys，cursor 与 RuntimeProfile revision 绑定。 |
-| 122 | `server.app_config.get` | 按 key 原样返回一个 app_config value；key 不存在返回 `NOT_FOUND`。 |
+App Config 用于向设备下发应用自己的不透明配置；设备按需读取，Server 不解释值的业务含义。消息定义见 [system.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/system.proto)。
 
 ## API Key
 
-已认证的 Peer connection 是 API Key 的根管理入口；这些方法不需要 API Key，也不检查 `manage_api_keys`。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 96 | `server.api_key.create` | 为当前 Peer 创建绑定设备的长期 API Key，返回完整可恢复 credential。 |
-| 97 | `server.api_key.list` | 按 cursor 分页列出当前 Peer 拥有的 API Key。 |
-| 98 | `server.api_key.revoke` | 按 opaque name 撤销当前 Peer 拥有的一个 API Key。 |
+已认证的 Peer 管理自己的 API Key。消息定义见 [system.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/system.proto)，使用方式见 [API Key](/zh/using/api-keys)。
 
 ## 设备硬件状态与预定义操作
 
-设备提供 MHS v0 HWD 与 tool/v0 操作。RuntimeProfile `spec.mhs.v0` manifest 只声明 `{id,hwd}` 实例；`payload/mhs_v0.proto` 定义八种 HWD 的读结构，以及 display、led、speaker 的写结构。Server 在发起 MHS 读写前按 manifest 校验实例。`client.rpc.methods.list` 返回协议方法编号，`client.tool.v0.list` 单独返回设备实际安装的操作编号。控制 App 通过 `GET /gizclaw/v1/device/tool/v0/tools` 与 `POST /gizclaw/v1/device/tool/v0/invoke` 使用预定义操作；Server 在接触设备前验证参数。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 133 | `client.mhs.v0.read` | 读取一个 manifest 声明的 HWD 实例，payload 是该 HWD 的 protobuf 读结构。 |
-| 134 | `client.mhs.v0.write` | 写入一个 display、led 或 speaker 实例，返回实际生效值的 protobuf。 |
-| 135 | `client.tool.v0.invoke` | 按 `ClientTool` 编号和该操作的 protobuf 请求 payload 执行预定义操作；未安装的操作返回 `UNIMPLEMENTED`。 |
-| 136 | `client.tool.v0.list` | 返回设备实际安装的 `ClientTool` 编号。 |
-| 137 | `client.rpc.methods.list` | 返回设备提供的 `RpcMethod` 编号，用于识别协议 family 与版本。 |
-| 139 | `client.lua.app.install` | `ClientLuaAppInstallStreamRequest` 元信息后推送 Binary 压缩包和请求 EOS；设备完成校验与原子发布后返回 `ClientLuaAppInstallResponse`。 |
+硬件状态读写与设备操作分开建模，设备只声明自己实际支持的能力。见 [Client provider 说明](/zh/developing/api/proto/rpc/client-provided-to-server)。
 
 ### ClientHwd v0
 
-`ClientHwd` 是独立编号空间。`api/proto/rpc/payload/mhs_v0.proto` 中的枚举 option 绑定各 HWD 的 protobuf 消息。RuntimeProfile manifest 可以用不同 ID 多次引用同一 HWD。
-
-| ID | HWD | read 响应 | write 请求与响应 |
-| ---: | --- | --- | --- |
-| 1 | wifi | `WifiHwdReadResponse` | 只读 |
-| 2 | ble | `BleHwdReadResponse` | 只读 |
-| 3 | modem | `ModemHwdReadResponse` | 只读 |
-| 4 | battery | `BatteryHwdReadResponse` | 只读 |
-| 5 | mic | `MicHwdReadResponse` | 只读 |
-| 6 | display | `DisplayHwdReadResponse` | `DisplayHwdWriteRequest` / `DisplayHwdWriteResponse` |
-| 7 | led | `LedHwdReadResponse` | `LedHwdWriteRequest` / `LedHwdWriteResponse` |
-| 8 | speaker | `SpeakerHwdReadResponse` | `SpeakerHwdWriteRequest` / `SpeakerHwdWriteResponse` |
+HWD 类型及其读写消息由 [mhs_v0.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/mhs_v0.proto) 定义；RuntimeProfile manifest 用于发现物理实例。
 
 ### ClientTool v0
 
-下表是 `ClientTool` 的独立编号空间，不属于 `RpcMethod`。每个枚举值在 `api/proto/rpc/payload/tool.proto` 中绑定请求与响应消息；`client.tool.v0.invoke` 的 `payload` 使用对应 protobuf 消息编码。状态和操作的具体 HTTP 校验及错误映射见 [Public API](/zh/developing/api/http/public)。
-
-| ID | Tool | 作用 |
-| ---: | --- | --- |
-| 1 | `info.get` | Server 从 Client 读取 manufacturer、model、hardware revision 等硬件信息。 |
-| 2 | `identifiers.get` | Server 从 Client 读取 SN、IMEI 和设备 labels。 |
-| 3 | `device.status.get` | Server 从设备读取实时 `PeerStatus`；用于控制响应回写，不由 `/device/status` 读取触发。 |
-| 4 | `device.reboot` | 设备在发出响应后重启，可选 `delay_ms`。 |
-| 5 | `device.factory_reset` | 设备清除本机状态并恢复出厂设置，设备侧不可撤销；可选 `keep_network` 保留已保存的 Wi‑Fi 与蜂窝配置，避免重新配网。Server 自身的 Peer 记录不受影响。 |
-| 6 | `device.find` | “找设备”：设备播放内置的本地找寻提示音并逐步增大音量，可选 `duration_ms`；不需要音频 URL 或曲目。 |
-| 7 | `sound.play` | 播放设备自定义的提示音 `sound`，可选 `duration_ms`。 |
-| 8 | `wifi.scan` | 在设备侧扫描周边 Wi‑Fi，按请求的有界 `timeout_ms` 返回接入点列表。 |
-| 9 | `wifi.connect` | 接受 Wi‑Fi 凭据并在应答 RPC 后切换网络。 |
-| 10 | `wifi.saved.list` | 列出设备已保存的 Wi‑Fi 网络 `ssid`。 |
-| 11 | `wifi.saved.forget` | 按 `ssid` 删除设备已保存的 Wi‑Fi 网络。 |
-| 12 | `firmware.update` | 通知设备执行一次 OTA。可选 `channel` 指定要安装的 channel，省略时沿用设备自身的 channel；可选 `sha256` 声明调用方看到的目标包，与设备解析出的包不一致时设备拒绝。设备在应答后自行下载、校验、写入并重启。 |
-| 13 | `audioplayer.get` | 读取设备播放器的完整状态：播放状态、当前索引、实际进度、可选时长、循环模式、列表长度与版本。 |
-| 14 | `audioplayer.play` | 按零起始 `index` 从所选歌曲开头播放，替换当前播放；响应只表示设备接受请求，实际播放由 telemetry 上报。 |
-| 15 | `audioplayer.stop` | 幂等停止播放，保留播放列表与循环模式。 |
-| 16 | `audioplayer.mode.set` | 设置循环模式 `repeat`：`off` 播完列表停止，`one` 单曲循环，`all` 列表循环；不打断当前歌曲。 |
-| 17 | `audioplayer.playlist.get` | 读取设备当前播放列表与 `playlist_revision`，不读取服务端缓存。 |
-| 18 | `audioplayer.playlist.set` | 校验并原子替换播放列表（最多 32 项），停止当前播放；空列表清空列表；失败保留原列表与播放。 |
-| 19 | `audioplayer.playlist.append` | 原子追加 1–32 项并保持总容量 32，保留顺序与重复项；不中断播放，也不自动开始播放，失败后不应自动重试。 |
-| 20 | `run.workspace.set` | 请设备切换到 `workspace_name` 指定的 Workspace，可选 `kickoff`；控制 App 的 workflow 目标由 Server 先解析为唯一名称。设备先应答再通过 `server.run.workspace.reload-with-options` 完成切换，应答只表示接受请求。 |
-| 21 | `social.ping` | Server 调用设备：通知好友呼叫或 Friend Group 集结，携带发起方 public key、可选 `display_name` 与接收方自己的 `friend_group_name`。 |
-| 25 | `gnss.reporting.get` | 读取设备的 GNSS 上报开关，返回显式 boolean `enabled`。 |
-| 26 | `gnss.reporting.set` | 按显式 boolean `enabled` 设置设备的 GNSS 上报开关，返回设备实际生效值；Server 只转发。 |
-| 27 | `lua.app.uninstall` | 按 `app_id` 幂等卸载，持久隐藏预装身份，回收可写包并保留用户数据；再次安装同 ID 重新启用。 |
+操作枚举与消息映射由 [tool.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/tool.proto) 定义。调用前发现设备已安装的操作，不把 Server 认识某个枚举当成设备已支持它。
 
 ## 独立流式语音
 
-这些 method 不创建或选择 Workspace。Transcribe 与 Extract 通过 request binary frames 增量上传音频；Extract 在转写后按调用方提供的 JSON Schema 返回结构化 JSON；Synthesize 先返回音频 metadata，再通过 response binary frames 增量下载音频。Model 与 Voice 都使用当前 RuntimeProfile 中的 Peer name 解析。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 91 | `server.speech.transcribe` | 使用 `model_name` 将有界音频流转换为最终 transcript。 |
-| 92 | `server.speech.synthesize` | 使用 `voice_name` 将文本合成为客户端接受格式的音频流。 |
-| 94 | `server.speech.extract` | 使用 `asr_model_name` 与 `extract_model_name` 将有界音频转换为符合调用方 JSON Schema 的结果。 |
+独立语音调用按一次请求传输输入或输出，不使用 Workspace 的实时媒体轨。消息定义见 [ai.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/ai.proto)，传输说明见 [Binary streams](./streams#binary-streams)。
 
 ## Edge RPC
 
-以下内部方法共用 `ServiceEdgeRPC`（0x31）；Server 提供路由与终端投递，Edge 向其配置上游 Server 提供反向中继。使用 `createEdgeRPCClient` 或对应的 Edge RPC transport；普通 `createPeerRPCClient` 不接受这些 method。
-
-| ID | Method | 作用 |
-| ---: | --- | --- |
-| 83 | `server.peer.lookup` | 只读查询指定 Peer 当前的固定 Server assignment。 |
-| 84 | `server.peer.assign` | 原子 claim 缺少 assignment 的 Peer，或刷新同 owner metadata；其他 owner 返回 conflict，`expected_version` 不能转移归属。 |
-| 85 | `server.route.resolve` | 只读解析目标 Peer 当前的固定 Server route/assignment。 |
-| 99 | `server.api_key.resolve` | 认证 Edge 收到的 Bearer credential，并返回其 owner Peer 现有的 assignment；不创建、移动或刷新 assignment。 |
-| 149 | `edge.social.ping.relay` | 已验证配置上游 Server 调用 Edge；按目标 PK 的固定 Server assignment 中继社交通知，等待目标设备 ACK。 |
-| 150 | `server.social.ping.deliver` | active Edge 调用归属 Server；仅向本地目标 Peer 投递 `client.social.ping` 并等待 ACK，不继续中继。 |
+Edge 与已配置的 Server 通过内部能力协作路由和通知。消息定义见 [edge.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/edge.proto)，权限与方向见 [Server 与 Edge-node](/zh/developing/api/proto/rpc/server-provided-to-edge-node)。
 
 ## 未指定值
 
-ID `0` 是 unspecified，不能调用。调用方遇到未知 method 时应按 method not found 处理。
-
-`server.run.workspace.reload-with-options` 的请求可携带 `workspace_name` 和 `parameters`（与 `workspace.parameters.set` 相同的 patch）。省略名称时重载当前选择，省略参数时保留配置。服务端依次校验、更新参数、保存选择、执行一次 reload，并返回运行状态。参数失败不会切换或重载；后续失败不会回滚已保存参数。
-
-```json
-{
-  "workspace_name": "voice-room",
-  "parameters": { "input": "WORKSPACE_INPUT_MODE_REALTIME", "tts_speech_rate_percent": 70 }
-}
-```
-
-设备把用户的语速偏好与 `input` 一起在每次 `reload-with-options` 中带上即可，SFU Workspace 接受同样的请求并忽略语速。语速只在服务端合成时生效：支持原生语速的 provider 直接换算（Volc TTS `speed_ratio = p/100`，MiniMax `speed = p/100`，Doubao realtime、realtime duplex 和 AST `speech_rate = p - 100`），没有原生语速的 DashScope realtime 由 transformer 对输出 PCM 做保持音高的时间伸缩。`server.run.say` 使用当前激活 Workspace 的语速；Workspace history 回放保持录制时的音频。
-
-`PeerRunWorkspaceState.audio_input` 取 `AUDIO_INPUT_PATH_ASR` 或 `AUDIO_INPUT_PATH_MODEL`，只报告 Eino reload 后实际生效的路径。Workspace 参数不提供音频来源 override。RuntimeProfile 的 Workflow binding 用 `ptt_asr_model` 与 `realtime_asr_model` 分别选择独立 ASR，省略或 null 表示直接把音频交给 Model；配置错误不会自动回落。纯文本 Agent 与其他 driver 不返回该字段。
-
-`server.run.workspace.set` 仅负责选择（SFU 会立即激活）；`server.run.workspace.reload` 保持空请求，只重载当前选择。Workspace 配置仍可独立通过 `server.workspace.put` 和 `server.workspace.parameters.set` 更新。
-
-`safety_fence_level` 是 RuntimeProfile `spec.safety_fences` 中的字符串标识符，不是平台枚举。设备通过 `server.workflow.list` 响应的 `safety_fences` 列表发现可选 name 和展示名；持有 API key 的调用方也可读取 `GET /gizclaw/v1/device/runtime-profile` 的 `safety_fences` 列表。两者都不返回 prompt。HTTP、RPC Proto JSON 和 SDK 均发送原始字符串，例如 `"alpha"`。旧 enum 的 Protobuf wire tag 已保留，新 string 字段为公共 patch 的 field 5、各 AI 参数变体的 field 50；旧版 varint 请求不会被误读成新选择。完整解析、注入、旧数据与 reload 失败语义见 [RuntimeProfile 安全围栏](/zh/developing/gizclaw/services/runtime-profile#workspace-安全围栏)。
-
-C nanopb 调用方用 `has_safety_fence_level` 区分省略与显式选择，并复制不超过 64 字节的 ID：
-
-```c
-#include <string.h>
-gizclaw_rpc_v1_WorkspaceParametersPatch parameters =
-    gizclaw_rpc_v1_WorkspaceParametersPatch_init_zero;
-parameters.has_safety_fence_level = true;
-memcpy(parameters.safety_fence_level, "alpha", sizeof("alpha"));
-```
-
-`has_safety_fence_level = false` 保留服务端已存选择；空字符串不是清除操作。字段描述由生成头文件中的 `WorkspaceParametersPatch_FIELDLIST` 提供，配套 `workspace.pb.c` 的 `PB_BIND` 在编译时引用它。修改 Proto 后须重新生成并校验完整 C 生成目录。
-
-`WorkflowListResponse.safety_fences` 在 C nanopb 中使用 `pb_callback_t` 逐项解码；RuntimeProfile 的档位数量不受固定 C 数组容量限制。调用方应在解码前安装 callback，按每项的 `name` 保存可选字符串 ID。
+枚举的未指定值用于表示缺省状态，不是可调用能力。编码与错误处理以 [RPC codec](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/api/rpcapi) 为准。

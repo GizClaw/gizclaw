@@ -1,187 +1,33 @@
 # Events
 
-Peer Event Stream 是 Client / Device 与 Server 之间的连接级事件通道。它使用
-service ID `0x20`（`EventStreamAgent`），可靠、有序、双向，并在每条正常
-Client / Device Peer connection 生命周期内必须恰好保持一条。实时 Opus bytes
-仍通过 WebRTC audio RTP track
-传输；Event Stream 只承载逻辑流边界、文本和资源失效通知。
+Peer Event Stream 是 Client / Device 与 Server 之间的连接级事件通道，用于传输逻辑流边界、文本和资源变化通知。实时音频通过独立的 WebRTC media track 传输。
 
-每个 event 都是 `gizclaw.events.v1.PeerEvent` Protobuf message，通过
-`FrameTypeBinary` 发送。当前 `version` 为 `1`。顶层 `type` 与 `oneof payload`
-必须匹配，完整定义位于
-[`api/proto/events/peer_event.proto`](https://github.com/GizClaw/gizclaw/blob/main/api/proto/events/peer_event.proto)。
+事件类型、payload 和字段见 [peer_event.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/events/peer_event.proto)；接收与发送实现见 [Peer connection](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_conn.go) 和 [Stream events](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_stream_event.go)。
 
 ## Event types
 
-| `type` | 方向 | payload | 作用 |
-| --- | --- | --- | --- |
-| `BOS` | 双向 | `bos` | 开始一个由 `stream_id` 标识的逻辑 stream。 |
-| `AUDIO_INPUT_READY` | Server → Client / Device | `audio_input_ready` | 同一 `stream_id` 的音频输入已授权并安装路由，可以发送音频。 |
-| `EOS` | 双向 | `eos` | 结束一个逻辑 stream；可携带 typed `error`。 |
-| `TEXT_DELTA` | 双向 | `text_delta` | 发送增量文本片段。 |
-| `TEXT_DONE` | 双向 | `text_done` | 发送最终文本片段并结束文本逻辑 stream。 |
-| `WORKSPACE_HISTORY_UPDATED` | Server → Client / Device | `workspace_history_updated` | 指定 Workspace 的 history 已持久化更新。 |
-| `FRIEND_RELATIONSHIP_UPDATED` | Server → Client / Device | `friend_relationship_updated` | 好友关系已创建或删除。 |
-| `FRIEND_GROUP_UPDATED` | Server → Client / Device | `friend_group_updated` | 群组或成员关系已变化。 |
-
-`kind` 的含义由选中的 payload 决定：
-
-- `bos` / `eos` 使用 `StreamKind`：`TEXT`、`AUDIO`、`VIDEO` 或 `MIXED`。
-- `workspace_history_updated.workspace_kind` 使用 `WorkspaceKind`，当前只有 `WORKFLOW`。
-- 好友与群组事件分别使用自己的 `change` enum，不复用媒体 `kind`。
-
-`workspace_history_updated` 只发送给 Workflow Workspace 的 owner。Friend 与 Friend
-Group 的 SFU Workspace 没有 History，不会产生该 Event；它们的成员关系变化通过
-`friend_relationship_updated` 与 `friend_group_updated` 通知。
+事件用于表达媒体的开始与结束、文本内容及资源失效。应用使用生成的事件类型处理 payload；具体枚举与消息结构直接查阅上述 Schema。
 
 ## Connection ownership and delivery
 
-Peer Event Stream 属于 Peer connection，不属于某个 Workspace、Agent 或页面。
-一个 Client 应只维护一个 connection-scoped event session，再在本地按
-`workspace_name`、`peer_public_key` 或接收成员自己的 `friend_group_name` 分发。页面与 controller
-不能各自打开新的 `0x20` channel。connect 只有在 Event channel 已打开后才能
-成功；Server 只有在收到并绑定它后才能把 Peer 发布为 online/ready。任一端看到
-physical Event channel 关闭或失败时必须关闭整条 Peer connection，由 connection
-级重连重新创建全部必需 transport。
+Event session 由 Peer connection 拥有。页面、Workspace 和本地 consumer 订阅同一个 session，关闭一个订阅不应关闭整个连接。重连由 connection owner 统一处理。
 
-页面、conversation、Workspace set/reload 和逻辑 BOS/EOS 只增删本地订阅或在
-同一 channel 上发送 frame，不改变 physical Event channel。多个本地 consumer
-共享该 channel；关闭一个 consumer 不影响其他 consumer 或 connection owner。
-C SDK 的 `gzc_event_stream_open`/`close` 只获取/释放单个 caller access handle，
-physical `0x20` 由 client connect/close 创建和销毁。没有 active C access handle
-时，已收到 frame 仍按序保存在有界 connection receive buffer 中。
-
-资源事件是 best-effort invalidation hint，不是权威资源快照：
-
-- Server 只在对应持久化操作成功后发送。
-- Event 不要求 ACK、不离线排队、不 replay；投递失败不回滚业务状态。
-- Client 收到 Event 后重新调用相关 RPC，不能直接把 payload 当作完整资源写入。
-- 重复 Event 可以合并；同一资源刷新期间再次失效时，Client 最多追加一轮刷新。
-- 页面打开、切换、前台恢复和重连仍必须主动拉取权威数据，以收敛错过的 Event。
-
-好友关系事件发给关系双方。群组事件发给所有受影响的当前成员和变更前成员。
-Workspace history 事件只发给当前有权访问该 Workspace 的在线 Peer。接收者由
-Server 根据认证连接和权威 relationship 计算，不能由 Client payload 指定。
+资源变化通知用于提示重新读取权威资源。它不是资源快照，也不是持久化队列；前台恢复、页面打开和重连时仍需主动刷新数据，不能只依赖通知。
 
 ## Logical stream lifecycle
 
-`stream_id` 关联同一轮的 BOS、内容与 EOS。`TEXT_DONE` 已包含文本结束语义，不需要
-额外发送 EOS。音频的实时 packet 不在 Protobuf event 中：
-纯文字输入可发送不带 MIME/stream kind 的控制 BOS，再发送同一 `stream_id`、同一 label、携带全文的 `TEXT_DONE`。两条事件的 `timestamp_unix_ms` 可以为零：Server 的 RealtimeStream 会补充时间戳，不要求设备先同步 Unix 时钟。
+逻辑 stream 用于关联同一轮输入或输出。开始、数据和结束通过相应 SDK 组合；音频输入需要先确认 Server 已准备接收，再发送媒体。
 
-```text
-Client → Server: BOS(kind=AUDIO, stream_id=audio-42)
-Server → Client: AUDIO_INPUT_READY(stream_id=audio-42)
-Client → Server: WebRTC RTP Opus packets
-EOS(kind=AUDIO, stream_id=audio-42)
-```
+Event 和 RTP 属于独立通道，接收端不能假定它们跨通道按发送顺序到达。优先使用 SDK 的逻辑流接口，避免在 App 中重复实现音频边界、缓冲与收尾。
 
-Server 只在对应的 `BOS(kind=AUDIO)` 通过本轮授权后接收该轮 Opus packets；
-先到达或绕过 BOS 的 packets 会被丢弃。Client 必须收到匹配 `stream_id` 的
-`AUDIO_INPUT_READY` 后才发送或启用该轮音频；仅完成 BOS 写入不能证明另一条
-transport 上的输入已就绪。每轮使用新的 `stream_id`，忽略旧轮的 ready。EOS 会关闭该轮输入 gate。
-
-Go `PeerStream.Push` 的音频 BOS、Flutter `WorkspaceEventSession.beginAudio` 与 JS
-`beginPeerAudioInput` 均等到这个确认才成功返回。授权错误、连接关闭与调用方取消
-直接结束等待，不增加定时等待、超时重试或静默成功。使用 C SDK 或原始 Event API 的
-调用方须读取并匹配 `audio_input_ready.stream_id` 后再发送媒体。Server 和发起音频的
-Client 必须共同支持此握手；旧 Server 不会产生就绪确认。此事件不属于助手输出。
-混用新 Client 与旧 Server 不属于受支持的音频链路；连接仍打开但未确认时，开始输入
-保持等待且不发送音频，直到调用方取消或关闭。该协议不提供版本协商或自动判定旧 Server。
-Go 音频 chunk 必须携带当前已确认的 `StreamID`；旧轮或缺失 ID 的 chunk 会直接报错。
-
-Server 下行只有一条固定 Opus media channel。多个 Agent source 同时输出时，Server
-把它们解码并混音成这一条 channel，同时把 source lifecycle 聚合为一组 boundary：
-第一条 active source 下发一次 `BOS(kind=AUDIO)`，最后一条 source 在 Mixer 排空或
-中断后才下发一次 `EOS(kind=AUDIO)`。中间 source 的 BOS/EOS 不下发；下行 boundary
-沿用第一条 source 的 `stream_id` 与 `label`，`sequence=0` 且 `mime_type` 为空。
-各 source 的 MIME 只用于 Server 内部选择 decoder，不是下行 media channel 的类型。
-
-RTP media 与 reliable Event Stream 是两条独立 transport，接收端不能依赖两个
-transport callback 的 goroutine 调度顺序。SDK 将它们合并为逻辑 stream 时，
-应由一个 owner 串行交付，并在交付 audio EOS 前先交付当前已经收到的该轮 Opus
-packets。audio EOS 表示生产结束，不保证另一条 RTP 通道的尾包已经全部到达。
-Go SDK `PeerStream` 在下行 audio EOS 后、下一次 audio BOS 前忽略新的 Opus packets；这些
-迟到包不产生逻辑 audio chunk，也不会重新归属到后续轮次。下一次 audio BOS 恢复接收前，
-先忽略结束期间本地已排队的包。
-初次 BOS 前仍使用有界重排缓冲；若先收到 EOS，则清除该缓冲并等待 fresh BOS。
-该策略只管理本地逻辑流，不会开关 connection-scoped media track。没有逻辑 stream ID
-的 RTP 包在新 BOS 后仍按当前 route 接收；此策略不提供跨 BOS 的包归属证明。
-
-输入侧 `user` EOS（例如 `INPUT_ROUTE_RELOADED`）只管理输入 route，不会关闭助手下行音频。
-
-EOS 的 `error` 包含稳定 `code`、安全 fallback `message` 和 `retryable`。带 error
-的 EOS 只结束对应逻辑 stream，不关闭 service `0x20`，其他事件和后续 turn 仍可
-继续传输。
-
-Workspace runtime 替换会使已准入的 user audio route 失效。Server 先清除旧 route
-的输入授权，再通过现有 connection-owned Event Stream 有序发送一次下列 EOS；reload
-成功响应只会在 replacement runtime 安装且该 Event 写入完成后返回：
-
-| 字段 | 值 |
-| --- | --- |
-| `type` / payload | `EOS` / `eos` |
-| `stream_id` | 被替换的已准入 audio route ID |
-| `kind` / `label` | `AUDIO` / `user` |
-| `mime_type` | BOS 中已准入的 canonical audio MIME；缺失时为 `audio/opus` |
-| `error.code` | `INPUT_ROUTE_RELOADED` |
-| `error.message` | `input route reloaded` |
-| `error.retryable` | `true` |
-
-这是逻辑 route 的终止信号，不是 Peer transport failure。持续录音的 Client 可以选择
-为完全匹配当前 active route 的 EOS 分配不同且非空的新 `stream_id`，在同一 `0x20`
-上发送一次 `BOS(kind=AUDIO, label=user)`，收到对应的 `AUDIO_INPUT_READY` 后再继续发送 RTP。stale、重复、非 audio、
-非 user、普通完成或 non-retryable EOS 不触发 re-arm。replacement BOS 前的 RTP 仍按
-BOS-before-RTP gate 丢弃；Event 写入失败则表示必需 transport 已不健康，reload 不得
-报告成功。
-
-Friend 与 Friend Group 的 SFU Workspace 只在当前 active runtime 是已 attach 的 SFU
-runtime、且该连接上的 Workspace 未被撤权时准入输入 BOS 与 Opus packet。被拒绝的输入
-不自动切换 Workspace，也不生成拒绝文本或音频，而是返回同一 `stream_id` 的 EOS error；
-撤权后 Server 还会主动用同一错误结束当前已准入的 audio route，并丢弃后续 packet：
-
-| `code` | 含义 | `retryable` |
-| --- | --- | ---: |
-| `SFU_ACCESS_REVOKED` | Peer 已不是该 Workspace 绑定的 Friend 关系或 Friend Group 成员。 | false |
-| `SFU_ACCESS_CHECK_FAILED` | 权威 membership 查询失败；Server fail closed。 | true |
-| `SFU_RUNTIME_NOT_ATTACHED` | 所选 Workspace 的 SFU runtime 尚未 attach，媒体没有可进入的 Room。 | true |
-
-Client 应按 `code` 本地化显示，并结束对应的 loading/recording 状态；不能导航到
-其他页面或自动选择默认 Workspace。未知 code 使用安全 fallback 或通用错误。
+Server 将多个 Agent 的音频输出混音为连接的下行媒体；source 的生命周期与用户接收到的播放生命周期因此不同。输出聚合的说明见 [Stream Events](/zh/developing/gizclaw/peer/stream-event)。
 
 ## Resource payloads
 
-`workspace_history_updated`：
-
-- `workspace_name`
-- `workspace_kind`
-- `last_updated_at_unix_ms`
-
-`friend_relationship_updated`：
-
-- `peer_public_key`：以当前接收者视角表示对端 Peer
-- `workspace_name`
-- `change`：`CREATED` 或 `DELETED`
-- `revision_unix_ms`
-
-`friend_group_updated`：
-
-- `friend_group_name`：按接收成员投影的本地 name；同一 canonical 群组发给不同成员时可以不同
-- `workspace_name`
-- `change`：`CREATED`、`DELETED`、`MEMBER_ADDED`、`MEMBER_REMOVED` 或
-  `MEMBER_ROLE_CHANGED`；群名称或描述变化使用 `METADATA_UPDATED`
-- `revision_unix_ms`
-- `affected_peer_public_key`：成员增删或角色变化时标识被修改的成员；
-  群级变化时为空
+资源事件携带当前接收者可见的资源引用，用于发起后续查询。Server 根据认证连接和资源权限选择接收者，Client 不能通过事件指定其他用户的访问范围。资源字段定义仍由事件 Schema 与对应 RPC Schema 拥有。
 
 ## Four different end boundaries
 
-| 边界 | 结束的对象 | 是否继续使用同一 Peer connection |
-| --- | --- | --- |
-| PeerEvent `EOS` / `TEXT_DONE` | 一个 `stream_id` 对应的逻辑 stream | 是 |
-| RPC `FrameTypeEOS` | 当前方向的一段 RPC frame sequence | 是 |
-| Service DataChannel EOF / close | 一条 RPC 或 HTTP transport stream | 是；只关闭对应可选 service channel |
-| Peer Event DataChannel EOF / close | 必需的 connection Event transport | 否；整条 Peer connection 失败 |
-| WebRTC connection close | 整条 Peer connection 及其 media、packet、service streams | 否 |
+逻辑输出结束、一次 RPC 结束、本地订阅释放和 Peer connection 关闭是不同操作。用户界面退出通常释放自己的订阅；是否关闭连接由 connection owner 决定。一次调用或一轮对话的结束不应误伤其他 consumer。
 
-实现层的事件与 GenX chunk 映射见[开发指引：Stream Events](/zh/developing/gizclaw/peer/stream-event)。
+可靠 service stream 与媒体的关系见 [Streams](./streams)；C 调用方的资源生命周期见 [gzc_event.h](https://github.com/GizClaw/gizclaw/blob/main/sdk/c/gizclaw/include/gzc_event.h)。

@@ -2,7 +2,7 @@
 
 `pkgs/genx` is GizClaw’s general multi-modal AI stream processing layer. It defines message, model context, tool, generator, transformer and stream contract so that Agent and product services can combine model capabilities without directly relying on a certain provider's protocol.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx)
 
 ## Package structure
 
@@ -21,14 +21,7 @@ pkgs/genx/
 
 ### Generator
 
-[`Generator`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Generator) is the unified entry point to model generation capabilities:
-
-```go
-type Generator interface {
-    GenerateStream(context.Context, string, ModelContext) (Stream, error)
-    Invoke(context.Context, string, ModelContext, *FuncTool) (Usage, *FuncCall, error)
-}
-```
+[`Generator`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#Generator) is the unified entry point to model generation capabilities:
 
 - `GenerateStream` Generate multi-modal output streams based on model pattern and Model Context.
 - `Invoke` requires the model to generate calling parameters specifying `FuncTool`, which is suitable for structured generation.
@@ -36,43 +29,19 @@ type Generator interface {
 
 ### Transformer
 
-[`Transformer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Transformer) Express stream-to-stream conversion:
-
-```go
-type Transformer interface {
-    Transform(context.Context, string, Stream) (Stream, error)
-}
-```
+[`Transformer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#Transformer) Express stream-to-stream conversion:
 
 It does not change the calling model: both input and output use `Stream`. ASR can convert audio stream to text stream, TTS can do the opposite conversion, and Realtime and speech translation also respect the same boundary.
 
 ### ModelContext
 
-[`ModelContext`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#ModelContext) is a read-only view of the context required for a model call:
-
-```go
-type ModelContext interface {
-    Prompts() iter.Seq[*Prompt]
-    Messages() iter.Seq[*Message]
-    CoTs() iter.Seq[string]
-    Tools() iter.Seq[Tool]
-    Params() *ModelParams
-}
-```
+[`ModelContext`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#ModelContext) is a read-only view of the context required for a model call:
 
 It exposes system prompts, historical messages, inference context, callable tools and model parameters respectively. `ModelContextBuilder` is used to assemble a single context, `MultiModelContext` is used to assemble multiple context sources sequentially.
 
 ### Stream
 
-[`Stream`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Stream) is the common transport protocol between all generation and transformation capabilities:
-
-```go
-type Stream interface {
-    Next() (*MessageChunk, error)
-    Close() error
-    CloseWithError(error) error
-}
-```
+[`Stream`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#Stream) is the common transport protocol between all generation and transformation capabilities:
 
 - `Next` Gets the next `MessageChunk` in sequence until the stream ends or an error is returned.
 - `Close` Terminate normally and release producer resources.
@@ -82,16 +51,8 @@ type Stream interface {
 
 #### StreamCtrl
 
-[`StreamCtrl`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#StreamCtrl) is optional control information on `MessageChunk`, used to describe chunk The logical subflow it belongs to and the status of the subflow:
+[`StreamCtrl`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#StreamCtrl) is optional control information on `MessageChunk`, used to describe chunk The logical subflow it belongs to and the status of the subflow:
 
-| Fields | Semantics |
-| --- | --- |
-| `StreamID` | Logical route identifier. Correlated text, audio, transcription, or tool chunks can share the same ID while retaining independent MIME-channel lifecycles. |
-| `Label` | A substream usage tag, such as `transcript`, `assistant`, or `history.user_audio`; it supplements the StreamID and does not replace the unique identifier. |
-| `Error` | The termination error text of the current substream. Usually used together with `EndOfStream`, it is not equivalent to closing the entire Stream. |
-| `BeginOfStream` | The current chunk is a starting boundary. A chunk with a Part begins or announces that MIME channel; a control-only chunk begins the StreamID route. |
-| `EndOfStream` | The current chunk is an end boundary. A chunk with a Part ends that MIME channel; a control-only chunk ends the whole StreamID route. It can also carry final data or Error. |
-| `Timestamp` | The millisecond timestamp of the Chunk for `RealtimeStream` sorting and delayed processing; when the value is zero, `RealtimeStream` will supplement the monotonically increasing value based on the current time. |
 
 `RealtimeStream` assigns zero timestamps after both delivered and pending timestamps,
 preserving arrival order. When a new BOS evicts pending audio from an older route
@@ -126,7 +87,7 @@ Composition layers may also attach a process-local response epoch to `StreamCtrl
 
 ### Tool
 
-[`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Tool) is a restricted collection of tool types. Currently implemented by [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#FuncTool) and `SearchWebTool`. `FuncTool.Parameters` holds a caller-declared JSON Schema that adapters send instead of `Argument` without their own normalization; `Strict` asks the provider to enforce that schema, and an adapter that cannot enforce it rejects the tool.
+[`Tool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#Tool) is a restricted collection of tool types. Currently implemented by [`FuncTool`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#FuncTool) and `SearchWebTool`. `FuncTool.Parameters` holds a caller-declared JSON Schema that adapters send instead of `Argument` without their own normalization; `Strict` asks the provider to enforce that schema, and an adapter that cannot enforce it rejects the tool.
 
 `ToolInvoker` is the two-method runtime boundary used by Transformers. `ResolveTools` returns the currently available function names, descriptions, and JSON Schemas, while `InvokeTool` accepts only a function name and raw JSON arguments and returns raw JSON. RuntimeProfile lookup, authorization, availability, argument validation, and executor dispatch remain implementation details of the injected invoker.
 
@@ -144,7 +105,7 @@ IDs are omitted; names alone cannot distinguish calls. Unmatched results receive
 
 ### Usage metering
 
-Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#RecordUsage) as soon as the provider reports usage, observing process token counters and handing nonzero [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) reports to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block. Token counters need only the installed process metrics store, independently of Peer callbacks or SQL metering configuration; without a callback there is no product metering. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.
+Provider adapters call [`RecordUsage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#RecordUsage) as soon as the provider reports usage, observing process token counters and handing nonzero [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#UsageRecord) reports to the recorder that [`WithUsageRecorder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx#WithUsageRecorder) put in the context. Generators and Transformers call it from their own goroutines, so the recorder must be safe for concurrent use and must not block. Token counters need only the installed process metrics store, independently of Peer callbacks or SQL metering configuration; without a callback there is no product metering. The terminal `Usage` of a stream remains informational for the direct caller; metering uses `UsageRecord`.
 
 Nested product scopes preserve the original caller callback and deliver usage only to the innermost product recorder. Forward an existing report by calling the callback from `UsageRecorderFromContext` directly, without another `RecordUsage` call that would observe process counters twice. Metric and query semantics are documented in [Observability](../observability#model-token-usage).
 
@@ -153,26 +114,10 @@ labels and series. A cache hit takes the aggregation lock once; stream chunks an
 
 Each record carries the provider, the provider model, version, or resource ID, the modality (`text` or `audio`), and the billing unit. `Input`, `CachedInput`, and `Output` are disjoint: `CachedInput` is input billed at the cache rate and is not part of `Input`. A provider model always reports in the same unit; units of different provider models are not comparable and GenX does not convert them.
 
-| Provider capability | Unit | Source |
-| --- | --- | --- |
-| OpenAI-compatible and Gemini Generators | `token` | Response usage. Streaming requests set `stream_options.include_usage`, and the terminal state waits for the trailing usage chunk. Gemini tool-use prompt tokens count as input and thought tokens as output. |
-| Volc realtime dialog, realtime duplex, AST, DashScope realtime | `token`, split into text and audio | The per-response usage event or `response.done`. |
-| Volc Seed/ICL TTS | `character` | `text_words` of the final frame, one per Unicode character. |
-| MiniMax TTS | `character` | `extra_info.usage_characters` of the final frame; CJK characters count as two. |
-| Volc streaming ASR | `millisecond` | The largest `audio_info.duration` the provider reported for the session, including audio without recognized text. |
 
 Usage a provider never reports, such as a response the caller canceled before the provider's usage event, is not estimated.
 
-## Core data structures
-
-| Structure | Responsibility |
-| --- | --- |
-| [`Message`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Message) | Express a complete multi-modal input or output, consisting of role and contents. |
-| [`MessageChunk`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#MessageChunk) | Incremental messages passed in Stream, carrying content, tool calls, status or flow events. |
-| [`ModelParams`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#ModelParams) | Unify model parameters such as max tokens, temperature, top-p, and allow provider extra fields. |
-| [`Usage`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#Usage) | Prompt, cache, and generated token usage carried by a stream terminal state. |
-| [`UsageRecord`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#UsageRecord) | Billable usage of one provider response, request, or session, by provider, model, modality, and unit. |
-| [`State`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx#State) | Generate final state such as expression completion, truncation, rejection or error. |
+See the [GenX API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx) for message, parameter, and usage types.
 
 ## Calling relationship
 

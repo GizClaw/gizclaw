@@ -76,7 +76,7 @@ const zhDevelopingSidebar = [
                   { text: "Core Service", link: "/zh/developing/gizclaw/peer/service/core" },
                   { text: "Peer HTTP · WebRTC", link: "/zh/developing/gizclaw/peer/service/webrtc" },
                   { text: "HTTP Service Entrypoints", link: "/zh/developing/gizclaw/peer/service/public-http" },
-                  { text: "Peer HTTP · /me", link: "/zh/developing/gizclaw/peer/service/peer-http-me" },
+                  { text: "Peer HTTP · API Key", link: "/zh/developing/gizclaw/peer/service/api-keys" },
                   { text: "Admin HTTP · Resources", link: "/zh/developing/gizclaw/peer/service/admin-resources" },
                   { text: "Admin HTTP · Logs", link: "/zh/developing/gizclaw/peer/service/admin-logs" },
                   { text: "Admin HTTP · Social", link: "/zh/developing/gizclaw/peer/service/admin-social" },
@@ -117,7 +117,6 @@ const zhDevelopingSidebar = [
               { text: "Edge Routing", link: "/zh/developing/gizclaw/rpc/edge" },
             ],
           },
-          { text: "migrator", link: "/zh/developing/gizclaw/migrator" },
           {
             text: "services",
             collapsed: false,

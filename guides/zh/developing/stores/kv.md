@@ -1,26 +1,10 @@
 # pkgs/store/kv
 
+[源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/kv)
+
 `pkgs/store/kv` 提供精确 key 的读写、删除，以及明确集合 key 下的成员操作和有界有序范围读取。Key 使用 string segments 表达命名空间；不提供数据库 key 的通用枚举。
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/store/kv)
-
-## 核心结构与实现
-
-| 符号 | 作用 |
-| --- | --- |
-| `Key` / `Entry` | 表达分段 key 与读取结果。 |
-| `Store` | 定义精确 CRUD、集合操作与原子 mutation contract。 |
-| `Store.BatchGet` / `GetResult` | 所有 backend 必须实现的批量 byte record 点查；逐 key 返回值或错误。 |
-| `Options` | 配置 key separator 等 store 行为。 |
-| `Memory` / `NewMemory` | 进程内 ordered store。 |
-| `Badger` / `NewBadger` | Badger-backed persistent implementation。 |
-| `SQL` / `NewSQLWithDB` | 借用 SQLite/PostgreSQL pool；把逻辑 prefix 映射为物理表。 |
-| `Redis` / `NewRedisWithClient` | 借用单节点 Redis client，并保留完整的有序与原子 Store contract。 |
-| `Redis` / `NewRedisReadWriteWithClients` | 借用同一复制组的读、写 client；独立查询走读连接，mutation 及其条件判断走写连接。 |
-| `TiKV` / `NewTiKVWithClient` | 借用 TxnKV client，支持跨 Region 原子 mutation、集合和可配置的地区陈旧读。 |
-| `WithStrongReads` | 为权限、围栏和控制面读取选择最新已提交状态，保留 prefix 与原子 root。 |
-| `ReadDelay` | 返回普通 view 的固定历史快照窗口；共享 presence 的租约据此适配 TiKV 历史读。Redis 复制延迟不由客户端固定。 |
-| `Prefixed` | 为已有 Store 增加固定 key namespace。 |
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/kv)
 
 ## Ownership 边界
 

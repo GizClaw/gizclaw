@@ -107,8 +107,6 @@ gizclaw/
 | `cmd` | Configuration reading, dependency wiring, process life cycle and CLI UX | Reusable domain logic | Corresponding package guidelines |
 | `sdk` | Generate contract and client packaging for each language | Independently define another set of wire contracts | [API generation](api/generation) |
 
-`pkgs/agent` is not currently part of the main product runtime path, so it is not a development-guide entry point yet. Its documentation should be added once the runtime consumes it and its actual boundaries are established.
-
 ## Module dependency direction
 
 ```mermaid
