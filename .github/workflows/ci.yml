@@ -44,3 +44,17 @@ jobs:
           pactl set-default-source gizclaw_admission.monitor
       - name: Verify management, MHS and KV contracts across SDKs
         run: xvfb-run -a bash tests/gizclaw-e2e/run_device_management_tests.sh
+      - name: Retain native diagnostic libraries
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: flutter-native-diagnostic-libraries
+          retention-days: 3
+          if-no-files-found: ignore
+          path: |-
+            tests/gizclaw-e2e/flutter/giztest/build/linux/x64/debug/bundle/lib/libflutter_webrtc_plugin.so
+            tests/gizclaw-e2e/flutter/giztest/build/linux/x64/debug/plugins/flutter_webrtc/libflutter_webrtc_plugin.so
+            tests/gizclaw-e2e/flutter/giztest/build/linux/x64/debug/bundle/lib/libwebrtc.so
+    env:
+      GIZCLAW_NATIVE_CHANNEL_FIX: "1"
+run-name: PR1599 Flutter observer retirement candidate

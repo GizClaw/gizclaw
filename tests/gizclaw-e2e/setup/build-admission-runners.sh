@@ -20,7 +20,33 @@ git submodule update --init --depth=1 third_party/nanopb/upstream
 go build -o "$task_dir/giztest-c" ./tests/gizclaw-e2e/cgo/giztest
 export GIZCLAW_ADMISSION_C_RUNNER="$task_dir/giztest-c"
 package_dir="$repo_root/tests/gizclaw-e2e/flutter/giztest"
-(cd "$package_dir" && flutter pub get && flutter build "$target" --debug)
+(cd "$package_dir" && flutter pub get)
+if [[ "$target" == linux && "${GIZCLAW_NATIVE_CHANNEL_FIX:-0}" == 1 ]]; then
+  python3 - "$package_dir" "$task_dir" "$repo_root/tests/gizclaw-e2e/testdata/native-flutter-close.patch" <<'PY'
+import json
+from pathlib import Path
+import shutil
+import subprocess
+import sys
+from urllib.parse import unquote, urljoin, urlparse
+
+package, task, patch = map(Path, sys.argv[1:])
+config = package / ".dart_tool/package_config.json"
+entry = next(p for p in json.loads(config.read_text())["packages"] if p["name"] == "flutter_webrtc")
+uri = urlparse(urljoin(config.resolve().as_uri(), entry["rootUri"]))
+assert uri.scheme == "file"
+source = Path(unquote(uri.path))
+destination = task / "flutter_webrtc"
+shutil.copytree(source, destination, symlinks=True)
+subprocess.run(["git", "-C", str(destination), "apply", "--check", str(patch)], check=True)
+subprocess.run(["git", "-C", str(destination), "apply", str(patch)], check=True)
+(package / "pubspec_overrides.yaml").write_text(json.dumps({
+    "dependency_overrides": {"flutter_webrtc": {"path": str(destination)}}
+}))
+PY
+  (cd "$package_dir" && flutter pub get)
+fi
+(cd "$package_dir" && flutter build "$target" --debug)
 if [[ "$target" == macos ]]; then
   export GIZCLAW_ADMISSION_FLUTTER_RUNNER="$package_dir/build/macos/Build/Products/Debug/giztest.app/Contents/MacOS/giztest"
 else

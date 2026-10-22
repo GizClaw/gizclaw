@@ -68,7 +68,9 @@ func runManagementNativeDiagnostic(ctx context.Context, cmd *exec.Cmd) ([]byte, 
 		stack := exec.CommandContext(diagnosticCtx, "sudo", "-n", "timeout", "--kill-after=1s", "12s",
 			"gdb", "--batch", "--nx", "--quiet", "-iex", "set auto-load off", "-iex", "set debuginfod enabled off", "-iex", "set auto-solib-add off",
 			"-ex", "set print frame-arguments none", "-ex", "set print entry-values no",
-			"-ex", "sharedlibrary flutter_webrtc|libwebrtc|libc.so|libstdc", "-ex", "thread 1", "-ex", "bt 32",
+			"-ex", "sharedlibrary flutter_webrtc", "-ex", "sharedlibrary libwebrtc",
+			"-ex", "sharedlibrary libc", "-ex", "sharedlibrary libstdc", "-ex", "info sharedlibrary",
+			"-ex", "thread 1", "-ex", "bt 32",
 			"-ex", "thread apply all bt 16", "-p", strconv.Itoa(pid))
 		trace, err := stack.CombinedOutput()
 		diagnostics = append(fmt.Appendf(nil, "\nNATIVE_FLUTTER_THREAD_STACK pid=%d error_type=%T\n", pid, err), trace...)
