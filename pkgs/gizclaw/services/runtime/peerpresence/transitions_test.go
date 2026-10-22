@@ -80,3 +80,71 @@ func TestQueuedTransitionRetainsCallerDeadline(t *testing.T) {
 		t.Fatalf("queued transition = %v", err)
 	}
 }
+
+type mutationBudgetStore struct {
+	kv.Store
+	calls int
+}
+
+func (s *mutationBudgetStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.calls++
+	if s.calls > 4 {
+		return false, errors.New("conditional mutation budget exceeded")
+	}
+	return s.Store.ApplyMutation(ctx, mutation)
+}
+
+func TestBulkHandoffDoesNotStarveValidTransition(t *testing.T) {
+	base := kv.NewMemory(nil)
+	store := &mutationBudgetStore{Store: base}
+	s := New(store, giznet.PublicKey{1})
+	t.Cleanup(s.cancel)
+	entries := []kv.Entry{{Key: generationKey(s.server), Value: []byte(s.generation)}}
+	requests := make([]transitionMutation, 128)
+	for i := range requests {
+		peer := giznet.PublicKey{byte(i + 10)}
+		if i < len(requests)-1 {
+			entries = append(entries, kv.Entry{Key: ownerKey(peer), Value: []byte("replacement")})
+		}
+		requests[i] = transitionMutation{ctx: t.Context(), result: make(chan transitionResult, 1), mutation: kv.Mutation{
+			Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}, {Key: ownerKey(peer)}},
+			Entries:    []kv.Entry{{Key: peerKey(peer), Value: []byte("published")}, {Key: ownerKey(peer), Value: []byte("claimed")}},
+		}}
+	}
+	if err := base.BatchSet(t.Context(), entries); err != nil {
+		t.Fatal(err)
+	}
+	s.commitTransitions(t.Context(), requests)
+	for i, request := range requests {
+		result := <-request.result
+		if result.err != nil || result.matched != (i == len(requests)-1) {
+			t.Fatalf("transition %d matched=%v error=%v after %d mutations", i, result.matched, result.err, store.calls)
+		}
+	}
+	if value, err := base.Get(t.Context(), peerKey(giznet.PublicKey{137})); err != nil || string(value) != "published" {
+		t.Fatalf("valid Peer did not progress during bulk handoff: %q %v", value, err)
+	}
+}
+
+func TestRejectedBatchCannotCrossServerGeneration(t *testing.T) {
+	store := kv.NewMemory(nil)
+	old := startService(t, store, 1)
+	_ = startService(t, store, 1)
+	requests := make([]transitionMutation, 2)
+	for i := range requests {
+		peer := giznet.PublicKey{byte(i + 10)}
+		requests[i] = transitionMutation{ctx: t.Context(), result: make(chan transitionResult, 1), mutation: kv.Mutation{
+			Conditions: []kv.Condition{{Key: generationKey(old.server), Expected: []byte(old.generation)}, {Key: ownerKey(peer)}},
+			Entries:    []kv.Entry{{Key: peerKey(peer), Value: []byte("obsolete")}},
+		}}
+	}
+	old.commitTransitions(t.Context(), requests)
+	for _, request := range requests {
+		if result := <-request.result; result.matched || result.err != nil {
+			t.Fatalf("old generation batch = %+v", result)
+		}
+		if _, err := store.Get(t.Context(), request.mutation.Entries[0].Key); !errors.Is(err, kv.ErrNotFound) {
+			t.Fatalf("old generation published a snapshot: %v", err)
+		}
+	}
+}

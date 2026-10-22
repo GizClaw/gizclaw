@@ -22,7 +22,7 @@ Manager 为每个接受的连接创建独立 `Publisher`。首次上线在写权
 
 每台 Server 用两个批量 writer 消费有界队列，最多等待一毫秒收集合并，每个事务最多包含 128 个不同 Peer 的转换。排队、条件检查和提交共用原有两秒操作预算；批次采用其中最早的 deadline，不延长调用方超时。一个存储调用阻塞时，另一个 writer 仍可推进。每个 Peer 的串行 worker 继续拥有连接 token 和状态顺序。
 
-批次保留公共 Server generation 条件和全部 Peer owner 条件，并在同一个原子事务写快照与首次领取的 token。条件失败且 generation 仍有效时，拆分已明确拒绝的批次，隔离失去 ownership 的连接；存储错误或提交结果不确定时不拆分重放，交回保留原领取条件的 Peer worker。重启、续约和关闭继续使用原有 generation key，KV 的 guard 写回及 write-skew 防护保持有效。
+批次保留公共 Server generation 条件和全部 Peer owner 条件，并在同一个原子事务写快照与首次领取的 token。条件明确失败后，在写权威端批量读取 generation 与 owner，隔离失去 ownership 的连接，并以原子条件重新提交仍匹配的 Peer；批量交接不逐个拆成事务。存储错误或提交结果不确定时交回保留原领取条件的 Peer worker。重启、续约和关闭继续使用原有 generation key，KV 的 guard 写回及 write-skew 防护保持有效。
 
 TiKV 的 `ApplyMutation` 在同一事务快照中批量预读条件、记录和删除 key。后续逐项校验和更新复用 SDK snapshot cache，避免每个 key 单独往返；所有条件仍写回参与冲突检测。
 
@@ -36,6 +36,6 @@ Server 进程关闭会取消并等待全部 worker，不关闭借用的 KV Store
 
 ## 验证
 
-原生 TiKV presence gate 还以 256 个不同 Peer 在同一 Server 并发发布上线、Workspace 和下线转换，在真实 TiKV RPC 前加入 20ms 延迟并统计 prewrite（包含冲突重试），验证完成时间和写放大上界，并检查跨 Server 交接、重启 fencing 和旧进程关闭。该延迟夹具不代表生产网络或容量结论。
+批次回归覆盖 127 个 owner 同时被替换时，剩余有效 Peer 在有限事务预算内提交，以及 generation 更替时整批拒绝。原生 TiKV presence gate 还以 256 个不同 Peer 在同一 Server 并发发布上线、Workspace 和下线转换，在真实 TiKV RPC 前加入 20ms 延迟并统计 prewrite（包含冲突重试），验证完成时间和写放大上界，并检查跨 Server 交接、重启 fencing 和旧进程关闭。该延迟夹具不代表生产网络或容量结论。
 
 `go test -race ./pkgs/gizclaw/services/runtime/peerpresence ./pkgs/gizclaw` 覆盖租约过期、进程 generation 替换、跨 Server 交接中的迟到 Workspace／下线更新、领取响应丢失、断线、运行转换与 SQL 不可用时的跨 Manager 查询。批量测试覆盖租约去重、部分损坏、未知 Peer，以及两轮查询共享的 deadline。真实 Redis 主从验证由 `tests/store-e2e/run_redis_readwrite_tests.sh` 运行；真实 TiKV Learner 的批量读取、复制滞后和 TCP 响应阻塞验证由 `tests/store-e2e/run_tikv_tests.sh <evidence-dir> --presence-only` 运行，范围见[测试与 E2E](/zh/developing/testing#tikv-docker-e2e)。

@@ -6,7 +6,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -24,6 +26,30 @@ import (
 type presenceRoundTripClient struct {
 	tikv.Client
 	prewrites atomic.Int64
+}
+
+type observedPresenceMutations struct {
+	kv.Store
+	obsoleteAt time.Time
+	calls      atomic.Int64
+	rejected   sync.Map
+	count      atomic.Int64
+}
+
+func (s *observedPresenceMutations) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.calls.Add(1)
+	matched, err := s.Store.ApplyMutation(ctx, mutation)
+	if err == nil && !matched {
+		for _, entry := range mutation.Entries {
+			var snapshot peerpresence.Snapshot
+			if json.Unmarshal(entry.Value, &snapshot) == nil && snapshot.LastSeenAt.Equal(s.obsoleteAt) {
+				if _, loaded := s.rejected.LoadOrStore(entry.Key.String(), struct{}{}); !loaded {
+					s.count.Add(1)
+				}
+			}
+		}
+	}
+	return matched, err
 }
 
 func (c *presenceRoundTripClient) SendRequest(ctx context.Context, address string, req *tikvrpc.Request, timeout time.Duration) (*tikvrpc.Response, error) {
@@ -57,7 +83,7 @@ func testTiKVPresenceTransitions(t *testing.T, pd string) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	store := kv.Prefixed(root, kv.Key{"presence-transitions-" + rand.Text()})
+	store := &observedPresenceMutations{Store: kv.Prefixed(root, kv.Key{"presence-transitions-" + rand.Text()}), obsoleteAt: time.Now().UTC().Add(time.Hour)}
 	start := func(server byte) *peerpresence.Service {
 		s := peerpresence.New(store, giznet.PublicKey{server})
 		if err := s.Start(t.Context()); err != nil {
@@ -117,6 +143,41 @@ func testTiKVPresenceTransitions(t *testing.T, pd string) {
 			t.Fatalf("independent Peer transitions amplified to %d prewrites for %d transitions", prewrites, count)
 		}
 	}
+
+	// Hand every Peer to the other Server, then let all old connections try
+	// to publish again alongside one valid connection on the original Server.
+	handedOff := peerpresence.Snapshot{Online: true, LastSeenAt: seen.Add(2 * time.Second), WorkspaceName: "handoff-room"}
+	for _, peer := range peers {
+		b.NewPublisher(peer).Publish(handedOff)
+	}
+	await(a, peers, handedOff)
+	before := store.calls.Load()
+	for _, publisher := range publishers {
+		publisher.Publish(peerpresence.Snapshot{Online: true, LastSeenAt: store.obsoleteAt, WorkspaceName: "obsolete-room"})
+	}
+	valid := giznet.PublicKey{98}
+	a.NewPublisher(valid).Publish(handedOff)
+	await(b, []giznet.PublicKey{valid}, handedOff)
+	checked, checkedCancel := context.WithTimeout(t.Context(), 6*time.Second)
+	for store.count.Load() < count {
+		select {
+		case <-checked.Done():
+			checkedCancel()
+			t.Fatalf("only %d/%d old publishers reached rejected mutations", store.count.Load(), count)
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	checkedCancel()
+	if err := a.Close(); err != nil {
+		t.Fatal(err)
+	}
+	await(b, peers, handedOff)
+	if calls := store.calls.Load() - before; calls > 32 {
+		t.Fatalf("bulk handoff amplified to %d conditional mutations", calls)
+	} else {
+		t.Logf("256 stale publishers and one valid Peer: %d conditional mutations (20ms/TiKV RPC)", calls)
+	}
+	a = start(1)
 
 	// Reconnect, hand off to another Server, then reject the old connection's
 	// delayed disconnect. A new boot must fence the old process.

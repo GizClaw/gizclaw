@@ -83,31 +83,59 @@ func (s *Service) writeBatches() {
 }
 
 func (s *Service) commitTransitions(ctx context.Context, batch []transitionMutation) {
-	if len(batch) == 0 {
-		return
-	}
-	mutation := kv.Mutation{Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}}}
-	for _, request := range batch {
-		// Only connection transitions enter this queue: the first condition is
-		// the common generation guard, the second is this Peer's owner token.
-		mutation.Conditions = append(mutation.Conditions, request.mutation.Conditions[1:]...)
-		mutation.Entries = append(mutation.Entries, request.mutation.Entries...)
-	}
-	matched, err := s.store.ApplyMutation(ctx, mutation)
-	if err == nil && !matched && len(batch) > 1 {
-		generation, readErr := s.store.Get(kv.WithPrimaryReads(ctx), generationKey(s.server))
-		if readErr != nil && !errors.Is(readErr, kv.ErrNotFound) {
-			err = readErr
-		} else if bytes.Equal(generation, []byte(s.generation)) {
-			// A failed owner condition must not fence innocent publishers. Split
-			// only definitively rejected transactions; never replay an uncertain
-			// commit here. Each caller retains its original claim across errors.
-			middle := len(batch) / 2
-			s.commitTransitions(ctx, batch[:middle])
-			s.commitTransitions(ctx, batch[middle:])
+	for len(batch) > 0 {
+		if err := ctx.Err(); err != nil {
+			completeTransitions(batch, false, err)
 			return
 		}
+		mutation := kv.Mutation{Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}}}
+		for _, request := range batch {
+			// Each transition has the common generation guard and one owner
+			// condition. Per-Peer writers prevent duplicate Peers in a batch.
+			mutation.Conditions = append(mutation.Conditions, request.mutation.Conditions[1])
+			mutation.Entries = append(mutation.Entries, request.mutation.Entries...)
+		}
+		matched, err := s.store.ApplyMutation(ctx, mutation)
+		if matched || err != nil || len(batch) == 1 {
+			// Never replay an uncertain commit. The connection writer retains
+			// its original claim condition when it retries a storage error.
+			completeTransitions(batch, matched, err)
+			return
+		}
+		// The rejected transaction wrote nothing. Identify changed conditions
+		// in one authority read rather than one transaction per stale owner.
+		// These reads only select retries; every retry keeps all atomic guards.
+		keys := []kv.Key{generationKey(s.server)}
+		for _, request := range batch {
+			keys = append(keys, request.mutation.Conditions[1].Key)
+		}
+		values := s.store.BatchGet(kv.WithPrimaryReads(ctx), keys)
+		generation := values[0]
+		if generation.Err != nil && !errors.Is(generation.Err, kv.ErrNotFound) {
+			completeTransitions(batch, false, generation.Err)
+			return
+		}
+		if generation.Err != nil || !bytes.Equal(generation.Value, []byte(s.generation)) {
+			completeTransitions(batch, false, nil)
+			return
+		}
+		active := make([]transitionMutation, 0, len(batch))
+		for i, request := range batch {
+			value, expected := values[i+1], request.mutation.Conditions[1].Expected
+			absent := errors.Is(value.Err, kv.ErrNotFound)
+			if value.Err != nil && !absent {
+				request.result <- transitionResult{err: value.Err}
+			} else if expected == nil && absent || expected != nil && value.Err == nil && bytes.Equal(value.Value, expected) {
+				active = append(active, request)
+			} else {
+				request.result <- transitionResult{}
+			}
+		}
+		batch = active
 	}
+}
+
+func completeTransitions(batch []transitionMutation, matched bool, err error) {
 	for _, request := range batch {
 		request.result <- transitionResult{matched: matched, err: err}
 	}
