@@ -58,6 +58,22 @@ go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/comm
 
 完整性检查针对实际交付的逻辑音频；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
 
+### 原生语音的多轮 History 顺序
+
+```sh
+go test -count=1 -run '^TestNativeAudioHistoryGiztest$' ./cmd/internal/server
+```
+
+该回归通过真实 Server、Edge、WebRTC、Giztest、Eino 和 SQL History 执行
+`tests/gizclaw-e2e/testdata/native-audio-history/rounds.giztest.yaml`。每轮原生 PTT 输入触发两段连续
+回复；两段各自保存，下一轮模型请求须按原顺序保留前一轮输入与全部回复。
+用例还检查每条记录的原音可下载，保留原有 EOS 和音频完整性检查，不把一轮限制为两条记录。
+
+只有远端模型与语音协议使用本地确定性夹具，不读取云凭据，也不验证真实 Lite 的
+识别或回答质量。设置 `GIZCLAW_NATIVE_HISTORY_EVIDENCE` 可保留 Giztest 报告、回放、
+原始模型请求和完整 History 快照，逐轮对照输入、转写与记录顺序。该回归无 build tag，
+随普通 Go 测试执行；真实 Dev 的 Lite 剧本对话仍需单独验收。
+
 `audio_pacing.max_interval_started_at` 记录最大包间隔开始的 UTC 时间，可与其他会话及 Server 日志对齐，识别多个会话是否在同一时刻停顿。
 
 TTS 协议夹具按累计媒体 deadline 发包。线程延迟后补发已经到期的帧，避免逐包重设相对 timer 把调度延迟累计到后续音频；显式注入的 900ms 断流仍必须被原有时序断言拒绝。真实 Provider 与物理设备验收仍属于独立验证。

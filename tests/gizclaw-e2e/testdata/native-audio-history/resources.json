@@ -1,0 +1,113 @@
+{
+  "apiVersion": "gizclaw.admin/v1alpha1",
+  "kind": "ResourceList",
+  "spec": {"items": [
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"native-history-volc"},"spec":{"provider":"volc","body":{"ark_api_key":"local-protocol-fixture"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"VolcTenant","metadata":{"id":"native-history-volc"},"spec":{"credential_id":"native-history-volc","endpoint":"FIXTURE_ENDPOINT/api/v3"}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"native-history-audio"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"volc-tenant","id":"native-history-volc"},"provider_data":{"api_mode":"chat_completions","upstream_model":"doubao-seed-2-1-lite-260915","support_text_only":false,"use_system_role":true,"thinking_param":"thinking.type","default_thinking_level":"disabled"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"native-history-speech"},"spec":{"provider":"minimax","body":{"api_key":"local-protocol-fixture"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"MiniMaxTenant","metadata":{"id":"native-history-speech"},"spec":{"credential_id":"native-history-speech","base_url":"FIXTURE_ENDPOINT"}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Voice","metadata":{"id":"native-history-speech"},"spec":{"source":"manual","provider":{"kind":"minimax-tenant","id":"native-history-speech"},"provider_data":{"voice_id":"native-history","model":"protocol-fixture","format":"ogg_opus"}}},
+    {
+      "apiVersion": "gizclaw.admin/v1alpha1",
+      "kind": "Workflow",
+      "metadata": {
+        "id": "native-history"
+      },
+      "spec": {
+        "driver": "eino",
+        "eino": {
+          "voice_adapter": {
+            "default_voice": "speech"
+          },
+          "graph": {
+            "name": "native-history",
+            "compile": {
+              "node_trigger_mode": "any_predecessor",
+              "max_run_steps": 6
+            },
+            "state": {
+              "fields": [
+                {
+                  "name": "answer",
+                  "type": "string",
+                  "merge": "replace"
+                },
+                {
+                  "name": "more",
+                  "type": "boolean",
+                  "merge": "replace"
+                }
+              ]
+            },
+            "nodes": [
+              {
+                "id": "reply",
+                "type": "chat_model",
+                "model": "audio",
+                "max_tokens": 256,
+                "inputs": {
+                  "messages": {
+                    "from": "input.messages"
+                  }
+                },
+                "outputs": {
+                  "text": "answer"
+                }
+              },
+              {
+                "id": "continue",
+                "type": "script",
+                "language": "starlark",
+                "entrypoint": "run",
+                "source": "def run(input):\n    return {\"more\": input[\"messages\"][-1][\"role\"] == \"user\"}\n",
+                "limits": {
+                  "max_execution_steps": 1000,
+                  "timeout": "1s",
+                  "max_input_bytes": 65536,
+                  "max_output_bytes": 1024
+                },
+                "inputs": {
+                  "messages": {
+                    "from": "input.messages"
+                  }
+                },
+                "outputs": {
+                  "more": "more"
+                }
+              }
+            ],
+            "edges": [
+              {
+                "from": "start",
+                "to": "reply"
+              },
+              {
+                "from": "reply",
+                "to": "continue"
+              },
+              {
+                "from": "continue",
+                "to": "end"
+              }
+            ],
+            "branches": [],
+            "outputs": [
+              {
+                "node": "reply",
+                "field": "answer",
+                "name": "assistant",
+                "mime_type": "text/plain",
+                "primary": true
+              }
+            ]
+          },
+          "conversation": {
+            "continue_from": "more"
+          }
+        }
+      }
+    },
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"peer-sync-giztest"},"spec":{"workflows":{"native-history":{"resource_id":"native-history","i18n":{"en":{"display_name":"Native History"},"zh-CN":{"display_name":"原生语音历史"}}}},"resources":{"models":{"audio":{"resource_id":"native-history-audio","i18n":{"en":{"display_name":"Native audio"},"zh-CN":{"display_name":"原生语音"}}}},"voices":{"speech":{"resource_id":"native-history-speech","i18n":{"en":{"display_name":"Speech fixture"},"zh-CN":{"display_name":"语音夹具"}}}}}}}
+  ]}
+}
