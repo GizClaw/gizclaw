@@ -2200,7 +2200,8 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍使测试失败，同时保留原始步骤错误。
 
 `tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
-凭据，执行 Go、JavaScript、C、Flutter 的协议验收。`TestDeviceManagementGiztestsGo` 包含：
+凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
+每轮重新建立连接和 RPC 通道，覆盖原生通道创建时的帧交付边界。`TestDeviceManagementGiztestsGo` 包含：
 
 - `server.device.management.{control,rejected,unsupported,invalid_response,validation}`：所有 11 个
   新增工具的发现、类型参数、明确 false/0、实际响应、错误映射和校验前拒绝；密码 reset 与恢复出厂独立。

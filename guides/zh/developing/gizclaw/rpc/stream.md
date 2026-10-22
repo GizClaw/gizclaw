@@ -6,6 +6,10 @@
 
 这是 RPC framing 层；底层 connection 和 service stream 属于 `pkgs/giznet`。
 
+普通 unary 调用把单帧 request 的帧头、Protobuf payload 和 EOS 合并为一次 connection
+write，避免新建原生 WebRTC 通道交接 observer 时把独立消息交付乱序。Wire frame 格式和
+接收端的分片解析保持不变；超出单帧上限的 envelope 继续使用 continuation frames。
+
 ## 核心结构与主函数
 
 | 符号 | 作用 |

@@ -304,10 +304,7 @@ func callRPC(ctx context.Context, conn net.Conn, req *rpcapi.RPCRequest) (*rpcap
 	}
 	defer stream.Close()
 
-	if err := stream.WriteRequestEnvelope(req); err != nil {
-		return nil, err
-	}
-	if err := stream.WriteEOS(); err != nil {
+	if err := stream.writeUnaryRequest(req); err != nil {
 		return nil, err
 	}
 	resp, responseEOS, err := stream.ReadResponseEnvelopeForMethod(req.Method)

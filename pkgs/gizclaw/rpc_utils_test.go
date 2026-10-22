@@ -72,6 +72,74 @@ func TestRPCClientPingSingleRequestResponse(t *testing.T) {
 	}
 }
 
+func TestRPCClientUnaryRequestArrivesAsCompleteNativeMessage(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer clientSide.Close()
+	serverErr := make(chan error, 1)
+	go func() {
+		defer serverSide.Close()
+		// One pipe write models one native DataChannel message. Reading only
+		// that message catches header/payload/EOS splits at channel handoff.
+		message := make([]byte, rpcapi.MaxFrameSize+8)
+		n, err := serverSide.Read(message)
+		if err != nil {
+			serverErr <- err
+			return
+		}
+		reader := bytes.NewReader(message[:n])
+		request, err := rpcapi.ReadRequest(reader)
+		if err != nil {
+			serverErr <- fmt.Errorf("native message has no complete request: %w", err)
+			return
+		}
+		eos, err := rpcapi.ReadFrame(reader)
+		if err != nil || eos.Type != rpcapi.FrameTypeEOS || reader.Len() != 0 {
+			serverErr <- fmt.Errorf("native message has no terminal EOS: %v", err)
+			return
+		}
+		response, err := newRPCPingResponse(request.Id, rpcapi.PingResponse{ServerTime: 123})
+		if err == nil {
+			err = writeRPCResponseWithEOS(serverSide, request.Method, response)
+		}
+		serverErr <- err
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	response, callErr := callRPCPing(ctx, clientSide, "native-handoff")
+	if err := <-serverErr; err != nil {
+		t.Fatal(err)
+	}
+	if callErr != nil {
+		t.Fatal(callErr)
+	}
+	if response.ServerTime != 123 {
+		t.Fatalf("server time = %d, want 123", response.ServerTime)
+	}
+}
+
+func TestRPCClientUnaryRequestRetainsLargeEnvelopeContinuation(t *testing.T) {
+	serverSide, clientSide := net.Pipe()
+	defer clientSide.Close()
+	serverErr := make(chan error, 1)
+	go func() {
+		serverErr <- handleRPC(serverSide, func(_ context.Context, request *rpcapi.RPCRequest) (*rpcapi.RPCResponse, error) {
+			return newRPCPingResponse(request.Id, rpcapi.PingResponse{ServerTime: 123})
+		})
+	}()
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	response, err := callRPCPing(ctx, clientSide, strings.Repeat("r", rpcapi.MaxFrameSize+1024))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.ServerTime != 123 {
+		t.Fatalf("server time = %d, want 123", response.ServerTime)
+	}
+	if err := <-serverErr; err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestRPCServerHandleOneRequestPerDataChannel(t *testing.T) {
 	serverSide, clientSide := net.Pipe()
 	defer clientSide.Close()
