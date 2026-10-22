@@ -3123,7 +3123,7 @@ static int test_kv_telemetry(void) {
   memset(nested + 512, ']', 512);
   if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK, "deepest bounded valid JSON") != 0)
     return 1;
-  gzc_buf_free(&output, NULL);
+  gzc_buf_free(&output, gzc_default_platform());
   return 0;
 }
 
