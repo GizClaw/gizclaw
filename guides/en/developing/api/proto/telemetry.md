@@ -43,4 +43,4 @@ Keep one attempt identity throughout an upgrade and choose a new identity for a 
 
 Queries return the latest Server snapshot, which can remain visible after a device disconnects. Telemetry transport provides neither business acknowledgement nor exactly-once delivery, so sending an observation does not prove upgrade completion.
 
-SDKs encode and send the Schema; Server validates and updates snapshots. See [ota.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peertelemetry/ota.go) for transitions and ordering. Device-provided diagnostics must not contain secrets or credential-bearing URLs.
+SDKs encode and send the Schema; Server validates and updates snapshots. See the [runtime OTA store](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/ota.go) for transitions and ordering. Device-provided diagnostics must not contain secrets or credential-bearing URLs.

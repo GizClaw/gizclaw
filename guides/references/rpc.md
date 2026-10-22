@@ -10,7 +10,7 @@ RPC 的 method 名称、数字 ID 和请求/响应类型由 [RPC registry](https
 
 ## Agent 与运行中的 Workspace
 
-运行选择与持久化 Workspace 是不同层次：停止运行不等于删除 Workspace。请求定义见 [system.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/system.proto)，运行关系见 [Agent Host](/zh/developing/gizclaw/peer/agent-host)。
+运行选择与持久化 Workspace 是不同层次：停止运行不等于删除 Workspace。请求定义见 [workspace.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/workspace.proto)，运行关系见 [Agent Host](/zh/developing/gizclaw/peer/agent-host)。
 
 ## Firmware
 
@@ -34,7 +34,7 @@ Peer 使用当前 RuntimeProfile 中的名称访问资源，Admin 管理实际�
 
 ## Tool
 
-RuntimeProfile 的服务端 Tool catalog 与设备提供的操作是不同能力。定义见 [tool.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/tool.proto)，组合方式见 [Runtime Tools](/zh/developing/gizclaw/services/runtime/toolkit)。
+RuntimeProfile 的服务端 Tool catalog 与设备提供的操作是不同能力。Catalog 消息定义见 [ai.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/rpc/payload/ai.proto)，组合方式见 [Runtime Tools](/zh/developing/gizclaw/services/runtime/toolkit)。
 
 ## App Config
 

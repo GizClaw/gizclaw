@@ -43,4 +43,4 @@ IMEI、IMSI 和 GNSS 是设备所属范围内的数据，只通过已授权状�
 
 状态查询读取 Server 保存的最新快照；设备离线后仍可能看到上次报告。遥测传输不提供业务确认或恰好一次交付，因此调用方不能将一次发送成功当作升级完成。
 
-SDK 负责按 Schema 编码和发送，Server 负责校验与更新快照。状态转换与乱序处理见 [ota.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peertelemetry/ota.go)。诊断信息由设备提供，不应包含 secret 或带凭据的 URL。
+SDK 负责按 Schema 编码和发送，Server 负责校验与更新快照。状态转换与乱序处理见 [运行时 OTA 存储](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/ota.go)。诊断信息由设备提供，不应包含 secret 或带凭据的 URL。

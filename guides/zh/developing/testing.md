@@ -1499,8 +1499,7 @@ Edge endpoint candidates，Dial barrier 和 workload 不会被 pacing、batching
 bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
 ```
 
-测试覆盖首次 native channel 的 application-acceptance timeout、同一 client 在 acceptance 前
-选择另一条 association、原 draining entry 上 sibling session 的独立进度和有界清理。
+该入口验证注入 UDP 故障后，客户端可经备用 relay 完成注册和 Ping，并清理隔离栈。
 真实 relay host failure、drain、capacity 与 soak 仍需按部署环境验收。
 
 吞吐 benchmark 与部署后的单/三客户端对照：

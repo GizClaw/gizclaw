@@ -1673,9 +1673,8 @@ a silent UDP fault boundary, and a blocked direct Edge-to-Server UDP path:
 bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
 ```
 
-It covers the first native channel reaching its application-acceptance timeout,
-the same client selecting another association before acceptance, independent
-sibling-session progress on the draining entry, and bounded cleanup. Relay host
+It verifies registration and Ping through the alternate relay after an injected UDP fault,
+followed by isolated-stack cleanup. Relay host
 failure, drain, capacity, and soak still require deployment qualification.
 
 Throughput benchmarks and the deployed one-versus-three-client comparison:
