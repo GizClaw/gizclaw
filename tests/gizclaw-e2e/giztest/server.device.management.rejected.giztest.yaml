@@ -1,0 +1,298 @@
+# User Story:
+# As a control app,
+# I want typed management failures including unknown features,
+# So that rejected operations never appear applied.
+version: gizclaw.test/v1alpha1
+name: server.device.management.rejected
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: call_content_age_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: content.age.get
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_content_age_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: content.age.get
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_content_age_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: content.age.set
+        args:
+          option_id: teen
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_content_age_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: content.age.set
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_device_features_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.features.get
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_device_features_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: device.features.get
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_device_feature_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.feature.set
+        args:
+          feature_id: unknown-feature
+          enabled: false
+      status: 404
+    expect:
+      /error/code:
+        equals: DEVICE_RESOURCE_NOT_FOUND
+  - id: provider_device_feature_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: device.feature.set
+      response:
+        error_code: 5
+      expect_calls: 1
+  - id: call_usage_time_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: usage.time.get
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_usage_time_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: usage.time.get
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_usage_time_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: usage.time.set
+        args:
+          limit_seconds: 9000
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_usage_time_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: usage.time.set
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_ai_safety_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: ai.safety.get
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_ai_safety_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: ai.safety.get
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_ai_safety_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: ai.safety.set
+        args:
+          level: strict
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_ai_safety_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: ai.safety.set
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_management_password_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.get
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_management_password_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: management.password.get
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_management_password_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.set
+        args:
+          password: giztest-password-only
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_management_password_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: management.password.set
+      response:
+        error_code: 3
+      expect_calls: 1
+  - id: call_management_password_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.reset
+        args: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: DEVICE_REJECTED
+  - id: provider_management_password_reset
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: management.password.reset
+      response:
+        error_code: 3
+      expect_calls: 1
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

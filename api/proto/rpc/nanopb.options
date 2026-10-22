@@ -139,7 +139,7 @@ gizclaw.rpc.v1.ModemHwdReadResponse.rat max_size:17
 
 
 # tool/v0 advertises at most the whole ClientTool registry.
-gizclaw.rpc.v1.ClientToolV0ListResponse.tools max_count:32
+gizclaw.rpc.v1.ClientToolV0ListResponse.tools max_count:48
 
 # Lua application strings are bounded; lists/maps remain callbacks so the
 # device provider can consume them without a large static message buffer.
@@ -163,3 +163,30 @@ gizclaw.rpc.v1.DoubaoRealtimeWorkspaceParameters.safety_fence_level max_size:65
 gizclaw.rpc.v1.WorkspaceParametersPatch.safety_fence_level max_size:65
 gizclaw.rpc.v1.SafetyFenceOption.name max_size:65
 gizclaw.rpc.v1.SafetyFenceOption.display_name max_size:129
+
+# Generic management / NFC budgets. Strings include terminating NUL.
+gizclaw.rpc.v1.NfcReadSnapshot.uid max_size:32
+gizclaw.rpc.v1.NfcReadSnapshot.technology max_size:33
+gizclaw.rpc.v1.NfcReadSnapshot.data_format max_size:33
+gizclaw.rpc.v1.NfcReadSnapshot.raw_data max_size:1024
+gizclaw.rpc.v1.NfcReadSnapshot.result max_size:8
+gizclaw.rpc.v1.NfcReadSnapshot.error_code max_size:65
+gizclaw.rpc.v1.ContentAgeOption.id max_size:65
+gizclaw.rpc.v1.ContentAgeOption.display_name max_size:129
+gizclaw.rpc.v1.ContentAgeState.option_id max_size:65
+gizclaw.rpc.v1.ContentAgeState.options max_count:16
+gizclaw.rpc.v1.ClientContentAgeSetRequest.option_id max_size:65
+gizclaw.rpc.v1.DeviceFeature.id max_size:65
+gizclaw.rpc.v1.DeviceFeature.display_name max_size:129
+gizclaw.rpc.v1.ClientDeviceFeaturesGetResponse.features max_count:32
+gizclaw.rpc.v1.ClientDeviceFeatureSetRequest.feature_id max_size:65
+gizclaw.rpc.v1.AISafetyOption.id max_size:65
+gizclaw.rpc.v1.AISafetyOption.display_name max_size:129
+gizclaw.rpc.v1.AISafetyState.level max_size:65
+gizclaw.rpc.v1.AISafetyState.options max_count:16
+gizclaw.rpc.v1.ClientAISafetySetRequest.level max_size:65
+gizclaw.rpc.v1.ClientManagementPasswordSetRequest.password max_size:129
+gizclaw.rpc.v1.PeerKVEntry.json_value max_size:1025
+gizclaw.rpc.v1.PeerKVEntry.observed_at max_size:36
+gizclaw.rpc.v1.PeerStatus.ReportedKvEntry.key max_size:65
+gizclaw.rpc.v1.Runtime.ReportedKvEntry.key max_size:65

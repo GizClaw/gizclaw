@@ -21,7 +21,17 @@ message Observation {
     OtaObservation ota = 14;
     AudioPlayerObservation audioplayer = 15;
     ActivityObservation activity = 16;
+    KVObservation kv = 17;
   }
+}
+
+// Device-owned, opaque JSON state. Limits are UTF-8/encoded bytes, not
+// characters: key 1..64, json_value 1..1024, 16 KV entries and 4096 encoded
+// frame bytes per report. A delete has no json_value; JSON "null" is a value.
+message KVObservation {
+  string key = 1;
+  optional string json_value = 2;
+  optional bool delete = 3; // Only true is valid; mutually exclusive with value.
 }
 
 message BatteryObservation {

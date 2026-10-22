@@ -53,7 +53,12 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
-    loadDeviceConfig(peer.endpoint, peer.publicKey, controller.signal)
+    loadDeviceConfig(
+      peer.endpoint,
+      peer.publicKey,
+      controller.signal,
+      peer.signedBearer,
+    )
       .then((result) => {
         if (controller.signal.aborted) return;
         setConfig(result);
@@ -66,7 +71,7 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, reload]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer, reload]);
 
   const refresh = (
     <Button
@@ -81,6 +86,32 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
 
   return (
     <div className="flex flex-col gap-4">
+      {config?.queries?.map((query) => (
+        <Card key={query.id}>
+          <CardHeader>
+            <CardTitle>{query.title}</CardTitle>
+            <CardDescription>
+              只读查询；未报告的字段表示未知，false 和 0 是已报告的值。
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="px-0">
+            <SectionState
+              section={query.result}
+              render={(data) => (
+                <details className="mx-5 rounded-md border p-3">
+                  <summary className="cursor-pointer text-xs">
+                    展开当前状态
+                  </summary>
+                  <pre className="mt-3 overflow-auto whitespace-pre-wrap break-words text-xs">
+                    {JSON.stringify(data, null, 2)}
+                  </pre>
+                </details>
+              )}
+            />
+          </CardContent>
+        </Card>
+      ))}
+
       <Card>
         <CardHeader>
           <CardTitle>硬件实例清单</CardTitle>

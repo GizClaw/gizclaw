@@ -848,6 +848,7 @@ func (m *Manager) Peer(publicKey giznet.PublicKey) (giznet.Conn, bool) {
 func (m *Manager) PeerRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
 	runtime := m.peerPresenceRuntime(ctx, publicKey)
 	if m.PeerRun != nil {
+		runtime.ReportedKv, _ = m.PeerRun.GetReportedKV(ctx, publicKey)
 		if mode, err := m.PeerRun.GetDebugMode(ctx, publicKey); err == nil {
 			runtime.DebugMode = &mode
 		}

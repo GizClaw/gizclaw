@@ -139,6 +139,9 @@ func (s *peerHTTP) invokeClientToolForOwner(ctx context.Context, owner giznet.Pu
 		if err != nil {
 			return nil, err
 		}
+		if err := rpcapi.ValidateManagementResult(message, responseMessage); err != nil {
+			return nil, err
+		}
 		if err := validateClientToolResponse(responseMessage); err != nil {
 			return nil, err
 		}
@@ -197,6 +200,9 @@ func (s *peerHTTP) resolveToolWorkspace(ctx context.Context, owner giznet.Public
 
 func validateClientToolRequest(message proto.Message) (deviceControlOptions, *deviceControlError) {
 	opts := deviceControlOptions{}
+	if err := rpcapi.ValidateManagementRequest(message); err != nil {
+		return opts, invalidDeviceRequest("invalid management arguments")
+	}
 	invalid := func() (deviceControlOptions, *deviceControlError) {
 		return opts, invalidDeviceRequest("invalid tool arguments")
 	}
@@ -276,6 +282,9 @@ func validateClientToolRequest(message proto.Message) (deviceControlOptions, *de
 }
 
 func validateClientToolResponse(message proto.Message) error {
+	if err := rpcapi.ValidateManagementResponse(message); err != nil {
+		return err
+	}
 	switch message.(type) {
 	case *rpcpb.ClientGnssReportingGetResponse, *rpcpb.ClientGnssReportingSetResponse:
 		return rpcapi.ValidateGNSSReportingResponse(message)

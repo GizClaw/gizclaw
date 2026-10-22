@@ -1,3 +1,8 @@
+import {
+  isManagementTool,
+  validateManagementRequest,
+  validateManagementResult,
+} from "./management.ts";
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { CreateGiznetWebRtcOfferData } from "./generated/peerhttp/types.gen.ts";
 import {
@@ -3001,6 +3006,19 @@ async function answerDeviceProcedure(
   const control = handlers?.deviceControl;
 
   try {
+    if (isManagementTool(tool)) {
+      try {
+        validateManagementRequest(tool, request.params);
+      } catch {
+        return invalid();
+      }
+      const handler = handlers?.tools?.[tool] as
+        ((input: unknown) => unknown) | undefined;
+      if (handler == null) return unsupported();
+      const result = await handler(request.params);
+      validateManagementResult(tool, request.params, result);
+      return ok(result);
+    }
     switch (tool) {
       case CLIENT_TOOL_IDS["gnss.reporting.get"]: {
         const handler = control?.gnssReportingGet;
@@ -4606,7 +4624,9 @@ function validMhsHwdEnvelope(value: unknown, write: boolean): boolean {
   if (
     hwd !== CLIENT_HWD_IDS.display &&
     hwd !== CLIENT_HWD_IDS.led &&
-    hwd !== CLIENT_HWD_IDS.speaker
+    hwd !== CLIENT_HWD_IDS.speaker &&
+    hwd !== CLIENT_HWD_IDS.modem &&
+    hwd !== CLIENT_HWD_IDS.nfc
   )
     return false;
   const bytes = mhsHwdBytes(request.payload);
@@ -4679,7 +4699,14 @@ const mhsHwdReadFields: Record<
     scanning: validMhsHwdBoolean,
     connection_count: validMhsHwdUint32,
   },
+  [CLIENT_HWD_IDS.nfc]: {
+    enabled: validMhsHwdBoolean,
+    card_present: validMhsHwdBoolean,
+    last_read: validNfcSnapshot,
+  },
   [CLIENT_HWD_IDS.modem]: {
+    enabled: validMhsHwdBoolean,
+    powered: validMhsHwdBoolean,
     sim_present: validMhsHwdBoolean,
     registered: validMhsHwdBoolean,
     rat: (value) => validMhsHwdText(value, 16),
@@ -4728,6 +4755,12 @@ function validMhsHwdResponse(
       ? (decoded as Record<string, unknown>).applied
       : decoded;
     if (result == null || typeof result !== "object") return false;
+    if (
+      write &&
+      (hwd === CLIENT_HWD_IDS.modem || hwd === CLIENT_HWD_IDS.nfc) &&
+      typeof (result as Record<string, unknown>).enabled !== "boolean"
+    )
+      return false;
     const fields = Object.entries(result);
     const validators = mhsHwdReadFields[hwd];
     return (
@@ -4738,4 +4771,37 @@ function validMhsHwdResponse(
   } catch {
     return false;
   }
+}
+
+function validNfcSnapshot(value: unknown): boolean {
+  if (value == null || typeof value !== "object") return false;
+  const v = value as Record<string, unknown>;
+  if (
+    (typeof v.read_at_unix_ms !== "number" &&
+      typeof v.read_at_unix_ms !== "string") ||
+    !/^[1-9][0-9]*$/.test(String(v.read_at_unix_ms))
+  )
+    return false;
+  for (const key of ["technology", "data_format", "error_code"]) {
+    if (
+      v[key] !== undefined &&
+      (v[key] === "" ||
+        !validMhsHwdText(v[key], key === "error_code" ? 64 : 32))
+    )
+      return false;
+  }
+  for (const [key, limit] of [
+    ["uid", 32],
+    ["raw_data", 1024],
+  ] as const) {
+    if (v[key] !== undefined) {
+      const bytes = mhsHwdBytes(v[key]);
+      if (bytes == null || bytes.length > limit) return false;
+    }
+  }
+  return v.result === "success"
+    ? v.error_code === undefined
+    : v.result === "failed" &&
+        typeof v.error_code === "string" &&
+        v.error_code.length > 0;
 }

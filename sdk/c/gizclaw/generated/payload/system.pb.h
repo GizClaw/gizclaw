@@ -318,6 +318,7 @@ typedef struct _gizclaw_rpc_v1_PeerStatus {
     double cellular_rssi_dbm;
     bool has_cellular_signal_level;
     double cellular_signal_level;
+    pb_callback_t reported_kv;
 } gizclaw_rpc_v1_PeerStatus;
 
 typedef struct _gizclaw_rpc_v1_ClientDeviceStatusGetResponse {
@@ -432,6 +433,7 @@ typedef struct _gizclaw_rpc_v1_Runtime {
     pb_callback_t debug_mode;
     pb_callback_t active_workspace_name;
     pb_callback_t pending_workspace_name;
+    pb_callback_t reported_kv;
 } gizclaw_rpc_v1_Runtime;
 
 typedef struct _gizclaw_rpc_v1_ServerGetInfoRequest {
@@ -506,6 +508,25 @@ typedef struct _gizclaw_rpc_v1_ServerPutRuntimeResponse {
     pb_callback_t debug_mode;
 } gizclaw_rpc_v1_ServerPutRuntimeResponse;
 
+/* JSON codecs expose json_value as a typed JSON value named value. The wire
+ stays bounded and does not require a recursive protobuf Value allocator. */
+typedef struct _gizclaw_rpc_v1_PeerKVEntry {
+    char json_value[1025];
+    char observed_at[36]; /* RFC 3339 observation time. */
+} gizclaw_rpc_v1_PeerKVEntry;
+
+typedef struct _gizclaw_rpc_v1_PeerStatus_ReportedKvEntry {
+    char key[65];
+    bool has_value;
+    gizclaw_rpc_v1_PeerKVEntry value;
+} gizclaw_rpc_v1_PeerStatus_ReportedKvEntry;
+
+typedef struct _gizclaw_rpc_v1_Runtime_ReportedKvEntry {
+    char key[65];
+    bool has_value;
+    gizclaw_rpc_v1_PeerKVEntry value;
+} gizclaw_rpc_v1_Runtime_ReportedKvEntry;
+
 
 #ifdef __cplusplus
 extern "C" {
@@ -548,8 +569,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_default     {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_default    {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_default {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default, false, "", false, "", false, "", false, 0, false, 0, false, 0}
+#define gizclaw_rpc_v1_PeerStatus_init_default   {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_default, false, gizclaw_rpc_v1_AudioPlayerStatus_init_default, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default, false, "", false, "", false, "", false, 0, false, 0, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_default {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_init_default {"", false, gizclaw_rpc_v1_PeerKVEntry_init_default}
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_default {false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, ""}
 #define gizclaw_rpc_v1_PingRequest_init_default  {0}
 #define gizclaw_rpc_v1_PingResponse_init_default {0}
@@ -568,7 +590,8 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_default {0}
-#define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Runtime_init_default      {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_init_default {"", false, gizclaw_rpc_v1_PeerKVEntry_init_default}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_default {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_default {false, gizclaw_rpc_v1_DeviceInfo_init_default}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_default {0}
@@ -582,6 +605,7 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeedTestResponse_init_default {0, 0}
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerPutRuntimeResponse_init_default {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerKVEntry_init_default  {"", ""}
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_init_zero {0}
 #define gizclaw_rpc_v1_ClientGetIdentifiersResponse_init_zero {false, gizclaw_rpc_v1_DeviceIdentifiers_init_zero}
 #define gizclaw_rpc_v1_ClientGetInfoRequest_init_zero {0}
@@ -618,8 +642,9 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerIMEI_init_zero        {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerLabel_init_zero       {{{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerOtaStatus_init_zero   {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
-#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero, false, "", false, "", false, "", false, 0, false, 0, false, 0}
+#define gizclaw_rpc_v1_PeerStatus_init_zero      {false, 0, false, 0, false, 0, false, 0, false, 0, false, 0, {{NULL}, NULL}, false, 0, {{NULL}, NULL}, false, 0, false, "", false, gizclaw_rpc_v1_PeerOtaStatus_init_zero, false, gizclaw_rpc_v1_AudioPlayerStatus_init_zero, false, "", false, "", false, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero, false, "", false, "", false, "", false, 0, false, 0, false, 0, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_init_zero {{{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_init_zero {"", false, gizclaw_rpc_v1_PeerKVEntry_init_zero}
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_init_zero {false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, "", false, ""}
 #define gizclaw_rpc_v1_PingRequest_init_zero     {0}
 #define gizclaw_rpc_v1_PingResponse_init_zero    {0}
@@ -638,7 +663,8 @@ extern "C" {
 #define gizclaw_rpc_v1_APIKeyRevokeResponse_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_init_zero {0}
-#define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Runtime_init_zero         {{{NULL}, NULL}, {{NULL}, NULL}, 0, false, 0, false, 0, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_init_zero {"", false, gizclaw_rpc_v1_PeerKVEntry_init_zero}
 #define gizclaw_rpc_v1_ServerGetInfoRequest_init_zero {0}
 #define gizclaw_rpc_v1_ServerGetInfoResponse_init_zero {false, gizclaw_rpc_v1_DeviceInfo_init_zero}
 #define gizclaw_rpc_v1_ServerGetStatusRequest_init_zero {0}
@@ -652,6 +678,7 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeedTestResponse_init_zero {0, 0}
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ServerPutRuntimeResponse_init_zero {{{NULL}, NULL}}
+#define gizclaw_rpc_v1_PeerKVEntry_init_zero     {"", ""}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ClientDeviceSoundPlayRequest_sound_tag 1
@@ -741,6 +768,7 @@ extern "C" {
 #define gizclaw_rpc_v1_PeerStatus_wifi_rssi_dbm_tag 21
 #define gizclaw_rpc_v1_PeerStatus_cellular_rssi_dbm_tag 22
 #define gizclaw_rpc_v1_PeerStatus_cellular_signal_level_tag 23
+#define gizclaw_rpc_v1_PeerStatus_reported_kv_tag 24
 #define gizclaw_rpc_v1_ClientDeviceStatusGetResponse_value_tag 1
 #define gizclaw_rpc_v1_PingRequest_client_send_time_tag 1
 #define gizclaw_rpc_v1_PingResponse_server_time_tag 1
@@ -780,6 +808,7 @@ extern "C" {
 #define gizclaw_rpc_v1_Runtime_debug_mode_tag    6
 #define gizclaw_rpc_v1_Runtime_active_workspace_name_tag 7
 #define gizclaw_rpc_v1_Runtime_pending_workspace_name_tag 8
+#define gizclaw_rpc_v1_Runtime_reported_kv_tag   9
 #define gizclaw_rpc_v1_ServerGetInfoResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerGetStatusResponse_value_tag 1
 #define gizclaw_rpc_v1_ServerPutInfoRequest_value_tag 1
@@ -795,6 +824,12 @@ extern "C" {
 #define gizclaw_rpc_v1_SpeedTestResponse_up_content_length_tag 2
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_debug_mode_tag 1
 #define gizclaw_rpc_v1_ServerPutRuntimeResponse_debug_mode_tag 1
+#define gizclaw_rpc_v1_PeerKVEntry_json_value_tag 1
+#define gizclaw_rpc_v1_PeerKVEntry_observed_at_tag 2
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_key_tag 1
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_value_tag 2
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_key_tag 1
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_value_tag 2
 
 /* Struct field encoding specification for nanopb */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_FIELDLIST(X, a) \
@@ -1036,19 +1071,28 @@ X(a, STATIC,   OPTIONAL, STRING,   activity_detail,  19) \
 X(a, STATIC,   OPTIONAL, STRING,   firmware_version,  20) \
 X(a, STATIC,   OPTIONAL, DOUBLE,   wifi_rssi_dbm,    21) \
 X(a, STATIC,   OPTIONAL, DOUBLE,   cellular_rssi_dbm,  22) \
-X(a, STATIC,   OPTIONAL, DOUBLE,   cellular_signal_level,  23)
+X(a, STATIC,   OPTIONAL, DOUBLE,   cellular_signal_level,  23) \
+X(a, CALLBACK, REPEATED, MESSAGE,  reported_kv,      24)
 #define gizclaw_rpc_v1_PeerStatus_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_DEFAULT NULL
 #define gizclaw_rpc_v1_PeerStatus_labels_MSGTYPE gizclaw_rpc_v1_PeerStatus_LabelsEntry
 #define gizclaw_rpc_v1_PeerStatus_ota_MSGTYPE gizclaw_rpc_v1_PeerOtaStatus
 #define gizclaw_rpc_v1_PeerStatus_audioplayer_MSGTYPE gizclaw_rpc_v1_AudioPlayerStatus
 #define gizclaw_rpc_v1_PeerStatus_telemetry_observed_at_MSGTYPE gizclaw_rpc_v1_PeerStatusTelemetryObservedAt
+#define gizclaw_rpc_v1_PeerStatus_reported_kv_MSGTYPE gizclaw_rpc_v1_PeerStatus_ReportedKvEntry
 
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_FIELDLIST(X, a) \
 X(a, CALLBACK, SINGULAR, STRING,   key,               1) \
 X(a, CALLBACK, SINGULAR, STRING,   value,             2)
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_DEFAULT NULL
+
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_CALLBACK NULL
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_value_MSGTYPE gizclaw_rpc_v1_PeerKVEntry
 
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, STRING,   battery_percent,   1) \
@@ -1178,9 +1222,18 @@ X(a, STATIC,   OPTIONAL, UINT64,   rx_bytes,          4) \
 X(a, STATIC,   OPTIONAL, UINT64,   tx_bytes,          5) \
 X(a, CALLBACK, OPTIONAL, STRING,   debug_mode,        6) \
 X(a, CALLBACK, OPTIONAL, STRING,   active_workspace_name,   7) \
-X(a, CALLBACK, OPTIONAL, STRING,   pending_workspace_name,   8)
+X(a, CALLBACK, OPTIONAL, STRING,   pending_workspace_name,   8) \
+X(a, CALLBACK, REPEATED, MESSAGE,  reported_kv,       9)
 #define gizclaw_rpc_v1_Runtime_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_Runtime_DEFAULT NULL
+#define gizclaw_rpc_v1_Runtime_reported_kv_MSGTYPE gizclaw_rpc_v1_Runtime_ReportedKvEntry
+
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   key,               1) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  value,             2)
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_CALLBACK NULL
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_DEFAULT NULL
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_value_MSGTYPE gizclaw_rpc_v1_PeerKVEntry
 
 #define gizclaw_rpc_v1_ServerGetInfoRequest_FIELDLIST(X, a) \
 
@@ -1256,6 +1309,12 @@ X(a, CALLBACK, SINGULAR, STRING,   debug_mode,        1)
 #define gizclaw_rpc_v1_ServerPutRuntimeResponse_CALLBACK pb_default_field_callback
 #define gizclaw_rpc_v1_ServerPutRuntimeResponse_DEFAULT NULL
 
+#define gizclaw_rpc_v1_PeerKVEntry_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, STRING,   json_value,        1) \
+X(a, STATIC,   SINGULAR, STRING,   observed_at,       2)
+#define gizclaw_rpc_v1_PeerKVEntry_CALLBACK NULL
+#define gizclaw_rpc_v1_PeerKVEntry_DEFAULT NULL
+
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetIdentifiersResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ClientGetInfoRequest_msg;
@@ -1294,6 +1353,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_PeerLabel_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerOtaStatus_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_LabelsEntry_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_PingResponse_msg;
@@ -1313,6 +1373,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_APIKeyRevokeResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerDeleteRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPeerDeleteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_Runtime_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_Runtime_ReportedKvEntry_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetInfoRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetInfoResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerGetStatusRequest_msg;
@@ -1326,6 +1387,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_SpeedTestResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeRequest_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_PeerKVEntry_msg;
 
 /* Defines for backwards compatibility with code written before nanopb-0.4.0 */
 #define gizclaw_rpc_v1_ClientGetIdentifiersRequest_fields &gizclaw_rpc_v1_ClientGetIdentifiersRequest_msg
@@ -1366,6 +1428,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_PeerOtaStatus_fields &gizclaw_rpc_v1_PeerOtaStatus_msg
 #define gizclaw_rpc_v1_PeerStatus_fields &gizclaw_rpc_v1_PeerStatus_msg
 #define gizclaw_rpc_v1_PeerStatus_LabelsEntry_fields &gizclaw_rpc_v1_PeerStatus_LabelsEntry_msg
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_fields &gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_msg
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_fields &gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_msg
 #define gizclaw_rpc_v1_PingRequest_fields &gizclaw_rpc_v1_PingRequest_msg
 #define gizclaw_rpc_v1_PingResponse_fields &gizclaw_rpc_v1_PingResponse_msg
@@ -1385,6 +1448,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_fields &gizclaw_rpc_v1_ServerPeerDeleteRequest_msg
 #define gizclaw_rpc_v1_ServerPeerDeleteResponse_fields &gizclaw_rpc_v1_ServerPeerDeleteResponse_msg
 #define gizclaw_rpc_v1_Runtime_fields &gizclaw_rpc_v1_Runtime_msg
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_fields &gizclaw_rpc_v1_Runtime_ReportedKvEntry_msg
 #define gizclaw_rpc_v1_ServerGetInfoRequest_fields &gizclaw_rpc_v1_ServerGetInfoRequest_msg
 #define gizclaw_rpc_v1_ServerGetInfoResponse_fields &gizclaw_rpc_v1_ServerGetInfoResponse_msg
 #define gizclaw_rpc_v1_ServerGetStatusRequest_fields &gizclaw_rpc_v1_ServerGetStatusRequest_msg
@@ -1398,6 +1462,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_SpeedTestResponse_fields &gizclaw_rpc_v1_SpeedTestResponse_msg
 #define gizclaw_rpc_v1_ServerPutRuntimeRequest_fields &gizclaw_rpc_v1_ServerPutRuntimeRequest_msg
 #define gizclaw_rpc_v1_ServerPutRuntimeResponse_fields &gizclaw_rpc_v1_ServerPutRuntimeResponse_msg
+#define gizclaw_rpc_v1_PeerKVEntry_fields &gizclaw_rpc_v1_PeerKVEntry_msg
 
 /* Maximum encoded size of messages (where known) */
 /* gizclaw_rpc_v1_ClientGetIdentifiersResponse_size depends on runtime parameters */
@@ -1454,12 +1519,15 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ServerPutRuntimeResponse_msg;
 #define gizclaw_rpc_v1_ClientWifiScanRequest_size 11
 #define gizclaw_rpc_v1_ClientWifiScanResponse_size 2688
 #define gizclaw_rpc_v1_DeviceProfile_size        325
+#define gizclaw_rpc_v1_PeerKVEntry_size          1064
 #define gizclaw_rpc_v1_PeerStatusTelemetryObservedAt_size 481
+#define gizclaw_rpc_v1_PeerStatus_ReportedKvEntry_size 1133
 #define gizclaw_rpc_v1_PingRequest_size          11
 #define gizclaw_rpc_v1_PingResponse_size         11
 #define gizclaw_rpc_v1_ProfileGetRequest_size    1056
 #define gizclaw_rpc_v1_ProfileGetResponse_size   6304
 #define gizclaw_rpc_v1_PublicProfile_size        391
+#define gizclaw_rpc_v1_Runtime_ReportedKvEntry_size 1133
 #define gizclaw_rpc_v1_ServerGetInfoRequest_size 0
 #define gizclaw_rpc_v1_ServerGetStatusRequest_size 0
 #define gizclaw_rpc_v1_ServerPeerDeleteRequest_size 0

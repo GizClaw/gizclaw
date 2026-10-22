@@ -149,3 +149,49 @@ runtime 以独立的 per-peer OTA record 原子比较更新。较旧时间戳不
 
 上报沿用 direct packet 的发送与可靠性语义，不提供业务确认、重试或恰好一次交付。
 服务端按上述顺序规则维护最新快照；设备应节制进度上报频率。
+
+## KV 自报状态
+
+`Observation.kv`（17）沿用 `TelemetryFrame` 和原 direct packet 通道，不增加 report RPC。
+`KVObservation.key` 是非空 UTF-8 字符串；`json_value` 是一个完整合法 JSON 值的 UTF-8 编码。
+对象、数组、字符串、数字、布尔和 `null` 都合法。Server 只校验编码与预算，不解释业务内容。
+显式删除使用 `delete: true` 并省略 `json_value`；`json_value: "null"` 则保存一个存在的 null 值。
+`delete: false`、同时携带删除和值、缺少操作或非法 JSON 均拒绝。
+
+| 预算 | 上限 |
+| --- | --- |
+| 单 key 的 UTF-8 编码 | 64 bytes |
+| 单 JSON 值的 UTF-8 编码 | 1024 bytes |
+| 单帧 KV 条目数 | 16 |
+| 含 KV 的完整 Protobuf frame，包含其他 observation | 4096 bytes |
+| 每设备保存的不同 key，包含删除墓碑 | 64 |
+| 每设备完整 JSON 存储记录，包含 key、value、时间和墓碑 | 16384 bytes |
+
+这些上限低于现有 64 KiB packet 预算，把帧编码限制在 4 KiB；C 编码前检查完整长度，超限不会先扩容。编码另使用两个有界临时消息缓冲，JSON 校验使用 约 1 KiB 有界栈，不递归、不分配 JSON 树。SDK 与 Server 对 key、值、帧条数及帧总大小执行相同检查；累计存储预算由 Server
+对当前权威记录检查。所有字节限制均按 UTF-8 编码计算，不按字符数计算，也不静默截断。
+无效帧不写入状态；累计容量超限会原子拒绝该帧的全部 KV 更新，保留原有效数据。
+
+时间为 frame 的 `observed_at_unix_ms` 加 `observed_at_delta_ms`。SDK 在发送前沿用原 Telemetry 规则补齐 0 时间；Server 要求 KV 报文携带非零原始观测时间，避免接收时间为重放生成新的时间戳。
+KV 的最终时间必须为正，最多允许比 Server 时钟超前 5 分钟。每 key 只接受严格较晚时间，
+相同时间的重放不能改值。sequence 不作为跨重连排序依据。删除保留同 key 的观测时间，
+因此迟到更新不能复活旧值；新时间可以再次设置它。墓碑计入 key 和字节预算，不能靠不断创建再删除
+新 key 绕过容量限制；调用方应使用稳定、有限的 key 集合。替换已有 key 不增加 key 数。
+
+`peer_runs` 所属的 Runtime SQL 数据库以独立 `peer_reported_kv` 记录保存快照，使用比较更新防止并发覆盖。
+它跨断线、重连和服务重启保存，不受普通设备控制响应影响。`PeerStatus.reported_kv` 与
+`Runtime.reported_kv` 返回相同的 `{key: {value, json_value, observed_at}}`：`value` 保留 JSON 类型，
+`json_value` 同时保留无损的原始编码供有界 SDK 和页面展示，`observed_at` 为 RFC 3339。缺少 key 表示未上报或已删除，不能用真假判断其是否存在。
+自报 key 即使名为 online、owner 或权限字段，也只在该独立 map 中，不影响 Server 权威状态。
+KV 不产生 metrics、历史采样或 payload 日志；不得放入密码、凭据或其他 secret。
+
+Go 使用 `SendKVTelemetry` 和 `telemetrypb.KVObservation`；JavaScript 使用
+`kvTelemetry`、`kvTelemetryJSON`、`deleteKVTelemetry` 和已有发送接口。需要原样保留数字编码时使用
+`kvTelemetryJSON`，避免先经过 JavaScript number 转换。C 使用 additive 的
+`gzc_telemetry_kv_frame_t`、`gzc_telemetry_encode_kv_frame` 和 `gzc_client_send_kv_telemetry`，
+不改变原 frame ABI。Flutter 无独立 Telemetry 发送面，通过生成的 `reportedKv` map 读取；
+`PeerKVEntryJSON.value` 解码结构化 JSON，`jsonValue` 保留原始 wire 编码。
+
+RPC 查询使用有界 `PeerKVEntry.json_value` 字符串承载值；Go/JS JSON codec 投影为类型化的 `value`，
+避免要求 nanopb 分配递归的 Protobuf Value 树。HTTP 与 Go 保存原数值编码，JS/Dart 的结构化数字
+遵循各语言 JSON 数字语义。传输可靠性仍沿用 Telemetry direct packet：发送成功不表示服务端业务确认，
+设备需要按稳定 key 重报当前状态，并在重报时使用真实的新观测时间。

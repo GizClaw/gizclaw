@@ -42,7 +42,18 @@ typedef enum _gizclaw_rpc_v1_ClientTool {
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_RUN = 24,
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET = 25,
     gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET = 26,
-    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL = 27
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL = 27,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_CONTENT_AGE_GET = 28,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_CONTENT_AGE_SET = 29,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_DEVICE_FEATURES_GET = 30,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_DEVICE_FEATURE_SET = 31,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_USAGE_TIME_GET = 32,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_USAGE_TIME_SET = 33,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_AI_SAFETY_GET = 34,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_AI_SAFETY_SET = 35,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_GET = 36,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_SET = 37,
+    gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET = 38
 } gizclaw_rpc_v1_ClientTool;
 
 /* Struct definitions */
@@ -80,7 +91,7 @@ typedef struct _gizclaw_rpc_v1_ClientToolV0ListRequest {
  ignored rather than rejected, and the list never includes UNSPECIFIED. */
 typedef struct _gizclaw_rpc_v1_ClientToolV0ListResponse {
     pb_size_t tools_count;
-    gizclaw_rpc_v1_ClientTool tools[32];
+    gizclaw_rpc_v1_ClientTool tools[48];
 } gizclaw_rpc_v1_ClientToolV0ListResponse;
 
 
@@ -93,8 +104,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _gizclaw_rpc_v1_ClientTool_MIN gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED
-#define _gizclaw_rpc_v1_ClientTool_MAX gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL
-#define _gizclaw_rpc_v1_ClientTool_ARRAYSIZE ((gizclaw_rpc_v1_ClientTool)(gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL+1))
+#define _gizclaw_rpc_v1_ClientTool_MAX gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET
+#define _gizclaw_rpc_v1_ClientTool_ARRAYSIZE ((gizclaw_rpc_v1_ClientTool)(gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET+1))
 
 
 #define gizclaw_rpc_v1_ClientToolV0InvokeRequest_tool_ENUMTYPE gizclaw_rpc_v1_ClientTool
@@ -109,12 +120,12 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientToolV0InvokeRequest_init_default {_gizclaw_rpc_v1_ClientTool_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientToolV0InvokeResponse_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientToolV0ListRequest_init_default {0}
-#define gizclaw_rpc_v1_ClientToolV0ListResponse_init_default {0, {_gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN}}
+#define gizclaw_rpc_v1_ClientToolV0ListResponse_init_default {0, {_gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN}}
 #define gizclaw_rpc_v1_ClientToolOptions_init_zero {{{NULL}, NULL}, {{NULL}, NULL}, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientToolV0InvokeRequest_init_zero {_gizclaw_rpc_v1_ClientTool_MIN, {{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientToolV0InvokeResponse_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_ClientToolV0ListRequest_init_zero {0}
-#define gizclaw_rpc_v1_ClientToolV0ListResponse_init_zero {0, {_gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN}}
+#define gizclaw_rpc_v1_ClientToolV0ListResponse_init_zero {0, {_gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN, _gizclaw_rpc_v1_ClientTool_MIN}}
 
 /* Field tags (for use in manual encoding/decoding) */
 #define gizclaw_rpc_v1_ClientToolOptions_name_tag 1
@@ -174,7 +185,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientToolV0ListResponse_msg;
 /* gizclaw_rpc_v1_ClientToolV0InvokeResponse_size depends on runtime parameters */
 #define GIZCLAW_RPC_V1_PAYLOAD_TOOL_PB_H_MAX_SIZE gizclaw_rpc_v1_ClientToolV0ListResponse_size
 #define gizclaw_rpc_v1_ClientToolV0ListRequest_size 0
-#define gizclaw_rpc_v1_ClientToolV0ListResponse_size 64
+#define gizclaw_rpc_v1_ClientToolV0ListResponse_size 96
 
 #ifdef __cplusplus
 } /* extern "C" */

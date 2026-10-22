@@ -255,6 +255,9 @@ func fillProtoMessageFromGo(msg protoreflect.Message, value reflect.Value, paren
 		return nil
 	}
 	desc := msg.Descriptor()
+	if desc.Name() == "PeerKVEntry" {
+		return fillKVProto(msg, value)
+	}
 	if isOneofValueWrapper(desc) {
 		stored := goUnionStoredValue(value)
 		if !stored.IsValid() {
@@ -527,6 +530,17 @@ func fillGoValueFromProto(target reflect.Value, msg protoreflect.Message, opts d
 	}
 	target = indirectGoValue(target)
 	desc := msg.Descriptor()
+	if desc.Name() == "PeerKVEntry" {
+		object, err := kvProtoJSON(msg)
+		if err != nil {
+			return err
+		}
+		data, err := json.Marshal(object)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, target.Addr().Interface())
+	}
 	if fd := singleValueField(desc); fd != nil && !goStructHasJSONField(target, "value") {
 		return setGoValueFromProto(target, fd, msg.Get(fd), opts)
 	}
@@ -1293,6 +1307,9 @@ func enumValuePrefix(desc protoreflect.EnumDescriptor) string {
 
 func protoMessageGoValue(msg protoreflect.Message, opts decodeRPCPayloadOptions) (any, error) {
 	desc := msg.Descriptor()
+	if desc.Name() == "PeerKVEntry" {
+		return kvProtoJSON(msg)
+	}
 	if fd := singleValueField(desc); fd != nil {
 		return protoFieldGoValue(msg, fd, opts)
 	}
@@ -1330,6 +1347,9 @@ func protoFieldPresent(msg protoreflect.Message, fd protoreflect.FieldDescriptor
 		return opts.emitDefaults || msg.Get(fd).List().Len() > 0
 	}
 	if fd.IsMap() {
+		if (fd.FullName() == "gizclaw.rpc.v1.PeerStatus.reported_kv" || fd.FullName() == "gizclaw.rpc.v1.Runtime.reported_kv") && msg.Get(fd).Map().Len() == 0 {
+			return false
+		}
 		return opts.emitDefaults || msg.Get(fd).Map().Len() > 0
 	}
 	if fd.HasPresence() {

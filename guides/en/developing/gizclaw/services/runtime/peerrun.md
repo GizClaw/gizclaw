@@ -30,3 +30,11 @@ The setting survives reconnects. HTTP authorization reads it on every request an
 `peer_runs` stores rows by `public_key`, with separate `pending_workspace`, `active_workspace`, `debug_mode`, and `registered_at` columns. Setting Pending preserves Active. Activation uses a conditional UPDATE so an older activation cannot overwrite a newer selection.
 
 `RememberPeer` records peers registered or connected on this Server. Admin `ListPeers` pages through the local `(registered_at, public_key)` index and reads shared registration details only for that page. It does not enumerate central Redis or represent a global device directory. Runtime-only rows without local registration are excluded.
+
+## KV state
+
+PutReportedKV atomically compares and updates the device's bounded peer_reported_kv SQL record. The whole
+KV report is accepted or rejected after checking storage, including tombstones. GetReportedKV, GetStatus
+and Runtime read the same record. Ordinary PutStatus ignores reported_kv, so control replies cannot replace
+self-reported state. See [KV telemetry](/en/developing/api/proto/telemetry#device-reported-kv-state) for quotas,
+deletions, ordering and SDK contracts.

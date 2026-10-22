@@ -9,8 +9,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-_Static_assert(_gizclaw_rpc_v1_ClientTool_MAX < 32,
-               "Giztest tool bitmask requires ClientTool numbers below 32");
+_Static_assert(_gizclaw_rpc_v1_ClientTool_MAX < 64,
+               "Giztest tool bitmask requires ClientTool numbers below 64");
 
 /* Implemented in Go by provider.go. */
 extern int gztGoProvider(
@@ -125,7 +125,7 @@ int gzt_session_open(
     const char *credential_type,
     const char *credential_value,
     unsigned long long provider_handle,
-    unsigned int tool_mask,
+    unsigned long long tool_mask,
     unsigned int mhs_mask,
     gzt_session_t **out_session,
     char *errbuf,
@@ -169,7 +169,7 @@ int gzt_session_open(
     config.rpc_observer_userdata = session;
     config.tool_handlers = session->tool_handlers;
     for (unsigned int i = 1; i <= (unsigned int)_gizclaw_rpc_v1_ClientTool_MAX; i++) {
-      if ((tool_mask & (1u << i)) == 0u)
+      if ((tool_mask & (1ULL << i)) == 0u)
         continue;
       size_t index = config.tool_handler_count++;
       session->tool_contexts[index].session = session;
@@ -338,6 +338,13 @@ int gzt_session_send_telemetry(
     return fail(errbuf, errbuf_len, "send telemetry", rc);
   }
   return GZC_OK;
+}
+
+int gzt_session_send_kv_telemetry(gzt_session_t *session, const gzc_telemetry_kv_frame_t *frame, char *errbuf, unsigned long errbuf_len) {
+  if (session == NULL || frame == NULL)
+    return fail(errbuf, errbuf_len, "send KV telemetry", GZC_ERR_INVALID_ARGUMENT);
+  int rc = gzc_client_send_kv_telemetry(session->client, frame);
+  return rc == GZC_OK ? GZC_OK : fail(errbuf, errbuf_len, "send KV telemetry", rc);
 }
 
 int gzt_session_send_ota_telemetry(
@@ -857,7 +864,7 @@ int gzt_control_request(
   gzc_control_friend_t friends[16];
   gzc_control_friend_t friend_value;
   gzc_control_friend_group_t friend_groups[16];
-  gzc_str_t tools[32];
+  gzc_str_t tools[48];
   gzc_str_t text;
   size_t count = 0;
   bool has_next = false;
@@ -874,6 +881,8 @@ int gzt_control_request(
     if (rc != GZC_OK && rc != GZC_ERR_HTTP) {
       return fail(errbuf, errbuf_len, "MHS control encode/decode", rc);
     }
+  } else if (invoke && (str_is(tool, "content.age.get") || str_is(tool, "content.age.set") || str_is(tool, "device.features.get") || str_is(tool, "device.feature.set") || str_is(tool, "usage.time.get") || str_is(tool, "usage.time.set") || str_is(tool, "ai.safety.get") || str_is(tool, "ai.safety.set") || str_is(tool, "management.password.get") || str_is(tool, "management.password.set") || str_is(tool, "management.password.reset"))) {
+    rc = gzc_control_invoke_device_tool(&control, &call, tool, body, &text);
   } else if (invoke && str_is(tool, "gnss.reporting.get")) {
     bool enabled = false;
     rc = gzc_control_get_device_gnss_reporting(&control, &call, &enabled);

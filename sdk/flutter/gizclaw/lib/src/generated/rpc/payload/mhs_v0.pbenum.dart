@@ -33,6 +33,8 @@ class ClientHwd extends $pb.ProtobufEnum {
       ClientHwd._(7, _omitEnumNames ? '' : 'CLIENT_HWD_LED');
   static const ClientHwd CLIENT_HWD_SPEAKER =
       ClientHwd._(8, _omitEnumNames ? '' : 'CLIENT_HWD_SPEAKER');
+  static const ClientHwd CLIENT_HWD_NFC =
+      ClientHwd._(9, _omitEnumNames ? '' : 'CLIENT_HWD_NFC');
 
   static const $core.List<ClientHwd> values = <ClientHwd>[
     CLIENT_HWD_UNSPECIFIED,
@@ -44,10 +46,11 @@ class ClientHwd extends $pb.ProtobufEnum {
     CLIENT_HWD_DISPLAY,
     CLIENT_HWD_LED,
     CLIENT_HWD_SPEAKER,
+    CLIENT_HWD_NFC,
   ];
 
   static final $core.List<ClientHwd?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 8);
+      $pb.ProtobufEnum.$_initByValueList(values, 9);
   static ClientHwd? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

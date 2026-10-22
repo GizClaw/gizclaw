@@ -151,6 +151,32 @@ typedef struct {
 int gzc_telemetry_encode_ota_frame(const gzc_telemetry_ota_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload);
 int gzc_client_send_ota_telemetry(gzc_client_t *client, const gzc_telemetry_ota_frame_t *frame);
 
+#define GZC_KV_KEY_MAX_BYTES 64
+#define GZC_KV_VALUE_MAX_BYTES 1024
+#define GZC_KV_FRAME_MAX_ENTRIES 16
+#define GZC_KV_FRAME_MAX_BYTES 4096
+#define GZC_KV_STORED_MAX_KEYS 64
+#define GZC_KV_STORED_MAX_BYTES 16384
+
+// Additive API preserves existing frame/observation ABI. All strings and the
+// array are borrowed for encode/send. delete_key requires empty json_value;
+// otherwise json_value is a complete JSON encoding (including "null").
+typedef struct {
+  int32_t observed_at_delta_ms;
+  gzc_str_t key;
+  gzc_str_t json_value;
+  bool delete_key;
+} gzc_telemetry_kv_t;
+typedef struct {
+  uint32_t sequence;
+  int64_t observed_at_unix_ms;
+  const gzc_telemetry_kv_t *entries;
+  size_t entry_count;
+} gzc_telemetry_kv_frame_t;
+
+int gzc_telemetry_encode_kv_frame(const gzc_telemetry_kv_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload);
+int gzc_client_send_kv_telemetry(gzc_client_t *client, const gzc_telemetry_kv_frame_t *frame);
+
 int gzc_telemetry_encode_frame(const gzc_telemetry_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload);
 int gzc_client_send_telemetry(gzc_client_t *client, const gzc_telemetry_frame_t *frame);
 

@@ -964,6 +964,8 @@ jobs:
         run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_tests.sh
       - name: Verify Workspace list filters across all SDKs
         run: xvfb-run -a bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+      - name: Verify management, MHS and KV contracts across SDKs
+        run: xvfb-run -a bash tests/gizclaw-e2e/run_device_management_tests.sh
 
   admission-docker-e2e:
     name: Admission Docker E2E

@@ -43,3 +43,8 @@ on a control response is dropped, and the observation time comes only from what 
 when it handled the observation.
 
 Validated OTA observations update queryable runtime OTA status through `StatusSync`, without payload logs or metrics; see [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for fields and SDK usage.
+
+KV observations enter StatusPatch.KV after complete frame validation. StatusSync calls PutReportedKV to
+atomically update the independent device-reported record; it neither interprets values nor creates metrics
+or payload logs. Storage quotas are checked before committing the complete KV batch. See
+[KV telemetry](/en/developing/api/proto/telemetry#device-reported-kv-state) for query projections and ordering.

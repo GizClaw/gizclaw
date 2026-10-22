@@ -2192,3 +2192,22 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 验收直接检查 Firmware 投影删除、Workspace 行与对象清理、每个 home 的 failed 自动恢复（不发 operator retry）、超过一页的 backlog 越过异常记录、重复扫描、显式重试、错误／未知 home、真实 Peer 替换、旧计划遗漏 home 数据和活跃／无关区域数据保留。runner 在 SQL owner-binding 删除被真实行锁阻塞后杀死 home Server，确认 running lease 保留，重启后验证过期租约恢复和启动时自动发现持久化的旧 failed；home 停机期间，另一地区保持该 failed 不变。另一个场景断开只读副本复制，验证管理选择与清理仍使用中央 writer。完成条件包含 marker、locator、plan、task 和索引实际消失，以及永久 tombstone、route 和 API Key retired fence 保留。
 
 这是没有 Memory binding 的删除验收；不证明 Mem0 Cloud、VolcMem0 或自托管 Mem0 provider 的删除，也不宣称 Social Workspace 所有区域副本已回收。无法证明这些范围的 Peer 计划必须保留并报告。已有 memory provider lanes 独立验证其 provider contract。运行只操作本次生成的 Compose project；退出时清理容器、卷、测试二进制与配置，日志证据保存在忽略的 `.testbench` 目录。
+
+## 通用设备管理协议 Giztest
+
+`tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
+凭据，执行 Go、JavaScript、C、Flutter 的协议验收。`TestDeviceManagementGiztestsGo` 包含：
+
+- `server.device.management.{control,rejected,unsupported,invalid_response,validation}`：所有 11 个
+  新增工具的发现、类型参数、明确 false/0、实际响应、错误映射和校验前拒绝；密码 reset 与恢复出厂独立。
+- `server.device.mhs.modem.control`、`server.device.mhs.nfc.control` 和
+  `server.device.mhs.management.invalid_response`：原字段兼容、unknown/false、实际开关结果、失败读卡缓存与无效响应。
+- `server.device.mhs.management.instances`：Go 的有状态实例 fixture 验证多个 Modem/NFC 独立，写一个
+  不影响其他实例，卡移开后保留最近尝试。这仍是硬件协议 simulator，不代表真机验收。
+- `server.device.telemetry.kv` 、`.limits`、`.bytes`、`.isolation`：嵌套 JSON/null/false/0、HTTP/Runtime/RPC、覆盖/删除、
+  迟到重放、重连、64 key 配额、精确 4096-byte frame、1024-byte value、64-byte key、总字节配额及删除墓碑计费。发送后轮询状态，不能把 send 成功当持久化确认。
+
+所有公共控制场景由四种 runner 运行；KV 通过 Go/JS/C 真实 packet channel 发送，Flutter 沿用没有
+Telemetry 发送面的边界。有状态 MHS simulator 仅由 Go runner 运行。每个选中的场景必须执行全部
+step 和 cleanup；缺 runner、skipped、断言失败或清理失败都会使该验收 lane 失败。SQL 重启持久性、
+严格字节边界和跨 Server 管理员签名隔离另由 Runtime/服务端行为回归覆盖。

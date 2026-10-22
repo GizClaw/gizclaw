@@ -1077,7 +1077,7 @@ export type VolcMem0Strategy = {
 
 export type MhsV0Device = {
     id: string;
-    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker';
+    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker' | 'nfc';
     description?: string;
     tags?: Array<string>;
 };
@@ -1308,6 +1308,25 @@ export type PeerRegistrationStatus = 'unspecified' | 'active' | 'blocked';
 
 export type PeerRole = 'unspecified' | 'admin' | 'server' | 'edge-node' | 'client';
 
+export type PeerKvEntry = {
+    /**
+     * Any legal JSON value, including null. At most 1024 UTF-8 encoded bytes.
+     */
+    value: unknown;
+    observed_at: string;
+    /**
+     * Lossless JSON encoding of value, at most 1024 UTF-8 bytes. Use for exact numbers or raw rendering.
+     */
+    json_value: string;
+};
+
+/**
+ * Device self-reported latest JSON values. Missing key is absent or deleted; value:null is reported null. No authority or online fields are derived from this map.
+ */
+export type PeerReportedKv = {
+    [key: string]: PeerKvEntry;
+};
+
 /**
  * Bucket aggregate mode for peer telemetry range data.
  */
@@ -1461,6 +1480,7 @@ export type Runtime = {
      * Workspace selected for the device that it has not committed yet, for example after server.run.workspace.set and before the device commits it through server.run.workspace.reload-with-options. Omitted when no switch is pending.
      */
     pending_workspace_name?: string;
+    reported_kv?: PeerReportedKv;
 };
 
 export type RuntimeProfile = {

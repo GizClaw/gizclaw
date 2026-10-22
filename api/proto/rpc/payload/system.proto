@@ -228,6 +228,7 @@ message PeerStatus {
   optional double wifi_rssi_dbm = 21;
   optional double cellular_rssi_dbm = 22;
   optional double cellular_signal_level = 23;
+  map<string, PeerKVEntry> reported_kv = 24;
 }
 
 // PeerStatusTelemetryObservedAt records when the device observed the value now
@@ -342,6 +343,7 @@ message Runtime {
   optional uint64 tx_bytes = 5;
   optional string active_workspace_name = 7;
   optional string pending_workspace_name = 8;
+  map<string, PeerKVEntry> reported_kv = 9;
 }
 
 message ServerGetInfoRequest {
@@ -404,4 +406,11 @@ message ServerPutRuntimeRequest {
 
 message ServerPutRuntimeResponse {
   string debug_mode = 1;
+}
+
+// JSON codecs expose json_value as a typed JSON value named value. The wire
+// stays bounded and does not require a recursive protobuf Value allocator.
+message PeerKVEntry {
+  string json_value = 1;
+  string observed_at = 2; // RFC 3339 observation time.
 }

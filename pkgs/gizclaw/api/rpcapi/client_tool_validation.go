@@ -18,6 +18,9 @@ func ValidateClientToolRequest(message proto.Message) error {
 	if message == nil {
 		return fmt.Errorf("rpc: missing tool arguments")
 	}
+	if err := ValidateManagementRequest(message); err != nil {
+		return err
+	}
 	invalid := fmt.Errorf("rpc: invalid tool arguments")
 	text := func(value string, max int) bool {
 		return value != "" && len(value) <= max && utf8.ValidString(value) && !strings.ContainsRune(value, 0)

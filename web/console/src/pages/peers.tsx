@@ -65,12 +65,13 @@ export function PeersPage({
       };
     }),
   });
-  const add = (publicKey: string, label: string) =>
+  const add = (publicKey: string, label: string, signedBearer?: string) =>
     onAdd({
       publicKey: normalizePublicKey(publicKey),
       label: label.trim(),
       endpoint,
       addedAt: Date.now(),
+      ...(signedBearer ? { signedBearer: signedBearer.trim() } : {}),
     });
   return (
     <>
@@ -196,16 +197,18 @@ export function PeersPage({
 function AddPeerCard({
   onAdd,
 }: {
-  onAdd: (publicKey: string, label: string) => void;
+  onAdd: (publicKey: string, label: string, signedBearer?: string) => void;
 }) {
   const [publicKey, setPublicKey] = useState("");
   const [label, setLabel] = useState("");
+  const [signedBearer, setSignedBearer] = useState("");
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (normalizePublicKey(publicKey) === "") return;
-    onAdd(publicKey, label);
+    onAdd(publicKey, label, signedBearer);
     setPublicKey("");
     setLabel("");
+    setSignedBearer("");
   };
   return (
     <Card>
@@ -213,7 +216,7 @@ function AddPeerCard({
         <CardTitle>添加设备</CardTitle>
         <CardDescription>
           用设备公钥关注一台设备；不知道公钥时，用下面的搜索按 SN 或 IMEI
-          找到它。
+          找到它。使用管理员签名凭证可读取离线快照，无需开启设备调试；凭证到期后重新添加即可更新。
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -225,6 +228,15 @@ function AddPeerCard({
             onChange={(event) => setPublicKey(event.target.value)}
             placeholder="gizclaw_pk_…"
             className="w-96 font-mono"
+          />
+          <Input
+            type="password"
+            aria-label="设备签名凭证"
+            autoComplete="off"
+            placeholder="目标绑定的签名 Bearer（可选）"
+            value={signedBearer}
+            onChange={(event) => setSignedBearer(event.target.value)}
+            className="w-96"
           />
           <Input
             aria-label="备注名称"

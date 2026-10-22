@@ -177,6 +177,79 @@ class GizClawControlClient {
     }
   }
 
+  /// Typed management procedures; discover installed tools before calling.
+  Future<ContentAgeState> getContentAge() => _tool(
+    'content.age.get',
+    (v) => ContentAgeState.fromJson(asJsonObject(v, 'content age')['state']),
+    operation: 'getContentAge',
+  );
+  Future<ContentAgeState> setContentAge(String optionId) => _tool(
+    'content.age.set',
+    (v) => ContentAgeState.fromJson(asJsonObject(v, 'content age')['applied']),
+    body: {'option_id': optionId},
+    operation: 'setContentAge',
+  );
+  Future<List<DeviceFeature>> getFeatures() => _tool(
+    'device.features.get',
+    (v) => readList(
+      asJsonObject(v, 'features'),
+      'features',
+      DeviceFeature.fromJson,
+    ),
+    operation: 'getFeatures',
+  );
+  Future<DeviceFeature> setFeature(String featureId, bool enabled) => _tool(
+    'device.feature.set',
+    (v) => DeviceFeature.fromJson(asJsonObject(v, 'feature')['applied']),
+    body: {'feature_id': featureId, 'enabled': enabled},
+    operation: 'setFeature',
+  );
+  Future<UsageTimeState> getUsageTime() => _tool(
+    'usage.time.get',
+    (v) => UsageTimeState.fromJson(asJsonObject(v, 'usage time')['state']),
+    operation: 'getUsageTime',
+  );
+  Future<UsageTimeState> setUsageTime(int limitSeconds) => _tool(
+    'usage.time.set',
+    (v) => UsageTimeState.fromJson(asJsonObject(v, 'usage time')['applied']),
+    body: {'limit_seconds': limitSeconds},
+    operation: 'setUsageTime',
+  );
+  Future<AISafetyState> getAISafety() => _tool(
+    'ai.safety.get',
+    (v) => AISafetyState.fromJson(asJsonObject(v, 'AI safety')['state']),
+    operation: 'getAISafety',
+  );
+  Future<AISafetyState> setAISafety(String level) => _tool(
+    'ai.safety.set',
+    (v) => AISafetyState.fromJson(asJsonObject(v, 'AI safety')['applied']),
+    body: {'level': level},
+    operation: 'setAISafety',
+  );
+  Future<bool> getManagementPassword() => _tool(
+    'management.password.get',
+    (v) => readBool(asJsonObject(v, 'password state'), 'is_set'),
+    operation: 'getManagementPassword',
+  );
+  Future<bool> setManagementPassword(String password) => _tool(
+    'management.password.set',
+    (v) => _passwordResult(v, true),
+    body: {'password': password},
+    operation: 'setManagementPassword',
+  );
+  Future<bool> resetManagementPassword() => _tool(
+    'management.password.reset',
+    (v) => _passwordResult(v, false),
+    operation: 'resetManagementPassword',
+  );
+  static bool _passwordResult(Object? value, bool expected) {
+    final actual = readBool(asJsonObject(value, 'password state'), 'is_set');
+    if (actual != expected) {
+      throw const FormatException('invalid applied password state');
+    }
+    return actual;
+  }
+
   /// `POST /gizclaw/v1/device/tool/v0/invoke`.
   /// Reads the switch from the online device.
   Future<bool> getDeviceGnssReporting() => _tool(

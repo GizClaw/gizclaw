@@ -325,3 +325,25 @@ Loss and incomplete samples are expected; this is not traffic accounting. Only
 configured infrastructure routes and retained sample values are included, without
 device, user, session or credential dimensions. See [Infra Flow](infra-flow#real-activity-collection-and-ownership)
 for coverage, configuration and lifecycle.
+
+## Offline KV snapshots
+
+Device detail displays each reported KV key and observation time, with expandable JSON. Null, false and
+zero are present values; no entries displays a no-data message. It reads reported_kv from existing device
+status/runtime APIs, backed by the same durable Runtime record, including offline devices. Raw JSON encodings
+are used for display so numeric values are not rewritten by JS floating-point conversion.
+
+The add-device form and imported peers support signedBearer: an existing target-bound signed Peer HTTP token.
+[Signed Bearer authentication](/en/using/api#signed-bearer-authentication) reuses Edge target routing and live
+Server authorization; Admin reads and Client self-reads do not depend on device debug mode. A token for A
+cannot be configured for B. Tokens last at most five minutes: re-sign locally and re-add the same device to
+refresh; never import the private key. Tokens are stored with encrypted personal configuration and excluded
+from page diagnostics. Without a signature the existing public-key/debug mode remains. Node Monitor Tokens
+do not grant device access.
+
+
+Device configuration reads each Modem/NFC cached snapshot and only the advertised content-age, features,
+usage-time, AI-safety and password-state Get tools. Each instance/query reports errors independently and
+preserves missing versus false/zero. It never calls Set, password reset or factory reset. The device's
+signed credential authorizes these reads. Offline KV snapshots remain available; MHS/Invoke report offline
+when a live provider is needed. Queries run only on opening/refreshing the tab with bounded concurrency.

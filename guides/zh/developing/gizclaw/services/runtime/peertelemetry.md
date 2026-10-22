@@ -40,3 +40,7 @@ Activity observation 的 `activity` 与可选 `detail` 一起进入 `StatusPatch
 观测时间只来自 Server 处理该次观测时的记录。
 
 OTA observation 校验后由 `StatusSync` 写入可查询的 runtime OTA 状态，不记录 payload 日志，也不映射为 metrics；字段和 SDK 用法见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。
+
+KV observation 校验完整帧后加入 `StatusPatch.KV`，由 `StatusSync` 通过 `PutReportedKV` 原子写入
+独立的设备自报状态；不生成指标，不解析 value，不输出 key/value 日志。所有 KV 更新在检查累计
+容量后一起提交。查询投影、删除墓碑和时间排序见 [KV 自报状态](/zh/developing/api/proto/telemetry#kv-自报状态)。

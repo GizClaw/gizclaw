@@ -1,0 +1,434 @@
+# User Story:
+# As a GizClaw device operator,
+# I want to exercise server.device.telemetry.kv.limits,
+# So that the protocol is verified over real Server and SDK transports.
+version: gizclaw.test/v1alpha1
+name: server.device.telemetry.kv.limits
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: batch_0
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000000000"
+        observations:
+          - kv:
+              key: k0
+              json_value: "0"
+          - kv:
+              key: k1
+              json_value: "0"
+          - kv:
+              key: k2
+              json_value: "0"
+          - kv:
+              key: k3
+              json_value: "0"
+          - kv:
+              key: k4
+              json_value: "0"
+          - kv:
+              key: k5
+              json_value: "0"
+          - kv:
+              key: k6
+              json_value: "0"
+          - kv:
+              key: k7
+              json_value: "0"
+          - kv:
+              key: k8
+              json_value: "0"
+          - kv:
+              key: k9
+              json_value: "0"
+          - kv:
+              key: k10
+              json_value: "0"
+          - kv:
+              key: k11
+              json_value: "0"
+          - kv:
+              key: k12
+              json_value: "0"
+          - kv:
+              key: k13
+              json_value: "0"
+          - kv:
+              key: k14
+              json_value: "0"
+          - kv:
+              key: k15
+              json_value: "0"
+  - id: batch_1
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000000000"
+        observations:
+          - kv:
+              key: k16
+              json_value: "0"
+          - kv:
+              key: k17
+              json_value: "0"
+          - kv:
+              key: k18
+              json_value: "0"
+          - kv:
+              key: k19
+              json_value: "0"
+          - kv:
+              key: k20
+              json_value: "0"
+          - kv:
+              key: k21
+              json_value: "0"
+          - kv:
+              key: k22
+              json_value: "0"
+          - kv:
+              key: k23
+              json_value: "0"
+          - kv:
+              key: k24
+              json_value: "0"
+          - kv:
+              key: k25
+              json_value: "0"
+          - kv:
+              key: k26
+              json_value: "0"
+          - kv:
+              key: k27
+              json_value: "0"
+          - kv:
+              key: k28
+              json_value: "0"
+          - kv:
+              key: k29
+              json_value: "0"
+          - kv:
+              key: k30
+              json_value: "0"
+          - kv:
+              key: k31
+              json_value: "0"
+  - id: batch_2
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000000000"
+        observations:
+          - kv:
+              key: k32
+              json_value: "0"
+          - kv:
+              key: k33
+              json_value: "0"
+          - kv:
+              key: k34
+              json_value: "0"
+          - kv:
+              key: k35
+              json_value: "0"
+          - kv:
+              key: k36
+              json_value: "0"
+          - kv:
+              key: k37
+              json_value: "0"
+          - kv:
+              key: k38
+              json_value: "0"
+          - kv:
+              key: k39
+              json_value: "0"
+          - kv:
+              key: k40
+              json_value: "0"
+          - kv:
+              key: k41
+              json_value: "0"
+          - kv:
+              key: k42
+              json_value: "0"
+          - kv:
+              key: k43
+              json_value: "0"
+          - kv:
+              key: k44
+              json_value: "0"
+          - kv:
+              key: k45
+              json_value: "0"
+          - kv:
+              key: k46
+              json_value: "0"
+          - kv:
+              key: k47
+              json_value: "0"
+  - id: batch_3
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000000000"
+        observations:
+          - kv:
+              key: k48
+              json_value: "0"
+          - kv:
+              key: k49
+              json_value: "0"
+          - kv:
+              key: k50
+              json_value: "0"
+          - kv:
+              key: k51
+              json_value: "0"
+          - kv:
+              key: k52
+              json_value: "0"
+          - kv:
+              key: k53
+              json_value: "0"
+          - kv:
+              key: k54
+              json_value: "0"
+          - kv:
+              key: k55
+              json_value: "0"
+          - kv:
+              key: k56
+              json_value: "0"
+          - kv:
+              key: k57
+              json_value: "0"
+          - kv:
+              key: k58
+              json_value: "0"
+          - kv:
+              key: k59
+              json_value: "0"
+          - kv:
+              key: k60
+              json_value: "0"
+          - kv:
+              key: k61
+              json_value: "0"
+          - kv:
+              key: k62
+              json_value: "0"
+          - kv:
+              key: k63
+              json_value: "0"
+  - id: wait_full
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/k63/json_value:
+        equals: "0"
+  - id: overwrite_full
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000001000"
+        observations:
+          - kv:
+              key: k0
+              json_value: "false"
+  - id: wait_overwrite
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/k0/json_value:
+        equals: "false"
+  - id: over_key_limit
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000002000"
+        observations:
+          - kv:
+              key: overflow
+              json_value: "true"
+          - kv:
+              key: k0
+              json_value: "true"
+  - id: accepted_barrier
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000003000"
+        observations:
+          - kv:
+              key: k63
+              json_value: "true"
+  - id: wait_barrier
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/k63/json_value:
+        equals: "true"
+  - id: over_limit_atomic
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /reported_kv/overflow:
+        present: false
+      /reported_kv/k0/value:
+        equals: false
+  - id: delete_at_capacity
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000004000"
+        observations:
+          - kv:
+              key: k0
+              delete: true
+  - id: marker_after_delete
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000005000"
+        observations:
+          - kv:
+              key: k63
+              json_value: "false"
+  - id: wait_after_delete
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/k63/json_value:
+        equals: "false"
+  - id: tombstone
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /reported_kv/k0:
+        present: false
+  - id: cannot_reuse_tombstone_capacity
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000006000"
+        observations:
+          - kv:
+              key: another
+              json_value: "0"
+  - id: final_marker
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000007000"
+        observations:
+          - kv:
+              key: k63
+              json_value: "true"
+  - id: wait_final
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/k63/json_value:
+        equals: "true"
+  - id: bounded_deleted_key
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /reported_kv/another:
+        present: false
+      /reported_kv/k0:
+        present: false
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

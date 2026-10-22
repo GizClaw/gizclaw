@@ -33,6 +33,24 @@ PB_BIND(gizclaw_rpc_v1_BleHwdReadResponse, gizclaw_rpc_v1_BleHwdReadResponse, AU
 PB_BIND(gizclaw_rpc_v1_ModemHwdReadResponse, gizclaw_rpc_v1_ModemHwdReadResponse, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_ModemHwdWriteRequest, gizclaw_rpc_v1_ModemHwdWriteRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_ModemHwdWriteResponse, gizclaw_rpc_v1_ModemHwdWriteResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_NfcReadSnapshot, gizclaw_rpc_v1_NfcReadSnapshot, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_NfcHwdReadResponse, gizclaw_rpc_v1_NfcHwdReadResponse, 2)
+
+
+PB_BIND(gizclaw_rpc_v1_NfcHwdWriteRequest, gizclaw_rpc_v1_NfcHwdWriteRequest, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_NfcHwdWriteResponse, gizclaw_rpc_v1_NfcHwdWriteResponse, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_BatteryHwdReadResponse, gizclaw_rpc_v1_BatteryHwdReadResponse, AUTO)
 
 

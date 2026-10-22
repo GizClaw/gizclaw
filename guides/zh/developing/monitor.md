@@ -79,7 +79,7 @@ Telemetry 分两类：指标字段（`battery.*`、`network.rssi_dbm`、`network
 设备详情页顶部另有一行概览：当前活动（`activity`、`activity_detail`）、固件版本、网络信号（Wi‑Fi
 或蜂窝，取最近一次观测）与当前 Workspace（`Runtime.active_workspace_name`，切换中时显示
 `pending_workspace_name`）。“设备配置”页在打开时并行读取设备设置、开放给控制 App 的 Tool 与设备
-能力列表，每部分独立显示离线、不支持或错误。该页只读：恢复出厂、修改设置、切换 Workspace 与调用
+能力列表，每部分独立显示离线、不支持或错误。该页只读：恢复出厂、修改设置、切换 Workspace 与调用会修改状态的
 Tool 属于设备 owner 的控制 App，监控台使用的设备公钥通常没有这些权限。
 
 ## 构建与验证
@@ -228,3 +228,22 @@ console 构建时把它们打包成单独的 chunk，助手第一次调用 `sear
 同时按整体和各段匹配。每条结果带文档标题、章节和它在 https://gizclaw.github.io/gizclaw/ 上的页面
 地址。解释错误码、调试模式、配置项等概念时助手先检索文档，按文档回答并附上链接。知识库随代码一起
 更新，不能在浏览器里导入或修改。
+
+## KV 离线快照
+
+设备详情显示“设备自报 KV”，每 key 展示观测时间，可展开对象或数组；null、false 和 0 都显示为
+已上报的值，无条目时显示“暂无自报数据”。数据来自原 `/device/status` 和 `/device/runtime` 的
+`reported_kv`，两者共用同一 Runtime SQL 记录，离线仍返回最后快照。
+
+添加设备时可填写目标绑定的签名 Bearer，配置的 peers 项也接受 `signedBearer`。它沿用
+[签名 Bearer 认证](/zh/using/api#签名-bearer-认证)，Edge 按签名目标寻址，Server 验证调用者当前
+Admin 权限或 Client 自读权限，不依赖设备 debug mode。签名包含目标公钥，SDK 拒绝把目标 A 的
+凭证配置给 B。签名最长有效 5 分钟，到期重新签发并添加同一设备更新凭证；私钥不导入页面。
+签名凭证与个人配置一起在浏览器加密保存，不放入页面诊断上下文。未提供签名时保留原公钥 debug
+读取模式；Monitor Token 仍只用于节点数据，不授予设备数据权限。
+
+
+设备配置页读取各 Modem/NFC 实例的缓存状态，并只调用 tool list 明确声明的内容年龄、设备功能、
+使用时长、AI 安全等级及管理密码状态 Get 工具。各实例和查询独立显示错误，未报告与 false/0 区分；
+不调用任何 Set、密码 reset 或恢复出厂。它沿用该设备的签名凭证；设备离线时仍可读 KV 快照，
+需要设备响应的 MHS/Invoke 查询则明确显示离线。只在打开配置页或显式刷新时查询，并限制并发数。

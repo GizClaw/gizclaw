@@ -163,10 +163,11 @@ func lookupProvider(name string) (methodInfo, error) {
 	}
 	return lookupMethod(name)
 }
-func (p *clientRPCProvider) installedMasks() (uint32, uint32) {
+func (p *clientRPCProvider) installedMasks() (uint64, uint32) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	var tools, mhs uint32
+	var tools uint64
+	var mhs uint32
 	for name, response := range p.responses {
 		if object, ok := response.(map[string]any); ok {
 			if unavailable, _ := object["unavailable"].(bool); unavailable {
@@ -174,7 +175,7 @@ func (p *clientRPCProvider) installedMasks() (uint32, uint32) {
 			}
 		}
 		if tool, err := rpcapi.ClientToolByName(name); err == nil {
-			tools |= 1 << uint32(tool)
+			tools |= 1 << uint64(tool)
 		}
 		if name == "client.mhs.v0.read" {
 			mhs |= 1

@@ -1783,9 +1783,10 @@ type PeerStatus struct {
 	// is wifi sets the Wi-Fi RSSI, any other rat sets the cellular RSSI and the
 	// device-defined cellular signal level. One without rat names no route and
 	// stays a metric only.
-	WifiRssiDbm         *float64 `protobuf:"fixed64,21,opt,name=wifi_rssi_dbm,json=wifiRssiDbm,proto3,oneof" json:"wifi_rssi_dbm,omitempty"`
-	CellularRssiDbm     *float64 `protobuf:"fixed64,22,opt,name=cellular_rssi_dbm,json=cellularRssiDbm,proto3,oneof" json:"cellular_rssi_dbm,omitempty"`
-	CellularSignalLevel *float64 `protobuf:"fixed64,23,opt,name=cellular_signal_level,json=cellularSignalLevel,proto3,oneof" json:"cellular_signal_level,omitempty"`
+	WifiRssiDbm         *float64                `protobuf:"fixed64,21,opt,name=wifi_rssi_dbm,json=wifiRssiDbm,proto3,oneof" json:"wifi_rssi_dbm,omitempty"`
+	CellularRssiDbm     *float64                `protobuf:"fixed64,22,opt,name=cellular_rssi_dbm,json=cellularRssiDbm,proto3,oneof" json:"cellular_rssi_dbm,omitempty"`
+	CellularSignalLevel *float64                `protobuf:"fixed64,23,opt,name=cellular_signal_level,json=cellularSignalLevel,proto3,oneof" json:"cellular_signal_level,omitempty"`
+	ReportedKv          map[string]*PeerKVEntry `protobuf:"bytes,24,rep,name=reported_kv,json=reportedKv,proto3" json:"reported_kv,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -1972,6 +1973,13 @@ func (x *PeerStatus) GetCellularSignalLevel() float64 {
 		return *x.CellularSignalLevel
 	}
 	return 0
+}
+
+func (x *PeerStatus) GetReportedKv() map[string]*PeerKVEntry {
+	if x != nil {
+		return x.ReportedKv
+	}
+	return nil
 }
 
 // PeerStatusTelemetryObservedAt records when the device observed the value now
@@ -2974,15 +2982,16 @@ func (*ServerPeerDeleteResponse) Descriptor() ([]byte, []int) {
 }
 
 type Runtime struct {
-	state                protoimpl.MessageState `protogen:"open.v1"`
-	DebugMode            *string                `protobuf:"bytes,6,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
-	LastAddr             *string                `protobuf:"bytes,1,opt,name=last_addr,json=lastAddr,proto3,oneof" json:"last_addr,omitempty"`
-	LastSeenAt           string                 `protobuf:"bytes,2,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
-	Online               bool                   `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`
-	RxBytes              *uint64                `protobuf:"varint,4,opt,name=rx_bytes,json=rxBytes,proto3,oneof" json:"rx_bytes,omitempty"`
-	TxBytes              *uint64                `protobuf:"varint,5,opt,name=tx_bytes,json=txBytes,proto3,oneof" json:"tx_bytes,omitempty"`
-	ActiveWorkspaceName  *string                `protobuf:"bytes,7,opt,name=active_workspace_name,json=activeWorkspaceName,proto3,oneof" json:"active_workspace_name,omitempty"`
-	PendingWorkspaceName *string                `protobuf:"bytes,8,opt,name=pending_workspace_name,json=pendingWorkspaceName,proto3,oneof" json:"pending_workspace_name,omitempty"`
+	state                protoimpl.MessageState  `protogen:"open.v1"`
+	DebugMode            *string                 `protobuf:"bytes,6,opt,name=debug_mode,json=debugMode,proto3,oneof" json:"debug_mode,omitempty"`
+	LastAddr             *string                 `protobuf:"bytes,1,opt,name=last_addr,json=lastAddr,proto3,oneof" json:"last_addr,omitempty"`
+	LastSeenAt           string                  `protobuf:"bytes,2,opt,name=last_seen_at,json=lastSeenAt,proto3" json:"last_seen_at,omitempty"`
+	Online               bool                    `protobuf:"varint,3,opt,name=online,proto3" json:"online,omitempty"`
+	RxBytes              *uint64                 `protobuf:"varint,4,opt,name=rx_bytes,json=rxBytes,proto3,oneof" json:"rx_bytes,omitempty"`
+	TxBytes              *uint64                 `protobuf:"varint,5,opt,name=tx_bytes,json=txBytes,proto3,oneof" json:"tx_bytes,omitempty"`
+	ActiveWorkspaceName  *string                 `protobuf:"bytes,7,opt,name=active_workspace_name,json=activeWorkspaceName,proto3,oneof" json:"active_workspace_name,omitempty"`
+	PendingWorkspaceName *string                 `protobuf:"bytes,8,opt,name=pending_workspace_name,json=pendingWorkspaceName,proto3,oneof" json:"pending_workspace_name,omitempty"`
+	ReportedKv           map[string]*PeerKVEntry `protobuf:"bytes,9,rep,name=reported_kv,json=reportedKv,proto3" json:"reported_kv,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -3071,6 +3080,13 @@ func (x *Runtime) GetPendingWorkspaceName() string {
 		return *x.PendingWorkspaceName
 	}
 	return ""
+}
+
+func (x *Runtime) GetReportedKv() map[string]*PeerKVEntry {
+	if x != nil {
+		return x.ReportedKv
+	}
+	return nil
 }
 
 type ServerGetInfoRequest struct {
@@ -3669,6 +3685,60 @@ func (x *ServerPutRuntimeResponse) GetDebugMode() string {
 	return ""
 }
 
+// JSON codecs expose json_value as a typed JSON value named value. The wire
+// stays bounded and does not require a recursive protobuf Value allocator.
+type PeerKVEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	JsonValue     string                 `protobuf:"bytes,1,opt,name=json_value,json=jsonValue,proto3" json:"json_value,omitempty"`
+	ObservedAt    string                 `protobuf:"bytes,2,opt,name=observed_at,json=observedAt,proto3" json:"observed_at,omitempty"` // RFC 3339 observation time.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PeerKVEntry) Reset() {
+	*x = PeerKVEntry{}
+	mi := &file_payload_system_proto_msgTypes[69]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PeerKVEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PeerKVEntry) ProtoMessage() {}
+
+func (x *PeerKVEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_system_proto_msgTypes[69]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PeerKVEntry.ProtoReflect.Descriptor instead.
+func (*PeerKVEntry) Descriptor() ([]byte, []int) {
+	return file_payload_system_proto_rawDescGZIP(), []int{69}
+}
+
+func (x *PeerKVEntry) GetJsonValue() string {
+	if x != nil {
+		return x.JsonValue
+	}
+	return ""
+}
+
+func (x *PeerKVEntry) GetObservedAt() string {
+	if x != nil {
+		return x.ObservedAt
+	}
+	return ""
+}
+
 var File_payload_system_proto protoreflect.FileDescriptor
 
 const file_payload_system_proto_rawDesc = "" +
@@ -3795,7 +3865,7 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x11_download_percentB\x11\n" +
 	"\x0f_target_versionB\r\n" +
 	"\v_error_codeB\x10\n" +
-	"\x0e_error_message\"\xcf\v\n" +
+	"\x0e_error_message\"\xf8\f\n" +
 	"\n" +
 	"PeerStatus\x124\n" +
 	"\x03ota\x18\r \x01(\v2\x1d.gizclaw.rpc.v1.PeerOtaStatusH\x00R\x03ota\x88\x01\x01\x12,\n" +
@@ -3822,10 +3892,15 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x10firmware_version\x18\x14 \x01(\tH\x11R\x0ffirmwareVersion\x88\x01\x01\x12'\n" +
 	"\rwifi_rssi_dbm\x18\x15 \x01(\x01H\x12R\vwifiRssiDbm\x88\x01\x01\x12/\n" +
 	"\x11cellular_rssi_dbm\x18\x16 \x01(\x01H\x13R\x0fcellularRssiDbm\x88\x01\x01\x127\n" +
-	"\x15cellular_signal_level\x18\x17 \x01(\x01H\x14R\x13cellularSignalLevel\x88\x01\x01\x1a9\n" +
+	"\x15cellular_signal_level\x18\x17 \x01(\x01H\x14R\x13cellularSignalLevel\x88\x01\x01\x12K\n" +
+	"\vreported_kv\x18\x18 \x03(\v2*.gizclaw.rpc.v1.PeerStatus.ReportedKvEntryR\n" +
+	"reportedKv\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01B\x06\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aZ\n" +
+	"\x0fReportedKvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
+	"\x05value\x18\x02 \x01(\v2\x1b.gizclaw.rpc.v1.PeerKVEntryR\x05value:\x028\x01B\x06\n" +
 	"\x04_otaB\x12\n" +
 	"\x10_battery_percentB\v\n" +
 	"\t_chargingB\x12\n" +
@@ -3932,7 +4007,7 @@ const file_payload_system_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\"\x16\n" +
 	"\x14APIKeyRevokeResponse\"\x19\n" +
 	"\x17ServerPeerDeleteRequest\"\x1a\n" +
-	"\x18ServerPeerDeleteResponse\"\xa9\x03\n" +
+	"\x18ServerPeerDeleteResponse\"\xcf\x04\n" +
 	"\aRuntime\x12\"\n" +
 	"\n" +
 	"debug_mode\x18\x06 \x01(\tH\x00R\tdebugMode\x88\x01\x01\x12 \n" +
@@ -3943,7 +4018,12 @@ const file_payload_system_proto_rawDesc = "" +
 	"\brx_bytes\x18\x04 \x01(\x04H\x02R\arxBytes\x88\x01\x01\x12\x1e\n" +
 	"\btx_bytes\x18\x05 \x01(\x04H\x03R\atxBytes\x88\x01\x01\x127\n" +
 	"\x15active_workspace_name\x18\a \x01(\tH\x04R\x13activeWorkspaceName\x88\x01\x01\x129\n" +
-	"\x16pending_workspace_name\x18\b \x01(\tH\x05R\x14pendingWorkspaceName\x88\x01\x01B\r\n" +
+	"\x16pending_workspace_name\x18\b \x01(\tH\x05R\x14pendingWorkspaceName\x88\x01\x01\x12H\n" +
+	"\vreported_kv\x18\t \x03(\v2'.gizclaw.rpc.v1.Runtime.ReportedKvEntryR\n" +
+	"reportedKv\x1aZ\n" +
+	"\x0fReportedKvEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
+	"\x05value\x18\x02 \x01(\v2\x1b.gizclaw.rpc.v1.PeerKVEntryR\x05value:\x028\x01B\r\n" +
 	"\v_debug_modeB\f\n" +
 	"\n" +
 	"_last_addrB\v\n" +
@@ -3982,7 +4062,12 @@ const file_payload_system_proto_rawDesc = "" +
 	"debug_mode\x18\x01 \x01(\tR\tdebugMode\"9\n" +
 	"\x18ServerPutRuntimeResponse\x12\x1d\n" +
 	"\n" +
-	"debug_mode\x18\x01 \x01(\tR\tdebugModeB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
+	"debug_mode\x18\x01 \x01(\tR\tdebugMode\"M\n" +
+	"\vPeerKVEntry\x12\x1d\n" +
+	"\n" +
+	"json_value\x18\x01 \x01(\tR\tjsonValue\x12\x1f\n" +
+	"\vobserved_at\x18\x02 \x01(\tR\n" +
+	"observedAtB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
 var (
 	file_payload_system_proto_rawDescOnce sync.Once
@@ -3996,7 +4081,7 @@ func file_payload_system_proto_rawDescGZIP() []byte {
 	return file_payload_system_proto_rawDescData
 }
 
-var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 70)
+var file_payload_system_proto_msgTypes = make([]protoimpl.MessageInfo, 73)
 var file_payload_system_proto_goTypes = []any{
 	(*ClientGetIdentifiersRequest)(nil),      // 0: gizclaw.rpc.v1.ClientGetIdentifiersRequest
 	(*ClientGetIdentifiersResponse)(nil),     // 1: gizclaw.rpc.v1.ClientGetIdentifiersResponse
@@ -4067,17 +4152,20 @@ var file_payload_system_proto_goTypes = []any{
 	(*SpeedTestResponse)(nil),                // 66: gizclaw.rpc.v1.SpeedTestResponse
 	(*ServerPutRuntimeRequest)(nil),          // 67: gizclaw.rpc.v1.ServerPutRuntimeRequest
 	(*ServerPutRuntimeResponse)(nil),         // 68: gizclaw.rpc.v1.ServerPutRuntimeResponse
-	nil,                                      // 69: gizclaw.rpc.v1.PeerStatus.LabelsEntry
-	(ClientHwd)(0),                           // 70: gizclaw.rpc.v1.ClientHwd
-	(RpcMethod)(0),                           // 71: gizclaw.rpc.v1.RpcMethod
-	(*AudioPlayerStatus)(nil),                // 72: gizclaw.rpc.v1.AudioPlayerStatus
+	(*PeerKVEntry)(nil),                      // 69: gizclaw.rpc.v1.PeerKVEntry
+	nil,                                      // 70: gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	nil,                                      // 71: gizclaw.rpc.v1.PeerStatus.ReportedKvEntry
+	nil,                                      // 72: gizclaw.rpc.v1.Runtime.ReportedKvEntry
+	(ClientHwd)(0),                           // 73: gizclaw.rpc.v1.ClientHwd
+	(RpcMethod)(0),                           // 74: gizclaw.rpc.v1.RpcMethod
+	(*AudioPlayerStatus)(nil),                // 75: gizclaw.rpc.v1.AudioPlayerStatus
 }
 var file_payload_system_proto_depIdxs = []int32{
 	31, // 0: gizclaw.rpc.v1.ClientGetIdentifiersResponse.value:type_name -> gizclaw.rpc.v1.DeviceIdentifiers
 	32, // 1: gizclaw.rpc.v1.ClientGetInfoResponse.value:type_name -> gizclaw.rpc.v1.HardwareInfo
 	36, // 2: gizclaw.rpc.v1.ClientDeviceStatusGetResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	70, // 3: gizclaw.rpc.v1.MhsV0InstanceCapability.hwd:type_name -> gizclaw.rpc.v1.ClientHwd
-	71, // 4: gizclaw.rpc.v1.ClientRpcMethodsListResponse.methods:type_name -> gizclaw.rpc.v1.RpcMethod
+	73, // 3: gizclaw.rpc.v1.MhsV0InstanceCapability.hwd:type_name -> gizclaw.rpc.v1.ClientHwd
+	74, // 4: gizclaw.rpc.v1.ClientRpcMethodsListResponse.methods:type_name -> gizclaw.rpc.v1.RpcMethod
 	13, // 5: gizclaw.rpc.v1.ClientRpcMethodsListResponse.mhs_v0:type_name -> gizclaw.rpc.v1.MhsV0InstanceCapability
 	19, // 6: gizclaw.rpc.v1.ClientWifiSavedListResponse.networks:type_name -> gizclaw.rpc.v1.WifiSavedNetwork
 	24, // 7: gizclaw.rpc.v1.ClientWifiScanResponse.networks:type_name -> gizclaw.rpc.v1.WifiScanResult
@@ -4086,21 +4174,25 @@ var file_payload_system_proto_depIdxs = []int32{
 	33, // 10: gizclaw.rpc.v1.DeviceIdentifiers.imeis:type_name -> gizclaw.rpc.v1.PeerIMEI
 	34, // 11: gizclaw.rpc.v1.DeviceIdentifiers.labels:type_name -> gizclaw.rpc.v1.PeerLabel
 	35, // 12: gizclaw.rpc.v1.PeerStatus.ota:type_name -> gizclaw.rpc.v1.PeerOtaStatus
-	72, // 13: gizclaw.rpc.v1.PeerStatus.audioplayer:type_name -> gizclaw.rpc.v1.AudioPlayerStatus
-	69, // 14: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
+	75, // 13: gizclaw.rpc.v1.PeerStatus.audioplayer:type_name -> gizclaw.rpc.v1.AudioPlayerStatus
+	70, // 14: gizclaw.rpc.v1.PeerStatus.labels:type_name -> gizclaw.rpc.v1.PeerStatus.LabelsEntry
 	37, // 15: gizclaw.rpc.v1.PeerStatus.telemetry_observed_at:type_name -> gizclaw.rpc.v1.PeerStatusTelemetryObservedAt
-	46, // 16: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
-	46, // 17: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
-	29, // 18: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	36, // 19: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
-	30, // 20: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceProfile
-	29, // 21: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
-	64, // 22: gizclaw.rpc.v1.ProfileGetResponse.items:type_name -> gizclaw.rpc.v1.PublicProfile
-	23, // [23:23] is the sub-list for method output_type
-	23, // [23:23] is the sub-list for method input_type
-	23, // [23:23] is the sub-list for extension type_name
-	23, // [23:23] is the sub-list for extension extendee
-	0,  // [0:23] is the sub-list for field type_name
+	71, // 16: gizclaw.rpc.v1.PeerStatus.reported_kv:type_name -> gizclaw.rpc.v1.PeerStatus.ReportedKvEntry
+	46, // 17: gizclaw.rpc.v1.APIKeyCreateResponse.value:type_name -> gizclaw.rpc.v1.APIKey
+	46, // 18: gizclaw.rpc.v1.APIKeyListResponse.items:type_name -> gizclaw.rpc.v1.APIKey
+	72, // 19: gizclaw.rpc.v1.Runtime.reported_kv:type_name -> gizclaw.rpc.v1.Runtime.ReportedKvEntry
+	29, // 20: gizclaw.rpc.v1.ServerGetInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	36, // 21: gizclaw.rpc.v1.ServerGetStatusResponse.value:type_name -> gizclaw.rpc.v1.PeerStatus
+	30, // 22: gizclaw.rpc.v1.ServerPutInfoRequest.value:type_name -> gizclaw.rpc.v1.DeviceProfile
+	29, // 23: gizclaw.rpc.v1.ServerPutInfoResponse.value:type_name -> gizclaw.rpc.v1.DeviceInfo
+	64, // 24: gizclaw.rpc.v1.ProfileGetResponse.items:type_name -> gizclaw.rpc.v1.PublicProfile
+	69, // 25: gizclaw.rpc.v1.PeerStatus.ReportedKvEntry.value:type_name -> gizclaw.rpc.v1.PeerKVEntry
+	69, // 26: gizclaw.rpc.v1.Runtime.ReportedKvEntry.value:type_name -> gizclaw.rpc.v1.PeerKVEntry
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_payload_system_proto_init() }
@@ -4139,7 +4231,7 @@ func file_payload_system_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_system_proto_rawDesc), len(file_payload_system_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   70,
+			NumMessages:   73,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

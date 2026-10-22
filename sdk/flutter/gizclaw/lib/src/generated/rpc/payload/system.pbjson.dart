@@ -954,8 +954,16 @@ const PeerStatus$json = {
       '10': 'cellularSignalLevel',
       '17': true
     },
+    {
+      '1': 'reported_kv',
+      '3': 24,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerStatus.ReportedKvEntry',
+      '10': 'reportedKv'
+    },
   ],
-  '3': [PeerStatus_LabelsEntry$json],
+  '3': [PeerStatus_LabelsEntry$json, PeerStatus_ReportedKvEntry$json],
   '8': [
     {'1': '_ota'},
     {'1': '_battery_percent'},
@@ -991,6 +999,23 @@ const PeerStatus_LabelsEntry$json = {
   '7': {'7': true},
 };
 
+@$core.Deprecated('Use peerStatusDescriptor instead')
+const PeerStatus_ReportedKvEntry$json = {
+  '1': 'ReportedKvEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerKVEntry',
+      '10': 'value'
+    },
+  ],
+  '7': {'7': true},
+};
+
 /// Descriptor for `PeerStatus`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'CgpQZWVyU3RhdHVzEjQKA290YRgNIAEoCzIdLmdpemNsYXcucnBjLnYxLlBlZXJPdGFTdGF0dX'
@@ -1012,14 +1037,17 @@ final $typed_data.Uint8List peerStatusDescriptor = $convert.base64Decode(
     'SBFSD2Zpcm13YXJlVmVyc2lvbogBARInCg13aWZpX3Jzc2lfZGJtGBUgASgBSBJSC3dpZmlSc3'
     'NpRGJtiAEBEi8KEWNlbGx1bGFyX3Jzc2lfZGJtGBYgASgBSBNSD2NlbGx1bGFyUnNzaURibYgB'
     'ARI3ChVjZWxsdWxhcl9zaWduYWxfbGV2ZWwYFyABKAFIFFITY2VsbHVsYXJTaWduYWxMZXZlbI'
-    'gBARo5CgtMYWJlbHNFbnRyeRIQCgNrZXkYASABKAlSA2tleRIUCgV2YWx1ZRgCIAEoCVIFdmFs'
-    'dWU6AjgBQgYKBF9vdGFCEgoQX2JhdHRlcnlfcGVyY2VudEILCglfY2hhcmdpbmdCEgoQX2Zpcm'
-    '13YXJlX3NoYTI1NkIOCgxfYXVkaW9wbGF5ZXJCEgoQX2duc3NfYWNjdXJhY3lfbUISChBfZ25z'
-    'c19hbHRpdHVkZV9tQhAKDl9nbnNzX2xhdGl0dWRlQhEKD19nbnNzX2xvbmdpdHVkZUIICgZfbX'
-    'V0ZWRCDgoMX3JlcG9ydGVkX2F0QgkKB192b2x1bWVCDwoNX25ldHdvcmtfaW1laUIPCg1fbmV0'
-    'd29ya19pbXNpQhgKFl90ZWxlbWV0cnlfb2JzZXJ2ZWRfYXRCCwoJX2FjdGl2aXR5QhIKEF9hY3'
-    'Rpdml0eV9kZXRhaWxCEwoRX2Zpcm13YXJlX3ZlcnNpb25CEAoOX3dpZmlfcnNzaV9kYm1CFAoS'
-    'X2NlbGx1bGFyX3Jzc2lfZGJtQhgKFl9jZWxsdWxhcl9zaWduYWxfbGV2ZWw=');
+    'gBARJLCgtyZXBvcnRlZF9rdhgYIAMoCzIqLmdpemNsYXcucnBjLnYxLlBlZXJTdGF0dXMuUmVw'
+    'b3J0ZWRLdkVudHJ5UgpyZXBvcnRlZEt2GjkKC0xhYmVsc0VudHJ5EhAKA2tleRgBIAEoCVIDa2'
+    'V5EhQKBXZhbHVlGAIgASgJUgV2YWx1ZToCOAEaWgoPUmVwb3J0ZWRLdkVudHJ5EhAKA2tleRgB'
+    'IAEoCVIDa2V5EjEKBXZhbHVlGAIgASgLMhsuZ2l6Y2xhdy5ycGMudjEuUGVlcktWRW50cnlSBX'
+    'ZhbHVlOgI4AUIGCgRfb3RhQhIKEF9iYXR0ZXJ5X3BlcmNlbnRCCwoJX2NoYXJnaW5nQhIKEF9m'
+    'aXJtd2FyZV9zaGEyNTZCDgoMX2F1ZGlvcGxheWVyQhIKEF9nbnNzX2FjY3VyYWN5X21CEgoQX2'
+    'duc3NfYWx0aXR1ZGVfbUIQCg5fZ25zc19sYXRpdHVkZUIRCg9fZ25zc19sb25naXR1ZGVCCAoG'
+    'X211dGVkQg4KDF9yZXBvcnRlZF9hdEIJCgdfdm9sdW1lQg8KDV9uZXR3b3JrX2ltZWlCDwoNX2'
+    '5ldHdvcmtfaW1zaUIYChZfdGVsZW1ldHJ5X29ic2VydmVkX2F0QgsKCV9hY3Rpdml0eUISChBf'
+    'YWN0aXZpdHlfZGV0YWlsQhMKEV9maXJtd2FyZV92ZXJzaW9uQhAKDl93aWZpX3Jzc2lfZGJtQh'
+    'QKEl9jZWxsdWxhcl9yc3NpX2RibUIYChZfY2VsbHVsYXJfc2lnbmFsX2xldmVs');
 
 @$core.Deprecated('Use peerStatusTelemetryObservedAtDescriptor instead')
 const PeerStatusTelemetryObservedAt$json = {
@@ -1543,7 +1571,16 @@ const Runtime$json = {
       '10': 'pendingWorkspaceName',
       '17': true
     },
+    {
+      '1': 'reported_kv',
+      '3': 9,
+      '4': 3,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.Runtime.ReportedKvEntry',
+      '10': 'reportedKv'
+    },
   ],
+  '3': [Runtime_ReportedKvEntry$json],
   '8': [
     {'1': '_debug_mode'},
     {'1': '_last_addr'},
@@ -1554,6 +1591,23 @@ const Runtime$json = {
   ],
 };
 
+@$core.Deprecated('Use runtimeDescriptor instead')
+const Runtime_ReportedKvEntry$json = {
+  '1': 'ReportedKvEntry',
+  '2': [
+    {'1': 'key', '3': 1, '4': 1, '5': 9, '10': 'key'},
+    {
+      '1': 'value',
+      '3': 2,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.PeerKVEntry',
+      '10': 'value'
+    },
+  ],
+  '7': {'7': true},
+};
+
 /// Descriptor for `Runtime`. Decode as a `google.protobuf.DescriptorProto`.
 final $typed_data.Uint8List runtimeDescriptor = $convert.base64Decode(
     'CgdSdW50aW1lEiIKCmRlYnVnX21vZGUYBiABKAlIAFIJZGVidWdNb2RliAEBEiAKCWxhc3RfYW'
@@ -1561,9 +1615,12 @@ final $typed_data.Uint8List runtimeDescriptor = $convert.base64Decode(
     'QXQSFgoGb25saW5lGAMgASgIUgZvbmxpbmUSHgoIcnhfYnl0ZXMYBCABKARIAlIHcnhCeXRlc4'
     'gBARIeCgh0eF9ieXRlcxgFIAEoBEgDUgd0eEJ5dGVziAEBEjcKFWFjdGl2ZV93b3Jrc3BhY2Vf'
     'bmFtZRgHIAEoCUgEUhNhY3RpdmVXb3Jrc3BhY2VOYW1liAEBEjkKFnBlbmRpbmdfd29ya3NwYW'
-    'NlX25hbWUYCCABKAlIBVIUcGVuZGluZ1dvcmtzcGFjZU5hbWWIAQFCDQoLX2RlYnVnX21vZGVC'
-    'DAoKX2xhc3RfYWRkckILCglfcnhfYnl0ZXNCCwoJX3R4X2J5dGVzQhgKFl9hY3RpdmVfd29ya3'
-    'NwYWNlX25hbWVCGQoXX3BlbmRpbmdfd29ya3NwYWNlX25hbWU=');
+    'NlX25hbWUYCCABKAlIBVIUcGVuZGluZ1dvcmtzcGFjZU5hbWWIAQESSAoLcmVwb3J0ZWRfa3YY'
+    'CSADKAsyJy5naXpjbGF3LnJwYy52MS5SdW50aW1lLlJlcG9ydGVkS3ZFbnRyeVIKcmVwb3J0ZW'
+    'RLdhpaCg9SZXBvcnRlZEt2RW50cnkSEAoDa2V5GAEgASgJUgNrZXkSMQoFdmFsdWUYAiABKAsy'
+    'Gy5naXpjbGF3LnJwYy52MS5QZWVyS1ZFbnRyeVIFdmFsdWU6AjgBQg0KC19kZWJ1Z19tb2RlQg'
+    'wKCl9sYXN0X2FkZHJCCwoJX3J4X2J5dGVzQgsKCV90eF9ieXRlc0IYChZfYWN0aXZlX3dvcmtz'
+    'cGFjZV9uYW1lQhkKF19wZW5kaW5nX3dvcmtzcGFjZV9uYW1l');
 
 @$core.Deprecated('Use serverGetInfoRequestDescriptor instead')
 const ServerGetInfoRequest$json = {
@@ -1792,3 +1849,17 @@ final $typed_data.Uint8List serverPutRuntimeResponseDescriptor =
     $convert.base64Decode(
         'ChhTZXJ2ZXJQdXRSdW50aW1lUmVzcG9uc2USHQoKZGVidWdfbW9kZRgBIAEoCVIJZGVidWdNb2'
         'Rl');
+
+@$core.Deprecated('Use peerKVEntryDescriptor instead')
+const PeerKVEntry$json = {
+  '1': 'PeerKVEntry',
+  '2': [
+    {'1': 'json_value', '3': 1, '4': 1, '5': 9, '10': 'jsonValue'},
+    {'1': 'observed_at', '3': 2, '4': 1, '5': 9, '10': 'observedAt'},
+  ],
+};
+
+/// Descriptor for `PeerKVEntry`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List peerKVEntryDescriptor = $convert.base64Decode(
+    'CgtQZWVyS1ZFbnRyeRIdCgpqc29uX3ZhbHVlGAEgASgJUglqc29uVmFsdWUSHwoLb2JzZXJ2ZW'
+    'RfYXQYAiABKAlSCm9ic2VydmVkQXQ=');

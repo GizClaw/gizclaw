@@ -126,6 +126,14 @@ func validateWrite(message proto.Message) error {
 		if value.BrightnessPercent != nil && *value.BrightnessPercent > 100 {
 			return fmt.Errorf("led brightness_percent must be 0-100")
 		}
+	case *rpcpb.ModemHwdWriteRequest:
+		if value.Enabled == nil {
+			return fmt.Errorf("missing modem enabled")
+		}
+	case *rpcpb.NfcHwdWriteRequest:
+		if value.Enabled == nil {
+			return fmt.Errorf("missing NFC enabled")
+		}
 	case *rpcpb.SpeakerHwdWriteRequest:
 		if value.VolumePercent == nil && value.Muted == nil {
 			return fmt.Errorf("speaker write value must not be empty")
@@ -160,6 +168,10 @@ func validateRead(message proto.Message) error {
 	case *rpcpb.ModemHwdReadResponse:
 		if !validString(value.Rat, 16) {
 			return fmt.Errorf("invalid modem RAT")
+		}
+	case *rpcpb.NfcHwdReadResponse:
+		if err := rpcapi.ValidateNFCSnapshot(value.LastRead); err != nil {
+			return err
 		}
 	case *rpcpb.BatteryHwdReadResponse:
 		if value.Percent != nil && (math.IsNaN(*value.Percent) || math.IsInf(*value.Percent, 0)) {
@@ -230,6 +242,16 @@ func WriteResponse(request *rpcpb.ClientMhsV0WriteRequest, response *rpcpb.Clien
 	case *rpcpb.DisplayHwdWriteResponse:
 		applied = value.Applied
 	case *rpcpb.LedHwdWriteResponse:
+		applied = value.Applied
+	case *rpcpb.ModemHwdWriteResponse:
+		if value.Applied == nil || value.Applied.Enabled == nil {
+			return out, fmt.Errorf("missing modem applied enabled")
+		}
+		applied = value.Applied
+	case *rpcpb.NfcHwdWriteResponse:
+		if value.Applied == nil || value.Applied.Enabled == nil {
+			return out, fmt.Errorf("missing NFC applied enabled")
+		}
 		applied = value.Applied
 	case *rpcpb.SpeakerHwdWriteResponse:
 		applied = value.Applied

@@ -26,7 +26,7 @@ type EnumDesc = {
 export type ASTTranslateMode = "" | "s2s" | "s2t" | "unspecified" | number;
 export type ASTTranslateWorkspaceParametersAgentType = "" | "ast-translate" | "unspecified" | number;
 export type AudioInputPath = "" | "asr" | "model" | "unspecified" | number;
-export type ClientHwd = "" | "battery" | "ble" | "display" | "led" | "mic" | "modem" | "speaker" | "unspecified" | "wifi" | number;
+export type ClientHwd = "" | "battery" | "ble" | "display" | "led" | "mic" | "modem" | "nfc" | "speaker" | "unspecified" | "wifi" | number;
 export type ClientTool = number;
 export type ConversationParametersAgentInitiativePolicy = "" | "on_reload" | "once_when_empty" | "unspecified" | number;
 export type ConversationParametersInitiative = "" | "agent" | "peer" | "unspecified" | number;
@@ -56,6 +56,14 @@ export type VolcTenantModelProviderDataApiMode = "" | "asr" | "chat_completions"
 export type WorkflowDriver = "" | "ast-translate" | "dashscope-realtime" | "doubao-realtime" | "doubao-realtime-duplex" | "eino" | "sfu" | "unspecified" | number;
 export type WorkspaceHistoryListRequestOrder = "" | "asc" | "desc" | "unspecified" | number;
 export type WorkspaceInputMode = "" | "push-to-talk" | "realtime" | "unspecified" | number;
+export type AISafetyOption = {
+  "id": string;
+  "display_name": string;
+};
+export type AISafetyState = {
+  "level": string;
+  "options": AISafetyOption[];
+};
 export type APIKey = {
   "name": string;
   "display_name": string;
@@ -166,6 +174,26 @@ export type BleHwdReadResponse = {
   "scanning"?: boolean;
   "connection_count"?: number;
 };
+export type ClientAISafetyGetRequest = Record<string, never>;
+export type ClientAISafetyGetResponse = {
+  "state": AISafetyState;
+};
+export type ClientAISafetySetRequest = {
+  "level": string;
+};
+export type ClientAISafetySetResponse = {
+  "applied": AISafetyState;
+};
+export type ClientContentAgeGetRequest = Record<string, never>;
+export type ClientContentAgeGetResponse = {
+  "state": ContentAgeState;
+};
+export type ClientContentAgeSetRequest = {
+  "option_id": string;
+};
+export type ClientContentAgeSetResponse = {
+  "applied": ContentAgeState;
+};
 export type ClientDeviceAudioPlayerGetRequest = Record<string, never>;
 export type ClientDeviceAudioPlayerGetResponse = AudioPlayerStatus;
 export type ClientDeviceAudioPlayerModeSetRequest = {
@@ -195,6 +223,17 @@ export type ClientDeviceFactoryResetRequest = {
   "keep_network"?: boolean;
 };
 export type ClientDeviceFactoryResetResponse = Record<string, never>;
+export type ClientDeviceFeatureSetRequest = {
+  "feature_id": string;
+  "enabled"?: boolean;
+};
+export type ClientDeviceFeatureSetResponse = {
+  "applied": DeviceFeature;
+};
+export type ClientDeviceFeaturesGetRequest = Record<string, never>;
+export type ClientDeviceFeaturesGetResponse = {
+  "features": DeviceFeature[];
+};
 export type ClientDeviceFindRequest = {
   "duration_ms"?: number;
 };
@@ -259,6 +298,20 @@ export type ClientLuaAppUninstallRequest = {
   "app_id": string;
 };
 export type ClientLuaAppUninstallResponse = Record<string, never>;
+export type ClientManagementPasswordGetRequest = Record<string, never>;
+export type ClientManagementPasswordGetResponse = {
+  "is_set"?: boolean;
+};
+export type ClientManagementPasswordResetRequest = Record<string, never>;
+export type ClientManagementPasswordResetResponse = {
+  "is_set"?: boolean;
+};
+export type ClientManagementPasswordSetRequest = {
+  "password": string;
+};
+export type ClientManagementPasswordSetResponse = {
+  "is_set"?: boolean;
+};
 export type ClientMhsV0ReadRequest = {
   "id": string;
   "hwd": ClientHwd;
@@ -306,6 +359,16 @@ export type ClientToolV0InvokeResponse = {
 export type ClientToolV0ListRequest = Record<string, never>;
 export type ClientToolV0ListResponse = {
   "tools": ClientTool[];
+};
+export type ClientUsageTimeGetRequest = Record<string, never>;
+export type ClientUsageTimeGetResponse = {
+  "state": UsageTimeState;
+};
+export type ClientUsageTimeSetRequest = {
+  "limit_seconds"?: number;
+};
+export type ClientUsageTimeSetResponse = {
+  "applied": UsageTimeState;
 };
 export type ClientWifiConnectRequest = {
   "ssid": string;
@@ -362,6 +425,16 @@ export type ContactPutRequest = {
   "phone_number"?: string;
 };
 export type ContactPutResponse = ContactObject;
+export type ContentAgeOption = {
+  "id": string;
+  "display_name": string;
+  "min_age_years"?: number;
+  "max_age_years"?: number;
+};
+export type ContentAgeState = {
+  "option_id": string;
+  "options": ContentAgeOption[];
+};
 export type ConversationParameters = {
   "agent_initiative_policy"?: ConversationParametersAgentInitiativePolicy;
   "initiative"?: ConversationParametersInitiative;
@@ -423,6 +496,12 @@ export type DeepSeekTenantModelProviderData = {
   "thinking_level_param"?: string;
   "thinking_levels": string[];
   "default_thinking_level"?: string;
+};
+export type DeviceFeature = {
+  "id": string;
+  "display_name": string;
+  "enabled"?: boolean;
+  "writable"?: boolean;
 };
 export type DeviceIdentifiers = {
   "sn"?: string;
@@ -910,6 +989,34 @@ export type ModemHwdReadResponse = {
   "rat"?: string;
   "rssi_dbm"?: number;
   "signal_level"?: number;
+  "enabled"?: boolean;
+  "powered"?: boolean;
+};
+export type ModemHwdWriteRequest = {
+  "enabled"?: boolean;
+};
+export type ModemHwdWriteResponse = {
+  "applied": ModemHwdReadResponse;
+};
+export type NfcHwdReadResponse = {
+  "enabled"?: boolean;
+  "card_present"?: boolean;
+  "last_read"?: NfcReadSnapshot;
+};
+export type NfcHwdWriteRequest = {
+  "enabled"?: boolean;
+};
+export type NfcHwdWriteResponse = {
+  "applied": NfcHwdReadResponse;
+};
+export type NfcReadSnapshot = {
+  "read_at_unix_ms": number;
+  "uid"?: string;
+  "technology"?: string;
+  "data_format"?: string;
+  "raw_data"?: string;
+  "result": string;
+  "error_code"?: string;
 };
 export type OpenAITenantModelProviderData = {
   "upstream_model"?: string;
@@ -937,6 +1044,7 @@ export type PeerIMEI = {
   "serial": string;
   "tac": string;
 };
+export type PeerKVEntry = { value: unknown; json_value: string; observed_at: string };
 export type PeerLabel = {
   "key": string;
   "value": string;
@@ -1064,6 +1172,7 @@ export type PeerStatus = {
   "wifi_rssi_dbm"?: number;
   "cellular_rssi_dbm"?: number;
   "cellular_signal_level"?: number;
+  "reported_kv"?: Record<string, PeerKVEntry>;
 };
 export type PeerStatusTelemetryObservedAt = {
   "battery_percent"?: string;
@@ -1136,6 +1245,7 @@ export type Runtime = {
   "tx_bytes"?: number;
   "active_workspace_name"?: string;
   "pending_workspace_name"?: string;
+  "reported_kv"?: Record<string, PeerKVEntry>;
 };
 export type SafetyFenceOption = {
   "name": string;
@@ -1318,6 +1428,11 @@ export type ToolkitPolicy = {
   "tool_names"?: ToolkitPolicyToolNames;
 };
 export type ToolkitPolicyToolNames = string[];
+export type UsageTimeState = {
+  "limit_seconds"?: number;
+  "used_seconds"?: number;
+  "exhausted"?: boolean;
+};
 export type Voice = {
   "name": string;
   "i18n": Record<string, ResourceI18nText>;
@@ -1715,7 +1830,18 @@ const TOOL_REQUEST_MESSAGES: Record<string, string> = {
   "24": "ClientLuaAppRunRequest",
   "25": "ClientGnssReportingGetRequest",
   "26": "ClientGnssReportingSetRequest",
-  "27": "ClientLuaAppUninstallRequest"
+  "27": "ClientLuaAppUninstallRequest",
+  "28": "ClientContentAgeGetRequest",
+  "29": "ClientContentAgeSetRequest",
+  "30": "ClientDeviceFeaturesGetRequest",
+  "31": "ClientDeviceFeatureSetRequest",
+  "32": "ClientUsageTimeGetRequest",
+  "33": "ClientUsageTimeSetRequest",
+  "34": "ClientAISafetyGetRequest",
+  "35": "ClientAISafetySetRequest",
+  "36": "ClientManagementPasswordGetRequest",
+  "37": "ClientManagementPasswordSetRequest",
+  "38": "ClientManagementPasswordResetRequest"
 };
 const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "ClientGetInfoResponse",
@@ -1744,7 +1870,18 @@ const TOOL_RESPONSE_MESSAGES: Record<string, string> = {
   "24": "ClientLuaAppRunResponse",
   "25": "ClientGnssReportingGetResponse",
   "26": "ClientGnssReportingSetResponse",
-  "27": "ClientLuaAppUninstallResponse"
+  "27": "ClientLuaAppUninstallResponse",
+  "28": "ClientContentAgeGetResponse",
+  "29": "ClientContentAgeSetResponse",
+  "30": "ClientDeviceFeaturesGetResponse",
+  "31": "ClientDeviceFeatureSetResponse",
+  "32": "ClientUsageTimeGetResponse",
+  "33": "ClientUsageTimeSetResponse",
+  "34": "ClientAISafetyGetResponse",
+  "35": "ClientAISafetySetResponse",
+  "36": "ClientManagementPasswordGetResponse",
+  "37": "ClientManagementPasswordSetResponse",
+  "38": "ClientManagementPasswordResetResponse"
 };
 const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = {
   "1": "WifiHwdReadResponse",
@@ -1754,17 +1891,22 @@ const HWD_READ_RESPONSE_MESSAGES: Record<string, string> = {
   "5": "MicHwdReadResponse",
   "6": "DisplayHwdReadResponse",
   "7": "LedHwdReadResponse",
-  "8": "SpeakerHwdReadResponse"
+  "8": "SpeakerHwdReadResponse",
+  "9": "NfcHwdReadResponse"
 };
 const HWD_WRITE_REQUEST_MESSAGES: Record<string, string> = {
+  "3": "ModemHwdWriteRequest",
   "6": "DisplayHwdWriteRequest",
   "7": "LedHwdWriteRequest",
-  "8": "SpeakerHwdWriteRequest"
+  "8": "SpeakerHwdWriteRequest",
+  "9": "NfcHwdWriteRequest"
 };
 const HWD_WRITE_RESPONSE_MESSAGES: Record<string, string> = {
+  "3": "ModemHwdWriteResponse",
   "6": "DisplayHwdWriteResponse",
   "7": "LedHwdWriteResponse",
-  "8": "SpeakerHwdWriteResponse"
+  "8": "SpeakerHwdWriteResponse",
+  "9": "NfcHwdWriteResponse"
 };
 const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "AgentSelection": {
@@ -1773,6 +1915,35 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "workspace_name",
         "number": 1,
         "type": "string"
+      }
+    ]
+  },
+  "AISafetyOption": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
+        "type": "string"
+      }
+    ]
+  },
+  "AISafetyState": {
+    "fields": [
+      {
+        "name": "level",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "options",
+        "number": 2,
+        "repeated": true,
+        "type": "AISafetyOption"
       }
     ]
   },
@@ -2254,6 +2425,66 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       }
     ]
   },
+  "ClientAISafetyGetRequest": {
+    "fields": []
+  },
+  "ClientAISafetyGetResponse": {
+    "fields": [
+      {
+        "name": "state",
+        "number": 1,
+        "type": "AISafetyState"
+      }
+    ]
+  },
+  "ClientAISafetySetRequest": {
+    "fields": [
+      {
+        "name": "level",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientAISafetySetResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "AISafetyState"
+      }
+    ]
+  },
+  "ClientContentAgeGetRequest": {
+    "fields": []
+  },
+  "ClientContentAgeGetResponse": {
+    "fields": [
+      {
+        "name": "state",
+        "number": 1,
+        "type": "ContentAgeState"
+      }
+    ]
+  },
+  "ClientContentAgeSetRequest": {
+    "fields": [
+      {
+        "name": "option_id",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientContentAgeSetResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "ContentAgeState"
+      }
+    ]
+  },
   "ClientDeviceAudioPlayerGetRequest": {
     "fields": []
   },
@@ -2383,6 +2614,43 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   },
   "ClientDeviceFactoryResetResponse": {
     "fields": []
+  },
+  "ClientDeviceFeatureSetRequest": {
+    "fields": [
+      {
+        "name": "feature_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "enabled",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientDeviceFeatureSetResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "DeviceFeature"
+      }
+    ]
+  },
+  "ClientDeviceFeaturesGetRequest": {
+    "fields": []
+  },
+  "ClientDeviceFeaturesGetResponse": {
+    "fields": [
+      {
+        "name": "features",
+        "number": 1,
+        "repeated": true,
+        "type": "DeviceFeature"
+      }
+    ]
   },
   "ClientDeviceFindRequest": {
     "fields": [
@@ -2622,6 +2890,51 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
   "ClientLuaAppUninstallResponse": {
     "fields": []
   },
+  "ClientManagementPasswordGetRequest": {
+    "fields": []
+  },
+  "ClientManagementPasswordGetResponse": {
+    "fields": [
+      {
+        "name": "is_set",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientManagementPasswordResetRequest": {
+    "fields": []
+  },
+  "ClientManagementPasswordResetResponse": {
+    "fields": [
+      {
+        "name": "is_set",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ClientManagementPasswordSetRequest": {
+    "fields": [
+      {
+        "name": "password",
+        "number": 1,
+        "type": "string"
+      }
+    ]
+  },
+  "ClientManagementPasswordSetResponse": {
+    "fields": [
+      {
+        "name": "is_set",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
   "ClientMhsV0ReadRequest": {
     "fields": [
       {
@@ -2794,6 +3107,37 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 1,
         "repeated": true,
         "type": "ClientTool"
+      }
+    ]
+  },
+  "ClientUsageTimeGetRequest": {
+    "fields": []
+  },
+  "ClientUsageTimeGetResponse": {
+    "fields": [
+      {
+        "name": "state",
+        "number": 1,
+        "type": "UsageTimeState"
+      }
+    ]
+  },
+  "ClientUsageTimeSetRequest": {
+    "fields": [
+      {
+        "name": "limit_seconds",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "ClientUsageTimeSetResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "UsageTimeState"
       }
     ]
   },
@@ -3023,6 +3367,47 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "value",
         "number": 1,
         "type": "ContactObject"
+      }
+    ]
+  },
+  "ContentAgeOption": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "min_age_years",
+        "number": 3,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "max_age_years",
+        "number": 4,
+        "optional": true,
+        "type": "uint32"
+      }
+    ]
+  },
+  "ContentAgeState": {
+    "fields": [
+      {
+        "name": "option_id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "options",
+        "number": 2,
+        "repeated": true,
+        "type": "ContentAgeOption"
       }
     ]
   },
@@ -3351,6 +3736,32 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 12,
         "optional": true,
         "type": "string"
+      }
+    ]
+  },
+  "DeviceFeature": {
+    "fields": [
+      {
+        "name": "id",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "display_name",
+        "number": 2,
+        "type": "string"
+      },
+      {
+        "name": "enabled",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "writable",
+        "number": 4,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -5533,6 +5944,122 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 5,
         "optional": true,
         "type": "uint32"
+      },
+      {
+        "name": "enabled",
+        "number": 6,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "powered",
+        "number": 7,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ModemHwdWriteRequest": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "ModemHwdWriteResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "ModemHwdReadResponse"
+      }
+    ]
+  },
+  "NfcHwdReadResponse": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "card_present",
+        "number": 2,
+        "optional": true,
+        "type": "bool"
+      },
+      {
+        "name": "last_read",
+        "number": 3,
+        "optional": true,
+        "type": "NfcReadSnapshot"
+      }
+    ]
+  },
+  "NfcHwdWriteRequest": {
+    "fields": [
+      {
+        "name": "enabled",
+        "number": 1,
+        "optional": true,
+        "type": "bool"
+      }
+    ]
+  },
+  "NfcHwdWriteResponse": {
+    "fields": [
+      {
+        "name": "applied",
+        "number": 1,
+        "type": "NfcHwdReadResponse"
+      }
+    ]
+  },
+  "NfcReadSnapshot": {
+    "fields": [
+      {
+        "name": "read_at_unix_ms",
+        "number": 1,
+        "type": "int64"
+      },
+      {
+        "name": "uid",
+        "number": 2,
+        "optional": true,
+        "type": "bytes"
+      },
+      {
+        "name": "technology",
+        "number": 3,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "data_format",
+        "number": 4,
+        "optional": true,
+        "type": "string"
+      },
+      {
+        "name": "raw_data",
+        "number": 5,
+        "optional": true,
+        "type": "bytes"
+      },
+      {
+        "name": "result",
+        "number": 6,
+        "type": "string"
+      },
+      {
+        "name": "error_code",
+        "number": 7,
+        "optional": true,
+        "type": "string"
       }
     ]
   },
@@ -5656,6 +6183,20 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
       {
         "name": "tac",
         "number": 3,
+        "type": "string"
+      }
+    ]
+  },
+  "PeerKVEntry": {
+    "fields": [
+      {
+        "name": "json_value",
+        "number": 1,
+        "type": "string"
+      },
+      {
+        "name": "observed_at",
+        "number": 2,
         "type": "string"
       }
     ]
@@ -6270,6 +6811,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 23,
         "optional": true,
         "type": "double"
+      },
+      {
+        "mapValue": "PeerKVEntry",
+        "name": "reported_kv",
+        "number": 24,
+        "optional": true,
+        "type": "map"
       }
     ]
   },
@@ -6587,6 +7135,13 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "number": 8,
         "optional": true,
         "type": "string"
+      },
+      {
+        "mapValue": "PeerKVEntry",
+        "name": "reported_kv",
+        "number": 9,
+        "optional": true,
+        "type": "map"
       }
     ]
   },
@@ -7389,6 +7944,28 @@ const MESSAGE_DESCS: Record<string, MessageDesc> = {
         "name": "runtime_profile_revision",
         "number": 5,
         "type": "string"
+      }
+    ]
+  },
+  "UsageTimeState": {
+    "fields": [
+      {
+        "name": "limit_seconds",
+        "number": 1,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "used_seconds",
+        "number": 2,
+        "optional": true,
+        "type": "uint32"
+      },
+      {
+        "name": "exhausted",
+        "number": 3,
+        "optional": true,
+        "type": "bool"
       }
     ]
   },
@@ -8286,6 +8863,7 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "led": 7,
       "mic": 5,
       "modem": 3,
+      "nfc": 9,
       "speaker": 8,
       "unspecified": 0,
       "wifi": 1
@@ -8299,11 +8877,14 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "5": "mic",
       "6": "display",
       "7": "led",
-      "8": "speaker"
+      "8": "speaker",
+      "9": "nfc"
     }
   },
   "ClientTool": {
     "byName": {
+      "ai_safety_get": 34,
+      "ai_safety_set": 35,
       "audioplayer_get": 13,
       "audioplayer_mode_set": 16,
       "audioplayer_play": 14,
@@ -8311,7 +8892,11 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "audioplayer_playlist_get": 17,
       "audioplayer_playlist_set": 18,
       "audioplayer_stop": 15,
+      "content_age_get": 28,
+      "content_age_set": 29,
       "device_factory_reset": 5,
+      "device_feature_set": 31,
+      "device_features_get": 30,
       "device_find": 6,
       "device_reboot": 4,
       "device_status_get": 3,
@@ -8324,10 +8909,15 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "lua_app_list": 22,
       "lua_app_run": 24,
       "lua_app_uninstall": 27,
+      "management_password_get": 36,
+      "management_password_reset": 38,
+      "management_password_set": 37,
       "run_workspace_set": 20,
       "social_ping": 21,
       "sound_play": 7,
       "unspecified": 0,
+      "usage_time_get": 32,
+      "usage_time_set": 33,
       "wifi_connect": 9,
       "wifi_saved_forget": 11,
       "wifi_saved_list": 10,
@@ -8361,7 +8951,18 @@ const ENUM_DESCS: Record<string, EnumDesc> = {
       "24": "lua_app_run",
       "25": "gnss_reporting_get",
       "26": "gnss_reporting_set",
-      "27": "lua_app_uninstall"
+      "27": "lua_app_uninstall",
+      "28": "content_age_get",
+      "29": "content_age_set",
+      "30": "device_features_get",
+      "31": "device_feature_set",
+      "32": "usage_time_get",
+      "33": "usage_time_set",
+      "34": "ai_safety_get",
+      "35": "ai_safety_set",
+      "36": "management_password_get",
+      "37": "management_password_set",
+      "38": "management_password_reset"
     }
   },
   "ConversationParametersAgentInitiativePolicy": {
@@ -9023,7 +9624,10 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     }
     return writer.finish();
   }
-  const object = messageObjectForEncode(type, value);
+  const input = type === "PeerKVEntry"
+    ? (() => { const entry = asRecord(value, type); return { json_value: typeof entry.json_value === "string" ? entry.json_value : JSON.stringify(entry.value), observed_at: entry.observed_at }; })()
+    : value;
+  const object = messageObjectForEncode(type, input);
   validateDiscriminatedOneofs(type, desc, object);
   const encodedOneofs = new Set<string>();
   for (const field of fields) {
@@ -9052,6 +9656,10 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
 function decodeMessage(type: string, payload: Uint8Array): unknown {
   const desc = messageDesc(type);
   const values = decodeMessageFields(desc, payload);
+  if (type === "PeerKVEntry") {
+    if (typeof values.json_value !== "string") throw new Error("missing KV JSON value");
+    return { value: JSON.parse(values.json_value), json_value: values.json_value, observed_at: values.observed_at };
+  }
   const single = singleValueField(desc);
   if (single != null) {
     return values[single.name] ?? emptyValue(single);

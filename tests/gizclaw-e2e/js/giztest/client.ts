@@ -1,4 +1,8 @@
-import { CLIENT_TOOL_NAMES } from "../../../../sdk/js/gizclaw/generated/rpc/method-map.ts";
+import {
+  CLIENT_TOOL_NAMES,
+  CLIENT_TOOL_IDS,
+  type ClientToolID,
+} from "../../../../sdk/js/gizclaw/generated/rpc/method-map.ts";
 // Scenario clients: an ephemeral WebRTC device peer built on
 // `@gizclaw/gizclaw`, and the Public HTTP surface reached through
 // `@gizclaw/gizclaw-control`.
@@ -414,6 +418,15 @@ function buildHandlers(
     if (scriptedObject.unavailable === true) {
       if (Object.hasOwn(scriptedObject, "result"))
         throw new Error("unavailable tool response cannot set result");
+      continue;
+    }
+    const tool = CLIENT_TOOL_IDS[method as keyof typeof CLIENT_TOOL_IDS];
+    if (tool >= 28 && tool <= 38) {
+      handlers.tools ??= {};
+      handlers.tools[tool as ClientToolID] = (() => {
+        if (failure != null) throw failure;
+        return scriptedObject;
+      }) as never;
       continue;
     }
     switch (method) {

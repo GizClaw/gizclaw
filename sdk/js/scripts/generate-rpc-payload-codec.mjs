@@ -27,6 +27,8 @@ const OPTIONAL_REPEATED_FIELDS = new Set([
 const OPTIONAL_MAP_FIELDS = new Set([
   "DoubaoRealtimeASRContext.correct_words",
   "ClientLuaAppRunRequest.params",
+  "PeerStatus.reported_kv",
+  "Runtime.reported_kv",
 ]);
 
 const methods = parseRegistry(
@@ -156,7 +158,10 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
     }
     return writer.finish();
   }
-  const object = messageObjectForEncode(type, value);
+  const input = type === "PeerKVEntry"
+    ? (() => { const entry = asRecord(value, type); return { json_value: typeof entry.json_value === "string" ? entry.json_value : JSON.stringify(entry.value), observed_at: entry.observed_at }; })()
+    : value;
+  const object = messageObjectForEncode(type, input);
   validateDiscriminatedOneofs(type, desc, object);
   const encodedOneofs = new Set<string>();
   for (const field of fields) {
@@ -185,6 +190,10 @@ function encodeMessage(type: string, value: unknown, parent: Record<string, unkn
 function decodeMessage(type: string, payload: Uint8Array): unknown {
   const desc = messageDesc(type);
   const values = decodeMessageFields(desc, payload);
+  if (type === "PeerKVEntry") {
+    if (typeof values.json_value !== "string") throw new Error("missing KV JSON value");
+    return { value: JSON.parse(values.json_value), json_value: values.json_value, observed_at: values.observed_at };
+  }
   const single = singleValueField(desc);
   if (single != null) {
     return values[single.name] ?? emptyValue(single);
@@ -1152,6 +1161,8 @@ function enumTypeExpression(desc) {
 }
 
 function messageTypeExpression(name, parsed) {
+  if (name === "PeerKVEntry")
+    return "{ value: unknown; json_value: string; observed_at: string }";
   const desc = parsed.messages[name];
   if (desc == null) {
     return "Record<string, unknown>";

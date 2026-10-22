@@ -20,6 +20,7 @@ export type WatchedPeer = {
   label: string;
   endpoint: string;
   addedAt: number;
+  signedBearer?: string;
 };
 
 const watchedSchema = z.array(
@@ -28,6 +29,7 @@ const watchedSchema = z.array(
     label: z.string().default(""),
     endpoint: z.string().min(1),
     addedAt: z.number().default(0),
+    signedBearer: z.string().optional(),
   }),
 );
 
@@ -122,10 +124,12 @@ export async function loadPeer(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
+  signedBearer?: string,
 ): Promise<PeerSnapshot> {
   const peer = createGizClawPeerMonitorClient({
     ...connection(endpoint, signal),
     publicKey,
+    signedBearer,
   });
   const [info, runtime, status] = await Promise.all([
     peer.get(),
@@ -153,10 +157,16 @@ export function peerLabel(
   return `${peer.publicKey.slice(0, 10)}…`;
 }
 
-function client(endpoint: string, publicKey: string, signal: AbortSignal) {
+function client(
+  endpoint: string,
+  publicKey: string,
+  signal: AbortSignal,
+  signedBearer?: string,
+) {
   return createGizClawPeerMonitorClient({
     ...connection(endpoint, signal),
     publicKey,
+    signedBearer,
   });
 }
 
@@ -539,6 +549,11 @@ export type DeviceManifest = z.infer<typeof manifestSchema>;
 export type DeviceConfig = {
   manifest: DeviceSection<DeviceManifest>;
   tools: DeviceSection<string[]>;
+  queries?: {
+    id: string;
+    title: string;
+    result: DeviceSection<Record<string, unknown>>;
+  }[];
 };
 
 /** Manifest state and installed procedures are read independently. */
@@ -546,8 +561,9 @@ export async function loadDeviceConfig(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
+  signedBearer?: string,
 ): Promise<DeviceConfig> {
-  const peer = client(endpoint, publicKey, signal);
+  const peer = client(endpoint, publicKey, signal, signedBearer);
   const [manifest, tools] = await Promise.all([
     section(
       async () => manifestSchema.parse(await peer.getMhsManifest()),
@@ -562,5 +578,65 @@ export async function loadDeviceConfig(
       signal,
     ),
   ]);
-  return { manifest, tools };
+  const reads: { id: string; title: string; read: () => Promise<unknown> }[] =
+    [];
+  if (manifest.state === "ok") {
+    for (const device of manifest.data.devices) {
+      const hwd = device.hwd;
+      if (hwd !== "modem" && hwd !== "nfc") continue;
+      reads.push({
+        id: `mhs:${device.id}`,
+        title: `${hwd === "modem" ? "蜂窝模块" : "NFC"} · ${device.id}`,
+        read: () => peer.readMhsHwd({ id: device.id, hwd }),
+      });
+    }
+  }
+  const management = [
+    {
+      id: "content.age.get",
+      title: "内容年龄",
+      read: () => peer.getContentAge(),
+    },
+    {
+      id: "device.features.get",
+      title: "设备功能",
+      read: () => peer.getFeatures(),
+    },
+    {
+      id: "usage.time.get",
+      title: "使用时长",
+      read: () => peer.getUsageTime(),
+    },
+    {
+      id: "ai.safety.get",
+      title: "AI 安全等级",
+      read: () => peer.getAISafety(),
+    },
+    {
+      id: "management.password.get",
+      title: "管理密码状态",
+      read: () => peer.getManagementPassword(),
+    },
+  ];
+  if (tools.state === "ok")
+    reads.push(
+      ...management
+        .filter((query) => tools.data.includes(query.id))
+        .map((query) => ({ ...query, id: `tool:${query.id}` })),
+    );
+  const queries: NonNullable<DeviceConfig["queries"]> = [];
+  // Opening this read-only tab must not fan out without a bound on large manifests.
+  for (let offset = 0; offset < reads.length; offset += 4) {
+    signal.throwIfAborted();
+    queries.push(
+      ...(await Promise.all(
+        reads.slice(offset, offset + 4).map(async ({ id, title, read }) => ({
+          id,
+          title,
+          result: await section(async () => record.parse(await read()), signal),
+        })),
+      )),
+    );
+  }
+  return { manifest, tools, ...(queries.length > 0 ? { queries } : {}) };
 }

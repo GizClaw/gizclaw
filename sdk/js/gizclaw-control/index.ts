@@ -68,7 +68,7 @@ import type {
   AudioPlayerPlayRequest,
   AudioPlayerModeSetRequest,
   AudioPlayerStatus,
-  ClientToolV0InvokeRequest,
+  ClientToolV0InvokeRequestWritable,
   ClientToolV0ListResponse,
   DeviceIdentifiers,
   HardwareInfo,
@@ -398,6 +398,44 @@ export type AudioPlayerPlaylist = {
 };
 
 export interface GizClawControlDevice {
+  /** Typed device management via invoke; only call tools the device lists. */
+  getContentAge(): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientContentAgeGetResponse
+  >;
+  setContentAge(
+    optionId: string,
+  ): Promise<import("@gizclaw/gizclaw/rpc").ClientContentAgeSetResponse>;
+  getFeatures(): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientDeviceFeaturesGetResponse
+  >;
+  setFeature(
+    featureId: string,
+    enabled: boolean,
+  ): Promise<import("@gizclaw/gizclaw/rpc").ClientDeviceFeatureSetResponse>;
+  getUsageTime(): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientUsageTimeGetResponse
+  >;
+  setUsageTime(
+    limitSeconds: number,
+  ): Promise<import("@gizclaw/gizclaw/rpc").ClientUsageTimeSetResponse>;
+  getAISafety(): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientAISafetyGetResponse
+  >;
+  setAISafety(
+    level: string,
+  ): Promise<import("@gizclaw/gizclaw/rpc").ClientAISafetySetResponse>;
+  getManagementPassword(): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientManagementPasswordGetResponse
+  >;
+  setManagementPassword(
+    password: string,
+  ): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientManagementPasswordSetResponse
+  >;
+  resetManagementPassword(): Promise<
+    import("@gizclaw/gizclaw/rpc").ClientManagementPasswordResetResponse
+  >;
+
   /** Reads the GNSS reporting switch from the online device through invoke. */
   getGnssReporting(): Promise<boolean>;
   /** Sets the switch through invoke and returns the device's applied value. */
@@ -697,12 +735,12 @@ export function createGizClawControlClient(
     throwOnError: false as const,
   };
 
-  const callTool = (body: ClientToolV0InvokeRequest) =>
+  const callTool = (body: ClientToolV0InvokeRequestWritable) =>
     unwrap("invokeClientTool", invokeClientTool({ ...common, body }));
 
   const callGnssReporting = async (
     body: Extract<
-      ClientToolV0InvokeRequest,
+      ClientToolV0InvokeRequestWritable,
       { tool: "gnss.reporting.get" | "gnss.reporting.set" }
     >,
   ): Promise<boolean> => {
@@ -828,6 +866,84 @@ export function createGizClawControlClient(
         ),
     },
     device: {
+      getContentAge: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["content.age.get"],
+          (await callTool({ tool: "content.age.get", args: {} })).result,
+        ),
+      setContentAge: async (optionId) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["content.age.set"],
+          (
+            await callTool({
+              tool: "content.age.set",
+              args: { option_id: optionId },
+            })
+          ).result,
+        ),
+      getFeatures: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["device.features.get"],
+          (await callTool({ tool: "device.features.get", args: {} })).result,
+        ),
+      setFeature: async (featureId, enabled) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["device.feature.set"],
+          (
+            await callTool({
+              tool: "device.feature.set",
+              args: { feature_id: featureId, enabled: enabled },
+            })
+          ).result,
+        ),
+      getUsageTime: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["usage.time.get"],
+          (await callTool({ tool: "usage.time.get", args: {} })).result,
+        ),
+      setUsageTime: async (limitSeconds) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["usage.time.set"],
+          (
+            await callTool({
+              tool: "usage.time.set",
+              args: { limit_seconds: limitSeconds },
+            })
+          ).result,
+        ),
+      getAISafety: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["ai.safety.get"],
+          (await callTool({ tool: "ai.safety.get", args: {} })).result,
+        ),
+      setAISafety: async (level) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["ai.safety.set"],
+          (await callTool({ tool: "ai.safety.set", args: { level: level } }))
+            .result,
+        ),
+      getManagementPassword: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["management.password.get"],
+          (await callTool({ tool: "management.password.get", args: {} }))
+            .result,
+        ),
+      setManagementPassword: async (password) =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["management.password.set"],
+          (
+            await callTool({
+              tool: "management.password.set",
+              args: { password: password },
+            })
+          ).result,
+        ),
+      resetManagementPassword: async () =>
+        decodeClientToolResult(
+          CLIENT_TOOL_IDS["management.password.reset"],
+          (await callTool({ tool: "management.password.reset", args: {} }))
+            .result,
+        ),
       listWorkspaces: (query) =>
         unwrap(
           "listDeviceWorkspaces",

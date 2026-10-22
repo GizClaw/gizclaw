@@ -836,6 +836,72 @@ const clientToolsByName = <String, RpcMethodDescriptor>{
     requestType: 'ClientLuaAppUninstallRequest',
     responseType: 'ClientLuaAppUninstallResponse',
   ),
+  'content.age.get': RpcMethodDescriptor(
+    id: 28,
+    name: 'content.age.get',
+    requestType: 'ClientContentAgeGetRequest',
+    responseType: 'ClientContentAgeGetResponse',
+  ),
+  'content.age.set': RpcMethodDescriptor(
+    id: 29,
+    name: 'content.age.set',
+    requestType: 'ClientContentAgeSetRequest',
+    responseType: 'ClientContentAgeSetResponse',
+  ),
+  'device.features.get': RpcMethodDescriptor(
+    id: 30,
+    name: 'device.features.get',
+    requestType: 'ClientDeviceFeaturesGetRequest',
+    responseType: 'ClientDeviceFeaturesGetResponse',
+  ),
+  'device.feature.set': RpcMethodDescriptor(
+    id: 31,
+    name: 'device.feature.set',
+    requestType: 'ClientDeviceFeatureSetRequest',
+    responseType: 'ClientDeviceFeatureSetResponse',
+  ),
+  'usage.time.get': RpcMethodDescriptor(
+    id: 32,
+    name: 'usage.time.get',
+    requestType: 'ClientUsageTimeGetRequest',
+    responseType: 'ClientUsageTimeGetResponse',
+  ),
+  'usage.time.set': RpcMethodDescriptor(
+    id: 33,
+    name: 'usage.time.set',
+    requestType: 'ClientUsageTimeSetRequest',
+    responseType: 'ClientUsageTimeSetResponse',
+  ),
+  'ai.safety.get': RpcMethodDescriptor(
+    id: 34,
+    name: 'ai.safety.get',
+    requestType: 'ClientAISafetyGetRequest',
+    responseType: 'ClientAISafetyGetResponse',
+  ),
+  'ai.safety.set': RpcMethodDescriptor(
+    id: 35,
+    name: 'ai.safety.set',
+    requestType: 'ClientAISafetySetRequest',
+    responseType: 'ClientAISafetySetResponse',
+  ),
+  'management.password.get': RpcMethodDescriptor(
+    id: 36,
+    name: 'management.password.get',
+    requestType: 'ClientManagementPasswordGetRequest',
+    responseType: 'ClientManagementPasswordGetResponse',
+  ),
+  'management.password.set': RpcMethodDescriptor(
+    id: 37,
+    name: 'management.password.set',
+    requestType: 'ClientManagementPasswordSetRequest',
+    responseType: 'ClientManagementPasswordSetResponse',
+  ),
+  'management.password.reset': RpcMethodDescriptor(
+    id: 38,
+    name: 'management.password.reset',
+    requestType: 'ClientManagementPasswordResetRequest',
+    responseType: 'ClientManagementPasswordResetResponse',
+  ),
 };
 const clientToolNamesById = <int, String>{
   1: 'info.get',
@@ -865,6 +931,17 @@ const clientToolNamesById = <int, String>{
   25: 'gnss.reporting.get',
   26: 'gnss.reporting.set',
   27: 'lua.app.uninstall',
+  28: 'content.age.get',
+  29: 'content.age.set',
+  30: 'device.features.get',
+  31: 'device.feature.set',
+  32: 'usage.time.get',
+  33: 'usage.time.set',
+  34: 'ai.safety.get',
+  35: 'ai.safety.set',
+  36: 'management.password.get',
+  37: 'management.password.set',
+  38: 'management.password.reset',
 };
 RpcMethodDescriptor clientToolByName(String name) =>
     clientToolsByName[name] ??

@@ -184,3 +184,49 @@ changes cannot overwrite OTA.
 Delivery retains direct-packet semantics without application acknowledgement,
 retries, or exactly-once delivery. The server maintains the latest snapshot with the ordering rules above. Devices
 should limit the frequency of progress reports.
+
+## Device-reported KV state
+
+`Observation.kv` (17) uses the existing TelemetryFrame/direct-packet channel. A nonempty UTF-8 `key`
+selects an opaque JSON value: `json_value` contains its complete encoding, including objects, arrays,
+strings, numbers, booleans and null. Deletion is `delete: true` with no json_value; `"null"` stores a
+present null value. False deletion, both operations, missing operations and malformed JSON are rejected.
+
+| Budget | Limit |
+| --- | --- |
+| Key UTF-8 encoding | 64 bytes |
+| One JSON value encoding | 1024 bytes |
+| KV observations per frame | 16 |
+| Entire protobuf frame containing KV, including other observations | 4096 bytes |
+| Distinct stored keys per device, including deletion tombstones | 64 |
+| Entire encoded stored record, including keys, values, timestamps and tombstones | 16384 bytes |
+
+SDKs and the Server enforce the same input/frame budgets. The Server checks cumulative quotas against
+its authoritative record and atomically rejects all KV changes in an over-budget report. Nothing is
+truncated. Replacing an existing key does not charge another key. Tombstones remain charged, so use a
+stable, bounded key set; deleting newly invented keys cannot bypass quotas. C uses an additive frame API,
+allocation-free nonrecursive JSON validation and bounded packet input, below the existing 64 KiB budget.
+
+Observation time is the frame timestamp plus the observation delta. Senders stamp a zero timestamp using
+the existing SDK clock rule; the Server requires a nonzero original timestamp for KV so receipt time cannot
+turn a replay into a new observation. KV time must be positive and no more than five minutes ahead of the Server.
+Only strictly later observations replace a key. Equal-time replays cannot change a value or resurrect a
+tombstone. A later observation can set a deleted key again. Sequence numbers do not define reconnect epochs.
+
+The Runtime SQL database owns an independent `peer_reported_kv` record with atomic compare-and-swap.
+It survives disconnects and Server restarts; ordinary status/control replies cannot replace it.
+`PeerStatus.reported_kv` and `Runtime.reported_kv` return `{key: {value, json_value, observed_at}}`.
+The value retains its JSON structure; json_value also preserves a lossless encoding for exact numbers and
+bounded clients. Time is RFC 3339. Test key presence, not truthiness: absent/deleted differs from null, false
+and zero. Even a key named online/owner/permission remains only device-reported data. KV produces no
+metrics, history samples or payload logs. Never report passwords or credentials.
+
+Go uses `SendKVTelemetry` and `telemetrypb.KVObservation`; JS uses `kvTelemetry`, `kvTelemetryJSON` and
+`deleteKVTelemetry`. Use kvTelemetryJSON to avoid first converting numeric encodings through JS numbers.
+C uses `gzc_telemetry_kv_frame_t`, `gzc_telemetry_encode_kv_frame` and `gzc_client_send_kv_telemetry`, preserving
+the existing frame ABI. Flutter has no telemetry sender: generated reportedKv maps expose jsonValue and
+`PeerKVEntryJSON.value` provides structured decoding. RPC queries carry bounded PeerKVEntry.json_value
+strings; Go/JS JSON codecs expose both the structured value and its raw encoding without a recursive
+protobuf Value allocation. Native JS/Dart JSON numbers follow their language semantics; raw encodings and
+Monitor rendering remain lossless. Direct packets retain their existing reliability: transport send success
+is not ingestion acknowledgement. Re-report stable keys using actual new observation times.

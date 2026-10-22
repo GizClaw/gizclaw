@@ -22,13 +22,13 @@ sequenceDiagram
 
 ## MHS v0 HWDs
 
-`ClientHwd` in `payload/mhs_v0.proto` binds each HWD to one read response message. Display, led and speaker also bind a write request and applied-value response; wifi, ble, modem, battery and mic have no write messages. The bound RuntimeProfile manifest lists `{id,hwd}` instances only.
+`ClientHwd` in `payload/mhs_v0.proto` binds each HWD to one read response message. Display, led, speaker, modem and NFC also bind a write request and applied-value response; wifi, ble, battery and mic have no write messages. The bound RuntimeProfile manifest lists `{id,hwd}` instances only.
 
 `client.mhs.v0.read` (133) carries an instance ID and HWD; its payload is the HWD's read protobuf. `client.mhs.v0.write` (134) additionally carries that HWD's write protobuf and returns an applied-value protobuf. Each call addresses one instance. The Server verifies the manifest instance and type before forwarding. The device returns NOT_FOUND for absent physical hardware and INVALID_ARGUMENT for invalid values; errors use the RPC envelope. Read back after a timed-out write.
 
 ## tool/v0 procedures
 
-The 27 predefined tools are `info.get`, `identifiers.get`, `device.status.get`, `device.reboot`, `device.factory_reset`, `device.find`, `sound.play`, `wifi.scan`, `wifi.connect`, `wifi.saved.list`, `wifi.saved.forget`, `firmware.update`, seven `audioplayer.*` tools, `run.workspace.set`, `social.ping`, four `lua.app.*` tools, and two `gnss.reporting.*` tools. Their exact enum numbers and request/response messages are in [the RPC reference](/references/rpc#clienttool-v0). Devices advertise the installed subset through `client.tool.v0.list`. Product-defined device-local tools are not callable by the Agent in tool/v0.
+The 38 predefined tools include `info.get`, `identifiers.get`, `device.status.get`, `device.reboot`, `device.factory_reset`, `device.find`, `sound.play`, `wifi.scan`, `wifi.connect`, `wifi.saved.list`, `wifi.saved.forget`, `firmware.update`, seven `audioplayer.*` tools, `run.workspace.set`, `social.ping`, four `lua.app.*` tools, two `gnss.reporting.*` tools, and [generic device management](/en/developing/gizclaw/rpc/tool#generic-management-invoke-tools). Their exact enum numbers and request/response messages are in [the RPC reference](/references/rpc#clienttool-v0). Devices advertise the installed subset through `client.tool.v0.list`. Product-defined device-local tools are not callable by the Agent in tool/v0.
 
 - `device.status.get` returns live `PeerStatus` and refreshes the Server snapshot. Device identity and telemetry fields outside the MHS manifest remain in this status.
 - `sound.play` accepts a device-defined sound name of at most 32 UTF-8 bytes and optional non-negative duration. `device.find` rings the built-in find-me sound with an optional duration. `device.reboot` acknowledges before rebooting. `device.factory_reset` acknowledges before erasing local state; `keep_network` can preserve Wi-Fi and cellular settings. A device that also deletes its Peer invalidates its API keys.

@@ -12,6 +12,7 @@
 
 import 'dart:core' as $core;
 
+import 'package:fixnum/fixnum.dart' as $fixnum;
 import 'package:protobuf/protobuf.dart' as $pb;
 
 import 'mhs_v0.pbenum.dart';
@@ -646,6 +647,8 @@ class ModemHwdReadResponse extends $pb.GeneratedMessage {
     $core.String? rat,
     $core.int? rssiDbm,
     $core.int? signalLevel,
+    $core.bool? enabled,
+    $core.bool? powered,
   }) {
     final result = create();
     if (simPresent != null) result.simPresent = simPresent;
@@ -653,6 +656,8 @@ class ModemHwdReadResponse extends $pb.GeneratedMessage {
     if (rat != null) result.rat = rat;
     if (rssiDbm != null) result.rssiDbm = rssiDbm;
     if (signalLevel != null) result.signalLevel = signalLevel;
+    if (enabled != null) result.enabled = enabled;
+    if (powered != null) result.powered = powered;
     return result;
   }
 
@@ -675,6 +680,8 @@ class ModemHwdReadResponse extends $pb.GeneratedMessage {
     ..aI(4, _omitFieldNames ? '' : 'rssiDbm')
     ..aI(5, _omitFieldNames ? '' : 'signalLevel',
         fieldType: $pb.PbFieldType.OU3)
+    ..aOB(6, _omitFieldNames ? '' : 'enabled')
+    ..aOB(7, _omitFieldNames ? '' : 'powered')
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -740,6 +747,458 @@ class ModemHwdReadResponse extends $pb.GeneratedMessage {
   $core.bool hasSignalLevel() => $_has(4);
   @$pb.TagNumber(5)
   void clearSignalLevel() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.bool get enabled => $_getBF(5);
+  @$pb.TagNumber(6)
+  set enabled($core.bool value) => $_setBool(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasEnabled() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearEnabled() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.bool get powered => $_getBF(6);
+  @$pb.TagNumber(7)
+  set powered($core.bool value) => $_setBool(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasPowered() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearPowered() => $_clearField(7);
+}
+
+class ModemHwdWriteRequest extends $pb.GeneratedMessage {
+  factory ModemHwdWriteRequest({
+    $core.bool? enabled,
+  }) {
+    final result = create();
+    if (enabled != null) result.enabled = enabled;
+    return result;
+  }
+
+  ModemHwdWriteRequest._();
+
+  factory ModemHwdWriteRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ModemHwdWriteRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ModemHwdWriteRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'enabled')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ModemHwdWriteRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ModemHwdWriteRequest copyWith(void Function(ModemHwdWriteRequest) updates) =>
+      super.copyWith((message) => updates(message as ModemHwdWriteRequest))
+          as ModemHwdWriteRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ModemHwdWriteRequest create() => ModemHwdWriteRequest._();
+  @$core.override
+  ModemHwdWriteRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ModemHwdWriteRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ModemHwdWriteRequest>(create);
+  static ModemHwdWriteRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get enabled => $_getBF(0);
+  @$pb.TagNumber(1)
+  set enabled($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEnabled() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEnabled() => $_clearField(1);
+}
+
+class ModemHwdWriteResponse extends $pb.GeneratedMessage {
+  factory ModemHwdWriteResponse({
+    ModemHwdReadResponse? applied,
+  }) {
+    final result = create();
+    if (applied != null) result.applied = applied;
+    return result;
+  }
+
+  ModemHwdWriteResponse._();
+
+  factory ModemHwdWriteResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory ModemHwdWriteResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'ModemHwdWriteResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<ModemHwdReadResponse>(1, _omitFieldNames ? '' : 'applied',
+        subBuilder: ModemHwdReadResponse.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ModemHwdWriteResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  ModemHwdWriteResponse copyWith(
+          void Function(ModemHwdWriteResponse) updates) =>
+      super.copyWith((message) => updates(message as ModemHwdWriteResponse))
+          as ModemHwdWriteResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static ModemHwdWriteResponse create() => ModemHwdWriteResponse._();
+  @$core.override
+  ModemHwdWriteResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static ModemHwdWriteResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<ModemHwdWriteResponse>(create);
+  static ModemHwdWriteResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  ModemHwdReadResponse get applied => $_getN(0);
+  @$pb.TagNumber(1)
+  set applied(ModemHwdReadResponse value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasApplied() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearApplied() => $_clearField(1);
+  @$pb.TagNumber(1)
+  ModemHwdReadResponse ensureApplied() => $_ensure(0);
+}
+
+/// Cached most recent attempt, successful or failed. Removing a card does not
+/// clear this snapshot. Reading MHS never starts a new hardware read.
+class NfcReadSnapshot extends $pb.GeneratedMessage {
+  factory NfcReadSnapshot({
+    $fixnum.Int64? readAtUnixMs,
+    $core.List<$core.int>? uid,
+    $core.String? technology,
+    $core.String? dataFormat,
+    $core.List<$core.int>? rawData,
+    $core.String? result,
+    $core.String? errorCode,
+  }) {
+    final result$ = create();
+    if (readAtUnixMs != null) result$.readAtUnixMs = readAtUnixMs;
+    if (uid != null) result$.uid = uid;
+    if (technology != null) result$.technology = technology;
+    if (dataFormat != null) result$.dataFormat = dataFormat;
+    if (rawData != null) result$.rawData = rawData;
+    if (result != null) result$.result = result;
+    if (errorCode != null) result$.errorCode = errorCode;
+    return result$;
+  }
+
+  NfcReadSnapshot._();
+
+  factory NfcReadSnapshot.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NfcReadSnapshot.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NfcReadSnapshot',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aInt64(1, _omitFieldNames ? '' : 'readAtUnixMs')
+    ..a<$core.List<$core.int>>(
+        2, _omitFieldNames ? '' : 'uid', $pb.PbFieldType.OY)
+    ..aOS(3, _omitFieldNames ? '' : 'technology')
+    ..aOS(4, _omitFieldNames ? '' : 'dataFormat')
+    ..a<$core.List<$core.int>>(
+        5, _omitFieldNames ? '' : 'rawData', $pb.PbFieldType.OY)
+    ..aOS(6, _omitFieldNames ? '' : 'result')
+    ..aOS(7, _omitFieldNames ? '' : 'errorCode')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcReadSnapshot clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcReadSnapshot copyWith(void Function(NfcReadSnapshot) updates) =>
+      super.copyWith((message) => updates(message as NfcReadSnapshot))
+          as NfcReadSnapshot;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NfcReadSnapshot create() => NfcReadSnapshot._();
+  @$core.override
+  NfcReadSnapshot createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NfcReadSnapshot getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NfcReadSnapshot>(create);
+  static NfcReadSnapshot? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $fixnum.Int64 get readAtUnixMs => $_getI64(0);
+  @$pb.TagNumber(1)
+  set readAtUnixMs($fixnum.Int64 value) => $_setInt64(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasReadAtUnixMs() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearReadAtUnixMs() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.List<$core.int> get uid => $_getN(1);
+  @$pb.TagNumber(2)
+  set uid($core.List<$core.int> value) => $_setBytes(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasUid() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearUid() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  $core.String get technology => $_getSZ(2);
+  @$pb.TagNumber(3)
+  set technology($core.String value) => $_setString(2, value);
+  @$pb.TagNumber(3)
+  $core.bool hasTechnology() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearTechnology() => $_clearField(3);
+
+  @$pb.TagNumber(4)
+  $core.String get dataFormat => $_getSZ(3);
+  @$pb.TagNumber(4)
+  set dataFormat($core.String value) => $_setString(3, value);
+  @$pb.TagNumber(4)
+  $core.bool hasDataFormat() => $_has(3);
+  @$pb.TagNumber(4)
+  void clearDataFormat() => $_clearField(4);
+
+  @$pb.TagNumber(5)
+  $core.List<$core.int> get rawData => $_getN(4);
+  @$pb.TagNumber(5)
+  set rawData($core.List<$core.int> value) => $_setBytes(4, value);
+  @$pb.TagNumber(5)
+  $core.bool hasRawData() => $_has(4);
+  @$pb.TagNumber(5)
+  void clearRawData() => $_clearField(5);
+
+  @$pb.TagNumber(6)
+  $core.String get result => $_getSZ(5);
+  @$pb.TagNumber(6)
+  set result($core.String value) => $_setString(5, value);
+  @$pb.TagNumber(6)
+  $core.bool hasResult() => $_has(5);
+  @$pb.TagNumber(6)
+  void clearResult() => $_clearField(6);
+
+  @$pb.TagNumber(7)
+  $core.String get errorCode => $_getSZ(6);
+  @$pb.TagNumber(7)
+  set errorCode($core.String value) => $_setString(6, value);
+  @$pb.TagNumber(7)
+  $core.bool hasErrorCode() => $_has(6);
+  @$pb.TagNumber(7)
+  void clearErrorCode() => $_clearField(7);
+}
+
+class NfcHwdReadResponse extends $pb.GeneratedMessage {
+  factory NfcHwdReadResponse({
+    $core.bool? enabled,
+    $core.bool? cardPresent,
+    NfcReadSnapshot? lastRead,
+  }) {
+    final result = create();
+    if (enabled != null) result.enabled = enabled;
+    if (cardPresent != null) result.cardPresent = cardPresent;
+    if (lastRead != null) result.lastRead = lastRead;
+    return result;
+  }
+
+  NfcHwdReadResponse._();
+
+  factory NfcHwdReadResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NfcHwdReadResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NfcHwdReadResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'enabled')
+    ..aOB(2, _omitFieldNames ? '' : 'cardPresent')
+    ..aOM<NfcReadSnapshot>(3, _omitFieldNames ? '' : 'lastRead',
+        subBuilder: NfcReadSnapshot.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcHwdReadResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcHwdReadResponse copyWith(void Function(NfcHwdReadResponse) updates) =>
+      super.copyWith((message) => updates(message as NfcHwdReadResponse))
+          as NfcHwdReadResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NfcHwdReadResponse create() => NfcHwdReadResponse._();
+  @$core.override
+  NfcHwdReadResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NfcHwdReadResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NfcHwdReadResponse>(create);
+  static NfcHwdReadResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get enabled => $_getBF(0);
+  @$pb.TagNumber(1)
+  set enabled($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEnabled() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEnabled() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.bool get cardPresent => $_getBF(1);
+  @$pb.TagNumber(2)
+  set cardPresent($core.bool value) => $_setBool(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasCardPresent() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearCardPresent() => $_clearField(2);
+
+  @$pb.TagNumber(3)
+  NfcReadSnapshot get lastRead => $_getN(2);
+  @$pb.TagNumber(3)
+  set lastRead(NfcReadSnapshot value) => $_setField(3, value);
+  @$pb.TagNumber(3)
+  $core.bool hasLastRead() => $_has(2);
+  @$pb.TagNumber(3)
+  void clearLastRead() => $_clearField(3);
+  @$pb.TagNumber(3)
+  NfcReadSnapshot ensureLastRead() => $_ensure(2);
+}
+
+class NfcHwdWriteRequest extends $pb.GeneratedMessage {
+  factory NfcHwdWriteRequest({
+    $core.bool? enabled,
+  }) {
+    final result = create();
+    if (enabled != null) result.enabled = enabled;
+    return result;
+  }
+
+  NfcHwdWriteRequest._();
+
+  factory NfcHwdWriteRequest.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NfcHwdWriteRequest.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NfcHwdWriteRequest',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOB(1, _omitFieldNames ? '' : 'enabled')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcHwdWriteRequest clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcHwdWriteRequest copyWith(void Function(NfcHwdWriteRequest) updates) =>
+      super.copyWith((message) => updates(message as NfcHwdWriteRequest))
+          as NfcHwdWriteRequest;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NfcHwdWriteRequest create() => NfcHwdWriteRequest._();
+  @$core.override
+  NfcHwdWriteRequest createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NfcHwdWriteRequest getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NfcHwdWriteRequest>(create);
+  static NfcHwdWriteRequest? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.bool get enabled => $_getBF(0);
+  @$pb.TagNumber(1)
+  set enabled($core.bool value) => $_setBool(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasEnabled() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearEnabled() => $_clearField(1);
+}
+
+class NfcHwdWriteResponse extends $pb.GeneratedMessage {
+  factory NfcHwdWriteResponse({
+    NfcHwdReadResponse? applied,
+  }) {
+    final result = create();
+    if (applied != null) result.applied = applied;
+    return result;
+  }
+
+  NfcHwdWriteResponse._();
+
+  factory NfcHwdWriteResponse.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory NfcHwdWriteResponse.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'NfcHwdWriteResponse',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOM<NfcHwdReadResponse>(1, _omitFieldNames ? '' : 'applied',
+        subBuilder: NfcHwdReadResponse.create)
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcHwdWriteResponse clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  NfcHwdWriteResponse copyWith(void Function(NfcHwdWriteResponse) updates) =>
+      super.copyWith((message) => updates(message as NfcHwdWriteResponse))
+          as NfcHwdWriteResponse;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static NfcHwdWriteResponse create() => NfcHwdWriteResponse._();
+  @$core.override
+  NfcHwdWriteResponse createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static NfcHwdWriteResponse getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<NfcHwdWriteResponse>(create);
+  static NfcHwdWriteResponse? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  NfcHwdReadResponse get applied => $_getN(0);
+  @$pb.TagNumber(1)
+  set applied(NfcHwdReadResponse value) => $_setField(1, value);
+  @$pb.TagNumber(1)
+  $core.bool hasApplied() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearApplied() => $_clearField(1);
+  @$pb.TagNumber(1)
+  NfcHwdReadResponse ensureApplied() => $_ensure(0);
 }
 
 class BatteryHwdReadResponse extends $pb.GeneratedMessage {

@@ -19,7 +19,8 @@ typedef enum _gizclaw_rpc_v1_ClientHwd {
     gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_MIC = 5,
     gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_DISPLAY = 6,
     gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_LED = 7,
-    gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_SPEAKER = 8
+    gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_SPEAKER = 8,
+    gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_NFC = 9
 } gizclaw_rpc_v1_ClientHwd;
 
 /* Struct definitions */
@@ -101,7 +102,59 @@ typedef struct _gizclaw_rpc_v1_ModemHwdReadResponse {
     int32_t rssi_dbm;
     bool has_signal_level;
     uint32_t signal_level;
+    bool has_enabled;
+    bool enabled; /* User configuration; missing means unknown. */
+    bool has_powered;
+    bool powered; /* Actual observation only, never inferred from RF. */
 } gizclaw_rpc_v1_ModemHwdReadResponse;
+
+typedef struct _gizclaw_rpc_v1_ModemHwdWriteRequest {
+    bool has_enabled;
+    bool enabled; /* Required presence, including false. */
+} gizclaw_rpc_v1_ModemHwdWriteRequest;
+
+typedef struct _gizclaw_rpc_v1_ModemHwdWriteResponse {
+    bool has_applied;
+    gizclaw_rpc_v1_ModemHwdReadResponse applied; /* Must include actual enabled value. */
+} gizclaw_rpc_v1_ModemHwdWriteResponse;
+
+typedef PB_BYTES_ARRAY_T(32) gizclaw_rpc_v1_NfcReadSnapshot_uid_t;
+typedef PB_BYTES_ARRAY_T(1024) gizclaw_rpc_v1_NfcReadSnapshot_raw_data_t;
+/* Cached most recent attempt, successful or failed. Removing a card does not
+ clear this snapshot. Reading MHS never starts a new hardware read. */
+typedef struct _gizclaw_rpc_v1_NfcReadSnapshot {
+    int64_t read_at_unix_ms;
+    bool has_uid;
+    gizclaw_rpc_v1_NfcReadSnapshot_uid_t uid; /* Up to 32 bytes, binary (base64 in JSON). */
+    bool has_technology;
+    char technology[33]; /* Up to 32 UTF-8 bytes, e.g. iso14443a. */
+    bool has_data_format;
+    char data_format[33]; /* Up to 32 bytes, e.g. ndef or raw. */
+    bool has_raw_data;
+    gizclaw_rpc_v1_NfcReadSnapshot_raw_data_t raw_data; /* Up to 1024 bytes, base64 in JSON. */
+    char result[8]; /* success or failed; includes failed attempts. */
+    bool has_error_code;
+    char error_code[65]; /* Up to 64 bytes; required on failure. */
+} gizclaw_rpc_v1_NfcReadSnapshot;
+
+typedef struct _gizclaw_rpc_v1_NfcHwdReadResponse {
+    bool has_enabled;
+    bool enabled;
+    bool has_card_present;
+    bool card_present;
+    bool has_last_read;
+    gizclaw_rpc_v1_NfcReadSnapshot last_read;
+} gizclaw_rpc_v1_NfcHwdReadResponse;
+
+typedef struct _gizclaw_rpc_v1_NfcHwdWriteRequest {
+    bool has_enabled;
+    bool enabled; /* Required presence. */
+} gizclaw_rpc_v1_NfcHwdWriteRequest;
+
+typedef struct _gizclaw_rpc_v1_NfcHwdWriteResponse {
+    bool has_applied;
+    gizclaw_rpc_v1_NfcHwdReadResponse applied; /* Must include actual enabled value. */
+} gizclaw_rpc_v1_NfcHwdWriteResponse;
 
 typedef struct _gizclaw_rpc_v1_BatteryHwdReadResponse {
     bool has_percent;
@@ -193,8 +246,8 @@ extern "C" {
 
 /* Helper constants for enums */
 #define _gizclaw_rpc_v1_ClientHwd_MIN gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_UNSPECIFIED
-#define _gizclaw_rpc_v1_ClientHwd_MAX gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_SPEAKER
-#define _gizclaw_rpc_v1_ClientHwd_ARRAYSIZE ((gizclaw_rpc_v1_ClientHwd)(gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_SPEAKER+1))
+#define _gizclaw_rpc_v1_ClientHwd_MAX gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_NFC
+#define _gizclaw_rpc_v1_ClientHwd_ARRAYSIZE ((gizclaw_rpc_v1_ClientHwd)(gizclaw_rpc_v1_ClientHwd_CLIENT_HWD_NFC+1))
 
 
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_hwd_ENUMTYPE gizclaw_rpc_v1_ClientHwd
@@ -202,6 +255,12 @@ extern "C" {
 
 
 #define gizclaw_rpc_v1_ClientMhsV0WriteRequest_hwd_ENUMTYPE gizclaw_rpc_v1_ClientHwd
+
+
+
+
+
+
 
 
 
@@ -228,7 +287,13 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientMhsV0WriteResponse_init_default {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WifiHwdReadResponse_init_default {false, 0, false, "", false, "", false, 0, false, ""}
 #define gizclaw_rpc_v1_BleHwdReadResponse_init_default {false, 0, false, 0, false, 0, false, 0}
-#define gizclaw_rpc_v1_ModemHwdReadResponse_init_default {false, 0, false, 0, false, "", false, 0, false, 0}
+#define gizclaw_rpc_v1_ModemHwdReadResponse_init_default {false, 0, false, 0, false, "", false, 0, false, 0, false, 0, false, 0}
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_init_default {false, 0}
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_init_default {false, gizclaw_rpc_v1_ModemHwdReadResponse_init_default}
+#define gizclaw_rpc_v1_NfcReadSnapshot_init_default {0, false, {0, {0}}, false, "", false, "", false, {0, {0}}, "", false, ""}
+#define gizclaw_rpc_v1_NfcHwdReadResponse_init_default {false, 0, false, 0, false, gizclaw_rpc_v1_NfcReadSnapshot_init_default}
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_init_default {false, 0}
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_init_default {false, gizclaw_rpc_v1_NfcHwdReadResponse_init_default}
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_init_default {false, 0, false, 0, false, 0}
 #define gizclaw_rpc_v1_MicHwdReadResponse_init_default {false, 0, false, 0}
 #define gizclaw_rpc_v1_DisplayHwdReadResponse_init_default {false, 0, false, 0, false, 0}
@@ -248,7 +313,13 @@ extern "C" {
 #define gizclaw_rpc_v1_ClientMhsV0WriteResponse_init_zero {{{NULL}, NULL}}
 #define gizclaw_rpc_v1_WifiHwdReadResponse_init_zero {false, 0, false, "", false, "", false, 0, false, ""}
 #define gizclaw_rpc_v1_BleHwdReadResponse_init_zero {false, 0, false, 0, false, 0, false, 0}
-#define gizclaw_rpc_v1_ModemHwdReadResponse_init_zero {false, 0, false, 0, false, "", false, 0, false, 0}
+#define gizclaw_rpc_v1_ModemHwdReadResponse_init_zero {false, 0, false, 0, false, "", false, 0, false, 0, false, 0, false, 0}
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_init_zero {false, 0}
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_init_zero {false, gizclaw_rpc_v1_ModemHwdReadResponse_init_zero}
+#define gizclaw_rpc_v1_NfcReadSnapshot_init_zero {0, false, {0, {0}}, false, "", false, "", false, {0, {0}}, "", false, ""}
+#define gizclaw_rpc_v1_NfcHwdReadResponse_init_zero {false, 0, false, 0, false, gizclaw_rpc_v1_NfcReadSnapshot_init_zero}
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_init_zero {false, 0}
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_init_zero {false, gizclaw_rpc_v1_NfcHwdReadResponse_init_zero}
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_init_zero {false, 0, false, 0, false, 0}
 #define gizclaw_rpc_v1_MicHwdReadResponse_init_zero {false, 0, false, 0}
 #define gizclaw_rpc_v1_DisplayHwdReadResponse_init_zero {false, 0, false, 0, false, 0}
@@ -289,6 +360,22 @@ extern "C" {
 #define gizclaw_rpc_v1_ModemHwdReadResponse_rat_tag 3
 #define gizclaw_rpc_v1_ModemHwdReadResponse_rssi_dbm_tag 4
 #define gizclaw_rpc_v1_ModemHwdReadResponse_signal_level_tag 5
+#define gizclaw_rpc_v1_ModemHwdReadResponse_enabled_tag 6
+#define gizclaw_rpc_v1_ModemHwdReadResponse_powered_tag 7
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_enabled_tag 1
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_applied_tag 1
+#define gizclaw_rpc_v1_NfcReadSnapshot_read_at_unix_ms_tag 1
+#define gizclaw_rpc_v1_NfcReadSnapshot_uid_tag   2
+#define gizclaw_rpc_v1_NfcReadSnapshot_technology_tag 3
+#define gizclaw_rpc_v1_NfcReadSnapshot_data_format_tag 4
+#define gizclaw_rpc_v1_NfcReadSnapshot_raw_data_tag 5
+#define gizclaw_rpc_v1_NfcReadSnapshot_result_tag 6
+#define gizclaw_rpc_v1_NfcReadSnapshot_error_code_tag 7
+#define gizclaw_rpc_v1_NfcHwdReadResponse_enabled_tag 1
+#define gizclaw_rpc_v1_NfcHwdReadResponse_card_present_tag 2
+#define gizclaw_rpc_v1_NfcHwdReadResponse_last_read_tag 3
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_enabled_tag 1
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_applied_tag 1
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_percent_tag 1
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_charging_tag 2
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_voltage_mv_tag 3
@@ -374,9 +461,52 @@ X(a, STATIC,   OPTIONAL, BOOL,     sim_present,       1) \
 X(a, STATIC,   OPTIONAL, BOOL,     registered,        2) \
 X(a, STATIC,   OPTIONAL, STRING,   rat,               3) \
 X(a, STATIC,   OPTIONAL, INT32,    rssi_dbm,          4) \
-X(a, STATIC,   OPTIONAL, UINT32,   signal_level,      5)
+X(a, STATIC,   OPTIONAL, UINT32,   signal_level,      5) \
+X(a, STATIC,   OPTIONAL, BOOL,     enabled,           6) \
+X(a, STATIC,   OPTIONAL, BOOL,     powered,           7)
 #define gizclaw_rpc_v1_ModemHwdReadResponse_CALLBACK NULL
 #define gizclaw_rpc_v1_ModemHwdReadResponse_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     enabled,           1)
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  applied,           1)
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_applied_MSGTYPE gizclaw_rpc_v1_ModemHwdReadResponse
+
+#define gizclaw_rpc_v1_NfcReadSnapshot_FIELDLIST(X, a) \
+X(a, STATIC,   SINGULAR, INT64,    read_at_unix_ms,   1) \
+X(a, STATIC,   OPTIONAL, BYTES,    uid,               2) \
+X(a, STATIC,   OPTIONAL, STRING,   technology,        3) \
+X(a, STATIC,   OPTIONAL, STRING,   data_format,       4) \
+X(a, STATIC,   OPTIONAL, BYTES,    raw_data,          5) \
+X(a, STATIC,   SINGULAR, STRING,   result,            6) \
+X(a, STATIC,   OPTIONAL, STRING,   error_code,        7)
+#define gizclaw_rpc_v1_NfcReadSnapshot_CALLBACK NULL
+#define gizclaw_rpc_v1_NfcReadSnapshot_DEFAULT NULL
+
+#define gizclaw_rpc_v1_NfcHwdReadResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     enabled,           1) \
+X(a, STATIC,   OPTIONAL, BOOL,     card_present,      2) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  last_read,         3)
+#define gizclaw_rpc_v1_NfcHwdReadResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_NfcHwdReadResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_NfcHwdReadResponse_last_read_MSGTYPE gizclaw_rpc_v1_NfcReadSnapshot
+
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, BOOL,     enabled,           1)
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_CALLBACK NULL
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_DEFAULT NULL
+
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_FIELDLIST(X, a) \
+X(a, STATIC,   OPTIONAL, MESSAGE,  applied,           1)
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_CALLBACK NULL
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_DEFAULT NULL
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_applied_MSGTYPE gizclaw_rpc_v1_NfcHwdReadResponse
 
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_FIELDLIST(X, a) \
 X(a, STATIC,   OPTIONAL, DOUBLE,   percent,           1) \
@@ -456,6 +586,12 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_ClientMhsV0WriteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_WifiHwdReadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_BleHwdReadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_ModemHwdReadResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ModemHwdWriteRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_ModemHwdWriteResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_NfcReadSnapshot_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_NfcHwdReadResponse_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_NfcHwdWriteRequest_msg;
+extern const pb_msgdesc_t gizclaw_rpc_v1_NfcHwdWriteResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_BatteryHwdReadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_MicHwdReadResponse_msg;
 extern const pb_msgdesc_t gizclaw_rpc_v1_DisplayHwdReadResponse_msg;
@@ -478,6 +614,12 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeakerHwdWriteResponse_msg;
 #define gizclaw_rpc_v1_WifiHwdReadResponse_fields &gizclaw_rpc_v1_WifiHwdReadResponse_msg
 #define gizclaw_rpc_v1_BleHwdReadResponse_fields &gizclaw_rpc_v1_BleHwdReadResponse_msg
 #define gizclaw_rpc_v1_ModemHwdReadResponse_fields &gizclaw_rpc_v1_ModemHwdReadResponse_msg
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_fields &gizclaw_rpc_v1_ModemHwdWriteRequest_msg
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_fields &gizclaw_rpc_v1_ModemHwdWriteResponse_msg
+#define gizclaw_rpc_v1_NfcReadSnapshot_fields &gizclaw_rpc_v1_NfcReadSnapshot_msg
+#define gizclaw_rpc_v1_NfcHwdReadResponse_fields &gizclaw_rpc_v1_NfcHwdReadResponse_msg
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_fields &gizclaw_rpc_v1_NfcHwdWriteRequest_msg
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_fields &gizclaw_rpc_v1_NfcHwdWriteResponse_msg
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_fields &gizclaw_rpc_v1_BatteryHwdReadResponse_msg
 #define gizclaw_rpc_v1_MicHwdReadResponse_fields &gizclaw_rpc_v1_MicHwdReadResponse_msg
 #define gizclaw_rpc_v1_DisplayHwdReadResponse_fields &gizclaw_rpc_v1_DisplayHwdReadResponse_msg
@@ -496,7 +638,7 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeakerHwdWriteResponse_msg;
 /* gizclaw_rpc_v1_ClientMhsV0ReadResponse_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientMhsV0WriteRequest_size depends on runtime parameters */
 /* gizclaw_rpc_v1_ClientMhsV0WriteResponse_size depends on runtime parameters */
-#define GIZCLAW_RPC_V1_PAYLOAD_MHS_V0_PB_H_MAX_SIZE gizclaw_rpc_v1_WifiHwdReadResponse_size
+#define GIZCLAW_RPC_V1_PAYLOAD_MHS_V0_PB_H_MAX_SIZE gizclaw_rpc_v1_NfcHwdWriteResponse_size
 #define gizclaw_rpc_v1_BatteryHwdReadResponse_size 20
 #define gizclaw_rpc_v1_BleHwdReadResponse_size   12
 #define gizclaw_rpc_v1_ClientMhsV0ReadRequest_size 68
@@ -507,7 +649,13 @@ extern const pb_msgdesc_t gizclaw_rpc_v1_SpeakerHwdWriteResponse_msg;
 #define gizclaw_rpc_v1_LedHwdWriteRequest_size   8
 #define gizclaw_rpc_v1_LedHwdWriteResponse_size  10
 #define gizclaw_rpc_v1_MicHwdReadResponse_size   4
-#define gizclaw_rpc_v1_ModemHwdReadResponse_size 39
+#define gizclaw_rpc_v1_ModemHwdReadResponse_size 43
+#define gizclaw_rpc_v1_ModemHwdWriteRequest_size 2
+#define gizclaw_rpc_v1_ModemHwdWriteResponse_size 45
+#define gizclaw_rpc_v1_NfcHwdReadResponse_size   1222
+#define gizclaw_rpc_v1_NfcHwdWriteRequest_size   2
+#define gizclaw_rpc_v1_NfcHwdWriteResponse_size  1225
+#define gizclaw_rpc_v1_NfcReadSnapshot_size      1215
 #define gizclaw_rpc_v1_SpeakerHwdReadResponse_size 8
 #define gizclaw_rpc_v1_SpeakerHwdWriteRequest_size 8
 #define gizclaw_rpc_v1_SpeakerHwdWriteResponse_size 10

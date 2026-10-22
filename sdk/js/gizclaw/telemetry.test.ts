@@ -100,3 +100,65 @@ test("RPC status round-trips cellular identity strings", () => {
     response,
   );
 });
+
+test("KV telemetry preserves JSON and enforces bounded values and frames", async () => {
+  const { kvTelemetry, kvTelemetryJSON, deleteKVTelemetry } =
+    await import("./telemetry.ts");
+  const hex = (bytes: Uint8Array) => Buffer.from(bytes).toString("hex");
+  assert.equal(
+    hex(
+      encodeTelemetryPacket({
+        sequence: 7,
+        observedAtUnixMs: 1234,
+        observations: [kvTelemetry("k", null)],
+      }),
+    ),
+    "40080710d2091a0c8a01090a016b12046e756c6c",
+  );
+  for (const value of [
+    null,
+    false,
+    0,
+    { x: [null, false, 0] },
+    [1, 2],
+    "text",
+  ]) {
+    const observation = kvTelemetry("state", value);
+    assert.deepEqual(JSON.parse(observation.kv!.jsonValue!), value);
+    assert.doesNotThrow(() =>
+      encodeTelemetryPacket({ observations: [observation] }),
+    );
+  }
+  assert.equal(kvTelemetryJSON("numeric", "1e400").kv?.jsonValue, "1e400");
+  assert.equal(deleteKVTelemetry("k").kv?.delete, true);
+  assert.equal(deleteKVTelemetry("k").kv?.jsonValue, undefined);
+  assert.throws(() => kvTelemetry("中".repeat(22), 0));
+  assert.doesNotThrow(() => kvTelemetry("x".repeat(64), "x".repeat(1022)));
+  assert.throws(() => kvTelemetry("k", "x".repeat(1023)));
+  assert.throws(() => kvTelemetryJSON("k", "{bad}"));
+  assert.throws(() =>
+    encodeTelemetryPacket({
+      observations: Array.from({ length: 17 }, () => kvTelemetry("k", 0)),
+    }),
+  );
+  assert.throws(() =>
+    encodeTelemetryPacket({
+      observations: Array.from({ length: 4 }, () =>
+        kvTelemetry("k", "x".repeat(1022)),
+      ),
+    }),
+  );
+});
+
+test("KV convenience encoding rejects non-JSON values without dropping fields", async () => {
+  const { kvTelemetry } = await import("./telemetry.ts");
+  for (const value of [
+    NaN,
+    Infinity,
+    undefined,
+    { x: undefined },
+    [undefined],
+    { x: () => 0 },
+  ])
+    assert.throws(() => kvTelemetry("k", value));
+});

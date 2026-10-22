@@ -59,12 +59,13 @@ func openSession(endpoint, privateKey string, provider *clientRPCProvider, crede
 
 	session := &cSession{}
 	var providerHandle C.ulonglong
-	var toolMask, mhsMask C.uint
+	var toolMask C.ulonglong
+	var mhsMask C.uint
 	if provider != nil {
 		session.provider = cgo.NewHandle(provider)
 		providerHandle = C.ulonglong(session.provider)
 		tools, mhs := provider.installedMasks()
-		toolMask, mhsMask = C.uint(tools), C.uint(mhs)
+		toolMask, mhsMask = C.ulonglong(tools), C.uint(mhs)
 	}
 	var credentialType, credentialValue *C.char
 	var credentialVersion C.uint

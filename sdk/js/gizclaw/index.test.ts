@@ -5110,3 +5110,141 @@ test("Lua Binary upload rejects 512 KiB plus one byte before opening a channel",
     false,
   );
 });
+
+test("management invoke exposes installed tools and returns actual applied state", async () => {
+  let limit = 0,
+    feature = true,
+    isSet = false;
+  const handlers: GizClawPeerRPCHandlers = {
+    tools: {
+      [CLIENT_TOOL_IDS["usage.time.set"]]: (r) => {
+        limit = Math.min(r.limit_seconds!, 3600);
+        return {
+          applied: { limit_seconds: limit, used_seconds: 0, exhausted: false },
+        };
+      },
+      [CLIENT_TOOL_IDS["usage.time.get"]]: () => ({
+        state: { limit_seconds: limit, used_seconds: 0, exhausted: false },
+      }),
+      [CLIENT_TOOL_IDS["device.feature.set"]]: (r) => {
+        feature = r.enabled!;
+        return {
+          applied: {
+            id: r.feature_id,
+            display_name: "Camera",
+            enabled: feature,
+            writable: true,
+          },
+        };
+      },
+      [CLIENT_TOOL_IDS["management.password.set"]]: () => {
+        isSet = true;
+        return { is_set: isSet };
+      },
+      [CLIENT_TOOL_IDS["management.password.reset"]]: () => {
+        isSet = false;
+        return { is_set: isSet };
+      },
+    },
+  };
+  const listed = await serveInboundClientRPC(
+    "client.tool.v0.list",
+    {},
+    handlers,
+  );
+  assert.ok(
+    (listed.result as { tools: number[] }).tools.includes(
+      CLIENT_TOOL_IDS["usage.time.get"],
+    ),
+  );
+  assert.ok(
+    !(listed.result as { tools: number[] }).tools.includes(
+      CLIENT_TOOL_IDS["ai.safety.get"],
+    ),
+  );
+  const set = await serveInboundClientRPC(
+    "usage.time.set",
+    { limit_seconds: 9000 },
+    handlers,
+  );
+  assert.equal(set.error, undefined);
+  assert.equal(limit, 3600);
+  assert.equal(
+    (set.result as { applied: { limit_seconds: number } }).applied
+      .limit_seconds,
+    3600,
+  );
+  assert.deepEqual(
+    (await serveInboundClientRPC("usage.time.get", {}, handlers)).result,
+    { state: { limit_seconds: 3600, used_seconds: 0, exhausted: false } },
+  );
+  assert.equal(
+    (
+      await serveInboundClientRPC(
+        "device.feature.set",
+        { feature_id: "camera", enabled: false },
+        handlers,
+      )
+    ).error,
+    undefined,
+  );
+  assert.equal(feature, false);
+  assert.ok(
+    (
+      await serveInboundClientRPC(
+        "device.feature.set",
+        { feature_id: "camera" },
+        handlers,
+      )
+    ).error,
+  );
+  assert.equal(
+    (
+      await serveInboundClientRPC(
+        "management.password.set",
+        { password: "test-password" },
+        handlers,
+      )
+    ).error,
+    undefined,
+  );
+  assert.equal(
+    (await serveInboundClientRPC("management.password.reset", {}, handlers))
+      .error,
+    undefined,
+  );
+  assert.equal(isSet, false);
+  assert.ok((await serveInboundClientRPC("ai.safety.get", {}, handlers)).error);
+  const broken: GizClawPeerRPCHandlers = {
+    tools: { [CLIENT_TOOL_IDS["usage.time.get"]]: () => ({}) as never },
+  };
+  assert.ok((await serveInboundClientRPC("usage.time.get", {}, broken)).error);
+});
+
+test("Runtime and status query codecs preserve KV JSON types", () => {
+  const reported_kv = {
+    nested: {
+      value: { a: [null, false, 0] },
+      json_value: '{"a":[null,false,0]}',
+      observed_at: "2026-10-22T00:00:00Z",
+    },
+    nil: {
+      value: null,
+      json_value: "null",
+      observed_at: "2026-10-22T00:00:00Z",
+    },
+  };
+  for (const [method, value] of [
+    ["server.status.get", { reported_kv }],
+    [
+      "server.runtime.get",
+      { online: false, last_seen_at: "2026-10-22T00:00:00Z", reported_kv },
+    ],
+  ] as const) {
+    const decoded = decodeRPCResponsePayload(
+      method,
+      encodeRPCResponsePayload(method, value),
+    ) as { reported_kv: unknown };
+    assert.deepEqual(decoded.reported_kv, reported_kv);
+  }
+});

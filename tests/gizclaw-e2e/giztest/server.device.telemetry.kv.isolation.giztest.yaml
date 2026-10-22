@@ -1,0 +1,184 @@
+# User Story:
+# As a device operator,
+# I want to verify bounded and isolated device JSON snapshots,
+# So that storage quotas and ownership hold on real transports.
+version: gizclaw.test/v1alpha1
+name: server.device.telemetry.kv.isolation
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  other:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  other_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: register_other
+    client: other
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: key_other
+    client: other
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      other_key: /api_key
+  - id: peer_value
+    client: peer
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000000000"
+        observations:
+          - kv:
+              key: scope
+              json_value: "[null,false,0]"
+  - id: wait_peer
+    client: peer
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/scope/json_value:
+        equals: "[null,false,0]"
+  - id: other_has_no_peer_values
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${other_key}
+      status: 200
+    expect:
+      /reported_kv:
+        present: false
+  - id: other_value
+    client: other
+    telemetry:
+      frame:
+        observed_at_unix_ms: "1600000000000"
+        observations:
+          - kv:
+              key: scope
+              json_value: '{"owner":"other"}'
+  - id: wait_other
+    client: other
+    rpc:
+      method: server.status.get
+      request: {}
+    retry:
+      attempts: 10
+      on:
+        - assertion
+      delay: 100ms
+    expect:
+      /reported_kv/scope/json_value:
+        equals: '{"owner":"other"}'
+  - id: peer_value_unchanged
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /reported_kv/scope/value:
+        equals:
+          - null
+          - false
+          - 0
+  - id: other_value_isolated
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${other_key}
+      status: 200
+    expect:
+      /reported_kv/scope/value:
+        equals:
+          owner: other
+  - id: runtime_isolated
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/runtime
+      headers:
+        Authorization: Bearer ${other_key}
+      status: 200
+    expect:
+      /reported_kv/scope/value:
+        equals:
+          owner: other
+  - id: credential_selects_owner
+    client: other
+    http:
+      method: GET
+      path: /gizclaw/v1/device/status
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /reported_kv/scope/value:
+        equals:
+          - null
+          - false
+          - 0
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}
+  - id: cleanup_other
+    client: other
+    rpc:
+      method: server.peer.delete
+      request: {}

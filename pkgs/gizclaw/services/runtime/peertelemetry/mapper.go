@@ -1,7 +1,9 @@
 package peertelemetry
 
 import (
+	"encoding/json"
 	"fmt"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"maps"
 	"math"
 	"regexp"
@@ -31,6 +33,7 @@ const (
 )
 
 type StatusPatch struct {
+	KV                []peerrun.KVUpdate
 	OTA               []apitypes.PeerOtaStatus
 	AudioPlayer       *apitypes.AudioPlayerStatus
 	ReportedAt        time.Time
@@ -67,7 +70,7 @@ type StatusPatch struct {
 }
 
 func (p StatusPatch) Empty() bool {
-	return len(p.OTA) == 0 && p.AudioPlayer == nil && p.BatteryPercent == nil &&
+	return len(p.KV) == 0 && len(p.OTA) == 0 && p.AudioPlayer == nil && p.BatteryPercent == nil &&
 		p.Charging == nil &&
 		p.GNSSLatitude == nil &&
 		p.GNSSLongitude == nil &&
@@ -100,6 +103,9 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 	}
 	if frame == nil {
 		return nil, StatusPatch{}, ErrInvalidFrame
+	}
+	if err := telemetrypb.ValidateKVFrame(frame); err != nil {
+		return nil, StatusPatch{}, fmt.Errorf("%w: %w", ErrInvalidFrame, err)
 	}
 	labels := map[string]string{"peer_id": peer.String()}
 	samples := make([]metrics.Sample, 0, len(frame.GetObservations())*2)
@@ -150,6 +156,12 @@ func MapFrame(peer giznet.PublicKey, frame *telemetrypb.TelemetryFrame, baseTime
 				return nil, StatusPatch{}, err
 			}
 			mergeStatusPatch(&status, patch)
+		case *telemetrypb.Observation_Kv:
+			update := peerrun.KVUpdate{Key: body.Kv.Key, ObservedAt: ts}
+			if body.Kv.JsonValue != nil {
+				update.Value = json.RawMessage(*body.Kv.JsonValue)
+			}
+			status.KV = append(status.KV, update)
 		case *telemetrypb.Observation_Ota:
 			if err := validateOTA(body.Ota); err != nil {
 				return nil, StatusPatch{}, err

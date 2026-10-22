@@ -581,10 +581,32 @@ export type ClientToolV0InvokeRequest = ({
     tool: 'gnss.reporting.set';
 } & ClientToolGnssReportingSetInvoke) | ({
     tool: 'lua.app.uninstall';
-} & ClientToolLuaAppUninstallInvoke);
+} & ClientToolLuaAppUninstallInvoke) | ({
+    tool: 'content.age.get';
+} & ClientToolContentAgeGetInvoke) | ({
+    tool: 'content.age.set';
+} & ClientToolContentAgeSetInvoke) | ({
+    tool: 'device.features.get';
+} & ClientToolDeviceFeaturesGetInvoke) | ({
+    tool: 'device.feature.set';
+} & ClientToolDeviceFeatureSetInvoke) | ({
+    tool: 'usage.time.get';
+} & ClientToolUsageTimeGetInvoke) | ({
+    tool: 'usage.time.set';
+} & ClientToolUsageTimeSetInvoke) | ({
+    tool: 'ai.safety.get';
+} & ClientToolAiSafetyGetInvoke) | ({
+    tool: 'ai.safety.set';
+} & ClientToolAiSafetySetInvoke) | ({
+    tool: 'management.password.get';
+} & ClientToolManagementPasswordGetInvoke) | ({
+    tool: 'management.password.set';
+} & ClientToolManagementPasswordSetInvoke) | ({
+    tool: 'management.password.reset';
+} & ClientToolManagementPasswordResetInvoke);
 
 export type ClientToolV0ListResponse = {
-    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run' | 'gnss.reporting.get' | 'gnss.reporting.set' | 'lua.app.uninstall'>;
+    tools: Array<'info.get' | 'identifiers.get' | 'device.status.get' | 'device.reboot' | 'device.factory_reset' | 'device.find' | 'sound.play' | 'wifi.scan' | 'wifi.connect' | 'wifi.saved.list' | 'wifi.saved.forget' | 'firmware.update' | 'audioplayer.get' | 'audioplayer.play' | 'audioplayer.stop' | 'audioplayer.mode.set' | 'audioplayer.playlist.get' | 'audioplayer.playlist.set' | 'audioplayer.playlist.append' | 'run.workspace.set' | 'social.ping' | 'lua.app.list' | 'lua.app.install' | 'lua.app.run' | 'gnss.reporting.get' | 'gnss.reporting.set' | 'lua.app.uninstall' | 'content.age.get' | 'content.age.set' | 'device.features.get' | 'device.feature.set' | 'usage.time.get' | 'usage.time.set' | 'ai.safety.get' | 'ai.safety.set' | 'management.password.get' | 'management.password.set' | 'management.password.reset'>;
 };
 
 export type ClientToolV0InvokeResponse = {
@@ -726,7 +748,7 @@ export type LuaAppInfo = {
 };
 
 /**
- * Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
+ * Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and writable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
  */
 export type ClientLuaAppUninstallArgs = {
     app_id: string;
@@ -735,6 +757,196 @@ export type ClientLuaAppUninstallArgs = {
 export type ClientToolLuaAppUninstallInvoke = {
     tool: 'lua.app.uninstall';
     args: ClientLuaAppUninstallArgs;
+};
+
+export type ContentAgeOption = {
+    id: string;
+    display_name: string;
+    min_age_years?: number;
+    max_age_years?: number;
+};
+
+export type ContentAgeState = {
+    option_id: string;
+    options: Array<ContentAgeOption>;
+};
+
+export type DeviceFeature = {
+    id: string;
+    display_name: string;
+    enabled: boolean;
+    writable: boolean;
+};
+
+export type UsageTimeState = {
+    limit_seconds: number;
+    used_seconds: number;
+    exhausted: boolean;
+};
+
+export type AiSafetyOption = {
+    id: string;
+    display_name: string;
+};
+
+export type AiSafetyState = {
+    level: string;
+    options: Array<AiSafetyOption>;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientContentAgeGetResponse.
+ */
+export type ClientToolContentAgeGetInvoke = {
+    tool: 'content.age.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientContentAgeGetResponse = {
+    state: ContentAgeState;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientContentAgeSetResponse.
+ */
+export type ClientToolContentAgeSetInvoke = {
+    tool: 'content.age.set';
+    args: {
+        option_id: string;
+    };
+};
+
+export type ClientContentAgeSetResponse = {
+    applied: ContentAgeState;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientDeviceFeaturesGetResponse.
+ */
+export type ClientToolDeviceFeaturesGetInvoke = {
+    tool: 'device.features.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientDeviceFeaturesGetResponse = {
+    features: Array<DeviceFeature>;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientDeviceFeatureSetResponse.
+ */
+export type ClientToolDeviceFeatureSetInvoke = {
+    tool: 'device.feature.set';
+    args: {
+        feature_id: string;
+        enabled: boolean;
+    };
+};
+
+export type ClientDeviceFeatureSetResponse = {
+    applied: DeviceFeature;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientUsageTimeGetResponse.
+ */
+export type ClientToolUsageTimeGetInvoke = {
+    tool: 'usage.time.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientUsageTimeGetResponse = {
+    state: UsageTimeState;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientUsageTimeSetResponse.
+ */
+export type ClientToolUsageTimeSetInvoke = {
+    tool: 'usage.time.set';
+    args: {
+        limit_seconds: number;
+    };
+};
+
+export type ClientUsageTimeSetResponse = {
+    applied: UsageTimeState;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientAISafetyGetResponse.
+ */
+export type ClientToolAiSafetyGetInvoke = {
+    tool: 'ai.safety.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientAiSafetyGetResponse = {
+    state: AiSafetyState;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientAISafetySetResponse.
+ */
+export type ClientToolAiSafetySetInvoke = {
+    tool: 'ai.safety.set';
+    args: {
+        level: string;
+    };
+};
+
+export type ClientAiSafetySetResponse = {
+    applied: AiSafetyState;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordGetResponse.
+ */
+export type ClientToolManagementPasswordGetInvoke = {
+    tool: 'management.password.get';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientManagementPasswordGetResponse = {
+    is_set: boolean;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordSetResponse.
+ */
+export type ClientToolManagementPasswordSetInvoke = {
+    tool: 'management.password.set';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientManagementPasswordSetResponse = {
+    is_set: boolean;
+};
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordResetResponse.
+ */
+export type ClientToolManagementPasswordResetInvoke = {
+    tool: 'management.password.reset';
+    args: {
+        [key: string]: never;
+    };
+};
+
+export type ClientManagementPasswordResetResponse = {
+    is_set: boolean;
 };
 
 export type AudioPlayerItem = {
@@ -907,7 +1119,7 @@ export type MhsV0BleReadResult = {
 
 export type MhsV0Device = {
     id: string;
-    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker';
+    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker' | 'nfc';
     description?: string;
     tags?: Array<string>;
 };
@@ -955,9 +1167,27 @@ export type MhsV0ModemReadResult = {
     value: ModemHwdReadResponse;
 };
 
+export type MhsV0ModemWriteRequest = {
+    id: string;
+    hwd: 'modem';
+    value: ModemHwdWriteRequest;
+};
+
+export type MhsV0NfcReadResult = {
+    id: string;
+    hwd: 'nfc';
+    value: NfcHwdReadResponse;
+};
+
+export type MhsV0NfcWriteRequest = {
+    id: string;
+    hwd: 'nfc';
+    value: NfcHwdWriteRequest;
+};
+
 export type MhsV0ReadRequest = {
     id: string;
-    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker';
+    hwd: 'wifi' | 'ble' | 'modem' | 'battery' | 'mic' | 'display' | 'led' | 'speaker' | 'nfc';
 };
 
 export type MhsV0ReadResult = ({
@@ -976,7 +1206,9 @@ export type MhsV0ReadResult = ({
     hwd: 'led';
 } & MhsV0LedReadResult) | ({
     hwd: 'speaker';
-} & MhsV0SpeakerReadResult);
+} & MhsV0SpeakerReadResult) | ({
+    hwd: 'nfc';
+} & MhsV0NfcReadResult);
 
 export type MhsV0SpeakerReadResult = {
     id: string;
@@ -1002,7 +1234,11 @@ export type MhsV0WriteRequest = ({
     hwd: 'led';
 } & MhsV0LedWriteRequest) | ({
     hwd: 'speaker';
-} & MhsV0SpeakerWriteRequest);
+} & MhsV0SpeakerWriteRequest) | ({
+    hwd: 'modem';
+} & MhsV0ModemWriteRequest) | ({
+    hwd: 'nfc';
+} & MhsV0NfcWriteRequest);
 
 export type MhsV0WriteResult = ({
     hwd: 'display';
@@ -1010,7 +1246,11 @@ export type MhsV0WriteResult = ({
     hwd: 'led';
 } & MhsV0LedReadResult) | ({
     hwd: 'speaker';
-} & MhsV0SpeakerReadResult);
+} & MhsV0SpeakerReadResult) | ({
+    hwd: 'modem';
+} & MhsV0ModemReadResult) | ({
+    hwd: 'nfc';
+} & MhsV0NfcReadResult);
 
 export type MicHwdReadResponse = {
     available?: boolean;
@@ -1023,6 +1263,41 @@ export type ModemHwdReadResponse = {
     rat?: string;
     rssi_dbm?: number;
     signal_level?: number;
+    /**
+     * User configured switch; omitted means unknown.
+     */
+    enabled?: boolean;
+    /**
+     * Actual power observation; omitted when unavailable. Never infer from registration or signal.
+     */
+    powered?: boolean;
+};
+
+export type ModemHwdWriteRequest = {
+    enabled: boolean;
+};
+
+export type NfcHwdReadResponse = {
+    enabled?: boolean;
+    card_present?: boolean;
+    last_read?: NfcReadSnapshot;
+};
+
+export type NfcHwdWriteRequest = {
+    enabled: boolean;
+};
+
+export type NfcReadSnapshot = {
+    /**
+     * Positive int64 milliseconds, protobuf JSON decimal string.
+     */
+    read_at_unix_ms: string;
+    uid?: string;
+    technology?: string;
+    data_format?: string;
+    raw_data?: string;
+    result: 'success' | 'failed';
+    error_code?: string;
 };
 
 export type SpeakerHwdReadResponse = {
@@ -1082,6 +1357,18 @@ export type PeerRunHistoryListResponse = {
     message?: string;
 };
 
+export type PeerKvEntry = {
+    /**
+     * Any legal JSON value, including null. At most 1024 UTF-8 encoded bytes.
+     */
+    value: unknown;
+    observed_at: string;
+    /**
+     * Lossless JSON encoding of value, at most 1024 UTF-8 bytes. Use for exact numbers or raw rendering.
+     */
+    json_value: string;
+};
+
 /**
  * Latest device-reported OTA attempt snapshot, retained across disconnects.
  */
@@ -1098,7 +1385,15 @@ export type PeerOtaStatus = {
     error_message?: string;
 };
 
+/**
+ * Device self-reported latest JSON values. Missing key is absent or deleted; value:null is reported null. No authority or online fields are derived from this map.
+ */
+export type PeerReportedKv = {
+    [key: string]: PeerKvEntry;
+};
+
 export type PeerStatus = {
+    reported_kv?: PeerReportedKv;
     audioplayer?: AudioPlayerStatus;
     reported_at?: string;
     volume?: number;
@@ -1245,6 +1540,7 @@ export type Runtime = {
      * Workspace selected for the device that it has not committed yet, for example after server.run.workspace.set and before the device commits it through server.run.workspace.reload-with-options. Omitted when no switch is pending.
      */
     pending_workspace_name?: string;
+    reported_kv?: PeerReportedKv;
 };
 
 export type FirmwareChannelName = 'stable' | 'beta' | 'develop';
@@ -1343,6 +1639,94 @@ export type ServerLogStreamEnd = {
      * Opaque cursor for the next page.
      */
     next_cursor?: string;
+};
+
+export type ClientToolV0InvokeRequestWritable = ({
+    tool: 'info.get';
+} & ClientToolInfoGetInvoke) | ({
+    tool: 'identifiers.get';
+} & ClientToolIdentifiersGetInvoke) | ({
+    tool: 'device.status.get';
+} & ClientToolDeviceStatusGetInvoke) | ({
+    tool: 'device.reboot';
+} & ClientToolDeviceRebootInvoke) | ({
+    tool: 'device.factory_reset';
+} & ClientToolDeviceFactoryResetInvoke) | ({
+    tool: 'device.find';
+} & ClientToolDeviceFindInvoke) | ({
+    tool: 'sound.play';
+} & ClientToolSoundPlayInvoke) | ({
+    tool: 'wifi.scan';
+} & ClientToolWifiScanInvoke) | ({
+    tool: 'wifi.connect';
+} & ClientToolWifiConnectInvoke) | ({
+    tool: 'wifi.saved.list';
+} & ClientToolWifiSavedListInvoke) | ({
+    tool: 'wifi.saved.forget';
+} & ClientToolWifiSavedForgetInvoke) | ({
+    tool: 'firmware.update';
+} & ClientToolFirmwareUpdateInvoke) | ({
+    tool: 'audioplayer.get';
+} & ClientToolAudioplayerGetInvoke) | ({
+    tool: 'audioplayer.play';
+} & ClientToolAudioplayerPlayInvoke) | ({
+    tool: 'audioplayer.stop';
+} & ClientToolAudioplayerStopInvoke) | ({
+    tool: 'audioplayer.mode.set';
+} & ClientToolAudioplayerModeSetInvoke) | ({
+    tool: 'audioplayer.playlist.get';
+} & ClientToolAudioplayerPlaylistGetInvoke) | ({
+    tool: 'audioplayer.playlist.set';
+} & ClientToolAudioplayerPlaylistSetInvoke) | ({
+    tool: 'audioplayer.playlist.append';
+} & ClientToolAudioplayerPlaylistAppendInvoke) | ({
+    tool: 'run.workspace.set';
+} & ClientToolRunWorkspaceSetInvoke) | ({
+    tool: 'social.ping';
+} & ClientToolSocialPingInvoke) | ({
+    tool: 'lua.app.list';
+} & ClientToolLuaAppListInvoke) | ({
+    tool: 'lua.app.install';
+} & ClientToolLuaAppInstallInvoke) | ({
+    tool: 'lua.app.run';
+} & ClientToolLuaAppRunInvoke) | ({
+    tool: 'gnss.reporting.get';
+} & ClientToolGnssReportingGetInvoke) | ({
+    tool: 'gnss.reporting.set';
+} & ClientToolGnssReportingSetInvoke) | ({
+    tool: 'lua.app.uninstall';
+} & ClientToolLuaAppUninstallInvoke) | ({
+    tool: 'content.age.get';
+} & ClientToolContentAgeGetInvoke) | ({
+    tool: 'content.age.set';
+} & ClientToolContentAgeSetInvoke) | ({
+    tool: 'device.features.get';
+} & ClientToolDeviceFeaturesGetInvoke) | ({
+    tool: 'device.feature.set';
+} & ClientToolDeviceFeatureSetInvoke) | ({
+    tool: 'usage.time.get';
+} & ClientToolUsageTimeGetInvoke) | ({
+    tool: 'usage.time.set';
+} & ClientToolUsageTimeSetInvoke) | ({
+    tool: 'ai.safety.get';
+} & ClientToolAiSafetyGetInvoke) | ({
+    tool: 'ai.safety.set';
+} & ClientToolAiSafetySetInvoke) | ({
+    tool: 'management.password.get';
+} & ClientToolManagementPasswordGetInvoke) | ({
+    tool: 'management.password.set';
+} & ClientToolManagementPasswordSetInvokeWritable) | ({
+    tool: 'management.password.reset';
+} & ClientToolManagementPasswordResetInvoke);
+
+/**
+ * Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordSetResponse.
+ */
+export type ClientToolManagementPasswordSetInvokeWritable = {
+    tool: 'management.password.set';
+    args: {
+        password: string;
+    };
 };
 
 export type GetMhsManifestData = {
@@ -3838,7 +4222,7 @@ export type ListClientToolsResponses = {
 export type ListClientToolsResponse = ListClientToolsResponses[keyof ListClientToolsResponses];
 
 export type InvokeClientToolData = {
-    body: ClientToolV0InvokeRequest;
+    body: ClientToolV0InvokeRequestWritable;
     path?: never;
     query?: never;
     url: '/gizclaw/v1/device/tool/v0/invoke';

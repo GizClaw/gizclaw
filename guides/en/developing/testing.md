@@ -2431,3 +2431,19 @@ This isolated Docker lane builds the current Server and test binaries, runs shar
 CI runs the same entry point in the `Regional PendingDeletion Recovery` job for every PR and main push, retaining redacted test logs as an artifact. Server and test containers use the host user's UID/GID so generated state and assets can be cleaned up on Linux. Ordinary Go and race jobs also cover conditional recovery, paging, shared worker progress, and unchanged failed state after probe errors, timeouts, cancellation and panics.
 
 Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMem0 or self-hosted Mem0 provider deletion, nor completion of distributed Social Workspace replicas. Unsupported scopes remain retained. The runner uses only its generated Compose project, removes containers, volumes, binaries and configuration on exit, and retains ignored `.testbench` evidence logs.
+
+## Generic device management Giztests
+
+`tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
+credentials. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
+arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
+scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed attempts and independent
+instances. KV cases cover nested JSON/null/false/zero, Runtime/status/RPC, updates/deletes/replays/reconnects,
+64-key and total-byte storage quotas, exact 4096-byte frames, 1024-byte values, 64-byte keys, two-device isolation and charged tombstones. They poll state after sending, rather than treating send as
+persistence acknowledgement.
+
+Go/JS/C/Flutter run the common control contracts. Go/JS/C send actual KV packets; Flutter retains its existing
+no-telemetry-sender boundary. Stateful MHS simulation runs on Go. Every selected step and cleanup must pass;
+missing executables, skips or failures fail the lane. Fixtures exercise protocol behavior, not physical NFC,
+Modem power or usage enforcement. Runtime/Server behavior tests separately verify SQL restart persistence,
+strict byte limits and cross-Server signed authorization.

@@ -390,18 +390,22 @@ steps:
           .toList();
       expect(selected.length, greaterThanOrEqualTo(20));
       final result = await loadDocuments(selected);
-      // The Flutter device SDK has no telemetry sending surface, so the two
+      // The Flutter device SDK has no telemetry sending surface, so the six
       // telemetry scenarios are the only ones this runner reports.
       expect(
         result.skipped.keys.map((path) => path.split('/').last).toList()
           ..sort(),
         [
           'server.device.audioplayer.telemetry.giztest.yaml',
+          'server.device.telemetry.kv.bytes.giztest.yaml',
+          'server.device.telemetry.kv.giztest.yaml',
+          'server.device.telemetry.kv.isolation.giztest.yaml',
+          'server.device.telemetry.kv.limits.giztest.yaml',
           'server.device.telemetry.status.giztest.yaml',
         ],
       );
       expect(result.skipped.values, everyElement(contains('telemetry')));
-      expect(result.documents.length, selected.length - 2);
+      expect(result.documents.length, selected.length - 6);
     });
 
     test('load the find, social ping and profile scenarios', () async {

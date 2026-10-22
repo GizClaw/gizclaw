@@ -26,15 +26,45 @@ const (
 	BearerAuthScopes bearerAuthContextKey = "BearerAuth.Scopes"
 )
 
+// Defines values for ClientToolAISafetyGetInvokeTool.
+const (
+	ClientToolAISafetyGetInvokeToolAiSafetyGet ClientToolAISafetyGetInvokeTool = "ai.safety.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolAISafetyGetInvokeTool enum.
+func (e ClientToolAISafetyGetInvokeTool) Valid() bool {
+	switch e {
+	case ClientToolAISafetyGetInvokeToolAiSafetyGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolAISafetySetInvokeTool.
+const (
+	AiSafetySet ClientToolAISafetySetInvokeTool = "ai.safety.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolAISafetySetInvokeTool enum.
+func (e ClientToolAISafetySetInvokeTool) Valid() bool {
+	switch e {
+	case AiSafetySet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolAudioplayerGetInvokeTool.
 const (
-	ClientToolAudioplayerGetInvokeToolAudioplayerGet ClientToolAudioplayerGetInvokeTool = "audioplayer.get"
+	AudioplayerGet ClientToolAudioplayerGetInvokeTool = "audioplayer.get"
 )
 
 // Valid indicates whether the value is a known member of the ClientToolAudioplayerGetInvokeTool enum.
 func (e ClientToolAudioplayerGetInvokeTool) Valid() bool {
 	switch e {
-	case ClientToolAudioplayerGetInvokeToolAudioplayerGet:
+	case AudioplayerGet:
 		return true
 	default:
 		return false
@@ -131,6 +161,36 @@ func (e ClientToolAudioplayerStopInvokeTool) Valid() bool {
 	}
 }
 
+// Defines values for ClientToolContentAgeGetInvokeTool.
+const (
+	ContentAgeGet ClientToolContentAgeGetInvokeTool = "content.age.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolContentAgeGetInvokeTool enum.
+func (e ClientToolContentAgeGetInvokeTool) Valid() bool {
+	switch e {
+	case ContentAgeGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolContentAgeSetInvokeTool.
+const (
+	ContentAgeSet ClientToolContentAgeSetInvokeTool = "content.age.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolContentAgeSetInvokeTool enum.
+func (e ClientToolContentAgeSetInvokeTool) Valid() bool {
+	switch e {
+	case ContentAgeSet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolDeviceFactoryResetInvokeTool.
 const (
 	DeviceFactoryReset ClientToolDeviceFactoryResetInvokeTool = "device.factory_reset"
@@ -140,6 +200,36 @@ const (
 func (e ClientToolDeviceFactoryResetInvokeTool) Valid() bool {
 	switch e {
 	case DeviceFactoryReset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolDeviceFeatureSetInvokeTool.
+const (
+	DeviceFeatureSet ClientToolDeviceFeatureSetInvokeTool = "device.feature.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolDeviceFeatureSetInvokeTool enum.
+func (e ClientToolDeviceFeatureSetInvokeTool) Valid() bool {
+	switch e {
+	case DeviceFeatureSet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolDeviceFeaturesGetInvokeTool.
+const (
+	DeviceFeaturesGet ClientToolDeviceFeaturesGetInvokeTool = "device.features.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolDeviceFeaturesGetInvokeTool enum.
+func (e ClientToolDeviceFeaturesGetInvokeTool) Valid() bool {
+	switch e {
+	case DeviceFeaturesGet:
 		return true
 	default:
 		return false
@@ -326,6 +416,51 @@ func (e ClientToolLuaAppUninstallInvokeTool) Valid() bool {
 	}
 }
 
+// Defines values for ClientToolManagementPasswordGetInvokeTool.
+const (
+	ManagementPasswordGet ClientToolManagementPasswordGetInvokeTool = "management.password.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolManagementPasswordGetInvokeTool enum.
+func (e ClientToolManagementPasswordGetInvokeTool) Valid() bool {
+	switch e {
+	case ManagementPasswordGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolManagementPasswordResetInvokeTool.
+const (
+	ManagementPasswordReset ClientToolManagementPasswordResetInvokeTool = "management.password.reset"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolManagementPasswordResetInvokeTool enum.
+func (e ClientToolManagementPasswordResetInvokeTool) Valid() bool {
+	switch e {
+	case ManagementPasswordReset:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolManagementPasswordSetInvokeTool.
+const (
+	ManagementPasswordSet ClientToolManagementPasswordSetInvokeTool = "management.password.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolManagementPasswordSetInvokeTool enum.
+func (e ClientToolManagementPasswordSetInvokeTool) Valid() bool {
+	switch e {
+	case ManagementPasswordSet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolRunWorkspaceSetInvokeTool.
 const (
 	RunWorkspaceSet ClientToolRunWorkspaceSetInvokeTool = "run.workspace.set"
@@ -371,8 +506,40 @@ func (e ClientToolSoundPlayInvokeTool) Valid() bool {
 	}
 }
 
+// Defines values for ClientToolUsageTimeGetInvokeTool.
+const (
+	UsageTimeGet ClientToolUsageTimeGetInvokeTool = "usage.time.get"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolUsageTimeGetInvokeTool enum.
+func (e ClientToolUsageTimeGetInvokeTool) Valid() bool {
+	switch e {
+	case UsageTimeGet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ClientToolUsageTimeSetInvokeTool.
+const (
+	UsageTimeSet ClientToolUsageTimeSetInvokeTool = "usage.time.set"
+)
+
+// Valid indicates whether the value is a known member of the ClientToolUsageTimeSetInvokeTool enum.
+func (e ClientToolUsageTimeSetInvokeTool) Valid() bool {
+	switch e {
+	case UsageTimeSet:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ClientToolV0ListResponseTools.
 const (
+	ClientToolV0ListResponseToolsAiSafetyGet               ClientToolV0ListResponseTools = "ai.safety.get"
+	ClientToolV0ListResponseToolsAiSafetySet               ClientToolV0ListResponseTools = "ai.safety.set"
 	ClientToolV0ListResponseToolsAudioplayerGet            ClientToolV0ListResponseTools = "audioplayer.get"
 	ClientToolV0ListResponseToolsAudioplayerModeSet        ClientToolV0ListResponseTools = "audioplayer.mode.set"
 	ClientToolV0ListResponseToolsAudioplayerPlay           ClientToolV0ListResponseTools = "audioplayer.play"
@@ -380,7 +547,11 @@ const (
 	ClientToolV0ListResponseToolsAudioplayerPlaylistGet    ClientToolV0ListResponseTools = "audioplayer.playlist.get"
 	ClientToolV0ListResponseToolsAudioplayerPlaylistSet    ClientToolV0ListResponseTools = "audioplayer.playlist.set"
 	ClientToolV0ListResponseToolsAudioplayerStop           ClientToolV0ListResponseTools = "audioplayer.stop"
+	ClientToolV0ListResponseToolsContentAgeGet             ClientToolV0ListResponseTools = "content.age.get"
+	ClientToolV0ListResponseToolsContentAgeSet             ClientToolV0ListResponseTools = "content.age.set"
 	ClientToolV0ListResponseToolsDeviceFactoryReset        ClientToolV0ListResponseTools = "device.factory_reset"
+	ClientToolV0ListResponseToolsDeviceFeatureSet          ClientToolV0ListResponseTools = "device.feature.set"
+	ClientToolV0ListResponseToolsDeviceFeaturesGet         ClientToolV0ListResponseTools = "device.features.get"
 	ClientToolV0ListResponseToolsDeviceFind                ClientToolV0ListResponseTools = "device.find"
 	ClientToolV0ListResponseToolsDeviceReboot              ClientToolV0ListResponseTools = "device.reboot"
 	ClientToolV0ListResponseToolsDeviceStatusGet           ClientToolV0ListResponseTools = "device.status.get"
@@ -393,9 +564,14 @@ const (
 	ClientToolV0ListResponseToolsLuaAppList                ClientToolV0ListResponseTools = "lua.app.list"
 	ClientToolV0ListResponseToolsLuaAppRun                 ClientToolV0ListResponseTools = "lua.app.run"
 	ClientToolV0ListResponseToolsLuaAppUninstall           ClientToolV0ListResponseTools = "lua.app.uninstall"
+	ClientToolV0ListResponseToolsManagementPasswordGet     ClientToolV0ListResponseTools = "management.password.get"
+	ClientToolV0ListResponseToolsManagementPasswordReset   ClientToolV0ListResponseTools = "management.password.reset"
+	ClientToolV0ListResponseToolsManagementPasswordSet     ClientToolV0ListResponseTools = "management.password.set"
 	ClientToolV0ListResponseToolsRunWorkspaceSet           ClientToolV0ListResponseTools = "run.workspace.set"
 	ClientToolV0ListResponseToolsSocialPing                ClientToolV0ListResponseTools = "social.ping"
 	ClientToolV0ListResponseToolsSoundPlay                 ClientToolV0ListResponseTools = "sound.play"
+	ClientToolV0ListResponseToolsUsageTimeGet              ClientToolV0ListResponseTools = "usage.time.get"
+	ClientToolV0ListResponseToolsUsageTimeSet              ClientToolV0ListResponseTools = "usage.time.set"
 	ClientToolV0ListResponseToolsWifiConnect               ClientToolV0ListResponseTools = "wifi.connect"
 	ClientToolV0ListResponseToolsWifiSavedForget           ClientToolV0ListResponseTools = "wifi.saved.forget"
 	ClientToolV0ListResponseToolsWifiSavedList             ClientToolV0ListResponseTools = "wifi.saved.list"
@@ -405,6 +581,10 @@ const (
 // Valid indicates whether the value is a known member of the ClientToolV0ListResponseTools enum.
 func (e ClientToolV0ListResponseTools) Valid() bool {
 	switch e {
+	case ClientToolV0ListResponseToolsAiSafetyGet:
+		return true
+	case ClientToolV0ListResponseToolsAiSafetySet:
+		return true
 	case ClientToolV0ListResponseToolsAudioplayerGet:
 		return true
 	case ClientToolV0ListResponseToolsAudioplayerModeSet:
@@ -419,7 +599,15 @@ func (e ClientToolV0ListResponseTools) Valid() bool {
 		return true
 	case ClientToolV0ListResponseToolsAudioplayerStop:
 		return true
+	case ClientToolV0ListResponseToolsContentAgeGet:
+		return true
+	case ClientToolV0ListResponseToolsContentAgeSet:
+		return true
 	case ClientToolV0ListResponseToolsDeviceFactoryReset:
+		return true
+	case ClientToolV0ListResponseToolsDeviceFeatureSet:
+		return true
+	case ClientToolV0ListResponseToolsDeviceFeaturesGet:
 		return true
 	case ClientToolV0ListResponseToolsDeviceFind:
 		return true
@@ -445,11 +633,21 @@ func (e ClientToolV0ListResponseTools) Valid() bool {
 		return true
 	case ClientToolV0ListResponseToolsLuaAppUninstall:
 		return true
+	case ClientToolV0ListResponseToolsManagementPasswordGet:
+		return true
+	case ClientToolV0ListResponseToolsManagementPasswordReset:
+		return true
+	case ClientToolV0ListResponseToolsManagementPasswordSet:
+		return true
 	case ClientToolV0ListResponseToolsRunWorkspaceSet:
 		return true
 	case ClientToolV0ListResponseToolsSocialPing:
 		return true
 	case ClientToolV0ListResponseToolsSoundPlay:
+		return true
+	case ClientToolV0ListResponseToolsUsageTimeGet:
+		return true
+	case ClientToolV0ListResponseToolsUsageTimeSet:
 		return true
 	case ClientToolV0ListResponseToolsWifiConnect:
 		return true
@@ -665,6 +863,18 @@ func (e ListDeviceWorkspaceHistoryParamsOrder) Valid() bool {
 	}
 }
 
+// AISafetyOption defines model for AISafetyOption.
+type AISafetyOption struct {
+	DisplayName string `json:"display_name"`
+	Id          string `json:"id"`
+}
+
+// AISafetyState defines model for AISafetyState.
+type AISafetyState struct {
+	Level   string           `json:"level"`
+	Options []AISafetyOption `json:"options"`
+}
+
 // APIKey defines model for APIKey.
 type APIKey struct {
 	// ApiKey Complete recoverable API key stored by the server.
@@ -702,6 +912,36 @@ type APIKeyList struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 
+// ClientAISafetyGetResponse defines model for ClientAISafetyGetResponse.
+type ClientAISafetyGetResponse struct {
+	State AISafetyState `json:"state"`
+}
+
+// ClientAISafetySetResponse defines model for ClientAISafetySetResponse.
+type ClientAISafetySetResponse struct {
+	Applied AISafetyState `json:"applied"`
+}
+
+// ClientContentAgeGetResponse defines model for ClientContentAgeGetResponse.
+type ClientContentAgeGetResponse struct {
+	State ContentAgeState `json:"state"`
+}
+
+// ClientContentAgeSetResponse defines model for ClientContentAgeSetResponse.
+type ClientContentAgeSetResponse struct {
+	Applied ContentAgeState `json:"applied"`
+}
+
+// ClientDeviceFeatureSetResponse defines model for ClientDeviceFeatureSetResponse.
+type ClientDeviceFeatureSetResponse struct {
+	Applied DeviceFeature `json:"applied"`
+}
+
+// ClientDeviceFeaturesGetResponse defines model for ClientDeviceFeaturesGetResponse.
+type ClientDeviceFeaturesGetResponse struct {
+	Features []DeviceFeature `json:"features"`
+}
+
 // ClientLuaAppInstallArgs Install a complete Lua app package. Success means installed. Insufficient storage returns DEVICE_UNSUPPORTED; failures preserve the previous app and user data. Do not automatically retry a timed-out installation.
 type ClientLuaAppInstallArgs struct {
 	// Sha256 Optional expected SHA-256 of the compressed archive.
@@ -720,10 +960,45 @@ type ClientLuaAppRunArgs struct {
 	Params *map[string]string `json:"params,omitempty"`
 }
 
-// ClientLuaAppUninstallArgs Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
+// ClientLuaAppUninstallArgs Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and writable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
 type ClientLuaAppUninstallArgs struct {
 	AppId string `json:"app_id"`
 }
+
+// ClientManagementPasswordGetResponse defines model for ClientManagementPasswordGetResponse.
+type ClientManagementPasswordGetResponse struct {
+	IsSet bool `json:"is_set"`
+}
+
+// ClientManagementPasswordResetResponse defines model for ClientManagementPasswordResetResponse.
+type ClientManagementPasswordResetResponse struct {
+	IsSet bool `json:"is_set"`
+}
+
+// ClientManagementPasswordSetResponse defines model for ClientManagementPasswordSetResponse.
+type ClientManagementPasswordSetResponse struct {
+	IsSet bool `json:"is_set"`
+}
+
+// ClientToolAISafetyGetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientAISafetyGetResponse.
+type ClientToolAISafetyGetInvoke struct {
+	Args map[string]interface{}          `json:"args"`
+	Tool ClientToolAISafetyGetInvokeTool `json:"tool"`
+}
+
+// ClientToolAISafetyGetInvokeTool defines model for ClientToolAISafetyGetInvoke.Tool.
+type ClientToolAISafetyGetInvokeTool string
+
+// ClientToolAISafetySetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientAISafetySetResponse.
+type ClientToolAISafetySetInvoke struct {
+	Args struct {
+		Level string `json:"level"`
+	} `json:"args"`
+	Tool ClientToolAISafetySetInvokeTool `json:"tool"`
+}
+
+// ClientToolAISafetySetInvokeTool defines model for ClientToolAISafetySetInvoke.Tool.
+type ClientToolAISafetySetInvokeTool string
 
 // ClientToolAudioplayerGetInvoke defines model for ClientToolAudioplayerGetInvoke.
 type ClientToolAudioplayerGetInvoke struct {
@@ -788,6 +1063,26 @@ type ClientToolAudioplayerStopInvoke struct {
 // ClientToolAudioplayerStopInvokeTool defines model for ClientToolAudioplayerStopInvoke.Tool.
 type ClientToolAudioplayerStopInvokeTool string
 
+// ClientToolContentAgeGetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientContentAgeGetResponse.
+type ClientToolContentAgeGetInvoke struct {
+	Args map[string]interface{}            `json:"args"`
+	Tool ClientToolContentAgeGetInvokeTool `json:"tool"`
+}
+
+// ClientToolContentAgeGetInvokeTool defines model for ClientToolContentAgeGetInvoke.Tool.
+type ClientToolContentAgeGetInvokeTool string
+
+// ClientToolContentAgeSetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientContentAgeSetResponse.
+type ClientToolContentAgeSetInvoke struct {
+	Args struct {
+		OptionId string `json:"option_id"`
+	} `json:"args"`
+	Tool ClientToolContentAgeSetInvokeTool `json:"tool"`
+}
+
+// ClientToolContentAgeSetInvokeTool defines model for ClientToolContentAgeSetInvoke.Tool.
+type ClientToolContentAgeSetInvokeTool string
+
 // ClientToolDeviceFactoryResetInvoke defines model for ClientToolDeviceFactoryResetInvoke.
 type ClientToolDeviceFactoryResetInvoke struct {
 	Args DeviceFactoryResetRequest              `json:"args"`
@@ -796,6 +1091,27 @@ type ClientToolDeviceFactoryResetInvoke struct {
 
 // ClientToolDeviceFactoryResetInvokeTool defines model for ClientToolDeviceFactoryResetInvoke.Tool.
 type ClientToolDeviceFactoryResetInvokeTool string
+
+// ClientToolDeviceFeatureSetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientDeviceFeatureSetResponse.
+type ClientToolDeviceFeatureSetInvoke struct {
+	Args struct {
+		Enabled   bool   `json:"enabled"`
+		FeatureId string `json:"feature_id"`
+	} `json:"args"`
+	Tool ClientToolDeviceFeatureSetInvokeTool `json:"tool"`
+}
+
+// ClientToolDeviceFeatureSetInvokeTool defines model for ClientToolDeviceFeatureSetInvoke.Tool.
+type ClientToolDeviceFeatureSetInvokeTool string
+
+// ClientToolDeviceFeaturesGetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientDeviceFeaturesGetResponse.
+type ClientToolDeviceFeaturesGetInvoke struct {
+	Args map[string]interface{}                `json:"args"`
+	Tool ClientToolDeviceFeaturesGetInvokeTool `json:"tool"`
+}
+
+// ClientToolDeviceFeaturesGetInvokeTool defines model for ClientToolDeviceFeaturesGetInvoke.Tool.
+type ClientToolDeviceFeaturesGetInvokeTool string
 
 // ClientToolDeviceFindInvoke defines model for ClientToolDeviceFindInvoke.
 type ClientToolDeviceFindInvoke struct {
@@ -904,13 +1220,42 @@ type ClientToolLuaAppRunInvokeTool string
 
 // ClientToolLuaAppUninstallInvoke defines model for ClientToolLuaAppUninstallInvoke.
 type ClientToolLuaAppUninstallInvoke struct {
-	// Args Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
+	// Args Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and writable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again.
 	Args ClientLuaAppUninstallArgs           `json:"args"`
 	Tool ClientToolLuaAppUninstallInvokeTool `json:"tool"`
 }
 
 // ClientToolLuaAppUninstallInvokeTool defines model for ClientToolLuaAppUninstallInvoke.Tool.
 type ClientToolLuaAppUninstallInvokeTool string
+
+// ClientToolManagementPasswordGetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordGetResponse.
+type ClientToolManagementPasswordGetInvoke struct {
+	Args map[string]interface{}                    `json:"args"`
+	Tool ClientToolManagementPasswordGetInvokeTool `json:"tool"`
+}
+
+// ClientToolManagementPasswordGetInvokeTool defines model for ClientToolManagementPasswordGetInvoke.Tool.
+type ClientToolManagementPasswordGetInvokeTool string
+
+// ClientToolManagementPasswordResetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordResetResponse.
+type ClientToolManagementPasswordResetInvoke struct {
+	Args map[string]interface{}                      `json:"args"`
+	Tool ClientToolManagementPasswordResetInvokeTool `json:"tool"`
+}
+
+// ClientToolManagementPasswordResetInvokeTool defines model for ClientToolManagementPasswordResetInvoke.Tool.
+type ClientToolManagementPasswordResetInvokeTool string
+
+// ClientToolManagementPasswordSetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordSetResponse.
+type ClientToolManagementPasswordSetInvoke struct {
+	Args struct {
+		Password *string `json:"password,omitempty"`
+	} `json:"args"`
+	Tool ClientToolManagementPasswordSetInvokeTool `json:"tool"`
+}
+
+// ClientToolManagementPasswordSetInvokeTool defines model for ClientToolManagementPasswordSetInvoke.Tool.
+type ClientToolManagementPasswordSetInvokeTool string
 
 // ClientToolRunWorkspaceSetInvoke defines model for ClientToolRunWorkspaceSetInvoke.
 type ClientToolRunWorkspaceSetInvoke struct {
@@ -946,6 +1291,26 @@ type ClientToolSoundPlayInvoke struct {
 
 // ClientToolSoundPlayInvokeTool defines model for ClientToolSoundPlayInvoke.Tool.
 type ClientToolSoundPlayInvokeTool string
+
+// ClientToolUsageTimeGetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientUsageTimeGetResponse.
+type ClientToolUsageTimeGetInvoke struct {
+	Args map[string]interface{}           `json:"args"`
+	Tool ClientToolUsageTimeGetInvokeTool `json:"tool"`
+}
+
+// ClientToolUsageTimeGetInvokeTool defines model for ClientToolUsageTimeGetInvoke.Tool.
+type ClientToolUsageTimeGetInvokeTool string
+
+// ClientToolUsageTimeSetInvoke Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientUsageTimeSetResponse.
+type ClientToolUsageTimeSetInvoke struct {
+	Args struct {
+		LimitSeconds int64 `json:"limit_seconds"`
+	} `json:"args"`
+	Tool ClientToolUsageTimeSetInvokeTool `json:"tool"`
+}
+
+// ClientToolUsageTimeSetInvokeTool defines model for ClientToolUsageTimeSetInvoke.Tool.
+type ClientToolUsageTimeSetInvokeTool string
 
 // ClientToolV0InvokeRequest defines model for ClientToolV0InvokeRequest.
 type ClientToolV0InvokeRequest struct {
@@ -1006,6 +1371,16 @@ type ClientToolWifiScanInvoke struct {
 // ClientToolWifiScanInvokeTool defines model for ClientToolWifiScanInvoke.Tool.
 type ClientToolWifiScanInvokeTool string
 
+// ClientUsageTimeGetResponse defines model for ClientUsageTimeGetResponse.
+type ClientUsageTimeGetResponse struct {
+	State UsageTimeState `json:"state"`
+}
+
+// ClientUsageTimeSetResponse defines model for ClientUsageTimeSetResponse.
+type ClientUsageTimeSetResponse struct {
+	Applied UsageTimeState `json:"applied"`
+}
+
 // Contact defines model for Contact.
 type Contact struct {
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
@@ -1039,10 +1414,32 @@ type ContactPutRequest struct {
 	PhoneNumber *string `json:"phone_number,omitempty"`
 }
 
+// ContentAgeOption defines model for ContentAgeOption.
+type ContentAgeOption struct {
+	DisplayName string `json:"display_name"`
+	Id          string `json:"id"`
+	MaxAgeYears *int64 `json:"max_age_years,omitempty"`
+	MinAgeYears *int64 `json:"min_age_years,omitempty"`
+}
+
+// ContentAgeState defines model for ContentAgeState.
+type ContentAgeState struct {
+	OptionId string             `json:"option_id"`
+	Options  []ContentAgeOption `json:"options"`
+}
+
 // DeviceFactoryResetRequest defines model for DeviceFactoryResetRequest.
 type DeviceFactoryResetRequest struct {
 	// KeepNetwork Keep saved Wi-Fi and cellular configuration. Defaults to false.
 	KeepNetwork *bool `json:"keep_network,omitempty"`
+}
+
+// DeviceFeature defines model for DeviceFeature.
+type DeviceFeature struct {
+	DisplayName string `json:"display_name"`
+	Enabled     bool   `json:"enabled"`
+	Id          string `json:"id"`
+	Writable    bool   `json:"writable"`
 }
 
 // DeviceFindRequest defines model for DeviceFindRequest.
@@ -1418,6 +1815,13 @@ type SyncUpsert_Data struct {
 
 // SyncUpsertEvent defines model for SyncUpsert.Event.
 type SyncUpsertEvent string
+
+// UsageTimeState defines model for UsageTimeState.
+type UsageTimeState struct {
+	Exhausted    bool  `json:"exhausted"`
+	LimitSeconds int64 `json:"limit_seconds"`
+	UsedSeconds  int64 `json:"used_seconds"`
+}
 
 // BadRequest defines model for BadRequest.
 type BadRequest = externalRef0.ErrorResponse
@@ -2408,6 +2812,314 @@ func (t *ClientToolV0InvokeRequest) MergeClientToolLuaAppUninstallInvoke(v Clien
 	return err
 }
 
+// AsClientToolContentAgeGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolContentAgeGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolContentAgeGetInvoke() (ClientToolContentAgeGetInvoke, error) {
+	var body ClientToolContentAgeGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolContentAgeGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolContentAgeGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolContentAgeGetInvoke(v ClientToolContentAgeGetInvoke) error {
+	v.Tool = "content.age.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolContentAgeGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolContentAgeGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolContentAgeGetInvoke(v ClientToolContentAgeGetInvoke) error {
+	v.Tool = "content.age.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolContentAgeSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolContentAgeSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolContentAgeSetInvoke() (ClientToolContentAgeSetInvoke, error) {
+	var body ClientToolContentAgeSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolContentAgeSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolContentAgeSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolContentAgeSetInvoke(v ClientToolContentAgeSetInvoke) error {
+	v.Tool = "content.age.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolContentAgeSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolContentAgeSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolContentAgeSetInvoke(v ClientToolContentAgeSetInvoke) error {
+	v.Tool = "content.age.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolDeviceFeaturesGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolDeviceFeaturesGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolDeviceFeaturesGetInvoke() (ClientToolDeviceFeaturesGetInvoke, error) {
+	var body ClientToolDeviceFeaturesGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolDeviceFeaturesGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolDeviceFeaturesGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolDeviceFeaturesGetInvoke(v ClientToolDeviceFeaturesGetInvoke) error {
+	v.Tool = "device.features.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolDeviceFeaturesGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolDeviceFeaturesGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolDeviceFeaturesGetInvoke(v ClientToolDeviceFeaturesGetInvoke) error {
+	v.Tool = "device.features.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolDeviceFeatureSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolDeviceFeatureSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolDeviceFeatureSetInvoke() (ClientToolDeviceFeatureSetInvoke, error) {
+	var body ClientToolDeviceFeatureSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolDeviceFeatureSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolDeviceFeatureSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolDeviceFeatureSetInvoke(v ClientToolDeviceFeatureSetInvoke) error {
+	v.Tool = "device.feature.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolDeviceFeatureSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolDeviceFeatureSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolDeviceFeatureSetInvoke(v ClientToolDeviceFeatureSetInvoke) error {
+	v.Tool = "device.feature.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolUsageTimeGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolUsageTimeGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolUsageTimeGetInvoke() (ClientToolUsageTimeGetInvoke, error) {
+	var body ClientToolUsageTimeGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolUsageTimeGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolUsageTimeGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolUsageTimeGetInvoke(v ClientToolUsageTimeGetInvoke) error {
+	v.Tool = "usage.time.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolUsageTimeGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolUsageTimeGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolUsageTimeGetInvoke(v ClientToolUsageTimeGetInvoke) error {
+	v.Tool = "usage.time.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolUsageTimeSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolUsageTimeSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolUsageTimeSetInvoke() (ClientToolUsageTimeSetInvoke, error) {
+	var body ClientToolUsageTimeSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolUsageTimeSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolUsageTimeSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolUsageTimeSetInvoke(v ClientToolUsageTimeSetInvoke) error {
+	v.Tool = "usage.time.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolUsageTimeSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolUsageTimeSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolUsageTimeSetInvoke(v ClientToolUsageTimeSetInvoke) error {
+	v.Tool = "usage.time.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAISafetyGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAISafetyGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAISafetyGetInvoke() (ClientToolAISafetyGetInvoke, error) {
+	var body ClientToolAISafetyGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAISafetyGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAISafetyGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAISafetyGetInvoke(v ClientToolAISafetyGetInvoke) error {
+	v.Tool = "ai.safety.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAISafetyGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAISafetyGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAISafetyGetInvoke(v ClientToolAISafetyGetInvoke) error {
+	v.Tool = "ai.safety.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolAISafetySetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolAISafetySetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolAISafetySetInvoke() (ClientToolAISafetySetInvoke, error) {
+	var body ClientToolAISafetySetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolAISafetySetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolAISafetySetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolAISafetySetInvoke(v ClientToolAISafetySetInvoke) error {
+	v.Tool = "ai.safety.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolAISafetySetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolAISafetySetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolAISafetySetInvoke(v ClientToolAISafetySetInvoke) error {
+	v.Tool = "ai.safety.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolManagementPasswordGetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolManagementPasswordGetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolManagementPasswordGetInvoke() (ClientToolManagementPasswordGetInvoke, error) {
+	var body ClientToolManagementPasswordGetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolManagementPasswordGetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolManagementPasswordGetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolManagementPasswordGetInvoke(v ClientToolManagementPasswordGetInvoke) error {
+	v.Tool = "management.password.get"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolManagementPasswordGetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolManagementPasswordGetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolManagementPasswordGetInvoke(v ClientToolManagementPasswordGetInvoke) error {
+	v.Tool = "management.password.get"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolManagementPasswordSetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolManagementPasswordSetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolManagementPasswordSetInvoke() (ClientToolManagementPasswordSetInvoke, error) {
+	var body ClientToolManagementPasswordSetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolManagementPasswordSetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolManagementPasswordSetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolManagementPasswordSetInvoke(v ClientToolManagementPasswordSetInvoke) error {
+	v.Tool = "management.password.set"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolManagementPasswordSetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolManagementPasswordSetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolManagementPasswordSetInvoke(v ClientToolManagementPasswordSetInvoke) error {
+	v.Tool = "management.password.set"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsClientToolManagementPasswordResetInvoke returns the union data inside the ClientToolV0InvokeRequest as a ClientToolManagementPasswordResetInvoke
+func (t ClientToolV0InvokeRequest) AsClientToolManagementPasswordResetInvoke() (ClientToolManagementPasswordResetInvoke, error) {
+	var body ClientToolManagementPasswordResetInvoke
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromClientToolManagementPasswordResetInvoke overwrites any union data inside the ClientToolV0InvokeRequest as the provided ClientToolManagementPasswordResetInvoke
+func (t *ClientToolV0InvokeRequest) FromClientToolManagementPasswordResetInvoke(v ClientToolManagementPasswordResetInvoke) error {
+	v.Tool = "management.password.reset"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeClientToolManagementPasswordResetInvoke performs a merge with any union data inside the ClientToolV0InvokeRequest, using the provided ClientToolManagementPasswordResetInvoke
+func (t *ClientToolV0InvokeRequest) MergeClientToolManagementPasswordResetInvoke(v ClientToolManagementPasswordResetInvoke) error {
+	v.Tool = "management.password.reset"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t ClientToolV0InvokeRequest) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"tool"`
@@ -2422,6 +3134,10 @@ func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "ai.safety.get":
+		return t.AsClientToolAISafetyGetInvoke()
+	case "ai.safety.set":
+		return t.AsClientToolAISafetySetInvoke()
 	case "audioplayer.get":
 		return t.AsClientToolAudioplayerGetInvoke()
 	case "audioplayer.mode.set":
@@ -2436,8 +3152,16 @@ func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
 		return t.AsClientToolAudioplayerPlaylistSetInvoke()
 	case "audioplayer.stop":
 		return t.AsClientToolAudioplayerStopInvoke()
+	case "content.age.get":
+		return t.AsClientToolContentAgeGetInvoke()
+	case "content.age.set":
+		return t.AsClientToolContentAgeSetInvoke()
 	case "device.factory_reset":
 		return t.AsClientToolDeviceFactoryResetInvoke()
+	case "device.feature.set":
+		return t.AsClientToolDeviceFeatureSetInvoke()
+	case "device.features.get":
+		return t.AsClientToolDeviceFeaturesGetInvoke()
 	case "device.find":
 		return t.AsClientToolDeviceFindInvoke()
 	case "device.reboot":
@@ -2462,12 +3186,22 @@ func (t ClientToolV0InvokeRequest) ValueByDiscriminator() (interface{}, error) {
 		return t.AsClientToolLuaAppRunInvoke()
 	case "lua.app.uninstall":
 		return t.AsClientToolLuaAppUninstallInvoke()
+	case "management.password.get":
+		return t.AsClientToolManagementPasswordGetInvoke()
+	case "management.password.reset":
+		return t.AsClientToolManagementPasswordResetInvoke()
+	case "management.password.set":
+		return t.AsClientToolManagementPasswordSetInvoke()
 	case "run.workspace.set":
 		return t.AsClientToolRunWorkspaceSetInvoke()
 	case "social.ping":
 		return t.AsClientToolSocialPingInvoke()
 	case "sound.play":
 		return t.AsClientToolSoundPlayInvoke()
+	case "usage.time.get":
+		return t.AsClientToolUsageTimeGetInvoke()
+	case "usage.time.set":
+		return t.AsClientToolUsageTimeSetInvoke()
 	case "wifi.connect":
 		return t.AsClientToolWifiConnectInvoke()
 	case "wifi.saved.forget":

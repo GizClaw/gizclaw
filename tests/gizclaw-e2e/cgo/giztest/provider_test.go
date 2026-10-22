@@ -358,13 +358,13 @@ func TestMhsWriteReturnsTypedState(t *testing.T) {
 // Discovery masks distinguish protocol families from installed procedures.
 func TestRPCMethodsAndToolsListInstalledProviders(t *testing.T) {
 	provider := newClientRPCProvider()
-	for _, name := range []string{"device.factory_reset", "run.workspace.set", "client.mhs.v0.read"} {
+	for _, name := range []string{"device.factory_reset", "run.workspace.set", "client.mhs.v0.read", "usage.time.get", "management.password.reset"} {
 		if err := provider.install(name, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
 	tools, mhs := provider.installedMasks()
-	for _, name := range []string{"info.get", "identifiers.get", "device.factory_reset", "run.workspace.set"} {
+	for _, name := range []string{"info.get", "identifiers.get", "device.factory_reset", "run.workspace.set", "usage.time.get", "management.password.reset"} {
 		tool, err := rpcapi.ClientToolByName(name)
 		if err != nil {
 			t.Fatal(err)

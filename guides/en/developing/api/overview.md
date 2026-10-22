@@ -51,17 +51,35 @@ Node Monitor API: Server and Edge provide the process-local HTTP contract in `ap
 
 ## HWDs and device procedures {#mhs-v0-hwd}
 
-GizClaw defines eight HWDs in `api/proto/rpc/payload/mhs_v0.proto`. Each HWD has a typed read response; display, led and speaker also have typed write request and applied-value response messages. RuntimeProfile `spec.mhs.v0.devices` lists only the `id` and `hwd` of each instance. Two LED entries with different IDs are two instances of the same HWD. The manifest does not define fields or access modes.
+GizClaw defines nine HWDs in `api/proto/rpc/payload/mhs_v0.proto`. Each HWD has a typed read response; display, led, speaker, modem and nfc also have typed write request and applied-value response messages. RuntimeProfile `spec.mhs.v0.devices` lists only the `id` and `hwd` of each instance. Two LED entries with different IDs are two instances of the same HWD. The manifest does not define fields or access modes.
 
 | HWD | Read | Write |
 | --- | --- | --- |
-| wifi, ble, modem, battery, mic | Yes | No |
-| display, led, speaker | Yes | Yes |
+| wifi, ble, battery, mic | Yes | No |
+| display, led, speaker, modem, nfc | Yes | Yes |
 
 Control apps discover instances with `GET /gizclaw/v1/device/mhs/v0/manifest`, then read one through `POST /device/mhs/v0/read` or write one through `POST /device/mhs/v0/write`. Requests carry `id` and `hwd`; a write also carries an HWD-specific `value` object. Responses identify the instance and return its typed `value`. Procedures such as Wi-Fi scan and connect remain in tool/v0. Read back after a write timeout to confirm the actual state.
 
-`tool/v0` carries procedures through `client.tool.v0.invoke` (135). Each request selects one of the 27 predefined `ClientTool` values and carries that tool's encoded request message. Devices advertise only installed tools through `client.tool.v0.list` (136). `client.rpc.methods.list` (137) returns numeric `RpcMethod` values to identify supported protocol families and versions. Control apps use `GET /gizclaw/v1/device/tool/v0/tools` and `POST /gizclaw/v1/device/tool/v0/invoke`; the Server validates typed arguments before contacting the device. See [Peer HTTP](./http/public), [device providers](./proto/rpc/client-provided-to-server), and [RPC reference](/references/rpc).
+`tool/v0` carries procedures through `client.tool.v0.invoke` (135). Each request selects one of the 38 predefined `ClientTool` values and carries that tool's encoded request message. Devices advertise only installed tools through `client.tool.v0.list` (136). `client.rpc.methods.list` (137) returns numeric `RpcMethod` values to identify supported protocol families and versions. Control apps use `GET /gizclaw/v1/device/tool/v0/tools` and `POST /gizclaw/v1/device/tool/v0/invoke`; the Server validates typed arguments before contacting the device. See [Peer HTTP](./http/public), [device providers](./proto/rpc/client-provided-to-server), and [RPC reference](/references/rpc).
 
 `GET /gizclaw/v1/device/status` reads the Server's stored identity and telemetry snapshot; a live `device.status.get` tool call can refresh that snapshot.
 
 Infrastructure Flow Feed is a read-only AP surface owned by `api/http/infra.json` and `pkgs/infraflow`; see [aggregate frames and resource limits](../infra-flow).
+
+## Modem and NFC instance state
+
+Modem enabled is the user-configured switch; powered is an actual observation. Both are optional; never
+infer power from registration or RF signal. SIM/registration/RAT/signal fields remain compatible. Modem
+writes require enabled and return applied state containing actual enabled, plus any observed power state.
+
+NFC uses the same `{id,hwd}` identity: multiple instances have independent enabled, card_present and last_read
+state. last_read caches the most recent attempt, including failure; removal does not clear it and reads do
+not initiate hardware access. It contains positive int64 read_at_unix_ms (a decimal string in HTTP protobuf
+JSON), optional UID/technology/data_format/raw_data, result and error_code. UID is at most 32 bytes and raw
+data 1024 bytes, base64 in JSON; technology/data_format are at most 32 UTF-8 bytes and error_code 64.
+Result is success or failed; failure requires an error code and success omits it. Missing last_read means no
+attempt yet. NFC writes only enabled and must return actual enabled; omission never means false.
+
+GizOS implements real power observations, switch effects and independent NFC caches. Products declare
+instances in their manifests. GizClaw carries generic hardware data; Forge consumes the existing MHS and
+Runtime/status reported_kv APIs. Protocol and SDK tests do not establish physical-device acceptance.

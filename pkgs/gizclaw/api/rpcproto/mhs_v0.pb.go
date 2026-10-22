@@ -36,6 +36,7 @@ const (
 	ClientHwd_CLIENT_HWD_DISPLAY     ClientHwd = 6
 	ClientHwd_CLIENT_HWD_LED         ClientHwd = 7
 	ClientHwd_CLIENT_HWD_SPEAKER     ClientHwd = 8
+	ClientHwd_CLIENT_HWD_NFC         ClientHwd = 9
 )
 
 // Enum value maps for ClientHwd.
@@ -50,6 +51,7 @@ var (
 		6: "CLIENT_HWD_DISPLAY",
 		7: "CLIENT_HWD_LED",
 		8: "CLIENT_HWD_SPEAKER",
+		9: "CLIENT_HWD_NFC",
 	}
 	ClientHwd_value = map[string]int32{
 		"CLIENT_HWD_UNSPECIFIED": 0,
@@ -61,6 +63,7 @@ var (
 		"CLIENT_HWD_DISPLAY":     6,
 		"CLIENT_HWD_LED":         7,
 		"CLIENT_HWD_SPEAKER":     8,
+		"CLIENT_HWD_NFC":         9,
 	}
 )
 
@@ -573,6 +576,8 @@ type ModemHwdReadResponse struct {
 	Rat           *string                `protobuf:"bytes,3,opt,name=rat,proto3,oneof" json:"rat,omitempty"`
 	RssiDbm       *int32                 `protobuf:"varint,4,opt,name=rssi_dbm,json=rssiDbm,proto3,oneof" json:"rssi_dbm,omitempty"`
 	SignalLevel   *uint32                `protobuf:"varint,5,opt,name=signal_level,json=signalLevel,proto3,oneof" json:"signal_level,omitempty"`
+	Enabled       *bool                  `protobuf:"varint,6,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"` // User configuration; missing means unknown.
+	Powered       *bool                  `protobuf:"varint,7,opt,name=powered,proto3,oneof" json:"powered,omitempty"` // Actual observation only, never inferred from RF.
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -642,6 +647,350 @@ func (x *ModemHwdReadResponse) GetSignalLevel() uint32 {
 	return 0
 }
 
+func (x *ModemHwdReadResponse) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+func (x *ModemHwdReadResponse) GetPowered() bool {
+	if x != nil && x.Powered != nil {
+		return *x.Powered
+	}
+	return false
+}
+
+type ModemHwdWriteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       *bool                  `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"` // Required presence, including false.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModemHwdWriteRequest) Reset() {
+	*x = ModemHwdWriteRequest{}
+	mi := &file_payload_mhs_v0_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModemHwdWriteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModemHwdWriteRequest) ProtoMessage() {}
+
+func (x *ModemHwdWriteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_mhs_v0_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModemHwdWriteRequest.ProtoReflect.Descriptor instead.
+func (*ModemHwdWriteRequest) Descriptor() ([]byte, []int) {
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ModemHwdWriteRequest) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+type ModemHwdWriteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Applied       *ModemHwdReadResponse  `protobuf:"bytes,1,opt,name=applied,proto3" json:"applied,omitempty"` // Must include actual enabled value.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ModemHwdWriteResponse) Reset() {
+	*x = ModemHwdWriteResponse{}
+	mi := &file_payload_mhs_v0_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModemHwdWriteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModemHwdWriteResponse) ProtoMessage() {}
+
+func (x *ModemHwdWriteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_mhs_v0_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ModemHwdWriteResponse.ProtoReflect.Descriptor instead.
+func (*ModemHwdWriteResponse) Descriptor() ([]byte, []int) {
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ModemHwdWriteResponse) GetApplied() *ModemHwdReadResponse {
+	if x != nil {
+		return x.Applied
+	}
+	return nil
+}
+
+// Cached most recent attempt, successful or failed. Removing a card does not
+// clear this snapshot. Reading MHS never starts a new hardware read.
+type NfcReadSnapshot struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ReadAtUnixMs  int64                  `protobuf:"varint,1,opt,name=read_at_unix_ms,json=readAtUnixMs,proto3" json:"read_at_unix_ms,omitempty"`
+	Uid           []byte                 `protobuf:"bytes,2,opt,name=uid,proto3,oneof" json:"uid,omitempty"`                                 // Up to 32 bytes, binary (base64 in JSON).
+	Technology    *string                `protobuf:"bytes,3,opt,name=technology,proto3,oneof" json:"technology,omitempty"`                   // Up to 32 UTF-8 bytes, e.g. iso14443a.
+	DataFormat    *string                `protobuf:"bytes,4,opt,name=data_format,json=dataFormat,proto3,oneof" json:"data_format,omitempty"` // Up to 32 bytes, e.g. ndef or raw.
+	RawData       []byte                 `protobuf:"bytes,5,opt,name=raw_data,json=rawData,proto3,oneof" json:"raw_data,omitempty"`          // Up to 1024 bytes, base64 in JSON.
+	Result        string                 `protobuf:"bytes,6,opt,name=result,proto3" json:"result,omitempty"`                                 // success or failed; includes failed attempts.
+	ErrorCode     *string                `protobuf:"bytes,7,opt,name=error_code,json=errorCode,proto3,oneof" json:"error_code,omitempty"`    // Up to 64 bytes; required on failure.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NfcReadSnapshot) Reset() {
+	*x = NfcReadSnapshot{}
+	mi := &file_payload_mhs_v0_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NfcReadSnapshot) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NfcReadSnapshot) ProtoMessage() {}
+
+func (x *NfcReadSnapshot) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_mhs_v0_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NfcReadSnapshot.ProtoReflect.Descriptor instead.
+func (*NfcReadSnapshot) Descriptor() ([]byte, []int) {
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *NfcReadSnapshot) GetReadAtUnixMs() int64 {
+	if x != nil {
+		return x.ReadAtUnixMs
+	}
+	return 0
+}
+
+func (x *NfcReadSnapshot) GetUid() []byte {
+	if x != nil {
+		return x.Uid
+	}
+	return nil
+}
+
+func (x *NfcReadSnapshot) GetTechnology() string {
+	if x != nil && x.Technology != nil {
+		return *x.Technology
+	}
+	return ""
+}
+
+func (x *NfcReadSnapshot) GetDataFormat() string {
+	if x != nil && x.DataFormat != nil {
+		return *x.DataFormat
+	}
+	return ""
+}
+
+func (x *NfcReadSnapshot) GetRawData() []byte {
+	if x != nil {
+		return x.RawData
+	}
+	return nil
+}
+
+func (x *NfcReadSnapshot) GetResult() string {
+	if x != nil {
+		return x.Result
+	}
+	return ""
+}
+
+func (x *NfcReadSnapshot) GetErrorCode() string {
+	if x != nil && x.ErrorCode != nil {
+		return *x.ErrorCode
+	}
+	return ""
+}
+
+type NfcHwdReadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       *bool                  `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"`
+	CardPresent   *bool                  `protobuf:"varint,2,opt,name=card_present,json=cardPresent,proto3,oneof" json:"card_present,omitempty"`
+	LastRead      *NfcReadSnapshot       `protobuf:"bytes,3,opt,name=last_read,json=lastRead,proto3,oneof" json:"last_read,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NfcHwdReadResponse) Reset() {
+	*x = NfcHwdReadResponse{}
+	mi := &file_payload_mhs_v0_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NfcHwdReadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NfcHwdReadResponse) ProtoMessage() {}
+
+func (x *NfcHwdReadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_mhs_v0_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NfcHwdReadResponse.ProtoReflect.Descriptor instead.
+func (*NfcHwdReadResponse) Descriptor() ([]byte, []int) {
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *NfcHwdReadResponse) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+func (x *NfcHwdReadResponse) GetCardPresent() bool {
+	if x != nil && x.CardPresent != nil {
+		return *x.CardPresent
+	}
+	return false
+}
+
+func (x *NfcHwdReadResponse) GetLastRead() *NfcReadSnapshot {
+	if x != nil {
+		return x.LastRead
+	}
+	return nil
+}
+
+type NfcHwdWriteRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       *bool                  `protobuf:"varint,1,opt,name=enabled,proto3,oneof" json:"enabled,omitempty"` // Required presence.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NfcHwdWriteRequest) Reset() {
+	*x = NfcHwdWriteRequest{}
+	mi := &file_payload_mhs_v0_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NfcHwdWriteRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NfcHwdWriteRequest) ProtoMessage() {}
+
+func (x *NfcHwdWriteRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_mhs_v0_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NfcHwdWriteRequest.ProtoReflect.Descriptor instead.
+func (*NfcHwdWriteRequest) Descriptor() ([]byte, []int) {
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *NfcHwdWriteRequest) GetEnabled() bool {
+	if x != nil && x.Enabled != nil {
+		return *x.Enabled
+	}
+	return false
+}
+
+type NfcHwdWriteResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Applied       *NfcHwdReadResponse    `protobuf:"bytes,1,opt,name=applied,proto3" json:"applied,omitempty"` // Must include actual enabled value.
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NfcHwdWriteResponse) Reset() {
+	*x = NfcHwdWriteResponse{}
+	mi := &file_payload_mhs_v0_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NfcHwdWriteResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NfcHwdWriteResponse) ProtoMessage() {}
+
+func (x *NfcHwdWriteResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_payload_mhs_v0_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NfcHwdWriteResponse.ProtoReflect.Descriptor instead.
+func (*NfcHwdWriteResponse) Descriptor() ([]byte, []int) {
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *NfcHwdWriteResponse) GetApplied() *NfcHwdReadResponse {
+	if x != nil {
+		return x.Applied
+	}
+	return nil
+}
+
 type BatteryHwdReadResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Percent       *float64               `protobuf:"fixed64,1,opt,name=percent,proto3,oneof" json:"percent,omitempty"`
@@ -653,7 +1002,7 @@ type BatteryHwdReadResponse struct {
 
 func (x *BatteryHwdReadResponse) Reset() {
 	*x = BatteryHwdReadResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[9]
+	mi := &file_payload_mhs_v0_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -665,7 +1014,7 @@ func (x *BatteryHwdReadResponse) String() string {
 func (*BatteryHwdReadResponse) ProtoMessage() {}
 
 func (x *BatteryHwdReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[9]
+	mi := &file_payload_mhs_v0_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -678,7 +1027,7 @@ func (x *BatteryHwdReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BatteryHwdReadResponse.ProtoReflect.Descriptor instead.
 func (*BatteryHwdReadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{9}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *BatteryHwdReadResponse) GetPercent() float64 {
@@ -712,7 +1061,7 @@ type MicHwdReadResponse struct {
 
 func (x *MicHwdReadResponse) Reset() {
 	*x = MicHwdReadResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[10]
+	mi := &file_payload_mhs_v0_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -724,7 +1073,7 @@ func (x *MicHwdReadResponse) String() string {
 func (*MicHwdReadResponse) ProtoMessage() {}
 
 func (x *MicHwdReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[10]
+	mi := &file_payload_mhs_v0_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -737,7 +1086,7 @@ func (x *MicHwdReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MicHwdReadResponse.ProtoReflect.Descriptor instead.
 func (*MicHwdReadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{10}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *MicHwdReadResponse) GetAvailable() bool {
@@ -768,7 +1117,7 @@ type DisplayHwdReadResponse struct {
 
 func (x *DisplayHwdReadResponse) Reset() {
 	*x = DisplayHwdReadResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[11]
+	mi := &file_payload_mhs_v0_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +1129,7 @@ func (x *DisplayHwdReadResponse) String() string {
 func (*DisplayHwdReadResponse) ProtoMessage() {}
 
 func (x *DisplayHwdReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[11]
+	mi := &file_payload_mhs_v0_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +1142,7 @@ func (x *DisplayHwdReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisplayHwdReadResponse.ProtoReflect.Descriptor instead.
 func (*DisplayHwdReadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{11}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DisplayHwdReadResponse) GetBrightnessPercent() uint32 {
@@ -828,7 +1177,7 @@ type DisplayHwdWriteRequest struct {
 
 func (x *DisplayHwdWriteRequest) Reset() {
 	*x = DisplayHwdWriteRequest{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[12]
+	mi := &file_payload_mhs_v0_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -840,7 +1189,7 @@ func (x *DisplayHwdWriteRequest) String() string {
 func (*DisplayHwdWriteRequest) ProtoMessage() {}
 
 func (x *DisplayHwdWriteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[12]
+	mi := &file_payload_mhs_v0_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -853,7 +1202,7 @@ func (x *DisplayHwdWriteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisplayHwdWriteRequest.ProtoReflect.Descriptor instead.
 func (*DisplayHwdWriteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{12}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DisplayHwdWriteRequest) GetBrightnessPercent() uint32 {
@@ -886,7 +1235,7 @@ type DisplayHwdWriteResponse struct {
 
 func (x *DisplayHwdWriteResponse) Reset() {
 	*x = DisplayHwdWriteResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[13]
+	mi := &file_payload_mhs_v0_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -898,7 +1247,7 @@ func (x *DisplayHwdWriteResponse) String() string {
 func (*DisplayHwdWriteResponse) ProtoMessage() {}
 
 func (x *DisplayHwdWriteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[13]
+	mi := &file_payload_mhs_v0_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -911,7 +1260,7 @@ func (x *DisplayHwdWriteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisplayHwdWriteResponse.ProtoReflect.Descriptor instead.
 func (*DisplayHwdWriteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{13}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *DisplayHwdWriteResponse) GetApplied() *DisplayHwdReadResponse {
@@ -931,7 +1280,7 @@ type LedHwdReadResponse struct {
 
 func (x *LedHwdReadResponse) Reset() {
 	*x = LedHwdReadResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[14]
+	mi := &file_payload_mhs_v0_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -943,7 +1292,7 @@ func (x *LedHwdReadResponse) String() string {
 func (*LedHwdReadResponse) ProtoMessage() {}
 
 func (x *LedHwdReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[14]
+	mi := &file_payload_mhs_v0_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -956,7 +1305,7 @@ func (x *LedHwdReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LedHwdReadResponse.ProtoReflect.Descriptor instead.
 func (*LedHwdReadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{14}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *LedHwdReadResponse) GetEnabled() bool {
@@ -983,7 +1332,7 @@ type LedHwdWriteRequest struct {
 
 func (x *LedHwdWriteRequest) Reset() {
 	*x = LedHwdWriteRequest{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[15]
+	mi := &file_payload_mhs_v0_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -995,7 +1344,7 @@ func (x *LedHwdWriteRequest) String() string {
 func (*LedHwdWriteRequest) ProtoMessage() {}
 
 func (x *LedHwdWriteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[15]
+	mi := &file_payload_mhs_v0_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1008,7 +1357,7 @@ func (x *LedHwdWriteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LedHwdWriteRequest.ProtoReflect.Descriptor instead.
 func (*LedHwdWriteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{15}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *LedHwdWriteRequest) GetEnabled() bool {
@@ -1034,7 +1383,7 @@ type LedHwdWriteResponse struct {
 
 func (x *LedHwdWriteResponse) Reset() {
 	*x = LedHwdWriteResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[16]
+	mi := &file_payload_mhs_v0_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1046,7 +1395,7 @@ func (x *LedHwdWriteResponse) String() string {
 func (*LedHwdWriteResponse) ProtoMessage() {}
 
 func (x *LedHwdWriteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[16]
+	mi := &file_payload_mhs_v0_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1059,7 +1408,7 @@ func (x *LedHwdWriteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LedHwdWriteResponse.ProtoReflect.Descriptor instead.
 func (*LedHwdWriteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{16}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *LedHwdWriteResponse) GetApplied() *LedHwdReadResponse {
@@ -1079,7 +1428,7 @@ type SpeakerHwdReadResponse struct {
 
 func (x *SpeakerHwdReadResponse) Reset() {
 	*x = SpeakerHwdReadResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[17]
+	mi := &file_payload_mhs_v0_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1091,7 +1440,7 @@ func (x *SpeakerHwdReadResponse) String() string {
 func (*SpeakerHwdReadResponse) ProtoMessage() {}
 
 func (x *SpeakerHwdReadResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[17]
+	mi := &file_payload_mhs_v0_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1104,7 +1453,7 @@ func (x *SpeakerHwdReadResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeakerHwdReadResponse.ProtoReflect.Descriptor instead.
 func (*SpeakerHwdReadResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{17}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *SpeakerHwdReadResponse) GetVolumePercent() uint32 {
@@ -1131,7 +1480,7 @@ type SpeakerHwdWriteRequest struct {
 
 func (x *SpeakerHwdWriteRequest) Reset() {
 	*x = SpeakerHwdWriteRequest{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[18]
+	mi := &file_payload_mhs_v0_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1143,7 +1492,7 @@ func (x *SpeakerHwdWriteRequest) String() string {
 func (*SpeakerHwdWriteRequest) ProtoMessage() {}
 
 func (x *SpeakerHwdWriteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[18]
+	mi := &file_payload_mhs_v0_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1156,7 +1505,7 @@ func (x *SpeakerHwdWriteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeakerHwdWriteRequest.ProtoReflect.Descriptor instead.
 func (*SpeakerHwdWriteRequest) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{18}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *SpeakerHwdWriteRequest) GetVolumePercent() uint32 {
@@ -1182,7 +1531,7 @@ type SpeakerHwdWriteResponse struct {
 
 func (x *SpeakerHwdWriteResponse) Reset() {
 	*x = SpeakerHwdWriteResponse{}
-	mi := &file_payload_mhs_v0_proto_msgTypes[19]
+	mi := &file_payload_mhs_v0_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1194,7 +1543,7 @@ func (x *SpeakerHwdWriteResponse) String() string {
 func (*SpeakerHwdWriteResponse) ProtoMessage() {}
 
 func (x *SpeakerHwdWriteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_payload_mhs_v0_proto_msgTypes[19]
+	mi := &file_payload_mhs_v0_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1207,7 +1556,7 @@ func (x *SpeakerHwdWriteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SpeakerHwdWriteResponse.ProtoReflect.Descriptor instead.
 func (*SpeakerHwdWriteResponse) Descriptor() ([]byte, []int) {
-	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{19}
+	return file_payload_mhs_v0_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *SpeakerHwdWriteResponse) GetApplied() *SpeakerHwdReadResponse {
@@ -1280,7 +1629,7 @@ const file_payload_mhs_v0_proto_rawDesc = "" +
 	"\b_poweredB\x0e\n" +
 	"\f_advertisingB\v\n" +
 	"\t_scanningB\x13\n" +
-	"\x11_connection_count\"\x85\x02\n" +
+	"\x11_connection_count\"\xdb\x02\n" +
 	"\x14ModemHwdReadResponse\x12$\n" +
 	"\vsim_present\x18\x01 \x01(\bH\x00R\n" +
 	"simPresent\x88\x01\x01\x12#\n" +
@@ -1289,12 +1638,56 @@ const file_payload_mhs_v0_proto_rawDesc = "" +
 	"registered\x88\x01\x01\x12\x15\n" +
 	"\x03rat\x18\x03 \x01(\tH\x02R\x03rat\x88\x01\x01\x12\x1e\n" +
 	"\brssi_dbm\x18\x04 \x01(\x05H\x03R\arssiDbm\x88\x01\x01\x12&\n" +
-	"\fsignal_level\x18\x05 \x01(\rH\x04R\vsignalLevel\x88\x01\x01B\x0e\n" +
+	"\fsignal_level\x18\x05 \x01(\rH\x04R\vsignalLevel\x88\x01\x01\x12\x1d\n" +
+	"\aenabled\x18\x06 \x01(\bH\x05R\aenabled\x88\x01\x01\x12\x1d\n" +
+	"\apowered\x18\a \x01(\bH\x06R\apowered\x88\x01\x01B\x0e\n" +
 	"\f_sim_presentB\r\n" +
 	"\v_registeredB\x06\n" +
 	"\x04_ratB\v\n" +
 	"\t_rssi_dbmB\x0f\n" +
-	"\r_signal_level\"\xa4\x01\n" +
+	"\r_signal_levelB\n" +
+	"\n" +
+	"\b_enabledB\n" +
+	"\n" +
+	"\b_powered\"A\n" +
+	"\x14ModemHwdWriteRequest\x12\x1d\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01B\n" +
+	"\n" +
+	"\b_enabled\"W\n" +
+	"\x15ModemHwdWriteResponse\x12>\n" +
+	"\aapplied\x18\x01 \x01(\v2$.gizclaw.rpc.v1.ModemHwdReadResponseR\aapplied\"\xb9\x02\n" +
+	"\x0fNfcReadSnapshot\x12%\n" +
+	"\x0fread_at_unix_ms\x18\x01 \x01(\x03R\freadAtUnixMs\x12\x15\n" +
+	"\x03uid\x18\x02 \x01(\fH\x00R\x03uid\x88\x01\x01\x12#\n" +
+	"\n" +
+	"technology\x18\x03 \x01(\tH\x01R\n" +
+	"technology\x88\x01\x01\x12$\n" +
+	"\vdata_format\x18\x04 \x01(\tH\x02R\n" +
+	"dataFormat\x88\x01\x01\x12\x1e\n" +
+	"\braw_data\x18\x05 \x01(\fH\x03R\arawData\x88\x01\x01\x12\x16\n" +
+	"\x06result\x18\x06 \x01(\tR\x06result\x12\"\n" +
+	"\n" +
+	"error_code\x18\a \x01(\tH\x04R\terrorCode\x88\x01\x01B\x06\n" +
+	"\x04_uidB\r\n" +
+	"\v_technologyB\x0e\n" +
+	"\f_data_formatB\v\n" +
+	"\t_raw_dataB\r\n" +
+	"\v_error_code\"\xc9\x01\n" +
+	"\x12NfcHwdReadResponse\x12\x1d\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01\x12&\n" +
+	"\fcard_present\x18\x02 \x01(\bH\x01R\vcardPresent\x88\x01\x01\x12A\n" +
+	"\tlast_read\x18\x03 \x01(\v2\x1f.gizclaw.rpc.v1.NfcReadSnapshotH\x02R\blastRead\x88\x01\x01B\n" +
+	"\n" +
+	"\b_enabledB\x0f\n" +
+	"\r_card_presentB\f\n" +
+	"\n" +
+	"_last_read\"?\n" +
+	"\x12NfcHwdWriteRequest\x12\x1d\n" +
+	"\aenabled\x18\x01 \x01(\bH\x00R\aenabled\x88\x01\x01B\n" +
+	"\n" +
+	"\b_enabled\"S\n" +
+	"\x13NfcHwdWriteResponse\x12<\n" +
+	"\aapplied\x18\x01 \x01(\v2\".gizclaw.rpc.v1.NfcHwdReadResponseR\aapplied\"\xa4\x01\n" +
 	"\x16BatteryHwdReadResponse\x12\x1d\n" +
 	"\apercent\x18\x01 \x01(\x01H\x00R\apercent\x88\x01\x01\x12\x1f\n" +
 	"\bcharging\x18\x02 \x01(\bH\x01R\bcharging\x88\x01\x01\x12\"\n" +
@@ -1354,15 +1747,15 @@ const file_payload_mhs_v0_proto_rawDesc = "" +
 	"\x0f_volume_percentB\b\n" +
 	"\x06_muted\"[\n" +
 	"\x17SpeakerHwdWriteResponse\x12@\n" +
-	"\aapplied\x18\x01 \x01(\v2&.gizclaw.rpc.v1.SpeakerHwdReadResponseR\aapplied*\xf7\x04\n" +
+	"\aapplied\x18\x01 \x01(\v2&.gizclaw.rpc.v1.SpeakerHwdReadResponseR\aapplied*\x80\x06\n" +
 	"\tClientHwd\x12\x1a\n" +
 	"\x16CLIENT_HWD_UNSPECIFIED\x10\x00\x124\n" +
 	"\x0fCLIENT_HWD_WIFI\x10\x01\x1a\x1f\xd2\xf3\x18\x1b\n" +
 	"\x04wifi\x12\x13WifiHwdReadResponse\x121\n" +
 	"\x0eCLIENT_HWD_BLE\x10\x02\x1a\x1d\xd2\xf3\x18\x19\n" +
-	"\x03ble\x12\x12BleHwdReadResponse\x127\n" +
-	"\x10CLIENT_HWD_MODEM\x10\x03\x1a!\xd2\xf3\x18\x1d\n" +
-	"\x05modem\x12\x14ModemHwdReadResponse\x12=\n" +
+	"\x03ble\x12\x12BleHwdReadResponse\x12d\n" +
+	"\x10CLIENT_HWD_MODEM\x10\x03\x1aN\xd2\xf3\x18J\n" +
+	"\x05modem\x12\x14ModemHwdReadResponse\x1a\x14ModemHwdWriteRequest\"\x15ModemHwdWriteResponse\x12=\n" +
 	"\x12CLIENT_HWD_BATTERY\x10\x04\x1a%\xd2\xf3\x18!\n" +
 	"\abattery\x12\x16BatteryHwdReadResponse\x121\n" +
 	"\x0eCLIENT_HWD_MIC\x10\x05\x1a\x1d\xd2\xf3\x18\x19\n" +
@@ -1372,7 +1765,9 @@ const file_payload_mhs_v0_proto_rawDesc = "" +
 	"\x0eCLIENT_HWD_LED\x10\a\x1aF\xd2\xf3\x18B\n" +
 	"\x03led\x12\x12LedHwdReadResponse\x1a\x12LedHwdWriteRequest\"\x13LedHwdWriteResponse\x12n\n" +
 	"\x12CLIENT_HWD_SPEAKER\x10\b\x1aV\xd2\xf3\x18R\n" +
-	"\aspeaker\x12\x16SpeakerHwdReadResponse\x1a\x16SpeakerHwdWriteRequest\"\x17SpeakerHwdWriteResponse:d\n" +
+	"\aspeaker\x12\x16SpeakerHwdReadResponse\x1a\x16SpeakerHwdWriteRequest\"\x17SpeakerHwdWriteResponse\x12Z\n" +
+	"\x0eCLIENT_HWD_NFC\x10\t\x1aF\xd2\xf3\x18B\n" +
+	"\x03nfc\x12\x12NfcHwdReadResponse\x1a\x12NfcHwdWriteRequest\"\x13NfcHwdWriteResponse:d\n" +
 	"\n" +
 	"client_hwd\x12!.google.protobuf.EnumValueOptions\x18\xba\x8e\x03 \x01(\v2 .gizclaw.rpc.v1.ClientHwdOptionsR\tclientHwdB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 
@@ -1389,7 +1784,7 @@ func file_payload_mhs_v0_proto_rawDescGZIP() []byte {
 }
 
 var file_payload_mhs_v0_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_payload_mhs_v0_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_payload_mhs_v0_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_payload_mhs_v0_proto_goTypes = []any{
 	(ClientHwd)(0),                        // 0: gizclaw.rpc.v1.ClientHwd
 	(*ClientHwdOptions)(nil),              // 1: gizclaw.rpc.v1.ClientHwdOptions
@@ -1401,33 +1796,42 @@ var file_payload_mhs_v0_proto_goTypes = []any{
 	(*WifiHwdReadResponse)(nil),           // 7: gizclaw.rpc.v1.WifiHwdReadResponse
 	(*BleHwdReadResponse)(nil),            // 8: gizclaw.rpc.v1.BleHwdReadResponse
 	(*ModemHwdReadResponse)(nil),          // 9: gizclaw.rpc.v1.ModemHwdReadResponse
-	(*BatteryHwdReadResponse)(nil),        // 10: gizclaw.rpc.v1.BatteryHwdReadResponse
-	(*MicHwdReadResponse)(nil),            // 11: gizclaw.rpc.v1.MicHwdReadResponse
-	(*DisplayHwdReadResponse)(nil),        // 12: gizclaw.rpc.v1.DisplayHwdReadResponse
-	(*DisplayHwdWriteRequest)(nil),        // 13: gizclaw.rpc.v1.DisplayHwdWriteRequest
-	(*DisplayHwdWriteResponse)(nil),       // 14: gizclaw.rpc.v1.DisplayHwdWriteResponse
-	(*LedHwdReadResponse)(nil),            // 15: gizclaw.rpc.v1.LedHwdReadResponse
-	(*LedHwdWriteRequest)(nil),            // 16: gizclaw.rpc.v1.LedHwdWriteRequest
-	(*LedHwdWriteResponse)(nil),           // 17: gizclaw.rpc.v1.LedHwdWriteResponse
-	(*SpeakerHwdReadResponse)(nil),        // 18: gizclaw.rpc.v1.SpeakerHwdReadResponse
-	(*SpeakerHwdWriteRequest)(nil),        // 19: gizclaw.rpc.v1.SpeakerHwdWriteRequest
-	(*SpeakerHwdWriteResponse)(nil),       // 20: gizclaw.rpc.v1.SpeakerHwdWriteResponse
-	(*descriptorpb.EnumValueOptions)(nil), // 21: google.protobuf.EnumValueOptions
+	(*ModemHwdWriteRequest)(nil),          // 10: gizclaw.rpc.v1.ModemHwdWriteRequest
+	(*ModemHwdWriteResponse)(nil),         // 11: gizclaw.rpc.v1.ModemHwdWriteResponse
+	(*NfcReadSnapshot)(nil),               // 12: gizclaw.rpc.v1.NfcReadSnapshot
+	(*NfcHwdReadResponse)(nil),            // 13: gizclaw.rpc.v1.NfcHwdReadResponse
+	(*NfcHwdWriteRequest)(nil),            // 14: gizclaw.rpc.v1.NfcHwdWriteRequest
+	(*NfcHwdWriteResponse)(nil),           // 15: gizclaw.rpc.v1.NfcHwdWriteResponse
+	(*BatteryHwdReadResponse)(nil),        // 16: gizclaw.rpc.v1.BatteryHwdReadResponse
+	(*MicHwdReadResponse)(nil),            // 17: gizclaw.rpc.v1.MicHwdReadResponse
+	(*DisplayHwdReadResponse)(nil),        // 18: gizclaw.rpc.v1.DisplayHwdReadResponse
+	(*DisplayHwdWriteRequest)(nil),        // 19: gizclaw.rpc.v1.DisplayHwdWriteRequest
+	(*DisplayHwdWriteResponse)(nil),       // 20: gizclaw.rpc.v1.DisplayHwdWriteResponse
+	(*LedHwdReadResponse)(nil),            // 21: gizclaw.rpc.v1.LedHwdReadResponse
+	(*LedHwdWriteRequest)(nil),            // 22: gizclaw.rpc.v1.LedHwdWriteRequest
+	(*LedHwdWriteResponse)(nil),           // 23: gizclaw.rpc.v1.LedHwdWriteResponse
+	(*SpeakerHwdReadResponse)(nil),        // 24: gizclaw.rpc.v1.SpeakerHwdReadResponse
+	(*SpeakerHwdWriteRequest)(nil),        // 25: gizclaw.rpc.v1.SpeakerHwdWriteRequest
+	(*SpeakerHwdWriteResponse)(nil),       // 26: gizclaw.rpc.v1.SpeakerHwdWriteResponse
+	(*descriptorpb.EnumValueOptions)(nil), // 27: google.protobuf.EnumValueOptions
 }
 var file_payload_mhs_v0_proto_depIdxs = []int32{
 	0,  // 0: gizclaw.rpc.v1.ClientMhsV0ReadRequest.hwd:type_name -> gizclaw.rpc.v1.ClientHwd
 	3,  // 1: gizclaw.rpc.v1.ClientMhsV0ReadResponse.write_capabilities:type_name -> gizclaw.rpc.v1.MhsV0WriteCapabilities
 	0,  // 2: gizclaw.rpc.v1.ClientMhsV0WriteRequest.hwd:type_name -> gizclaw.rpc.v1.ClientHwd
-	12, // 3: gizclaw.rpc.v1.DisplayHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.DisplayHwdReadResponse
-	15, // 4: gizclaw.rpc.v1.LedHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.LedHwdReadResponse
-	18, // 5: gizclaw.rpc.v1.SpeakerHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.SpeakerHwdReadResponse
-	21, // 6: gizclaw.rpc.v1.client_hwd:extendee -> google.protobuf.EnumValueOptions
-	1,  // 7: gizclaw.rpc.v1.client_hwd:type_name -> gizclaw.rpc.v1.ClientHwdOptions
-	8,  // [8:8] is the sub-list for method output_type
-	8,  // [8:8] is the sub-list for method input_type
-	7,  // [7:8] is the sub-list for extension type_name
-	6,  // [6:7] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	9,  // 3: gizclaw.rpc.v1.ModemHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.ModemHwdReadResponse
+	12, // 4: gizclaw.rpc.v1.NfcHwdReadResponse.last_read:type_name -> gizclaw.rpc.v1.NfcReadSnapshot
+	13, // 5: gizclaw.rpc.v1.NfcHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.NfcHwdReadResponse
+	18, // 6: gizclaw.rpc.v1.DisplayHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.DisplayHwdReadResponse
+	21, // 7: gizclaw.rpc.v1.LedHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.LedHwdReadResponse
+	24, // 8: gizclaw.rpc.v1.SpeakerHwdWriteResponse.applied:type_name -> gizclaw.rpc.v1.SpeakerHwdReadResponse
+	27, // 9: gizclaw.rpc.v1.client_hwd:extendee -> google.protobuf.EnumValueOptions
+	1,  // 10: gizclaw.rpc.v1.client_hwd:type_name -> gizclaw.rpc.v1.ClientHwdOptions
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	10, // [10:11] is the sub-list for extension type_name
+	9,  // [9:10] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_payload_mhs_v0_proto_init() }
@@ -1440,20 +1844,24 @@ func file_payload_mhs_v0_proto_init() {
 	file_payload_mhs_v0_proto_msgTypes[7].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[8].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[9].OneofWrappers = []any{}
-	file_payload_mhs_v0_proto_msgTypes[10].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[11].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[12].OneofWrappers = []any{}
-	file_payload_mhs_v0_proto_msgTypes[14].OneofWrappers = []any{}
+	file_payload_mhs_v0_proto_msgTypes[13].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[15].OneofWrappers = []any{}
+	file_payload_mhs_v0_proto_msgTypes[16].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[17].OneofWrappers = []any{}
 	file_payload_mhs_v0_proto_msgTypes[18].OneofWrappers = []any{}
+	file_payload_mhs_v0_proto_msgTypes[20].OneofWrappers = []any{}
+	file_payload_mhs_v0_proto_msgTypes[21].OneofWrappers = []any{}
+	file_payload_mhs_v0_proto_msgTypes[23].OneofWrappers = []any{}
+	file_payload_mhs_v0_proto_msgTypes[24].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_payload_mhs_v0_proto_rawDesc), len(file_payload_mhs_v0_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   20,
+			NumMessages:   26,
 			NumExtensions: 1,
 			NumServices:   0,
 		},

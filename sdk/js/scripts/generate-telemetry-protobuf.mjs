@@ -314,6 +314,16 @@ function generateFieldEncoder(messageName, field, messages) {
     method === "message"
       ? `writer.message(${field.fieldNumber}, encode${field.type}(message.${key}));`
       : `writer.${method}(${field.fieldNumber}, message.${key});`;
+  // Proto3 implicit-presence scalar defaults have no wire field. Explicit
+  // optional values (including false/zero) must still be encoded.
+  if (field.kind !== "optional" && method !== "message") {
+    const zero = method === "string" ? '""' : method === "bool" ? "false" : "0";
+    return [
+      `  if (message.${key} != null && message.${key} !== ${zero}) {`,
+      `    ${writeLine}`,
+      "  }",
+    ];
+  }
   if (isTypeOptional(messageName, field)) {
     return [`  if (message.${key} != null) {`, `    ${writeLine}`, "  }"];
   }

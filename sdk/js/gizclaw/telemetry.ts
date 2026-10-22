@@ -4,6 +4,7 @@ import {
   type AudioPlayerObservation,
   type BatteryObservation,
   type GnssObservation,
+  type KVObservation,
   type NetworkObservation,
   type Observation,
   type OtaObservation,
@@ -15,6 +16,7 @@ export type {
   AudioPlayerObservation,
   BatteryObservation,
   GnssObservation,
+  KVObservation,
   NetworkObservation,
   Observation,
   OtaObservation,
@@ -34,6 +36,7 @@ const TELEMETRY_OBSERVATION_BODY_KEYS = [
   "network",
   "system",
   "ota",
+  "kv",
 ] as const;
 
 export function batteryTelemetry(input: BatteryObservation): Observation {
@@ -63,6 +66,12 @@ export function encodeTelemetryPacket(frame: TelemetryFrame): Uint8Array {
       ? { ...frame, observedAtUnixMs: Date.now() }
       : frame;
   const body = encodeTelemetryFrame(stampedFrame);
+  if (
+    (frame.observations ?? []).some((entry) => entry.kv != null) &&
+    body.length > 4096
+  ) {
+    throw new Error("KV telemetry frame exceeds 4096 encoded bytes");
+  }
   if (body.length > GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1) {
     throw new Error(
       `telemetry packet payload is ${body.length} bytes, maximum is ${GIZCLAW_MAX_PACKET_MESSAGE_SIZE - 1}`,
@@ -85,10 +94,13 @@ export function validateTelemetryFrame(frame: TelemetryFrame): void {
   if (!Array.isArray(frame.observations) || frame.observations.length === 0) {
     throw new Error("telemetry frame must contain at least one observation");
   }
+  if (frame.observations.filter((entry) => entry?.kv != null).length > 16)
+    throw new Error("too many KV entries");
   for (const [index, observation] of frame.observations.entries()) {
     if (observation == null || typeof observation !== "object") {
       throw new Error(`telemetry observation ${index} must be an object`);
     }
+    if (observation.kv != null) validateKV(observation.kv);
     const bodyCount = TELEMETRY_OBSERVATION_BODY_KEYS.reduce(
       (count, key) => count + Number(observation[key] != null),
       0,
@@ -106,4 +118,55 @@ export function audioPlayerTelemetry(
   input: AudioPlayerObservation,
 ): Observation {
   return { audioplayer: input };
+}
+
+const utf8Bytes = (value: string) => new TextEncoder().encode(value).length;
+function validateKV(kv: KVObservation): void {
+  if (
+    typeof kv.key !== "string" ||
+    !kv.key.isWellFormed() ||
+    utf8Bytes(kv.key) < 1 ||
+    utf8Bytes(kv.key) > 64
+  )
+    throw new Error("invalid KV key");
+  if (kv.delete !== undefined) {
+    if (kv.delete !== true || kv.jsonValue !== undefined)
+      throw new Error("invalid KV deletion");
+  } else {
+    if (
+      typeof kv.jsonValue !== "string" ||
+      !kv.jsonValue.isWellFormed() ||
+      utf8Bytes(kv.jsonValue) > 1024
+    )
+      throw new Error("invalid KV JSON value");
+    JSON.parse(kv.jsonValue);
+  }
+}
+
+/** Send a JSON encoding verbatim, preserving large numeric values on the wire. */
+export function kvTelemetryJSON(key: string, jsonValue: string): Observation {
+  const kv = { key, jsonValue };
+  validateKV(kv);
+  return { kv };
+}
+/** Value must be JSON serializable; null, false and zero remain values. */
+export function kvTelemetry(key: string, value: unknown): Observation {
+  const encoded = JSON.stringify(value, (_key, item: unknown) => {
+    if (
+      item === undefined ||
+      typeof item === "function" ||
+      typeof item === "symbol" ||
+      typeof item === "bigint" ||
+      (typeof item === "number" && !Number.isFinite(item))
+    )
+      throw new TypeError("KV value is not JSON");
+    return item;
+  });
+  if (encoded === undefined) throw new Error("KV value is not JSON");
+  return kvTelemetryJSON(key, encoded);
+}
+export function deleteKVTelemetry(key: string): Observation {
+  const kv = { key, delete: true };
+  validateKV(kv);
+  return { kv };
 }

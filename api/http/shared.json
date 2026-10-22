@@ -568,6 +568,33 @@
       },
       "RegistrationToken": {
         "$ref": "./shared/registration_token.json#/components/schemas/RegistrationToken"
+      },
+      "PeerKVEntry": {
+        "$ref": "./shared/peer_status.json#/components/schemas/PeerKVEntry"
+      },
+      "PeerReportedKV": {
+        "$ref": "./shared/peer_status.json#/components/schemas/PeerReportedKV"
+      },
+      "NfcReadSnapshot": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/NfcReadSnapshot"
+      },
+      "NfcHwdReadResponse": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/NfcHwdReadResponse"
+      },
+      "MhsV0NfcReadResult": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0NfcReadResult"
+      },
+      "NfcHwdWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/NfcHwdWriteRequest"
+      },
+      "MhsV0NfcWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0NfcWriteRequest"
+      },
+      "ModemHwdWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/ModemHwdWriteRequest"
+      },
+      "MhsV0ModemWriteRequest": {
+        "$ref": "./shared/mhs_v0.json#/components/schemas/MhsV0ModemWriteRequest"
       }
     }
   }

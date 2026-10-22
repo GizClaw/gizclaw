@@ -3050,7 +3050,117 @@ static int test_gnss_reporting_codec(void) {
   return 0;
 }
 
+static int test_kv_telemetry(void) {
+  gzc_buf_t output;
+  gzc_buf_init(&output);
+  gzc_telemetry_kv_t entry = {0};
+  entry.key = gzc_str_from_cstr("k");
+  entry.json_value = gzc_str_from_cstr("null");
+  gzc_telemetry_kv_frame_t frame = {0};
+  frame.sequence = 7;
+  frame.observed_at_unix_ms = 1234;
+  frame.entries = &entry;
+  frame.entry_count = 1;
+  const uint8_t expected[] = {0x08, 0x07, 0x10, 0xd2, 0x09, 0x1a, 0x0c, 0x8a, 0x01, 0x09, 0x0a, 0x01, 0x6b, 0x12, 0x04, 0x6e, 0x75, 0x6c, 0x6c};
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK && output.len == sizeof(expected) && memcmp(output.data, expected, sizeof(expected)) == 0, "KV protobuf vector") != 0)
+    return 1;
+  const char *valid[] = {"null", "false", "0", "1e400", "[null,false,0]", "{\"x\":[null,false,0]}", "\"text\""};
+  for (size_t i = 0; i < sizeof(valid) / sizeof(valid[0]); i++) {
+    entry.json_value = gzc_str_from_cstr(valid[i]);
+    if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK, "valid KV JSON") != 0)
+      return 1;
+  }
+  const char *invalid[] = {"", "01", "[1,]", "{\"x\":]}", "{\"x\" 1}", "\"\\q\"", "true false", "[}", "1.", "\"raw\nline\""};
+  for (size_t i = 0; i < sizeof(invalid) / sizeof(invalid[0]); i++) {
+    entry.json_value = gzc_str_from_cstr(invalid[i]);
+    if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_ERR_INVALID_ARGUMENT && output.len == 0, "invalid KV JSON") != 0)
+      return 1;
+  }
+  entry.delete_key = true;
+  entry.json_value = gzc_str_from_cstr("");
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK, "explicit KV delete") != 0)
+    return 1;
+  entry.json_value = gzc_str_from_cstr("null");
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_ERR_INVALID_ARGUMENT, "delete differs from null") != 0)
+    return 1;
+  entry.delete_key = false;
+  char text[1026];
+  memset(text, 'x', sizeof(text));
+  text[0] = '"';
+  text[1023] = '"';
+  entry.json_value = gzc_str_from_parts(text, 1024);
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK, "KV 1024-byte value boundary") != 0)
+    return 1;
+  text[1023] = 'x';
+  text[1024] = '"';
+  entry.json_value = gzc_str_from_parts(text, 1025);
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_ERR_INVALID_ARGUMENT, "KV oversized value") != 0)
+    return 1;
+  text[1023] = '"';
+  entry.json_value = gzc_str_from_parts(text, 1024);
+  gzc_telemetry_kv_t batch[17];
+  for (size_t i = 0; i < 17; i++)
+    batch[i] = entry;
+  frame.entries = batch;
+  frame.entry_count = 4;
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_ERR_INVALID_ARGUMENT && output.len == 0, "KV complete frame byte cap") != 0)
+    return 1;
+  for (size_t i = 0; i < 17; i++)
+    batch[i].json_value = gzc_str_from_cstr("0");
+  frame.entry_count = 16;
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK, "KV 16-entry boundary") != 0)
+    return 1;
+  frame.entry_count = 17;
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_ERR_INVALID_ARGUMENT, "KV entry cap") != 0)
+    return 1;
+  char nested[1024];
+  memset(nested, '[', sizeof(nested));
+  frame.entries = &entry;
+  frame.entry_count = 1;
+  entry.json_value = gzc_str_from_parts(nested, sizeof(nested));
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_ERR_INVALID_ARGUMENT, "bounded malformed JSON nesting") != 0)
+    return 1;
+  memset(nested + 512, ']', 512);
+  if (expect(gzc_telemetry_encode_kv_frame(&frame, NULL, &output) == GZC_OK, "deepest bounded valid JSON") != 0)
+    return 1;
+  gzc_buf_free(&output, NULL);
+  return 0;
+}
+
+static int test_management_presence_codec(void) {
+  uint8_t bytes[512];
+  gizclaw_rpc_v1_ClientManagementPasswordResetResponse reset = gizclaw_rpc_v1_ClientManagementPasswordResetResponse_init_zero;
+  reset.has_is_set = true;
+  reset.is_set = false;
+  pb_ostream_t out = pb_ostream_from_buffer(bytes, sizeof(bytes));
+  if (expect(pb_encode(&out, gizclaw_rpc_v1_ClientManagementPasswordResetResponse_fields, &reset), "encode password reset false") != 0)
+    return 1;
+  gizclaw_rpc_v1_ClientManagementPasswordResetResponse decoded = gizclaw_rpc_v1_ClientManagementPasswordResetResponse_init_zero;
+  pb_istream_t in = pb_istream_from_buffer(bytes, out.bytes_written);
+  if (expect(pb_decode(&in, gizclaw_rpc_v1_ClientManagementPasswordResetResponse_fields, &decoded) && decoded.has_is_set && !decoded.is_set, "decode password reset false presence") != 0)
+    return 1;
+  gizclaw_rpc_v1_DeviceFeature feature = gizclaw_rpc_v1_DeviceFeature_init_zero;
+  memcpy(feature.id, "camera", 7);
+  memcpy(feature.display_name, "Camera", 7);
+  feature.has_enabled = true;
+  feature.enabled = false;
+  feature.has_writable = true;
+  feature.writable = true;
+  out = pb_ostream_from_buffer(bytes, sizeof(bytes));
+  if (expect(pb_encode(&out, gizclaw_rpc_v1_DeviceFeature_fields, &feature), "encode declared feature") != 0)
+    return 1;
+  gizclaw_rpc_v1_DeviceFeature read = gizclaw_rpc_v1_DeviceFeature_init_zero;
+  in = pb_istream_from_buffer(bytes, out.bytes_written);
+  if (expect(pb_decode(&in, gizclaw_rpc_v1_DeviceFeature_fields, &read) && read.has_enabled && !read.enabled && read.has_writable && read.writable, "decode feature false presence") != 0)
+    return 1;
+  return 0;
+}
+
 int main(void) {
+  if (test_management_presence_codec() != 0)
+    return 1;
+  if (test_kv_telemetry() != 0)
+    return 1;
   if (expect(test_workspace_list_system_filter() == 0,
              "workspace list preserves omitted, false and true system") != 0)
     return 1;

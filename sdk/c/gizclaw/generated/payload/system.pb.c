@@ -120,6 +120,9 @@ PB_BIND(gizclaw_rpc_v1_PeerStatus, gizclaw_rpc_v1_PeerStatus, 2)
 PB_BIND(gizclaw_rpc_v1_PeerStatus_LabelsEntry, gizclaw_rpc_v1_PeerStatus_LabelsEntry, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_PeerStatus_ReportedKvEntry, gizclaw_rpc_v1_PeerStatus_ReportedKvEntry, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_PeerStatusTelemetryObservedAt, gizclaw_rpc_v1_PeerStatusTelemetryObservedAt, 2)
 
 
@@ -177,6 +180,9 @@ PB_BIND(gizclaw_rpc_v1_ServerPeerDeleteResponse, gizclaw_rpc_v1_ServerPeerDelete
 PB_BIND(gizclaw_rpc_v1_Runtime, gizclaw_rpc_v1_Runtime, AUTO)
 
 
+PB_BIND(gizclaw_rpc_v1_Runtime_ReportedKvEntry, gizclaw_rpc_v1_Runtime_ReportedKvEntry, 2)
+
+
 PB_BIND(gizclaw_rpc_v1_ServerGetInfoRequest, gizclaw_rpc_v1_ServerGetInfoRequest, AUTO)
 
 
@@ -214,6 +220,9 @@ PB_BIND(gizclaw_rpc_v1_ServerPutRuntimeRequest, gizclaw_rpc_v1_ServerPutRuntimeR
 
 
 PB_BIND(gizclaw_rpc_v1_ServerPutRuntimeResponse, gizclaw_rpc_v1_ServerPutRuntimeResponse, AUTO)
+
+
+PB_BIND(gizclaw_rpc_v1_PeerKVEntry, gizclaw_rpc_v1_PeerKVEntry, 2)
 
 
 

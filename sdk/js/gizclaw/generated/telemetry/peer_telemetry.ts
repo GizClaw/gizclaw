@@ -22,13 +22,20 @@ export type ObservationBase = {
 };
 
 export type Observation =
-  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never })
-  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never; ota?: never; audioplayer?: never; activity?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation; ota?: never; audioplayer?: never; activity?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota: OtaObservation; audioplayer?: never; activity?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer: AudioPlayerObservation; activity?: never })
-  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity: ActivityObservation });
+  | (ObservationBase & { battery: BatteryObservation; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never; kv?: never })
+  | (ObservationBase & { battery?: never; gnss: GnssObservation; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never; kv?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network: NetworkObservation; system?: never; ota?: never; audioplayer?: never; activity?: never; kv?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system: SystemObservation; ota?: never; audioplayer?: never; activity?: never; kv?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota: OtaObservation; audioplayer?: never; activity?: never; kv?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer: AudioPlayerObservation; activity?: never; kv?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity: ActivityObservation; kv?: never })
+  | (ObservationBase & { battery?: never; gnss?: never; network?: never; system?: never; ota?: never; audioplayer?: never; activity?: never; kv: KVObservation });
+
+export type KVObservation = {
+  key: string;
+  jsonValue?: string;
+  delete?: boolean;
+};
 
 export type BatteryObservation = {
   percent?: number;
@@ -90,10 +97,10 @@ export type AudioPlayerObservation = {
 
 export function encodeTelemetryFrame(message: TelemetryFrame): Uint8Array {
   const writer = new ProtoWriter();
-  if (message.sequence != null) {
+  if (message.sequence != null && message.sequence !== 0) {
     writer.uint32(1, message.sequence);
   }
-  if (message.observedAtUnixMs != null) {
+  if (message.observedAtUnixMs != null && message.observedAtUnixMs !== 0) {
     writer.int64(2, message.observedAtUnixMs);
   }
   for (const item of message.observations ?? []) {
@@ -104,10 +111,10 @@ export function encodeTelemetryFrame(message: TelemetryFrame): Uint8Array {
 
 function encodeObservation(message: Observation): Uint8Array {
   const writer = new ProtoWriter();
-  if (message.observedAtDeltaMs != null) {
+  if (message.observedAtDeltaMs != null && message.observedAtDeltaMs !== 0) {
     writer.int32(1, message.observedAtDeltaMs);
   }
-  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null) + Number(message.ota != null) + Number(message.audioplayer != null) + Number(message.activity != null);
+  const bodyCount = Number(message.battery != null) + Number(message.gnss != null) + Number(message.network != null) + Number(message.system != null) + Number(message.ota != null) + Number(message.audioplayer != null) + Number(message.activity != null) + Number(message.kv != null);
   if (bodyCount !== 1) {
     throw new Error(`telemetry observation must have exactly one body, got ${bodyCount}`);
   }
@@ -132,6 +139,23 @@ function encodeObservation(message: Observation): Uint8Array {
   if (message.activity != null) {
     writer.message(16, encodeActivityObservation(message.activity));
   }
+  if (message.kv != null) {
+    writer.message(17, encodeKVObservation(message.kv));
+  }
+  return writer.finish();
+}
+
+function encodeKVObservation(message: KVObservation): Uint8Array {
+  const writer = new ProtoWriter();
+  if (message.key != null && message.key !== "") {
+    writer.string(1, message.key);
+  }
+  if (message.jsonValue != null) {
+    writer.string(2, message.jsonValue);
+  }
+  if (message.delete != null) {
+    writer.bool(3, message.delete);
+  }
   return writer.finish();
 }
 
@@ -151,8 +175,12 @@ function encodeBatteryObservation(message: BatteryObservation): Uint8Array {
 
 function encodeGnssObservation(message: GnssObservation): Uint8Array {
   const writer = new ProtoWriter();
-  writer.double(1, message.latitude);
-  writer.double(2, message.longitude);
+  if (message.latitude != null && message.latitude !== 0) {
+    writer.double(1, message.latitude);
+  }
+  if (message.longitude != null && message.longitude !== 0) {
+    writer.double(2, message.longitude);
+  }
   if (message.altitudeM != null) {
     writer.double(3, message.altitudeM);
   }
@@ -190,7 +218,9 @@ function encodeNetworkObservation(message: NetworkObservation): Uint8Array {
 
 function encodeActivityObservation(message: ActivityObservation): Uint8Array {
   const writer = new ProtoWriter();
-  writer.string(1, message.activity);
+  if (message.activity != null && message.activity !== "") {
+    writer.string(1, message.activity);
+  }
   if (message.detail != null) {
     writer.string(2, message.detail);
   }
@@ -222,8 +252,12 @@ function encodeSystemObservation(message: SystemObservation): Uint8Array {
 
 function encodeOtaObservation(message: OtaObservation): Uint8Array {
   const writer = new ProtoWriter();
-  writer.int32(1, message.state);
-  writer.string(2, message.updateId);
+  if (message.state != null && message.state !== 0) {
+    writer.int32(1, message.state);
+  }
+  if (message.updateId != null && message.updateId !== "") {
+    writer.string(2, message.updateId);
+  }
   if (message.targetVersion != null) {
     writer.string(3, message.targetVersion);
   }
@@ -241,17 +275,27 @@ function encodeOtaObservation(message: OtaObservation): Uint8Array {
 
 function encodeAudioPlayerObservation(message: AudioPlayerObservation): Uint8Array {
   const writer = new ProtoWriter();
-  writer.string(1, message.state);
+  if (message.state != null && message.state !== "") {
+    writer.string(1, message.state);
+  }
   if (message.currentIndex != null) {
     writer.uint32(2, message.currentIndex);
   }
-  writer.uint64(3, message.positionMs);
+  if (message.positionMs != null && message.positionMs !== 0) {
+    writer.uint64(3, message.positionMs);
+  }
   if (message.durationMs != null) {
     writer.uint64(4, message.durationMs);
   }
-  writer.string(5, message.repeat);
-  writer.uint32(6, message.playlistLength);
-  writer.uint32(7, message.playlistRevision);
+  if (message.repeat != null && message.repeat !== "") {
+    writer.string(5, message.repeat);
+  }
+  if (message.playlistLength != null && message.playlistLength !== 0) {
+    writer.uint32(6, message.playlistLength);
+  }
+  if (message.playlistRevision != null && message.playlistRevision !== 0) {
+    writer.uint32(7, message.playlistRevision);
+  }
   if (message.errorCode != null) {
     writer.string(8, message.errorCode);
   }

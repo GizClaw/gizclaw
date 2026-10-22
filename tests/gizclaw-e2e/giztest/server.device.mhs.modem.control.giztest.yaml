@@ -1,0 +1,127 @@
+# User Story:
+# As a GizClaw device operator,
+# I want to exercise server.device.mhs.modem.control,
+# So that the protocol is verified over real Server and SDK transports.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.modem.control
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: read
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+      status: 200
+    expect: &a1
+      /value/enabled:
+        equals: false
+      /value/powered:
+        present: false
+      /value/registered:
+        equals: false
+  - id: write
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/write
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+        value:
+          enabled: true
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+      /value/powered:
+        equals: false
+  - id: cached_read
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+      status: 200
+    expect: *a1
+  - id: invalid_write
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/write
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+        value: {}
+      status: 400
+    expect:
+      /error/code:
+        equals: INVALID_REQUEST
+  - id: provider_read
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        payload: CAEQABoDbHRlMAA=
+      expect_calls: 2
+  - id: provider_write
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.write
+      response:
+        payload: Cg0IARAAGgNsdGUwADgA
+      expect_calls: 1
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

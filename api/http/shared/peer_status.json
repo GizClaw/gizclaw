@@ -12,6 +12,7 @@
         "type": "object",
         "additionalProperties": false,
         "properties": {
+          "reported_kv": {"$ref": "#/components/schemas/PeerReportedKV"},
           "audioplayer": {"$ref": "./audioplayer.json#/components/schemas/AudioPlayerStatus"},
           "reported_at": {
             "type": "string",
@@ -108,6 +109,39 @@
             "$ref": "#/components/schemas/PeerOtaStatus"
           }
         }
+      },
+      "PeerKVEntry": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "value": {
+            "nullable": true,
+            "description": "Any legal JSON value, including null. At most 1024 UTF-8 encoded bytes.",
+            "x-go-type": "json.RawMessage",
+            "x-go-type-skip-optional-pointer": true
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "json_value": {
+            "type": "string",
+            "description": "Lossless JSON encoding of value, at most 1024 UTF-8 bytes. Use for exact numbers or raw rendering."
+          }
+        },
+        "required": [
+          "value",
+          "observed_at",
+          "json_value"
+        ]
+      },
+      "PeerReportedKV": {
+        "type": "object",
+        "maxProperties": 64,
+        "additionalProperties": {
+          "$ref": "#/components/schemas/PeerKVEntry"
+        },
+        "description": "Device self-reported latest JSON values. Missing key is absent or deleted; value:null is reported null. No authority or online fields are derived from this map."
       },
       "PeerStatusTelemetryObservedAt": {
         "type": "object",

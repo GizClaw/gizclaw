@@ -2087,6 +2087,7 @@ type PeerRunWorkspaceState struct {
 
 // PeerStatus defines model for PeerStatus.
 type PeerStatus struct {
+	ReportedKv          *apitypes.PeerReportedKV             `json:"reported_kv,omitempty"`
 	Ota                 *rpcpb.PeerOtaStatus                 `json:"ota,omitempty"`
 	Audioplayer         *rpcpb.AudioPlayerStatus             `json:"audioplayer,omitempty"`
 	BatteryPercent      *int                                 `json:"battery_percent,omitempty"`
@@ -2168,14 +2169,15 @@ type RPCVersion int
 
 // Runtime defines model for Runtime.
 type Runtime struct {
-	ActiveWorkspaceName  *string   `json:"active_workspace_name,omitempty"`
-	DebugMode            *string   `json:"debug_mode,omitempty"`
-	LastAddr             *string   `json:"last_addr,omitempty"`
-	LastSeenAt           time.Time `json:"last_seen_at"`
-	Online               bool      `json:"online"`
-	PendingWorkspaceName *string   `json:"pending_workspace_name,omitempty"`
-	RxBytes              *uint64   `json:"rx_bytes,omitempty"`
-	TxBytes              *uint64   `json:"tx_bytes,omitempty"`
+	ReportedKv           *apitypes.PeerReportedKV `json:"reported_kv,omitempty"`
+	ActiveWorkspaceName  *string                  `json:"active_workspace_name,omitempty"`
+	DebugMode            *string                  `json:"debug_mode,omitempty"`
+	LastAddr             *string                  `json:"last_addr,omitempty"`
+	LastSeenAt           time.Time                `json:"last_seen_at"`
+	Online               bool                     `json:"online"`
+	PendingWorkspaceName *string                  `json:"pending_workspace_name,omitempty"`
+	RxBytes              *uint64                  `json:"rx_bytes,omitempty"`
+	TxBytes              *uint64                  `json:"tx_bytes,omitempty"`
 }
 
 // ServerGetInfoRequest defines model for ServerGetInfoRequest.
