@@ -96,6 +96,7 @@ jobs:
             dpkg-dev \
             libprotobuf-dev \
             protobuf-compiler \
+            python3-yaml \
             shellcheck \
             unzip \
             zip

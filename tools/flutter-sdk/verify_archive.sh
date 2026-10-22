@@ -19,11 +19,16 @@ done
 [[ "$package" == gizclaw || "$package" == gizclaw_control ]] || { echo "invalid package" >&2; exit 2; }
 [[ "$version" =~ ^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]] || { echo "invalid version" >&2; exit 2; }
 command -v python3 >/dev/null 2>&1 || { echo "required command not found: python3" >&2; exit 2; }
+python3 -c 'import yaml' 2>/dev/null || { echo "required Python module not found: yaml" >&2; exit 2; }
 
 python3 - "$archive" "$package" "$version" <<'PY'
 import pathlib
+import re
 import tarfile
 import sys
+from urllib.parse import urlsplit
+
+import yaml
 
 archive_path = pathlib.Path(sys.argv[1])
 package = sys.argv[2]
@@ -104,10 +109,63 @@ if [line for line in pubspec if line.startswith("version:")] != [f"version: {ver
     raise SystemExit("pubspec version mismatch")
 if not any(line.startswith("environment:") for line in pubspec):
     raise SystemExit("pubspec has no SDK environment")
-if any(line.startswith(("dependency_overrides:", "workspace:", "resolution:")) for line in pubspec):
+class UniqueKeyLoader(yaml.SafeLoader):
+    pass
+
+
+def unique_mapping(loader, node):
+    result = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node)
+        if not isinstance(key, str) or key in result:
+            raise ValueError("duplicate or non-string pubspec key")
+        result[key] = loader.construct_object(value_node)
+    return result
+
+
+UniqueKeyLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG, unique_mapping
+)
+try:
+    manifest = yaml.load("\n".join(pubspec), Loader=UniqueKeyLoader)
+except (yaml.YAMLError, ValueError, TypeError, RecursionError):
+    raise SystemExit("pubspec YAML is invalid")
+if not isinstance(manifest, dict):
+    raise SystemExit("pubspec must be a mapping")
+if any(key in manifest for key in ("dependency_overrides", "workspace", "resolution")):
     raise SystemExit("pubspec contains a local-only resolution field")
-if any(line.strip().startswith(("path:", "git:")) for line in pubspec):
-    raise SystemExit("pubspec contains a path or git dependency")
+for section in ("dependencies", "dev_dependencies"):
+    dependencies = manifest.get(section, {})
+    if not isinstance(dependencies, dict):
+        raise SystemExit("pubspec dependencies must be a mapping")
+    for description in dependencies.values():
+        if not isinstance(description, dict):
+            continue
+        if "path" in description:
+            raise SystemExit("pubspec contains a path dependency")
+        if "git" not in description:
+            continue
+        git = description["git"]
+        if (
+            set(description) - {"git", "version"}
+            or not isinstance(git, dict)
+            or set(git) != {"url", "ref"}
+            or not isinstance(git["url"], str)
+            or not isinstance(git["ref"], str)
+            or not re.fullmatch(r"[0-9a-f]{40}", git["ref"])
+            or any(character.isspace() for character in git["url"])
+        ):
+            raise SystemExit("pubspec Git dependencies require an immutable HTTPS revision")
+        try:
+            remote = urlsplit(git["url"])
+        except ValueError:
+            raise SystemExit("pubspec Git dependency URL is invalid")
+        if (
+            remote.scheme != "https" or not remote.hostname
+            or remote.username is not None or remote.password is not None
+            or remote.query or remote.fragment
+        ):
+            raise SystemExit("pubspec Git dependencies require a credential-free HTTPS URL")
 PY
 
 printf '%s\n' "verified $archive"
