@@ -1,5 +1,7 @@
 # Memory Store
 
+[定义与实现](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/memory)
+
 [`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) 是 Agent runtime 共用的 provider-neutral 长期记忆边界。Mem0 Cloud、自托管 Mem0 和 Volc 适配器位于 `mem0` 与 `volc` 子包。
 
 ## Conversation History
@@ -38,8 +40,6 @@ gizclaw history-migrate /srv/gizclaw \
 
 正式执行保留未过期 Workspace 消息的原 ID、角色、文本、创建时间、原到期时间和音频对象引用，不搬动或重新上传音频；旧 Eino 数据不导入。分批复制后逐字段校验，复制、完成标记和旧表删除在同一事务提交。旧父表、附属分区、专属身份表及自动生成且未共享的 partman 模板被删除。遇到不兼容 schema、未知记录、目标冲突或外部依赖时整体回滚，不使用 `CASCADE`。成功后的重复执行读取完成标记，不重新导入。启动新 Server 前确认迁移成功；成功删除后的版本回退需要恢复数据库备份。
 
-
-
 ## 契约
 
 每次操作都携带结构化 `Scope`。`AppID`、`UserID`、`AgentID` 和 `RunID` 是四个相互独立的可选路由维度；公共契约不定义 App→User→Agent→Run 层级，也不把 `RunID` 解释为通用 Conversation。空字段表示没有选择该维度，不表示 wildcard、继承或全局可见。
@@ -67,14 +67,7 @@ recalled, err := store.Recall(ctx, memory.Query{
 })
 ```
 
-Adapter 只保留 native provider 能准确表达的维度和组合，不能保持时返回 `ErrUnsupported`：
-
-| 公共字段 | Mem0 / Volc Memory |
-| --- | --- |
-| `AppID` | `app_id` |
-| `UserID` | `user_id` |
-| `AgentID` | `agent_id` |
-| `RunID` | `run_id` |
+Adapter 只保留 native provider 能准确表达的维度和组合，不能保持时返回 `ErrUnsupported`。
 
 Mem0/Volc 支持这些独立维度及其组合，发送全部已选择维度，并在 recall 与变更校验中使用 AND filter。自托管 Mem0 的完整 Scope 编码见下文。
 

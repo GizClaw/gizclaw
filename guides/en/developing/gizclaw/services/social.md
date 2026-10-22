@@ -1,5 +1,7 @@
 # services/social
 
+[Definitions and implementation](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/social)
+
 `pkgs/gizclaw/services/social` Owns GizClaw’s social graph, including contacts, friend relationships, and friend groups. Each subpackage is responsible for a clear resource boundary.
 
 ## Directory structure
@@ -93,23 +95,11 @@ Any Server that may host a member's connection activates the same Workspace usin
 
 Every `FriendObject` in `server.friend.list` carries the Friend's presence and profile next to the relationship fields, so a device can show an online marker and a name without calling `server.friend.info.get` per Friend. `friend.ListFriends` fills these fields, and they are visible only through the caller's own Friend list; the `FriendObject` returned by `server.friend.add` and `server.friend.delete` leaves them out.
 
-| Field | Source | When absent |
-| --- | --- | --- |
-| `online` | `Manager.PeerPresence`, reading shared Peer KV connection state | Always present on a listed Friend |
-| `last_seen_at` | Last connection activity observed at an online, offline or running-Workspace transition, in RFC 3339 UTC | No transition has been observed, or the shared read failed |
-| `display_name`, `emoji` | The profile the Friend set through `server.info.put`, as `server.friend.info.get` returns it | The Friend has not set it |
-
 Servers sharing the same Peer KV can read presence for Friends connected to each other. These queries never read `peer_runs` SQL. Redis read/write separation uses the reader and accepts replication lag. A shared read failure returns `online=false` without `last_seen_at`; it does not fall back to SQL or the primary, or fail the page. A failed profile read omits the affected profile fields.
 
 ## Member list presence
 
 `server.friend_group.members.list` and `GET /gizclaw/v1/friend-groups/{friendGroupName}/members` include member presence. Name resolution and `requireRead` confirm the caller's membership before the page is decorated.
-
-| Field | Source | When absent |
-| --- | --- | --- |
-| `online` | `Manager.PeerRoomPresence`, reading a shared connection snapshot | Presence is not configured |
-| `last_seen_at` | Last activity observed at a transition, from the same snapshot, in RFC 3339 UTC | Never observed, last-seen read failed, or presence is not configured |
-| `in_room` | The same snapshot reports the member online and running the Workspace bound to the Group | Rooms is not configured, or the Group's Workspace binding cannot be read |
 
 `socialutil.MemberPresenceFields` reads one shared snapshot per member, so the fields cannot straddle different transitions. Members connected to another Server can be online and in the Room. Admin member lists and add, put, delete and join responses omit all three fields.
 

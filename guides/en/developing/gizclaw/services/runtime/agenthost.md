@@ -1,5 +1,7 @@
 # Agent Host
 
+[Source](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/agenthost)
+
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost)
 
 `agenthost` owns the online life cycle of Agent instances. It parses running specifications, obtains Workspace leases, creates input and output streams, accesses History and Memory, composes the context-scoped ToolInvoker, and maintains the current runtime registry.
@@ -19,22 +21,6 @@ flowchart TD
     Input --> Stop["Stop / cancel / release"]
     Output --> Stop
 ```
-
-## Core structure and main function
-
-| Structure or function | Function |
-| --- | --- |
-| `Service.Reload` | Stop the old runtime and create a new runtime based on the current Peer run selection. |
-| `Service.Status` / `Stop` / `Shutdown` | Query or terminate the current Agent runtime; connection teardown permanently shuts down the service. |
-| `Service.SetRunAgent` | When `PeerRun` provides the optional `PeerRunSelectionStore` capability, persist a pending selection through the same transition boundary as reload and stop; only a selection that changes the active workspace advances the runtime revision. |
-| `Service.RuntimeRevision` / `PushInput` / `ReloadAndPushInputIfCurrentRevision` | Let connection-scoped input write or atomically recover-and-write only when it still belongs to the current stable runtime revision. |
-| `Service.WorkspaceState` | Returns the running status of the current workspace. |
-| `RuntimeRegistry` | Maintain the current online runtime. |
-| `Coordinator` / `MemoryCoordinator` | Provide an exclusive lease for the workspace. |
-| `Host` / `Registry` | Select and create an Agent based on the parsed `Spec`. |
-| `InputStream` / `PushSource` | Convert continuous input into a GenX Stream consumed by the Agent. |
-| `MixerOutput` | Decode Agent audio into PCM on one mixer track per `(StreamID, canonical MIME)`; MIME EOS closes only that track, while control-only EOS closes every track on the route. Chunks marked `OpusPassthroughMIME` (`audio/opus; passthrough=1`) are neither decoded nor given a track: they go to the consumer-installed `Passthrough` hook but are still observed in order. |
-| `ToolkitInvoker` | Re-resolve, authorize, and dispatch canonical Tools in the current Transform's Peer scope. |
 
 All runtime creation paths must have symmetric cancel, stream close, lease release, and registry cleanup. The persistence of Agent definition, Workflow, and Workspace still belongs to AI services.
 

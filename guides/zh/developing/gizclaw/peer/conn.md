@@ -1,6 +1,8 @@
 # Connection
 
-`实现文件：peer_conn.go、peer_conn_openai.go`
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+源码：[peer_conn.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_conn.go) · [peer_conn_openai.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_conn_openai.go)
 
 `peer_conn` 前缀拥有单条 Peer connection 的产品级生命周期。
 
@@ -46,24 +48,6 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 再次进入 poll。client close 会先把所有 pending request 置为 closed 并摘除 channel，
 但 request handle 及其响应缓冲区仍由调用方在 allocator 存活期间 destroy。
 
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| [`PeerConn`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerConn) | 持有 Giznet connection、PeerService、RPC Server、Agent Host、audio mixer 与 connection-scoped services。 |
-| [`PeerConn.CreateAudioTrack`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerConn.CreateAudioTrack) | 创建写入当前 Peer audio mixer 的 track。 |
-| `serve` | 并行服务 Giznet services、direct packets、Agent output 和 mixed audio。 |
-| `serveService` | 接受并分发当前 Peer 打开的 Giznet service stream。 |
-| `servePackets` / `serveDirectPackets` | 接收普通与 direct packet，并分发 telemetry/media。 |
-| `serveRPC` / `serveEdgeRPC` | 启动 Peer RPC 或 Edge RPC service loop。 |
-| `serveEdgeTunnel` / `serveEdgePackets` | 只在 activated Edge 上接受 v2 label、聚合 logical Peer，并路由 shared Opus envelope。 |
-| `init` / `initRPC` / `initMixer` / `initAgentHost` / `initPeerGenX` | 组装 connection-scoped runtime dependencies。 |
-| `acceptMandatoryEventStream` / `readEventStream` | 在 Peer activation 前有界等待唯一 Event stream，并把事件推入 Agent input；stream 结束会关闭 connection。 |
-| `rejectDuplicateEventStreams` | 接受并关闭额外 `0x20`，保留已绑定的 connection owner。 |
-| `processTelemetryPackets` / `handleTelemetryPacket` | 解码 telemetry 并同步 Peer status。 |
-| `streamMixedAudio` | 在每个 20ms pacing opportunity 从已混合 PCM stream 读取一帧，编码一次 Opus，并写入一次 WebRTC audio track。 |
-| `close` | 按 lifecycle 顺序关闭所有 connection-scoped 资源。 |
-
 在启动任何 RPC、HTTP、packet 或 audio loop 前，`PeerConn` 先绑定 Event Stream，
 再原子确保 durable Peer generation 并把准确 connection 发布到 `Manager`，因此
 不存在“Peer 已 online 但没有 Event transport”的窗口，立即到达的
@@ -99,7 +83,6 @@ Event stream 拥有后台刷新任务，默认每 5 秒刷新一次，每次查�
 仍按原有 authoritative binding 路径判断，不将这个预期分支记录成查询失败。
 
 音频输入 BOS 可声明 `StreamBegin.input_mode` 为 `PUSH_TO_TALK` 或 `REALTIME`。Doubao realtime Workspace 未配置 `parameters.input` 时默认 Push-to-Talk；这类 Workspace 收到声明为 REALTIME 的 BOS 时，在接受音频包前返回带 `WORKSPACE_INPUT_MODE_MISMATCH` 的 EOS。显式 REALTIME Workspace 也接受 Push-to-Talk 输入，因为该路径可由 Provider 结束话轮。省略 `input_mode` 的旧客户端沿用原有行为，Server 无法从相同的 BOS 和音频包推断它原本打算使用哪种模式。Go PeerStream 的音频 BOS 会透传声明，Giztest 根据 `peer_stream.mode` 设置它；JavaScript `ContinuousAudioRoute.inputMode` 和 Flutter `WorkspaceEventSession.beginAudio(inputMode:)` 可供调用方显式声明，省略时仍发送 UNSPECIFIED。
-
 
 经 Edge 路由的 connection 由 `PeerConn` 持有 accepted tunnel lifecycle context，并保留 mandatory Event Stream、connection-level first event、Agent input open、first push 和 terminal record。Input event 只有在 authorization 成功后才进入观测；每个 BOS 分配单调递增的 logical turn，后续 input event 通过内部 stream route 关联，input EOS 记录该 turn 的 input terminal，realtime source 第一次成功 push 则证明同一个 turn 已到达 Agent input。Replacement BOS 或成功送达的内部 interrupt 会标记之前的 active turn，但不会改变原有 interruption 行为。Event Stream 关闭时，`PeerConn` 会先为每个仍保留的 incomplete turn 输出一次有界 terminal snapshot，再输出 connection-level terminal，因此后续 zero-output turn 可以被独立查询。
 

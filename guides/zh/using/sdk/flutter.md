@@ -1,4 +1,4 @@
-# Flutter SDK <Badge type="warning" text="WIP" />
+# Flutter SDK
 
 GizClaw 提供两个 Dart package，按角色划分：
 
@@ -7,7 +7,7 @@ GizClaw 提供两个 Dart package，按角色划分：
 | `gizclaw` | `sdk/flutter/gizclaw` | 设备端：让 Flutter App 作为 GizClaw 设备/Peer 接入 | encrypted `/webrtc/v1/offer` signaling 与 WebRTC DataChannel | Flutter、`flutter_webrtc`、`protobuf` |
 | `gizclaw_control` | `sdk/flutter/gizclaw_control` | 控制端：用 [API Key](../api-keys) 读取并控制绑定的设备 | HTTPS `/gizclaw/v1/*` | 纯 Dart，仅 `http` |
 
-`gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力；`gizclaw_control` 面向 LiteLink 这类手机控制 App，每张设备卡片保存一个 API Key。设备端 client 初始化、平台权限与 RPC 调用的说明仍待补充；本页覆盖 `gizclaw_control` 与设备端握手准入凭证。
+`gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力；`gizclaw_control` 面向 LiteLink 这类手机控制 App，每张设备卡片保存一个 API Key。本页介绍 `gizclaw_control` 与设备端握手准入凭证。
 
 ## 安装 `gizclaw_control`
 
@@ -126,7 +126,3 @@ try {
 设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsHwd` / `writeMhsHwd`，通过生成的 `ClientMhsV0*` 和各 HWD protobuf 消息处理一个实例。控制端 `getMhsManifest()` 返回实例 ID 和 HWD；`readMhsHwd(id,hwd)` 返回 `MhsHwdReadResult`（值按 HWD 解码为 `MhsWifiReadValue` 等），`writeMhsHwd(MhsHwdWriteRequest(...))` 只接受 display、led、speaker 的写结构并返回实际生效值。
 
 每次调用只针对一个实例；wifi、ble、modem、battery、mic 只读。详见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
-
-## tool/v0 过程
-
-设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

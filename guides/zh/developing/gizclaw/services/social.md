@@ -1,5 +1,7 @@
 # services/social
 
+[定义与实现](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/social)
+
 `pkgs/gizclaw/services/social` 拥有 GizClaw 的 social graph，包括联系人、好友关系和 friend group。每个子 package 负责一个清晰的资源边界。
 
 ## 目录结构
@@ -91,12 +93,6 @@ Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 
 
 `server.friend.list` 的每个 `FriendObject` 在关系字段之外还携带好友的在线状态与资料，设备据此显示在线标记和名字，不必对每个好友再调用 `server.friend.info.get`。这些字段由 `friend.ListFriends` 填写，只通过调用方自己的好友列表可见；`server.friend.add`、`server.friend.delete` 返回的 `FriendObject` 不携带它们。
 
-| 字段 | 来源 | 缺省 |
-| --- | --- | --- |
-| `online` | `Manager.PeerPresence` 读取共享 Peer KV 中的连接状态 | 配置 Presence 时总是出现在列表项中 |
-| `last_seen_at` | 上线、下线或运行 Workspace 变化时观察到的最后连接活动，使用 RFC 3339 UTC | 未观察到该好友或共享读取失败时省略 |
-| `display_name`、`emoji` | 好友通过 `server.info.put` 设置的资料，与 `server.friend.info.get` 相同 | 未设置时省略 |
-
 共享同一 Peer KV 的 Server 能查询彼此连接上的好友状态。查询不读取 `peer_runs` SQL；普通 Redis 使用同一连接，`redis.readwrite` 使用读端并接受复制延迟。共享读取失败时返回 `online=false` 并省略 `last_seen_at`，不回退 SQL 或主库，不使整页失败。资料读取失败时省略相应资料字段。
 
 好友与群成员列表按整页批量读取状态，再去重读取涉及的 Server 租约。状态补充共用两秒预算，更短的请求 deadline 优先；群的可选 Workspace binding 查询包含在该预算内。前置关系授权、分页和资料查询仍使用请求自己的 context。批量读取的并发与后端实现见 [KV 批量点查](/zh/developing/stores/kv#批量点查)，超时后保留列表和已成功的结果。
@@ -104,12 +100,6 @@ Peer 账户退役必须区分共享关系和各区域 Workspace 副本。共享 
 ## 群成员列表的在线状态
 
 `server.friend_group.members.list` 与 `GET /gizclaw/v1/friend-groups/{friendGroupName}/members` 携带成员在线状态。先完成名称解析与 `requireRead`，确认调用方已经是成员后，再为当前页补充状态。
-
-| 字段 | 来源 | 缺省 |
-| --- | --- | --- |
-| `online` | `Manager.PeerRoomPresence` 读取共享连接快照 | 未配置 Presence 时省略 |
-| `last_seen_at` | 同一快照中，最后一次状态变化时观察到的连接活动，使用 RFC 3339 UTC | 从未观察到成员、共享读取失败或未配置 Presence 时省略 |
-| `in_room` | 同一快照中，该成员在线且正在运行这个群绑定的 Workspace | 未配置 Rooms 或群的 Workspace 绑定读取失败时省略 |
 
 群成员列表通过 `socialutil.MemberPresenceFields` 一次读取同一成员的共享快照，避免两次查询跨越状态变化。连接在其他 Server 上的成员也能显示在线和在房间中。Admin 成员列表与 add、put、delete、join 响应均不携带这三个字段。
 

@@ -1,6 +1,10 @@
 # Server
 
-`实现文件：server.go`
+[定义与实现](https://github.com/GizClaw/gizclaw/tree/main/cmd/internal/server)
+
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+源码：[server.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/server.go)
 
 定义可复用的 `Server` composition root：接收 identity、Peer listeners、显式 Store 能力与运行配置；初始化各领域 service；启动 HTTP 和 Peer listeners；处理 Peer event 并管理关闭流程。Server 不再包含 Store 名称或 prefix fallback。
 
@@ -38,7 +42,7 @@ Server 的 `webrtc.listen` 定义 WebRTC transport tuple，并且必须等于
 TLS 1.2 及以上的 HTTPS。证书路径在[环境变量展开](#环境变量展开)后相对 workspace 解析。空列表、重复地址、
 单边或无效证书会在服务流量前失败。
 
-已移除的顶层 `listen` 与 `endpoint` 字段会被拒绝；两个值都必须放在 `webrtc` 下。
+`listen` 与 `endpoint` 配置在 `webrtc` 下。
 
 ```yaml
 webrtc:
@@ -79,20 +83,6 @@ Edge 进程。
 
 主要能力分组如下：
 
-| Service 字段 | 所需能力 |
-| --- | --- |
-| `services.peer.store` | `keyvalue`；保存共享 Peer record 与固定 Server route |
-| `services.peer_run.store` | `sql`；保存当前 Server 本地的 Peer 状态与 Agent selection |
-| `services.api_key.store` | `keyvalue`；保存 API Key、secret index 与 owner index，多 Server API routing 时必须共享 |
-| credential、firmware、RuntimeProfile、model、voice、MemoryLayout、provider tenants、workflow、workspace、toolkit 与 contact | `sql`；业务表由服务拥有 |
-| friend 与 Friend Group | `keyvalue`；内部 collection prefix 由代码拥有 |
-| `services.workspace.history_assets_store`、`services.workspace.assets_store`、`services.agent_host.runtime_store` | `objectstore` |
-| `services.workspace.history_store` | `sql` |
-| `services.agent_host.persistence.state_store` | `sql` |
-| `services.metrics.store` | `metrics` |
-| `services.sfu` | 不引用 Store；`url` 为 LiveKit `ws://`/`wss://` signaling URL，`api_key_file` 与 `api_secret_file` 在启动时读取，`recheck_interval`、`reconnect_timeout`、`talk_hangover`、`floor_idle` 可选，见 [services/social](/zh/developing/gizclaw/services/social#配置) |
-| `services.system_log.query_store` 与 Store sink | `log`，对应 `logstore.Store` |
-
 Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service Store 上的代码内置 scope，因此天然共享一个原子 KV transaction boundary。共享 ObjectStore 必须使用非空、规范且互不重叠的 prefix。引用缺失、kind 不兼容或出现未知字段时，Server 会在打开 listener 前失败。
 
 `services.agent_host.persistence.state_store` 绑定通用 SQL 状态，并由 Server 的 `GraphStateDB` 注入 Workflow factory；Eino Workflow 声明 `state_persistence` 时必须提供该引用。Workspace 的 `services.workspace.history_store` 是唯一对话 History 绑定，Eino 接收它的 `memory.HistoryReader`，不再声明内部 History Store。`services.agent_host.eino` 与 `services.agent_host.flowcraft` 是未知字段。
@@ -101,7 +91,7 @@ Friend Group 的 groups、invite tokens、members 与 belongs 是同一 Service 
 
 启动顺序依次为严格解析配置、打开物理 connector、构造逻辑 Store、解析 service 能力、由活跃 SQL 服务校验 schema，并安装日志与 metrics。创建 History 表前先执行 [旧 History 检查](../../stores/memory#conversation-history)，发现未迁移记录时停止启动并显示实际父表名。取得 workspace PID ownership 后，可选 process profiling 解析其专用 ObjectStore 并发布 baseline；完成后才打开 public listener 并启动 `Server.Listen`。逻辑 Store 不关闭借用的 connector。Shutdown 会先 join profiling worker，再关闭 logging、逻辑 wrapper 与物理 connector。Process profiling 属于 `cmd/internal/server`；可复用的 `pkgs/gizclaw.Server` 不依赖 pprof。
 
-旧的一层 Store 配置、顶层伪 service block、隐式 Store 名称和 `gizclaw migrate` 命令均不受支持。Workspace History 的一次性 SQL 数据转换使用 [history-migrate](../../stores/memory#history-migration)。ClickHouse Store 初始化表仍属于活跃 schema lifecycle，不属于旧数据迁移。
+Workspace History 的 SQL 数据转换使用 [history-migrate](../../stores/memory#history-migration)。
 
 ### 完整配置
 
@@ -129,21 +119,4 @@ Server 初始化只组装 Social service 和恢复 worker，不读取或重放�
 
 `Server.Close` 先取消并 join 全部 Social 恢复 worker，再停止 pending-deletion processor 和释放 runtime 资源。关闭后再次 `Listen` 会重新从持久化索引发现任务。
 
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| [`Server`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server) | 可复用 GizClaw Server 的 composition root。 |
-| [`PeerListenerOptions`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerListenerOptions) / [`PeerListenerFactory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerListenerFactory) | 描述并创建 Peer listener。 |
-| [`Server.ServeHTTP`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.ServeHTTP) | 服务 Server HTTP surface。 |
-| [`Server.Listen`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Listen) / [`Serve`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Serve) | 创建 listeners 并接受 Peer connections。 |
-| [`Server.PublicKey`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.PublicKey) | 返回 Server identity public key。 |
-| [`Server.PeerService`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.PeerService) / [`Manager`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Manager) | 返回已组装的 Peer service 或在线 Peer Manager。 |
-| `init` | 初始化 stores、领域 services、HTTP mux 和 Peer Runtime。 |
-| `servePeerListener` | 接受单个 listener 上的 Peer connections。 |
-| `startCleanup` | 启动后台资源清理。 |
-| [`Server.Close`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Close) | 停止 listeners、后台任务并关闭 Server 资源。 |
-
-## Peer 小时用量
-
-可选 `services.peer_usage.store` 绑定 SQL pool，保存 provider 实际 model/resource ID 的小时数量；使用共享 SQL 日分区维护，并在关闭 pool 前 flush worker。完整字段、保留与持久化边界见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。
+`services.peer_usage.store` 的配置与持久化规则见 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage)。

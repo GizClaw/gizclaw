@@ -1,6 +1,6 @@
 # Stream Events
 
-`实现文件：peer_stream_event.go`
+源码：[peer_stream_event.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_stream_event.go)
 
 | 文件 | 包含的功能 |
 | --- | --- |
@@ -20,17 +20,6 @@ runtime input replacement 产生的 `INPUT_ROUTE_RELOADED` EOS 也由这个 brok
 writer 上有序发送。route state owner 在发起 `Broadcast` 前已经清除旧输入授权；
 `Broadcast` 返回成功后 AgentHost 才能完成 reload。写入失败不会改走另一条 Event
 Stream、不会恢复旧 route，也不会把 mandatory signal 降级为 best-effort notification。
-
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| `peerStreamEventBroker` | 管理当前连接唯一、必需的 physical event writer，并广播产品事件。 |
-| `peerAgentOutput` | 消费 Agent output，把 source audio 交给 `MixerOutput`，并广播包括混音总生命周期在内的 events。 |
-| `readPeerStreamEvent` / `writePeerStreamEvent` | 只接受 `FrameTypeBinary`，解码和编码 `PeerEvent` Protobuf，并校验 `type` 与 `oneof payload`。 |
-| `peerStreamEventToChunk` | 将产品事件转换为 GenX message chunk。 |
-| `peerStreamEventsFromChunk` | 将 GenX chunk 展开为一个或多个产品事件。 |
-| `pushAgentChunk` | 将收到的事件 chunk 推入 Agent input source。 |
 
 下行 audio 不存在 raw Direct Opus 分支。`MixerOutput` 按 `(StreamID, canonical MIME)` 维护独立 decoder 与 PCM track；MIME EOS 只关闭对应 track，control-only EOS 关闭该 route 的全部 tracks。普通 EOS 使用 `CloseWrite` 排空缓存，error EOS 使用 `CloseWithError` 丢弃对应 track 的缓存。
 

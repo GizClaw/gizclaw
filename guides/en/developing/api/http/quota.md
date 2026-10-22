@@ -1,26 +1,16 @@
 # Quota HTTP service
 
-RuntimeProfile optionally selects a quota policy for Peer provider calls. The supported policies are unlimited and custom; only custom calls an external HTTP implementation, which owns billing and quota conversion.
+Quota obtains time-based authorization before provider calls. The external quota service owns billing rules and conversions; GizClaw reports existing usage and enforces the decision.
 
 ## Contract
 
-`api/http/quota.json` owns the wire contract and generates `sdk/go/quota`.
+[quota.json](https://github.com/GizClaw/gizclaw/blob/main/api/http/quota.json) defines HTTP requests and responses, with a generated [Go quota client](https://github.com/GizClaw/gizclaw/tree/main/sdk/go/quota). The service receives known device identifiers and persisted usage snapshots; GizClaw does not collect additional device information for quota.
 
-Authenticated `POST /v1/quota` uses `Authorization: Bearer <api_key>`. Its request carries `peer_public_key`, optional complete shared `DeviceIdentifiers` (SN, all IMEIs and labels), and retained hourly `usage`. Identifiers are sent as already known; quota adds no identifier acquisition RPC.
-
-Each usage item contains the provider billing `model_id`, exact UTC `hour`, and nonnegative cumulative `quantity`. Receivers retain the maximum quantity for each Peer/model/hour, so replay does not debit the same usage again. Initial reports can contain an empty array. GizClaw flushes usage before reading SQL and does not fabricate an empty report when storage is unavailable.
-
-```json
-{
-  "expires_at": "2030-01-01T00:00:00Z",
-  "valid_until": "2029-12-01T00:00:00Z"
-}
-```
-
-- Optional nullable `expires_at` is the usable deadline. Omitted/null means unlimited; an elapsed timestamp denies use.
-- Required non-null `valid_until` is this decision's lifetime and must be a future timestamp when received. Missing, malformed or elapsed validity never authorizes use.
+Distinguish device eligibility expiry from the cache lifetime of an authorization result. Reporting the same cumulative snapshot should not charge twice. Consult the Schema for fields and processing rules.
 
 ## RuntimeProfile
+
+Minimal external-authorization configuration:
 
 ```yaml
 spec:
@@ -30,36 +20,26 @@ spec:
     api_key: ${QUOTA_API_KEY}
 ```
 
-`spec.quota` is optional. Omission or null uses unlimited behavior, as does an explicit `quota: {type: unlimited}`. These policies perform no quota HTTP request and require neither a quota service nor SQL usage storage. Independently configured `services.peer_usage.store` continues to record provider-billed usage. An empty object or an unknown policy type is rejected.
-
-`type: custom` requires both endpoint and api_key. The complete HTTP(S) endpoint must contain no userinfo, query or fragment; the key must be nonempty and contain no newlines. Configure `services.peer_usage.store` so custom reports can read retained SQL usage. Missing or failed reporting dependencies deny custom calls rather than sending fabricated empty usage. SQL stores absent policy as JSON null and explicit policies as tagged objects; existing unconfigured profiles remain unlimited.
+A custom policy needs Peer usage SQL storage to report actual persisted consumption. Use an unlimited policy when external authorization is unnecessary; it does not call the quota service. See [RuntimeProfile quota](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/system/runtimeprofile/quota.go) for configuration parsing.
 
 ## Runtime behavior
 
-Real generator, transformer and speech calls acquire authorization before provider I/O. Connected Peers, Workspace owners and detached OpenAI HTTP requests use the corresponding Peer binding.
+Authorization covers connected Peers, Workspace owners, and independent OpenAI calls. Server refreshes cached decisions and cancels affected provider calls when authorization expires. A refresh failure cannot extend an old decision.
 
-For custom policy, the Server refreshes at the midpoint of HTTP decision validity, including denied decisions and responses with omitted/null usable expiry. Attempts are bounded to five seconds and failed attempts retry after one second. A transient failure preserves a still-valid old decision but extends neither deadline. Expiry, denial or stale decision validity cancels active provider calls; a successful renewal can extend an active call without canceling it early. Idle state is reclaimed after five minutes. Shutdown cancels/joins quota workers before closing usage pools.
+Stop quota workers before closing their usage storage. Refresh, cancellation, and cache cleanup live in [peerquota](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/peerquota).
 
 ## Client errors
 
-Quota failures retain types distinct from ordinary resource authorization errors. An elapsed usable deadline or an explicit denial in a valid decision is `QUOTA_EXHAUSTED`. No valid decision, elapsed decision validity, failed reporting dependencies, or an unavailable custom controller is `QUOTA_UNAVAILABLE`. A transient refresh failure preserves a still-valid old decision until its original deadlines.
+Distinguish quota refusal from inability to obtain a valid authorization so clients can explain the result or retry later. Adapters own surface-specific statuses and messages; internal endpoints, credentials, and error chains must not reach callers.
 
-| Surface | Exhausted | Unavailable |
-| --- | --- | --- |
-| HTTP chat / foreground Responses | HTTP 403, `permission_error`, `quota_exhausted` | HTTP 503, `service_unavailable_error`, `quota_unavailable` |
-| Chat / speech / transcription SSE | Error object with the above code/type/message | Error object with the above code/type/message |
-| Responses SSE / background polling | `response.failed` / failed Response, error code `quota_exhausted` | `response.failed` / failed Response, error code `quota_unavailable` |
-| Device Workspace EOS | `EventError.code=QUOTA_EXHAUSTED`, `retryable=false` | `EventError.code=QUOTA_UNAVAILABLE`, `retryable=true` |
-| Fresh speech RPC | `PERMISSION_DENIED` (7), `Reason=QUOTA_EXHAUSTED` | `UNAVAILABLE` (14), `Reason=QUOTA_UNAVAILABLE` |
+Revocation after streaming begins can leave partial output. Use the protocol's terminal result to determine completion. Error definitions live in [errors.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerquota/errors.go).
 
-Every exhaustion message is `Quota exhausted.`; every unavailability message is `Quota unavailable.`. Public payloads exclude endpoints, credentials, and internal error chains. SSE whose headers have already been sent retains HTTP 200 and terminates with a structured error. Eino error EOS belongs to the affected response StreamID and does not fail unrelated turns. Fatal runtime status messages retain the stable code and safe message.
-
-Revocation during provider opening or `Generator.Invoke` retains the typed quota cause, closes late stream handles, and preserves reported provider usage. Failure of an active audio epoch synthesizes EOS with the same safe error contract. Identified quota errors take precedence over accompanying cancellation, while ordinary Workspace replacement retains error-free EOS.
-
-If standalone speech synthesis loses authorization after metadata, it ends audio with early EOS without inserting a second protobuf response into binary audio. Delivered audio may be partial; the next fresh request uses the status and Reason above.
-
-This is time authorization, without per-token reservations or numeric hard caps. Provider-unreported or unflushed volatile usage retains the boundaries documented in [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).
+Quota does not guarantee per-token reservation or exact billing; [Peer usage](../../gizclaw/services/runtime/peerusage) durability limits still apply.
 
 ## Docker acceptance
 
-Run `bash tests/gizclaw-e2e/setup/run-quota.sh` for real Linux GizClaw, fixture and Giztest containers. The local HTTP/WebSocket provider fixture emits deterministic OpenAI/MiniMax usage and captures quota reports. Fifteen cases cover ten custom-policy deadline/reporting scenarios, omitted policy, explicit unlimited, exhausted/unavailable Eino dialogue, and one allowed HTTP Responses scenario. The unlimited case invokes real provider adapters and assert zero quota requests for its Peer. HTTP chat and Responses assert complete 403/503 envelopes. A fixture helper uses the real SDK PeerStream through Edge/Server to assert a fresh request after an allowed reply expires, EOS code/message/retryable, distinct response identity, and zero provider request increment during denial. This acceptance does not claim live cloud-provider qualification.
+```sh
+bash tests/gizclaw-e2e/setup/run-quota.sh
+```
+
+This entrypoint uses isolated HTTP and provider fixtures through real Server, Edge, and SDK paths to verify authorization, refusal, expiry, and active-call revocation. [The test entrypoint](https://github.com/GizClaw/gizclaw/blob/main/tests/gizclaw-e2e/setup/run-quota.sh) owns scenarios and assertions; it is not cloud-provider qualification.

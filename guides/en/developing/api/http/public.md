@@ -1,210 +1,57 @@
 # Public API
 
-Public API is an HTTP contract that Server exposes to Public/Peer caller before and after WebRTC connection is established. It is the entry boundary and does not represent the full capabilities of the Peer domain service.
+Public/Peer HTTP provides connection entrypoints, device management, and owner-scoped capabilities. [peer.json](https://github.com/GizClaw/gizclaw/blob/main/api/http/peer.json) defines routes, parameters, requests, responses, and errors; browse it through [API Reference](/api/).
 
-Source:`api/http/peer.json`
-Go generated output: `pkgs/gizclaw/api/peerhttp`
-
-See the [API Reference](/api/) for exact endpoints, parameters, requests, and responses. This page only explains the Public/Peer surface design boundary.
-
-`/webrtc/v1/offer` Occurs before the Peer connection is established, HTTP signaling must be preserved. The Peer capability after establishing a connection can use reliable HTTP-over-service-stream or Peer RPC; when choosing a transport, avoid maintaining two sets of contracts for the same capability.
-
-The offer uses ECDH/AEAD to prove key possession and protect SDP and an optional `AdmissionCredential` protobuf credential, independently of API keys. Ciphertext authentication is not operator admission. [Giznet](../../giznet#signaling-admission-credentials) defines the compatible envelope and [Security Policy](../../gizclaw/server/security-policy) defines optional registration-token admission. Public API can reuse real shared types such as `ErrorResponse`, `DeviceInfo` and `Runtime`, but does not reference Admin Resources.
-
-See [Peer HTTP · API keys](../../gizclaw/peer/service/api-keys) for the authentication and management contract. First-time provisioning stays on the device-local BLE channel; once the device is online, an API key can scan or change Wi-Fi through `/gizclaw/v1/device*`.
+WebRTC signaling runs before a Peer connection exists; connected capabilities use an HTTP service stream or RPC. Choose an entrypoint by caller identity and resource ownership rather than defining another contract for the same capability. See [Peer service](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_service_serve_peer_http.go) for authentication and handler composition.
 
 ## Peer state synchronization
 
-`GET /gizclaw/v1/sync?timestamp=...` uses the Bearer API key's immutable owner
-Peer. Ordinary and manager keys have the same synchronization scope. Start with
-`timestamp=0`; subsequent requests use the server-issued Unix millisecond
-timestamp from the last complete synchronization, rather than the client clock.
-There is no Peer selector.
+Synchronization converges a controller app to current owner-scoped state; it is not a historical event log. Continue from a Server-issued checkpoint rather than constructing one from the client clock.
 
-The response is a finite `text/event-stream`. Each SSE `data` payload is the
-OpenAPI `SyncEvent`; its `event` field matches the SSE event name:
-
-| Event | Data and effect |
-| --- | --- |
-| `reset` | Clear the staged state for this batch before receiving the current full state. |
-| `upsert` | `key` is a canonical `/gizclaw/v1/...` resource path; `data` replaces its previous object with the complete current read projection. |
-| `delete` | Remove `key`, including when an item is deleted or access is lost. |
-| `done` | `timestamp` identifies the successful checkpoint; the connection then ends. |
-
-```text
-event: upsert
-data: {"event":"upsert","key":"/gizclaw/v1/device/runtime","data":{"online":true,"last_seen_at":"2026-10-07T00:00:00Z"}}
-
-event: done
-data: {"event":"done","timestamp":1791331200000}
-
-```
-
-The Server compares each item's final read projection with the previous
-checkpoint. It covers device identity, runtime, status, firmware, runtime profile,
-MHS manifest, owned Workspaces, Contacts, Friends, Friend Groups and members, and
-permitted active invite tokens. Collections synchronize individual items with
-URL-encoded path segments. Group names come from the caller's namespace; group
-invite tokens are visible only to the group owner. Unbound firmware is absent.
-History, log, and telemetry queries retain their existing read endpoints.
-Synchronization never sends device RPCs or refreshes online state.
-
-Stage the batch and commit state and timestamp together only after `done`.
-Discard an incomplete batch after disconnection, cancellation, or a read error,
-then retry with the last completed timestamp. A checkpoint stores hashes of the
-returned projections, rather than a historical event log or an arbitrary
-wall-clock cutoff. [Peer Sync](../../gizclaw/services/runtime/peersync) retains
-the last 64 checkpoints for at most 24 hours in the Peer KV store. Unknown,
-expired, and evicted timestamps start with `reset` and resend current full state.
-A persistent KV store preserves checkpoints across Server restarts.
-
-Parameter, authentication, and projection failures return the standard JSON
-errors before SSE starts. Invalid timestamps answer `400 INVALID_REQUEST`;
-authentication and owner availability follow the existing Peer HTTP rules.
+Stage a round's changes and commit state and checkpoint together only after its completion event. Discard incomplete rounds after disconnect or cancellation, and reload fully when Server requests a reset. Event structures belong to the Schema; see [Peer Sync](../../gizclaw/services/runtime/peersync) for storage context.
 
 ## Device and contact surface
 
-`/gizclaw/v1/device*`, `/gizclaw/v1/contacts*`, `/gizclaw/v1/friends*`, and `/gizclaw/v1/friend-groups*` accept `Authorization: Bearer <api-key>` or device debug access as described below. The Server takes the immutable owner Peer from the key record; API key bearer credentials always select their own immutable owner, and manager keys and ordinary keys have the same owner-scoped capability on these routes. An invalid or revoked key answers `401 INVALID_API_KEY`, an owner that is not an active Client with a RuntimeProfile binding answers `403 API_KEY_OWNER_UNAVAILABLE`, an owner pending deletion answers `409 PEER_PENDING_DELETION`, validation and pagination failures answer `400 INVALID_REQUEST`, and store or service failures collapse into a redacted `500 INTERNAL_ERROR`.
+Device and contact operations access a target Peer under the authenticated caller's permissions. An API Key has a bound owner; signed Bearer access uses current Admin/Client permissions. Keep caller and target identities distinct.
 
-Read routes project the authoritative services and never send an RPC to the device:
-
-- `GET /device` returns `DeviceInfo` (name, emoji, `HardwareInfo`, `DeviceIdentifiers`), the same source as `server.info.get`.
-- `GET /device/runtime` returns `Runtime` (online, last seen, address, RX/TX) without refreshing online state. `active_workspace_name` is the Workspace the device last committed through `server.run.workspace.reload-with-options`, and `pending_workspace_name` is one selected but not yet committed, for example after `server.run.workspace.set` and before the device reloads. Both come from the Server's `peer_runs` record, so they answer while the device is offline, and are omitted when unset.
-- `GET /device/status` returns the latest authoritative `PeerStatus` snapshot. There is no `fresh` parameter; the `device.status.get` tool performs a live query and writes back its response.
-- `GET /device/telemetry/{field}/latest`, `/device/telemetry`, and `/device/telemetry/aggregate` keep the Admin telemetry field enum, observation times, query limits, ordering, and aggregate semantics and pin the Peer to the owner.
-- `GET /device/firmware` returns every channel (`stable`, `beta`, `develop`) of the Firmware configuration bound to the owner, each with an optional `description` and `package` (`version`, `url`, `sha256`, `size`) (stored packages without a version omit `version` and remain available), the same source as `server.firmware.get`. Channel selection belongs to the caller: the Server does not store the channel the device uses, so this route returns every channel at once and the caller picks one. An unbound `firmware_id`, or a binding whose configuration is gone, answers `404 FIRMWARE_NOT_FOUND`; a channel with no configured package simply omits `package` instead of failing.
-- `GET /device/runtime-profile` returns the bound RuntimeProfile `name`, `revision`, and a name-sorted `workflows[]` list containing each alias and its opaque string tags. Repeated `tags` query parameters select Workflows containing every requested string. Resource IDs, i18n, drivers, and other bindings are not returned, and the read does not check whether the Workflow resource still exists. A binding that disappears after authentication answers `403 API_KEY_OWNER_UNAVAILABLE`.
-- `GET /device/workspaces` returns owned Workspaces, including system Workspaces, while excluding shared, ownerless, and pending-deletion Workspaces. Each item contains `id`, `name`, `workflow_name`, `available`, `system`, and timestamps. The Admin Workflow ID is never returned. When the alias no longer resolves, `workflow_name` is omitted and `available` is false. The optional `workflow_name` query parameter filters exactly; an empty value returns `400 INVALID_REQUEST`.
-- `DELETE /device/workspaces/{workspaceId}` uses the same Workspace deletion as `server.workspace.delete`: it records the pending deletion and answers `202` with no body, while history, audio, runtime state, and the icon are removed in the background without contacting the device. Until the cleanup finishes, the device reading the Workspace gets `WORKSPACE_PENDING_DELETION` and a same-named `server.workspace.create` gets `ALREADY_EXISTS`. Foreign, absent, and already pending-deletion IDs return `404 WORKSPACE_NOT_FOUND`; a system Workspace returns `409 SYSTEM_WORKSPACE_DELETE_FORBIDDEN`, and an owner whose own deletion is pending returns `409 PEER_PENDING_DELETION`. Long-term memory is outside the current Workspace cleanup.
-- `/contacts` list/create/get/put/delete use the same owner-scoped data as `services/social/contact`; `{contactName}` is the owner-scoped immutable `name`, cross-owner and missing names both answer `404 CONTACT_NOT_FOUND`, and name or phone conflicts answer `409 CONTACT_ALREADY_EXISTS`, and creating a contact for an owner that already has 8 answers `409 CONTACT_LIMIT_REACHED`.
+Ordinary reads return Server projections rather than a fresh physical-device sample. Use a device operation when a live hardware result is needed. Domain services manage persistent resources such as contacts, whose availability differs from device connectivity.
 
 ## Friend and friend group surface
 
-`/gizclaw/v1/friends*` and `/gizclaw/v1/friend-groups*` call `services/social/friend` and `services/social/friendgroup` as the key owner, with the same business rules, permissions, and persistence as the `server.friend.*` and `server.friend_group.*` RPCs. They only read and write the shared Social KV, never contact the device, and keep working while it is offline. There is no separate social scope: a key that can reach `/device*` can manage friends and groups.
+HTTP and Peer RPC share Social services. Group names belong to each member's namespace, while actual membership determines permission. Apps must not infer authorization from display names or cached lists.
 
-| Route | Reuses | Success |
-| --- | --- | --- |
-| `GET /friends/invite-token` | `GetFriendInviteToken` | `200 InviteToken`; no active token answers `404 INVITE_TOKEN_NOT_FOUND` |
-| `POST /friends/invite-token` `{ttl_seconds?}` | `CreateFriendInviteTokenWithTTL` | `200 InviteToken` |
-| `DELETE /friends/invite-token` | `ClearFriendInviteToken` | `204`, idempotent |
-| `POST /friends` `{invite_token}` | `AddFriendReportingExisting` | `201 Friend` |
-| `GET /friends` | `ListFriends` | `200 FriendList` |
-| `GET /friends/{friendName}` | `GetFriendRelation` | `200 Friend` |
-| `DELETE /friends/{friendName}` | `DeleteFriend` | `204`; repeating a completed delete also answers `204` |
-| `GET /friend-groups` | `ListFriendGroups` | `200 FriendGroupList`, each with `my_role` |
-| `POST /friend-groups` `{name, display_name?, description?}` | `CreateFriendGroup` | `201 FriendGroup` |
-| `POST /friend-groups/@join` `{invite_token, name}` | `JoinFriendGroup` | `200 {group, member}`; idempotent when already joined under the same name |
-| `GET /friend-groups/{friendGroupName}` | `GetFriendGroup` | `200 FriendGroup`, any member |
-| `PUT /friend-groups/{friendGroupName}` | `PutFriendGroup` | `200 FriendGroup`, owner only |
-| `DELETE /friend-groups/{friendGroupName}` | `DeleteFriendGroup` | `204` dissolve, owner only |
-| `GET`/`POST`/`DELETE /friend-groups/{friendGroupName}/invite-token` | `Get`/`CreateWithTTL`/`ClearFriendGroupInviteToken` | Owner only |
-| `POST /friend-groups/{friendGroupName}/@leave` | `LeaveFriendGroup` | `204`, members and admins |
-| `GET /friend-groups/{friendGroupName}/members` | `ListFriendGroupMembers` | `200 FriendGroupMemberList`, any member |
-| `POST /friend-groups/{friendGroupName}/members` `{peer_public_key, member_name, role}` | `AddFriendGroupMember` | `201`; admins add members, the owner adds admins |
-| `PUT /friend-groups/{friendGroupName}/members/{memberName}` `{role}` | `PutFriendGroupMember` | `200`, owner only |
-| `DELETE /friend-groups/{friendGroupName}/members/{memberName}` | `DeleteFriendGroupMember` | `204`; removing a member needs admin/owner or the member itself, removing an admin needs the owner |
-
-- `{friendName}` and `{memberName}` are the other Peer's canonical public key (also `Friend.name` / `FriendGroupMember.name`). `{friendGroupName}` is the caller's own name for the Group; a non-member resolves no name, so non-members always get `404 FRIEND_GROUP_NOT_FOUND`. Names with surrounding whitespace in the path or body answer `400 INVALID_REQUEST`, and `cursor`/`limit` follow contacts (limit 1–200, opaque cursor).
-- `Friend` and `FriendGroupMember` carry `info {display_name, emoji}` from the same source as `server.friend.info.get` (`Profiles.GetSelfInfo`); `info` is omitted when the other Peer no longer exists or is deleted, and any other read failure answers 500. Friends and Group members are each capped at 10, and lists read profiles one item at a time. `FriendGroupMember` does not return the member's own name for the Group.
-- Member lists (`GET .../members`) return `online`, `last_seen_at` (connection activity observed at a transition, in RFC 3339 UTC) and `in_room` from one shared snapshot. A device can run the Group Workspace on any Server; `in_room=true` always accompanies `online=true`, subject to KV read delay. Shared read failures return offline without a last-seen time, and never fall back to Peer Run SQL or the primary. See [Social presence](../../gizclaw/services/social#member-list-presence). Add, put and join responses omit these fields.
-- `ttl_seconds` ranges over 60–604800 (7 days); out-of-range values answer `400 INVALID_REQUEST`, and the body may be omitted. Without it the route matches the RPC exactly: an active token is returned unchanged, otherwise a new token lives 5 minutes. With it a new token expires after that TTL, and an active token keeps its value while `expires_at` is extended to `now + ttl_seconds`, never shortened, so a code the device is showing stays valid. The device RPC default TTL is unchanged.
-- `POST /friends` answers `409 FRIEND_ALREADY_EXISTS` for an existing relationship, while `server.friend.add` still returns the existing relationship idempotently.
-- `@leave` removes the caller's own membership. The owner gets `409 FRIEND_GROUP_OWNER_CANNOT_LEAVE` and dissolves the Group instead; admins may leave too (removing an admin's own membership through `members.delete` still requires the owner role).
-
-Error codes:
-
-| HTTP | code | Case |
-| --- | --- | --- |
-| 400 | `INVALID_REQUEST` | Missing body, empty or whitespace-padded name, paging parameters, `ttl_seconds` out of range, invalid role |
-| 400 | `FRIEND_SELF_INVITE` | The friend invite token belongs to the caller |
-| 403 | `FRIEND_GROUP_PERMISSION_DENIED` | The caller's role does not permit the operation |
-| 404 | `INVITE_TOKEN_NOT_FOUND` | No active invite token to read |
-| 404 | `INVITE_TOKEN_INVALID` | The token used to befriend or join does not exist or has expired |
-| 404 | `FRIEND_NOT_FOUND` | No such Friend relationship |
-| 404 | `FRIEND_GROUP_NOT_FOUND` | The caller has no Group with this name (including non-members) |
-| 404 | `FRIEND_GROUP_MEMBER_NOT_FOUND` | The target Peer is not a member |
-| 409 | `FRIEND_ALREADY_EXISTS` | Already Friends |
-| 409 | `FRIEND_LIMIT_REACHED` | Either Peer already has 10 Friends |
-| 409 | `FRIEND_GROUP_NAME_CONFLICT` | The name already points at another Group |
-| 409 | `FRIEND_GROUP_ALREADY_JOINED` | Already a member of the Group under another name |
-| 409 | `FRIEND_GROUP_FULL` | The Group already has 10 members |
-| 409 | `FRIEND_GROUP_LIMIT_REACHED` | The Peer already belongs to 10 Groups |
-| 409 | `FRIEND_GROUP_OWNER_CANNOT_LEAVE` | The owner called `@leave` |
-| 409 | `FRIEND_GROUP_OWNER_CANNOT_BE_REMOVED` | Removing the owner membership |
-| 409 | `FRIEND_GROUP_OWNER_ROLE_IMMUTABLE` | Changing the owner role |
-| 409 | `FRIEND_GROUP_CHANGED` | Concurrent change; retry |
-| 409 | `FRIEND_GROUP_PENDING_DELETION` | The Group is being deleted |
-| 409 | `PEER_PENDING_DELETION` / `PEER_DELETED` | The owner or the other Peer is being retired / is gone |
-| 500 | `INTERNAL_ERROR` | Store or configuration failure, redacted |
+Online and room-presence displays use shared snapshots and can lag replication. Actual notification delivery still requires device confirmation. See [Social](../../gizclaw/services/social) for interaction and storage boundaries.
 
 ## Device control flow
 
-The Server offers an API-key owner-scoped state family and a procedure family. All paths below use the `/gizclaw/v1` prefix. `GET /device/status` reads a stored snapshot; live calls require the owner's online device. The Server validates the entire typed request before opening an RPC stream and serializes commands per owner. See [device providers](../proto/rpc/client-provided-to-server) and the [RPC reference](/references/rpc).
+Server validates identity, resource access, and parameters before forwarding control to a device. MHS handles hardware state; device procedures handle predefined operations. Schemas and generated SDKs define the requests.
 
-| Route | Device RPC | Result |
-| --- | --- | --- |
-| `GET /device/mhs/v0/manifest` | none | Bound RuntimeProfile hardware manifest, also available offline |
-| `POST /device/mhs/v0/read` | `client.mhs.v0.read` | Requested hardware states |
-| `POST /device/mhs/v0/write` | `client.mhs.v0.write` | Actual value applied to one HWD instance |
-| `GET /device/tool/v0/tools` | `client.tool.v0.list` | Names of the device's installed predefined tools |
-| `POST /device/tool/v0/invoke` | `client.tool.v0.invoke` | `{ "result": ... }` for one predefined tool |
+Acceptance and completion are different stages. Reboot, network changes, factory reset, and upgrade may disconnect a device. Do not automatically replay side effects after a timeout; read state to establish the result. Server validation does not replace device safety limits.
 
-The invoke body is `{ "tool": "device.find", "args": { "duration_ms": 8000 } }`. OpenAPI uses `oneOf` and a discriminator on `tool`, so each operation retains its typed argument schema. Available names include `device.status.get`, `sound.play`, `device.find`, `device.reboot`, `device.factory_reset`, Wi-Fi procedures, `firmware.update`, seven `audioplayer.*` procedures and `run.workspace.set`. `tool/v0` has a closed, GizClaw-defined enum. The RuntimeProfile Tool catalog is separate and supports Server-side HTTP tools; product-defined device-local Agent invocation is unavailable in v0.
-
-The HTTP `result` uses the SDK JSON projection of the selected response. A Protobuf response containing only a message field named `value` is projected directly as that message: an `audioplayer.playlist.set` response places `playlist_length` at `result.playlist_length`, without a nested `value`. Responses with their own fields, such as `audioplayer.playlist.get`, retain those fields under `result`.
-
-Validation remains on the Server. Invalid tool arguments, a sound or SSID over 32 UTF-8 bytes, an invalid Wi-Fi passphrase, playlist overflow, a malformed firmware digest, or a bad MHS write answer `400 INVALID_REQUEST` without an RPC. MHS state keys must be declared by the bound manifest, and writes require `read_write`. An absent Workspace target answers `404 WORKSPACE_NOT_FOUND` before reaching the device. The device independently validates its own safety limits.
-
-Offline maps to `409 DEVICE_OFFLINE`, an uninstalled tool or MHS handler to `501 DEVICE_UNSUPPORTED`, timeout to `504 DEVICE_TIMEOUT`, device `INVALID_PARAMS` to `400 DEVICE_REJECTED`, and other device failures to redacted `502 DEVICE_ERROR`. A missing saved Wi-Fi network maps to `404 WIFI_NETWORK_NOT_FOUND`. An acknowledged reboot, Wi-Fi connect, factory reset or firmware update may disconnect the device; subsequent commands on the same connection answer offline until it reconnects. A successful invoke only means the procedure was accepted when its own contract calls for asynchronous work.
-
-`run.workspace.set` accepts either `workspace_name` or `workflow_name` in `args`, with optional `kickoff`. The Server resolves a workflow target to one available Workspace before dispatch; the device later switches through `server.run.workspace.reload-with-options`. Observe the committed state through `GET /device/runtime`. A factory reset is irreversible on the device; `keep_network` can preserve saved Wi-Fi and cellular configuration. `firmware.update` accepts optional `channel` and lowercase 64-character `sha256`; the device confirms the digest against its resolved package before OTA.
-
-Before connection, `/server-info` reports the authoritative Server's `public_key`, software `version`, `build_commit`, and transport capabilities. Through an Edge, build fields remain those of the authoritative Server while the `transport` object selects the Edge route.
-
-Lua app uninstall uses `{"tool":"lua.app.uninstall","args":{"app_id":"tetris"}}` and returns `{"result":{}}`, preserving user data and succeeding on repeated calls. Persistent preinstalled removal, cleanup failures and SDK usage are defined under [Lua applications](../proto/rpc/client-provided-to-server#lua-applications).
+See [Client provider](../proto/rpc/client-provided-to-server) for discovery and invocation, and [RPC Reference](/references/rpc) for protocol entrypoints.
 
 ## Device debug access and anonymous lookup
 
-An authenticated device calls `server.runtime.put` with `{"debug_mode":"readonly"}`.
-Allowed modes are `off` (default), `readonly`, and `fullcontrol`; missing or invalid modes fail.
-The authoritative Server persists this setting in the local PeerRun SQL table, in the `debug_mode` column keyed by public key and exposes it in Runtime.debug_mode. It is not part of
-DeviceInfo and cannot be set through `server.info.put`. Reconnecting preserves the
-setting; an absent record means off.
+The device's authoritative Server controls debug access under its current permissions. A public key selects a device without granting read or write access. Controllers distinguish debug access, API Keys, and signed Bearer identities.
 
-Device, contact, friend, and friend group HTTP routes accept `Authorization: Bearer gizclaw_pk_<Base58 public key>`.
-The key must use canonical Base58; bare keys and public_key query parameters do not
-provide debug authorization. API keys beginning gizclaw_sk_v1_ retain their existing
-authentication path and never fall back to public-key access. Edge resolves the
-existing Peer assignment and proxies to the configured authoritative Server without
-reading DeviceInfo or debug mode. That Server reads the current PeerRun mode on
-every request: readonly permits GET, fullcontrol permits device/contact/friend/friend group reads, writes,
-and controls. Available active Client status and RuntimeProfile binding remain required.
-API-key management, Admin, and OpenAI APIs do not accept public-key debug authorization.
-Disabling debug rejects new requests without canceling work already in progress.
-Storage errors fail closed and are redacted. Debug responses use Cache-Control: no-store.
-
-Anonymous GET `/gizclaw/v1/peers/@findBySn/{sn}` and
-`/gizclaw/v1/peers/@findByImei/{tac}/{serial}` require no Authorization and return
-`{"public_keys": [...]}` for every match, including debug-off devices. No match returns
-an empty array, without device metadata. SN and IMEI are non-unique declarations.
-IMEI indexes use `by-imei:<tac>:<serial>:<pubkey>` and verify prefix candidates against
-current records. Updates and deletes affect only that public key. Admin lookup is
-`/peers/@findPubKeysByImei/{tac}/{serial}`; CLI `admin peers resolve-imei` also returns a list.
+Anonymous identifier lookup only discovers matching public keys. Device-declared SN and IMEI values need not be unique and never replace authentication. Consult Peer HTTP Schema for entrypoints and access declarations.
 
 ## Music playback
 
-All seven player procedures use `POST /gizclaw/v1/device/tool/v0/invoke` with tool names `audioplayer.get`, `audioplayer.playlist.get`, `audioplayer.playlist.set`, `audioplayer.playlist.append`, `audioplayer.play`, `audioplayer.stop`, and `audioplayer.mode.set`. The `args` object keeps each procedure's typed fields: set/append accept `items`, play requires a zero-based `index`, and mode accepts `repeat`. The player holds at most 32 items. Set atomically replaces the list; append preserves order and duplicates and is never retried automatically. Playback status is observed through telemetry and `GET /device/status`. See [player providers](../proto/rpc/client-provided-to-server#music-player).
+Player operations use device procedures, while status queries and telemetry report playback state. Separate playlist edits, accepted commands, and actual playback in the UI. See [player guidance](../proto/rpc/client-provided-to-server#music-player) for supported operations.
 
 ## MHS v0 HWDs
 
-These owner-scoped routes expose GizClaw's HWD protocol. The bound [RuntimeProfile](/en/developing/gizclaw/services/runtime-profile#mhs-v0-hardware-manifest) lists instance IDs and HWD types only.
+Discover physical instances through the RuntimeProfile manifest, then read or write the selected instance. The manifest names instances, HWD Schema defines state, and device drivers enforce hardware limits.
 
-| Route | Request and result |
-| --- | --- |
-| `GET /gizclaw/v1/device/mhs/v0/manifest` | Returns `{devices:[{id,hwd,...}]}` offline; an unconfigured profile returns `{devices:[]}` |
-| `POST /gizclaw/v1/device/mhs/v0/read` | Takes `{id,hwd}` and returns `{id,hwd,value}` with that HWD's read shape |
-| `POST /gizclaw/v1/device/mhs/v0/write` | Takes `{id,hwd,value}` and returns the actual applied `{id,hwd,value}` |
+Use the actual device response to update the UI after a write. A timeout does not prove the write was absent; read before retrying. See the [RuntimeProfile hardware manifest](../../gizclaw/services/runtime-profile#mhs-v0-hardware-manifest).
 
-Each call addresses one instance. Wifi, ble, modem, battery and mic are read-only; display, led and speaker can be written. The Server validates instance identity, HWD type and typed write fields before RPC. A read-only HWD or invalid write returns `400 INVALID_REQUEST`. A malformed typed device result becomes `502 DEVICE_ERROR`.
+## Lua app upload
 
-Calls use the five-second device-control timeout and owner serialization. Offline maps to `409 DEVICE_OFFLINE`, missing handlers to `501 DEVICE_UNSUPPORTED`, timeout to `504 DEVICE_TIMEOUT`, and device rejection to `400 DEVICE_REJECTED`. A physical instance missing despite the manifest maps to `404 MHS_HWD_NOT_FOUND`. A write returns actual applied values; read back after a timeout.
+Install an app through a binary package stream or a device-side URL download. Follow Schema size and transport constraints rather than inventing a separate installation protocol. Server and Edge preserve backpressure and cancellation; the device validates and installs the package.
+
+See the [Lua app provider](../proto/rpc/client-provided-to-server#lua-applications) for package and device integration guidance.
+
+## Signed Bearer
+
+Signed Bearer proves possession of the caller's private key; Server still authorizes the current role and target relationship. Edge routing does not expand those permissions. The wire extension is in `peer.json`; see [API usage](/en/using/api#signed-bearer-authentication) for integration.

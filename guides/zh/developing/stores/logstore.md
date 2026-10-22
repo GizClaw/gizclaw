@@ -47,13 +47,10 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 
 查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。物理 Storage 只持有一个 TLS SDK client，topic-scoped Store 用同一个 client 读写，不创建 producer 或第二个 client。
 
-当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的旧记录。新旧记录共用 provider-side ordering 和 cursor，不会分别查询后再合并。这只是 record compatibility；已移除的 Server `log` 配置仍不兼容。
+当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的记录，使用同一 provider-side ordering 和 cursor。
 
-## 日志切换
-
-启动前配置已有 Volc TLS topic 及其兼容 index，并将 LogStore 绑定改为 `log`、`volc-tls` 和 `topic_id`；不需要日志查询时可以只配置 stderr sink。切换后，Admin/Monitor 日志查询只读取新 topic。
-
-旧 SQL 日志表和记录由数据库 owner 保留。Server 不会将它们导入 Volc TLS，也不会删除它们；需要保留旧日志检索时，在切换前使用数据库工具导出或归档，并通过数据库工具读取归档。GizClaw 不提供旧数据库日志读取路径。`history-migrate` 只迁移显式选择的 Workspace/Eino History 表；遇到通用日志混入源表时拒绝迁移并保留源数据。
+启动前准备 Volc TLS topic 及兼容 index，LogStore 使用 `log`、`volc-tls` 和
+`topic_id` 绑定。配置示例见下文。
 
 ## Process logging
 
@@ -74,4 +71,4 @@ services:
         level: warn
 ```
 
-Sink 按顺序执行，每个 sink 可覆盖 level；fanout 会尝试所有 enabled sink 并汇总 error。非空 `node_id` 会经过环境变量展开并附加到每个 sink；Deploy 必须提供稳定逻辑节点名，GizClaw 不从网络或主机信息推断。stderr 启用 Go caller 输出，Store sink 还把调用位置保存为 `source_file` 与十进制 `source_line`。Store sink 固定写入 `Stream=system`、`Kind=log`，但不拥有 named store 的生命周期。`query_store` 必须指向同一配置中的一个 Store sink；未设置时 Admin log endpoint 返回 `LOG_QUERY_NOT_CONFIGURED`。缺少 `services.system_log` 时默认是 info-level stderr。旧的 top-level `log` 与 `system_log` 配置会直接报错，不自动转换。
+Sink 按顺序执行，每个 sink 可覆盖 level；fanout 会尝试所有 enabled sink 并汇总 error。非空 `node_id` 会经过环境变量展开并附加到每个 sink；Deploy 必须提供稳定逻辑节点名，GizClaw 不从网络或主机信息推断。stderr 启用 Go caller 输出，Store sink 还把调用位置保存为 `source_file` 与十进制 `source_line`。Store sink 固定写入 `Stream=system`、`Kind=log`，但不拥有 named store 的生命周期。`query_store` 必须指向同一配置中的一个 Store sink；未设置时 Admin log endpoint 返回 `LOG_QUERY_NOT_CONFIGURED`。缺少 `services.system_log` 时默认是 info-level stderr。

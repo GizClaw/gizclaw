@@ -1,8 +1,10 @@
 # Context Store
 
+[Source](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/contextstore)
+
 `pkgs/gizclaw/contextstore` Manages the local connection Context of the GizClaw client. Each Context is bound to a local Giznet identity and a target Server endpoint; the CLI or other client first selects the Context and then uses its configuration to establish a connection.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/contextstore)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore)
 
 ## Disk structure
 
@@ -34,46 +36,9 @@ server:
 
 ## Config structure
 
-```mermaid
-classDiagram
-    class Config {
-        string Description
-        IdentityConfig Identity
-        ServerConfig Server
-    }
-    class IdentityConfig {
-        giznet.Key PrivateKey
-    }
-    class ServerConfig {
-        string Endpoint
-        BaseURL() string
-    }
-    class Context {
-        string Name
-        string Dir
-        Config Config
-        giznet.KeyPair KeyPair
-    }
-    class Summary {
-        string Name
-        string Description
-        bool Current
-        string Endpoint
-        giznet.PublicKey LocalPublicKey
-    }
-
-    Config --> IdentityConfig
-    Config --> ServerConfig
-    Context --> Config
-```
-
-| YAML fields | Go fields | Meaning | Rules |
-| --- | --- | --- | --- |
-| `description` | `Config.Description` | Optional description of Context. | Remove leading and trailing whitespace when creating; can be omitted. |
-| `identity.private-key` | `IdentityConfig.PrivateKey` | The local Giznet private key of the current Context. | Required; must be able to construct valid `giznet.KeyPair`. |
-| `server.endpoint` | `ServerConfig.Endpoint` | Target Server HTTP access point. | Required; an `http://` or `https://` base URL such as `https://ap.gizclaw.com`. A bare `host:port` is accepted and normalized to `http://host:port`. A trailing slash is dropped, and query strings, fragments and userinfo are rejected. |
-
-Enable unknown-field rejection when parsing `config.yaml`. Misspelled or undefined YAML fields will directly return an error and will not be silently ignored.
+A Context keeps local identity and the target Server endpoint together. Fields and validation live in
+[context.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/contextstore/context.go);
+[store.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/contextstore/store.go) owns selection and disk operations.
 
 ## Loading process
 
@@ -89,22 +54,6 @@ flowchart TB
 ```
 
 `LoadSummary` Use the same configuration and private-key verification, but only return the name, description, endpoint, current status and local public key required by the list UI.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| `Config` | The complete typed representation of `config.yaml`. |
-| `Context` | Loaded Context directory, configuration and derived KeyPair. |
-| `Summary` | Lightweight metadata used by the Context list. |
-| `Store` | Manage multiple Contexts with `Root` as the boundary. |
-| `Load` / `LoadConfig` / `LoadSummary` | Load full Context, strict configuration or list summary. |
-| `Store.Create` / `CreateWithOptions` | Verify name and endpoint, generate identity and write to new Context. |
-| `Store.Use` | Update `current` symlink to switch Context. |
-| `Store.Current` / `LoadByName` | Load the context of the current or specified name. |
-| `Store.List` / `ListSummaries` | List Contexts sorted by name and mark the current item. |
-| `Store.Delete` | Delete the named Context and, if necessary, remove `current`. |
-| `validateName` / `normalizeServerURL` | Restrict the directory name and normalize the endpoint to an `http` or `https` base URL. |
 
 ## Ownership Boundary
 

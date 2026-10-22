@@ -1,10 +1,12 @@
 # pkgs/giznet
 
+[Admission credential schema](https://github.com/GizClaw/gizclaw/blob/main/api/proto/giznet/admission.proto)
+
 `pkgs/giznet` is the universal connection and transport layer of GizClaw. It isolates upper-layer services from specific transport implementations, enabling GizClaw Server, Edge Node, and other connecting parties to use unified peer connection, service stream, and packet transport capabilities.
 
 This directory does not own GizClaw's product business. It is only responsible for establishing connections, identifying peers, carrying streams or packets, and providing security policy entry at the transmission boundary.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/giznet)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/giznet)
 
 ## Directory structure
 
@@ -70,14 +72,6 @@ the ICE transport and retain all available ICE candidate-pair counters. They do
 not invoke the full PeerConnection.GetStats RTP collector, including when Pion
 closes the connection internally. A changed selected pair or unavailable
 statistics suppresses the counter snapshot.
-
-The 2026-08-04 same-head causal diagnostic used this public Giznet transport
-without the product Edge or Server. Three 32 MiB runs per direction measured
-direct at 818/798 Mbps and REST Coturn at 488/526 Mbps (relay/direct 0.597 and
-0.659), while Coturn receive/send counters grew by about 220/219 MB. Together
-with the product matrix, this reproduces the material delta below the
-Edge/Server boundary and attributes the local result to the Coturn relay path.
-It remains a local Docker transport diagnostic, not a production or WAN SLA.
 
 `giznet.Conn` keeps its transport-independent `Dial` surface. Transports that
 can cancel a pending service open may additionally implement
@@ -320,14 +314,6 @@ interpreting version, type, or the opaque value; the injected policy owns their 
 encoding must also fit in 4096 bytes independently of these field limits. Each SDK checks these bounds before sending. An omitted credential sends
 bare SDP; a supplied structure with an empty encoding is rejected instead of becoming absent.
 With a credential, the plaintext inside AEAD is:
-
-| Field | Size | Encoding |
-| --- | --- | --- |
-| Magic | 4 bytes | ASCII `GZOF` |
-| Envelope version | 1 byte | `1` |
-| Credential length | 2 bytes | Unsigned big-endian |
-| Credential | 0–4096 bytes | `giznet.v1.AdmissionCredential` protobuf |
-| SDP | Remaining bytes | UTF-8 |
 
 Plaintext without the magic remains legacy SDP with no credential; a zero-length credential
 inside GZOF is also absent. Recognized magic with an unknown envelope version, truncation,

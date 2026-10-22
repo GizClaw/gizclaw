@@ -1500,7 +1500,11 @@ memory metrics Store and stderr log behavior remain unchanged.
 Credential-backed GizClaw entrypoints, including capacity and the focused
 Server relay lane, require the same complete `tests/gizclaw-e2e/.env`. The
 isolated relay-recovery lane generates runtime-only fixture credentials instead
-of consuming provider credentials. The gateway-capacity entrypoint fixes the local
+of consuming provider credentials.
+
+### Gateway capacity and relay qualification {#gateway-capacity}
+
+The gateway-capacity entrypoint fixes the local
 one-Server/two-Edge selection at the 100-session baseline. Its clients still
 terminate at Edge, while every physical Edge-to-Server connection is
 relay-only through two digest-pinned Coturn 4.7.0 members. Each Edge holds four
@@ -1510,9 +1514,14 @@ the four gateway associations per Edge. In addition to
 connection hold and ping rounds, all 100 sessions synchronously upload and
 download 4 MiB each, with aggregate throughput measured over one shared
 wall-clock interval. The single-session control uses a sustained 32 MiB
-payload. The machine-readable artifact is written under ignored `testdata/`;
-this is not a long-soak or higher-session capacity promise. The dedicated
-100-session burst entrypoint repeats three fresh-stack runs with no ramp,
+payload. Each direction must reach 200 Mbps and retain at least 0.8 of the
+same-run single-session rate. The artifact defaults to ignored
+`testdata/gateway-capacity-100.json`; set
+`GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` to choose another path. Resource fields
+identify their sources: a `go_memstats_sys` fallback for `rss_bytes` is not
+process RSS, and an unavailable FD count is `-1`.
+
+The dedicated 100-session burst entrypoint repeats three fresh-stack runs with no ramp,
 reports establishment rate and Dial p50/p95/p99, transfers 1 MiB per session
 in each direction, and records a sustained 32 MiB single-session control. Its
 artifact separates key generation, client PeerConnection, offer, ICE
@@ -1633,42 +1642,8 @@ processes stop. Each member uses one persistent container-side metric stream so
 host-side Docker process startup is not part of every sample. It is accepted
 only after a pre-workload sample and a non-decreasing millisecond timeline
 with no gap above 2.1 seconds. Equal timestamps are accepted only when distinct
-nanosecond samples truncate to the same millisecond. The merged
-#697/#698 results remain historical direct-upstream observations; current
-Coturn measurements are not a production, WAN, or portable throughput SLA.
-
-The authoritative 2026-08-07 qualification ran
-`run_gateway_capacity_1000_soak_tests.sh` once on clean executable head
-`a2ff5b791a5c60c3b80052204717ac277e43c885`. The host was Darwin/arm64 with 16
-logical CPUs, Go 1.26.4, and 64 GiB RAM; the isolated service image ran on
-OrbStack 2.2.1 Linux/aarch64 Docker with 16 logical CPUs and 15.67 GiB RAM.
-The three prerequisite fresh-stack bursts each established 1,000/1,000
-sessions, exactly 500 per Edge, with zero failures. Their establishment rates
-were 159.90, 1,118.18, and 158.99 sessions/s; Dial p95/p99 values were
-681.57/776.75 ms, 749.00/806.92 ms, and 589.81/669.13 ms; synchronized
-upload/download rates were 453.54/482.89, 415.54/455.50, and 484.35/413.58
-Mbps. Each direction transferred exactly 1,000 MiB, all ten relay allocations
-remained live, and bounded session and Coturn cleanup passed.
-
-The fresh soak then established 1,000/1,000 sessions at 1,074.63 sessions/s,
-with Dial p95/p99 of 718.53/838.54 ms. All 122,000 accepted Pings completed over
-60 minutes with zero Ping failures, disconnects, identity crossovers, exits, or
-restarts; aggregate RTT p99 was 474.93 ms. Initial upload/download were
-415.51/425.25 Mbps and final upload/download were 424.20/524.18 Mbps. Final
-aggregate retention was 102.09%/123.26%; the lowest accepted per-session
-p01/p05/p50 retention was 96.66%, so every throughput gate passed.
-
-The late median round-p99 RTT fell by 11.11%. Late-window RSS growth was 10.89%
-and 16.49% for the two Edges, -52.64% for the load driver, -0.65% for Server,
-and about -2.78% for both Coturn members. The load driver's completed-GC live
-heap grew 10.98%; its FD and goroutine medians were unchanged. All six roles
-passed their supported RSS, CPU, FD, heap, goroutine, UDP/UDP6, and network-rate
-gates. Each role supplied at least 3,679 one-second samples with a maximum gap
-of 1.033 seconds. Both Edges remained relay-only, the Coturn sidecar recorded
-2,414,392,388 received and 2,381,483,034 sent bytes, logical-session cleanup
-completed in 45.55 ms with no close failure, and both Coturn members returned
-from five to zero allocations within the 15-second bound. Documentation-only
-commits after this result do not change the qualified executable.
+nanosecond samples truncate to the same millisecond. Coturn data describes only
+the local test topology.
 
 The standard Docker `turn` role uses the same pinned Coturn image with TURN
 REST authentication, a private-container/public-host IPv4 mapping, and a
@@ -1690,6 +1665,36 @@ behavior. The script prints the selected endpoint boundary and falls back to
 the published endpoint when direct access is unavailable. WebRTC/ICE still uses
 the Edge endpoint candidates on that same external port; the Dial barrier and workload are not paced,
 batched, or preconnected.
+
+Relay recovery uses two digest-pinned Coturn members, relay-only upstreams,
+a silent UDP fault boundary, and a blocked direct Edge-to-Server UDP path:
+
+```sh
+bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
+```
+
+It covers the first native channel reaching its application-acceptance timeout,
+the same client selecting another association before acceptance, independent
+sibling-session progress on the draining entry, and bounded cleanup. Relay host
+failure, drain, capacity, and soak still require deployment qualification.
+
+Throughput benchmarks and the deployed one-versus-three-client comparison:
+
+```sh
+go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
+  -run '^$' -bench BenchmarkWebRTCServiceThroughput -benchtime=1x -count=5
+go test ./pkgs/gizedge \
+  -run '^$' -bench BenchmarkGatewayServiceThroughput -benchtime=1x -count=5
+GIZCLAW_E2E_SPEED_MIN_UPLOAD_AGGREGATE_MBPS='<upload floor>' \
+GIZCLAW_E2E_SPEED_MIN_DOWNLOAD_AGGREGATE_MBPS='<download floor>' \
+go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge \
+  -run '^TestGatewaySpeedOneVersusThreeClients$' -count=1 -v
+```
+
+The Docker suite records rates by default. A runner with bandwidth headroom can
+set `GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` and
+`GIZCLAW_E2E_SPEED_MIN_AGGREGATE_SCALE`; a saturated link needs independently
+measured directional aggregate Mbps floors.
 
 ## GenX provider E2E
 
@@ -1753,7 +1758,7 @@ phase percentiles, direct-versus-relay ratios, repository state, Docker engine,
 and the exact pinned Coturn image. These are local transport diagnostics, not
 GizClaw gateway or production performance evidence.
 
-### Edge direct-versus-Coturn capacity
+### Edge direct-versus-Coturn capacity {#gateway-relay-capacity}
 
 The GizClaw-owned Edge topology has one canonical local qualification command:
 
@@ -1785,26 +1790,6 @@ role CPU/RSS/FD/socket/network samples, Coturn evidence, and a validated
 Docker host. It does not qualify provider processing, decoded audio, WAN/NAT
 diversity, production Coturn/deployment capacity, 1,000-session soak, or the
 30,000-session product ceiling.
-
-The 2026-08-04 ARM64 OrbStack reference run (Docker 29.4.0, 16 Docker CPUs,
-16.8 GB Docker memory) passed all 12 runs and produced these three-run medians:
-
-| Sessions | Path | Upload | Download | Dial p95 / p99 | RPC RTT p99 |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 100 | direct | 654 Mbps | 578 Mbps | 458 / 472 ms | 18 ms |
-| 100 | Coturn | 416 Mbps | 568 Mbps | 452 / 460 ms | 19 ms |
-| 500 | direct | 476 Mbps | 612 Mbps | 714 / 1,120 ms | 287 ms |
-| 500 | Coturn | 417 Mbps | 606 Mbps | 778 / 819 ms | 503 ms |
-
-Relay/direct upload ratios were 0.636 and 0.876; download ratios were 0.981
-and 0.990. The upload and 500-session RTT differences are material, while all
-fixed gates, exact reliable bytes, Opus packets, path selection, allocation,
-and cleanup checks passed. A same-head pure-Giznet diagnostic, which excludes
-the product Edge and Server, measured direct at 818/798 Mbps and REST Coturn at
-488/526 Mbps with about 220/219 MB added to Coturn receive/send counters. This
-locates the measured boundary at the local Coturn relay path rather than a
-GizClaw Edge/Server capacity limit. It is not evidence about production Coturn
-hosts or WAN behavior.
 
 ## LoCoMo Memory Evaluation
 
@@ -2247,7 +2232,7 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
 
 Three speech-rate scenarios also run in that phase. `server.run.workspace.reload` carries the RPC contract: it sends `tts_speech_rate_percent: 80` with `reload-with-options` and confirms the stored parameter with `server.workspace.get`, so the JS, C, and Flutter runners exercise that encoding too. `eino-voice-assistant.tts-speech-rate` covers storage, out-of-range rejection (`INVALID_ARGUMENT`), and a real reply spoken at the rate; `dashscope-realtime-conversation.tts-speech-rate` covers a provider without a native rate still speaking through the transformer time-stretch.
 
-`eino-mixed-provider-voices.tts-speech-rate` proves the rate takes effect: two Workspaces bound to `eino-mixed-provider-voices` read the same script, the reply at the Workflow rate asserts 700..1400 audio packets (20 ms each, about 14..28 seconds), and the Workspace set to 60% asserts at least 1600 packets (about 32 seconds). Measured runs produce about 1116..1122 and 1836..1892 packets, leaving more than 20% margin on both bounds. Both the Volc narrator and the MiniMax character segment slow down. JS, C, and Flutter runners skip this scenario as well:
+`eino-mixed-provider-voices.tts-speech-rate` proves the rate takes effect: two Workspaces bound to `eino-mixed-provider-voices` read the same script, the reply at the Workflow rate asserts 700..1400 audio packets (20 ms each, about 14..28 seconds), and the Workspace set to 60% asserts at least 1600 packets (about 32 seconds). Both the Volc narrator and the MiniMax character segment slow down. JS, C, and Flutter runners skip this scenario as well:
 
 ```sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \

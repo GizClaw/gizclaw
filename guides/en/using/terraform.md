@@ -1,5 +1,7 @@
 # Terraform Provider
 
+[Provider schemas and implementation](https://github.com/GizClaw/gizclaw/tree/main/cmd/terraform-provider-gizclaw/internal/provider)
+
 `terraform-provider-gizclaw` manages GizClaw Admin Resources declaratively with
 Terraform. The provider connects to the Server's Admin service with the identity of a
 local GizClaw CLI context; it does not run a local `gizclaw` executable. It is a pure Go
@@ -98,11 +100,6 @@ provider "gizclaw" {
 }
 ```
 
-| Argument | Default | Meaning |
-| --- | --- | --- |
-| `context` | `GIZCLAW_CONTEXT`, then the CLI current context | Reads `identity.private-key` and `server.endpoint` from `$XDG_CONFIG_HOME/gizclaw/<context>/config.yaml` (`~/.config/gizclaw` when `XDG_CONFIG_HOME` is unset). |
-| `endpoint` | `GIZCLAW_ENDPOINT`, then the context `server.endpoint` | Replaces the context Server endpoint for this provider process only; `config.yaml` is not modified. Must be `https://host[:port]` without userinfo, path, query, or fragment. |
-
 Create contexts with `gizclaw context create` from the [CLI](./cli); the identity must be an
 Admin identity of the target Server. The provider loads the context and validates the
 endpoint during configuration, so a missing context, invalid identity, or invalid endpoint
@@ -128,15 +125,6 @@ resource "gizclaw_resource" "openai" {
   })
 }
 ```
-
-| Attribute | Kind | Description |
-| --- | --- | --- |
-| `id` | computed | `<kind>/<resource_id>`. |
-| `api_version` | optional, computed | Only `gizclaw.admin/v1alpha1`; an omitted value keeps the stored one. Changing it replaces the resource. |
-| `kind` | required | A Resource kind addressable by ID, for example `Credential` or `Model`; `ResourceList` and `<Kind>Resource` aliases are rejected. Changing it replaces the resource. |
-| `resource_id` | required | Resource `metadata.id`, following the Admin API caller-defined ID rules (non-empty, no surrounding whitespace, at most 1024 characters, not `.` or `..`). Changing it replaces the resource. |
-| `spec` | required, sensitive | A JSON object produced by `jsonencode(...)`. |
-| `input_revision` | optional, sensitive | Lowercase 64-character SHA-256. Changing it re-applies an unchanged `spec`, for example after a write-only secret changes. |
 
 Resource behavior:
 
@@ -176,7 +164,6 @@ upgrades it to `resource_id` automatically.
 The Terraform state of `gizclaw_resource` stores `spec`, which can contain secret placeholders
 or plaintext secrets. Manage the state backend as secret storage.
 
-
 RegistrationToken `spec` accepts `enabled`, `expires_at`, and `max_activations`. The provider treats omitted/null enabled as the Server default true, and omitted/null limits as equivalent. Administrative restrictions still produce drift. Use the Server's canonical RFC3339 expiration representation. Inspect `activation_count` in Admin RegistrationToken responses; it is not a Terraform spec input. See [device registration](/en/developing/gizclaw/services/runtime-profile#registrationtoken).
 
 ## `gizclaw_catalog`
@@ -198,14 +185,6 @@ resource "gizclaw_resource" "workflows" {
   spec        = jsonencode(jsondecode(each.value).spec)
 }
 ```
-
-| Attribute | Kind | Description |
-| --- | --- | --- |
-| `sources` | required | Reusable catalog directories, lowest to highest precedence. |
-| `product_sources` | required | Product directories containing RuntimeProfile and RegistrationToken manifests. |
-| `credentials`, `tenants`, `voices`, `models`, `memory_layouts`, `workflows`, `firmwares`, `runtime_profiles`, `registration_tokens` | computed | Map from `<Kind>/<id>` to the selected manifest encoded as JSON. |
-| `raids` | computed | Map from raid ID to the unchanged bytes of each selected `raid.json`. |
-| `overridden_ids` | computed | Set of `<Kind>/<id>` defined by more than one entry of `sources`. |
 
 A catalog source may contain `credentials/`, `tenants/`, `voices/`, `models/`,
 `memory-layouts/`, `workflows/`, `firmwares/`, and `runtime-profiles/`; a product source may

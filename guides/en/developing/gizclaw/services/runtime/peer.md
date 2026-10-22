@@ -1,23 +1,12 @@
 # Peer
 
+[Source](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/peer)
+
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer)
 
 `peer` Owns server-side persistent Peer resources and implements Peer CRUD, verification, indexing and connected-peer bootstrap required for Admin HTTP and Peer HTTP.
 
 Peer KV mutations derive CAS conditions and identifier indexes from the persisted snapshot without SQL projections. SQL owns the RegistrationToken Firmware binding, exposed through `RegistrationFirmware` on reads. Partial profile updates, device identifiers refresh, and approve/block operations neither compare that projection as the old KV value nor write it back into KV. Mutations resolve their return projection before committing, so a failed SQL lookup cannot report an already committed write as failed. Atomic CAS still rejects stale writes from another Server, with deletion fences and index changes in the same transaction.
-
-## Core structure and main function
-
-| Structure or function | Function |
-| --- | --- |
-| `Server` | Combines Peer store, online `PeerManager` and HTTP service dependencies. |
-| `PeerManager` | Query online Peer connection/runtime, does not have persistent records. |
-| `PeerAdminService` | Define the Peer operations required by the Admin surface. |
-| `PeerHTTPService` | Define the Peer operations required for Peer-facing surface. |
-| `Server.EnsureConnectedPeer` / `EnsureConnectedPeerGuarded` | Create a default active Peer for the authenticated public key; the guarded form revalidates connection lifecycle state under the per-record lock before reading or creating it. |
-| `Server.LoadPeer` / `SavePeer` | Press public key to read or save the complete Peer. |
-| `Server.BootstrapEdgeNodes` | Synchronize the Edge Node identity in the configuration as a Peer resource. |
-| `Server.DeleteSelf` | Atomically create or reuse a durable pending-deletion handoff for the authenticated Peer. |
 
 Public key is Peer identity and should not be mixed with database ID, connection ID or Edge assignment. WebRTC connection lifecycle belongs to `giznet` and root `PeerManager`, and does not belong to this package.
 

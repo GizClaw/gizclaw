@@ -1,6 +1,8 @@
 # Connection
 
-`Implementation files: peer_conn.go, peer_conn_openai.go`
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+Source：[peer_conn.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_conn.go) · [peer_conn_openai.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_conn_openai.go)
 
 `peer_conn` The prefix has the product-level life cycle of a single Peer connection.
 
@@ -30,23 +32,6 @@ The C SDK retains the separate `gzc_webrtc_media_vtable_t` extension for bidirec
 The C SDK keeps received Opus in a fixed-slot ring backed by one contiguous platform allocation. Its default 64-packet capacity covers about 1.28 seconds at the ordinary 20 ms packet cadence. A caller may select another capacity with `gzc_client_set_opus_rx_capacity` before connect; capacity is fixed after connect, and a full ring overwrites only its oldest Opus packet without affecting Direct Packet. Client close immediately discards the remaining ring contents; a conversation cancel that keeps the connection can call `gzc_client_discard_opus_rx` on the serialized poll-owner thread so stale audio is not delivered later. Each slot holds at most `GZC_OPUS_MAX_PACKET_SIZE` bytes, so the receive callback, enqueue path, and `gzc_client_read_packet_into` allocate no per-packet memory. The latter writes caller-owned storage; insufficient capacity returns `GZC_ERR_BUFFER_TOO_SMALL`, reports the required length, and retains the same packet for retry. The existing `gzc_client_read_packet` keeps its allocator-owned `gzc_buf_t` contract for compatibility.
 
 The C SDK concurrent unary requester adds no connection-scoped transport. Each `gzc_rpc_request_t` exclusively owns one dynamic RPC service DataChannel, while the client keeps only a non-owning channel-identity dispatch link. One caller owns `gzc_client_poll`; request result lookup never re-enters polling. Client close first marks pending requests closed and detaches their channels, but the caller still destroys each request handle and its response buffers while the configured platform allocator remains alive.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| [`PeerConn`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerConn) | Holds Giznet connection, PeerService, RPC Server, Agent Host, audio mixer and connection-scoped services. |
-| [`PeerConn.CreateAudioTrack`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerConn.CreateAudioTrack) | Create a track written to the current Peer audio mixer. |
-| `serve` | Parallel services Giznet services, direct packets, Agent output and mixed audio. |
-| `serveService` | Accept and distribute the Giznet service stream currently opened by Peer. |
-| `servePackets` / `serveDirectPackets` | Receive ordinary and direct packets, and distribute telemetry/media. |
-| `serveRPC` / `serveEdgeRPC` | Start Peer RPC or Edge RPC service loop. |
-| `serveEdgeTunnel` / `serveEdgePackets` | Accept v2 labeled native channels only on an activated Edge, aggregate logical Peers, and route the shared Opus envelope. |
-| `init` / `initRPC` / `initMixer` / `initAgentHost` / `initPeerGenX` | Assemble connection-scoped runtime dependencies. |
-| `serveEvents` / `handleEventStream` | Accept event stream and push Agent input. |
-| `processTelemetryPackets` / `handleTelemetryPacket` | Decode telemetry and synchronize Peer status. |
-| `streamMixedAudio` | At each 20 ms pacing opportunity, read one frame from the mixed PCM stream, encode Opus once, and write once to the WebRTC audio track. |
-| `close` | Close all connection-scoped resources in lifecycle order. |
 
 Before any RPC, HTTP, Event, packet, or audio loop starts, `PeerConn` atomically ensures its durable Peer generation and publishes the exact connection in `Manager`; therefore an immediate `server.register` cannot precede connection activation. When `server.peer.delete` starts, that exact connection enters retiring and its Manager entry enters deleting before the durable mutation runs. New work, registration, and replacement activation for that public key are rejected, while unrelated Peers are not blocked by the store operation. A successful mutation conditionally detaches the same generation; a failed mutation restores it only when it is still current. While retiring, late Events and direct audio packets are drained and discarded. Input fencing does not close the mandatory Event transport; the delete RPC terminal callback owns association closure. The current delete RPC transport remains available until the acknowledgement and EOS write attempt finishes. The terminal action closes the full Giznet connection even when the response or EOS write fails.
 

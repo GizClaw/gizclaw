@@ -1,10 +1,12 @@
 # pkgs/gizclaw
 
+[Service 注册](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_service.go)
+
 `pkgs/gizclaw` 是 GizClaw 产品层的核心 package。它在 `pkgs/giznet` 提供的通用连接与传输之上，组合 API contract、领域服务、Peer Runtime 和 Server public surface。
 
 这个目录拥有可被 CLI Server、desktop 或其他宿主复用的 GizClaw Server 行为；具体进程的配置加载、storage backend 选择和启动流程属于 `cmd/`。
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
 
 ## 文档结构
 
@@ -47,50 +49,6 @@ pkgs/gizclaw/
 
 `pkgs/gizclaw` 把一个 giznet connection 划分为多个相互独立的产品 surface。`Service*` 名称只用于承载在可靠 giznet service stream 上的 RPC 或 HTTP；service ID 同时决定连接两端使用哪个 handler，也构成 Server security policy 的授权边界。
 
-| Service | ID | 协议与职责 | 访问边界 |
-| --- | ---: | --- | --- |
-| `ServicePeerRPC` | `0x00` | Peer 与 Server 之间的业务 RPC | 任何连接 identity |
-| `ServicePeerHTTP` | `0x01` | Server 信息、登录、WebRTC Offer 与当前 Peer 信息 | 任何连接 identity |
-| `ServicePeerOpenAI` | `0x02` | 通过 Peer connection 暴露 OpenAI-compatible HTTP | 任何连接 identity |
-| `ServiceAdminHTTP` | `0x10` | 资源管理与运维 HTTP API | active `admin` Peer |
-| `ServiceEdgeHTTP` | `0x30` | Edge 向权威 Server 转发 public API 请求 | active `edge-node` Peer |
-| `ServiceEdgeRPC` | `0x31` | Edge 查询、分配和解析路由；Server/Edge 双向内部社交通知 | Server 侧为 active `edge-node`，Edge 侧为已配置 Server |
-
-```mermaid
-classDiagram
-    direction LR
-
-    class AnyConnectionIdentity {
-        未登记 Peer 也包括在内
-        ServicePeerRPC 0x00
-        ServicePeerHTTP 0x01
-        ServicePeerOpenAI 0x02
-    }
-
-    class Client {
-        role client
-        无额外 Service
-    }
-    class Server {
-        role server
-        无额外 Service
-    }
-    class Admin {
-        role admin
-        +ServiceAdminHTTP 0x10
-    }
-    class EdgeNode {
-        role edge-node
-        +ServiceEdgeHTTP 0x30
-        +ServiceEdgeRPC 0x31
-    }
-
-    AnyConnectionIdentity <|-- Client : 登记后
-    AnyConnectionIdentity <|-- Server : 登记后
-    AnyConnectionIdentity <|-- Admin : active
-    AnyConnectionIdentity <|-- EdgeNode : active
-```
-
 这里的“任何连接 identity”是 service-level policy，不是一个 `PeerRole`。未登记 Peer，以及已登记为 `client`、`server`、`admin` 或 `edge-node` 的 Peer，都可以打开三个通用 Peer services。具体 endpoint 仍可在 handler 层继续检查 session、registration status 或 role。
 
 ### 各 surface 的边界
@@ -109,13 +67,7 @@ classDiagram
 
 ### Event 与 Media 不属于 Service
 
-以下标识同样由 `pkgs/gizclaw` 定义，但不属于上面的 HTTP/RPC service layout：
-
-| 标识 | 值 | 传输语义 |
-| --- | ---: | --- |
-| `EventStreamAgent` | `0x20` | 可靠的 Agent event stream |
-| `EventStreamTelemetry` | `0x40` | 不可靠的 telemetry event packet |
-| `MediaStreamOpus` | `audio/opus` | WebRTC Opus media track codec |
+Event 与 Media 使用独立的传输入口，不属于 HTTP/RPC service layout。具体标识由上述 Service 源码定义。
 
 因此，新增 RPC 或 HTTP surface 时使用 `Service*`；新增事件或媒体能力时，应先判断它属于可靠 event stream、直接 packet 还是 WebRTC media track，不能仅因为共用一条 Peer connection 就放进 Service namespace。
 

@@ -1,5 +1,7 @@
 # services/ai
 
+[Definitions and implementation](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/ai)
+
 `pkgs/gizclaw/services/ai` Has configurable AI resources and provider integration in GizClaw, including credential, model, voice, workflow and workspace. It organizes these resources into product capabilities that can be consumed by the Agent Runtime, but is not responsible for the online life cycle of the Agent instance.
 
 ## Directory structure
@@ -20,13 +22,13 @@ services/ai/
 
 ## Subdirectory responsibilities
 
-### [credential](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/credential)
+### [credential](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/credential)
 
 Have the credential resources required to call external AI providers and their persistence boundaries. Credentials are protected product resources and should not leak into workflow definitions, workspace history, or generic GenX abstractions.
 
 Credential uses the local SQL `credentials` table. ID, Provider, description, timestamps, revision, and creation identity have separate columns; secret configuration remains JSON. The table and `(provider, id)` index are initialized at startup, and Provider filtering and pagination run directly in SQL. Updates compare revision and creation identity. When a request omits the secret, conflict retries reread the latest configuration so concurrent secret rotation is preserved. Recreated records or persistent contention reject the old update with `CREDENTIAL_CONFLICT`.
 
-### [model](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/model)
+### [model](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model)
 
 Owns the GizClaw model catalog and has the ability to parse persistent model definitions into models that GenX can use. The general model interface belongs to `pkgs/genx`; the specific GizClaw model resources and selection logic belong here.
 
@@ -57,27 +59,27 @@ Enable low-latency service for the selected model and inference endpoint in the 
 
 Owns the connection-free `MemoryLayout` Admin resource. One Layout declares Mem0 Cloud, self-hosted Mem0, and `volc_mem0` policies. The RuntimeProfile memory binding selects the driver, endpoint, API key, and project. See [Memory Store](/en/developing/stores/memory).
 
-### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/openaiapi)
+### [openaiapi](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/openaiapi)
 
 Implements the GizClaw `ai-server-shell/backend` adapter for the supported model, chat, speech, and transcription operations. AI Server Shell owns the standard wire contract and transport; root `pkgs/gizclaw` owns exact route gating, verified Peer binding, and the voices extension.
 
-### [peergenx](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/peergenx)
+### [peergenx](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx)
 
 Connect GizClaw peer or provider-backed generation capabilities to the unified GenX abstraction. Provider SDK integration and provider-specific resolution stay here and should not go into generic `pkgs/genx`.
 
-### [providertenants](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/providertenants)
+### [providertenants](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/providertenants)
 
 Have product resources for each AI provider tenant, such as provider endpoint, account-level configuration, and information required for voice synchronization. It can rely on specific provider SDKs, but it cannot allow provider-specific fields to proliferate into unrelated areas.
 
 ProviderTenants uses the local SQL `provider_tenants` table with a composite `(provider_kind, id)` primary key, allowing independent IDs across all six Provider kinds. Credential ID, description, creation/update timestamps, and synchronization time have separate columns; Provider configuration remains JSON. Startup creates the table and credential lookup index. Lists apply Provider scope, ID cursor, and limit in SQL. Configuration updates preserve creation and synchronization timestamps. Sync completion updates only synchronization metadata and checks configuration identity to avoid modifying an updated or recreated tenant. Credential and Voice capabilities come from their respective business services.
 
-### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/voice)
+### [voice](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice)
 
 Have voice resources and provider voice mappings available to Agent/GenX for selection. Common capabilities such as Audio codec, resampling and playback belong to `pkgs/audio` and do not belong to the voice catalog.
 
 Voice uses the local SQL `voices` table, with separate source, Provider kind and ID, upstream voice ID, display fields, and timestamps; Provider configuration remains JSON. Lists use indexes for the selected filters and ID range. Synchronization locks the target Provider within one transaction, writes batches of 64 while preserving existing IDs and creation timestamps, then removes synchronized voices missing from that batch generation. Manual voices are preserved. Any batch failure rolls back the entire synchronization. Tables and indexes are initialized at startup; legacy voice fields are not read.
 
-### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workflow)
+### [workflow](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow)
 
 Owns workflow definition, driver selection, and workflow resource persistence. `workflow/agents` stores the integration between specific workflow engines and GizClaw Agent Host, including SFU, AST Translate, DashScope Realtime, Doubao Realtime, Doubao Realtime Duplex, and Eino.
 
@@ -121,11 +123,6 @@ Workflow `spec.eino.conversation.initiative` selects the opening party (`peer` o
 
 Workspace `input` is `push-to-talk` (default) or `realtime`. It selects which ASR Model to read from the Profile binding:
 
-| Input mode | Profile field | Configured alias | Omitted or null |
-| --- | --- | --- | --- |
-| PTT | `spec.workflows.<alias>.ptt_asr_model` | External ASR → text → Model. | Audio directly to the Model. |
-| Realtime | `spec.workflows.<alias>.realtime_asr_model` | Streaming ASR segmentation → text → Model. | Audio directly to the Model. |
-
 `agenthost` resolves the owner's Profile and puts the selected alias in internal `Spec.ASRModel`. Factories do not read Workflow ASR configuration. There is no Workspace precedence or automatic fallback. Invalid ASR aliases, Model kinds or construction errors fail reload.
 
 Eino's native Lite audio path currently handles complete PTT recordings, not continuous realtime audio. Such bindings must configure `realtime_asr_model` to run realtime. The Doubao Realtime driver keeps the Model's native audio input, and the same Profile settings can prepend external ASR to use the Model's text input. Both ASR modes disable duplicate pacing. Realtime additionally requests interim transcription, `end_window_size=200`, and `force_to_speech_time=1000`.
@@ -165,7 +162,7 @@ Downlink: the session keeps a floor driven by the remote utterances announced on
 
 Lifecycle: a network error or SFU restart triggers exponential-backoff reconnection that fails once `reconnect_timeout` elapses; while reconnecting, uplink frames are dropped, the floor is released and remote utterances are forgotten (they are learned again from their next BOS). A LiveKit disconnect caused by the same identity joining from another Server (`DuplicateIdentity`) is a normal termination without reconnect. The session re-reads its binding every `recheck_interval` and stops forwarding with `ErrRevoked` as soon as the generation changes, the membership is gone, or the resolver errors. Cancelling the Transform context (Workspace switch, Peer disconnect, revocation, Server shutdown) takes the same teardown: stop consuming GenX input, stop writing the track, close remote readers, disconnect the participant, and close the output Stream.
 
-### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/services/ai/workspace)
+### [workspace](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace)
 
 Has workspace resources, workspace runtime storage and history. The Workspace is the persistence boundary for instantiating the Agent environment; the running Agent, input and output, and connection streams are the responsibility of the Runtime domain.
 
@@ -210,7 +207,3 @@ Shouldn't be placed here:
 Workspace creation registers and drains in-flight work per owner. Runtime preparation and caller initialization run outside the coordinator mutex; retirement closes only the target owner's admission and waits for that owner's creations before snapshotting. MemoryLayout updates and deletes are atomic SQL statements, without service-level read-modify-write locks.
 
 MemoryLayout uses the `memory_layouts` business table with an ID primary key and separate JSON columns for Mem0 Cloud, self-hosted Mem0, and VolcMem0 policy; the unexposed historical policy column retains archived data verbatim. It stores neither Memory content nor runtime connections. Server startup initializes the schema using the configured SQL pool. Lists use ID range queries and SQL limits. Atomic updates replace only an existing row and cannot recreate a concurrently deleted layout; service-level read-modify-write locks are unnecessary.
-
-## Hourly Peer usage
-
-Optional `services.peer_usage.store` binds a SQL pool to hourly provider model/resource quantities. Shared SQL day maintenance and a worker drain before pool closure implement retention and lifecycle. See [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).

@@ -1,5 +1,7 @@
 # Memory Store
 
+[Definitions and implementation](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/memory)
+
 [`pkgs/store/memory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/memory) is the provider-neutral long-term memory boundary used by Agent runtimes. Mem0 Cloud, self-hosted Mem0, and Volc adapters live in the `mem0` and `volc` subpackages.
 
 MemoryLayout exposes a separate optional `mem0_self_hosted` policy containing
@@ -46,8 +48,6 @@ Supply the actual old parent names. Both arguments may be the same when the stre
 
 The import preserves unexpired Workspace IDs, roles, text, creation times, original expiration and audio references. It neither moves nor uploads audio, and never imports old Eino data. Batched copying is verified field by field. Copying, the completion receipt and source deletion commit in one transaction. Old parents, attached partitions, dedicated identity tables and generated, unshared partman templates are removed. Incompatible schemas, unknown records, target conflicts or external dependencies roll back the whole operation; deletion does not use `CASCADE`. Repeating a successful run reads the completion receipt without importing again. Verify completion before starting the new Server. Version rollback after successful deletion requires restoring the database backup.
 
-
-
 ## Contract
 
 Every operation carries a structured `Scope`. `AppID`, `UserID`, `AgentID`, and `RunID` are four independent optional routing dimensions. The common contract does not define an App→User→Agent→Run hierarchy and does not interpret `RunID` as a universal Conversation. An empty field means that dimension was not selected; it is not a wildcard, inherited value, or global-visibility marker.
@@ -75,14 +75,7 @@ recalled, err := store.Recall(ctx, memory.Query{
 })
 ```
 
-Adapters preserve only dimensions and combinations that their native provider can represent exactly; otherwise they return `ErrUnsupported`:
-
-| Common field | Mem0 / Volc Memory |
-| --- | --- |
-| `AppID` | `app_id` |
-| `UserID` | `user_id` |
-| `AgentID` | `agent_id` |
-| `RunID` | `run_id` |
+Adapters preserve only dimensions and combinations that their native provider can represent exactly; otherwise they return `ErrUnsupported`.
 
 Mem0/Volc preserve these independent dimensions and their combinations, send every selected dimension, and use AND filters for recall and mutation checks. See the self-hosted complete-Scope encoding below.
 

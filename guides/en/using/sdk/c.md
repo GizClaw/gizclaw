@@ -56,7 +56,3 @@ When an inbound RPC caller closes its channel, a late reply that returns `GZC_ER
 ### MHS v0 HWDs
 
 `gzc_rpc.h` exports `payload/mhs_v0.pb.h`. A device provider handles `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE` (133/134): decode the outer instance `id` and `ClientHwd`, then decode or encode the HWD-specific inner protobuf payload. Wifi, ble, modem, battery and mic provide read only; display, led and speaker provide read/write. `client.rpc.methods.list` includes only installed RPC handlers. Response bytes remain borrowed until the respond callback returns. See the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server) for errors and instance rules.
-
-## tool/v0 procedures
-
-Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. HWD instances use the bound RuntimeProfile MHS v0 manifest and its read/write calls.

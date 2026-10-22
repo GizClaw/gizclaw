@@ -1,5 +1,7 @@
 # Development Tools and Examples
 
+[Release manifest generation and validation](https://github.com/GizClaw/gizclaw/blob/main/build/build-release-manifest.sh)
+
 This page centralizes repository-owned Skills, runnable examples, and native
 prebuilt tooling. Documentation that belongs to third-party submodules remains
 owned by the corresponding upstream project.
@@ -236,16 +238,6 @@ hosting, retention, and live installation acceptance.
 and `SHA256SUMS` bring the Release inventory to 15 files. Consumers must explicitly
 validate schema 7 and the complete asset set; asset sets from different schemas
 cannot be mixed. Each npm entry has only these fields:
-
-| Field | Type and constraint |
-| --- | --- |
-| `name` | String: `npm-gizclaw-<version>.tgz` or `npm-gizclaw-control-<version>.tgz` |
-| `kind` | Constant string `npm-package` |
-| `size` | Positive integer: tgz size in bytes |
-| `sha256` | 64 lowercase hex digits: SHA-256 of the entire tgz |
-| `package` | `@gizclaw/gizclaw` or `@gizclaw/gizclaw-control`, matching the filename |
-| `version` | Canonical `MAJOR.MINOR.PATCH` from the tag without `v` |
-| `source_commit` | 40 lowercase hex digits: Git SHA matching the top-level source commit |
 
 Manifest generation and validation cross-check `name` and `version` read from
 `package/package.json` inside each tarball. npm entries have no `os`, `architecture`,

@@ -1,5 +1,7 @@
 # 开发工具与示例
 
+[Release manifest 生成与校验](https://github.com/GizClaw/gizclaw/blob/main/build/build-release-manifest.sh)
+
 本页集中说明仓库自有的 Skills、可执行示例以及 native prebuilt 工具。第三方
 submodule 自带文档仍属于对应 upstream，不迁入本指引。
 
@@ -204,17 +206,7 @@ channel 各自负责签名、托管、保留策略和 live installation acceptan
 `release-manifest.json` 使用 `schema_version: 7`，`assets` 必须包含 12 个 payload，
 按名称以 `LC_ALL=C` 排序。加上 C SDK `.sha256` sidecar、manifest 与 `SHA256SUMS`，
 Release 文件总数为 15。消费者必须显式校验 schema 7 和完整资产集合；不同 schema 的资产集合
-不可混用。npm entry 只有以下字段：
-
-| 字段 | 类型与约束 |
-| --- | --- |
-| `name` | 字符串，`npm-gizclaw-<version>.tgz` 或 `npm-gizclaw-control-<version>.tgz` |
-| `kind` | 固定字符串 `npm-package` |
-| `size` | 正整数，tgz 的字节数 |
-| `sha256` | 64 位小写十六进制，整个 tgz 的 SHA-256 |
-| `package` | `@gizclaw/gizclaw` 或 `@gizclaw/gizclaw-control`，必须与文件名对应 |
-| `version` | tag 去掉 `v` 后的 canonical `MAJOR.MINOR.PATCH` |
-| `source_commit` | 40 位小写 Git SHA，与顶层 source commit 相同 |
+不可混用。npm entry 的字段以 manifest 生成与校验脚本为准。
 
 构建与校验 manifest 时从 tarball 的 `package/package.json` 读取 `name` 和 `version`
 交叉校验。npm entry 不含 `os`、`architecture`、`module`、`installed_path`、`provider`

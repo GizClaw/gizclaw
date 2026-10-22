@@ -1,5 +1,7 @@
 # DashScope Adapter
 
+[源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/genx/transformers/dashscoperealtime)
+
 DashScope Adapter 通过 `dashscoperealtime.Transformer` 将 DashScope realtime multimodal session 适配为 `genx.Transformer`。
 
 公共 constructor 要求同时传入 client 和显式 model。Config 保存已解析的 DashScope client、model、voice、modalities、VAD 和 audio format 等不可变选项；constructor 不建立 WebSocket，每个并发 `Transform` 调用建立自己的 session。
@@ -16,15 +18,6 @@ transformer, err := dashscoperealtime.New(dashscoperealtime.Config{
 `Model` 是必填项，Adapter 不会推断默认值。启用 function tools 时应选择 DashScope Qwen 3.5 Omni Realtime model；旧版 Qwen Omni Turbo Realtime 和 Qwen 3 Omni Flash Realtime model 不支持 provider Function Calling，并会在配置 `ToolInvoker` 时被拒绝。
 
 默认输出音色随所选 model family 变化：Qwen 3.5 Omni Realtime 使用 `Tina`，旧版 Qwen Omni Turbo Realtime 仍使用 `Chelsie`。显式配置的 `Voice` 保持不变。
-
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| `dashscoperealtime.Config` | 保存 client、realtime model、audio format、voice、instructions、turn detection 和可选 ToolInvoker 配置。 |
-| `dashscoperealtime.New` | 使用类型化 Config 创建 Transformer；构造时不建立连接。 |
-| `dashscoperealtime.Transformer.Transform` | 为每次调用建立独立 realtime session，将输入 Stream 写入 provider，并返回统一输出 Stream。 |
-| `dashscoperealtime.Stream` | 包装支持 session update 的 realtime output Stream。 |
 
 Provider session update 和 event name 留在 Adapter 内部；调用方只依赖 GenX Stream 与显式 update contract。
 

@@ -56,7 +56,3 @@ Request 侧的字符串上限直接取自 contract：SSID 32 字节、sound 32 �
 ### MHS v0 HWD
 
 `gzc_rpc.h` 导出 `payload/mhs_v0.pb.h`。设备 provider 处理 `RPC_METHOD_CLIENT_MHS_V0_READ/WRITE`（133/134）：先解码外层实例 `id`、`ClientHwd`，再按 HWD 解码或编码内层 protobuf payload。wifi、ble、modem、battery、mic 只提供 read；display、led、speaker 提供 read/write。`client.rpc.methods.list` 只列出真实安装的 RPC handler。响应 bytes 在 respond callback 返回前必须保持有效。详细错误与实例约束见 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
-
-## tool/v0 过程
-
-设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

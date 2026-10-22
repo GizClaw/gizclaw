@@ -1376,16 +1376,22 @@ fixture 查询核心 metric family 与 `node_role=application|edge`，并通过 
 完整的 `tests/gizclaw-e2e/.env`；隔离的 relay-recovery lane 会生成仅运行时 fixture
 credential，不消费 provider credential。Sibling-close 入口在
 独立 Docker 环境中固定连续运行三次 JavaScript、C/cgo 与 Go 的并发 service/Event
-场景，不接受环境变量改变 selection 或重复次数。Gateway capacity
-入口固定运行本机 one-Server/two-Edge 的 100-session 基线。client 仍终止在 Edge，
+场景，不接受环境变量改变 selection 或重复次数。
+
+### Gateway 容量与中继验收 {#gateway-capacity}
+
+Gateway capacity 入口固定运行本机 one-Server/two-Edge 的 100-session 基线。client 仍终止在 Edge，
 但每条物理 Edge-to-Server connection 都必须 relay-only 经过两个 digest-pinned Coturn
 4.7.0 member。每个 Edge 持有 4 条 gateway upstream association 和 1 条 control/HTTP
 upstream，因此固定拓扑共有 10 个 live Coturn allocation；逻辑 session 仍只使用每个
 Edge 的 4 条 gateway association。除保持连接和多轮 ping 外，
 100 个 session 还会同步执行每路 4 MiB upload 和 download，并按共享 wall-clock 记录
-聚合吞吐；单路对照使用 32 MiB sustained payload。machine-readable artifact 写到
-ignored 的 `testdata/`；该入口不属于长时间或更高连接数的容量承诺。专用 100-session
-burst 入口不设置 ramp，在 3 个全新 stack 上重复测试，报告 establishment rate 与 Dial
+聚合吞吐；单路对照使用 32 MiB sustained payload。每方向要求至少 200 Mbps，且不低于
+同轮单路速率的 0.8 倍。artifact 默认写入 ignored 的 `testdata/gateway-capacity-100.json`，
+可用 `GIZCLAW_E2E_GATEWAY_CAPACITY_ARTIFACT` 指定其他路径。资源字段标明来源；
+`rss_bytes` 的 `go_memstats_sys` fallback 不等同于进程 RSS，无法读取的 FD 值为 `-1`。
+
+专用 100-session burst 入口不设置 ramp，在 3 个全新 stack 上重复测试，报告 establishment rate 与 Dial
 p50/p95/p99，每个 session 分方向传输 1 MiB，并记录 32 MiB 单路 sustained 对照。artifact
 分别记录 key generation、客户端 PeerConnection、offer、ICE gathering、HTTP signaling、
 answer 侧 PeerConnection/SDP/ICE，以及客户端 ICE connected、DTLS connected 和
@@ -1469,38 +1475,7 @@ Coturn member 的一秒间隔 live allocation/traffic sample、finished-session 
 traffic delta，以及两个 Edge 停止后有界归零结果。每个 member 使用一条长期运行的
 container-side metric stream，避免把 host 侧 Docker process 启动开销计入每次 sample。
 验收要求 workload 前已产出第一条 sample，毫秒 timestamp 不递减且相邻 gap 不超过
-2.1 秒；只有不同纳秒 sample 截断到同一毫秒时才允许 timestamp 相等。已合并的
-#697/#698 结果仍是历史
-direct-upstream 观测；当前
-Coturn 数据不是 production、WAN 或可移植吞吐 SLA。
-
-2026-08-07 的权威验收在 clean executable head
-`a2ff5b791a5c60c3b80052204717ac277e43c885` 上只运行一次
-`run_gateway_capacity_1000_soak_tests.sh`。Host 为 Darwin/arm64、16 logical CPUs、
-Go 1.26.4 与 64 GiB RAM；隔离的 service image 运行在 OrbStack 2.2.1 Linux/aarch64
-Docker，配置 16 logical CPUs 与 15.67 GiB RAM。三轮 prerequisite fresh-stack burst
-均建立 1,000/1,000 sessions、每个 Edge 恰好 500 sessions、failure 为 0；establishment
-rate 分别为 159.90、1,118.18、158.99 sessions/s，Dial p95/p99 分别为
-681.57/776.75 ms、749.00/806.92 ms、589.81/669.13 ms，同步 upload/download 分别为
-453.54/482.89、415.54/455.50、484.35/413.58 Mbps。每轮每方向精确传输
-1,000 MiB、保持十条 relay allocation 存活，并通过有界 session 与 Coturn 清理。
-
-新的 soak stack 随后以 1,074.63 sessions/s 建立 1,000/1,000 sessions，Dial p95/p99
-为 718.53/838.54 ms。60 分钟内 122,000 次验收 Ping 全部完成；Ping failure、disconnect、
-identity crossover、process/container exit 与 restart 均为 0，aggregate RTT p99 为
-474.93 ms。Initial upload/download 为 415.51/425.25 Mbps，final upload/download 为
-424.20/524.18 Mbps；final aggregate retention 为 102.09%/123.26%，per-session
-p01/p05/p50 中最低 retention 为 96.66%，全部 throughput gate 通过。
-
-Late median round-p99 RTT 下降 11.11%。两个 Edge 的 late-window RSS 分别增长 10.89%
-与 16.49%，load driver 为 -52.64%，Server 为 -0.65%，两个 Coturn member 均约为
--2.78%；load driver 的 completed-GC live heap 增长 10.98%，FD 与 goroutine median
-不变。六个角色全部通过其支持的 RSS、CPU、FD、heap、goroutine、UDP/UDP6 与 network-rate
-gate；每个角色至少提供 3,679 个一秒 sample，最大 gap 为 1.033 秒。两个 Edge 全程保持
-relay-only；Coturn sidecar 记录 received 2,414,392,388 bytes、sent 2,381,483,034 bytes；
-logical-session cleanup 在 45.55 ms 内完成且 close failure 为 0，两个 Coturn member 均在
-15 秒上限内从五条 allocation 归零。后续 documentation-only commit 不改变这份已验收
-executable。
+2.1 秒；只有不同纳秒 sample 截断到同一毫秒时才允许 timestamp 相等。Coturn 数据只反映本机测试拓扑。
 
 标准 Docker `turn` role 使用同一 pinned Coturn image、TURN REST 认证、container-private/
 host-public IPv4 mapping 与一对一发布的 UDP relay range。`run_turn_relay_tests.sh` 验证
@@ -1516,6 +1491,34 @@ advertised `transport.endpoint` contract。这样不会改变非本机 discovery
 published-port proxy backlog 误判为 load generator 以外的瓶颈。script 会打印选定的
 endpoint boundary，不可直达时回退到 published endpoint。WebRTC/ICE 仍使用同一外部端口的
 Edge endpoint candidates，Dial barrier 和 workload 不会被 pacing、batching 或 preconnect。
+
+中继恢复使用两个固定 digest 的 Coturn member、relay-only upstream、silent UDP 故障注入，
+并阻断 direct Edge-to-Server UDP：
+
+```sh
+bash tests/gizclaw-e2e/run_gateway_relay_recovery_tests.sh
+```
+
+测试覆盖首次 native channel 的 application-acceptance timeout、同一 client 在 acceptance 前
+选择另一条 association、原 draining entry 上 sibling session 的独立进度和有界清理。
+真实 relay host failure、drain、capacity 与 soak 仍需按部署环境验收。
+
+吞吐 benchmark 与部署后的单/三客户端对照：
+
+```sh
+go test -tags giznet_e2e ./tests/giznet-e2e/webrtc \
+  -run '^$' -bench BenchmarkWebRTCServiceThroughput -benchtime=1x -count=5
+go test ./pkgs/gizedge \
+  -run '^$' -bench BenchmarkGatewayServiceThroughput -benchtime=1x -count=5
+GIZCLAW_E2E_SPEED_MIN_UPLOAD_AGGREGATE_MBPS='<upload floor>' \
+GIZCLAW_E2E_SPEED_MIN_DOWNLOAD_AGGREGATE_MBPS='<download floor>' \
+go test -tags gizclaw_e2e ./tests/gizclaw-e2e/go/edge \
+  -run '^TestGatewaySpeedOneVersusThreeClients$' -count=1 -v
+```
+
+Docker suite 默认只记录速率。可用带宽有余量时，可设置
+`GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` 和 `GIZCLAW_E2E_SPEED_MIN_AGGREGATE_SCALE`；
+带宽已饱和时应使用独立测得的分方向 aggregate Mbps 下限。
 
 ## GenX provider E2E
 
@@ -1570,7 +1573,7 @@ counter；同时写入 ignored JSON artifact，包含 direct/static/REST 各 30 
 percentile、direct-versus-relay ratio、repository state、Docker engine 和精确 Coturn pin。
 这些结果只属于本机 transport 诊断，不是 GizClaw gateway 或 production 性能证据。
 
-### Edge direct 与 Coturn capacity 对照
+### Edge direct 与 Coturn capacity 对照 {#gateway-relay-capacity}
 
 GizClaw 自有 Edge 拓扑使用一个固定的本机验收入口：
 
@@ -1596,23 +1599,6 @@ packet/byte、各 role CPU/RSS/FD/socket/network、Coturn evidence 和校验后�
 `comparison.json`。这只证明单台本机 Docker host 上的有界 one-way transport，不代表
 provider processing、decoded audio、WAN/NAT diversity、production Coturn/deployment capacity、
 1,000-session soak 或 30,000-session product ceiling。
-
-2026-08-04 的 ARM64 OrbStack 参考实测（Docker 29.4.0、Docker 16 CPU、16.8 GB memory）
-通过全部 12 轮，三次中位数如下：
-
-| Session | Path | Upload | Download | Dial p95 / p99 | RPC RTT p99 |
-| --- | --- | ---: | ---: | ---: | ---: |
-| 100 | direct | 654 Mbps | 578 Mbps | 458 / 472 ms | 18 ms |
-| 100 | Coturn | 416 Mbps | 568 Mbps | 452 / 460 ms | 19 ms |
-| 500 | direct | 476 Mbps | 612 Mbps | 714 / 1,120 ms | 287 ms |
-| 500 | Coturn | 417 Mbps | 606 Mbps | 778 / 819 ms | 503 ms |
-
-Relay/direct 的 upload ratio 为 0.636 和 0.876，download ratio 为 0.981 和 0.990。
-Upload 与 500-session RTT 差异属于 material，但所有固定门槛、精确 reliable bytes、Opus
-packet、path selection、allocation 和 cleanup 检查均通过。同一 clean head 的纯 Giznet
-诊断不包含产品 Edge 和 Server，测得 direct 818/798 Mbps、REST Coturn 488/526 Mbps，
-同时 Coturn receive/send counter 增长约 220/219 MB。因此本次实测边界归属于本机 Coturn
-relay path，而不是 GizClaw Edge/Server capacity；它不代表 production Coturn host 或 WAN。
 
 ## LoCoMo Memory Evaluation
 
@@ -1986,7 +1972,7 @@ tests/gizclaw-e2e/testdata/bin/gizclaw test run \
 
 该阶段还运行三个语速场景。`server.run.workspace.reload.tts-speech-rate` 之外的 RPC 契约由 `server.run.workspace.reload` 覆盖：它在 `reload-with-options` 中带上 `tts_speech_rate_percent: 80`，再用 `server.workspace.get` 确认参数已保存，因此 JS、C 与 Flutter runner 也会执行这段编解码。`eino-voice-assistant.tts-speech-rate` 覆盖存储、越界拒绝（`INVALID_ARGUMENT`）和带语速的真实回复；`dashscope-realtime-conversation.tts-speech-rate` 覆盖没有原生语速的 provider 由 transformer 做时间伸缩后仍能出声。
 
-`eino-mixed-provider-voices.tts-speech-rate` 验证语速真的生效：两个同样绑定 `eino-mixed-provider-voices` 的 Workspace 读同一段脚本，默认语速的回复断言音频包数在 700..1400（每包 20 ms，约 14..28 秒），设为 60% 的 Workspace 断言至少 1600 包（约 32 秒）。实测默认约 1116..1122 包、60% 约 1836..1892 包，阈值两侧都留了 20% 以上余量。Volc 旁白与 MiniMax 角色音色都会变慢。该场景同样被 JS、C 与 Flutter runner 跳过：
+`eino-mixed-provider-voices.tts-speech-rate` 验证语速真的生效：两个同样绑定 `eino-mixed-provider-voices` 的 Workspace 读同一段脚本，默认语速的回复断言音频包数在 700..1400（每包 20 ms，约 14..28 秒），设为 60% 的 Workspace 断言至少 1600 包（约 32 秒）。Volc 旁白与 MiniMax 角色音色都会变慢。该场景同样被 JS、C 与 Flutter runner 跳过：
 
 ```sh
 tests/gizclaw-e2e/testdata/bin/gizclaw test run \

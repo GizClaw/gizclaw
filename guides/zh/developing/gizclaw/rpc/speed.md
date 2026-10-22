@@ -1,6 +1,8 @@
 # Speed Test
 
-`实现文件：rpc_speed.go`
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+源码：[rpc_speed.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/rpc_speed.go)
 
 实现双向 RPC speed test：校验测试参数、发送和接收指定长度的 binary frames、分别统计
 上下行字节与方向耗时，并计算 Mbps。`Duration` 保留整个调用 wall time；
@@ -10,15 +12,3 @@
 rate 计算会回退到 `Duration`，保持原有行为。
 
 该能力用于测试 RPC/DataChannel 数据路径，不代表业务吞吐保证。
-
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| [`SpeedTestResult`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult) | 保存上下行字节、方向耗时与总 wall time。 |
-| [`SpeedTestResult.UpMbps`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult.UpMbps) / [`DownMbps`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#SpeedTestResult.DownMbps) | 计算上下行 Mbps。 |
-| `callRPCSpeedTest` | Client-side speed test 流程。 |
-| `handleSpeedTest` | Server-side speed test streaming handler。 |
-| `validateSpeedTestRequest` | 校验上下行长度和测试参数。 |
-| `writeBinaryFrames` / `readBinaryFrames` | 写入或读取指定总长度的 binary frames。 |
-| `mbps` | 根据字节数和耗时计算 Mbps。 |
