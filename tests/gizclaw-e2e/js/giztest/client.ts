@@ -29,6 +29,7 @@ import {
 import type { ClientSpec, Step } from "./document.ts";
 import type { Variables } from "./variables.ts";
 import { requestFromProtoJSON, responseToProtoJSON } from "./proto_json.ts";
+import { tracePeerRPCChannels } from "./rpc_trace.ts";
 
 type MhsReadResponse = Awaited<
   ReturnType<
@@ -145,6 +146,7 @@ export class ScenarioClient {
   readonly endpoint: string;
   readonly fingerprint: string;
   readonly inbound: Map<string, number>;
+  rpcTrace: ReturnType<typeof tracePeerRPCChannels>;
   // rpc and pc are replaced by reconnect, which dials a new Peer on the same
   // identity. The private key and handlers are kept for that redial.
   rpc: PeerRPCClient;
@@ -161,6 +163,7 @@ export class ScenarioClient {
     inbound: Map<string, number>,
     privateKey: Uint8Array,
     handlers: GizClawPeerRPCHandlers,
+    rpcTrace: ReturnType<typeof tracePeerRPCChannels>,
   ) {
     this.name = name;
     this.endpoint = endpoint;
@@ -170,6 +173,7 @@ export class ScenarioClient {
     this.inbound = inbound;
     this.privateKey = privateKey;
     this.handlers = handlers;
+    this.rpcTrace = rpcTrace;
   }
 
   // connect brings up one ephemeral device peer with every client.* provider
@@ -209,6 +213,7 @@ export class ScenarioClient {
             ),
           };
     const pc = new wrtc.RTCPeerConnection();
+    const rpcTrace = tracePeerRPCChannels(pc as unknown as RTCPeerConnection);
     try {
       await connectGiznetWebRTCFromEndpoint({
         credential,
@@ -240,6 +245,7 @@ export class ScenarioClient {
       inbound,
       privateKey,
       handlers,
+      rpcTrace,
     );
     if (token != null && token !== "") {
       await rpc.call("server.register", { token });
@@ -349,6 +355,7 @@ export class ScenarioClient {
     const signal =
       taskSignal == null ? timeout : AbortSignal.any([taskSignal, timeout]);
     const pc = new wrtc.RTCPeerConnection();
+    this.rpcTrace = tracePeerRPCChannels(pc as unknown as RTCPeerConnection);
     try {
       await connectGiznetWebRTCFromEndpoint({
         clientPrivateKey: this.privateKey,

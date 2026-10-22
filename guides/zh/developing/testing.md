@@ -2195,6 +2195,10 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 
 ## 通用设备管理协议 Giztest
 
+原生 SDK 场景失败时，JavaScript 报告保留各 provider 的调用次数和最后 64 个反向 RPC
+通道事件，只记录通道 ID、状态和消息字节数，不保存请求或响应内容。Flutter 报告保留
+provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍使测试失败，同时保留原始步骤错误。
+
 `tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
 凭据，执行 Go、JavaScript、C、Flutter 的协议验收。`TestDeviceManagementGiztestsGo` 包含：
 

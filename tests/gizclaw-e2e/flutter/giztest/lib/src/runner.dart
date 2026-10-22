@@ -64,6 +64,7 @@ class TaskReport {
   List<StepReport> steps = [];
   List<StepReport> cleanup = [];
   String? error;
+  Map<String, Map<String, int>>? clientRpcCalls;
 
   Map<String, Object?> toJson() => {
     'path': path,
@@ -77,6 +78,7 @@ class TaskReport {
     if (cleanup.isNotEmpty)
       'cleanup': cleanup.map((step) => step.toJson()).toList(),
     if (error != null && error!.isNotEmpty) 'error': error,
+    if (clientRpcCalls != null) 'client_rpc_calls': clientRpcCalls,
   };
 }
 
@@ -577,6 +579,13 @@ Future<TaskReport> _runTask(
     report.status = 'failed';
   }
 
+  if (report.status == 'failed') {
+    report.clientRpcCalls = {
+      for (final entry in clients.entries)
+        entry.key: Map.of(entry.value.inbound),
+    };
+  }
+
   // Finalizers always run, on a fresh budget detached from the task timeout.
   for (final step in document.finalizers) {
     final result = await _runStepReport(
@@ -596,7 +605,12 @@ Future<TaskReport> _runTask(
   }
 
   for (final client in clients.values) {
-    await client.close();
+    try {
+      await client.close().timeout(_cleanupBudget);
+    } catch (error) {
+      report.status = 'failed';
+      report.error ??= safeError(error, redactions);
+    }
   }
   report.durationMs = DateTime.now().difference(started).inMilliseconds;
   return report;
