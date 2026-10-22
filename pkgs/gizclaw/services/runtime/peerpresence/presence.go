@@ -91,6 +91,7 @@ type Service struct {
 	closed     bool
 	pending    map[giznet.PublicKey]*pending
 	mutations  chan transitionMutation
+	commitSlot chan struct{}
 	workers    sync.WaitGroup
 }
 
@@ -98,7 +99,7 @@ type Service struct {
 func New(store kv.Store, server giznet.PublicKey) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{store: store, server: server.String(), generation: rand.Text(),
-		ctx: ctx, cancel: cancel, pending: make(map[giznet.PublicKey]*pending), mutations: make(chan transitionMutation, transitionBatchSize)}
+		ctx: ctx, cancel: cancel, pending: make(map[giznet.PublicKey]*pending), mutations: make(chan transitionMutation, transitionBatchSize), commitSlot: make(chan struct{}, 1)}
 }
 
 func generationKey(server string) kv.Key    { return kv.Key{"servers", server, "generation"} }
@@ -163,10 +164,7 @@ func (s *Service) renew() {
 			return
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(s.ctx, writeTimeout)
-			matched, err := s.store.ApplyMutation(ctx, kv.Mutation{
-				Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}},
-				Entries:    []kv.Entry{s.leaseEntry()},
-			})
+			matched, err := s.renewLease(ctx)
 			cancel()
 			if err != nil {
 				slog.Warn("peerpresence: renew Server lease", "error", err)
@@ -176,6 +174,19 @@ func (s *Service) renew() {
 			}
 		}
 	}
+}
+
+func (s *Service) renewLease(ctx context.Context) (bool, error) {
+	select {
+	case s.commitSlot <- struct{}{}:
+		defer func() { <-s.commitSlot }()
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+	return s.store.ApplyMutation(ctx, kv.Mutation{
+		Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}},
+		Entries:    []kv.Entry{s.leaseEntry()},
+	})
 }
 
 // Publish queues the latest connection transition without storage I/O. Calls

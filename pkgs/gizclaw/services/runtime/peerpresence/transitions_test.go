@@ -2,13 +2,115 @@ package peerpresence
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
+
+func TestIdleWriterPublishesWithoutWaitingForAnotherTransition(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		service := startService(t, kv.NewMemory(nil), 1)
+		peer := giznet.PublicKey{2}
+		want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
+		service.NewPublisher(peer).Publish(want)
+		// All runnable publication work can finish without advancing the fake
+		// clock. A timer used solely to collect a batch leaves this unpublished.
+		synctest.Wait()
+		got, err := service.Read(t.Context(), peer)
+		if err != nil || got != want {
+			t.Fatalf("idle writer presence = %+v, %v; want %+v", got, err, want)
+		}
+	})
+}
+
+func TestStandbyWriterProgressesBeforeBlockedCommitDeadline(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		peer := giznet.PublicKey{2}
+		store := &blockingStore{Store: kv.NewMemory(nil), peer: peer, entered: make(chan struct{}), release: make(chan struct{})}
+		service := startService(t, store, 1)
+		want := Snapshot{Online: true, LastSeenAt: time.Now().UTC()}
+		service.NewPublisher(peer).Publish(want)
+		synctest.Wait()
+		other := giznet.PublicKey{3}
+		service.NewPublisher(other).Publish(want)
+		time.Sleep(writeTimeout / 4)
+		synctest.Wait()
+		got, err := service.Read(t.Context(), other)
+		if err != nil || got != want {
+			t.Fatalf("standby presence = %+v, %v; want %+v", got, err, want)
+		}
+		if blocked, err := service.Read(t.Context(), peer); err != nil || blocked.Online {
+			t.Fatalf("first commit did not remain blocked: %+v, %v", blocked, err)
+		}
+		close(store.release)
+		synctest.Wait()
+		if got, err := service.Read(t.Context(), peer); err != nil || got != want {
+			t.Fatalf("released presence = %+v, %v; want %+v", got, err, want)
+		}
+	})
+}
+
+type delayedMutationStore struct {
+	kv.Store
+	active    atomic.Int64
+	overlaps  atomic.Int64
+	published chan struct{}
+}
+
+func (s *delayedMutationStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	if s.active.Add(1) > 1 {
+		s.overlaps.Add(1)
+	}
+	defer s.active.Add(-1)
+	time.Sleep(13 * time.Millisecond)
+	matched, err := s.Store.ApplyMutation(ctx, mutation)
+	if matched && err == nil {
+		for _, entry := range mutation.Entries {
+			var snapshot Snapshot
+			if json.Unmarshal(entry.Value, &snapshot) == nil && !snapshot.LastSeenAt.IsZero() {
+				s.published <- struct{}{}
+			}
+		}
+	}
+	return matched, err
+}
+
+func TestContinuousPublicationCoordinatesLeaseRenewal(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		store := &delayedMutationStore{Store: kv.NewMemory(nil), published: make(chan struct{}, 1)}
+		service := startService(t, store, 1)
+		peer := giznet.PublicKey{2}
+		publisher := service.NewPublisher(peer)
+		ctx, cancel := context.WithCancel(t.Context())
+		go func() {
+			for ctx.Err() == nil {
+				publisher.Publish(Snapshot{Online: true, LastSeenAt: time.Now().UTC()})
+				select {
+				case <-ctx.Done():
+					return
+				case <-store.published:
+				}
+			}
+		}()
+		// Cross three renewal ticks and the original lease expiry while
+		// publication remains continuously runnable on the same Server.
+		time.Sleep(31 * time.Second)
+		cancel()
+		synctest.Wait()
+		if count := store.overlaps.Load(); count != 0 {
+			t.Fatalf("lease renewal overlapped %d ordinary state commits", count)
+		}
+		if got, err := service.Read(t.Context(), peer); err != nil || !got.Online {
+			t.Fatalf("continuously publishing Peer lost its lease: %+v, %v", got, err)
+		}
+	})
+}
 
 func TestTransitionBatchIsolatesLostOwnership(t *testing.T) {
 	store := kv.NewMemory(nil)

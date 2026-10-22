@@ -37,9 +37,10 @@ func (s *Service) applyTransition(ctx context.Context, mutation kv.Mutation) (bo
 	}
 }
 
-// Two workers bound the number of competing generation-guard transactions,
-// while allowing another batch to progress when one storage call stalls.
-// The per-Peer writer still owns claim state and orders connection transitions.
+// One ordinary commit at a time avoids contention on the Server generation
+// guard. The second worker can bypass a stalled commit after a quarter of the
+// existing operation budget; a blocked storage call cannot consume that entire
+// budget for unrelated Peers. The per-Peer writer retains connection ordering.
 func (s *Service) writeBatches() {
 	defer s.workers.Done()
 	for s.ctx.Err() == nil {
@@ -49,37 +50,50 @@ func (s *Service) writeBatches() {
 			return
 		case first = <-s.mutations:
 		}
-		batch := []transitionMutation{first}
-		timer := time.NewTimer(time.Millisecond)
-	collect:
-		for len(batch) < transitionBatchSize {
-			select {
-			case <-s.ctx.Done():
-				timer.Stop()
-				return
-			case request := <-s.mutations:
-				batch = append(batch, request)
-			case <-timer.C:
-				break collect
-			}
-		}
-		timer.Stop()
-		active := batch[:0]
-		deadline := time.Now().Add(writeTimeout)
-		for _, request := range batch {
-			if err := request.ctx.Err(); err != nil {
-				request.result <- transitionResult{err: err}
-				continue
-			}
-			if limit, ok := request.ctx.Deadline(); ok && limit.Before(deadline) {
-				deadline = limit
-			}
-			active = append(active, request)
-		}
-		ctx, cancel := context.WithDeadline(s.ctx, deadline)
-		s.commitTransitions(ctx, active)
-		cancel()
+		s.writeBatch(first)
 	}
+}
+
+func (s *Service) writeBatch(first transitionMutation) {
+	timer := time.NewTimer(writeTimeout / 4)
+	defer timer.Stop()
+	select {
+	case s.commitSlot <- struct{}{}:
+		defer func() { <-s.commitSlot }()
+	case <-first.ctx.Done():
+		first.result <- transitionResult{err: first.ctx.Err()}
+		return
+	case <-timer.C:
+		// At most two workers exist, even when storage stalls. This fallback
+		// does not change deadlines, guards or uncertain-commit handling.
+	}
+	batch := []transitionMutation{first}
+collect:
+	for len(batch) < transitionBatchSize {
+		select {
+		case <-s.ctx.Done():
+			return
+		case request := <-s.mutations:
+			batch = append(batch, request)
+		default:
+			break collect
+		}
+	}
+	active := batch[:0]
+	deadline := time.Now().Add(writeTimeout)
+	for _, request := range batch {
+		if err := request.ctx.Err(); err != nil {
+			request.result <- transitionResult{err: err}
+			continue
+		}
+		if limit, ok := request.ctx.Deadline(); ok && limit.Before(deadline) {
+			deadline = limit
+		}
+		active = append(active, request)
+	}
+	ctx, cancel := context.WithDeadline(s.ctx, deadline)
+	defer cancel()
+	s.commitTransitions(ctx, active)
 }
 
 func (s *Service) commitTransitions(ctx context.Context, batch []transitionMutation) {
