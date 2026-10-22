@@ -47,13 +47,10 @@ Generic records use provider source `gizclaw` and filename `logstore`; process-l
 
 Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. Physical Storage owns one TLS SDK client; topic-scoped Stores use that same client for reads and writes without creating a producer or second client.
 
-For `Streams=[system]` and `Kinds=[log]`, the driver also includes old records whose provider source is `gizclaw` and filename is `slog`. They participate in the same provider-side ordering and cursor instead of being fetched and merged separately. This is record compatibility only; the removed Server `log` configuration remains unsupported.
+For `Streams=[system]` and `Kinds=[log]`, the driver also includes records whose provider source is `gizclaw` and filename is `slog`, using the same provider-side ordering and cursor.
 
-## Logging cutover
-
-Before startup, provision the Volc TLS topic and compatible index, then bind the LogStore using `log`, `volc-tls` and `topic_id`. Stderr alone is available when log querying is unnecessary. After cutover, Admin/Monitor log queries read only the new topic.
-
-Existing SQL log tables and records remain owned by the database operator. Server neither imports them into Volc TLS nor deletes them. Export or archive them with database tools before cutover when retained log access is required, and use database tools to read that archive. GizClaw provides no legacy database log reader. `history-migrate` operates only on explicitly selected Workspace/Eino History tables; generic logs mixed into a source cause migration to fail without deleting source data.
+Provision a Volc TLS topic and compatible index before startup. Bind the
+LogStore with `log`, `volc-tls`, and `topic_id`, as shown below.
 
 ## Process logging
 
@@ -74,4 +71,4 @@ services:
         level: warn
 ```
 
-Sinks run in order and may override the global level. Fanout attempts every enabled sink and joins errors. A non-empty `node_id` is expanded from the environment and attached to every sink; Deploy supplies a stable logical node name and GizClaw does not infer one from network or host metadata. Stderr enables Go caller output, while Store sinks also persist the call site as `source_file` and decimal `source_line`. Store sinks write fixed `Stream=system` and `Kind=log` records but do not own named-store lifecycles. `query_store` must name a Store sink in the same configuration; without it the Admin log endpoint returns `LOG_QUERY_NOT_CONFIGURED`. An absent `services.system_log` defaults to info-level stderr. Removed top-level `log` and `system_log` keys are rejected and are not translated.
+Sinks run in order and may override the global level. Fanout attempts every enabled sink and joins errors. A non-empty `node_id` is expanded from the environment and attached to every sink; Deploy supplies a stable logical node name and GizClaw does not infer one from network or host metadata. Stderr enables Go caller output, while Store sinks also persist the call site as `source_file` and decimal `source_line`. Store sinks write fixed `Stream=system` and `Kind=log` records but do not own named-store lifecycles. `query_store` must name a Store sink in the same configuration; without it the Admin log endpoint returns `LOG_QUERY_NOT_CONFIGURED`. An absent `services.system_log` defaults to info-level stderr.

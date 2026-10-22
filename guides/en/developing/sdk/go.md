@@ -1,6 +1,4 @@
-# Go SDK <Badge type="warning" text="WIP" />
-
-> This page currently only describes the positioning and scope of the SDK. The public client, connection, RPC, stream and telemetry modules are still to be expanded one by one.
+# Go SDK
 
 `sdk/go/gizcli` Provides the GizClaw client surface used by Go callers, including connections, security policies, resources, Peer stream, RPC, Telemetry and WebRTC access.
 

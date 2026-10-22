@@ -1,8 +1,10 @@
 # Transformers Overview
 
+[Source](https://github.com/GizClaw/gizclaw/tree/main/pkgs/genx/transformers)
+
 `pkgs/genx/transformers` converts one `genx.Stream` to another Stream. Provider adapters own external speech/realtime protocols; Stream Processing owns provider-neutral lifecycle, buffering, audio-byte stream filtering, TTS segmentation, and composition.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/genx/transformers)
 
 ## Adapter structure
 
@@ -50,13 +52,5 @@ flowchart LR
     Processing --> Output
     Eino --> Output
 ```
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| [`Mux`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#Mux) | Universal Transformer registry. |
-| [`Transform`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#Transform) | Select and execute the Transformer via the default mux. |
-| [`Handle`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/genx/transformers#Handle) | Register a universal Transformer. |
 
 ASR, TTS, Realtime and other capabilities all implement the same `genx.Transformer` and are registered through the same `Mux`. Guide does not define additional facade, session factory, or registry APIs for capability classes.

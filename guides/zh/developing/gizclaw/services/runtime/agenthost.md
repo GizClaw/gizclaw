@@ -1,5 +1,7 @@
 # Agent Host
 
+[源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/agenthost)
+
 [Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost)
 
 `agenthost` 拥有 Agent instance 的在线生命周期。它解析运行规格、取得 Workspace lease、建立输入输出 Stream、接入 History 与 Memory、组合 context-scoped ToolInvoker，并维护当前 runtime registry。
@@ -19,22 +21,6 @@ flowchart TD
     Input --> Stop["Stop / cancel / release"]
     Output --> Stop
 ```
-
-## 核心结构与主函数
-
-| 结构或函数 | 作用 |
-| --- | --- |
-| `Service.Reload` | 破坏式停止当前 Peer 的旧 runtime，并按当前 Peer run selection 创建新 runtime；失败后由 connection-local ErrorTransformer 接管新 BOS。 |
-| `Service.Status` / `Stop` / `Shutdown` | 查询或终止当前 Agent runtime；连接 teardown 会永久关闭该 service。 |
-| `Service.SetRunAgent` | 当 `PeerRun` 提供可选 `PeerRunSelectionStore` capability 时，在与 reload、stop 相同的 transition 边界内持久化 pending selection；只有改变 active workspace 的 selection 才推进 runtime revision。 |
-| `Service.RuntimeRevision` / `PushInput` / `ReloadAndPushInputIfCurrentRevision` | 仅当 connection-scoped input 仍属于当前稳定 runtime revision 时允许写入或原子化地恢复后写入。 |
-| `Service.WorkspaceState` | 返回当前 workspace 的运行状态。 |
-| `RuntimeRegistry` | 维护当前在线 runtime。 |
-| `Coordinator` / `MemoryCoordinator` | 为 workspace 提供排他 lease。 |
-| `Host` / `Registry` | 根据解析后的 `Spec` 选择并创建 Agent。 |
-| `InputStream` / `PushSource` | 将连续输入转换为 Agent 消费的 GenX Stream。 |
-| `MixerOutput` | 按 `(StreamID, canonical MIME)` 将 Agent audio decode 为 PCM，并接到独立 mixer track；MIME EOS 只关闭对应 track，control-only EOS 关闭 route 下全部 track。带 `OpusPassthroughMIME`（`audio/opus; passthrough=1`）的 chunk 不解码、不建 track，交给 consumer 安装的 `Passthrough` hook，但仍按序 observe。 |
-| `ToolkitInvoker` | 在当前 Transform 的 Peer scope 中重新解析、授权并分发 canonical Tool。 |
 
 所有 runtime 创建路径都必须具有对称的 cancel、stream close、lease release 和 registry cleanup。Agent definition、Workflow 与 Workspace 的持久化仍属于 AI services。
 

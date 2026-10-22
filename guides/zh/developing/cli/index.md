@@ -1,6 +1,4 @@
-# CLI <Badge type="warning" text="WIP" />
-
-> 本页目前只定义 CLI 的目录与 ownership，命令树、配置、连接和运行流程仍待逐项补充。
+# CLI
 
 `cmd/gizclaw` 是 GizClaw CLI 的 executable 入口，`cmd/internal` 保存 CLI 组装、命令、连接、日志、路径、服务和本地 store 等内部实现。
 

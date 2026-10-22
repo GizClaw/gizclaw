@@ -1,5 +1,9 @@
 # pkgs/store/objectstore
 
+[Storage configuration implementation](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/storage)
+
+[Source](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/objectstore)
+
 `pkgs/store/objectstore` defines provider-neutral, prefix-addressable binary
 object storage. An object name is a relative slash-separated key. Callers can
 stream one object, list or delete a prefix, and attach a deadline or TTL.
@@ -7,14 +11,6 @@ stream one object, list or delete a prefix, and attach a deadline or TTL.
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/objectstore)
 
 ## Contract and ownership
-
-| Symbol | Function |
-| --- | --- |
-| `ObjectStore` | Get, streaming overwrite, expiration, idempotent Delete, DeletePrefix, and List |
-| `ObjectInfo` | Object name, size, and deadline |
-| `Root` / `NewRoot` | Borrows a rooted local filesystem handle |
-| `NewVolcTOS`, `NewAliyunOSS`, `NewGCS`, `NewAzureBlob` | Borrow official cloud SDK clients owned by physical Storage |
-| `LocalDirProvider` | Identifies only local filesystem-backed stores |
 
 Names are relative normalized slash keys. Empty object names, absolute paths,
 parent traversal, and the reserved `.objectstore-meta` namespace are rejected.
@@ -69,14 +65,6 @@ stores:
 ```
 
 Supported physical configurations are:
-
-| Kind | Required fields | Authentication |
-| --- | --- | --- |
-| `filesystem.dir` | `dir` | process filesystem permissions |
-| `volc-tos` | `endpoint`, `region`, `bucket`, `access_key_id`, `access_key_secret` | optional `session_token` |
-| `aliyun-oss` | `endpoint`, `bucket`, `access_key_id`, `access_key_secret` | optional `security_token` |
-| `gcs` | `bucket` | ADC, or optional `credentials_file` |
-| `azure-blob` | `account_url`, `container` | `DefaultAzureCredential` (managed/workload identity, environment, or developer credentials) |
 
 Buckets and containers must already exist. Production endpoints and account
 URLs must use HTTPS. `${VAR}` expansion and workspace-relative resolution of a

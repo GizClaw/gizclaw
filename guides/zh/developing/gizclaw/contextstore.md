@@ -1,8 +1,10 @@
 # Context Store
 
+[源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/contextstore)
+
 `pkgs/gizclaw/contextstore` 管理 GizClaw 客户端的本地连接 Context。每个 Context 绑定一个本地 Giznet identity 和一个目标 Server endpoint；CLI 或其他客户端先选择 Context，再使用其中的配置建立连接。
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/contextstore)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/contextstore)
 
 ## 磁盘结构
 
@@ -34,46 +36,10 @@ server:
 
 ## Config 结构
 
-```mermaid
-classDiagram
-    class Config {
-        string Description
-        IdentityConfig Identity
-        ServerConfig Server
-    }
-    class IdentityConfig {
-        giznet.Key PrivateKey
-    }
-    class ServerConfig {
-        string Endpoint
-        BaseURL() string
-    }
-    class Context {
-        string Name
-        string Dir
-        Config Config
-        giznet.KeyPair KeyPair
-    }
-    class Summary {
-        string Name
-        string Description
-        bool Current
-        string Endpoint
-        giznet.PublicKey LocalPublicKey
-    }
-
-    Config --> IdentityConfig
-    Config --> ServerConfig
-    Context --> Config
-```
-
-| YAML 字段 | Go 字段 | 含义 | 规则 |
-| --- | --- | --- | --- |
-| `description` | `Config.Description` | Context 的可选说明。 | 创建时去除首尾空白；可省略。 |
-| `identity.private-key` | `IdentityConfig.PrivateKey` | 当前 Context 的本地 Giznet private key。 | 必填；必须能构造有效 `giznet.KeyPair`。 |
-| `server.endpoint` | `ServerConfig.Endpoint` | 目标 Server HTTP 接入点。 | 必填；取 `http://` 或 `https://` 基础 URL，例如 `https://ap.gizclaw.com`。裸 `host:port` 仍然接受，并归一化为 `http://host:port`。结尾斜杠会被去掉，查询串、fragment 和 userinfo 会被拒绝。 |
-
-解析 `config.yaml` 时启用 unknown-field rejection。拼错或未定义的 YAML 字段会直接返回错误，不会被静默忽略。
+配置把本地身份和目标 Server 接入点放在同一个 Context 中。字段与校验由
+[context.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/contextstore/context.go)
+定义，具名 Context 的选择与磁盘操作见
+[store.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/contextstore/store.go)。
 
 ## 加载流程
 
@@ -89,22 +55,6 @@ flowchart TB
 ```
 
 `LoadSummary` 走相同的配置与 private-key 校验，但只返回列表 UI 所需的名称、说明、endpoint、current 状态和本地 public key。
-
-## 核心结构与主函数
-
-| 符号 | 作用 |
-| --- | --- |
-| `Config` | `config.yaml` 的完整 typed representation。 |
-| `Context` | 已加载的 Context 目录、配置和派生 KeyPair。 |
-| `Summary` | Context 列表使用的轻量 metadata。 |
-| `Store` | 以 `Root` 为边界管理多个 Context。 |
-| `Load` / `LoadConfig` / `LoadSummary` | 加载完整 Context、严格配置或列表摘要。 |
-| `Store.Create` / `CreateWithOptions` | 校验名称和 endpoint，生成 identity 并写入新 Context。 |
-| `Store.Use` | 更新 `current` symlink 以切换 Context。 |
-| `Store.Current` / `LoadByName` | 加载当前或指定名称的 Context。 |
-| `Store.List` / `ListSummaries` | 按名称排序列出 Context，并标记当前项。 |
-| `Store.Delete` | 删除具名 Context，并在必要时移除 `current`。 |
-| `validateName` / `normalizeServerURL` | 限制目录名称，并把 endpoint 归一化为 `http` 或 `https` 基础 URL。 |
 
 ## Ownership 边界
 

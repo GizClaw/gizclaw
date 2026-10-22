@@ -1,4 +1,4 @@
-# TypeScript SDK <Badge type="warning" text="WIP" />
+# TypeScript SDK
 
 GizClaw 提供两个 npm package，按角色划分，都作为 `v*` GitHub Release 资产分发：
 
@@ -7,7 +7,7 @@ GizClaw 提供两个 npm package，按角色划分，都作为 `v*` GitHub Relea
 | `@gizclaw/gizclaw` | `sdk/js/gizclaw` | 设备端：让 Browser/Node 作为 GizClaw 设备/Peer 接入，含 Admin HTTP、RPC、signaling 与 Telemetry | encrypted `/webrtc/v1/offer` signaling 与 WebRTC DataChannel |
 | `@gizclaw/gizclaw-control` | `sdk/js/gizclaw-control` | 控制端：用 [API Key](../api-keys) 读取并控制绑定的设备 | HTTPS `/gizclaw/v1/*` |
 
-`@gizclaw/gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力。设备端 client 初始化、运行时要求与 RPC 调用的说明仍待补充；本页覆盖 `@gizclaw/gizclaw-control` 与设备端握手准入凭证。
+`@gizclaw/gizclaw` 与 C SDK 的 `sdk/c/gizclaw` 对应同一侧能力。本页介绍 `@gizclaw/gizclaw-control` 与设备端握手准入凭证。
 
 ## 安装 `@gizclaw/gizclaw-control`
 
@@ -109,7 +109,3 @@ connection options 的 `credential`。握手通过后仍需调用 `server.regist
 设备端在 `deviceControl` 安装 `readMhsHwd` / `writeMhsHwd`。外层 RPC 请求携带 `id`、HWD 和 protobuf `payload`；`CLIENT_HWD_IDS` 及 `encodeClientHwdWriteRequestPayload` / `decodeClientHwdReadResponsePayload` 等生成函数负责按 HWD 编解码。控制端先调用 `getMhsManifest()`，再调用 `readMhsHwd({id:"speaker.main",hwd:"speaker"})` 或 `writeMhsHwd({id:"speaker.main",hwd:"speaker",value:{volume_percent:35}})`。每次只访问一个实例，写入返回实际生效值。
 
 manifest 只声明实例，不自定义字段结构。wifi、ble、modem、battery、mic 只读；display、led、speaker 可写。详见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
-
-## tool/v0 过程
-
-设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

@@ -1,10 +1,12 @@
 # pkgs/gizclaw
 
+[Service registration](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_service.go)
+
 `pkgs/gizclaw` is the core package of GizClaw product layer. It combines API contract, domain services, Peer Runtime and Server public surface on top of the universal connection and transport provided by `pkgs/giznet`.
 
 This directory holds GizClaw Server behaviors that can be reused by CLI Server, desktop, or other hosts; the process-specific configuration loading, storage backend selection, and startup processes belong to `cmd/`.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
 
 ## Document structure
 
@@ -47,50 +49,6 @@ pkgs/gizclaw/
 
 `pkgs/gizclaw` Divide a giznet connection into multiple independent product surfaces. `Service*` The name is only used for RPC or HTTP carried on the reliable giznet service stream; the service ID also determines which handler is used at both ends of the connection, and also constitutes the authorization boundary of the Server security policy.
 
-| Service | ID | Agreement and Responsibilities | Access Boundary |
-| --- | ---: | --- | --- |
-| `ServicePeerRPC` | `0x00` | Business RPC between Peer and Server | Any connection identity |
-| `ServicePeerHTTP` | `0x01` | Server information, login, WebRTC Offer and current Peer information | Any connection identity |
-| `ServicePeerOpenAI` | `0x02` | Expose OpenAI-compatible HTTP through Peer connection | Any connection identity |
-| `ServiceAdminHTTP` | `0x10` | Resource Management and Operation HTTP API | active `admin` Peer |
-| `ServiceEdgeHTTP` | `0x30` | Edge forwards public API requests to the authoritative Server | active `edge-node` Peer |
-| `ServiceEdgeRPC` | `0x31` | Edge lookup, assignment and routes; bidirectional internal social notifications | active `edge-node` on Server; configured Server on Edge |
-
-```mermaid
-classDiagram
-    direction LR
-
-    class AnyConnectionIdentity {
-        Includes unregistered Peers
-        ServicePeerRPC 0x00
-        ServicePeerHTTP 0x01
-        ServicePeerOpenAI 0x02
-    }
-
-    class Client {
-        role client
-        No additional services
-    }
-    class Server {
-        role server
-        No additional services
-    }
-    class Admin {
-        role admin
-        +ServiceAdminHTTP 0x10
-    }
-    class EdgeNode {
-        role edge-node
-        +ServiceEdgeHTTP 0x30
-        +ServiceEdgeRPC 0x31
-    }
-
-    AnyConnectionIdentity <|-- Client : after registration
-    AnyConnectionIdentity <|-- Server : after registration
-    AnyConnectionIdentity <|-- Admin : active
-    AnyConnectionIdentity <|-- EdgeNode : active
-```
-
 The "any connection identity" here is a service-level policy, not a `PeerRole`. Unregistered Peers, as well as Peers registered as `client`, `server`, `admin` or `edge-node`, can open three general peer services. Specific endpoints can still continue to check session, registration status or role at the handler layer.
 
 ### Boundaries of each surface
@@ -110,13 +68,7 @@ The "any connection identity" here is a service-level policy, not a `PeerRole`. 
 
 ### Event and Media do not belong to Service
 
-The following identifiers are also defined by `pkgs/gizclaw`, but do not belong to the HTTP/RPC service layout above:
-
-| Identifier | Value | Transport semantics |
-| --- | ---: | --- |
-| `EventStreamAgent` | `0x20` | Reliable Agent event stream |
-| `EventStreamTelemetry` | `0x40` | Unreliable telemetry event packet |
-| `MediaStreamOpus` | `audio/opus` | WebRTC Opus media track codec |
+Event and media transports have separate entrypoints from HTTP/RPC services; their identifiers are defined in the source linked above.
 
 Therefore, use `Service*` when adding an RPC or HTTP surface; when adding an event or media capability, you should first determine whether it is a reliable event stream, a direct packet, or a WebRTC media track. You cannot put it into the Service namespace just because it shares a Peer connection.
 

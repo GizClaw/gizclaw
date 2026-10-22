@@ -1,24 +1,10 @@
 # pkgs/store/kv
 
+[Source](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/kv)
+
 `pkgs/store/kv` provides exact-key reads, writes and deletes, plus membership operations and bounded ordered ranges within explicitly addressed collections. String-segment keys define namespaces; the Store does not enumerate database keys.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/store/kv)
-
-## Core structure and implementation
-
-| Symbol | Function |
-| --- | --- |
-| `Key` / `Entry` | Express segmentation keys and read results. |
-| `Store` | Define exact CRUD, required batch reads, collection operations and atomic mutations. |
-| `GetResult` | Own one batch value or per-key error in input order. |
-| `Options` | Configure store behaviors such as key separator. |
-| `Memory` / `NewMemory` | In-process ordered store. |
-| `Badger` / `NewBadger` | Badger-backed persistent implementation. |
-| `SQL` / `NewSQLWithDB` | Borrows a SQLite/PostgreSQL pool and maps the logical prefix to a physical table. |
-| `Redis` / `NewRedisWithClient` | Borrows a single-node Redis client and preserves the full ordered and atomic Store contract. |
-| `TiKV` / `NewTiKVWithClient` | Borrow a TxnKV client for cross-region atomic mutations, collections, and optional regional stale reads. |
-| `WithStrongReads` | Read committed authority and fences while retaining prefixes and the shared atomic root. |
-| `Prefixed` | Add a fixed key namespace to the existing Store. |
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/kv)
 
 ## Ownership Boundary
 

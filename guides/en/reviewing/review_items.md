@@ -12,7 +12,7 @@ The review begins by building a set of rules in the following order:
 4. Read the corresponding [coding specification](../coding-styles/) according to the file type.
 5. When changing the API, RPC, generated code or SDK, read the documentation and implementation of the source contract, provider, adapter and all committed consumers at the same time.
 
-When multiple ownership roots are involved in a review, all applicable documents must be merged. When issues, documents, schemas, and production code conflict with each other, the conflict should be clearly pointed out as a problem and you cannot choose a more convenient side as the basis for review.
+Combine all applicable rules when a review spans ownership roots. Code and schemas define implemented behavior; correct documentation that disagrees. Then check the implementation against agreed requirements in the user request, PR, or Issue, without treating planned work as current capability.
 
 ### Paths and development guides
 
@@ -37,7 +37,7 @@ When multiple ownership roots are involved in a review, all applicable documents
 | `sdk/js/**` | Corresponds to [HTTP API](/en/developing/api/http/overview) or [Proto API](/en/developing/api/proto/overview), and [JavaScript and TypeScript](/en/coding-styles/js) | SDK surface, client generation, runtime differences and error handling |
 | `sdk/flutter/**` | Corresponding API/Proto documentation, and [Dart and Flutter](/en/coding-styles/dart-flutter) | Dart SDK contract, WebRTC transport, Stream and generated message |
 | `sdk/c/**` | Corresponds to [Peer RPC](/en/developing/api/proto/rpc/overview), and [C and cgo](/en/coding-styles/c) | C API/ABI, nanopb generated code, ownership and cgo bridge |
-| `guides/**`, `README.md`, `AGENTS.md` | [Document Coding Specifications](/en/coding-styles/docs) | Final form, source of truth, links, navigation, commands and repetitions source of truth |
+| `guides/**`, `README.md`, `AGENTS.md` | [Document Coding Specifications](/en/coding-styles/docs) | Code and schemas as SSoT; explanatory documentation, links, navigation, examples, and duplicated definitions |
 | `.github/**` | [Document Coding Specification](/en/coding-styles/docs) and repository root `AGENTS.md` | Workflow permissions, SHA pin, secret boundary and actual execution commands |
 | `tests/**`, `examples/**` | All development documents and corresponding coding specifications of the module being tested or demonstrated | Testing whether to prove the production contract rather than establishing a second set of behaviors |
 
@@ -136,6 +136,7 @@ Paths in the table are matched by ownership and do not require that a subdirecto
 
 ### Documentation
 
+- Does the documentation copy code or schema definitions into hand-maintained inventories, tables, or types? Replace them with source or generated-reference links.
 - Whether endpoints, methods, packages, directories, configurations, and commands are supported by the current code or schema.
 - Are diagrams, links, directory trees, and completion status accurate.
 - Whether stable documents are mixed with temporary issues, unimplemented solutions or machine environments.

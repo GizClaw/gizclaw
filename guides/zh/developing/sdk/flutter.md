@@ -1,6 +1,4 @@
-# Flutter SDK <Badge type="warning" text="WIP" />
-
-> 本页说明两个 Dart package 的目录、边界与验证方式；`gizclaw` 内部的 client、signaling、transport、RPC 与 PIXA 模块仍待逐项展开。
+# Flutter SDK
 
 `sdk/flutter/` 下有两个 package，分别对应 GizClaw 的两侧：
 

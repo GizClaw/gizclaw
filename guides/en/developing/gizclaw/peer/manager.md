@@ -1,6 +1,8 @@
 # Management
 
-`Implementation file: peer_manager.go`
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+Source：[peer_manager.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_manager.go)
 
 `peer_manager.go` Maintain the online peers currently visible to the Server, and provide peer operation portals for other GizClaw components.
 
@@ -9,22 +11,6 @@
 | `peer_manager.go` | Maintain online Peer and connection replacement; connect online, offline and forced disconnection; query connections and Peer runtime; ensure the existence of Peer resources; refresh device hardware, SN, IMEI and labels through Peer RPC; coordinate concurrent updates of telemetry status. |
 
 This prefix has server-perspective online connection indexing and cross-connection operations, but does not have a peer persistence model. The Peer resource itself belongs to `services/runtime/peer`.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| [`Manager`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager) | Aggregate domain services and maintain an index of public key to online connection. |
-| [`NewManager`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#NewManager) | Create Manager and set up Peer service. |
-| `activePeer` | Stores the currently active connection of a single Peer. |
-| [`Manager.SetPeerUp`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerUp) / [`SetPeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.SetPeerDown) / [`ForcePeerDown`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.ForcePeerDown) | Manage connection online, conditional offline and forced offline. |
-| `allowService` / `allowActivePeerRole` | Determine Giznet service admission based on Peer role. |
-| [`Manager.Peer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.Peer) / [`PeerRuntime`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.PeerRuntime) / `PeerPresence` / `PeerRunningWorkspace` | Query online connection, runtime snapshot, the `online` and `last_seen_at` used by Friend and Friend Group member lists, or whether the Peer's active connection is running a given Workspace, which the Friend Group member list reports as `in_room`. |
-| [`Manager.EnsurePeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.EnsurePeer) | Ensure that the persistent Peer resource exists. |
-| [`Manager.RefreshPeer`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Manager.RefreshPeer) / `refreshPeer` | Via Peer RPC Pull device information and write changes back to the Peer resource. |
-| `peerRPCConn` / `callPeerRPC` | Open Peer RPC stream and execute typed RPC call. |
-| `retainTelemetryStatusLock` / `releaseTelemetryStatusLock` | Manage telemetry status and update the lock life cycle by public key. |
-| `applyPeerRefreshInfo` / `applyPeerRefreshIdentifiers` | Merge RPC refresh response into the persistent Peer model. |
 
 Connection activation reserves its public key under the Manager lock, checks durable Peer availability without holding the global lock, and publishes the exact connection only while that reservation remains current. Blocked status, a pending marker, or a permanent tombstone fails activation; a reconnect waiting behind self-delete neither reuses the retained record nor creates a new generation. A reservation without a published connection is offline. An existing generation stays available while its replacement is being ensured; forced offline clears that generation without discarding the replacement reservation, and transport service loops start only after the new connection is published. Connection-scoped self-delete first publishes deleting state and then commits the durable marker. After commit, Manager quiesces the identity, and replacement activation, registration, and server-initiated Peer RPC remain rejected by the durable fence while unrelated Peers stay available.
 

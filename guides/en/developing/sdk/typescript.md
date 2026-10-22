@@ -1,6 +1,4 @@
-# TypeScript SDK <Badge type="warning" text="WIP" />
-
-> This page describes the directories, contract boundaries, generation flow, and release contract of the two npm packages. The public surface and runtime behavior of `@gizclaw/gizclaw` are still to be expanded one by one.
+# TypeScript SDK
 
 `sdk/js/` is an npm workspace with two publishable packages and shared generation scripts:
 

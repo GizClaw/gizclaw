@@ -2,7 +2,7 @@
 
 `pkgs/gizclaw/customid` Saves custom resource ID rules used by multiple GizClaw domains, including construction, formatting, and parsing boundaries for stable IDs and compound IDs.
 
-[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw/customid)
+[Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid)
 
 ## Directory location
 

@@ -12,7 +12,7 @@
 4. 根据文件类型读取对应[编码规范](../coding-styles/)。
 5. 改动 API、RPC、生成代码或 SDK 时，同时读取 source contract、provider、adapter 和全部 committed consumer 的文档与实现。
 
-一个审查对象涉及多个 ownership root 时，必须合并所有适用文档。Issue、文档、Schema 和生产代码互相冲突时，应把冲突作为问题明确指出，不能自行选择更方便的一边作为审查依据。
+一个审查对象涉及多个 ownership root 时，必须合并所有适用规则。已实现行为以代码和 Schema 为准，文档不一致时修正文档；再核对实现是否满足用户请求、PR 或 Issue 中已确认的需求，不把待实现计划当作当前能力。
 
 ### 路径与开发指引
 
@@ -37,7 +37,7 @@
 | `sdk/js/**` | 对应 [HTTP API](/zh/developing/api/http/overview) 或 [Proto API](/zh/developing/api/proto/overview)，以及 [JavaScript 与 TypeScript](/zh/coding-styles/js) | SDK surface、生成 client、runtime 差异和错误处理 |
 | `sdk/flutter/**` | 对应 API/Proto 文档，以及 [Dart 与 Flutter](/zh/coding-styles/dart-flutter) | Dart SDK contract、WebRTC transport、Stream 与生成 message |
 | `sdk/c/**` | 对应 [Peer RPC](/zh/developing/api/proto/rpc/overview)，以及 [C 与 cgo](/zh/coding-styles/c) | C API/ABI、nanopb 生成代码、ownership 与 cgo bridge |
-| `guides/**`、`README.md`、`AGENTS.md` | [文档编码规范](/zh/coding-styles/docs) | 最终形态、事实来源、链接、导航、命令和重复 source of truth |
+| `guides/**`、`README.md`、`AGENTS.md` | [文档编码规范](/zh/coding-styles/docs) | 代码与 Schema 为 SSoT；文档只作说明，检查链接、导航、示例和重复定义 |
 | `.github/**` | [文档编码规范](/zh/coding-styles/docs) 和仓库根 `AGENTS.md` | Workflow 权限、SHA pin、secret boundary 与实际执行命令 |
 | `tests/**`、`examples/**` | 被测试或演示模块的全部开发文档及对应编码规范 | 测试是否证明 production contract，而非建立第二套行为 |
 
@@ -138,6 +138,7 @@
 
 ### 文档
 
+- 是否把代码或 Schema 中已有的定义复制为手工维护的清单、表格或类型；应改用源码或生成 Reference 链接。
 - endpoint、method、package、目录、配置和命令是否由当前代码或 Schema 支持。
 - 图表、链接、目录树与完成状态是否准确。
 - 稳定文档是否混入临时 Issue、未实现方案或机器环境。

@@ -1,6 +1,10 @@
 # Server
 
-`Implementation file: server.go`
+[Definitions and implementation](https://github.com/GizClaw/gizclaw/tree/main/cmd/internal/server)
+
+[Go API Reference](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/gizclaw)
+
+Source：[server.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/server.go)
 
 Defines a reusable `Server` composition root: receive identity, Peer listeners, explicit Store capabilities, and runtime configuration; initialize services; start HTTP and Peer listeners; process Peer events; and manage shutdown. It has no Store-name or prefix fallback.
 
@@ -48,8 +52,7 @@ relative to the workspace after [environment expansion](#environment-expansion).
 duplicate address, partial pair, or invalid certificate fails before traffic is
 served.
 
-The removed top-level `listen` and `endpoint` fields are rejected; both values
-must be nested under `webrtc`.
+Configure `listen` and `endpoint` under `webrtc`.
 
 ```yaml
 webrtc:
@@ -94,20 +97,6 @@ separate Edge process.
 
 The main capability groups are:
 
-| Service fields | Capability |
-| --- | --- |
-| `services.peer.store` | `keyvalue`; owns shared Peer records and fixed Server routes |
-| `services.peer_run.store` | `sql`; owns Server-local Peer status and Agent selection state |
-| `services.api_key.store` | `keyvalue`; stores API keys, secret indexes, and owner indexes, and must be shared for multi-Server API routing |
-| credential, firmware, RuntimeProfile, model, voice, MemoryLayout, provider tenants, workflow, workspace, toolkit and contact | `sql`; services own their business tables |
-| friend and Friend Group | `keyvalue`; code owns internal collection prefixes |
-| `services.workspace.history_assets_store`, `services.workspace.assets_store`, `services.agent_host.runtime_store` | `objectstore` |
-| `services.workspace.history_store` | `sql` |
-| `services.agent_host.persistence.state_store` | `sql` |
-| `services.metrics.store` | `metrics` |
-| `services.sfu` | references no Store; `url` is the LiveKit `ws://`/`wss://` signaling URL, `api_key_file` and `api_secret_file` are read at startup, `recheck_interval`, `reconnect_timeout`, `talk_hangover`, and `floor_idle` are optional; see [services/social](/en/developing/gizclaw/services/social#configuration) |
-| `services.system_log.query_store` and Store sinks | `log`, providing `logstore.Store` |
-
 Friend Group groups, invite tokens, members, and belongs are code-owned scopes over one Service Store, so they share one atomic KV transaction boundary. Shared ObjectStores require non-empty, clean, non-overlapping prefixes. Missing references, wrong kinds, and unknown fields fail before listeners open.
 
 `services.agent_host.persistence.state_store` binds shared SQL state, injected into Workflow factories as `GraphStateDB`; an Eino Workflow declaring `state_persistence` requires that reference. `services.workspace.history_store` is the sole conversation History binding, and Eino receives its `memory.HistoryReader` without an internal History Store. `services.agent_host.eino` and `services.agent_host.flowcraft` are unknown fields.
@@ -115,8 +104,6 @@ Friend Group groups, invite tokens, members, and belongs are code-owned scopes o
 In a multi-Server topology, all Servers may bind Peer, Friend, and Friend Group control-plane Stores to distinct prefixes on one Redis 7.0 connector. `services.peer_run.store` uses a Server-local SQL Store for runtime state. Client activation atomically claims an unassigned Peer or verifies the existing fixed Server owner before publishing the connection or starting service work. RuntimeProfile, Workspace, History, Memory, assets, and other runtime Stores remain Server-local; this composition does not provide Workspace routing or failover.
 
 Startup strictly parses the configuration, opens physical connectors, builds logical Stores, resolves service capabilities, lets active SQL-backed services validate their schemas, and installs logging and metrics. After workspace PID ownership is acquired, optional process profiling resolves its dedicated ObjectStore and publishes a baseline; only then are public listeners opened and `Server.Listen` started. Logical Stores never close borrowed connectors. Shutdown joins the profiling worker before closing logging, logical wrappers, and physical connectors. Process profiling belongs to `cmd/internal/server`; the reusable `pkgs/gizclaw.Server` has no pprof dependency.
-
-The old one-layer Store configuration, top-level pseudo-service blocks, implicit Store names, and `gizclaw migrate` command are unsupported. One-time Workspace History conversion uses [history-migrate](../../stores/memory#history-migration). ClickHouse Store table initialization remains active schema lifecycle, not old-data migration.
 
 Before initializing Workspace History, Server checks its SQL connector for legacy History records. Remaining records stop startup with actual source parent names; run the offline [History migration](../../stores/memory#history-migration) before retrying.
 
@@ -146,21 +133,4 @@ Recovery only accesses exact durable bucket keys and their intent records. [Soci
 
 `Server.Close` cancels and joins all Social recovery workers before stopping the pending-deletion processor and releasing runtime resources. A later `Listen` discovers work again from the durable indexes.
 
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| [`Server`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server) | The composition root of GizClaw Server can be reused. |
-| [`PeerListenerOptions`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerListenerOptions) / [`PeerListenerFactory`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#PeerListenerFactory) | Describe and create Peer listener. |
-| [`Server.ServeHTTP`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.ServeHTTP) | Service Server HTTP surface. |
-| [`Server.Listen`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Listen) / [`Serve`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Serve) | Create listeners and accept Peer connections. |
-| [`Server.PublicKey`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.PublicKey) | Return Server identity public key. |
-| [`Server.PeerService`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.PeerService) / [`Manager`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Manager) | Return the assembled Peer service or online Peer Manager. |
-| `init` | Initialize stores, domain services, HTTP mux and Peer Runtime. |
-| `servePeerListener` | Accepts Peer connections on a single listener. |
-| `startCleanup` | Start background resource cleanup. |
-| [`Server.Close`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go@v0.0.0-20260707135347-b9bf1fb24b9f/pkgs/gizclaw#Server.Close) | Stop listeners, background tasks and close Server resources. |
-
-## Hourly Peer usage
-
-Optional `services.peer_usage.store` binds a SQL pool to hourly provider model/resource quantities. Shared SQL day maintenance and a worker drain before pool closure implement retention and lifecycle. See [Peer usage](/en/developing/gizclaw/services/runtime/peerusage).
+See [Peer usage](/en/developing/gizclaw/services/runtime/peerusage) for `services.peer_usage.store` configuration and persistence.

@@ -8,12 +8,12 @@ PR Agent 审查面向远程 Codex reviewer。Reviewer 只提交一次完整、�
 
 - PR 的 base/head 与完整 diff；
 - PR 标题和 review-ready commit history；
-- 关联 Issue、设计文档和 acceptance criteria；
+- PR 说明中的需求、scope 和验收标准，以及关联的 Issue、设计文档（如有）；
 - 仓库及相关目录的 `AGENTS.md`；
 - 改动语言对应的[编码规范](../coding-styles/)；
 - 作者声明的测试和验证结果。
 
-PR 标题和 commit history 默认按照 [PR 与 Commit 格式](./pr-commit-format) 检查。PR body 的措辞和排版不属于默认 metadata 检查，但仍需读取其中的 scope、关联 Issue 和 validation 声明。
+PR 标题和 commit history 默认按照 [PR 与 Commit 格式](./pr-commit-format) 检查。PR body 的措辞和排版不属于默认 metadata 检查，但仍需读取其中的需求、scope 和 validation 声明；Issue 仅在已关联时作为补充依据。
 
 ## 审查流程
 

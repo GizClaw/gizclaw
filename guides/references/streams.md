@@ -1,225 +1,67 @@
 # Streams
 
-一条 GizClaw Peer connection 同时承载实时 media、direct packet 和可靠 service stream。它们的可靠性、生命周期和载荷不同，不能把所有数据都当作同一种“stream”。
-
-```mermaid
-flowchart LR
-    Client["Client / Device"] --> MediaUp["Opus RTP 上行 track<br/>Client → Server"] --> Server["GizClaw Server"]
-    Client --> MediaDown["Opus RTP 下行 track<br/>Server → Client"] --> Server
-    Client --> Packet["Direct Packet<br/>Telemetry 等低延迟数据"] --> Server
-    Client --> EdgeChannels["Gateway native channels<br/>control + packet + service"] --> Server
-    Client --> EdgeOpus["Gateway shared Opus lane<br/>Session ID + Opus"] --> Server
-    Client --> Events["Peer Event Stream 0x20<br/>长期、双向"] --> Server
-    Client --> Services["RPC / HTTP Stream<br/>按请求动态创建（0 至 N 条）"] --> Server
-```
+GizClaw 在同一 Peer connection 上组合实时媒体、direct packet 与可靠 service stream。它们承担不同任务：媒体关注连续播放，packet 承载可丢弃的状态上报，service stream 承载请求、响应和事件。
 
 ## Transport overview
 
-| Stream | 方向 | 承载与可靠性 | 生命周期 | 主要载荷 |
-| --- | --- | --- | --- | --- |
-| Opus media uplink | Client / Device → Server | WebRTC audio RTP | Peer connection 级别的一条 remote track | 麦克风实时 Opus packets。 |
-| Opus media downlink | Server → Client / Device | WebRTC audio RTP | Peer connection 级别的一条 remote track | Agent 输出经 mixer 合成后的实时 Opus packets。 |
-| Direct packet | 双向 | unordered、`maxRetransmits=0` DataChannel | 一条 connection 级长期 channel | 单字节 protocol 加 packet payload；适合允许丢包的高频数据。 |
-| Gateway logical packet | Edge ↔ Server | 每个 session 一条 unordered、`maxRetransmits=0` DataChannel | logical connection 级长期 channel | 单字节 protocol 加原始 direct-packet payload；label 负责 session 路由。 |
-| Gateway Opus lane | Edge ↔ Server | physical unordered、`maxRetransmits=0` DataChannel | 每条 Edge upstream 一条，共享给多个 logical sessions | version、16-byte session ID 与 Opus payload。 |
-| Peer Event Stream | 双向 | reliable、ordered service DataChannel，ID `0x20` | 每条正常 Client / Device Peer connection 必须保持一条 | Protobuf BOS、EOS、文本和资源失效通知；不含实时音频 bytes。 |
-| RPC service stream | 双向 | reliable、ordered service DataChannel | 每次调用新建，完成后关闭 | Protobuf request/response、有限 binary stream。 |
-| HTTP service stream | 请求方 ↔ Provider | reliable、ordered service DataChannel | 每次 HTTP round trip 动态打开 | HTTP request 与 response。 |
+```mermaid
+flowchart LR
+    Client["Client / Device"] <-->|"实时音频"| Media["WebRTC media"]
+    Client -->|"遥测"| Packet["Direct packet"]
+    Client <-->|"请求与事件"| Service["Reliable service stream"]
+    Media <--> Server["GizClaw Server"]
+    Packet --> Server
+    Service <--> Server
+```
 
-因此总 stream 数量不是常量。正常 Client / Device Peer connection 的四条
-connection-scoped transport 是固定且必需的；每个并发 RPC 或 HTTP 请求都会在
-此基础上增加一条独立 service DataChannel。
+传输接口与 channel 语义见 [Giznet 源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/giznet)，产品 service 的注册与编号见 [Peer service](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_service.go)。
 
 ## 一条连接有多少个 stream
 
-| 类别 | 数量 contract | 说明 |
-| --- | ---: | --- |
-| Opus RTP uplink | 1 | Client / Device 麦克风上行。 |
-| Opus RTP downlink | 1 | Server 混音后的音频下行。 |
-| Direct packet DataChannel | 1 | Telemetry 等允许丢包的 connection-scoped packet。 |
-| Peer Event Stream | 1 | reliable、ordered 的 connection-owned `0x20`。 |
-| RPC service stream | 0–N | 按调用动态创建。 |
-| HTTP service stream | 0–N | 按 HTTP round trip 动态创建。 |
+connection owner 维护连接级媒体和 Event session；每次 RPC 或 HTTP 调用打开自己的 service stream。多个请求可以独立进行，关闭一次请求不等于关闭 Peer connection。
 
-Peer Event Stream 是 connection-scoped transport，不属于某个 Workspace 或页面。
-连接建立路径必须创建并等待它打开，再把连接报告为 ready。一个 Client 为一条
-Peer connection 维护一个 physical session，并在本地把事件分发给当前
-conversation、聊天 viewer 和资源 controller。页面 controller 只能订阅；打开、
-关闭、reload 或切换 Workspace 都不能创建、替换或关闭 physical `0x20`。
-
-任一必需 transport 意外关闭都会使整个 Peer connection 不再健康并触发完整关闭；
-重连创建的是一条具有全新四条 transport 的 Peer connection，不在旧连接内单独
-替换 Event。重复 packet channel、Event channel 或 Opus uplink 不能替换已接受的
-实例，也不能形成两个 active owner。
+App 应通过 SDK 共享连接和事件订阅，避免为每个页面创建一套物理通道。可用容量、队列大小和失败处理由对应 transport 与 SDK 实现定义。
 
 ## Audio streams
 
-WebRTC 两端各创建一条 Opus audio track：Client / Device 的 track 用于上行麦克风，Server 的 track 用于下行混音播放。Giznet API 以 `ProtocolOpusPacket 0x10` 暴露这些 Opus packets，但 WebRTC 实现会把该 protocol 映射到 RTP track，不会把它写进 direct packet DataChannel。
+实时 Opus 通过媒体轨传输，逻辑开始与结束通过 Event Stream 表达。RTP packet 不携带应用的逻辑流身份；使用 SDK 合并后的流接口接收音频，比 App 自行拼接两条通道更合适。
 
-音频的生命周期 metadata 通过 [Events](./events) 的 `bos` / `eos` 和 `kind=audio` 表达，实时音频 bytes 仍只走 RTP。下行连接只有一条固定 Opus track，因此混音总生命周期的 `mime_type` 为空；Agent source MIME 只用于 Server 内部解码。上行输入可以继续用 event MIME 描述其逻辑 route。
-
-Workspace reload 替换 Agent input 时，只替换逻辑 user-audio route。Server 通过现有
-Event Stream 发送 `INPUT_ROUTE_RELOADED` EOS，选择连续录音恢复的 Client 再在同一
-Event Stream 发送 fresh BOS。JavaScript Client 通过
-`createContinuousAudioRouteRearm` 声明 active continuous route；该 owner 自己订阅 EOS、
-发送 replacement BOS 并报告新的 stream ID，调用方不需要手动分发 EOS。这个 re-arm 不重新获取或停止麦克风，不调用
-`replaceTrack`，不重新协商 WebRTC，也不创建、关闭或替换 Opus uplink、Opus downlink、
-Direct Packet DataChannel、physical `0x20` Event Stream 或 PeerConnection。
-
-EOS 结束逻辑音频流时，独立 RTP 通道仍可能交付尾包。Go SDK `PeerStream` 忽略
-EOS 后、下一次 audio BOS 前的包；原始 RTP 接收与 Peer connection 保持运行。
-`IgnoredPostEOSAudioPackets()` 返回该 `PeerStream` 生命周期内累计忽略的包数。
-使用原始 media callback 的客户端仍由自身的音频消费层执行结束后的忽略策略。
+多个 source 由 Server 混音后交付；网络收包、逻辑输出结束与实际播放完成并非同一时刻。音频会话的使用说明见 [Events](./events#logical-stream-lifecycle)。
 
 ## Direct packets
 
-Direct packet channel 的每条消息由一个 protocol byte 和 payload 组成。`0x00`–`0x3f` 保留给 Giznet well-known protocols，`0x40`–`0xff` 可用于应用或自定义 protocol。
+Direct packet 用于低延迟状态上报，不适合需要业务确认的数据。Telemetry 的字段由 [peer_telemetry.proto](https://github.com/GizClaw/gizclaw/blob/main/api/proto/telemetry/peer_telemetry.proto) 定义，处理路径见 [Telemetry](/zh/developing/api/proto/telemetry)。
 
-| Protocol | 方向 | 作用 |
-| --- | --- | --- |
-| `0x10` `ProtocolOpusPacket` | 双向 API | Opus media 的 Giznet API 标识；WebRTC wire 使用 RTP，不占用 packet DataChannel。 |
-| `0x11` `ProtocolTunnelPacket` | Edge ↔ Server | Gateway physical upstream 上仅存的 session-tagged Opus payload；禁止 logical client 直接嵌套发送。 |
-| `0x40` `EventStreamTelemetry` | Client / Device → Server | 上报高频 telemetry packet。队列满时允许丢弃，不能用于必须可靠送达的状态。 |
-
-Direct Packet DataChannel 上收到 `0x10` 时必须静默丢弃，不能当作音频交付，也
-不能关闭 DataChannel 或 Peer connection。其他不支持的保留 protocol
-`0x00`–`0x3f` 同样静默丢弃；后续合法 packet、Event 和 service stream 继续工作。
-`0x40`–`0xff` 仍可交给上层注册方；上层未注册时由其忽略。
+协议选择和接收逻辑见 [Peer connection](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_conn.go) 与 [WebRTC packet transport](https://github.com/GizClaw/gizclaw/blob/main/pkgs/giznet/gizwebrtc/packet.go)。
 
 ## RPC streams
 
-RPC 使用可靠、有序的 service DataChannel。Service ID 选择 Provider，RPC frame 定义单条 channel 内的 framing，binary stream 则是在 RPC request 或 response 中传输有界 bytes。
-
-`server.workspace.history.audio.download` 的下载顺序为：request envelope、request EOS、response metadata envelope、一个或多个 binary frame、response EOS。客户端必须校验 `audio/*` MIME、累计 bytes 精确等于 `size_bytes`，并收到最终 EOS 后才把下载视为完整。
+RPC 在可靠、有序的 service stream 上传输。Schema 定义请求与响应，codec 负责 framing，handler 负责调用领域服务。调用方使用 SDK，避免在业务代码中自行编码 envelope 或数字 method ID。
 
 ### Service stream IDs
 
-每次 `Dial(serviceID)` 创建一条独立的可靠、有序 service DataChannel。相同 service ID 可以同时存在多条 channel。
-关闭或写入失败只影响对应 channel，不能替换或关闭相同 ID 的其他 channel，也
-不能占用或替换 connection-owned Event transport。C cgo backend 同时保留最多
-16 条本地主动创建的 service DataChannel，其中 connect 创建的 Event 占一条，因此正常连接还可同时打开 15 条 caller-created service channel。达到上限时新建明确返回 `GZC_ERR_CHANNEL_LIMIT`，不会复用或替换已有 channel；关闭一条后即可再次创建。
-
-| ID | 名称 | Provider / 用途 |
-| ---: | --- | --- |
-| `0x00` | `ServicePeerRPC` | Peer RPC。Client 调用 Server；Server 也可反向调用 Client provider。 |
-| `0x01` | `ServicePeerHTTP` | Peer HTTP API。 |
-| `0x02` | `ServicePeerOpenAI` | OpenAI-compatible HTTP API。 |
-| `0x10` | `ServiceAdminHTTP` | Admin HTTP API。 |
-| `0x20` | `EventStreamAgent` | 长期双向 Peer Event Stream；名称为兼容标识。 |
-| `0x30` | `ServiceEdgeHTTP` | Edge-node HTTP forwarding。 |
-| `0x31` | `ServiceEdgeRPC` | Edge-node 路由控制 RPC；配置上游 Server 与 active Edge 的双向内部社交通知。 |
+service ID 选择协议入口，不标识某一次请求。具体分配由 [Peer service 源码](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_service.go) 统一拥有；同一 service 的多次调用使用独立 channel。
 
 ### Gateway native channels
 
-Edge-to-Server 不再使用 `ServiceEdgeTunnel 0x32` 或 application-level stream mux。受信的
-active Edge 在同一条 physical WebRTC PeerConnection 上使用下列 canonical label：
+Edge 将客户端的逻辑连接转发到归属 Server，并为可靠调用、packet 与音频保留相应的数据通路。逻辑 session 的清理不应关闭同一 upstream 上的其他 session。
 
-```text
-giznet/v2/tunnel/<session-id>/control/<client-public-key>/<remote-addr-base64url>
-giznet/v2/tunnel/<session-id>/packet
-giznet/v2/tunnel/<session-id>/service/<service-id>/<channel-id>
-```
-
-control channel 可靠有序，只承载一次 `GZT2` Server acceptance result；它的 label 是
-logical client identity 与 endpoint 的唯一声明。packet channel 无序且
-`maxRetransmits=0`，每条消息只有 protocol byte 与 direct-packet payload。每个 Event、RPC、
-HTTP 或其他 service 使用独立的可靠有序 DataChannel；Edge 创建奇数 channel ID，Server
-创建偶数 channel ID。关闭一条 service channel 只关闭对应 logical stream。
-
-Opus 不进入这些 channel。它继续使用 `ProtocolTunnelPacket 0x11` 的 shared physical
-unreliable lane，并带 version 与 16-byte session ID。多个 native DataChannel 可隔离 writer、
-backpressure 和 close/reset，但仍共享一条 SCTP association 的拥塞控制；需要 aggregate
-throughput 时仍以独立 physical upstream 扩展。
-
-每个 session 默认最多 32 条 active tunnel channels，每条 upstream 最多 8192 条；默认
-2048 sessions 会占用 control、packet、mandatory Event 共 6144 条，并保留 2048 条并发
-request service。可靠写入同时受每 channel、1 MiB session 和 32 MiB association budget
-约束；buffered bytes 排空后才释放 reservation。
-
-HTTP endpoint 见 [Admin API](/api/)；RPC method 见 [RPC API Reference](./rpc)。
+转发实现见 [Giztunnel](https://github.com/GizClaw/gizclaw/tree/main/pkgs/giznet/giztunnel)，产品组装与路由说明见 [Gizedge](/zh/developing/gizedge)。
 
 ### RPC frames
 
-RPC service stream 内使用统一的 4-byte little-endian header：前 2 bytes 是 payload length，后 2 bytes 是 frame type。单个 frame payload 最大为 65,535 bytes。
+frame 的编码、类型和大小限制由 [RPC codec](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/rpcapi/codec.go) 定义。普通请求传输 envelope；需要二进制数据的调用在同一次请求中增加数据帧。
 
-| Type | 数值 | Payload | 作用 |
-| --- | ---: | --- | --- |
-| `FrameTypeEOS` | `0` | 必须为空 | 结束当前方向的一段 frame sequence。 |
-| `FrameTypeJSON` | `1` | JSON | RPC JSON payload；Peer Event Stream 不接受。 |
-| `FrameTypeBinary` | `2` | bytes | Protobuf envelope、PeerEvent 或业务 binary chunk。 |
-| `FrameTypeText` | `3` | text / continuation bytes | RPC text payload；Peer Event Stream 不接受。 |
-
-普通 unary RPC 的双方序列都是 `Protobuf envelope → EOS`。Binary RPC 在 request 或 response envelope 与 EOS 之间加入零个或多个 `FrameTypeBinary` chunks。`all.speed_test.run` 可以同时进行双向 binary frames；Firmware、history audio、Workspace icon 下载使用 Server → Client / Device binary frames。
-
-RPC EOS 结束当前方向的 frame sequence；完整 request/response lifecycle 结束后，Provider 关闭该 service DataChannel。它不等于 [Event `type=eos`](./events#four-different-end-boundaries)。一条 RPC DataChannel 只承载一个请求；顺序或提前缓冲的第二个请求不会被 dispatch，下一次 RPC 必须新建 channel。
+RPC 的结束标记只结束当前请求方向的数据序列，与 [Event 的逻辑结束](./events#four-different-end-boundaries) 不同。
 
 ### Binary streams
 
-以下都是 request-scoped RPC binary streams。Audio 只是其中一种业务 payload；
-这些数据不属于 WebRTC audio track，也不属于 Peer Event Stream。
+语音、图片、History 音频和 Lua 应用包可使用按请求传输的 binary stream。它们是有界数据传输，不是实时媒体轨。调用方按 SDK 返回的元信息消费数据，并在最终完成后再认定传输成功。
 
-| RPC method | Binary frames 方向 | Payload |
-| --- | --- | --- |
-| `client.lua.app.install` | Server → Client / Device | 完整 `.lua-app.tar.zlib` 压缩包；小型长度/SHA-256 元信息 → Binary chunks → 请求 EOS → 安装最终结果。 |
-| `all.speed_test.run` | 双向 | 指定长度的测速 bytes。 |
-| `server.speech.transcribe` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回最终 transcript。 |
-| `server.speech.extract` | Client / Device → Server | Request envelope 后上传的有界音频；Server 返回 transcript 与 schema-constrained JSON。 |
-| `server.speech.synthesize` | Server → Client / Device | Response metadata 后返回的有界合成音频。 |
-| `server.workspace.history.audio.download` | Server → Client / Device | Workspace history 音频。 |
-| `server.workspace.icon.download` | Server → Client / Device | Workspace icon。 |
-
-每个方向都以 RPC EOS 结束。方法参数和用途见 [RPC API Reference](./rpc)，其中语音方法位于[独立流式语音](./rpc#独立流式语音)，history audio 位于 [Workspace 与 history](./rpc#workspace-与-history)。
-
-更完整的 Peer connection 组件职责见[开发指引：Connection](/zh/developing/gizclaw/peer/conn#传输-contract)。
+具体方法与消息从 [RPC Reference](./rpc) 进入对应 Schema；C 的 request 生命周期见 [gzc_rpc.h](https://github.com/GizClaw/gizclaw/blob/main/sdk/c/gizclaw/include/gzc_rpc.h)。
 
 ## Reliable ordered service stream writing
 
-HTTP、RPC 与 Event 的上层 framing 不因 DataChannel 分片而改变；DataChannel message boundary 不是上层 frame boundary。所有 reliable、ordered `giznet/v1/service/<id>` DataChannel 都遵守同一写入模型：
+可靠 channel 的写入要遵守 transport 背压。调用方允许一次写入分多步推进，不能把 DataChannel message 边界当作上层 frame 边界。取消与关闭应结束自己拥有的请求，并释放缓冲和订阅。
 
-- 每个 channel 只有一个串行 writer，并发逻辑写入的 bytes 不会交错。
-- 原生 DataChannel message 上限按 SDK 资源边界选择：Go、JavaScript 与 Flutter 使用 16 KiB，嵌入式 C SDK 使用 4 KiB；接收端按连续 byte stream 重组 HTTP 或 RPC/Event frame。
-- writer 在 buffered amount 到达 high-water 时停止入队，只在 buffered-amount-low 通知后确认队列不高于 low-water 才恢复。
-- 写入完成只表示全部 bytes 已被本地 WebRTC 发送队列接受，不表示远端已经接收或处理。
-- close、error、send failure 以及调用路径已有的 timeout/cancellation 会唤醒并终止 active/queued writes。部分逻辑写入失败后，该 service channel 必须关闭，剩余 bytes 不会换新 channel 重试。
-
-| SDK | High-water | Low-water | Native message max |
-| --- | ---: | ---: | ---: |
-| Go server | 1 MiB | 256 KiB | 16 KiB |
-| JavaScript | 1 MiB | 256 KiB | 16 KiB |
-| Flutter | 1 MiB | 256 KiB | 16 KiB |
-| C SDK default | 256 KiB | 64 KiB | 4 KiB |
-
-C 调用方可以通过 `gzc_client_config_t.service_write_high_water_bytes` 与 `service_write_low_water_bytes` 调大阈值；自定义 high-water 不得小于 4 KiB，且 low-water 必须小于 high-water。`write_timeout_ms` 使用 platform 的单调 `time_instant_ms` 计算完整逻辑写入的 elapsed time。
-
-C SDK 的 `gzc_rpc_request_start` 为每个 unary 请求创建独立 service
-DataChannel。调用方仍是唯一的 `gzc_client_poll` owner；poll 会按 DataChannel
-identity 把任意交错到达的 response 分发给对应 request。`result` 本身不 poll，
-pending 返回 `GZC_ERR_WOULD_BLOCK`。完成、取消、超时、远端关闭或 client 关闭只
-终止并释放该 request 的 channel，不关闭 sibling channel 或 Peer connection。
-response view 由 request 持有，直到 `gzc_rpc_request_destroy`；platform allocator
-必须比 request handle 活得更久。
-
-`gzc_rpc_request_start` 与 `gzc_rpc_request_start_stream` 的
-`const gzc_rpc_request_options_t *options` 可注册 `gzc_rpc_complete_cb`。request
-第一次进入 terminal 时，SDK 同步回调一次，并传入该 `gzc_rpc_request_t *` 与最终
-状态码：正常 response EOS、编解码或协议错误、DataChannel 关闭、传输错误和超时由
-串行 poll owner 交付；主动 cancel、client close 以及 destroy 一个 pending request
-在各自调用线程返回前交付。SDK 不为该 callback 创建线程。callback 不传递 response 所有权，返回后仍可用
-`gzc_rpc_request_result` 读取最终结果。options 传 NULL 时不注册 completion callback。
-
-callback 不得用它所属的 request 或 client 重入 SDK：`gzc_rpc_request_result` 允许，
-`gzc_rpc_request_cancel`、`gzc_rpc_request_destroy`、`gzc_client_poll`、
-`gzc_client_close` 和 `gzc_client_destroy` 不允许。close 与 destroy 会释放 poll loop
-正在遍历的 service channel，因此 request 与 client 的 teardown 必须放在交付通知的
-poll 调用返回之后。frame callback 受同样的限制。
-
-同一个 `gzc_rpc_request_t` 也承载双向或下载型 binary stream，不存在第二套
-stream RPC。调用方使用 `gzc_rpc_request_start_stream` 创建 request，通过
-`gzc_rpc_request_write` 复制并排队一个 request binary frame，并以
-`gzc_rpc_request_finish_write` 排队 request EOS。Response envelope、后续 binary
-frame 和 response EOS 都由同一个 callback 在 `gzc_client_poll` 中按到达顺序交付，
-completion callback 排在 response EOS frame callback 之后。
-上述 request API 均不自行调用 `gzc_client_poll`；当上一帧尚未写完时，write 或
-finish 返回 `GZC_ERR_WOULD_BLOCK`，调用方应等待统一 poll loop 推进后重试。
-
-Unreliable/unordered direct packet DataChannel、Telemetry packet 与 RTP media 不使用 service writer，也不继承上述 water marks。C SDK 的 Opus RTP 接收使用一次连续分配的固定槽位 ring，默认 64 packets；调用方只能在 connect 前通过 `gzc_client_set_opus_rx_capacity` 调整容量。队列满时覆盖最旧 Opus，client close 或显式 `gzc_client_discard_opus_rx` 立即清空队列；`gzc_client_read_packet_into` 可以直接写入 caller storage，并在 buffer 太小时保留 packet 供重试。BOS/EOS 等业务边界仍由各自上层协议定义。
+共享字节预算见 [write_budget.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/giznet/write_budget.go)，WebRTC 写入实现见 [stream.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/giznet/gizwebrtc/stream.go)。

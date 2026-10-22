@@ -1,18 +1,12 @@
 # Agent Host
 
-`Implementation file: peer_agent_host.go`
+Source：[peer_agent_host.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/peer_agent_host.go)
 
 | Documentation | Features included |
 | --- | --- |
 | `peer_agent_host.go` | Create an Agent Host dedicated to the current Peer, register the persisted Workflow drivers, and inject borrowed Server capabilities. |
 
 This file is only responsible for Host wiring on the Peer connection. Agent instance, input and output, history, toolkit and running life cycle belong to `services/runtime/agenthost`.
-
-## Core structure and main function
-
-| Symbol | Function |
-| --- | --- |
-| `newPeerAgentHost` | Create a Peer-scoped Agent Host, install the Peer GenX provider, and register DashScope Realtime, Doubao Realtime Duplex, Eino, and the other supported Workflow factories. |
 
 The Resolver reads the top-level Workflow `memory` alias and resolves its
 `MemoryLayout`, driver, and typed connection from one owner RuntimeProfile

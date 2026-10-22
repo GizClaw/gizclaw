@@ -1,5 +1,7 @@
 # CLI
 
+[Giztest Schema](https://github.com/GizClaw/gizclaw/blob/main/api/giztest/giztest.schema.json) · [Runner 与结果实现](https://github.com/GizClaw/gizclaw/tree/main/cmd/internal/commands/giztest)
+
 ## 查询单个或多个资源
 
 单资源查询输出一个 Resource JSON 对象：
@@ -30,7 +32,6 @@ cat resources.json | gizclaw admin show -f - --context dev
 某项查询失败时，对应位置为 `null`，其余查询继续；stderr 报告从 0 开始的索引、
 资源类型、ID 和错误，进程以非零状态退出。输入或连接失败时不输出结果数组。
 命令取消会传递给查询，尚未发起的查询不再请求服务器；所有查询结束后关闭连接。
-
 
 ## 离线校验声明式 Resource
 
@@ -192,15 +193,6 @@ SFU 发送者身份匹配才统计接收。
 `/audio_first_packets` 数组同时进入结果、capture/save_as 和脱敏 JSON evidence。
 字段由 `api/giztest/audio-packet-timing.schema.json` 定义：
 
-| 字段 | 单位与语义 |
-| --- | --- |
-| `clock` | 固定为 `task_monotonic`；每个 task 独立，包括其全部并行 children。 |
-| `packet_id`、`sender_client`、`sender_step` | 首包关联 ID 和 YAML 发送 client/step。不同轮次、retry 和相同音频各有独立 ID；群组多个接收者对应同一 ID。 |
-| `send_start_ms`、`send_completed_ms` | 共享单调基准上的发送偏移；分别在非空包的 `PeerStream.Push` 前和成功返回后记录。不是网卡实际发包时间。 |
-| `startup_ms` | 发送 invocation 开始（打开 stream 前）至 `send_start_ms`，包括实际长按、音频路由确认和启动等待。 |
-| `receive_ms` | `PeerStream.Next` 返回同一首包后立即记录，早于音频解码和操作循环排队。 |
-| `latency_ms` | `receive_ms - send_start_ms`，不含 `startup_ms`；包含 SDK、上行、Server/SFU/LiveKit 和下行，不是纯 LiveKit 处理或扬声器播放时间。 |
-
 只有成功发送并收到对应包才有接收样本；丢包、自收或撤权后的无音频返回空数组，不填零延迟。
 收到后续音频不能替代丢失首包。重复接收同一标记只计一次；每个 listen 最多保留 128 个样本，
 超限通过 `audio_first_packets_dropped` 计数。`first_audio_ms` 保留从开始收听至首个可听音频的
@@ -250,15 +242,6 @@ task 的 Go runner 内可比较，不能与 report 的 wall-clock `started_at`�
 `rpc_stream` 的 `all.speed_test.run` 步骤向 `expect`、`capture` 和 object `save_as` 暴露以下
 稳定结果路径；同一组 canonical 测量字段还会与 `method` 一起进入脱敏 step evidence：
 
-| 路径 | 单位与语义 |
-| --- | --- |
-| `/up_content_length`、`/down_content_length` | 各方向请求并由测速确认的 bytes。 |
-| `/up_bytes`、`/down_bytes` | 各方向实际传输的 bytes。 |
-| `/up_duration_ms`、`/down_duration_ms` | 各方向测量耗时，截断为整数毫秒。 |
-| `/duration_ms` | 整次调用 wall time，截断为整数毫秒。 |
-| `/up_mbps`、`/down_mbps` | 有限且非负的实测 megabits per second。 |
-| `/bytes` | 接收 bytes；对该操作等于 `/down_bytes`。 |
-
 未启用的方向仍显式保留数值零。PascalCase 路径 `/UpContentLength`、
 `/DownContentLength`、`/UpBytes`、`/DownBytes`、`/UpDuration`、`/DownDuration` 和
 `/Duration` 仅作为 compatibility aliases 保留；新文档必须使用上面的 canonical 路径。
@@ -266,20 +249,6 @@ task 的 Go runner 内可比较，不能与 report 的 wall-clock `started_at`�
 
 步骤的 `expect` 把 JSON Pointer 映射到 expectation 对象。一个 expectation 对象可以组合多个
 matcher，全部通过时该断言才通过：
-
-| Matcher | 操作数 | 语义 |
-| --- | --- | --- |
-| `equals` | 任意非 null 值 | JSON 相等 |
-| `present` | boolean | pointer 可解析（`false` 表示必须不存在） |
-| `non_empty` | boolean | 值是非空 string、array 或 object |
-| `count` | ≥ 0 的整数 | 数组长度等于操作数 |
-| `contains` | 非空 string，≤ 256 rune | 字符串目标包含该子串 |
-| `contains_all` | 1–16 个上述 string | 所有子串都必须出现 |
-| `contains_any` | 1–16 个上述 string | 至少一个子串出现 |
-| `not_contains` | 一个上述 string 或 1–16 个 | 任何子串都不得出现 |
-| `pattern` | RE2 源码，1–256 字节 | 字符串目标匹配该正则 |
-| `minimum` / `maximum` | number | 数值目标（JSON number，或 protojson int64 之类的十进制字符串）落在闭区间边界内 |
-| `min_length` / `max_length` | 0–1048576 的整数 | 字符串目标的 rune 数落在边界内 |
 
 字符串类 matcher 接受 string 值，或元素全部为 string 的数组；数组先按空分隔符 join，
 因此 `peer_stream` 的 `/text` fragment 会作为一条完整响应断言。长度按 Unicode rune 计数
@@ -397,7 +366,6 @@ client/turn、最后事件时间和已观察媒体，不包含内容。默认 re
 本地 Docker E2E 会先统一 Apply Admin resources。直接测试已部署环境时，预先准备资源并设置
 `GIZCLAW_TEST_ENDPOINT`、`GIZCLAW_TEST_REGISTRATION_TOKEN`；命令本身没有 Admin 权限。
 人工 `review.*` 场景要求 attached terminal 和 `--parallel 1`。
-
 
 ### 剧本质量验收
 

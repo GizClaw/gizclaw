@@ -5,9 +5,9 @@
 ## API Reference
 
 - [Admin API](/api/)：使用 Scalar 浏览 Admin、Peer HTTP、Desktop Pod 与 OpenAI-compatible API。
-- [RPC API Reference](./rpc)：全部 RPC method ID、method name 与用途。
-- [Events](./events)：Peer Event Stream 的事件类型、字段和业务边界。
-- [Streams](./streams)：实时音频、direct packet、Event Stream、RPC 与 HTTP service stream 的传输约定。
+- [RPC API Reference](./rpc)：按领域查找 RPC registry 与消息 Schema 的源码入口。
+- [Events](./events)：Peer Event Stream 的用途、订阅和生命周期说明。
+- [Streams](./streams)：实时音频、packet、事件和请求通道的分工与使用方式。
 
 ## SDK Reference
 

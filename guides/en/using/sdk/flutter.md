@@ -1,4 +1,4 @@
-# Flutter SDK <Badge type="warning" text="WIP" />
+# Flutter SDK
 
 GizClaw ships two Dart packages, split by role:
 
@@ -7,7 +7,7 @@ GizClaw ships two Dart packages, split by role:
 | `gizclaw` | `sdk/flutter/gizclaw` | Device side: run a Flutter app as a GizClaw device/Peer | encrypted `/webrtc/v1/offer` signaling and WebRTC DataChannels | Flutter, `flutter_webrtc`, `protobuf` |
 | `gizclaw_control` | `sdk/flutter/gizclaw_control` | Controller side: read and control the bound device with an [API key](../api-keys) | HTTPS `/gizclaw/v1/*` | Pure Dart, `http` only |
 
-`gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. `gizclaw_control` targets phone controller apps such as LiteLink, where each device card stores one API key. Device-side client initialization, platform permissions, and RPC calls are not documented yet; this page covers `gizclaw_control` and device handshake admission credentials.
+`gizclaw` covers the same side as the C SDK in `sdk/c/gizclaw`. `gizclaw_control` targets phone controller apps such as LiteLink, where each device card stores one API key. This page covers `gizclaw_control` and device handshake admission credentials.
 
 ## Install `gizclaw_control`
 
@@ -126,7 +126,3 @@ channels are rejected once the old Peer starts closing.
 Devices install `readMhsHwd` / `writeMhsHwd` in `GizClawDeviceControlHandlers` and use generated `ClientMhsV0*` plus the HWD-specific protobuf messages for one instance. Controllers call `getMhsManifest()` for instance IDs and types, `readMhsHwd(id,hwd)` for an `MhsHwdReadResult` (with an HWD-specific value such as `MhsWifiReadValue`), and `writeMhsHwd(MhsHwdWriteRequest(...))` for display, led or speaker. Writes return actual applied values.
 
 Each call addresses one instance; wifi, ble, modem, battery and mic are read-only. See [Public API](/en/developing/api/http/public) and the [provider contract](/en/developing/api/proto/rpc/client-provided-to-server).
-
-## tool/v0 procedures
-
-Device providers install handlers for the predefined `ClientTool` values they implement. `client.tool.v0.list` reports that installed subset; typed control calls use the single `client.tool.v0.invoke` RPC. HWD instances use the bound RuntimeProfile MHS v0 manifest and its read/write calls.

@@ -8,12 +8,12 @@ Read before you begin:
 
 - PR’s base/head and full diff;
 - PR title and review-ready commit history;
-- Associate Issues, design documents and acceptance criteria;
+- Requirements, scope, and acceptance criteria in the PR description, plus linked Issues and design documents when present;
 - `AGENTS.md` for the repository and related directories;
 - Change the [coding specification](../coding-styles/) corresponding to the language;
 - Testing and verification results declared by the author.
 
-PR titles and commit history are checked according to [PR and Commit format](./pr-commit-format) by default. The wording and formatting of the PR body are not part of the default metadata checks, but the scope, associated Issue and validation statements still need to be read.
+PR titles and commit history are checked according to [PR and Commit format](./pr-commit-format) by default. The wording and formatting of the PR body are not part of the default metadata checks, but its requirements, scope, and validation statements must still be read. A linked Issue provides additional context when present.
 
 ## Review Process
 
@@ -27,7 +27,7 @@ First list all changed folders, packages, Schemas, generated surfaces and langua
 
 ### 3. Demand first, then implement
 
-First determine whether the PR has completed the correct issue and whether it has exceeded the scope, and then check the logic, errors, life cycle and code structure. When the requirements are not established, polishing the implementation details should not continue to be the main feedback.
+First determine whether the PR solves the stated problem and stays within scope, then check logic, errors, lifecycle, and code structure. When the requirements are unclear, address them before polishing implementation details.
 
 ### 4. Check cross-module Contract
 

@@ -16,7 +16,7 @@ Things that don't fit here: Single Resource-specific Specs, small value objects 
 
 ## Shared ownership
 
-`shared/` currently uses fine-grained physical files for stable schema types. The [HTTP Schema dependency rules](./type-dependencies#shared-ownership-map) maintain the actual files and ownership families; this page does not duplicate a second list that can drift.
+`shared/` splits stable schema types into focused files. Consult the [Shared source directory](https://github.com/GizClaw/gizclaw/tree/main/api/http/shared) for current files and [HTTP Schema dependency rules](./type-dependencies#shared-ownership) for placement.
 
 When changing a Shared schema:
 

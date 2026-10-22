@@ -1,5 +1,7 @@
 # CLI
 
+[Giztest schema](https://github.com/GizClaw/gizclaw/blob/main/api/giztest/giztest.schema.json) · [Runner and result implementation](https://github.com/GizClaw/gizclaw/tree/main/cmd/internal/commands/giztest)
+
 ## Show one or multiple resources
 
 A single-resource lookup outputs one Resource JSON object:
@@ -35,7 +37,6 @@ Stderr identifies the zero-based index, resource kind, ID, and error; the proces
 exits nonzero. Input or connection failure produces no result array.
 Command cancellation propagates to lookups and prevents pending lookups from
 contacting Server. The connection closes after all lookups finish.
-
 
 ## Validate declarative Resources offline
 
@@ -241,15 +242,6 @@ Sender `/audio_first_packet` and same-task listener `/audio_first_packets` are
 available to expectations, capture/save_as and redacted JSON evidence. Their
 contract is `api/giztest/audio-packet-timing.schema.json`:
 
-| Field | Units and meaning |
-| --- | --- |
-| `clock` | `task_monotonic`: one shared Go monotonic origin per task, including parallel children. |
-| `packet_id`, `sender_client`, `sender_step` | Unique packet correlation ID and YAML sender. Identical audio, later turns and retries get new IDs; group receivers share the same ID. |
-| `send_start_ms`, `send_completed_ms` | Fractional millisecond offsets before the nonempty packet's `PeerStream.Push` and after its successful return; local write boundaries, not hardware wire timestamps. |
-| `startup_ms` | Sender invocation (before stream opening) to send start, including the actual hold and audio-route acknowledgement. |
-| `receive_ms` | Offset immediately after `PeerStream.Next` returns that exact packet, before decoding and operation-loop queueing. |
-| `latency_ms` | `receive_ms - send_start_ms`; excludes startup and includes SDK, uplink, Server/SFU/LiveKit and downlink. Not pure LiveKit processing or speaker playback latency. |
-
 Missing, dropped, self or revoked delivery produces no receive sample, never a
 zero latency. Later packets cannot replace a lost first packet. Duplicate
 receipts count once. Each listener retains at most 128 samples and reports excess
@@ -304,15 +296,6 @@ An `rpc_stream` step for `all.speed_test.run` exposes these stable result paths
 to `expect`, `capture`, and an object `save_as`. The same canonical measurement
 fields, plus `method`, appear in redacted step evidence:
 
-| Path | Unit and meaning |
-| --- | --- |
-| `/up_content_length`, `/down_content_length` | Requested and acknowledged bytes for each direction. |
-| `/up_bytes`, `/down_bytes` | Bytes actually transferred in each direction. |
-| `/up_duration_ms`, `/down_duration_ms` | Each direction's measured duration, truncated to integer milliseconds. |
-| `/duration_ms` | Whole-call wall time, truncated to integer milliseconds. |
-| `/up_mbps`, `/down_mbps` | Measured megabits per second as finite non-negative numbers. |
-| `/bytes` | Received bytes; for this operation it equals `/down_bytes`. |
-
 An omitted direction keeps explicit numeric zero values. PascalCase paths
 `/UpContentLength`, `/DownContentLength`, `/UpBytes`, `/DownBytes`,
 `/UpDuration`, `/DownDuration`, and `/Duration` remain compatibility aliases;
@@ -321,20 +304,6 @@ aliases retain raw nanoseconds.
 
 Step `expect` maps JSON Pointers to expectation objects. One expectation object
 may combine several matchers; the step passes only when every matcher passes:
-
-| Matcher | Operand | Semantics |
-| --- | --- | --- |
-| `equals` | any non-null value | JSON equality |
-| `present` | boolean | pointer resolves (or, with `false`, does not) |
-| `non_empty` | boolean | value is a non-empty string, array, or object |
-| `count` | integer ≥ 0 | array length equals the operand |
-| `contains` | non-empty string, ≤ 256 runes | string target contains the substring |
-| `contains_all` | 1–16 such strings | every listed substring occurs |
-| `contains_any` | 1–16 such strings | at least one listed substring occurs |
-| `not_contains` | one such string or 1–16 of them | no listed substring occurs |
-| `pattern` | RE2 source, 1–256 bytes | string target matches the pattern |
-| `minimum` / `maximum` | number | numeric target (JSON number, or a decimal string such as a protojson int64) is within the inclusive bound |
-| `min_length` / `max_length` | integer 0–1048576 | string target's rune count is within the bound |
 
 String matchers accept a string value or an array whose elements are all
 strings; an array is joined with the empty separator first, so `peer_stream`
@@ -481,7 +450,6 @@ deployed target, provision resources first and set `GIZCLAW_TEST_ENDPOINT` and
 `GIZCLAW_TEST_REGISTRATION_TOKEN`; the command has no Admin authority.
 Interactive `review.*` scenarios require an attached terminal and
 `--parallel 1`.
-
 
 ### Screenplay quality acceptance
 

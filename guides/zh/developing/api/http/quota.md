@@ -1,26 +1,16 @@
 # Quota HTTP 服务
 
-RuntimeProfile 可以为 Peer provider 调用选择 quota policy。当前支持 unlimited 和 custom；只有 custom 使用外部 HTTP 服务决定可用有效期，计费和额度折算由该服务拥有。
+Quota 用于在 provider 调用前取得时间授权。外部 quota 服务拥有计费规则与额度折算，GizClaw 负责报告已有用量并执行授权结果。
 
 ## 协议
 
-Source contract 是 `api/http/quota.json`，Go client 由它生成至 `sdk/go/quota`。
+[quota.json](https://github.com/GizClaw/gizclaw/blob/main/api/http/quota.json) 定义 HTTP 请求与响应，[Go quota client](https://github.com/GizClaw/gizclaw/tree/main/sdk/go/quota) 由它生成。服务接收已知设备标识与持久化用量快照；GizClaw 不为 quota 另外采集设备信息。
 
-`POST /v1/quota` 使用 `Authorization: Bearer <api_key>`。请求包含 `peer_public_key`、可选的 `identifiers` 和 `usage`。`identifiers` 引用完整的已有 `DeviceIdentifiers`，包括 SN、IMEI 列表和 labels；GizClaw 发送已知字段，不为 quota 额外采集设备信息。
-
-`usage` 包含保留期内已落盘的小时累计快照，每条为 `model_id`、UTC 整点 `hour`、非负 `quantity`。model ID 使用 provider 计费模型/version/resource ID。接收方按 Peer/model/hour 保留最大的累计数量，重复报告不会重复扣量。首次没有用量时发送空数组。
-
-```json
-{
-  "expires_at": "2030-01-01T00:00:00Z",
-  "valid_until": "2029-12-01T00:00:00Z"
-}
-```
-
-- `expires_at` 是可用有效期：省略或 null 表示不限；小于等于当前时间表示不允许使用。
-- `valid_until` 是本次查询结果的有效期：必填、不可为 null，且必须晚于接收结果的当前时间。缺失、格式错误或已经失效的响应不能授权。
+对接时应区分设备可使用期限与本次授权结果的缓存期限。重复报告累计快照不应重复扣量，具体字段与处理规则直接查阅 Schema。
 
 ## RuntimeProfile
+
+外部授权的最小配置示例：
 
 ```yaml
 spec:
@@ -30,38 +20,26 @@ spec:
     api_key: ${QUOTA_API_KEY}
 ```
 
-`spec.quota` 可省略或设为 null，默认使用 unlimited；显式 `quota: {type: unlimited}` 具有相同调用行为。它们不发起 quota HTTP 请求，不要求 quota 服务或 SQL 用量存储。独立配置的 `services.peer_usage.store` 仍然记录 provider 实际报告的用量。空对象或未知 policy type 会被拒绝。
-
-`type: custom` 必须提供 endpoint 和 api_key。endpoint 是完整的 HTTP(S) 地址，不接受 userinfo、query 或 fragment；API key 必须非空且不能包含换行。custom 还需要配置 `services.peer_usage.store` 的 SQL 用量存储。上报先 flush，再查询保留的小时记录；存储未配置或读取失败时拒绝 custom 调用，不提交虚假的空用量。SQL 将未配置 policy 保存为 JSON null，显式 policy 保存为带 type 的对象；既有未配置 Profile 继续使用 unlimited。
+custom policy 需要配置 Peer usage SQL 存储，以便报告真实已保存的用量。无需外部授权时使用 unlimited policy；它不调用外部 quota 服务。配置解析见 [RuntimeProfile quota](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/system/runtimeprofile/quota.go)。
 
 ## 调用和生命周期
 
-配置 custom 时，真实 Generator、Transformer 和 speech provider 调用先获取 quota 授权。connected Peer、Workspace owner 和独立 OpenAI HTTP 都使用相应 Peer 的配置。
+授权覆盖连接 Peer、Workspace owner 和独立 OpenAI 调用。Server 刷新缓存结果并在授权失效时取消受影响的 provider 调用；刷新失败不能延长旧授权。
 
-custom policy 在 HTTP 查询结果有效期的中点刷新，保证在 `valid_until` 之前尝试重新查询；HTTP 响应省略/null 可用期限和拒绝的结果同样刷新。HTTP 尝试最长五秒，失败后按一秒间隔重试。失败不延长旧结果的任何时间；旧结果仍然有效时可以继续使用。
-
-可用有效期到期、新结果拒绝使用，或查询结果过期而未取得替代结果时，会取消正在执行的 provider 调用。成功刷新可以延长活动调用的授权。空闲状态五分钟后清理。Server 关闭先取消并 join quota worker，再关闭用量存储。
+应用关闭时先结束 quota worker，再关闭其依赖的用量存储。刷新、取消和缓存清理实现见 [peerquota](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/peerquota)。
 
 ## 客户端错误
 
-Quota 拒绝保留独立于普通资源权限错误的类型。可用期限已到期或有效结果明确拒绝使用是 `QUOTA_EXHAUSTED`；无法取得有效结果、查询结果过期、报告依赖失败或 custom controller 不可用是 `QUOTA_UNAVAILABLE`。刷新暂时失败时，仍有效的旧结果继续适用，直到其原有期限到达。
+区分额度拒绝与无法取得有效授权，客户端据此提示用户或稍后重试。各 surface 的状态和消息由 adapter 映射，底层 endpoint、credential 与错误链不应返回给调用方。
 
-| Surface | Exhausted | Unavailable |
-| --- | --- | --- |
-| HTTP chat / 前台 Responses | HTTP 403，`permission_error`，`quota_exhausted` | HTTP 503，`service_unavailable_error`，`quota_unavailable` |
-| Chat / speech / transcription SSE | error 对象使用上述 code/type/message | error 对象使用上述 code/type/message |
-| Responses SSE / 后台查询 | `response.failed` / failed Response，error code `quota_exhausted` | `response.failed` / failed Response，error code `quota_unavailable` |
-| Device Workspace EOS | `EventError.code=QUOTA_EXHAUSTED`，`retryable=false` | `EventError.code=QUOTA_UNAVAILABLE`，`retryable=true` |
-| 新 speech RPC | `PERMISSION_DENIED` (7)，`Reason=QUOTA_EXHAUSTED` | `UNAVAILABLE` (14)，`Reason=QUOTA_UNAVAILABLE` |
+流已经开始后发生撤权，调用方可能只收到部分输出；使用协议的终止结果判断调用是否完成。错误定义见 [errors.go](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerquota/errors.go)。
 
-所有 exhaustion message 固定为 `Quota exhausted.`，unavailability message 固定为 `Quota unavailable.`；不暴露 endpoint、credential 或内部 error chain。已经发送 HTTP headers 的 SSE 保持 HTTP 200，以结构化 error 结束。Eino 的错误 EOS 属于受影响的 response StreamID，不使无关 turn 变成失败。致命 runtime 错误的公开 status message 保留稳定 code 和安全 message。
-
-provider opening 与 `Generator.Invoke` 期间撤权也保留 quota 的 typed cause；迟到的 stream handle 会被关闭，已报告的 provider usage 保留。活动 audio epoch 失败时，合成 EOS 使用同一安全 error contract；已识别的 quota error 优先于伴随的 cancellation，普通 Workspace replacement 仍然使用无错误 EOS。
-
-独立 speech synthesis 在 metadata 已发送后撤权时，以提前 EOS 停止音频，不在 binary audio 中插入第二个 protobuf response。已输出的音频可能只是部分内容；下一次新调用使用上表的 status 与 Reason。
-
-Quota 是时间授权，不保证逐 token 的预扣或数值硬上限。GenX provider 未报告的用量，以及进程异常退出时尚未落盘的用量，仍受 [Peer usage](/zh/developing/gizclaw/services/runtime/peerusage) 的持久化边界约束。
+Quota 不提供逐 token 的预扣或精确计费保证，仍受 [Peer usage](../../gizclaw/services/runtime/peerusage) 的持久化边界约束。
 
 ## Docker 验证
 
-`bash tests/gizclaw-e2e/setup/run-quota.sh` 构建真实 Linux GizClaw 与 HTTP fixture，在隔离 Docker stack 中通过 giztest 的真实 RPC/HTTP transport 验证协议。fixture 同时提供确定性的 OpenAI 和 MiniMax provider 数据，捕获 identifiers 和用量报告。十五个场景覆盖十个 custom policy 的期限/上报场景、省略 policy、显式 unlimited，Eino 的到期和不可用 dialogue，以及一个允许的 HTTP Responses 场景。unlimited 场景调用真实 provider adapter，并断言该 Peer 的 quota 请求为零。HTTP chat 与 Responses 验证完整 403/503 envelope；fixture helper 使用真实 SDK PeerStream，经 Edge/Server 验证允许回复后的到期新请求、错误 EOS code/message/retryable、独立 response ID，并断言拒绝期间 provider 请求增量为零。该验证不代表云端 provider 资格验证。
+```sh
+bash tests/gizclaw-e2e/setup/run-quota.sh
+```
+
+该入口用隔离的 HTTP 与 provider fixture，经过真实 Server、Edge 和 SDK 验证授权、拒绝、过期与运行中撤权。场景与断言以 [测试入口](https://github.com/GizClaw/gizclaw/blob/main/tests/gizclaw-e2e/setup/run-quota.sh) 为准；它不代表云端 provider 验收。
