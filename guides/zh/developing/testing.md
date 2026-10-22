@@ -162,6 +162,11 @@ CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Gi
 该入口将 runner 默认 Azure Ubuntu 源替换为官方 `archive.ubuntu.com`，支持 mirrorlist
 和直接 sources 配置，继续使用 APT 的签名与包校验。
 
+构建 runner 时，`setup/verify-flutter-native-close.py` 从 Flutter package configuration
+定位固定依赖，运行其原生关闭进度 fixture。该 fixture 使用 native boundary doubles 编译
+生产 C++ 关闭与查找函数，需要 Python 3 与支持 C++14 的 `clang++`；真实插件与引擎的
+通道生命周期另由完整 Giztest lane 验证。
+
 ### RegistrationToken 并发注册
 
 ```sh

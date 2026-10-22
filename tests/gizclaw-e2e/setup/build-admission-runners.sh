@@ -2,7 +2,7 @@
 # Sourced by admission lanes; repo_root and task_dir belong to the caller.
 : "${repo_root:?caller must set repo_root}"
 : "${task_dir:?caller must set task_dir}"
-for tool in go node npm protoc flutter dart; do
+for tool in go node npm protoc flutter dart python3 clang++; do
   command -v "$tool" >/dev/null || { echo "required tool missing: $tool" >&2; exit 1; }
 done
 case "$(uname -s)" in
@@ -20,7 +20,10 @@ git submodule update --init --depth=1 third_party/nanopb/upstream
 go build -o "$task_dir/giztest-c" ./tests/gizclaw-e2e/cgo/giztest
 export GIZCLAW_ADMISSION_C_RUNNER="$task_dir/giztest-c"
 package_dir="$repo_root/tests/gizclaw-e2e/flutter/giztest"
-(cd "$package_dir" && flutter pub get && flutter build "$target" --debug)
+(cd "$package_dir" && flutter pub get)
+python3 "$repo_root/tests/gizclaw-e2e/setup/verify-flutter-native-close.py" \
+  "$package_dir/.dart_tool/package_config.json"
+(cd "$package_dir" && flutter build "$target" --debug)
 if [[ "$target" == macos ]]; then
   export GIZCLAW_ADMISSION_FLUTTER_RUNNER="$package_dir/build/macos/Build/Products/Debug/giztest.app/Contents/MacOS/giztest"
 else
