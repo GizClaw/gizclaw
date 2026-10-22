@@ -129,6 +129,25 @@ func (s *TiKV) ApplyMutation(ctx context.Context, mutation Mutation) (bool, erro
 		return false, err
 	}
 	return s.update(ctx, func(tx *transaction.KVTxn) (bool, error) {
+		// Prefill this transaction's snapshot cache in one native batch read.
+		// A presence batch can contain hundreds of guards and records; point
+		// reads would otherwise require one network round trip per key. Keep
+		// every guard write below: caching does not replace conflict detection.
+		keys := make([][]byte, 0, len(mutation.Conditions)+len(mutation.Entries)+len(mutation.DeleteKeys))
+		for _, condition := range mutation.Conditions {
+			keys = append(keys, s.recordKey(condition.Key))
+		}
+		for _, entry := range mutation.Entries {
+			keys = append(keys, s.recordKey(entry.Key))
+		}
+		for _, key := range mutation.DeleteKeys {
+			keys = append(keys, s.recordKey(key))
+		}
+		if len(keys) > 1 {
+			if _, err := tx.BatchGet(ctx, keys); err != nil {
+				return false, err
+			}
+		}
 		for _, condition := range mutation.Conditions {
 			v, raw, err := s.getTxn(ctx, tx, condition.Key)
 			if errors.Is(err, ErrNotFound) {

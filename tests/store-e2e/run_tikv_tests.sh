@@ -9,7 +9,7 @@ auxiliary=1
 case "${2:-}" in
   "") ;;
   --migration-only) test_run='^TestTiKVRedisMigration$'; collections=0 ;;
-  --presence-only) test_run='^TestTiKV$/^presence-pages$'; collections=0; auxiliary=0 ;;
+  --presence-only) test_run='^TestTiKV$/^presence-'; collections=0; auxiliary=0 ;;
   *) echo 'usage: run_tikv_tests.sh [evidence-dir] [--migration-only|--presence-only]' >&2; exit 2 ;;
 esac
 mkdir -p "$evidence/bin"
@@ -42,7 +42,7 @@ git rev-parse HEAD >"$evidence/source-revision.txt"
 git diff HEAD >"$evidence/source.patch"
 git status --short >"$evidence/source-status.txt"
 go version >"$evidence/go-version.txt"
-cp "$compose_file" tests/store-e2e/tikv-test.toml tests/store-e2e/tikv_test.go tests/store-e2e/tikv_presence_test.go tests/store-e2e/tikv_response_proxy_test.go "$evidence/"
+cp "$compose_file" tests/store-e2e/tikv-test.toml tests/store-e2e/tikv_test.go tests/store-e2e/tikv_presence_test.go tests/store-e2e/tikv_presence_transitions_test.go tests/store-e2e/tikv_response_proxy_test.go "$evidence/"
 compose up -d pd leader gate learner redis redis-cluster >"$evidence/startup.log" 2>&1
 compose ps --format json >"$evidence/topology.json"
 printf 'Running real TiKV KV and regional Learner replication-lag tests\n'
