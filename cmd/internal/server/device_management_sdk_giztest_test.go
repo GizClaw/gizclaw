@@ -63,12 +63,13 @@ func runManagementNativeDiagnostic(ctx context.Context, cmd *exec.Cmd) ([]byte, 
 		if ctx.Err() != nil {
 			return
 		}
-		diagnosticCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 8*time.Second)
+		diagnosticCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
 		defer cancel()
-		stack := exec.CommandContext(diagnosticCtx, "sudo", "-n", "timeout", "--kill-after=1s", "5s",
-			"gdb", "--batch", "--nx", "--quiet", "-iex", "set auto-load off", "-iex", "set debuginfod enabled off",
+		stack := exec.CommandContext(diagnosticCtx, "sudo", "-n", "timeout", "--kill-after=1s", "12s",
+			"gdb", "--batch", "--nx", "--quiet", "-iex", "set auto-load off", "-iex", "set debuginfod enabled off", "-iex", "set auto-solib-add off",
 			"-ex", "set print frame-arguments none", "-ex", "set print entry-values no",
-			"-ex", "thread apply all bt 24", "-p", strconv.Itoa(pid))
+			"-ex", "sharedlibrary flutter_webrtc|libwebrtc|libc.so|libstdc", "-ex", "thread 1", "-ex", "bt 32",
+			"-ex", "thread apply all bt 16", "-p", strconv.Itoa(pid))
 		trace, err := stack.CombinedOutput()
 		diagnostics = append(fmt.Appendf(nil, "\nNATIVE_FLUTTER_THREAD_STACK pid=%d error_type=%T\n", pid, err), trace...)
 	})
