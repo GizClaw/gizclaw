@@ -90,6 +90,8 @@ type Service struct {
 	starting   bool
 	closed     bool
 	pending    map[giznet.PublicKey]*pending
+	mutations  chan transitionMutation
+	commitSlot chan struct{}
 	workers    sync.WaitGroup
 }
 
@@ -97,7 +99,7 @@ type Service struct {
 func New(store kv.Store, server giznet.PublicKey) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{store: store, server: server.String(), generation: rand.Text(),
-		ctx: ctx, cancel: cancel, pending: make(map[giznet.PublicKey]*pending)}
+		ctx: ctx, cancel: cancel, pending: make(map[giznet.PublicKey]*pending), mutations: make(chan transitionMutation, transitionBatchSize), commitSlot: make(chan struct{}, 1)}
 }
 
 func generationKey(server string) kv.Key    { return kv.Key{"servers", server, "generation"} }
@@ -144,9 +146,11 @@ func (s *Service) Start(ctx context.Context) error {
 		return errors.New("peerpresence: service closed")
 	}
 	s.started = true
-	s.workers.Add(1)
+	s.workers.Add(3)
 	s.mu.Unlock()
 	go s.renew()
+	go s.writeBatches()
+	go s.writeBatches()
 	return nil
 }
 
@@ -160,10 +164,7 @@ func (s *Service) renew() {
 			return
 		case <-ticker.C:
 			ctx, cancel := context.WithTimeout(s.ctx, writeTimeout)
-			matched, err := s.store.ApplyMutation(ctx, kv.Mutation{
-				Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}},
-				Entries:    []kv.Entry{s.leaseEntry()},
-			})
+			matched, err := s.renewLease(ctx)
 			cancel()
 			if err != nil {
 				slog.Warn("peerpresence: renew Server lease", "error", err)
@@ -175,11 +176,24 @@ func (s *Service) renew() {
 	}
 }
 
+func (s *Service) renewLease(ctx context.Context) (bool, error) {
+	select {
+	case s.commitSlot <- struct{}{}:
+		defer func() { <-s.commitSlot }()
+	case <-ctx.Done():
+		return false, ctx.Err()
+	}
+	return s.store.ApplyMutation(ctx, kv.Mutation{
+		Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}},
+		Entries:    []kv.Entry{s.leaseEntry()},
+	})
+}
+
 // Publish queues the latest connection transition without storage I/O. Calls
 // for a Peer must arrive in connection order. Reuse this Publisher for all of
 // its connection's Workspace and offline transitions, including rollback.
-// Writes for different Peers progress independently; failures retry until
-// superseded or closed.
+// Connection ordering is per Peer; bounded workers batch storage commits.
+// Failures retry until superseded or closed.
 func (publisher *Publisher) Publish(snapshot Snapshot) {
 	s, peer := publisher.service, publisher.peer
 	if peer.IsZero() {
@@ -288,7 +302,7 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 		if !owner.claimed {
 			mutation.Entries = append(mutation.Entries, kv.Entry{Key: ownerKey(peer), Value: token})
 		}
-		matched, err := s.store.ApplyMutation(ctx, mutation)
+		matched, err := s.applyTransition(ctx, mutation)
 		if err != nil {
 			return err
 		}

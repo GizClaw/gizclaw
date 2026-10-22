@@ -244,6 +244,7 @@ func TestTiKV(t *testing.T) {
 	t.Run("registry", func(t *testing.T) { testTiKVRegistry(t, physical) })
 	t.Run("regional-replication-lag", func(t *testing.T) { testTiKVLag(t, client, observer) })
 	t.Run("presence-pages", func(t *testing.T) { testTiKVPresence(t, address, addresses) })
+	t.Run("presence-transitions", func(t *testing.T) { testTiKVPresenceTransitions(t, address) })
 }
 
 func testTiKVRegistry(t *testing.T, physical *storage.Storage) {
