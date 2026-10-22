@@ -157,6 +157,11 @@ Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registr
 
 CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
 
+原生 SDK 与 Docker CI 的 Ubuntu runner 通过
+`setup/install-native-runner-tools.sh` 安装同一组 WebRTC 构建与虚拟音频依赖。
+该入口将 runner 默认 Azure Ubuntu 源替换为官方 `archive.ubuntu.com`，支持 mirrorlist
+和直接 sources 配置，继续使用 APT 的签名与包校验。
+
 ### RegistrationToken 并发注册
 
 ```sh

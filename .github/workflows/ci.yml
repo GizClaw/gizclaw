@@ -949,11 +949,7 @@ jobs:
           channel: stable
           cache: true
       - name: Install native WebRTC runner tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            clang cmake ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev \
-            protobuf-compiler libprotobuf-dev libpulse-dev pulseaudio pulseaudio-utils xvfb xauth
+        run: bash tests/gizclaw-e2e/setup/install-native-runner-tools.sh
       - name: Start virtual audio device for Flutter WebRTC
         run: |
           pulseaudio --start --exit-idle-time=-1
@@ -1005,11 +1001,7 @@ jobs:
           channel: stable
           cache: true
       - name: Install native WebRTC runner tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y \
-            clang cmake ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev \
-            protobuf-compiler libprotobuf-dev libpulse-dev pulseaudio pulseaudio-utils xvfb xauth
+        run: bash tests/gizclaw-e2e/setup/install-native-runner-tools.sh
       - name: Start virtual audio device for Flutter WebRTC
         run: |
           pulseaudio --start --exit-idle-time=-1
