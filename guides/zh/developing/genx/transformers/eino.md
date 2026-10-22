@@ -75,6 +75,10 @@ Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，�
 
 `Config.TranscribeInput` 由宿主提供原生 Model 转写能力，不改变 Graph 定义。Push-to-Talk 音频到达 EOS 后先执行该回调，发布同一 StreamID 的用户转写，再以普通文本初始化 `input.text` 与 `input.messages`，然后才执行 Memory recall 和 Graph。失败或取消不执行 Graph；空转写结束该轮且不生成回复。后续 Observe 与 History 使用同一份用户文本，普通文本轮不调用转写。回调与 Graph 的 `AudioTranscript` receiver 互斥，宿主必须选择一种接入方式。
 
+原生音频输入的 MIME EOS 启动该轮处理；随后同一输入的成功纯控制 EOS 由 Eino 消费，不透传到输出的转写 route。这样，迟到的模型转写与原音保持关联，用户记录排在本轮回复之前；同一轮的多条合法回复仍各自保存，不限制一轮的记录数量。错误 EOS 与无关 route 的边界继续按原路径传递。
+
+音频 turn 完成时，Eino 发出仅供 History 使用的输入结束边界。空转写或模型未提供转写时，原音也会在 session 保持打开期间保存并可回放；被中断且没有定稿文本的音频不保存。
+
 宿主也可在内部 Graph 配置中设置 receiver，直接将音频交给 ChatModel，Graph 可以早于转写开始执行。GizClaw 仅为不依赖当前文本的简单图自动推导这种集成；持久化 Workflow Schema 不提供 receiver 字段。以下描述 Go API 的直接音频模式：
 
 `ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 且未配置 `TranscribeInput` 的 Graph 只接受文本 turn。

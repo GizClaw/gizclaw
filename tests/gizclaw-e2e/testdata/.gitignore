@@ -2,6 +2,9 @@
 !continuous-podcast/
 !continuous-podcast/*.json
 !continuous-podcast/*.giztest.yaml
+!native-audio-history/
+!native-audio-history/resources.json
+!native-audio-history/rounds.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

@@ -226,6 +226,13 @@ func (session *session) run() {
 			continue
 		}
 		if acceptsAudio {
+			// The MIME EOS already consumed this audio turn. Its later outer
+			// EOS must not close the output transcript route while native
+			// transcription is still pending.
+			if !inAudio && activeAudioID != "" && chunk.Part == nil && chunk.IsEndOfStream() && genx.StreamError(chunk.Ctrl) == nil && messageStreamID(chunk) == activeAudioID {
+				activeAudioID = ""
+				continue
+			}
 			if blob, ok := audioInputBlob(chunk); ok || (inAudio && chunk.Part == nil && messageStreamID(chunk) == activeAudioID) {
 				streamID := messageStreamID(chunk)
 				if ok && (!inAudio || chunk.IsBeginOfStream() || streamID != activeAudioID) {
@@ -264,7 +271,6 @@ func (session *session) run() {
 					}
 					audio = nil
 					inAudio = false
-					activeAudioID = ""
 				}
 				continue
 			}
@@ -826,6 +832,17 @@ func (run *turnRun) execute() {
 		finalizeErr := run.finalize(run.session.invocation.Context(), state, version, delivered, interrupted || runErr != nil)
 		if runErr == nil {
 			runErr = finalizeErr
+		}
+	}
+	if run.audioTurn() {
+		// The turn owns the input terminal: a missing or empty transcript
+		// must still flush its History audio while the session stays open.
+		ctrl := &genx.StreamCtrl{StreamID: run.audioInputID, Label: genx.HistoryUserAudioLabel, EndOfStream: true}
+		if interrupted {
+			ctrl.Error = "interrupted"
+		}
+		if err := run.session.invocation.Output().Push(&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Ctrl: ctrl}); err != nil && runErr == nil {
+			runErr = fmt.Errorf("eino: finish user audio History: %w", err)
 		}
 	}
 	run.finishRoutes(runErr, interrupted)

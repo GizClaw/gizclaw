@@ -1,0 +1,254 @@
+# User Story:
+# As a native PTT device talking over consecutive turns,
+# I want each input before all its separate reply records in History and the next model request,
+# So that an outer input EOS cannot put a delayed transcript after its replies.
+# This fixture generates two sections on each playback route. History indices
+# describe its declared sections, not a global record limit or a merge rule.
+version: gizclaw.test/v1alpha1
+name: eino.native-audio-history.multi-round
+timeout: 90s
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: '${endpoint}'}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  fixture_endpoint: {direction: input, type: string, env: GIZCLAW_NATIVE_HISTORY_FIXTURE}
+  workspace_name: {direction: input, type: string, generate: token}
+  audio_1: {direction: output, type: audio, max_bytes: 16777216, media_type: audio/ogg, codec: opus}
+  transcript_1: {direction: output, type: string}
+  user_1: {direction: output, type: string}
+  reply_1: {direction: output, type: string}
+  note_1: {direction: output, type: string}
+  snapshot_1: {direction: output, type: object}
+  audio_2: {direction: output, type: audio, max_bytes: 16777216, media_type: audio/ogg, codec: opus}
+  transcript_2: {direction: output, type: string}
+  user_2: {direction: output, type: string}
+  reply_2: {direction: output, type: string}
+  note_2: {direction: output, type: string}
+  snapshot_2: {direction: output, type: object}
+steps:
+- id: register
+  client: peer
+  rpc:
+    method: server.register
+    request: {token: '${registration_token}'}
+- id: create
+  client: peer
+  rpc:
+    method: server.workspace.create
+    request:
+      name: ${workspace_name}
+      workflow_name: native-history
+      parameters:
+        eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO, input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK}
+- id: select
+  client: peer
+  rpc:
+    method: server.run.workspace.set
+    request: {workspace_name: '${workspace_name}'}
+- id: reload
+  client: peer
+  rpc:
+    method: server.run.workspace.reload
+    request: {}
+- id: prepare_audio_1
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    cache: run
+    request:
+      voice_name: speech
+      text: first input
+      accepted_content_types:
+      - audio/ogg
+  save_as: audio_1
+- id: native_turn_1
+  client: peer
+  timeout: 20s
+  peer_stream:
+    mode: push-to-talk
+    input: ${audio_1}
+    pacing: 20ms
+    require_text: true
+    require_audio: true
+    wait_for_history: true
+    reply_observation: 1s
+  capture: {transcript_1: /transcript}
+  expect:
+    /input_packets: {minimum: 1}
+    /transcript: {non_empty: true}
+    /reply: {non_empty: true}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_bytes: {minimum: 1}
+    /response_count: {equals: 1}
+    /audio_integrity/streams: {equals: 1}
+    /audio_integrity/open: {equals: 0}
+    /audio_integrity/violations: {equals: 0}
+    /first_text_ms: {maximum: 2000}
+    /first_audio_ms: {maximum: 3000}
+- id: ordered_history_1
+  client: peer
+  rpc:
+    method: server.workspace.history.list
+    request: {workspace_name: '${workspace_name}', order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC, limit: 20}
+  expect:
+    /available: {equals: true}
+  capture: {snapshot_1: ''}
+- id: retain_raw_history_1
+  client: peer
+  http: {method: POST, endpoint: '${fixture_endpoint}', path: /history, body: '${snapshot_1}', status: 200}
+  expect:
+    /retained: {equals: true}
+    /snapshot/available: {equals: true}
+    /snapshot/has_next: {equals: false}
+    /snapshot/items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+    /snapshot/items/0/text: {equals: '${transcript_1}'}
+    /snapshot/items/0/audio_available: {equals: true}
+    /snapshot/items/1/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+    /snapshot/items/1/text: {equals: 'first reply 1. '}
+    /snapshot/items/1/audio_available: {equals: true}
+    /snapshot/items/2/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+    /snapshot/items/2/text: {equals: 'first reply 2. '}
+    /snapshot/items/2/audio_available: {equals: true}
+  capture: {user_1: /snapshot/items/0/name, reply_1: /snapshot/items/1/name, note_1: /snapshot/items/2/name}
+- id: download_user_1
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: '${workspace_name}', history_name: '${user_1}'}
+    max_bytes: 16777216
+  expect:
+    /bytes: {minimum: 1}
+- id: download_reply_1
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: '${workspace_name}', history_name: '${reply_1}'}
+    max_bytes: 16777216
+  expect:
+    /bytes: {minimum: 1}
+- id: download_note_1
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: '${workspace_name}', history_name: '${note_1}'}
+    max_bytes: 16777216
+  expect:
+    /bytes: {minimum: 1}
+- id: prepare_audio_2
+  client: peer
+  speech:
+    method: server.speech.synthesize
+    cache: run
+    request:
+      voice_name: speech
+      text: 'space: second input'
+      accepted_content_types:
+      - audio/ogg
+  save_as: audio_2
+- id: native_turn_2
+  client: peer
+  timeout: 20s
+  peer_stream:
+    mode: push-to-talk
+    input: ${audio_2}
+    pacing: 20ms
+    require_text: true
+    require_audio: true
+    wait_for_history: true
+    reply_observation: 1s
+  capture: {transcript_2: /transcript}
+  expect:
+    /input_packets: {minimum: 1}
+    /transcript: {non_empty: true}
+    /reply: {non_empty: true}
+    /text_eos: {equals: true}
+    /audio_eos: {equals: true}
+    /audio_bytes: {minimum: 1}
+    /response_count: {equals: 1}
+    /audio_integrity/streams: {equals: 1}
+    /audio_integrity/open: {equals: 0}
+    /audio_integrity/violations: {equals: 0}
+    /first_text_ms: {maximum: 2000}
+    /first_audio_ms: {maximum: 3000}
+- id: ordered_history_2
+  client: peer
+  rpc:
+    method: server.workspace.history.list
+    request: {workspace_name: '${workspace_name}', order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC, limit: 20}
+  expect:
+    /available: {equals: true}
+  capture: {snapshot_2: ''}
+- id: retain_raw_history_2
+  client: peer
+  http: {method: POST, endpoint: '${fixture_endpoint}', path: /history, body: '${snapshot_2}', status: 200}
+  expect:
+    /retained: {equals: true}
+    /snapshot/available: {equals: true}
+    /snapshot/has_next: {equals: false}
+    /snapshot/items/0/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+    /snapshot/items/0/text: {equals: '${transcript_1}'}
+    /snapshot/items/0/audio_available: {equals: true}
+    /snapshot/items/1/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+    /snapshot/items/1/text: {equals: 'first reply 1. '}
+    /snapshot/items/1/audio_available: {equals: true}
+    /snapshot/items/2/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+    /snapshot/items/2/text: {equals: 'first reply 2. '}
+    /snapshot/items/2/audio_available: {equals: true}
+    /snapshot/items/0/name: {equals: '${user_1}'}
+    /snapshot/items/1/name: {equals: '${reply_1}'}
+    /snapshot/items/2/name: {equals: '${note_1}'}
+    /snapshot/items/3/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR}
+    /snapshot/items/3/text: {equals: '${transcript_2}'}
+    /snapshot/items/3/audio_available: {equals: true}
+    /snapshot/items/4/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+    /snapshot/items/4/text: {equals: 'second reply 1. '}
+    /snapshot/items/4/audio_available: {equals: true}
+    /snapshot/items/5/type: {equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT}
+    /snapshot/items/5/text: {equals: 'second reply 2. '}
+    /snapshot/items/5/audio_available: {equals: true}
+  capture: {user_2: /snapshot/items/3/name, reply_2: /snapshot/items/4/name, note_2: /snapshot/items/5/name}
+- id: download_user_2
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: '${workspace_name}', history_name: '${user_2}'}
+    max_bytes: 16777216
+  expect:
+    /bytes: {minimum: 1}
+- id: download_reply_2
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: '${workspace_name}', history_name: '${reply_2}'}
+    max_bytes: 16777216
+  expect:
+    /bytes: {minimum: 1}
+- id: download_note_2
+  client: peer
+  rpc_stream:
+    method: server.workspace.history.audio.download
+    request: {workspace_name: '${workspace_name}', history_name: '${note_2}'}
+    max_bytes: 16777216
+  expect:
+    /bytes: {minimum: 1}
+finally:
+- id: stop
+  client: peer
+  rpc:
+    method: server.run.stop
+    request: {}
+- id: delete_workspace
+  client: peer
+  rpc:
+    method: server.workspace.delete
+    request: {name: '${workspace_name}'}
+- id: delete_peer
+  client: peer
+  rpc:
+    method: server.peer.delete
+    request: {}
+report:
+  redact:
+  - registration_token
