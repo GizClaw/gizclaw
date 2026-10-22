@@ -30,10 +30,13 @@ func TestNativeAudioConsumesOnlyItsSuccessfulOuterEnd(t *testing.T) {
 			}
 			defer core.Close()
 			input := newInputBuilder()
+			cause := errors.New("audio transport failed")
 			for _, chunk := range []*genx.MessageChunk{
 				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "speech", BeginOfStream: true}},
 				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
 				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, Error: "interrupted"}},
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, ErrorCause: cause}},
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, ErrorCode: "transport_unavailable"}},
 				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "unrelated", EndOfStream: true}},
 				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
 			} {
@@ -48,19 +51,21 @@ func TestNativeAudioConsumesOnlyItsSuccessfulOuterEnd(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			foreign, interrupted := false, false
+			foreign, interrupted, causeOnly, codeOnly := false, false, false, false
 			for _, chunk := range drain(t, output) {
-				if chunk.Part != nil || !chunk.IsEndOfStream() {
+				if chunk.Part != nil || !chunk.IsEndOfStream() || chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
 					continue
 				}
-				if chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" {
+				if chunk.Ctrl.StreamID == "speech" && genx.StreamError(chunk.Ctrl) == nil {
 					t.Fatal("consumed audio route EOS escaped into transcript output")
 				}
 				foreign = foreign || chunk.Ctrl.StreamID == "unrelated"
 				interrupted = interrupted || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "interrupted"
+				causeOnly = causeOnly || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" && errors.Is(genx.StreamError(chunk.Ctrl), cause)
+				codeOnly = codeOnly || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" && chunk.Ctrl.ErrorCode == "transport_unavailable"
 			}
-			if !foreign || !interrupted {
-				t.Fatalf("unrelated EOS forwarded=%t, existing error EOS forwarded=%t", foreign, interrupted)
+			if !foreign || !interrupted || !causeOnly || !codeOnly {
+				t.Fatalf("forwarded EOS: unrelated=%t interrupted=%t cause-only=%t code-only=%t", foreign, interrupted, causeOnly, codeOnly)
 			}
 		})
 	}

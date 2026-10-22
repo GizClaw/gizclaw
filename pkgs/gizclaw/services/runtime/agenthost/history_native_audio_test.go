@@ -3,6 +3,7 @@ package agenthost
 import (
 	"context"
 	"fmt"
+	"io"
 	"slices"
 	"testing"
 	"time"
@@ -14,6 +15,94 @@ import (
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
+
+func TestNativeAudioHistoryWithoutTranscriptIsAvailableBeforeSessionEnds(t *testing.T) {
+	for _, direct := range []bool{false, true} {
+		t.Run(fmt.Sprintf("direct-model-%t", direct), func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
+			defer cancel()
+			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+			config := genxeino.Config{
+				Agent: genxeino.AgentConfig{ID: "audio-only", Name: "audio-only"}, Components: finiteHistoryModel{},
+				Graph: genxeino.GraphDefinition{
+					Name: "audio-only", State: genxeino.StateDefinition{Fields: []genxeino.StateField{{Name: "answer", Type: genxeino.StateString, Merge: genxeino.MergeReplace}}},
+					Nodes:   []genxeino.NodeDefinition{{ID: "chat", ChatModel: &genxeino.ChatModelNode{Model: "chat", AudioTranscript: direct}, Inputs: map[string]genxeino.Binding{"messages": {From: "input.messages"}}, Outputs: map[string]string{"text": "answer"}}},
+					Edges:   []genxeino.EdgeDefinition{{From: "start", To: "chat"}, {From: "chat", To: "end"}},
+					Outputs: []genxeino.OutputDefinition{{Node: "chat", Field: "answer", Name: "assistant", MIMEType: "text/plain", Primary: true}},
+				},
+			}
+			if !direct {
+				config.TranscribeInput = func(context.Context, []*genx.Blob) (string, error) { return "", nil }
+			}
+			core, err := genxeino.New(ctx, config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer core.Close()
+			dock, err := audiodock.New(audiodock.Config{Agent: core})
+			if err != nil {
+				t.Fatal(err)
+			}
+			agent := wrapHistoryAgent(NewTransformerAgent(dock), history)
+			input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+			output, err := agent.Transform(withHistoryGearID(ctx, "native-peer"), input.Stream())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer output.Close()
+			encoder, err := opus.NewEncoder(16000, 1, opus.ApplicationVoIP)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer encoder.Close()
+			packet, err := encoder.Encode(make([]int16, 320), 320)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, chunk := range []*genx.MessageChunk{
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", BeginOfStream: true}},
+				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: packet}, Ctrl: &genx.StreamCtrl{StreamID: "speech", BeginOfStream: true}},
+				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
+				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
+			} {
+				if err := input.Add(chunk); err != nil {
+					t.Fatal(err)
+				}
+			}
+			for {
+				chunk, err := output.Next()
+				if err != nil {
+					t.Fatal(err)
+				}
+				if chunk.Role == genx.RoleModel && chunk.IsEndOfStream() && chunk.Ctrl.ResponseEpochEnd {
+					break
+				}
+			}
+			// The input is intentionally still open: turn completion must make
+			// audio-only History durable and replayable without session teardown.
+			page, err := history.ListEntries(ctx, "", "", 10)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(page.Entries) == 0 || page.Entries[0].Type != historyEntryTypeGear || page.Entries[0].TurnID != "speech" || page.Entries[0].Text != "" || len(page.Entries[0].Assets) != 1 || !page.Entries[0].ReplayAvailable {
+				t.Fatalf("audio-only History unavailable in the open session: %+v", page.Entries)
+			}
+			reader, err := history.ReadAsset(ctx, page.Entries[0].Assets[0].Name)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer reader.Close()
+			asset, err := io.ReadAll(reader)
+			if err != nil {
+				t.Fatal(err)
+			}
+			packets, err := historyOpusFramesFromOgg(asset)
+			if err != nil || len(packets) != 1 || !slices.Equal(packets[0], packet) {
+				t.Fatalf("audio-only replay changed: packets=%v error=%v", packets, err)
+			}
+		})
+	}
+}
 
 // Exercise the actual AudioDock -> Eino -> AgentHost -> SQL History path.
 // There is no Giztest client, matcher, prompt, or live model in this regression.
