@@ -61,6 +61,8 @@ export function createConsoleRuntime(
   const endpointFor = (publicKey: string) =>
     deps.peers().find((peer) => peer.publicKey === publicKey)?.endpoint ??
     deviceEndpoint();
+  const signedBearerFor = (publicKey: string) =>
+    deps.peers().find((peer) => peer.publicKey === publicKey)?.signedBearer;
   const key = (value: string) => normalizePublicKey(value);
 
   const ensureWatched = (publicKey: string) => {
@@ -149,7 +151,12 @@ export function createConsoleRuntime(
         ),
       status: (publicKey) =>
         source(() =>
-          loadPeer(endpointFor(key(publicKey)), key(publicKey), deps.signal()),
+          loadPeer(
+            endpointFor(key(publicKey)),
+            key(publicKey),
+            deps.signal(),
+            signedBearerFor(key(publicKey)),
+          ),
         ),
       telemetry: async (publicKey, fields) => {
         const values = await source(() =>
@@ -157,6 +164,7 @@ export function createConsoleRuntime(
             endpointFor(key(publicKey)),
             key(publicKey),
             deps.signal(),
+            signedBearerFor(key(publicKey)),
           ),
         );
         return fields
@@ -180,12 +188,18 @@ export function createConsoleRuntime(
             request.startMs,
             request.endMs,
             deps.signal(),
+            signedBearerFor(publicKey),
           ),
         );
       },
       wifi: (publicKey) =>
         source(() =>
-          loadWifi(endpointFor(key(publicKey)), key(publicKey), deps.signal()),
+          loadWifi(
+            endpointFor(key(publicKey)),
+            key(publicKey),
+            deps.signal(),
+            signedBearerFor(key(publicKey)),
+          ),
         ),
       workspaces: (publicKey) =>
         source(() =>
@@ -193,6 +207,7 @@ export function createConsoleRuntime(
             endpointFor(key(publicKey)),
             key(publicKey),
             deps.signal(),
+            signedBearerFor(key(publicKey)),
           ),
         ),
       history: async (request) => {
@@ -211,6 +226,7 @@ export function createConsoleRuntime(
               limit: request.limit,
             },
             deps.signal(),
+            signedBearerFor(publicKey),
           ),
         );
         return { items: page.items, nextCursor: page.next_cursor };
@@ -232,6 +248,7 @@ export function createConsoleRuntime(
             request.untilMs ?? deps.now(),
             request.cursor,
             deps.signal(),
+            signedBearerFor(publicKey),
           ),
         );
         return { items: page.items, nextCursor: page.end.next_cursor };

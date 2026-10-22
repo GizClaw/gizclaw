@@ -2226,3 +2226,14 @@ provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍�
 Telemetry 发送面的边界。有状态 MHS simulator 仅由 Go runner 运行。每个选中的场景必须执行全部
 step 和 cleanup；缺 runner、skipped、断言失败或清理失败都会使该验收 lane 失败。SQL 重启持久性、
 严格字节边界和跨 Server 管理员签名隔离另由 Runtime/服务端行为回归覆盖。
+
+同一入口还通过 Go 和 JavaScript 执行 `server.device.monitor.signed`。每轮共 Go 14、JavaScript
+13、C 12、Flutter 8 个场景，三轮合计 141 场景、2661 步（包含 cleanup）。签名场景每次执行
+37 步和 1 个 cleanup：在 debug 始终为 off 时，用真实签名经 Edge 读取概览、状态、Telemetry、
+趋势、Workspace、SQL 历史、已保存的 Ogg、设备日志、Wi-Fi、Modem/NFC 和管理工具状态，
+并逐项确认公钥 Bearer 被拒绝，覆盖更换凭证、非法签名和 Client 跨目标拒绝。
+日志查询后端使用检查目标 owner 的确定性夹具；鉴权、路由、SQLite 历史及资产、metrics 和
+设备反向 RPC 使用实际实现。该场景也由普通 `go test ./cmd/internal/server` 执行。
+
+控制台的 loader 和页面回归使用实际 control SDK，在关闭 debug 的 HTTP 边界夹具上验证上述
+读取、历史音频播放、凭证更新后的取消与重新读取，以及诊断助手使用当前凭证。

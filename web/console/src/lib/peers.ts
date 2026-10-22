@@ -198,8 +198,9 @@ export async function loadTelemetry(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
+  signedBearer?: string,
 ): Promise<TelemetryValue[]> {
-  const peer = client(endpoint, publicKey, signal);
+  const peer = client(endpoint, publicKey, signal, signedBearer);
   const values: PeerTelemetryLatestResponse["values"] = [];
   for (let offset = 0; offset < telemetryFields.length; offset += 4) {
     signal.throwIfAborted();
@@ -270,9 +271,10 @@ export async function loadWorkspaces(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
+  signedBearer?: string,
 ) {
   return workspaceList.parse(
-    await client(endpoint, publicKey, signal).listWorkspaces(),
+    await client(endpoint, publicKey, signal, signedBearer).listWorkspaces(),
   );
 }
 
@@ -295,19 +297,22 @@ export async function loadHistory(
   workspaceId: string,
   request: HistoryRequest,
   signal: AbortSignal,
+  signedBearer?: string,
 ) {
   return historyPage.parse(
-    await client(endpoint, publicKey, signal).listWorkspaceHistory(
-      workspaceId,
-      {
-        query: request.query,
-        cursor: request.cursor,
-        order: request.order,
-        start_time_ms: request.startTimeMs,
-        end_time_ms: request.endTimeMs,
-        limit: request.limit ?? 100,
-      },
-    ),
+    await client(
+      endpoint,
+      publicKey,
+      signal,
+      signedBearer,
+    ).listWorkspaceHistory(workspaceId, {
+      query: request.query,
+      cursor: request.cursor,
+      order: request.order,
+      start_time_ms: request.startTimeMs,
+      end_time_ms: request.endTimeMs,
+      limit: request.limit ?? 100,
+    }),
   );
 }
 
@@ -317,8 +322,9 @@ export function loadHistoryAudio(
   workspaceId: string,
   historyId: string,
   signal: AbortSignal,
+  signedBearer?: string,
 ): Promise<Blob> {
-  return client(endpoint, publicKey, signal).downloadHistoryAudio(
+  return client(endpoint, publicKey, signal, signedBearer).downloadHistoryAudio(
     workspaceId,
     historyId,
   );
@@ -333,9 +339,10 @@ export async function loadDeviceLogs(
   end: number,
   cursor: string | undefined,
   signal: AbortSignal,
+  signedBearer?: string,
 ) {
   return deviceLogs.parse(
-    await client(endpoint, publicKey, signal).searchLogs({
+    await client(endpoint, publicKey, signal, signedBearer).searchLogs({
       query,
       level,
       start_time_ms: start,
@@ -359,8 +366,9 @@ export async function loadWifi(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
+  signedBearer?: string,
 ) {
-  const peer = client(endpoint, publicKey, signal);
+  const peer = client(endpoint, publicKey, signal, signedBearer);
   const [manifest, saved] = await Promise.all([
     peer.getMhsManifest(),
     peer.listSavedWifi(),
@@ -395,8 +403,14 @@ export async function loadTelemetryRange(
   startMs: number,
   endMs: number,
   signal: AbortSignal,
+  signedBearer?: string,
 ) {
-  const result = await client(endpoint, publicKey, signal).queryTelemetry({
+  const result = await client(
+    endpoint,
+    publicKey,
+    signal,
+    signedBearer,
+  ).queryTelemetry({
     field,
     start_time_ms: startMs,
     end_time_ms: endMs,

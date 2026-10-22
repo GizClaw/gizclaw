@@ -2447,3 +2447,15 @@ no-telemetry-sender boundary. Stateful MHS simulation runs on Go. Every selected
 missing executables, skips or failures fail the lane. Fixtures exercise protocol behavior, not physical NFC,
 Modem power or usage enforcement. Runtime/Server behavior tests separately verify SQL restart persistence,
 strict byte limits and cross-Server signed authorization.
+
+The same lane also runs `server.device.monitor.signed` through Go and JavaScript. Each round runs Go 14,
+JavaScript 13, C 12 and Flutter 8 scenarios: 141 scenarios and 2661 steps including cleanup over three
+rounds. The signed scenario has 37 steps and one cleanup. With debug kept off, real signed requests cross
+Edge to read overview/status, telemetry/trends, Workspaces, SQL History and retained Ogg audio, logs,
+Wi-Fi, Modem/NFC and management state. Every corresponding public-key request is denied; replacement
+credentials, invalid signatures and cross-target Client rejection are covered. The log backend is a
+deterministic owner-checking fixture; authorization, routing, SQLite History/assets, metrics and reverse
+device RPC use production implementations. Ordinary Go tests run the Go scenario as well.
+
+Console loader and rendered-page regressions use the real control SDK with a debug-off HTTP boundary
+fixture, including audio playback, credential replacement and current-credential assistant reads.

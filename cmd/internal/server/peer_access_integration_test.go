@@ -254,7 +254,7 @@ func TestSignedBearerThroughAP(t *testing.T) {
 
 }
 
-func startPeerAccessServer(t *testing.T, peers, keys kv.Store, edge, admin giznet.PublicKey) (*CmdServer, string, func()) {
+func startPeerAccessServer(t *testing.T, peers, keys kv.Store, edge, admin giznet.PublicKey, configure ...func(*CmdServer)) (*CmdServer, string, func()) {
 	t.Helper()
 	cfg := validLayeredConfig(t.TempDir())
 	cfg.EdgeNodes = []giznet.PublicKey{edge}
@@ -264,6 +264,9 @@ func startPeerAccessServer(t *testing.T, peers, keys kv.Store, edge, admin gizne
 		t.Fatal(err)
 	}
 	srv.PeerStore, srv.APIKeyStore, srv.MetricsStore = peers, keys, metrics.NewMemoryStore()
+	for _, apply := range configure {
+		apply(srv)
+	}
 	httpServer := httptest.NewServer(srv)
 	srv.PublicEndpoint = strings.TrimPrefix(httpServer.URL, "http://")
 	srv.PeerListenerFactories = []gizclaw.PeerListenerFactory{func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {

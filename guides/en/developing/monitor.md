@@ -341,6 +341,12 @@ refresh; never import the private key. Tokens are stored with encrypted personal
 from page diagnostics. Without a signature the existing public-key/debug mode remains. Node Monitor Tokens
 do not grant device access.
 
+The watched device's signed credential accompanies overview, latest telemetry and trends, GNSS tracks,
+Workspaces, History, audio downloads, device logs, hardware configuration and diagnostic assistant reads.
+Replacing it cancels active page reads and reloads the page; assistant reads use the current credential
+at invocation time. Valid signed access works with debug off. Devices without a signed credential retain
+the existing debug-access policy.
+
 
 Device configuration reads each Modem/NFC cached snapshot and only the advertised content-age, features,
 usage-time, AI-safety and password-state Get tools. Each instance/query reports errors independently and

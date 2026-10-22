@@ -10,6 +10,18 @@ import (
 	"testing"
 )
 
+func TestMonitorSignedSDKGiztest(t *testing.T) {
+	root, err := filepath.Abs(filepath.Join("..", "..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runMonitorSignedGiztest(t, func(ctx context.Context, file, report string) ([]byte, error) {
+		command := exec.CommandContext(ctx, "node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts"), "run", file, "--parallel", "1", "--output", report)
+		command.Dir = root
+		return command.CombinedOutput()
+	})
+}
+
 // A missing runner, skipped document/step, failed assertion or failed cleanup
 // fails the lane. Flutter has no telemetry sender; Go/JS/C execute KV packets.
 func TestDeviceManagementSDKGiztests(t *testing.T) {

@@ -1,0 +1,377 @@
+# User Story:
+# As a Monitor operator with a valid target-bound signed credential,
+# I want every page's device reads to succeed while debug access stays off,
+# So that monitoring does not depend on public-key debug permissions.
+version: gizclaw.test/v1alpha1
+name: server.device.monitor.signed
+clients:
+  observer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  signed_bearer: {direction: input, type: string, env: GIZCLAW_MONITOR_SIGNED_BEARER, secret: true}
+  renewed_bearer: {direction: input, type: string, env: GIZCLAW_MONITOR_RENEWED_BEARER, secret: true}
+  foreign_bearer: {direction: input, type: string, env: GIZCLAW_MONITOR_FOREIGN_BEARER, secret: true}
+  public_key: {direction: input, type: string, env: GIZCLAW_MONITOR_SIGNED_KEY}
+  workspace_id: {direction: input, type: string, env: GIZCLAW_MONITOR_SIGNED_WORKSPACE}
+  history_id: {direction: input, type: string, env: GIZCLAW_MONITOR_SIGNED_HISTORY}
+  start_ms: {direction: input, type: string, env: GIZCLAW_MONITOR_START_MS}
+  end_ms: {direction: input, type: string, env: GIZCLAW_MONITOR_END_MS}
+steps:
+  - id: overview_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: overview_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/name": {"equals":"Signed fixture"}
+  - id: runtime_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/runtime"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: runtime_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/runtime"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/debug_mode": {"equals":"off"}
+      "/online": {"equals":true}
+  - id: status_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/status"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: status_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/status"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/battery_percent": {"equals":50}
+  - id: telemetry_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/telemetry/battery.percent/latest"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: telemetry_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/telemetry/battery.percent/latest"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/values": {"count":1}
+      "/values/0/value": {"equals":50}
+  - id: trend_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/telemetry?field=battery.percent&start_time_ms=${start_ms}&end_time_ms=${end_ms}"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: trend_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/telemetry?field=battery.percent&start_time_ms=${start_ms}&end_time_ms=${end_ms}"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/points": {"count":1}
+  - id: workspaces_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/workspaces"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: workspaces_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/workspaces"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "": {"count":1}
+      "/0/id": {"equals":"${workspace_id}"}
+  - id: history_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/workspaces/${workspace_id}/history?query=Retained"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: history_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/workspaces/${workspace_id}/history?query=Retained"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/items": {"count":1}
+      "/items/0/name": {"equals":"${history_id}"}
+      "/items/0/audio_available": {"equals":true}
+  - id: audio_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/workspaces/${workspace_id}/history/${history_id}/audio.ogg"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: audio_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/workspaces/${workspace_id}/history/${history_id}/audio.ogg"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "": {"pattern":"^OggS","min_length":100}
+  - id: logs_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/logs/search?start_time_ms=${start_ms}&end_time_ms=${end_ms}"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: logs_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/logs/search?start_time_ms=${start_ms}&end_time_ms=${end_ms}"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/items": {"count":0}
+  - id: manifest_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/mhs/v0/manifest"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: manifest_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/mhs/v0/manifest"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/devices": {"count":3}
+  - id: wifi_public_key_denied
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/mhs/v0/read"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+      body: {"id":"wifi.main","hwd":"wifi"}
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: wifi_signed
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/mhs/v0/read"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+      body: {"id":"wifi.main","hwd":"wifi"}
+    expect:
+      "/value/ssid": {"equals":"Signed Wi-Fi"}
+  - id: modem_public_key_denied
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/mhs/v0/read"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+      body: {"id":"modem.main","hwd":"modem"}
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: modem_signed
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/mhs/v0/read"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+      body: {"id":"modem.main","hwd":"modem"}
+    expect:
+      "/value/enabled": {"equals":false}
+      "/value/powered": {"equals":false}
+  - id: nfc_public_key_denied
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/mhs/v0/read"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+      body: {"id":"nfc.left","hwd":"nfc"}
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: nfc_signed
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/mhs/v0/read"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+      body: {"id":"nfc.left","hwd":"nfc"}
+    expect:
+      "/value/enabled": {"equals":false}
+  - id: saved_wifi_public_key_denied
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/tool/v0/invoke"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+      body: {"tool":"wifi.saved.list","args":{}}
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: saved_wifi_signed
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/tool/v0/invoke"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+      body: {"tool":"wifi.saved.list","args":{}}
+    expect:
+      "/result/networks": {"count":1}
+  - id: tools_public_key_denied
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/tool/v0/tools"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: tools_signed
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/tool/v0/tools"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+    expect:
+      "/tools": {"non_empty":true}
+  - id: usage_public_key_denied
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/tool/v0/invoke"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+      body: {"tool":"usage.time.get","args":{}}
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: usage_signed
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/tool/v0/invoke"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+      body: {"tool":"usage.time.get","args":{}}
+    expect:
+      "/result/state/limit_seconds": {"equals":0}
+      "/result/state/exhausted": {"equals":false}
+  - id: password_state_public_key_denied
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/tool/v0/invoke"
+      headers: {"Authorization":"Bearer gizclaw_pk_${public_key}"}
+      status: 403
+      body: {"tool":"management.password.get","args":{}}
+    expect:
+      "/error/code": {"equals":"DEBUG_ACCESS_FORBIDDEN"}
+  - id: password_state_signed
+    client: observer
+    http:
+      method: POST
+      path: "/gizclaw/v1/device/tool/v0/invoke"
+      headers: {"Authorization":"Bearer ${signed_bearer}"}
+      status: 200
+      body: {"tool":"management.password.get","args":{}}
+    expect:
+      "/result/is_set": {"equals":false}
+  - id: renewed_credential
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/runtime"
+      headers: {"Authorization":"Bearer ${renewed_bearer}"}
+      status: 200
+    expect:
+      "/debug_mode": {"equals":"off"}
+  - id: invalid_signature
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/status"
+      headers: {"Authorization":"Bearer gizclaw_sig_v1_invalid.invalid"}
+      status: 401
+  - id: client_cannot_select_another_target
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/status"
+      headers: {"Authorization":"Bearer ${foreign_bearer}"}
+      status: 403
+finally:
+  - id: debug_still_off
+    client: observer
+    http:
+      method: GET
+      path: "/gizclaw/v1/device/runtime"
+      headers: {"Authorization":"Bearer ${renewed_bearer}"}
+      status: 200
+    expect:
+      "/debug_mode": {"equals":"off"}
