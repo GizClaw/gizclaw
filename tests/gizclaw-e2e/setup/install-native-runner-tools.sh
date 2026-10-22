@@ -16,5 +16,5 @@ done
 
 sudo apt-get update
 sudo apt-get install --no-install-recommends -y \
-  clang cmake ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev \
+  gdb clang cmake ninja-build pkg-config libgtk-3-dev libayatana-appindicator3-dev \
   protobuf-compiler libprotobuf-dev libpulse-dev pulseaudio pulseaudio-utils xvfb xauth
