@@ -5,6 +5,9 @@
 !native-audio-history/
 !native-audio-history/resources.json
 !native-audio-history/rounds.giztest.yaml
+!model-request-bindings/
+!model-request-bindings/resources.json
+!model-request-bindings/lifecycle.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

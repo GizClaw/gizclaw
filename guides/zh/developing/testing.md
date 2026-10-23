@@ -11,6 +11,28 @@ provider fixture。依赖线上数据库、真实模型调用或 provider 凭据
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
 
+## Model 请求绑定的设备错误回归
+
+```sh
+go test -count=1 -run '^TestModelRequestBindingsGiztest$' ./cmd/internal/server
+```
+
+`testdata/model-request-bindings/lifecycle.giztest.yaml` 经真实 Server、Edge、WebRTC、
+Telemetry、SQL 和 Eino 执行。它验证必填 KV 缺失、删除和 null 时，设备连接收到带安全错误码
+的 EOS，且本地模型协议夹具没有收到请求；补齐与更新后，后续对话使用当前 header。
+可选值缺失或 null 时省略 header，已存在但类型错误的值仍拒绝发送。每个失败步骤都有期限，
+没有响应不能作为成功；夹具只替代上游模型，不替代 Agent 或设备传输。
+
+负向输入回合使用 `peer_stream.expect_terminal_error`，精确匹配字面量 `code`、`message`、
+`label` 和 `retryable`，并在结果及 evidence 的 `terminal_error` 中保留实际非空 stream ID
+与 EOS。成功响应、超时、错误不匹配或没有错误都失败。该断言用于单个 text、push-to-talk
+或 realtime 输入回合的 terminal completion，不能与成功文本／音频要求、打断、回复观察、持久会话或
+History 等待合用。错误 EOS 同时携带的 payload 仍计入结果，可以断言没有文本或音频。
+
+设置 `GIZCLAW_BINDING_EVIDENCE` 可保留报告与回放。这项回归验证设备连接收到错误，不验证
+H106 固件的界面或语音提示；固件消费该事件后的表现需要独立设备验收。回归无 build tag，
+随普通 Go 测试执行，不读取云凭据，也不调用线上模型。
+
 ## Docker 镜像来源
 
 Go、Runtime 与 Mem0 的构建基础镜像、包验证容器、Docker E2E 的第三方服务，以及
