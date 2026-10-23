@@ -283,23 +283,22 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int, overlap bool) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// The expected count comes only from this fixture's declared outputs.
-		// There is no one-reply-per-turn restriction: distinct reply routes
-		// must remain distinct, in order before the next user's input.
+		// A queued next turn may already have persisted its transcript. Check
+		// the completed prefix now and the exact total after the final turn.
 		wantRows := (1 + replyRecords) * (turn + 1)
-		if len(page.Entries) != wantRows {
+		if len(page.Entries) < wantRows || ((!overlap || turn == len(questions)-1) && len(page.Entries) != wantRows) {
 			t.Errorf("turn %d stored %d History rows, want %d declared records: %+v", turn, len(page.Entries), wantRows, page.Entries)
 		}
 		for index, entry := range page.Entries {
 			t.Logf("turn %d History %d: type=%s text=%q input=%s created=%s assets=%d", turn, index, entry.Type, entry.Text, entry.TurnID, entry.CreatedAt.Format(time.RFC3339Nano), len(entry.Assets))
 		}
-		if len(page.Entries) == wantRows {
+		if len(page.Entries) >= wantRows {
 			start := (1 + replyRecords) * turn
 			user := page.Entries[start]
 			if user.Type != historyEntryTypeGear || user.Text != question || user.TurnID != id || len(user.Assets) != 1 {
 				t.Errorf("turn %d lost correlated user text/audio: %+v", turn, user)
 			}
-			for index, reply := range page.Entries[start+1:] {
+			for index, reply := range page.Entries[start+1 : wantRows] {
 				if reply.Type != historyEntryTypeAgent || reply.Name != graph.Outputs[index].Name || reply.Text != "allowed" || reply.CreatedAt.Before(user.CreatedAt) {
 					t.Errorf("turn %d reply record %d out of order or changed: %+v", turn, index, reply)
 				}
