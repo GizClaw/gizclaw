@@ -44,7 +44,7 @@ func ValidateModelRequestBindings(kind ModelKind, provider ModelProviderKind, bi
 			return fmt.Errorf("request_bindings[%d]: duplicate header target", i)
 		}
 		names[name] = true
-		if binding.Source.Kind != ModelRequestSourceKindReportedKv || binding.Source.Key == "" ||
+		if binding.Source.Kind != ModelRequestSourceKindPeerRuntimeKv || binding.Source.Key == "" ||
 			len(binding.Source.Key) > maxModelRequestKeyBytes || !utf8.ValidString(binding.Source.Key) {
 			return fmt.Errorf("request_bindings[%d]: invalid source", i)
 		}

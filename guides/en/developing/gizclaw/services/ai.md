@@ -66,14 +66,14 @@ provider_data:
   upstream_model: your-upstream-model
   request_bindings:
     - target: {kind: http_header, name: X-AI-VID}
-      source: {kind: reported_kv, key: upstream_identity, pointer: /vid}
+      source: {kind: peer_runtime_kv, key: upstream_identity, pointer: /vid}
     - target: {kind: http_header, name: X-AI-UID}
-      source: {kind: reported_kv, key: upstream_identity, pointer: /uid}
+      source: {kind: peer_runtime_kv, key: upstream_identity, pointer: /uid}
     - target: {kind: http_header, name: X-AI-IP}
-      source: {kind: reported_kv, key: upstream_identity, pointer: /ip}
+      source: {kind: peer_runtime_kv, key: upstream_identity, pointer: /ip}
 ```
 
-Keys match exactly. `pointer` is a JSON Pointer within that key's value; omitted or empty selects the whole value. It executes no scripts, interpolation, or wildcard queries. Selected header values must be strings; numbers and booleans are not coerced. Bindings are required by default: missing, deleted, or null values fail the call. `required: false` omits those values, but still rejects present invalid values. Omitted or empty bindings disable the feature. Omitting the field from `provider_data` in a complete PUT/Apply removes existing bindings.
+`source.kind: peer_runtime_kv` reads the invoking device's reported Runtime KV, not RuntimeProfile configuration or other sources. Keys match exactly. `pointer` is a JSON Pointer within that key's value; omitted or empty selects the whole value. It executes no scripts, interpolation, or wildcard queries. Selected header values must be strings; numbers and booleans are not coerced. Bindings are required by default: missing, deleted, or null values fail the call. `required: false` omits those values, but still rejects present invalid values. Omitted or empty bindings disable the feature. Omitting the field from `provider_data` in a complete PUT/Apply removes existing bindings.
 
 The field belongs only to OpenAI-tenant `provider_data`. Nonempty bindings support LLM Chat Completions, including streaming generation and JSON/Tool `Invoke`. Other providers reject the field; Embedding, Voice, and Realtime do not support nonempty bindings. Query/body targets are also rejected. Listing Models, checking capabilities, and initializing an Agent do not require device values.
 

@@ -1773,13 +1773,13 @@ func (e ModelProviderKind) Valid() bool {
 
 // Defines values for ModelRequestSourceKind.
 const (
-	ModelRequestSourceKindReportedKv ModelRequestSourceKind = "reported_kv"
+	ModelRequestSourceKindPeerRuntimeKv ModelRequestSourceKind = "peer_runtime_kv"
 )
 
 // Valid indicates whether the value is a known member of the ModelRequestSourceKind enum.
 func (e ModelRequestSourceKind) Valid() bool {
 	switch e {
-	case ModelRequestSourceKindReportedKv:
+	case ModelRequestSourceKindPeerRuntimeKv:
 		return true
 	default:
 		return false
@@ -4797,7 +4797,7 @@ type ModelRequestBindings = []ModelRequestBinding
 
 // ModelRequestSource defines model for ModelRequestSource.
 type ModelRequestSource struct {
-	// Key Exact Runtime reported KV key, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
+	// Key Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
 	Key  string                 `json:"key"`
 	Kind ModelRequestSourceKind `json:"kind"`
 

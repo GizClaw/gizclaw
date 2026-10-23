@@ -14,7 +14,7 @@ import (
 func testRequestBinding() apitypes.ModelRequestBinding {
 	return apitypes.ModelRequestBinding{
 		Target: apitypes.ModelRequestTarget{Kind: apitypes.ModelRequestTargetKindHttpHeader, Name: "X-Device-Metadata"},
-		Source: apitypes.ModelRequestSource{Kind: apitypes.ModelRequestSourceKindReportedKv, Key: "identity", Pointer: new("/device/id")},
+		Source: apitypes.ModelRequestSource{Kind: apitypes.ModelRequestSourceKindPeerRuntimeKv, Key: "identity", Pointer: new("/device/id")},
 	}
 }
 
@@ -146,6 +146,12 @@ func TestModelRequestBindingsRejectUnsupportedDeclarations(t *testing.T) {
 		}},
 		{"credential source", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
 			(*bindings)[0].Source.Kind = "credential"
+		}},
+		{"unimplemented runtime profile source", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Kind = "runtime_profile"
+		}},
+		{"missing source kind", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Kind = ""
 		}},
 		{"key bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
 			(*bindings)[0].Source.Key = strings.Repeat("中", 22)

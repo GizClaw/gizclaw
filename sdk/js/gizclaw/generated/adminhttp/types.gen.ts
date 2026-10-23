@@ -1251,9 +1251,9 @@ export type ModelRequestBinding = {
 export type ModelRequestBindings = Array<ModelRequestBinding>;
 
 export type ModelRequestSource = {
-    kind: 'reported_kv';
+    kind: 'peer_runtime_kv';
     /**
-     * Exact Runtime reported KV key, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
+     * Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
      */
     key: string;
     /**

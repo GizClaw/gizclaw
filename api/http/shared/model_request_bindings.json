@@ -48,12 +48,12 @@
         "additionalProperties": false,
         "required": ["kind", "key"],
         "properties": {
-          "kind": { "type": "string", "enum": ["reported_kv"] },
+          "kind": { "type": "string", "enum": ["peer_runtime_kv"] },
           "key": {
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "Exact Runtime reported KV key, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets."
+            "description": "Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets."
           },
           "pointer": {
             "type": "string",

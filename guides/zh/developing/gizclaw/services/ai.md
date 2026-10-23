@@ -66,14 +66,14 @@ provider_data:
   upstream_model: your-upstream-model
   request_bindings:
     - target: {kind: http_header, name: X-AI-VID}
-      source: {kind: reported_kv, key: upstream_identity, pointer: /vid}
+      source: {kind: peer_runtime_kv, key: upstream_identity, pointer: /vid}
     - target: {kind: http_header, name: X-AI-UID}
-      source: {kind: reported_kv, key: upstream_identity, pointer: /uid}
+      source: {kind: peer_runtime_kv, key: upstream_identity, pointer: /uid}
     - target: {kind: http_header, name: X-AI-IP}
-      source: {kind: reported_kv, key: upstream_identity, pointer: /ip}
+      source: {kind: peer_runtime_kv, key: upstream_identity, pointer: /ip}
 ```
 
-来源 key 按原样匹配，`pointer` 是值内部的 JSON Pointer；省略或空字符串选择整个值。它不执行脚本、插值或通配查询。所选 header 值必须为字符串；数字和布尔值不自动转换。每个 header 默认必填，缺失、删除或 null 会使调用失败；`required: false` 只允许这些状态省略 header，非法的已存在值仍失败。未配置或空绑定列表关闭此能力，完整 PUT/Apply 的 `provider_data` 中省略该字段会移除已有绑定。
+`source.kind: peer_runtime_kv` 明确从当前调用设备的 Runtime 上报 KV 取值，不读取 RuntimeProfile 配置或其他来源。来源 key 按原样匹配，`pointer` 是值内部的 JSON Pointer；省略或空字符串选择整个值。它不执行脚本、插值或通配查询。所选 header 值必须为字符串；数字和布尔值不自动转换。每个 header 默认必填，缺失、删除或 null 会使调用失败；`required: false` 只允许这些状态省略 header，非法的已存在值仍失败。未配置或空绑定列表关闭此能力，完整 PUT/Apply 的 `provider_data` 中省略该字段会移除已有绑定。
 
 该字段只属于 `openai-tenant` 的 `provider_data`，非空绑定仅支持 LLM Chat Completions：流式生成与 JSON/Tool `Invoke` 共用此机制。其他 provider 不接受此字段；Embedding、Voice 与 Realtime 等不支持非空绑定，query/body 目标也不接受。Model 列举、能力查询和 Agent 初始化不要求设备已上报值。
 
