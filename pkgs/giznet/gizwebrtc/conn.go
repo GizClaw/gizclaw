@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -90,7 +91,7 @@ type sampleWriter interface {
 	WriteSample(media.Sample) error
 }
 
-func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.SecurityPolicy, role string) (*Conn, error) {
+func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.SecurityPolicy, role string, remoteAddr string) (*Conn, error) {
 	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
 		MimeType:  MediaStreamOpus,
 		ClockRate: 48000,
@@ -99,13 +100,17 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 	if err != nil {
 		return nil, err
 	}
+	remoteEndpoint := addr("gizwebrtc:" + role + ":remote")
+	if endpoint, err := netip.ParseAddrPort(remoteAddr); err == nil && endpoint.Port() != 0 {
+		remoteEndpoint = addr(netip.AddrPortFrom(endpoint.Addr().Unmap().WithZone(""), endpoint.Port()).String())
+	}
 	c := &Conn{
 		pk:             pk,
 		role:           role,
 		pc:             pc,
 		policy:         policy,
 		localAddr:      addr("gizwebrtc:" + role + ":local"),
-		remoteAddr:     addr("gizwebrtc:" + role + ":remote"),
+		remoteAddr:     remoteEndpoint,
 		services:       make(map[uint64]*ServiceListener),
 		streams:        make(map[uint64]map[*dataChannelConn]struct{}),
 		closedSvc:      make(map[uint64]bool),

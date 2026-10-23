@@ -59,6 +59,22 @@ bash tests/gizclaw-e2e/run_asr_recovery_tests.sh
 
 Server 明确配置 WARN 门槛。入口校验首次错误、`retry=1` start/success 的相同 ASR/连接/Workspace/输入标识，保留上下游 ID 区别，并拒绝 `output consumer failed` 或 `assistant route failed`。日志、Giztest 报告与源码摘要留在 ignored `.testbench/asr-recovery-*`。入口在本地 Go 基础镜像中编译协议预检和测试二进制，并以只读挂载在同一基础镜像启动 Server、Edge 与 runner；报告记录二进制摘要。退出时只清理本次 Compose project、编译容器与运行状态，复用共享基础镜像和 Go cache。该验证属于本地协议和 Server 集成，不代表真实供应商或物理设备验收。
 
+## 最近来源地址 Docker Giztest
+
+`bash tests/gizclaw-e2e/run_peer_address_tests.sh` 从当前源码构建隔离的 Server、Edge
+和 Go Giztest runner，使用真实 Badger 与 SQLite 保存身份和运行状态，无需模型凭据。
+同一份 `testdata/peer-address/runtime.giztest.yaml` 分别通过直连 Server 和 Gateway
+执行；业务 HTTP 均使用 Edge 的公开入口。检查在线 RPC／HTTP 地址一致、同一身份重连后的地址，以及 runner 退出后
+Admin 读取到的最近地址。临时 Peer 的名称携带最后一次在线 RPC 的地址检查点，
+因此离线断言精确比较该值，不以非空字段代替最新记录。
+
+预期 IP 来自 runner 的实际 Docker 网络地址，并要求它与 Edge 的地址不同；Gateway
+不能把自身地址当作设备来源。随后仅重启 Server，沿用原 Badger／SQLite 数据，
+不重新注册设备或重建资源，再检查两条路径的离线地址保持不变。任一 Giztest step
+失败或 skipped 都会失败。报告、容器日志保存在 ignored `.testbench/peer-address-*`；
+退出时清理本次 Compose project、专用镜像和含身份信息的运行目录，保留基础镜像与
+构建缓存。它验证本地 Docker 协议与持久化，不代表物理设备或生产部署验收。
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：

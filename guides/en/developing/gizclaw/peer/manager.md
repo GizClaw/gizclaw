@@ -16,6 +16,26 @@ Connection activation reserves its public key under the Manager lock, checks dur
 
 After Admin block persists `blocked`, `DetachPeerConnections` removes the current connection, Edge transports, and activation reservation under same-key record coordination. Removal sets the old generation's atomic retiring flag under the Manager lock; callbacks and transport close run after releasing both record and Manager locks. Late activation cannot publish a detached reservation. No permanent fence remains: Admin approve restores active status and permits a fresh connection immediately; old teardown cannot close that new generation. `ForcePeerDown` retains its existing index-only cleanup and replacement-reservation behavior rather than implementing block disconnection. Activation rejection precedes PeerRoutes assignment and LocalRuns writes. Ordinary Peer service authorization remains free of storage I/O; blocking and existing role-authorization boundaries are described in [Security Policy](../server/security-policy).
 
+## Connection source address
+
+Runtime `last_addr` is the most recently observed signaling source `IP:port`,
+supporting IPv4 and IPv6. A direct Server connection uses the HTTP signaling
+socket address; a Gateway connection uses the trusted Edge tunnel declaration.
+It describes the ingress observation, which can be a NAT exit or proxy address,
+rather than the currently selected ICE/TURN address. Public proxy headers do not
+participate in collection.
+
+Activation saves the address through [Peer Run](../services/runtime/peerrun)
+before publishing the connection online. Address writes and publication are
+serialized per Peer. Database I/O runs outside the Manager state lock so other
+Peers remain available. Writes are bounded and honor caller cancellation;
+failure prevents publication. Closing, retiring, or continued traffic on an old
+connection never writes its address back over its replacement. Offline queries
+and process restarts retain the saved address. Connections without an IP endpoint
+preserve the previous observation; the field is omitted until one is available.
+This record belongs to the Server's local runtime database and is not published
+through shared presence.
+
 ## Device metadata ownership
 
 After a Peer connection is published, the Server performs one bounded device-information refresh. A failure does not disconnect the Peer, and Admin can still retry with an explicit refresh. `client.info.get` refreshes only `HardwareInfo` (`hardware_revision`, `manufacturer`, and `model`). `client.identifiers.get` refreshes `DeviceIdentifiers` (`sn`, `imeis`, and `labels`). SN is an optional weak identifier declared by the Client; it must be valid UTF-8 and at most 256 bytes. A Client should keep it stable and as unique as practical for one physical device, but the Server does not treat SN as a unique identity. Several Peers may report the same value, and the Admin SN query returns every match. The server-owned profile fields `name` and `emoji` are changed through `server.info.put` and are not overwritten by reverse refresh. Names must be valid UTF-8 and at most 256 bytes; emoji values must be valid UTF-8 and at most 64 bytes.

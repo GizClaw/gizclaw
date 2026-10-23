@@ -70,6 +70,28 @@ This lane first checks nine real SDK/transformer turns against the local WebSock
 
 The Server explicitly uses a WARN threshold. The runner checks the original error and correlated `retry=1` start/success, distinct local/upstream IDs, and absence of output-consumer or assistant-route failures. Logs, Giztest reports, and source hashes remain in ignored `.testbench/asr-recovery-*`. The local Go base compiles the protocol preflight and binaries; read-only mounts run Server, Edge, and Giztest from that same base, and the manifest records the binary digest. Cleanup removes only this Compose project, compiler container, and runtime state; the base and Go cache are reused. This is local protocol/Server integration evidence, not cloud-provider or physical-device acceptance.
 
+## Last source address Docker Giztest
+
+`bash tests/gizclaw-e2e/run_peer_address_tests.sh` builds an isolated Server, Edge,
+and Go Giztest runner from the current checkout. Real Badger and SQLite retain
+identity and runtime state; no model credentials are needed. The same
+`testdata/peer-address/runtime.giztest.yaml` runs against the direct Server and
+Gateway; business HTTP uses the public Edge ingress in both cases. It checks
+matching online RPC/HTTP addresses, same-identity reconnects,
+and offline Admin reads after runner exit. The temporary Peer name retains the
+last online RPC address as a checkpoint, so offline assertions compare the
+exact value rather than accepting any nonempty address.
+
+The expected IP is the runner's actual Docker network address and must differ
+from the Edge address. The Gateway cannot substitute its own address. The lane
+then restarts only the Server, retains the original Badger/SQLite data, and
+checks both offline addresses without registering devices or reseeding resources.
+Any failed or skipped Giztest step fails acceptance. Reports and container logs
+remain under ignored `.testbench/peer-address-*`; cleanup removes this Compose
+project, its dedicated image, and runtime identities while retaining the base
+image and build caches. This is local Docker protocol and persistence evidence,
+not physical-device or production qualification.
+
 ## Isolating audio timing tests
 
 CI runs the complete root-module and race suites with one package at a time, preserving every test and its timing limits:

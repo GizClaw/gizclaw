@@ -4,12 +4,52 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
+	"net/netip"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
+
+func TestIntegrationPeerRuntimeAddressSurvivesDisconnect(t *testing.T) {
+	ts := startTestServer(t)
+	admin := newTestClient(t, ts)
+	ensureAdminPeer(t, ts, admin, apitypes.DeviceInfo{})
+	publicServer := httptest.NewServer(ts.server)
+	t.Cleanup(publicServer.Close)
+	device := newTestClient(t, &testServer{server: ts.server, addr: publicServer.URL + gizwebrtc.SignalingPath})
+	key := device.KeyPair.Public.String()
+	runtime, err := getRuntime(t.Context(), device)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if runtime.LastAddr == nil {
+		t.Fatal("RPC runtime omitted the signaling source address")
+	}
+	want := *runtime.LastAddr
+	endpoint, err := netip.ParseAddrPort(want)
+	if err != nil || !endpoint.Addr().IsLoopback() || endpoint.Port() == 0 {
+		t.Fatalf("direct Server source endpoint = %q, %v", want, err)
+	}
+	if err := device.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := waitUntil(testReadyTimeout, func() error {
+		runtime, err := getPeerRuntime(t.Context(), admin, key)
+		if err != nil {
+			return err
+		}
+		if runtime.Online || runtime.LastAddr == nil || *runtime.LastAddr != want {
+			return fmt.Errorf("offline Admin runtime = %+v, want address %q", runtime, want)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestIntegrationPeerConnectionCollectsDeviceSN(t *testing.T) {
 	ts := startTestServer(t)

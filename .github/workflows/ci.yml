@@ -666,6 +666,7 @@ jobs:
             ./pkgs/store/memory \
             ./pkgs/gizclaw/services/ai/workspace \
             ./pkgs/gizclaw/services/runtime/graphstate \
+            ./pkgs/gizclaw/services/runtime/peerrun \
             ./pkgs/gizclaw/services/system/runtimeprofile
           go test -tags=store_e2e -count=1 -p 1 \
             -run '^TestPostgreSQL' \

@@ -197,8 +197,18 @@ func TestSignedBearerThroughAP(t *testing.T) {
 	}
 	go func() { _ = device.Serve() }()
 	t.Cleanup(func() { _ = device.Close() })
-	if online := decodePeerAccess[apitypes.Runtime](t, request(token(admin, client.Public), "GET", "/device/runtime", "", 200)); !online.Online {
+	// A completed transport dial precedes Server activation. Wait for an RPC
+	// round trip before asserting the runtime published after address persistence.
+	if _, err := device.Ping(ctx, "signed-http-device-ready"); err != nil {
+		t.Fatal(err)
+	}
+	online := decodePeerAccess[apitypes.Runtime](t, request(token(admin, client.Public), "GET", "/device/runtime", "", 200))
+	if !online.Online {
 		t.Fatal("connected device reported offline")
+	}
+	address, err := a.Manager().PeerRun.GetLastAddr(ctx, client.Public)
+	if err != nil || address == "" || online.LastAddr == nil || *online.LastAddr != address {
+		t.Fatalf("AP runtime address = %v, persisted address = %q, error = %v", online.LastAddr, address, err)
 	}
 	applied := request(token(admin, client.Public), "POST", "/device/tool/v0/invoke", `{"tool":"usage.time.set","args":{"limit_seconds":9000}}`, 200)
 	if limit != 3600 || !strings.Contains(applied, `"limit_seconds":3600`) {

@@ -1,0 +1,85 @@
+# User Story:
+# As a device operator,
+# I want RPC and HTTP Runtime to report the signaling source through either ingress,
+# So that the Server retains the latest observed address across reconnects.
+version: gizclaw.test/v1alpha1
+name: peer-address.runtime
+timeout: 60s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: "${endpoint}"
+    registration_token: "${registration_token}"
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  http_endpoint: {direction: input, type: string, env: GIZCLAW_PEER_ADDRESS_HTTP_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  case_name: {direction: input, type: string, env: GIZCLAW_PEER_ADDRESS_CASE}
+  source_pattern: {direction: input, type: string, env: GIZCLAW_PEER_ADDRESS_PATTERN}
+  api_key: {direction: output, type: string, secret: true}
+  initial_addr: {direction: output, type: string}
+  last_addr: {direction: output, type: string}
+steps:
+  - id: name_peer
+    client: peer
+    rpc:
+      method: server.info.put
+      request: {value: {name: "${case_name}"}}
+  - id: online_rpc
+    client: peer
+    rpc: {method: server.runtime.get, request: {}}
+    expect:
+      /online: {equals: true}
+      /last_addr: {pattern: "${source_pattern}"}
+    capture: {initial_addr: /last_addr}
+  - id: create_key
+    client: peer
+    rpc: {method: server.api_key.create, request: {display_name: peer-address}}
+    capture: {api_key: /api_key}
+  - id: online_http
+    client: peer
+    http:
+      endpoint: "${http_endpoint}"
+      method: GET
+      path: /gizclaw/v1/device/runtime
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 200
+    expect:
+      /online: {equals: true}
+      /last_addr: {equals: "${initial_addr}"}
+  - id: reconnect_peer
+    client: peer
+    reconnect: {await_ms: 10000}
+  - id: same_identity_after_reconnect
+    client: peer
+    rpc: {method: server.info.get, request: {}}
+    expect:
+      /name: {equals: "${case_name}"}
+  - id: reconnected_rpc
+    client: peer
+    rpc: {method: server.runtime.get, request: {}}
+    expect:
+      /online: {equals: true}
+      /last_addr: {pattern: "${source_pattern}"}
+    capture: {last_addr: /last_addr}
+  - id: reconnected_http
+    client: peer
+    http:
+      endpoint: "${http_endpoint}"
+      method: GET
+      path: /gizclaw/v1/device/runtime
+      headers: {Authorization: "Bearer ${api_key}"}
+      status: 200
+    expect:
+      /online: {equals: true}
+      /last_addr: {equals: "${last_addr}"}
+  - id: retain_online_address_checkpoint
+    client: peer
+    rpc:
+      method: server.info.put
+      request: {value: {name: "${case_name}|${last_addr}"}}
+    expect:
+      /name: {equals: "${case_name}|${last_addr}"}
+# The dedicated Docker lane owns the entire runtime directory and removes it
+# after the offline/restart assertions. Deleting the Peer here would erase it.

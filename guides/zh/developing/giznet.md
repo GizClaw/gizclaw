@@ -46,6 +46,11 @@ pkgs/giznet/
 
 WebRTC 与 Pion 相关的实现细节留在这个子目录。上层 GizClaw 服务依赖 giznet boundary，不直接把 WebRTC 类型扩散到业务层。
 
+Listener 接受连接时，把已认证 HTTP 信令请求的 socket 来源保存为连接 endpoint，
+供 Server 记录最近来源地址。该值在连接交付前设置，支持 IPv4 和 IPv6，不读取公开
+请求的代理 headers，也不随 ICE candidate pair 变化更新。Gateway 的 logical endpoint
+仍由可信 Edge 的会话声明提供。
+
 物理 RTP track、DataChannel 与消息计数在实际 bind/detach/read/write/close 边界更新，
 `MetricsSnapshot` 只读取固定维度的原子计数。宿主将其接入周期 recorder，语义和查询见
 [节点设备、通道与消息指标](observability#node-device-channel-metrics)。

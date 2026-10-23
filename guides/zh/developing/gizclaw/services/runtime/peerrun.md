@@ -11,6 +11,14 @@
 `GetDebugMode` / `SetDebugMode` 持久化设备自设的调试权限，缺失时为 `off`。
 设置跨断线重连保留，HTTP 鉴权每次读取并在存储失败时拒绝访问。
 
+## 最近连接地址
+
+Peer Run 保存最近一次接受连接的信令来源地址，供 Runtime 在设备离线或 Server
+重启后继续读取。连接上线时只更新地址，断线时只更新最后活动时间；状态、OTA、
+Workspace 选择和本机目录保持各自的写入边界。Manager 对同一 Peer 的地址写入与
+连接发布进行串行协调，旧连接退出不会写回旧地址。来源与读取语义见
+[Peer Management](../../peer/manager#连接来源地址)。
+
 ## OTA 状态
 
 `Server.PutOTAStatus` 使用 SQL 条件更新保存 `peer_runs.ota_json`，防止并发或乱序进度覆盖终态。`GetStatus` 在一次查询中读取状态与 OTA；`PutStatus` 只更新 `status_json` 列，不覆盖 OTA。字段和排序规则见 [Telemetry API](/zh/developing/api/proto/telemetry#ota-上报)。
