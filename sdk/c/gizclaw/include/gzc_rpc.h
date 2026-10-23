@@ -11,6 +11,7 @@
 #include "payload/firmware.pb.h"
 #include "payload/gnss.pb.h"
 #include "payload/lua_app.pb.h"
+#include "payload/management.pb.h"
 #include "payload/mhs_v0.pb.h"
 #include "payload/social.pb.h"
 #include "payload/system.pb.h"

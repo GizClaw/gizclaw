@@ -67,6 +67,7 @@ export function PeerLocation({ peer }: { peer: WatchedPeer }) {
         start,
         end,
         controller.signal,
+        peer.signedBearer,
       ),
       loadTelemetryRange(
         peer.endpoint,
@@ -75,6 +76,7 @@ export function PeerLocation({ peer }: { peer: WatchedPeer }) {
         start,
         end,
         controller.signal,
+        peer.signedBearer,
       ),
     ])
       .then(([latitude, longitude]) => {
@@ -99,7 +101,7 @@ export function PeerLocation({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, hours]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer, hours]);
 
   const last = fixes.at(-1);
   return (

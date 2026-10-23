@@ -22,13 +22,13 @@ sequenceDiagram
 
 ## MHS v0 HWD
 
-`payload/mhs_v0.proto` 的 `ClientHwd` 枚举把每种 HWD 绑定到一个 read 响应消息；display、led、speaker 还绑定 write 请求和实际生效响应消息。wifi、ble、modem、battery、mic 没有 write 消息。绑定的 RuntimeProfile manifest 只列出 `{id,hwd}` 实例。
+`payload/mhs_v0.proto` 的 `ClientHwd` 枚举把每种 HWD 绑定到一个 read 响应消息；display、led、speaker、modem、nfc 还绑定 write 请求和实际生效响应消息。wifi、ble、battery、mic 没有 write 消息。绑定的 RuntimeProfile manifest 只列出 `{id,hwd}` 实例。
 
 `client.mhs.v0.read`（133）请求包含实例 `id` 与 HWD，响应 payload 是该 HWD 的 read protobuf。`client.mhs.v0.write`（134）还携带该 HWD 的 write protobuf，响应 payload 是实际生效值的 protobuf。每次只访问一个实例。Server 在转发前校验实例与类型；设备对不存在的物理实例返回 NOT_FOUND，对非法值返回 INVALID_ARGUMENT。协议错误走 RPC envelope。写入超时后应重新读取确认。
 
 ## tool/v0 操作
 
-27 个预定义操作是 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set`、`social.ping`、四个 `lua.app.*` 与两个 `gnss.reporting.*`。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
+38 个预定义操作包括 `info.get`、`identifiers.get`、`device.status.get`、`device.reboot`、`device.factory_reset`、`device.find`、`sound.play`、`wifi.scan`、`wifi.connect`、`wifi.saved.list`、`wifi.saved.forget`、`firmware.update`、七个 `audioplayer.*`、`run.workspace.set`、`social.ping`、四个 `lua.app.*`、两个 `gnss.reporting.*`，以及[通用设备管理工具](/zh/developing/gizclaw/rpc/tool#通用设备管理-invoke)。确切的枚举数字及请求、响应消息见 [RPC Reference](/references/rpc#clienttool-v0)。设备通过 `client.tool.v0.list` 只公布实际安装的子集。tool/v0 不允许 Agent 调用产品自定义的设备本地 Tool。
 
 - `device.status.get` 返回实时 `PeerStatus` 并刷新 Server 快照。超出 MHS manifest 的设备标识与遥测字段仍在该状态中。
 - `sound.play` 接受最多 32 UTF-8 字节的设备自定义声音名和可选非负时长。`device.find` 用内置找寻提示音响铃，可选时长。`device.reboot` 先应答再重启。`device.factory_reset` 先应答再清除本机状态；`keep_network` 可保留 Wi-Fi 和蜂窝配置。设备若同时删除自身 Peer，相关 API Key 也会失效。

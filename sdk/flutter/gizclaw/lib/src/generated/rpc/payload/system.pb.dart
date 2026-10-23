@@ -2187,6 +2187,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     $core.double? wifiRssiDbm,
     $core.double? cellularRssiDbm,
     $core.double? cellularSignalLevel,
+    $core.Iterable<$core.MapEntry<$core.String, PeerKVEntry>>? reportedKv,
   }) {
     final result = create();
     if (batteryPercent != null) result.batteryPercent = batteryPercent;
@@ -2213,6 +2214,7 @@ class PeerStatus extends $pb.GeneratedMessage {
     if (cellularRssiDbm != null) result.cellularRssiDbm = cellularRssiDbm;
     if (cellularSignalLevel != null)
       result.cellularSignalLevel = cellularSignalLevel;
+    if (reportedKv != null) result.reportedKv.addEntries(reportedKv);
     return result;
   }
 
@@ -2259,6 +2261,13 @@ class PeerStatus extends $pb.GeneratedMessage {
     ..aD(21, _omitFieldNames ? '' : 'wifiRssiDbm')
     ..aD(22, _omitFieldNames ? '' : 'cellularRssiDbm')
     ..aD(23, _omitFieldNames ? '' : 'cellularSignalLevel')
+    ..m<$core.String, PeerKVEntry>(24, _omitFieldNames ? '' : 'reportedKv',
+        entryClassName: 'PeerStatus.ReportedKvEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: PeerKVEntry.create,
+        valueDefaultOrMaker: PeerKVEntry.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -2486,6 +2495,9 @@ class PeerStatus extends $pb.GeneratedMessage {
   $core.bool hasCellularSignalLevel() => $_has(21);
   @$pb.TagNumber(23)
   void clearCellularSignalLevel() => $_clearField(23);
+
+  @$pb.TagNumber(24)
+  $pb.PbMap<$core.String, PeerKVEntry> get reportedKv => $_getMap(22);
 }
 
 /// PeerStatusTelemetryObservedAt records when the device observed the value now
@@ -3768,6 +3780,7 @@ class Runtime extends $pb.GeneratedMessage {
     $core.String? debugMode,
     $core.String? activeWorkspaceName,
     $core.String? pendingWorkspaceName,
+    $core.Iterable<$core.MapEntry<$core.String, PeerKVEntry>>? reportedKv,
   }) {
     final result = create();
     if (lastAddr != null) result.lastAddr = lastAddr;
@@ -3780,6 +3793,7 @@ class Runtime extends $pb.GeneratedMessage {
       result.activeWorkspaceName = activeWorkspaceName;
     if (pendingWorkspaceName != null)
       result.pendingWorkspaceName = pendingWorkspaceName;
+    if (reportedKv != null) result.reportedKv.addEntries(reportedKv);
     return result;
   }
 
@@ -3806,6 +3820,13 @@ class Runtime extends $pb.GeneratedMessage {
     ..aOS(6, _omitFieldNames ? '' : 'debugMode')
     ..aOS(7, _omitFieldNames ? '' : 'activeWorkspaceName')
     ..aOS(8, _omitFieldNames ? '' : 'pendingWorkspaceName')
+    ..m<$core.String, PeerKVEntry>(9, _omitFieldNames ? '' : 'reportedKv',
+        entryClassName: 'Runtime.ReportedKvEntry',
+        keyFieldType: $pb.PbFieldType.OS,
+        valueFieldType: $pb.PbFieldType.OM,
+        valueCreator: PeerKVEntry.create,
+        valueDefaultOrMaker: PeerKVEntry.getDefault,
+        packageName: const $pb.PackageName('gizclaw.rpc.v1'))
     ..hasRequiredFields = false;
 
   @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
@@ -3897,6 +3918,9 @@ class Runtime extends $pb.GeneratedMessage {
   $core.bool hasPendingWorkspaceName() => $_has(7);
   @$pb.TagNumber(8)
   void clearPendingWorkspaceName() => $_clearField(8);
+
+  @$pb.TagNumber(9)
+  $pb.PbMap<$core.String, PeerKVEntry> get reportedKv => $_getMap(8);
 }
 
 class ServerGetInfoRequest extends $pb.GeneratedMessage {
@@ -4630,6 +4654,74 @@ class ServerPutRuntimeResponse extends $pb.GeneratedMessage {
   $core.bool hasDebugMode() => $_has(0);
   @$pb.TagNumber(1)
   void clearDebugMode() => $_clearField(1);
+}
+
+/// JSON codecs expose json_value as a typed JSON value named value. The wire
+/// stays bounded and does not require a recursive protobuf Value allocator.
+class PeerKVEntry extends $pb.GeneratedMessage {
+  factory PeerKVEntry({
+    $core.String? jsonValue,
+    $core.String? observedAt,
+  }) {
+    final result = create();
+    if (jsonValue != null) result.jsonValue = jsonValue;
+    if (observedAt != null) result.observedAt = observedAt;
+    return result;
+  }
+
+  PeerKVEntry._();
+
+  factory PeerKVEntry.fromBuffer($core.List<$core.int> data,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromBuffer(data, registry);
+  factory PeerKVEntry.fromJson($core.String json,
+          [$pb.ExtensionRegistry registry = $pb.ExtensionRegistry.EMPTY]) =>
+      create()..mergeFromJson(json, registry);
+
+  static final $pb.BuilderInfo _i = $pb.BuilderInfo(
+      _omitMessageNames ? '' : 'PeerKVEntry',
+      package: const $pb.PackageName(_omitMessageNames ? '' : 'gizclaw.rpc.v1'),
+      createEmptyInstance: create)
+    ..aOS(1, _omitFieldNames ? '' : 'jsonValue')
+    ..aOS(2, _omitFieldNames ? '' : 'observedAt')
+    ..hasRequiredFields = false;
+
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PeerKVEntry clone() => deepCopy();
+  @$core.Deprecated('See https://github.com/google/protobuf.dart/issues/998.')
+  PeerKVEntry copyWith(void Function(PeerKVEntry) updates) =>
+      super.copyWith((message) => updates(message as PeerKVEntry))
+          as PeerKVEntry;
+
+  @$core.override
+  $pb.BuilderInfo get info_ => _i;
+
+  @$core.pragma('dart2js:noInline')
+  static PeerKVEntry create() => PeerKVEntry._();
+  @$core.override
+  PeerKVEntry createEmptyInstance() => create();
+  @$core.pragma('dart2js:noInline')
+  static PeerKVEntry getDefault() => _defaultInstance ??=
+      $pb.GeneratedMessage.$_defaultFor<PeerKVEntry>(create);
+  static PeerKVEntry? _defaultInstance;
+
+  @$pb.TagNumber(1)
+  $core.String get jsonValue => $_getSZ(0);
+  @$pb.TagNumber(1)
+  set jsonValue($core.String value) => $_setString(0, value);
+  @$pb.TagNumber(1)
+  $core.bool hasJsonValue() => $_has(0);
+  @$pb.TagNumber(1)
+  void clearJsonValue() => $_clearField(1);
+
+  @$pb.TagNumber(2)
+  $core.String get observedAt => $_getSZ(1);
+  @$pb.TagNumber(2)
+  set observedAt($core.String value) => $_setString(1, value);
+  @$pb.TagNumber(2)
+  $core.bool hasObservedAt() => $_has(1);
+  @$pb.TagNumber(2)
+  void clearObservedAt() => $_clearField(2);
 }
 
 const $core.bool _omitFieldNames =

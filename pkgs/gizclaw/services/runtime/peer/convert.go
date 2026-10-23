@@ -66,6 +66,7 @@ func toAdminRegistration(peer apitypes.Peer) apitypes.Registration {
 func toAdminRuntime(in apitypes.Runtime) apitypes.Runtime {
 	return apitypes.Runtime{
 		LastAddr:   in.LastAddr,
+		ReportedKv: in.ReportedKv,
 		LastSeenAt: in.LastSeenAt,
 		Online:     in.Online,
 		RxBytes:    in.RxBytes,

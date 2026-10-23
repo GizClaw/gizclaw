@@ -17,6 +17,7 @@ const serverSchema = z
 const peerSchema = z
   .object({
     publicKey: z.string().trim().min(1),
+    signedBearer: z.string().trim().min(1).optional(),
     label: z.string().trim().optional(),
     endpoint: z.string().trim().min(1).optional(),
   })
@@ -87,6 +88,7 @@ export type ConsoleAssistant = {
 
 export type ConsoleConfigPeer = {
   publicKey: string;
+  signedBearer?: string;
   label: string;
   endpoint?: string;
 };
@@ -189,6 +191,7 @@ export function parseConfig(text: string): ConsoleConfig {
     servers,
     peers: (parsed.data.peers ?? []).map((peer) => ({
       publicKey: peer.publicKey.replace(/^gizclaw_pk_/, ""),
+      ...(peer.signedBearer ? { signedBearer: peer.signedBearer } : {}),
       label: peer.label ?? "",
       endpoint:
         peer.endpoint === undefined ? undefined : normalizeUrl(peer.endpoint),

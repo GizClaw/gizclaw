@@ -30,6 +30,7 @@ import { PageHeading } from "@/components/app-shell";
 import { PeerChat } from "@/components/peer-chat";
 import { PeerTelemetry } from "@/components/peer-telemetry";
 import { PeerLocation } from "@/components/peer-location";
+import { PeerKV } from "@/components/peer-kv";
 import { PeerConfig } from "@/components/peer-config";
 import type { PeerState } from "@/hooks/use-peers";
 import {
@@ -107,7 +108,7 @@ export function PeerDetailPage({
           <AlertTitle>无法读取该设备</AlertTitle>
           <AlertDescription>{state.error}</AlertDescription>
           <AlertDescription className="text-muted-foreground">
-            检查设备公钥、调试权限，以及接入点是否可达。恢复后会自动继续。
+            检查设备公钥、签名凭证或调试权限，以及接入点是否可达。恢复后会自动继续。
           </AlertDescription>
         </Alert>
       )}
@@ -133,6 +134,9 @@ export function PeerDetailPage({
           </code>
         </CardContent>
       </Card>
+      <PeerKV
+        value={state?.snapshot?.status.reported_kv ?? runtime?.reported_kv}
+      />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
         <MetricCard
           label="设备状态"

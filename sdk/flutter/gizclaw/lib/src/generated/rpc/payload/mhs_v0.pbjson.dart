@@ -28,6 +28,7 @@ const ClientHwd$json = {
     {'1': 'CLIENT_HWD_DISPLAY', '2': 6, '3': {}},
     {'1': 'CLIENT_HWD_LED', '2': 7, '3': {}},
     {'1': 'CLIENT_HWD_SPEAKER', '2': 8, '3': {}},
+    {'1': 'CLIENT_HWD_NFC', '2': 9, '3': {}},
   ],
 };
 
@@ -35,16 +36,18 @@ const ClientHwd$json = {
 final $typed_data.Uint8List clientHwdDescriptor = $convert.base64Decode(
     'CglDbGllbnRId2QSGgoWQ0xJRU5UX0hXRF9VTlNQRUNJRklFRBAAEjQKD0NMSUVOVF9IV0RfV0'
     'lGSRABGh/S8xgbCgR3aWZpEhNXaWZpSHdkUmVhZFJlc3BvbnNlEjEKDkNMSUVOVF9IV0RfQkxF'
-    'EAIaHdLzGBkKA2JsZRISQmxlSHdkUmVhZFJlc3BvbnNlEjcKEENMSUVOVF9IV0RfTU9ERU0QAx'
-    'oh0vMYHQoFbW9kZW0SFE1vZGVtSHdkUmVhZFJlc3BvbnNlEj0KEkNMSUVOVF9IV0RfQkFUVEVS'
-    'WRAEGiXS8xghCgdiYXR0ZXJ5EhZCYXR0ZXJ5SHdkUmVhZFJlc3BvbnNlEjEKDkNMSUVOVF9IV0'
-    'RfTUlDEAUaHdLzGBkKA21pYxISTWljSHdkUmVhZFJlc3BvbnNlEm4KEkNMSUVOVF9IV0RfRElT'
-    'UExBWRAGGlbS8xhSCgdkaXNwbGF5EhZEaXNwbGF5SHdkUmVhZFJlc3BvbnNlGhZEaXNwbGF5SH'
-    'dkV3JpdGVSZXF1ZXN0IhdEaXNwbGF5SHdkV3JpdGVSZXNwb25zZRJaCg5DTElFTlRfSFdEX0xF'
-    'RBAHGkbS8xhCCgNsZWQSEkxlZEh3ZFJlYWRSZXNwb25zZRoSTGVkSHdkV3JpdGVSZXF1ZXN0Ih'
-    'NMZWRId2RXcml0ZVJlc3BvbnNlEm4KEkNMSUVOVF9IV0RfU1BFQUtFUhAIGlbS8xhSCgdzcGVh'
-    'a2VyEhZTcGVha2VySHdkUmVhZFJlc3BvbnNlGhZTcGVha2VySHdkV3JpdGVSZXF1ZXN0IhdTcG'
-    'Vha2VySHdkV3JpdGVSZXNwb25zZQ==');
+    'EAIaHdLzGBkKA2JsZRISQmxlSHdkUmVhZFJlc3BvbnNlEmQKEENMSUVOVF9IV0RfTU9ERU0QAx'
+    'pO0vMYSgoFbW9kZW0SFE1vZGVtSHdkUmVhZFJlc3BvbnNlGhRNb2RlbUh3ZFdyaXRlUmVxdWVz'
+    'dCIVTW9kZW1Id2RXcml0ZVJlc3BvbnNlEj0KEkNMSUVOVF9IV0RfQkFUVEVSWRAEGiXS8xghCg'
+    'diYXR0ZXJ5EhZCYXR0ZXJ5SHdkUmVhZFJlc3BvbnNlEjEKDkNMSUVOVF9IV0RfTUlDEAUaHdLz'
+    'GBkKA21pYxISTWljSHdkUmVhZFJlc3BvbnNlEm4KEkNMSUVOVF9IV0RfRElTUExBWRAGGlbS8x'
+    'hSCgdkaXNwbGF5EhZEaXNwbGF5SHdkUmVhZFJlc3BvbnNlGhZEaXNwbGF5SHdkV3JpdGVSZXF1'
+    'ZXN0IhdEaXNwbGF5SHdkV3JpdGVSZXNwb25zZRJaCg5DTElFTlRfSFdEX0xFRBAHGkbS8xhCCg'
+    'NsZWQSEkxlZEh3ZFJlYWRSZXNwb25zZRoSTGVkSHdkV3JpdGVSZXF1ZXN0IhNMZWRId2RXcml0'
+    'ZVJlc3BvbnNlEm4KEkNMSUVOVF9IV0RfU1BFQUtFUhAIGlbS8xhSCgdzcGVha2VyEhZTcGVha2'
+    'VySHdkUmVhZFJlc3BvbnNlGhZTcGVha2VySHdkV3JpdGVSZXF1ZXN0IhdTcGVha2VySHdkV3Jp'
+    'dGVSZXNwb25zZRJaCg5DTElFTlRfSFdEX05GQxAJGkbS8xhCCgNuZmMSEk5mY0h3ZFJlYWRSZX'
+    'Nwb25zZRoSTmZjSHdkV3JpdGVSZXF1ZXN0IhNOZmNId2RXcml0ZVJlc3BvbnNl');
 
 @$core.Deprecated('Use clientHwdOptionsDescriptor instead')
 const ClientHwdOptions$json = {
@@ -302,6 +305,24 @@ const ModemHwdReadResponse$json = {
       '10': 'signalLevel',
       '17': true
     },
+    {
+      '1': 'enabled',
+      '3': 6,
+      '4': 1,
+      '5': 8,
+      '9': 5,
+      '10': 'enabled',
+      '17': true
+    },
+    {
+      '1': 'powered',
+      '3': 7,
+      '4': 1,
+      '5': 8,
+      '9': 6,
+      '10': 'powered',
+      '17': true
+    },
   ],
   '8': [
     {'1': '_sim_present'},
@@ -309,6 +330,8 @@ const ModemHwdReadResponse$json = {
     {'1': '_rat'},
     {'1': '_rssi_dbm'},
     {'1': '_signal_level'},
+    {'1': '_enabled'},
+    {'1': '_powered'},
   ],
 };
 
@@ -317,8 +340,207 @@ final $typed_data.Uint8List modemHwdReadResponseDescriptor = $convert.base64Deco
     'ChRNb2RlbUh3ZFJlYWRSZXNwb25zZRIkCgtzaW1fcHJlc2VudBgBIAEoCEgAUgpzaW1QcmVzZW'
     '50iAEBEiMKCnJlZ2lzdGVyZWQYAiABKAhIAVIKcmVnaXN0ZXJlZIgBARIVCgNyYXQYAyABKAlI'
     'AlIDcmF0iAEBEh4KCHJzc2lfZGJtGAQgASgFSANSB3Jzc2lEYm2IAQESJgoMc2lnbmFsX2xldm'
-    'VsGAUgASgNSARSC3NpZ25hbExldmVsiAEBQg4KDF9zaW1fcHJlc2VudEINCgtfcmVnaXN0ZXJl'
-    'ZEIGCgRfcmF0QgsKCV9yc3NpX2RibUIPCg1fc2lnbmFsX2xldmVs');
+    'VsGAUgASgNSARSC3NpZ25hbExldmVsiAEBEh0KB2VuYWJsZWQYBiABKAhIBVIHZW5hYmxlZIgB'
+    'ARIdCgdwb3dlcmVkGAcgASgISAZSB3Bvd2VyZWSIAQFCDgoMX3NpbV9wcmVzZW50Qg0KC19yZW'
+    'dpc3RlcmVkQgYKBF9yYXRCCwoJX3Jzc2lfZGJtQg8KDV9zaWduYWxfbGV2ZWxCCgoIX2VuYWJs'
+    'ZWRCCgoIX3Bvd2VyZWQ=');
+
+@$core.Deprecated('Use modemHwdWriteRequestDescriptor instead')
+const ModemHwdWriteRequest$json = {
+  '1': 'ModemHwdWriteRequest',
+  '2': [
+    {
+      '1': 'enabled',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'enabled',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_enabled'},
+  ],
+};
+
+/// Descriptor for `ModemHwdWriteRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List modemHwdWriteRequestDescriptor = $convert.base64Decode(
+    'ChRNb2RlbUh3ZFdyaXRlUmVxdWVzdBIdCgdlbmFibGVkGAEgASgISABSB2VuYWJsZWSIAQFCCg'
+    'oIX2VuYWJsZWQ=');
+
+@$core.Deprecated('Use modemHwdWriteResponseDescriptor instead')
+const ModemHwdWriteResponse$json = {
+  '1': 'ModemHwdWriteResponse',
+  '2': [
+    {
+      '1': 'applied',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.ModemHwdReadResponse',
+      '10': 'applied'
+    },
+  ],
+};
+
+/// Descriptor for `ModemHwdWriteResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List modemHwdWriteResponseDescriptor = $convert.base64Decode(
+    'ChVNb2RlbUh3ZFdyaXRlUmVzcG9uc2USPgoHYXBwbGllZBgBIAEoCzIkLmdpemNsYXcucnBjLn'
+    'YxLk1vZGVtSHdkUmVhZFJlc3BvbnNlUgdhcHBsaWVk');
+
+@$core.Deprecated('Use nfcReadSnapshotDescriptor instead')
+const NfcReadSnapshot$json = {
+  '1': 'NfcReadSnapshot',
+  '2': [
+    {'1': 'read_at_unix_ms', '3': 1, '4': 1, '5': 3, '10': 'readAtUnixMs'},
+    {'1': 'uid', '3': 2, '4': 1, '5': 12, '9': 0, '10': 'uid', '17': true},
+    {
+      '1': 'technology',
+      '3': 3,
+      '4': 1,
+      '5': 9,
+      '9': 1,
+      '10': 'technology',
+      '17': true
+    },
+    {
+      '1': 'data_format',
+      '3': 4,
+      '4': 1,
+      '5': 9,
+      '9': 2,
+      '10': 'dataFormat',
+      '17': true
+    },
+    {
+      '1': 'raw_data',
+      '3': 5,
+      '4': 1,
+      '5': 12,
+      '9': 3,
+      '10': 'rawData',
+      '17': true
+    },
+    {'1': 'result', '3': 6, '4': 1, '5': 9, '10': 'result'},
+    {
+      '1': 'error_code',
+      '3': 7,
+      '4': 1,
+      '5': 9,
+      '9': 4,
+      '10': 'errorCode',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_uid'},
+    {'1': '_technology'},
+    {'1': '_data_format'},
+    {'1': '_raw_data'},
+    {'1': '_error_code'},
+  ],
+};
+
+/// Descriptor for `NfcReadSnapshot`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nfcReadSnapshotDescriptor = $convert.base64Decode(
+    'Cg9OZmNSZWFkU25hcHNob3QSJQoPcmVhZF9hdF91bml4X21zGAEgASgDUgxyZWFkQXRVbml4TX'
+    'MSFQoDdWlkGAIgASgMSABSA3VpZIgBARIjCgp0ZWNobm9sb2d5GAMgASgJSAFSCnRlY2hub2xv'
+    'Z3mIAQESJAoLZGF0YV9mb3JtYXQYBCABKAlIAlIKZGF0YUZvcm1hdIgBARIeCghyYXdfZGF0YR'
+    'gFIAEoDEgDUgdyYXdEYXRhiAEBEhYKBnJlc3VsdBgGIAEoCVIGcmVzdWx0EiIKCmVycm9yX2Nv'
+    'ZGUYByABKAlIBFIJZXJyb3JDb2RliAEBQgYKBF91aWRCDQoLX3RlY2hub2xvZ3lCDgoMX2RhdG'
+    'FfZm9ybWF0QgsKCV9yYXdfZGF0YUINCgtfZXJyb3JfY29kZQ==');
+
+@$core.Deprecated('Use nfcHwdReadResponseDescriptor instead')
+const NfcHwdReadResponse$json = {
+  '1': 'NfcHwdReadResponse',
+  '2': [
+    {
+      '1': 'enabled',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'enabled',
+      '17': true
+    },
+    {
+      '1': 'card_present',
+      '3': 2,
+      '4': 1,
+      '5': 8,
+      '9': 1,
+      '10': 'cardPresent',
+      '17': true
+    },
+    {
+      '1': 'last_read',
+      '3': 3,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.NfcReadSnapshot',
+      '9': 2,
+      '10': 'lastRead',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_enabled'},
+    {'1': '_card_present'},
+    {'1': '_last_read'},
+  ],
+};
+
+/// Descriptor for `NfcHwdReadResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nfcHwdReadResponseDescriptor = $convert.base64Decode(
+    'ChJOZmNId2RSZWFkUmVzcG9uc2USHQoHZW5hYmxlZBgBIAEoCEgAUgdlbmFibGVkiAEBEiYKDG'
+    'NhcmRfcHJlc2VudBgCIAEoCEgBUgtjYXJkUHJlc2VudIgBARJBCglsYXN0X3JlYWQYAyABKAsy'
+    'Hy5naXpjbGF3LnJwYy52MS5OZmNSZWFkU25hcHNob3RIAlIIbGFzdFJlYWSIAQFCCgoIX2VuYW'
+    'JsZWRCDwoNX2NhcmRfcHJlc2VudEIMCgpfbGFzdF9yZWFk');
+
+@$core.Deprecated('Use nfcHwdWriteRequestDescriptor instead')
+const NfcHwdWriteRequest$json = {
+  '1': 'NfcHwdWriteRequest',
+  '2': [
+    {
+      '1': 'enabled',
+      '3': 1,
+      '4': 1,
+      '5': 8,
+      '9': 0,
+      '10': 'enabled',
+      '17': true
+    },
+  ],
+  '8': [
+    {'1': '_enabled'},
+  ],
+};
+
+/// Descriptor for `NfcHwdWriteRequest`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nfcHwdWriteRequestDescriptor = $convert.base64Decode(
+    'ChJOZmNId2RXcml0ZVJlcXVlc3QSHQoHZW5hYmxlZBgBIAEoCEgAUgdlbmFibGVkiAEBQgoKCF'
+    '9lbmFibGVk');
+
+@$core.Deprecated('Use nfcHwdWriteResponseDescriptor instead')
+const NfcHwdWriteResponse$json = {
+  '1': 'NfcHwdWriteResponse',
+  '2': [
+    {
+      '1': 'applied',
+      '3': 1,
+      '4': 1,
+      '5': 11,
+      '6': '.gizclaw.rpc.v1.NfcHwdReadResponse',
+      '10': 'applied'
+    },
+  ],
+};
+
+/// Descriptor for `NfcHwdWriteResponse`. Decode as a `google.protobuf.DescriptorProto`.
+final $typed_data.Uint8List nfcHwdWriteResponseDescriptor = $convert.base64Decode(
+    'ChNOZmNId2RXcml0ZVJlc3BvbnNlEjwKB2FwcGxpZWQYASABKAsyIi5naXpjbGF3LnJwYy52MS'
+    '5OZmNId2RSZWFkUmVzcG9uc2VSB2FwcGxpZWQ=');
 
 @$core.Deprecated('Use batteryHwdReadResponseDescriptor instead')
 const BatteryHwdReadResponse$json = {

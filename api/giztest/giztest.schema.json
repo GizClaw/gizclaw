@@ -523,7 +523,18 @@
             "lua.app.run",
             "gnss.reporting.get",
             "gnss.reporting.set",
-            "lua.app.uninstall"
+            "lua.app.uninstall",
+            "content.age.get",
+            "content.age.set",
+            "device.features.get",
+            "device.feature.set",
+            "usage.time.get",
+            "usage.time.set",
+            "ai.safety.get",
+            "ai.safety.set",
+            "management.password.get",
+            "management.password.set",
+            "management.password.reset"
           ]
         },
         "observe_only": {
@@ -659,13 +670,33 @@
           "description": "Allow at most one EOS whose code, message, stream_id, label and retryable exactly match these literals; continue the full listen window and count all audio. Other or repeated terminal errors still fail.",
           "type": "object",
           "additionalProperties": false,
-          "required": ["code", "message", "stream_id", "label", "retryable"],
+          "required": [
+            "code",
+            "message",
+            "stream_id",
+            "label",
+            "retryable"
+          ],
           "properties": {
-            "code": {"type": "string", "minLength": 1},
-            "message": {"type": "string", "minLength": 1},
-            "stream_id": {"type": "string", "minLength": 1},
-            "label": {"type": "string", "minLength": 1},
-            "retryable": {"type": "boolean"}
+            "code": {
+              "type": "string",
+              "minLength": 1
+            },
+            "message": {
+              "type": "string",
+              "minLength": 1
+            },
+            "stream_id": {
+              "type": "string",
+              "minLength": 1
+            },
+            "label": {
+              "type": "string",
+              "minLength": 1
+            },
+            "retryable": {
+              "type": "boolean"
+            }
           }
         },
         "pacing": {
@@ -733,22 +764,55 @@
       },
       "allOf": [
         {
-          "if": {"required": ["allowed_terminal_error"]},
-          "then": {"properties": {"mode": {"const": "listen"}}}
+          "if": {
+            "required": [
+              "allowed_terminal_error"
+            ]
+          },
+          "then": {
+            "properties": {
+              "mode": {
+                "const": "listen"
+              }
+            }
+          }
         },
         {
-          "if": {"required": ["measure_first_packet"]},
+          "if": {
+            "required": [
+              "measure_first_packet"
+            ]
+          },
           "then": {
-            "required": ["input", "completion"],
+            "required": [
+              "input",
+              "completion"
+            ],
             "properties": {
-              "mode": {"const": "push-to-talk"},
-              "completion": {"const": "input_sent"}
+              "mode": {
+                "const": "push-to-talk"
+              },
+              "completion": {
+                "const": "input_sent"
+              }
             },
             "not": {
               "anyOf": [
-                {"required": ["empty_input"]},
-                {"required": ["overlap_input"]},
-                {"required": ["interrupt_after"]}
+                {
+                  "required": [
+                    "empty_input"
+                  ]
+                },
+                {
+                  "required": [
+                    "overlap_input"
+                  ]
+                },
+                {
+                  "required": [
+                    "interrupt_after"
+                  ]
+                }
               ]
             }
           }

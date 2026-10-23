@@ -12,8 +12,8 @@ func TestClientHwdRegistryAndPayloads(t *testing.T) {
 		name     string
 		writable bool
 	}{
-		{"wifi", false}, {"ble", false}, {"modem", false}, {"battery", false},
-		{"mic", false}, {"display", true}, {"led", true}, {"speaker", true},
+		{"wifi", false}, {"ble", false}, {"modem", true}, {"battery", false},
+		{"mic", false}, {"display", true}, {"led", true}, {"speaker", true}, {"nfc", true},
 	} {
 		hwd, err := ClientHwdByName(tc.name)
 		if err != nil {

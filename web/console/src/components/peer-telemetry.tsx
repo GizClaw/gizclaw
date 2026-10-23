@@ -79,6 +79,7 @@ export function PeerTelemetry({ peer }: { peer: WatchedPeer }) {
           peer.endpoint,
           peer.publicKey,
           controller.signal,
+          peer.signedBearer,
         );
         if (controller.signal.aborted) return;
         setValues(result);
@@ -97,7 +98,7 @@ export function PeerTelemetry({ peer }: { peer: WatchedPeer }) {
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [peer.endpoint, peer.publicKey]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer]);
 
   useEffect(() => {
     if (open === undefined) return;
@@ -113,6 +114,7 @@ export function PeerTelemetry({ peer }: { peer: WatchedPeer }) {
       end - rangeHours * 3600000,
       end,
       controller.signal,
+      peer.signedBearer,
     )
       .then((range) => {
         if (controller.signal.aborted) return;
@@ -132,7 +134,7 @@ export function PeerTelemetry({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setSeriesBusy(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, open, rangeHours]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer, open, rangeHours]);
 
   return (
     <Card>

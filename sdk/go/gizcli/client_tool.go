@@ -89,6 +89,9 @@ func (c *rpcClient) handleToolV0(ctx context.Context, req *rpcapi.RPCRequest) (*
 		if result == nil || string(result.ProtoReflect().Descriptor().Name()) != meta.Response {
 			return deviceControlError(req.Id, fmt.Errorf("invalid tool response type")), nil
 		}
+		if err := rpcapi.ValidateManagementResult(message, result); err != nil {
+			return deviceControlError(req.Id, err), nil
+		}
 		if err := validateClientToolResponse(result); err != nil {
 			return deviceControlError(req.Id, err), nil
 		}
@@ -124,6 +127,9 @@ func (c *rpcClient) dispatchClientTool(ctx context.Context, tool rpcpb.ClientToo
 }
 
 func validateClientToolResponse(message proto.Message) error {
+	if err := rpcapi.ValidateManagementResponse(message); err != nil {
+		return err
+	}
 	switch message.(type) {
 	case *rpcpb.ClientGnssReportingGetResponse, *rpcpb.ClientGnssReportingSetResponse:
 		return rpcapi.ValidateGNSSReportingResponse(message)

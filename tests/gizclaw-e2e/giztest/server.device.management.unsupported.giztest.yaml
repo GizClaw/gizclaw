@@ -1,0 +1,223 @@
+# User Story:
+# As a GizClaw device operator,
+# I want to exercise server.device.management.unsupported,
+# So that the protocol is verified over real Server and SDK transports.
+version: gizclaw.test/v1alpha1
+name: server.device.management.unsupported
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: discover
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /tools:
+        equals:
+          - info.get
+          - identifiers.get
+  - id: call_content_age_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: content.age.get
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_content_age_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: content.age.set
+        args:
+          option_id: teen
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_device_features_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.features.get
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_device_feature_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.feature.set
+        args:
+          feature_id: camera
+          enabled: false
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_usage_time_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: usage.time.get
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_usage_time_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: usage.time.set
+        args:
+          limit_seconds: 9000
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_ai_safety_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: ai.safety.get
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_ai_safety_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: ai.safety.set
+        args:
+          level: strict
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_management_password_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.get
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_management_password_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.set
+        args:
+          password: giztest-password-only
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+  - id: call_management_password_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.reset
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

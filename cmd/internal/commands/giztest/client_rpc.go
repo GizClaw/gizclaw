@@ -66,7 +66,10 @@ func isMutatingDeviceRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool) boo
 	case rpcpb.ClientTool_CLIENT_TOOL_INFO_GET, rpcpb.ClientTool_CLIENT_TOOL_IDENTIFIERS_GET,
 		rpcpb.ClientTool_CLIENT_TOOL_DEVICE_STATUS_GET, rpcpb.ClientTool_CLIENT_TOOL_WIFI_SCAN,
 		rpcpb.ClientTool_CLIENT_TOOL_WIFI_SAVED_LIST, rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_GET,
-		rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET, rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_LIST:
+		rpcpb.ClientTool_CLIENT_TOOL_AUDIOPLAYER_PLAYLIST_GET, rpcpb.ClientTool_CLIENT_TOOL_LUA_APP_LIST,
+		rpcpb.ClientTool_CLIENT_TOOL_CONTENT_AGE_GET, rpcpb.ClientTool_CLIENT_TOOL_DEVICE_FEATURES_GET,
+		rpcpb.ClientTool_CLIENT_TOOL_USAGE_TIME_GET, rpcpb.ClientTool_CLIENT_TOOL_AI_SAFETY_GET,
+		rpcpb.ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_GET:
 		return false
 	default:
 		return true
@@ -249,6 +252,33 @@ func configureClientRPC(client *gizcli.Client, clientName string, steps []giztes
 					}
 					continue
 				}
+			}
+			tool, _ := rpcapi.ClientToolByName(operation.Tool)
+			if tool >= rpcpb.ClientTool_CLIENT_TOOL_CONTENT_AGE_GET && tool <= rpcpb.ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET {
+				scripted, err := deviceControlErrorResponse(response)
+				if err != nil {
+					return err
+				}
+				result, err := rpcapi.ClientToolResponseMessage(tool, nil)
+				if err != nil {
+					return err
+				}
+				if scripted == nil {
+					data, err := json.Marshal(response)
+					if err != nil {
+						return err
+					}
+					if response == nil {
+						data = []byte(`{}`)
+					}
+					if err := protojson.Unmarshal(data, result); err != nil {
+						return err
+					}
+				}
+				if err := client.HandleClientTool(tool, func(context.Context, proto.Message) (proto.Message, error) { return proto.Clone(result), scripted }); err != nil {
+					return err
+				}
+				continue
 			}
 			if strings.HasPrefix(operation.Tool, "lua.app.") {
 				tool, _ := rpcapi.ClientToolByName(operation.Tool)

@@ -1,0 +1,126 @@
+// Device management procedures, carried exclusively by tool/v0/invoke.
+// Providers advertise only installed tools, apply changes before responding,
+// and return canonical RpcStatus errors on unsupported/failed operations.
+syntax = "proto3";
+package gizclaw.rpc.v1;
+option go_package = "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpb";
+
+message ContentAgeOption {
+  // Device-declared stable ID, 1..64 UTF-8 bytes.
+  string id = 1;
+  // Display text, 1..128 UTF-8 bytes.
+  string display_name = 2;
+  optional uint32 min_age_years = 3;
+  optional uint32 max_age_years = 4;
+}
+message ContentAgeState {
+  // Effective selection. Must occur in options.
+  string option_id = 1;
+  // At most 16 supported choices, with unique IDs.
+  repeated ContentAgeOption options = 2;
+}
+message ClientContentAgeGetRequest {
+}
+message ClientContentAgeGetResponse {
+  ContentAgeState state = 1;
+}
+message ClientContentAgeSetRequest {
+  string option_id = 1;
+}
+message ClientContentAgeSetResponse {
+  ContentAgeState applied = 1;
+}
+
+message DeviceFeature {
+  // Device-declared stable ID, 1..64 UTF-8 bytes. Never a preference key.
+  string id = 1;
+  // Display text, 1..128 UTF-8 bytes.
+  string display_name = 2;
+  // Required presence, including false.
+  optional bool enabled = 3;
+  // Required presence. False means read-only.
+  optional bool writable = 4;
+}
+message ClientDeviceFeaturesGetRequest {
+}
+message ClientDeviceFeaturesGetResponse {
+  // At most 32 features, with unique IDs.
+  repeated DeviceFeature features = 1;
+}
+message ClientDeviceFeatureSetRequest {
+  string feature_id = 1;
+  // Required. Unknown ID: NOT_FOUND; immutable: FAILED_PRECONDITION.
+  optional bool enabled = 2;
+}
+message ClientDeviceFeatureSetResponse {
+  DeviceFeature applied = 1;
+}
+
+// The device owns accounting and enforces this limit in its current usage
+// window. Zero limit means unlimited; used_seconds still reports actual use.
+message UsageTimeState {
+  // Required presence, including zero.
+  optional uint32 limit_seconds = 1;
+  // Required presence, including zero.
+  optional uint32 used_seconds = 2;
+  // Required presence, including false.
+  optional bool exhausted = 3;
+}
+message ClientUsageTimeGetRequest {
+}
+message ClientUsageTimeGetResponse {
+  UsageTimeState state = 1;
+}
+message ClientUsageTimeSetRequest {
+  // Required presence, including zero.
+  optional uint32 limit_seconds = 1;
+}
+message ClientUsageTimeSetResponse {
+  UsageTimeState applied = 1;
+}
+
+message AISafetyOption {
+  // Device-declared stable level, 1..64 UTF-8 bytes.
+  string id = 1;
+  // Display text, 1..128 UTF-8 bytes.
+  string display_name = 2;
+}
+message AISafetyState {
+  // Effective level. Must occur in options.
+  string level = 1;
+  // At most 16 supported choices, with unique IDs.
+  repeated AISafetyOption options = 2;
+}
+message ClientAISafetyGetRequest {
+}
+message ClientAISafetyGetResponse {
+  AISafetyState state = 1;
+}
+message ClientAISafetySetRequest {
+  string level = 1;
+}
+message ClientAISafetySetResponse {
+  AISafetyState applied = 1;
+}
+
+message ClientManagementPasswordGetRequest {
+}
+message ClientManagementPasswordGetResponse {
+  // Required presence, including false.
+  optional bool is_set = 1;
+}
+message ClientManagementPasswordSetRequest {
+  // 1..128 UTF-8 bytes. Sensitive: never log, trace or copy into telemetry.
+  string password = 1;
+}
+message ClientManagementPasswordSetResponse {
+  // Required, true only after the password is persistently set.
+  optional bool is_set = 1;
+}
+// Clears only the management password. Does not factory-reset the device.
+message ClientManagementPasswordResetRequest {
+}
+message ClientManagementPasswordResetResponse {
+  // Required, false only after the password is cleared.
+  optional bool is_set = 1;
+}

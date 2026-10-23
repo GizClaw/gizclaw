@@ -24,6 +24,9 @@ func (c *Client) SendTelemetryFrame(frame *telemetrypb.TelemetryFrame) error {
 			return fmt.Errorf("gizclaw: telemetry observation %d body is required", i)
 		}
 	}
+	if err := telemetrypb.ValidateKVFrame(frame); err != nil {
+		return err
+	}
 	conn := c.PeerConn()
 	if conn == nil {
 		return fmt.Errorf("gizclaw: client is not connected")
@@ -31,6 +34,9 @@ func (c *Client) SendTelemetryFrame(frame *telemetrypb.TelemetryFrame) error {
 	if frame.ObservedAtUnixMs == 0 {
 		frame = proto.Clone(frame).(*telemetrypb.TelemetryFrame)
 		frame.ObservedAtUnixMs = time.Now().UTC().UnixMilli()
+	}
+	if err := telemetrypb.ValidateKVFrame(frame); err != nil {
+		return err
 	}
 	payload, err := proto.Marshal(frame)
 	if err != nil {
@@ -79,4 +85,10 @@ func (c *Client) SendAudioPlayerTelemetry(observation *telemetrypb.AudioPlayerOb
 	return c.SendTelemetryFrame(&telemetrypb.TelemetryFrame{
 		Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Audioplayer{Audioplayer: observation}}},
 	})
+}
+
+// SendKVTelemetry reports an opaque JSON value or explicit deletion using the
+// existing telemetry channel. Observation time defaults to the current time.
+func (c *Client) SendKVTelemetry(kv *telemetrypb.KVObservation) error {
+	return c.SendTelemetryFrame(&telemetrypb.TelemetryFrame{Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Kv{Kv: kv}}}})
 }

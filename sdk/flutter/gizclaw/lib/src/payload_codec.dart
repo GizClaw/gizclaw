@@ -22,6 +22,14 @@ final _messageFactories = <String, MessageFactory>{
   'AppConfigGetResponse': payload.AppConfigGetResponse.new,
   'AppConfigListRequest': payload.AppConfigListRequest.new,
   'AppConfigListResponse': payload.AppConfigListResponse.new,
+  'ClientAISafetyGetRequest': payload.ClientAISafetyGetRequest.new,
+  'ClientAISafetyGetResponse': payload.ClientAISafetyGetResponse.new,
+  'ClientAISafetySetRequest': payload.ClientAISafetySetRequest.new,
+  'ClientAISafetySetResponse': payload.ClientAISafetySetResponse.new,
+  'ClientContentAgeGetRequest': payload.ClientContentAgeGetRequest.new,
+  'ClientContentAgeGetResponse': payload.ClientContentAgeGetResponse.new,
+  'ClientContentAgeSetRequest': payload.ClientContentAgeSetRequest.new,
+  'ClientContentAgeSetResponse': payload.ClientContentAgeSetResponse.new,
   'ClientDeviceAudioPlayerGetRequest':
       payload.ClientDeviceAudioPlayerGetRequest.new,
   'ClientDeviceAudioPlayerGetResponse':
@@ -54,6 +62,11 @@ final _messageFactories = <String, MessageFactory>{
       payload.ClientDeviceFactoryResetRequest.new,
   'ClientDeviceFactoryResetResponse':
       payload.ClientDeviceFactoryResetResponse.new,
+  'ClientDeviceFeatureSetRequest': payload.ClientDeviceFeatureSetRequest.new,
+  'ClientDeviceFeatureSetResponse': payload.ClientDeviceFeatureSetResponse.new,
+  'ClientDeviceFeaturesGetRequest': payload.ClientDeviceFeaturesGetRequest.new,
+  'ClientDeviceFeaturesGetResponse':
+      payload.ClientDeviceFeaturesGetResponse.new,
   'ClientDeviceFindRequest': payload.ClientDeviceFindRequest.new,
   'ClientDeviceFindResponse': payload.ClientDeviceFindResponse.new,
   'ClientDeviceRebootRequest': payload.ClientDeviceRebootRequest.new,
@@ -82,6 +95,18 @@ final _messageFactories = <String, MessageFactory>{
   'ClientLuaAppRunResponse': payload.ClientLuaAppRunResponse.new,
   'ClientLuaAppUninstallRequest': payload.ClientLuaAppUninstallRequest.new,
   'ClientLuaAppUninstallResponse': payload.ClientLuaAppUninstallResponse.new,
+  'ClientManagementPasswordGetRequest':
+      payload.ClientManagementPasswordGetRequest.new,
+  'ClientManagementPasswordGetResponse':
+      payload.ClientManagementPasswordGetResponse.new,
+  'ClientManagementPasswordResetRequest':
+      payload.ClientManagementPasswordResetRequest.new,
+  'ClientManagementPasswordResetResponse':
+      payload.ClientManagementPasswordResetResponse.new,
+  'ClientManagementPasswordSetRequest':
+      payload.ClientManagementPasswordSetRequest.new,
+  'ClientManagementPasswordSetResponse':
+      payload.ClientManagementPasswordSetResponse.new,
   'ClientMhsV0ReadRequest': payload.ClientMhsV0ReadRequest.new,
   'ClientMhsV0ReadResponse': payload.ClientMhsV0ReadResponse.new,
   'ClientMhsV0WriteRequest': payload.ClientMhsV0WriteRequest.new,
@@ -96,6 +121,10 @@ final _messageFactories = <String, MessageFactory>{
   'ClientToolV0InvokeResponse': payload.ClientToolV0InvokeResponse.new,
   'ClientToolV0ListRequest': payload.ClientToolV0ListRequest.new,
   'ClientToolV0ListResponse': payload.ClientToolV0ListResponse.new,
+  'ClientUsageTimeGetRequest': payload.ClientUsageTimeGetRequest.new,
+  'ClientUsageTimeGetResponse': payload.ClientUsageTimeGetResponse.new,
+  'ClientUsageTimeSetRequest': payload.ClientUsageTimeSetRequest.new,
+  'ClientUsageTimeSetResponse': payload.ClientUsageTimeSetResponse.new,
   'ClientWifiConnectRequest': payload.ClientWifiConnectRequest.new,
   'ClientWifiConnectResponse': payload.ClientWifiConnectResponse.new,
   'ClientWifiSavedForgetRequest': payload.ClientWifiSavedForgetRequest.new,
@@ -297,6 +326,14 @@ final _messageTypes = <String, Type>{
   'AppConfigGetResponse': payload.AppConfigGetResponse,
   'AppConfigListRequest': payload.AppConfigListRequest,
   'AppConfigListResponse': payload.AppConfigListResponse,
+  'ClientAISafetyGetRequest': payload.ClientAISafetyGetRequest,
+  'ClientAISafetyGetResponse': payload.ClientAISafetyGetResponse,
+  'ClientAISafetySetRequest': payload.ClientAISafetySetRequest,
+  'ClientAISafetySetResponse': payload.ClientAISafetySetResponse,
+  'ClientContentAgeGetRequest': payload.ClientContentAgeGetRequest,
+  'ClientContentAgeGetResponse': payload.ClientContentAgeGetResponse,
+  'ClientContentAgeSetRequest': payload.ClientContentAgeSetRequest,
+  'ClientContentAgeSetResponse': payload.ClientContentAgeSetResponse,
   'ClientDeviceAudioPlayerGetRequest':
       payload.ClientDeviceAudioPlayerGetRequest,
   'ClientDeviceAudioPlayerGetResponse':
@@ -327,6 +364,10 @@ final _messageTypes = <String, Type>{
       payload.ClientDeviceAudioPlayerStopResponse,
   'ClientDeviceFactoryResetRequest': payload.ClientDeviceFactoryResetRequest,
   'ClientDeviceFactoryResetResponse': payload.ClientDeviceFactoryResetResponse,
+  'ClientDeviceFeatureSetRequest': payload.ClientDeviceFeatureSetRequest,
+  'ClientDeviceFeatureSetResponse': payload.ClientDeviceFeatureSetResponse,
+  'ClientDeviceFeaturesGetRequest': payload.ClientDeviceFeaturesGetRequest,
+  'ClientDeviceFeaturesGetResponse': payload.ClientDeviceFeaturesGetResponse,
   'ClientDeviceFindRequest': payload.ClientDeviceFindRequest,
   'ClientDeviceFindResponse': payload.ClientDeviceFindResponse,
   'ClientDeviceRebootRequest': payload.ClientDeviceRebootRequest,
@@ -354,6 +395,18 @@ final _messageTypes = <String, Type>{
   'ClientLuaAppRunResponse': payload.ClientLuaAppRunResponse,
   'ClientLuaAppUninstallRequest': payload.ClientLuaAppUninstallRequest,
   'ClientLuaAppUninstallResponse': payload.ClientLuaAppUninstallResponse,
+  'ClientManagementPasswordGetRequest':
+      payload.ClientManagementPasswordGetRequest,
+  'ClientManagementPasswordGetResponse':
+      payload.ClientManagementPasswordGetResponse,
+  'ClientManagementPasswordResetRequest':
+      payload.ClientManagementPasswordResetRequest,
+  'ClientManagementPasswordResetResponse':
+      payload.ClientManagementPasswordResetResponse,
+  'ClientManagementPasswordSetRequest':
+      payload.ClientManagementPasswordSetRequest,
+  'ClientManagementPasswordSetResponse':
+      payload.ClientManagementPasswordSetResponse,
   'ClientMhsV0ReadRequest': payload.ClientMhsV0ReadRequest,
   'ClientMhsV0ReadResponse': payload.ClientMhsV0ReadResponse,
   'ClientMhsV0WriteRequest': payload.ClientMhsV0WriteRequest,
@@ -368,6 +421,10 @@ final _messageTypes = <String, Type>{
   'ClientToolV0InvokeResponse': payload.ClientToolV0InvokeResponse,
   'ClientToolV0ListRequest': payload.ClientToolV0ListRequest,
   'ClientToolV0ListResponse': payload.ClientToolV0ListResponse,
+  'ClientUsageTimeGetRequest': payload.ClientUsageTimeGetRequest,
+  'ClientUsageTimeGetResponse': payload.ClientUsageTimeGetResponse,
+  'ClientUsageTimeSetRequest': payload.ClientUsageTimeSetRequest,
+  'ClientUsageTimeSetResponse': payload.ClientUsageTimeSetResponse,
   'ClientWifiConnectRequest': payload.ClientWifiConnectRequest,
   'ClientWifiConnectResponse': payload.ClientWifiConnectResponse,
   'ClientWifiSavedForgetRequest': payload.ClientWifiSavedForgetRequest,
@@ -614,6 +671,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.BleHwdReadResponse': {1, 2, 3, 4},
   'gizclaw.rpc.v1.ClientDeviceAudioPlayerPlayRequest': {1},
   'gizclaw.rpc.v1.ClientDeviceFactoryResetRequest': {1},
+  'gizclaw.rpc.v1.ClientDeviceFeatureSetRequest': {2},
   'gizclaw.rpc.v1.ClientDeviceFindRequest': {1},
   'gizclaw.rpc.v1.ClientDeviceRebootRequest': {1},
   'gizclaw.rpc.v1.ClientDeviceSoundPlayRequest': {2},
@@ -622,11 +680,15 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.ClientGnssReportingSetRequest': {1},
   'gizclaw.rpc.v1.ClientGnssReportingSetResponse': {1},
   'gizclaw.rpc.v1.ClientLuaAppInstallRequest': {2},
+  'gizclaw.rpc.v1.ClientManagementPasswordGetResponse': {1},
+  'gizclaw.rpc.v1.ClientManagementPasswordResetResponse': {1},
+  'gizclaw.rpc.v1.ClientManagementPasswordSetResponse': {1},
   'gizclaw.rpc.v1.ClientMhsV0ReadResponse': {2},
   'gizclaw.rpc.v1.ClientRunWorkspaceSetRequest': {2},
   'gizclaw.rpc.v1.ClientSocialPingRequest': {2, 3},
   'gizclaw.rpc.v1.ClientToolV0InvokeRequest': {2},
   'gizclaw.rpc.v1.ClientToolV0InvokeResponse': {1},
+  'gizclaw.rpc.v1.ClientUsageTimeSetRequest': {1},
   'gizclaw.rpc.v1.ClientWifiConnectRequest': {2},
   'gizclaw.rpc.v1.ClientWifiScanRequest': {1},
   'gizclaw.rpc.v1.ContactCreateRequest': {2, 3},
@@ -634,6 +696,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.ContactListResponse': {3},
   'gizclaw.rpc.v1.ContactObject': {1, 2, 4, 5},
   'gizclaw.rpc.v1.ContactPutRequest': {1, 3},
+  'gizclaw.rpc.v1.ContentAgeOption': {3, 4},
   'gizclaw.rpc.v1.ConversationParameters': {1, 2},
   'gizclaw.rpc.v1.DashScopeRealtimeWorkflowSpec': {1, 2, 3, 4, 5, 8, 9, 10, 11},
   'gizclaw.rpc.v1.DashScopeRealtimeWorkspaceParameters': {
@@ -675,6 +738,7 @@ const _explicitPresenceFields = <String, Set<int>>{
     10,
     12,
   },
+  'gizclaw.rpc.v1.DeviceFeature': {3, 4},
   'gizclaw.rpc.v1.DeviceIdentifiers': {1},
   'gizclaw.rpc.v1.DeviceInfo': {1, 2, 4, 5},
   'gizclaw.rpc.v1.DeviceProfile': {1, 2},
@@ -793,7 +857,11 @@ const _explicitPresenceFields = <String, Set<int>>{
   },
   'gizclaw.rpc.v1.ModelListRequest': {1, 2},
   'gizclaw.rpc.v1.ModelListResponse': {3},
-  'gizclaw.rpc.v1.ModemHwdReadResponse': {1, 2, 3, 4, 5},
+  'gizclaw.rpc.v1.ModemHwdReadResponse': {1, 2, 3, 4, 5, 6, 7},
+  'gizclaw.rpc.v1.ModemHwdWriteRequest': {1},
+  'gizclaw.rpc.v1.NfcHwdReadResponse': {1, 2, 3},
+  'gizclaw.rpc.v1.NfcHwdWriteRequest': {1},
+  'gizclaw.rpc.v1.NfcReadSnapshot': {2, 3, 4, 5, 7},
   'gizclaw.rpc.v1.OpenAITenantModelProviderData': {
     1,
     2,
@@ -886,6 +954,7 @@ const _explicitPresenceFields = <String, Set<int>>{
   'gizclaw.rpc.v1.ToolListRequest': {1, 2, 3, 4},
   'gizclaw.rpc.v1.ToolListResponse': {3},
   'gizclaw.rpc.v1.ToolkitPolicy': {1},
+  'gizclaw.rpc.v1.UsageTimeState': {1, 2, 3},
   'gizclaw.rpc.v1.VoiceListRequest': {1, 2},
   'gizclaw.rpc.v1.VoiceListResponse': {3},
   'gizclaw.rpc.v1.VolcTenantModelProviderData': {

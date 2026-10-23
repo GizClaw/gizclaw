@@ -105,7 +105,15 @@ export function LogsPage({
     setDeviceRecords([]);
     setDeviceCursor(undefined);
     setDeviceNext(undefined);
-  }, [source, deviceQuery, deviceLevel, windowSeconds]);
+  }, [
+    source,
+    device?.endpoint,
+    device?.publicKey,
+    device?.signedBearer,
+    deviceQuery,
+    deviceLevel,
+    windowSeconds,
+  ]);
 
   useEffect(() => {
     if (!device) {
@@ -125,6 +133,7 @@ export function LogsPage({
       end,
       deviceCursor,
       controller.signal,
+      device.signedBearer,
     )
       .then((page) => {
         if (controller.signal.aborted) return;

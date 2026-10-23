@@ -61,6 +61,17 @@ enum ClientTool {
   CLIENT_TOOL_GNSS_REPORTING_GET = 25 [(client_tool) = { name: "gnss.reporting.get" request: "ClientGnssReportingGetRequest" response: "ClientGnssReportingGetResponse" }];
   CLIENT_TOOL_GNSS_REPORTING_SET = 26 [(client_tool) = { name: "gnss.reporting.set" request: "ClientGnssReportingSetRequest" response: "ClientGnssReportingSetResponse" }];
   CLIENT_TOOL_LUA_APP_UNINSTALL = 27 [(client_tool) = { name: "lua.app.uninstall" request: "ClientLuaAppUninstallRequest" response: "ClientLuaAppUninstallResponse" }];
+  CLIENT_TOOL_CONTENT_AGE_GET = 28 [(client_tool) = { name: "content.age.get" request: "ClientContentAgeGetRequest" response: "ClientContentAgeGetResponse" }];
+  CLIENT_TOOL_CONTENT_AGE_SET = 29 [(client_tool) = { name: "content.age.set" request: "ClientContentAgeSetRequest" response: "ClientContentAgeSetResponse" }];
+  CLIENT_TOOL_DEVICE_FEATURES_GET = 30 [(client_tool) = { name: "device.features.get" request: "ClientDeviceFeaturesGetRequest" response: "ClientDeviceFeaturesGetResponse" }];
+  CLIENT_TOOL_DEVICE_FEATURE_SET = 31 [(client_tool) = { name: "device.feature.set" request: "ClientDeviceFeatureSetRequest" response: "ClientDeviceFeatureSetResponse" }];
+  CLIENT_TOOL_USAGE_TIME_GET = 32 [(client_tool) = { name: "usage.time.get" request: "ClientUsageTimeGetRequest" response: "ClientUsageTimeGetResponse" }];
+  CLIENT_TOOL_USAGE_TIME_SET = 33 [(client_tool) = { name: "usage.time.set" request: "ClientUsageTimeSetRequest" response: "ClientUsageTimeSetResponse" }];
+  CLIENT_TOOL_AI_SAFETY_GET = 34 [(client_tool) = { name: "ai.safety.get" request: "ClientAISafetyGetRequest" response: "ClientAISafetyGetResponse" }];
+  CLIENT_TOOL_AI_SAFETY_SET = 35 [(client_tool) = { name: "ai.safety.set" request: "ClientAISafetySetRequest" response: "ClientAISafetySetResponse" }];
+  CLIENT_TOOL_MANAGEMENT_PASSWORD_GET = 36 [(client_tool) = { name: "management.password.get" request: "ClientManagementPasswordGetRequest" response: "ClientManagementPasswordGetResponse" }];
+  CLIENT_TOOL_MANAGEMENT_PASSWORD_SET = 37 [(client_tool) = { name: "management.password.set" request: "ClientManagementPasswordSetRequest" response: "ClientManagementPasswordSetResponse" }];
+  CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET = 38 [(client_tool) = { name: "management.password.reset" request: "ClientManagementPasswordResetRequest" response: "ClientManagementPasswordResetResponse" }];
 }
 
 // ClientToolV0InvokeRequest carries one tool call. payload is the encoded

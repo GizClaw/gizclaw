@@ -65,6 +65,8 @@ import io
 import tarfile
 import sys
 
+import yaml
+
 source_path, destination_path, mode = sys.argv[1:]
 with tarfile.open(source_path, "r:gz") as source:
     members = [(member, source.extractfile(member).read() if member.isreg() else None) for member in source.getmembers()]
@@ -113,6 +115,38 @@ elif mode in {"version", "path-dependency"}:
             member.size = len(payload)
         changed.append((member, payload))
     members = changed
+elif mode.startswith("git-"):
+    changed = []
+    for member, payload in members:
+        if member.name == "pubspec.yaml":
+            manifest = yaml.safe_load(payload)
+            dependency = next(
+                value for value in manifest["dependencies"].values()
+                if isinstance(value, dict) and "git" in value
+            )
+            git = dependency["git"]
+            if mode == "git-branch":
+                git["ref"] = "main"
+            elif mode == "git-missing-ref":
+                del git["ref"]
+            elif mode == "git-http":
+                git["url"] = git["url"].replace("https://", "http://", 1)
+            elif mode == "git-auth":
+                git["url"] = "https://fixture:fixture-token@example.com/native.git"
+            elif mode == "git-query":
+                git["url"] += "?fixture=value"
+            elif mode == "git-path":
+                git["path"] = "../outside"
+            elif mode == "git-string":
+                dependency["git"] = git["url"]
+            elif mode != "git-duplicate-key":
+                raise SystemExit("unknown Git fixture mode")
+            payload = yaml.safe_dump(manifest, sort_keys=False).encode()
+            if mode == "git-duplicate-key":
+                payload += b"dependencies:\n  duplicate: any\n"
+            member.size = len(payload)
+        changed.append((member, payload))
+    members = changed
 else:
     raise SystemExit(f"unknown rewrite mode: {mode}")
 
@@ -129,6 +163,14 @@ for mode in extra root-directory symlink traversal duplicate mode timestamp miss
   rewrite_archive "$mode" "$rewritten"
   expect_failure "$mode archive" "$repo_root/tools/flutter-sdk/verify_archive.sh" \
     --archive "$rewritten" --package gizclaw_control --version "$version"
+done
+
+archive="$fixture_root/flutter-gizclaw-$version-a.tar.gz"
+for mode in git-branch git-missing-ref git-http git-auth git-query git-path git-string git-duplicate-key; do
+  rewritten="$fixture_root/$mode.tar.gz"
+  rewrite_archive "$mode" "$rewritten"
+  expect_failure "$mode archive" "$repo_root/tools/flutter-sdk/verify_archive.sh" \
+    --archive "$rewritten" --package gizclaw --version "$version"
 done
 
 printf '%s\n' "Flutter SDK archive contract tests passed"

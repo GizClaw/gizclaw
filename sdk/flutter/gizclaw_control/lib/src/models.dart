@@ -7,6 +7,7 @@
 /// the SDK does not model.
 library;
 
+import 'dart:convert';
 import 'json.dart';
 
 /// One API key owned by the bound device (`APIKey`).
@@ -253,11 +254,13 @@ class DeviceRuntime {
     this.txBytes,
     this.activeWorkspaceName,
     this.pendingWorkspaceName,
+    this.reportedKv,
   });
 
   factory DeviceRuntime.fromJson(Object? json) {
     final object = asJsonObject(json, 'Runtime');
     return DeviceRuntime(
+      reportedKv: decodeReportedKV(object['reported_kv']),
       online: readBool(object, 'online'),
       lastSeenAt: readDateTime(object, 'last_seen_at'),
       lastAddr: readOptionalString(object, 'last_addr'),
@@ -271,6 +274,7 @@ class DeviceRuntime {
     );
   }
 
+  final Map<String, PeerKVEntry>? reportedKv;
   final bool online;
   final DateTime lastSeenAt;
   final String? lastAddr;
@@ -285,6 +289,9 @@ class DeviceRuntime {
   final String? pendingWorkspaceName;
 
   JsonObject toJson() => withoutNulls({
+    'reported_kv': reportedKv?.map(
+      (key, value) => MapEntry(key, value.toJson()),
+    ),
     'online': online,
     'last_seen_at': encodeDateTime(lastSeenAt),
     'last_addr': lastAddr,
@@ -382,6 +389,9 @@ class PeerStatus {
   final double? cellularRssiDbm;
   final double? cellularSignalLevel;
   final Map<String, String> labels;
+
+  Map<String, PeerKVEntry>? get reportedKv =>
+      decodeReportedKV(raw['reported_kv']);
 
   /// Complete decoded response object, including unmodeled keys.
   final Map<String, Object?> raw;
@@ -1762,6 +1772,7 @@ const mhsHwdNames = {
   'display',
   'led',
   'speaker',
+  'nfc',
 };
 String _mhsString(Object? value) {
   if (value is! String) throw const FormatException('expected MHS string');
@@ -1821,6 +1832,8 @@ class MhsBleReadValue extends MhsHwdReadValue {
 
 class MhsModemReadValue extends MhsHwdReadValue {
   const MhsModemReadValue({
+    this.enabled,
+    this.powered,
     this.simPresent,
     this.registered,
     this.rat,
@@ -1830,6 +1843,8 @@ class MhsModemReadValue extends MhsHwdReadValue {
   factory MhsModemReadValue.fromJson(Object? json) {
     final object = asJsonObject(json, 'MhsModemReadValue');
     return MhsModemReadValue(
+      enabled: readOptionalBool(object, 'enabled'),
+      powered: readOptionalBool(object, 'powered'),
       simPresent: readOptionalBool(object, 'sim_present'),
       registered: readOptionalBool(object, 'registered'),
       rat: readOptionalString(object, 'rat'),
@@ -1837,6 +1852,8 @@ class MhsModemReadValue extends MhsHwdReadValue {
       signalLevel: readOptionalInt(object, 'signal_level'),
     );
   }
+  final bool? enabled;
+  final bool? powered;
   final bool? simPresent;
   final bool? registered;
   final String? rat;
@@ -1934,6 +1951,7 @@ class MhsHwdReadResult {
       'wifi' => MhsWifiReadValue.fromJson(rawValue),
       'ble' => MhsBleReadValue.fromJson(rawValue),
       'modem' => MhsModemReadValue.fromJson(rawValue),
+      'nfc' => MhsNfcReadValue.fromJson(rawValue),
       'battery' => MhsBatteryReadValue.fromJson(rawValue),
       'mic' => MhsMicReadValue.fromJson(rawValue),
       'display' => MhsDisplayReadValue.fromJson(rawValue),
@@ -2006,4 +2024,175 @@ class MhsHwdWriteRequest {
   final String id;
   final MhsHwdWriteValue value;
   JsonObject toJson() => {'id': id, 'hwd': value.hwd, 'value': value.toJson()};
+}
+
+/// One present device-reported JSON value. Check map key presence to distinguish
+/// missing/deleted entries from a value of null. jsonValue keeps numeric encoding.
+class PeerKVEntry {
+  const PeerKVEntry({
+    required this.value,
+    required this.jsonValue,
+    required this.observedAt,
+  });
+  factory PeerKVEntry.fromJson(Object? json) {
+    final object = asJsonObject(json, 'PeerKVEntry');
+    if (!object.containsKey('value')) {
+      throw const FormatException('missing KV value');
+    }
+    return PeerKVEntry(
+      value: object['value'],
+      jsonValue: readString(object, 'json_value'),
+      observedAt: readDateTime(object, 'observed_at'),
+    );
+  }
+  final Object? value;
+  final String jsonValue;
+  final DateTime observedAt;
+  JsonObject toJson() => {
+    'value': value,
+    'json_value': jsonValue,
+    'observed_at': encodeDateTime(observedAt),
+  };
+}
+
+Map<String, PeerKVEntry>? decodeReportedKV(Object? value) {
+  if (value == null) return null;
+  return Map.unmodifiable(
+    asJsonObject(
+      value,
+      'reported_kv',
+    ).map((key, entry) => MapEntry(key, PeerKVEntry.fromJson(entry))),
+  );
+}
+
+class NfcReadSnapshot {
+  const NfcReadSnapshot({
+    required this.readAtUnixMs,
+    required this.result,
+    this.uid,
+    this.technology,
+    this.dataFormat,
+    this.rawData,
+    this.errorCode,
+  });
+  factory NfcReadSnapshot.fromJson(Object? json) {
+    final v = asJsonObject(json, 'NfcReadSnapshot');
+    final uid = readOptionalString(v, 'uid'),
+        raw = readOptionalString(v, 'raw_data');
+    return NfcReadSnapshot(
+      readAtUnixMs: int.parse(readString(v, 'read_at_unix_ms')),
+      result: readString(v, 'result'),
+      uid: uid == null ? null : List.unmodifiable(base64.decode(uid)),
+      rawData: raw == null ? null : List.unmodifiable(base64.decode(raw)),
+      technology: readOptionalString(v, 'technology'),
+      dataFormat: readOptionalString(v, 'data_format'),
+      errorCode: readOptionalString(v, 'error_code'),
+    );
+  }
+  final int readAtUnixMs;
+  final String result;
+  final List<int>? uid, rawData;
+  final String? technology, dataFormat, errorCode;
+}
+
+class MhsNfcReadValue extends MhsHwdReadValue {
+  const MhsNfcReadValue({this.enabled, this.cardPresent, this.lastRead});
+  factory MhsNfcReadValue.fromJson(Object? json) {
+    final v = asJsonObject(json, 'NfcHwdReadResponse');
+    return MhsNfcReadValue(
+      enabled: readOptionalBool(v, 'enabled'),
+      cardPresent: readOptionalBool(v, 'card_present'),
+      lastRead: v['last_read'] == null
+          ? null
+          : NfcReadSnapshot.fromJson(v['last_read']),
+    );
+  }
+  final bool? enabled, cardPresent;
+  final NfcReadSnapshot? lastRead;
+}
+
+class MhsModemWriteValue extends MhsHwdWriteValue {
+  const MhsModemWriteValue({required this.enabled});
+  final bool enabled;
+  @override
+  String get hwd => 'modem';
+  @override
+  JsonObject toJson() => {'enabled': enabled};
+}
+
+class MhsNfcWriteValue extends MhsHwdWriteValue {
+  const MhsNfcWriteValue({required this.enabled});
+  final bool enabled;
+  @override
+  String get hwd => 'nfc';
+  @override
+  JsonObject toJson() => {'enabled': enabled};
+}
+
+class ContentAgeOption {
+  ContentAgeOption.fromJson(Object? json)
+    : this._(asJsonObject(json, 'ContentAgeOption'));
+  ContentAgeOption._(JsonObject v)
+    : id = readString(v, 'id'),
+      displayName = readString(v, 'display_name'),
+      minAgeYears = readOptionalInt(v, 'min_age_years'),
+      maxAgeYears = readOptionalInt(v, 'max_age_years');
+  final String id, displayName;
+  final int? minAgeYears, maxAgeYears;
+}
+
+class ContentAgeState {
+  ContentAgeState.fromJson(Object? json)
+    : this._(asJsonObject(json, 'ContentAgeState'));
+  ContentAgeState._(JsonObject v)
+    : optionId = readString(v, 'option_id'),
+      options = List.unmodifiable(
+        readList(v, 'options', ContentAgeOption.fromJson),
+      );
+  final String optionId;
+  final List<ContentAgeOption> options;
+}
+
+class DeviceFeature {
+  DeviceFeature.fromJson(Object? json)
+    : this._(asJsonObject(json, 'DeviceFeature'));
+  DeviceFeature._(JsonObject v)
+    : id = readString(v, 'id'),
+      displayName = readString(v, 'display_name'),
+      enabled = readBool(v, 'enabled'),
+      writable = readBool(v, 'writable');
+  final String id, displayName;
+  final bool enabled, writable;
+}
+
+class UsageTimeState {
+  UsageTimeState.fromJson(Object? json)
+    : this._(asJsonObject(json, 'UsageTimeState'));
+  UsageTimeState._(JsonObject v)
+    : limitSeconds = readInt(v, 'limit_seconds'),
+      usedSeconds = readInt(v, 'used_seconds'),
+      exhausted = readBool(v, 'exhausted');
+  final int limitSeconds, usedSeconds;
+  final bool exhausted;
+}
+
+class AISafetyOption {
+  AISafetyOption.fromJson(Object? json)
+    : this._(asJsonObject(json, 'AISafetyOption'));
+  AISafetyOption._(JsonObject v)
+    : id = readString(v, 'id'),
+      displayName = readString(v, 'display_name');
+  final String id, displayName;
+}
+
+class AISafetyState {
+  AISafetyState.fromJson(Object? json)
+    : this._(asJsonObject(json, 'AISafetyState'));
+  AISafetyState._(JsonObject v)
+    : level = readString(v, 'level'),
+      options = List.unmodifiable(
+        readList(v, 'options', AISafetyOption.fromJson),
+      );
+  final String level;
+  final List<AISafetyOption> options;
 }

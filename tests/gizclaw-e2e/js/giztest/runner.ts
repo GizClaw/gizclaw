@@ -55,6 +55,7 @@ export type TaskReport = {
   steps: StepReport[];
   cleanup?: StepReport[];
   error?: string;
+  client_rpc_diagnostics?: Record<string, unknown>;
 };
 
 export type Report = {
@@ -597,6 +598,19 @@ async function runTask(
 
   if (Object.keys(fingerprints).length > 0) {
     report.clients = fingerprints;
+  }
+
+  // Snapshot before finalizers can close the Peer and change its state.
+  if (report.status === "failed") {
+    report.client_rpc_diagnostics = Object.fromEntries(
+      [...clients].map(([name, client]) => [
+        name,
+        {
+          calls: Object.fromEntries(client.inbound),
+          channels: [...client.rpcTrace],
+        },
+      ]),
+    );
   }
 
   // Finalizers always run, on a fresh budget detached from the task timeout.

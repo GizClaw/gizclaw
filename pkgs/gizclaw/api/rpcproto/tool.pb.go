@@ -66,6 +66,17 @@ const (
 	ClientTool_CLIENT_TOOL_GNSS_REPORTING_GET          ClientTool = 25
 	ClientTool_CLIENT_TOOL_GNSS_REPORTING_SET          ClientTool = 26
 	ClientTool_CLIENT_TOOL_LUA_APP_UNINSTALL           ClientTool = 27
+	ClientTool_CLIENT_TOOL_CONTENT_AGE_GET             ClientTool = 28
+	ClientTool_CLIENT_TOOL_CONTENT_AGE_SET             ClientTool = 29
+	ClientTool_CLIENT_TOOL_DEVICE_FEATURES_GET         ClientTool = 30
+	ClientTool_CLIENT_TOOL_DEVICE_FEATURE_SET          ClientTool = 31
+	ClientTool_CLIENT_TOOL_USAGE_TIME_GET              ClientTool = 32
+	ClientTool_CLIENT_TOOL_USAGE_TIME_SET              ClientTool = 33
+	ClientTool_CLIENT_TOOL_AI_SAFETY_GET               ClientTool = 34
+	ClientTool_CLIENT_TOOL_AI_SAFETY_SET               ClientTool = 35
+	ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_GET     ClientTool = 36
+	ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_SET     ClientTool = 37
+	ClientTool_CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET   ClientTool = 38
 )
 
 // Enum value maps for ClientTool.
@@ -99,6 +110,17 @@ var (
 		25: "CLIENT_TOOL_GNSS_REPORTING_GET",
 		26: "CLIENT_TOOL_GNSS_REPORTING_SET",
 		27: "CLIENT_TOOL_LUA_APP_UNINSTALL",
+		28: "CLIENT_TOOL_CONTENT_AGE_GET",
+		29: "CLIENT_TOOL_CONTENT_AGE_SET",
+		30: "CLIENT_TOOL_DEVICE_FEATURES_GET",
+		31: "CLIENT_TOOL_DEVICE_FEATURE_SET",
+		32: "CLIENT_TOOL_USAGE_TIME_GET",
+		33: "CLIENT_TOOL_USAGE_TIME_SET",
+		34: "CLIENT_TOOL_AI_SAFETY_GET",
+		35: "CLIENT_TOOL_AI_SAFETY_SET",
+		36: "CLIENT_TOOL_MANAGEMENT_PASSWORD_GET",
+		37: "CLIENT_TOOL_MANAGEMENT_PASSWORD_SET",
+		38: "CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET",
 	}
 	ClientTool_value = map[string]int32{
 		"CLIENT_TOOL_UNSPECIFIED":                 0,
@@ -129,6 +151,17 @@ var (
 		"CLIENT_TOOL_GNSS_REPORTING_GET":          25,
 		"CLIENT_TOOL_GNSS_REPORTING_SET":          26,
 		"CLIENT_TOOL_LUA_APP_UNINSTALL":           27,
+		"CLIENT_TOOL_CONTENT_AGE_GET":             28,
+		"CLIENT_TOOL_CONTENT_AGE_SET":             29,
+		"CLIENT_TOOL_DEVICE_FEATURES_GET":         30,
+		"CLIENT_TOOL_DEVICE_FEATURE_SET":          31,
+		"CLIENT_TOOL_USAGE_TIME_GET":              32,
+		"CLIENT_TOOL_USAGE_TIME_SET":              33,
+		"CLIENT_TOOL_AI_SAFETY_GET":               34,
+		"CLIENT_TOOL_AI_SAFETY_SET":               35,
+		"CLIENT_TOOL_MANAGEMENT_PASSWORD_GET":     36,
+		"CLIENT_TOOL_MANAGEMENT_PASSWORD_SET":     37,
+		"CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET":   38,
 	}
 )
 
@@ -445,7 +478,7 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\b_payload\"\x19\n" +
 	"\x17ClientToolV0ListRequest\"L\n" +
 	"\x18ClientToolV0ListResponse\x120\n" +
-	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xdb\x19\n" +
+	"\x05tools\x18\x01 \x03(\x0e2\x1a.gizclaw.rpc.v1.ClientToolR\x05tools*\xa5$\n" +
 	"\n" +
 	"ClientTool\x12\x1b\n" +
 	"\x17CLIENT_TOOL_UNSPECIFIED\x10\x00\x12U\n" +
@@ -504,7 +537,29 @@ const file_payload_tool_proto_rawDesc = "" +
 	"\x1eCLIENT_TOOL_GNSS_REPORTING_SET\x10\x1a\x1aW\xca\xf3\x18S\n" +
 	"\x12gnss.reporting.set\x12\x1dClientGnssReportingSetRequest\x1a\x1eClientGnssReportingSetResponse\x12w\n" +
 	"\x1dCLIENT_TOOL_LUA_APP_UNINSTALL\x10\x1b\x1aT\xca\xf3\x18P\n" +
-	"\x11lua.app.uninstall\x12\x1cClientLuaAppUninstallRequest\x1a\x1dClientLuaAppUninstallResponse:g\n" +
+	"\x11lua.app.uninstall\x12\x1cClientLuaAppUninstallRequest\x1a\x1dClientLuaAppUninstallResponse\x12o\n" +
+	"\x1bCLIENT_TOOL_CONTENT_AGE_GET\x10\x1c\x1aN\xca\xf3\x18J\n" +
+	"\x0fcontent.age.get\x12\x1aClientContentAgeGetRequest\x1a\x1bClientContentAgeGetResponse\x12o\n" +
+	"\x1bCLIENT_TOOL_CONTENT_AGE_SET\x10\x1d\x1aN\xca\xf3\x18J\n" +
+	"\x0fcontent.age.set\x12\x1aClientContentAgeSetRequest\x1a\x1bClientContentAgeSetResponse\x12\x7f\n" +
+	"\x1fCLIENT_TOOL_DEVICE_FEATURES_GET\x10\x1e\x1aZ\xca\xf3\x18V\n" +
+	"\x13device.features.get\x12\x1eClientDeviceFeaturesGetRequest\x1a\x1fClientDeviceFeaturesGetResponse\x12{\n" +
+	"\x1eCLIENT_TOOL_DEVICE_FEATURE_SET\x10\x1f\x1aW\xca\xf3\x18S\n" +
+	"\x12device.feature.set\x12\x1dClientDeviceFeatureSetRequest\x1a\x1eClientDeviceFeatureSetResponse\x12k\n" +
+	"\x1aCLIENT_TOOL_USAGE_TIME_GET\x10 \x1aK\xca\xf3\x18G\n" +
+	"\x0eusage.time.get\x12\x19ClientUsageTimeGetRequest\x1a\x1aClientUsageTimeGetResponse\x12k\n" +
+	"\x1aCLIENT_TOOL_USAGE_TIME_SET\x10!\x1aK\xca\xf3\x18G\n" +
+	"\x0eusage.time.set\x12\x19ClientUsageTimeSetRequest\x1a\x1aClientUsageTimeSetResponse\x12g\n" +
+	"\x19CLIENT_TOOL_AI_SAFETY_GET\x10\"\x1aH\xca\xf3\x18D\n" +
+	"\rai.safety.get\x12\x18ClientAISafetyGetRequest\x1a\x19ClientAISafetyGetResponse\x12g\n" +
+	"\x19CLIENT_TOOL_AI_SAFETY_SET\x10#\x1aH\xca\xf3\x18D\n" +
+	"\rai.safety.set\x12\x18ClientAISafetySetRequest\x1a\x19ClientAISafetySetResponse\x12\x8f\x01\n" +
+	"#CLIENT_TOOL_MANAGEMENT_PASSWORD_GET\x10$\x1af\xca\xf3\x18b\n" +
+	"\x17management.password.get\x12\"ClientManagementPasswordGetRequest\x1a#ClientManagementPasswordGetResponse\x12\x8f\x01\n" +
+	"#CLIENT_TOOL_MANAGEMENT_PASSWORD_SET\x10%\x1af\xca\xf3\x18b\n" +
+	"\x17management.password.set\x12\"ClientManagementPasswordSetRequest\x1a#ClientManagementPasswordSetResponse\x12\x97\x01\n" +
+	"%CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET\x10&\x1al\xca\xf3\x18h\n" +
+	"\x19management.password.reset\x12$ClientManagementPasswordResetRequest\x1a%ClientManagementPasswordResetResponse:g\n" +
 	"\vclient_tool\x12!.google.protobuf.EnumValueOptions\x18\xb9\x8e\x03 \x01(\v2!.gizclaw.rpc.v1.ClientToolOptionsR\n" +
 	"clientToolB?Z=github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto;rpcpbb\x06proto3"
 

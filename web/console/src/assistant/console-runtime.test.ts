@@ -200,6 +200,7 @@ describe("console runtime", () => {
       "https://edge.example.com",
       "watchedKey",
       signal,
+      undefined,
     );
 
     peers.loadTelemetry.mockResolvedValue([
@@ -215,6 +216,7 @@ describe("console runtime", () => {
       "https://console.example.com",
       "other",
       signal,
+      undefined,
     );
 
     await expect(
@@ -270,7 +272,63 @@ describe("console runtime", () => {
       9,
       undefined,
       signal,
+      undefined,
     );
+  });
+
+  it("uses the watched device's current signed credential for every assistant read", async () => {
+    let watched = { ...WATCHED, signedBearer: "signed-first" };
+    const { runtime } = setup({ peers: () => [watched] });
+    peers.loadPeer.mockResolvedValue({
+      info: {},
+      runtime: { online: true },
+      status: {},
+    });
+    peers.loadTelemetry.mockResolvedValue([]);
+    peers.loadWorkspaces.mockResolvedValue([]);
+    peers.loadHistory.mockResolvedValue({ items: [], has_next: false });
+    peers.loadDeviceLogs.mockResolvedValue({
+      items: [],
+      end: { has_next: false },
+    });
+    const readAll = async () => {
+      await runtime.devices.status("gizclaw_pk_watchedKey");
+      await runtime.devices.telemetry("watchedKey");
+      await runtime.devices.telemetryRange({
+        publicKey: "watchedKey",
+        field: "battery.percent",
+        startMs: 0,
+        endMs: 1,
+      });
+      await runtime.devices.wifi("watchedKey");
+      await runtime.devices.workspaces("watchedKey");
+      await runtime.devices.history({
+        publicKey: "watchedKey",
+        workspaceId: "ws",
+        order: "desc",
+        limit: 50,
+      });
+      await runtime.logs.search({ publicKey: "watchedKey" });
+      for (const name of [
+        "loadPeer",
+        "loadTelemetry",
+        "loadTelemetryRange",
+        "loadWifi",
+        "loadWorkspaces",
+        "loadHistory",
+        "loadDeviceLogs",
+      ] as const) {
+        expect(peers[name].mock.calls.at(-1)?.at(-1)).toBe(
+          watched.signedBearer,
+        );
+      }
+    };
+    await readAll();
+    watched = { ...watched, signedBearer: "signed-replacement" };
+    await readAll();
+    expect(await runtime.devices.watched()).toEqual([
+      { publicKey: WATCHED.publicKey, label: WATCHED.label, online: undefined },
+    ]);
   });
 
   it("turns client failures into source errors", async () => {

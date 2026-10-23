@@ -145,6 +145,9 @@ package 根，只包含 `pubspec.yaml`、`LICENSE` 与 Git 跟踪的 `lib/**/*.d
 `tools/flutter-sdk/package_archive.sh` 把 `pubspec.yaml` 的 `version` 改写为 Release 版本，
 因此每个 tag 对应一个不可变的 hosted package 版本；源码树中的 `version` 只是开发期占位。
 `tools/flutter-sdk/verify_archive.sh` 校验成员、元数据与 pubspec identity；
+Git 依赖限于以完整 40 位 commit 固定的 HTTPS 仓库根 package；hosted 与 SDK 来源沿用普通 pub 解析。
+Git URL 不携带凭据、query 或 fragment；本地路径、dependency override、浮动 Git revision
+与重复 YAML key 都会失败。归档校验与消费验证需要 Python 3 和 PyYAML。
 `tools/flutter-sdk/consume_archives.sh` 用本地静态
 [Hosted Pub Repository v2](https://github.com/dart-lang/pub/blob/master/doc/repository-spec-v2.md)
 布局提供两个包，并让一个 Flutter consumer 以普通 hosted 依赖执行 `flutter pub get` 与

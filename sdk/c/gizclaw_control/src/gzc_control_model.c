@@ -1221,7 +1221,7 @@ static int mhs_array_field(gzc_str_t object, const char *name, bool required, gz
 }
 
 static bool mhs_hwd_from_name(gzc_str_t name, gzc_control_mhs_v0_hwd_t *out) {
-  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker"};
+  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker", "nfc"};
   for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++) {
     if (gzc_control_str_eq_cstr(name, names[i])) {
       *out = (gzc_control_mhs_v0_hwd_t)i;
@@ -1232,8 +1232,8 @@ static bool mhs_hwd_from_name(gzc_str_t name, gzc_control_mhs_v0_hwd_t *out) {
 }
 
 const char *gzc_control_mhs_v0_hwd_name(gzc_control_mhs_v0_hwd_t hwd) {
-  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker"};
-  return hwd >= GZC_CONTROL_HWD_WIFI && hwd <= GZC_CONTROL_HWD_SPEAKER ? names[hwd] : NULL;
+  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker", "nfc"};
+  return hwd >= GZC_CONTROL_HWD_WIFI && hwd <= GZC_CONTROL_HWD_NFC ? names[hwd] : NULL;
 }
 
 static int mhs_device(gzc_str_t object, gzc_control_mhs_v0_storage_t *storage, void *out) {

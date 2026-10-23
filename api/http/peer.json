@@ -5073,6 +5073,39 @@
           },
           {
             "$ref": "#/components/schemas/ClientToolLuaAppUninstallInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolContentAgeGetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolContentAgeSetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolDeviceFeaturesGetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolDeviceFeatureSetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolUsageTimeGetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolUsageTimeSetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolAISafetyGetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolAISafetySetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolManagementPasswordGetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolManagementPasswordSetInvoke"
+          },
+          {
+            "$ref": "#/components/schemas/ClientToolManagementPasswordResetInvoke"
           }
         ],
         "discriminator": {
@@ -5104,7 +5137,18 @@
             "lua.app.run": "#/components/schemas/ClientToolLuaAppRunInvoke",
             "gnss.reporting.get": "#/components/schemas/ClientToolGnssReportingGetInvoke",
             "gnss.reporting.set": "#/components/schemas/ClientToolGnssReportingSetInvoke",
-            "lua.app.uninstall": "#/components/schemas/ClientToolLuaAppUninstallInvoke"
+            "lua.app.uninstall": "#/components/schemas/ClientToolLuaAppUninstallInvoke",
+            "content.age.get": "#/components/schemas/ClientToolContentAgeGetInvoke",
+            "content.age.set": "#/components/schemas/ClientToolContentAgeSetInvoke",
+            "device.features.get": "#/components/schemas/ClientToolDeviceFeaturesGetInvoke",
+            "device.feature.set": "#/components/schemas/ClientToolDeviceFeatureSetInvoke",
+            "usage.time.get": "#/components/schemas/ClientToolUsageTimeGetInvoke",
+            "usage.time.set": "#/components/schemas/ClientToolUsageTimeSetInvoke",
+            "ai.safety.get": "#/components/schemas/ClientToolAISafetyGetInvoke",
+            "ai.safety.set": "#/components/schemas/ClientToolAISafetySetInvoke",
+            "management.password.get": "#/components/schemas/ClientToolManagementPasswordGetInvoke",
+            "management.password.set": "#/components/schemas/ClientToolManagementPasswordSetInvoke",
+            "management.password.reset": "#/components/schemas/ClientToolManagementPasswordResetInvoke"
           }
         }
       },
@@ -5145,7 +5189,18 @@
                 "lua.app.run",
                 "gnss.reporting.get",
                 "gnss.reporting.set",
-                "lua.app.uninstall"
+                "lua.app.uninstall",
+                "content.age.get",
+                "content.age.set",
+                "device.features.get",
+                "device.feature.set",
+                "usage.time.get",
+                "usage.time.set",
+                "ai.safety.get",
+                "ai.safety.set",
+                "management.password.get",
+                "management.password.set",
+                "management.password.reset"
               ]
             }
           }
@@ -5529,7 +5584,7 @@
             "pattern": "^[a-z0-9_-][a-z0-9_.-]{0,31}$"
           }
         },
-        "description": "Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and mutable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again."
+        "description": "Idempotently uninstall a device Lua app, including a preinstalled identity. Preserve user data. Success means persistent catalog removal and writable package cleanup; immutable firmware files remain. Cleanup failure after catalog publication leaves the app unavailable; repeat uninstall to retry. Reinstallation enables the identity again."
       },
       "ClientToolLuaAppUninstallInvoke": {
         "type": "object",
@@ -5549,6 +5604,594 @@
             "$ref": "#/components/schemas/ClientLuaAppUninstallArgs"
           }
         }
+      },
+      "ContentAgeOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "min_age_years": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "max_age_years": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ]
+      },
+      "ContentAgeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "option_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "options": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/ContentAgeOption"
+            }
+          }
+        },
+        "required": [
+          "option_id",
+          "options"
+        ]
+      },
+      "DeviceFeature": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "writable": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "display_name",
+          "enabled",
+          "writable"
+        ]
+      },
+      "UsageTimeState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "limit_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "used_seconds": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 4294967295
+          },
+          "exhausted": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "limit_seconds",
+          "used_seconds",
+          "exhausted"
+        ]
+      },
+      "AISafetyOption": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "required": [
+          "id",
+          "display_name"
+        ]
+      },
+      "AISafetyState": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "level": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "options": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 16,
+            "items": {
+              "$ref": "#/components/schemas/AISafetyOption"
+            }
+          }
+        },
+        "required": [
+          "level",
+          "options"
+        ]
+      },
+      "ClientToolContentAgeGetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "content.age.get"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientContentAgeGetResponse."
+      },
+      "ClientContentAgeGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/ContentAgeState"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "ClientToolContentAgeSetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "content.age.set"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "option_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "option_id"
+            ]
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientContentAgeSetResponse."
+      },
+      "ClientContentAgeSetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "$ref": "#/components/schemas/ContentAgeState"
+          }
+        },
+        "required": [
+          "applied"
+        ]
+      },
+      "ClientToolDeviceFeaturesGetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "device.features.get"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientDeviceFeaturesGetResponse."
+      },
+      "ClientDeviceFeaturesGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "features": {
+            "type": "array",
+            "maxItems": 32,
+            "items": {
+              "$ref": "#/components/schemas/DeviceFeature"
+            }
+          }
+        },
+        "required": [
+          "features"
+        ]
+      },
+      "ClientToolDeviceFeatureSetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "device.feature.set"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "feature_id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              },
+              "enabled": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "feature_id",
+              "enabled"
+            ]
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientDeviceFeatureSetResponse."
+      },
+      "ClientDeviceFeatureSetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "$ref": "#/components/schemas/DeviceFeature"
+          }
+        },
+        "required": [
+          "applied"
+        ]
+      },
+      "ClientToolUsageTimeGetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "usage.time.get"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientUsageTimeGetResponse."
+      },
+      "ClientUsageTimeGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/UsageTimeState"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "ClientToolUsageTimeSetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "usage.time.set"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "limit_seconds": {
+                "type": "integer",
+                "format": "int64",
+                "minimum": 0,
+                "maximum": 4294967295
+              }
+            },
+            "required": [
+              "limit_seconds"
+            ]
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientUsageTimeSetResponse."
+      },
+      "ClientUsageTimeSetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "$ref": "#/components/schemas/UsageTimeState"
+          }
+        },
+        "required": [
+          "applied"
+        ]
+      },
+      "ClientToolAISafetyGetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "ai.safety.get"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientAISafetyGetResponse."
+      },
+      "ClientAISafetyGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/AISafetyState"
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "ClientToolAISafetySetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "ai.safety.set"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "level": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 64
+              }
+            },
+            "required": [
+              "level"
+            ]
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientAISafetySetResponse."
+      },
+      "ClientAISafetySetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "applied": {
+            "$ref": "#/components/schemas/AISafetyState"
+          }
+        },
+        "required": [
+          "applied"
+        ]
+      },
+      "ClientToolManagementPasswordGetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "management.password.get"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordGetResponse."
+      },
+      "ClientManagementPasswordGetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "is_set": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_set"
+        ]
+      },
+      "ClientToolManagementPasswordSetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "management.password.set"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "password": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128,
+                "writeOnly": true,
+                "format": "password"
+              }
+            },
+            "required": [
+              "password"
+            ]
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordSetResponse."
+      },
+      "ClientManagementPasswordSetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "is_set": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_set"
+        ]
+      },
+      "ClientToolManagementPasswordResetInvoke": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "tool": {
+            "type": "string",
+            "enum": [
+              "management.password.reset"
+            ]
+          },
+          "args": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {},
+            "required": []
+          }
+        },
+        "required": [
+          "tool",
+          "args"
+        ],
+        "description": "Device-owned procedure. Only advertised when implemented; failed or unsupported effects use RPC status errors. Response: ClientManagementPasswordResetResponse."
+      },
+      "ClientManagementPasswordResetResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "is_set": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "is_set"
+        ]
       }
     }
   },

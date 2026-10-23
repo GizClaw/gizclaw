@@ -31,7 +31,8 @@
               "mic",
               "display",
               "led",
-              "speaker"
+              "speaker",
+              "nfc"
             ]
           },
           "description": {
@@ -85,7 +86,8 @@
               "mic",
               "display",
               "led",
-              "speaker"
+              "speaker",
+              "nfc"
             ]
           }
         }
@@ -210,6 +212,14 @@
             "format": "int64",
             "minimum": 0,
             "maximum": 4294967295
+          },
+          "enabled": {
+            "type": "boolean",
+            "description": "User configured switch; omitted means unknown."
+          },
+          "powered": {
+            "type": "boolean",
+            "description": "Actual power observation; omitted when unavailable. Never infer from registration or signal."
           }
         }
       },
@@ -614,6 +624,9 @@
           },
           {
             "$ref": "#/components/schemas/MhsV0SpeakerReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0NfcReadResult"
           }
         ],
         "discriminator": {
@@ -626,7 +639,8 @@
             "mic": "#/components/schemas/MhsV0MicReadResult",
             "display": "#/components/schemas/MhsV0DisplayReadResult",
             "led": "#/components/schemas/MhsV0LedReadResult",
-            "speaker": "#/components/schemas/MhsV0SpeakerReadResult"
+            "speaker": "#/components/schemas/MhsV0SpeakerReadResult",
+            "nfc": "#/components/schemas/MhsV0NfcReadResult"
           }
         }
       },
@@ -640,6 +654,12 @@
           },
           {
             "$ref": "#/components/schemas/MhsV0SpeakerWriteRequest"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0ModemWriteRequest"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0NfcWriteRequest"
           }
         ],
         "discriminator": {
@@ -647,7 +667,9 @@
           "mapping": {
             "display": "#/components/schemas/MhsV0DisplayWriteRequest",
             "led": "#/components/schemas/MhsV0LedWriteRequest",
-            "speaker": "#/components/schemas/MhsV0SpeakerWriteRequest"
+            "speaker": "#/components/schemas/MhsV0SpeakerWriteRequest",
+            "modem": "#/components/schemas/MhsV0ModemWriteRequest",
+            "nfc": "#/components/schemas/MhsV0NfcWriteRequest"
           }
         }
       },
@@ -661,6 +683,12 @@
           },
           {
             "$ref": "#/components/schemas/MhsV0SpeakerReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0ModemReadResult"
+          },
+          {
+            "$ref": "#/components/schemas/MhsV0NfcReadResult"
           }
         ],
         "discriminator": {
@@ -668,7 +696,174 @@
           "mapping": {
             "display": "#/components/schemas/MhsV0DisplayReadResult",
             "led": "#/components/schemas/MhsV0LedReadResult",
-            "speaker": "#/components/schemas/MhsV0SpeakerReadResult"
+            "speaker": "#/components/schemas/MhsV0SpeakerReadResult",
+            "modem": "#/components/schemas/MhsV0ModemReadResult",
+            "nfc": "#/components/schemas/MhsV0NfcReadResult"
+          }
+        }
+      },
+      "NfcReadSnapshot": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "read_at_unix_ms": {
+            "type": "string",
+            "pattern": "^[1-9][0-9]*$",
+            "description": "Positive int64 milliseconds, protobuf JSON decimal string."
+          },
+          "uid": {
+            "type": "string",
+            "format": "byte",
+            "maxLength": 44
+          },
+          "technology": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "data_format": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 32
+          },
+          "raw_data": {
+            "type": "string",
+            "format": "byte",
+            "maxLength": 1368
+          },
+          "result": {
+            "type": "string",
+            "enum": [
+              "success",
+              "failed"
+            ]
+          },
+          "error_code": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "read_at_unix_ms",
+          "result"
+        ]
+      },
+      "NfcHwdReadResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          },
+          "card_present": {
+            "type": "boolean"
+          },
+          "last_read": {
+            "$ref": "#/components/schemas/NfcReadSnapshot"
+          }
+        },
+        "required": []
+      },
+      "ModemHwdWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "MhsV0ModemWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "modem"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/ModemHwdWriteRequest"
+          }
+        }
+      },
+      "MhsV0NfcReadResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "nfc"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/NfcHwdReadResponse"
+          }
+        }
+      },
+      "NfcHwdWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "enabled": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "enabled"
+        ]
+      },
+      "MhsV0NfcWriteRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "hwd",
+          "value"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "pattern": "^[a-z][a-z0-9]*([.-][a-z0-9]+)*$"
+          },
+          "hwd": {
+            "type": "string",
+            "enum": [
+              "nfc"
+            ]
+          },
+          "value": {
+            "$ref": "#/components/schemas/NfcHwdWriteRequest"
           }
         }
       }

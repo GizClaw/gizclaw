@@ -149,6 +149,14 @@ func ValidateMhsHwdWriteRequest(request *rpcpb.ClientMhsV0WriteRequest) error {
 		if value.Enabled == nil && value.BrightnessPercent == nil || value.BrightnessPercent != nil && *value.BrightnessPercent > 100 {
 			return fmt.Errorf("invalid led HWD write")
 		}
+	case *rpcpb.ModemHwdWriteRequest:
+		if value.Enabled == nil {
+			return fmt.Errorf("missing modem enabled")
+		}
+	case *rpcpb.NfcHwdWriteRequest:
+		if value.Enabled == nil {
+			return fmt.Errorf("missing NFC enabled")
+		}
 	case *rpcpb.SpeakerHwdWriteRequest:
 		if value.VolumePercent == nil && value.Muted == nil || value.VolumePercent != nil && *value.VolumePercent > 100 {
 			return fmt.Errorf("invalid speaker HWD write")
@@ -167,6 +175,11 @@ func ValidateMhsHwdReadResponse(hwd rpcpb.ClientHwd, response *rpcpb.ClientMhsV0
 	message, err := ClientHwdReadResponseMessage(hwd, response.Payload)
 	if err != nil {
 		return err
+	}
+	if value, ok := message.(*rpcpb.NfcHwdReadResponse); ok {
+		if err := ValidateNFCSnapshot(value.LastRead); err != nil {
+			return err
+		}
 	}
 	if proto.Size(message) == 0 {
 		return fmt.Errorf("empty HWD read response")
@@ -191,6 +204,14 @@ func ValidateMhsHwdWriteResponse(hwd rpcpb.ClientHwd, response *rpcpb.ClientMhsV
 	case *rpcpb.LedHwdWriteResponse:
 		if value.Applied != nil && proto.Size(value.Applied) > 0 {
 			return nil
+		}
+	case *rpcpb.ModemHwdWriteResponse:
+		if value.Applied != nil && value.Applied.Enabled != nil {
+			return nil
+		}
+	case *rpcpb.NfcHwdWriteResponse:
+		if value.Applied != nil && value.Applied.Enabled != nil {
+			return ValidateNFCSnapshot(value.Applied.LastRead)
 		}
 	case *rpcpb.SpeakerHwdWriteResponse:
 		if value.Applied != nil && proto.Size(value.Applied) > 0 {

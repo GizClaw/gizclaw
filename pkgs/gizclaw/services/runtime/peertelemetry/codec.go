@@ -54,6 +54,14 @@ func (s *Service) Report(ctx context.Context, peer giznet.PublicKey, frame *tele
 		now = s.Now
 	}
 	baseTime := observedAt(frame.GetObservedAtUnixMs(), now)
+	for _, observation := range frame.GetObservations() {
+		if _, ok := observation.GetBody().(*telemetrypb.Observation_Kv); ok {
+			ts := baseTime.Add(time.Duration(observation.GetObservedAtDeltaMs()) * time.Millisecond)
+			if frame.GetObservedAtUnixMs() <= 0 || ts.UnixMilli() <= 0 || ts.After(now().Add(5*time.Minute)) {
+				return ErrInvalidFrame
+			}
+		}
+	}
 	samples, status, err := MapFrame(peer, frame, baseTime)
 	if err != nil {
 		return err
@@ -90,14 +98,23 @@ func Decode(payload []byte) (*telemetrypb.TelemetryFrame, error) {
 	if len(payload) == 0 {
 		return nil, ErrInvalidFrame
 	}
+	if len(payload) > 64*1024-1 {
+		return nil, ErrInvalidFrame
+	}
 	var frame telemetrypb.TelemetryFrame
 	if err := proto.Unmarshal(payload, &frame); err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidFrame, err)
+	}
+	if err := telemetrypb.ValidateKVFrame(&frame); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalidFrame, err)
 	}
 	if len(frame.GetObservations()) == 0 {
 		return nil, fmt.Errorf("%w: observations are required", ErrInvalidFrame)
 	}
 	for _, observation := range frame.GetObservations() {
+		if _, ok := observation.GetBody().(*telemetrypb.Observation_Kv); ok && len(payload) > telemetrypb.MaxKVFrameBytes {
+			return nil, ErrInvalidFrame
+		}
 		if observation == nil || observation.GetBody() == nil {
 			return nil, fmt.Errorf("%w: observation body is required", ErrInvalidFrame)
 		}

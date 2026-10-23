@@ -70,6 +70,9 @@ func (c *Client) ObserveDeviceRequest(observer func(rpcapi.RPCMethod, rpcpb.Clie
 }
 
 func (c *Client) observeDeviceRequest(method rpcapi.RPCMethod, tool rpcpb.ClientTool, request proto.Message) {
+	if _, sensitive := request.(*rpcpb.ClientManagementPasswordSetRequest); sensitive {
+		request = &rpcpb.ClientManagementPasswordSetRequest{}
+	}
 	c.clientRPCMu.RLock()
 	observer := c.deviceRequestObserver
 	c.clientRPCMu.RUnlock()

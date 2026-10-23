@@ -48,6 +48,7 @@ memory the arena owns until free.
 */
 type cTelemetry struct {
 	frame *C.gzc_telemetry_frame_t
+	kv    *C.gzc_telemetry_kv_frame_t
 	otas  []*C.gzc_telemetry_ota_frame_t
 	arena []unsafe.Pointer
 }
@@ -77,19 +78,46 @@ func (t *cTelemetry) free() {
 	}
 	t.arena = nil
 	t.frame = nil
+	t.kv = nil
 	t.otas = nil
 }
 
 // newCTelemetry maps frame onto the C structs. Callers must call free.
 func newCTelemetry(frame *telemetrypb.TelemetryFrame) (*cTelemetry, error) {
+	if err := telemetrypb.ValidateKVFrame(frame); err != nil {
+		return nil, err
+	}
 	t := &cTelemetry{}
+	var kvs []*telemetrypb.Observation
 	var rest []*telemetrypb.Observation
 	for _, observation := range frame.GetObservations() {
 		if ota := observation.GetOta(); ota != nil {
 			t.otas = append(t.otas, t.otaFrame(frame, observation.GetObservedAtDeltaMs(), ota))
 			continue
 		}
+		if observation.GetKv() != nil {
+			kvs = append(kvs, observation)
+			continue
+		}
 		rest = append(rest, observation)
+	}
+	if len(kvs) > 0 {
+		t.kv = (*C.gzc_telemetry_kv_frame_t)(t.alloc(C.size_t(unsafe.Sizeof(C.gzc_telemetry_kv_frame_t{}))))
+		t.kv.sequence = C.uint32_t(frame.Sequence)
+		t.kv.observed_at_unix_ms = C.int64_t(frame.ObservedAtUnixMs)
+		array := (*C.gzc_telemetry_kv_t)(t.alloc(C.size_t(unsafe.Sizeof(C.gzc_telemetry_kv_t{})) * C.size_t(len(kvs))))
+		entries := unsafe.Slice(array, len(kvs))
+		for i, observation := range kvs {
+			kv := observation.GetKv()
+			entries[i].key = t.str(kv.Key)
+			entries[i].observed_at_delta_ms = C.int32_t(observation.ObservedAtDeltaMs)
+			entries[i].delete_key = C.bool(kv.GetDelete())
+			if kv.JsonValue != nil {
+				entries[i].json_value = t.str(*kv.JsonValue)
+			}
+		}
+		t.kv.entries = array
+		t.kv.entry_count = C.size_t(len(kvs))
 	}
 	if len(rest) == 0 {
 		return t, nil
@@ -252,6 +280,11 @@ func (s *cSession) SendTelemetry(frame *telemetrypb.TelemetryFrame) error {
 			return bridgeFailure("send telemetry", rc, errbuf)
 		}
 	}
+	if mapped.kv != nil {
+		if rc := C.gzt_session_send_kv_telemetry(s.handle, mapped.kv, errbuf, errorBufferSize); rc != 0 {
+			return bridgeFailure("send KV telemetry", rc, errbuf)
+		}
+	}
 	for _, ota := range mapped.otas {
 		if rc := C.gzt_session_send_ota_telemetry(s.handle, ota, errbuf, errorBufferSize); rc != 0 {
 			return bridgeFailure("send OTA telemetry", rc, errbuf)
@@ -281,6 +314,18 @@ func encodeTelemetry(frame *telemetrypb.TelemetryFrame) ([]byte, [][]byte, error
 		if rc := C.gzc_telemetry_encode_frame(mapped.frame, platform, &buf); rc != 0 {
 			C.gzc_buf_free(&buf, platform)
 			return nil, nil, fmt.Errorf("encode telemetry frame: rc=%d", int(rc))
+		}
+		main = take(&buf)
+	}
+	if mapped.kv != nil {
+		if mapped.frame != nil {
+			return nil, nil, fmt.Errorf("KV uses a separate additive C frame")
+		}
+		var buf C.gzc_buf_t
+		C.gzc_buf_init(&buf)
+		if rc := C.gzc_telemetry_encode_kv_frame(mapped.kv, platform, &buf); rc != 0 {
+			C.gzc_buf_free(&buf, platform)
+			return nil, nil, fmt.Errorf("encode KV telemetry frame: rc=%d", int(rc))
 		}
 		main = take(&buf)
 	}

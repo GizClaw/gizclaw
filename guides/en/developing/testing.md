@@ -1085,6 +1085,12 @@ sent before receipt of the first response's audio EOS. Both responses must close
 and audio routes; the second must contain text and audio and complete without errors.
 A first response reporting `interrupted` after the second input is allowed and recorded as
 `first_response_interrupted`; the test does not require a particular provider interruption policy.
+
+Go also supports text overlap with two nonblank text inputs. A new subscription can receive the prior
+narration's tail: responses received before the first text input's EOS commit are excluded by StreamID,
+including later packets with the same ID. The actual current response must still satisfy the overlap
+and completion conditions. See the [overlap implementation](https://github.com/GizClaw/gizclaw/blob/main/cmd/internal/commands/giztest/peer_stream_overlap.go)
+and its deterministic regressions.
 Only `mode`, `input`, `pacing`, and PTT `hold_before_audio` can accompany this option; use the step `timeout` for the bound.
 Results include `input_overlap`, `session_connection_reused`, `second_input_sent`,
 `first_audio_ms`, `second_input_audio_ms`, `first_audio_eos_ms`, and second-response EOS flags.
@@ -2431,3 +2437,31 @@ This isolated Docker lane builds the current Server and test binaries, runs shar
 CI runs the same entry point in the `Regional PendingDeletion Recovery` job for every PR and main push, retaining redacted test logs as an artifact. Server and test containers use the host user's UID/GID so generated state and assets can be cleaned up on Linux. Ordinary Go and race jobs also cover conditional recovery, paging, shared worker progress, and unchanged failed state after probe errors, timeouts, cancellation and panics.
 
 Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMem0 or self-hosted Mem0 provider deletion, nor completion of distributed Social Workspace replicas. Unsupported scopes remain retained. The runner uses only its generated Compose project, removes containers, volumes, binaries and configuration on exit, and retains ignored `.testbench` evidence logs.
+
+## Generic device management Giztests
+
+`tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
+credentials. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
+arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
+scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed attempts and independent
+instances. KV cases cover nested JSON/null/false/zero, Runtime/status/RPC, updates/deletes/replays/reconnects,
+64-key and total-byte storage quotas, exact 4096-byte frames, 1024-byte values, 64-byte keys, two-device isolation and charged tombstones. They poll state after sending, rather than treating send as
+persistence acknowledgement.
+
+Go/JS/C/Flutter run the common control contracts. Go/JS/C send actual KV packets; Flutter retains its existing
+no-telemetry-sender boundary. Stateful MHS simulation runs on Go. Every selected step and cleanup must pass;
+missing executables, skips or failures fail the lane. Fixtures exercise protocol behavior, not physical NFC,
+Modem power or usage enforcement. Runtime/Server behavior tests separately verify SQL restart persistence,
+strict byte limits and cross-Server signed authorization.
+
+The same lane also runs `server.device.monitor.signed` through Go and JavaScript. Each round runs Go 14,
+JavaScript 13, C 12 and Flutter 8 scenarios: 141 scenarios and 2661 steps including cleanup over three
+rounds. The signed scenario has 37 steps and one cleanup. With debug kept off, real signed requests cross
+Edge to read overview/status, telemetry/trends, Workspaces, SQL History and retained Ogg audio, logs,
+Wi-Fi, Modem/NFC and management state. Every corresponding public-key request is denied; replacement
+credentials, invalid signatures and cross-target Client rejection are covered. The log backend is a
+deterministic owner-checking fixture; authorization, routing, SQLite History/assets, metrics and reverse
+device RPC use production implementations. Ordinary Go tests run the Go scenario as well.
+
+Console loader and rendered-page regressions use the real control SDK with a debug-off HTTP boundary
+fixture, including audio playback, credential replacement and current-credential assistant reads.

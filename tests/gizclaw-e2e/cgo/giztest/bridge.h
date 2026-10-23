@@ -33,7 +33,7 @@ int gzt_session_open(
     const char *credential_type,
     const char *credential_value,
     unsigned long long provider_handle,
-    unsigned int tool_mask,
+    unsigned long long tool_mask,
     unsigned int mhs_mask,
     gzt_session_t **out_session,
     char *errbuf,
@@ -78,6 +78,9 @@ int gzt_session_send_telemetry(
  * Sends one OTA telemetry frame through gzc_client_send_ota_telemetry, the C
  * SDK's only way to report an OTA observation.
  */
+int gzt_session_send_kv_telemetry(gzt_session_t *session,
+                                  const gzc_telemetry_kv_frame_t *frame, char *errbuf, unsigned long errbuf_len);
+
 int gzt_session_send_ota_telemetry(
     gzt_session_t *session, const gzc_telemetry_ota_frame_t *frame, char *errbuf, unsigned long errbuf_len);
 

@@ -44,3 +44,18 @@ IMEI、IMSI 和 GNSS 是设备所属范围内的数据，只通过已授权状�
 状态查询读取 Server 保存的最新快照；设备离线后仍可能看到上次报告。遥测传输不提供业务确认或恰好一次交付，因此调用方不能将一次发送成功当作升级完成。
 
 SDK 负责按 Schema 编码和发送，Server 负责校验与更新快照。状态转换与乱序处理见 [运行时 OTA 存储](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/ota.go)。诊断信息由设备提供，不应包含 secret 或带凭据的 URL。
+
+## KV 自报状态
+
+KV 用来保存设备自报的最新 JSON 快照，断线和重启后仍可查询。它与 Server 权威状态隔离，
+自报内容不改变在线状态、资源归属或权限。调用方保留 JSON 类型，区分存在的 null、false、0
+与未报告或已删除的 key；需要保留数值编码时使用响应中的原始 JSON 编码。
+
+设备应使用有限、稳定的 key 集合，并按真实的新观测时间重报当前状态。存储保留删除墓碑，
+防止迟到或重放的数据复活旧值；普通控制响应不会覆盖自报状态。单帧与累计预算、时间校验和
+合并规则分别见 [KV 校验](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/telemetry/kv.go)、
+[Telemetry 处理](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/peertelemetry)
+与 [KV 存储](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/kv.go)。
+
+Go、JavaScript 和 C 使用既有 Telemetry 通道发送，Flutter 通过状态查询读取。访问沿用设备
+所属范围内的鉴权；KV 内容不进入 metrics 或 payload 日志，设备不得上报密码或凭据。

@@ -20,6 +20,8 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
+	telemetrypb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/telemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizedge"
@@ -28,6 +30,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"google.golang.org/protobuf/proto"
 )
 
 // Ordinary AP HTTP reuses existing route resolution and resource handlers.
@@ -69,6 +72,16 @@ func TestSignedBearerThroughAP(t *testing.T) {
 	}
 	if _, err := b.Manager().PeerRun.PutStatus(ctx, target.Public, apitypes.PeerStatus{FirmwareVersion: new("0.33.fixture"), TelemetryObservedAt: &apitypes.PeerStatusTelemetryObservedAt{FirmwareVersion: &at}}); err != nil {
 		t.Fatal(err)
+	}
+	for _, server := range []*CmdServer{a, b} {
+		value := `{"nested":[null,false,0]}`
+		if server == a {
+			value = `"wrong-server"`
+		}
+		svc := &peertelemetry.Service{Status: peertelemetry.StatusSync{Store: server.Manager().PeerRun}}
+		if err := svc.Report(ctx, target.Public, &telemetrypb.TelemetryFrame{ObservedAtUnixMs: at.UnixMilli(), Observations: []*telemetrypb.Observation{{Body: &telemetrypb.Observation_Kv{Kv: &telemetrypb.KVObservation{Key: "diagnostic", JsonValue: &value}}}, {Body: &telemetrypb.Observation_Kv{Kv: &telemetrypb.KVObservation{Key: "online", JsonValue: new("true")}}}}}); err != nil {
+			t.Fatal(err)
+		}
 	}
 	// A poisoned copy on the other Server must never be returned through AP.
 	if _, err := a.Manager().PeerRun.PutStatus(ctx, target.Public, apitypes.PeerStatus{FirmwareVersion: new("wrong-server")}); err != nil {
@@ -136,6 +149,16 @@ func TestSignedBearerThroughAP(t *testing.T) {
 	if status.FirmwareVersion == nil || *status.FirmwareVersion != "0.33.fixture" || status.TelemetryObservedAt == nil || status.TelemetryObservedAt.FirmwareVersion == nil || !status.TelemetryObservedAt.FirmwareVersion.Equal(at) {
 		t.Fatal("firmware observation came from the wrong Server or lost its time")
 	}
+	if runtime.ReportedKv == nil || status.ReportedKv == nil {
+		t.Fatal("offline runtime/status omitted KV")
+	}
+	runtimeKV, _ := json.Marshal(runtime.ReportedKv)
+	statusKV, _ := json.Marshal(status.ReportedKv)
+	if string(runtimeKV) != string(statusKV) || !strings.Contains(string(statusKV), `"value":{"nested":[null,false,0]}`) || !(*status.ReportedKv)["diagnostic"].ObservedAt.Equal(at) {
+		t.Fatal("signed API lost KV type, owner or observation time")
+	}
+	request(token(client, target.Public), "GET", "/device/status", "", 403)
+	request(token(client, target.Public), "GET", "/device/runtime", "", 403)
 	for _, field := range fields {
 		latest := decodePeerAccess[apitypes.PeerTelemetryLatestResponse](t, request(adminToken, "GET", "/device/telemetry/"+field.field+"/latest", "", 200))
 		if len(latest.Values) != 1 || latest.Values[0].Value != field.value || latest.Values[0].ObservedAtUnixMs != at.UnixMilli() {
@@ -162,6 +185,13 @@ func TestSignedBearerThroughAP(t *testing.T) {
 	device := &gizcli.Client{KeyPair: client, Device: info, DialTransport: func(key *giznet.KeyPair, serverKey giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
 		return gizwebrtc.Dial(ctx, key, serverKey, gizwebrtc.DialConfig{SignalingURL: aURL + gizwebrtc.SignalingPath, SecurityPolicy: policy})
 	}}
+	limit := uint32(0)
+	if err := device.HandleClientTool(rpcpb.ClientTool_CLIENT_TOOL_USAGE_TIME_SET, func(_ context.Context, input proto.Message) (proto.Message, error) {
+		limit = min(input.(*rpcpb.ClientUsageTimeSetRequest).GetLimitSeconds(), 3600)
+		return &rpcpb.ClientUsageTimeSetResponse{Applied: &rpcpb.UsageTimeState{LimitSeconds: &limit, UsedSeconds: new(uint32(0)), Exhausted: new(false)}}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err := device.Dial(a.PublicKey(), aURL); err != nil {
 		t.Fatal(err)
 	}
@@ -170,6 +200,11 @@ func TestSignedBearerThroughAP(t *testing.T) {
 	if online := decodePeerAccess[apitypes.Runtime](t, request(token(admin, client.Public), "GET", "/device/runtime", "", 200)); !online.Online {
 		t.Fatal("connected device reported offline")
 	}
+	applied := request(token(admin, client.Public), "POST", "/device/tool/v0/invoke", `{"tool":"usage.time.set","args":{"limit_seconds":9000}}`, 200)
+	if limit != 3600 || !strings.Contains(applied, `"limit_seconds":3600`) {
+		t.Fatal("management invoke lost actual clamped result")
+	}
+	request(token(admin, client.Public), "POST", "/device/tool/v0/invoke", `{"tool":"ai.safety.get","args":{}}`, 501)
 	request(adminToken, "POST", "/contacts", `{"name":"signed-contact","display_name":"Signed"}`, 201)
 	if !strings.Contains(request(adminToken, "GET", "/contacts", "", 200), "signed-contact") {
 		t.Fatal("existing read/write handlers disagree on owner")
@@ -219,7 +254,7 @@ func TestSignedBearerThroughAP(t *testing.T) {
 
 }
 
-func startPeerAccessServer(t *testing.T, peers, keys kv.Store, edge, admin giznet.PublicKey) (*CmdServer, string, func()) {
+func startPeerAccessServer(t *testing.T, peers, keys kv.Store, edge, admin giznet.PublicKey, configure ...func(*CmdServer)) (*CmdServer, string, func()) {
 	t.Helper()
 	cfg := validLayeredConfig(t.TempDir())
 	cfg.EdgeNodes = []giznet.PublicKey{edge}
@@ -229,6 +264,9 @@ func startPeerAccessServer(t *testing.T, peers, keys kv.Store, edge, admin gizne
 		t.Fatal(err)
 	}
 	srv.PeerStore, srv.APIKeyStore, srv.MetricsStore = peers, keys, metrics.NewMemoryStore()
+	for _, apply := range configure {
+		apply(srv)
+	}
 	httpServer := httptest.NewServer(srv)
 	srv.PublicEndpoint = strings.TrimPrefix(httpServer.URL, "http://")
 	srv.PeerListenerFactories = []gizclaw.PeerListenerFactory{func(opts gizclaw.PeerListenerOptions) (giznet.Listener, error) {

@@ -94,3 +94,19 @@ func TestEncodeTelemetryOTAOnlyFrameSendsNoMainFrame(t *testing.T) {
 		t.Fatalf("main = %v, OTA frames = %d; want no main frame and one OTA frame", mainPayload, len(otaPayloads))
 	}
 }
+
+func TestKVTypedCEncoderRetainsValuesAndDeletion(t *testing.T) {
+	frame := &telemetrypb.TelemetryFrame{Sequence: 7, ObservedAtUnixMs: 1234}
+	for _, value := range []string{`null`, `false`, `0`, `{"a":[null,false,0]}`} {
+		frame.Observations = append(frame.Observations, &telemetrypb.Observation{ObservedAtDeltaMs: -2, Body: &telemetrypb.Observation_Kv{Kv: &telemetrypb.KVObservation{Key: value, JsonValue: new(value)}}})
+	}
+	frame.Observations = append(frame.Observations, &telemetrypb.Observation{Body: &telemetrypb.Observation_Kv{Kv: &telemetrypb.KVObservation{Key: "deleted", Delete: new(true)}}})
+	wire, _, err := encodeTelemetry(frame)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded telemetrypb.TelemetryFrame
+	if err := proto.Unmarshal(wire, &decoded); err != nil || !proto.Equal(frame, &decoded) {
+		t.Fatalf("C KV encoding lost JSON or operation presence: %v", err)
+	}
+}

@@ -1,0 +1,367 @@
+# User Story:
+# As a GizClaw device operator,
+# I want to exercise server.device.management.control,
+# So that the protocol is verified over real Server and SDK transports.
+version: gizclaw.test/v1alpha1
+name: server.device.management.control
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: discover
+    client: peer
+    http:
+      method: GET
+      path: /gizclaw/v1/device/tool/v0/tools
+      headers:
+        Authorization: Bearer ${api_key}
+      status: 200
+    expect:
+      /tools:
+        equals:
+          - info.get
+          - identifiers.get
+          - content.age.get
+          - content.age.set
+          - device.features.get
+          - device.feature.set
+          - usage.time.get
+          - usage.time.set
+          - ai.safety.get
+          - ai.safety.set
+          - management.password.get
+          - management.password.set
+          - management.password.reset
+  - id: call_content_age_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: content.age.get
+        args: {}
+      status: 200
+    expect:
+      /result:
+        equals: &a1
+          state:
+            option_id: child
+            options: &a2
+              - id: child
+                display_name: Child
+                min_age_years: 6
+                max_age_years: 12
+              - id: teen
+                display_name: Teen
+                min_age_years: 13
+                max_age_years: 17
+  - id: provider_content_age_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: content.age.get
+      response: *a1
+      expect_calls: 1
+  - id: call_content_age_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: content.age.set
+        args:
+          option_id: teen
+      status: 200
+    expect:
+      /result:
+        equals: &a3
+          applied:
+            option_id: teen
+            options: *a2
+  - id: provider_content_age_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: content.age.set
+      response: *a3
+      expect_calls: 1
+  - id: call_device_features_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.features.get
+        args: {}
+      status: 200
+    expect:
+      /result:
+        equals: &a4
+          features:
+            - &a5
+              id: camera
+              display_name: Camera
+              enabled: false
+              writable: true
+  - id: provider_device_features_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: device.features.get
+      response: *a4
+      expect_calls: 1
+  - id: call_device_feature_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.feature.set
+        args:
+          feature_id: camera
+          enabled: false
+      status: 200
+    expect:
+      /result:
+        equals: &a6
+          applied: *a5
+  - id: provider_device_feature_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: device.feature.set
+      response: *a6
+      expect_calls: 1
+  - id: call_usage_time_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: usage.time.get
+        args: {}
+      status: 200
+    expect:
+      /result:
+        equals: &a7
+          state:
+            limit_seconds: 0
+            used_seconds: 0
+            exhausted: false
+  - id: provider_usage_time_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: usage.time.get
+      response: *a7
+      expect_calls: 1
+  - id: call_usage_time_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: usage.time.set
+        args:
+          limit_seconds: 9000
+      status: 200
+    expect:
+      /result:
+        equals: &a8
+          applied:
+            limit_seconds: 3600
+            used_seconds: 30
+            exhausted: false
+  - id: provider_usage_time_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: usage.time.set
+      response: *a8
+      expect_calls: 1
+  - id: call_ai_safety_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: ai.safety.get
+        args: {}
+      status: 200
+    expect:
+      /result:
+        equals: &a9
+          state:
+            level: standard
+            options: &a10
+              - id: standard
+                display_name: Standard
+              - id: strict
+                display_name: Strict
+  - id: provider_ai_safety_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: ai.safety.get
+      response: *a9
+      expect_calls: 1
+  - id: call_ai_safety_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: ai.safety.set
+        args:
+          level: strict
+      status: 200
+    expect:
+      /result:
+        equals: &a11
+          applied:
+            level: strict
+            options: *a10
+  - id: provider_ai_safety_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: ai.safety.set
+      response: *a11
+      expect_calls: 1
+  - id: call_management_password_get
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.get
+        args: {}
+      status: 200
+    expect:
+      /result:
+        equals: &a12
+          is_set: false
+  - id: provider_management_password_get
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: management.password.get
+      response: *a12
+      expect_calls: 1
+  - id: call_management_password_set
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.set
+        args:
+          password: giztest-password-only
+      status: 200
+    expect:
+      /result:
+        equals: &a13
+          is_set: true
+  - id: provider_management_password_set
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: management.password.set
+      response: *a13
+      expect_calls: 1
+  - id: call_management_password_reset
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: management.password.reset
+        args: {}
+      status: 200
+    expect:
+      /result:
+        equals: &a14
+          is_set: false
+  - id: provider_management_password_reset
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: management.password.reset
+      response: *a14
+      expect_calls: 1
+  - id: factory_reset_not_registered
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        tool: device.factory_reset
+        args: {}
+      status: 501
+    expect:
+      /error/code:
+        equals: DEVICE_UNSUPPORTED
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

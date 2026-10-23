@@ -173,6 +173,16 @@ Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registr
 
 CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
 
+原生 SDK 与 Docker CI 的 Ubuntu runner 通过
+`setup/install-native-runner-tools.sh` 安装同一组 WebRTC 构建与虚拟音频依赖。
+该入口将 runner 默认 Azure Ubuntu 源替换为官方 `archive.ubuntu.com`，支持 mirrorlist
+和直接 sources 配置，继续使用 APT 的签名与包校验。
+
+构建 runner 时，`setup/verify-flutter-native-close.py` 从 Flutter package configuration
+定位固定依赖，运行其原生关闭进度 fixture。该 fixture 使用 native boundary doubles 编译
+生产 C++ 关闭与查找函数，需要 Python 3 与支持 C++14 的 `clang++`；真实插件与引擎的
+通道生命周期另由完整 Giztest lane 验证。
+
 ### RegistrationToken 并发注册
 
 ```sh
@@ -914,6 +924,11 @@ Go runner 的 `overlap_input: true` 在 `mode: text` 时要求 `input` 为两条
 第一轮可听音频到达、音频 EOS 尚未到达时，在同一连接发送第二轮 BOS 和文字；两轮都
 必须结束，第二轮必须有文字和音频，旧轮内容不得与新轮交错。它不使用 `interrupt_after`
 的关闭重开连接行为。该扩展由 Go runner 执行。
+
+新订阅可能收到上一轮播报的尾部。文字输入 EOS 提交前收到的旧回复按 StreamID 排除，
+其后到达的同 ID 尾包也不作为本轮回复；真正的本轮回复仍须满足重叠及结束条件。实现与
+确定性回归见 [重叠输入](https://github.com/GizClaw/gizclaw/blob/main/cmd/internal/commands/giztest/peer_stream_overlap.go)
+及同目录测试。
 
 空白文字可显式设置 `require_text: false`、`require_audio: false` 和正数 `idle_timeout`，
 观察无回复窗口；有效 assistant 文字、音频或 terminal error 均失败，窗口结束后才进入下一轮。
@@ -2209,3 +2224,38 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 验收直接检查 Firmware 投影删除、Workspace 行与对象清理、每个 home 的 failed 自动恢复（不发 operator retry）、超过一页的 backlog 越过异常记录、重复扫描、显式重试、错误／未知 home、真实 Peer 替换、旧计划遗漏 home 数据和活跃／无关区域数据保留。runner 在 SQL owner-binding 删除被真实行锁阻塞后杀死 home Server，确认 running lease 保留，重启后验证过期租约恢复和启动时自动发现持久化的旧 failed；home 停机期间，另一地区保持该 failed 不变。另一个场景断开只读副本复制，验证管理选择与清理仍使用中央 writer。完成条件包含 marker、locator、plan、task 和索引实际消失，以及永久 tombstone、route 和 API Key retired fence 保留。
 
 这是没有 Memory binding 的删除验收；不证明 Mem0 Cloud、VolcMem0 或自托管 Mem0 provider 的删除，也不宣称 Social Workspace 所有区域副本已回收。无法证明这些范围的 Peer 计划必须保留并报告。已有 memory provider lanes 独立验证其 provider contract。运行只操作本次生成的 Compose project；退出时清理容器、卷、测试二进制与配置，日志证据保存在忽略的 `.testbench` 目录。
+
+## 通用设备管理协议 Giztest
+
+原生 SDK 场景失败时，JavaScript 报告保留各 provider 的调用次数和最后 64 个反向 RPC
+通道事件，只记录通道 ID、状态和消息字节数，不保存请求或响应内容。Flutter 报告保留
+provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍使测试失败，同时保留原始步骤错误。
+
+`tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
+凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
+每轮重新建立连接和 RPC 通道，覆盖原生通道创建时的帧交付边界。`TestDeviceManagementGiztestsGo` 包含：
+
+- `server.device.management.{control,rejected,unsupported,invalid_response,validation}`：所有 11 个
+  新增工具的发现、类型参数、明确 false/0、实际响应、错误映射和校验前拒绝；密码 reset 与恢复出厂独立。
+- `server.device.mhs.modem.control`、`server.device.mhs.nfc.control` 和
+  `server.device.mhs.management.invalid_response`：原字段兼容、unknown/false、实际开关结果、失败读卡缓存与无效响应。
+- `server.device.mhs.management.instances`：Go 的有状态实例 fixture 验证多个 Modem/NFC 独立，写一个
+  不影响其他实例，卡移开后保留最近尝试。这仍是硬件协议 simulator，不代表真机验收。
+- `server.device.telemetry.kv` 、`.limits`、`.bytes`、`.isolation`：嵌套 JSON/null/false/0、HTTP/Runtime/RPC、覆盖/删除、
+  迟到重放、重连、64 key 配额、精确 4096-byte frame、1024-byte value、64-byte key、总字节配额及删除墓碑计费。发送后轮询状态，不能把 send 成功当持久化确认。
+
+所有公共控制场景由四种 runner 运行；KV 通过 Go/JS/C 真实 packet channel 发送，Flutter 沿用没有
+Telemetry 发送面的边界。有状态 MHS simulator 仅由 Go runner 运行。每个选中的场景必须执行全部
+step 和 cleanup；缺 runner、skipped、断言失败或清理失败都会使该验收 lane 失败。SQL 重启持久性、
+严格字节边界和跨 Server 管理员签名隔离另由 Runtime/服务端行为回归覆盖。
+
+同一入口还通过 Go 和 JavaScript 执行 `server.device.monitor.signed`。每轮共 Go 14、JavaScript
+13、C 12、Flutter 8 个场景，三轮合计 141 场景、2661 步（包含 cleanup）。签名场景每次执行
+37 步和 1 个 cleanup：在 debug 始终为 off 时，用真实签名经 Edge 读取概览、状态、Telemetry、
+趋势、Workspace、SQL 历史、已保存的 Ogg、设备日志、Wi-Fi、Modem/NFC 和管理工具状态，
+并逐项确认公钥 Bearer 被拒绝，覆盖更换凭证、非法签名和 Client 跨目标拒绝。
+日志查询后端使用检查目标 owner 的确定性夹具；鉴权、路由、SQLite 历史及资产、metrics 和
+设备反向 RPC 使用实际实现。该场景也由普通 `go test ./cmd/internal/server` 执行。
+
+控制台的 loader 和页面回归使用实际 control SDK，在关闭 debug 的 HTTP 边界夹具上验证上述
+读取、历史音频播放、凭证更新后的取消与重新读取，以及诊断助手使用当前凭证。

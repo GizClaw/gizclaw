@@ -24,12 +24,13 @@ enum ClientHwd {
   CLIENT_HWD_UNSPECIFIED = 0;
   CLIENT_HWD_WIFI = 1 [(client_hwd) = { name: "wifi" read_response: "WifiHwdReadResponse" }];
   CLIENT_HWD_BLE = 2 [(client_hwd) = { name: "ble" read_response: "BleHwdReadResponse" }];
-  CLIENT_HWD_MODEM = 3 [(client_hwd) = { name: "modem" read_response: "ModemHwdReadResponse" }];
+  CLIENT_HWD_MODEM = 3 [(client_hwd) = { name: "modem" read_response: "ModemHwdReadResponse" write_request: "ModemHwdWriteRequest" write_response: "ModemHwdWriteResponse" }];
   CLIENT_HWD_BATTERY = 4 [(client_hwd) = { name: "battery" read_response: "BatteryHwdReadResponse" }];
   CLIENT_HWD_MIC = 5 [(client_hwd) = { name: "mic" read_response: "MicHwdReadResponse" }];
   CLIENT_HWD_DISPLAY = 6 [(client_hwd) = { name: "display" read_response: "DisplayHwdReadResponse" write_request: "DisplayHwdWriteRequest" write_response: "DisplayHwdWriteResponse" }];
   CLIENT_HWD_LED = 7 [(client_hwd) = { name: "led" read_response: "LedHwdReadResponse" write_request: "LedHwdWriteRequest" write_response: "LedHwdWriteResponse" }];
   CLIENT_HWD_SPEAKER = 8 [(client_hwd) = { name: "speaker" read_response: "SpeakerHwdReadResponse" write_request: "SpeakerHwdWriteRequest" write_response: "SpeakerHwdWriteResponse" }];
+  CLIENT_HWD_NFC = 9 [(client_hwd) = { name: "nfc" read_response: "NfcHwdReadResponse" write_request: "NfcHwdWriteRequest" write_response: "NfcHwdWriteResponse" }];
 }
 
 // The Server checks the ID against the bound manifest and verifies the HWD
@@ -85,6 +86,38 @@ message ModemHwdReadResponse {
   optional string rat = 3;
   optional int32 rssi_dbm = 4;
   optional uint32 signal_level = 5;
+  optional bool enabled = 6; // User configuration; missing means unknown.
+  optional bool powered = 7; // Actual observation only, never inferred from RF.
+}
+
+message ModemHwdWriteRequest {
+  optional bool enabled = 1; // Required presence, including false.
+}
+message ModemHwdWriteResponse {
+  ModemHwdReadResponse applied = 1; // Must include actual enabled value.
+}
+
+// Cached most recent attempt, successful or failed. Removing a card does not
+// clear this snapshot. Reading MHS never starts a new hardware read.
+message NfcReadSnapshot {
+  int64 read_at_unix_ms = 1;
+  optional bytes uid = 2; // Up to 32 bytes, binary (base64 in JSON).
+  optional string technology = 3; // Up to 32 UTF-8 bytes, e.g. iso14443a.
+  optional string data_format = 4; // Up to 32 bytes, e.g. ndef or raw.
+  optional bytes raw_data = 5; // Up to 1024 bytes, base64 in JSON.
+  string result = 6; // success or failed; includes failed attempts.
+  optional string error_code = 7; // Up to 64 bytes; required on failure.
+}
+message NfcHwdReadResponse {
+  optional bool enabled = 1;
+  optional bool card_present = 2;
+  optional NfcReadSnapshot last_read = 3;
+}
+message NfcHwdWriteRequest {
+  optional bool enabled = 1; // Required presence.
+}
+message NfcHwdWriteResponse {
+  NfcHwdReadResponse applied = 1; // Must include actual enabled value.
 }
 
 message BatteryHwdReadResponse {

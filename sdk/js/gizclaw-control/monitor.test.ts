@@ -178,3 +178,38 @@ test("node monitor preserves device and infrastructure counters and accepts olde
     if (supported) assert.deepEqual(snapshot.device_metrics, deviceMetrics);
   }
 });
+
+test("signed monitor credentials bind the device and keep offline KV JSON", async () => {
+  const publicKey = "signed-target";
+  const token = `gizclaw_sig_v1_${btoa(JSON.stringify({ target: publicKey })).replace(/=/g, "")}.fixture`;
+  const reported_kv = {
+    nil: { value: null, observed_at: "2026-10-22T00:00:00Z" },
+    nested: {
+      value: { list: [false, 0] },
+      observed_at: "2026-10-22T00:00:00Z",
+    },
+  };
+  const peer = createGizClawPeerMonitorClient({
+    baseUrl: "https://edge.example",
+    publicKey,
+    signedBearer: token,
+    fetch: async (input) => {
+      const request = new Request(input);
+      assert.equal(request.headers.get("Authorization"), `Bearer ${token}`);
+      return Response.json({
+        online: false,
+        last_seen_at: "2026-10-22T00:00:00Z",
+        debug_mode: "off",
+        reported_kv,
+      });
+    },
+  });
+  assert.deepEqual((await peer.getRuntime()).reported_kv, reported_kv);
+  assert.throws(() =>
+    createGizClawPeerMonitorClient({
+      baseUrl: "https://edge.example",
+      publicKey: "other",
+      signedBearer: token,
+    }),
+  );
+});

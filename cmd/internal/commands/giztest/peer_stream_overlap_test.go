@@ -8,8 +8,122 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
+
+// Hold the first input push until the reader has timestamped an earlier
+// response's tail. This proves arrival order without wall-clock sleeps.
+type gatedOverlapTextStream struct {
+	*fakeRelayStream
+	started, release, tailRead chan struct{}
+	firstPush                  bool
+}
+
+func (s *gatedOverlapTextStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
+	if !s.firstPush {
+		s.firstPush = true
+		close(s.started)
+		select {
+		case <-s.release:
+		case <-ctx.Done():
+			return ctx.Err()
+		}
+	}
+	return s.fakeRelayStream.Push(ctx, chunk)
+}
+
+func (s *gatedOverlapTextStream) observePacketArrival(chunk *genx.MessageChunk, _ time.Time) {
+	if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.StreamID == "earlier" && chunk.IsEndOfStream() {
+		select {
+		case s.tailRead <- struct{}{}:
+		default:
+		}
+	}
+}
+
+func TestOverlappingTextInputIgnoresEarlierAudio(t *testing.T) {
+	for _, ended := range []bool{false, true} {
+		t.Run(fmt.Sprintf("current_response_already_ended=%t", ended), func(t *testing.T) {
+			stream := &gatedOverlapTextStream{fakeRelayStream: newFakeRelayStream(), started: make(chan struct{}), release: make(chan struct{}), tailRead: make(chan struct{}, 1)}
+			defer stream.Close()
+			ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+			defer cancel()
+			type outcome struct {
+				result operationResult
+				err    error
+			}
+			done := make(chan outcome, 1)
+			go func() {
+				r, err := invokeOverlappingPeerInput(ctx, stream, &giztest.PeerStreamOperation{Mode: "text", OverlapInput: true, Pacing: "0s"}, []any{"slow-first", "replacement"})
+				done <- outcome{r, err}
+			}()
+			select {
+			case <-stream.started:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			stream.in <- assistantBlob("earlier", testAudibleOpus(t), false)
+			stream.in <- assistantBlob("earlier", nil, true)
+			select {
+			case <-stream.tailRead:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+			close(stream.release)
+			for range 3 {
+				select {
+				case <-stream.pushes:
+				case got := <-done:
+					t.Fatalf("earlier audio ended the current turn: %v", got.err)
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				}
+			}
+			// More content on an identified earlier response stays excluded even
+			// after the new input has committed.
+			stream.in <- assistantBlob("earlier", testAudibleOpus(t), false)
+			stream.in <- assistantBlob("earlier", nil, true)
+			stream.in <- assistantText("first", "current", false)
+			stream.in <- assistantBlob("first", testAudibleOpus(t), ended)
+			if ended {
+				select {
+				case got := <-done:
+					if got.err == nil || !strings.Contains(got.err.Error(), "first audio EOS") {
+						t.Fatalf("premature current response passed: %v", got.err)
+					}
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				}
+				return
+			}
+			for range 3 {
+				select {
+				case <-stream.pushes:
+				case got := <-done:
+					t.Fatalf("replacement input missing: %v", got.err)
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				}
+			}
+			finishAssistantTurn(stream.fakeRelayStream, "first")
+			stream.in <- assistantText("second", "replacement", false)
+			stream.in <- assistantBlob("second", testAudibleOpus(t), false)
+			finishAssistantTurn(stream.fakeRelayStream, "second")
+			select {
+			case got := <-done:
+				if got.err != nil {
+					t.Fatal(got.err)
+				}
+				if got.result.evidence["input_overlap"] != true {
+					t.Fatalf("overlap was not proven: %+v", got.result.evidence)
+				}
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
+		})
+	}
+}
 
 func TestOverlappingPeerInput(t *testing.T) {
 	for _, mode := range []string{"push-to-talk", "realtime"} {

@@ -10,6 +10,8 @@ const device = {
   readMhsHwd: vi.fn(),
   listSavedWifi: vi.fn(),
   listTools: vi.fn(),
+  getUsageTime: vi.fn(),
+  getManagementPassword: vi.fn(),
 };
 vi.mock("@gizclaw/gizclaw-control", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@gizclaw/gizclaw-control")>()),
@@ -186,5 +188,60 @@ describe("peer glance", () => {
     expect(
       peerGlance({ wifi_rssi_dbm: "strong", firmware_version: 7 }),
     ).toMatchObject({ firmwareVersion: undefined, signal: undefined });
+  });
+});
+
+it("loads only declared read queries and preserves independent NFC instances", async () => {
+  device.getMhsManifest.mockResolvedValue({
+    devices: [
+      { id: "nfc.left", hwd: "nfc" },
+      { id: "nfc.right", hwd: "nfc" },
+      { id: "modem.main", hwd: "modem" },
+    ],
+  });
+  device.listTools.mockResolvedValue({
+    tools: [
+      "usage.time.get",
+      "usage.time.set",
+      "management.password.get",
+      "device.factory_reset",
+    ],
+  });
+  device.getUsageTime.mockResolvedValue({
+    state: { limit_seconds: 0, used_seconds: 0, exhausted: false },
+  });
+  device.getManagementPassword.mockResolvedValue({ is_set: false });
+  device.readMhsHwd.mockImplementation(async ({ id }: { id: string }) => ({
+    id,
+    value:
+      id === "nfc.left"
+        ? { card_present: false, last_read: { uid: "AAE=", result: "failed" } }
+        : id === "nfc.right"
+          ? { card_present: false }
+          : { enabled: false },
+  }));
+  const result = await loadDeviceConfig(
+    "https://edge.example",
+    "key",
+    new AbortController().signal,
+  );
+  expect(result.queries?.map((q) => q.id)).toEqual([
+    "mhs:nfc.left",
+    "mhs:nfc.right",
+    "mhs:modem.main",
+    "tool:usage.time.get",
+    "tool:management.password.get",
+  ]);
+  expect(result.queries?.[0].result).toMatchObject({
+    state: "ok",
+    data: { value: { card_present: false, last_read: { uid: "AAE=" } } },
+  });
+  expect(result.queries?.[1].result).toEqual({
+    state: "ok",
+    data: { id: "nfc.right", value: { card_present: false } },
+  });
+  expect(result.queries?.[2].result).toEqual({
+    state: "ok",
+    data: { id: "modem.main", value: { enabled: false } },
   });
 });

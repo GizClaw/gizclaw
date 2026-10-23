@@ -115,6 +115,17 @@ try {
 
 ## 设备连接清理
 
+设备端 `gizclaw` 使用包含原生 observer 生命周期修复的固定 WebRTC Git 提交。
+App 直接依赖 `flutter_webrtc` 时也使用同一来源与 revision：
+
+```yaml
+dependencies:
+  flutter_webrtc:
+    git:
+      url: https://github.com/GizClaw/flutter-webrtc.git
+      ref: 15a7c37726c355a05a8392061b263a699fb9e242
+```
+
 设备退出或重新拨号前使用 `await closeFlutterGiznetWebRtc(peerConnection)`。
 它与必需通道关闭后的自动清理共用一次关闭操作，Server block 后也可安全调用。
 通过 `peerEventSessionForFlutterGiznetWebRtc(peerConnection)!.events` 的完成通知
@@ -123,6 +134,10 @@ try {
 
 ## MHS v0 HWD
 
-设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsHwd` / `writeMhsHwd`，通过生成的 `ClientMhsV0*` 和各 HWD protobuf 消息处理一个实例。控制端 `getMhsManifest()` 返回实例 ID 和 HWD；`readMhsHwd(id,hwd)` 返回 `MhsHwdReadResult`（值按 HWD 解码为 `MhsWifiReadValue` 等），`writeMhsHwd(MhsHwdWriteRequest(...))` 只接受 display、led、speaker 的写结构并返回实际生效值。
+设备端在 `GizClawDeviceControlHandlers` 安装 `readMhsHwd` / `writeMhsHwd`，通过生成的 `ClientMhsV0*` 和各 HWD protobuf 消息处理一个实例。控制端 `getMhsManifest()` 返回实例 ID 和 HWD；`readMhsHwd(id,hwd)` 返回 `MhsHwdReadResult`（值按 HWD 解码为 `MhsWifiReadValue` 等），`writeMhsHwd(MhsHwdWriteRequest(...))` 接受 display、led、speaker、modem、nfc 的写结构并返回实际生效值。
 
-每次调用只针对一个实例；wifi、ble、modem、battery、mic 只读。详见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+每次调用只针对一个实例；wifi、ble、battery、mic 只读。Modem 与 NFC 的配置开关和观测状态保持独立，未知观测不投影为 false。详见 [Public API](/zh/developing/api/http/public) 与 [provider contract](/zh/developing/api/proto/rpc/client-provided-to-server)。
+
+## tool/v0 过程
+
+设备端只为实际支持的预定义 `ClientTool` 安装 handler；`client.tool.v0.list` 仅返回已安装的子集。控制端的类型化调用统一使用 `client.tool.v0.invoke` RPC。HWD 实例由已绑定 RuntimeProfile 的 MHS v0 manifest 声明，并通过 MHS 读写接口访问。

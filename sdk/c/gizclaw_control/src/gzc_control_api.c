@@ -1890,7 +1890,7 @@ static int mhs_hwd_request(
   const char *name = gzc_control_mhs_v0_hwd_name(hwd);
   if (rc != GZC_OK || !gzc_control_mhs_v0_storage_valid(storage) || out == NULL ||
       !gzc_control_mhs_v0_name_valid(id) || name == NULL ||
-      (writing && (hwd < GZC_CONTROL_HWD_DISPLAY || !gzc_control_mhs_v0_object_nonempty(value_json)))) {
+      (writing && ((hwd < GZC_CONTROL_HWD_DISPLAY && hwd != GZC_CONTROL_HWD_MODEM) || !gzc_control_mhs_v0_object_nonempty(value_json)))) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
   gzc_control_builder_t builder;
@@ -2129,4 +2129,44 @@ int gzc_control_install_lua_app(gzc_control_client_t *client,
   if (rc != GZC_OK || !present || gzc_json_validate_object(*out_app_json) != GZC_OK)
     return gzc_control_fail(call, GZC_CONTROL_ERROR_MALFORMED_RESPONSE, GZC_ERR_JSON);
   return GZC_OK;
+}
+
+int gzc_control_get_device_reported_kv(gzc_control_client_t *client, gzc_control_call_t *call, gzc_str_t *out_snapshot) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_snapshot == NULL)
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  *out_snapshot = gzc_str_from_parts(NULL, 0);
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/runtime");
+  gzc_str_t url = builder_url(&builder);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_GET, url, gzc_str_from_parts(NULL, 0));
+  if (rc != GZC_OK)
+    return rc;
+  gzc_str_t object;
+  rc = decoded_object(call, &object);
+  if (rc != GZC_OK)
+    return rc;
+  rc = gzc_control_opt_raw(object, "reported_kv", out_snapshot);
+  if (rc == GZC_OK && out_snapshot->len > 0)
+    rc = gzc_json_validate_object(*out_snapshot);
+  return rc == GZC_OK ? GZC_OK : decode_failed(call, rc);
+}
+
+int gzc_control_invoke_device_tool(gzc_control_client_t *client, gzc_control_call_t *call, gzc_str_t tool, gzc_str_t args_json, gzc_str_t *out_result) {
+  int rc = check_args(client, call);
+  if (rc != GZC_OK || out_result == NULL || tool.data == NULL || tool.len == 0 || tool.len > 64 || gzc_json_validate_object(args_json) != GZC_OK)
+    return rc == GZC_OK ? GZC_ERR_INVALID_ARGUMENT : rc;
+  *out_result = gzc_str_from_parts(NULL, 0);
+  gzc_control_builder_t builder;
+  builder_begin(&builder, client, call, "/device/tool/v0/invoke");
+  gzc_str_t url = builder_url(&builder);
+  gzc_json_writer_t writer;
+  builder_body_begin(&builder, &writer);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_str(&writer, "tool", tool);
+  if (builder.rc == GZC_OK)
+    builder.rc = gzc_json_field_raw(&writer, "args", args_json);
+  gzc_str_t body = builder_body(&builder, &writer);
+  rc = builder_send(&builder, client, call, GZC_HTTP_METHOD_POST, url, body);
+  return rc == GZC_OK ? decoded_tool_result(call, out_result) : rc;
 }

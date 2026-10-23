@@ -1,0 +1,269 @@
+# User Story:
+# As a GizClaw device operator,
+# I want to exercise server.device.mhs.management.instances,
+# So that the protocol is verified over real Server and SDK transports.
+version: gizclaw.test/v1alpha1
+name: server.device.mhs.management.instances
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  resource_name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: ${resource_name}
+    capture:
+      api_key: /api_key
+  - id: initial_modem_main
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+      status: 200
+    expect:
+      /id:
+        equals: modem.main
+      /value/enabled:
+        equals: true
+  - id: initial_modem_backup
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.backup
+        hwd: modem
+      status: 200
+    expect:
+      /id:
+        equals: modem.backup
+      /value/enabled:
+        equals: false
+  - id: initial_nfc_left
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: nfc.left
+        hwd: nfc
+      status: 200
+    expect:
+      /id:
+        equals: nfc.left
+      /value/enabled:
+        equals: true
+      /value/last_read/uid:
+        equals: AAE=
+  - id: initial_nfc_right
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: nfc.right
+        hwd: nfc
+      status: 200
+    expect:
+      /id:
+        equals: nfc.right
+      /value/enabled:
+        equals: false
+      /value/last_read/uid:
+        equals: AgM=
+  - id: disable_nfc_left
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/write
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: nfc.left
+        hwd: nfc
+        value:
+          enabled: false
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+  - id: disable_modem_main
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/write
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+        value:
+          enabled: false
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+  - id: after_modem_main
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.main
+        hwd: modem
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+      /value/powered:
+        present: false
+  - id: after_modem_backup
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: modem.backup
+        hwd: modem
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+      /value/powered:
+        equals: false
+  - id: after_nfc_left
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: nfc.left
+        hwd: nfc
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+      /value/last_read/uid:
+        equals: AAE=
+      /value/last_read/read_at_unix_ms:
+        equals: "1600000000000"
+  - id: after_nfc_right
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/mhs/v0/read
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        id: nfc.right
+        hwd: nfc
+      status: 200
+    expect:
+      /value/enabled:
+        equals: false
+      /value/last_read/uid:
+        equals: AgM=
+      /value/last_read/read_at_unix_ms:
+        equals: "1600000000001"
+  - id: provider_read
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.read
+      response:
+        instances: &a1
+          modem.main:
+            hwd: modem
+            value:
+              enabled: true
+              registered: false
+            write_fields:
+              - enabled
+          modem.backup:
+            hwd: modem
+            value:
+              enabled: false
+              powered: false
+            write_fields:
+              - enabled
+          nfc.left:
+            hwd: nfc
+            value:
+              enabled: true
+              card_present: false
+              last_read:
+                read_at_unix_ms: "1600000000000"
+                uid: AAE=
+                result: failed
+                error_code: READ_FAILED
+            write_fields:
+              - enabled
+          nfc.right:
+            hwd: nfc
+            value:
+              enabled: false
+              card_present: false
+              last_read:
+                read_at_unix_ms: "1600000000001"
+                uid: AgM=
+                result: success
+            write_fields:
+              - enabled
+      expect_calls: 8
+  - id: provider_write
+    client: peer
+    client_rpc:
+      method: client.mhs.v0.write
+      response:
+        instances: *a1
+      expect_calls: 2
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

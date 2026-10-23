@@ -19,3 +19,5 @@ export 'src/webrtc_transport.dart';
 
 export 'src/admission.dart';
 export 'src/generated/giznet/admission.pb.dart' show AdmissionCredential;
+
+export 'src/reported_kv.dart';

@@ -8,6 +8,7 @@ export 'payload/firmware.pbenum.dart';
 export 'payload/gnss.pbenum.dart';
 export 'payload/icon.pbenum.dart';
 export 'payload/lua_app.pbenum.dart';
+export 'payload/management.pbenum.dart';
 export 'payload/mhs_v0.pbenum.dart';
 export 'payload/social.pbenum.dart';
 export 'payload/system.pbenum.dart';

@@ -51,6 +51,10 @@ func (s *Server) Initialize(ctx context.Context) error {
 		return err
 	}
 	_, err = db.ExecContext(ctx, `CREATE INDEX IF NOT EXISTS peer_runs_directory ON peer_runs(registered_at,public_key) WHERE registered_at IS NOT NULL`)
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `CREATE TABLE IF NOT EXISTS peer_reported_kv (public_key TEXT PRIMARY KEY, state_json TEXT NOT NULL)`)
 	return err
 }
 
@@ -77,10 +81,11 @@ func (s *Server) GetStatus(ctx context.Context, publicKey giznet.PublicKey) (api
 	if publicKey.IsZero() {
 		return apitypes.PeerStatus{}, ErrInvalidPublicKey
 	}
-	var data, ota sql.NullString
-	err = db.QueryRowContext(ctx, db.Rebind(`SELECT status_json, ota_json FROM peer_runs WHERE public_key = ?`), publicKey.String()).Scan(&data, &ota)
+	var data, ota, kv sql.NullString
+	err = db.QueryRowContext(ctx, db.Rebind(`SELECT r.status_json, r.ota_json, k.state_json FROM peer_runs r LEFT JOIN peer_reported_kv k ON k.public_key=r.public_key WHERE r.public_key = ?`), publicKey.String()).Scan(&data, &ota, &kv)
 	if errors.Is(err, sql.ErrNoRows) {
-		return apitypes.PeerStatus{}, nil
+		snapshot, readErr := s.GetReportedKV(ctx, publicKey)
+		return apitypes.PeerStatus{ReportedKv: snapshot}, readErr
 	}
 	if err != nil {
 		return apitypes.PeerStatus{}, fmt.Errorf("peerrun: get status: %w", err)
@@ -99,7 +104,8 @@ func (s *Server) GetStatus(ctx context.Context, publicKey giznet.PublicKey) (api
 	if status.Ota != nil && (status.ReportedAt == nil || status.Ota.ObservedAt.After(*status.ReportedAt)) {
 		status.ReportedAt = new(status.Ota.ObservedAt)
 	}
-	return status, nil
+	status.ReportedKv, err = kvSnapshot(kv.String)
+	return status, err
 }
 
 func (s *Server) PutStatus(ctx context.Context, publicKey giznet.PublicKey, status apitypes.PeerStatus) (apitypes.PeerStatus, error) {
@@ -115,6 +121,7 @@ func (s *Server) PutStatus(ctx context.Context, publicKey giznet.PublicKey, stat
 	}
 	// Independent columns prevent status writes from replacing newer OTA telemetry.
 	status.Ota = nil
+	status.ReportedKv = nil
 	data, err := json.Marshal(status)
 	if err != nil {
 		return status, err

@@ -22,3 +22,10 @@
 `peer_runs` 按 `public_key` 保存状态；`pending_workspace`、`active_workspace`、`debug_mode` 和 `registered_at` 为独立列。设置 Pending 不覆盖 Active；激活通过单条条件 UPDATE 验证当前选择，避免旧激活覆盖新选择。
 
 `RememberPeer` 记录本机注册或连接过的 Peer。Admin `ListPeers` 通过 `(registered_at, public_key)` 索引在本机分页，再按页内公钥读取共享注册信息。它不列举中心 Redis，也不代表全站设备列表。只有状态而没有本机注册记录的行不进入目录。
+
+## KV 状态
+
+`PutReportedKV` 使用独立 `peer_reported_kv` 表对每设备整份有界记录做 SQL 比较更新。
+该帧所有 KV 条目一起接受或拒绝，包含 key、值、时间和删除墓碑的存储预算在提交前检查。
+`GetReportedKV`、`GetStatus` 与 Runtime 读取同一记录；普通 `PutStatus` 忽略传入的 reported_kv，
+设备控制响应不能替换自报状态。删除和乱序规则、SDK 字节预算见 [KV 自报状态](/zh/developing/api/proto/telemetry#kv-自报状态)。

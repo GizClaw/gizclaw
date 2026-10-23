@@ -44,3 +44,21 @@ Keep one attempt identity throughout an upgrade and choose a new identity for a 
 Queries return the latest Server snapshot, which can remain visible after a device disconnects. Telemetry transport provides neither business acknowledgement nor exactly-once delivery, so sending an observation does not prove upgrade completion.
 
 SDKs encode and send the Schema; Server validates and updates snapshots. See the [runtime OTA store](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/ota.go) for transitions and ordering. Device-provided diagnostics must not contain secrets or credential-bearing URLs.
+
+## Device-reported KV state
+
+KV retains the device's latest reported JSON state across disconnects and restarts. It stays separate
+from Server-authoritative online state, ownership and permissions. Readers preserve JSON types and
+distinguish present null/false/zero from an absent or deleted key; use the raw JSON encoding when numeric
+encoding must be preserved.
+
+Devices should use a bounded, stable key set and re-report current state with actual new observation
+times. Tombstones prevent late or replayed values from resurrecting deleted state, and ordinary control
+responses cannot overwrite the snapshot. See [KV validation](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/telemetry/kv.go),
+[Telemetry handling](https://github.com/GizClaw/gizclaw/tree/main/pkgs/gizclaw/services/runtime/peertelemetry)
+and [KV storage](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/services/runtime/peerrun/kv.go)
+for wire/storage budgets, timestamp checks and merge rules.
+
+Go, JavaScript and C use the existing Telemetry transport; Flutter reads the status projection. Access
+uses existing device-scoped authorization. Values do not enter metrics or payload logs, and devices must
+not report passwords or credentials.

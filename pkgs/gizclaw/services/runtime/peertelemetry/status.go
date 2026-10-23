@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -66,6 +67,17 @@ func (s StatusSync) SyncTelemetryStatus(ctx context.Context, peer giznet.PublicK
 	}
 	if s.Store == nil {
 		return ErrStatusServiceNil
+	}
+	if len(patch.KV) > 0 {
+		store, ok := s.Store.(interface {
+			PutReportedKV(context.Context, giznet.PublicKey, []peerrun.KVUpdate) error
+		})
+		if !ok {
+			return fmt.Errorf("peertelemetry: runtime store does not support KV status")
+		}
+		if err := store.PutReportedKV(ctx, peer, patch.KV); err != nil {
+			return err
+		}
 	}
 	if len(patch.OTA) > 0 {
 		store, ok := s.Store.(otaStatusStore)

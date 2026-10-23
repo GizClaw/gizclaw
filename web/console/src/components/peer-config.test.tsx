@@ -72,3 +72,36 @@ describe("device config tab", () => {
     await waitFor(() => expect(loadDeviceConfig).toHaveBeenCalledTimes(2));
   });
 });
+
+it("shows read-only management and independent hardware snapshots", async () => {
+  loadDeviceConfig.mockResolvedValue({
+    manifest: { state: "ok", data: { devices: [] } },
+    tools: { state: "ok", data: ["management.password.get"] },
+    queries: [
+      {
+        id: "mhs:nfc.left",
+        title: "NFC · nfc.left",
+        result: {
+          state: "ok",
+          data: {
+            value: {
+              card_present: false,
+              last_read: { result: "failed", uid: "AAE=" },
+            },
+          },
+        },
+      },
+      {
+        id: "tool:management.password.get",
+        title: "管理密码状态",
+        result: { state: "ok", data: { is_set: false } },
+      },
+    ],
+  });
+  render(<PeerConfig peer={peer} />);
+  await screen.findByText("NFC · nfc.left");
+  expect(screen.getByText("管理密码状态")).toBeTruthy();
+  expect(screen.getByText(/"is_set": false/)).toBeTruthy();
+  expect(screen.getByText(/"uid": "AAE="/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /设置|重置|保存/ })).toBeNull();
+});

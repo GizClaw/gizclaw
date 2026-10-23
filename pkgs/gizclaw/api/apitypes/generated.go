@@ -1428,6 +1428,7 @@ const (
 	MhsV0DeviceHwdLed     MhsV0DeviceHwd = "led"
 	MhsV0DeviceHwdMic     MhsV0DeviceHwd = "mic"
 	MhsV0DeviceHwdModem   MhsV0DeviceHwd = "modem"
+	MhsV0DeviceHwdNfc     MhsV0DeviceHwd = "nfc"
 	MhsV0DeviceHwdSpeaker MhsV0DeviceHwd = "speaker"
 	MhsV0DeviceHwdWifi    MhsV0DeviceHwd = "wifi"
 )
@@ -1446,6 +1447,8 @@ func (e MhsV0DeviceHwd) Valid() bool {
 	case MhsV0DeviceHwdMic:
 		return true
 	case MhsV0DeviceHwdModem:
+		return true
+	case MhsV0DeviceHwdNfc:
 		return true
 	case MhsV0DeviceHwdSpeaker:
 		return true
@@ -1546,6 +1549,51 @@ func (e MhsV0ModemReadResultHwd) Valid() bool {
 	}
 }
 
+// Defines values for MhsV0ModemWriteRequestHwd.
+const (
+	MhsV0ModemWriteRequestHwdModem MhsV0ModemWriteRequestHwd = "modem"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0ModemWriteRequestHwd enum.
+func (e MhsV0ModemWriteRequestHwd) Valid() bool {
+	switch e {
+	case MhsV0ModemWriteRequestHwdModem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0NfcReadResultHwd.
+const (
+	MhsV0NfcReadResultHwdNfc MhsV0NfcReadResultHwd = "nfc"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0NfcReadResultHwd enum.
+func (e MhsV0NfcReadResultHwd) Valid() bool {
+	switch e {
+	case MhsV0NfcReadResultHwdNfc:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for MhsV0NfcWriteRequestHwd.
+const (
+	MhsV0NfcWriteRequestHwdNfc MhsV0NfcWriteRequestHwd = "nfc"
+)
+
+// Valid indicates whether the value is a known member of the MhsV0NfcWriteRequestHwd enum.
+func (e MhsV0NfcWriteRequestHwd) Valid() bool {
+	switch e {
+	case MhsV0NfcWriteRequestHwdNfc:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MhsV0ReadRequestHwd.
 const (
 	MhsV0ReadRequestHwdBattery MhsV0ReadRequestHwd = "battery"
@@ -1554,6 +1602,7 @@ const (
 	MhsV0ReadRequestHwdLed     MhsV0ReadRequestHwd = "led"
 	MhsV0ReadRequestHwdMic     MhsV0ReadRequestHwd = "mic"
 	MhsV0ReadRequestHwdModem   MhsV0ReadRequestHwd = "modem"
+	MhsV0ReadRequestHwdNfc     MhsV0ReadRequestHwd = "nfc"
 	MhsV0ReadRequestHwdSpeaker MhsV0ReadRequestHwd = "speaker"
 	MhsV0ReadRequestHwdWifi    MhsV0ReadRequestHwd = "wifi"
 )
@@ -1572,6 +1621,8 @@ func (e MhsV0ReadRequestHwd) Valid() bool {
 	case MhsV0ReadRequestHwdMic:
 		return true
 	case MhsV0ReadRequestHwdModem:
+		return true
+	case MhsV0ReadRequestHwdNfc:
 		return true
 	case MhsV0ReadRequestHwdSpeaker:
 		return true
@@ -1747,6 +1798,24 @@ func (e ModelSource) Valid() bool {
 	case ModelSourceManual:
 		return true
 	case ModelSourceSync:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NfcReadSnapshotResult.
+const (
+	NfcReadSnapshotResultFailed  NfcReadSnapshotResult = "failed"
+	NfcReadSnapshotResultSuccess NfcReadSnapshotResult = "success"
+)
+
+// Valid indicates whether the value is a known member of the NfcReadSnapshotResult enum.
+func (e NfcReadSnapshotResult) Valid() bool {
+	switch e {
+	case NfcReadSnapshotResultFailed:
+		return true
+	case NfcReadSnapshotResultSuccess:
 		return true
 	default:
 		return false
@@ -4484,6 +4553,36 @@ type MhsV0ModemReadResult struct {
 // MhsV0ModemReadResultHwd defines model for MhsV0ModemReadResult.Hwd.
 type MhsV0ModemReadResultHwd string
 
+// MhsV0ModemWriteRequest defines model for MhsV0ModemWriteRequest.
+type MhsV0ModemWriteRequest struct {
+	Hwd   MhsV0ModemWriteRequestHwd `json:"hwd"`
+	Id    string                    `json:"id"`
+	Value ModemHwdWriteRequest      `json:"value"`
+}
+
+// MhsV0ModemWriteRequestHwd defines model for MhsV0ModemWriteRequest.Hwd.
+type MhsV0ModemWriteRequestHwd string
+
+// MhsV0NfcReadResult defines model for MhsV0NfcReadResult.
+type MhsV0NfcReadResult struct {
+	Hwd   MhsV0NfcReadResultHwd `json:"hwd"`
+	Id    string                `json:"id"`
+	Value NfcHwdReadResponse    `json:"value"`
+}
+
+// MhsV0NfcReadResultHwd defines model for MhsV0NfcReadResult.Hwd.
+type MhsV0NfcReadResultHwd string
+
+// MhsV0NfcWriteRequest defines model for MhsV0NfcWriteRequest.
+type MhsV0NfcWriteRequest struct {
+	Hwd   MhsV0NfcWriteRequestHwd `json:"hwd"`
+	Id    string                  `json:"id"`
+	Value NfcHwdWriteRequest      `json:"value"`
+}
+
+// MhsV0NfcWriteRequestHwd defines model for MhsV0NfcWriteRequest.Hwd.
+type MhsV0NfcWriteRequestHwd string
+
 // MhsV0ReadRequest defines model for MhsV0ReadRequest.
 type MhsV0ReadRequest struct {
 	Hwd MhsV0ReadRequestHwd `json:"hwd"`
@@ -4688,12 +4787,50 @@ type ModelSpec struct {
 
 // ModemHwdReadResponse defines model for ModemHwdReadResponse.
 type ModemHwdReadResponse struct {
+	// Enabled User configured switch; omitted means unknown.
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Powered Actual power observation; omitted when unavailable. Never infer from registration or signal.
+	Powered     *bool   `json:"powered,omitempty"`
 	Rat         *string `json:"rat,omitempty"`
 	Registered  *bool   `json:"registered,omitempty"`
 	RssiDbm     *int32  `json:"rssi_dbm,omitempty"`
 	SignalLevel *int64  `json:"signal_level,omitempty"`
 	SimPresent  *bool   `json:"sim_present,omitempty"`
 }
+
+// ModemHwdWriteRequest defines model for ModemHwdWriteRequest.
+type ModemHwdWriteRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// NfcHwdReadResponse defines model for NfcHwdReadResponse.
+type NfcHwdReadResponse struct {
+	CardPresent *bool            `json:"card_present,omitempty"`
+	Enabled     *bool            `json:"enabled,omitempty"`
+	LastRead    *NfcReadSnapshot `json:"last_read,omitempty"`
+}
+
+// NfcHwdWriteRequest defines model for NfcHwdWriteRequest.
+type NfcHwdWriteRequest struct {
+	Enabled bool `json:"enabled"`
+}
+
+// NfcReadSnapshot defines model for NfcReadSnapshot.
+type NfcReadSnapshot struct {
+	DataFormat *string `json:"data_format,omitempty"`
+	ErrorCode  *string `json:"error_code,omitempty"`
+	RawData    *[]byte `json:"raw_data,omitempty"`
+
+	// ReadAtUnixMs Positive int64 milliseconds, protobuf JSON decimal string.
+	ReadAtUnixMs string                `json:"read_at_unix_ms"`
+	Result       NfcReadSnapshotResult `json:"result"`
+	Technology   *string               `json:"technology,omitempty"`
+	Uid          *[]byte               `json:"uid,omitempty"`
+}
+
+// NfcReadSnapshotResult defines model for NfcReadSnapshot.Result.
+type NfcReadSnapshotResult string
 
 // OpenAICredentialBody defines model for OpenAICredentialBody.
 type OpenAICredentialBody struct {
@@ -4802,6 +4939,16 @@ type PeerIMEI struct {
 	Tac    string  `json:"tac"`
 }
 
+// PeerKVEntry defines model for PeerKVEntry.
+type PeerKVEntry struct {
+	// JsonValue Lossless JSON encoding of value, at most 1024 UTF-8 bytes. Use for exact numbers or raw rendering.
+	JsonValue  string    `json:"json_value"`
+	ObservedAt time.Time `json:"observed_at"`
+
+	// Value Any legal JSON value, including null. At most 1024 UTF-8 encoded bytes.
+	Value json.RawMessage `json:"value"`
+}
+
 // PeerLabel defines model for PeerLabel.
 type PeerLabel struct {
 	Key   string `json:"key"`
@@ -4823,6 +4970,9 @@ type PeerOtaStatus struct {
 
 // PeerRegistrationStatus defines model for PeerRegistrationStatus.
 type PeerRegistrationStatus string
+
+// PeerReportedKV Device self-reported latest JSON values. Missing key is absent or deleted; value:null is reported null. No authority or online fields are derived from this map.
+type PeerReportedKV map[string]PeerKVEntry
 
 // PeerRole defines model for PeerRole.
 type PeerRole string
@@ -4999,6 +5149,9 @@ type PeerStatus struct {
 	// Ota Latest device-reported OTA attempt snapshot, retained across disconnects.
 	Ota        *PeerOtaStatus `json:"ota,omitempty"`
 	ReportedAt *time.Time     `json:"reported_at,omitempty"`
+
+	// ReportedKv Device self-reported latest JSON values. Missing key is absent or deleted; value:null is reported null. No authority or online fields are derived from this map.
+	ReportedKv *PeerReportedKV `json:"reported_kv,omitempty"`
 
 	// TelemetryObservedAt Per-field observation times for the telemetry-sourced members of PeerStatus. Each member records when the device observed the value now stored in the sibling PeerStatus field, which is what lets an out-of-order or replayed report be rejected without overwriting a newer observation. A member is absent until that field has been observed at least once.
 	TelemetryObservedAt *PeerStatusTelemetryObservedAt `json:"telemetry_observed_at,omitempty"`
@@ -5347,8 +5500,11 @@ type Runtime struct {
 
 	// PendingWorkspaceName Workspace selected for the device that it has not committed yet, for example after server.run.workspace.set and before the device commits it through server.run.workspace.reload-with-options. Omitted when no switch is pending.
 	PendingWorkspaceName *string `json:"pending_workspace_name,omitempty"`
-	RxBytes              *uint64 `json:"rx_bytes,omitempty"`
-	TxBytes              *uint64 `json:"tx_bytes,omitempty"`
+
+	// ReportedKv Device self-reported latest JSON values. Missing key is absent or deleted; value:null is reported null. No authority or online fields are derived from this map.
+	ReportedKv *PeerReportedKV `json:"reported_kv,omitempty"`
+	RxBytes    *uint64         `json:"rx_bytes,omitempty"`
+	TxBytes    *uint64         `json:"tx_bytes,omitempty"`
 }
 
 // RuntimeProfile defines model for RuntimeProfile.
@@ -8158,6 +8314,34 @@ func (t *MhsV0ReadResult) MergeMhsV0SpeakerReadResult(v MhsV0SpeakerReadResult) 
 	return err
 }
 
+// AsMhsV0NfcReadResult returns the union data inside the MhsV0ReadResult as a MhsV0NfcReadResult
+func (t MhsV0ReadResult) AsMhsV0NfcReadResult() (MhsV0NfcReadResult, error) {
+	var body MhsV0NfcReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0NfcReadResult overwrites any union data inside the MhsV0ReadResult as the provided MhsV0NfcReadResult
+func (t *MhsV0ReadResult) FromMhsV0NfcReadResult(v MhsV0NfcReadResult) error {
+	v.Hwd = "nfc"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0NfcReadResult performs a merge with any union data inside the MhsV0ReadResult, using the provided MhsV0NfcReadResult
+func (t *MhsV0ReadResult) MergeMhsV0NfcReadResult(v MhsV0NfcReadResult) error {
+	v.Hwd = "nfc"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t MhsV0ReadResult) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"hwd"`
@@ -8184,6 +8368,8 @@ func (t MhsV0ReadResult) ValueByDiscriminator() (interface{}, error) {
 		return t.AsMhsV0MicReadResult()
 	case "modem":
 		return t.AsMhsV0ModemReadResult()
+	case "nfc":
+		return t.AsMhsV0NfcReadResult()
 	case "speaker":
 		return t.AsMhsV0SpeakerReadResult()
 	case "wifi":
@@ -8287,6 +8473,62 @@ func (t *MhsV0WriteRequest) MergeMhsV0SpeakerWriteRequest(v MhsV0SpeakerWriteReq
 	return err
 }
 
+// AsMhsV0ModemWriteRequest returns the union data inside the MhsV0WriteRequest as a MhsV0ModemWriteRequest
+func (t MhsV0WriteRequest) AsMhsV0ModemWriteRequest() (MhsV0ModemWriteRequest, error) {
+	var body MhsV0ModemWriteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0ModemWriteRequest overwrites any union data inside the MhsV0WriteRequest as the provided MhsV0ModemWriteRequest
+func (t *MhsV0WriteRequest) FromMhsV0ModemWriteRequest(v MhsV0ModemWriteRequest) error {
+	v.Hwd = "modem"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0ModemWriteRequest performs a merge with any union data inside the MhsV0WriteRequest, using the provided MhsV0ModemWriteRequest
+func (t *MhsV0WriteRequest) MergeMhsV0ModemWriteRequest(v MhsV0ModemWriteRequest) error {
+	v.Hwd = "modem"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0NfcWriteRequest returns the union data inside the MhsV0WriteRequest as a MhsV0NfcWriteRequest
+func (t MhsV0WriteRequest) AsMhsV0NfcWriteRequest() (MhsV0NfcWriteRequest, error) {
+	var body MhsV0NfcWriteRequest
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0NfcWriteRequest overwrites any union data inside the MhsV0WriteRequest as the provided MhsV0NfcWriteRequest
+func (t *MhsV0WriteRequest) FromMhsV0NfcWriteRequest(v MhsV0NfcWriteRequest) error {
+	v.Hwd = "nfc"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0NfcWriteRequest performs a merge with any union data inside the MhsV0WriteRequest, using the provided MhsV0NfcWriteRequest
+func (t *MhsV0WriteRequest) MergeMhsV0NfcWriteRequest(v MhsV0NfcWriteRequest) error {
+	v.Hwd = "nfc"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t MhsV0WriteRequest) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"hwd"`
@@ -8305,6 +8547,10 @@ func (t MhsV0WriteRequest) ValueByDiscriminator() (interface{}, error) {
 		return t.AsMhsV0DisplayWriteRequest()
 	case "led":
 		return t.AsMhsV0LedWriteRequest()
+	case "modem":
+		return t.AsMhsV0ModemWriteRequest()
+	case "nfc":
+		return t.AsMhsV0NfcWriteRequest()
 	case "speaker":
 		return t.AsMhsV0SpeakerWriteRequest()
 	default:
@@ -8406,6 +8652,62 @@ func (t *MhsV0WriteResult) MergeMhsV0SpeakerReadResult(v MhsV0SpeakerReadResult)
 	return err
 }
 
+// AsMhsV0ModemReadResult returns the union data inside the MhsV0WriteResult as a MhsV0ModemReadResult
+func (t MhsV0WriteResult) AsMhsV0ModemReadResult() (MhsV0ModemReadResult, error) {
+	var body MhsV0ModemReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0ModemReadResult overwrites any union data inside the MhsV0WriteResult as the provided MhsV0ModemReadResult
+func (t *MhsV0WriteResult) FromMhsV0ModemReadResult(v MhsV0ModemReadResult) error {
+	v.Hwd = "modem"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0ModemReadResult performs a merge with any union data inside the MhsV0WriteResult, using the provided MhsV0ModemReadResult
+func (t *MhsV0WriteResult) MergeMhsV0ModemReadResult(v MhsV0ModemReadResult) error {
+	v.Hwd = "modem"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsMhsV0NfcReadResult returns the union data inside the MhsV0WriteResult as a MhsV0NfcReadResult
+func (t MhsV0WriteResult) AsMhsV0NfcReadResult() (MhsV0NfcReadResult, error) {
+	var body MhsV0NfcReadResult
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromMhsV0NfcReadResult overwrites any union data inside the MhsV0WriteResult as the provided MhsV0NfcReadResult
+func (t *MhsV0WriteResult) FromMhsV0NfcReadResult(v MhsV0NfcReadResult) error {
+	v.Hwd = "nfc"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeMhsV0NfcReadResult performs a merge with any union data inside the MhsV0WriteResult, using the provided MhsV0NfcReadResult
+func (t *MhsV0WriteResult) MergeMhsV0NfcReadResult(v MhsV0NfcReadResult) error {
+	v.Hwd = "nfc"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t MhsV0WriteResult) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"hwd"`
@@ -8424,6 +8726,10 @@ func (t MhsV0WriteResult) ValueByDiscriminator() (interface{}, error) {
 		return t.AsMhsV0DisplayReadResult()
 	case "led":
 		return t.AsMhsV0LedReadResult()
+	case "modem":
+		return t.AsMhsV0ModemReadResult()
+	case "nfc":
+		return t.AsMhsV0NfcReadResult()
 	case "speaker":
 		return t.AsMhsV0SpeakerReadResult()
 	default:

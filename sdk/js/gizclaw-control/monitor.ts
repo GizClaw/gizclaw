@@ -79,12 +79,40 @@ function monitorBaseUrl(
 
 /** Device monitoring with a public key; the owning Server enforces runtime permissions. */
 export function createGizClawPeerMonitorClient(
-  options: Omit<GizClawControlClientOptions, "apiKey"> & { publicKey: string },
+  options: Omit<GizClawControlClientOptions, "apiKey"> & {
+    publicKey: string;
+    signedBearer?: string;
+  },
 ) {
   const key = options.publicKey.replace(/^gizclaw_pk_/, "");
   if (!key) throw new TypeError("publicKey must not be empty");
-  return createGizClawControlClient({ ...options, apiKey: `gizclaw_pk_${key}` })
-    .device;
+  if (options.signedBearer !== undefined) {
+    try {
+      const token = options.signedBearer;
+      if (
+        token.length > 2048 ||
+        !/^gizclaw_sig_v1_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)
+      )
+        throw new Error();
+      const payload = token.slice("gizclaw_sig_v1_".length).split(".")[0];
+      const claims: unknown = JSON.parse(
+        atob(payload.replace(/-/g, "+").replace(/_/g, "/")),
+      );
+      if (
+        claims == null ||
+        typeof claims !== "object" ||
+        !("target" in claims) ||
+        claims.target !== key
+      )
+        throw new Error();
+    } catch {
+      throw new TypeError("signed Bearer must bind the watched device");
+    }
+  }
+  return createGizClawControlClient({
+    ...options,
+    apiKey: options.signedBearer ?? `gizclaw_pk_${key}`,
+  }).device;
 }
 
 /** Process-local monitoring with an independent Monitor Token. */

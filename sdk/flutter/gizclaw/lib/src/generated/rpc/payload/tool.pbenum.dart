@@ -76,6 +76,28 @@ class ClientTool extends $pb.ProtobufEnum {
       ClientTool._(26, _omitEnumNames ? '' : 'CLIENT_TOOL_GNSS_REPORTING_SET');
   static const ClientTool CLIENT_TOOL_LUA_APP_UNINSTALL =
       ClientTool._(27, _omitEnumNames ? '' : 'CLIENT_TOOL_LUA_APP_UNINSTALL');
+  static const ClientTool CLIENT_TOOL_CONTENT_AGE_GET =
+      ClientTool._(28, _omitEnumNames ? '' : 'CLIENT_TOOL_CONTENT_AGE_GET');
+  static const ClientTool CLIENT_TOOL_CONTENT_AGE_SET =
+      ClientTool._(29, _omitEnumNames ? '' : 'CLIENT_TOOL_CONTENT_AGE_SET');
+  static const ClientTool CLIENT_TOOL_DEVICE_FEATURES_GET =
+      ClientTool._(30, _omitEnumNames ? '' : 'CLIENT_TOOL_DEVICE_FEATURES_GET');
+  static const ClientTool CLIENT_TOOL_DEVICE_FEATURE_SET =
+      ClientTool._(31, _omitEnumNames ? '' : 'CLIENT_TOOL_DEVICE_FEATURE_SET');
+  static const ClientTool CLIENT_TOOL_USAGE_TIME_GET =
+      ClientTool._(32, _omitEnumNames ? '' : 'CLIENT_TOOL_USAGE_TIME_GET');
+  static const ClientTool CLIENT_TOOL_USAGE_TIME_SET =
+      ClientTool._(33, _omitEnumNames ? '' : 'CLIENT_TOOL_USAGE_TIME_SET');
+  static const ClientTool CLIENT_TOOL_AI_SAFETY_GET =
+      ClientTool._(34, _omitEnumNames ? '' : 'CLIENT_TOOL_AI_SAFETY_GET');
+  static const ClientTool CLIENT_TOOL_AI_SAFETY_SET =
+      ClientTool._(35, _omitEnumNames ? '' : 'CLIENT_TOOL_AI_SAFETY_SET');
+  static const ClientTool CLIENT_TOOL_MANAGEMENT_PASSWORD_GET = ClientTool._(
+      36, _omitEnumNames ? '' : 'CLIENT_TOOL_MANAGEMENT_PASSWORD_GET');
+  static const ClientTool CLIENT_TOOL_MANAGEMENT_PASSWORD_SET = ClientTool._(
+      37, _omitEnumNames ? '' : 'CLIENT_TOOL_MANAGEMENT_PASSWORD_SET');
+  static const ClientTool CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET = ClientTool._(
+      38, _omitEnumNames ? '' : 'CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET');
 
   static const $core.List<ClientTool> values = <ClientTool>[
     CLIENT_TOOL_UNSPECIFIED,
@@ -106,10 +128,21 @@ class ClientTool extends $pb.ProtobufEnum {
     CLIENT_TOOL_GNSS_REPORTING_GET,
     CLIENT_TOOL_GNSS_REPORTING_SET,
     CLIENT_TOOL_LUA_APP_UNINSTALL,
+    CLIENT_TOOL_CONTENT_AGE_GET,
+    CLIENT_TOOL_CONTENT_AGE_SET,
+    CLIENT_TOOL_DEVICE_FEATURES_GET,
+    CLIENT_TOOL_DEVICE_FEATURE_SET,
+    CLIENT_TOOL_USAGE_TIME_GET,
+    CLIENT_TOOL_USAGE_TIME_SET,
+    CLIENT_TOOL_AI_SAFETY_GET,
+    CLIENT_TOOL_AI_SAFETY_SET,
+    CLIENT_TOOL_MANAGEMENT_PASSWORD_GET,
+    CLIENT_TOOL_MANAGEMENT_PASSWORD_SET,
+    CLIENT_TOOL_MANAGEMENT_PASSWORD_RESET,
   ];
 
   static final $core.List<ClientTool?> _byValue =
-      $pb.ProtobufEnum.$_initByValueList(values, 27);
+      $pb.ProtobufEnum.$_initByValueList(values, 38);
   static ClientTool? valueOf($core.int value) =>
       value < 0 || value >= _byValue.length ? null : _byValue[value];
 

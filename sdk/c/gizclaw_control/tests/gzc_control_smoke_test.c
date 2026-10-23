@@ -1379,7 +1379,29 @@ static void test_lua_upload(void) {
   check(gzc_control_uninstall_lua_app(&client, &call, gzc_str_from_cstr("../demo")) == GZC_ERR_INVALID_ARGUMENT && stub.free_calls == calls, "reject unsafe uninstall before HTTP");
 }
 
+static void test_management_invoke_and_kv(void) {
+  stub_t stub = {0};
+  gzc_http_vtable_t http;
+  gzc_control_client_t client;
+  stub.status_code = 200;
+  stub.response_body = "{\"result\":{\"is_set\":false}}";
+  init_client(&client, &stub, &http);
+  uint8_t scratch[2048], response[2048];
+  gzc_control_call_t call;
+  check(gzc_control_call_init(&call, scratch, sizeof(scratch), response, sizeof(response)) == GZC_OK, "management call init");
+  gzc_str_t result;
+  check(gzc_control_invoke_device_tool(&client, &call, gzc_str_from_cstr("management.password.reset"), gzc_str_from_cstr("{}"), &result) == GZC_OK, "management invoke");
+  check(strcmp(stub.url, "https://ap.gizclaw.com/gizclaw/v1/device/tool/v0/invoke") == 0, "management invoke route");
+  check_str(result, "{\"is_set\":false}", "password reset actual false");
+  stub.response_body = "{\"online\":false,\"last_seen_at\":\"2026-10-22T00:00:00Z\",\"reported_kv\":{\"nil\":{\"value\":null,\"json_value\":\"null\",\"observed_at\":\"2026-10-22T00:00:00Z\"}}}";
+  check(gzc_control_get_device_reported_kv(&client, &call, &result) == GZC_OK, "read durable KV through runtime");
+  gzc_str_t entry = {0}, value = {0};
+  check(gzc_json_find_field(result, "nil", &entry) == GZC_OK && gzc_json_find_field(entry, "value", &value) == GZC_OK, "reported null key is present");
+  check_str(value, "null", "JSON null retained");
+}
+
 int main(void) {
+  test_management_invoke_and_kv();
   test_gnss_reporting();
   test_lua_upload();
   test_mhs_v0();

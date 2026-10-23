@@ -89,12 +89,12 @@ export function useWatchedPeers(intervalMs = 5000, paused = false) {
           label: peer.label,
           endpoint: peer.endpoint ?? defaultEndpoint,
           addedAt: Date.now(),
+          ...(peer.signedBearer ? { signedBearer: peer.signedBearer } : {}),
         };
         const index = merged.findIndex(
           (item) => peerId(item) === peerId(entry),
         );
-        if (index >= 0)
-          merged[index] = { ...merged[index], label: entry.label };
+        if (index >= 0) merged[index] = { ...merged[index], ...entry };
         else merged.push(entry);
       }
       persist(merged);
@@ -102,7 +102,9 @@ export function useWatchedPeers(intervalMs = 5000, paused = false) {
     [persist],
   );
 
-  const keys = peers.map(peerId).join(" ");
+  const keys = peers
+    .map((peer) => `${peerId(peer)}:${peer.signedBearer ?? ""}`)
+    .join(" ");
   useEffect(() => {
     const watched = list.current;
     if (paused || watched.length === 0) return;
@@ -117,6 +119,7 @@ export function useWatchedPeers(intervalMs = 5000, paused = false) {
               peer.endpoint,
               peer.publicKey,
               controller.signal,
+              peer.signedBearer,
             );
             if (controller.signal.aborted) return;
             const now = Date.now();

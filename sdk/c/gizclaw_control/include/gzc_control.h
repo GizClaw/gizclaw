@@ -204,6 +204,12 @@ int gzc_control_call_init(
     uint8_t *response,
     size_t response_cap);
 
+/* Read reported_kv from the existing device runtime API. The raw JSON object
+ * borrows call->response; empty means never reported. Values retain their JSON
+ * encoding, including null, false, zero, nested objects and arrays. */
+int gzc_control_get_device_reported_kv(gzc_control_client_t *client,
+                                       gzc_control_call_t *call, gzc_str_t *out_snapshot);
+
 /* --- Models ------------------------------------------------------------- */
 
 /* One API key owned by the bound device (`APIKey`). */
@@ -508,7 +514,8 @@ typedef enum {
   GZC_CONTROL_HWD_MIC = 5,
   GZC_CONTROL_HWD_DISPLAY = 6,
   GZC_CONTROL_HWD_LED = 7,
-  GZC_CONTROL_HWD_SPEAKER = 8
+  GZC_CONTROL_HWD_SPEAKER = 8,
+  GZC_CONTROL_HWD_NFC = 9
 } gzc_control_mhs_v0_hwd_t;
 
 /* Escaped strings borrow this caller-owned region; plain JSON and strings
@@ -924,7 +931,7 @@ int gzc_control_read_mhs_v0_hwd(
     gzc_control_mhs_v0_storage_t *storage,
     gzc_control_mhs_v0_hwd_result_t *out);
 
-/* Write one display, led or speaker HWD. value_json must be a valid JSON
+/* Write one display, led, speaker, modem or NFC HWD. value_json must be a valid JSON
  * object of that HWD's write shape. The result contains applied values. */
 int gzc_control_write_mhs_v0_hwd(
     gzc_control_client_t *client, gzc_control_call_t *call,
@@ -1046,6 +1053,15 @@ int gzc_control_update_device_firmware(gzc_control_client_t *client, gzc_control
 /* Delivers social.ping to the device. */
 int gzc_control_ping_device(gzc_control_client_t *client, gzc_control_call_t *call,
                             const gzc_control_social_ping_request_t *request);
+
+/* Invoke a predefined tool returned by tool list. The authoritative Server
+ * validates the registered argument/result schema. args_json is an object;
+ * out_result borrows the result JSON object from call->response. Strings and
+ * args are borrowed during the call. Sensitive arguments must never be logged.
+ * Typed wire messages are available in the generated device SDK bindings. */
+int gzc_control_invoke_device_tool(gzc_control_client_t *client,
+                                   gzc_control_call_t *call, gzc_str_t tool, gzc_str_t args_json,
+                                   gzc_str_t *out_result);
 
 /* --- Contacts ----------------------------------------------------------- */
 

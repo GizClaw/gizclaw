@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"iter"
 	"net"
 	"sync"
@@ -276,6 +277,41 @@ func (s *rpcStream) WriteRequestEnvelope(req *rpcapi.RPCRequest) error {
 	}
 	_, err = s.writeProtobufEnvelope(frame.Payload)
 	return err
+}
+
+// writeUnaryRequest keeps a small request's framing and EOS in one transport
+// write. Native WebRTC bindings can hand off a newly accepted channel between
+// observers while messages arrive; separate header/payload/EOS messages can
+// then be delivered out of order. Streaming requests retain their framing.
+func (s *rpcStream) writeUnaryRequest(req *rpcapi.RPCRequest) error {
+	frame, err := rpcapi.NewRequestFrame(req)
+	if err != nil {
+		return err
+	}
+	if len(frame.Payload) > rpcapi.MaxFrameSize {
+		if _, err := s.writeProtobufEnvelope(frame.Payload); err != nil {
+			return err
+		}
+		return s.WriteEOS()
+	}
+	var request bytes.Buffer
+	if err := rpcapi.WriteFrame(&request, frame); err != nil {
+		return err
+	}
+	if err := rpcapi.WriteEOS(&request); err != nil {
+		return err
+	}
+	if err := s.Context().Err(); err != nil {
+		return err
+	}
+	n, err := s.conn.Write(request.Bytes())
+	if err != nil {
+		return s.normalizeIOError(err)
+	}
+	if n != request.Len() {
+		return io.ErrShortWrite
+	}
+	return nil
 }
 
 func (s *rpcStream) ReadResponse() (*rpcapi.RPCResponse, error) {

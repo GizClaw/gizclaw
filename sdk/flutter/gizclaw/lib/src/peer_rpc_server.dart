@@ -10,6 +10,7 @@ import 'generated/rpc/gizclaw_rpc.pb.dart' as rpc;
 import 'generated/rpc/payload.pb.dart' as payload;
 import 'method_registry.dart';
 import 'payload_codec.dart';
+import 'management.dart';
 import 'rpc_frame.dart';
 import 'transport.dart';
 
@@ -658,7 +659,11 @@ class _InboundPeerRpcChannel {
     final handler = handlers?.tools[invocation.tool];
     final rpc.RpcResponse result;
     if (handler != null) {
-      result = _rpcPayloadResponse(request.id, name, await handler(arguments));
+      final response = await handler(arguments);
+      if (!validManagementResult(arguments, response)) {
+        throw const FormatException('invalid management result');
+      }
+      result = _rpcPayloadResponse(request.id, name, response);
     } else {
       result = switch (name) {
         'info.get' => await _getClientInfo(inner),
@@ -1302,6 +1307,14 @@ bool _validMhsWrite(payload.ClientMhsV0WriteRequest request) {
         final value = payload.LedHwdWriteRequest.fromBuffer(request.payload);
         return (value.hasEnabled() || value.hasBrightnessPercent()) &&
             (!value.hasBrightnessPercent() || value.brightnessPercent <= 100);
+      case payload.ClientHwd.CLIENT_HWD_MODEM:
+        return payload.ModemHwdWriteRequest.fromBuffer(
+          request.payload,
+        ).hasEnabled();
+      case payload.ClientHwd.CLIENT_HWD_NFC:
+        return payload.NfcHwdWriteRequest.fromBuffer(
+          request.payload,
+        ).hasEnabled();
       case payload.ClientHwd.CLIENT_HWD_SPEAKER:
         final value = payload.SpeakerHwdWriteRequest.fromBuffer(
           request.payload,
@@ -1345,8 +1358,16 @@ bool _validMhsReadResponse(
                 value.hasRegistered() ||
                 value.hasRat() ||
                 value.hasRssiDbm() ||
-                value.hasSignalLevel()) &&
+                value.hasSignalLevel() ||
+                value.hasEnabled() ||
+                value.hasPowered()) &&
             utf8.encode(value.rat).length <= 16;
+      case payload.ClientHwd.CLIENT_HWD_NFC:
+        final value = payload.NfcHwdReadResponse.fromBuffer(result.payload);
+        return (value.hasEnabled() ||
+                value.hasCardPresent() ||
+                value.hasLastRead()) &&
+            (!value.hasLastRead() || validNfcSnapshot(value.lastRead));
       case payload.ClientHwd.CLIENT_HWD_BATTERY:
         final value = payload.BatteryHwdReadResponse.fromBuffer(result.payload);
         return (value.hasPercent() ||
@@ -1382,6 +1403,19 @@ bool _validMhsWriteResponse(
 ) {
   if (result.payload.isEmpty) return false;
   try {
+    if (hwd == payload.ClientHwd.CLIENT_HWD_MODEM) {
+      final value = payload.ModemHwdWriteResponse.fromBuffer(result.payload);
+      return value.hasApplied() &&
+          value.applied.hasEnabled() &&
+          utf8.encode(value.applied.rat).length <= 16;
+    }
+    if (hwd == payload.ClientHwd.CLIENT_HWD_NFC) {
+      final value = payload.NfcHwdWriteResponse.fromBuffer(result.payload);
+      return value.hasApplied() &&
+          value.applied.hasEnabled() &&
+          (!value.applied.hasLastRead() ||
+              validNfcSnapshot(value.applied.lastRead));
+    }
     final applied = switch (hwd) {
       payload.ClientHwd.CLIENT_HWD_DISPLAY =>
         payload.DisplayHwdWriteResponse.fromBuffer(
@@ -1417,6 +1451,12 @@ bool _validToolArguments(GeneratedMessage request) {
       utf8.encode(value).length <= max &&
       !value.contains('\u0000');
   return switch (request) {
+    payload.ClientContentAgeSetRequest r => text(r.optionId, 64),
+    payload.ClientDeviceFeatureSetRequest r =>
+      text(r.featureId, 64) && r.hasEnabled(),
+    payload.ClientUsageTimeSetRequest r => r.hasLimitSeconds(),
+    payload.ClientAISafetySetRequest r => text(r.level, 64),
+    payload.ClientManagementPasswordSetRequest r => text(r.password, 128),
     payload.ClientGnssReportingSetRequest r => r.hasEnabled(),
     payload.ClientLuaAppInstallRequest r => _validLuaAppInstall(r),
     payload.ClientLuaAppRunRequest r => _validLuaAppRun(r),

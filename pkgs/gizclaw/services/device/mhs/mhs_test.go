@@ -70,7 +70,7 @@ func TestHwdOpenAPIAndProtobufRegistryAgree(t *testing.T) {
 	}
 	hwds := contract.Components.Schemas["MhsV0Device"].Properties["hwd"].Enum
 	writes := contract.Components.Schemas["MhsV0WriteRequest"].Discriminator.Mapping
-	if len(hwds) != rpcpb.ClientHwd(0).Descriptor().Values().Len()-1 || len(writes) != 3 {
+	if len(hwds) != rpcpb.ClientHwd(0).Descriptor().Values().Len()-1 || len(writes) != 5 {
 		t.Fatalf("HWD counts differ: manifest=%d proto=%d writable=%d", len(hwds), rpcpb.ClientHwd(0).Descriptor().Values().Len()-1, len(writes))
 	}
 	for _, name := range hwds {
@@ -166,5 +166,44 @@ func TestReadAndWriteResponse(t *testing.T) {
 	applied, err := write.AsMhsV0DisplayReadResult()
 	if err != nil || applied.Value.BrightnessPercent == nil || *applied.Value.BrightnessPercent != 85 {
 		t.Fatalf("write result: %+v, %v", applied, err)
+	}
+}
+
+func TestModemAndNFCProtocolProjection(t *testing.T) {
+	manifest := apitypes.MhsV0Manifest{Devices: []apitypes.MhsV0Device{{Id: "nfc.left", Hwd: "nfc"}, {Id: "nfc.right", Hwd: "nfc"}, {Id: "modem.main", Hwd: "modem"}}}
+	if err := ValidateManifest(manifest); err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"nfc.left", "nfc.right"} {
+		request, err := ReadRequest(manifest, apitypes.MhsV0ReadRequest{Id: id, Hwd: "nfc"})
+		if err != nil || request.Id != id {
+			t.Fatal("instance identity lost")
+		}
+	}
+	modem := &rpcpb.ClientMhsV0ReadRequest{Id: "modem.main", Hwd: rpcpb.ClientHwd_CLIENT_HWD_MODEM}
+	payload, _ := proto.Marshal(&rpcpb.ModemHwdReadResponse{Enabled: new(false), Registered: new(false)})
+	result, err := ReadResponse(modem, &rpcpb.ClientMhsV0ReadResponse{Payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := result.AsMhsV0ModemReadResult()
+	if err != nil || value.Value.Enabled == nil || *value.Value.Enabled || value.Value.Powered != nil {
+		t.Fatal("lost modem unknown vs false")
+	}
+	snapshot := &rpcpb.NfcReadSnapshot{ReadAtUnixMs: 1000, RawData: []byte{0, 255}, Result: "failed", ErrorCode: new("IO")}
+	payload, _ = proto.Marshal(&rpcpb.NfcHwdReadResponse{CardPresent: new(false), LastRead: snapshot})
+	nfc := &rpcpb.ClientMhsV0ReadRequest{Id: "nfc.left", Hwd: rpcpb.ClientHwd_CLIENT_HWD_NFC}
+	result, err = ReadResponse(nfc, &rpcpb.ClientMhsV0ReadResponse{Payload: payload})
+	if err != nil {
+		t.Fatal(err)
+	}
+	nfcValue, err := result.AsMhsV0NfcReadResult()
+	if err != nil || nfcValue.Value.LastRead == nil || nfcValue.Value.CardPresent == nil || *nfcValue.Value.CardPresent || nfcValue.Value.LastRead.Result != "failed" {
+		t.Fatal("NFC cached failure projection lost")
+	}
+	write := &rpcpb.ClientMhsV0WriteRequest{Id: "modem.main", Hwd: modem.Hwd}
+	payload, _ = proto.Marshal(&rpcpb.ModemHwdWriteResponse{Applied: &rpcpb.ModemHwdReadResponse{Powered: new(false)}})
+	if _, err = WriteResponse(write, &rpcpb.ClientMhsV0WriteResponse{Payload: payload}); err == nil {
+		t.Fatal("missing applied switch accepted")
 	}
 }

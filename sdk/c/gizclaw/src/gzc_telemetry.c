@@ -488,3 +488,85 @@ int gzc_client_send_ota_telemetry(gzc_client_t *client, const gzc_telemetry_ota_
   gzc_buf_free(&payload, platform);
   return rc;
 }
+
+#include "gzc_telemetry_json.h"
+
+static size_t telemetry_varint_size(uint64_t value) {
+  size_t size = 1;
+  while (value >= 128) {
+    value >>= 7;
+    size++;
+  }
+  return size;
+}
+
+int gzc_telemetry_encode_kv_frame(const gzc_telemetry_kv_frame_t *frame, const gzc_platform_t *platform, gzc_buf_t *out_payload) {
+  if (out_payload == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_buf_reset(out_payload);
+  if (frame == NULL || frame->entries == NULL || frame->entry_count == 0 || frame->entry_count > GZC_KV_FRAME_MAX_ENTRIES)
+    return GZC_ERR_INVALID_ARGUMENT;
+  size_t encoded_size = frame->sequence == 0 ? 0 : 1 + telemetry_varint_size(frame->sequence);
+  if (frame->observed_at_unix_ms != 0)
+    encoded_size += 1 + telemetry_varint_size((uint64_t)frame->observed_at_unix_ms);
+  for (size_t i = 0; i < frame->entry_count; i++) {
+    const gzc_telemetry_kv_t *entry = &frame->entries[i];
+    if (entry->key.len == 0 || entry->key.len > GZC_KV_KEY_MAX_BYTES || !telemetry_utf8(entry->key) ||
+        (entry->delete_key ? entry->json_value.len != 0 : !telemetry_json(entry->json_value)))
+      return GZC_ERR_INVALID_ARGUMENT;
+    size_t body = 1 + telemetry_varint_size(entry->key.len) + entry->key.len;
+    body += entry->delete_key ? 2 : 1 + telemetry_varint_size(entry->json_value.len) + entry->json_value.len;
+    size_t observation = 2 + telemetry_varint_size(body) + body;
+    if (entry->observed_at_delta_ms != 0)
+      observation += 1 + telemetry_varint_size((uint64_t)(int64_t)entry->observed_at_delta_ms);
+    encoded_size += 1 + telemetry_varint_size(observation) + observation;
+    if (encoded_size > GZC_KV_FRAME_MAX_BYTES)
+      return GZC_ERR_INVALID_ARGUMENT;
+  }
+  const gzc_platform_t *alloc = platform == NULL ? gzc_default_platform() : platform;
+  int rc = GZC_OK;
+  if (frame->sequence != 0)
+    rc = telemetry_append_uint32(out_payload, alloc, 1, frame->sequence);
+  if (rc == GZC_OK && frame->observed_at_unix_ms != 0)
+    rc = telemetry_append_int64(out_payload, alloc, 2, frame->observed_at_unix_ms);
+  for (size_t i = 0; rc == GZC_OK && i < frame->entry_count; i++) {
+    const gzc_telemetry_kv_t *entry = &frame->entries[i];
+    gzc_buf_t body, observation;
+    gzc_buf_init(&body);
+    gzc_buf_init(&observation);
+    rc = telemetry_append_string(&body, alloc, 1, entry->key);
+    if (rc == GZC_OK)
+      rc = entry->delete_key ? telemetry_append_bool(&body, alloc, 3, true) : telemetry_append_string(&body, alloc, 2, entry->json_value);
+    if (rc == GZC_OK && entry->observed_at_delta_ms != 0)
+      rc = telemetry_append_int32(&observation, alloc, 1, entry->observed_at_delta_ms);
+    if (rc == GZC_OK)
+      rc = telemetry_append_message(&observation, alloc, 17, &body);
+    if (rc == GZC_OK)
+      rc = telemetry_append_message(out_payload, alloc, 3, &observation);
+    gzc_buf_free(&body, alloc);
+    gzc_buf_free(&observation, alloc);
+    if (out_payload->len > GZC_KV_FRAME_MAX_BYTES)
+      rc = GZC_ERR_INVALID_ARGUMENT;
+  }
+  if (rc != GZC_OK)
+    gzc_buf_reset(out_payload);
+  return rc;
+}
+
+int gzc_client_send_kv_telemetry(gzc_client_t *client, const gzc_telemetry_kv_frame_t *frame) {
+  if (client == NULL || frame == NULL)
+    return GZC_ERR_INVALID_ARGUMENT;
+  const gzc_platform_t *platform = gzc_client_platform(client);
+  gzc_telemetry_kv_frame_t stamped = *frame;
+  if (stamped.observed_at_unix_ms == 0 && platform != NULL && platform->time_unix_ms != NULL)
+    stamped.observed_at_unix_ms = platform->time_unix_ms(platform->userdata);
+  if (stamped.observed_at_unix_ms <= 0)
+    return GZC_ERR_INVALID_ARGUMENT;
+  gzc_buf_t payload;
+  gzc_buf_init(&payload);
+  int rc = gzc_telemetry_encode_kv_frame(&stamped, platform, &payload);
+  if (rc == GZC_OK)
+    rc = gzc_client_send_packet(client, GZC_PROTOCOL_TELEMETRY, payload.data, payload.len);
+  gzc_buf_free(&payload, platform);
+  return rc;
+}
