@@ -20,7 +20,7 @@ source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 export GIZCLAW_E2E_CREDENTIAL_FILE="$env_file"
 # Load only this lane's real providers and resources, not unrelated fixtures.
-export GIZCLAW_E2E_RESOURCE_PATHS="00-credentials/01-volc.yaml 01-tenants/01-volc.yaml 01-tenants/02-volc-ark.yaml 03-models/01-volc-tts.yaml 03-models/02-volc-asr.yaml 03-models/11-doubao-lite-audio-chat.yaml 04-workflows/46-eino-native-audio-functions.yaml 09-giztest/04-native-audio-functions.yaml"
+export GIZCLAW_E2E_RESOURCE_PATHS="00-credentials/01-volc.yaml 01-tenants/01-volc.yaml 01-tenants/02-volc-ark.yaml 02-voices/01-chat.yaml 03-models/01-volc-tts.yaml 03-models/02-volc-asr.yaml 03-models/11-doubao-lite-audio-chat.yaml 04-workflows/46-eino-native-audio-functions.yaml 09-giztest/04-native-audio-functions.yaml"
 
 cleanup() {
   local status=$?
