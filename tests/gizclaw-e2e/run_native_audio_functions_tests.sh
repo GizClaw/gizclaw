@@ -76,7 +76,7 @@ import subprocess
 import sys
 root, output, binary = map(Path, sys.argv[1:4])
 paths = ["pkgs/genx/agentkit/audiodock/dock.go", "pkgs/genx/agentkit/audiodock/input_text.go", "pkgs/genx/transformers/eino/builder.go", "pkgs/genx/transformers/eino/runtime_state.go", "pkgs/genx/transformers/eino/transformer.go", "pkgs/gizclaw/services/ai/workflow/agents/eino/factory.go", "tests/gizclaw-e2e/run_native_audio_functions_tests.sh", "tests/gizclaw-e2e/testdata/native-audio-functions/roundtrip.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml", "tests/gizclaw-e2e/testdata/resources/03-models/11-doubao-lite-audio-chat.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml"]
-paths += ["tests/gizclaw-e2e/testdata/native-audio-functions/first-response.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/04-native-audio-functions.yaml"]
+paths += ["cmd/internal/commands/giztest/peer_stream.go", "cmd/internal/commands/giztest/peer_stream_native_probe_test.go", "tests/gizclaw-e2e/testdata/native-audio-functions/first-response.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/04-native-audio-functions.yaml"]
 output.write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
     "dirty": bool(subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).strip()),
