@@ -214,6 +214,9 @@ func TestModelRequestBindingsConcurrentPeerSnapshots(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if _, err := json.Marshal(cfg); err != nil {
+		t.Fatalf("process-local resolver broke config serialization: %v", err)
+	}
 	generator, err := (peergenx.DefaultBuilder{HTTPClient: f.upstream.Client()}).BuildGenerator(t.Context(), cfg)
 	if err != nil {
 		t.Fatal(err)

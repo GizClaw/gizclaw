@@ -31,7 +31,7 @@ type GeneratorConfig struct {
 	Tenant     Tenant
 	Credential apitypes.Credential
 	// RequestHeaders resolves fresh metadata from the invocation context.
-	RequestHeaders func(context.Context) (http.Header, error)
+	RequestHeaders func(context.Context) (http.Header, error) `json:"-"`
 }
 
 // EmbeddingConfig contains the resources resolved for one embedding model.
