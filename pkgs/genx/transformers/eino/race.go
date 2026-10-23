@@ -68,7 +68,7 @@ func compileRace(
 		graphs[index] = graph
 	}
 	return func(ctx context.Context, parent *runState) (map[string]any, map[string]bool, error) {
-		inputs, err := parent.nodeInputs(node.Inputs)
+		inputs, err := parent.nodeInputs(ctx, node.Inputs)
 		if err != nil {
 			return nil, nil, err
 		}

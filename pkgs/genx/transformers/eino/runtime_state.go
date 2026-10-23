@@ -1,6 +1,7 @@
 package eino
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -18,6 +19,7 @@ const maxStateValueDepth = 64
 type graphInput struct {
 	ObservationID string
 	Text          string
+	ResolveText   func(context.Context) (string, error)
 	Messages      []*schema.Message
 	Parts         []any
 	History       []*schema.Message
@@ -115,13 +117,14 @@ func cloneMessages(messages []*schema.Message) []*schema.Message {
 	return result
 }
 
-func (state *runState) binding(binding Binding) (any, error) {
+func (state *runState) binding(ctx context.Context, binding Binding) (any, error) {
 	source := strings.TrimSpace(binding.From)
+	if source == "input.text" {
+		return state.inputText(ctx)
+	}
 	state.mu.RLock()
 	defer state.mu.RUnlock()
 	switch source {
-	case "input.text":
-		return state.input.Text, nil
 	case "input.messages":
 		return cloneMessages(state.input.Messages), nil
 	case "input.parts":
@@ -140,10 +143,17 @@ func (state *runState) binding(binding Binding) (any, error) {
 	return cloneValue(value)
 }
 
-func (state *runState) nodeInputs(bindings map[string]Binding) (map[string]any, error) {
+func (state *runState) inputText(ctx context.Context) (string, error) {
+	if state.input.ResolveText != nil {
+		return state.input.ResolveText(ctx)
+	}
+	return state.input.Text, nil
+}
+
+func (state *runState) nodeInputs(ctx context.Context, bindings map[string]Binding) (map[string]any, error) {
 	result := make(map[string]any, len(bindings))
 	for port, binding := range bindings {
-		value, err := state.binding(binding)
+		value, err := state.binding(ctx, binding)
 		if err != nil {
 			return nil, fmt.Errorf("input %q: %w", port, err)
 		}

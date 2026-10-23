@@ -17,7 +17,7 @@ dock, err := audiodock.New(audiodock.Config{
 })
 ```
 
-`Config.AgentAudioInput` 选择给 Agent 原始音频，ASR 同时独立转写同一份音频。转写结果只从 AudioDock 的 transcript route 输出，不再作为新的 Agent 文本 turn。AudioDock 在 Agent 回复前声明用户转写 route，确保迟到的 ASR 仍按用户、回复顺序记录；回复首字不等待识别完成。缺省时，ASR 最终文本作为 Agent 输入；interim 仅供客户端展示。ASR 的选择与对话模型的选择相互独立。
+`Config.AgentAudioInput` 选择给 Agent 原始音频，ASR 同时独立转写同一份音频。转写结果从 AudioDock 的 transcript route 输出，不再作为新的 Agent 文本 turn。原音 chunk 的进程内 `InputText(ctx)` callback 提供同一输入的定稿文本；它只在调用时等待识别，排除 interim、合并有序定稿段，并保留取消与 ASR 错误。新输入会中断尚未完成的旧 callback，迟到的旧转写不能满足新输入。AudioDock 在 Agent 回复前声明用户转写 route，确保迟到的 ASR 仍按用户、回复顺序记录；回复首字不等待识别完成。缺省时，ASR 最终文本作为 Agent 输入；interim 仅供客户端展示。ASR 的选择与对话模型的选择相互独立。
 
 文本输入直接进入 Agent。音频输入以原有 StreamID 增量送入 ASR；缺省时，ASR 完成的 transcript 作为一轮文本输入送入 Agent。`StreamCtrl.TextInterim` 标记整句替换的中间识别假设，只用于客户端 transcript 显示；Audio Dock 转交 Agent 时清空这类 chunk 的文本，保留其 StreamID、BOS/EOS 与错误边界。未标记的定稿文本仍按顺序追加，一轮内多个定稿段不做去重或整轮替换；只有中间结果就被打断时不提交 user turn。该标记为进程内属性，`Clone` 保留它，wire 编码不暴露它。Agent 的文本输出立即可 pull，同时已交付文本会复制给 TTS。TTS 音频和文本共用 response StreamID，但各 MIME channel 独立发送 EOS。
 

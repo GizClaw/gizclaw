@@ -74,7 +74,14 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if err != nil {
 		return nil, err
 	}
-	audioInput, err := resolveAudioInput(ctx, service, graph, spec.ASRModel, inputMode)
+	requestedAudio := apitypes.EinoWorkflowSpecAudioInputAuto
+	if public.AudioInput != nil {
+		requestedAudio = *public.AudioInput
+	}
+	if requestedAudio == apitypes.EinoWorkflowSpecAudioInputModel && spec.ToolVerificationModel != "" {
+		return nil, errors.New("eino: audio_input model does not support semantic Tool verification")
+	}
+	audioInput, err := resolveAudioInput(ctx, service, graph, spec.ASRModel, inputMode, requestedAudio)
 	if err != nil {
 		return nil, err
 	}
@@ -254,11 +261,30 @@ func resolveEinoInputMode(parameters *apitypes.WorkspaceParameters) (apitypes.Wo
 
 // resolveAudioInput selects independent ASR first. A PTT Graph that can
 // consume audio directly receives original audio alongside that same ASR.
-func resolveAudioInput(ctx context.Context, service *peergenx.Service, graph genxeino.GraphDefinition, asrModel string, inputMode apitypes.WorkspaceInputMode) (apitypes.AudioInputPath, error) {
+func resolveAudioInput(ctx context.Context, service *peergenx.Service, graph genxeino.GraphDefinition, asrModel string, inputMode apitypes.WorkspaceInputMode, requested apitypes.EinoWorkflowSpecAudioInput) (apitypes.AudioInputPath, error) {
+	if requested == apitypes.EinoWorkflowSpecAudioInputModel {
+		if asrModel == "" || inputMode == apitypes.WorkspaceInputModeRealtime {
+			return "", errors.New("eino: audio_input model requires PTT input and a Profile ASR Model")
+		}
+		aliases, err := einoconfig.AudioInputModels(graph)
+		if err != nil {
+			return "", err
+		}
+		for _, alias := range aliases {
+			capable, err := service.AcceptsAudioInput(ctx, "model/"+alias)
+			if err != nil {
+				return "", fmt.Errorf("eino: resolve input Model %q: %w", alias, err)
+			}
+			if !capable {
+				return "", fmt.Errorf("eino: audio_input model requires audio-capable chat Model %q", alias)
+			}
+		}
+		return apitypes.AudioInputPathModel, nil
+	}
 	if asrModel == "" {
 		return "", nil
 	}
-	if inputMode == apitypes.WorkspaceInputModeRealtime {
+	if inputMode == apitypes.WorkspaceInputModeRealtime || requested == apitypes.EinoWorkflowSpecAudioInputAsr {
 		return apitypes.AudioInputPathAsr, nil
 	}
 	alias, direct := graphAudioModel(graph)

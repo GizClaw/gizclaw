@@ -43,6 +43,11 @@ type MessageChunk struct {
 	// this chunk's Text part only when recording delivered conversation History.
 	// It is process-local and must never be sent to a provider or peer.
 	HistoryText *Text `json:"-"`
+
+	// InputText resolves this audio input's independent, final transcription.
+	// Consumers wait only when they need text; the audio payload remains intact.
+	// The callback is process-local, scoped to this input, and cancellation-aware.
+	InputText func(context.Context) (string, error) `json:"-"`
 }
 
 // StreamCtrl controls Stream routing and state.
@@ -166,8 +171,9 @@ func NewTextEndOfStream() *MessageChunk {
 // Clone returns a deep copy of the MessageChunk.
 func (c *MessageChunk) Clone() *MessageChunk {
 	chk := &MessageChunk{
-		Role: c.Role,
-		Name: c.Name,
+		Role:      c.Role,
+		Name:      c.Name,
+		InputText: c.InputText,
 	}
 	if c.HistoryText != nil {
 		text := *c.HistoryText

@@ -23,6 +23,9 @@ import (
 // construct. Runtime model resolution and Store capability checks remain
 // AgentHost responsibilities.
 func Validate(public apitypes.EinoWorkflowSpec) error {
+	if public.AudioInput != nil && !public.AudioInput.Valid() {
+		return fmt.Errorf("audio_input: unsupported value %q", *public.AudioInput)
+	}
 	if public.Conversation != nil && public.Conversation.Initiative != nil && !public.Conversation.Initiative.Valid() {
 		return fmt.Errorf("conversation.initiative: unsupported value %q", *public.Conversation.Initiative)
 	}
@@ -63,6 +66,12 @@ func Validate(public apitypes.EinoWorkflowSpec) error {
 			Store: validationMemoryStore{},
 			Scope: memory.Scope{AppID: "workflow-validation"},
 		},
+	}
+	config.AudioInput = public.AudioInput != nil && *public.AudioInput == apitypes.EinoWorkflowSpecAudioInputModel
+	if config.AudioInput {
+		if _, err := AudioInputModels(graph); err != nil {
+			return err
+		}
 	}
 	if public.Limits != nil && public.Limits.MaxOutputBytes != nil {
 		config.Limits.MaxOutputBytes = *public.Limits.MaxOutputBytes

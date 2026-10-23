@@ -101,7 +101,11 @@ Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owne
 
 Eino 的 `VoiceAdapter` 只配置回复 Voice。RuntimeProfile 的 Workflow binding 分别通过 `ptt_asr_model` 与 `realtime_asr_model` 选择独立 ASR；旧 `eino.voice_adapter.asr_model` 接受但忽略，Workspace 不能覆盖 Profile 的选择。
 
-AudioDock 统一驱动 ASR 并旁路发布用户 transcript。PTT 中，当绑定的对话 Model 接受音频，且 Graph 只使用 Prompt 与一个 ChatModel、不读取 `input.text` 时，同一份录音直接送入 Eino，ASR 不阻塞模型回复。需要当前文本的 Script、Memory、控制逻辑或 Tool 语义校验使用 ASR 最终文本，再执行原图。对话 Model 的音频能力与 ASR 后端独立。
+AudioDock 统一驱动 ASR 并旁路发布用户 transcript。PTT 中，当绑定的对话 Model 接受音频，且 Graph 只使用 Prompt 与一个 ChatModel、不读取 `input.text` 时，同一份录音直接送入 Eino，ASR 不阻塞模型回复。缺省选择 `audio_input: auto` 时，需要当前文本的 Script、Memory、控制逻辑或 Tool 语义校验使用 ASR 最终文本，再执行原图。对话 Model 的音频能力与 ASR 后端独立。
+
+Workflow 的 `spec.eino.audio_input` 可显式选择 `model` 或 `asr`。`model` 允许带函数和多个 ChatModel 的 PTT Graph 保留原音，且所有 ChatModel（含 nested Graph）必须支持音频，图中必须绑定 `input.messages`。函数读取 `input.text` 时才等待同一轮 ASR 定稿；回复模型通过 typed messages 与 Prompt placeholder 接收原音和历史，不经 Script 的文本消息投影。前置函数依赖转写时，该路径会等待；后置函数不会阻塞模型首字。转写失败会传给依赖它的节点，不生成空白成功结果。显式 `model` 缺少 ASR、用于 realtime、配置 `continue_from` 或语义 Tool 校验时会拒绝构造，不静默降级。`asr` 强制文字路径；省略或 `auto` 保留原有选择。普通文字输入仍按原图执行。
+
+可复现的原音加后置函数资源与两轮 Giztest 位于 `tests/gizclaw-e2e/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml` 与 `tests/gizclaw-e2e/giztest/eino-native-audio-functions.push-to-talk-transcript.giztest.yaml`；回复直接流式输出，函数只在结尾读取定稿，并保留首字 2 秒、首音 3 秒及 History 检查。
 
 Eino 音频输入要求 Profile 至少配置一个 ASR alias；当前模式的字段省略或为 `null` 时使用另一模式的 alias。两者都未配置时仍支持普通文本，非空音频产生 non-retryable 的 `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS。`support_text_only: false` 声明已绑定 Model 的音频能力；通用 [OpenAI Adapter](../../genx/generators/openai#音频输入) 负责请求格式转换，不追加转写请求。
 
