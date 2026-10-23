@@ -38,13 +38,6 @@ type ChatModelNode struct {
 	Model       string
 	Temperature *float32
 	MaxTokens   *int
-	// AudioTranscript makes this node the transcriber of audio user turns.
-	// Its ChatModel component reports the audio transcript with TranscriptMessage
-	// anywhere in the reply stream. The node publishes it as the turn's user
-	// text, separately from assistant reply content. Obtaining the transcript
-	// belongs to the component and its model. At most one root Graph node may
-	// set it.
-	AudioTranscript bool
 }
 
 // PromptNode formats ordered Eino messages.

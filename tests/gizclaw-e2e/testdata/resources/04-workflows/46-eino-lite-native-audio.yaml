@@ -1,5 +1,5 @@
-# Native audio goes directly to the Lite chat Model. This Workflow has no
-# application prompt, ASR Model or reply Voice; the Model adapter owns ASR.
+# AudioDock sends native audio to the chat Model and transcribes the same
+# recording through the Profile-selected ASR. This Workflow owns no ASR prompt.
 apiVersion: gizclaw.admin/v1alpha1
 kind: Workflow
 metadata:

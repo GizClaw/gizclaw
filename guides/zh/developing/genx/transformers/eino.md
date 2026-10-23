@@ -73,31 +73,11 @@ Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，�
 
 ### 音频 turn
 
-`Config.TranscribeInput` 由宿主提供原生 Model 转写能力，不改变 Graph 定义。Push-to-Talk 音频到达 EOS 后先执行该回调，发布同一 StreamID 的用户转写，再以普通文本初始化 `input.text` 与 `input.messages`，然后才执行 Memory recall 和 Graph。失败或取消不执行 Graph；空转写结束该轮且不生成回复。后续 Observe 与 History 使用同一份用户文本，普通文本轮不调用转写。回调与 Graph 的 `AudioTranscript` receiver 互斥，宿主必须选择一种接入方式。
+宿主通过 `Config.AudioInput` 启用完整音频 turn。原始音频随 `input.messages` 进入 Graph，`input.text` 为空；ChatModel 只生成回复，不负责转写。没有启用时，Transformer 接收上游 ASR 的文本 turn。需要当前话语文字的 Script、Memory recall 或 Tool 语义检查由宿主选择 ASR 文本输入。
 
-原生音频输入的 MIME EOS 启动该轮处理；随后同一输入的成功纯控制 EOS 由 Eino 消费，不透传到输出的转写 route。这样，迟到的模型转写与原音保持关联，用户记录排在本轮回复之前；同一轮的多条合法回复仍各自保存，不限制一轮的记录数量。错误 EOS 与无关 route 的边界继续按原路径传递。
+音频 MIME EOS 启动当前轮；随后同一输入的成功纯控制 EOS 被消费。新音频 route 打断上一轮，`interrupted` EOS 丢弃该轮，其他错误沿 Stream 传播。每个 Blob 保留为当前 user message 的一个音频 part。音频 turn 中以 `input.text` 为 query 的 recall 跳过；有独立文本 query 的 recall 仍可执行。
 
-音频 turn 完成时，Eino 发出仅供 History 使用的输入结束边界。空转写或模型未提供转写时，原音也会在 session 保持打开期间保存并可回放；被中断且没有定稿文本的音频不保存。
-
-宿主也可在内部 Graph 配置中设置 receiver，直接将音频交给 ChatModel，Graph 可以早于转写开始执行。GizClaw 仅为不依赖当前文本的简单图自动推导这种集成；持久化 Workflow Schema 不提供 receiver 字段。以下描述 Go API 的直接音频模式：
-
-`ChatModelNode.AudioTranscript` 让 root Graph 中的一个 ChatModel node 转写音频 user turn；在嵌套 Graph 中设置或由多个 node 设置都会在 `New` 失败。Graph 含该 node 时，普通 user `audio/*` route（不含 `history.user_audio` sideband）以第一个音频 chunk 开始、以 EOS 完成一轮：新的音频 route interrupt 上一轮，`interrupted` EOS 丢弃该 route，其他 EOS error 使 session 失败。每个 Blob 作为一个 audio part 留在当前 user message 中，因此该 node 必须通过 `input.messages` 收到它；该轮 `input.text` 为空，以它为 query 的 Memory recall 被跳过（见下文）。没有该 node 且未配置 `TranscribeInput` 的 Graph 只接受文本 turn。
-
-音频轮中，Transformer 先以音频 input 的 StreamID 发布 `history.user_audio` sideband，使 History 中的用户条目排在回复之前。该 node 调用的 ChatModel component 在回复流中任意位置用 `TranscriptMessage` 构造的 stream message 报告这段音频的 transcript；怎样得到 transcript 由 component 与其背后的 Model 负责（GizClaw 的 GenX 适配把 Generator 的 `genx.InputTranscriptLabel` chunk 转成该 message）。Node 把第一次报告的 transcript 作为本轮 user text 写入 History 与 Memory observe，并以同一 StreamID 发布 `transcript` label 的 user text route，形状与 ASR stage 相同；Tool round 重新报告的 transcript 被忽略。没有报告 transcript 的轮次照常发布回复，user text 为空，History 只保存用户音频和回复。History 不保存音频 part，后续轮次不再发送音频。
-
-Memory recall 在模型运行之前执行，此时音频轮的 transcript 还不存在。`QueryFrom` 为 `input.text` 的 recall（`Config.Memory.Recall` 与 `MemoryRecallNode`）在音频轮得到空 query，把 output 置为空字符串且不调用 Store，不会使该轮失败。需要在音频轮召回的 Graph 可以把 `QueryFrom` 指向一个 string State field，并在 recall node 之前用 Script 从 `history.messages` 推导 query，例如文本轮使用当前文本，音频轮回退到上一条 user 文本：
-
-```python
-def run(input):
-    query = input["text"]
-    if query == "":
-        for message in input["history"]:
-            if message["role"] == "user" and message["content"] != "":
-                query = message["content"]
-    return {"query": query}
-```
-
-该 Script node 绑定 `text: input.text`、`history: history.messages`，把 `query` 输出到 `MemoryRecallNode.QueryFrom` 引用的 field。这样召回依据的是上一轮的话题而不是当前这句话；第一轮音频没有可用的 History，仍然不召回。需要按当前话语召回时，宿主应配置 `Config.TranscribeInput`，或在 Transformer 之前用独立 ASR 转成文本轮。GizClaw 对带 Memory 或 Script 的原图自动选择前置转写，不要求修改原图。
+ASR、用户 transcript 和用户原音记录由外层 [AudioDock](../agentkit#audio-dock) 与宿主 History 管理。Eino 不发布用户转写，也不额外发起模型转写请求。GizClaw 的 factory 为可直接消费音频的 PTT 图启用音频输入；需要文字的图及连续 realtime 输入使用独立 ASR 的最终文本。
 
 ### Match
 

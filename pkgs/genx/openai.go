@@ -624,9 +624,8 @@ func (g *OpenAIGenerator) convModelMessage(msg *Message) (openai.ChatCompletionM
 
 func (g *OpenAIGenerator) convUserMessage(msg *Message) (openai.ChatCompletionMessageParamUnion, error) {
 	var (
-		mp3  bytes.Buffer
-		wav  bytes.Buffer
-		text bytes.Buffer
+		audio []*Blob
+		text  bytes.Buffer
 	)
 	for _, c := range msg.Payload.(Contents) {
 		switch v := c.(type) {
@@ -636,20 +635,13 @@ func (g *OpenAIGenerator) convUserMessage(msg *Message) (openai.ChatCompletionMe
 			if g.TextOnly {
 				return openai.ChatCompletionMessageParamUnion{}, fmt.Errorf("model %v support text message only", g.Model)
 			}
-			switch v.MIMEType {
-			case "audio/mp3", "audio/mpeg":
-				mp3.Write(v.Data)
-			case "audio/wav":
-				wav.Write(v.Data)
-			default:
-				return openai.ChatCompletionMessageParamUnion{}, fmt.Errorf("unsupported message type: %T", v)
-			}
+			audio = append(audio, v)
 		}
 	}
 
 	var contents []openai.ChatCompletionContentPartUnionParam
 	switch {
-	case g.TextOnly, mp3.Len() == 0 && wav.Len() == 0:
+	case g.TextOnly, len(audio) == 0:
 		if text.Len() == 0 {
 			return openai.ChatCompletionMessageParamUnion{}, errors.New("user message must contain text")
 		}
@@ -666,18 +658,37 @@ func (g *OpenAIGenerator) convUserMessage(msg *Message) (openai.ChatCompletionMe
 		contents = append(contents, openai.TextContentPart(text.String()))
 	}
 
-	if mp3.Len() > 0 {
+	for len(audio) != 0 {
+		mimeType, err := requestAudioMIME(audio[0])
+		if err != nil {
+			return openai.ChatCompletionMessageParamUnion{}, err
+		}
+		end := 1
+		for end < len(audio) {
+			nextMIME, err := requestAudioMIME(audio[end])
+			if err != nil {
+				return openai.ChatCompletionMessageParamUnion{}, err
+			}
+			if nextMIME != mimeType {
+				break
+			}
+			end++
+		}
+		blob, err := requestAudioBlob(audio[:end])
+		if err != nil {
+			return openai.ChatCompletionMessageParamUnion{}, err
+		}
+		format := "wav"
+		if blob.MIMEType == "audio/mpeg" {
+			format = "mp3"
+		}
 		contents = append(contents, openai.InputAudioContentPart(openai.ChatCompletionContentPartInputAudioInputAudioParam{
-			Data:   base64.StdEncoding.EncodeToString(mp3.Bytes()),
-			Format: "mp3",
+			Data:   base64.StdEncoding.EncodeToString(blob.Data),
+			Format: format,
 		}))
+		audio = audio[end:]
 	}
-	if wav.Len() > 0 {
-		contents = append(contents, openai.InputAudioContentPart(openai.ChatCompletionContentPartInputAudioInputAudioParam{
-			Data:   base64.StdEncoding.EncodeToString(wav.Bytes()),
-			Format: "wav",
-		}))
-	}
+
 	if len(contents) == 0 {
 		return openai.ChatCompletionMessageParamUnion{}, errors.New("user message must contain text or audio")
 	}

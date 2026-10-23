@@ -1,7 +1,7 @@
 # User Story:
 # As a registered device sending native audio to the Lite chat Model,
-# I want the Model adapter to produce both the reply and the user transcript,
-# So that no external ASR Model or application transcription prompt is required.
+# I want AudioDock to publish independent ASR alongside the native audio reply,
+# So that conversation and transcription use separately configured Models.
 version: gizclaw.test/v1alpha1
 name: eino-lite-native-audio.asr-roundtrip
 timeout: 2m
@@ -68,7 +68,7 @@ steps:
     expect:
       /audio_input:
         equals: AUDIO_INPUT_PATH_MODEL
-  # Speech synthesis prepares input only. The Workflow has no ASR stage.
+  # Speech synthesis prepares input only. RuntimeProfile selects the ASR stage.
   - id: synthesize_input
     client: peer
     speech:
@@ -91,8 +91,9 @@ steps:
       /input_packets:
         minimum: 1
       /transcript:
-        equals: 请帮我计算7加5是多少
-        normalize: [digits, punctuation, whitespace]
+        contains_all: [请帮我计算, 是多少]
+        contains_any: [7加5, 7+5]
+        normalize: [digits, whitespace]
       /reply:
         non_empty: true
         contains_any: ["12", 十二]

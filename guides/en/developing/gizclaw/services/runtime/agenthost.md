@@ -35,6 +35,8 @@ During continuous narration, `StreamCtrl.MessageID` identifies one generation in
 
 `ResponseEpochEnd` completes the delivered response for the same StreamID and route label. Even when the component name differs from that label and the terminal omits MessageID, the recorder persists its named messages and paired audio before releasing the next turn's History text-read barrier. A named member EOS without response completion does not prematurely close a sibling; another StreamID or label keeps its own boundary.
 
+Sideband ASR for native audio joins the History read barrier when transcript BOS arrives. The next turn waits for prior transcription to be persisted; `ExcludeTurnID` excludes the current turn so its audio and ASR still run concurrently.
+
 Workspace History recognizes interruption by StreamID: when a typed MIME channel EOS or a control EOS without a Part has a `Ctrl.Error` starting with `interrupted` after trimming whitespace, every pending entry for that StreamID is marked interrupted. At persistence, an interrupted entry without non-whitespace committed text is discarded and its PCM encoder is closed; `Ctrl.TextInterim` text is never committed. Interrupted entries with committed text remain, and normally completed audio-only entries can still be stored.
 
 Interruption can occur after TTS delivers Ogg headers but before its first audio packet. Only interrupted recording omits that empty segment, preserving delivered final text and other real audio and completing the next History text-read barrier normally. It never stores an empty audio asset. Corrupt Ogg, normally completed segments without audio packets and empty replay assets remain errors.

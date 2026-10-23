@@ -206,7 +206,7 @@ func TestRuntimeProfileAudioGiztests(t *testing.T) {
 		if !ok {
 			t.Fatalf("Profile does not bind %s", tc.alias)
 		}
-		binding.PttAsrModel = nil
+		binding.PttAsrModel = new("asr")
 		binding.RealtimeAsrModel = new("asr")
 		profile.Spec.Workflows[tc.alias] = binding
 		if workflow.Spec.Eino != nil {
@@ -358,14 +358,17 @@ func TestRuntimeProfileAudioGiztests(t *testing.T) {
 		t.Fatal(err)
 	}
 	writeJSON("provider-usage.json", usage)
-	liteUsage := int64(0)
+	liteUsage, asrUsage := int64(0), int64(0)
 	for _, row := range usage {
 		if strings.Contains(row.Model, "lite") {
 			liteUsage += row.Quantity
 		}
 		if strings.Contains(row.Model, "bigasr") || strings.Contains(row.Model, "sauc") {
-			t.Errorf("independent ASR was billed: %s", row.Model)
+			asrUsage += row.Quantity
 		}
+	}
+	if nativeRuns > 0 && asrUsage <= 0 {
+		t.Error("audio lanes recorded no independent ASR usage")
 	}
 	if nativeRuns > 0 && liteUsage <= 0 {
 		t.Error("no real Lite usage was recorded")
@@ -373,20 +376,21 @@ func TestRuntimeProfileAudioGiztests(t *testing.T) {
 	receiptsMu.Lock()
 	observed := slices.Clone(receipts)
 	receiptsMu.Unlock()
-	transcripts, replies := 0, 0
+	replies := 0
 	for _, r := range observed {
 		if r.Status != http.StatusOK {
 			t.Errorf("Ark request failed: status=%d", r.Status)
 		}
-		if r.Transcript && r.Audio {
-			transcripts++
-		} else if !r.Audio {
+		if r.Transcript {
+			t.Error("chat Generator made an implicit transcription request")
+		} else {
 			replies++
 		}
 	}
-	if transcripts < 2*nativeRuns || replies < 2*nativeRuns {
-		t.Errorf("expected native transcription and text reply for %d audio turns: transcripts=%d replies=%d", 2*nativeRuns, transcripts, replies)
+	if replies < 2*nativeRuns {
+		t.Errorf("expected replies for %d audio turns: replies=%d", 2*nativeRuns, replies)
 	}
+
 	// Select external ASR for the same unmodified realtime Workflow, which
 	// supports text input. Every lane registers a new Peer with this revision.
 	binding := profile.Spec.Workflows["chat"]

@@ -205,7 +205,7 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 		notifyWorkspaceHistory(ctx, a.history.Workspace, entry)
 	})
 	_, recorder.inputRecorded = workspace.RecordedHistoryInput(ctx, a.history.Workspace)
-	ctx = workspace.WithHistoryReadBarrier(ctx, recorder.waitForText)
+	ctx = workspace.WithHistoryReadBarrier(ctx, recorder.waitForPriorText)
 	if input != nil {
 		input = &historyInputStream{Stream: input, ctx: ctx, recorder: recorder}
 	}
@@ -1163,7 +1163,7 @@ type historyRecorder struct {
 
 	mu          sync.Mutex
 	pending     map[string]*historyPendingEntry
-	pendingText map[string]struct{}
+	pendingText map[string]string
 	textChanged chan struct{}
 	textError   error
 	textInputs  []string
@@ -1207,7 +1207,7 @@ func newHistoryRecorder(history *workspace.HistoryStore, gearID string, notify f
 		gearID:      strings.TrimSpace(gearID),
 		notify:      notify,
 		pending:     make(map[string]*historyPendingEntry),
-		pendingText: make(map[string]struct{}),
+		pendingText: make(map[string]string),
 		textChanged: make(chan struct{}),
 	}
 }
@@ -1341,13 +1341,18 @@ func (r *historyRecorder) observe(ctx context.Context, chunk *genx.MessageChunk,
 		if err := entry.observeChannel(mimeType, chunk.IsEndOfStream()); err != nil {
 			return err
 		}
+		if typ == historyEntryTypeGear && (chunk.IsBeginOfStream() || string(part) != "") {
+			// The announced current transcript must not delay its own model
+			// request, but later turns need its final persisted text.
+			r.markText(r.key(recordChunk, typ), entry.streamID)
+		}
 		if chunk.HistoryText != nil && typ == historyEntryTypeAgent {
 			part = *chunk.HistoryText
 		}
 		if string(part) != "" && (chunk.Ctrl == nil || !chunk.Ctrl.TextInterim) {
 			entry.text.WriteString(string(part))
 			if typ == historyEntryTypeAgent {
-				r.markText(r.key(recordChunk, typ))
+				r.markText(r.key(recordChunk, typ), "")
 			}
 		}
 	case *genx.Blob:

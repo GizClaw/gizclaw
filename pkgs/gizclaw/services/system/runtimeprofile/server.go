@@ -825,11 +825,21 @@ func validateWorkflowASRAgreement(workflows apitypes.RuntimeProfileWorkflows) er
 		}
 		return *p
 	}
+	effective := func(binding apitypes.RuntimeProfileWorkflowBinding) [2]string {
+		ptt, realtime := binding.PttAsrModel, binding.RealtimeAsrModel
+		if ptt == nil {
+			ptt = realtime
+		}
+		if realtime == nil {
+			realtime = ptt
+		}
+		return [2]string{value(ptt), value(realtime)}
+	}
 	for _, alias := range aliases {
 		binding := workflows[alias]
 		if old, ok := previous[binding.ResourceId]; ok {
 			other := workflows[old]
-			if value(binding.PttAsrModel) != value(other.PttAsrModel) || value(binding.RealtimeAsrModel) != value(other.RealtimeAsrModel) {
+			if effective(binding) != effective(other) {
 				return fmt.Errorf("workflows.%s ASR Models conflict with workflows.%s for Workflow %q", alias, old, binding.ResourceId)
 			}
 		} else {

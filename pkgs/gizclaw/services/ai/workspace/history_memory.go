@@ -13,8 +13,9 @@ type recordedHistoryInputKey struct{}
 type historyReadBarrierKey struct{}
 
 // WithHistoryReadBarrier lets a host finish previously delivered messages before
-// a model reads its next context. The callback runs outside all Store locks.
-func WithHistoryReadBarrier(ctx context.Context, wait func(context.Context) error) context.Context {
+// a model reads its next context. The callback receives the current input's
+// excluded turn ID and runs outside all Store locks.
+func WithHistoryReadBarrier(ctx context.Context, wait func(context.Context, string) error) context.Context {
 	return context.WithValue(ctx, historyReadBarrierKey{}, wait)
 }
 
@@ -45,8 +46,8 @@ func (s *HistoryStore) Query(ctx context.Context, query memory.HistoryQuery) (me
 		return memory.HistoryPage{}, fmt.Errorf("%w: history conversation does not match workspace", memory.ErrInvalidInput)
 	}
 	if query.ExcludeTurnID != "" {
-		if wait, ok := ctx.Value(historyReadBarrierKey{}).(func(context.Context) error); ok {
-			if err := wait(ctx); err != nil {
+		if wait, ok := ctx.Value(historyReadBarrierKey{}).(func(context.Context, string) error); ok {
+			if err := wait(ctx, query.ExcludeTurnID); err != nil {
 				return memory.HistoryPage{}, err
 			}
 		}

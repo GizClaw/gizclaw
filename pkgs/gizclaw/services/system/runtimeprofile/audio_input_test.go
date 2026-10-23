@@ -61,6 +61,32 @@ func TestProfileASRReferencesRequireASRModels(t *testing.T) {
 	}
 }
 
+func TestProfileASRAgreementUsesEffectiveFallbacks(t *testing.T) {
+	for _, conflict := range []bool{false, true} {
+		first := runtimeProfileTestWorkflowBinding("assistant")
+		first.PttAsrModel = new("asr")
+		second := runtimeProfileTestWorkflowBinding("assistant")
+		second.RealtimeAsrModel = new("asr")
+		if conflict {
+			second.RealtimeAsrModel = new("other-asr")
+		}
+		spec := apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"first": first, "second": second}}
+		got, err := normalizeProfile(adminhttp.RuntimeProfileUpsert{Id: "test", Spec: spec}, "")
+		if conflict {
+			if err == nil || !strings.Contains(err.Error(), "ASR Models conflict") {
+				t.Fatalf("effective conflict was accepted: %v", err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatalf("equivalent effective ASR selections were rejected: %v", err)
+		}
+		if got.Spec.Workflows["first"].RealtimeAsrModel != nil || got.Spec.Workflows["second"].PttAsrModel != nil {
+			t.Fatal("normalization materialized fallback instead of preserving omitted fields")
+		}
+	}
+}
+
 func TestProfilePersistsASRModelsAndIgnoresLegacyWorkflowSlot(t *testing.T) {
 	const workflow = `{"apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"assistant"},"spec":{"driver":"eino","eino":{"voice_adapter":{"asr_model":"unbound-legacy-slot"},"graph":{"name":"assistant","compile":{"node_trigger_mode":"any_predecessor"},"state":{"fields":[]},"nodes":[{"id":"reply","type":"chat_model","model":"llm"}],"edges":[],"branches":[],"outputs":[]}}}}`
 	resolver := func(_ context.Context, kind apitypes.ResourceKind, id string) (apitypes.Resource, error) {

@@ -198,7 +198,9 @@ A fence is a system prompt sent to the model. Its effectiveness depends on the s
 
 ## Audio input and ASR
 
-Each Workflow binding may independently select `ptt_asr_model` and `realtime_asr_model`, referencing Model aliases in this Profile's `resources.models`. A configured alias runs external ASR before sending text to the conversation Model. Omission or null sends the original audio directly, without automatic ASR or fallback. Both modes may share one ASR Model binding.
+Each Workflow binding selects `ptt_asr_model` and `realtime_asr_model` from this Profile's `resources.models` aliases. ASR and conversation Models are selected independently. AudioDock publishes all ASR transcripts; Eino PTT audio Graphs receive original audio alongside ASR, while text-dependent Graphs and continuous realtime input consume ASR final text. Both modes can share one ASR Model.
+
+The current input mode prefers its own ASR alias. If that field is omitted or `null`, it falls back to the other mode's alias. A single configured alias can serve both PTT and realtime; ASR still runs in the current input mode. An explicitly invalid alias does not trigger fallback. Eino accepts text only when both fields are omitted or `null`. Doubao Realtime can omit ASR to retain native provider audio or select independent ASR and use provider text input.
 
 ```yaml
 spec:
@@ -218,13 +220,13 @@ spec:
           zh-CN: {display_name: 语音识别}
 ```
 
-Here PTT uses the bound Model's audio capability directly, while realtime uses external ASR. The same Workflow can serve different deployments without editing business Graphs or prompts. Workflows do not select ASR. Legacy `eino.voice_adapter.asr_model` remains accepted but is completely ignored, including dependency checks. Workspaces may select their `input` mode but cannot override the Profile's ASR choice.
+This example selects the same ASR for both modes. Graph and conversation Model audio capabilities determine whether PTT original audio enters Eino directly. Workflow does not select ASR; legacy `eino.voice_adapter.asr_model` is accepted but ignored. Workspace selects the input mode only.
 
 RuntimeProfile writes validate that:
 
 - These fields appear only on Workflow bindings, contain valid Model aliases, and reference `kind: asr` resources bound in `resources.models`.
 - External ASR is supported by the `eino` and `doubao-realtime` drivers. The current `doubao-realtime-duplex` and `dashscope-realtime` Adapters accept only audio; Profile writes reject external ASR for them.
-- All aliases for one canonical Workflow ID have identical PTT and realtime ASR selections. Omission means direct audio and participates in this comparison because Workspaces store canonical IDs.
+- All aliases for one canonical Workflow ID must have identical effective PTT and realtime ASR selections after fallback. Their stored fields can differ when they resolve to the same selections, because Workspaces store canonical IDs.
 
 Both fields participate in Profile revisions and are not projected as writable Peer parameters. Each reload resolves the owner's current Profile. ASR construction failure fails reload without changing paths. Direct audio support depends on the bound Model and driver; see [Eino audio input path](/en/developing/gizclaw/services/ai#eino-audio-input-path).
 

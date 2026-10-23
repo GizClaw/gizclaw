@@ -276,9 +276,9 @@ func modelSupportsToolCalls(model apitypes.Model) (bool, error) {
 	return boolValue(supported), nil
 }
 
-// AcceptsAudioInput reports whether the Generator of the LLM model selected
-// by pattern accepts user audio and reports its transcript. The pattern
-// resolves exactly as Generator does.
+// AcceptsAudioInput reports whether the selected LLM Generator accepts
+// packetized user audio from Peer input. The pattern resolves exactly as
+// Generator does.
 func (s *Service) AcceptsAudioInput(ctx context.Context, pattern string) (bool, error) {
 	if s == nil {
 		return false, ErrNotConfigured
@@ -291,21 +291,35 @@ func (s *Service) AcceptsAudioInput(ctx context.Context, pattern string) (bool, 
 }
 
 func modelAcceptsAudioInput(model apitypes.Model) (bool, error) {
-	if model.Provider.Kind != apitypes.ModelProviderKindVolcTenant {
+	if model.Kind != apitypes.ModelKindLlm {
 		return false, nil
 	}
-	data, err := model.ProviderData.AsVolcTenantModelProviderData()
+	var textOnly *bool
+	var err error
+	switch model.Provider.Kind {
+	case apitypes.ModelProviderKindVolcTenant:
+		var data apitypes.VolcTenantModelProviderData
+		data, err = model.ProviderData.AsVolcTenantModelProviderData()
+		textOnly = data.SupportTextOnly
+	case apitypes.ModelProviderKindOpenaiTenant:
+		var data apitypes.OpenAITenantModelProviderData
+		data, err = model.ProviderData.AsOpenAITenantModelProviderData()
+		textOnly = data.SupportTextOnly
+	case apitypes.ModelProviderKindDeepseekTenant:
+		var data apitypes.DeepSeekTenantModelProviderData
+		data, err = model.ProviderData.AsDeepSeekTenantModelProviderData()
+		textOnly = data.SupportTextOnly
+	case apitypes.ModelProviderKindMinimaxTenant:
+		var data apitypes.MiniMaxTenantModelProviderData
+		data, err = model.ProviderData.AsMiniMaxTenantModelProviderData()
+		textOnly = data.SupportTextOnly
+	default:
+		return false, nil
+	}
 	if err != nil {
 		return false, fmt.Errorf("%w: decode %s model provider_data: %w", ErrInvalid, model.Provider.Kind, err)
 	}
-	return volcChatAcceptsAudio(data), nil
-}
-
-// volcChatAcceptsAudio reports whether a Volc Ark chat Model gets the Doubao
-// chat adapter, the only Generator that converts request audio and reports
-// its transcript.
-func volcChatAcceptsAudio(data apitypes.VolcTenantModelProviderData) bool {
-	return !boolValue(data.SupportTextOnly)
+	return !boolValue(textOnly), nil
 }
 
 type modelThinkingConfig struct {

@@ -53,11 +53,9 @@ type Config struct {
 	// transformer never places it anywhere itself: a Graph that does not bind
 	// it is unaffected. Empty binds as an empty string.
 	SafetyFence string
-	// TranscribeInput enables audio turns whose transcript is prepared before
-	// Memory recall and Graph execution. The Graph receives ordinary text in
-	// input.text and input.messages; audio is retained only in the History
-	// sideband. Independent invocations may call this callback concurrently.
-	TranscribeInput func(context.Context, []*genx.Blob) (string, error)
+	// AudioInput accepts complete audio turns in input.messages. Transcription
+	// and its publication belong to an upstream ASR composition.
+	AudioInput bool
 }
 
 // InitiativePolicy controls when an Agent may run without Peer input.
@@ -153,25 +151,10 @@ type normalizedConfig struct {
 	outputs   map[string][]OutputDefinition
 	primary   OutputDefinition
 	graphCopy GraphDefinition
-	// audioTranscriptNode is the root ChatModel node that transcribes audio
-	// user turns. Empty means input transcription must come from the callback
-	// or from an upstream text stage.
-	audioTranscriptNode string
 }
 
-// AcceptsAudioInput reports whether source prepares input transcription or
-// declares a root transcribing ChatModel, so ordinary user audio starts turns.
-func AcceptsAudioInput(source Config) bool {
-	if source.TranscribeInput != nil {
-		return true
-	}
-	for _, node := range source.Graph.Nodes {
-		if node.ChatModel != nil && node.ChatModel.AudioTranscript {
-			return true
-		}
-	}
-	return false
-}
+// AcceptsAudioInput reports whether source accepts complete audio user turns.
+func AcceptsAudioInput(source Config) bool { return source.AudioInput }
 
 // ValidateConfig validates one Config without resolving or compiling its
 // runtime components. Callers can use it at declarative write boundaries.
@@ -228,9 +211,6 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 	if err := result.validateGraph(graph, "Graph", 0); err != nil {
 		return nil, err
 	}
-	if result.TranscribeInput != nil && result.audioTranscriptNode != "" {
-		return nil, fmt.Errorf("eino: TranscribeInput and a Graph AudioTranscript node cannot be combined")
-	}
 	if err := result.validateOptionalConfig(); err != nil {
 		return nil, err
 	}
@@ -243,7 +223,7 @@ func normalizeConfig(source Config) (*normalizedConfig, error) {
 			result.fields[result.primary.Field].Type != StateString || result.fields[result.primary.Field].Merge != MergeReplace {
 			return nil, fmt.Errorf("eino: ContinueFrom requires one text/plain string output with replace merge")
 		}
-		if result.audioTranscriptNode != "" {
+		if result.AudioInput {
 			return nil, fmt.Errorf("eino: ContinueFrom requires text input; use ASR before the Graph")
 		}
 	}
@@ -624,15 +604,7 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 		if node.ChatModel.MaxTokens != nil && *node.ChatModel.MaxTokens <= 0 {
 			return fmt.Errorf("eino: %s MaxTokens must be positive", nodePath)
 		}
-		if node.ChatModel.AudioTranscript {
-			if depth != 0 {
-				return fmt.Errorf("eino: %s AudioTranscript is only supported in the root Graph", nodePath)
-			}
-			if config.audioTranscriptNode != "" {
-				return fmt.Errorf("eino: %s AudioTranscript is already set on node %q", nodePath, config.audioTranscriptNode)
-			}
-			config.audioTranscriptNode = node.ID
-		}
+
 	case node.Transform != nil:
 		if node.Transform.Operation == "" {
 			return fmt.Errorf("eino: %s requires Transform operation", nodePath)
