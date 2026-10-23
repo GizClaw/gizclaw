@@ -5,6 +5,8 @@
 !native-audio-history/
 !native-audio-history/resources.json
 !native-audio-history/rounds.giztest.yaml
+!native-audio-functions/
+!native-audio-functions/*.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

@@ -57,8 +57,8 @@ trap 'exit 143' TERM
 echo "==> build task-local CLI"
 (cd "$repo_root" && npm ci && npm run build:console && go build -o "$gizclaw_binary" ./cmd/gizclaw) > "$run_dir/build.log" 2>&1
 "$gizclaw_binary" admin validate -f "$script_dir/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml"
-"$gizclaw_binary" test validate -f "$script_dir/giztest/eino-native-audio-functions.push-to-talk-transcript.giztest.yaml"
-"$gizclaw_binary" test validate -f "$script_dir/giztest/eino-native-audio-functions.push-to-talk-first-response.giztest.yaml"
+"$gizclaw_binary" test validate -f "$script_dir/testdata/native-audio-functions/roundtrip.giztest.yaml"
+"$gizclaw_binary" test validate -f "$script_dir/testdata/native-audio-functions/first-response.giztest.yaml"
 echo "==> start isolated local Docker stack project=$project"
 bash "$setup_dir/docker-compose-up.sh" > "$run_dir/stack.log" 2>&1
 stack_started=1
@@ -66,6 +66,7 @@ set -a
 # shellcheck disable=SC1090
 source "$GIZCLAW_E2E_DOCKER_ENV"
 set +a
+export GIZCLAW_TEST_REGISTRATION_TOKEN=gizclaw-e2e-native-audio-functions
 
 python3 - "$repo_root" "$run_dir/manifest.json" "$gizclaw_binary" "$project" <<'PY'
 import hashlib
@@ -74,8 +75,8 @@ from pathlib import Path
 import subprocess
 import sys
 root, output, binary = map(Path, sys.argv[1:4])
-paths = ["pkgs/genx/agentkit/audiodock/dock.go", "pkgs/genx/agentkit/audiodock/input_text.go", "pkgs/genx/transformers/eino/builder.go", "pkgs/genx/transformers/eino/runtime_state.go", "pkgs/genx/transformers/eino/transformer.go", "pkgs/gizclaw/services/ai/workflow/agents/eino/factory.go", "tests/gizclaw-e2e/run_native_audio_functions_tests.sh", "tests/gizclaw-e2e/giztest/eino-native-audio-functions.push-to-talk-transcript.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml", "tests/gizclaw-e2e/testdata/resources/03-models/11-doubao-lite-audio-chat.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml"]
-paths += ["tests/gizclaw-e2e/giztest/eino-native-audio-functions.push-to-talk-first-response.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/04-native-audio-functions.yaml"]
+paths = ["pkgs/genx/agentkit/audiodock/dock.go", "pkgs/genx/agentkit/audiodock/input_text.go", "pkgs/genx/transformers/eino/builder.go", "pkgs/genx/transformers/eino/runtime_state.go", "pkgs/genx/transformers/eino/transformer.go", "pkgs/gizclaw/services/ai/workflow/agents/eino/factory.go", "tests/gizclaw-e2e/run_native_audio_functions_tests.sh", "tests/gizclaw-e2e/testdata/native-audio-functions/roundtrip.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml", "tests/gizclaw-e2e/testdata/resources/03-models/11-doubao-lite-audio-chat.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml"]
+paths += ["tests/gizclaw-e2e/testdata/native-audio-functions/first-response.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/04-native-audio-functions.yaml"]
 output.write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
     "dirty": bool(subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).strip()),
@@ -97,11 +98,11 @@ for route in server edge; do
     if [[ "$mode" == pre ]]; then
       export GIZCLAW_NATIVE_AUDIO_WORKFLOW=eino-native-audio-pre-text
     fi
-    for kind in first-response transcript; do
+    for kind in first-response roundtrip; do
       echo "==> native PTT: route=$route text_dependency=$mode kind=$kind"
       "$gizclaw_binary" test run --parallel 1 --evidence full \
         --output "$run_dir/$route-$mode-$kind" --report "$run_dir/$route-$mode-$kind.json" \
-        "$script_dir/giztest/eino-native-audio-functions.push-to-talk-$kind.giztest.yaml" \
+        "$script_dir/testdata/native-audio-functions/$kind.giztest.yaml" \
         > "$run_dir/$route-$mode-$kind.log" 2>&1
     done
   done

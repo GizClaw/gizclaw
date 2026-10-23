@@ -67,5 +67,5 @@ spec:
       metadata:
         id: e2e-native-audio-functions
       spec:
-        token: ${GIZCLAW_TEST_REGISTRATION_TOKEN}
+        token: gizclaw-e2e-native-audio-functions
         runtime_profile_id: e2e-native-audio-functions
