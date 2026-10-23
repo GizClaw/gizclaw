@@ -10,17 +10,23 @@ export GIZCLAW_MONITOR_STATE="$run_dir/runtime"
 export GIZCLAW_MONITOR_REPORTS="$run_dir/reports"
 project="gizclaw-peer-address-$(date +%s)-$$"
 export GIZCLAW_MONITOR_IMAGE="$project"
+GIZCLAW_PEER_ADDRESS_USER="$(id -u):$(id -g)"
+export GIZCLAW_PEER_ADDRESS_USER
 mkdir -p "$GIZCLAW_MONITOR_STATE" "$GIZCLAW_MONITOR_REPORTS"
 touch "$run_dir/empty.env"
 cat >"$run_dir/compose.yaml" <<'YAML'
 services:
   server:
+    user: "${GIZCLAW_PEER_ADDRESS_USER:?}"
     environment: {NO_PROXY: "*", no_proxy: "*"}
   edge:
+    user: "${GIZCLAW_PEER_ADDRESS_USER:?}"
     environment: {NO_PROXY: "*", no_proxy: "*"}
   seed:
+    user: "${GIZCLAW_PEER_ADDRESS_USER:?}"
     environment: {NO_PROXY: "*", no_proxy: "*"}
   test:
+    user: "${GIZCLAW_PEER_ADDRESS_USER:?}"
     entrypoint: [sleep, infinity]
     command: []
     environment:
@@ -76,7 +82,9 @@ PY
 cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp -R "$script_dir/testdata/peer-address" "$image_dir/tests/gizclaw-e2e/testdata/"
 docker build --build-arg "BASE_IMAGE=$base_image" -f "$script_dir/docker/Dockerfile.monitor" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+# Keep private fixture files and every bind-mounted writer owned by the caller
+# on rootful Linux as well as Docker Desktop.
+docker run --rm --user "$GIZCLAW_PEER_ADDRESS_USER" -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
 python3 - "$GIZCLAW_MONITOR_STATE" <<'PY'
 import pathlib, sys
 root = pathlib.Path(sys.argv[1])
