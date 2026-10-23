@@ -40,7 +40,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/idy/ai-server-shell v0.0.0-20260817081019-6bd992600488
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/kaptinlin/jsonrepair v0.4.8
+	github.com/kaptinlin/jsonrepair v0.4.9
 	github.com/kardianos/service v1.3.0
 	github.com/lib/pq v1.12.3
 	github.com/livekit/protocol v1.49.0
