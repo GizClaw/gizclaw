@@ -492,6 +492,14 @@ records how many purge rounds verification needed.
 
 ### TiKV Docker E2E
 
+To verify duplicate batch reads against residual secondary locks:
+
+```sh
+bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
+```
+
+This entrypoint reuses the isolated three-voter presence benchmark fixture without running load or exposing host ports. It prewrites a real transaction, rolls back only its primary and verifies that its secondary remains locked. Claim-shaped mutations, compare-and-set, compare-and-delete and duplicate batch reads must issue unique BatchGet/ResolveLock keys, complete cleanup and return correct, independently owned values. All three voters must advance their safe timestamps past the operations, remain running with zero restarts, and produce no FATAL log. Evidence stays in the supplied new directory; cleanup affects only this Compose project. The `TiKV Learner Presence` CI gate runs this regression. Artificial residual locks do not identify the first production transaction or establish natural reproduction through complete connection churn.
+
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```

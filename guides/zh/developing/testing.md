@@ -305,6 +305,14 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 
 ### TiKV Docker E2E
 
+残留 secondary 锁与重复批量读取的回归入口：
+
+```sh
+bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
+```
+
+该入口复用 presence benchmark 的独立三 voter 夹具，不运行压测、不发布宿主端口。测试先真实 prewrite，再只回滚 primary，确认 secondary 锁仍存在；随后覆盖 claim 形状的 mutation、比较后写入、比较后删除及带重复 key 的批量读取。它检查发出的 BatchGet／ResolveLock 没有重复 key、解锁完成、回读正确、重复结果内存独立，并等待三台 voter 的 safe-ts 越过操作后的时间戳。runner 还要求三台 voter 持续运行、重启计数为零、日志没有 FATAL。证据保存在指定的新目录，退出时仅清理本次 Compose project。该 gate 进入 `TiKV Learner Presence` CI；它验证人工残留锁的处理，不代表生产首发事务定位或完整连接 churn 的自然复现。
+
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```

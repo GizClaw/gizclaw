@@ -70,6 +70,23 @@ func (s *TiKV) recordKey(key Key) []byte {
 	return append(append(bytes.Clone(tiKVNamespace), 1), s.opts.encode(key)...)
 }
 
+// Duplicate snapshot keys can become duplicate secondary-lock rollback keys in
+// client-go. Keep the original input intact for BatchGet's ordered results.
+func uniqueTiKVKeys(keys [][]byte) [][]byte {
+	if len(keys) < 2 {
+		return keys
+	}
+	seen := make(map[string]struct{}, len(keys))
+	unique := make([][]byte, 0, len(keys))
+	for _, key := range keys {
+		if _, ok := seen[string(key)]; !ok {
+			seen[string(key)] = struct{}{}
+			unique = append(unique, key)
+		}
+	}
+	return unique
+}
+
 func (s *TiKV) memberPrefix(key Key) []byte {
 	encoded := s.opts.encode(key)
 	prefix := append(bytes.Clone(tiKVNamespace), 2)
@@ -207,7 +224,7 @@ func (s *TiKV) BatchGet(ctx context.Context, keys []Key) []GetResult {
 	for i, key := range keys {
 		encoded[i] = s.recordKey(key)
 	}
-	values, err := snapshot.BatchGet(ctx, encoded)
+	values, err := snapshot.BatchGet(ctx, uniqueTiKVKeys(encoded))
 	now := time.Now()
 	for i, key := range encoded {
 		result := &results[i]

@@ -563,6 +563,8 @@ jobs:
           cache: true
       - name: Verify bulk presence reads through a real TiKV Learner
         run: bash tests/store-e2e/run_tikv_tests.sh "${{ runner.temp }}/tikv-presence" --presence-only
+      - name: Verify secondary-lock rollback through unique TiKV batch reads
+        run: bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh "${{ runner.temp }}/tikv-duplicate-reads"
       - name: Retain TiKV presence fixture diagnostics
         if: failure()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
@@ -577,6 +579,13 @@ jobs:
             ${{ runner.temp }}/tikv-presence/final-topology.json
             ${{ runner.temp }}/tikv-presence/tikv-test.toml
             ${{ runner.temp }}/tikv-presence/source-revision.txt
+            ${{ runner.temp }}/tikv-duplicate-reads/cluster.log
+            ${{ runner.temp }}/tikv-duplicate-reads/startup.log
+            ${{ runner.temp }}/tikv-duplicate-reads/test.log
+            ${{ runner.temp }}/tikv-duplicate-reads/final-topology.json
+            ${{ runner.temp }}/tikv-duplicate-reads/voter-health.txt
+            ${{ runner.temp }}/tikv-duplicate-reads/fatal.log
+            ${{ runner.temp }}/tikv-duplicate-reads/source-revision.txt
 
   redis-presence:
     name: Redis Shared Presence
