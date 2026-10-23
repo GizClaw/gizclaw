@@ -222,7 +222,7 @@ func TestInputRouterRetainsBOSBeforeEventActivation(t *testing.T) {
 		Role: genx.RoleUser,
 		Part: genx.Text("hello"),
 		Ctrl: &genx.StreamCtrl{StreamID: "input", BeginOfStream: true},
-	}}}, nil)
+	}}}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +239,7 @@ func TestInputRouterRetainsBOSBeforeEventActivation(t *testing.T) {
 func TestInputRouterTranscriptOutputIsNilWithoutASR(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	router, err := newInputRouter(ctx, &sliceStream{}, nil)
+	router, err := newInputRouter(ctx, &sliceStream{}, nil, false)
 	if err != nil {
 		t.Fatal(err)
 	}

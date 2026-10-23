@@ -10,64 +10,58 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/schema"
 )
 
 func TestNativeAudioConsumesOnlyItsSuccessfulOuterEnd(t *testing.T) {
-	for _, direct := range []bool{false, true} {
-		t.Run(fmt.Sprintf("direct-model-%t", direct), func(t *testing.T) {
-			config := textConfig()
-			config.TranscribeInput = func(context.Context, []*genx.Blob) (string, error) { return "heard", nil }
-			if direct {
-				config = audioTranscriptConfig(&componentMapResolver{chat: &fakeChatModel{chunks: []*schema.Message{
-					TranscriptMessage("heard"), schema.AssistantMessage("reply", nil),
-				}}})
-			}
-			core, err := New(t.Context(), config)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer core.Close()
-			input := newInputBuilder()
-			cause := errors.New("audio transport failed")
-			for _, chunk := range []*genx.MessageChunk{
-				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "speech", BeginOfStream: true}},
-				{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, Error: "interrupted"}},
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, ErrorCause: cause}},
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, ErrorCode: "transport_unavailable"}},
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "unrelated", EndOfStream: true}},
-				{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
-			} {
-				if err := input.Add(chunk); err != nil {
-					t.Fatal(err)
-				}
-			}
-			if err := input.Done(genx.Usage{}); err != nil {
-				t.Fatal(err)
-			}
-			output, err := core.Transform(t.Context(), input.Stream())
-			if err != nil {
-				t.Fatal(err)
-			}
-			foreign, interrupted, causeOnly, codeOnly := false, false, false, false
-			for _, chunk := range drain(t, output) {
-				if chunk.Part != nil || !chunk.IsEndOfStream() || chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
-					continue
-				}
-				if chunk.Ctrl.StreamID == "speech" && genx.StreamError(chunk.Ctrl) == nil {
-					t.Fatal("consumed audio route EOS escaped into transcript output")
-				}
-				foreign = foreign || chunk.Ctrl.StreamID == "unrelated"
-				interrupted = interrupted || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "interrupted"
-				causeOnly = causeOnly || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" && errors.Is(genx.StreamError(chunk.Ctrl), cause)
-				codeOnly = codeOnly || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" && chunk.Ctrl.ErrorCode == "transport_unavailable"
-			}
-			if !foreign || !interrupted || !causeOnly || !codeOnly {
-				t.Fatalf("forwarded EOS: unrelated=%t interrupted=%t cause-only=%t code-only=%t", foreign, interrupted, causeOnly, codeOnly)
-			}
-		})
+	config := audioInputConfig(&componentMapResolver{chat: &fakeChatModel{chunks: []*schema.Message{
+		schema.AssistantMessage("reply", nil),
+	}}})
+	core, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer core.Close()
+	input := newInputBuilder()
+	cause := errors.New("audio transport failed")
+	for _, chunk := range []*genx.MessageChunk{
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "speech", BeginOfStream: true}},
+		{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
+		{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, Error: "interrupted"}},
+		{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, ErrorCause: cause}},
+		{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true, ErrorCode: "transport_unavailable"}},
+		{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "unrelated", EndOfStream: true}},
+		{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}},
+	} {
+		if err := input.Add(chunk); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := input.Done(genx.Usage{}); err != nil {
+		t.Fatal(err)
+	}
+	output, err := core.Transform(t.Context(), input.Stream())
+	if err != nil {
+		t.Fatal(err)
+	}
+	foreign, interrupted, causeOnly, codeOnly := false, false, false, false
+	for _, chunk := range drain(t, output) {
+		if chunk.Part != nil || !chunk.IsEndOfStream() || chunk.Ctrl.Label == genx.HistoryUserAudioLabel {
+			continue
+		}
+		if chunk.Ctrl.StreamID == "speech" && genx.StreamError(chunk.Ctrl) == nil {
+			t.Fatal("consumed audio route EOS escaped into transcript output")
+		}
+		foreign = foreign || chunk.Ctrl.StreamID == "unrelated"
+		interrupted = interrupted || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "interrupted"
+		causeOnly = causeOnly || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" && errors.Is(genx.StreamError(chunk.Ctrl), cause)
+		codeOnly = codeOnly || chunk.Ctrl.StreamID == "speech" && chunk.Ctrl.Error == "" && chunk.Ctrl.ErrorCode == "transport_unavailable"
+	}
+	if !foreign || !interrupted || !causeOnly || !codeOnly {
+		t.Fatalf("forwarded EOS: unrelated=%t interrupted=%t cause-only=%t code-only=%t", foreign, interrupted, causeOnly, codeOnly)
 	}
 }
 
@@ -98,7 +92,7 @@ func TestInputTranscriptionPrecedesScriptsMemoryAndHistory(t *testing.T) {
 		Observe: ObservePolicy{Enabled: true, Facts: []ObserveDefinition{{TextFrom: "observation"}}},
 	}
 	transcriptions := 0
-	config.TranscribeInput = func(ctx context.Context, audio []*genx.Blob) (string, error) {
+	transcribe := func(ctx context.Context, audio []*genx.Blob) (string, error) {
 		transcriptions++
 		if len(audio) != 2 || audio[0].MIMEType != "audio/opus" || !slices.Equal(audio[1].Data, []byte{2}) {
 			return "", fmt.Errorf("unexpected audio input: %v", audio)
@@ -116,7 +110,7 @@ func TestInputTranscriptionPrecedesScriptsMemoryAndHistory(t *testing.T) {
 			_ = input.Close()
 			input = audioInput(fmt.Sprintf("speech-%d", index), [][]byte{{1}, {2}})
 		}
-		output, err := core.Transform(t.Context(), input)
+		output, err := transcriptionDock(t, core, transcribe).Transform(t.Context(), input)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -162,7 +156,7 @@ func TestInputTranscriptionCancellationStopsBeforeGraph(t *testing.T) {
 	defer cancel()
 	started, exited := make(chan struct{}), make(chan struct{})
 	config := textConfig()
-	config.TranscribeInput = func(ctx context.Context, _ []*genx.Blob) (string, error) {
+	transcribe := func(ctx context.Context, _ []*genx.Blob) (string, error) {
 		close(started)
 		defer close(exited)
 		<-ctx.Done()
@@ -173,7 +167,7 @@ func TestInputTranscriptionCancellationStopsBeforeGraph(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer core.Close()
-	output, err := core.Transform(ctx, audioInput("speech", [][]byte{{1}}))
+	output, err := transcriptionDock(t, core, transcribe).Transform(ctx, audioInput("speech", [][]byte{{1}}))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -196,33 +190,69 @@ func TestInputTranscriptionCancellationStopsBeforeGraph(t *testing.T) {
 	}
 }
 
-func TestInputTranscriptionEmptyAndFailureDoNotExecuteGraph(t *testing.T) {
-	for _, failure := range []error{nil, errors.New("transcription unavailable")} {
-		t.Run(fmt.Sprint(failure), func(t *testing.T) {
-			config := textConfig()
-			config.TranscribeInput = func(context.Context, []*genx.Blob) (string, error) { return "", failure }
-			core, err := New(t.Context(), config)
-			if err != nil {
-				t.Fatal(err)
-			}
-			defer core.Close()
-			output, err := core.Transform(t.Context(), audioInput("speech", [][]byte{{1}}))
-			if err != nil {
-				t.Fatal(err)
-			}
-			eos, failed := false, false
-			for _, chunk := range drain(t, output) {
-				if chunk.Role == genx.RoleModel {
-					if text, ok := chunk.Part.(genx.Text); ok && text != "" {
-						t.Fatalf("Graph replied without a transcript: %q", text)
-					}
-					eos = eos || chunk.IsEndOfStream()
-					failed = failed || chunk.Ctrl != nil && strings.Contains(chunk.Ctrl.Error, "transcription unavailable")
-				}
-			}
-			if !eos || failed != (failure != nil) {
-				t.Fatalf("EOS=%v failed=%v error=%v", eos, failed, failure)
-			}
-		})
+func TestInputTranscriptionFailureDoesNotExecuteGraph(t *testing.T) {
+	config := textConfig()
+	core, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
 	}
+	defer core.Close()
+	failure := errors.New("transcription unavailable")
+	dock := transcriptionDock(t, core, func(context.Context, []*genx.Blob) (string, error) { return "", failure })
+	output, err := dock.Transform(t.Context(), audioInput("speech", [][]byte{{1}}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	for {
+		chunk, err := output.Next()
+		if err != nil {
+			if !errors.Is(err, failure) {
+				t.Fatalf("error=%v", err)
+			}
+			return
+		}
+		if chunk.Role == genx.RoleModel {
+			t.Fatalf("Graph executed after ASR failure: %+v", chunk)
+		}
+	}
+}
+
+// The fixture transcribes complete audio turns; AudioDock and the downstream
+// Eino Graph are production components, including their cancellation boundary.
+func transcriptionDock(t testing.TB, agent genx.Transformer, transcribe func(context.Context, []*genx.Blob) (string, error)) *audiodock.Dock {
+	t.Helper()
+	asr := latencyTransformer(func(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+		output := streamkit.NewOutput(streamkit.OutputConfig{})
+		go func() {
+			defer output.Close()
+			defer input.Close()
+			var audio []*genx.Blob
+			for {
+				chunk, err := input.Next()
+				if err != nil {
+					return
+				}
+				if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) != 0 {
+					audio = append(audio, blob)
+				}
+				if !chunk.IsEndOfStream() || len(audio) == 0 {
+					continue
+				}
+				text, err := transcribe(ctx, audio)
+				if err != nil {
+					_ = output.CloseWithError(err)
+					return
+				}
+				_ = output.Push(&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: chunk.Ctrl.StreamID, Label: "transcript", BeginOfStream: true, EndOfStream: true}})
+				audio = nil
+			}
+		}()
+		return output, nil
+	})
+	dock, err := audiodock.New(audiodock.Config{Agent: agent, ASR: asr})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return dock
 }

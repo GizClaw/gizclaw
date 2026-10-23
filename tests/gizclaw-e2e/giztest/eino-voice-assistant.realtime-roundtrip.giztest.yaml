@@ -1,7 +1,7 @@
 # User Story:
 # As a registered device using the eino-voice-assistant Workflow,
-# I want complete the independent eino-voice-assistant.realtime-roundtrip scenario,
-# So that conversation behavior and cleanup remain reproducible.
+# I want realtime audio to use the Profile's PTT ASR when realtime ASR is null,
+# So that transcription and spoken replies still work with a shared ASR Model.
 version: gizclaw.test/v1alpha1
 name: eino-voice-assistant.realtime-roundtrip
 clients:
@@ -61,24 +61,42 @@ steps:
       method: server.run.workspace.set
       request:
         workspace_name: ${workspace_name}
+  - id: verify_realtime_asr_fallback
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+    expect:
+      /audio_input: {equals: AUDIO_INPUT_PATH_ASR}
   - id: synthesize_input
     client: peer
     speech:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: Giztest audio input
+        text: 三加五等于几？
         accepted_content_types: [audio/ogg]
     save_as: input_audio
   - id: exercise_workflow
     client: peer
+    timeout: 90s
     peer_stream:
       mode: realtime
       input: ${input_audio}
       pacing: 20ms
+      reply_observation: 1s
     expect:
       /events:
         non_empty: true
+      /transcript:
+        contains_all: ["3", "5"]
+        normalize: [digits]
+      /reply:
+        contains: "8"
+        normalize: [digits]
+      /audio_bytes: {minimum: 1}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
 finally:
   - client: peer
     rpc:

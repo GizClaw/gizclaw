@@ -13,7 +13,6 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
-	"github.com/GizClaw/gizclaw-go/pkgs/genx/generators/doubaochat"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -1629,8 +1628,12 @@ func TestAcceptsAudioInputMatchesTheBuiltGenerator(t *testing.T) {
 			data: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{ApiMode: chatCompletions, SupportTextOnly: new(true)}),
 		},
 		{
-			name: "openai without adapter", providerKind: apitypes.ModelProviderKindOpenaiTenant,
+			name: "openai audio input", providerKind: apitypes.ModelProviderKindOpenaiTenant, want: true,
 			data: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{SupportTextOnly: new(false)}),
+		},
+		{
+			name: "gemini requires ASR for packet audio", providerKind: apitypes.ModelProviderKindGeminiTenant,
+			data: mustGeminiModelProviderData(t, apitypes.GeminiTenantModelProviderData{SupportTextOnly: new(false)}),
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1659,8 +1662,8 @@ func TestAcceptsAudioInputMatchesTheBuiltGenerator(t *testing.T) {
 			if err != nil {
 				t.Fatalf("BuildGenerator() error = %v", err)
 			}
-			if _, adapted := generator.(*doubaochat.Generator); adapted != tc.want {
-				t.Fatalf("BuildGenerator() = %T, want audio adapter %v", generator, tc.want)
+			if _, adapted := generator.(*genx.OpenAIGenerator); !adapted {
+				t.Fatalf("BuildGenerator() = %T, want OpenAI-compatible Generator", generator)
 			}
 		})
 	}

@@ -1,7 +1,7 @@
 # User Story:
 # As a registered device using the eino-audio-input Workflow on a RuntimeProfile that selects the model audio input path,
-# I want one push-to-talk question answered by the audio-input chat Model without an ASR stage,
-# So that the same reply carries my transcript for the client, History, and the next turn.
+# I want original audio answered by the chat Model while independent ASR transcribes it,
+# So that AudioDock publishes the transcript for the client, History, and the next turn.
 version: gizclaw.test/v1alpha1
 name: eino-audio-input.push-to-talk-transcript
 clients:

@@ -433,10 +433,6 @@ type streamingChatModel struct {
 	maxReplyBytes      int
 }
 
-func (chatModel *streamingChatModel) transcribesAudio() bool {
-	return chatModel.node.ChatModel != nil && chatModel.node.ChatModel.AudioTranscript
-}
-
 func (chatModel *streamingChatModel) Generate(
 	ctx context.Context,
 	input []*schema.Message,
@@ -454,16 +450,6 @@ func (chatModel *streamingChatModel) Generate(
 	inputMessageCount := len(messages)
 	corrections := 0
 	var availabilityMessage *schema.Message
-	var transcript *audioTranscript
-	if chatModel.transcribesAudio() {
-		publisher, audioTurn := state.transcriptPublisher()
-		if audioTurn {
-			if !messagesContainAudio(messages) {
-				return nil, fmt.Errorf("eino: audio turn did not reach AudioTranscript node %q messages", chatModel.node.ID)
-			}
-			transcript = &audioTranscript{publisher: publisher}
-		}
-	}
 	var content strings.Builder
 	textField := chatModel.node.Outputs["text"]
 	for {
@@ -488,7 +474,7 @@ func (chatModel *streamingChatModel) Generate(
 		if streamErr != nil {
 			return nil, streamErr
 		}
-		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content, transcript, chatModel.verifyToolResponse == nil)
+		chunks, streamErr := chatModel.receiveRound(reader, state, textField, &content, chatModel.verifyToolResponse == nil)
 		reader.Close()
 		if errors.Is(streamErr, genx.ErrInvalidToolArguments) && chatModel.verifyToolResponse != nil && corrections < 2 {
 			// The malformed proposal has not reached the invoker or wire history.
@@ -515,7 +501,7 @@ func (chatModel *streamingChatModel) Generate(
 		}
 		if len(message.ToolCalls) == 0 {
 			if chatModel.verifyToolResponse != nil {
-				conversation := toolConversation(messages, inputMessageCount, currentToolUser(state, transcript))
+				conversation := toolConversation(messages, inputMessageCount, state.input.Text)
 				feedback, err := chatModel.verifyToolResponse(ctx, conversation, message.Content)
 				if err != nil {
 					return nil, fmt.Errorf("eino: verify Tool response: %w", err)
@@ -544,7 +530,7 @@ func (chatModel *streamingChatModel) Generate(
 		}
 		messages = append(messages, message)
 		for _, call := range message.ToolCalls {
-			conversation := toolConversation(messages, inputMessageCount, currentToolUser(state, transcript))
+			conversation := toolConversation(messages, inputMessageCount, state.input.Text)
 			result, invokeErr := callState.Invoke(genx.WithToolConversation(ctx, conversation), genx.ToolCall{
 				ID: call.ID,
 				FuncCall: &genx.FuncCall{
@@ -567,7 +553,6 @@ func (chatModel *streamingChatModel) receiveRound(
 	state *runState,
 	textField string,
 	content *strings.Builder,
-	transcript *audioTranscript,
 	publish bool,
 ) ([]*schema.Message, error) {
 	var chunks []*schema.Message
@@ -583,12 +568,6 @@ func (chatModel *streamingChatModel) receiveRound(
 		if chunk == nil {
 			continue
 		}
-		if text, ok := transcriptOf(chunk); ok {
-			if err := transcript.observe(text); err != nil {
-				return nil, err
-			}
-			continue
-		}
 		if !publish {
 			textBytes += len(chunk.Content)
 			if chatModel.maxReplyBytes > 0 && textBytes > chatModel.maxReplyBytes {
@@ -602,13 +581,6 @@ func (chatModel *streamingChatModel) receiveRound(
 			}
 		}
 	}
-}
-
-func currentToolUser(state *runState, transcript *audioTranscript) string {
-	if transcript != nil && transcript.published {
-		return transcript.text
-	}
-	return state.input.Text
 }
 
 func toolConversation(messages []*schema.Message, inputMessageCount int, currentUser string) genx.ToolConversation {
@@ -663,7 +635,7 @@ func (chatModel *streamingChatModel) Stream(
 	input []*schema.Message,
 	options ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	if chatModel.toolInvoker == nil && !chatModel.transcribesAudio() {
+	if chatModel.toolInvoker == nil {
 		return chatModel.component.Stream(
 			ctx,
 			input,

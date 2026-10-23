@@ -2,9 +2,10 @@
   "apiVersion": "gizclaw.admin/v1alpha1",
   "kind": "ResourceList",
   "spec": {"items": [
-    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"native-history-volc"},"spec":{"provider":"volc","body":{"ark_api_key":"local-protocol-fixture"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"native-history-volc"},"spec":{"provider":"volc","body":{"ark_api_key":"local-protocol-fixture","speech_app_id":"local-fixture","speech_api_key":"local-fixture"}}},
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"VolcTenant","metadata":{"id":"native-history-volc"},"spec":{"credential_id":"native-history-volc","endpoint":"FIXTURE_ENDPOINT/api/v3"}},
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"native-history-audio"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"volc-tenant","id":"native-history-volc"},"provider_data":{"api_mode":"chat_completions","upstream_model":"doubao-seed-2-1-lite-260915","support_text_only":false,"use_system_role":true,"thinking_param":"thinking.type","default_thinking_level":"disabled"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"native-history-asr"},"spec":{"kind":"asr","source":"manual","provider":{"kind":"volc-tenant","id":"native-history-volc"},"provider_data":{"api_mode":"asr","resource_id":"volc.bigasr.sauc.duration"}}},
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"native-history-speech"},"spec":{"provider":"minimax","body":{"api_key":"local-protocol-fixture"}}},
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"MiniMaxTenant","metadata":{"id":"native-history-speech"},"spec":{"credential_id":"native-history-speech","base_url":"FIXTURE_ENDPOINT"}},
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Voice","metadata":{"id":"native-history-speech"},"spec":{"source":"manual","provider":{"kind":"minimax-tenant","id":"native-history-speech"},"provider_data":{"voice_id":"native-history","model":"protocol-fixture","format":"ogg_opus"}}},
@@ -108,6 +109,6 @@
         }
       }
     },
-    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"peer-sync-giztest"},"spec":{"workflows":{"native-history":{"resource_id":"native-history","i18n":{"en":{"display_name":"Native History"},"zh-CN":{"display_name":"原生语音历史"}}}},"resources":{"models":{"audio":{"resource_id":"native-history-audio","i18n":{"en":{"display_name":"Native audio"},"zh-CN":{"display_name":"原生语音"}}}},"voices":{"speech":{"resource_id":"native-history-speech","i18n":{"en":{"display_name":"Speech fixture"},"zh-CN":{"display_name":"语音夹具"}}}}}}}
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"peer-sync-giztest"},"spec":{"workflows":{"native-history":{"resource_id":"native-history","ptt_asr_model":"asr","realtime_asr_model":"asr","i18n":{"en":{"display_name":"Native History"},"zh-CN":{"display_name":"原生语音历史"}}}},"resources":{"models":{"asr":{"resource_id":"native-history-asr","i18n":{"en":{"display_name":"ASR"},"zh-CN":{"display_name":"识别"}}},"audio":{"resource_id":"native-history-audio","i18n":{"en":{"display_name":"Native audio"},"zh-CN":{"display_name":"原生语音"}}}},"voices":{"speech":{"resource_id":"native-history-speech","i18n":{"en":{"display_name":"Speech fixture"},"zh-CN":{"display_name":"语音夹具"}}}}}}}
   ]}
 }

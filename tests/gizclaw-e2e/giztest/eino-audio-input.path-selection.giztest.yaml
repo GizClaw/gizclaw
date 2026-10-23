@@ -1,6 +1,6 @@
 # User Story:
 # As a device using Profile-owned speech input,
-# I want PTT and realtime to use their independently selected ASR Models,
+# I want PTT and realtime to share an ASR Model when only one mode is configured,
 # So that Workspace updates cannot change the input source chosen by the Profile.
 version: gizclaw.test/v1alpha1
 name: eino-audio-input.path-selection
@@ -28,7 +28,7 @@ steps:
         workflow_name: eino-audio-input
         parameters:
           eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO, input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK}
-  - id: native_ptt
+  - id: ptt_falls_back_to_realtime_asr
     client: peer
     rpc: {method: server.run.workspace.reload-with-options, request: {workspace_name: "${workspace_name}"}}
     expect:
@@ -61,6 +61,14 @@ steps:
   - id: other_profile_selects_ptt_asr
     client: asr_peer
     rpc: {method: server.run.workspace.reload-with-options, request: {workspace_name: "${asr_workspace}"}}
+    expect:
+      /audio_input: {equals: AUDIO_INPUT_PATH_ASR}
+  - id: other_profile_realtime_falls_back_to_ptt_asr
+    client: asr_peer
+    rpc:
+      method: server.run.workspace.reload-with-options
+      request:
+        parameters: {input: WORKSPACE_INPUT_MODE_REALTIME}
     expect:
       /audio_input: {equals: AUDIO_INPUT_PATH_ASR}
 finally:

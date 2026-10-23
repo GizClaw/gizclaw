@@ -127,8 +127,11 @@ steps:
       input: ${input_audio}
       pacing: 20ms
       trim_trailing_silence: true
+      reply_observation: 30s
     expect:
       /first_text_ms:
+        minimum: 1
+      /first_transcript_ms:
         minimum: 1
     capture:
       audio_transcript: /transcript
@@ -162,8 +165,11 @@ steps:
       input: ${input_audio}
       pacing: 20ms
       trim_trailing_silence: true
+      reply_observation: 30s
     expect:
       /first_text_ms:
+        minimum: 1
+      /first_transcript_ms:
         minimum: 1
     capture:
       asr_transcript: /transcript

@@ -17,7 +17,9 @@ dock, err := audiodock.New(audiodock.Config{
 })
 ```
 
-Text input enters the Agent directly. Audio input is streamed incrementally to ASR with its original StreamID; the completed transcript becomes one text turn for the Agent. Agent text is immediately pullable and is also queued for TTS in its original order. Synthesized audio and text share the response StreamID, with independent EOS markers for each MIME channel.
+`Config.AgentAudioInput` forwards original audio to Agent while ASR independently transcribes the same input. AudioDock publishes ASR text only on its transcript route, without creating another Agent turn. It declares the user transcript route before Agent can reply, preserving user-before-reply History order even when ASR finishes later; first reply text does not wait for recognition. By default ASR final text becomes Agent input, with interim text visible only to clients. ASR selection remains independent of the conversation model.
+
+Text input enters the Agent directly. Audio input is streamed incrementally to ASR with its original StreamID; by default the completed transcript becomes one text turn for the Agent. Agent text is immediately pullable and is also queued for TTS in its original order. Synthesized audio and text share the response StreamID, with independent EOS markers for each MIME channel.
 
 Text content is independent of audio timing: voice resolution, TTS session startup, and synthesis do not block subsequent model text. A text EOS carrying content is split into immediately readable content and a deferred empty text EOS; the response epoch ends only after sibling routes finish or are cancelled. Each publisher queues TTS input in order. A new input BOS cancels old TTS work even during voice resolution or startup, and a late provider stream is closed without emitting old audio into the next turn. This boundary also applies to realtime/duplex input: the ASR definite transcript determines when the model starts, and Audio Dock adds no wait for the outer audio EOS or playback cadence.
 
