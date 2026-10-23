@@ -51,6 +51,8 @@
 !multi-role-voices/*.yaml
 !peer-audio/
 !peer-audio/post-eos.giztest.yaml
+!peer-address/
+!peer-address/*.giztest.yaml
 
 !rtp-bos/
 !rtp-bos/*

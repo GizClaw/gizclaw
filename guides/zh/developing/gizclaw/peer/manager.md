@@ -20,6 +20,21 @@ Connection activation 会先在 Manager 锁内为 public key 建立 reservation�
 
 Admin block 持久化 `blocked` 后，`DetachPeerConnections` 在同一 public key 的记录协调内摘除当前 connection、Edge transport 和正在激活的 reservation。摘除时在 Manager 锁内设置旧 generation 的原子 retiring 标记，再释放记录锁与 Manager 锁，执行回调并关闭捕获的 transport。迟到的 activation 不能重新发布已摘除的 reservation。这个操作不留下永久 fence；Admin approve 回到 active 后可立即建立新连接，旧连接的关闭不会影响新 generation。`ForcePeerDown` 保留原有仅清理在线索引、保留 replacement reservation 的用途，不承担封禁断开。激活拒绝发生在 PeerRoutes assignment 与 LocalRuns 写入前。普通 Peer service 授权保持零存储 I/O；封禁执行与原有角色授权的边界见 [Security Policy](../server/security-policy)。
 
+## 连接来源地址
+
+Runtime 的 `last_addr` 是最近一次观察到的信令入口来源 `IP:port`，支持 IPv4 和 IPv6。
+直连 Server 时由 WebRTC listener 从 HTTP 信令请求的 socket 地址采集；经 Gateway 时
+沿用可信 Edge 的 tunnel 会话声明。它表示入口观察到的来源，经过 NAT 或反向代理时
+可能是出口或代理地址，不表示 WebRTC 当前选中的 ICE/TURN 地址。公开请求的代理
+headers 不参与采集。
+
+连接激活在发布在线状态前，通过 [Peer Run](../services/runtime/peerrun) 保存地址。
+同一 Peer 的地址写入和连接发布串行执行；数据库 I/O 不持有 Manager 状态锁，其他
+Peer 可继续操作。地址写入有界并沿用调用方取消，失败时不发布新连接。旧连接断开、
+退役或继续产生流量都不写回地址，因此不能覆盖替代连接。离线和进程重启后读取
+最近保存的地址；无法取得 IP endpoint 的连接保留已有记录，从未观察到时省略该字段。
+该记录属于本 Server 的运行数据库，不通过共享 presence 发布。
+
 ## 设备元数据归属
 
 Peer 连接发布后，Server 会执行一次有界的设备信息刷新；失败不会中断连接，Admin 仍可主动调用 refresh 重试。`client.info.get` 只反向刷新 `HardwareInfo`（`hardware_revision`、`manufacturer`、`model`）。`client.identifiers.get` 只反向刷新 `DeviceIdentifiers`（`sn`、`imeis`、`labels`）。SN 是 Client 声明的可选弱标识，必须是有效 UTF-8 且不超过 256 bytes；Client 应让它对同一台物理设备保持稳定并尽量唯一，但 Server 不把它当作唯一身份。同一 SN 可以关联多个 Peer，Admin SN 查询返回全部匹配记录。由 Server 持有的个人资料字段 `name` 与 `emoji` 通过 `server.info.put` 修改，不会被反向刷新覆盖。`name` 必须是有效 UTF-8 且不超过 256 bytes，`emoji` 必须是有效 UTF-8 且不超过 64 bytes。

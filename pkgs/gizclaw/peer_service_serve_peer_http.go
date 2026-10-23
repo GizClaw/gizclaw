@@ -20,6 +20,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 )
 
 func (s *PeerService) servePublic(conn giznet.Conn) error {
@@ -137,6 +138,9 @@ func (s *PeerService) publicHTTPHandlerWithOptions(apiKeys *apikey.Server, opts 
 			return ctx.SendStatus(http.StatusNoContent)
 		}
 		base = withPeerHTTPContentType(base, ctx.Get(fiber.HeaderContentType))
+		if ctx.Method() == http.MethodPost && ctx.Path() == gizwebrtc.SignalingPath {
+			base = context.WithValue(base, peerHTTPRemoteAddrContextKey{}, ctx.Context().RemoteAddr().String())
+		}
 		ctx.SetUserContext(base)
 		if opts.requireClientPeer && ctx.Method() == http.MethodPost && ctx.Path() == "/webrtc/v1/offer" {
 			publicKey, ok := s.edgeSignalingPublicKey(ctx)

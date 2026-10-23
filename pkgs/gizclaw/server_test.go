@@ -290,6 +290,7 @@ func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 	var gotPublicKey string
 	var gotTimestamp string
 	var gotNonce string
+	var gotRemoteAddr string
 	server := &Server{
 		LocalStatic: *keyPair,
 		PeerStore:   mustBadgerInMemory(t, nil),
@@ -304,6 +305,7 @@ func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 			gotPublicKey = r.Header.Get("X-Giznet-Public-Key")
 			gotTimestamp = r.Header.Get("X-Giznet-Timestamp")
 			gotNonce = r.Header.Get("X-Giznet-Nonce")
+			gotRemoteAddr = r.RemoteAddr
 			gotBody, _ = io.ReadAll(r.Body)
 			w.Header().Set("Content-Type", "application/octet-stream")
 			w.WriteHeader(http.StatusOK)
@@ -316,6 +318,9 @@ func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, gizwebrtc.SignalingPath, bytes.NewReader([]byte("encrypted-offer")))
+	req.RemoteAddr = "[2001:db8::7]:41234"
+	req.Header.Set("X-Forwarded-For", "203.0.113.99")
+	req.Header.Set("X-Gizclaw-Client-IP", "203.0.113.99")
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.Header.Set("X-Giznet-Public-Key", "peer-public")
 	req.Header.Set("X-Giznet-Timestamp", "123456789")
@@ -337,6 +342,9 @@ func TestPeerHTTPWebRTCSignalingUsesGeneratedRoute(t *testing.T) {
 	}
 	if string(gotBody) != "encrypted-offer" {
 		t.Fatalf("forwarded body = %q", string(gotBody))
+	}
+	if gotRemoteAddr != req.RemoteAddr {
+		t.Fatalf("forwarded source = %q, want %q", gotRemoteAddr, req.RemoteAddr)
 	}
 }
 

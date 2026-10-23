@@ -284,7 +284,7 @@ func dialAttempt(
 		_ = l.Close()
 		return nil, nil, err
 	}
-	conn, err := newConn(serverPK, pc, cfg.SecurityPolicy, "client")
+	conn, err := newConn(serverPK, pc, cfg.SecurityPolicy, "client", "")
 	if err != nil {
 		_ = pc.Close()
 		_ = l.Close()

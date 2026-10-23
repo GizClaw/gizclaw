@@ -41,6 +41,12 @@ It is a general transport adapter that only connects HTTP and giznet and does no
 
 ### gizwebrtc
 
+On acceptance, the listener saves the authenticated HTTP signaling request's
+socket source as the connection endpoint for Server address records. It is set
+before delivery, supports IPv4 and IPv6, ignores public proxy headers, and stays
+unchanged when the selected ICE candidate pair changes. Gateway logical
+endpoints continue to come from the trusted Edge session declaration.
+
 `pkgs/giznet/gizwebrtc` is the WebRTC transport implementation of giznet, responsible for WebRTC signaling, ICE, DataChannel, service stream, packet transport and connection life cycle.
 
 WebRTC implementation details related to Pion are left in this subdirectory. The upper-layer GizClaw service relies on the giznet boundary and does not directly diffuse WebRTC types to the business layer.

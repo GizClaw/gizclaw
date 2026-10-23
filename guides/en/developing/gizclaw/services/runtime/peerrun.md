@@ -11,6 +11,17 @@
 `GetDebugMode` / `SetDebugMode` persist device-owned debug permissions, defaulting to `off`.
 The setting survives reconnects. HTTP authorization reads it on every request and fails closed on storage errors.
 
+## Last connection address
+
+Peer Run retains the most recently accepted connection's signaling source
+address for Runtime queries while a device is offline or after Server restart.
+Connection activation updates only the address; disconnection updates only the
+last activity time. Status, OTA, Workspace selection, and the local directory
+keep their independent write boundaries. Manager serializes address writes
+with publication for each Peer; old teardown never writes an old address back.
+See [Peer Management](../../peer/manager#connection-source-address) for collection
+and read semantics.
+
 ## OTA status
 
 `Server.PutOTAStatus` uses a conditional SQL update of `peer_runs.ota_json` to protect terminal states from concurrent or out-of-order reports. `GetStatus` reads status and OTA in one query; `PutStatus` updates only `status_json`. See [Telemetry API](/en/developing/api/proto/telemetry#ota-reporting) for ordering rules.

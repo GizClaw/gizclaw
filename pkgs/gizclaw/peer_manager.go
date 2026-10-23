@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
@@ -44,6 +45,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
@@ -182,6 +184,8 @@ type Manager struct {
 	mu          sync.RWMutex
 	peers       map[giznet.PublicKey]*activePeer
 	deviceCount *atomic.Int64
+	// connectionUpdates orders address persistence with same-Peer publication.
+	connectionUpdates keyedlock.Locker[giznet.PublicKey]
 
 	telemetryStatusMu    sync.Mutex
 	telemetryStatusLocks map[giznet.PublicKey]*telemetryStatusLock
@@ -319,8 +323,18 @@ func (m *Manager) allowActivePeerRole(ctx context.Context, publicKey giznet.Publ
 }
 
 // SetPeerUp publishes a Client connection already accepted by the caller.
-// Server admission instead uses activatePeer to validate the durable Peer role.
+// Address persistence errors are logged without withdrawing that acceptance.
+// Server admission instead uses activatePeer to validate the durable Peer role
+// and reject address persistence errors before publication.
 func (m *Manager) SetPeerUp(publicKey giznet.PublicKey, conn giznet.Conn) giznet.Conn {
+	release, err := m.connectionUpdates.Acquire(context.Background(), publicKey)
+	if err != nil {
+		return nil
+	}
+	defer release()
+	if err := m.recordPeerAddress(context.Background(), publicKey, conn); err != nil {
+		slog.Warn("gizclaw: record peer address", "peer_public_key", publicKey.String(), "error", err)
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.setPeerUpLocked(publicKey, conn)
@@ -385,6 +399,17 @@ func (m *Manager) activatePeer(ctx context.Context, conn giznet.Conn) (giznet.Co
 	m.mu.Unlock()
 
 	role, err := m.ensureActivatingPeer(ctx, publicKey, state, conn)
+	if err == nil {
+		var release func()
+		release, err = m.connectionUpdates.Acquire(ctx, publicKey)
+		if err == nil {
+			defer release()
+			err = m.checkActivatingPeer(publicKey, state, conn)
+			if err == nil {
+				err = m.recordPeerAddress(ctx, publicKey, conn)
+			}
+		}
+	}
 	if err != nil {
 		m.mu.Lock()
 		if current, currentOK := m.peers[publicKey]; currentOK && current == state && current.activating == conn {
@@ -577,16 +602,7 @@ func resolveWorkspaceByID(
 
 func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) (apitypes.PeerRole, error) {
 	peerRecord, err := m.Peers.EnsureConnectedPeerGuarded(ctx, publicKey, func() error {
-		m.mu.RLock()
-		defer m.mu.RUnlock()
-		current, currentOK := m.peers[publicKey]
-		if !currentOK || current != state || current.activating != conn {
-			return ErrPeerConnNotActive
-		}
-		if current.deleting {
-			return ErrPeerConnRetiring
-		}
-		return nil
+		return m.checkActivatingPeer(publicKey, state, conn)
 	})
 	if err != nil {
 		return "", err
@@ -602,6 +618,19 @@ func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.Pub
 		}
 	}
 	return peerRecord.Role, nil
+}
+
+func (m *Manager) checkActivatingPeer(publicKey giznet.PublicKey, state *activePeer, conn giznet.Conn) error {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	current, ok := m.peers[publicKey]
+	if !ok || current != state || current.activating != conn {
+		return ErrPeerConnNotActive
+	}
+	if current.deleting {
+		return ErrPeerConnRetiring
+	}
+	return nil
 }
 
 func (m *Manager) deleteActivePeer(ctx context.Context, publicKey giznet.PublicKey, conn giznet.Conn, beginRetiring func() func()) error {
@@ -849,6 +878,11 @@ func (m *Manager) Peer(publicKey giznet.PublicKey) (giznet.Conn, bool) {
 func (m *Manager) PeerRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {
 	runtime := m.peerPresenceRuntime(ctx, publicKey)
 	if m.PeerRun != nil {
+		if runtime.LastAddr == nil {
+			if address, err := m.PeerRun.GetLastAddr(ctx, publicKey); err == nil && address != "" {
+				runtime.LastAddr = &address
+			}
+		}
 		runtime.ReportedKv, _ = m.PeerRun.GetReportedKV(ctx, publicKey)
 		if mode, err := m.PeerRun.GetDebugMode(ctx, publicKey); err == nil {
 			runtime.DebugMode = &mode
@@ -915,8 +949,7 @@ func (m *Manager) peerConnectionRuntime(publicKey giznet.PublicKey) apitypes.Run
 		runtime.LastSeenAt = info.LastSeen
 		runtime.RxBytes = &info.RxBytes
 		runtime.TxBytes = &info.TxBytes
-		if info.Endpoint != nil {
-			lastAddr := info.Endpoint.String()
+		if lastAddr := peerSourceAddr(info); lastAddr != "" {
 			runtime.LastAddr = &lastAddr
 		}
 	}

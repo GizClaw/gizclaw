@@ -17,6 +17,7 @@ import (
 )
 
 type peerHTTPContentTypeContextKey struct{}
+type peerHTTPRemoteAddrContextKey struct{}
 
 func withPeerHTTPContentType(ctx context.Context, contentType string) context.Context {
 	if ctx == nil {
@@ -62,6 +63,7 @@ func (s *peerHTTP) CreateGiznetWebRTCOffer(ctx context.Context, request peerhttp
 	if err != nil {
 		return nil, err
 	}
+	httpRequest.RemoteAddr, _ = ctx.Value(peerHTTPRemoteAddrContextKey{}).(string)
 	contentType := peerHTTPContentType(ctx)
 	if contentType == "" {
 		contentType = "application/octet-stream"

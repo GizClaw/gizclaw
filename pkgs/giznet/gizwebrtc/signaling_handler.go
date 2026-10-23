@@ -124,7 +124,7 @@ func (l *Listener) handleOffer(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	answerSDP, conn, timing, err := l.acceptOffer(r.Context(), clientPK, string(offerSDP))
+	answerSDP, conn, timing, err := l.acceptOffer(r.Context(), clientPK, string(offerSDP), r.RemoteAddr)
 	if err != nil {
 		recordSignalingPhases(r.Context(), l.metricsNodeRole(), "internal_error", timing)
 		writeSignalingError(w, http.StatusInternalServerError, "answer_failed")
@@ -178,6 +178,7 @@ func (l *Listener) acceptOffer(
 	ctx context.Context,
 	clientPK giznet.PublicKey,
 	offerSDP string,
+	remoteAddr string,
 ) (string, *Conn, signalingTiming, error) {
 	timing := signalingTiming{}
 	started := time.Now()
@@ -190,7 +191,7 @@ func (l *Listener) acceptOffer(
 	if err != nil {
 		return "", nil, timing, err
 	}
-	conn, err := newConn(clientPK, pc, l.cfg.SecurityPolicy, "server")
+	conn, err := newConn(clientPK, pc, l.cfg.SecurityPolicy, "server", remoteAddr)
 	if err != nil {
 		_ = pc.Close()
 		return "", nil, timing, err

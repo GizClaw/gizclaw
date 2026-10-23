@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -40,7 +42,15 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 		t.Fatalf("Listen error = %v", err)
 	}
 	defer serverListener.Close()
-	httpServer := httptest.NewServer(serverListener.SignalingHandler())
+	var remoteAddress atomic.Value
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		remoteAddress.Store(r.RemoteAddr)
+		// Public proxy headers cannot replace the observed socket address.
+		r.Header.Set("X-Gizclaw-Client-IP", "203.0.113.99")
+		r.Header.Set("X-Forwarded-For", "203.0.113.99")
+		r.Header.Set("Forwarded", "for=203.0.113.99")
+		serverListener.SignalingHandler().ServeHTTP(w, r)
+	}))
 	defer httpServer.Close()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
@@ -74,6 +84,9 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 
 	serverConn := acceptConn(t, serverListener)
 	defer serverConn.Close()
+	if want, _ := remoteAddress.Load().(string); serverConn.PeerInfo().Endpoint.String() != want {
+		t.Fatalf("server endpoint = %v, want signaling source %s", serverConn.PeerInfo().Endpoint, want)
+	}
 
 	if _, err := clientConn.Write(0x42, []byte("packet")); err != nil {
 		t.Fatalf("client packet Write error = %v", err)
