@@ -1771,15 +1771,15 @@ func (e ModelProviderKind) Valid() bool {
 	}
 }
 
-// Defines values for ModelRequestSourceKind.
+// Defines values for ModelRequestPeerRuntimeKVSourceKind.
 const (
-	ModelRequestSourceKindPeerRuntimeKv ModelRequestSourceKind = "peer_runtime_kv"
+	ModelRequestPeerRuntimeKVSourceKindPeerRuntimeKv ModelRequestPeerRuntimeKVSourceKind = "peer_runtime_kv"
 )
 
-// Valid indicates whether the value is a known member of the ModelRequestSourceKind enum.
-func (e ModelRequestSourceKind) Valid() bool {
+// Valid indicates whether the value is a known member of the ModelRequestPeerRuntimeKVSourceKind enum.
+func (e ModelRequestPeerRuntimeKVSourceKind) Valid() bool {
 	switch e {
-	case ModelRequestSourceKindPeerRuntimeKv:
+	case ModelRequestPeerRuntimeKVSourceKindPeerRuntimeKv:
 		return true
 	default:
 		return false
@@ -4787,26 +4787,33 @@ type ModelProviderKind string
 // ModelRequestBinding defines model for ModelRequestBinding.
 type ModelRequestBinding struct {
 	// Required Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback.
-	Required *bool              `json:"required,omitempty"`
-	Source   ModelRequestSource `json:"source"`
-	Target   ModelRequestTarget `json:"target"`
+	Required *bool `json:"required,omitempty"`
+
+	// Source Named variable source selected by kind. Each oneOf branch owns its lookup fields; only the authenticated invoking Peer Runtime KV source is currently supported.
+	Source ModelRequestSource `json:"source"`
+	Target ModelRequestTarget `json:"target"`
 }
 
 // ModelRequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
 type ModelRequestBindings = []ModelRequestBinding
 
-// ModelRequestSource defines model for ModelRequestSource.
-type ModelRequestSource struct {
+// ModelRequestPeerRuntimeKVSource Reads a value from the authenticated invoking Peer's device-reported Runtime KV. key and pointer belong only to this source variant.
+type ModelRequestPeerRuntimeKVSource struct {
 	// Key Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
-	Key  string                 `json:"key"`
-	Kind ModelRequestSourceKind `json:"kind"`
+	Key  string                              `json:"key"`
+	Kind ModelRequestPeerRuntimeKVSourceKind `json:"kind"`
 
 	// Pointer JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string.
 	Pointer *string `json:"pointer,omitempty"`
 }
 
-// ModelRequestSourceKind defines model for ModelRequestSource.Kind.
-type ModelRequestSourceKind string
+// ModelRequestPeerRuntimeKVSourceKind defines model for ModelRequestPeerRuntimeKVSource.Kind.
+type ModelRequestPeerRuntimeKVSourceKind string
+
+// ModelRequestSource Named variable source selected by kind. Each oneOf branch owns its lookup fields; only the authenticated invoking Peer Runtime KV source is currently supported.
+type ModelRequestSource struct {
+	union json.RawMessage
+}
 
 // ModelRequestTarget defines model for ModelRequestTarget.
 type ModelRequestTarget struct {
@@ -8977,6 +8984,65 @@ func (t ModelProviderData) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModelProviderData) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsModelRequestPeerRuntimeKVSource returns the union data inside the ModelRequestSource as a ModelRequestPeerRuntimeKVSource
+func (t ModelRequestSource) AsModelRequestPeerRuntimeKVSource() (ModelRequestPeerRuntimeKVSource, error) {
+	var body ModelRequestPeerRuntimeKVSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelRequestPeerRuntimeKVSource overwrites any union data inside the ModelRequestSource as the provided ModelRequestPeerRuntimeKVSource
+func (t *ModelRequestSource) FromModelRequestPeerRuntimeKVSource(v ModelRequestPeerRuntimeKVSource) error {
+	v.Kind = "peer_runtime_kv"
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelRequestPeerRuntimeKVSource performs a merge with any union data inside the ModelRequestSource, using the provided ModelRequestPeerRuntimeKVSource
+func (t *ModelRequestSource) MergeModelRequestPeerRuntimeKVSource(v ModelRequestPeerRuntimeKVSource) error {
+	v.Kind = "peer_runtime_kv"
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ModelRequestSource) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"kind"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t ModelRequestSource) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "peer_runtime_kv":
+		return t.AsModelRequestPeerRuntimeKVSource()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t ModelRequestSource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ModelRequestSource) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

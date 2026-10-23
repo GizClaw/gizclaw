@@ -409,7 +409,14 @@ func TestModelRequestBindingsJSONPointerAndHeaderBudget(t *testing.T) {
 	f.setBindings(t, &apitypes.ModelRequestBindings{(*f.bindings(t))[1]})
 	bindings := f.bindings(t)
 	binding := &(*bindings)[0]
-	binding.Source.Pointer = new("/a~1b/~0/0/")
+	source, err := binding.Source.AsModelRequestPeerRuntimeKVSource()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source.Pointer = new("/a~1b/~0/0/")
+	if err := binding.Source.FromModelRequestPeerRuntimeKVSource(source); err != nil {
+		t.Fatal(err)
+	}
 	f.setBindings(t, bindings)
 	f.update(t)
 	ctx := ownership.WithCaller(t.Context(), peer)
@@ -425,7 +432,11 @@ func TestModelRequestBindingsJSONPointerAndHeaderBudget(t *testing.T) {
 	}
 	declarations := apitypes.ModelRequestBindings{}
 	for i := range 16 {
-		declarations = append(declarations, apitypes.ModelRequestBinding{Source: apitypes.ModelRequestSource{Kind: apitypes.ModelRequestSourceKindPeerRuntimeKv, Key: "identity"}, Target: apitypes.ModelRequestTarget{Kind: apitypes.ModelRequestTargetKindHttpHeader, Name: fmt.Sprintf("X-Metadata-%d", i)}})
+		var source apitypes.ModelRequestSource
+		if err := source.FromModelRequestPeerRuntimeKVSource(apitypes.ModelRequestPeerRuntimeKVSource{Key: "identity"}); err != nil {
+			t.Fatal(err)
+		}
+		declarations = append(declarations, apitypes.ModelRequestBinding{Source: source, Target: apitypes.ModelRequestTarget{Kind: apitypes.ModelRequestTargetKindHttpHeader, Name: fmt.Sprintf("X-Metadata-%d", i)}})
 	}
 	f.setBindings(t, &declarations)
 	f.update(t)

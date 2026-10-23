@@ -44,15 +44,36 @@ func ValidateModelRequestBindings(kind ModelKind, provider ModelProviderKind, bi
 			return fmt.Errorf("request_bindings[%d]: duplicate header target", i)
 		}
 		names[name] = true
-		if binding.Source.Kind != ModelRequestSourceKindPeerRuntimeKv || binding.Source.Key == "" ||
-			len(binding.Source.Key) > maxModelRequestKeyBytes || !utf8.ValidString(binding.Source.Key) {
+		if err := validateModelRequestSource(binding.Source); err != nil {
 			return fmt.Errorf("request_bindings[%d]: invalid source", i)
-		}
-		if _, err := ModelRequestPointerSegments(binding.Source.Pointer); err != nil {
-			return fmt.Errorf("request_bindings[%d]: invalid JSON pointer", i)
 		}
 	}
 	return nil
+}
+
+func validateModelRequestSource(source ModelRequestSource) error {
+	kind, err := source.Discriminator()
+	if err != nil {
+		return err
+	}
+	raw, err := source.MarshalJSON()
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case string(ModelRequestPeerRuntimeKVSourceKindPeerRuntimeKv):
+		var value ModelRequestPeerRuntimeKVSource
+		if err := decodeStrictJSON(raw, &value); err != nil {
+			return err
+		}
+		if value.Key == "" || len(value.Key) > maxModelRequestKeyBytes || !utf8.ValidString(value.Key) {
+			return errors.New("invalid Runtime KV key")
+		}
+		_, err := ModelRequestPointerSegments(value.Pointer)
+		return err
+	default:
+		return errors.New("unsupported request binding source")
+	}
 }
 
 func modelRequestHeaderNameAllowed(name string) bool {

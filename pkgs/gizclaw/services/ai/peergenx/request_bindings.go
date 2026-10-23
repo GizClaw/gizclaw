@@ -75,8 +75,19 @@ func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (h
 		return nil, err
 	}
 	paths := make([][]string, len(bindings))
+	sources := make([]apitypes.ModelRequestPeerRuntimeKVSource, len(bindings))
 	for i, binding := range bindings {
-		paths[i], err = apitypes.ModelRequestPointerSegments(binding.Source.Pointer)
+		value, err := binding.Source.ValueByDiscriminator()
+		if err != nil {
+			return nil, fmt.Errorf("%w: invalid request binding source", ErrInvalid)
+		}
+		switch source := value.(type) {
+		case apitypes.ModelRequestPeerRuntimeKVSource:
+			sources[i] = source
+		default:
+			return nil, fmt.Errorf("%w: unsupported request binding source", ErrInvalid)
+		}
+		paths[i], err = apitypes.ModelRequestPointerSegments(sources[i].Pointer)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid JSON pointer", ErrInvalid)
 		}
@@ -104,21 +115,22 @@ func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (h
 		values := make(map[string]any)
 		total := 0
 		for i, binding := range bindings {
+			source := sources[i]
 			var entry apitypes.PeerKVEntry
 			present := false
 			if snapshot != nil {
-				entry, present = (*snapshot)[binding.Source.Key]
+				entry, present = (*snapshot)[source.Key]
 			}
 			var value any
 			if present {
 				var decoded bool
-				value, decoded = values[binding.Source.Key]
+				value, decoded = values[source.Key]
 				if !decoded {
 					value, err = decodeBindingJSON(entry.Value)
 					if err != nil {
 						return nil, &requestBindingError{reason: "INVALID", index: i}
 					}
-					values[binding.Source.Key] = value
+					values[source.Key] = value
 				}
 				value, present, err = selectBindingValue(value, paths[i])
 				if err != nil {

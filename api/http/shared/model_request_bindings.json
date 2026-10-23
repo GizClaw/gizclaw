@@ -44,11 +44,33 @@
         }
       },
       "ModelRequestSource": {
+        "description": "Named variable source selected by kind. Each oneOf branch owns its lookup fields; only the authenticated invoking Peer Runtime KV source is currently supported.",
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/ModelRequestPeerRuntimeKVSource"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "kind",
+          "mapping": {
+            "peer_runtime_kv": "#/components/schemas/ModelRequestPeerRuntimeKVSource"
+          }
+        }
+      },
+      "ModelRequestPeerRuntimeKVSource": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["kind", "key"],
+        "required": [
+          "kind",
+          "key"
+        ],
         "properties": {
-          "kind": { "type": "string", "enum": ["peer_runtime_kv"] },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "peer_runtime_kv"
+            ]
+          },
           "key": {
             "type": "string",
             "minLength": 1,
@@ -61,7 +83,8 @@
             "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
             "description": "JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string."
           }
-        }
+        },
+        "description": "Reads a value from the authenticated invoking Peer's device-reported Runtime KV. key and pointer belong only to this source variant."
       }
     }
   }
