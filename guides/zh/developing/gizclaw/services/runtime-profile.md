@@ -198,14 +198,13 @@ ASTTranslate 的当前 provider 路径没有系统提示入口：格式合法的
 
 每个 Workflow binding 分别通过 `ptt_asr_model` 与 `realtime_asr_model` 引用本 Profile 的 `resources.models` 中的 ASR alias。ASR Model 独立于对话 Model，AudioDock 统一发布转写。Eino 的 PTT 音频图直接接收原音，ASR 作为旁路；需要文字的图和连续 realtime 输入使用 ASR 最终文本。两个模式可以共享同一个 ASR Model。
 
-省略或设为 null 时，Eino 的该模式只接收文本，不自动补 ASR。Doubao Realtime driver 可以省略 ASR 继续使用 provider 原生音频，也可以选择独立 ASR 后使用文本输入。
+当前输入模式优先使用自己的 ASR alias；该字段省略或设为 `null` 时，回退到另一模式的 alias。只配置其中一个即可供 PTT 和 realtime 共用，ASR 仍按当前输入模式运行。显式配置的错误 alias 不会触发回退。两个字段都省略或为 `null` 时，Eino 只接收文本。Doubao Realtime driver 可以省略 ASR 继续使用 provider 原生音频，也可以选择独立 ASR 后使用文本输入。
 
 ```yaml
 spec:
   workflows:
     assistant:
       resource_id: eino-assistant
-      ptt_asr_model: asr
       realtime_asr_model: asr
       i18n:
         en: {display_name: Assistant}
@@ -225,7 +224,7 @@ spec:
 
 - 两个字段只允许出现在 Workflow binding 上，值符合 Model alias 规则，并且必须在 `resources.models` 中绑定到 `kind: asr` 的资源。
 - 外挂 ASR 支持 `eino` 和 `doubao-realtime` driver。当前 `doubao-realtime-duplex` 与 `dashscope-realtime` Adapter 只接收音频，配置独立 ASR 会在 Profile 写入时被拒绝。
-- Workspace 保存 canonical Workflow ID，因此同一个资源的多个 alias 必须具有完全一致的 PTT 和 realtime ASR 配置；省略也参与一致性比较。
+- Workspace 保存 canonical Workflow ID，因此同一个资源的多个 alias 在回退后必须具有一致的 PTT 和 realtime ASR 选择；原始字段可以采用不同但等效的写法。
 
 两个字段参与 Profile revision，不作为可写参数投影给 Peer。每次 reload 解析当前 owner 的 Profile；ASR 构造失败会使 reload 失败，不静默切换路径。直接音频的实际支持范围取决于绑定 Model 与 driver，见 [Eino 音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。
 

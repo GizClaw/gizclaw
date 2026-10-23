@@ -103,7 +103,7 @@ Eino's `VoiceAdapter` selects reply Voices only. The RuntimeProfile Workflow bin
 
 AudioDock runs ASR and publishes user transcripts independently. For PTT, when the conversation Model accepts audio and the Graph contains only Prompts and one ChatModel without reading `input.text`, original audio enters Eino alongside ASR. Scripts, Memory, control logic or semantic Tool verification requiring current text receive ASR final text before running the original Graph.
 
-Eino audio input requires a Profile ASR alias for the current mode. Without one, ordinary text remains supported and nonempty audio produces a non-retryable `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS. `support_text_only: false` declares Model audio capability. The generic [OpenAI Adapter](../../genx/generators/openai#audio-input) converts request audio without adding transcription requests.
+Eino audio input requires at least one Profile ASR alias. An omitted or `null` field falls back to the other mode's alias. When neither is configured, ordinary text remains supported and nonempty audio produces a non-retryable `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS. `support_text_only: false` declares Model audio capability. The generic [OpenAI Adapter](../../genx/generators/openai#audio-input) converts request audio without adding transcription requests.
 
 `default_voice`, `node_voices` and `speaker_voices` continue synthesizing replies through RuntimeProfile Voice aliases. `node_voices` is keyed by the Graph node ID referenced by an output and takes precedence over `default_voice`. The factory validates Voices before constructing an Agent and composes ASR, Eino and TTS through AudioDock.
 
@@ -121,13 +121,13 @@ The current Gemini adapter does not accept raw Opus packets from Peer input, so 
 
 #### Eino audio input path
 
-Workspace `input` is `push-to-talk` (default) or `realtime`. It selects which ASR Model to read from the Profile binding:
+Workspace `input` is `push-to-talk` (default) or `realtime`. It selects the preferred ASR Model in the Profile binding; an omitted or `null` field falls back to the other mode's alias:
 
-`agenthost` resolves the owner's Profile and puts the selected alias in internal `Spec.ASRModel`. Factories do not read Workflow ASR configuration. There is no Workspace precedence or automatic fallback. Invalid ASR aliases, Model kinds or construction errors fail reload.
+`agenthost` resolves the owner's Profile and puts the selected alias in internal `Spec.ASRModel`. Factories do not read Workflow ASR configuration. Workspace cannot override Profile selection. Field fallback handles missing values only; runtime failures never substitute another model. Invalid ASR aliases, Model kinds or construction errors fail reload.
 
-Eino direct audio handles complete PTT recordings. Continuous realtime input uses `realtime_asr_model` for streaming ASR segmentation and sends final text to Eino. The Doubao Realtime driver keeps the Model's native audio input, and the same Profile settings can prepend external ASR to use the Model's text input. Both ASR modes disable duplicate pacing. Realtime additionally requests interim transcription, `end_window_size=200`, and `force_to_speech_time=1000`.
+Eino direct audio handles complete PTT recordings. Continuous realtime input uses `realtime_asr_model` (or `ptt_asr_model` when omitted) for streaming ASR segmentation and sends final text to Eino. The Doubao Realtime driver keeps the Model's native audio input, and the same Profile settings can prepend external ASR to use the Model's text input. Both ASR modes disable duplicate pacing. Realtime additionally requests interim transcription, `end_window_size=200`, and `force_to_speech_time=1000`.
 
-Eino reports its effective `asr` or `model` path through `PeerRunWorkspaceState.audio_input`. This is read-only run state and cannot be submitted as a Workspace parameter. Text-only Agents and other drivers do not report it. Giztest `eino-audio-input.path-selection` verifies independent mode and Profile selection for the same Workflow.
+Eino reports its effective `asr` or `model` path through `PeerRunWorkspaceState.audio_input`. This is read-only run state and cannot be submitted as a Workspace parameter. Text-only Agents and other drivers do not report it. Giztest `eino-audio-input.path-selection` verifies both input modes, bidirectional ASR alias fallback and independent Profile selection for the same Workflow.
 
 #### Speaker segments within one response
 

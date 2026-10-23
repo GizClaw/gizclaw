@@ -37,11 +37,96 @@ func TestASRSelectionUsesProfileModeAndIgnoresWorkspaceAndWorkflow(t *testing.T)
 	binding.PttAsrModel = nil
 	profile.Spec.Workflows["assistant"] = binding
 	got, err := resolveASRModel(withRuntimeProfile(t.Context(), profile), audioInputWorkspace(t, apitypes.WorkspaceInputModePushToTalk, "asr"), workflow)
-	if err != nil || got != "" {
-		t.Fatalf("omitted Profile Model must pass native audio: %q, %v", got, err)
+	if err != nil || got != "stream-asr" {
+		t.Fatalf("omitted PTT Model must inherit realtime ASR: %q, %v", got, err)
 	}
 	if got, err := resolveASRModel(t.Context(), audioInputWorkspace(t, apitypes.WorkspaceInputModePushToTalk, "asr"), workflow); err != nil || got != "" {
 		t.Fatalf("legacy Workflow ASR was used: %q %v", got, err)
+	}
+}
+
+func TestASRSelectionFallsBackBetweenModes(t *testing.T) {
+	for _, tc := range []struct {
+		name, fields, ptt, realtime string
+	}{
+		{name: "omitted"},
+		{name: "both null", fields: `,"ptt_asr_model":null,"realtime_asr_model":null`},
+		{name: "PTT only", fields: `,"ptt_asr_model":"ptt"`, ptt: "ptt", realtime: "ptt"},
+		{name: "realtime only", fields: `,"realtime_asr_model":"realtime"`, ptt: "realtime", realtime: "realtime"},
+		{name: "PTT null", fields: `,"ptt_asr_model":null,"realtime_asr_model":"realtime"`, ptt: "realtime", realtime: "realtime"},
+		{name: "realtime null", fields: `,"ptt_asr_model":"ptt","realtime_asr_model":null`, ptt: "ptt", realtime: "ptt"},
+		{name: "mode overrides", fields: `,"ptt_asr_model":"ptt","realtime_asr_model":"realtime"`, ptt: "ptt", realtime: "realtime"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var binding apitypes.RuntimeProfileWorkflowBinding
+			if err := json.Unmarshal([]byte(`{"resource_id":"assistant"`+tc.fields+`}`), &binding); err != nil {
+				t.Fatal(err)
+			}
+			profile := apitypes.RuntimeProfile{Id: "owner", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"assistant": binding}}}
+			for _, mode := range []apitypes.WorkspaceInputMode{apitypes.WorkspaceInputModePushToTalk, apitypes.WorkspaceInputModeRealtime} {
+				want := tc.ptt
+				if mode == apitypes.WorkspaceInputModeRealtime {
+					want = tc.realtime
+				}
+				got, err := resolveASRModel(withRuntimeProfile(t.Context(), profile), audioInputWorkspace(t, mode, ""), apitypes.Workflow{Id: "assistant"})
+				if err != nil || got != want {
+					t.Fatalf("mode=%s ASR=%q error=%v, want %q", mode, got, err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestASRSelectionRejectsInvalidPrimaryAndFallback(t *testing.T) {
+	for _, mode := range []apitypes.WorkspaceInputMode{apitypes.WorkspaceInputModePushToTalk, apitypes.WorkspaceInputModeRealtime} {
+		for _, fallback := range []bool{false, true} {
+			binding := apitypes.RuntimeProfileWorkflowBinding{ResourceId: "assistant", PttAsrModel: new("valid"), RealtimeAsrModel: new("valid")}
+			field := "ptt_asr_model"
+			if mode == apitypes.WorkspaceInputModeRealtime {
+				field = "realtime_asr_model"
+			}
+			if mode == apitypes.WorkspaceInputModePushToTalk {
+				binding.PttAsrModel = new("")
+				if fallback {
+					binding.PttAsrModel, binding.RealtimeAsrModel = nil, new("bad?alias")
+					field = "realtime_asr_model"
+				}
+			} else {
+				binding.RealtimeAsrModel = new("")
+				if fallback {
+					binding.RealtimeAsrModel, binding.PttAsrModel = nil, new("bad?alias")
+					field = "ptt_asr_model"
+				}
+			}
+			profile := apitypes.RuntimeProfile{Id: "owner", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{"assistant": binding}}}
+			_, err := resolveASRModel(withRuntimeProfile(t.Context(), profile), audioInputWorkspace(t, mode, ""), apitypes.Workflow{Id: "assistant"})
+			if err == nil || !strings.Contains(err.Error(), "workflows.assistant."+field) {
+				t.Fatalf("mode=%s fallback=%t error=%v, want invalid %s", mode, fallback, err, field)
+			}
+		}
+	}
+}
+
+func TestASRSelectionComparesEffectiveBindings(t *testing.T) {
+	for _, conflict := range []bool{false, true} {
+		other := "asr"
+		if conflict {
+			other = "other-asr"
+		}
+		profile := apitypes.RuntimeProfile{Id: "owner", Spec: apitypes.RuntimeProfileSpec{Workflows: apitypes.RuntimeProfileWorkflows{
+			"assistant": {ResourceId: "assistant", PttAsrModel: new("asr")},
+			"other":     {ResourceId: "assistant", RealtimeAsrModel: new(other)},
+		}}}
+		for _, mode := range []apitypes.WorkspaceInputMode{apitypes.WorkspaceInputModePushToTalk, apitypes.WorkspaceInputModeRealtime} {
+			got, err := resolveASRModel(withRuntimeProfile(t.Context(), profile), audioInputWorkspace(t, mode, ""), apitypes.Workflow{Id: "assistant"})
+			if conflict {
+				if err == nil || !strings.Contains(err.Error(), "conflicting") {
+					t.Fatalf("mode=%s conflict error=%v", mode, err)
+				}
+			} else if err != nil || got != "asr" {
+				t.Fatalf("mode=%s equivalent ASR=%q error=%v", mode, got, err)
+			}
+		}
 	}
 }
 

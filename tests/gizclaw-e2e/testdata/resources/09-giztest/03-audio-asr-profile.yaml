@@ -7,7 +7,6 @@ spec:
     eino-audio-input:
       resource_id: eino-audio-input
       ptt_asr_model: asr
-      realtime_asr_model: asr
       i18n:
         en: {display_name: Eino Audio Input}
         zh-CN: {display_name: Eino 音频输入}

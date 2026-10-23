@@ -10,7 +10,7 @@ import (
 )
 
 // BuildASR resolves the RuntimeProfile-selected external ASR stage. Empty alias
-// means direct Model audio input and builds no ASR. Realtime requests streaming
+// builds no ASR. Realtime requests streaming
 // utterance boundaries; device audio already arrives at wall-clock cadence.
 func (s *Service) BuildASR(ctx context.Context, alias string, mode apitypes.WorkspaceInputMode) (genx.Transformer, error) {
 	if alias == "" {
