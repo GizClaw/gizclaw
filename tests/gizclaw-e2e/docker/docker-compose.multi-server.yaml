@@ -28,6 +28,7 @@ x-server: &server
       condition: service_healthy
   environment: &server-environment
     GIZCLAW_E2E_SOCIAL_PING_ONLY: ${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}
+    GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS: ${GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS:-}
     GIZCLAW_E2E_TIKV_PD: tikv-pd:2379
     GIZCLAW_E2E_TIKV_STALE_DELAY: 60s
     GIZCLAW_E2E_LIVEKIT_URL: ws://livekit:7880
@@ -175,6 +176,10 @@ services:
       GIZCLAW_E2E_EDGE_A: edge-a:9821
       GIZCLAW_E2E_EDGE_B: edge-b:9821
       GIZCLAW_E2E_TIKV_PD: tikv-pd:2379
+      GIZCLAW_E2E_TIKV_CONTENTION_ONLY: ${GIZCLAW_E2E_TIKV_CONTENTION_ONLY:-0}
+      GIZCLAW_E2E_TIKV_GATE_A: http://server-a:9790
+      GIZCLAW_E2E_TIKV_GATE_B: http://server-b:9790
+      GIZCLAW_E2E_CONTENTION_REPORT: /reports/tikv-contention.json
       GIZCLAW_E2E_TIKV_PROXY: http://tikv-replication-proxy:8080
       GIZCLAW_E2E_TIKV_STALE_DELAY: 60s
       GIZCLAW_E2E_SERVER_A_STATE: /server-a-state/data/business.sqlite
@@ -189,6 +194,7 @@ services:
     volumes:
       - server-a-state:/server-a-state:ro
       - server-b-state:/server-b-state:ro
+      - ${GIZCLAW_E2E_MULTI_REPORT_DIR:-../testdata/multi-server}:/reports
     depends_on:
       edge-a:
         condition: service_healthy

@@ -368,6 +368,14 @@ GIZCLAW_TEST_REDIS_READ_DSN='redis://127.0.0.1:6380/15' \
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
+双 Server 并发创建同一 Peer 的遗留锁回归可单独运行：
+
+```sh
+bash tests/gizclaw-e2e/run_tikv_contention_tests.sh
+```
+
+该入口复用双 Server Docker 拓扑，用构建时 overlay 安装只协调时序、原样转发请求和响应的 TiKV RPC observer。两台 Server 的生产 mutation-prefetch 同时遇到真实 prewrite、primary rollback 后的 secondary 锁，分别覆盖 A、B 获胜。测试要求两端完成解锁且 BatchGet／ResolveLock 均无重复 key，败方出现真实写冲突，最终 Peer、固定归属、本地 PeerRun 和获胜连接正确；还检查 voter、Learner 的 safe-ts 继续推进、相关进程没有退出或重启、日志没有 FATAL。`run_tests.sh` 将其纳入独立的 `docker:tikv-contention` 阶段，不需要语音服务凭据。报告保存在本次 `testdata/multi-server/<project>/`，退出时清理本次 Compose project。设置 `GIZCLAW_E2E_TIKV_BASE_REF` 可仅 overlay 指定 ref 的两份 TiKV KV 实现文件作负向对照，报告记录实际 commit 与源码摘要；它不运行完整旧 release，也不证明线上首次故障事务。
+
 它运行 TiKV 8.5.6（PD、中心 voter 和地区完整 Learner）、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
 
 主 `run_tests.sh` 在标准 SDK 场景和该 stack 清理完成后，也运行这个双 Server gate。标准 `docker-compose.yaml` 与 multi-server stack 的 Peer、assignment、API key、Friend 和 FriendGroup 使用同一 TiKV connector；业务 SQL 仍由各 Server 独立持有。PD、TiKV、LiveKit 等外部服务镜像全部从 `gizcr.gizclaw.com` 拉取并固定 digest；Server、Edge、fixture 与 runner 从本地源码构建，构建基础镜像同样来自 gizcr。TiKV 数据使用项目独立的临时内存文件系统，结束时随该 project 清理。标准 Docker 镜像在构建时预编译 CLI 和 fixture apply 辅助程序，Server、Edge 与初始化流程直接使用这些构建产物。

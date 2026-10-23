@@ -105,7 +105,7 @@ phase_deadline_seconds() {
 	local phase="$1"
 	case "$phase" in
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
-		docker:setup | docker:multi-server) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
+		docker:setup | docker:multi-server | docker:tikv-contention) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
 		giztest:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
@@ -588,6 +588,7 @@ run_timed "docker:standard-cleanup" bash "$setup_dir/docker-compose-down.sh"
 stack_started=0
 
 run_suite_phase "docker:multi-server" bash "$script_dir/run_multi_server_tests.sh"
+run_suite_phase "docker:tikv-contention" bash "$script_dir/run_tikv_contention_tests.sh"
 
 if ((${#failed_phases[@]} > 0)); then
 	echo "e2e failed phases: ${failed_phases[*]}" >&2
