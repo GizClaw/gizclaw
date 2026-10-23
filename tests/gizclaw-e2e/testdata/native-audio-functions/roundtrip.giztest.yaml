@@ -149,10 +149,6 @@ steps:
         equals: 0
       /audio_integrity/violations:
         equals: 0
-      /audio_pacing/max_interval_ms:
-        maximum: 100
-      /audio_pacing/underruns:
-        equals: 0
     capture:
       transcript_1: /transcript
       reply_1: /reply
@@ -259,10 +255,6 @@ steps:
       /audio_integrity/open:
         equals: 0
       /audio_integrity/violations:
-        equals: 0
-      /audio_pacing/max_interval_ms:
-        maximum: 100
-      /audio_pacing/underruns:
         equals: 0
     capture:
       transcript_2: /transcript

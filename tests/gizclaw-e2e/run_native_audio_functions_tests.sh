@@ -87,6 +87,7 @@ output.write_text(json.dumps({
 PY
 "${compose[@]}" images --format json > "$run_dir/docker-images.json"
 
+failed_cases=()
 for route in server edge; do
   if [[ "$route" == server ]]; then
     export GIZCLAW_TEST_ENDPOINT="$GIZCLAW_E2E_SERVER_ENDPOINT"
@@ -100,11 +101,17 @@ for route in server edge; do
     fi
     for kind in first-response roundtrip; do
       echo "==> native PTT: route=$route text_dependency=$mode kind=$kind"
-      "$gizclaw_binary" test run --parallel 1 --evidence full \
+      if ! "$gizclaw_binary" test run --parallel 1 --evidence full \
         --output "$run_dir/$route-$mode-$kind" --report "$run_dir/$route-$mode-$kind.json" \
         "$script_dir/testdata/native-audio-functions/$kind.giztest.yaml" \
-        > "$run_dir/$route-$mode-$kind.log" 2>&1
+        > "$run_dir/$route-$mode-$kind.log" 2>&1; then
+        failed_cases+=("$route-$mode-$kind")
+      fi
     done
   done
 done
+if [[ "${#failed_cases[@]}" != 0 ]]; then
+  printf 'Native audio Docker Giztests failed: %s\n' "${failed_cases[*]}" >&2
+  exit 1
+fi
 echo "==> all eight native-audio Docker Giztests passed"
