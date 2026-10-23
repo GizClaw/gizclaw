@@ -23,6 +23,14 @@ sfu_delay="${GIZCLAW_E2E_SFU_TERMINAL_DELAY_MS:-0}"
 sfu_udp_mode="${GIZCLAW_E2E_LIVEKIT_UDP_MODE:-mux}"
 sfu_udp_end="${GIZCLAW_E2E_LIVEKIT_UDP_END:-60000}"
 probe_dir=""
+tikv_contention="${GIZCLAW_E2E_TIKV_CONTENTION_ONLY:-0}"
+case "$tikv_contention" in 0 | 1) ;; *) echo 'TiKV contention mode must be 0 or 1' >&2; exit 2 ;; esac
+if [[ "$tikv_contention" == 1 ]]; then
+  if [[ -n "$sfu_case" || -n "${GIZCLAW_E2E_SFU_BINARY:-}" || "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
+    echo 'TiKV contention runs separately from SFU and social notification cases' >&2; exit 2
+  fi
+  export GIZCLAW_E2E_TIKV_RPC_GATE_ADDRESS=0.0.0.0:9790
+fi
 compose_files=(-f "$compose_file")
 if [[ ! "$sfu_delay" =~ ^(0|[1-9][0-9]{0,4})$ ]] || ((sfu_delay > 10000)); then
   echo "SFU terminal delay must be 0..10000 milliseconds" >&2; exit 2
@@ -89,6 +97,8 @@ provider_credentials=(
 GIZCLAW_E2E_SFU_PROVIDER=0
 if [[ -n "$sfu_case" ]]; then
   echo "==> provider-free SFU $sfu_case: $sfu_repeat tasks, parallel=$GIZCLAW_E2E_GIZTEST_PARALLEL, terminal delay=${sfu_delay}ms"
+elif [[ "$tikv_contention" == 1 ]]; then
+  echo '==> provider-free two-Server TiKV contention regression'
 elif [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then
   echo "==> provider-free social notification acceptance"
 elif [[ -f "$env_file" ]]; then
@@ -102,7 +112,7 @@ else
 fi
 export GIZCLAW_E2E_SFU_PROVIDER
 for name in "${provider_credentials[@]}"; do
-  export "$name=${!name:-}"
+  if [[ "$tikv_contention" == 1 ]]; then export "$name="; else export "$name=${!name:-}"; fi
 done
 
 random_hex() {
@@ -193,7 +203,13 @@ bash "$script_dir/setup/prepare-tikv.sh"
 report_dir="$(cd "$report_dir" && pwd -P)"
 export GIZCLAW_E2E_MULTI_REPORT_DIR="$report_dir"
 probe_mount=(-e GIZCLAW_E2E_SFU_PROBE_OVERLAY=)
-if ((sfu_delay > 0)); then
+if [[ "$tikv_contention" == 1 ]]; then
+  probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-tikv-contention.XXXXXX")"
+  python3 -B "$script_dir/setup/prepare-tikv-contention-probe.py" "$repo_root/pkgs/store/storage/tikv.go" "$probe_dir" "${GIZCLAW_E2E_TIKV_BASE_REF:-}"
+  cp "$probe_dir/injection.patch" "$report_dir/tikv-rpc-observer.patch"
+  cp "$probe_dir/tikv-source.json" "$report_dir/tikv-source.json"
+  probe_mount=(-v "$probe_dir:/probe:ro" -e GIZCLAW_E2E_SFU_PROBE_OVERLAY=/probe/overlay.json)
+elif ((sfu_delay > 0)); then
   probe_dir="$(mktemp -d "${TMPDIR:-/tmp}/gizclaw-sfu-probe.XXXXXX")"
   python3 -B "$script_dir/setup/prepare-sfu-probe.py" "$repo_root/pkgs/gizclaw/peer_conn.go" "$probe_dir" "$sfu_delay"
   probe_mount=(-v "$probe_dir:/probe:ro" -e GIZCLAW_E2E_SFU_PROBE_OVERLAY=/probe/overlay.json)
@@ -204,7 +220,7 @@ elif [[ "$sfu_case" == logging* ]]; then
 fi
 module_cache="$(go env GOMODCACHE)"
 build_cache="$(go env GOCACHE)"
-if [[ "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]] || [[ -n "$sfu_case" && -z "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
+if [[ "$tikv_contention" == 1 || "${GIZCLAW_E2E_REUSE_BINARIES:-}" != 1 || ! -x "$server_bin" || ! -x "$test_bin" || ! -x "$seed_bin" ]] || [[ -n "$sfu_case" && -z "${GIZCLAW_E2E_SFU_BINARY:-}" ]]; then
   docker run --rm --entrypoint /bin/bash \
     -v "$repo_root:/src" \
     -v "$module_cache:/root/go/pkg/mod" \
@@ -293,8 +309,31 @@ export GIZCLAW_TEST_REGISTRATION_TOKEN_A GIZCLAW_TEST_REGISTRATION_TOKEN_B
 
 if [[ -z "$sfu_case" ]]; then
   echo "==> go multi-server tests"
+  test_run="${GIZCLAW_E2E_TEST_RUN:-.}"
+  if [[ "$tikv_contention" == 1 ]]; then test_run='^TestConcurrentServersResolveResidualSecondary$'; fi
   compose run --rm -T tests \
-    -test.run "${GIZCLAW_E2E_TEST_RUN:-.}" -test.parallel 1 | tee "$report_dir/go-tests.log"
+    -test.run "$test_run" -test.parallel 1 -test.timeout=10m | tee "$report_dir/go-tests.log"
+fi
+
+if [[ "$tikv_contention" == 1 ]]; then
+  python3 -B - "$report_dir/tikv-contention.json" <<'PY'
+import json, pathlib, sys
+cases = json.loads(pathlib.Path(sys.argv[1]).read_text())
+if len(cases) != 2 or len({case["winner"] for case in cases}) != 2 or len({case["peer"] for case in cases}) != 2:
+    raise SystemExit("both independent Server contention cases must complete")
+PY
+  compose logs --no-color 2>&1 | python3 -B "$script_dir/setup/redact_diagnostics.py" > "$report_dir/services.log"
+  for service in tikv-leader tikv-learner server-a server-b; do
+    container="$(compose ps -a -q "$service")"
+    state="$(docker inspect --format '{{.State.Running}} {{.RestartCount}}' "$container")"
+    printf '%s %s\n' "$service" "$state" | tee -a "$report_dir/process-health.txt"
+    if [[ "$state" != 'true 0' ]]; then echo "$service exited or restarted" >&2; exit 1; fi
+  done
+  if grep -E '\[FATAL\]|row\.write\.is_none' "$report_dir/services.log" > "$report_dir/fatal.log"; then
+    echo 'TiKV fatal log found after concurrent requests' >&2; exit 1
+  fi
+  echo "==> two-Server TiKV contention passed; evidence: $report_dir"
+  exit 0
 fi
 
 if [[ "${GIZCLAW_E2E_SOCIAL_PING_ONLY:-0}" == 1 ]]; then

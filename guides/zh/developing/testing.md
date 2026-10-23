@@ -305,6 +305,14 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 
 ### TiKV Docker E2E
 
+残留 secondary 锁与重复批量读取的回归入口：
+
+```sh
+bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
+```
+
+该入口复用 presence benchmark 的独立三 voter 夹具，不运行压测、不发布宿主端口。测试先真实 prewrite，再只回滚 primary，确认 secondary 锁仍存在；随后覆盖 claim 形状的 mutation、比较后写入、比较后删除及带重复 key 的批量读取。它检查发出的 BatchGet／ResolveLock 没有重复 key、解锁完成、回读正确、重复结果内存独立，并等待三台 voter 的 safe-ts 越过操作后的时间戳。runner 还要求三台 voter 持续运行、重启计数为零、日志没有 FATAL。证据保存在指定的新目录，退出时仅清理本次 Compose project。该 gate 进入 `TiKV Learner Presence` CI；它验证人工残留锁的处理，不代表生产首发事务定位或完整连接 churn 的自然复现。
+
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
 ```
@@ -359,6 +367,14 @@ GIZCLAW_TEST_REDIS_READ_DSN='redis://127.0.0.1:6380/15' \
 ```sh
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
+
+双 Server 并发创建同一 Peer 的遗留锁回归可单独运行：
+
+```sh
+bash tests/gizclaw-e2e/run_tikv_contention_tests.sh
+```
+
+该入口复用双 Server Docker 拓扑，用构建时 overlay 安装只协调时序、原样转发请求和响应的 TiKV RPC observer。两台 Server 的生产 mutation-prefetch 同时遇到真实 prewrite、primary rollback 后的 secondary 锁，分别覆盖 A、B 获胜。测试要求两端完成解锁且 BatchGet／ResolveLock 均无重复 key，败方出现真实写冲突，最终 Peer、固定归属、本地 PeerRun 和获胜连接正确；还检查 voter、Learner 的 safe-ts 继续推进、相关进程没有退出或重启、日志没有 FATAL。`run_tests.sh` 将其纳入独立的 `docker:tikv-contention` 阶段，不需要语音服务凭据。报告保存在本次 `testdata/multi-server/<project>/`，退出时清理本次 Compose project。设置 `GIZCLAW_E2E_TIKV_BASE_REF` 可仅 overlay 指定 ref 的两份 TiKV KV 实现文件作负向对照，报告记录实际 commit 与源码摘要；它不运行完整旧 release，也不证明线上首次故障事务。
 
 它运行 TiKV 8.5.6（PD、中心 voter 和地区完整 Learner）、两台使用不同本地 runtime state 的 Server、配置 Server 顺序相反的两台 Edge，以及一台单机 LiveKit；Server 通过 `services.sfu` 使用同一 signaling URL 与该 Compose project 生命周期内生成的 test credential。Go 用例验证 Peer 固定归属、经任意 Edge 回到 home Server、API Key 经 Edge 路由到 owner Server、foreign Server 拒绝、本地 PeerRun 写入、共享 KV 与本地状态隔离，以及 SFU Room 的按需创建与 LiveKit 重启后的有界重连。随后由 giztest 串行运行 `sfu.*.giztest.yaml` 场景：client 经不同 Edge 注册到不同 Server，验证跨 Server 加好友、加群、成员上限、成员移除后的撤权，以及 `listen` 模式下的对话广播只到达房间内其他成员。真实 LiveKit 是唯一验收环境，不用内存 fake 替代。它不验证 Workflow Workspace routing。
 

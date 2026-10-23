@@ -143,6 +143,7 @@ func (s *TiKV) ApplyMutation(ctx context.Context, mutation Mutation) (bool, erro
 		for _, key := range mutation.DeleteKeys {
 			keys = append(keys, s.recordKey(key))
 		}
+		keys = uniqueTiKVKeys(keys)
 		if len(keys) > 1 {
 			if _, err := tx.BatchGet(ctx, keys); err != nil {
 				return false, err

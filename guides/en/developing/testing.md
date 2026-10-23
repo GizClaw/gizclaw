@@ -342,6 +342,14 @@ The credential-free multi-Server Docker gate is:
 bash tests/gizclaw-e2e/run_multi_server_tests.sh
 ```
 
+Run the residual-lock regression for concurrent creation of the same Peer separately:
+
+```sh
+bash tests/gizclaw-e2e/run_tikv_contention_tests.sh
+```
+
+This entry reuses the two-Server Docker topology. A build overlay installs a TiKV RPC observer that coordinates timing and forwards requests and responses unchanged. Both Servers' production mutation-prefetch reads encounter a real secondary lock left after prewrite and primary rollback, with separate cases for A and B winning. The test requires completed cleanup on both clients, unique BatchGet/ResolveLock keys, a real write conflict on the loser, and correct Peer, fixed assignment, local PeerRun and winning connection. It also checks voter and Learner safe-ts progress, no process exits or restarts, and no FATAL logs. The full `run_tests.sh` includes the independent `docker:tikv-contention` phase without speech-provider credentials. Reports remain under this run's `testdata/multi-server/<project>/`; exit cleans up only its Compose project. `GIZCLAW_E2E_TIKV_BASE_REF` overlays only the selected ref's two TiKV KV implementation files for a negative control and records their commit and source digests. It does not run the entire old release or establish the first production failure transaction.
+
 It runs TiKV 8.5.6 (PD, a central voter and a full regional Learner), two Servers with distinct local runtime state, two Edges whose configured Server order is reversed, and one single-node LiveKit; both Servers point `services.sfu` at the same signaling URL with test credentials generated for that Compose project's lifetime. The Go cases verify fixed Peer homes through both Edges, API Key routing through an Edge to the owner Server, foreign-Server rejection, local-only PeerRun writes, shared-KV versus local-state isolation, lazy SFU Room creation, and bounded reconnection after a LiveKit restart. giztest then runs the `sfu.*.giztest.yaml` scenarios serially: clients register on different Servers through different Edges and verify cross-Server friend creation, group join, the member cap, revocation after member removal, and that a `listen`-mode broadcast reaches only the other members of the room. The real LiveKit is the only acceptance environment; no in-memory fake replaces it. It does not test Workflow Workspace routing.
 
 The main `run_tests.sh` also runs this two-Server gate after the standard SDK scenarios and their stack cleanup. Both `docker-compose.yaml` and the multi-server stack bind Peers, assignments, API keys, Friends and FriendGroups to TiKV; each Server retains its own business SQL database. External services including PD, TiKV and LiveKit use images from `gizcr.gizclaw.com` with pinned digests. Server, Edge, fixture and runner images are built from local sources, with build bases also from gizcr. TiKV data uses project-scoped temporary memory filesystems removed with that project. Standard Docker images precompile the CLI and fixture apply helper during image construction. Server, Edge and initialization use those binaries directly.
@@ -491,6 +499,14 @@ records how many purge rounds verification needed.
 
 
 ### TiKV Docker E2E
+
+To verify duplicate batch reads against residual secondary locks:
+
+```sh
+bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
+```
+
+This entrypoint reuses the isolated three-voter presence benchmark fixture without running load or exposing host ports. It prewrites a real transaction, rolls back only its primary and verifies that its secondary remains locked. Claim-shaped mutations, compare-and-set, compare-and-delete and duplicate batch reads must issue unique BatchGet/ResolveLock keys, complete cleanup and return correct, independently owned values. All three voters must advance their safe timestamps past the operations, remain running with zero restarts, and produce no FATAL log. Evidence stays in the supplied new directory; cleanup affects only this Compose project. The `TiKV Learner Presence` CI gate runs this regression. Artificial residual locks do not identify the first production transaction or establish natural reproduction through complete connection churn.
 
 ```sh
 bash tests/store-e2e/run_tikv_tests.sh
