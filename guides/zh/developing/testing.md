@@ -84,7 +84,7 @@ TTS 协议夹具按累计媒体 deadline 发包。线程延迟后补发已经到
 bash tests/gizclaw-e2e/run_native_audio_functions_tests.sh
 ```
 
-入口读取 `tests/gizclaw-e2e/.env`，也可用 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定凭据文件；使用真实 Doubao Seed 2.1 Lite 原音输入、关闭 thinking，并在独立的本地 Docker Server、Edge 上分别执行前置文本判断和后置转写读取。每种组合发送两份不同录音，要求模型输入路径为 `model`，并保留 2 秒首字、3 秒首音、EOS、音频完整性与欠载校验。History 按该单回复夹具的声明逐轮精确对照实际转写及回复，同时下载用户和回复的音频。比较文本用于验证记录一致性，不判断回答的知识正确性。
+入口读取 `tests/gizclaw-e2e/.env`，也可用 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定凭据文件；使用真实 Doubao Seed 2.1 Lite 原音输入、关闭 thinking，并在独立的本地 Docker Server、Edge 上分别执行前置文本判断和后置转写读取。每种组合先用 `completion: first_response` 从输入发送结束计时，严格校验 2 秒首字、3 秒首音；再在新 Workspace 发送两份不同录音，要求模型输入路径为 `model`，检查 EOS、音频完整性与欠载。完整回合的操作时钟包含录音发送与按键等待，不能拿来代替响应首包时钟。History 按该单回复夹具的声明逐轮精确对照实际转写及回复，同时下载用户和回复的音频。比较文本用于验证记录一致性，不判断回答的知识正确性。
 
 运行证据保存在 ignored `.testbench/native-audio-functions-*`，包含源文件摘要、二进制和 Docker 镜像身份、Giztest 报告与回放。入口退出时清理本次 Compose project、私有认证和任务 CLI，不修改线上集群。前置文本判断必须等待定稿；该实跑不注入识别延迟，不替代带门控的延迟/取消单元回归，也不代表剧情内容验收。
 

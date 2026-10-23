@@ -1,7 +1,8 @@
 # User Story:
 # As a native PTT device using pre- or post-reply text-dependent functions,
 # I want distinct recordings kept as audio while functions receive final text,
-# So that exact History, audio downloads, EOS and streaming deadlines survive both turns.
+# So that exact History, audio downloads, EOS and audio integrity survive both turns.
+# Response latency is qualified separately with completion: first_response.
 # This fixture declares one model response per turn; counts describe only this graph.
 version: gizclaw.test/v1alpha1
 name: eino-native-audio-functions.push-to-talk-transcript
@@ -124,10 +125,8 @@ steps:
         minimum: 1
       /first_text_ms:
         minimum: 1
-        maximum: 2000
       /first_audio_ms:
         minimum: 1
-        maximum: 3000
       /transcript:
         non_empty: true
       /reply:
@@ -237,10 +236,8 @@ steps:
         minimum: 1
       /first_text_ms:
         minimum: 1
-        maximum: 2000
       /first_audio_ms:
         minimum: 1
-        maximum: 3000
       /transcript:
         non_empty: true
       /reply:

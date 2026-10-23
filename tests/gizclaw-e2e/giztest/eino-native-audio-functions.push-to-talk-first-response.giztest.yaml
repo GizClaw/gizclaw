@@ -1,0 +1,116 @@
+# User Story:
+# As a native PTT device with a text-dependent workflow,
+# I want the first text/audio within 2s/3s after input completion,
+# So that recording length and button hold are not charged as model response latency.
+version: gizclaw.test/v1alpha1
+name: eino-native-audio-functions.push-to-talk-first-response
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  workflow_name:
+    direction: input
+    type: string
+    env: GIZCLAW_NATIVE_AUDIO_WORKFLOW
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: ${workflow_name}
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: reload_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_MODEL
+  - id: synthesize_question
+    client: peer
+    speech:
+      cache: run
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 三加五等于几？
+        accepted_content_types:
+          - audio/ogg
+    save_as: input_audio
+  - id: measure_first_response
+    client: peer
+    timeout: 90s
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+      trim_trailing_silence: true
+      completion: first_response
+      first_text_timeout: 2s
+      first_audio_timeout: 3s
+      require_text: true
+      require_audio: true
+    expect:
+      /first_text_ms:
+        minimum: 1
+        maximum: 2000
+      /first_audio_ms:
+        minimum: 1
+        maximum: 3000
+      /reply:
+        non_empty: true
+      /audio_bytes:
+        minimum: 1
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

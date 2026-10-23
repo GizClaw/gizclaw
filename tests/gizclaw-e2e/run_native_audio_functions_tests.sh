@@ -19,6 +19,8 @@ stack_started=0
 source "$setup_dir/credentials.sh"
 require_gizclaw_e2e_credentials "$env_file"
 export GIZCLAW_E2E_CREDENTIAL_FILE="$env_file"
+# Load only this lane's real providers and resources, not unrelated fixtures.
+export GIZCLAW_E2E_RESOURCE_PATHS="00-credentials/01-volc.yaml 01-tenants/01-volc.yaml 01-tenants/02-volc-ark.yaml 03-models/01-volc-tts.yaml 03-models/02-volc-asr.yaml 03-models/11-doubao-lite-audio-chat.yaml 04-workflows/46-eino-native-audio-functions.yaml 09-giztest/04-native-audio-functions.yaml"
 
 cleanup() {
   local status=$?
@@ -32,6 +34,14 @@ cleanup() {
     fi
     "${compose[@]}" logs --no-color server edge edge2 2>&1 |
       python3 "$setup_dir/redact_diagnostics.py" > "$run_dir/containers.log" || true
+    for service in server edge edge2; do
+      log_path="/src/tests/gizclaw-e2e/testdata/edge-workspace/gizclaw-edge.log"
+      if [[ "$service" == server ]]; then
+        log_path="/src/tests/gizclaw-e2e/testdata/server-workspace/gizclaw-server.log"
+      fi
+      "${compose[@]}" exec -T "$service" cat "$log_path" 2>&1 |
+        python3 "$setup_dir/redact_diagnostics.py" > "$run_dir/$service-runtime.log" || true
+    done
     if ! bash "$setup_dir/docker-compose-down.sh" > "$run_dir/cleanup.log" 2>&1; then
       status=1
     fi
@@ -48,6 +58,7 @@ echo "==> build task-local CLI"
 (cd "$repo_root" && npm ci && npm run build:console && go build -o "$gizclaw_binary" ./cmd/gizclaw) > "$run_dir/build.log" 2>&1
 "$gizclaw_binary" admin validate -f "$script_dir/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml"
 "$gizclaw_binary" test validate -f "$script_dir/giztest/eino-native-audio-functions.push-to-talk-transcript.giztest.yaml"
+"$gizclaw_binary" test validate -f "$script_dir/giztest/eino-native-audio-functions.push-to-talk-first-response.giztest.yaml"
 echo "==> start isolated local Docker stack project=$project"
 bash "$setup_dir/docker-compose-up.sh" > "$run_dir/stack.log" 2>&1
 stack_started=1
@@ -64,6 +75,7 @@ import subprocess
 import sys
 root, output, binary = map(Path, sys.argv[1:4])
 paths = ["pkgs/genx/agentkit/audiodock/dock.go", "pkgs/genx/agentkit/audiodock/input_text.go", "pkgs/genx/transformers/eino/builder.go", "pkgs/genx/transformers/eino/runtime_state.go", "pkgs/genx/transformers/eino/transformer.go", "pkgs/gizclaw/services/ai/workflow/agents/eino/factory.go", "tests/gizclaw-e2e/run_native_audio_functions_tests.sh", "tests/gizclaw-e2e/giztest/eino-native-audio-functions.push-to-talk-transcript.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/04-workflows/46-eino-native-audio-functions.yaml", "tests/gizclaw-e2e/testdata/resources/03-models/11-doubao-lite-audio-chat.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/01-runtime-profile.yaml"]
+paths += ["tests/gizclaw-e2e/giztest/eino-native-audio-functions.push-to-talk-first-response.giztest.yaml", "tests/gizclaw-e2e/testdata/resources/09-giztest/04-native-audio-functions.yaml"]
 output.write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
     "dirty": bool(subprocess.check_output(["git", "-C", str(root), "status", "--porcelain"], text=True).strip()),
@@ -85,11 +97,13 @@ for route in server edge; do
     if [[ "$mode" == pre ]]; then
       export GIZCLAW_NATIVE_AUDIO_WORKFLOW=eino-native-audio-pre-text
     fi
-    echo "==> native PTT: route=$route text_dependency=$mode"
-    "$gizclaw_binary" test run --parallel 1 --evidence full \
-      --output "$run_dir/$route-$mode" --report "$run_dir/$route-$mode.json" \
-      "$script_dir/giztest/eino-native-audio-functions.push-to-talk-transcript.giztest.yaml" \
-      > "$run_dir/$route-$mode.log" 2>&1
+    for kind in first-response transcript; do
+      echo "==> native PTT: route=$route text_dependency=$mode kind=$kind"
+      "$gizclaw_binary" test run --parallel 1 --evidence full \
+        --output "$run_dir/$route-$mode-$kind" --report "$run_dir/$route-$mode-$kind.json" \
+        "$script_dir/giztest/eino-native-audio-functions.push-to-talk-$kind.giztest.yaml" \
+        > "$run_dir/$route-$mode-$kind.log" 2>&1
+    done
   done
 done
-echo "==> all four native-audio Docker Giztests passed"
+echo "==> all eight native-audio Docker Giztests passed"
