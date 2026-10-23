@@ -752,7 +752,7 @@ func compileNode(
 	result := &compiledNode{node: node}
 	switch {
 	case node.Transform != nil:
-		result.run = func(_ context.Context, state *runState) (map[string]any, map[string]bool, error) {
+		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
 			inputs, err := state.nodeInputs(ctx, node.Inputs)
 			if err != nil {
 				return nil, nil, err
@@ -778,7 +778,7 @@ func compileNode(
 			return outputs, nil, err
 		}
 	case node.Passthrough != nil:
-		result.run = func(_ context.Context, state *runState) (map[string]any, map[string]bool, error) {
+		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
 			inputs, err := state.nodeInputs(ctx, node.Inputs)
 			if err != nil {
 				return nil, nil, err

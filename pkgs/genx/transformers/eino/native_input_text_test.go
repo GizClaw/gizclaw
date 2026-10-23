@@ -124,3 +124,55 @@ func TestNativeTextBindingUsesNodeCancellationOutsideStateLock(t *testing.T) {
 		t.Fatalf("child cancellation: %v", err)
 	}
 }
+
+func TestNativeTextNodesCancelWithTheirExecution(t *testing.T) {
+	for _, kind := range []string{"transform", "passthrough"} {
+		t.Run(kind, func(t *testing.T) {
+			buildCtx, cancelBuild := context.WithCancel(t.Context())
+			defer cancelBuild()
+			node := NodeDefinition{Inputs: map[string]Binding{"value": {From: "input.text"}}}
+			if kind == "transform" {
+				node.Transform = &TransformNode{Operation: TransformSelect}
+			} else {
+				node.Passthrough = &PassthroughNode{}
+			}
+			compiled, err := compileNode(buildCtx, &normalizedConfig{}, node, nil, "test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			entered := make(chan context.Context, 1)
+			state, err := newRunState(nil, graphInput{ResolveText: func(ctx context.Context) (string, error) {
+				entered <- ctx
+				<-ctx.Done()
+				return "", context.Cause(ctx)
+			}}, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			runCtx, cancelRun := context.WithCancel(buildCtx)
+			defer cancelRun()
+			finished := make(chan error, 1)
+			go func() { _, _, err := compiled.run(runCtx, state); finished <- err }()
+			var waiting context.Context
+			select {
+			case waiting = <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("node never requested its transcription")
+			}
+			cancelRun()
+			select {
+			case <-waiting.Done():
+			default:
+				t.Fatal("node waited using its build context instead of its execution context")
+			}
+			select {
+			case err := <-finished:
+				if !errors.Is(err, context.Canceled) {
+					t.Fatalf("node cancellation = %v", err)
+				}
+			case <-time.After(time.Second):
+				t.Fatal("canceled node is still waiting for transcription")
+			}
+		})
+	}
+}
