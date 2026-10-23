@@ -20,7 +20,7 @@ const initialOutputCapacity = 64
 
 var _ genx.Transformer = (*Dock)(nil)
 
-// Dock is a concurrency-safe ASR -> text Agent -> TTS composition. Every
+// Dock composes ASR, a text or audio Agent, and TTS concurrently. Every
 // Transform call owns independent streams, cancellation, routes, and buffers.
 type Dock struct {
 	config Config
@@ -53,7 +53,7 @@ func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, e
 	}
 
 	invocation := streamkit.NewInvocation(ctx, streamkit.OutputConfig{InitialCapacity: initialOutputCapacity})
-	router, err := newInputRouter(invocation.Context(), input, d.config.ASR)
+	router, err := newInputRouter(invocation.Context(), input, d.config.ASR, d.config.AgentAudioInput)
 	if err != nil {
 		_ = invocation.Cancel(err)
 		return nil, err
@@ -323,6 +323,9 @@ func (r *dockRun) forwardTranscripts(output genx.Stream) error {
 			if err := r.invocation.Output().Push(chunk); err != nil {
 				return fmt.Errorf("audiodock: emit history-only ASR audio: %w", err)
 			}
+			if observer, ok := output.(interface{ ObserveOutput(*genx.MessageChunk) }); ok {
+				observer.ObserveOutput(chunk)
+			}
 			continue
 		}
 		response := routes[streamID]
@@ -341,6 +344,9 @@ func (r *dockRun) forwardTranscripts(output genx.Stream) error {
 		}
 		if err := r.invocation.Emit(response, chunk); err != nil {
 			return fmt.Errorf("audiodock: emit transcript: %w", err)
+		}
+		if observer, ok := output.(interface{ ObserveOutput(*genx.MessageChunk) }); ok {
+			observer.ObserveOutput(chunk)
 		}
 		if chunk.IsEndOfStream() {
 			if err := r.invocation.FinishResponse(response, ""); err != nil {
@@ -1349,8 +1355,8 @@ func (r *dockRun) closeSources(err error) {
 	}
 }
 
-// inputRouter keeps ASR optional at the MIME boundary: audio is converted to
-// text while text and every other non-audio chunk bypass ASR unchanged.
+// inputRouter routes audio to ASR and optionally to an audio Agent. Text and
+// other non-audio input bypass ASR unchanged.
 type inputRouter struct {
 	ctx context.Context
 
@@ -1359,6 +1365,7 @@ type inputRouter struct {
 	asrInput   *streamkit.Output
 	asrOutput  genx.Stream
 	transcript *streamkit.Output
+	agentAudio bool
 	events     chan inputEvent
 
 	producers   sync.WaitGroup
@@ -1369,11 +1376,12 @@ type inputRouter struct {
 	pending     []inputEvent
 }
 
-func newInputRouter(ctx context.Context, input genx.Stream, asr genx.Transformer) (*inputRouter, error) {
+func newInputRouter(ctx context.Context, input genx.Stream, asr genx.Transformer, agentAudio bool) (*inputRouter, error) {
 	router := &inputRouter{
 		ctx: ctx, input: input,
 		events: make(chan inputEvent),
 	}
+	router.agentAudio = agentAudio
 	router.agentInput = streamkit.NewOutput(streamkit.OutputConfig{
 		InitialCapacity: initialOutputCapacity,
 		Observe:         router.observeAgentInput,
@@ -1393,6 +1401,7 @@ func newInputRouter(ctx context.Context, input genx.Stream, asr genx.Transformer
 	}
 	router.asrInput = streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity})
 	router.transcript = streamkit.NewOutput(streamkit.OutputConfig{InitialCapacity: initialOutputCapacity})
+	router.transcript.DeferOutputObservation()
 	asrOutput, err := asr.Transform(ctx, router.asrInput)
 	if err != nil {
 		router.CloseWithError(err)
@@ -1454,6 +1463,8 @@ func (r *inputRouter) routeInput() {
 	audioEnded := false
 	var announcedAudioID string
 	audioAnnounced := false
+	var transcriptID string
+	transcriptAnnounced := false
 	for {
 		chunk, err := streamlog.ReadInput(r.ctx, r.input)
 		if err != nil {
@@ -1501,13 +1512,27 @@ func (r *inputRouter) routeInput() {
 			// MIME BOS must not become a second control BOS for a text Agent.
 			begin := chunk.Clone()
 			begin.Part = nil
-			if err := r.agentInput.Push(begin); err != nil {
-				if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
-					r.fail(fmt.Errorf("audiodock: forward audio BOS to Agent: %w", err))
+			if !r.agentAudio {
+				if err := r.agentInput.Push(begin); err != nil {
+					if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
+						r.fail(fmt.Errorf("audiodock: forward audio BOS to Agent: %w", err))
+					}
+					return
 				}
-				return
 			}
 			announcedAudioID, audioAnnounced = dockStreamID(chunk), true
+		}
+		if target == r.asrInput && r.agentAudio {
+			if !transcriptAnnounced || transcriptID != dockStreamID(chunk) {
+				if !r.announceTranscript(dockStreamID(chunk)) {
+					return
+				}
+				transcriptID, transcriptAnnounced = dockStreamID(chunk), true
+			}
+			if err := r.agentInput.Push(chunk.Clone()); err != nil {
+				r.fail(fmt.Errorf("audiodock: forward audio to Agent: %w", err))
+				return
+			}
 		}
 		if err := target.Push(chunk); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
@@ -1517,7 +1542,28 @@ func (r *inputRouter) routeInput() {
 		}
 		if chunk.IsEndOfStream() {
 			audioAnnounced = false
+			transcriptAnnounced = false
 		}
+	}
+}
+
+// announceTranscript declares the user route before Agent can publish a reply.
+// This preserves History order without waiting for recognition to finish.
+func (r *inputRouter) announceTranscript(streamID string) bool {
+	ready := make(chan struct{})
+	chunk := &genx.MessageChunk{
+		Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""),
+		Ctrl: &genx.StreamCtrl{StreamID: streamID, Label: "transcript", BeginOfStream: true},
+	}
+	if err := r.transcript.PushObserved(chunk, func(*genx.MessageChunk) { close(ready) }); err != nil {
+		r.fail(fmt.Errorf("audiodock: announce audio transcript: %w", err))
+		return false
+	}
+	select {
+	case <-ready:
+		return true
+	case <-r.ctx.Done():
+		return false
 	}
 }
 
@@ -1565,10 +1611,14 @@ func (r *inputRouter) forwardASR() {
 		if chunk == nil {
 			continue
 		}
+		if r.agentAudio && chunk.IsBeginOfStream() && (chunk.Ctrl == nil || chunk.Ctrl.Label != genx.HistoryUserAudioLabel) {
+			chunk = chunk.Clone()
+			chunk.Ctrl.BeginOfStream = false
+		}
 		// Continuous audio can produce another transcript route without a new
 		// caller audio BOS. Apply the same interruption barrier before exposing
 		// that utterance or letting its Agent response begin.
-		if chunk.IsBeginOfStream() && (chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != genx.HistoryUserAudioLabel) {
+		if !r.agentAudio && chunk.IsBeginOfStream() && (chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != genx.HistoryUserAudioLabel) {
 			if !r.sendInputEvent(true, dockStreamID(chunk)) {
 				return
 			}
@@ -1578,6 +1628,9 @@ func (r *inputRouter) forwardASR() {
 				r.fail(fmt.Errorf("audiodock: expose ASR output: %w", err))
 			}
 			return
+		}
+		if r.agentAudio {
+			continue
 		}
 		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
 			// The outer recorder consumes this sideband from transcript output.

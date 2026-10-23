@@ -1,6 +1,6 @@
-# One reusable Workflow, with input ASR selected by each RuntimeProfile.
-# e2e-giztest uses native PTT audio; e2e-audio-asr selects external ASR.
-# The same Model and multilingual reply Voice serve both paths.
+# One reusable Workflow with Profile-owned ASR and conversation Models.
+# e2e-giztest sends PTT audio to Eino and transcribes it through sideband ASR.
+# e2e-audio-asr binds a text-only Model and sends ASR text to Eino.
 apiVersion: gizclaw.admin/v1alpha1
 kind: ResourceList
 spec:
@@ -14,7 +14,6 @@ spec:
       driver: eino
       eino:
         voice_adapter:
-          asr_model: asr
           default_voice: multilingual-voice
         graph:
           name: eino-audio-input

@@ -5712,10 +5712,10 @@ type RuntimeProfileVolcMem0ConnectionType string
 type RuntimeProfileWorkflowBinding struct {
 	I18n map[string]RuntimeProfileI18nText `json:"i18n"`
 
-	// PttAsrModel Optional external ASR Model alias from this RuntimeProfile resources.models for push-to-talk input. Omitted or null sends original audio directly to the conversation Model. Workflow definitions and Workspace parameters cannot override it.
+	// PttAsrModel Optional ASR Model alias from this RuntimeProfile resources.models for push-to-talk audio input. AudioDock publishes its transcript independently and sends original audio to an audio-capable Graph or ASR text to a text Graph. Omitted or null disables audio input for Eino. Workflow definitions and Workspace parameters cannot override it.
 	PttAsrModel *string `json:"ptt_asr_model,omitempty"`
 
-	// RealtimeAsrModel Optional external ASR Model alias from this RuntimeProfile resources.models for realtime input. Omitted or null sends original audio directly to the conversation Model. Workflow definitions and Workspace parameters cannot override it.
+	// RealtimeAsrModel Optional ASR Model alias from this RuntimeProfile resources.models for realtime input. Eino consumes the streaming ASR final utterances as text. Omitted or null disables audio input for Eino. Doubao Realtime can use native provider audio without an ASR alias. Workflow definitions and Workspace parameters cannot override it.
 	RealtimeAsrModel *string `json:"realtime_asr_model,omitempty"`
 	ResourceId       string  `json:"resource_id"`
 

@@ -262,7 +262,7 @@ func TestWrapAudioSupportsASROnlyTTSOnlyAndVoiceSelection(t *testing.T) {
 		{DefaultVoice: &fallback},
 		{AsrModel: &asr, DefaultVoice: &fallback},
 	} {
-		if _, err := wrapAudio(mux, core, core, voice, nil, nil, false); err != nil {
+		if _, err := wrapAudio(mux, core, core, false, voice, nil, nil, false); err != nil {
 			t.Fatalf("wrapAudio(%#v) error = %v", voice, err)
 		}
 	}
@@ -343,7 +343,7 @@ func TestWrapAudioRequestsOneSegmentFormatFromSpeakerVoices(t *testing.T) {
 	})
 	fallback := "story.default"
 	speakers := map[string]string{"fox": "story.fox"}
-	dock, err := wrapAudio(mux, core, nil, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, nil, false)
+	dock, err := wrapAudio(mux, core, nil, false, apitypes.VoiceAdapter{DefaultVoice: &fallback, SpeakerVoices: &speakers}, nil, nil, false)
 	if err != nil {
 		t.Fatalf("wrapAudio() error = %v", err)
 	}

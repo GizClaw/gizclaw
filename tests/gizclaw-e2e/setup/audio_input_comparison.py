@@ -109,8 +109,8 @@ def run_sample(binary, document, artifact_dir, sample):
 
 def markdown(results):
     lines = ["# Eino audio input comparison", "",
-             "`audio`: push-to-talk audio sent to the audio-input chat Model for parallel reply and transcription requests.",
-             "`asr`: streaming ASR first, then the same Model with text.", "",
+             "`audio`: push-to-talk audio sent to the audio-input chat Model; independent ASR publishes the transcript.",
+             "`asr`: the same upstream chat model configured for text input receives independent ASR text.", "",
              "| Sample | Path | Transcript | ✓ | Reply | ✓ | First transcript ms | First text ms | First audio ms |",
              "| --- | --- | --- | --- | --- | --- | --- | --- | --- |"]
     for result in results:

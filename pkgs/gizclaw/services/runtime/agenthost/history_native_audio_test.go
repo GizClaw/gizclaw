@@ -23,23 +23,20 @@ func TestNativeAudioHistoryWithoutTranscriptIsAvailableBeforeSessionEnds(t *test
 			defer cancel()
 			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 			config := genxeino.Config{
-				Agent: genxeino.AgentConfig{ID: "audio-only", Name: "audio-only"}, Components: finiteHistoryModel{},
+				Agent: genxeino.AgentConfig{ID: "audio-only", Name: "audio-only"}, Components: finiteHistoryModel{}, AudioInput: direct,
 				Graph: genxeino.GraphDefinition{
 					Name: "audio-only", State: genxeino.StateDefinition{Fields: []genxeino.StateField{{Name: "answer", Type: genxeino.StateString, Merge: genxeino.MergeReplace}}},
-					Nodes:   []genxeino.NodeDefinition{{ID: "chat", ChatModel: &genxeino.ChatModelNode{Model: "chat", AudioTranscript: direct}, Inputs: map[string]genxeino.Binding{"messages": {From: "input.messages"}}, Outputs: map[string]string{"text": "answer"}}},
+					Nodes:   []genxeino.NodeDefinition{{ID: "chat", ChatModel: &genxeino.ChatModelNode{Model: "chat"}, Inputs: map[string]genxeino.Binding{"messages": {From: "input.messages"}}, Outputs: map[string]string{"text": "answer"}}},
 					Edges:   []genxeino.EdgeDefinition{{From: "start", To: "chat"}, {From: "chat", To: "end"}},
 					Outputs: []genxeino.OutputDefinition{{Node: "chat", Field: "answer", Name: "assistant", MIMEType: "text/plain", Primary: true}},
 				},
-			}
-			if !direct {
-				config.TranscribeInput = func(context.Context, []*genx.Blob) (string, error) { return "", nil }
 			}
 			core, err := genxeino.New(ctx, config)
 			if err != nil {
 				t.Fatal(err)
 			}
 			defer core.Close()
-			dock, err := audiodock.New(audiodock.Config{Agent: core})
+			dock, err := audiodock.New(audiodock.Config{Agent: core, AgentAudioInput: direct, ASR: historyAudioASR(func(context.Context, []*genx.Blob) (string, error) { return "", nil })})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -74,7 +71,7 @@ func TestNativeAudioHistoryWithoutTranscriptIsAvailableBeforeSessionEnds(t *test
 				if err != nil {
 					t.Fatal(err)
 				}
-				if chunk.Role == genx.RoleModel && chunk.IsEndOfStream() && chunk.Ctrl.ResponseEpochEnd {
+				if direct && chunk.Role == genx.RoleModel && chunk.IsEndOfStream() && chunk.Ctrl.ResponseEpochEnd || !direct && chunk.Ctrl != nil && chunk.Ctrl.Label == "transcript" && chunk.IsEndOfStream() {
 					break
 				}
 			}
@@ -143,29 +140,30 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 	}
 	graph.Edges = append(graph.Edges, genxeino.EdgeDefinition{From: last, To: "end"})
 	transcription := 0
+	transcribe := func(ctx context.Context, audio []*genx.Blob) (string, error) {
+		index := transcription
+		transcription++
+		if index >= len(questions) || len(audio) != 1 {
+			return "", fmt.Errorf("unexpected audio turn %d with %d parts", index, len(audio))
+		}
+		select {
+		case <-release[index]:
+			return questions[index], nil
+		case <-ctx.Done():
+			return "", ctx.Err()
+		}
+	}
 	core, err := genxeino.New(ctx, genxeino.Config{
 		Agent:      genxeino.AgentConfig{ID: "native-history", Name: "native-history"},
-		Components: chat, History: &genxeino.HistoryConfig{Store: history, Scope: "demo", Limit: 50},
-		TranscribeInput: func(ctx context.Context, audio []*genx.Blob) (string, error) {
-			index := transcription
-			transcription++
-			if index >= len(questions) || len(audio) != 1 {
-				return "", fmt.Errorf("unexpected audio turn %d with %d parts", index, len(audio))
-			}
-			select {
-			case <-release[index]:
-				return questions[index], nil
-			case <-ctx.Done():
-				return "", ctx.Err()
-			}
-		},
+		AudioInput: true, Components: chat, History: &genxeino.HistoryConfig{Store: history, Scope: "demo", Limit: 50},
+
 		Graph: graph,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer core.Close()
-	dock, err := audiodock.New(audiodock.Config{Agent: core})
+	dock, err := audiodock.New(audiodock.Config{Agent: core, AgentAudioInput: true, ASR: historyAudioASR(transcribe)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -203,10 +201,14 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 		// Final transcription is unavailable until the ordinary route EOS has
 		// crossed the input router, exactly the ordering seen in real speech.
 		completedReplies := 0
-		for completedReplies < replyRecords {
+		transcriptDone := false
+		for completedReplies < replyRecords || !transcriptDone {
 			chunk, err := output.Next()
 			if err != nil {
 				t.Fatal(err)
+			}
+			if chunk.Ctrl != nil && chunk.Ctrl.Label == "transcript" && chunk.IsEndOfStream() {
+				transcriptDone = true
 			}
 			if chunk.Ctrl != nil && chunk.Ctrl.StreamID == marker {
 				close(release[turn])
@@ -226,6 +228,12 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 			t.Errorf("turn %d model has %d messages, want %d: %+v", turn, len(request), len(expected), request)
 		} else {
 			for index, want := range expected {
+				if index == len(expected)-1 {
+					if request[index].Role != schema.User || len(request[index].UserInputMultiContent) == 0 {
+						t.Errorf("current turn did not receive raw audio: %+v", request[index])
+					}
+					continue
+				}
 				if request[index].Role != want.Role || request[index].Content != want.Content {
 					t.Errorf("turn %d model message %d = %s:%q, want %s:%q", turn, index, request[index].Role, request[index].Content, want.Role, want.Content)
 				}
@@ -291,4 +299,43 @@ func (m *nativeHistoryModel) Stream(ctx context.Context, input []*schema.Message
 		return nil, ctx.Err()
 	}
 	return m.finiteHistoryModel.Stream(ctx, input, options...)
+}
+
+// historyAudioASR is an independent recognizer fixture. AudioDock, Eino and
+// AgentHost History own all routing and persistence exercised by these tests.
+func historyAudioASR(transcribe func(context.Context, []*genx.Blob) (string, error)) genx.Transformer {
+	return historyTransformerFunc(func(ctx context.Context, input genx.Stream) (genx.Stream, error) {
+		output := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+		go func() {
+			defer input.Close()
+			defer output.Done(genx.Usage{})
+			var audio []*genx.Blob
+			for {
+				chunk, err := input.Next()
+				if err != nil {
+					return
+				}
+				if blob, ok := chunk.Part.(*genx.Blob); ok {
+					next := chunk.Clone()
+					next.Name = "transcript"
+					next.Ctrl.Label = genx.HistoryUserAudioLabel
+					_ = output.Add(next)
+					if len(blob.Data) != 0 {
+						audio = append(audio, blob)
+					}
+				}
+				if !chunk.IsEndOfStream() || len(audio) == 0 {
+					continue
+				}
+				text, err := transcribe(ctx, audio)
+				if err != nil {
+					_ = output.Abort(err)
+					return
+				}
+				_ = output.Add(&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(text), Ctrl: &genx.StreamCtrl{StreamID: chunk.Ctrl.StreamID, Label: "transcript", BeginOfStream: true, EndOfStream: true}})
+				audio = nil
+			}
+		}()
+		return output.Stream(), nil
+	})
 }

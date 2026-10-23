@@ -468,7 +468,7 @@ func (session *session) startTurn(user, inputID string, parts []any, previous <-
 }
 
 // startAudioTurn starts one turn whose user message is the completed audio
-// route. The transcribing ChatModel node supplies the user text later.
+// route. The caller owns independent transcription and input recording.
 func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previous <-chan struct{}) <-chan struct{} {
 	if len(audio) == 0 {
 		return previous
@@ -476,17 +476,9 @@ func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previ
 	if inputID == "" {
 		inputID = genx.NewStreamID()
 	}
-	// Record the user audio before any reply so History orders the user entry
-	// first even when the transcript arrives after the reply text.
-	for _, chunk := range historyUserAudioChunks(inputID, audio) {
-		if err := session.invocation.Output().Push(chunk); err != nil {
-			_ = session.invocation.Fail(err)
-			return previous
-		}
-	}
 	runCtx, cancel := context.WithCancelCause(session.invocation.Context())
 	run := &turnRun{
-		session: session, audio: audio, audioInputID: inputID, ctx: runCtx, cancel: cancel,
+		session: session, audio: audio, ctx: runCtx, cancel: cancel,
 		routes: make(map[string]outputRoute), streamIDs: make(map[string]struct{}),
 		accepting: true, changed: make(chan struct{}, 1), done: make(chan struct{}), previous: previous,
 	}
@@ -554,14 +546,13 @@ type turnRun struct {
 	session *session
 	user    string
 	parts   []any
-	// audio is the user audio of an audio turn; user stays empty until the
-	// input callback or transcribing ChatModel publishes the transcript.
-	audio        []*genx.Blob
-	audioInputID string
-	ctx          context.Context
-	cancel       context.CancelCauseFunc
-	previous     <-chan struct{}
-	done         chan struct{}
+	// audio holds the original input of an audio turn. User text is supplied
+	// only for text turns; independent ASR is owned by the caller.
+	audio    []*genx.Blob
+	ctx      context.Context
+	cancel   context.CancelCauseFunc
+	previous <-chan struct{}
+	done     chan struct{}
 
 	routes           map[string]outputRoute
 	primary          outputRoute
@@ -575,7 +566,6 @@ type turnRun struct {
 	interrupted      bool
 	terminal         bool
 	initiative       bool
-	transcribed      bool
 	emittedPrimary   int
 	deliveredBytes   int
 	delivered        strings.Builder
@@ -657,83 +647,6 @@ func (run *turnRun) userText() string {
 	run.mu.Lock()
 	defer run.mu.Unlock()
 	return run.user
-}
-
-// PublishTranscript records the transcript of an audio turn as its user text
-// and publishes it as a transcript route under the audio input StreamID, the
-// shape an ASR stage produces for the recorder and client. It may arrive
-// before, during, or after the reply text; a turn without one keeps an empty
-// user text.
-func (run *turnRun) PublishTranscript(text string) error {
-	if !run.audioTurn() {
-		return fmt.Errorf("eino: transcript published for a non-audio turn")
-	}
-	if err := run.claimTranscript(text); err != nil {
-		return err
-	}
-	// Publication runs outside run.mu so interruption never waits on output.
-	// The transcript is the user's own utterance and stays valid when the
-	// reply is interrupted afterwards.
-	invocation := run.session.invocation
-	if strings.TrimSpace(text) == "" {
-		return nil
-	}
-	response, err := invocation.StartResponse(streamkit.ResponseConfig{
-		StreamID: run.audioInputID, Role: genx.RoleUser, Name: "transcript", Label: "transcript",
-		ResponseEpoch: genx.NewResponseEpoch(run.audioInputID),
-	})
-	if err != nil {
-		return fmt.Errorf("eino: start transcript route: %w", err)
-	}
-	if err := invocation.Emit(response, &genx.MessageChunk{
-		Role: genx.RoleUser, Name: "transcript", Part: genx.Text(text),
-		Ctrl: &genx.StreamCtrl{StreamID: run.audioInputID, Label: "transcript", BeginOfStream: true},
-	}); err != nil {
-		return fmt.Errorf("eino: emit transcript: %w", err)
-	}
-	if err := invocation.FinishResponse(response, ""); err != nil {
-		return fmt.Errorf("eino: finish transcript route: %w", err)
-	}
-	return nil
-}
-
-// claimTranscript records the transcript as the turn's user text once, while
-// the turn still accepts output.
-func (run *turnRun) claimTranscript(text string) error {
-	run.mu.Lock()
-	defer run.mu.Unlock()
-	if !run.accepting {
-		return streamkit.ErrInactiveResponse
-	}
-	if run.transcribed {
-		return fmt.Errorf("eino: audio turn transcript was already published")
-	}
-	run.transcribed = true
-	run.user = text
-	return nil
-}
-
-// historyUserAudioChunks replays the turn audio as the History-only user
-// audio sideband that shares the transcript StreamID.
-func historyUserAudioChunks(streamID string, audio []*genx.Blob) []*genx.MessageChunk {
-	if len(audio) == 0 {
-		return nil
-	}
-	mimeType := audio[0].MIMEType
-	sideband := func(part *genx.Blob, begin, end bool) *genx.MessageChunk {
-		return &genx.MessageChunk{
-			Role: genx.RoleUser, Name: "transcript", Part: part,
-			Ctrl: &genx.StreamCtrl{
-				StreamID: streamID, Label: genx.HistoryUserAudioLabel, BeginOfStream: begin, EndOfStream: end,
-			},
-		}
-	}
-	chunks := make([]*genx.MessageChunk, 0, len(audio)+2)
-	chunks = append(chunks, sideband(&genx.Blob{MIMEType: mimeType}, true, false))
-	for _, blob := range audio {
-		chunks = append(chunks, sideband(&genx.Blob{MIMEType: blob.MIMEType, Data: append([]byte(nil), blob.Data...)}, false, false))
-	}
-	return append(chunks, sideband(&genx.Blob{MIMEType: mimeType}, false, true))
 }
 
 func (run *turnRun) observe(chunk *genx.MessageChunk) {
@@ -834,17 +747,7 @@ func (run *turnRun) execute() {
 			runErr = finalizeErr
 		}
 	}
-	if run.audioTurn() {
-		// The turn owns the input terminal: a missing or empty transcript
-		// must still flush its History audio while the session stays open.
-		ctrl := &genx.StreamCtrl{StreamID: run.audioInputID, Label: genx.HistoryUserAudioLabel, EndOfStream: true}
-		if interrupted {
-			ctrl.Error = "interrupted"
-		}
-		if err := run.session.invocation.Output().Push(&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Ctrl: ctrl}); err != nil && runErr == nil {
-			runErr = fmt.Errorf("eino: finish user audio History: %w", err)
-		}
-	}
+
 	run.finishRoutes(runErr, interrupted)
 	if run.initiative && (interrupted || runErr != nil) {
 		run.session.transformer.initiativeMu.Lock()
@@ -882,18 +785,6 @@ func (run *turnRun) beginRoutes() error {
 
 func (run *turnRun) runGraph() (*runState, string, error) {
 	config := run.session.transformer.config
-	if run.audioTurn() && config.TranscribeInput != nil {
-		text, err := config.TranscribeInput(run.ctx, run.audio)
-		if err != nil {
-			return nil, "", fmt.Errorf("eino: transcribe input: %w", err)
-		}
-		if err := run.PublishTranscript(text); err != nil {
-			return nil, "", err
-		}
-		if strings.TrimSpace(text) == "" {
-			return nil, "", nil
-		}
-	}
 	if len(run.parts) > 0 && !graphUsesBinding(config.Graph, "input.parts") {
 		return nil, "", fmt.Errorf("eino: multimodal input is unsupported by this Graph")
 	}
@@ -907,7 +798,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	}
 	messages := cloneMessages(history)
 	switch {
-	case run.audioTurn() && config.TranscribeInput == nil:
+	case run.audioTurn():
 		messages = append(messages, schemaAudioUserMessage(run.audio))
 	case !run.initiative:
 		messages = append(messages, schemaUserMessage(run.user, run.parts))
@@ -1061,8 +952,7 @@ func schemaUserMessage(text string, parts []any) *schema.Message {
 	return schema.UserMessage(text)
 }
 
-// schemaAudioUserMessage carries one audio turn to the transcribing ChatModel
-// node. Each input Blob stays a separate part because packet formats such as
+// schemaAudioUserMessage carries one audio turn to the ChatModel node. Each input Blob stays a separate part because packet formats such as
 // raw Opus cannot be concatenated.
 func schemaAudioUserMessage(audio []*genx.Blob) *schema.Message {
 	parts := make([]schema.MessageInputPart, 0, len(audio))

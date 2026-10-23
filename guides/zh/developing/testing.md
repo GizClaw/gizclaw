@@ -69,7 +69,7 @@ go test -count=1 -run '^TestNativeAudioHistoryGiztest$' ./cmd/internal/server
 回复；两段各自保存，下一轮模型请求须按原顺序保留前一轮输入与全部回复。
 用例还检查每条记录的原音可下载，保留原有 EOS 和音频完整性检查，不把一轮限制为两条记录。
 
-只有远端模型与语音协议使用本地确定性夹具，不读取云凭据，也不验证真实 Lite 的
+远端 SAUC、对话模型与 TTS 协议使用本地确定性夹具，不读取云凭据，也不验证真实 provider 的
 识别或回答质量。设置 `GIZCLAW_NATIVE_HISTORY_EVIDENCE` 可保留 Giztest 报告、回放、
 原始模型请求和完整 History 快照，逐轮对照输入、转写与记录顺序。该回归无 build tag，
 随普通 Go 测试执行；真实 Dev 的 Lite 剧本对话仍需单独验收。
@@ -1232,9 +1232,9 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ```
 
-`eino-audio-input` 用同一个 `audio-llm`（`doubao-lite-audio-chat`，上游 `doubao-seed-2-1-lite-260915`）和 `multilingual-voice` 比较两条[音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)。`e2e-giztest` Profile 不配置 PTT ASR，`e2e-audio-asr` Profile 的 Workflow binding 设置 `ptt_asr_model: asr`（`volc-bigasr-sauc`）；Workflow 内旧 `asr_model` 忽略，Workspace 不选择音频来源。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`。两个 Peer 分别注册到两个 Profile，在同一个 Workflow 上创建 Workspace，reload 后断言实际路径，再使用同一段录音比较 transcript 和 reply。`setup/audio_input_comparison.py` 按关键词打分，在 `testdata/audio-input-comparison/` 保存报告、日志和首 transcript／文本／音频时延。原生音频路径任一样本缺少期望 transcript 或 reply 时失败，ASR 作为比较基线。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 可选择样本；`setup/audio_input_comparison_test.py` 离线验证解析与打分。
+`eino-audio-input` 比较两条 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)，两边使用同一上游 `doubao-seed-2-1-lite-260915` 与 `multilingual-voice`，都绑定 `ptt_asr_model: asr`（`volc-bigasr-sauc`）。`e2e-giztest` 的 `audio-llm` 绑定 `doubao-lite-audio-chat`，原音进入 Eino，ASR 旁路产出 transcript；`e2e-audio-asr` 绑定文本输入 Model `doubao-lite-chat`，ASR 文本进入 Eino。Workflow 不拥有 ASR 选择，Workspace 只选择输入模式。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`，比较同一录音的 transcript、回复和首响。`setup/audio_input_comparison.py` 保存报告、日志和转写／文本／音频时延到 `testdata/audio-input-comparison/`。缺少期望转写或回复使样本失败。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 选择样本；`setup/audio_input_comparison_test.py` 验证离线解析与评分。
 
-`peer_stream` result 的 `/transcript` 是非 interim 的 `transcript` label 文本，`/reply` 是保留下来的 `assistant` label 文本；`/text` 仍按到达顺序包含全部文本片段。常规阶段的 `eino-audio-input.push-to-talk-transcript` 先断言 reload 返回 `model` 路径，再用普通话问题断言 `/transcript`、`/reply` 和 History 写入。`eino-audio-input.path-selection` 只使用 RPC，所有语言的 runner 都会执行：它依次断言 binding 默认的 `model`、Workspace 参数覆盖为 `asr`、`realtime` 输入保持 `asr`、切回 Push-to-Talk 后恢复 `model`，以及只声明 `asr_model` 的 `eino-concurrency-assistant` 在偏好 `model` 时回落到 `asr`。
+`peer_stream` result 的 `/transcript` 是非 interim 的 `transcript` label 文本，`/reply` 是 `assistant` label 文本；`/text` 按到达顺序包含所有文本片段。`eino-audio-input.push-to-talk-transcript` 验证原音进入 Model，同时独立 ASR 产出 transcript 并写入 History。`eino-audio-input.path-selection` 通过 RPC 验证音频 Model 的 PTT 直接输入、realtime 的 ASR 文本输入，以及另一 Profile 绑定文本 Model 后的 PTT ASR 输入；Workspace 只切换输入模式。
 
 ### 广播场景：listen、parallel 与 input_sent
 
@@ -2190,7 +2190,7 @@ GIZCLAW_TEST_MEM0_ENDPOINT=http://127.0.0.1:8000 \
 
 `GIZCLAW_E2E_MEM0_API_KEY` 用于 Mem0 鉴权。测试通过已认证 Admin HTTP 在临时 SQLite Server 中绑定真实资源；只为本地 Profile 选择原生 Lite Model 和测试 Mem0，读取原始冒险多角色、猜动物、专题与主聊天 Workflow，保持业务图和 prompt。原始 Giztest 经真实 WebRTC 验证两轮语音、文本开场、回复 EOS 与 cleanup。主聊天仍使用 Doubao Realtime，并额外验证同一个 Workflow 外挂 ASR 的 PTT、连续 realtime、打断及下一轮恢复。
 
-证据目录保存原始图和测试文档 SHA-256、各场景报告、透明 Ark／Mem0 观察器的脱敏记录与 provider 用量。观察器转发真实上游响应；原生 Lite 阶段必须有成功的音频转写和文本回复请求、正用量且无独立 BigASR 用量，外挂 ASR 阶段必须记录实际 ASR 用量。该测试产生真实费用，不进入 CI，也不代表设备或部署验收；报告和日志不得提交。
+证据目录保存原始图和测试文档 SHA-256、各场景报告、透明 Ark／Mem0 观察器的脱敏记录与 provider 用量。观察器转发真实上游响应；所有音频场景使用 Profile 绑定的独立 ASR 并记录实际用量；Ark 观察器验证回复调用成功，聊天 Generator 不追加转写请求。该测试产生真实费用，不进入 CI，也不代表设备或部署验收；报告和日志不得提交。
 
 ## 跨 Server 召集通知 Docker 验收
 

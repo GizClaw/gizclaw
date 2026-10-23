@@ -78,27 +78,11 @@ arguments by name; an unmatched result receives no invented arguments.
 
 ### Audio turns
 
-`Config.TranscribeInput` lets a host supply native Model transcription without changing the Graph definition. After push-to-talk audio EOS, the Transformer calls it, publishes the user's transcript under the same StreamID, and initializes ordinary text in `input.text` and `input.messages` before Memory recall and Graph execution. Failure or cancellation prevents Graph execution; an empty transcript ends the turn without a reply. Observe and History use that same text, and ordinary text turns bypass transcription. This callback and a Graph `AudioTranscript` receiver are mutually exclusive; the host chooses one input integration.
+The host enables complete audio turns with `Config.AudioInput`. Original audio enters the Graph through `input.messages`, while `input.text` is empty. ChatModel generates replies without transcribing input. Otherwise the Transformer consumes text turns from upstream ASR. The host selects ASR text input for Scripts, Memory recall or semantic Tool checks that require the current utterance as text.
 
-Hosts may also set an internal Graph receiver to send audio directly to a ChatModel, allowing Graph execution before transcription. GizClaw derives this integration only for simple Graphs that do not require current text; the persisted Workflow Schema exposes no receiver field. The following describes this Go API mode:
+An audio MIME EOS starts the turn; its following successful control EOS is consumed. A new audio route interrupts the previous turn, an `interrupted` EOS discards the turn, and other errors propagate through the Stream. Each Blob remains an audio part of the current user message. Recall using `input.text` skips an audio turn; recall with an independent text query can still run.
 
-`ChatModelNode.AudioTranscript` makes one root Graph ChatModel node the transcriber of audio user turns; setting it in a nested Graph or on more than one node fails `New`. When the Graph has that node, an ordinary user `audio/*` route (never the `history.user_audio` sideband) starts a turn at its first audio chunk and completes it at EOS: a new audio route interrupts the previous turn, an `interrupted` EOS discards the route, and any other EOS error fails the session. Each Blob stays one audio part of the current user message, so the node must receive it through `input.messages`; `input.text` is empty for that turn, so a Memory recall that uses it as the query is skipped (see below). A Graph with neither that node nor `TranscribeInput` accepts text turns only.
-
-For an audio turn, the Transformer first publishes a `history.user_audio` sideband under the audio input StreamID, so History orders the user entry before the reply. The ChatModel component the node calls reports the audio transcript anywhere in its reply stream as a stream message built with `TranscriptMessage`; how the transcript is obtained belongs to the component and the Model behind it (the GizClaw GenX adapter turns a Generator `genx.InputTranscriptLabel` chunk into that message). The node records the first reported transcript as the turn's user text for History and Memory observe, and publishes it as a `transcript`-labelled user text route under the same StreamID, the shape an ASR stage produces; transcripts reported again in Tool rounds are ignored. A turn without a reported transcript still publishes its reply with an empty user text, and History keeps only the user audio and the reply. History keeps no audio parts, so later turns do not resend the audio.
-
-Memory recall runs before the model, when an audio turn has no transcript yet. A recall whose `QueryFrom` is `input.text` (`Config.Memory.Recall` and `MemoryRecallNode`) gets an empty query in an audio turn: it sets its output to an empty string without calling the Store, and the turn does not fail. A Graph that needs recall in audio turns can point `QueryFrom` at a string State field and derive the query from `history.messages` with a Script before the recall node, for example the current text in a text turn and the previous user text in an audio turn:
-
-```python
-def run(input):
-    query = input["text"]
-    if query == "":
-        for message in input["history"]:
-            if message["role"] == "user" and message["content"] != "":
-                query = message["content"]
-    return {"query": query}
-```
-
-The Script node binds `text: input.text` and `history: history.messages` and writes `query` to the field that `MemoryRecallNode.QueryFrom` references. Recall then follows the topic of the previous turn rather than the current utterance, and the first audio turn still recalls nothing because History is empty. When recall must use the current utterance, the host should supply `Config.TranscribeInput` or convert audio to a text turn with upstream ASR. GizClaw automatically prepares transcription for original Graphs with Memory or Scripts, without changing those Graphs.
+The surrounding [AudioDock](../agentkit#audio-dock) and host History own ASR, user transcripts and original audio recording. Eino publishes no user transcription and makes no additional transcription request. GizClaw enables native audio for PTT Graphs that can consume it directly; text-dependent Graphs and continuous realtime input receive independent ASR final text.
 
 ### Match
 

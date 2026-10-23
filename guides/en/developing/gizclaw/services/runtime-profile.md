@@ -198,13 +198,16 @@ A fence is a system prompt sent to the model. Its effectiveness depends on the s
 
 ## Audio input and ASR
 
-Each Workflow binding may independently select `ptt_asr_model` and `realtime_asr_model`, referencing Model aliases in this Profile's `resources.models`. A configured alias runs external ASR before sending text to the conversation Model. Omission or null sends the original audio directly, without automatic ASR or fallback. Both modes may share one ASR Model binding.
+Each Workflow binding selects `ptt_asr_model` and `realtime_asr_model` from this Profile's `resources.models` aliases. ASR and conversation Models are selected independently. AudioDock publishes all ASR transcripts; Eino PTT audio Graphs receive original audio alongside ASR, while text-dependent Graphs and continuous realtime input consume ASR final text. Both modes can share one ASR Model.
+
+Omitting or nulling the alias leaves that Eino mode text-only; runtime does not supply ASR automatically. Doubao Realtime can omit ASR to retain native provider audio or select independent ASR and use provider text input.
 
 ```yaml
 spec:
   workflows:
     assistant:
       resource_id: eino-assistant
+      ptt_asr_model: asr
       realtime_asr_model: asr
       i18n:
         en: {display_name: Assistant}
@@ -218,7 +221,7 @@ spec:
           zh-CN: {display_name: 语音识别}
 ```
 
-Here PTT uses the bound Model's audio capability directly, while realtime uses external ASR. The same Workflow can serve different deployments without editing business Graphs or prompts. Workflows do not select ASR. Legacy `eino.voice_adapter.asr_model` remains accepted but is completely ignored, including dependency checks. Workspaces may select their `input` mode but cannot override the Profile's ASR choice.
+This example selects the same ASR for both modes. Graph and conversation Model audio capabilities determine whether PTT original audio enters Eino directly. Workflow does not select ASR; legacy `eino.voice_adapter.asr_model` is accepted but ignored. Workspace selects the input mode only.
 
 RuntimeProfile writes validate that:
 

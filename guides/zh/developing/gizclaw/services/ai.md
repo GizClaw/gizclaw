@@ -99,13 +99,11 @@ Eino factory 从 `spec.eino.graph` 构造 typed Graph，并绑定 Workspace owne
 
 `dashscope-realtime`、`doubao-realtime-duplex` 和 `eino` 都是持久化 Workflow 与 Workspace driver。对应 factory 解析 typed RuntimeProfile Model/Voice alias，并构造既有 GenX Transformer。DashScope 要求 DashScope realtime Model；Doubao Duplex 要求 Volc `realtime-duplex` Model；Eino 分别解析每个 `chat_model` node。
 
-Eino 的 `VoiceAdapter` 只配置回复 Voice。用户音频是否先走独立 ASR，由 RuntimeProfile 的 Workflow binding 分别通过 `ptt_asr_model` 和 `realtime_asr_model` 选择；旧 `eino.voice_adapter.asr_model` 接受但忽略。Workspace 不能覆盖这个选择，业务图不声明 `audio_transcript`。
+Eino 的 `VoiceAdapter` 只配置回复 Voice。RuntimeProfile 的 Workflow binding 分别通过 `ptt_asr_model` 与 `realtime_asr_model` 选择独立 ASR；旧 `eino.voice_adapter.asr_model` 接受但忽略，Workspace 不能覆盖 Profile 的选择。
 
-PTT 未配置 ASR 时，factory 根据绑定的 `chat_model` Model 选择原生音频能力。只有一个音频 Model resource 时自动选中，多个 alias 绑定同一个 resource 也可以，纯文本 Model 不参与选择。不同音频 Model resource 同时存在时 reload 失败，需要在 Profile 中统一输入 Model。
+AudioDock 统一驱动 ASR 并旁路发布用户 transcript。PTT 中，当绑定的对话 Model 接受音频，且 Graph 只使用 Prompt 与一个 ChatModel、不读取 `input.text` 时，同一份录音直接送入 Eino，ASR 不阻塞模型回复。需要当前文本的 Script、Memory、控制逻辑或 Tool 语义校验使用 ASR 最终文本，再执行原图。对话 Model 的音频能力与 ASR 后端独立。
 
-对于带前置 Script、Memory 或控制逻辑的图，runtime 在 PTT EOS 后先用同一个音频 Model 获取当前转写，再执行原图。`input.text` 与 `input.messages` 包含当前话语，Recall、Observe 与 History 保持文本轮语义。转写请求不带业务 prompt、history、Tools 或 CoT，也不启动无用的回复请求。转写失败或取消不执行 Graph；空转写结束该轮，不生成回复。只有 Prompt 和一个 ChatModel 且不读取 `input.text` 的简单图直接将音频交给 ChatModel，保留转写与回复并行的能力。这两种集成都由 runtime 推导，Workflow 不增加配置。
-
-Volc `chat_completions` Model 的 `support_text_only: false` 启用 Doubao chat 音频适配，详见 [OpenAI Adapter](/zh/developing/genx/generators/openai#doubao-音频输入)。纯文本 Model 没有配置 Profile ASR 时仍可接收文本；非空用户音频会产生 non-retryable 的 `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS。
+Eino 音频输入要求 Profile 配置当前模式的 ASR alias；省略时仍支持普通文本，非空音频产生 non-retryable 的 `EINO_AUDIO_INPUT_UNSUPPORTED` assistant EOS。`support_text_only: false` 声明已绑定 Model 的音频能力；通用 [OpenAI Adapter](../../genx/generators/openai#音频输入) 负责请求格式转换，不追加转写请求。
 
 `default_voice`、`node_voices` 和 `speaker_voices` 继续通过 RuntimeProfile Voice alias 合成回复。`node_voices` 以 Graph output 引用的 node ID 为 key，优先于 `default_voice`。Factory 在构造 Agent 前校验 Voice，并用 AudioDock 组合 ASR、Eino 与 TTS。
 
@@ -125,7 +123,7 @@ Workspace `input` 为 `push-to-talk`（默认）或 `realtime`，仅决定读取
 
 `agenthost` 解析 owner Profile 后把选中的 alias 放入内部 `Spec.ASRModel`。Factory 不读取 Workflow ASR 配置，也没有 Workspace 优先级或自动回落。错误的 ASR alias、Model kind 或构造错误会使 reload 失败。
 
-Eino 的原生 Lite 音频路径目前处理完整的 PTT 录音，不接受连续 realtime 音频；这种绑定必须配置 `realtime_asr_model` 才能运行 realtime。Doubao Realtime driver 保留模型自己的音频输入，也可通过同样的 Profile 配置外挂 ASR 后使用模型的文本输入。ASR 对两种模式均禁用重复 pacing；realtime 额外请求 interim transcript、`end_window_size=200` 和 `force_to_speech_time=1000`。
+Eino 直接音频路径处理完整 PTT 录音。连续 realtime 输入通过 `realtime_asr_model` 选择流式 ASR 判句，再把最终文本交给 Eino。Doubao Realtime driver 保留模型自己的音频输入，也可通过同样的 Profile 配置外挂 ASR 后使用模型的文本输入。ASR 对两种模式均禁用重复 pacing；realtime 额外请求 interim transcript、`end_window_size=200` 和 `force_to_speech_time=1000`。
 
 Eino 通过 `PeerRunWorkspaceState.audio_input` 报告实际 `asr` 或 `model` 路径；这是只读运行状态，不能作为 Workspace 参数提交。纯文本 Agent 和其他 driver 不返回它。Giztest `eino-audio-input.path-selection` 验证两种输入模式与两个 Profile 对同一个 Workflow 的独立选择。
 

@@ -25,9 +25,13 @@ type VoiceResolver func(context.Context, VoiceRequest) (string, error)
 
 // Config declares one reusable Audio Dock.
 type Config struct {
-	// Agent is the required downstream text Transformer.
+	// Agent is the required downstream Transformer.
 	Agent genx.Transformer
-	// ASR optionally converts streaming audio input into text input for Agent.
+	// AgentAudioInput forwards the original audio to Agent while ASR publishes
+	// its transcript independently. Otherwise ASR text becomes Agent input.
+	AgentAudioInput bool
+	// ASR optionally transcribes audio input. Its output is always published
+	// as a transcript, including when Agent consumes the original audio.
 	ASR genx.Transformer
 	// TTS optionally synthesizes eligible Agent text output.
 	TTS genx.TransformerMux

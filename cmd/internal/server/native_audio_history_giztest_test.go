@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -42,11 +44,25 @@ type nativeHistoryProtocol struct {
 }
 
 // Run the committed Giztest with real Server, Edge, WebRTC, provider adapters,
-// Eino and SQL History. Only remote model/speech protocols are local fixtures.
+// Eino and SQL History. Recognition and remote model/speech are local fixtures.
 func TestNativeAudioHistoryGiztest(t *testing.T) {
 	fixture := &nativeHistoryProtocol{}
 	provider := httptest.NewServer(http.HandlerFunc(fixture.serve))
 	t.Cleanup(provider.Close)
+	// The package's server tests are serial. Redirect only the SDK's SAUC
+	// socket to this local protocol fixture; no production injection is added.
+	original := websocket.DefaultDialer
+	dialer := *original
+	dialer.Proxy = nil
+	dialer.NetDialTLSContext = func(ctx context.Context, network, address string) (net.Conn, error) {
+		if address != "openspeech.bytedance.com:443" {
+			return nil, fmt.Errorf("unexpected speech endpoint %q", address)
+		}
+		return (&net.Dialer{}).DialContext(ctx, network, provider.Listener.Addr().String())
+	}
+	websocket.DefaultDialer = &dialer
+	t.Cleanup(func() { websocket.DefaultDialer = original })
+
 	withPeerControlServer(t, 8, func(ctx context.Context, _ *gizclaw.Server, admin *gizcli.Client, _, edgeURL string) {
 		root := filepath.Join("..", "..", "..", "tests", "gizclaw-e2e", "testdata", "native-audio-history")
 		data, err := os.ReadFile(filepath.Join(root, "resources.json"))
@@ -116,7 +132,7 @@ func TestNativeAudioHistoryGiztest(t *testing.T) {
 				t.Fatalf("step %s was %s", step.ID, step.Status)
 			}
 		}
-		if len(audio) != 2 || audio[0] == audio[1] || len(histories) != 2 || len(requests) != 6 {
+		if len(audio) != 2 || audio[0] == audio[1] || len(histories) != 2 || len(requests) != 4 {
 			t.Fatalf("missing distinct audio, snapshots or exact model calls: audio=%x histories=%d calls=%d", audio, len(histories), len(requests))
 		}
 		var conversations [][]string
@@ -148,6 +164,10 @@ func TestNativeAudioHistoryGiztest(t *testing.T) {
 }
 
 func (f *nativeHistoryProtocol) serve(w http.ResponseWriter, r *http.Request) {
+	if websocket.IsWebSocketUpgrade(r) {
+		f.asr(w, r)
+		return
+	}
 	if r.Method != http.MethodPost {
 		http.Error(w, "POST required", http.StatusMethodNotAllowed)
 		return
@@ -180,49 +200,15 @@ func (f *nativeHistoryProtocol) serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	request.raw = payload
-	audio := []byte(nil)
-	for _, message := range request.Messages {
-		var parts []struct {
-			Type       string `json:"type"`
-			InputAudio struct {
-				Data string `json:"data"`
-			} `json:"input_audio"`
-		}
-		if message.Role != "user" || json.Unmarshal(message.Content, &parts) != nil {
-			continue
-		}
-		for _, part := range parts {
-			if part.Type != "input_audio" {
-				continue
-			}
-			data, err := base64.StdEncoding.DecodeString(part.InputAudio.Data)
-			if err != nil || len(data) < 44 {
-				http.Error(w, "invalid source audio", http.StatusBadRequest)
-				return
-			}
-			audio = append(audio, data...)
-		}
-	}
 	f.mu.Lock()
 	f.requests = append(f.requests, request)
-	if len(audio) != 0 {
-		f.audio = append(f.audio, sha256.Sum256(audio))
-		f.sections = 0
-	} else {
-		f.sections++
-	}
+	f.sections++
 	turn := len(f.audio)
 	section := f.sections
 	f.mu.Unlock()
 	text := fmt.Sprintf("first reply %d. ", section)
 	if turn > 1 {
 		text = fmt.Sprintf("second reply %d. ", section)
-	}
-	if len(audio) != 0 {
-		text = `{"transcript":"first spoken question"}`
-		if turn > 1 {
-			text = `{"transcript":"second spoken question"}`
-		}
 	}
 	w.Header().Set("Content-Type", "text/event-stream")
 	for _, part := range []map[string]any{{"delta": map[string]any{"role": "assistant", "content": text}, "finish_reason": nil}, {"delta": map[string]any{}, "finish_reason": "stop"}} {
@@ -236,4 +222,50 @@ func (f *nativeHistoryProtocol) serve(w http.ResponseWriter, r *http.Request) {
 		w.(http.Flusher).Flush()
 	}
 	_, _ = io.WriteString(w, "data: [DONE]\n\n")
+}
+
+// asr implements the SAUC binary protocol used by the real ASR adapter. The
+// fixed recognition result depends only on which distinct recording arrived.
+func (f *nativeHistoryProtocol) asr(w http.ResponseWriter, r *http.Request) {
+	upgrader := websocket.Upgrader{}
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
+	defer conn.Close()
+	var audio bytes.Buffer
+	for {
+		kind, frame, err := conn.ReadMessage()
+		if err != nil {
+			return
+		}
+		if kind != websocket.BinaryMessage || len(frame) < 8 || frame[1]>>4 != 2 {
+			continue
+		}
+		audio.Write(frame[8:])
+		if frame[1]&2 == 0 {
+			continue
+		}
+		checksum := sha256.Sum256(audio.Bytes())
+		f.mu.Lock()
+		f.audio = append(f.audio, checksum)
+		f.sections = 0
+		turn := len(f.audio)
+		f.mu.Unlock()
+		text := "first spoken question"
+		if turn > 1 {
+			text = "second spoken question"
+		}
+		payload, err := json.Marshal(map[string]any{"audio_info": map[string]any{"duration": 500}, "result": map[string]any{"text": text}})
+		if err != nil {
+			return
+		}
+		response := make([]byte, 12+len(payload))
+		response[0], response[1], response[2] = 0x11, 0x92, 0x10
+		binary.BigEndian.PutUint32(response[4:8], 1)
+		binary.BigEndian.PutUint32(response[8:12], uint32(len(payload)))
+		copy(response[12:], payload)
+		_ = conn.WriteMessage(websocket.BinaryMessage, response)
+		return
+	}
 }
