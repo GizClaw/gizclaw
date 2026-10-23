@@ -55,6 +55,37 @@ spec:
 
 低延迟服务需在火山控制台为所选模型及推理接入点开通；模型支持范围以[官方低延迟推理说明](https://docs.volcengine.com/docs/ark/online-inference-low-latency?lang=zh)为准。触发 fast 限流或突增流量保护时，上游可降级为常规推理；`fast` 不保证每次请求都使用低延迟资源。
 
+#### Runtime 请求参数绑定 {#model-request-bindings}
+
+`openai-tenant` Model 的可选 `provider_data.request_bindings` 把当前已认证调用 Peer 的非秘密 Runtime KV 值映射为上游请求 header。一个 Model 可以服务多台设备，每次调用读取各自的快照；设备继续通过现有 Telemetry KV 上报。配置结构与预算见 [Schema](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/model_request_bindings.json)，附加校验见 [实现](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/apitypes/model_request_bindings.go)。
+
+以下是 Model `spec` 中的配置片段；对应设备在 `upstream_identity` key 上报包含 `vid`、`uid`、`ip` 字符串的 JSON 对象。
+
+```yaml
+provider_data:
+  upstream_model: your-upstream-model
+  request_bindings:
+    - target: {kind: http_header, name: X-AI-VID}
+      source:
+        peer_runtime_kv: {key: upstream_identity, pointer: /vid}
+    - target: {kind: http_header, name: X-AI-UID}
+      source:
+        peer_runtime_kv: {key: upstream_identity, pointer: /uid}
+    - target: {kind: http_header, name: X-AI-IP}
+      source:
+        peer_runtime_kv: {key: upstream_identity, pointer: /ip}
+```
+
+`source` 是显式分支对象组成的 `oneOf` 联合类型，每个 source 必须且只能选择一个分支；`key`、`pointer` 位于 `peer_runtime_kv` 对象内。该分支从当前调用设备的 Runtime 上报 KV 取值，不读取 RuntimeProfile 配置或其他来源。来源 key 按原样匹配，`pointer` 是值内部的 JSON Pointer；省略或空字符串选择整个值。它不执行脚本、插值或通配查询。所选 header 值必须为字符串；数字和布尔值不自动转换。每个 header 默认必填，缺失、删除或 null 会使调用失败；`required: false` 只允许这些状态省略 header，非法的已存在值仍失败。未配置或空绑定列表关闭此能力，完整 PUT/Apply 的 `provider_data` 中省略该字段会移除已有绑定。
+
+该字段只属于 `openai-tenant` 的 `provider_data`，非空绑定仅支持 LLM Chat Completions：流式生成与 JSON/Tool `Invoke` 共用此机制。其他 provider 不接受此字段；Embedding、Voice 与 Realtime 等不支持非空绑定，query/body 目标也不接受。Model 列举、能力查询和 Agent 初始化不要求设备已上报值。
+
+每次生成或 Invoke 在现有资源授权与 quota 检查后只读取一次持久化 KV，全部 header 来自同一快照。SDK 重试、流式兼容重试和 JSON 输出格式降级复用该快照；下一次调用重新读取，包括已启动的长期 Agent。持续中的流不随 KV 更新改变身份。没有隐式 TTL、值默认值或旧值回退；存储不可用时拒绝调用。相关身份字段宜在同一个 JSON 对象中一起更新。
+
+允许的目标是非秘密业务扩展 header；鉴权、转发与 SDK 控制字段保留给 adapter。启用绑定的请求不跟随重定向，避免把 metadata 发送到另一地址。模型 API token 继续来自 Tenant 引用的保密 Credential。设备纳管密钥不得放入 KV。绑定值不进入 prompt、history、日志或指标标签；自报值不改变 Model、Tenant、Credential 权限或 Server 权威状态。
+
+示例中的 `X-AI-IP` 明确取设备自报地址，不表示 Server 认证的公网地址，也不从 TURN、入站 header 或 Server 出口地址推断。具体上游的业务身份要求仍由集成方核对。
+
 ### memorylayout
 
 拥有 connection-free `MemoryLayout` Admin 资源。一个 Layout 声明 Mem0 Cloud、自托管 Mem0 与 `volc_mem0` policy；实际 driver、endpoint、API key 与 project 由 RuntimeProfile memory binding 选择。详见 [Memory Store](/zh/developing/stores/memory)。

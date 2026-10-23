@@ -21,6 +21,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
 
@@ -189,6 +190,9 @@ func TestRPCServerPeerMethods(t *testing.T) {
 	}
 	if serverGenX.lastSay.Text != "hello" || serverGenX.lastSay.VoiceAlias != "voice-1" {
 		t.Fatalf("ServerRunSay request = %+v", serverGenX.lastSay)
+	}
+	if serverGenX.lastCaller != publicKey {
+		t.Fatal("RPC GenX call lost the authenticated Peer")
 	}
 }
 
@@ -889,12 +893,14 @@ func (f *fakeRPCPeerRunRuntime) WorkspaceRecall(_ context.Context, req apitypes.
 }
 
 type fakeRPCServerGenXService struct {
-	lastSay peergenx.SayRequest
-	err     error
+	lastSay    peergenx.SayRequest
+	lastCaller giznet.PublicKey
+	err        error
 }
 
-func (f *fakeRPCServerGenXService) Say(_ context.Context, request peergenx.SayRequest) (peergenx.SayResponse, error) {
+func (f *fakeRPCServerGenXService) Say(ctx context.Context, request peergenx.SayRequest) (peergenx.SayResponse, error) {
 	f.lastSay = request
+	f.lastCaller = ownership.Caller(ctx)
 	if f.err != nil {
 		return peergenx.SayResponse{}, f.err
 	}

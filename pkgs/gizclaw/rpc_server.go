@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerrun"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/apikey"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -136,6 +137,7 @@ func (s *rpcServer) dispatch(ctx context.Context, req *rpcapi.RPCRequest) (*rpca
 	if s.isPeerRetiring != nil && s.isPeerRetiring() {
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Reason: "PEER_CONN_RETIRING", Message: ErrPeerConnRetiring.Error()}.RPCResponse(), nil
 	}
+	ctx = ownership.WithCaller(ctx, s.callerPublicKey)
 	switch req.Method {
 	case rpcapi.RPCMethodAllPing:
 		return handleRPCPing(ctx, req)

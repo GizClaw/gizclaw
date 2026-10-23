@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/peergenx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerresource"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peertelemetry"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizhttp"
 )
@@ -60,6 +61,7 @@ func (s *PeerService) openAIHTTPHandlerForPeer(publicKey giznet.PublicKey, genxS
 				Usage:           s.manager.usageRecorder(publicKey),
 				Authorize:       s.manager.quotaAuthorizer(publicKey, nil),
 				Peer:            peerPublicKey(publicKey),
+				ReportedKV:      s.manager.PeerRun,
 				Models:          resources,
 				Voices:          resources,
 				Credentials:     s.manager.Credentials,
@@ -335,7 +337,7 @@ func bindOpenAIHTTPHandler(protocol http.Handler, service *openaiapi.Server) htt
 			return
 		}
 		binding := openAIRequestBinding{caller: service.Caller.String(), service: service}
-		ctx := context.WithValue(request.Context(), openAIRequestBindingKey{}, binding)
+		ctx := context.WithValue(ownership.WithCaller(request.Context(), service.Caller), openAIRequestBindingKey{}, binding)
 		protocol.ServeHTTP(writer, request.WithContext(ctx))
 	})
 }

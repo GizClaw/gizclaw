@@ -11,6 +11,41 @@ func TestEmbeddedSchemaCompiles(t *testing.T) {
 	}
 }
 
+func TestExpectedTerminalErrorContract(t *testing.T) {
+	valid := validDocument + `  - id: missing_metadata
+    client: peer
+    peer_stream:
+      mode: text
+      input: hello
+      expect_terminal_error:
+        code: MODEL_REQUEST_BINDING_MISSING
+        message: Model request metadata could not be resolved.
+        label: assistant
+        retryable: false
+`
+	if _, err := LoadDocument(writeTestDocument(t, valid), nil); err != nil {
+		t.Fatal(err)
+	}
+	for name, document := range map[string]string{
+		"listen":             strings.Replace(valid, "mode: text", "mode: listen\n      duration: 1s", 1),
+		"success completion": valid + "      completion: first_response\n",
+		"requires text":      valid + "      require_text: true\n",
+		"requires audio":     valid + "      require_audio: true\n",
+		"interruption":       valid + "      interrupt_after: 1s\n",
+		"history":            valid + "      wait_for_history: true\n",
+		"reply observation":  valid + "      reply_observation: 1s\n",
+		"missing retryable":  strings.Replace(valid, "        retryable: false\n", "", 1),
+		"blank code":         strings.Replace(valid, "code: MODEL_REQUEST_BINDING_MISSING", "code: ' '", 1),
+		"reference":          strings.Replace(valid, "label: assistant", "label: '${peer}'", 1),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := LoadDocument(writeTestDocument(t, document), nil); err == nil {
+				t.Fatal("accepted an ambiguous terminal error expectation")
+			}
+		})
+	}
+}
+
 func TestListenAllowedTerminalErrorContract(t *testing.T) {
 	valid := validDocument + `  - id: removed_listen
     client: peer

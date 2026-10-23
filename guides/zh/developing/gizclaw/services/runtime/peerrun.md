@@ -29,3 +29,5 @@
 该帧所有 KV 条目一起接受或拒绝，包含 key、值、时间和删除墓碑的存储预算在提交前检查。
 `GetReportedKV`、`GetStatus` 与 Runtime 读取同一记录；普通 `PutStatus` 忽略传入的 reported_kv，
 设备控制响应不能替换自报状态。删除和乱序规则、SDK 字节预算见 [KV 自报状态](/zh/developing/api/proto/telemetry#kv-自报状态)。
+
+[Model 请求参数绑定](../ai#model-request-bindings) 直接读取同一个持久化快照，不新增上报通道或 KV 副本。单次调用的多个参数共用一次读取；之后的调用可观察更新与删除。此读取不把设备自报状态升级为 Server 权威状态。

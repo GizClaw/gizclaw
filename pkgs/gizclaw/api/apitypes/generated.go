@@ -1771,6 +1771,21 @@ func (e ModelProviderKind) Valid() bool {
 	}
 }
 
+// Defines values for ModelRequestTargetKind.
+const (
+	ModelRequestTargetKindHttpHeader ModelRequestTargetKind = "http_header"
+)
+
+// Valid indicates whether the value is a known member of the ModelRequestTargetKind enum.
+func (e ModelRequestTargetKind) Valid() bool {
+	switch e {
+	case ModelRequestTargetKindHttpHeader:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ModelResourceKind.
 const (
 	ModelResourceKindModel ModelResourceKind = "Model"
@@ -4754,6 +4769,50 @@ type ModelProviderData struct {
 // ModelProviderKind Provider resource kind usable by model runtime.
 type ModelProviderKind string
 
+// ModelRequestBinding defines model for ModelRequestBinding.
+type ModelRequestBinding struct {
+	// Required Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback.
+	Required *bool `json:"required,omitempty"`
+
+	// Source Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
+	Source ModelRequestSource `json:"source"`
+	Target ModelRequestTarget `json:"target"`
+}
+
+// ModelRequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+type ModelRequestBindings = []ModelRequestBinding
+
+// ModelRequestPeerRuntimeKVSelector Locates a value in the authenticated invoking Peer's device-reported Runtime KV.
+type ModelRequestPeerRuntimeKVSelector struct {
+	// Key Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
+	Key string `json:"key"`
+
+	// Pointer JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string.
+	Pointer *string `json:"pointer,omitempty"`
+}
+
+// ModelRequestPeerRuntimeKVSource defines model for ModelRequestPeerRuntimeKVSource.
+type ModelRequestPeerRuntimeKVSource struct {
+	// PeerRuntimeKv Locates a value in the authenticated invoking Peer's device-reported Runtime KV.
+	PeerRuntimeKv ModelRequestPeerRuntimeKVSelector `json:"peer_runtime_kv"`
+}
+
+// ModelRequestSource Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
+type ModelRequestSource struct {
+	union json.RawMessage
+}
+
+// ModelRequestTarget defines model for ModelRequestTarget.
+type ModelRequestTarget struct {
+	Kind ModelRequestTargetKind `json:"kind"`
+
+	// Name Business extension header. Authentication, forwarding and SDK control headers are reserved. Names are unique ignoring case. Resolved values must be nonempty printable ASCII without surrounding spaces, at most 1024 bytes; all injected header lines together are at most 8192 bytes.
+	Name string `json:"name"`
+}
+
+// ModelRequestTargetKind defines model for ModelRequestTarget.Kind.
+type ModelRequestTargetKind string
+
 // ModelResource defines model for ModelResource.
 type ModelResource struct {
 	// ApiVersion API version for declarative GizClaw resources.
@@ -4864,17 +4923,20 @@ type OpenAITenantKind string
 
 // OpenAITenantModelProviderData defines model for OpenAITenantModelProviderData.
 type OpenAITenantModelProviderData struct {
-	DefaultThinkingLevel *string   `json:"default_thinking_level,omitempty"`
-	SupportJsonOutput    *bool     `json:"support_json_output,omitempty"`
-	SupportTemperature   *bool     `json:"support_temperature,omitempty"`
-	SupportTextOnly      *bool     `json:"support_text_only,omitempty"`
-	SupportThinking      *bool     `json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool     `json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
-	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
-	ThinkingParam        *string   `json:"thinking_param,omitempty"`
-	UpstreamModel        string    `json:"upstream_model"`
-	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
+	DefaultThinkingLevel *string `json:"default_thinking_level,omitempty"`
+
+	// RequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+	RequestBindings    *ModelRequestBindings `json:"request_bindings,omitempty"`
+	SupportJsonOutput  *bool                 `json:"support_json_output,omitempty"`
+	SupportTemperature *bool                 `json:"support_temperature,omitempty"`
+	SupportTextOnly    *bool                 `json:"support_text_only,omitempty"`
+	SupportThinking    *bool                 `json:"support_thinking,omitempty"`
+	SupportToolCalls   *bool                 `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam *string               `json:"thinking_level_param,omitempty"`
+	ThinkingLevels     *[]string             `json:"thinking_levels,omitempty"`
+	ThinkingParam      *string               `json:"thinking_param,omitempty"`
+	UpstreamModel      string                `json:"upstream_model"`
+	UseSystemRole      *bool                 `json:"use_system_role,omitempty"`
 }
 
 // OpenAITenantResource defines model for OpenAITenantResource.
@@ -8909,6 +8971,42 @@ func (t ModelProviderData) MarshalJSON() ([]byte, error) {
 }
 
 func (t *ModelProviderData) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
+// AsModelRequestPeerRuntimeKVSource returns the union data inside the ModelRequestSource as a ModelRequestPeerRuntimeKVSource
+func (t ModelRequestSource) AsModelRequestPeerRuntimeKVSource() (ModelRequestPeerRuntimeKVSource, error) {
+	var body ModelRequestPeerRuntimeKVSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelRequestPeerRuntimeKVSource overwrites any union data inside the ModelRequestSource as the provided ModelRequestPeerRuntimeKVSource
+func (t *ModelRequestSource) FromModelRequestPeerRuntimeKVSource(v ModelRequestPeerRuntimeKVSource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelRequestPeerRuntimeKVSource performs a merge with any union data inside the ModelRequestSource, using the provided ModelRequestPeerRuntimeKVSource
+func (t *ModelRequestSource) MergeModelRequestPeerRuntimeKVSource(v ModelRequestPeerRuntimeKVSource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t ModelRequestSource) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *ModelRequestSource) UnmarshalJSON(b []byte) error {
 	err := t.union.UnmarshalJSON(b)
 	return err
 }

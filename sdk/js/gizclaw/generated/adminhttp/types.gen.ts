@@ -1198,6 +1198,7 @@ export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantM
 
 export type OpenAiTenantModelProviderData = {
     upstream_model: string;
+    request_bindings?: ModelRequestBindings;
     support_json_output?: boolean;
     support_tool_calls?: boolean;
     support_text_only?: boolean;
@@ -1234,6 +1235,51 @@ export type VolcTenantModelProviderData = {
  * Provider resource kind usable by model runtime.
  */
 export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'deepseek-tenant' | 'openai-tenant' | 'minimax-tenant' | 'volc-tenant';
+
+export type ModelRequestBinding = {
+    target: ModelRequestTarget;
+    source: ModelRequestSource;
+    /**
+     * Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback.
+     */
+    required?: boolean;
+};
+
+/**
+ * Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+ */
+export type ModelRequestBindings = Array<ModelRequestBinding>;
+
+/**
+ * Locates a value in the authenticated invoking Peer's device-reported Runtime KV.
+ */
+export type ModelRequestPeerRuntimeKvSelector = {
+    /**
+     * Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
+     */
+    key: string;
+    /**
+     * JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string.
+     */
+    pointer?: string;
+};
+
+export type ModelRequestPeerRuntimeKvSource = {
+    peer_runtime_kv: ModelRequestPeerRuntimeKvSelector;
+};
+
+/**
+ * Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
+ */
+export type ModelRequestSource = ModelRequestPeerRuntimeKvSource;
+
+export type ModelRequestTarget = {
+    kind: 'http_header';
+    /**
+     * Business extension header. Authentication, forwarding and SDK control headers are reserved. Names are unique ignoring case. Resolved values must be nonempty printable ASCII without surrounding spaces, at most 1024 bytes; all injected header lines together are at most 8192 bytes.
+     */
+    name: string;
+};
 
 /**
  * How the model entered the global catalog

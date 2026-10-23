@@ -666,6 +666,18 @@
           "type": "string",
           "minLength": 2
         },
+        "expect_terminal_error": {
+          "description": "Require the current input turn to end with an error EOS matching code, message, label and retryable exactly. Record its nonempty server-assigned stream_id. Success, silence, timeout and other errors fail the step.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["code", "message", "label", "retryable"],
+          "properties": {
+            "code": {"type": "string", "minLength": 1},
+            "message": {"type": "string", "minLength": 1},
+            "label": {"type": "string", "minLength": 1},
+            "retryable": {"type": "boolean"}
+          }
+        },
         "allowed_terminal_error": {
           "description": "Allow at most one EOS whose code, message, stream_id, label and retryable exactly match these literals; continue the full listen window and count all audio. Other or repeated terminal errors still fail.",
           "type": "object",
@@ -763,6 +775,31 @@
         }
       },
       "allOf": [
+        {
+          "if": {"required": ["expect_terminal_error"]},
+          "then": {
+            "required": ["input"],
+            "properties": {
+              "mode": {"enum": ["text", "push-to-talk", "realtime"]},
+              "completion": {"const": "terminal"},
+              "require_text": {"const": false},
+              "require_audio": {"const": false},
+              "wait_for_history": {"const": false}
+            },
+            "not": {
+              "anyOf": [
+                {"required": ["empty_input"]},
+                {"required": ["overlap_input"]},
+                {"required": ["interrupt_after"]},
+                {"required": ["session"]},
+                {"required": ["keep_open"]},
+                {"required": ["await_rearm"]},
+                {"required": ["terminal_label"]},
+                {"required": ["reply_observation"]}
+              ]
+            }
+          }
+        },
         {
           "if": {
             "required": [
