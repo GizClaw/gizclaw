@@ -127,6 +127,7 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 	}
 	host.Resolver = openAICanonicalResolver{resolver: resolver}
 	ctx = a.ownerContext(ctx)
+	ctx = ownership.WithCaller(ctx, a.caller)
 	ctx = agenthost.WithResourceAccess(ctx, a.caller.String(), nil, nil)
 	ctx, err := agenthost.WithToolExecution(ctx, nil)
 	if err != nil {

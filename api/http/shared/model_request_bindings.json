@@ -1,0 +1,68 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "Model Request Bindings",
+    "description": "Explicit, non-secret request metadata resolved from the authenticated caller's reported Runtime KV.",
+    "version": "1.0.0"
+  },
+  "paths": {},
+  "components": {
+    "schemas": {
+      "ModelRequestBindings": {
+        "type": "array",
+        "maxItems": 16,
+        "description": "Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.",
+        "items": { "$ref": "#/components/schemas/ModelRequestBinding" }
+      },
+      "ModelRequestBinding": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["target", "source"],
+        "properties": {
+          "target": { "$ref": "#/components/schemas/ModelRequestTarget" },
+          "source": { "$ref": "#/components/schemas/ModelRequestSource" },
+          "required": {
+            "type": "boolean",
+            "default": true,
+            "description": "Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback."
+          }
+        }
+      },
+      "ModelRequestTarget": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "name"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["http_header"] },
+          "name": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 128,
+            "pattern": "^[Xx]-[!#$%&'*+.^_`|~0-9A-Za-z-]+$",
+            "description": "Business extension header. Authentication, forwarding and SDK control headers are reserved. Names are unique ignoring case. Resolved values must be nonempty printable ASCII without surrounding spaces, at most 1024 bytes; all injected header lines together are at most 8192 bytes."
+          }
+        }
+      },
+      "ModelRequestSource": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind", "key"],
+        "properties": {
+          "kind": { "type": "string", "enum": ["reported_kv"] },
+          "key": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "Exact Runtime reported KV key, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets."
+          },
+          "pointer": {
+            "type": "string",
+            "maxLength": 256,
+            "pattern": "^(?:/(?:[^~/]|~[01])*)*$",
+            "description": "JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string."
+          }
+        }
+      }
+    }
+  }
+}

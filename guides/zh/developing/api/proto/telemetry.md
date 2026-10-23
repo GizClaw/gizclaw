@@ -59,3 +59,5 @@ KV 用来保存设备自报的最新 JSON 快照，断线和重启后仍可查�
 
 Go、JavaScript 和 C 使用既有 Telemetry 通道发送，Flutter 通过状态查询读取。访问沿用设备
 所属范围内的鉴权；KV 内容不进入 metrics 或 payload 日志，设备不得上报密码或凭据。
+
+非秘密的业务身份可供 [Model 请求参数绑定](../../gizclaw/services/ai#model-request-bindings) 读取。绑定显式选择 key 和 JSON Pointer；Telemetry 仍不解释这些业务字段。模型 token 和设备纳管密钥不得通过此路径上报。

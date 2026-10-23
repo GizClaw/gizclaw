@@ -69,6 +69,7 @@ export type ModelUpsert = {
     provider: ModelProvider;
     display_name?: string;
     description?: string;
+    request_bindings?: ModelRequestBindings;
     provider_data: ModelProviderData;
 };
 
@@ -1116,6 +1117,7 @@ export type Model = {
     source: ModelSource;
     provider: ModelProvider;
     description?: string;
+    request_bindings?: ModelRequestBindings;
     provider_data: ModelProviderData;
     synced_at?: string;
     created_at: string;
@@ -1235,6 +1237,40 @@ export type VolcTenantModelProviderData = {
  */
 export type ModelProviderKind = 'gemini-tenant' | 'dashscope-tenant' | 'deepseek-tenant' | 'openai-tenant' | 'minimax-tenant' | 'volc-tenant';
 
+export type ModelRequestBinding = {
+    target: ModelRequestTarget;
+    source: ModelRequestSource;
+    /**
+     * Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback.
+     */
+    required?: boolean;
+};
+
+/**
+ * Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+ */
+export type ModelRequestBindings = Array<ModelRequestBinding>;
+
+export type ModelRequestSource = {
+    kind: 'reported_kv';
+    /**
+     * Exact Runtime reported KV key, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
+     */
+    key: string;
+    /**
+     * JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string.
+     */
+    pointer?: string;
+};
+
+export type ModelRequestTarget = {
+    kind: 'http_header';
+    /**
+     * Business extension header. Authentication, forwarding and SDK control headers are reserved. Names are unique ignoring case. Resolved values must be nonempty printable ASCII without surrounding spaces, at most 1024 bytes; all injected header lines together are at most 8192 bytes.
+     */
+    name: string;
+};
+
 /**
  * How the model entered the global catalog
  */
@@ -1246,6 +1282,7 @@ export type ModelSpec = {
     provider: ModelProvider;
     display_name?: string;
     description?: string;
+    request_bindings?: ModelRequestBindings;
     provider_data: ModelProviderData;
 };
 

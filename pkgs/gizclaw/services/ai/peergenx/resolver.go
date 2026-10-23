@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"strconv"
 	"strings"
@@ -29,6 +30,8 @@ type GeneratorConfig struct {
 	Model      apitypes.Model
 	Tenant     Tenant
 	Credential apitypes.Credential
+	// RequestHeaders resolves fresh metadata from the invocation context.
+	RequestHeaders func(context.Context) (http.Header, error)
 }
 
 // EmbeddingConfig contains the resources resolved for one embedding model.
@@ -112,11 +115,16 @@ func (s *Service) resolveModelConfig(ctx context.Context, pattern string, kind a
 	if model.Kind != kind {
 		return GeneratorConfig{}, fmt.Errorf("%w: model %q kind %q does not satisfy the %s role", ErrInvalid, model.Id, model.Kind, role)
 	}
+	headers, err := s.requestHeaders(model)
+	if err != nil {
+		return GeneratorConfig{}, err
+	}
 	return GeneratorConfig{
-		Pattern:    pattern,
-		Model:      model,
-		Tenant:     tenant,
-		Credential: credential,
+		RequestHeaders: headers,
+		Pattern:        pattern,
+		Model:          model,
+		Tenant:         tenant,
+		Credential:     credential,
 	}, nil
 }
 
@@ -292,6 +300,9 @@ func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, 
 	model, err := s.getModel(ctx, id)
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
+	}
+	if err := apitypes.ValidateModelRequestBindings(model.Kind, model.Provider.Kind, model.RequestBindings); err != nil {
+		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
 	tenant, credentialID, err := s.resolveModelTenant(ctx, model)
 	if err != nil {

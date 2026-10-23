@@ -24,6 +24,8 @@ supplies no refusal text, the error identifies
 An absent explanation is neither a normal completion nor evidence of a specific
 filtering rule.
 
+`OpenAIGenerator.RequestHeaders` is an optional process-local HTTP metadata callback. Each GenerateStream or Invoke evaluates it once before sending, clones its result, and uses SDK per-request options. SDK retries and compatibility fallbacks reuse the snapshot. The callback does not mutate shared client or Generator headers or enter ModelContext. GenX does not interpret Peers, Runtime KV, Model resources, or credential stores; see [AI service wiring](../../gizclaw/services/ai#model-request-bindings). With the callback enabled, provider errors expose only safe summaries while retaining typed causes in process.
+
 ## Doubao audio input
 
 `pkgs/genx/generators/doubaochat` wraps the `OpenAIGenerator` of a Volc Ark Doubao chat completions Model. Doubao Seed chat Models accept audio input, but the API returns no separate input-transcript field. The adapter merges each user message's audio Blobs: raw Opus packets, Ogg/Opus, and signed 16-bit PCM are decoded to 16 kHz mono WAV; MP3 and a single WAV pass through.

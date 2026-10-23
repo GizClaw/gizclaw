@@ -8678,6 +8678,9 @@
           "description": {
             "type": "string"
           },
+          "request_bindings": {
+            "$ref": "./shared.json#/components/schemas/ModelRequestBindings"
+          },
           "provider_data": {
             "$ref": "./shared.json#/components/schemas/ModelProviderData",
             "description": "Provider-specific model runtime configuration.",

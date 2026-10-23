@@ -26,3 +26,5 @@ Transformer 内部；AgentHost 按 Profile alias 的稳定模型函数名解析�
 OpenAI Responses 通过相同 canonical Resolver 与共享 Runtime Registry 建立 request-scoped direct Workspace attachment，不读取或修改 PeerRun selection。Server-side HTTP Tool 继续遵守 Workflow policy。受限 History observer 返回 Response projection 使用的准确已持久化 assistant entry。
 
 当 assistant route 以 provider 或 runtime error EOS 结束时，Peer output adapter 会原样转发该 EOS，并输出一条带 Peer、当前 Workspace、stream、error code 与 retryable 关联字段的结构化 Server error 日志。预期的 `interrupted` turn replacement EOS 是控制事件，不作为故障记录。日志副作用不会让长期 output consumer 失败、追加第二个 EOS，也不会阻止后续 turn 或 Workspace reload。
+
+每次 Peer run 把连接的已认证公钥设置为请求 caller；OpenAI Workspace 执行保留已验证 API Key owner。owner-scoped GenX 仍按 Workspace owner 解析资源，但 [Model 请求参数绑定](../services/ai#model-request-bindings) 从每次调用的 caller 读取 KV。共享 Agent 不捕获首次构造者的设备身份或 KV 值。

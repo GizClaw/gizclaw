@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/openai/openai-go"
+	"github.com/openai/openai-go/option"
 	"github.com/openai/openai-go/packages/param"
 	"github.com/openai/openai-go/packages/ssestream"
 )
@@ -61,18 +62,30 @@ type OpenAIGenerator struct {
 	ExtraFields map[string]any `json:"extra_fields,omitzero"`
 
 	SchemaFormatter OpenAISchemaFormatter `json:"-"`
+	// RequestHeaders resolves non-prompt HTTP metadata once per GenerateStream
+	// or Invoke. It must be safe for concurrent calls and honor ctx cancellation.
+	// All retries within that call reuse its snapshot; nil preserves defaults.
+	RequestHeaders func(context.Context) (http.Header, error) `json:"-"`
 }
 
-func (g *OpenAIGenerator) Invoke(ctx context.Context, _ string, mctx ModelContext, fn *FuncTool) (Usage, *FuncCall, error) {
+func (g *OpenAIGenerator) Invoke(ctx context.Context, _ string, mctx ModelContext, fn *FuncTool) (usage Usage, call *FuncCall, err error) {
+	if !g.SupportJSONOutput && !g.SupportToolCalls {
+		return Usage{}, nil, errors.New("json output or tool calls are required")
+	}
+	options, err := g.requestOptions(ctx)
+	if err != nil {
+		return Usage{}, nil, err
+	}
+	defer func() { err = g.requestError(err) }()
 	switch {
 	case g.SupportJSONOutput:
-		usage, call, err := g.invokeJSONOutput(ctx, mctx, fn)
+		usage, call, err := g.invokeJSONOutput(ctx, mctx, fn, options...)
 		if err != nil && g.SupportToolCalls && isResponseFormatUnsupported(err) {
-			return g.invokeToolCalls(ctx, mctx, fn)
+			return g.invokeToolCalls(ctx, mctx, fn, options...)
 		}
 		return usage, call, err
 	case g.SupportToolCalls:
-		return g.invokeToolCalls(ctx, mctx, fn)
+		return g.invokeToolCalls(ctx, mctx, fn, options...)
 	default:
 		return Usage{}, nil, errors.New("json output or tool calls are required")
 	}
@@ -80,6 +93,10 @@ func (g *OpenAIGenerator) Invoke(ctx context.Context, _ string, mctx ModelContex
 
 func (g *OpenAIGenerator) GenerateStream(ctx context.Context, _ string, mctx ModelContext) (Stream, error) {
 	params, err := g.chatCompletion(mctx, g.GenerateParams)
+	if err != nil {
+		return nil, err
+	}
+	options, err := g.requestOptions(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -93,24 +110,24 @@ func (g *OpenAIGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 		puller := &oaiPuller{timing: timing, record: func(usage openai.CompletionUsage) {
 			RecordUsage(ctx, oaiUsageRecords(provider, string(params.Model), usage)...)
 		}}
-		err := puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+		err := puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params, options...))
 		if err != nil && !puller.received && isStreamOptionsUnsupported(err) {
 			// Some OpenAI-compatible endpoints reject stream_options; stream
 			// without it, which reports no usage for this completion.
 			slog.WarnContext(ctx, "genx: provider rejected stream usage; streaming without usage",
-				"provider", provider, "model", string(params.Model), "error", err)
+				"provider", provider, "model", string(params.Model), "error", g.requestError(err))
 			params.StreamOptions = openai.ChatCompletionStreamOptionsParam{}
-			err = puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params))
+			err = puller.pull(sb, g.Client.Chat.Completions.NewStreaming(ctx, params, options...))
 		}
 		timing.finish(err)
 		if err != nil {
-			sb.Abort(err)
+			sb.Abort(g.requestError(err))
 		}
 	}()
 	return sb.Stream(), nil
 }
 
-func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContext, fn *FuncTool) (Usage, *FuncCall, error) {
+func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContext, fn *FuncTool, options ...option.RequestOption) (Usage, *FuncCall, error) {
 	params, err := g.chatCompletion(mctx, g.InvokeParams)
 	if err != nil {
 		return Usage{}, nil, err
@@ -128,7 +145,7 @@ func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContex
 			},
 		},
 	}
-	resp, err := g.Client.Chat.Completions.New(ctx, params)
+	resp, err := g.Client.Chat.Completions.New(ctx, params, options...)
 	if err != nil {
 		return Usage{}, nil, err
 	}
@@ -149,7 +166,7 @@ func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContex
 	return oaiConvUsage(&resp.Usage), fn.NewFuncCall(choice.Message.Content), nil
 }
 
-func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext, fn *FuncTool) (Usage, *FuncCall, error) {
+func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext, fn *FuncTool, options ...option.RequestOption) (Usage, *FuncCall, error) {
 	params, err := g.chatCompletion(mctx, g.InvokeParams)
 	if err != nil {
 		return Usage{}, nil, err
@@ -177,7 +194,7 @@ func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext
 		}
 	}
 
-	resp, err := g.Client.Chat.Completions.New(ctx, params)
+	resp, err := g.Client.Chat.Completions.New(ctx, params, options...)
 	if err != nil {
 		return Usage{}, nil, err
 	}

@@ -30,3 +30,5 @@ KV report is accepted or rejected after checking storage, including tombstones. 
 and Runtime read the same record. Ordinary PutStatus ignores reported_kv, so control replies cannot replace
 self-reported state. See [KV telemetry](/en/developing/api/proto/telemetry#device-reported-kv-state) for quotas,
 deletions, ordering and SDK contracts.
+
+[Model request bindings](../ai#model-request-bindings) read the same durable snapshot without another reporting channel or KV copy. Parameters within one invocation share one read; later invocations observe updates and deletions. Reading reported metadata does not make it authoritative Server state.

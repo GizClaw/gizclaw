@@ -14,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 )
@@ -198,7 +199,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		}
 	}
 	s.logger().InfoContext(gizlog.WithSessionID(gizlog.WithPeerPublicKey(ctx, s.PublicKey.String()), s.SessionID), "agenthost: runtime starting", "workspace", workspaceName)
-	baseCtx := s.runtimeLogContext(ctx)
+	baseCtx := ownership.WithCaller(s.runtimeLogContext(ctx), s.PublicKey)
 	baseCtx = gizlog.WithWorkspace(baseCtx, workspaceName)
 	baseCtx = WithResourceAccess(withHistoryGearID(baseCtx, s.PublicKey.String()), s.PublicKey.String(), profileToolBindings, profileWorkflowBindings, profileFingerprint)
 	if profileSnapshot != nil {

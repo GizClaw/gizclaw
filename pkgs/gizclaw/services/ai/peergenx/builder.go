@@ -3,6 +3,7 @@ package peergenx
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"maps"
 	"net/http"
@@ -45,6 +46,13 @@ const (
 )
 
 func (b DefaultBuilder) BuildGenerator(ctx context.Context, cfg GeneratorConfig) (genx.Generator, error) {
+	if err := apitypes.ValidateModelRequestBindings(cfg.Model.Kind, cfg.Model.Provider.Kind, cfg.Model.RequestBindings); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if cfg.Model.RequestBindings != nil && len(*cfg.Model.RequestBindings) > 0 &&
+		(cfg.RequestHeaders == nil || cfg.Tenant.Kind != string(apitypes.ModelProviderKindOpenaiTenant)) {
+		return nil, fmt.Errorf("%w: request binding resolver is required", ErrNotConfigured)
+	}
 	switch cfg.Tenant.Kind {
 	case string(apitypes.ModelProviderKindDeepseekTenant):
 		return b.buildDeepSeekGenerator(cfg)
@@ -342,8 +350,23 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
 	}
-	if b.HTTPClient != nil {
-		opts = append(opts, option.WithHTTPClient(b.HTTPClient))
+	clientHTTP := b.HTTPClient
+	if cfg.RequestHeaders != nil {
+		if clientHTTP == nil {
+			clientHTTP = http.DefaultClient
+		}
+		clone := *clientHTTP
+		// Extension headers must never follow a provider redirect. The
+		// transport, timeout and connection pool can still be shared.
+		clone.CheckRedirect = func(*http.Request, []*http.Request) error {
+			// A 3xx returned through ErrUseLastResponse can be mistaken for an
+			// empty successful stream by the SDK. Fail the request explicitly.
+			return errors.New("redirects disabled for model request metadata")
+		}
+		clientHTTP = &clone
+	}
+	if clientHTTP != nil {
+		opts = append(opts, option.WithHTTPClient(clientHTTP))
 	}
 	client := openai.NewClient(opts...)
 
@@ -357,6 +380,7 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
 	return &genx.OpenAIGenerator{
+		RequestHeaders:    cfg.RequestHeaders,
 		Provider:          strings.TrimSuffix(cfg.Tenant.Kind, "-tenant"),
 		Client:            &client,
 		Model:             modelName,

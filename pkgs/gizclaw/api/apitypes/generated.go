@@ -1771,6 +1771,36 @@ func (e ModelProviderKind) Valid() bool {
 	}
 }
 
+// Defines values for ModelRequestSourceKind.
+const (
+	ModelRequestSourceKindReportedKv ModelRequestSourceKind = "reported_kv"
+)
+
+// Valid indicates whether the value is a known member of the ModelRequestSourceKind enum.
+func (e ModelRequestSourceKind) Valid() bool {
+	switch e {
+	case ModelRequestSourceKindReportedKv:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ModelRequestTargetKind.
+const (
+	ModelRequestTargetKindHttpHeader ModelRequestTargetKind = "http_header"
+)
+
+// Valid indicates whether the value is a known member of the ModelRequestTargetKind enum.
+func (e ModelRequestTargetKind) Valid() bool {
+	switch e {
+	case ModelRequestTargetKindHttpHeader:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ModelResourceKind.
 const (
 	ModelResourceKindModel ModelResourceKind = "Model"
@@ -4729,6 +4759,9 @@ type Model struct {
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData ModelProviderData `json:"provider_data"`
 
+	// RequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+	RequestBindings *ModelRequestBindings `json:"request_bindings,omitempty"`
+
 	// Source How the model entered the global catalog
 	Source    ModelSource `json:"source"`
 	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
@@ -4753,6 +4786,41 @@ type ModelProviderData struct {
 
 // ModelProviderKind Provider resource kind usable by model runtime.
 type ModelProviderKind string
+
+// ModelRequestBinding defines model for ModelRequestBinding.
+type ModelRequestBinding struct {
+	// Required Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback.
+	Required *bool              `json:"required,omitempty"`
+	Source   ModelRequestSource `json:"source"`
+	Target   ModelRequestTarget `json:"target"`
+}
+
+// ModelRequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+type ModelRequestBindings = []ModelRequestBinding
+
+// ModelRequestSource defines model for ModelRequestSource.
+type ModelRequestSource struct {
+	// Key Exact Runtime reported KV key, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
+	Key  string                 `json:"key"`
+	Kind ModelRequestSourceKind `json:"kind"`
+
+	// Pointer JSON Pointer within the key's JSON value, at most 256 UTF-8 bytes and 16 segments. Omitted or empty selects the whole value. No fragments, wildcards or expressions. The selected header value must be a JSON string.
+	Pointer *string `json:"pointer,omitempty"`
+}
+
+// ModelRequestSourceKind defines model for ModelRequestSource.Kind.
+type ModelRequestSourceKind string
+
+// ModelRequestTarget defines model for ModelRequestTarget.
+type ModelRequestTarget struct {
+	Kind ModelRequestTargetKind `json:"kind"`
+
+	// Name Business extension header. Authentication, forwarding and SDK control headers are reserved. Names are unique ignoring case. Resolved values must be nonempty printable ASCII without surrounding spaces, at most 1024 bytes; all injected header lines together are at most 8192 bytes.
+	Name string `json:"name"`
+}
+
+// ModelRequestTargetKind defines model for ModelRequestTarget.Kind.
+type ModelRequestTargetKind string
 
 // ModelResource defines model for ModelResource.
 type ModelResource struct {
@@ -4780,6 +4848,9 @@ type ModelSpec struct {
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData ModelProviderData `json:"provider_data"`
+
+	// RequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+	RequestBindings *ModelRequestBindings `json:"request_bindings,omitempty"`
 
 	// Source How the model entered the global catalog
 	Source ModelSource `json:"source"`

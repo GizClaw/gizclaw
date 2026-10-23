@@ -11,3 +11,5 @@ Bearer 与 cookie value 不作为 backend identity。Shell authenticator 只读�
 同一个 authenticated composition 也提供 Workspace-backed Conversations 与 Responses。进程共享的 Response runtime 按 Workspace 串行 active work，在返回终态 JSON/SSE 前持久化终态，并在读取时把重启遗留的 `in_progress` record 转为安全失败。Server shutdown 会先停止并 join 该 runtime，再关闭 Workspace 与 Agent store。
 
 Workspace 文本执行在整个 turn 中保留已验证 caller 的 AgentHost resource ownership。Tool resolution 每次调用仍检查 Workspace owner 与 owner 的当前 RuntimeProfile。HTTP 请求不提供 connected-Peer Tool binding，其他已认证 caller 不能读取或执行该 Conversation。
+
+请求接线把已验证 Peer 保留为独立的调用身份。执行 Workspace 或切换 owner 资源视图时仍保留它，供 [Model 请求参数绑定](../services/ai#model-request-bindings) 读取正确设备的 Runtime KV；不采纳入站请求自选的设备标识。
