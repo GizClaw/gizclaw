@@ -1,7 +1,8 @@
 # User Story:
-# As a registered device using the eino-native-audio-functions Workflow on a RuntimeProfile that selects the model audio input path,
-# I want original audio answered by the chat Model while independent ASR transcribes it,
-# So that AudioDock publishes the transcript for the client, History, and the next turn.
+# As a native PTT device using pre- or post-reply text-dependent functions,
+# I want distinct recordings kept as audio while functions receive final text,
+# So that exact History, audio downloads, EOS and streaming deadlines survive both turns.
+# This fixture declares one model response per turn; counts describe only this graph.
 version: gizclaw.test/v1alpha1
 name: eino-native-audio-functions.push-to-talk-transcript
 clients:
@@ -29,6 +30,40 @@ variables:
     max_bytes: 16777216
     media_type: audio/ogg
     codec: opus
+  workflow_name:
+    direction: input
+    type: string
+    env: GIZCLAW_NATIVE_AUDIO_WORKFLOW
+  input_audio_2:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  transcript_1:
+    direction: output
+    type: string
+  reply_1:
+    direction: output
+    type: string
+  transcript_2:
+    direction: output
+    type: string
+  reply_2:
+    direction: output
+    type: string
+  user_history_1:
+    direction: output
+    type: string
+  reply_history_1:
+    direction: output
+    type: string
+  user_history_2:
+    direction: output
+    type: string
+  reply_history_2:
+    direction: output
+    type: string
 steps:
   - id: register_peer
     client: peer
@@ -42,7 +77,7 @@ steps:
       method: server.workspace.create
       request:
         name: ${workspace_name}
-        workflow_name: eino-native-audio-functions
+        workflow_name: ${workflow_name}
         parameters:
           eino_workspace_parameters:
             agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
@@ -69,7 +104,8 @@ steps:
       request:
         voice_name: narrator
         text: 三加五等于几？
-        accepted_content_types: [audio/ogg]
+        accepted_content_types:
+          - audio/ogg
     save_as: input_audio
   - id: ask_by_voice
     client: peer
@@ -80,6 +116,9 @@ steps:
       pacing: 20ms
       trim_trailing_silence: true
       wait_for_history: true
+      require_text: true
+      require_audio: true
+      reply_observation: 1s
     expect:
       /first_transcript_ms:
         minimum: 1
@@ -95,15 +134,104 @@ steps:
         non_empty: true
       /history_name:
         non_empty: true
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /response_count:
+        equals: 1
+      /audio_bytes:
+        minimum: 1
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/max_interval_ms:
+        maximum: 100
+      /audio_pacing/underruns:
+        equals: 0
+    capture:
+      transcript_1: /transcript
+      reply_1: /reply
+  - id: exact_history_1
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request:
+        workspace_name: ${workspace_name}
+        order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+        limit: 20
+    expect:
+      /available:
+        equals: true
+      /has_next:
+        equals: false
+      /items:
+        count: 2
+      /items/0/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR
+      /items/0/text:
+        equals: ${transcript_1}
+      /items/0/audio_available:
+        equals: true
+      /items/1/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
+      /items/1/text:
+        equals: ${reply_1}
+      /items/1/audio_available:
+        equals: true
+    capture:
+      user_history_1: /items/0/name
+      reply_history_1: /items/1/name
+  - id: download_user_1
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request:
+        workspace_name: ${workspace_name}
+        history_name: ${user_history_1}
+      max_bytes: 16777216
+    expect:
+      /bytes:
+        minimum: 1
+  - id: download_reply_1
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request:
+        workspace_name: ${workspace_name}
+        history_name: ${reply_history_1}
+      max_bytes: 16777216
+    expect:
+      /bytes:
+        minimum: 1
+  - id: synthesize_second_question
+    client: peer
+    speech:
+      cache: run
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我再问一个：九减四等于多少？
+        accepted_content_types:
+          - audio/ogg
+    save_as: input_audio_2
   - id: ask_again
     client: peer
     timeout: 90s
     peer_stream:
       mode: push-to-talk
-      input: ${input_audio}
+      input: ${input_audio_2}
       pacing: 20ms
       trim_trailing_silence: true
       wait_for_history: true
+      require_text: true
+      require_audio: true
+      reply_observation: 1s
     expect:
       /first_transcript_ms:
         minimum: 1
@@ -119,6 +247,93 @@ steps:
         non_empty: true
       /history_name:
         non_empty: true
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /response_count:
+        equals: 1
+      /audio_bytes:
+        minimum: 1
+      /audio_integrity/streams:
+        equals: 1
+      /audio_integrity/max_active:
+        equals: 1
+      /audio_integrity/open:
+        equals: 0
+      /audio_integrity/violations:
+        equals: 0
+      /audio_pacing/max_interval_ms:
+        maximum: 100
+      /audio_pacing/underruns:
+        equals: 0
+    capture:
+      transcript_2: /transcript
+      reply_2: /reply
+  - id: exact_history_2
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request:
+        workspace_name: ${workspace_name}
+        order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+        limit: 20
+    expect:
+      /available:
+        equals: true
+      /has_next:
+        equals: false
+      /items:
+        count: 4
+      /items/0/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR
+      /items/0/text:
+        equals: ${transcript_1}
+      /items/0/audio_available:
+        equals: true
+      /items/1/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
+      /items/1/text:
+        equals: ${reply_1}
+      /items/1/audio_available:
+        equals: true
+      /items/2/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR
+      /items/2/text:
+        equals: ${transcript_2}
+      /items/2/audio_available:
+        equals: true
+      /items/3/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
+      /items/3/text:
+        equals: ${reply_2}
+      /items/3/audio_available:
+        equals: true
+    capture:
+      user_history_2: /items/2/name
+      reply_history_2: /items/3/name
+  - id: download_user_2
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request:
+        workspace_name: ${workspace_name}
+        history_name: ${user_history_2}
+      max_bytes: 16777216
+    expect:
+      /bytes:
+        minimum: 1
+  - id: download_reply_2
+    client: peer
+    rpc_stream:
+      method: server.workspace.history.audio.download
+      request:
+        workspace_name: ${workspace_name}
+        history_name: ${reply_history_2}
+      max_bytes: 16777216
+    expect:
+      /bytes:
+        minimum: 1
 finally:
   - client: peer
     rpc:

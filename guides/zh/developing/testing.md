@@ -78,6 +78,16 @@ go test -count=1 -run '^TestNativeAudioHistoryGiztest$' ./cmd/internal/server
 
 TTS 协议夹具按累计媒体 deadline 发包。线程延迟后补发已经到期的帧，避免逐包重设相对 timer 把调度延迟累计到后续音频；显式注入的 900ms 断流仍必须被原有时序断言拒绝。真实 Provider 与物理设备验收仍属于独立验证。
 
+### 带文本依赖的原音 Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_native_audio_functions_tests.sh
+```
+
+入口读取 `tests/gizclaw-e2e/.env`，也可用 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定凭据文件；使用真实 Doubao Seed 2.1 Lite 原音输入、关闭 thinking，并在独立的本地 Docker Server、Edge 上分别执行前置文本判断和后置转写读取。每种组合发送两份不同录音，要求模型输入路径为 `model`，并保留 2 秒首字、3 秒首音、EOS、音频完整性与欠载校验。History 按该单回复夹具的声明逐轮精确对照实际转写及回复，同时下载用户和回复的音频。比较文本用于验证记录一致性，不判断回答的知识正确性。
+
+运行证据保存在 ignored `.testbench/native-audio-functions-*`，包含源文件摘要、二进制和 Docker 镜像身份、Giztest 报告与回放。入口退出时清理本次 Compose project、私有认证和任务 CLI，不修改线上集群。前置文本判断必须等待定稿；该实跑不注入识别延迟，不替代带门控的延迟/取消单元回归，也不代表剧情内容验收。
+
 ## PostgreSQL History 并发与回收
 
 使用隔离的 PostgreSQL 17，安装 `pg_partman 5.5.0` 到 `partman` schema，配置 `max_connections=300`，并设置 `GIZCLAW_TEST_POSTGRES_DSN`。
