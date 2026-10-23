@@ -110,7 +110,7 @@ func newModelBindingFixture(t *testing.T) *modelBindingFixture {
 	} else if _, ok := response.(adminhttp.CreateOpenAITenant200JSONResponse); !ok {
 		t.Fatalf("create tenant: %T", response)
 	}
-	if err := json.Unmarshal([]byte(`{"id":"shared-model","kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"compatible"},"provider_data":{"upstream_model":"upstream-chat","support_json_output":true,"support_tool_calls":true},"request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"kind":"reported_kv","key":"identity","pointer":"/vid"}},{"target":{"kind":"http_header","name":"X-AI-UID"},"source":{"kind":"reported_kv","key":"identity","pointer":"/uid"}},{"target":{"kind":"http_header","name":"X-AI-IP"},"source":{"kind":"reported_kv","key":"identity","pointer":"/ip"}}]}`), &f.upsert); err != nil {
+	if err := json.Unmarshal([]byte(`{"id":"shared-model","kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"compatible"},"provider_data":{"upstream_model":"upstream-chat","support_json_output":true,"support_tool_calls":true,"request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"kind":"reported_kv","key":"identity","pointer":"/vid"}},{"target":{"kind":"http_header","name":"X-AI-UID"},"source":{"kind":"reported_kv","key":"identity","pointer":"/uid"}},{"target":{"kind":"http_header","name":"X-AI-IP"},"source":{"kind":"reported_kv","key":"identity","pointer":"/ip"}}]}}`), &f.upsert); err != nil {
 		t.Fatal(err)
 	}
 	if response, err := f.models.CreateModel(t.Context(), adminhttp.CreateModelRequestObject{Body: &f.upsert}); err != nil {
@@ -147,6 +147,27 @@ func (f *modelBindingFixture) report(ctx context.Context, peer giznet.PublicKey,
 	}
 	telemetry := &peertelemetry.Service{Status: peertelemetry.StatusSync{Store: f.runtime}, Now: func() time.Time { return time.Unix(100, 0) }}
 	return telemetry.ReportPacket(ctx, peer, packet)
+}
+
+func (f *modelBindingFixture) bindings(t *testing.T) *apitypes.ModelRequestBindings {
+	t.Helper()
+	data, err := f.upsert.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return data.RequestBindings
+}
+
+func (f *modelBindingFixture) setBindings(t *testing.T, bindings *apitypes.ModelRequestBindings) {
+	t.Helper()
+	data, err := f.upsert.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.RequestBindings = bindings
+	if err := f.upsert.ProviderData.FromOpenAITenantModelProviderData(data); err != nil {
+		t.Fatal(err)
+	}
 }
 
 func (f *modelBindingFixture) update(t *testing.T) {
@@ -334,7 +355,7 @@ func TestModelRequestBindingsFreezeRetriesAndFallbacks(t *testing.T) {
 func TestModelRequestBindingsRejectInvalidValuesAndOmitOptional(t *testing.T) {
 	f := newModelBindingFixture(t)
 	peer := giznet.PublicKey{1}
-	f.upsert.RequestBindings = &apitypes.ModelRequestBindings{(*f.upsert.RequestBindings)[1]}
+	f.setBindings(t, &apitypes.ModelRequestBindings{(*f.bindings(t))[1]})
 	f.update(t)
 	g := f.service(peer).Generator()
 	ctx := ownership.WithCaller(t.Context(), peer)
@@ -347,7 +368,9 @@ func TestModelRequestBindingsRejectInvalidValuesAndOmitOptional(t *testing.T) {
 			t.Fatalf("invalid value accepted or leaked: %v", err)
 		}
 	}
-	(*f.upsert.RequestBindings)[0].Required = new(false)
+	bindings := f.bindings(t)
+	(*bindings)[0].Required = new(false)
+	f.setBindings(t, bindings)
 	f.update(t)
 	for _, value := range []string{`{}`, `{"uid":null}`, ""} {
 		if err := f.report(ctx, peer, value); err != nil {
@@ -383,9 +406,11 @@ func TestModelRequestBindingsRejectInvalidValuesAndOmitOptional(t *testing.T) {
 func TestModelRequestBindingsJSONPointerAndHeaderBudget(t *testing.T) {
 	f := newModelBindingFixture(t)
 	peer := giznet.PublicKey{1}
-	f.upsert.RequestBindings = &apitypes.ModelRequestBindings{(*f.upsert.RequestBindings)[1]}
-	binding := &(*f.upsert.RequestBindings)[0]
+	f.setBindings(t, &apitypes.ModelRequestBindings{(*f.bindings(t))[1]})
+	bindings := f.bindings(t)
+	binding := &(*bindings)[0]
 	binding.Source.Pointer = new("/a~1b/~0/0/")
+	f.setBindings(t, bindings)
 	f.update(t)
 	ctx := ownership.WithCaller(t.Context(), peer)
 	if err := f.report(ctx, peer, `{"a/b":{"~":[{"":"device-value-pointer"}]}}`); err != nil {
@@ -402,7 +427,7 @@ func TestModelRequestBindingsJSONPointerAndHeaderBudget(t *testing.T) {
 	for i := range 16 {
 		declarations = append(declarations, apitypes.ModelRequestBinding{Source: apitypes.ModelRequestSource{Kind: apitypes.ModelRequestSourceKindReportedKv, Key: "identity"}, Target: apitypes.ModelRequestTarget{Kind: apitypes.ModelRequestTargetKindHttpHeader, Name: fmt.Sprintf("X-Metadata-%d", i)}})
 	}
-	f.upsert.RequestBindings = &declarations
+	f.setBindings(t, &declarations)
 	f.update(t)
 	if err := f.report(ctx, peer, `"`+strings.Repeat("x", 600)+`"`); err != nil {
 		t.Fatal(err)
@@ -421,7 +446,7 @@ func TestModelRequestBindingsUnconfiguredAndDeniedModels(t *testing.T) {
 	if _, err := service.Generator().GenerateStream(ctx, "model/chat", modelBindingInput()); err == nil {
 		t.Fatal("configured bindings ignored an unavailable Runtime")
 	}
-	f.upsert.RequestBindings = nil
+	f.setBindings(t, nil)
 	f.update(t)
 	if err := consumeModelBindingStream(service.Generator().GenerateStream(t.Context(), "model/chat", modelBindingInput())); err != nil {
 		t.Fatal(err)

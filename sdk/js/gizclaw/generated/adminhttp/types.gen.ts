@@ -69,7 +69,6 @@ export type ModelUpsert = {
     provider: ModelProvider;
     display_name?: string;
     description?: string;
-    request_bindings?: ModelRequestBindings;
     provider_data: ModelProviderData;
 };
 
@@ -1117,7 +1116,6 @@ export type Model = {
     source: ModelSource;
     provider: ModelProvider;
     description?: string;
-    request_bindings?: ModelRequestBindings;
     provider_data: ModelProviderData;
     synced_at?: string;
     created_at: string;
@@ -1200,6 +1198,7 @@ export type ModelProviderData = GeminiTenantModelProviderData | DashScopeTenantM
 
 export type OpenAiTenantModelProviderData = {
     upstream_model: string;
+    request_bindings?: ModelRequestBindings;
     support_json_output?: boolean;
     support_tool_calls?: boolean;
     support_text_only?: boolean;
@@ -1247,7 +1246,7 @@ export type ModelRequestBinding = {
 };
 
 /**
- * Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+ * Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
  */
 export type ModelRequestBindings = Array<ModelRequestBinding>;
 
@@ -1282,7 +1281,6 @@ export type ModelSpec = {
     provider: ModelProvider;
     display_name?: string;
     description?: string;
-    request_bindings?: ModelRequestBindings;
     provider_data: ModelProviderData;
 };
 

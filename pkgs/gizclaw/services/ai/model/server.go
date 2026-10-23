@@ -150,11 +150,7 @@ func (s *Server) PutModel(ctx context.Context, request adminhttp.PutModelRequest
 	if err != nil {
 		return adminhttp.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	bindings, err := json.Marshal(model.RequestBindings)
-	if err != nil {
-		return adminhttp.PutModel500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
-	}
-	model, err = scanModel(db.QueryRowContext(ctx, db.Rebind(`UPDATE models SET kind=?,source=?,provider_kind=?,provider_id=?,provider_data_json=?,request_bindings_json=?,display_name=?,description=?,updated_at=? WHERE id=? AND source<>'sync' RETURNING `+modelColumns), string(model.Kind), string(model.Source), string(model.Provider.Kind), model.Provider.Id, string(data), string(bindings), model.DisplayName, model.Description, s.now().Format(time.RFC3339Nano), id))
+	model, err = scanModel(db.QueryRowContext(ctx, db.Rebind(`UPDATE models SET kind=?,source=?,provider_kind=?,provider_id=?,provider_data_json=?,display_name=?,description=?,updated_at=? WHERE id=? AND source<>'sync' RETURNING `+modelColumns), string(model.Kind), string(model.Source), string(model.Provider.Kind), model.Provider.Id, string(data), model.DisplayName, model.Description, s.now().Format(time.RFC3339Nano), id))
 	if errors.Is(err, sql.ErrNoRows) {
 		current, lookupErr := getModel(ctx, db, id)
 		if errors.Is(lookupErr, sql.ErrNoRows) {
@@ -243,18 +239,6 @@ func normalizeModelUpsert(in adminhttp.ModelUpsert, expectedID string) (apitypes
 		return apitypes.Model{}, fmt.Errorf("clone provider_data: %w", err)
 	}
 	model.ProviderData = providerData
-	if err := apitypes.ValidateModelRequestBindings(model.Kind, model.Provider.Kind, in.RequestBindings); err != nil {
-		return apitypes.Model{}, err
-	}
-	if in.RequestBindings != nil && len(*in.RequestBindings) > 0 {
-		raw, err := json.Marshal(in.RequestBindings)
-		if err != nil {
-			return apitypes.Model{}, err
-		}
-		if err := json.Unmarshal(raw, &model.RequestBindings); err != nil {
-			return apitypes.Model{}, err
-		}
-	}
 	if err := validateModelProviderData(model.Kind, model.Provider.Kind, model.ProviderData); err != nil {
 		return apitypes.Model{}, err
 	}
@@ -270,6 +254,9 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		}
 		var value apitypes.OpenAITenantModelProviderData
 		if err := decodeStrictModelProviderData(data, &value); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
+		if err := apitypes.ValidateModelRequestBindings(modelKind, providerKind, value.RequestBindings); err != nil {
 			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
 		}
 		if modelKind == apitypes.ModelKindLlm {
@@ -472,7 +459,7 @@ func stringValue(value *string) string {
 	return strings.TrimSpace(*value)
 }
 
-const modelColumns = "id,kind,source,provider_kind,provider_id,provider_data_json,display_name,description,created_at,updated_at,synced_at,request_bindings_json"
+const modelColumns = "id,kind,source,provider_kind,provider_id,provider_data_json,display_name,description,created_at,updated_at,synced_at"
 
 // Initialize creates the Model catalog and query indexes at Server startup.
 func (s *Server) Initialize(ctx context.Context) error {
@@ -485,7 +472,7 @@ func (s *Server) Initialize(ctx context.Context) error {
 		return err
 	}
 	defer tx.Rollback()
-	statements := []string{`CREATE TABLE IF NOT EXISTS models(id TEXT PRIMARY KEY CHECK(length(id)>0),kind TEXT NOT NULL,source TEXT NOT NULL,provider_kind TEXT NOT NULL,provider_id TEXT NOT NULL,provider_data_json TEXT NOT NULL,display_name TEXT,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,synced_at TEXT,request_bindings_json TEXT NOT NULL DEFAULT '[]')`}
+	statements := []string{`CREATE TABLE IF NOT EXISTS models(id TEXT PRIMARY KEY CHECK(length(id)>0),kind TEXT NOT NULL,source TEXT NOT NULL,provider_kind TEXT NOT NULL,provider_id TEXT NOT NULL,provider_data_json TEXT NOT NULL,display_name TEXT,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,synced_at TEXT)`}
 	for _, index := range []struct{ name, columns string }{
 		{"models_source_id", "source,id"}, {"models_provider_kind_id", "provider_kind,id"}, {"models_provider_id_id", "provider_id,id"},
 		{"models_provider_id", "provider_kind,provider_id,id"}, {"models_source_provider_id", "source,provider_kind,provider_id,id"},
@@ -495,21 +482,6 @@ func (s *Server) Initialize(ctx context.Context) error {
 	for _, query := range statements {
 		if _, err := tx.ExecContext(ctx, query); err != nil {
 			return err
-		}
-	}
-	if db.DriverName() == "postgres" {
-		if _, err := tx.ExecContext(ctx, `ALTER TABLE models ADD COLUMN IF NOT EXISTS request_bindings_json TEXT NOT NULL DEFAULT '[]'`); err != nil {
-			return err
-		}
-	} else {
-		var count int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM pragma_table_info('models') WHERE name='request_bindings_json'`).Scan(&count); err != nil {
-			return err
-		}
-		if count == 0 {
-			if _, err := tx.ExecContext(ctx, `ALTER TABLE models ADD COLUMN request_bindings_json TEXT NOT NULL DEFAULT '[]'`); err != nil {
-				return err
-			}
 		}
 	}
 	return tx.Commit()
@@ -557,15 +529,11 @@ func insertModel(ctx context.Context, db *sqlx.DB, model apitypes.Model) (bool, 
 	if err != nil {
 		return false, err
 	}
-	bindings, err := json.Marshal(model.RequestBindings)
-	if err != nil {
-		return false, err
-	}
 	var synced *string
 	if model.SyncedAt != nil {
 		synced = new(model.SyncedAt.UTC().Format(time.RFC3339Nano))
 	}
-	result, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO models(`+modelColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`), model.Id, string(model.Kind), string(model.Source), string(model.Provider.Kind), model.Provider.Id, string(data), model.DisplayName, model.Description, model.CreatedAt.UTC().Format(time.RFC3339Nano), model.UpdatedAt.UTC().Format(time.RFC3339Nano), synced, string(bindings))
+	result, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO models(`+modelColumns+`) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO NOTHING`), model.Id, string(model.Kind), string(model.Source), string(model.Provider.Kind), model.Provider.Id, string(data), model.DisplayName, model.Description, model.CreatedAt.UTC().Format(time.RFC3339Nano), model.UpdatedAt.UTC().Format(time.RFC3339Nano), synced)
 	if err != nil {
 		return false, err
 	}
@@ -577,20 +545,13 @@ func getModel(ctx context.Context, db *sqlx.DB, id string) (apitypes.Model, erro
 }
 func scanModel(row interface{ Scan(...any) error }) (apitypes.Model, error) {
 	var model apitypes.Model
-	var data, created, updated, bindings string
+	var data, created, updated string
 	var synced *string
-	if err := row.Scan(&model.Id, &model.Kind, &model.Source, &model.Provider.Kind, &model.Provider.Id, &data, &model.DisplayName, &model.Description, &created, &updated, &synced, &bindings); err != nil {
+	if err := row.Scan(&model.Id, &model.Kind, &model.Source, &model.Provider.Kind, &model.Provider.Id, &data, &model.DisplayName, &model.Description, &created, &updated, &synced); err != nil {
 		return model, err
 	}
 	if err := json.Unmarshal([]byte(data), &model.ProviderData); err != nil {
 		return model, err
-	}
-	var declarations apitypes.ModelRequestBindings
-	if err := json.Unmarshal([]byte(bindings), &declarations); err != nil {
-		return model, err
-	}
-	if len(declarations) > 0 {
-		model.RequestBindings = &declarations
 	}
 	var err error
 	model.CreatedAt, err = time.Parse(time.RFC3339Nano, created)

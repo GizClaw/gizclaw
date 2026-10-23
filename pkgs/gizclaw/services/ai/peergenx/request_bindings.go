@@ -34,16 +34,39 @@ func (e *requestBindingError) PublicError() (string, string, bool) {
 	return "MODEL_REQUEST_BINDING_" + e.reason, "Model request metadata could not be resolved.", e.reason == "UNAVAILABLE"
 }
 
-func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (http.Header, error), error) {
-	if err := apitypes.ValidateModelRequestBindings(model.Kind, model.Provider.Kind, model.RequestBindings); err != nil {
+func modelRequestBindings(model apitypes.Model) (*apitypes.ModelRequestBindings, error) {
+	if model.Provider.Kind != apitypes.ModelProviderKindOpenaiTenant {
+		return nil, nil
+	}
+	raw, err := model.ProviderData.MarshalJSON()
+	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
 	}
-	if model.RequestBindings == nil || len(*model.RequestBindings) == 0 {
+	// Capability-only model descriptors can omit provider configuration.
+	if len(raw) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return nil, nil
+	}
+	data, err := model.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	if err := apitypes.ValidateModelRequestBindings(model.Kind, model.Provider.Kind, data.RequestBindings); err != nil {
+		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+	}
+	return data.RequestBindings, nil
+}
+
+func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (http.Header, error), error) {
+	declarations, err := modelRequestBindings(model)
+	if err != nil {
+		return nil, err
+	}
+	if declarations == nil || len(*declarations) == 0 {
 		return nil, nil
 	}
 	// Own the declaration, including optional scalar pointers. Neither the
 	// construction context nor a device's values belong in this closure.
-	raw, err := json.Marshal(model.RequestBindings)
+	raw, err := json.Marshal(declarations)
 	if err != nil {
 		return nil, err
 	}

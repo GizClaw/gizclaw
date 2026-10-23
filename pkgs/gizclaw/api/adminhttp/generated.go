@@ -403,9 +403,6 @@ type ModelUpsert struct {
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData externalRef0.ModelProviderData `json:"provider_data"`
 
-	// RequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
-	RequestBindings *externalRef0.ModelRequestBindings `json:"request_bindings,omitempty"`
-
 	// Source How the model entered the global catalog
 	Source externalRef0.ModelSource `json:"source"`
 }

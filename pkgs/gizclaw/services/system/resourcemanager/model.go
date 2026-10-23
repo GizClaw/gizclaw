@@ -99,26 +99,24 @@ func (m *Manager) deleteModel(ctx context.Context, id string) (apitypes.Model, b
 
 func modelSpec(model apitypes.Model) apitypes.ModelSpec {
 	return apitypes.ModelSpec{
-		Description:     model.Description,
-		Kind:            model.Kind,
-		DisplayName:     model.DisplayName,
-		Provider:        model.Provider,
-		ProviderData:    model.ProviderData,
-		RequestBindings: model.RequestBindings,
-		Source:          model.Source,
+		Description:  model.Description,
+		Kind:         model.Kind,
+		DisplayName:  model.DisplayName,
+		Provider:     model.Provider,
+		ProviderData: model.ProviderData,
+		Source:       model.Source,
 	}
 }
 
 func modelUpsert(resource apitypes.ModelResource) adminhttp.ModelUpsert {
 	return adminhttp.ModelUpsert{
-		Description:     resource.Spec.Description,
-		Id:              resource.Metadata.Id,
-		Kind:            resource.Spec.Kind,
-		DisplayName:     resource.Spec.DisplayName,
-		Provider:        resource.Spec.Provider,
-		ProviderData:    resource.Spec.ProviderData,
-		RequestBindings: resource.Spec.RequestBindings,
-		Source:          resource.Spec.Source,
+		Description:  resource.Spec.Description,
+		Id:           resource.Metadata.Id,
+		Kind:         resource.Spec.Kind,
+		DisplayName:  resource.Spec.DisplayName,
+		Provider:     resource.Spec.Provider,
+		ProviderData: resource.Spec.ProviderData,
+		Source:       resource.Spec.Source,
 	}
 }
 

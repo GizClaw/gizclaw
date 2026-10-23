@@ -18,7 +18,28 @@ func testRequestBinding() apitypes.ModelRequestBinding {
 	}
 }
 
-func TestModelRequestBindingsUpgradePersistAndClear(t *testing.T) {
+func modelBindings(t *testing.T, data apitypes.ModelProviderData) *apitypes.ModelRequestBindings {
+	t.Helper()
+	value, err := data.AsOpenAITenantModelProviderData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return value.RequestBindings
+}
+
+func setModelBindings(t *testing.T, body *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+	t.Helper()
+	value, err := body.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.RequestBindings = bindings
+	if err := body.ProviderData.FromOpenAITenantModelProviderData(value); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestModelRequestBindingsPersistAndClear(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "models.sqlite")
 	open := func() *sqlx.DB {
 		db, err := sqlx.Open("sqlite", path)
@@ -30,8 +51,8 @@ func TestModelRequestBindingsUpgradePersistAndClear(t *testing.T) {
 		return db
 	}
 	db := open()
-	// Existing databases have no binding column. Exercise startup upgrade
-	// and resource reads rather than inspecting the resulting SQL layout.
+	// Existing provider_data JSON stores both older models and optional bindings.
+	// Exercise persistence and resource reads against the unchanged SQL schema.
 	if _, err := db.Exec(`CREATE TABLE models(id TEXT PRIMARY KEY,kind TEXT NOT NULL,source TEXT NOT NULL,provider_kind TEXT NOT NULL,provider_id TEXT NOT NULL,provider_data_json TEXT NOT NULL,display_name TEXT,description TEXT,created_at TEXT NOT NULL,updated_at TEXT NOT NULL,synced_at TEXT)`); err != nil {
 		t.Fatal(err)
 	}
@@ -45,11 +66,11 @@ func TestModelRequestBindingsUpgradePersistAndClear(t *testing.T) {
 		}
 	}
 	legacy, err := srv.GetModel(t.Context(), adminhttp.GetModelRequestObject{Id: "legacy"})
-	if err != nil || legacy.(adminhttp.GetModel200JSONResponse).RequestBindings != nil {
+	if err != nil || modelBindings(t, legacy.(adminhttp.GetModel200JSONResponse).ProviderData) != nil {
 		t.Fatalf("legacy resource changed: %T, %v", legacy, err)
 	}
 	body := modelUpsert("bound", "openai-tenant", "main")
-	body.RequestBindings = &apitypes.ModelRequestBindings{testRequestBinding()}
+	setModelBindings(t, &body, &apitypes.ModelRequestBindings{testRequestBinding()})
 	response, err := srv.CreateModel(t.Context(), adminhttp.CreateModelRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)
@@ -65,20 +86,25 @@ func TestModelRequestBindingsUpgradePersistAndClear(t *testing.T) {
 		t.Fatal(err)
 	}
 	got, err := srv.GetModel(t.Context(), adminhttp.GetModelRequestObject{Id: body.Id})
-	if err != nil || !reflect.DeepEqual(got.(adminhttp.GetModel200JSONResponse).RequestBindings, body.RequestBindings) {
+	if err != nil || !reflect.DeepEqual(modelBindings(t, got.(adminhttp.GetModel200JSONResponse).ProviderData), modelBindings(t, body.ProviderData)) {
 		t.Fatalf("bindings did not survive restart: %v", err)
 	}
 	list, err := srv.ListModels(t.Context(), adminhttp.ListModelsRequestObject{})
-	if err != nil || len(requireModelList(t, list).Items) != 2 || requireModelList(t, list).Items[0].RequestBindings == nil {
+	if err != nil || len(requireModelList(t, list).Items) != 2 || modelBindings(t, requireModelList(t, list).Items[0].ProviderData) == nil {
 		t.Fatalf("list omitted persisted bindings: %v", err)
 	}
-	body.RequestBindings = &apitypes.ModelRequestBindings{}
+	setModelBindings(t, &body, &apitypes.ModelRequestBindings{})
+	empty, err := srv.PutModel(t.Context(), adminhttp.PutModelRequestObject{Id: body.Id, Body: &body})
+	if err != nil || len(*modelBindings(t, empty.(adminhttp.PutModel200JSONResponse).ProviderData)) != 0 {
+		t.Fatalf("empty bindings were not preserved: %v", err)
+	}
+	setModelBindings(t, &body, nil)
 	put, err := srv.PutModel(t.Context(), adminhttp.PutModelRequestObject{Id: body.Id, Body: &body})
-	if err != nil || put.(adminhttp.PutModel200JSONResponse).RequestBindings != nil {
-		t.Fatalf("empty bindings were not normalized to disabled: %v", err)
+	if err != nil || modelBindings(t, put.(adminhttp.PutModel200JSONResponse).ProviderData) != nil {
+		t.Fatalf("removed bindings were retained: %v", err)
 	}
 	deleted, err := srv.DeleteModel(t.Context(), adminhttp.DeleteModelRequestObject{Id: body.Id})
-	if err != nil || deleted.(adminhttp.DeleteModel200JSONResponse).RequestBindings != nil {
+	if err != nil || modelBindings(t, deleted.(adminhttp.DeleteModel200JSONResponse).ProviderData) != nil {
 		t.Fatalf("delete returned stale bindings: %v", err)
 	}
 }
@@ -87,37 +113,70 @@ func TestModelRequestBindingsRejectUnsupportedDeclarations(t *testing.T) {
 	srv := &Server{DB: newTestDB(t)}
 	for _, tc := range []struct {
 		name   string
-		change func(*adminhttp.ModelUpsert)
+		change func(*adminhttp.ModelUpsert, *apitypes.ModelRequestBindings)
 	}{
-		{"authorization", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Name = "Authorization" }},
-		{"credential header", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Name = "X-Api-Key" }},
-		{"forwarding", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Name = "X-Forwarded-For" }},
-		{"SDK control", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Name = "X-Stainless-Retry-Count" }},
-		{"duplicate case", func(b *adminhttp.ModelUpsert) {
+		{"authorization", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Name = "Authorization"
+		}},
+		{"credential header", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Name = "X-Api-Key"
+		}},
+		{"forwarding", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Name = "X-Forwarded-For"
+		}},
+		{"SDK control", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Name = "X-Stainless-Retry-Count"
+		}},
+		{"duplicate case", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
 			other := testRequestBinding()
 			other.Target.Name = "x-device-metadata"
-			*b.RequestBindings = append(*b.RequestBindings, other)
+			*bindings = append(*bindings, other)
 		}},
-		{"too many", func(b *adminhttp.ModelUpsert) { *b.RequestBindings = make(apitypes.ModelRequestBindings, 17) }},
-		{"header token", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Name = "X-Meta\r\nInjected" }},
-		{"header length", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Name = "X-" + strings.Repeat("x", 127) }},
-		{"query", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Target.Kind = "http_query" }},
-		{"credential source", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Source.Kind = "credential" }},
-		{"key bytes", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Source.Key = strings.Repeat("中", 22) }},
-		{"key empty", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Source.Key = "" }},
-		{"pointer escape", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Source.Pointer = new("/bad~2escape") }},
-		{"pointer expression", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Source.Pointer = new("$.device.id") }},
-		{"pointer depth", func(b *adminhttp.ModelUpsert) { (*b.RequestBindings)[0].Source.Pointer = new(strings.Repeat("/a", 17)) }},
-		{"pointer bytes", func(b *adminhttp.ModelUpsert) {
-			(*b.RequestBindings)[0].Source.Pointer = new("/" + strings.Repeat("中", 86))
+		{"too many", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			*bindings = make(apitypes.ModelRequestBindings, 17)
 		}},
-		{"embedding", func(b *adminhttp.ModelUpsert) { b.Kind = apitypes.ModelKindEmbedding }},
-		{"provider", func(b *adminhttp.ModelUpsert) { b.Provider.Kind = apitypes.ModelProviderKindGeminiTenant }},
+		{"header token", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Name = "X-Meta\r\nInjected"
+		}},
+		{"header length", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Name = "X-" + strings.Repeat("x", 127)
+		}},
+		{"query", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Target.Kind = "http_query"
+		}},
+		{"credential source", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Kind = "credential"
+		}},
+		{"key bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Key = strings.Repeat("中", 22)
+		}},
+		{"key empty", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Key = ""
+		}},
+		{"pointer escape", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Pointer = new("/bad~2escape")
+		}},
+		{"pointer expression", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Pointer = new("$.device.id")
+		}},
+		{"pointer depth", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Pointer = new(strings.Repeat("/a", 17))
+		}},
+		{"pointer bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			(*bindings)[0].Source.Pointer = new("/" + strings.Repeat("中", 86))
+		}},
+		{"embedding", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			b.Kind = apitypes.ModelKindEmbedding
+		}},
+		{"provider", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings) {
+			b.Provider.Kind = apitypes.ModelProviderKindGeminiTenant
+		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			body := modelUpsert("invalid", "openai-tenant", "main")
-			body.RequestBindings = &apitypes.ModelRequestBindings{testRequestBinding()}
-			tc.change(&body)
+			bindings := apitypes.ModelRequestBindings{testRequestBinding()}
+			tc.change(&body, &bindings)
+			setModelBindings(t, &body, &bindings)
 			response, err := srv.CreateModel(t.Context(), adminhttp.CreateModelRequestObject{Body: &body})
 			if err != nil {
 				t.Fatal(err)

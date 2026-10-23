@@ -39,9 +39,6 @@
             "type": "string",
             "example": "OpenAI-compatible chat model"
           },
-          "request_bindings": {
-            "$ref": "./model_request_bindings.json#/components/schemas/ModelRequestBindings"
-          },
           "provider_data": {
             "$ref": "./model_provider_data.json#/components/schemas/ModelProviderData",
             "description": "Provider-specific model runtime configuration.",

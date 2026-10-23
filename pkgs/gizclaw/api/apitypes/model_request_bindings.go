@@ -23,7 +23,7 @@ const (
 )
 
 // ValidateModelRequestBindings checks declarations without reading Runtime.
-// Empty bindings disable the feature for every provider and model kind.
+// Empty bindings disable Runtime resolution.
 func ValidateModelRequestBindings(kind ModelKind, provider ModelProviderKind, bindings *ModelRequestBindings) error {
 	if bindings == nil || len(*bindings) == 0 {
 		return nil

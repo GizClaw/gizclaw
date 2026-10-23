@@ -46,10 +46,11 @@ const (
 )
 
 func (b DefaultBuilder) BuildGenerator(ctx context.Context, cfg GeneratorConfig) (genx.Generator, error) {
-	if err := apitypes.ValidateModelRequestBindings(cfg.Model.Kind, cfg.Model.Provider.Kind, cfg.Model.RequestBindings); err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrInvalid, err)
+	bindings, err := modelRequestBindings(cfg.Model)
+	if err != nil {
+		return nil, err
 	}
-	if cfg.Model.RequestBindings != nil && len(*cfg.Model.RequestBindings) > 0 &&
+	if bindings != nil && len(*bindings) > 0 &&
 		(cfg.RequestHeaders == nil || cfg.Tenant.Kind != string(apitypes.ModelProviderKindOpenaiTenant)) {
 		return nil, fmt.Errorf("%w: request binding resolver is required", ErrNotConfigured)
 	}

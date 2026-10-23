@@ -57,23 +57,25 @@ Enable low-latency service for the selected model and inference endpoint in the 
 
 #### Runtime request metadata bindings {#model-request-bindings}
 
-Optional Model `request_bindings` map non-secret Runtime KV values of the authenticated invoking Peer to upstream HTTP headers. One Model serves multiple devices with a fresh device-specific snapshot per call. Devices continue reporting over existing Telemetry KV. The [Schema](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/model_request_bindings.json) owns configuration and budgets; [validation](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/apitypes/model_request_bindings.go) enforces additional constraints.
+Optional `provider_data.request_bindings` on an `openai-tenant` Model map non-secret Runtime KV values of the authenticated invoking Peer to upstream HTTP headers. One Model serves multiple devices with a fresh device-specific snapshot per call. Devices continue reporting over existing Telemetry KV. The [Schema](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/model_request_bindings.json) owns configuration and budgets; [validation](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/apitypes/model_request_bindings.go) enforces additional constraints.
 
 This fragment belongs in Model `spec`. The device reports one JSON object with string `vid`, `uid`, and `ip` members under the `upstream_identity` key.
 
 ```yaml
-request_bindings:
-  - target: {kind: http_header, name: X-AI-VID}
-    source: {kind: reported_kv, key: upstream_identity, pointer: /vid}
-  - target: {kind: http_header, name: X-AI-UID}
-    source: {kind: reported_kv, key: upstream_identity, pointer: /uid}
-  - target: {kind: http_header, name: X-AI-IP}
-    source: {kind: reported_kv, key: upstream_identity, pointer: /ip}
+provider_data:
+  upstream_model: your-upstream-model
+  request_bindings:
+    - target: {kind: http_header, name: X-AI-VID}
+      source: {kind: reported_kv, key: upstream_identity, pointer: /vid}
+    - target: {kind: http_header, name: X-AI-UID}
+      source: {kind: reported_kv, key: upstream_identity, pointer: /uid}
+    - target: {kind: http_header, name: X-AI-IP}
+      source: {kind: reported_kv, key: upstream_identity, pointer: /ip}
 ```
 
-Keys match exactly. `pointer` is a JSON Pointer within that key's value; omitted or empty selects the whole value. It executes no scripts, interpolation, or wildcard queries. Selected header values must be strings; numbers and booleans are not coerced. Bindings are required by default: missing, deleted, or null values fail the call. `required: false` omits those values, but still rejects present invalid values. Omitted or empty bindings disable the feature. Omitting the field from a complete PUT/Apply removes existing bindings.
+Keys match exactly. `pointer` is a JSON Pointer within that key's value; omitted or empty selects the whole value. It executes no scripts, interpolation, or wildcard queries. Selected header values must be strings; numbers and booleans are not coerced. Bindings are required by default: missing, deleted, or null values fail the call. `required: false` omits those values, but still rejects present invalid values. Omitted or empty bindings disable the feature. Omitting the field from `provider_data` in a complete PUT/Apply removes existing bindings.
 
-Supported calls are OpenAI-tenant LLM Chat Completions, including streaming generation and JSON/Tool `Invoke`. Nonempty bindings are rejected for other providers, Embedding, Voice, and Realtime. Query/body targets are also rejected. Listing Models, checking capabilities, and initializing an Agent do not require device values.
+The field belongs only to OpenAI-tenant `provider_data`. Nonempty bindings support LLM Chat Completions, including streaming generation and JSON/Tool `Invoke`. Other providers reject the field; Embedding, Voice, and Realtime do not support nonempty bindings. Query/body targets are also rejected. Listing Models, checking capabilities, and initializing an Agent do not require device values.
 
 Each generation or Invoke reads durable KV once after existing resource authorization and quota checks. All headers come from that snapshot, including SDK retries, stream compatibility retries, and structured-output fallback. The next call reads again, including on long-lived Agents. An active stream retains its original identity. There is no implicit TTL, value default, or stale fallback; unavailable storage rejects the call. Report related identity fields together in one JSON object.
 

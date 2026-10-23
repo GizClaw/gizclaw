@@ -301,8 +301,8 @@ func (s *Service) resolveModel(ctx context.Context, id string) (apitypes.Model, 
 	if err != nil {
 		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
-	if err := apitypes.ValidateModelRequestBindings(model.Kind, model.Provider.Kind, model.RequestBindings); err != nil {
-		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, fmt.Errorf("%w: %w", ErrInvalid, err)
+	if _, err := modelRequestBindings(model); err != nil {
+		return apitypes.Model{}, Tenant{}, apitypes.Credential{}, err
 	}
 	tenant, credentialID, err := s.resolveModelTenant(ctx, model)
 	if err != nil {

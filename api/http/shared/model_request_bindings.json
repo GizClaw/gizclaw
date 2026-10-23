@@ -11,7 +11,7 @@
       "ModelRequestBindings": {
         "type": "array",
         "maxItems": 16,
-        "description": "Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.",
+        "description": "Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.",
         "items": { "$ref": "#/components/schemas/ModelRequestBinding" }
       },
       "ModelRequestBinding": {

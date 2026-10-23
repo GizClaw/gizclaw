@@ -4759,9 +4759,6 @@ type Model struct {
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData ModelProviderData `json:"provider_data"`
 
-	// RequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
-	RequestBindings *ModelRequestBindings `json:"request_bindings,omitempty"`
-
 	// Source How the model entered the global catalog
 	Source    ModelSource `json:"source"`
 	SyncedAt  *time.Time  `json:"synced_at,omitempty"`
@@ -4795,7 +4792,7 @@ type ModelRequestBinding struct {
 	Target   ModelRequestTarget `json:"target"`
 }
 
-// ModelRequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+// ModelRequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
 type ModelRequestBindings = []ModelRequestBinding
 
 // ModelRequestSource defines model for ModelRequestSource.
@@ -4848,9 +4845,6 @@ type ModelSpec struct {
 
 	// ProviderData Provider-specific model runtime configuration selected by Model.provider.kind. Optional behavior flags default to false.
 	ProviderData ModelProviderData `json:"provider_data"`
-
-	// RequestBindings Optional request metadata bindings. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
-	RequestBindings *ModelRequestBindings `json:"request_bindings,omitempty"`
 
 	// Source How the model entered the global catalog
 	Source ModelSource `json:"source"`
@@ -4935,17 +4929,20 @@ type OpenAITenantKind string
 
 // OpenAITenantModelProviderData defines model for OpenAITenantModelProviderData.
 type OpenAITenantModelProviderData struct {
-	DefaultThinkingLevel *string   `json:"default_thinking_level,omitempty"`
-	SupportJsonOutput    *bool     `json:"support_json_output,omitempty"`
-	SupportTemperature   *bool     `json:"support_temperature,omitempty"`
-	SupportTextOnly      *bool     `json:"support_text_only,omitempty"`
-	SupportThinking      *bool     `json:"support_thinking,omitempty"`
-	SupportToolCalls     *bool     `json:"support_tool_calls,omitempty"`
-	ThinkingLevelParam   *string   `json:"thinking_level_param,omitempty"`
-	ThinkingLevels       *[]string `json:"thinking_levels,omitempty"`
-	ThinkingParam        *string   `json:"thinking_param,omitempty"`
-	UpstreamModel        string    `json:"upstream_model"`
-	UseSystemRole        *bool     `json:"use_system_role,omitempty"`
+	DefaultThinkingLevel *string `json:"default_thinking_level,omitempty"`
+
+	// RequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+	RequestBindings    *ModelRequestBindings `json:"request_bindings,omitempty"`
+	SupportJsonOutput  *bool                 `json:"support_json_output,omitempty"`
+	SupportTemperature *bool                 `json:"support_temperature,omitempty"`
+	SupportTextOnly    *bool                 `json:"support_text_only,omitempty"`
+	SupportThinking    *bool                 `json:"support_thinking,omitempty"`
+	SupportToolCalls   *bool                 `json:"support_tool_calls,omitempty"`
+	ThinkingLevelParam *string               `json:"thinking_level_param,omitempty"`
+	ThinkingLevels     *[]string             `json:"thinking_levels,omitempty"`
+	ThinkingParam      *string               `json:"thinking_param,omitempty"`
+	UpstreamModel      string                `json:"upstream_model"`
+	UseSystemRole      *bool                 `json:"use_system_role,omitempty"`
 }
 
 // OpenAITenantResource defines model for OpenAITenantResource.

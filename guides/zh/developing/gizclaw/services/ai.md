@@ -57,23 +57,25 @@ spec:
 
 #### Runtime 请求参数绑定 {#model-request-bindings}
 
-Model 的可选 `request_bindings` 把当前已认证调用 Peer 的非秘密 Runtime KV 值映射为上游请求 header。一个 Model 可以服务多台设备，每次调用读取各自的快照；设备继续通过现有 Telemetry KV 上报。配置结构与预算见 [Schema](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/model_request_bindings.json)，附加校验见 [实现](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/apitypes/model_request_bindings.go)。
+`openai-tenant` Model 的可选 `provider_data.request_bindings` 把当前已认证调用 Peer 的非秘密 Runtime KV 值映射为上游请求 header。一个 Model 可以服务多台设备，每次调用读取各自的快照；设备继续通过现有 Telemetry KV 上报。配置结构与预算见 [Schema](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/model_request_bindings.json)，附加校验见 [实现](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/apitypes/model_request_bindings.go)。
 
 以下是 Model `spec` 中的配置片段；对应设备在 `upstream_identity` key 上报包含 `vid`、`uid`、`ip` 字符串的 JSON 对象。
 
 ```yaml
-request_bindings:
-  - target: {kind: http_header, name: X-AI-VID}
-    source: {kind: reported_kv, key: upstream_identity, pointer: /vid}
-  - target: {kind: http_header, name: X-AI-UID}
-    source: {kind: reported_kv, key: upstream_identity, pointer: /uid}
-  - target: {kind: http_header, name: X-AI-IP}
-    source: {kind: reported_kv, key: upstream_identity, pointer: /ip}
+provider_data:
+  upstream_model: your-upstream-model
+  request_bindings:
+    - target: {kind: http_header, name: X-AI-VID}
+      source: {kind: reported_kv, key: upstream_identity, pointer: /vid}
+    - target: {kind: http_header, name: X-AI-UID}
+      source: {kind: reported_kv, key: upstream_identity, pointer: /uid}
+    - target: {kind: http_header, name: X-AI-IP}
+      source: {kind: reported_kv, key: upstream_identity, pointer: /ip}
 ```
 
-来源 key 按原样匹配，`pointer` 是值内部的 JSON Pointer；省略或空字符串选择整个值。它不执行脚本、插值或通配查询。所选 header 值必须为字符串；数字和布尔值不自动转换。每个 header 默认必填，缺失、删除或 null 会使调用失败；`required: false` 只允许这些状态省略 header，非法的已存在值仍失败。未配置或空绑定列表关闭此能力，完整 PUT/Apply 中省略字段会移除已有绑定。
+来源 key 按原样匹配，`pointer` 是值内部的 JSON Pointer；省略或空字符串选择整个值。它不执行脚本、插值或通配查询。所选 header 值必须为字符串；数字和布尔值不自动转换。每个 header 默认必填，缺失、删除或 null 会使调用失败；`required: false` 只允许这些状态省略 header，非法的已存在值仍失败。未配置或空绑定列表关闭此能力，完整 PUT/Apply 的 `provider_data` 中省略该字段会移除已有绑定。
 
-首期仅支持 `openai-tenant` 的 LLM Chat Completions：流式生成与 JSON/Tool `Invoke` 共用此机制。其他 provider、Embedding、Voice 与 Realtime 等不接受非空绑定；query/body 目标也不接受。Model 列举、能力查询和 Agent 初始化不要求设备已上报值。
+该字段只属于 `openai-tenant` 的 `provider_data`，非空绑定仅支持 LLM Chat Completions：流式生成与 JSON/Tool `Invoke` 共用此机制。其他 provider 不接受此字段；Embedding、Voice 与 Realtime 等不支持非空绑定，query/body 目标也不接受。Model 列举、能力查询和 Agent 初始化不要求设备已上报值。
 
 每次生成或 Invoke 在现有资源授权与 quota 检查后只读取一次持久化 KV，全部 header 来自同一快照。SDK 重试、流式兼容重试和 JSON 输出格式降级复用该快照；下一次调用重新读取，包括已启动的长期 Agent。持续中的流不随 KV 更新改变身份。没有隐式 TTL、值默认值或旧值回退；存储不可用时拒绝调用。相关身份字段宜在同一个 JSON 对象中一起更新。
 

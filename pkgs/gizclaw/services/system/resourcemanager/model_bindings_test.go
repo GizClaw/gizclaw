@@ -12,8 +12,8 @@ func TestModelRequestBindingsResourceRoundTrip(t *testing.T) {
 	resource := mustResource(t, `{
 		"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"bound"},
 		"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"main"},
-		"provider_data":{"upstream_model":"chat"},
-		"request_bindings":[{"target":{"kind":"http_header","name":"X-Device-Metadata"},"source":{"kind":"reported_kv","key":"identity","pointer":"/id"},"required":false}]}
+		"provider_data":{"upstream_model":"chat",
+		"request_bindings":[{"target":{"kind":"http_header","name":"X-Device-Metadata"},"source":{"kind":"reported_kv","key":"identity","pointer":"/id"},"required":false}]}}
 	}`)
 	created, err := manager.Apply(t.Context(), resource)
 	if err != nil || created.Action != apitypes.ApplyActionCreated {
@@ -23,19 +23,34 @@ func TestModelRequestBindingsResourceRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	expected, err := input.Spec.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		t.Fatal(err)
+	}
 	stored, err := manager.Get(t.Context(), apitypes.ResourceKindModel, "bound")
 	if err != nil {
 		t.Fatal(err)
 	}
 	output, err := stored.AsModelResource()
-	if err != nil || !reflect.DeepEqual(output.Spec.RequestBindings, input.Spec.RequestBindings) {
+	if err != nil {
+		t.Fatal(err)
+	}
+	actual, err := output.Spec.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil || !reflect.DeepEqual(actual, expected) {
 		t.Fatalf("Get/Export dropped the binding: %v", err)
 	}
 	unchanged, err := manager.Apply(t.Context(), stored)
 	if err != nil || unchanged.Action != apitypes.ApplyActionUnchanged {
 		t.Fatalf("round-trip Apply: %v, %v", unchanged, err)
 	}
-	input.Spec.RequestBindings = nil
+	data, err := input.Spec.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil {
+		t.Fatal(err)
+	}
+	data.RequestBindings = nil
+	if err := input.Spec.ProviderData.FromOpenAITenantModelProviderData(data); err != nil {
+		t.Fatal(err)
+	}
 	if err := resource.FromModelResource(input); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +59,11 @@ func TestModelRequestBindingsResourceRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	cleared, err := updated.AsModelResource()
-	if err != nil || cleared.Spec.RequestBindings != nil {
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err = cleared.Spec.ProviderData.AsOpenAITenantModelProviderData()
+	if err != nil || data.RequestBindings != nil {
 		t.Fatalf("Put retained removed bindings: %v", err)
 	}
 }
