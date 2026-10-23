@@ -15,7 +15,7 @@ import (
 func testRequestBinding(t *testing.T) apitypes.ModelRequestBinding {
 	t.Helper()
 	var source apitypes.ModelRequestSource
-	if err := source.FromModelRequestPeerRuntimeKVSource(apitypes.ModelRequestPeerRuntimeKVSource{Key: "identity", Pointer: new("/device/id")}); err != nil {
+	if err := source.FromModelRequestPeerRuntimeKVSource(apitypes.ModelRequestPeerRuntimeKVSource{PeerRuntimeKv: apitypes.ModelRequestPeerRuntimeKVSelector{Key: "identity", Pointer: new("/device/id")}}); err != nil {
 		t.Fatal(err)
 	}
 	return apitypes.ModelRequestBinding{
@@ -119,68 +119,59 @@ func TestModelRequestBindingsRejectUnsupportedDeclarations(t *testing.T) {
 	srv := &Server{DB: newTestDB(t)}
 	for _, tc := range []struct {
 		name   string
-		change func(*adminhttp.ModelUpsert, *apitypes.ModelRequestBindings, *apitypes.ModelRequestPeerRuntimeKVSource)
+		change func(*adminhttp.ModelUpsert, *apitypes.ModelRequestBindings, *apitypes.ModelRequestPeerRuntimeKVSelector)
 	}{
-		{"authorization", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"authorization", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Name = "Authorization"
 		}},
-		{"credential header", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"credential header", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Name = "X-Api-Key"
 		}},
-		{"forwarding", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"forwarding", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Name = "X-Forwarded-For"
 		}},
-		{"SDK control", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"SDK control", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Name = "X-Stainless-Retry-Count"
 		}},
-		{"duplicate case", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"duplicate case", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			other := testRequestBinding(t)
 			other.Target.Name = "x-device-metadata"
 			*bindings = append(*bindings, other)
 		}},
-		{"too many", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"too many", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			*bindings = make(apitypes.ModelRequestBindings, 17)
 		}},
-		{"header token", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"header token", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Name = "X-Meta\r\nInjected"
 		}},
-		{"header length", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"header length", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Name = "X-" + strings.Repeat("x", 127)
 		}},
-		{"query", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"query", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			(*bindings)[0].Target.Kind = "http_query"
 		}},
-		{"credential source", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
-			source.Kind = "credential"
-		}},
-		{"unimplemented runtime profile source", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
-			source.Kind = "runtime_profile"
-		}},
-		{"missing source kind", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
-			source.Kind = ""
-		}},
-		{"key bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"key bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			source.Key = strings.Repeat("中", 22)
 		}},
-		{"key empty", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"key empty", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			source.Key = ""
 		}},
-		{"pointer escape", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"pointer escape", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			source.Pointer = new("/bad~2escape")
 		}},
-		{"pointer expression", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"pointer expression", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			source.Pointer = new("$.device.id")
 		}},
-		{"pointer depth", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"pointer depth", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			source.Pointer = new(strings.Repeat("/a", 17))
 		}},
-		{"pointer bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"pointer bytes", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			source.Pointer = new("/" + strings.Repeat("中", 86))
 		}},
-		{"embedding", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"embedding", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			b.Kind = apitypes.ModelKindEmbedding
 		}},
-		{"provider", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSource) {
+		{"provider", func(b *adminhttp.ModelUpsert, bindings *apitypes.ModelRequestBindings, source *apitypes.ModelRequestPeerRuntimeKVSelector) {
 			b.Provider.Kind = apitypes.ModelProviderKindGeminiTenant
 		}},
 	} {
@@ -191,7 +182,7 @@ func TestModelRequestBindingsRejectUnsupportedDeclarations(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			tc.change(&body, &bindings, &source)
+			tc.change(&body, &bindings, &source.PeerRuntimeKv)
 			raw, err := json.Marshal(source)
 			if err != nil {
 				t.Fatal(err)
@@ -222,12 +213,17 @@ func TestModelRequestSourceOneOfRejectsInvalidShapes(t *testing.T) {
 	}{
 		{"null source", `null`},
 		{"array source", `[]`},
-		{"missing discriminator", `{"key":"identity"}`},
-		{"unknown branch", `{"kind":"runtime_profile","key":"identity"}`},
-		{"mixed branch fields", `{"kind":"peer_runtime_kv","key":"identity","profile_id":"other"}`},
-		{"unexpected value", `{"kind":"peer_runtime_kv","key":"identity","value":"other"}`},
-		{"wrong key type", `{"kind":"peer_runtime_kv","key":42}`},
-		{"wrong pointer type", `{"kind":"peer_runtime_kv","key":"identity","pointer":[]}`},
+		{"missing branch", `{}`},
+		{"unknown branch", `{"runtime_profile":{"key":"identity"}}`},
+		{"credential branch", `{"credential":{"id":"provider-key"}}`},
+		{"multiple branches", `{"peer_runtime_kv":{"key":"identity"},"runtime_profile":{"key":"identity"}}`},
+		{"old flat source", `{"kind":"peer_runtime_kv","key":"identity"}`},
+		{"null selector", `{"peer_runtime_kv":null}`},
+		{"missing key", `{"peer_runtime_kv":{}}`},
+		{"mixed branch fields", `{"peer_runtime_kv":{"key":"identity","profile_id":"other"}}`},
+		{"unexpected value", `{"peer_runtime_kv":{"key":"identity","value":"other"}}`},
+		{"wrong key type", `{"peer_runtime_kv":{"key":42}}`},
+		{"wrong pointer type", `{"peer_runtime_kv":{"key":"identity","pointer":[]}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			body := modelUpsert("invalid-source", "openai-tenant", "main")

@@ -110,7 +110,7 @@ func newModelBindingFixture(t *testing.T) *modelBindingFixture {
 	} else if _, ok := response.(adminhttp.CreateOpenAITenant200JSONResponse); !ok {
 		t.Fatalf("create tenant: %T", response)
 	}
-	if err := json.Unmarshal([]byte(`{"id":"shared-model","kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"compatible"},"provider_data":{"upstream_model":"upstream-chat","support_json_output":true,"support_tool_calls":true,"request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"kind":"peer_runtime_kv","key":"identity","pointer":"/vid"}},{"target":{"kind":"http_header","name":"X-AI-UID"},"source":{"kind":"peer_runtime_kv","key":"identity","pointer":"/uid"}},{"target":{"kind":"http_header","name":"X-AI-IP"},"source":{"kind":"peer_runtime_kv","key":"identity","pointer":"/ip"}}]}}`), &f.upsert); err != nil {
+	if err := json.Unmarshal([]byte(`{"id":"shared-model","kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"compatible"},"provider_data":{"upstream_model":"upstream-chat","support_json_output":true,"support_tool_calls":true,"request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/vid"}}},{"target":{"kind":"http_header","name":"X-AI-UID"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/uid"}}},{"target":{"kind":"http_header","name":"X-AI-IP"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/ip"}}}]}}`), &f.upsert); err != nil {
 		t.Fatal(err)
 	}
 	if response, err := f.models.CreateModel(t.Context(), adminhttp.CreateModelRequestObject{Body: &f.upsert}); err != nil {
@@ -413,7 +413,7 @@ func TestModelRequestBindingsJSONPointerAndHeaderBudget(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	source.Pointer = new("/a~1b/~0/0/")
+	source.PeerRuntimeKv.Pointer = new("/a~1b/~0/0/")
 	if err := binding.Source.FromModelRequestPeerRuntimeKVSource(source); err != nil {
 		t.Fatal(err)
 	}
@@ -433,7 +433,7 @@ func TestModelRequestBindingsJSONPointerAndHeaderBudget(t *testing.T) {
 	declarations := apitypes.ModelRequestBindings{}
 	for i := range 16 {
 		var source apitypes.ModelRequestSource
-		if err := source.FromModelRequestPeerRuntimeKVSource(apitypes.ModelRequestPeerRuntimeKVSource{Key: "identity"}); err != nil {
+		if err := source.FromModelRequestPeerRuntimeKVSource(apitypes.ModelRequestPeerRuntimeKVSource{PeerRuntimeKv: apitypes.ModelRequestPeerRuntimeKVSelector{Key: "identity"}}); err != nil {
 			t.Fatal(err)
 		}
 		declarations = append(declarations, apitypes.ModelRequestBinding{Source: source, Target: apitypes.ModelRequestTarget{Kind: apitypes.ModelRequestTargetKindHttpHeader, Name: fmt.Sprintf("X-Metadata-%d", i)}})

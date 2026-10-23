@@ -1,6 +1,7 @@
 package apitypes
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -52,28 +53,30 @@ func ValidateModelRequestBindings(kind ModelKind, provider ModelProviderKind, bi
 }
 
 func validateModelRequestSource(source ModelRequestSource) error {
-	kind, err := source.Discriminator()
-	if err != nil {
-		return err
-	}
 	raw, err := source.MarshalJSON()
 	if err != nil {
 		return err
 	}
-	switch kind {
-	case string(ModelRequestPeerRuntimeKVSourceKindPeerRuntimeKv):
-		var value ModelRequestPeerRuntimeKVSource
-		if err := decodeStrictJSON(raw, &value); err != nil {
-			return err
-		}
-		if value.Key == "" || len(value.Key) > maxModelRequestKeyBytes || !utf8.ValidString(value.Key) {
-			return errors.New("invalid Runtime KV key")
-		}
-		_, err := ModelRequestPointerSegments(value.Pointer)
+	var branches map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &branches); err != nil {
 		return err
-	default:
+	}
+	if len(branches) != 1 {
+		return errors.New("request binding source requires exactly one branch")
+	}
+	if _, ok := branches["peer_runtime_kv"]; !ok {
 		return errors.New("unsupported request binding source")
 	}
+	var value ModelRequestPeerRuntimeKVSource
+	if err := decodeStrictJSON(raw, &value); err != nil {
+		return err
+	}
+	selector := value.PeerRuntimeKv
+	if selector.Key == "" || len(selector.Key) > maxModelRequestKeyBytes || !utf8.ValidString(selector.Key) {
+		return errors.New("invalid Runtime KV key")
+	}
+	_, err = ModelRequestPointerSegments(selector.Pointer)
+	return err
 }
 
 func modelRequestHeaderNameAllowed(name string) bool {

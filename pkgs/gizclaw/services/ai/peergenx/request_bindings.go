@@ -75,18 +75,13 @@ func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (h
 		return nil, err
 	}
 	paths := make([][]string, len(bindings))
-	sources := make([]apitypes.ModelRequestPeerRuntimeKVSource, len(bindings))
+	sources := make([]apitypes.ModelRequestPeerRuntimeKVSelector, len(bindings))
 	for i, binding := range bindings {
-		value, err := binding.Source.ValueByDiscriminator()
+		value, err := binding.Source.AsModelRequestPeerRuntimeKVSource()
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid request binding source", ErrInvalid)
 		}
-		switch source := value.(type) {
-		case apitypes.ModelRequestPeerRuntimeKVSource:
-			sources[i] = source
-		default:
-			return nil, fmt.Errorf("%w: unsupported request binding source", ErrInvalid)
-		}
+		sources[i] = value.PeerRuntimeKv
 		paths[i], err = apitypes.ModelRequestPointerSegments(sources[i].Pointer)
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid JSON pointer", ErrInvalid)

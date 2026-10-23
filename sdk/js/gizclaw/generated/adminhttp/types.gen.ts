@@ -1251,10 +1251,9 @@ export type ModelRequestBinding = {
 export type ModelRequestBindings = Array<ModelRequestBinding>;
 
 /**
- * Reads a value from the authenticated invoking Peer's device-reported Runtime KV. key and pointer belong only to this source variant.
+ * Locates a value in the authenticated invoking Peer's device-reported Runtime KV.
  */
-export type ModelRequestPeerRuntimeKvSource = {
-    kind: 'peer_runtime_kv';
+export type ModelRequestPeerRuntimeKvSelector = {
     /**
      * Exact key in the authenticated invoking Peer's device-reported Runtime KV, at most 64 UTF-8 bytes. The Peer is always the authenticated caller, never a configurable selector. Do not report secrets.
      */
@@ -1265,8 +1264,12 @@ export type ModelRequestPeerRuntimeKvSource = {
     pointer?: string;
 };
 
+export type ModelRequestPeerRuntimeKvSource = {
+    peer_runtime_kv: ModelRequestPeerRuntimeKvSelector;
+};
+
 /**
- * Named variable source selected by kind. Each oneOf branch owns its lookup fields; only the authenticated invoking Peer Runtime KV source is currently supported.
+ * Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
  */
 export type ModelRequestSource = ModelRequestPeerRuntimeKvSource;
 

@@ -13,7 +13,7 @@ func TestModelRequestBindingsResourceRoundTrip(t *testing.T) {
 		"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"bound"},
 		"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"main"},
 		"provider_data":{"upstream_model":"chat",
-		"request_bindings":[{"target":{"kind":"http_header","name":"X-Device-Metadata"},"source":{"kind":"peer_runtime_kv","key":"identity","pointer":"/id"},"required":false}]}}
+		"request_bindings":[{"target":{"kind":"http_header","name":"X-Device-Metadata"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/id"}},"required":false}]}}
 	}`)
 	created, err := manager.Apply(t.Context(), resource)
 	if err != nil || created.Action != apitypes.ApplyActionCreated {

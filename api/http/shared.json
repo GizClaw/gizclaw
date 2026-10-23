@@ -299,6 +299,9 @@
       "ModelRequestPeerRuntimeKVSource": {
         "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestPeerRuntimeKVSource"
       },
+      "ModelRequestPeerRuntimeKVSelector": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestPeerRuntimeKVSelector"
+      },
       "ModelProviderData": {
         "$ref": "./shared/model_provider_data.json#/components/schemas/ModelProviderData"
       },
