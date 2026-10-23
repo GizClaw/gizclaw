@@ -117,6 +117,8 @@ Workflow `spec.eino.conversation.initiative` selects the opening party (`peer` o
 
 `conversation.continue_from` repeats generation within one user turn until interruption or a false control field. Playback retains one StreamID while each generation is saved as a separate Workspace History entry with its corresponding text and audio. The [Eino Transformer](../../genx/transformers/eino#continuous-narration-within-one-turn) owns field validation, context-window, backpressure, and cancellation rules.
 
+The current Gemini adapter does not accept raw Opus packets from Peer input, so Eino uses the ASR text path; `support_text_only: false` does not enable native PTT for this adapter.
+
 #### Eino audio input path
 
 Workspace `input` is `push-to-talk` (default) or `realtime`. It selects which ASR Model to read from the Profile binding:

@@ -89,6 +89,7 @@ func TestFactoryAudioInputPath(t *testing.T) {
 		legacyASR                                  bool
 		asrModel                                   string
 		textModel, realtime, textLogic, extraModel bool
+		gemini, paddedText                         bool
 		want                                       apitypes.AudioInputPath
 		wantErr                                    string
 	}{
@@ -99,6 +100,8 @@ func TestFactoryAudioInputPath(t *testing.T) {
 		{name: "control scripts consume ASR text", textLogic: true, asrModel: "asr", want: asr},
 		{name: "text Graph with distinct audio Models", textLogic: true, extraModel: true, asrModel: "asr", want: asr},
 		{name: "text Model with Profile ASR", textModel: true, asrModel: "asr", want: asr},
+		{name: "Gemini packet audio uses ASR text", gemini: true, asrModel: "asr", want: asr},
+		{name: "padded text dependency uses ASR text", paddedText: true, asrModel: "asr", want: asr},
 		{name: "invalid Profile ASR never falls back", asrModel: "audio-llm", wantErr: "is not a transformer"},
 		{name: "realtime requires Profile ASR", realtime: true},
 		{name: "Profile realtime ASR", asrModel: "asr", realtime: true, want: asr},
@@ -108,6 +111,25 @@ func TestFactoryAudioInputPath(t *testing.T) {
 			t.Parallel()
 			spec := einoFactorySpec(t)
 			spec.Workflow.Spec.Eino = audioTranscriptSpec(t)
+			if test.paddedText {
+				var prompt apitypes.EinoNode
+				if err := json.Unmarshal([]byte(`{"id":"prompt","type":"prompt","inputs":{"question":{"from":" input.text "},"audio":{"from":" input.messages "}},"outputs":{"messages":"messages"},"messages":[{"role":"user","template":"{question}"},{"placeholder":"audio"}],"format":"f_string"}`), &prompt); err != nil {
+					t.Fatal(err)
+				}
+				public := spec.Workflow.Spec.Eino
+				public.Graph.State.Fields = append(public.Graph.State.Fields, apitypes.EinoStateField{Name: "messages", Type: apitypes.EinoStateFieldTypeMessages, Merge: apitypes.EinoStateFieldMergeReplace})
+				public.Graph.Nodes = append([]apitypes.EinoNode{prompt}, public.Graph.Nodes...)
+				var chat apitypes.EinoChatModelNode
+				chat, err := public.Graph.Nodes[1].AsEinoChatModelNode()
+				if err != nil {
+					t.Fatal(err)
+				}
+				(*chat.Inputs)["messages"] = apitypes.EinoBinding{From: "messages"}
+				if err := public.Graph.Nodes[1].FromEinoChatModelNode(chat); err != nil {
+					t.Fatal(err)
+				}
+				public.Graph.Edges = []apitypes.EinoEdge{{From: "start", To: "prompt"}, {From: "prompt", To: "answer"}, {From: "answer", To: "end"}}
+			}
 			if test.textLogic {
 				spec.Workflow.Spec.Eino = audioInputControlSpec(t)
 			}
@@ -136,9 +158,9 @@ func TestFactoryAudioInputPath(t *testing.T) {
 			}
 			builder := &audioPathBuilder{}
 			service := peergenx.New(peergenx.Service{
-				Models:          audioPathModels{textModel: test.textModel},
+				Models:          audioPathModels{textModel: test.textModel, gemini: test.gemini},
 				Credentials:     einoTTSResources{},
-				ProviderTenants: einoTTSResources{},
+				ProviderTenants: audioPathResources{},
 				Builder:         builder,
 			})
 			agent, err := (Factory{GenX: service}).NewAgent(t.Context(), spec)
@@ -226,6 +248,7 @@ func runAudioTurn(t testing.TB, agent genx.Transformer) []*genx.MessageChunk {
 // streaming ASR Model.
 type audioPathModels struct {
 	textModel   bool
+	gemini      bool
 	textModels  map[string]bool
 	resourceIDs map[string]string
 }
@@ -251,7 +274,19 @@ func (m audioPathModels) GetModel(_ context.Context, request adminhttp.GetModelR
 	if err := model.ProviderData.FromVolcTenantModelProviderData(data); err != nil {
 		return nil, err
 	}
+	if m.gemini && request.Id != "asr" {
+		model.Provider = apitypes.ModelProvider{Kind: apitypes.ModelProviderKindGeminiTenant, Id: "gemini-main"}
+		if err := model.ProviderData.FromGeminiTenantModelProviderData(apitypes.GeminiTenantModelProviderData{SupportTextOnly: new(false)}); err != nil {
+			return nil, err
+		}
+	}
 	return adminhttp.GetModel200JSONResponse(model), nil
+}
+
+type audioPathResources struct{ einoTTSResources }
+
+func (audioPathResources) GetGeminiTenant(_ context.Context, request adminhttp.GetGeminiTenantRequestObject) (adminhttp.GetGeminiTenantResponseObject, error) {
+	return adminhttp.GetGeminiTenant200JSONResponse(apitypes.GeminiTenant{Id: request.Id, CredentialId: "gemini-key"}), nil
 }
 
 // audioPathBuilder records what the chat Model received and how often the
@@ -303,8 +338,8 @@ func (b *audioPathBuilder) BuildTransformer(_ context.Context, config peergenx.T
 	}), nil
 }
 
-// audioPathGenerator answers like an audio-input chat Model: it reports a
-// transcript when the latest user message carries audio.
+// audioPathGenerator records whether the latest user message carries audio
+// or the independent ASR's text, then emits an ordinary reply.
 type audioPathGenerator struct {
 	builder *audioPathBuilder
 }

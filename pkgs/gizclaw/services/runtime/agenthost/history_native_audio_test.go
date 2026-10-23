@@ -12,6 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/schema"
 )
@@ -106,16 +107,21 @@ func TestNativeAudioHistoryWithoutTranscriptIsAvailableBeforeSessionEnds(t *test
 func TestNativeAudioHistoryKeepsTurnsBeforeTheirReplies(t *testing.T) {
 	for _, replies := range []int{1, 2} {
 		t.Run(fmt.Sprintf("reply-records-%d", replies), func(t *testing.T) {
-			testNativeAudioHistoryOrder(t, replies)
+			testNativeAudioHistoryOrder(t, replies, false)
 		})
 	}
 }
 
-func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
+func TestNativeAudioNextTurnWaitsForPriorTranscript(t *testing.T) {
+	testNativeAudioHistoryOrder(t, 2, true)
+}
+
+func testNativeAudioHistoryOrder(t *testing.T, replyRecords int, overlap bool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+	reader := &nativeHistoryReader{HistoryReader: history, secondRead: make(chan struct{}, 1)}
 	chat := &nativeHistoryModel{requests: make(chan []*schema.Message, 2)}
 	questions := []string{"first spoken question", "second spoken question"}
 	release := []chan struct{}{make(chan struct{}), make(chan struct{})}
@@ -155,7 +161,7 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 	}
 	core, err := genxeino.New(ctx, genxeino.Config{
 		Agent:      genxeino.AgentConfig{ID: "native-history", Name: "native-history"},
-		AudioInput: true, Components: chat, History: &genxeino.HistoryConfig{Store: history, Scope: "demo", Limit: 50},
+		AudioInput: true, Components: chat, History: &genxeino.HistoryConfig{Store: reader, Scope: "demo", Limit: 50},
 
 		Graph: graph,
 	})
@@ -183,8 +189,8 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var expected []*schema.Message
-	for turn, question := range questions {
+	sendTurn := func(turn int) {
+		t.Helper()
 		id := fmt.Sprintf("speech-%d", turn)
 		marker := fmt.Sprintf("after-input-end-%d", turn)
 		for _, chunk := range []*genx.MessageChunk{
@@ -198,10 +204,19 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 				t.Fatal(err)
 			}
 		}
+	}
+	var expected []*schema.Message
+	for turn, question := range questions {
+		id := fmt.Sprintf("speech-%d", turn)
+		marker := fmt.Sprintf("after-input-end-%d", turn)
+		if !overlap || turn == 0 {
+			sendTurn(turn)
+		}
 		// Final transcription is unavailable until the ordinary route EOS has
 		// crossed the input router, exactly the ordering seen in real speech.
 		completedReplies := 0
 		transcriptDone := false
+		var request []*schema.Message
 		for completedReplies < replyRecords || !transcriptDone {
 			chunk, err := output.Next()
 			if err != nil {
@@ -210,18 +225,40 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 			if chunk.Ctrl != nil && chunk.Ctrl.Label == "transcript" && chunk.IsEndOfStream() {
 				transcriptDone = true
 			}
-			if chunk.Ctrl != nil && chunk.Ctrl.StreamID == marker {
+			if chunk.Ctrl != nil && chunk.Ctrl.StreamID == marker && !overlap {
 				close(release[turn])
 			}
 			if chunk.Role == genx.RoleModel && chunk.IsEndOfStream() && chunk.Ctrl != nil && chunk.Ctrl.ResponseEpochEnd {
 				completedReplies++
 			}
+			if overlap && turn == 0 && completedReplies == replyRecords && request == nil {
+				select {
+				case request = <-chat.requests:
+				case <-ctx.Done():
+					t.Fatal(ctx.Err())
+				}
+				// B arrives after all replies to A, while A's ASR remains blocked.
+				sendTurn(1)
+				close(release[1])
+				select {
+				case <-reader.secondRead:
+				case <-ctx.Done():
+					t.Fatal("next turn did not reach its History query")
+				}
+				select {
+				case next := <-chat.requests:
+					t.Fatalf("next model request bypassed pending transcription: %+v", next)
+				case <-time.After(50 * time.Millisecond):
+				}
+				close(release[0])
+			}
 		}
-		var request []*schema.Message
-		select {
-		case request = <-chat.requests:
-		case <-ctx.Done():
-			t.Fatal(ctx.Err())
+		if request == nil {
+			select {
+			case request = <-chat.requests:
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			}
 		}
 		expected = append(expected, schema.UserMessage(question))
 		if len(request) != len(expected) {
@@ -281,6 +318,21 @@ func testNativeAudioHistoryOrder(t *testing.T, replyRecords int) {
 			t.Fatal(err)
 		}
 	}
+}
+
+type nativeHistoryReader struct {
+	memory.HistoryReader
+	secondRead chan struct{}
+}
+
+func (r *nativeHistoryReader) Query(ctx context.Context, query memory.HistoryQuery) (memory.HistoryPage, error) {
+	if query.ExcludeTurnID == "speech-1" {
+		select {
+		case r.secondRead <- struct{}{}:
+		default:
+		}
+	}
+	return r.HistoryReader.Query(ctx, query)
 }
 
 type nativeHistoryModel struct {

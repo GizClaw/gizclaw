@@ -282,10 +282,11 @@ func graphAudioModel(graph genxeino.GraphDefinition) (string, bool) {
 	messages := false
 	for _, node := range graph.Nodes {
 		for _, binding := range node.Inputs {
-			if binding.From == "input.text" {
+			from := strings.TrimSpace(binding.From)
+			if from == "input.text" {
 				return "", false
 			}
-			messages = messages || binding.From == "input.messages"
+			messages = messages || from == "input.messages"
 		}
 		if node.Prompt != nil {
 			continue

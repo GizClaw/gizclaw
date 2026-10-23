@@ -58,6 +58,19 @@ func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, e
 		_ = invocation.Cancel(err)
 		return nil, err
 	}
+	run := &dockRun{
+		dock:             d,
+		invocation:       invocation,
+		router:           router,
+		routes:           make(map[string]*dockRoute),
+		discardSourceIDs: make(map[string]bool),
+	}
+	transcriptDone := make(chan error, 1)
+	if transcriptOutput := router.TranscriptOutput(); transcriptOutput != nil {
+		go func() { transcriptDone <- run.forwardTranscripts(transcriptOutput) }()
+	} else {
+		transcriptDone <- nil
+	}
 
 	agentOutput, err := d.config.Agent.Transform(invocation.Context(), router.AgentInput())
 	if err != nil {
@@ -74,14 +87,7 @@ func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, e
 	}
 	responseStream.DeferOutputObservation()
 
-	run := &dockRun{
-		dock:             d,
-		invocation:       invocation,
-		source:           responseStream,
-		router:           router,
-		routes:           make(map[string]*dockRoute),
-		discardSourceIDs: make(map[string]bool),
-	}
+	run.source = responseStream
 	for _, event := range router.ActivateEvents() {
 		if event.begin {
 			if err := run.beginInputTurn(event.streamID); err != nil {
@@ -94,7 +100,7 @@ func (d *Dock) Transform(ctx context.Context, input genx.Stream) (genx.Stream, e
 			run.endInputTurn(event.streamID)
 		}
 	}
-	go run.execute()
+	go run.execute(transcriptDone)
 	return &dockStream{Output: invocation.Output(), invocation: invocation}, nil
 }
 
@@ -192,7 +198,7 @@ type ttsPipe struct {
 	done          chan struct{}
 }
 
-func (r *dockRun) execute() {
+func (r *dockRun) execute(transcriptDone <-chan error) {
 	ctx := r.invocation.Context()
 	beginWatchDone := make(chan struct{})
 	go func() {
@@ -218,14 +224,6 @@ func (r *dockRun) execute() {
 			}
 		}
 	}()
-	transcriptDone := make(chan error, 1)
-	if transcriptOutput := r.router.TranscriptOutput(); transcriptOutput != nil {
-		go func() {
-			transcriptDone <- r.forwardTranscripts(transcriptOutput)
-		}()
-	} else {
-		transcriptDone <- nil
-	}
 	stopSource := make(chan struct{})
 	go func() {
 		select {
@@ -1465,6 +1463,8 @@ func (r *inputRouter) routeInput() {
 	audioAnnounced := false
 	var transcriptID string
 	transcriptAnnounced := false
+	var inputID string
+	inputEnded := false
 	for {
 		chunk, err := streamlog.ReadInput(r.ctx, r.input)
 		if err != nil {
@@ -1476,6 +1476,29 @@ func (r *inputRouter) routeInput() {
 		}
 		if chunk == nil {
 			continue
+		}
+		if r.agentAudio && r.asrInput != nil {
+			// Control and MIME boundaries for an unnamed turn must use the same
+			// ID in the Agent, ASR, and visible transcript routes.
+			if chunk.IsBeginOfStream() {
+				if inputEnded || chunk.Part == nil {
+					inputID = ""
+				}
+				inputEnded = false
+			}
+			if id := dockStreamID(chunk); id != "" {
+				inputID = id
+			} else {
+				if inputID == "" {
+					inputID = genx.NewStreamID()
+				}
+				chunk = chunk.Clone()
+				if chunk.Ctrl == nil {
+					chunk.Ctrl = &genx.StreamCtrl{}
+				}
+				chunk.Ctrl.StreamID = inputID
+			}
+			inputEnded = inputEnded || chunk.IsEndOfStream()
 		}
 		if chunk.IsBeginOfStream() {
 			audioEnded = false

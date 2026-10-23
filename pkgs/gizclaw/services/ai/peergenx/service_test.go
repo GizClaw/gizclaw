@@ -1631,6 +1631,10 @@ func TestAcceptsAudioInputMatchesTheBuiltGenerator(t *testing.T) {
 			name: "openai audio input", providerKind: apitypes.ModelProviderKindOpenaiTenant, want: true,
 			data: mustOpenAIModelProviderData(t, apitypes.OpenAITenantModelProviderData{SupportTextOnly: new(false)}),
 		},
+		{
+			name: "gemini requires ASR for packet audio", providerKind: apitypes.ModelProviderKindGeminiTenant,
+			data: mustGeminiModelProviderData(t, apitypes.GeminiTenantModelProviderData{SupportTextOnly: new(false)}),
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			events := []string{}

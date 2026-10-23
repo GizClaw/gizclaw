@@ -117,6 +117,8 @@ Workflow `spec.eino.conversation.initiative` 选择开场方（`peer` 或 `agent
 
 `conversation.continue_from` 让 Eino 在同一用户 turn 内持续生成，直到用户打断或控制字段变为 false。播讲共用一个 StreamID，每轮生成分别写入一条 Workspace History，文字与对应音频一起保存。字段、上下文窗口、背压与取消规则由 [Eino Transformer](../../genx/transformers/eino#同一-turn-内连续讲述) 定义。
 
+Gemini 的当前适配器不接受 Peer 的裸 Opus 分包，因此 Eino 使用 ASR 文本路径；`support_text_only: false` 不会为该适配器启用原生 PTT。
+
 #### Eino 音频输入路径
 
 Workspace `input` 为 `push-to-talk`（默认）或 `realtime`，仅决定读取 Profile binding 的哪一个 ASR Model：

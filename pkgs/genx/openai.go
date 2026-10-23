@@ -642,11 +642,19 @@ func (g *OpenAIGenerator) convUserMessage(msg *Message) (openai.ChatCompletionMe
 	}
 
 	for len(audio) != 0 {
-		if audio[0] == nil {
-			return openai.ChatCompletionMessageParamUnion{}, errors.New("openai: user audio contains a nil Blob")
+		mimeType, err := requestAudioMIME(audio[0])
+		if err != nil {
+			return openai.ChatCompletionMessageParamUnion{}, err
 		}
 		end := 1
-		for end < len(audio) && audio[end] != nil && audio[end].MIMEType == audio[0].MIMEType {
+		for end < len(audio) {
+			nextMIME, err := requestAudioMIME(audio[end])
+			if err != nil {
+				return openai.ChatCompletionMessageParamUnion{}, err
+			}
+			if nextMIME != mimeType {
+				break
+			}
 			end++
 		}
 		blob, err := requestAudioBlob(audio[:end])

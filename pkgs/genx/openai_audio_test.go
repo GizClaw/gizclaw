@@ -2,6 +2,7 @@ package genx
 
 import (
 	"bytes"
+	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
@@ -38,6 +39,48 @@ func TestOpenAIAudioInputPreservesMixedEncodedParts(t *testing.T) {
 	}
 	if len(decoded.Messages) != 1 || len(decoded.Messages[0].Content) != 2 || decoded.Messages[0].Content[0].Audio.Format != "mp3" || decoded.Messages[0].Content[1].Audio.Format != "wav" {
 		t.Fatalf("audio request=%s", encoded)
+	}
+}
+
+func TestOpenAIAudioInputReassemblesCanonicalMIMEFragments(t *testing.T) {
+	var ogg bytes.Buffer
+	if err := codecconv.OpusPacketsToOgg(&ogg, 16000, 1, openAITestOpusPackets(t, 5)); err != nil {
+		t.Fatal(err)
+	}
+	wav := pcm.L16Mono16K.WAV([]byte{1, 0, 2, 0})
+	for _, tc := range []struct {
+		name   string
+		data   []byte
+		mime   []string
+		cut    int
+		frames int
+	}{
+		{name: "equivalent Ogg MIME", data: ogg.Bytes(), mime: []string{"audio/ogg; codecs=opus", "audio/ogg;codecs=opus"}, cut: ogg.Len() / 2, frames: 1600},
+		{name: "fragmented WAV", data: wav, mime: []string{"audio/wav", "audio/wav"}, cut: 44, frames: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			message, err := (&OpenAIGenerator{}).convUserMessage(&Message{Role: RoleUser, Payload: Contents{
+				&Blob{MIMEType: tc.mime[0], Data: tc.data[:tc.cut]},
+				&Blob{MIMEType: tc.mime[1], Data: tc.data[tc.cut:]},
+			}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			parts := message.OfUser.Content.OfArrayOfContentParts
+			if len(parts) != 1 || parts[0].OfInputAudio == nil {
+				t.Fatalf("fragmented recording became %d request parts", len(parts))
+			}
+			data, err := base64.StdEncoding.DecodeString(parts[0].OfInputAudio.InputAudio.Data)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if frames := assertWAV(t, &Blob{MIMEType: "audio/wav", Data: data}, 16000, 1); frames != tc.frames {
+				t.Fatalf("frames = %d, want %d", frames, tc.frames)
+			}
+			if tc.name == "fragmented WAV" && !bytes.Equal(data, wav) {
+				t.Fatal("WAV bytes changed")
+			}
+		})
 	}
 }
 
@@ -140,7 +183,8 @@ func TestRequestAudioBlobRejectsUnusableAudio(t *testing.T) {
 		want  string
 	}{
 		{name: "mixed", audio: append(openAIAudioBlobs("audio/opus", []byte{1}), openAIAudioBlobs("audio/mpeg", []byte{2})...), want: "mixes"},
-		{name: "two WAV files", audio: openAIAudioBlobs("audio/wav", []byte("a"), []byte("b")), want: "WAV parts"},
+		{name: "two WAV files", audio: openAIAudioBlobs("audio/wav", pcm.L16Mono16K.WAV([]byte{1, 0}), pcm.L16Mono16K.WAV([]byte{2, 0})), want: "one complete file"},
+		{name: "different PCM parameters", audio: []*Blob{{MIMEType: "audio/pcm; rate=16000", Data: []byte{0, 0}}, {MIMEType: "audio/pcm; rate=24000", Data: []byte{0, 0}}}, want: "mixes"},
 		{name: "unsupported codec", audio: openAIAudioBlobs("audio/flac", []byte("a")), want: "unsupported"},
 		{name: "unsupported PCM rate", audio: openAIAudioBlobs("audio/pcm; rate=11025", []byte{0, 0}), want: "unsupported L16"},
 		{name: "empty Opus", audio: openAIAudioBlobs("audio/opus", []byte{}), want: "no Opus audio"},

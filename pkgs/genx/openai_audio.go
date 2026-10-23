@@ -2,6 +2,7 @@ package genx
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"mime"
@@ -21,14 +22,19 @@ const requestAudioFormat = pcm.L16Mono16K
 
 // requestAudioBlob converts one user message's audio Blobs into one MP3 or WAV
 // Blob. Opus (raw packets or Ogg) and signed 16-bit PCM are converted to
-// 16 kHz mono WAV; one WAV Blob and MP3 Blobs pass through.
+// 16 kHz mono WAV; fragments of one WAV file and MP3 Blobs are reassembled.
 func requestAudioBlob(audio []*Blob) (*Blob, error) {
 	var (
 		mediaType string
 		params    map[string]string
+		canonical string
 		payloads  [][]byte
 	)
 	for index, blob := range audio {
+		partMIME, err := requestAudioMIME(blob)
+		if err != nil {
+			return nil, err
+		}
 		partType, partParams, err := mime.ParseMediaType(blob.MIMEType)
 		if err != nil {
 			return nil, fmt.Errorf("openai: user audio MIME type %q: %w", blob.MIMEType, err)
@@ -36,8 +42,9 @@ func requestAudioBlob(audio []*Blob) (*Blob, error) {
 		partType = strings.ToLower(partType)
 		if index == 0 {
 			mediaType, params = partType, partParams
-		} else if partType != mediaType {
-			return nil, fmt.Errorf("openai: user audio mixes %s and %s", mediaType, partType)
+			canonical = partMIME
+		} else if partMIME != canonical {
+			return nil, fmt.Errorf("openai: user audio mixes %s and %s", canonical, partMIME)
 		}
 		payloads = append(payloads, blob.Data)
 	}
@@ -45,10 +52,11 @@ func requestAudioBlob(audio []*Blob) (*Blob, error) {
 	case "audio/mpeg", "audio/mp3":
 		return &Blob{MIMEType: "audio/mpeg", Data: bytes.Join(payloads, nil)}, nil
 	case "audio/wav", "audio/wave", "audio/x-wav":
-		if len(payloads) != 1 {
-			return nil, fmt.Errorf("openai: user audio has %d WAV parts; want one", len(payloads))
+		data := bytes.Join(payloads, nil)
+		if len(payloads) > 1 && (len(data) < 12 || string(data[:4]) != "RIFF" || string(data[8:12]) != "WAVE" || uint64(binary.LittleEndian.Uint32(data[4:8]))+8 != uint64(len(data))) {
+			return nil, fmt.Errorf("openai: user audio WAV parts must contain one complete file")
 		}
-		return &Blob{MIMEType: "audio/wav", Data: payloads[0]}, nil
+		return &Blob{MIMEType: "audio/wav", Data: data}, nil
 	case "audio/pcm", "audio/l16", "audio/x-pcm":
 		format, err := pcmFormat(params)
 		if err != nil {
@@ -68,6 +76,17 @@ func requestAudioBlob(audio []*Blob) (*Blob, error) {
 	default:
 		return nil, fmt.Errorf("openai: user audio MIME type %q is unsupported", mediaType)
 	}
+}
+
+func requestAudioMIME(blob *Blob) (string, error) {
+	if blob == nil {
+		return "", fmt.Errorf("openai: user audio contains a nil Blob")
+	}
+	mediaType, params, err := mime.ParseMediaType(blob.MIMEType)
+	if err != nil {
+		return "", fmt.Errorf("openai: user audio MIME type %q: %w", blob.MIMEType, err)
+	}
+	return mime.FormatMediaType(mediaType, params), nil
 }
 
 func pcmFormat(params map[string]string) (pcm.Format, error) {

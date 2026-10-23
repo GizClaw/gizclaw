@@ -26,7 +26,7 @@ filtering rule.
 
 ## Audio input
 
-`OpenAIGenerator` converts audio Blobs of one user message into API input: raw Opus, Ogg/Opus and signed 16-bit PCM become 16 kHz mono WAV; MP3 and a single WAV pass through. Text, application prompts, history and Tools retain their original meaning.
+`OpenAIGenerator` converts audio Blobs of one user message into API input: raw Opus, Ogg/Opus and signed 16-bit PCM become 16 kHz mono WAV; MP3 and fragments of one WAV file are reassembled in order; multiple complete WAV files are not concatenated. Equivalent MIME case, whitespace, and parameter order do not split a recording; semantically different parameters remain distinct. Text, application prompts, history and Tools retain their original meaning.
 
 The Generator performs only the requested model generation. [AudioDock](../agentkit#audio-dock) runs transcription through an independent ASR Transformer; RuntimeProfile selects the conversation Model and ASR Model separately.
 

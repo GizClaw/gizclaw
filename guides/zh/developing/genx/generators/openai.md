@@ -24,7 +24,7 @@ OpenAI-compatible 只表示 provider protocol compatibility；credential、endpo
 
 ## 音频输入
 
-`OpenAIGenerator` 将同一个 user message 的音频 Blob 转为接口支持的输入：raw Opus、Ogg/Opus 和 signed 16-bit PCM 解码并转换为 16 kHz 单声道 WAV，MP3 与单个 WAV 原样传递。文本、业务 prompt、历史和 Tools 保持原有含义。
+`OpenAIGenerator` 将同一个 user message 的音频 Blob 转为接口支持的输入：raw Opus、Ogg/Opus 和 signed 16-bit PCM 解码并转换为 16 kHz 单声道 WAV，MP3 与一个 WAV 文件的分片会按顺序重组；WAV 不合并多个完整文件。等价 MIME 的大小写、空白和参数顺序不拆分录音，有语义差异的参数仍区分。文本、业务 prompt、历史和 Tools 保持原有含义。
 
 Generator 只执行调用方请求的模型生成，不追加转写请求。音频输入的 ASR 由 [AudioDock](../agentkit#audio-dock) 使用独立 ASR Transformer 完成，RuntimeProfile 分别选择对话 Model 与 ASR Model。
 

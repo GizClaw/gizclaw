@@ -167,3 +167,118 @@ func TestAudioSidebandCancellationStopsBothComponents(t *testing.T) {
 		}
 	}
 }
+
+func TestAudioAgentSynchronousStartupWithUnnamedTurns(t *testing.T) {
+	for _, control := range []bool{false, true} {
+		t.Run(map[bool]string{false: "audio boundaries", true: "control and audio boundaries"}[control], func(t *testing.T) {
+			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+			defer cancel()
+			var input []*genx.MessageChunk
+			for range 2 {
+				if control {
+					input = append(input, &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{BeginOfStream: true}})
+				}
+				input = append(input,
+					&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{BeginOfStream: true}},
+					&genx.MessageChunk{Role: genx.RoleUser, Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{EndOfStream: true}},
+				)
+				if control {
+					input = append(input, &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{EndOfStream: true}})
+				}
+			}
+			asr := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
+				out := streamkit.NewOutput(streamkit.OutputConfig{})
+				go func() {
+					defer out.Close()
+					for {
+						chunk, err := source.Next()
+						if err != nil {
+							return
+						}
+						if chunk.IsEndOfStream() {
+							id := dockStreamID(chunk)
+							if id == "" {
+								id = "audio"
+							}
+							_ = out.Push(&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("heard"), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "transcript", BeginOfStream: true, EndOfStream: true}})
+						}
+					}
+				}()
+				return out, nil
+			})
+			agentIDs := make(chan string, 8)
+			agent := transformerFunc(func(_ context.Context, source genx.Stream) (genx.Stream, error) {
+				// A Transformer may consume input before returning its output.
+				first, err := source.Next()
+				if err != nil {
+					return nil, err
+				}
+				agentIDs <- dockStreamID(first)
+				out := streamkit.NewOutput(streamkit.OutputConfig{})
+				go func() {
+					defer out.Close()
+					defer close(agentIDs)
+					for {
+						chunk, err := source.Next()
+						if err != nil {
+							return
+						}
+						agentIDs <- dockStreamID(chunk)
+					}
+				}()
+				return out, nil
+			})
+			dock, err := New(Config{Agent: agent, ASR: asr, AgentAudioInput: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := dock.Transform(ctx, &sliceStream{chunks: input})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer output.Close()
+			type route struct {
+				begins, ends int
+				text         string
+			}
+			routes := make(map[string]*route)
+			for _, chunk := range readAll(t, output) {
+				id := dockStreamID(chunk)
+				if id == "" {
+					t.Fatal("transcript has no stream ID")
+				}
+				if routes[id] == nil {
+					routes[id] = &route{}
+				}
+				r := routes[id]
+				if chunk.IsBeginOfStream() {
+					r.begins++
+				}
+				if chunk.IsEndOfStream() {
+					r.ends++
+				}
+				if text, ok := chunk.Part.(genx.Text); ok {
+					r.text += string(text)
+				}
+			}
+			if len(routes) != 2 {
+				t.Fatalf("transcript routes = %+v, want two distinct turns", routes)
+			}
+			for id, r := range routes {
+				if r.begins != 1 || r.ends != 1 || r.text != "heard" {
+					t.Fatalf("route %q = %+v", id, r)
+				}
+			}
+			for id := range agentIDs {
+				if routes[id] == nil {
+					t.Fatalf("Agent ID %q differs from ASR transcript IDs", id)
+				}
+			}
+			for _, chunk := range input {
+				if dockStreamID(chunk) != "" {
+					t.Fatal("router mutated its caller's input")
+				}
+			}
+		})
+	}
+}

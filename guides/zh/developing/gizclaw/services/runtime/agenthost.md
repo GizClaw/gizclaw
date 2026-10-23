@@ -36,6 +36,8 @@ high-water receipt，丢弃不会改变已持久化 History。observer 不执行
 
 `ResponseEpochEnd` 明确结束同一 StreamID 与 route label 下已交付的响应。即使组件名称不同于 label，且终止 chunk 不含 MessageID，Recorder 仍保存该响应的所有具名消息与成对音频，完成持久化后才释放下一轮的 History 文本读取屏障。没有响应结束标记的具名成员 EOS 不会提前结束兄弟成员，其他 StreamID 或 label 的记录继续等待各自边界。
 
+原生音频的旁路 ASR 在 transcript BOS 到达时加入 History 读取屏障；下一轮等待上一轮转写持久化，但通过 `ExcludeTurnID` 排除当前轮，保留当前音频与 ASR 的并行执行。
+
 Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part 的 control EOS 的 `Ctrl.Error` 去除首尾空白后以 `interrupted` 开头时，同一 StreamID 的所有待写入 entry 都标记为中断。落库时，中断且没有非空白定稿文本的 entry 被丢弃，并关闭其 PCM encoder；`Ctrl.TextInterim` 文本不计入定稿。已有定稿文本的中断 entry 仍保留，正常结束的纯音频 entry 仍可保存。
 
 中断可能发生在 TTS 只交付 Ogg 头、尚未产生音频 packet 时。Recorder 只在中断记录中忽略这种空音频分段，保留已交付的定稿文本和其他实际音频，并正常完成下一轮的 History 文本读取屏障；不会保存空音频 asset。损坏的 Ogg、正常结束却没有音频 packet 的分段，以及没有音频的回放 asset 仍按错误处理。

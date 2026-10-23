@@ -275,9 +275,9 @@ func modelSupportsToolCalls(model apitypes.Model) (bool, error) {
 	return boolValue(supported), nil
 }
 
-// AcceptsAudioInput reports whether the Generator of the LLM model selected
-// by pattern accepts user audio. The pattern
-// resolves exactly as Generator does.
+// AcceptsAudioInput reports whether the selected LLM Generator accepts
+// packetized user audio from Peer input. The pattern resolves exactly as
+// Generator does.
 func (s *Service) AcceptsAudioInput(ctx context.Context, pattern string) (bool, error) {
 	if s == nil {
 		return false, ErrNotConfigured
@@ -303,10 +303,6 @@ func modelAcceptsAudioInput(model apitypes.Model) (bool, error) {
 	case apitypes.ModelProviderKindOpenaiTenant:
 		var data apitypes.OpenAITenantModelProviderData
 		data, err = model.ProviderData.AsOpenAITenantModelProviderData()
-		textOnly = data.SupportTextOnly
-	case apitypes.ModelProviderKindGeminiTenant:
-		var data apitypes.GeminiTenantModelProviderData
-		data, err = model.ProviderData.AsGeminiTenantModelProviderData()
 		textOnly = data.SupportTextOnly
 	case apitypes.ModelProviderKindDeepseekTenant:
 		var data apitypes.DeepSeekTenantModelProviderData
