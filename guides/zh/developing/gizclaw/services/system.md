@@ -80,3 +80,5 @@ flowchart TB
 - Edge proxy token forwarding。
 - CLI config、storage backend 创建和进程生命周期。
 - 为了避免选择领域 ownership 而放入的通用 helper。
+
+调用 context 另行保留已认证的 invoking Peer 公钥，独立于资源 owner。切换到 Workspace owner 的资源视图不会替换 invoking Peer；设备自报数据与外部请求参数不能设置该身份。

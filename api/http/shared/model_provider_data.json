@@ -99,6 +99,7 @@
         "required": ["upstream_model"],
         "properties": {
           "upstream_model": { "type": "string", "minLength": 1 },
+          "request_bindings": { "$ref": "./model_request_bindings.json#/components/schemas/ModelRequestBindings" },
           "support_json_output": { "type": "boolean" },
           "support_tool_calls": { "type": "boolean" },
           "support_text_only": { "type": "boolean" },

@@ -743,6 +743,7 @@ func (m *Manager) ownerGenXForProfile(
 		Authorize: m.quotaAuthorizer(publicKey, func(context.Context) (apitypes.RuntimeProfile, error) { return profile, nil }),
 		Models:    resources, Voices: resources, Credentials: m.Credentials,
 		ProviderTenants: m.ProviderTenants,
+		ReportedKV:      m.PeerRun,
 	}), nil
 }
 

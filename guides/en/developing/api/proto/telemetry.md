@@ -62,3 +62,5 @@ for wire/storage budgets, timestamp checks and merge rules.
 Go, JavaScript and C use the existing Telemetry transport; Flutter reads the status projection. Access
 uses existing device-scoped authorization. Values do not enter metrics or payload logs, and devices must
 not report passwords or credentials.
+
+Non-secret business identity can be consumed by [Model request bindings](../../gizclaw/services/ai#model-request-bindings). Bindings explicitly choose keys and JSON Pointers; Telemetry still does not interpret their business fields. Model tokens and device management secrets must never be reported through this path.

@@ -11,3 +11,5 @@ Bearer and cookie values are never the backend identity. The Shell authenticator
 The same authenticated composition exposes Workspace-backed Conversations and Responses. One process-shared Response runtime serializes active work per Workspace, persists terminal state before returning terminal JSON/SSE, and converts abandoned `in_progress` records to a safe restart failure on retrieval. Server shutdown stops and joins this runtime before Workspace and Agent stores are closed.
 
 Workspace text execution carries the verified caller's AgentHost resource ownership through the entire turn. Tool resolution still checks the Workspace owner and the owner's current RuntimeProfile on every call. The HTTP request does not supply connected-Peer tool bindings, and a different authenticated caller cannot read or execute the Conversation.
+
+Request wiring retains the verified Peer as an independent invoking identity through Workspace execution and owner resource views. [Model request bindings](../services/ai#model-request-bindings) use it to read the correct device Runtime KV, without accepting caller-selected device identifiers from inbound requests.

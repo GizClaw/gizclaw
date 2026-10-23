@@ -1000,6 +1000,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	assistantTextEvents, assistantAudioEvents, assistantEOS := 0, 0, 0
 	transcriptTextEvents, transcriptEOS, otherEOS := 0, 0, 0
 	var terminalErrors []string
+	var expectedTerminal map[string]any
 	var firstTranscriptMS, firstTextMS, firstAudioMS, textEOSMS, audioEOSMS, lastEventMS int64
 	var firstTextElapsed, firstAudioElapsed time.Duration
 	var lead peerAudioLead
@@ -1015,6 +1016,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	}
 	baseEvidence := func() map[string]any {
 		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
+		if expectedTerminal != nil {
+			evidence["terminal_error"] = expectedTerminal
+		}
 		if idleTimeout > 0 {
 			evidence["idle_timeout_ms"] = idleTimeout.Milliseconds()
 		}
@@ -1046,8 +1050,8 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	textInput, _ := input.(string)
 	quietText := op.Mode == "text" && strings.TrimSpace(textInput) == "" && !firstResponse && op.RequireText != nil && !*op.RequireText && op.RequireAudio != nil && !*op.RequireAudio && idleTimeout > 0
 	emptyTurn := op.EmptyInput
-	requireText := !emptyTurn && (op.RequireText == nil || *op.RequireText)
-	requireAudio := !emptyTurn && (op.RequireAudio == nil || *op.RequireAudio)
+	requireText := !emptyTurn && op.ExpectedTerminalError == nil && (op.RequireText == nil || *op.RequireText)
+	requireAudio := !emptyTurn && op.ExpectedTerminalError == nil && (op.RequireAudio == nil || *op.RequireAudio)
 	var firstTextDeadline, firstAudioDeadline <-chan time.Time
 	var firstTextTimer, firstAudioTimer *time.Timer
 	var firstTextTimeout, firstAudioTimeout time.Duration
@@ -1084,6 +1088,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		if len(terminalErrors) != 0 {
 			return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
 		}
+		if op.ExpectedTerminalError != nil && expectedTerminal == nil {
+			return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream ended without the expected terminal error")
+		}
 		if len(abandonedResponses) > 0 {
 			// Report only the responses the turn kept: an abandoned partial
 			// response must not satisfy assertions meant for the reply.
@@ -1103,6 +1110,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		}
 		transcript, reply := peerStreamTranscriptAndReply(outputRecords, abandonedResponses)
 		object := map[string]any{"text": texts, "transcript": transcript, "reply": reply, "audio_bytes": audioBytes, "events": events, "text_eos": textEOS, "audio_eos": audioEOS, "interrupted": interrupted, "interrupt_observed": observedInterrupted, "first_transcript_ms": firstTranscriptMS, "first_text_ms": firstTextMS, "first_audio_ms": firstAudioMS, "text_eos_ms": textEOSMS, "audio_eos_ms": audioEOSMS}
+		if expectedTerminal != nil {
+			object["terminal_error"] = expectedTerminal
+		}
 		responseCount := 0
 		for id, response := range responses {
 			if !abandonedResponses[id] && !response.interrupted && (response.textObserved || response.audioObserved) {
@@ -1405,7 +1415,18 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			if result.chunk.Ctrl != nil {
 				if terminalError := peerStreamTerminalError(result.chunk); terminalError != "" {
-					terminalErrors = append(terminalErrors, terminalError)
+					ctrl := result.chunk.Ctrl
+					expected := op.ExpectedTerminalError
+					if expected != nil && result.chunk.IsEndOfStream() && strings.TrimSpace(ctrl.StreamID) != "" &&
+						ctrl.ErrorCode == expected.Code && ctrl.Error == expected.Message &&
+						ctrl.Label == expected.Label && ctrl.ErrorRetryable == expected.Retryable {
+						expectedTerminal = map[string]any{
+							"code": ctrl.ErrorCode, "message": ctrl.Error, "label": ctrl.Label,
+							"stream_id": ctrl.StreamID, "retryable": ctrl.ErrorRetryable, "end_of_stream": true,
+						}
+					} else {
+						terminalErrors = append(terminalErrors, terminalError)
+					}
 				}
 				if label == "assistant" && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted") {
 					observedInterrupted = true
@@ -1558,6 +1579,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			// rather than from whichever select case the scheduler picks, and
 			// as soon as that modality is seen rather than once every required
 			// modality has been.
+			if expectedTerminal != nil {
+				return finish()
+			}
 			if firstResponse {
 				if requireText && firstTextObserved && firstTextElapsed > firstTextTimeout {
 					return operationResult{evidence: failedEvidence("first_text_timeout")}, fmt.Errorf("peer_stream first text timeout exceeded after %s (deadline=first_text_timeout %s): %w", op.FirstTextTimeout, counters(), context.DeadlineExceeded)

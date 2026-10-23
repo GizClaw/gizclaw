@@ -16,6 +16,33 @@ and build the embedded console before Go compilation, including container builds
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
 
+## Device errors from Model request bindings
+
+```sh
+go test -count=1 -run '^TestModelRequestBindingsGiztest$' ./cmd/internal/server
+```
+
+`testdata/model-request-bindings/lifecycle.giztest.yaml` runs through real Server,
+Edge, WebRTC, Telemetry, SQL and Eino. Missing, deleted and null required values
+must deliver a safe error EOS to the device connection without calling the local
+model protocol fixture. Later turns recover after telemetry arrives and use
+updated headers. Missing or null optional values omit the header; present values
+of the wrong type still prevent requests. Every failing turn has a deadline, so
+silence cannot pass. Only the upstream model is replaced by a fixture.
+
+`peer_stream.expect_terminal_error` checks literal `code`, `message`, `label` and
+`retryable` values for a single text, push-to-talk or realtime input turn with
+terminal completion. Results and evidence retain the actual nonempty stream ID
+and EOS under `terminal_error`. Success, timeout, a different error or no error
+fails. This assertion cannot require successful text/audio or combine with
+interruption, reply observation, persistent sessions or History waiting. Payload carried by the
+error EOS still counts toward text and audio assertions.
+
+Set `GIZCLAW_BINDING_EVIDENCE` to retain reports and replay. This regression proves
+delivery to the device connection; H106 firmware UI and spoken error handling
+require separate device qualification. It runs with ordinary Go tests, without
+cloud credentials or live model calls.
+
 ## Docker image sources
 
 Go, Runtime and Mem0 build bases, package-validation containers, third-party

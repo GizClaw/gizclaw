@@ -602,6 +602,7 @@ func (h *PeerConn) initPeerGenX() {
 			return apitypes.RuntimeProfile{}, errors.New("RuntimeProfile is unavailable")
 		}),
 		Peer:            h.Conn,
+		ReportedKV:      manager.PeerRun,
 		Models:          resources,
 		Voices:          resources,
 		Credentials:     manager.Credentials,

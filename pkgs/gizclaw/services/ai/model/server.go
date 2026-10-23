@@ -256,6 +256,9 @@ func validateModelProviderData(modelKind apitypes.ModelKind, providerKind apityp
 		if err := decodeStrictModelProviderData(data, &value); err != nil {
 			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
 		}
+		if err := apitypes.ValidateModelRequestBindings(modelKind, providerKind, value.RequestBindings); err != nil {
+			return fmt.Errorf("provider_data for %s: %w", providerKind, err)
+		}
 		if modelKind == apitypes.ModelKindLlm {
 			if err := validateLLMThinking(providerKind, value.SupportThinking, value.ThinkingParam, value.ThinkingLevelParam, value.ThinkingLevels, value.DefaultThinkingLevel); err != nil {
 				return err

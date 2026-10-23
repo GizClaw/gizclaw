@@ -7,6 +7,9 @@
 !native-audio-history/rounds.giztest.yaml
 !native-audio-functions/
 !native-audio-functions/*.giztest.yaml
+!model-request-bindings/
+!model-request-bindings/resources.json
+!model-request-bindings/lifecycle.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

@@ -399,6 +399,9 @@ func internal(cause error) error {
 	if quota := quotaBackendError(cause); quota != nil {
 		return quota
 	}
+	if metadata := modelRequestBackendError(cause); metadata != nil {
+		return metadata
+	}
 	if errors.Is(cause, context.Canceled) {
 		return &backend.Error{Kind: backend.ErrorCanceled, Code: "request_canceled", Message: "The request was canceled.", Cause: cause}
 	}
@@ -406,6 +409,18 @@ func internal(cause error) error {
 		return &backend.Error{Kind: backend.ErrorTimeout, Code: "request_timeout", Message: "The request timed out.", Cause: cause}
 	}
 	return &backend.Error{Kind: backend.ErrorInternal, Code: "backend_error", Message: "The GizClaw backend failed.", Cause: cause}
+}
+
+func modelRequestBackendError(cause error) *backend.Error {
+	code, message, retryable, ok := genx.PublicErrorDetails(cause)
+	if !ok || !strings.HasPrefix(code, "MODEL_REQUEST_BINDING_") && code != "MODEL_PROVIDER_ERROR" {
+		return nil
+	}
+	kind := backend.ErrorInvalid
+	if retryable || code == "MODEL_PROVIDER_ERROR" {
+		kind = backend.ErrorUnavailable
+	}
+	return &backend.Error{Kind: kind, Code: strings.ToLower(code), Message: message, Cause: cause}
 }
 
 func nilInterface(value any) bool {
@@ -992,6 +1007,9 @@ func newTranscriptionEventStream(ctx context.Context, source genx.Stream) backen
 func streamErrorEvent(cause error) map[string]any {
 	if quota := quotaBackendError(cause); quota != nil {
 		return map[string]any{"error": map[string]string{"code": quota.Code, "message": quota.Message, "type": string(quota.Kind)}}
+	}
+	if metadata := modelRequestBackendError(cause); metadata != nil {
+		return map[string]any{"error": map[string]string{"code": metadata.Code, "message": metadata.Message, "type": string(metadata.Kind)}}
 	}
 	return map[string]any{"error": map[string]string{
 		"code": "stream_error", "message": "The GizClaw backend stream failed.", "type": "server_error",

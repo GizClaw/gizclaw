@@ -62,6 +62,7 @@ type AudioOutput interface {
 
 type Service struct {
 	Peer            Peer
+	ReportedKV      ReportedKVGetter
 	Models          ModelGetter
 	Voices          VoiceGetter
 	Credentials     CredentialGetter

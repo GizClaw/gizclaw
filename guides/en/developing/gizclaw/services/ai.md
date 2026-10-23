@@ -55,6 +55,37 @@ spec:
 
 Enable low-latency service for the selected model and inference endpoint in the Volc console. See the [official low-latency inference documentation](https://docs.volcengine.com/docs/ark/online-inference-low-latency?lang=zh) for supported models. Ark can fall back to regular inference when fast limits or traffic protection are triggered; `fast` does not guarantee low-latency resources for every request.
 
+#### Runtime request metadata bindings {#model-request-bindings}
+
+Optional `provider_data.request_bindings` on an `openai-tenant` Model map non-secret Runtime KV values of the authenticated invoking Peer to upstream HTTP headers. One Model serves multiple devices with a fresh device-specific snapshot per call. Devices continue reporting over existing Telemetry KV. The [Schema](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/model_request_bindings.json) owns configuration and budgets; [validation](https://github.com/GizClaw/gizclaw/blob/main/pkgs/gizclaw/api/apitypes/model_request_bindings.go) enforces additional constraints.
+
+This fragment belongs in Model `spec`. The device reports one JSON object with string `vid`, `uid`, and `ip` members under the `upstream_identity` key.
+
+```yaml
+provider_data:
+  upstream_model: your-upstream-model
+  request_bindings:
+    - target: {kind: http_header, name: X-AI-VID}
+      source:
+        peer_runtime_kv: {key: upstream_identity, pointer: /vid}
+    - target: {kind: http_header, name: X-AI-UID}
+      source:
+        peer_runtime_kv: {key: upstream_identity, pointer: /uid}
+    - target: {kind: http_header, name: X-AI-IP}
+      source:
+        peer_runtime_kv: {key: upstream_identity, pointer: /ip}
+```
+
+`source` is a `oneOf` union of named branch objects and must select exactly one branch; `key` and `pointer` belong inside `peer_runtime_kv`. That branch reads the invoking device's reported Runtime KV, not RuntimeProfile configuration or other sources. Keys match exactly. `pointer` is a JSON Pointer within that key's value; omitted or empty selects the whole value. It executes no scripts, interpolation, or wildcard queries. Selected header values must be strings; numbers and booleans are not coerced. Bindings are required by default: missing, deleted, or null values fail the call. `required: false` omits those values, but still rejects present invalid values. Omitted or empty bindings disable the feature. Omitting the field from `provider_data` in a complete PUT/Apply removes existing bindings.
+
+The field belongs only to OpenAI-tenant `provider_data`. Nonempty bindings support LLM Chat Completions, including streaming generation and JSON/Tool `Invoke`. Other providers reject the field; Embedding, Voice, and Realtime do not support nonempty bindings. Query/body targets are also rejected. Listing Models, checking capabilities, and initializing an Agent do not require device values.
+
+Each generation or Invoke reads durable KV once after existing resource authorization and quota checks. All headers come from that snapshot, including SDK retries, stream compatibility retries, and structured-output fallback. The next call reads again, including on long-lived Agents. An active stream retains its original identity. There is no implicit TTL, value default, or stale fallback; unavailable storage rejects the call. Report related identity fields together in one JSON object.
+
+Targets are non-secret business extension headers. Authentication, forwarding, and SDK control fields remain adapter-owned. Binding-enabled requests do not follow redirects. Model API tokens remain in the Tenant's protected Credential; device management secrets must never enter KV. Resolved values do not enter prompts, history, logs, or metric labels and never grant Model, Tenant, or Credential access or override authoritative Server state.
+
+The example deliberately uses a device-reported `X-AI-IP`. It is not a Server-certified public address and is not inferred from TURN, inbound headers, or the Server's egress address. Integrations must verify their upstream's business identity requirements.
+
 ### memorylayout
 
 Owns the connection-free `MemoryLayout` Admin resource. One Layout declares Mem0 Cloud, self-hosted Mem0, and `volc_mem0` policies. The RuntimeProfile memory binding selects the driver, endpoint, API key, and project. See [Memory Store](/en/developing/stores/memory).

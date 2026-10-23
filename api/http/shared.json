@@ -284,6 +284,24 @@
       "VoiceProvider": {
         "$ref": "./shared/voice_provider.json#/components/schemas/VoiceProvider"
       },
+      "ModelRequestBindings": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestBindings"
+      },
+      "ModelRequestBinding": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestBinding"
+      },
+      "ModelRequestTarget": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestTarget"
+      },
+      "ModelRequestSource": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestSource"
+      },
+      "ModelRequestPeerRuntimeKVSource": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestPeerRuntimeKVSource"
+      },
+      "ModelRequestPeerRuntimeKVSelector": {
+        "$ref": "./shared/model_request_bindings.json#/components/schemas/ModelRequestPeerRuntimeKVSelector"
+      },
       "ModelProviderData": {
         "$ref": "./shared/model_provider_data.json#/components/schemas/ModelProviderData"
       },

@@ -163,6 +163,8 @@ type SpeechOperation struct {
 	Cache   string `json:"cache,omitempty" yaml:"cache,omitempty"`
 }
 type PeerStreamOperation struct {
+	// ExpectedTerminalError requires the input turn to end with this error.
+	ExpectedTerminalError *PeerStreamErrorExpectation `json:"expect_terminal_error,omitempty" yaml:"expect_terminal_error,omitempty"`
 	// AllowedTerminalError permits at most one exactly matching EOS during a
 	// listen window. The window and audio accounting continue after that EOS.
 	AllowedTerminalError *PeerStreamTerminalErrorExpectation `json:"allowed_terminal_error,omitempty" yaml:"allowed_terminal_error,omitempty"`
@@ -217,6 +219,15 @@ type PeerStreamTerminalErrorExpectation struct {
 	Code      string `json:"code" yaml:"code"`
 	Message   string `json:"message" yaml:"message"`
 	StreamID  string `json:"stream_id" yaml:"stream_id"`
+	Label     string `json:"label" yaml:"label"`
+	Retryable bool   `json:"retryable" yaml:"retryable"`
+}
+
+// PeerStreamErrorExpectation matches a terminal failure of the current turn.
+// The server assigns the stream ID; the result records it for diagnosis.
+type PeerStreamErrorExpectation struct {
+	Code      string `json:"code" yaml:"code"`
+	Message   string `json:"message" yaml:"message"`
 	Label     string `json:"label" yaml:"label"`
 	Retryable bool   `json:"retryable" yaml:"retryable"`
 }
@@ -1061,6 +1072,21 @@ func collectReferences(v any) []string {
 // document's finally block.
 func validatePeerStreamStep(step Step, finalizer bool) error {
 	op := step.PeerStream
+	if expected := op.ExpectedTerminalError; expected != nil {
+		if op.Mode == "listen" || op.EmptyInput || op.OverlapInput || op.InterruptAfter != "" ||
+			(op.Completion != "" && op.Completion != "terminal") || op.WaitForHistory || op.ReplyObservation != "" ||
+			op.Session != "" || op.KeepOpen || op.AwaitRearm != "" || op.TerminalLabel != "" {
+			return fmt.Errorf("step %s expect_terminal_error requires a single input turn with terminal completion", step.ID)
+		}
+		if (op.RequireText != nil && *op.RequireText) || (op.RequireAudio != nil && *op.RequireAudio) {
+			return fmt.Errorf("step %s expect_terminal_error cannot require successful text or audio", step.ID)
+		}
+		for name, value := range map[string]string{"code": expected.Code, "message": expected.Message, "label": expected.Label} {
+			if strings.TrimSpace(value) == "" || strings.Contains(value, "${") {
+				return fmt.Errorf("step %s expect_terminal_error %s requires a nonblank literal", step.ID, name)
+			}
+		}
+	}
 	if expected := op.AllowedTerminalError; expected != nil {
 		if op.Mode != "listen" {
 			return fmt.Errorf("step %s allowed_terminal_error requires listen mode", step.ID)
