@@ -283,7 +283,7 @@ func TestRunStateOwnsInputParts(t *testing.T) {
 		t.Fatalf("newRunState() error = %v", err)
 	}
 	source.Data[0] = 9
-	first, err := state.binding(Binding{From: "input.parts"})
+	first, err := state.binding(t.Context(), Binding{From: "input.parts"})
 	if err != nil {
 		t.Fatalf("binding() error = %v", err)
 	}
@@ -292,7 +292,7 @@ func TestRunStateOwnsInputParts(t *testing.T) {
 		t.Fatalf("owned input changed to %v", firstBlob.Data)
 	}
 	firstBlob.Data[0] = 8
-	second, err := state.binding(Binding{From: "input.parts"})
+	second, err := state.binding(t.Context(), Binding{From: "input.parts"})
 	if err != nil {
 		t.Fatalf("second binding() error = %v", err)
 	}

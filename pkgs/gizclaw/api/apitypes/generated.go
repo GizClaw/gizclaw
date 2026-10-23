@@ -1198,6 +1198,27 @@ func (e EinoTransformNodeType) Valid() bool {
 	}
 }
 
+// Defines values for EinoWorkflowSpecAudioInput.
+const (
+	EinoWorkflowSpecAudioInputAsr   EinoWorkflowSpecAudioInput = "asr"
+	EinoWorkflowSpecAudioInputAuto  EinoWorkflowSpecAudioInput = "auto"
+	EinoWorkflowSpecAudioInputModel EinoWorkflowSpecAudioInput = "model"
+)
+
+// Valid indicates whether the value is a known member of the EinoWorkflowSpecAudioInput enum.
+func (e EinoWorkflowSpecAudioInput) Valid() bool {
+	switch e {
+	case EinoWorkflowSpecAudioInputAsr:
+		return true
+	case EinoWorkflowSpecAudioInputAuto:
+		return true
+	case EinoWorkflowSpecAudioInputModel:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EinoWorkspaceParametersAgentType.
 const (
 	EinoWorkspaceParametersAgentTypeEino EinoWorkspaceParametersAgentType = "eino"
@@ -4092,12 +4113,17 @@ type EinoTransformNodeType string
 
 // EinoWorkflowSpec defines model for EinoWorkflowSpec.
 type EinoWorkflowSpec struct {
-	Conversation     *EinoConversation     `json:"conversation,omitempty"`
-	Graph            EinoGraph             `json:"graph"`
-	Limits           *EinoLimits           `json:"limits,omitempty"`
-	StatePersistence *EinoStatePersistence `json:"state_persistence,omitempty"`
-	VoiceAdapter     *VoiceAdapter         `json:"voice_adapter,omitempty"`
+	// AudioInput auto retains automatic selection for simple prompt/chat graphs. asr sends final recognition text to the graph. model explicitly sends original PTT audio through input.messages, including graphs with functions; input.text waits lazily for the same input's independent ASR result. model requires Profile ASR, audio-capable chat Models, and an input.messages binding; realtime, continue_from and semantic Tool verification are unsupported.
+	AudioInput       *EinoWorkflowSpecAudioInput `json:"audio_input,omitempty"`
+	Conversation     *EinoConversation           `json:"conversation,omitempty"`
+	Graph            EinoGraph                   `json:"graph"`
+	Limits           *EinoLimits                 `json:"limits,omitempty"`
+	StatePersistence *EinoStatePersistence       `json:"state_persistence,omitempty"`
+	VoiceAdapter     *VoiceAdapter               `json:"voice_adapter,omitempty"`
 }
+
+// EinoWorkflowSpecAudioInput auto retains automatic selection for simple prompt/chat graphs. asr sends final recognition text to the graph. model explicitly sends original PTT audio through input.messages, including graphs with functions; input.text waits lazily for the same input's independent ASR result. model requires Profile ASR, audio-capable chat Models, and an input.messages binding; realtime, continue_from and semantic Tool verification are unsupported.
+type EinoWorkflowSpecAudioInput string
 
 // EinoWorkspaceParameters defines model for EinoWorkspaceParameters.
 type EinoWorkspaceParameters struct {

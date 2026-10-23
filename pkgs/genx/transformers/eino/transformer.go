@@ -196,6 +196,7 @@ func (session *session) run() {
 	var text strings.Builder
 	var parts []any
 	var audio []*genx.Blob
+	var inputText func(context.Context) (string, error)
 	var pendingBOS []*genx.MessageChunk
 	supersededInputIDs := make(map[string]struct{})
 	inText := false
@@ -251,6 +252,7 @@ func (session *session) run() {
 						return messageStreamID(begin) == streamID
 					})
 					audio = nil
+					inputText = chunk.InputText
 					inAudio = true
 					activeAudioID = streamID
 				}
@@ -267,7 +269,7 @@ func (session *session) run() {
 						break
 					}
 					if audioErr == "" {
-						previous = session.startAudioTurn(activeAudioID, audio, previous)
+						previous = session.startAudioTurn(activeAudioID, audio, inputText, previous)
 					}
 					audio = nil
 					inAudio = false
@@ -469,7 +471,7 @@ func (session *session) startTurn(user, inputID string, parts []any, previous <-
 
 // startAudioTurn starts one turn whose user message is the completed audio
 // route. The caller owns independent transcription and input recording.
-func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previous <-chan struct{}) <-chan struct{} {
+func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, inputText func(context.Context) (string, error), previous <-chan struct{}) <-chan struct{} {
 	if len(audio) == 0 {
 		return previous
 	}
@@ -481,6 +483,9 @@ func (session *session) startAudioTurn(inputID string, audio []*genx.Blob, previ
 		session: session, audio: audio, ctx: runCtx, cancel: cancel,
 		routes: make(map[string]outputRoute), streamIDs: make(map[string]struct{}),
 		accepting: true, changed: make(chan struct{}, 1), done: make(chan struct{}), previous: previous,
+	}
+	if inputText != nil {
+		run.resolveText = inputText
 	}
 	return session.launch(run, inputID)
 }
@@ -548,11 +553,12 @@ type turnRun struct {
 	parts   []any
 	// audio holds the original input of an audio turn. User text is supplied
 	// only for text turns; independent ASR is owned by the caller.
-	audio    []*genx.Blob
-	ctx      context.Context
-	cancel   context.CancelCauseFunc
-	previous <-chan struct{}
-	done     chan struct{}
+	audio       []*genx.Blob
+	resolveText func(context.Context) (string, error)
+	ctx         context.Context
+	cancel      context.CancelCauseFunc
+	previous    <-chan struct{}
+	done        chan struct{}
 
 	routes           map[string]outputRoute
 	primary          outputRoute
@@ -810,6 +816,7 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 	state, err := newRunState(config.fields, graphInput{
 		ObservationID: observationID,
 		Text:          run.user,
+		ResolveText:   run.resolveText,
 		Messages:      messages,
 		Parts:         run.parts,
 		History:       history,

@@ -86,6 +86,7 @@ func TestFactoryAudioInputPath(t *testing.T) {
 	asr, model := apitypes.AudioInputPathAsr, apitypes.AudioInputPathModel
 	for _, test := range []struct {
 		name                                       string
+		requested                                  apitypes.EinoWorkflowSpecAudioInput
 		legacyASR                                  bool
 		asrModel                                   string
 		textModel, realtime, textLogic, extraModel bool
@@ -96,6 +97,12 @@ func TestFactoryAudioInputPath(t *testing.T) {
 		{name: "audio input requires Profile ASR"},
 		{name: "legacy Workflow ASR slot is ignored", legacyASR: true},
 		{name: "PTT audio input with sideband ASR", asrModel: "asr", want: model},
+		{name: "explicit native functions retain original audio", requested: apitypes.EinoWorkflowSpecAudioInputModel, textLogic: true, asrModel: "asr", want: model},
+		{name: "explicit native multiple models", requested: apitypes.EinoWorkflowSpecAudioInputModel, textLogic: true, extraModel: true, asrModel: "asr", want: model},
+		{name: "explicit recognition path", requested: apitypes.EinoWorkflowSpecAudioInputAsr, asrModel: "asr", want: asr},
+		{name: "native rejects text only model", requested: apitypes.EinoWorkflowSpecAudioInputModel, textModel: true, asrModel: "asr", wantErr: "audio-capable"},
+		{name: "native requires Profile ASR", requested: apitypes.EinoWorkflowSpecAudioInputModel, wantErr: "Profile ASR"},
+		{name: "native rejects realtime", requested: apitypes.EinoWorkflowSpecAudioInputModel, realtime: true, asrModel: "asr", wantErr: "PTT"},
 		{name: "legacy slot does not change input", asrModel: "asr", legacyASR: true, want: model},
 		{name: "control scripts consume ASR text", textLogic: true, asrModel: "asr", want: asr},
 		{name: "text Graph with distinct audio Models", textLogic: true, extraModel: true, asrModel: "asr", want: asr},
@@ -132,6 +139,30 @@ func TestFactoryAudioInputPath(t *testing.T) {
 			}
 			if test.textLogic {
 				spec.Workflow.Spec.Eino = audioInputControlSpec(t)
+				if test.requested == apitypes.EinoWorkflowSpecAudioInputModel {
+					// Scripts have a text-only message projection. Keep original audio
+					// on the typed input.messages path rather than round-tripping it.
+					public := spec.Workflow.Spec.Eino
+					control, err := public.Graph.Nodes[0].AsEinoScriptNode()
+					if err != nil {
+						t.Fatal(err)
+					}
+					control.Outputs = &map[string]string{"text": "control-text"}
+					control.Source = "def run(input):\n  if input[\"text\"] != \"asr heard\":\n    fail(\"wrong transcription\")\n  return {\"text\": input[\"text\"]}\n"
+					delete(*control.Inputs, "messages")
+					if err := public.Graph.Nodes[0].FromEinoScriptNode(control); err != nil {
+						t.Fatal(err)
+					}
+					public.Graph.State.Fields = append(public.Graph.State.Fields, apitypes.EinoStateField{Name: "control-text", Type: apitypes.EinoStateFieldTypeString, Merge: apitypes.EinoStateFieldMergeReplace})
+					answer, err := public.Graph.Nodes[1].AsEinoChatModelNode()
+					if err != nil {
+						t.Fatal(err)
+					}
+					(*answer.Inputs)["messages"] = apitypes.EinoBinding{From: "input.messages"}
+					if err := public.Graph.Nodes[1].FromEinoChatModelNode(answer); err != nil {
+						t.Fatal(err)
+					}
+				}
 			}
 			if test.extraModel {
 				public := spec.Workflow.Spec.Eino
@@ -151,6 +182,9 @@ func TestFactoryAudioInputPath(t *testing.T) {
 			if test.legacyASR {
 				alias := "ignored-legacy-slot"
 				spec.Workflow.Spec.Eino.VoiceAdapter = &apitypes.VoiceAdapter{AsrModel: &alias}
+			}
+			if test.requested != "" {
+				spec.Workflow.Spec.Eino.AudioInput = new(test.requested)
 			}
 			spec.ASRModel = test.asrModel
 			if test.realtime {

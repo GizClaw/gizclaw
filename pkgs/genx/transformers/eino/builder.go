@@ -78,7 +78,7 @@ func buildGraph(ctx context.Context, config *normalizedConfig, definition GraphD
 				return nil, err
 			}
 			pre := compose.WithStatePreHandler(func(ctx context.Context, _ map[string]any, state *runState) (map[string]any, error) {
-				return state.nodeInputs(node.Inputs)
+				return state.nodeInputs(ctx, node.Inputs)
 			})
 			post := compose.WithStatePostHandler(func(ctx context.Context, output map[string]any, state *runState) (map[string]any, error) {
 				if err := state.writeNodeOutputs(node, output, outputs[node.ID], nil); err != nil {
@@ -230,7 +230,7 @@ func addNativeComponentNode(
 			if err != nil {
 				return nil, err
 			}
-			return state.nodeInputs(node.Inputs)
+			return state.nodeInputs(ctx, node.Inputs)
 		})
 		if err := graph.AddLambdaNode("prepare", prepare); err != nil {
 			return nil, err
@@ -284,7 +284,7 @@ func addNativeComponentNode(
 			if err != nil {
 				return nil, err
 			}
-			inputs, err := state.nodeInputs(node.Inputs)
+			inputs, err := state.nodeInputs(ctx, node.Inputs)
 			if err != nil {
 				return nil, err
 			}
@@ -362,7 +362,7 @@ func addNativeComponentNode(
 			if err != nil {
 				return "", err
 			}
-			value, err := state.binding(node.Retriever.Query)
+			value, err := state.binding(ctx, node.Retriever.Query)
 			if err != nil {
 				return "", err
 			}
@@ -501,7 +501,11 @@ func (chatModel *streamingChatModel) Generate(
 		}
 		if len(message.ToolCalls) == 0 {
 			if chatModel.verifyToolResponse != nil {
-				conversation := toolConversation(messages, inputMessageCount, state.input.Text)
+				user, err := state.inputText(ctx)
+				if err != nil {
+					return nil, err
+				}
+				conversation := toolConversation(messages, inputMessageCount, user)
 				feedback, err := chatModel.verifyToolResponse(ctx, conversation, message.Content)
 				if err != nil {
 					return nil, fmt.Errorf("eino: verify Tool response: %w", err)
@@ -530,7 +534,11 @@ func (chatModel *streamingChatModel) Generate(
 		}
 		messages = append(messages, message)
 		for _, call := range message.ToolCalls {
-			conversation := toolConversation(messages, inputMessageCount, state.input.Text)
+			user, err := state.inputText(ctx)
+			if err != nil {
+				return nil, err
+			}
+			conversation := toolConversation(messages, inputMessageCount, user)
 			result, invokeErr := callState.Invoke(genx.WithToolConversation(ctx, conversation), genx.ToolCall{
 				ID: call.ID,
 				FuncCall: &genx.FuncCall{
@@ -744,8 +752,8 @@ func compileNode(
 	result := &compiledNode{node: node}
 	switch {
 	case node.Transform != nil:
-		result.run = func(_ context.Context, state *runState) (map[string]any, map[string]bool, error) {
-			inputs, err := state.nodeInputs(node.Inputs)
+		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
+			inputs, err := state.nodeInputs(ctx, node.Inputs)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -762,7 +770,7 @@ func compileNode(
 			outputTypes[port] = fields[field].Type
 		}
 		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
-			inputs, err := state.nodeInputs(node.Inputs)
+			inputs, err := state.nodeInputs(ctx, node.Inputs)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -770,8 +778,8 @@ func compileNode(
 			return outputs, nil, err
 		}
 	case node.Passthrough != nil:
-		result.run = func(_ context.Context, state *runState) (map[string]any, map[string]bool, error) {
-			inputs, err := state.nodeInputs(node.Inputs)
+		result.run = func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
+			inputs, err := state.nodeInputs(ctx, node.Inputs)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -874,7 +882,7 @@ func buildPrompt(config PromptNode) (*prompt.DefaultChatTemplate, error) {
 
 func childRunner(node NodeDefinition, child *compiledGraph) func(context.Context, *runState) (map[string]any, map[string]bool, error) {
 	return func(ctx context.Context, parent *runState) (map[string]any, map[string]bool, error) {
-		inputs, err := parent.nodeInputs(node.Inputs)
+		inputs, err := parent.nodeInputs(ctx, node.Inputs)
 		if err != nil {
 			return nil, nil, err
 		}
