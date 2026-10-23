@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -29,9 +30,10 @@ func TestModelRequestBindingsGiztest(t *testing.T) {
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && r.URL.Path == "/requests" {
 			mu.Lock()
-			defer mu.Unlock()
+			snapshot := slices.Clone(requests)
+			mu.Unlock()
 			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"count": len(requests), "requests": requests})
+			_ = json.NewEncoder(w).Encode(map[string]any{"count": len(snapshot), "requests": snapshot})
 			return
 		}
 		var body map[string]any
@@ -52,8 +54,9 @@ func TestModelRequestBindingsGiztest(t *testing.T) {
 		if strings.Contains(string(encoded), "device-secret-") {
 			t.Error("binding metadata leaked into the model request body")
 		}
+		receipt := map[string]any{"vid": r.Header.Get("X-AI-VID"), "has_vid": len(r.Header.Values("X-AI-VID")) != 0}
 		mu.Lock()
-		requests = append(requests, map[string]any{"vid": r.Header.Get("X-AI-VID"), "has_vid": len(r.Header.Values("X-AI-VID")) != 0})
+		requests = append(requests, receipt)
 		mu.Unlock()
 		w.Header().Set("Content-Type", "text/event-stream")
 		_, _ = io.WriteString(w, "data: "+`{"id":"binding","object":"chat.completion.chunk","model":"binding-fixture","choices":[{"index":0,"delta":{"content":"binding reply"},"finish_reason":null}]}`+"\n\ndata: "+`{"id":"binding","object":"chat.completion.chunk","model":"binding-fixture","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`+"\n\ndata: [DONE]\n\n")
