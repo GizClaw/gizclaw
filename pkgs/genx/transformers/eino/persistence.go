@@ -63,7 +63,7 @@ func recallMemory(ctx context.Context, config *MemoryConfig, state *runState) er
 	}
 	var recalled strings.Builder
 	for index, definition := range config.Recall {
-		queryValue, err := state.binding(Binding{From: definition.QueryFrom})
+		queryValue, err := state.binding(ctx, Binding{From: definition.QueryFrom})
 		if err != nil {
 			return fmt.Errorf("eino: Recall[%d] query: %w", index, err)
 		}
@@ -138,7 +138,7 @@ func observeMemory(
 		}
 	}
 	if from := config.Observe.TextFrom; from != "" {
-		value, err := state.binding(Binding{From: from})
+		value, err := state.binding(ctx, Binding{From: from})
 		if err != nil {
 			return fmt.Errorf("eino: Memory TextFrom: %w", err)
 		}
@@ -149,7 +149,7 @@ func observeMemory(
 		observation.Text = text
 	}
 	if from := config.Observe.TurnsFrom; from != "" {
-		value, err := state.binding(Binding{From: from})
+		value, err := state.binding(ctx, Binding{From: from})
 		if err != nil {
 			return fmt.Errorf("eino: Memory TurnsFrom: %w", err)
 		}

@@ -242,3 +242,16 @@ func TestHistoryTextIsProcessLocalAndSurvivesClone(t *testing.T) {
 		t.Fatalf("semantic metadata leaked into JSON: %s", data)
 	}
 }
+
+func TestInputTextIsProcessLocalAndSurvivesClone(t *testing.T) {
+	chunk := &MessageChunk{InputText: func(context.Context) (string, error) { return "private transcript", nil }}
+	clone := chunk.Clone()
+	got, err := clone.InputText(t.Context())
+	if err != nil || got != "private transcript" {
+		t.Fatalf("cloned input text = %q, %v", got, err)
+	}
+	data, err := json.Marshal(clone)
+	if err != nil || strings.Contains(string(data), "InputText") || strings.Contains(string(data), "private transcript") {
+		t.Fatalf("input text resolver leaked into JSON: %s, %v", data, err)
+	}
+}

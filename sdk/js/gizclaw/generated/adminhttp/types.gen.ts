@@ -2698,6 +2698,10 @@ export type EinoTransformNode = EinoNodeBase & {
 };
 
 export type EinoWorkflowSpec = {
+    /**
+     * auto retains automatic selection for simple prompt/chat graphs. asr sends final recognition text to the graph. model explicitly sends original PTT audio through input.messages, including graphs with functions; input.text waits lazily for the same input's independent ASR result. model requires Profile ASR, audio-capable chat Models, and an input.messages binding; realtime, continue_from and semantic Tool verification are unsupported.
+     */
+    audio_input?: 'auto' | 'asr' | 'model';
     graph: EinoGraph;
     conversation?: EinoConversation;
     limits?: EinoLimits;

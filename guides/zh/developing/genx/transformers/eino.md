@@ -78,11 +78,11 @@ Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，�
 
 ### 音频 turn
 
-宿主通过 `Config.AudioInput` 启用完整音频 turn。原始音频随 `input.messages` 进入 Graph，`input.text` 为空；ChatModel 只生成回复，不负责转写。没有启用时，Transformer 接收上游 ASR 的文本 turn。需要当前话语文字的 Script、Memory recall 或 Tool 语义检查由宿主选择 ASR 文本输入。
+宿主通过 `Config.AudioInput` 启用完整音频 turn。原始音频随 typed `input.messages` 进入 Graph。宿主提供 `InputText(ctx)` callback 时，声明的 `input.text` binding 使用节点 context 在 State 锁外等待同一输入的定稿转写；不依赖文字的回复路径可先流式输出。没有 callback 时，`input.text` 为空。ChatModel 只生成回复，不负责转写。没有启用音频 turn 时，Transformer 接收上游 ASR 的文本 turn。
 
 音频 MIME EOS 启动当前轮；随后同一输入的成功纯控制 EOS 被消费。新音频 route 打断上一轮，`interrupted` EOS 丢弃该轮，其他错误沿 Stream 传播。每个 Blob 保留为当前 user message 的一个音频 part。音频 turn 中以 `input.text` 为 query 的 recall 跳过；有独立文本 query 的 recall 仍可执行。
 
-ASR、用户 transcript 和用户原音记录由外层 [AudioDock](../agentkit#audio-dock) 与宿主 History 管理。Eino 不发布用户转写，也不额外发起模型转写请求。GizClaw 的 factory 为可直接消费音频的 PTT 图启用音频输入；需要文字的图及连续 realtime 输入使用独立 ASR 的最终文本。
+ASR、用户 transcript 和用户原音记录由外层 [AudioDock](../agentkit#audio-dock) 与宿主 History 管理。Eino 不发布用户转写，也不额外发起模型转写请求。GizClaw 的 `spec.eino.audio_input` 选择 `auto`、`asr` 或 `model`。显式 `model` 通过 callback 支持带文本依赖函数的 PTT 图；省略或 `auto` 保留自动选择，连续 realtime 使用 ASR 文本路径。
 
 ### Match
 
@@ -194,6 +194,10 @@ Subgraph 只执行一次 nested Graph。名为 `text`、`messages`、`parts` 的
 `Outputs` 是唯一的 publication allow-list。每项指定一个 node 产生的 string 或 blob State field、route name 与 MIME type。Name 和 node-field source 必须唯一，并且恰好有一个 primary output。
 
 `Compile.PrimaryOutputMode` 默认为 `fixed`，所有成功路径必须经过指定的 primary node。设置 `first_output` 时，本轮第一个实际发布的 output 成为 primary；只有实际执行的 output 才发出 BOS/EOS，保留配置的 Name 并使用 `assistant` label。空字符串是合法发布；没有发布的路径以错误结束，即使 State 中仍有旧值。其他已执行 output 先结束，primary EOS 最后结束。History 与 Memory 使用所有已交付 output 的文本，并等待这些 output 的交付边界。
+
+`Config.AudioInput` 保留原音于 `input.messages`。AudioDock 提供 `MessageChunk.InputText` 时，`input.text` 在实际读取的节点中按需等待同一输入的独立定稿转写；不读取它的回复路径可以先流式发布。绑定等待使用节点当前 context，不持有 State 锁，取消的 child 不会阻塞其他分支。命名 Lambda 也在独立的准备节点解析绑定，仅短暂访问 Eino 的框架 State，不在其 handler 内等待转写。转写不替换原音消息，也不创建第二个用户 turn。调用方未提供 callback 时，原音 turn 的 `input.text` 仍为空。
+
+原音消息应通过 typed `input.messages` 或 Prompt placeholder 直达 ChatModel。Script 的消息视图是文本投影；不要把它的 messages 输出当成原音透传。函数只绑定需要的 `input.text`，回复模型仍绑定原音消息。
 
 语音输入经 Audio Dock 排除带 `StreamCtrl.TextInterim` 的中间假设，只聚合定稿文本内容。普通文本和一轮内多个定稿段仍按原顺序追加；仅中间结果的 interrupted route 不启动 Graph，也不写 user History。
 

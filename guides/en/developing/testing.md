@@ -117,6 +117,16 @@ Integrity checks apply to delivered logical audio; script `quality` checks conte
 
 The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
 
+### Original-audio Docker Giztest with text dependencies
+
+```sh
+bash tests/gizclaw-e2e/run_native_audio_functions_tests.sh
+```
+
+The entry reads `tests/gizclaw-e2e/.env`, or `GIZCLAW_E2E_CREDENTIAL_FILE`, and runs real Doubao Seed 2.1 Lite original-audio input with thinking disabled through isolated local Docker Server and Edge routes. Each route exercises pre-response and post-response text dependencies. A `completion: first_response` probe drains output during input transmission and checks first text within 2 seconds and first audio within 3 seconds, measured after sending input. A separate Workspace then completes two turns with different recordings, requires the `model` input path, checks EOS and audio integrity, compares exact per-turn transcripts and replies with History, and downloads user and reply audio.
+
+Reports retain pacing and underrun observations. Each combination runs independently and contributes its exit status. Ignored `.testbench/native-audio-functions-*` evidence contains source hashes, binary and image identity, reports and replay; the entry cleans its Compose project, private authentication and task CLI. Deterministic delay/cancellation regressions and script-content assessment retain their own gates.
+
 ## Shared History query load
 
 ```sh

@@ -17,7 +17,7 @@ func compileBatch(
 		return nil, err
 	}
 	return func(ctx context.Context, parent *runState) (map[string]any, map[string]bool, error) {
-		value, err := parent.binding(node.Batch.Items)
+		value, err := parent.binding(ctx, node.Batch.Items)
 		if err != nil {
 			return nil, nil, err
 		}

@@ -237,20 +237,20 @@ func TestRunStateAdversarialOwnershipBindingsAndEmission(t *testing.T) {
 		"input.text":      "text",
 		"memory.recalled": "memory",
 	} {
-		got, err := state.binding(Binding{From: source})
+		got, err := state.binding(t.Context(), Binding{From: source})
 		if err != nil || got != want {
 			t.Fatalf("binding(%q) = %#v, %v, want %#v", source, got, err, want)
 		}
 	}
 	for _, source := range []string{"input.messages", "input.parts", "history.messages", "answer"} {
-		if _, err := state.binding(Binding{From: source}); err != nil {
+		if _, err := state.binding(t.Context(), Binding{From: source}); err != nil {
 			t.Fatalf("binding(%q) error = %v", source, err)
 		}
 	}
-	if _, err := state.binding(Binding{From: "missing"}); err == nil {
+	if _, err := state.binding(t.Context(), Binding{From: "missing"}); err == nil {
 		t.Fatal("binding(missing) succeeded")
 	}
-	if _, err := state.nodeInputs(map[string]Binding{"missing": {From: "missing"}}); err == nil {
+	if _, err := state.nodeInputs(t.Context(), map[string]Binding{"missing": {From: "missing"}}); err == nil {
 		t.Fatal("nodeInputs(missing) succeeded")
 	}
 	if err := state.required(); err == nil || !strings.Contains(err.Error(), "required") {

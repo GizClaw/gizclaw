@@ -49,6 +49,18 @@ func TestValidate(t *testing.T) {
 			}
 		}
 	})
+	t.Run("audio input enum", func(t *testing.T) {
+		for _, value := range []apitypes.EinoWorkflowSpecAudioInput{"auto", "asr", "model", "invalid", ""} {
+			spec := cloneSpec(t, valid)
+			spec.AudioInput = &value
+			if err := json.Unmarshal([]byte(`{"id":"answer","type":"chat_model","model":"audio-model","inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"}}`), &spec.Graph.Nodes[0]); err != nil {
+				t.Fatal(err)
+			}
+			if err := Validate(spec); value.Valid() && err != nil || !value.Valid() && err == nil {
+				t.Fatalf("Validate(audio_input=%q) = %v", value, err)
+			}
+		}
+	})
 
 	t.Run("continuation field", func(t *testing.T) {
 		spec := cloneSpec(t, valid)

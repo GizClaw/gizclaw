@@ -768,7 +768,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	// saw first are ignored. Realtime excludes already known response IDs but
 	// still accepts fresh full-duplex output before input finishes.
 	skipEarlierResponses := arrivals.filter != nil
-	if (inputSent || op.Mode == "realtime" || skipEarlierResponses) && next == nil {
+	if (inputSent || firstResponse || op.Mode == "realtime" || skipEarlierResponses) && next == nil {
 		// Realtime output can arrive while input is still being paced. Start
 		// reading before the first input chunk so those arrival timestamps are
 		// not shifted to the end of input; a reader started afterwards drains

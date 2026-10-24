@@ -220,7 +220,7 @@ func TestInputTranscriptionFailureDoesNotExecuteGraph(t *testing.T) {
 
 // The fixture transcribes complete audio turns; AudioDock and the downstream
 // Eino Graph are production components, including their cancellation boundary.
-func transcriptionDock(t testing.TB, agent genx.Transformer, transcribe func(context.Context, []*genx.Blob) (string, error)) *audiodock.Dock {
+func transcriptionDock(t testing.TB, agent genx.Transformer, transcribe func(context.Context, []*genx.Blob) (string, error), native ...bool) *audiodock.Dock {
 	t.Helper()
 	asr := latencyTransformer(func(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 		output := streamkit.NewOutput(streamkit.OutputConfig{})
@@ -250,7 +250,7 @@ func transcriptionDock(t testing.TB, agent genx.Transformer, transcribe func(con
 		}()
 		return output, nil
 	})
-	dock, err := audiodock.New(audiodock.Config{Agent: agent, ASR: asr})
+	dock, err := audiodock.New(audiodock.Config{Agent: agent, ASR: asr, AgentAudioInput: len(native) != 0 && native[0]})
 	if err != nil {
 		t.Fatal(err)
 	}

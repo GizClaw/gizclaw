@@ -1,0 +1,71 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: RuntimeProfile
+      metadata:
+        id: e2e-native-audio-functions
+      spec:
+        workflows:
+          eino-native-audio-functions:
+            resource_id: eino-native-audio-functions
+            i18n:
+              en:
+                display_name: eino-native-audio-functions
+              zh-CN:
+                display_name: eino-native-audio-functions
+            ptt_asr_model: asr
+          eino-native-audio-pre-text:
+            resource_id: eino-native-audio-pre-text
+            i18n:
+              en:
+                display_name: eino-native-audio-pre-text
+              zh-CN:
+                display_name: eino-native-audio-pre-text
+            ptt_asr_model: asr
+        resources:
+          models:
+            asr:
+              resource_id: volc-bigasr-sauc
+              i18n:
+                en:
+                  display_name: asr
+                zh-CN:
+                  display_name: asr
+            audio-llm:
+              resource_id: doubao-lite-audio-chat
+              i18n:
+                en:
+                  display_name: audio-llm
+                zh-CN:
+                  display_name: audio-llm
+            tts:
+              resource_id: volc-bigtts
+              i18n:
+                en:
+                  display_name: tts
+                zh-CN:
+                  display_name: tts
+          voices:
+            narrator:
+              resource_id: volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts
+              i18n:
+                en:
+                  display_name: narrator
+                zh-CN:
+                  display_name: narrator
+            multilingual-voice:
+              resource_id: volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts
+              i18n:
+                en:
+                  display_name: multilingual-voice
+                zh-CN:
+                  display_name: multilingual-voice
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: RegistrationToken
+      metadata:
+        id: e2e-native-audio-functions
+      spec:
+        token: gizclaw-e2e-native-audio-functions
+        runtime_profile_id: e2e-native-audio-functions
