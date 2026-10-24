@@ -2105,7 +2105,7 @@ An additional PTT `input_sent` case advances after partial recognition while aud
 
 The Docker contract layer also checks producer epochs, AudioDock epoch
 preservation, old replies failing to rescue modality deadlines, re-arm error
-EOS for known old IDs, and PTT interruption bookkeeping. It also verifies both control/audio EOS orders, old audio/transcript EOS on ASR replacement, and input-first runtime shutdown progress. GizTunnel regression fills the logical Opus receive queue over a real WebRTC connection while service request/response remains usable, then verifies resumed audio; other direct-packet overflow retains its failure boundary. The transport layer
+EOS for known old IDs, and PTT interruption bookkeeping. It also verifies both control/audio EOS orders, old audio/transcript EOS on ASR replacement, completed final sends surviving a concurrent session close, and input-first runtime shutdown progress. GizTunnel regression fills the logical Opus receive queue over a real WebRTC connection while service request/response remains usable, then verifies resumed audio; other direct-packet overflow retains its failure boundary. The transport layer
 also runs native audio History and continuous podcast regressions. Epoch
 metadata remains in-process, so wire output is not a direct epoch identity
 assertion.

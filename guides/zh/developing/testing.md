@@ -1885,7 +1885,7 @@ PTT 保留订阅是内部 contract 测试的控制组，不是 Giztest 文档公
 额外的 PTT `input_sent` 场景在已有部分定稿、但音频终止仍在排空时发送下一轮 BOS，要求旧 History route 收尾后，新一轮得到正确回复。PTT 协议夹具在 audio EOS 前发布 definite 文本，并在 final marker 后 350 ms 确认结束。
 
 Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、旧回复不能
-解除首包 deadline、re-arm 的旧 ID 错误 EOS，以及 PTT 中断统计。同时验证 control/audio EOS 两种顺序、被替换 ASR 输入的音频与转写 EOS，以及 input 先于 output 的关闭进度。GizTunnel 回归在真实 WebRTC service channel 上填满逻辑 Opus 接收队列，验证 RPC 类请求／响应仍可完成，消费恢复后继续接收音频；其他 direct packet 的溢出失败边界保持原样。传输层同时执行
+解除首包 deadline、re-arm 的旧 ID 错误 EOS，以及 PTT 中断统计。同时验证 control/audio EOS 两种顺序、被替换 ASR 输入的音频与转写 EOS、最终发送已完成但 session 同时结束的并发顺序，以及 input 先于 output 的关闭进度。GizTunnel 回归在真实 WebRTC service channel 上填满逻辑 Opus 接收队列，验证 RPC 类请求／响应仍可完成，消费恢复后继续接收音频；其他 direct packet 的溢出失败边界保持原样。传输层同时执行
 原生音频 History 与连续播讲回归；epoch metadata 本身只在进程内传递，不把 wire
 输出当作 epoch identity 的直接验证。
 

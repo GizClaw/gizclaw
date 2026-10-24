@@ -42,6 +42,8 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 收到显式 audio EOS 后，`doubaoasr.Transformer` 最多等待 provider finalization 一分钟。Provider 始终静默时，transformer 会关闭该 provider session，并以 `doubao asr: finalization timeout` 错误结束 output stream，而不是继承 caller 更长的生命周期 deadline。
 
+最后一包音频已经完成发送时，并发的 provider session 结束保留这次发送结果，正常识别仍发送 transcript EOS。真实的 provider 发送失败和 session 结束后才开始的发送继续返回各自错误。
+
 已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。输入替换的 `interrupted` EOS 结束旧 route，并继续处理新输入，不触发恢复重试。除此之外，下述一次恢复范围之外的 provider、protocol、调用 context 取消、malformed-audio、unsupported-format failure 和 timeout 继续传播错误。
 
 对于 PCM 输入，ASR 会在当前 provider session 内聚合较小的实时 frame，直到达到配置的 packet size；缺省为 100 ms（16 kHz、mono、signed 16-bit PCM 对应 `3200` bytes）。完整 packet 会立即按顺序发送，显式 audio EOS 把剩余 PCM 恰好发送一次并标记为 final；精确 packet boundary 使用既有空 terminal marker，不重复音频。压缩音频保持原始 packet boundary 和 final-packet 行为。Session cleanup 只清除本 session 的空 buffer，因此音频不会跨 audio route 或 replacement session。显式 route EOS 后 outer Transformer stream 仍保持打开，下一条 audio route 创建 replacement session 并独立绑定 transcript。Continuous ASR finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；一次恢复范围之外的 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
