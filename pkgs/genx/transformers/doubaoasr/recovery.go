@@ -115,7 +115,14 @@ func (s *recoveringSession) SendAudio(ctx context.Context, data []byte, last boo
 	case err := <-request.done:
 		return err
 	case <-s.done:
-		return s.sendError()
+		// The worker publishes an accepted send before closing done. Both
+		// may be ready when provider finalization completes immediately.
+		select {
+		case err := <-request.done:
+			return err
+		default:
+			return s.sendError()
+		}
 	case <-ctx.Done():
 		return ctx.Err()
 	}

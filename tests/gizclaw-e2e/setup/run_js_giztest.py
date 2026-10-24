@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Run JS scenario documents in separate native WebRTC process lifetimes."""
+"""Run JS or Flutter documents in separate native WebRTC process lifetimes."""
 
+import argparse
 import concurrent.futures
 import datetime
 import json
@@ -11,10 +12,11 @@ import tempfile
 import time
 
 
-def run_document(document, report_path, runner):
+def run_document(document, report_path, runner, executable=None):
     started = time.monotonic()
-    command = ["node", "--experimental-strip-types", str(runner), "run",
-               str(document), "--parallel", "1", "--output", str(report_path)]
+    command = ([str(executable)] if executable is not None else
+               ["node", "--experimental-strip-types", str(runner)])
+    command += ["run", str(document), "--parallel", "1", "--output", str(report_path)]
     try:
         result = subprocess.run(command, capture_output=True, text=True, timeout=600)
         sys.stdout.write(result.stdout)
@@ -47,8 +49,15 @@ def run_document(document, report_path, runner):
 
 
 def main(arguments):
-    output = pathlib.Path(arguments[0]).resolve()
-    documents = [pathlib.Path(item).resolve() for item in arguments[1:]]
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--executable", type=pathlib.Path,
+                        help="native Flutter Giztest executable instead of the Node runner")
+    parser.add_argument("output", type=pathlib.Path)
+    parser.add_argument("documents", type=pathlib.Path, nargs="+")
+    options = parser.parse_args(arguments)
+    output = options.output.resolve()
+    documents = [item.resolve() for item in options.documents]
+    executable = options.executable.resolve() if options.executable is not None else None
     runner = pathlib.Path(__file__).resolve().parent.parent / "js/giztest/index.ts"
     started = time.monotonic()
     started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
@@ -58,7 +67,7 @@ def main(arguments):
     with tempfile.TemporaryDirectory(prefix="gizclaw-js-scenarios-") as temporary:
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             pending = [executor.submit(run_document, document,
-                       pathlib.Path(temporary) / f"{index}.json", runner)
+                       pathlib.Path(temporary) / f"{index}.json", runner, executable)
                        for index, document in enumerate(documents)]
             for future in concurrent.futures.as_completed(pending):
                 tasks.extend(future.result())

@@ -943,6 +943,7 @@ Explicit zero CLI overrides provide a lockstep control with the same document.
 The Flutter runner is a desktop binary rather than a plain Dart CLI because the
 device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
 builds and runs it on macOS and Linux and skips it on other hosts.
+On macOS the runner starts as a background application. Its Flutter engine and native WebRTC plugin remain active without showing a window or Dock icon, or taking foreground focus.
 
 Every runner projects an `rpc` step response to proto3 JSON with proto field
 names: `int64` and `uint64` fields are strings, and implicit-presence fields
@@ -1156,14 +1157,32 @@ alternative. `require_text` and `require_audio` select its required modalities
 and both default to true. Every required modality needs its corresponding
 positive `first_text_timeout` or `first_audio_timeout` Go duration; a disabled
 modality omits its deadline, and at least one modality must remain required.
-The deadlines start only after the whole turn input has been pushed. The runner
-succeeds and closes that logical stream as soon as it has observed the first
+PTT deadlines start after input is pushed. Realtime starts its response clock
+after the last speech packet, before tail silence finishes; reading and input
+pacing remain concurrent. The runner succeeds after input has been sent and it
+has observed the first
 assistant content for every required modality (a non-empty text fragment, or
 the first audible audio frame); it does not wait for
 either EOS. A missing required modality fails with
 `deadline=first_text_timeout` or `deadline=first_audio_timeout`. This completion
 cannot be combined with `interrupt_after`, `terminal_label`, or
 `wait_for_history`.
+
+Only eligible assistant output contributes to an audio turn's first response
+and deadline rescue. PTT reads before input and excludes responses first seen
+before the first input EOS write, including those responses' later packets and
+terminal events. Recent response IDs are scoped to the task and client, survive
+logical stream close/reopen, and cover a retained session's queued output.
+Realtime also excludes known earlier responses, while allowing fresh replies
+to arrive during paced input and report zero latency. The two-turn runtime
+regressions for both subscription lifecycles are in
+`cmd/internal/commands/giztest/peer_stream_conversation_test.go`.
+
+For `interrupt_after`, a response already admitted by the operation still updates
+interruption bookkeeping and reports terminal errors after the replacement PTT
+input excludes its later payload. The stricter `await_rearm` contract checks all
+assistant error EOS before ownership filtering, including known earlier IDs.
+
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets
 it on every received chunk regardless of label, re-arms it after an
@@ -2066,6 +2085,39 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
+## Audio turn ownership Docker regressions
+
+```sh
+bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+```
+
+The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR, AgentHost and GizTunnel
+package race tests and consecutive audio turns through real Server, Edge and
+WebRTC. Local HTTP and SAUC WebSocket fixtures replace remote ASR, model and
+TTS services while retaining the production adapters; Provider credentials are
+not required. An HTTP barrier releases an earlier opening tail before two
+audio inputs must receive their own replies. The transport cases cover the
+publicly supported PTT reopen, realtime reopen and retained realtime session.
+A retained PTT subscription is an internal contract-test control, not a
+supported Giztest document mode.
+
+An additional PTT `input_sent` case advances after partial recognition while audio termination is still draining. The previous History routes must retire and the next input must receive its own reply. The PTT protocol fixture publishes definite text before audio EOS and acknowledges the final marker after 350 ms.
+
+The Docker contract layer also checks producer epochs, AudioDock epoch
+preservation, old replies failing to rescue modality deadlines, re-arm error
+EOS for known old IDs, and PTT interruption bookkeeping. It also verifies both control/audio EOS orders, old audio/transcript EOS on ASR replacement, completed final sends surviving a concurrent session close, and input-first runtime shutdown progress. GizTunnel regression fills the logical Opus receive queue over a real WebRTC connection while service request/response remains usable, then verifies resumed audio; other direct-packet overflow retains its failure boundary. The transport layer
+also runs native audio History and continuous podcast regressions. Epoch
+metadata remains in-process, so wire output is not a direct epoch identity
+assertion.
+
+The runner uses an internal Docker network, read-only source/module mounts and
+a separate build cache, and removes its container and network on exit. Image
+identity, architecture, source hashes, Go JSON results and Giztest reports are
+retained under `.testbench/audio-turn-ownership-*/reports/`. Both the standard
+`tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
+lane. The standard full entry point continues with real Provider suites;
+retain their evidence separately from the deterministic fixtures.
+
 ## Continuous narration and per-section History Giztest
 
 Run from the repository root:
@@ -2489,6 +2541,10 @@ Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMe
 
 ## Generic device management Giztests
 
+The standard Docker entry point gives each JavaScript and Flutter document its own native process, with
+at most four processes running together. Each document executes completely; process exit and report
+status must agree, and a 600-second external process limit bounds native calls.
+
 `tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
 credentials. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
 arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
@@ -2496,6 +2552,10 @@ scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed att
 instances. KV cases cover nested JSON/null/false/zero, Runtime/status/RPC, updates/deletes/replays/reconnects,
 64-key and total-byte storage quotas, exact 4096-byte frames, 1024-byte values, 64-byte keys, two-device isolation and charged tombstones. They poll state after sending, rather than treating send as
 persistence acknowledgement.
+
+The standard `run_tests.sh` full entry point also runs this lane. Instance, NFC control and invalid-response
+documents requiring its Modem/NFC manifest, and the Monitor document requiring its signed credentials,
+execute here. The ordinary Docker SDK/provider phases run documents supported by their shared Profile.
 
 Go/JS/C/Flutter run the common control contracts. Go/JS/C send actual KV packets; Flutter retains its existing
 no-telemetry-sender boundary. Stateful MHS simulation runs on Go. Every selected step and cleanup must pass;

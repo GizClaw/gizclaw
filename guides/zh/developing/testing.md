@@ -927,6 +927,7 @@ Go/C 共享基于 seed 的启动 jitter、stagger 与步骤 think time；JavaScr
 
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
+macOS runner 作为后台应用启动，保留 Flutter engine 和原生 WebRTC plugin，但不显示窗口、Dock 图标或抢占前台焦点。
 
 所有 runner 都把 `rpc` step 的响应投影为使用 proto 字段名的 proto3 JSON：`int64` /
 `uint64` 字段输出为字符串，处于默认值的 implicit-presence 字段（标量、枚举、repeated 与
@@ -1144,6 +1145,19 @@ realtime 在发送期间持续消费输出；所有必需模态的第一段 assi
 计时起点之前到达的内容按零延迟记录。interrupt 的替换输入也在发送期间持续消费输出。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
+
+音频 turn 只把本轮可接受的 assistant 输出计入首包和完成条件。runner 在 PTT
+输入前启动读取，以首个输入 EOS 写入前的时刻识别先前回复；这些回复的后续包和
+终止事件也不计入当前 turn，不能解除当前首包超时。同一个 task/client 的近期回复
+ID 跨逻辑 stream 关闭重开保留，保留 session 时也覆盖已经排队的旧输出。
+Realtime 同样排除已知的先前回复，但允许新的回复在输入仍然发送时到达；这种有效
+的提前回复可以记录为零延迟。两轮及两种订阅方式的运行时回归见
+`cmd/internal/commands/giztest/peer_stream_conversation_test.go`。
+
+`interrupt_after` 中，本步骤已经接纳的回复即使在替换 PTT 输入后被排除后续 payload，
+仍须更新中断统计并检查终止错误。`await_rearm` 使用更严格的规则：在归属过滤之前
+检查所有 assistant 错误 EOS，包括已知先前回复的 ID。
+
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以
@@ -1855,6 +1869,32 @@ git lfs fsck
 ```
 
 
+## 音频轮次归属 Docker 回归
+
+```sh
+bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+```
+
+入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino、Doubao ASR、AgentHost 和 GizTunnel package 的 race
+测试，以及真实 Server、Edge、WebRTC 的两轮音频回归。远端 ASR、模型和 TTS 使用
+本地 HTTP／SAUC WebSocket 协议夹具，仍经过生产 adapter；不需要 Provider 凭据。
+夹具先返回开场文字，再通过 HTTP barrier 释放旧回复尾部，随后要求两次音频输入
+各自得到正确回复。覆盖公开支持的 PTT 重开、realtime 重开和 realtime 保留 session。
+PTT 保留订阅是内部 contract 测试的控制组，不是 Giztest 文档公开支持的模式。
+
+额外的 PTT `input_sent` 场景在已有部分定稿、但音频终止仍在排空时发送下一轮 BOS，要求旧 History route 收尾后，新一轮得到正确回复。PTT 协议夹具在 audio EOS 前发布 definite 文本，并在 final marker 后 350 ms 确认结束。
+
+Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、旧回复不能
+解除首包 deadline、re-arm 的旧 ID 错误 EOS，以及 PTT 中断统计。同时验证 control/audio EOS 两种顺序、被替换 ASR 输入的音频与转写 EOS、最终发送已完成但 session 同时结束的并发顺序，以及 input 先于 output 的关闭进度。GizTunnel 回归在真实 WebRTC service channel 上填满逻辑 Opus 接收队列，验证 RPC 类请求／响应仍可完成，消费恢复后继续接收音频；其他 direct packet 的溢出失败边界保持原样。传输层同时执行
+原生音频 History 与连续播讲回归；epoch metadata 本身只在进程内传递，不把 wire
+输出当作 epoch identity 的直接验证。
+
+runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
+清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
+报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
+`tests/gizclaw-e2e/run_tests.sh` 和 CI 的 Audioplayer job 均执行此入口；标准全量入口
+随后继续运行真实 Provider 套件，二者的证据应分别保留。
+
 ## 连续播讲与逐段 History Giztest
 
 在仓库根目录执行：
@@ -2268,9 +2308,14 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 原生 SDK 场景失败时，JavaScript 报告保留各 provider 的调用次数和最后 64 个反向 RPC
 通道事件，只记录通道 ID、状态和消息字节数，不保存请求或响应内容。Flutter 报告保留
 provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍使测试失败，同时保留原始步骤错误。
+标准 Docker 入口让 JavaScript 和 Flutter 的每个文档使用独立原生进程，同时最多运行四个进程。
+每个文档完整执行；进程退出状态与报告必须一致，600 秒的外部进程上限保护原生调用的结束边界。
 
 `tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
 凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
+标准 `run_tests.sh` full 入口也执行此 lane。需要独立 Modem/NFC manifest 的实例、NFC 控制、
+无效响应场景和需要专有签名凭据的 Monitor 场景由这里执行；普通 Docker 栈的 SDK/Provider
+阶段运行其共享 Profile 支持的文档。
 每轮重新建立连接和 RPC 通道，覆盖原生通道创建时的帧交付边界。`TestDeviceManagementGiztestsGo` 包含：
 
 - `server.device.management.{control,rejected,unsupported,invalid_response,validation}`：所有 11 个

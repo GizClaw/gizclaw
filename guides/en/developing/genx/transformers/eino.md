@@ -28,6 +28,13 @@ transformer, err := eino.New(ctx, eino.Config{
 
 An empty `Agent.ContextID` creates one opaque identity during `New`. That identity is stable for the Transformer lifetime. Each turn still receives fresh invocation, run, and output Stream identities.
 
+Each output route receives an immutable `ResponseEpoch` when its turn starts,
+bound to that turn's input StreamID. A lazily created `first_output` route uses
+that preallocated epoch too. Content and terminal events keep the same epoch,
+so a consumer observing the first chunk after replacement input can still
+identify the original owner. Initiative without an input route remains unowned.
+This metadata stays inside the process.
+
 ## Graph contract
 
 `GraphDefinition` combines State, nodes, routing, and outputs.
