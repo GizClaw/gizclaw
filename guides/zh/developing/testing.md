@@ -2305,9 +2305,14 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 原生 SDK 场景失败时，JavaScript 报告保留各 provider 的调用次数和最后 64 个反向 RPC
 通道事件，只记录通道 ID、状态和消息字节数，不保存请求或响应内容。Flutter 报告保留
 provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍使测试失败，同时保留原始步骤错误。
+标准 Docker 入口让 JavaScript 和 Flutter 的每个文档使用独立原生进程，同时最多运行四个进程。
+每个文档完整执行；进程退出状态与报告必须一致，600 秒的外部进程上限保护原生调用的结束边界。
 
 `tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
 凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
+标准 `run_tests.sh` full 入口也执行此 lane。需要独立 Modem/NFC manifest 的实例、NFC 控制、
+无效响应场景和需要专有签名凭据的 Monitor 场景由这里执行；普通 Docker 栈的 SDK/Provider
+阶段运行其共享 Profile 支持的文档。
 每轮重新建立连接和 RPC 通道，覆盖原生通道创建时的帧交付边界。`TestDeviceManagementGiztestsGo` 包含：
 
 - `server.device.management.{control,rejected,unsupported,invalid_response,validation}`：所有 11 个

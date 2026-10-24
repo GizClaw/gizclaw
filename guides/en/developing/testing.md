@@ -2538,6 +2538,10 @@ Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMe
 
 ## Generic device management Giztests
 
+The standard Docker entry point gives each JavaScript and Flutter document its own native process, with
+at most four processes running together. Each document executes completely; process exit and report
+status must agree, and a 600-second external process limit bounds native calls.
+
 `tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
 credentials. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
 arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
@@ -2545,6 +2549,10 @@ scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed att
 instances. KV cases cover nested JSON/null/false/zero, Runtime/status/RPC, updates/deletes/replays/reconnects,
 64-key and total-byte storage quotas, exact 4096-byte frames, 1024-byte values, 64-byte keys, two-device isolation and charged tombstones. They poll state after sending, rather than treating send as
 persistence acknowledgement.
+
+The standard `run_tests.sh` full entry point also runs this lane. Instance, NFC control and invalid-response
+documents requiring its Modem/NFC manifest, and the Monitor document requiring its signed credentials,
+execute here. The ordinary Docker SDK/provider phases run documents supported by their shared Profile.
 
 Go/JS/C/Flutter run the common control contracts. Go/JS/C send actual KV packets; Flutter retains its existing
 no-telemetry-sender boundary. Stateful MHS simulation runs on Go. Every selected step and cleanup must pass;

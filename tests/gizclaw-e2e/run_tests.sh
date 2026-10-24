@@ -384,8 +384,20 @@ run_js_rpc_tests() {
 # and script Workflow. Slow TTS scenarios require the provider-only build
 # overlay. Keep both out of unrelated provider/SDK environments.
 # Quota documents require setup/run-quota.sh's tokens and provider fixtures.
+filter_shared_stack_giztests() {
+	local file
+	while IFS= read -r file; do
+		case "$(basename "$file")" in
+			server.device.mhs.management.instances.giztest.yaml | server.device.mhs.management.invalid_response.giztest.yaml | server.device.mhs.nfc.control.giztest.yaml | server.device.monitor.signed.giztest.yaml)
+				echo "==> dedicated device-management fixture: $(basename "$file")" >&2
+				;;
+			*) printf '%s\n' "$file" ;;
+		esac
+	done
+}
+
 standard_sdk_giztest_files() {
-	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -path "$script_dir/giztest/quota/*" ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort
+	find "$script_dir/giztest" -type f -name '*.giztest.yaml' ! -path "$script_dir/giztest/quota/*" ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' ! -name 'failure-cleanup.giztest.yaml' -print | sort | filter_shared_stack_giztests
 }
 
 run_js_giztest() {
@@ -423,7 +435,7 @@ run_flutter_giztest() {
 		Linux) (cd "$package_dir" && flutter build linux --release) ;;
 	esac
 	echo "==> $binary run"
-	"$binary" run "${files[@]}" --parallel 4 --output "$report"
+	python3 -B "$setup_dir/run_js_giztest.py" --executable "$binary" "$report" "${files[@]}"
 }
 
 run_standard_giztest() {
@@ -459,7 +471,7 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 		files+=("$file")
 	done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort
+			! -name 'benchmark.*' ! -name 'review.*' ! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort | filter_shared_stack_giztests
 	)
 	files+=(
 		"$giztest_dir/benchmark.doubao-realtime-conversation.concurrency-1.giztest.yaml"
@@ -495,7 +507,7 @@ run_c_giztest() {
 	# failure, so it is excluded here the way run_standard_giztest excludes it.
 	while IFS= read -r file; do files+=("$file"); done < <(
 		find "$script_dir/giztest" -maxdepth 1 -type f -name '*.giztest.yaml' \
-			! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort
+			! -name 'failure-cleanup.giztest.yaml' ! -name 'server.monitor.*' ! -name 'sfu.*' ! -name 'slow-tts.*' ! -name 'speaker-segments.*' -print | sort | filter_shared_stack_giztests
 	)
 	local -a validate_args=()
 	local file
@@ -560,6 +572,7 @@ run_timed "preflight:nanopb" prepare_nanopb
 run_timed "preflight:host-cli" build_host_cli
 run_timed "preflight:c-giztest-runner" build_c_giztest_runner
 
+run_suite_phase "sdk:device-management" bash "$script_dir/run_device_management_tests.sh"
 run_suite_phase "docker:audio-turn-ownership" bash "$script_dir/run_audio_turn_ownership_tests.sh"
 
 stack_started=1

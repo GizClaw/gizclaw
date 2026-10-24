@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 """Ensure native-runner failures cannot become successful aggregate reports."""
 
+import contextlib
 import importlib.util
+import io
 import json
 import pathlib
 import subprocess
 import tempfile
+import textwrap
 import unittest.mock
 
 SPEC = importlib.util.spec_from_file_location(
@@ -47,6 +50,36 @@ class ScenarioProcessTest(unittest.TestCase):
 
     def test_success_remains_success(self):
         self.assertEqual(self.execute("passed", 0)[0]["status"], "passed")
+
+    def test_native_documents_use_distinct_processes_and_preserve_failure(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = pathlib.Path(temporary)
+            executable = root / "native-runner"
+            executable.write_text(textwrap.dedent("""\
+                #!/usr/bin/env python3
+                import json, os, pathlib, sys
+                document = pathlib.Path(sys.argv[2])
+                output = pathlib.Path(sys.argv[sys.argv.index('--output') + 1])
+                status = 'failed' if document.name.startswith('failure') else 'passed'
+                pathlib.Path(__file__).with_name(str(os.getpid()) + '.pid').write_text(str(document))
+                output.write_text(json.dumps({'version': 'v1', 'status': status,
+                    'tasks': [{'path': str(document), 'repeat_index': 0,
+                               'status': status, 'error': 'native failure' if status == 'failed' else ''}]}))
+                sys.exit(4 if status == 'failed' else 0)
+                """))
+            executable.chmod(0o700)
+            output = root / "combined.json"
+            with contextlib.redirect_stdout(io.StringIO()):
+                result = runner.main(["--executable", str(executable), str(output),
+                                      str(root / "success.giztest.yaml"),
+                                      str(root / "failure.giztest.yaml")])
+            self.assertEqual(result, 4)
+            report = json.loads(output.read_text())
+            self.assertEqual(report["status"], "failed")
+            self.assertEqual(len(report["tasks"]), 2)
+            failed = [task for task in report["tasks"] if task["status"] == "failed"]
+            self.assertEqual(failed[0]["error"], "native failure")
+            self.assertEqual(len(list(root.glob("*.pid"))), 2)
 
 
 if __name__ == "__main__":
