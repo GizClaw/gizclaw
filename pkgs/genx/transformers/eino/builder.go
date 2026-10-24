@@ -77,16 +77,40 @@ func buildGraph(ctx context.Context, config *normalizedConfig, definition GraphD
 			if err := validateResolvedLambda(node, resolved, fields); err != nil {
 				return nil, err
 			}
-			pre := compose.WithStatePreHandler(func(ctx context.Context, _ map[string]any, state *runState) (map[string]any, error) {
+			component := compose.NewGraph[map[string]any, map[string]any](compose.WithGenLocalState(func(ctx context.Context) *runState {
+				state, _ := ctx.Value(runStateContextKey{}).(*runState)
+				return state
+			}))
+			prepare := compose.InvokableLambda(func(ctx context.Context, _ map[string]any) (map[string]any, error) {
+				state, err := graphState(ctx)
+				if err != nil {
+					return nil, err
+				}
 				return state.nodeInputs(ctx, node.Inputs)
 			})
-			post := compose.WithStatePostHandler(func(ctx context.Context, output map[string]any, state *runState) (map[string]any, error) {
+			finish := compose.InvokableLambda(func(ctx context.Context, output map[string]any) (map[string]any, error) {
+				state, err := graphState(ctx)
+				if err != nil {
+					return nil, err
+				}
 				if err := state.writeNodeOutputs(node, output, outputs[node.ID], nil); err != nil {
 					return nil, err
 				}
 				return map[string]any{node.ID: true}, nil
 			})
-			if err := graph.AddLambdaNode(node.ID, resolved.Lambda, pre, post); err != nil {
+			if err := component.AddLambdaNode("prepare", prepare); err != nil {
+				return nil, err
+			}
+			if err := component.AddLambdaNode("component", resolved.Lambda); err != nil {
+				return nil, err
+			}
+			if err := component.AddLambdaNode("finish", finish); err != nil {
+				return nil, err
+			}
+			if err := addNativeEdges(component); err != nil {
+				return nil, err
+			}
+			if err := graph.AddGraphNode(node.ID, component, compose.WithGraphCompileOptions(compose.WithGraphName(path+"."+node.ID))); err != nil {
 				return nil, fmt.Errorf("eino: add Lambda node %q: %w", node.ID, err)
 			}
 			continue

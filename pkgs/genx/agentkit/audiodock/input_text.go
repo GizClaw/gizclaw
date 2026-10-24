@@ -67,6 +67,14 @@ func (texts *inputTexts) append(chunk *genx.MessageChunk) {
 	}
 }
 
+// interrupt releases pending recognition before forwarding a replacement BOS,
+// including text and control inputs that never create an audio promise.
+func (texts *inputTexts) interrupt() {
+	texts.mu.Lock()
+	defer texts.mu.Unlock()
+	texts.finishLocked(errors.New("interrupted"))
+}
+
 func (texts *inputTexts) close(err error) {
 	texts.mu.Lock()
 	defer texts.mu.Unlock()

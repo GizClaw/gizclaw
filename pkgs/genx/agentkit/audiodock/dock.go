@@ -1503,6 +1503,9 @@ func (r *inputRouter) routeInput() {
 			inputEnded = inputEnded || chunk.IsEndOfStream()
 		}
 		if chunk.IsBeginOfStream() {
+			if r.agentAudio {
+				r.inputTexts.interrupt()
+			}
 			audioEnded = false
 			if chunk.Part == nil {
 				announcedAudioID, audioAnnounced = dockStreamID(chunk), true

@@ -190,7 +190,7 @@ Subgraph 只执行一次 nested Graph。名为 `text`、`messages`、`parts` 的
 
 `Compile.PrimaryOutputMode` 默认为 `fixed`，所有成功路径必须经过指定的 primary node。设置 `first_output` 时，本轮第一个实际发布的 output 成为 primary；只有实际执行的 output 才发出 BOS/EOS，保留配置的 Name 并使用 `assistant` label。空字符串是合法发布；没有发布的路径以错误结束，即使 State 中仍有旧值。其他已执行 output 先结束，primary EOS 最后结束。History 与 Memory 使用所有已交付 output 的文本，并等待这些 output 的交付边界。
 
-`Config.AudioInput` 保留原音于 `input.messages`。AudioDock 提供 `MessageChunk.InputText` 时，`input.text` 在实际读取的节点中按需等待同一输入的独立定稿转写；不读取它的回复路径可以先流式发布。绑定等待使用节点当前 context，不持有 State 锁，取消的 child 不会阻塞其他分支。转写不替换原音消息，也不创建第二个用户 turn。调用方未提供 callback 时，原音 turn 的 `input.text` 仍为空。
+`Config.AudioInput` 保留原音于 `input.messages`。AudioDock 提供 `MessageChunk.InputText` 时，`input.text` 在实际读取的节点中按需等待同一输入的独立定稿转写；不读取它的回复路径可以先流式发布。绑定等待使用节点当前 context，不持有 State 锁，取消的 child 不会阻塞其他分支。命名 Lambda 也在独立的准备节点解析绑定，仅短暂访问 Eino 的框架 State，不在其 handler 内等待转写。转写不替换原音消息，也不创建第二个用户 turn。调用方未提供 callback 时，原音 turn 的 `input.text` 仍为空。
 
 原音消息应通过 typed `input.messages` 或 Prompt placeholder 直达 ChatModel。Script 的消息视图是文本投影；不要把它的 messages 输出当成原音透传。函数只绑定需要的 `input.text`，回复模型仍绑定原音消息。
 
