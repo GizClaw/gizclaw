@@ -2313,6 +2313,7 @@ provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍�
 
 `tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
 凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
+设备管理和 Peer control 的本地 Edge fixture 为 HTTP TCP 与 ICE UDP 选择同一个端口，选择前同时检查两种协议可绑定；TCP 空闲本身不能证明 UDP 也空闲。
 标准 `run_tests.sh` full 入口也执行此 lane。需要独立 Modem/NFC manifest 的实例、NFC 控制、
 无效响应场景和需要专有签名凭据的 Monitor 场景由这里执行；普通 Docker 栈的 SDK/Provider
 阶段运行其共享 Profile 支持的文档。

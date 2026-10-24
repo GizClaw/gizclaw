@@ -2546,7 +2546,7 @@ at most four processes running together. Each document executes completely; proc
 status must agree, and a 600-second external process limit bounds native calls.
 
 `tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
-credentials. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
+credentials. Device management and Peer control Edge fixtures select one port for HTTP TCP and ICE UDP, checking that both protocols can bind before startup. An available TCP port alone does not establish UDP availability. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
 arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
 scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed attempts and independent
 instances. KV cases cover nested JSON/null/false/zero, Runtime/status/RPC, updates/deletes/replays/reconnects,

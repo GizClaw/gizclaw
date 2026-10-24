@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -176,14 +175,8 @@ func withPeerControlServerTimeout(t *testing.T, channelsPerSession int, timeout 
 
 func startPeerSyncGiztestEdge(t *testing.T, ctx context.Context, key *giznet.KeyPair, serverURL string, serverKey giznet.PublicKey, channelsPerSession int) string {
 	t.Helper()
-	probe, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	address := probe.Addr().String()
-	if err := probe.Close(); err != nil {
-		t.Fatal(err)
-	}
+	// The gateway uses this port for both HTTP TCP and ICE UDP.
+	address := localTCPUDPAddr(t)
 	root := t.TempDir()
 	config := fmt.Sprintf("identity:\n  private-key: %s\nwebrtc:\n  listen: %s\n  endpoint: %s\nupstreams:\n  - endpoint: %s\n    public-key: %s\nhttp:\n  listeners:\n    - listen: %s\ngateway:\n  enabled: true\n  max-sessions: 8\n  max-upstreams: 1\n  sessions-per-upstream: 8\n  channels-per-session: %d\n  channels-per-upstream: %d\n  max-pending-handshakes: 8\n  session-buffer-bytes: 1048576\n  idle-timeout: 1m\n  drain-timeout: 1s\n", key.Private.String(), address, address, serverURL, serverKey.String(), address, channelsPerSession, 4*channelsPerSession)
 	if err := os.WriteFile(filepath.Join(root, "config.yaml"), []byte(config), 0o600); err != nil {
