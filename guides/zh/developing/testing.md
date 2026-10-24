@@ -652,7 +652,7 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 
 ## GizClaw Docker E2E
 
-完整入口在预检中构建 Go CLI 并实际执行 `--help`，随后由 CLI suite 运行真实命令。SDK harness 的 setup Server 就绪检查直接复用 Go SDK 的 context 连接，在原就绪预算内验证已认证的 Peer HTTP 与 RPC Ping；它不把额外 CLI 子进程的启动耗时计为 Server 不可用。
+完整入口在预检中构建 Go CLI 并实际执行 `--help`，随后由 CLI suite 运行真实命令。SDK harness 的 setup Server 就绪检查直接复用 Go SDK 的 context 连接，在原就绪预算内验证已认证的 Peer HTTP 与 RPC Ping；它不把额外 CLI 子进程的启动耗时计为 Server 不可用。必需事件流、HTTP 与 RPC 服务流的打开共用 probe context；打开操作阻塞时，取消或到达 deadline 都会使其退出。
 
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。

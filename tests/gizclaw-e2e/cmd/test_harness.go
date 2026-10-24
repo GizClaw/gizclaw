@@ -1045,19 +1045,60 @@ func setupAdminContextName() string {
 	return "admin"
 }
 
+// setupProbeConn binds every SDK service open to one readiness operation.
+type setupProbeConn struct {
+	giznet.Conn
+	ctx context.Context
+}
+
+func (c *setupProbeConn) Dial(service uint64) (net.Conn, error) {
+	dialer, ok := c.Conn.(giznet.ContextDialer)
+	if !ok {
+		return nil, fmt.Errorf("setup transport does not support context-aware service opens")
+	}
+	return dialer.DialContext(c.ctx, service)
+}
+
 func (h *Harness) probeSetupServer(setupConfigHome, setupContext string, timeout time.Duration) error {
 	h.t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(h.t.Context(), timeout)
 	defer cancel()
-	client, err := contextconn.Connect(ctx, contextconn.Options{ConfigDir: filepath.Join(setupConfigHome, "gizclaw"), Context: setupContext})
+	client, key, endpoint, err := contextconn.Dial(ctx, contextconn.Options{ConfigDir: filepath.Join(setupConfigHome, "gizclaw"), Context: setupContext})
 	if err != nil {
-		return fmt.Errorf("setup connection: %w", err)
+		return fmt.Errorf("setup context: %w", err)
 	}
 	defer client.Close()
+	transport := client.DialTransport
+	client.DialTransport = func(key *giznet.KeyPair, serverKey giznet.PublicKey, address string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
+		listener, conn, err := transport(key, serverKey, address, policy)
+		if err != nil {
+			return nil, nil, err
+		}
+		return listener, &setupProbeConn{Conn: conn, ctx: ctx}, nil
+	}
+	if err := client.Dial(key, endpoint); err != nil {
+		return fmt.Errorf("setup connection: %w", err)
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- client.Serve(); cancel() }()
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	for {
+		if err := probePeerHTTPReady(ctx, client); err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("setup HTTP readiness: %w", ctx.Err())
+		case err := <-serveErr:
+			return fmt.Errorf("setup client stopped before ready: %v", err)
+		case <-ticker.C:
+		}
+	}
 	if _, err := client.Ping(ctx, "setup-ready"); err != nil {
 		return fmt.Errorf("setup RPC ping: %w", err)
 	}
-	return nil
+	return ctx.Err()
 }
 
 func (h *Harness) renderServerFixture(fixtureName string, replacements map[string]string) {

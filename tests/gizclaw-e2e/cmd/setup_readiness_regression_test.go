@@ -4,6 +4,9 @@ package clitest
 
 import (
 	"context"
+	"errors"
+	"io"
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn"
 	"github.com/goccy/go-yaml"
 )
@@ -61,4 +65,68 @@ func TestSetupReadinessUsesAuthenticatedGoSDK(t *testing.T) {
 			t.Fatal("missing context passed readiness")
 		}
 	})
+}
+
+type stalledSetupTransport struct {
+	giznet.Conn
+	started chan struct{}
+	release chan struct{}
+}
+
+func (c *stalledSetupTransport) Dial(service uint64) (net.Conn, error) {
+	return c.DialContext(context.Background(), service)
+}
+func (c *stalledSetupTransport) DialContext(ctx context.Context, _ uint64) (net.Conn, error) {
+	close(c.started)
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case <-c.release:
+		return nil, io.ErrClosedPipe
+	}
+}
+
+func TestSetupProbeServiceOpenHonorsCancellation(t *testing.T) {
+	for _, service := range []struct {
+		name string
+		id   uint64
+	}{{"mandatory-event", gizcli.EventStreamAgent}, {"http", gizcli.ServicePeerHTTP}, {"rpc", gizcli.ServicePeerRPC}} {
+		for _, deadline := range []bool{false, true} {
+			name := service.name + "/cancel"
+			if deadline {
+				name = service.name + "/deadline"
+			}
+			t.Run(name, func(t *testing.T) {
+				ctx, cancel := context.WithCancel(t.Context())
+				if deadline {
+					cancel()
+					ctx, cancel = context.WithTimeout(t.Context(), 30*time.Millisecond)
+				}
+				defer cancel()
+				stalled := &stalledSetupTransport{started: make(chan struct{}), release: make(chan struct{})}
+				defer close(stalled.release)
+				conn := &setupProbeConn{Conn: stalled, ctx: ctx}
+				result := make(chan error, 1)
+				go func() { _, err := conn.Dial(service.id); result <- err }()
+				select {
+				case <-stalled.started:
+				case <-time.After(time.Second):
+					t.Fatal("service open did not start")
+				}
+				expected := context.DeadlineExceeded
+				if !deadline {
+					cancel()
+					expected = context.Canceled
+				}
+				select {
+				case err := <-result:
+					if !errors.Is(err, expected) {
+						t.Fatalf("stalled service open error=%v, want %v", err, expected)
+					}
+				case <-time.After(time.Second):
+					t.Fatal("stalled service open outlived the probe context")
+				}
+			})
+		}
+	}
 }
