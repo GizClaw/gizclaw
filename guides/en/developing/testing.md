@@ -2084,6 +2084,37 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
+## Audio turn ownership Docker regressions
+
+```sh
+bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+```
+
+The native Linux Docker runner executes the full Giztest, AudioDock and Eino
+package race tests and consecutive audio turns through real Server, Edge and
+WebRTC. Local HTTP and SAUC WebSocket fixtures replace remote ASR, model and
+TTS services while retaining the production adapters; Provider credentials are
+not required. An HTTP barrier releases an earlier opening tail before two
+audio inputs must receive their own replies. The transport cases cover the
+publicly supported PTT reopen, realtime reopen and retained realtime session.
+A retained PTT subscription is an internal contract-test control, not a
+supported Giztest document mode.
+
+The Docker contract layer also checks producer epochs, AudioDock epoch
+preservation, old replies failing to rescue modality deadlines, re-arm error
+EOS for known old IDs, and PTT interruption bookkeeping. The transport layer
+also runs native audio History and continuous podcast regressions. Epoch
+metadata remains in-process, so wire output is not a direct epoch identity
+assertion.
+
+The runner uses an internal Docker network, read-only source/module mounts and
+a separate build cache, and removes its container and network on exit. Image
+identity, architecture, source hashes, Go JSON results and Giztest reports are
+retained under `.testbench/audio-turn-ownership-*/reports/`. Both the standard
+`tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
+lane. The standard full entry point continues with real Provider suites;
+retain their evidence separately from the deterministic fixtures.
+
 ## Continuous narration and per-section History Giztest
 
 Run from the repository root:

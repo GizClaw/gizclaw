@@ -1868,6 +1868,30 @@ git lfs fsck
 ```
 
 
+## 音频轮次归属 Docker 回归
+
+```sh
+bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+```
+
+入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino package 的 race
+测试，以及真实 Server、Edge、WebRTC 的两轮音频回归。远端 ASR、模型和 TTS 使用
+本地 HTTP／SAUC WebSocket 协议夹具，仍经过生产 adapter；不需要 Provider 凭据。
+夹具先返回开场文字，再通过 HTTP barrier 释放旧回复尾部，随后要求两次音频输入
+各自得到正确回复。覆盖公开支持的 PTT 重开、realtime 重开和 realtime 保留 session。
+PTT 保留订阅是内部 contract 测试的控制组，不是 Giztest 文档公开支持的模式。
+
+Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、旧回复不能
+解除首包 deadline、re-arm 的旧 ID 错误 EOS，以及 PTT 中断统计。传输层同时执行
+原生音频 History 与连续播讲回归；epoch metadata 本身只在进程内传递，不把 wire
+输出当作 epoch identity 的直接验证。
+
+runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
+清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
+报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
+`tests/gizclaw-e2e/run_tests.sh` 和 CI 的 Audioplayer job 均执行此入口；标准全量入口
+随后继续运行真实 Provider 套件，二者的证据应分别保留。
+
 ## 连续播讲与逐段 History Giztest
 
 在仓库根目录执行：

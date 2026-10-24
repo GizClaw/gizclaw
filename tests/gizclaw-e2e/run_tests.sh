@@ -560,6 +560,8 @@ run_timed "preflight:nanopb" prepare_nanopb
 run_timed "preflight:host-cli" build_host_cli
 run_timed "preflight:c-giztest-runner" build_c_giztest_runner
 
+run_suite_phase "docker:audio-turn-ownership" bash "$script_dir/run_audio_turn_ownership_tests.sh"
+
 stack_started=1
 run_timed "docker:setup" start_docker_stack
 set -a
