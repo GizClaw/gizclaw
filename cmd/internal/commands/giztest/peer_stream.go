@@ -1385,6 +1385,9 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			}
 			return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 		case result := <-next:
+			if op.AwaitRearm != "" && assistantTerminalHasError(result.chunk) {
+				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream assistant terminal error after re-arm: code=%q message=%q", result.chunk.Ctrl.ErrorCode, result.chunk.Ctrl.Error)
+			}
 			if responseComplete && firstResponse {
 				continue
 			}
@@ -1439,6 +1442,17 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 				return operationResult{evidence: baseEvidence()}, err
 			}
 			if !arrivals.filter.accepts(result.chunk, result.receivedAt) {
+				if response := responses[actualStreamID]; label == "assistant" && response != nil && result.chunk.IsEndOfStream() {
+					// A replacement PTT input excludes the first reply's later
+					// payload, but its terminal still belongs to this operation.
+					if terminalError := peerStreamTerminalError(result.chunk); terminalError != "" {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream terminal error: %s", terminalError)
+					}
+					if result.chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted") {
+						observedInterrupted = true
+						response.interrupted = true
+					}
+				}
 				// Earlier output is still connection activity. It must not count
 				// as this reply or rescue a first-response modality deadline.
 				events++
@@ -1494,9 +1508,6 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream empty turn produced assistant content")
 					}
 				}
-			}
-			if op.AwaitRearm != "" && assistantTerminalHasError(result.chunk) {
-				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream assistant terminal error after re-arm: code=%q message=%q", result.chunk.Ctrl.ErrorCode, result.chunk.Ctrl.Error)
 			}
 			var response *peerStreamResponseProgress
 			if label == "assistant" {

@@ -1153,6 +1153,10 @@ Realtime 同样排除已知的先前回复，但允许新的回复在输入仍�
 的提前回复可以记录为零延迟。两轮及两种订阅方式的运行时回归见
 `cmd/internal/commands/giztest/peer_stream_conversation_test.go`。
 
+`interrupt_after` 中，本步骤已经接纳的回复即使在替换 PTT 输入后被排除后续 payload，
+仍须更新中断统计并检查终止错误。`await_rearm` 使用更严格的规则：在归属过滤之前
+检查所有 assistant 错误 EOS，包括已知先前回复的 ID。
+
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以

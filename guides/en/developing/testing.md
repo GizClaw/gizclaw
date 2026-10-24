@@ -1177,6 +1177,11 @@ to arrive during paced input and report zero latency. The two-turn runtime
 regressions for both subscription lifecycles are in
 `cmd/internal/commands/giztest/peer_stream_conversation_test.go`.
 
+For `interrupt_after`, a response already admitted by the operation still updates
+interruption bookkeeping and reports terminal errors after the replacement PTT
+input excludes its later payload. The stricter `await_rearm` contract checks all
+assistant error EOS before ownership filtering, including known earlier IDs.
+
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets
 it on every received chunk regardless of label, re-arms it after an
