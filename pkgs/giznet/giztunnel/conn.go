@@ -958,6 +958,12 @@ func (c *Conn) enqueuePacket(protocol byte, payload []byte) error {
 	case <-c.closeCh:
 		return c.err()
 	default:
+		if protocol == giznet.ProtocolOpusPacket {
+			// Opus uses the unreliable lane. A stalled application may lose
+			// audio, but it must not lose its control and service channels.
+			c.touch()
+			return nil
+		}
 		_ = c.closeWithError(ErrBufferLimit)
 		return ErrBufferLimit
 	}

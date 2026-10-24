@@ -39,7 +39,7 @@ import sys
 
 root, output = map(pathlib.Path, sys.argv[1:3])
 base = json.loads(subprocess.check_output(["docker", "image", "inspect", sys.argv[3]], text=True))[0]
-paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "cmd/internal/commands/giztest/peer_stream*.go", "pkgs/genx/agentkit/audiodock/*.go", "pkgs/genx/transformers/eino/*.go", "pkgs/genx/transformers/doubaoasr/*.go", "pkgs/gizclaw/services/runtime/agenthost/*.go"], text=True).splitlines()
+paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "cmd/internal/commands/giztest/peer_stream*.go", "pkgs/genx/agentkit/audiodock/*.go", "pkgs/genx/transformers/eino/*.go", "pkgs/genx/transformers/doubaoasr/*.go", "pkgs/gizclaw/services/runtime/agenthost/*.go", "pkgs/giznet/giztunnel/*.go"], text=True).splitlines()
 paths += ["cmd/internal/server/audio_turn_ownership_giztest_test.go", "tests/gizclaw-e2e/testdata/audio-turn-ownership/rounds.giztest.yaml"]
 paths += ["go.mod", "go.sum", "tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh", "tests/gizclaw-e2e/testdata/native-audio-history/resources.json"]
 output.write_text(json.dumps({
@@ -66,7 +66,7 @@ docker run --rm --user "$run_user" --name "$container" --network "$network" --en
   "$base" -lc 'set -euo pipefail
     cd /src
     go version > /reports/go-version.txt
-    go test -race -json ./cmd/internal/commands/giztest ./pkgs/genx/agentkit/audiodock ./pkgs/genx/transformers/eino ./pkgs/genx/transformers/doubaoasr ./pkgs/gizclaw/services/runtime/agenthost -count=1 -timeout=8m > /reports/contracts.jsonl
+    go test -race -json ./cmd/internal/commands/giztest ./pkgs/genx/agentkit/audiodock ./pkgs/genx/transformers/eino ./pkgs/genx/transformers/doubaoasr ./pkgs/gizclaw/services/runtime/agenthost ./pkgs/giznet/giztunnel -count=1 -timeout=8m > /reports/contracts.jsonl
     go test -race -json ./cmd/internal/server -run "^Test(AudioTurnOwnership|NativeAudioHistory|ContinuousPodcast)Giztest$" -count=1 -timeout=5m > /reports/transport.jsonl'
 python3 - "$reports" <<'PY'
 import collections
@@ -82,7 +82,7 @@ for name, expected in manifest["sha256"].items():
     if hashlib.sha256((source / name).read_bytes()).hexdigest() != expected:
         raise SystemExit(f"source changed during Docker qualification: {name}")
 required = {
-    "contracts": {"TestPeerStreamFirstResponseRejectsEarlierPTTOutput", "TestPeerStreamResponseHistorySurvivesCloseAndReopen", "TestPeerStreamConsecutiveTurnsKeepResponseOwnership", "TestPeerStreamRearmRejectsKnownResponseTerminalErrors", "TestPeerStreamPTTInterruptPreservesAdmittedTerminal", "TestOutputEpochRetainsProducerInput", "TestDockPreservesDelayedProducerEpoch", "TestTextAgentWaitsForASRTerminalAcrossControlEOSOrder", "TestPushToTalkReplacementClosesPreviousHistoryAndTranscript", "TestRuntimeStopClosesInputBeforeWaitingForOutput", "TestWorkspaceQuiescenceClosesInputBeforeWaitingForOutput"},
+    "contracts": {"TestPeerStreamFirstResponseRejectsEarlierPTTOutput", "TestPeerStreamResponseHistorySurvivesCloseAndReopen", "TestPeerStreamConsecutiveTurnsKeepResponseOwnership", "TestPeerStreamRearmRejectsKnownResponseTerminalErrors", "TestPeerStreamPTTInterruptPreservesAdmittedTerminal", "TestOutputEpochRetainsProducerInput", "TestDockPreservesDelayedProducerEpoch", "TestTextAgentWaitsForASRTerminalAcrossControlEOSOrder", "TestPushToTalkReplacementClosesPreviousHistoryAndTranscript", "TestRuntimeStopClosesInputBeforeWaitingForOutput", "TestWorkspaceQuiescenceClosesInputBeforeWaitingForOutput", "TestOpusOverflowKeepsLogicalControlAndServices", "TestDirectPacketOverflowRetainsItsFailureBoundary"},
     "transport": {"TestAudioTurnOwnershipGiztest/push-to-talk/retained=false", "TestAudioTurnOwnershipGiztest/realtime/retained=false", "TestAudioTurnOwnershipGiztest/realtime/retained=true", "TestAudioTurnOwnershipGiztest/push-to-talk/retained=false/advance=input_sent", "TestNativeAudioHistoryGiztest", "TestContinuousPodcastGiztest"},
 }
 summary = {}
