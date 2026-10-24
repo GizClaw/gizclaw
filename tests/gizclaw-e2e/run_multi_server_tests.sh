@@ -288,13 +288,14 @@ compose logs --no-color --no-log-prefix tikv-init > "$report_dir/topology.json"
 
 seed_server() {
   local server="$1" token_id="$2" admin_env="$3"
-  local build_flags=()
-  [[ "$sfu_case" != logging* ]] || build_flags=(--no-deps --pull never)
+  # Bash 3.2 treats an empty array as unset under nounset.
+  local run_flags=(--rm -T)
+  [[ "$sfu_case" != logging* ]] || run_flags=(--no-deps --pull never --rm -T)
   # RuntimeProfile, Workflow and RegistrationToken are Server-local catalog:
   # each Server is seeded independently and Peers register with the token of
   # the Server they are homed on. SFU activation never reads another Peer's
   # profile, so nothing catalog-related is shared between the Servers.
-  compose run "${build_flags[@]}" --rm -T seed -server "$server" -profile-id multi-server-sfu \
+  compose run "${run_flags[@]}" seed -server "$server" -profile-id multi-server-sfu \
     -token-id "$token_id" -admin-key-env "$admin_env" \
     -monitor-workflow-id workspace-reload-echo | tail -n 1
 }
