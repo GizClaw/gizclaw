@@ -15,6 +15,12 @@
         ],
         "additionalProperties": false,
         "properties": {
+          "audio_input": {
+            "type": "string",
+            "enum": ["auto", "asr", "model"],
+            "default": "auto",
+            "description": "auto retains automatic selection for simple prompt/chat graphs. asr sends final recognition text to the graph. model explicitly sends original PTT audio through input.messages, including graphs with functions; input.text waits lazily for the same input's independent ASR result. model requires Profile ASR, audio-capable chat Models, and an input.messages binding; realtime, continue_from and semantic Tool verification are unsupported."
+          },
           "graph": {
             "$ref": "#/components/schemas/EinoGraph"
           },

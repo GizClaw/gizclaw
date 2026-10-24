@@ -1364,6 +1364,7 @@ type inputRouter struct {
 	asrOutput  genx.Stream
 	transcript *streamkit.Output
 	agentAudio bool
+	inputTexts inputTexts
 	events     chan inputEvent
 
 	producers   sync.WaitGroup
@@ -1463,6 +1464,7 @@ func (r *inputRouter) routeInput() {
 	audioAnnounced := false
 	var transcriptID string
 	transcriptAnnounced := false
+	var currentText *inputText
 	var inputID string
 	inputEnded := false
 	for {
@@ -1501,6 +1503,9 @@ func (r *inputRouter) routeInput() {
 			inputEnded = inputEnded || chunk.IsEndOfStream()
 		}
 		if chunk.IsBeginOfStream() {
+			if r.agentAudio {
+				r.inputTexts.interrupt()
+			}
 			audioEnded = false
 			if chunk.Part == nil {
 				announcedAudioID, audioAnnounced = dockStreamID(chunk), true
@@ -1547,12 +1552,15 @@ func (r *inputRouter) routeInput() {
 		}
 		if target == r.asrInput && r.agentAudio {
 			if !transcriptAnnounced || transcriptID != dockStreamID(chunk) {
+				currentText = r.inputTexts.start(dockStreamID(chunk))
 				if !r.announceTranscript(dockStreamID(chunk)) {
 					return
 				}
 				transcriptID, transcriptAnnounced = dockStreamID(chunk), true
 			}
-			if err := r.agentInput.Push(chunk.Clone()); err != nil {
+			original := chunk.Clone()
+			original.InputText = currentText.wait
+			if err := r.agentInput.Push(original); err != nil {
 				r.fail(fmt.Errorf("audiodock: forward audio to Agent: %w", err))
 				return
 			}
@@ -1622,6 +1630,7 @@ func (r *inputRouter) forwardASR() {
 	defer r.producers.Done()
 	defer closePipelineStream(r.asrOutput, nil)
 	defer r.transcript.Close()
+	defer r.inputTexts.close(io.ErrUnexpectedEOF)
 	for {
 		chunk, err := r.asrOutput.Next()
 		if err != nil {
@@ -1633,6 +1642,9 @@ func (r *inputRouter) forwardASR() {
 		}
 		if chunk == nil {
 			continue
+		}
+		if r.agentAudio {
+			r.inputTexts.append(chunk)
 		}
 		if r.agentAudio && chunk.IsBeginOfStream() && (chunk.Ctrl == nil || chunk.Ctrl.Label != genx.HistoryUserAudioLabel) {
 			chunk = chunk.Clone()
@@ -1679,6 +1691,7 @@ func (r *inputRouter) forwardASR() {
 
 func (r *inputRouter) fail(err error) {
 	r.failOnce.Do(func() {
+		r.inputTexts.close(err)
 		_ = r.agentInput.CloseWithError(err)
 		_ = r.asrInput.CloseWithError(err)
 		_ = r.transcript.CloseWithError(err)

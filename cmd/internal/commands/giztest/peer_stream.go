@@ -731,7 +731,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	// time instead: the reader starts before the push and the responses it
 	// saw first are ignored. first_response keeps its response-only clock.
 	skipEarlierResponses := op.Mode == "push-to-talk" && !op.EmptyInput && !inputSent && !firstResponse
-	if (inputSent || op.Mode == "realtime" || skipEarlierResponses) && next == nil {
+	if (inputSent || firstResponse || op.Mode == "realtime" || skipEarlierResponses) && next == nil {
 		// Realtime output can arrive while input is still being paced. Start
 		// reading before the first input chunk so those arrival timestamps are
 		// not shifted to the end of input; a reader started afterwards drains

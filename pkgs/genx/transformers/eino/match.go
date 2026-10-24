@@ -25,7 +25,7 @@ func compileMatchNode(
 		return nil, fmt.Errorf("eino: Match model %q resolved nil", node.Match.Model)
 	}
 	return func(ctx context.Context, state *runState) (map[string]any, map[string]bool, error) {
-		inputs, err := state.nodeInputs(node.Inputs)
+		inputs, err := state.nodeInputs(ctx, node.Inputs)
 		if err != nil {
 			return nil, nil, err
 		}

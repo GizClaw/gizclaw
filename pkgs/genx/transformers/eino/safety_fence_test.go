@@ -22,7 +22,7 @@ func TestSafetyFenceBindingReachesChildGraphs(t *testing.T) {
 			t.Fatal(err)
 		}
 		for name, state := range map[string]*runState{"parent": parent, "child": child} {
-			got, err := state.binding(Binding{From: "input.safety_fence"})
+			got, err := state.binding(t.Context(), Binding{From: "input.safety_fence"})
 			if err != nil || got != fence {
 				t.Fatalf("%s binding = %#v, %v; want %q", name, got, err, fence)
 			}
