@@ -2090,7 +2090,7 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
 ```
 
-The native Linux Docker runner executes the full Giztest, AudioDock and Eino
+The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR and AgentHost
 package race tests and consecutive audio turns through real Server, Edge and
 WebRTC. Local HTTP and SAUC WebSocket fixtures replace remote ASR, model and
 TTS services while retaining the production adapters; Provider credentials are
@@ -2100,9 +2100,11 @@ publicly supported PTT reopen, realtime reopen and retained realtime session.
 A retained PTT subscription is an internal contract-test control, not a
 supported Giztest document mode.
 
+An additional PTT `input_sent` case advances after partial recognition while audio termination is still draining. The previous History routes must retire and the next input must receive its own reply. The PTT protocol fixture publishes definite text before audio EOS and acknowledges the final marker after 350 ms.
+
 The Docker contract layer also checks producer epochs, AudioDock epoch
 preservation, old replies failing to rescue modality deadlines, re-arm error
-EOS for known old IDs, and PTT interruption bookkeeping. The transport layer
+EOS for known old IDs, and PTT interruption bookkeeping. It also verifies both control/audio EOS orders, old audio/transcript EOS on ASR replacement, and input-first runtime shutdown progress. The transport layer
 also runs native audio History and continuous podcast regressions. Epoch
 metadata remains in-process, so wire output is not a direct epoch identity
 assertion.

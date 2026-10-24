@@ -409,13 +409,15 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		sessionSourceChunk = nil
 		sessionRoute = nil
 	}
-	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk) error {
+	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk, errorText string) error {
 		if !lastSessionTranscriptBegan {
 			if err := output.Push(transcriptTextChunk(sourceChunk, "", true, false)); err != nil {
 				return err
 			}
 		}
-		return output.Push(transcriptTextChunk(sourceChunk, "", false, true))
+		terminal := transcriptTextChunk(sourceChunk, "", false, true)
+		terminal.Ctrl.Error = errorText
+		return output.Push(terminal)
 	}
 
 	// Providers may complete an otherwise healthy realtime ASR session after
@@ -508,6 +510,14 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if session == nil {
 			return nil
 		}
+		interruptedSource := sessionSourceChunk
+		interruptedID := activeStreamID
+		if sessionRoute != nil {
+			interruptedID, _ = sessionRoute.current()
+		}
+		if interruptedSource == nil {
+			interruptedSource = sourceChunkForStream(lastChunk, interruptedID)
+		}
 		if sessionRoute != nil {
 			sessionRoute.interrupt("interrupted")
 		}
@@ -516,6 +526,16 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			<-resultsForwarded
 		}
 		clearSession()
+		if !t.emitInterim {
+			// A replacement must retire the old input's History channels even
+			// when it interrupts recognition before that input's audio EOS.
+			if err := closeHistoryStream(interruptedID, "audio/pcm"); err != nil {
+				return err
+			}
+			if err := emitTranscriptEOS(interruptedSource, "interrupted"); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 
@@ -547,7 +567,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				}
 			}
 			if hadSession && !t.emitInterim {
-				if err := emitTranscriptEOS(sourceChunk); err != nil {
+				if err := emitTranscriptEOS(sourceChunk, ""); err != nil {
 					return
 				}
 			}
@@ -562,11 +582,6 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			if err := interruptSession(); err != nil {
 				output.CloseWithError(err)
 				return
-			}
-			if !t.emitInterim {
-				if err := closeHistoryStream(discardStreamID, "audio/pcm"); err != nil {
-					return
-				}
 			}
 		}
 		if discardStreamID != "" {
@@ -626,7 +641,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					continue
 				}
 				if !t.emitInterim {
-					if err := emitTranscriptEOS(sourceChunk); err != nil {
+					if err := emitTranscriptEOS(sourceChunk, ""); err != nil {
 						return
 					}
 				}

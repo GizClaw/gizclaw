@@ -1466,8 +1466,8 @@ func (r *inputRouter) routeInput() {
 	if r.asrInput != nil {
 		defer r.asrInput.Close()
 	}
-	var endedAudioID string
-	audioEnded := false
+	var routedAudioID string
+	audioRouted := false
 	var announcedAudioID string
 	audioAnnounced := false
 	var transcriptID string
@@ -1510,7 +1510,7 @@ func (r *inputRouter) routeInput() {
 			inputEnded = inputEnded || chunk.IsEndOfStream()
 		}
 		if chunk.IsBeginOfStream() {
-			audioEnded = false
+			audioRouted = false
 			if chunk.Part == nil {
 				announcedAudioID, audioAnnounced = dockStreamID(chunk), true
 			}
@@ -1522,17 +1522,15 @@ func (r *inputRouter) routeInput() {
 		if r.asrInput != nil {
 			if mimeType, ok := chunk.MIMEType(); ok && strings.HasPrefix(mimeType, "audio/") {
 				target = r.asrInput
-				if chunk.IsEndOfStream() {
-					endedAudioID, audioEnded = dockStreamID(chunk), true
-				}
-			} else if chunk.Part == nil && chunk.IsEndOfStream() && audioEnded &&
-				dockStreamID(chunk) == endedAudioID && genx.StreamError(chunk.Ctrl) == nil {
-				// Devices can end both the audio channel and its control stream.
-				// ASR owns the transcript EOS; the following control EOS must not
-				// commit the partial transcript before ASR supplies its final text.
+				routedAudioID, audioRouted = dockStreamID(chunk), true
+			} else if chunk.Part == nil && chunk.IsEndOfStream() && audioRouted &&
+				dockStreamID(chunk) == routedAudioID && genx.StreamError(chunk.Ctrl) == nil {
+				// Control EOS can arrive before audio EOS while RTP drains.
+				// Once this input has audio, ASR owns its transcript terminal;
+				// control EOS must not commit a partial recognition result.
 				continue
 			} else if _, text := chunk.Part.(genx.Text); text {
-				audioEnded = false
+				audioRouted = false
 			}
 		}
 		if target == r.asrInput && chunk.IsBeginOfStream() && (!audioAnnounced || announcedAudioID != dockStreamID(chunk)) {

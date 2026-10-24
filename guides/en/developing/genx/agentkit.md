@@ -35,7 +35,7 @@ Every child Transformer remains responsible for the StreamID or MIME channels it
 
 `ResolveVoice` receives the response StreamID, output node/name, and chunk metadata, and returns the pattern passed to the TTS mux. It is resolved independently for each named publisher inside a response, so named publishers may use different voices. An empty pattern keeps that publisher's text without synthesizing it. RuntimeProfile alias resolution belongs to the product factory, not Audio Dock.
 
-When a caller sends audio EOS followed by control-only EOS with the same StreamID, the ASR transcript EOS commits the text turn. After consuming audio EOS, Audio Dock ignores the successful control-only EOS for that input and waits for ASR's final text. Error-bearing control EOS still follows the existing path. Text-only input and realtime ASR utterances retain their own EOS boundaries.
+Once an input routes audio to ASR, the ASR transcript EOS commits its text turn. Control-only EOS can arrive before audio EOS while RTP drains; Audio Dock ignores a successful control-only EOS for that audio input and waits for ASR's final text. Error-bearing control EOS follows its existing path; text input and realtime ASR utterances keep their own EOS boundaries.
 
 One Dock supports concurrent `Transform` calls. ASR sessions, Agent runs, voices, TTS sessions, buffers, cancellation, and errors are scoped to one call and StreamID; one failing route does not terminate other calls. Output uses a growable internal queue, so producers do not depend on consumers pulling promptly before provider streams can be drained.
 

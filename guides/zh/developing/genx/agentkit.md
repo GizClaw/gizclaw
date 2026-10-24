@@ -34,7 +34,7 @@ Audio Dock 自身的输入边界建立 response。
 
 `ResolveVoice` 接收 response StreamID、输出 node/name 与 chunk metadata，返回交给 TTS mux 的 pattern。同一个 response 内的每个具名 publisher 都会独立解析，具名 publisher 可以使用不同 voice。返回空 pattern 时只保留该 publisher 的文本，不合成音频。RuntimeProfile alias 的解析属于产品 factory，不属于 Audio Dock。
 
-调用方以相同 StreamID 依次发送音频 EOS 和纯控制 EOS 时，ASR 的 transcript EOS 是文字 turn 的提交边界。Audio Dock 消费音频 EOS 后忽略同一输入的成功纯控制 EOS，等待 ASR 返回最终文本；错误控制 EOS 仍按原路径传递。纯文字输入和 Realtime 的 ASR 断句继续使用各自的 EOS。
+输入已经路由音频到 ASR 后，ASR 的 transcript EOS 才是文字 turn 的提交边界。纯控制 EOS 可能在 RTP 音频排空期间先于音频 EOS 到达；Audio Dock 忽略同一音频输入的成功纯控制 EOS，等待 ASR 的最终文本。错误控制 EOS 按原路径传递；纯文字输入和 realtime ASR 断句使用各自的 EOS。
 
 一个 Dock 可以并发处理多个 `Transform`。ASR session、Agent run、voice、TTS session、buffer、取消和错误都属于单次调用及其 StreamID；一个 route 失败不会终止其他调用。输出使用可增长内部队列，因此 producer 不依赖消费者及时 pull 才能继续读取 provider stream。
 

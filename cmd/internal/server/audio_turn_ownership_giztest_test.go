@@ -34,10 +34,15 @@ import (
 // model and TTS adapters. Only the remote HTTP/WebSocket protocols are local.
 func TestAudioTurnOwnershipGiztest(t *testing.T) {
 	for _, tc := range []struct {
-		mode string
-		keep bool
-	}{{mode: "push-to-talk"}, {mode: "realtime"}, {mode: "realtime", keep: true}} {
-		t.Run(fmt.Sprintf("%s/retained=%t", tc.mode, tc.keep), func(t *testing.T) {
+		mode      string
+		keep      bool
+		inputSent bool
+	}{{mode: "push-to-talk"}, {mode: "realtime"}, {mode: "realtime", keep: true}, {mode: "push-to-talk", inputSent: true}} {
+		name := fmt.Sprintf("%s/retained=%t", tc.mode, tc.keep)
+		if tc.inputSent {
+			name += "/advance=input_sent"
+		}
+		t.Run(name, func(t *testing.T) {
 			fixture := &audioTurnProtocol{realtime: tc.mode == "realtime", openingAudioInput: tc.keep, release: make(chan struct{}), tail: make(chan struct{})}
 			provider := httptest.NewServer(http.HandlerFunc(fixture.serve))
 			t.Cleanup(provider.Close)
@@ -101,8 +106,19 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 					t.Fatal(err)
 				}
 				doc.Name = fmt.Sprintf("audio-turn-ownership.%s.retained-%t", tc.mode, tc.keep)
+				if tc.inputSent {
+					doc.Name += ".input-sent"
+				}
 				for i := range doc.Steps {
 					step := &doc.Steps[i]
+					if tc.inputSent && step.ID == "first_turn" {
+						step.Expect = nil
+						step.PeerStream.Completion = "input_sent"
+						step.PeerStream.FirstTextTimeout = ""
+						step.PeerStream.FirstAudioTimeout = ""
+						step.PeerStream.RequireText = nil
+						step.PeerStream.RequireAudio = nil
+					}
 					if step.ID == "create" && tc.mode == "realtime" {
 						step.RPC.Request.(map[string]any)["parameters"].(map[string]any)["eino_workspace_parameters"].(map[string]any)["input"] = "WORKSPACE_INPUT_MODE_REALTIME"
 					}
@@ -123,7 +139,11 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 				t.Setenv("GIZCLAW_TURN_FIXTURE", provider.URL)
 				directory := t.TempDir()
 				if base := os.Getenv("GIZCLAW_TURN_OWNERSHIP_EVIDENCE"); base != "" {
-					directory = filepath.Join(base, tc.mode, fmt.Sprintf("retained-%t", tc.keep))
+					variant := fmt.Sprintf("retained-%t", tc.keep)
+					if tc.inputSent {
+						variant += "-input-sent"
+					}
+					directory = filepath.Join(base, tc.mode, variant)
 					if err := os.MkdirAll(directory, 0700); err != nil {
 						t.Fatal(err)
 					}
@@ -154,8 +174,11 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 				if runErr != nil {
 					t.Fatalf("real transport turn ownership: %v\n%s", runErr, output.String())
 				}
-				if !slices.Equal(requests, []string{"opening", "first question", "second question"}) {
+				if !tc.inputSent && !slices.Equal(requests, []string{"opening", "first question", "second question"}) {
 					t.Fatalf("model input order=%v", requests)
+				}
+				if tc.inputSent && (len(requests) != 2 || requests[0] != "opening" || !strings.HasSuffix(requests[1], "second question")) {
+					t.Fatalf("unexpected model requests after input-only advance: %v", requests)
 				}
 				wantInputs := 2
 				if tc.keep {
@@ -276,7 +299,14 @@ func (f *audioTurnProtocol) serve(w http.ResponseWriter, r *http.Request) {
 	case <-r.Context().Done():
 		return
 	}
-	if err := emit(strings.Replace(input, "question", "reply", 1)); err != nil {
+	reply := strings.Replace(input, "question", "reply", 1)
+	// Interrupted user turns can be coalesced into one model message.
+	if strings.HasSuffix(input, "second question") {
+		reply = "second reply"
+	} else if strings.HasSuffix(input, "first question") {
+		reply = "first reply"
+	}
+	if err := emit(reply); err != nil {
 		return
 	}
 	if err := finish(); err != nil {
@@ -331,10 +361,21 @@ func (f *audioTurnProtocol) asr(w http.ResponseWriter, r *http.Request) {
 			text = map[int]string{0: "opening", 1: "first question", 2: "second question"}[turn]
 		}
 		last := frame[1]&2 != 0
-		// Wait for 500 ms of PCM in realtime. The 200 ms speech clip has
-		// ended before this point, even when its paced sender is delayed.
-		if !last && (!f.realtime || sent || received < 16000) {
+		// Realtime waits for 500 ms PCM so speech has already ended. PTT
+		// receives definite text before audio EOS, as real SAUC sessions do.
+		threshold := 3200
+		if f.realtime {
+			threshold = 16000
+		}
+		if !last && (sent || received < threshold) {
 			continue
+		}
+		if last {
+			select {
+			case <-time.After(350 * time.Millisecond):
+			case <-r.Context().Done():
+				return
+			}
 		}
 		payload, err := json.Marshal(map[string]any{"audio_info": map[string]any{"duration": 200}, "result": map[string]any{"text": text, "utterances": []any{map[string]any{"text": text, "start_time": 0, "end_time": 200, "definite": true}}}})
 		if err != nil {

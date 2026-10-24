@@ -34,13 +34,15 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
 
+新输入 BOS 替换 Push-to-Talk ASR session 时，adapter 先关闭旧输入已打开的 History 音频 channel，并发送保留旧 StreamID、错误为 `interrupted` 的 transcript EOS，再继续识别新输入。旧输入的已识别部分保持原归属，后续 History 读取可以结束对该转写的等待。Realtime 继续使用分段 transcript 的中断终态。
+
 ### ASR 空识别
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
 
 收到显式 audio EOS 后，`doubaoasr.Transformer` 最多等待 provider finalization 一分钟。Provider 始终静默时，transformer 会关闭该 provider session，并以 `doubao asr: finalization timeout` 错误结束 output stream，而不是继承 caller 更长的生命周期 deadline。
 
-已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。下述一次恢复范围之外的 provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和 timeout 继续传播错误。
+已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。输入替换的 `interrupted` EOS 结束旧 route，并继续处理新输入，不触发恢复重试。除此之外，下述一次恢复范围之外的 provider、protocol、调用 context 取消、malformed-audio、unsupported-format failure 和 timeout 继续传播错误。
 
 对于 PCM 输入，ASR 会在当前 provider session 内聚合较小的实时 frame，直到达到配置的 packet size；缺省为 100 ms（16 kHz、mono、signed 16-bit PCM 对应 `3200` bytes）。完整 packet 会立即按顺序发送，显式 audio EOS 把剩余 PCM 恰好发送一次并标记为 final；精确 packet boundary 使用既有空 terminal marker，不重复音频。压缩音频保持原始 packet boundary 和 final-packet 行为。Session cleanup 只清除本 session 的空 buffer，因此音频不会跨 audio route 或 replacement session。显式 route EOS 后 outer Transformer stream 仍保持打开，下一条 audio route 创建 replacement session 并独立绑定 transcript。Continuous ASR finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；一次恢复范围之外的 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
 
