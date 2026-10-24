@@ -25,6 +25,11 @@ dock, err := audiodock.New(audiodock.Config{
 
 连续音频会在没有新 caller audio BOS 的情况下产生新的 ASR transcript BOS。这个 BOS 同样先执行旧 response 的取消与收尾屏障，再发布新 transcript 并转交 Agent；旧音频的 error EOS 因此在新回复开始前可见。History audio sideband 不触发这个边界。
 
+Child 提供的 `ResponseEpoch` 保持原有的 identity 和输入归属。即使旧 response 的首包
+在新的 input BOS 后才被 Audio Dock 读取，也不能按当时的活跃输入重新创建 epoch。
+文字、TTS 音频和最终终止事件沿用该 epoch；没有提供 epoch 的 child 继续使用
+Audio Dock 自身的输入边界建立 response。
+
 每个 child Transformer 仍然负责自己创建的 StreamID 或 MIME channel。Audio Dock 原样保留无关的透传 route，并按 child 原始的 `(StreamID, canonical MIME)` key 验证每个 child TTS lifecycle；data-before-BOS、duplicate BOS、EOS 后继续输出、missing EOS 或完全没有 MIME lifecycle 都是 route error。多个 publisher 为同一个最终 MIME channel 合成时，Audio Dock 把已验证的 child boundary 合并为一个最终 BOS 和一个最终 EOS；它只负责这个 remap 后的最终 route，不修补不合规的 child 生命周期。
 
 `ResolveVoice` 接收 response StreamID、输出 node/name 与 chunk metadata，返回交给 TTS mux 的 pattern。同一个 response 内的每个具名 publisher 都会独立解析，具名 publisher 可以使用不同 voice。返回空 pattern 时只保留该 publisher 的文本，不合成音频。RuntimeProfile alias 的解析属于产品 factory，不属于 Audio Dock。

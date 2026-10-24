@@ -25,6 +25,12 @@ Text content is independent of audio timing: voice resolution, TTS session start
 
 Continuous audio can produce another ASR transcript BOS without a new caller audio BOS. That boundary first cancels and terminates the old response, then publishes the new transcript and forwards it to the Agent, so the old audio error EOS precedes the replacement reply. History audio sidebands do not trigger this boundary.
 
+A child-provided `ResponseEpoch` keeps its identity and owning input route.
+The first chunk of an old response may reach Audio Dock after a replacement
+input BOS; Audio Dock must not recreate that epoch from the then-active input.
+Text, sibling TTS audio, and the final terminal retain the same epoch. Children
+without an epoch continue to use Audio Dock's own input boundary.
+
 Every child Transformer remains responsible for the StreamID or MIME channels it creates. Audio Dock preserves unrelated pass-through routes and validates each child TTS lifecycle by the child's original `(StreamID, canonical MIME)` key. Data before BOS, duplicate BOS, output after EOS, a missing EOS, or a child stream with no MIME lifecycle is a route error. When multiple publishers synthesize the same final MIME channel, Audio Dock merges their validated child boundaries into one final BOS and one final EOS; it owns only that remapped final route and does not repair an invalid child lifecycle.
 
 `ResolveVoice` receives the response StreamID, output node/name, and chunk metadata, and returns the pattern passed to the TTS mux. It is resolved independently for each named publisher inside a response, so named publishers may use different voices. An empty pattern keeps that publisher's text without synthesizing it. RuntimeProfile alias resolution belongs to the product factory, not Audio Dock.

@@ -1144,6 +1144,15 @@ realtime 在发送期间持续消费输出；所有必需模态的第一段 assi
 计时起点之前到达的内容按零延迟记录。interrupt 的替换输入也在发送期间持续消费输出。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
+
+音频 turn 只把本轮可接受的 assistant 输出计入首包和完成条件。runner 在 PTT
+输入前启动读取，以首个输入 EOS 写入前的时刻识别先前回复；这些回复的后续包和
+终止事件也不计入当前 turn，不能解除当前首包超时。同一个 task/client 的近期回复
+ID 跨逻辑 stream 关闭重开保留，保留 session 时也覆盖已经排队的旧输出。
+Realtime 同样排除已知的先前回复，但允许新的回复在输入仍然发送时到达；这种有效
+的提前回复可以记录为零延迟。两轮及两种订阅方式的运行时回归见
+`cmd/internal/commands/giztest/peer_stream_conversation_test.go`。
+
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以

@@ -558,12 +558,21 @@ func (r *dockRun) route(chunk *genx.MessageChunk) (*dockRoute, error) {
 	if route := r.routes[streamID]; route != nil {
 		return route, nil
 	}
+	// An adapter may first observe an old producer response after a new input
+	// BOS. Its immutable epoch still belongs to that producer's input route.
+	var epoch *genx.ResponseEpoch
+	if chunk.Ctrl != nil {
+		epoch = chunk.Ctrl.ResponseEpoch
+	}
+	if epoch == nil {
+		epoch = genx.NewResponseEpoch(r.inputStreamID)
+	}
 	response, err := r.invocation.StartResponse(streamkit.ResponseConfig{
 		StreamID:      streamID,
 		Role:          chunk.Role,
 		Name:          chunk.Name,
 		Label:         label,
-		ResponseEpoch: genx.NewResponseEpoch(r.inputStreamID),
+		ResponseEpoch: epoch,
 	})
 	if err != nil {
 		return nil, err

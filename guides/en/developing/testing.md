@@ -1156,14 +1156,27 @@ alternative. `require_text` and `require_audio` select its required modalities
 and both default to true. Every required modality needs its corresponding
 positive `first_text_timeout` or `first_audio_timeout` Go duration; a disabled
 modality omits its deadline, and at least one modality must remain required.
-The deadlines start only after the whole turn input has been pushed. The runner
-succeeds and closes that logical stream as soon as it has observed the first
+PTT deadlines start after input is pushed. Realtime starts its response clock
+after the last speech packet, before tail silence finishes; reading and input
+pacing remain concurrent. The runner succeeds after input has been sent and it
+has observed the first
 assistant content for every required modality (a non-empty text fragment, or
 the first audible audio frame); it does not wait for
 either EOS. A missing required modality fails with
 `deadline=first_text_timeout` or `deadline=first_audio_timeout`. This completion
 cannot be combined with `interrupt_after`, `terminal_label`, or
 `wait_for_history`.
+
+Only eligible assistant output contributes to an audio turn's first response
+and deadline rescue. PTT reads before input and excludes responses first seen
+before the first input EOS write, including those responses' later packets and
+terminal events. Recent response IDs are scoped to the task and client, survive
+logical stream close/reopen, and cover a retained session's queued output.
+Realtime also excludes known earlier responses, while allowing fresh replies
+to arrive during paced input and report zero latency. The two-turn runtime
+regressions for both subscription lifecycles are in
+`cmd/internal/commands/giztest/peer_stream_conversation_test.go`.
+
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets
 it on every received chunk regardless of label, re-arms it after an

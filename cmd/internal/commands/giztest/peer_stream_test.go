@@ -1830,11 +1830,9 @@ func TestInvokePeerStreamRealtimeFirstResponseDeadlineIgnoresTailSilence(t *test
 }
 
 func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
-	// A full-duplex provider can answer while the turn input is still being
-	// paced. push-to-talk closes its turn with an end-of-stream and dates its
-	// response clock from there, and a realtime provider may start talking
-	// before the user stops, so both cases can see a receipt older than the
-	// clock origin. No reported timing may go negative.
+	// A PTT response can arrive during the EOS write, before its return starts
+	// the latency clock. Realtime can answer while speech is still being paced.
+	// Both cases must report non-negative timings for their own response.
 	for _, mode := range []string{"push-to-talk", "realtime"} {
 		t.Run(mode, func(t *testing.T) {
 			stream := newFakeRelayStream()
@@ -1845,8 +1843,10 @@ func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
 			go func() {
 				for {
 					select {
-					case <-stream.pushes:
-						pushedOnce.Do(func() { close(pushed) })
+					case chunk := <-stream.pushes:
+						if mode == "realtime" || chunk.IsEndOfStream() {
+							pushedOnce.Do(func() { close(pushed) })
+						}
 					case <-stream.closed:
 						return
 					case <-ctx.Done():
@@ -1860,7 +1860,7 @@ func TestInvokePeerStreamFirstResponseTimingsStayNonNegative(t *testing.T) {
 				case <-ctx.Done():
 					return
 				}
-				// Answer immediately, while the paced input is still going out.
+				// PTT answers at commit; realtime answers during the paced input.
 				for _, chunk := range []*genx.MessageChunk{
 					transcriptText("user-1", "question", false),
 					assistantText("reply", "hello", false),

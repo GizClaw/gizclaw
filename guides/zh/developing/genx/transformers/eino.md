@@ -28,6 +28,11 @@ transformer, err := eino.New(ctx, eino.Config{
 
 `Agent.ContextID` 留空时，`New` 生成一个 Transformer 生命周期内稳定的 opaque identity。每个 turn 仍拥有独立的 invocation、run 和 output Stream identity。
 
+每个 output route 在 turn 启动时创建不可变的 `ResponseEpoch`，绑定该 turn 的输入
+StreamID；`first_output` 延迟创建的 route 也使用预先建立的 epoch。正文和终止事件
+携带同一个 epoch，因此消费端晚于 replacement input 才观察到首包时，仍能识别原始
+输入归属。没有输入 route 的主动输出保持未归属状态。这些 metadata 仅在进程内传递。
+
 ## Graph contract
 
 `GraphDefinition` 用于组合 State、node、路由和输出。
