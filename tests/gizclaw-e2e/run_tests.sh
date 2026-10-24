@@ -330,6 +330,7 @@ prepare_nanopb() {
 build_host_cli() {
 	mkdir -p "$script_dir/testdata/bin"
 	(cd "$repo_root" && go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw)
+	"$script_dir/testdata/bin/gizclaw" --help >/dev/null
 }
 
 # The cgo runner drives the same scenarios through sdk/c/gizclaw and

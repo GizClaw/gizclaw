@@ -605,6 +605,8 @@ exception described below: its Go test names are the supported selectors.
 
 ## GizClaw Docker E2E
 
+The full entry builds and launches the Go CLI with `--help` during preflight; the CLI suite executes real commands. SDK harness setup readiness reuses the Go SDK context connection and checks authenticated Peer HTTP plus RPC Ping within the existing readiness budget, keeping native CLI startup outside the Server availability verdict.
+
 `tests/gizclaw-e2e` is the Docker-backed full GizClaw environment. Its Go tests
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.

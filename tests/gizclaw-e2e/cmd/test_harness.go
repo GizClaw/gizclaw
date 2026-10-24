@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn"
 	"github.com/goccy/go-yaml"
 )
 
@@ -1019,9 +1020,8 @@ func (h *Harness) waitForSetupServerReady() {
 	setupContext := setupAdminContextName()
 	deadline := time.Now().Add(readyTimeout)
 	if err := waitUntil(readyTimeout, func() error {
-		// The CLI process must finish native startup, signaling and its RPC.
-		// A short per-attempt limit can repeatedly kill an otherwise ready
-		// Server's probe before it reaches the network.
+		// Probe the authenticated Server transport directly. Native CLI startup
+		// is qualified separately by preflight and the CLI suite.
 		return h.probeSetupServer(setupConfigHome, setupContext, time.Until(deadline))
 	}); err != nil {
 		h.t.Fatalf("setup server did not become ready: %v\nstart the Docker e2e stack with bash tests/gizclaw-e2e/setup/docker-compose-up.sh", err)
@@ -1047,24 +1047,15 @@ func setupAdminContextName() string {
 
 func (h *Harness) probeSetupServer(setupConfigHome, setupContext string, timeout time.Duration) error {
 	h.t.Helper()
-
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, h.BinaryPath, "connect", "ping", "--context", setupContext)
-	cmd.Dir = h.RepoRoot
-	cmd.Env = append(os.Environ(),
-		"HOME="+h.HomeDir,
-		"XDG_CONFIG_HOME="+setupConfigHome,
-	)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return fmt.Errorf("setup ping failed: %w\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
+	client, err := contextconn.Connect(ctx, contextconn.Options{ConfigDir: filepath.Join(setupConfigHome, "gizclaw"), Context: setupContext})
+	if err != nil {
+		return fmt.Errorf("setup connection: %w", err)
+	}
+	defer client.Close()
+	if _, err := client.Ping(ctx, "setup-ready"); err != nil {
+		return fmt.Errorf("setup RPC ping: %w", err)
 	}
 	return nil
 }
