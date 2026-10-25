@@ -13,6 +13,9 @@ vi.mock("@/components/traffic-chart", () => ({
 vi.mock("@/components/peer-config", () => ({
   PeerConfig: () => <p>config tab</p>,
 }));
+vi.mock("@/components/peer-firmware", () => ({
+  PeerFirmware: () => <p>firmware tab</p>,
+}));
 
 const peer = {
   publicKey: "device-key",
@@ -95,5 +98,16 @@ describe("peer detail at a glance", () => {
       button: 0,
     });
     expect(screen.getByText("config tab")).toBeTruthy();
+  });
+
+  it("opens firmware controls only in the firmware tab", () => {
+    render(
+      <PeerDetailPage peer={peer} windowSeconds={120} state={state({})} />,
+    );
+    expect(screen.queryByText("firmware tab")).toBeNull();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "固件升级" }), {
+      button: 0,
+    });
+    expect(screen.getByText("firmware tab")).toBeTruthy();
   });
 });

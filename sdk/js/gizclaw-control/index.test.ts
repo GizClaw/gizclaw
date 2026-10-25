@@ -378,6 +378,48 @@ test("api keys: list passes cursor and limit, named routes encode the name", asy
   );
 });
 
+test("device firmware reads the bound channels and pushes the selected digest", async () => {
+  const firmware = {
+    slots: {
+      stable: {},
+      beta: {
+        package: {
+          version: "1.1.0-beta.1",
+          url: "https://firmware.example/beta.tar.zlib",
+          sha256: "b".repeat(64),
+          size: 8192,
+        },
+      },
+      develop: {},
+    },
+  };
+  const h = harness([
+    json(200, firmware),
+    json(200, { result: {} }),
+    errorResponse(404, "FIRMWARE_NOT_FOUND", "not bound"),
+  ]);
+  assert.deepEqual(await h.client.device.getFirmware(), firmware);
+  await h.client.device.updateFirmware({
+    channel: "beta",
+    sha256: "b".repeat(64),
+  });
+  assert.equal(h.seen[0]!.method, "GET");
+  assert.equal(h.seen[0]!.url.pathname, "/gizclaw/v1/device/firmware");
+  assert.equal(h.seen[1]!.method, "POST");
+  assert.equal(h.seen[1]!.url.pathname, "/gizclaw/v1/device/tool/v0/invoke");
+  assert.deepEqual(JSON.parse(h.seen[1]!.body), {
+    tool: "firmware.update",
+    args: { channel: "beta", sha256: "b".repeat(64) },
+  });
+  await assert.rejects(
+    h.client.device.getFirmware(),
+    (error: unknown) =>
+      error instanceof GizClawControlError &&
+      error.code === "FIRMWARE_NOT_FOUND",
+  );
+  assert.equal(h.seen.length, 3);
+});
+
 test("device reads: get, status, telemetry", async () => {
   const h = harness([
     json(200, { name: "Kitchen", firmware: { version: "9" } }),

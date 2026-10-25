@@ -25,6 +25,7 @@ import {
   installLuaApp,
   listClientTools,
   getDevice,
+  getDeviceFirmware,
   getDeviceRuntime,
   getMhsManifest,
   readMhsHwd,
@@ -72,6 +73,7 @@ import type {
   ClientToolV0ListResponse,
   DeviceIdentifiers,
   HardwareInfo,
+  DeviceFirmware,
   DeviceFirmwareUpdateRequest,
   ClientToolSocialPingArgs,
   DeviceWorkspace,
@@ -156,6 +158,8 @@ export type {
   DeviceRunWorkspaceSetRequest,
   DeviceFindRequest,
   DeviceInfo,
+  DeviceFirmware,
+  DeviceFirmwareUpdateRequest,
   DevicePlaySoundRequest,
   DeviceRebootRequest,
   DeviceWifiConnectRequest,
@@ -481,6 +485,8 @@ export interface GizClawControlDevice {
   getRuntime(): Promise<Runtime>;
   /** `GET /gizclaw/v1/device/status`: the stored snapshot, never contacts the device. */
   getStatus(): Promise<PeerStatus>;
+  /** Bound firmware channels from Server configuration; available while offline. */
+  getFirmware(): Promise<DeviceFirmware>;
   /** `GET /gizclaw/v1/device/telemetry/{field}/latest`. */
   getTelemetryLatest(
     field: PeerTelemetryField,
@@ -1041,6 +1047,7 @@ export function createGizClawControlClient(
         ),
       }),
       getStatus: () => unwrap("getDeviceStatus", getDeviceStatus(common)),
+      getFirmware: () => unwrap("getDeviceFirmware", getDeviceFirmware(common)),
       getTelemetryLatest: (field) =>
         unwrap(
           "getDeviceTelemetryLatest",

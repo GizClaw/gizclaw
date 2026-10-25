@@ -10,6 +10,12 @@ import { z } from "zod";
 import { isLocal } from "@/lib/config";
 import { nodeErrorMessage } from "@/lib/api";
 import type { PeerReadAuth } from "@/lib/peer-auth";
+import type {
+  DeviceFirmware,
+  DeviceFirmwareUpdateRequest,
+  FirmwareChannelName,
+  PeerOtaStatus,
+} from "@gizclaw/gizclaw/peerhttp";
 
 /**
  * A device the operator watches. The endpoint records which access point the
@@ -168,6 +174,70 @@ function client(
     publicKey,
     ...(typeof auth === "string" ? { signedBearer: auth } : { identity: auth }),
   });
+}
+
+export const firmwareChannels = [
+  "stable",
+  "beta",
+  "develop",
+] as const satisfies readonly FirmwareChannelName[];
+
+const firmwareSlotSchema = z.object({
+  description: z.string().optional(),
+  package: z
+    .object({
+      version: z.string().max(128).optional(),
+      url: z.url().max(2048),
+      sha256: z.string().regex(/^[0-9a-f]{64}$/),
+      size: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    })
+    .optional(),
+});
+const firmwareSchema: z.ZodType<DeviceFirmware> = z.object({
+  description: z.string().optional(),
+  slots: z.object({
+    stable: firmwareSlotSchema,
+    beta: firmwareSlotSchema,
+    develop: firmwareSlotSchema,
+  }),
+});
+
+/** Reads only the Firmware configuration already bound to the target device. */
+export async function loadPeerFirmware(
+  endpoint: string,
+  publicKey: string,
+  signal: AbortSignal,
+  auth?: PeerReadAuth,
+): Promise<DeviceFirmware> {
+  return firmwareSchema.parse(
+    await client(endpoint, publicKey, signal, auth).getFirmware(),
+  );
+}
+
+/** A single update request; acceptance is not completion and is never retried. */
+export function updatePeerFirmware(
+  endpoint: string,
+  publicKey: string,
+  request: DeviceFirmwareUpdateRequest,
+  signal: AbortSignal,
+  auth?: PeerReadAuth,
+): Promise<void> {
+  return client(endpoint, publicKey, signal, auth).updateFirmware(request);
+}
+
+const otaSchema: z.ZodType<PeerOtaStatus> = z.object({
+  state: z.string(),
+  update_id: z.string().min(1).max(128),
+  observed_at: z.iso.datetime({ offset: true }),
+  download_percent: z.number().finite().min(0).max(100).optional(),
+  target_version: z.string().max(128).optional(),
+  error_code: z.string().max(128).optional(),
+  error_message: z.string().max(512).optional(),
+});
+
+export function peerOtaStatus(status: Record<string, unknown>) {
+  const parsed = otaSchema.safeParse(status.ota);
+  return parsed.success ? parsed.data : undefined;
 }
 
 // The device endpoint answers one telemetry field per request; the console

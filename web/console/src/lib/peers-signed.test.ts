@@ -6,6 +6,7 @@ import {
   loadHistory,
   loadHistoryAudio,
   loadPeer,
+  loadPeerFirmware,
   loadTelemetry,
   loadTelemetryRange,
   loadWifi,
@@ -20,6 +21,8 @@ describe("Monitor signed reads with debug disabled", () => {
   const reads = {
     overview: (p: WatchedPeer, s: AbortSignal) =>
       loadPeer(p.endpoint, p.publicKey, s, peerAuth(p)),
+    firmware: (p: WatchedPeer, s: AbortSignal) =>
+      loadPeerFirmware(p.endpoint, p.publicKey, s, peerAuth(p)),
     telemetry: (p: WatchedPeer, s: AbortSignal) =>
       loadTelemetry(p.endpoint, p.publicKey, s, peerAuth(p)),
     trends: (p: WatchedPeer, s: AbortSignal) =>
