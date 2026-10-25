@@ -62,6 +62,15 @@ func TestPeerStreamLatePreviousEOSDoesNotCompleteNewResponse(t *testing.T) {
 }
 
 func TestPeerStreamInterruptedPrefixDoesNotCountAsKeptReply(t *testing.T) {
+	testPeerStreamInterruptedPrefix(t, false)
+}
+
+func TestPeerStreamRouteEOSClosesInterruptedChannels(t *testing.T) {
+	testPeerStreamInterruptedPrefix(t, true)
+}
+
+func testPeerStreamInterruptedPrefix(t *testing.T, routeEOS bool) {
+	t.Helper()
 	stream := newFakeRelayStream()
 	_, packets := testOggOpus(t)
 	for _, id := range []string{"interrupted", "reply"} {
@@ -73,7 +82,15 @@ func TestPeerStreamInterruptedPrefixDoesNotCountAsKeptReply(t *testing.T) {
 		if id == "interrupted" {
 			textEOS.Ctrl.Error, audioEOS.Ctrl.Error = "interrupted", "interrupted"
 		}
-		for _, chunk := range []*genx.MessageChunk{text, audio, textEOS, audioEOS} {
+		chunks := []*genx.MessageChunk{text, audio, textEOS, audioEOS}
+		if routeEOS {
+			errText := ""
+			if id == "interrupted" {
+				errText = "interrupted"
+			}
+			chunks = []*genx.MessageChunk{text, audio, {Ctrl: &genx.StreamCtrl{StreamID: id, Label: "assistant", EndOfStream: true, Error: errText}}}
+		}
+		for _, chunk := range chunks {
 			stream.in <- chunk
 		}
 	}
@@ -89,6 +106,39 @@ func TestPeerStreamInterruptedPrefixDoesNotCountAsKeptReply(t *testing.T) {
 	}
 	if integrity := object["audio_integrity"].(map[string]any); integrity["streams"] != 2 || integrity["open"] != 0 || integrity["violations"] != 0 {
 		t.Fatalf("raw lifecycle evidence was lost: %#v", integrity)
+	}
+}
+
+func TestPeerStreamPlannedInterruptRecordsCompletedPrefixEOS(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	packet := testAudibleOpus(t)
+	response := func(id string) []*genx.MessageChunk {
+		text, audio := assistantText(id, id, false), assistantBlob(id, packet, false)
+		text.Ctrl.BeginOfStream, audio.Ctrl.BeginOfStream = true, true
+		return []*genx.MessageChunk{text, audio, assistantText(id, "", true), assistantBlob(id, nil, true)}
+	}
+	first := &replyAtCommitStream{fakeRelayStream: newFakeRelayStream(), chunks: response("first")}
+	second := &replyAtCommitStream{fakeRelayStream: newFakeRelayStream(), chunks: response("second")}
+	defer first.Close()
+	defer second.Close()
+	opened := 0
+	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) {
+		opened++
+		if opened == 1 {
+			return first, nil
+		}
+		return second, nil
+	}, giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text", InterruptAfter: "10ms"}}, "question", 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	object := result.assertion.(map[string]any)
+	if opened != 2 || object["response_count"] != 2 || object["reply"] != "firstsecond" {
+		t.Fatalf("completed prefix or replacement was lost: %#v", result.evidence)
+	}
+	if integrity := object["audio_integrity"].(map[string]any); integrity["open"] != 0 || integrity["violations"] != 0 {
+		t.Fatalf("completed prefix remained open: %#v", integrity)
 	}
 }
 

@@ -1475,13 +1475,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 					}
 					// The admitted prefix remains part of an explicit interrupt
 					// probe. Its terminal still closes the original MIME channel.
-					mimeType, _ := result.chunk.MIMEType()
-					switch {
-					case mimeType == "text/plain":
-						response.textEOS = true
-					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
-						response.audioEOS = true
-					}
+					response.recordEOS(result.chunk, eventElapsed.Milliseconds())
 					audioIntegrity.observe(result.chunk)
 					if responseComplete && observeReply && initialDone == nil {
 						observeCompletedReply()
@@ -1719,7 +1713,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			}
 			if result.chunk.IsEndOfStream() {
 				mimeType, _ := result.chunk.MIMEType()
-				if label == "assistant" && relayOpusMIME(mimeType) && observeAudio != nil && assistantObservationOpen {
+				if label == "assistant" && (result.chunk.Part == nil || relayOpusMIME(mimeType)) && observeAudio != nil && assistantObservationOpen {
 					assistantObservationOpen = false
 					if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
 						return operationResult{evidence: baseEvidence()}, fmt.Errorf("finish assistant playback: %w", err)
@@ -1738,6 +1732,14 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 				default:
 					otherEOS++
 				}
+				// Record lifecycle closure even when the planned interruption
+				// guards intentionally defer using this reply as completion.
+				if label == "assistant" && response != nil {
+					response.recordEOS(result.chunk, eventElapsed.Milliseconds())
+					if responseComplete && observeReply && initialDone == nil {
+						observeCompletedReply()
+					}
+				}
 				if label != terminalLabel {
 					continue
 				}
@@ -1752,24 +1754,12 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 						continue
 					}
 				}
-				nowMS := eventElapsed.Milliseconds()
 				if label == "assistant" {
 					// An EOS without an observed response may belong to the
 					// previous turn on this connection. Modalities must finish
 					// on the same response, with actual required content.
 					if response == nil {
 						continue
-					}
-					switch {
-					case mimeType == "text/plain":
-						response.textEOS = true
-						response.textEOSMS = nowMS
-					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
-						response.audioEOS = true
-						response.audioEOSMS = nowMS
-					}
-					if responseComplete && observeReply && initialDone == nil {
-						observeCompletedReply()
 					}
 					if response.interrupted {
 						continue
@@ -1819,6 +1809,25 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			}
 			return operationResult{evidence: failedEvidence(deadline)}, fmt.Errorf("%w (deadline=%s %s)", cause, deadline, counters())
 		}
+	}
+}
+
+// recordEOS handles both MIME-specific terminals and a route-wide terminal.
+func (r *peerStreamResponseProgress) recordEOS(chunk *genx.MessageChunk, elapsedMS int64) {
+	if r == nil || chunk == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	if chunk.Part == nil {
+		r.textEOS, r.audioEOS = true, true
+		r.textEOSMS, r.audioEOSMS = elapsedMS, elapsedMS
+		return
+	}
+	mimeType, _ := chunk.MIMEType()
+	switch {
+	case mimeType == "text/plain":
+		r.textEOS, r.textEOSMS = true, elapsedMS
+	case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
+		r.audioEOS, r.audioEOSMS = true, elapsedMS
 	}
 }
 
