@@ -195,7 +195,7 @@ Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 tri
 
 Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。新的客户端输入 route 在打断既有回复时仍关闭并替换 provider session。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Text mode 不发送 `EndASR` 或 `ClientInterrupt`；Push-to-Talk 仍是使用这两个 provider 操作的模式。
 
-Provider VAD 在同一输入 route 内识别到新的 `question_id` 时，已能关联问题/回复标识的 Realtime session 保持连接，关闭旧助手回复的 text/audio route，让 provider 已接收及后续的音频继续进入 ASR 和完整回复。旧问题的迟到 text、terminal 和 TTS-start 所属的匿名音频不会进入新回复；同一问题的重复 `ASRInfo` 不再次打断，retired question 历史最多保留 64 个。新的客户端 route 清除这份 VAD 状态，文字输入与外挂 ASR 的文本提交保留原路径。不能关联标识的旧协议 `ASRInfo` 仍使用原有 close-and-replace handoff。协议标识见[火山 Realtime API](https://docs.volcengine.com/docs/DoubaoVoice/End-to-endreal-timespeechlargemodelAPIaccessdocument?lang=zh)。
+Provider VAD 在同一输入 route 内识别到新的 `question_id` 时，已能关联问题/回复标识的 Realtime session 保持连接，关闭旧助手回复的 text/audio route，让 provider 已接收及后续的音频继续进入 ASR 和完整回复。旧问题的迟到 text、terminal 和 TTS-start 所属的匿名音频不会进入新回复；同一问题的重复 `ASRInfo` 不再次打断，retired question 历史最多保留 64 个。新的客户端 route 或文字 query 提交会清除这份 VAD 状态，文字输入与外挂 ASR 的文本提交保留原路径。不能关联标识的旧协议 `ASRInfo` 仍使用原有 close-and-replace handoff。协议标识见[火山 Realtime API](https://docs.volcengine.com/docs/DoubaoVoice/End-to-endreal-timespeechlargemodelAPIaccessdocument?lang=zh)。
 
 PTT 的二进制音频帧不携带 question/reply ID，归属由最近一次 TTS-start 事件确定。下一轮输入开始后，上一轮尚未完成的 Chat/TTS 记录仍用于匹配迟到的带 ID 事件，但不能抢占新一轮的无 ID 音频。旧响应的结束事件只关闭自己的 route。
 

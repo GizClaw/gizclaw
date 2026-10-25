@@ -14,7 +14,7 @@ import (
 func TestTransformerRealtimeVADKeepsAcceptedAudioAndRejectsInterruptedOutput(t *testing.T) {
 	ready, drained := make(chan struct{}), make(chan struct{})
 	session := &fakeTransformerSession{
-		beforeRecv: ready, eventsDrained: drained, blockAfterEvents: make(chan struct{}),
+		beforeRecv: ready, firstAudioSent: ready, eventsDrained: drained, blockAfterEvents: make(chan struct{}),
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRInfo, QuestionID: "q-1"},
 			{Type: doubaospeech.EventASRResponse, Text: "first segment", QuestionID: "q-1"},
@@ -61,7 +61,6 @@ func TestTransformerRealtimeVADKeepsAcceptedAudioAndRejectsInterruptedOutput(t *
 			t.Fatal(err)
 		}
 	}
-	close(ready)
 	select {
 	case <-drained:
 	case <-ctx.Done():
@@ -105,5 +104,61 @@ func TestRealtimeVADQuestionHistoryIsBounded(t *testing.T) {
 	}
 	if accepted, changed := responses.questionStarted("q-999"); !accepted || changed {
 		t.Fatal("a duplicate ASR event changed the current question")
+	}
+}
+
+func TestTransformerRealtimeUnscopedTextAfterVoiceReply(t *testing.T) {
+	ready, paused, textSent, drained := make(chan struct{}), make(chan struct{}), make(chan struct{}), make(chan struct{})
+	session := &fakeTransformerSession{
+		beforeRecv: ready, firstAudioSent: ready, firstTextSent: textSent, pauseBeforeEvent: 8,
+		eventPaused: paused, resumeEvents: textSent, eventsDrained: drained,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
+			{Type: doubaospeech.EventASRInfo, QuestionID: "voice-q"},
+			{Type: doubaospeech.EventASRResponse, Text: "voice question", QuestionID: "voice-q"},
+			{Type: doubaospeech.EventASREnded, QuestionID: "voice-q"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "voice-q", ReplyID: "voice-r"},
+			{Type: doubaospeech.EventChatResponse, Text: "voice answer", QuestionID: "voice-q", ReplyID: "voice-r"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{1, 2}},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "voice-q", ReplyID: "voice-r"},
+			{Type: doubaospeech.EventTTSFinished, QuestionID: "voice-q", ReplyID: "voice-r"},
+			{Type: doubaospeech.EventTTSStarted, QuestionID: "text-q", ReplyID: "text-r"},
+			{Type: doubaospeech.EventChatResponse, Text: "text answer", QuestionID: "text-q", ReplyID: "text-r"},
+			{Type: doubaospeech.EventTTSAudioData, Audio: []byte{2, 3}},
+			{Type: doubaospeech.EventChatEnded, QuestionID: "text-q", ReplyID: "text-r"},
+			{Type: doubaospeech.EventTTSFinished, QuestionID: "text-q", ReplyID: "text-r"},
+		},
+	}
+	transformer := newTransformer(nil,
+		withDoubaoRealtimeOpener(&fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}),
+		withMode(ModeRealtime), withInputFormat("pcm"), withInputTranscode(false), withFormat("pcm"))
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	input := newBufferStream(8)
+	defer input.Close()
+	output, err := transformer.transform(ctx, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer output.Close()
+	pushPTTTestTurn(t, input, "mic", 1)
+	select {
+	case <-paused:
+	case <-ctx.Done():
+		t.Fatal("voice reply did not finish")
+	}
+	if err := input.Push(&genx.MessageChunk{Part: genx.Text("typed question")}); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-drained:
+	case <-ctx.Done():
+		t.Fatal("text reply did not finish")
+	}
+	if err := input.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if chunks := drainRealtimeTestOutput(t, output); !hasRealtimeTestText(chunks, genx.RoleModel, "text answer") {
+		t.Fatal("the voice question identity filtered the later unscoped text reply")
 	}
 }

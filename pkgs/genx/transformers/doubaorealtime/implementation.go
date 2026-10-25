@@ -2167,6 +2167,7 @@ func (t *Transformer) processSession(
 					markAssistantPending(pttResponse.streamID, epoch)
 					pttResponses.add(pttResponse)
 				} else if t.mode == ModeRealtime {
+					realtimeInputGeneration.Add(1)
 					historyAudio.discard()
 					responseStreamID := streamIDs.endInputSegment()
 					assistant.setAccept(true)
