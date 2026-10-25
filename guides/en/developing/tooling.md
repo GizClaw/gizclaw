@@ -107,9 +107,13 @@ explicit errors instead of placeholder output.
 
 ## Repository Releases
 
-The repository publishes a formal, non-prerelease Release only when a canonical
+Server, Edge, and the SDKs publish a formal, non-prerelease Release only when a canonical
 protected tag `vMAJOR.MINOR.PATCH` is pushed. A push to `main` does not build or
 publish a Release.
+
+The monitoring UI uses its own npm package version and
+`monitor-vMAJOR.MINOR.PATCH` Release, separate from the server asset set below.
+See [Monitor](monitor#standalone-installation-and-releases) for installation and publishing.
 
 Each Release contains exactly two Debian packages, four Terraform provider
 packages, one standalone C SDK source archive, its checksum sidecar, two

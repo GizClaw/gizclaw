@@ -133,6 +133,7 @@ jobs:
           "$(go env GOPATH)/bin/actionlint" \
             .github/workflows/ci.yml \
             .github/workflows/js-sdk-release.yml \
+            .github/workflows/monitor-release.yml \
             .github/workflows/release.yml
 
       - name: Test offline release contracts
@@ -847,7 +848,7 @@ jobs:
           cache: true
 
       - name: Build and test console
-        run: npm run build --workspace @gizclaw/console && npm test --workspace @gizclaw/console
+        run: npm run build --workspace @gizclaw/monitor && npm test --workspace @gizclaw/monitor
 
       - name: Build guides
         run: npm --prefix guides run build:site

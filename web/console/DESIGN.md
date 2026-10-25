@@ -1,8 +1,11 @@
 # GizClaw Console design
 
-A fleet monitoring console embedded in Server and Edge binaries at `/monitor/`.
-Nodes expose `/monitor/api/node`, and this console is the only
-monitoring front end.
+A fleet monitoring console released as the independently versioned
+`@gizclaw/monitor` npm package, with a static server command and a complete
+`dist/` for static hosting. Server and Edge binaries also carry a fixed embedded
+copy at `/monitor/`. Nodes expose `/monitor/api/node`, and this console is the
+monitoring front end. Distribution and release commands live in
+`guides/zh/developing/monitor.md`.
 
 ## Access model
 
@@ -12,6 +15,13 @@ directly — there is no console backend, no aggregation service, and no place a
 token is uploaded to. `pkgs/monitor` answers `/monitor/api/node` with CORS
 headers so a console on a different origin can read snapshots with an explicit
 `Authorization: Bearer` header; no browser credentials are shared.
+
+Standalone deployments set `deviceEndpoint` to an existing access point; the
+assistant defaults to that endpoint. Embedded deployments can keep same-origin
+defaults. The npm command serves static files only, binds to localhost by default,
+and needs an HTTPS reverse proxy for remote hosting. Settings and chat history
+stay scoped to their page origin. The displayed UI version comes from the npm
+manifest and is independent of node versions.
 
 Configuration is stored in origin-local IndexedDB encrypted with a
 nonextractable Web Crypto key and cleared on explicit logout. Same-origin

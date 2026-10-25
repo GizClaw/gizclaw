@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { version } from "../../package.json";
 import {
   Activity,
   ChevronRight,
@@ -42,7 +43,7 @@ export function AppShell({
             GizClaw
           </div>
           <div className="mt-1 hidden pl-8 text-[9px] font-medium tracking-[0.28em] text-muted-foreground md:block">
-            CONSOLE
+            MONITOR {version}
           </div>
         </div>
         <nav className="flex w-full gap-1.5 overflow-x-auto md:w-auto md:flex-col">

@@ -1,8 +1,46 @@
 # Monitor
 
-监控控制台位于 `web/console/`（React、TypeScript、Vite、shadcn/ui、Recharts），构建后
-嵌入 Go 二进制，随 Server 和 Edge 一起分发。访问节点的 `/monitor/` 即可打开，无需另行部署
-静态文件；`/monitor` 自动重定向到该入口。设计与数据约束见 `web/console/DESIGN.md`。
+监控控制台位于 `web/console/`（React、TypeScript、Vite、shadcn/ui、Recharts），以
+`@gizclaw/monitor` npm 包独立发布，版本与 Server、Edge 和 SDK 分开维护。包中包含完整静态
+页面和 `gizclaw-monitor` 启动命令；更新独立页面无需重新部署 Server 或 Edge。
+节点的 `/monitor/` 仍提供随 Go 二进制分发的内置页面，`/monitor` 自动重定向到该入口。
+内置页面的版本固定在该二进制构建时，不会自动更新。设计与数据约束见 `web/console/DESIGN.md`。
+
+## 独立安装与发布
+
+GitHub 的 `monitor-vMAJOR.MINOR.PATCH` Release 提供 npm tarball 和 SHA-256 sidecar。
+从 Release 安装或直接用 npx 启动，例如：
+
+```sh
+npx --yes https://github.com/GizClaw/gizclaw/releases/download/monitor-v0.1.0/gizclaw-monitor-0.1.0.tgz
+```
+
+打开命令输出的本地地址。包不依赖 Go、仓库源码或运行时 SDK；诊断助手及其知识库已打包。
+命令支持 `--host`、`--port`、`--version` 和 `--help`，默认只监听 localhost。
+远程托管时在 HTTPS 反向代理后运行，或把已安装包中的 `dist/` 托管为静态站点。
+页面使用 hash 路由，可放在根路径或带末尾 `/` 的子路径；HTML 应重新验证缓存，
+带 hash 的 `assets/` 可长期缓存。独立启动命令同时支持 `/` 和 `/monitor/`。
+
+在页面配置中将 `deviceEndpoint` 设置为已有接入点的 HTTPS origin；助手默认使用该地址，
+也可单独配置 `assistant.endpoint`。各节点的快照仍使用各自 `servers[].url`。
+独立静态服务不代理 API 或接收凭据，浏览器直接调用已支持 CORS 的节点接口。
+换到另一个页面 origin 时，原 origin 的加密配置和聊天记录不会自动迁移；需要时先在原页面导出
+配置，再在新页面导入，导出文件按其中的管理员私钥与 Token 保管。
+
+发布流程位于 `.github/workflows/monitor-release.yml`。修改 `web/console/package.json`
+中的版本后，在仓库根目录同步 lockfile，经过 PR 合入 `main`，再推送匹配版本的 tag：
+
+```sh
+npm install --package-lock-only --ignore-scripts
+version=$(node -p 'require("./web/console/package.json").version')
+git tag "monitor-v$version"
+git push origin "monitor-v$version"
+```
+
+工作流验证页面和助手，并把真实 npm tarball 离线安装到空目录，检查启动命令与所有静态文件。
+发布 tag 必须匹配包版本，且指向当前受保护 `main` 可达的提交。该 Release 只包含 monitor 包，
+不触发 `v*` 服务器发布，也不替换仓库的 Latest Server Release；重跑只接受已有资产逐字节一致。
+该流程将 npm 包发布为 GitHub Release 资产，不会上传到 npmjs registry。
 
 ## 节点快照接口与权限
 
@@ -98,16 +136,20 @@ Tool 属于设备 owner 的控制 App，监控台使用的设备公钥通常没�
 
 ```sh
 npm ci
-npm run build --workspace @gizclaw/console
-npm test --workspace @gizclaw/console
+npm run build --workspace @gizclaw/monitor
+npm test --workspace @gizclaw/monitor
+npm run test:package --workspace @gizclaw/monitor
+npm run build:console
 go build ./cmd/gizclaw
 ```
 
-控制台构建产物是 `web/console/dist/` 静态文件（git 忽略），构建步骤会生成 `assets_generated.go`，通过 `go:embed` 逐个列出产物文件并嵌入二进制。
+控制台构建产物是 `web/console/dist/` 静态文件（git 忽略）。工作区的 `build` 只构建独立页面，
+`npm pack --workspace @gizclaw/monitor` 会重建页面并复制仓库 LICENSE，生成可安装的包。
+根目录的 `npm run build:console` 额外生成 `assets_generated.go`，通过 `go:embed` 逐个列出产物文件并嵌入二进制。
 清单同样由 git 忽略；缺失任一列出的文件都会使 Go 编译失败。
 编译 Go 或运行依赖监控模块的 Go 测试前必须先构建控制台；缺少产物会使编译失败。Linux Docker
 构建和 macOS 发布流程都会执行此步骤，运行时不依赖源目录。产物也可单独部署为静态站点。开发时
-`npm run dev --workspace @gizclaw/console` 监听 5174，并把 `/gizclaw` 代理到本地接入点
+`npm run dev --workspace @gizclaw/monitor` 监听 5174，并把 `/gizclaw` 代理到本地接入点
 （可用 `CONSOLE_DEVICE_PROXY` 覆盖）；节点快照直接从配置中的节点地址读取。
 
 ## HTTP 契约与验证

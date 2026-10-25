@@ -102,10 +102,13 @@ commit/describe。Native package 是否可用仍以对应 package 的 build/runt
 
 ## 仓库发布
 
-仓库只在 push canonical protected tag `vMAJOR.MINOR.PATCH` 时发布正式、非
+Server、Edge 与 SDK 只在 push canonical protected tag `vMAJOR.MINOR.PATCH` 时发布正式、非
 prerelease Release。push `main` 不会构建或发布 Release。
 
-每个 Release 严格包含两个 Debian package、四个 Terraform provider 包、一个独立 C SDK
+监控页面使用独立的 npm 包版本与 `monitor-vMAJOR.MINOR.PATCH` Release，不参与以下服务器
+资产集合；安装和发布见 [Monitor](monitor#独立安装与发布)。
+
+每个服务器 Release 严格包含两个 Debian package、四个 Terraform provider 包、一个独立 C SDK
 源码包及其 checksum sidecar、两个 Flutter SDK hosted pub 包、两个 npm SDK 包、`release-manifest.json` 和
 `SHA256SUMS`，加上容器 receipt `container-image.json`，共十五个文件，不发布
 Linux raw executable。Debian package 的 `gizclaw_<version>_{amd64,arm64}.deb` 从 tag 取得

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { version } from "../../package.json";
 import { KeyRound, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,7 +38,7 @@ export function LoginPage({
     <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col justify-center gap-6 px-6 py-12">
       <div>
         <div className="mb-2 text-[9px] tracking-[0.2em] text-muted-foreground">
-          GIZCLAW CONSOLE
+          GIZCLAW MONITOR {version}
         </div>
         <h1 className="font-serif text-[30px] font-medium tracking-tight">
           接入你的集群
@@ -62,7 +63,8 @@ export function LoginPage({
             <CardDescription>
               JSON 格式。servers 可以是数组，也可以是以节点地址为键的对象。
               可选的 admin.privateKey 配置已有管理员的 Base58 Giznet
-              私钥，用于设备查询。
+              私钥，用于设备查询。独立部署时填写
+              deviceEndpoint，指向已有接入点。
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">

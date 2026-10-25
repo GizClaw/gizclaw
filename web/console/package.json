@@ -1,14 +1,40 @@
 {
-  "name": "@gizclaw/console",
-  "private": true,
+  "name": "@gizclaw/monitor",
   "version": "0.1.0",
+  "description": "GizClaw monitoring console with a standalone static server",
+  "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/GizClaw/gizclaw.git",
+    "directory": "web/console"
+  },
+  "homepage": "https://gizclaw.github.io/gizclaw/zh/developing/monitor",
   "type": "module",
+  "engines": {
+    "node": "^22.13.0 || >=23.5.0"
+  },
+  "bin": {
+    "gizclaw-monitor": "serve.mjs"
+  },
+  "files": [
+    "dist",
+    "serve.mjs",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org"
+  },
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
-    "postbuild": "node embed.mjs",
+    "build:embedded": "npm run build && node embed.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "node --test embed.test.mjs && vitest run",
+    "start": "node serve.mjs",
+    "prepack": "npm run build && node package.mjs",
+    "test": "node --test embed.test.mjs serve.test.mjs && vitest run",
+    "test:standalone": "node --test serve.test.mjs && vitest run",
+    "test:package": "node --test package.test.mjs",
     "prebuild": "npm run build --prefix ../../sdk/js/gizclaw-control",
     "pretest": "npm run build --prefix ../../sdk/js/gizclaw-control"
   },
@@ -24,9 +50,7 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
     "vite": "^8.3.0",
-    "vitest": "^5.0.0"
-  },
-  "dependencies": {
+    "vitest": "^5.0.0",
     "@assistant-ui/react": "0.15.19",
     "@gizclaw/assistant": "0.1.0",
     "@gizclaw/gizclaw": "^0.0.0",
