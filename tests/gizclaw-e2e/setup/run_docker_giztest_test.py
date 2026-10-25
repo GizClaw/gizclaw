@@ -84,6 +84,7 @@ class DockerGiztestWrapperTests(unittest.TestCase):
         try:
             os.killpg(child.pid, signal.SIGKILL)
         except ProcessLookupError:
+            # The wrapper may already have exited and left no process group.
             pass
         child.communicate(timeout=5)
 
