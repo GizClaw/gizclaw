@@ -34,6 +34,8 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
 
+`EmitInterim=true` 时，已交付的定稿文本若再次作为无 utterance 的相同快照返回，不会打开第二条 interim route 或中断当前回复。显式 interim utterance 与带不同时间戳的同词定稿仍正常交付。
+
 新输入 BOS 替换 Push-to-Talk ASR session 时，adapter 先关闭旧输入已打开的 History 音频 channel，并发送保留旧 StreamID、错误为 `interrupted` 的 transcript EOS，再继续识别新输入。旧输入的已识别部分保持原归属，后续 History 读取可以结束对该转写的等待。Realtime 继续使用分段 transcript 的中断终态。
 
 ### ASR 空识别

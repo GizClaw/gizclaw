@@ -85,6 +85,14 @@ required = {
     "contracts": {"TestPeerStreamFirstResponseRejectsEarlierPTTOutput", "TestPeerStreamResponseHistorySurvivesCloseAndReopen", "TestPeerStreamConsecutiveTurnsKeepResponseOwnership", "TestPeerStreamRearmRejectsKnownResponseTerminalErrors", "TestPeerStreamPTTInterruptPreservesAdmittedTerminal", "TestOutputEpochRetainsProducerInput", "TestDockPreservesDelayedProducerEpoch", "TestTextAgentWaitsForASRTerminalAcrossControlEOSOrder", "TestPushToTalkReplacementClosesPreviousHistoryAndTranscript", "TestRuntimeStopClosesInputBeforeWaitingForOutput", "TestWorkspaceQuiescenceClosesInputBeforeWaitingForOutput", "TestOpusOverflowKeepsLogicalControlAndServices", "TestDirectPacketOverflowRetainsItsFailureBoundary", "TestRecoveringSessionCompletedSendWinsSessionClose", "TestRecoveringSessionSendAfterCompletionReturnsClosedPipe"},
     "transport": {"TestAudioTurnOwnershipGiztest/push-to-talk/retained=false", "TestAudioTurnOwnershipGiztest/realtime/retained=false", "TestAudioTurnOwnershipGiztest/realtime/retained=true", "TestAudioTurnOwnershipGiztest/push-to-talk/retained=false/advance=input_sent", "TestNativeAudioHistoryGiztest", "TestContinuousPodcastGiztest"},
 }
+required["contracts"].update({
+    "TestTransformerInterimDoesNotReplayCommittedResults/repeated_committed_snapshot",
+    "TestTransformerInterimDoesNotReplayCommittedResults/text_populated_after_committed_utterance",
+    "TestTransformerInterimDoesNotReplayCommittedResults/same_words_in_a_new_timed_utterance",
+    "TestTransformerInterimDoesNotReplayCommittedResults/new_interim_repeats_earlier_words",
+    "TestTransformerInterimDoesNotReplayCommittedResults/cumulative_committed_utterances_with_new_interim_text",
+})
+required["transport"].add("TestAudioTurnOwnershipGiztest/realtime/repeated-committed-asr/retained=true")
 summary = {}
 for lane, tests in required.items():
     events = [json.loads(line) for line in (root / (lane + ".jsonl")).read_text().splitlines()]

@@ -32,6 +32,8 @@ Every output route or MIME channel created by a Doubao Transformer has an explic
 
 When a replacement BOS interrupts a push-to-talk ASR session, the adapter closes that input's open History audio channel and emits an `interrupted` transcript EOS with the old StreamID before recognizing the next input. Recognized text retains its original input identity, and later History reads can finish waiting for that transcript. Realtime retains its segment-level interruption terminals.
 
+With `EmitInterim=true`, an unchanged text-only snapshot of committed speech does not open another interim transcript or interrupt the active reply. Explicit interim utterances and identical words with different definite-utterance timestamps are still delivered.
+
 ### ASR empty recognition
 
 When a Doubao ASR provider session completes normally without non-whitespace final result text or definite utterance text, `doubaoasr.Transformer` completes that recognition successfully without emitting recognized transcript text. A zero-content terminal chunk required by the existing Stream route remains a successful internal boundary rather than recognized user text.

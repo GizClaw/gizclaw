@@ -37,13 +37,17 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 		mode      string
 		keep      bool
 		inputSent bool
-	}{{mode: "push-to-talk"}, {mode: "realtime"}, {mode: "realtime", keep: true}, {mode: "push-to-talk", inputSent: true}} {
+		repeatASR bool
+	}{{mode: "push-to-talk"}, {mode: "realtime"}, {mode: "realtime", keep: true}, {mode: "push-to-talk", inputSent: true}, {mode: "realtime", keep: true, repeatASR: true}} {
 		name := fmt.Sprintf("%s/retained=%t", tc.mode, tc.keep)
 		if tc.inputSent {
 			name += "/advance=input_sent"
 		}
+		if tc.repeatASR {
+			name = fmt.Sprintf("%s/repeated-committed-asr/retained=%t", tc.mode, tc.keep)
+		}
 		t.Run(name, func(t *testing.T) {
-			fixture := &audioTurnProtocol{realtime: tc.mode == "realtime", openingAudioInput: tc.keep, release: make(chan struct{}), tail: make(chan struct{})}
+			fixture := &audioTurnProtocol{realtime: tc.mode == "realtime", openingAudioInput: tc.keep, repeatCommittedASR: tc.repeatASR, release: make(chan struct{}), tail: make(chan struct{})}
 			provider := httptest.NewServer(http.HandlerFunc(fixture.serve))
 			t.Cleanup(provider.Close)
 			original := websocket.DefaultDialer
@@ -109,6 +113,9 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 				if tc.inputSent {
 					doc.Name += ".input-sent"
 				}
+				if tc.repeatASR {
+					doc.Name += ".repeated-asr"
+				}
 				for i := range doc.Steps {
 					step := &doc.Steps[i]
 					if tc.inputSent && step.ID == "first_turn" {
@@ -143,6 +150,9 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 					if tc.inputSent {
 						variant += "-input-sent"
 					}
+					if tc.repeatASR {
+						variant += "-repeated-asr"
+					}
 					directory = filepath.Join(base, tc.mode, variant)
 					if err := os.MkdirAll(directory, 0700); err != nil {
 						t.Fatal(err)
@@ -170,7 +180,9 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 				fixture.mu.Lock()
 				requests := slices.Clone(fixture.requests)
 				inputs := fixture.inputs
+				repeatedFrames := fixture.repeatedASRFrames
 				fixture.mu.Unlock()
+				t.Logf("ASR inputs=%d repeated text snapshots=%d", inputs, repeatedFrames)
 				if runErr != nil {
 					t.Fatalf("real transport turn ownership: %v\n%s", runErr, output.String())
 				}
@@ -179,6 +191,9 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 				}
 				if tc.inputSent && (len(requests) != 2 || requests[0] != "opening" || !strings.HasSuffix(requests[1], "second question")) {
 					t.Fatalf("unexpected model requests after input-only advance: %v", requests)
+				}
+				if tc.repeatASR && repeatedFrames != 3 {
+					t.Fatalf("repeated-ASR case delivered %d duplicate snapshots, want one per input", repeatedFrames)
 				}
 				wantInputs := 2
 				if tc.keep {
@@ -212,12 +227,13 @@ func TestAudioTurnOwnershipGiztest(t *testing.T) {
 }
 
 type audioTurnProtocol struct {
-	realtime, openingAudioInput bool
-	release, tail               chan struct{}
-	once                        sync.Once
-	mu                          sync.Mutex
-	inputs                      int
-	requests                    []string
+	realtime, openingAudioInput, repeatCommittedASR bool
+	release, tail                                   chan struct{}
+	once                                            sync.Once
+	mu                                              sync.Mutex
+	inputs                                          int
+	repeatedASRFrames                               int
+	requests                                        []string
 }
 
 func (f *audioTurnProtocol) serve(w http.ResponseWriter, r *http.Request) {
@@ -361,10 +377,12 @@ func (f *audioTurnProtocol) asr(w http.ResponseWriter, r *http.Request) {
 			text = map[int]string{0: "opening", 1: "first question", 2: "second question"}[turn]
 		}
 		last := frame[1]&2 != 0
-		// Realtime waits for 500 ms PCM so speech has already ended. PTT
-		// receives definite text before audio EOS, as real SAUC sessions do.
+		// Ordinary realtime controls wait for 500 ms PCM. The repeated-result
+		// case emits definite text at 100 ms, then repeats its text without
+		// timed utterances. That is a non-final result in the real SDK
+		// before audio EOS. An audio EOS still receives the final acknowledgment.
 		threshold := 3200
-		if f.realtime {
+		if f.realtime && !f.repeatCommittedASR {
 			threshold = 16000
 		}
 		if !last && (sent || received < threshold) {
@@ -390,6 +408,25 @@ func (f *audioTurnProtocol) asr(w http.ResponseWriter, r *http.Request) {
 		response = binary.BigEndian.AppendUint32(response, uint32(len(payload)))
 		if err := conn.WriteMessage(websocket.BinaryMessage, append(response, payload...)); err != nil {
 			return
+		}
+		if !last && f.repeatCommittedASR {
+			repeatedPayload, err := json.Marshal(map[string]any{
+				"audio_info": map[string]any{"duration": 200},
+				"result":     map[string]any{"text": text},
+			})
+			if err != nil {
+				return
+			}
+			repeated := bytes.Clone(response)
+			binary.BigEndian.PutUint32(repeated[4:8], 2)
+			binary.BigEndian.PutUint32(repeated[8:12], uint32(len(repeatedPayload)))
+			repeated = append(repeated, repeatedPayload...)
+			if err := conn.WriteMessage(websocket.BinaryMessage, repeated); err != nil {
+				return
+			}
+			f.mu.Lock()
+			f.repeatedASRFrames++
+			f.mu.Unlock()
 		}
 		sent = true
 		if last {

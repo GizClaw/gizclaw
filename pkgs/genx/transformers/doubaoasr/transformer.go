@@ -1260,6 +1260,8 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 	textCount := 0
 	var receivedGeneration uint64
 	lastInterimText := ""
+	lastResultText := ""
+	lastDefiniteText := ""
 	lastUtteranceCount := 0
 	lastFinal := false
 	sawInterimText := false
@@ -1338,6 +1340,7 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 		resultsCh <- outChunk
 		if definite {
 			transcriptDefinite = true
+			lastDefiniteText = text
 		}
 	}
 	var closeTranscript func(string)
@@ -1399,9 +1402,13 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 				// A replacement can finish with final text without timed utterances.
 				// Prior generations' definite text must not suppress that fallback.
 				textCount = 0
+				lastResultText = ""
+				lastDefiniteText = ""
 				receivedGeneration = generation
 			}
 		}
+		previousResultText := lastResultText
+		lastResultText = strings.TrimSpace(result.Text)
 		resultCount++
 		lastUtteranceCount = len(result.Utterances)
 		lastFinal = result.IsFinal
@@ -1431,13 +1438,21 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 		}
 		if !emittedResultText && t.emitInterim && !result.IsFinal {
 			interimText := strings.TrimSpace(result.Text)
-			if interimText == "" {
-				for _, utt := range result.Utterances {
-					if !utt.Definite && strings.TrimSpace(utt.Text) != "" {
-						interimText = strings.TrimSpace(utt.Text)
-						break
+			pendingUtterance := false
+			for _, utterance := range result.Utterances {
+				text := strings.TrimSpace(utterance.Text)
+				if !utterance.Definite && text != "" {
+					pendingUtterance = true
+					if interimText == "" {
+						interimText = text
 					}
+					break
 				}
+			}
+			// A text-only snapshot can repeat an already completed utterance.
+			// Preserve new timed hypotheses, including the same words again.
+			if !pendingUtterance && (interimText == lastDefiniteText || !transcriptOpen && interimText == previousResultText) {
+				interimText = ""
 			}
 			if interimText != "" && interimText != lastInterimText {
 				emitTranscriptText(interimText, false)

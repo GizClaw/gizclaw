@@ -2115,6 +2115,8 @@ supported Giztest document mode.
 
 An additional PTT `input_sent` case advances after partial recognition while audio termination is still draining. The previous History routes must retire and the next input must receive its own reply. The PTT protocol fixture publishes definite text before audio EOS and acknowledges the final marker after 350 ms.
 
+A retained realtime case sends an unchanged text-only snapshot after definite speech over the real SAUC WebSocket protocol. It must neither open another transcript route nor cancel the active reply. A fixture counter proves all three repeated snapshots were sent; the opening and two later turns retain their reply and model-input-order assertions. ASR contract tests preserve new interim hypotheses and new utterances with identical words.
+
 The Docker contract layer also checks producer epochs, AudioDock epoch
 preservation, old replies failing to rescue modality deadlines, re-arm error
 EOS for known old IDs, and PTT interruption bookkeeping. It also verifies both control/audio EOS orders, old audio/transcript EOS on ASR replacement, completed final sends surviving a concurrent session close, and input-first runtime shutdown progress. GizTunnel regression fills the logical Opus receive queue over a real WebRTC connection while service request/response remains usable, then verifies resumed audio; other direct-packet overflow retains its failure boundary. The transport layer
