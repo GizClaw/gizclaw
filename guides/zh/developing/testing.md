@@ -2141,6 +2141,8 @@ Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以�
 20 次被测回复，由独立玩家 Workspace 驱动、独立裁判 Workspace 按角色一致性、信息边界、
 针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
 
+脚本目录的确定性回归直接执行已提交的规则与发布节点，覆盖完整证据下的自然指认、问句和错误嫌疑人的拒绝，以及 NPC 实现话术过滤。狼人杀评分按最高票放逐和结局后身份公开的实际规则判断。运行 `go test -count=1 ./tests/gizclaw-e2e/testdata` 可验证这些规则；真实模型对话仍按每项 3/4、20 次被测回复验收。
+
 质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
 
 ```bash

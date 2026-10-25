@@ -2399,6 +2399,8 @@ drives the dialogue; a separate judge rates character consistency, information
 boundaries, responsiveness, progression and closure. Each criterion requires
 3/4. Deterministic rule tests remain separate from model quality assessment.
 
+Catalog regressions execute the committed rule and publishing nodes, covering natural explicit accusations with complete evidence, questions and wrong suspects, and NPC implementation-language filtering. Werewolf assessment follows plurality voting and identity disclosure after the declared ending. Run `go test -count=1 ./tests/gizclaw-e2e/testdata` for these rules; live model dialogues still require 3/4 on every criterion across 20 candidate replies.
+
 Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
 
 ```bash

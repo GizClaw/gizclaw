@@ -1014,3 +1014,63 @@ func TestNativeWerewolfPublishesOneCompleteAssistantTurn(t *testing.T) {
 		})
 	}
 }
+
+func TestNativeMysteryAcceptsNaturalExplicitAccusations(t *testing.T) {
+	for _, command := range []string{
+		"我直接指认沈知秋为凶手，她知晓壁炉暗格备用钥匙、裙摆沾有与后廊吻合的雨渍，同时兼具遗产继承与生父旧仇双重动机。",
+		"我最终指认凶手就是沈知秋。",
+		"线索已齐，我现在正式指认凶手就是沈知秋",
+	} {
+		t.Run(command, func(t *testing.T) {
+			game := runRules(t, "murder-mystery", "调查门锁、壁炉、留声机、后廊和沈知秋房间", map[string]any{})["game"].(map[string]any)
+			result := runRules(t, "murder-mystery", command, game)
+			if result["game"].(map[string]any)["solved"] != true {
+				t.Fatalf("explicit accusation after complete evidence did not close the case: %v", result)
+			}
+		})
+	}
+	for _, command := range []string{
+		"我直接问沈知秋是不是凶手。",
+		"我最终想知道凶手是谁？",
+		"我直接指认陆明远，虽然沈知秋的线索也很可疑。",
+	} {
+		t.Run(command, func(t *testing.T) {
+			game := runRules(t, "murder-mystery", "调查门锁、壁炉、留声机、后廊和沈知秋房间", map[string]any{})["game"].(map[string]any)
+			if runRules(t, "murder-mystery", command, game)["game"].(map[string]any)["solved"] != false {
+				t.Fatal("a question or wrong suspect closed the case")
+			}
+		})
+	}
+	game := runRules(t, "murder-mystery", "调查门锁", map[string]any{})["game"].(map[string]any)
+	if runRules(t, "murder-mystery", "我直接指认沈知秋", game)["game"].(map[string]any)["solved"] != false {
+		t.Fatal("the new wording bypassed missing evidence")
+	}
+}
+
+func TestNativeWerewolfPublisherRejectsImplementationTalk(t *testing.T) {
+	for _, speech := range []string{
+		"我这边没有可用工具，无法完成操作。",
+		"我需要调用工具后才能替你投票。",
+		"当前没有API权限。",
+	} {
+		t.Run(speech, func(t *testing.T) {
+			graph := fixtureGraph(t, "workspaces/eino-werewolf.json")
+			valid := "你对上一轮发言的怀疑有具体理由，但我还想核对另一位的解释。"
+			result := runFixtureScript(t, graph, "publish", map[string]any{
+				"game":      map[string]any{},
+				"audit_due": false,
+				"official":  "【法官公示】可信发言阶段。",
+				"context":   `{"phase":"speech","alive":[1,3,4,5],"dead":[2,6,7,8],"winner":""}`,
+				"actors": []any{
+					map[string]any{"seat": int64(1), "name": "林知", "ended": false},
+					map[string]any{"seat": int64(4), "name": "小满", "ended": false},
+				},
+				"replies": []any{speech, valid},
+			})
+			answer := result["answer"].(string)
+			if strings.Contains(answer, speech) || !strings.Contains(answer, valid) || result["rejected_lines"] != int64(1) {
+				t.Fatalf("implementation text leaked or valid in-world speech was lost: %v", result)
+			}
+		})
+	}
+}
