@@ -58,6 +58,17 @@ as the configuration. Device APIs are served by nodes that expose
 `/gizclaw/v1`, so a node with public client APIs disabled reports its refusal on
 that row rather than silently showing nothing.
 
+The device detail Firmware upgrade tab reads the bound Firmware configuration and
+pushes one selected channel to that device through the existing control SDK. A
+confirmation shows the target device, version and package digest; the update
+includes that digest for device-side comparison. Offline and unreadable device
+states disable pushing. Admin or signed credentials retain Server-side control
+authorization, and public-key debug access requires fullcontrol. Acceptance and
+completion are separate: the latest device-reported OTA attempt uses the existing
+device poller, with its ID and observation time visible. Pending browser requests
+are cancelled on device or credential changes and unmount; updates are never
+automatically replayed.
+
 ## Location
 
 The device Location tab draws reported GNSS fixes as a track: latitude and

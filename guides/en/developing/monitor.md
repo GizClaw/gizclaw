@@ -111,6 +111,24 @@ factory reset, settings writes, Workspace switches and Tool invocation belong to
 the device owner's control app, and the device public key the console uses
 usually lacks those permissions.
 
+The Firmware upgrade tab reads the Firmware configuration already bound to the
+current device. Operators select a channel with a configured package, inspect its
+version, size and digest, then confirm a push to that device. The request includes
+the channel and the displayed SHA-256 so the device can compare it with its own
+resolved package; the page does not change Firmware resources or device bindings.
+Configuration remains readable while the device is offline; pushing requires an
+online device. The owning Server checks control authority for the configured
+admin identity or device-specific signed credential. Public-key debug access
+requires fullcontrol.
+
+A successful request means the device accepted the update. Existing device-state
+polling displays the latest reported OTA progress, outcome and errors, together
+with its update ID and observation time; an earlier report does not prove that
+the current request completed. Changing devices or credentials, or leaving the
+tab, cancels pending browser requests, although the device may already be
+updating. Failed or timed-out pushes are not replayed automatically; inspect
+device state and OTA reports before deciding whether to retry.
+
 ## Build and validation
 
 ```sh

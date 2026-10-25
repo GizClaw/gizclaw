@@ -4,11 +4,41 @@ import { verify } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { URL as NodeURL } from "node:url";
 import { z } from "zod";
+import type { DeviceFirmware } from "@gizclaw/gizclaw/peerhttp";
+
+export const monitorFirmware = {
+  description: "Device firmware",
+  slots: {
+    stable: {
+      package: {
+        version: "1.0.0",
+        url: "https://firmware.example/1.0.0.tar.zlib",
+        sha256: "a".repeat(64),
+        size: 4096,
+      },
+    },
+    beta: {
+      package: {
+        version: "1.1.0-beta.1",
+        url: "https://firmware.example/1.1.0-beta.1.tar.zlib",
+        sha256: "b".repeat(64),
+        size: 8192,
+      },
+    },
+    develop: {},
+  },
+} satisfies DeviceFirmware;
+
+type MonitorHTTPHandler = (
+  request: Request,
+  path: string,
+) => Response | undefined | Promise<Response | undefined>;
 
 export function monitorHTTPFixture(
   options: {
     publicKey?: string;
     authorize?: (authorization: string | null) => boolean;
+    respond?: MonitorHTTPHandler;
   } = {},
 ) {
   const peer = {
@@ -48,7 +78,10 @@ export function monitorHTTPFixture(
         { status: 403 },
       );
     }
+    const response = await options.respond?.(request, path);
+    if (response) return response;
     if (path === "") return Response.json({ name: peer.label });
+    if (path === "/firmware") return Response.json(monitorFirmware);
     if (path === "/runtime")
       return Response.json({
         online: true,
@@ -147,6 +180,7 @@ export function monitorHTTPFixture(
           state: { limit_seconds: 0, used_seconds: 0, exhausted: false },
         },
         "management.password.get": { is_set: false },
+        "firmware.update": {},
       };
       if (!Object.hasOwn(results, body.tool))
         throw new Error(`unexpected tool: ${body.tool}`);
@@ -193,10 +227,11 @@ const vectors = z
   );
 
 /** Real JS signing, independently verified with native Ed25519 and Go public keys. */
-export function adminHTTPFixture() {
+export function adminHTTPFixture(respond?: MonitorHTTPHandler) {
   let admin = vectors[0];
   const target = admin.target;
   const fixture = monitorHTTPFixture({
+    respond,
     publicKey: target,
     authorize(authorization) {
       try {

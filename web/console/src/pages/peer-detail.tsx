@@ -32,6 +32,7 @@ import { PeerTelemetry } from "@/components/peer-telemetry";
 import { PeerLocation } from "@/components/peer-location";
 import { PeerKV } from "@/components/peer-kv";
 import { PeerConfig } from "@/components/peer-config";
+import { PeerFirmware } from "@/components/peer-firmware";
 import type { PeerState } from "@/hooks/use-peers";
 import {
   peerGlance,
@@ -232,6 +233,7 @@ export function PeerDetailPage({
           <TabsTrigger value="telemetry">Telemetry</TabsTrigger>
           <TabsTrigger value="location">定位</TabsTrigger>
           <TabsTrigger value="config">设备配置</TabsTrigger>
+          <TabsTrigger value="firmware">固件升级</TabsTrigger>
           <TabsTrigger value="state">状态字段</TabsTrigger>
         </TabsList>
         <TabsContent value="traffic">
@@ -265,6 +267,9 @@ export function PeerDetailPage({
         </TabsContent>
         <TabsContent value="config">
           <PeerConfig peer={peer} />
+        </TabsContent>
+        <TabsContent value="firmware">
+          <PeerFirmware peer={peer} state={state} />
         </TabsContent>
         <TabsContent value="state">
           <Card>
