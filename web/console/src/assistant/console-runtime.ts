@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import {
   formatRoute,
   parseRoute,
@@ -61,8 +62,11 @@ export function createConsoleRuntime(
   const endpointFor = (publicKey: string) =>
     deps.peers().find((peer) => peer.publicKey === publicKey)?.endpoint ??
     deviceEndpoint();
-  const signedBearerFor = (publicKey: string) =>
-    deps.peers().find((peer) => peer.publicKey === publicKey)?.signedBearer;
+  const authFor = (publicKey: string) =>
+    peerAuth(
+      deps.peers().find((peer) => peer.publicKey === publicKey) ?? {},
+      deps.config().admin,
+    );
   const key = (value: string) => normalizePublicKey(value);
 
   const ensureWatched = (publicKey: string) => {
@@ -155,7 +159,7 @@ export function createConsoleRuntime(
             endpointFor(key(publicKey)),
             key(publicKey),
             deps.signal(),
-            signedBearerFor(key(publicKey)),
+            authFor(key(publicKey)),
           ),
         ),
       telemetry: async (publicKey, fields) => {
@@ -164,7 +168,7 @@ export function createConsoleRuntime(
             endpointFor(key(publicKey)),
             key(publicKey),
             deps.signal(),
-            signedBearerFor(key(publicKey)),
+            authFor(key(publicKey)),
           ),
         );
         return fields
@@ -188,7 +192,7 @@ export function createConsoleRuntime(
             request.startMs,
             request.endMs,
             deps.signal(),
-            signedBearerFor(publicKey),
+            authFor(publicKey),
           ),
         );
       },
@@ -198,7 +202,7 @@ export function createConsoleRuntime(
             endpointFor(key(publicKey)),
             key(publicKey),
             deps.signal(),
-            signedBearerFor(key(publicKey)),
+            authFor(key(publicKey)),
           ),
         ),
       workspaces: (publicKey) =>
@@ -207,7 +211,7 @@ export function createConsoleRuntime(
             endpointFor(key(publicKey)),
             key(publicKey),
             deps.signal(),
-            signedBearerFor(key(publicKey)),
+            authFor(key(publicKey)),
           ),
         ),
       history: async (request) => {
@@ -226,7 +230,7 @@ export function createConsoleRuntime(
               limit: request.limit,
             },
             deps.signal(),
-            signedBearerFor(publicKey),
+            authFor(publicKey),
           ),
         );
         return { items: page.items, nextCursor: page.next_cursor };
@@ -248,7 +252,7 @@ export function createConsoleRuntime(
             request.untilMs ?? deps.now(),
             request.cursor,
             deps.signal(),
-            signedBearerFor(publicKey),
+            authFor(publicKey),
           ),
         );
         return { items: page.items, nextCursor: page.end.next_cursor };

@@ -61,6 +61,8 @@ export function LoginPage({
             </CardTitle>
             <CardDescription>
               JSON 格式。servers 可以是数组，也可以是以节点地址为键的对象。
+              可选的 admin.privateKey 配置已有管理员的 Base58 Giznet
+              私钥，用于设备查询。
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">

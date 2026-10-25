@@ -108,7 +108,8 @@ export function PeerDetailPage({
           <AlertTitle>无法读取该设备</AlertTitle>
           <AlertDescription>{state.error}</AlertDescription>
           <AlertDescription className="text-muted-foreground">
-            检查设备公钥、签名凭证或调试权限，以及接入点是否可达。恢复后会自动继续。
+            检查设备公钥、admin
+            身份的当前权限、单设备签名凭证或调试权限，以及接入点是否可达。恢复后会自动继续。
           </AlertDescription>
         </Alert>
       )}

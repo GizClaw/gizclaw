@@ -86,13 +86,15 @@ export function PeersPage({
           <AlertDescription>{storageError}</AlertDescription>
         </Alert>
       )}
-      <AddPeerCard onAdd={add} />
+      <AddPeerCard onAdd={add} hasAdmin={config.admin !== undefined} />
       <SearchPeerCard endpoint={endpoint} onAdd={add} />
       <Card>
         <CardHeader>
           <CardTitle>关注的设备</CardTitle>
           <CardDescription>
-            每 5 秒读取一次设备状态；权限由接入点所属的 Server 再次校验。
+            每 15 秒读取一次设备状态；权限由接入点所属的 Server 再次校验。
+            {config.admin &&
+              " 已配置 admin 查询身份，未填写单设备凭证时自动签名。"}
           </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
@@ -196,8 +198,10 @@ export function PeersPage({
 /** Adding is always by public key; the search card below produces those keys. */
 function AddPeerCard({
   onAdd,
+  hasAdmin,
 }: {
   onAdd: (publicKey: string, label: string, signedBearer?: string) => void;
+  hasAdmin: boolean;
 }) {
   const [publicKey, setPublicKey] = useState("");
   const [label, setLabel] = useState("");
@@ -216,7 +220,10 @@ function AddPeerCard({
         <CardTitle>添加设备</CardTitle>
         <CardDescription>
           用设备公钥关注一台设备；不知道公钥时，用下面的搜索按 SN 或 IMEI
-          找到它。使用管理员签名凭证可读取离线快照，无需开启设备调试；凭证到期后重新添加即可更新。
+          找到它。
+          {hasAdmin
+            ? "使用配置中的 admin 身份自动签名查询，无需开启设备调试。单设备签名凭证优先使用。"
+            : "可在集群配置中添加 admin.privateKey 自动签名，或填写单设备签名凭证；签名读取无需开启设备调试。"}
         </CardDescription>
       </CardHeader>
       <CardContent>

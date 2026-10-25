@@ -15,11 +15,22 @@ headers so a console on a different origin can read snapshots with an explicit
 
 Configuration is stored in origin-local IndexedDB encrypted with a
 nonextractable Web Crypto key and cleared on explicit logout. Same-origin
-scripts can use that key: this is not an OS keychain. Nothing else — snapshots,
-logs, samples — is persisted.
+scripts can use that key: this is not an OS keychain. Snapshots, logs and samples
+are not persisted.
 
 `servers` accepts either an array or an object keyed by node address. Nodes
 require HTTPS; plain HTTP is allowed only for localhost during development.
+
+The optional `admin.privateKey` holds an existing Base58 Giznet identity for device
+queries. The SDK derives its public key and signs a fresh target-bound Peer HTTP
+Bearer locally for every request; no private key is transmitted. The owning Server
+checks the caller's active Admin role or grant. Explicit per-device `signedBearer`
+credentials take precedence; otherwise reads use this identity, then public-key
+debug access when no identity is configured. Configuration changes cancel active
+page reads; assistant tools read current credentials at invocation time, including
+for unwatched devices. The private key is encrypted, exported and cleared with the
+configuration and excluded from page diagnostics. Model access retains its separate
+assistant API key, and identifier discovery remains anonymous.
 
 ## Components
 

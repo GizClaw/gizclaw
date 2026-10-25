@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -67,7 +68,7 @@ export function PeerLocation({ peer }: { peer: WatchedPeer }) {
         start,
         end,
         controller.signal,
-        peer.signedBearer,
+        peerAuth(peer),
       ),
       loadTelemetryRange(
         peer.endpoint,
@@ -76,7 +77,7 @@ export function PeerLocation({ peer }: { peer: WatchedPeer }) {
         start,
         end,
         controller.signal,
-        peer.signedBearer,
+        peerAuth(peer),
       ),
     ])
       .then(([latitude, longitude]) => {
@@ -101,7 +102,7 @@ export function PeerLocation({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setBusy(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, peer.signedBearer, hours]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer, peer.identity, hours]);
 
   const last = fixes.at(-1);
   return (

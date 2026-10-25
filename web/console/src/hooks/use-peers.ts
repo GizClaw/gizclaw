@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { nodeErrorMessage } from "@/lib/api";
 import {
@@ -10,6 +11,7 @@ import {
 import { readPeers, savePeers } from "@/lib/store";
 import type { ConsoleConfigPeer } from "@/lib/config";
 import { rates, type Sample } from "@/lib/format";
+import type { GizClawPeerMonitorIdentity } from "@gizclaw/gizclaw-control";
 
 const MAX_SAMPLES = 600;
 
@@ -26,7 +28,11 @@ export type PeerState = {
  * polled through its own access point. Nothing here is shared with other
  * operators or written back to the cluster.
  */
-export function useWatchedPeers(intervalMs = 5000, paused = false) {
+export function useWatchedPeers(
+  intervalMs = 5000,
+  paused = false,
+  identity?: GizClawPeerMonitorIdentity,
+) {
   const [peers, setPeers] = useState<WatchedPeer[]>([]);
   const [states, setStates] = useState<Record<string, PeerState>>({});
   const counters = useRef<
@@ -119,7 +125,7 @@ export function useWatchedPeers(intervalMs = 5000, paused = false) {
               peer.endpoint,
               peer.publicKey,
               controller.signal,
-              peer.signedBearer,
+              peerAuth(peer, identity),
             );
             if (controller.signal.aborted) return;
             const now = Date.now();
@@ -176,7 +182,7 @@ export function useWatchedPeers(intervalMs = 5000, paused = false) {
       controller.abort();
       if (timer) clearTimeout(timer);
     };
-  }, [keys, intervalMs, paused]);
+  }, [keys, intervalMs, paused, identity]);
 
   return { peers, states, add, remove, importPeers, storageError };
 }

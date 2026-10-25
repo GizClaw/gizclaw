@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { createPeerHTTPSigner } from "@gizclaw/gizclaw/peerhttp";
+import type { GizClawPeerMonitorIdentity } from "@gizclaw/gizclaw-control";
 
 // A console configuration lists every Server and Edge node the operator wants
 // to watch, together with that node's own Monitor Token. Tokens stay in the
@@ -40,6 +42,10 @@ const fileSchema = z
     deviceEndpoint: z.string().trim().min(1).optional(),
     peers: z.array(peerSchema).optional(),
     assistant: assistantSchema.optional(),
+    admin: z
+      .object({ privateKey: z.string().trim().min(1) })
+      .strict()
+      .optional(),
     servers: z.union([
       z.array(serverSchema).min(1),
       z.record(z.string(), serverSchema),
@@ -68,6 +74,8 @@ export type ConsoleConfig = {
   peers: ConsoleConfigPeer[];
   /** The diagnostic assistant's model access; absent disables the chat. */
   assistant?: ConsoleAssistant;
+  /** Local signing identity for device reads, authorized by the owning Server. */
+  admin?: GizClawPeerMonitorIdentity;
 };
 
 /**
@@ -186,9 +194,19 @@ export function parseConfig(text: string): ConsoleConfig {
       monitorToken: checkToken(server.monitorToken),
     });
   }
+  if (parsed.data.admin) {
+    try {
+      createPeerHTTPSigner(parsed.data.admin.privateKey);
+    } catch {
+      throw new Error(
+        "admin.privateKey 必须是非零的 32 字节 Base58 Giznet 私钥",
+      );
+    }
+  }
   return {
     name: parsed.data.name ?? "GizClaw 集群",
     servers,
+    admin: parsed.data.admin,
     peers: (parsed.data.peers ?? []).map((peer) => ({
       publicKey: peer.publicKey.replace(/^gizclaw_pk_/, ""),
       ...(peer.signedBearer ? { signedBearer: peer.signedBearer } : {}),
@@ -231,6 +249,9 @@ export const sampleConfig = `{
       "monitorToken": "gizclaw_mk_..."
     }
   ],
+  "admin": {
+    "privateKey": "<已有 admin 身份的 Base58 Giznet 私钥>"
+  },
   "assistant": {
     "apiKey": "gizclaw_sk_v1_...",
     "model": "llm"
@@ -263,8 +284,10 @@ export function exportConfig(
         publicKey: peer.publicKey,
         label: peer.label === "" ? undefined : peer.label,
         endpoint: peer.endpoint,
+        signedBearer: peer.signedBearer,
       })),
       assistant: config.assistant,
+      admin: config.admin,
     },
     null,
     2,

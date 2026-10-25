@@ -210,3 +210,45 @@ describe("configuration export", () => {
     ]);
   });
 });
+
+describe("admin configuration", () => {
+  // Synthetic all-ones bytes, matching the Go/JS signature fixtures.
+  const privateKey = "4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi";
+  const base = {
+    servers: [{ url: "https://edge.example.com", monitorToken: token }],
+  };
+
+  it("validates and round-trips an optional admin identity with per-device overrides", () => {
+    expect(parseConfig(JSON.stringify(base)).admin).toBeUndefined();
+    const config = parseConfig(
+      JSON.stringify({
+        ...base,
+        admin: { privateKey: ` ${privateKey} ` },
+        peers: [
+          { publicKey: "device", signedBearer: "explicit-device-bearer" },
+        ],
+      }),
+    );
+    expect(config.admin).toEqual({ privateKey });
+    const restored = parseConfig(exportConfig(config, config.peers));
+    expect(restored.admin).toEqual(config.admin);
+    expect(restored.peers).toEqual(config.peers);
+  });
+
+  it("rejects malformed/zero keys without exposing their values", () => {
+    for (const key of [
+      "gizclaw_sk_v1_secret",
+      "0-invalid-private-key",
+      "1".repeat(32),
+      "2".repeat(2000),
+    ]) {
+      expect(() =>
+        parseConfig(JSON.stringify({ ...base, admin: { privateKey: key } })),
+      ).toThrow("admin.privateKey 必须是非零的 32 字节 Base58 Giznet 私钥");
+    }
+    for (const admin of [{}, { privateKey, role: "admin" }])
+      expect(() => parseConfig(JSON.stringify({ ...base, admin }))).toThrow(
+        /admin/,
+      );
+  });
+});

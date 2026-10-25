@@ -189,6 +189,10 @@ TypeScript 使用 `@gizclaw/gizclaw/peerhttp` 生成的 `writeMhsHwd`、`getDevi
 `github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp`），处理错误后把返回值放入
 `Authorization: Bearer <token>`；生成 client 可沿用 `WithRequestEditorFn` 设置该 header。
 
+JavaScript 使用 `@gizclaw/gizclaw/peerhttp` 的 `createPeerHTTPSigner`，传入已有身份的
+Base58 Giznet 私钥，再调用 `sign(targetPublicKey)` 生成凭证。Monitor 控制台可通过
+[`admin.privateKey`](../developing/monitor#admin-查询身份) 为每次设备请求自动签名。
+
 Token 使用现有 X25519 PK/SK 的 XEdDSA 签名；SK 留在本地，最长有效 5 分钟，到期重新签名。
 格式为 `gizclaw_sig_v1_<payload>.<signature>`，调用者、目标和有效期均在签名内；完整 wire
 定义见 `api/http/peer.json` 的 `x-peer-http-signed-bearer`。生产使用 HTTPS 并保护 Token。

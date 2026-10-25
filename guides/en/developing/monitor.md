@@ -36,8 +36,9 @@ Crypto key, and clears it on explicit logout. This is not an OS keychain:
 same-origin scripts can use the key. Telemetry and logs are never persisted in
 the browser.
 
-Device monitoring uses the access point's Public APIs with the device's
-`gizclaw_pk_` bearer. The Server's ordinary business HTTP ingress remains
+Device monitoring uses the access point's Public APIs with automatic admin
+identity signing, an explicit device signed Bearer, or the device's
+`gizclaw_pk_` debug Bearer. The Server's ordinary business HTTP ingress remains
 disabled, so device APIs are served through an access point (Edge). Readonly
 permits reads; fullcontrol permits supported volume and reboot operations, with
 authorization rechecked by the owning Server.
@@ -326,6 +327,36 @@ configured infrastructure routes and retained sample values are included, withou
 device, user, session or credential dimensions. See [Infra Flow](infra-flow#real-activity-collection-and-ownership)
 for coverage, configuration and lifecycle.
 
+## Admin query identity
+
+Add an existing administrator's Giznet private key in the login configuration or cluster JSON editor:
+
+```json
+"admin": {
+  "privateKey": "<existing admin Base58 Giznet private key>"
+}
+```
+
+Use the Base58 Giznet private key from a CLI context, rather than a device API key or Monitor Token.
+Its Peer must already be active with the Admin role or the owning Server's `admin-public-key` grant.
+Configuration does not register an administrator or change Server permissions. Device requests use
+`deviceEndpoint` or the console's own access point.
+
+The SDK signs a fresh, short-lived target-bound Bearer locally before each device HTTP request;
+only the signed credential is sent. This works with device debug mode off and covers status,
+telemetry, location, Workspaces, History/audio, logs, read-only hardware/management queries,
+and diagnostic assistant reads of watched or unwatched devices. Model access still uses the
+separate `assistant.apiKey`. SN/IMEI discovery remains anonymous.
+
+An explicit per-device `signedBearer` takes precedence. With neither credential, public-key debug
+access applies. Signature and authorization failures remain visible. Applying, replacing or removing
+admin configuration cancels active page reads and reloads them; subsequent assistant queries read
+the current configuration. The console keeps its existing read-only operations.
+
+The admin key is encrypted with local configuration in origin-local IndexedDB, included in JSON exports,
+and cleared at logout. It is excluded from page diagnostics. Same-origin scripts can still use the
+stored key; exported JSON must be protected as an administrator credential.
+
 ## Offline KV snapshots
 
 Device detail displays each reported KV key and observation time, with expandable JSON. Null, false and
@@ -337,15 +368,16 @@ The add-device form and imported peers support signedBearer: an existing target-
 [Signed Bearer authentication](/en/using/api#signed-bearer-authentication) reuses Edge target routing and live
 Server authorization; Admin reads and Client self-reads do not depend on device debug mode. A token for A
 cannot be configured for B. Tokens last at most five minutes: re-sign locally and re-add the same device to
-refresh; never import the private key. Tokens are stored with encrypted personal configuration and excluded
-from page diagnostics. Without a signature the existing public-key/debug mode remains. Node Monitor Tokens
+refresh. For automatic signing, configure the admin identity described above. Tokens are stored with encrypted
+personal configuration and excluded from page diagnostics. Without a signed credential or admin identity,
+the existing public-key/debug mode remains. Node Monitor Tokens
 do not grant device access.
 
 The watched device's signed credential accompanies overview, latest telemetry and trends, GNSS tracks,
 Workspaces, History, audio downloads, device logs, hardware configuration and diagnostic assistant reads.
 Replacing it cancels active page reads and reloads the page; assistant reads use the current credential
 at invocation time. Valid signed access works with debug off. Devices without a signed credential retain
-the existing debug-access policy.
+the existing debug-access policy when no admin identity is configured.
 
 
 Device configuration reads each Modem/NFC cached snapshot and only the advertised content-age, features,

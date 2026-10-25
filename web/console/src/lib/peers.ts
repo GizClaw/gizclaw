@@ -4,10 +4,12 @@ import {
   createGizClawPeerMonitorClient,
   type PeerTelemetryField,
   type PeerTelemetryLatestResponse,
+  type GizClawPeerMonitorIdentity,
 } from "@gizclaw/gizclaw-control";
 import { z } from "zod";
 import { isLocal } from "@/lib/config";
 import { nodeErrorMessage } from "@/lib/api";
+import type { PeerReadAuth } from "@/lib/peer-auth";
 
 /**
  * A device the operator watches. The endpoint records which access point the
@@ -21,6 +23,8 @@ export type WatchedPeer = {
   endpoint: string;
   addedAt: number;
   signedBearer?: string;
+  /** Session-only identity from the current configuration; never stored here. */
+  identity?: GizClawPeerMonitorIdentity;
 };
 
 const watchedSchema = z.array(
@@ -124,13 +128,9 @@ export async function loadPeer(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ): Promise<PeerSnapshot> {
-  const peer = createGizClawPeerMonitorClient({
-    ...connection(endpoint, signal),
-    publicKey,
-    signedBearer,
-  });
+  const peer = client(endpoint, publicKey, signal, auth);
   const [info, runtime, status] = await Promise.all([
     peer.get(),
     peer.getRuntime(),
@@ -161,12 +161,12 @@ function client(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ) {
   return createGizClawPeerMonitorClient({
     ...connection(endpoint, signal),
     publicKey,
-    signedBearer,
+    ...(typeof auth === "string" ? { signedBearer: auth } : { identity: auth }),
   });
 }
 
@@ -198,9 +198,9 @@ export async function loadTelemetry(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ): Promise<TelemetryValue[]> {
-  const peer = client(endpoint, publicKey, signal, signedBearer);
+  const peer = client(endpoint, publicKey, signal, auth);
   const values: PeerTelemetryLatestResponse["values"] = [];
   for (let offset = 0; offset < telemetryFields.length; offset += 4) {
     signal.throwIfAborted();
@@ -271,10 +271,10 @@ export async function loadWorkspaces(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ) {
   return workspaceList.parse(
-    await client(endpoint, publicKey, signal, signedBearer).listWorkspaces(),
+    await client(endpoint, publicKey, signal, auth).listWorkspaces(),
   );
 }
 
@@ -297,22 +297,20 @@ export async function loadHistory(
   workspaceId: string,
   request: HistoryRequest,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ) {
   return historyPage.parse(
-    await client(
-      endpoint,
-      publicKey,
-      signal,
-      signedBearer,
-    ).listWorkspaceHistory(workspaceId, {
-      query: request.query,
-      cursor: request.cursor,
-      order: request.order,
-      start_time_ms: request.startTimeMs,
-      end_time_ms: request.endTimeMs,
-      limit: request.limit ?? 100,
-    }),
+    await client(endpoint, publicKey, signal, auth).listWorkspaceHistory(
+      workspaceId,
+      {
+        query: request.query,
+        cursor: request.cursor,
+        order: request.order,
+        start_time_ms: request.startTimeMs,
+        end_time_ms: request.endTimeMs,
+        limit: request.limit ?? 100,
+      },
+    ),
   );
 }
 
@@ -322,9 +320,9 @@ export function loadHistoryAudio(
   workspaceId: string,
   historyId: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ): Promise<Blob> {
-  return client(endpoint, publicKey, signal, signedBearer).downloadHistoryAudio(
+  return client(endpoint, publicKey, signal, auth).downloadHistoryAudio(
     workspaceId,
     historyId,
   );
@@ -339,10 +337,10 @@ export async function loadDeviceLogs(
   end: number,
   cursor: string | undefined,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ) {
   return deviceLogs.parse(
-    await client(endpoint, publicKey, signal, signedBearer).searchLogs({
+    await client(endpoint, publicKey, signal, auth).searchLogs({
       query,
       level,
       start_time_ms: start,
@@ -366,9 +364,9 @@ export async function loadWifi(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ) {
-  const peer = client(endpoint, publicKey, signal, signedBearer);
+  const peer = client(endpoint, publicKey, signal, auth);
   const [manifest, saved] = await Promise.all([
     peer.getMhsManifest(),
     peer.listSavedWifi(),
@@ -403,20 +401,17 @@ export async function loadTelemetryRange(
   startMs: number,
   endMs: number,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ) {
-  const result = await client(
-    endpoint,
-    publicKey,
-    signal,
-    signedBearer,
-  ).queryTelemetry({
-    field,
-    start_time_ms: startMs,
-    end_time_ms: endMs,
-    limit: 500,
-    order: "asc",
-  });
+  const result = await client(endpoint, publicKey, signal, auth).queryTelemetry(
+    {
+      field,
+      start_time_ms: startMs,
+      end_time_ms: endMs,
+      limit: 500,
+      order: "asc",
+    },
+  );
   // The Server downsamples to a derived step, so a long window over a short
   // recording legitimately collapses to a single point.
   return rangeSchema.parse(result);
@@ -575,9 +570,9 @@ export async function loadDeviceConfig(
   endpoint: string,
   publicKey: string,
   signal: AbortSignal,
-  signedBearer?: string,
+  auth?: PeerReadAuth,
 ): Promise<DeviceConfig> {
-  const peer = client(endpoint, publicKey, signal, signedBearer);
+  const peer = client(endpoint, publicKey, signal, auth);
   const [manifest, tools] = await Promise.all([
     section(
       async () => manifestSchema.parse(await peer.getMhsManifest()),

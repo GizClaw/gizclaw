@@ -84,8 +84,8 @@ export function ConfigDialog({
         <DialogHeader>
           <DialogTitle>集群配置 JSON</DialogTitle>
           <DialogDescription>
-            包含节点、Monitor Token
-            与本浏览器的设备关注列表。可以直接编辑后应用，或复制、下载到别处。
+            包含节点、Monitor Token 与本浏览器的设备关注列表。可添加
+            admin.privateKey 配置设备查询身份，私钥只在浏览器本地签名。
           </DialogDescription>
         </DialogHeader>
         {error && (
@@ -103,7 +103,7 @@ export function ConfigDialog({
         />
         <DialogFooter>
           <span className="mr-auto text-[11px] text-muted-foreground">
-            Token 就在这段文本里，复制或下载时请注意保管。
+            Token 和已配置的 admin 私钥包含在文本中，复制或下载时请注意保管。
           </span>
           <Button variant="outline" onClick={format}>
             <Braces size={14} /> 格式化

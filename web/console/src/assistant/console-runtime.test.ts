@@ -350,4 +350,40 @@ describe("console runtime", () => {
     expect(failure).toBeInstanceOf(SourceError);
     expect(failure).toMatchObject({ code: "NETWORK_ERROR" });
   });
+
+  it("reads the current admin configuration for watched and unwatched targets, preserving device overrides", async () => {
+    let admin: { privateKey: string } | undefined = {
+      privateKey: "first-local-key",
+    };
+    let signedBearer: string | undefined;
+    const { runtime } = setup({
+      config: () => ({ name: "admin", servers: [], peers: [], admin }),
+      peers: () => [{ ...WATCHED, signedBearer }],
+    });
+    peers.loadPeer.mockResolvedValue({
+      info: {},
+      runtime: { online: true },
+      status: {},
+    });
+    for (const current of [
+      admin,
+      { privateKey: "replacement-local-key" },
+      undefined,
+    ]) {
+      admin = current;
+      for (const target of [WATCHED.publicKey, "unwatchedKey"]) {
+        await runtime.devices.status(target);
+        expect(peers.loadPeer.mock.calls.at(-1)?.at(-1)).toBe(current);
+      }
+    }
+    admin = { privateKey: "current-local-key" };
+    signedBearer = "explicit-device-credential";
+    await runtime.devices.status(WATCHED.publicKey);
+    expect(peers.loadPeer.mock.calls.at(-1)?.at(-1)).toBe(signedBearer);
+    await runtime.devices.status("unwatchedKey");
+    expect(peers.loadPeer.mock.calls.at(-1)?.at(-1)).toBe(admin);
+    expect(JSON.stringify(await runtime.devices.watched())).not.toContain(
+      "privateKey",
+    );
+  });
 });

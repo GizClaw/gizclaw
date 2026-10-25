@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -110,6 +111,7 @@ export function LogsPage({
     device?.endpoint,
     device?.publicKey,
     device?.signedBearer,
+    device?.identity,
     deviceQuery,
     deviceLevel,
     windowSeconds,
@@ -133,7 +135,7 @@ export function LogsPage({
       end,
       deviceCursor,
       controller.signal,
-      device.signedBearer,
+      peerAuth(device),
     )
       .then((page) => {
         if (controller.signal.aborted) return;
