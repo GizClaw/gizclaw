@@ -91,16 +91,18 @@ func TestPeerStreamPTTInterruptPreservesAdmittedTerminal(t *testing.T) {
 			first := &replyAtCommitStream{fakeRelayStream: newFakeRelayStream(), chunks: []*genx.MessageChunk{
 				assistantText("first", "first reply", false), assistantBlob("first", packet, false),
 			}}
+			first.chunks[0].Ctrl.BeginOfStream, first.chunks[1].Ctrl.BeginOfStream = true, true
 			terminal := assistantText("first", "", true)
 			terminal.Ctrl.Error = "interrupted"
 			if providerError {
 				terminal.Ctrl.ErrorCode, terminal.Ctrl.Error = "MODEL_ERROR", "provider failed"
 			}
 			replacement := &replyAtCommitStream{fakeRelayStream: newFakeRelayStream(), chunks: []*genx.MessageChunk{
-				assistantText("first", "late payload", false), assistantBlob("first", packet, false), terminal,
+				assistantText("first", "late payload", false), assistantBlob("first", packet, false), terminal, assistantBlob("first", nil, true),
 				assistantText("second", "replacement", false), assistantBlob("second", packet, false),
 				assistantText("second", "", true), assistantBlob("second", nil, true),
 			}}
+			replacement.chunks[4].Ctrl.BeginOfStream, replacement.chunks[5].Ctrl.BeginOfStream = true, true
 			defer first.Close()
 			defer replacement.Close()
 			opened := 0
@@ -129,6 +131,9 @@ func TestPeerStreamPTTInterruptPreservesAdmittedTerminal(t *testing.T) {
 			}
 			if object["reply"] != "first replyreplacement" || object["audio_bytes"] != 2*len(packet) {
 				t.Fatalf("later old payload was included: %v", object)
+			}
+			if integrity := object["audio_integrity"].(map[string]any); integrity["open"] != 0 || integrity["violations"] != 0 {
+				t.Fatalf("admitted terminal did not close its audio lifecycle: %#v", integrity)
 			}
 		})
 	}

@@ -177,7 +177,7 @@ model 和可选 language，不填写这个由 runner 拥有的 wire metadata。
 控制 EOS，同一轮保持同一 StreamID；`pacing` 只作用于音频包。空 PTT 只发送控制边界。
 完整单轮对话可断言 `/response_count: {equals: 1}`，检测多次回复被混进同一音频下行的情况；
 该值排除已忽略或打断的回复。音频输入通过 `/input_ms` 报告媒体时长。
-Assistant terminal completion 在首个完整回复后继续收集 250 ms；`reply_observation: 1s`
+Assistant terminal completion 在完整回复后继续收集 250 ms；观察到新的 response 或 MIME channel 开始时，取消旧观察计时器，等待所有已开始的 text/audio channel 匹配 EOS。旧回复完成不能掩盖后续未收尾 channel；多条文本仍可共用一路音频。`reply_observation: 1s`
 可延长这段有界观察，再统计 `response_count`。该设置不用于空输入、`first_response`、
 `input_sent`、重叠输入或 transcript completion。
 控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，

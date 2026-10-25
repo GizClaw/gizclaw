@@ -33,13 +33,13 @@ History 等待合用。错误 EOS 同时携带的 payload 仍计入结果，可�
 H106 固件的界面或语音提示；固件消费该事件后的表现需要独立设备验收。回归无 build tag，
 随普通 Go 测试执行，不读取云凭据，也不调用线上模型。
 
-## Catalog 角色提示词的模型 HTTP 回归
+## 原生 Prompt 两轮 History 的模型 HTTP 回归
 
 ```sh
-go test -count=1 -run '^TestCatalogRolePromptsReachModelRequests$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
+go test -count=1 -run '^TestNativePromptPreservesTwoTurnModelHistory$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
 ```
 
-提交的 tester 与剧本杀 Graph 经实际 Starlark、Prompt 节点和生产 Eino/GenX adapter 调用本地 HTTP/SSE 模型夹具。对话输入验证 system 指令、历史 user/assistant 顺序、当前 user 位于最后，以及配置的 completion-token 上限。tester 还执行完整的七轮提问与终轮评估；终轮模型请求只包含一条 evaluator system 消息和一条 JSON 证据消息，保留原 brief 与七组带标签的问答。State 与 Memory 使用受控 fixture store，无需供应商凭据。真实模型的角色行为和时限仍由原始 Docker relay 与剧本质量场景验收。七轮提问按 brief 扮演用户身份；第八轮独立评估引用的对话证据，只接受完整的 PASS 或 FAIL。继续聊天、带 PASS 前缀的说明和不完整证据均按协议错误失败。
+固定的两轮输入通过原生 Eino Graph、生产 Eino/GenX adapter 与本地 HTTP/SSE 模型夹具执行。回归检查 system 指令、上一轮 user/assistant 顺序、当前 user 位于最后、模型回复交付与配置的 completion-token 上限。State 和 Memory 使用受控 fixture store，无需供应商凭据。该回归只验证消息与 History 契约。
 
 ## Docker 镜像来源
 
@@ -103,6 +103,8 @@ go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/comm
 ```
 
 完整性检查针对实际交付的逻辑音频；声音失真与音色需要单独测量。
+
+`audio_integrity` 保留所有观察到的音频流，包括自然打断的前缀；普通单输入回归的完整回复字节、文字和 pacing 排除自然打断的前缀。显式 `interrupt_after` 探针仍保留计划打断前已收到的数据，排除之后的迟到 payload。8 轮实时语音功能回归要求每轮保留一条完整回复、text/audio EOS 齐全、所有音频流关闭、同时活跃数为 1 且违规为 0。自然 VAD 可以产生多个先后关闭的音频流；原有 101 包、p95 30 ms、最大 100 ms、零 underrun 和缓冲门槛保持原值。
 
 ### 原生语音的多轮 History 顺序
 

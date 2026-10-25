@@ -46,6 +46,7 @@ type peerStreamAudioDiagnostics interface {
 type peerStreamOpener func() (peerStream, error)
 
 type peerStreamResponseProgress struct {
+	textStarted, audioStarted   bool
 	textObserved, audioObserved bool
 	textEOS, audioEOS           bool
 	textEOSMS, audioEOSMS       int64
@@ -1300,7 +1301,19 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			session.prependOutput(retainedAfterReply)
 		}
 	}()
+	hasOpenReply := func() bool {
+		for _, response := range responses {
+			if (response.textStarted && !response.textEOS) || (response.audioStarted && !response.audioEOS) {
+				return true
+			}
+		}
+		return false
+	}
 	observeCompletedReply := func() {
+		if hasOpenReply() {
+			armIdle()
+			return
+		}
 		if replyTimer == nil {
 			stopIdle()
 			replyTimer = time.NewTimer(replyObservation)
@@ -1310,6 +1323,11 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	for {
 		select {
 		case <-replyDeadline:
+			if hasOpenReply() {
+				replyTimer, replyDeadline = nil, nil
+				armIdle()
+				continue
+			}
 			return finish()
 		case origin := <-speechEnded:
 			speechEnded = nil
@@ -1413,6 +1431,9 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			if result.err != nil {
 				if result.err == io.EOF {
 					if responseComplete && observeReply {
+						if hasOpenReply() {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream closed with an unfinished reply (%s)", counters())
+						}
 						if initialDone == nil {
 							return finish()
 						}
@@ -1452,6 +1473,19 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 						observedInterrupted = true
 						response.interrupted = true
 					}
+					// The admitted prefix remains part of an explicit interrupt
+					// probe. Its terminal still closes the original MIME channel.
+					mimeType, _ := result.chunk.MIMEType()
+					switch {
+					case mimeType == "text/plain":
+						response.textEOS = true
+					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
+						response.audioEOS = true
+					}
+					audioIntegrity.observe(result.chunk)
+					if responseComplete && observeReply && initialDone == nil {
+						observeCompletedReply()
+					}
 				}
 				// Earlier output is still connection activity. It must not count
 				// as this reply or rescue a first-response modality deadline.
@@ -1471,7 +1505,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 				armIdle()
 			}
 			rearm := result.chunk.Ctrl != nil && result.chunk.Ctrl.ErrorCode == "INPUT_ROUTE_RELOADED"
-			if responseComplete && observeReply && session != nil && (rearm || (label != "assistant" && peerStreamTerminalError(result.chunk) == "")) {
+			if responseComplete && observeReply && session != nil && (rearm || (initialDone == nil && label != "assistant" && peerStreamTerminalError(result.chunk) == "")) {
 				// Re-arm and transcript events after this reply belong to the
 				// retained session's next operation. Other errors still fail
 				// this observation instead of being deferred to another step.
@@ -1539,6 +1573,33 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 				}
 				if responseInterrupted {
 					response.interrupted = true
+					if !interrupted {
+						abandonedResponses[actualStreamID] = true
+					}
+				}
+				// Only an explicit MIME BOS declares a channel that must close.
+				// Payload without BOS remains an integrity violation, not a new
+				// lifecycle that can hold completion open indefinitely.
+				if response != nil && result.chunk.IsBeginOfStream() {
+					newChannel := false
+					switch result.chunk.Part.(type) {
+					case genx.Text:
+						newChannel = !response.textStarted
+						response.textStarted = true
+					case *genx.Blob:
+						newChannel = !response.audioStarted
+						response.audioStarted = true
+					}
+					if newChannel && !firstResponse && terminalLabel == "assistant" {
+						// A later response or MIME channel must finish before an
+						// earlier reply's observation window can end the turn.
+						replyClosed = false
+						if replyTimer != nil {
+							replyTimer.Stop()
+							replyTimer, replyDeadline = nil, nil
+						}
+						armIdle()
+					}
 				}
 			}
 			if response != nil && actualStreamID != "" {
@@ -1696,7 +1757,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 					// An EOS without an observed response may belong to the
 					// previous turn on this connection. Modalities must finish
 					// on the same response, with actual required content.
-					if response == nil || response.interrupted {
+					if response == nil {
 						continue
 					}
 					switch {
@@ -1706,6 +1767,12 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
 						response.audioEOS = true
 						response.audioEOSMS = nowMS
+					}
+					if responseComplete && observeReply && initialDone == nil {
+						observeCompletedReply()
+					}
+					if response.interrupted {
+						continue
 					}
 					if emptyTurn {
 						if !response.textEOS || !response.audioEOS {

@@ -43,13 +43,13 @@ delivery to the device connection; H106 firmware UI and spoken error handling
 require separate device qualification. It runs with ordinary Go tests, without
 cloud credentials or live model calls.
 
-## Catalog role prompts over model HTTP
+## Native two-turn Prompt History over model HTTP
 
 ```sh
-go test -count=1 -run '^TestCatalogRolePromptsReachModelRequests$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
+go test -count=1 -run '^TestNativePromptPreservesTwoTurnModelHistory$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
 ```
 
-The committed tester and murder-mystery Graphs run their Starlark and Prompt nodes through the production Eino/GenX adapter and a local HTTP/SSE model fixture. Conversation turns verify system instructions, previous user/assistant ordering, the current user last, and the configured completion-token limits. The tester also runs its complete seven-probe/final-assessment cycle: the final model request contains one evaluator system message and one quoted JSON packet with the original brief and seven labeled question/reply pairs. State and Memory use controlled fixture stores; no provider credentials are required. Live-model role behavior and response deadlines are qualified by the original Docker relay and screenplay cases. The seven probes use the user role requested by the brief. The eighth turn evaluates the quoted evidence independently of the conversation; only complete PASS or FAIL decisions are accepted. Continued conversation, PASS-prefixed prose and incomplete evidence fail as protocol errors.
+Two fixed inputs run through the native Eino Graph, production Eino/GenX adapter and a local HTTP/SSE model fixture. The regression checks system instructions, previous user/assistant ordering, the current user last, delivered model output and configured completion-token limits. State and Memory use controlled fixture stores; no provider credentials are required. This verifies message and History contracts.
 
 ## Docker image sources
 
@@ -120,6 +120,8 @@ go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/comm
 ```
 
 Integrity checks apply to delivered logical audio. Sound distortion and voice timbre require separate measurements.
+
+`audio_integrity` retains every observed audio stream, including naturally interrupted prefixes. Kept-reply text, bytes and pacing for a single-input regression exclude naturally interrupted prefixes. Explicit `interrupt_after` probes retain the prefix already received before their planned interruption and exclude later stale payload. The eight-turn realtime functional case requires one kept complete reply per turn, paired text/audio EOS, all observed audio streams closed, maximum active count one and zero violations. Natural VAD may create multiple serial audio streams. The existing 101-packet, p95 30 ms, maximum 100 ms, zero-underrun and buffer limits remain unchanged.
 
 `audio_pacing.max_interval_started_at` records the UTC start of the largest packet gap, allowing correlation across sessions and Server logs to identify simultaneous stalls.
 
