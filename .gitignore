@@ -56,6 +56,8 @@ openteam/
 
 
 /web/console/assets_generated.go
+# Copied from the repository license when packing the standalone console.
+/web/console/LICENSE
 
 .testbench/
 

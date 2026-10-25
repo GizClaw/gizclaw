@@ -1,10 +1,59 @@
 # Monitor
 
 The monitoring console in `web/console/` (React, TypeScript, Vite, shadcn/ui,
-Recharts) is built and embedded in the Go executable distributed with Server
-and Edge. Open `/monitor/` on the node; `/monitor` redirects there. No external
-static files are required. `web/console/DESIGN.md` defines its visual language
-and data rules.
+Recharts) is released as the independent `@gizclaw/monitor` npm package, with
+its own version separate from Server, Edge, and the SDKs. It contains the complete
+static UI and a `gizclaw-monitor` command. Updating a standalone deployment does
+not require redeploying Server or Edge. Nodes still serve the UI bundled in their
+Go executable at `/monitor/`, with `/monitor` redirecting there. That embedded
+copy stays at the version built into the executable and does not update itself.
+`web/console/DESIGN.md` defines its visual language and data rules.
+
+## Standalone installation and releases
+
+GitHub Releases tagged `monitor-vMAJOR.MINOR.PATCH` provide an npm tarball and
+its SHA-256 sidecar. Install the release package or start it directly with npx:
+
+```sh
+npx --yes https://github.com/GizClaw/gizclaw/releases/download/monitor-v0.1.0/gizclaw-monitor-0.1.0.tgz
+```
+
+Open the local address printed by the command. The package needs no Go toolchain,
+repository checkout, or runtime SDK dependencies; it bundles the assistant and
+its knowledge base. The command supports `--host`, `--port`, `--version`, and
+`--help`, and binds only to localhost by default. For remote hosting, use an HTTPS
+reverse proxy or host the installed package's `dist/` as a static site. Hash
+routing supports the site root or a subpath with a trailing `/`. Revalidate HTML
+and cache hashed `assets/` for longer. The standalone command serves both `/`
+and `/monitor/`.
+
+Set `deviceEndpoint` in the UI configuration to the HTTPS origin of an existing
+access point. The assistant uses it by default or accepts its own
+`assistant.endpoint`. Node snapshots still use each `servers[].url`. The static
+server does not proxy APIs or receive credentials: the browser calls the nodes'
+existing CORS APIs directly. Encrypted settings and conversations belong to their
+page origin and do not migrate automatically. Export configuration from the old
+page and import it into the new one when needed; protect that file as the admin
+private keys and tokens it contains.
+
+`.github/workflows/monitor-release.yml` owns these releases. Bump the version in
+`web/console/package.json`, synchronize the lockfile at the repository root, merge
+the PR into `main`, then push a matching tag:
+
+```sh
+npm install --package-lock-only --ignore-scripts
+version=$(node -p 'require("./web/console/package.json").version')
+git tag "monitor-v$version"
+git push origin "monitor-v$version"
+```
+
+The workflow tests the UI and assistant, installs the real npm tarball offline
+in an empty directory, and checks the command and every static asset. The tag
+must match the package version and point to a commit reachable from protected
+`main`. This release contains only the monitor package, does not trigger the
+server's `v*` release workflow, and does not replace the Latest Server Release.
+Reruns accept existing assets only when their bytes match. Packages are published
+as GitHub Release assets; this workflow does not upload to the npmjs registry.
 
 ## Node snapshot API and authorization
 
@@ -115,18 +164,23 @@ usually lacks those permissions.
 
 ```sh
 npm ci
-npm run build --workspace @gizclaw/console
-npm test --workspace @gizclaw/console
+npm run build --workspace @gizclaw/monitor
+npm test --workspace @gizclaw/monitor
+npm run test:package --workspace @gizclaw/monitor
+npm run build:console
 go build ./cmd/gizclaw
 ```
 
-The static bundle in `web/console/dist/` (ignored by git) is embedded using
-a generated, git-ignored `assets_generated.go` manifest that names every output
+The workspace `build` only builds the static bundle in `web/console/dist/`
+(ignored by git). `npm pack --workspace @gizclaw/monitor` rebuilds the UI and
+copies the repository LICENSE into an installable package. The root
+`npm run build:console` additionally creates a git-ignored `assets_generated.go`
+manifest that names every output
 file in `go:embed`. Removing any listed file fails Go compilation. Build the console before compiling Go or running tests that depend
 on monitoring; missing assets fail compilation. Linux Docker builds and macOS
 releases perform this step, and the executable needs no source directory at
 runtime. The bundle can also be hosted separately. For development,
-`npm run dev --workspace @gizclaw/console` serves it on port 5174 and proxies
+`npm run dev --workspace @gizclaw/monitor` serves it on port 5174 and proxies
 `/gizclaw` to a local access point (override with `CONSOLE_DEVICE_PROXY`); node
 snapshots are read directly from each configured node URL.
 

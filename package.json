@@ -22,6 +22,6 @@
     "quality:typescript": "tsc --noEmit -p sdk/js/gizclaw/tsconfig.json && npm run build --workspace @gizclaw/gizclaw && tsc --noEmit -p sdk/js/gizclaw-control/tsconfig.json && npm run build --workspace @gizclaw/gizclaw-control && tsc --noEmit -p tests/gizclaw-e2e/js/tsconfig.json && tsc --noEmit -p web/assistant/tsconfig.json",
     "quality:lint": "oxlint --deny-warnings --ignore-path .prettierignore sdk/js tests/gizclaw-e2e/js web/assistant web/console/src web/console/*.mjs",
     "quality:format": "prettier --check sdk/js tests/gizclaw-e2e/js web/assistant web/console/src web/console/vite.config.ts web/console/*.mjs",
-    "build:console": "npm run build --workspace @gizclaw/console"
+    "build:console": "npm run build:embedded --workspace @gizclaw/monitor"
   }
 }

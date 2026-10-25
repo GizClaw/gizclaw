@@ -66,8 +66,8 @@ export type ConsoleConfig = {
   servers: ConsoleServer[];
   /**
    * Optional override for the access point serving the device APIs. The
-   * console is normally served from that access point, so device requests go
-   * to its own origin and no address is configured at all.
+   * embedded console defaults to its own origin; a standalone deployment
+   * configures the access point explicitly.
    */
   deviceEndpoint?: string;
   /** Devices carried by the configuration, used to seed the watch list. */
@@ -232,6 +232,7 @@ export function parseConfig(text: string): ConsoleConfig {
 
 export const sampleConfig = `{
   "name": "生产集群",
+  "deviceEndpoint": "https://edge1.example.com",
   "servers": [
     {
       "id": "server-1",
