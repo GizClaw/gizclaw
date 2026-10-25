@@ -144,7 +144,7 @@ Eino 音频输入要求 Profile 至少配置一个 ASR alias；当前模式的�
 
 `admin validate` 对 Eino Workflow（包括 ResourceList 中的项）同时执行 Schema 与 `einoconfig.Validate` 语义检查，可离线拒绝非法 Graph、非法 speaker 名称或非法 alias；alias 是否绑定真实资源仍由 RuntimeProfile 与 factory 检查。
 
-首响延迟属于完整 RuntimeProfile 选择，不只属于 Eino driver。发布前必须让同一组 chat Model、ASR Model、Voice、tenant、endpoint 和 resource revision 同时通过 Server 与 Edge 验证。当选中的 Model 超出延迟上限时，GizClaw 不会静默重试、替换 Provider 或对多个 Provider 竞速。E2E 参考 Profile 的文本 `llm` 和 `script-judge` 选择 `doubao-lite-chat`，音频 `audio-llm` 选择 `doubao-lite-audio-chat`；两者上游均为 `doubao-seed-2-1-lite-260915`，请求 `service_tier: fast` 并默认关闭 thinking。配置 fast 只表示请求低延迟档位；实际档位通过低延迟真实 Giztest 的上游回显验收，首响指标通过首响验证矩阵验收。变更 alias 或上游 revision 后必须重新运行这些验收。
+首响延迟属于完整 RuntimeProfile 选择，不只属于 Eino driver。发布前必须让同一组 chat Model、ASR Model、Voice、tenant、endpoint 和 resource revision 同时通过 Server 与 Edge 验证。当选中的 Model 超出延迟上限时，GizClaw 不会静默重试、替换 Provider 或对多个 Provider 竞速。E2E 参考 Profile 的文本 `llm` 选择 `doubao-lite-chat`，音频 `audio-llm` 选择 `doubao-lite-audio-chat`；两者上游均为 `doubao-seed-2-1-lite-260915`，请求 `service_tier: fast` 并默认关闭 thinking。配置 fast 只表示请求低延迟档位；实际档位通过低延迟真实 Giztest 的上游回显验收，首响指标通过首响验证矩阵验收。变更 alias 或上游 revision 后必须重新运行这些验收。
 
 Eino Graph 也通过 typed `memory_recall` 与 `memory_observe` node 消费同一个 Workflow memory alias；不存在 Eino 专属的 Memory block 或 Server Config binding。产品层继续使用持久 History，但 Graph state 仍是 invocation-local。
 
