@@ -941,7 +941,7 @@ Go/C 共享基于 seed 的启动 jitter、stagger 与步骤 think time；JavaScr
 
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
-macOS runner 作为后台应用启动，保留 Flutter engine 和原生 WebRTC plugin，但不显示窗口、Dock 图标或抢占前台焦点。
+macOS runner 作为后台应用启动，保留 Flutter engine 和原生 WebRTC plugin，但不显示窗口、Dock 图标或抢占前台焦点。 原生 factory 为并行后台 Peer 选择平台 CoreAudio 后端；SDK 仍协商正常的 sendrecv 音频和必需的 packet/event 通道。该 harness 验证 Peer 协议与连接生命周期；声学处理由应用或设备音频专项验收。
 
 所有 runner 都把 `rpc` step 的响应投影为使用 proto 字段名的 proto3 JSON：`int64` /
 `uint64` 字段输出为字符串，处于默认值的 implicit-presence 字段（标量、枚举、repeated 与

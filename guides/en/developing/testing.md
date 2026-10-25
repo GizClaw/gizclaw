@@ -955,7 +955,7 @@ Explicit zero CLI overrides provide a lockstep control with the same document.
 The Flutter runner is a desktop binary rather than a plain Dart CLI because the
 device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
 builds and runs it on macOS and Linux and skips it on other hosts.
-On macOS the runner starts as a background application. Its Flutter engine and native WebRTC plugin remain active without showing a window or Dock icon, or taking foreground focus.
+On macOS the runner starts as a background application. Its Flutter engine and native WebRTC plugin remain active without showing a window or Dock icon, or taking foreground focus. The native factory uses the platform CoreAudio backend for concurrent background Peers. The SDK still negotiates normal sendrecv audio and mandatory packet/event channels. This harness qualifies the Peer protocol and connection lifecycle; acoustic processing belongs to application/device audio acceptance.
 
 Every runner projects an `rpc` step response to proto3 JSON with proto field
 names: `int64` and `uint64` fields are strings, and implicit-presence fields
