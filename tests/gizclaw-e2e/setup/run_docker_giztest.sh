@@ -45,6 +45,7 @@ fi
 temporary="$(mktemp "${report}.XXXXXX")"
 pid_file="/tmp/gizclaw-standard-runner-$$.pid"
 container_report="/tmp/gizclaw-standard-giztest-$$.json"
+docker_client_pid=""
 cleanup() {
   docker exec "$server" sh -c '
     if [ -r "$1" ]; then
@@ -63,6 +64,10 @@ cleanup() {
       rm -f "$1"
     fi
   ' sh "$pid_file" >/dev/null 2>&1 || true
+  if [[ -n "$docker_client_pid" ]]; then
+    kill -TERM "$docker_client_pid" >/dev/null 2>&1 || true
+    wait "$docker_client_pid" >/dev/null 2>&1 || true
+  fi
   rm -f "$temporary"
 }
 trap 'cleanup' EXIT
@@ -74,7 +79,10 @@ docker exec "${environment[@]}" -w /src "$server" \
   timeout --signal=TERM --kill-after=10s "${deadline}s" \
   sh -c 'echo $$ > "$1"; shift; exec "$@"' sh "$pid_file" \
   /src/tests/gizclaw-e2e/testdata/bin/gizclaw test run "${files[@]}" \
-  --parallel 10 --report "$container_report" || status=$?
+  --parallel 10 --report "$container_report" &
+docker_client_pid=$!
+wait "$docker_client_pid" || status=$?
+docker_client_pid=""
 docker cp "$server:$container_report" "$temporary"
 mv "$temporary" "$report"
 cleanup
