@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,36 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"go.step.sm/crypto/x25519"
 )
+
+func TestSignedBearerJavaScriptVectors(t *testing.T) {
+	// These synthetic vectors are also reproduced byte-for-byte by the JS
+	// signer tests, independently of the Go implementation used for verification.
+	data, err := os.ReadFile("../../../../sdk/js/gizclaw/testdata/signed-bearer.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vectors []struct {
+		PublicKey string `json:"publicKey"`
+		Target    string `json:"target"`
+		Now       int64  `json:"now"`
+		Token     string `json:"token"`
+	}
+	if err := json.Unmarshal(data, &vectors); err != nil {
+		t.Fatal(err)
+	}
+	if len(vectors) != 2 {
+		t.Fatal("missing cross-language vectors")
+	}
+	for _, vector := range vectors {
+		caller, target, err := VerifySignedBearerToken(vector.Token, time.Unix(vector.Now, 0))
+		if err != nil || caller.String() != vector.PublicKey || target.String() != vector.Target {
+			t.Fatalf("JavaScript signature rejected: %v", err)
+		}
+		if _, _, err := VerifySignedBearerToken(vector.Token, time.Unix(vector.Now+60, 0)); !errors.Is(err, ErrInvalidSignedBearer) {
+			t.Fatal("expired JavaScript signature accepted")
+		}
+	}
+}
 
 func TestSignedBearerAuthenticatesCallerAndBindsTarget(t *testing.T) {
 	key, err := giznet.GenerateKeyPair()

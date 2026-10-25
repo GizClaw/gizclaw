@@ -29,7 +29,8 @@ Token 前缀为 `gizclaw_mk_`，其后至少 32 个字符，建议用 `openssl r
 同源 IndexedDB，退出时清除。这不是操作系统钥匙串，同源脚本仍能使用该密钥；Telemetry 与
 日志不写入浏览器存储。
 
-设备监控走接入点的 Public API，使用设备的 `gizclaw_pk_` Bearer。Server 的普通业务 HTTP
+设备监控走接入点的 Public API，可使用配置的 admin 身份自动签名、单设备签名 Bearer，
+或设备的 `gizclaw_pk_` 调试 Bearer。Server 的普通业务 HTTP
 入口仍返回 PRIVATE_INGRESS_DENIED，因此设备接口由接入点（Edge）提供。readonly 允许读取，
 fullcontrol 才允许音量和重启等操作，Server 每次重新校验权限。
 
@@ -229,6 +230,32 @@ console 构建时把它们打包成单独的 chunk，助手第一次调用 `sear
 地址。解释错误码、调试模式、配置项等概念时助手先检索文档，按文档回答并附上链接。知识库随代码一起
 更新，不能在浏览器里导入或修改。
 
+## Admin 查询身份
+
+在登录或“集群配置 JSON”中加入已有管理员的 Giznet 私钥：
+
+```json
+"admin": {
+  "privateKey": "<已有 admin 身份的 Base58 Giznet 私钥>"
+}
+```
+
+这里使用 CLI context 中的 Giznet Base58 私钥，不是设备 API Key 或 Monitor Token。
+对应 Peer 必须已注册为 active，并具有 Admin 角色或所属 Server 的 `admin-public-key` 授权；
+填写私钥不会创建管理员或修改服务端权限。设备请求仍通过 `deviceEndpoint` 或页面同源接入点发送。
+
+浏览器通过 SDK 在每次设备 HTTP 请求前本地签发新的目标绑定短期 Bearer，私钥不随请求发送。
+无需逐台复制签名，也不依赖设备 debug mode。此身份覆盖设备状态、Telemetry、定位、Workspace、
+历史与音频、日志、只读硬件/管理查询，以及诊断助手对已关注和未关注设备的读取；
+助手调用模型仍使用独立的 `assistant.apiKey`。SN/IMEI 发现接口继续匿名查询。
+
+单设备 `signedBearer` 优先于统一 admin 身份；缺少两者时使用原公钥调试读取。
+服务端拒绝签名或当前权限时直接显示错误。应用、更换或移除 admin 配置会取消页面旧请求并重新读取，
+后续助手查询使用最新配置。控制台仍只提供现有读取入口。
+
+admin 私钥随配置在同源 IndexedDB 中加密保存、随 JSON 配置导出、登出时清除，不进入页面诊断上下文。
+同源脚本仍可使用保存的密钥，导出的 JSON 也包含私钥，应按管理员凭据保管。
+
 ## KV 离线快照
 
 设备详情显示“设备自报 KV”，每 key 展示观测时间，可展开对象或数组；null、false 和 0 都显示为
@@ -238,14 +265,14 @@ console 构建时把它们打包成单独的 chunk，助手第一次调用 `sear
 添加设备时可填写目标绑定的签名 Bearer，配置的 peers 项也接受 `signedBearer`。它沿用
 [签名 Bearer 认证](/zh/using/api#签名-bearer-认证)，Edge 按签名目标寻址，Server 验证调用者当前
 Admin 权限或 Client 自读权限，不依赖设备 debug mode。签名包含目标公钥，SDK 拒绝把目标 A 的
-凭证配置给 B。签名最长有效 5 分钟，到期重新签发并添加同一设备更新凭证；私钥不导入页面。
-签名凭证与个人配置一起在浏览器加密保存，不放入页面诊断上下文。未提供签名时保留原公钥 debug
+凭证配置给 B。手动填写的签名最长有效 5 分钟，到期重新签发并添加同一设备更新凭证。
+签名凭证与个人配置一起在浏览器加密保存，不放入页面诊断上下文。未提供签名和 admin 身份时保留原公钥 debug
 读取模式；Monitor Token 仍只用于节点数据，不授予设备数据权限。
 
 同一设备的签名凭证用于概览、Telemetry 最新值与趋势、GNSS 轨迹、Workspace、历史记录、
 录音下载、设备日志、硬件配置，以及诊断助手的设备查询。替换凭证会取消页面上的旧读取，
 重新查询当前页面；助手在每次查询时读取当前凭证。签名有效时，这些读取均可在 debug 为 off
-时使用。未配置签名的设备继续按原调试权限访问。
+时使用。未配置签名和 admin 身份的设备继续按原调试权限访问。
 
 
 设备配置页读取各 Modem/NFC 实例的缓存状态，并只调用 tool list 明确声明的内容年龄、设备功能、

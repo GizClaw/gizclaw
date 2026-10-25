@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import {
   useEffect,
   useLayoutEffect,
@@ -92,7 +93,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
       peer.endpoint,
       peer.publicKey,
       controller.signal,
-      peer.signedBearer,
+      peerAuth(peer),
     )
       .then((items) => {
         if (controller.signal.aborted) return;
@@ -106,7 +107,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, peer.signedBearer]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer, peer.identity]);
 
   const abortPaging = () => {
     pending.current?.abort();
@@ -128,7 +129,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
           workspace,
           { query: "", order: "desc" },
           controller.signal,
-          peer.signedBearer,
+          peerAuth(peer),
         );
         return {
           items: page.items,
@@ -146,7 +147,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
           workspace,
           { query: "", order: "asc", cursor: name, limit: CONTEXT_NEWER },
           controller.signal,
-          peer.signedBearer,
+          peerAuth(peer),
         ),
         loadHistory(
           peer.endpoint,
@@ -154,7 +155,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
           workspace,
           { query: "", order: "desc", cursor: name, limit: CONTEXT_OLDER },
           controller.signal,
-          peer.signedBearer,
+          peerAuth(peer),
         ),
       ]);
       return {
@@ -182,7 +183,14 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
       pending.current?.abort();
       pending.current = null;
     };
-  }, [peer.endpoint, peer.publicKey, peer.signedBearer, workspace, anchor]);
+  }, [
+    peer.endpoint,
+    peer.publicKey,
+    peer.signedBearer,
+    peer.identity,
+    workspace,
+    anchor,
+  ]);
 
   useEffect(() => {
     if (workspace === "" || search === "") {
@@ -199,7 +207,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
       workspace,
       { query: search, order: "desc" },
       controller.signal,
-      peer.signedBearer,
+      peerAuth(peer),
     )
       .then((page) => {
         if (controller.signal.aborted) return;
@@ -215,7 +223,14 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setResultsBusy(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, peer.signedBearer, workspace, search]);
+  }, [
+    peer.endpoint,
+    peer.publicKey,
+    peer.signedBearer,
+    peer.identity,
+    workspace,
+    search,
+  ]);
 
   useLayoutEffect(() => {
     const element = scroller.current;
@@ -253,7 +268,7 @@ export function PeerChat({ peer }: { peer: WatchedPeer }) {
       workspace,
       request,
       controller.signal,
-      peer.signedBearer,
+      peerAuth(peer),
     )
       .then((result) => {
         if (controller.signal.aborted) return;
@@ -768,7 +783,7 @@ function HistoryAudio({
       workspace,
       history,
       controller.signal,
-      peer.signedBearer,
+      peerAuth(peer),
     )
       .then((blob) => {
         const url = URL.createObjectURL(blob);

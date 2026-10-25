@@ -10,9 +10,13 @@ import {
   createPeerHTTPClient,
   findPublicKeysBySn,
   findPublicKeysByImei,
+  createPeerHTTPSigner,
 } from "@gizclaw/gizclaw/peerhttp";
 
 export type { NodeSnapshot } from "./generated/monitor/types.gen.ts";
+
+/** Existing Giznet identity; the owning Server determines its authority. */
+export type GizClawPeerMonitorIdentity = { privateKey: string };
 
 /** Public, unauthenticated identifier lookup; duplicate identifiers return every match. */
 export function createGizClawDiscoveryClient(
@@ -77,11 +81,13 @@ function monitorBaseUrl(
   return base.toString().replace(/\/$/, "");
 }
 
-/** Device monitoring with a public key; the owning Server enforces runtime permissions. */
+/** Device monitoring; explicit signed Bearers take precedence over identity signing. */
 export function createGizClawPeerMonitorClient(
   options: Omit<GizClawControlClientOptions, "apiKey"> & {
     publicKey: string;
     signedBearer?: string;
+    /** Signs a fresh short-lived target-bound Bearer for every HTTP request. */
+    identity?: GizClawPeerMonitorIdentity;
   },
 ) {
   const key = options.publicKey.replace(/^gizclaw_pk_/, "");
@@ -109,9 +115,15 @@ export function createGizClawPeerMonitorClient(
       throw new TypeError("signed Bearer must bind the watched device");
     }
   }
+  const signer =
+    options.signedBearer === undefined && options.identity
+      ? createPeerHTTPSigner(options.identity.privateKey)
+      : undefined;
   return createGizClawControlClient({
     ...options,
-    apiKey: options.signedBearer ?? `gizclaw_pk_${key}`,
+    apiKey:
+      options.signedBearer ??
+      (signer ? () => signer.sign(key) : `gizclaw_pk_${key}`),
   }).device;
 }
 

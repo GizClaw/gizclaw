@@ -1,11 +1,77 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
 import {
   createGizClawPeerMonitorClient,
   createGizClawNodeMonitorClient,
   createGizClawDiscoveryClient,
   GizClawControlError,
 } from "./index.ts";
+
+test("monitor renews target-bound admin credentials per request and preserves authorization failures", async (t) => {
+  const [v] = JSON.parse(
+    readFileSync(
+      new URL("../gizclaw/testdata/signed-bearer.json", import.meta.url),
+      "utf8",
+    ),
+  ) as { privateKey: string; publicKey: string; target: string; now: number }[];
+  let now = v.now;
+  let allowed = true;
+  const seen: Request[] = [];
+  t.mock.method(Date, "now", () => now * 1000);
+  const peer = createGizClawPeerMonitorClient({
+    baseUrl: "https://monitor.example",
+    publicKey: v.target,
+    identity: { privateKey: v.privateKey },
+    fetch: async (input) => {
+      const request = new Request(input);
+      seen.push(request);
+      const token = request.headers
+        .get("Authorization")!
+        .slice("Bearer ".length);
+      const claims = JSON.parse(
+        Buffer.from(
+          token.split(".")[0].slice("gizclaw_sig_v1_".length),
+          "base64url",
+        ).toString(),
+      );
+      assert.deepEqual(claims, {
+        iss: v.publicKey,
+        aud: "gizclaw/peer-http/v1",
+        target: v.target,
+        iat: now,
+        exp: now + 60,
+      });
+      assert.ok(!request.url.includes(v.privateKey));
+      assert.ok(!JSON.stringify([...request.headers]).includes(v.privateKey));
+      return allowed
+        ? Response.json({})
+        : Response.json(
+            {
+              error: {
+                code: "API_KEY_OWNER_UNAVAILABLE",
+                message: "forbidden",
+              },
+            },
+            { status: 403 },
+          );
+    },
+  });
+  await peer.getStatus();
+  now += 3600;
+  await peer.getStatus();
+  assert.notEqual(
+    seen[0].headers.get("Authorization"),
+    seen[1].headers.get("Authorization"),
+  );
+  allowed = false;
+  await assert.rejects(
+    peer.getStatus(),
+    (error: unknown) =>
+      error instanceof GizClawControlError && error.status === 403,
+  );
+  assert.equal(seen.length, 3); // No fallback to public-key debug access.
+});
 
 test("monitor carries public-key Bearer, query boundaries across every peer read", async () => {
   const controller = new AbortController();
@@ -179,7 +245,7 @@ test("node monitor preserves device and infrastructure counters and accepts olde
   }
 });
 
-test("signed monitor credentials bind the device and keep offline KV JSON", async () => {
+test("explicit signed credentials override identity, bind the device and keep offline KV JSON", async () => {
   const publicKey = "signed-target";
   const token = `gizclaw_sig_v1_${btoa(JSON.stringify({ target: publicKey })).replace(/=/g, "")}.fixture`;
   const reported_kv = {
@@ -193,6 +259,7 @@ test("signed monitor credentials bind the device and keep offline KV JSON", asyn
     baseUrl: "https://edge.example",
     publicKey,
     signedBearer: token,
+    identity: { privateKey: "unused-identity" },
     fetch: async (input) => {
       const request = new Request(input);
       assert.equal(request.headers.get("Authorization"), `Bearer ${token}`);

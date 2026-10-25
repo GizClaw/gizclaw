@@ -80,7 +80,13 @@ export function App() {
   const fleet = useFleet(config?.servers ?? [], 5000, paused);
   // Device polling is slower than node polling: each watched device costs three
   // HTTP requests to the device's owning Server.
-  const watch = useWatchedPeers(15000, paused);
+  const watch = useWatchedPeers(15000, paused || !config, config?.admin);
+  // Attach the current identity only to view props. The personal watch list
+  // persists devices and explicit Bearers, while the config owns the admin key.
+  const peers = useMemo(
+    () => watch.peers.map((peer) => ({ ...peer, identity: config?.admin })),
+    [watch.peers, config?.admin],
+  );
   const importPeers = watch.importPeers;
 
   // The assistant reads the latest console state through refs at call time.
@@ -161,7 +167,7 @@ export function App() {
   const activeId = route.page === "server" ? route.id : undefined;
   const activePeer =
     route.page === "peer"
-      ? watch.peers.find((item) => item.publicKey === route.publicKey)
+      ? peers.find((item) => item.publicKey === route.publicKey)
       : undefined;
   const active = config.servers.find((server) => server.id === activeId);
   return (
@@ -243,7 +249,7 @@ export function App() {
         ) : route.page === "peers" ? (
           <PeersPage
             config={config}
-            peers={watch.peers}
+            peers={peers}
             states={watch.states}
             onAdd={watch.add}
             onRemove={watch.remove}
@@ -252,7 +258,7 @@ export function App() {
         ) : route.page === "logs" ? (
           <LogsPage
             key={route.query}
-            peers={watch.peers}
+            peers={peers}
             initialQuery={route.query}
           />
         ) : active ? (

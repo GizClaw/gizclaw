@@ -190,6 +190,11 @@ Existing AP HTTP operations also accept a locally signed token. In Go, call
 `github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp`, handle the error, then send
 `Authorization: Bearer <token>` using the generated client's `WithRequestEditorFn`.
 
+In JavaScript, import `createPeerHTTPSigner` from `@gizclaw/gizclaw/peerhttp`, pass the
+existing identity's Base58 Giznet private key, then call `sign(targetPublicKey)`.
+The Monitor console's [`admin.privateKey`](../developing/monitor#admin-query-identity)
+configuration signs each device request automatically.
+
 XEdDSA uses the existing X25519 PK/SK; SK stays local. Tokens last at most five minutes.
 The format is `gizclaw_sig_v1_<payload>.<signature>`, binding caller, target and validity.
 See `x-peer-http-signed-bearer` in `api/http/peer.json` for the wire contract. Use HTTPS

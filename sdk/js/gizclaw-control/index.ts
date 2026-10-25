@@ -362,8 +362,8 @@ function readErrorPayload(
 export interface GizClawControlClientOptions {
   /** Server origin, optionally with a path prefix, such as `https://ap.gizclaw.com`. */
   baseUrl: string;
-  /** Complete `gizclaw_sk_v1_...` credential. */
-  apiKey: string;
+  /** Complete Bearer credential, or a supplier evaluated for each request. */
+  apiKey: string | (() => string | Promise<string>);
   /** Abort all requests from this client, for example when a view unmounts. */
   signal?: AbortSignal;
   /** Fetch implementation; defaults to `globalThis.fetch`. */
@@ -708,7 +708,7 @@ function requireSegment(name: string, value: string): string {
 export function createGizClawControlClient(
   options: GizClawControlClientOptions,
 ): GizClawControlClient {
-  if (options.apiKey.length === 0) {
+  if (typeof options.apiKey === "string" && options.apiKey.length === 0) {
     throw new TypeError("apiKey must not be empty");
   }
   const baseUrl = new URL(options.baseUrl);
@@ -1314,4 +1314,4 @@ export {
   createGizClawPeerMonitorClient,
   createGizClawNodeMonitorClient,
 } from "./monitor.ts";
-export type { NodeSnapshot } from "./monitor.ts";
+export type { GizClawPeerMonitorIdentity, NodeSnapshot } from "./monitor.ts";

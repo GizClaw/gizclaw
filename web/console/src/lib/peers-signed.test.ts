@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   loadDeviceConfig,
@@ -9,25 +10,19 @@ import {
   loadTelemetryRange,
   loadWifi,
   loadWorkspaces,
+  type WatchedPeer,
 } from "@/lib/peers";
-import { monitorHTTPFixture } from "@/test/monitor-http";
+import { adminHTTPFixture, monitorHTTPFixture } from "@/test/monitor-http";
 
 afterEach(() => vi.unstubAllGlobals());
 
 describe("Monitor signed reads with debug disabled", () => {
   const reads = {
-    overview: (
-      p: ReturnType<typeof monitorHTTPFixture>["peer"],
-      s: AbortSignal,
-    ) => loadPeer(p.endpoint, p.publicKey, s, p.signedBearer),
-    telemetry: (
-      p: ReturnType<typeof monitorHTTPFixture>["peer"],
-      s: AbortSignal,
-    ) => loadTelemetry(p.endpoint, p.publicKey, s, p.signedBearer),
-    trends: (
-      p: ReturnType<typeof monitorHTTPFixture>["peer"],
-      s: AbortSignal,
-    ) =>
+    overview: (p: WatchedPeer, s: AbortSignal) =>
+      loadPeer(p.endpoint, p.publicKey, s, peerAuth(p)),
+    telemetry: (p: WatchedPeer, s: AbortSignal) =>
+      loadTelemetry(p.endpoint, p.publicKey, s, peerAuth(p)),
+    trends: (p: WatchedPeer, s: AbortSignal) =>
       loadTelemetryRange(
         p.endpoint,
         p.publicKey,
@@ -35,34 +30,29 @@ describe("Monitor signed reads with debug disabled", () => {
         1000,
         2000,
         s,
-        p.signedBearer,
+        peerAuth(p),
       ),
-    workspaces: (
-      p: ReturnType<typeof monitorHTTPFixture>["peer"],
-      s: AbortSignal,
-    ) => loadWorkspaces(p.endpoint, p.publicKey, s, p.signedBearer),
-    history: (
-      p: ReturnType<typeof monitorHTTPFixture>["peer"],
-      s: AbortSignal,
-    ) =>
+    workspaces: (p: WatchedPeer, s: AbortSignal) =>
+      loadWorkspaces(p.endpoint, p.publicKey, s, peerAuth(p)),
+    history: (p: WatchedPeer, s: AbortSignal) =>
       loadHistory(
         p.endpoint,
         p.publicKey,
         "signed-workspace",
         { query: "", order: "desc" },
         s,
-        p.signedBearer,
+        peerAuth(p),
       ),
-    audio: (p: ReturnType<typeof monitorHTTPFixture>["peer"], s: AbortSignal) =>
+    audio: (p: WatchedPeer, s: AbortSignal) =>
       loadHistoryAudio(
         p.endpoint,
         p.publicKey,
         "signed-workspace",
         "signed-entry",
         s,
-        p.signedBearer,
+        peerAuth(p),
       ),
-    logs: (p: ReturnType<typeof monitorHTTPFixture>["peer"], s: AbortSignal) =>
+    logs: (p: WatchedPeer, s: AbortSignal) =>
       loadDeviceLogs(
         p.endpoint,
         p.publicKey,
@@ -72,14 +62,12 @@ describe("Monitor signed reads with debug disabled", () => {
         2000,
         undefined,
         s,
-        p.signedBearer,
+        peerAuth(p),
       ),
-    wifi: (p: ReturnType<typeof monitorHTTPFixture>["peer"], s: AbortSignal) =>
-      loadWifi(p.endpoint, p.publicKey, s, p.signedBearer),
-    configuration: (
-      p: ReturnType<typeof monitorHTTPFixture>["peer"],
-      s: AbortSignal,
-    ) => loadDeviceConfig(p.endpoint, p.publicKey, s, p.signedBearer),
+    wifi: (p: WatchedPeer, s: AbortSignal) =>
+      loadWifi(p.endpoint, p.publicKey, s, peerAuth(p)),
+    configuration: (p: WatchedPeer, s: AbortSignal) =>
+      loadDeviceConfig(p.endpoint, p.publicKey, s, peerAuth(p)),
   };
   it.each(Object.entries(reads))(
     "%s uses the signed credential on every HTTP request",
@@ -106,6 +94,34 @@ describe("Monitor signed reads with debug disabled", () => {
         });
     },
   );
+  it.each(Object.entries(reads))(
+    "%s signs every request with the shared admin identity",
+    async (_name, read) => {
+      const fixture = adminHTTPFixture();
+      vi.stubGlobal("fetch", fixture.fetch);
+      const result = await read(fixture.peer, new AbortController().signal);
+      expect(result).toBeDefined();
+      expect(fixture.requests.length).toBeGreaterThan(0);
+      expect(
+        fixture.requests.every(
+          (r) =>
+            r.authorization?.startsWith("Bearer gizclaw_sig_v1_") &&
+            !r.authorization.includes(fixture.peer.identity.privateKey),
+        ),
+      ).toBe(true);
+      if (_name === "configuration")
+        expect(result).toMatchObject({
+          manifest: { state: "ok" },
+          tools: { state: "ok" },
+          queries: expect.arrayContaining([
+            expect.objectContaining({
+              result: expect.objectContaining({ state: "ok" }),
+            }),
+          ]),
+        });
+    },
+  );
+
   it("rejects public-key access while debug is off", async () => {
     const fixture = monitorHTTPFixture();
     vi.stubGlobal("fetch", fixture.fetch);

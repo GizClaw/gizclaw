@@ -12,7 +12,7 @@ import { PeerConfig } from "@/components/peer-config";
 import { PeerLocation } from "@/components/peer-location";
 import { PeerTelemetry } from "@/components/peer-telemetry";
 import { LogsPage } from "@/pages/logs";
-import { monitorHTTPFixture } from "@/test/monitor-http";
+import { adminHTTPFixture, monitorHTTPFixture } from "@/test/monitor-http";
 
 beforeEach(() => {
   vi.stubGlobal("URL", NodeURL);
@@ -50,6 +50,45 @@ afterEach(() => {
 });
 
 describe("Monitor pages with a signed credential and debug off", () => {
+  it.each([
+    { name: "telemetry", View: PeerTelemetry, ready: "50" },
+    { name: "location", View: PeerLocation, ready: "51.000000, 12.000000" },
+    { name: "history", View: PeerChat, ready: "Signed history" },
+    { name: "hardware", View: PeerConfig, ready: "NFC · nfc.left" },
+  ])(
+    "$name reloads when the configured admin identity changes",
+    async ({ View, ready }) => {
+      vi.spyOn(navigator, "onLine", "get").mockReturnValue(false);
+      const f = adminHTTPFixture();
+      vi.stubGlobal("fetch", f.fetch);
+      const view = render(<View peer={f.peer} />);
+      await screen.findAllByText(ready);
+      const count = f.requests.length;
+      view.rerender(<View peer={f.rotateAdmin()} />);
+      await waitFor(() => expect(f.requests.length).toBeGreaterThan(count));
+      await screen.findAllByText(ready);
+      expect(screen.queryByText(/读取失败/)).toBeNull();
+    },
+  );
+
+  it("reloads logs with the new admin and exposes denial after removing the identity", async () => {
+    const f = adminHTTPFixture();
+    vi.stubGlobal("fetch", f.fetch);
+    const view = render(<LogsPage peers={[f.peer]} initialQuery="" />);
+    await screen.findByText("Signed log");
+    const next = f.rotateAdmin();
+    view.rerender(<LogsPage peers={[next]} initialQuery="" />);
+    await waitFor(() => expect(f.requests).toHaveLength(2));
+    await screen.findByText("Signed log");
+    view.rerender(
+      <LogsPage peers={[{ ...next, identity: undefined }]} initialQuery="" />,
+    );
+    await screen.findByText(/DEBUG_ACCESS_FORBIDDEN/);
+    expect(f.requests.at(-1)?.authorization).toBe(
+      `Bearer gizclaw_pk_${next.publicKey}`,
+    );
+  });
+
   it("cancels pending reads when the signed credential is replaced", async () => {
     const f = monitorHTTPFixture();
     const previous: AbortSignal[] = [];

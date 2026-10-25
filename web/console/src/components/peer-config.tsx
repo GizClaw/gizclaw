@@ -1,3 +1,4 @@
+import { peerAuth } from "@/lib/peer-auth";
 import { useEffect, useState, type ReactNode } from "react";
 import { RefreshCw } from "lucide-react";
 import {
@@ -57,7 +58,7 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
       peer.endpoint,
       peer.publicKey,
       controller.signal,
-      peer.signedBearer,
+      peerAuth(peer),
     )
       .then((result) => {
         if (controller.signal.aborted) return;
@@ -71,7 +72,7 @@ export function PeerConfig({ peer }: { peer: WatchedPeer }) {
         if (!controller.signal.aborted) setLoading(false);
       });
     return () => controller.abort();
-  }, [peer.endpoint, peer.publicKey, peer.signedBearer, reload]);
+  }, [peer.endpoint, peer.publicKey, peer.signedBearer, peer.identity, reload]);
 
   const refresh = (
     <Button

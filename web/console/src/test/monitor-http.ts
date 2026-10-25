@@ -1,13 +1,22 @@
 // Test-only HTTP boundary for the real Monitor loaders and control SDK.
 import { vi } from "vitest";
+import { verify } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { URL as NodeURL } from "node:url";
+import { z } from "zod";
 
-export function monitorHTTPFixture() {
+export function monitorHTTPFixture(
+  options: {
+    publicKey?: string;
+    authorize?: (authorization: string | null) => boolean;
+  } = {},
+) {
   const peer = {
     endpoint: "https://monitor.example",
-    publicKey: "signed-device",
+    publicKey: options.publicKey ?? "signed-device",
     label: "Signed device",
     addedAt: 1,
-    signedBearer: signedBearer("first"),
+    signedBearer: signedBearer("first", options.publicKey ?? "signed-device"),
   };
   const requests: {
     path: string;
@@ -28,7 +37,12 @@ export function monitorHTTPFixture() {
       authorization: request.headers.get("Authorization"),
     });
     // Debug is off: only the currently accepted signed credential can read.
-    if (request.headers.get("Authorization") !== `Bearer ${accepted}`) {
+    const authorization = request.headers.get("Authorization");
+    if (
+      !(options.authorize
+        ? options.authorize(authorization)
+        : authorization === `Bearer ${accepted}`)
+    ) {
       return Response.json(
         { error: { code: "DEBUG_ACCESS_FORBIDDEN", message: "debug is off" } },
         { status: 403 },
@@ -145,14 +159,105 @@ export function monitorHTTPFixture() {
     requests,
     fetch,
     rotate() {
-      accepted = signedBearer("replacement");
+      accepted = signedBearer("replacement", peer.publicKey);
       return { ...peer, signedBearer: accepted };
     },
   };
 }
 
-function signedBearer(signature: string): string {
+function signedBearer(signature: string, target: string): string {
   // SDK format fixture. Cryptographic verification is covered by the real
   // Server/Edge Giztest, which mints tokens with NewSignedBearerToken.
-  return `gizclaw_sig_v1_${btoa(JSON.stringify({ target: "signed-device" })).replaceAll("=", "")}.${signature}`;
+  return `gizclaw_sig_v1_${btoa(JSON.stringify({ target })).replaceAll("=", "")}.${signature}`;
+}
+
+const vectors = z
+  .array(
+    z.object({
+      privateKey: z.string(),
+      publicKey: z.string(),
+      edPublicKey: z.string(),
+      target: z.string(),
+    }),
+  )
+  .parse(
+    JSON.parse(
+      readFileSync(
+        new NodeURL(
+          "../../../../sdk/js/gizclaw/testdata/signed-bearer.json",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ),
+  );
+
+/** Real JS signing, independently verified with native Ed25519 and Go public keys. */
+export function adminHTTPFixture() {
+  let admin = vectors[0];
+  const target = admin.target;
+  const fixture = monitorHTTPFixture({
+    publicKey: target,
+    authorize(authorization) {
+      try {
+        const token = authorization?.replace(/^Bearer /, "") ?? "";
+        const parts = token.split(".");
+        if (parts.length !== 2 || !parts[0].startsWith("gizclaw_sig_v1_"))
+          return false;
+        const claims = z
+          .object({
+            iss: z.string(),
+            aud: z.literal("gizclaw/peer-http/v1"),
+            target: z.string(),
+            iat: z.number().int().positive(),
+            exp: z.number().int().positive(),
+          })
+          .parse(
+            JSON.parse(
+              Buffer.from(
+                parts[0].slice("gizclaw_sig_v1_".length),
+                "base64url",
+              ).toString(),
+            ),
+          );
+        const now = Math.floor(Date.now() / 1000);
+        return (
+          claims.iss === admin.publicKey &&
+          claims.target === target &&
+          claims.iat <= now + 30 &&
+          claims.exp > now &&
+          claims.exp > claims.iat &&
+          claims.exp - claims.iat <= 300 &&
+          verify(
+            null,
+            Buffer.from(parts[0]),
+            {
+              key: Buffer.from(
+                `302a300506032b6570032100${admin.edPublicKey}`,
+                "hex",
+              ),
+              format: "der",
+              type: "spki",
+            },
+            Buffer.from(parts[1], "base64url"),
+          )
+        );
+      } catch {
+        return false;
+      }
+    },
+  });
+  const peer = () => ({
+    ...fixture.peer,
+    signedBearer: undefined,
+    identity: { privateKey: admin.privateKey },
+  });
+  return {
+    ...fixture,
+    peer: peer(),
+    rotateAdmin() {
+      admin = admin === vectors[0] ? vectors[1] : vectors[0];
+      return peer();
+    },
+  };
 }
