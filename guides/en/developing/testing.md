@@ -1374,7 +1374,8 @@ and standalone recording behavior. Treat these artifacts as sensitive.
 `workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml` each run
 two exchanges using a fixed arithmetic request, for four relay turns. Assertions
 check both participant counts, nonempty replies, audio delivery and the terminal
-side. Audio EOS bounds each assistant reply. `run_workspace_relay_tests.sh` runs
+side. Every relay turn completes on audio EOS; the fixed source uses the existing
+Voice adapter to provide audio. `run_workspace_relay_tests.sh` runs
 both cases in one isolated Docker stack and verifies cleanup and content-free
 reports. No player model, semantic verdict or score is part of this gate.
 

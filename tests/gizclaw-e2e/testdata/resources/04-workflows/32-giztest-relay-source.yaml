@@ -46,3 +46,5 @@ spec:
           primary: true
     conversation:
       initiative: peer
+    voice_adapter:
+      default_voice: narrator

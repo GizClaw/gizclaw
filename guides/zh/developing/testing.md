@@ -1295,8 +1295,9 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 这些产物属于敏感记录。
 `workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml` 与
 `workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml` 使用固定算术请求，各跑
-两轮交换、共四次 relay 输出。断言检查两侧计数、非空回复、音频交付和终端侧，助手回复以
-音频 EOS 为完成边界。`run_workspace_relay_tests.sh` 在独立 Docker 栈内运行两个用例，并验证
+两轮交换、共四次 relay 输出。断言检查两侧计数、非空回复、音频交付和终端侧；每次输出以
+音频 EOS 为完成边界，固定输入端通过现有 Voice adapter 产生音频。
+`run_workspace_relay_tests.sh` 在独立 Docker 栈内运行两个用例，并验证
 清理和默认报告不含内容。门禁不调用玩家模型，也不产生语义裁决或分数。
 
 ### Eino 音频输入对比

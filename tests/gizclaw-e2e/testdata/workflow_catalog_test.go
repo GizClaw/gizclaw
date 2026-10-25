@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/goccy/go-yaml"
 )
 
@@ -171,6 +172,34 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 			}
 			for _, workflow := range workflows {
 				assertWorkflowCatalogFixture(t, workflow)
+			}
+		})
+	}
+}
+
+func TestFunctionalRelaySourcesProvideAudioTerminals(t *testing.T) {
+	source := fixtureEino(t, "resources/04-workflows/32-giztest-relay-source.yaml")
+	for _, name := range []string{
+		"workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml",
+		"workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml",
+	} {
+		t.Run(name, func(t *testing.T) {
+			document, err := giztest.LoadDocument(filepath.Join("..", "giztest", name), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var relay *giztest.WorkspaceRelayOperation
+			for _, step := range document.Steps {
+				if step.WorkspaceRelay != nil {
+					relay = step.WorkspaceRelay
+				}
+			}
+			if relay == nil || relay.TerminalMedia != "audio" {
+				t.Fatal("two-round functional relay must wait for audio completion")
+			}
+			// Audio completion applies to the source turn as well as the assistant.
+			if source.VoiceAdapter == nil || source.VoiceAdapter.DefaultVoice == nil || strings.TrimSpace(*source.VoiceAdapter.DefaultVoice) == "" {
+				t.Fatal("audio-terminal relay source must provide a Voice adapter")
 			}
 		})
 	}
