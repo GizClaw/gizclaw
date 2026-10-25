@@ -677,7 +677,12 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
-Eino concurrency 的 reload-initiative 功能探针使用只需一个数字回答的短算术输入，在原有 30 秒 step 预算内检查 route rearm、下一轮完整响应、终态错误与 History。它不评判答案语义，不改变生产 Prompt 或测试断言。
+Eino 语音助手与 concurrency 的 reload-initiative 功能探针使用只需一个数字回答的短算术输入，在原有 30 秒 step 预算内检查 route rearm、下一轮完整响应、终态错误与 History。语音助手还断言一条回复，以及文本和音频 EOS；不评判答案语义，沿用原有 Workflow 和模型配置。
+Eino realtime 并发探针合成其声明的 `prompt`，首文本 2 秒与首音频 3 秒的限制不变。
+
+标准 Go Giztest 调用端在本地 Server 容器内经 `edge:9821` 执行，沿用相同文档、
+并发和断言，报告原子复制回宿主机。取消会终止本任务的容器内进程，原有阶段时限也覆盖
+该进程。这验证 Docker 网络路径；宿主转发链路与设备音频时序需要各自测量。
 
 功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh --functional`，执行相同的 JavaScript、
 Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest 与多 Server 套件。

@@ -83,7 +83,7 @@ steps:
     method: server.speech.synthesize
     request:
       voice_name: narrator
-      text: Giztest audio input
+      text: 请只回答一个数字：一加一等于几？
       accepted_content_types:
       - audio/ogg
   save_as: input_audio
@@ -120,6 +120,14 @@ steps:
     await_rearm: INPUT_ROUTE_RELOADED
   expect:
     "/events":
+      non_empty: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
+    "/audio_eos":
+      equals: true
+    "/reply":
       non_empty: true
 - id: verify_history_after_reload
   client: peer

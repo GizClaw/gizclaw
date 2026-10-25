@@ -494,7 +494,7 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-10.giztest.yaml"
 		"$giztest_dir/benchmark.volc-ast-translate.realtime-concurrency-interrupt-10.giztest.yaml"
 	)
-	(cd "$repo_root" && "$script_dir/testdata/bin/gizclaw" test run "${files[@]}" --parallel 10 --report "$report")
+	bash "$setup_dir/run_docker_giztest.sh" "$report" "${files[@]}"
 }
 
 # The C runner is pointed at the whole scenario directory, like the JavaScript

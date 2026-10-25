@@ -629,7 +629,15 @@ The full entry builds and launches the Go CLI with `--help` during preflight; th
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
 
-The Eino concurrency reload-initiative probe synthesizes a closed one-digit arithmetic request. It checks route rearm, the next complete response, terminal errors and history within the original thirty-second step budget; answer semantics are not graded. This bounds the test stimulus without changing production prompts or assertions.
+The Eino voice-assistant and concurrency reload-initiative probes synthesize a closed one-digit arithmetic request. They check route rearm, the next complete response, terminal errors and History within the original thirty-second step budget. The voice-assistant probe also asserts one reply and both text and audio EOS; answer semantics are not graded. They use the original workflows and model settings.
+The Eino realtime concurrency probe synthesizes its declared `prompt`, retaining
+the original two-second first-text and three-second first-audio limits.
+
+The standard Go Giztest caller runs inside the local Server container through
+`edge:9821`, using the same documents, parallelism and assertions. Its report is
+copied atomically to the host. Cancellation stops the owned container process;
+the existing phase deadline also bounds that process. This qualifies the Docker
+network path. Host forwarding and device audio timing need their own measurements.
 
 The functional gate is `bash tests/gizclaw-e2e/run_tests.sh --functional`. It
 runs the same JavaScript, Flutter, C/cgo, Go Admin/OpenAI, CLI, Terraform,
