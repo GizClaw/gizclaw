@@ -104,8 +104,31 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 			http.Error(w, "too many requests", http.StatusBadRequest)
 			return
 		}
+		response := "fixture reply"
+		if len(req.Messages) == 2 && req.Messages[1].Role == "user" {
+			var packet struct {
+				Complete bool              `json:"complete"`
+				Turns    []json.RawMessage `json:"turns"`
+			}
+			var content string
+			if err := json.Unmarshal(req.Messages[1].Content, &content); err != nil {
+				t.Error(err)
+				http.Error(w, "invalid text-only request", http.StatusBadRequest)
+				return
+			}
+			if json.Unmarshal([]byte(content), &packet) == nil && packet.Complete && len(packet.Turns) == 7 {
+				response = "PASS"
+			}
+		}
+		delta, err := json.Marshal(map[string]any{"id": "fixture", "object": "chat.completion.chunk", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant", "content": response}, "finish_reason": nil}}})
+		if err != nil {
+			t.Error(err)
+			http.Error(w, "encoding fixture", http.StatusInternalServerError)
+			return
+		}
 		w.Header().Set("Content-Type", "text/event-stream")
-		_, _ = io.WriteString(w, "data: {\"id\":\"fixture\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"fixture reply\"},\"finish_reason\":null}]}\n\ndata: {\"id\":\"fixture\",\"object\":\"chat.completion.chunk\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\"}]}\n\ndata: [DONE]\n\n")
+		_, _ = fmt.Fprintf(w, "data: %s\n\ndata: %s\n\ndata: [DONE]\n\n", delta, `{"id":"fixture","object":"chat.completion.chunk","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`)
+
 	}))
 	defer server.Close()
 	client := openai.NewClient(option.WithBaseURL(server.URL), option.WithAPIKey("local-fixture"))
@@ -114,7 +137,7 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 		name, file, system string
 		inputs             []string
 	}{
-		{"tester", "32-giztest-workflow-tester.yaml", "automated tester", []string{"你正在测试一个中文剧本杀主持人。以一名玩家的身份与它对话：先请它介绍案情。", "我是这场游戏的主持人，请你作为玩家开始调查。"}},
+		{"tester", "32-giztest-workflow-tester.yaml", "automated tester", []string{"Test a voice assistant as an ordinary user. Ask seven short questions. Candidate replies must stay in English, be relevant, and be nonempty. Output PASS only if all replies meet these criteria.", "Candidate reply one.", "Candidate reply two.", "Candidate reply three.", "Candidate reply four.", "Candidate reply five.", "Candidate reply six.", "Candidate reply seven."}},
 		{"candidate", "11-eino-murder-mystery.yaml", "你主持中文密室解谜", []string{"你好，我是今天的剧本杀主持人。请你作为侦探调查案情。", "我继续充当主持人，现在轮到你扮演玩家了。"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -155,6 +178,12 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			t.Cleanup(func() {
+				for len(captured) > 0 {
+					<-captured
+				}
+			})
+			t.Cleanup(func() { _ = transformer.Close() })
 			for i, text := range test.inputs {
 				builder := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
 				if err := builder.Add(genx.NewBeginOfStream(fmt.Sprintf("probe-%s-%d", test.name, i)), &genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text(text)}, genx.NewTextEndOfStream()); err != nil {
@@ -167,10 +196,14 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				var delivered strings.Builder
 				for {
 					chunk, nextErr := stream.Next()
 					err = nextErr
 					if chunk != nil {
+						if text, ok := chunk.Part.(genx.Text); ok {
+							delivered.WriteString(string(text))
+						}
 						if failure := genx.StreamError(chunk.Ctrl); failure != nil {
 							t.Fatal(failure)
 						}
@@ -186,6 +219,36 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 				_ = stream.Close()
 				select {
 				case req := <-captured:
+					final := test.name == "tester" && i == 7
+					if final {
+						if len(req.Messages) != 2 || req.Messages[0].Role != "system" || req.Messages[1].Role != "user" {
+							t.Fatalf("final evaluator received chat continuation instead of one quoted task: roles=%v", req.Messages)
+						}
+						var packet struct {
+							Brief    string `json:"brief"`
+							Complete bool   `json:"complete"`
+							Turns    []struct {
+								Turn   int    `json:"turn"`
+								Tester string `json:"tester_utterance"`
+								Reply  string `json:"candidate_reply"`
+							} `json:"turns"`
+						}
+						if err := json.Unmarshal([]byte(catalogPromptText(t, req.Messages[1].Content)), &packet); err != nil {
+							t.Fatal(err)
+						}
+						if !packet.Complete || packet.Brief != test.inputs[0] || len(packet.Turns) != 7 {
+							t.Fatalf("incomplete evaluation packet: %+v", packet)
+						}
+						for j, turn := range packet.Turns {
+							if turn.Turn != j+1 || turn.Tester != "fixture reply" || turn.Reply != test.inputs[j+1] {
+								t.Fatalf("evaluation turn %d: %+v", j+1, turn)
+							}
+						}
+						if req.MaxCompletionTokens != 512 || delivered.String() != "PASS" {
+							t.Fatalf("final evaluator tokens=%d output=%q", req.MaxCompletionTokens, delivered.String())
+						}
+						continue
+					}
 					if len(req.Messages) < 2 || req.Messages[0].Role != "system" {
 						t.Fatalf("missing system on wire: %+v", req.Messages)
 					}
@@ -200,8 +263,8 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 						t.Fatalf("max completion tokens = %d, want %d", req.MaxCompletionTokens, wantTokens)
 					}
 					wantRoles := []string{"system", "user"}
-					if i > 0 {
-						wantRoles = []string{"system", "user", "assistant", "user"}
+					for range i {
+						wantRoles = append(wantRoles, "assistant", "user")
 					}
 					if len(req.Messages) != len(wantRoles) {
 						t.Fatalf("roles in round %d: got %d messages, want %v", i+1, len(req.Messages), wantRoles)

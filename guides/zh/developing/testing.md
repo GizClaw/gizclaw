@@ -39,7 +39,7 @@ H106 固件的界面或语音提示；固件消费该事件后的表现需要独
 go test -count=1 -run '^TestCatalogRolePromptsReachModelRequests$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
 ```
 
-提交的 tester 与剧本杀 Graph 经实际 Starlark、Prompt 节点和生产 Eino/GenX adapter 调用本地 HTTP/SSE 模型夹具。每个 Workflow 的两轮输入验证 system 指令、历史 user/assistant 顺序、当前 user 位于最后，以及配置的 completion-token 上限。State 与 Memory 使用受控 fixture store，无需供应商凭据。真实模型的角色行为和时限仍由原始 Docker relay 与剧本质量场景验收。tester 的七轮提问始终保持玩家身份，每轮只提一个简短问题；第八轮按 brief 发布裁决。
+提交的 tester 与剧本杀 Graph 经实际 Starlark、Prompt 节点和生产 Eino/GenX adapter 调用本地 HTTP/SSE 模型夹具。对话输入验证 system 指令、历史 user/assistant 顺序、当前 user 位于最后，以及配置的 completion-token 上限。tester 还执行完整的七轮提问与终轮评估；终轮模型请求只包含一条 evaluator system 消息和一条 JSON 证据消息，保留原 brief 与七组带标签的问答。State 与 Memory 使用受控 fixture store，无需供应商凭据。真实模型的角色行为和时限仍由原始 Docker relay 与剧本质量场景验收。七轮提问按 brief 扮演用户身份；第八轮独立评估引用的对话证据，只接受完整的 PASS 或 FAIL。继续聊天、带 PASS 前缀的说明和不完整证据均按协议错误失败。
 
 ## Docker 镜像来源
 

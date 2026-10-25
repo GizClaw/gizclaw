@@ -530,13 +530,13 @@ func TestScriptQualityNativePlayerAndJudge(t *testing.T) {
 func TestNativeWorkflowTesterRejectsPrematureVerdicts(t *testing.T) {
 	graph := fixtureGraph(t, "resources/04-workflows/32-giztest-workflow-tester.yaml")
 	for _, text := range []string{"PASS", "FAIL", "  pass  ", ""} {
-		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(1), "answer": text})
+		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(1), "answer": text, "evaluation_valid": false})
 		if result["published"] != "请就刚才的话题再补充一点好吗？" {
 			t.Fatalf("probe emitted premature verdict: %v", result["published"])
 		}
 	}
 	for _, text := range []string{"PASS", "FAIL"} {
-		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(8), "answer": text})
+		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(8), "answer": text, "evaluation_valid": true})
 		if result["published"] != text {
 			t.Fatalf("verdict changed: %v", result["published"])
 		}
@@ -1070,6 +1070,124 @@ func TestNativeWerewolfPublisherRejectsImplementationTalk(t *testing.T) {
 			answer := result["answer"].(string)
 			if strings.Contains(answer, speech) || !strings.Contains(answer, valid) || result["rejected_lines"] != int64(1) {
 				t.Fatalf("implementation text leaked or valid in-world speech was lost: %v", result)
+			}
+		})
+	}
+}
+
+func TestNativeWorkflowTesterBuildsQuotedEvaluation(t *testing.T) {
+	graph := fixtureGraph(t, "resources/04-workflows/32-giztest-workflow-tester.yaml")
+	for index := range graph.Nodes {
+		if graph.Nodes[index].ID == "build_evaluation" {
+			graph.Nodes[index].Inputs = map[string]genxeino.Binding{"history": {From: "messages"}}
+		}
+	}
+	history := []*schema.Message{schema.UserMessage("brief and its original criteria")}
+	for range 7 {
+		history = append(history, schema.AssistantMessage("question part one", nil), schema.AssistantMessage("question part two", nil), schema.UserMessage("reply part one"), schema.UserMessage("reply part two"))
+	}
+	for _, complete := range []bool{true, false} {
+		input := history
+		if !complete {
+			input = history[:len(history)-2]
+		}
+		result := runFixtureScript(t, graph, "build_evaluation", map[string]any{"messages": input})
+		if result["evaluation_valid"] != complete {
+			t.Fatalf("evaluation validity = %v, want %v", result["evaluation_valid"], complete)
+		}
+		var packet struct {
+			Brief    string `json:"brief"`
+			Complete bool   `json:"complete"`
+			Turns    []struct {
+				Turn     int    `json:"turn"`
+				Question string `json:"tester_utterance"`
+				Reply    string `json:"candidate_reply"`
+			} `json:"turns"`
+		}
+		if err := json.Unmarshal([]byte(result["evaluation_input"].(string)), &packet); err != nil {
+			t.Fatal(err)
+		}
+		if packet.Brief != "brief and its original criteria" || packet.Complete != complete {
+			t.Fatalf("wrong evidence packet: %+v", packet)
+		}
+		if !complete {
+			if len(packet.Turns) != 0 {
+				t.Fatal("incomplete history produced complete turns")
+			}
+			continue
+		}
+		if len(packet.Turns) != 7 {
+			t.Fatalf("turn count = %d", len(packet.Turns))
+		}
+		for index, turn := range packet.Turns {
+			if turn.Turn != index+1 || turn.Question != "question part one\nquestion part two" || turn.Reply != "reply part one\nreply part two" {
+				t.Fatalf("turn %d lost or reordered fragments: %+v", index+1, turn)
+			}
+		}
+	}
+}
+
+func TestNativeWorkflowTesterRejectsInvalidFinalDecisions(t *testing.T) {
+	for _, test := range []struct {
+		answer   string
+		complete bool
+		want     string
+	}{
+		{"I will continue investigating.", true, "invalid final verdict"},
+		{"PASS with an explanation", true, "invalid final verdict"},
+		{"PASSIVE", true, "invalid final verdict"},
+		{"", true, "invalid final verdict"},
+		{`{"verdict":"PASS"}`, true, "invalid final verdict"},
+		{"PASS", false, "expected seven candidate replies"},
+	} {
+		t.Run(test.answer, func(t *testing.T) {
+			graph := fixtureGraph(t, "resources/04-workflows/32-giztest-workflow-tester.yaml")
+			graph.Nodes = []genxeino.NodeDefinition{fixtureNode(t, graph, "publish")}
+			graph.Edges = []genxeino.EdgeDefinition{{From: "start", To: "publish"}, {From: "publish", To: "end"}}
+			graph.Branches = nil
+			graph.Outputs = []genxeino.OutputDefinition{{Node: "publish", Field: "published", Name: "assistant", MIMEType: "text/plain", Primary: true}}
+			fields := map[string]any{"turn": int64(8), "answer": test.answer, "evaluation_valid": test.complete}
+			store := &fixtureStateStore{fields: fields}
+			selected := []string{}
+			for _, field := range graph.State.Fields {
+				selected = append(selected, field.Name)
+			}
+			transformer, err := genxeino.New(t.Context(), genxeino.Config{Agent: genxeino.AgentConfig{ID: "invalid-verdict"}, Graph: graph, Components: fixtureComponents{}, State: &genxeino.StatePersistenceConfig{Store: store, Scope: "invalid-verdict", Fields: selected}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = transformer.Close() })
+			input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 8)
+			if err := input.Add(&genx.MessageChunk{Role: genx.RoleUser, Part: genx.Text("execute"), Ctrl: &genx.StreamCtrl{StreamID: "invalid-verdict", BeginOfStream: true, EndOfStream: true}}); err != nil {
+				t.Fatal(err)
+			}
+			if err := input.Done(genx.Usage{}); err != nil {
+				t.Fatal(err)
+			}
+			output, err := transformer.Transform(t.Context(), input.Stream())
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer output.Close()
+			var failure error
+			for {
+				chunk, err := output.Next()
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				if err != nil {
+					failure = err
+					break
+				}
+				if chunk != nil {
+					if err := genx.StreamError(chunk.Ctrl); err != nil {
+						failure = err
+						break
+					}
+				}
+			}
+			if failure == nil || !strings.Contains(failure.Error(), test.want) {
+				t.Fatalf("invalid decision error = %v, want %q", failure, test.want)
 			}
 		})
 	}
