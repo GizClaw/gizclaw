@@ -33,6 +33,14 @@ History 等待合用。错误 EOS 同时携带的 payload 仍计入结果，可�
 H106 固件的界面或语音提示；固件消费该事件后的表现需要独立设备验收。回归无 build tag，
 随普通 Go 测试执行，不读取云凭据，也不调用线上模型。
 
+## 原生 Prompt 两轮 History 的模型 HTTP 回归
+
+```sh
+go test -count=1 -run '^TestNativePromptPreservesTwoTurnModelHistory$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
+```
+
+固定的两轮输入通过原生 Eino Graph、生产 Eino/GenX adapter 与本地 HTTP/SSE 模型夹具执行。回归检查 system 指令、上一轮 user/assistant 顺序、当前 user 位于最后、模型回复交付与配置的 completion-token 上限。State 和 Memory 使用受控 fixture store，无需供应商凭据。该回归只验证消息与 History 契约。
+
 ## Docker 镜像来源
 
 Go、Runtime 与 Mem0 的构建基础镜像、包验证容器、Docker E2E 的第三方服务，以及
@@ -94,7 +102,9 @@ Giztest 的 `audio_pacing.max_interval_ms` 使用 PeerStream 读取时的真实�
 go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
 ```
 
-完整性检查针对实际交付的逻辑音频；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
+完整性检查针对实际交付的逻辑音频；声音失真与音色需要单独测量。
+
+`audio_integrity` 保留所有观察到的音频流，包括自然打断的前缀；普通单输入回归的完整回复字节、文字和 pacing 排除自然打断的前缀。显式 `interrupt_after` 探针仍保留计划打断前已收到的数据，排除之后的迟到 payload。8 轮实时语音功能回归要求每轮保留一条完整回复、text/audio EOS 齐全、所有音频流关闭、同时活跃数为 1 且违规为 0。自然 VAD 可以产生多个先后关闭的音频流；原有 101 包、p95 30 ms、最大 100 ms、零 underrun 和缓冲门槛保持原值。
 
 ### 原生语音的多轮 History 顺序
 
@@ -664,17 +674,22 @@ LoCoMo 是下文说明的例外：其 Go 测试名就是受支持的 selector。
 
 ## GizClaw Docker E2E
 
+完整入口在预检中构建 Go CLI 并实际执行 `--help`，随后由 CLI suite 运行真实命令。SDK harness 的 setup Server 就绪检查直接复用 Go SDK 的 context 连接，在原就绪预算内验证已认证的 Peer HTTP 与 RPC Ping；它不把额外 CLI 子进程的启动耗时计为 Server 不可用。必需事件流、HTTP 与 RPC 服务流的打开共用 probe context；打开操作阻塞时，取消或到达 deadline 都会使其退出。
+
 `tests/gizclaw-e2e` 是 Docker-backed 的完整 GizClaw 环境。Go 测试使用
 `gizclaw_e2e` build tag，因此不会进入普通 `go test ./...`。
 
-Eino concurrency 的 reload-initiative 功能探针使用只需一个数字回答的短算术输入，在原有 30 秒 step 预算内检查 route rearm、下一轮完整响应、终态错误与 History。它不评判答案语义，不改变生产 Prompt 或测试断言。
+Eino 语音助手与 concurrency 的 reload-initiative 功能探针使用只需一个数字回答的短算术输入，在原有 30 秒 step 预算内检查 route rearm、下一轮完整响应、终态错误与 History。语音助手还断言一条回复，以及文本和音频 EOS；不评判答案语义，沿用原有 Workflow 和模型配置。
+Eino realtime 并发探针合成其声明的 `prompt`，首文本 2 秒与首音频 3 秒的限制不变。
 
-功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh --functional`，执行相同的 JavaScript、
-Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest 与多 Server 套件。
-它仅排除五个 `script-quality.*` 文档，以及两个依赖模型语义裁决的
-`workspace-relay.workflow-tester`、`workspace-relay.doubao-realtime-workflow-tester` 文档。
-剧本评分与模型给出的语义裁决不属于功能验收；音频 packet 完整性、发送节奏、轮次完成、
-状态、权限和超时断言仍是功能门禁。默认命令保留原有完整文档集合，`--help` 说明两种模式。
+标准 Go Giztest 调用端在本地 Server 容器内经 `edge:9821` 执行，沿用相同文档、
+并发和断言，报告原子复制回宿主机。取消会终止本任务的容器内进程，原有阶段时限也覆盖
+该进程。这验证 Docker 网络路径；宿主转发链路与设备音频时序需要各自测量。
+
+完整功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh`，`--functional` 执行相同的完整套件。
+它覆盖 JavaScript、Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest、
+多 Server 与 TiKV。GizClaw 断言路由、轮次归属、完成边界、媒体完整性、发送节奏、权限和清理；
+剧情评分由 Raids 负责。
 
 JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
 客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
@@ -740,14 +755,12 @@ NPC 狼人的投票策略排除已知狼队同伴。猎人受袭或被放逐时�
 VoiceAdapter 在同一音频路由内按角色选择 Voice。首响应测量包含本轮角色生成的等待。
 游戏进度直接保存在 State，对话使用 History；不逐轮调用长期 Memory，终局仅观察一次
 公开状态审计。旅程与多角色故事在取经章兑现前面形成的承诺；
-主线完成后转入复盘或简短告别。质量玩家的首轮目标不作为已经发生的剧情或身份信息。
+主线完成后转入复盘或简短告别。原生示例用于验证 State、History、Memory、分支与音色路由。
 候选 Prompt 将历史与本轮输入分开，并在本轮输入旁重新提供权威 State；狼人杀角色
 模型温度为 0.3，其他候选为 0.2。
 旅程只通过完整的肯定继续指令顺序推进，疑问或否定不会翻章。多角色故事还须先以
 “我选择……”确认本章约定；提出异议后须重新确认，才允许继续。狼人杀只识别明确行动分句，讨论旧票或否定技能
-不会执行行动。质量玩家以原生 State 记录20次发言的进度，先推进主线，再提出不同复盘问题，
-最后告别；它不会为未完成的主线编造结局。
-这些配置仍须通过实际 Provider 对话评分，Prompt 中声明要求本身不证明质量达标。
+不会执行行动。
 
 `eino_catalog_test.go` 编译 Resource 和 Workspace 的实际配置，执行完整原生节点链，
 并验证非法行动、私密信息投影、证据不足、错误答案和通关后的状态。
@@ -771,7 +784,7 @@ C SDK 可以独立验收，运行 C/cgo 的 RPC、遥测、聊天、媒体、社
 bash tests/gizclaw-e2e/run_c_tests.sh
 ```
 
-该入口启动独立的 TiKV Docker 栈并在结束时清理。它不运行其他语言 SDK、Go Admin/OpenAI、Terraform、音频并发压测或剧本评分。默认将报告和脱敏日志保存到 ignored `.testbench/c-e2e-*`，可用 `GIZCLAW_E2E_C_EVIDENCE_DIR` 指定空目录。`resources/` 每 5 秒采集宿主 CPU、内存和磁盘 I/O、Docker API 延迟、容器状态及 VM `/proc` 数据，每 10 秒记录容器 cgroup CPU 限流、内存事件和 I/O 计数；另记录 PostgreSQL 等待事件和 I/O 时间。采样期间不改变 CPU、内存配额、fsync 或事务提交设置；仅开启夹具数据库的 I/O 计时。
+该入口启动独立的 TiKV Docker 栈并在结束时清理。它不运行其他语言 SDK、Go Admin/OpenAI、Terraform 或音频并发压测。默认将报告和脱敏日志保存到 ignored `.testbench/c-e2e-*`，可用 `GIZCLAW_E2E_C_EVIDENCE_DIR` 指定空目录。`resources/` 每 5 秒采集宿主 CPU、内存和磁盘 I/O、Docker API 延迟、容器状态及 VM `/proc` 数据，每 10 秒记录容器 cgroup CPU 限流、内存事件和 I/O 计数；另记录 PostgreSQL 等待事件和 I/O 时间。采样期间不改变 CPU、内存配额、fsync 或事务提交设置；仅开启夹具数据库的 I/O 计时。
 
 排查已有栈时，使用 `--reuse-env <docker.env>`；该文件来自 `setup/docker-compose-up.sh`，复用模式保留由调用方管理的栈。`--giztest-only` 只重跑 C Giztest。两个 C bridge 都通过强制重建避免外部 C include 被 Go cache 复用；`--giztest-only` 只重建其使用的 bridge。`GIZCLAW_E2E_C_PARALLEL` 可覆盖场景并发数。不支持的场景明确报告 skipped，不计为通过。
 
@@ -939,6 +952,7 @@ Go/C 共享基于 seed 的启动 jitter、stagger 与步骤 think time；JavaScr
 
 Flutter runner 是桌面二进制而不是纯 Dart CLI，因为设备端需要 `flutter_webrtc` 的
 platform implementation。`run_tests.sh` 在 macOS 与 Linux 上构建并运行它，其他 host 跳过。
+macOS runner 作为后台应用启动，保留 Flutter engine 和原生 WebRTC plugin，但不显示窗口、Dock 图标或抢占前台焦点。 原生 factory 为并行后台 Peer 选择平台 CoreAudio 后端；SDK 仍协商正常的 sendrecv 音频和必需的 packet/event 通道。该 harness 验证 Peer 协议与连接生命周期；声学处理由应用或设备音频专项验收。
 
 所有 runner 都把 `rpc` step 的响应投影为使用 proto 字段名的 proto3 JSON：`int64` /
 `uint64` 字段输出为字符串，处于默认值的 implicit-presence 字段（标量、枚举、repeated 与
@@ -1156,6 +1170,19 @@ realtime 在发送期间持续消费输出；所有必需模态的第一段 assi
 计时起点之前到达的内容按零延迟记录。interrupt 的替换输入也在发送期间持续消费输出。缺少必需模态时分别以 `deadline=first_text_timeout` 或
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
+
+音频 turn 只把本轮可接受的 assistant 输出计入首包和完成条件。runner 在 PTT
+输入前启动读取，以首个输入 EOS 写入前的时刻识别先前回复；这些回复的后续包和
+终止事件也不计入当前 turn，不能解除当前首包超时。同一个 task/client 的近期回复
+ID 跨逻辑 stream 关闭重开保留，保留 session 时也覆盖已经排队的旧输出。
+Realtime 同样排除已知的先前回复，但允许新的回复在输入仍然发送时到达；这种有效
+的提前回复可以记录为零延迟。两轮及两种订阅方式的运行时回归见
+`cmd/internal/commands/giztest/peer_stream_conversation_test.go`。
+
+`interrupt_after` 中，本步骤已经接纳的回复即使在替换 PTT 输入后被排除后续 payload，
+仍须更新中断统计并检查终止错误。`await_rearm` 使用更严格的规则：在归属过滤之前
+检查所有 assistant 错误 EOS，包括已知先前回复的 ID。
+
 `peer_stream.idle_timeout`（Go duration，可选）限制的是不活动时长而不是总时长：runner 在
 turn 输入推送完成后启动计时器，每收到一个 chunk（不区分 label）就重置，`interrupt_after`
 的替换 turn 推送后重新启动，终止 EOS 被接受后停止。流停滞时步骤以
@@ -1267,14 +1294,13 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 本地 `--evidence full --report <path>` 才写入有界 relay 文本以及
 `server.speech.transcribe` 步骤识别出的 transcript。完整 evidence 还可能包含 PeerStream
 输入、音频字节及受支持 RPC 的资源证据，具体内容和独立记录行为见 [CLI 使用说明](/zh/using/cli)。
-这些产物属于敏感记录。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
-运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
-验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
-一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
-`benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
-配套 tester Workflow 固定七轮提问和第八轮裁决；提问轮若模型提前输出孤立的 `PASS`/`FAIL` 或空文本，
-发布节点改发一条追问，终轮则按 brief 的逐轮标准原样发布模型裁决。
-若 brief 只要求主持人切题且非空，提问轮不强求指认凶手或完成故事；说明证据不足并给出相关后续调查也算切题回应。
+这些产物属于敏感记录。
+`workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml` 与
+`workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml` 使用固定算术请求，各跑
+两轮交换、共四次 relay 输出。断言检查两侧计数、非空回复、音频交付和终端侧；每次输出以
+音频 EOS 为完成边界，固定输入端通过现有 Voice adapter 产生音频。
+`run_workspace_relay_tests.sh` 在独立 Docker 栈内运行两个用例，并验证
+清理和默认报告不含内容。门禁不调用玩家模型，也不产生语义裁决或分数。
 
 ### Eino 音频输入对比
 
@@ -1867,6 +1893,34 @@ git lfs fsck
 ```
 
 
+## 音频轮次归属 Docker 回归
+
+```sh
+bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+```
+
+入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino、Doubao ASR、AgentHost 和 GizTunnel package 的 race
+测试，以及真实 Server、Edge、WebRTC 的两轮音频回归。远端 ASR、模型和 TTS 使用
+本地 HTTP／SAUC WebSocket 协议夹具，仍经过生产 adapter；不需要 Provider 凭据。
+夹具先返回开场文字，再通过 HTTP barrier 释放旧回复尾部，随后要求两次音频输入
+各自得到正确回复。覆盖公开支持的 PTT 重开、realtime 重开和 realtime 保留 session。
+PTT 保留订阅是内部 contract 测试的控制组，不是 Giztest 文档公开支持的模式。
+
+额外的 PTT `input_sent` 场景在已有部分定稿、但音频终止仍在排空时发送下一轮 BOS，要求旧 History route 收尾后，新一轮得到正确回复。PTT 协议夹具在 audio EOS 前发布 definite 文本，并在 final marker 后 350 ms 确认结束。
+
+realtime 保留 session 的重复快照用例通过真实 SAUC WebSocket 在定稿后再次返回相同的纯文本，要求它不打开新转写轮次或取消当前回复。夹具计数确认三次重复快照实际发送，开场和后两轮仍分别检查正确回复与模型输入顺序。ASR contract 同时保留新 interim 和同词新 utterance 的正向对照。
+
+Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、旧回复不能
+解除首包 deadline、re-arm 的旧 ID 错误 EOS，以及 PTT 中断统计。同时验证 control/audio EOS 两种顺序、被替换 ASR 输入的音频与转写 EOS、最终发送已完成但 session 同时结束的并发顺序，以及 input 先于 output 的关闭进度。GizTunnel 回归在真实 WebRTC service channel 上填满逻辑 Opus 接收队列，验证 RPC 类请求／响应仍可完成，消费恢复后继续接收音频；其他 direct packet 的溢出失败边界保持原样。传输层同时执行
+原生音频 History 与连续播讲回归；epoch metadata 本身只在进程内传递，不把 wire
+输出当作 epoch identity 的直接验证。
+
+runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
+清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
+报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
+`tests/gizclaw-e2e/run_tests.sh` 和 CI 的 Audioplayer job 均执行此入口；标准全量入口
+随后继续运行真实 Provider 套件，二者的证据应分别保留。
+
 ## 连续播讲与逐段 History Giztest
 
 在仓库根目录执行：
@@ -2091,30 +2145,6 @@ Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](/zh/
 
 Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以及 SDK 经 Edge/Server 的真实 Workspace dialogue。Eino helper 观察到期和不可用错误 EOS、准确公开字段、response identity，并断言拒绝时没有 provider I/O。这些确定性协议 fixture 不代表真实云端 provider 或硬件资格验证。
 
-## 剧本质量
-
-`script-quality.*.giztest.yaml` 对狼人杀、密室解谜、诗词闯关、旅程和多角色故事分别运行
-20 次被测回复，由独立玩家 Workspace 驱动、独立裁判 Workspace 按角色一致性、信息边界、
-针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
-
-质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
-
-```bash
-bash tests/gizclaw-e2e/run_script_quality_tests.sh
-# 只选指定剧本；凭据仍来自标准 credential 文件
-GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
-  bash tests/gizclaw-e2e/run_script_quality_tests.sh
-```
-
-入口接受 `GIZCLAW_E2E_CREDENTIAL_FILE`，启动并清理独立 Docker project，使用真实 Provider；
-它不会合并或部署业务配置。每个选择的场景都运行并保留独立 JSON report，任何质量或
-执行失败均使入口非零退出。输出默认在 ignored `testdata/script-quality/`；终端汇总只含
-分数和轮次，完整 report 含对话和裁判引用，应按对话内容管理。新玩家/裁判采用 Eino
-原生 Prompt/ChatModel；整个 Docker E2E 的文本 `llm`、裁判 `script-judge` 和音频 `audio-llm`
-统一使用 Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`)，设置 `service_tier: fast` 并默认关闭
-thinking。裁判 `script-judge` alias 仍可在测试 Profile 单独选择模型。实际 fast 档位与首响时延
-分别由本页的低延迟真实 Giztest 和首响验证矩阵验收。
-
 ## Profile Tool alias 验收
 
 ```sh
@@ -2280,9 +2310,15 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 原生 SDK 场景失败时，JavaScript 报告保留各 provider 的调用次数和最后 64 个反向 RPC
 通道事件，只记录通道 ID、状态和消息字节数，不保存请求或响应内容。Flutter 报告保留
 provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍使测试失败，同时保留原始步骤错误。
+标准 Docker 入口让 JavaScript 和 Flutter 的每个文档使用独立原生进程，同时最多运行四个进程。
+每个文档完整执行；进程退出状态与报告必须一致，600 秒的外部进程上限保护原生调用的结束边界。
 
 `tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
 凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
+设备管理和 Peer control 的本地 Edge fixture 为 HTTP TCP 与 ICE UDP 选择同一个端口，选择前同时检查两种协议可绑定；TCP 空闲本身不能证明 UDP 也空闲。
+标准 `run_tests.sh` full 入口也执行此 lane。需要独立 Modem/NFC manifest 的实例、NFC 控制、
+无效响应场景和需要专有签名凭据的 Monitor 场景由这里执行；普通 Docker 栈的 SDK/Provider
+阶段运行其共享 Profile 支持的文档。
 每轮重新建立连接和 RPC 通道，覆盖原生通道创建时的帧交付边界。`TestDeviceManagementGiztestsGo` 包含：
 
 - `server.device.management.{control,rejected,unsupported,invalid_response,validation}`：所有 11 个

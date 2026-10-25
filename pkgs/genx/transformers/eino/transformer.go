@@ -450,6 +450,7 @@ type outputRoute struct {
 	streamID   string
 	definition OutputDefinition
 	response   *streamkit.Response
+	epoch      *genx.ResponseEpoch
 }
 
 func (session *session) startTurn(user, inputID string, parts []any, previous <-chan struct{}, initiative ...bool) <-chan struct{} {
@@ -500,10 +501,11 @@ func (session *session) launch(run *turnRun, inputID string) <-chan struct{} {
 	for _, output := range session.transformer.graph.definition.Outputs {
 		outputID := genx.NewStreamID()
 		streamlog.OutputRecorder(session.invocation.Context()).LinkOutput(inputID, outputID)
-		route := outputRoute{definition: output, streamID: outputID}
+		route := outputRoute{definition: output, streamID: outputID, epoch: genx.NewResponseEpoch(inputID)}
 		if !run.automaticPrimary {
 			response, err := session.invocation.StartResponse(streamkit.ResponseConfig{
 				StreamID: outputID, Role: genx.RoleModel, Name: output.Name, Label: output.Name,
+				ResponseEpoch: route.epoch,
 			}, output.MIMEType)
 			if err != nil {
 				_ = session.invocation.Fail(err)
@@ -631,6 +633,7 @@ func (run *turnRun) Emit(output OutputDefinition, value any) error {
 func (run *turnRun) startAutomaticRoute(route outputRoute) (outputRoute, error) {
 	response, err := run.session.invocation.StartResponse(streamkit.ResponseConfig{
 		StreamID: route.streamID, Role: genx.RoleModel, Name: route.definition.Name, Label: "assistant",
+		ResponseEpoch: route.epoch,
 	}, route.definition.MIMEType)
 	if err != nil {
 		return route, err

@@ -53,6 +53,7 @@ type agentGeneration struct {
 type runtimeTransform struct {
 	generation *agentGeneration
 	cancel     context.CancelCauseFunc
+	input      genx.Stream
 	once       sync.Once
 	outputMu   sync.Mutex
 	output     genx.Stream
@@ -110,7 +111,7 @@ func (a *quiescingAgent) Transform(ctx context.Context, input genx.Stream) (genx
 		cancel(errWorkspaceQuiesced)
 		return nil, errWorkspaceQuiesced
 	}
-	transform := &runtimeTransform{generation: a.generation, cancel: cancel}
+	transform := &runtimeTransform{generation: a.generation, cancel: cancel, input: input}
 	a.generation.transforms[transform] = struct{}{}
 	registry.mu.Unlock()
 	go func() {
@@ -187,6 +188,10 @@ func (t *runtimeTransform) stop(cause error) {
 	output := t.output
 	t.outputMu.Unlock()
 	t.finish(cause)
+	// Cancel the transform's input before waiting for its output to retire.
+	if t.input != nil {
+		_ = t.input.CloseWithError(cause)
+	}
 	if output != nil {
 		_ = output.CloseWithError(cause)
 	}

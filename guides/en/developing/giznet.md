@@ -228,6 +228,8 @@ reliable channel. Native channels isolate ordering, buffered-amount backpressure
 and close/reset, but all channels on one PeerConnection still share its SCTP
 association and congestion controller.
 
+The logical packet receive queue remains bounded. If registration or storage I/O delays its reader, a full queue drops incoming Opus packets without closing logical control or service streams. Other direct-packet queue overflow still returns `ErrBufferLimit` and closes that logical session.
+
 Active limits default to 32 channels per session and 8,192 per upstream. Reliable
 service writes use per-channel, per-session, and association budgets whose
 reservations remain held until `BufferedAmount` drains. The association budget

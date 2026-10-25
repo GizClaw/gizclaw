@@ -120,7 +120,7 @@ func fixtureGraph(t *testing.T, path string) genxeino.GraphDefinition {
 }
 
 func TestNativeEinoScenarioGraphs(t *testing.T) {
-	for _, pattern := range []string{"resources/04-workflows/*-eino-*.yaml", "resources/04-workflows/32-giztest-workflow-tester.yaml", "resources/04-workflows/48-mem0-extraction.yaml", "workspaces/eino-*.json"} {
+	for _, pattern := range []string{"resources/04-workflows/*-eino-*.yaml", "resources/04-workflows/32-giztest-relay-source.yaml", "resources/04-workflows/48-mem0-extraction.yaml", "workspaces/eino-*.json"} {
 		paths, err := filepath.Glob(pattern)
 		if err != nil || len(paths) == 0 {
 			t.Fatalf("%s: %v", pattern, err)
@@ -512,37 +512,6 @@ func TestNativeMysteryRequiresBothMotiveClues(t *testing.T) {
 	}
 }
 
-func TestScriptQualityNativePlayerAndJudge(t *testing.T) {
-	for _, path := range []string{"resources/04-workflows/50-script-quality-player.yaml", "resources/04-workflows/51-script-quality-judge.yaml"} {
-		graph := fixtureGraph(t, path)
-		fields := runFixtureGraph(t, graph, map[string]any{"turn": int64(0), "mode": ""})
-		if fields["answer"] != "fixture reply" {
-			t.Fatal("native quality graph did not execute")
-		}
-		transformer, err := genxeino.New(t.Context(), genxeino.Config{Agent: genxeino.AgentConfig{ID: "quality"}, Graph: graph, Components: fixtureComponents{}})
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Cleanup(func() { _ = transformer.Close() })
-	}
-}
-
-func TestNativeWorkflowTesterRejectsPrematureVerdicts(t *testing.T) {
-	graph := fixtureGraph(t, "resources/04-workflows/32-giztest-workflow-tester.yaml")
-	for _, text := range []string{"PASS", "FAIL", "  pass  ", ""} {
-		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(1), "answer": text})
-		if result["published"] != "请就刚才的话题再补充一点好吗？" {
-			t.Fatalf("probe emitted premature verdict: %v", result["published"])
-		}
-	}
-	for _, text := range []string{"PASS", "FAIL"} {
-		result := runFixtureScript(t, graph, "publish", map[string]any{"turn": int64(8), "answer": text})
-		if result["published"] != text {
-			t.Fatalf("verdict changed: %v", result["published"])
-		}
-	}
-}
-
 func TestNativeWerewolfDiscussionDoesNotExecuteActions(t *testing.T) {
 	initial := runRules(t, "werewolf", "开始", map[string]any{})["game"].(map[string]any)
 	initial["pending_day"] = int64(0)
@@ -648,16 +617,6 @@ func TestNativeJourneyFutureMentionDoesNotSkipChapters(t *testing.T) {
 	}
 }
 
-func TestScriptQualityPlayerTracksItsRemainingTurns(t *testing.T) {
-	graph := fixtureGraph(t, "resources/04-workflows/50-script-quality-player.yaml")
-	for _, before := range []int64{0, 18, 19} {
-		fields := runFixtureGraph(t, graph, map[string]any{"turn": before, "mode": "actions"})
-		if fields["turn"] != before+1 {
-			t.Fatalf("player turn = %v, want %d", fields["turn"], before+1)
-		}
-	}
-}
-
 func TestNativeWerewolfPrivateTeammatesAndTally(t *testing.T) {
 	game := runRules(t, "werewolf", "开始", map[string]any{})["game"].(map[string]any)
 	game["pending_day"] = int64(0)
@@ -723,22 +682,6 @@ func TestNativeMysteryRequiresExplicitAccusation(t *testing.T) {
 	result := runRules(t, "murder-mystery", "线索已齐，我现在正式指认凶手就是沈知秋", game)
 	if result["game"].(map[string]any)["solved"] != true {
 		t.Fatalf("explicit supported accusation did not solve the case: %v", result)
-	}
-}
-
-func TestScriptQualityPlayerRecognizesChapterBriefs(t *testing.T) {
-	graph := fixtureGraph(t, "resources/04-workflows/50-script-quality-player.yaml")
-	for index := range graph.Nodes {
-		if graph.Nodes[index].ID == "count" {
-			graph.Nodes[index].Inputs["current"] = genxeino.Binding{From: "brief"}
-		}
-	}
-	graph.State.Fields = append(graph.State.Fields, genxeino.StateField{Name: "brief", Type: genxeino.StateString, Merge: genxeino.MergeReplace})
-	for _, brief := range []string{"体验孙悟空的旅程", "体验多角色西游故事"} {
-		result := runFixtureScript(t, graph, "count", map[string]any{"turn": int64(0), "mode": "", "brief": brief})
-		if result["mode"] != "chapters" {
-			t.Fatalf("chapter brief %q used the wrong player mode: %v", brief, result)
-		}
 	}
 }
 

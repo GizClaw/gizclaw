@@ -28,6 +28,13 @@ transformer, err := eino.New(ctx, eino.Config{
 
 An empty `Agent.ContextID` creates one opaque identity during `New`. That identity is stable for the Transformer lifetime. Each turn still receives fresh invocation, run, and output Stream identities.
 
+Each output route receives an immutable `ResponseEpoch` when its turn starts,
+bound to that turn's input StreamID. A lazily created `first_output` route uses
+that preallocated epoch too. Content and terminal events keep the same epoch,
+so a consumer observing the first chunk after replacement input can still
+identify the original owner. Initiative without an input route remains unowned.
+This metadata stays inside the process.
+
 ## Graph contract
 
 `GraphDefinition` combines State, nodes, routing, and outputs.
@@ -78,11 +85,11 @@ arguments by name; an unmatched result receives no invented arguments.
 
 ### Audio turns
 
-The host enables complete audio turns with `Config.AudioInput`. Original audio enters the Graph through `input.messages`, while `input.text` is empty. ChatModel generates replies without transcribing input. Otherwise the Transformer consumes text turns from upstream ASR. The host selects ASR text input for Scripts, Memory recall or semantic Tool checks that require the current utterance as text.
+The host enables complete audio turns with `Config.AudioInput`. Original audio enters the Graph through typed `input.messages`. When the host supplies an `InputText(ctx)` callback, declared `input.text` bindings resolve the same input's final transcription using the node context outside the State lock; independent response paths can stream before that resolution. Without the callback, `input.text` is empty. ChatModel generates replies without transcribing input. Otherwise the Transformer consumes text turns from upstream ASR.
 
 An audio MIME EOS starts the turn; its following successful control EOS is consumed. A new audio route interrupts the previous turn, an `interrupted` EOS discards the turn, and other errors propagate through the Stream. Each Blob remains an audio part of the current user message. Recall using `input.text` skips an audio turn; recall with an independent text query can still run.
 
-The surrounding [AudioDock](../agentkit#audio-dock) and host History own ASR, user transcripts and original audio recording. Eino publishes no user transcription and makes no additional transcription request. GizClaw enables native audio for PTT Graphs that can consume it directly; text-dependent Graphs and continuous realtime input receive independent ASR final text.
+The surrounding [AudioDock](../agentkit#audio-dock) and host History own ASR, user transcripts and original audio recording. Eino publishes no user transcription and makes no additional transcription request. GizClaw's `spec.eino.audio_input` selects `auto`, `asr` or `model`. Explicit `model` enables supported PTT Graphs with text-dependent functions through the callback; omitted or `auto` retains automatic selection, and continuous realtime uses the ASR text path.
 
 ### Match
 

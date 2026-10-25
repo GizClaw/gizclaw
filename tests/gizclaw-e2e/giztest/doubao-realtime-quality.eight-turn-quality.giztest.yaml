@@ -82,7 +82,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -110,7 +118,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -138,7 +154,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -166,7 +190,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -194,7 +226,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -222,7 +262,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -250,7 +298,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0
@@ -278,7 +334,15 @@ steps:
       non_empty: true
     "/audio_eos":
       equals: true
+    "/response_count":
+      equals: 1
+    "/text_eos":
+      equals: true
     "/audio_integrity/streams":
+      minimum: 1
+    "/audio_integrity/open":
+      equals: 0
+    "/audio_integrity/max_active":
       equals: 1
     "/audio_integrity/violations":
       equals: 0

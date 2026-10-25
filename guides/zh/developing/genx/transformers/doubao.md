@@ -34,13 +34,19 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `EmitInterim=true` 时，中间文本是当前整句假设，用 `StreamCtrl.TextInterim=true` 标记；它不是文本增量。Definite utterance 与 final result 文本不带此标记。Audio Dock 保留客户端中间 transcript，只将定稿文本内容交给 Eino。每个 definite utterance 的 text EOS 仍负责 realtime 断句；Push-to-Talk 的定稿段仍在原有 route 中顺序合并。History audio 使用独立 MIME channel，其 EOS 不表示 transcript 定稿。
 
+`EmitInterim=true` 时，已交付的定稿文本若再次作为无 utterance 的相同快照返回，不会打开第二条 interim route 或中断当前回复。显式 interim utterance 与带不同时间戳的同词定稿仍正常交付。
+
+新输入 BOS 替换 Push-to-Talk ASR session 时，adapter 先关闭旧输入已打开的 History 音频 channel，并发送保留旧 StreamID、错误为 `interrupted` 的 transcript EOS，再继续识别新输入。旧输入的已识别部分保持原归属，后续 History 读取可以结束对该转写的等待。Realtime 继续使用分段 transcript 的中断终态。
+
 ### ASR 空识别
 
 豆包 ASR provider session 正常结束，但 final result text 和 definite utterance text 均不包含非空白内容时，`doubaoasr.Transformer` 将本次识别作为成功的空结果结束，不发送已识别 transcript text。现有 Stream route 所需的零内容 terminal chunk 仍是成功的内部边界，不表示用户产生了已识别文本。
 
 收到显式 audio EOS 后，`doubaoasr.Transformer` 最多等待 provider finalization 一分钟。Provider 始终静默时，transformer 会关闭该 provider session，并以 `doubao asr: finalization timeout` 错误结束 output stream，而不是继承 caller 更长的生命周期 deadline。
 
-已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。下述一次恢复范围之外的 provider、protocol、cancellation、interrupted-input、malformed-audio、unsupported-format failure 和 timeout 继续传播错误。
+最后一包音频已经完成发送时，并发的 provider session 结束保留这次发送结果，正常识别仍发送 transcript EOS。真实的 provider 发送失败和 session 结束后才开始的发送继续返回各自错误。
+
+已经打开 interim transcript route、但始终没有 definite result 的 session 仍是错误。输入替换的 `interrupted` EOS 结束旧 route，并继续处理新输入，不触发恢复重试。除此之外，下述一次恢复范围之外的 provider、protocol、调用 context 取消、malformed-audio、unsupported-format failure 和 timeout 继续传播错误。
 
 对于 PCM 输入，ASR 会在当前 provider session 内聚合较小的实时 frame，直到达到配置的 packet size；缺省为 100 ms（16 kHz、mono、signed 16-bit PCM 对应 `3200` bytes）。完整 packet 会立即按顺序发送，显式 audio EOS 把剩余 PCM 恰好发送一次并标记为 final；精确 packet boundary 使用既有空 terminal marker，不重复音频。压缩音频保持原始 packet boundary 和 final-packet 行为。Session cleanup 只清除本 session 的空 buffer，因此音频不会跨 audio route 或 replacement session。显式 route EOS 后 outer Transformer stream 仍保持打开，下一条 audio route 创建 replacement session 并独立绑定 transcript。Continuous ASR finalization 期间的 provider packet-wait timeout 是预期的可恢复 route boundary；一次恢复范围之外的 provider error 和一分钟本地 finalization timeout 仍终止 outer stream。
 
@@ -187,7 +193,9 @@ Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 tri
 
 已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。
 
-Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。唯一由 BOS 触发的 session replacement 是上述本地 interruption handoff。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Provider `ASRInfo` 在 assistant MIME BOS 已发布后执行同样的本地 close-and-replace handoff；尚未发布 assistant BOS 时将它作为已提交问题的语音继续输入，保留 session，让 provider 已接收的音频继续进入后续 ASR/回复。closed epoch 的重复或迟到 event 不能影响 replacement。Text 模式永不发送 `EndASR` 或 `ClientInterrupt`，只有 Push-to-Talk 使用这两个 provider operation。
+Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。新的客户端输入 route 在打断既有回复时仍关闭并替换 provider session。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Text mode 不发送 `EndASR` 或 `ClientInterrupt`；Push-to-Talk 仍是使用这两个 provider 操作的模式。
+
+Provider VAD 在同一输入 route 内识别到新的 `question_id` 时，已能关联问题/回复标识的 Realtime session 保持连接，关闭旧助手回复的 text/audio route，让 provider 已接收及后续的音频继续进入 ASR 和完整回复。旧问题的迟到 text、terminal 和 TTS-start 所属的匿名音频不会进入新回复；同一问题的重复 `ASRInfo` 不再次打断，retired question 历史最多保留 64 个。新的客户端 route 或文字 query 提交会清除这份 VAD 状态，文字输入与外挂 ASR 的文本提交保留原路径。不能关联标识的旧协议 `ASRInfo` 仍使用原有 close-and-replace handoff。协议标识见[火山 Realtime API](https://docs.volcengine.com/docs/DoubaoVoice/End-to-endreal-timespeechlargemodelAPIaccessdocument?lang=zh)。
 
 PTT 的二进制音频帧不携带 question/reply ID，归属由最近一次 TTS-start 事件确定。下一轮输入开始后，上一轮尚未完成的 Chat/TTS 记录仍用于匹配迟到的带 ID 事件，但不能抢占新一轮的无 ID 音频。旧响应的结束事件只关闭自己的 route。
 

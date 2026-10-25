@@ -1181,7 +1181,10 @@ func (r *runtime) stop(ctx context.Context) error {
 	}
 	r.stopOnce.Do(func() {
 		r.cancel()
-		r.stopErr = errors.Join(r.output.Close(), r.input.Close())
+		// Output closure may wait for an input reader that cannot observe ctx.
+		inputErr := r.input.Close()
+		outputErr := r.output.Close()
+		r.stopErr = errors.Join(outputErr, inputErr)
 	})
 	select {
 	case <-r.done:

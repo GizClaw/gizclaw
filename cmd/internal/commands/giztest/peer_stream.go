@@ -46,6 +46,7 @@ type peerStreamAudioDiagnostics interface {
 type peerStreamOpener func() (peerStream, error)
 
 type peerStreamResponseProgress struct {
+	textStarted, audioStarted   bool
 	textObserved, audioObserved bool
 	textEOS, audioEOS           bool
 	textEOSMS, audioEOSMS       int64
@@ -146,32 +147,41 @@ type peerStreamSession struct {
 	cancel   context.CancelFunc
 	mu       sync.RWMutex
 	arrivals *peerStreamFirstResponseArrivals
+	history  *peerStreamResponseHistory
 }
 
 func newPeerStreamSession(client string, stream peerStream) *peerStreamSession {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &peerStreamSession{client: client, stream: stream, ctx: ctx, cancel: cancel}
+	return &peerStreamSession{client: client, stream: stream, ctx: ctx, cancel: cancel, history: &peerStreamResponseHistory{}}
 }
 
 func (s *peerStreamSession) startReader() {
 	if s.next == nil {
-		s.next = readPeerStreamObserved(s.ctx, s.stream, s.observeArrival)
+		s.next = readPeerStreamObserved(s.ctx, s.stream, s.observeArrival, s.history.observe)
 	}
 }
 
 func (s *peerStreamSession) observeArrival(chunk *genx.MessageChunk, receivedAt time.Time, audio peerAudioClass) {
 	s.mu.RLock()
-	arrivals := s.arrivals
-	s.mu.RUnlock()
-	if arrivals != nil {
-		arrivals.observe(chunk, receivedAt, audio)
+	defer s.mu.RUnlock()
+	if s.arrivals != nil {
+		s.arrivals.observe(chunk, receivedAt, audio)
+	} else {
+		s.history.observe(chunk, receivedAt)
 	}
 }
 
 func (s *peerStreamSession) setArrivals(arrivals *peerStreamFirstResponseArrivals) {
 	s.mu.Lock()
+	defer s.mu.Unlock()
+	if arrivals != nil {
+		arrivals.history = s.history
+		if arrivals.filter != nil {
+			arrivals.filter.history = s.history
+		}
+		arrivals.filter.begin(s.history.snapshot())
+	}
 	s.arrivals = arrivals
-	s.mu.Unlock()
 }
 
 func (s *peerStreamSession) Close() error {
@@ -180,11 +190,28 @@ func (s *peerStreamSession) Close() error {
 }
 
 type peerStreamSessions struct {
-	items map[string]*peerStreamSession
+	items     map[string]*peerStreamSession
+	historyMu sync.Mutex
+	histories map[string]*peerStreamResponseHistory
 }
 
 func newPeerStreamSessions() *peerStreamSessions {
 	return &peerStreamSessions{items: make(map[string]*peerStreamSession)}
+}
+
+func (s *peerStreamSessions) historyFor(client string) *peerStreamResponseHistory {
+	if s == nil {
+		return &peerStreamResponseHistory{}
+	}
+	s.historyMu.Lock()
+	defer s.historyMu.Unlock()
+	if s.histories == nil {
+		s.histories = make(map[string]*peerStreamResponseHistory)
+	}
+	if s.histories[client] == nil {
+		s.histories[client] = &peerStreamResponseHistory{}
+	}
+	return s.histories[client]
 }
 
 func (s *peerStreamSessions) add(name string, session *peerStreamSession) error {
@@ -360,6 +387,10 @@ func openClientPeerStream(client *gizcli.Client) peerStreamOpener {
 }
 
 func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step giztest.Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
+	return invokePeerStreamWithHistory(ctx, client, open, step, input, audioCaptureMaxBytes, nil, observers...)
+}
+
+func invokePeerStreamWithHistory(ctx context.Context, client *gizcli.Client, open peerStreamOpener, step giztest.Step, input any, audioCaptureMaxBytes int, history *peerStreamResponseHistory, observers ...audioObserver) (operationResult, error) {
 	stream, err := open()
 	if err != nil {
 		return operationResult{}, err
@@ -368,7 +399,7 @@ func invokePeerStream(ctx context.Context, client *gizcli.Client, open peerStrea
 	if step.PeerStream != nil && step.PeerStream.Mode == "listen" {
 		return listenPeerStream(ctx, stream, step, audioCaptureMaxBytes, observers...)
 	}
-	return invokePeerStreamOnStream(ctx, client, open, stream, nil, "", step, input, audioCaptureMaxBytes, nil, observers...)
+	return invokePeerStreamOnStreamWithHistory(ctx, client, open, stream, nil, "", step, input, audioCaptureMaxBytes, nil, history, observers...)
 }
 
 // maxListenTextFragments bounds the text fragments a listen step retains.
@@ -598,7 +629,7 @@ func opusPacketsDuration(packets [][]byte) time.Duration {
 func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, open peerStreamOpener, sessions *peerStreamSessions, step giztest.Step, input any, audioCaptureMaxBytes int, observers ...audioObserver) (operationResult, error) {
 	op := step.PeerStream
 	if op == nil || (!op.KeepOpen && op.AwaitRearm == "") {
-		return invokePeerStream(ctx, client, open, step, input, audioCaptureMaxBytes, observers...)
+		return invokePeerStreamWithHistory(ctx, client, open, step, input, audioCaptureMaxBytes, sessions.historyFor(step.Client), observers...)
 	}
 	if op.KeepOpen && op.AwaitRearm == "" && sessions.items[op.Session] == nil {
 		stream, err := open()
@@ -606,6 +637,7 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 			return operationResult{}, err
 		}
 		session := newPeerStreamSession(step.Client, stream)
+		session.history = sessions.historyFor(step.Client)
 		result, invokeErr := invokePeerStreamOnStream(ctx, client, open, stream, session, "", step, input, audioCaptureMaxBytes, nil, observers...)
 		if invokeErr != nil {
 			_ = session.Close()
@@ -661,6 +693,10 @@ func invokePeerStreamWithSessions(ctx context.Context, client *gizcli.Client, op
 }
 
 func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open peerStreamOpener, stream peerStream, session *peerStreamSession, initialStreamID string, step giztest.Step, input any, audioCaptureMaxBytes int, onBOSSent func(), observers ...audioObserver) (operationResult, error) {
+	return invokePeerStreamOnStreamWithHistory(ctx, client, open, stream, session, initialStreamID, step, input, audioCaptureMaxBytes, onBOSSent, nil, observers...)
+}
+
+func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Client, open peerStreamOpener, stream peerStream, session *peerStreamSession, initialStreamID string, step giztest.Step, input any, audioCaptureMaxBytes int, onBOSSent func(), history *peerStreamResponseHistory, observers ...audioObserver) (operationResult, error) {
 	started := time.Now()
 	op := step.PeerStream
 	if op == nil {
@@ -690,13 +726,14 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		speechEnded = speechEndNotify
 	}
 	var next <-chan nextPeerStreamResult
-	var arrivals *peerStreamFirstResponseArrivals
-	if firstResponse {
-		// The arrival recorder is installed before the first input chunk so it
-		// sees output a full-duplex provider emits while input is still being
-		// paced. It stores absolute receipt times; the response clock origin is
-		// applied once the input push has determined it.
-		arrivals = &peerStreamFirstResponseArrivals{}
+	// Read ownership and latency observations share one operation recorder.
+	if history == nil {
+		history = &peerStreamResponseHistory{}
+	}
+	arrivals := &peerStreamFirstResponseArrivals{history: history}
+	if (op.Mode == "push-to-talk" || op.Mode == "realtime") && !op.EmptyInput && !inputSent {
+		arrivals.filter = &peerStreamResponseFilter{history: history, allowEarly: op.Mode == "realtime"}
+		arrivals.filter.begin(history.snapshot())
 	}
 	if session != nil {
 		session.setArrivals(arrivals)
@@ -729,8 +766,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	// turn, such as an agent opening that this input interrupts. Such a
 	// response may end with an error-free EOS, so it is recognized by receipt
 	// time instead: the reader starts before the push and the responses it
-	// saw first are ignored. first_response keeps its response-only clock.
-	skipEarlierResponses := op.Mode == "push-to-talk" && !op.EmptyInput && !inputSent && !firstResponse
+	// saw first are ignored. Realtime excludes already known response IDs but
+	// still accepts fresh full-duplex output before input finishes.
+	skipEarlierResponses := arrivals.filter != nil
 	if (inputSent || firstResponse || op.Mode == "realtime" || skipEarlierResponses) && next == nil {
 		// Realtime output can arrive while input is still being paced. Start
 		// reading before the first input chunk so those arrival timestamps are
@@ -754,11 +792,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	observedInterrupted := false
 	firstAssistantStreamID := ""
 	secondAssistantStreamID := ""
-	// inputCommitStartedAt precedes the EOS write: its response can be read
-	// concurrently before Push returns. Responses first seen before this
-	// boundary remain excluded, including their later terminal chunks.
-	var inputCommitStartedAt time.Time
-	earlierResponses := make(map[string]bool)
 	var sendInterrupt func(context.Context) error
 	var initialPush func(context.Context) error
 	switch op.Mode {
@@ -848,6 +881,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 		}
 		pushTurn := func(sendCtx context.Context, id string) error {
+			if op.Mode == "push-to-talk" {
+				arrivals.filter.begin(arrivals.history.snapshot())
+			}
 			chunks := audioInputChunks(op.Mode, id, mimeType, packets)
 			heldAt := time.Now()
 			for index, chunk := range chunks {
@@ -862,8 +898,8 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				// Publish the cutoff before the duplex write can release a reply.
 				// A failed Push still fails the operation; this is only the
 				// ownership cutoff, not the response latency clock origin.
-				if skipEarlierResponses && id == streamID && chunk.IsEndOfStream() && inputCommitStartedAt.IsZero() {
-					inputCommitStartedAt = time.Now()
+				if skipEarlierResponses && op.Mode == "push-to-talk" && chunk.IsEndOfStream() {
+					arrivals.filter.commit(time.Now())
 				}
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
@@ -903,6 +939,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 		}
 	default:
 		return operationResult{}, fmt.Errorf("peer_stream mode %q requires an existing stream", op.Mode)
+	}
+	if err := arrivals.filter.err(); err != nil {
+		return operationResult{}, err
 	}
 	var initialDone <-chan struct{}
 	var initialError error
@@ -1262,7 +1301,19 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			session.prependOutput(retainedAfterReply)
 		}
 	}()
+	hasOpenReply := func() bool {
+		for _, response := range responses {
+			if (response.textStarted && !response.textEOS) || (response.audioStarted && !response.audioEOS) {
+				return true
+			}
+		}
+		return false
+	}
 	observeCompletedReply := func() {
+		if hasOpenReply() {
+			armIdle()
+			return
+		}
 		if replyTimer == nil {
 			stopIdle()
 			replyTimer = time.NewTimer(replyObservation)
@@ -1272,6 +1323,11 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 	for {
 		select {
 		case <-replyDeadline:
+			if hasOpenReply() {
+				replyTimer, replyDeadline = nil, nil
+				armIdle()
+				continue
+			}
 			return finish()
 		case origin := <-speechEnded:
 			speechEnded = nil
@@ -1347,6 +1403,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return operationResult{evidence: failedEvidence("first_audio_timeout")}, fmt.Errorf("peer_stream first audio timeout exceeded after %s (deadline=first_audio_timeout %s): %w", op.FirstAudioTimeout, counters(), context.DeadlineExceeded)
 		case result := <-next:
+			if op.AwaitRearm != "" && assistantTerminalHasError(result.chunk) {
+				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream assistant terminal error after re-arm: code=%q message=%q", result.chunk.Ctrl.ErrorCode, result.chunk.Ctrl.Error)
+			}
 			if responseComplete && firstResponse {
 				continue
 			}
@@ -1372,6 +1431,9 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			if result.err != nil {
 				if result.err == io.EOF {
 					if responseComplete && observeReply {
+						if hasOpenReply() {
+							return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream closed with an unfinished reply (%s)", counters())
+						}
 						if initialDone == nil {
 							return finish()
 						}
@@ -1397,6 +1459,37 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					label = "assistant"
 				}
 			}
+			if err := arrivals.filter.err(); err != nil {
+				return operationResult{evidence: baseEvidence()}, err
+			}
+			if !arrivals.filter.accepts(result.chunk, result.receivedAt) {
+				if response := responses[actualStreamID]; label == "assistant" && response != nil && result.chunk.IsEndOfStream() {
+					// A replacement PTT input excludes the first reply's later
+					// payload, but its terminal still belongs to this operation.
+					if terminalError := peerStreamTerminalError(result.chunk); terminalError != "" {
+						return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream terminal error: %s", terminalError)
+					}
+					if result.chunk.Ctrl != nil && strings.EqualFold(strings.TrimSpace(result.chunk.Ctrl.Error), "interrupted") {
+						observedInterrupted = true
+						response.interrupted = true
+					}
+					// The admitted prefix remains part of an explicit interrupt
+					// probe. Its terminal still closes the original MIME channel.
+					response.recordEOS(result.chunk, eventElapsed.Milliseconds())
+					audioIntegrity.observe(result.chunk)
+					if responseComplete && observeReply && initialDone == nil {
+						observeCompletedReply()
+					}
+				}
+				// Earlier output is still connection activity. It must not count
+				// as this reply or rescue a first-response modality deadline.
+				events++
+				lastEventMS = eventElapsed.Milliseconds()
+				if replyTimer == nil {
+					armIdle()
+				}
+				continue
+			}
 			if label == "assistant" && !audioIntegrity.observe(result.chunk) {
 				continue
 			}
@@ -1406,7 +1499,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				armIdle()
 			}
 			rearm := result.chunk.Ctrl != nil && result.chunk.Ctrl.ErrorCode == "INPUT_ROUTE_RELOADED"
-			if responseComplete && observeReply && session != nil && (rearm || (label != "assistant" && peerStreamTerminalError(result.chunk) == "")) {
+			if responseComplete && observeReply && session != nil && (rearm || (initialDone == nil && label != "assistant" && peerStreamTerminalError(result.chunk) == "")) {
 				// Re-arm and transcript events after this reply belong to the
 				// retained session's next operation. Other errors still fail
 				// this observation instead of being deferred to another step.
@@ -1444,17 +1537,6 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 					}
 				}
 			}
-			if skipEarlierResponses && label == "assistant" && actualStreamID != "" {
-				if !earlierResponses[actualStreamID] && responses[actualStreamID] == nil && result.receivedAt.Before(inputCommitStartedAt) {
-					earlierResponses[actualStreamID] = true
-				}
-				if earlierResponses[actualStreamID] {
-					continue
-				}
-			}
-			if op.AwaitRearm != "" && assistantTerminalHasError(result.chunk) {
-				return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream assistant terminal error after re-arm: code=%q message=%q", result.chunk.Ctrl.ErrorCode, result.chunk.Ctrl.Error)
-			}
 			var response *peerStreamResponseProgress
 			if label == "assistant" {
 				response = responses[actualStreamID]
@@ -1485,6 +1567,33 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				}
 				if responseInterrupted {
 					response.interrupted = true
+					if !interrupted {
+						abandonedResponses[actualStreamID] = true
+					}
+				}
+				// Only an explicit MIME BOS declares a channel that must close.
+				// Payload without BOS remains an integrity violation, not a new
+				// lifecycle that can hold completion open indefinitely.
+				if response != nil && result.chunk.IsBeginOfStream() {
+					newChannel := false
+					switch result.chunk.Part.(type) {
+					case genx.Text:
+						newChannel = !response.textStarted
+						response.textStarted = true
+					case *genx.Blob:
+						newChannel = !response.audioStarted
+						response.audioStarted = true
+					}
+					if newChannel && !firstResponse && terminalLabel == "assistant" {
+						// A later response or MIME channel must finish before an
+						// earlier reply's observation window can end the turn.
+						replyClosed = false
+						if replyTimer != nil {
+							replyTimer.Stop()
+							replyTimer, replyDeadline = nil, nil
+						}
+						armIdle()
+					}
 				}
 			}
 			if response != nil && actualStreamID != "" {
@@ -1604,7 +1713,7 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			if result.chunk.IsEndOfStream() {
 				mimeType, _ := result.chunk.MIMEType()
-				if label == "assistant" && relayOpusMIME(mimeType) && observeAudio != nil && assistantObservationOpen {
+				if label == "assistant" && (result.chunk.Part == nil || relayOpusMIME(mimeType)) && observeAudio != nil && assistantObservationOpen {
 					assistantObservationOpen = false
 					if err := observeAudio(step.Client, "assistant", nil, true); err != nil {
 						return operationResult{evidence: baseEvidence()}, fmt.Errorf("finish assistant playback: %w", err)
@@ -1623,6 +1732,14 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 				default:
 					otherEOS++
 				}
+				// Record lifecycle closure even when the planned interruption
+				// guards intentionally defer using this reply as completion.
+				if label == "assistant" && response != nil {
+					response.recordEOS(result.chunk, eventElapsed.Milliseconds())
+					if responseComplete && observeReply && initialDone == nil {
+						observeCompletedReply()
+					}
+				}
 				if label != terminalLabel {
 					continue
 				}
@@ -1637,21 +1754,15 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 						continue
 					}
 				}
-				nowMS := eventElapsed.Milliseconds()
 				if label == "assistant" {
 					// An EOS without an observed response may belong to the
 					// previous turn on this connection. Modalities must finish
 					// on the same response, with actual required content.
-					if response == nil || response.interrupted {
+					if response == nil {
 						continue
 					}
-					switch {
-					case mimeType == "text/plain":
-						response.textEOS = true
-						response.textEOSMS = nowMS
-					case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
-						response.audioEOS = true
-						response.audioEOSMS = nowMS
+					if response.interrupted {
+						continue
 					}
 					if emptyTurn {
 						if !response.textEOS || !response.audioEOS {
@@ -1698,6 +1809,25 @@ func invokePeerStreamOnStream(ctx context.Context, client *gizcli.Client, open p
 			}
 			return operationResult{evidence: failedEvidence(deadline)}, fmt.Errorf("%w (deadline=%s %s)", cause, deadline, counters())
 		}
+	}
+}
+
+// recordEOS handles both MIME-specific terminals and a route-wide terminal.
+func (r *peerStreamResponseProgress) recordEOS(chunk *genx.MessageChunk, elapsedMS int64) {
+	if r == nil || chunk == nil || !chunk.IsEndOfStream() {
+		return
+	}
+	if chunk.Part == nil {
+		r.textEOS, r.audioEOS = true, true
+		r.textEOSMS, r.audioEOSMS = elapsedMS, elapsedMS
+		return
+	}
+	mimeType, _ := chunk.MIMEType()
+	switch {
+	case mimeType == "text/plain":
+		r.textEOS, r.textEOSMS = true, elapsedMS
+	case strings.HasPrefix(mimeType, "audio/") || strings.HasPrefix(mimeType, "application/ogg"):
+		r.audioEOS, r.audioEOSMS = true, elapsedMS
 	}
 }
 
@@ -1862,6 +1992,8 @@ func waitForPeerStreamRearm(ctx context.Context, name string, session *peerStrea
 // response clock origin is known: the origin is applied by setStarted once the
 // turn input is on the wire.
 type peerStreamFirstResponseArrivals struct {
+	history    *peerStreamResponseHistory
+	filter     *peerStreamResponseFilter
 	started    time.Time
 	firstText  atomic.Int64
 	firstAudio atomic.Int64
@@ -1876,6 +2008,10 @@ func (a *peerStreamFirstResponseArrivals) setStarted(started time.Time) {
 
 func (a *peerStreamFirstResponseArrivals) observe(chunk *genx.MessageChunk, receivedAt time.Time, audio peerAudioClass) {
 	if a == nil || chunk == nil {
+		return
+	}
+	a.history.observe(chunk, receivedAt)
+	if !a.filter.accepts(chunk, receivedAt) {
 		return
 	}
 	label := ""
@@ -1929,13 +2065,17 @@ func (a *peerStreamFirstResponseArrivals) arrivalWithin(arrival *atomic.Int64, t
 }
 
 func readPeerStream(ctx context.Context, stream peerStream, arrivals *peerStreamFirstResponseArrivals) <-chan nextPeerStreamResult {
-	return readPeerStreamObserved(ctx, stream, arrivals.observe)
+	var rawObserve func(*genx.MessageChunk, time.Time)
+	if arrivals != nil {
+		rawObserve = arrivals.history.observe
+	}
+	return readPeerStreamObserved(ctx, stream, arrivals.observe, rawObserve)
 }
 
 // Timestamp reads before Opus audibility decoding and event observation. Those
 // can be delayed under parallel Giztest load; charging their work to the next
 // packet would report a receive gap that did not occur on the PeerStream.
-func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time, peerAudioClass)) <-chan nextPeerStreamResult {
+func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func(*genx.MessageChunk, time.Time, peerAudioClass), rawObservers ...func(*genx.MessageChunk, time.Time)) <-chan nextPeerStreamResult {
 	raw := make(chan nextPeerStreamResult, 64)
 	next := make(chan nextPeerStreamResult, 64)
 	go func() {
@@ -1943,6 +2083,11 @@ func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func
 		for {
 			chunk, err := stream.Next()
 			result := nextPeerStreamResult{chunk: chunk, err: err, receivedAt: time.Now()}
+			for _, observer := range rawObservers {
+				if observer != nil {
+					observer(chunk, result.receivedAt)
+				}
+			}
 			if observer, ok := stream.(interface {
 				observePacketArrival(*genx.MessageChunk, time.Time)
 			}); ok && err == nil {

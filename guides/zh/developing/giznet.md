@@ -190,6 +190,8 @@ logical `Read`/`Write`；它不进入可靠 channel。原生 channel 隔离 orde
 backpressure 与 close/reset，但同一 PeerConnection 上的 channel 仍共享 SCTP association
 和 congestion controller。
 
+Logical packet 的接收队列保持有界。应用因注册或存储 I/O 暂停读取时，队列满只丢弃新到达的 Opus 包；这条不可靠音频路径不关闭 logical control 或 service stream。非 Opus direct packet 的队列溢出仍返回 `ErrBufferLimit` 并关闭对应 logical session。
+
 active limit 默认是每 session 32 条、每 upstream 8192 条。可靠 service write 同时受
 per-channel、per-session 与 association budget 约束，reservation 要等
 `BufferedAmount` 排空后才释放。association budget 来自

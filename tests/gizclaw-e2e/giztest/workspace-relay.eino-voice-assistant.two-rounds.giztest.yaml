@@ -1,0 +1,103 @@
+# User Story:
+# As a PeerStream lifecycle maintainer,
+# I want two fixed-input exchanges between Workspaces,
+# So that relay ownership and complete text/audio turns are verified.
+version: gizclaw.test/v1alpha1
+name: workspace-relay.eino-voice-assistant.two-rounds
+clients:
+  source:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+  assistant:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  source_workspace:
+    direction: input
+    type: string
+    generate: token
+  assistant_workspace:
+    direction: input
+    type: string
+    generate: token
+timeout: 5m
+steps:
+  - id: register_source
+    client: source
+    rpc: {method: server.register, request: {token: '${registration_token}'}}
+  - id: register_assistant
+    client: assistant
+    rpc: {method: server.register, request: {token: '${registration_token}'}}
+  - id: create_source
+    client: source
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${source_workspace}
+        workflow_name: giztest-relay-source
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: create_assistant
+    client: assistant
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${assistant_workspace}
+        workflow_name: eino-voice-assistant
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select_source
+    client: source
+    rpc: {method: server.run.workspace.set, request: {workspace_name: '${source_workspace}'}}
+  - id: select_assistant
+    client: assistant
+    rpc: {method: server.run.workspace.set, request: {workspace_name: '${assistant_workspace}'}}
+  - id: exchange_two_rounds
+    workspace_relay:
+      first_client: source
+      second_client: assistant
+      input: 开始
+      media: text
+      terminal_media: audio
+      idle_timeout: 90s
+      max_turns: 4
+      terminal_client: assistant
+    expect:
+      /completed_turns: {equals: 4}
+      /turns/source/count: {equals: 2}
+      /turns/assistant/count: {equals: 2}
+      /turns/assistant/text_runes/min: {minimum: 1}
+      /turns/assistant/first_text_ms/max: {maximum: 30000}
+      /audio_bytes: {minimum: 1}
+      /terminal/client: {equals: assistant}
+      /terminal/text: {non_empty: true}
+finally:
+  - client: source
+    rpc: {method: server.run.stop, request: {}}
+  - client: assistant
+    rpc: {method: server.run.stop, request: {}}
+  - client: source
+    rpc: {method: server.workspace.delete, request: {name: '${source_workspace}'}}
+  - client: assistant
+    rpc: {method: server.workspace.delete, request: {name: '${assistant_workspace}'}}
+  - client: source
+    rpc: {method: server.peer.delete, request: {}}
+  - client: assistant
+    rpc: {method: server.peer.delete, request: {}}
+report:
+  redact: [registration_token]

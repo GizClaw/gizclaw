@@ -17,7 +17,7 @@ dock, err := audiodock.New(audiodock.Config{
 })
 ```
 
-`Config.AgentAudioInput` forwards original audio to Agent while ASR independently transcribes the same input. AudioDock publishes ASR text only on its transcript route, without creating another Agent turn. It declares the user transcript route before Agent can reply, preserving user-before-reply History order even when ASR finishes later; first reply text does not wait for recognition. By default ASR final text becomes Agent input, with interim text visible only to clients. ASR selection remains independent of the conversation model.
+`Config.AgentAudioInput` forwards original audio to Agent while ASR independently transcribes the same input. AudioDock publishes ASR text only on its transcript route, without creating another Agent turn. The audio chunk's process-local `InputText(ctx)` callback resolves final text for that input, excluding interim segments and preserving cancellation and ASR errors. A replacement input interrupts the previous pending callback, including text-only or control-only BOS; late transcripts cannot satisfy another input. It declares the user transcript route before Agent can reply, preserving user-before-reply History order even when ASR finishes later; first reply text does not wait for recognition. By default ASR final text becomes Agent input, with interim text visible only to clients. ASR selection remains independent of the conversation model.
 
 Text input enters the Agent directly. Audio input is streamed incrementally to ASR with its original StreamID; by default the completed transcript becomes one text turn for the Agent. Agent text is immediately pullable and is also queued for TTS in its original order. Synthesized audio and text share the response StreamID, with independent EOS markers for each MIME channel.
 
@@ -25,11 +25,17 @@ Text content is independent of audio timing: voice resolution, TTS session start
 
 Continuous audio can produce another ASR transcript BOS without a new caller audio BOS. That boundary first cancels and terminates the old response, then publishes the new transcript and forwards it to the Agent, so the old audio error EOS precedes the replacement reply. History audio sidebands do not trigger this boundary.
 
+A child-provided `ResponseEpoch` keeps its identity and owning input route.
+The first chunk of an old response may reach Audio Dock after a replacement
+input BOS; Audio Dock must not recreate that epoch from the then-active input.
+Text, sibling TTS audio, and the final terminal retain the same epoch. Children
+without an epoch continue to use Audio Dock's own input boundary.
+
 Every child Transformer remains responsible for the StreamID or MIME channels it creates. Audio Dock preserves unrelated pass-through routes and validates each child TTS lifecycle by the child's original `(StreamID, canonical MIME)` key. Data before BOS, duplicate BOS, output after EOS, a missing EOS, or a child stream with no MIME lifecycle is a route error. When multiple publishers synthesize the same final MIME channel, Audio Dock merges their validated child boundaries into one final BOS and one final EOS; it owns only that remapped final route and does not repair an invalid child lifecycle.
 
 `ResolveVoice` receives the response StreamID, output node/name, and chunk metadata, and returns the pattern passed to the TTS mux. It is resolved independently for each named publisher inside a response, so named publishers may use different voices. An empty pattern keeps that publisher's text without synthesizing it. RuntimeProfile alias resolution belongs to the product factory, not Audio Dock.
 
-When a caller sends audio EOS followed by control-only EOS with the same StreamID, the ASR transcript EOS commits the text turn. After consuming audio EOS, Audio Dock ignores the successful control-only EOS for that input and waits for ASR's final text. Error-bearing control EOS still follows the existing path. Text-only input and realtime ASR utterances retain their own EOS boundaries.
+Once an input routes audio to ASR, the ASR transcript EOS commits its text turn. Control-only EOS can arrive before audio EOS while RTP drains; Audio Dock ignores a successful control-only EOS for that audio input and waits for ASR's final text. Error-bearing control EOS follows its existing path; text input and realtime ASR utterances keep their own EOS boundaries.
 
 One Dock supports concurrent `Transform` calls. ASR sessions, Agent runs, voices, TTS sessions, buffers, cancellation, and errors are scoped to one call and StreamID; one failing route does not terminate other calls. Output uses a growable internal queue, so producers do not depend on consumers pulling promptly before provider streams can be drained.
 

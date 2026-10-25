@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli/contextconn"
 	"github.com/goccy/go-yaml"
 )
 
@@ -1019,9 +1020,8 @@ func (h *Harness) waitForSetupServerReady() {
 	setupContext := setupAdminContextName()
 	deadline := time.Now().Add(readyTimeout)
 	if err := waitUntil(readyTimeout, func() error {
-		// The CLI process must finish native startup, signaling and its RPC.
-		// A short per-attempt limit can repeatedly kill an otherwise ready
-		// Server's probe before it reaches the network.
+		// Probe the authenticated Server transport directly. Native CLI startup
+		// is qualified separately by preflight and the CLI suite.
 		return h.probeSetupServer(setupConfigHome, setupContext, time.Until(deadline))
 	}); err != nil {
 		h.t.Fatalf("setup server did not become ready: %v\nstart the Docker e2e stack with bash tests/gizclaw-e2e/setup/docker-compose-up.sh", err)
@@ -1045,28 +1045,60 @@ func setupAdminContextName() string {
 	return "admin"
 }
 
+// setupProbeConn binds every SDK service open to one readiness operation.
+type setupProbeConn struct {
+	giznet.Conn
+	ctx context.Context
+}
+
+func (c *setupProbeConn) Dial(service uint64) (net.Conn, error) {
+	dialer, ok := c.Conn.(giznet.ContextDialer)
+	if !ok {
+		return nil, fmt.Errorf("setup transport does not support context-aware service opens")
+	}
+	return dialer.DialContext(c.ctx, service)
+}
+
 func (h *Harness) probeSetupServer(setupConfigHome, setupContext string, timeout time.Duration) error {
 	h.t.Helper()
-
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(h.t.Context(), timeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, h.BinaryPath, "connect", "ping", "--context", setupContext)
-	cmd.Dir = h.RepoRoot
-	cmd.Env = append(os.Environ(),
-		"HOME="+h.HomeDir,
-		"XDG_CONFIG_HOME="+setupConfigHome,
-	)
-	var stdout bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &stdout
-	cmd.Stderr = &stderr
-	if err := cmd.Run(); err != nil {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		return fmt.Errorf("setup ping failed: %w\nstdout:\n%s\nstderr:\n%s", err, stdout.String(), stderr.String())
+	client, key, endpoint, err := contextconn.Dial(ctx, contextconn.Options{ConfigDir: filepath.Join(setupConfigHome, "gizclaw"), Context: setupContext})
+	if err != nil {
+		return fmt.Errorf("setup context: %w", err)
 	}
-	return nil
+	defer client.Close()
+	transport := client.DialTransport
+	client.DialTransport = func(key *giznet.KeyPair, serverKey giznet.PublicKey, address string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
+		listener, conn, err := transport(key, serverKey, address, policy)
+		if err != nil {
+			return nil, nil, err
+		}
+		return listener, &setupProbeConn{Conn: conn, ctx: ctx}, nil
+	}
+	if err := client.Dial(key, endpoint); err != nil {
+		return fmt.Errorf("setup connection: %w", err)
+	}
+	serveErr := make(chan error, 1)
+	go func() { serveErr <- client.Serve(); cancel() }()
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+	for {
+		if err := probePeerHTTPReady(ctx, client); err == nil {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("setup HTTP readiness: %w", ctx.Err())
+		case err := <-serveErr:
+			return fmt.Errorf("setup client stopped before ready: %v", err)
+		case <-ticker.C:
+		}
+	}
+	if _, err := client.Ping(ctx, "setup-ready"); err != nil {
+		return fmt.Errorf("setup RPC ping: %w", err)
+	}
+	return ctx.Err()
 }
 
 func (h *Harness) renderServerFixture(fixtureName string, replacements map[string]string) {

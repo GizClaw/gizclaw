@@ -1,7 +1,7 @@
 # User Story:
 # As a registered device using the eino-voice-assistant Workflow,
-# I want complete the independent eino-voice-assistant.push-to-talk-roundtrip scenario,
-# So that conversation behavior and cleanup remain reproducible.
+# I want verify an empty PTT turn followed by a sustained spoken reply,
+# So that Opus pacing and the prebuffer behavior remain observable.
 version: gizclaw.test/v1alpha1
 name: eino-voice-assistant.push-to-talk-roundtrip
 clients:
@@ -30,7 +30,7 @@ variables:
   prompt:
     direction: input
     type: string
-    value: Hello from an independent Giztest workflow task.
+    value: 请用四个完整的中文句子介绍春天，每句至少十个字。
   input_audio:
     direction: output
     type: audio
@@ -67,7 +67,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: Giztest audio input
+        text: ${prompt}
         accepted_content_types: [audio/ogg]
     save_as: input_audio
   - id: empty_push_to_talk_turn

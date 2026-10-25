@@ -43,6 +43,14 @@ delivery to the device connection; H106 firmware UI and spoken error handling
 require separate device qualification. It runs with ordinary Go tests, without
 cloud credentials or live model calls.
 
+## Native two-turn Prompt History over model HTTP
+
+```sh
+go test -count=1 -run '^TestNativePromptPreservesTwoTurnModelHistory$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
+```
+
+Two fixed inputs run through the native Eino Graph, production Eino/GenX adapter and a local HTTP/SSE model fixture. The regression checks system instructions, previous user/assistant ordering, the current user last, delivered model output and configured completion-token limits. State and Memory use controlled fixture stores; no provider credentials are required. This verifies message and History contracts.
+
 ## Docker image sources
 
 Go, Runtime and Mem0 build bases, package-validation containers, third-party
@@ -111,11 +119,23 @@ The dedicated functional regression runs `tests/gizclaw-e2e/testdata/peer-audio/
 go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
 ```
 
-Integrity checks apply to delivered logical audio; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
+Integrity checks apply to delivered logical audio. Sound distortion and voice timbre require separate measurements.
+
+`audio_integrity` retains every observed audio stream, including naturally interrupted prefixes. Kept-reply text, bytes and pacing for a single-input regression exclude naturally interrupted prefixes. Explicit `interrupt_after` probes retain the prefix already received before their planned interruption and exclude later stale payload. The eight-turn realtime functional case requires one kept complete reply per turn, paired text/audio EOS, all observed audio streams closed, maximum active count one and zero violations. Natural VAD may create multiple serial audio streams. The existing 101-packet, p95 30 ms, maximum 100 ms, zero-underrun and buffer limits remain unchanged.
 
 `audio_pacing.max_interval_started_at` records the UTC start of the largest packet gap, allowing correlation across sessions and Server logs to identify simultaneous stalls.
 
 The TTS protocol fixture schedules packets against cumulative media deadlines. After a delayed wakeup it emits overdue frames instead of resetting a relative timer and carrying the delay into later audio. Explicitly injected 900ms stalls must still fail the original timing assertions. Real-provider and physical-device qualification remain separate.
+
+### Original-audio Docker Giztest with text dependencies
+
+```sh
+bash tests/gizclaw-e2e/run_native_audio_functions_tests.sh
+```
+
+The entry reads `tests/gizclaw-e2e/.env`, or `GIZCLAW_E2E_CREDENTIAL_FILE`, and runs real Doubao Seed 2.1 Lite original-audio input with thinking disabled through isolated local Docker Server and Edge routes. Each route exercises pre-response and post-response text dependencies. A `completion: first_response` probe drains output during input transmission and checks first text within 2 seconds and first audio within 3 seconds, measured after sending input. A separate Workspace then completes two turns with different recordings, requires the `model` input path, checks EOS and audio integrity, compares exact per-turn transcripts and replies with History, and downloads user and reply audio.
+
+Reports retain pacing and underrun observations. Each combination runs independently and contributes its exit status. Ignored `.testbench/native-audio-functions-*` evidence contains source hashes, binary and image identity, reports and replay; the entry cleans its Compose project, private authentication and task CLI. Deterministic delay/cancellation regressions and script-content assessment retain their own gates.
 
 ## Shared History query load
 
@@ -605,21 +625,27 @@ exception described below: its Go test names are the supported selectors.
 
 ## GizClaw Docker E2E
 
+The full entry builds and launches the Go CLI with `--help` during preflight; the CLI suite executes real commands. SDK harness setup readiness reuses the Go SDK context connection and checks authenticated Peer HTTP plus RPC Ping within the existing readiness budget, keeping native CLI startup outside the Server availability verdict. Mandatory event, HTTP and RPC service opens share the probe context, so a stalled open exits when that context is cancelled or reaches its deadline.
+
 `tests/gizclaw-e2e` is the Docker-backed full GizClaw environment. Its Go tests
 use the `gizclaw_e2e` build tag and are therefore excluded from ordinary
 `go test ./...` runs.
 
-The Eino concurrency reload-initiative probe synthesizes a closed one-digit arithmetic request. It checks route rearm, the next complete response, terminal errors and history within the original thirty-second step budget; answer semantics are not graded. This bounds the test stimulus without changing production prompts or assertions.
+The Eino voice-assistant and concurrency reload-initiative probes synthesize a closed one-digit arithmetic request. They check route rearm, the next complete response, terminal errors and History within the original thirty-second step budget. The voice-assistant probe also asserts one reply and both text and audio EOS; answer semantics are not graded. They use the original workflows and model settings.
+The Eino realtime concurrency probe synthesizes its declared `prompt`, retaining
+the original two-second first-text and three-second first-audio limits.
 
-The functional gate is `bash tests/gizclaw-e2e/run_tests.sh --functional`. It
-runs the same JavaScript, Flutter, C/cgo, Go Admin/OpenAI, CLI, Terraform,
-standard Giztest and multi-server suites. It excludes only the five
-`script-quality.*` documents and the two semantic-verdict documents
-`workspace-relay.workflow-tester` and `workspace-relay.doubao-realtime-workflow-tester`.
-Their screenplay scores and model-generated verdicts are outside functional
-acceptance. Audio packet integrity, pacing, turn completion, state, authorization
-and timeout assertions remain functional gates. The default invocation retains
-the complete existing document set; `--help` describes the two modes.
+The standard Go Giztest caller runs inside the local Server container through
+`edge:9821`, using the same documents, parallelism and assertions. Its report is
+copied atomically to the host. Cancellation stops the owned container process;
+the existing phase deadline also bounds that process. This qualifies the Docker
+network path. Host forwarding and device audio timing need their own measurements.
+
+The full functional gate is `bash tests/gizclaw-e2e/run_tests.sh`.
+`--functional` runs the same complete suite. It covers JavaScript, Flutter,
+C/cgo, Go Admin/OpenAI, CLI, Terraform, standard Giztest, multi-server and TiKV.
+GizClaw asserts routing, ownership, turn completion, media integrity, pacing,
+authorization and cleanup. Screenplay scoring belongs to Raids.
 
 The JavaScript History audio interoperability probe receives a client receipt
 over its private stdin control channel. The client verifies all metadata and
@@ -709,9 +735,7 @@ measurement includes this turn's character generation. Game progress uses State 
 long-term Memory is observed once for a public final audit, rather than every
 turn. Journey and ensemble stories
 resolve earlier commitments in the final chapter, then enter review or a brief
-farewell. The quality player's initial brief is a goal, not an established event
-or identity. These configurations still require actual provider-backed dialogue
-assessment; written prompt requirements do not prove passing quality.
+farewell. These native examples exercise State, History, Memory, branching and voice routing.
 
 Candidate prompts separate history from the current input, repeat authoritative
 State beside that input. Werewolf characters use temperature 0.3; other candidates
@@ -719,9 +743,7 @@ use 0.2. Journey advances only through a complete affirmative continuation comma
 questions and negations leave the chapter unchanged. Ensemble stories also require
 an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
-skills. The quality player tracks its 20 utterances in native State, advances the
-main objective, asks distinct review questions and then says farewell. It does
-not invent completion when the objective remains unfinished.
+skills.
 
 `eino_catalog_test.go` compiles actual Resource and Workspace configurations,
 executes their native pipelines, and checks illegal actions, private projections,
@@ -943,6 +965,7 @@ Explicit zero CLI overrides provide a lockstep control with the same document.
 The Flutter runner is a desktop binary rather than a plain Dart CLI because the
 device side needs the `flutter_webrtc` platform implementation. `run_tests.sh`
 builds and runs it on macOS and Linux and skips it on other hosts.
+On macOS the runner starts as a background application. Its Flutter engine and native WebRTC plugin remain active without showing a window or Dock icon, or taking foreground focus. The native factory uses the platform CoreAudio backend for concurrent background Peers. The SDK still negotiates normal sendrecv audio and mandatory packet/event channels. This harness qualifies the Peer protocol and connection lifecycle; acoustic processing belongs to application/device audio acceptance.
 
 Every runner projects an `rpc` step response to proto3 JSON with proto field
 names: `int64` and `uint64` fields are strings, and implicit-presence fields
@@ -1156,14 +1179,32 @@ alternative. `require_text` and `require_audio` select its required modalities
 and both default to true. Every required modality needs its corresponding
 positive `first_text_timeout` or `first_audio_timeout` Go duration; a disabled
 modality omits its deadline, and at least one modality must remain required.
-The deadlines start only after the whole turn input has been pushed. The runner
-succeeds and closes that logical stream as soon as it has observed the first
+PTT deadlines start after input is pushed. Realtime starts its response clock
+after the last speech packet, before tail silence finishes; reading and input
+pacing remain concurrent. The runner succeeds after input has been sent and it
+has observed the first
 assistant content for every required modality (a non-empty text fragment, or
 the first audible audio frame); it does not wait for
 either EOS. A missing required modality fails with
 `deadline=first_text_timeout` or `deadline=first_audio_timeout`. This completion
 cannot be combined with `interrupt_after`, `terminal_label`, or
 `wait_for_history`.
+
+Only eligible assistant output contributes to an audio turn's first response
+and deadline rescue. PTT reads before input and excludes responses first seen
+before the first input EOS write, including those responses' later packets and
+terminal events. Recent response IDs are scoped to the task and client, survive
+logical stream close/reopen, and cover a retained session's queued output.
+Realtime also excludes known earlier responses, while allowing fresh replies
+to arrive during paced input and report zero latency. The two-turn runtime
+regressions for both subscription lifecycles are in
+`cmd/internal/commands/giztest/peer_stream_conversation_test.go`.
+
+For `interrupt_after`, a response already admitted by the operation still updates
+interruption bookkeeping and reports terminal errors after the replacement PTT
+input excludes its later payload. The stricter `await_rearm` contract checks all
+assistant error EOS before ownership filtering, including known earlier IDs.
+
 `peer_stream.idle_timeout` (Go duration, optional) bounds inactivity instead of
 total length: the runner arms the timer after the turn input is pushed, resets
 it on every received chunk regardless of label, re-arms it after an
@@ -1331,21 +1372,14 @@ adds bounded relay text plus the transcript a `server.speech.transcribe` step
 recognized. Full evidence can also retain PeerStream inputs, audio bytes and
 supported RPC resource evidence; see [CLI usage](/en/using/cli) for its content
 and standalone recording behavior. Treat these artifacts as sensitive.
-`workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
-pair inside the standard gate;
-`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml` proves text
-forwarding with audio EOS completion against a multimodal candidate; and
-`run_workspace_relay_tests.sh` starts one isolated stack, runs both repeat-1
-gates and the repeat-20 relay gate
-(`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
-`--parallel 20`), and always cleans the stack up.
-The paired tester Workflow uses seven probe turns and an eighth verdict turn.
-If the model emits a bare `PASS`/`FAIL` or empty text during a probe, the
-publisher asks a follow-up instead; the final model verdict is published as is
-against the brief's per-reply criteria. Probe questions must not demand a
-definitive culprit or completed story when the brief only checks relevant,
-nonempty host replies; a reasoned statement that clues are insufficient is a
-responsive answer.
+`workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml` and
+`workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml` each run
+two exchanges using a fixed arithmetic request, for four relay turns. Assertions
+check both participant counts, nonempty replies, audio delivery and the terminal
+side. Every relay turn completes on audio EOS; the fixed source uses the existing
+Voice adapter to provide audio. `run_workspace_relay_tests.sh` runs
+both cases in one isolated Docker stack and verifies cleanup and content-free
+reports. No player model, semantic verdict or score is part of this gate.
 
 ### Eino audio input comparison
 
@@ -2066,6 +2100,41 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 
 `TestAssistantScenariosWithLiveModel` in the same phase reuses that harness's API key and `/openai/v1` to run `web/assistant/scripts/run-live-scenarios.ts` with `node --experimental-strip-types`: the Monitor diagnostic assistant's scenario set executes tools against `FakeRuntime` while every model call goes to the RuntimeProfile `llm` (`doubao-lite-chat`). Each scenario gets up to three attempts and is judged only on tool calls, the final route, and key facts in the reply; a scenario that fails all three fails the phase. A passing run prints only scenario names, attempts, and failed checks; the JSON report with generated replies and tool results is printed only on failure. The test needs the `web/assistant` dependencies installed by the root `npm ci`, which the runner's `preflight:npm-ci` phase provides.
 
+## Audio turn ownership Docker regressions
+
+```sh
+bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+```
+
+The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR, AgentHost and GizTunnel
+package race tests and consecutive audio turns through real Server, Edge and
+WebRTC. Local HTTP and SAUC WebSocket fixtures replace remote ASR, model and
+TTS services while retaining the production adapters; Provider credentials are
+not required. An HTTP barrier releases an earlier opening tail before two
+audio inputs must receive their own replies. The transport cases cover the
+publicly supported PTT reopen, realtime reopen and retained realtime session.
+A retained PTT subscription is an internal contract-test control, not a
+supported Giztest document mode.
+
+An additional PTT `input_sent` case advances after partial recognition while audio termination is still draining. The previous History routes must retire and the next input must receive its own reply. The PTT protocol fixture publishes definite text before audio EOS and acknowledges the final marker after 350 ms.
+
+A retained realtime case sends an unchanged text-only snapshot after definite speech over the real SAUC WebSocket protocol. It must neither open another transcript route nor cancel the active reply. A fixture counter proves all three repeated snapshots were sent; the opening and two later turns retain their reply and model-input-order assertions. ASR contract tests preserve new interim hypotheses and new utterances with identical words.
+
+The Docker contract layer also checks producer epochs, AudioDock epoch
+preservation, old replies failing to rescue modality deadlines, re-arm error
+EOS for known old IDs, and PTT interruption bookkeeping. It also verifies both control/audio EOS orders, old audio/transcript EOS on ASR replacement, completed final sends surviving a concurrent session close, and input-first runtime shutdown progress. GizTunnel regression fills the logical Opus receive queue over a real WebRTC connection while service request/response remains usable, then verifies resumed audio; other direct-packet overflow retains its failure boundary. The transport layer
+also runs native audio History and continuous podcast regressions. Epoch
+metadata remains in-process, so wire output is not a direct epoch identity
+assertion.
+
+The runner uses an internal Docker network, read-only source/module mounts and
+a separate build cache, and removes its container and network on exit. Image
+identity, architecture, source hashes, Go JSON results and Giztest reports are
+retained under `.testbench/audio-turn-ownership-*/reports/`. Both the standard
+`tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
+lane. The standard full entry point continues with real Provider suites;
+retain their evidence separately from the deterministic fixtures.
+
 ## Continuous narration and per-section History Giztest
 
 Run from the repository root:
@@ -2325,35 +2394,6 @@ For quota protocol, RuntimeProfile configuration and real Docker fixture accepta
 
 The quota Docker lane additionally checks complete HTTP chat/Responses rejection envelopes and real SDK Workspace dialogue over Edge/Server. Its Eino helpers observe exhausted and unavailable error EOS, exact public details, response identity, and no denied provider I/O. These deterministic protocol fixtures do not claim live cloud-provider or hardware qualification.
 
-## Screenplay quality
-
-`script-quality.*.giztest.yaml` runs 20 candidate replies for Werewolf, mystery,
-poetry, journey and multi-role storytelling. An independent player Workspace
-drives the dialogue; a separate judge rates character consistency, information
-boundaries, responsiveness, progression and closure. Each criterion requires
-3/4. Deterministic rule tests remain separate from model quality assessment.
-
-Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
-
-```bash
-bash tests/gizclaw-e2e/run_script_quality_tests.sh
-GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
-  bash tests/gizclaw-e2e/run_script_quality_tests.sh
-```
-
-The runner accepts `GIZCLAW_E2E_CREDENTIAL_FILE`, starts and cleans its isolated
-Docker project, and calls real providers. It does not merge or deploy business
-configuration. Every selected case runs with its own JSON report; any quality or
-execution failure produces a nonzero exit. Default artifacts live under ignored
-`testdata/script-quality/`. The terminal summary contains scores and turns; full
-reports contain dialogue and quoted judgments and should be handled as dialogue
-content. Player/judge workflows use native Eino Prompt/ChatModel; the
-Docker E2E Profile's text `llm`, judge `script-judge`, and audio `audio-llm`
-aliases all select Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`), request
-`service_tier: fast`, and disable thinking by default. The `script-judge` alias
-can still select the judge model independently. The live low-latency Giztest
-and first-response matrix on this page verify the actual tier and latency.
-
 ## Runtime Tool aliases
 
 Run the isolated native Server/Edge/Peer lane with the authorized provider
@@ -2489,13 +2529,21 @@ Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMe
 
 ## Generic device management Giztests
 
+The standard Docker entry point gives each JavaScript and Flutter document its own native process, with
+at most four processes running together. Each document executes completely; process exit and report
+status must agree, and a 600-second external process limit bounds native calls.
+
 `tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
-credentials. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
+credentials. Device management and Peer control Edge fixtures select one port for HTTP TCP and ICE UDP, checking that both protocols can bind before startup. An available TCP port alone does not establish UDP availability. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
 arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
 scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed attempts and independent
 instances. KV cases cover nested JSON/null/false/zero, Runtime/status/RPC, updates/deletes/replays/reconnects,
 64-key and total-byte storage quotas, exact 4096-byte frames, 1024-byte values, 64-byte keys, two-device isolation and charged tombstones. They poll state after sending, rather than treating send as
 persistence acknowledgement.
+
+The standard `run_tests.sh` full entry point also runs this lane. Instance, NFC control and invalid-response
+documents requiring its Modem/NFC manifest, and the Monitor document requiring its signed credentials,
+execute here. The ordinary Docker SDK/provider phases run documents supported by their shared Profile.
 
 Go/JS/C/Flutter run the common control contracts. Go/JS/C send actual KV packets; Flutter retains its existing
 no-telemetry-sender boundary. Stateful MHS simulation runs on Go. Every selected step and cleanup must pass;

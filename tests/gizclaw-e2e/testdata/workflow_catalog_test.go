@@ -177,6 +177,34 @@ func TestWorkflowCatalogFixtures(t *testing.T) {
 	}
 }
 
+func TestFunctionalRelaySourcesProvideAudioTerminals(t *testing.T) {
+	source := fixtureEino(t, "resources/04-workflows/32-giztest-relay-source.yaml")
+	for _, name := range []string{
+		"workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml",
+		"workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml",
+	} {
+		t.Run(name, func(t *testing.T) {
+			document, err := giztest.LoadDocument(filepath.Join("..", "giztest", name), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var relay *giztest.WorkspaceRelayOperation
+			for _, step := range document.Steps {
+				if step.WorkspaceRelay != nil {
+					relay = step.WorkspaceRelay
+				}
+			}
+			if relay == nil || relay.TerminalMedia != "audio" {
+				t.Fatal("two-round functional relay must wait for audio completion")
+			}
+			// Audio completion applies to the source turn as well as the assistant.
+			if source.VoiceAdapter == nil || source.VoiceAdapter.DefaultVoice == nil || strings.TrimSpace(*source.VoiceAdapter.DefaultVoice) == "" {
+				t.Fatal("audio-terminal relay source must provide a Voice adapter")
+			}
+		})
+	}
+}
+
 func assertWorkflowCatalogFixture(t *testing.T, fixture workflowFixture) {
 	t.Helper()
 	if fixture.Kind != "Workflow" || fixture.Metadata.ID == "" {
@@ -279,32 +307,6 @@ func TestE2EServerConfigProvidesOwnerAssetStores(t *testing.T) {
 		}
 		if store.Kind != "objectstore" || store.Storage != "local-files" || store.Prefix != prefix {
 			t.Fatalf("owner asset store %q = %#v", name, store)
-		}
-	}
-}
-
-func TestScriptQualityDocumentsAssessAllBusinessScenarios(t *testing.T) {
-	paths, err := filepath.Glob("../giztest/script-quality.*.giztest.yaml")
-	if err != nil || len(paths) != 5 {
-		t.Fatalf("quality scenarios=%d, error=%v", len(paths), err)
-	}
-	for _, path := range paths {
-		doc, err := giztest.LoadDocument(path, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		assessments := 0
-		for _, step := range doc.Steps {
-			if step.WorkspaceRelay == nil || step.WorkspaceRelay.Quality == nil {
-				continue
-			}
-			assessments++
-			if step.WorkspaceRelay.MaxTurns != 40 || len(step.WorkspaceRelay.Quality.Criteria) != 5 || step.Expect["/quality/passed"].Equals != true {
-				t.Fatalf("%s has an incomplete quality gate", path)
-			}
-		}
-		if assessments != 1 || len(doc.Finally) != 9 {
-			t.Fatalf("%s lacks assessment or cleanup", path)
 		}
 	}
 }

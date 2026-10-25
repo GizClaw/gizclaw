@@ -1119,6 +1119,8 @@ func (t *Transformer) processSession(
 	textResponses := &doubaoRealtimeTextResponses{}
 	var realtimeSpoken *doubaoRealtimeSpokenResponse
 	var realtimeSpokenEpoch uint64
+	var realtimeVAD realtimeVADResponses
+	var realtimeInputGeneration atomic.Uint64
 	streamIDs := runtime.streamIDs
 	audioInputs := runtime.audioInputs
 	// A provider VAD segment, rather than the long-lived input route, owns
@@ -1331,6 +1333,7 @@ func (t *Transformer) processSession(
 		semanticASR := false
 		transcriptOpen := false
 		initiativeStarted := false
+		var realtimeVADGeneration uint64
 		closeInputSegment := func(errText string) error {
 			inputStreamID := streamIDs.endInputSegment()
 			if err := pushHistoryAudioSegment(output, inputStreamID, historyAudio.take(inputStreamID)); err != nil {
@@ -1410,11 +1413,37 @@ func (t *Transformer) processSession(
 				if pttEvents() {
 					streamID = firstNonEmptyString(pttTurn.stream(), streamID)
 				}
+				if t.mode == ModeRealtime {
+					if generation := realtimeInputGeneration.Load(); generation != realtimeVADGeneration {
+						realtimeVAD = realtimeVADResponses{}
+						realtimeVADGeneration = generation
+					}
+					switch event.Type {
+					case doubaospeech.EventASRInfo, doubaospeech.EventASRResponse, doubaospeech.EventASREnded:
+						accepted, changed := realtimeVAD.questionStarted(event.QuestionID)
+						if !accepted {
+							continue
+						}
+						if changed && realtimeVAD.tagged && realtimeSpoken != nil &&
+							realtimeSpokenEpoch == assistant.currentEpoch() &&
+							(realtimeSpoken.textOpen || realtimeSpoken.audioOpen) {
+							// The provider already accepted the continuing speech.
+							// Keep that session; response IDs exclude its old reply.
+							interruptAssistantState(streamID, false)
+						}
+					}
+					if !realtimeVAD.acceptsOutput(event) {
+						continue
+					}
+				}
 
 				switch event.Type {
 				case doubaospeech.EventASRInfo:
-					slog.InfoContext(ctx, "doubao: ASR speech detected", "stream_id", streamIDs.input())
+					slog.InfoContext(ctx, "doubao: ASR speech detected", "stream_id", streamIDs.input(), "question_id", event.QuestionID)
 					if t.mode == ModeRealtime {
+						if strings.TrimSpace(event.QuestionID) != "" && realtimeVAD.tagged {
+							continue
+						}
 						// Before assistant BOS this can be continued speech for an
 						// already submitted question. Keep the provider session so
 						// its buffered audio can reach the next ASREnded; there is
@@ -2030,6 +2059,7 @@ func (t *Transformer) processSession(
 				streamIDs.beginInput(streamID)
 				inputRouteID = streamID
 				inputAudioEnded = false
+				realtimeInputGeneration.Add(1)
 				slog.InfoContext(ctx, "doubao: received route BOS", "stream_id", streamID)
 				if t.mode == ModeRealtime && interrupted {
 					return doubaoRealtimeRecoverable("interrupt handoff", errDoubaoRealtimeInterruptHandoff)
@@ -2137,6 +2167,7 @@ func (t *Transformer) processSession(
 					markAssistantPending(pttResponse.streamID, epoch)
 					pttResponses.add(pttResponse)
 				} else if t.mode == ModeRealtime {
+					realtimeInputGeneration.Add(1)
 					historyAudio.discard()
 					responseStreamID := streamIDs.endInputSegment()
 					assistant.setAccept(true)

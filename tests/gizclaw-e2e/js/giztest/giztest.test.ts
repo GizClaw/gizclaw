@@ -627,16 +627,10 @@ test("HTTP fixture endpoints resolve independently from the Peer access point", 
   }
 });
 
-test("script quality documents validate but remain unsupported by this runner", async () => {
-  const names = [
-    "werewolf",
-    "murder-mystery",
-    "poetry",
-    "journey",
-    "storyteller",
-  ];
+test("functional relay documents remain unsupported by this runner", async () => {
+  const names = ["eino-voice-assistant", "doubao-realtime-conversation"];
   const paths = names.map((name) =>
-    path.join(scenarioRoot, `script-quality.${name}.giztest.yaml`),
+    path.join(scenarioRoot, `workspace-relay.${name}.two-rounds.giztest.yaml`),
   );
   const result = await loadDocuments(paths);
   assert.equal(result.documents.length, 0);

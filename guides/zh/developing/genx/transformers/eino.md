@@ -28,6 +28,11 @@ transformer, err := eino.New(ctx, eino.Config{
 
 `Agent.ContextID` 留空时，`New` 生成一个 Transformer 生命周期内稳定的 opaque identity。每个 turn 仍拥有独立的 invocation、run 和 output Stream identity。
 
+每个 output route 在 turn 启动时创建不可变的 `ResponseEpoch`，绑定该 turn 的输入
+StreamID；`first_output` 延迟创建的 route 也使用预先建立的 epoch。正文和终止事件
+携带同一个 epoch，因此消费端晚于 replacement input 才观察到首包时，仍能识别原始
+输入归属。没有输入 route 的主动输出保持未归属状态。这些 metadata 仅在进程内传递。
+
 ## Graph contract
 
 `GraphDefinition` 用于组合 State、node、路由和输出。
@@ -73,11 +78,11 @@ Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，�
 
 ### 音频 turn
 
-宿主通过 `Config.AudioInput` 启用完整音频 turn。原始音频随 `input.messages` 进入 Graph，`input.text` 为空；ChatModel 只生成回复，不负责转写。没有启用时，Transformer 接收上游 ASR 的文本 turn。需要当前话语文字的 Script、Memory recall 或 Tool 语义检查由宿主选择 ASR 文本输入。
+宿主通过 `Config.AudioInput` 启用完整音频 turn。原始音频随 typed `input.messages` 进入 Graph。宿主提供 `InputText(ctx)` callback 时，声明的 `input.text` binding 使用节点 context 在 State 锁外等待同一输入的定稿转写；不依赖文字的回复路径可先流式输出。没有 callback 时，`input.text` 为空。ChatModel 只生成回复，不负责转写。没有启用音频 turn 时，Transformer 接收上游 ASR 的文本 turn。
 
 音频 MIME EOS 启动当前轮；随后同一输入的成功纯控制 EOS 被消费。新音频 route 打断上一轮，`interrupted` EOS 丢弃该轮，其他错误沿 Stream 传播。每个 Blob 保留为当前 user message 的一个音频 part。音频 turn 中以 `input.text` 为 query 的 recall 跳过；有独立文本 query 的 recall 仍可执行。
 
-ASR、用户 transcript 和用户原音记录由外层 [AudioDock](../agentkit#audio-dock) 与宿主 History 管理。Eino 不发布用户转写，也不额外发起模型转写请求。GizClaw 的 factory 为可直接消费音频的 PTT 图启用音频输入；需要文字的图及连续 realtime 输入使用独立 ASR 的最终文本。
+ASR、用户 transcript 和用户原音记录由外层 [AudioDock](../agentkit#audio-dock) 与宿主 History 管理。Eino 不发布用户转写，也不额外发起模型转写请求。GizClaw 的 `spec.eino.audio_input` 选择 `auto`、`asr` 或 `model`。显式 `model` 通过 callback 支持带文本依赖函数的 PTT 图；省略或 `auto` 保留自动选择，连续 realtime 使用 ASR 文本路径。
 
 ### Match
 
