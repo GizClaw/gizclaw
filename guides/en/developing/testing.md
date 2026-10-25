@@ -43,6 +43,14 @@ delivery to the device connection; H106 firmware UI and spoken error handling
 require separate device qualification. It runs with ordinary Go tests, without
 cloud credentials or live model calls.
 
+## Catalog role prompts over model HTTP
+
+```sh
+go test -count=1 -run '^TestCatalogRolePromptsReachModelRequests$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
+```
+
+The committed tester and murder-mystery Graphs run their Starlark and Prompt nodes through the production Eino/GenX adapter and a local HTTP/SSE model fixture. Two turns per Workflow verify system instructions, previous user/assistant ordering, the current user last, and the configured completion-token limits. State and Memory use controlled fixture stores; no provider credentials are required. Live-model role behavior and response deadlines are qualified by the original Docker relay and screenplay cases. The tester's seven probes stay in the player role and ask one short question; its eighth turn applies the brief and publishes the verdict.
+
 ## Docker image sources
 
 Go, Runtime and Mem0 build bases, package-validation containers, third-party

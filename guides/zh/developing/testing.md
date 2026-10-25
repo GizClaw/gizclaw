@@ -33,6 +33,14 @@ History 等待合用。错误 EOS 同时携带的 payload 仍计入结果，可�
 H106 固件的界面或语音提示；固件消费该事件后的表现需要独立设备验收。回归无 build tag，
 随普通 Go 测试执行，不读取云凭据，也不调用线上模型。
 
+## Catalog 角色提示词的模型 HTTP 回归
+
+```sh
+go test -count=1 -run '^TestCatalogRolePromptsReachModelRequests$' ./pkgs/gizclaw/services/ai/workflow/agents/eino
+```
+
+提交的 tester 与剧本杀 Graph 经实际 Starlark、Prompt 节点和生产 Eino/GenX adapter 调用本地 HTTP/SSE 模型夹具。每个 Workflow 的两轮输入验证 system 指令、历史 user/assistant 顺序、当前 user 位于最后，以及配置的 completion-token 上限。State 与 Memory 使用受控 fixture store，无需供应商凭据。真实模型的角色行为和时限仍由原始 Docker relay 与剧本质量场景验收。tester 的七轮提问始终保持玩家身份，每轮只提一个简短问题；第八轮按 brief 发布裁决。
+
 ## Docker 镜像来源
 
 Go、Runtime 与 Mem0 的构建基础镜像、包验证容器、Docker E2E 的第三方服务，以及
