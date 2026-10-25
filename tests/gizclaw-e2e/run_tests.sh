@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-suite_mode="full"
+suite_mode="functional"
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
 	echo "Usage: $0 [--functional]"
-	echo "--functional runs all functional suites and excludes screenplay and semantic tester grading."
+	echo "Both forms run all functional suites."
 	exit 0
 fi
 if [[ "${1:-}" == "--functional" ]]; then
@@ -461,14 +461,6 @@ print("{}: output format={} rate={}".format(name, audio["type"], audio["rate"]))
 	done
 	local -a files=()
 	while IFS= read -r file; do
-		if [[ "$suite_mode" == "functional" ]]; then
-			case "$(basename "$file")" in
-				script-quality.*.giztest.yaml | workspace-relay.workflow-tester.giztest.yaml | workspace-relay.doubao-realtime-workflow-tester.giztest.yaml)
-					echo "==> functional scope: omit semantic grading document $(basename "$file")"
-					continue
-					;;
-			esac
-		fi
 		files+=("$file")
 	done < <(
 		find "$giztest_dir" -maxdepth 1 -type f -name '*.giztest.yaml' \
@@ -566,6 +558,7 @@ start_full_watchdog
 
 run_timed "preflight:diagnostic-redaction" python3 -B "$setup_dir/redact_diagnostics_test.py"
 run_timed "preflight:js-process-isolation" python3 -B "$setup_dir/run_js_giztest_test.py"
+run_timed "preflight:docker-giztest-runner" python3 -B "$setup_dir/run_docker_giztest_test.py"
 run_timed "preflight:audio-input-comparison" python3 -B "$setup_dir/audio_input_comparison_test.py"
 run_timed "preflight:npm-ci" prepare_node_dependencies
 run_timed "preflight:nanopb" prepare_nanopb

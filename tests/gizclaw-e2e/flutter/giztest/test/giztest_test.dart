@@ -8,17 +8,14 @@ import 'package:giztest/src/variables.dart';
 final scenarioRoot = Directory('../../giztest').absolute.path;
 
 void main() {
-  test('script quality documents remain explicitly unsupported', () async {
-    final names = [
-      'werewolf',
-      'murder-mystery',
-      'poetry',
-      'journey',
-      'storyteller',
-    ];
+  test('functional relay documents remain explicitly unsupported', () async {
+    final names = ['eino-voice-assistant', 'doubao-realtime-conversation'];
     final result = await loadDocuments(
       names
-          .map((name) => '$scenarioRoot/script-quality.$name.giztest.yaml')
+          .map(
+            (name) =>
+                '$scenarioRoot/workspace-relay.$name.two-rounds.giztest.yaml',
+          )
           .toList(),
     );
     expect(result.documents, isEmpty);

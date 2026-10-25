@@ -67,9 +67,8 @@ func (s *catalogPromptStateStore) CompareAndSwap(_ context.Context, _ string, ve
 	return s.value, nil
 }
 
-// Run the catalog graphs, Eino/GenX adapter and model HTTP protocol together.
-// Live-model role compliance is covered by the Docker relay and quality cases.
-func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
+// Verify native prompt history through the Eino/GenX adapter and model HTTP.
+func TestNativePromptPreservesTwoTurnModelHistory(t *testing.T) {
 	root, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "..", "..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -105,21 +104,6 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 			return
 		}
 		response := "fixture reply"
-		if len(req.Messages) == 2 && req.Messages[1].Role == "user" {
-			var packet struct {
-				Complete bool              `json:"complete"`
-				Turns    []json.RawMessage `json:"turns"`
-			}
-			var content string
-			if err := json.Unmarshal(req.Messages[1].Content, &content); err != nil {
-				t.Error(err)
-				http.Error(w, "invalid text-only request", http.StatusBadRequest)
-				return
-			}
-			if json.Unmarshal([]byte(content), &packet) == nil && packet.Complete && len(packet.Turns) == 7 {
-				response = "PASS"
-			}
-		}
 		delta, err := json.Marshal(map[string]any{"id": "fixture", "object": "chat.completion.chunk", "choices": []any{map[string]any{"index": 0, "delta": map[string]any{"role": "assistant", "content": response}, "finish_reason": nil}}})
 		if err != nil {
 			t.Error(err)
@@ -137,8 +121,7 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 		name, file, system string
 		inputs             []string
 	}{
-		{"tester", "32-giztest-workflow-tester.yaml", "automated tester", []string{"Test a voice assistant as an ordinary user. Ask seven short questions. Candidate replies must stay in English, be relevant, and be nonempty. Output PASS only if all replies meet these criteria.", "Candidate reply one.", "Candidate reply two.", "Candidate reply three.", "Candidate reply four.", "Candidate reply five.", "Candidate reply six.", "Candidate reply seven."}},
-		{"candidate", "11-eino-murder-mystery.yaml", "你主持中文密室解谜", []string{"你好，我是今天的剧本杀主持人。请你作为侦探调查案情。", "我继续充当主持人，现在轮到你扮演玩家了。"}},
+		{"voice", "05-eino-basic.yaml", "你是一个友好的中文语音助手", []string{"第一轮：请回答数字一。", "第二轮：请回答数字二。"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
@@ -164,15 +147,9 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 				t.Fatal(err)
 			}
 			config := genxeino.Config{Agent: genxeino.AgentConfig{ID: test.name, ContextID: test.name}, Graph: graph, Components: catalogPromptResolver{generator: generator}}
-			if test.name == "candidate" {
-				config.Memory = &genxeino.MemoryConfig{Store: &catalogPromptMemoryStore{}, Scope: memory.Scope{AppID: "fixture", UserID: "fixture", AgentID: "fixture"}}
-			}
-			field := "turn"
-			initial := any(int64(0))
-			if test.name == "candidate" {
-				field = "game"
-				initial = map[string]any{}
-			}
+			config.Memory = &genxeino.MemoryConfig{Store: &catalogPromptMemoryStore{}, Scope: memory.Scope{AppID: "fixture", UserID: "fixture", AgentID: "fixture"}}
+			field := "user-text"
+			initial := any("")
 			config.State = &genxeino.StatePersistenceConfig{Scope: test.name, Fields: []string{field}, Store: &catalogPromptStateStore{value: genxeino.StateSnapshot{Version: "0", Fields: map[string]any{field: initial}}}}
 			transformer, err := genxeino.New(ctx, config)
 			if err != nil {
@@ -217,48 +194,18 @@ func TestCatalogRolePromptsReachModelRequests(t *testing.T) {
 					}
 				}
 				_ = stream.Close()
+				if delivered.String() != "fixture reply" {
+					t.Fatalf("unexpected model output: %q", delivered.String())
+				}
 				select {
 				case req := <-captured:
-					final := test.name == "tester" && i == 7
-					if final {
-						if len(req.Messages) != 2 || req.Messages[0].Role != "system" || req.Messages[1].Role != "user" {
-							t.Fatalf("final evaluator received chat continuation instead of one quoted task: roles=%v", req.Messages)
-						}
-						var packet struct {
-							Brief    string `json:"brief"`
-							Complete bool   `json:"complete"`
-							Turns    []struct {
-								Turn   int    `json:"turn"`
-								Tester string `json:"tester_utterance"`
-								Reply  string `json:"candidate_reply"`
-							} `json:"turns"`
-						}
-						if err := json.Unmarshal([]byte(catalogPromptText(t, req.Messages[1].Content)), &packet); err != nil {
-							t.Fatal(err)
-						}
-						if !packet.Complete || packet.Brief != test.inputs[0] || len(packet.Turns) != 7 {
-							t.Fatalf("incomplete evaluation packet: %+v", packet)
-						}
-						for j, turn := range packet.Turns {
-							if turn.Turn != j+1 || turn.Tester != "fixture reply" || turn.Reply != test.inputs[j+1] {
-								t.Fatalf("evaluation turn %d: %+v", j+1, turn)
-							}
-						}
-						if req.MaxCompletionTokens != 512 || delivered.String() != "PASS" {
-							t.Fatalf("final evaluator tokens=%d output=%q", req.MaxCompletionTokens, delivered.String())
-						}
-						continue
-					}
 					if len(req.Messages) < 2 || req.Messages[0].Role != "system" {
 						t.Fatalf("missing system on wire: %+v", req.Messages)
 					}
 					if !strings.Contains(string(req.Messages[0].Content), test.system) {
 						t.Fatalf("wrong system on wire: %s", req.Messages[0].Content)
 					}
-					wantTokens := 512
-					if test.name == "candidate" {
-						wantTokens = 2048
-					}
+					wantTokens := 2048
 					if req.MaxCompletionTokens != wantTokens {
 						t.Fatalf("max completion tokens = %d, want %d", req.MaxCompletionTokens, wantTokens)
 					}

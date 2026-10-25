@@ -25,7 +25,6 @@ type driver struct {
 
 	// The remaining fields substitute transports in this package's tests.
 	// They are nil in production.
-	pingClient       func(context.Context, *gizcli.Client) error
 	openPeerStream   func(client *gizcli.Client) peerStreamOpener
 	openRelayStreams func() (relayStream, relayStream, error)
 	connectClients   func(context.Context, map[string]giztest.ClientSpec, []giztest.Step, *giztest.Variables) (*clientSet, error)
@@ -423,41 +422,10 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 	if err != nil {
 		return giztest.StepResult{}, err
 	}
-	relayCtx, cancel := context.WithCancelCause(ctx)
-	defer cancel(nil)
-	stopKeepalive := func() {}
-	if quality := step.WorkspaceRelay.Quality; quality != nil {
-		var participants []*gizcli.Client
-		for _, name := range []string{step.WorkspaceRelay.FirstClient, step.WorkspaceRelay.SecondClient, quality.JudgeClient} {
-			client, err := s.clients.get(name)
-			if err != nil {
-				return giztest.StepResult{}, err
-			}
-			participants = append(participants, client)
-		}
-		var pending []<-chan struct{}
-		for _, participant := range participants {
-			ping := func(ctx context.Context) error {
-				if s.driver.pingClient != nil {
-					return s.driver.pingClient(ctx, participant)
-				}
-				_, err := participant.Ping(ctx, "giztest.quality.keepalive")
-				return err
-			}
-			pending = append(pending, keepQualityJudgeAlive(relayCtx, time.Minute, ping, cancel))
-		}
-		stopKeepalive = func() {
-			cancel(nil)
-			for _, done := range pending {
-				<-done
-			}
-		}
-	}
-	defer stopKeepalive()
 	var result operationResult
 	if s.driver.openRelayStreams == nil {
 		result, err = invokeWorkspaceRelayRecorded(
-			relayCtx, s.clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, capture, s.driver.audioObserver)
+			ctx, s.clients, step, input, audioCaptureMaxBytes, s.driver.fullEvidence, capture, s.driver.audioObserver)
 	} else {
 		var first, second relayStream
 		first, second, err = s.driver.openRelayStreams()
@@ -465,17 +433,9 @@ func (s *session) executeWorkspaceRelay(ctx context.Context, req giztest.StepReq
 			first = capture.wrap(step.WorkspaceRelay.FirstClient, first)
 			second = capture.wrap(step.WorkspaceRelay.SecondClient, second)
 			result, err = runWorkspaceRelayWithEvidence(
-				relayCtx, step.WorkspaceRelay, first, second, input, audioCaptureMaxBytes,
+				ctx, step.WorkspaceRelay, first, second, input, audioCaptureMaxBytes,
 				s.driver.fullEvidence, s.driver.audioObserver)
 		}
-	}
-	// Drain the keepalive before invoking the judge or returning to finalizers.
-	stopKeepalive()
-	if errors.Is(context.Cause(relayCtx), errQualityJudgeKeepalive) {
-		err = errQualityJudgeKeepalive
-	}
-	if err == nil {
-		result, err = s.assessRelayQuality(ctx, req, result)
 	}
 	return result.stepResult(), err
 }

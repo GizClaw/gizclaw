@@ -102,7 +102,7 @@ Giztest 的 `audio_pacing.max_interval_ms` 使用 PeerStream 读取时的真实�
 go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
 ```
 
-完整性检查针对实际交付的逻辑音频；剧本的 `quality` 检查内容与角色表现。二者都不能代替对声音失真或音色的测量。
+完整性检查针对实际交付的逻辑音频；声音失真与音色需要单独测量。
 
 ### 原生语音的多轮 History 顺序
 
@@ -684,12 +684,10 @@ Eino realtime 并发探针合成其声明的 `prompt`，首文本 2 秒与首音
 并发和断言，报告原子复制回宿主机。取消会终止本任务的容器内进程，原有阶段时限也覆盖
 该进程。这验证 Docker 网络路径；宿主转发链路与设备音频时序需要各自测量。
 
-功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh --functional`，执行相同的 JavaScript、
-Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest 与多 Server 套件。
-它仅排除五个 `script-quality.*` 文档，以及两个依赖模型语义裁决的
-`workspace-relay.workflow-tester`、`workspace-relay.doubao-realtime-workflow-tester` 文档。
-剧本评分与模型给出的语义裁决不属于功能验收；音频 packet 完整性、发送节奏、轮次完成、
-状态、权限和超时断言仍是功能门禁。默认命令保留原有完整文档集合，`--help` 说明两种模式。
+完整功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh`，`--functional` 执行相同的完整套件。
+它覆盖 JavaScript、Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest、
+多 Server 与 TiKV。GizClaw 断言路由、轮次归属、完成边界、媒体完整性、发送节奏、权限和清理；
+剧情评分由 Raids 负责。
 
 JavaScript History 音频互操作探针通过独立 stdin 控制通道接收客户端确认。
 客户端核对完整 metadata 和二进制 payload 后才发送确认；探针在原有 30 秒预算内
@@ -755,14 +753,12 @@ NPC 狼人的投票策略排除已知狼队同伴。猎人受袭或被放逐时�
 VoiceAdapter 在同一音频路由内按角色选择 Voice。首响应测量包含本轮角色生成的等待。
 游戏进度直接保存在 State，对话使用 History；不逐轮调用长期 Memory，终局仅观察一次
 公开状态审计。旅程与多角色故事在取经章兑现前面形成的承诺；
-主线完成后转入复盘或简短告别。质量玩家的首轮目标不作为已经发生的剧情或身份信息。
+主线完成后转入复盘或简短告别。原生示例用于验证 State、History、Memory、分支与音色路由。
 候选 Prompt 将历史与本轮输入分开，并在本轮输入旁重新提供权威 State；狼人杀角色
 模型温度为 0.3，其他候选为 0.2。
 旅程只通过完整的肯定继续指令顺序推进，疑问或否定不会翻章。多角色故事还须先以
 “我选择……”确认本章约定；提出异议后须重新确认，才允许继续。狼人杀只识别明确行动分句，讨论旧票或否定技能
-不会执行行动。质量玩家以原生 State 记录20次发言的进度，先推进主线，再提出不同复盘问题，
-最后告别；它不会为未完成的主线编造结局。
-这些配置仍须通过实际 Provider 对话评分，Prompt 中声明要求本身不证明质量达标。
+不会执行行动。
 
 `eino_catalog_test.go` 编译 Resource 和 Workspace 的实际配置，执行完整原生节点链，
 并验证非法行动、私密信息投影、证据不足、错误答案和通关后的状态。
@@ -786,7 +782,7 @@ C SDK 可以独立验收，运行 C/cgo 的 RPC、遥测、聊天、媒体、社
 bash tests/gizclaw-e2e/run_c_tests.sh
 ```
 
-该入口启动独立的 TiKV Docker 栈并在结束时清理。它不运行其他语言 SDK、Go Admin/OpenAI、Terraform、音频并发压测或剧本评分。默认将报告和脱敏日志保存到 ignored `.testbench/c-e2e-*`，可用 `GIZCLAW_E2E_C_EVIDENCE_DIR` 指定空目录。`resources/` 每 5 秒采集宿主 CPU、内存和磁盘 I/O、Docker API 延迟、容器状态及 VM `/proc` 数据，每 10 秒记录容器 cgroup CPU 限流、内存事件和 I/O 计数；另记录 PostgreSQL 等待事件和 I/O 时间。采样期间不改变 CPU、内存配额、fsync 或事务提交设置；仅开启夹具数据库的 I/O 计时。
+该入口启动独立的 TiKV Docker 栈并在结束时清理。它不运行其他语言 SDK、Go Admin/OpenAI、Terraform 或音频并发压测。默认将报告和脱敏日志保存到 ignored `.testbench/c-e2e-*`，可用 `GIZCLAW_E2E_C_EVIDENCE_DIR` 指定空目录。`resources/` 每 5 秒采集宿主 CPU、内存和磁盘 I/O、Docker API 延迟、容器状态及 VM `/proc` 数据，每 10 秒记录容器 cgroup CPU 限流、内存事件和 I/O 计数；另记录 PostgreSQL 等待事件和 I/O 时间。采样期间不改变 CPU、内存配额、fsync 或事务提交设置；仅开启夹具数据库的 I/O 计时。
 
 排查已有栈时，使用 `--reuse-env <docker.env>`；该文件来自 `setup/docker-compose-up.sh`，复用模式保留由调用方管理的栈。`--giztest-only` 只重跑 C Giztest。两个 C bridge 都通过强制重建避免外部 C include 被 Go cache 复用；`--giztest-only` 只重建其使用的 bridge。`GIZCLAW_E2E_C_PARALLEL` 可覆盖场景并发数。不支持的场景明确报告 skipped，不计为通过。
 
@@ -1296,14 +1292,12 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 本地 `--evidence full --report <path>` 才写入有界 relay 文本以及
 `server.speech.transcribe` 步骤识别出的 transcript。完整 evidence 还可能包含 PeerStream
 输入、音频字节及受支持 RPC 的资源证据，具体内容和独立记录行为见 [CLI 使用说明](/zh/using/cli)。
-这些产物属于敏感记录。`workspace-relay.workflow-tester.giztest.yaml` 在标准 gate
-运行普通 candidate/tester 配对，`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml`
-验证多模态 candidate 的 text 转发和 audio EOS 完成；`run_workspace_relay_tests.sh` 启动
-一套隔离栈，先后运行两个 repeat-1 与 repeat-20 relay gate（后者以 `--parallel 20` 运行
-`benchmark.workspace-relay.workflow-tester-20.giztest.yaml`），并保证清理。
-配套 tester Workflow 固定七轮提问和第八轮裁决；提问轮若模型提前输出孤立的 `PASS`/`FAIL` 或空文本，
-发布节点改发一条追问，终轮则按 brief 的逐轮标准原样发布模型裁决。
-若 brief 只要求主持人切题且非空，提问轮不强求指认凶手或完成故事；说明证据不足并给出相关后续调查也算切题回应。
+这些产物属于敏感记录。
+`workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml` 与
+`workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml` 使用固定算术请求，各跑
+两轮交换、共四次 relay 输出。断言检查两侧计数、非空回复、音频交付和终端侧，助手回复以
+音频 EOS 为完成边界。`run_workspace_relay_tests.sh` 在独立 Docker 栈内运行两个用例，并验证
+清理和默认报告不含内容。门禁不调用玩家模型，也不产生语义裁决或分数。
 
 ### Eino 音频输入对比
 
@@ -2147,32 +2141,6 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
 Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](/zh/developing/api/http/quota).
 
 Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以及 SDK 经 Edge/Server 的真实 Workspace dialogue。Eino helper 观察到期和不可用错误 EOS、准确公开字段、response identity，并断言拒绝时没有 provider I/O。这些确定性协议 fixture 不代表真实云端 provider 或硬件资格验证。
-
-## 剧本质量
-
-`script-quality.*.giztest.yaml` 对狼人杀、密室解谜、诗词闯关、旅程和多角色故事分别运行
-20 次被测回复，由独立玩家 Workspace 驱动、独立裁判 Workspace 按角色一致性、信息边界、
-针对性回应、剧情推进和结局收束评分，每项最低 3/4。规则测试与模型质量评审分别保留。
-
-脚本目录的确定性回归直接执行已提交的规则与发布节点，覆盖完整证据下的自然指认、问句和错误嫌疑人的拒绝，以及 NPC 实现话术过滤。狼人杀评分按最高票放逐和结局后身份公开的实际规则判断。运行 `go test -count=1 ./tests/gizclaw-e2e/testdata` 可验证这些规则；真实模型对话仍按每项 3/4、20 次被测回复验收。
-
-质量入口在自己的 Docker 栈内从这五个原生资源生成文本配置，仅移除 `voice_adapter`，其 Graph、确定性规则、模型和 memory binding 保持原值。它不会复制场景逻辑，其他 E2E/语音入口继续使用原资源；`text-workflows.json` 保留本次配置来源。
-
-```bash
-bash tests/gizclaw-e2e/run_script_quality_tests.sh
-# 只选指定剧本；凭据仍来自标准 credential 文件
-GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
-  bash tests/gizclaw-e2e/run_script_quality_tests.sh
-```
-
-入口接受 `GIZCLAW_E2E_CREDENTIAL_FILE`，启动并清理独立 Docker project，使用真实 Provider；
-它不会合并或部署业务配置。每个选择的场景都运行并保留独立 JSON report，任何质量或
-执行失败均使入口非零退出。输出默认在 ignored `testdata/script-quality/`；终端汇总只含
-分数和轮次，完整 report 含对话和裁判引用，应按对话内容管理。新玩家/裁判采用 Eino
-原生 Prompt/ChatModel；整个 Docker E2E 的文本 `llm`、裁判 `script-judge` 和音频 `audio-llm`
-统一使用 Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`)，设置 `service_tier: fast` 并默认关闭
-thinking。裁判 `script-judge` alias 仍可在测试 Profile 单独选择模型。实际 fast 档位与首响时延
-分别由本页的低延迟真实 Giztest 和首响验证矩阵验收。
 
 ## Profile Tool alias 验收
 

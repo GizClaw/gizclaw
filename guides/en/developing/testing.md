@@ -119,7 +119,7 @@ The dedicated functional regression runs `tests/gizclaw-e2e/testdata/peer-audio/
 go test -count=1 -run '^TestPeerStreamPostEOSWebRTCGiztest$' ./cmd/internal/commands/giztest
 ```
 
-Integrity checks apply to delivered logical audio; script `quality` checks content and role behavior. Neither measures sound distortion or voice timbre.
+Integrity checks apply to delivered logical audio. Sound distortion and voice timbre require separate measurements.
 
 `audio_pacing.max_interval_started_at` records the UTC start of the largest packet gap, allowing correlation across sessions and Server logs to identify simultaneous stalls.
 
@@ -639,15 +639,11 @@ copied atomically to the host. Cancellation stops the owned container process;
 the existing phase deadline also bounds that process. This qualifies the Docker
 network path. Host forwarding and device audio timing need their own measurements.
 
-The functional gate is `bash tests/gizclaw-e2e/run_tests.sh --functional`. It
-runs the same JavaScript, Flutter, C/cgo, Go Admin/OpenAI, CLI, Terraform,
-standard Giztest and multi-server suites. It excludes only the five
-`script-quality.*` documents and the two semantic-verdict documents
-`workspace-relay.workflow-tester` and `workspace-relay.doubao-realtime-workflow-tester`.
-Their screenplay scores and model-generated verdicts are outside functional
-acceptance. Audio packet integrity, pacing, turn completion, state, authorization
-and timeout assertions remain functional gates. The default invocation retains
-the complete existing document set; `--help` describes the two modes.
+The full functional gate is `bash tests/gizclaw-e2e/run_tests.sh`.
+`--functional` runs the same complete suite. It covers JavaScript, Flutter,
+C/cgo, Go Admin/OpenAI, CLI, Terraform, standard Giztest, multi-server and TiKV.
+GizClaw asserts routing, ownership, turn completion, media integrity, pacing,
+authorization and cleanup. Screenplay scoring belongs to Raids.
 
 The JavaScript History audio interoperability probe receives a client receipt
 over its private stdin control channel. The client verifies all metadata and
@@ -737,9 +733,7 @@ measurement includes this turn's character generation. Game progress uses State 
 long-term Memory is observed once for a public final audit, rather than every
 turn. Journey and ensemble stories
 resolve earlier commitments in the final chapter, then enter review or a brief
-farewell. The quality player's initial brief is a goal, not an established event
-or identity. These configurations still require actual provider-backed dialogue
-assessment; written prompt requirements do not prove passing quality.
+farewell. These native examples exercise State, History, Memory, branching and voice routing.
 
 Candidate prompts separate history from the current input, repeat authoritative
 State beside that input. Werewolf characters use temperature 0.3; other candidates
@@ -747,9 +741,7 @@ use 0.2. Journey advances only through a complete affirmative continuation comma
 questions and negations leave the chapter unchanged. Ensemble stories also require
 an explicit current-chapter agreement, renewed after an objection, before advancing. Werewolf
 recognizes explicit action clauses without executing past ballot discussion or negated
-skills. The quality player tracks its 20 utterances in native State, advances the
-main objective, asks distinct review questions and then says farewell. It does
-not invent completion when the objective remains unfinished.
+skills.
 
 `eino_catalog_test.go` compiles actual Resource and Workspace configurations,
 executes their native pipelines, and checks illegal actions, private projections,
@@ -1378,21 +1370,13 @@ adds bounded relay text plus the transcript a `server.speech.transcribe` step
 recognized. Full evidence can also retain PeerStream inputs, audio bytes and
 supported RPC resource evidence; see [CLI usage](/en/using/cli) for its content
 and standalone recording behavior. Treat these artifacts as sensitive.
-`workspace-relay.workflow-tester.giztest.yaml` runs the live candidate/tester
-pair inside the standard gate;
-`workspace-relay.doubao-realtime-workflow-tester.giztest.yaml` proves text
-forwarding with audio EOS completion against a multimodal candidate; and
-`run_workspace_relay_tests.sh` starts one isolated stack, runs both repeat-1
-gates and the repeat-20 relay gate
-(`benchmark.workspace-relay.workflow-tester-20.giztest.yaml` with
-`--parallel 20`), and always cleans the stack up.
-The paired tester Workflow uses seven probe turns and an eighth verdict turn.
-If the model emits a bare `PASS`/`FAIL` or empty text during a probe, the
-publisher asks a follow-up instead; the final model verdict is published as is
-against the brief's per-reply criteria. Probe questions must not demand a
-definitive culprit or completed story when the brief only checks relevant,
-nonempty host replies; a reasoned statement that clues are insufficient is a
-responsive answer.
+`workspace-relay.eino-voice-assistant.two-rounds.giztest.yaml` and
+`workspace-relay.doubao-realtime-conversation.two-rounds.giztest.yaml` each run
+two exchanges using a fixed arithmetic request, for four relay turns. Assertions
+check both participant counts, nonempty replies, audio delivery and the terminal
+side. Audio EOS bounds each assistant reply. `run_workspace_relay_tests.sh` runs
+both cases in one isolated Docker stack and verifies cleanup and content-free
+reports. No player model, semantic verdict or score is part of this gate.
 
 ### Eino audio input comparison
 
@@ -2406,37 +2390,6 @@ The script writes separate RPC, provider, HTTP, and SFU JSON reports under `test
 For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](/en/developing/api/http/quota).
 
 The quota Docker lane additionally checks complete HTTP chat/Responses rejection envelopes and real SDK Workspace dialogue over Edge/Server. Its Eino helpers observe exhausted and unavailable error EOS, exact public details, response identity, and no denied provider I/O. These deterministic protocol fixtures do not claim live cloud-provider or hardware qualification.
-
-## Screenplay quality
-
-`script-quality.*.giztest.yaml` runs 20 candidate replies for Werewolf, mystery,
-poetry, journey and multi-role storytelling. An independent player Workspace
-drives the dialogue; a separate judge rates character consistency, information
-boundaries, responsiveness, progression and closure. Each criterion requires
-3/4. Deterministic rule tests remain separate from model quality assessment.
-
-Catalog regressions execute the committed rule and publishing nodes, covering natural explicit accusations with complete evidence, questions and wrong suspects, and NPC implementation-language filtering. Werewolf assessment follows plurality voting and identity disclosure after the declared ending. Run `go test -count=1 ./tests/gizclaw-e2e/testdata` for these rules; live model dialogues still require 3/4 on every criterion across 20 candidate replies.
-
-Within its own Docker stack, the quality runner derives text configurations from these five native resources, removing only `voice_adapter` while preserving Graphs, deterministic rules, models and memory bindings. Scenario logic is not copied; other E2E/voice lanes retain the original resources. `text-workflows.json` records the configurations used.
-
-```bash
-bash tests/gizclaw-e2e/run_script_quality_tests.sh
-GIZCLAW_E2E_SCRIPT_QUALITY_CASES="werewolf murder-mystery" \
-  bash tests/gizclaw-e2e/run_script_quality_tests.sh
-```
-
-The runner accepts `GIZCLAW_E2E_CREDENTIAL_FILE`, starts and cleans its isolated
-Docker project, and calls real providers. It does not merge or deploy business
-configuration. Every selected case runs with its own JSON report; any quality or
-execution failure produces a nonzero exit. Default artifacts live under ignored
-`testdata/script-quality/`. The terminal summary contains scores and turns; full
-reports contain dialogue and quoted judgments and should be handled as dialogue
-content. Player/judge workflows use native Eino Prompt/ChatModel; the
-Docker E2E Profile's text `llm`, judge `script-judge`, and audio `audio-llm`
-aliases all select Seed 2.1 Lite (`doubao-seed-2-1-lite-260915`), request
-`service_tier: fast`, and disable thinking by default. The `script-judge` alias
-can still select the judge model independently. The live low-latency Giztest
-and first-response matrix on this page verify the actual tier and latency.
 
 ## Runtime Tool aliases
 
