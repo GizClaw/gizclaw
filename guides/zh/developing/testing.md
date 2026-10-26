@@ -1173,6 +1173,12 @@ realtime 在发送期间持续消费输出；所有必需模态的第一段 assi
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
 
+`wait_for_history: true` 在发送本轮输入前记录最近 20 条 History 的名称，按时间倒序查询，
+随后只接受此前不存在的新记录。本轮实际收到 assistant 内容时，新记录还必须是 agent 类型；
+旧轮记录或本轮用户转写不能充当回复已经落库的凭据。没有 assistant 内容的输入回合允许使用新的用户记录。
+等待仍为 10 秒、每 100 毫秒读取一次 History，不重发输入、不重跑模型，也不替代文档自己的精确 History 断言。
+证据包含 `history_name` 和 `history_baseline_count`。
+
 音频 turn 只把本轮可接受的 assistant 输出计入首包和完成条件。runner 在 PTT
 输入前启动读取，以首个输入 EOS 写入前的时刻识别先前回复；这些回复的后续包和
 终止事件也不计入当前 turn，不能解除当前首包超时。同一个 task/client 的近期回复

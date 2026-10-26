@@ -399,13 +399,13 @@ func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
 	}
 }
 
-func TestFirstHistoryName(t *testing.T) {
+func TestCurrentHistoryNameWithoutPriorEntries(t *testing.T) {
 	result := map[string]any{"items": []any{map[string]any{"name": "history-1"}}}
-	if got := firstHistoryName(result); got != "history-1" {
-		t.Fatalf("firstHistoryName() = %q, want history-1", got)
+	if got := firstCurrentHistoryName(result, nil, false); got != "history-1" {
+		t.Fatalf("firstCurrentHistoryName() = %q, want history-1", got)
 	}
-	if got := firstHistoryName(map[string]any{}); got != "" {
-		t.Fatalf("firstHistoryName(empty) = %q", got)
+	if got := firstCurrentHistoryName(map[string]any{}, nil, false); got != "" {
+		t.Fatalf("firstCurrentHistoryName(empty) = %q", got)
 	}
 }
 
