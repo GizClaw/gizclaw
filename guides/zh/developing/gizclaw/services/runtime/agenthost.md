@@ -99,7 +99,7 @@ Transformer 与 history replay 必须尽快把 provider output drain 到 growabl
 
 mixer track 从创建起就是实时的：track 没有缓存音频时 mixer 会为它填充数字静音，pacer 又以快于实时的速度把静音送进设备缓冲，设备必须先播完才能听到回复。因此 `MixerOutput` 在 route 解码出**有声** PCM 之前不创建 track：只含 OpusHead 的 Ogg 页、仍在缓存的 MP3 body 等解码不出音频的 blob 不会打开 track；Provider TTS 在开口前带的低电平引入（采样绝对值低于 256，约 -42 dBFS）也在 route 开头被丢弃，只保留有声样本之前 60 ms 的 preroll，避免吞掉弱起音。每条 route 最多丢弃 2 s，更长的安静被视为有意内容，从那里开始照常播放；第一个有声样本之后的安静（句间停顿）不做处理。从未出现有声样本的 route 不创建 track。
 
-AST Workflow attachment 在 History 之前安装 runtime 输出策略；其他 driver 保留各自现有的原生协议处理。音频 BOS 的 `InputMode` 优先于 Workspace 默认值；未声明时沿用 Workspace 配置。PTT 在录音期间仍持续 drain Transformer、执行断句和 TTS，但缓存 transcript、translation、history 与音频；runtime 接纳匹配输入 EOS 后立刻按原顺序放行，不等待上传方读取 EOS 或模型完成。Realtime 与文本输入持续放行；Realtime 的字幕定稿立即结束对应文本 route，使最后一句 TTS 不等待下一包输入或 session EOS。SFU 使用自己的 floor 规则。纯 control EOS 表示用户结束录音，不替代 Adapter 等待最终音频或 ASR 定稿的协议边界。
+AST Workflow attachment 在 History 之前安装 runtime 输出策略；其他 driver 保留各自现有的原生协议处理。音频 BOS 的 `InputMode` 优先于 Workspace 默认值；未声明时沿用 Workspace 配置。PTT 在录音期间仍持续 drain Transformer、执行断句和 TTS，但缓存 transcript、translation、history 与音频；runtime 接纳匹配输入 EOS 后立刻按原顺序放行，不等待上传方读取 EOS 或模型完成。Realtime 与文本输入持续放行；Realtime 的字幕定稿立即结束对应文本 route，使最后一句 TTS 不等待下一包输入或 session EOS。SFU 使用自己的 floor 规则。纯 control EOS 表示用户结束录音，不替代 Adapter 等待最终音频或 ASR 定稿的协议边界；runtime 消费这个输入终态，避免它提前结束输出转写或拆分 History。
 
 runtime 在外挂 TTS 之前合并同一 PTT capture 的供应商字幕 route，字幕定稿仍通过内部 `MessageEnd` 提前触发合成。合成后的内部消息边界不进入 History 或 Peer 输出，因此一次松手保持一条回复和一份 History。GenX 只执行注入的输出适配函数；AST Adapter 不读取 PTT/realtime 模式，也不控制发布。
 

@@ -71,6 +71,12 @@ func (s *capturePreparedOutput) Next() (*genx.MessageChunk, error) {
 			s.abandon(chunk)
 			continue
 		}
+		if owned && (chunk.Role == genx.RoleUser || chunk.Role == "") && chunk.Part == nil && chunk.IsEndOfStream() {
+			// Input admission already owns capture release. Only the
+			// provider's transcript boundary completes its History route.
+			s.abandon(chunk)
+			continue
+		}
 		if !ptt {
 			// Realtime subtitles close their text route as soon as confirmed.
 			// PTT instead keeps that boundary private for one capture response.

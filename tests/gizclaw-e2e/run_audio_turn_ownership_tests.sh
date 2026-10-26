@@ -95,6 +95,7 @@ required["contracts"].update({
     "TestCaptureOutputDropsReusedInputIDEpoch",
     "TestCaptureOutputDefersHistoryAndDeliveryObservation",
     "TestPrepareSpeechOutputRealtimeEndsWithoutNextInputPacket",
+    "TestPrepareSpeechOutputKeepsTranscriptOpenAcrossCaptureControlEOS",
     "TestInterruptibleOutputStreamsAvailableTextAndAudioWithoutDelay",
     "TestTransformerPreservesInputEpochAcrossReusedStreamID",
 })

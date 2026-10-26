@@ -138,3 +138,50 @@ func TestPrepareSpeechOutputRealtimeEndsWithoutNextInputPacket(t *testing.T) {
 		}
 	})
 }
+
+func TestPrepareSpeechOutputKeepsTranscriptOpenAcrossCaptureControlEOS(t *testing.T) {
+	for _, mode := range []apitypes.WorkspaceInputMode{apitypes.WorkspaceInputModePushToTalk, apitypes.WorkspaceInputModeRealtime} {
+		for _, role := range []genx.Role{"", genx.RoleUser} {
+			t.Run(string(mode)+"/role="+string(role), func(t *testing.T) {
+				epoch := genx.NewResponseEpoch("input")
+				gate := newCaptureOutput()
+				gate.turn = &captureTurn{epoch: epoch, audio: true, ptt: mode == apitypes.WorkspaceInputModePushToTalk}
+				source := historyStreamFromChunks(
+					&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("before "), Ctrl: &genx.StreamCtrl{StreamID: "input", Label: "transcript", BeginOfStream: true, ResponseEpoch: epoch}},
+					&genx.MessageChunk{Role: role, Ctrl: &genx.StreamCtrl{StreamID: "input", Label: "user", EndOfStream: true, ResponseEpoch: epoch}},
+					&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("after"), Ctrl: &genx.StreamCtrl{StreamID: "input", Label: "transcript", ResponseEpoch: epoch}},
+					&genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "input", Label: "transcript", EndOfStream: true, ResponseEpoch: epoch}},
+					&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text("translation"), Ctrl: &genx.StreamCtrl{StreamID: "model", Label: "assistant", BeginOfStream: true, EndOfStream: true, ResponseEpoch: epoch}},
+					&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: "model", Label: "assistant", ResponseEpoch: epoch, ResponseEpochEnd: true}},
+				)
+				prepared, err := PrepareSpeechOutput(context.WithValue(t.Context(), activeCaptureOutputKey{}, gate), source)
+				if err != nil {
+					t.Fatal(err)
+				}
+				defer prepared.Close()
+				history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+				recorder := newHistoryRecorder(history, "gear", nil)
+				for {
+					chunk, err := prepared.Next()
+					if IsStreamDone(err) {
+						break
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					recorder.recordDelivered(t.Context(), chunk)
+				}
+				page, err := history.List(t.Context(), apitypes.PeerRunHistoryListRequest{Order: new(apitypes.PeerRunHistoryListRequestOrderAsc)})
+				if err != nil {
+					t.Fatal(err)
+				}
+				if len(page.Items) != 2 {
+					t.Fatalf("History entries=%d, want one user and one assistant", len(page.Items))
+				}
+				if page.Items[0].Text != "before after" {
+					t.Fatalf("transcript=%q", page.Items[0].Text)
+				}
+			})
+		}
+	}
+}
