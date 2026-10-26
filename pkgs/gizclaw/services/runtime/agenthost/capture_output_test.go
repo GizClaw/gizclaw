@@ -231,13 +231,13 @@ func TestCaptureOutputRetainsInclusiveAudioLimit(t *testing.T) {
 }
 
 func TestCaptureOutputDefersHistoryAndDeliveryObservation(t *testing.T) {
-	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
-	defer cancel()
 	input, source := NewInputStream(8), NewInputStream(8)
 	upstream := newRecordingObservationStream(source)
 	upstream.abandoned = make(chan *genx.MessageChunk, 8)
 	gate := newCaptureOutput()
 	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+	ctx, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+	defer cancel()
 	agent := wrapHistoryAgent(captureOutputAgent{Agent: historyTestAgent{output: upstream}, mode: apitypes.WorkspaceInputModePushToTalk}, history)
 	out, err := agent.Transform(context.WithValue(ctx, captureOutputKey{}, gate), input)
 	if err != nil {

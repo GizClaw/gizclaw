@@ -57,9 +57,11 @@ docker network create --internal "$network" >/dev/null
 docker run --rm --network none --entrypoint /bin/sh -v "$cache:/gocache" \
   "$base" -c "chown $run_user /gocache"
 docker run --rm --user "$run_user" --name "$container" --network "$network" --entrypoint /bin/bash \
+  --tmpfs /test-tmp:rw,mode=1777,size=1g \
   -v "$repo_root:/src:ro" -v "$reports:/reports" \
   -v "$(go env GOMODCACHE):/gomodcache:ro" -v "$cache:/gocache" \
-  -e HOME=/tmp -e GOPATH=/tmp/gopath -e GOMODCACHE=/gomodcache -e GOCACHE=/gocache \
+  -e HOME=/tmp -e TMPDIR=/test-tmp -e GOTMPDIR=/tmp/go-build \
+  -e GOPATH=/tmp/gopath -e GOMODCACHE=/gomodcache -e GOCACHE=/gocache \
   -e GOPROXY=off -e GOTOOLCHAIN=local -e GOFLAGS=-mod=readonly \
   -e HTTP_PROXY= -e HTTPS_PROXY= -e ALL_PROXY= \
   -e http_proxy= -e https_proxy= -e all_proxy= \
@@ -68,9 +70,10 @@ docker run --rm --user "$run_user" --name "$container" --network "$network" --en
   -e GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE=/reports/podcast \
   "$base" -lc 'set -euo pipefail
     cd /src
+    mkdir -p "$GOTMPDIR"
     go version > /reports/go-version.txt
-    go test -race -json ./cmd/internal/commands/giztest ./pkgs/genx/agentkit/audiodock ./pkgs/genx/transformers/eino ./pkgs/genx/transformers/doubaoasr ./pkgs/genx/transformers/doubaoast ./pkgs/genx/transformers/asttranslate ./pkgs/gizclaw/services/runtime/agenthost ./pkgs/giznet/giztunnel -count=1 -timeout=8m > /reports/contracts.jsonl
-    go test -race -json ./cmd/internal/server -run "^Test(AudioTurnOwnership|NativeAudioHistory|ContinuousPodcast)Giztest$" -count=1 -timeout=5m > /reports/transport.jsonl'
+    go test -race -json -p 1 ./cmd/internal/commands/giztest ./pkgs/genx/agentkit/audiodock ./pkgs/genx/transformers/eino ./pkgs/genx/transformers/doubaoasr ./pkgs/genx/transformers/doubaoast ./pkgs/genx/transformers/asttranslate ./pkgs/gizclaw/services/runtime/agenthost ./pkgs/giznet/giztunnel -count=1 -timeout=8m > /reports/contracts.jsonl
+    go test -race -json -p 1 ./cmd/internal/server -run "^Test(AudioTurnOwnership|NativeAudioHistory|ContinuousPodcast)Giztest$" -count=1 -timeout=5m > /reports/transport.jsonl'
 python3 - "$reports" <<'PY'
 import collections
 import hashlib
@@ -90,6 +93,8 @@ required = {
 }
 required["contracts"].update({
     "TestPTTPreReleaseCountExcludesKnownResponsesAndCountsEachNewID",
+    "TestRealtimeSilenceRetainsRouteAndStopsOnCancellation",
+    "TestPeerStreamRealtimeContinuesInputWhileReplyDrains",
     "TestCaptureOutputReleasesBeforeProviderReadsEOS",
     "TestCaptureOutputPreparesExternalTTSWhileUploaderIsBlocked",
     "TestCaptureOutputDropsReusedInputIDEpoch",

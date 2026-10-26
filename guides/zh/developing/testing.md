@@ -1136,6 +1136,7 @@ Assistant terminal completion 在首个完整回复后继续收集 250 ms；`rep
 它只证明观察窗口内收到的结果，不保证窗口外不会有输出。空输入、`first_response`、
 `input_sent` 和 transcript completion 使用各自的完成边界。
 音频输入同时报告 `/input_packets`、`/input_ms` 和 `/pushed_packets`。
+单轮 realtime 输入在录音与 VAD 尾静音发完后，继续在同一路由按实时节奏上传静音，直到回复完成、打断或操作取消，避免长回复播放期间供应商因上行空闲而关闭会话。静音不增加 `/input_ms`，实际发送帧计入 `/pushed_packets`；`completion: input_sent` 在原有输入发送完成后停止。连续消息的 EOS 是最终交付边界；需要检查落库的场景仍应声明 `wait_for_history: true`。
 控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，
 用于其它设备门限。PTT 不在 wire 声明 `input_mode`，实际输入模式来自 Workspace 参数。
 `eino-voice-assistant.push-to-talk-long-input.giztest.yaml` 使用至少 60 秒的多句输入，
@@ -1933,7 +1934,7 @@ Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、�
 
 runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
 清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
-报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
+协议 fixture 的临时 SQLite 与音频文件使用容器 tmpfs，编译产物与报告仍写入各自的磁盘目录；这不改变真实服务栈的 PostgreSQL/TiKV 存储。报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
 `tests/gizclaw-e2e/run_tests.sh` 和 CI 的独立 Audio Turn Ownership Docker job 均执行此入口。
 CI 将这组完整 race 编译与传输回归和 Audioplayer 场景并行运行，避免共用一个 job 的剩余构建时间；
 测试命令、用例超时和断言仍由原入口控制。标准全量入口随后继续运行真实 Provider 套件，二者的证据应分别保留。

@@ -1138,6 +1138,7 @@ the PTT regressions use 1 second to include late second replies. This is a
 bounded observation, not proof against output beyond that window. Empty input,
 `first_response`, `input_sent`, and transcript completion use their own bounds.
 Audio input also reports `/input_packets`, `/input_ms`, and `/pushed_packets`.
+After recording and VAD tail silence, single-turn realtime steps keep uploading paced silence on the same route until response completion, interruption or cancellation. This keeps long replies from idling out the upstream provider. Silence does not extend `/input_ms`; actual frames count toward `/pushed_packets`. `completion: input_sent` stops after its original input finishes. Continuous-message EOS marks final delivery; scenarios that inspect persisted History still declare `wait_for_history: true`.
 Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
 set another nonnegative Go duration for a different device threshold. PTT
 omits wire `input_mode`; Workspace parameters determine the actual input mode.
@@ -2138,7 +2139,7 @@ assertion.
 The runner uses an internal Docker network, read-only source/module mounts and
 a separate build cache, and removes its container and network on exit. Image
 identity, architecture, source hashes, Go JSON results and Giztest reports are
-retained under `.testbench/audio-turn-ownership-*/reports/`. Both the standard
+retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
 `tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
 lane. The standard full entry point continues with real Provider suites;
 retain their evidence separately from the deterministic fixtures.
