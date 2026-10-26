@@ -72,6 +72,7 @@ func TestDocumentContainsKind(t *testing.T) {
 
 func TestIsTransientCommandError(t *testing.T) {
 	for _, detail := range []string{
+		"admin apply: exit status 1: Error: gizclaw: client stopped before ready",
 		"gizclaw: timeout waiting for client readiness",
 		"gizclaw: dial: connection reset by peer",
 		"gizclaw: dial: unexpected EOF",
