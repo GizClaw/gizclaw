@@ -55,6 +55,8 @@ spec:
                 inputs:
                   text:
                     from: input.text
+                  messages:
+                    from: input.messages
                   answer:
                     from: answer
                 outputs:
@@ -64,10 +66,12 @@ spec:
                 limits:
                   max_execution_steps: 10000
                   timeout: 1s
-                  max_input_bytes: 65536
+                  max_input_bytes: 4096
                   max_output_bytes: 65536
                 source: |
                   def run(input):
+                    if not input["messages"] or input["messages"][-1]["role"] != "user":
+                      fail("missing current message text view")
                     if not input["text"].strip():
                       fail("missing final transcription")
                     return {"text": input["answer"]}
@@ -118,6 +122,8 @@ spec:
                 inputs:
                   text:
                     from: input.text
+                  messages:
+                    from: input.messages
                 outputs:
                   text: answer
                 language: starlark
@@ -125,10 +131,12 @@ spec:
                 limits:
                   max_execution_steps: 10000
                   timeout: 1s
-                  max_input_bytes: 65536
+                  max_input_bytes: 4096
                   max_output_bytes: 65536
                 source: |
                   def run(input):
+                    if not input["messages"] or input["messages"][-1]["role"] != "user":
+                      fail("missing current message text view")
                     if not input["text"].strip():
                       fail("missing final transcription before reply")
                     return {"text": input["text"]}
@@ -158,6 +166,8 @@ spec:
                 inputs:
                   text:
                     from: input.text
+                  messages:
+                    from: input.messages
                   answer:
                     from: answer
                 outputs:
@@ -167,10 +177,12 @@ spec:
                 limits:
                   max_execution_steps: 10000
                   timeout: 1s
-                  max_input_bytes: 65536
+                  max_input_bytes: 4096
                   max_output_bytes: 65536
                 source: |
                   def run(input):
+                    if not input["messages"] or input["messages"][-1]["role"] != "user":
+                      fail("missing current message text view")
                     if not input["text"].strip():
                       fail("missing final transcription")
                     return {"text": input["answer"]}

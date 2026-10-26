@@ -19,6 +19,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	rpcpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
 )
@@ -705,6 +706,14 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	if op.OverlapInput {
 		return invokeOverlappingPeerInput(ctx, stream, op, input)
 	}
+	var historyBefore map[string]bool
+	if op.WaitForHistory {
+		result, err := queryWorkspaceHistory(ctx, client, step.ID+"-history-before")
+		if err != nil {
+			return operationResult{}, fmt.Errorf("snapshot Workspace history before input: %w", err)
+		}
+		historyBefore = workspaceHistoryNames(result)
+	}
 	diagnostics, hasAudioDiagnostics := stream.(peerStreamAudioDiagnostics)
 	var ignoredPostEOSAtStart uint64
 	if hasAudioDiagnostics {
@@ -1191,13 +1200,17 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 		}
 		stopIdle()
 		if op.WaitForHistory {
-			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID)
+			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID, historyBefore, responseCount > 0)
 			if err != nil {
 				return operationResult{}, err
 			}
 			object["history_name"] = historyName
 		}
 		evidence := baseEvidence()
+		if op.WaitForHistory {
+			evidence["history_name"] = object["history_name"]
+			evidence["history_baseline_count"] = len(historyBefore)
+		}
 		evidence["response_count"] = responseCount
 		if op.Mode == "push-to-talk" || op.Mode == "realtime" {
 			evidence["input_packets"] = inputPackets
@@ -2134,44 +2147,24 @@ func readPeerStreamObserved(ctx context.Context, stream peerStream, observe func
 	return next
 }
 
-func waitForWorkspaceHistory(ctx context.Context, client *gizcli.Client, stepID string) (string, error) {
-	timer := time.NewTimer(10 * time.Second)
-	defer timer.Stop()
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
+func queryWorkspaceHistory(ctx context.Context, client *gizcli.Client, stepID string) (map[string]any, error) {
+	if client == nil {
+		return nil, fmt.Errorf("Workspace history requires a connected client")
+	}
 	historyStep := giztest.Step{
-		ID: stepID + "-history",
+		ID: stepID,
 		RPC: &giztest.RPCOperation{
 			Method:  "server.run.workspace.history",
-			Request: map[string]any{"limit": 20},
+			Request: map[string]any{"limit": 20, "order": rpcpb.PeerRunHistoryListRequestOrder_PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC.String()},
 		},
 	}
-	for {
-		result, err := invokeUnary(ctx, client, historyStep, historyStep.RPC.Request)
-		if err != nil {
-			return "", fmt.Errorf("query Workspace history: %w", err)
-		}
-		if name := firstHistoryName(result); name != "" {
-			return name, nil
-		}
-		select {
-		case <-ticker.C:
-		case <-timer.C:
-			return "", fmt.Errorf("timed out waiting for Workspace history persistence")
-		case <-ctx.Done():
-			return "", context.Cause(ctx)
-		}
-	}
+	return invokeUnary(ctx, client, historyStep, historyStep.RPC.Request)
 }
 
-func firstHistoryName(result map[string]any) string {
-	items, _ := result["items"].([]any)
-	if len(items) == 0 {
-		return ""
-	}
-	item, _ := items[0].(map[string]any)
-	name, _ := item["name"].(string)
-	return name
+func waitForWorkspaceHistory(ctx context.Context, client *gizcli.Client, stepID string, before map[string]bool, requireAgent bool) (string, error) {
+	return waitForCurrentWorkspaceHistory(ctx, func(ctx context.Context) (map[string]any, error) {
+		return queryWorkspaceHistory(ctx, client, stepID+"-history")
+	}, before, requireAgent)
 }
 
 func decodeOpusPackets(audio []byte) ([][]byte, error) {

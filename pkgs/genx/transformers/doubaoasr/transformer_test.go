@@ -670,16 +670,16 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 	first.recvErr = &doubaospeech.Error{Code: doubaoASRPacketWaitTimeout, Message: "waiting next packet timeout"}
 	// Hold the transform loop inside the first send until the test has read
 	// the segment-a transcript EOS, so the receiver has fully processed the
-	// result before the continuation is read. The provider session completes
-	// only after the continuation reaches it; completing it on the first frame
-	// would let the transformer reap it and open a replacement for segment-a.
+	// result before the continuation is read. A passthrough marker below then
+	// confirms both sends completed before simulating an idle provider timeout.
+	// Closing the provider inside SendAudio instead races an in-flight send,
+	// which is a different contract from reopening a completed session.
 	firstTranscriptRead := make(chan struct{})
 	releaseFirstSend := sync.OnceFunc(func() { close(firstTranscriptRead) })
 	t.Cleanup(releaseFirstSend)
 	first.sendAudio = func(_ context.Context, data []byte, isLast bool) error {
 		first.sends = append(first.sends, fakeDoubaoASRSend{data: slices.Clone(data), isLast: isLast})
-		switch len(first.sends) {
-		case 1:
+		if len(first.sends) == 1 {
 			first.result <- &doubaospeech.ASRV2Result{
 				Text: "first segment",
 				Utterances: []doubaospeech.ASRV2Utterance{
@@ -687,8 +687,6 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 				},
 			}
 			<-firstTranscriptRead
-		case 2:
-			close(first.result)
 		}
 		return nil
 	}
@@ -725,6 +723,17 @@ func TestTransformerEmitInterimReopensCompletedProviderSession(t *testing.T) {
 		}
 	}
 	releaseFirstSend()
+	const sentMarker = "both-segment-a-sends-completed"
+	if err := input.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: sentMarker}}); err != nil {
+		t.Fatalf("push send completion marker: %v", err)
+	}
+	for {
+		chunk := nextNonHistoryChunk(t, output)
+		if chunk.Ctrl != nil && chunk.Ctrl.StreamID == sentMarker {
+			break
+		}
+	}
+	close(first.result)
 	select {
 	case <-first.recvDone:
 	case <-time.After(5 * time.Second):

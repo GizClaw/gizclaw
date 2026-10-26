@@ -1,7 +1,7 @@
 # User Story:
 # As a native PTT device using pre- or post-reply text-dependent functions,
 # I want distinct recordings kept as audio while functions receive final text,
-# So that exact History, audio downloads, EOS and audio integrity survive both turns.
+# So that long original audio survives Script budgets, reload, History and EOS checks.
 # Response latency is qualified separately with completion: first_response.
 # This fixture declares one model response per turn; counts describe only this graph.
 version: gizclaw.test/v1alpha1
@@ -204,6 +204,14 @@ steps:
     expect:
       /bytes:
         minimum: 1
+  - id: reload_between_turns
+    client: peer
+    rpc:
+      method: server.run.workspace.reload
+      request: {}
+    expect:
+      /audio_input:
+        equals: AUDIO_INPUT_PATH_MODEL
   - id: synthesize_second_question
     client: peer
     speech:
@@ -211,7 +219,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: 我再问一个：九减四等于多少？
+        text: 我再说长一点，请记住刚才已经回答过的那道题。现在想象我们走进一间安静的图书馆，先把手里的书放回桌上，再看一眼墙上的钟，随后找到窗边的座位坐下。窗外有风，桌上还有一杯水，这些只是背景说明，不需要逐句重复，也不需要解释图书馆的规则。请保留前面的对话，最后只回答这个新问题：九减四等于多少？
         accepted_content_types:
           - audio/ogg
     save_as: input_audio_2
@@ -228,6 +236,8 @@ steps:
       require_audio: true
       reply_observation: 1s
     expect:
+      /input_ms:
+        minimum: 15000
       /first_transcript_ms:
         minimum: 1
       /first_text_ms:

@@ -134,6 +134,8 @@ bash tests/gizclaw-e2e/run_native_audio_functions_tests.sh
 
 入口读取 `tests/gizclaw-e2e/.env`，也可用 `GIZCLAW_E2E_CREDENTIAL_FILE` 指定凭据文件；使用真实 Doubao Seed 2.1 Lite 原音输入、关闭 thinking，并在独立的本地 Docker Server、Edge 上分别执行前置文本判断和后置转写读取。每种组合先用 `completion: first_response` 在发送期间并行读取输出，并从输入发送结束计时，严格校验 2 秒首字、3 秒首音；再在新 Workspace 发送两份不同录音，要求模型输入路径为 `model`，检查 EOS 与音频完整性。完整回合的操作时钟包含录音发送与按键等待，不能拿来代替响应首包时钟。History 按该单回复夹具的声明逐轮精确对照实际转写及回复，同时下载用户和回复的音频。比较文本用于验证记录一致性，不判断回答的知识正确性。
 
+完整回合在两轮之间重载 Workspace，第二份录音至少持续 15 秒。前后置 Script 同时读取 `input.text` 与 `input.messages`，输入预算设为 4096 字节，验证长原音按消息文字投影进入函数、仍以完整原音进入模型。Go 回归另行验证超限的可见文本和显式 binary input 继续被原预算拒绝。
+
 包间隔、预缓冲和欠载保留在报告中作为观察数据，不是本入口的通过门槛。出现间隔时，须将 `max_interval_started_at` 与同一会话的 Eino、TTS 和 Peer delivery 日志对齐，核对是否存在节点等待造成的中途停顿；仅凭包间隔或零欠载不能确定原因。各组合独立执行并汇总退出状态，前一个失败不会跳过后续组合。
 
 运行证据保存在 ignored `.testbench/native-audio-functions-*`，包含源文件摘要、二进制和 Docker 镜像身份、Giztest 报告与回放。入口退出时清理本次 Compose project、私有认证和任务 CLI，不修改线上集群。前置文本判断必须等待定稿；该实跑不注入识别延迟，不替代带门控的延迟/取消单元回归，也不代表剧情内容验收。
@@ -1171,6 +1173,12 @@ realtime 在发送期间持续消费输出；所有必需模态的第一段 assi
 `deadline=first_audio_timeout` 失败。该模式不能与 `interrupt_after`、`terminal_label` 或
 `wait_for_history` 组合。
 
+`wait_for_history: true` 在发送本轮输入前记录最近 20 条 History 的名称，按时间倒序查询，
+随后只接受此前不存在的新记录。本轮实际收到 assistant 内容时，新记录还必须是 agent 类型；
+旧轮记录或本轮用户转写不能充当回复已经落库的凭据。没有 assistant 内容的输入回合允许使用新的用户记录。
+等待仍为 10 秒、每 100 毫秒读取一次 History，不重发输入、不重跑模型，也不替代文档自己的精确 History 断言。
+证据包含 `history_name` 和 `history_baseline_count`。
+
 音频 turn 只把本轮可接受的 assistant 输出计入首包和完成条件。runner 在 PTT
 输入前启动读取，以首个输入 EOS 写入前的时刻识别先前回复；这些回复的后续包和
 终止事件也不计入当前 turn，不能解除当前首包超时。同一个 task/client 的近期回复
@@ -1918,8 +1926,9 @@ Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、�
 runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
 清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
 报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
-`tests/gizclaw-e2e/run_tests.sh` 和 CI 的 Audioplayer job 均执行此入口；标准全量入口
-随后继续运行真实 Provider 套件，二者的证据应分别保留。
+`tests/gizclaw-e2e/run_tests.sh` 和 CI 的独立 Audio Turn Ownership Docker job 均执行此入口。
+CI 将这组完整 race 编译与传输回归和 Audioplayer 场景并行运行，避免共用一个 job 的剩余构建时间；
+测试命令、用例超时和断言仍由原入口控制。标准全量入口随后继续运行真实 Provider 套件，二者的证据应分别保留。
 
 ## 连续播讲与逐段 History Giztest
 
@@ -1934,11 +1943,12 @@ LLM/TTS adapter、AudioDock、Workspace History 和 Go Giztest CLI，执行
 `tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml`。本地确定性
 HTTP SSE 与 WebSocket 夹具替代远端模型和语音服务，无需外部凭据或 Docker。
 
-场景包含 20 个步骤、6 个 parallel 子步骤和 3 个清理步骤。持续播放期间要求只有
+场景包含 21 个步骤、6 个 parallel 子步骤和 3 个清理步骤。持续播放期间要求只有
 一条播放流、音频 pacing 无 underrun、History 持续增加且每条只有一段生成文本，
 并分别下载两段 History 的音频。后续验证模型与 TTS I/O 正在进行时被打断、停止后
-恢复原主题、播讲中切换主题及再次恢复。夹具还检查 continuation 没有新增用户输入，
-生成次数超过单次 Graph step budget，模型上下文中的本轮 assistant 段数不超过 8。
+恢复原主题、播讲中切换主题及再次恢复。两次 History 进度查询之间继续接收一段音频，
+验证实际交付后的记录增加，不把未被消费的生成预读当成 History。夹具还检查 continuation
+没有新增用户输入，生成次数超过单次 Graph step budget，模型上下文中的本轮 assistant 段数不超过 8。
 
 默认报告随临时目录清理；设置 `GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE` 可保留
 `podcast.giztest.json` 和 `runner.log`。测试结束清理 Workspace、Peer 和本地服务。

@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime/pprof"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -73,13 +74,20 @@ func TestContinuousPodcastGiztest(t *testing.T) {
 		}
 		data, readErr := os.ReadFile(reportPath)
 		if runErr != nil || readErr != nil {
+			var stacks bytes.Buffer
+			if profile := pprof.Lookup("goroutine"); profile != nil {
+				_ = profile.WriteTo(&stacks, 2)
+				if err := os.WriteFile(filepath.Join(reportDir, "goroutines.txt"), stacks.Bytes(), 0600); err != nil {
+					t.Logf("save failure goroutines: %v", err)
+				}
+			}
 			t.Fatalf("podcast Giztest failed: %v, report: %v\n%s\n%s", runErr, readErr, output.String(), data)
 		}
 		var report giztest.Report
 		if err := json.Unmarshal(data, &report); err != nil {
 			t.Fatal(err)
 		}
-		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 20 || len(report.Tasks[0].Cleanup) != 3 {
+		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 21 || len(report.Tasks[0].Cleanup) != 3 {
 			t.Fatalf("podcast Giztest did not execute every step: %s", data)
 		}
 		pages, err := filepath.Glob(filepath.Join(replayDir, "index.html"))
@@ -153,7 +161,7 @@ func TestContinuousPodcastGiztest(t *testing.T) {
 		if fixture.modelCancelled.Load() < 2 || fixture.speechCancelled.Load() < 2 {
 			t.Fatalf("interrupt did not cancel live provider I/O: model=%d TTS=%d", fixture.modelCancelled.Load(), fixture.speechCancelled.Load())
 		}
-		t.Logf("real Server/Edge/WebRTC: 20 Giztest steps, 6 parallel children and 3 cleanup steps; first episode=%d generations; cancelled model/TTS=%d/%d\n%s", firstEpisode, fixture.modelCancelled.Load(), fixture.speechCancelled.Load(), output.String())
+		t.Logf("real Server/Edge/WebRTC: 21 Giztest steps, 6 parallel children and 3 cleanup steps; first episode=%d generations; cancelled model/TTS=%d/%d\n%s", firstEpisode, fixture.modelCancelled.Load(), fixture.speechCancelled.Load(), output.String())
 	})
 }
 
