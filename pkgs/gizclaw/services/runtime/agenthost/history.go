@@ -154,10 +154,11 @@ type historyOutput struct {
 	replayStreamID string
 	replayPending  map[historyForwardChunkKey]historyForwardRoute
 
-	forwardMu          sync.Mutex
-	activeForward      map[historyForwardChunkKey]historyForwardRoute
-	terminalForward    map[historyForwardChunkKey]struct{}
-	interruptedForward map[historyForwardChunkKey]struct{}
+	forwardMu              sync.Mutex
+	activeForward          map[historyForwardChunkKey]historyForwardRoute
+	terminalForward        map[historyForwardChunkKey]struct{}
+	pendingTerminalForward map[*genx.MessageChunk]historyForwardChunkKey
+	interruptedForward     map[historyForwardChunkKey]struct{}
 
 	notifyMu          sync.Mutex
 	notifyTimer       *time.Timer
@@ -550,6 +551,9 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 			recorder.record(ctx, chunk)
 			continue
 		}
+		if historyInterruptedChunk(chunk) {
+			outputState.cancelPendingForwardTerminals(chunk)
+		}
 		if outputState.observeForwardChunk(chunk) {
 			continue
 		}
@@ -570,20 +574,21 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 				}
 			}
 			outputState.addPendingObservation(forwarded, chunk)
+			outputState.holdForwardTerminal(forwarded)
 			forward := func() error {
 				if outputState.observeForwardChunk(forwarded) {
-					outputState.abandonPendingObservation(forwarded)
+					outputState.discardForwardTerminal(forwarded)
 					return nil
 				}
 				outputState.observeProduction(forwarded)
-				if err := output.Add(forwarded); err != nil {
+				if added, err := outputState.addForwardTerminal(forwarded); err != nil || !added {
 					outputState.abandonPendingObservation(forwarded)
 					return err
 				}
 				return nil
 			}
 			if err := recorder.persistence.forwardAfterWrites(forward); err != nil {
-				outputState.abandonPendingObservation(forwarded)
+				outputState.discardForwardTerminal(forwarded)
 				_ = output.Abort(err)
 				return
 			}
@@ -732,6 +737,7 @@ func (o *historyOutput) clearForwardOutput() {
 	defer o.forwardMu.Unlock()
 	o.activeForward = nil
 	o.terminalForward = nil
+	o.pendingTerminalForward = nil
 	o.interruptedForward = nil
 }
 
