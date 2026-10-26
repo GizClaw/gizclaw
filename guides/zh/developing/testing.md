@@ -1943,11 +1943,12 @@ LLM/TTS adapter、AudioDock、Workspace History 和 Go Giztest CLI，执行
 `tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml`。本地确定性
 HTTP SSE 与 WebSocket 夹具替代远端模型和语音服务，无需外部凭据或 Docker。
 
-场景包含 20 个步骤、6 个 parallel 子步骤和 3 个清理步骤。持续播放期间要求只有
+场景包含 21 个步骤、6 个 parallel 子步骤和 3 个清理步骤。持续播放期间要求只有
 一条播放流、音频 pacing 无 underrun、History 持续增加且每条只有一段生成文本，
 并分别下载两段 History 的音频。后续验证模型与 TTS I/O 正在进行时被打断、停止后
-恢复原主题、播讲中切换主题及再次恢复。夹具还检查 continuation 没有新增用户输入，
-生成次数超过单次 Graph step budget，模型上下文中的本轮 assistant 段数不超过 8。
+恢复原主题、播讲中切换主题及再次恢复。两次 History 进度查询之间继续接收一段音频，
+验证实际交付后的记录增加，不把未被消费的生成预读当成 History。夹具还检查 continuation
+没有新增用户输入，生成次数超过单次 Graph step budget，模型上下文中的本轮 assistant 段数不超过 8。
 
 默认报告随临时目录清理；设置 `GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE` 可保留
 `podcast.giztest.json` 和 `runner.log`。测试结束清理 Workspace、Peer 和本地服务。

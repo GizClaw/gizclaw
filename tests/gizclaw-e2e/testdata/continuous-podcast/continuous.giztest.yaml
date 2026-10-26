@@ -73,6 +73,12 @@ steps:
       /items/8/text: {pattern: '^science:[0-9]+\.\s*$'}
       /items/8/replay_available: {equals: true}
     capture: {first_section: /items/0/name, second_section: /items/1/name}
+  - id: continue_playback_without_input
+    client: peer
+    peer_stream: {mode: listen, duration: 1s}
+    expect:
+      /streams: {equals: 1}
+      /audio_bytes: {minimum: 1}
   - id: history_keeps_advancing_without_input
     client: peer
     rpc: {method: server.run.workspace.history, request: {limit: 100, order: PEER_RUN_HISTORY_LIST_REQUEST_ORDER_DESC}}

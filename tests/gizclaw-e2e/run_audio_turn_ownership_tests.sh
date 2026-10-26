@@ -41,6 +41,7 @@ root, output = map(pathlib.Path, sys.argv[1:3])
 base = json.loads(subprocess.check_output(["docker", "image", "inspect", sys.argv[3]], text=True))[0]
 paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "cmd/internal/commands/giztest/peer_stream*.go", "pkgs/genx/agentkit/audiodock/*.go", "pkgs/genx/transformers/eino/*.go", "pkgs/genx/transformers/doubaoasr/*.go", "pkgs/gizclaw/services/runtime/agenthost/*.go", "pkgs/giznet/giztunnel/*.go"], text=True).splitlines()
 paths += ["cmd/internal/server/audio_turn_ownership_giztest_test.go", "tests/gizclaw-e2e/testdata/audio-turn-ownership/rounds.giztest.yaml"]
+paths += ["cmd/internal/server/native_audio_history_giztest_test.go", "cmd/internal/server/podcast_giztest_test.go", "tests/gizclaw-e2e/testdata/continuous-podcast/eino.json", "tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml"]
 paths += ["go.mod", "go.sum", "tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh", "tests/gizclaw-e2e/testdata/native-audio-history/resources.json"]
 output.write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
@@ -63,6 +64,8 @@ docker run --rm --user "$run_user" --name "$container" --network "$network" --en
   -e HTTP_PROXY= -e HTTPS_PROXY= -e ALL_PROXY= \
   -e http_proxy= -e https_proxy= -e all_proxy= \
   -e GIZCLAW_TURN_OWNERSHIP_EVIDENCE=/reports/transport \
+  -e GIZCLAW_NATIVE_HISTORY_EVIDENCE=/reports/native-history \
+  -e GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE=/reports/podcast \
   "$base" -lc 'set -euo pipefail
     cd /src
     go version > /reports/go-version.txt
