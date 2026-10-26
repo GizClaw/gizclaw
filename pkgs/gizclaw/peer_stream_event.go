@@ -701,6 +701,12 @@ func peerStreamEventToChunk(event *eventpb.PeerEvent) (*genx.MessageChunk, error
 	switch event.Type {
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_BOS:
 		ctrl.BeginOfStream = true
+		switch event.GetBos().GetInputMode() {
+		case eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK:
+			ctrl.InputMode = "push-to-talk"
+		case eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME:
+			ctrl.InputMode = "realtime"
+		}
 		return peerStreamEventControlChunk(ctrl, event), nil
 	case eventpb.PeerEventType_PEER_EVENT_TYPE_EOS:
 		ctrl.EndOfStream = true

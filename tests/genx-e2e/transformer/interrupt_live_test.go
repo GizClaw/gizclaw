@@ -698,7 +698,7 @@ func TestASTTranslateLiveRepeatedInterrupt(t *testing.T) {
 	client := liveDoubaoClient(t)
 	pacing := false
 	ast, err := doubaoast.New(doubaoast.Config{
-		Client: client, Mode: doubaospeech.ASTTranslateModeS2T, InputMode: doubaoast.InputModePushToTalk,
+		Client: client, Mode: doubaospeech.ASTTranslateModeS2T,
 		SourceLanguage: "zhen", TargetLanguage: "zhen", SourceLanguageDetect: true, RealtimePacing: &pacing,
 	})
 	if err != nil {

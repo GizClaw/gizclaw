@@ -105,22 +105,17 @@ deadline/cancel 错误即使包装了 `context.DeadlineExceeded` 或 `context.Ca
 
 ## AST Translate 输入模式
 
-`doubaoast.Transformer` 支持 realtime 和 Push-to-Talk 音频输入，同时保持 provider 上传与事件接收并发执行：
+AST v2 只有 `s2t`（译文）与 `s2s`（译文及供应商语音）输出方式，没有 PTT/realtime 请求参数。`doubaoast.Transformer` 始终并发上传音频和接收事件，立即转发规范化后的 transcript、translation、history 和音频。输入结束前已经返回的译文可以直接进入外挂 TTS。
 
-| 模式 | 输出边界 |
-| --- | --- |
-| Realtime | Provider 事件到达时立即转发规范化后的 transcript、translation 和 TTS chunks。 |
-| Push-to-Talk | 输入期间持续消费 provider 事件，但规范化后的 transcript、translation、history 和 TTS chunks 在匹配的输入音频 EOS 前保持未发布。 |
+Provider source subtitle 划分输出 segment；translation subtitle 的定稿通过 `MessageEnd` 提示下游立即 flush 当前合成文字，即使文字没有句末标点。Audio Dock 组合外挂 Voice，并继续使用 TTS segmentation。AST 输出队列不为每块文字添加固定等待。
 
-Push-to-Talk 的输入音频 EOS 按原始顺序一次性提交未发布 chunks。Provider failure 如果在提交前被记录，会丢弃整个未发布 turn 并返回 provider error，不暴露任何 retained data 或 control chunks。Commit gate 同时绑定输入 StreamID 与 provider session epoch，因此被打断 session 的迟到事件不能影响复用同一 StreamID 的新 session。
+PTT 的发布策略属于 [AgentHost runtime](/zh/developing/gizclaw/services/runtime/agenthost)：runtime 根据已接纳的输入 BOS 与 Workspace 默认值识别用户意图，在 History 和播放之前缓存本轮输出。用户松手的 EOS 被接纳后就放行已合成的内容，不等待 Adapter 的上传循环读到 EOS、上游 `Finish` 或全部结果完成。Realtime 输出持续放行。独立调用 GenX Transformer 不包含这层产品策略。
 
-客户端用音频 EOS 关闭音频 route 时，无论哪种模式，Adapter 都会在 `Finish` 之前发送 500 ms 静音；这段静音一次性发出、不按实时节奏发送，也不计入 history audio。在 zh/en 以外的方向上，provider 会丢掉结尾没有停顿的最后一句，而设备在最后一个字说完时就松开按键正是这种情况。Push-to-Talk turn 如果被 provider 正常结束却没有任何译文，仍会正常关闭空的 assistant 文本 route（S2S 模式下还有音频 route），让这一轮结束而不是一直等待输出。GizClaw 的 model builder 把未设置的 Workspace `input` 解析为 Push-to-Talk，而不是 Transformer 的 realtime 缺省值。
+音频 EOS 到达 Adapter 后，Adapter 在 `Finish` 前一次性发送 500 ms 供应商专用静音，不按实时节奏等待，也不计入 history audio。这保留 zh/en 以外方向在结尾没有停顿时的最后一句。正常结束但没有译文的会话仍关闭空的 assistant 文本 route，`s2s` 还关闭空音频 route。会话在 `Finish` 后最多等待 45 秒完成。
 
-Provider 的 transcript 与 translation subtitle token 是自带空格的子词片段（如 `"Bon"`、`"jour"`、`" à"`），同一条 subtitle 内的 token 按原样拼接，只丢弃文本开头的空白；新 subtitle 的第一个 token 与上一句都以 ASCII 字母或数字相接时才补一个空格。
+Provider 的 transcript 与 translation token 是自带空格的子词片段（如 `"Bon"`、`"jour"`、`" à"`），同一 subtitle 内按原样拼接，只去掉文本开头的空白；同一输出 segment 的新 subtitle 与上一句都以 ASCII 字母或数字相接时才补一个空格。
 
-AST 接收循环发生错误时，会直接结束输出流并保留原始错误，不等待下一段输入或音频 EOS。如果接收流在 `SessionFinished` 之前结束，即使 WebSocket 使用正常关闭码，也会返回包装 `io.ErrUnexpectedEOF` 的会话未完成错误。调用方取消 context 或关闭输出流时，Adapter 会关闭 provider session，释放正在等待事件的接收循环和输入读取。
-
-每个 turn 未发布的 assistant TTS output 最多保留两分钟，以规范化 Opus packet duration 计算。超过限制时丢弃整个未发布 turn，并只为对应 StreamID 发送一个 error EOS，不关闭共享 transformer output；input 和 history audio 不计入该限制。
+接收错误立即结束输出并保留原始错误，不等待下一段输入或音频 EOS。在 `SessionFinished` 前结束的接收流（包括正常 WebSocket 关闭）返回包装 `io.ErrUnexpectedEOF` 的未完成错误。取消 context 或关闭输出流会关闭 provider session、接收循环和输入读取。每个 session 的输出及打断终态保留不可变的输入 epoch，旧 session 的迟到输出不会取得新一轮输入的归属。
 
 ## 两套 Realtime API
 

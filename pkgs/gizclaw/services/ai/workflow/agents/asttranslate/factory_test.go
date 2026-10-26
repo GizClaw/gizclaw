@@ -42,8 +42,11 @@ func TestFactoryMergesWorkflowAndWorkspaceParams(t *testing.T) {
 		t.Fatalf("Next() error = %v", err)
 	}
 	got := string(chunk.Part.(genx.Text))
+	if strings.Contains(got, "input=") {
+		t.Fatalf("Workspace input policy leaked into AST provider parameters: %q", got)
+	}
 	for _, want := range []string{
-		"model/ast-model?", "source_language=zh", "target_language=ja", "mode=s2s", "input=push-to-talk", "speaker_id=workspace-speaker",
+		"model/ast-model?", "source_language=zh", "target_language=ja", "mode=s2s", "speaker_id=workspace-speaker",
 	} {
 		if !strings.Contains(got, want) {
 			t.Fatalf("pattern = %q, missing %q", got, want)

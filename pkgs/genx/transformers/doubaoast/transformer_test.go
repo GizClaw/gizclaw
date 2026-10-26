@@ -19,7 +19,6 @@ func TestNew(t *testing.T) {
 	}
 	if transformer.resourceID != doubaospeech.ResourceASTTranslate ||
 		transformer.mode != doubaospeech.ASTTranslateModeS2T ||
-		transformer.inputMode != InputModeRealtime ||
 		transformer.sourceLanguage != defaultLanguage ||
 		transformer.targetLanguage != defaultLanguage {
 		t.Fatalf("minimal Config defaults = %#v", transformer)
@@ -33,7 +32,6 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		Client:               doubaospeech.NewClient(""),
 		ResourceID:           "resource",
 		Mode:                 doubaospeech.ASTTranslateModeS2S,
-		InputMode:            InputModePushToTalk,
 		SourceLanguage:       "zh",
 		TargetLanguage:       "en",
 		SpeakerID:            "speaker",
@@ -56,7 +54,7 @@ func TestNewCopiesConfigAndBuildsConfiguredDelegate(t *testing.T) {
 		t.Fatal("New() retained caller-owned RealtimePacing pointer")
 	}
 	if transformer.resourceID != "resource" || transformer.mode != doubaospeech.ASTTranslateModeS2S ||
-		transformer.inputMode != InputModePushToTalk || transformer.sourceLanguage != "zh" ||
+		transformer.sourceLanguage != "zh" ||
 		transformer.targetLanguage != "en" || transformer.speakerID != "speaker" ||
 		!transformer.isCustomSpeaker || transformer.ttsResourceID != "tts-resource" ||
 		transformer.speechRate != 10 || !transformer.enableSourceLanguageDetect {

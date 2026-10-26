@@ -25,7 +25,7 @@ func TestDoubaoASTLiveRepeatedInterrupt(t *testing.T) {
 	pacing := false
 	transformer, err := doubaoast.New(doubaoast.Config{
 		Client: liveDoubaoClient(t), Mode: doubaospeech.ASTTranslateModeS2S,
-		InputMode: doubaoast.InputModeRealtime, SourceLanguage: "zhen", TargetLanguage: "zhen",
+		SourceLanguage: "zhen", TargetLanguage: "zhen",
 		SourceLanguageDetect: true, SpeakerID: "zh_female_xiaohe_uranus_bigtts", RealtimePacing: &pacing,
 	})
 	if err != nil {

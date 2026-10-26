@@ -84,22 +84,17 @@ Caller cancellation/deadline, input errors, and downstream emission failures rem
 
 ## AST Translate input modes
 
-`doubaoast.Transformer` supports realtime and Push-to-Talk audio input while keeping provider upload and event reception concurrent:
+AST v2 has `s2t` (translated text) and `s2s` (translated text and provider audio) output modes, with no PTT/realtime request parameter. `doubaoast.Transformer` always uploads audio and receives events concurrently, forwarding normalized transcripts, translations, history audio and synthesized audio as they arrive. Translations returned before input completion can enter external TTS immediately.
 
-| Mode | Output boundary |
-| --- | --- |
-| Realtime | Normalized transcript, translation, and TTS chunks are forwarded as provider events arrive. |
-| Push-to-Talk | Provider events are drained while input is active, but normalized transcript, translation, history, and TTS chunks remain unpublished until the matching input audio EOS. |
+Provider source subtitles delimit output segments. A final translation subtitle sends `MessageEnd` so downstream synthesis flushes confirmed text even without sentence punctuation. Audio Dock composes external Voices using the existing TTS segmentation. The AST output queue adds no fixed delay to text chunks.
 
-For Push-to-Talk, input audio EOS commits the unpublished chunks once in their original order. A provider failure recorded before that commit discards the entire unpublished turn and returns the provider error without exposing retained data or control chunks. The commit gate is scoped to the input StreamID and provider session epoch so late events from an interrupted session cannot affect a reused StreamID.
+PTT publication belongs to [AgentHost runtime](/en/developing/gizclaw/services/runtime/agenthost). Runtime resolves intent from an admitted input BOS and the Workspace default, then buffers the turn before History and playback. Admission of the release EOS publishes prepared output without waiting for the adapter uploader to read EOS, upstream `Finish`, or all results. Realtime output passes through continuously. Direct GenX Transformer calls do not include this product policy.
 
-When the client closes its audio route with an audio EOS, in either mode, the adapter sends 500 ms of silence before `Finish`, at once rather than paced and outside the history audio. Outside zh/en the provider drops the final sentence of audio that ends without a pause, which is how a device ends a turn when the key is released as the last word ends. A Push-to-Talk turn that the provider finishes without any translation still closes its assistant text route, and its audio route in S2S mode, normally and empty, so the turn ends instead of waiting for output. The GizClaw model builder resolves an unset Workspace `input` to Push-to-Talk rather than the Transformer's realtime default.
+On audio EOS, the adapter sends 500 ms of provider-only silence before `Finish`, without realtime pacing or history recording. This preserves the last sentence outside zh/en when speech ends without a pause. Successful sessions with no translation still close an empty assistant text route and, for `s2s`, an empty audio route. Session completion is bounded to 45 seconds after `Finish`.
 
-Provider transcript and translation subtitle tokens are subword pieces that carry their own spacing (for example `"Bon"`, `"jour"`, `" à"`). Tokens inside one subtitle are joined unchanged, and only whitespace at the start of a text is dropped. The first token of a new subtitle gets one separating space only when it and the previous sentence meet at ASCII letters or digits.
+Provider transcript and translation tokens carry subword spacing, such as `"Bon"`, `"jour"`, and `" à"`. Tokens within one subtitle are joined verbatim, removing only leading whitespace at the start of text. A new subtitle in the same output segment gets one separating space when it and the previous sentence meet at ASCII letters or digits.
 
-An AST receive error terminates the output stream with the original error without waiting for another input chunk or audio EOS. If the receive stream ends before `SessionFinished`, including a normal WebSocket close, the adapter returns an incomplete-session error wrapping `io.ErrUnexpectedEOF`. Cancelling the caller context or closing the output stream closes the provider session, releasing the event receiver and input reader.
-
-Unpublished assistant TTS output is limited to two minutes of normalized Opus packet duration per turn. Exceeding the limit discards the unpublished turn and emits one error EOS for that StreamID without closing the shared transformer output; input and history audio do not count toward this limit.
+Receive errors end output immediately with the original cause, without waiting for more input or audio EOS. A receive stream ending before `SessionFinished`, including a normal WebSocket close, returns an incomplete-session error wrapping `io.ErrUnexpectedEOF`. Cancelling the context or closing output closes the provider session, receiver and input reader. Every session output and interruption terminal retains its immutable input epoch, so late output cannot acquire a newer capture's ownership.
 
 ## Two sets of Realtime API
 

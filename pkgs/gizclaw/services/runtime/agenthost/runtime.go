@@ -211,6 +211,8 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 		return s.reloadFailure(ctx, workspaceName, err)
 	}
 	runCtx, runCancel := context.WithCancel(baseCtx)
+	capture := newCaptureOutput()
+	runCtx = context.WithValue(runCtx, captureOutputKey{}, capture)
 	stopTransitionCancel := context.AfterFunc(ctx, runCancel)
 	stopLifecycleCancel := context.AfterFunc(s.lifecycleContext(), runCancel)
 	cancel := func() {
@@ -274,6 +276,7 @@ func (s *Service) reload(ctx context.Context) (apitypes.PeerRunStatus, error) {
 
 	now := s.now()
 	next := &runtime{
+		capture:   capture,
 		cancel:    cancel,
 		agent:     agent,
 		input:     input,
@@ -466,7 +469,7 @@ func (s *Service) PushInputIfCurrentRevision(ctx context.Context, revision uint6
 	if revision%2 != 0 || s.revision.Load() != revision {
 		return false, nil
 	}
-	return true, input.Push(ctx, chunk)
+	return true, s.pushInput(ctx, input, chunk)
 }
 
 // PushInput writes an input chunk through the transition gate and reports the
@@ -492,7 +495,7 @@ func (s *Service) PushInput(ctx context.Context, input InputPusher, chunk *genx.
 	if revision%2 != 0 {
 		return revision, false, nil
 	}
-	return revision, true, input.Push(ctx, chunk)
+	return revision, true, s.pushInput(ctx, input, chunk)
 }
 
 // ReloadIfCurrentRevision recovers a missing input only when the caller saw
@@ -543,7 +546,14 @@ func (s *Service) ReloadAndPushInputIfCurrentRevision(ctx context.Context, revis
 	if !reloaded || err != nil {
 		return reloaded, err
 	}
-	return true, input.Push(ctx, chunk)
+	return true, s.pushInput(ctx, input, chunk)
+}
+
+func (s *Service) pushInput(ctx context.Context, input InputPusher, chunk *genx.MessageChunk) error {
+	if rt := s.currentRuntime(); rt != nil && rt.capture != nil {
+		return rt.capture.pushInput(ctx, input, chunk)
+	}
+	return input.Push(ctx, chunk)
 }
 
 func (s *Service) reloadIfCurrentRevision(ctx context.Context, revision uint64) (bool, error) {
@@ -1161,6 +1171,7 @@ func stoppedStatus(updatedAt time.Time) apitypes.PeerRunStatus {
 }
 
 type runtime struct {
+	capture   *captureOutput
 	cancel    context.CancelFunc
 	agent     Agent
 	input     genx.Stream

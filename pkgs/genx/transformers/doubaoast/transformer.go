@@ -6,24 +6,13 @@ import (
 	doubaospeech "github.com/GizClaw/doubao-speech-go"
 )
 
-// InputMode controls how input boundaries are sent to Doubao AST.
-type InputMode string
-
-const (
-	// InputModeRealtime continuously streams input audio.
-	InputModeRealtime InputMode = "realtime"
-	// InputModePushToTalk treats each input stream boundary as one utterance.
-	InputModePushToTalk InputMode = "push-to-talk"
-
-	defaultLanguage = "zhen"
-)
+const defaultLanguage = "zhen"
 
 // Config contains immutable Doubao AST dependencies and session options.
 type Config struct {
 	Client               *doubaospeech.Client
 	ResourceID           string
 	Mode                 doubaospeech.ASTTranslateMode
-	InputMode            InputMode
 	SourceLanguage       string
 	TargetLanguage       string
 	SpeakerID            string
@@ -46,9 +35,6 @@ func New(config Config) (*Transformer, error) {
 	if config.Mode == "" {
 		config.Mode = doubaospeech.ASTTranslateModeS2T
 	}
-	if config.InputMode == "" {
-		config.InputMode = InputModeRealtime
-	}
 	if config.SourceLanguage == "" {
 		config.SourceLanguage = defaultLanguage
 	}
@@ -67,9 +53,6 @@ func New(config Config) (*Transformer, error) {
 		withTTSResourceID(config.TTSResourceID),
 		withSpeechRate(config.SpeechRate),
 		withSourceLanguageDetect(config.SourceLanguageDetect),
-	}
-	if config.InputMode != "" {
-		opts = append(opts, withInputMode(config.InputMode))
 	}
 	if config.Denoise != nil {
 		opts = append(opts, withDenoise(*config.Denoise))

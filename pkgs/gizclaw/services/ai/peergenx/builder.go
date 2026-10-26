@@ -925,14 +925,6 @@ func (b DefaultBuilder) buildVolcASTTranslate(cfg TransformerConfig) (genx.Trans
 	if value, ok := mapBool(data, "realtime_pacing", "realtimePacing"); ok {
 		config.RealtimePacing = &value
 	}
-	// An unset input is push-to-talk, as for every other Workspace input, not
-	// the Transformer's realtime default: a turn closed by its audio EOS must
-	// get push-to-talk completion.
-	inputMode, err := doubaoASTTranslateInputMode(mapString(data, "input", "input_mode"))
-	if err != nil {
-		return nil, err
-	}
-	config.InputMode = inputMode
 	client := doubaospeech.NewClient(appID, clientOpts...)
 	config.Client = client
 	return doubaoast.New(config)
@@ -999,17 +991,6 @@ func doubaoASTTranslateMode(mode string) (doubaospeech.ASTTranslateMode, error) 
 		return doubaospeech.ASTTranslateModeS2S, nil
 	default:
 		return "", fmt.Errorf("%w: doubao ast translate mode %q", ErrUnsupported, mode)
-	}
-}
-
-func doubaoASTTranslateInputMode(value string) (doubaoast.InputMode, error) {
-	switch strings.ToLower(strings.TrimSpace(value)) {
-	case "", "push-to-talk", "push_to_talk", "ptt", "default":
-		return doubaoast.InputModePushToTalk, nil
-	case "realtime", "real-time", "real_time":
-		return doubaoast.InputModeRealtime, nil
-	default:
-		return "", fmt.Errorf("%w: doubao ast translate input mode %q", ErrUnsupported, value)
 	}
 }
 

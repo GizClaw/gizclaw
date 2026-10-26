@@ -26,7 +26,6 @@ import (
 const (
 	doubaoASTTranslateTranscriptLabel           = "transcript"
 	doubaoASTTranslateAssistantLabel            = "assistant"
-	doubaoASTTranslatePTTOutputLimit            = 2 * time.Minute
 	doubaoASTTranslateRealtimeCompletionTimeout = 45 * time.Second
 	// doubaoASTTranslateTrailingSilence is appended when the client ends its
 	// audio route, before Finish. Outside zh/en, the provider drops the final
@@ -41,7 +40,6 @@ const (
 )
 
 var (
-	errDoubaoASTTranslatePTTOutputLimit            = errors.New("doubao ast translate: push-to-talk output audio limit exceeded")
 	errDoubaoASTTranslateRealtimeCompletionTimeout = errors.New("doubao ast translate: realtime session completion timeout")
 )
 
@@ -49,7 +47,6 @@ type Transformer struct {
 	client                     *doubaospeech.Client
 	resourceID                 string
 	mode                       doubaospeech.ASTTranslateMode
-	inputMode                  InputMode
 	sourceLanguage             string
 	targetLanguage             string
 	speakerID                  string
@@ -85,14 +82,6 @@ func withMode(mode doubaospeech.ASTTranslateMode) option {
 	return func(t *Transformer) {
 		if mode != "" {
 			t.mode = mode
-		}
-	}
-}
-
-func withInputMode(mode InputMode) option {
-	return func(t *Transformer) {
-		if mode != "" {
-			t.inputMode = mode
 		}
 	}
 }
@@ -162,7 +151,6 @@ func newTransformer(client *doubaospeech.Client, opts ...option) *Transformer {
 		client:                    client,
 		resourceID:                doubaospeech.ResourceASTTranslate,
 		mode:                      doubaospeech.ASTTranslateModeS2T,
-		inputMode:                 InputModeRealtime,
 		sourceLanguage:            "zhen",
 		targetLanguage:            "zhen",
 		realtimePacing:            true,
@@ -211,14 +199,14 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 	}()
 
 	var session doubaoASTTranslateSession
-	var sessionGate *astTranslatePTTOutputGate
+	var inputEpoch *genx.ResponseEpoch
+	var sessionEpoch *genx.ResponseEpoch
 	var sessionRoutes *astTranslateRouteLifecycle
 	var recvDone chan error
 	var recvStart chan struct{}
 	var recvFinished chan struct{}
 	var recvCompletionState *atomic.Uint32
 	var streamID string
-	var limitedStreamID string
 	var sessionFinishing bool
 	var rawOpusDecoder *opus.Decoder
 	var sessionStartedAt time.Time
@@ -265,7 +253,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
 		sessionFinishing = false
-		limitedStreamID = ""
 		sessionSeq++
 		activeSessionSeq.Store(sessionSeq)
 		seq := sessionSeq
@@ -274,15 +261,14 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		sessionRoutes = newASTTranslateRouteLifecycle()
 		visibleOutput := astTranslateLifecycleOutput{output: output, routes: sessionRoutes}
-		eventOutput := astTranslateOutput(astTranslateGatedOutput{
-			output: visibleOutput,
-			active: active,
-		})
-		if t.inputMode == InputModePushToTalk {
-			sessionGate = newASTTranslatePTTOutputGate(visibleOutput, active, streamID)
-			eventOutput = sessionGate
-		} else {
-			sessionGate = nil
+		epoch := inputEpoch
+		if epoch == nil {
+			epoch = genx.NewResponseEpoch(streamID)
+		}
+		sessionEpoch = epoch
+		eventOutput := astTranslateEpochOutput{
+			output: astTranslateGatedOutput{output: visibleOutput, active: active},
+			epoch:  epoch,
 		}
 		done := make(chan error, 1)
 		finished := make(chan struct{})
@@ -293,17 +279,15 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			terminalSessionSeq.Store(seq)
 		}
 		start := make(chan struct{})
-		pttGate := sessionGate
 		recvDone = done
 		recvStart = start
 		recvFinished = finished
 		recvCompletionState = completionState
-		go func(activeStreamID string, start <-chan struct{}, eventOutput astTranslateOutput, pttGate *astTranslatePTTOutputGate) {
+		go func(activeStreamID string, start <-chan struct{}, eventOutput astTranslateOutput) {
 			defer stopClose()
 			select {
 			case <-ctx.Done():
 				markTerminal()
-				pttGate.Discard()
 				completionState.CompareAndSwap(0, 1)
 				done <- ctx.Err()
 				close(finished)
@@ -314,10 +298,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			if cause := context.Cause(ctx); cause != nil {
 				err = cause
 			}
-			if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
-				_ = next.Close()
-			} else if err != nil {
-				pttGate.Discard()
+			if err != nil {
 				// A receive failure must not wait for the next input chunk or EOS.
 				// An interrupted session no longer owns this invocation's output.
 				if activeSessionSeq.CompareAndSwap(seq, 0) {
@@ -328,7 +309,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			completionState.CompareAndSwap(0, 1)
 			done <- err
 			close(finished)
-		}(streamID, start, eventOutput, pttGate)
+		}(streamID, start, eventOutput)
 		return nil
 	}
 
@@ -381,7 +362,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			sessionFinishing = true
 			if err := active.Finish(ctx); err != nil {
 				session = nil
-				sessionGate = nil
 				sessionRoutes = nil
 				recvDone = nil
 				recvFinished = nil
@@ -391,7 +371,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 				_ = active.Close()
 				return err
 			}
-			if t.inputMode == InputModeRealtime && t.realtimeCompletionTimeout > 0 &&
+			if t.realtimeCompletionTimeout > 0 &&
 				finished != nil && completionState != nil && activeSeq != 0 {
 				timeout := t.realtimeCompletionTimeout
 				go func() {
@@ -422,7 +402,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			return nil
 		}
 		session = nil
-		sessionGate = nil
 		sessionRoutes = nil
 		recvDone = nil
 		recvFinished = nil
@@ -448,11 +427,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		select {
 		case err := <-recvDone:
 			active := session
-			if sessionGate != nil && err != nil {
-				sessionGate.Discard()
-			}
 			session = nil
-			sessionGate = nil
 			sessionRoutes = nil
 			recvDone = nil
 			recvFinished = nil
@@ -467,43 +442,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 	}
 
-	handlePTTOutputLimit := func() error {
-		if session == nil || sessionGate == nil || !sessionGate.LimitExceeded() {
-			return nil
-		}
-		active := session
-		done := recvDone
-		failedID := streamID
-		session = nil
-		sessionGate = nil
-		sessionRoutes = nil
-		recvDone = nil
-		recvFinished = nil
-		recvCompletionState = nil
-		sessionFinishing = false
-		activeSessionSeq.Store(0)
-		if recvStart != nil {
-			close(recvStart)
-			recvStart = nil
-		}
-		_ = active.Close()
-		if done != nil {
-			select {
-			case err := <-done:
-				if err != nil && !errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
-					return err
-				}
-			case <-ctx.Done():
-				return ctx.Err()
-			}
-		}
-		limitedStreamID = failedID
-		historyAudio.reset()
-		sessionStartedAt = time.Time{}
-		sentAudioDuration = 0
-		return nil
-	}
-
 	interruptSession := func(id string) error {
 		if session == nil {
 			streamID = strings.TrimSpace(id)
@@ -511,13 +449,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		active := session
 		done := recvDone
-		limitExceeded := false
 		routes := sessionRoutes
 		activeSessionSeq.Store(0)
-		if sessionGate != nil {
-			sessionGate.Discard()
-			limitExceeded = sessionGate.LimitExceeded()
-		}
 		interruptedStreamID := strings.TrimSpace(streamID)
 		if interruptedStreamID == "" {
 			interruptedStreamID = strings.TrimSpace(id)
@@ -526,7 +459,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			interruptedStreamID = "audio"
 		}
 		session = nil
-		sessionGate = nil
 		sessionRoutes = nil
 		recvDone = nil
 		recvFinished = nil
@@ -536,13 +468,13 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			close(recvStart)
 			recvStart = nil
 		}
-		if !limitExceeded {
+		{
 			chunks := astTranslateInterruptedChunks(interruptedStreamID, t.mode == doubaospeech.ASTTranslateModeS2S)
 			if routes != nil {
 				chunks = routes.interruptedChunks(interruptedStreamID, t.mode == doubaospeech.ASTTranslateModeS2S)
 			}
 			for _, chunk := range chunks {
-				if err := output.Push(chunk); err != nil {
+				if err := (astTranslateEpochOutput{output: output, epoch: sessionEpoch}).Push(chunk); err != nil {
 					_ = active.Close()
 					return err
 				}
@@ -557,7 +489,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			}
 		}
 		streamID = strings.TrimSpace(id)
-		limitedStreamID = ""
 		historyAudio.reset()
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
@@ -566,30 +497,17 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 
 	for {
 		if err := ctx.Err(); err != nil {
-			if sessionGate != nil {
-				sessionGate.Discard()
-			}
 			output.CloseWithError(err)
 			return
 		}
 		chunk, err := streamlog.ReadInput(ctx, input)
-		if limitErr := handlePTTOutputLimit(); limitErr != nil {
-			output.CloseWithError(limitErr)
-			return
-		}
 		if err != nil {
 			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
 				if session != nil {
-					if sessionGate != nil {
-						sessionGate.Discard()
-					}
 					_ = session.Close()
 				}
 				output.CloseWithError(err)
 				return
-			}
-			if sessionGate != nil {
-				sessionGate.Discard()
 			}
 			if err := finishSession(true); err != nil {
 				output.CloseWithError(err)
@@ -605,12 +523,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		id := chunkInputStreamID(chunk, streamID)
 		if chunk.IsBeginOfStream() {
-			if limitedStreamID != "" {
-				limitedStreamID = ""
-				streamID = id
-				continue
-			}
-			if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
+			if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && (id != streamID || (chunk.Ctrl.ResponseEpoch != nil && chunk.Ctrl.ResponseEpoch != inputEpoch)) {
 				var err error
 				activeSeq := activeSessionSeq.Load()
 				if activeSeq != 0 && terminalSessionSeq.Load() == activeSeq {
@@ -625,13 +538,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 				}
 			}
 			streamID = id
-			continue
-		}
-		if limitedStreamID != "" {
-			if chunk.IsEndOfStream() && id == limitedStreamID {
-				limitedStreamID = ""
-				streamID = ""
-			}
+			inputEpoch = chunk.Ctrl.ResponseEpoch
 			continue
 		}
 		if strings.TrimSpace(streamID) != "" && strings.TrimSpace(id) != "" && id != streamID {
@@ -642,24 +549,8 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 				if session != nil {
 					t.sendTrailingSilence(ctx, session)
 				}
-				if sessionGate != nil {
-					if err := sessionGate.Commit(); err != nil {
-						if errors.Is(err, errDoubaoASTTranslatePTTOutputLimit) {
-							if limitErr := handlePTTOutputLimit(); limitErr != nil {
-								output.CloseWithError(limitErr)
-								return
-							}
-							continue
-						}
-						if session != nil {
-							_ = session.Close()
-						}
-						output.CloseWithError(err)
-						return
-					}
-				}
-				wait := t.inputMode != InputModeRealtime
-				if err := finishSession(wait); err != nil {
+
+				if err := finishSession(false); err != nil {
 					output.CloseWithError(err)
 					return
 				}
@@ -679,9 +570,6 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		audio, err := t.prepareAudioBlob(blob, &rawOpusDecoder)
 		if err != nil {
-			if sessionGate != nil {
-				sessionGate.Discard()
-			}
 			if session != nil {
 				_ = session.Close()
 			}
@@ -704,27 +592,12 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			close(recvStart)
 			recvStart = nil
 		}
-		limitedDuringSend := false
 		for audioChunk := range splitDoubaoASRAudio(audio, t.audioChunkSize()) {
 			if err := sendAudio(audioChunk); err != nil {
-				if sessionGate != nil && sessionGate.LimitExceeded() {
-					if limitErr := handlePTTOutputLimit(); limitErr != nil {
-						output.CloseWithError(limitErr)
-						return
-					}
-					limitedDuringSend = true
-					break
-				}
-				if sessionGate != nil {
-					sessionGate.Discard()
-				}
 				_ = session.Close()
 				output.CloseWithError(err)
 				return
 			}
-		}
-		if limitedDuringSend {
-			continue
 		}
 	}
 }
@@ -920,199 +793,6 @@ func (o astTranslateLifecycleOutput) Push(chunk *genx.MessageChunk) error {
 	return nil
 }
 
-type astTranslatePTTOutputGate struct {
-	mu       sync.Mutex
-	cond     *sync.Cond
-	output   astTranslateOutput
-	active   func() bool
-	streamID string
-
-	committed              bool
-	terminal               bool
-	inFlightProviderEvents atomic.Int64
-	retained               []*genx.MessageChunk
-	retainedDuration       time.Duration
-	limitErr               error
-	terminalErr            error
-}
-
-func newASTTranslatePTTOutputGate(output astTranslateOutput, active func() bool, streamID string) *astTranslatePTTOutputGate {
-	streamID = strings.TrimSpace(streamID)
-	if streamID == "" {
-		streamID = "audio"
-	}
-	gate := &astTranslatePTTOutputGate{
-		output:   output,
-		active:   active,
-		streamID: streamID,
-	}
-	gate.cond = sync.NewCond(&gate.mu)
-	return gate
-}
-
-func (g *astTranslatePTTOutputGate) Push(chunk *genx.MessageChunk) error {
-	if g == nil || chunk == nil {
-		return nil
-	}
-	if g.active != nil && !g.active() {
-		return nil
-	}
-
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.active != nil && !g.active() {
-		return nil
-	}
-	if g.terminal {
-		return nil
-	}
-	if g.committed {
-		return g.output.Push(chunk)
-	}
-
-	duration := astTranslateAssistantOpusDuration(chunk)
-	if duration > 0 && duration > doubaoASTTranslatePTTOutputLimit-g.retainedDuration {
-		g.retained = nil
-		g.retainedDuration = 0
-		g.terminal = true
-		g.limitErr = fmt.Errorf(
-			"%w for StreamID %q (limit %s)",
-			errDoubaoASTTranslatePTTOutputLimit,
-			g.streamID,
-			doubaoASTTranslatePTTOutputLimit,
-		)
-		g.cond.Broadcast()
-		if err := g.output.Push(astTranslatePTTOutputLimitChunk(g.streamID, g.limitErr)); err != nil {
-			return err
-		}
-		return g.limitErr
-	}
-
-	g.retainedDuration += duration
-	g.retained = append(g.retained, chunk.Clone())
-	return nil
-}
-
-func (g *astTranslatePTTOutputGate) Commit() error {
-	if g == nil {
-		return nil
-	}
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	for g.inFlightProviderEvents.Load() > 0 && !g.terminal {
-		g.cond.Wait()
-	}
-	if g.limitErr != nil {
-		return g.limitErr
-	}
-	if g.terminalErr != nil {
-		return g.terminalErr
-	}
-	if g.terminal || g.committed {
-		return nil
-	}
-	for _, chunk := range g.retained {
-		if err := g.output.Push(chunk); err != nil {
-			g.terminal = true
-			g.retained = nil
-			g.retainedDuration = 0
-			return err
-		}
-	}
-	g.retained = nil
-	g.retainedDuration = 0
-	g.committed = true
-	return nil
-}
-
-func (g *astTranslatePTTOutputGate) Discard() {
-	g.discard(nil)
-}
-
-func (g *astTranslatePTTOutputGate) Fail(err error) {
-	g.discard(err)
-}
-
-func (g *astTranslatePTTOutputGate) discard(err error) {
-	if g == nil {
-		return
-	}
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.terminal || g.committed {
-		return
-	}
-	g.terminal = true
-	g.terminalErr = err
-	g.retained = nil
-	g.retainedDuration = 0
-	g.cond.Broadcast()
-}
-
-func (g *astTranslatePTTOutputGate) providerEventSequence(events iter.Seq2[*doubaospeech.ASTTranslateEvent, error]) iter.Seq2[*doubaospeech.ASTTranslateEvent, error] {
-	if g == nil {
-		return events
-	}
-	return func(yield func(*doubaospeech.ASTTranslateEvent, error) bool) {
-		events(func(event *doubaospeech.ASTTranslateEvent, err error) bool {
-			// Register before handing the event to forwardEvents so Commit either
-			// waits for this event or linearizes before its delivery.
-			g.beginProviderEvent()
-			defer g.endProviderEvent()
-			return yield(event, err)
-		})
-	}
-}
-
-func (g *astTranslatePTTOutputGate) beginProviderEvent() {
-	g.inFlightProviderEvents.Add(1)
-}
-
-func (g *astTranslatePTTOutputGate) endProviderEvent() {
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	if g.inFlightProviderEvents.Add(-1) == 0 {
-		g.cond.Broadcast()
-	}
-}
-
-func (g *astTranslatePTTOutputGate) LimitExceeded() bool {
-	if g == nil {
-		return false
-	}
-	g.mu.Lock()
-	defer g.mu.Unlock()
-	return g.limitErr != nil
-}
-
-func astTranslateAssistantOpusDuration(chunk *genx.MessageChunk) time.Duration {
-	if chunk == nil || chunk.Role != genx.RoleModel || chunk.Ctrl == nil || chunk.Ctrl.Label != doubaoASTTranslateAssistantLabel {
-		return 0
-	}
-	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || blob == nil || len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
-		return 0
-	}
-	return time.Duration(historyOpusPacketDurationMS(blob.Data)) * time.Millisecond
-}
-
-func astTranslatePTTOutputLimitChunk(streamID string, err error) *genx.MessageChunk {
-	errText := ""
-	if err != nil {
-		errText = err.Error()
-	}
-	return &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Name: doubaoASTTranslateAssistantLabel,
-		Ctrl: &genx.StreamCtrl{
-			StreamID:    streamID,
-			Label:       doubaoASTTranslateAssistantLabel,
-			EndOfStream: true,
-			Error:       errText,
-		},
-	}
-}
-
 type astTranslateGatedOutput struct {
 	output astTranslateOutput
 	active func() bool
@@ -1139,7 +819,6 @@ func (t *Transformer) forwardEvents(
 	audio := astTranslateAudioState{streamID: streamID, mimeType: "audio/opus", decoder: newASTOggOpusFrameDecoder()}
 	segment := 0
 	translated := false
-	segmentByProvider := t.inputMode != InputModePushToTalk
 	ensureSegment := func() string {
 		if segment == 0 {
 			segment = 1
@@ -1151,36 +830,23 @@ func (t *Transformer) forwardEvents(
 		return id
 	}
 	startSegment := func() string {
-		if !segmentByProvider {
-			return ensureSegment()
-		}
 		segment++
 		return ensureSegment()
 	}
 	defer func() {
-		if retErr != nil {
-			if gate, ok := output.(*astTranslatePTTOutputGate); ok {
-				gate.Discard()
-			}
-		}
 		_ = source.close(output, "")
 		_ = translation.close(output, "")
 		_ = audio.close(output, "")
-	}()
-	failPTTGate := func(err error) error {
-		if gate, ok := output.(*astTranslatePTTOutputGate); ok {
-			gate.Fail(err)
+		if retErr == nil {
+			// Process-local completion covers every provider subtitle in this
+			// session. It has no wire boundary or payload of its own.
+			_ = output.Push(&genx.MessageChunk{Role: genx.RoleModel, Ctrl: &genx.StreamCtrl{StreamID: translation.streamID, Label: doubaoASTTranslateAssistantLabel, ResponseEpochEnd: true}})
 		}
-		return err
-	}
+	}()
 	events := session.Recv()
-	if gate, ok := output.(*astTranslatePTTOutputGate); ok {
-		events = gate.providerEventSequence(events)
-	}
 	for event, err := range events {
 		if err != nil {
 			markTerminal()
-			failPTTGate(err)
 			_ = source.close(output, err.Error())
 			_ = translation.close(output, err.Error())
 			_ = audio.close(output, err.Error())
@@ -1191,103 +857,95 @@ func (t *Transformer) forwardEvents(
 		}
 		switch event.Type {
 		case doubaospeech.ASTEventSourceSubtitleStart:
-			if segmentByProvider && source.active {
+			if source.active {
 				if err := source.close(output, ""); err != nil {
-					return failPTTGate(err)
+					return err
+				}
+			}
+			if segment > 0 {
+				if err := translation.close(output, ""); err != nil {
+					return err
 				}
 			}
 			startSegment()
 			if err := source.open(output); err != nil {
-				return failPTTGate(err)
+				return err
 			}
 		case doubaospeech.ASTEventSourceSubtitleResponse:
 			ensureSegment()
 			if err := source.addToken(output, event.Text); err != nil {
-				return failPTTGate(err)
+				return err
 			}
 		case doubaospeech.ASTEventSourceSubtitleEnd:
 			id := ensureSegment()
 			if err := source.addFinal(output, event.Text); err != nil {
-				return failPTTGate(err)
+				return err
 			}
-			if segmentByProvider {
-				if err := historyAudio.emitSegment(output, id, event.StartTimeMS, event.EndTimeMS); err != nil {
-					return failPTTGate(err)
-				}
-				if err := source.close(output, ""); err != nil {
-					return failPTTGate(err)
-				}
+			if err := historyAudio.emitSegment(output, id, event.StartTimeMS, event.EndTimeMS); err != nil {
+				return err
+			}
+			if err := source.close(output, ""); err != nil {
+				return err
 			}
 		case doubaospeech.ASTEventTranslationSubtitleStart:
 			translated = true
 			ensureSegment()
 			if err := translation.open(output); err != nil {
-				return failPTTGate(err)
+				return err
 			}
 		case doubaospeech.ASTEventTranslationSubtitleResponse:
 			ensureSegment()
 			if err := translation.addToken(output, event.Text); err != nil {
-				return failPTTGate(err)
+				return err
 			}
 		case doubaospeech.ASTEventTranslationSubtitleEnd:
 			ensureSegment()
 			if err := translation.addFinal(output, event.Text); err != nil {
-				return failPTTGate(err)
+				return err
 			}
-			if segmentByProvider {
-				if err := translation.close(output, ""); err != nil {
-					return failPTTGate(err)
-				}
+			// A final subtitle can flush downstream synthesis immediately. The
+			// next source segment or session completion closes the text route.
+			if err := output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: translation.streamID, Label: doubaoASTTranslateAssistantLabel, MessageEnd: true}}); err != nil {
+				return err
 			}
 		case doubaospeech.ASTEventTTSSentenceStart:
 			translated = true
 			ensureSegment()
 			if err := audio.open(output); err != nil {
-				return failPTTGate(err)
+				return err
 			}
 		case doubaospeech.ASTEventTTSResponse:
 			if len(event.Audio) > 0 {
 				if err := audio.add(output, event.Audio); err != nil {
-					return failPTTGate(err)
+					return err
 				}
 			}
 		case doubaospeech.ASTEventTTSSentenceEnd:
 			if len(event.Audio) > 0 {
 				if err := audio.add(output, event.Audio); err != nil {
-					return failPTTGate(err)
+					return err
 				}
 			}
-			if segmentByProvider {
-				if err := audio.close(output, ""); err != nil {
-					return failPTTGate(err)
-				}
-			} else if err := audio.finishDecoder(""); err != nil {
-				return failPTTGate(err)
+			if err := audio.close(output, ""); err != nil {
+				return err
 			}
 		case doubaospeech.ASTEventUsageResponse:
 			t.recordUsage(ctx, event.Usage)
 		case doubaospeech.ASTEventSessionFinished:
 			markTerminal()
-			if !segmentByProvider {
-				if err := historyAudio.emitSegment(output, ensureSegment(), 0, 0); err != nil {
-					return failPTTGate(err)
-				}
-				if !translated {
-					// A push-to-talk turn the provider finished without any
-					// translation still ends: its routes close empty instead
-					// of leaving the turn open until the caller gives up.
-					if err := t.closeEmptyTranslation(output, &translation, &audio); err != nil {
-						return failPTTGate(err)
-					}
+			if !translated {
+				ensureSegment()
+				if err := t.closeEmptyTranslation(output, &translation, &audio); err != nil {
+					return err
 				}
 			}
 			return nil
 		case doubaospeech.ASTEventSessionCanceled, doubaospeech.ASTEventSessionFailed:
 			markTerminal()
 			if event.Error != nil {
-				return failPTTGate(event.Error)
+				return event.Error
 			}
-			return failPTTGate(fmt.Errorf("doubao ast translate terminal event %d", event.Type))
+			return fmt.Errorf("doubao ast translate terminal event %d", event.Type)
 		}
 	}
 	return fmt.Errorf("doubao ast translate session closed before SessionFinished: %w", io.ErrUnexpectedEOF)
@@ -1411,6 +1069,7 @@ type astTranslateTextState struct {
 	streamID string
 	active   bool
 	text     string
+	allText  string
 	// sentenceEnded marks that a provider subtitle ended, so the next token
 	// starts a new sentence that may need a separating space.
 	sentenceEnded bool
@@ -1445,8 +1104,12 @@ func (s *astTranslateTextState) addToken(output astTranslateOutput, text string)
 	if s.sentenceEnded && astTranslateNeedsSpace(s.text, text) {
 		text = " " + text
 	}
+	if s.text == "" && astTranslateNeedsSpace(s.allText, text) {
+		s.allText += " "
+	}
 	s.sentenceEnded = false
 	s.text += text
+	s.allText += text
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(text),
@@ -1462,6 +1125,12 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 	if err := s.open(output); err != nil {
 		return err
 	}
+	// A final can cover this subtitle or the complete session. Convert a
+	// cumulative final to this provider segment before deriving its delta.
+	if s.allText != "" && realtimeNormalizeText(s.allText) != realtimeNormalizeText(s.text) &&
+		strings.HasPrefix(realtimeNormalizeText(text), realtimeNormalizeText(s.allText)) {
+		text = strings.TrimSpace(s.text + realtimeTextDelta(s.allText, text))
+	}
 	s.sentenceEnded = true
 	if realtimeNormalizeText(s.text) == realtimeNormalizeText(text) {
 		// Nothing is emitted, so keep the whitespace the stream already ends
@@ -1474,6 +1143,7 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 		s.text = text
 		return nil
 	}
+	firstInSegment := s.text == ""
 	if delta == text && s.text != "" {
 		if astTranslateNeedsSpace(s.text, delta) {
 			delta = " " + delta
@@ -1482,6 +1152,10 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 	} else {
 		s.text = text
 	}
+	if firstInSegment && astTranslateNeedsSpace(s.allText, delta) {
+		s.allText += " "
+	}
+	s.allText += delta
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(delta),
@@ -1498,12 +1172,12 @@ func astTranslateNeedsSpace(previous, next string) bool {
 	return astTranslateASCIIWordByte(last) && astTranslateASCIIWordByte(first)
 }
 
-func trailingSpace(text string) string {
-	return text[len(strings.TrimRightFunc(text, unicode.IsSpace)):]
-}
-
 func astTranslateASCIIWordByte(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
+func trailingSpace(text string) string {
+	return text[len(strings.TrimRightFunc(text, unicode.IsSpace)):]
 }
 
 func (s *astTranslateTextState) close(output astTranslateOutput, errText string) error {

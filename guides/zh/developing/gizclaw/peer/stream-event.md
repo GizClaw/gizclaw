@@ -8,6 +8,8 @@
 
 这个前缀拥有 GizClaw Peer event stream 与 GenX chunk 之间的产品映射。底层 stream transport 属于 `pkgs/giznet`；领域状态变化仍由产生事件的 service 拥有。
 
+音频 BOS 的 `input_mode` 映射为进程内 `StreamCtrl.InputMode`，由 runtime 结合 Workspace 默认值决定 PTT 输出发布边界。该字段不写入 History；供应商需要的原生输入模式仍由其 Adapter 转换。
+
 Event types、字段、方向和 BOS/EOS 边界见 [Events Reference](/references/events)；Event Stream 与 media、direct packet、RPC stream 的关系见 [Streams Reference](/references/streams)。本页只记录实现职责。
 
 `peerStreamEventBroker` 的唯一 writer subscriber 是当前 Peer connection 在 ready
