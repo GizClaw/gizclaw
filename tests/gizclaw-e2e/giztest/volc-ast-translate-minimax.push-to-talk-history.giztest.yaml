@@ -1,0 +1,129 @@
+# User Story:
+# As a registered device using AST with MiniMax speech,
+# I want to finish one translated PTT response and persist one user and one assistant entry,
+# So that capture policy, streaming synthesis and output completion remain testable.
+version: gizclaw.test/v1alpha1
+name: volc-ast-translate-minimax.push-to-talk-history
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  registration_token:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_REGISTRATION_TOKEN
+    secret: true
+  workspace_name:
+    direction: input
+    type: string
+    generate: token
+  input_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+steps:
+  - id: register_peer
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: ${registration_token}
+  - id: create_workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: volc-ast-translate-tts
+        parameters:
+          asttranslate_workspace_parameters:
+            agent_type: ASTTRANSLATE_WORKSPACE_PARAMETERS_AGENT_TYPE_AST_TRANSLATE
+            lang_pair: zh/en
+            voice:
+              asttranslate_external_voice_parameters:
+                tts_voice: minimax-boy
+  - id: select_workspace
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${workspace_name}
+  - id: synthesize_input
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们明天上午九点在学校门口见面。请记得带上借书证和水杯。中午我们在附近吃饭，下午一起去公园散步。晚上七点再坐地铁回家。下一天我们会去博物馆看展览，听讲解员介绍这座城市的历史，然后一起分享今天最喜欢的故事。
+        accepted_content_types:
+          - audio/ogg
+    save_as: input_audio
+  - id: exercise_workflow
+    client: peer
+    peer_stream:
+      mode: push-to-talk
+      input: ${input_audio}
+      pacing: 20ms
+      require_text: true
+      require_audio: true
+      wait_for_history: true
+      trim_trailing_silence: true
+    expect:
+      /audio_bytes:
+        minimum: 1
+      /audio_integrity/violations:
+        equals: 0
+      /pre_release_response_count:
+        equals: 0
+      /response_count:
+        equals: 1
+      /text_eos:
+        equals: true
+      /audio_eos:
+        equals: true
+      /history_name:
+        non_empty: true
+      /audio_integrity/open:
+        equals: 0
+    timeout: 120s
+  - id: one_capture_history
+    client: peer
+    rpc:
+      method: server.workspace.history.list
+      request:
+        workspace_name: ${workspace_name}
+        order: WORKSPACE_HISTORY_LIST_REQUEST_ORDER_ASC
+        limit: 10
+    expect:
+      /items:
+        count: 2
+      /items/0/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_GEAR
+      /items/1/type:
+        equals: PEER_RUN_HISTORY_ENTRY_TYPE_AGENT
+      /items/1/text:
+        non_empty: true
+      /items/1/audio_available:
+        equals: true
+finally:
+  - client: peer
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request:
+        name: ${workspace_name}
+  - client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

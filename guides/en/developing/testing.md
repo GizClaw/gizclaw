@@ -851,6 +851,14 @@ Flutter Giztest SSE evidence retains event names and resource paths even when as
 
 The standard catalog also includes deterministic `initiative-agent`, `initiative-peer`, and `initiative-default` opening Workflows for `eino.initiative.giztest.yaml` to verify shared History and Workspace overrides. The dedicated Go Giztest additionally checks that the obsolete `starts` field is ignored.
 
+### AST and MiniMax capture publication regression
+
+The standard Docker Giztest batch includes `volc-ast-translate-minimax.*` scenarios with the Profile's real MiniMax system Voice. PTT uses multi-sentence input paced at 20 ms. Its first-response probe measures from input EOS and checks a 500 ms regression budget after allowing synthesis to overlap capture. The complete turn checks default PTT, one reply, text/audio EOS, and exactly one user History entry and one assistant entry. This fixture budget is not a latency guarantee for arbitrary short phrases or public-network devices.
+
+Go Giztest reports `pre_release_response_count`: new assistant response IDs first seen after the current PTT input began and before its first input EOS, excluding replies known before input. It is separate from earlier-response filtering, allowing scenarios to assert zero rather than hide premature playback behind that filter. It resets for each PTT input and adds no wire field.
+
+The realtime scenario requires audible output before the long recording ends, then waits for the final sentence's text/audio EOS and persistence receipt. Standard document discovery in `run_tests.sh` includes all three cases; existing AST interruption, consecutive-turn, language and concurrency scenarios continue to run.
+
 ### Manual environment
 
 The standard Docker environment includes a single-node LiveKit with temporary SFU credentials generated for each setup. Group RPC, event-stream, and social tests use this service inside the Compose network. LiveKit publishes no host ports and is removed with the test environment.
@@ -2106,7 +2114,7 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
 ```
 
-The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR, AgentHost and GizTunnel
+The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR/AST, AST Translate, AgentHost and GizTunnel
 package race tests and consecutive audio turns through real Server, Edge and
 WebRTC. Local HTTP and SAUC WebSocket fixtures replace remote ASR, model and
 TTS services while retaining the production adapters; Provider credentials are

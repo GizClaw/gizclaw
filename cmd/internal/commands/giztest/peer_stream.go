@@ -1064,6 +1064,9 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	}
 	baseEvidence := func() map[string]any {
 		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
+		if op.Mode == "push-to-talk" && !inputSent && !op.EmptyInput {
+			evidence["pre_release_response_count"] = arrivals.filter.preReleaseResponses()
+		}
 		if expectedTerminal != nil {
 			evidence["terminal_error"] = expectedTerminal
 		}
@@ -1168,6 +1171,9 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			}
 		}
 		object["response_count"] = responseCount
+		if op.Mode == "push-to-talk" && !inputSent && !op.EmptyInput {
+			object["pre_release_response_count"] = arrivals.filter.preReleaseResponses()
+		}
 		if op.Mode == "push-to-talk" || op.Mode == "realtime" {
 			object["input_packets"] = inputPackets
 			object["input_ms"] = inputDuration.Milliseconds()

@@ -860,6 +860,14 @@ Flutter Giztest 的 SSE evidence 保留事件名与资源路径，断言失败�
 
 标准 catalog 还包含 `initiative-agent`、`initiative-peer` 和 `initiative-default` 三个确定性开场 Workflow，供 `eino.initiative.giztest.yaml` 验证统一 History 和 Workspace 覆盖规则；专用 Go Giztest 另检查旧 `starts` 字段的忽略行为。
 
+### AST 与 MiniMax 的 capture 发布回归
+
+标准 Docker Giztest 批次包含 `volc-ast-translate-minimax.*` 场景，并使用 Profile 中的真实 MiniMax system Voice。PTT 场景使用按 20 ms 上传的多句录音：首响探针从输入 EOS 开始计时，检查提前合成后的 500 ms 回归预算；完整轮次检查默认 PTT、单条回复、文本／音频 EOS 和恰好一条用户 History、一条助手 History。这个预算用于已提供充分合成窗口的测试录音，不是任意短句或公网设备的延迟保证。
+
+Go Giztest 的 `pre_release_response_count` 记录当前 PTT 输入开始后、首次输入 EOS 前新出现的助手 response ID，排除输入前已经存在的回复。它独立于旧回复过滤，因此正式场景可以断言为零，防止提前播放被客户端过滤掩盖。该计数随新的 PTT 输入轮次重置，不增加 wire 字段。
+
+Realtime 场景要求长录音完成前已有可听输出，并继续等待最后一句的完整文本／音频 EOS 和持久化确认。三个场景由 `run_tests.sh` 的标准文档发现纳入全量批次；原有 AST 打断、连续轮次、其他语言和并发场景继续运行。
+
 ### 手动环境
 
 标准 Docker 环境包含单节点 LiveKit，并为每次启动生成临时 SFU 凭据，供群组 RPC、事件流和社交测试使用。LiveKit 只在 Compose 网络中提供服务，不发布主机端口；清理环境时一起删除。
@@ -1907,7 +1915,7 @@ git lfs fsck
 bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
 ```
 
-入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino、Doubao ASR、AgentHost 和 GizTunnel package 的 race
+入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino、Doubao ASR/AST、AST Translate、AgentHost 和 GizTunnel package 的 race
 测试，以及真实 Server、Edge、WebRTC 的两轮音频回归。远端 ASR、模型和 TTS 使用
 本地 HTTP／SAUC WebSocket 协议夹具，仍经过生产 adapter；不需要 Provider 凭据。
 夹具先返回开场文字，再通过 HTTP barrier 释放旧回复尾部，随后要求两次音频输入
