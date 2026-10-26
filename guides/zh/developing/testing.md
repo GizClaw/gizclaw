@@ -1926,8 +1926,9 @@ Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、�
 runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
 清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
 报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
-`tests/gizclaw-e2e/run_tests.sh` 和 CI 的 Audioplayer job 均执行此入口；标准全量入口
-随后继续运行真实 Provider 套件，二者的证据应分别保留。
+`tests/gizclaw-e2e/run_tests.sh` 和 CI 的独立 Audio Turn Ownership Docker job 均执行此入口。
+CI 将这组完整 race 编译与传输回归和 Audioplayer 场景并行运行，避免共用一个 job 的剩余构建时间；
+测试命令、用例超时和断言仍由原入口控制。标准全量入口随后继续运行真实 Provider 套件，二者的证据应分别保留。
 
 ## 连续播讲与逐段 History Giztest
 
