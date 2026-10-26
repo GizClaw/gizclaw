@@ -42,7 +42,11 @@ Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part
 
 中断可能发生在 TTS 只交付 Ogg 头、尚未产生音频 packet 时。Recorder 只在中断记录中忽略这种空音频分段，保留已交付的定稿文本和其他实际音频，并正常完成下一轮的 History 文本读取屏障；不会保存空音频 asset。损坏的 Ogg、正常结束却没有音频 packet 的分段，以及没有音频的回放 asset 仍按错误处理。
 
-一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。History 记录是尽力而为的，从不让实时输出失败：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
+一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。单条 History 记录是尽力而为的：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
+
+普通回复的完成记录由每次 `Transform` 独立的串行 writer 持久化。正文和音频数据不等待数据库或 History asset 写入；对应 EOS 通过同一 writer 排在落库之后，因而不会把完成标记当成尚未持久化的 History 回执。末尾正文与 EOS 在同一 chunk 时，正文先送达、空 EOS 等待落库。不同 route 的正文可以越过待落库的结束标记，保持各 MIME channel 的内容和结束顺序。当前轮的原音仍与转写并行，下一轮 History 读取屏障仍等待此前的定稿。连续消息仍只在最终交付确认时录制。
+
+writer 的待处理任务最多 64 项，积压内容预算为 16 MiB；已经缓冲的单条大记录可独立写入，不新增回复长度上限。持久化失败仍只丢弃该 entry 并记录警告，后续读取屏障保留失败；完成队列本身耗尽时，以明确错误终止而不无限占用内存。退出会停止 source、排空已经交付的记录，并通过有界清理 context 取消仍阻塞的数据库写入；通知仍只在持久化后发出。
 
 RuntimeRegistry、lease 与 output-probe 的 stream wrapper 都向同一底层流转发 production observer、延迟交付确认和放弃通知。包装 Host output 时必须保留这些能力，连续 History 与 State 检查点才能遵循最终 consumer 的交付边界。
 

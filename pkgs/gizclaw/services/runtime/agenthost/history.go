@@ -139,7 +139,6 @@ type historyOutput struct {
 	observationMu      sync.Mutex
 	pendingObservation map[*genx.MessageChunk]*genx.MessageChunk
 	messageHistory     map[string]bool
-	historyEnabled     bool
 	historyEnded       bool
 	historyFinished    bool
 	historyCleanupDone chan struct{}
@@ -204,6 +203,7 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 		a.notifyHistoryUpdated(entry.CreatedAt)
 		notifyWorkspaceHistory(ctx, a.history.Workspace, entry)
 	})
+	recorder.startPersistence(ctx)
 	_, recorder.inputRecorded = workspace.RecordedHistoryInput(ctx, a.history.Workspace)
 	ctx = workspace.WithHistoryReadBarrier(ctx, recorder.waitForPriorText)
 	if input != nil {
@@ -211,6 +211,8 @@ func (a *historyAgent) Transform(ctx context.Context, input genx.Stream) (genx.S
 	}
 	agentOutput, err := a.Agent.Transform(ctx, input)
 	if err != nil {
+		recorder.persistence.abort()
+		<-recorder.persistence.done
 		a.clearOutput(outputKey, outputState)
 		_ = output.Abort(err)
 		return nil, err
@@ -256,7 +258,7 @@ func (s *historyOutputStream) ObserveOutput(chunk *genx.MessageChunk) {
 	if upstream != nil {
 		defer s.output.completeDelivery()
 		if s.output.isMessageHistory(upstream, false) && s.output.recorder != nil {
-			s.output.recorder.record(s.output.historyContext, upstream)
+			s.output.recorder.recordDelivered(s.output.historyContext, upstream)
 			if upstream.IsEndOfStream() && upstream.Ctrl.ResponseEpochEnd {
 				s.output.observationMu.Lock()
 				delete(s.output.messageHistory, upstream.Ctrl.StreamID)
@@ -336,7 +338,6 @@ func (o *historyOutput) isMessageHistory(chunk *genx.MessageChunk, mark bool) bo
 	o.observationMu.Lock()
 	defer o.observationMu.Unlock()
 	if mark && chunk.Ctrl.MessageID != "" {
-		o.historyEnabled = true
 		if o.messageHistory == nil {
 			o.messageHistory = make(map[string]bool)
 		}
@@ -345,17 +346,8 @@ func (o *historyOutput) isMessageHistory(chunk *genx.MessageChunk, mark bool) bo
 	return o.messageHistory[chunk.Ctrl.StreamID]
 }
 
-func (o *historyOutput) hasMessageHistory() bool {
-	if o == nil {
-		return false
-	}
-	o.observationMu.Lock()
-	defer o.observationMu.Unlock()
-	return o.historyEnabled
-}
-
 func (o *historyOutput) finishMessageHistory() {
-	if !o.hasMessageHistory() || o.recorder == nil {
+	if o == nil || o.recorder == nil {
 		return
 	}
 	o.observationMu.Lock()
@@ -386,6 +378,9 @@ func (o *historyOutput) finishMessageHistory() {
 	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	defer cancel()
 	o.recorder.flushAll(ctx)
+	if o.recorder.persistence != nil {
+		o.recorder.persistence.close(ctx)
+	}
 	o.recorder.discard()
 }
 
@@ -440,8 +435,20 @@ func (o *historyOutput) stopDeliveries() {
 }
 
 func (o *historyOutput) closeMessageHistory() {
-	if !o.hasMessageHistory() {
+	if o == nil || o.recorder == nil {
 		return
+	}
+	// Start the shutdown bound before stopping upstream: a synchronous raw-text
+	// input may itself be waiting for the ordered persistence writer.
+	ctx := o.historyContext
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	defer cancel()
+	if o.recorder.persistence != nil {
+		stop := context.AfterFunc(ctx, o.recorder.persistence.abort)
+		defer stop()
 	}
 	if o.upstream != nil {
 		_ = o.upstream.CloseWithError(io.ErrClosedPipe)
@@ -524,12 +531,16 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 		chunk, err := input.Next()
 		if err != nil {
 			recorder.flushUnsegmented(ctx)
-			a.clearOutput(outputKey, outputState)
-			if IsStreamDone(err) {
-				_ = output.Done(genx.Usage{})
-				return
+			finish := func() error {
+				a.clearOutput(outputKey, outputState)
+				if IsStreamDone(err) {
+					return output.Done(genx.Usage{})
+				}
+				return output.Abort(err)
 			}
-			_ = output.Abort(err)
+			if queueErr := recorder.persistence.forwardAfterWrites(finish); queueErr != nil {
+				_ = output.Abort(queueErr)
+			}
 			return
 		}
 		if chunk == nil {
@@ -542,10 +553,39 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 		if outputState.observeForwardChunk(chunk) {
 			continue
 		}
-		if !outputState.isMessageHistory(chunk, true) {
+		messageHistory := outputState.isMessageHistory(chunk, true)
+		if !messageHistory {
 			recorder.record(ctx, chunk)
 		}
 		forwarded := chunk.Clone()
+		if !messageHistory && chunk.IsEndOfStream() {
+			if body := historyTerminalBody(forwarded); body != nil {
+				outputState.observeProduction(body)
+				if err := output.Add(body); err != nil {
+					_ = output.Abort(err)
+					return
+				}
+			}
+			outputState.addPendingObservation(forwarded, chunk)
+			forward := func() error {
+				if outputState.observeForwardChunk(forwarded) {
+					outputState.abandonPendingObservation(forwarded)
+					return nil
+				}
+				outputState.observeProduction(forwarded)
+				if err := output.Add(forwarded); err != nil {
+					outputState.abandonPendingObservation(forwarded)
+					return err
+				}
+				return nil
+			}
+			if err := recorder.persistence.forwardAfterWrites(forward); err != nil {
+				outputState.abandonPendingObservation(forwarded)
+				_ = output.Abort(err)
+				return
+			}
+			continue
+		}
 		outputState.addPendingObservation(forwarded, chunk)
 		outputState.observeProduction(forwarded)
 		if err := output.Add(forwarded); err != nil {
@@ -1167,6 +1207,7 @@ type historyRecorder struct {
 	textChanged chan struct{}
 	textError   error
 	textInputs  []string
+	persistence *historyPersistence
 }
 
 type historyPendingEntry struct {
@@ -1184,6 +1225,9 @@ type historyPendingEntry struct {
 	// one segment per MIME run; flush concatenates every segment's Opus packets
 	// into one Ogg/Opus asset.
 	audio []*historyAudioSegment
+	// audioBytes counts retained input content without reading a live encoder's
+	// output buffer. Completed entries transfer ownership to the writer.
+	audioBytes int64
 	// interrupted marks a route that ended with an interruption terminal. An
 	// interrupted entry without committed text is dropped instead of stored.
 	interrupted bool
@@ -1286,6 +1330,10 @@ func (r *historyRecorder) flushMatching(ctx context.Context, keep func(*historyP
 // encoded or appended, drops only that History entry and is logged. It never
 // fails the output stream the device is consuming.
 func (r *historyRecorder) record(ctx context.Context, chunk *genx.MessageChunk) {
+	r.recordDelivered(r.outputPersistenceContext(ctx), chunk)
+}
+
+func (r *historyRecorder) recordDelivered(ctx context.Context, chunk *genx.MessageChunk) {
 	if err := r.ObserveOutput(ctx, chunk); err != nil {
 		logHistoryRecordError(ctx, "record output", err)
 	}
@@ -1300,7 +1348,7 @@ func (r *historyRecorder) flushAll(ctx context.Context) {
 }
 
 func (r *historyRecorder) flushUnsegmented(ctx context.Context) {
-	if err := r.flushMatching(ctx, func(entry *historyPendingEntry) bool {
+	if err := r.flushMatching(r.outputPersistenceContext(ctx), func(entry *historyPendingEntry) bool {
 		return entry != nil && entry.messageID != ""
 	}); err != nil {
 		logHistoryRecordError(ctx, "flush output", err)
@@ -1514,6 +1562,7 @@ func (e *historyPendingEntry) observeChannel(mimeType string, eos bool) error {
 // writeAudio appends data to the entry's current audio segment, starting a new
 // segment when the audio MIME type changes.
 func (e *historyPendingEntry) writeAudio(mimeType string, data []byte) error {
+	e.audioBytes += int64(len(data))
 	var segment *historyAudioSegment
 	if n := len(e.audio); n > 0 && e.audio[n-1].mimeType == mimeType {
 		segment = e.audio[n-1]
@@ -1669,11 +1718,20 @@ func (r *historyRecorder) flush(ctx context.Context, key string) (err error) {
 	r.mu.Lock()
 	entry := r.pending[key]
 	delete(r.pending, key)
+	if entry != nil && r.persistence != nil {
+		job, enqueueErr := r.persistence.enqueueLocked(key, entry)
+		r.mu.Unlock()
+		return r.persistCompleted(ctx, entry, job, enqueueErr)
+	}
 	r.mu.Unlock()
 	if entry == nil {
 		return nil
 	}
 	defer func() { r.finishText(key, err) }()
+	return r.persistEntry(ctx, entry)
+}
+
+func (r *historyRecorder) persistEntry(ctx context.Context, entry *historyPendingEntry) error {
 	if entry.failed || (entry.interrupted && strings.TrimSpace(entry.text.String()) == "") {
 		entry.closeAudio()
 		return nil
