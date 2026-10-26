@@ -558,7 +558,10 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 			recorder.record(ctx, chunk)
 		}
 		forwarded := chunk.Clone()
-		if !messageHistory && chunk.IsEndOfStream() {
+		// Successful completion is a durability fence. Interruption is instead
+		// a live ordering boundary: it must reach the peer before replacement
+		// data, without making that replacement wait for the old History write.
+		if !messageHistory && chunk.IsEndOfStream() && !historyInterruptedChunk(chunk) {
 			if body := historyTerminalBody(forwarded); body != nil {
 				outputState.observeProduction(body)
 				if err := output.Add(body); err != nil {

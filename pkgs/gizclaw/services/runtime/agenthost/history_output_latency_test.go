@@ -263,3 +263,71 @@ func TestHistoryPersistenceBoundsBacklogWithoutBlockingProducer(t *testing.T) {
 		t.Fatalf("unbounded queued records: %d", entries)
 	}
 }
+
+func TestHistoryInterruptionPrecedesReplacementWhilePersistenceBlocked(t *testing.T) {
+	release := make(chan struct{})
+	var once sync.Once
+	unblock := func() { once.Do(func() { close(release) }) }
+	t.Cleanup(unblock)
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+	store := &gatedOutputHistoryStore{HistoryStore: history.Records, entered: make(chan struct{}), release: release}
+	history.Records = store
+	text := func(id, value string, begin, end bool) *genx.MessageChunk {
+		return &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: genx.Text(value), Ctrl: &genx.StreamCtrl{StreamID: id, Label: "assistant", BeginOfStream: begin, EndOfStream: end}}
+	}
+	partial := text("first", "partial reply", true, false)
+	interrupted := text("first", "", false, true)
+	interrupted.Ctrl.Error = "interrupted"
+	audio := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}, Ctrl: &genx.StreamCtrl{StreamID: "first", Label: "assistant", BeginOfStream: true}}
+	audioEnd := &genx.MessageChunk{Role: genx.RoleModel, Name: "assistant", Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "first", Label: "assistant", EndOfStream: true, Error: "interrupted"}}
+	question := &genx.MessageChunk{Role: genx.RoleUser, Name: "transcript", Part: genx.Text("question"), Ctrl: &genx.StreamCtrl{StreamID: "input", Label: "transcript", BeginOfStream: true, EndOfStream: true}}
+	agent := wrapHistoryAgent(historyTestAgent{output: historyStreamFromChunks(question, partial, audio, interrupted, audioEnd, text("second", "replacement reply", true, false), text("second", "", false, true))}, history)
+	output, err := agent.Transform(t.Context(), historyStreamFromChunks())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		unblock()
+		_ = output.Close()
+	}()
+	replacement := make(chan int, 1)
+	completed := make(chan error, 1)
+	go func() {
+		terminals := 0
+		for {
+			chunk, err := output.Next()
+			if chunk != nil && chunk.Ctrl != nil {
+				if chunk.Ctrl.StreamID == "first" && historyInterruptedChunk(chunk) {
+					terminals++
+				}
+				if chunk.Ctrl.StreamID == "second" && chunk.IsBeginOfStream() {
+					replacement <- terminals
+				}
+			}
+			if err != nil {
+				completed <- err
+				return
+			}
+		}
+	}()
+	waitForHistoryAppend(t, store.entered)
+	select {
+	case terminals := <-replacement:
+		if terminals != 2 {
+			t.Fatalf("replacement preceded interruption: received %d of2 terminals", terminals)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("interruption or replacement waited for History persistence")
+	}
+	unblock()
+	if err := <-completed; !IsStreamDone(err) {
+		t.Fatal(err)
+	}
+	page, err := history.ListEntries(t.Context(), "", "", 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(page.Entries) != 3 || page.Entries[0].Text != "question" || page.Entries[1].Text != "partial reply" || !page.Entries[1].Interrupted || page.Entries[2].Text != "replacement reply" {
+		t.Fatalf("interrupted History order changed: %+v", page.Entries)
+	}
+}
