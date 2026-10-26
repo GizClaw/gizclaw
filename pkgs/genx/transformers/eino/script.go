@@ -40,7 +40,16 @@ func (script *compiledScript) run(
 	inputs map[string]any,
 	outputs map[string]StateType,
 ) (map[string]any, error) {
-	if err := encodeBounded(inputs, script.config.Limits.MaxInputBytes); err != nil {
+	// Messages expose only their text view to Script. Keep native audio on the
+	// original Graph input, without counting or copying it for this node.
+	visible := make(map[string]any, len(inputs))
+	for name, value := range inputs {
+		if messages, ok := value.([]*schema.Message); ok {
+			value = scriptMessageView(messages)
+		}
+		visible[name] = value
+	}
+	if err := encodeBounded(visible, script.config.Limits.MaxInputBytes); err != nil {
 		return nil, fmt.Errorf("eino: Script input: %w", err)
 	}
 	thread, cleanup := script.newThread(ctx, "eino-script")
@@ -49,7 +58,7 @@ func (script *compiledScript) run(
 	if err != nil {
 		return nil, fmt.Errorf("eino: initialize Script run: %w", err)
 	}
-	input, err := toStarlark(inputs)
+	input, err := toStarlark(visible)
 	if err != nil {
 		return nil, fmt.Errorf("eino: convert Script input: %w", err)
 	}
@@ -200,6 +209,41 @@ func convertScriptOutput(value any, stateType StateType) (any, error) {
 	}
 }
 
+func scriptMessageView(messages []*schema.Message) []any {
+	items := make([]any, len(messages))
+	for index, message := range messages {
+		if message == nil {
+			continue
+		}
+		object := map[string]any{"role": string(message.Role), "content": message.Content}
+		var parts []any
+		if len(message.UserInputMultiContent) != 0 {
+			for _, part := range message.UserInputMultiContent {
+				if part.Type == schema.ChatMessagePartTypeText {
+					parts = append(parts, map[string]any{"type": "text", "text": part.Text})
+				}
+			}
+		} else if len(message.AssistantGenMultiContent) != 0 {
+			for _, part := range message.AssistantGenMultiContent {
+				if part.Type == schema.ChatMessagePartTypeText {
+					parts = append(parts, map[string]any{"type": "text", "text": part.Text})
+				}
+			}
+		} else {
+			for _, part := range message.MultiContent {
+				if part.Type == schema.ChatMessagePartTypeText {
+					parts = append(parts, map[string]any{"type": "text", "text": part.Text})
+				}
+			}
+		}
+		if len(parts) != 0 {
+			object["parts"] = parts
+		}
+		items[index] = object
+	}
+	return items
+}
+
 func toStarlark(value any) (starlark.Value, error) {
 	switch typed := value.(type) {
 	case nil:
@@ -243,38 +287,7 @@ func toStarlark(value any) (starlark.Value, error) {
 		dictionary.Freeze()
 		return dictionary, nil
 	case []*schema.Message:
-		items := make([]any, len(typed))
-		for index, message := range typed {
-			if message == nil {
-				continue
-			}
-			object := map[string]any{"role": string(message.Role), "content": message.Content}
-			var parts []any
-			if len(message.UserInputMultiContent) != 0 {
-				for _, part := range message.UserInputMultiContent {
-					if part.Type == schema.ChatMessagePartTypeText {
-						parts = append(parts, map[string]any{"type": "text", "text": part.Text})
-					}
-				}
-			} else if len(message.AssistantGenMultiContent) != 0 {
-				for _, part := range message.AssistantGenMultiContent {
-					if part.Type == schema.ChatMessagePartTypeText {
-						parts = append(parts, map[string]any{"type": "text", "text": part.Text})
-					}
-				}
-			} else {
-				for _, part := range message.MultiContent {
-					if part.Type == schema.ChatMessagePartTypeText {
-						parts = append(parts, map[string]any{"type": "text", "text": part.Text})
-					}
-				}
-			}
-			if len(parts) != 0 {
-				object["parts"] = parts
-			}
-			items[index] = object
-		}
-		return toStarlark(items)
+		return toStarlark(scriptMessageView(typed))
 	case []*schema.Document:
 		items := make([]any, len(typed))
 		for index, document := range typed {
