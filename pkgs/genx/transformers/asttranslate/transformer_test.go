@@ -7,10 +7,12 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/internal/streamkit"
 )
 
 func TestParseLanguagePairRejectsZhenForms(t *testing.T) {
@@ -151,7 +153,7 @@ func TestExternalVoiceTransformerForwardsASTTextAndTTSAudio(t *testing.T) {
 	}
 	agent := externalVoiceTransformer{
 		Transformer: transformer,
-		ASTPattern:  "model/ast?source_language=zh&target_language=en",
+		ASTPattern:  "model/ast?input=realtime&source_language=zh&target_language=en",
 		TTSPattern:  "voice/voice-a",
 	}
 	out, err := agent.Transform(context.Background(), emptyStream{})
@@ -608,65 +610,50 @@ func TestInterruptibleTransformerRejectsProviderEOFWhileInputRemainsActive(t *te
 }
 
 func TestInterruptibleTransformerObservesInputBeforeInnerReads(t *testing.T) {
-	input := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
-	innerOutput := genx.NewRealtimeStream(genx.WithRealtimeStreamDelay(0))
-	transformer := interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
-		return innerOutput, nil
-	})}
-	out, err := transformer.Transform(context.Background(), input)
-	if err != nil {
-		t.Fatalf("Transform() error = %v", err)
-	}
-	if err := input.Push(context.Background(), genx.NewBeginOfStream("turn-1")); err != nil {
-		t.Fatalf("Push turn-1 BOS: %v", err)
-	}
-	if err := innerOutput.Push(context.Background(), &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text(""),
-		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true},
-	}); err != nil {
-		t.Fatalf("Push stale assistant BOS: %v", err)
-	}
-	if err := innerOutput.Push(context.Background(), &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text("stale"),
-		Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"},
-	}); err != nil {
-		t.Fatalf("Push stale assistant: %v", err)
-	}
-
-	result := make(chan *genx.MessageChunk, 1)
-	errs := make(chan error, 1)
-	go func() {
-		chunk, err := out.Next()
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		input := streamkit.NewOutput(streamkit.OutputConfig{})
+		defer input.Close()
+		innerOutput := streamkit.NewOutput(streamkit.OutputConfig{})
+		defer innerOutput.Close()
+		transformer := interruptibleTransformer{Transformer: transformFunc(func(context.Context, genx.Stream) (genx.Stream, error) {
+			// Deliberately never read the observed input. Its BOS watcher must
+			// still retire stale output without delaying every output chunk.
+			return innerOutput, nil
+		})}
+		out, err := transformer.Transform(ctx, input)
 		if err != nil {
-			errs <- err
-			return
+			t.Fatal(err)
 		}
-		result <- chunk
-	}()
-
-	time.Sleep(50 * time.Millisecond)
-	if err := input.Push(context.Background(), genx.NewBeginOfStream("turn-2")); err != nil {
-		t.Fatalf("Push turn-2 BOS: %v", err)
-	}
-
-	select {
-	case err := <-errs:
-		t.Fatalf("Next() error = %v", err)
-	case chunk := <-result:
-		interrupted := []*genx.MessageChunk{chunk}
-		for i := 1; i < 4; i++ {
-			next, err := out.Next()
-			if err != nil {
-				t.Fatalf("Next interrupt chunk %d: %v", i, err)
+		defer out.Close()
+		if err := input.Push(genx.NewBeginOfStream("turn-1")); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		for _, chunk := range []*genx.MessageChunk{
+			{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant", BeginOfStream: true}},
+			{Role: genx.RoleModel, Part: genx.Text("stale"), Ctrl: &genx.StreamCtrl{StreamID: "turn-1", Label: "assistant"}},
+		} {
+			if err := innerOutput.Push(chunk); err != nil {
+				t.Fatal(err)
 			}
-			interrupted = append(interrupted, next)
+		}
+		synctest.Wait()
+		if err := input.Push(genx.NewBeginOfStream("turn-2")); err != nil {
+			t.Fatal(err)
+		}
+		synctest.Wait()
+		var interrupted []*genx.MessageChunk
+		for range 4 {
+			chunk, err := out.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			interrupted = append(interrupted, chunk)
 		}
 		requireASTInterruptedRoutes(t, interrupted, "turn-1")
-	case <-time.After(time.Second):
-		t.Fatal("Next() timed out")
-	}
+	})
 }
 
 func TestInterruptibleTransformerClosesRepeatedTurnsAndDropsLateOutput(t *testing.T) {
@@ -1023,22 +1010,6 @@ func TestASTTranslateUtilityBranches(t *testing.T) {
 	}
 	if got := baseMIME(" Audio/OGG ; codecs=opus "); got != "audio/ogg" {
 		t.Fatalf("baseMIME() = %q", got)
-	}
-	textChunk := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: genx.Text("translated"),
-		Ctrl: &genx.StreamCtrl{Label: "assistant"},
-	}
-	if !shouldGraceASTAssistantChunk(textChunk) {
-		t.Fatalf("assistant text chunk did not retain interrupt grace")
-	}
-	audioChunk := &genx.MessageChunk{
-		Role: genx.RoleModel,
-		Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{1}},
-		Ctrl: &genx.StreamCtrl{Label: "assistant"},
-	}
-	if shouldGraceASTAssistantChunk(audioChunk) {
-		t.Fatalf("assistant audio chunk retained per-frame interrupt grace")
 	}
 	if isStreamDone(nil) || !isStreamDone(genx.ErrDone) || !isStreamDone(io.EOF) || isStreamDone(errors.New("boom")) {
 		t.Fatalf("isStreamDone returned unexpected values")

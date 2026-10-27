@@ -30,7 +30,6 @@ func TestDefaultBuilderBuildsVolcASTTranslateTransformer(t *testing.T) {
 		},
 		Params: map[string]any{
 			"mode":            string(doubaospeech.ASTTranslateModeS2T),
-			"input":           "push-to-talk",
 			"lang_pair":       "auto",
 			"realtime_pacing": false,
 		},
@@ -41,53 +40,8 @@ func TestDefaultBuilderBuildsVolcASTTranslateTransformer(t *testing.T) {
 	if _, ok := transformer.(*doubaoast.Transformer); !ok {
 		t.Fatalf("transformer = %T, want *doubaoast.Transformer", transformer)
 	}
-	if got := transformerStringField(t, transformer, "inputMode"); got != "push-to-talk" {
-		t.Fatalf("AST translate inputMode = %q, want push-to-talk", got)
-	}
 	if transformerBoolField(t, transformer, "realtimePacing") {
 		t.Fatal("AST translate realtimePacing = true, want false")
-	}
-}
-
-// A Workspace that sets no input sends push-to-talk turns, closed by their
-// audio EOS. The builder must not fall back to the Transformer's realtime
-// default, which finishes the provider session without push-to-talk completion.
-func TestDefaultBuilderASTTranslateInputDefaultsToPushToTalk(t *testing.T) {
-	body := apitypes.CredentialBody{}
-	if err := body.FromVolcCredentialBody(apitypes.VolcCredentialBody{
-		SpeechAppId:  new("speech-app-id"),
-		SpeechApiKey: new("speech-api-key"),
-	}); err != nil {
-		t.Fatalf("FromVolcCredentialBody() error = %v", err)
-	}
-	for _, tc := range []struct {
-		input any
-		want  string
-	}{
-		{input: nil, want: "push-to-talk"},
-		{input: "", want: "push-to-talk"},
-		{input: "realtime", want: "realtime"},
-	} {
-		params := map[string]any{"mode": string(doubaospeech.ASTTranslateModeS2T), "lang_pair": "zh/es"}
-		if tc.input != nil {
-			params["input"] = tc.input
-		}
-		transformer, err := (DefaultBuilder{}).BuildTransformer(context.Background(), TransformerConfig{
-			Model: &apitypes.Model{
-				Id:           "ast-model",
-				Kind:         apitypes.ModelKindTranslation,
-				ProviderData: mustVolcModelProviderData(t, apitypes.VolcTenantModelProviderData{}),
-			},
-			Tenant:     Tenant{Kind: string(apitypes.ModelProviderKindVolcTenant), Volc: &apitypes.VolcTenant{}},
-			Credential: apitypes.Credential{Id: "volc", Body: body},
-			Params:     params,
-		})
-		if err != nil {
-			t.Fatalf("input %v: BuildTransformer() error = %v", tc.input, err)
-		}
-		if got := transformerStringField(t, transformer, "inputMode"); got != tc.want {
-			t.Fatalf("input %v: AST translate inputMode = %q, want %q", tc.input, got, tc.want)
-		}
 	}
 }
 

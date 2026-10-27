@@ -268,6 +268,7 @@ func (r *runner) runOnce(args ...string) ([]byte, error) {
 func isTransientCommandError(err error) bool {
 	detail := strings.ToLower(err.Error())
 	return strings.Contains(detail, "timeout waiting for client readiness") ||
+		strings.Contains(detail, "gizclaw: client stopped before ready") ||
 		strings.Contains(detail, "gizclaw: dial:") ||
 		strings.Contains(detail, "connection reset by peer") ||
 		strings.Contains(detail, "unexpected eof")

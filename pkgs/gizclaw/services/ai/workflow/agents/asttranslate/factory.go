@@ -80,6 +80,7 @@ func resolveConfig(spec agenthost.Spec) (genxast.Config, error) {
 		}
 	}
 	return genxast.Config{
+		PrepareOutput:     agenthost.PrepareSpeechOutput,
 		Model:             model,
 		Params:            params,
 		ExternalVoice:     externalVoice,
@@ -110,9 +111,6 @@ func mergeWorkspaceParams(params map[string]any, typed apitypes.ASTTranslateWork
 	}
 	if typed.Mode != nil {
 		setParam(params, "mode", string(*typed.Mode))
-	}
-	if typed.Input != nil {
-		setParam(params, "input", string(*typed.Input))
 	}
 	if typed.LangPair != nil {
 		setParam(params, "lang_pair", *typed.LangPair)

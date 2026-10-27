@@ -39,7 +39,7 @@ func (s observedSDKSession) Recv() iter.Seq2[*doubaospeech.ASTTranslateEvent, er
 }
 
 func TestSDKSessionFailureIsVisible(t *testing.T) {
-	for _, mode := range []InputMode{InputModeRealtime, InputModePushToTalk} {
+	for _, mode := range []string{"realtime", "push-to-talk"} {
 		for _, code := range []int{0, websocket.CloseNormalClosure, websocket.CloseGoingAway} {
 			t.Run(fmt.Sprintf("%s/close_%d", mode, code), func(t *testing.T) {
 				testSDKSessionFailureIsVisible(t, mode, code)
@@ -48,7 +48,7 @@ func TestSDKSessionFailureIsVisible(t *testing.T) {
 	}
 }
 
-func testSDKSessionFailureIsVisible(t *testing.T, mode InputMode, closeCode int) {
+func testSDKSessionFailureIsVisible(t *testing.T, mode string, closeCode int) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, err := (&websocket.Upgrader{}).Upgrade(w, r, nil)
 		if err != nil {
@@ -83,7 +83,7 @@ func testSDKSessionFailureIsVisible(t *testing.T, mode InputMode, closeCode int)
 	ctx := t.Context()
 	input := newBufferStream(4)
 	client := doubaospeech.NewClient("test", doubaospeech.WithWebSocketURL("ws"+strings.TrimPrefix(server.URL, "http")))
-	tr := newTransformer(client, withInputMode(mode), withRealtimePacing(false))
+	tr := newTransformer(client, withRealtimePacing(false))
 	received := make(chan struct{})
 	opened := make(chan doubaoASTTranslateSession, 1)
 	tr.newSession = func(ctx context.Context, cfg doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {

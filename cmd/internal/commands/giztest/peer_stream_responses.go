@@ -102,6 +102,7 @@ type peerStreamResponseFilter struct {
 	commitAt   time.Time
 	earlier    map[string]bool
 	overflow   bool
+	preRelease int
 }
 
 func (f *peerStreamResponseFilter) begin(known map[string]bool) {
@@ -111,6 +112,7 @@ func (f *peerStreamResponseFilter) begin(known map[string]bool) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.commitAt = time.Time{}
+	f.preRelease = 0
 	f.earlier = known
 	if f.earlier == nil {
 		f.earlier = make(map[string]bool)
@@ -147,6 +149,7 @@ func (f *peerStreamResponseFilter) accepts(chunk *genx.MessageChunk, receivedAt 
 	}
 	if f.commitAt.IsZero() || firstSeen.Before(f.commitAt) {
 		if id != "" && !f.earlier[id] {
+			f.preRelease++
 			if len(f.earlier) == 2*peerStreamResponseHistoryLimit {
 				f.overflow = true
 			} else {
@@ -156,6 +159,17 @@ func (f *peerStreamResponseFilter) accepts(chunk *genx.MessageChunk, receivedAt 
 		return false
 	}
 	return !f.overflow && !f.earlier[id]
+}
+
+// preReleaseResponses counts new response IDs observed while the current PTT
+// input was open. IDs already known before input are excluded from this count.
+func (f *peerStreamResponseFilter) preReleaseResponses() int {
+	if f == nil {
+		return 0
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.preRelease
 }
 
 func (f *peerStreamResponseFilter) err() error {

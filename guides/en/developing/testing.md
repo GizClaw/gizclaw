@@ -851,6 +851,16 @@ Flutter Giztest SSE evidence retains event names and resource paths even when as
 
 The standard catalog also includes deterministic `initiative-agent`, `initiative-peer`, and `initiative-default` opening Workflows for `eino.initiative.giztest.yaml` to verify shared History and Workspace overrides. The dedicated Go Giztest additionally checks that the obsolete `starts` field is ignored.
 
+### AST and MiniMax capture publication regression
+
+The standard Docker Giztest batch includes `volc-ast-translate-minimax.*` scenarios with the Profile's real MiniMax system Voice. PTT uses multi-sentence input paced at 20 ms. Its first-response probe measures from input EOS and checks a 500 ms regression budget after allowing synthesis to overlap capture. The complete turn checks default PTT, one reply, text/audio EOS, and exactly one user History entry and one assistant entry. This fixture budget is not a latency guarantee for arbitrary short phrases or public-network devices.
+
+Go Giztest reports `pre_release_response_count`: new assistant response IDs first seen after the current PTT input began and before its first input EOS, excluding replies known before input. It is separate from earlier-response filtering, allowing scenarios to assert zero rather than hide premature playback behind that filter. It resets for each PTT input and adds no wire field.
+
+With `terminal_label: transcript`, `wait_for_history` waits for the current input receipt, even if an unfinished assistant response has already begun. Assistant-terminal operations with a response still require its Agent History receipt. The History wait remains bounded to 10 seconds.
+
+The realtime scenario requires audible output before the long recording ends, then waits for the final sentence's text/audio EOS and persistence receipt. Standard document discovery in `run_tests.sh` includes all three cases; existing AST interruption, consecutive-turn, language and concurrency scenarios continue to run.
+
 ### Manual environment
 
 The standard Docker environment includes a single-node LiveKit with temporary SFU credentials generated for each setup. Group RPC, event-stream, and social tests use this service inside the Compose network. LiveKit publishes no host ports and is removed with the test environment.
@@ -1130,6 +1140,7 @@ the PTT regressions use 1 second to include late second replies. This is a
 bounded observation, not proof against output beyond that window. Empty input,
 `first_response`, `input_sent`, and transcript completion use their own bounds.
 Audio input also reports `/input_packets`, `/input_ms`, and `/pushed_packets`.
+After recording and VAD tail silence, single-turn realtime steps keep uploading paced silence on the same route until response completion, interruption or cancellation. This keeps long replies from idling out the upstream provider. Silence does not extend `/input_ms`; actual frames count toward `/pushed_packets`. `completion: input_sent` stops after its original input finishes. Continuous-message EOS marks final delivery; scenarios that inspect persisted History still declare `wait_for_history: true`.
 Audio BOS waits 500 ms after control BOS by default. `hold_before_audio` can
 set another nonnegative Go duration for a different device threshold. PTT
 omits wire `input_mode`; Workspace parameters determine the actual input mode.
@@ -2106,7 +2117,7 @@ Successful runs write redacted monotonic timing evidence below ignored `tests/gi
 bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
 ```
 
-The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR, AgentHost and GizTunnel
+The native Linux Docker runner executes the full Giztest, AudioDock, Eino, Doubao ASR/AST, AST Translate, AgentHost and GizTunnel
 package race tests and consecutive audio turns through real Server, Edge and
 WebRTC. Local HTTP and SAUC WebSocket fixtures replace remote ASR, model and
 TTS services while retaining the production adapters; Provider credentials are
@@ -2130,7 +2141,7 @@ assertion.
 The runner uses an internal Docker network, read-only source/module mounts and
 a separate build cache, and removes its container and network on exit. Image
 identity, architecture, source hashes, Go JSON results and Giztest reports are
-retained under `.testbench/audio-turn-ownership-*/reports/`. Both the standard
+retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
 `tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
 lane. The standard full entry point continues with real Provider suites;
 retain their evidence separately from the deterministic fixtures.

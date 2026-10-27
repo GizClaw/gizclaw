@@ -21,6 +21,10 @@ func workspaceHistoryNames(result map[string]any) map[string]bool {
 	return names
 }
 
+func peerStreamHistoryRequiresAgent(terminalLabel string, responseCount int) bool {
+	return terminalLabel != "transcript" && responseCount > 0
+}
+
 func waitForCurrentWorkspaceHistory(ctx context.Context, query func(context.Context) (map[string]any, error), before map[string]bool, requireAgent bool) (string, error) {
 	timer := time.NewTimer(10 * time.Second)
 	defer timer.Stop()

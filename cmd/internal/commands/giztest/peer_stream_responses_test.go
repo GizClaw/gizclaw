@@ -241,3 +241,32 @@ func TestPeerStreamHistoryPrecedesSlowOutputObservation(t *testing.T) {
 	default:
 	}
 }
+
+func TestPTTPreReleaseCountExcludesKnownResponsesAndCountsEachNewID(t *testing.T) {
+	history := &peerStreamResponseHistory{}
+	filter := &peerStreamResponseFilter{history: history}
+	filter.begin(map[string]bool{"known": true})
+	now := time.Now()
+	if filter.accepts(assistantText("known", "previous", false), now) {
+		t.Fatal("known response was accepted")
+	}
+	for range 2 {
+		if filter.accepts(assistantText("early", "leaked", false), now) {
+			t.Fatal("pre-release response was accepted")
+		}
+	}
+	if got := filter.preReleaseResponses(); got != 1 {
+		t.Fatalf("pre-release count=%d, want one new ID", got)
+	}
+	filter.commit(now.Add(time.Millisecond))
+	if !filter.accepts(assistantText("released", "current", false), now.Add(2*time.Millisecond)) {
+		t.Fatal("released response was rejected")
+	}
+	if got := filter.preReleaseResponses(); got != 1 {
+		t.Fatalf("released response changed early count=%d", got)
+	}
+	filter.begin(map[string]bool{"known": true, "early": true, "released": true})
+	if got := filter.preReleaseResponses(); got != 0 {
+		t.Fatalf("replacement did not reset count=%d", got)
+	}
+}

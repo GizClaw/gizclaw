@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 var _ genx.TransformerMux = (*Host)(nil)
@@ -134,6 +135,18 @@ func (h *Host) newWorkspaceAgent(ctx context.Context, spec Spec) (Agent, func(),
 	if isSFUSpec(spec) {
 		agent = wrapNoHistoryAgent(agent)
 	} else {
+		var mode apitypes.WorkspaceInputMode
+		if spec.AgentType == string(apitypes.WorkflowDriverAstTranslate) || spec.Workflow.Spec.Driver == apitypes.WorkflowDriverAstTranslate {
+			var err error
+			mode, err = apitypes.WorkspaceInput(spec.Workflow.Spec.Driver, spec.Workspace.Parameters)
+			if err != nil {
+				if closer != nil {
+					_ = closer.Close()
+				}
+				return nil, nil, err
+			}
+		}
+		agent = captureOutputAgent{Agent: agent, mode: mode}
 		agent = wrapHistoryAgent(agent, spec.Runtime.History)
 	}
 	var once sync.Once

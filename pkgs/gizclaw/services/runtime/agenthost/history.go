@@ -154,10 +154,11 @@ type historyOutput struct {
 	replayStreamID string
 	replayPending  map[historyForwardChunkKey]historyForwardRoute
 
-	forwardMu          sync.Mutex
-	activeForward      map[historyForwardChunkKey]historyForwardRoute
-	terminalForward    map[historyForwardChunkKey]struct{}
-	interruptedForward map[historyForwardChunkKey]struct{}
+	forwardMu              sync.Mutex
+	activeForward          map[historyForwardChunkKey]historyForwardRoute
+	terminalForward        map[historyForwardChunkKey]struct{}
+	pendingTerminalForward map[*genx.MessageChunk]historyForwardChunkKey
+	interruptedForward     map[historyForwardChunkKey]struct{}
 
 	notifyMu          sync.Mutex
 	notifyTimer       *time.Timer
@@ -280,6 +281,7 @@ func (s *historyOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk)
 	if s == nil || s.output == nil {
 		return
 	}
+	s.output.releaseForwardTerminal(chunk)
 	upstream := s.output.takePendingObservation(chunk)
 	if upstream == nil || s.output.upstreamObserver == nil {
 		return
@@ -550,6 +552,9 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 			recorder.record(ctx, chunk)
 			continue
 		}
+		if historyInterruptedChunk(chunk) {
+			outputState.cancelPendingForwardTerminals(chunk)
+		}
 		if outputState.observeForwardChunk(chunk) {
 			continue
 		}
@@ -570,20 +575,21 @@ func (a *historyAgent) forwardOutput(ctx context.Context, outputKey string, outp
 				}
 			}
 			outputState.addPendingObservation(forwarded, chunk)
+			outputState.holdForwardTerminal(forwarded)
 			forward := func() error {
 				if outputState.observeForwardChunk(forwarded) {
-					outputState.abandonPendingObservation(forwarded)
+					outputState.discardForwardTerminal(forwarded)
 					return nil
 				}
 				outputState.observeProduction(forwarded)
-				if err := output.Add(forwarded); err != nil {
+				if added, err := outputState.addForwardTerminal(forwarded); err != nil || !added {
 					outputState.abandonPendingObservation(forwarded)
 					return err
 				}
 				return nil
 			}
 			if err := recorder.persistence.forwardAfterWrites(forward); err != nil {
-				outputState.abandonPendingObservation(forwarded)
+				outputState.discardForwardTerminal(forwarded)
 				_ = output.Abort(err)
 				return
 			}
@@ -717,6 +723,9 @@ func (o *historyOutput) abandonPendingObservations() {
 	}
 	clear(o.pendingObservation)
 	o.observationMu.Unlock()
+	o.forwardMu.Lock()
+	clear(o.pendingTerminalForward)
+	o.forwardMu.Unlock()
 	if ok {
 		for _, upstream := range pending {
 			abandoner.AbandonOutputObservation(upstream)
@@ -848,6 +857,7 @@ func (o *historyOutput) observeForwardOutput(chunk *genx.MessageChunk) {
 	mimeType, hasMIME := historyForwardChunkMIME(chunk)
 	o.forwardMu.Lock()
 	defer o.forwardMu.Unlock()
+	delete(o.pendingTerminalForward, chunk)
 	if hasMIME {
 		key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
 		delete(o.activeForward, key)

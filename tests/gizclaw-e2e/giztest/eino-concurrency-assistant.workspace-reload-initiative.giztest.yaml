@@ -118,6 +118,7 @@ steps:
     session: microphone
     # Strictly rejects assistant terminal errors before rearm and during the next response.
     await_rearm: INPUT_ROUTE_RELOADED
+    wait_for_history: true
   expect:
     "/events":
       non_empty: true

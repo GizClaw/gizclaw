@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -43,7 +44,7 @@ func TestHistoryWaitRequiresThisTurnsReply(t *testing.T) {
 	}
 	finished := make(chan result, 1)
 	go func() {
-		name, err := waitForCurrentWorkspaceHistory(ctx, query, before, true)
+		name, err := waitForCurrentWorkspaceHistory(ctx, query, before, peerStreamHistoryRequiresAgent("assistant", 1))
 		finished <- result{name, err}
 	}()
 	for stage := range int32(2) {
@@ -99,4 +100,19 @@ func TestCurrentHistoryReceiptAllowsInputOnlyTurns(t *testing.T) {
 	if name := firstCurrentHistoryName(result, before, true); name != "" {
 		t.Fatalf("user input counted as an assistant reply: %q", name)
 	}
+}
+
+func TestTranscriptHistoryCompletesWhileReplyIsUnfinished(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		before := workspaceHistoryNames(historyWaitResult(map[string]any{"name": "prior-input"}))
+		query := func(context.Context) (map[string]any, error) {
+			return historyWaitResult(map[string]any{"name": "current-input", "type": "PEER_RUN_HISTORY_ENTRY_TYPE_GEAR"}), nil
+		}
+		// Assistant data can overtake the transcript's durable EOS. It does
+		// not change a transcript-only operation into a completed reply.
+		name, err := waitForCurrentWorkspaceHistory(t.Context(), query, before, peerStreamHistoryRequiresAgent("transcript", 1))
+		if err != nil || name != "current-input" {
+			t.Fatalf("transcript receipt waited for the unfinished assistant: %q, %v", name, err)
+		}
+	})
 }

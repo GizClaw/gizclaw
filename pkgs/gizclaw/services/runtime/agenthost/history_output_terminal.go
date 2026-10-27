@@ -33,3 +33,70 @@ func historyTerminalBody(terminal *genx.MessageChunk) *genx.MessageChunk {
 	body.Ctrl.FailureClass = ""
 	return body
 }
+
+// holdForwardTerminal keeps a successful EOS cancellable while its History
+// durability fence or final delivery is pending. A later interruption owns
+// the live terminal until the successful EOS has been observed.
+func (o *historyOutput) holdForwardTerminal(chunk *genx.MessageChunk) {
+	route, ok := historyForwardChunkRoute(chunk)
+	if !ok {
+		return
+	}
+	mimeType, _ := historyForwardChunkMIME(chunk)
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	if o.pendingTerminalForward == nil {
+		o.pendingTerminalForward = make(map[*genx.MessageChunk]historyForwardChunkKey)
+	}
+	o.pendingTerminalForward[chunk] = historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
+}
+
+func (o *historyOutput) cancelPendingForwardTerminals(interrupt *genx.MessageChunk) {
+	route, ok := historyForwardChunkRoute(interrupt)
+	if !ok {
+		return
+	}
+	mimeType, hasMIME := historyForwardChunkMIME(interrupt)
+	var discarded []*genx.MessageChunk
+	queued := make(map[*genx.MessageChunk]bool)
+	o.forwardMu.Lock()
+	for chunk, key := range o.pendingTerminalForward {
+		if key.streamID == route.streamID && (!hasMIME || chunk.Part == nil || (key.historyForwardRouteKey == route.key() && key.mimeType == mimeType)) {
+			delete(o.pendingTerminalForward, chunk)
+			discarded = append(discarded, chunk)
+			queued[chunk] = true
+		}
+	}
+	if len(queued) != 0 && o.output != nil {
+		o.output.Discard(func(chunk *genx.MessageChunk) bool { return queued[chunk] })
+	}
+	o.forwardMu.Unlock()
+	for _, chunk := range discarded {
+		o.abandonPendingObservation(chunk)
+	}
+}
+
+// addForwardTerminal serializes the nonblocking buffer insertion with
+// cancellation. The terminal stays tracked while queued or read ahead, until
+// its final delivery is observed or it is explicitly abandoned.
+func (o *historyOutput) addForwardTerminal(chunk *genx.MessageChunk) (bool, error) {
+	o.forwardMu.Lock()
+	defer o.forwardMu.Unlock()
+	if _, pending := o.pendingTerminalForward[chunk]; !pending {
+		return false, nil
+	}
+	return true, o.output.Add(chunk)
+}
+
+func (o *historyOutput) releaseForwardTerminal(chunk *genx.MessageChunk) {
+	o.forwardMu.Lock()
+	delete(o.pendingTerminalForward, chunk)
+	o.forwardMu.Unlock()
+}
+
+func (o *historyOutput) discardForwardTerminal(chunk *genx.MessageChunk) {
+	o.forwardMu.Lock()
+	delete(o.pendingTerminalForward, chunk)
+	o.forwardMu.Unlock()
+	o.abandonPendingObservation(chunk)
+}

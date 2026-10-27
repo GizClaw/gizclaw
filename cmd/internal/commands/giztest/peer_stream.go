@@ -725,7 +725,8 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	}
 	firstResponse := op.Completion == "first_response"
 	inputSent := op.Completion == "input_sent"
-	inputPackets, pushedPackets := 0, 0
+	inputPackets := 0
+	var pushedPackets atomic.Int64
 	var inputDuration time.Duration
 	var responseStarted time.Time
 	var speechEnded <-chan time.Time
@@ -803,6 +804,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	secondAssistantStreamID := ""
 	var sendInterrupt func(context.Context) error
 	var initialPush func(context.Context) error
+	var keepInputAlive func(context.Context) error
 	switch op.Mode {
 	case "text":
 		text, ok := input.(string)
@@ -874,7 +876,6 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 				return operationResult{}, fmt.Errorf("prepare realtime tail silence: %w", err)
 			}
 		}
-		pushedPackets = len(packets)
 		pause := time.Duration(0)
 		if op.Pacing != "" {
 			pause, err = time.ParseDuration(op.Pacing)
@@ -913,6 +914,9 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 				if err := stream.Push(sendCtx, chunk); err != nil {
 					return err
 				}
+				if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+					pushedPackets.Add(1)
+				}
 				if chunk.IsBeginOfStream() && onBOSSent != nil {
 					onBOSSent()
 					onBOSSent = nil
@@ -927,6 +931,19 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 					if err := waitPeerInput(sendCtx, pause); err != nil {
 						return err
 					}
+				}
+			}
+			if op.Mode == "realtime" && !inputSent {
+				// Keep the microphone live while a long reply drains. The
+				// fixed tail establishes VAD silence; stopping upload after
+				// that tail would instead idle out a streaming provider.
+				silence := packets[len(packets)-1]
+				label := op.Label
+				if label == "" {
+					label = "user"
+				}
+				keepInputAlive = func(liveCtx context.Context) error {
+					return pushRealtimeSilence(liveCtx, stream, id, label, silence, &pushedPackets)
 				}
 			}
 			return nil
@@ -954,6 +971,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	}
 	var initialDone <-chan struct{}
 	var initialError error
+	var sendFailures <-chan error
 	var stopSend func()
 	defer func() {
 		if stopSend != nil {
@@ -965,11 +983,18 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			stopSend()
 		}
 		sendCtx, cancelSend := context.WithCancel(ctx)
-		done := make(chan struct{})
-		initialDone = done
+		done, sent := make(chan struct{}), make(chan struct{})
+		failures := make(chan error, 1)
+		initialDone, sendFailures = sent, failures
 		go func() {
 			defer close(done)
 			initialError = push(sendCtx)
+			close(sent)
+			if initialError == nil && keepInputAlive != nil {
+				if err := keepInputAlive(sendCtx); err != nil && sendCtx.Err() == nil {
+					failures <- err
+				}
+			}
 		}()
 		stopSend = func() {
 			cancelSend()
@@ -1064,6 +1089,9 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	}
 	baseEvidence := func() map[string]any {
 		evidence := map[string]any{"events": events, "first_transcript_ms": firstTranscriptMS, "last_event_ms": lastEventMS}
+		if op.Mode == "push-to-talk" && !inputSent && !op.EmptyInput {
+			evidence["pre_release_response_count"] = arrivals.filter.preReleaseResponses()
+		}
 		if expectedTerminal != nil {
 			evidence["terminal_error"] = expectedTerminal
 		}
@@ -1133,6 +1161,16 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 
 	var audioIntegrity peerAudioIntegrity
 	finish := func() (operationResult, error) {
+		if stopSend != nil {
+			stopSend()
+			stopSend = nil
+		}
+		select {
+		case err := <-sendFailures:
+			return operationResult{}, fmt.Errorf("continue realtime input: %w", err)
+		default:
+		}
+		sentPackets := int(pushedPackets.Load())
 		if len(terminalErrors) != 0 {
 			return operationResult{evidence: baseEvidence()}, fmt.Errorf("peer_stream terminal error: %s", strings.Join(terminalErrors, "; "))
 		}
@@ -1168,10 +1206,13 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			}
 		}
 		object["response_count"] = responseCount
+		if op.Mode == "push-to-talk" && !inputSent && !op.EmptyInput {
+			object["pre_release_response_count"] = arrivals.filter.preReleaseResponses()
+		}
 		if op.Mode == "push-to-talk" || op.Mode == "realtime" {
 			object["input_packets"] = inputPackets
 			object["input_ms"] = inputDuration.Milliseconds()
-			object["pushed_packets"] = pushedPackets
+			object["pushed_packets"] = sentPackets
 		}
 		integritySummary := audioIntegrity.summary()
 		if hasAudioDiagnostics {
@@ -1184,7 +1225,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			object["input_sent"] = true
 			object["input_packets"] = inputPackets
 			object["input_ms"] = inputDuration.Milliseconds()
-			object["pushed_packets"] = pushedPackets
+			object["pushed_packets"] = sentPackets
 			object["input_sent_ms"] = time.Since(started).Milliseconds()
 		}
 		pacingSummary := audioPacing.summary()
@@ -1200,7 +1241,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 		}
 		stopIdle()
 		if op.WaitForHistory {
-			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID, historyBefore, responseCount > 0)
+			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID, historyBefore, peerStreamHistoryRequiresAgent(terminalLabel, responseCount))
 			if err != nil {
 				return operationResult{}, err
 			}
@@ -1215,7 +1256,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 		if op.Mode == "push-to-talk" || op.Mode == "realtime" {
 			evidence["input_packets"] = inputPackets
 			evidence["input_ms"] = inputDuration.Milliseconds()
-			evidence["pushed_packets"] = pushedPackets
+			evidence["pushed_packets"] = sentPackets
 		}
 		integrityEvidence := maps.Clone(integritySummary)
 		delete(integrityEvidence, "sha256")
@@ -1233,7 +1274,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			evidence["input_sent"] = true
 			evidence["input_packets"] = inputPackets
 			evidence["input_ms"] = inputDuration.Milliseconds()
-			evidence["pushed_packets"] = pushedPackets
+			evidence["pushed_packets"] = sentPackets
 		}
 		return operationResult{assertion: object, saved: object, evidence: evidence}, nil
 	}
@@ -1335,6 +1376,8 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 	}
 	for {
 		select {
+		case err := <-sendFailures:
+			return operationResult{}, fmt.Errorf("continue realtime input: %w", err)
 		case <-replyDeadline:
 			if hasOpenReply() {
 				replyTimer, replyDeadline = nil, nil
@@ -1371,6 +1414,16 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 			// The inactivity bound covers received output, not the reopen and
 			// replacement push; it restarts once the interrupting turn is sent.
 			stopIdle()
+			if stopSend != nil {
+				stopSend()
+				stopSend = nil
+			}
+			select {
+			case err := <-sendFailures:
+				return operationResult{}, fmt.Errorf("continue realtime input: %w", err)
+			default:
+			}
+			sendFailures = nil
 			if err := stream.Close(); err != nil {
 				return operationResult{}, fmt.Errorf("close interrupted PeerStream: %w", err)
 			}

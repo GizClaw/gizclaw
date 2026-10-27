@@ -11,18 +11,12 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx/agentkit/audiodock"
 )
-
-// Give realtime input BOS a scheduling window to interrupt stale AST text
-// before another queued assistant event reaches the peer. Audio is already
-// paced at its frame duration and must not pay this delay per frame.
-const interruptibleAssistantChunkGrace = 160 * time.Millisecond
 
 // observedInputQueueCapacity keeps a stalled AST provider from accumulating
 // unbounded peer audio while still allowing a short scheduling window for BOS
@@ -37,7 +31,7 @@ const speechRatePercentParam = "speech_rate_percent"
 
 // Config configures an AST Translate Transformer. Model is a RuntimeProfile
 // model alias; Params contain provider-supported AST parameters such as
-// lang_pair, mode, input, and the internal-speaker fields. ExternalVoice asks
+// lang_pair, mode, and the internal-speaker fields. ExternalVoice asks
 // AudioDock to synthesize translated text using the supplied voice pattern.
 // SpeechRatePercent, when non-zero, sets the speaking rate of whichever of the
 // two synthesizes the translated speech.
@@ -47,6 +41,10 @@ type Config struct {
 	Params            map[string]any
 	ExternalVoice     string
 	SpeechRatePercent int
+	// PrepareOutput adapts model output before an external Voice consumes it.
+	// Product runtimes can supply response grouping without making provider
+	// adapters or Audio Dock responsible for interaction policy.
+	PrepareOutput func(context.Context, genx.Stream) (genx.Stream, error)
 }
 
 // New creates a reusable AST Translate Transformer. It accepts text or audio
@@ -76,7 +74,7 @@ func New(config Config) (genx.Transformer, error) {
 	}
 	pattern := appendPatternParams("model/"+model, params)
 	if voice == "" {
-		return interruptibleTransformer{Transformer: patternTransformer{Transformer: config.Transformer, Pattern: pattern}}, nil
+		return interruptibleTransformer{Transformer: patternTransformer{Transformer: config.Transformer, Pattern: pattern, PrepareOutput: config.PrepareOutput}}, nil
 	}
 	ttsPattern := externalVoicePattern(voice, params)
 	if config.SpeechRatePercent != 0 {
@@ -84,9 +82,10 @@ func New(config Config) (genx.Transformer, error) {
 	}
 	return interruptibleTransformer{
 		Transformer: externalVoiceTransformer{
-			Transformer: config.Transformer,
-			ASTPattern:  pattern,
-			TTSPattern:  ttsPattern,
+			Transformer:   config.Transformer,
+			ASTPattern:    pattern,
+			TTSPattern:    ttsPattern,
+			PrepareOutput: config.PrepareOutput,
 		},
 		keepActiveAfterTextEOS: true,
 	}, nil
@@ -102,15 +101,27 @@ func cloneParams(params map[string]any) map[string]any {
 }
 
 type patternTransformer struct {
-	Transformer genx.TransformerMux
-	Pattern     string
+	Transformer   genx.TransformerMux
+	Pattern       string
+	PrepareOutput func(context.Context, genx.Stream) (genx.Stream, error)
 }
 
 func (t patternTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
-	return t.Transformer.Transform(ctx, t.Pattern, input)
+	output, err := t.Transformer.Transform(ctx, t.Pattern, input)
+	if err != nil || t.PrepareOutput == nil {
+		return output, err
+	}
+	prepared, err := t.PrepareOutput(ctx, output)
+	if err == nil && prepared == nil {
+		err = fmt.Errorf("asttranslate: output preparation returned a nil stream")
+	}
+	if err != nil && output != nil {
+		_ = output.CloseWithError(err)
+	}
+	return prepared, err
 }
 
 type interruptibleTransformer struct {
@@ -127,6 +138,7 @@ func (t interruptibleTransformer) Transform(ctx context.Context, input genx.Stre
 	}
 	ctx, cancel := context.WithCancelCause(ctx)
 	out := newInterruptibleOutput(t.keepActiveAfterTextEOS)
+	out.cancel = cancel
 	observedInput := newObservedInputStream(ctx, input, out.interrupt)
 	inner, err := t.Transformer.Transform(ctx, observedInput)
 	if err != nil {
@@ -291,7 +303,7 @@ func (s *observedInputStream) closeWithError(err error) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.closeErr == nil {
+	if !s.closed {
 		s.closeErr = err
 		s.closed = true
 		s.queue = nil
@@ -306,6 +318,7 @@ func (s *observedInputStream) closedNormally() bool {
 }
 
 type interruptibleOutput struct {
+	cancel                 context.CancelCauseFunc
 	mu                     sync.Mutex
 	cond                   *sync.Cond
 	queue                  []*genx.MessageChunk
@@ -313,6 +326,7 @@ type interruptibleOutput struct {
 	closeErr               error
 	active                 bool
 	activeStream           string
+	inputStreamID          string
 	activeStreamKeys       map[string]map[string]struct{}
 	deliveredRoutes        map[string]map[string]*astDeliveredRoute
 	pendingDelivery        []*genx.MessageChunk
@@ -337,7 +351,6 @@ func newInterruptibleOutput(keepActiveAfterTextEOS ...bool) *interruptibleOutput
 func (s *interruptibleOutput) Next() (*genx.MessageChunk, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-retry:
 	for len(s.queue) == 0 {
 		if s.closeErr != nil {
 			return nil, s.closeErr
@@ -346,14 +359,6 @@ retry:
 			return nil, io.EOF
 		}
 		s.cond.Wait()
-	}
-	if chunk := s.queue[0]; shouldGraceASTAssistantChunk(chunk) {
-		s.mu.Unlock()
-		time.Sleep(interruptibleAssistantChunkGrace)
-		s.mu.Lock()
-		if len(s.queue) == 0 || s.queue[0] != chunk {
-			goto retry
-		}
 	}
 	chunk := s.queue[0]
 	s.queue = s.queue[1:]
@@ -398,11 +403,17 @@ func (s *interruptibleOutput) AbandonOutputObservation(chunk *genx.MessageChunk)
 
 func (s *interruptibleOutput) Close() error {
 	s.close()
+	if s.cancel != nil {
+		s.cancel(context.Canceled)
+	}
 	return nil
 }
 
 func (s *interruptibleOutput) CloseWithError(err error) error {
 	s.closeWithError(err)
+	if s.cancel != nil {
+		s.cancel(err)
+	}
 	return nil
 }
 
@@ -413,6 +424,9 @@ func (s *interruptibleOutput) push(chunk *genx.MessageChunk) error {
 		return io.ErrClosedPipe
 	}
 	if isASTAssistantChunk(chunk) {
+		if owner := chunk.Ctrl.ResponseEpoch.InputStreamID(); owner != "" && s.inputStreamID != "" && owner != s.inputStreamID {
+			return nil
+		}
 		streamID := astAssistantResponseStreamID(chunk.Ctrl.StreamID)
 		if s.isBlockedStream(chunk.Ctrl.StreamID) {
 			return nil
@@ -424,9 +438,10 @@ func (s *interruptibleOutput) push(chunk *genx.MessageChunk) error {
 	return nil
 }
 
-func (s *interruptibleOutput) interrupt(string) {
+func (s *interruptibleOutput) interrupt(inputStreamID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	s.inputStreamID = strings.TrimSpace(inputStreamID)
 	streamIDs := s.pendingAssistantStreams()
 	if len(streamIDs) == 0 {
 		return
@@ -436,13 +451,33 @@ func (s *interruptibleOutput) interrupt(string) {
 	remaining := s.queue
 	interrupted := make([]*genx.MessageChunk, 0, len(streamIDs)*2)
 	for _, streamID := range streamIDs {
+		epoch := s.assistantEpoch(streamID)
 		s.blockedStream[streamID] = true
 		delete(s.activeStreamKeys, streamID)
 		remaining = removeASTAssistantStreamChunks(remaining, streamID)
-		interrupted = append(interrupted, s.interruptedChunks(streamID)...)
+		for _, chunk := range s.interruptedChunks(streamID) {
+			chunk.Ctrl.ResponseEpoch = epoch
+			interrupted = append(interrupted, chunk)
+		}
 	}
 	s.queue = append(interrupted, remaining...)
 	s.cond.Broadcast()
+}
+
+func (s *interruptibleOutput) assistantEpoch(streamID string) *genx.ResponseEpoch {
+	for _, chunks := range [][]*genx.MessageChunk{s.queue, s.pendingDelivery} {
+		for _, chunk := range chunks {
+			if isASTAssistantChunk(chunk) && astAssistantStreamIDMatches(chunk.Ctrl.StreamID, streamID) && chunk.Ctrl.ResponseEpoch != nil {
+				return chunk.Ctrl.ResponseEpoch
+			}
+		}
+	}
+	for _, route := range s.deliveredRoutes[streamID] {
+		if route.epoch != nil {
+			return route.epoch
+		}
+	}
+	return nil
 }
 
 func (s *interruptibleOutput) pendingAssistantStreams() []string {
@@ -494,6 +529,7 @@ func (s *interruptibleOutput) removePendingDelivery(index int) {
 }
 
 type astDeliveredRoute struct {
+	epoch    *genx.ResponseEpoch
 	streamID string
 	kind     string
 	mimeType string
@@ -518,7 +554,7 @@ func (s *interruptibleOutput) observeDeliveredAssistantChunk(chunk *genx.Message
 	key := astAssistantActiveKey(chunk)
 	route := routes[key]
 	if route == nil {
-		route = &astDeliveredRoute{streamID: chunk.Ctrl.StreamID, kind: kind}
+		route = &astDeliveredRoute{streamID: chunk.Ctrl.StreamID, kind: kind, epoch: chunk.Ctrl.ResponseEpoch}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil {
 			route.mimeType = blob.MIMEType
 		}
@@ -546,7 +582,7 @@ func (s *interruptibleOutput) observePulledAssistantChunk(chunk *genx.MessageChu
 	key := astAssistantActiveKey(chunk)
 	route := routes[key]
 	if route == nil {
-		route = &astDeliveredRoute{streamID: chunk.Ctrl.StreamID, kind: kind}
+		route = &astDeliveredRoute{streamID: chunk.Ctrl.StreamID, kind: kind, epoch: chunk.Ctrl.ResponseEpoch}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil {
 			route.mimeType = blob.MIMEType
 		}
@@ -678,15 +714,8 @@ func isASTAssistantChunk(chunk *genx.MessageChunk) bool {
 	return chunk != nil &&
 		chunk.Role == genx.RoleModel &&
 		chunk.Ctrl != nil &&
-		chunk.Ctrl.Label == "assistant"
-}
-
-func shouldGraceASTAssistantChunk(chunk *genx.MessageChunk) bool {
-	if !isASTAssistantChunk(chunk) || chunk.Ctrl.EndOfStream || chunk.Ctrl.Error != "" {
-		return false
-	}
-	blob, isBlob := chunk.Part.(*genx.Blob)
-	return !isBlob || blob == nil || !strings.HasPrefix(baseMIME(blob.MIMEType), "audio/")
+		chunk.Ctrl.Label == "assistant" &&
+		!(chunk.Part == nil && chunk.Ctrl.ResponseEpochEnd && !chunk.IsEndOfStream())
 }
 
 func astAssistantActiveKey(chunk *genx.MessageChunk) string {
@@ -771,26 +800,31 @@ func astInterruptedBoundary(streamID, kind, mimeType string, begin bool) *genx.M
 }
 
 type externalVoiceTransformer struct {
-	Transformer genx.TransformerMux
-	ASTPattern  string
-	TTSPattern  string
+	Transformer   genx.TransformerMux
+	ASTPattern    string
+	TTSPattern    string
+	PrepareOutput func(context.Context, genx.Stream) (genx.Stream, error)
 }
 
 func (t externalVoiceTransformer) Transform(ctx context.Context, input genx.Stream) (genx.Stream, error) {
 	if t.Transformer == nil {
 		return nil, fmt.Errorf("asttranslate: transformer is required")
 	}
-	dock, err := audiodock.New(audiodock.Config{
-		Agent: patternTransformer{Transformer: t.Transformer, Pattern: t.ASTPattern},
+	dock, err := t.withVoice(patternTransformer{Transformer: t.Transformer, Pattern: t.ASTPattern, PrepareOutput: t.PrepareOutput})
+	if err != nil {
+		return nil, err
+	}
+	return dock.Transform(ctx, input)
+}
+
+func (t externalVoiceTransformer) withVoice(agent genx.Transformer) (*audiodock.Dock, error) {
+	return audiodock.New(audiodock.Config{
+		Agent: agent,
 		TTS:   astVoiceTransformerMux{Transformer: t.Transformer},
 		ResolveVoice: func(context.Context, audiodock.VoiceRequest) (string, error) {
 			return t.TTSPattern, nil
 		},
 	})
-	if err != nil {
-		return nil, err
-	}
-	return dock.Transform(ctx, input)
 }
 
 // astVoiceTransformerMux keeps the AST product boundary's Ogg/Opus packet

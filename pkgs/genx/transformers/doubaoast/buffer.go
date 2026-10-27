@@ -28,3 +28,21 @@ func chunkInputStreamID(chunk *genx.MessageChunk, fallback string) string {
 	}
 	return strings.TrimSpace(fallback)
 }
+
+// astTranslateEpochOutput captures the input owner before any asynchronous
+// composition can prefetch output from a newer capture.
+type astTranslateEpochOutput struct {
+	output astTranslateOutput
+	epoch  *genx.ResponseEpoch
+}
+
+func (o astTranslateEpochOutput) Push(chunk *genx.MessageChunk) error {
+	if chunk != nil {
+		chunk = chunk.Clone()
+		if chunk.Ctrl == nil {
+			chunk.Ctrl = &genx.StreamCtrl{}
+		}
+		chunk.Ctrl.ResponseEpoch = o.epoch
+	}
+	return o.output.Push(chunk)
+}

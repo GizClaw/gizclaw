@@ -860,6 +860,16 @@ Flutter Giztest 的 SSE evidence 保留事件名与资源路径，断言失败�
 
 标准 catalog 还包含 `initiative-agent`、`initiative-peer` 和 `initiative-default` 三个确定性开场 Workflow，供 `eino.initiative.giztest.yaml` 验证统一 History 和 Workspace 覆盖规则；专用 Go Giztest 另检查旧 `starts` 字段的忽略行为。
 
+### AST 与 MiniMax 的 capture 发布回归
+
+标准 Docker Giztest 批次包含 `volc-ast-translate-minimax.*` 场景，并使用 Profile 中的真实 MiniMax system Voice。PTT 场景使用按 20 ms 上传的多句录音：首响探针从输入 EOS 开始计时，检查提前合成后的 500 ms 回归预算；完整轮次检查默认 PTT、单条回复、文本／音频 EOS 和恰好一条用户 History、一条助手 History。这个预算用于已提供充分合成窗口的测试录音，不是任意短句或公网设备的延迟保证。
+
+Go Giztest 的 `pre_release_response_count` 记录当前 PTT 输入开始后、首次输入 EOS 前新出现的助手 response ID，排除输入前已经存在的回复。它独立于旧回复过滤，因此正式场景可以断言为零，防止提前播放被客户端过滤掩盖。该计数随新的 PTT 输入轮次重置，不增加 wire 字段。
+
+`terminal_label: transcript` 的 `wait_for_history` 等待当前输入的持久化回执，即使尚未完成的 assistant 回复已经开始。以 assistant 为结束边界且有回复的操作仍要求对应 Agent History 回执。History 等待上限保持为 10 秒。
+
+Realtime 场景要求长录音完成前已有可听输出，并继续等待最后一句的完整文本／音频 EOS 和持久化确认。三个场景由 `run_tests.sh` 的标准文档发现纳入全量批次；原有 AST 打断、连续轮次、其他语言和并发场景继续运行。
+
 ### 手动环境
 
 标准 Docker 环境包含单节点 LiveKit，并为每次启动生成临时 SFU 凭据，供群组 RPC、事件流和社交测试使用。LiveKit 只在 Compose 网络中提供服务，不发布主机端口；清理环境时一起删除。
@@ -1128,6 +1138,7 @@ Assistant terminal completion 在首个完整回复后继续收集 250 ms；`rep
 它只证明观察窗口内收到的结果，不保证窗口外不会有输出。空输入、`first_response`、
 `input_sent` 和 transcript completion 使用各自的完成边界。
 音频输入同时报告 `/input_packets`、`/input_ms` 和 `/pushed_packets`。
+单轮 realtime 输入在录音与 VAD 尾静音发完后，继续在同一路由按实时节奏上传静音，直到回复完成、打断或操作取消，避免长回复播放期间供应商因上行空闲而关闭会话。静音不增加 `/input_ms`，实际发送帧计入 `/pushed_packets`；`completion: input_sent` 在原有输入发送完成后停止。连续消息的 EOS 是最终交付边界；需要检查落库的场景仍应声明 `wait_for_history: true`。
 控制 BOS 后默认按住 500 ms 才打开音频通道；`hold_before_audio` 可指定非负 Go duration，
 用于其它设备门限。PTT 不在 wire 声明 `input_mode`，实际输入模式来自 Workspace 参数。
 `eino-voice-assistant.push-to-talk-long-input.giztest.yaml` 使用至少 60 秒的多句输入，
@@ -1907,7 +1918,7 @@ git lfs fsck
 bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
 ```
 
-入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino、Doubao ASR、AgentHost 和 GizTunnel package 的 race
+入口在原生 Linux Docker runner 内运行完整 Giztest、AudioDock、Eino、Doubao ASR/AST、AST Translate、AgentHost 和 GizTunnel package 的 race
 测试，以及真实 Server、Edge、WebRTC 的两轮音频回归。远端 ASR、模型和 TTS 使用
 本地 HTTP／SAUC WebSocket 协议夹具，仍经过生产 adapter；不需要 Provider 凭据。
 夹具先返回开场文字，再通过 HTTP barrier 释放旧回复尾部，随后要求两次音频输入
@@ -1925,7 +1936,7 @@ Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、�
 
 runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
 清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
-报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
+协议 fixture 的临时 SQLite 与音频文件使用容器 tmpfs，编译产物与报告仍写入各自的磁盘目录；这不改变真实服务栈的 PostgreSQL/TiKV 存储。报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
 `tests/gizclaw-e2e/run_tests.sh` 和 CI 的独立 Audio Turn Ownership Docker job 均执行此入口。
 CI 将这组完整 race 编译与传输回归和 Audioplayer 场景并行运行，避免共用一个 job 的剩余构建时间；
 测试命令、用例超时和断言仍由原入口控制。标准全量入口随后继续运行真实 Provider 套件，二者的证据应分别保留。

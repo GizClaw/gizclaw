@@ -23,6 +23,23 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+func TestPeerStreamEventPreservesAudioInputMode(t *testing.T) {
+	for _, tc := range []struct {
+		mode eventpb.AudioInputMode
+		want string
+	}{
+		{eventpb.AudioInputMode_AUDIO_INPUT_MODE_UNSPECIFIED, ""},
+		{eventpb.AudioInputMode_AUDIO_INPUT_MODE_PUSH_TO_TALK, "push-to-talk"},
+		{eventpb.AudioInputMode_AUDIO_INPUT_MODE_REALTIME, "realtime"},
+	} {
+		event := &eventpb.PeerEvent{Version: eventpb.Version, Type: eventpb.PeerEventType_PEER_EVENT_TYPE_BOS, Payload: &eventpb.PeerEvent_Bos{Bos: &eventpb.StreamBegin{StreamId: "capture", Kind: eventpb.StreamKind_STREAM_KIND_AUDIO, InputMode: tc.mode}}}
+		chunk, err := peerStreamEventToChunk(event)
+		if err != nil || chunk.Ctrl.InputMode != tc.want {
+			t.Fatalf("mode %v: chunk=%v err=%v, want %q", tc.mode, chunk, err, tc.want)
+		}
+	}
+}
+
 func TestPeerStreamEventFrameRoundTrip(t *testing.T) {
 	event := &eventpb.PeerEvent{
 		Version: eventpb.Version,

@@ -47,11 +47,11 @@ func (s *lifecycleTestSession) Recv() iter.Seq2[*doubaospeech.ASTTranslateEvent,
 		<-s.closed
 	}
 }
-func startLifecycleTest(t *testing.T, mode InputMode, failure error, afterEOS ...bool) (context.CancelFunc, *lifecycleTestSession, *bufferStream, genx.Stream) {
+func startLifecycleTest(t *testing.T, mode string, failure error, afterEOS ...bool) (context.CancelFunc, *lifecycleTestSession, *bufferStream, genx.Stream) {
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.Background())
 	fake := &lifecycleTestSession{sent: make(chan struct{}), finish: make(chan struct{}), closed: make(chan struct{}), received: make(chan struct{}), failure: failure}
-	tr := newTransformer(doubaospeech.NewClient("test"), withInputMode(mode), withRealtimePacing(false))
+	tr := newTransformer(doubaospeech.NewClient("test"), withRealtimePacing(false))
 	tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
 		return fake, nil
 	}
@@ -71,7 +71,9 @@ func startLifecycleTest(t *testing.T, mode InputMode, failure error, afterEOS ..
 		_ = fake.Close()
 		_ = out.CloseWithError(context.Canceled)
 	})
-	_ = input.Push(genx.NewBeginOfStream("test"))
+	bos := genx.NewBeginOfStream("test")
+	bos.Ctrl.InputMode = mode
+	_ = input.Push(bos)
 	_ = input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}}, Ctrl: &genx.StreamCtrl{StreamID: "test"}})
 	select {
 	case <-fake.sent:
@@ -81,7 +83,7 @@ func startLifecycleTest(t *testing.T, mode InputMode, failure error, afterEOS ..
 	return cancel, fake, input, out
 }
 func TestProviderErrorIsVisibleWithoutEOS(t *testing.T) {
-	for _, mode := range []InputMode{InputModeRealtime, InputModePushToTalk} {
+	for _, mode := range []string{"realtime", "push-to-talk"} {
 		t.Run(string(mode), func(t *testing.T) {
 			sentinel := errors.New("provider failure")
 			_, fake, _, out := startLifecycleTest(t, mode, sentinel)
@@ -100,7 +102,7 @@ func TestProviderErrorIsVisibleWithoutEOS(t *testing.T) {
 	}
 }
 func TestCancellationClosesSilentSession(t *testing.T) {
-	for _, mode := range []InputMode{InputModeRealtime, InputModePushToTalk} {
+	for _, mode := range []string{"realtime", "push-to-talk"} {
 		t.Run(string(mode), func(t *testing.T) {
 			cancel, fake, input, _ := startLifecycleTest(t, mode, nil)
 			<-fake.received
@@ -135,7 +137,7 @@ func (s *lifecycleTestInput) Next() (*genx.MessageChunk, error) {
 }
 func TestRealtimeProviderErrorAfterEOSIsVisible(t *testing.T) {
 	sentinel := errors.New("provider failure after EOS")
-	_, fake, input, out := startLifecycleTest(t, InputModeRealtime, sentinel, true)
+	_, fake, input, out := startLifecycleTest(t, "realtime", sentinel, true)
 	_ = input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "test", EndOfStream: true}})
 	<-fake.received
 	result := make(chan error, 1)
@@ -151,7 +153,7 @@ func TestRealtimeProviderErrorAfterEOSIsVisible(t *testing.T) {
 }
 
 func TestClosingOutputClosesSilentSession(t *testing.T) {
-	for _, mode := range []InputMode{InputModeRealtime, InputModePushToTalk} {
+	for _, mode := range []string{"realtime", "push-to-talk"} {
 		t.Run(string(mode), func(t *testing.T) {
 			_, session, _, output := startLifecycleTest(t, mode, nil)
 			<-session.received
