@@ -172,6 +172,29 @@ go test -count=1 -run '^TestPostgreSQLInputPermission' ./pkgs/gizclaw
 
 The permission regression uses real PostgreSQL and a deterministic Social binding resolver to check ordinary voice boundaries, background SFU revocation, and fail-closed behavior/recovery under a real table lock. It does not qualify real SFU media forwarding, remote models or physical devices.
 
+### Native structured-control Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_native_structured_output_tests.sh
+```
+
+This lane uses the same isolated Docker lifecycle as the native-audio function
+tests. A hidden Lite node receives original audio and ordered History, returns
+a native JSON-schema object, and hands control to a normally streamed Lite
+reply node. Both models disable thinking. The control Model enables JSON output
+and disables function-call fallback, so unsupported native audio/schema
+combinations fail rather than taking a different provider path.
+
+Four cases cover Server and Edge: each runs the unchanged 2s text/3s audio
+first-response probe and a fresh two-recording conversation with reload, a long
+second recording, exact ordered History, downloadable recordings, EOS and audio
+integrity. Control JSON is not declared as a Graph output. The fixture reuses
+the existing two State fields; it does not provide fixed dialogue answers.
+Packet spacing and underruns remain observations. Evidence and cleanup use the
+runner's ignored `.testbench/native-audio-structured-*` directory; no deployed
+cluster is modified. Provider quality and the Li Bai 23-round content review
+remain separate acceptance work.
+
 ## PostgreSQL History concurrency and retention
 
 Use isolated PostgreSQL 17 with `pg_partman 5.5.0` in schema `partman`, `max_connections=300`, and `GIZCLAW_TEST_POSTGRES_DSN`:

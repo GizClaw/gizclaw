@@ -292,10 +292,21 @@
               "outputs": { "type": "object", "additionalProperties": { "type": "string", "minLength": 1 } },
               "model": { "type": "string", "minLength": 1 },
               "temperature": { "type": "number", "minimum": 0, "maximum": 2 },
-              "max_tokens": { "type": "integer", "minimum": 1 }
+              "max_tokens": { "type": "integer", "minimum": 1 },
+              "structured_output": { "$ref": "#/components/schemas/EinoStructuredOutput" }
             }
           }
         ]
+      },
+      "EinoStructuredOutput": {
+        "type": "object",
+        "description": "Provider-enforced structured generation. The complete JSON object is validated before any output is published; ordinary chat nodes retain incremental streaming.",
+        "required": ["name", "schema"],
+        "additionalProperties": false,
+        "properties": {
+          "name": { "type": "string", "minLength": 1, "maxLength": 64, "pattern": "^[A-Za-z0-9_-]+$" },
+          "schema": { "type": "object", "additionalProperties": true, "description": "JSON Schema declaring an object response; resolved and validated when constructing the Graph." }
+        }
       },
       "EinoTransformNode": {
         "allOf": [

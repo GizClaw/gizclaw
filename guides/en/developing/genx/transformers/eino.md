@@ -83,6 +83,44 @@ Tool-result snapshots associate actual arguments using the internal call ID and 
 name, then omit the ID. Multiple proposals with the same name or reordered results cannot select
 arguments by name; an unmatched result receives no invented arguments.
 
+### Structured control
+
+A ChatModel can set `StructuredOutput` when its resolved component implements
+`StructuredChatModel`. GizClaw exposes the same option as
+`chat_model.structured_output` in the [Workflow source contract](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/workflows/eino.json).
+It uses the resolved GenX Generator's native `Invoke` capability, carrying the
+same typed messages, original audio, History, model options and cancellation.
+Provider JSON output or native function calling supplies the object; the node
+does not advertise or execute runtime Tools. A provider error, truncated or
+malformed JSON, schema mismatch or missing component capability fails without
+repairing text or falling back to ordinary streamed generation.
+The declared schema is forwarded without changing optional fields, nullability
+or additional-property rules. Providers that do not support it return an error.
+Duplicate keys at any object depth, including objects inside arrays, fail before
+the original JSON can update State or publish.
+
+```yaml
+structured_output:
+  name: turn_intent
+  schema:
+    type: object
+    additionalProperties: false
+    required: [mode]
+    properties:
+      mode:
+        type: string
+        enum: [story, research]
+```
+
+The complete object is checked against the snapshotted schema and
+`MaxOutputBytes` before it can update State or publish. A published structured
+node emits its validated JSON once. For internal control, omit that node from
+Graph outputs and publish only the subsequent reply node; control results stay
+out of client text, speech and conversational History. Existing State fields
+can be reused by sequential nodes. `VerifyToolResponse` is incompatible with
+structured nodes and is rejected during construction instead of being bypassed.
+Omitting this option preserves normal incremental replies and Tool continuations.
+
 ### Audio turns
 
 The host enables complete audio turns with `Config.AudioInput`. Original audio enters the Graph through typed `input.messages`. When the host supplies an `InputText(ctx)` callback, declared `input.text` bindings resolve the same input's final transcription using the node context outside the State lock; independent response paths can stream before that resolution. Without the callback, `input.text` is empty. ChatModel generates replies without transcribing input. Otherwise the Transformer consumes text turns from upstream ASR.

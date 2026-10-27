@@ -83,34 +83,20 @@ func runTransform(config TransformNode, inputs map[string]any) (map[string]any, 
 	}
 }
 
+// Keep the same nesting bound as encoding/json's non-token scanner. Token
+// traversal does not enforce that scanner bound itself.
+const maxJSONNestingDepth = 10000
+
 func decodeJSONObject(text string) (map[string]any, error) {
 	decoder := json.NewDecoder(strings.NewReader(text))
 	decoder.UseNumber()
-	token, err := decoder.Token()
+	value, err := readJSONValue(decoder, 0)
 	if err != nil {
 		return nil, fmt.Errorf("eino: decode JSON: %w", err)
 	}
-	if delimiter, ok := token.(json.Delim); !ok || delimiter != '{' {
+	object, ok := value.(map[string]any)
+	if !ok {
 		return nil, fmt.Errorf("eino: decode_json requires an object")
-	}
-	result := make(map[string]any)
-	for decoder.More() {
-		keyToken, err := decoder.Token()
-		if err != nil {
-			return nil, fmt.Errorf("eino: decode JSON key: %w", err)
-		}
-		key := keyToken.(string)
-		if _, duplicate := result[key]; duplicate {
-			return nil, fmt.Errorf("eino: decode_json duplicate key %q", key)
-		}
-		var value any
-		if err := decoder.Decode(&value); err != nil {
-			return nil, fmt.Errorf("eino: decode JSON value %q: %w", key, err)
-		}
-		result[key] = normalizeJSONNumbers(value)
-	}
-	if _, err := decoder.Token(); err != nil {
-		return nil, fmt.Errorf("eino: decode JSON object: %w", err)
 	}
 	if token, err := decoder.Token(); err != io.EOF {
 		if err == nil {
@@ -118,7 +104,59 @@ func decodeJSONObject(text string) (map[string]any, error) {
 		}
 		return nil, fmt.Errorf("eino: decode JSON trailing data: %w", err)
 	}
-	return result, nil
+	return object, nil
+}
+
+// readJSONValue checks every object before losing duplicate-key information.
+// Using tokens also covers objects nested inside arrays without rewriting JSON.
+func readJSONValue(decoder *json.Decoder, depth int) (any, error) {
+	token, err := decoder.Token()
+	if err != nil {
+		return nil, err
+	}
+	if token == json.Delim('{') || token == json.Delim('[') {
+		if depth >= maxJSONNestingDepth {
+			return nil, fmt.Errorf("JSON nesting exceeds maximum depth %d", maxJSONNestingDepth)
+		}
+		depth++
+	}
+	switch token {
+	case json.Delim('{'):
+		object := make(map[string]any)
+		for decoder.More() {
+			keyToken, err := decoder.Token()
+			if err != nil {
+				return nil, err
+			}
+			key, ok := keyToken.(string)
+			if !ok {
+				return nil, fmt.Errorf("invalid JSON object key")
+			}
+			if _, duplicate := object[key]; duplicate {
+				return nil, fmt.Errorf("duplicate key %q", key)
+			}
+			value, err := readJSONValue(decoder, depth)
+			if err != nil {
+				return nil, err
+			}
+			object[key] = value
+		}
+		_, err := decoder.Token()
+		return object, err
+	case json.Delim('['):
+		array := []any{}
+		for decoder.More() {
+			value, err := readJSONValue(decoder, depth)
+			if err != nil {
+				return nil, err
+			}
+			array = append(array, value)
+		}
+		_, err := decoder.Token()
+		return array, err
+	default:
+		return normalizeJSONNumbers(token), nil
+	}
 }
 
 func normalizeJSONNumbers(value any) any {

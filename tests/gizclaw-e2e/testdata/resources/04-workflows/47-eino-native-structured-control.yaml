@@ -1,0 +1,129 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: Workflow
+metadata:
+  id: eino-native-structured-control
+spec:
+  toolkit:
+    tool_ids: []
+  driver: eino
+  eino:
+    audio_input: model
+    voice_adapter:
+      default_voice: multilingual-voice
+    graph:
+      name: eino-native-structured-control
+      compile:
+        node_trigger_mode: any_predecessor
+        max_run_steps: 8
+      state:
+        fields:
+          - name: messages
+            type: messages
+            merge: replace
+          - name: answer
+            type: string
+            merge: replace
+      nodes:
+        - id: intent-prompt
+          type: prompt
+          inputs:
+            conversation:
+              from: input.messages
+          outputs:
+            messages: messages
+          format: f_string
+          messages:
+            - role: system
+              template: 这是内部分类，不回答用户。按本轮原音和历史判断：核查、解释或求知用 research，扮演或续写剧情用 story；language 是用户要求的回复语种，未要求则跟随本轮语音。
+            - placeholder: conversation
+        - id: intent-model
+          type: chat_model
+          model: control-llm
+          temperature: 0
+          max_tokens: 64
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+          structured_output:
+            name: turn_intent
+            schema:
+              type: object
+              additionalProperties: false
+              required: [mode, language]
+              properties:
+                mode:
+                  type: string
+                  enum: [story, research]
+                language:
+                  type: string
+                  maxLength: 32
+        - id: reply-prompt
+          type: prompt
+          inputs:
+            intent:
+              from: answer
+            conversation:
+              from: input.messages
+          outputs:
+            messages: messages
+          format: f_string
+          messages:
+            - role: system
+              template: 你是语音助手。内部分类为 {intent}。research 时自然解释问题，story 时按用户要求续写或扮演；使用指定语种并结合历史回答本轮原音。不要对外讲述内部分类或输出其 JSON。
+            - placeholder: conversation
+        - id: reply-model
+          type: chat_model
+          model: audio-llm
+          temperature: 0
+          inputs:
+            messages:
+              from: messages
+          outputs:
+            text: answer
+        - id: require-transcript
+          type: script
+          inputs:
+            text:
+              from: input.text
+            messages:
+              from: input.messages
+            answer:
+              from: answer
+          outputs:
+            text: answer
+          language: starlark
+          entrypoint: run
+          limits:
+            max_execution_steps: 10000
+            timeout: 1s
+            max_input_bytes: 4096
+            max_output_bytes: 65536
+          source: |
+            def run(input):
+              if not input["text"].strip():
+                fail("missing final transcription")
+              if not input["messages"] or input["messages"][-1]["role"] != "user":
+                fail("missing current message text view")
+              return {"text": input["answer"]}
+      edges:
+        - from: start
+          to: intent-prompt
+        - from: intent-prompt
+          to: intent-model
+        - from: intent-model
+          to: reply-prompt
+        - from: reply-prompt
+          to: reply-model
+        - from: reply-model
+          to: require-transcript
+        - from: require-transcript
+          to: end
+      branches: []
+      outputs:
+        - node: reply-model
+          field: answer
+          name: assistant
+          mime_type: text/plain
+          primary: true

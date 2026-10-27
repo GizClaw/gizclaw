@@ -880,6 +880,30 @@ func (m genXChatModel) Generate(ctx context.Context, input []*schema.Message, op
 	return schema.ConcatMessages(chunks)
 }
 
+func (m genXChatModel) GenerateStructured(ctx context.Context, input []*schema.Message, output genxeino.StructuredOutput, options ...model.Option) (*schema.Message, error) {
+	if m.generator == nil {
+		return nil, fmt.Errorf("eino: GenX generator is required")
+	}
+	modelContext, err := genXModelContext(input, options...)
+	if err != nil {
+		return nil, err
+	}
+	parameters, err := json.Marshal(output.Schema)
+	if err != nil {
+		return nil, fmt.Errorf("eino: structured output schema: %w", err)
+	}
+	_, call, err := m.generator.Invoke(ctx, m.pattern, modelContext, &genx.FuncTool{
+		Name: output.Name, Argument: output.Schema, Parameters: parameters, Strict: true,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("eino: structured model: %w", err)
+	}
+	if call == nil || call.Name != output.Name {
+		return nil, fmt.Errorf("eino: structured model returned no matching response")
+	}
+	return schema.AssistantMessage(call.Arguments, nil), nil
+}
+
 func (m genXChatModel) Stream(ctx context.Context, input []*schema.Message, options ...model.Option) (*schema.StreamReader[*schema.Message], error) {
 	if m.generator == nil {
 		return nil, fmt.Errorf("eino: GenX generator is required")

@@ -16,6 +16,7 @@ import (
 	"github.com/cloudwego/eino/components/retriever"
 	"github.com/cloudwego/eino/compose"
 	"github.com/cloudwego/eino/schema"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 type runStateContextKey struct{}
@@ -334,6 +335,15 @@ func addNativeComponentNode(
 			toolInvoker: config.ToolInvoker, verifyToolResponse: config.VerifyToolResponse,
 			maxReplyBytes: config.Limits.MaxOutputBytes,
 		}
+		if output := node.ChatModel.StructuredOutput; output != nil {
+			if _, ok := component.(StructuredChatModel); !ok {
+				return nil, fmt.Errorf("eino: ChatModel %q does not support structured output", node.ChatModel.Model)
+			}
+			adapted.structuredSchema, err = output.resolve()
+			if err != nil {
+				return nil, fmt.Errorf("eino: structured output: %w", err)
+			}
+		}
 		post := compose.WithStatePostHandler(func(
 			_ context.Context,
 			message *schema.Message,
@@ -455,6 +465,7 @@ type streamingChatModel struct {
 	toolInvoker        genx.ToolInvoker
 	verifyToolResponse func(context.Context, genx.ToolConversation, string) (string, error)
 	maxReplyBytes      int
+	structuredSchema   *jsonschema.Resolved
 }
 
 func (chatModel *streamingChatModel) Generate(
@@ -465,6 +476,9 @@ func (chatModel *streamingChatModel) Generate(
 	state, err := graphState(ctx)
 	if err != nil {
 		return nil, err
+	}
+	if chatModel.structuredSchema != nil {
+		return chatModel.generateStructured(ctx, state, input, options...)
 	}
 	callState := toolrun.FromContext(ctx)
 	if callState == nil {
@@ -667,7 +681,7 @@ func (chatModel *streamingChatModel) Stream(
 	input []*schema.Message,
 	options ...model.Option,
 ) (*schema.StreamReader[*schema.Message], error) {
-	if chatModel.toolInvoker == nil {
+	if chatModel.toolInvoker == nil && chatModel.structuredSchema == nil {
 		return chatModel.component.Stream(
 			ctx,
 			input,
