@@ -1160,7 +1160,7 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 		// An equal final can be a fresh subtitle repeating the same words.
 		extends := strings.IndexFunc(delta, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsNumber(r) }) >= 0
 		if cumulative && (s.text != "" || extends) {
-			text = strings.TrimSpace(s.text + delta)
+			text = s.text + delta
 		}
 	}
 	s.sentenceEnded = true

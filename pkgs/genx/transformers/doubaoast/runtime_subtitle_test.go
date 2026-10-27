@@ -167,13 +167,13 @@ func TestTextStatePreservesRepeatedFinalOnlySubtitles(t *testing.T) {
 
 func TestTextStateHandlesFinalOnlyCumulativeSubtitles(t *testing.T) {
 	for _, tc := range []struct {
-		name, first, cumulative, suffix string
+		name, first, cumulative, suffix, joined string
 	}{
-		{"latin", "Hello", "Hello world.", "world."},
-		{"normalized-prefix", "Hello!", "Hello world.", "world."},
-		{"chinese", "你好", "你好世界", "世界"},
-		{"japanese", "こんにちは", "こんにちは世界", "世界"},
-		{"korean", "안녕하세요", "안녕하세요 세계", "세계"},
+		{"latin", "Hello", "Hello world.", "world.", "Hello world. next"},
+		{"normalized-prefix", "Hello!", "Hello world.", "world.", "Hello! world. next"},
+		{"chinese", "你好", "你好世界", "世界", "你好世界 next"},
+		{"japanese", "こんにちは", "こんにちは世界", "世界", "こんにちは世界 next"},
+		{"korean", "안녕하세요", "안녕하세요 세계", "세계", "안녕하세요 세계 next"},
 	} {
 		for _, sameSource := range []bool{false, true} {
 			t.Run(fmt.Sprintf("%s/same-source=%t", tc.name, sameSource), func(t *testing.T) {
@@ -194,13 +194,20 @@ func TestTextStateHandlesFinalOnlyCumulativeSubtitles(t *testing.T) {
 					}
 				}
 				var texts []string
+				var joined strings.Builder
 				for _, chunk := range output.snapshot() {
-					if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
-						texts = append(texts, strings.TrimSpace(string(text)))
+					if text, ok := chunk.Part.(genx.Text); ok {
+						joined.WriteString(string(text))
+						if strings.TrimSpace(string(text)) != "" {
+							texts = append(texts, strings.TrimSpace(string(text)))
+						}
 					}
 				}
 				if len(texts) != 3 || texts[0] != tc.first || texts[1] != tc.suffix || texts[2] != "next" {
 					t.Fatalf("final-only cumulative subtitles=%v, want [%q %q %q]", texts, tc.first, tc.suffix, "next")
+				}
+				if joined.String() != tc.joined {
+					t.Fatalf("joined cumulative subtitles=%q, want %q", joined.String(), tc.joined)
 				}
 			})
 		}
