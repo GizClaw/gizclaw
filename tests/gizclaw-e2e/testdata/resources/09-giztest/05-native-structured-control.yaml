@@ -1,0 +1,70 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: RuntimeProfile
+      metadata:
+        id: e2e-native-structured-control
+      spec:
+        workflows:
+          eino-native-structured-control:
+            resource_id: eino-native-structured-control
+            i18n:
+              en:
+                display_name: Native structured control
+              zh-CN:
+                display_name: 原音结构化分流
+            ptt_asr_model: asr
+        resources:
+          models:
+            asr:
+              resource_id: volc-bigasr-sauc
+              i18n:
+                en:
+                  display_name: asr
+                zh-CN:
+                  display_name: asr
+            audio-llm:
+              resource_id: doubao-lite-audio-chat
+              i18n:
+                en:
+                  display_name: audio-llm
+                zh-CN:
+                  display_name: audio-llm
+            tts:
+              resource_id: volc-bigtts
+              i18n:
+                en:
+                  display_name: tts
+                zh-CN:
+                  display_name: tts
+            control-llm:
+              resource_id: doubao-lite-structured-control
+              i18n:
+                en:
+                  display_name: control-llm
+                zh-CN:
+                  display_name: control-llm
+          voices:
+            narrator:
+              resource_id: volc-tenant:volc-main:zh_female_xiaohe_uranus_bigtts
+              i18n:
+                en:
+                  display_name: narrator
+                zh-CN:
+                  display_name: narrator
+            multilingual-voice:
+              resource_id: volc-tenant:volc-main:multi_female_shuangkuaisisi_moon_bigtts
+              i18n:
+                en:
+                  display_name: multilingual-voice
+                zh-CN:
+                  display_name: multilingual-voice
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: RegistrationToken
+      metadata:
+        id: e2e-native-structured-control
+      spec:
+        token: gizclaw-e2e-native-structured-control
+        runtime_profile_id: e2e-native-structured-control

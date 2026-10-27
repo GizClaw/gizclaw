@@ -2421,6 +2421,7 @@ export type EinoChatModelNode = EinoNodeBase & {
     model: string;
     temperature?: number;
     max_tokens?: number;
+    structured_output?: EinoStructuredOutput;
 };
 
 export type EinoConversation = {
@@ -2660,6 +2661,19 @@ export type EinoStateField = {
 
 export type EinoStatePersistence = {
     fields: Array<string>;
+};
+
+/**
+ * Provider-enforced structured generation. The complete JSON object is validated before any output is published; ordinary chat nodes retain incremental streaming.
+ */
+export type EinoStructuredOutput = {
+    name: string;
+    /**
+     * JSON Schema declaring an object response; resolved and validated when constructing the Graph.
+     */
+    schema: {
+        [key: string]: unknown;
+    };
 };
 
 export type EinoSubgraphNode = EinoNodeBase & {

@@ -373,6 +373,10 @@ func (fixtureComponents) ResolveRetriever(context.Context, string) (retriever.Re
 
 type fixtureModel struct{}
 
+func (fixtureModel) GenerateStructured(context.Context, []*schema.Message, genxeino.StructuredOutput, ...model.Option) (*schema.Message, error) {
+	return nil, errors.New("unexpected structured execution in catalog construction fixture")
+}
+
 func (fixtureModel) Generate(context.Context, []*schema.Message, ...model.Option) (*schema.Message, error) {
 	return schema.AssistantMessage("fixture reply", nil), nil
 }

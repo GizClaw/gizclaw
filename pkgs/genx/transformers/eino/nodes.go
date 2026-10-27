@@ -3,6 +3,8 @@ package eino
 import (
 	"time"
 
+	"github.com/google/jsonschema-go/jsonschema"
+
 	genxmatch "github.com/GizClaw/gizclaw-go/pkgs/genx/match"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/memory"
 )
@@ -35,9 +37,17 @@ type NodeDefinition struct {
 
 // ChatModelNode invokes one resolved Eino chat model.
 type ChatModelNode struct {
-	Model       string
-	Temperature *float32
-	MaxTokens   *int
+	Model            string
+	Temperature      *float32
+	MaxTokens        *int
+	StructuredOutput *StructuredOutput
+}
+
+// StructuredOutput declares one provider-enforced JSON object response.
+// The schema is snapshotted with the Graph and must not be mutated by a component.
+type StructuredOutput struct {
+	Name   string
+	Schema *jsonschema.Schema
 }
 
 // PromptNode formats ordered Eino messages.

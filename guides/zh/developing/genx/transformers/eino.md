@@ -76,6 +76,34 @@ Tool round 与被拒绝的草稿不发布，通过检查的最终文本一次发
 Tool 结果快照通过内部调用 ID 与同名提议关联实际 arguments，随后移除 ID。
 同名并行提议或结果顺序不同也不按名称猜目标；无匹配的结果不补参数。
 
+### 结构化分流
+
+解析后的组件实现 `StructuredChatModel` 时，ChatModel 可配置 `StructuredOutput`。
+GizClaw 在 [Workflow source contract](https://github.com/GizClaw/gizclaw/blob/main/api/http/shared/workflows/eino.json)
+中公开相同的 `chat_model.structured_output` 选项。节点通过已解析 GenX Generator 的原生
+`Invoke` 能力传递同一份 typed messages、原音、History、模型参数和取消信号。
+对象由 Provider JSON output 或原生 function calling 返回；节点不声明或执行 runtime Tools。
+Provider 错误、截断或非法 JSON、schema 不符、组件不支持都会失败，不修补文本，也不回退到普通流式生成。
+
+```yaml
+structured_output:
+  name: turn_intent
+  schema:
+    type: object
+    additionalProperties: false
+    required: [mode]
+    properties:
+      mode:
+        type: string
+        enum: [story, research]
+```
+
+完整对象通过已快照的 schema 和 `MaxOutputBytes` 检查后才能写入 State 或发布。
+公开该节点时，校验后的 JSON 一次发布；内部控制节点不应列入 Graph outputs，只公开后续回复节点，
+使分流结果不进入客户端文字、语音和对话 History。顺序节点可以复用已有 State 字段。
+结构化节点与 `VerifyToolResponse` 不兼容，构造时直接拒绝，不会静默绕过该检查。
+省略此选项时，普通回复仍增量流式输出，Tool continuation 行为不变。
+
 ### 音频 turn
 
 宿主通过 `Config.AudioInput` 启用完整音频 turn。原始音频随 typed `input.messages` 进入 Graph。宿主提供 `InputText(ctx)` callback 时，声明的 `input.text` binding 使用节点 context 在 State 锁外等待同一输入的定稿转写；不依赖文字的回复路径可先流式输出。没有 callback 时，`input.text` 为空。ChatModel 只生成回复，不负责转写。没有启用音频 turn 时，Transformer 接收上游 ASR 的文本 turn。

@@ -3797,13 +3797,16 @@ type EinoBranchRoute struct {
 
 // EinoChatModelNode defines model for EinoChatModelNode.
 type EinoChatModelNode struct {
-	Id          string                  `json:"id"`
-	Inputs      *map[string]EinoBinding `json:"inputs,omitempty"`
-	MaxTokens   *int                    `json:"max_tokens,omitempty"`
-	Model       string                  `json:"model"`
-	Outputs     *map[string]string      `json:"outputs,omitempty"`
-	Temperature *float32                `json:"temperature,omitempty"`
-	Type        EinoChatModelNodeType   `json:"type"`
+	Id        string                  `json:"id"`
+	Inputs    *map[string]EinoBinding `json:"inputs,omitempty"`
+	MaxTokens *int                    `json:"max_tokens,omitempty"`
+	Model     string                  `json:"model"`
+	Outputs   *map[string]string      `json:"outputs,omitempty"`
+
+	// StructuredOutput Provider-enforced structured generation. The complete JSON object is validated before any output is published; ordinary chat nodes retain incremental streaming.
+	StructuredOutput *EinoStructuredOutput `json:"structured_output,omitempty"`
+	Temperature      *float32              `json:"temperature,omitempty"`
+	Type             EinoChatModelNodeType `json:"type"`
 }
 
 // EinoChatModelNodeType defines model for EinoChatModelNode.Type.
@@ -4067,6 +4070,14 @@ type EinoStateFieldType string
 // EinoStatePersistence defines model for EinoStatePersistence.
 type EinoStatePersistence struct {
 	Fields []string `json:"fields"`
+}
+
+// EinoStructuredOutput Provider-enforced structured generation. The complete JSON object is validated before any output is published; ordinary chat nodes retain incremental streaming.
+type EinoStructuredOutput struct {
+	Name string `json:"name"`
+
+	// Schema JSON Schema declaring an object response; resolved and validated when constructing the Graph.
+	Schema map[string]interface{} `json:"schema"`
 }
 
 // EinoSubgraphNode defines model for EinoSubgraphNode.

@@ -140,6 +140,23 @@ bash tests/gizclaw-e2e/run_native_audio_functions_tests.sh
 
 运行证据保存在 ignored `.testbench/native-audio-functions-*`，包含源文件摘要、二进制和 Docker 镜像身份、Giztest 报告与回放。入口退出时清理本次 Compose project、私有认证和任务 CLI，不修改线上集群。前置文本判断必须等待定稿；该实跑不注入识别延迟，不替代带门控的延迟/取消单元回归，也不代表剧情内容验收。
 
+### 原音结构化分流 Docker Giztest
+
+```sh
+bash tests/gizclaw-e2e/run_native_structured_output_tests.sh
+```
+
+此入口复用原音函数测试的隔离 Docker 生命周期。隐藏 Lite 节点接收原音和有序 History，
+以原生 JSON Schema 返回分类对象，再由普通 Lite 回复节点直接流式输出；两者均关闭 thinking。
+控制 Model 启用 JSON output、关闭 function-call fallback，因此原音与 schema 的组合不受支持时会明确失败，
+不会换一条 Provider 路径后声称通过。
+
+四个用例分别经过 Server 和 Edge：每条路径先测原有 2 秒首字、3 秒首音，
+再在新会话发送两份录音并在中间 reload；第二份为长录音，检查精确有序 History、原音下载、EOS 和音频完整性。
+控制 JSON 不声明为 Graph output，夹具复用已有两个 State 字段，不提供固定对话答案。
+包间隔和欠载仍只观察。证据保留及清理沿用 ignored `.testbench/native-audio-structured-*`，不修改线上集群。
+Provider 回答质量和李白完整 23 轮内容复核仍须另行验收。
+
 ## PostgreSQL History 并发与回收
 
 使用隔离的 PostgreSQL 17，安装 `pg_partman 5.5.0` 到 `partman` schema，配置 `max_connections=300`，并设置 `GIZCLAW_TEST_POSTGRES_DSN`。

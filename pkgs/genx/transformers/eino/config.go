@@ -604,6 +604,14 @@ func (config *normalizedConfig) validateNode(node NodeDefinition, fields map[str
 		if node.ChatModel.MaxTokens != nil && *node.ChatModel.MaxTokens <= 0 {
 			return fmt.Errorf("eino: %s MaxTokens must be positive", nodePath)
 		}
+		if output := node.ChatModel.StructuredOutput; output != nil {
+			if config.VerifyToolResponse != nil {
+				return fmt.Errorf("eino: %s structured output does not support VerifyToolResponse", nodePath)
+			}
+			if _, err := output.resolve(); err != nil {
+				return fmt.Errorf("eino: %s structured output: %w", nodePath, err)
+			}
+		}
 
 	case node.Transform != nil:
 		if node.Transform.Operation == "" {

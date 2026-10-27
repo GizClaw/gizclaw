@@ -3,6 +3,7 @@ package einoconfig
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/cloudwego/eino/components/model"
 	"github.com/cloudwego/eino/components/retriever"
+	"github.com/google/jsonschema-go/jsonschema"
 
 	genxeino "github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/eino"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
@@ -245,6 +247,17 @@ func mapNode(public apitypes.EinoNode) (genxeino.NodeDefinition, error) {
 		node := nodeBase(value.Id, value.Inputs, value.Outputs)
 		node.ChatModel = &genxeino.ChatModelNode{
 			Model: value.Model, Temperature: value.Temperature, MaxTokens: value.MaxTokens,
+		}
+		if output := value.StructuredOutput; output != nil {
+			encoded, err := json.Marshal(output.Schema)
+			if err != nil {
+				return genxeino.NodeDefinition{}, fmt.Errorf("structured output schema: %w", err)
+			}
+			var definition jsonschema.Schema
+			if err := json.Unmarshal(encoded, &definition); err != nil {
+				return genxeino.NodeDefinition{}, fmt.Errorf("structured output schema: %w", err)
+			}
+			node.ChatModel.StructuredOutput = &genxeino.StructuredOutput{Name: output.Name, Schema: &definition}
 		}
 		return node, nil
 	case "transform":
