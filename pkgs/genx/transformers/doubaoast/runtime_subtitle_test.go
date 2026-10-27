@@ -2,6 +2,7 @@ package doubaoast
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -123,12 +124,19 @@ func TestRuntimeReopensTranslationSubtitlesWithinOneSource(t *testing.T) {
 }
 
 func TestTextStatePreservesRepeatedFinalOnlySubtitles(t *testing.T) {
-	for _, final := range []string{"Hello", "こんにちは", "안녕하세요"} {
+	for _, finals := range [][2]string{
+		{"Hello", "Hello"},
+		{"こんにちは", "こんにちは"},
+		{"안녕하세요", "안녕하세요"},
+		{"Hello", "Hello!"},
+		{"こんにちは", "こんにちは。"},
+		{"안녕하세요", "안녕하세요!"},
+	} {
 		for _, sameSource := range []bool{false, true} {
-			t.Run(final+"/"+map[bool]string{false: "new-source", true: "same-source"}[sameSource], func(t *testing.T) {
+			t.Run(finals[1]+"/"+map[bool]string{false: "new-source", true: "same-source"}[sameSource], func(t *testing.T) {
 				state := astTranslateTextState{role: genx.RoleModel, label: "assistant", streamID: "one"}
 				output := &recordingASTTranslateOutput{}
-				for range 2 {
+				for _, final := range finals {
 					if err := state.startSubtitle(output); err != nil {
 						t.Fatal(err)
 					}
@@ -148,11 +156,53 @@ func TestTextStatePreservesRepeatedFinalOnlySubtitles(t *testing.T) {
 						texts = append(texts, strings.TrimSpace(string(text)))
 					}
 				}
-				if len(texts) != 2 || texts[0] != final || texts[1] != final {
+				if len(texts) != 2 || texts[0] != finals[0] || texts[1] != finals[1] {
 					t.Fatalf("final-only subtitles=%v", texts)
 				}
 			})
 		}
 
+	}
+}
+
+func TestTextStateHandlesFinalOnlyCumulativeSubtitles(t *testing.T) {
+	for _, tc := range []struct {
+		name, first, cumulative, suffix string
+	}{
+		{"latin", "Hello", "Hello world.", "world."},
+		{"normalized-prefix", "Hello!", "Hello world.", "world."},
+		{"chinese", "你好", "你好世界", "世界"},
+		{"japanese", "こんにちは", "こんにちは世界", "世界"},
+		{"korean", "안녕하세요", "안녕하세요 세계", "세계"},
+	} {
+		for _, sameSource := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/same-source=%t", tc.name, sameSource), func(t *testing.T) {
+				state := astTranslateTextState{role: genx.RoleModel, label: "assistant", streamID: "one"}
+				output := &recordingASTTranslateOutput{}
+				for _, final := range []string{tc.first, tc.cumulative, tc.cumulative + " next"} {
+					if err := state.startSubtitle(output); err != nil {
+						t.Fatal(err)
+					}
+					if err := state.addFinal(output, final); err != nil {
+						t.Fatal(err)
+					}
+					if sameSource {
+						_ = state.endSubtitle(output)
+					} else {
+						_ = state.close(output, "")
+						state.streamID = "two"
+					}
+				}
+				var texts []string
+				for _, chunk := range output.snapshot() {
+					if text, ok := chunk.Part.(genx.Text); ok && strings.TrimSpace(string(text)) != "" {
+						texts = append(texts, strings.TrimSpace(string(text)))
+					}
+				}
+				if len(texts) != 3 || texts[0] != tc.first || texts[1] != tc.suffix || texts[2] != "next" {
+					t.Fatalf("final-only cumulative subtitles=%v, want [%q %q %q]", texts, tc.first, tc.suffix, "next")
+				}
+			})
+		}
 	}
 }

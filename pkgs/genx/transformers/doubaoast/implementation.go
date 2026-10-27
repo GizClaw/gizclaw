@@ -1149,9 +1149,19 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 	}
 	// A final can cover this subtitle or the complete session. Convert a
 	// cumulative final to this provider segment before deriving its delta.
-	if s.text != "" && s.allText != "" && realtimeNormalizeText(s.allText) != realtimeNormalizeText(s.text) &&
-		strings.HasPrefix(realtimeNormalizeText(text), realtimeNormalizeText(s.allText)) {
-		text = strings.TrimSpace(s.text + realtimeTextDelta(s.allText, text))
+	if previous := strings.TrimSpace(s.allText); previous != "" && previous != strings.TrimSpace(s.text) {
+		delta, cumulative := strings.CutPrefix(text, previous)
+		if !cumulative {
+			normalized := realtimeNormalizeText(previous)
+			cumulative = normalized != "" && strings.HasPrefix(realtimeNormalizeText(text), normalized)
+			delta = realtimeTextDelta(previous, text)
+		}
+		// With no interim tokens, only an extending final is cumulative.
+		// An equal final can be a fresh subtitle repeating the same words.
+		extends := strings.IndexFunc(delta, func(r rune) bool { return unicode.IsLetter(r) || unicode.IsNumber(r) }) >= 0
+		if cumulative && (s.text != "" || extends) {
+			text = strings.TrimSpace(s.text + delta)
+		}
 	}
 	s.sentenceEnded = true
 	if s.text != "" && realtimeNormalizeText(s.text) == realtimeNormalizeText(text) {

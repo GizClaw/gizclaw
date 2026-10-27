@@ -24,8 +24,8 @@ func TestHistoryInterruptSupersedesUndeliveredDurableTerminal(t *testing.T) {
 }
 
 func TestCaptureHistoryCancelsQueuedSuccessfulEOSOnReplacement(t *testing.T) {
-	for _, delivered := range []bool{false, true} {
-		t.Run(fmt.Sprintf("delivered=%t", delivered), func(t *testing.T) {
+	for _, tc := range []struct{ delivered, control bool }{{false, false}, {false, true}, {true, false}, {true, true}} {
+		t.Run(fmt.Sprintf("delivered=%t/control=%t", tc.delivered, tc.control), func(t *testing.T) {
 			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
 			input, source := NewInputStream(16), NewInputStream(16)
 			upstream := newRecordingObservationStream(source)
@@ -55,6 +55,9 @@ func TestCaptureHistoryCancelsQueuedSuccessfulEOSOnReplacement(t *testing.T) {
 			body.Ctrl.BeginOfStream = true
 			eos := captureTestChunk(first.Ctrl.ResponseEpoch, "")
 			eos.Ctrl.EndOfStream = true
+			if tc.control {
+				eos.Part = nil
+			}
 			_ = source.Push(t.Context(), body)
 			_ = source.Push(t.Context(), eos)
 			got, err := output.Next()
@@ -68,7 +71,7 @@ func TestCaptureHistoryCancelsQueuedSuccessfulEOSOnReplacement(t *testing.T) {
 				t.Fatal(err)
 			}
 			waitForHistoryAppend(t, inserted)
-			if delivered {
+			if tc.delivered {
 				got, err := output.Next()
 				if err != nil || !got.IsEndOfStream() || historyInterruptedChunk(got) {
 					t.Fatalf("normal terminal=%v, %v", got, err)
@@ -87,7 +90,7 @@ func TestCaptureHistoryCancelsQueuedSuccessfulEOSOnReplacement(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if !delivered {
+			if !tc.delivered {
 				if !historyInterruptedChunk(got) || got.Ctrl.StreamID != "response" {
 					t.Fatalf("queued success survived replacement: %v", got)
 				}

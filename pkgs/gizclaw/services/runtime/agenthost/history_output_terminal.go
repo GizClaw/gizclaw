@@ -61,7 +61,7 @@ func (o *historyOutput) cancelPendingForwardTerminals(interrupt *genx.MessageChu
 	queued := make(map[*genx.MessageChunk]bool)
 	o.forwardMu.Lock()
 	for chunk, key := range o.pendingTerminalForward {
-		if key.streamID == route.streamID && (!hasMIME || (key.historyForwardRouteKey == route.key() && key.mimeType == mimeType)) {
+		if key.streamID == route.streamID && (!hasMIME || chunk.Part == nil || (key.historyForwardRouteKey == route.key() && key.mimeType == mimeType)) {
 			delete(o.pendingTerminalForward, chunk)
 			discarded = append(discarded, chunk)
 			queued[chunk] = true

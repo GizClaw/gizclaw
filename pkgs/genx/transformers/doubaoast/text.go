@@ -1,6 +1,9 @@
 package doubaoast
 
-import "strings"
+import (
+	"strings"
+	"unicode"
+)
 
 func realtimeTextDelta(previous, current string) string {
 	if current == "" || current == previous {
@@ -38,7 +41,10 @@ func realtimeTextSuffixAfterNormalizedPrefix(previous, current string) (string, 
 		}
 		matched += len(norm)
 		if matched == len(previousNorm) {
-			return current[i+len(string(r)):], true
+			trailing := previous[len(strings.TrimRightFunc(previous, func(r rune) bool {
+				return !unicode.IsLetter(r) && !unicode.IsNumber(r)
+			})):]
+			return strings.TrimPrefix(current[i+len(string(r)):], trailing), true
 		}
 	}
 	return "", matched == len(previousNorm)
@@ -47,7 +53,7 @@ func realtimeTextSuffixAfterNormalizedPrefix(previous, current string) (string, 
 func realtimeNormalizeText(text string) string {
 	var b strings.Builder
 	for _, r := range strings.ToLower(text) {
-		if r >= 'a' && r <= 'z' || r >= '0' && r <= '9' || r >= '\u4e00' && r <= '\u9fff' {
+		if unicode.IsLetter(r) || unicode.IsNumber(r) {
 			b.WriteRune(r)
 		}
 	}
