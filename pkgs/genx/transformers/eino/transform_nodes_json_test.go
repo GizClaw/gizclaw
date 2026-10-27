@@ -1,9 +1,36 @@
 package eino
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 )
+
+func TestDecodeJSONObjectBoundsNestingBeforeDescending(t *testing.T) {
+	const standardJSONNestingLimit = 10000
+	for _, kind := range []string{"arrays", "objects"} {
+		t.Run(kind, func(t *testing.T) {
+			makeJSON := func(depth int) string {
+				if kind == "arrays" {
+					return `{"value":` + strings.Repeat("[", depth-1) + `0` + strings.Repeat("]", depth-1) + `}`
+				}
+				return strings.Repeat(`{"value":`, depth) + `0` + strings.Repeat("}", depth)
+			}
+			boundary := makeJSON(standardJSONNestingLimit)
+			if !json.Valid([]byte(boundary)) {
+				t.Fatal("boundary fixture disagrees with encoding/json")
+			}
+			if _, err := decodeJSONObject(boundary); err != nil {
+				t.Fatalf("valid encoding/json depth boundary was rejected: %v", err)
+			}
+			for _, depth := range []int{standardJSONNestingLimit + 1, 100000} {
+				if _, err := decodeJSONObject(makeJSON(depth)); err == nil || !strings.Contains(err.Error(), "nesting exceeds maximum depth") {
+					t.Fatalf("excessive depth %d did not fail before descent: %v", depth, err)
+				}
+			}
+		})
+	}
+}
 
 func TestDecodeJSONObjectRejectsRecursiveDuplicateKeys(t *testing.T) {
 	for _, text := range []string{

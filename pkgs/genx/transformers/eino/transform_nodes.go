@@ -83,10 +83,14 @@ func runTransform(config TransformNode, inputs map[string]any) (map[string]any, 
 	}
 }
 
+// Keep the same nesting bound as encoding/json's non-token scanner. Token
+// traversal does not enforce that scanner bound itself.
+const maxJSONNestingDepth = 10000
+
 func decodeJSONObject(text string) (map[string]any, error) {
 	decoder := json.NewDecoder(strings.NewReader(text))
 	decoder.UseNumber()
-	value, err := readJSONValue(decoder)
+	value, err := readJSONValue(decoder, 0)
 	if err != nil {
 		return nil, fmt.Errorf("eino: decode JSON: %w", err)
 	}
@@ -105,10 +109,16 @@ func decodeJSONObject(text string) (map[string]any, error) {
 
 // readJSONValue checks every object before losing duplicate-key information.
 // Using tokens also covers objects nested inside arrays without rewriting JSON.
-func readJSONValue(decoder *json.Decoder) (any, error) {
+func readJSONValue(decoder *json.Decoder, depth int) (any, error) {
 	token, err := decoder.Token()
 	if err != nil {
 		return nil, err
+	}
+	if token == json.Delim('{') || token == json.Delim('[') {
+		if depth >= maxJSONNestingDepth {
+			return nil, fmt.Errorf("JSON nesting exceeds maximum depth %d", maxJSONNestingDepth)
+		}
+		depth++
 	}
 	switch token {
 	case json.Delim('{'):
@@ -125,7 +135,7 @@ func readJSONValue(decoder *json.Decoder) (any, error) {
 			if _, duplicate := object[key]; duplicate {
 				return nil, fmt.Errorf("duplicate key %q", key)
 			}
-			value, err := readJSONValue(decoder)
+			value, err := readJSONValue(decoder, depth)
 			if err != nil {
 				return nil, err
 			}
@@ -136,7 +146,7 @@ func readJSONValue(decoder *json.Decoder) (any, error) {
 	case json.Delim('['):
 		array := []any{}
 		for decoder.More() {
-			value, err := readJSONValue(decoder)
+			value, err := readJSONValue(decoder, depth)
 			if err != nil {
 				return nil, err
 			}
