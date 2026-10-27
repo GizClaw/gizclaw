@@ -107,7 +107,7 @@ deadline/cancel 错误即使包装了 `context.DeadlineExceeded` 或 `context.Ca
 
 AST v2 只有 `s2t`（译文）与 `s2s`（译文及供应商语音）输出方式，没有 PTT/realtime 请求参数。`doubaoast.Transformer` 始终并发上传音频和接收事件，立即转发规范化后的 transcript、translation、history 和音频。输入结束前已经返回的译文可以直接进入外挂 TTS。
 
-Provider source subtitle 划分输出 segment；translation subtitle 的定稿通过 `MessageEnd` 提示下游立即 flush 当前合成文字，即使文字没有句末标点。Audio Dock 组合外挂 Voice，并继续使用 TTS segmentation。AST 输出队列不为每块文字添加固定等待。
+Provider source subtitle 划分转写与录音 segment；每条 translation subtitle 使用成对的文本 BOS/EOS，定稿同时通过 `MessageEnd` 提示下游立即 flush 当前合成文字，即使文字没有句末标点。同一 source subtitle 包含多条译文时，每条译文都重新开始文本生命周期；只有 final 的新字幕保留重复内容。Audio Dock 组合外挂 Voice，并继续使用 TTS segmentation。AST 输出队列不为每块文字添加固定等待。
 
 PTT 的发布策略属于 [AgentHost runtime](/zh/developing/gizclaw/services/runtime/agenthost)：runtime 根据已接纳的输入 BOS 与 Workspace 默认值识别用户意图，在 History 和播放之前缓存本轮输出。用户松手的 EOS 被接纳后就放行已合成的内容，不等待 Adapter 的上传循环读到 EOS、上游 `Finish` 或全部结果完成。Realtime 输出持续放行。独立调用 GenX Transformer 不包含这层产品策略。
 

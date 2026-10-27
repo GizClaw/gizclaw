@@ -1,12 +1,14 @@
 package agenthost
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 )
 
 func TestHistoryInterruptSupersedesUndeliveredDurableTerminal(t *testing.T) {
@@ -18,6 +20,85 @@ func TestHistoryInterruptSupersedesUndeliveredDurableTerminal(t *testing.T) {
 				})
 			}
 		}
+	}
+}
+
+func TestCaptureHistoryCancelsQueuedSuccessfulEOSOnReplacement(t *testing.T) {
+	for _, delivered := range []bool{false, true} {
+		t.Run(fmt.Sprintf("delivered=%t", delivered), func(t *testing.T) {
+			history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+			input, source := NewInputStream(16), NewInputStream(16)
+			upstream := newRecordingObservationStream(source)
+			upstream.abandoned = make(chan *genx.MessageChunk, 16)
+			gate := newCaptureOutput()
+			agent := wrapHistoryAgent(captureOutputAgent{Agent: historyTestAgent{output: upstream}, mode: apitypes.WorkspaceInputModeRealtime}, history)
+			out, err := agent.Transform(context.WithValue(t.Context(), captureOutputKey{}, gate), input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer out.Close()
+			output := out.(*historyOutputStream)
+			output.DeferOutputObservation()
+			produced := make(chan struct{})
+			ready := make(chan struct{})
+			output.SetOutputProductionObserver(func(chunk *genx.MessageChunk) {
+				if chunk.Ctrl.StreamID == "response" && chunk.IsEndOfStream() && !historyInterruptedChunk(chunk) {
+					close(produced)
+				}
+				if chunk.Ctrl.StreamID == "replacement-response" && chunk.IsBeginOfStream() {
+					close(ready)
+				}
+			})
+			admitCapture(t, gate, input, captureTestInput("first", "realtime", false))
+			first, _ := input.Next()
+			body := captureTestChunk(first.Ctrl.ResponseEpoch, "first")
+			body.Ctrl.BeginOfStream = true
+			eos := captureTestChunk(first.Ctrl.ResponseEpoch, "")
+			eos.Ctrl.EndOfStream = true
+			_ = source.Push(t.Context(), body)
+			_ = source.Push(t.Context(), eos)
+			got, err := output.Next()
+			if err != nil || !got.IsBeginOfStream() {
+				t.Fatalf("first body=%v, %v", got, err)
+			}
+			output.ObserveOutput(got)
+			waitForHistoryAppend(t, produced)
+			inserted := make(chan struct{})
+			if err := output.output.recorder.persistence.forwardAfterWrites(func() error { close(inserted); return nil }); err != nil {
+				t.Fatal(err)
+			}
+			waitForHistoryAppend(t, inserted)
+			if delivered {
+				got, err := output.Next()
+				if err != nil || !got.IsEndOfStream() || historyInterruptedChunk(got) {
+					t.Fatalf("normal terminal=%v, %v", got, err)
+				}
+				output.ObserveOutput(got)
+			}
+			admitCapture(t, gate, input, captureTestInput("replacement", "realtime", false))
+			current, _ := input.Next()
+			marker := captureTestChunk(current.Ctrl.ResponseEpoch, "replacement")
+			marker.Ctrl.StreamID, marker.Ctrl.BeginOfStream = "replacement-response", true
+			_ = source.Push(t.Context(), marker)
+			// Ensure the interruption has crossed History before reading the
+			// buffer; the prior successful EOS must still be cancellable here.
+			waitForHistoryAppend(t, ready)
+			got, err = output.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !delivered {
+				if !historyInterruptedChunk(got) || got.Ctrl.StreamID != "response" {
+					t.Fatalf("queued success survived replacement: %v", got)
+				}
+				output.ObserveOutput(got)
+				got, err = output.Next()
+			}
+			if err != nil || got.Ctrl.StreamID != "replacement-response" || !got.IsBeginOfStream() {
+				t.Fatalf("replacement body=%v, %v", got, err)
+			}
+			output.ObserveOutput(got)
+		})
 	}
 }
 

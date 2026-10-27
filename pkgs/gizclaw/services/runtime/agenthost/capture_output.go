@@ -113,16 +113,17 @@ type captureOutput struct {
 	source   genx.Stream
 	observer OutputObservationStream
 
-	mu       sync.Mutex
-	cond     *sync.Cond
-	turn     *captureTurn
-	retained []*genx.MessageChunk
-	ready    []*genx.MessageChunk
-	routes   map[string]*genx.MessageChunk
-	original map[*genx.MessageChunk]*genx.MessageChunk
-	deferred bool
-	ended    bool
-	err      error
+	mu         sync.Mutex
+	cond       *sync.Cond
+	turn       *captureTurn
+	retained   []*genx.MessageChunk
+	ready      []*genx.MessageChunk
+	routes     map[string]*genx.MessageChunk
+	interrupts map[*genx.MessageChunk]struct{}
+	original   map[*genx.MessageChunk]*genx.MessageChunk
+	deferred   bool
+	ended      bool
+	err        error
 }
 
 func newCaptureOutput() *captureOutput {
@@ -143,7 +144,8 @@ func (g *captureOutput) pushInput(ctx context.Context, input InputPusher, chunk 
 		discarded = append(discarded, g.retained...)
 		kept := make([]*genx.MessageChunk, 0, len(g.ready))
 		for _, pending := range g.ready {
-			if pending.Role == genx.RoleModel {
+			_, interrupt := g.interrupts[pending]
+			if pending.Role == genx.RoleModel && !interrupt {
 				discarded = append(discarded, pending)
 			} else {
 				kept = append(kept, pending)
@@ -158,6 +160,10 @@ func (g *captureOutput) pushInput(ctx context.Context, input InputPusher, chunk 
 			terminal.Ctrl.ErrorCode = "STREAM_INTERRUPTED"
 			terminal.Part = emptyCapturePart(route.Part)
 			g.ready = append(g.ready, terminal)
+			if g.interrupts == nil {
+				g.interrupts = make(map[*genx.MessageChunk]struct{})
+			}
+			g.interrupts[terminal] = struct{}{}
 		}
 		clear(g.routes)
 		mode := chunk.Ctrl.InputMode
@@ -342,18 +348,13 @@ func (g *captureOutput) Next() (*genx.MessageChunk, error) {
 		g.cond.Wait()
 	}
 	chunk := g.ready[0]
+	delete(g.interrupts, chunk)
 	g.ready[0] = nil
 	g.ready = g.ready[1:]
-	if chunk.Role == genx.RoleModel && chunk.Ctrl != nil {
-		mime, _ := chunk.MIMEType()
-		key := chunk.Ctrl.StreamID + "\x00" + mime
+	if (chunk.Role == genx.RoleModel || chunk.Role == genx.RoleUser) && chunk.Ctrl != nil {
+		key := captureRouteKey(chunk)
 		if chunk.IsBeginOfStream() {
 			g.routes[key] = chunk
-		}
-		if chunk.IsEndOfStream() {
-			if !g.deferred {
-				delete(g.routes, key)
-			}
 		}
 	}
 	deferred := g.deferred
@@ -371,11 +372,16 @@ func (g *captureOutput) DeferOutputObservation() {
 }
 
 func (g *captureOutput) ObserveOutput(chunk *genx.MessageChunk) {
-	if chunk != nil && chunk.Role == genx.RoleModel && chunk.IsEndOfStream() {
-		mime, _ := chunk.MIMEType()
-		key := chunk.Ctrl.StreamID + "\x00" + mime
+	if chunk != nil && (chunk.Role == genx.RoleModel || chunk.Role == genx.RoleUser) && chunk.IsEndOfStream() {
+		key := captureRouteKey(chunk)
 		g.mu.Lock()
-		if route := g.routes[key]; route != nil && route.Ctrl.ResponseEpoch == chunk.Ctrl.ResponseEpoch {
+		if chunk.Part == nil {
+			for key, route := range g.routes {
+				if route.Role == chunk.Role && route.Ctrl.StreamID == chunk.Ctrl.StreamID && route.Ctrl.ResponseEpoch == chunk.Ctrl.ResponseEpoch {
+					delete(g.routes, key)
+				}
+			}
+		} else if route := g.routes[key]; route != nil && route.Ctrl.ResponseEpoch == chunk.Ctrl.ResponseEpoch {
 			delete(g.routes, key)
 		}
 		g.mu.Unlock()
@@ -433,6 +439,7 @@ func (g *captureOutput) abort(err error) {
 		discarded = append(discarded, original)
 	}
 	clear(g.original)
+	clear(g.interrupts)
 	g.retained, g.ready = nil, nil
 	g.err = err
 	g.ended = true
@@ -455,6 +462,11 @@ func (g *captureOutput) CloseWithError(err error) error {
 func captureAudioMIME(mime string) bool {
 	mime = strings.ToLower(strings.TrimSpace(mime))
 	return strings.HasPrefix(mime, "audio/") || strings.HasPrefix(mime, "application/ogg")
+}
+
+func captureRouteKey(chunk *genx.MessageChunk) string {
+	mime, _ := chunk.MIMEType()
+	return string(chunk.Role) + "\x00" + chunk.Ctrl.StreamID + "\x00" + chunk.Ctrl.Label + "\x00" + mime
 }
 
 func emptyCapturePart(part genx.Part) genx.Part {

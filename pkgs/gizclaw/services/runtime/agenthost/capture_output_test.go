@@ -212,6 +212,113 @@ func TestCaptureOutputPreservesCommittedUserHistoryOnReplacement(t *testing.T) {
 	})
 }
 
+func TestCaptureOutputClosesPublishedTranscriptOnReplacement(t *testing.T) {
+	history := newTestWorkspaceHistory(t, newTestObjectStore(t))
+	recorder := newHistoryRecorder(history, "gear", nil)
+	gate, input, source := startCaptureTest(t, apitypes.WorkspaceInputModeRealtime)
+	admitCapture(t, gate, input, captureTestInput("capture", "realtime", false))
+	first, _ := input.Next()
+	transcript := captureTestChunk(first.Ctrl.ResponseEpoch, "committed prefix")
+	transcript.Role, transcript.Ctrl.Label, transcript.Ctrl.BeginOfStream = genx.RoleUser, "transcript", true
+	_ = source.Push(t.Context(), transcript)
+	got, err := gate.Next()
+	if err != nil {
+		t.Fatal(err)
+	}
+	recorder.recordDelivered(t.Context(), got)
+	admitCapture(t, gate, input, captureTestInput("replacement", "realtime", false))
+	current, _ := input.Next()
+	late := transcript.Clone()
+	late.Part, late.Ctrl.BeginOfStream, late.Ctrl.EndOfStream = genx.Text(""), false, true
+	_ = source.Push(t.Context(), late)
+	marker := captureTestChunk(current.Ctrl.ResponseEpoch, "replacement")
+	marker.Ctrl.BeginOfStream, marker.Ctrl.EndOfStream = true, true
+	_ = source.Push(t.Context(), marker)
+	terminal, err := gate.Next()
+	if err != nil || terminal.Role != genx.RoleUser || !terminal.IsEndOfStream() || terminal.Ctrl.ErrorCode != "STREAM_INTERRUPTED" || terminal.Ctrl.ResponseEpoch != first.Ctrl.ResponseEpoch {
+		t.Fatalf("transcript replacement terminal=%v, %v", terminal, err)
+	}
+	recorder.recordDelivered(t.Context(), terminal)
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	if err := recorder.waitForPriorText(ctx, "replacement"); err != nil {
+		t.Fatalf("replacement left the transcript History barrier open: %v", err)
+	}
+	page, err := history.ListEntries(t.Context(), "", "", 10)
+	if err != nil || len(page.Entries) != 1 || page.Entries[0].Text != "committed prefix" || !page.Entries[0].Interrupted {
+		t.Fatalf("interrupted transcript History=%+v, %v", page.Entries, err)
+	}
+	if got, err := gate.Next(); err != nil || got != marker {
+		t.Fatalf("late transcript terminal escaped: %v, %v", got, err)
+	}
+}
+
+func TestCaptureOutputPreservesInterruptAcrossConsecutiveBOS(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate, input, source := startCaptureTest(t, apitypes.WorkspaceInputModeRealtime)
+		admitCapture(t, gate, input, captureTestInput("first", "realtime", false))
+		first, _ := input.Next()
+		published := captureTestChunk(first.Ctrl.ResponseEpoch, "first")
+		published.Ctrl.BeginOfStream = true
+		_ = source.Push(t.Context(), published)
+		if _, err := gate.Next(); err != nil {
+			t.Fatal(err)
+		}
+		// A normal PTT turn opens control and audio before its output reader
+		// can dequeue the prior turn's interruption.
+		admitCapture(t, gate, input, &genx.MessageChunk{Role: genx.RoleUser, Ctrl: &genx.StreamCtrl{StreamID: "replacement", BeginOfStream: true}})
+		_, _ = input.Next()
+		admitCapture(t, gate, input, captureTestInput("replacement", "realtime", false))
+		current, _ := input.Next()
+		marker := captureTestChunk(current.Ctrl.ResponseEpoch, "replacement")
+		marker.Ctrl.BeginOfStream, marker.Ctrl.EndOfStream = true, true
+		_ = source.Push(t.Context(), marker)
+		synctest.Wait()
+		terminal, err := gate.Next()
+		if err != nil || !terminal.IsEndOfStream() || terminal.Ctrl.ErrorCode != "STREAM_INTERRUPTED" || terminal.Ctrl.ResponseEpoch != first.Ctrl.ResponseEpoch {
+			t.Fatalf("queued interruption was lost: %v, %v", terminal, err)
+		}
+		if got, err := gate.Next(); err != nil || got != marker {
+			t.Fatalf("replacement order=%v, %v", got, err)
+		}
+	})
+}
+
+func TestCaptureOutputAcknowledgesControlTerminalForAllMIMEs(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		gate, input, source := startCaptureTest(t, apitypes.WorkspaceInputModeRealtime)
+		gate.DeferOutputObservation()
+		admitCapture(t, gate, input, captureTestInput("first", "realtime", false))
+		first, _ := input.Next()
+		for _, part := range []genx.Part{genx.Text("text"), &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}} {
+			chunk := captureTestChunk(first.Ctrl.ResponseEpoch, "")
+			chunk.Part, chunk.Ctrl.BeginOfStream = part, true
+			_ = source.Push(t.Context(), chunk)
+			got, err := gate.Next()
+			if err != nil {
+				t.Fatal(err)
+			}
+			gate.ObserveOutput(got)
+		}
+		terminal := captureTestChunk(first.Ctrl.ResponseEpoch, "")
+		terminal.Part, terminal.Ctrl.EndOfStream = nil, true
+		_ = source.Push(t.Context(), terminal)
+		got, err := gate.Next()
+		if err != nil {
+			t.Fatal(err)
+		}
+		gate.ObserveOutput(got)
+		admitCapture(t, gate, input, captureTestInput("replacement", "realtime", false))
+		current, _ := input.Next()
+		marker := captureTestChunk(current.Ctrl.ResponseEpoch, "replacement")
+		marker.Ctrl.BeginOfStream = true
+		_ = source.Push(t.Context(), marker)
+		if got, err := gate.Next(); err != nil || got != marker {
+			t.Fatalf("acknowledged control terminal left a MIME route open: %v, %v", got, err)
+		}
+	})
+}
+
 func TestCaptureOutputRetainsInclusiveAudioLimit(t *testing.T) {
 	turn := &captureTurn{}
 	chunk := &genx.MessageChunk{Role: genx.RoleModel, Part: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}}

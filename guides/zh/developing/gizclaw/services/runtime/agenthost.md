@@ -44,7 +44,7 @@ Workspace History 按 StreamID 识别中断：typed MIME channel EOS 或无 Part
 
 一个 History entry 按到达顺序保存 route 的音频。route 内音频 MIME 发生变化时（例如多音色回复混用 Ogg/Opus 与 MP3 provider），每段连续的同 MIME 音频成为独立分段；落库时每段都转成 Opus packet（Ogg/Opus 解包、MP3 解码、PCM 编码），合并存为一个 `audio/ogg; codecs=opus` asset。单条 History 记录是尽力而为的：无法记录的 chunk、无法编码的 entry 或 History append 失败只丢弃该 entry 并记录 `workspace history entry dropped` 警告，流继续送达设备，其他 entry 照常保存。
 
-普通回复的完成记录由每次 `Transform` 独立的串行 writer 持久化。正文和音频数据不等待数据库或 History asset 写入；成功 EOS 通过同一 writer 排在落库之后，因而不会把完成标记当成尚未持久化的 History 回执。末尾正文与成功 EOS 在同一 chunk 时，正文先送达、空 EOS 等待落库。不同 route 的正文可以越过待落库的成功结束标记，保持各 MIME channel 的内容和结束顺序。中断 EOS 不是持久化成功回执，会立即按 source 顺序送达，在替换回复之前结束旧 channel，不让旧 History 写入拖住替换回复。同 route 的中断会撤销尚未进入输出队列的普通 EOS，并释放其 delivery acknowledgement；旧写入完成后不会再补发这个 EOS。当前轮的原音仍与转写并行，下一轮 History 读取屏障仍等待此前的定稿。连续消息仍只在最终交付确认时录制。
+普通回复的完成记录由每次 `Transform` 独立的串行 writer 持久化。正文和音频数据不等待数据库或 History asset 写入；成功 EOS 通过同一 writer 排在落库之后，因而不会把完成标记当成尚未持久化的 History 回执。末尾正文与成功 EOS 在同一 chunk 时，正文先送达、空 EOS 等待落库。不同 route 的正文可以越过待落库的成功结束标记，保持各 MIME channel 的内容和结束顺序。中断 EOS 不是持久化成功回执，会立即按 source 顺序送达，在替换回复之前结束旧 channel，不让旧 History 写入拖住替换回复。同 route 的中断会撤销尚未交付的普通 EOS，包括移除输出队列中尚未读取的 EOS，并释放其 delivery acknowledgement；旧写入完成后不会再补发这个 EOS。当前轮的原音仍与转写并行，下一轮 History 读取屏障仍等待此前的定稿。连续消息仍只在最终交付确认时录制。
 
 writer 的待处理任务最多 64 项，积压内容预算为 16 MiB；已经缓冲的单条大记录可独立写入，不新增回复长度上限。持久化失败仍只丢弃该 entry 并记录警告，后续读取屏障保留失败；完成队列本身耗尽时，以明确错误终止而不无限占用内存。退出会停止 source、排空已经交付的记录，并通过有界清理 context 取消仍阻塞的数据库写入；通知仍只在持久化后发出。
 
@@ -103,7 +103,7 @@ AST Workflow attachment 在 History 之前安装 runtime 输出策略；其他 d
 
 runtime 在外挂 TTS 之前合并同一 PTT capture 的供应商字幕 route，字幕定稿仍通过内部 `MessageEnd` 提前触发合成。合成后的内部消息边界不进入 History 或 Peer 输出，因此一次松手保持一条回复和一份 History。GenX 只执行注入的输出适配函数；AST Adapter 不读取 PTT/realtime 模式，也不控制发布。
 
-发布前失败、输入错误、取消或新 BOS 会丢弃未发布内容；已发布内容不因随后模型失败而撤回。每次 BOS 使用独立输入 epoch，AST 原样保留该 epoch，复用 StreamID 也不能接收旧 session 的输出。读取缓存不算最终交付；delivery observation 与 History 记录仍在放行后的消费边界执行。PTT 缓存的 assistant 输出限制为两分钟规范化 Opus 音频、16 MiB 内容和 16384 个 chunk，任一超限都丢弃本轮未发布内容并产生本轮 error EOS；输入与 history audio 不计入这些 assistant 限制。
+发布前失败、输入错误、取消或新 BOS 会丢弃未发布内容；已发布内容不因随后模型失败而撤回。新 BOS 同时结束已经发布但尚未结束的转写与回复 route；控制 BOS 与音频 BOS 连续到达时，排队的中断 EOS 仍保留到读取。每次 BOS 使用独立输入 epoch，AST 原样保留该 epoch，复用 StreamID 也不能接收旧 session 的输出。读取缓存不算最终交付；delivery observation 与 History 记录仍在放行后的消费边界执行。PTT 缓存的 assistant 输出限制为两分钟规范化 Opus 音频、16 MiB 内容和 16384 个 chunk，任一超限都丢弃本轮未发布内容并产生本轮 error EOS；输入与 history audio 不计入这些 assistant 限制。
 
 ## SFU Workspace runtime
 

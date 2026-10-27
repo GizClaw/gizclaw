@@ -890,7 +890,7 @@ func (t *Transformer) forwardEvents(
 		case doubaospeech.ASTEventTranslationSubtitleStart:
 			translated = true
 			ensureSegment()
-			if err := translation.open(output); err != nil {
+			if err := translation.startSubtitle(output); err != nil {
 				return err
 			}
 		case doubaospeech.ASTEventTranslationSubtitleResponse:
@@ -903,9 +903,13 @@ func (t *Transformer) forwardEvents(
 			if err := translation.addFinal(output, event.Text); err != nil {
 				return err
 			}
-			// A final subtitle can flush downstream synthesis immediately. The
-			// next source segment or session completion closes the text route.
+			// Every confirmed subtitle flushes synthesis and closes its text
+			// channel. A later subtitle opens a new lifecycle independently
+			// of how the provider groups its source subtitles.
 			if err := output.Push(&genx.MessageChunk{Role: genx.RoleModel, Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: translation.streamID, Label: doubaoASTTranslateAssistantLabel, MessageEnd: true}}); err != nil {
+				return err
+			}
+			if err := translation.endSubtitle(output); err != nil {
 				return err
 			}
 		case doubaospeech.ASTEventTTSSentenceStart:
@@ -1064,12 +1068,13 @@ func (b *astTranslateHistoryAudioBuffer) emitSegment(output astTranslateOutput, 
 }
 
 type astTranslateTextState struct {
-	role     genx.Role
-	label    string
-	streamID string
-	active   bool
-	text     string
-	allText  string
+	role             genx.Role
+	label            string
+	streamID         string
+	active           bool
+	text             string
+	allText          string
+	previousSubtitle string
 	// sentenceEnded marks that a provider subtitle ended, so the next token
 	// starts a new sentence that may need a separating space.
 	sentenceEnded bool
@@ -1087,12 +1092,26 @@ func (s *astTranslateTextState) open(output astTranslateOutput) error {
 	})
 }
 
+func (s *astTranslateTextState) startSubtitle(output astTranslateOutput) error {
+	if s.sentenceEnded {
+		s.previousSubtitle = s.text
+		s.text = ""
+		s.sentenceEnded = false
+	}
+	return s.open(output)
+}
+
+func (s *astTranslateTextState) endSubtitle(output astTranslateOutput) error {
+	s.sentenceEnded = true
+	return s.closeRoute(output, "")
+}
+
 // addToken forwards one provider subtitle token. Provider tokens are subword
 // pieces that carry their own word spacing (for example "Bon", "jour", " à"),
 // so tokens inside one subtitle are joined verbatim. Only the first token of a
 // new subtitle may need a separating space from the previous sentence.
 func (s *astTranslateTextState) addToken(output astTranslateOutput, text string) error {
-	if s.text == "" {
+	if s.text == "" && s.previousSubtitle == "" {
 		text = strings.TrimLeftFunc(text, unicode.IsSpace)
 	}
 	if text == "" {
@@ -1102,6 +1121,9 @@ func (s *astTranslateTextState) addToken(output astTranslateOutput, text string)
 		return err
 	}
 	if s.sentenceEnded && astTranslateNeedsSpace(s.text, text) {
+		text = " " + text
+	}
+	if s.text == "" && astTranslateNeedsSpace(s.previousSubtitle, text) {
 		text = " " + text
 	}
 	if s.text == "" && astTranslateNeedsSpace(s.allText, text) {
@@ -1127,12 +1149,12 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 	}
 	// A final can cover this subtitle or the complete session. Convert a
 	// cumulative final to this provider segment before deriving its delta.
-	if s.allText != "" && realtimeNormalizeText(s.allText) != realtimeNormalizeText(s.text) &&
+	if s.text != "" && s.allText != "" && realtimeNormalizeText(s.allText) != realtimeNormalizeText(s.text) &&
 		strings.HasPrefix(realtimeNormalizeText(text), realtimeNormalizeText(s.allText)) {
 		text = strings.TrimSpace(s.text + realtimeTextDelta(s.allText, text))
 	}
 	s.sentenceEnded = true
-	if realtimeNormalizeText(s.text) == realtimeNormalizeText(text) {
+	if s.text != "" && realtimeNormalizeText(s.text) == realtimeNormalizeText(text) {
 		// Nothing is emitted, so keep the whitespace the stream already ends
 		// with; the next subtitle must not add a second separator.
 		s.text = text + trailingSpace(s.text)
@@ -1151,6 +1173,9 @@ func (s *astTranslateTextState) addFinal(output astTranslateOutput, text string)
 		s.text += delta
 	} else {
 		s.text = text
+	}
+	if firstInSegment && astTranslateNeedsSpace(s.previousSubtitle, delta) {
+		delta = " " + delta
 	}
 	if firstInSegment && astTranslateNeedsSpace(s.allText, delta) {
 		s.allText += " "
@@ -1181,12 +1206,18 @@ func trailingSpace(text string) string {
 }
 
 func (s *astTranslateTextState) close(output astTranslateOutput, errText string) error {
+	err := s.closeRoute(output, errText)
+	s.text = ""
+	s.previousSubtitle = ""
+	s.sentenceEnded = false
+	return err
+}
+
+func (s *astTranslateTextState) closeRoute(output astTranslateOutput, errText string) error {
 	if !s.active {
 		return nil
 	}
 	s.active = false
-	s.text = ""
-	s.sentenceEnded = false
 	return output.Push(&genx.MessageChunk{
 		Role: s.role,
 		Part: genx.Text(""),

@@ -281,6 +281,7 @@ func (s *historyOutputStream) AbandonOutputObservation(chunk *genx.MessageChunk)
 	if s == nil || s.output == nil {
 		return
 	}
+	s.output.releaseForwardTerminal(chunk)
 	upstream := s.output.takePendingObservation(chunk)
 	if upstream == nil || s.output.upstreamObserver == nil {
 		return
@@ -722,6 +723,9 @@ func (o *historyOutput) abandonPendingObservations() {
 	}
 	clear(o.pendingObservation)
 	o.observationMu.Unlock()
+	o.forwardMu.Lock()
+	clear(o.pendingTerminalForward)
+	o.forwardMu.Unlock()
 	if ok {
 		for _, upstream := range pending {
 			abandoner.AbandonOutputObservation(upstream)
@@ -737,7 +741,6 @@ func (o *historyOutput) clearForwardOutput() {
 	defer o.forwardMu.Unlock()
 	o.activeForward = nil
 	o.terminalForward = nil
-	o.pendingTerminalForward = nil
 	o.interruptedForward = nil
 }
 
@@ -854,6 +857,7 @@ func (o *historyOutput) observeForwardOutput(chunk *genx.MessageChunk) {
 	mimeType, hasMIME := historyForwardChunkMIME(chunk)
 	o.forwardMu.Lock()
 	defer o.forwardMu.Unlock()
+	delete(o.pendingTerminalForward, chunk)
 	if hasMIME {
 		key := historyForwardChunkKey{historyForwardRouteKey: route.key(), mimeType: mimeType}
 		delete(o.activeForward, key)

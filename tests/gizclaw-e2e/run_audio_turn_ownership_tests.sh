@@ -102,6 +102,12 @@ required["contracts"].update({
     "TestPrepareSpeechOutputRealtimeEndsWithoutNextInputPacket",
     "TestPrepareSpeechOutputKeepsTranscriptOpenAcrossCaptureControlEOS",
     "TestHistoryInterruptSupersedesUndeliveredDurableTerminal",
+    "TestCaptureHistoryCancelsQueuedSuccessfulEOSOnReplacement",
+    "TestCaptureOutputClosesPublishedTranscriptOnReplacement",
+    "TestCaptureOutputPreservesInterruptAcrossConsecutiveBOS",
+    "TestCaptureOutputAcknowledgesControlTerminalForAllMIMEs",
+    "TestRuntimeReopensTranslationSubtitlesWithinOneSource",
+    "TestTextStatePreservesRepeatedFinalOnlySubtitles",
     "TestInterruptibleOutputStreamsAvailableTextAndAudioWithoutDelay",
     "TestTransformerPreservesInputEpochAcrossReusedStreamID",
 })
