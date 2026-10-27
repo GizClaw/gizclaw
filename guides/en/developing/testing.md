@@ -857,6 +857,8 @@ The standard Docker Giztest batch includes `volc-ast-translate-minimax.*` scenar
 
 Go Giztest reports `pre_release_response_count`: new assistant response IDs first seen after the current PTT input began and before its first input EOS, excluding replies known before input. It is separate from earlier-response filtering, allowing scenarios to assert zero rather than hide premature playback behind that filter. It resets for each PTT input and adds no wire field.
 
+With `terminal_label: transcript`, `wait_for_history` waits for the current input receipt, even if an unfinished assistant response has already begun. Assistant-terminal operations with a response still require its Agent History receipt. The History wait remains bounded to 10 seconds.
+
 The realtime scenario requires audible output before the long recording ends, then waits for the final sentence's text/audio EOS and persistence receipt. Standard document discovery in `run_tests.sh` includes all three cases; existing AST interruption, consecutive-turn, language and concurrency scenarios continue to run.
 
 ### Manual environment

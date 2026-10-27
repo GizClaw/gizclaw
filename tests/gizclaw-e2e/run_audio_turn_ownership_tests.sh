@@ -109,6 +109,7 @@ required["contracts"].update({
     "TestRuntimeReopensTranslationSubtitlesWithinOneSource",
     "TestTextStatePreservesRepeatedFinalOnlySubtitles",
     "TestTextStateHandlesFinalOnlyCumulativeSubtitles",
+    "TestTranscriptHistoryCompletesWhileReplyIsUnfinished",
     "TestInterruptibleOutputStreamsAvailableTextAndAudioWithoutDelay",
     "TestTransformerPreservesInputEpochAcrossReusedStreamID",
 })

@@ -1241,7 +1241,7 @@ func invokePeerStreamOnStreamWithHistory(ctx context.Context, client *gizcli.Cli
 		}
 		stopIdle()
 		if op.WaitForHistory {
-			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID, historyBefore, responseCount > 0)
+			historyName, err := waitForWorkspaceHistory(ctx, client, step.ID, historyBefore, peerStreamHistoryRequiresAgent(terminalLabel, responseCount))
 			if err != nil {
 				return operationResult{}, err
 			}

@@ -866,6 +866,8 @@ Flutter Giztest 的 SSE evidence 保留事件名与资源路径，断言失败�
 
 Go Giztest 的 `pre_release_response_count` 记录当前 PTT 输入开始后、首次输入 EOS 前新出现的助手 response ID，排除输入前已经存在的回复。它独立于旧回复过滤，因此正式场景可以断言为零，防止提前播放被客户端过滤掩盖。该计数随新的 PTT 输入轮次重置，不增加 wire 字段。
 
+`terminal_label: transcript` 的 `wait_for_history` 等待当前输入的持久化回执，即使尚未完成的 assistant 回复已经开始。以 assistant 为结束边界且有回复的操作仍要求对应 Agent History 回执。History 等待上限保持为 10 秒。
+
 Realtime 场景要求长录音完成前已有可听输出，并继续等待最后一句的完整文本／音频 EOS 和持久化确认。三个场景由 `run_tests.sh` 的标准文档发现纳入全量批次；原有 AST 打断、连续轮次、其他语言和并发场景继续运行。
 
 ### 手动环境
