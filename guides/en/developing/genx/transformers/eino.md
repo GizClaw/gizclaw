@@ -94,6 +94,10 @@ Provider JSON output or native function calling supplies the object; the node
 does not advertise or execute runtime Tools. A provider error, truncated or
 malformed JSON, schema mismatch or missing component capability fails without
 repairing text or falling back to ordinary streamed generation.
+The declared schema is forwarded without changing optional fields, nullability
+or additional-property rules. Providers that do not support it return an error.
+Duplicate keys at any object depth, including objects inside arrays, fail before
+the original JSON can update State or publish.
 
 ```yaml
 structured_output:

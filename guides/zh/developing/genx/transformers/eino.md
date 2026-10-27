@@ -84,6 +84,8 @@ GizClaw 在 [Workflow source contract](https://github.com/GizClaw/gizclaw/blob/m
 `Invoke` 能力传递同一份 typed messages、原音、History、模型参数和取消信号。
 对象由 Provider JSON output 或原生 function calling 返回；节点不声明或执行 runtime Tools。
 Provider 错误、截断或非法 JSON、schema 不符、组件不支持都会失败，不修补文本，也不回退到普通流式生成。
+声明的 schema 原样传递，可选字段、nullability 和 additional-property 规则均不被改写；Provider 不支持时返回错误。
+任何对象层级的重复键，包括数组内对象，都会在原始 JSON 写入 State 或发布前被拒绝。
 
 ```yaml
 structured_output:

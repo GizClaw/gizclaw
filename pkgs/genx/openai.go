@@ -132,6 +132,16 @@ func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContex
 	if err != nil {
 		return Usage{}, nil, err
 	}
+	var outputSchema any
+	if len(fn.Parameters) > 0 {
+		function, err := g.convFuncTool(fn)
+		if err != nil {
+			return Usage{}, nil, err
+		}
+		outputSchema = function.Parameters
+	} else {
+		outputSchema = g.convSchemaForOutput(fn.Argument)
+	}
 	// When using json_schema response format, tools must not be sent
 	// alongside it — they would conflict and cause validation errors.
 	params.Tools = nil
@@ -140,7 +150,7 @@ func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContex
 			JSONSchema: openai.ResponseFormatJSONSchemaJSONSchemaParam{
 				Name:        fn.Name,
 				Description: param.NewOpt(fn.Description),
-				Schema:      g.convSchemaForOutput(fn.Argument),
+				Schema:      outputSchema,
 				Strict:      param.NewOpt(true),
 			},
 		},
@@ -171,13 +181,15 @@ func (g *OpenAIGenerator) invokeToolCalls(ctx context.Context, mctx ModelContext
 	if err != nil {
 		return Usage{}, nil, err
 	}
+	function, err := g.convFuncTool(fn)
+	if err != nil {
+		return Usage{}, nil, err
+	}
+	// Native Invoke has always requested strict function arguments. Preserve
+	// that behavior while forwarding explicit Parameters without normalization.
+	function.Strict = param.NewOpt(true)
 	tools := append(params.Tools, openai.ChatCompletionToolParam{
-		Function: openai.FunctionDefinitionParam{
-			Name:        fn.Name,
-			Description: param.NewOpt(fn.Description),
-			Parameters:  g.convSchemaForFunc(fn.Argument),
-			Strict:      param.NewOpt(true),
-		},
+		Function: function,
 	})
 	params.Tools = tools
 	if g.InvokeWithToolName {

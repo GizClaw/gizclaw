@@ -33,7 +33,15 @@ func (g *GeminiGenerator) Invoke(ctx context.Context, _ string, mctx ModelContex
 		return Usage{}, nil, err
 	}
 	cfg.ResponseMIMEType = "application/json"
-	cfg.ResponseSchema = geminiConvSchema(fn.Argument)
+	if len(fn.Parameters) > 0 {
+		var declaration map[string]any
+		if err := json.Unmarshal(fn.Parameters, &declaration); err != nil {
+			return Usage{}, nil, fmt.Errorf("gemini: decode response schema: %w", err)
+		}
+		cfg.ResponseJsonSchema = declaration
+	} else {
+		cfg.ResponseSchema = geminiConvSchema(fn.Argument)
+	}
 	resp, err := g.Client.Models.GenerateContent(ctx, g.Model, contents, cfg)
 	if err != nil {
 		if e, ok := err.(*apierror.APIError); ok {

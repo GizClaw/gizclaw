@@ -888,8 +888,12 @@ func (m genXChatModel) GenerateStructured(ctx context.Context, input []*schema.M
 	if err != nil {
 		return nil, err
 	}
+	parameters, err := json.Marshal(output.Schema)
+	if err != nil {
+		return nil, fmt.Errorf("eino: structured output schema: %w", err)
+	}
 	_, call, err := m.generator.Invoke(ctx, m.pattern, modelContext, &genx.FuncTool{
-		Name: output.Name, Argument: output.Schema, Strict: true,
+		Name: output.Name, Argument: output.Schema, Parameters: parameters, Strict: true,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("eino: structured model: %w", err)

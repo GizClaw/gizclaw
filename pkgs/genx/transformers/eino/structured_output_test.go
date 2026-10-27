@@ -148,6 +148,58 @@ func TestStructuredOutputRequiresCapabilityAndValidSchema(t *testing.T) {
 	}
 }
 
+func TestStructuredOutputNestedDuplicateKeysNeverReachPublication(t *testing.T) {
+	for _, text := range []string{
+		`{"intent":{"mode":"invalid","mode":"research"}}`,
+		`{"steps":[{"mode":"invalid","mode":"research"}]}`,
+	} {
+		t.Run(text, func(t *testing.T) {
+			var definition jsonschema.Schema
+			if err := json.Unmarshal([]byte(`{"type":"object","properties":{"intent":{"type":"object","properties":{"mode":{"type":"string","enum":["research"]}}},"steps":{"type":"array","items":{"type":"object","properties":{"mode":{"type":"string","enum":["research"]}}}}}}`), &definition); err != nil {
+				t.Fatal(err)
+			}
+			chat := &structuredTestModel{reply: schema.AssistantMessage(text, nil)}
+			config := chatConfig(&componentMapResolver{chat: chat})
+			config.Graph.Nodes[1].ChatModel.StructuredOutput = &StructuredOutput{Name: "nested_intent", Schema: &definition}
+			transformer, err := New(t.Context(), config)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer transformer.Close()
+			output, err := transformer.Transform(t.Context(), textInput("classify"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer output.Close()
+			published, err := structuredResult(output)
+			if err == nil || !strings.Contains(err.Error(), "duplicate key") || published != "" {
+				t.Fatalf("ambiguous nested JSON reached publication: text=%q error=%v", published, err)
+			}
+		})
+	}
+}
+
+func TestStructuredOutputAcceptsOmittedOptionalNonNullableField(t *testing.T) {
+	output := intentOutput(t)
+	output.Schema.Properties["detail"] = &jsonschema.Schema{Type: "string"}
+	chat := &structuredTestModel{reply: schema.AssistantMessage(`{"mode":"research"}`, nil)}
+	config := chatConfig(&componentMapResolver{chat: chat})
+	config.Graph.Nodes[1].ChatModel.StructuredOutput = output
+	transformer, err := New(t.Context(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer transformer.Close()
+	stream, err := transformer.Transform(t.Context(), textInput("classify"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stream.Close()
+	if got := joinedText(drain(t, stream)); got != `{"mode":"research"}` {
+		t.Fatalf("omitted optional detail was rewritten: %q", got)
+	}
+}
+
 func TestStructuredOutputDoesNotResolveRuntimeTools(t *testing.T) {
 	chat := &structuredTestModel{reply: schema.AssistantMessage(`{"mode":"plot"}`, nil)}
 	config := chatConfig(&componentMapResolver{chat: chat})
