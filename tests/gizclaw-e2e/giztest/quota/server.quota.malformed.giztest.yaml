@@ -1,7 +1,7 @@
 # User Story:
 # As a registered Peer governed by an external quota service,
-# I want real provider calls to follow its quota decisions,
-# So that identifiers, usage and both deadlines are verified.
+# I want hook failures to leave speech and AI calls available,
+# So that background quota checks cannot interrupt normal use.
 version: gizclaw.test/v1alpha1
 name: server.quota.malformed
 clients:
@@ -29,9 +29,6 @@ variables:
   peer_key:
     direction: output
     type: string
-  provider_calls:
-    direction: output
-    type: number
   conversation:
     direction: output
     type: string
@@ -83,20 +80,12 @@ steps:
         imeis:
           - name: modem
             tac: "12345678"
-            serial: "123456"
+            serial: ${name}
         labels:
           - key: hardware
             value: fixture
           - key: board
             value: quota-test
-  - id: provider_baseline
-    client: peer
-    http:
-      method: GET
-      endpoint: ${fixture}
-      path: /provider-calls
-    capture:
-      provider_calls: /calls
   - id: speech
     client: peer
     timeout: 10s
@@ -107,15 +96,27 @@ steps:
         text: short
         accepted_content_types:
           - audio/pcm
-    expect_error:
-      code: 14
-      message_contains: Quota unavailable.
-  - id: denied_chat
+    save_as: audio
+    expect:
+      /bytes:
+        equals: 320
+  - id: hook_retries
+    client: peer
+    timeout: 15s
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /record/malformed?queries=2&peer=${peer_key}
+    expect:
+      /queries:
+        minimum: 2
+      /report/peer_public_key:
+        equals: ${peer_key}
+  - id: allowed_chat
     client: peer
     http:
       method: POST
       path: /openai/v1/chat/completions
-      status: 503
       headers:
         Authorization: Bearer ${api_key}
       body:
@@ -123,12 +124,8 @@ steps:
         messages: [{role: user, content: hello}]
         stream: false
     expect:
-      /error/code:
-        equals: quota_unavailable
-      /error/type:
-        equals: service_unavailable_error
-      /error/message:
-        equals: Quota unavailable.
+      /choices/0/message/content:
+        equals: quota fixture answer
   - id: conversation
     client: peer
     http:
@@ -141,33 +138,21 @@ steps:
           workflow_name: quota-eino
     capture:
       conversation: /id
-  - id: denied_response
+  - id: allowed_response
     client: peer
     http:
       method: POST
       path: /openai/v1/responses
-      status: 503
       headers:
         Authorization: Bearer ${api_key}
       body:
         conversation: ${conversation}
         input: hello
     expect:
-      /error/code:
-        equals: quota_unavailable
-      /error/type:
-        equals: service_unavailable_error
-      /error/message:
-        equals: Quota unavailable.
-  - id: no_denied_provider_call
-    client: peer
-    http:
-      method: GET
-      endpoint: ${fixture}
-      path: /provider-calls
-    expect:
-      /calls:
-        equals: ${provider_calls}
+      /status:
+        equals: completed
+      /output/0/content/0/text:
+        equals: quota fixture answer
 finally:
   - id: cleanup
     client: peer

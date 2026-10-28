@@ -124,7 +124,7 @@
           "valid_until": {
             "type": "string",
             "format": "date-time",
-            "description": "Required future deadline of this query result. Refresh before this time; expired results cannot authorize use."
+            "description": "Required future freshness deadline of this query result. GizClaw refreshes in the background and keeps using the last decision after this time if refresh fails. A missing decision allows use; only an explicit expires_at deadline can deny use or cancel active provider calls."
           }
         }
       }

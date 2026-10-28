@@ -42,3 +42,6 @@ docker run --rm -v "$GIZCLAW_QUOTA_STATE:/state" --entrypoint quota-fixture "$GI
 "${compose[@]}" up -d --wait fixture server edge
 "${compose[@]}" run --rm seed
 "${compose[@]}" run --rm test
+"${compose[@]}" logs --no-color --no-log-prefix server > "$GIZCLAW_QUOTA_REPORTS/server.log"
+"${compose[@]}" exec -T fixture curl -fsS http://127.0.0.1:9825/evidence > "$GIZCLAW_QUOTA_REPORTS/hook-evidence.json"
+python3 "$script_dir/verify-quota.py" "$GIZCLAW_QUOTA_REPORTS"

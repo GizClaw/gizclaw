@@ -1,0 +1,202 @@
+# User Story:
+# As a registered Peer governed by an external quota service,
+# I want a known expiry to remain denied when later refreshes fail,
+# So that result staleness cannot erase an explicit quota denial.
+version: gizclaw.test/v1alpha1
+name: server.quota.denied-stale
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  fixture:
+    direction: input
+    type: string
+    env: GIZCLAW_QUOTA_FIXTURE
+  name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  peer_key:
+    direction: output
+    type: string
+  provider_calls:
+    direction: output
+    type: number
+  conversation:
+    direction: output
+    type: string
+  audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/pcm
+    codec: pcm_s16le
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: quota-denied-stale
+  - id: debug
+    client: peer
+    rpc:
+      method: server.runtime.put
+      request:
+        debug_mode: fullcontrol
+  - id: key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: quota-test
+    capture:
+      api_key: /api_key
+  - id: refresh
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      path: /prepare
+      endpoint: ${fixture}
+      body:
+        name: ${name}
+    capture:
+      peer_key: /public_key
+  - id: identifiers_provider
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: identifiers.get
+      response:
+        sn: ${name}
+        imeis:
+          - name: modem
+            tac: "12345678"
+            serial: ${name}
+        labels:
+          - key: hardware
+            value: fixture
+          - key: board
+            value: quota-test
+  - id: explicit_denial
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      endpoint: ${fixture}
+      path: /wait-denial
+      headers:
+        Authorization: Bearer ${api_key}
+    expect:
+      /denied:
+        equals: true
+  - id: failed_refresh_and_stale_decision
+    client: peer
+    timeout: 15s
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /record/denied-stale?queries=2&failures=1&stale=true&peer=${peer_key}
+    expect:
+      /stale:
+        equals: true
+      /failures:
+        minimum: 1
+      /report/peer_public_key:
+        equals: ${peer_key}
+  - id: provider_baseline
+    client: peer
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /provider-calls
+    capture:
+      provider_calls: /calls
+  - id: speech
+    client: peer
+    timeout: 10s
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: short
+        accepted_content_types:
+          - audio/pcm
+    expect_error:
+      code: 7
+      message_contains: Quota exhausted.
+  - id: denied_chat
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/chat/completions
+      status: 403
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        model: chat
+        messages: [{role: user, content: hello}]
+        stream: false
+    expect:
+      /error/code:
+        equals: quota_exhausted
+      /error/type:
+        equals: permission_error
+      /error/message:
+        equals: Quota exhausted.
+  - id: conversation
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/conversations
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        metadata:
+          workflow_name: quota-eino
+    capture:
+      conversation: /id
+  - id: denied_response
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/responses
+      status: 403
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        conversation: ${conversation}
+        input: hello
+    expect:
+      /error/code:
+        equals: quota_exhausted
+      /error/type:
+        equals: permission_error
+      /error/message:
+        equals: Quota exhausted.
+  - id: no_denied_provider_call
+    client: peer
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /provider-calls
+    expect:
+      /calls:
+        equals: ${provider_calls}
+finally:
+  - id: cleanup
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

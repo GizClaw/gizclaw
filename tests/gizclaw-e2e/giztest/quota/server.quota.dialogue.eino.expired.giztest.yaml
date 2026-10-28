@@ -39,7 +39,7 @@ steps:
         equals: true
       /new_response:
         equals: true
-      /provider_calls_after_expiry:
+      /provider_calls:
         equals: 0
       /allowed_text:
         equals: quota fixture answer

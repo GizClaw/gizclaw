@@ -1,6 +1,6 @@
 # User Story:
 # As a registered Peer governed by an external quota service,
-# I want active provider streams to obey both deadlines,
+# I want active provider streams to obey explicit usable expiry,
 # So that audio stops early and subsequent calls are denied through real Docker transport.
 version: gizclaw.test/v1alpha1
 name: server.quota.expire
@@ -83,7 +83,7 @@ steps:
         imeis:
           - name: modem
             tac: "12345678"
-            serial: "123456"
+            serial: ${name}
         labels:
           - key: hardware
             value: fixture

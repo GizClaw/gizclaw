@@ -16,6 +16,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
+	"github.com/goccy/go-yaml"
 )
 
 type adminConnection struct {
@@ -198,29 +199,37 @@ func (f *fixture) prepare(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "admin unavailable", 503)
 		return
 	}
-	list, err := f.admin.api.ListPeersWithResponse(r.Context(), nil)
-	if err != nil || list.JSON200 == nil {
-		http.Error(w, "peers unavailable", 503)
-		return
-	}
-	for _, item := range list.JSON200.Items {
-		peer, decodeErr := item.AsExternalRef0Registration()
-		if decodeErr != nil || peer.Device == nil {
-			continue
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	for {
+		list, err := f.admin.api.ListPeersWithResponse(ctx, nil)
+		if err != nil || list.JSON200 == nil {
+			http.Error(w, "peers unavailable", 503)
+			return
 		}
-		if peer.Role == apitypes.PeerRoleClient && peer.Status == apitypes.PeerRegistrationStatusActive {
-			result, err := f.admin.api.RefreshPeerWithResponse(r.Context(), peer.PublicKey)
+		for _, item := range list.JSON200.Items {
+			peer, decodeErr := item.AsExternalRef0Registration()
+			if decodeErr != nil || peer.Role != apitypes.PeerRoleClient || peer.Status != apitypes.PeerRegistrationStatusActive {
+				continue
+			}
+			result, err := f.admin.api.RefreshPeerWithResponse(ctx, peer.PublicKey)
 			if err != nil || result.JSON200 == nil {
 				continue
 			}
-			if result.JSON200.Peer.Device.Identifiers == nil || result.JSON200.Peer.Device.Identifiers.Sn == nil || *result.JSON200.Peer.Device.Identifiers.Sn != body.Name {
+			device := result.JSON200.Peer.Device
+			if device.Identifiers == nil || device.Identifiers.Sn == nil || *device.Identifiers.Sn != body.Name {
 				continue
 			}
 			writeJSON(w, map[string]any{"public_key": peer.PublicKey})
 			return
 		}
+		select {
+		case <-ctx.Done():
+			http.Error(w, "Peer not found", 404)
+			return
+		case <-time.After(20 * time.Millisecond):
+		}
 	}
-	http.Error(w, "Peer not found", 404)
 }
 func initialize(dir string) error {
 	values := map[string]string{}
@@ -240,6 +249,24 @@ func initialize(dir string) error {
 		return err
 	}
 	data, err := os.ReadFile("tests/gizclaw-e2e/docker/monitor/server.yaml")
+	if err != nil {
+		return err
+	}
+	var config map[string]any
+	if err := yaml.Unmarshal(data, &config); err != nil {
+		return err
+	}
+	// Quota owns only its HTTP/provider fixtures; it does not start Monitor's
+	// external log sink. Keep warnings on stderr without that dependency.
+	for section, name := range map[string]string{"storage": "monitor-tls", "stores": "monitor-logs", "services": "system_log"} {
+		fields, ok := config[section].(map[string]any)
+		if !ok {
+			return fmt.Errorf("quota fixture: invalid %s configuration", section)
+		}
+		delete(fields, name)
+	}
+	config["services"].(map[string]any)["system_log"] = map[string]any{"level": "info", "sinks": []any{map[string]any{"kind": "stderr"}}}
+	data, err = yaml.Marshal(config)
 	if err != nil {
 		return err
 	}

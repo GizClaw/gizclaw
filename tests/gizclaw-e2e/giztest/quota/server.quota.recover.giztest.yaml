@@ -1,7 +1,7 @@
 # User Story:
 # As a registered Peer governed by an external quota service,
 # I want real provider calls to follow its quota decisions,
-# So that identifiers, usage and both deadlines are verified.
+# So that background reporting and explicit usable expiry are verified.
 version: gizclaw.test/v1alpha1
 name: server.quota.recover
 clients:
@@ -77,12 +77,24 @@ steps:
         imeis:
           - name: modem
             tac: "12345678"
-            serial: "123456"
+            serial: ${name}
         labels:
           - key: hardware
             value: fixture
           - key: board
             value: quota-test
+  - id: explicit_denial
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      endpoint: ${fixture}
+      path: /wait-denial
+      headers:
+        Authorization: Bearer ${api_key}
+    expect:
+      /denied:
+        equals: true
   - id: speech
     client: peer
     timeout: 10s
@@ -95,6 +107,13 @@ steps:
           - audio/pcm
     expect_error:
       code: 7
+  - id: renew_authorization
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      endpoint: ${fixture}
+      path: /recover/recover
   - id: wait_recovery
     client: peer
     timeout: 15s

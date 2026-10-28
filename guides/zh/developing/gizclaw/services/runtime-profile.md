@@ -247,4 +247,4 @@ spec:
 
 ## Quota
 
-`spec.quota` 是可选的带 discriminator 的 policy。省略/null 默认 unlimited；显式 `{type: unlimited}` 同样不执行 quota 检查。`{type: custom, endpoint: ..., api_key: ...}` 绑定外部 Quota HTTP API，两个字段都必须有效。显式空对象、不完整配置和未知类型均被拒绝。SQL `runtime_profiles.quota_json` 将省略配置保存为 null、显式 policy 保存为带 type 的对象，并参与 Profile revision。用量持久化独立可选，custom policy 则要求 SQL 用量用于上报。协议、刷新、两个时间边界与 Docker 验收见 [Quota](/zh/developing/api/http/quota)。
+`spec.quota` 是可选的带 discriminator 的 policy。省略/null 默认 unlimited；显式 `{type: unlimited}` 同样不执行 quota 检查。`{type: custom, endpoint: ..., api_key: ...}` 绑定外部 Quota HTTP API，两个字段都必须有效。显式空对象、不完整配置和未知类型均被拒绝。SQL `runtime_profiles.quota_json` 将省略配置保存为 null、显式 policy 保存为带 type 的对象，并参与 Profile revision。用量持久化独立可选，custom policy 则要求 SQL 用量用于上报。协议、后台刷新、使用期限与 Docker 验收见 [Quota](/zh/developing/api/http/quota)。
