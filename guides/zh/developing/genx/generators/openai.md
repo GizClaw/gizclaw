@@ -24,6 +24,8 @@ OpenAI-compatible 只表示 provider protocol compatibility；credential、endpo
 
 `OpenAIGenerator.RequestHeaders` 是可选的进程内 HTTP metadata 回调。每次 GenerateStream 或 Invoke 在启动请求前求值一次，克隆结果并使用 SDK 的每请求 options；SDK 重试和兼容降级复用相同值。它不修改共享 client 或 Generator 的 header 状态，也不写入 ModelContext。回调由调用方提供，GenX 不认识 Peer、Runtime KV、Model 资源或凭据存储；产品接线见 [AI 服务](../../gizclaw/services/ai#model-request-bindings)。启用回调时，provider 错误仅公开安全摘要，typed cause 保留在进程内。
 
+该安全摘要也覆盖流式 refusal 和 `content_filter` 终止错误，避免上游回显保密 header。调用方仍可通过 error chain 取得 `State` 的 blocked/truncated 状态与 usage；正常完成和 context 取消保持原有语义。未启用回调时，原有 refusal 诊断保留。
+
 ## 音频输入
 
 `OpenAIGenerator` 将同一个 user message 的音频 Blob 转为接口支持的输入：raw Opus、Ogg/Opus 和 signed 16-bit PCM 解码并转换为 16 kHz 单声道 WAV，MP3 与一个 WAV 文件的分片会按顺序重组；WAV 不合并多个完整文件。等价 MIME 的大小写、空白和参数顺序不拆分录音，有语义差异的参数仍区分。文本、业务 prompt、历史和 Tools 保持原有含义。

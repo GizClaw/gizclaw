@@ -30,6 +30,8 @@ updated headers. A fixed-only conversation succeeds before any KV telemetry;
 the actual HTTP request contains the fixed target hostname and protected credential
 header while preserving upstream Authorization. Later turns combine fixed and
 Runtime headers without inserting their values into the model request body.
+A provider SSE refusal that echoes proxy credentials still delivers only a safe
+`MODEL_PROVIDER_ERROR` EOS to the device.
 Missing or null optional values omit the header; present values
 of the wrong type still prevent requests. Every failing turn has a deadline, so
 silence cannot pass. Only the upstream model is replaced by a fixture.

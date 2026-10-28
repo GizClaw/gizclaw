@@ -3,6 +3,7 @@ package gizclaw
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -95,8 +96,8 @@ func TestModelFixedHeadersWithoutRuntime(t *testing.T) {
 	}
 }
 
-func TestCredentialOnlyHeadersProtectErrorsAndRedirects(t *testing.T) {
-	for _, mode := range []string{"error", "redirect"} {
+func TestCredentialOnlyHeadersProtectProviderFailures(t *testing.T) {
+	for _, mode := range []string{"error", "redirect", "refusal", "content_filter"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newModelBindingFixture(t)
 			f.setBindings(t, nil)
@@ -106,9 +107,17 @@ func TestCredentialOnlyHeadersProtectErrorsAndRedirects(t *testing.T) {
 			destination := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { redirected.Add(1) }))
 			defer destination.Close()
 			f.onRequest = func(w http.ResponseWriter, r *http.Request, _ map[string]any) bool {
-				if mode == "redirect" {
+				switch mode {
+				case "redirect":
 					http.Redirect(w, r, destination.URL, http.StatusTemporaryRedirect)
-				} else {
+				case "refusal", "content_filter":
+					finish := ""
+					if mode == "content_filter" {
+						finish = "content_filter"
+					}
+					w.Header().Set("Content-Type", "text/event-stream")
+					_, _ = fmt.Fprintf(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"refusal\":%q},\"finish_reason\":%q}]}\n\ndata: [DONE]\n\n", r.Header.Get("X-GizProxy-Authorization"), finish)
+				default:
 					w.Header().Set("Content-Type", "application/json")
 					w.WriteHeader(http.StatusBadRequest)
 					_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]string{"message": r.Header.Get("X-GizProxy-Authorization")}})
@@ -120,6 +129,16 @@ func TestCredentialOnlyHeadersProtectErrorsAndRedirects(t *testing.T) {
 			err := consumeModelBindingStream(service.Generator().GenerateStream(t.Context(), "model/chat", modelBindingInput()))
 			if err == nil || strings.Contains(err.Error(), "private-proxy-fixture") || redirected.Load() != 0 {
 				t.Fatalf("unsafe fixed-header failure: %v", err)
+			}
+			code, message, retryable, ok := genx.PublicErrorDetails(err)
+			if !ok || code != "MODEL_PROVIDER_ERROR" || message != "The model provider request failed." || retryable {
+				t.Fatalf("unsafe public failure details: %q %q %v", code, message, retryable)
+			}
+			if mode == "refusal" || mode == "content_filter" {
+				state, ok := errors.AsType[*genx.State](err)
+				if !ok || state.Status() != genx.StatusBlocked {
+					t.Fatal("safe refusal lost its typed blocked state")
+				}
 			}
 		})
 	}

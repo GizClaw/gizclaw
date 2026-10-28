@@ -33,7 +33,10 @@ func (g *OpenAIGenerator) requestOptions(ctx context.Context) ([]option.RequestO
 // Upstreams can echo headers in error bodies. Preserve the typed cause for
 // protocol handling while keeping error strings, public events and logs safe.
 func (g *OpenAIGenerator) requestError(err error) error {
-	if err == nil || g.RequestHeaders == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if err == nil || g.RequestHeaders == nil || errors.Is(err, ErrDone) || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return err
+	}
+	if _, ok := errors.AsType[*openAIRequestError](err); ok {
 		return err
 	}
 	status := 0
@@ -41,6 +44,18 @@ func (g *OpenAIGenerator) requestError(err error) error {
 		status = provider.StatusCode
 	}
 	return &openAIRequestError{cause: err, status: status}
+}
+
+// StreamBuilder constructs blocked terminal errors when Next consumes the
+// event, after the HTTP puller has returned. Project those errors here too.
+type openAIRequestStream struct {
+	Stream
+	generator *OpenAIGenerator
+}
+
+func (s *openAIRequestStream) Next() (*MessageChunk, error) {
+	chunk, err := s.Stream.Next()
+	return chunk, s.generator.requestError(err)
 }
 
 type openAIRequestError struct {

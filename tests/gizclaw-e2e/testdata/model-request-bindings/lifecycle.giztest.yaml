@@ -50,6 +50,29 @@ steps:
       /requests/0/has_vid: {equals: false}
       /requests/0/upstream_host: {equals: 'fixture.example:30100'}
       /requests/0/proxy_authorized: {equals: true}
+  - id: fixed_refusal
+    client: peer
+    timeout: 10s
+    peer_stream:
+      mode: text
+      input: exercise protected refusal
+      expect_terminal_error:
+        code: MODEL_PROVIDER_ERROR
+        message: The model provider request failed.
+        label: assistant
+        retryable: false
+    expect:
+      /terminal_error/stream_id: {non_empty: true}
+      /terminal_error/end_of_stream: {equals: true}
+      /reply: {equals: ''}
+      /audio_bytes: {equals: 0}
+  - id: refusal_request_headers
+    client: peer
+    http: {method: GET, endpoint: '${fixture}', path: /requests}
+    expect:
+      /count: {equals: 2}
+      /requests/1/has_vid: {equals: false}
+      /requests/1/proxy_authorized: {equals: true}
   - id: create_required
     client: peer
     rpc:
@@ -94,7 +117,7 @@ steps:
   - id: missing_blocks_provider
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
-    expect: {/count: {equals: 1}}
+    expect: {/count: {equals: 2}}
   - id: report_identity
     client: peer
     telemetry:
@@ -119,11 +142,11 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 2}
-      /requests/1/vid: {equals: device-secret-one}
-      /requests/1/has_vid: {equals: true}
-      /requests/1/upstream_host: {equals: 'fixture.example:30100'}
-      /requests/1/proxy_authorized: {equals: true}
+      /count: {equals: 3}
+      /requests/2/vid: {equals: device-secret-one}
+      /requests/2/has_vid: {equals: true}
+      /requests/2/upstream_host: {equals: 'fixture.example:30100'}
+      /requests/2/proxy_authorized: {equals: true}
   - id: replace_identity
     client: peer
     telemetry:
@@ -145,8 +168,8 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 3}
-      /requests/2/vid: {equals: device-secret-two}
+      /count: {equals: 4}
+      /requests/3/vid: {equals: device-secret-two}
   - id: delete_identity
     client: peer
     telemetry:
@@ -205,7 +228,7 @@ steps:
   - id: deletion_and_null_block_provider
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
-    expect: {/count: {equals: 3}}
+    expect: {/count: {equals: 4}}
   - id: select_optional
     client: peer
     rpc: {method: server.run.workspace.set, request: {workspace_name: '${optional_workspace}'}}
@@ -221,8 +244,8 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 4}
-      /requests/3/has_vid: {equals: false}
+      /count: {equals: 5}
+      /requests/4/has_vid: {equals: false}
   - id: report_invalid
     client: peer
     telemetry:
@@ -250,7 +273,7 @@ steps:
   - id: invalid_blocks_provider
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
-    expect: {/count: {equals: 4}}
+    expect: {/count: {equals: 5}}
   - id: delete_optional_identity
     client: peer
     telemetry:
@@ -275,8 +298,8 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 5}
-      /requests/4/has_vid: {equals: false}
+      /count: {equals: 6}
+      /requests/5/has_vid: {equals: false}
 finally:
   - id: stop
     client: peer

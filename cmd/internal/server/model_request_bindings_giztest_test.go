@@ -67,6 +67,15 @@ func TestModelRequestBindingsGiztest(t *testing.T) {
 		requests = append(requests, receipt)
 		mu.Unlock()
 		w.Header().Set("Content-Type", "text/event-stream")
+		if strings.Contains(string(encoded), "exercise protected refusal") {
+			chunk, err := json.Marshal(map[string]any{"choices": []any{map[string]any{"index": 0, "delta": map[string]any{"refusal": r.Header.Get("X-GizProxy-Authorization")}, "finish_reason": "content_filter"}}})
+			if err != nil {
+				t.Error(err)
+				return
+			}
+			_, _ = io.WriteString(w, "data: "+string(chunk)+"\n\ndata: [DONE]\n\n")
+			return
+		}
 		_, _ = io.WriteString(w, "data: "+`{"id":"binding","object":"chat.completion.chunk","model":"binding-fixture","choices":[{"index":0,"delta":{"content":"binding reply"},"finish_reason":null}]}`+"\n\ndata: "+`{"id":"binding","object":"chat.completion.chunk","model":"binding-fixture","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`+"\n\ndata: [DONE]\n\n")
 	}))
 	t.Cleanup(provider.Close)
@@ -118,7 +127,7 @@ func TestModelRequestBindingsGiztest(t *testing.T) {
 		if err := json.Unmarshal(data, &report); err != nil {
 			t.Fatal(err)
 		}
-		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 39 || len(report.Tasks[0].Cleanup) != 5 {
+		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 41 || len(report.Tasks[0].Cleanup) != 5 {
 			t.Fatalf("unexpected Giztest report: %s", data)
 		}
 		for _, step := range append(report.Tasks[0].Steps, report.Tasks[0].Cleanup...) {
