@@ -124,7 +124,11 @@ func (g *OpenAIGenerator) GenerateStream(ctx context.Context, _ string, mctx Mod
 			sb.Abort(g.requestError(err))
 		}
 	}()
-	return sb.Stream(), nil
+	stream := sb.Stream()
+	if g.RequestHeaders != nil {
+		return &openAIRequestStream{Stream: stream, generator: g}, nil
+	}
+	return stream, nil
 }
 
 func (g *OpenAIGenerator) invokeJSONOutput(ctx context.Context, mctx ModelContext, fn *FuncTool, options ...option.RequestOption) (Usage, *FuncCall, error) {

@@ -26,6 +26,8 @@ filtering rule.
 
 `OpenAIGenerator.RequestHeaders` is an optional process-local HTTP metadata callback. Each GenerateStream or Invoke evaluates it once before sending, clones its result, and uses SDK per-request options. SDK retries and compatibility fallbacks reuse the snapshot. The callback does not mutate shared client or Generator headers or enter ModelContext. GenX does not interpret Peers, Runtime KV, Model resources, or credential stores; see [AI service wiring](../../gizclaw/services/ai#model-request-bindings). With the callback enabled, provider errors expose only safe summaries while retaining typed causes in process.
 
+Safe summaries also cover streamed refusal and `content_filter` terminal errors so upstreams cannot echo protected headers publicly. The error chain retains the `State` blocked/truncated status and usage; normal completion and context cancellation keep their existing semantics. Without the callback, existing refusal diagnostics remain available.
+
 ## Audio input
 
 `OpenAIGenerator` converts audio Blobs of one user message into API input: raw Opus, Ogg/Opus and signed 16-bit PCM become 16 kHz mono WAV; MP3 and fragments of one WAV file are reassembled in order; multiple complete WAV files are not concatenated. Equivalent MIME case, whitespace, and parameter order do not split a recording; semantically different parameters remain distinct. Text, application prompts, history and Tools retain their original meaning.

@@ -76,7 +76,24 @@ func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (h
 	}
 	paths := make([][]string, len(bindings))
 	sources := make([]apitypes.ModelRequestPeerRuntimeKVSelector, len(bindings))
+	constants := make([]*string, len(bindings))
+	needsKV := false
 	for i, binding := range bindings {
+		raw, err := binding.Source.MarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		var fixed struct {
+			Constant *string `json:"constant"`
+		}
+		if err := json.Unmarshal(raw, &fixed); err != nil {
+			return nil, err
+		}
+		if fixed.Constant != nil {
+			constants[i] = fixed.Constant
+			continue
+		}
+		needsKV = true
 		value, err := binding.Source.AsModelRequestPeerRuntimeKVSource()
 		if err != nil {
 			return nil, fmt.Errorf("%w: invalid request binding source", ErrInvalid)
@@ -92,19 +109,23 @@ func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (h
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		peer := ownership.Caller(ctx)
-		if peer.IsZero() {
-			return nil, &requestBindingError{reason: "CALLER_REQUIRED", index: -1}
-		}
-		if getter == nil {
-			return nil, &requestBindingError{reason: "UNAVAILABLE", index: -1}
-		}
-		snapshot, err := getter.GetReportedKV(ctx, peer)
-		if err != nil {
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
+		var snapshot *apitypes.PeerReportedKV
+		var err error
+		if needsKV {
+			peer := ownership.Caller(ctx)
+			if peer.IsZero() {
+				return nil, &requestBindingError{reason: "CALLER_REQUIRED", index: -1}
 			}
-			return nil, &requestBindingError{reason: "UNAVAILABLE", index: -1}
+			if getter == nil {
+				return nil, &requestBindingError{reason: "UNAVAILABLE", index: -1}
+			}
+			snapshot, err = getter.GetReportedKV(ctx, peer)
+			if err != nil {
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
+				return nil, &requestBindingError{reason: "UNAVAILABLE", index: -1}
+			}
 		}
 		headers := make(http.Header, len(bindings))
 		values := make(map[string]any)
@@ -117,7 +138,9 @@ func (s *Service) requestHeaders(model apitypes.Model) (func(context.Context) (h
 				entry, present = (*snapshot)[source.Key]
 			}
 			var value any
-			if present {
+			if constants[i] != nil {
+				value, present = *constants[i], true
+			} else if present {
 				var decoded bool
 				value, decoded = values[source.Key]
 				if !decoded {

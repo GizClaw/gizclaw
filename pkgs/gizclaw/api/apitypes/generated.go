@@ -4811,13 +4811,19 @@ type ModelRequestBinding struct {
 	// Required Missing or JSON null fails a required binding; an optional binding omits the header. Present invalid values always fail. No implicit value defaults or stale fallback.
 	Required *bool `json:"required,omitempty"`
 
-	// Source Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
+	// Source Header value selected by exactly one named branch: constant or peer_runtime_kv. Model values are visible to authorized Model readers; keep secrets in Credential headers.
 	Source ModelRequestSource `json:"source"`
 	Target ModelRequestTarget `json:"target"`
 }
 
-// ModelRequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+// ModelRequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Fixed-only bindings do not read Runtime. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
 type ModelRequestBindings = []ModelRequestBinding
+
+// ModelRequestConstantSource defines model for ModelRequestConstantSource.
+type ModelRequestConstantSource struct {
+	// Constant Fixed non-secret header value. Nonempty printable ASCII without surrounding spaces. No interpolation. Secrets belong in the protected OpenAI Credential headers map.
+	Constant string `json:"constant"`
+}
 
 // ModelRequestPeerRuntimeKVSelector Locates a value in the authenticated invoking Peer's device-reported Runtime KV.
 type ModelRequestPeerRuntimeKVSelector struct {
@@ -4834,7 +4840,7 @@ type ModelRequestPeerRuntimeKVSource struct {
 	PeerRuntimeKv ModelRequestPeerRuntimeKVSelector `json:"peer_runtime_kv"`
 }
 
-// ModelRequestSource Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
+// ModelRequestSource Header value selected by exactly one named branch: constant or peer_runtime_kv. Model values are visible to authorized Model readers; keep secrets in Credential headers.
 type ModelRequestSource struct {
 	union json.RawMessage
 }
@@ -4930,11 +4936,14 @@ type NfcReadSnapshotResult string
 
 // OpenAICredentialBody defines model for OpenAICredentialBody.
 type OpenAICredentialBody struct {
-	ApiKey       *string `json:"api_key,omitempty"`
-	BaseUrl      *string `json:"base_url,omitempty"`
-	Organization *string `json:"organization,omitempty"`
-	Project      *string `json:"project,omitempty"`
-	Token        *string `json:"token,omitempty"`
+	ApiKey  *string `json:"api_key,omitempty"`
+	BaseUrl *string `json:"base_url,omitempty"`
+
+	// Headers Protected fixed extension headers for openai-tenant LLM requests, for example a proxy credential. Uses the Model extension-header name/value rules and 8192-byte combined header budget. Upstream Authorization stays owned by api_key/token. Names are case-insensitively unique and cannot overlap Model request_bindings. These values never enter Model descriptors.
+	Headers      *map[string]string `json:"headers,omitempty"`
+	Organization *string            `json:"organization,omitempty"`
+	Project      *string            `json:"project,omitempty"`
+	Token        *string            `json:"token,omitempty"`
 }
 
 // OpenAITenant defines model for OpenAITenant.
@@ -4962,7 +4971,7 @@ type OpenAITenantKind string
 type OpenAITenantModelProviderData struct {
 	DefaultThinkingLevel *string `json:"default_thinking_level,omitempty"`
 
-	// RequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+	// RequestBindings Optional OpenAITenantModelProviderData.request_bindings metadata. Fixed-only bindings do not read Runtime. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
 	RequestBindings    *ModelRequestBindings `json:"request_bindings,omitempty"`
 	SupportJsonOutput  *bool                 `json:"support_json_output,omitempty"`
 	SupportTemperature *bool                 `json:"support_temperature,omitempty"`
@@ -9028,6 +9037,32 @@ func (t *ModelRequestSource) FromModelRequestPeerRuntimeKVSource(v ModelRequestP
 
 // MergeModelRequestPeerRuntimeKVSource performs a merge with any union data inside the ModelRequestSource, using the provided ModelRequestPeerRuntimeKVSource
 func (t *ModelRequestSource) MergeModelRequestPeerRuntimeKVSource(v ModelRequestPeerRuntimeKVSource) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsModelRequestConstantSource returns the union data inside the ModelRequestSource as a ModelRequestConstantSource
+func (t ModelRequestSource) AsModelRequestConstantSource() (ModelRequestConstantSource, error) {
+	var body ModelRequestConstantSource
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromModelRequestConstantSource overwrites any union data inside the ModelRequestSource as the provided ModelRequestConstantSource
+func (t *ModelRequestSource) FromModelRequestConstantSource(v ModelRequestConstantSource) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeModelRequestConstantSource performs a merge with any union data inside the ModelRequestSource, using the provided ModelRequestConstantSource
+func (t *ModelRequestSource) MergeModelRequestConstantSource(v ModelRequestConstantSource) error {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return err

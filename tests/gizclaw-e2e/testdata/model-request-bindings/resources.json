@@ -2,10 +2,26 @@
   "apiVersion": "gizclaw.admin/v1alpha1",
   "kind": "ResourceList",
   "spec": {"items": [
-    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"binding-fixture"},"spec":{"provider":"openai","body":{"api_key":"local-binding-fixture"}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Credential","metadata":{"id":"binding-fixture"},"spec":{"provider":"openai","body":{"api_key":"local-binding-fixture","headers":{"X-GizProxy-Authorization":"Bearer local-proxy-fixture"}}}},
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"OpenAITenant","metadata":{"id":"binding-fixture"},"spec":{"credential_id":"binding-fixture","base_url":"FIXTURE_ENDPOINT"}},
-    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"binding-required"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"binding-fixture"},"provider_data":{"upstream_model":"binding-fixture","request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/vid"}},"required":true}]}}},
-    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"binding-optional"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"binding-fixture"},"provider_data":{"upstream_model":"binding-fixture","request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/vid"}},"required":false}]}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"binding-fixed"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"binding-fixture"},"provider_data":{"upstream_model":"binding-fixture","request_bindings":[{"target":{"kind":"http_header","name":"X-GizProxy-Upstream-Host"},"source":{"constant":"fixture.example:30100"}}]}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"binding-required"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"binding-fixture"},"provider_data":{"upstream_model":"binding-fixture","request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/vid"}},"required":true},{"target":{"kind":"http_header","name":"X-GizProxy-Upstream-Host"},"source":{"constant":"fixture.example:30100"}}]}}},
+    {"apiVersion":"gizclaw.admin/v1alpha1","kind":"Model","metadata":{"id":"binding-optional"},"spec":{"kind":"llm","source":"manual","provider":{"kind":"openai-tenant","id":"binding-fixture"},"provider_data":{"upstream_model":"binding-fixture","request_bindings":[{"target":{"kind":"http_header","name":"X-AI-VID"},"source":{"peer_runtime_kv":{"key":"identity","pointer":"/vid"}},"required":false},{"target":{"kind":"http_header","name":"X-GizProxy-Upstream-Host"},"source":{"constant":"fixture.example:30100"}}]}}},
+    {
+      "apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"binding-fixed"},
+      "spec":{"driver":"eino","eino":{
+        "conversation":{"initiative":"peer"},
+        "graph":{
+          "name":"Fixed request binding",
+          "compile":{"node_trigger_mode":"any_predecessor","max_run_steps":4},
+          "state":{"fields":[{"name":"answer","type":"string","merge":"replace"}]},
+          "nodes":[{"id":"reply","type":"chat_model","model":"fixed","max_tokens":32,"inputs":{"messages":{"from":"input.messages"}},"outputs":{"text":"answer"}}],
+          "edges":[{"from":"start","to":"reply"},{"from":"reply","to":"end"}],
+          "branches":[],
+          "outputs":[{"node":"reply","field":"answer","name":"assistant","mime_type":"text/plain","primary":true}]
+        }
+      }}
+    },
     {
       "apiVersion":"gizclaw.admin/v1alpha1","kind":"Workflow","metadata":{"id":"binding-required"},
       "spec":{"driver":"eino","eino":{
@@ -38,10 +54,12 @@
     },
     {"apiVersion":"gizclaw.admin/v1alpha1","kind":"RuntimeProfile","metadata":{"id":"peer-sync-giztest"},"spec":{
       "workflows":{
+        "fixed-workflow":{"resource_id":"binding-fixed","i18n":{"en":{"display_name":"Fixed binding"},"zh-CN":{"display_name":"固定绑定"}}},
         "required-workflow":{"resource_id":"binding-required","i18n":{"en":{"display_name":"Required binding"},"zh-CN":{"display_name":"必填绑定"}}},
         "optional-workflow":{"resource_id":"binding-optional","i18n":{"en":{"display_name":"Optional binding"},"zh-CN":{"display_name":"可选绑定"}}}
       },
       "resources":{"models":{
+        "fixed":{"resource_id":"binding-fixed","i18n":{"en":{"display_name":"Fixed binding"},"zh-CN":{"display_name":"固定绑定"}}},
         "required":{"resource_id":"binding-required","i18n":{"en":{"display_name":"Required binding"},"zh-CN":{"display_name":"必填绑定"}}},
         "optional":{"resource_id":"binding-optional","i18n":{"en":{"display_name":"Optional binding"},"zh-CN":{"display_name":"可选绑定"}}}
       }}

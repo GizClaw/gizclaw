@@ -20,6 +20,9 @@ go test -count=1 -run '^TestModelRequestBindingsGiztest$' ./cmd/internal/server
 `testdata/model-request-bindings/lifecycle.giztest.yaml` 经真实 Server、Edge、WebRTC、
 Telemetry、SQL 和 Eino 执行。它验证必填 KV 缺失、删除和 null 时，设备连接收到带安全错误码
 的 EOS，且本地模型协议夹具没有收到请求；补齐与更新后，后续对话使用当前 header。
+它还在设备上报任何 KV 前完成纯固定值对话，检查实际请求中的固定目标域名和保密凭据 header，
+以及上游 Authorization 保持原值；后续对话验证固定头与 Runtime 值混用，且这些值未进入模型请求 body。
+供应商在 SSE refusal 中回显代理凭据时，设备仍只收到安全的 `MODEL_PROVIDER_ERROR` EOS。
 可选值缺失或 null 时省略 header，已存在但类型错误的值仍拒绝发送。每个失败步骤都有期限，
 没有响应不能作为成功；夹具只替代上游模型，不替代 Agent 或设备传输。
 
