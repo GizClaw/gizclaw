@@ -258,9 +258,16 @@ func TestRefreshExtendsActiveGrantAndDeniedGrantRecovers(t *testing.T) {
 	for _, denied := range []bool{false, true} {
 		t.Run(map[bool]string{false: "extension", true: "recovery"}[denied], func(t *testing.T) {
 			var requests atomic.Int32
+			firstAuthorized := make(chan struct{})
+			allowRecovery := make(chan struct{})
 			refreshed := make(chan struct{})
 			svc, policy := testService(t, func(w http.ResponseWriter, r *http.Request) {
 				if requests.Add(1) == 1 {
+					select {
+					case <-firstAuthorized:
+					case <-r.Context().Done():
+						return
+					}
 					expiry := time.Now().Add(200 * time.Millisecond)
 					if denied {
 						expiry = time.Now().Add(-time.Hour)
@@ -268,21 +275,25 @@ func TestRefreshExtendsActiveGrantAndDeniedGrantRecovers(t *testing.T) {
 					sendDecision(t, w, quota.QuotaResponse{ExpiresAt: &expiry, ValidUntil: time.Now().Add(150 * time.Millisecond)})
 					return
 				}
+				if denied {
+					select {
+					case <-allowRecovery:
+					case <-r.Context().Done():
+						return
+					}
+				}
 				sendDecision(t, w, quota.QuotaResponse{ExpiresAt: new(time.Now().Add(time.Minute)), ValidUntil: time.Now().Add(time.Minute)})
 				close(refreshed)
 			})
 			call, release, err := svc.Authorize(t.Context(), giznet.PublicKey{4}, policy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer release()
+			close(firstAuthorized)
 			if denied {
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer release()
 				waitQuotaDenied(t, svc, giznet.PublicKey{4}, policy)
-			} else {
-				if err != nil {
-					t.Fatal(err)
-				}
-				defer release()
+				close(allowRecovery)
 			}
 			select {
 			case <-refreshed:
