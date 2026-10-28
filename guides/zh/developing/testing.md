@@ -2184,7 +2184,7 @@ GIZCLAW_E2E_CREDENTIAL_FILE=tests/gizclaw-e2e/.env \
 
 Quota 的协议、RuntimeProfile 配置与 Docker fixture 验证见 [Quota](/zh/developing/api/http/quota).
 
-Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以及 SDK 经 Edge/Server 的真实 Workspace dialogue。Eino helper 观察到期和不可用错误 EOS、准确公开字段、response identity，并断言拒绝时没有 provider I/O。这些确定性协议 fixture 不代表真实云端 provider 或硬件资格验证。
+Quota Docker lane 还验证完整的 HTTP chat/Responses 拒绝 envelope，以及 SDK 经 Edge/Server 的真实 Workspace dialogue。Eino helper 验证明确到期的错误 EOS、准确公开字段、response identity 和拒绝时没有 provider I/O；hook 故障、响应无效和缓存变旧的场景验证 speech、HTTP chat/Responses 与 Workspace dialogue 继续完成。这些确定性协议 fixture 不代表真实云端 provider 或硬件资格验证。
 
 ## Profile Tool alias 验收
 

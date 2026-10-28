@@ -131,7 +131,7 @@ func TestConfiguredOrMalformedQuotaCannotBypassMissingController(t *testing.T) {
 	}
 }
 
-func TestQuotaAuthorizerPreservesUnavailableCauseAndResourceFailures(t *testing.T) {
+func TestQuotaAuthorizerAllowsReportFailureAndPreservesResourceFailures(t *testing.T) {
 	profile := apitypes.RuntimeProfile{Spec: apitypes.RuntimeProfileSpec{Quota: managerQuotaBinding(t, `{"type":"custom","endpoint":"http://quota.example.test/v1/quota","api_key":"fixture"}`)}}
 	controller := peerquota.New(&quotaReportProbe{})
 	defer func() {
@@ -140,9 +140,13 @@ func TestQuotaAuthorizerPreservesUnavailableCauseAndResourceFailures(t *testing.
 		_ = controller.Close(ctx)
 	}()
 	manager := &Manager{PeerQuota: controller}
-	_, _, err := manager.quotaAuthorizer(giznet.PublicKey{1}, func(context.Context) (apitypes.RuntimeProfile, error) { return profile, nil })(t.Context())
-	if !errors.Is(err, peerquota.ErrUnavailable) || !errors.Is(err, peergenx.ErrDenied) {
-		t.Fatalf("cause was lost: %v", err)
+	call, release, err := manager.quotaAuthorizer(giznet.PublicKey{1}, func(context.Context) (apitypes.RuntimeProfile, error) { return profile, nil })(t.Context())
+	if err != nil {
+		t.Fatalf("quota report failure rejected a provider call: %v", err)
+	}
+	defer release()
+	if call.Err() != nil {
+		t.Fatalf("quota report failure canceled authorization: %v", context.Cause(call))
 	}
 	_, _, err = manager.quotaAuthorizer(giznet.PublicKey{1}, func(context.Context) (apitypes.RuntimeProfile, error) {
 		return apitypes.RuntimeProfile{}, errors.New("missing resource")

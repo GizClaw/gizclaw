@@ -1,0 +1,210 @@
+# User Story:
+# As a registered Peer governed by an external quota service,
+# I want cold and subsequent calls to finish while the first hook is blocked,
+# So that only an explicit expiry returned later can stop provider calls.
+version: gizclaw.test/v1alpha1
+name: server.quota.slow
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  fixture:
+    direction: input
+    type: string
+    env: GIZCLAW_QUOTA_FIXTURE
+  name:
+    direction: input
+    type: string
+    generate: token
+  api_key:
+    direction: output
+    type: string
+    secret: true
+  peer_key:
+    direction: output
+    type: string
+  provider_calls:
+    direction: output
+    type: number
+  audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/pcm
+    codec: pcm_s16le
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request:
+        token: quota-slow
+  - id: debug
+    client: peer
+    rpc:
+      method: server.runtime.put
+      request:
+        debug_mode: fullcontrol
+  - id: key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request:
+        display_name: quota-test
+    capture:
+      api_key: /api_key
+  - id: refresh
+    client: peer
+    timeout: 15s
+    http:
+      method: POST
+      path: /prepare
+      endpoint: ${fixture}
+      body:
+        name: ${name}
+    capture:
+      peer_key: /public_key
+  - id: identifiers_provider
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: identifiers.get
+      response:
+        sn: ${name}
+        imeis:
+          - name: modem
+            tac: "12345678"
+            serial: ${name}
+        labels:
+          - key: hardware
+            value: fixture
+          - key: board
+            value: quota-test
+  - id: cold_chat
+    client: peer
+    timeout: 2s
+    http:
+      method: POST
+      path: /openai/v1/chat/completions
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        model: chat
+        messages: [{role: user, content: hello}]
+        stream: false
+    expect:
+      /choices/0/message/content:
+        equals: quota fixture answer
+  - id: first_hook_pending
+    client: peer
+    timeout: 2s
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /record/slow?queries=1&pending=1&peer=${peer_key}
+    expect:
+      /pending:
+        equals: 1
+      /report/peer_public_key:
+        equals: ${peer_key}
+  - id: speech_while_hook_pending
+    client: peer
+    timeout: 2s
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: short
+        accepted_content_types: [audio/pcm]
+    save_as: audio
+    expect:
+      /bytes:
+        equals: 320
+  - id: still_no_hook_response
+    client: peer
+    timeout: 2s
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /record/slow?pending=1&peer=${peer_key}
+    expect:
+      /pending:
+        equals: 1
+      /canceled:
+        equals: 0
+  - id: release_expired_decision
+    client: peer
+    http:
+      method: POST
+      endpoint: ${fixture}
+      path: /release/slow/${peer_key}
+    expect:
+      /released:
+        equals: true
+  - id: wait_explicit_denial
+    client: peer
+    timeout: 10s
+    http:
+      method: POST
+      endpoint: ${fixture}
+      path: /wait-denial
+      headers:
+        Authorization: Bearer ${api_key}
+    expect:
+      /denied:
+        equals: true
+  - id: provider_baseline
+    client: peer
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /provider-calls
+    capture:
+      provider_calls: /calls
+  - id: denied_chat
+    client: peer
+    http:
+      method: POST
+      path: /openai/v1/chat/completions
+      status: 403
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        model: chat
+        messages: [{role: user, content: hello}]
+        stream: false
+    expect:
+      /error/code:
+        equals: quota_exhausted
+  - id: denied_speech
+    client: peer
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: short
+        accepted_content_types: [audio/pcm]
+    expect_error:
+      code: 7
+      message_contains: Quota exhausted.
+  - id: no_denied_provider_calls
+    client: peer
+    http:
+      method: GET
+      endpoint: ${fixture}
+      path: /provider-calls
+    expect:
+      /calls:
+        equals: ${provider_calls}
+finally:
+  - id: cleanup
+    client: peer
+    rpc:
+      method: server.peer.delete
+      request: {}

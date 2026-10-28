@@ -47,7 +47,7 @@ Friend Group 消息是群组绑定 Workspace History 的只读投影。list/get/
 
 `server.peer.delete` 使用空 request/response message，不接受目标 public key。它会原子创建或复用 caller 的 pending-deletion handoff，同时保留 active Peer；随后 Server 立即把当前 connection 标为 retiring 并拒绝新工作，再尝试 flush response 和 EOS；即使任一写入失败也会关闭完整 connection。`server.workspace.delete` 只对 caller-owned 用户 Workspace 创建或复用同样透明的 handoff，system Workspace 始终不可通过该方法删除。`server.pet.delete` 保留 Pet，并写入或复用 Pet pending work，同时保留绑定的 system Workspace。
 
-新 speech 请求的 quota 错误保留 RPCStatus Reason：到期使用 PERMISSION_DENIED (7)、QUOTA_EXHAUSTED 和 `Quota exhausted.`；不可用使用 UNAVAILABLE (14)、QUOTA_UNAVAILABLE 和 `Quota unavailable.`。synthesis metadata 已发送后撤权，以提前 EOS 停止 binary audio。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。
+Hook 故障在后台记录 WARN，speech 请求继续执行。明确到期、配置或 service lifecycle 的 quota 错误保留 RPCStatus Reason：到期使用 PERMISSION_DENIED (7)、QUOTA_EXHAUSTED 和 `Quota exhausted.`；不可用使用 UNAVAILABLE (14)、QUOTA_UNAVAILABLE 和 `Quota unavailable.`。synthesis metadata 已发送后撤权，以提前 EOS 停止 binary audio。见 [Quota 客户端错误](/zh/developing/api/http/quota#客户端错误)。
 
 ## 社交提醒与公开资料
 

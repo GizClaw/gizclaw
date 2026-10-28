@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -24,14 +25,14 @@ func (f *fixture) dialogue(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var request struct {
-		Unavailable bool `json:"unavailable"`
+		HookFailure bool `json:"hook_failure"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
 		http.Error(w, "invalid request", 400)
 		return
 	}
 	defer r.Body.Close()
-	result, err := f.runDialogue(r.Context(), driver, request.Unavailable)
+	result, err := f.runDialogue(r.Context(), driver, request.HookFailure)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -39,7 +40,7 @@ func (f *fixture) dialogue(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, result)
 }
 
-func (f *fixture) runDialogue(parent context.Context, driver string, unavailable bool) (map[string]any, error) {
+func (f *fixture) runDialogue(parent context.Context, driver string, hookFailure bool) (map[string]any, error) {
 	ctx, cancel := context.WithTimeout(parent, 20*time.Second)
 	defer cancel()
 	info, err := gizcli.FetchServerInfo(ctx, "edge:9821")
@@ -61,7 +62,7 @@ func (f *fixture) runDialogue(parent context.Context, driver string, unavailable
 	go func() { done <- client.Serve() }()
 	defer func() { _ = client.Close(); <-done }()
 	token := "quota-dialogue-" + driver
-	if unavailable {
+	if hookFailure {
 		token = "quota-failure"
 	}
 	if _, err := client.Register(ctx, "register", token); err != nil {
@@ -110,24 +111,20 @@ func (f *fixture) runDialogue(parent context.Context, driver string, unavailable
 			}
 		}
 	}
-	var first *genx.StreamCtrl
-	var text string
-	if !unavailable {
-		first, text, err = turn("allowed-input")
-		if err != nil {
-			return nil, err
-		}
-		if first.ErrorCode != "" || text != "quota fixture answer" {
-			return nil, fmt.Errorf("first turn: %+v text=%q", first, text)
-		}
-		select {
-		case <-time.After(2200 * time.Millisecond):
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		}
+	first, text, err := turn("allowed-input")
+	if err != nil {
+		return nil, err
+	}
+	if first.ErrorCode != "" || text != "quota fixture answer" {
+		return nil, fmt.Errorf("first turn: %+v text=%q", first, text)
+	}
+	select {
+	case <-time.After(2200 * time.Millisecond):
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 	before := f.providerCalls.Load()
-	last, _, err := turn("expired-input")
+	last, lastText, err := turn("next-input")
 	if err != nil {
 		return nil, err
 	}
@@ -141,5 +138,49 @@ func (f *fixture) runDialogue(parent context.Context, driver string, unavailable
 	}
 	// Include false retryable explicitly so Giztest asserts the actual bool.
 	terminal["error_retryable"] = last.ErrorRetryable
-	return map[string]any{"allowed_text": text, "error": terminal, "new_response": last.StreamID != "" && (first == nil || first.StreamID != last.StreamID), "provider_calls_after_expiry": f.providerCalls.Load() - before}, nil
+	return map[string]any{"allowed_text": text, "last_text": lastText, "error": terminal, "new_response": last.StreamID != "" && first.StreamID != last.StreamID, "provider_calls": f.providerCalls.Load() - before}, nil
+}
+
+// waitDenial primes the real HTTP provider path until the asynchronous hook has
+// supplied an explicit denial. Later assertions can then require zero provider I/O.
+func (f *fixture) waitDenial(w http.ResponseWriter, r *http.Request) {
+	ctx, cancel := context.WithTimeout(r.Context(), 10*time.Second)
+	defer cancel()
+	client := &http.Client{Timeout: 2 * time.Second}
+	defer client.CloseIdleConnections()
+	for {
+		request, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://edge:9821/openai/v1/chat/completions", strings.NewReader(`{"model":"chat","messages":[{"role":"user","content":"hello"}],"stream":false}`))
+		if err != nil {
+			http.Error(w, "cannot construct warmup request", http.StatusInternalServerError)
+			return
+		}
+		request.Header.Set("Authorization", r.Header.Get("Authorization"))
+		request.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(request)
+		if err != nil {
+			http.Error(w, "quota warmup request failed", http.StatusInternalServerError)
+			return
+		}
+		var result struct {
+			Error struct {
+				Code string `json:"code"`
+			} `json:"error"`
+		}
+		decodeErr := json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(&result)
+		response.Body.Close()
+		if decodeErr == nil && response.StatusCode == http.StatusForbidden && result.Error.Code == "quota_exhausted" {
+			writeJSON(w, map[string]any{"denied": true})
+			return
+		}
+		if decodeErr != nil || response.StatusCode != http.StatusOK {
+			http.Error(w, "unexpected quota warmup response", http.StatusInternalServerError)
+			return
+		}
+		select {
+		case <-ctx.Done():
+			http.Error(w, "explicit quota denial was not observed", http.StatusGatewayTimeout)
+			return
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
 }

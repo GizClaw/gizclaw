@@ -1,7 +1,7 @@
 # User Story:
 # As a registered Peer governed by an external quota service,
-# I want active provider streams to obey both deadlines,
-# So that audio stops early and subsequent calls are denied through real Docker transport.
+# I want stale decisions to remain usable during hook failures,
+# So that active audio completes and subsequent calls stay available.
 version: gizclaw.test/v1alpha1
 name: server.quota.stale
 clients:
@@ -30,6 +30,12 @@ variables:
     direction: output
     type: string
   audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/pcm
+    codec: pcm_s16le
+  subsequent_audio:
     direction: output
     type: audio
     max_bytes: 16777216
@@ -77,7 +83,7 @@ steps:
         imeis:
           - name: modem
             tac: "12345678"
-            serial: "123456"
+            serial: ${name}
         labels:
           - key: hardware
             value: fixture
@@ -96,19 +102,22 @@ steps:
     save_as: audio
     expect:
       /bytes:
-        minimum: 320
-        maximum: 32000
+        equals: 96000
   - id: record
     client: peer
     timeout: 15s
     http:
       endpoint: ${fixture}
       method: GET
-      path: /record/stale?queries=1
+      path: /record/stale?queries=2&failures=1&stale=true&peer=${peer_key}
     expect:
       /report/identifiers/sn:
         equals: ${name}
-  - id: subsequent_denial
+      /stale:
+        equals: true
+      /failures:
+        minimum: 1
+  - id: subsequent_speech
     client: peer
     timeout: 10s
     speech:
@@ -118,9 +127,25 @@ steps:
         text: short
         accepted_content_types:
           - audio/pcm
-    expect_error:
-      code: 14
-      message_contains: Quota unavailable.
+    save_as: subsequent_audio
+    expect:
+      /bytes:
+        equals: 320
+  - id: chat_with_stale_decision
+    client: peer
+    timeout: 2s
+    http:
+      method: POST
+      path: /openai/v1/chat/completions
+      headers:
+        Authorization: Bearer ${api_key}
+      body:
+        model: chat
+        messages: [{role: user, content: hello}]
+        stream: false
+    expect:
+      /choices/0/message/content:
+        equals: quota fixture answer
 finally:
   - id: cleanup
     client: peer

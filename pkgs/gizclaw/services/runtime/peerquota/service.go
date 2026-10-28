@@ -6,12 +6,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/sdk/go/quota"
 )
@@ -25,6 +28,7 @@ var (
 const requestTimeout = 5 * time.Second
 const retryDelay = time.Second
 const idleLifetime = 5 * time.Minute
+const warningInterval = time.Minute
 
 // Reporter returns available identifiers and flushed retained hourly usage.
 type Reporter interface {
@@ -51,10 +55,28 @@ type Service struct {
 	done     chan struct{}
 }
 
-// New constructs an idle quota controller using a bounded HTTP client.
+// New constructs an idle quota controller. All Peers and policies share one
+// HTTP client and keep-alive connection pool, owned until Close joins workers.
 func New(reporter Reporter) *Service {
 	ctx, cancel := context.WithCancel(context.Background())
-	return &Service{reporter: reporter, client: &http.Client{Transport: &http.Transport{Proxy: http.ProxyFromEnvironment, ForceAttemptHTTP2: true, IdleConnTimeout: time.Minute}, Timeout: requestTimeout, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, ctx: ctx, cancel: cancel, entries: make(map[entryKey]*entry), done: make(chan struct{})}
+	transport := &http.Transport{
+		Proxy:                 http.ProxyFromEnvironment,
+		DialContext:           (&net.Dialer{Timeout: requestTimeout, KeepAlive: 30 * time.Second}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   100,
+		IdleConnTimeout:       time.Minute,
+		TLSHandshakeTimeout:   requestTimeout,
+		ExpectContinueTimeout: time.Second,
+	}
+	client := &http.Client{
+		Transport: transport,
+		Timeout:   requestTimeout,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	return &Service{reporter: reporter, client: client, ctx: ctx, cancel: cancel, entries: make(map[entryKey]*entry), done: make(chan struct{})}
 }
 
 type acquisition struct {
@@ -74,6 +96,7 @@ type entry struct {
 	service *Service
 	key     entryKey
 	policy  apitypes.RuntimeProfileQuotaCustom
+	client  *quota.ClientWithResponses
 	ctx     context.Context
 	cancel  context.CancelFunc
 	acquire chan acquisition
@@ -81,7 +104,8 @@ type entry struct {
 	done    chan struct{}
 }
 
-// Authorize returns a context whose lifetime follows both quota deadlines.
+// Authorize uses the last known decision without waiting for the quota hook.
+// Unknown or stale decisions allow use until an explicit usable deadline expires.
 // Call release when the invocation/stream ends. Caller cancellation also
 // releases its lease. A denied result remains refreshable without active calls.
 func (s *Service) Authorize(ctx context.Context, peer giznet.PublicKey, policy apitypes.RuntimeProfileQuotaCustom) (context.Context, func(), error) {
@@ -162,12 +186,12 @@ func (e *entry) run() {
 	results := make(chan fetched, 1)
 	var fetchDone <-chan struct{}
 	var decision *quota.QuotaResponse
-	var grant *grantState
-	var waiters []acquisition
+	grant := newGrant(e.ctx)
 	var active int
 	lastUsed := time.Now()
 	refreshAt := lastUsed
-	lastErr := error(ErrUnavailable)
+	var lastWarning time.Time
+	logCtx := gizlog.WithPeerPublicKey(e.ctx, e.key.peer.String())
 	startFetch := func() {
 		if fetchDone != nil {
 			return
@@ -179,6 +203,15 @@ func (e *entry) run() {
 			ctx, cancel := context.WithTimeout(e.ctx, requestTimeout)
 			defer cancel()
 			value, err := e.fetch(ctx)
+			if err == nil {
+				lastWarning = time.Time{}
+			} else if e.ctx.Err() == nil && time.Since(lastWarning) >= warningInterval {
+				lastWarning = time.Now()
+				// fetch returns only locally owned, sanitized errors. Keep log
+				// sink I/O in this child so authorization and expiry stay local.
+				slog.LogAttrs(logCtx, slog.LevelWarn, "peerquota: quota refresh failed; retaining last decision",
+					slog.String("reason", err.Error()))
+			}
 			results <- fetched{decision: value, err: err}
 		}()
 	}
@@ -196,19 +229,11 @@ func (e *entry) run() {
 		}
 	}()
 	respond := func(request acquisition) {
-		if decision != nil && !decision.ValidUntil.After(time.Now()) {
-			decision = nil
-			stopGrant(ErrUnavailable)
-		}
 		if decision != nil && decision.ExpiresAt != nil && !decision.ExpiresAt.After(time.Now()) {
 			stopGrant(ErrDenied)
 		}
 		if err := request.ctx.Err(); err != nil {
 			request.reply <- acquired{err: err}
-			return
-		}
-		if decision == nil {
-			request.reply <- acquired{err: lastErr}
 			return
 		}
 		if grant == nil {
@@ -238,14 +263,11 @@ func (e *entry) run() {
 	for {
 		now := time.Now()
 		if decision != nil {
-			if !decision.ValidUntil.After(now) {
-				decision = nil
-				stopGrant(ErrUnavailable)
-			} else if decision.ExpiresAt != nil && !decision.ExpiresAt.After(now) {
+			if decision.ExpiresAt != nil && !decision.ExpiresAt.After(now) {
 				stopGrant(ErrDenied)
 			}
 		}
-		if active == 0 && len(waiters) == 0 && !lastUsed.Add(idleLifetime).After(now) {
+		if active == 0 && !lastUsed.Add(idleLifetime).After(now) {
 			return
 		}
 		wake := now.Add(idleLifetime)
@@ -260,9 +282,6 @@ func (e *entry) run() {
 			}
 		}
 		if decision != nil {
-			if decision.ValidUntil.Before(wake) {
-				wake = decision.ValidUntil
-			}
 			if grant != nil && decision.ExpiresAt != nil && decision.ExpiresAt.Before(wake) {
 				wake = *decision.ExpiresAt
 			}
@@ -270,9 +289,6 @@ func (e *entry) run() {
 		timer.Reset(max(time.Millisecond, time.Until(wake)))
 		select {
 		case <-e.ctx.Done():
-			for _, request := range waiters {
-				request.reply <- acquired{err: ErrClosed}
-			}
 			return
 		case <-timer.C:
 		case <-e.release:
@@ -280,33 +296,14 @@ func (e *entry) run() {
 			lastUsed = time.Now()
 		case request := <-e.acquire:
 			lastUsed = time.Now()
-			if decision != nil {
-				respond(request)
-			} else if fetchDone != nil {
-				live := waiters[:0]
-				for _, waiter := range waiters {
-					if waiter.ctx.Err() == nil {
-						live = append(live, waiter)
-					}
-				}
-				if len(live) >= 128 {
-					request.reply <- acquired{err: ErrUnavailable}
-					waiters = live
-				} else {
-					waiters = append(live, request)
-				}
-			} else {
-				respond(request)
-			}
+			respond(request)
 		case result := <-results:
 			<-fetchDone
 			fetchDone = nil
 			if result.err != nil {
-				lastErr = fmt.Errorf("%w: %v", ErrUnavailable, result.err)
 				refreshAt = time.Now().Add(retryDelay)
 			} else {
 				decision = result.decision
-				lastErr = ErrUnavailable
 				now := time.Now()
 				refreshAt = now.Add(decision.ValidUntil.Sub(now) / 2)
 				if decision.ExpiresAt == nil || decision.ExpiresAt.After(now) {
@@ -317,10 +314,6 @@ func (e *entry) run() {
 					stopGrant(ErrDenied)
 				}
 			}
-			for _, request := range waiters {
-				respond(request)
-			}
-			waiters = nil
 		}
 	}
 }
@@ -333,19 +326,25 @@ func (e *entry) fetch(ctx context.Context) (*quota.QuotaResponse, error) {
 	if err != nil {
 		return nil, errors.New("cannot read quota usage report")
 	}
-	endpoint, err := url.Parse(e.policy.Endpoint)
-	if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.Fragment != "" {
-		return nil, errors.New("invalid quota endpoint")
+	// The entry has one joined fetch worker at a time. Retain its immutable
+	// SDK client while every entry borrows the service's shared HTTP pool.
+	if e.client == nil {
+		endpoint, err := url.Parse(e.policy.Endpoint)
+		if err != nil || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") || endpoint.User != nil || endpoint.Fragment != "" {
+			return nil, errors.New("invalid quota endpoint")
+		}
+		client, err := quota.NewClientWithResponses(endpoint.Scheme+"://"+endpoint.Host, quota.WithHTTPClient(boundedClient{e.service.client}), quota.WithRequestEditorFn(func(_ context.Context, request *http.Request) error {
+			target := *endpoint
+			request.URL = &target
+			request.Header.Set("Authorization", "Bearer "+e.policy.ApiKey)
+			return nil
+		}))
+		if err != nil {
+			return nil, errors.New("cannot construct quota client")
+		}
+		e.client = client
 	}
-	client, err := quota.NewClientWithResponses(endpoint.Scheme+"://"+endpoint.Host, quota.WithHTTPClient(boundedClient{e.service.client}), quota.WithRequestEditorFn(func(_ context.Context, request *http.Request) error {
-		request.URL = endpoint
-		request.Header.Set("Authorization", "Bearer "+e.policy.ApiKey)
-		return nil
-	}))
-	if err != nil {
-		return nil, errors.New("cannot construct quota client")
-	}
-	response, err := client.CheckQuotaWithResponse(ctx, report)
+	response, err := e.client.CheckQuotaWithResponse(ctx, report)
 	if err != nil {
 		return nil, errors.New("quota request failed")
 	}
@@ -375,7 +374,8 @@ func (c boundedClient) Do(request *http.Request) (*http.Response, error) {
 }
 
 // grantState owns one renewable authorization context. The entry cancels it
-// on revocation, either deadline, or worker exit.
+// on explicit usable expiry, revocation, or worker exit. Result freshness does
+// not revoke a grant.
 type grantState struct {
 	ctx    context.Context
 	cancel context.CancelCauseFunc

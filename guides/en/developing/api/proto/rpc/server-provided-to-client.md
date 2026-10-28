@@ -47,7 +47,7 @@ Friend Group messages are a read-only projection of the group's bound Workspace 
 
 `server.peer.delete` has empty request and response messages and never accepts a target public key. It atomically creates or reuses the caller's pending-deletion handoff while retaining the active Peer, then the Server immediately marks the current connection retiring and rejects new work, and attempts to flush the response and EOS. The full connection closes even if either write fails. `server.workspace.delete` creates or reuses the same transparent handoff only for a caller-owned user Workspace; system Workspaces remain non-deletable. `server.pet.delete` retains the Pet and writes or reuses Pet pending work while retaining its bound system Workspace.
 
-Fresh speech quota failures preserve RPCStatus Reason: exhausted uses PERMISSION_DENIED (7), QUOTA_EXHAUSTED, and `Quota exhausted.`; unavailable uses UNAVAILABLE (14), QUOTA_UNAVAILABLE, and `Quota unavailable.`. After synthesis metadata, revocation stops binary audio with early EOS. See [Quota client errors](/en/developing/api/http/quota#client-errors).
+Hook failures produce background WARN logs while speech calls continue. Explicit-expiry, configuration, or service-lifecycle quota failures preserve RPCStatus Reason: exhausted uses PERMISSION_DENIED (7), QUOTA_EXHAUSTED, and `Quota exhausted.`; unavailable uses UNAVAILABLE (14), QUOTA_UNAVAILABLE, and `Quota unavailable.`. After synthesis metadata, revocation stops binary audio with early EOS. See [Quota client errors](/en/developing/api/http/quota#client-errors).
 
 ## Social ping and public profile
 

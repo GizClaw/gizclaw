@@ -1,7 +1,7 @@
 # User Story:
 # As a registered Peer governed by an external quota service,
 # I want real provider calls to follow its quota decisions,
-# So that identifiers, usage and both deadlines are verified.
+# So that background reporting and explicit usable expiry are verified.
 version: gizclaw.test/v1alpha1
 name: server.quota.allow
 clients:
@@ -77,7 +77,7 @@ steps:
         imeis:
           - name: modem
             tac: "12345678"
-            serial: "123456"
+            serial: ${name}
         labels:
           - key: hardware
             value: fixture

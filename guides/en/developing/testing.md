@@ -2432,7 +2432,7 @@ The script writes separate RPC, provider, HTTP, and SFU JSON reports under `test
 
 For quota protocol, RuntimeProfile configuration and real Docker fixture acceptance, see [Quota](/en/developing/api/http/quota).
 
-The quota Docker lane additionally checks complete HTTP chat/Responses rejection envelopes and real SDK Workspace dialogue over Edge/Server. Its Eino helpers observe exhausted and unavailable error EOS, exact public details, response identity, and no denied provider I/O. These deterministic protocol fixtures do not claim live cloud-provider or hardware qualification.
+The quota Docker lane additionally checks complete HTTP chat/Responses rejection envelopes and real SDK Workspace dialogue over Edge/Server. Its Eino helpers verify explicit-expiry error EOS, exact public details, response identity, and no denied provider I/O. Hook-failure, invalid-response, and stale-cache scenarios verify that speech, HTTP chat/Responses, and Workspace dialogue remain available. These deterministic protocol fixtures do not claim live cloud-provider or hardware qualification.
 
 ## Runtime Tool aliases
 

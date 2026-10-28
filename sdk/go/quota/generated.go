@@ -23,6 +23,7 @@ const (
 
 // QuotaRequest defines model for QuotaRequest.
 type QuotaRequest struct {
+	// Identifiers A Peer may declare at most 10 distinct identifier indexes: a non-empty SN counts as one, and each distinct complete IMEI (TAC, serial) counts as one. Duplicate or incomplete IMEIs create no additional indexes. Each SN or IMEI reverse index may associate at most 10 Peers.
 	Identifiers   *externalRef0.DeviceIdentifiers `json:"identifiers,omitempty"`
 	PeerPublicKey string                          `json:"peer_public_key"`
 	Usage         []QuotaUsage                    `json:"usage"`
@@ -33,7 +34,7 @@ type QuotaResponse struct {
 	// ExpiresAt Usable deadline. Omitted or null means unlimited; an elapsed timestamp denies use.
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
-	// ValidUntil Required future deadline of this query result. Refresh before this time; expired results cannot authorize use.
+	// ValidUntil Required future freshness deadline of this query result. GizClaw refreshes in the background and keeps using the last decision after this time if refresh fails. A missing decision allows use; only an explicit expires_at deadline can deny use or cancel active provider calls.
 	ValidUntil time.Time `json:"valid_until"`
 }
 
