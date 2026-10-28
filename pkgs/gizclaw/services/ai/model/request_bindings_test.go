@@ -76,7 +76,12 @@ func TestModelRequestBindingsPersistAndClear(t *testing.T) {
 		t.Fatalf("legacy resource changed: %T, %v", legacy, err)
 	}
 	body := modelUpsert("bound", "openai-tenant", "main")
-	setModelBindings(t, &body, &apitypes.ModelRequestBindings{testRequestBinding(t)})
+	constant := testRequestBinding(t)
+	constant.Target.Name = "X-Fixed-Target"
+	if err := constant.Source.UnmarshalJSON([]byte(`{"constant":"vendor.example:30100"}`)); err != nil {
+		t.Fatal(err)
+	}
+	setModelBindings(t, &body, &apitypes.ModelRequestBindings{testRequestBinding(t), constant})
 	response, err := srv.CreateModel(t.Context(), adminhttp.CreateModelRequestObject{Body: &body})
 	if err != nil {
 		t.Fatal(err)
@@ -224,6 +229,16 @@ func TestModelRequestSourceOneOfRejectsInvalidShapes(t *testing.T) {
 		{"unexpected value", `{"peer_runtime_kv":{"key":"identity","value":"other"}}`},
 		{"wrong key type", `{"peer_runtime_kv":{"key":42}}`},
 		{"wrong pointer type", `{"peer_runtime_kv":{"key":"identity","pointer":[]}}`},
+		{"constant and KV", `{"constant":"fixed","peer_runtime_kv":{"key":"identity"}}`},
+		{"null constant", `{"constant":null}`},
+		{"number constant", `{"constant":42}`},
+		{"boolean constant", `{"constant":false}`},
+		{"object constant", `{"constant":{"value":"fixed"}}`},
+		{"empty constant", `{"constant":""}`},
+		{"constant fields", `{"constant":"fixed","key":"identity"}`},
+		{"constant newline", `{"constant":"fixed\r\nInjected: true"}`},
+		{"constant whitespace", `{"constant":" padded"}`},
+		{"constant Unicode", `{"constant":"设备"}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			body := modelUpsert("invalid-source", "openai-tenant", "main")

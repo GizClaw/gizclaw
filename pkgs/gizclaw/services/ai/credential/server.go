@@ -354,7 +354,7 @@ func validateCredentialBody(provider string, body apitypes.CredentialBody) error
 		if allEmpty(typed.ApiKey, typed.Token, typed.BaseUrl, typed.Organization, typed.Project) {
 			return errors.New("body must include at least one non-empty credential field")
 		}
-		return nil
+		return apitypes.ValidateOpenAICredentialHeaders(typed.Headers)
 	case "gemini":
 		var typed apitypes.GeminiCredentialBody
 		if err := decodeCredentialBody(body, &typed); err != nil {

@@ -1,7 +1,7 @@
 # User Story:
-# As a device whose model requires identity metadata,
-# I want an explicit terminal error while metadata is missing or invalid,
-# So that the next turn uses the latest telemetry without leaking stale headers.
+# As a device whose model uses fixed or reported request headers,
+# I want fixed headers to work before telemetry and safe errors for invalid metadata,
+# So that each turn sends the configured headers without leaking stale values.
 version: gizclaw.test/v1alpha1
 name: model-request-bindings.lifecycle
 timeout: 90s
@@ -11,12 +11,45 @@ variables:
   endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
   registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
   fixture: {direction: input, type: string, env: GIZCLAW_BINDING_FIXTURE}
+  fixed_workspace: {direction: input, type: string, generate: token}
   required_workspace: {direction: input, type: string, generate: token}
   optional_workspace: {direction: input, type: string, generate: token}
 steps:
   - id: register
     client: peer
     rpc: {method: server.register, request: {token: '${registration_token}'}}
+  - id: create_fixed
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${fixed_workspace}
+        workflow_name: fixed-workflow
+        parameters:
+          eino_workspace_parameters: {agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO}
+  - id: select_fixed
+    client: peer
+    rpc: {method: server.run.workspace.set, request: {workspace_name: '${fixed_workspace}'}}
+  - id: fixed_runtime_empty
+    client: peer
+    rpc: {method: server.status.get, request: {}}
+    expect: {/reported_kv/identity: {present: false}}
+  - id: fixed_without_telemetry
+    client: peer
+    timeout: 10s
+    peer_stream: {mode: text, input: fixed headers need no telemetry, require_audio: false}
+    expect:
+      /reply: {equals: binding reply}
+      /text_eos: {equals: true}
+      /response_count: {equals: 1}
+  - id: fixed_headers
+    client: peer
+    http: {method: GET, endpoint: '${fixture}', path: /requests}
+    expect:
+      /count: {equals: 1}
+      /requests/0/has_vid: {equals: false}
+      /requests/0/upstream_host: {equals: 'fixture.example:30100'}
+      /requests/0/proxy_authorized: {equals: true}
   - id: create_required
     client: peer
     rpc:
@@ -38,6 +71,9 @@ steps:
   - id: select_required
     client: peer
     rpc: {method: server.run.workspace.set, request: {workspace_name: '${required_workspace}'}}
+  - id: reload_required
+    client: peer
+    rpc: {method: server.run.workspace.reload, request: {}}
   - id: required_missing
     client: peer
     timeout: 10s
@@ -58,7 +94,7 @@ steps:
   - id: missing_blocks_provider
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
-    expect: {/count: {equals: 0}}
+    expect: {/count: {equals: 1}}
   - id: report_identity
     client: peer
     telemetry:
@@ -83,9 +119,11 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 1}
-      /requests/0/vid: {equals: device-secret-one}
-      /requests/0/has_vid: {equals: true}
+      /count: {equals: 2}
+      /requests/1/vid: {equals: device-secret-one}
+      /requests/1/has_vid: {equals: true}
+      /requests/1/upstream_host: {equals: 'fixture.example:30100'}
+      /requests/1/proxy_authorized: {equals: true}
   - id: replace_identity
     client: peer
     telemetry:
@@ -107,8 +145,8 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 2}
-      /requests/1/vid: {equals: device-secret-two}
+      /count: {equals: 3}
+      /requests/2/vid: {equals: device-secret-two}
   - id: delete_identity
     client: peer
     telemetry:
@@ -167,7 +205,7 @@ steps:
   - id: deletion_and_null_block_provider
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
-    expect: {/count: {equals: 2}}
+    expect: {/count: {equals: 3}}
   - id: select_optional
     client: peer
     rpc: {method: server.run.workspace.set, request: {workspace_name: '${optional_workspace}'}}
@@ -183,8 +221,8 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 3}
-      /requests/2/has_vid: {equals: false}
+      /count: {equals: 4}
+      /requests/3/has_vid: {equals: false}
   - id: report_invalid
     client: peer
     telemetry:
@@ -212,7 +250,7 @@ steps:
   - id: invalid_blocks_provider
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
-    expect: {/count: {equals: 3}}
+    expect: {/count: {equals: 4}}
   - id: delete_optional_identity
     client: peer
     telemetry:
@@ -237,8 +275,8 @@ steps:
     client: peer
     http: {method: GET, endpoint: '${fixture}', path: /requests}
     expect:
-      /count: {equals: 4}
-      /requests/3/has_vid: {equals: false}
+      /count: {equals: 5}
+      /requests/4/has_vid: {equals: false}
 finally:
   - id: stop
     client: peer
@@ -246,6 +284,9 @@ finally:
   - id: delete_required_workspace
     client: peer
     rpc: {method: server.workspace.delete, request: {name: '${required_workspace}'}}
+  - id: delete_fixed_workspace
+    client: peer
+    rpc: {method: server.workspace.delete, request: {name: '${fixed_workspace}'}}
   - id: delete_optional_workspace
     client: peer
     rpc: {method: server.workspace.delete, request: {name: '${optional_workspace}'}}

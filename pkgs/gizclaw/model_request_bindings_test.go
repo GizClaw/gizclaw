@@ -223,6 +223,8 @@ func consumeModelBindingStream(stream genx.Stream, err error) error {
 
 func TestModelRequestBindingsConcurrentPeerSnapshots(t *testing.T) {
 	f := newModelBindingFixture(t)
+	addFixedModelHeader(t, f, "X-GizProxy-Upstream-Host", "vendor.example:30100")
+	putFixedCredentialHeaders(t, f, map[string]string{"X-GizProxy-Authorization": "Bearer shared-fixed-fixture"})
 	a, b, owner := giznet.PublicKey{1}, giznet.PublicKey{2}, giznet.PublicKey{3}
 	for peer, value := range map[giznet.PublicKey]string{a: `{"vid":"product-value-a","uid":"device-value-a","ip":"192.0.2.1"}`, b: `{"vid":"product-value-b","uid":"device-value-b","ip":"192.0.2.2"}`, owner: `{"vid":"wrong-owner","uid":"wrong-owner","ip":"192.0.2.3"}`} {
 		if err := f.report(t.Context(), peer, value); err != nil {
@@ -257,6 +259,9 @@ func TestModelRequestBindingsConcurrentPeerSnapshots(t *testing.T) {
 	counts := map[string]int{}
 	for range 24 {
 		r := f.nextRequest(t)
+		if r.headers.Get("X-GizProxy-Upstream-Host") != "vendor.example:30100" || r.headers.Get("X-GizProxy-Authorization") != "Bearer shared-fixed-fixture" {
+			t.Fatal("shared generator lost fixed headers")
+		}
 		uid := r.headers.Get("X-AI-UID")
 		counts[uid]++
 		suffix := strings.TrimPrefix(uid, "device-value-")
@@ -291,6 +296,8 @@ func TestModelRequestBindingsFreezeRetriesAndFallbacks(t *testing.T) {
 	for _, mode := range []string{"stream_fallback", "invoke_fallback", "sdk_retry"} {
 		t.Run(mode, func(t *testing.T) {
 			f := newModelBindingFixture(t)
+			addFixedModelHeader(t, f, "X-GizProxy-Upstream-Host", "vendor.example:30100")
+			putFixedCredentialHeaders(t, f, map[string]string{"X-GizProxy-Authorization": "Bearer before-proxy-fixture"})
 			peer := giznet.PublicKey{1}
 			if err := f.report(t.Context(), peer, `{"vid":"product-value-before","uid":"device-value-before","ip":"192.0.2.1"}`); err != nil {
 				t.Fatal(err)
@@ -301,6 +308,9 @@ func TestModelRequestBindingsFreezeRetriesAndFallbacks(t *testing.T) {
 					return false
 				}
 				if err := f.report(r.Context(), peer, `{"vid":"product-value-after","uid":"device-value-after","ip":"192.0.2.2"}`); err != nil {
+					t.Error(err)
+				}
+				if err := f.putFixedCredentialHeaders(r.Context(), map[string]string{"X-GizProxy-Authorization": "Bearer after-proxy-fixture"}); err != nil {
 					t.Error(err)
 				}
 				w.Header().Set("Content-Type", "application/json")
@@ -331,7 +341,7 @@ func TestModelRequestBindingsFreezeRetriesAndFallbacks(t *testing.T) {
 				t.Fatal(err)
 			}
 			first, retry := f.nextRequest(t), f.nextRequest(t)
-			for _, name := range []string{"X-AI-VID", "X-AI-UID", "X-AI-IP"} {
+			for _, name := range []string{"X-AI-VID", "X-AI-UID", "X-AI-IP", "X-GizProxy-Upstream-Host", "X-GizProxy-Authorization"} {
 				if first.headers.Get(name) != retry.headers.Get(name) {
 					t.Fatalf("retry changed %s", name)
 				}
@@ -347,6 +357,8 @@ func TestModelRequestBindingsFreezeRetriesAndFallbacks(t *testing.T) {
 			}
 			if r := f.nextRequest(t); r.headers.Get("X-AI-UID") != "device-value-after" || r.headers.Get("X-AI-VID") != "product-value-after" {
 				t.Fatal("new request did not read the updated snapshot")
+			} else if r.headers.Get("X-GizProxy-Authorization") != "Bearer after-proxy-fixture" {
+				t.Fatal("new request did not read the rotated credential header")
 			}
 		})
 	}

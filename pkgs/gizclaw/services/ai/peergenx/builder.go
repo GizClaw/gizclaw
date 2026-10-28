@@ -346,12 +346,16 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 	if apiKey == "" {
 		return nil, fmt.Errorf("%w: credential %q missing api_key", ErrInvalid, cfg.Credential.Id)
 	}
+	requestHeaders, err := credentialRequestHeaders(cfg.Model, body.Headers, cfg.RequestHeaders)
+	if err != nil {
+		return nil, err
+	}
 	opts := []option.RequestOption{option.WithAPIKey(apiKey)}
 	if baseURL := firstString(cfg.Tenant.OpenAI.BaseUrl, body.BaseUrl); baseURL != "" {
 		opts = append(opts, option.WithBaseURL(baseURL))
 	}
 	clientHTTP := b.HTTPClient
-	if cfg.RequestHeaders != nil {
+	if requestHeaders != nil {
 		if clientHTTP == nil {
 			clientHTTP = http.DefaultClient
 		}
@@ -380,7 +384,7 @@ func (b DefaultBuilder) buildOpenAIGenerator(cfg GeneratorConfig) (genx.Generato
 		return nil, fmt.Errorf("%w: model %q missing upstream model", ErrInvalid, cfg.Model.Id)
 	}
 	return &genx.OpenAIGenerator{
-		RequestHeaders:    cfg.RequestHeaders,
+		RequestHeaders:    requestHeaders,
 		Provider:          strings.TrimSuffix(cfg.Tenant.Kind, "-tenant"),
 		Client:            &client,
 		Model:             modelName,

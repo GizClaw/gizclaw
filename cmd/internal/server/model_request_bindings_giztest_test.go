@@ -47,14 +47,22 @@ func TestModelRequestBindingsGiztest(t *testing.T) {
 			http.Error(w, "invalid request", http.StatusBadRequest)
 			return
 		}
+		if r.Header.Get("X-GizProxy-Upstream-Host") != "fixture.example:30100" || r.Header.Get("X-GizProxy-Authorization") != "Bearer local-proxy-fixture" {
+			t.Error("fixed Model and Credential headers were not sent")
+		}
 		encoded, err := json.Marshal(body)
 		if err != nil {
 			t.Error(err)
 		}
-		if strings.Contains(string(encoded), "device-secret-") {
+		if strings.Contains(string(encoded), "device-secret-") || strings.Contains(string(encoded), "local-proxy-fixture") || strings.Contains(string(encoded), "fixture.example:30100") {
 			t.Error("binding metadata leaked into the model request body")
 		}
-		receipt := map[string]any{"vid": r.Header.Get("X-AI-VID"), "has_vid": len(r.Header.Values("X-AI-VID")) != 0}
+		receipt := map[string]any{
+			"vid":              r.Header.Get("X-AI-VID"),
+			"has_vid":          len(r.Header.Values("X-AI-VID")) != 0,
+			"upstream_host":    r.Header.Get("X-GizProxy-Upstream-Host"),
+			"proxy_authorized": r.Header.Get("X-GizProxy-Authorization") == "Bearer local-proxy-fixture",
+		}
 		mu.Lock()
 		requests = append(requests, receipt)
 		mu.Unlock()
@@ -110,7 +118,7 @@ func TestModelRequestBindingsGiztest(t *testing.T) {
 		if err := json.Unmarshal(data, &report); err != nil {
 			t.Fatal(err)
 		}
-		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Cleanup) != 4 {
+		if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 39 || len(report.Tasks[0].Cleanup) != 5 {
 			t.Fatalf("unexpected Giztest report: %s", data)
 		}
 		for _, step := range append(report.Tasks[0].Steps, report.Tasks[0].Cleanup...) {

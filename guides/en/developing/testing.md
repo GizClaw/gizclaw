@@ -26,7 +26,11 @@ go test -count=1 -run '^TestModelRequestBindingsGiztest$' ./cmd/internal/server
 Edge, WebRTC, Telemetry, SQL and Eino. Missing, deleted and null required values
 must deliver a safe error EOS to the device connection without calling the local
 model protocol fixture. Later turns recover after telemetry arrives and use
-updated headers. Missing or null optional values omit the header; present values
+updated headers. A fixed-only conversation succeeds before any KV telemetry;
+the actual HTTP request contains the fixed target hostname and protected credential
+header while preserving upstream Authorization. Later turns combine fixed and
+Runtime headers without inserting their values into the model request body.
+Missing or null optional values omit the header; present values
 of the wrong type still prevent requests. Every failing turn has a deadline, so
 silence cannot pass. Only the upstream model is replaced by a fixture.
 

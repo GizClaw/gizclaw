@@ -841,6 +841,12 @@ export type MiniMaxCredentialBody = {
 };
 
 export type OpenAiCredentialBody = {
+    /**
+     * Protected fixed extension headers for openai-tenant LLM requests, for example a proxy credential. Uses the Model extension-header name/value rules and 8192-byte combined header budget. Upstream Authorization stays owned by api_key/token. Names are case-insensitively unique and cannot overlap Model request_bindings. These values never enter Model descriptors.
+     */
+    headers?: {
+        [key: string]: string;
+    };
     api_key?: string;
     token?: string;
     base_url?: string;
@@ -1246,9 +1252,16 @@ export type ModelRequestBinding = {
 };
 
 /**
- * Optional OpenAITenantModelProviderData.request_bindings metadata. Omitted or empty disables Runtime reads. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
+ * Optional OpenAITenantModelProviderData.request_bindings metadata. Fixed-only bindings do not read Runtime. Supported only for openai-tenant LLM GenerateStream and Invoke. Values never select resources or credentials.
  */
 export type ModelRequestBindings = Array<ModelRequestBinding>;
+
+export type ModelRequestConstantSource = {
+    /**
+     * Fixed non-secret header value. Nonempty printable ASCII without surrounding spaces. No interpolation. Secrets belong in the protected OpenAI Credential headers map.
+     */
+    constant: string;
+};
 
 /**
  * Locates a value in the authenticated invoking Peer's device-reported Runtime KV.
@@ -1269,9 +1282,9 @@ export type ModelRequestPeerRuntimeKvSource = {
 };
 
 /**
- * Variable source selected by exactly one named branch. Only peer_runtime_kv is currently supported.
+ * Header value selected by exactly one named branch: constant or peer_runtime_kv. Model values are visible to authorized Model readers; keep secrets in Credential headers.
  */
-export type ModelRequestSource = ModelRequestPeerRuntimeKvSource;
+export type ModelRequestSource = ModelRequestPeerRuntimeKvSource | ModelRequestConstantSource;
 
 export type ModelRequestTarget = {
     kind: 'http_header';
