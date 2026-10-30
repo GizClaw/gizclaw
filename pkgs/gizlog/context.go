@@ -105,7 +105,8 @@ func (h *contextHandler) WithGroup(name string) slog.Handler {
 func withoutLogContextAttrs(ctx context.Context, record slog.Record) slog.Record {
 	filtered := slog.NewRecord(record.Time, record.Level, record.Message, record.PC)
 	record.Attrs(func(attr slog.Attr) bool {
-		if !isReservedLogIdentity(attr.Key) && correlation(ctx, correlationKey(attr.Key)) == "" {
+		attr, keep := withoutReservedLogIdentityAttr(attr)
+		if keep && correlation(ctx, correlationKey(attr.Key)) == "" {
 			filtered.AddAttrs(attr)
 		}
 		return true
@@ -116,13 +117,31 @@ func withoutLogContextAttrs(ctx context.Context, record slog.Record) slog.Record
 func withoutReservedLogIdentityAttrs(attrs []slog.Attr) []slog.Attr {
 	filtered := make([]slog.Attr, 0, len(attrs))
 	for _, attr := range attrs {
-		if !isReservedLogIdentity(attr.Key) {
+		if attr, keep := withoutReservedLogIdentityAttr(attr); keep {
 			filtered = append(filtered, attr)
 		}
 	}
 	return filtered
 }
 
+func withoutReservedLogIdentityAttr(attr slog.Attr) (slog.Attr, bool) {
+	if isReservedLogIdentity(attr.Key) {
+		return slog.Attr{}, false
+	}
+	attr.Value = attr.Value.Resolve()
+	if attr.Value.Kind() == slog.KindGroup {
+		attrs := withoutReservedLogIdentityAttrs(attr.Value.Group())
+		if len(attrs) == 0 {
+			return slog.Attr{}, false
+		}
+		attr.Value = slog.GroupValue(attrs...)
+	}
+	return attr, true
+}
+
 func isReservedLogIdentity(key string) bool {
+	// Store projection trims names and treats dotted keys as nested fields.
+	// Reserve the whole namespace so projection cannot replace fixed identity.
+	key, _, _ = strings.Cut(strings.TrimSpace(key), ".")
 	return key == "node_id" || key == "peer_public_key" || key == "runtime_version" || key == "build_commit"
 }
