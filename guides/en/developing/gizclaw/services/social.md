@@ -23,6 +23,10 @@ Contact uses the `contacts` business table through the Server-local SQL connecti
 
 An owner Peer has at most 8 Contacts. The cap is fixed by `contact.PeerContactLimit` to match the device-side Contact array and offline allowlist capacity, and is not configurable through RuntimeProfile or Server config. Creation counts and inserts inside the owner lock, so concurrent creations on one Server cannot exceed the cap. When the owner is full, the `server.contact.create` RPC returns `RESOURCE_EXHAUSTED` (8) with reason `CONTACT_LIMIT_REACHED`; Peer HTTP creation, Admin HTTP creation, and Resource apply creation return `409 Conflict` with error code `CONTACT_LIMIT_REACHED` and write nothing. Updates and deletions are unaffected. Owners that already had more than 8 Contacts keep them; only new creations are rejected until the count drops below 8.
 
+Contact create/put RPCs return `ALREADY_EXISTS` (6) with reason
+`CONTACT_ALREADY_EXISTS` for a conflicting name or normalized phone number.
+The original Contact remains intact and the business conflict is not classified as an internal error.
+
 ### friend
 
 Owns friend-request creation, acceptance, rejection, and friend-relationship reads and deletion. A Friend relationship directly grants both peers access to its system Workspace without creating a generic access role.

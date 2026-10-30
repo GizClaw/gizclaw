@@ -7,6 +7,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
@@ -67,4 +68,16 @@ func businessError(id string, err error) *rpcapi.RPCResponse {
 		return statusError(id, rpcapi.StatusCodeNotFound, "not found")
 	}
 	return internalError(id, err.Error())
+}
+
+func contactBusinessError(id string, err error) *rpcapi.RPCResponse {
+	if errors.Is(err, socialutil.ErrResourceAlreadyExists) {
+		return rpcapi.Error{
+			RequestID: id,
+			Code:      rpcapi.StatusCodeAlreadyExists,
+			Reason:    "CONTACT_ALREADY_EXISTS",
+			Message:   "contact already exists",
+		}.RPCResponse()
+	}
+	return businessError(id, err)
 }

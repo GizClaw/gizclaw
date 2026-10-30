@@ -23,6 +23,9 @@ Contact 使用 Server 本地 SQL 连接池中的 `contacts` 业务表。ID、own
 
 每个 owner Peer 最多 8 个联系人；上限由 `contact.PeerContactLimit` 写死，与设备端联系人数组和离线白名单容量一致，不通过 RuntimeProfile 或配置调整。创建时在 owner 锁内先计数再写入，同一 Server 上的并发创建不会超过上限。已满时 `server.contact.create` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `CONTACT_LIMIT_REACHED`；Peer HTTP、Admin HTTP 创建和 Resource apply 新建返回 `409 Conflict` 与错误码 `CONTACT_LIMIT_REACHED`，不写入任何数据。更新与删除不受影响。上限生效前已超过 8 个的存量联系人会保留，只阻止继续新增，直到删除到 8 个以下。
 
+名称或规范化号码冲突时，Contact create/put RPC 返回 `ALREADY_EXISTS`（6），reason 为
+`CONTACT_ALREADY_EXISTS`，保留原联系人，不将该业务冲突报告为内部错误。
+
 ### friend
 
 拥有 friend request 的创建、接受、拒绝，以及 friend relationship 的读取和删除。Friend 关系直接决定双方对 system Workspace 的访问，不创建通用访问 role。

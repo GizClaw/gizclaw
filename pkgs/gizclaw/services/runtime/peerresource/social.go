@@ -46,7 +46,7 @@ func (s *Server) handleContactCreate(ctx context.Context, req *rpcapi.RPCRequest
 	}
 	result, err := s.Contacts.CreateContact(ctx, s.Caller.String(), params)
 	if err != nil {
-		return businessError(req.Id, err)
+		return contactBusinessError(req.Id, err)
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromContactCreateResponse)
 }
@@ -61,7 +61,7 @@ func (s *Server) handleContactPut(ctx context.Context, req *rpcapi.RPCRequest) *
 	}
 	result, err := s.Contacts.PutContact(ctx, s.Caller.String(), params)
 	if err != nil {
-		return businessError(req.Id, err)
+		return contactBusinessError(req.Id, err)
 	}
 	return resultResponse(req.Id, result, (*rpcapi.RPCPayload).FromContactPutResponse)
 }
