@@ -2170,7 +2170,7 @@ assertion.
 The runner uses an internal Docker network, read-only source/module mounts and
 a separate build cache, and removes its container and network on exit. Image
 identity, architecture, source hashes, Go JSON results and Giztest reports are
-retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
+retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The runner sets `GOTMPDIR` to the tmpfs root for the executed test binaries while compilation uses its disk work directory. The transport test verifies that `testing.TempDir()` stays beneath that root. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
 `tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
 lane. The standard full entry point continues with real Provider suites;
 retain their evidence separately from the deterministic fixtures.

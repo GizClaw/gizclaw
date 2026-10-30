@@ -65,6 +65,7 @@ docker run --rm --user "$run_user" --name "$container" --network "$network" --en
   -e GOPROXY=off -e GOTOOLCHAIN=local -e GOFLAGS=-mod=readonly \
   -e HTTP_PROXY= -e HTTPS_PROXY= -e ALL_PROXY= \
   -e http_proxy= -e https_proxy= -e all_proxy= \
+  -e GIZCLAW_TEST_TMPDIR=/test-tmp \
   -e GIZCLAW_TURN_OWNERSHIP_EVIDENCE=/reports/transport \
   -e GIZCLAW_NATIVE_HISTORY_EVIDENCE=/reports/native-history \
   -e GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE=/reports/podcast \
@@ -72,8 +73,8 @@ docker run --rm --user "$run_user" --name "$container" --network "$network" --en
     cd /src
     mkdir -p "$GOTMPDIR"
     go version > /reports/go-version.txt
-    go test -race -json -p 1 ./cmd/internal/commands/giztest ./pkgs/genx/agentkit/audiodock ./pkgs/genx/transformers/eino ./pkgs/genx/transformers/doubaoasr ./pkgs/genx/transformers/doubaoast ./pkgs/genx/transformers/asttranslate ./pkgs/gizclaw/services/runtime/agenthost ./pkgs/giznet/giztunnel -count=1 -timeout=8m > /reports/contracts.jsonl
-    go test -race -json -p 1 ./cmd/internal/server -run "^Test(AudioTurnOwnership|NativeAudioHistory|ContinuousPodcast)Giztest$" -count=1 -timeout=5m > /reports/transport.jsonl'
+    go test -exec "env GOTMPDIR=$TMPDIR" -race -json -p 1 ./cmd/internal/commands/giztest ./pkgs/genx/agentkit/audiodock ./pkgs/genx/transformers/eino ./pkgs/genx/transformers/doubaoasr ./pkgs/genx/transformers/doubaoast ./pkgs/genx/transformers/asttranslate ./pkgs/gizclaw/services/runtime/agenthost ./pkgs/giznet/giztunnel -count=1 -timeout=8m > /reports/contracts.jsonl
+    go test -exec "env GOTMPDIR=$TMPDIR" -race -json -p 1 ./cmd/internal/server -run "^Test(AudioTurnOwnership|NativeAudioHistory|ContinuousPodcast)Giztest$" -count=1 -timeout=5m > /reports/transport.jsonl'
 python3 - "$reports" <<'PY'
 import collections
 import hashlib
