@@ -2064,7 +2064,7 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 
 - authorization：runtime 调试权限与撤销、错误输入。
 - history：真实 WebRTC 文本会话入库，Workspace 查询、搜索、分页及跨 Peer 隔离。
-- logs：真实 HTTP completion 日志持久化查询、分页及游标绑定。
+- logs：真实 HTTP completion 日志持久化查询、分页、游标绑定，以及每页的 `runtime_version` 和 `build_commit`。
 - audio：预置 Ogg 历史资产的认证下载，以及未授权和缺失资产。
 - node：独立 Monitor Token 认证、拒绝设备公钥，以及当前节点指标。
 
@@ -2345,6 +2345,31 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 验收直接检查 Firmware 投影删除、Workspace 行与对象清理、每个 home 的 failed 自动恢复（不发 operator retry）、超过一页的 backlog 越过异常记录、重复扫描、显式重试、错误／未知 home、真实 Peer 替换、旧计划遗漏 home 数据和活跃／无关区域数据保留。runner 在 SQL owner-binding 删除被真实行锁阻塞后杀死 home Server，确认 running lease 保留，重启后验证过期租约恢复和启动时自动发现持久化的旧 failed；home 停机期间，另一地区保持该 failed 不变。另一个场景断开只读副本复制，验证管理选择与清理仍使用中央 writer。完成条件包含 marker、locator、plan、task 和索引实际消失，以及永久 tombstone、route 和 API Key retired fence 保留。
 
 这是没有 Memory binding 的删除验收；不证明 Mem0 Cloud、VolcMem0 或自托管 Mem0 provider 的删除，也不宣称 Social Workspace 所有区域副本已回收。无法证明这些范围的 Peer 计划必须保留并报告。已有 memory provider lanes 独立验证其 provider contract。运行只操作本次生成的 Compose project；退出时清理容器、卷、测试二进制与配置，日志证据保存在忽略的 `.testbench` 目录。
+
+### 通讯录与日志回归
+
+```sh
+bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
+```
+
+该模式复用双区域 Docker 夹具，使用真实 Server、PostgreSQL、Redis、WebRTC RPC 和 Admin
+transport，不需要云端或模型凭据。它执行共享的 `server.contact.duplicate-phone.giztest.yaml`
+与 `server.contact.limit.giztest.yaml`：前者要求新名字加已有号码返回 RPC `ALREADY_EXISTS`，
+并在失败清理阶段检查没有写入第二条；后者独立检查八条上限、`RESOURCE_EXHAUSTED`、
+拒绝后数量不变及释放名额后重新保存。
+
+Admin 筛选用例使用真实 LogStore/TLS SDK 和本地 HTTP 协议夹具，声明旧顶层 `error_code`
+没有索引。level/text 控制查询与现代索引查询必须先读到同一记录，再要求 Admin 结构化筛选
+成功。这个夹具复现 provider 的索引拒绝约束，不代表运行了真实火山服务。
+另一个用例在 250 ms 扫描间隔下观察四秒，要求未变化的拒绝任务只记录一次告警，
+同时确认 failed 状态、失败次数和歧义 Workspace 均保留；此时间配置不是生产扫描频率。
+
+版本用例用非默认构建身份启动两台 Server，逐台比较 `/server-info` 与实际持久化 completion
+记录的 `runtime_version`、`build_commit`。Monitor 的共享 Giztest 另外检查日志分页中的字段
+非空。所有回归按正确契约断言，断言失败使入口返回非零；失败不能算通过。
+Giztest JSON、专项测试输出及脱敏容器日志保留在本次 `.testbench` 目录。
+完整 `run_tests.sh` 包含此模式及 Monitor Giztest；Regional PendingDeletion Recovery CI
+同时执行原有区域恢复验收和此回归模式。
 
 ## 通用设备管理协议 Giztest
 

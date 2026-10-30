@@ -105,7 +105,7 @@ phase_deadline_seconds() {
 	local phase="$1"
 	case "$phase" in
 		preflight:*) echo "${GIZCLAW_E2E_PREFLIGHT_DEADLINE_SECONDS:-900}" ;;
-		docker:setup | docker:multi-server | docker:tikv-contention) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
+		docker:setup | docker:multi-server | docker:tikv-contention | docker:log-regressions) echo "${GIZCLAW_E2E_DOCKER_SETUP_DEADLINE_SECONDS:-1800}" ;;
 		docker:cleanup) echo "${GIZCLAW_E2E_DOCKER_CLEANUP_DEADLINE_SECONDS:-300}" ;;
 		giztest:*) echo "${GIZCLAW_E2E_CHAT_DEADLINE_SECONDS:-2700}" ;;
 		cli) echo "${GIZCLAW_E2E_CLI_DEADLINE_SECONDS:-1800}" ;;
@@ -568,6 +568,8 @@ run_timed "preflight:c-giztest-runner" build_c_giztest_runner
 
 run_suite_phase "sdk:device-management" bash "$script_dir/run_device_management_tests.sh"
 run_suite_phase "docker:audio-turn-ownership" bash "$script_dir/run_audio_turn_ownership_tests.sh"
+run_suite_phase "docker:log-regressions" bash "$script_dir/run_pending_recovery_tests.sh" --log-regressions
+run_suite_phase "giztest:monitor" bash "$script_dir/run_monitor_tests.sh"
 
 stack_started=1
 run_timed "docker:setup" start_docker_stack

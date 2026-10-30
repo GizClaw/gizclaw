@@ -2303,7 +2303,7 @@ The runner generates identities, starts isolated Server/Edge processes, seeds a 
 
 - authorization: runtime debug access, revocation and invalid input.
 - history: real WebRTC text conversations persisted before workspace lookup, search, pagination and cross-peer isolation.
-- logs: persisted HTTP completion records, pagination and cursor binding.
+- logs: persisted HTTP completion records, pagination, cursor binding, and `runtime_version`/`build_commit` on each page.
 - audio: authenticated retained Ogg download, missing credentials and missing assets.
 - node: independent Monitor Token authentication, rejection of device public keys and local node metrics.
 
@@ -2566,6 +2566,38 @@ This isolated Docker lane builds the current Server and test binaries, runs shar
 CI runs the same entry point in the `Regional PendingDeletion Recovery` job for every PR and main push, retaining redacted test logs as an artifact. Server and test containers use the host user's UID/GID so generated state and assets can be cleaned up on Linux. Ordinary Go and race jobs also cover conditional recovery, paging, shared worker progress, and unchanged failed state after probe errors, timeouts, cancellation and panics.
 
 Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMem0 or self-hosted Mem0 provider deletion, nor completion of distributed Social Workspace replicas. Unsupported scopes remain retained. The runner uses only its generated Compose project, removes containers, volumes, binaries and configuration on exit, and retains ignored `.testbench` evidence logs.
+
+### Contact and log regressions
+
+```sh
+bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
+```
+
+This mode reuses the two-region Docker fixture with real Servers, PostgreSQL,
+Redis, WebRTC RPC and Admin transport. It needs no cloud or model credentials.
+The shared `server.contact.duplicate-phone.giztest.yaml` requires a new name
+with an existing phone number to return RPC `ALREADY_EXISTS`; its cleanup also
+checks that the failed request did not store a second contact.
+`server.contact.limit.giztest.yaml` independently checks the eight-contact cap,
+`RESOURCE_EXHAUSTED`, unchanged count after rejection, and saving after freeing a slot.
+
+The Admin filter case uses the real LogStore/TLS SDK and a local HTTP protocol
+fixture declaring the legacy top-level `error_code` index absent. Level/text and
+modern-index control queries must retrieve the same record before the structured
+Admin filter is required to succeed. This reproduces a provider index constraint,
+not a locally running Volc service. Another case observes four seconds at a
+250 ms scan interval and requires one warning for an unchanged rejected task,
+while preserving its failed state, failure count and ambiguous Workspace.
+That interval is a test configuration, not a production scan frequency.
+
+The version case starts both Servers with a nondefault binary identity and
+compares `/server-info` against `runtime_version` and `build_commit` in each
+Server's persisted completion record. The shared Monitor Giztest also requires
+nonempty fields across log pages. Assertions express the correct contract;
+failures return a nonzero exit status and do not count as passes. Giztest JSON,
+test output and redacted container logs remain in the run's `.testbench` directory.
+The full `run_tests.sh` includes this mode and the Monitor Giztests. Regional
+PendingDeletion Recovery CI runs both regional recovery acceptance and this regression mode.
 
 ## Generic device management Giztests
 

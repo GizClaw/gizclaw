@@ -1046,6 +1046,8 @@ jobs:
           cache: npm
       - name: Verify automatic home recovery with independent regional databases
         run: bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
+      - name: Verify contact, log filtering, recovery backoff and binary identity
+        run: bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
       - name: Collect redacted recovery evidence
         if: always()
         shell: python

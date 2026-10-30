@@ -1,0 +1,16 @@
+services:
+  log-sink:
+    image: ${RECOVERY_BASE_IMAGE:?built by runner}
+    entrypoint: [/binaries/log-sink, -missing-index, error_code]
+    volumes:
+      - ${RECOVERY_ROOT}/bin:/binaries:ro
+    healthcheck:
+      test: [CMD, curl, -fsS, http://127.0.0.1:9091/health]
+      interval: 1s
+      timeout: 2s
+      retries: 60
+  tests:
+    environment:
+      RECOVERY_LOG_REGRESSIONS: "1"
+    volumes:
+      - ../giztest:/giztest:ro
