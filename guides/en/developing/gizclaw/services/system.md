@@ -27,6 +27,15 @@ The common processor contains no resource deletion policy and never marks a gene
 
 Handlers may implement `TaskAdmission.CheckTask`. Existing bounded workers read the current task, check its marker fingerprint and invoke admission before claiming a lease. Foreign-home tasks remain untouched for their home worker; other safety failures are recorded by the handler after claim. Admin retry rejects safety failures without changing failed state. The Peer handler supplies fixed-home ownership; the processor defines no regional or resource ownership policy.
 
+An unchanged failed observation has at most one recovery probe per processor.
+Rejected or ineligible probes use exponential backoff with a 30-second initial
+delay, a 30-minute cap and 75%–100% jitter. Changed observations bypass old
+backoff immediately. An in-memory LRU retains at most 4096 observations without
+descriptors or resource snapshots and removes successfully recovered entries.
+The same rejection code warns once per retained observation; a changed outcome
+or observation, eviction or process restart can warn again. This schedules only
+read-only probes and does not alter failed state, retry budgets, home checks or deletion fences.
+
 Metrics report active depth, oldest active age, claims, active workers, phase latency, deferrals, retries, terminal failures, transition errors, and completions using bounded source/kind/status/phase/outcome labels. They never use resource IDs, owners, deletion IDs, descriptors, fingerprints, lease tokens, or error text as labels. Metrics storage failure cannot stop cleanup.
 
 A shared KV source writes the locator, initial task state, and ordered indexes atomically with a new marker; reads never reconstruct missing state. Each kind is partitioned into 16 shards by deletion ID. The due index orders next-attempt or lease-expiry times, while management indexes order creation times within each status. Queries push time bounds and per-shard limits into storage, overlap at most eight shard reads, and merge results. Due discovery returns IDs and fingerprints without reading individual task records. Transitions, lease renewals, and finalization maintain indexes atomically, leave unchanged memberships intact, and remove every task index on completion.

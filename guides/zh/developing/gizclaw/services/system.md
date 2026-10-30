@@ -29,6 +29,12 @@ services/system/
 
 Peer 自动 policy 只批准 `phase=finalize`、`peer_replacement_ambiguous` 且 version-2 plan 唯一差异为 SQL Firmware 投影的记录，仍须核对固定 home、完整原始 Peer 和本区空的 Contact/Social/Workspace 快照。归属 Server 自动重新排队、升级计划并执行领域清理，不需要运维命令。计划升级为 version 3 后不再通过此 policy 重置预算；后续失败沿用普通有界 retry／failed 规则。取消或 probe 错误不改变 failed 状态。`recovery_probe`、`recovery_rejected`、`recovery_queued` 和扫描／转换错误进入现有有界 metrics。
 
+未变化的 failed observation 在同一 processor 内最多只有一个 probe，拒绝或不具备恢复条件后
+按 30 秒初值、30 分钟上界指数退避，并沿用 75%–100% jitter；任务版本变化立即绕过旧退避。
+内存 LRU 最多保留 4096 条观察，不保存 descriptor 或资源快照，成功恢复后删除对应条目。
+同一保留观察的相同拒绝码只告警一次；拒绝码或观察变化、缓存淘汰或进程重建后可以重新告警。
+该机制只调度只读 probe，不修改 failed 状态、失败预算、归属校验或删除围栏。
+
 在线批量恢复用于可选运维和诊断，复用同一状态转换，见 [CLI](../../../using/cli#pendingdeletion-恢复)。
 
 Admin list/get/retry、processor 与领域一致性校验显式使用 Redis writer 或 TiKV authority 强读。领域 finalization 可以附加准确原记录的 CAS 条件，并与 task lease 及索引删除在同一原子 mutation 提交。读取主库不等于跨 Redis、SQL 和 Provider 的全局事务。
