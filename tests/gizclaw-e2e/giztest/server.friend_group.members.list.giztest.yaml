@@ -144,6 +144,9 @@ steps:
     /in_room: {present: false}
 - id: carol_lists_members
   client: carol
+  # The earlier two-member poll does not wait for Carol's later connection
+  # transition to become visible in the configured historical snapshot.
+  retry: {attempts: 10, on: [assertion], delay: 10s}
   rpc:
     method: server.friend_group.members.list
     request: {friend_group_name: carol-team}
