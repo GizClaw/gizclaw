@@ -708,6 +708,11 @@ Eino realtime 并发探针合成其声明的 `prompt`，首文本 2 秒与首音
 并发和断言，报告原子复制回宿主机。取消会终止本任务的容器内进程，原有阶段时限也覆盖
 该进程。这验证 Docker 网络路径；宿主转发链路与设备音频时序需要各自测量。
 
+标准 Docker 调用端与 multi-server runner 使用 `GIZCLAW_E2E_GIZTEST_EVIDENCE`
+选择报告详细程度。默认保留脱敏证据；显式设为 `full` 时保存实际识别文本和回复文本，
+用于排查断言失败。完整报告应保留在本地并限制访问。标准调用端在启动测试进程前拒绝
+其他值。该设置不改变场景选择、断言、并发或 deadline。
+
 完整功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh`，`--functional` 执行相同的完整套件。
 它覆盖 JavaScript、Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest、
 多 Server 与 TiKV。GizClaw 断言路由、轮次归属、完成边界、媒体完整性、发送节奏、权限和清理；

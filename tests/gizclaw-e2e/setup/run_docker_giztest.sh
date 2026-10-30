@@ -9,6 +9,11 @@ if (($# == 0)); then
   echo "at least one Giztest document is required" >&2
   exit 2
 fi
+evidence="${GIZCLAW_E2E_GIZTEST_EVIDENCE:-redacted}"
+case "$evidence" in
+  redacted | full) ;;
+  *) echo "GIZCLAW_E2E_GIZTEST_EVIDENCE must be redacted or full" >&2; exit 2 ;;
+esac
 project="${GIZCLAW_E2E_DOCKER_PROJECT:?local Docker project is required}"
 server="$(docker ps -q --filter "label=com.docker.compose.project=$project" --filter label=com.docker.compose.service=server)"
 if [[ -z "$server" || "$server" == *$'\n'* ]]; then
@@ -74,12 +79,12 @@ trap 'cleanup' EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 status=0
-echo "==> Go Giztest caller: Linux Docker, endpoint=edge:9821, parallel=10"
+echo "==> Go Giztest caller: Linux Docker, endpoint=edge:9821, parallel=10, evidence=$evidence"
 docker exec "${environment[@]}" -w /src "$server" \
   timeout --signal=TERM --kill-after=10s "${deadline}s" \
   sh -c 'echo $$ > "$1"; shift; exec "$@"' sh "$pid_file" \
   /src/tests/gizclaw-e2e/testdata/bin/gizclaw test run "${files[@]}" \
-  --parallel 10 --report "$container_report" &
+  --parallel 10 --evidence "$evidence" --report "$container_report" &
 docker_client_pid=$!
 wait "$docker_client_pid" || status=$?
 docker_client_pid=""

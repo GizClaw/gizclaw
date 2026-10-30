@@ -670,6 +670,14 @@ copied atomically to the host. Cancellation stops the owned container process;
 the existing phase deadline also bounds that process. This qualifies the Docker
 network path. Host forwarding and device audio timing need their own measurements.
 
+The standard Docker caller and multi-server runner use
+`GIZCLAW_E2E_GIZTEST_EVIDENCE` to select report detail. The default keeps evidence
+redacted; explicitly setting `full` retains actual recognized transcripts and
+reply text for assertion diagnosis. Keep full reports local and access
+controlled. The standard caller rejects other values before starting its test
+process. This setting does not change scenario selection, assertions,
+parallelism or deadlines.
+
 The full functional gate is `bash tests/gizclaw-e2e/run_tests.sh`.
 `--functional` runs the same complete suite. It covers JavaScript, Flutter,
 C/cgo, Go Admin/OpenAI, CLI, Terraform, standard Giztest, multi-server and TiKV.
