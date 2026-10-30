@@ -12,14 +12,21 @@ import (
 type predicate func(map[string]any) bool
 
 type parser struct {
-	scanner scanner.Scanner
-	token   rune
-	text    string
-	err     error
+	scanner        scanner.Scanner
+	token          rune
+	text           string
+	err            error
+	missingIndexes map[string]bool
 }
 
-func parseQuery(expression string) (predicate, error) {
-	p := &parser{}
+type missingIndexError struct{ field string }
+
+func (e *missingIndexError) Error() string {
+	return fmt.Sprintf("Precheck failed: The key-value index for field (%s) is not configured.", e.field)
+}
+
+func parseQueryWithMissingIndexes(expression string, missingIndexes map[string]bool) (predicate, error) {
+	p := &parser{missingIndexes: missingIndexes}
 	p.scanner.Init(strings.NewReader(expression))
 	p.scanner.Mode = scanner.ScanIdents | scanner.ScanStrings
 	p.scanner.IsIdentRune = func(c rune, i int) bool {
@@ -84,6 +91,9 @@ func (p *parser) atom() predicate {
 		return func(map[string]any) bool { return false }
 	}
 	field := p.text
+	if p.missingIndexes[field] {
+		p.err = &missingIndexError{field: field}
+	}
 	p.next()
 	if p.token != ':' {
 		p.err = fmt.Errorf("missing query colon")

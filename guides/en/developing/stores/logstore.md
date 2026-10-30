@@ -48,6 +48,11 @@ Generic records use provider source `gizclaw` and filename `logstore`; process-l
 Queries use SearchLogs search expressions and provider Context, never SQL analysis. `Text` uses the key-value phrase form `msg:#"..."`; validated attribute names are emitted as JSON dotted paths such as `attributes.request_id`. Provider calls are capped at 30 seconds and honor shorter caller deadlines. Provider error bodies are not returned through the Store or Admin API. Physical Storage owns one TLS SDK client; topic-scoped Stores use that same client for reads and writes without creating a producer or second client.
 
 For `Streams=[system]` and `Kinds=[log]`, the driver also includes records whose provider source is `gizclaw` and filename is `slog`, using the same provider-side ordering and cursor.
+The Store caches validated index capabilities at construction and adds this
+legacy branch only when every filtered legacy field has a compatible index.
+Missing or incompatible top-level indexes restrict the query to modern
+`attributes` records, preventing a legacy branch from breaking modern searches.
+This does not make unindexed historical records searchable by those fields.
 
 Provision a Volc TLS topic and compatible index before startup. Bind the
 LogStore with `log`, `volc-tls`, and `topic_id`, as shown below.

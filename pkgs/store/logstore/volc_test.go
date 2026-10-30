@@ -60,7 +60,7 @@ func (f *fakeVolcClient) PutLogsV2(request *tls.PutLogsV2Request) (*tls.CommonRe
 func TestVolcOperationErrorsHideProviderText(t *testing.T) {
 	providerErr := errors.New("provider body contains access-secret")
 	client := &fakeVolcClient{err: providerErr}
-	if err := validateVolcIndex(client, "topic"); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
+	if _, err := validateVolcIndex(client, "topic"); !errors.Is(err, providerErr) || strings.Contains(err.Error(), "access-secret") {
 		t.Fatalf("index error = %v", err)
 	}
 	store := &VolcStore{topicID: "topic", client: client}
@@ -152,13 +152,54 @@ func TestVolcConnectorScopesTopicsAndBorrowsClient(t *testing.T) {
 	}
 }
 
+func TestVolcQueryIncludesLegacyOnlyForCompatibleIndexes(t *testing.T) {
+	for _, test := range []struct {
+		name   string
+		legacy *tls.Value
+		wantOR bool
+	}{
+		{name: "missing"},
+		{name: "indexed", legacy: &tls.Value{ValueType: "text", CaseSensitive: true}, wantOR: true},
+		{name: "tokenized", legacy: &tls.Value{ValueType: "text", CaseSensitive: true, Delimiter: " "}},
+		{name: "case insensitive", legacy: &tls.Value{ValueType: "text"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			index := compatibleVolcIndex()
+			if test.legacy != nil {
+				*index.KeyValue = append(*index.KeyValue, tls.KeyValueInfo{Key: "error_code", Value: *test.legacy})
+			}
+			client := &fakeVolcClient{index: index, response: &tls.SearchLogsResponse{Status: "complete", ListOver: true}}
+			store, err := (&VolcConnector{client: client}).Store("topic")
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, op := range []MatchOp{MatchEqual, MatchNotEqual, MatchExists, MatchNotExists} {
+				query := validQuery()
+				query.Streams, query.Kinds = []string{"system"}, []string{"log"}
+				matcher := AttributeMatcher{Name: "error_code", Op: op}
+				if op == MatchEqual || op == MatchNotEqual {
+					matcher.Value = "duplicate"
+				}
+				query.Matchers = []AttributeMatcher{matcher}
+				if _, err := store.Query(t.Context(), query); err != nil {
+					t.Fatal(err)
+				}
+				expression := client.request.Query
+				if !strings.Contains(expression, "attributes.error_code:") || strings.Contains(expression, " OR ") != test.wantOR {
+					t.Fatalf("%s expression = %q, legacy=%v", op, expression, test.wantOR)
+				}
+			}
+		})
+	}
+}
+
 func TestValidateVolcIndex(t *testing.T) {
-	if err := validateVolcIndex(&fakeVolcClient{index: compatibleVolcIndex()}, "topic"); err != nil {
+	if _, err := validateVolcIndex(&fakeVolcClient{index: compatibleVolcIndex()}, "topic"); err != nil {
 		t.Fatalf("validateVolcIndex() error = %v", err)
 	}
 	bad := compatibleVolcIndex()
 	bad.EnableAutoIndex = true
-	if err := validateVolcIndex(&fakeVolcClient{index: bad}, "topic"); err == nil {
+	if _, err := validateVolcIndex(&fakeVolcClient{index: bad}, "topic"); err == nil {
 		t.Fatal("auto index was accepted")
 	}
 }
@@ -172,7 +213,7 @@ func TestValidateVolcIndexAcceptsMessageDelimiters(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			index := compatibleVolcIndex()
 			(*index.KeyValue)[4].Value.Delimiter = delimiter
-			if err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err != nil {
+			if _, err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err != nil {
 				t.Fatalf("validateVolcIndex() error = %v", err)
 			}
 		})
@@ -193,7 +234,7 @@ func TestValidateVolcIndexRejectsMessageDelimiters(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			index := compatibleVolcIndex()
 			(*index.KeyValue)[4].Value.Delimiter = delimiter
-			if err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err == nil {
+			if _, err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err == nil {
 				t.Fatal("incompatible delimiter was accepted")
 			}
 		})
@@ -215,12 +256,12 @@ func TestValidateVolcIndexRejectsIncompatibleSchemas(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			index := compatibleVolcIndex()
 			edit(index)
-			if err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err == nil {
+			if _, err := validateVolcIndex(&fakeVolcClient{index: index}, "topic"); err == nil {
 				t.Fatal("incompatible index was accepted")
 			}
 		})
 	}
-	if err := validateVolcIndex(&fakeVolcClient{}, "topic"); err == nil {
+	if _, err := validateVolcIndex(&fakeVolcClient{}, "topic"); err == nil {
 		t.Fatal("missing index was accepted")
 	}
 }
@@ -272,7 +313,7 @@ func TestVolcAppendAndQuery(t *testing.T) {
 			"attributes": map[string]any{"request": map[string]any{"method": "GET"}},
 		}},
 	}}
-	store := &VolcStore{topicID: "topic", client: client}
+	store := &VolcStore{topicID: "topic", client: client, indexFields: map[string]tls.Value{"request.method": {ValueType: "text", CaseSensitive: true}}}
 	record := validRecord()
 	keys, err := store.Append(context.Background(), []Record{record})
 	if err != nil {
@@ -404,7 +445,7 @@ func TestBuildVolcQueryTranslatesAllStructuredOperators(t *testing.T) {
 		},
 		Start: time.UnixMilli(1), End: time.UnixMilli(2), Order: OrderDesc,
 	})
-	expression := buildVolcQuery(query)
+	expression := buildVolcQuery(query, nil)
 	for _, fragment := range []string{
 		`(stream:"chat" OR stream:"event")`, `kind:"created"`, `level:"WARN"`, `msg:#"failed \"request\""`,
 		`attributes.http-method:"1"`, `(attributes.b:* AND NOT attributes.b:"2")`, `attributes.c:*`, `NOT attributes.d:*`,
