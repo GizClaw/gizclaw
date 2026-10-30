@@ -2372,6 +2372,10 @@ Admin 筛选用例使用真实 LogStore/TLS SDK 和本地 HTTP 协议夹具，�
 Giztest JSON、专项测试输出及脱敏容器日志保留在本次 `.testbench` 目录。
 完整 `run_tests.sh` 包含此模式及 Monitor Giztest；Regional PendingDeletion Recovery CI
 同时执行原有区域恢复验收和此回归模式。
+首次构建 PostgreSQL 扩展时，可用 `GIZCLAW_E2E_DEBIAN_MIRROR` 指定 Debian 镜像站根 URL，
+例如 `http://mirrors.tuna.tsinghua.edu.cn`。当前固定的基础镜像没有 CA 证书，应使用 HTTP
+镜像源。省略时保留基础镜像的 APT 源；APT 签名校验、PostgreSQL 基础镜像及 pg_partman
+版本不变。
 
 ## 通用设备管理协议 Giztest
 

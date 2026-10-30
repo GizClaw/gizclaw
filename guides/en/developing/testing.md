@@ -2601,6 +2601,11 @@ failures return a nonzero exit status and do not count as passes. Giztest JSON,
 test output and redacted container logs remain in the run's `.testbench` directory.
 The full `run_tests.sh` includes this mode and the Monitor Giztests. Regional
 PendingDeletion Recovery CI runs both regional recovery acceptance and this regression mode.
+For the initial PostgreSQL extension build, `GIZCLAW_E2E_DEBIAN_MIRROR` may select
+a Debian mirror root URL, such as `http://mirrors.tuna.tsinghua.edu.cn`.
+Use an HTTP mirror with the pinned base image, which lacks CA certificates.
+Omitting it preserves the base image's APT sources. APT signature verification,
+the PostgreSQL base image and the pg_partman version are unchanged.
 
 ## Generic device management Giztests
 

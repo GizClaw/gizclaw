@@ -3,6 +3,8 @@ services:
     build:
       context: ../../..
       dockerfile: build/postgres/Dockerfile
+      args:
+        DEBIAN_MIRROR: ${GIZCLAW_E2E_DEBIAN_MIRROR:-}
     environment:
       POSTGRES_USER: gizclaw_bootstrap
       POSTGRES_PASSWORD: gizclaw_bootstrap

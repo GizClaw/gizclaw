@@ -44,7 +44,8 @@ mkdir -p "${RECOVERY_ROOT:?}/bin" "${RECOVERY_ROOT:?}/server-a" "${RECOVERY_ROOT
 if ! docker image inspect "$RECOVERY_BASE_IMAGE" >/dev/null 2>&1; then
   docker build -f "$repo_root/build/gizclaw/Dockerfile.base" -t "$RECOVERY_BASE_IMAGE" "$repo_root/build"
 fi
-docker build -f "$repo_root/build/postgres/Dockerfile" -t "$RECOVERY_POSTGRES_IMAGE" "$repo_root"
+docker build --build-arg "DEBIAN_MIRROR=${GIZCLAW_E2E_DEBIAN_MIRROR:-}" \
+  -f "$repo_root/build/postgres/Dockerfile" -t "$RECOVERY_POSTGRES_IMAGE" "$repo_root"
 (cd "$repo_root" && npm ci && npm run build:console)
 docker run --rm --entrypoint /bin/bash \
   -e RECOVERY_LOG_REGRESSIONS \
