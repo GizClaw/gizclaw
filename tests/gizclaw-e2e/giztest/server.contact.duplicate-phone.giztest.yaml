@@ -25,12 +25,6 @@ steps:
       method: server.contact.create
       request: {name: new-name, display_name: New Contact, phone_number: "15550001111"}
     expect_error: {code: 6}
-  - id: duplicate_phone_put_is_already_exists
-    client: peer
-    rpc:
-      method: server.contact.put
-      request: {name: new-name, display_name: New Contact, phone_number: "15550001111"}
-    expect_error: {code: 6}
 finally:
   - id: failed_create_did_not_add_a_contact
     client: peer

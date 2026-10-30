@@ -1,0 +1,49 @@
+# User Story:
+# As a device editing an existing contact,
+# I want another contact's phone number rejected as ALREADY_EXISTS,
+# So that both saved contacts remain unchanged after the rejected update.
+version: gizclaw.test/v1alpha1
+name: server.contact.duplicate-phone-update
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+steps:
+  - id: save_original
+    client: peer
+    rpc:
+      method: server.contact.create
+      request: {name: first, display_name: First Contact, phone_number: "15550001111"}
+  - id: save_editable
+    client: peer
+    rpc:
+      method: server.contact.create
+      request: {name: second, display_name: Second Contact, phone_number: "15550002222"}
+  - id: duplicate_update_is_already_exists
+    client: peer
+    rpc:
+      method: server.contact.put
+      request: {name: second, display_name: Rejected Change, phone_number: "15550001111"}
+    expect_error: {code: 6}
+finally:
+  - id: original_is_unchanged
+    client: peer
+    rpc: {method: server.contact.get, request: {name: first}}
+    expect:
+      /display_name: {equals: First Contact}
+      /phone_number: {equals: "15550001111"}
+  - id: editable_is_unchanged
+    client: peer
+    rpc: {method: server.contact.get, request: {name: second}}
+    expect:
+      /display_name: {equals: Second Contact}
+      /phone_number: {equals: "15550002222"}
+  - id: contact_count_is_unchanged
+    client: peer
+    rpc: {method: server.contact.list, request: {limit: 20}}
+    expect:
+      /items: {count: 2}
+  - id: cleanup_peer
+    client: peer
+    rpc: {method: server.peer.delete, request: {}}

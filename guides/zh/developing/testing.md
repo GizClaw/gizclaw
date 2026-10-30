@@ -2357,6 +2357,8 @@ transport，不需要云端或模型凭据。它执行共享的 `server.contact.
 与 `server.contact.limit.giztest.yaml`：前者要求新名字加已有号码返回 RPC `ALREADY_EXISTS`，
 并在失败清理阶段检查没有写入第二条；后者独立检查八条上限、`RESOURCE_EXHAUSTED`、
 拒绝后数量不变及释放名额后重新保存。
+`server.contact.duplicate-phone-update.giztest.yaml` 先保存两个不同号码的联系人，
+再更新其中一个为另一个已有号码，要求返回 `ALREADY_EXISTS` 且两条记录均保持原样。
 
 Admin 筛选用例使用真实 LogStore/TLS SDK 和本地 HTTP 协议夹具，声明旧顶层 `error_code`
 没有索引。level/text 控制查询与现代索引查询必须先读到同一记录，再要求 Admin 结构化筛选

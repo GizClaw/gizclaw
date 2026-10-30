@@ -45,6 +45,7 @@ func TestLogRegressionsContactGiztests(t *testing.T) {
 	defer cancel()
 	command := exec.CommandContext(ctx, "/binaries/gizclaw", "test", "run",
 		"/giztest/server.contact.duplicate-phone.giztest.yaml",
+		"/giztest/server.contact.duplicate-phone-update.giztest.yaml",
 		"/giztest/server.contact.limit.giztest.yaml",
 		"--parallel", "1", "--report", reportPath)
 	output, runErr := command.CombinedOutput()
@@ -61,8 +62,8 @@ func TestLogRegressionsContactGiztests(t *testing.T) {
 		} `json:"tasks"`
 	}
 	must(t, json.Unmarshal(data, &report))
-	if len(report.Tasks) != 2 {
-		t.Fatalf("both Contact Giztests must run: %s", data)
+	if len(report.Tasks) != 3 {
+		t.Fatalf("all three Contact Giztests must run: %s", data)
 	}
 	for _, task := range report.Tasks {
 		if len(task.Cleanup) == 0 {

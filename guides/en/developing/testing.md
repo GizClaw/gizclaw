@@ -2580,6 +2580,9 @@ with an existing phone number to return RPC `ALREADY_EXISTS`; its cleanup also
 checks that the failed request did not store a second contact.
 `server.contact.limit.giztest.yaml` independently checks the eight-contact cap,
 `RESOURCE_EXHAUSTED`, unchanged count after rejection, and saving after freeing a slot.
+`server.contact.duplicate-phone-update.giztest.yaml` first saves two contacts
+with different phone numbers, then rejects changing one to the other's number
+with `ALREADY_EXISTS` while preserving both original records.
 
 The Admin filter case uses the real LogStore/TLS SDK and a local HTTP protocol
 fixture declaring the legacy top-level `error_code` index absent. Level/text and
