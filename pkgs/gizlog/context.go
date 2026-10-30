@@ -124,5 +124,5 @@ func withoutReservedLogIdentityAttrs(attrs []slog.Attr) []slog.Attr {
 }
 
 func isReservedLogIdentity(key string) bool {
-	return key == "node_id" || key == "peer_public_key"
+	return key == "node_id" || key == "peer_public_key" || key == "runtime_version" || key == "build_commit"
 }

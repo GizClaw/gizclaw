@@ -58,6 +58,8 @@ steps:
     expect:
       /items: {count: 1}
       /items/0/fields/peer_public_key: {equals: "${public_key}"}
+      /items/0/fields/runtime_version: {non_empty: true}
+      /items/0/fields/build_commit: {non_empty: true}
       /items/0/message: {contains: request completed}
       /end/has_next: {equals: true}
   - id: next_log_page
@@ -70,6 +72,8 @@ steps:
     expect:
       /items: {count: 1}
       /items/0/fields/peer_public_key: {equals: "${public_key}"}
+      /items/0/fields/runtime_version: {non_empty: true}
+      /items/0/fields/build_commit: {non_empty: true}
   - id: changed_cursor_filter
     client: peer
     http:

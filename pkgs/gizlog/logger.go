@@ -67,9 +67,17 @@ func NewLogger(cfg Config, registries ...StoreResolver) (*slog.Logger, func() er
 		registry = registries[0]
 	}
 	failureReporter := slog.Handler(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{AddSource: true, Level: slog.LevelError}))
-	fixed := make([]slog.Attr, 0, 1)
+	fixed := make([]slog.Attr, 0, 3)
 	if cfg.NodeID != "" {
 		fixed = append(fixed, slog.String("node_id", cfg.NodeID))
+	}
+	if cfg.RuntimeVersion != "" {
+		fixed = append(fixed, slog.String("runtime_version", cfg.RuntimeVersion))
+	}
+	if cfg.BuildCommit != "" {
+		fixed = append(fixed, slog.String("build_commit", cfg.BuildCommit))
+	}
+	if len(fixed) > 0 {
 		failureReporter = failureReporter.WithAttrs(fixed)
 	}
 	queue := newStoreQueue(failureReporter)

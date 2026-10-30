@@ -170,7 +170,10 @@ func installEdgeLogging(cfg Config) (func() error, error) {
 	if err != nil {
 		return nil, errors.Join(err, physical.Close())
 	}
-	closeLogger, err := gizlog.InstallDefault(cfg.SystemLog, logical)
+	logConfig := cfg.SystemLog
+	logConfig.RuntimeVersion = cfg.build.Version
+	logConfig.BuildCommit = cfg.build.Commit
+	closeLogger, err := gizlog.InstallDefault(logConfig, logical)
 	if err != nil {
 		return nil, errors.Join(err, logical.Close(), physical.Close())
 	}

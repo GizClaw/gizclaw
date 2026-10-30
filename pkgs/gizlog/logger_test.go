@@ -135,6 +135,36 @@ func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 	}
 }
 
+func TestNewLoggerKeepsBinaryIdentityOnGroupedRecords(t *testing.T) {
+	store := &loggerTestStore{}
+	logger, cleanup, err := NewLogger(Config{
+		NodeID:         "server-a",
+		RuntimeVersion: "0.35.9",
+		BuildCommit:    "source-commit",
+		Sinks:          []SinkConfig{{Kind: SinkStore, Store: "logs"}},
+	}, loggerTestResolver{store: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger = logger.With("runtime_version", "caller-version").WithGroup("request")
+	logger.WarnContext(WithPeerPublicKey(context.Background(), "peer-a"), "saved",
+		"build_commit", "caller-commit", "method", "GET")
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.records) != 1 {
+		t.Fatalf("records = %d, want 1", len(store.records))
+	}
+	attrs := store.records[0].Attributes
+	if attrs["runtime_version"] != "0.35.9" || attrs["build_commit"] != "source-commit" ||
+		attrs["node_id"] != "server-a" || attrs["peer_public_key"] != "peer-a" || attrs["request.method"] != "GET" {
+		t.Fatalf("record attributes = %+v", attrs)
+	}
+	if _, exists := attrs["request.build_commit"]; exists {
+		t.Fatal("caller build identity was retained")
+	}
+}
+
 func TestStoreFailureReportingHandlerReportsWithoutProviderText(t *testing.T) {
 	storeErr := errors.New("provider body contains a secret")
 	fallbackState := &recordingState{}

@@ -130,6 +130,15 @@ every sink also receives that exact `node_id`. Deploy injects a stable logical
 node name; GizClaw never derives one from an IP address, hostname, endpoint, or
 public key.
 
+Standalone Server and Edge commands inject `runtime_version` and `build_commit`
+from the running binary, matching that process's reported build identity. Both
+stderr and Store records, including queue rejection and failure summaries, keep
+these fixed fields. Business records and child loggers cannot override them.
+They identify the emitting process rather than device firmware or an upstream
+Server and cannot be set through YAML. Development builds retain their embedded
+`dev` identity. Missing fields in historical records must not be filled using a
+node's current version or used to claim which version produced an old failure.
+
 The LiveKit SFU connector maps SDK `Debugw`, `Infow`, `Warnw` and `Errorw` directly to slog DEBUG, INFO, WARN and ERROR, bypassing the standard log bridge that loses severity. Each Room keeps the authenticated Peer correlation from its attachment context, including cancellation diagnostics. The SDK’s internal Pion logger follows the process `slog.Default` without binding one Room’s Peer. WARN sinks retain SDK/Pion WARN and ERROR while filtering DEBUG and INFO. The SDK logger copies only transport/state enum fields and marks errors with `error_present`; it omits raw provider errors, SDP, ICE server, candidate and HTTP response attributes.
 
 AgentHost binds the authenticated Peer `peer_public_key`, connection `session_id`,

@@ -221,7 +221,10 @@ func ServeContext(ctx context.Context, workspace string, opts ServeOptions) (err
 		err = errors.Join(err, storeRegistry.Close())
 		err = errors.Join(err, physicalStorage.Close())
 	}()
-	closeLogger, err := installConfiguredLogger(cfg.systemLogConfig(), storeRegistry)
+	logConfig := cfg.systemLogConfig()
+	logConfig.RuntimeVersion = buildinfo.Version
+	logConfig.BuildCommit = buildinfo.Commit
+	closeLogger, err := installConfiguredLogger(logConfig, storeRegistry)
 	if err != nil {
 		return err
 	}
