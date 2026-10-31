@@ -94,7 +94,7 @@ func (h *contextHandler) WithGroup(name string) slog.Handler {
 	if h == nil || h.scoped == nil {
 		return (*contextHandler)(nil)
 	}
-	if name == "" {
+	if name == "" || isReservedLogIdentity(name) {
 		return h
 	}
 	operations := append([]contextHandlerOperation(nil), h.operations...)

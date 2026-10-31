@@ -341,3 +341,40 @@ func TestInstallDefaultRejectsOverlappingLease(t *testing.T) {
 		t.Fatalf("third cleanup() error = %v", err)
 	}
 }
+
+func TestNewLoggerKeepsIdentityOnReservedGroupNames(t *testing.T) {
+	for _, group := range []string{
+		"runtime_version", "build_commit", "node_id", "peer_public_key",
+		" runtime_version ", "build_commit.child",
+	} {
+		t.Run(group, func(t *testing.T) {
+			store := &loggerTestStore{}
+			logger, cleanup, err := NewLogger(Config{
+				NodeID:         "server-a",
+				RuntimeVersion: "binary-version",
+				BuildCommit:    "binary-commit",
+				Sinks:          []SinkConfig{{Kind: SinkStore, Store: "logs"}},
+			}, loggerTestResolver{store: store})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := cleanup(); err != nil {
+					t.Error(err)
+				}
+			})
+			logger.WithGroup(group).WarnContext(WithPeerPublicKey(t.Context(), "peer-a"), "saved", "method", "GET")
+			if err := cleanup(); err != nil {
+				t.Fatal(err)
+			}
+			if len(store.records) != 1 {
+				t.Fatalf("records = %d, want 1", len(store.records))
+			}
+			attrs := store.records[0].Attributes
+			if attrs["runtime_version"] != "binary-version" || attrs["build_commit"] != "binary-commit" ||
+				attrs["node_id"] != "server-a" || attrs["peer_public_key"] != "peer-a" || attrs["method"] != "GET" {
+				t.Fatalf("record attributes = %+v", attrs)
+			}
+		})
+	}
+}
