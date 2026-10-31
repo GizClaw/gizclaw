@@ -2315,7 +2315,20 @@ The runner generates identities, starts isolated Server/Edge processes, seeds a 
 - audio: authenticated retained Ogg download, missing credentials and missing assets.
 - node: independent Monitor Token authentication, rejection of device public keys and local node metrics.
 
-SQLite, filesystem assets and a script Workflow avoid external model dependencies. The audio fixture writes an Ogg asset into the real History/Asset Store; this is not a TTS synthesis test. Containers and temporary runtime data are removed on exit; reports remain under `.testbench/monitor-*/reports/`. This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.
+The log scenario declares 16 tasks, each opening two devices. In addition to the
+serial API collection, the runner executes this same scenario with all 16 tasks
+in parallel. Every device must register, remain online and expose its persisted
+source address before its log queries and cleanup.
+
+SQLite, filesystem assets and a script Workflow avoid external model dependencies.
+Server data and the audio fixture share a project-scoped Docker volume backed by
+a bounded 256 MiB tmpfs. Configuration and reports remain on the host; database
+commits do not depend on host shared-filesystem latency. This lane checks API and
+connection behavior, not disk performance or persistence across container removal.
+The audio fixture writes an Ogg asset into the real History/Asset Store; this is
+not a TTS synthesis test. Containers, the shared data volume and temporary runtime
+data are removed on exit; reports remain under `.testbench/monitor-*/reports/`.
+This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.
 
 ### Terraform provider
 

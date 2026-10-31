@@ -55,3 +55,4 @@ values = json.loads(pathlib.Path(sys.argv[1]).read_text())
 pathlib.Path(sys.argv[2]).write_text("".join(f"{key}={value}\n" for key, value in values.items()))
 PY
 "${compose[@]}" run --rm test
+"${compose[@]}" run --rm registration-burst

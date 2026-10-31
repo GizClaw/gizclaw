@@ -1048,7 +1048,13 @@ jobs:
         run: bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
       - name: Verify contact, log filtering, recovery backoff and binary identity
         run: bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
-      - name: Collect redacted recovery evidence
+      - name: Verify Monitor APIs and concurrent device registration
+        run: |
+          GIZCLAW_E2E_DOCKER_BASE_IMAGE=gizclaw-go:linux-amd64-base \
+            GIZCLAW_MONITOR_MODCACHE="$(go env GOMODCACHE)" \
+            GIZCLAW_MONITOR_BUILDCACHE="$(go env GOCACHE)" \
+            bash tests/gizclaw-e2e/run_monitor_tests.sh
+      - name: Collect redacted recovery and Monitor evidence
         if: always()
         shell: python
         run: |
@@ -1065,6 +1071,12 @@ jobs:
               target = output / log.parent.name / log.name
               target.parent.mkdir(parents=True, exist_ok=True)
               target.write_text(redactor.redact(log.read_text(errors="replace")))
+          for report in Path("tests/gizclaw-e2e/.testbench").glob("monitor-*/reports/*"):
+              if report.name not in {"giztest.json", "registration-burst.json", "containers.log"}:
+                  continue
+              target = output / report.parent.parent.name / report.name
+              target.parent.mkdir(parents=True, exist_ok=True)
+              target.write_text(redactor.redact(report.read_text(errors="replace")))
       - name: Upload recovery evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9

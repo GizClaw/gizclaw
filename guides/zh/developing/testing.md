@@ -2073,7 +2073,16 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 - audio：预置 Ogg 历史资产的认证下载，以及未授权和缺失资产。
 - node：独立 Monitor Token 认证、拒绝设备公钥，以及当前节点指标。
 
-测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。音频素材由测试工具写入真实 History/Asset Store，不代表完成了外部 TTS 合成测试。结束后删除临时运行数据和容器，报告留在 `.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。
+日志场景声明 16 路任务，每路连接两台设备。入口在串行 API 集合之外，还会以 16 路并发
+执行同一份日志场景。每台设备都必须完成注册，在日志查询和清理前仍在线并能读取已经
+持久化的来源地址。
+
+测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。Server 数据与音频夹具
+共用本 Compose project 的 Docker volume，底层为有界的 256 MiB tmpfs；配置与报告保留在
+宿主机，数据库提交不依赖宿主共享文件系统的延迟。该 lane 验证 API 与连接行为，不验收
+磁盘性能或容器删除后的持久性。音频素材由测试工具写入真实 History/Asset Store，不代表
+完成了外部 TTS 合成测试。结束后删除临时运行数据、共享数据卷和容器，报告留在
+`.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。
 
 ### Terraform provider
 
