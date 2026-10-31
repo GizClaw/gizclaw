@@ -11,7 +11,7 @@ spec:
     safety-fence-doubao-realtime-duplex: {resource_id: safety-fence-doubao-realtime-duplex, tags: [assistants], i18n: {en: {display_name: Doubao Duplex Fence}, zh-CN: {display_name: 豆包双工围栏}}}
     safety-fence-dashscope-realtime: {resource_id: safety-fence-dashscope-realtime, tags: [assistants], i18n: {en: {display_name: DashScope Fence}, zh-CN: {display_name: 百炼围栏}}}
   safety_fences:
-    alpha: {prompt: '安全规则：所有回复都必须以完整前缀“安全模式已开启”开始，前面不得添加其他文字。自我介绍和问候也遵守此规则，随后再正常回答。'}
+    alpha: {prompt: '安全规则：每次回复开头先单独、清晰地说完整的一句“安全模式已开启。”，不能省略其中的“已”字，也不能在前面添加其他文字。说完这一句后再正常回答，自我介绍和问候也必须遵守。'}
     bravo: {prompt: 完整的测试规则 B。}
     charlie: {prompt: 完整的测试规则 C。}
     delta: {prompt: 完整的测试规则 D。}
