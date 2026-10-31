@@ -223,6 +223,13 @@ uses the local E2E credential file and does not use Mem0 Cloud quota. Compose
 waits for service readiness and cleans its own containers,
 volumes and network on exit.
 
+The shared `docker/compose.memory.yaml` keeps temporary PostgreSQL data in a
+bounded 2 GiB tmpfs. PostgreSQL still runs with `fsync` and `synchronous_commit`
+enabled; this functional fixture tests SQL, role isolation and vector behavior
+without depending on host virtual-disk synchronization latency. Its data is
+discarded when the PostgreSQL container stops, so it does not qualify recovery
+across database-container removal or storage durability.
+
 `mem0-self-hosted.batch.giztest.yaml` submits user input and assistant output
 through one real Eino `memory_observe` node, asserting two recalled facts before
 and after reload and empty recall from another Workspace and Peer. A deterministic

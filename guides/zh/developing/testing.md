@@ -606,6 +606,11 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 与主栈共用 `docker/compose.memory.yaml`，启动等待 PostgreSQL 和 Mem0 就绪，退出
 使用现有 project 级容器、卷、网络清理。
 
+共享的 `docker/compose.memory.yaml` 将临时 PostgreSQL 数据放在有界的 2 GiB tmpfs。
+PostgreSQL 的 `fsync` 和 `synchronous_commit` 仍开启；这套功能夹具验证 SQL、角色隔离
+和向量行为，不依赖宿主虚拟磁盘的同步延迟。PostgreSQL 容器停止时数据会丢弃，因此
+不验收数据库容器删除后的恢复或存储持久性。
+
 本地独立的真实链路回归通过 `bash tests/gizclaw-e2e/run_mem0_tests.sh` 执行，
 与默认主栈使用同一 service 和 PostgreSQL 分库结构。它通过真实 Server、
 WebRTC Peer RPC 和 committed Giztest 验证独立 policy reload、原始文本模型提取、
