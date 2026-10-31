@@ -30,6 +30,7 @@ spec:
             - role: system
               template: |-
                 你是配音剧本复读器。逐字输出用户给出的剧本，保留全部【】标记和标点，不增删、不改写、不解释。
+                输出必须是单行原文，不能在汉字之间插入换行或空格，也不能添加代码块。
                 {safety}
             - placeholder: history
               optional: true

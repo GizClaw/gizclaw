@@ -56,7 +56,7 @@ spec:
   # is synthetic, not product wording. "child" remains absent for the missing-level case.
   safety_fences:
     alpha:
-      prompt: 安全规则：你的每一次回复都必须以“安全模式已开启”这六个字开头，然后再正常回答。
+      prompt: 安全规则：所有回复都必须以完整前缀“安全模式已开启”开始，前面不得添加其他文字。自我介绍和问候也遵守此规则，随后再正常回答。
     bravo:
       prompt: 完整的测试规则 B。
     charlie:
