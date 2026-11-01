@@ -3,6 +3,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"time"
@@ -11,6 +12,12 @@ import (
 )
 
 func main() {
-	server := &http.Server{Addr: ":9091", Handler: volctlsfixture.NewHandler(), ReadHeaderTimeout: 5 * time.Second}
+	missingIndex := flag.String("missing-index", "", "reject searches referencing this unindexed field")
+	flag.Parse()
+	handler := volctlsfixture.NewHandler()
+	if *missingIndex != "" {
+		handler = volctlsfixture.NewHandlerWithMissingIndexes(*missingIndex)
+	}
+	server := &http.Server{Addr: ":9091", Handler: handler, ReadHeaderTimeout: 5 * time.Second}
 	log.Fatal(server.ListenAndServe())
 }

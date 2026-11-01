@@ -68,7 +68,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: Giztest audio input
+        text: Please count from one to five.
         accepted_content_types: [audio/ogg]
     save_as: input_audio
   - id: exercise_workflow

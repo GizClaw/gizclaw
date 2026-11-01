@@ -13,7 +13,8 @@ services:
     entrypoint: [gizclaw, serve, --force, /workspace]
     depends_on:
       log-sink: {condition: service_healthy}
-    volumes: ["${GIZCLAW_MONITOR_STATE}/server:/workspace"]
+    volumes:
+      - "${GIZCLAW_MONITOR_STATE}/server:/workspace"
     healthcheck:
       test: [CMD, curl, -fsS, "http://127.0.0.1:9820/server-info"]
       interval: 1s
@@ -65,3 +66,11 @@ services:
     volumes: ["${GIZCLAW_MONITOR_REPORTS:?}:/reports"]
     depends_on:
       edge: {condition: service_healthy}
+  registration-burst:
+    extends: {service: test}
+    command:
+      - /src/tests/gizclaw-e2e/giztest/server.monitor.logs.giztest.yaml
+      - --parallel
+      - "16"
+      - --report
+      - /reports/registration-burst.json

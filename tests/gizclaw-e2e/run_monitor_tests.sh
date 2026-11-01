@@ -9,10 +9,15 @@ mkdir -p "$script_dir/.testbench"
 run_dir="$(mktemp -d "$script_dir/.testbench/monitor-XXXXXX")"
 export GIZCLAW_MONITOR_STATE="$run_dir/runtime"
 export GIZCLAW_MONITOR_REPORTS="$run_dir/reports"
+GIZCLAW_MONITOR_UID="$(id -u)"
+GIZCLAW_MONITOR_GID="$(id -g)"
+export GIZCLAW_MONITOR_UID GIZCLAW_MONITOR_GID
 mkdir -p "$GIZCLAW_MONITOR_STATE" "$GIZCLAW_MONITOR_REPORTS"
 project="gizclaw-monitor-test-$$"
 export GIZCLAW_MONITOR_IMAGE="${GIZCLAW_MONITOR_IMAGE:-$project}"
-compose=(docker compose -p "$project" -f "$script_dir/docker/compose.monitor.yaml")
+compose=(docker compose -p "$project" \
+  -f "$script_dir/docker/compose.monitor.yaml" \
+  -f "$script_dir/docker/compose.monitor-runtime.yaml")
 cleanup() {
   "${compose[@]}" logs --no-color > "$GIZCLAW_MONITOR_REPORTS/containers.log" 2>&1 || true
   "${compose[@]}" down --volumes --remove-orphans >/dev/null 2>&1 || true
@@ -44,7 +49,9 @@ cp -R "$script_dir/docker/monitor" "$image_dir/tests/gizclaw-e2e/docker/"
 cp "$script_dir"/giztest/server.monitor.*.giztest.yaml "$image_dir/tests/gizclaw-e2e/giztest/"
 cp "$script_dir/testdata/audio/sfu-tone.ogg" "$image_dir/tests/gizclaw-e2e/testdata/audio/"
 docker build --build-arg "BASE_IMAGE=$base" -f "$script_dir/docker/Dockerfile.monitor" -t "$GIZCLAW_MONITOR_IMAGE" "$image_dir"
-docker run --rm -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture "$GIZCLAW_MONITOR_IMAGE" -init /state
+docker run --rm --user "$GIZCLAW_MONITOR_UID:$GIZCLAW_MONITOR_GID" \
+  -v "$GIZCLAW_MONITOR_STATE:/state" --entrypoint monitor-fixture \
+  "$GIZCLAW_MONITOR_IMAGE" -init /state
 touch "$GIZCLAW_MONITOR_STATE/fixture.env"
 "${compose[@]}" up -d --wait server edge
 "${compose[@]}" run --rm seed
@@ -55,3 +62,4 @@ values = json.loads(pathlib.Path(sys.argv[1]).read_text())
 pathlib.Path(sys.argv[2]).write_text("".join(f"{key}={value}\n" for key, value in values.items()))
 PY
 "${compose[@]}" run --rm test
+"${compose[@]}" run --rm registration-burst

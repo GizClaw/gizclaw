@@ -65,6 +65,7 @@ type VolcStore struct {
 	maxLogBytes   int
 	connector     *VolcConnector
 	ownsConnector bool
+	indexFields   map[string]tls.Value
 }
 
 // VolcConnector wraps one physical Volc TLS SDK client. Topic selection belongs
@@ -125,12 +126,13 @@ func (c *VolcConnector) Store(topicID string) (*VolcStore, error) {
 	if topicID == "" {
 		return nil, errors.New("logstore: volc topic_id is required")
 	}
-	if err := validateVolcIndex(c.client, topicID); err != nil {
+	indexFields, err := validateVolcIndex(c.client, topicID)
+	if err != nil {
 		return nil, err
 	}
 	return &VolcStore{
 		topicID: topicID, client: c.client,
-		maxLogBytes: volcDefaultMaxLogBytes, connector: c,
+		maxLogBytes: volcDefaultMaxLogBytes, connector: c, indexFields: indexFields,
 	}, nil
 }
 
@@ -430,7 +432,7 @@ func (s *VolcStore) Query(ctx context.Context, query Query) (Page, error) {
 		}
 		providerContext = cursor.Context
 	}
-	expression := buildVolcQuery(bound)
+	expression := buildVolcQuery(bound, s.indexFields)
 	callCtx, cancel := cappedContext(ctx, volcQueryTimeout)
 	defer cancel()
 	response, err := callVolcSearch(callCtx, s.client, &tls.SearchLogsRequest{
@@ -523,49 +525,56 @@ func validateVolcConfig(config VolcConfig) (VolcConfig, error) {
 	return config, nil
 }
 
-func validateVolcIndex(client volcClient, topicID string) error {
+func validateVolcIndex(client volcClient, topicID string) (map[string]tls.Value, error) {
 	response, err := client.DescribeIndex(&tls.DescribeIndexRequest{TopicID: topicID})
 	if err != nil {
-		return newVolcOperationError("describe topic index", err)
+		return nil, newVolcOperationError("describe topic index", err)
 	}
 	if response == nil || response.KeyValue == nil {
-		return errors.New("logstore: Volc topic requires a key-value index")
+		return nil, errors.New("logstore: Volc topic requires a key-value index")
 	}
 	if response.FullText != nil {
-		return errors.New("logstore: Volc topic full-text index must be disabled")
+		return nil, errors.New("logstore: Volc topic full-text index must be disabled")
 	}
 	if response.EnableAutoIndex {
-		return errors.New("logstore: Volc topic automatic index updates must be disabled")
+		return nil, errors.New("logstore: Volc topic automatic index updates must be disabled")
 	}
 	if !response.EnablePhraseIndex {
-		return errors.New("logstore: Volc topic phrase index must be enabled")
+		return nil, errors.New("logstore: Volc topic phrase index must be enabled")
 	}
 	fields := make(map[string]tls.Value, len(*response.KeyValue))
 	for _, item := range *response.KeyValue {
 		fields[item.Key] = item.Value
 	}
 	if _, exists := fields["payload"]; exists {
-		return errors.New("logstore: Volc topic payload field must remain unindexed")
+		return nil, errors.New("logstore: Volc topic payload field must remain unindexed")
 	}
 	if response.UserInnerKeyValue != nil {
 		for _, item := range *response.UserInnerKeyValue {
 			if item.Key == "payload" || strings.HasPrefix(item.Key, "payload.") {
-				return errors.New("logstore: Volc topic payload field must remain unindexed")
+				return nil, errors.New("logstore: Volc topic payload field must remain unindexed")
 			}
 		}
 	}
 	for _, name := range []string{"id", "stream", "kind", "level"} {
 		if err := validateVolcIndexValue(name, fields[name], tls.Value{ValueType: "text", CaseSensitive: true}); err != nil {
-			return err
+			return nil, err
 		}
 	}
 	if err := validateVolcMessageIndexValue(fields["msg"]); err != nil {
-		return err
+		return nil, err
 	}
 	if err := validateVolcIndexValue("attributes", fields["attributes"], tls.Value{ValueType: "json", CaseSensitive: true, IndexAll: true}); err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	if response.UserInnerKeyValue != nil {
+		for _, item := range *response.UserInnerKeyValue {
+			if _, exists := fields[item.Key]; !exists {
+				fields[item.Key] = item.Value
+			}
+		}
+	}
+	return fields, nil
 }
 
 func validateVolcMessageIndexValue(got tls.Value) error {
@@ -698,13 +707,26 @@ func decodeVolcCursor(value string) (volcCursor, error) {
 	return cursor, nil
 }
 
-func buildVolcQuery(query volcBoundQuery) string {
+func buildVolcQuery(query volcBoundQuery, indexFields map[string]tls.Value) string {
 	modern := buildVolcBranch(query, false)
-	if len(query.Streams) == 1 && query.Streams[0] == "system" && len(query.Kinds) == 1 && query.Kinds[0] == "log" {
+	if len(query.Streams) == 1 && query.Streams[0] == "system" && len(query.Kinds) == 1 && query.Kinds[0] == "log" && legacyVolcMatchersIndexed(query.Matchers, indexFields) {
 		legacy := buildVolcBranch(query, true)
 		return "(" + modern + ") OR (" + legacy + ")"
 	}
 	return modern
+}
+
+func legacyVolcMatchersIndexed(matchers []AttributeMatcher, fields map[string]tls.Value) bool {
+	for _, matcher := range matchers {
+		if matcher.Name == "source" || matcher.Name == "path" {
+			continue
+		}
+		field, exists := fields[matcher.Name]
+		if !exists || validateVolcIndexValue(matcher.Name, field, tls.Value{ValueType: "text", CaseSensitive: true}) != nil {
+			return false
+		}
+	}
+	return true
 }
 
 func buildVolcBranch(query volcBoundQuery, legacy bool) string {

@@ -1,0 +1,70 @@
+# User Story:
+# As a device with eight saved contacts,
+# I want a ninth contact rejected as RESOURCE_EXHAUSTED,
+# So that the quota and freeing a slot are verified separately from duplicates.
+version: gizclaw.test/v1alpha1
+name: server.contact.limit
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+steps:
+  - id: save_one
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-one, display_name: Contact One}}
+  - id: save_two
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-two, display_name: Contact Two}}
+  - id: save_three
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-three, display_name: Contact Three}}
+  - id: save_four
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-four, display_name: Contact Four}}
+  - id: save_five
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-five, display_name: Contact Five}}
+  - id: save_six
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-six, display_name: Contact Six}}
+  - id: save_seven
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-seven, display_name: Contact Seven}}
+  - id: save_eight
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-eight, display_name: Contact Eight}}
+  - id: eight_contacts_are_stored
+    client: peer
+    rpc: {method: server.contact.list, request: {limit: 20}}
+    expect:
+      /items: {count: 8}
+  - id: ninth_contact_exceeds_quota
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-nine, display_name: Contact Nine}}
+    expect_error: {code: 8}
+  - id: rejected_create_keeps_eight
+    client: peer
+    rpc: {method: server.contact.list, request: {limit: 20}}
+    expect:
+      /items: {count: 8}
+  - id: free_one_slot
+    client: peer
+    rpc: {method: server.contact.delete, request: {name: contact-one}}
+  - id: save_after_freeing_slot
+    client: peer
+    rpc: {method: server.contact.create, request: {name: contact-nine, display_name: Contact Nine}}
+  - id: replacement_is_saved
+    client: peer
+    rpc: {method: server.contact.get, request: {name: contact-nine}}
+    expect:
+      /name: {equals: contact-nine}
+  - id: quota_is_full_again
+    client: peer
+    rpc: {method: server.contact.list, request: {limit: 20}}
+    expect:
+      /items: {count: 8}
+finally:
+  - id: cleanup_peer
+    client: peer
+    rpc: {method: server.peer.delete, request: {}}

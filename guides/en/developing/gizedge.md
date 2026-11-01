@@ -316,6 +316,12 @@ because signaling writes it before a possible alternate is known.
 HTTP forwarding and gateway upstreams are long-lived runtime state. The Edge
 package must not copy GizClaw handlers to bypass upstream unavailability.
 
+HTTP forwarding, API Key routing and Peer assignment queries use their request
+context when waiting for a shared upstream dial. Cancellation or expiry ends
+that wait without extending it to the Edge process lifetime. Other waiters and
+established healthy connections remain independent; the Edge runtime still owns
+background liveness recovery.
+
 ### Gateway Capacity and Lifecycle
 
 The default gateway capacity is 30,000 sessions across at most 16 upstreams.

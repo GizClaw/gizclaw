@@ -61,18 +61,29 @@ void main() {
   test(
     'shared presence documents retain their assertion retry policy',
     () async {
-      for (final name in [
-        'server.friend.list',
-        'server.friend_group.members.list',
-        'server.friend_groups.http',
-      ]) {
+      const expectedSteps = {
+        'server.friend.list': ['primary_rpc'],
+        'server.friend_group.members.list': [
+          'primary_rpc',
+          'carol_lists_members',
+        ],
+        'server.friend_groups.http': ['wait_for_shared_presence'],
+      };
+      for (final entry in expectedSteps.entries) {
+        final name = entry.key;
         final document = await loadDocument('../../giztest/$name.giztest.yaml');
-        final retry = document.steps
-            .singleWhere((step) => step.retry != null)
-            .retry!;
-        expect(retry.attempts, 10);
-        expect(retry.on, ['assertion']);
-        expect(retry.delay, const Duration(seconds: 10));
+        final polling = document.steps.where((step) => step.retry != null);
+        expect(polling.map((step) => step.id), entry.value);
+        for (final step in polling) {
+          final retry = step.retry!;
+          expect(retry.attempts, 10, reason: '$name:${step.id}');
+          expect(retry.on, ['assertion'], reason: '$name:${step.id}');
+          expect(
+            retry.delay,
+            const Duration(seconds: 10),
+            reason: '$name:${step.id}',
+          );
+        }
       }
     },
   );

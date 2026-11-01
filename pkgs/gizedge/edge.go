@@ -170,7 +170,10 @@ func installEdgeLogging(cfg Config) (func() error, error) {
 	if err != nil {
 		return nil, errors.Join(err, physical.Close())
 	}
-	closeLogger, err := gizlog.InstallDefault(cfg.SystemLog, logical)
+	logConfig := cfg.SystemLog
+	logConfig.RuntimeVersion = cfg.build.Version
+	logConfig.BuildCommit = cfg.build.Commit
+	closeLogger, err := gizlog.InstallDefault(logConfig, logical)
 	if err != nil {
 		return nil, errors.Join(err, logical.Close(), physical.Close())
 	}
@@ -631,7 +634,7 @@ func upstreamDiscoveryTimedOut(req *http.Request, err error) bool {
 }
 
 func (t *upstreamTransport) roundTrip(req *http.Request) (*http.Response, giznet.Conn, uint64, error) {
-	conn, epoch, err := t.currentConn()
+	conn, epoch, err := t.currentConnContext(req.Context())
 	if err != nil {
 		return nil, nil, 0, err
 	}
@@ -661,9 +664,7 @@ func (t *upstreamTransport) currentConn() (giznet.Conn, uint64, error) {
 // network I/O. Both dialing and waiting for another dial respect the caller.
 func (t *upstreamTransport) currentConnContext(ctx context.Context) (giznet.Conn, uint64, error) {
 	for {
-		if err := ctx.Err(); err != nil {
-			return nil, 0, err
-		}
+		contextErr := ctx.Err()
 		t.mu.Lock()
 		if t.closed {
 			t.mu.Unlock()
@@ -673,6 +674,10 @@ func (t *upstreamTransport) currentConnContext(ctx context.Context) (giznet.Conn
 			conn, epoch := t.conn, t.connEpoch
 			t.mu.Unlock()
 			return conn, epoch, nil
+		}
+		if contextErr != nil {
+			t.mu.Unlock()
+			return nil, 0, contextErr
 		}
 		if pending := t.connecting; pending != nil {
 			t.mu.Unlock()

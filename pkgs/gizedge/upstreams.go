@@ -96,7 +96,7 @@ func (t *orderedUpstreamTransport) RoundTrip(request *http.Request) (*http.Respo
 	}
 	var errs []error
 	for _, entry := range t.entries {
-		if _, _, err := entry.currentConn(); err != nil {
+		if _, _, err := entry.currentConnContext(request.Context()); err != nil {
 			errs = append(errs, err)
 			continue
 		}
@@ -115,7 +115,7 @@ func (t *orderedUpstreamTransport) RoundTrip(request *http.Request) (*http.Respo
 func (t *orderedUpstreamTransport) resolveAPIKeyAssignment(ctx context.Context, apiKey string) (*rpcpb.PeerAssignment, error) {
 	var errs []error
 	for _, entry := range t.entries {
-		conn, epoch, err := entry.currentConn()
+		conn, epoch, err := entry.currentConnContext(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue
@@ -178,7 +178,7 @@ func (t *orderedUpstreamTransport) resolvePeerAssignment(
 ) (*rpcpb.PeerAssignment, error) {
 	var errs []error
 	for _, entry := range t.entries {
-		conn, epoch, err := entry.currentConn()
+		conn, epoch, err := entry.currentConnContext(ctx)
 		if err != nil {
 			errs = append(errs, err)
 			continue

@@ -99,6 +99,12 @@ func (p *Processor) recoverFailed(ctx context.Context, item dispatchItem) (Task,
 	if !ok {
 		return Task{}, false
 	}
+	probe := p.failedProbes.begin(current, p.now().UTC())
+	if probe == nil {
+		return Task{}, false
+	}
+	retained := true
+	defer func() { p.failedProbes.end(probe, p.now().UTC(), retained) }()
 	p.observe(current.Source, current.Record.Kind, current.Status, current.Phase, "recovery_probe")
 	eligible, err := callFailedRecovery(probeCtx, policy, current)
 	if err != nil {
@@ -108,9 +114,11 @@ func (p *Processor) recoverFailed(ctx context.Context, item dispatchItem) (Task,
 			if outcome, ok := errors.AsType[*OutcomeError](err); ok {
 				code = normalizeOutcome(outcome).Code
 			}
-			slog.WarnContext(probeCtx, "pending deletion: automatic recovery rejected",
-				"source_name", current.Source, "kind", current.Record.Kind,
-				"deletion_id", current.Record.DeletionID, "error_code", code)
+			if p.failedProbes.shouldWarn(probe, code) {
+				slog.WarnContext(probeCtx, "pending deletion: automatic recovery rejected",
+					"source_name", current.Source, "kind", current.Record.Kind,
+					"deletion_id", current.Record.DeletionID, "error_code", code)
+			}
 		}
 		return Task{}, false
 	}
@@ -125,6 +133,7 @@ func (p *Processor) recoverFailed(ctx context.Context, item dispatchItem) (Task,
 		return Task{}, false
 	}
 	p.observe(current.Source, current.Record.Kind, current.Status, current.Phase, "recovery_queued")
+	retained = false
 	return retried, true
 }
 

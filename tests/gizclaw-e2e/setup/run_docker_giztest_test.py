@@ -38,7 +38,8 @@ elif args[0] == "exec" and "timeout" in args:
         while not (root / "stopped").exists() and time.monotonic() < deadline:
             time.sleep(0.01)
     status = "failed" if mode == "failed" else "passed"
-    report.write_text(json.dumps({"status": status, "tasks": []}))
+    evidence = args[args.index("--evidence") + 1] if "--evidence" in args else "redacted"
+    report.write_text(json.dumps({"status": status, "tasks": [], "evidence": evidence}))
     sys.exit(4 if mode == "failed" else 0)
 elif args[0] == "exec":
     (root / "stopped").touch()
@@ -60,8 +61,9 @@ class DockerGiztestWrapperTests(unittest.TestCase):
         binary.write_text(FAKE_DOCKER)
         binary.chmod(0o755)
 
-    def start(self, mode, report):
+    def start(self, mode, report, evidence=None):
         env = os.environ.copy()
+        env.pop("GIZCLAW_E2E_GIZTEST_EVIDENCE", None)
         env.update(
             PATH=str(self.root) + os.pathsep + env.get("PATH", ""),
             GIZCLAW_E2E_DOCKER_PROJECT="wrapper-regression",
@@ -70,6 +72,8 @@ class DockerGiztestWrapperTests(unittest.TestCase):
             FAKE_DOCKER_REPO_ROOT=str(REPO_ROOT),
             FAKE_DOCKER_MODE=mode,
         )
+        if evidence is not None:
+            env["GIZCLAW_E2E_GIZTEST_EVIDENCE"] = evidence
         return subprocess.Popen(
             ["bash", str(HELPER), str(report), str(DOCUMENT)],
             cwd=REPO_ROOT,
@@ -120,6 +124,31 @@ class DockerGiztestWrapperTests(unittest.TestCase):
             self.assertTrue((self.root / "stopped").exists(), "remote cleanup was not requested")
             with self.assertRaises(ProcessLookupError):
                 os.kill(client_pid, 0)
+        finally:
+            self.stop_group(child)
+
+    def test_evidence_is_redacted_by_default_and_full_is_explicit(self):
+        for value, expected in [(None, "redacted"), ("redacted", "redacted"), ("full", "full")]:
+            with self.subTest(evidence=value):
+                report = self.root / ("evidence-" + expected + ".json")
+                child = self.start("passed", report, value)
+                try:
+                    output, _ = child.communicate(timeout=5)
+                    self.assertEqual(child.returncode, 0, output.decode())
+                    self.assertEqual(json.loads(report.read_text())["evidence"], expected)
+                finally:
+                    self.stop_group(child)
+
+    def test_invalid_evidence_preserves_the_report_without_starting_a_client(self):
+        report = self.root / "invalid-evidence.json"
+        original = '{"status":"old"}'
+        report.write_text(original)
+        child = self.start("passed", report, "invalid")
+        try:
+            output, _ = child.communicate(timeout=5)
+            self.assertEqual(child.returncode, 2, output.decode())
+            self.assertEqual(report.read_text(), original)
+            self.assertFalse((self.root / "ready").exists())
         finally:
             self.stop_group(child)
 

@@ -63,7 +63,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: Please answer with at least six complete sentences, one after another, so your spoken reply runs for about twenty seconds.
+        text: Read only these six short sentences verbatim, without an introduction or explanation. The morning sun is shining on the quiet garden. A little bird is singing beside the open window. Fresh flowers are blooming along the narrow path. Children are watching small fish swim under the bridge. White clouds are moving slowly across the blue sky. I hope you find a peaceful moment in your day.
         accepted_content_types: [audio/ogg]
     save_as: input_audio
   - id: turn_1

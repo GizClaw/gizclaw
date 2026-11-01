@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -609,10 +610,10 @@ func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 		t.Fatalf("WriteFile error = %v", err)
 	}
 
-	installed := make(chan struct{})
+	installed := make(chan gizlog.Config, 1)
 	closed := make(chan struct{})
-	restoreLoggingInstaller(t, func(gizlog.Config, ...gizlog.StoreResolver) (func() error, error) {
-		close(installed)
+	restoreLoggingInstaller(t, func(cfg gizlog.Config, _ ...gizlog.StoreResolver) (func() error, error) {
+		installed <- cfg
 		return func() error {
 			close(closed)
 			return nil
@@ -625,7 +626,10 @@ func TestServeContextClosesLoggerOnShutdown(t *testing.T) {
 		errCh <- ServeContext(ctx, workspace, ServeOptions{Force: true})
 	}()
 	select {
-	case <-installed:
+	case got := <-installed:
+		if got.RuntimeVersion != buildinfo.Version || got.BuildCommit != buildinfo.Commit {
+			t.Errorf("logger build identity = %q %q, want %q %q", got.RuntimeVersion, got.BuildCommit, buildinfo.Version, buildinfo.Commit)
+		}
 	case <-time.After(5 * time.Second):
 		cancel()
 		t.Fatal("logger was not installed")

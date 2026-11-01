@@ -3,6 +3,7 @@ package gizlog
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"runtime"
 	"slices"
@@ -135,6 +136,95 @@ func TestNewLoggerStoreSinkUsesFixedSystemScope(t *testing.T) {
 	}
 }
 
+func TestNewLoggerKeepsBinaryIdentityOnGroupedRecords(t *testing.T) {
+	store := &loggerTestStore{}
+	logger, cleanup, err := NewLogger(Config{
+		NodeID:         "server-a",
+		RuntimeVersion: "0.35.9",
+		BuildCommit:    "source-commit",
+		Sinks:          []SinkConfig{{Kind: SinkStore, Store: "logs"}},
+	}, loggerTestResolver{store: store})
+	if err != nil {
+		t.Fatal(err)
+	}
+	logger = logger.With("runtime_version", "caller-version").WithGroup("request")
+	logger.WarnContext(WithPeerPublicKey(context.Background(), "peer-a"), "saved",
+		"build_commit", "caller-commit", "method", "GET")
+	if err := cleanup(); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.records) != 1 {
+		t.Fatalf("records = %d, want 1", len(store.records))
+	}
+	attrs := store.records[0].Attributes
+	if attrs["runtime_version"] != "0.35.9" || attrs["build_commit"] != "source-commit" ||
+		attrs["node_id"] != "server-a" || attrs["peer_public_key"] != "peer-a" || attrs["request.method"] != "GET" {
+		t.Fatalf("record attributes = %+v", attrs)
+	}
+	if _, exists := attrs["request.build_commit"]; exists {
+		t.Fatal("caller build identity was retained")
+	}
+}
+
+func TestNewLoggerKeepsBinaryIdentityOnInlineAttributes(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		attr          slog.Attr
+		wantPreserved bool
+	}{
+		{name: "inline group", attr: slog.Group("", "runtime_version", "caller-version", "build_commit", "caller-commit", "kept", "value"), wantPreserved: true},
+		{name: "dynamic inline group", attr: slog.Any("", loggerTestIdentityGroup{}), wantPreserved: true},
+		{name: "dotted version", attr: slog.String("runtime_version.child", "caller-version")},
+		{name: "dotted commit", attr: slog.String("build_commit.child", "caller-commit")},
+		{name: "normalized version", attr: slog.String(" runtime_version ", "caller-version")},
+	} {
+		for _, child := range []bool{false, true} {
+			t.Run(fmt.Sprintf("%s/child=%t", tc.name, child), func(t *testing.T) {
+				store := &loggerTestStore{}
+				logger, cleanup, err := NewLogger(Config{
+					RuntimeVersion: "binary-version",
+					BuildCommit:    "binary-commit",
+					Sinks:          []SinkConfig{{Kind: SinkStore, Store: "logs"}},
+				}, loggerTestResolver{store: store})
+				if err != nil {
+					t.Fatal(err)
+				}
+				t.Cleanup(func() {
+					if err := cleanup(); err != nil {
+						t.Error(err)
+					}
+				})
+				attrs := []slog.Attr{slog.String("method", "GET")}
+				if child {
+					logger = logger.With(tc.attr)
+				} else {
+					attrs = append(attrs, tc.attr)
+				}
+				logger.LogAttrs(t.Context(), slog.LevelWarn, "saved", attrs...)
+				if err := cleanup(); err != nil {
+					t.Fatal(err)
+				}
+				if len(store.records) != 1 {
+					t.Fatalf("records = %d, want 1", len(store.records))
+				}
+				got := store.records[0].Attributes
+				if got["runtime_version"] != "binary-version" || got["build_commit"] != "binary-commit" || got["method"] != "GET" {
+					t.Fatalf("record attributes = %+v", got)
+				}
+				if tc.wantPreserved && got["kept"] != "value" {
+					t.Fatalf("ordinary inline group attributes were dropped: %+v", got)
+				}
+			})
+		}
+	}
+}
+
+type loggerTestIdentityGroup struct{}
+
+func (loggerTestIdentityGroup) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("runtime_version", "caller-version"), slog.String("build_commit", "caller-commit"), slog.String("kept", "value"))
+}
+
 func TestStoreFailureReportingHandlerReportsWithoutProviderText(t *testing.T) {
 	storeErr := errors.New("provider body contains a secret")
 	fallbackState := &recordingState{}
@@ -249,5 +339,42 @@ func TestInstallDefaultRejectsOverlappingLease(t *testing.T) {
 	t.Cleanup(func() { _ = thirdCleanup() })
 	if err := thirdCleanup(); err != nil {
 		t.Fatalf("third cleanup() error = %v", err)
+	}
+}
+
+func TestNewLoggerKeepsIdentityOnReservedGroupNames(t *testing.T) {
+	for _, group := range []string{
+		"runtime_version", "build_commit", "node_id", "peer_public_key",
+		" runtime_version ", "build_commit.child",
+	} {
+		t.Run(group, func(t *testing.T) {
+			store := &loggerTestStore{}
+			logger, cleanup, err := NewLogger(Config{
+				NodeID:         "server-a",
+				RuntimeVersion: "binary-version",
+				BuildCommit:    "binary-commit",
+				Sinks:          []SinkConfig{{Kind: SinkStore, Store: "logs"}},
+			}, loggerTestResolver{store: store})
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() {
+				if err := cleanup(); err != nil {
+					t.Error(err)
+				}
+			})
+			logger.WithGroup(group).WarnContext(WithPeerPublicKey(t.Context(), "peer-a"), "saved", "method", "GET")
+			if err := cleanup(); err != nil {
+				t.Fatal(err)
+			}
+			if len(store.records) != 1 {
+				t.Fatalf("records = %d, want 1", len(store.records))
+			}
+			attrs := store.records[0].Attributes
+			if attrs["runtime_version"] != "binary-version" || attrs["build_commit"] != "binary-commit" ||
+				attrs["node_id"] != "server-a" || attrs["peer_public_key"] != "peer-a" || attrs["method"] != "GET" {
+				t.Fatalf("record attributes = %+v", attrs)
+			}
+		})
 	}
 }

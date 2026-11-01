@@ -18,6 +18,10 @@ type Config struct {
 	NodeID     string       `yaml:"node_id"`
 	QueryStore string       `yaml:"query_store"`
 	Sinks      []SinkConfig `yaml:"sinks"`
+
+	// RuntimeVersion and BuildCommit come from the running binary, not YAML.
+	RuntimeVersion string `yaml:"-" json:"-"`
+	BuildCommit    string `yaml:"-" json:"-"`
 }
 
 // SinkConfig selects one ordered process-log destination.

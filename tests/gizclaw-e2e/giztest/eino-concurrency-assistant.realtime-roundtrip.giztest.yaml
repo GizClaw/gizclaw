@@ -30,7 +30,7 @@ variables:
   prompt:
     direction: input
     type: string
-    value: Hello from an independent Giztest workflow task.
+    value: Please describe spring in one short sentence of no more than fifteen words.
   input_audio:
     direction: output
     type: audio
@@ -67,7 +67,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: Giztest audio input
+        text: "${prompt}"
         accepted_content_types: [audio/ogg]
     save_as: input_audio
   - id: exercise_workflow

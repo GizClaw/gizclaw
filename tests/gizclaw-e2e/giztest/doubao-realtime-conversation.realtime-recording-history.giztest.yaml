@@ -69,7 +69,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: 第一条录音的暗号是红色苹果，请用一句话确认。
+        text: 请确认暗号红色苹果。
         accepted_content_types: [audio/ogg]
     save_as: first_audio
   - id: synthesize_second
@@ -78,7 +78,7 @@ steps:
       method: server.speech.synthesize
       request:
         voice_name: narrator
-        text: 第二条录音的暗号是蓝色河马，请用一句话确认。
+        text: 请确认暗号蓝色河马。
         accepted_content_types: [audio/ogg]
     save_as: second_audio
   - id: first_utterance

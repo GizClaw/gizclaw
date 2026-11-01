@@ -1,0 +1,38 @@
+# User Story:
+# As a device saving a contact under a new name,
+# I want an existing phone number reported as ALREADY_EXISTS,
+# So that a business rejection is not presented as an internal Server failure.
+version: gizclaw.test/v1alpha1
+name: server.contact.duplicate-phone
+clients:
+  peer: {identity: ephemeral, connection: webrtc, access_point: "${endpoint}", registration_token: "${registration_token}"}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+steps:
+  - id: save_original
+    client: peer
+    rpc:
+      method: server.contact.create
+      request: {name: saved-name, display_name: Saved Contact, phone_number: "15550001111"}
+  - id: new_name_is_absent
+    client: peer
+    rpc: {method: server.contact.get, request: {name: new-name}}
+    expect_error: {code: 5}
+  - id: duplicate_phone_is_already_exists
+    client: peer
+    rpc:
+      method: server.contact.create
+      request: {name: new-name, display_name: New Contact, phone_number: "15550001111"}
+    expect_error: {code: 6}
+finally:
+  - id: failed_create_did_not_add_a_contact
+    client: peer
+    rpc: {method: server.contact.list, request: {limit: 20}}
+    expect:
+      /items: {count: 1}
+      /items/0/name: {equals: saved-name}
+      /items/0/phone_number: {equals: "15550001111"}
+  - id: cleanup_peer
+    client: peer
+    rpc: {method: server.peer.delete, request: {}}

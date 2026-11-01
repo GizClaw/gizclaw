@@ -223,6 +223,13 @@ uses the local E2E credential file and does not use Mem0 Cloud quota. Compose
 waits for service readiness and cleans its own containers,
 volumes and network on exit.
 
+The shared `docker/compose.memory.yaml` keeps temporary PostgreSQL data in a
+bounded 2 GiB tmpfs. PostgreSQL still runs with `fsync` and `synchronous_commit`
+enabled; this functional fixture tests SQL, role isolation and vector behavior
+without depending on host virtual-disk synchronization latency. Its data is
+discarded when the PostgreSQL container stops, so it does not qualify recovery
+across database-container removal or storage durability.
+
 `mem0-self-hosted.batch.giztest.yaml` submits user input and assistant output
 through one real Eino `memory_observe` node, asserting two recalled facts before
 and after reload and empty recall from another Workspace and Peer. A deterministic
@@ -669,6 +676,14 @@ The standard Go Giztest caller runs inside the local Server container through
 copied atomically to the host. Cancellation stops the owned container process;
 the existing phase deadline also bounds that process. This qualifies the Docker
 network path. Host forwarding and device audio timing need their own measurements.
+
+The standard Docker caller and multi-server runner use
+`GIZCLAW_E2E_GIZTEST_EVIDENCE` to select report detail. The default keeps evidence
+redacted; explicitly setting `full` retains actual recognized transcripts and
+reply text for assertion diagnosis. Keep full reports local and access
+controlled. The standard caller rejects other values before starting its test
+process. This setting does not change scenario selection, assertions,
+parallelism or deadlines.
 
 The full functional gate is `bash tests/gizclaw-e2e/run_tests.sh`.
 `--functional` runs the same complete suite. It covers JavaScript, Flutter,
@@ -2170,7 +2185,7 @@ assertion.
 The runner uses an internal Docker network, read-only source/module mounts and
 a separate build cache, and removes its container and network on exit. Image
 identity, architecture, source hashes, Go JSON results and Giztest reports are
-retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
+retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The runner sets `GOTMPDIR` to the tmpfs root for the executed test binaries while compilation uses its disk work directory. The transport test verifies that `testing.TempDir()` stays beneath that root. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
 `tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
 lane. The standard full entry point continues with real Provider suites;
 retain their evidence separately from the deterministic fixtures.
@@ -2303,11 +2318,28 @@ The runner generates identities, starts isolated Server/Edge processes, seeds a 
 
 - authorization: runtime debug access, revocation and invalid input.
 - history: real WebRTC text conversations persisted before workspace lookup, search, pagination and cross-peer isolation.
-- logs: persisted HTTP completion records, pagination and cursor binding.
+- logs: persisted HTTP completion records, pagination, cursor binding, and `runtime_version`/`build_commit` on each page.
 - audio: authenticated retained Ogg download, missing credentials and missing assets.
 - node: independent Monitor Token authentication, rejection of device public keys and local node metrics.
 
-SQLite, filesystem assets and a script Workflow avoid external model dependencies. The audio fixture writes an Ogg asset into the real History/Asset Store; this is not a TTS synthesis test. Containers and temporary runtime data are removed on exit; reports remain under `.testbench/monitor-*/reports/`. This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.
+The log scenario declares 16 tasks, each opening two devices. In addition to the
+serial API collection, the runner executes this same scenario with all 16 tasks
+in parallel. Every device must register, remain online and expose its persisted
+source address before its log queries and cleanup.
+
+SQLite, filesystem assets and a script Workflow avoid external model dependencies.
+Server data and the audio fixture share a project-scoped Docker volume backed by
+a bounded 256 MiB tmpfs, enabled only by this runner's
+`docker/compose.monitor-runtime.yaml` override. Initialization and all runtime
+services use the invoking user's UID/GID, including ownership of the private
+data volume. Other runners that reuse `docker/compose.monitor.yaml` keep their
+host data directories and restart persistence. Configuration and reports remain on the host; database
+commits do not depend on host shared-filesystem latency. This lane checks API and
+connection behavior, not disk performance or persistence across container removal.
+The audio fixture writes an Ogg asset into the real History/Asset Store; this is
+not a TTS synthesis test. Containers, the shared data volume and temporary runtime
+data are removed on exit; reports remain under `.testbench/monitor-*/reports/`.
+This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permissions.
 
 ### Terraform provider
 
@@ -2566,6 +2598,46 @@ This isolated Docker lane builds the current Server and test binaries, runs shar
 CI runs the same entry point in the `Regional PendingDeletion Recovery` job for every PR and main push, retaining redacted test logs as an artifact. Server and test containers use the host user's UID/GID so generated state and assets can be cleaned up on Linux. Ordinary Go and race jobs also cover conditional recovery, paging, shared worker progress, and unchanged failed state after probe errors, timeouts, cancellation and panics.
 
 Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMem0 or self-hosted Mem0 provider deletion, nor completion of distributed Social Workspace replicas. Unsupported scopes remain retained. The runner uses only its generated Compose project, removes containers, volumes, binaries and configuration on exit, and retains ignored `.testbench` evidence logs.
+
+### Contact and log regressions
+
+```sh
+bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
+```
+
+This mode reuses the two-region Docker fixture with real Servers, PostgreSQL,
+Redis, WebRTC RPC and Admin transport. It needs no cloud or model credentials.
+The shared `server.contact.duplicate-phone.giztest.yaml` requires a new name
+with an existing phone number to return RPC `ALREADY_EXISTS`; its cleanup also
+checks that the failed request did not store a second contact.
+`server.contact.limit.giztest.yaml` independently checks the eight-contact cap,
+`RESOURCE_EXHAUSTED`, unchanged count after rejection, and saving after freeing a slot.
+`server.contact.duplicate-phone-update.giztest.yaml` first saves two contacts
+with different phone numbers, then rejects changing one to the other's number
+with `ALREADY_EXISTS` while preserving both original records.
+
+The Admin filter case uses the real LogStore/TLS SDK and a local HTTP protocol
+fixture declaring the legacy top-level `error_code` index absent. Level/text and
+modern-index control queries must retrieve the same record before the structured
+Admin filter is required to succeed. This reproduces a provider index constraint,
+not a locally running Volc service. Another case observes four seconds at a
+250 ms scan interval and requires one warning for an unchanged rejected task,
+while preserving its failed state, failure count and ambiguous Workspace.
+That interval is a test configuration, not a production scan frequency.
+
+The version case starts both Servers with a nondefault binary identity and
+compares `/server-info` against `runtime_version` and `build_commit` in each
+Server's persisted completion record. The shared Monitor Giztest also requires
+nonempty fields across log pages. Assertions express the correct contract;
+failures return a nonzero exit status and do not count as passes. Giztest JSON,
+test output and redacted container logs remain in the run's `.testbench` directory.
+The full `run_tests.sh` includes this mode and the Monitor Giztests. Regional
+PendingDeletion Recovery CI runs both regional recovery acceptance and this regression mode.
+For the initial PostgreSQL extension build, `GIZCLAW_E2E_DEBIAN_MIRROR` may select
+a Debian mirror root URL, such as `http://mirrors.tuna.tsinghua.edu.cn`.
+Use an HTTP mirror with the pinned base image, which lacks CA certificates.
+Omitting it preserves the base image's APT sources. APT signature verification,
+the PostgreSQL base image and the pg_partman version are unchanged.
 
 ## Generic device management Giztests
 

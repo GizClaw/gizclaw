@@ -33,6 +33,13 @@ import (
 // Exercise the CLI through real Server/Edge/WebRTC and the production ASR,
 // model and TTS adapters. Only the remote HTTP/WebSocket protocols are local.
 func TestAudioTurnOwnershipGiztest(t *testing.T) {
+	if expected := os.Getenv("GIZCLAW_TEST_TMPDIR"); expected != "" {
+		actual := t.TempDir()
+		relative, err := filepath.Rel(expected, actual)
+		if err != nil || !filepath.IsLocal(relative) {
+			t.Fatalf("testing.TempDir() = %q, want a directory beneath %q", actual, expected)
+		}
+	}
 	for _, tc := range []struct {
 		mode      string
 		keep      bool

@@ -3,6 +3,16 @@
 set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(cd "$script_dir/../.." && pwd)"
+export RECOVERY_LOG_REGRESSIONS=0
+case "${1:-}" in
+  "") ;;
+  --log-regressions) export RECOVERY_LOG_REGRESSIONS=1 ;;
+  *) echo "usage: run_pending_recovery_tests.sh [--log-regressions]" >&2; exit 2 ;;
+esac
+if (($# > 1)); then
+  echo "usage: run_pending_recovery_tests.sh [--log-regressions]" >&2
+  exit 2
+fi
 project="gizclaw-pending-recovery-${RANDOM}-$$"
 export RECOVERY_ROOT="$script_dir/.testbench/$project"
 export RECOVERY_POSTGRES_IMAGE="${RECOVERY_POSTGRES_IMAGE:-gizclaw-pending-recovery-postgres}"
@@ -14,9 +24,16 @@ case "$architecture" in aarch64|arm64) platform=linux-arm64;; x86_64|amd64) plat
 export RECOVERY_BASE_IMAGE="${RECOVERY_BASE_IMAGE:-gizclaw-go:$platform-base}"
 RECOVERY_PG_PASSWORD="$(openssl rand -hex 24)"
 export RECOVERY_PG_PASSWORD
-compose() { docker compose -p "$project" -f "$script_dir/docker/compose.pending-recovery.yaml" "$@"; }
+compose_files=(-f "$script_dir/docker/compose.pending-recovery.yaml")
+if [[ "$RECOVERY_LOG_REGRESSIONS" == 1 ]]; then
+  compose_files+=(-f "$script_dir/docker/compose.log-regressions.yaml")
+fi
+compose() { docker compose -p "$project" "${compose_files[@]}" "$@"; }
 cleanup() {
   status=$?
+  if [[ "$RECOVERY_LOG_REGRESSIONS" == 1 ]]; then
+    compose logs --no-color 2>&1 | python3 -B "$script_dir/setup/redact_diagnostics.py" >"$RECOVERY_ROOT/containers.log" || status=1
+  fi
   if ((status != 0)); then compose logs --no-color --tail 100 2>&1 | python3 -B "$script_dir/setup/redact_diagnostics.py" >&2 || true; fi
   if ! compose down --volumes --remove-orphans >/dev/null 2>&1; then status=1; fi
   rm -rf "${RECOVERY_ROOT:?}/bin" "${RECOVERY_ROOT:?}/server-a" "${RECOVERY_ROOT:?}/server-b"
@@ -27,12 +44,24 @@ mkdir -p "${RECOVERY_ROOT:?}/bin" "${RECOVERY_ROOT:?}/server-a" "${RECOVERY_ROOT
 if ! docker image inspect "$RECOVERY_BASE_IMAGE" >/dev/null 2>&1; then
   docker build -f "$repo_root/build/gizclaw/Dockerfile.base" -t "$RECOVERY_BASE_IMAGE" "$repo_root/build"
 fi
-docker build -f "$repo_root/build/postgres/Dockerfile" -t "$RECOVERY_POSTGRES_IMAGE" "$repo_root"
+docker build --build-arg "DEBIAN_MIRROR=${GIZCLAW_E2E_DEBIAN_MIRROR:-}" \
+  -f "$repo_root/build/postgres/Dockerfile" -t "$RECOVERY_POSTGRES_IMAGE" "$repo_root"
 (cd "$repo_root" && npm ci && npm run build:console)
 docker run --rm --entrypoint /bin/bash \
+  -e RECOVERY_LOG_REGRESSIONS \
   -v "$repo_root:/src" -v "$RECOVERY_ROOT/bin:/output" \
   -v "$(go env GOMODCACHE):/root/go/pkg/mod" -v "$(go env GOCACHE):/root/.cache/go-build" \
-  "$RECOVERY_BASE_IMAGE" -lc 'cd /src && go build -o /output/gizclaw ./cmd/gizclaw && go test -c -tags gizclaw_e2e -o /output/recovery.test ./tests/gizclaw-e2e/go/recovery'
+  "$RECOVERY_BASE_IMAGE" -lc '
+    cd /src
+    set -e
+    build_flags=()
+    if [[ "$RECOVERY_LOG_REGRESSIONS" == 1 ]]; then
+      build_flags=(-ldflags "-X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Version=log-regression-version -X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Commit=log-regression-commit")
+      go build -o /output/log-sink ./tests/gizclaw-e2e/cmd/log-sink
+    fi
+    go build "${build_flags[@]}" -o /output/gizclaw ./cmd/gizclaw
+    go test -c -tags gizclaw_e2e -o /output/recovery.test ./tests/gizclaw-e2e/go/recovery
+  '
 python3 - "$repo_root" <<'PY'
 from pathlib import Path
 import os,re,sys
@@ -49,13 +78,26 @@ for name,private,admin in [('a','287thuEga1hbBYjM7sxrY3eMoPAqpB3nJ81S8CEuNHKu','
  for store in ['peers','api-keys','friends','friend-groups']:
   text=text.replace(f'  {store}:\n    kind: keyvalue\n    storage: memory',f'  {store}:\n    kind: keyvalue\n    storage: shared-redis')
  text+='\npending_deletion:\n  scan_interval: 250ms\n  page_size: 20\n  workers: 2\n  lease_duration: 12s\n  attempt_timeout: 8s\n  retry_initial: 250ms\n  retry_max: 1s\n  max_attempts: 3\n'
+ if os.environ['RECOVERY_LOG_REGRESSIONS']=='1':
+  text=text.replace('storage:\n','storage:\n  regression-tls:\n    kind: volc-tls\n    endpoint: http://log-sink:9091\n    region: test-region\n    access_key_id: fixture-key\n    access_key_secret: fixture-secret\n',1)
+  text=text.replace('stores:\n','stores:\n  regression-logs:\n    kind: log\n    storage: regression-tls\n    topic_id: regressions\n',1)
+  text=text.replace('  system_log:\n    level: info',f'  system_log:\n    level: info\n    node_id: regression-{name}\n    query_store: regression-logs')
+  text=text.replace('    sinks:\n      - kind: stderr','    sinks:\n      - kind: stderr\n      - kind: store\n        store: regression-logs')
  target=root/f'server-{name}'/'config.yaml';target.write_text(text);target.chmod(0o600)
 PY
 compose up -d --wait redis replica pg-a pg-b
 for region in a b; do
   compose exec -T "pg-$region" psql -U recovery -d recovery -v ON_ERROR_STOP=1 -c 'CREATE SCHEMA partman' -c 'CREATE EXTENSION pg_partman WITH SCHEMA partman'
 done
+if [[ "$RECOVERY_LOG_REGRESSIONS" == 1 ]]; then
+  compose up -d --wait log-sink
+fi
 compose up -d --wait server-a server-b
+if [[ "$RECOVERY_LOG_REGRESSIONS" == 1 ]]; then
+  echo "Log regression evidence: $RECOVERY_ROOT"
+  compose run --rm tests -test.run '^TestLogRegressions' | tee "$RECOVERY_ROOT/log-regressions.log"
+  exit 0
+fi
 compose run --rm tests -test.run '^(TestRegionalRecovery|TestOnlineRecoveryCLI)$' | tee "$RECOVERY_ROOT/regional.log"
 compose run --rm -e RECOVERY_STAGE=prepare-interruption tests -test.run '^TestPrepareInterruptedRecovery$' >"$RECOVERY_ROOT/interruption.log" 2>&1 &
 preparer=$!

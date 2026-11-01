@@ -4,6 +4,7 @@ package volctlsfixture
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,16 +29,26 @@ type continuation struct {
 }
 
 type handler struct {
-	mu       sync.Mutex
-	entries  []entry
-	pages    map[string]continuation
-	sequence uint64
+	mu             sync.Mutex
+	entries        []entry
+	pages          map[string]continuation
+	sequence       uint64
+	missingIndexes map[string]bool
 }
 
 // NewHandler serves DescribeIndex, PutLogs and SearchLogs using the real TLS
 // SDK wire format. Search supports the structured expressions GizClaw emits.
 func NewHandler() http.Handler {
-	s := &handler{pages: make(map[string]continuation)}
+	return NewHandlerWithMissingIndexes()
+}
+
+// NewHandlerWithMissingIndexes also rejects queries referencing the named
+// fields, including references in an OR branch that matches no records.
+func NewHandlerWithMissingIndexes(fields ...string) http.Handler {
+	s := &handler{pages: make(map[string]continuation), missingIndexes: make(map[string]bool)}
+	for _, field := range fields {
+		s.missingIndexes[field] = true
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
 	mux.HandleFunc("GET /DescribeIndex", s.index)
@@ -97,8 +108,17 @@ func (s *handler) search(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid search", http.StatusBadRequest)
 		return
 	}
-	match, err := parseQuery(request.Query)
+	match, err := parseQueryWithMissingIndexes(request.Query, s.missingIndexes)
 	if err != nil {
+		if missing, ok := errors.AsType[*missingIndexError](err); ok {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			writeJSON(w, map[string]string{
+				"errorCode": "SqlSyntaxError", "errorMessage": missing.Error(),
+				"requestID": "fixture-missing-index",
+			})
+			return
+		}
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

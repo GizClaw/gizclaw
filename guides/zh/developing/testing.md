@@ -606,6 +606,11 @@ interoperability risk；只完成 tagged compile 不能算 live pass。
 与主栈共用 `docker/compose.memory.yaml`，启动等待 PostgreSQL 和 Mem0 就绪，退出
 使用现有 project 级容器、卷、网络清理。
 
+共享的 `docker/compose.memory.yaml` 将临时 PostgreSQL 数据放在有界的 2 GiB tmpfs。
+PostgreSQL 的 `fsync` 和 `synchronous_commit` 仍开启；这套功能夹具验证 SQL、角色隔离
+和向量行为，不依赖宿主虚拟磁盘的同步延迟。PostgreSQL 容器停止时数据会丢弃，因此
+不验收数据库容器删除后的恢复或存储持久性。
+
 本地独立的真实链路回归通过 `bash tests/gizclaw-e2e/run_mem0_tests.sh` 执行，
 与默认主栈使用同一 service 和 PostgreSQL 分库结构。它通过真实 Server、
 WebRTC Peer RPC 和 committed Giztest 验证独立 policy reload、原始文本模型提取、
@@ -707,6 +712,11 @@ Eino realtime 并发探针合成其声明的 `prompt`，首文本 2 秒与首音
 标准 Go Giztest 调用端在本地 Server 容器内经 `edge:9821` 执行，沿用相同文档、
 并发和断言，报告原子复制回宿主机。取消会终止本任务的容器内进程，原有阶段时限也覆盖
 该进程。这验证 Docker 网络路径；宿主转发链路与设备音频时序需要各自测量。
+
+标准 Docker 调用端与 multi-server runner 使用 `GIZCLAW_E2E_GIZTEST_EVIDENCE`
+选择报告详细程度。默认保留脱敏证据；显式设为 `full` 时保存实际识别文本和回复文本，
+用于排查断言失败。完整报告应保留在本地并限制访问。标准调用端在启动测试进程前拒绝
+其他值。该设置不改变场景选择、断言、并发或 deadline。
 
 完整功能门禁使用 `bash tests/gizclaw-e2e/run_tests.sh`，`--functional` 执行相同的完整套件。
 它覆盖 JavaScript、Flutter、C/cgo、Go Admin/OpenAI、CLI、Terraform、标准 Giztest、
@@ -1956,7 +1966,7 @@ Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、�
 
 runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
 清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
-协议 fixture 的临时 SQLite 与音频文件使用容器 tmpfs，编译产物与报告仍写入各自的磁盘目录；这不改变真实服务栈的 PostgreSQL/TiKV 存储。报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
+协议 fixture 的临时 SQLite 与音频文件使用容器 tmpfs，编译产物与报告仍写入各自的磁盘目录。运行测试二进制时单独将 `GOTMPDIR` 指向 tmpfs 根目录，编译继续使用磁盘工作目录；transport 测试会验证 `testing.TempDir()` 位于该根目录内。这不改变真实服务栈的 PostgreSQL/TiKV 存储。报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
 `tests/gizclaw-e2e/run_tests.sh` 和 CI 的独立 Audio Turn Ownership Docker job 均执行此入口。
 CI 将这组完整 race 编译与传输回归和 Audioplayer 场景并行运行，避免共用一个 job 的剩余构建时间；
 测试命令、用例超时和断言仍由原入口控制。标准全量入口随后继续运行真实 Provider 套件，二者的证据应分别保留。
@@ -2064,11 +2074,22 @@ bash tests/gizclaw-e2e/run_monitor_tests.sh
 
 - authorization：runtime 调试权限与撤销、错误输入。
 - history：真实 WebRTC 文本会话入库，Workspace 查询、搜索、分页及跨 Peer 隔离。
-- logs：真实 HTTP completion 日志持久化查询、分页及游标绑定。
+- logs：真实 HTTP completion 日志持久化查询、分页、游标绑定，以及每页的 `runtime_version` 和 `build_commit`。
 - audio：预置 Ogg 历史资产的认证下载，以及未授权和缺失资产。
 - node：独立 Monitor Token 认证、拒绝设备公钥，以及当前节点指标。
 
-测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。音频素材由测试工具写入真实 History/Asset Store，不代表完成了外部 TTS 合成测试。结束后删除临时运行数据和容器，报告留在 `.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。
+日志场景声明 16 路任务，每路连接两台设备。入口在串行 API 集合之外，还会以 16 路并发
+执行同一份日志场景。每台设备都必须完成注册，在日志查询和清理前仍在线并能读取已经
+持久化的来源地址。
+
+测试使用 SQLite、文件资产 Store 和无需外部模型的脚本 Workflow。Server 数据与音频夹具
+共用本 Compose project 的 Docker volume，底层为有界的 256 MiB tmpfs，仅由该入口加载
+`docker/compose.monitor-runtime.yaml` 启用。初始化、全部运行服务与私有数据卷使用调用者的
+UID/GID。其他复用 `docker/compose.monitor.yaml` 的入口保留宿主数据目录及重启持久性。
+配置与报告保留在宿主机，数据库提交不依赖宿主共享文件系统的延迟。该 lane 验证 API 与连接行为，不验收
+磁盘性能或容器删除后的持久性。音频素材由测试工具写入真实 History/Asset Store，不代表
+完成了外部 TTS 合成测试。结束后删除临时运行数据、共享数据卷和容器，报告留在
+`.testbench/monitor-*/reports/`。不读取云端 E2E 凭证，也不验证云端 TLS IAM 权限。
 
 ### Terraform provider
 
@@ -2345,6 +2366,37 @@ CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运
 验收直接检查 Firmware 投影删除、Workspace 行与对象清理、每个 home 的 failed 自动恢复（不发 operator retry）、超过一页的 backlog 越过异常记录、重复扫描、显式重试、错误／未知 home、真实 Peer 替换、旧计划遗漏 home 数据和活跃／无关区域数据保留。runner 在 SQL owner-binding 删除被真实行锁阻塞后杀死 home Server，确认 running lease 保留，重启后验证过期租约恢复和启动时自动发现持久化的旧 failed；home 停机期间，另一地区保持该 failed 不变。另一个场景断开只读副本复制，验证管理选择与清理仍使用中央 writer。完成条件包含 marker、locator、plan、task 和索引实际消失，以及永久 tombstone、route 和 API Key retired fence 保留。
 
 这是没有 Memory binding 的删除验收；不证明 Mem0 Cloud、VolcMem0 或自托管 Mem0 provider 的删除，也不宣称 Social Workspace 所有区域副本已回收。无法证明这些范围的 Peer 计划必须保留并报告。已有 memory provider lanes 独立验证其 provider contract。运行只操作本次生成的 Compose project；退出时清理容器、卷、测试二进制与配置，日志证据保存在忽略的 `.testbench` 目录。
+
+### 通讯录与日志回归
+
+```sh
+bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
+```
+
+该模式复用双区域 Docker 夹具，使用真实 Server、PostgreSQL、Redis、WebRTC RPC 和 Admin
+transport，不需要云端或模型凭据。它执行共享的 `server.contact.duplicate-phone.giztest.yaml`
+与 `server.contact.limit.giztest.yaml`：前者要求新名字加已有号码返回 RPC `ALREADY_EXISTS`，
+并在失败清理阶段检查没有写入第二条；后者独立检查八条上限、`RESOURCE_EXHAUSTED`、
+拒绝后数量不变及释放名额后重新保存。
+`server.contact.duplicate-phone-update.giztest.yaml` 先保存两个不同号码的联系人，
+再更新其中一个为另一个已有号码，要求返回 `ALREADY_EXISTS` 且两条记录均保持原样。
+
+Admin 筛选用例使用真实 LogStore/TLS SDK 和本地 HTTP 协议夹具，声明旧顶层 `error_code`
+没有索引。level/text 控制查询与现代索引查询必须先读到同一记录，再要求 Admin 结构化筛选
+成功。这个夹具复现 provider 的索引拒绝约束，不代表运行了真实火山服务。
+另一个用例在 250 ms 扫描间隔下观察四秒，要求未变化的拒绝任务只记录一次告警，
+同时确认 failed 状态、失败次数和歧义 Workspace 均保留；此时间配置不是生产扫描频率。
+
+版本用例用非默认构建身份启动两台 Server，逐台比较 `/server-info` 与实际持久化 completion
+记录的 `runtime_version`、`build_commit`。Monitor 的共享 Giztest 另外检查日志分页中的字段
+非空。所有回归按正确契约断言，断言失败使入口返回非零；失败不能算通过。
+Giztest JSON、专项测试输出及脱敏容器日志保留在本次 `.testbench` 目录。
+完整 `run_tests.sh` 包含此模式及 Monitor Giztest；Regional PendingDeletion Recovery CI
+同时执行原有区域恢复验收和此回归模式。
+首次构建 PostgreSQL 扩展时，可用 `GIZCLAW_E2E_DEBIAN_MIRROR` 指定 Debian 镜像站根 URL，
+例如 `http://mirrors.tuna.tsinghua.edu.cn`。当前固定的基础镜像没有 CA 证书，应使用 HTTP
+镜像源。省略时保留基础镜像的 APT 源；APT 签名校验、PostgreSQL 基础镜像及 pg_partman
+版本不变。
 
 ## 通用设备管理协议 Giztest
 

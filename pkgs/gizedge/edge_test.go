@@ -2,7 +2,9 @@ package gizedge
 
 import (
 	"errors"
+	"io"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 
@@ -42,6 +44,42 @@ func TestInstallEdgeLoggingDefaultsAndRestoresLogger(t *testing.T) {
 	}
 	if slog.Default() != previous {
 		t.Fatal("closeLogging did not restore the previous process logger")
+	}
+}
+
+func TestInstallEdgeLoggingIncludesBinaryIdentity(t *testing.T) {
+	reader, writer, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	previousStderr := os.Stderr
+	os.Stderr = writer
+	defer func() {
+		os.Stderr = previousStderr
+		_ = reader.Close()
+		_ = writer.Close()
+	}()
+	closeLogging, err := installEdgeLogging(Config{
+		SystemLog: gizlog.DefaultConfig(),
+		build:     BuildInfo{Version: "edge-version", Commit: "edge-commit"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = closeLogging() }()
+	slog.Warn("binary identity")
+	if err := closeLogging(); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if text := string(data); !strings.Contains(text, "runtime_version=edge-version") || !strings.Contains(text, "build_commit=edge-commit") {
+		t.Fatalf("Edge log = %s", text)
 	}
 }
 

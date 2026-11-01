@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
@@ -83,5 +84,17 @@ func TestBusinessErrorRetainsGenericInternalFallback(t *testing.T) {
 	response := businessError("generic", errors.New("generic failure"))
 	if response.Id != "generic" || response.Error == nil || response.Error.Code != rpcapi.StatusCodeInternal || response.Error.Message != "generic failure" {
 		t.Fatalf("businessError() = %#v, want unchanged generic internal error", response)
+	}
+}
+
+func TestContactBusinessErrorClassifiesDuplicates(t *testing.T) {
+	response := contactBusinessError("contact-create", fmt.Errorf("phone collision: %w", socialutil.ErrResourceAlreadyExists))
+	if response.Id != "contact-create" || response.Error == nil || response.Error.Code != rpcapi.StatusCodeAlreadyExists ||
+		response.Error.Reason != "CONTACT_ALREADY_EXISTS" || response.Error.Message != "contact already exists" {
+		t.Fatalf("duplicate contact response = %+v", response)
+	}
+	response = contactBusinessError("contact-limit", contact.ErrPeerContactLimit)
+	if response.Error == nil || response.Error.Code != rpcapi.StatusCodeResourceExhausted || response.Error.Reason != contact.ContactLimitReachedCode {
+		t.Fatalf("contact quota response = %+v", response)
 	}
 }

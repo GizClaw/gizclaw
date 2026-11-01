@@ -84,6 +84,7 @@ type Processor struct {
 	scanStart     int
 	scanCursors   map[string]string
 	failedCursors map[string]failedRecoveryCursor
+	failedProbes  failedRecoveryBackoff
 }
 
 // NewProcessor validates and constructs a stopped processor.

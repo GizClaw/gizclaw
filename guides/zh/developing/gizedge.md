@@ -292,6 +292,10 @@ selectable 与 draining 在内的全部 live physical association。由于 signa
 
 HTTP forwarding 和 gateway upstream 都属于长生命周期 runtime 状态。Edge package 不应通过自行复制 GizClaw handler 来规避上游不可用。
 
+HTTP forwarding、API Key 路由和 Peer assignment 查询在等待共享上游拨号时沿用各自请求的
+context。请求取消或到期后立即退出等待，不延用 Edge 进程的生命周期；其他等待者和已有
+健康连接保持独立，后台 liveness 重连仍由 Edge runtime 管理。
+
 ### Gateway 容量与生命周期
 
 Gateway 的默认总容量为 30,000 sessions，最多 16 条 upstream。信令进入时先同时预留 handshake、总 session 和 active-channel 容量；没有容量时返回稳定的 `503` JSON error `gateway_over_capacity` 和 `Retry-After: 1`，不会先在 Server 创建半连接。

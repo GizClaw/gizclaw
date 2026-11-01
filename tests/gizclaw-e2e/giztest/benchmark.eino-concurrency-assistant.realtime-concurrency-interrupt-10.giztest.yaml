@@ -34,7 +34,8 @@ variables:
   prompt:
     direction: input
     type: string
-    value: Hello from an independent Giztest workflow task.
+    # Keep the reply within the token budget and long enough to interrupt.
+    value: Please count from one to twenty.
   input_audio:
     direction: output
     type: audio
@@ -72,7 +73,7 @@ steps:
     method: server.speech.synthesize
     request:
       voice_name: narrator
-      text: Giztest audio input
+      text: "${prompt}"
       accepted_content_types:
       - audio/ogg
   save_as: input_audio

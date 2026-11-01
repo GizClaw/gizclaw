@@ -48,6 +48,9 @@ Generic record 的 provider source 为 `gizclaw`、filename 为 `logstore`；pro
 查询使用 SearchLogs search expression 和 provider Context，不使用 SQL analysis。`Text` 使用 key-value phrase 形式 `msg:#"..."`，已验证的 attribute name 以 `attributes.request_id` 这类 JSON dotted path 输出。Provider call 最长 30 秒，并服从更短的 caller deadline；Store 和 Admin API 不返回 provider error body。物理 Storage 只持有一个 TLS SDK client，topic-scoped Store 用同一个 client 读写，不创建 producer 或第二个 client。
 
 当查询固定为 `Streams=[system]`、`Kinds=[log]` 时，driver 也会匹配 provider source 为 `gizclaw`、filename 为 `slog` 的记录，使用同一 provider-side ordering 和 cursor。
+构造 Store 时缓存已验证的索引能力；只有筛选涉及的旧字段均具备兼容索引时才添加旧记录分支。
+旧顶层字段缺少索引或索引不能满足精确匹配时，仅查询现代 `attributes` 记录，
+避免无效旧分支让现代日志查询失败；这不代表未索引的历史记录可以按该字段检索。
 
 启动前准备 Volc TLS topic 及兼容 index，LogStore 使用 `log`、`volc-tls` 和
 `topic_id` 绑定。配置示例见下文。
