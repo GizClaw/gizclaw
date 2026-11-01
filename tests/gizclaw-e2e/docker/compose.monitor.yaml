@@ -15,7 +15,6 @@ services:
       log-sink: {condition: service_healthy}
     volumes:
       - "${GIZCLAW_MONITOR_STATE}/server:/workspace"
-      - monitor-data:/workspace/data
     healthcheck:
       test: [CMD, curl, -fsS, "http://127.0.0.1:9820/server-info"]
       interval: 1s
@@ -45,7 +44,7 @@ services:
     environment: {GIZCLAW_TEST_REGISTRATION_TOKEN: monitor-test}
     entrypoint: [monitor-fixture]
     command: [-endpoint, "edge:9821", -data, /data, -audio, /src/tests/gizclaw-e2e/testdata/audio/sfu-tone.ogg]
-    volumes: [monitor-data:/data]
+    volumes: ["${GIZCLAW_MONITOR_STATE}/server/data:/data"]
     depends_on:
       edge: {condition: service_healthy}
   test:
@@ -75,11 +74,3 @@ services:
       - "16"
       - --report
       - /reports/registration-burst.json
-
-volumes:
-  monitor-data:
-    driver: local
-    driver_opts:
-      type: tmpfs
-      device: tmpfs
-      o: size=256m,mode=0700

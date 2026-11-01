@@ -2329,7 +2329,11 @@ source address before its log queries and cleanup.
 
 SQLite, filesystem assets and a script Workflow avoid external model dependencies.
 Server data and the audio fixture share a project-scoped Docker volume backed by
-a bounded 256 MiB tmpfs. Configuration and reports remain on the host; database
+a bounded 256 MiB tmpfs, enabled only by this runner's
+`docker/compose.monitor-runtime.yaml` override. Initialization and all runtime
+services use the invoking user's UID/GID, including ownership of the private
+data volume. Other runners that reuse `docker/compose.monitor.yaml` keep their
+host data directories and restart persistence. Configuration and reports remain on the host; database
 commits do not depend on host shared-filesystem latency. This lane checks API and
 connection behavior, not disk performance or persistence across container removal.
 The audio fixture writes an Ogg asset into the real History/Asset Store; this is

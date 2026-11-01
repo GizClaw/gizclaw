@@ -1,0 +1,27 @@
+services:
+  log-sink:
+    user: "${GIZCLAW_MONITOR_UID:?}:${GIZCLAW_MONITOR_GID:?}"
+  server:
+    user: "${GIZCLAW_MONITOR_UID}:${GIZCLAW_MONITOR_GID}"
+    volumes:
+      - monitor-data:/workspace/data
+  edge:
+    user: "${GIZCLAW_MONITOR_UID}:${GIZCLAW_MONITOR_GID}"
+  seed:
+    user: "${GIZCLAW_MONITOR_UID}:${GIZCLAW_MONITOR_GID}"
+  fixture:
+    user: "${GIZCLAW_MONITOR_UID}:${GIZCLAW_MONITOR_GID}"
+    volumes:
+      - monitor-data:/data
+  test:
+    user: "${GIZCLAW_MONITOR_UID}:${GIZCLAW_MONITOR_GID}"
+  registration-burst:
+    user: "${GIZCLAW_MONITOR_UID}:${GIZCLAW_MONITOR_GID}"
+
+volumes:
+  monitor-data:
+    driver: local
+    driver_opts:
+      type: tmpfs
+      device: tmpfs
+      o: "size=256m,mode=0700,uid=${GIZCLAW_MONITOR_UID},gid=${GIZCLAW_MONITOR_GID}"
