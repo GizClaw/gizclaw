@@ -65,7 +65,7 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/tikv/client-go/v2 v2.0.8-0.20261010081555-6a6e26b50af4
 	github.com/tikv/pd/client v0.0.0-20260805103528-afa43111d149
-	github.com/valyala/fasthttp v1.76.0
+	github.com/valyala/fasthttp v1.77.0
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.9
 	github.com/volcengine/volc-sdk-golang v1.0.256
 	github.com/volcengine/volcengine-go-sdk v1.2.48
