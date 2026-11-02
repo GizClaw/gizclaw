@@ -67,7 +67,7 @@ require (
 	github.com/tikv/pd/client v0.0.0-20260805103528-afa43111d149
 	github.com/valyala/fasthttp v1.76.0
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.9
-	github.com/volcengine/volc-sdk-golang v1.0.256
+	github.com/volcengine/volc-sdk-golang v1.0.259
 	github.com/volcengine/volcengine-go-sdk v1.2.48
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	go.step.sm/crypto v0.86.0
