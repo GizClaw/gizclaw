@@ -5,6 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_dir="$(cd "$script_dir/../.." && pwd)"
 cd "$repo_dir"
 python3 -I "$script_dir/setup/test_audio_netem_playback.py"
+python3 -I "$script_dir/setup/test_audio_netem_evidence.py"
 # This diagnostic must never follow a remote Docker context or DOCKER_HOST.
 if [[ -n "${DOCKER_CONTEXT:-}" ]]; then
   docker_endpoint="$(docker context inspect "$DOCKER_CONTEXT" --format '{{.Endpoints.docker.Host}}')"

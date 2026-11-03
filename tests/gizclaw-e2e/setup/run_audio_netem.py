@@ -99,8 +99,10 @@ def traces(text):
         if 'NETEM_TRACE ' in line:
             try:
                 values.append(json.loads(line.split('NETEM_TRACE ', 1)[1]))
-            except json.JSONDecodeError:
-                pass
+            except json.JSONDecodeError as error:
+                # Ordinary log noise has no marker. A malformed marked record
+                # means packet evidence may be truncated and must fail closed.
+                raise RuntimeError('malformed NETEM_TRACE observation') from error
     return values
 
 
@@ -136,6 +138,66 @@ def compare(source, received):
             'received_order': order, 'reordered_indices': reordered if not ambiguous else [],
             'max_gap_ms': max(intervals, default=0), 'intervals_ms': intervals,
             'content_bytes': sum(item['bytes'] for item in received)}
+
+
+def continuity_evidence(observed, rounds, frames_per_reply):
+    """Reconcile complete packet vectors with all three Giztest rounds."""
+    errors = []
+    expected_rounds = {f'continuous_round_{index}' for index in range(1, 4)}
+    if len(rounds) != 3 or {item.get('id') for item in rounds} != expected_rounds:
+        errors.append('missing or duplicate Giztest rounds')
+    expected_up = 0
+    delivered_down = 0
+    for item in rounds:
+        pushed = item.get('pushed_packets')
+        inputs = item.get('input_packets')
+        packets = (item.get('pacing') or {}).get('packets')
+        if item.get('status') != 'passed':
+            errors.append(f"{item.get('id')}: Giztest round did not pass")
+        if type(pushed) is not int or type(inputs) is not int or pushed <= 0 or pushed != inputs:
+            errors.append(f"{item.get('id')}: missing or incomplete input packet count")
+        else:
+            expected_up += pushed
+        if type(packets) is not int or packets < frames_per_reply:
+            errors.append(f"{item.get('id')}: missing or incomplete reply packet count")
+        else:
+            delivered_down += packets
+
+    def select(node, stage):
+        return sorted((item for item in observed if item['node'] == node and item['stage'] == stage),
+                      key=lambda item: item['ns'])
+
+    # The provider's fixed frame budget and per-stream ordinals independently
+    # prove that no reply's source trace was omitted or reduced to a suffix.
+    source_streams = collections.defaultdict(list)
+    for item in select('server', 'tts_output'):
+        source_streams[item['detail']].append(item['sequence'])
+    if (len(source_streams) != 3 or '' in source_streams or
+            any(sequence != list(range(frames_per_reply)) for sequence in source_streams.values())):
+        errors.append('incomplete provider frame evidence for the three replies')
+
+    discarded_down = len(select('client', 'client_post_eos_drop'))
+    expected_down = delivered_down + discarded_down
+    counts = {'input_packets': expected_up, 'delivered_reply_packets': delivered_down,
+              'post_eos_packets': discarded_down, 'physical_reply_packets': expected_down}
+    for direction, expected, stages in [
+            ('up', expected_up, [('client', 'rtp_write_sample'), ('edge', 'tunnel_wire_send'),
+                                ('server', 'tunnel_wire_read'), ('server', 'server_input')]),
+            ('down', expected_down, [('server', 'server_output'), ('server', 'tunnel_wire_send'),
+                                    ('edge', 'tunnel_wire_read'), ('edge', 'rtp_write_sample'),
+                                    ('client', 'client_raw')])]:
+        reference = None
+        for node, stage in stages:
+            items = select(node, stage)
+            hashes = [item['hash'] for item in items]
+            counts[f'{node}/{stage}'] = len(items)
+            if expected <= 0 or len(items) != expected or any(not value for value in hashes):
+                errors.append(f'{direction}: incomplete {node}/{stage} packet evidence')
+            if reference is None:
+                reference = hashes
+            elif hashes != reference:
+                errors.append(f'{direction}: {node}/{stage} payload vector differs')
+    return {'passed': not errors, 'errors': errors, 'counts': counts}
 
 
 def playback(items):
@@ -335,18 +397,17 @@ def run_continuity():
                 if step['id'].startswith('continuous_round_'):
                     evidence = step.get('evidence', {})
                     rounds.append({'id': step['id'], 'status': step['status'], 'error': step.get('error'),
+                                   'input_packets': evidence.get('input_packets'),
+                                   'pushed_packets': evidence.get('pushed_packets'),
                                    'pacing': evidence.get('audio_pacing'),
                                    'audio_eos_ms': evidence.get('audio_eos_ms'),
                                    'text_eos_ms': evidence.get('text_eos_ms')})
-        ordered_up = ([x['hash'] for x in select('edge', 'tunnel_wire_send')]
-                      == [x['hash'] for x in select('server', 'tunnel_wire_read')])
-        ordered_down = ([x['hash'] for x in select('server', 'tunnel_wire_send')]
-                        == [x['hash'] for x in select('edge', 'tunnel_wire_read')])
-        passed = (completed.returncode == 0 and report.get('status') == 'passed' and len(rounds) == 3
-                  and ordered_up and ordered_down)
+        packet_evidence = continuity_evidence(observed, rounds, manifest['provider']['frames'])
+        passed = (completed.returncode == 0 and report.get('status') == 'passed'
+                  and packet_evidence['passed'])
         result = {'case': name, 'passed': passed, 'giztest_exit': completed.returncode,
                   'parameters': params, 'egress': nodes, 'seed': 7919, 'rounds': rounds,
-                  'wire_up': wire_up, 'wire_down': wire_down}
+                  'wire_up': wire_up, 'wire_down': wire_down, 'packet_evidence': packet_evidence}
         measured.append(result)
         save(case / 'result.json', result)
         save(reports / 'continuity-summary.json', measured)
