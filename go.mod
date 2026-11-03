@@ -40,7 +40,7 @@ require (
 	github.com/hashicorp/terraform-plugin-go v0.31.0
 	github.com/idy/ai-server-shell v0.0.0-20260817081019-6bd992600488
 	github.com/jmoiron/sqlx v1.4.0
-	github.com/kaptinlin/jsonrepair v0.4.9
+	github.com/kaptinlin/jsonrepair v0.4.10
 	github.com/kardianos/service v1.3.0
 	github.com/lib/pq v1.12.3
 	github.com/livekit/protocol v1.51.1-0.20260910121219-271d9cde3897
@@ -60,14 +60,14 @@ require (
 	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/client_model v0.6.2
 	github.com/prometheus/prometheus v0.314.0
-	github.com/redis/go-redis/v9 v9.22.0
+	github.com/redis/go-redis/v9 v9.23.0
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3
 	github.com/spf13/cobra v1.10.2
 	github.com/tikv/client-go/v2 v2.0.8-0.20261010081555-6a6e26b50af4
 	github.com/tikv/pd/client v0.0.0-20260805103528-afa43111d149
-	github.com/valyala/fasthttp v1.76.0
+	github.com/valyala/fasthttp v1.77.0
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.9
-	github.com/volcengine/volc-sdk-golang v1.0.256
+	github.com/volcengine/volc-sdk-golang v1.0.259
 	github.com/volcengine/volcengine-go-sdk v1.2.48
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	go.step.sm/crypto v0.86.0
@@ -75,7 +75,7 @@ require (
 	golang.org/x/crypto v0.58.0
 	golang.org/x/net v0.61.0
 	golang.org/x/sync v0.24.0
-	golang.org/x/tools v0.51.0
+	golang.org/x/tools v0.52.0
 	gonum.org/v1/gonum v0.17.0
 	google.golang.org/api v0.307.0
 	google.golang.org/genai v1.71.0
@@ -170,7 +170,7 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/jxskiss/base62 v1.1.0 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
-	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.4.0 // indirect
 	github.com/kylelemons/godebug v1.1.0 // indirect
 	github.com/lithammer/shortuuid/v4 v4.2.0 // indirect
 	github.com/livekit/mageutil v0.0.0-20250511045019-0f1ff63f7731 // indirect
