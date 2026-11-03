@@ -1,0 +1,91 @@
+# User Story:
+# As a client playing sustained audio through a real Edge and Server,
+# I want three complete 16-second replies without playback starvation,
+# So that successful EOS cannot hide discontinuous cross-region audio.
+# Provider emits 800 paced 20 ms frames without per-packet receiver ACKs.
+version: gizclaw.test/v1alpha1
+name: peer-audio.continuous-through-edge
+timeout: 150s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_ENDPOINT
+  tone:
+    direction: input
+    type: audio
+    env: LATENCY_TONE
+    media_type: audio/ogg
+    codec: opus
+    max_bytes: 262144
+  workspace:
+    direction: input
+    type: string
+    generate: token
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request: {token: netem-local-fixture}
+  - id: create
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace}
+        workflow_name: rtp-bos-eino
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: start
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: "${workspace}"}
+  - id: continuous_round_1
+    client: peer
+    timeout: 40s
+    peer_stream: &continuous_input
+      mode: push-to-talk
+      input: ${tone}
+      pacing: 20ms
+      idle_timeout: 5s
+    expect: &continuous_expect
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {equals: 1}
+      /audio_bytes: {minimum: 1000}
+      /audio_integrity/max_active: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+      /audio_pacing/packets: {minimum: 800}
+      /audio_pacing/audio_ms: {minimum: 16000}
+      /audio_pacing/mean_packet_ms: {equals: 20}
+      /audio_pacing/underruns: {equals: 0}
+      /audio_pacing/minimum_buffer_ms: {minimum: 0}
+  - id: continuous_round_2
+    client: peer
+    timeout: 40s
+    peer_stream: *continuous_input
+    expect: *continuous_expect
+  - id: continuous_round_3
+    client: peer
+    timeout: 40s
+    peer_stream: *continuous_input
+    expect: *continuous_expect
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request: {name: "${workspace}"}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}

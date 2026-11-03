@@ -2,7 +2,7 @@ module github.com/GizClaw/gizclaw-go
 
 go 1.26.8
 
-replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20260930221805-07dcddc21e92
+replace github.com/pion/sctp => github.com/GizClaw/pion-sctp v0.0.0-20261103034231-7ab17c898bdd
 
 replace github.com/pion/webrtc/v4 => github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260930230747-1193df5bc2d8
 

@@ -42,6 +42,7 @@ base = json.loads(subprocess.check_output(["docker", "image", "inspect", sys.arg
 paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "cmd/internal/commands/giztest/peer_stream*.go", "pkgs/genx/agentkit/audiodock/*.go", "pkgs/genx/transformers/eino/*.go", "pkgs/genx/transformers/doubaoasr/*.go", "pkgs/genx/transformers/doubaoast/*.go", "pkgs/genx/transformers/asttranslate/*.go", "pkgs/gizclaw/services/runtime/agenthost/*.go", "pkgs/giznet/giztunnel/*.go"], text=True).splitlines()
 paths += ["cmd/internal/server/audio_turn_ownership_giztest_test.go", "tests/gizclaw-e2e/testdata/audio-turn-ownership/rounds.giztest.yaml"]
 paths += ["cmd/internal/server/native_audio_history_giztest_test.go", "cmd/internal/server/podcast_giztest_test.go", "tests/gizclaw-e2e/testdata/continuous-podcast/eino.json", "tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml"]
+paths += ["cmd/internal/commands/giztest/peer_stream_channel_order_webrtc_test.go", "tests/gizclaw-e2e/testdata/peer-audio/channel-order.giztest.yaml"]
 paths += ["go.mod", "go.sum", "tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh", "tests/gizclaw-e2e/testdata/native-audio-history/resources.json"]
 output.write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
@@ -69,6 +70,7 @@ docker run --rm --user "$run_user" --name "$container" --network "$network" --en
   -e GIZCLAW_TURN_OWNERSHIP_EVIDENCE=/reports/transport \
   -e GIZCLAW_NATIVE_HISTORY_EVIDENCE=/reports/native-history \
   -e GIZCLAW_TEST_PODCAST_GIZTEST_EVIDENCE=/reports/podcast \
+  -e GIZCLAW_PEER_AUDIO_BOUNDARY_EVIDENCE=/reports/channel-order \
   "$base" -lc 'set -euo pipefail
     cd /src
     mkdir -p "$GOTMPDIR"
@@ -93,6 +95,11 @@ required = {
     "transport": {"TestAudioTurnOwnershipGiztest/push-to-talk/retained=false", "TestAudioTurnOwnershipGiztest/realtime/retained=false", "TestAudioTurnOwnershipGiztest/realtime/retained=true", "TestAudioTurnOwnershipGiztest/push-to-talk/retained=false/advance=input_sent", "TestNativeAudioHistoryGiztest", "TestContinuousPodcastGiztest"},
 }
 required["contracts"].update({
+    "TestPeerStreamChannelOrderWebRTCGiztest/boundaries",
+    "TestPeerStreamChannelOrderWebRTCGiztest/missing-frame",
+    "TestPeerStreamChannelOrderWebRTCGiztest/reordered-frames",
+    "TestPeerStreamChannelOrderWebRTCGiztest/cross-turn-tail",
+    "TestPeerStreamChannelOrderWebRTCGiztest/playback-starvation",
     "TestPTTPreReleaseCountExcludesKnownResponsesAndCountsEachNewID",
     "TestRealtimeSilenceRetainsRouteAndStopsOnCancellation",
     "TestPeerStreamRealtimeContinuesInputWhileReplyDrains",

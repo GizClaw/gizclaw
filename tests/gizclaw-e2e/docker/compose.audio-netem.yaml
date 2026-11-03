@@ -1,0 +1,96 @@
+x-runtime: &runtime
+  image: ${NETEM_BASE_IMAGE:?}
+  working_dir: /src
+  user: "${NETEM_UID:?}:${NETEM_GID:?}"
+  volumes:
+    - ${NETEM_BIN:?}:/binaries:ro
+    - ${NETEM_ROOT:?}/tests:/src/tests:ro
+  environment: &environment
+    NO_PROXY: "*"
+    no_proxy: "*"
+services:
+  log-sink:
+    <<: *runtime
+    entrypoint: [/binaries/log-sink]
+    networks: [admin]
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9091/health"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+  server:
+    <<: *runtime
+    entrypoint: [/binaries/gizclaw, serve, --force, /workspace]
+    env_file: ["${NETEM_STATE:?}/runtime.env"]
+    environment:
+      <<: *environment
+      NETEM_NODE: server
+      LATENCY_TTS_STARTUP: 3s
+      LATENCY_TTS_SYNTHESIS: 100ms
+    volumes:
+      - ${NETEM_BIN}:/binaries:ro
+      - ${NETEM_ROOT}/tests:/src/tests:ro
+      - ${NETEM_STATE}/server:/workspace
+    networks: [uplink, admin]
+    depends_on:
+      log-sink: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9820/server-info"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+  edge:
+    <<: *runtime
+    entrypoint: [/binaries/gizclaw, edge, serve, /workspace]
+    env_file: ["${NETEM_STATE}/runtime.env"]
+    environment:
+      <<: *environment
+      NETEM_NODE: edge
+    volumes:
+      - ${NETEM_BIN}:/binaries:ro
+      - ${NETEM_ROOT}/tests:/src/tests:ro
+      - ${NETEM_STATE}/edge:/workspace
+    networks: [uplink, access]
+    depends_on:
+      server: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, curl, -fsS, "http://127.0.0.1:9821/server-info"]
+      interval: 1s
+      timeout: 2s
+      retries: 30
+  edge-netem:
+    image: ${NETEM_TOOLS_IMAGE:?}
+    network_mode: service:edge
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    depends_on:
+      edge: {condition: service_healthy}
+  server-netem:
+    image: ${NETEM_TOOLS_IMAGE}
+    network_mode: service:server
+    cap_drop: [ALL]
+    cap_add: [NET_ADMIN]
+    depends_on:
+      server: {condition: service_healthy}
+  seed:
+    <<: *runtime
+    env_file: ["${NETEM_STATE}/runtime.env"]
+    entrypoint: [/binaries/monitor-seed]
+    command: [-server, "server:9820", -profile-id, netem, -token-id, netem, -token, netem-local-fixture, -rtp-bos]
+    networks: [admin]
+  test:
+    <<: *runtime
+    entrypoint: [sleep, infinity]
+    environment:
+      <<: *environment
+      NETEM_NODE: client
+      GIZCLAW_NETEM_ENDPOINT: edge:9821
+    volumes:
+      - ${NETEM_BIN}:/binaries:ro
+      - ${NETEM_ROOT}/tests:/src/tests:ro
+      - ${NETEM_REPORTS:?}:/reports
+    networks: [access]
+networks:
+  uplink: {internal: true}
+  access: {internal: true}
+  admin: {internal: true}

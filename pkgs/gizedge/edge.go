@@ -290,11 +290,12 @@ func dialUpstream(
 	}
 	var timing gizwebrtc.DialTiming
 	listener, conn, err := gizwebrtc.Dial(dialCtx, cfg.KeyPair, cfg.selectedUpstream.PublicKey, gizwebrtc.DialConfig{
-		MetricsNodeRole:       "edge",
-		MetricsPeerKind:       "upstream",
-		SignalingURL:          upstreamSignalingURL(upstreamURL),
-		SecurityPolicy:        edgeSecurityPolicy{},
-		SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
+		MetricsNodeRole:         "edge",
+		MetricsPeerKind:         "upstream",
+		SignalingURL:            upstreamSignalingURL(upstreamURL),
+		SecurityPolicy:          edgeSecurityPolicy{},
+		SCTPReceiveBufferSize:   gizwebrtc.GatewaySCTPReceiveBufferSize,
+		PacketDataChannelPolicy: gizwebrtc.PacketDataChannelOrderedTimed,
 		OnTiming: func(observation gizwebrtc.DialTiming) {
 			timing = observation
 		},

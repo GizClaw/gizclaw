@@ -86,6 +86,42 @@ Admin 读取到的最近地址。临时 Peer 的名称携带最后一次在线 R
 退出时清理本次 Compose project、专用镜像和含身份信息的运行目录，保留基础镜像与
 构建缓存。它验证本地 Docker 协议与持久化，不代表物理设备或生产部署验收。
 
+## Local Edge–Server audio netem diagnostics
+
+```sh
+bash tests/gizclaw-e2e/run_audio_netem_tests.sh
+```
+
+This explicit diagnostic builds the current checkout and uses an isolated local Docker project with separate client–Edge, Edge–Server, and administration networks. It starts no TiKV or external provider. Only two namespace sidecars have `NET_ADMIN`; `tc netem` targets the verified Edge–Server interface. Remote Docker endpoints are rejected. The fixed PTT input and Eino/ASR/valid-Opus TTS fixture exercise both audio directions. The provider has a fixed three-second startup delay, so first-audio times are diagnostic measurements rather than product latency acceptance.
+
+The bounded matrix covers directional delay, jitter, loss, reordering, two combinations, and a refinement/repetition of observed jitter failures. It retains the seed, exact commands, `tc -s` counters, source/image/binary identities, payload SHA-256 order, control boundaries, raw versus delivered audio, decoder energy, logical queue drops, and a 500 ms prebuffer playback simulation in ignored `tests/gizclaw-e2e/.testbench/audio-netem-*/reports/`. Observers and provider selection are applied only through a Go build overlay; they do not change production framing, reliability, buffering, or EOS handling. Successful experiment completion does not assert that impaired profiles delivered intact audio: inspect each `result.json` and `summary.json`. Protocol completion alone is insufficient; the client also requires decoded non-silent audio.
+
+Runtime initialization and report writers use the host UID/GID so Linux runners can read private fixture configuration and clean their own state. The manifest uses the checked-out HEAD without requiring historical tags. Trace emission serializes bounded JSON lines to stderr outside transport-state locks; a slow log sink can still perturb diagnostic timing.
+
+Exit cleanup removes this project's containers, networks, qdiscs, and private runtime identities, retaining evidence and shared build caches. The harness requires Docker, Git LFS, Node/npm, and Python 3. It does not validate firmware, physical-speaker sound, real-provider recognition, or WAN conditions outside the tested profiles.
+
+### Sustained Server–Edge–Giztest playback acceptance
+
+```sh
+bash tests/gizclaw-e2e/run_audio_continuity_tests.sh
+```
+
+This separate strict entrypoint uses the real Server, Edge, Go SDK and Giztest receiver with a deterministic provider that sends 800 Opus frames at absolute 20 ms deadlines per reply. Three PTT rounds share one client connection; the sender never waits for per-packet receiver acknowledgements. Each reply must deliver at least 16 seconds of audio with zero simulated playback underruns and nonnegative minimum buffer. The controller also compares complete sent/received payload-hash vectors on both upstream directions; successful EOS cannot override lost or reordered media. Any failed case returns a nonzero exit status. The full local suite invokes this as `docker:audio-continuity`; the Audio Turn Ownership Docker CI job runs the same strict entrypoint without diagnostic policy overrides.
+
+`testdata/peer-audio/continuous.giztest.yaml` is the accepted document. The default local cases cover a healthy baseline, symmetric 100 ms delay, directional 20 ms delay with 5 ms normal jitter, and symmetric 150 ms delay with 1% random loss. The loss case retains the same strict payload and playback assertions in CI. The same isolated namespace-sidecar restrictions and cleanup as the netem diagnostic apply. The fixture uses three-second TTS startup and synthetic audio; this verifies sustained transport/playback rather than provider response quality. PTT steps reopen their logical subscription while retaining the client/Event/RTP connection; retained-PeerStream boundary handling is separately qualified by the regression below. Test-only SCTP/policy probes are recorded in the manifest and are not production fixes.
+
+### Permanent cross-channel Giztest regression
+
+```sh
+go test -count=1 -run '^TestPeerStreamChannelOrderWebRTCGiztest$' ./cmd/internal/commands/giztest
+```
+
+`testdata/peer-audio/channel-order.giztest.yaml` uses one retained SDK PeerStream for three turns over real WebRTC. Receipt barriers establish audio arriving before the initial BOS, two audio packets after delivered EOS, and an old tail before the next BOS. The next turns must retain their own packet digest, packet count and single closed audio route; ignored tails must never enter playback. This tests cross-channel arrival and recovery without a provider or arbitrary synchronization sleeps.
+
+Four deliberate media mutations independently remove a frame, swap two frames, inject an old-turn tail after the new BOS, or create a 750 ms media gap after playback has prebuffered. The real Giztest evaluator must reject packet count, ordered digest or playback underruns respectively, while nonempty audio and both EOS types still complete. These are negative controls for the validator, not assertions that production must keep losing media. The explicit gap is fault injection, not a boundary synchronization delay.
+
+The existing `run_audio_turn_ownership_tests.sh` Docker lane runs these tests with race detection and requires all five named subtests to pass. `run_tests.sh` already invokes that lane as `docker:audio-turn-ownership`. Docker evidence includes each Giztest report, expected rejection and actual output observations under `reports/channel-order/`; missing or skipped required subtests fail qualification. The larger netem matrix above remains a separate explicit local diagnostic.
+
 ## 音频时序测试的运行隔离
 
 根模块完整测试和 race 测试在 CI 中按包串行运行，保留全部用例及原有时序门槛：

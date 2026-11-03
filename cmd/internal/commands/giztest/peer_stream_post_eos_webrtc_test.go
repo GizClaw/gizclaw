@@ -160,6 +160,11 @@ func (postEOSWebRTCPolicy) AllowService(giznet.PublicKey, uint64) bool          
 
 func postEOSWebRTCClient(t *testing.T, ctx context.Context, late []byte, delay time.Duration) (*gizcli.Client, giznet.Conn, net.Conn) {
 	t.Helper()
+	return postEOSWebRTCClientWithWrapper(t, ctx, late, delay, nil)
+}
+
+func postEOSWebRTCClientWithWrapper(t *testing.T, ctx context.Context, late []byte, delay time.Duration, wrap func(giznet.Conn) giznet.Conn) (*gizcli.Client, giznet.Conn, net.Conn) {
+	t.Helper()
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {
 		t.Fatal(err)
@@ -177,10 +182,14 @@ func postEOSWebRTCClient(t *testing.T, ctx context.Context, late []byte, delay t
 	t.Cleanup(signaling.Close)
 	client := &gizcli.Client{KeyPair: clientKey, DialTransport: func(key *giznet.KeyPair, _ giznet.PublicKey, _ string, policy giznet.SecurityPolicy) (giznet.Listener, giznet.Conn, error) {
 		local, conn, err := gizwebrtc.Dial(ctx, key, serverKey.Public, gizwebrtc.DialConfig{SignalingURL: signaling.URL + gizwebrtc.SignalingPath, SecurityPolicy: policy})
+		var transport giznet.Conn = conn
 		if err == nil && delay > 0 {
-			return local, &postEOSDelayedTailConn{Conn: conn, ctx: ctx, payload: late, delay: delay}, nil
+			transport = &postEOSDelayedTailConn{Conn: transport, ctx: ctx, payload: late, delay: delay}
 		}
-		return local, conn, err
+		if err == nil && wrap != nil {
+			transport = wrap(transport)
+		}
+		return local, transport, err
 	}}
 	t.Cleanup(func() { _ = client.Close() })
 	if err := client.Dial(serverKey.Public, signaling.URL); err != nil {
