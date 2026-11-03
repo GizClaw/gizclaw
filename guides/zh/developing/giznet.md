@@ -142,7 +142,9 @@ packet delivery. Edge-to-Server upstreams select `PacketDataChannelOrderedTimed`
 Opus order and recover transient loss within the configured message lifetime. RTP, service
 streams and per-session direct-packet channels retain their existing policies. This setting
 is independent of receive-window sizing and metrics roles; the negotiated lifetime is not
-an end-to-end delivery or playback deadline. See the policy's Go documentation for its value.
+an end-to-end delivery or playback deadline. Message retention accommodates multiple recovery
+round trips and has an independent budget from the receiver's playback prebuffer. See the
+policy's Go documentation for its value.
 
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
@@ -167,11 +169,14 @@ PeerConnection 共享的 listener socket。设置 remote description 后，默�
 ICE attempt 6 秒来打开 packet DataChannel；如果等待超时且调用方 context 仍有效，它会
 关闭该 PeerConnection 及其 socket，并且只用一个全新的本地 tuple 再尝试一次，不继续
 使用已经失效的 NAT mapping。调用方提供 Pion API 时，transport ownership 在调用方，
-仍然只尝试一次。Capacity artifact 会记录每条 session 的 attempt 次数。SCTP
-retransmission 上限为 150 ms，DTLS flight
-的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
-增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
-retransmission 与 exponential backoff 仍然启用。ICE candidate pair 保留 25 次 binding
+仍然只尝试一次。Capacity artifact 会记录每条 session 的 attempt 次数。
+
+SCTP's shorter retransmission timeout applies only to the handshake. Established DATA/T3
+timers retain the association defaults; message lifetime and RACK loss detection are separate
+from that handshake budget. The configured DTLS initial retry interval also shortens recovery
+of a lost handshake flight while retaining retransmission and exponential backoff.
+
+ICE candidate pair 保留 25 次 binding
 request 机会，按 Pion 的 200 ms check interval 约为 5 秒，避免同步 burst 期间的
 短时 relay 丢包永久淘汰有效 pair；整个 handshake 仍由调用方的 Dial context 限定。
 packet DataChannel 超时时会输出最终 PeerConnection、ICE、DTLS、SCTP 状态和

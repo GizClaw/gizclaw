@@ -419,7 +419,7 @@ def run_continuity():
                         if x['stage'] == 'packet_policy']
     policies = service_policies + client_policies
     expected_default = 'ordered=false,lifetime_ms=-1,max_retransmits=0'
-    lifetime_ms = 200 if manifest['diagnostic_only_ordered_timed_packet_policy'] else 500
+    lifetime_ms = 200 if manifest['diagnostic_only_ordered_timed_packet_policy'] else 1000
     expected_upstream = f'ordered=true,lifetime_ms={lifetime_ms},max_retransmits=-1'
     by_node = {node: collections.Counter(x['detail'] for x in policies if x['node'] == node)
                for node in ['server', 'edge', 'client']}

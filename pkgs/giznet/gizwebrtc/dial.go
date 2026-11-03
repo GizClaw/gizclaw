@@ -38,7 +38,7 @@ const (
 	// policy used by public client connections.
 	PacketDataChannelUnreliable PacketDataChannelPolicy = iota
 	// PacketDataChannelOrderedTimed preserves packet order and allows SCTP
-	// retransmissions with a 500 ms message lifetime. Edge-to-Server upstreams
+	// retransmissions with a one-second message lifetime. Edge-to-Server upstreams
 	// select this policy to tolerate jitter and recover transient packet loss.
 	// The lifetime is not an end-to-end delivery or playback latency bound.
 	PacketDataChannelOrderedTimed
@@ -444,7 +444,7 @@ func packetDataChannelInit(policy PacketDataChannelPolicy) (*webrtc.DataChannelI
 		ordered, maxRetransmits := false, uint16(0)
 		return &webrtc.DataChannelInit{Ordered: &ordered, MaxRetransmits: &maxRetransmits}, nil
 	case PacketDataChannelOrderedTimed:
-		ordered, lifetime := true, uint16(500)
+		ordered, lifetime := true, uint16(1000)
 		return &webrtc.DataChannelInit{Ordered: &ordered, MaxPacketLifeTime: &lifetime}, nil
 	default:
 		return nil, fmt.Errorf("gizwebrtc: invalid packet DataChannel policy %d", policy)

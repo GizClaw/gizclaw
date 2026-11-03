@@ -93,8 +93,8 @@ github.com/GizClaw/doubao-speech-go v0.0.0-20261017164041-5f118f425696 h1:JjEvv9
 github.com/GizClaw/doubao-speech-go v0.0.0-20261017164041-5f118f425696/go.mod h1:4R3wUAZkYk1BSgzv+QVF+2SZPu3VDy8NvaQdNRYGgBs=
 github.com/GizClaw/minimax-go v0.0.0-20261015022517-d0792c7b8772 h1:QJd8CXiAvFYcWa/xBJBMoSyOpjmX3CAKRL/AYaZtoBs=
 github.com/GizClaw/minimax-go v0.0.0-20261015022517-d0792c7b8772/go.mod h1:GYb/V+peMdzoU+4tCfiWnL3Efls+wDgA0rirlPhOFL8=
-github.com/GizClaw/pion-sctp v0.0.0-20261103034231-7ab17c898bdd h1:vQlYrCF/rICmd+ZFHgxe8O+Gi7MFKrXQ4ahSzCYefw0=
-github.com/GizClaw/pion-sctp v0.0.0-20261103034231-7ab17c898bdd/go.mod h1:6k1zrpkrxSwbisitn/AlzDQaa15DR49MFsrMochG/yc=
+github.com/GizClaw/pion-sctp v0.0.0-20261103171901-5fe5d2ec5ecb h1:IiKaFduzoKHjDyALPkU/8Sx0VxHo5qawO44hRk7eTAU=
+github.com/GizClaw/pion-sctp v0.0.0-20261103171901-5fe5d2ec5ecb/go.mod h1:6k1zrpkrxSwbisitn/AlzDQaa15DR49MFsrMochG/yc=
 github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260930230747-1193df5bc2d8 h1:gqaUF7T78WORtn5kBE/3QV/g8YPUwLCsiPd2DeJsJcY=
 github.com/GizClaw/pion-webrtc/v4 v4.0.0-20260930230747-1193df5bc2d8/go.mod h1:iopYoaWeWyH0Z+F2EnYWDKnDfNI/8D7K72dyixp5cPM=
 github.com/GizClaw/tikv-client-go/v2 v2.0.0-20261016033931-138b7bc0a26a h1:DOf2nUEYsz0FQoy/KqSN42h/bavx6oSuQ/KKMSthZJ4=

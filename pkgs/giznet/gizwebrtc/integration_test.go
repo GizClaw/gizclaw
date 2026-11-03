@@ -235,8 +235,8 @@ func TestDialPacketDataChannelPolicyNegotiated(t *testing.T) {
 					t.Fatalf("%s Packet DataChannel = %v, want ordered=%t", peer.name, dc, test.wantOrdered)
 				}
 				if test.wantOrdered {
-					if lifetime := dc.MaxPacketLifeTime(); lifetime == nil || *lifetime != 500 || dc.MaxRetransmits() != nil {
-						t.Fatalf("%s policy lifetime=%v retransmits=%v, want 500 ms and no retransmit limit", peer.name, lifetime, dc.MaxRetransmits())
+					if lifetime := dc.MaxPacketLifeTime(); lifetime == nil || *lifetime != 1000 || dc.MaxRetransmits() != nil {
+						t.Fatalf("%s policy lifetime=%v retransmits=%v, want one second and no retransmit limit", peer.name, lifetime, dc.MaxRetransmits())
 					}
 				} else if retries := dc.MaxRetransmits(); retries == nil || *retries != 0 || dc.MaxPacketLifeTime() != nil {
 					t.Fatalf("%s policy retransmits=%v lifetime=%v, want zero retries and no lifetime", peer.name, retries, dc.MaxPacketLifeTime())
