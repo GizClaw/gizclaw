@@ -24,12 +24,16 @@ import (
 func TestPeerStreamPostEOSWebRTCGiztest(t *testing.T) {
 	for _, delay := range []time.Duration{0, replyObservationWindow + 100*time.Millisecond} {
 		t.Run(delay.String(), func(t *testing.T) {
-			runPostEOSWebRTCGiztest(t, delay)
+			runPostEOSWebRTCGiztest(t, delay, false)
 		})
 	}
 }
 
-func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration) {
+func TestPeerStreamContinuousObservationRetainsFinalTail(t *testing.T) {
+	runPostEOSWebRTCGiztest(t, replyObservationWindow+100*time.Millisecond, true)
+}
+
+func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration, finalTail bool) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 	defer cancel()
@@ -58,7 +62,7 @@ func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration) {
 	fixtureDone := make(chan error, 1)
 	go func() {
 		defer close(fixtureDone)
-		err := servePostEOSWebRTC(ctx, remote, events, observed, [][]byte{first, second}, late, diagnostics)
+		err := servePostEOSWebRTC(ctx, remote, events, observed, [][]byte{first, second}, late, diagnostics, finalTail)
 		if err != nil {
 			cancel()
 		}
@@ -75,6 +79,23 @@ func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration) {
 	doc, err := giztest.LoadDocument("../../../../tests/gizclaw-e2e/testdata/peer-audio/post-eos.giztest.yaml", d)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if finalTail {
+		continuous, err := giztest.LoadDocument("../../../../tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml", d)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, step := range continuous.Steps {
+			if step.PeerStream != nil {
+				for i := range doc.Steps {
+					doc.Steps[i].PeerStream.ReplyObservation = step.PeerStream.ReplyObservation
+				}
+				break
+			}
+		}
+		// The final response also has a delayed tail. Assert its receipt below
+		// after the actual document controls when the retained session closes.
+		delete(doc.Steps[1].Expect, "/audio_integrity/ignored_post_eos_packets")
 	}
 	report := giztest.Run(ctx, []*giztest.Document{doc}, giztest.Options{Driver: d, Parallel: 1, Out: io.Discard})
 	if report.Status != "passed" || len(report.Tasks) != 1 || len(report.Tasks[0].Steps) != 2 {
@@ -106,7 +127,19 @@ func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration) {
 	if len(played) != 0 {
 		t.Fatalf("playback received %d extra post-EOS packets", len(played))
 	}
-	t.Log("real WebRTC: EOS observed before 2 late RTP packets; both ignored; next BOS delivered its own audio; 2 Giztest steps passed")
+	if finalTail {
+		if diagnostics == nil {
+			t.Fatal("final observation requires post-EOS packet diagnostics")
+		}
+		if ignored := diagnostics.IgnoredPostEOSAudioPackets(); ignored != uint64(2*len(late)) {
+			t.Fatalf("final observation closed before both late tails were consumed: ignored=%d, want %d", ignored, 2*len(late))
+		}
+		integrity := report.Tasks[0].Steps[1].Evidence["audio_integrity"].(map[string]any)
+		if ignored, ok := giztest.NumericTarget(integrity["ignored_post_eos_packets"]); !ok || ignored != float64(len(late)) {
+			t.Fatalf("final tail missing from completed-step evidence: %v", integrity)
+		}
+	}
+	t.Log("real WebRTC: EOS observed before late RTP; tails ignored without playback; next BOS delivered its own audio")
 }
 
 type postEOSWebRTCDriver struct {
@@ -242,7 +275,7 @@ func (c *postEOSDelayedTailConn) Read(buf []byte) (byte, int, error) {
 	}
 }
 
-func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn, observed <-chan *genx.MessageChunk, audio, late [][]byte, diagnostics peerStreamAudioDiagnostics) error {
+func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn, observed <-chan *genx.MessageChunk, audio, late [][]byte, diagnostics peerStreamAudioDiagnostics, finalTail bool) error {
 	stop := context.AfterFunc(ctx, func() { _ = events.Close() })
 	defer stop()
 	if err := events.SetDeadline(time.Now().Add(10 * time.Second)); err != nil {
@@ -300,14 +333,16 @@ func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn
 		if err := await(id, (*genx.MessageChunk).IsEndOfStream); err != nil {
 			return err
 		}
-		if i == 0 {
+		if i == 0 || finalTail && i == len(audio)-1 {
 			// This receipt, rather than a sleep, establishes EOS-before-RTP.
 			for _, tail := range late {
 				if _, err := remote.Write(giznet.ProtocolOpusPacket, tail); err != nil {
 					return err
 				}
 			}
-			if diagnostics != nil {
+			// Do not await the final tail before text EOS: the document's
+			// observation window must keep the SDK subscription alive itself.
+			if i == 0 && diagnostics != nil {
 				if err := awaitPostEOSIgnored(ctx, diagnostics, uint64(len(late))); err != nil {
 					return err
 				}

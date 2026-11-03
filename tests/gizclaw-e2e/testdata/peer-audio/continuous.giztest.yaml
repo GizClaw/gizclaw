@@ -57,6 +57,9 @@ steps:
       input: ${tone}
       pacing: 20ms
       idle_timeout: 5s
+      # Keep the completed subscription observable across delayed recovery tails.
+      # This does not change playback timing or admit post-EOS audio for playback.
+      reply_observation: 2s
     expect: &continuous_expect
       /text_eos: {equals: true}
       /audio_eos: {equals: true}

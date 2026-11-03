@@ -42,7 +42,7 @@ base = json.loads(subprocess.check_output(["docker", "image", "inspect", sys.arg
 paths = subprocess.check_output(["git", "-C", str(root), "ls-files", "cmd/internal/commands/giztest/peer_stream*.go", "pkgs/genx/agentkit/audiodock/*.go", "pkgs/genx/transformers/eino/*.go", "pkgs/genx/transformers/doubaoasr/*.go", "pkgs/genx/transformers/doubaoast/*.go", "pkgs/genx/transformers/asttranslate/*.go", "pkgs/gizclaw/services/runtime/agenthost/*.go", "pkgs/giznet/giztunnel/*.go"], text=True).splitlines()
 paths += ["cmd/internal/server/audio_turn_ownership_giztest_test.go", "tests/gizclaw-e2e/testdata/audio-turn-ownership/rounds.giztest.yaml"]
 paths += ["cmd/internal/server/native_audio_history_giztest_test.go", "cmd/internal/server/podcast_giztest_test.go", "tests/gizclaw-e2e/testdata/continuous-podcast/eino.json", "tests/gizclaw-e2e/testdata/continuous-podcast/continuous.giztest.yaml"]
-paths += ["cmd/internal/commands/giztest/peer_stream_channel_order_webrtc_test.go", "tests/gizclaw-e2e/testdata/peer-audio/channel-order.giztest.yaml"]
+paths += ["cmd/internal/commands/giztest/peer_stream_channel_order_webrtc_test.go", "tests/gizclaw-e2e/testdata/peer-audio/channel-order.giztest.yaml", "tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml"]
 paths += ["go.mod", "go.sum", "tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh", "tests/gizclaw-e2e/testdata/native-audio-history/resources.json"]
 output.write_text(json.dumps({
     "revision": subprocess.check_output(["git", "-C", str(root), "rev-parse", "HEAD"], text=True).strip(),
@@ -100,6 +100,7 @@ required["contracts"].update({
     "TestPeerStreamChannelOrderWebRTCGiztest/reordered-frames",
     "TestPeerStreamChannelOrderWebRTCGiztest/cross-turn-tail",
     "TestPeerStreamChannelOrderWebRTCGiztest/playback-starvation",
+    "TestPeerStreamContinuousObservationRetainsFinalTail",
     "TestPTTPreReleaseCountExcludesKnownResponsesAndCountsEachNewID",
     "TestRealtimeSilenceRetainsRouteAndStopsOnCancellation",
     "TestPeerStreamRealtimeContinuesInputWhileReplyDrains",
