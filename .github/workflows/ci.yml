@@ -596,7 +596,8 @@ jobs:
           tar -xzf "$partman_dir/pg_partman.tar.gz" -C "$partman_dir"
           sudo make -C "$partman_dir/pg_partman-5.5.0" \
             PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config with_llvm=no install
-          pg_dir="${RUNNER_TEMP}/postgres"
+          pg_dir="$(mktemp -d /tmp/gizclaw-postgres.XXXXXX)"
+          printf 'GIZCLAW_TEST_POSTGRES_DIR=%s\n' "$pg_dir" >> "$GITHUB_ENV"
           sudo install -d -o postgres -g postgres -m 700 "$pg_dir"
           sudo -u postgres /usr/lib/postgresql/16/bin/initdb \
             -D "$pg_dir/data" --auth-local=trust --auth-host=scram-sha-256
@@ -627,9 +628,9 @@ jobs:
       - name: Stop native PostgreSQL
         if: always()
         run: |
-          pg_data="${RUNNER_TEMP}/postgres/data"
-          if sudo -u postgres test -s "$pg_data/postmaster.pid"; then
-            sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D "$pg_data" -m fast -w stop
+          pg_dir="${GIZCLAW_TEST_POSTGRES_DIR:-}"
+          if [[ -n "$pg_dir" ]] && sudo -u postgres test -s "$pg_dir/data/postmaster.pid"; then
+            sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D "$pg_dir/data" -m fast -w stop
           fi
 
   nested-go-modules:
