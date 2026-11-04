@@ -181,6 +181,101 @@ func TestDialSignalingPacketAndServiceStream(t *testing.T) {
 	}
 }
 
+func TestDialPacketDataChannelPolicyNegotiated(t *testing.T) {
+	for _, test := range []struct {
+		name          string
+		policy        PacketDataChannelPolicy
+		receiveBuffer uint32
+		metricsRole   string
+		wantOrdered   bool
+	}{
+		{name: "public client defaults"},
+		{name: "gateway window and metrics do not select policy", receiveBuffer: GatewaySCTPReceiveBufferSize, metricsRole: "edge"},
+		{name: "ordered timed with default window", policy: PacketDataChannelOrderedTimed, wantOrdered: true},
+		{name: "ordered timed with gateway window", policy: PacketDataChannelOrderedTimed, receiveBuffer: GatewaySCTPReceiveBufferSize, wantOrdered: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			serverKey, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatal(err)
+			}
+			clientKey, err := giznet.GenerateKeyPair()
+			if err != nil {
+				t.Fatal(err)
+			}
+			listener, err := (&ListenConfig{CipherMode: CipherModePlaintext}).Listen(serverKey)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer listener.Close()
+			httpServer := httptest.NewServer(listener.SignalingHandler())
+			defer httpServer.Close()
+			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
+			defer cancel()
+			clientListener, client, err := Dial(ctx, clientKey, serverKey.Public, DialConfig{
+				SignalingURL:            httpServer.URL + SignalingPath,
+				CipherMode:              CipherModePlaintext,
+				SCTPReceiveBufferSize:   test.receiveBuffer,
+				MetricsNodeRole:         test.metricsRole,
+				PacketDataChannelPolicy: test.policy,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer clientListener.Close()
+			defer client.Close()
+			server := acceptConn(t, listener)
+			defer server.Close()
+			for _, peer := range []struct {
+				name string
+				conn *Conn
+			}{{"dialer", client}, {"acceptor", server}} {
+				dc := peer.conn.packetDC
+				if dc == nil || dc.Ordered() != test.wantOrdered {
+					t.Fatalf("%s Packet DataChannel = %v, want ordered=%t", peer.name, dc, test.wantOrdered)
+				}
+				if test.wantOrdered {
+					if lifetime := dc.MaxPacketLifeTime(); lifetime == nil || *lifetime != 1000 || dc.MaxRetransmits() != nil {
+						t.Fatalf("%s policy lifetime=%v retransmits=%v, want one second and no retransmit limit", peer.name, lifetime, dc.MaxRetransmits())
+					}
+				} else if retries := dc.MaxRetransmits(); retries == nil || *retries != 0 || dc.MaxPacketLifeTime() != nil {
+					t.Fatalf("%s policy retransmits=%v lifetime=%v, want zero retries and no lifetime", peer.name, retries, dc.MaxPacketLifeTime())
+				}
+			}
+			for _, pair := range [][2]*Conn{{client, server}, {server, client}} {
+				payload := []byte("negotiated packet")
+				if _, err := pair[0].Write(0x42, payload); err != nil {
+					t.Fatal(err)
+				}
+				protocol, received := readDirectPacketWithTimeout(t, pair[1])
+				if protocol != 0x42 || !bytes.Equal(received, payload) {
+					t.Fatalf("Packet Read = %x %q, want 42 %q", protocol, received, payload)
+				}
+			}
+		})
+	}
+}
+
+func TestDialRejectsUnknownPacketDataChannelPolicyBeforeSignaling(t *testing.T) {
+	key, err := giznet.GenerateKeyPair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var calls atomic.Int32
+	httpServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer httpServer.Close()
+	listener, conn, err := Dial(t.Context(), key, key.Public, DialConfig{
+		SignalingURL:            httpServer.URL + SignalingPath,
+		PacketDataChannelPolicy: PacketDataChannelPolicy(255),
+	})
+	if err == nil || listener != nil || conn != nil || calls.Load() != 0 {
+		t.Fatalf("Dial = %v %v %v; signaling calls=%d, want rejection before signaling", listener, conn, err, calls.Load())
+	}
+}
+
 func TestInterleavedServiceStreamsDoNotExhaustSCTPReceiveWindow(t *testing.T) {
 	serverKey, err := giznet.GenerateKeyPair()
 	if err != nil {

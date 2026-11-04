@@ -136,6 +136,16 @@ pool 保留短时 burst 的高水位。
 feedback；Pion 随 PeerConnection 关闭 sender 时 reader 随即退出。因此长连接中未消费的
 receiver report 不会在 SRTCP packet buffer 内持续累积。
 
+The dialer's `DialConfig.PacketDataChannelPolicy` explicitly selects the physical Packet
+DataChannel policy for both directions. Public clients keep unordered, zero-retransmission
+packet delivery. Edge-to-Server upstreams select `PacketDataChannelOrderedTimed` to preserve
+Opus order and recover transient loss within the configured message lifetime. RTP, service
+streams and per-session direct-packet channels retain their existing policies. This setting
+is independent of receive-window sizing and metrics roles; the negotiated lifetime is not
+an end-to-end delivery or playback deadline. Message retention accommodates multiple recovery
+round trips and has an independent budget from the receiver's playback prebuffer. See the
+policy's Go documentation for its value.
+
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
 profile receive credit 限制在 256 MiB；额度释放前，后续 association 仍使用默认窗口。独立的
@@ -159,11 +169,14 @@ PeerConnection 共享的 listener socket。设置 remote description 后，默�
 ICE attempt 6 秒来打开 packet DataChannel；如果等待超时且调用方 context 仍有效，它会
 关闭该 PeerConnection 及其 socket，并且只用一个全新的本地 tuple 再尝试一次，不继续
 使用已经失效的 NAT mapping。调用方提供 Pion API 时，transport ownership 在调用方，
-仍然只尝试一次。Capacity artifact 会记录每条 session 的 attempt 次数。SCTP
-retransmission 上限为 150 ms，DTLS flight
-的 initial retransmission interval 为 150 ms，使 burst 中丢失 handshake flight 时不会固定
-增加默认的 1 秒等待。SCTP reliable delivery 和 retransmission count 不变；DTLS
-retransmission 与 exponential backoff 仍然启用。ICE candidate pair 保留 25 次 binding
+仍然只尝试一次。Capacity artifact 会记录每条 session 的 attempt 次数。
+
+SCTP's shorter retransmission timeout applies only to the handshake. Established DATA/T3
+timers retain the association defaults; message lifetime and RACK loss detection are separate
+from that handshake budget. The configured DTLS initial retry interval also shortens recovery
+of a lost handshake flight while retaining retransmission and exponential backoff.
+
+ICE candidate pair 保留 25 次 binding
 request 机会，按 Pion 的 200 ms check interval 约为 5 秒，避免同步 burst 期间的
 短时 relay 丢包永久淘汰有效 pair；整个 handshake 仍由调用方的 Dial context 限定。
 packet DataChannel 超时时会输出最终 PeerConnection、ICE、DTLS、SCTP 状态和
@@ -184,9 +197,13 @@ control label 是 logical identity 的唯一声明。Server 收齐 control 与 p
 显式 Accept 并发送精确的 `GZT2` result，DCEP open 本身不是 logical acceptance。Edge
 按帧头长度读取该 result，因此即使 result 在可靠 control stream 上分多次到达，仍按一帧解码。
 
-Direct packet 在每 session 的 unreliable channel 保留消息边界。`ProtocolOpusPacket` 继续
-使用 shared physical unreliable lane 上带 version 和 session ID 的 envelope，并合并回
-logical `Read`/`Write`；它不进入可靠 channel。原生 channel 隔离 ordering、buffered-amount
+Direct packets preserve message boundaries on each session's unreliable channel.
+`ProtocolOpusPacket` uses the shared physical Packet DataChannel with its existing version
+and session ID envelope, then merges back into logical `Read`/`Write`. The physical connection's
+explicit Packet DataChannel policy governs ordering and partial reliability for this lane;
+the per-session direct-packet channels keep their own unreliable policy.
+
+原生 channel 隔离 ordering、buffered-amount
 backpressure 与 close/reset，但同一 PeerConnection 上的 channel 仍共享 SCTP association
 和 congestion controller。
 

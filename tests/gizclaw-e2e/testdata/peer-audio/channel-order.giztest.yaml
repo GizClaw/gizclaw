@@ -1,0 +1,80 @@
+# User Story:
+# As a client receiving control and audio over independent channels,
+# I want boundary recovery and complete, correctly ordered playable audio,
+# So that successful EOS cannot hide missing frames, reordering or starvation.
+version: gizclaw.test/v1alpha1
+name: peer-audio.channel-order
+timeout: 20s
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: http://fixture.invalid
+variables:
+  first_digest:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_BOUNDARY_FIRST_DIGEST
+  second_digest:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_BOUNDARY_SECOND_DIGEST
+  third_digest:
+    direction: input
+    type: string
+    env: GIZCLAW_TEST_BOUNDARY_THIRD_DIGEST
+steps:
+  - id: audio_before_initial_bos
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: first
+    expect:
+      /reply: {equals: reply-1}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {equals: 1}
+      /audio_integrity/ignored_post_eos_packets: {equals: 2}
+      /audio_integrity/sha256: {equals: "${first_digest}"}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+      /audio_pacing/packets: {equals: 32}
+      /audio_pacing/underruns: {equals: 0}
+  - id: old_tail_before_next_bos
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: second
+    expect:
+      /reply: {equals: reply-2}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {equals: 1}
+      /audio_integrity/ignored_post_eos_packets: {equals: 1}
+      /audio_integrity/sha256: {equals: "${second_digest}"}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+      /audio_pacing/packets: {equals: 32}
+      /audio_pacing/underruns: {equals: 0}
+  - id: complete_playable_audio
+    client: peer
+    timeout: 5s
+    peer_stream:
+      mode: text
+      input: third
+    expect:
+      /reply: {equals: reply-3}
+      /text_eos: {equals: true}
+      /audio_eos: {equals: true}
+      /response_count: {equals: 1}
+      /audio_integrity/ignored_post_eos_packets: {equals: 0}
+      /audio_integrity/sha256: {equals: "${third_digest}"}
+      /audio_integrity/streams: {equals: 1}
+      /audio_integrity/open: {equals: 0}
+      /audio_integrity/violations: {equals: 0}
+      /audio_pacing/packets: {equals: 32}
+      /audio_pacing/underruns: {equals: 0}

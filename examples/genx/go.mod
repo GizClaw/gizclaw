@@ -33,7 +33,7 @@ require (
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674 // indirect
 	github.com/grafana/regexp v0.0.0-20250905093917-f7b3be9d1853 // indirect
 	github.com/jmoiron/sqlx v1.4.0 // indirect
-	github.com/kaptinlin/jsonrepair v0.4.9 // indirect
+	github.com/kaptinlin/jsonrepair v0.4.10 // indirect
 	github.com/klauspost/compress v1.20.3 // indirect
 	github.com/paulmach/orb v0.13.0 // indirect
 	github.com/pierrec/lz4/v4 v4.1.27 // indirect
