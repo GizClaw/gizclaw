@@ -30,7 +30,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/snappy v1.0.0
 	github.com/google/jsonschema-go v0.4.3
-	github.com/google/pprof v0.0.0-20260802141513-ef3492d7dac3
+	github.com/google/pprof v0.0.0-20261016150608-1facf8f91b50
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/gax-go/v2 v2.26.2
 	github.com/gorilla/websocket v1.5.4-0.20250319132907-e064f32e3674
@@ -81,7 +81,7 @@ require (
 	google.golang.org/genai v1.71.0
 	google.golang.org/protobuf v1.36.12
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.58.0
+	modernc.org/sqlite v1.61.1
 	sigs.k8s.io/yaml v1.6.0
 )
 
@@ -128,7 +128,7 @@ require (
 	github.com/dlclark/regexp2 v1.11.4 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
+	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/envoyproxy/go-control-plane/envoy v1.37.0 // indirect
 	github.com/envoyproxy/protoc-gen-validate v1.3.3 // indirect
 	github.com/fatih/color v1.19.0 // indirect
@@ -190,7 +190,7 @@ require (
 	github.com/nats-io/nats.go v1.52.0 // indirect
 	github.com/nats-io/nkeys v0.4.16 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
-	github.com/ncruces/go-strftime v1.0.0 // indirect
+	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/nikolalohinski/gonja v1.5.3 // indirect
 	github.com/oapi-codegen/oapi-codegen/v2 v2.7.2 // indirect
 	github.com/oasdiff/yaml v0.0.9 // indirect
@@ -279,7 +279,7 @@ require (
 	google.golang.org/grpc v1.84.0 // indirect
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
-	modernc.org/libc v1.75.6 // indirect
+	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.12.1 // indirect
 )
