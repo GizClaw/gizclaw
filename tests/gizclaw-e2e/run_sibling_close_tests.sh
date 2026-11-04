@@ -41,13 +41,13 @@ set +a
 
 for attempt in 1 2 3; do
   echo "==> JavaScript sibling-close attempt $attempt/3"
-  (cd "$repo_root" && npm --prefix tests/gizclaw-e2e/js run test:streams)
+  (cd "$repo_root" && npm --prefix tests/clients/js run test:streams)
 done
 
 echo "==> C/cgo sibling-close attempts 1-3/3"
 (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=3 -timeout 45m \
   -run '^TestCSDKConcurrentServiceStreams$' \
-  ./tests/gizclaw-e2e/cgo/rpc)
+  ./tests/clients/cgo/rpc)
 
 echo "==> Go sibling-close attempts 1-3/3"
 (cd "$repo_root" && go test -v -tags gizclaw_e2e -count=3 -timeout 45m \

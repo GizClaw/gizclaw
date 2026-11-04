@@ -84,7 +84,7 @@ services:
 
 TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV RPC 和故障恢复健康检查，不修改 client-go 的全局配置。恢复探测通过 `tikv.WithStoreLivenessSecurity` 接收同一 connector 的证书策略；不同 connector 即使访问同一地址，也不共享探测结果。显式无 TLS 的 connector 不继承其他连接的 TLS 配置，TLS 失败不回退到明文。Storage 负责关闭物理 client；逻辑 Store 和强读 view 不关闭该连接。
 
-`tests/store-e2e/run_tikv_tls_recovery_tests.sh` 使用两个独立 CA 的临时 PD/TiKV 集群验证 mTLS 与真实事务恢复。它在测试 TCP 代理上断开一个连接的传输，恢复后要求原 Storage client 继续读写，另一个 CA 的连接保持可用。该 gate 不重建 client、不访问线上集群，临时证书、数据、日志和二进制由测试目录及其 Compose project 拥有。
+`tests/integration/store/run_tikv_tls_recovery_tests.sh` 使用两个独立 CA 的临时 PD/TiKV 集群验证 mTLS 与真实事务恢复。它在测试 TCP 代理上断开一个连接的传输，恢复后要求原 Storage client 继续读写，另一个 CA 的连接保持可用。该 gate 不重建 client、不访问线上集群，临时证书、数据、日志和二进制由测试目录及其 Compose project 拥有。
 
 测试 Compose 为两个 TiKV 容器显式设置 `nofile` soft/hard limit 为 `1048576`，满足 TiKV 的启动检查，不依赖 Docker daemon 的默认文件描述符上限。
 

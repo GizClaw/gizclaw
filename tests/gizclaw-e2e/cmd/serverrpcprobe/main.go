@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/internal/serverrpc"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/serverrpc"
 )
 
 func main() {

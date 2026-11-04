@@ -60,7 +60,7 @@ services:
       GIZCLAW_COTURN_PUBLIC_IP: ${GIZCLAW_E2E_TURN_RELAY_ADDRESS:?set by docker-compose-up.sh}
     volumes:
       - type: bind
-        source: ../../fixtures/coturn/entrypoint.sh
+        source: ../../testsupport/coturn/entrypoint.sh
         target: /usr/local/bin/gizclaw-coturn-entrypoint
         read_only: true
         bind:

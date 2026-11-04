@@ -19,7 +19,7 @@ func TestAPIKeyLimitSDKGiztests(t *testing.T) {
 		name    string
 		command []string
 	}{
-		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts")}},
+		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/clients/js/giztest/index.ts")}},
 		{"C", []string{os.Getenv("GIZCLAW_LIMIT_C_RUNNER"), "test"}},
 		{"Flutter", []string{os.Getenv("GIZCLAW_LIMIT_FLUTTER_RUNNER")}},
 	} {

@@ -12,4 +12,4 @@ esac
 mkdir -p "$repo_root/tests/gizclaw-e2e/testdata/bin"
 cd "$repo_root"
 GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o tests/gizclaw-e2e/testdata/bin/tikv-fixture-linux ./tests/gizclaw-e2e/cmd/tikv-fixture
-GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o tests/gizclaw-e2e/testdata/bin/tikv-replication-proxy-linux ./tests/store-e2e/tikv-replication-proxy
+GOOS=linux GOARCH="$arch" CGO_ENABLED=0 go build -o tests/gizclaw-e2e/testdata/bin/tikv-replication-proxy-linux ./tests/integration/store/tikv-replication-proxy

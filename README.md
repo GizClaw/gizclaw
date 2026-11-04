@@ -96,7 +96,9 @@ workspace-backed agents through the CLI and APIs.
 - `skills/`: project-level Agent Skills installable with `npx skills`.
 - `examples/`: runnable examples for GenX, WebRTC SFU, audio, songs, and
   voiceprint workflows.
-- `tests/`: unit, integration, and Docker-backed e2e test projects.
+- `tests/`: native integration, shared clients and fixtures, evaluation, and
+  manual E2E suites. See [Testing and E2E](guides/en/developing/testing.md) for
+  the layout and entrypoints.
 
 ## Development
 

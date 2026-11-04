@@ -93,11 +93,11 @@ if [[ ! "$GIZCLAW_E2E_DOCKER_PROJECT" =~ ^[a-z0-9][a-z0-9_-]*$ ]]; then echo 'in
 # Keep native includes current: Go's cache does not track SDK C files outside
 # the bridge package. Rebuild each bridge once, then run the actual suites.
 run_logged nanopb git submodule update --init --recursive -- third_party/nanopb/upstream
-run_logged c-runner-build go build -a -o "$evidence/giztest-c" ./tests/gizclaw-e2e/cgo/giztest
+run_logged c-runner-build go build -a -o "$evidence/giztest-c" ./tests/clients/cgo/giztest
 if [[ "$giztest_only" != 1 ]]; then
   mkdir -p "$script_dir/testdata/bin"
   run_logged host-cli-build go build -o "$script_dir/testdata/bin/gizclaw" ./cmd/gizclaw
-  run_logged c-bridge-build go test -a -tags gizclaw_e2e -run '^$' ./tests/gizclaw-e2e/cgo/internal
+  run_logged c-bridge-build go test -a -tags gizclaw_e2e -run '^$' ./tests/clients/cgo/internal
 fi
 python3 -B "$setup_dir/collect_c_resources.py" --project "$GIZCLAW_E2E_DOCKER_PROJECT" \
   --output "$evidence/resources" --stop-file "$evidence/stop-resources" &
@@ -109,7 +109,7 @@ run_logged postgres-timing docker exec "$GIZCLAW_E2E_DOCKER_PROJECT-postgres-1" 
   -c 'ALTER SYSTEM SET track_io_timing=on' -c 'ALTER SYSTEM SET track_wal_io_timing=on' -c 'SELECT pg_reload_conf()'
 if [[ "$giztest_only" != 1 ]]; then
   for package in rpc telemetry chat media social; do
-    if run_logged "cgo-$package" go test -v -tags gizclaw_e2e -count=1 -timeout 10m "./tests/gizclaw-e2e/cgo/$package"; then :; else failures+=("cgo-$package"); fi
+    if run_logged "cgo-$package" go test -v -tags gizclaw_e2e -count=1 -timeout 10m "./tests/clients/cgo/$package"; then :; else failures+=("cgo-$package"); fi
   done
 fi
 files=()

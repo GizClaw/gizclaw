@@ -12,7 +12,7 @@ x-coturn: &coturn
     GIZCLAW_COTURN_METRICS_PORT: "9641"
   volumes:
     - type: bind
-      source: ../../fixtures/coturn/entrypoint.sh
+      source: ../../testsupport/coturn/entrypoint.sh
       target: /usr/local/bin/gizclaw-coturn-entrypoint
       read_only: true
       bind:

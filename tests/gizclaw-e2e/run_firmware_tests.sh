@@ -42,7 +42,7 @@ go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   "$script_dir/giztest/server.firmware.metadata.get.giztest.yaml" \
   --parallel 1 --report "$script_dir/testdata/giztest-firmware-report.json"
 go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
-  ./tests/gizclaw-e2e/cgo/rpc \
+  ./tests/clients/cgo/rpc \
   -run '^(TestCSDKFirmwareRPC|TestCSDKFirmwareRPCMaximumID|TestCSDKFirmwareRequiresBinding)$'
 go test -p 1 -v -tags=gizclaw_e2e -count=1 -timeout=20m \
   ./tests/gizclaw-e2e/cmd/admin \

@@ -57,7 +57,7 @@ check_mem0_empty
 export GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted
 export GIZCLAW_MEM0_SELF_HOSTED_URL="$GIZCLAW_TEST_MEM0_ENDPOINT"
 export GIZCLAW_MEM0_SELF_HOSTED_API_KEY="$GIZCLAW_E2E_MEM0_API_KEY"
-go test -v -tags=store_e2e -count=1 -timeout=5m -run '^(TestSelfHostedMemoryLayoutScopeRouting|TestSelfHostedMem0Batch)$' ./tests/store-e2e | tee "$run_dir/scope.log"
+go test -v -tags=store_e2e -count=1 -timeout=5m -run '^(TestSelfHostedMemoryLayoutScopeRouting|TestSelfHostedMem0Batch)$' ./tests/integration/store | tee "$run_dir/scope.log"
 check_mem0_empty
 # One PostgreSQL instance, two databases and distinct non-superuser roles.
 "${compose[@]}" exec -T postgres psql -U gizclaw_bootstrap -d postgres -v ON_ERROR_STOP=1 -c \
