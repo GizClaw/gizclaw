@@ -12,41 +12,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tikv-tls-recovery:
-    name: TiKV mTLS Recovery
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Verify isolated mTLS transaction recovery
-        env:
-          GOFLAGS: -mod=readonly
-        run: tests/store-e2e/run_tikv_tls_recovery_tests.sh "${{ runner.temp }}/tikv-tls-recovery"
-      - name: Retain bounded fixture diagnostics
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: tikv-tls-recovery-diagnostics
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            ${{ runner.temp }}/tikv-tls-recovery/cluster.log
-            ${{ runner.temp }}/tikv-tls-recovery/startup.log
-            ${{ runner.temp }}/tikv-tls-recovery/pull.log
-            ${{ runner.temp }}/tikv-tls-recovery/cleanup.log
-            ${{ runner.temp }}/tikv-tls-recovery/source-revision.txt
-            ${{ runner.temp }}/tikv-tls-recovery/go-version.txt
-
   mem0-regression:
-    name: Mem0 PGVector Regression
+    name: Mem0 Contract Tests
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -55,14 +22,16 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Fetch LoCoMo fixtures
-        run: git lfs pull --include="tests/locomo-e2e/testdata/*.jsonl"
+        run: git lfs pull --include="tests/evaluation/locomo/testdata/*.jsonl"
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version-file: go.mod
           cache: true
-      - name: Run memory contract and real PostgreSQL regression checks
-        run: bash tests/locomo-e2e/run_regression.sh
+      - name: Run memory contracts and offline fixture regressions
+        env:
+          GOFLAGS: -mod=readonly
+        run: bash tests/evaluation/locomo/run_offline.sh
 
   release-contract:
     name: Release Contract
@@ -158,81 +127,59 @@ jobs:
       - name: Test Flutter SDK hosted pub archives
         run: tools/flutter-sdk/archive_test.sh
 
-      - name: Build native validation executable
-        env:
-          PLATFORM: linux/amd64
-          OUTPUT: ${{ runner.temp }}/gizclaw-linux-amd64
-          BUILD_VERSION: 0.0.0
-          BUILD_COMMIT: ${{ github.sha }}
-        run: build/build-linux.sh
-
-      - name: Validate AST consecutive-turn Giztests
-        run: |
-          "${RUNNER_TEMP}/gizclaw-linux-amd64" test validate \
-            -f tests/gizclaw-e2e/giztest/volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml \
-            -f tests/gizclaw-e2e/giztest/volc-ast-translate.realtime-consecutive-turns.giztest.yaml
-
-      - name: Build and exercise validation package
-        env:
-          BINARY: ${{ runner.temp }}/gizclaw-linux-amd64
-        run: |
-          source_commit="$(git rev-parse HEAD)"
-          source_epoch="$(git show -s --format=%ct HEAD)"
-          package="${RUNNER_TEMP}/gizclaw_0.0.0_amd64.deb"
-          build/package-deb.sh \
-            --binary "$BINARY" \
-            --version 0.0.0 \
-            --source-commit "$source_commit" \
-            --source-epoch "$source_epoch" \
-            --architecture amd64 \
-            --output "$package"
-          build/check-deb.sh \
-            --package "$package" \
-            --version 0.0.0 \
-            --source-commit "$source_commit" \
-            --architecture amd64
-          build/build-runtime-image.sh "$package" 0.0.0 "$source_commit" "$source_epoch" amd64
-          build/check-runtime-image.sh "gizclaw-runtime:${source_commit}-amd64" 0.0.0 "$source_commit" amd64 "$(sha256sum "$BINARY" | cut -d ' ' -f1)"
-
-  runtime-arm64:
-    name: Production Runtime (arm64)
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 75
+  native-build:
+    name: Native Build (${{ matrix.arch }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     permissions:
       contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: amd64
+          - os: ubuntu-24.04-arm
+            arch: arm64
+    env:
+      CGO_ENABLED: "1"
+      GOFLAGS: -mod=readonly
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
 
-      - name: Prepare native release build inputs
+      - name: Prepare native build inputs
         run: |
           git lfs pull
           git submodule update --init --depth=1 third_party/nanopb/upstream
-          sudo apt-get update
-          sudo apt-get install --no-install-recommends -y binutils dpkg-dev
 
-      - name: Build the native executable
-        env:
-          PLATFORM: linux/arm64
-          OUTPUT: ${{ runner.temp }}/gizclaw-linux-arm64
-          BUILD_VERSION: 0.0.0
-          BUILD_COMMIT: ${{ github.sha }}
-        run: build/build-linux.sh
+      - name: Set up Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
+        with:
+          go-version-file: go.mod
+          cache: true
 
-      - name: Package and run the production image
-        env:
-          BINARY: ${{ runner.temp }}/gizclaw-linux-arm64
+      - name: Build embedded monitoring console
+        uses: ./.github/actions/build-console
+
+      - name: Compile the native executable
         run: |
-          source_commit="$(git rev-parse HEAD)"
-          source_epoch="$(git show -s --format=%ct HEAD)"
-          package="${RUNNER_TEMP}/gizclaw_0.0.0_arm64.deb"
-          build/package-deb.sh --binary "$BINARY" --version 0.0.0 --source-commit "$source_commit" \
-            --source-epoch "$source_epoch" --architecture arm64 --output "$package"
-          build/check-deb.sh --package "$package" --version 0.0.0 --source-commit "$source_commit" --architecture arm64
-          build/build-runtime-image.sh "$package" 0.0.0 "$source_commit" "$source_epoch" arm64
-          build/check-runtime-image.sh "gizclaw-runtime:${source_commit}-arm64" 0.0.0 "$source_commit" arm64 "$(sha256sum "$BINARY" | cut -d ' ' -f1)"
+          go build -trimpath \
+            -ldflags "-X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Version=0.0.0 -X github.com/GizClaw/gizclaw-go/cmd/internal/buildinfo.Commit=${GITHUB_SHA}" \
+            -o "${RUNNER_TEMP}/gizclaw" ./cmd/gizclaw
+
+      - name: Verify native CLI entrypoints
+        run: |
+          test "$("${RUNNER_TEMP}/gizclaw" --version)" = "gizclaw version 0.0.0"
+          "${RUNNER_TEMP}/gizclaw" --help >/dev/null
+
+      - name: Validate AST consecutive-turn Giztests
+        run: |
+          "${RUNNER_TEMP}/gizclaw" test validate \
+            -f tests/gizclaw-e2e/giztest/volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml \
+            -f tests/gizclaw-e2e/giztest/volc-ast-translate.realtime-consecutive-turns.giztest.yaml
 
   quality:
     name: Quality
@@ -348,11 +295,11 @@ jobs:
         run: dart analyze --fatal-infos
 
       - name: Install giztest runner dependencies
-        working-directory: tests/gizclaw-e2e/flutter/giztest
+        working-directory: tests/clients/flutter/giztest
         run: flutter pub get
 
       - name: Analyze giztest runner
-        working-directory: tests/gizclaw-e2e/flutter/giztest
+        working-directory: tests/clients/flutter/giztest
         run: flutter analyze
 
   test:
@@ -549,77 +496,72 @@ jobs:
           GOFLAGS: -mod=readonly
         run: go test -count=1 ./tests/gizclaw-e2e/testdata
 
-  tikv-presence:
-    name: TiKV Learner Presence
+  redis-presence:
+    name: Redis Integration
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Verify bulk presence reads through a real TiKV Learner
-        run: bash tests/store-e2e/run_tikv_tests.sh "${{ runner.temp }}/tikv-presence" --presence-only
-      - name: Verify secondary-lock rollback through unique TiKV batch reads
-        run: bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh "${{ runner.temp }}/tikv-duplicate-reads"
-      - name: Retain TiKV presence fixture diagnostics
-        if: failure()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: tikv-presence-diagnostics
-          retention-days: 7
-          if-no-files-found: ignore
-          path: |
-            ${{ runner.temp }}/tikv-presence/cluster.log
-            ${{ runner.temp }}/tikv-presence/startup.log
-            ${{ runner.temp }}/tikv-presence/test.log
-            ${{ runner.temp }}/tikv-presence/final-topology.json
-            ${{ runner.temp }}/tikv-presence/tikv-test.toml
-            ${{ runner.temp }}/tikv-presence/source-revision.txt
-            ${{ runner.temp }}/tikv-duplicate-reads/cluster.log
-            ${{ runner.temp }}/tikv-duplicate-reads/startup.log
-            ${{ runner.temp }}/tikv-duplicate-reads/test.log
-            ${{ runner.temp }}/tikv-duplicate-reads/final-topology.json
-            ${{ runner.temp }}/tikv-duplicate-reads/voter-health.txt
-            ${{ runner.temp }}/tikv-duplicate-reads/fatal.log
-            ${{ runner.temp }}/tikv-duplicate-reads/source-revision.txt
-
-  redis-presence:
-    name: Redis Shared Presence
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    permissions:
-      contents: read
+    env:
+      GIZCLAW_TEST_REDIS_DSN: redis://127.0.0.1:16379/15
+      GIZCLAW_TEST_REDIS_READ_DSN: redis://127.0.0.1:16380/15
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           lfs: true
-      - name: Initialize nanopb runtime
-        run: git submodule update --init --depth=1 third_party/nanopb/upstream
+
       - name: Set up Go
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version-file: go.mod
           cache: true
-      - name: Build embedded monitoring console
-        uses: ./.github/actions/build-console
-      - name: Verify shared presence through Redis replicas and LiveKit
-        run: bash tests/store-e2e/run_redis_readwrite_tests.sh
+
+      - name: Start native Redis primary and replica
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y redis-server
+          for role in primary replica; do
+            mkdir -p "${RUNNER_TEMP}/redis-${role}"
+          done
+          redis-server --bind 127.0.0.1 --port 16379 --save "" --appendonly no \
+            --daemonize yes --dir "${RUNNER_TEMP}/redis-primary" \
+            --pidfile "${RUNNER_TEMP}/redis-primary/redis.pid" \
+            --logfile "${RUNNER_TEMP}/redis-primary/redis.log"
+          redis-server --bind 127.0.0.1 --port 16380 --save "" --appendonly no \
+            --daemonize yes --replicaof 127.0.0.1 16379 \
+            --dir "${RUNNER_TEMP}/redis-replica" \
+            --pidfile "${RUNNER_TEMP}/redis-replica/redis.pid" \
+            --logfile "${RUNNER_TEMP}/redis-replica/redis.log"
+          for attempt in $(seq 1 60); do
+            if redis-cli -p 16380 info replication | tr -d '\r' | grep -qx 'master_link_status:up'; then
+              break
+            fi
+            printf 'Waiting for native Redis replication (%s/60)\n' "$attempt"
+            sleep 1
+          done
+          redis-cli -p 16379 ping | grep -qx PONG
+          redis-cli -p 16380 info replication | tr -d '\r' | grep -qx 'master_link_status:up'
+
+      - name: Run native Redis integration tests
+        env:
+          GOFLAGS: -mod=readonly
+        run: bash tests/integration/store/run_native.sh redis
+
+      - name: Stop native Redis processes
+        if: always()
+        run: |
+          redis-cli -p 16380 shutdown nosave || true
+          redis-cli -p 16379 shutdown nosave || true
 
   postgres:
     name: PostgreSQL Integration
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
     env:
-      GIZCLAW_TEST_POSTGRES_DSN: postgres://gizclaw:gizclaw@127.0.0.1:5432/gizclaw_test?sslmode=disable
+      GIZCLAW_TEST_POSTGRES_DSN: postgres://gizclaw:gizclaw@127.0.0.1:15432/gizclaw_test?sslmode=disable
     steps:
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -641,90 +583,54 @@ jobs:
       - name: Build embedded monitoring console
         uses: ./.github/actions/build-console
 
-      - name: Build and start PostgreSQL with pg_partman
+      - name: Start native PostgreSQL with pg_partman
         run: |
-          docker build -f build/postgres/Dockerfile -t gizclaw-postgres-test .
-          docker run -d --name gizclaw-postgres-test -p 5432:5432 \
-            -e POSTGRES_USER=gizclaw -e POSTGRES_PASSWORD=gizclaw -e POSTGRES_DB=gizclaw_test \
-            gizclaw-postgres-test postgres -c max_connections=300
-          for attempt in $(seq 1 60); do
-            if docker exec gizclaw-postgres-test pg_isready -h 127.0.0.1 -U gizclaw -d gizclaw_test; then break; fi
-            echo "Waiting for PostgreSQL ($attempt/60)"
-            sleep 1
-          done
-          docker exec gizclaw-postgres-test psql -U gizclaw -d gizclaw_test -v ON_ERROR_STOP=1 \
-            -c 'CREATE SCHEMA partman' -c 'CREATE EXTENSION pg_partman WITH SCHEMA partman'
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y postgresql-16 postgresql-server-dev-16
+          partman_dir="$(mktemp -d "${RUNNER_TEMP}/pg-partman.XXXXXX")"
+          curl -fsSL https://codeload.github.com/pgpartman/pg_partman/tar.gz/refs/tags/v5.5.0 \
+            -o "$partman_dir/pg_partman.tar.gz"
+          printf '%s  %s\n' \
+            a3f100ae871677f0012579f58542c174900297f664a4ad2be0256e7ee5e33502 \
+            "$partman_dir/pg_partman.tar.gz" | sha256sum --check --status
+          tar -xzf "$partman_dir/pg_partman.tar.gz" -C "$partman_dir"
+          sudo make -C "$partman_dir/pg_partman-5.5.0" \
+            PG_CONFIG=/usr/lib/postgresql/16/bin/pg_config install
+          pg_dir="${RUNNER_TEMP}/postgres"
+          sudo install -d -o postgres -g postgres -m 700 "$pg_dir"
+          sudo -u postgres /usr/lib/postgresql/16/bin/initdb \
+            -D "$pg_dir/data" --auth-local=trust --auth-host=scram-sha-256
+          sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl \
+            -D "$pg_dir/data" -l "$pg_dir/server.log" \
+            -o "-h 127.0.0.1 -p 15432 -k $pg_dir -c max_connections=300" -w start
+          sudo -u postgres /usr/lib/postgresql/16/bin/psql \
+            -h "$pg_dir" -p 15432 -v ON_ERROR_STOP=1 -d postgres \
+            -c "CREATE ROLE gizclaw WITH LOGIN SUPERUSER PASSWORD 'gizclaw'" \
+            -c 'CREATE DATABASE gizclaw_test OWNER gizclaw'
+          sudo -u postgres /usr/lib/postgresql/16/bin/psql \
+            -h "$pg_dir" -p 15432 -v ON_ERROR_STOP=1 -d gizclaw_test \
+            -c 'CREATE SCHEMA partman' \
+            -c 'CREATE EXTENSION pg_partman WITH SCHEMA partman'
 
-      - name: Require PostgreSQL test DSN
-        run: test -n "$GIZCLAW_TEST_POSTGRES_DSN"
+      - name: Verify PostgreSQL readiness and pg_partman version
+        run: |
+          test -n "$GIZCLAW_TEST_POSTGRES_DSN"
+          psql "$GIZCLAW_TEST_POSTGRES_DSN" -v ON_ERROR_STOP=1 -c 'SELECT 1'
+          test "$(psql "$GIZCLAW_TEST_POSTGRES_DSN" -v ON_ERROR_STOP=1 -At \
+            -c "SELECT extversion FROM pg_extension WHERE extname = 'pg_partman'")" = 5.5.0
 
       - name: Run PostgreSQL integration tests
         env:
           GOFLAGS: -mod=readonly
+        run: bash tests/integration/store/run_native.sh postgres
+
+      - name: Stop native PostgreSQL
+        if: always()
         run: |
-          go test -count=1 -p 1 \
-            ./cmd/internal/server \
-            ./pkgs/store/memory \
-            ./pkgs/gizclaw/services/ai/workspace \
-            ./pkgs/gizclaw/services/runtime/graphstate \
-            ./pkgs/gizclaw/services/runtime/peerrun \
-            ./pkgs/gizclaw/services/system/runtimeprofile
-          go test -tags=store_e2e -count=1 -p 1 \
-            -run '^TestPostgreSQL' \
-            ./tests/store-e2e
-          go test -count=1 -run '^TestPostgreSQL(HistoryRetentionWithoutWrites|InputPermission)' \
-            ./pkgs/gizclaw
-
-  clickhouse:
-    name: ClickHouse Integration
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-    services:
-      clickhouse:
-        image: gizcr.gizclaw.com/docker.io/clickhouse/clickhouse-server:25.8@sha256:aec6fb9892becb6a20eb8d57708b8cf9c777b2ad1f4eb70bbece7a70eaed9fd0
-        env:
-          CLICKHOUSE_USER: gizclaw
-          CLICKHOUSE_PASSWORD: gizclaw
-          CLICKHOUSE_DB: default
-        ports:
-          - 9000:9000
-        options: >-
-          --health-cmd "clickhouse-client --user gizclaw --password gizclaw --query 'SELECT 1'"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
-    env:
-      GIZCLAW_TEST_CLICKHOUSE_DSN: clickhouse://gizclaw:gizclaw@127.0.0.1:9000/default
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          lfs: true
-
-      - name: Ensure Git LFS assets are available
-        run: git lfs pull
-
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Download modules
-        run: go mod download
-
-      - name: Require ClickHouse test DSN
-        run: test -n "$GIZCLAW_TEST_CLICKHOUSE_DSN"
-
-      - name: Run ClickHouse integration tests
-        env:
-          GOFLAGS: -mod=readonly
-        run: >-
-          go test -tags=store_e2e -count=1 -p 1
-          -run '^TestClickHouse'
-          ./tests/store-e2e
+          pg_data="${RUNNER_TEMP}/postgres/data"
+          if sudo -u postgres test -s "$pg_data/postmaster.pid"; then
+            sudo -u postgres /usr/lib/postgresql/16/bin/pg_ctl -D "$pg_data" -m fast -w stop
+          fi
 
   nested-go-modules:
     name: Nested Go Modules
@@ -838,6 +744,9 @@ jobs:
       - name: Test Giztest offline replay controls
         run: node --test cmd/internal/commands/giztest/replay_html_test.mjs
 
+      - name: Test native Giztest process isolation
+        run: python3 -B tests/gizclaw-e2e/setup/run_js_giztest_test.py
+
       - name: Install guide dependencies
         run: npm --prefix guides ci
 
@@ -920,19 +829,19 @@ jobs:
           tools/flutter-sdk/consume_archives.sh --asset-dir "$archive_dir" --version 0.0.0
 
       - name: Install giztest runner dependencies
-        working-directory: tests/gizclaw-e2e/flutter/giztest
+        working-directory: tests/clients/flutter/giztest
         run: flutter pub get
 
       - name: Analyze giztest runner
-        working-directory: tests/gizclaw-e2e/flutter/giztest
+        working-directory: tests/clients/flutter/giztest
         run: flutter analyze
 
       - name: Test giztest runner
-        working-directory: tests/gizclaw-e2e/flutter/giztest
+        working-directory: tests/clients/flutter/giztest
         run: flutter test
 
   admission-sdk-e2e:
-    name: Admission SDK E2E
+    name: Native SDK Integration
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -969,245 +878,14 @@ jobs:
           pactl set-default-sink gizclaw_admission
           pactl set-default-source gizclaw_admission.monitor
       - name: Run registration-token admission across all SDKs
-        run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_tests.sh
+        run: xvfb-run -a bash tests/integration/sdk/run_admission_tests.sh
       - name: Verify Workspace list filters across all SDKs
-        run: xvfb-run -a bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+        run: xvfb-run -a bash tests/integration/sdk/run_workspace_list_tests.sh
       - name: Verify management, MHS and KV contracts across SDKs
-        run: xvfb-run -a bash tests/gizclaw-e2e/run_device_management_tests.sh
-
-  admission-docker-e2e:
-    name: Admission Docker E2E
-    runs-on: ubuntu-24.04
-    permissions:
-      contents: read
-    env:
-      GIZCLAW_E2E_DOCKER_BASE_FROM: gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
-      GIZCLAW_E2E_APT_MIRROR: http://archive.ubuntu.com/ubuntu
-      GIZCLAW_E2E_APT_PORTS_MIRROR: http://ports.ubuntu.com/ubuntu-ports
-      GIZCLAW_E2E_GO_MIRROR: https://go.dev/dl
-      GIZCLAW_E2E_NODE_MIRROR: https://nodejs.org/dist
-      GIZCLAW_E2E_GOPROXY: https://proxy.golang.org,direct
-      GIZCLAW_E2E_GOSUMDB: sum.golang.org
-      GIZCLAW_E2E_NPM_REGISTRY: https://registry.npmjs.org
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          lfs: true
-      - name: Ensure Git LFS assets are available
-        run: git lfs pull
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: '24'
-          cache: npm
-      - name: Set up Flutter
-        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2
-        with:
-          flutter-version: "3.38.1"
-          channel: stable
-          cache: true
-      - name: Install native WebRTC runner tools
-        run: bash tests/gizclaw-e2e/setup/install-native-runner-tools.sh
-      - name: Start virtual audio device for Flutter WebRTC
-        run: |
-          pulseaudio --start --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=gizclaw_admission_docker
-          pactl set-default-sink gizclaw_admission_docker
-          pactl set-default-source gizclaw_admission_docker.monitor
-      - name: Run Docker admission and Peer blocking across all SDKs
-        run: xvfb-run -a bash tests/gizclaw-e2e/run_admission_docker_tests.sh
-
-  pending-deletion-recovery:
-    name: Regional PendingDeletion Recovery
-    runs-on: ubuntu-24.04
-    timeout-minutes: 45
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          lfs: true
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 26
-          cache: npm
-      - name: Verify automatic home recovery with independent regional databases
-        run: bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
-      - name: Verify contact, log filtering, recovery backoff and binary identity
-        run: bash tests/gizclaw-e2e/run_pending_recovery_tests.sh --log-regressions
-      - name: Verify Monitor APIs and concurrent device registration
-        run: |
-          GIZCLAW_E2E_DOCKER_BASE_IMAGE=gizclaw-go:linux-amd64-base \
-            GIZCLAW_MONITOR_MODCACHE="$(go env GOMODCACHE)" \
-            GIZCLAW_MONITOR_BUILDCACHE="$(go env GOCACHE)" \
-            bash tests/gizclaw-e2e/run_monitor_tests.sh
-      - name: Collect redacted recovery and Monitor evidence
-        if: always()
-        shell: python
-        run: |
-          import importlib.util
-          import os
-          from pathlib import Path
-
-          script = Path("tests/gizclaw-e2e/setup/redact_diagnostics.py")
-          spec = importlib.util.spec_from_file_location("redact_diagnostics", script)
-          redactor = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(redactor)
-          output = Path(os.environ["RUNNER_TEMP"]) / "pending-recovery-evidence"
-          for log in Path("tests/gizclaw-e2e/.testbench").glob("gizclaw-pending-recovery-*/*.log"):
-              target = output / log.parent.name / log.name
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(redactor.redact(log.read_text(errors="replace")))
-          for report in Path("tests/gizclaw-e2e/.testbench").glob("monitor-*/reports/*"):
-              if report.name not in {"giztest.json", "registration-burst.json", "containers.log"}:
-                  continue
-              target = output / report.parent.parent.name / report.name
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(redactor.redact(report.read_text(errors="replace")))
-      - name: Upload recovery evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: pending-deletion-recovery-evidence
-          path: ${{ runner.temp }}/pending-recovery-evidence/
-          if-no-files-found: ignore
-
-  audioplayer-giztest:
-    name: Audioplayer Giztest
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          lfs: true
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 26
-          cache: npm
-      - name: Run isolated device playback and telemetry scenarios
-        run: bash tests/gizclaw-e2e/run_audioplayer_tests.sh
-      - name: Collect redacted Audioplayer evidence
-        if: always()
-        shell: python
-        run: |
-          import importlib.util
-          import os
-          from pathlib import Path
-
-          script = Path("tests/gizclaw-e2e/setup/redact_diagnostics.py")
-          spec = importlib.util.spec_from_file_location("redact_diagnostics", script)
-          redactor = importlib.util.module_from_spec(spec)
-          spec.loader.exec_module(redactor)
-          output = Path(os.environ["RUNNER_TEMP"]) / "audioplayer-evidence"
-          for report in Path("tests/gizclaw-e2e/.testbench").glob("audioplayer-*/reports/*"):
-              if report.name not in {"giztest.json", "containers.log"}:
-                  continue
-              target = output / report.parent.parent.name / report.name
-              target.parent.mkdir(parents=True, exist_ok=True)
-              target.write_text(redactor.redact(report.read_text(errors="replace")))
-      - name: Upload Audioplayer evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: audioplayer-evidence
-          path: ${{ runner.temp }}/audioplayer-evidence/
-          if-no-files-found: ignore
-      - name: Run Lua application Giztests
-        run: bash tests/gizclaw-e2e/run_lua_app_tests.sh
-      - name: Upload Lua application Giztest evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: lua-app-giztest-evidence
-          path: tests/gizclaw-e2e/.testbench/lua-app-*/reports/
-          include-hidden-files: true
-      - name: Verify initial RTP before BOS binding
-        run: bash tests/gizclaw-e2e/run_rtp_bos_tests.sh
-      - name: Upload RTP BOS regression evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: rtp-bos-evidence
-          path: tests/gizclaw-e2e/.testbench/rtp-bos-*/reports/
-          include-hidden-files: true
-      - name: Verify slow TTS text delivery through local Server and Peer
-        run: bash tests/gizclaw-e2e/run_slow_tts_tests.sh
-      - name: Upload slow TTS regression evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: slow-tts-regression
-          path: tests/gizclaw-e2e/.testbench/slow-tts-*/reports/
-          include-hidden-files: true
-      - name: Verify speaker segments through local Server and Peer
-        run: bash tests/gizclaw-e2e/run_speaker_segment_tests.sh
-      - name: Upload speaker segment evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: speaker-segment-regression
-          path: tests/gizclaw-e2e/.testbench/speaker-segments-*/reports/
-          include-hidden-files: true
-      - name: Verify deterministic multi-role voice Giztests
-        run: go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedProviderSpeakerVoicesGiztest|EinoBranchMultiVoiceGiztest|MultiRole.*|SpeakerSegmentsGiztest)$' -count=1
-      - name: Verify native Giztest process isolation
-        run: python3 -B tests/gizclaw-e2e/setup/run_js_giztest_test.py
-
-  audio-turn-ownership:
-    name: Audio Turn Ownership Docker
-    runs-on: ubuntu-24.04
-    timeout-minutes: 30
-    permissions:
-      contents: read
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          lfs: true
-      - name: Set up Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
-        with:
-          go-version-file: go.mod
-          cache: true
-      - name: Set up Node.js
-        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1
-        with:
-          node-version: 26
-          cache: npm
-      - name: Verify audio turn ownership through Docker and real WebRTC
-        run: bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
-      - name: Retain audio turn ownership evidence
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: audio-turn-ownership-regression
-          path: tests/gizclaw-e2e/.testbench/audio-turn-ownership-*/reports/
-          include-hidden-files: true
+        run: xvfb-run -a bash tests/integration/sdk/run_device_management_tests.sh
 
   terraform-provider-e2e:
-    name: Terraform Provider E2E
+    name: Terraform Provider Integration
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -1230,4 +908,4 @@ jobs:
           terraform_version: "1.15.8"
           terraform_wrapper: false
       - name: Apply catalog selections through the provider against a real Server
-        run: bash tests/gizclaw-e2e/run_terraform_provider_tests.sh
+        run: bash tests/integration/terraform/run_tests.sh

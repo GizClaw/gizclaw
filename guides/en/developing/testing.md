@@ -5,16 +5,79 @@ still run according to the changed scope. Suites that require a build tag,
 Docker, live providers, or human judgment must be started explicitly and must
 not be reported as passing when they were not run.
 
-CI runs only tests that require no online database or live AI service. Database
-integration jobs provision temporary PostgreSQL, ClickHouse or PGVector instances;
-protocol and SDK E2E use isolated local services and deterministic provider fixtures.
-E2E and quality evaluations that need an online database, real model calls or provider
-credentials run explicitly on the local host, outside CI, including manual CI dispatch.
+## CI scope
+
+Pull requests, pushes to `main`, and manual dispatches of
+[CI](https://github.com/GizClaw/gizclaw/blob/main/.github/workflows/ci.yml)
+run compilation, unit tests, and host-native integration. CLI builds run natively
+on Linux amd64 and arm64. Integration services use native PostgreSQL 16 with
+`pg_partman 5.5.0` and a native Redis primary/read-only replica. Root Go and race
+suites require no cloud credentials or live model calls. Ordinary CI runs no
+Docker E2E.
+
+Docker harnesses remain available for explicit local execution; ordinary Go and
+race suites keep their native regressions. ClickHouse remains a supported
+storage/metrics backend; run its tests manually against a provisioned service.
+E2E and quality evaluations that need an online database, real model calls, or
+provider credentials also run explicitly on the local host, outside CI.
+
+Before committing changes to a service integration or Docker harness, run the
+corresponding local tests for the affected behavior. Keep these heavier checks
+outside ordinary push/PR CI. Record failures and unavailable prerequisites;
+checks that were not run must not be reported as passing.
+
+The separate release-tag workflow still builds and tests release artifacts using
+containers.
 
 E2E entrypoints that build the GizClaw CLI install the locked Node workspaces
 and build the embedded console before Go compilation, including container builds.
 No manual asset or manifest copy is required; standalone build prerequisites are
 documented in [Monitor](monitor).
+
+## Test layout and native entrypoints
+
+Repository harnesses use this layout. Unit and integration tests that need
+package-private access stay beside the implementation under `cmd/`, `pkgs/`,
+and `sdk/`.
+
+```text
+tests/
+├── integration/
+│   ├── store/
+│   ├── sdk/
+│   ├── terraform/
+│   └── audio/
+├── clients/           # js/, cgo/, flutter/, setup/
+├── evaluation/locomo/
+├── testsupport/       # shared test helpers and service startup scripts
+├── gizclaw-e2e/
+├── genx-e2e/
+└── giznet-e2e/
+```
+
+The three `*-e2e` suites remain self-contained manual harnesses. Shared SDK
+clients and their setup live under `tests/clients/`; native Terraform fixtures
+and their entrypoint live together under `tests/integration/terraform/`.
+Reusable test helpers and service startup scripts, including coturn, belong under
+`tests/testsupport/`. Fixed input files and samples stay in the owning suite's
+`testdata/` directory.
+
+Run native integration from the repository root:
+
+```sh
+bash tests/integration/store/run_native.sh postgres
+bash tests/integration/store/run_native.sh redis
+bash tests/integration/sdk/run_admission_tests.sh
+bash tests/integration/sdk/run_workspace_list_tests.sh
+bash tests/integration/sdk/run_device_management_tests.sh
+bash tests/integration/terraform/run_tests.sh
+```
+
+The Store entrypoint requires the selected backend's existing DSNs:
+`GIZCLAW_TEST_POSTGRES_DSN` for PostgreSQL, or `GIZCLAW_TEST_REDIS_DSN` and
+`GIZCLAW_TEST_REDIS_READ_DSN` for Redis. It does not provision services, Docker,
+or cloud resources. SDK and Terraform entries start native local Server fixtures
+and require their language/build tools. CI invokes these same entrypoints.
 
 ## Device errors from Model request bindings
 
@@ -59,9 +122,9 @@ Two fixed inputs run through the native Eino Graph, production Eino/GenX adapter
 
 ## Docker image sources
 
-Go, Runtime and Mem0 build bases, package-validation containers, third-party
-Docker E2E services and CI database service containers default to the GizClaw
-DCDN Registry at `gizcr.gizclaw.com`. Image paths include the upstream registry:
+Go, Runtime and Mem0 build bases, release package-validation containers, and
+local Docker E2E services default to the GizClaw DCDN Registry at
+`gizcr.gizclaw.com`. Image paths include the upstream registry:
 Docker Hub official images use `docker.io/library/`, and organization images
 use `docker.io/<organization>/`. For example:
 
@@ -172,7 +235,7 @@ The same binary runs `natural` without injection, then a `slow-connect` causal c
 With an existing local `GIZCLAW_TEST_POSTGRES_DSN` configured with `max_connections=300`, run reuse, capacity waiting, cancellation, Rows/Tx return and idle reclamation regressions. The reuse regression holds all 128 default-pool connections simultaneously, then checks that later bursts reuse the same PostgreSQL backends:
 
 ```sh
-go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/store-e2e
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/integration/store
 go test -count=1 -run '^TestPostgreSQLInputPermission' ./pkgs/gizclaw
 ```
 
@@ -206,7 +269,7 @@ remain separate acceptance work.
 Use isolated PostgreSQL 17 with `pg_partman 5.5.0` in schema `partman`, `max_connections=300`, and `GIZCLAW_TEST_POSTGRES_DSN`:
 
 ```sh
-go test -tags=store_e2e -count=1 -run '^TestPostgreSQLHistory' ./tests/store-e2e
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLHistory' ./tests/integration/store
 go test -count=1 ./pkgs/store/memory ./pkgs/gizclaw/services/ai/workspace
 go test -count=1 -run '^TestPostgreSQLHistory' ./cmd/internal/server ./pkgs/gizclaw
 ```
@@ -278,7 +341,7 @@ A transparent observer forwards requests to the real Ark HTTPS API without repla
 ## RegistrationToken admission and lifecycle
 
 ```sh
-bash tests/gizclaw-e2e/run_admission_tests.sh
+bash tests/integration/sdk/run_admission_tests.sh
 ```
 
 This fixed lane starts a real Server over temporary SQLite state with `peer-admission: registration-token`, provisions an administrative Peer, and creates resources through Admin HTTP. It needs no AI credentials or Docker. Go, Node, protoc, and Flutter are required; a missing runner fails. Linux requires a graphical session, `libpulse-dev`, and a running PulseAudio device for Flutter WebRTC initialization. CI starts a PulseAudio null sink, makes its monitor the default source, and runs the same script under `xvfb-run -a`.
@@ -287,7 +350,7 @@ The Go, JavaScript, Flutter, and C Giztest runners encode `registration_token` a
 
 The successful document under `tests/gizclaw-e2e/testdata/admission/` covers new registration, idempotent repeats, credential-free reconnect after exhausting capacity, and repeated registration. Negative documents and disabled/expired/exhausted resources require both runner failure and exactly one real Server `403 peer_forbidden` response. Startup failures, missing requests, and skipped documents do not pass. A standalone Go SDK case lives in `tests/gizclaw-e2e/go/admission/`; giznet WebRTC e2e additionally checks custom generic type/version values.
 
-The Admission SDK E2E CI job runs the complete lane. Ordinary Go tests run the Go Giztest scenarios. PostgreSQL Integration runs `TestPostgreSQLRegistrationTokenLifecycle`, covering old-schema migration, editable limits, idempotence, and independent connections racing for the last slot. SQLite runs equivalent lifecycle and independent-connection concurrency tests.
+The Native SDK Integration CI job runs the complete lane. Ordinary Go tests run the Go Giztest scenarios. PostgreSQL Integration runs `TestPostgreSQLRegistrationTokenLifecycle`, covering old-schema migration, editable limits, idempotence, and independent connections racing for the last slot. SQLite runs equivalent lifecycle and independent-connection concurrency tests.
 
 ### Concurrent RegistrationToken activation
 
@@ -323,7 +386,7 @@ its acceptance scope. The standard `run_tests.sh` keeps its original Compose fil
 credential preflight, resource initialization and default `open` behavior.
 Admission sets `PREBUILD_CLI=1` to compile the CLI once during image construction;
 all three services reuse the existing prebuilt entrypoint. This keeps cold builds
-outside readiness checks on small CI runners. Standard images still build at
+outside readiness checks on small local runners. Standard images still build at
 startup by default. Failures print the tail of all three service logs before
 project-scoped cleanup.
 
@@ -353,11 +416,12 @@ an overall fallback deadline. Existing Go/C ICE establishment retries remain val
 reconnect offers are counted relative to the block checkpoint, while forbidden
 handshakes still require exactly one refusal.
 
-Local execution requires Docker and all tools needed by the in-process lane. The
-Admission Docker E2E CI job uses Xvfb and a PulseAudio null sink without provider
-secrets. The entrypoint always creates its own `GIZCLAW_E2E_DOCKER_PROJECT` and env
-file. On success, failure or interruption, `setup/docker-compose-down.sh` removes
-only that project's containers, networks, volumes and runtime state.
+Local execution requires Docker and all tools needed by the in-process lane.
+On Linux, use Xvfb and a PulseAudio null sink for the Flutter runner. This Docker
+lane runs explicitly on the local host, outside ordinary CI. The entrypoint
+always creates its own `GIZCLAW_E2E_DOCKER_PROJECT` and env file. On success,
+failure or interruption, `setup/docker-compose-down.sh` removes only that
+project's containers, networks, volumes and runtime state.
 
 For manual stack startup, use
 `bash tests/gizclaw-e2e/setup/docker-compose-up.sh --admission`. This starts the stack
@@ -371,9 +435,9 @@ share `setup/docker-base.sh`. Unset source overrides preserve `Dockerfile.cn.bas
 CN defaults and existing CN image tag. Overrides use a separate `custom-base` tag
 and always evaluate the Docker build, so a cached CN image cannot hide changed
 sources; Docker layer caching still applies. `GIZCLAW_E2E_DOCKER_BASE_IMAGE` can
-select an explicit output tag. CI pulls Ubuntu through DCDN and uses the package
-sources below; APT selects
-`APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
+select an explicit output tag. For local execution with Ubuntu from DCDN and
+the package sources below, APT selects `APT_MIRROR` on amd64 and
+`APT_PORTS_MIRROR` on arm64:
 
 ```sh
 GIZCLAW_E2E_DOCKER_BASE_FROM=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
@@ -417,29 +481,35 @@ the DSN and runs this package. Each test cleans up only its own schema.
 
 ## Store E2E
 
-`tests/store-e2e` verifies Redis 7.0, PostgreSQL, and ClickHouse through exported Store APIs
+`tests/integration/store` verifies Redis 7.0, PostgreSQL, and ClickHouse through exported Store APIs
 without production-package-private test hooks. Every Go file in the directory
 uses the `store_e2e` build tag, so ordinary `go test ./...` neither selects these
 tests nor contacts an external database. Fast SQLite integration stays beside
 the corresponding package unit tests in a normal `*_test.go` file.
 
 Redis, PostgreSQL, and ClickHouse tests use `TestRedis...`, `TestPostgreSQL...`,
-and `TestClickHouse...` names respectively. CI selects only the backend provisioned by the current job;
-a selected backend fails rather than skips when its DSN is absent:
+and `TestClickHouse...` names respectively. CI selects Redis and PostgreSQL tests
+against native services provisioned by their jobs. ClickHouse storage and metrics
+remain supported; run ClickHouse tests manually against a provisioned service.
+A selected backend fails rather than skips when its DSN is absent:
 
 ```sh
 GIZCLAW_TEST_REDIS_DSN='redis://127.0.0.1:6379/15' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestRedis' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestRedis' ./tests/integration/store
 GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/integration/store
 GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestClickHouse' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestClickHouse' ./tests/integration/store
 ```
 
 Every test uses an isolated table name and performs best-effort cleanup. Errors,
 logs, and CI output must not print DSNs, database credentials, or Store payloads.
 
 The Redis gate uses two independent clients against one database and verifies cross-client visibility, ordering, expiration, batches, conditional-create races, compare-and-mutate races, prefix isolation, and connector lifecycle. The selected endpoint must be single-node Redis 7.0; Redis Cluster is outside the Store contract.
+
+Redis CI provisions a native primary and read-only replica for storage and
+presence contracts. The full Redis/LiveKit acceptance harness remains a local
+Docker entrypoint: `bash tests/integration/store/run_redis_readwrite_tests.sh`.
 
 The credential-free multi-Server Docker gate is:
 
@@ -530,22 +600,22 @@ GIZCLAW_OBJECTSTORE_PROVIDER=volc-tos \
 GIZCLAW_TOS_ENDPOINT=https://tos-cn-beijing.volces.com \
 GIZCLAW_TOS_REGION=cn-beijing GIZCLAW_TOS_BUCKET=... \
 GIZCLAW_TOS_ACCESS_KEY_ID=... GIZCLAW_TOS_ACCESS_KEY_SECRET=... \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 
 GIZCLAW_OBJECTSTORE_PROVIDER=aliyun-oss \
 GIZCLAW_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com \
 GIZCLAW_OSS_BUCKET=... GIZCLAW_OSS_ACCESS_KEY_ID=... \
 GIZCLAW_OSS_ACCESS_KEY_SECRET=... \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 
 GIZCLAW_OBJECTSTORE_PROVIDER=gcs GIZCLAW_GCS_BUCKET=... \
 GOOGLE_APPLICATION_CREDENTIALS=/secure/credentials.json \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 
 GIZCLAW_OBJECTSTORE_PROVIDER=azure-blob \
 GIZCLAW_AZURE_BLOB_ACCOUNT_URL=https://example.blob.core.windows.net \
 GIZCLAW_AZURE_BLOB_CONTAINER=... \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 ```
 
 TOS may additionally use `GIZCLAW_TOS_SESSION_TOKEN`; OSS may use
@@ -571,7 +641,7 @@ with `GIZCLAW_MEMORY_PROVIDER`:
 ```sh
 GIZCLAW_MEMORY_PROVIDER=volc-mem0 \
 GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
-  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/integration/store
 ```
 
 The Volc data-plane key selects the memory project, so use a key of a dedicated
@@ -587,7 +657,7 @@ docker run -d --rm -p 127.0.0.1:18000:8000 \
   -e MEM0_CREDENTIAL_FILE=/run/gizclaw-e2e.env \
   -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
 GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
-  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/integration/store
 ```
 
 An unset provider skips the test; an unknown provider or a missing required
@@ -608,33 +678,33 @@ records how many purge rounds verification needed.
 To verify duplicate batch reads against residual secondary locks:
 
 ```sh
-bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
+bash tests/integration/store/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
 ```
 
-This entrypoint reuses the isolated three-voter presence benchmark fixture without running load or exposing host ports. It prewrites a real transaction, rolls back only its primary and verifies that its secondary remains locked. Claim-shaped mutations, compare-and-set, compare-and-delete and duplicate batch reads must issue unique BatchGet/ResolveLock keys, complete cleanup and return correct, independently owned values. All three voters must advance their safe timestamps past the operations, remain running with zero restarts, and produce no FATAL log. Evidence stays in the supplied new directory; cleanup affects only this Compose project. The `TiKV Learner Presence` CI gate runs this regression. Artificial residual locks do not identify the first production transaction or establish natural reproduction through complete connection churn.
+This entrypoint reuses the isolated three-voter presence benchmark fixture without running load or exposing host ports. It prewrites a real transaction, rolls back only its primary and verifies that its secondary remains locked. Claim-shaped mutations, compare-and-set, compare-and-delete and duplicate batch reads must issue unique BatchGet/ResolveLock keys, complete cleanup and return correct, independently owned values. All three voters must advance their safe timestamps past the operations, remain running with zero restarts, and produce no FATAL log. Evidence stays in the supplied new directory; cleanup affects only this Compose project. Run this Docker regression explicitly on the local host, outside ordinary CI. Artificial residual locks do not identify the first production transaction or establish natural reproduction through complete connection churn.
 
 ```sh
-bash tests/store-e2e/run_tikv_tests.sh
+bash tests/integration/store/run_tikv_tests.sh
 ```
 
 To run only shared presence against a real TiKV Learner:
 
 ```sh
-bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+bash tests/integration/store/run_tikv_tests.sh .testbench/tikv-presence --presence-only
 ```
 
-PD verifies the center voter and regional Learner roles before production `peerpresence.ReadBatch` reads five-second historical snapshots. The fixture advances resolved timestamps every second. Ten online Peers sharing one Server and application Region use eleven distinct keys in two successful Learner RPCs. Sixteen callers complete 160 pages. Frozen Raft replication preserves old online/room state until replication resumes. Test-only TCP proxies stall actual TiKV responses to verify a shared two-second page budget and a shorter 75 ms caller deadline. This CI gate covers KV and presence; Redis separately covers real Social RPC/WebRTC/LiveKit. Neither gate establishes WAN performance or production capacity.
+PD verifies the center voter and regional Learner roles before production `peerpresence.ReadBatch` reads five-second historical snapshots. The fixture advances resolved timestamps every second. Ten online Peers sharing one Server and application Region use eleven distinct keys in two successful Learner RPCs. Sixteen callers complete 160 pages. Frozen Raft replication preserves old online/room state until replication resumes. Test-only TCP proxies stall actual TiKV responses to verify a shared two-second page budget and a shorter 75 ms caller deadline. This local Docker gate covers KV and presence. Redis CI uses native primary/replica services for storage and presence contracts; real Social RPC/WebRTC/LiveKit E2E runs explicitly through local Docker harnesses. These tests do not establish WAN performance or production capacity.
 
 Migration tests use a real Redis 8.4.6 primary in the same fixture to verify binary/empty values, absolute TTLs, Sets/zero-score Sorted Sets, paged large collections, interrupted-import recovery, destination write protection, bidirectional verification and the actual CLI across a configuration cutover. Redis is also pinned by digest through gizcr. To run only migration-related tests:
 
 ```sh
-bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migration-only
+bash tests/integration/store/run_tikv_tests.sh .testbench/redis-tikv-migration --migration-only
 ```
 
 This mode retains real PD, the center voter and regional Learner. A separate deadline gate directly compares Redis absolute expiration with the stored TiKV deadline rather than inferring TTL preservation from sleep thresholds.
 
 
-This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft, with a 128 MiB block cache, so production defaults do not classify small CI filesystems as full. Both TiKV containers set soft and hard `nofile` limits to 262144 to satisfy TiKV startup checks independently of host defaults. No host ports are exposed. Tests verify placement rules and every Region's leader/Learner identities through PD. Failed CI runs retain startup, cluster, test and topology diagnostics for seven days.
+This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft, with a 128 MiB block cache, so production defaults do not classify small local filesystems as full. Both TiKV containers set soft and hard `nofile` limits to 262144 to satisfy TiKV startup checks independently of host defaults. No host ports are exposed. Tests verify placement rules and every Region's leader/Learner identities through PD. Local runs retain startup, cluster, test and topology diagnostics in the evidence directory.
 
 The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Ordinary reads must still return the old assignment, active Peer, and revoked key. Real `peerroute`, Peer deletion-handler, and API key services must use strong reads for first claims, version refreshes, pending-deletion fences, permanent tombstones, revocation, and owner retirement. Successful stale RPCs must reach the regional Learner; strong reads must reach the central leader. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 
@@ -713,13 +783,9 @@ tests/gizclaw-e2e/
 ├── docker/      # Compose services and container entrypoints
 ├── setup/       # environment lifecycle and seed scripts
 ├── testdata/    # committed identities/resources and ignored runtime output
-├── cgo/         # cgo tests and the Giztest runner whose clients are the C SDKs
 ├── cmd/         # real gizclaw CLI tests
 ├── giztest/     # declarative Peer RPC, Workflow, and benchmark scenarios
-├── go/          # focused Admin, delete, Edge, and OpenAI tests
-├── terraform/   # Terraform provider against a real Server
-├── js/          # JavaScript/TypeScript WebRTC tests and giztest runner
-└── flutter/     # Flutter/Dart giztest runner
+└── go/          # focused Admin, delete, Edge, and OpenAI tests
 ```
 
 `workflow_catalog_test.go` below `tests/gizclaw-e2e/testdata` holds static
@@ -831,10 +897,10 @@ The shared Workspace list scenario is `server.workspace.list.giztest.yaml`. It c
 
 ```sh
 go test ./cmd/internal/server -run '^TestWorkspaceListGiztestGo$' -count=1
-bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+bash tests/integration/sdk/run_workspace_list_tests.sh
 ```
 
-The first runs with ordinary Go tests. The second runs Go, JavaScript, C and native Flutter runners against temporary Server, Edge and SQLite state over real WebRTC; CI also executes it in Admission SDK E2E. The C SDK smoke test separately builds three-state nanopb requests and exercises `gzc_rpc_request_start` / `gzc_rpc_request_result`, inspecting selector presence, cursor, limit and prefix inside the actual request envelope, plus empty terminal-page and Profile identity decoding. These tests start no Agent, external model or SFU media connection, and do not replace LiveKit media or H106 hardware acceptance.
+The first runs with ordinary Go tests. The second runs Go, JavaScript, C and native Flutter runners against temporary Server, Edge and SQLite state over real WebRTC; CI also executes it in Native SDK Integration. The C SDK smoke test separately builds three-state nanopb requests and exercises `gzc_rpc_request_start` / `gzc_rpc_request_result`, inspecting selector presence, cursor, limit and prefix inside the actual request envelope, plus empty terminal-page and Profile identity decoding. These tests start no Agent, external model or SFU media connection, and do not replace LiveKit media or H106 hardware acceptance.
 
 The shared firmware metadata scenario is `server.firmware.metadata.get.giztest.yaml`.
 It covers objects, strings, arrays, numbers, booleans, explicit null, large integer precision,
@@ -979,9 +1045,9 @@ SDK:
 | Runner | Entry point | Device side | Controller side |
 | --- | --- | --- | --- |
 | Go | `gizclaw test run` | `sdk/go/gizcli` | HTTP inside the runner |
-| JavaScript | `npm run giztest -- run` (`tests/gizclaw-e2e/js/giztest/index.ts`) | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
-| Flutter | the built `giztest` desktop binary (`tests/gizclaw-e2e/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
-| C | the built `giztest-c` binary (`tests/gizclaw-e2e/cgo/giztest`) | `sdk/c/gizclaw` through cgo | `sdk/c/gizclaw_control` |
+| JavaScript | `npm run giztest -- run` (`tests/clients/js/giztest/index.ts`) | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
+| Flutter | the built `giztest` desktop binary (`tests/clients/flutter/giztest`) | `gizclaw` | `gizclaw_control` |
+| C | the built `giztest-c` binary (`tests/clients/cgo/giztest`) | `sdk/c/gizclaw` through cgo | `sdk/c/gizclaw_control` |
 
 All four support `validate -f <path>` and `run <path> --parallel N` and write the
 same report JSON structure. The Go CLI uses `--report <file>` for aggregate JSON
@@ -1039,8 +1105,8 @@ AST consecutive-turn regressions live in
 Chinese audio once and replays it for three Chinese-to-French turns in one
 Workspace, retaining a 30-second `idle_timeout` and requiring nonempty text,
 audio, and matching response EOS boundaries. The standard discovery rules in
-`run_tests.sh` execute both files; CI's Release Contract job validates their
-documents. Live Volc calls require the standard Docker fixtures and credentials.
+`run_tests.sh` execute both files; CI's `Native Build` job validates their
+documents with `test validate`. Live Volc calls require the standard Docker fixtures and credentials.
 Authorization blocking, abnormal AST closure, and CLI completion regressions run
 under ordinary `go test` without credentials. Set `GIZCLAW_TEST_ENDPOINT` to test
 the direct Server or Edge entrypoint separately; a direct pass does not verify Edge.
@@ -1301,7 +1367,7 @@ transcripts.
 
 The corresponding JavaScript Client WebRTC integration regression runs in the
 `audio-reload` mode of
-`tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts`. It
+`tests/clients/js/streams/peer_conversation_lifecycle_e2e.test.ts`. It
 activates the SDK's `createContinuousAudioRouteRearm` owner on the same Event
 channel. The owner installs and removes its own Event subscription; Client code
 does not dispatch EOS events into it. It keeps the realtime user-audio route and
@@ -1952,7 +2018,7 @@ diversity, production Coturn/deployment capacity, 1,000-session soak, or the
 
 ## LoCoMo Memory Evaluation
 
-`tests/locomo-e2e` is a GizClaw-owned manual evaluation of production
+`tests/evaluation/locomo` is a GizClaw-owned manual evaluation of production
 `memory.Store` implementations. It does not use Eino's evaluator and is
 not part of ordinary `go test ./...`, Docker E2E, or required CI. Each live Go
 test owns its complete provider, memory-lane, and extraction configuration.
@@ -1971,12 +2037,12 @@ or placeholder values fail, and unselected backend variables are not inspected:
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoVolcAgentKit(Default|ProtocolSmoke)$' ./tests/locomo-e2e
+  -run '^TestLoCoMoVolcAgentKit(Default|ProtocolSmoke)$' ./tests/evaluation/locomo
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-tests/locomo-e2e/run_docker.sh mem0
-tests/locomo-e2e/run_docker.sh mem0-pgvector
-tests/locomo-e2e/run_docker.sh all
+  -run '^TestLoCoMoMem0Platform' ./tests/evaluation/locomo
+tests/evaluation/locomo/run_docker.sh mem0
+tests/evaluation/locomo/run_docker.sh mem0-pgvector
+tests/evaluation/locomo/run_docker.sh all
 ```
 
 Use `.env.example` as a variable inventory and inject values through the
@@ -2022,7 +2088,7 @@ Model names must be available to the selected account. Override `GIZCLAW_LOCOMO_
 ```sh
 GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=deepseek-chat \
 GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
-  tests/locomo-e2e/run_docker.sh mem0-pgvector
+  tests/evaluation/locomo/run_docker.sh mem0-pgvector
 ```
 
 Set `GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY` and
@@ -2041,7 +2107,7 @@ GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3 \
 GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=doubao-seed-2-1-turbo-260628 \
 GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING=disabled \
 GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
-  tests/locomo-e2e/run_docker.sh mem0-pgvector
+  tests/evaluation/locomo/run_docker.sh mem0-pgvector
 ```
 
 The PG lane reads the actual extraction model, Mem0 LLM provider, thinking mode,
@@ -2061,11 +2127,20 @@ stores, and one materialized fact per selected session. Provider failures and
 timeouts remain failures. Ignored `reports/` output contains IDs, scores, and
 timings, but no conversation, question, answer, prediction, or recalled text.
 
-Regression checks have two layers. `tests/locomo-e2e/run_regression.sh` requires no model credentials: it runs Go fixture/scoring/regression tests, Python HTTP/config tests, and real PostgreSQL checks for known-vector similarity conversion, filtering/ranking, and scope isolation. CI runs this entrypoint as `Mem0 PGVector Regression`; passing it does not establish live model quality.
+Regression checks have two layers. CI's `Mem0 Contract Tests` invokes
+`bash tests/evaluation/locomo/run_offline.sh` for Go Mem0 and LoCoMo
+fixture/scoring/regression contracts and code-generation checks, without Docker
+or model credentials. For local integration,
+`tests/evaluation/locomo/run_regression.sh` calls that offline entrypoint first,
+then runs Docker-backed Python HTTP/config and real PostgreSQL checks for
+known-vector similarity conversion, filtering/ranking, and scope isolation.
+The Docker regression is explicit local validation outside CI; `run_docker.sh`
+remains the live-provider evaluation entrypoint. Passing either regression layer
+does not establish live model quality.
 
 Doubao `doubao-embedding-vision-251215` accepts text through Ark `/embeddings/multimodal`. Set `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal` and explicitly provide the Ark embedding key/base URL, model, and 1024 or 2048 dimensions. Each text is one request, preserving one vector per batch input. Corpus/query instructions differ and their fingerprint enters reports. Provider errors or invalid vectors cannot become successful empty writes. Changing embedders requires regenerating vectors in a separate collection; Qwen and Doubao vectors cannot be mixed.
 
-Run complete conv-30 quality evaluation explicitly on the local host with `tests/locomo-e2e/run_docker.sh mem0-pgvector`, configuring model credentials as described here and retaining redacted JSON. CI neither calls real models nor provides a manual trigger for live model evaluation. Conv-30 is not the complete ten-conversation LoCoMo benchmark.
+Run complete conv-30 quality evaluation explicitly on the local host with `tests/evaluation/locomo/run_docker.sh mem0-pgvector`, configuring model credentials as described here and retaining redacted JSON. CI neither calls real models nor provides a manual trigger for live model evaluation. Conv-30 is not the complete ten-conversation LoCoMo benchmark.
 
 Self-hosted LoCoMo uses `sdk/go/mem0` health checks and the production adapter
 with generated request DTOs/HTTP clients. PG instructions travel as request-local
@@ -2077,7 +2152,7 @@ Start a dedicated test Mem0/PG instance and set its URL:
 GIZCLAW_MEM0_LOAD=1 \
 GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL=http://127.0.0.1:18001 \
 go test -tags gizclaw_locomo_e2e -timeout 20m -count=1 -v \
-  -run '^TestMem0SDKConcurrentLoad$' ./tests/locomo-e2e
+  -run '^TestMem0SDKConcurrentLoad$' ./tests/evaluation/locomo
 ```
 
 Defaults offer 32 writes/s and 12 reads/s, warm up for 10 seconds and measure
@@ -2095,10 +2170,10 @@ Live reports record SDK/models, the requested service tier, extraction-policy an
 
 ```sh
 # Deterministic checks; no model credentials required.
-tests/locomo-e2e/run_regression.sh
+tests/evaluation/locomo/run_regression.sh
 # Live quality regression; retain the baseline model settings.
 GIZCLAW_LOCOMO_E2E_BASELINE_REPORT=/path/to/prior-report.json \
-  tests/locomo-e2e/run_docker.sh mem0-pgvector
+  tests/evaluation/locomo/run_docker.sh mem0-pgvector
 ```
 
 Token F1 and observation-provenance hit are repository metrics, not the official permissive LLM judge score. Provenance identifies the Observe input; Mem0 provides no exact per-fact citations, so this is not a manually verified evidence-recall rate.
@@ -2120,10 +2195,10 @@ The upstream project publishes one `data/locomo10.json` file rather than a
 369 turns, and 105 questions. Select it without changing the smoke default:
 
 ```sh
-GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
+GIZCLAW_LOCOMO_E2E_DATASET=tests/evaluation/locomo/testdata/locomo10_conv30.jsonl \
 ```
 
-`tests/locomo-e2e/cmd/fixturegen` reproducibly converts one conversation from
+`tests/evaluation/locomo/cmd/fixturegen` reproducibly converts one conversation from
 the pinned upstream JSON into the JSONL contract and writes its manifest. The
 generator requires the expected upstream SHA-256 and refuses drift; each
 manifest records the source commit/hash, selected IDs, transformation, license,
@@ -2142,7 +2217,7 @@ Offline validation:
 ```sh
 go test -race -tags gizclaw_locomo_e2e \
   -run 'TestDataset|TestScore|TestAdversarial|TestAggregate|TestPreflight|TestRedaction|TestSession|TestRunBenchmark|TestAwait' \
-  ./tests/locomo-e2e
+  ./tests/evaluation/locomo
 git lfs fsck
 ```
 
@@ -2185,10 +2260,11 @@ assertion.
 The runner uses an internal Docker network, read-only source/module mounts and
 a separate build cache, and removes its container and network on exit. Image
 identity, architecture, source hashes, Go JSON results and Giztest reports are
-retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The runner sets `GOTMPDIR` to the tmpfs root for the executed test binaries while compilation uses its disk work directory. The transport test verifies that `testing.TempDir()` stays beneath that root. The real service stack keeps its PostgreSQL/TiKV stores. Both the standard
-`tests/gizclaw-e2e/run_tests.sh` entry point and CI Audioplayer job execute this
-lane. The standard full entry point continues with real Provider suites;
-retain their evidence separately from the deterministic fixtures.
+retained under `.testbench/audio-turn-ownership-*/reports/`. Protocol fixtures use container tmpfs for temporary SQLite and audio files; build output and reports retain their separate disk paths. The runner sets `GOTMPDIR` to the tmpfs root for the executed test binaries while compilation uses its disk work directory. The transport test verifies that `testing.TempDir()` stays beneath that root. The real service stack keeps its PostgreSQL/TiKV stores. The standard
+`tests/gizclaw-e2e/run_tests.sh` entry point executes this Docker lane locally.
+Ordinary CI keeps the native contract and transport regressions in the Go and
+race suites. The standard full local entry point continues with real Provider
+suites; retain their evidence separately from the deterministic fixtures.
 
 ## Continuous narration and per-section History Giztest
 
@@ -2254,8 +2330,8 @@ go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedP
 
 The suite shares the fake provider in `voice_fixture_test.go` while retaining real
 Eino factories, AudioDock, the Go Giztest runner and CLI receiver. No
-external network, credentials or Docker are required. Audioplayer Giztest runs the
-whole suite after building Console assets, reusing its audio test environment.
+external network, credentials or Docker are required. Ordinary Go and race CI
+runs this suite after building Console assets.
 
 - `eino-voices/multi-turn.giztest.yaml` runs four Eino turns whose Starlark selector
   prefixes each reply with a `【speaker】` marker selected through `speaker_voices`.
@@ -2343,12 +2419,12 @@ This lane neither reads cloud E2E credentials nor validates cloud TLS IAM permis
 
 ### Terraform provider
 
-`bash tests/gizclaw-e2e/run_terraform_provider_tests.sh` starts an isolated real Server from the shared workspace fixture and needs no model/provider credentials, only a `terraform` CLI on `PATH` (or named by `GIZCLAW_E2E_TERRAFORM`). It builds `terraform-provider-gizclaw` with `CGO_ENABLED=0` into a filesystem mirror and installs it through `provider_installation` with `terraform init`. Resources are checked on the Server with `gizclaw admin show`. It runs two tests:
+`bash tests/integration/terraform/run_tests.sh` starts an isolated real Server from the shared workspace fixture and needs no model/provider credentials, only a `terraform` CLI on `PATH` (or named by `GIZCLAW_E2E_TERRAFORM`). It builds `terraform-provider-gizclaw` with `CGO_ENABLED=0` into a filesystem mirror and installs it through `provider_installation` with `terraform init`. Resources are checked on the Server with `gizclaw admin show`. It runs two tests:
 
-- `TestTerraformProviderAppliesCatalogSelection` resolves `gizclaw_catalog` from the layered fixtures under `tests/gizclaw-e2e/terraform/testdata` and applies the selection with `gizclaw_resource`. It checks override precedence, unselected entries, raid testers, `overridden_ids`, and `raids`, then a no-change refresh plan, a catalog edit, deselection deletes, and `terraform destroy`.
+- `TestTerraformProviderAppliesCatalogSelection` resolves `gizclaw_catalog` from the layered fixtures under `tests/integration/terraform/testdata` and applies the selection with `gizclaw_resource`. It checks override precedence, unselected entries, raid testers, `overridden_ids`, and `raids`, then a no-change refresh plan, a catalog edit, deselection deletes, and `terraform destroy`.
 - `TestTerraformProviderResourceLifecycle` manages one resource of every Admin-appliable kind: Credential, the six provider Tenants, Model, Voice, MemoryLayout, Workflow, Tool, Firmware, RuntimeProfile, RegistrationToken, Contact, Friend, FriendGroup, FriendGroupMember, and FriendGroupInviteToken. Every kind goes through create, update, a no-change refresh, and import. Refresh must detect out-of-band changes (Credential specs, which the Server never returns, stay configured) and out-of-band deletes, and apply restores them. The test also covers `input_revision`, explicit `api_version`, replacement on `resource_id` change, environment placeholder expansion and a missing variable, provider-side and Server-side rejections, a Server restart, idempotent destroy, version 0 state upgrade, and `gizclaw_catalog` with the Server stopped.
 
-The Server gets a placeholder SFU URL so Friend and Friend Group resources can bind their Room identity; nothing listens there. Workspace is Peer-owned and only its Admin rejection is checked. The `endpoint` override is not exercised because it requires https. The dedicated CI job and the full gate run this same entrypoint.
+The Server gets a placeholder SFU URL so Friend and Friend Group resources can bind their Room identity; nothing listens there. Workspace is Peer-owned and only its Admin rejection is checked. The `endpoint` override is not exercised because it requires https. The `Terraform Provider Integration` CI job runs this entrypoint natively without Docker; the full local gate also runs it.
 
 ### GNSS reporting invoke Giztest
 
@@ -2373,7 +2449,7 @@ go test ./cmd/internal/server -run '^TestGNSSReportingGiztestGo$' -count=1
 
 ### Audioplayer Giztest
 
-`bash tests/gizclaw-e2e/run_audioplayer_tests.sh` starts an isolated real Server and Edge with SQLite runtime storage and no model/provider credentials. It runs the six `server.device.audioplayer.*` scenarios and always cleans up its containers and ephemeral identities; reports remain under the ignored `.testbench` directory. The dedicated CI job runs this same entrypoint.
+`bash tests/gizclaw-e2e/run_audioplayer_tests.sh` starts an isolated real Server and Edge with SQLite runtime storage and no model/provider credentials. It runs the six `server.device.audioplayer.*` scenarios and always cleans up its containers and ephemeral identities; reports remain under the ignored `.testbench` directory. Run this Docker entrypoint explicitly on the local host, outside ordinary CI.
 
 Scripted device providers test HTTP authorization, validation, reverse RPC, playlist contracts and snapshot projection; they do not download or play music. The five control scenarios are supported by Go, JavaScript, Flutter and C runners. The separate `telemetry` step sends a protobuf-JSON `frame` with the Go device SDK over the actual packet channel; other runners explicitly skip this operation. Packet acceptance is not persistence: the telemetry scenario polls `server.status.get`, then checks HTTP status for progress, errors, stale-observation protection and OTA coexistence. It does not add a Dart telemetry transport or claim hardware playback acceptance.
 
@@ -2385,8 +2461,8 @@ identities and SQLite without provider credentials. The `testdata/rtp-bos/` buil
 overlay supplies deterministic ASR/TTS with BOS attached to the first audio frame,
 and delays receiver audio BOS processing by 200 ms while RTP reading continues.
 The scenario checks complete audio, BOS/EOS, one active stream, zero integrity
-violations and packet pacing. The Audioplayer CI job runs the same entry point
-and uploads `.testbench/rtp-bos-*/reports/`. This is not a cloud model performance
+violations and packet pacing. Run this Docker entrypoint locally; reports remain
+under `.testbench/rtp-bos-*/reports/`. This is not a cloud model performance
 or physical device acceptance test.
 
 ## Local slow TTS regression
@@ -2403,9 +2479,9 @@ these delays.
 `slow-tts.*.giztest.yaml` covers Eino push-to-talk, Eino realtime and Eino
 realtime. First-response steps retain the 2-second text deadline; a separate
 Peer with the same workflow checks text/audio EOS, nonempty audio, overlap and pacing. Realtime
-turns reuse the session to replace input during earlier TTS startup. CI runs this
-suite in the Audioplayer Giztest job. The standard provider-backed runner excludes
-these dedicated fixtures. Reports remain in `.testbench/slow-tts-*/reports/`; exit
+turns reuse the session to replace input during earlier TTS startup. Run this
+Docker suite explicitly on the local host. The standard provider-backed runner
+excludes these dedicated fixtures. Reports remain in `.testbench/slow-tts-*/reports/`; exit
 cleanup removes containers, the image and temporary runtime state.
 
 ### Client teardown and output acknowledgement regression
@@ -2418,7 +2494,7 @@ Reports and identity mappings remain in the permission-restricted ignored `.test
 
 ### Speaker segment regression
 
-Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs both Eino Graph configurations without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The Audioplayer Giztest CI job runs both gates.
+Deterministic tests use distinguishable Opus voices to verify five ordered segments, exact audio digests, stripped text, a single stream and `audio_pacing.underruns=0`. The Docker runner starts local Server/Edge on an internal network with a test-only provider overlay and runs both Eino Graph configurations without credentials. Containers are cleaned up; reports remain under `.testbench/speaker-segments-*/reports/`. The native Go regression runs in ordinary Go and race CI; run the Docker gate explicitly on the local host.
 
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
@@ -2595,7 +2671,11 @@ bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
 
 This isolated Docker lane builds the current Server and test binaries, runs shared Redis plus a real read-only replica and two independent PostgreSQL/Server instances, and invokes Admin APIs over WebRTC. Each PostgreSQL cluster uses a separate 512 MiB tmpfs data directory. It checks actual SQL rows, file objects, task/marker/locator/plan/index removal and permanent tombstone/route/API-key fences. Cases cover Firmware projection, normal cleanup, automatic failed recovery on both homes with no operator retry, a multi-page backlog past unsafe records, repeated scans/calls, foreign/unknown home, replacement, omitted home data and unrelated data preservation. The runner kills the home Server while a real SQL row lock blocks binding deletion, then verifies expired-lease recovery and startup discovery of a persisted legacy failure. The foreign Server leaves that failed task unchanged while its home is stopped. Another case disconnects replication and verifies authoritative management and cleanup reads.
 
-CI runs the same entry point in the `Regional PendingDeletion Recovery` job for every PR and main push, retaining redacted test logs as an artifact. Server and test containers use the host user's UID/GID so generated state and assets can be cleaned up on Linux. Ordinary Go and race jobs also cover conditional recovery, paging, shared worker progress, and unchanged failed state after probe errors, timeouts, cancellation and panics.
+Run this Docker entrypoint explicitly on the local host, outside ordinary CI.
+Server and test containers use the host user's UID/GID so generated state and
+assets can be cleaned up on Linux. Ordinary Go and race jobs retain conditional
+recovery, paging, shared worker progress, and unchanged failed state after probe
+errors, timeouts, cancellation and panics.
 
 Fixtures have no Memory binding. This lane does not establish Mem0 Cloud, VolcMem0 or self-hosted Mem0 provider deletion, nor completion of distributed Social Workspace replicas. Unsupported scopes remain retained. The runner uses only its generated Compose project, removes containers, volumes, binaries and configuration on exit, and retains ignored `.testbench` evidence logs.
 
@@ -2631,8 +2711,8 @@ Server's persisted completion record. The shared Monitor Giztest also requires
 nonempty fields across log pages. Assertions express the correct contract;
 failures return a nonzero exit status and do not count as passes. Giztest JSON,
 test output and redacted container logs remain in the run's `.testbench` directory.
-The full `run_tests.sh` includes this mode and the Monitor Giztests. Regional
-PendingDeletion Recovery CI runs both regional recovery acceptance and this regression mode.
+The full local `run_tests.sh` includes this mode and the Monitor Giztests.
+These Docker acceptance runs are explicit local validation, outside ordinary CI.
 For the initial PostgreSQL extension build, `GIZCLAW_E2E_DEBIAN_MIRROR` may select
 a Debian mirror root URL, such as `http://mirrors.tuna.tsinghua.edu.cn`.
 Use an HTTP mirror with the pinned base image, which lacks CA certificates.
@@ -2645,7 +2725,7 @@ The standard Docker entry point gives each JavaScript and Flutter document its o
 at most four processes running together. Each document executes completely; process exit and report
 status must agree, and a 600-second external process limit bounds native calls.
 
-`tests/gizclaw-e2e/run_device_management_tests.sh` starts temporary real Server/Edge services without model
+`tests/integration/sdk/run_device_management_tests.sh` starts temporary real Server/Edge services without model
 credentials. Device management and Peer control Edge fixtures select one port for HTTP TCP and ICE UDP, checking that both protocols can bind before startup. An available TCP port alone does not establish UDP availability. `TestDeviceManagementGiztestsGo` runs all eleven new management tools through discovery, typed
 arguments, false/zero results, applied responses, rejection, unsupported tools and invalid-result/argument
 scenarios. Modem/NFC cases cover unknown versus false, writes, cached failed attempts and independent

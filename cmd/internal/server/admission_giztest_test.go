@@ -17,7 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
 	"github.com/GizClaw/gizclaw-go/sdk/go/gizcli"
-	"github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/admissiontest"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/admissiontest"
 )
 
 func TestAdmissionGiztestGo(t *testing.T) {

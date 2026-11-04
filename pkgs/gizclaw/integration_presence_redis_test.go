@@ -28,7 +28,7 @@ func TestIntegrationSharedRedisPresence(t *testing.T) {
 	for _, name := range []string{"GIZCLAW_TEST_REDIS_READ_DSN", "GIZCLAW_TEST_REDIS_DSN"} {
 		url := os.Getenv(name)
 		if url == "" {
-			t.Fatalf("%s is required; run tests/store-e2e/run_redis_readwrite_tests.sh", name)
+			t.Fatalf("%s is required; run tests/integration/store/run_redis_readwrite_tests.sh", name)
 		}
 		options, err := redis.ParseURL(url)
 		if err != nil {
@@ -47,7 +47,7 @@ func TestIntegrationSharedRedisPresence(t *testing.T) {
 	sfuConfig := sfu.Config{URL: os.Getenv("GIZCLAW_TEST_LIVEKIT_URL"),
 		APIKey: os.Getenv("GIZCLAW_TEST_LIVEKIT_API_KEY"), APISecret: os.Getenv("GIZCLAW_TEST_LIVEKIT_API_SECRET")}
 	if sfuConfig.URL == "" || sfuConfig.APIKey == "" || sfuConfig.APISecret == "" {
-		t.Fatal("LiveKit environment is required; run tests/store-e2e/run_redis_readwrite_tests.sh")
+		t.Fatal("LiveKit environment is required; run tests/integration/store/run_redis_readwrite_tests.sh")
 	}
 	start := func(endpoint string) (*testServer, string) {
 		ts := startConfiguredTestServer(t, "", func(s *gizclaw.Server) {

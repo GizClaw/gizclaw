@@ -21,7 +21,7 @@ func TestPeerSyncSDKGiztests(t *testing.T) {
 		name    string
 		command []string
 	}{
-		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts")}},
+		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/clients/js/giztest/index.ts")}},
 		{"Flutter", []string{os.Getenv("GIZCLAW_SYNC_FLUTTER_RUNNER")}},
 	} {
 		t.Run(runner.name, func(t *testing.T) {

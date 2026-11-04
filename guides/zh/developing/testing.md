@@ -3,13 +3,77 @@
 本页说明仓库级测试 harness。普通 Go 单元测试仍按改动范围运行；带 build tag、
 Docker、真实 provider 或人工判断的套件必须显式启动，不能把未运行记作通过。
 
-CI 只执行无需线上数据库和真实 AI 服务的测试。数据库集成使用 job 自建的临时
-PostgreSQL、ClickHouse 或 PGVector；协议与 SDK E2E 使用隔离的本地服务和确定性
-provider fixture。依赖线上数据库、真实模型调用或 provider 凭据的 E2E 与质量评测
-只能在本地显式启动，不加入 CI，包括手动触发的 CI。
+## CI scope
+
+Pull requests, pushes to `main`, and manual dispatches of
+[CI](https://github.com/GizClaw/gizclaw/blob/main/.github/workflows/ci.yml)
+run compilation, unit tests, and host-native integration. CLI builds run natively
+on Linux amd64 and arm64. Integration services use native PostgreSQL 16 with
+`pg_partman 5.5.0` and a native Redis primary/read-only replica. Root Go and race
+suites require no cloud credentials or live model calls. Ordinary CI runs no
+Docker E2E.
+
+Docker harnesses remain available for explicit local execution; ordinary Go and
+race suites keep their native regressions. ClickHouse remains a supported
+storage/metrics backend; run its tests manually against a provisioned service.
+E2E and quality evaluations that need an online database, real model calls, or
+provider credentials also run explicitly on the local host, outside CI.
+
+Before committing changes to a service integration or Docker harness, run the
+corresponding local tests for the affected behavior. Keep these heavier checks
+outside ordinary push/PR CI. Record failures and unavailable prerequisites;
+checks that were not run must not be reported as passing.
+
+The separate release-tag workflow still builds and tests release artifacts using
+containers.
 
 构建 GizClaw CLI 的 E2E 入口会在 Go 编译前安装锁定的 Node workspace 并构建内嵌控制台，
 包括在 Docker 内编译的入口。产物与嵌入清单无需手动复制；独立编译命令的准备步骤见 [Monitor](monitor)。
+
+## Test layout and native entrypoints
+
+Repository harnesses use this layout. Unit and integration tests that need
+package-private access stay beside the implementation under `cmd/`, `pkgs/`,
+and `sdk/`.
+
+```text
+tests/
+├── integration/
+│   ├── store/
+│   ├── sdk/
+│   ├── terraform/
+│   └── audio/
+├── clients/           # js/, cgo/, flutter/, setup/
+├── evaluation/locomo/
+├── testsupport/       # shared test helpers and service startup scripts
+├── gizclaw-e2e/
+├── genx-e2e/
+└── giznet-e2e/
+```
+
+The three `*-e2e` suites remain self-contained manual harnesses. Shared SDK
+clients and their setup live under `tests/clients/`; native Terraform fixtures
+and their entrypoint live together under `tests/integration/terraform/`.
+Reusable test helpers and service startup scripts, including coturn, belong under
+`tests/testsupport/`. Fixed input files and samples stay in the owning suite's
+`testdata/` directory.
+
+Run native integration from the repository root:
+
+```sh
+bash tests/integration/store/run_native.sh postgres
+bash tests/integration/store/run_native.sh redis
+bash tests/integration/sdk/run_admission_tests.sh
+bash tests/integration/sdk/run_workspace_list_tests.sh
+bash tests/integration/sdk/run_device_management_tests.sh
+bash tests/integration/terraform/run_tests.sh
+```
+
+The Store entrypoint requires the selected backend's existing DSNs:
+`GIZCLAW_TEST_POSTGRES_DSN` for PostgreSQL, or `GIZCLAW_TEST_REDIS_DSN` and
+`GIZCLAW_TEST_REDIS_READ_DSN` for Redis. It does not provision services, Docker,
+or cloud resources. SDK and Terraform entries start native local Server fixtures
+and require their language/build tools. CI invokes these same entrypoints.
 
 ## Model 请求绑定的设备错误回归
 
@@ -46,10 +110,11 @@ go test -count=1 -run '^TestNativePromptPreservesTwoTurnModelHistory$' ./pkgs/gi
 
 ## Docker 镜像来源
 
-Go、Runtime 与 Mem0 的构建基础镜像、包验证容器、Docker E2E 的第三方服务，以及
-CI 数据库 service 容器默认从 GizClaw DCDN Registry `gizcr.gizclaw.com` 拉取。
-镜像路径包含上游仓库：Docker Hub 官方镜像使用 `docker.io/library/`，组织镜像
-使用 `docker.io/<组织>/`。例如：
+Go, Runtime and Mem0 build bases, release package-validation containers, and
+local Docker E2E services default to the GizClaw DCDN Registry at
+`gizcr.gizclaw.com`. Image paths include the upstream registry:
+Docker Hub official images use `docker.io/library/`, and organization images
+use `docker.io/<organization>/`. For example:
 
 ```text
 gizcr.gizclaw.com/docker.io/library/ubuntu:24.04
@@ -165,7 +230,7 @@ Provider 回答质量和李白完整 23 轮内容复核仍须另行验收。
 使用隔离的 PostgreSQL 17，安装 `pg_partman 5.5.0` 到 `partman` schema，配置 `max_connections=300`，并设置 `GIZCLAW_TEST_POSTGRES_DSN`。
 
 ```sh
-go test -tags=store_e2e -count=1 -run '^TestPostgreSQLHistory' ./tests/store-e2e
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLHistory' ./tests/integration/store
 go test -count=1 ./pkgs/store/memory ./pkgs/gizclaw/services/ai/workspace
 go test -count=1 -run '^TestPostgreSQLHistory' ./cmd/internal/server ./pkgs/gizclaw
 ```
@@ -201,7 +266,7 @@ bash tests/gizclaw-e2e/run_run_state_tests.sh
 已有配置 `max_connections=300` 的本地 `GIZCLAW_TEST_POSTGRES_DSN` 时，可以运行以下连接复用、容量等待、取消、Rows/Tx 归还和空闲回收回归。连接复用回归会同时持有默认池的 128 条连接，再检查后续突发是否复用同一组 PostgreSQL backend：
 
 ```sh
-go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/store-e2e
+go test -tags=store_e2e -count=1 -run '^TestPostgreSQLPool' ./tests/integration/store
 go test -count=1 -run '^TestPostgreSQLInputPermission' ./pkgs/gizclaw
 ```
 
@@ -244,7 +309,7 @@ GIZCLAW_E2E_SERVICE_TIER_REPORT_DIR="$(mktemp -d)" \
 ## RegistrationToken 准入与生命周期
 
 ```sh
-bash tests/gizclaw-e2e/run_admission_tests.sh
+bash tests/integration/sdk/run_admission_tests.sh
 ```
 
 这个固定 lane 在临时 SQLite 状态上启动真实 Server，设置 `peer-admission: registration-token`，预置可连接的 Admin Peer 后通过 Admin HTTP 建立测试资源。它不需要 AI 凭据或 Docker，必须安装 Go、Node、protoc 与 Flutter，缺失任何 runner 都失败。Linux 需要图形会话、`libpulse-dev` 和运行中的 PulseAudio 音频设备，供 Flutter WebRTC 初始化。CI 启动 PulseAudio null sink，并将其 monitor 设为默认音源，再用 `xvfb-run -a` 运行同一脚本。
@@ -253,12 +318,13 @@ Go、JavaScript、Flutter 和 C Giztest runner 都在初次握手中把 `registr
 
 `tests/gizclaw-e2e/testdata/admission/` 的成功文档验证新设备注册、重复注册只计一次、限额用完后无凭证重连和再次幂等注册。其他文档以及 disabled、expired、exhausted 资源用于预期拒绝场景：runner 必须失败，且服务端必须实际返回一次 `403 peer_forbidden`。启动失败、未发送请求或 skipped 文档都不能通过。独立 Go SDK 测试位于 `tests/gizclaw-e2e/go/admission/`，giznet 的 WebRTC 测试还验证通用自定义 type/version，不让业务常量进入 transport。
 
-CI 的 Admission SDK E2E job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
+CI 的 Native SDK Integration job 运行完整 lane；普通 Go 测试也运行 Go Giztest 场景。PostgreSQL Integration 运行 `TestPostgreSQLRegistrationTokenLifecycle`，包含老库迁移、编辑限制、幂等与两条独立连接争最后一个名额。SQLite 运行相同生命周期用例和独立连接并发测试。
 
-原生 SDK 与 Docker CI 的 Ubuntu runner 通过
-`setup/install-native-runner-tools.sh` 安装同一组 WebRTC 构建与虚拟音频依赖。
-该入口将 runner 默认 Azure Ubuntu 源替换为官方 `archive.ubuntu.com`，支持 mirrorlist
-和直接 sources 配置，继续使用 APT 的签名与包校验。
+The native SDK CI Ubuntu runner uses `setup/install-native-runner-tools.sh`
+to install WebRTC build and virtual-audio dependencies. The same helper is
+available to local Docker runners. It replaces the runner's default Azure Ubuntu
+source with `archive.ubuntu.com`, supports mirrorlist and direct-source
+configuration, and retains APT signature and package verification.
 
 构建 runner 时，`setup/verify-flutter-native-close.py` 从 Flutter package configuration
 定位固定依赖，运行其原生关闭进度 fixture。该 fixture 使用 native boundary doubles 编译
@@ -295,8 +361,10 @@ bash tests/gizclaw-e2e/run_admission_docker_tests.sh
 省略 SFU 配置和 provider 资源初始化；无需模型调用或 AI 凭据。
 此 lane 使用 Server 公布的 TCP ICE 入口，不验收 relay。标准 `run_tests.sh` 保留
 原有 Compose 文件、凭据 preflight、资源初始化与默认 `open` 行为。
-准入镜像通过 `PREBUILD_CLI=1` 在构建时编译一次 CLI，三个服务复用现有 prebuilt 入口，
-避免低配 CI runner 在就绪检查期间分别冷编译；标准镜像默认仍在启动时构建。
+Admission sets `PREBUILD_CLI=1` to compile the CLI once during image construction;
+all three services reuse the existing prebuilt entrypoint. This keeps cold builds
+outside readiness checks on small local runners. Standard images still build at
+startup by default.
 失败时先输出三个服务的末尾日志，再按项目拆栈。
 
 入口先通过 Edge 登记配置的 Admin identity，再切回直连 Server 的 admin CLI context。
@@ -316,10 +384,12 @@ Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调
 不扩展 DSL，也不增加固定等待或整体兜底 deadline。Go/C 现有 ICE 建连重试仍被支持；
 重连请求按封禁 checkpoint 前后统计，被禁握手仍要求恰好一次明确拒绝。
 
-本地需要 Docker 和进程内 lane 的全部 runner 工具。CI 的 Admission Docker E2E job
-同样使用 Xvfb 与 PulseAudio null sink，不使用 provider secrets。入口总是创建自己的
-`GIZCLAW_E2E_DOCKER_PROJECT` 和环境文件，成功、失败或中断时通过
-`setup/docker-compose-down.sh` 按项目删除容器、网络、volume 和 runtime 状态。
+Local execution requires Docker and all tools needed by the in-process lane.
+On Linux, use Xvfb and a PulseAudio null sink for the Flutter runner. This Docker
+lane runs explicitly on the local host, outside ordinary CI. The entrypoint
+always creates its own `GIZCLAW_E2E_DOCKER_PROJECT` and env file. On success,
+failure or interruption, `setup/docker-compose-down.sh` removes only that
+project's containers, networks, volumes and runtime state.
 
 手动启动可使用 `bash tests/gizclaw-e2e/setup/docker-compose-up.sh --admission`；
 它只启动无 provider 资源的栈，Admin bootstrap 与完整验收由上述 lane 负责。
@@ -330,9 +400,9 @@ Flutter SDK 在 native 清理前传播必需 event session 的终止，并与调
 共用基础镜像构建参数。不设置源覆盖变量时保留 `Dockerfile.cn.base` 的 CN 默认值和
 原有 CN 镜像 tag。设置覆盖变量时使用独立的 `custom-base` tag，并始终执行 Docker build，
 避免已有 CN 镜像掩盖源变化；仍可命中 Docker layer cache。
-`GIZCLAW_E2E_DOCKER_BASE_IMAGE` 可指定输出 tag。CI 通过 DCDN 拉取 Ubuntu，并使用
-以下包源，APT 根据架构
-选择 amd64 的 `APT_MIRROR` 或 arm64 的 `APT_PORTS_MIRROR`：
+`GIZCLAW_E2E_DOCKER_BASE_IMAGE` can select an explicit output tag. For local
+execution with Ubuntu from DCDN and the package sources below, APT selects
+`APT_MIRROR` on amd64 and `APT_PORTS_MIRROR` on arm64:
 
 ```sh
 GIZCLAW_E2E_DOCKER_BASE_FROM=gizcr.gizclaw.com/docker.io/library/ubuntu:24.04 \
@@ -372,22 +442,24 @@ DSN 并运行该 package。测试只清理自己创建的 schema。
 
 ## Store E2E
 
-`tests/store-e2e` 通过导出的 Store API 验证 Redis 7.0、PostgreSQL 与 ClickHouse，不依赖
+`tests/integration/store` 通过导出的 Store API 验证 Redis 7.0、PostgreSQL 与 ClickHouse，不依赖
 production package 的私有 test hook。目录内每个 Go 文件都使用 `store_e2e` build
 tag，因此普通 `go test ./...` 不会选择这些测试或访问外部数据库。快速 SQLite
 集成测试继续和对应 package 的单元测试放在同一个普通 `*_test.go` 文件中。
 
-Redis、PostgreSQL 与 ClickHouse 测试分别使用 `TestRedis...`、`TestPostgreSQL...` 和
-`TestClickHouse...` 命名。CI 只选择当前 job 已启动的 backend；被选中的 backend
-缺少 DSN 时必须失败，不能记为 skip：
+Redis, PostgreSQL, and ClickHouse tests use `TestRedis...`, `TestPostgreSQL...`,
+and `TestClickHouse...` names respectively. CI selects Redis and PostgreSQL tests
+against native services provisioned by their jobs. ClickHouse storage and metrics
+remain supported; run ClickHouse tests manually against a provisioned service.
+A selected backend fails rather than skips when its DSN is absent:
 
 ```sh
 GIZCLAW_TEST_REDIS_DSN='redis://127.0.0.1:6379/15' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestRedis' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestRedis' ./tests/integration/store
 GIZCLAW_TEST_POSTGRES_DSN='postgres://…' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestPostgreSQL' ./tests/integration/store
 GIZCLAW_TEST_CLICKHOUSE_DSN='clickhouse://…' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestClickHouse' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestClickHouse' ./tests/integration/store
 ```
 
 每个测试使用独立表名并尽力清理。错误、日志和 CI 输出不得打印 DSN、数据库
@@ -400,46 +472,58 @@ Redis gate 使用两个独立 client 连接同一个数据库，验证跨 client
 残留 secondary 锁与重复批量读取的回归入口：
 
 ```sh
-bash tests/store-e2e/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
+bash tests/integration/store/run_tikv_duplicate_reads_tests.sh .testbench/tikv-duplicate-reads
 ```
 
-该入口复用 presence benchmark 的独立三 voter 夹具，不运行压测、不发布宿主端口。测试先真实 prewrite，再只回滚 primary，确认 secondary 锁仍存在；随后覆盖 claim 形状的 mutation、比较后写入、比较后删除及带重复 key 的批量读取。它检查发出的 BatchGet／ResolveLock 没有重复 key、解锁完成、回读正确、重复结果内存独立，并等待三台 voter 的 safe-ts 越过操作后的时间戳。runner 还要求三台 voter 持续运行、重启计数为零、日志没有 FATAL。证据保存在指定的新目录，退出时仅清理本次 Compose project。该 gate 进入 `TiKV Learner Presence` CI；它验证人工残留锁的处理，不代表生产首发事务定位或完整连接 churn 的自然复现。
+该入口复用 presence benchmark 的独立三 voter 夹具，不运行压测、不发布宿主端口。测试先真实 prewrite，再只回滚 primary，确认 secondary 锁仍存在；随后覆盖 claim 形状的 mutation、比较后写入、比较后删除及带重复 key 的批量读取。它检查发出的 BatchGet／ResolveLock 没有重复 key、解锁完成、回读正确、重复结果内存独立，并等待三台 voter 的 safe-ts 越过操作后的时间戳。runner 还要求三台 voter 持续运行、重启计数为零、日志没有 FATAL。证据保存在指定的新目录，退出时仅清理本次 Compose project。Run this Docker regression explicitly on the local host, outside ordinary CI. It verifies artificial residual-lock handling, not the first production transaction or natural reproduction through complete connection churn.
 
 ```sh
-bash tests/store-e2e/run_tikv_tests.sh
+bash tests/integration/store/run_tikv_tests.sh
 ```
 
 仅运行共享 presence 的真实 TiKV Learner gate：
 
 ```sh
-bash tests/store-e2e/run_tikv_tests.sh .testbench/tikv-presence --presence-only
+bash tests/integration/store/run_tikv_tests.sh .testbench/tikv-presence --presence-only
 ```
 
 该用例在 PD 核实中心 voter 与地区 Learner 角色后，运行生产 `peerpresence.ReadBatch`，历史窗口为五秒。夹具通过 `tikv-test.toml` 将 `resolved-ts.advance-ts-interval` 设置为一秒；TiKV 的默认推进间隔为二十秒，不能据五秒窗口保证命中 Learner，部署应按实际 safe-ts 延迟选择窗口与推进频率，见 [TiKV 配置说明](https://docs.pingcap.com/tidb/stable/tikv-configuration-file/#advance-ts-interval)。更频繁推进会增加 CPU 和节点间流量。
 
 十个同属一台 Server 的在线 Peer 读取十份快照和一份租约；这些 key 位于同一 Region 时共两个 RPC，一批读取十个 Peer，另一批读取唯一 Server 租约。成功请求必须实际命中 Learner。测试同时运行十六个并发调用方，并记录五十次串行与批量状态查询的延迟。复制暂停期间，中心下线状态与 Learner 的旧在线／房间快照必须可区分；恢复后读取必须收敛。
 
-超时用例先预热连接，再通过测试专用 TCP proxy 阻塞真实 TiKV 响应，验证十项查询共用两秒预算，以及更短的 75 ms caller deadline。PD、Raft 和真实 TiKV 请求保持运行，测试不替换 KV 返回值。该 gate 进入 `TiKV Learner Presence` CI；它验证存储与 presence 读取路径，不包括成员授权、资料、HTTP/WebRTC、LiveKit、WAN 延迟或生产容量。Redis 主从与完整 Social RPC 行为由下面的 Redis gate 覆盖。
+超时用例先预热连接，再通过测试专用 TCP proxy 阻塞真实 TiKV 响应，验证十项查询共用两秒预算，以及更短的 75 ms caller deadline。PD、Raft 和真实 TiKV 请求保持运行，测试不替换 KV 返回值。This local Docker gate covers storage and presence reads. Redis CI uses native primary/replica services for storage and presence contracts; real Social RPC/WebRTC/LiveKit E2E runs explicitly through local Docker harnesses. The TiKV gate does not cover membership authorization, profiles, HTTP/WebRTC, LiveKit, WAN latency or production capacity.
 
 迁移用例使用同一夹具中的真实 Redis 8.4.6 主节点，验证 binary/empty value、绝对 TTL、Set/零分 Sorted Set、大集合分页、中断后的幂等恢复、目标写入保护、双向校验和实际 CLI 切换配置。Redis 镜像同样从 gizcr 获取并固定 digest。只运行迁移相关测试：
 
 ```sh
-bash tests/store-e2e/run_tikv_tests.sh .testbench/redis-tikv-migration --migration-only
+bash tests/integration/store/run_tikv_tests.sh .testbench/redis-tikv-migration --migration-only
 ```
 
 该模式仍运行真实 PD、中心 voter 和地区 Learner；额外的 deadline gate 直接比较 Redis 的绝对 expiration 与 TiKV 中已保存的 deadline，不用 sleep 阈值推断 TTL 是否保留。
 
 
-入口需要 Go 与 Docker Compose。它交叉编译 Linux 测试二进制，通过 `gizcr.gizclaw.com/docker.io/pingcap/` 启动固定 digest 的 TiKV/PD 8.5.6：一个 PD、中心单 voter、地区完整 Learner，以及测试专用 TCP proxy。PD 的数据 tmpfs 为 256 MiB，两个 TiKV 各为 1 GiB；夹具将 KV／Raft 预留空间设为 64／32 MiB，block cache 设为 128 MiB，避免小容量 CI 环境被生产默认预留量判为磁盘已满。两个 TiKV 容器显式将 `nofile` 的软硬上限设为 262144，满足 TiKV 启动时的文件描述符检查，不依赖宿主机默认值。不向宿主机发布端口。放置规则和每个 Region 的 leader/Learner 身份由测试通过 PD 核实。失败时 CI 保留启动、集群、测试和拓扑诊断七天。
+This entry point requires Go and Docker Compose. It cross-compiles Linux test
+binaries and starts digest-pinned TiKV/PD 8.5.6 from
+`gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full
+regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and
+each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft,
+with a 128 MiB block cache, so production defaults do not classify small local
+filesystems as full. Both TiKV containers set soft and hard `nofile` limits to
+262144 to satisfy TiKV startup checks independently of host defaults. No host
+ports are exposed. Tests verify placement rules and every Region's leader/Learner
+identities through PD. Local runs retain startup, cluster, test and topology
+diagnostics in the evidence directory.
 
 测试先验证跨 client 原子 CRUD、batch、deadline、条件创建、CAS、集合与容量限制、prefix 和 borrowed lifecycle。地区测试在 seeded 数据已进入历史快照后切断中心到 Learner 的 Raft 流，保持查询通路可用，同时确认普通读仍返回旧 assignment、active Peer 和已撤销 key。实际 `peerroute`、Peer 删除 handler、API key service 必须通过强读观察首次 claim、assignment version 刷新、pending-deletion 围栏、永久 tombstone、撤权和 owner retirement。RPC 观测还要求成功的陈旧查询落在地区 Learner、强读落在中心 leader。另一个测试二进制验证有序集合边界、并发容量、跨 key write skew、过期记录物理回收及清理期间的并发刷新。
 
 Artifacts 写入 ignored `.testbench/tikv-*`；退出时只清理本次 Compose project。该 gate 验证实际 TiKV 的一致性路径，不覆盖中心多数副本故障、WAN 性能、重启持久性、外部子资源清理或完整 Edge ingress transport。
 
-Redis 读写分离有独立的 Docker gate：
+Redis CI provisions a native primary and read-only replica for storage and
+presence contracts. The full Redis/LiveKit acceptance harness remains a local
+Docker entrypoint:
 
 ```sh
-bash tests/store-e2e/run_redis_readwrite_tests.sh
+bash tests/integration/store/run_redis_readwrite_tests.sh
 ```
 
 入口需要 Go、Docker Compose 和本机平台的 Git LFS 原生音频库；运行前按本页其他 Go E2E 入口拉取对应平台的 `third_party/audio/prebuilt` 资产。它启动固定 digest 的 Redis 8.4.6 主节点和只读副本，两者各限制为 1 CPU / 256 MiB，只在本机回环地址发布随机端口。它运行普通 Redis 回归和 `TestReadWriteRedis...` 用例，验证真实复制、全部查询走副本、写入及 Lua 条件判断走主节点、跨 prefix 原子 root、读端失败不回退主节点，以及连接关闭。测试关闭写 client 后仍要求所有查询成功，并关闭读 client 验证主节点仍可写。日志和拓扑保存在 ignored `.testbench/redis-readwrite-*`，结束时只清理本次 Compose project 的容器、网络和卷。
@@ -449,7 +533,7 @@ bash tests/store-e2e/run_redis_readwrite_tests.sh
 ```sh
 GIZCLAW_TEST_REDIS_DSN='redis://127.0.0.1:6379/15' \
 GIZCLAW_TEST_REDIS_READ_DSN='redis://127.0.0.1:6380/15' \
-  go test -tags=store_e2e -count=1 -p 1 -run '^TestReadWriteRedis' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -p 1 -run '^TestReadWriteRedis' ./tests/integration/store
 ```
 
 这组测试要求读端是只读副本且属于写端的复制组，不验证自动选主、跨地域复制性能、设备端通知或生产部署。
@@ -571,22 +655,22 @@ GIZCLAW_OBJECTSTORE_PROVIDER=volc-tos \
 GIZCLAW_TOS_ENDPOINT=https://tos-cn-beijing.volces.com \
 GIZCLAW_TOS_REGION=cn-beijing GIZCLAW_TOS_BUCKET=... \
 GIZCLAW_TOS_ACCESS_KEY_ID=... GIZCLAW_TOS_ACCESS_KEY_SECRET=... \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 
 GIZCLAW_OBJECTSTORE_PROVIDER=aliyun-oss \
 GIZCLAW_OSS_ENDPOINT=https://oss-cn-hangzhou.aliyuncs.com \
 GIZCLAW_OSS_BUCKET=... GIZCLAW_OSS_ACCESS_KEY_ID=... \
 GIZCLAW_OSS_ACCESS_KEY_SECRET=... \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 
 GIZCLAW_OBJECTSTORE_PROVIDER=gcs GIZCLAW_GCS_BUCKET=... \
 GOOGLE_APPLICATION_CREDENTIALS=/secure/credentials.json \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 
 GIZCLAW_OBJECTSTORE_PROVIDER=azure-blob \
 GIZCLAW_AZURE_BLOB_ACCOUNT_URL=https://example.blob.core.windows.net \
 GIZCLAW_AZURE_BLOB_CONTAINER=... \
-  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -run '^TestObjectStore$' ./tests/integration/store
 ```
 
 TOS 可另外使用 `GIZCLAW_TOS_SESSION_TOKEN`，OSS 可使用
@@ -655,7 +739,7 @@ Workspace 删除时的 memory purge。通过 `GIZCLAW_MEMORY_PROVIDER` 选择：
 ```sh
 GIZCLAW_MEMORY_PROVIDER=volc-mem0 \
 GIZCLAW_VOLC_MEM0_ENDPOINT=https://... GIZCLAW_VOLC_MEM0_API_KEY=... \
-  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/integration/store
 ```
 
 Volc data-plane key 决定 memory project，因此应使用专用测试 project 的 key，不需要
@@ -670,7 +754,7 @@ docker run -d --rm -p 127.0.0.1:18000:8000 \
   -e MEM0_CREDENTIAL_FILE=/run/gizclaw-e2e.env \
   -v "$PWD/tests/gizclaw-e2e/.env:/run/gizclaw-e2e.env:ro" gizclaw-mem0
 GIZCLAW_MEMORY_PROVIDER=mem0-self-hosted GIZCLAW_MEM0_SELF_HOSTED_URL=http://127.0.0.1:18000 \
-  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/store-e2e
+  go test -tags=store_e2e -count=1 -v -run '^TestMemoryScopePurge$' ./tests/integration/store
 ```
 
 未设置 provider 时 skip；未知 provider 或缺少所选 provider 的必填变量会在发出任何请求前
@@ -740,13 +824,9 @@ tests/gizclaw-e2e/
 ├── docker/      # Compose services 与容器入口
 ├── setup/       # 环境启动、停止和 seed 脚本
 ├── testdata/    # committed identities、resources 与 ignored runtime output
-├── cgo/         # 以 C SDK 为 client 的 cgo 测试与 Giztest runner
 ├── cmd/         # 真实 gizclaw CLI 测试
 ├── giztest/     # 声明式 Peer RPC、Workflow 与 benchmark 场景
-├── go/          # Admin、delete、Edge 与 OpenAI 专项测试
-├── terraform/   # 连接真实 Server 的 Terraform provider 测试
-├── js/          # JavaScript/TypeScript WebRTC 测试与 giztest runner
-└── flutter/     # Flutter/Dart giztest runner
+└── go/          # Admin、delete、Edge 与 OpenAI 专项测试
 ```
 
 `tests/gizclaw-e2e/testdata` 下的 `workflow_catalog_test.go` 是不需要 Docker 或
@@ -831,10 +911,10 @@ Workspace 列表筛选的共享场景是 `server.workspace.list.giztest.yaml`。
 
 ```sh
 go test ./cmd/internal/server -run '^TestWorkspaceListGiztestGo$' -count=1
-bash tests/gizclaw-e2e/run_workspace_list_tests.sh
+bash tests/integration/sdk/run_workspace_list_tests.sh
 ```
 
-第一条随普通 Go 测试执行；第二条在临时 Server、Edge、SQLite 和真实 WebRTC 上执行 Go、JavaScript、C 与原生 Flutter 四个 runner，CI 的 Admission SDK E2E 同样运行它。C SDK smoke test 另用 nanopb 构造三态请求，通过 `gzc_rpc_request_start` / `gzc_rpc_request_result` 检查实际请求 envelope 内的 selector presence、cursor、limit、prefix，以及空终页和 Profile identity 的响应解码。上述测试不启动 Agent、外部模型或 SFU 媒体连接，不替代 LiveKit 媒体和 H106 硬件验收。
+第一条随普通 Go 测试执行；第二条在临时 Server、Edge、SQLite 和真实 WebRTC 上执行 Go、JavaScript、C 与原生 Flutter 四个 runner，CI 的 Native SDK Integration 同样运行它。C SDK smoke test 另用 nanopb 构造三态请求，通过 `gzc_rpc_request_start` / `gzc_rpc_request_result` 检查实际请求 envelope 内的 selector presence、cursor、limit、prefix，以及空终页和 Profile identity 的响应解码。上述测试不启动 Agent、外部模型或 SFU 媒体连接，不替代 LiveKit 媒体和 H106 硬件验收。
 
 固件 metadata 的共享场景是 `server.firmware.metadata.get.giztest.yaml`。
 它覆盖对象、字符串、数组、数字、布尔值和显式 `null`，大整数精度、缺失或非法 key、
@@ -966,9 +1046,9 @@ SDK，因此一份场景同时验证 contract 与全部 SDK：
 | Runner | 入口 | 设备端 | 控制端 |
 | --- | --- | --- | --- |
 | Go | `gizclaw test run` | `sdk/go/gizcli` | runner 内置 HTTP |
-| JavaScript | `npm run giztest -- run`（`tests/gizclaw-e2e/js/giztest/index.ts`） | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
-| Flutter | 构建后的 `giztest` 桌面二进制（`tests/gizclaw-e2e/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
-| C | 构建后的 `giztest-c` 二进制（`tests/gizclaw-e2e/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
+| JavaScript | `npm run giztest -- run`（`tests/clients/js/giztest/index.ts`） | `@gizclaw/gizclaw` | `@gizclaw/gizclaw-control` |
+| Flutter | 构建后的 `giztest` 桌面二进制（`tests/clients/flutter/giztest`） | `gizclaw` | `gizclaw_control` |
+| C | 构建后的 `giztest-c` 二进制（`tests/clients/cgo/giztest`） | 经 cgo 调用 `sdk/c/gizclaw` | `sdk/c/gizclaw_control` |
 
 四者都支持 `validate -f <路径>` 与 `run <路径> --parallel N`，并写出相同结构的 report JSON。
 Go CLI 用 `--report <文件>` 保存汇总 JSON，用 `--output <目录>` 将一个 Giztest 文件渲染为独立 HTML 流程记录。
@@ -1058,8 +1138,9 @@ GIZCLAW_TEXT_INPUT_LIVE=1 go test ./cmd/internal/commands/giztest \
 AST 连续轮次回归由 `volc-ast-translate.push-to-talk-consecutive-turns.giztest.yaml`
 和 `volc-ast-translate.realtime-consecutive-turns.giztest.yaml` 覆盖。每个场景只合成一次
 中文音频，在同一个 Workspace 中连续进行三轮中文到法语翻译；每轮保留 30 秒
-`idle_timeout`，要求非空文本、音频以及同一回复的完整 EOS。两个文件由
-`run_tests.sh` 的标准 Giztest 发现规则自动执行，CI 的 Release Contract job 校验其文档。
+`idle_timeout`，要求非空文本、音频以及同一回复的完整 EOS。
+The standard discovery rules in `run_tests.sh` execute both files; CI's
+`Native Build` job validates their documents with `test validate`.
 真实火山调用需要标准 Docker fixture 和凭据；无需凭据的授权阻塞、AST 异常关闭及
 CLI 完成判定回归由普通 `go test` 执行。通过 `GIZCLAW_TEST_ENDPOINT` 分别选择
 Server 直连或 Edge 入口；一次直连通过不能代表 Edge 路径已验证。
@@ -1261,7 +1342,7 @@ EOS，再发送 fresh BOS，之后才发送声明的音频输入。Go runner 也
 raw stream ID、音频 payload 或 transcript。
 
 JavaScript Client 的对应 WebRTC 集成回归由
-`tests/gizclaw-e2e/js/streams/peer_conversation_lifecycle_e2e.test.ts` 的
+`tests/clients/js/streams/peer_conversation_lifecycle_e2e.test.ts` 的
 `audio-reload` 模式执行。它在同一条 Event channel 上激活 SDK 的
 `createContinuousAudioRouteRearm` owner；owner 自己安装和移除 Event subscription，Client
 代码不负责把 EOS 分发给它。它先保持 realtime user-audio route 与 uplink track active，
@@ -1773,7 +1854,7 @@ provider processing、decoded audio、WAN/NAT diversity、production Coturn/depl
 
 ## LoCoMo Memory Evaluation
 
-`tests/locomo-e2e` 是 GizClaw 自有的 production `memory.Store` 人工评测，独立于普通 `go test ./...`、Docker E2E 或 required CI。
+`tests/evaluation/locomo` 是 GizClaw 自有的 production `memory.Store` 人工评测，独立于普通 `go test ./...`、Docker E2E 或 required CI。
 每个 live test 在对应 Go 文件中完整定义 provider、memory lane 和 extraction config；
 Volc remote project 配置由部署拥有，harness 不修改它。
 
@@ -1787,12 +1868,12 @@ Mem0 Platform default/custom instructions 和 Volc AgentKit Memory default/reque
 
 ```sh
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoVolcAgentKit(Default|ProtocolSmoke)$' ./tests/locomo-e2e
+  -run '^TestLoCoMoVolcAgentKit(Default|ProtocolSmoke)$' ./tests/evaluation/locomo
 go test -count=1 -timeout 30m -v -tags gizclaw_locomo_e2e \
-  -run '^TestLoCoMoMem0Platform' ./tests/locomo-e2e
-tests/locomo-e2e/run_docker.sh mem0
-tests/locomo-e2e/run_docker.sh mem0-pgvector
-tests/locomo-e2e/run_docker.sh all
+  -run '^TestLoCoMoMem0Platform' ./tests/evaluation/locomo
+tests/evaluation/locomo/run_docker.sh mem0
+tests/evaluation/locomo/run_docker.sh mem0-pgvector
+tests/evaluation/locomo/run_docker.sh all
 ```
 
 LoCoMo runner 会先为 Docker 的实际架构准备标准 Mem0 base；设置
@@ -1829,7 +1910,7 @@ PG lane 的提取输出上限默认为 8192 tokens，可通过 `GIZCLAW_LOCOMO_E
 ```sh
 GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=deepseek-chat \
 GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
-  tests/locomo-e2e/run_docker.sh mem0-pgvector
+  tests/evaluation/locomo/run_docker.sh mem0-pgvector
 ```
 
 Mem0 提取可单独设置 `GIZCLAW_LOCOMO_E2E_MEM0_LLM_API_KEY` 和
@@ -1845,7 +1926,7 @@ GIZCLAW_LOCOMO_E2E_MEM0_LLM_BASE_URL=https://ark.cn-beijing.volces.com/api/v3 \
 GIZCLAW_LOCOMO_E2E_EXTRACTION_MODEL=doubao-seed-2-1-turbo-260628 \
 GIZCLAW_LOCOMO_E2E_MEM0_LLM_THINKING=disabled \
 GIZCLAW_LOCOMO_E2E_ANSWER_MODEL=deepseek-flash \
-  tests/locomo-e2e/run_docker.sh mem0-pgvector
+  tests/evaluation/locomo/run_docker.sh mem0-pgvector
 ```
 
 PG lane 从 health 读取实际提取模型、Mem0 LLM provider、thinking mode 和 token 上限，
@@ -1867,11 +1948,20 @@ hit rate 不低于 `0.50`，且每个选中 session 至少 materialize 一个 fa
 或 timeout 是失败，不能降级成 skip/pass。报告写入 ignored `reports/`，只包含 ID、分数和耗时，
 不得包含 credential、conversation、question、answer、prediction 或 recalled text。
 
-回归检查分为两层：`tests/locomo-e2e/run_regression.sh` 无需模型凭据，运行 Go fixture/评分/回归测试、Python HTTP/config 测试，并对真实 PostgreSQL 执行已知向量的距离转换、过滤排序和 scope 隔离检查。CI 的 `Mem0 PGVector Regression` job 执行该入口；它不代表真实模型质量通过。
+Regression checks have two layers. CI's `Mem0 Contract Tests` invokes
+`bash tests/evaluation/locomo/run_offline.sh` for Go Mem0 and LoCoMo
+fixture/scoring/regression contracts and code-generation checks, without Docker
+or model credentials. For local integration,
+`tests/evaluation/locomo/run_regression.sh` calls that offline entrypoint first,
+then runs Docker-backed Python HTTP/config and real PostgreSQL checks for
+known-vector similarity conversion, filtering/ranking, and scope isolation.
+The Docker regression is explicit local validation outside CI; `run_docker.sh`
+remains the live-provider evaluation entrypoint. Passing either regression layer
+does not establish live model quality.
 
 Doubao `doubao-embedding-vision-251215` 支持纯文本，使用 Ark `/embeddings/multimodal`。设置 `GIZCLAW_LOCOMO_E2E_MEM0_EMBEDDING_PROTOCOL=ark_multimodal`，并明确提供 Ark embedding key/base URL、模型与 1024 或 2048 维。服务按每条文本发出一个请求，保持 batch 输入与向量一一对应，并为 corpus/query 设置不同的 instruction；instruction fingerprint 进入报告。错误或无效向量不能变成成功空写入。更换 Embedding 后必须在独立 collection 中重新生成向量，不能与 Qwen 向量混用。
 
-完整 conv-30 的真实质量评测通过本地 `tests/locomo-e2e/run_docker.sh mem0-pgvector` 显式启动，按本节配置模型凭据并保留 redacted JSON。CI 不调用真实模型，也不提供真实模型评测的手动触发入口。conv-30 不等于完整十对话 LoCoMo。
+完整 conv-30 的真实质量评测通过本地 `tests/evaluation/locomo/run_docker.sh mem0-pgvector` 显式启动，按本节配置模型凭据并保留 redacted JSON。CI 不调用真实模型，也不提供真实模型评测的手动触发入口。conv-30 不等于完整十对话 LoCoMo。
 
 LoCoMo 的 self-hosted lane 使用 `sdk/go/mem0` 的健康检查和 production adapter
 的生成请求 DTO/HTTP client；PG lane 的 instruction 通过每次请求 `prompt` 传递。
@@ -1882,7 +1972,7 @@ LoCoMo 的 self-hosted lane 使用 `sdk/go/mem0` 的健康检查和 production a
 GIZCLAW_MEM0_LOAD=1 \
 GIZCLAW_LOCOMO_E2E_MEM0_PGVECTOR_URL=http://127.0.0.1:18001 \
 go test -tags gizclaw_locomo_e2e -timeout 20m -count=1 -v \
-  -run '^TestMem0SDKConcurrentLoad$' ./tests/locomo-e2e
+  -run '^TestMem0SDKConcurrentLoad$' ./tests/evaluation/locomo
 ```
 
 默认提供 32 次写入/秒和 12 次读取/秒，warmup 10 秒后测量 60 秒。按测量窗口中
@@ -1897,10 +1987,10 @@ go test -tags gizclaw_locomo_e2e -timeout 20m -count=1 -v \
 
 ```sh
 # Deterministic checks; no model credentials required.
-tests/locomo-e2e/run_regression.sh
+tests/evaluation/locomo/run_regression.sh
 # Real quality regression; use the same model settings as the baseline.
 GIZCLAW_LOCOMO_E2E_BASELINE_REPORT=/path/to/prior-report.json \
-  tests/locomo-e2e/run_docker.sh mem0-pgvector
+  tests/evaluation/locomo/run_docker.sh mem0-pgvector
 ```
 
 F1 和 observation provenance hit 是本仓库指标，未使用官方宽松 LLM judge，不与官网 J-score 直接比较。每 turn 的 provenance 只标记该次 Observe 来源，Mem0 未提供逐 fact 的精确引用，因此该指标不是经过人工核对的证据召回率。
@@ -1919,10 +2009,10 @@ session（共 76 turns），以及覆盖 category 1 到 5 的八个问题。它�
 105 questions；可以在不改变 smoke 默认值的情况下选择它：
 
 ```sh
-GIZCLAW_LOCOMO_E2E_DATASET=tests/locomo-e2e/testdata/locomo10_conv30.jsonl \
+GIZCLAW_LOCOMO_E2E_DATASET=tests/evaluation/locomo/testdata/locomo10_conv30.jsonl \
 ```
 
-`tests/locomo-e2e/cmd/fixturegen` 负责从固定版本的上游 JSON 可复现地选择一个
+`tests/evaluation/locomo/cmd/fixturegen` 负责从固定版本的上游 JSON 可复现地选择一个
 conversation，转换为 JSONL contract 并生成 manifest。工具要求传入预期 upstream
 SHA-256，源文件漂移时会拒绝生成；manifest 记录 source commit/hash、选中 ID、转换说明、
 许可和派生文件 hash。JSONL 包含上游数据集内容，因此通过 Git LFS 保存。
@@ -1937,7 +2027,7 @@ SHA-256，源文件漂移时会拒绝生成；manifest 记录 source commit/hash
 ```sh
 go test -race -tags gizclaw_locomo_e2e \
   -run 'TestDataset|TestScore|TestAdversarial|TestAggregate|TestPreflight|TestRedaction|TestSession|TestRunBenchmark|TestAwait' \
-  ./tests/locomo-e2e
+  ./tests/evaluation/locomo
 git lfs fsck
 ```
 
@@ -1966,10 +2056,13 @@ Docker contract 层还检查 producer epoch、AudioDock 对 epoch 的保留、�
 
 runner 使用内部 Docker 网络、只读 source/module cache 和独立 build cache，退出时
 清理本次容器与网络。镜像 identity、架构、源码 hash、Go JSON 结果及各 Giztest
-协议 fixture 的临时 SQLite 与音频文件使用容器 tmpfs，编译产物与报告仍写入各自的磁盘目录。运行测试二进制时单独将 `GOTMPDIR` 指向 tmpfs 根目录，编译继续使用磁盘工作目录；transport 测试会验证 `testing.TempDir()` 位于该根目录内。这不改变真实服务栈的 PostgreSQL/TiKV 存储。报告保存在 `.testbench/audio-turn-ownership-*/reports/`。标准
-`tests/gizclaw-e2e/run_tests.sh` 和 CI 的独立 Audio Turn Ownership Docker job 均执行此入口。
-CI 将这组完整 race 编译与传输回归和 Audioplayer 场景并行运行，避免共用一个 job 的剩余构建时间；
-测试命令、用例超时和断言仍由原入口控制。标准全量入口随后继续运行真实 Provider 套件，二者的证据应分别保留。
+协议 fixture 的临时 SQLite 与音频文件使用容器 tmpfs，编译产物与报告仍写入各自的磁盘目录。运行测试二进制时单独将 `GOTMPDIR` 指向 tmpfs 根目录，编译继续使用磁盘工作目录；transport 测试会验证 `testing.TempDir()` 位于该根目录内。这不改变真实服务栈的 PostgreSQL/TiKV 存储。报告保存在 `.testbench/audio-turn-ownership-*/reports/`。
+The standard `tests/gizclaw-e2e/run_tests.sh` entry point executes this Docker
+lane locally. Ordinary CI keeps the native contract and transport regressions
+in the Go and race suites. Test commands, timeouts and assertions remain owned
+by the local entrypoint. The standard full local entry point continues with
+real Provider suites; retain their evidence separately from the deterministic
+fixtures.
 
 ## 连续播讲与逐段 History Giztest
 
@@ -2024,7 +2117,7 @@ go test ./cmd/internal/commands/giztest -run '^Test(EinoMultiVoiceGiztest|MixedP
 
 套件共享 `voice_fixture_test.go` 的 fake provider，保留真实 Eino Factory、
 AudioDock、Go Giztest runner 和 CLI 接收逻辑。无需外部网络、凭据或 Docker。
-Audioplayer Giztest job 在 Console 资源构建后执行整个套件，复用已有音频测试环境。
+Ordinary Go and race CI runs this suite after building Console assets.
 
 - `eino-voices/multi-turn.giztest.yaml` 执行四轮 Eino，Starlark selector 为每轮回复加上
   `【speaker】` 标记，经 `speaker_voices` 选择音色；
@@ -2093,12 +2186,12 @@ UID/GID。其他复用 `docker/compose.monitor.yaml` 的入口保留宿主数据
 
 ### Terraform provider
 
-`bash tests/gizclaw-e2e/run_terraform_provider_tests.sh` 用共享 workspace fixture 启动隔离的真实 Server，不需要模型或 provider 凭据，只需要 `PATH` 上的 `terraform` CLI（或由 `GIZCLAW_E2E_TERRAFORM` 指定）。入口以 `CGO_ENABLED=0` 构建 `terraform-provider-gizclaw` 并放入 filesystem mirror，通过 `provider_installation` 执行 `terraform init`。Server 上的资源用 `gizclaw admin show` 检查。包含两个测试：
+`bash tests/integration/terraform/run_tests.sh` 用共享 workspace fixture 启动隔离的真实 Server，不需要模型或 provider 凭据，只需要 `PATH` 上的 `terraform` CLI（或由 `GIZCLAW_E2E_TERRAFORM` 指定）。入口以 `CGO_ENABLED=0` 构建 `terraform-provider-gizclaw` 并放入 filesystem mirror，通过 `provider_installation` 执行 `terraform init`。Server 上的资源用 `gizclaw admin show` 检查。包含两个测试：
 
-- `TestTerraformProviderAppliesCatalogSelection` 用 `gizclaw_catalog` 解析 `tests/gizclaw-e2e/terraform/testdata` 下的分层 fixture，并用 `gizclaw_resource` apply 选中的资源。它检查 override 优先级、未选中条目、raid tester、`overridden_ids` 与 `raids`，再验证无变化的 refresh plan、修改 catalog、移出选择集后的删除以及 `terraform destroy`。
+- `TestTerraformProviderAppliesCatalogSelection` 用 `gizclaw_catalog` 解析 `tests/integration/terraform/testdata` 下的分层 fixture，并用 `gizclaw_resource` apply 选中的资源。它检查 override 优先级、未选中条目、raid tester、`overridden_ids` 与 `raids`，再验证无变化的 refresh plan、修改 catalog、移出选择集后的删除以及 `terraform destroy`。
 - `TestTerraformProviderResourceLifecycle` 为每种可由 Admin apply 的 kind 各管理一个资源：Credential、六种 provider Tenant、Model、Voice、MemoryLayout、Workflow、Tool、Firmware、RuntimeProfile、RegistrationToken、Contact、Friend、FriendGroup、FriendGroupMember 与 FriendGroupInviteToken。每种 kind 都经过创建、更新、无变化的 refresh 与 import。refresh 必须发现带外修改和带外删除，由 apply 恢复；Server 从不返回的 Credential spec 保持配置值。测试还覆盖 `input_revision`、显式 `api_version`、修改 `resource_id` 触发替换、环境变量占位符展开与缺失变量、provider 与 Server 两侧的拒绝、Server 重启、幂等 destroy、版本 0 state 升级，以及 Server 停止时的 `gizclaw_catalog`。
 
-测试给 Server 配置一个占位 SFU URL，使 Friend 与 Friend Group 能绑定 Room 身份，该地址没有服务监听。Workspace 归 Peer 所有，只检查 Admin 拒绝。`endpoint` 覆盖要求 https，不在此处验证。独立 CI job 与完整 gate 运行相同入口。
+测试给 Server 配置一个占位 SFU URL，使 Friend 与 Friend Group 能绑定 Room 身份，该地址没有服务监听。Workspace 归 Peer 所有，只检查 Admin 拒绝。`endpoint` 覆盖要求 https，不在此处验证。The `Terraform Provider Integration` CI job runs this entrypoint natively without Docker; the full local gate also runs it.
 
 ### GNSS reporting invoke Giztest
 
@@ -2120,7 +2213,7 @@ go test ./cmd/internal/server -run '^TestGNSSReportingGiztestGo$' -count=1
 
 ### Audioplayer Giztest
 
-`bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。独立 CI job 运行相同入口。
+`bash tests/gizclaw-e2e/run_audioplayer_tests.sh` 启动隔离的真实 Server 和 Edge，以 SQLite 保存 runtime，不需要模型或 provider 凭据。入口执行六个 `server.device.audioplayer.*` 场景，退出时清理容器与临时身份；报告保留在 ignored `.testbench` 目录。Run this Docker entrypoint explicitly on the local host, outside ordinary CI.
 
 脚本化设备 provider 验证 HTTP 授权、校验、反向 RPC、列表 contract 和快照投影，不下载或播放音乐。五个控制场景由 Go、JavaScript、Flutter、C runner 支持。独立 `telemetry` step 的 `frame` 使用 protobuf JSON，由 Go SDK 经真实 packet channel 发送；其他 runner 明确跳过此 operation。发送成功不表示落库：telemetry 场景轮询 `server.status.get`，再通过 HTTP status 验证进度、错误、旧报告保护和 OTA 共存。此处不新增 Dart telemetry transport，也不代表真机播放验收。
 
@@ -2130,8 +2223,10 @@ go test ./cmd/internal/server -run '^TestGNSSReportingGiztestGo$' -count=1
 真实 Server、Edge 和 Go Giztest 接收器，使用临时身份和 SQLite，不读取 provider
 凭据。`testdata/rtp-bos/` 的 build overlay 提供确定性 ASR/TTS，TTS 将 BOS 与首帧
 合并；接收端 overlay 将音频 BOS 处理延后 200 ms，RTP 读取继续运行。场景验证
-完整音频、BOS/EOS、单 active stream、零完整性违规和包间隔，CI Audioplayer job
-执行相同入口并上传 `.testbench/rtp-bos-*/reports/`。这不是云模型性能或真机验收。
+完整音频、BOS/EOS、单 active stream、零完整性违规和包间隔。
+Run this Docker entrypoint locally; reports remain under
+`.testbench/rtp-bos-*/reports/`. This is not a cloud model performance or
+physical device acceptance test.
 
 ## 本地慢 TTS 回归
 
@@ -2146,7 +2241,8 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 `slow-tts.*.giztest.yaml` 覆盖 Eino push-to-talk、Eino realtime 和 Eino sequential realtime。
 `first_response` 步骤保持 2 秒首文本期限；使用相同 Workflow 的独立 Peer 检查 text/audio EOS、非空音频、
 无重叠和播放节拍。Realtime 在保留的 session 中连续发起输入，覆盖旧 TTS 启动期间的换轮。
-此套件接在 CI 的 Audioplayer Giztest job；标准 provider-backed runner 排除这些专用夹具。
+Run this Docker suite explicitly on the local host. The standard provider-backed
+runner excludes these dedicated fixtures.
 报告保留在 `.testbench/slow-tts-*/reports/`，退出时清理容器、镜像和临时运行状态。
 
 ### 客户端结束与输出确认回归
@@ -2159,7 +2255,7 @@ AudioDock、AgentHost、WebRTC、首响应计时与音频接收器均使用被�
 
 ### 说话人分段回归
 
-确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 两种 Eino Graph；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。CI 的 Audioplayer Giztest job 执行两条入口。
+确定性测试使用可区分的 Opus 音色，验证单轮五段的完整音频摘要顺序、文字剥离、单流与 `audio_pacing.underruns=0`。Docker 入口在内部隔离网络启动本地 Server/Edge，使用仅测试构建的 provider overlay，分别运行 两种 Eino Graph；无需凭据，结束后清理容器，报告保留于 `.testbench/speaker-segments-*/reports/`。The native Go regression runs in ordinary Go and race CI; run the Docker gate explicitly on the local host.
 
 ```sh
 go test ./cmd/internal/commands/giztest -run '^TestSpeakerSegmentsGiztest$' -count=1
@@ -2361,7 +2457,11 @@ bash tests/gizclaw-e2e/run_pending_recovery_tests.sh
 
 该独立 Docker lane 从当前源码构建 Server 和测试程序，启动共享 Redis、真实只读副本、两个独立 PostgreSQL 实例与两个独立 Server。每个 PostgreSQL 安装仓库固定版本的 pg_partman，并使用独立的 512 MiB tmpfs 数据目录；Server 使用各自 SQL 与文件对象目录，通过 WebRTC Admin API 触发和观察删除。无需生产配置或 Provider credential。
 
-CI 的 `Regional PendingDeletion Recovery` job 在每个 PR 和 main push 中运行同一入口，保留脱敏的测试日志 artifact。Server 和测试容器使用宿主用户的 UID/GID，确保 Linux 上生成的状态与资源可在退出时清理。普通 Go 和 race jobs 同时覆盖自动恢复的条件重试、分页、共用 worker 进度，以及探测错误、超时、取消和 panic 后失败状态不变。
+Run this Docker entrypoint explicitly on the local host, outside ordinary CI.
+Server and test containers use the host user's UID/GID so generated state and
+assets can be cleaned up on Linux. Ordinary Go and race jobs retain conditional
+recovery, paging, shared worker progress, and unchanged failed state after probe
+errors, timeouts, cancellation and panics.
 
 验收直接检查 Firmware 投影删除、Workspace 行与对象清理、每个 home 的 failed 自动恢复（不发 operator retry）、超过一页的 backlog 越过异常记录、重复扫描、显式重试、错误／未知 home、真实 Peer 替换、旧计划遗漏 home 数据和活跃／无关区域数据保留。runner 在 SQL owner-binding 删除被真实行锁阻塞后杀死 home Server，确认 running lease 保留，重启后验证过期租约恢复和启动时自动发现持久化的旧 failed；home 停机期间，另一地区保持该 failed 不变。另一个场景断开只读副本复制，验证管理选择与清理仍使用中央 writer。完成条件包含 marker、locator、plan、task 和索引实际消失，以及永久 tombstone、route 和 API Key retired fence 保留。
 
@@ -2391,8 +2491,8 @@ Admin 筛选用例使用真实 LogStore/TLS SDK 和本地 HTTP 协议夹具，�
 记录的 `runtime_version`、`build_commit`。Monitor 的共享 Giztest 另外检查日志分页中的字段
 非空。所有回归按正确契约断言，断言失败使入口返回非零；失败不能算通过。
 Giztest JSON、专项测试输出及脱敏容器日志保留在本次 `.testbench` 目录。
-完整 `run_tests.sh` 包含此模式及 Monitor Giztest；Regional PendingDeletion Recovery CI
-同时执行原有区域恢复验收和此回归模式。
+The full local `run_tests.sh` includes this mode and the Monitor Giztests.
+These Docker acceptance runs are explicit local validation, outside ordinary CI.
 首次构建 PostgreSQL 扩展时，可用 `GIZCLAW_E2E_DEBIAN_MIRROR` 指定 Debian 镜像站根 URL，
 例如 `http://mirrors.tuna.tsinghua.edu.cn`。当前固定的基础镜像没有 CA 证书，应使用 HTTP
 镜像源。省略时保留基础镜像的 APT 源；APT 签名校验、PostgreSQL 基础镜像及 pg_partman
@@ -2406,7 +2506,7 @@ provider 调用次数，并把连接关闭限制在 30 秒内；关闭失败仍�
 标准 Docker 入口让 JavaScript 和 Flutter 的每个文档使用独立原生进程，同时最多运行四个进程。
 每个文档完整执行；进程退出状态与报告必须一致，600 秒的外部进程上限保护原生调用的结束边界。
 
-`tests/gizclaw-e2e/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
+`tests/integration/sdk/run_device_management_tests.sh` 在临时状态中启动真实 Server/Edge，不需要模型
 凭据，连续执行三轮 Go、JavaScript、C、Flutter 协议验收；任一轮失败都会使 lane 失败。
 设备管理和 Peer control 的本地 Edge fixture 为 HTTP TCP 与 ICE UDP 选择同一个端口，选择前同时检查两种协议可绑定；TCP 空闲本身不能证明 UDP 也空闲。
 标准 `run_tests.sh` full 入口也执行此 lane。需要独立 Modem/NFC manifest 的实例、NFC 控制、

@@ -14,7 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
-	"github.com/GizClaw/gizclaw-go/tests/gizclaw-e2e/admissiontest"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/admissiontest"
 )
 
 func TestDockerAdmission(t *testing.T) {
@@ -53,7 +53,7 @@ func TestDockerAdmission(t *testing.T) {
 		reportFlag string
 	}{
 		{"Go", []string{cli, "test"}, "--report"},
-		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts")}, "--output"},
+		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/clients/js/giztest/index.ts")}, "--output"},
 		{"C", []string{os.Getenv("GIZCLAW_ADMISSION_C_RUNNER"), "test"}, "--output"},
 		{"Flutter", []string{os.Getenv("GIZCLAW_ADMISSION_FLUTTER_RUNNER")}, "--output"},
 	} {

@@ -60,7 +60,6 @@ grep -Fq 'tools/flutter-sdk/consume_archives.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$release_workflow"
 grep -Fq 'build/build-terraform-provider.sh' "$ci_workflow"
 grep -Fq 'packages: write' "$release_workflow"
-grep -Fq 'build/check-runtime-image.sh' "$ci_workflow"
 grep -Fq -- '- container-pull' <<<"$semver_publisher"
 if grep -Eq 'packages: write|docker/login-action|docker push|--push' "$ci_workflow"; then
   echo "PR CI must not publish container packages" >&2

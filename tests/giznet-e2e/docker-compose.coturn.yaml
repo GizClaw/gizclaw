@@ -7,7 +7,7 @@ x-coturn: &coturn
     GIZCLAW_COTURN_PUBLIC_IP: ${GIZNET_COTURN_PUBLIC_IP:?set by run_coturn_tests.sh}
   volumes:
     - type: bind
-      source: ../fixtures/coturn/entrypoint.sh
+      source: ../testsupport/coturn/entrypoint.sh
       target: /usr/local/bin/gizclaw-coturn-entrypoint
       read_only: true
       bind:

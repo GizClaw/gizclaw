@@ -339,8 +339,8 @@ build_c_giztest_runner() {
 	mkdir -p "$script_dir/testdata/bin"
 	# Go's cgo cache does not track C files included outside the package. Both
 	# bridges include the SDK tree, so rebuild them before checking this checkout.
-	(cd "$repo_root" && go build -a -o "$script_dir/testdata/bin/giztest-c" ./tests/gizclaw-e2e/cgo/giztest)
-	(cd "$repo_root" && go test -a -tags gizclaw_e2e -run '^$' ./tests/gizclaw-e2e/cgo/internal)
+	(cd "$repo_root" && go build -a -o "$script_dir/testdata/bin/giztest-c" ./tests/clients/cgo/giztest)
+	(cd "$repo_root" && go test -a -tags gizclaw_e2e -run '^$' ./tests/clients/cgo/internal)
 }
 
 start_docker_stack() {
@@ -363,17 +363,17 @@ run_js_rpc_tests() {
 	echo "==> npm test --workspace @gizclaw/gizclaw"
 	(cd "$repo_root" && npm test --workspace @gizclaw/gizclaw)
 
-	echo "==> node tests/gizclaw-e2e/js/admin"
-	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:admin)
+	echo "==> node tests/clients/js/admin"
+	(cd "$repo_root/tests/clients/js" && npm run test:admin)
 
-	echo "==> node tests/gizclaw-e2e/js/admin telemetry"
-	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:admin-telemetry)
+	echo "==> node tests/clients/js/admin telemetry"
+	(cd "$repo_root/tests/clients/js" && npm run test:admin-telemetry)
 
-	echo "==> node tests/gizclaw-e2e/js/rpc"
-	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:rpc)
+	echo "==> node tests/clients/js/rpc"
+	(cd "$repo_root/tests/clients/js" && npm run test:rpc)
 
-	echo "==> node tests/gizclaw-e2e/js/streams"
-	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:streams)
+	echo "==> node tests/clients/js/streams"
+	(cd "$repo_root/tests/clients/js" && npm run test:streams)
 }
 
 # The JavaScript and Flutter runners execute the same scenario documents as the
@@ -405,26 +405,26 @@ run_js_giztest() {
 	local -a files=()
 	while IFS= read -r file; do files+=("$file"); done < <(standard_sdk_giztest_files)
 	local report="$script_dir/testdata/giztest-js-report.json"
-	echo "==> node tests/gizclaw-e2e/js/giztest"
-	(cd "$repo_root/tests/gizclaw-e2e/js" && npm run test:giztest-unit)
+	echo "==> node tests/clients/js/giztest"
+	(cd "$repo_root/tests/clients/js" && npm run test:giztest-unit)
 	python3 -B "$setup_dir/run_js_giztest.py" "$report" "${files[@]}"
 }
 
 run_flutter_giztest() {
 	local -a files=()
 	while IFS= read -r file; do files+=("$file"); done < <(standard_sdk_giztest_files)
-	local package_dir="$script_dir/flutter/giztest"
+	local package_dir="$repo_root/tests/clients/flutter/giztest"
 	local report="$script_dir/testdata/giztest-flutter-report.json"
 	local binary
 	if ! command -v flutter >/dev/null 2>&1; then
-		echo "==> skipping tests/gizclaw-e2e/flutter/giztest: flutter is not installed" >&2
+		echo "==> skipping tests/clients/flutter/giztest: flutter is not installed" >&2
 		return 0
 	fi
 	case "$(uname -s)" in
 		Darwin) binary="$package_dir/build/macos/Build/Products/Release/giztest.app/Contents/MacOS/giztest" ;;
 		Linux) binary="$package_dir/build/linux/x64/release/bundle/giztest" ;;
 		*)
-			echo "==> skipping tests/gizclaw-e2e/flutter/giztest: unsupported host" >&2
+			echo "==> skipping tests/clients/flutter/giztest: unsupported host" >&2
 			return 0
 			;;
 	esac
@@ -581,11 +581,11 @@ set +a
 run_suite_phase "javascript" run_js_rpc_tests
 run_suite_phase "giztest:javascript" run_js_giztest
 run_suite_phase "giztest:flutter" run_flutter_giztest
-run_suite_phase "cgo:rpc" run_pkg "./tests/gizclaw-e2e/cgo/rpc"
-run_suite_phase "cgo:telemetry" run_pkg "./tests/gizclaw-e2e/cgo/telemetry"
-run_suite_phase "cgo:chat" run_pkg "./tests/gizclaw-e2e/cgo/chat"
-run_suite_phase "cgo:media" run_pkg "./tests/gizclaw-e2e/cgo/media"
-run_suite_phase "cgo:social" run_pkg "./tests/gizclaw-e2e/cgo/social"
+run_suite_phase "cgo:rpc" run_pkg "./tests/clients/cgo/rpc"
+run_suite_phase "cgo:telemetry" run_pkg "./tests/clients/cgo/telemetry"
+run_suite_phase "cgo:chat" run_pkg "./tests/clients/cgo/chat"
+run_suite_phase "cgo:media" run_pkg "./tests/clients/cgo/media"
+run_suite_phase "cgo:social" run_pkg "./tests/clients/cgo/social"
 run_suite_phase "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
 run_suite_phase "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
 run_suite_phase "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."

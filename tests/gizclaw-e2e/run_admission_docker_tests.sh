@@ -32,9 +32,9 @@ trap cleanup EXIT
 trap 'exit 130' INT
 trap 'exit 143' TERM
 unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy COMPOSE_PROFILES GIZCLAW_E2E_DOCKER_COMPOSE_OVERLAY
-# shellcheck source=setup/build-admission-runners.sh
+# shellcheck source=tests/clients/setup/build-admission-runners.sh
 # shellcheck disable=SC1091
-source "$script_dir/setup/build-admission-runners.sh"
+source "$repo_root/tests/clients/setup/build-admission-runners.sh"
 go build -o "$task_dir/gizclaw" ./cmd/gizclaw
 export GIZCLAW_ADMISSION_GO_RUNNER="$task_dir/gizclaw"
 stack_started=1

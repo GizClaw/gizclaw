@@ -16,7 +16,7 @@ func TestMonitorSignedSDKGiztest(t *testing.T) {
 		t.Fatal(err)
 	}
 	runMonitorSignedGiztest(t, func(ctx context.Context, file, report string) ([]byte, error) {
-		command := exec.CommandContext(ctx, "node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts"), "run", file, "--parallel", "1", "--output", report)
+		command := exec.CommandContext(ctx, "node", "--experimental-strip-types", filepath.Join(root, "tests/clients/js/giztest/index.ts"), "run", file, "--parallel", "1", "--output", report)
 		command.Dir = root
 		return command.CombinedOutput()
 	})
@@ -34,7 +34,7 @@ func TestDeviceManagementSDKGiztests(t *testing.T) {
 		command   []string
 		telemetry bool
 	}{
-		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/gizclaw-e2e/js/giztest/index.ts")}, true},
+		{"JavaScript", []string{"node", "--experimental-strip-types", filepath.Join(root, "tests/clients/js/giztest/index.ts")}, true},
 		{"C", []string{os.Getenv("GIZCLAW_MANAGEMENT_C_RUNNER"), "test"}, true},
 		{"Flutter", []string{os.Getenv("GIZCLAW_MANAGEMENT_FLUTTER_RUNNER")}, false},
 	} {

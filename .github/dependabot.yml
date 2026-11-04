@@ -66,6 +66,6 @@ updates:
           - "@noble/ciphers"
 
   - package-ecosystem: npm
-    directory: /tests/gizclaw-e2e/js
+    directory: /tests/clients/js
     schedule:
       interval: weekly

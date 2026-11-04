@@ -58,7 +58,7 @@ def main(arguments):
     output = options.output.resolve()
     documents = [item.resolve() for item in options.documents]
     executable = options.executable.resolve() if options.executable is not None else None
-    runner = pathlib.Path(__file__).resolve().parent.parent / "js/giztest/index.ts"
+    runner = pathlib.Path(__file__).resolve().parents[2] / "clients/js/giztest/index.ts"
     started = time.monotonic()
     started_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
     tasks = []
