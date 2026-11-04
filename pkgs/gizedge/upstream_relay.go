@@ -128,13 +128,14 @@ func (s *upstreamRelaySelector) dialUpstream(
 		attemptCtx, cancel := context.WithTimeout(ctx, s.attemptTimeout)
 		var timing gizwebrtc.DialTiming
 		listener, conn, err := s.dial(attemptCtx, cfg.KeyPair, cfg.selectedUpstream.PublicKey, gizwebrtc.DialConfig{
-			MetricsNodeRole:       "edge",
-			MetricsPeerKind:       "upstream",
-			SignalingURL:          upstreamSignalingURL(upstreamURL),
-			ICEServers:            []gizwebrtc.ICEServer{server},
-			ICETransportPolicy:    webrtc.ICETransportPolicyRelay,
-			SecurityPolicy:        edgeSecurityPolicy{},
-			SCTPReceiveBufferSize: gizwebrtc.GatewaySCTPReceiveBufferSize,
+			MetricsNodeRole:         "edge",
+			MetricsPeerKind:         "upstream",
+			SignalingURL:            upstreamSignalingURL(upstreamURL),
+			ICEServers:              []gizwebrtc.ICEServer{server},
+			ICETransportPolicy:      webrtc.ICETransportPolicyRelay,
+			SecurityPolicy:          edgeSecurityPolicy{},
+			SCTPReceiveBufferSize:   gizwebrtc.GatewaySCTPReceiveBufferSize,
+			PacketDataChannelPolicy: gizwebrtc.PacketDataChannelOrderedTimed,
 			OnTiming: func(observation gizwebrtc.DialTiming) {
 				timing = observation
 			},

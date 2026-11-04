@@ -157,6 +157,16 @@ sender into one reused MTU-sized buffer. The reader exits when Pion closes the
 sender with the PeerConnection, so unread receiver reports cannot accumulate
 in the SRTCP packet buffer during long-lived sessions.
 
+`DialConfig.PacketDataChannelPolicy` selects the shared physical Packet DataChannel's
+packet delivery. Edge-to-Server upstreams select `PacketDataChannelOrderedTimed`
+for both direct and TURN paths, preserving multiplexed Opus order and recovering
+transient loss within the configured message lifetime. RTP, service streams and
+per-session direct-packet channels retain their existing policies. This setting
+is independent of receive-window sizing and metrics roles. Message retention
+accommodates multiple recovery round trips and has an independent budget from
+the receiver's playback prebuffer; it is not an end-to-end delivery or playback
+deadline. See the policy's Go documentation for its value.
+
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
 MiB burst window, limiting burst-profile receive credit to 256 MiB per Edge;
@@ -190,11 +200,13 @@ and makes exactly one fresh attempt; this changes the local tuple instead of
 reusing a poisoned NAT mapping. A caller-supplied Pion API remains
 single-attempt because its transport ownership is external. Capacity artifacts
 report the number of attempts per session.
-SCTP retransmission is capped at 150 ms, and DTLS
-flights use a 150 ms initial retransmission interval, so lost handshake flights
-during a burst do not add the one-second defaults. SCTP reliable delivery and
-its retransmission count remain unchanged; DTLS retransmission and exponential
-backoff remain enabled. ICE candidate pairs remain eligible for 25 binding
+SCTP's shorter retransmission timeout applies only to the handshake.
+Established DATA/T3 timers retain the association defaults; message lifetime and
+RACK loss detection are separate from that handshake budget. The configured
+DTLS initial retry interval also shortens recovery of a lost handshake flight
+while retaining retransmission and exponential backoff.
+
+ICE candidate pairs remain eligible for 25 binding
 requests, about five seconds at Pion's 200 ms check interval, so transient relay
 packet loss during a synchronized burst does not permanently discard a valid
 pair. The caller's Dial context still bounds the whole handshake. A packet

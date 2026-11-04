@@ -568,6 +568,7 @@ run_timed "preflight:c-giztest-runner" build_c_giztest_runner
 
 run_suite_phase "sdk:device-management" bash "$script_dir/run_device_management_tests.sh"
 run_suite_phase "docker:audio-turn-ownership" bash "$script_dir/run_audio_turn_ownership_tests.sh"
+run_suite_phase "docker:audio-continuity" bash "$script_dir/run_audio_continuity_tests.sh"
 run_suite_phase "docker:log-regressions" bash "$script_dir/run_pending_recovery_tests.sh" --log-regressions
 run_suite_phase "giztest:monitor" bash "$script_dir/run_monitor_tests.sh"
 

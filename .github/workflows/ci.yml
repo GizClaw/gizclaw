@@ -1198,12 +1198,16 @@ jobs:
           cache: npm
       - name: Verify audio turn ownership through Docker and real WebRTC
         run: bash tests/gizclaw-e2e/run_audio_turn_ownership_tests.sh
+      - name: Verify sustained audio continuity through Server and Edge
+        run: bash tests/gizclaw-e2e/run_audio_continuity_tests.sh
       - name: Retain audio turn ownership evidence
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: audio-turn-ownership-regression
-          path: tests/gizclaw-e2e/.testbench/audio-turn-ownership-*/reports/
+          path: |
+            tests/gizclaw-e2e/.testbench/audio-turn-ownership-*/reports/
+            tests/gizclaw-e2e/.testbench/audio-netem-*/reports/
           include-hidden-files: true
 
   terraform-provider-e2e:

@@ -29,6 +29,21 @@ const (
 
 var errDialICEAttempt = errors.New("gizwebrtc: ICE establishment attempt")
 
+// PacketDataChannelPolicy selects delivery of the physical Packet DataChannel.
+// It does not change RTP or service and native DataChannel policies.
+type PacketDataChannelPolicy uint8
+
+const (
+	// PacketDataChannelUnreliable is the default unordered, zero-retransmission
+	// policy used by public client connections.
+	PacketDataChannelUnreliable PacketDataChannelPolicy = iota
+	// PacketDataChannelOrderedTimed preserves packet order and allows SCTP
+	// retransmissions with a one-second message lifetime. Edge-to-Server upstreams
+	// select this policy to tolerate jitter and recover transient packet loss.
+	// The lifetime is not an end-to-end delivery or playback latency bound.
+	PacketDataChannelOrderedTimed
+)
+
 type DialConfig struct {
 	// MetricsNodeRole identifies the process initiating this dial. Values other
 	// than "edge" use the application default.
@@ -50,6 +65,10 @@ type DialConfig struct {
 	// window. Gateway upstream callers use GatewaySCTPReceiveBufferSize; public
 	// client associations leave this at zero.
 	SCTPReceiveBufferSize uint32
+	// PacketDataChannelPolicy is negotiated by the dialer for both directions.
+	// Zero keeps unordered, zero-retransmission delivery, independently of the
+	// SCTP receive window or metrics role.
+	PacketDataChannelPolicy PacketDataChannelPolicy
 	// OnTiming receives one snapshot before Dial returns. Milestones after
 	// SetRemoteDescription are measured from the start of that call.
 	OnTiming func(DialTiming)
@@ -237,6 +256,10 @@ func dialAttempt(
 	cfg DialConfig,
 	packetChannelTimeout time.Duration,
 ) (*Listener, *Conn, error) {
+	packetOptions, err := packetDataChannelInit(cfg.PacketDataChannelPolicy)
+	if err != nil {
+		return nil, nil, err
+	}
 	timing := newDialTimingRecorder()
 	if cfg.OnTiming != nil {
 		defer func() { cfg.OnTiming(timing.snapshot()) }()
@@ -292,12 +315,7 @@ func dialAttempt(
 	}
 	conn.nodeRole = normalizedMetricsNodeRole(cfg.MetricsNodeRole)
 	conn.metricsPeerKind = metricsPeerKinds[metricsPeerKindIndex(cfg.MetricsPeerKind)]
-	ordered := false
-	maxRetransmits := uint16(0)
-	packetDC, err := pc.CreateDataChannel(packetLabel, &webrtc.DataChannelInit{
-		Ordered:        &ordered,
-		MaxRetransmits: &maxRetransmits,
-	})
+	packetDC, err := pc.CreateDataChannel(packetLabel, packetOptions)
 	if err != nil {
 		_ = conn.Close()
 		_ = l.Close()
@@ -418,6 +436,19 @@ func dialAttempt(
 	})
 	l.enqueueConn(conn)
 	return l, conn, nil
+}
+
+func packetDataChannelInit(policy PacketDataChannelPolicy) (*webrtc.DataChannelInit, error) {
+	switch policy {
+	case PacketDataChannelUnreliable:
+		ordered, maxRetransmits := false, uint16(0)
+		return &webrtc.DataChannelInit{Ordered: &ordered, MaxRetransmits: &maxRetransmits}, nil
+	case PacketDataChannelOrderedTimed:
+		ordered, lifetime := true, uint16(1000)
+		return &webrtc.DataChannelInit{Ordered: &ordered, MaxPacketLifeTime: &lifetime}, nil
+	default:
+		return nil, fmt.Errorf("gizwebrtc: invalid packet DataChannel policy %d", policy)
+	}
 }
 
 func newDialPionAPI(sctpReceiveBufferSize uint32) (*webrtc.API, []func() error, error) {

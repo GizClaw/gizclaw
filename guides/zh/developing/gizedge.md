@@ -219,6 +219,11 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding；gateway logical sessions 使用注册的 `giznet/v2/tunnel/` DataChannel namespace，不占用 product service ID。
 
+Both direct and TURN upstream dials explicitly select the ordered, timed physical Packet
+DataChannel policy for tunneled Opus. It recovers transient loss and preserves packet order
+without changing the client's RTP policy or the reliable service channels. The generic
+transport policy and its delivery boundary are described in [Giznet](giznet).
+
 默认省略每个 entry 的 `ice-transport-policy` 和 `ice-servers`，保持
 direct ICE。启用 relay 时配置至少两个 literal-IP TURN/UDP 成员：
 
