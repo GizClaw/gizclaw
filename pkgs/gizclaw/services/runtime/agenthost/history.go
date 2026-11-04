@@ -1214,13 +1214,14 @@ type historyRecorder struct {
 	gearID        string
 	notify        func(workspace.HistoryEntry)
 
-	mu          sync.Mutex
-	pending     map[string]*historyPendingEntry
-	pendingText map[string]string
-	textChanged chan struct{}
-	textError   error
-	textInputs  []string
-	persistence *historyPersistence
+	mu            sync.Mutex
+	pending       map[string]*historyPendingEntry
+	lastCreatedAt time.Time
+	pendingText   map[string]string
+	textChanged   chan struct{}
+	textError     error
+	textInputs    []string
+	persistence   *historyPersistence
 }
 
 type historyPendingEntry struct {
@@ -1703,6 +1704,14 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 	key := r.key(chunk, typ)
 	entry := r.pending[key]
 	if entry == nil {
+		createdAt := time.Now().UTC()
+		// History sorts by creation time, then by an ID assigned at flush.
+		// Replies and delayed transcripts can finish out of arrival order, so
+		// equal or regressing clock readings must not tie their creation times.
+		if !createdAt.After(r.lastCreatedAt) {
+			createdAt = r.lastCreatedAt.Add(time.Nanosecond)
+		}
+		r.lastCreatedAt = createdAt
 		entry = &historyPendingEntry{
 			typ:       typ,
 			gearID:    strings.TrimSpace(gearID),
@@ -1710,7 +1719,7 @@ func (r *historyRecorder) pendingEntry(chunk *genx.MessageChunk, typ string, gea
 			streamID:  historyChunkStreamID(chunk),
 			messageID: historyChunkMessageID(chunk),
 			label:     historyChunkLabel(chunk),
-			createdAt: time.Now().UTC(),
+			createdAt: createdAt,
 		}
 		r.pending[key] = entry
 	}
