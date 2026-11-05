@@ -587,7 +587,11 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 			output.CloseWithError(fmt.Errorf("doubao ast translate: received audio for finishing session %q", streamID))
 			return
 		}
-		historyAudio.appendChunk(chunk, id)
+		historyAudio.appendChunk(chunk, id, sentAudioDuration, audioDuration(audio, doubaoASRSessionConfig{
+			sampleRate: doubaoASTTranslateSourceSampleRate,
+			channels:   doubaoASTTranslateSourceChannels,
+			bits:       doubaoASTTranslateSourceBits,
+		}))
 		if recvStart != nil {
 			close(recvStart)
 			recvStart = nil
@@ -1042,13 +1046,13 @@ func (b *astTranslateHistoryAudioBuffer) reset() {
 	b.opus.reset()
 }
 
-func (b *astTranslateHistoryAudioBuffer) appendChunk(chunk *genx.MessageChunk, streamID string) {
+func (b *astTranslateHistoryAudioBuffer) appendChunk(chunk *genx.MessageChunk, streamID string, start, duration time.Duration) {
 	if b == nil || chunk == nil {
 		return
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	b.opus.append(chunk, streamID)
+	b.opus.append(chunk, streamID, start, duration)
 }
 
 func (b *astTranslateHistoryAudioBuffer) emitSegment(output astTranslateOutput, streamID string, startMS, endMS int) error {
