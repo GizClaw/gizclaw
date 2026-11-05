@@ -3,12 +3,10 @@ package doubaoast
 import (
 	"fmt"
 	"strings"
+	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
-
-const historyFallbackOpusPacketDurationMS = 20
 
 func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.MessageChunk {
 	if strings.TrimSpace(streamID) == "" {
@@ -48,17 +46,15 @@ func historyUserAudioBOSChunk(streamID, mimeType string) *genx.MessageChunk {
 }
 
 type timestampedHistoryAudioBlock struct {
-	chunk   *genx.MessageChunk
-	startMS int
-	endMS   int
+	chunk *genx.MessageChunk
+	start time.Duration
+	end   time.Duration
 }
 
 type timestampedHistoryAudioBuffer struct {
-	blocks    []timestampedHistoryAudioBlock
-	baseTS    int64
-	haveTS    bool
-	cursorMS  int
-	flushedMS int
+	blocks  []timestampedHistoryAudioBlock
+	cursor  time.Duration
+	flushed time.Duration
 }
 
 func (b *timestampedHistoryAudioBuffer) reset() {
@@ -66,13 +62,11 @@ func (b *timestampedHistoryAudioBuffer) reset() {
 		return
 	}
 	b.blocks = b.blocks[:0]
-	b.baseTS = 0
-	b.haveTS = false
-	b.cursorMS = 0
-	b.flushedMS = 0
+	b.cursor = 0
+	b.flushed = 0
 }
 
-func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamID string) {
+func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamID string, start, duration time.Duration) {
 	if b == nil || chunk == nil {
 		return
 	}
@@ -80,65 +74,39 @@ func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamI
 	if !ok || blob == nil || len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
 		return
 	}
-	next := historyUserAudioChunk(chunk, streamID)
-	next.Ctrl.BeginOfStream = false
-	next.Ctrl.EndOfStream = false
-	next.Ctrl.Error = ""
-	startMS := b.cursorMS
-	if next.Ctrl.Timestamp > 0 {
-		if !b.haveTS {
-			b.baseTS = next.Ctrl.Timestamp
-			b.haveTS = true
-		}
-		startMS = max(int(next.Ctrl.Timestamp-b.baseTS), 0)
-	}
-	if n := len(b.blocks); n > 0 && b.blocks[n-1].endMS <= startMS {
-		b.blocks[n-1].endMS = startMS
-	}
-	endMS := startMS + historyOpusPacketDurationMS(blob.Data)
-	if endMS <= startMS {
-		endMS = startMS + historyFallbackOpusPacketDurationMS
-	}
-	b.cursorMS = endMS
-	b.blocks = append(b.blocks, timestampedHistoryAudioBlock{chunk: next, startMS: startMS, endMS: endMS})
+	// Subtitle times use the decoded PCM sent to the provider. Incoming chunk
+	// timestamps describe arrival and can contain gaps or bursts absent from
+	// that audio. Keep sub-millisecond samples and any converted audio prefix.
+	end := start + duration
+	b.cursor = end
+	b.blocks = append(b.blocks, timestampedHistoryAudioBlock{chunk: historyUserAudioChunk(chunk, streamID), start: start, end: end})
 }
 
 func (b *timestampedHistoryAudioBuffer) segment(startMS, endMS int) []*genx.MessageChunk {
 	if b == nil {
 		return nil
 	}
+	start, end := time.Duration(startMS)*time.Millisecond, time.Duration(endMS)*time.Millisecond
 	useFlushCursor := startMS <= 0 && endMS <= 0
 	if useFlushCursor {
-		startMS, endMS = b.flushedMS, b.cursorMS
+		start, end = b.flushed, b.cursor
 	}
-	if endMS <= startMS {
+	if end <= start {
 		return nil
 	}
 	var out []*genx.MessageChunk
-	flushed := b.flushedMS
+	flushed := b.flushed
 	for _, block := range b.blocks {
-		if block.endMS <= startMS || block.startMS >= endMS {
+		if block.end <= start || block.start >= end {
 			continue
 		}
 		out = append(out, block.chunk.Clone())
-		flushed = max(flushed, block.endMS)
+		flushed = max(flushed, block.end)
 	}
 	if len(out) > 0 && useFlushCursor {
-		b.flushedMS = flushed
+		b.flushed = flushed
 	}
 	return out
-}
-
-func historyOpusPacketDurationMS(packet []byte) int {
-	ticks := codecconv.OpusPacketRTPTicks(packet)
-	if ticks == 0 {
-		return historyFallbackOpusPacketDurationMS
-	}
-	ms := int(ticks / 48)
-	if ms <= 0 {
-		return historyFallbackOpusPacketDurationMS
-	}
-	return ms
 }
 
 func pushHistoryAudioSegment(output interface {

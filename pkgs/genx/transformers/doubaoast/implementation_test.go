@@ -298,6 +298,139 @@ func TestTransformerSplitsProviderSubtitleSegments(t *testing.T) {
 	assertASTTranslateEOS(t, chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "turn-1:ast:2")
 }
 
+// Provider subtitle bounds describe the contiguous decoded audio, not the
+// arrival clock on incoming chunks. Keep first, middle, and last speech packets
+// within those bounds while excluding the surrounding audio and Finish padding.
+func TestTransformerHistoryUsesProviderAudioClock(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("native opus runtime is not available")
+	}
+	for _, tc := range []struct {
+		name             string
+		frameSamples     []int
+		arrivalMS        []int64
+		pcmPrefixSamples int
+		startMS, endMS   int
+	}{
+		{
+			name: "arrival-gaps", frameSamples: []int{320, 320, 320, 320, 320},
+			arrivalMS: []int64{0, 20, 120, 220, 240}, startMS: 20, endMS: 80,
+		},
+		{
+			name: "arrival-burst", frameSamples: []int{320, 320, 320, 320, 320},
+			arrivalMS: []int64{0, 1, 2, 3, 4}, startMS: 20, endMS: 80,
+		},
+		{
+			name: "fractional-packets", frameSamples: []int{40, 40, 80, 160, 40},
+			startMS: 3, endMS: 20,
+		},
+		{
+			name: "converted-prefix", frameSamples: []int{320, 320, 320, 320, 320},
+			arrivalMS: []int64{0, 20, 40, 60, 80}, pcmPrefixSamples: 320,
+			startMS: 40, endMS: 100,
+		},
+	} {
+		for _, inputMode := range []string{"push-to-talk", "realtime"} {
+			for _, providerMode := range []doubaospeech.ASTTranslateMode{doubaospeech.ASTTranslateModeS2T, doubaospeech.ASTTranslateModeS2S} {
+				t.Run(tc.name+"/"+inputMode+"/"+string(providerMode), func(t *testing.T) {
+					ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+					defer cancel()
+					input := newBufferStream(8)
+					defer input.Close()
+					packets := make([][]byte, len(tc.frameSamples))
+					for i, samples := range tc.frameSamples {
+						frame := buildASRAudioFrame(samples, 1)
+						for j := range frame {
+							frame[j] /= int16(i + 1)
+						}
+						packets[i] = buildASTTranslateRawOpusPacket(t, frame)
+					}
+					fake := &fakeASTTranslateSession{
+						beforeRecv:        make(chan struct{}),
+						notifySentAudioAt: len(packets),
+						sentAudioNotify:   make(chan struct{}),
+						events: []*doubaospeech.ASTTranslateEvent{
+							{Type: doubaospeech.ASTEventSourceSubtitleStart},
+							{Type: doubaospeech.ASTEventSourceSubtitleEnd, Text: "完整语音", StartTimeMS: tc.startMS, EndTimeMS: tc.endMS},
+							{Type: doubaospeech.ASTEventTranslationSubtitleStart},
+							{Type: doubaospeech.ASTEventTranslationSubtitleEnd, Text: "Complete speech"},
+							{Type: doubaospeech.ASTEventSessionFinished},
+						},
+					}
+					if tc.pcmPrefixSamples > 0 {
+						fake.notifySentAudioAt++
+					}
+					var recvOnce sync.Once
+					releaseEvents := func() { recvOnce.Do(func() { close(fake.beforeRecv) }) }
+					defer releaseEvents()
+					tr := newTransformer(doubaospeech.NewClient("test"), withMode(providerMode), withRealtimePacing(false))
+					tr.newSession = func(context.Context, doubaospeech.ASTTranslateConfig) (doubaoASTTranslateSession, error) {
+						return fake, nil
+					}
+					out, err := tr.transform(ctx, input)
+					if err != nil {
+						t.Fatal(err)
+					}
+					defer out.Close()
+					bos := genx.NewBeginOfStream("speech")
+					bos.Ctrl.InputMode = inputMode
+					if err := input.Push(bos); err != nil {
+						t.Fatal(err)
+					}
+					if tc.pcmPrefixSamples > 0 {
+						if err := input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, tc.pcmPrefixSamples*2)}, Ctrl: &genx.StreamCtrl{StreamID: "speech"}}); err != nil {
+							t.Fatal(err)
+						}
+					}
+					for i, packet := range packets {
+						ctrl := &genx.StreamCtrl{StreamID: "speech"}
+						if len(tc.arrivalMS) > 0 {
+							ctrl.Timestamp = 1_000 + tc.arrivalMS[i]
+						}
+						if err := input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus", Data: packet}, Ctrl: ctrl}); err != nil {
+							t.Fatal(err)
+						}
+					}
+					if err := input.Push(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/opus"}, Ctrl: &genx.StreamCtrl{StreamID: "speech", EndOfStream: true}}); err != nil {
+						t.Fatal(err)
+					}
+					_ = input.Close()
+					fake.waitSentAudio(t)
+					releaseEvents()
+					chunks := readAllASTTranslateChunks(t, out)
+					var recorded [][]byte
+					var begins, ends int
+					for _, chunk := range chunks {
+						if chunk.Ctrl == nil || chunk.Ctrl.Label != genx.HistoryUserAudioLabel {
+							continue
+						}
+						if chunk.Ctrl.StreamID != "speech" || chunk.Role != genx.RoleUser {
+							t.Fatalf("history audio lost transcript association: %#v", chunk)
+						}
+						if chunk.IsBeginOfStream() {
+							begins++
+						}
+						if chunk.IsEndOfStream() {
+							ends++
+						}
+						if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+							recorded = append(recorded, blob.Data)
+						}
+					}
+					if !slices.EqualFunc(recorded, packets[1:4], bytes.Equal) {
+						t.Fatalf("recorded %d packets, want exactly first/middle/last speech packets within provider bounds", len(recorded))
+					}
+					if begins != 1 || ends != 1 {
+						t.Fatalf("history audio BOS=%d EOS=%d, want one of each", begins, ends)
+					}
+					assertASTTranslateTextChunk(t, chunks, genx.RoleUser, doubaoASTTranslateTranscriptLabel, "speech", "完整语音")
+					assertASTTranslateTextChunk(t, chunks, genx.RoleModel, doubaoASTTranslateAssistantLabel, "speech", "Complete speech")
+				})
+			}
+		}
+	}
+}
+
 func TestTransformerPadsTrailingSilenceBeforeFinish(t *testing.T) {
 	for _, mode := range []string{"push-to-talk", "realtime"} {
 		t.Run(string(mode), func(t *testing.T) {
