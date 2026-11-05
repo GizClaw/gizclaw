@@ -3249,8 +3249,8 @@ static int start_deferred_provider_request(
         gzc_str_from_parts((const char *)params.data, params.len), &request);
   if (rc == GZC_OK)
     rc = append_test_frame(platform, &frames,
-                            continuation ? GZC_RPC_FRAME_TEXT : GZC_RPC_FRAME_BINARY,
-                            request.data, request.len);
+                           continuation ? GZC_RPC_FRAME_TEXT : GZC_RPC_FRAME_BINARY,
+                           request.data, request.len);
   if (rc == GZC_OK)
     rc = append_test_frame(platform, &frames, GZC_RPC_FRAME_EOS, NULL, 0);
   if (rc == GZC_OK) {
@@ -3412,7 +3412,8 @@ static int test_deferred_providers(
     goto done;
 
   const gzc_rtc_channel_state_t cancellations[] = {
-      GZC_RTC_CHANNEL_CLOSED, GZC_RTC_CHANNEL_ERROR,
+      GZC_RTC_CHANNEL_CLOSED,
+      GZC_RTC_CHANNEL_ERROR,
   };
   for (size_t i = 0; i < sizeof(cancellations) / sizeof(cancellations[0]); i++) {
     provider.calls[0] = provider.observed[0] = 0;
