@@ -36,6 +36,7 @@ type clientRPCProvider struct {
 	mu        sync.Mutex
 	responses map[string]any
 	calls     map[string]*atomic.Int64
+	instances map[string]mhsInstance
 }
 
 func newClientRPCProvider() *clientRPCProvider {
@@ -51,10 +52,21 @@ func (p *clientRPCProvider) install(method string, response any) error {
 	if (method == rpcMethodsList || method == toolList) && response != nil {
 		return fmt.Errorf("%s is answered from the installed providers and takes no response", method)
 	}
+	var instances map[string]mhsInstance
+	if (method == "client.mhs.v0.read" || method == "client.mhs.v0.write") && statefulMhs(response) {
+		var err error
+		instances, err = decodeMhsInstances(response)
+		if err != nil {
+			return err
+		}
+	}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.responses[method] = response
 	p.calls[method] = &atomic.Int64{}
+	if instances != nil {
+		p.instances = instances
+	}
 	return nil
 }
 
@@ -246,6 +258,9 @@ func (p *clientRPCProvider) answer(id rpcpb.RpcMethod, tool rpcpb.ClientTool, re
 		// The Server is waiting on this RPC, so a slow device is a slow
 		// answer. Blocking the poll thread is what makes the wait observable.
 		time.Sleep(delay)
+	}
+	if (id == rpcpb.RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ || id == rpcpb.RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE) && statefulMhs(value) {
+		return p.answerMhs(id, requestPayload)
 	}
 	payload, err := encodePayload(info.response, value)
 	if err != nil {

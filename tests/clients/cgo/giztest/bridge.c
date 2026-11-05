@@ -712,7 +712,7 @@ static int mhs_control_request(
   gzc_str_t id = {0}, hwd_name = {0}, value = {0};
   if (!body_str(body, "id", &id) || !body_str(body, "hwd", &hwd_name))
     return GZC_ERR_INVALID_ARGUMENT;
-  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker"};
+  static const char *names[] = {NULL, "wifi", "ble", "modem", "battery", "mic", "display", "led", "speaker", "nfc"};
   gzc_control_mhs_v0_hwd_t hwd = 0;
   for (size_t i = 1; i < sizeof(names) / sizeof(names[0]); i++) {
     if (str_is(hwd_name, names[i])) {

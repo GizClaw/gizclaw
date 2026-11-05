@@ -122,3 +122,6 @@ spec:
       - {id: ble.main, hwd: ble}
       - {id: modem.main, hwd: modem}
       - {id: mic.main, hwd: mic}
+      - {id: modem.backup, hwd: modem}
+      - {id: nfc.left, hwd: nfc}
+      - {id: nfc.right, hwd: nfc}
