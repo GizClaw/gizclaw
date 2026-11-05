@@ -120,6 +120,9 @@ typedef struct {
   bool speed_flood_download;
   bool defer_next_service_open;
   bool close_peer_on_poll;
+  gzc_buf_t *remote_sent;
+  gzc_rtc_channel_t *close_channel_on_poll;
+  gzc_rtc_channel_state_t close_channel_state_on_poll;
 } fake_webrtc_t;
 
 typedef struct {
@@ -545,6 +548,12 @@ static int test_peer_poll(gzc_rtc_peer_t *peer, int timeout_ms) {
     fake->poll_result_once = GZC_OK;
     return rc;
   }
+  if (fake->close_channel_on_poll != NULL) {
+    gzc_rtc_channel_t *channel = fake->close_channel_on_poll;
+    fake->close_channel_on_poll = NULL;
+    fake_emit_channel_state(fake, channel, NULL,
+                            fake->close_channel_state_on_poll);
+  }
   if (fake->close_peer_on_poll) {
     fake->close_peer_on_poll = false;
     fake->callbacks.on_peer_state(
@@ -908,6 +917,11 @@ static int test_channel_send_frame(gzc_rtc_channel_t *channel, const uint8_t *da
   }
   for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS + 1u; i++) {
     if (channel == &fake->remote_channels[i] && !is_text) {
+      if (fake->remote_sent != NULL) {
+        int rc = gzc_buf_append(&fake->remote_sent[i], fake->platform, data, len);
+        if (rc != GZC_OK)
+          return rc;
+      }
       return gzc_buf_append(&fake->sent, fake->platform, data, len);
     }
   }
@@ -3154,6 +3168,319 @@ static int test_management_presence_codec(void) {
   if (expect(pb_decode(&in, gizclaw_rpc_v1_DeviceFeature_fields, &read) && read.has_enabled && !read.enabled && read.has_writable && read.writable, "decode feature false presence") != 0)
     return 1;
   return 0;
+}
+
+typedef struct {
+  gzc_client_t *client;
+  fake_webrtc_t *fake;
+  int ready_poll[GZC_RPC_MAX_INBOUND_CHANNELS];
+  int calls[GZC_RPC_MAX_INBOUND_CHANNELS];
+  int observed[GZC_RPC_MAX_INBOUND_CHANNELS];
+  bool error[GZC_RPC_MAX_INBOUND_CHANNELS];
+  bool respond_then_block;
+  bool invalid_identity;
+} deferred_provider_test_t;
+
+static size_t deferred_provider_slot(deferred_provider_test_t *provider) {
+  gzc_rtc_channel_t *channel = gzc_client_rpc_provider_channel(provider->client);
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS; i++) {
+    if (channel == &provider->fake->remote_channels[i])
+      return i;
+  }
+  provider->invalid_identity = true;
+  return GZC_RPC_MAX_INBOUND_CHANNELS;
+}
+
+static void deferred_provider_observer(
+    void *userdata, int method, gizclaw_rpc_v1_ClientTool tool) {
+  deferred_provider_test_t *provider = userdata;
+  size_t slot = deferred_provider_slot(provider);
+  if (slot == GZC_RPC_MAX_INBOUND_CHANNELS)
+    return;
+  if (tool != (method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE
+                   ? gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_INFO_GET
+                   : gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED))
+    provider->invalid_identity = true;
+  provider->observed[slot]++;
+}
+
+static int deferred_provider_reply(
+    void *userdata, int method, gzc_str_t payload,
+    gzc_rpc_provider_respond_fn respond, void *respond_userdata) {
+  deferred_provider_test_t *provider = userdata;
+  (void)method;
+  size_t slot = deferred_provider_slot(provider);
+  if (slot == GZC_RPC_MAX_INBOUND_CHANNELS || payload.len != 0u)
+    return GZC_ERR_RPC;
+  provider->calls[slot]++;
+  if (provider->fake->poll_count < provider->ready_poll[slot])
+    return GZC_ERR_WOULD_BLOCK;
+  uint8_t bytes[] = {0x0a, 0x00};
+  const gzc_rpc_provider_response_t response = {
+      .payload = bytes,
+      .payload_len = sizeof(bytes),
+      .has_error = provider->error[slot],
+      .error_code = gizclaw_rpc_v1_StatusCode_STATUS_CODE_PERMISSION_DENIED,
+      .error_message = {.data = "provider denied", .len = 15u},
+  };
+  int rc = respond(respond_userdata, &response);
+  memset(bytes, 0xff, sizeof(bytes));
+  return rc == GZC_OK && provider->respond_then_block ? GZC_ERR_WOULD_BLOCK : rc;
+}
+
+static int deferred_tool_reply(
+    void *userdata, gzc_str_t payload,
+    gzc_rpc_provider_respond_fn respond, void *respond_userdata) {
+  return deferred_provider_reply(userdata, 0, payload, respond, respond_userdata);
+}
+
+static int start_deferred_provider_request(
+    fake_webrtc_t *fake, size_t slot, const char *id,
+    gizclaw_rpc_v1_RpcMethod method, bool continuation) {
+  gzc_buf_t params = {0}, request = {0}, frames = {0};
+  const gzc_platform_t *platform = fake->platform;
+  int rc = GZC_OK;
+  if (method == gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE)
+    rc = append_test_proto_varint(platform, &params, 1,
+                                  gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_INFO_GET);
+  if (rc == GZC_OK)
+    rc = gzc_rpc_encode_request_envelope(
+        platform, gzc_str_from_cstr(id), method,
+        gzc_str_from_parts((const char *)params.data, params.len), &request);
+  if (rc == GZC_OK)
+    rc = append_test_frame(platform, &frames,
+                            continuation ? GZC_RPC_FRAME_TEXT : GZC_RPC_FRAME_BINARY,
+                            request.data, request.len);
+  if (rc == GZC_OK)
+    rc = append_test_frame(platform, &frames, GZC_RPC_FRAME_EOS, NULL, 0);
+  if (rc == GZC_OK) {
+    gzc_buf_reset(&fake->remote_sent[slot]);
+    announce_remote_rpc(fake, slot);
+    fake->callbacks.on_channel_message(
+        fake->callbacks.userdata, &fake->peer, &fake->remote_channels[slot],
+        NULL, frames.data, frames.len, false);
+  }
+  gzc_buf_free(&params, platform);
+  gzc_buf_free(&request, platform);
+  gzc_buf_free(&frames, platform);
+  return rc;
+}
+
+static int expect_deferred_provider_reply(
+    fake_webrtc_t *fake, size_t slot, const char *id, bool tool, int error_code) {
+  const gzc_buf_t *bytes = &fake->remote_sent[slot];
+  size_t envelope_size = first_frame_size(bytes);
+  gzc_rpc_frame_t frame;
+  gzc_rpc_response_t response;
+  int rc = gzc_rpc_frame_decode(bytes->data, envelope_size, &frame);
+  if (rc == GZC_OK)
+    rc = gzc_rpc_decode_response_envelope(
+        gzc_str_from_parts((const char *)frame.data, frame.len), &response);
+  if (expect(rc == GZC_OK && str_eq_cstr(response.id, id) &&
+                 response.has_error == (error_code != 0),
+             "deferred reply preserves request identity and status") != 0)
+    return 1;
+  const uint8_t expected[] = {0x0a, 0x02, 0x0a, 0x00};
+  if (error_code != 0) {
+    if (expect(response.error.code == error_code,
+               "deferred reply preserves provider error") != 0)
+      return 1;
+  } else if (expect(response.result_payload.len == (tool ? 4u : 2u) &&
+                        memcmp(response.result_payload.data,
+                               expected + (tool ? 0u : 2u),
+                               response.result_payload.len) == 0,
+                    "deferred reply wraps and copies borrowed provider bytes") != 0) {
+    return 1;
+  }
+  if (expect(bytes->len == envelope_size + 4u &&
+                 gzc_rpc_frame_decode(bytes->data + envelope_size, 4u, &frame) == GZC_OK &&
+                 frame.type == GZC_RPC_FRAME_EOS,
+             "deferred reply emits exactly one response and EOS") != 0)
+    return 1;
+  return 0;
+}
+
+static int test_deferred_providers(
+    const gzc_client_config_t *base, const gzc_webrtc_media_vtable_t *media) {
+  fake_webrtc_t *previous_fake = global_fake_webrtc;
+  gzc_buf_t replies[GZC_RPC_MAX_INBOUND_CHANNELS + 1u] = {0};
+  fake_webrtc_t fake = {
+      .platform = base->platform,
+      .clock = base->platform->userdata,
+      .drain_on_poll = true,
+      .emit_low_event = true,
+      .remote_sent = replies,
+  };
+  fake_http_t fake_http = {.platform = base->platform};
+  gzc_webrtc_vtable_t webrtc = *base->webrtc;
+  webrtc.userdata = &fake;
+  gzc_http_vtable_t http = *base->http;
+  http.userdata = &fake_http;
+  deferred_provider_test_t provider = {.fake = &fake};
+  const gzc_tool_handler_t handler = {
+      .tool = gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_INFO_GET,
+      .handler = deferred_tool_reply,
+      .userdata = &provider,
+  };
+  gzc_client_config_t config = *base;
+  config.server_endpoint = gzc_str_from_cstr("http://example.invalid:9820");
+  config.cipher_mode = GZC_CIPHER_PLAINTEXT;
+  config.webrtc = &webrtc;
+  config.http = &http;
+  config.mhs_read = deferred_provider_reply;
+  config.mhs_write = deferred_provider_reply;
+  config.mhs_userdata = &provider;
+  config.tool_handlers = &handler;
+  config.tool_handler_count = 1u;
+  config.rpc_observer = deferred_provider_observer;
+  config.rpc_observer_userdata = &provider;
+  config.lua_app_install = NULL;
+  gzc_client_t *client = NULL;
+  int result = 1;
+  if (gzc_client_create(&config, &client) != GZC_OK ||
+      gzc_client_set_webrtc_media(client, media) != GZC_OK ||
+      gzc_client_set_peer_add_ice_server(client, test_peer_add_ice_server) != GZC_OK)
+    goto done;
+  fake.client = client;
+  provider.client = client;
+  if (gzc_client_connect(client) != GZC_OK ||
+      expect(gzc_client_rpc_provider_channel(NULL) == NULL &&
+                 gzc_client_rpc_provider_channel(client) == NULL,
+             "provider channel is absent outside inbound dispatch") != 0)
+    goto done;
+
+  const gizclaw_rpc_v1_RpcMethod methods[] = {
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_READ,
+      gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_MHS_V0_WRITE,
+  };
+  for (size_t method = 0; method < sizeof(methods) / sizeof(methods[0]); method++) {
+    for (int error = 0; error < 2; error++) {
+      provider.calls[0] = provider.observed[0] = 0;
+      provider.ready_poll[0] = fake.poll_count + 3;
+      provider.error[0] = error != 0;
+      int closes = fake.close_count;
+      if (start_deferred_provider_request(&fake, 0, "pending", methods[method], error != 0) != GZC_OK ||
+          expect(provider.calls[0] == 1 && provider.observed[0] == 1 &&
+                     replies[0].len == 0u && fake.close_count == closes &&
+                     gzc_client_rpc_provider_channel(client) == NULL,
+                 "unary provider defers without responding or closing") != 0)
+        goto done;
+      for (int attempt = 0; attempt < 2; attempt++) {
+        int polls = fake.poll_count;
+        if (gzc_client_poll(client, -1) != GZC_OK ||
+            expect(fake.poll_count == polls + 1 && fake.last_poll_timeout_ms == 0 &&
+                       provider.calls[0] == attempt + 2 && provider.observed[0] == 1 &&
+                       replies[0].len == 0u && fake.close_count == closes &&
+                       gzc_client_rpc_provider_channel(client) == NULL,
+                   "pending provider retries once per poll without blocking backend") != 0)
+          goto done;
+      }
+      if (gzc_client_poll(client, -1) != GZC_OK ||
+          expect_deferred_provider_reply(
+              &fake, 0, "pending", method == 0,
+              error ? gizclaw_rpc_v1_StatusCode_STATUS_CODE_PERMISSION_DENIED : 0) != 0 ||
+          expect(provider.calls[0] == 4 && provider.observed[0] == 1 &&
+                     fake.close_count == closes + 1 && !provider.invalid_identity &&
+                     gzc_client_rpc_provider_channel(client) == NULL,
+                 "deferred success and error complete once with stable channel identity") != 0)
+        goto done;
+    }
+  }
+  provider.error[0] = false;
+
+  /* Identical calls complete in reverse order on independent request channels. */
+  provider.calls[0] = provider.calls[1] = 0;
+  provider.observed[0] = provider.observed[1] = 0;
+  provider.ready_poll[0] = fake.poll_count + 3;
+  provider.ready_poll[1] = fake.poll_count + 1;
+  int closes = fake.close_count;
+  if (start_deferred_provider_request(&fake, 0, "slow", methods[0], false) != GZC_OK ||
+      start_deferred_provider_request(&fake, 1, "fast", methods[0], false) != GZC_OK ||
+      gzc_client_poll(client, -1) != GZC_OK ||
+      expect_deferred_provider_reply(&fake, 1, "fast", true, 0) != 0 ||
+      expect(replies[0].len == 0u && provider.calls[0] == 2 &&
+                 provider.calls[1] == 2 && fake.close_count == closes + 1,
+             "a pending tool does not block another request") != 0 ||
+      gzc_client_poll(client, -1) != GZC_OK ||
+      gzc_client_poll(client, -1) != GZC_OK ||
+      expect_deferred_provider_reply(&fake, 0, "slow", true, 0) != 0 ||
+      expect(provider.calls[0] == 4 && provider.calls[1] == 2 &&
+                 provider.observed[0] == 1 && provider.observed[1] == 1 &&
+                 fake.close_count == closes + 2 && !provider.invalid_identity,
+             "concurrent tools retain independent identity and notify once each") != 0)
+    goto done;
+
+  const gzc_rtc_channel_state_t cancellations[] = {
+      GZC_RTC_CHANNEL_CLOSED, GZC_RTC_CHANNEL_ERROR,
+  };
+  for (size_t i = 0; i < sizeof(cancellations) / sizeof(cancellations[0]); i++) {
+    provider.calls[0] = provider.observed[0] = 0;
+    provider.ready_poll[0] = fake.poll_count + 1000;
+    closes = fake.close_count;
+    if (start_deferred_provider_request(&fake, 0, "cancel", methods[0], false) != GZC_OK)
+      goto done;
+    fake.close_channel_on_poll = &fake.remote_channels[0];
+    fake.close_channel_state_on_poll = cancellations[i];
+    if (gzc_client_poll(client, -1) != GZC_OK ||
+        gzc_client_poll(client, 0) != GZC_OK ||
+        expect(provider.calls[0] == 1 && provider.observed[0] == 1 &&
+                   replies[0].len == 0u && fake.close_count == closes &&
+                   fake.stale_close_count == 0 &&
+                   gzc_client_rpc_provider_channel(client) == NULL,
+               "backend cancellation stops deferred retries without stale channel close") != 0)
+      goto done;
+    provider.ready_poll[0] = 0;
+    if (start_deferred_provider_request(&fake, 0, "reuse", methods[0], false) != GZC_OK ||
+        gzc_client_poll(client, 0) != GZC_OK ||
+        expect_deferred_provider_reply(&fake, 0, "reuse", true, 0) != 0 ||
+        expect(provider.calls[0] == 2 && provider.observed[0] == 2 &&
+                   fake.close_count == closes + 1,
+               "cancelled request releases its slot for a fresh exchange") != 0)
+      goto done;
+  }
+
+  provider.calls[0] = provider.observed[0] = 0;
+  provider.respond_then_block = true;
+  closes = fake.close_count;
+  if (start_deferred_provider_request(&fake, 0, "invalid-pending", methods[0], false) != GZC_OK ||
+      gzc_client_poll(client, 0) != GZC_OK ||
+      expect_deferred_provider_reply(
+          &fake, 0, "invalid-pending", true,
+          gizclaw_rpc_v1_StatusCode_STATUS_CODE_INTERNAL) != 0 ||
+      expect(provider.calls[0] == 1 && provider.observed[0] == 1 &&
+                 fake.close_count == closes + 1,
+             "responding before WOULD_BLOCK fails once instead of replaying work") != 0)
+    goto done;
+  provider.respond_then_block = false;
+
+  provider.calls[0] = provider.calls[1] = 0;
+  provider.ready_poll[0] = provider.ready_poll[1] = fake.poll_count + 1000;
+  if (start_deferred_provider_request(&fake, 0, "shutdown-a", methods[0], false) != GZC_OK ||
+      start_deferred_provider_request(&fake, 1, "shutdown-b", methods[0], false) != GZC_OK ||
+      gzc_client_close(client) != GZC_OK)
+    goto done;
+  closes = fake.close_count;
+  if (expect(gzc_client_poll(client, 0) == GZC_ERR_CLOSED &&
+                 gzc_client_close(client) == GZC_OK && fake.close_count == closes &&
+                 provider.calls[0] == 1 && provider.calls[1] == 1 &&
+                 replies[0].len == 0u && replies[1].len == 0u &&
+                 fake.stale_close_count == 0 && !provider.invalid_identity &&
+                 gzc_client_rpc_provider_channel(client) == NULL,
+             "client shutdown stops pending providers and releases channels once") != 0)
+    goto done;
+  result = 0;
+
+done:
+  gzc_client_destroy(client);
+  gzc_buf_free(&fake.sent, fake.platform);
+  gzc_buf_free(&fake.outgoing, fake.platform);
+  gzc_buf_free(&fake.native_sent, fake.platform);
+  gzc_buf_free(&fake.opus_sent, fake.platform);
+  for (size_t i = 0; i < GZC_RPC_MAX_INBOUND_CHANNELS + 1u; i++)
+    gzc_buf_free(&replies[i], fake.platform);
+  global_fake_webrtc = previous_fake;
+  return result;
 }
 
 int main(void) {
@@ -6763,5 +7090,5 @@ int main(void) {
   gzc_buf_free(&fake_webrtc_gateway.outgoing, platform);
   gzc_buf_free(&fake_webrtc_gateway.native_sent, platform);
   gzc_buf_free(&fake_webrtc_gateway.opus_sent, platform);
-  return 0;
+  return test_deferred_providers(&config, &media);
 }

@@ -17,12 +17,6 @@
 const gzc_rpc_stream_provider_t *gzc_client_lua_app_provider_internal(gzc_client_t *client);
 int64_t gzc_client_instant_ms_internal(gzc_client_t *client);
 int gzc_client_write_timeout_ms_internal(gzc_client_t *client);
-int gzc_client_dispatch_rpc_internal(
-    gzc_client_t *client,
-    int method,
-    gzc_str_t request_payload,
-    gzc_rpc_provider_respond_fn respond,
-    void *respond_userdata);
 int gzc_client_try_write_bytes_internal(
     gzc_client_t *client,
     gzc_rtc_channel_t *channel,
@@ -1251,21 +1245,26 @@ static int inbound_finish_provider(struct gzc_rpc_inbound *inbound) {
   if (inbound->provider != NULL) {
     rc = inbound->provider->finish(inbound->provider_session,
                                    inbound_provider_respond, &provider_response);
-    if (rc == GZC_ERR_WOULD_BLOCK && !provider_response.responded) {
-      gzc_buf_free(&provider_response.encoded_response, inbound->platform);
-      inbound->provider_blocked = true;
-      return rc;
-    }
   } else {
-    rc = gzc_client_dispatch_rpc_internal(
+    rc = gzc_client_dispatch_rpc_channel_internal(
         inbound->client,
         (int)inbound->method,
         gzc_str_from_parts(
             (const char *)inbound->payload.data,
             inbound->payload.len),
+        inbound->channel,
+        inbound->provider_blocked,
         inbound_provider_respond,
         &provider_response);
   }
+  if (rc == GZC_ERR_WOULD_BLOCK && !provider_response.responded) {
+    gzc_buf_free(&provider_response.encoded_response, inbound->platform);
+    /* Retain the terminating frame for retry without pausing backend polling. */
+    inbound->request_done = true;
+    inbound->provider_blocked = true;
+    return rc;
+  }
+  inbound->provider_blocked = false;
   if (rc == GZC_ERR_UNSUPPORTED) {
     gzc_buf_free(&provider_response.encoded_response, inbound->platform);
     return inbound_error(
@@ -1515,6 +1514,12 @@ int gzc_rpc_inbound_poll(struct gzc_rpc_inbound *inbound) {
   if (inbound == NULL) {
     return GZC_ERR_INVALID_ARGUMENT;
   }
+  if (inbound->provider_blocked && inbound->phase != GZC_INBOUND_INSTALL_BODY) {
+    int rc = gzc_rpc_inbound_feed(inbound, NULL, 0, false);
+    if (rc != GZC_OK || inbound->provider_blocked) {
+      return rc;
+    }
+  }
   if (inbound->phase == GZC_INBOUND_INSTALL_BODY) {
     if (gzc_client_instant_ms_internal(inbound->client) >= inbound->install_deadline_ms) {
       inbound_close_provider(inbound, GZC_ERR_TIMEOUT);
@@ -1620,9 +1625,12 @@ int gzc_rpc_inbound_backend_timeout_ms(
   if (inbound == NULL) {
     return requested_timeout_ms;
   }
+  if (inbound->provider_blocked) {
+    return 0;
+  }
   if (inbound->phase == GZC_INBOUND_INSTALL_BODY) {
     int64_t remaining = inbound->install_deadline_ms - gzc_client_instant_ms_internal(inbound->client);
-    if (remaining <= 0 || inbound->provider_blocked)
+    if (remaining <= 0)
       return 0;
     if (requested_timeout_ms < 0 || remaining < requested_timeout_ms)
       requested_timeout_ms = (int)remaining;
