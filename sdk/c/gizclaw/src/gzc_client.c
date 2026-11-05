@@ -55,6 +55,8 @@ _Static_assert(
     "Opus receive slot length must fit in uint16_t");
 
 struct gzc_client {
+  gzc_rtc_channel_t *provider_channel;
+  bool provider_retry;
   gzc_client_config_t config;
   const gzc_webrtc_media_vtable_t *media;
   gzc_peer_add_ice_server_fn peer_add_ice_server;
@@ -2114,7 +2116,8 @@ int gzc_client_dispatch_rpc_internal(
                           gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                           "invalid protobuf request");
   }
-  if (client->config.rpc_observer != NULL && method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE) {
+  if (client->config.rpc_observer != NULL && !client->provider_retry &&
+      method != gizclaw_rpc_v1_RpcMethod_RPC_METHOD_CLIENT_TOOL_V0_INVOKE) {
     client->config.rpc_observer(client->config.rpc_observer_userdata, method, gizclaw_rpc_v1_ClientTool_CLIENT_TOOL_UNSPECIFIED);
   }
   switch (method) {
@@ -2164,7 +2167,7 @@ int gzc_client_dispatch_rpc_internal(
                             gizclaw_rpc_v1_StatusCode_STATUS_CODE_INVALID_ARGUMENT,
                             "invalid tool request");
     }
-    if (client->config.rpc_observer != NULL) {
+    if (client->config.rpc_observer != NULL && !client->provider_retry) {
       client->config.rpc_observer(client->config.rpc_observer_userdata, method, request.tool);
     }
     for (size_t i = 0; i < client->config.tool_handler_count; i++) {
@@ -2194,6 +2197,32 @@ int gzc_client_dispatch_rpc_internal(
     break;
   }
   return GZC_ERR_UNSUPPORTED;
+}
+
+gzc_rtc_channel_t *gzc_client_rpc_provider_channel(gzc_client_t *client) {
+  return client == NULL ? NULL : client->provider_channel;
+}
+
+int gzc_client_dispatch_rpc_channel_internal(
+    gzc_client_t *client,
+    int method,
+    gzc_str_t request_payload,
+    gzc_rtc_channel_t *channel,
+    bool retry,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata) {
+  if (client == NULL) {
+    return GZC_ERR_INVALID_ARGUMENT;
+  }
+  gzc_rtc_channel_t *previous_channel = client->provider_channel;
+  bool previous_retry = client->provider_retry;
+  client->provider_channel = channel;
+  client->provider_retry = retry;
+  int rc = gzc_client_dispatch_rpc_internal(
+      client, method, request_payload, respond, respond_userdata);
+  client->provider_channel = previous_channel;
+  client->provider_retry = previous_retry;
+  return rc;
 }
 
 void gzc_client_destroy(gzc_client_t *client) {

@@ -6,6 +6,15 @@
 typedef struct gzc_event_stream gzc_event_stream_t;
 typedef struct gzc_rpc_request gzc_rpc_request_t;
 
+int gzc_client_dispatch_rpc_channel_internal(
+    gzc_client_t *client,
+    int method,
+    gzc_str_t request_payload,
+    gzc_rtc_channel_t *channel,
+    bool retry,
+    gzc_rpc_provider_respond_fn respond,
+    void *respond_userdata);
+
 int gzc_client_acquire_event_channel_internal(
     gzc_client_t *client,
     gzc_event_stream_t *stream,

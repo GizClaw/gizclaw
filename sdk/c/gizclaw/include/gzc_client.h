@@ -35,6 +35,13 @@ typedef int (*gzc_rpc_provider_respond_fn)(
  * Handles an installed MHS read or write method. Request and response payloads are
  * protobuf message bytes. request_payload is borrowed until this callback
  * returns. The provider must call respond exactly once before returning GZC_OK.
+ * Returning GZC_ERR_WOULD_BLOCK without responding defers the reply: the SDK
+ * retries this callback from the serialized poll owner with the same request
+ * channel, while backend polling and other RPCs continue. Use
+ * gzc_client_rpc_provider_channel() to distinguish pending requests. Copy any
+ * borrowed bytes needed by asynchronous work; never retain respond or its
+ * userdata, and do not reenter this client from a provider callback. Pending
+ * provider-owned work must be released on completion or request-channel close.
  */
 typedef int (*gzc_rpc_provider_fn)(
     void *userdata,
@@ -72,7 +79,9 @@ typedef struct {
  * Handles one ClientTool. request_payload and the response payload are the
  * encoded messages selected by ClientTool, without the invoke envelope.
  * Views are borrowed for the synchronous call. Validate all arguments before
- * changing hardware; return INVALID_ARGUMENT for rejected arguments.
+ * changing hardware; return INVALID_ARGUMENT for rejected arguments. Reply and
+ * GZC_ERR_WOULD_BLOCK semantics match gzc_rpc_provider_fn, including stable
+ * request-channel identity and the prohibition on retaining respond/userdata.
  */
 typedef int (*gzc_tool_handler_fn)(
     void *userdata,
@@ -118,8 +127,9 @@ typedef struct {
   size_t service_write_high_water_bytes;
   size_t service_write_low_water_bytes;
   void *userdata;
-  /* Called synchronously after decoding, including unimplemented tools.
-   * tool is UNSPECIFIED for a base or MHS method. No SDK mutex is held. */
+  /* Called synchronously once after decoding, including unimplemented tools;
+   * deferred retries do not notify again. tool is UNSPECIFIED for a base or
+   * MHS method. No SDK mutex is held. */
   void (*rpc_observer)(void *userdata, int method, gizclaw_rpc_v1_ClientTool tool);
   void *rpc_observer_userdata;
   gzc_rpc_provider_fn mhs_read;
@@ -134,6 +144,17 @@ typedef struct {
    * URL installation remains a separate tool handler using the same installer. */
   const gzc_rpc_stream_provider_t *lua_app_install;
 } gzc_client_config_t;
+
+/*
+ * Returns the borrowed transport channel for the current inbound MHS or tool
+ * callback, or NULL outside inbound dispatch (also for a NULL client). Call on
+ * the serialized poll-owner thread only. The channel identifies one request
+ * across GZC_ERR_WOULD_BLOCK retries and distinguishes concurrent requests.
+ * It remains owned by the SDK/backend: use it only as an identity, never close
+ * or free it, and discard it when that channel or the client closes. Callback
+ * return clears the accessor; it does not close a deferred request's channel.
+ */
+gzc_rtc_channel_t *gzc_client_rpc_provider_channel(gzc_client_t *client);
 
 int gzc_client_create(const gzc_client_config_t *config, gzc_client_t **out_client);
 int gzc_client_set_peer_add_ice_server(gzc_client_t *client, gzc_peer_add_ice_server_fn fn);

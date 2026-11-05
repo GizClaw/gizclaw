@@ -89,7 +89,7 @@ C 设备通过 `gzc_client_config_t.lua_app_install` 安装借用的 `gzc_rpc_st
 | `finish(session, respond, userdata)` | 仅在声明长度与请求 EOS 一致后调用。完成压缩 SHA 和包校验及原子发布后才 respond；pending 可返回 WOULD_BLOCK，期间继续 backend poll 以观察取消；不得保留 respond 指针。 |
 | `close(session, status)` | 最后一次操作结束后的唯一清理点；成功为 OK，失败、断连、client close 或 120 秒超时为错误状态。回滚未提交状态，释放 owner。 |
 
-回调由串行 poll owner 调用，不得重入 client，且应及时返回。异步设备 worker 若需要跨回调处理必须复制到自身有界存储；SDK 不为回调创建线程。SDK 校验元信息和压缩长度；C provider 的 finish 负责压缩 SHA-256 与全部安装校验。普通 URL Tool 保持同步 respond 合同，不能借用它接收额外 Binary 包体。
+回调由串行 poll owner 调用，不得重入 client，且应及时返回。异步设备 worker 若需要跨回调处理必须复制到自身有界存储；SDK 不为回调创建线程。SDK 校验元信息和压缩长度；C provider 的 finish 负责压缩 SHA-256 与全部安装校验。URL tools use the unary Tool callback contract and cannot receive additional Binary body frames.
 
 Go 的 `gizcli.DeviceControlHandlers.InstallLuaApp` 返回 `LuaAppInstallSession`；JS 的 `GizClawPeerRPCHandlers.installLuaApp` 返回 `LuaAppInstallSession` 并接收 `AbortSignal`；Flutter 的 `GizClawPeerRpcHandlers.installLuaApp` 返回同名 owner 并接收 `LuaAppInstallCancellation`。这些 provider 只负责接线，安装实现由设备拥有。Go/JS/Flutter 在 finish 前也校验压缩 SHA。Go controller 使用生成的 Peer HTTP client 或 `rpcapi.UploadLuaApp`；JS `WebRTCRPCClient.installLuaApp` 和 Flutter `PeerRpcClient.installLuaApp` 接受逐块输入，复用现有发送背压与 EOS。
 
@@ -106,6 +106,8 @@ Go 的 `gizcli.DeviceControlHandlers.InstallLuaApp` 返回 `LuaAppInstallSession
 ## Provider 与错误契约
 
 Go 设备通过 `gizcli.DeviceControlHandlers` 或逐个 `ClientTool` 安装 handler；JavaScript、Flutter 与 C 安装相应的有类型 handler。各 SDK 从实际安装的 handler 推导发现列表。C provider 用 nanopb callback 解码 invoke bytes，避免新增大型静态 payload 缓冲区。
+
+C MHS and Tool providers can defer a unary reply while the serialized poll owner continues serving the connection. Providers associate pending work with the request channel and release it when the request completes or the channel closes; the callback and borrowing contract is defined in [the C SDK public header](https://github.com/GizClaw/gizclaw/blob/main/sdk/c/gizclaw/include/gzc_client.h).
 
 Server 在打开 RPC stream 前验证 Peer HTTP 的有类型参数。设备离线映射为 `409 DEVICE_OFFLINE`；未安装操作为 `501 DEVICE_UNSUPPORTED`；超时为 `504 DEVICE_TIMEOUT`；设备 `INVALID_PARAMS` 为 `400 DEVICE_REJECTED`；其他设备错误为隐去细节的 `502 DEVICE_ERROR`。保存的 SSID 不存在时使用路由对应的 not-found 映射。设备 handler 不得在状态或错误中泄露凭证。
 
