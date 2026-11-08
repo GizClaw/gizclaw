@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	storemetrics "github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
@@ -109,31 +110,36 @@ func TestStoreRecorderRetainsDirtySeriesAfterFailure(t *testing.T) {
 }
 
 func TestStoreRecorderPublishesIdleCountersWithoutRepeatingCleanGauges(t *testing.T) {
-	store := &fakeMetricsStore{}
-	recorder := newStoreRecorder(store, recorderConfig{appendTimeout: time.Second, maxSeries: 10})
-	recorder.addPeriodicCounters(t.Context(), "tokens_total", []CounterDelta{{Value: 7}})
-	recorder.addCounter(t.Context(), "requests_total", 2, nil)
-	recorder.setGauge(t.Context(), "last_usage", 7, nil)
-	if err := recorder.flush(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	if err := recorder.flush(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	recorder.addPeriodicCounters(t.Context(), "tokens_total", []CounterDelta{{Value: 3}})
-	if err := recorder.flush(t.Context()); err != nil {
-		t.Fatal(err)
-	}
-	batches := store.appendBatches()
-	if len(batches) != 3 || len(batches[0]) != 3 || len(batches[1]) != 1 || len(batches[2]) != 1 {
-		t.Fatalf("periodic counter batches = %v", batches)
-	}
-	for i, want := range []float64{7, 7, 10} {
-		assertMetricSample(t, batches[i], "tokens_total", map[string]string{}, want)
-		if i > 0 && !batches[i][0].Timestamp.After(batches[i-1][0].Timestamp) {
-			t.Fatalf("counter timestamps did not advance: %v", batches)
+	synctest.Test(t, func(t *testing.T) {
+		store := &fakeMetricsStore{}
+		recorder := newStoreRecorder(store, recorderConfig{appendTimeout: time.Second, maxSeries: 10})
+		recorder.addPeriodicCounters(t.Context(), "tokens_total", []CounterDelta{{Value: 7}})
+		recorder.addCounter(t.Context(), "requests_total", 2, nil)
+		recorder.setGauge(t.Context(), "last_usage", 7, nil)
+		if err := recorder.flush(t.Context()); err != nil {
+			t.Fatal(err)
 		}
-	}
+		// Advance the fake clock; consecutive wall-clock reads can coincide.
+		time.Sleep(time.Second)
+		if err := recorder.flush(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		time.Sleep(time.Second)
+		recorder.addPeriodicCounters(t.Context(), "tokens_total", []CounterDelta{{Value: 3}})
+		if err := recorder.flush(t.Context()); err != nil {
+			t.Fatal(err)
+		}
+		batches := store.appendBatches()
+		if len(batches) != 3 || len(batches[0]) != 3 || len(batches[1]) != 1 || len(batches[2]) != 1 {
+			t.Fatalf("periodic counter batches = %v", batches)
+		}
+		for i, want := range []float64{7, 7, 10} {
+			assertMetricSample(t, batches[i], "tokens_total", map[string]string{}, want)
+			if i > 0 && !batches[i][0].Timestamp.After(batches[i-1][0].Timestamp) {
+				t.Fatalf("counter timestamps did not advance: %v", batches)
+			}
+		}
+	})
 }
 
 func TestStoreRecorderBoundsAppendTimeoutAndRetries(t *testing.T) {
