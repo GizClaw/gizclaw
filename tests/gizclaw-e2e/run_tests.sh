@@ -566,7 +566,7 @@ run_timed "preflight:nanopb" prepare_nanopb
 run_timed "preflight:host-cli" build_host_cli
 run_timed "preflight:c-giztest-runner" build_c_giztest_runner
 
-run_suite_phase "sdk:device-management" bash "$script_dir/run_device_management_tests.sh"
+run_suite_phase "sdk:device-management" bash "$repo_root/tests/integration/sdk/run_device_management_tests.sh"
 run_suite_phase "docker:audio-turn-ownership" bash "$script_dir/run_audio_turn_ownership_tests.sh"
 run_suite_phase "docker:audio-continuity" bash "$script_dir/run_audio_continuity_tests.sh"
 run_suite_phase "docker:log-regressions" bash "$script_dir/run_pending_recovery_tests.sh" --log-regressions
@@ -590,7 +590,7 @@ run_suite_phase "cgo:social" run_pkg "./tests/clients/cgo/social"
 run_suite_phase "go:admin" run_pkg "./tests/gizclaw-e2e/go/admin"
 run_suite_phase "go:openai" run_pkg "./tests/gizclaw-e2e/go/openai"
 run_suite_phase "cli" run_pkg_serial "./tests/gizclaw-e2e/cmd/..."
-run_suite_phase "terraform" bash "$script_dir/run_terraform_provider_tests.sh"
+run_suite_phase "terraform" bash "$repo_root/tests/integration/terraform/run_tests.sh"
 run_suite_phase "giztest:standard" run_standard_giztest
 run_suite_phase "giztest:failure-cleanup" run_failure_cleanup_giztest
 run_suite_phase "giztest:input-mode-mismatch" run_input_mode_mismatch_giztest

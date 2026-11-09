@@ -54,20 +54,22 @@ provider_file.write_text(provider)
 mapping[str(package / 'netem_fixture.go')] = str(provider_file)
 
 overlay('pkgs/gizclaw/peer_conn.go', [
-    ('case giznet.ProtocolOpusPacket:\n\t\t\tchunk, ok := opusPacketChunk(buf[:n])',
-     'case giznet.ProtocolOpusPacket:\n\t\t\tnetemtrace.Record("server_input", buf[:n], "", -1, -1)\n\t\t\tchunk, ok := opusPacketChunk(buf[:n])'),
+    ('\t\t\tauthorized, err := h.authorizeAudioPacket(h.logContext())',
+     '\t\t\tnetemtrace.RecordBlob("server_input", chunk.Part.(*genx.Blob))\n\t\t\tauthorized, err := h.authorizeAudioPacket(h.logContext())'),
     ('\t\t\tif !authorized {\n\t\t\t\tcontinue\n\t\t\t}',
-     '\t\t\tif !authorized {\n\t\t\t\tnetemtrace.Record("server_input_rejected", buf[:n], "", -1, -1)\n\t\t\t\tcontinue\n\t\t\t}'),
+     '\t\t\tif !authorized {\n\t\t\t\tnetemtrace.RecordBlob("server_input_rejected", chunk.Part.(*genx.Blob))\n\t\t\t\tcontinue\n\t\t\t}'),
     ('_, err := h.Conn.Write(giznet.ProtocolOpusPacket, packet)',
      '_, err := h.Conn.Write(giznet.ProtocolOpusPacket, packet)\n\tif err == nil { netemtrace.Record("server_output", packet, "", -1, -1) }'),
 ])
 overlay('sdk/go/gizcli/peer_stream.go', [
-    ('func (s *PeerStream) pushMergedPacket(payload []byte) error {',
-     'func (s *PeerStream) pushMergedPacket(payload []byte) error {\n\tnetemtrace.Record("client_raw", payload, "", -1, -1)'),
-    ('s.ignoredPostEOSPackets.Add(1)',
-     's.ignoredPostEOSPackets.Add(1)\n\t\tnetemtrace.Record("client_post_eos_drop", payload, "", -1, -1)'),
+    ('func (s *PeerStream) pushMergedAudio(blob *genx.Blob) error {',
+     'func (s *PeerStream) pushMergedAudio(blob *genx.Blob) error {\n\tnetemtrace.RecordBlob("client_recovered", blob)'),
+    ('\tif s.audioEnded {',
+     '\tif s.audioEnded {\n\t\tnetemtrace.RecordBlob("client_post_eos_drop", blob)'),
     ('s.startupAudio = append(s.startupAudio, chunk)',
-     'netemtrace.Record("client_pre_bos_buffer", payload, "", -1, -1)\n\t\ts.startupAudio = append(s.startupAudio, chunk)'),
+     'netemtrace.RecordBlob("client_pre_bos_buffer", blob)\n\t\ts.startupAudio = append(s.startupAudio, chunk)'),
+    ('case s.out <- chunk:\n\t\treturn nil',
+     'case s.out <- chunk:\n\t\tif blob, ok := chunk.Part.(*genx.Blob); ok { netemtrace.RecordBlob("client_delivered", blob) }\n\t\treturn nil'),
 ])
 for relative in ['pkgs/gizclaw/peer_stream_event.go', 'sdk/go/gizcli/peer_stream_event.go']:
     overlay(relative, [
@@ -78,14 +80,14 @@ for relative in ['pkgs/gizclaw/peer_stream_event.go', 'sdk/go/gizcli/peer_stream
     ])
 
 overlay('pkgs/giznet/gizwebrtc/conn.go', [
-    ('c.enqueueRemoteOpusFrame(pkt.Payload)',
-     'netemtrace.Record("rtp_read", pkt.Payload, fmt.Sprint(pkt.SSRC), int64(pkt.SequenceNumber), int64(pkt.Timestamp))\n\t\tc.enqueueRemoteOpusFrame(pkt.Payload)'),
+    ('c.enqueueRemoteOpusPacket(pkt, sourceID)',
+     'netemtrace.RecordOpus("rtp_read", pkt.Payload, sourceID, &packet.OpusInfo{SourceID: sourceID, Header: pkt.Header, Duration48: codecconv.OpusPacketRTPTicks(pkt.Payload)})\n\t\tc.enqueueRemoteOpusPacket(pkt, sourceID)'),
     ('n, err := writePacket(raw, protocol, payload)',
-     'n, err := writePacket(raw, protocol, payload)\n\tif err == nil && protocol == giznet.ProtocolTunnelPacket && len(payload) > 17 && payload[0] == 2 { netemtrace.Record("tunnel_wire_send", payload[17:], fmt.Sprintf("%x", payload[1:17]), -1, -1) }'),
+     'n, err := writePacket(raw, protocol, payload)\n\tif err == nil && protocol == giznet.ProtocolTunnelPacket { netemtrace.RecordTunnel("tunnel_wire_send", payload) }'),
     ('\t\tc.enqueuePacket(pkt)',
-     '\t\tif pkt.protocol == giznet.ProtocolTunnelPacket && len(pkt.payload) > 17 && pkt.payload[0] == 2 { netemtrace.Record("tunnel_wire_read", pkt.payload[17:], fmt.Sprintf("%x", pkt.payload[1:17]), -1, -1) }\n\t\tc.enqueuePacket(pkt)'),
-    ('ticks := codecconv.OpusPacketRTPTicks(payload)',
-     'netemtrace.Record("rtp_write_sample", payload, "", -1, -1)\n\tticks := codecconv.OpusPacketRTPTicks(payload)'),
+     '\t\tif pkt.protocol == giznet.ProtocolTunnelPacket { netemtrace.RecordTunnel("tunnel_wire_read", pkt.payload) }\n\t\tc.enqueuePacket(pkt)'),
+    ('c.txBytes.Add(uint64(len(payload)))',
+     'netemtrace.RecordOpus("rtp_write_packet", payload, "", opus)\n\tc.txBytes.Add(uint64(len(payload)))'),
     ('c.markMetricsEstablished()\n\tclose(c.readyCh)',
      '''lifetime, retries := -1, -1
 \tif value := dc.MaxPacketLifeTime(); value != nil { lifetime = int(*value) }
@@ -94,6 +96,19 @@ overlay('pkgs/giznet/gizwebrtc/conn.go', [
 \tc.markMetricsEstablished()
 \tclose(c.readyCh)'''),
 ])
+# Observe the payload-only packetizer after its real sequence/time assignment,
+# and recovery at dispatch, rather than substituting a decoder or scheduler.
+overlay('pkgs/giznet/gizwebrtc/opus_track.go', [
+    ('return w.track.WriteRTP(&rtp.Packet{Header: header, Payload: sample.Data})',
+     '''err := w.track.WriteRTP(&rtp.Packet{Header: header, Payload: sample.Data})
+\tif err == nil { netemtrace.Record("rtp_write_sample", sample.Data, "", int64(header.SequenceNumber), int64(header.Timestamp)) }
+\treturn err'''),
+])
+overlay('pkgs/giznet/opusmedia/packet_reader.go', [
+    ('return giznet.ProtocolOpusPacket, copy(dst, next.frame.Original), next.frame, nil',
+     '''netemtrace.RecordFrame("media_recovered", next.frame.PCM, next.frame.Original, next.frame.Concealed, next.frame.Info)
+\t\t\treturn giznet.ProtocolOpusPacket, copy(dst, next.frame.Original), next.frame, nil'''),
+])
 overlay('pkgs/giznet/giztunnel/conn.go', [
     ('case c.readCh <- packet:\n\t\tc.touch()\n\t\treturn nil',
      'case c.readCh <- packet:\n\t\tc.touch()\n\t\tif protocol == giznet.ProtocolOpusPacket { netemtrace.Record("tunnel_enqueue", packet.payload, "", -1, -1) }\n\t\treturn nil'),
@@ -101,15 +116,14 @@ overlay('pkgs/giznet/giztunnel/conn.go', [
      '// audio, but it must not lose its control and service channels.\n\t\t\tnetemtrace.Record("tunnel_drop", packet.payload, "", -1, -1)\n\t\t\tc.touch()'),
 ])
 
-# Retain the historical buffer-selected candidate as an explicit diagnostic
-# control. Normal qualification uses the production policy, without this flag.
+# Compare against the ordered one-second policy only through an explicit
+# diagnostic overlay. Normal qualification keeps production audio unreliable.
 if os.environ.get('GIZCLAW_NETEM_ORDERED_TIMED_PACKET_PROBE') == '1':
     old = 'packetOptions, err := packetDataChannelInit(cfg.PacketDataChannelPolicy)'
     new = '''packetOptions, err := packetDataChannelInit(cfg.PacketDataChannelPolicy)
 \tif cfg.SCTPReceiveBufferSize == GatewaySCTPReceiveBufferSize {
-\t\tordered, lifetime := true, uint16(200)
-\t\tpacketOptions = &webrtc.DataChannelInit{Ordered: &ordered, MaxPacketLifeTime: &lifetime}
-\t\tnetemtrace.Record("packet_policy_probe", nil, "ordered_lifetime_200ms", -1, -1)
+\t\tpacketOptions, err = packetDataChannelInit(PacketDataChannelOrderedTimed)
+\t\tnetemtrace.Record("packet_policy_probe", nil, "ordered_lifetime_1000ms", -1, -1)
 \t}'''
     overlay('pkgs/giznet/gizwebrtc/dial.go', [(old, new)])
 

@@ -3,3 +3,5 @@ FROM ${BASE_IMAGE}
 WORKDIR /src
 COPY bin/ /usr/local/bin/
 COPY tests/ tests/
+# Fixture templates and audio are public; runtime credentials are mounted separately.
+RUN chmod -R a+rX tests/
