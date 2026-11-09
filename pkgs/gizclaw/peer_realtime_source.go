@@ -122,7 +122,7 @@ func (s *peerRealtimeSource) bindAudioStreamIDLocked(chunk *genx.MessageChunk) *
 		return chunk
 	}
 	blob, _ := chunk.Part.(*genx.Blob)
-	if !isOpusBlob(blob) {
+	if !isOpusBlob(blob) && (blob == nil || blob.OriginalAudio == nil && !blob.ConcealedAudio) {
 		return chunk
 	}
 	ctrl := chunk.Ctrl
@@ -138,7 +138,13 @@ func (s *peerRealtimeSource) bindAudioStreamIDLocked(chunk *genx.MessageChunk) *
 	}
 	if ctrl.BeginOfStream && ctrl.StreamID != "" {
 		s.audioStreamID = ctrl.StreamID
-		s.audioMIMEType = canonicalAudioMIMEType(blob.MIMEType)
+		// Route replacement is sent over the peer wire, whose encoding stays
+		// Opus even when the media adapter feeds PCM to the Agent.
+		mimeType := blob.MIMEType
+		if blob.OriginalAudio != nil {
+			mimeType = blob.OriginalAudio.MIMEType
+		}
+		s.audioMIMEType = canonicalAudioMIMEType(mimeType)
 	}
 	if ctrl.StreamID == "" || ctrl.StreamID == "audio" {
 		if s.audioStreamID != "" {

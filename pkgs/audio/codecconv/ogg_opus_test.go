@@ -304,6 +304,11 @@ func TestOpusPacketRTPTicks(t *testing.T) {
 		want   uint32
 	}{
 		{name: "empty defaults to twenty milliseconds", packet: nil, want: 960},
+		{name: "empty slice defaults to twenty milliseconds", packet: []byte{}, want: 960},
+		{name: "truncated frame count defaults to one frame", packet: []byte{0x9b}, want: 960},
+		{name: "zero frame count defaults to one frame", packet: []byte{0x9b, 0xc0}, want: 960},
+		{name: "two vbr frames", packet: []byte{0x9a}, want: 1920},
+		{name: "frame count ignores padding and vbr flags", packet: []byte{0x9b, 0xc3}, want: 2880},
 		{name: "silk ten milliseconds", packet: []byte{0x00}, want: 480},
 		{name: "silk sixty milliseconds", packet: []byte{0x18}, want: 2880},
 		{name: "hybrid twenty milliseconds", packet: []byte{0x78}, want: 960},

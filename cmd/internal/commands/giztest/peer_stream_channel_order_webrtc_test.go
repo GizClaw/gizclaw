@@ -54,7 +54,8 @@ func runChannelOrderWebRTCGiztest(t *testing.T, fault, rejected string) {
 	defer stream.Close()
 	observed := make(chan *genx.MessageChunk, 64)
 	played := make(chan []byte, 256)
-	base := &postEOSWebRTCDriver{driver: newDriver(false, func(_, _ string, packet []byte, _ bool) error {
+	base := &postEOSWebRTCDriver{driver: newDriver(false, func(_, _ string, blob *genx.Blob, _ bool) error {
+		packet := observedAudioBytes(blob)
 		if len(packet) > 0 {
 			played <- bytes.Clone(packet)
 		}

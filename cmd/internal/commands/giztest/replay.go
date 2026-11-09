@@ -253,8 +253,11 @@ func (c *replayCapture) observe(client, direction string, chunk *genx.MessageChu
 			event.Text = strings.ReplaceAll(event.Text, secret, "[REDACTED]")
 		}
 	case *genx.Blob:
-		if part != nil && len(part.Data) > 0 && relayOpusMIME(part.MIMEType) {
-			event.Kind, audio = "audio", part.Data
+		if original := peerOriginalAudio(part); original != nil {
+			event.MIME = original.MIMEType
+			if len(original.Data) > 0 && relayOpusMIME(original.MIMEType) {
+				event.Kind, audio = "audio", original.Data
+			}
 		}
 	}
 	if event.Kind == "" || (event.Kind == "text" && event.Text == "") {

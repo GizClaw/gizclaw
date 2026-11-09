@@ -108,10 +108,13 @@ func validateFrameSize(sampleRate, frameSize int) error {
 }
 
 func validateDecodeFrameSize(sampleRate, frameSize int) error {
-	if frameSize == sampleRate*3/25 { // 120 ms maximum Opus packet duration.
+	// A packet can combine frames into any multiple of 2.5 ms up to 120 ms,
+	// including durations such as 7.5, 80 and 100 ms that encoders do not accept
+	// as a single input frame.
+	if frameSize > 0 && frameSize <= sampleRate*3/25 && frameSize%(sampleRate/400) == 0 {
 		return nil
 	}
-	return validateFrameSize(sampleRate, frameSize)
+	return fmt.Errorf("opus: invalid decode frame size %d for sample rate %d", frameSize, sampleRate)
 }
 
 func validatePCM(pcm []int16, frameSize, channels int) error {

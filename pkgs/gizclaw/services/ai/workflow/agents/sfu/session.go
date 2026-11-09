@@ -456,7 +456,15 @@ func opusFrame(chunk *genx.MessageChunk) ([]byte, bool) {
 		return nil, false
 	}
 	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || blob == nil || len(blob.Data) == 0 {
+	if !ok || blob == nil || blob.ConcealedAudio {
+		return nil, false
+	}
+	// Passthrough forwards only real encoded packets. Receiver-generated PCM
+	// is never encoded separately and spliced into the original Opus stream.
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	if len(blob.Data) == 0 {
 		return nil, false
 	}
 	base, _, err := mime.ParseMediaType(blob.MIMEType)

@@ -246,7 +246,8 @@ func TestWorkspaceRelayObservesActiveAssistantOpus(t *testing.T) {
 	var observations []observation
 	done := make(chan error, 1)
 	go func() {
-		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client, role string, packet []byte, _ bool) error {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(client, role string, blob *genx.Blob, _ bool) error {
+			packet := observedAudioBytes(blob)
 			if len(packet) > 0 {
 				observations = append(observations, observation{client: client, role: role, packet: packet})
 			}
@@ -273,7 +274,8 @@ func TestWorkspaceRelayPlayWaitsForAudioAfterTextTerminal(t *testing.T) {
 	var observedEnds int
 	done := make(chan error, 1)
 	go func() {
-		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, packet []byte, end bool) error {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, blob *genx.Blob, end bool) error {
+			packet := observedAudioBytes(blob)
 			if len(packet) > 0 {
 				observedPackets = append(observedPackets, append([]byte(nil), packet...))
 			}
@@ -317,7 +319,7 @@ func TestWorkspaceRelayPlayWaitsForTextTerminalAfterAudioTerminal(t *testing.T) 
 	oggAudio, _ := testOggOpus(t)
 	done := make(chan error, 1)
 	go func() {
-		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, _ []byte, _ bool) error {
+		_, err := runWorkspaceRelayWithEvidence(context.Background(), op, tester, candidate, "brief", 0, false, func(_, _ string, _ *genx.Blob, _ bool) error {
 			return nil
 		})
 		done <- err
@@ -824,12 +826,14 @@ func TestWorkspaceRelayInterruptedSelfStartNeverCompletesATurn(t *testing.T) {
 	}
 }
 
-func TestWorkspaceRelayRejectsNonOpusAudioMedia(t *testing.T) {
+func TestWorkspaceRelayRejectsUnsupportedAudioMedia(t *testing.T) {
 	cases := map[string]*genx.MessageChunk{
-		"pcm packet":     {Part: &genx.Blob{MIMEType: "audio/L16;rate=16000;channels=1", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
-		"mp3 eos":        {Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", EndOfStream: true}},
-		"ogg vorbis bos": {Part: &genx.Blob{MIMEType: "audio/ogg; codecs=vorbis"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", BeginOfStream: true}},
-		"non-audio blob": {Part: &genx.Blob{MIMEType: "application/octet-stream", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
+		"pcm unsupported rate":  {Part: &genx.Blob{MIMEType: "audio/L16;rate=24000;channels=1", Data: []byte{1, 2}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
+		"pcm stereo":            {Part: &genx.Blob{MIMEType: "audio/L16;rate=16000;channels=2", Data: []byte{1, 2, 3, 4}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
+		"pcm incomplete sample": {Part: &genx.Blob{MIMEType: "audio/L16;rate=16000;channels=1", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
+		"mp3 eos":               {Part: &genx.Blob{MIMEType: "audio/mpeg"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", EndOfStream: true}},
+		"ogg vorbis bos":        {Part: &genx.Blob{MIMEType: "audio/ogg; codecs=vorbis"}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant", BeginOfStream: true}},
+		"non-audio blob":        {Part: &genx.Blob{MIMEType: "application/octet-stream", Data: []byte{1}}, Ctrl: &genx.StreamCtrl{StreamID: "t1", Label: "assistant"}},
 	}
 	for name, chunk := range cases {
 		t.Run(name, func(t *testing.T) {

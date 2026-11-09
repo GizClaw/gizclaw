@@ -14,12 +14,18 @@ func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.Mess
 	if strings.TrimSpace(streamID) == "" {
 		streamID = "audio"
 	}
-	next := chunk.Clone()
+	source := *chunk
+	if blob, ok := source.Part.(*genx.Blob); ok && blob != nil {
+		if blob.OriginalAudio != nil {
+			blob = blob.OriginalAudio
+		}
+		// Select recording bytes before deep cloning. PCM and nested process-local
+		// provenance do not belong to the generated history route.
+		source.Part = &genx.Blob{MIMEType: canonicalHistoryAudioMIME(blob.MIMEType), Data: blob.Data}
+	}
+	next := source.Clone()
 	next.Role = genx.RoleUser
 	next.Name = "transcript"
-	if blob, ok := next.Part.(*genx.Blob); ok && blob != nil {
-		blob.MIMEType = canonicalHistoryAudioMIME(blob.MIMEType)
-	}
 	if next.Ctrl == nil {
 		next.Ctrl = &genx.StreamCtrl{}
 	}
@@ -121,11 +127,19 @@ func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamI
 	if endMS <= startMS {
 		endMS = startMS + historyFallbackOpusPacketDurationMS
 	}
-	b.cursorMS = endMS
+	b.appendInterval(next, startMS, endMS, endMS)
+}
+
+// appendInterval retains an already prepared recording without cloning it again.
+// A nil recording advances only the cursor. Fractional source intervals may have
+// a rounded-up endMS beyond their floor-rounded cursorMS.
+func (b *timestampedHistoryAudioBuffer) appendInterval(recording *genx.MessageChunk, startMS, endMS, cursorMS int) {
+	b.cursorMS = cursorMS
+	if recording == nil {
+		return
+	}
 	b.blocks = append(b.blocks, timestampedHistoryAudioBlock{
-		chunk:   next,
-		startMS: startMS,
-		endMS:   endMS,
+		chunk: recording, startMS: startMS, endMS: endMS,
 	})
 }
 

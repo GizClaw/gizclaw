@@ -33,6 +33,34 @@ func TestMessageBoundaryIsProcessLocalAndSurvivesClone(t *testing.T) {
 	}
 }
 
+func TestBlobAudioProvenanceCloneAndJSON(t *testing.T) {
+	blob := &Blob{MIMEType: "audio/pcm", Data: []byte{1, 2}, ConcealedAudio: true,
+		OriginalAudio: &Blob{MIMEType: "audio/private-opus", Data: []byte{3, 4},
+			OriginalAudio: &Blob{MIMEType: "audio/private-source", Data: []byte{5}}}}
+	for _, clone := range []*Blob{blob.clone().(*Blob), (&MessageChunk{Part: blob}).Clone().Part.(*Blob)} {
+		if !clone.ConcealedAudio || clone.OriginalAudio == blob.OriginalAudio || clone.OriginalAudio.OriginalAudio == blob.OriginalAudio.OriginalAudio {
+			t.Fatal("clone lost or shared process-local audio provenance")
+		}
+		clone.Data[0], clone.OriginalAudio.Data[0], clone.OriginalAudio.OriginalAudio.Data[0] = 9, 9, 9
+		if blob.Data[0] != 1 || blob.OriginalAudio.Data[0] != 3 || blob.OriginalAudio.OriginalAudio.Data[0] != 5 {
+			t.Fatal("clone shares audio payload storage")
+		}
+		encoded, err := json.Marshal(clone)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, private := range []string{"OriginalAudio", "ConcealedAudio", "private-opus", "private-source"} {
+			if strings.Contains(string(encoded), private) {
+				t.Fatalf("audio provenance leaked into JSON: %s", encoded)
+			}
+		}
+	}
+	boundary := NewEndOfStream("audio/pcm").Clone().Part.(*Blob)
+	if boundary.OriginalAudio != nil || boundary.ConcealedAudio || boundary.Data != nil {
+		t.Fatal("ordinary empty boundary acquired audio provenance")
+	}
+}
+
 func TestMessageChunkConstructorsAndClone(t *testing.T) {
 	bos := NewBeginOfStream("s1")
 	if !bos.IsBeginOfStream() || bos.IsEndOfStream() {

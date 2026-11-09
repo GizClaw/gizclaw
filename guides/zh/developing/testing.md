@@ -173,7 +173,7 @@ bash tests/gizclaw-e2e/run_audio_continuity_tests.sh
 
 This separate strict entrypoint uses the real Server, Edge, Go SDK and Giztest receiver with a deterministic provider that sends 800 Opus frames at absolute 20 ms deadlines per reply. Three PTT rounds share one client connection; the sender never waits for per-packet receiver acknowledgements. Each reply must deliver at least 16 seconds of audio with zero simulated playback underruns and nonnegative minimum buffer. The controller also compares complete sent/received payload-hash vectors on both upstream directions. Nonempty vectors must reconcile with the input/reply packet counters from all three Giztest rounds, explicit post-EOS drops, and complete per-reply provider frame ordinals. Malformed marked trace records, missing observations and identical surviving suffixes fail acceptance. The uplink proof ends at the Server receive boundary; ASR admission and control/media EOS ordering remain separate pipeline checks. Successful EOS cannot override lost or reordered media. Any failed case returns a nonzero exit status. The full local suite invokes this as `docker:audio-continuity`. Keep this Docker acceptance outside ordinary CI and run it locally without diagnostic policy overrides.
 
-`testdata/peer-audio/continuous.giztest.yaml` is the accepted document. The default local cases cover a healthy baseline, symmetric 100 ms delay, directional 20 ms delay with 5 ms normal jitter, and symmetric 150 ms delay with 1% random loss. The loss case retains the same strict payload and playback assertions during local acceptance. The same isolated namespace-sidecar restrictions and cleanup as the netem diagnostic apply. The fixture uses three-second TTS startup and synthetic audio; this verifies sustained transport/playback rather than provider response quality. PTT steps reopen their logical subscription while retaining the client/Event/RTP connection; retained-PeerStream boundary handling is separately qualified by the regression below. The document explicitly bounds post-terminal observation so recovered RTP tails remain visible to the SDK's post-EOS discard diagnostics before the subscription closes, including after the final reply. This observation does not shift packet timestamps, enlarge the playback prebuffer, or admit post-EOS packets into playback. Complete physical vectors must still reconcile with played packets and explicitly observed discards. Test-only SCTP/policy probes are recorded in the manifest and are not production fixes.
+`testdata/peer-audio/continuous.giztest.yaml` is the accepted document. The default local cases cover a healthy baseline, symmetric 100 ms delay, and directional 20 ms delay with 5 ms normal jitter. Strict continuity keeps its complete-payload and playback assertions. Injected loss and reordering belong to the separate diagnostic matrix, which records degradation rather than requiring recovery from an unordered, zero-retransmission audio lane. The same isolated namespace-sidecar restrictions and cleanup as the netem diagnostic apply. The fixture uses three-second TTS startup and synthetic audio; this verifies sustained transport/playback rather than provider response quality. PTT steps reopen their logical subscription while retaining the client/Event/RTP connection; retained-PeerStream boundary handling is separately qualified by the regression below. The document explicitly bounds post-terminal observation so recovered RTP tails remain visible to the SDK's post-EOS discard diagnostics before the subscription closes, including after the final reply. This observation does not shift packet timestamps, enlarge the playback prebuffer, or admit post-EOS packets into playback. Complete physical vectors must still reconcile with played packets and explicitly observed discards. Test-only SCTP/policy probes are recorded in the manifest and are not production fixes.
 
 ### Permanent cross-channel Giztest regression
 
@@ -1392,29 +1392,31 @@ Server 协议，不能证明 JavaScript Client 已实现恢复。
 是能被 100 整除的正整数。该路径只跳过输入 fixture 的语音合成，不绕过 realtime WebRTC
 route 或 reload 后的响应断言。
 
-当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
-`audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
-`target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
-`p95_interval_ms`、`max_interval_ms`、`drift_ms`、`absolute_drift_ms`、
-`buffer_surplus_ms`，以及连续播放模拟结果 `prebuffer_ms`、`underruns`、
-`underrun_ms`、`max_underrun_ms` 和 `minimum_buffer_ms`。间隔来自 stream reader 收到每包的 monotonic 时间；
-reader 先记录时间再由另一条处理流程解码 Opus、判断是否可听和观察事件，因此这些处理以及后续断言、
-保存或 PortAudio 播放耗时不会记到下一包的间隔里。`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
-`max_interval_ms` 保留为诊断值：即使单次到包间隔超过 100 ms，500 ms 预缓冲仍可能让播放连续。
-Doubao realtime roundtrip 用零 underrun 和正的最小缓冲验收连续播放，同时保留均值、P95 节奏及缓冲余量断言，
-不再用单次最大间隔作硬性门槛。即使间隔被预缓冲覆盖，累计 `buffer_surplus_ms` 也可能低于 500 ms 目标，
-因此该场景只对这项诊断值保留上限，不用下限判定播放中断。
-所有 `*_ms` 字段的单位都是毫秒。`target_span_ms` 是除最后一包外各包时长之和，
-`drift_ms = receive_span_ms - target_span_ms`，`buffer_surplus_ms = -drift_ms`；P95 对到包
-间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
-不提供 `audio_pacing`。
+When `peer_stream` receives assistant audio, its result and redacted evidence
+include `audio_pacing`. `packets` and `audio_ms` count only real original Opus;
+`playout_ms` includes every delivered audio interval, including concealed PCM.
+Original-packet interval, drift and surplus fields keep that original-only
+meaning. Playback fields use the delivered audio trace, so concealment contributes
+to the simulated playback buffer without becoming a received encoded packet.
 
-连续播放模拟按到包轨迹重放一个客户端：先缓冲 `prebuffer_ms`（500 ms）再按自身时钟
-播放。`minimum_buffer_ms` 是整条流里缓冲量的最低点，为负表示某个空档超过了当时
-已缓冲的音频，听感上就是卡顿；`underruns` 是欠载次数，`underrun_ms` 与
-`max_underrun_ms` 是听众实际听到的静音总长与单次最长静音。P95 间隔无法反映单次
-断流，因此听感连续性以 `underruns` 与 `minimum_buffer_ms` 为准。整段回复短于
-`prebuffer_ms` 时客户端要等全部音频到齐才起播，不会欠载，此时只提供 `prebuffer_ms`。
+The stream reader records monotonic arrival times before audibility checks,
+assertions, recording or PortAudio playback. `target_span_ms` excludes the final
+original packet; `drift_ms = receive_span_ms - target_span_ms` and
+`buffer_surplus_ms = -drift_ms`. Interval percentiles use nearest-rank. All
+`*_ms` fields use milliseconds. A single original packet has no interval metrics,
+but delivered PCM can still provide playback metrics. No received or delivered
+audio means no `audio_pacing` object.
+
+The playback simulation buffers delivered audio before consuming it on its own
+clock. Its prebuffer belongs to `peerAudioPrebuffer` in
+[`peer_stream.go`](https://github.com/GizClaw/gizclaw/blob/main/cmd/internal/commands/giztest/peer_stream.go).
+`minimum_buffer_ms` is the lowest buffer level; a negative value identifies an
+interval that exceeded available audio. `underruns`, `underrun_ms` and
+`max_underrun_ms` report the count, total duration and longest duration of those
+simulated stalls. They describe simulated playback, not a physical device's
+speaker output. A reply shorter than the prebuffer starts after all audio arrives
+and supplies only `prebuffer_ms` among the playback fields. Original-packet pacing
+and strict intact-audio assertions remain independent of recovered playback.
 Giztest 文件使用普通 `expect` 数值约束断言这些路径，不增加另一套 pacing schema。
 `eino-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 与
 `doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` 都要求至少 101 包、20 ms Opus

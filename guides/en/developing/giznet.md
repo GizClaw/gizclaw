@@ -13,7 +13,9 @@ This directory does not own GizClaw's product business. It is only responsible f
 ```text
 pkgs/giznet/
 ├── gizhttp/      # general adapters between HTTP and giznet service streams
-└── gizwebrtc/    # WebRTC-based giznet transport
+├── giztunnel/    # logical sessions over labeled native channels
+├── gizwebrtc/    # WebRTC-based giznet transport
+└── opusmedia/    # endpoint Opus reception and PCM/Opus adaptation
 ```
 
 The root package holds transport-independent connection contracts and underlying types. Sub-packages rely on the root package to implement or adapt specific transmission capabilities.
@@ -158,14 +160,13 @@ sender with the PeerConnection, so unread receiver reports cannot accumulate
 in the SRTCP packet buffer during long-lived sessions.
 
 `DialConfig.PacketDataChannelPolicy` selects the shared physical Packet DataChannel's
-packet delivery. Edge-to-Server upstreams select `PacketDataChannelOrderedTimed`
-for both direct and TURN paths, preserving multiplexed Opus order and recovering
-transient loss within the configured message lifetime. RTP, service streams and
-per-session direct-packet channels retain their existing policies. This setting
-is independent of receive-window sizing and metrics roles. Message retention
-accommodates multiple recovery round trips and has an independent budget from
-the receiver's playback prebuffer; it is not an end-to-end delivery or playback
-deadline. See the policy's Go documentation for its value.
+packet delivery. Public clients and Edge-to-Server upstreams use
+`PacketDataChannelUnreliable`: unordered delivery with zero retransmissions and no
+message lifetime. Both direct and TURN upstreams use this policy so a missing audio
+packet does not hold back later packets from other multiplexed sessions. Packet loss
+and reordering remain possible. RTP, reliable service streams and per-session
+direct-packet channels retain their existing policies. Receive-window sizing and
+metrics roles do not select packet reliability.
 
 General public client associations retain Pion's default SCTP receive window.
 An Edge gateway gives at most 64 currently admitted client associations a 4
@@ -234,11 +235,48 @@ result by its header length, so a result split across several reads of the
 reliable control stream is still decoded as one frame.
 
 Direct packets retain message boundaries on the per-session unreliable channel.
-Opus remains on the shared physical unreliable lane as a versioned session-ID
-envelope and is merged back into logical `Read` and `Write`; it never enters a
-reliable channel. Native channels isolate ordering, buffered-amount backpressure,
-and close/reset, but all channels on one PeerConnection still share its SCTP
-association and congestion controller.
+Opus uses the shared physical unreliable lane. New sessions declare `control-rtp`
+in their control label and carry envelope version 3: one version byte, the 16-byte
+SessionID, then a complete RTP packet. SessionID routes the packet; SSRC identifies
+a media source within that session. Sequence numbers and the 48 kHz Opus timestamp
+survive the Edge bridge in both directions, including gaps and wraparound. RTP
+track bindings select the destination SSRC and payload type; hop-specific header
+extensions do not cross PeerConnections.
+
+A new Server also accepts legacy `control` sessions with version 2 raw-Opus
+envelopes. It never guesses the media format from an Opus payload. A new Edge
+requires a Server that accepts `control-rtp`, so update Servers before Edges.
+No encoded audio is retransmitted. Native channels isolate ordering,
+buffered-amount backpressure, and close/reset, while the PeerConnection still
+shares its SCTP association and congestion controller.
+
+### Opus media reception
+
+`pkgs/giznet/opusmedia` owns RTP reordering and Opus packet-loss concealment for
+Server and Go SDK media sinks. Each logical connection owns its receiver and
+continuous decoder state. Reordering and retained storage are bounded by
+[`rtpstream.Config` and its constructor](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/audio/rtpstream#New).
+The packet adapter drives its deadlines even when no further packets arrive,
+without blocking unrelated direct packets.
+
+Known gaps use the next received RTP timestamp to determine the exact missing
+sample count. The same Opus decoder produces concealed PCM; it never invents
+encoded Opus. Its budget is defined by
+[`OpusPacketDecoder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv#OpusPacketDecoder).
+Duplicate and late packets are dropped; source replacement and confirmed
+sequence/clock discontinuities reset decoder history. DTX and unknown trailing loss do not create guessed audio.
+
+Business streams receive signed little-endian PCM16 at 16 kHz mono, including
+PCM BOS/EOS boundaries. `genx.Blob.OriginalAudio` retains only real encoded bytes
+for recording or passthrough, and `ConcealedAudio` marks synthesized PCM. These
+process-local fields are excluded from JSON. Transformers do not parse RTP or
+manage jitter/PLC. EOS releases media already held by the receiver before ending
+the logical route; it does not read future packets during a timed grace window.
+An input BOS discards pending old media before the readiness acknowledgement.
+RTP has no logical StreamID, so this preserves the existing BOS/EOS guards rather
+than claiming exact attribution of packets crossing independent control/media lanes. The Edge remains an encoded RTP relay; native WebRTC clients own their
+playout receiver. Encoded SFU passthrough forwards only real original packets.
+Legacy raw-Opus tunnel sessions keep their existing payload-only behavior.
 
 The logical packet receive queue remains bounded. If registration or storage I/O delays its reader, a full queue drops incoming Opus packets without closing logical control or service streams. Other direct-packet queue overflow still returns `ErrBufferLimit` and closes that logical session.
 

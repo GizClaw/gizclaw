@@ -227,6 +227,12 @@ Server. `ServiceEdgeHTTP` carries public HTTP forwarding. Gateway logical
 sessions use the registered `giznet/v2/tunnel/` DataChannel namespace and are
 not a product service ID.
 
+Both direct and TURN upstream dials select unordered, zero-retransmission delivery
+for the shared physical Packet DataChannel carrying tunneled Opus. Missing packets
+are not retransmitted and do not impose ordered-delivery waiting on later audio
+from other sessions. Client RTP and reliable service-channel policies are separate;
+see [Giznet](giznet) for the transport boundary.
+
 By default, omitting an entry's `ice-transport-policy` and `ice-servers`
 preserves direct ICE. A relay deployment sets a pool of
 at least two literal-IP TURN/UDP members:

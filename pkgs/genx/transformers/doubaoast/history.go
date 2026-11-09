@@ -12,7 +12,16 @@ func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.Mess
 	if strings.TrimSpace(streamID) == "" {
 		streamID = "audio"
 	}
-	next := chunk.Clone()
+	source := *chunk
+	if blob, ok := source.Part.(*genx.Blob); ok && blob != nil {
+		if blob.OriginalAudio != nil {
+			blob = blob.OriginalAudio
+		}
+		// Clone only the selected recording, stripping nested process-local
+		// provenance without copying the converted PCM that is discarded.
+		source.Part = &genx.Blob{MIMEType: blob.MIMEType, Data: blob.Data}
+	}
+	next := source.Clone()
 	next.Role = genx.RoleUser
 	next.Name = "transcript"
 	if next.Ctrl == nil {
@@ -71,7 +80,17 @@ func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamI
 		return
 	}
 	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || blob == nil || len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
+	if !ok || blob == nil {
+		return
+	}
+	b.cursor = start + duration
+	if blob.ConcealedAudio {
+		return
+	}
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	if len(blob.Data) == 0 || baseAudioMIME(blob.MIMEType) != "audio/opus" {
 		return
 	}
 	// Subtitle times use the decoded PCM sent to the provider. Incoming chunk

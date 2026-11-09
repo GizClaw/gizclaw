@@ -3,6 +3,7 @@ package giztestcmd
 import (
 	"bytes"
 	"errors"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 	"io"
 	"os"
@@ -12,6 +13,19 @@ import (
 	"testing"
 	"time"
 )
+
+func playTestBlob(data []byte) *genx.Blob {
+	return &genx.Blob{MIMEType: "audio/opus", Data: data}
+}
+
+// Byte observers in transport fixtures keep asserting real original packets,
+// independently of whether the playback surface delivers PCM or legacy Opus.
+func observedAudioBytes(blob *genx.Blob) []byte {
+	if original := peerOriginalAudio(blob); original != nil {
+		return original.Data
+	}
+	return nil
+}
 
 type fakePlayDecoder struct {
 	packets [][]byte
@@ -120,7 +134,7 @@ func TestPlaySessionObservesCopiesAndPlaysPackets(t *testing.T) {
 	output := &fakePlayOutput{}
 	session := &playSession{decoder: decoder, output: output}
 	packet := []byte{1, 2, 3}
-	if err := session.observe("peer", "assistant", packet, false); err != nil {
+	if err := session.observe("peer", "assistant", playTestBlob(packet), false); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.observe("peer", "assistant", nil, true); err != nil {
@@ -139,7 +153,7 @@ func TestPlaySessionObservesCopiesAndPlaysPackets(t *testing.T) {
 	if !decoder.closed || !output.closed {
 		t.Fatal("playback resources were not closed")
 	}
-	if err := session.observe("peer", "assistant", []byte{4}, false); err == nil || !strings.Contains(err.Error(), "closed") {
+	if err := session.observe("peer", "assistant", playTestBlob([]byte{4}), false); err == nil || !strings.Contains(err.Error(), "closed") {
 		t.Fatalf("observe after close error = %v", err)
 	}
 }
@@ -152,14 +166,14 @@ func TestPlaySessionStartsBeforeEndAfterJitterBuffer(t *testing.T) {
 	packet := []byte{0xf8}
 	packetCount := int(playStartBuffer / (20 * time.Millisecond))
 	for range packetCount - 1 {
-		if err := session.observe("peer", "assistant", packet, false); err != nil {
+		if err := session.observe("peer", "assistant", playTestBlob(packet), false); err != nil {
 			t.Fatal(err)
 		}
 	}
 	if output.Len() != 0 {
 		t.Fatalf("played before jitter buffer filled: %d bytes", output.Len())
 	}
-	if err := session.observe("peer", "assistant", packet, false); err != nil {
+	if err := session.observe("peer", "assistant", playTestBlob(packet), false); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.syncPlayback(); err != nil {
@@ -168,7 +182,7 @@ func TestPlaySessionStartsBeforeEndAfterJitterBuffer(t *testing.T) {
 	if got, want := output.Len(), packetCount*2; got != want {
 		t.Fatalf("streaming bytes before EOS = %d, want %d", got, want)
 	}
-	if err := session.observe("peer", "assistant", packet, false); err != nil {
+	if err := session.observe("peer", "assistant", playTestBlob(packet), false); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.syncPlayback(); err != nil {
@@ -190,12 +204,12 @@ func TestPlaySessionDoesNotBlockReceiverOnPortAudio(t *testing.T) {
 	packet := []byte{0xf8}
 	packetCount := int(playStartBuffer / (20 * time.Millisecond))
 	for range packetCount - 1 {
-		if err := session.observe("peer", "assistant", packet, false); err != nil {
+		if err := session.observe("peer", "assistant", playTestBlob(packet), false); err != nil {
 			t.Fatal(err)
 		}
 	}
 	returned := make(chan error, 1)
-	go func() { returned <- session.observe("peer", "assistant", packet, false) }()
+	go func() { returned <- session.observe("peer", "assistant", playTestBlob(packet), false) }()
 	select {
 	case <-output.started:
 	case <-time.After(time.Second):
@@ -220,7 +234,7 @@ func TestPlaySessionCloseInterruptsBlockedPortAudioWrite(t *testing.T) {
 	session := &playSession{decoder: &fakePlayDecoder{samples: []int16{1}}, output: output}
 	packet := []byte{0xf8}
 	for range int(playStartBuffer / (20 * time.Millisecond)) {
-		if err := session.observe("peer", "assistant", packet, false); err != nil {
+		if err := session.observe("peer", "assistant", playTestBlob(packet), false); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -269,10 +283,10 @@ func TestPlaySessionResetsDecoderBetweenUtterances(t *testing.T) {
 	}
 	session := &playSession{decoder: first, output: &fakePlayOutput{}}
 	t.Cleanup(func() { _ = session.close() })
-	if err := session.observe("tester", "assistant", []byte{1}, true); err != nil {
+	if err := session.observe("tester", "assistant", playTestBlob([]byte{1}), true); err != nil {
 		t.Fatal(err)
 	}
-	if err := session.observe("candidate", "assistant", []byte{2}, true); err != nil {
+	if err := session.observe("candidate", "assistant", playTestBlob([]byte{2}), true); err != nil {
 		t.Fatal(err)
 	}
 	if !first.closed || !second.closed || created != 1 {
@@ -289,7 +303,7 @@ func TestPlaySessionKeepsPacketWhenPlaybackFails(t *testing.T) {
 		output:  &fakePlayOutput{err: errors.New("device disconnected")},
 	}
 	t.Cleanup(func() { _ = session.close() })
-	if err := session.observe("peer", "assistant", []byte{7, 8}, false); err != nil {
+	if err := session.observe("peer", "assistant", playTestBlob([]byte{7, 8}), false); err != nil {
 		t.Fatal(err)
 	}
 	if err := session.observe("peer", "assistant", nil, true); err == nil || !strings.Contains(err.Error(), "PortAudio") {
@@ -302,7 +316,7 @@ func TestPlaySessionKeepsPacketWhenPlaybackFails(t *testing.T) {
 
 func TestPlaySessionEnforcesAudioLimitBeforeCopy(t *testing.T) {
 	session := &playSession{decoder: &fakePlayDecoder{}, output: &fakePlayOutput{}, bytes: playMaxAudioBytes}
-	if err := session.observe("peer", "assistant", []byte{1}, false); err == nil || !strings.Contains(err.Error(), "fixed") {
+	if err := session.observe("peer", "assistant", playTestBlob([]byte{1}), false); err == nil || !strings.Contains(err.Error(), "fixed") {
 		t.Fatalf("limit error = %v", err)
 	}
 	if len(session.packets) != 0 {
@@ -379,7 +393,7 @@ func TestPlaySessionCanDiscardRecording(t *testing.T) {
 		discardRecording: true,
 	}
 	defer func() { _ = session.close() }()
-	if err := session.observe("peer", "assistant", []byte{1}, true); err != nil {
+	if err := session.observe("peer", "assistant", playTestBlob([]byte{1}), true); err != nil {
 		t.Fatal(err)
 	}
 	if len(session.packets) != 0 || session.bytes != playMaxAudioBytes+1 {

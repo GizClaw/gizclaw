@@ -136,15 +136,14 @@ pool 保留短时 burst 的高水位。
 feedback；Pion 随 PeerConnection 关闭 sender 时 reader 随即退出。因此长连接中未消费的
 receiver report 不会在 SRTCP packet buffer 内持续累积。
 
-The dialer's `DialConfig.PacketDataChannelPolicy` explicitly selects the physical Packet
-DataChannel policy for both directions. Public clients keep unordered, zero-retransmission
-packet delivery. Edge-to-Server upstreams select `PacketDataChannelOrderedTimed` to preserve
-Opus order and recover transient loss within the configured message lifetime. RTP, service
-streams and per-session direct-packet channels retain their existing policies. This setting
-is independent of receive-window sizing and metrics roles; the negotiated lifetime is not
-an end-to-end delivery or playback deadline. Message retention accommodates multiple recovery
-round trips and has an independent budget from the receiver's playback prebuffer. See the
-policy's Go documentation for its value.
+`DialConfig.PacketDataChannelPolicy` selects the shared physical Packet DataChannel's
+packet delivery. Public clients and Edge-to-Server upstreams use
+`PacketDataChannelUnreliable`: unordered delivery with zero retransmissions and no
+message lifetime. Both direct and TURN upstreams use this policy so a missing audio
+packet does not hold back later packets from other multiplexed sessions. Packet loss
+and reordering remain possible. RTP, reliable service streams and per-session
+direct-packet channels retain their existing policies. Receive-window sizing and
+metrics roles do not select packet reliability.
 
 普通 public client association 保留 Pion 默认 SCTP receive window。Edge gateway 最多为
 当前已准入的 64 条 client association 提供 4 MiB burst window，把每个 Edge 的 burst
@@ -198,10 +197,37 @@ control label 是 logical identity 的唯一声明。Server 收齐 control 与 p
 按帧头长度读取该 result，因此即使 result 在可靠 control stream 上分多次到达，仍按一帧解码。
 
 Direct packets preserve message boundaries on each session's unreliable channel.
-`ProtocolOpusPacket` uses the shared physical Packet DataChannel with its existing version
-and session ID envelope, then merges back into logical `Read`/`Write`. The physical connection's
-explicit Packet DataChannel policy governs ordering and partial reliability for this lane;
-the per-session direct-packet channels keep their own unreliable policy.
+New audio sessions declare `control-rtp` and use envelope version 3 on the shared
+physical unordered, zero-retransmission Packet DataChannel: one version byte,
+the 16-byte SessionID, then a complete RTP packet. SessionID selects the logical
+session; SSRC identifies its media source. The Edge preserves sequence numbers
+and the 48 kHz Opus timestamp in both directions. Destination RTP track bindings
+select SSRC and payload type; hop-specific extensions do not cross connections.
+
+New Servers also accept legacy `control` sessions with version 2 raw Opus. The
+format must match the declaration; it is never inferred from Opus bytes. New
+Edges require Servers supporting `control-rtp`, so update Servers first.
+
+`pkgs/giznet/opusmedia` owns reception for Server and Go SDK media sinks. Each
+logical connection owns its jitter buffer and continuous Opus decoder state.
+Reordering and storage bounds are defined by
+[`rtpstream.Config` and its constructor](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/audio/rtpstream#New);
+the concealment budget belongs to
+[`OpusPacketDecoder`](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv#OpusPacketDecoder).
+The adapter drives deadlines without waiting for a new packet. It drops duplicates and late packets, resets on source changes or
+ambiguous discontinuities, and does not mistake DTX or unknown trailing loss for
+a measured gap.
+
+Business streams receive PCM16 little-endian at 16 kHz mono, including PCM
+BOS/EOS. `genx.Blob.OriginalAudio` retains only real encoded bytes for recording
+or passthrough; `ConcealedAudio` marks synthesized PCM. Both fields are local and
+excluded from JSON. Transformers contain no RTP, jitter, or PLC state. EOS releases
+media already held by the receiver; it does not read future packets during a grace
+window. Input BOS discards pending media before readiness is acknowledged. RTP
+has no logical StreamID, so the existing cross-lane BOS/EOS attribution limits
+remain; this receiver does not claim exact audio-epoch isolation. The Edge relays encoded RTP;
+native clients own their playout receiver. SFU encoded passthrough forwards real
+original packets only. Legacy raw-Opus tunnel sessions retain their payload behavior.
 
 原生 channel 隔离 ordering、buffered-amount
 backpressure 与 close/reset，但同一 PeerConnection 上的 channel 仍共享 SCTP association

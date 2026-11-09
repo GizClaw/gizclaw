@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
@@ -27,6 +29,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/giztunnel"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -91,6 +94,7 @@ type PeerConn struct {
 	acceptedAudioWorkspace  string
 	acceptedAudioRevision   uint64
 	sfuDroppedPackets       atomic.Uint64
+	mediaReader             atomic.Pointer[opusmedia.PacketReader]
 	telemetryStatusMu       *sync.Mutex
 	serverGenX              *peergenx.Service
 	mixer                   *pcm.Mixer
@@ -787,6 +791,9 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 			// acknowledgement. Its terminal callback owns association close.
 			continue
 		}
+		if err := h.flushAudioInputBoundary(h.logContext(), event); err != nil {
+			return err
+		}
 		authorized, err := h.authorizeInputEvent(h.logContext(), event)
 		if err != nil {
 			if h.isRetiring() {
@@ -801,6 +808,11 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		chunk, err := peerStreamEventToChunk(event)
 		if err != nil {
 			return err
+		}
+		if raw, ok := h.Conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() {
+			if blob, ok := chunk.Part.(*genx.Blob); ok && isOpusBlob(blob) && len(blob.Data) == 0 {
+				chunk.Part = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", OriginalAudio: blob}
+			}
 		}
 		if err := h.pushAgentInputChunk(h.logContext(), chunk); err != nil {
 			if h.isRetiring() || errors.Is(err, ErrPeerConnRetiring) {
@@ -822,6 +834,36 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 			}
 		}
 	}
+}
+
+// flushAudioInputBoundary runs outside authorization and input state locks.
+// The packet pump dispatches the current epoch before EOS revokes its route.
+func (h *PeerConn) flushAudioInputBoundary(ctx context.Context, event *eventpb.PeerEvent) error {
+	if event == nil {
+		return nil
+	}
+	boundary := event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS && event.StreamKindValue() == eventpb.StreamKind_STREAM_KIND_AUDIO
+	if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
+		h.inputAccessMu.Lock()
+		boundary = h.acceptedAudioInput && (event.StreamID() == "" || event.StreamID() == h.acceptedAudioStream)
+		h.inputAccessMu.Unlock()
+	}
+	reader := h.mediaReader.Load()
+	if !boundary || reader == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, peerConnInputAbortTimeout)
+	defer cancel()
+	var err error
+	if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_BOS {
+		err = reader.Discard(ctx)
+	} else {
+		err = reader.Flush(ctx)
+	}
+	if errors.Is(err, io.ErrClosedPipe) {
+		return nil
+	}
+	return err
 }
 
 func (h *PeerConn) rejectDuplicateEventStreams(listener giznet.ServiceListener) error {
@@ -1255,6 +1297,33 @@ func (h *PeerConn) broadcastAgentOutputError(_ context.Context, _ string, err er
 	})
 }
 
+// admitAudioPackets rejects unauthorized media before native decoding or
+// reordering. The raw read and local authorization run without a state lock held.
+// Final authorization and revision-gated delivery still own Agent input access.
+func (h *PeerConn) admitAudioPackets(raw opusmedia.RawReader) opusmedia.RawReader {
+	return func(ctx context.Context, buf []byte) (byte, int, *packet.OpusInfo, error) {
+		for {
+			if err := ctx.Err(); err != nil {
+				return 0, 0, nil, err
+			}
+			protocol, n, info, err := raw(ctx, buf)
+			if err != nil || protocol != giznet.ProtocolOpusPacket {
+				return protocol, n, info, err
+			}
+			if h.isRetiring() {
+				continue
+			}
+			authorized, err := h.authorizeAudioPacket(ctx)
+			if err != nil {
+				return 0, 0, nil, err
+			}
+			if authorized {
+				return protocol, n, info, nil
+			}
+		}
+	}
+}
+
 func (h *PeerConn) serveDirectPackets() error {
 	buf := make([]byte, 64*1024)
 	ctx, cancel := context.WithCancel(h.logContext())
@@ -1285,9 +1354,35 @@ func (h *PeerConn) serveDirectPackets() error {
 			cancel()
 		}
 	}()
-	for {
-		protocol, n, err := h.Conn.Read(buf)
+	var media *opusmedia.PacketReader
+	if raw, ok := h.Conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() {
+		var err error
+		media, err = opusmedia.NewPacketReader(h.admitAudioPackets(raw.ReadPacket), opusmedia.Config{})
 		if err != nil {
+			return err
+		}
+		h.mediaReader.Store(media)
+		defer func() {
+			h.mediaReader.Store(nil)
+			_ = media.Close()
+		}()
+	}
+	for {
+		var protocol byte
+		var n int
+		var audio *opusmedia.Frame
+		var err error
+		if media != nil {
+			protocol, n, audio, err = media.Read(ctx, buf)
+		} else {
+			protocol, n, err = h.Conn.Read(buf)
+		}
+		if err != nil {
+			// A final receiver flush can join decoder startup failure with a
+			// normal transport close. The codec failure must reach the owner.
+			if errors.Is(err, codecconv.ErrOpusDecoderInit) {
+				return err
+			}
 			if errors.Is(err, io.EOF) ||
 				errors.Is(err, net.ErrClosed) ||
 				errors.Is(err, giznet.ErrConnClosed) ||
@@ -1302,9 +1397,22 @@ func (h *PeerConn) serveDirectPackets() error {
 		}
 		switch protocol {
 		case giznet.ProtocolOpusPacket:
-			chunk, ok := opusPacketChunk(buf[:n])
-			if !ok {
-				continue
+			var chunk *genx.MessageChunk
+			if audio != nil {
+				if len(audio.PCM) == 0 {
+					continue
+				}
+				blob := &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: audio.PCM, ConcealedAudio: audio.Concealed}
+				if len(audio.Original) > 0 {
+					blob.OriginalAudio = &genx.Blob{MIMEType: "audio/opus", Data: audio.Original}
+				}
+				chunk = &genx.MessageChunk{Part: blob, Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
+			} else {
+				var ok bool
+				chunk, ok = opusPacketChunk(buf[:n])
+				if !ok {
+					continue
+				}
 			}
 			authorized, err := h.authorizeAudioPacket(h.logContext())
 			if err != nil {

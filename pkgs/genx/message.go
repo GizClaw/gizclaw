@@ -262,10 +262,20 @@ type Part interface {
 type Blob struct {
 	MIMEType string
 	Data     []byte
+
+	// OriginalAudio retains the real encoded audio behind a converted PCM blob.
+	// ConcealedAudio identifies PCM synthesized by the media receiver. Neither
+	// field is sent to model providers or persisted as resource metadata.
+	OriginalAudio  *Blob `json:"-"`
+	ConcealedAudio bool  `json:"-"`
 }
 
 func (b *Blob) clone() Part {
-	return &Blob{MIMEType: b.MIMEType, Data: slices.Clone(b.Data)}
+	cloned := &Blob{MIMEType: b.MIMEType, Data: slices.Clone(b.Data), ConcealedAudio: b.ConcealedAudio}
+	if b.OriginalAudio != nil {
+		cloned.OriginalAudio = b.OriginalAudio.clone().(*Blob)
+	}
+	return cloned
 }
 
 func (*Blob) isPart() {}

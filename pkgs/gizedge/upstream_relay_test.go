@@ -206,8 +206,8 @@ func TestUpstreamRelaySelectorDialsOneMemberInStableOrder(t *testing.T) {
 		if dialCfg.SCTPReceiveBufferSize != gizwebrtc.GatewaySCTPReceiveBufferSize {
 			t.Fatalf("SCTP receive buffer = %d, want gateway profile", dialCfg.SCTPReceiveBufferSize)
 		}
-		if dialCfg.PacketDataChannelPolicy != gizwebrtc.PacketDataChannelOrderedTimed {
-			t.Fatalf("packet policy = %v, want ordered timed upstream delivery", dialCfg.PacketDataChannelPolicy)
+		if dialCfg.PacketDataChannelPolicy != gizwebrtc.PacketDataChannelUnreliable {
+			t.Fatalf("packet policy = %v, want unordered upstream delivery without retransmissions", dialCfg.PacketDataChannelPolicy)
 		}
 		if len(dialCfg.ICEServers) != 1 || len(dialCfg.ICEServers[0].URLs) != 1 {
 			t.Fatalf("dial ICE servers = %+v, want exactly one member", dialCfg.ICEServers)

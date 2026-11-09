@@ -1875,6 +1875,7 @@ func (t *Transformer) processSession(
 	// turnAudioSent counts the frames submitted for the open push-to-talk turn
 	// only, so a turn that captured nothing is recognizable at its EOS.
 	turnAudioSent := 0
+	turnAudioReceived := false
 	inputRouteID := ""
 	inputAudioEnded := false
 	// completeAudiolessTurn closes a push-to-talk turn the provider never saw,
@@ -1902,6 +1903,22 @@ func (t *Transformer) processSession(
 		}
 		pttControl.Unlock()
 		slog.InfoContext(ctx, "doubao: completed push-to-talk turn without audio", "stream_id", streamID, "completed", completed)
+		return nil
+	}
+	sendAudioFrames := func(frames [][]byte) error {
+		for _, audio := range frames {
+			if len(audio) == 0 {
+				continue
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			audioSent++
+			turnAudioSent++
+			if err := session.SendAudio(ctx, audio); err != nil {
+				return doubaoRealtimeRecoverable("send audio", err)
+			}
+		}
 		return nil
 	}
 	stop := make(chan struct{})
@@ -1932,6 +1949,16 @@ func (t *Transformer) processSession(
 		if err != nil {
 			if err != io.EOF && err != genx.ErrDone {
 				slog.ErrorContext(ctx, "doubao: input error", "error", err)
+				return err
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			frames, err := audioInputs.flush()
+			if err != nil {
+				return err
+			}
+			if err := sendAudioFrames(frames); err != nil {
 				return err
 			}
 			slog.InfoContext(ctx, "doubao: input EOF", "audioSent", audioSent)
@@ -1999,6 +2026,11 @@ func (t *Transformer) processSession(
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
 			streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 			newRoute := streamID != inputRouteID
+			if newRoute {
+				// An interrupted route's partial frame must never be padded or
+				// carried into the replacement input's encoder.
+				audioInputs.close()
+			}
 			// A control-only BOS always declares a route boundary and must pass
 			// through the PTT state machine, where a duplicate is rejected. A
 			// part-bearing BOS on the current route only declares that MIME
@@ -2044,6 +2076,7 @@ func (t *Transformer) processSession(
 				inputRouteID = streamID
 				inputAudioEnded = false
 				turnAudioSent = 0
+				turnAudioReceived = false
 				if interrupted {
 					if err := session.Interrupt(ctx); err != nil {
 						return doubaoRealtimeRecoverable("interrupt response", err)
@@ -2071,6 +2104,10 @@ func (t *Transformer) processSession(
 		}
 
 		audioEOS := realtimeAudioInputEOS(chunk)
+		if audioEOS && genx.StreamError(chunk.Ctrl) != nil {
+			audioInputs.closeStream(streamIDs.serviceInput(chunk))
+			continue
+		}
 
 		switch p := chunk.Part.(type) {
 		case *genx.Blob:
@@ -2091,6 +2128,7 @@ func (t *Transformer) processSession(
 				return err
 			}
 			if len(p.Data) > 0 {
+				turnAudioReceived = true
 				historyStreamID := streamIDs.historyInput(chunk)
 				if t.mode != ModeRealtime {
 					if err := runtime.history.push(output, chunk, historyStreamID); err != nil {
@@ -2109,18 +2147,8 @@ func (t *Transformer) processSession(
 						slog.WarnContext(ctx, "doubao: user history audio unavailable", "error", err)
 					}
 				}
-				for _, audio := range frames {
-					if len(audio) == 0 {
-						continue
-					}
-					audioSent++
-					turnAudioSent++
-					if audioSent%50 == 1 { // Log every 50 chunks (1 second at 20ms chunks)
-					}
-					if err := session.SendAudio(ctx, audio); err != nil {
-						slog.ErrorContext(ctx, "doubao: send audio error", "error", err)
-						return doubaoRealtimeRecoverable("send audio", err)
-					}
+				if err := sendAudioFrames(frames); err != nil {
+					return err
 				}
 			}
 		case genx.Text:
@@ -2128,7 +2156,7 @@ func (t *Transformer) processSession(
 			// an audioless PTT turn so the next recording can start. An empty
 			// text MIME boundary within an audio turn must not commit its audio.
 			if strings.TrimSpace(string(p)) == "" {
-				if t.mode == ModePushToTalk && chunk.IsEndOfStream() && !inputAudioEnded && (len(p) > 0 || turnAudioSent == 0) {
+				if t.mode == ModePushToTalk && chunk.IsEndOfStream() && !inputAudioEnded && (len(p) > 0 || turnAudioSent == 0 && !turnAudioReceived) {
 					if err := pushToTalk.end(); err != nil {
 						return err
 					}
@@ -2184,6 +2212,13 @@ func (t *Transformer) processSession(
 		}
 		if audioEOS {
 			streamID := streamIDs.serviceInput(chunk)
+			frames, err := audioInputs.flushStream(streamID)
+			if err != nil {
+				return err
+			}
+			if err := sendAudioFrames(frames); err != nil {
+				return err
+			}
 			if !inputAudioEnded && t.mode == ModePushToTalk {
 				if err := pushToTalk.end(); err != nil {
 					return err

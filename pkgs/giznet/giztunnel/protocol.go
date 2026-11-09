@@ -76,6 +76,9 @@ type SessionDeclaration struct {
 	SessionID       SessionID
 	ClientPublicKey giznet.PublicKey
 	RemoteAddr      string
+	// RTPAudio explicitly declares timestamped RTP media in this logical session.
+	// Older endpoints reject the distinct control label before audio can start.
+	RTPAudio bool
 }
 
 type parsedLabel struct {
@@ -85,6 +88,7 @@ type parsedLabel struct {
 	remote    string
 	service   uint64
 	channelID uint64
+	rtpAudio  bool
 }
 
 func controlLabel(declaration SessionDeclaration) (string, error) {
@@ -96,7 +100,11 @@ func controlLabel(declaration SessionDeclaration) (string, error) {
 	if declaration.RemoteAddr != "" {
 		remote = base64.RawURLEncoding.EncodeToString([]byte(declaration.RemoteAddr))
 	}
-	label := LabelPrefix + declaration.SessionID.String() + "/control/" +
+	kind := "control"
+	if declaration.RTPAudio {
+		kind = "control-rtp"
+	}
+	label := LabelPrefix + declaration.SessionID.String() + "/" + kind + "/" +
 		declaration.ClientPublicKey.String() + "/" + remote
 	if len(label) > maxLabelSize {
 		return "", ErrFrameTooLarge
@@ -132,7 +140,7 @@ func parseLabel(label string) (parsedLabel, error) {
 		return parsedLabel{}, err
 	}
 	switch parts[1] {
-	case "control":
+	case "control", "control-rtp":
 		if len(parts) != 4 {
 			return parsedLabel{}, ErrInvalidFrame
 		}
@@ -144,7 +152,7 @@ func parseLabel(label string) (parsedLabel, error) {
 		if err != nil {
 			return parsedLabel{}, err
 		}
-		return parsedLabel{kind: labelControl, session: id, client: client, remote: remote}, nil
+		return parsedLabel{kind: labelControl, session: id, client: client, remote: remote, rtpAudio: parts[1] == "control-rtp"}, nil
 	case "packet":
 		if len(parts) != 2 {
 			return parsedLabel{}, ErrInvalidFrame
