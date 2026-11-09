@@ -177,19 +177,19 @@ func RelationID(a, b string) string {
 }
 
 func DirectWorkspaceName(relationID string) string {
-	return "social-direct-" + shortHash(strings.TrimSpace(relationID))
+	return directWorkspaceNamePrefix + shortHash(strings.TrimSpace(relationID))
 }
 
 // DirectWorkspaceIncarnationName returns the system Workspace name for one
 // lifecycle of a direct-friend relationship.
 func DirectWorkspaceIncarnationName(relationID, incarnationID string) string {
-	return "social-direct-" + shortHash(
+	return directWorkspaceNamePrefix + shortHash(
 		strings.TrimSpace(relationID)+"\x00"+strings.TrimSpace(incarnationID),
 	)
 }
 
 func GroupWorkspaceName(friendGroupID string) string {
-	return "social-group-" + shortHash(strings.TrimSpace(friendGroupID))
+	return groupWorkspaceNamePrefix + shortHash(strings.TrimSpace(friendGroupID))
 }
 
 func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRole {
@@ -201,7 +201,7 @@ func GroupRole(member rpcapi.FriendGroupMemberObject) rpcapi.FriendGroupMemberRo
 
 func shortHash(value string) string {
 	sum := sha256.Sum256([]byte(value))
-	return hex.EncodeToString(sum[:])[:20]
+	return hex.EncodeToString(sum[:])[:workspaceNameHashLength]
 }
 
 func TimeValue(v *time.Time) time.Time {

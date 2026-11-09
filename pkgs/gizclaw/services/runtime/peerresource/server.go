@@ -23,6 +23,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/observability"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/model"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/voice"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
@@ -385,9 +386,11 @@ func (s *Server) getWorkspaceByName(ctx context.Context, name string) (apitypes.
 		if err == nil || !(errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)) {
 			return item, err
 		}
-		item, err = s.getAccessibleDomainWorkspaceByName(ctx, name)
-		if err == nil || !(errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)) {
-			return item, err
+		// Ordinary names are scoped to the authenticated owner. Only generated
+		// Social names can resolve a shared Workspace through its exact binding;
+		// neither lookup may enumerate other Peers' Workspaces.
+		if !socialutil.IsSFUWorkspaceName(name) {
+			return apitypes.Workspace{}, kv.ErrNotFound
 		}
 		return s.materializeSocialWorkspace(ctx, name)
 	}
@@ -403,46 +406,6 @@ func (s *Server) getWorkspaceByName(ctx context.Context, name string) (apitypes.
 		}
 	}
 	return apitypes.Workspace{}, kv.ErrNotFound
-}
-
-// getAccessibleDomainWorkspaceByName resolves a shared system Workspace that
-// is indexed under another participant's ownership scope. The caller still
-// addresses it only by name, and the domain relationship check prevents a
-// same-named Workspace owned by an unrelated peer from crossing the boundary.
-func (s *Server) getAccessibleDomainWorkspaceByName(ctx context.Context, name string) (apitypes.Workspace, error) {
-	limit := int32(200)
-	var cursor *string
-	for {
-		response, err := s.Workspaces.ListWorkspaces(ctx, adminhttp.ListWorkspacesRequestObject{
-			Params: adminhttp.ListWorkspacesParams{Cursor: cursor, Limit: &limit},
-		})
-		if err != nil {
-			return apitypes.Workspace{}, err
-		}
-		page, rpcResponse, err := adminResult[adminhttp.WorkspaceList](response.VisitListWorkspacesResponse)
-		if err != nil {
-			return apitypes.Workspace{}, err
-		}
-		if rpcResponse != nil {
-			return apitypes.Workspace{}, fmt.Errorf("list Workspaces: %s", rpcResponse.Error.Message)
-		}
-		for _, item := range page.Items {
-			if item.Name != name {
-				continue
-			}
-			allowed, err := s.canAccessWorkspace(ctx, item)
-			if err != nil {
-				return apitypes.Workspace{}, err
-			}
-			if allowed {
-				return item, nil
-			}
-		}
-		if !page.HasNext || page.NextCursor == nil || *page.NextCursor == "" {
-			return apitypes.Workspace{}, kv.ErrNotFound
-		}
-		cursor = page.NextCursor
-	}
 }
 
 // ResolveWorkspaceForAccessCheck resolves the canonical candidate used to
