@@ -76,7 +76,6 @@ require (
 	golang.org/x/net v0.61.0
 	golang.org/x/sync v0.24.0
 	golang.org/x/tools v0.52.0
-	gonum.org/v1/gonum v0.17.0
 	google.golang.org/api v0.310.0
 	google.golang.org/genai v1.77.0
 	google.golang.org/protobuf v1.36.12

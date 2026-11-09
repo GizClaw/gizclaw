@@ -17,7 +17,7 @@ Code review should use these boundaries to determine whether changes are in the 
 | AI capability | GenX provides unified message, stream, model, tool, generator and transformer contracts, implemented by provider adapters. |
 | Product domains | Device, runtime, AI, system and social services have their own resources and business rules. |
 | API and SDK | Root `api/` stores the HTTP and Protobuf source contracts and generates Go, JavaScript, C, Flutter, and other client surfaces. |
-| Storage and media | Store packages provide general persistence/indexing capabilities; Audio packages provide codec, PCM, resampling, and voiceprint. |
+| Storage and media | Store packages provide general persistence/indexing capabilities; Audio packages provide codec, PCM, resampling, and signal processing. |
 | Observability | Use structured logs to diagnose individual requests and low-cardinality metrics to observe requests, runtimes, and device state. See [Observability](observability) for fields and ownership. |
 
 The current code supports multiple configured authoritative Server upstreams and routes business HTTP requests by the API key owner's fixed Peer assignment. Distributed membership, cross-server data synchronization, and global routing are not among the currently completed Server Mesh capabilities; Friend and Friend Group voice works across Servers through the shared Social KV and the SFU Workspace, see [services/social](/en/developing/gizclaw/services/social#sfu-workspace).
@@ -103,7 +103,7 @@ gizclaw/
 | `pkgs/gizlog` | Process-wide structured logger, levels, fan-out, and Store sinks | Product log fields and backend provisioning | [Observability](observability) |
 | `pkgs/genx` | Message, Stream, Generator, Transformer, Tool and adapters | Agent instance, workspace, product model resource | [GenX](genx/overview) |
 | `pkgs/store` | KV, object, metrics, vector and identity primitives | Domain resource schema and business rules | [Stores](stores/overview) |
-| `pkgs/audio` | Codec, PCM, resampling, device I/O and voiceprint | WebRTC connection, Agent lifecycle | [Audio](audio/overview) |
+| `pkgs/audio` | Codec, PCM, resampling, device I/O and signal processing | WebRTC connection, Agent lifecycle | [Audio](audio/overview) |
 | `cmd` | Configuration reading, dependency wiring, process life cycle and CLI UX | Reusable domain logic | Corresponding package guidelines |
 | `sdk` | Generate contract and client packaging for each language | Independently define another set of wire contracts | [API generation](api/generation) |
 

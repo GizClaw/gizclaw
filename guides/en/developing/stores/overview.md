@@ -23,7 +23,7 @@ pkgs/store/
 | [memory](./memory) | Raw observations, fact recall/update/delete, and asynchronous operations | Agent runtimes and memory evaluation harnesses |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
 | [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace assets, HNSW |
-| [vecid](./vecid) | Vector hashing, bucket and identity clustering | Voiceprint detection |
+| [vecid](./vecid) | Vector hashing, bucket and identity clustering | — |
 | [vecstore](./vecstore) | Vector add/search/delete and HNSW persistence | Agent recall, memory index |
 
 ## Dependencies
@@ -37,7 +37,6 @@ flowchart TB
     Domains --> Memory["memory"]
     Memory --> Remote["Mem0 / Volc remote"]
     Vectors --> Objects
-    VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
 `cmd/internal/server` exclusively owns YAML DTOs, strict decoding, environment expansion, and workspace-relative path resolution, then passes plain Go configurations to public packages. `pkgs/store/storage` opens and owns physical resources. The root `pkgs/store` package validates Storage/Store combinations and constructs logical Stores. Neither public package reads YAML or JSON or selects service bindings.

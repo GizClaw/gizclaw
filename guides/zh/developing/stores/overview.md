@@ -23,7 +23,7 @@ pkgs/store/
 | [memory](./memory) | 原始 observation、fact recall/update/delete 与异步 operation | Agent runtime、memory evaluation harness |
 | [metrics](./metrics) | Sample 写入、instant/range query 与 aggregation | Peer telemetry、Server metrics |
 | [objectstore](./objectstore) | Binary object、prefix list/delete 与 expiration | Firmware、workspace assets、HNSW |
-| [vecid](./vecid) | Vector hashing、bucket 与 identity 聚类 | Voiceprint detection |
+| [vecid](./vecid) | Vector hashing, bucket, and identity clustering | — |
 | [vecstore](./vecstore) | Vector add/search/delete 与 HNSW persistence | Agent recall、memory index |
 
 ## 依赖关系
@@ -37,7 +37,6 @@ flowchart TB
     Domains --> Memory["memory"]
     Memory --> Remote["Mem0 / Volc remote"]
     Vectors --> Objects
-    VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
 `cmd/internal/server` 独占 YAML DTO、严格解析、环境变量展开和 workspace 相对路径解析，再把普通 Go 配置传给公共包。`pkgs/store/storage` 打开并持有物理资源；根包 `pkgs/store` 校验 Storage/Store 组合并构造逻辑 Store。两个公共包都不读取 YAML 或 JSON，也不决定 service binding。

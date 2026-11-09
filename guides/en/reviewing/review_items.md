@@ -32,7 +32,7 @@ Combine all applicable rules when a review spans ownership roots. Code and schem
 | `pkgs/gizclaw/contextstore/**` | [Context Store](/en/developing/gizclaw/contextstore) | Config context, type safety and call boundaries |
 | `pkgs/gizclaw/customid/**` | [Custom ID](/en/developing/gizclaw/customid) | ID encoding, parsing and compatibility |
 | `pkgs/genx/**` | [GenX Overview](/en/developing/genx/overview) and the corresponding Generators, Transformers, Segmentors, Profilers, Labelers or Match pages | Stream/EOS, interface, Mux, provider adapter and public pipeline boundaries |
-| `pkgs/audio/**` | [Audio Overview](/en/developing/audio/overview) and the corresponding codec, PCM, resampler or voiceprint page | Frame/codec contract, sample format, buffer and real-time processing |
+| `pkgs/audio/**` | [Audio Overview](/en/developing/audio/overview) and the corresponding codec, PCM, or resampler page | Frame/codec contract, sample format, buffer and real-time processing |
 | `pkgs/store/**` | [Store Overview](/en/developing/stores/overview) and corresponding store page | Interface contract, specific backend constraints, persistence and concurrency semantics |
 | `sdk/js/**` | Corresponds to [HTTP API](/en/developing/api/http/overview) or [Proto API](/en/developing/api/proto/overview), and [JavaScript and TypeScript](/en/coding-styles/js) | SDK surface, client generation, runtime differences and error handling |
 | `sdk/flutter/**` | Corresponding API/Proto documentation, and [Dart and Flutter](/en/coding-styles/dart-flutter) | Dart SDK contract, WebRTC transport, Stream and generated message |

@@ -183,7 +183,6 @@ const zhDevelopingSidebar = [
           { text: "resampler", link: "/zh/developing/audio/resampler" },
           { text: "songs", link: "/zh/developing/audio/songs" },
           { text: "timestretch", link: "/zh/developing/audio/timestretch" },
-          { text: "voiceprint", link: "/zh/developing/audio/voiceprint" },
         ],
       },
       {

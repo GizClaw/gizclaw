@@ -220,7 +220,7 @@ Evidence includes source hashes, fixture information, actual SQL, indexes, `EXPL
 
 ```sh
 npm ci && npm run build:console
-git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/ncnn/models/**'
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**'
 bash tests/gizclaw-e2e/run_run_state_tests.sh
 ```
 
