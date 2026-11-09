@@ -25,7 +25,7 @@ func TestWorkspaceGetMissingPrivateNameDoesNotReadSocialOrEnumerate(t *testing.T
 		t.Run(name, func(t *testing.T) {
 			caller, foreign := giznet.PublicKey{1}, giznet.PublicKey{2}
 			catalog := newWorkspaceLookupCatalog(foreign.String(), name)
-			store := &workspaceLookupStore{Store: kv.NewMemory(nil), getErr: errors.New("Social backend is unavailable")}
+			store := &workspaceLookupStore{Store: kv.NewMemory(nil), readErr: errors.New("Social backend is unavailable")}
 			t.Cleanup(func() { _ = store.Close() })
 			server := &Server{
 				Caller: caller, Workspaces: catalog,
@@ -49,7 +49,7 @@ func TestWorkspaceGetMissingPrivateNameAllowsNativeCreateWithUnavailableSocial(t
 	workflows := workflowtest.New(t)
 	createWorkflowForCollectionTest(t, ctx, workflows, "canonical-workflow")
 	workspaces := &workspace.Server{DB: workspacetest.New(t).DB, Workflows: workflows}
-	store := &workspaceLookupStore{Store: kv.NewMemory(nil), getErr: errors.New("Social backend is unavailable")}
+	store := &workspaceLookupStore{Store: kv.NewMemory(nil), readErr: errors.New("Social backend is unavailable")}
 	t.Cleanup(func() { _ = store.Close() })
 	profile := runtimeProfileWithWorkspaceAlias("r1")
 	server := &Server{
@@ -89,7 +89,7 @@ func TestWorkspaceGetOwnedNameTakesPrecedenceOverSFUShape(t *testing.T) {
 	caller := giznet.PublicKey{1}
 	name := socialutil.GroupWorkspaceName("private-name-collision")
 	catalog := newWorkspaceLookupCatalog(caller.String(), name)
-	store := &workspaceLookupStore{Store: kv.NewMemory(nil), getErr: errors.New("Social backend is unavailable")}
+	store := &workspaceLookupStore{Store: kv.NewMemory(nil), readErr: errors.New("Social backend is unavailable")}
 	t.Cleanup(func() { _ = store.Close() })
 	server := &Server{Caller: caller, Workspaces: catalog, Friends: &friend.Server{Friends: store}}
 	got, err := server.getWorkspaceByName(server.ownerContext(t.Context()), name)
@@ -103,19 +103,19 @@ func TestWorkspaceGetOwnedNameTakesPrecedenceOverSFUShape(t *testing.T) {
 
 func TestWorkspaceGetUnknownSFUNameUsesOnlyExactLocators(t *testing.T) {
 	for _, test := range []struct {
-		name   string
-		getErr error
-		code   rpcapi.StatusCode
-		reads  int
+		name    string
+		readErr error
+		code    rpcapi.StatusCode
+		reads   int
 	}{
 		{name: "missing", code: rpcapi.StatusCodeNotFound, reads: 2},
-		{name: "backend failure", getErr: errors.New("Social read failed"), code: rpcapi.StatusCodeInternal, reads: 1},
-		{name: "canceled", getErr: context.Canceled, code: rpcapi.StatusCodeInternal, reads: 1},
+		{name: "backend failure", readErr: errors.New("Social read failed"), code: rpcapi.StatusCodeInternal, reads: 1},
+		{name: "canceled", readErr: context.Canceled, code: rpcapi.StatusCodeInternal, reads: 1},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			name := socialutil.GroupWorkspaceName("missing-group")
 			catalog := newWorkspaceLookupCatalog((giznet.PublicKey{2}).String(), name)
-			store := &workspaceLookupStore{Store: kv.NewMemory(nil), getErr: test.getErr}
+			store := &workspaceLookupStore{Store: kv.NewMemory(nil), readErr: test.readErr}
 			t.Cleanup(func() { _ = store.Close() })
 			server := &Server{
 				Caller: giznet.PublicKey{1}, Workspaces: catalog,
@@ -128,6 +128,11 @@ func TestWorkspaceGetUnknownSFUNameUsesOnlyExactLocators(t *testing.T) {
 			}
 			if catalog.listCalls != 0 || len(store.keys) != test.reads || catalog.created != 0 {
 				t.Fatalf("SFU lookup enumerated %d pages, read %d keys, created %d Workspaces", catalog.listCalls, len(store.keys), catalog.created)
+			}
+			for _, method := range store.methods {
+				if method != "Get" {
+					t.Fatalf("SFU lookup used %s, want exact locator Get", method)
+				}
 			}
 			for _, key := range store.keys {
 				if !slices.Equal(key, socialutil.WorkspaceLocatorNameKey(name)) {
@@ -212,14 +217,108 @@ func (s *workspaceLookupCatalog) ListWorkspaces(context.Context, adminhttp.ListW
 
 type workspaceLookupStore struct {
 	kv.Store
-	keys   []kv.Key
-	getErr error
+	keys    []kv.Key
+	methods []string
+	readErr error
+}
+
+func (s *workspaceLookupStore) recordRead(method string, key kv.Key) {
+	s.keys = append(s.keys, slices.Clone(key))
+	s.methods = append(s.methods, method)
 }
 
 func (s *workspaceLookupStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
-	s.keys = append(s.keys, slices.Clone(key))
-	if s.getErr != nil {
-		return nil, s.getErr
+	s.recordRead("Get", key)
+	if s.readErr != nil {
+		return nil, s.readErr
 	}
 	return s.Store.Get(ctx, key)
+}
+
+func (s *workspaceLookupStore) BatchGet(ctx context.Context, keys []kv.Key) []kv.GetResult {
+	for _, key := range keys {
+		s.recordRead("BatchGet", key)
+	}
+	if s.readErr != nil {
+		results := make([]kv.GetResult, len(keys))
+		for i := range results {
+			results[i].Err = s.readErr
+		}
+		return results
+	}
+	return s.Store.BatchGet(ctx, keys)
+}
+
+func (s *workspaceLookupStore) HasMember(ctx context.Context, key kv.Key, member string) (bool, error) {
+	s.recordRead("HasMember", key)
+	if s.readErr != nil {
+		return false, s.readErr
+	}
+	return s.Store.HasMember(ctx, key, member)
+}
+
+func (s *workspaceLookupStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	s.recordRead("ListMembers", key)
+	if s.readErr != nil {
+		return nil, s.readErr
+	}
+	return s.Store.ListMembers(ctx, key)
+}
+
+func (s *workspaceLookupStore) RangeOrderedMembers(ctx context.Context, key kv.Key, query kv.OrderedRange) ([]string, error) {
+	s.recordRead("RangeOrderedMembers", key)
+	if s.readErr != nil {
+		return nil, s.readErr
+	}
+	return s.Store.RangeOrderedMembers(ctx, key, query)
+}
+
+func TestWorkspaceLookupStoreCapturesEveryRead(t *testing.T) {
+	for _, test := range []struct {
+		name  string
+		count int
+		read  func(context.Context, *workspaceLookupStore, kv.Key) []error
+	}{
+		{"Get", 1, func(ctx context.Context, store *workspaceLookupStore, key kv.Key) []error {
+			_, err := store.Get(ctx, key)
+			return []error{err}
+		}},
+		{"BatchGet", 2, func(ctx context.Context, store *workspaceLookupStore, key kv.Key) []error {
+			results := store.BatchGet(ctx, []kv.Key{key, key})
+			errs := make([]error, len(results))
+			for i, result := range results {
+				errs[i] = result.Err
+			}
+			return errs
+		}},
+		{"HasMember", 1, func(ctx context.Context, store *workspaceLookupStore, key kv.Key) []error {
+			_, err := store.HasMember(ctx, key, "member")
+			return []error{err}
+		}},
+		{"ListMembers", 1, func(ctx context.Context, store *workspaceLookupStore, key kv.Key) []error {
+			_, err := store.ListMembers(ctx, key)
+			return []error{err}
+		}},
+		{"RangeOrderedMembers", 1, func(ctx context.Context, store *workspaceLookupStore, key kv.Key) []error {
+			_, err := store.RangeOrderedMembers(ctx, key, kv.OrderedRange{Limit: 1})
+			return []error{err}
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			unavailable := errors.New("Social storage unavailable")
+			store := &workspaceLookupStore{Store: kv.NewMemory(nil), readErr: unavailable}
+			t.Cleanup(func() { _ = store.Close() })
+			key := kv.Key{"probe"}
+			errs := test.read(t.Context(), store, key)
+			key[0] = "mutated"
+			if len(errs) != test.count || len(store.keys) != test.count || len(store.methods) != test.count {
+				t.Fatalf("read returned %d errors, recorded %d keys and %d methods", len(errs), len(store.keys), len(store.methods))
+			}
+			for i, err := range errs {
+				if !errors.Is(err, unavailable) || store.methods[i] != test.name || !slices.Equal(store.keys[i], kv.Key{"probe"}) {
+					t.Fatalf("read %d: error=%v method=%q key=%v", i, err, store.methods[i], store.keys[i])
+				}
+			}
+		})
+	}
 }
