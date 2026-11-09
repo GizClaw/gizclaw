@@ -56,8 +56,8 @@ CGO_ENABLED=1 go run . -mode play-ogg -input-ogg ./out/mic.ogg
 
 ## Native Prebuilt Artifacts
 
-`tools/audio/{mp3,ogg,opus,portaudio}` 和 `tools/ncnn` 从固定 upstream submodule
-构建、打包并验证 committed prebuilt。共同流程为：
+`tools/audio/{mp3,ogg,opus,portaudio}` build, package, and verify committed
+prebuilts from pinned upstream submodules. The common flow is:
 
 1. `build_prebuilt_<os>.sh` 写入 `.tmp/<component>-prebuilt/<platform>/` staging。
 2. `package_prebuilt.sh <platform>` 复制 header/library 到 `third_party/**/prebuilt` 并生成 checksum manifest。
@@ -85,7 +85,6 @@ tools/audio/mp3/verify_artifacts.sh darwin-arm64
 | `tools/audio/ogg` | `third_party/audio/libogg` | `third_party/audio/prebuilt/libogg/<platform>/lib/libogg.a` |
 | `tools/audio/opus` | `third_party/audio/libopus` | `third_party/audio/prebuilt/libopus/<platform>/lib/libopus.a` |
 | `tools/audio/portaudio` | `third_party/audio/portaudio` | `third_party/audio/prebuilt/portaudio/<platform>/lib/libportaudio.a` |
-| `tools/ncnn` | `third_party/ncnn/upstream` | `third_party/ncnn/prebuilt/<platform>/lib/libncnn.a` |
 
 所有工具支持 `darwin-arm64`、`darwin-amd64`、`linux-amd64` 和 `linux-arm64`。
 macOS Apple Silicon 可通过 `TARGET_ARCH=amd64` 构建 amd64；Linux audio 脚本要求
@@ -96,9 +95,8 @@ TARGET_ARCH=amd64 tools/audio/opus/build_prebuilt_darwin.sh
 TARGET_ARCH=arm64 tools/audio/opus/build_prebuilt_linux.sh
 ```
 
-NCNN 固定使用 `NCNN_VULKAN=OFF` 与 `NCNN_C_API=ON`，并在 `build.env` 记录 upstream
-commit/describe。Native package 是否可用仍以对应 package 的 build/runtime capability
-检查为准；unsupported target 必须返回明确错误，不能产生占位输出。
+Native availability remains governed by each package's build/runtime capability
+checks; unsupported targets return explicit errors instead of placeholder output.
 
 ## 仓库发布
 

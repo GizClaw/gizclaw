@@ -35,11 +35,6 @@ updates:
       interval: weekly
 
   - package-ecosystem: gomod
-    directory: /examples/voiceprint
-    schedule:
-      interval: weekly
-
-  - package-ecosystem: gomod
     directory: /examples/webrtc_sfu
     schedule:
       interval: weekly

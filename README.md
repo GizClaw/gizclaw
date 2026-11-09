@@ -86,7 +86,7 @@ workspace-backed agents through the CLI and APIs.
 - `pkgs/agent/`: agent memory, recall, embedding, and local runtime support.
 - `pkgs/genx/`: model and generation abstractions used by workflows and agents.
 - `pkgs/audio/`: audio codecs, resampling, raw Opus packet helpers, playback, and
-  voiceprint helpers.
+  PCM processing.
 - `api/`: source OpenAPI and RPC schemas. Generated Go and TypeScript code is
   derived from these files.
 - `sdk/`: Go, JavaScript/TypeScript, Dart/Flutter, and C-facing SDK surfaces.
@@ -94,8 +94,7 @@ workspace-backed agents through the CLI and APIs.
 - `guides/`: localized development, review, coding, usage, and Reference
   documentation.
 - `skills/`: project-level Agent Skills installable with `npx skills`.
-- `examples/`: runnable examples for GenX, WebRTC SFU, audio, songs, and
-  voiceprint workflows.
+- `examples/`: runnable examples for GenX, WebRTC SFU, audio playback, and songs.
 - `tests/`: native integration, shared clients and fixtures, evaluation, and
   manual E2E suites. See [Testing and E2E](guides/en/developing/testing.md) for
   the layout and entrypoints.
