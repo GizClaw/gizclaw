@@ -2,10 +2,12 @@ package cgobackend
 
 import (
 	"bytes"
+	"net"
 	"testing"
 	"testing/synctest"
 	"time"
 
+	"github.com/pion/ice/v4"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -225,10 +227,22 @@ func TestBackendKeepsIndependentSameServiceDataChannels(t *testing.T) {
 }
 
 func TestBackendBidirectionalOpusRTP(t *testing.T) {
+	// Keep the real ICE/DTLS/RTP exchange local instead of depending on physical
+	// interfaces, VPN routes or multicast DNS during the connection deadline.
+	engine := &webrtc.MediaEngine{}
+	if err := engine.RegisterDefaultCodecs(); err != nil {
+		t.Fatal(err)
+	}
+	settings := webrtc.SettingEngine{}
+	settings.SetNetworkTypes([]webrtc.NetworkType{webrtc.NetworkTypeUDP4})
+	settings.SetIncludeLoopbackCandidate(true)
+	settings.SetIPFilter(func(ip net.IP) bool { return ip.IsLoopback() })
+	settings.SetICEMulticastDNSMode(ice.MulticastDNSModeDisabled)
+	api := webrtc.NewAPI(webrtc.WithMediaEngine(engine), webrtc.WithSettingEngine(settings))
 	backend := New()
 	sink := &recordingEventSink{}
 	backend.SetEventSink(sink)
-	if err := backend.CreatePeer(); err != nil {
+	if err := backend.createPeer(api.NewPeerConnection); err != nil {
 		t.Fatal(err)
 	}
 	defer backend.Close()
@@ -237,7 +251,7 @@ func TestBackendBidirectionalOpusRTP(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	remote, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	remote, err := api.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		t.Fatal(err)
 	}
