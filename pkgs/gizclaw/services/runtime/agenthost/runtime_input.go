@@ -2,7 +2,6 @@ package agenthost
 
 import (
 	"context"
-	"errors"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -104,5 +103,5 @@ func (s *InputStream) closed() bool {
 }
 
 func IsStreamDone(err error) bool {
-	return errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF)
+	return genx.IsStreamDone(err)
 }

@@ -1,4 +1,4 @@
-package sfu
+package opusmedia
 
 import (
 	"sort"
@@ -17,12 +17,8 @@ const (
 	defaultReorderSpan = 48000 / 10
 )
 
-// reorderBuffer restores RTP sequence order for one remote track. It never
-// synthesizes packets: a gap that is declared lost is simply skipped, so the
-// downstream decoder sees an ordered but possibly shorter stream. The
-// AgentHost Opus decoder has no PLC entry point, and forwarding an out-of-
-// order or duplicated packet would corrupt its decoder state, which is worse
-// than a short dropout.
+// reorderBuffer restores bounded RTP sequence order. It retains real packet
+// clocks so downstream media receivers can recognize missing intervals.
 type reorderBuffer struct {
 	maxDepth int
 	maxSpan  uint32

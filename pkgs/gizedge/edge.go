@@ -295,7 +295,7 @@ func dialUpstream(
 		SignalingURL:            upstreamSignalingURL(upstreamURL),
 		SecurityPolicy:          edgeSecurityPolicy{},
 		SCTPReceiveBufferSize:   gizwebrtc.GatewaySCTPReceiveBufferSize,
-		PacketDataChannelPolicy: gizwebrtc.PacketDataChannelOrderedTimed,
+		PacketDataChannelPolicy: gizwebrtc.PacketDataChannelUnreliable,
 		OnTiming: func(observation gizwebrtc.DialTiming) {
 			timing = observation
 		},

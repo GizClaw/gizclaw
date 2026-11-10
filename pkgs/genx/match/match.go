@@ -3,9 +3,7 @@ package match
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
-	"io"
 	"iter"
 	"maps"
 	"strconv"
@@ -101,7 +99,7 @@ func (m *Matcher) Match(ctx context.Context, pattern string, mc genx.ModelContex
 			for {
 				chunk, nextErr := stream.Next()
 				if nextErr != nil {
-					if errors.Is(nextErr, genx.ErrDone) || errors.Is(nextErr, io.EOF) {
+					if genx.IsStreamDone(nextErr) {
 						return
 					}
 					yieldChunk("", nextErr)

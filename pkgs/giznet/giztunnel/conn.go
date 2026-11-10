@@ -12,7 +12,9 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 )
 
 const (
@@ -384,7 +386,7 @@ func channelOptionsMatch(kind labelKind, channel giznet.Channel) bool {
 }
 
 func (r *Router) handleControlChannel(label parsedLabel, native giznet.Channel) {
-	declaration := SessionDeclaration{SessionID: label.session, ClientPublicKey: label.client, RemoteAddr: label.remote}
+	declaration := SessionDeclaration{SessionID: label.session, ClientPublicKey: label.client, RemoteAddr: label.remote, RTPAudio: label.rtpAudio}
 	r.mu.Lock()
 	if !r.cfg.AcceptSessions {
 		r.mu.Unlock()
@@ -781,6 +783,8 @@ type Conn struct {
 	control     *trackedChannel
 	packet      *trackedChannel
 	initiator   bool
+	mediaMu     sync.Mutex
+	mediaClock  opusmedia.Clock
 
 	mu             sync.Mutex
 	streams        map[uint64]*serviceStream
@@ -814,6 +818,7 @@ type acceptedService struct {
 type directPacket struct {
 	protocol byte
 	payload  []byte
+	opus     *packet.OpusInfo
 }
 
 const (
@@ -950,7 +955,15 @@ func (c *Conn) readPacketLoop() {
 }
 
 func (c *Conn) enqueuePacket(protocol byte, payload []byte) error {
-	packet := directPacket{protocol: protocol, payload: append([]byte(nil), payload...)}
+	return c.enqueueMediaPacket(protocol, payload, nil)
+}
+
+func (c *Conn) enqueueOpusPacket(payload []byte, info *packet.OpusInfo) error {
+	return c.enqueueMediaPacket(giznet.ProtocolOpusPacket, payload, info)
+}
+
+func (c *Conn) enqueueMediaPacket(protocol byte, payload []byte, info *packet.OpusInfo) error {
+	packet := directPacket{protocol: protocol, payload: append([]byte(nil), payload...), opus: info.Clone()}
 	select {
 	case c.readCh <- packet:
 		c.touch()
@@ -1084,28 +1097,85 @@ func (c *Conn) CloseService(service uint64) error {
 }
 
 func (c *Conn) Read(buf []byte) (byte, int, error) {
+	protocol, n, _, err := c.ReadPacket(context.Background(), buf)
+	return protocol, n, err
+}
+
+// RTPAudio reports the media format declared before logical acceptance.
+func (c *Conn) RTPAudio() bool { return c != nil && c.declaration.RTPAudio }
+
+// ReadPacket exposes the media clock carried by an RTP-audio tunnel session.
+func (c *Conn) ReadPacket(ctx context.Context, buf []byte) (byte, int, *packet.OpusInfo, error) {
 	if err := c.validate(); err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
+	}
+	if ctx == nil {
+		return 0, 0, nil, errors.New("giztunnel: nil packet read context")
 	}
 	select {
-	case packet := <-c.readCh:
-		if len(packet.payload) > len(buf) {
-			return 0, 0, giznet.ErrPacketBuffer
+	case frame := <-c.readCh:
+		if len(frame.payload) > len(buf) {
+			return 0, 0, nil, giznet.ErrPacketBuffer
 		}
-		copy(buf, packet.payload)
-		c.rxBytes.Add(uint64(len(packet.payload)))
-		return packet.protocol, len(packet.payload), nil
+		copy(buf, frame.payload)
+		c.rxBytes.Add(uint64(len(frame.payload)))
+		// Enqueue copied the metadata; dequeue transfers its sole ownership.
+		return frame.protocol, len(frame.payload), frame.opus, nil
+	case <-ctx.Done():
+		return 0, 0, nil, ctx.Err()
 	case <-c.closeCh:
-		return 0, 0, c.err()
+		return 0, 0, nil, c.err()
 	}
 }
 
 func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
+	return c.WritePacket(protocol, payload, nil)
+}
+
+// WriteLocalAudio rebases selected audio onto the local tunnel send clock.
+func (c *Conn) WriteLocalAudio(ctx context.Context, payload []byte, timing *packet.OpusTiming, segment string) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if err := c.validate(); err != nil {
+		return 0, err
+	}
+	if !c.declaration.RTPAudio {
+		return c.Write(giznet.ProtocolOpusPacket, payload)
+	}
+	c.mediaMu.Lock()
+	info, err := c.mediaClock.Next(payload, timing, segment)
+	c.mediaMu.Unlock()
+	if err != nil {
+		return 0, err
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	return c.WritePacket(giznet.ProtocolOpusPacket, payload, info)
+}
+
+// WritePacket retains media timing in explicitly declared RTP-audio sessions.
+func (c *Conn) WritePacket(protocol byte, payload []byte, info *packet.OpusInfo) (int, error) {
 	if err := c.validate(); err != nil {
 		return 0, err
 	}
 	if protocol == giznet.ProtocolOpusPacket {
-		n, err := c.router.writeOpus(c.declaration.SessionID, payload)
+		var n int
+		var err error
+		if c.declaration.RTPAudio {
+			if info == nil {
+				c.mediaMu.Lock()
+				info, err = c.mediaClock.Next(payload, nil, "")
+				c.mediaMu.Unlock()
+				if err != nil {
+					return 0, err
+				}
+			}
+			n, err = c.router.writeRTP(c.declaration.SessionID, payload, info)
+		} else {
+			n, err = c.router.writeOpus(c.declaration.SessionID, payload)
+		}
 		if n > 0 {
 			c.txBytes.Add(uint64(n))
 		}

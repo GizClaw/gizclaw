@@ -905,6 +905,21 @@ func (t *Transformer) processLoop(
 		t.inputTranscode,
 	)
 	defer audioInputs.close()
+	sendAudioFrames := func(frames [][]byte) error {
+		for _, audio := range frames {
+			if len(audio) == 0 {
+				continue
+			}
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if err := session.SendAudio(ctx, audio); err != nil {
+				return err
+			}
+			audioSent++
+		}
+		return nil
+	}
 	for {
 		var chunk *genx.MessageChunk
 		var err error
@@ -918,7 +933,7 @@ func (t *Transformer) processLoop(
 			for {
 				chunk, err := streamlog.ReadInput(ctx, input)
 				if err != nil {
-					if err != io.EOF && err != genx.ErrDone {
+					if !genx.IsStreamDone(err) {
 						slog.ErrorContext(ctx, "doubao: input error after events done", "error", err)
 						return nil, err
 					}
@@ -951,13 +966,24 @@ func (t *Transformer) processLoop(
 			continue
 		}
 		if err != nil {
-			if err != io.EOF && err != genx.ErrDone {
+			if !genx.IsStreamDone(err) {
 				slog.ErrorContext(ctx, "doubao: input error", "error", err)
 				return nil, err
 			} else {
 				slog.InfoContext(ctx, "doubao: input EOF", "audioSent", audioSent)
 			}
-			// Wait for remaining events
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			frames, err := audioInputs.flush()
+			if err != nil {
+				return nil, err
+			}
+			if err := sendAudioFrames(frames); err != nil {
+				return nil, err
+			}
+			// Duplex never commits on input EOS/EOF; drain audio before waiting
+			// for the provider's existing server-side turn completion.
 			<-eventsDone
 			if err := eventError(); err != nil {
 				return nil, err
@@ -975,6 +1001,7 @@ func (t *Transformer) processLoop(
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && chunk.Ctrl.StreamID != "" {
 			streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 			if streamID != inputRouteID {
+				audioInputs.close()
 				interrupted, err := interruptAssistant(streamID)
 				if err != nil {
 					return nil, err
@@ -998,6 +1025,10 @@ func (t *Transformer) processLoop(
 		// only closes the local stream boundary; it must not commit audio. An
 		// EOS may carry final data, so close only after processing its payload.
 		audioEOS := realtimeAudioInputEOS(chunk)
+		if audioEOS && genx.StreamError(chunk.Ctrl) != nil {
+			audioInputs.closeStream(streamIDs.serviceInput(chunk))
+			continue
+		}
 
 		// Send based on part type
 		switch p := chunk.Part.(type) {
@@ -1019,17 +1050,8 @@ func (t *Transformer) processLoop(
 					audioInputs.closeStream(streamID)
 					return nil, errors.Join(err, boundaryErr)
 				}
-				for _, audio := range frames {
-					if len(audio) == 0 {
-						continue
-					}
-					audioSent++
-					if audioSent%50 == 1 { // Log every 50 chunks (1 second at 20ms chunks)
-					}
-					if err := session.SendAudio(ctx, audio); err != nil {
-						slog.ErrorContext(ctx, "doubao: send audio error", "error", err)
-						return nil, err
-					}
+				if err := sendAudioFrames(frames); err != nil {
+					return nil, err
 				}
 				resetDoubaoRealtimeDuplexKeepalive(keepalive, doubaoRealtimeDuplexAudioIdleGrace)
 			}
@@ -1040,6 +1062,13 @@ func (t *Transformer) processLoop(
 		}
 		if audioEOS && !inputAudioEnded {
 			streamID := streamIDs.serviceInput(chunk)
+			frames, err := audioInputs.flushStream(streamID)
+			if err != nil {
+				return nil, err
+			}
+			if err := sendAudioFrames(frames); err != nil {
+				return nil, err
+			}
 			slog.DebugContext(ctx, "doubao: received realtime EOS, closing local audio stream without commit", "stream_id", streamID, "audioSent", audioSent)
 			audioInputs.closeStream(streamID)
 			inputAudioEnded = true
@@ -1362,7 +1391,7 @@ func (r *doubaoRealtimeDuplexInputReader) Close() error {
 func (r *doubaoRealtimeDuplexInputReader) CloseWithError(err error) error {
 	r.closeOnce.Do(func() {
 		close(r.done)
-		if err == nil || errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+		if err == nil || genx.IsStreamDone(err) {
 			_ = r.source.Close()
 			return
 		}

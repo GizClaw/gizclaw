@@ -13,18 +13,20 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
 // Fixed v1 relay safety limits; the schema deliberately exposes no tuning
-// fields. Each turn allows 4096 non-audio events and ten minutes of Opus
-// audio, measured with the packet RTP clock rather than packet count. Empty
+// fields. Each turn allows 4096 non-audio events and ten minutes of delivered
+// audio, measured with PCM samples or the Opus RTP clock. Empty
 // audio chunks count as events. Limits include discarded/inactive streams;
 // the existing whole-relay text and audio byte limits also remain in force.
 const (
 	relayMaxTurnEvents        = 4096
 	relayMaxTurnAudioDuration = 10 * time.Minute
+	relayMaxTurnPCMBytes      = int64(relayMaxTurnAudioDuration/time.Second) * int64(peerAudioDecodeRate) * 2
 	relayMaxTextBytes         = 1 << 20
 )
 
@@ -245,7 +247,9 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 	sides[active].everActive = true
 	completed, totalEvents, turnEvents, totalTextBytes, totalAudioBytes := 0, 0, 0, 0, 0
 	var turnAudioDuration time.Duration
-	turnAudioBytes := 0
+	turnOriginalAudioBytes := 0
+	var turnPCMBytes, totalPCMBytes int64
+	maxPCMBytes := int64(op.MaxTurns) * relayMaxTurnPCMBytes
 	started := time.Now()
 	lastEventMS := int64(0)
 	idleTimeout, _ := time.ParseDuration(op.IdleTimeout)
@@ -330,17 +334,38 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 			return fail(side, "", "PeerStream returned an empty chunk")
 		}
 		totalEvents++
-		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil && len(blob.Data) > 0 && relayOpusMIME(blob.MIMEType) {
-			// Check bytes before decoding, including audio later discarded.
-			if len(blob.Data) > giztest.MaxRelayAudioBytes-turnAudioBytes {
+		blob, _ := chunk.Part.(*genx.Blob)
+		isPCM, pcmErr := peerPCM16Format(blob)
+		if pcmErr != nil {
+			return fail(side, "", "unsupported relay media type: %v", pcmErr)
+		}
+		if blob != nil && len(blob.Data) > 0 && (relayOpusMIME(blob.MIMEType) || isPCM) {
+			// Bound both delivered PCM and real originals before decoding,
+			// including concealment and audio later discarded. Opus padding
+			// can make originals larger than their decoded samples.
+			originalBytes := peerOriginalAudioBytes(blob)
+			if originalBytes > giztest.MaxRelayAudioBytes-turnOriginalAudioBytes {
 				return fail(side, "", "exceeded the fixed %d-byte relay turn audio limit", giztest.MaxRelayAudioBytes)
 			}
-			turnAudioBytes += len(blob.Data)
-			packets, err := decodeOpusPackets(blob.Data)
-			if err != nil {
-				return fail(side, "", "decode relay audio failed: %v", err)
+			turnOriginalAudioBytes += originalBytes
+			if isPCM {
+				pcmBytes := int64(len(blob.Data))
+				if pcmBytes > relayMaxTurnPCMBytes-turnPCMBytes {
+					return fail(side, "", "exceeded the fixed %d-byte relay turn PCM limit", relayMaxTurnPCMBytes)
+				}
+				if pcmBytes > maxPCMBytes-totalPCMBytes {
+					return fail(side, "", "exceeded the fixed %d-byte relay PCM limit", maxPCMBytes)
+				}
+				turnPCMBytes += pcmBytes
+				totalPCMBytes += pcmBytes
+				turnAudioDuration += pcm.L16Mono16K.Duration(pcmBytes)
+			} else {
+				packets, err := decodeOpusPackets(blob.Data)
+				if err != nil {
+					return fail(side, "", "decode relay audio failed: %v", err)
+				}
+				turnAudioDuration += opusPacketsDuration(packets)
 			}
-			turnAudioDuration += opusPacketsDuration(packets)
 			if turnAudioDuration > relayMaxTurnAudioDuration {
 				return fail(side, "", "exceeded the fixed %s relay turn audio duration limit", relayMaxTurnAudioDuration)
 			}
@@ -397,7 +422,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 			if label == "assistant" {
 				mimeType, _ := chunk.MIMEType()
 				side.turnSawText = side.turnSawText || mimeType == "text/plain"
-				side.turnSawAudio = side.turnSawAudio || relayOpusMIME(mimeType)
+				side.turnSawAudio = side.turnSawAudio || relayTerminalMedia("audio", mimeType)
 			}
 		}
 		switch part := chunk.Part.(type) {
@@ -434,45 +459,49 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 			if label != "assistant" {
 				break
 			}
-			if isActive && (op.Media == "audio" || relayTerminalMediaName(op) == "audio") && !relayOpusMIME(part.MIMEType) {
+			if isActive && (op.Media == "audio" || relayTerminalMediaName(op) == "audio") && !relayOpusMIME(part.MIMEType) && !isPCM {
 				return fail(side, "", "unsupported relay media type")
 			}
 			if len(part.Data) == 0 {
 				break
 			}
-			if isActive && observeAudio != nil && relayOpusMIME(part.MIMEType) {
-				packets, err := decodeOpusPackets(part.Data)
+			if isActive && observeAudio != nil && (relayOpusMIME(part.MIMEType) || isPCM) {
+				packets, err := peerOriginalOpusPackets(part)
 				if err != nil {
 					return fail(side, "", "decode assistant audio failed: %v", err)
 				}
-				for _, packet := range packets {
-					if err := observeAudio(side.name, "assistant", packet, false); err != nil {
-						return fail(side, "", "play assistant audio failed: %v", err)
-					}
-					observationOpen = true
+				if err := observePeerAudioBlob(observeAudio, side.name, "assistant", part, packets); err != nil {
+					return fail(side, "", "play assistant audio failed: %v", err)
 				}
+				observationOpen = true
 			}
-			totalAudioBytes += len(part.Data)
-			if totalAudioBytes > giztest.MaxRelayAudioBytes {
+			originalBytes := peerOriginalAudioBytes(part)
+			if originalBytes > giztest.MaxRelayAudioBytes-totalAudioBytes {
 				return fail(side, "", "exceeded the fixed %d-byte relay audio limit", giztest.MaxRelayAudioBytes)
 			}
+			totalAudioBytes += originalBytes
 			if op.Media != "audio" {
 				break // text relays consume assistant audio without forwarding it
 			}
 			if !isActive {
 				return fail(side, "", "unexpected audio output from the inactive side")
 			}
-			if side.turnFirstMS < 0 {
+			if side.turnFirstMS < 0 && peerOriginalAudioBytes(part) > 0 {
 				side.turnFirstMS = time.Since(side.turnStarted).Milliseconds()
 			}
-			side.turnAudio += len(part.Data)
+			side.turnAudio += peerOriginalAudioBytes(part)
 			if final && isActive {
 				if audioCaptureMaxBytes > 0 {
-					if side.terminalBytes > audioCaptureMaxBytes-len(part.Data) {
+					originalBytes := peerOriginalAudioBytes(part)
+					if side.terminalBytes > audioCaptureMaxBytes-originalBytes {
 						return fail(side, "", "terminal audio exceeds the capture max_bytes %d", audioCaptureMaxBytes)
 					}
-					side.terminalBytes += len(part.Data)
-					side.terminalPackets = append(side.terminalPackets, append([]byte(nil), part.Data...))
+					packets, err := peerOriginalOpusPackets(part)
+					if err != nil {
+						return fail(side, "", "decode terminal audio failed: %v", err)
+					}
+					side.terminalBytes += originalBytes
+					side.terminalPackets = append(side.terminalPackets, packets...)
 				}
 				break
 			}
@@ -482,7 +511,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 		}
 		if chunk.IsEndOfStream() && label == "assistant" {
 			mimeType, _ := chunk.MIMEType()
-			if relayOpusMIME(mimeType) && observeAudio != nil && observationOpen {
+			if relayTerminalMedia("audio", mimeType) && observeAudio != nil && observationOpen {
 				observationOpen = false
 				if err := observeAudio(side.name, "assistant", nil, true); err != nil {
 					return fail(side, "", "finish assistant playback failed: %v", err)
@@ -499,7 +528,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 			case chunk.IsEndOfStream() && mimeType == "text/plain" && side.turnSawAudio && observationOpen:
 				side.turnTextEnded = true
 				continue
-			case relayOpusMIME(mimeType) && side.turnTextEnded:
+			case relayTerminalMedia("audio", mimeType) && side.turnTextEnded:
 				terminal = true
 			}
 		}
@@ -519,7 +548,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 		completed++
 		turnEvents = 0
 		turnAudioDuration = 0
-		turnAudioBytes = 0
+		turnOriginalAudioBytes, turnPCMBytes = 0, 0
 		side.turns++
 		if side.turnFirstMS >= 0 {
 			if op.Media == "text" {
@@ -663,7 +692,8 @@ func relayTerminalMedia(media, mimeType string) bool {
 	if media == "text" {
 		return mimeType == "text/plain"
 	}
-	return relayOpusMIME(mimeType)
+	isPCM, err := peerPCM16Format(&genx.Blob{MIMEType: mimeType})
+	return relayOpusMIME(mimeType) || (isPCM && err == nil)
 }
 
 // relayOpusMIME reports whether a MIME type names the Opus media an audio

@@ -6,10 +6,12 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 )
 
 const peerEventSubscriberQueueSize = 256
@@ -17,6 +19,11 @@ const peerEventSubscriberQueueSize = 256
 type peerEventSession struct {
 	stream    net.Conn
 	onFailure func()
+
+	// Installed by this connection's packet pump, never resolved through Client.
+	mediaReader atomic.Pointer[opusmedia.PacketReader]
+	// Chosen before event delivery and fixed for this connection's lifetime.
+	outputMode opusmedia.OutputMode
 
 	writeMu sync.Mutex
 	mu      sync.Mutex
@@ -30,9 +37,10 @@ type peerEventSession struct {
 
 func newPeerEventSession(stream net.Conn, onFailure func()) *peerEventSession {
 	return &peerEventSession{
-		stream:    stream,
-		onFailure: onFailure,
-		subs:      make(map[*peerEventConn]struct{}),
+		stream:     stream,
+		onFailure:  onFailure,
+		outputMode: peerAudioOutputMode(),
+		subs:       make(map[*peerEventConn]struct{}),
 	}
 }
 
@@ -65,6 +73,13 @@ func (s *peerEventSession) readLoop() {
 	for {
 		event, err := ReadPeerStreamEvent(s.stream)
 		if err != nil {
+			notify := s.shutdown()
+			if notify && s.onFailure != nil {
+				s.onFailure()
+			}
+			return
+		}
+		if err := s.flushOutputAudio(event); err != nil {
 			notify := s.shutdown()
 			if notify && s.onFailure != nil {
 				s.onFailure()

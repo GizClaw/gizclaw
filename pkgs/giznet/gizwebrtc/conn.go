@@ -13,9 +13,11 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizmetrics"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -79,7 +81,8 @@ type Conn struct {
 	metricsStarted    time.Time
 	rtpReceiveMetrics *rtpMetrics
 
-	audioTrack sampleWriter
+	audioTrack    sampleWriter
+	audioRTPTrack rtpWriter
 }
 
 type acceptedService struct {
@@ -92,7 +95,7 @@ type sampleWriter interface {
 }
 
 func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.SecurityPolicy, role string, remoteAddr string) (*Conn, error) {
-	audioTrack, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
+	audioTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{
 		MimeType:  MediaStreamOpus,
 		ClockRate: 48000,
 		Channels:  2,
@@ -119,7 +122,8 @@ func newConn(pk giznet.PublicKey, pc *webrtc.PeerConnection, policy giznet.Secur
 		readCh:         make(chan directPacket, readPacketQueueSize),
 		readyCh:        make(chan struct{}),
 		closeCh:        make(chan struct{}),
-		audioTrack:     audioTrack,
+		audioTrack:     newOpusSampleWriter(audioTrack),
+		audioRTPTrack:  audioTrack,
 	}
 	rtpSender, err := pc.AddTrack(&meteredAudioTrack{TrackLocal: audioTrack, conn: c})
 	if err != nil {
@@ -364,24 +368,39 @@ func (c *Conn) CloseService(service uint64) error {
 }
 
 func (c *Conn) Read(buf []byte) (byte, int, error) {
+	protocol, n, _, err := c.ReadPacket(context.Background(), buf)
+	return protocol, n, err
+}
+
+// RTPAudio reports the native RTP media capability of this connection.
+func (c *Conn) RTPAudio() bool { return true }
+
+// ReadPacket preserves RTP timing for Opus while retaining the normal packet lane.
+func (c *Conn) ReadPacket(ctx context.Context, buf []byte) (byte, int, *packet.OpusInfo, error) {
 	if err := c.validate(); err != nil {
-		return 0, 0, err
+		return 0, 0, nil, err
+	}
+	if ctx == nil {
+		return 0, 0, nil, errors.New("gizwebrtc: nil packet read context")
 	}
 	select {
 	case pkt := <-c.readCh:
 		if len(pkt.payload) > len(buf) {
-			return 0, 0, giznet.ErrPacketBuffer
+			return 0, 0, nil, giznet.ErrPacketBuffer
 		}
 		copy(buf, pkt.payload)
 		c.rxBytes.Add(uint64(len(pkt.payload)))
 		monitorRX.Add(uint64(len(pkt.payload)))
 		c.touch()
-		return pkt.protocol, len(pkt.payload), nil
+		// Enqueue copied the metadata; dequeue transfers its sole ownership.
+		return pkt.protocol, len(pkt.payload), pkt.opus, nil
+	case <-ctx.Done():
+		return 0, 0, nil, ctx.Err()
 	case <-c.closeCh:
 		if err := c.closeError(); err != nil {
-			return 0, 0, err
+			return 0, 0, nil, err
 		}
-		return 0, 0, giznet.ErrConnClosed
+		return 0, 0, nil, giznet.ErrConnClosed
 	}
 }
 
@@ -408,6 +427,56 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 		c.touch()
 	}
 	return n, err
+}
+
+// WriteLocalAudio preserves selected source timing on the shared local clock.
+func (c *Conn) WriteLocalAudio(ctx context.Context, payload []byte, timing *packet.OpusTiming, segment string) (int, error) {
+	if err := c.validate(); err != nil {
+		return 0, err
+	}
+	writer, ok := c.audioTrack.(giznet.LocalAudioWriter)
+	if !ok {
+		return 0, errors.New("gizwebrtc: local audio writer unavailable")
+	}
+	n, err := writer.WriteLocalAudio(ctx, payload, timing, segment)
+	if n > 0 {
+		c.txBytes.Add(uint64(n))
+		monitorTX.Add(uint64(n))
+		c.touch()
+	}
+	return n, err
+}
+
+// WritePacket forwards the media sequence and timestamp to the bound RTP track.
+// Hop-specific RTP extensions and CSRC mappings do not cross PeerConnections.
+func (c *Conn) WritePacket(protocol byte, payload []byte, opus *packet.OpusInfo) (int, error) {
+	if protocol != giznet.ProtocolOpusPacket || opus == nil {
+		return c.Write(protocol, payload)
+	}
+	if err := c.validate(); err != nil {
+		return 0, err
+	}
+	if opus.Missing {
+		// The next real packet retains its gap in RTP sequence and media time.
+		return 0, nil
+	}
+	if len(payload) == 0 || opus.Header.Version != 2 || c.audioRTPTrack == nil {
+		return 0, errors.New("gizwebrtc: invalid timestamped Opus packet")
+	}
+	header := opus.Header.Clone()
+	header.Padding = false
+	header.PaddingSize = 0
+	header.Extension = false
+	header.ExtensionProfile = 0
+	header.Extensions = nil
+	header.CSRC = nil
+	if err := c.audioRTPTrack.WriteRTP(&rtp.Packet{Header: header, Payload: payload}); err != nil {
+		return 0, err
+	}
+	c.txBytes.Add(uint64(len(payload)))
+	monitorTX.Add(uint64(len(payload)))
+	c.touch()
+	return len(payload), nil
 }
 
 func (c *Conn) PublicKey() giznet.PublicKey {
@@ -810,6 +879,7 @@ func (c *Conn) writeOpus(payload []byte) (int, error) {
 
 func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 	counts := &c.trafficMetrics().rtp[0]
+	sourceID := c.pk.String() + "/" + strconv.FormatUint(uint64(track.SSRC()), 16)
 	for {
 		pkt, _, err := track.ReadRTP()
 		if err != nil {
@@ -817,15 +887,29 @@ func (c *Conn) readRemoteOpus(track *webrtc.TrackRemote) {
 			return
 		}
 		counts.packets.Add(1)
-		c.enqueueRemoteOpusFrame(pkt.Payload)
+		c.enqueueRemoteOpusPacket(pkt, sourceID)
 	}
 }
 
-func (c *Conn) enqueueRemoteOpusFrame(frame []byte) {
-	if len(frame) == 0 {
+func (c *Conn) enqueueRemoteOpusPacket(p *rtp.Packet, sourceID string) {
+	if p == nil || len(p.Payload) == 0 {
 		return
 	}
-	c.enqueuePacket(directPacket{protocol: giznet.ProtocolOpusPacket, payload: append([]byte(nil), frame...)})
+	duration := packet.OpusDuration48(p.Payload)
+	if duration == 0 || duration > 5760 || p.Payload[0]&3 == 3 && (len(p.Payload) < 2 || p.Payload[1]&0x3f == 0) {
+		// Invalid media is dropped before it can fail a tunnel write and close
+		// the connection's independent reliable services.
+		return
+	}
+	c.enqueuePacket(directPacket{
+		protocol: giznet.ProtocolOpusPacket,
+		payload:  append([]byte(nil), p.Payload...),
+		opus: &packet.OpusInfo{
+			SourceID:   sourceID,
+			Header:     p.Header.Clone(),
+			Duration48: duration,
+		},
+	})
 }
 
 func serviceLabel(service uint64) string {

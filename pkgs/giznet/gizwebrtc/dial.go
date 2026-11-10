@@ -35,12 +35,12 @@ type PacketDataChannelPolicy uint8
 
 const (
 	// PacketDataChannelUnreliable is the default unordered, zero-retransmission
-	// policy used by public client connections.
+	// policy used by public clients and Edge-to-Server audio upstreams.
 	PacketDataChannelUnreliable PacketDataChannelPolicy = iota
 	// PacketDataChannelOrderedTimed preserves packet order and allows SCTP
-	// retransmissions with a one-second message lifetime. Edge-to-Server upstreams
-	// select this policy to tolerate jitter and recover transient packet loss.
-	// The lifetime is not an end-to-end delivery or playback latency bound.
+	// retransmissions with a one-second message lifetime. Callers selecting it
+	// accept head-of-line waiting for missing messages. The lifetime is not an
+	// end-to-end delivery or playback latency bound.
 	PacketDataChannelOrderedTimed
 )
 

@@ -106,6 +106,12 @@ func (a *doubaoRealtimeDuplexAudioInputs) streamForBlob(streamID string, blob *g
 	a.inputs[streamID] = input
 	return input, nil
 }
+func (a *doubaoRealtimeDuplexAudioInputs) flushStream(streamID string) ([][]byte, error) {
+	return a.shared.FlushStream(streamID)
+}
+func (a *doubaoRealtimeDuplexAudioInputs) flush() ([][]byte, error) {
+	return a.shared.Flush()
+}
 func (a *doubaoRealtimeDuplexAudioInputs) closeStream(streamID string) {
 	a.mu.Lock()
 	delete(a.inputs, streamID)

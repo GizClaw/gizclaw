@@ -108,6 +108,24 @@ func (e *Encoder) EncodeWithMaxDataBytes(pcm []int16, frameSize, maxDataBytes in
 	return nil, unsupportedErr()
 }
 
+// EncodeInto validates the PCM shape and output limit, then reports that the
+// native encoder is unavailable. It retains neither pcm nor dst.
+func (e *Encoder) EncodeInto(pcm []int16, frameSize int, dst []byte) (int, error) {
+	if e == nil || e.closed {
+		return 0, fmt.Errorf("opus: encoder is nil")
+	}
+	if err := validateFrameSize(e.sampleRate, frameSize); err != nil {
+		return 0, err
+	}
+	if err := validateMaxDataBytes(len(dst)); err != nil {
+		return 0, err
+	}
+	if err := validatePCM(pcm, frameSize, e.channels); err != nil {
+		return 0, err
+	}
+	return 0, unsupportedErr()
+}
+
 // Close is safe to call repeatedly.
 func (e *Encoder) Close() error {
 	if e != nil {

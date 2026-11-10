@@ -722,7 +722,7 @@ func (s *einoAudioOutputStream) forward() {
 	for {
 		chunk, err := s.downstream.Next()
 		if err != nil {
-			if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+			if genx.IsStreamDone(err) {
 				_ = s.input.Close()
 				_ = s.builder.Done(genx.Usage{})
 				return
@@ -867,7 +867,7 @@ func (m genXChatModel) Generate(ctx context.Context, input []*schema.Message, op
 	var chunks []*schema.Message
 	for {
 		chunk, err := reader.Recv()
-		if errors.Is(err, io.EOF) {
+		if genx.IsStreamDone(err) {
 			break
 		}
 		if err != nil {
@@ -924,7 +924,7 @@ func (m genXChatModel) Stream(ctx context.Context, input []*schema.Message, opti
 		for {
 			chunk, nextErr := stream.Next()
 			if nextErr != nil {
-				if !errors.Is(nextErr, io.EOF) {
+				if !genx.IsStreamDone(nextErr) {
 					writer.Send(nil, nextErr)
 				}
 				return

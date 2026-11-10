@@ -8,6 +8,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/ogg"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 )
 
 const (
@@ -192,64 +193,12 @@ func pcmFrameOpusGranuleTicks(frameSize, sampleRate int) uint64 {
 }
 
 // OpusPacketRTPTicks reports the packet duration in the 48 kHz Opus RTP clock.
-func OpusPacketRTPTicks(packet []byte) uint32 {
-	if len(packet) == 0 {
+// Empty payloads retain the legacy 20 ms fallback; packet.OpusDuration48 returns zero.
+func OpusPacketRTPTicks(payload []byte) uint32 {
+	if len(payload) == 0 {
 		return 960
 	}
-	tocConfig := packet[0] >> 3
-	var ticks uint32
-	switch {
-	case tocConfig < 12:
-		switch tocConfig % 4 {
-		case 0:
-			ticks = 480
-		case 1:
-			ticks = 960
-		case 2:
-			ticks = 1920
-		default:
-			ticks = 2880
-		}
-	case tocConfig < 16:
-		if tocConfig%2 == 0 {
-			ticks = 480
-		} else {
-			ticks = 960
-		}
-	default:
-		switch tocConfig % 4 {
-		case 0:
-			ticks = 120
-		case 1:
-			ticks = 240
-		case 2:
-			ticks = 480
-		default:
-			ticks = 960
-		}
-	}
-	return ticks * uint32(opusPacketFrameCount(packet))
-}
-
-func opusPacketFrameCount(packet []byte) int {
-	if len(packet) == 0 {
-		return 0
-	}
-	switch packet[0] & 0x03 {
-	case 0:
-		return 1
-	case 1, 2:
-		return 2
-	default:
-		if len(packet) < 2 {
-			return 1
-		}
-		count := int(packet[1] & 0x3f)
-		if count == 0 {
-			return 1
-		}
-		return count
-	}
+	return packet.OpusDuration48(payload)
 }
 
 func nonEmptyPacketCount(packets [][]byte) int {

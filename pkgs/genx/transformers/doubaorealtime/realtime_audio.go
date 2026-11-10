@@ -5,10 +5,13 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
+	"iter"
+	"maps"
 	"strings"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/mp3"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/resampler"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
@@ -101,6 +104,9 @@ type doubaoRealtimeAudioInput struct {
 	frameSize  int
 	decoder    *opus.Decoder
 	encoder    *opus.Encoder
+	pcmInput   *codecconv.PCM16Converter
+	pendingPCM []byte
+	finished   bool
 }
 
 type doubaoRealtimeAudioInputs struct {
@@ -153,6 +159,36 @@ func (a *doubaoRealtimeAudioInputs) streamForBlob(streamID string, blob *genx.Bl
 		a.mimeTypes[key] = mimeType
 	}
 	return a.stream(key), nil
+}
+
+func (a *doubaoRealtimeAudioInputs) flushStream(streamID string) ([][]byte, error) {
+	if a == nil {
+		return nil, nil
+	}
+	return flushRealtimeAudioInput(a.streams[doubaoRealtimeStreamKey(streamID)])
+}
+
+func (a *doubaoRealtimeAudioInputs) flush() ([][]byte, error) {
+	return flushRealtimeAudioInputs(maps.Values(a.streams))
+}
+
+func flushRealtimeAudioInput(input *doubaoRealtimeAudioInput) ([][]byte, error) {
+	if input == nil {
+		return nil, nil
+	}
+	return input.flushFrames()
+}
+
+func flushRealtimeAudioInputs(inputs iter.Seq[*doubaoRealtimeAudioInput]) ([][]byte, error) {
+	var frames [][]byte
+	for input := range inputs {
+		tail, err := flushRealtimeAudioInput(input)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, tail...)
+	}
+	return frames, nil
 }
 
 func (a *doubaoRealtimeAudioInputs) closeStream(streamID string) {
@@ -212,6 +248,9 @@ func (a *doubaoRealtimeAudioInput) prepareFrames(blob *genx.Blob) ([][]byte, err
 	if blob == nil || len(blob.Data) == 0 {
 		return nil, nil
 	}
+	if a.finished {
+		return nil, io.ErrClosedPipe
+	}
 	mimeType := doubaoRealtimeBaseMIME(blob.MIMEType)
 	switch a.format {
 	case "pcm", "pcm_s16le":
@@ -225,6 +264,13 @@ func (a *doubaoRealtimeAudioInput) prepareFrames(blob *genx.Blob) ([][]byte, err
 		if isDoubaoRealtimeMP3InputMIME(mimeType) {
 			pcm, err := a.decodeMP3ToPCM(blob.Data)
 			if err != nil {
+				return nil, err
+			}
+			return [][]byte{pcm}, nil
+		}
+		if isDoubaoRealtimePCMInputMIME(mimeType) {
+			pcm, err := a.convertPCM(blob)
+			if err != nil || len(pcm) == 0 {
 				return nil, err
 			}
 			return [][]byte{pcm}, nil
@@ -245,7 +291,11 @@ func (a *doubaoRealtimeAudioInput) prepareFrames(blob *genx.Blob) ([][]byte, err
 			return nil, fmt.Errorf("doubao realtime input format %q requires raw Opus packets, got Ogg/Opus pages", a.format)
 		}
 		if isDoubaoRealtimePCMInputMIME(mimeType) {
-			return a.encodeOpusFrames(blob.Data)
+			pcm, err := a.convertPCM(blob)
+			if err != nil {
+				return nil, err
+			}
+			return a.encodeOpusFrames(pcm)
 		}
 		if isDoubaoRealtimeMP3InputMIME(mimeType) {
 			pcm, err := a.decodeMP3ToPCM(blob.Data)
@@ -269,6 +319,58 @@ func (a *doubaoRealtimeAudioInput) prepareFrames(blob *genx.Blob) ([][]byte, err
 		}
 		return [][]byte{blob.Data}, nil
 	}
+}
+
+func (a *doubaoRealtimeAudioInput) convertPCM(blob *genx.Blob) ([]byte, error) {
+	if len(blob.Data)%2 != 0 {
+		return nil, fmt.Errorf("doubao realtime pcm input length must be even, got %d", len(blob.Data))
+	}
+	if a.channels != 1 && a.channels != 2 {
+		return nil, fmt.Errorf("doubao realtime unsupported target channels %d", a.channels)
+	}
+	if a.pcmInput == nil {
+		a.pcmInput = codecconv.NewPCM16Converter(resampler.Format{SampleRate: a.sampleRate, Stereo: a.channels == 2})
+	}
+	return a.pcmInput.Convert(blob.MIMEType, blob.Data)
+}
+
+// flushFrames finishes only a successful input boundary. close discards pending
+// data on cancellation or replacement without padding it into a later route.
+func (a *doubaoRealtimeAudioInput) flushFrames() ([][]byte, error) {
+	if a.finished {
+		return nil, nil
+	}
+	a.finished = true
+	var tail []byte
+	if a.pcmInput != nil {
+		var err error
+		tail, err = a.pcmInput.Flush()
+		if err != nil {
+			return nil, err
+		}
+	}
+	if a.format != "speech_opus" && a.format != "opus" {
+		if len(tail) == 0 {
+			return nil, nil
+		}
+		return [][]byte{tail}, nil
+	}
+	frames, err := a.encodeOpusFrames(tail)
+	if err != nil {
+		return nil, err
+	}
+	if len(a.pendingPCM) > 0 {
+		frameBytes := a.frameSize * a.channels * 2
+		padded := make([]byte, frameBytes)
+		copy(padded, a.pendingPCM)
+		a.pendingPCM = nil
+		last, err := a.encodeOpusFrames(padded)
+		if err != nil {
+			return nil, err
+		}
+		frames = append(frames, last...)
+	}
+	return frames, nil
 }
 
 func (a *doubaoRealtimeAudioInput) silenceFrames(frameCount int) ([][]byte, error) {
@@ -344,26 +446,56 @@ func (a *doubaoRealtimeAudioInput) encodeOpusFrames(pcm []byte) ([][]byte, error
 	if len(pcm)%2 != 0 {
 		return nil, fmt.Errorf("doubao realtime pcm input length must be even, got %d", len(pcm))
 	}
-	samples := make([]int16, len(pcm)/2)
-	for i := range samples {
-		samples[i] = int16(binary.LittleEndian.Uint16(pcm[i*2:]))
-	}
-	if len(samples) == 0 {
+	if len(pcm) == 0 && len(a.pendingPCM) == 0 {
 		return nil, nil
 	}
 	samplesPerFrame := a.frameSize * a.channels
 	if samplesPerFrame <= 0 {
 		return nil, fmt.Errorf("doubao realtime invalid opus frame size %d", samplesPerFrame)
 	}
-	frames := make([][]byte, 0, (len(samples)+samplesPerFrame-1)/samplesPerFrame)
-	for offset := 0; offset < len(samples); offset += samplesPerFrame {
-		frame := make([]int16, samplesPerFrame)
-		copy(frame, samples[offset:min(offset+samplesPerFrame, len(samples))])
-		packet, err := a.encodeOpusSamples(frame)
+	frameBytes := samplesPerFrame * 2
+	var frames [][]byte
+	var samples []int16
+	encode := func(frame []byte) error {
+		if samples == nil {
+			samples = make([]int16, samplesPerFrame)
+		}
+		for i := range samples {
+			samples[i] = int16(binary.LittleEndian.Uint16(frame[i*2:]))
+		}
+		packet, err := a.encodeOpusSamples(samples)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		frames = append(frames, packet)
+		return nil
+	}
+	if len(a.pendingPCM) > 0 {
+		n := min(len(pcm), frameBytes-len(a.pendingPCM))
+		a.pendingPCM = append(a.pendingPCM, pcm[:n]...)
+		pcm = pcm[n:]
+		if len(a.pendingPCM) < frameBytes {
+			return nil, nil
+		}
+		if err := encode(a.pendingPCM); err != nil {
+			return nil, err
+		}
+		a.pendingPCM = a.pendingPCM[:0]
+	}
+	// Full frames borrow the caller's bytes only for this call. Retain a copy
+	// of just the incomplete tail, bounded by one codec frame rather than by
+	// the largest PCM chunk this route has ever received.
+	for len(pcm) >= frameBytes {
+		if err := encode(pcm[:frameBytes]); err != nil {
+			return nil, err
+		}
+		pcm = pcm[frameBytes:]
+	}
+	if len(pcm) > 0 {
+		if cap(a.pendingPCM) < frameBytes {
+			a.pendingPCM = make([]byte, 0, frameBytes)
+		}
+		a.pendingPCM = append(a.pendingPCM, pcm...)
 	}
 	return frames, nil
 }
@@ -498,11 +630,18 @@ func (a *doubaoRealtimeAudioInput) decodeMP3ToPCM(data []byte) ([]byte, error) {
 }
 
 func (a *doubaoRealtimeAudioInput) close() {
-	if a != nil && a.decoder != nil {
+	if a == nil {
+		return
+	}
+	a.finished = true
+	a.pendingPCM = nil
+	_ = a.pcmInput.Close()
+	a.pcmInput = nil
+	if a.decoder != nil {
 		_ = a.decoder.Close()
 		a.decoder = nil
 	}
-	if a != nil && a.encoder != nil {
+	if a.encoder != nil {
 		_ = a.encoder.Close()
 		a.encoder = nil
 	}

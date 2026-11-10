@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"iter"
 	"log/slog"
 	"mime"
@@ -902,7 +901,7 @@ func (t *Transformer) processLoop(
 				return
 			default:
 			}
-			if err != io.EOF && err != genx.ErrDone {
+			if !genx.IsStreamDone(err) {
 				output.CloseWithError(err)
 			}
 

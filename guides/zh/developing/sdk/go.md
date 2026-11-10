@@ -33,6 +33,44 @@ payload 没有逻辑 StreamID，无法据此区分上一 epoch 的迟到包和�
 因此暂存仅用于首次音频绑定，不会将 EOS 后的裸包重归属给下一 BOS。此类包仍由
 调用方的边界检查报告；现有 EOS drain 和音频完整性断言保持不变。
 
+## Recovered media output
+
+On RTP connections with native Opus support, `PeerStream` outputs signed
+little-endian PCM16 at 16 kHz mono, including PCM BOS/EOS boundaries. The connection's
+`giznet/opusmedia` receiver preserves RTP timing, reorders within the configured
+[`rtpstream` bounds](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/audio/rtpstream#Config),
+and conceals known missing intervals with its continuous Opus decoder.
+`PeerStream` only binds these recovered frames to the logical route.
+
+`genx.Blob.OriginalAudio` carries a real received Opus packet when available;
+`ConcealedAudio` marks synthesized PCM and has no original encoded packet.
+Both fields are process-local and excluded from JSON. Recorders can retain real
+original audio without storing synthetic Opus. The physical Event reader drains
+its own connection's media receiver once before publishing the active audio EOS
+to local subscribers. Each subscriber drains only its own queue; a delayed or
+closed subscription cannot reset newer media or a replacement connection. Late
+audio remains subject to the existing EOS guard, and EOS does not read future
+packets during a grace window.
+
+On runtimes without native Opus, including `CGO_ENABLED=0`, RTP reception uses
+bounded encoded reordering and delivers real Opus packets with Opus BOS/EOS.
+It does not synthesize encoded packets for missing intervals or provide decoded
+PCM/PLC. The output mode is chosen for the physical session before event delivery
+and stays fixed through every EOS. Encoded packet subscribers and reliable
+control remain available. Legacy payload-only sessions retain raw Opus controls
+and data. Within a media receiver, untimed Opus follows the agreed output mode
+without a jitter wait: decoded PCM in PCM mode, real originals in encoded mode.
+This also keeps controls and payloads consistent for custom timed-capable readers
+that supply an untimed packet. Native RTP and tunnel sessions still enforce their
+transport timing declarations.
+
+With native Opus support, `PeerStream.Push` also accepts PCM16 little-endian at
+16 kHz mono. Its media sender encodes the whole
+PCM epoch through one Opus encoder, including concealed intervals, and flushes
+its last partial 20 ms codec frame before sending EOS. It never mixes encoded
+originals into that stream. Input format cannot change within one epoch. This Go
+contract does not assert PLC support in external firmware or native C playback.
+
 ## Peer HTTP 状态同步
 
 OpenAPI 生成的 `pkgs/gizclaw/api/peerhttp.Client.SyncPeer` 接受 `SyncPeerParams.Timestamp`，返回可读取 SSE 的 `*http.Response`。请求通过 API Key 绑定 owner；调用方关闭 response body，并用 context 取消请求。`SyncEvent` 是同一 Schema 生成的事件联合类型。暂存每轮状态，在 done 时一起提交状态与服务端时间戳；不完整响应应丢弃并以原时间戳重试。具体事件与范围见 [Public API](../api/http/public#peer-状态同步)。

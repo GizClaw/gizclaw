@@ -60,12 +60,18 @@ func (s *Service) Transcribe(ctx context.Context, modelAlias, language string, i
 	for {
 		chunk, err := output.Next()
 		if err != nil {
-			if errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) {
+			if genx.IsStreamDone(err) {
 				break
 			}
 			return "", err
 		}
-		if chunk == nil || chunk.IsEndOfStream() {
+		if chunk == nil {
+			continue
+		}
+		if chunk.IsEndOfStream() {
+			if err := genx.StreamError(chunk.Ctrl); err != nil {
+				return "", err
+			}
 			continue
 		}
 		if text, ok := chunk.Part.(genx.Text); ok {

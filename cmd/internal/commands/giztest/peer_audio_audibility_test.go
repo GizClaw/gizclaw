@@ -110,8 +110,8 @@ func TestPeerAudioAudibilityClassifiesSilenceAndSpeech(t *testing.T) {
 		t.Fatalf("speech class = %+v, want audible without silent prefix", class)
 	}
 	class = audibility.classify(&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/L16; rate=16000", Data: []byte{0, 0}}})
-	if !class.audible {
-		t.Fatalf("undecodable audio class = %+v, want audible", class)
+	if class.audible || class.digitalSilencePrefix != time.Second/16000 {
+		t.Fatalf("PCM silence class = %+v, want one silent PCM16 sample", class)
 	}
 	if class = audibility.classify(assistantText("s1", "hello", false)); class.audible || class.silentPrefix != 0 {
 		t.Fatalf("text class = %+v, want no audio", class)

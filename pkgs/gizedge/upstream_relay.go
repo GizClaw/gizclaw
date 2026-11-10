@@ -135,7 +135,7 @@ func (s *upstreamRelaySelector) dialUpstream(
 			ICETransportPolicy:      webrtc.ICETransportPolicyRelay,
 			SecurityPolicy:          edgeSecurityPolicy{},
 			SCTPReceiveBufferSize:   gizwebrtc.GatewaySCTPReceiveBufferSize,
-			PacketDataChannelPolicy: gizwebrtc.PacketDataChannelOrderedTimed,
+			PacketDataChannelPolicy: gizwebrtc.PacketDataChannelUnreliable,
 			OnTiming: func(observation gizwebrtc.DialTiming) {
 				timing = observation
 			},

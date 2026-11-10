@@ -17,6 +17,70 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
+type pcmTailOrderSession struct {
+	*fakeTransformerSession
+	audioAtEndASR int
+}
+
+func (s *pcmTailOrderSession) EndASR(ctx context.Context) error {
+	s.audioAtEndASR = s.audioCount()
+	return s.fakeTransformerSession.EndASR(ctx)
+}
+
+func TestPCMOpusTailFlushesBeforePTTEndASR(t *testing.T) {
+	endASR := make(chan struct{})
+	session := &pcmTailOrderSession{fakeTransformerSession: &fakeTransformerSession{
+		beforeRecv: endASR, endASR: endASR,
+		events: []*doubaospeech.RealtimeEvent{{Type: doubaospeech.EventSessionFinished}},
+	}}
+	input := &sliceRealtimeStream{chunks: []*genx.MessageChunk{
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 80)}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+		// A text MIME terminal must not complete a turn whose PCM is still
+		// smaller than the provider's first complete Opus frame.
+		{Part: genx.Text(""), Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+		{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 320)}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+		{Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+	}}
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	output := newBufferStream(16)
+	defer output.Close()
+	if _, err := newTransformer(nil).processLoop(ctx, input, output, session); err != nil {
+		t.Fatal(err)
+	}
+	if session.audioAtEndASR != 1 || session.audioCount() != 1 || session.endASRCount() != 1 {
+		t.Fatalf("tail/order: audio at EndASR=%d, total=%d, EndASR calls=%d", session.audioAtEndASR, session.audioCount(), session.endASRCount())
+	}
+}
+
+func TestPCMOpusTailFlushesAtEOFAndDiscardsCanceledEOS(t *testing.T) {
+	for _, canceled := range []bool{false, true} {
+		t.Run(fmt.Sprint(canceled), func(t *testing.T) {
+			session := &fakeTransformerSession{blockAfterEvents: make(chan struct{})}
+			chunks := []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 80)}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+			}
+			if canceled {
+				chunks = append(chunks, &genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true, Error: "canceled"}})
+			}
+			output := newBufferStream(16)
+			defer output.Close()
+			if err := runTransformerProcessLoop(t, newTransformer(nil, withMode(ModeRealtime)), &sliceRealtimeStream{chunks: chunks}, output, session); err != nil {
+				t.Fatal(err)
+			}
+			want := 1
+			if canceled {
+				want = 0
+			}
+			if session.audioCount() != want || session.endASRCount() != 0 {
+				t.Fatalf("audio=%d, want %d; realtime EndASR=%d", session.audioCount(), want, session.endASRCount())
+			}
+		})
+	}
+}
+
 func TestTransformerAudioInputPassesPCMThrough(t *testing.T) {
 	input := newDoubaoRealtimeAudioInput("pcm", 16000, 1, false)
 	got, err := input.prepare(&genx.Blob{MIMEType: "audio/pcm", Data: []byte{1, 0, 2, 0}})

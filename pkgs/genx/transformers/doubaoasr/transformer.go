@@ -232,10 +232,12 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 	}
 	historyRoutes := make(map[historyRouteKey]struct{})
 	var rawOpusDecoder *opus.Decoder
+	var pcmInput *codecconv.PCM16Converter
 	defer func() {
 		if rawOpusDecoder != nil {
 			_ = rawOpusDecoder.Close()
 		}
+		_ = pcmInput.Close()
 	}()
 
 	// Helper to start a new ASR session
@@ -267,11 +269,13 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		historyRoutes[key] = struct{}{}
 		return output.Push(historyUserAudioBOSChunk(streamID, mimeType))
 	}
-	closeHistoryRoute := func(key historyRouteKey) error {
+	closeHistoryRoute := func(key historyRouteKey, cause error) error {
 		delete(historyRoutes, key)
-		return output.Push(historyUserAudioEOSChunk(key.streamID, key.mimeType))
+		terminal := historyUserAudioEOSChunk(key.streamID, key.mimeType)
+		genx.SetStreamError(terminal.Ctrl, cause)
+		return output.Push(terminal)
 	}
-	closeHistoryStream := func(streamID, fallbackMIME string) error {
+	closeHistoryStream := func(streamID, fallbackMIME string, cause error) error {
 		keys := make([]historyRouteKey, 0)
 		for key := range historyRoutes {
 			if key.streamID == streamID {
@@ -289,7 +293,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			return strings.Compare(a.mimeType, b.mimeType)
 		})
 		for _, key := range keys {
-			if err := closeHistoryRoute(key); err != nil {
+			if err := closeHistoryRoute(key, cause); err != nil {
 				return err
 			}
 		}
@@ -307,7 +311,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			return strings.Compare(a.mimeType, b.mimeType)
 		})
 		for _, key := range keys {
-			if err := closeHistoryRoute(key); err != nil {
+			if err := closeHistoryRoute(key, nil); err != nil {
 				return err
 			}
 		}
@@ -323,7 +327,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		sessionRoute = newDoubaoASRRouteState(sourceChunk)
 		next, err := newRecoveringSession(ctx, cfg, sessionRoute, t.emitInterim, t.recoveryTimeout, openSession, inputReader.activate)
 		if err != nil {
-			return err
+			return &providerStartupError{cause: err}
 		}
 		session = next
 		sessionConfig = cfg
@@ -402,6 +406,12 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		resultsForwarded = nil
 		pendingAudio = nil
 		packetBuffer.reset(0)
+		_ = pcmInput.Close()
+		pcmInput = nil
+		if rawOpusDecoder != nil {
+			_ = rawOpusDecoder.Close()
+			rawOpusDecoder = nil
+		}
 		sessionConfig = doubaoASRSessionConfig{}
 		sessionStartedAt = time.Time{}
 		sentAudioDuration = 0
@@ -409,14 +419,14 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		sessionSourceChunk = nil
 		sessionRoute = nil
 	}
-	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk, errorText string) error {
+	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk, cause error) error {
 		if !lastSessionTranscriptBegan {
 			if err := output.Push(transcriptTextChunk(sourceChunk, "", true, false)); err != nil {
 				return err
 			}
 		}
 		terminal := transcriptTextChunk(sourceChunk, "", false, true)
-		terminal.Ctrl.Error = errorText
+		genx.SetStreamError(terminal.Ctrl, cause)
 		return output.Push(terminal)
 	}
 
@@ -455,6 +465,29 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				return nil
 			}
 			return err
+		}
+		if err := ctx.Err(); err != nil {
+			clearSession()
+			return err
+		}
+		if pcmInput != nil {
+			tail, err := pcmInput.Flush()
+			if err != nil {
+				clearSession()
+				return err
+			}
+			if historyAudio != nil {
+				historyAudio.appendPCMTail(tail)
+			}
+			var sendErr error
+			packetBuffer.append(tail, func(audio []byte) bool {
+				sendErr = sendAudio(audio, false)
+				return sendErr == nil
+			})
+			if sendErr != nil {
+				clearSession()
+				return sendErr
+			}
 		}
 		finalSent := false
 		if remainingAudio := packetBuffer.flush(); len(remainingAudio) > 0 {
@@ -506,7 +539,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		return err
 	}
-	interruptSession := func() error {
+	interruptSession := func(cause error) error {
 		if session == nil {
 			return nil
 		}
@@ -519,7 +552,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			interruptedSource = sourceChunkForStream(lastChunk, interruptedID)
 		}
 		if sessionRoute != nil {
-			sessionRoute.interrupt("interrupted")
+			sessionRoute.interruptWithError(cause)
 		}
 		_ = session.Close()
 		if resultsForwarded != nil {
@@ -529,10 +562,10 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if !t.emitInterim {
 			// A replacement must retire the old input's History channels even
 			// when it interrupts recognition before that input's audio EOS.
-			if err := closeHistoryStream(interruptedID, "audio/pcm"); err != nil {
+			if err := closeHistoryStream(interruptedID, "audio/pcm", cause); err != nil {
 				return err
 			}
-			if err := emitTranscriptEOS(interruptedSource, "interrupted"); err != nil {
+			if err := emitTranscriptEOS(interruptedSource, cause); err != nil {
 				return err
 			}
 		}
@@ -544,7 +577,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 
 		chunk, err := inputReader.next()
 		if err != nil {
-			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
+			if !genx.IsStreamDone(err) {
 				if session != nil {
 					session.Close()
 				}
@@ -567,7 +600,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				}
 			}
 			if hadSession && !t.emitInterim {
-				if err := emitTranscriptEOS(sourceChunk, ""); err != nil {
+				if err := emitTranscriptEOS(sourceChunk, nil); err != nil {
 					return
 				}
 			}
@@ -579,7 +612,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		if sessionRoute != nil && sessionRoute.interruption() != "" {
 			discardStreamID, _ = sessionRoute.current()
-			if err := interruptSession(); err != nil {
+			if err := interruptSession(sessionRoute.interruptionCause()); err != nil {
 				output.CloseWithError(err)
 				return
 			}
@@ -595,7 +628,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.StreamID) != "" {
 			nextStreamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 			if session != nil && activeStreamID != "" && nextStreamID != activeStreamID {
-				if err := interruptSession(); err != nil {
+				if err := interruptSession(errors.New("interrupted")); err != nil {
 					output.CloseWithError(err)
 					return
 				}
@@ -609,6 +642,21 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		// Check for EoS marker with audio MIME type
 		if chunk.IsEndOfStream() {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
+				if cause := genx.StreamError(chunk.Ctrl); cause != nil {
+					if err := ctx.Err(); err != nil {
+						output.CloseWithError(err)
+						return
+					}
+					// The input channel failed; its outer transport remains usable.
+					// Retire and join this session without finalizing buffered audio.
+					discardStreamID = resolveStreamID(chunk)
+					if err := interruptSession(cause); err != nil {
+						output.CloseWithError(err)
+						return
+					}
+					activeStreamID = ""
+					continue
+				}
 				finishingRoute := sessionRoute
 				if t.emitInterim {
 					activeStreamID = ""
@@ -627,7 +675,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					sourceChunk = sourceChunkForStream(chunk, historyStreamID)
 				}
 				if !t.emitInterim {
-					if err := closeHistoryStream(historyStreamID, blob.MIMEType); err != nil {
+					if err := closeHistoryStream(historyStreamID, blob.MIMEType, nil); err != nil {
 						return
 					}
 				}
@@ -641,7 +689,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					continue
 				}
 				if !t.emitInterim {
-					if err := emitTranscriptEOS(sourceChunk, ""); err != nil {
+					if err := emitTranscriptEOS(sourceChunk, nil); err != nil {
 						return
 					}
 				}
@@ -669,8 +717,12 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					sessionRoute.set(activeStreamID)
 				}
 			}
-			if len(blob.Data) > 0 && !t.emitInterim {
-				if err := ensureHistoryRoute(historyStreamID, blob.MIMEType); err != nil {
+			recorded := blob
+			if blob.OriginalAudio != nil {
+				recorded = blob.OriginalAudio
+			}
+			if len(recorded.Data) > 0 && !blob.ConcealedAudio && !t.emitInterim {
+				if err := ensureHistoryRoute(historyStreamID, recorded.MIMEType); err != nil {
 					return
 				}
 				if err := output.Push(historyUserAudioChunk(chunk, historyStreamID)); err != nil {
@@ -681,7 +733,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			if session != nil {
 				target = &sessionConfig
 			}
-			audioData, cfg, err := t.prepareAudioBlob(blob, target, &rawOpusDecoder)
+			audioData, cfg, err := t.prepareAudioBlob(blob, target, &rawOpusDecoder, &pcmInput)
 			if err != nil {
 				if session != nil {
 					session.Close()
@@ -701,10 +753,10 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					return
 				}
 			}
+			if historyAudio != nil && len(blob.Data) > 0 {
+				historyAudio.appendChunk(chunk, historyStreamID, audioData, cfg)
+			}
 			if len(audioData) > 0 {
-				if historyAudio != nil {
-					historyAudio.appendChunk(chunk, historyStreamID, audioData, cfg)
-				}
 				var sendErr error
 				sendPacket := func(audio []byte) bool {
 					if sessionConfig.isPCM() || t.emitInterim {
@@ -755,16 +807,24 @@ func isRecoverableRealtimeSessionError(err error) bool {
 	return ok && providerErr.Code == doubaoASRPacketWaitTimeout
 }
 
-func (t *Transformer) prepareAudioBlob(blob *genx.Blob, target *doubaoASRSessionConfig, rawOpusDecoder **opus.Decoder) ([]byte, doubaoASRSessionConfig, error) {
+func (t *Transformer) prepareAudioBlob(blob *genx.Blob, target *doubaoASRSessionConfig, rawOpusDecoder **opus.Decoder, pcmInput **codecconv.PCM16Converter) ([]byte, doubaoASRSessionConfig, error) {
 	cfg := t.defaultSessionConfig()
 	if target != nil {
 		cfg = *target
 	}
-	if blob == nil || len(blob.Data) == 0 {
+	if blob == nil {
 		return nil, cfg, nil
 	}
 
 	mimeType := baseAudioMIME(blob.MIMEType)
+	// Empty MIME BOS chunks still declare the provider encoding. Select PCM
+	// before opening a session, including when Format was configured ogg_opus.
+	if isASRPCMMIME(mimeType) || isASRMP3MIME(mimeType) {
+		cfg = cfg.withPCM()
+	}
+	if len(blob.Data) == 0 {
+		return nil, cfg, nil
+	}
 	if isASRMP3MIME(mimeType) {
 		cfg = cfg.withPCM()
 		pcm, err := t.decodeMP3ToPCM(blob.Data, cfg)
@@ -774,8 +834,14 @@ func (t *Transformer) prepareAudioBlob(blob *genx.Blob, target *doubaoASRSession
 		return pcm, cfg, nil
 	}
 	if isASRPCMMIME(mimeType) {
-		cfg = cfg.withPCM()
-		return blob.Data, cfg, nil
+		if cfg.bits != 16 || cfg.channels != 1 && cfg.channels != 2 {
+			return nil, cfg, fmt.Errorf("doubao asr PCM conversion requires 16-bit mono or stereo")
+		}
+		if *pcmInput == nil {
+			*pcmInput = codecconv.NewPCM16Converter(resampler.Format{SampleRate: cfg.sampleRate, Stereo: cfg.channels == 2})
+		}
+		pcm, err := (*pcmInput).Convert(blob.MIMEType, blob.Data)
+		return pcm, cfg, err
 	}
 	if isASRWAVMIME(mimeType) {
 		cfg = cfg.withWAV()
@@ -916,11 +982,12 @@ func audioDuration(data []byte, cfg doubaoASRSessionConfig) time.Duration {
 }
 
 type doubaoASRHistoryAudioBuffer struct {
-	mu      sync.Mutex
-	cfg     doubaoASRSessionConfig
-	pcm     []byte
-	opus    timestampedHistoryAudioBuffer
-	hasOpus bool
+	mu          sync.Mutex
+	cfg         doubaoASRSessionConfig
+	pcm         []byte
+	opus        timestampedHistoryAudioBuffer
+	hasOpus     bool
+	audioCursor time.Duration
 }
 
 type doubaoASRRouteState struct {
@@ -928,7 +995,7 @@ type doubaoASRRouteState struct {
 	streamID        string
 	generation      uint64
 	transcriptBegan bool
-	terminalError   string
+	terminalCause   error
 }
 
 func newDoubaoASRRouteState(chunk *genx.MessageChunk) *doubaoASRRouteState {
@@ -984,21 +1051,36 @@ func (s *doubaoASRRouteState) transcriptStarted() bool {
 }
 
 func (s *doubaoASRRouteState) interrupt(errorText string) {
+	var cause error
+	if errorText = strings.TrimSpace(errorText); errorText != "" {
+		cause = errors.New(errorText)
+	}
+	s.interruptWithError(cause)
+}
+
+func (s *doubaoASRRouteState) interruptWithError(cause error) {
 	if s == nil {
 		return
 	}
 	s.mu.Lock()
-	s.terminalError = strings.TrimSpace(errorText)
+	s.terminalCause = cause
 	s.mu.Unlock()
 }
 
-func (s *doubaoASRRouteState) interruption() string {
+func (s *doubaoASRRouteState) interruptionCause() error {
 	if s == nil {
-		return ""
+		return nil
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.terminalError
+	return s.terminalCause
+}
+
+func (s *doubaoASRRouteState) interruption() string {
+	if cause := s.interruptionCause(); cause != nil {
+		return cause.Error()
+	}
+	return ""
 }
 
 func newDoubaoASRHistoryAudioBuffer(cfg doubaoASRSessionConfig) *doubaoASRHistoryAudioBuffer {
@@ -1006,19 +1088,65 @@ func newDoubaoASRHistoryAudioBuffer(cfg doubaoASRSessionConfig) *doubaoASRHistor
 }
 
 func (b *doubaoASRHistoryAudioBuffer) appendChunk(chunk *genx.MessageChunk, streamID string, data []byte, cfg doubaoASRSessionConfig) {
+	if b == nil {
+		return
+	}
+	duration := audioDuration(data, cfg)
+	if chunk != nil {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil && isASRPCMMIME(blob.MIMEType) {
+			if source, err := codecconv.ParsePCM16Format(blob.MIMEType, resampler.Format{SampleRate: cfg.sampleRate, Stereo: cfg.channels == 2}); err == nil {
+				sourceConfig := cfg
+				sourceConfig.sampleRate, sourceConfig.channels, sourceConfig.bits = source.SampleRate, 1, 16
+				if source.Stereo {
+					sourceConfig.channels = 2
+				}
+				duration = audioDuration(blob.Data, sourceConfig)
+			}
+		}
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	start := b.audioCursor
+	if cfg.isPCM() {
+		b.audioCursor += duration
+	}
+	if chunk != nil {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil {
+			if blob.ConcealedAudio {
+				b.opus.appendInterval(nil, 0, 0, int(b.audioCursor/time.Millisecond))
+				return
+			}
+			if original := blob.OriginalAudio; original != nil && baseAudioMIME(original.MIMEType) == "audio/opus" {
+				// Provider times include every uploaded PCM sample. Recording
+				// retains real originals at those positions, without PLC bytes.
+				var recording *genx.MessageChunk
+				if len(original.Data) > 0 {
+					recording = historyUserAudioChunk(chunk, streamID)
+					b.hasOpus = true
+				}
+				b.opus.appendInterval(recording, int(start/time.Millisecond),
+					int((b.audioCursor+time.Millisecond-1)/time.Millisecond), int(b.audioCursor/time.Millisecond))
+				return
+			}
+			if baseAudioMIME(blob.MIMEType) == "audio/opus" {
+				b.opus.append(chunk, streamID)
+				b.hasOpus = true
+				return
+			}
+		}
+	}
+	if cfg.isPCM() {
+		b.pcm = append(b.pcm, data...)
+	}
+}
+
+func (b *doubaoASRHistoryAudioBuffer) appendPCMTail(data []byte) {
 	if b == nil || len(data) == 0 {
 		return
 	}
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if chunk != nil {
-		if blob, ok := chunk.Part.(*genx.Blob); ok && blob != nil && baseAudioMIME(blob.MIMEType) == "audio/opus" {
-			b.opus.append(chunk, streamID)
-			b.hasOpus = true
-			return
-		}
-	}
-	if cfg.isPCM() {
+	if !b.hasOpus {
 		b.pcm = append(b.pcm, data...)
 	}
 }
@@ -1371,6 +1499,9 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 			Name: "transcript",
 			Part: genx.Text(""),
 			Ctrl: streamCtrl(false, true, errText),
+		}
+		if cause := route.interruptionCause(); cause != nil {
+			genx.SetStreamError(outChunk.Ctrl, cause)
 		}
 		resultsCh <- outChunk
 		transcriptOpen = false

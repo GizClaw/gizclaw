@@ -100,10 +100,14 @@ func (s *packetTimedPeerStream) observePacketArrival(chunk *genx.MessageChunk, r
 		return
 	}
 	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || len(blob.Data) == 0 || !relayOpusMIME(blob.MIMEType) {
+	if !ok || blob == nil || len(blob.Data) == 0 {
 		return
 	}
-	value, ok := s.clock.sends.Load(sha256.Sum256(blob.Data))
+	original := peerOriginalAudio(blob)
+	if original == nil || len(original.Data) == 0 || !relayOpusMIME(original.MIMEType) {
+		return
+	}
+	value, ok := s.clock.sends.Load(sha256.Sum256(original.Data))
 	if !ok {
 		return
 	}

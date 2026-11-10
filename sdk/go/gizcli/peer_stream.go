@@ -12,11 +12,13 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 )
 
 type PeerStream struct {
 	events      io.ReadWriteCloser
-	packets     <-chan []byte
+	audio       <-chan *genx.Blob
+	pcmAudio    bool
 	unsubscribe func()
 	conn        peerPacketWriter
 
@@ -33,6 +35,10 @@ type PeerStream struct {
 
 	inputReadyMu sync.Mutex
 	inputReady   *peerAudioInputReady
+	sendOnce     sync.Once
+	sendGate     chan struct{}
+	pcmInput     *opusmedia.PCMEncoder
+	sendPCM      bool
 
 	audioRouteMu sync.RWMutex
 	audioRoute   genx.StreamCtrl
@@ -76,16 +82,30 @@ func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 	if buffer < 1 {
 		buffer = 1
 	}
-	eventStream, err := c.DialPeerEventStream()
+	if c == nil {
+		return nil, fmt.Errorf("gizclaw: nil client")
+	}
+	c.mu.RLock()
+	conn, events := c.conn, c.events
+	c.mu.RUnlock()
+	if events == nil {
+		return nil, fmt.Errorf("gizclaw: client is not connected")
+	}
+	eventStream, err := events.subscribe()
 	if err != nil {
 		return nil, err
 	}
-	packets, unsubscribe := c.subscribePeerPackets(giznet.ProtocolOpusPacket, buffer)
+	audio, unsubscribe := c.subscribePeerAudio(buffer)
+	raw, timed := conn.(giznet.RTPAudioReader)
+	// The physical session chooses its receiver format before any control can
+	// arrive. RTP timing alone does not imply PCM on an unsupported runtime.
+	pcmAudio := timed && raw.RTPAudio() && events.outputMode == opusmedia.OutputPCM
 	stream := &PeerStream{
 		events:         eventStream,
-		packets:        packets,
+		audio:          audio,
+		pcmAudio:       pcmAudio,
 		unsubscribe:    unsubscribe,
-		conn:           c.PeerConn(),
+		conn:           conn,
 		out:            make(chan *genx.MessageChunk, buffer),
 		eventResults:   make(chan peerStreamEventResult, buffer),
 		done:           make(chan struct{}),
@@ -140,6 +160,10 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	if err := s.enterSend(ctx); err != nil {
+		return err
+	}
+	defer s.leaveSend()
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -147,18 +171,34 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 		return s.closeErr()
 	default:
 	}
+	blob, _ := chunk.Part.(*genx.Blob)
+	pcm, err := peerInputPCM(blob)
+	if err != nil {
+		return err
+	}
+	wireChunk := chunk
+	if pcm {
+		wire := *chunk
+		wire.Part = &genx.Blob{MIMEType: "audio/opus"}
+		wireChunk = &wire
+	}
 	var ready *peerAudioInputReady
-	if chunk.IsBeginOfStream() && peerStreamChunkIsOpusControl(chunk) {
+	if chunk.IsBeginOfStream() && peerStreamChunkIsOpusControl(wireChunk) {
 		if chunk.Ctrl != nil && chunk.Ctrl.InputMode != "" && chunk.Ctrl.InputMode != "push-to-talk" && chunk.Ctrl.InputMode != "realtime" {
 			return fmt.Errorf("gizclaw: unsupported audio input mode %q", chunk.Ctrl.InputMode)
 		}
-		var err error
 		ready, err = s.beginAudioInput(chunk.Ctrl.StreamID)
 		if err != nil {
 			return err
 		}
+		s.closePCMInput()
+		s.sendPCM = pcm
 	}
-	for _, event := range peerStreamEventsFromChunk(chunk) {
+	events := peerStreamEventsFromChunk(wireChunk)
+	for _, event := range events {
+		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
+			continue
+		}
 		if err := WritePeerStreamEvent(s.events, event); err != nil {
 			if ready != nil {
 				s.completeAudioInput(ready.streamID, err)
@@ -171,27 +211,19 @@ func (s *PeerStream) Push(ctx context.Context, chunk *genx.MessageChunk) error {
 			return err
 		}
 	}
-	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || len(blob.Data) == 0 || !isOpusBlob(blob) {
-		return nil
-	}
-	if s.conn == nil {
-		return fmt.Errorf("gizclaw: peer stream is not connected")
-	}
-	s.inputReadyMu.Lock()
-	ready = s.inputReady
-	s.inputReadyMu.Unlock()
-	if ready == nil {
-		return fmt.Errorf("gizclaw: audio input requires an acknowledged BOS")
-	}
-	if chunk.Ctrl == nil || chunk.Ctrl.StreamID != ready.streamID {
-		return fmt.Errorf("gizclaw: audio chunk does not belong to input stream %q", ready.streamID)
-	}
-	if err := s.waitAudioInput(ctx, ready); err != nil {
+	if err := s.sendInputAudio(ctx, chunk, blob, pcm); err != nil {
 		return err
 	}
-	_, err := s.conn.Write(giznet.ProtocolOpusPacket, blob.Data)
-	return err
+	// Audio travels separately from reliable control. Finish packet submission
+	// before publishing EOS; the receive media boundary drains its own buffer.
+	for _, event := range events {
+		if event.Type == eventpb.PeerEventType_PEER_EVENT_TYPE_EOS {
+			if err := WritePeerStreamEvent(s.events, event); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func (s *PeerStream) Close() error {
@@ -216,6 +248,7 @@ func (s *PeerStream) CloseWithError(err error) error {
 			_ = s.events.Close()
 		}
 		close(s.done)
+		s.closeIdleSender()
 	})
 	return nil
 }
@@ -302,7 +335,7 @@ func isPeerResourceInvalidation(event *eventpb.PeerEvent) bool {
 }
 
 func (s *PeerStream) mergeOutput() {
-	packets := s.packets
+	audio := s.audio
 	timer := time.NewTimer(time.Hour)
 	timer.Stop()
 	defer timer.Stop()
@@ -319,6 +352,15 @@ func (s *PeerStream) mergeOutput() {
 		select {
 		case <-s.done:
 			return
+		case blob, ok := <-audio:
+			if !ok {
+				audio = nil
+				continue
+			}
+			if err := s.pushMergedAudio(blob); err != nil {
+				_ = s.CloseWithError(err)
+				return
+			}
 		case <-startupDeadline:
 			s.discardStartupAudio()
 			startupDeadline = nil
@@ -331,22 +373,19 @@ func (s *PeerStream) mergeOutput() {
 				_ = s.CloseWithError(err)
 				return
 			}
-		case payload, ok := <-packets:
-			if !ok {
-				packets = nil
-				continue
-			}
-			if err := s.pushMergedPacket(payload); err != nil {
-				_ = s.CloseWithError(err)
-				return
-			}
 		}
 	}
 }
 
 func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
+	if s.pcmAudio && peerStreamChunkIsOutputOpusControl(chunk) {
+		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) == 0 {
+			chunk = chunk.Clone()
+			chunk.Part = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", OriginalAudio: blob}
+		}
+	}
 	if peerStreamChunkIsOutputOpusControl(chunk) && (chunk.IsEndOfStream() || s.audioEnded && chunk.IsBeginOfStream()) {
-		if err := s.drainBufferedOpusPackets(); err != nil {
+		if err := s.drainBufferedAudio(); err != nil {
 			return err
 		}
 	}
@@ -359,8 +398,8 @@ func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
 		pending := s.startupAudio
 		s.startupAudio = nil
 		s.startupBytes = 0
-		for _, packet := range pending {
-			if err := s.pushOutput(s.bindOpusPacketRoute(packet)); err != nil {
+		for _, chunk := range pending {
+			if err := s.pushOutput(s.bindAudioRoute(chunk)); err != nil {
 				return err
 			}
 		}
@@ -369,14 +408,14 @@ func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
 	return nil
 }
 
-func (s *PeerStream) drainBufferedOpusPackets() error {
+func (s *PeerStream) drainBufferedAudio() error {
 	for {
 		select {
-		case payload, ok := <-s.packets:
+		case blob, ok := <-s.audio:
 			if !ok {
 				return nil
 			}
-			if err := s.pushMergedPacket(payload); err != nil {
+			if err := s.pushMergedAudio(blob); err != nil {
 				return err
 			}
 		default:
@@ -385,27 +424,33 @@ func (s *PeerStream) drainBufferedOpusPackets() error {
 	}
 }
 
-func (s *PeerStream) pushMergedPacket(payload []byte) error {
-	if s.audioEnded && len(payload) > 0 {
-		s.ignoredPostEOSPackets.Add(1)
+func (s *PeerStream) pushMergedAudio(blob *genx.Blob) error {
+	if blob == nil || len(blob.Data) == 0 {
 		return nil
 	}
-	chunk, ok := opusPacketChunk(payload)
-	if !ok {
+	if s.audioEnded {
+		if !blob.ConcealedAudio {
+			s.ignoredPostEOSPackets.Add(1)
+		}
 		return nil
 	}
-	routed := s.bindOpusPacketRoute(chunk)
+	chunk := &genx.MessageChunk{Part: blob, Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
+	payloadBytes := len(blob.Data)
+	if blob.OriginalAudio != nil {
+		payloadBytes += len(blob.OriginalAudio.Data)
+	}
+	routed := s.bindAudioRoute(chunk)
 	if !s.audioStarted && routed == chunk {
 		if s.startupExpired {
 			return nil
 		}
 		// Bound both packet count and bytes before retaining untrusted payloads.
-		if len(s.startupAudio) >= 64 || len(payload) > 128*1024-s.startupBytes {
+		if len(s.startupAudio) >= 64 || payloadBytes > 128*1024-s.startupBytes {
 			s.discardStartupAudio()
 			return nil
 		}
 		s.startupAudio = append(s.startupAudio, chunk)
-		s.startupBytes += len(payload)
+		s.startupBytes += payloadBytes
 		return nil
 	}
 	return s.pushOutput(routed)
@@ -458,7 +503,7 @@ func (s *PeerStream) observeAudioRouteAfterOutput(chunk *genx.MessageChunk) {
 	s.startupBytes = 0
 }
 
-func (s *PeerStream) bindOpusPacketRoute(chunk *genx.MessageChunk) *genx.MessageChunk {
+func (s *PeerStream) bindAudioRoute(chunk *genx.MessageChunk) *genx.MessageChunk {
 	if s == nil || chunk == nil {
 		return chunk
 	}
@@ -468,22 +513,31 @@ func (s *PeerStream) bindOpusPacketRoute(chunk *genx.MessageChunk) *genx.Message
 	if route.StreamID == "" && route.Label == "" {
 		return chunk
 	}
-	next := chunk.Clone()
-	if next.Ctrl == nil {
-		next.Ctrl = &genx.StreamCtrl{}
+	// The subscriber already owns Part. Binding only changes routing metadata.
+	next := *chunk
+	ctrl := genx.StreamCtrl{}
+	if chunk.Ctrl != nil {
+		ctrl = *chunk.Ctrl
 	}
+	next.Ctrl = &ctrl
 	if route.StreamID != "" {
 		next.Ctrl.StreamID = route.StreamID
 	}
 	if route.Label != "" {
 		next.Ctrl.Label = route.Label
 	}
-	return next
+	return &next
 }
 
 func peerStreamChunkIsOutputOpusControl(chunk *genx.MessageChunk) bool {
-	return peerStreamChunkIsOpusControl(chunk) &&
-		(chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != "user")
+	if chunk == nil {
+		return false
+	}
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil || !isOpusBlob(blob) && !isOpusBlob(blob.OriginalAudio) {
+		return false
+	}
+	return chunk.Ctrl == nil || strings.TrimSpace(chunk.Ctrl.Label) != "user"
 }
 
 func peerStreamChunkIsOpusControl(chunk *genx.MessageChunk) bool {
@@ -718,16 +772,6 @@ func peerStreamBaseMIME(mimeType string) string {
 		mimeType = strings.TrimSpace(mimeType[:i])
 	}
 	return mimeType
-}
-
-func opusPacketChunk(payload []byte) (*genx.MessageChunk, bool) {
-	if len(payload) == 0 {
-		return nil, false
-	}
-	return &genx.MessageChunk{
-		Part: &genx.Blob{MIMEType: "audio/opus", Data: append([]byte(nil), payload...)},
-		Ctrl: &genx.StreamCtrl{StreamID: "audio"},
-	}, true
 }
 
 func (s *PeerStream) beginAudioInput(streamID string) (*peerAudioInputReady, error) {

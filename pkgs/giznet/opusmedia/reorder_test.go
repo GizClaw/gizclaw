@@ -1,4 +1,4 @@
-package sfu
+package opusmedia
 
 import (
 	"testing"

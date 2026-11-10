@@ -928,7 +928,7 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 }
 
 func isStreamDone(err error) bool {
-	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
+	return genx.IsStreamDone(err)
 }
 
 // externalVoicePattern selects the external Voice and passes the translation

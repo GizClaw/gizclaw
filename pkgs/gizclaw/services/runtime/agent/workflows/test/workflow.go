@@ -3,7 +3,6 @@ package testworkflow
 import (
 	"context"
 	"errors"
-	"io"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agent"
@@ -66,7 +65,7 @@ func (s *stream) Close() error {
 }
 
 func (s *stream) CloseWithError(err error) error {
-	if err == nil || errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+	if err == nil || genx.IsStreamDone(err) {
 		return s.Close()
 	}
 	return s.input.CloseWithError(err)

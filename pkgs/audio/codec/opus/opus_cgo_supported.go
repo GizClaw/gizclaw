@@ -131,18 +131,42 @@ func (e *Encoder) EncodeWithMaxDataBytes(pcm []int16, frameSize, maxDataBytes in
 	}
 
 	out := make([]byte, maxDataBytes)
+	n, err := e.EncodeInto(pcm, frameSize, out)
+	if err != nil {
+		return nil, err
+	}
+	return out[:n], nil
+}
+
+// EncodeInto encodes one PCM frame into dst and returns the encoded byte count.
+// The length of dst is the native output limit and must be between 1 and
+// DefaultMaxPacketSize. The encoder retains neither pcm nor dst. Callers that
+// reuse dst must copy the encoded bytes before retaining a packet.
+func (e *Encoder) EncodeInto(pcm []int16, frameSize int, dst []byte) (int, error) {
+	if e == nil || e.enc == nil {
+		return 0, fmt.Errorf("opus: encoder is nil")
+	}
+	if err := validateFrameSize(e.sampleRate, frameSize); err != nil {
+		return 0, err
+	}
+	if err := validateMaxDataBytes(len(dst)); err != nil {
+		return 0, err
+	}
+	if err := validatePCM(pcm, frameSize, e.channels); err != nil {
+		return 0, err
+	}
 	ret := C.opus_encode(
 		e.enc,
 		(*C.opus_int16)(unsafe.Pointer(&pcm[0])),
 		C.int(frameSize),
-		(*C.uchar)(unsafe.Pointer(&out[0])),
-		C.opus_int32(maxDataBytes),
+		(*C.uchar)(unsafe.Pointer(&dst[0])),
+		C.opus_int32(len(dst)),
 	)
+	runtime.KeepAlive(e)
 	if ret < 0 {
-		return nil, codecError("encode", ret)
+		return 0, codecError("encode", ret)
 	}
-
-	return out[:int(ret)], nil
+	return int(ret), nil
 }
 
 // Close releases encoder resources. It is safe to call repeatedly.

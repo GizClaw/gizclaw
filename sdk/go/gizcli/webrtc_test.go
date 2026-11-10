@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
@@ -282,6 +283,11 @@ func TestIsPeerPacketReadClosed(t *testing.T) {
 		{name: "conn closed", err: giznet.ErrConnClosed, want: true},
 		{name: "remote conn closed", err: errors.Join(giznet.ErrConnClosed, errors.New("peer connection state closed")), want: true},
 		{name: "conn failure cause", err: errors.Join(giznet.ErrConnClosed, giznet.ErrConnFailed, errors.New("peer failed"))},
+		{name: "decoder startup failure", err: codecconv.ErrOpusDecoderInit},
+		{name: "decoder startup at EOF", err: errors.Join(io.EOF, codecconv.ErrOpusDecoderInit)},
+		{name: "decoder startup at net close", err: errors.Join(net.ErrClosed, codecconv.ErrOpusDecoderInit)},
+		{name: "decoder startup at conn close", err: errors.Join(giznet.ErrConnClosed, codecconv.ErrOpusDecoderInit)},
+		{name: "decoder startup at tunnel close", err: errors.Join(giznet.ErrClosed, codecconv.ErrOpusDecoderInit)},
 		{name: "udp closed", err: giznet.ErrClosed, want: true},
 		{name: "service mux closed", err: giznet.ErrServiceMuxClosed, want: true},
 		{name: "wrapped", err: errors.Join(errors.New("read failed"), giznet.ErrClosed), want: true},

@@ -183,7 +183,7 @@ func (a openAIWorkspaceAdapter) ExecuteWorkspaceText(ctx context.Context, item a
 				}
 			}
 		}
-		if errors.Is(nextErr, genx.ErrDone) {
+		if genx.IsStreamDone(nextErr) {
 			break
 		}
 		if nextErr != nil {

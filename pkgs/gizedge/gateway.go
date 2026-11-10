@@ -621,6 +621,7 @@ func (g *Gateway) openLogicalSession(
 			SessionID:       sessionID,
 			ClientPublicKey: client.PublicKey(),
 			RemoteAddr:      admission.remoteAddr,
+			RTPAudio:        true,
 		},
 	)
 	cancelHandshake()

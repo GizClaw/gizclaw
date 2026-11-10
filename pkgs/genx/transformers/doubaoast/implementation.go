@@ -235,12 +235,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		if session != nil {
 			return nil
 		}
-		cfg := t.sessionConfig()
-		openSession := t.openSession
-		if t.newSession != nil {
-			openSession = t.newSession
-		}
-		next, err := openSession(ctx, cfg)
+		next, err := t.openProviderSession(ctx, t.sessionConfig())
 		if err != nil {
 			return err
 		}
@@ -502,7 +497,7 @@ func (t *Transformer) transformLoop(parent context.Context, input genx.Stream, o
 		}
 		chunk, err := streamlog.ReadInput(ctx, input)
 		if err != nil {
-			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
+			if !genx.IsStreamDone(err) {
 				if session != nil {
 					_ = session.Close()
 				}
