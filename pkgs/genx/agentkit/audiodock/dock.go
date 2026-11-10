@@ -1749,12 +1749,7 @@ func closePipelineStream(stream genx.Stream, err error) {
 }
 
 func streamDone(err error) bool {
-	// Provider failures can retain EOF as their underlying transport cause.
-	// Explicit domain failure semantics take precedence over stream completion.
-	if _, failed := errors.AsType[genx.PublicError](err); failed {
-		return false
-	}
-	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
+	return genx.IsStreamDone(err)
 }
 
 func cloneCtrl(ctrl *genx.StreamCtrl) *genx.StreamCtrl {

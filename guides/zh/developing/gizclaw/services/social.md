@@ -217,7 +217,7 @@ SFU Workspace 是对讲机模型：每个听者同一时刻只听一位发言者
 
 Floor：runtime 按远端 identity 记录 data channel 上仍打开的 utterance。floor 空闲且本 Peer 未发言时，第一个远端 BOS 取得 floor；释放时由最早仍打开的远端 utterance 接手。持有 floor 的 identity 的 Opus packet 经 RTP 重排后转发，其他 identity 的 packet 丢弃并计数。以下情况释放 floor：持有者 EOS；`services.sfu.floor_idle`（默认 300ms）内没有持有者的有声 packet（该 utterance 记为 idle，再次收到有声 packet 才重新参与竞争）；持有者 Track mute 或 unsubscribe；持有者离开 Room；本 Peer 开始发言。
 
-下行 passthrough：转发的 packet 以 `audio/opus; passthrough=1` 标记的 GenX chunk 交给 AgentHost，每次 floor 持有使用独立的 `stream_id`，`label` 为 participant identity。`PeerConn` 把每个 payload 原样写入 Device 的 Opus Track，不经过 AgentHost decoder 与 mixer，按收到的节奏写出（LiveKit 已按源节奏投递）。Opus RTP 时钟固定为 48 kHz，payload 保留发送 Device 的内部带宽，因此不需要转码。BOS/EOS 仍经过 `MixerOutput` 的 route bookkeeping，Device 收到成对的音频 BOS/EOS Peer Event。
+Downlink passthrough uses GenX `audio/opus; passthrough=1` chunks with a fresh `stream_id` per floor hold and the participant identity as `label`. Real payloads retain an opaque media timing attachment through queueing and forwarding. PeerConn bypasses the decoder and mixer and delegates output timing to Giznet: measured gaps remain visible to the listener, while source/floor changes start a marked segment on the destination's shared audio clock. No independently encoded concealment is spliced into originals. BOS/EOS still pass through route bookkeeping and produce paired Peer Events. Media ownership and the codec-free encoded path are described in the [SFU composition boundary](/zh/developing/gizclaw/services/ai#sfu-组合边界).
 
 ### 撤权
 

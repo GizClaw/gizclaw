@@ -284,8 +284,15 @@ the logical route; it does not read future packets during a timed grace window.
 An input BOS discards pending old media before the readiness acknowledgement.
 RTP has no logical StreamID, so this preserves the existing BOS/EOS guards rather
 than claiming exact attribution of packets crossing independent control/media lanes. The Edge remains an encoded RTP relay; native WebRTC clients own their
-playout receiver. Encoded SFU passthrough forwards only real original packets.
-Legacy raw-Opus tunnel sessions keep their existing payload-only behavior.
+playout receiver. Encoded SFU passthrough forwards real original packets with
+opaque, process-local audio timing through GenX. Media-owned writers preserve
+source sequence and timestamp differences within a route, so known missing
+intervals reach the listener without invented encoded audio. New source or route
+segments rebase onto the destination audio clock and mark a new talkspurt; the
+receiver resets predictive decoder history at that marker even with adjacent
+sequence numbers. Ordinary local audio and selected passthrough share the same
+destination allocator. Transparent Edge forwarding retains its original RTP clock.
+Legacy raw-Opus tunnel sessions have no source timing from which to recover loss.
 
 The logical packet receive queue remains bounded. If registration or storage I/O delays its reader, a full queue drops incoming Opus packets without closing logical control or service streams. Other direct-packet queue overflow still returns `ErrBufferLimit` and closes that logical session.
 

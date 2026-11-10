@@ -208,15 +208,29 @@ func (s *recoveringSession) run(ready chan<- error) {
 			s.log("retry failure", s.err, s.lastMetadata, "terminated")
 		}
 	}()
-	start := func() error {
+	start := func(openingOnly bool) error {
 		s.lastMetadata = nil
 		attemptCtx, cancelAttempt = context.WithCancelCause(s.ctx)
 		readCtx, stopAttempt := attemptCtx, cancelAttempt
+		// Startup success and its timeout race for this attempt's deadline.
+		// A callback already scheduled by the timer cannot cancel an accepted
+		// provider after opening won the race.
+		var openingDeadline atomic.Uint32
 		if s.retrying {
-			timer = time.AfterFunc(s.timeout, func() { stopAttempt(errASRRecoveryTimeout) })
+			timer = time.AfterFunc(s.timeout, func() {
+				if !openingOnly || openingDeadline.CompareAndSwap(0, 2) {
+					stopAttempt(errASRRecoveryTimeout)
+				}
+			})
 		}
 		var err error
 		provider, err = s.open(attemptCtx, s.cfg)
+		if openingOnly && err == nil {
+			if !openingDeadline.CompareAndSwap(0, 1) {
+				err = errASRRecoveryTimeout
+			}
+			timer.Stop()
+		}
 		if err == nil && attemptCtx.Err() != nil {
 			err = context.Cause(attemptCtx)
 		}
@@ -289,8 +303,16 @@ func (s *recoveringSession) run(ready chan<- error) {
 		s.log("retry start", cause, nil, "")
 		stop()
 		s.providerBase = s.base
-		if err := start(); err != nil {
+		if err := start(openingEOF); err != nil {
 			return err
+		}
+		if openingEOF {
+			// No audio was accepted or replayed. Opening alone completes this
+			// retry; a quiet or long utterance is ordinary recognition afterward.
+			s.retrying = false
+			s.recovering.Store(false)
+			s.log("retry success", nil, nil, "")
+			return nil
 		}
 		audio, last, current, sendCtx := slices.Clone(s.audio), s.last, provider, attemptCtx
 		packetSize := max(1, s.cfg.sampleRate*s.cfg.channels*(s.cfg.bits/8)/10)
@@ -311,7 +333,7 @@ func (s *recoveringSession) run(ready chan<- error) {
 		}()
 		return nil
 	}
-	if err := start(); err != nil {
+	if err := start(false); err != nil {
 		s.err = recover(err)
 		if s.err != nil {
 			ready <- s.err

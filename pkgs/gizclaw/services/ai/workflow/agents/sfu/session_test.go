@@ -10,12 +10,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizlog"
-	"github.com/pion/interceptor"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -63,6 +64,8 @@ func (r *fakeResolver) set(mutate func(*fakeResolver)) {
 type fakeClient struct {
 	mu           sync.Mutex
 	samples      []media.Sample
+	wire         []*rtp.Packet
+	writer       *opusmedia.Writer
 	published    []talkMessage
 	topics       []string
 	disconnected int
@@ -70,11 +73,28 @@ type fakeClient struct {
 	params       connectParams
 }
 
-func (c *fakeClient) WriteAudio(sample media.Sample) error {
+type testWireWriter func(*rtp.Packet) error
+
+func (f testWireWriter) WriteRTP(p *rtp.Packet) error { return f(p) }
+
+func (c *fakeClient) WriteAudio(ctx context.Context, data []byte, timing *packet.OpusTiming, segment string) error {
+	duration, err := OpusPacketDuration(data)
+	if err != nil {
+		return err
+	}
 	c.mu.Lock()
-	defer c.mu.Unlock()
-	c.samples = append(c.samples, sample)
-	return nil
+	c.samples = append(c.samples, media.Sample{Data: data, Duration: duration})
+	if c.writer == nil {
+		c.writer = opusmedia.NewWriter(testWireWriter(func(p *rtp.Packet) error {
+			c.mu.Lock()
+			defer c.mu.Unlock()
+			c.wire = append(c.wire, p.Clone())
+			return nil
+		}))
+	}
+	writer := c.writer
+	c.mu.Unlock()
+	return writer.Write(ctx, data, timing, segment)
 }
 
 func (c *fakeClient) PublishData(topic string, payload []byte) error {
@@ -180,17 +200,19 @@ func newFakeReader() *fakeReader {
 	return &fakeReader{packets: make(chan *rtp.Packet, 256), closed: make(chan struct{})}
 }
 
-func (r *fakeReader) ReadRTP() (*rtp.Packet, interceptor.Attributes, error) {
+func (r *fakeReader) ReadAudio(ctx context.Context) (*opusmedia.EncodedPacket, error) {
 	select {
-	case packet := <-r.packets:
-		return packet, nil, nil
+	case p := <-r.packets:
+		return opusmedia.EncodedRTP(p, "fake"), nil
 	case <-r.closed:
-		return nil, nil, io.EOF
+		return nil, io.EOF
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
 }
 
 func (r *fakeReader) send(seq uint16, ts uint32, payload ...byte) {
-	r.packets <- &rtp.Packet{Header: rtp.Header{SequenceNumber: seq, Timestamp: ts}, Payload: payload}
+	r.packets <- &rtp.Packet{Header: rtp.Header{Version: 2, SequenceNumber: seq, Timestamp: ts}, Payload: payload}
 }
 
 // voiced sends the next in-order voiced packet tagged with marker.

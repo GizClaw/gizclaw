@@ -58,8 +58,11 @@ It does not synthesize encoded packets for missing intervals or provide decoded
 PCM/PLC. The output mode is chosen for the physical session before event delivery
 and stays fixed through every EOS. Encoded packet subscribers and reliable
 control remain available. Legacy payload-only sessions retain raw Opus controls
-and data; an RTP-declared transport must supply timing metadata for its Opus
-packets, and tunnel sessions reject audio that disagrees with their declaration.
+and data. Within a media receiver, untimed Opus follows the agreed output mode
+without a jitter wait: decoded PCM in PCM mode, real originals in encoded mode.
+This also keeps controls and payloads consistent for custom timed-capable readers
+that supply an untimed packet. Native RTP and tunnel sessions still enforce their
+transport timing declarations.
 
 With native Opus support, `PeerStream.Push` also accepts PCM16 little-endian at
 16 kHz mono. Its media sender encodes the whole

@@ -11,13 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 	"github.com/livekit/protocol/auth"
 	"github.com/livekit/protocol/livekit"
 	lksdk "github.com/livekit/server-sdk-go/v2"
-	"github.com/pion/interceptor"
-	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
-	"github.com/pion/webrtc/v4/pkg/media"
 )
 
 // disconnectReason is the provider-neutral subset of SFU disconnect causes
@@ -42,18 +41,13 @@ type connectParams struct {
 	Identity string
 }
 
-// rtpReader is the remote track surface the downlink consumes.
-type rtpReader interface {
-	ReadRTP() (*rtp.Packet, interceptor.Attributes, error)
-}
-
 // roomEvents receives connector callbacks. Implementations must not block:
 // the SDK invokes them from its own goroutines.
 type roomEvents interface {
 	onDisconnected(reason disconnectReason)
 	onReconnecting()
 	onReconnected()
-	onTrackSubscribed(identity, trackID string, reader rtpReader)
+	onTrackSubscribed(identity, trackID string, reader opusmedia.EncodedReader)
 	onTrackUnsubscribed(trackID string)
 	onTrackMuted(trackID string)
 	onParticipantDisconnected(identity string)
@@ -64,7 +58,7 @@ type roomEvents interface {
 
 // roomClient is one live participant connection. Disconnect is idempotent.
 type roomClient interface {
-	WriteAudio(sample media.Sample) error
+	WriteAudio(context.Context, []byte, *packet.OpusTiming, string) error
 	// PublishData sends one payload on the reliable data channel to every
 	// participant of the Room under the given topic.
 	PublishData(topic string, payload []byte) error
@@ -121,7 +115,7 @@ func (c livekitConnector) connect(ctx context.Context, params connectParams, eve
 				if track == nil || publication == nil || participant == nil || track.Kind() != webrtc.RTPCodecTypeAudio {
 					return
 				}
-				events.onTrackSubscribed(participant.Identity(), publication.SID(), track)
+				events.onTrackSubscribed(participant.Identity(), publication.SID(), opusmedia.NewRemoteReader(track, participant.Identity()+"/"+publication.SID()))
 			},
 			OnTrackUnsubscribed: func(_ *webrtc.TrackRemote, publication *lksdk.RemoteTrackPublication, _ *lksdk.RemoteParticipant) {
 				if publication != nil {
@@ -221,7 +215,7 @@ func initializeLiveKitRoom(ctx context.Context, room *lksdk.Room, url, token str
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("sfu: connect to room: %w", err)
 	}
-	track, err := webrtc.NewTrackLocalStaticSample(webrtc.RTPCodecCapability{
+	track, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{
 		MimeType:  webrtc.MimeTypeOpus,
 		ClockRate: 48000,
 		Channels:  2,
@@ -236,7 +230,7 @@ func initializeLiveKitRoom(ctx context.Context, room *lksdk.Room, url, token str
 	if err != nil {
 		return nil, fmt.Errorf("sfu: publish local audio track: %w", err)
 	}
-	return &livekitRoom{room: room, track: track, publication: publication, disconnect: disconnect}, nil
+	return &livekitRoom{room: room, track: opusmedia.NewWriter(track), publication: publication, disconnect: disconnect}, nil
 }
 
 func (c livekitConnector) mintToken(params connectParams) (string, error) {
@@ -271,13 +265,13 @@ func mapDisconnectReason(reason lksdk.DisconnectionReason) disconnectReason {
 
 type livekitRoom struct {
 	room        *lksdk.Room
-	track       *webrtc.TrackLocalStaticSample
+	track       *opusmedia.Writer
 	publication *lksdk.LocalTrackPublication
 	disconnect  func()
 }
 
-func (r *livekitRoom) WriteAudio(sample media.Sample) error {
-	return r.track.WriteSample(sample)
+func (r *livekitRoom) WriteAudio(ctx context.Context, payload []byte, timing *packet.OpusTiming, segment string) error {
+	return r.track.Write(ctx, payload, timing, segment)
 }
 
 func (r *livekitRoom) PublishData(topic string, payload []byte) error {

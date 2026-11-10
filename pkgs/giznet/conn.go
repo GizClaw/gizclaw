@@ -62,6 +62,14 @@ type PacketWriter interface {
 	WritePacket(protocol byte, payload []byte, opus *packet.OpusInfo) (int, error)
 }
 
+// LocalAudioWriter forwards locally selected encoded audio onto the destination's
+// shared audio clock. Unlike PacketWriter, it rebases independent source segments.
+// Payload and opaque timing are borrowed until return. A fresh segment names a
+// new route/epoch; callers must not reuse it for an unrelated source.
+type LocalAudioWriter interface {
+	WriteLocalAudio(context.Context, []byte, *packet.OpusTiming, string) (int, error)
+}
+
 // ReadPacket uses the metadata-aware reader when available. Legacy connections
 // keep their existing Read behavior and return no media timing.
 func ReadPacket(ctx context.Context, conn Conn, buf []byte) (byte, int, *packet.OpusInfo, error) {

@@ -14,7 +14,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
-	"github.com/pion/rtp"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 )
 
 const (
@@ -784,8 +784,7 @@ type Conn struct {
 	packet      *trackedChannel
 	initiator   bool
 	mediaMu     sync.Mutex
-	mediaSeq    uint16
-	mediaTime   uint32
+	mediaClock  opusmedia.Clock
 
 	mu             sync.Mutex
 	streams        map[uint64]*serviceStream
@@ -1133,6 +1132,29 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	return c.WritePacket(protocol, payload, nil)
 }
 
+// WriteLocalAudio rebases selected audio onto the local tunnel send clock.
+func (c *Conn) WriteLocalAudio(ctx context.Context, payload []byte, timing *packet.OpusTiming, segment string) (int, error) {
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	if err := c.validate(); err != nil {
+		return 0, err
+	}
+	if !c.declaration.RTPAudio {
+		return c.Write(giznet.ProtocolOpusPacket, payload)
+	}
+	c.mediaMu.Lock()
+	info, err := c.mediaClock.Next(payload, timing, segment)
+	c.mediaMu.Unlock()
+	if err != nil {
+		return 0, err
+	}
+	if err := ctx.Err(); err != nil {
+		return 0, err
+	}
+	return c.WritePacket(giznet.ProtocolOpusPacket, payload, info)
+}
+
 // WritePacket retains media timing in explicitly declared RTP-audio sessions.
 func (c *Conn) WritePacket(protocol byte, payload []byte, info *packet.OpusInfo) (int, error) {
 	if err := c.validate(); err != nil {
@@ -1143,15 +1165,12 @@ func (c *Conn) WritePacket(protocol byte, payload []byte, info *packet.OpusInfo)
 		var err error
 		if c.declaration.RTPAudio {
 			if info == nil {
-				duration := packet.OpusDuration48(payload)
-				if len(payload) == 0 || duration == 0 || duration > 5760 {
-					return 0, ErrInvalidFrame
-				}
 				c.mediaMu.Lock()
-				info = &packet.OpusInfo{Header: rtp.Header{Version: 2, PayloadType: 111, SSRC: 1, SequenceNumber: c.mediaSeq, Timestamp: c.mediaTime}, Duration48: duration}
-				c.mediaSeq++
-				c.mediaTime += duration
+				info, err = c.mediaClock.Next(payload, nil, "")
 				c.mediaMu.Unlock()
+				if err != nil {
+					return 0, err
+				}
 			}
 			n, err = c.router.writeRTP(c.declaration.SessionID, payload, info)
 		} else {

@@ -429,6 +429,24 @@ func (c *Conn) Write(protocol byte, payload []byte) (int, error) {
 	return n, err
 }
 
+// WriteLocalAudio preserves selected source timing on the shared local clock.
+func (c *Conn) WriteLocalAudio(ctx context.Context, payload []byte, timing *packet.OpusTiming, segment string) (int, error) {
+	if err := c.validate(); err != nil {
+		return 0, err
+	}
+	writer, ok := c.audioTrack.(giznet.LocalAudioWriter)
+	if !ok {
+		return 0, errors.New("gizwebrtc: local audio writer unavailable")
+	}
+	n, err := writer.WriteLocalAudio(ctx, payload, timing, segment)
+	if n > 0 {
+		c.txBytes.Add(uint64(n))
+		monitorTX.Add(uint64(n))
+		c.touch()
+	}
+	return n, err
+}
+
 // WritePacket forwards the media sequence and timestamp to the bound RTP track.
 // Hop-specific RTP extensions and CSRC mappings do not cross PeerConnections.
 func (c *Conn) WritePacket(protocol byte, payload []byte, opus *packet.OpusInfo) (int, error) {

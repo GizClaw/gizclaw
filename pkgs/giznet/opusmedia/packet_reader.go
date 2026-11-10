@@ -47,8 +47,8 @@ type PacketReader struct {
 	readCancel context.CancelFunc
 }
 
-// NewPacketReader creates an idle media read adapter. Legacy payload-only Opus
-// remains encoded; timed packets use the configured output mode and PCM format.
+// NewPacketReader creates an idle media read adapter. All Opus packets use the
+// configured output mode; untimed packets do not acquire a jitter wait.
 func NewPacketReader(raw RawReader, config Config) (*PacketReader, error) {
 	if raw == nil {
 		return nil, errors.New("opusmedia: nil raw reader")
@@ -170,7 +170,7 @@ func (r *PacketReader) Read(ctx context.Context, dst []byte) (protocol byte, n i
 			r.terminal = errors.Join(readErr, flushErr)
 			continue
 		}
-		if protocol == giznet.ProtocolOpusPacket && info != nil {
+		if protocol == giznet.ProtocolOpusPacket {
 			frames, decodeErr := r.receiver.Push(readBuffer[:n], info, time.Now())
 			r.enqueue(frames)
 			if decodeErr != nil {

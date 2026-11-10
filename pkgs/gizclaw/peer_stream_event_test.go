@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
@@ -1561,7 +1562,7 @@ func TestPeerAgentOutputPassthroughReachesDeviceWithoutDecoder(t *testing.T) {
 	err = (peerAgentOutput{
 		Events: broker,
 		Tracks: tracks,
-		Packets: func(packet []byte) error {
+		Packets: func(_ context.Context, packet []byte, _ *packet.OpusTiming, _ string) error {
 			written = append(written, append([]byte(nil), packet...))
 			return nil
 		},

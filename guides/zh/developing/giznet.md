@@ -236,7 +236,14 @@ window. Input BOS discards pending media before readiness is acknowledged. RTP
 has no logical StreamID, so the existing cross-lane BOS/EOS attribution limits
 remain; this receiver does not claim exact audio-epoch isolation. The Edge relays encoded RTP;
 native clients own their playout receiver. SFU encoded passthrough forwards real
-original packets only. Legacy raw-Opus tunnel sessions retain their payload behavior.
+original packets with opaque, process-local audio timing through GenX. Media-owned
+writers preserve source sequence and timestamp differences within a route, so known
+missing intervals reach the listener without invented encoded audio. New source or
+route segments rebase onto the destination audio clock and mark a new talkspurt;
+the receiver resets predictive decoder history at that marker even with adjacent
+sequence numbers. Ordinary local audio and selected passthrough share the same
+destination allocator. Transparent Edge forwarding retains its original RTP clock.
+Legacy raw-Opus tunnel sessions have no source timing from which to recover loss.
 
 原生 channel 隔离 ordering、buffered-amount
 backpressure 与 close/reset，但同一 PeerConnection 上的 channel 仍共享 SCTP association

@@ -25,6 +25,37 @@ type OpusInfo struct {
 	Discontinuity bool
 }
 
+// OpusTiming is an opaque, process-local handoff of encoded media timing.
+// Stream consumers carry it unchanged; media adapters interpret the RTP clock.
+// It owns its metadata and never owns a decoder or packet buffer.
+type OpusTiming struct {
+	info *OpusInfo
+}
+
+// NewOpusTiming snapshots timing for a real encoded packet. Nil stays untimed.
+func NewOpusTiming(info *OpusInfo) *OpusTiming {
+	if info == nil {
+		return nil
+	}
+	return &OpusTiming{info: info.Clone()}
+}
+
+// Clone returns an independent handoff, including all retained header storage.
+func (t *OpusTiming) Clone() *OpusTiming {
+	if t == nil {
+		return nil
+	}
+	return NewOpusTiming(t.info)
+}
+
+// MediaInfo returns an owned snapshot for media-layer adapters only.
+func (t *OpusTiming) MediaInfo() *OpusInfo {
+	if t == nil {
+		return nil
+	}
+	return t.info.Clone()
+}
+
 // Clone returns timing metadata with independent RTP header storage.
 func (i *OpusInfo) Clone() *OpusInfo {
 	if i == nil {

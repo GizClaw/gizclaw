@@ -12,11 +12,11 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
-	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v4/pkg/media"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 )
 
 // State describes one Peer attachment to the SFU Room.
@@ -411,8 +411,13 @@ func (s *session) consumeInput(input genx.Stream) {
 		if s.ctx.Err() != nil {
 			return
 		}
+		if chunk != nil && chunk.IsBeginOfStream() {
+			s.mu.Lock()
+			s.closeTalkLocked()
+			s.mu.Unlock()
+		}
 		if frame, ok := opusFrame(chunk); ok {
-			s.forwardUplinkFrame(frame)
+			s.forwardUplinkFrame(frame, opusTiming(chunk))
 		}
 		if chunk != nil && chunk.Ctrl != nil && chunk.Ctrl.EndOfStream {
 			s.mu.Lock()
@@ -422,9 +427,8 @@ func (s *session) consumeInput(input genx.Stream) {
 	}
 }
 
-func (s *session) forwardUplinkFrame(frame []byte) {
-	duration, err := OpusPacketDuration(frame)
-	if err != nil {
+func (s *session) forwardUplinkFrame(frame []byte, timing *packet.OpusTiming) {
+	if _, err := OpusPacketDuration(frame); err != nil {
 		return
 	}
 	voiced := !isOpusSilenceFrame(frame)
@@ -445,10 +449,22 @@ func (s *session) forwardUplinkFrame(frame []byte) {
 		s.mu.Unlock()
 		return
 	}
+	segment := s.talk.utterance
 	s.mu.Unlock()
-	if err := client.WriteAudio(media.Sample{Data: frame, Duration: duration}); err != nil {
+	if err := client.WriteAudio(s.ctx, frame, timing, segment); err != nil {
 		s.logger.DebugContext(s.ctx, "sfu: write uplink sample", "error", err)
 	}
+}
+
+func opusTiming(chunk *genx.MessageChunk) *packet.OpusTiming {
+	blob, ok := chunk.Part.(*genx.Blob)
+	if !ok || blob == nil {
+		return nil
+	}
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	return blob.AudioTiming
 }
 
 func opusFrame(chunk *genx.MessageChunk) ([]byte, bool) {
@@ -660,20 +676,23 @@ func (s *session) onReconnected() {
 	s.state = StateConnected
 }
 
-func (s *session) onTrackSubscribed(identity, trackID string, reader rtpReader) {
+func (s *session) onTrackSubscribed(identity, trackID string, reader opusmedia.EncodedReader) {
 	if reader == nil || identity == "" || identity == s.peer {
 		return
 	}
+	ctx, cancel := context.WithCancel(s.ctx)
 	track := &remoteTrack{
+		ctx: ctx, cancel: cancel,
 		session:  s,
 		identity: identity,
 		trackID:  trackID,
 		reader:   reader,
-		reorder:  newReorderBuffer(0, 0),
+		reorder:  opusmedia.NewReorder(0, 0),
 	}
 	s.mu.Lock()
 	if s.finished {
 		s.mu.Unlock()
+		cancel()
 		return
 	}
 	previous := s.tracks[trackID]
@@ -801,7 +820,7 @@ func (s *session) holdsFloorLocked(identity string) bool {
 // participant is connected. It opens the passthrough route and replays the
 // holder's recent preroll packets. It reports whether a floor was taken.
 func (s *session) acquireFloorLocked() bool {
-	if s.floor != nil || s.talk.open || !s.forwarding || s.finished {
+	if s.floor != nil || s.talk.open || !s.forwarding || s.finished || s.ctx.Err() != nil {
 		return false
 	}
 	var (
@@ -830,7 +849,7 @@ func (s *session) acquireFloorLocked() bool {
 		}
 		// Whatever the reorder buffer expected before this hold is gone;
 		// start ordering from the first packet of this hold.
-		track.reorder = newReorderBuffer(0, 0)
+		track.reorder = opusmedia.NewReorder(0, 0)
 		track.stopIdleLocked()
 		for _, held := range track.preroll {
 			if now.Sub(held.at) > s.config.FloorIdle {
@@ -900,13 +919,13 @@ func (s *session) onFloorIdle(gen uint64) {
 // onPacket routes one remote packet: the holder's packets are reordered and
 // forwarded, a voiced packet from anyone else may take a free floor or is
 // held briefly for preroll, and silence from non-holders is ignored.
-func (s *session) onPacket(track *remoteTrack, packet *rtp.Packet) {
+func (s *session) onPacket(track *remoteTrack, packet *opusmedia.EncodedPacket) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if track.closed || s.finished {
 		return
 	}
-	voiced := !isOpusSilenceFrame(packet.Payload)
+	voiced := !isOpusSilenceFrame(packet.Data)
 	if s.holdsFloorLocked(track.identity) {
 		s.forwardLocked(track, packet, voiced)
 		return
@@ -926,7 +945,7 @@ func (s *session) onPacket(track *remoteTrack, packet *rtp.Packet) {
 
 // forwardLocked reorders one packet of the floor holder and emits everything
 // that became deliverable. A voiced packet re-arms the floor idle timer.
-func (s *session) forwardLocked(track *remoteTrack, packet *rtp.Packet, voiced bool) {
+func (s *session) forwardLocked(track *remoteTrack, packet *opusmedia.EncodedPacket, voiced bool) {
 	track.stopIdleLocked()
 	s.emitLocked(track.reorder.Push(packet))
 	if track.reorder.Len() > 0 {
@@ -940,12 +959,14 @@ func (s *session) forwardLocked(track *remoteTrack, packet *rtp.Packet, voiced b
 
 // emitLocked pushes ordered payloads of the floor holder as passthrough
 // packets. The output push never blocks.
-func (s *session) emitLocked(packets []*rtp.Packet) {
+func (s *session) emitLocked(packets []*opusmedia.EncodedPacket) {
 	if s.floor == nil {
 		return
 	}
 	for _, packet := range packets {
-		s.out.push(s.chunk(s.floor.identity, s.floor.streamID, packet.Payload, false, false))
+		chunk := s.chunk(s.floor.identity, s.floor.streamID, packet.Data, false, false)
+		chunk.Part.(*genx.Blob).AudioTiming = packet.Timing
+		s.out.push(chunk)
 	}
 }
 
@@ -998,10 +1019,12 @@ type remoteTrack struct {
 	session  *session
 	identity string
 	trackID  string
-	reader   rtpReader
+	reader   opusmedia.EncodedReader
+	ctx      context.Context
+	cancel   context.CancelFunc
 
 	// The fields below are guarded by session.mu.
-	reorder *reorderBuffer
+	reorder *opusmedia.Reorder
 	idle    *time.Timer
 	preroll []prerollPacket
 	closed  bool
@@ -1011,25 +1034,25 @@ type remoteTrack struct {
 // hold the floor, kept so a BOS that arrives just after its first packets
 // still delivers them.
 type prerollPacket struct {
-	packet *rtp.Packet
+	packet *opusmedia.EncodedPacket
 	at     time.Time
 }
 
 func (t *remoteTrack) run() {
 	defer t.close()
 	for {
-		packet, _, err := t.reader.ReadRTP()
+		packet, err := t.reader.ReadAudio(t.ctx)
 		if err != nil {
 			return
 		}
-		if packet == nil || len(packet.Payload) == 0 {
+		if packet == nil || len(packet.Data) == 0 {
 			continue
 		}
 		t.session.onPacket(t, packet)
 	}
 }
 
-func (t *remoteTrack) holdPrerollLocked(packet *rtp.Packet) {
+func (t *remoteTrack) holdPrerollLocked(packet *opusmedia.EncodedPacket) {
 	if len(t.preroll) >= maxPrerollPackets {
 		t.session.droppedPackets.Add(1)
 		t.preroll = t.preroll[1:]
@@ -1065,6 +1088,7 @@ func (t *remoteTrack) close() {
 		return
 	}
 	t.closed = true
+	t.cancel()
 	t.stopIdleLocked()
 	s.droppedPackets.Add(uint64(len(t.preroll)))
 	t.preroll = nil

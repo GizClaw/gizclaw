@@ -910,6 +910,9 @@ func (l *peerStreamLifecycle) log(attrs ...slog.Attr) {
 }
 
 func peerStreamLifecycleResult(err error) (string, string) {
+	if _, failed := errors.AsType[genx.PublicError](err); failed {
+		return "runtime_error", "internal_error"
+	}
 	switch {
 	case err == nil:
 		return "success", "completed"

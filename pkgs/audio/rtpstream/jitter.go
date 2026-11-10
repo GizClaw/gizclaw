@@ -247,6 +247,12 @@ func (b *Buffer) release(now time.Time, force bool) []Frame {
 			}
 			b.next = frame.Info.Header.SequenceNumber
 		}
+		// A marked talkspurt may rebase a different predictive source onto the
+		// same bound RTP track. Reset decoder history even with adjacent sequence
+		// numbers; do not fabricate a clock jump merely to signal this boundary.
+		if frame.Info.Header.Marker {
+			frame.Info.Discontinuity = true
+		}
 		if b.clock && int32(frame.Info.Header.Timestamp-b.lastEnd) < 0 {
 			frame.Info.Discontinuity = true
 		}

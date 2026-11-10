@@ -159,13 +159,13 @@ func TestPacketReaderFlushInterruptsReadAndWaitsForDispatch(t *testing.T) {
 	}
 }
 
-func TestPacketReaderDoesNotHoldOtherPacketsOrLegacyOpus(t *testing.T) {
+func TestPacketReaderDoesNotHoldOtherPacketsOrEncodedOpus(t *testing.T) {
 	packets := mediaPackets(t, 1)
 	input := make(chan rawMediaPacket, 3)
 	input <- rawMediaPacket{giznet.ProtocolOpusPacket, packets[0], mediaInfo("a", 1, 0)}
 	input <- rawMediaPacket{0x70, []byte("telemetry"), nil}
 	input <- rawMediaPacket{giznet.ProtocolOpusPacket, []byte("legacy payload"), nil}
-	r, err := NewPacketReader(channelReader(input, nil), Config{Jitter: rtpstream.Config{Wait: time.Hour}})
+	r, err := NewPacketReader(channelReader(input, nil), Config{OutputMode: OutputEncoded, Jitter: rtpstream.Config{Wait: time.Hour}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -177,9 +177,39 @@ func TestPacketReaderDoesNotHoldOtherPacketsOrLegacyOpus(t *testing.T) {
 	if err != nil || protocol != 0x70 || frame != nil || string(buf[:n]) != "telemetry" {
 		t.Fatalf("custom packet blocked: %x %v", protocol, err)
 	}
-	protocol, n, frame, err = r.Read(ctx, buf)
-	if err != nil || protocol != giznet.ProtocolOpusPacket || frame != nil || string(buf[:n]) != "legacy payload" {
-		t.Fatalf("legacy packet changed: %x %v", protocol, err)
+	// Untimed media flushes already-held packets without waiting for their
+	// reorder deadline, then follows them in the same encoded output mode.
+	for _, want := range [][]byte{packets[0], []byte("legacy payload")} {
+		protocol, n, frame, err = r.Read(ctx, buf)
+		if err != nil || protocol != giznet.ProtocolOpusPacket || frame == nil || len(frame.PCM) != 0 || !bytes.Equal(buf[:n], want) || !bytes.Equal(frame.Original, want) {
+			t.Fatalf("encoded packet changed or waited: %x %v", protocol, err)
+		}
+	}
+}
+
+func TestPacketReaderUntimedOpusUsesSelectedOutputMode(t *testing.T) {
+	for _, mode := range []OutputMode{OutputPCM, OutputEncoded} {
+		if mode == OutputPCM && !opus.IsRuntimeSupported() {
+			continue
+		}
+		payload := []byte{0xf8, 0xff, 0xfe}
+		input := make(chan rawMediaPacket, 1)
+		input <- rawMediaPacket{giznet.ProtocolOpusPacket, payload, nil}
+		r, err := NewPacketReader(channelReader(input, nil), Config{OutputMode: mode})
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+		buf := make([]byte, 65536)
+		protocol, n, frame, err := r.Read(ctx, buf)
+		cancel()
+		_ = r.Close()
+		if err != nil || protocol != giznet.ProtocolOpusPacket || frame == nil || frame.Info != nil || frame.Concealed || !bytes.Equal(frame.Original, payload) || !bytes.Equal(buf[:n], payload) {
+			t.Fatalf("untimed media did not follow mode %d: frame=%+v error=%v", mode, frame, err)
+		}
+		if mode == OutputPCM && len(frame.PCM) != 640 || mode == OutputEncoded && len(frame.PCM) != 0 {
+			t.Fatalf("mode %d produced %d PCM bytes", mode, len(frame.PCM))
+		}
 	}
 }
 

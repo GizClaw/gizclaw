@@ -933,7 +933,7 @@ func (t *Transformer) processLoop(
 			for {
 				chunk, err := streamlog.ReadInput(ctx, input)
 				if err != nil {
-					if err != io.EOF && err != genx.ErrDone {
+					if !genx.IsStreamDone(err) {
 						slog.ErrorContext(ctx, "doubao: input error after events done", "error", err)
 						return nil, err
 					}
@@ -966,7 +966,7 @@ func (t *Transformer) processLoop(
 			continue
 		}
 		if err != nil {
-			if err != io.EOF && err != genx.ErrDone {
+			if !genx.IsStreamDone(err) {
 				slog.ErrorContext(ctx, "doubao: input error", "error", err)
 				return nil, err
 			} else {
@@ -1391,7 +1391,7 @@ func (r *doubaoRealtimeDuplexInputReader) Close() error {
 func (r *doubaoRealtimeDuplexInputReader) CloseWithError(err error) error {
 	r.closeOnce.Do(func() {
 		close(r.done)
-		if err == nil || errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+		if err == nil || genx.IsStreamDone(err) {
 			_ = r.source.Close()
 			return
 		}

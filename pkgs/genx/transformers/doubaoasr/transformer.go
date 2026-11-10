@@ -577,7 +577,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 
 		chunk, err := inputReader.next()
 		if err != nil {
-			if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
+			if !genx.IsStreamDone(err) {
 				if session != nil {
 					session.Close()
 				}

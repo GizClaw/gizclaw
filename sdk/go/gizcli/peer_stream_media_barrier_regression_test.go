@@ -142,12 +142,12 @@ func TestPeerEventBoundaryReconnectKeepsOldSessionOffNewReceiver(t *testing.T) {
 }
 
 func TestPeerEventBoundaryNativeAndLegacyFormatsAgree(t *testing.T) {
-	for _, mode := range []string{"legacy-payload", "rtp-runtime-default", "rtp-encoded"} {
+	for _, mode := range []string{"legacy-payload", "rtp-runtime-default", "rtp-encoded", "rtp-untimed-runtime-default", "rtp-untimed-encoded"} {
 		t.Run(mode, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				timed := mode != "legacy-payload"
 				var outputMode []opusmedia.OutputMode
-				if mode == "rtp-encoded" {
+				if mode == "rtp-encoded" || mode == "rtp-untimed-encoded" {
 					outputMode = []opusmedia.OutputMode{opusmedia.OutputEncoded}
 				}
 				h := newPeerBoundaryHarness(t, &Client{}, timed, outputMode...)
@@ -157,7 +157,15 @@ func TestPeerEventBoundaryNativeAndLegacyFormatsAgree(t *testing.T) {
 				h.event(t, bosEvent("format", "assistant", "audio/opus"))
 				bos := peerBoundaryNext(t, s)
 				payload := []byte{0xf8, 0xff, 0xfe}
-				h.packet(t, payload, 1, 0)
+				if mode == "rtp-untimed-runtime-default" || mode == "rtp-untimed-encoded" {
+					select {
+					case h.conn.input <- peerBoundaryPacket{payload: payload}:
+					case <-time.After(3 * time.Second):
+						t.Fatal("packet pump did not accept untimed media")
+					}
+				} else {
+					h.packet(t, payload, 1, 0)
+				}
 				var data *genx.MessageChunk
 				if !timed {
 					// The legacy lanes have no receiver fence: observe delivery

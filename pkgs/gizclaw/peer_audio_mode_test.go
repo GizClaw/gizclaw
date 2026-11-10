@@ -192,8 +192,12 @@ func TestPeerConnSFUEncodedBOSBeforePacketPump(t *testing.T) {
 	}
 	conn.packets <- peerAudioModePacketAt(12, 1920)
 	conn.packets <- peerAudioModePacketAt(10, 0)
-	for range 2 {
+	for _, seq := range []uint16{10, 12} {
 		blob := peerAudioModeInput(t, input).Part.(*genx.Blob)
+		info := blob.AudioTiming.MediaInfo()
+		if info == nil || info.Header.SequenceNumber != seq || info.Header.Timestamp != uint32(seq-10)*960 {
+			t.Fatalf("encoded SFU input lost timing: %+v", info)
+		}
 		if blob.MIMEType != "audio/opus" || !bytes.Equal(blob.Data, []byte{0xf8, 0xff, 0xfe}) || blob.ConcealedAudio || blob.OriginalAudio != nil {
 			t.Fatalf("encoded SFU output changed format or synthesized a packet: %+v", blob)
 		}

@@ -524,7 +524,7 @@ func (h *PeerConn) initAgentHost() {
 		Consumer: peerAgentOutput{
 			Events:        h.events,
 			Tracks:        h,
-			Packets:       h.writeOpusPacket,
+			Packets:       h.writeLocalOpusPacket,
 			Logger:        slog.Default(),
 			PeerPublicKey: h.Conn.PublicKey().String(),
 			WorkspaceName: func(ctx context.Context) string {
@@ -1454,7 +1454,7 @@ func (h *PeerConn) serveDirectPackets() error {
 					if len(audio.Original) == 0 {
 						continue
 					}
-					blob = &genx.Blob{MIMEType: "audio/opus", Data: audio.Original}
+					blob = &genx.Blob{MIMEType: "audio/opus", Data: audio.Original, AudioTiming: packet.NewOpusTiming(audio.Info)}
 				} else {
 					if len(audio.PCM) == 0 {
 						continue
@@ -1676,6 +1676,28 @@ func (h *PeerConn) writeOpusPacket(packet []byte) error {
 	h.opusWriteMu.Lock()
 	defer h.opusWriteMu.Unlock()
 	_, err := h.Conn.Write(giznet.ProtocolOpusPacket, packet)
+	return err
+}
+
+// writeLocalOpusPacket delegates selected SFU audio to the transport's shared
+// local media clock. Transparent Edge packet forwarding uses WritePacket instead.
+func (h *PeerConn) writeLocalOpusPacket(ctx context.Context, payload []byte, timing *packet.OpusTiming, segment string) error {
+	if h == nil || h.Conn == nil {
+		return ErrNilPeerConnTransport
+	}
+	h.opusWriteMu.Lock()
+	defer h.opusWriteMu.Unlock()
+	if writer, ok := h.Conn.(giznet.LocalAudioWriter); ok {
+		_, err := writer.WriteLocalAudio(ctx, payload, timing, segment)
+		return err
+	}
+	if timing != nil {
+		return errors.New("gizclaw: transport cannot preserve local audio timing")
+	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	_, err := h.Conn.Write(giznet.ProtocolOpusPacket, payload)
 	return err
 }
 
