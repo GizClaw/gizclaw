@@ -928,6 +928,9 @@ func forwardASTTranslateTTS(ctx context.Context, ttsOutput genx.Stream, output *
 }
 
 func isStreamDone(err error) bool {
+	if _, public := errors.AsType[genx.PublicError](err); public {
+		return false
+	}
 	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
 }
 

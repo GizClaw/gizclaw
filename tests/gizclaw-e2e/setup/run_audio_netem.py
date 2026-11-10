@@ -326,6 +326,161 @@ def continuity_evidence(observed, rounds, frames_per_reply):
     return {**endpoint, 'passed': not errors, 'errors': errors}
 
 
+def loss_continuity_document(document):
+    """Change only loss-case completeness to recovered PCM duration."""
+    packets = '      /audio_pacing/packets: {minimum: 800}\n'
+    duration = '      /audio_pacing/audio_ms: {minimum: 16000}'
+    if document.count(packets) != 1 or document.count(duration) != 1:
+        raise RuntimeError('continuous document original-audio expectations changed')
+    return document.replace(packets, '').replace(duration, '      /audio_pacing/playout_ms: {minimum: 16000}')
+
+
+def loss_recovery_evidence(observed, rounds, frames_per_reply):
+    """Prove downlink loss became matching PLC and reached real playback.
+
+    This verdict never changes the strict original-packet verdict. Missing
+    source/tail traces, ineffective loss injection and PLC with invented encoded
+    bytes fail rather than qualifying a surviving suffix as recovered audio.
+    """
+    errors, wire, recovery = [], {}, {}
+    expected_rounds = {f'continuous_round_{index}' for index in range(1, 4)}
+    if len(rounds) != 3 or {item.get('id') for item in rounds} != expected_rounds:
+        errors.append('missing or duplicate Giztest rounds')
+    expected_up, delivered_originals, playout_ms = 0, 0, 0
+    for item in rounds:
+        pushed, inputs = item.get('pushed_packets'), item.get('input_packets')
+        pacing = item.get('pacing') or {}
+        if item.get('status') != 'passed':
+            errors.append(f"{item.get('id')}: Giztest round did not pass")
+        if type(pushed) is not int or pushed <= 0 or pushed != inputs:
+            errors.append('missing or incomplete independent input counts')
+        else:
+            expected_up += pushed
+        if type(pacing.get('packets')) is not int or pacing['packets'] <= 0:
+            errors.append('missing original playback packet count')
+        else:
+            delivered_originals += pacing['packets']
+        duration = pacing.get('playout_ms')
+        if (not isinstance(duration, (int, float)) or duration < frames_per_reply * 20
+                or pacing.get('prebuffer_ms') != 500 or pacing.get('underruns') != 0
+                or not isinstance(pacing.get('minimum_buffer_ms'), (int, float))
+                or pacing['minimum_buffer_ms'] < 0):
+            errors.append('incomplete recovered playback or underrun evidence')
+        else:
+            playout_ms += duration
+    provider = collections.defaultdict(list)
+    for item in select_trace(observed, 'server', 'tts_output'):
+        provider[item['detail']].append(item['sequence'])
+    if (len(provider) != 3 or '' in provider
+            or any(ids != list(range(frames_per_reply)) for ids in provider.values())):
+        errors.append('incomplete provider frame evidence for the three replies')
+
+    clock_key = lambda x: (x['hash'], x['sequence'], x['timestamp'])
+    pcm_key = lambda x: (x['hash'], x.get('pcm_hash'), x.get('pcm_bytes'), x.get('concealed'))
+    down_frames = []
+    for direction, source, sender, receiver, endpoint, stage in [
+            ('up', select_trace(observed, 'client', 'rtp_write_sample'), 'edge', 'server', 'server', 'server_input'),
+            ('down', select_trace(observed, 'server', 'server_output'), 'server', 'edge', 'client', 'client_recovered')]:
+        sent = select_trace(observed, sender, 'tunnel_wire_send')
+        received = select_trace(observed, receiver, 'tunnel_wire_read')
+        if (not source or collections.Counter(x['hash'] for x in sent) != collections.Counter(x['hash'] for x in source)
+                or any(not x['hash'] for x in source)):
+            errors.append(f'{direction}: incomplete independent source/wire evidence')
+        if direction == 'up' and (expected_up <= 0 or len(source) != expected_up
+                or collections.Counter(map(clock_key, source)) != collections.Counter(map(clock_key, sent))):
+            errors.append('up: incomplete input RTP evidence')
+        if direction == 'down' and len(source) < 3 * frames_per_reply:
+            errors.append('down: incomplete reply source evidence')
+        if any(x.get('wire_version') != 3 or not x.get('wire_hash') or x['sequence'] < 0 for x in sent + received):
+            errors.append(f'{direction}: missing v3 wire RTP evidence')
+        previous = {}
+        for item in sent:
+            duration = item.get('duration48', 0)
+            session, ssrc = item.get('detail'), item.get('ssrc')
+            # RecordTunnel parses the wire SessionID and SSRC independently;
+            # process-local SourceID is deliberately absent from the envelope.
+            if (not isinstance(session, str) or len(session) != 32
+                    or any(char not in '0123456789abcdef' for char in session)
+                    or type(ssrc) is not int or not 0 <= ssrc < 2**32
+                    or type(duration) is not int or not 0 < duration <= 5760 or duration % 120):
+                errors.append(f'{direction}: missing source RTP duration or identity')
+                continue
+            identity = (session, ssrc)
+            if identity in previous:
+                last = previous[identity]
+                if ((item['sequence'] - last['sequence']) % 65536 != 1
+                        or (item['timestamp'] - last['timestamp']) % 2**32 != last.get('duration48')):
+                    errors.append(f'{direction}: noncontiguous source RTP clock')
+            previous[identity] = item
+        metric = compare(sent, received, 'wire_hash')
+        wire[direction] = metric
+        if metric['duplicate'] or metric['unknown'] or metric['ambiguous_source_hashes']:
+            errors.append(f'{direction}: duplicate, unknown or ambiguous wire RTP')
+        missing = set(metric['missing_indices'])
+        if direction == 'up' and missing:
+            errors.append('up: unexpected loss outside the downlink injection')
+        if direction == 'down' and (not missing or any(i == 0 or i == len(sent) - 1 for i in missing)):
+            errors.append('down: no exclusively interior observed media loss')
+        # The Edge must forward exactly the surviving RTP packets unchanged.
+        if direction == 'down':
+            for node, wire_stage in [('edge', 'rtp_write_packet'), ('client', 'rtp_read')]:
+                if collections.Counter(map(clock_key, select_trace(observed, node, wire_stage))) != collections.Counter(map(clock_key, received)):
+                    errors.append(f'down: {node}/{wire_stage} differs from surviving wire RTP')
+        elif collections.Counter(map(clock_key, select_trace(observed, 'edge', 'rtp_read'))) != collections.Counter(map(clock_key, sent)):
+            errors.append('up: Edge changed input RTP')
+        frames = select_trace(observed, endpoint, 'media_recovered')
+        boundary = select_trace(observed, endpoint, stage)
+        recovery[direction] = recovery_summary(frames)
+        if not frames or recovery[direction]['clock_errors']:
+            errors.append(f'{direction}: missing or noncontiguous recovered RTP/PCM')
+        if list(map(pcm_key, frames)) != list(map(pcm_key, boundary)):
+            errors.append(f'{direction}: recovered PCM did not reach the application unchanged')
+        index = 0
+        for frame in frames:
+            if index >= len(sent):
+                errors.append(f'{direction}: excess recovered media')
+                break
+            expected = sent[index]
+            if (frame['sequence'], frame['timestamp']) != (expected['sequence'], expected['timestamp']):
+                errors.append(f'{direction}: recovered frame does not start at the expected source RTP clock')
+                break
+            if frame.get('concealed'):
+                duration = frame.get('duration48', 0)
+                covered = 0
+                while index < len(sent) and covered < duration:
+                    if index not in missing or sent[index].get('duration48', 0) <= 0:
+                        errors.append(f'{direction}: PLC does not cover observed wire loss')
+                        break
+                    covered += sent[index]['duration48']
+                    index += 1
+                if covered != duration or duration <= 0 or frame['hash']:
+                    errors.append(f'{direction}: PLC duration or original provenance differs from source loss')
+                    break
+            else:
+                if index in missing or frame['hash'] != expected['hash'] or frame.get('duration48') != expected.get('duration48'):
+                    errors.append(f'{direction}: recovered original differs from surviving source packet')
+                    break
+                index += 1
+        if index != len(sent):
+            errors.append(f'{direction}: recovered media does not cover the complete source')
+        if direction == 'down':
+            down_frames = frames
+
+    delivered = select_trace(observed, 'client', 'client_delivered')
+    discarded = select_trace(observed, 'client', 'client_post_eos_drop')
+    reconciled = sorted(delivered + discarded, key=lambda x: x['ns'])
+    if list(map(pcm_key, reconciled)) != list(map(pcm_key, down_frames)):
+        errors.append('down: delivered PCM and explicit discards do not reconcile with recovery')
+    concealed_samples = sum(x.get('pcm_bytes', 0) // 2 for x in delivered if x.get('concealed'))
+    if concealed_samples <= 0:
+        errors.append('down: no concealed PCM reached playback')
+    if (sum(bool(x['hash']) for x in delivered) != delivered_originals
+            or sum(x.get('pcm_bytes', 0) for x in delivered) / 32 != playout_ms):
+        errors.append('down: application PCM differs from Giztest playback evidence')
+    return {'passed': not errors, 'errors': sorted(set(errors)), 'wire': wire,
+            'recovery': recovery, 'delivered_concealed_samples': concealed_samples}
+
+
 def playback(items):
     result = {'underruns': 0, 'missing_audio': not items, 'stall_ms': 0}
     buffered = 0
@@ -471,9 +626,9 @@ def run_continuity():
         ('continuous-delay100', ['delay', '100ms'], ['edge', 'server']),
         ('continuous-down-jitter5', ['delay', '20ms', '5ms', 'distribution', 'normal'], ['server']),
         ('continuous-up-jitter5', ['delay', '20ms', '5ms', 'distribution', 'normal'], ['edge']),
-        # Strict continuity requires intact recovered endpoint vectors and
-        # playback. Raw wire reordering remains visible independently. Injected
-        # loss/reorder and PLC are measured by the separate diagnostic matrix.
+        # Loss has its own recovery verdict; its original-integrity failure is
+        # retained independently and can never become an intact-audio result.
+        ('continuous-down-loss1', ['delay', '50ms', 'loss', 'random', '1%'], ['server']),
     ]
     if os.environ.get('GIZCLAW_NETEM_CONTINUITY_EXTENDED') == '1':
         cases.extend([
@@ -486,8 +641,8 @@ def run_continuity():
         known = {name for name, _, _ in cases}
         if not selected or selected - known:
             raise RuntimeError(f'unknown or empty continuity case selection: {sorted(selected - known)}')
-        if 'continuous-healthy' not in selected:
-            raise RuntimeError('continuity case selection must include the healthy baseline')
+        if not {'continuous-healthy', 'continuous-down-loss1'} <= selected:
+            raise RuntimeError('continuity case selection must include the healthy baseline and loss recovery gate')
         cases = [case for case in cases if case[0] in selected]
     manifest['continuity_cases'] = [name for name, _, _ in cases]
     save(reports / 'manifest.json', manifest)
@@ -501,11 +656,16 @@ def run_continuity():
             execute(node + '-netem', 'tc', 'qdisc', 'replace', 'dev', interfaces[node], 'root',
                     'netem', 'limit', '10000', *params, 'seed', '7919')
         save(case / 'qdisc-before.json', qdisc())
+        loss_case = name == 'continuous-down-loss1'
+        document = '/src/tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml'
+        if loss_case:
+            source = root / 'tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml'
+            (case / 'continuous-loss.giztest.yaml').write_text(loss_continuity_document(source.read_text()))
+            document = '/reports/' + name + '/continuous-loss.giztest.yaml'
         started = time.time_ns()
         completed = command([*compose, 'exec', '-T', 'test', 'env',
             'GIZCLAW_TEST_ENDPOINT=edge:9821', 'LATENCY_TONE=' + base64.b64encode(tone.read_bytes()).decode(),
-            '/binaries/gizclaw', 'test', 'run',
-            '/src/tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml',
+            '/binaries/gizclaw', 'test', 'run', document,
             '--parallel', '1', '--report', '/reports/' + name + '/giztest.json'], check=False, timeout=180)
         (case / 'client.log').write_text(completed.stdout)
         services = command([*compose, 'logs', '--no-color', '--since', str(started // 1000000000), 'server', 'edge']).stdout
@@ -530,11 +690,13 @@ def run_continuity():
         packet_evidence = continuity_evidence(observed, rounds, manifest['provider']['frames'])
         wire_up = packet_evidence['wire']['up']
         wire_down = packet_evidence['wire']['down']
+        recovered = loss_recovery_evidence(observed, rounds, manifest['provider']['frames']) if loss_case else None
         passed = (completed.returncode == 0 and report.get('status') == 'passed'
-                  and packet_evidence['passed'])
+                  and (recovered['passed'] if loss_case else packet_evidence['passed']))
         result = {'case': name, 'passed': passed, 'giztest_exit': completed.returncode,
                   'parameters': params, 'egress': nodes, 'seed': 7919, 'rounds': rounds,
-                  'wire_up': wire_up, 'wire_down': wire_down, 'packet_evidence': packet_evidence}
+                  'wire_up': wire_up, 'wire_down': wire_down, 'packet_evidence': packet_evidence,
+                  'loss_recovery': recovered}
         measured.append(result)
         save(case / 'result.json', result)
         save(reports / 'continuity-summary.json', measured)

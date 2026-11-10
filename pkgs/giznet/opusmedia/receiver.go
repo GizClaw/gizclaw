@@ -1,4 +1,4 @@
-// Package opusmedia receives encoded Opus media and produces ordered PCM.
+// Package opusmedia receives Opus media and produces ordered PCM or originals.
 // RTP reordering and packet-loss concealment stay within this media boundary.
 package opusmedia
 
@@ -14,17 +14,32 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/rtpstream"
 )
 
+// OutputMode selects whether reception decodes PCM or retains encoded originals.
+// Both modes use the same bounded RTP ordering; only PCM performs concealment.
+type OutputMode uint8
+
+const (
+	// OutputPCM decodes through one continuous Opus decoder.
+	OutputPCM OutputMode = iota
+	// OutputEncoded releases real encoded packets without starting a decoder.
+	// Known gaps have no output packet, retaining encoded passthrough behavior.
+	OutputEncoded
+)
+
 // Config controls one receiver's jitter bounds and signed PCM16 output format.
 // SampleRate and Channels default to 16000 Hz and mono when omitted.
+// OutputMode defaults to OutputPCM.
 type Config struct {
 	Jitter     rtpstream.Config
 	SampleRate int
 	Channels   int
+	OutputMode OutputMode
 }
 
-// Frame is ordered PCM with optional process-local provenance. Original holds
-// only a real received encoded packet. Concealed frames never invent encoded
-// bytes. Info retains the original RTP clock independently of scheduling time.
+// Frame is ordered media with optional decoded PCM. OutputEncoded has only
+// Original and Info. Original holds only a real received encoded packet;
+// concealed PCM never invents encoded bytes. Info retains the original RTP clock
+// independently of scheduling time.
 type Frame struct {
 	PCM       []byte
 	Original  []byte
@@ -36,6 +51,7 @@ type Frame struct {
 // serializes all calls and drives Deadline/Pop; it starts no goroutines or I/O.
 type Receiver struct {
 	buffer          *rtpstream.Buffer
+	mode            OutputMode
 	decoder         *codecconv.OpusPacketDecoder
 	gap             *packet.OpusInfo
 	closed          bool
@@ -47,6 +63,9 @@ type Receiver struct {
 // NewReceiver validates the PCM format and creates an idle, codec-free receiver.
 // Native decoder startup is deferred until a packet or valid gap needs decoding.
 func NewReceiver(config Config) (*Receiver, error) {
+	if config.OutputMode != OutputPCM && config.OutputMode != OutputEncoded {
+		return nil, fmt.Errorf("opusmedia: invalid output mode %d", config.OutputMode)
+	}
 	if config.SampleRate == 0 {
 		config.SampleRate = 16000
 	}
@@ -66,7 +85,7 @@ func NewReceiver(config Config) (*Receiver, error) {
 	if maxBytes <= 0 {
 		maxBytes = 128 * 1024
 	}
-	return &Receiver{buffer: rtpstream.New(config.Jitter), decoder: decoder, maxBytes: maxBytes}, nil
+	return &Receiver{buffer: rtpstream.New(config.Jitter), mode: config.OutputMode, decoder: decoder, maxBytes: maxBytes}, nil
 }
 
 // Push accepts one real encoded packet or an explicit media gap. Untimed
@@ -214,6 +233,12 @@ func knownOpusDuration(frame rtpstream.Frame) bool {
 func (r *Receiver) decodeOwned(encoded []rtpstream.Frame) ([]Frame, error) {
 	var out []Frame
 	for _, frame := range encoded {
+		if r.mode == OutputEncoded {
+			if len(frame.Payload) > 0 && (frame.Info == nil || !frame.Info.Missing) {
+				out = append(out, Frame{Original: frame.Payload, Info: frame.Info})
+			}
+			continue
+		}
 		samples, err := r.decoder.Decode(frame.Payload, frame.Info)
 		if err != nil {
 			if errors.Is(err, codecconv.ErrOpusDecoderInit) {

@@ -10,7 +10,8 @@ import unittest
 source = pathlib.Path(__file__).with_name('run_audio_netem.py')
 functions = [node for node in ast.parse(source.read_text()).body
              if isinstance(node, ast.FunctionDef) and node.name in {
-                 'traces', 'compare', 'select_trace', 'recovery_summary', 'endpoint_evidence', 'continuity_evidence'}]
+                 'traces', 'compare', 'select_trace', 'recovery_summary', 'endpoint_evidence', 'continuity_evidence',
+                 'loss_continuity_document', 'loss_recovery_evidence'}]
 namespace = {'collections': collections, 'json': json}
 exec(compile(ast.Module(body=functions, type_ignores=[]), str(source), 'exec'), namespace)
 traces = namespace['traces']
@@ -30,7 +31,9 @@ def fixture(post_eos=0):
                 'sequence': value % 65536 if sequence is None else sequence,
                 'timestamp': (value * 960) % 2**32, 'duration48': 960, 'source': 'session/ssrc'}
         if stage.startswith('tunnel_wire_'):
-            item.update(wire_version=3, wire_hash=f'{value + 1000000:064x}')
+            # Wire observations carry SessionID and SSRC, not a local SourceID.
+            item.update(wire_version=3, wire_hash=f'{value + 1000000:064x}',
+                        detail='00000000000000000000000000000001', ssrc=9, source='')
         if stage in {'media_recovered', 'server_input', 'client_recovered', 'client_delivered', 'client_post_eos_drop'}:
             item.update(pcm_hash=f'{value + 2000000:064x}', pcm_bytes=640, concealed=False)
         observed.append(item)
@@ -51,6 +54,138 @@ def fixture(post_eos=0):
         for sequence in range(800):
             append('server', 'tts_output', 20000 + sequence, f'reply-{stream}', sequence)
     return observed, rounds
+
+
+def loss_fixture():
+    observed, rounds = fixture()
+    affected = {('edge', 'tunnel_wire_read'), ('edge', 'rtp_write_packet'), ('client', 'rtp_read'),
+                ('client', 'media_recovered'), ('client', 'client_recovered'), ('client', 'client_delivered')}
+    lost = {10010, 10011}
+    result = []
+    for item in observed:
+        if (item['node'], item['stage']) in affected and int(item['hash'], 16) in lost:
+            if item['stage'] in {'media_recovered', 'client_recovered', 'client_delivered'} and int(item['hash'], 16) == min(lost):
+                result.append({**item, 'hash': '', 'bytes': 0, 'concealed': True,
+                               'pcm_bytes': 1280, 'pcm_hash': 'f' * 64, 'duration48': 1920})
+        else:
+            result.append(item)
+    for item in rounds:
+        item['pacing']['playout_ms'] = 16000
+    rounds[0]['pacing'].update(packets=798, audio_ms=15960)
+    return result, rounds
+
+
+class LossRecoveryTests(unittest.TestCase):
+    def setUp(self):
+        self.observed, self.rounds = loss_fixture()
+
+    def result(self):
+        return namespace['loss_recovery_evidence'](self.observed, self.rounds, 800)
+
+    def test_observed_grouped_loss_reaches_playback_without_becoming_intact(self):
+        result = self.result()
+        self.assertTrue(result['passed'], result['errors'])
+        self.assertEqual(result['delivered_concealed_samples'], 640)
+        self.assertEqual(result['wire']['down']['missing_indices'], [10, 11])
+        self.assertFalse(continuity_evidence(self.observed, self.rounds, 800)['passed'])
+
+    def test_wire_identity_uses_session_and_ssrc_without_local_source(self):
+        wire = [x for x in self.observed if x['stage'].startswith('tunnel_wire_')]
+        self.assertTrue(wire)
+        self.assertTrue(all(x['source'] == '' for x in wire))
+        self.assertTrue(self.result()['passed'])
+
+    def test_missing_or_invalid_wire_identity_and_duration_fail_closed(self):
+        for field, value in [('detail', ''), ('detail', 'not-a-session'), ('ssrc', None),
+                             ('ssrc', -1), ('ssrc', 2**32), ('ssrc', {}), ('duration48', 0)]:
+            with self.subTest(field=field, value=value):
+                self.observed, self.rounds = loss_fixture()
+                item = next(x for x in self.observed if x['stage'] == 'tunnel_wire_send')
+                item[field] = value
+                self.assertFalse(self.result()['passed'])
+
+    def test_ineffective_injection_cannot_qualify_plc(self):
+        observed, rounds = fixture()
+        for item in rounds:
+            item['pacing']['playout_ms'] = 16000
+        self.assertFalse(namespace['loss_recovery_evidence'](observed, rounds, 800)['passed'])
+
+    def test_missing_plc_cannot_qualify_surviving_audio(self):
+        self.observed = [item for item in self.observed if not item.get('concealed')]
+        self.assertFalse(self.result()['passed'])
+
+    def test_plc_cannot_cover_a_packet_without_observed_wire_loss(self):
+        original, _ = fixture()
+        self.observed.extend(item for item in original
+                             if item['node'] == 'edge' and item['stage'] == 'tunnel_wire_read'
+                             and int(item['hash'], 16) in {10010, 10011})
+        self.assertFalse(self.result()['passed'])
+
+    def test_wrong_plc_duration_or_clock_cannot_pass(self):
+        for field, value in [('duration48', 960), ('timestamp', 10010 * 960 + 1), ('sequence', 10011)]:
+            with self.subTest(field=field):
+                self.observed, self.rounds = loss_fixture()
+                item = next(x for x in self.observed if x['stage'] == 'media_recovered' and x.get('concealed'))
+                item[field] = value
+                self.assertFalse(self.result()['passed'])
+
+    def test_fake_original_and_changed_application_pcm_cannot_pass(self):
+        for field, value in [('hash', 'a' * 64), ('pcm_hash', 'a' * 64), ('pcm_bytes', 640)]:
+            with self.subTest(field=field):
+                self.observed, self.rounds = loss_fixture()
+                item = next(x for x in self.observed if x['stage'] == 'client_delivered' and x.get('concealed'))
+                item[field] = value
+                self.assertFalse(self.result()['passed'])
+
+    def test_successful_eos_cannot_override_playback_failure(self):
+        for field, value in [('underruns', 1), ('playout_ms', 15960), ('minimum_buffer_ms', -1)]:
+            with self.subTest(field=field):
+                self.observed, self.rounds = loss_fixture()
+                self.rounds[0]['pacing'][field] = value
+                self.assertFalse(self.result()['passed'])
+
+    def test_missing_source_boundary_or_playback_evidence_cannot_pass(self):
+        for node, stage in [('server', 'tts_output'), ('server', 'server_output'),
+                            ('server', 'tunnel_wire_send'), ('client', 'client_recovered'),
+                            ('client', 'client_delivered')]:
+            with self.subTest(stage=stage):
+                self.observed, self.rounds = loss_fixture()
+                self.observed.remove(next(x for x in self.observed if x['node'] == node and x['stage'] == stage))
+                self.assertFalse(self.result()['passed'])
+
+    def test_unknown_trailing_loss_and_discarded_plc_cannot_qualify_playback(self):
+        self.observed = [item for item in self.observed
+                         if not ((item['node'], item['stage']) in {
+                             ('edge', 'tunnel_wire_read'), ('edge', 'rtp_write_packet'),
+                             ('client', 'rtp_read'), ('client', 'media_recovered'),
+                             ('client', 'client_recovered'), ('client', 'client_delivered')}
+                             and item['hash'] == f'{12399:064x}')]
+        self.assertFalse(self.result()['passed'])
+        self.observed, self.rounds = loss_fixture()
+        next(x for x in self.observed if x['stage'] == 'client_delivered' and x.get('concealed'))['stage'] = 'client_post_eos_drop'
+        self.assertFalse(self.result()['passed'])
+
+    def test_source_clock_inside_a_grouped_loss_must_remain_exact(self):
+        item = next(x for x in self.observed if x['node'] == 'server' and x['stage'] == 'tunnel_wire_send'
+                    and x['sequence'] == 10011)
+        item['timestamp'] += 1
+        self.assertFalse(self.result()['passed'])
+
+    def test_missing_rounds_and_original_playback_counts_cannot_pass(self):
+        self.assertFalse(namespace['loss_recovery_evidence'](self.observed, self.rounds[:2], 800)['passed'])
+        self.rounds[0]['pacing']['packets'] += 1
+        self.assertFalse(self.result()['passed'])
+
+    def test_loss_expectations_leave_the_strict_document_unchanged(self):
+        original = (source.parent.parent / 'testdata/peer-audio/continuous.giztest.yaml').read_text()
+        generated = namespace['loss_continuity_document'](original)
+        self.assertIn('/audio_pacing/playout_ms: {minimum: 16000}', generated)
+        self.assertNotIn('/audio_pacing/packets: {minimum: 800}', generated)
+        self.assertIn('/audio_pacing/packets: {minimum: 800}', original)
+        self.assertEqual(original.replace('      /audio_pacing/packets: {minimum: 800}\n', '')
+                         .replace('/audio_pacing/audio_ms:', '/audio_pacing/playout_ms:'), generated)
+        with self.assertRaisesRegex(RuntimeError, 'expectations changed'):
+            namespace['loss_continuity_document'](generated)
 
 
 class EvidenceTests(unittest.TestCase):

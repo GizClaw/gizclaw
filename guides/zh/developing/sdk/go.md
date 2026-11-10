@@ -35,8 +35,8 @@ payload 没有逻辑 StreamID，无法据此区分上一 epoch 的迟到包和�
 
 ## Recovered media output
 
-On native RTP connections, `PeerStream` outputs signed little-endian PCM16 at
-16 kHz mono, including PCM BOS/EOS boundaries. The connection's
+On RTP connections with native Opus support, `PeerStream` outputs signed
+little-endian PCM16 at 16 kHz mono, including PCM BOS/EOS boundaries. The connection's
 `giznet/opusmedia` receiver preserves RTP timing, reorders within the configured
 [`rtpstream` bounds](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/audio/rtpstream#Config),
 and conceals known missing intervals with its continuous Opus decoder.
@@ -45,10 +45,24 @@ and conceals known missing intervals with its continuous Opus decoder.
 `genx.Blob.OriginalAudio` carries a real received Opus packet when available;
 `ConcealedAudio` marks synthesized PCM and has no original encoded packet.
 Both fields are process-local and excluded from JSON. Recorders can retain real
-original audio without storing synthetic Opus. EOS drains the media receiver
-before closing the route; late audio remains subject to the existing EOS guard.
-Legacy payload-only transports retain their raw Opus behavior. `PeerStream.Push`
-also accepts PCM16 little-endian at 16 kHz mono. Its media sender encodes the whole
+original audio without storing synthetic Opus. The physical Event reader drains
+its own connection's media receiver once before publishing the active audio EOS
+to local subscribers. Each subscriber drains only its own queue; a delayed or
+closed subscription cannot reset newer media or a replacement connection. Late
+audio remains subject to the existing EOS guard, and EOS does not read future
+packets during a grace window.
+
+On runtimes without native Opus, including `CGO_ENABLED=0`, RTP reception uses
+bounded encoded reordering and delivers real Opus packets with Opus BOS/EOS.
+It does not synthesize encoded packets for missing intervals or provide decoded
+PCM/PLC. The output mode is chosen for the physical session before event delivery
+and stays fixed through every EOS. Encoded packet subscribers and reliable
+control remain available. Legacy payload-only sessions retain raw Opus controls
+and data; an RTP-declared transport must supply timing metadata for its Opus
+packets, and tunnel sessions reject audio that disagrees with their declaration.
+
+With native Opus support, `PeerStream.Push` also accepts PCM16 little-endian at
+16 kHz mono. Its media sender encodes the whole
 PCM epoch through one Opus encoder, including concealed intervals, and flushes
 its last partial 20 ms codec frame before sending EOS. It never mixes encoded
 originals into that stream. Input format cannot change within one epoch. This Go

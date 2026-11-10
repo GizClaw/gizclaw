@@ -95,6 +95,8 @@ type PeerConn struct {
 	acceptedAudioRevision   uint64
 	sfuDroppedPackets       atomic.Uint64
 	mediaReader             atomic.Pointer[opusmedia.PacketReader]
+	mediaReaderMu           sync.Mutex // Coordinates installation/mode only; never spans I/O, native work, or a pump fence.
+	audioInputMode          atomic.Uint32
 	telemetryStatusMu       *sync.Mutex
 	serverGenX              *peergenx.Service
 	mixer                   *pcm.Mixer
@@ -809,7 +811,7 @@ func (h *PeerConn) readEventStream(stream net.Conn) (err error) {
 		if err != nil {
 			return err
 		}
-		if raw, ok := h.Conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() {
+		if raw, ok := h.Conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() && opusmedia.OutputMode(h.audioInputMode.Load()) == opusmedia.OutputPCM {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isOpusBlob(blob) && len(blob.Data) == 0 {
 				chunk.Part = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", OriginalAudio: blob}
 			}
@@ -912,7 +914,49 @@ func (h *PeerConn) authorizeInputEvent(ctx context.Context, event *eventpb.PeerE
 	if denial := h.audioInputModeDenial(ctx, event, permission.run.workspaceName, permission.isSFU); denial != nil {
 		return h.rejectInputEvent(ctx, event, streamID, denial)
 	}
+	if allowed, err := h.prepareAudioInputMode(ctx, event, permission.isSFU); err != nil || !allowed {
+		return allowed, err
+	}
 	h.acceptInputEvent(event, streamID, permission.run.workspaceName, permission.isSFU, permission.revision)
+	return true, nil
+}
+
+// prepareAudioInputMode selects the media format before accepting a new route.
+// The packet pump owns decoder and reorder changes; no input lock spans its fence.
+func (h *PeerConn) prepareAudioInputMode(ctx context.Context, event *eventpb.PeerEvent, isSFU bool) (bool, error) {
+	if event.Type != eventpb.PeerEventType_PEER_EVENT_TYPE_BOS || event.StreamKindValue() != eventpb.StreamKind_STREAM_KIND_AUDIO {
+		return true, nil
+	}
+	raw, timed := h.Conn.(giznet.RTPAudioReader)
+	if !timed || !raw.RTPAudio() {
+		return true, nil
+	}
+	if !isSFU && !opus.IsRuntimeSupported() {
+		return h.rejectInputEvent(ctx, event, event.StreamID(), &inputAccessError{
+			Code: "AUDIO_DECODER_UNAVAILABLE", Message: "PCM audio input requires a native Opus decoder",
+		})
+	}
+	mode := opusmedia.OutputPCM
+	if isSFU {
+		mode = opusmedia.OutputEncoded
+	}
+	// A replacement BOS supersedes the previous admission before changing mode.
+	// The new route is admitted only after the packet owner acknowledges it.
+	h.inputAccessMu.Lock()
+	h.acceptedAudioInput = false
+	h.inputAccessMu.Unlock()
+	h.mediaReaderMu.Lock()
+	h.audioInputMode.Store(uint32(mode))
+	reader := h.mediaReader.Load()
+	h.mediaReaderMu.Unlock()
+	if reader == nil {
+		return true, nil // The packet pump will install the selected initial mode.
+	}
+	ctx, cancel := context.WithTimeout(ctx, peerConnInputAbortTimeout)
+	defer cancel()
+	if err := reader.SetOutputMode(ctx, mode); err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
@@ -1356,12 +1400,18 @@ func (h *PeerConn) serveDirectPackets() error {
 	}()
 	var media *opusmedia.PacketReader
 	if raw, ok := h.Conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() {
+		// Coordinate the initial mode with a BOS that arrived before this pump.
+		// Construction validates local config only; it starts no native work.
+		h.mediaReaderMu.Lock()
 		var err error
-		media, err = opusmedia.NewPacketReader(h.admitAudioPackets(raw.ReadPacket), opusmedia.Config{})
+		media, err = opusmedia.NewPacketReader(h.admitAudioPackets(raw.ReadPacket), opusmedia.Config{OutputMode: opusmedia.OutputMode(h.audioInputMode.Load())})
+		if err == nil {
+			h.mediaReader.Store(media)
+		}
+		h.mediaReaderMu.Unlock()
 		if err != nil {
 			return err
 		}
-		h.mediaReader.Store(media)
 		defer func() {
 			h.mediaReader.Store(nil)
 			_ = media.Close()
@@ -1399,12 +1449,20 @@ func (h *PeerConn) serveDirectPackets() error {
 		case giznet.ProtocolOpusPacket:
 			var chunk *genx.MessageChunk
 			if audio != nil {
-				if len(audio.PCM) == 0 {
-					continue
-				}
-				blob := &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: audio.PCM, ConcealedAudio: audio.Concealed}
-				if len(audio.Original) > 0 {
-					blob.OriginalAudio = &genx.Blob{MIMEType: "audio/opus", Data: audio.Original}
+				var blob *genx.Blob
+				if media.OutputMode() == opusmedia.OutputEncoded {
+					if len(audio.Original) == 0 {
+						continue
+					}
+					blob = &genx.Blob{MIMEType: "audio/opus", Data: audio.Original}
+				} else {
+					if len(audio.PCM) == 0 {
+						continue
+					}
+					blob = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: audio.PCM, ConcealedAudio: audio.Concealed}
+					if len(audio.Original) > 0 {
+						blob.OriginalAudio = &genx.Blob{MIMEType: "audio/opus", Data: audio.Original}
+					}
 				}
 				chunk = &genx.MessageChunk{Part: blob, Ctrl: &genx.StreamCtrl{StreamID: "audio"}}
 			} else {

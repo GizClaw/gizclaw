@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
@@ -22,6 +23,7 @@ type readResult struct {
 
 type readCommand struct {
 	discard bool
+	mode    *OutputMode
 	fence   chan error
 }
 
@@ -37,6 +39,7 @@ type PacketReader struct {
 	commands chan readCommand
 	done     chan struct{}
 	closed   bool
+	mode     atomic.Uint32
 
 	// Only the interrupt handle is shared with the control reader. Decoder,
 	// jitter, and output state belong exclusively to the packet pump.
@@ -45,7 +48,7 @@ type PacketReader struct {
 }
 
 // NewPacketReader creates an idle media read adapter. Legacy payload-only Opus
-// remains encoded; packets with RTP timing produce the configured PCM format.
+// remains encoded; timed packets use the configured output mode and PCM format.
 func NewPacketReader(raw RawReader, config Config) (*PacketReader, error) {
 	if raw == nil {
 		return nil, errors.New("opusmedia: nil raw reader")
@@ -54,7 +57,24 @@ func NewPacketReader(raw RawReader, config Config) (*PacketReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &PacketReader{raw: raw, receiver: receiver, commands: make(chan readCommand, 1), done: make(chan struct{})}, nil
+	reader := &PacketReader{raw: raw, receiver: receiver, commands: make(chan readCommand, 1), done: make(chan struct{})}
+	reader.mode.Store(uint32(config.OutputMode))
+	return reader, nil
+}
+
+// OutputMode reports the format selected for this receiver. It is safe to read
+// from a control owner after SetOutputMode completes.
+func (r *PacketReader) OutputMode() OutputMode { return OutputMode(r.mode.Load()) }
+
+// SetOutputMode switches reception at a serialized media boundary. A changed
+// mode discards pending packets and decoder history before the fence completes.
+// The caller must prevent admission of a new route until this call returns.
+// Repeating the current mode preserves pending media and decoder history.
+func (r *PacketReader) SetOutputMode(ctx context.Context, mode OutputMode) error {
+	if mode != OutputPCM && mode != OutputEncoded {
+		return errors.New("opusmedia: invalid output mode")
+	}
+	return r.synchronize(ctx, readCommand{mode: &mode})
 }
 
 // Read returns a transport packet, or recovered Opus media in frame. For media,
@@ -168,20 +188,25 @@ func (r *PacketReader) Read(ctx context.Context, dst []byte) (protocol byte, n i
 // Flush releases only media already owned by this receiver, then resets its
 // decoder. It does not read future packets or infer an audio epoch from time.
 // The fence completes after the packet pump dispatches this bounded output.
-func (r *PacketReader) Flush(ctx context.Context) error { return r.synchronize(ctx, false) }
+func (r *PacketReader) Flush(ctx context.Context) error {
+	return r.synchronize(ctx, readCommand{})
+}
 
 // Discard drops pending media and resets decoder history, without a drain wait.
 // It is used before admitting a new input BOS whose sender waits for readiness.
-func (r *PacketReader) Discard(ctx context.Context) error { return r.synchronize(ctx, true) }
+func (r *PacketReader) Discard(ctx context.Context) error {
+	return r.synchronize(ctx, readCommand{discard: true})
+}
 
-func (r *PacketReader) synchronize(ctx context.Context, discard bool) error {
+func (r *PacketReader) synchronize(ctx context.Context, command readCommand) error {
 	fence := make(chan error, 1)
+	command.fence = fence
 	select {
 	case <-r.done:
 		return io.ErrClosedPipe
 	case <-ctx.Done():
 		return ctx.Err()
-	case r.commands <- readCommand{discard: discard, fence: fence}:
+	case r.commands <- command:
 	}
 	r.mu.Lock()
 	cancel := r.readCancel
@@ -211,6 +236,15 @@ func (r *PacketReader) Close() error {
 }
 
 func (r *PacketReader) apply(command readCommand) {
+	if command.mode != nil {
+		if r.receiver.mode != *command.mode {
+			r.receiver.Discard()
+			r.receiver.mode = *command.mode
+			r.mode.Store(uint32(*command.mode))
+		}
+		r.ready = append(r.ready, readResult{fence: command.fence})
+		return
+	}
 	if !command.discard {
 		frames, err := r.receiver.Flush()
 		r.enqueue(frames)

@@ -2,7 +2,6 @@ package gizcli
 
 import (
 	"bytes"
-	"context"
 	"sync"
 	"testing"
 
@@ -154,22 +153,16 @@ func TestPeerStreamDrainsRecoveredPCMBeforeEOS(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-s.out
-	flushed := false
-	s.flushAudio = func(context.Context) error {
-		flushed = true
-		audio <- &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: make([]byte, 640), OriginalAudio: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}}
-		audio <- &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: make([]byte, 640), ConcealedAudio: true}
-		return nil
-	}
+	// The physical event reader has already dispatched recovered media before
+	// publishing EOS. This subscriber owns only the remaining local queue drain.
+	audio <- &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: make([]byte, 640), OriginalAudio: &genx.Blob{MIMEType: "audio/opus", Data: []byte{0xf8, 0xff, 0xfe}}}
+	audio <- &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: make([]byte, 640), ConcealedAudio: true}
 	eos, err := peerStreamEventToChunk(eosEvent("answer", "assistant", "", nil))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if err := s.pushMergedEvent(eos); err != nil {
 		t.Fatal(err)
-	}
-	if !flushed {
-		t.Fatal("EOS did not drain the media receiver")
 	}
 	for i := range 2 {
 		chunk := <-s.out

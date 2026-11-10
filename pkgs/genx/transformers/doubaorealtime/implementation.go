@@ -95,6 +95,7 @@ const (
 
 var errDoubaoRealtimeInterruptHandoff = errors.New("replace provider session after realtime interruption")
 var errDoubaoRealtimeEmptyPTTHandoff = errors.New("replace provider session after empty push-to-talk turn")
+var errDoubaoRealtimeFailedPTTHandoff = errors.New("replace provider session after failed push-to-talk capture")
 
 type doubaoRealtimeOpener interface {
 	OpenSession(context.Context, *doubaospeech.RealtimeConfig) (doubaoRealtimeSession, error)
@@ -590,6 +591,7 @@ type doubaoRealtimeRuntime struct {
 	audioInputs            *doubaoRealtimeAudioInputs
 	history                *doubaoRealtimeHistoryRoutes
 	emptyPTTTrailingRoute  string
+	failedPTTTrailingRoute string
 	emptyPTTTrailingRouteM sync.Mutex
 	// initiativeClaimed guards the agent-initiative opening query. It belongs
 	// to one Transform invocation so every Workspace served by the same
@@ -618,6 +620,12 @@ func (r *doubaoRealtimeRuntime) markEmptyPTTTrailingRoute(streamID string) {
 	}
 	r.emptyPTTTrailingRouteM.Lock()
 	r.emptyPTTTrailingRoute = strings.TrimSpace(streamID)
+	r.emptyPTTTrailingRouteM.Unlock()
+}
+
+func (r *doubaoRealtimeRuntime) markFailedPTTTrailingRoute(streamID string) {
+	r.emptyPTTTrailingRouteM.Lock()
+	r.failedPTTTrailingRoute = strings.TrimSpace(streamID)
 	r.emptyPTTTrailingRouteM.Unlock()
 }
 
@@ -654,6 +662,13 @@ func (r *doubaoRealtimeRuntime) consumeEmptyPTTTrailingEOS(chunk *genx.MessageCh
 	streamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 	r.emptyPTTTrailingRouteM.Lock()
 	defer r.emptyPTTTrailingRouteM.Unlock()
+	if chunk.IsBeginOfStream() && streamID != "" {
+		r.failedPTTTrailingRoute = ""
+	} else if r.failedPTTTrailingRoute != "" && streamID == r.failedPTTTrailingRoute {
+		// The failed MIME boundary already retired this turn. Its containing
+		// route may still publish control EOS, including duplicate boundaries.
+		return true
+	}
 	if r.emptyPTTTrailingRoute == "" {
 		return false
 	}
@@ -1010,6 +1025,11 @@ func (t *Transformer) sessionLoop(ctx context.Context, input genx.Stream, output
 		}
 		if errors.Is(err, errDoubaoRealtimeEmptyPTTHandoff) {
 			slog.InfoContext(ctx, "doubao: empty push-to-talk turn handed off to replacement provider session")
+			retryDelay = retryInitial
+			continue
+		}
+		if errors.Is(err, errDoubaoRealtimeFailedPTTHandoff) {
+			slog.InfoContext(ctx, "doubao: failed push-to-talk capture handed off to replacement provider session")
 			retryDelay = retryInitial
 			continue
 		}
@@ -2104,8 +2124,41 @@ func (t *Transformer) processSession(
 		}
 
 		audioEOS := realtimeAudioInputEOS(chunk)
-		if audioEOS && genx.StreamError(chunk.Ctrl) != nil {
-			audioInputs.closeStream(streamIDs.serviceInput(chunk))
+		if cause := genx.StreamError(chunk.Ctrl); audioEOS && cause != nil {
+			streamID := streamIDs.serviceInput(chunk)
+			audioInputs.closeStream(streamID)
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			if t.mode == ModePushToTalk && !inputAudioEnded {
+				// EndASR would commit the failed capture. Once any audio reached
+				// the provider, close and join it before retiring the local turn;
+				// only a replacement session may consume the next turn's input.
+				if turnAudioSent > 0 {
+					closeSession()
+					<-eventsDone
+				}
+				pttControl.Lock()
+				_, active, committed := pttTurn.discard()
+				_, _, _ = pushToTalk.abort()
+				pushToTalk.discard(chunk) // This EOS also ends the discard phase.
+				pttControl.Unlock()
+				mimeType := ""
+				if blob, ok := chunk.Part.(*genx.Blob); ok {
+					mimeType = blob.MIMEType
+				}
+				if err := runtime.history.closeWithError(output, streamIDs.historyInput(chunk), mimeType, cause); err != nil {
+					return err
+				}
+				if active && !committed {
+					t.pushInputEOSError(output, streamID, cause)
+				}
+				inputAudioEnded = true
+				runtime.markFailedPTTTrailingRoute(streamID)
+				if turnAudioSent > 0 {
+					return errDoubaoRealtimeFailedPTTHandoff
+				}
+			}
 			continue
 		}
 
@@ -2292,16 +2345,17 @@ func (t *Transformer) pushInputEOSError(output *bufferStream, streamID string, e
 			BeginOfStream: true,
 		},
 	})
-	_ = output.Push(&genx.MessageChunk{
+	terminal := &genx.MessageChunk{
 		Role: genx.RoleUser,
 		Part: genx.Text(""),
 		Ctrl: &genx.StreamCtrl{
 			StreamID:    streamID,
 			Label:       doubaoRealtimeTranscriptLabel,
 			EndOfStream: true,
-			Error:       err.Error(),
 		},
-	})
+	}
+	genx.SetStreamError(terminal.Ctrl, err)
+	_ = output.Push(terminal)
 }
 
 func doubaoRealtimeEventResponseIdentity(event *doubaospeech.RealtimeEvent) doubaoRealtimePTTResponseIdentity {

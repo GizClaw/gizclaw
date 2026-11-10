@@ -54,6 +54,10 @@ doubaorealtimeduplex.New(doubaorealtimeduplex.Config{Client: client, Model: dupl
 
 `doubaoasr.Transformer` 对上游 `55000000`（包括 BigASR business RPC timeout）在安全的当前输入边界自动恢复一次，总共最多两次尝试。恢复直接替换 ASR provider session，不重新执行 Workflow、Eino Graph、Memory 或 Tool。该策略不依赖最终 `STREAM_ERROR` 的 `Retryable` 投影。
 
+Before any provider session is accepted, an EOF while opening ASR may use the same single-retry recovery budget and deadline. No audio or transcript has been accepted by the provider at that boundary. This startup case does not enable replay of an established session or change cancellation behavior. Exhausted startup failures retain their transport cause and expose `ASR_STREAM_ERROR`.
+
+Doubao AST likewise permits one additional opening attempt for EOF before accepting a session or uploading audio; both attempts remain under the Transform context. Exhausted startup failures expose `AST_STREAM_ERROR`. AudioDock and AST composition give these typed operational failures precedence over EOF/ErrDone completion, while ordinary contextual stream completion keeps its existing semantics.
+
 恢复只支持 PCM provider session；默认输入转换得到的 PCM 也属于此范围。Push-to-Talk 在尚未交付定稿文本时保留本轮音频。Continuous ASR 以新交付 definite utterance 的有效结束时间推进检查点，只保留其后的音频；累计结果中重复出现的已定稿 utterance 不改变检查点，也不关闭当前窗口的恢复能力。replacement 返回的 utterance 时间重新映射到原音频时间轴，保留原 transcript StreamID 和 History audio 范围。Interim 是可替换假设，不向 Agent 提交第二次定稿。
 
 输入观察器最多预读 4096 个 chunk、2 MiB Blob 数据，以便在重放上传阻塞时仍能看到 replacement BOS；超过任一预算即以明确的 input queue limit 错误结束。replacement BOS 只提前取消正在恢复的旧输入，已排队的旧后缀不会重新打开 session。每个未定稿窗口最多保留 15 秒且最多 2 MiB 音频；达到任一上限即放弃该 session 的恢复能力，识别仍可继续。重放临时副本受相同大小上限约束。每个逻辑 session 最多保留 1024 个定稿身份摘要用于累计结果去重，摘要不保留文本；超过该预算后关闭本 session 的恢复能力。恢复的连接、重放上传和等待 definite/final result 共用 15 秒期限；上传与结果均完成后才记录成功并释放该期限，下一轮继续使用健康 session。新的已确认 continuous utterance 才重置下一轮的一次重试额度。

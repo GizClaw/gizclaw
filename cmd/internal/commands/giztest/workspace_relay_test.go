@@ -940,6 +940,64 @@ func TestWorkspaceRelayTurnAudioLimits(t *testing.T) {
 	}
 }
 
+func TestWorkspaceRelayBoundsPCMBeforeCallbacksAndDiscard(t *testing.T) {
+	oversizedPCM := make([]byte, int(relayMaxTurnPCMBytes)+2)
+	for _, tc := range []struct {
+		name        string
+		inactive    bool
+		interrupted bool
+		concealed   bool
+		label       string
+	}{
+		{name: "active", label: "assistant"},
+		{name: "PLC", label: "assistant", concealed: true},
+		{name: "inactive", label: "assistant", inactive: true},
+		{name: "inactive PLC", label: "assistant", inactive: true, concealed: true},
+		{name: "interrupted", label: "assistant", interrupted: true},
+		{name: "other label", label: "participant"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			first, second := newFakeRelayStream(), newFakeRelayStream()
+			blob := giztestPCM(oversizedPCM, []byte{0xf8, 0xff, 0xfe}, false)
+			if tc.concealed {
+				blob.OriginalAudio, blob.ConcealedAudio = nil, true
+			}
+			chunk := &genx.MessageChunk{Part: blob, Ctrl: &genx.StreamCtrl{StreamID: "oversized", Label: tc.label}}
+			if tc.interrupted {
+				chunk.Ctrl.Error = "interrupted"
+			}
+			if tc.inactive {
+				second.in <- chunk
+			} else {
+				first.in <- chunk
+			}
+			callbacks := 0
+			observer := func(_, _ string, blob *genx.Blob, _ bool) error {
+				if blob != nil {
+					callbacks++
+				}
+				return nil
+			}
+			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+			defer cancel()
+			_, err := runWorkspaceRelayWithEvidence(ctx, textRelayOperation(2), first, second, "brief", 0, false, observer)
+			if err == nil || !strings.Contains(err.Error(), "relay turn PCM limit") || callbacks != 0 {
+				t.Fatalf("error=%v callbacks=%d, want pre-callback PCM rejection", err, callbacks)
+			}
+		})
+	}
+	t.Run("original byte limit", func(t *testing.T) {
+		first, second := newFakeRelayStream(), newFakeRelayStream()
+		first.in <- &genx.MessageChunk{Part: giztestPCM(make([]byte, 640), make([]byte, giztest.MaxRelayAudioBytes+1), false)}
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+		_, err := runWorkspaceRelay(ctx, textRelayOperation(2), first, second, "brief", 0)
+		if err == nil || !strings.Contains(err.Error(), "16777216-byte relay turn audio limit") {
+			t.Fatalf("PCM bypassed original byte limit: %v", err)
+		}
+	})
+}
+
 func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
 	// A one-frame 20 ms silence packet with 1024 bytes of Opus padding.
 	padded := append([]byte{0xfb, 0x41, 0xff, 0xff, 0xff, 0xff, 0x08, 0xff, 0xfe}, make([]byte, 1024)...)
@@ -947,10 +1005,13 @@ func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
 		name         string
 		packets      int
 		packet       []byte
+		pcm          bool
 		discardFirst bool
 		wantError    string
 	}{
 		{name: "duration", packets: 16000, packet: []byte{0xf8, 0xff, 0xfe}},
+		{name: "PCM duration", packets: 16000, packet: make([]byte, 640), pcm: true},
+		{name: "discarded PCM duration", packets: 16000, packet: make([]byte, 640), pcm: true, discardFirst: true},
 		// Discarded audio consumes the per-turn byte guard, but not the
 		// whole-relay byte limit. This isolates the per-turn reset.
 		{name: "bytes", packets: 9000, packet: padded, discardFirst: true},
@@ -974,6 +1035,9 @@ func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
 			drainUserTurn(t, first)
 			for range tc.packets {
 				chunk := assistantBlob("first-audio", tc.packet, false)
+				if tc.pcm {
+					chunk.Part = giztestPCM(tc.packet, []byte{0xf8, 0xff, 0xfe}, false)
+				}
 				if tc.discardFirst {
 					chunk.Ctrl.Error = "interrupted"
 				}
@@ -984,7 +1048,11 @@ func TestWorkspaceRelayResetsTurnAudioLimits(t *testing.T) {
 			// the second response cannot be mistaken for a self-start reply.
 			drainUserTurn(t, second)
 			for range tc.packets {
-				second.in <- assistantBlob("second-audio", tc.packet, false)
+				chunk := assistantBlob("second-audio", tc.packet, false)
+				if tc.pcm {
+					chunk.Part = giztestPCM(tc.packet, []byte{0xf8, 0xff, 0xfe}, false)
+				}
+				second.in <- chunk
 			}
 			second.in <- assistantText("second-text", "PASS", true)
 			got := <-done

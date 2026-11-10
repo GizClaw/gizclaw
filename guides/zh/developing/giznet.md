@@ -218,10 +218,19 @@ The adapter drives deadlines without waiting for a new packet. It drops duplicat
 ambiguous discontinuities, and does not mistake DTX or unknown trailing loss for
 a measured gap.
 
-Business streams receive PCM16 little-endian at 16 kHz mono, including PCM
-BOS/EOS. `genx.Blob.OriginalAudio` retains only real encoded bytes for recording
-or passthrough; `ConcealedAudio` marks synthesized PCM. Both fields are local and
-excluded from JSON. Transformers contain no RTP, jitter, or PLC state. EOS releases
+Normal business streams receive PCM16 little-endian at 16 kHz mono, including
+PCM BOS/EOS. Accepted SFU input routes instead select bounded encoded reception
+before BOS is delivered: their Opus BOS/data/EOS contain only real originals and
+require no native decoder, on both native and unsupported runtimes. The media
+packet owner serializes mode changes and discards pending old media; the selected
+format remains stable through EOS. A runtime without native Opus rejects normal
+PCM input at route admission with `AUDIO_DECODER_UNAVAILABLE` EOS while keeping
+reliable services available. Unexpected decoder startup failures on a supported
+runtime remain terminal errors.
+
+`genx.Blob.OriginalAudio` retains only real encoded bytes behind decoded PCM for
+recording or passthrough; `ConcealedAudio` marks synthesized PCM. Both fields are
+local and excluded from JSON. Transformers contain no RTP, jitter, or PLC state. EOS releases
 media already held by the receiver; it does not read future packets during a grace
 window. Input BOS discards pending media before readiness is acknowledged. RTP
 has no logical StreamID, so the existing cross-lane BOS/EOS attribution limits

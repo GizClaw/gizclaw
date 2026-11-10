@@ -54,6 +54,50 @@ func TestSequenceTimestampWrapAndDTX(t *testing.T) {
 	}
 }
 
+func TestMarkedTalkspurtDoesNotConcealDTX(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		sequence  uint16
+		timestamp uint32
+		marked    bool
+	}{
+		{"marked talkspurt", 10, 0, true},
+		{"marked across wrap", 65534, ^uint32(0) - 959, true},
+		{"unmarked loss control", 10, 0, false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			now := time.Unix(100, 0)
+			b := New(Config{})
+			b.Push([]byte{1}, testInfo("a", test.sequence, test.timestamp, 960), now)
+			requireRealSequences(t, b.Flush(), test.sequence)
+			// One lost 20 ms packet plus 40 ms of DTX fits the legal loss
+			// duration bound, but a marked talkspurt cannot prove 60 ms of loss.
+			next := testInfo("a", test.sequence+2, test.timestamp+3840, 960)
+			next.Header.Marker = test.marked
+			b.Push([]byte{2}, next, now)
+			got := b.Flush()
+			if test.marked {
+				requireRealSequences(t, got, next.Header.SequenceNumber)
+				if !got[0].Info.Discontinuity || !got[0].Info.Header.Marker {
+					t.Fatal("marked talkspurt lost its discontinuity or RTP marker")
+				}
+			} else {
+				if len(got) != 2 || !got[0].Info.Missing || got[0].Info.Duration48 != 2880 {
+					t.Fatalf("unmarked loss no longer produces bounded concealment: %+v", got)
+				}
+				requireRealSequences(t, got[1:], next.Header.SequenceNumber)
+				if got[1].Info.Discontinuity {
+					t.Fatal("ordinary loss unnecessarily reset decoder history")
+				}
+			}
+			if got := b.Push([]byte{3}, testInfo("a", test.sequence+1, test.timestamp+960, 960), now); len(got) != 0 {
+				t.Fatal("late pre-talkspurt packet crossed the sequence fence")
+			}
+			requireRealSequences(t, b.Push([]byte{4}, testInfo("a", test.sequence+3, next.Header.Timestamp+960, 960), now), test.sequence+3)
+		})
+	}
+}
+
 func TestLargeGapResetsWithoutUnboundedPLC(t *testing.T) {
 	now := time.Unix(100, 0)
 	b := New(Config{})

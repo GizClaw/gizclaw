@@ -10,8 +10,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 	"github.com/pion/rtp"
 	"github.com/pion/srtp/v3"
 	"github.com/pion/webrtc/v4"
@@ -125,6 +127,44 @@ func TestOpusSampleTimelineDoesNotHoldStateDuringTransportIO(t *testing.T) {
 	later, earlier := <-packets, <-packets
 	if earlier.SequenceNumber != 0 || earlier.Timestamp != 0 || later.SequenceNumber != 1 || later.Timestamp != 960 {
 		t.Fatal("sequence/timestamp wrap or dropped-packet clock is incorrect")
+	}
+	if !earlier.Marker || later.Marker {
+		t.Fatal("continuous Opus samples must mark only the talkspurt start")
+	}
+}
+
+func TestOpusSampleLossReachesConcealment(t *testing.T) {
+	if !opus.IsRuntimeSupported() {
+		t.Skip("native opus runtime is not available")
+	}
+	var packets []*rtp.Packet
+	writer := &opusSampleWriter{seq: 65535, ts: ^uint32(0) - 959, track: testRTPWriter(func(p *rtp.Packet) error {
+		packets = append(packets, p)
+		return nil
+	})}
+	for range 3 {
+		if err := writer.WriteSample(media.Sample{Data: []byte{0xf8, 0xff, 0xfe}, Duration: 20 * time.Millisecond}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	receiver, err := opusmedia.NewReceiver(opusmedia.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer receiver.Close()
+	// Lose the middle packet of one continuous talkspurt across RTP wrap.
+	for _, i := range []int{0, 2} {
+		p := packets[i]
+		if _, err := receiver.Push(p.Payload, &packet.OpusInfo{SourceID: "sender", Header: p.Header, Duration48: 960}, time.Now()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	frames, err := receiver.Flush()
+	if err != nil || len(frames) != 3 {
+		t.Fatalf("sender loss recovery = %d frames, %v; want real, PLC, real", len(frames), err)
+	}
+	if frames[0].Concealed || !frames[1].Concealed || frames[2].Concealed || len(frames[1].PCM) != 640 || len(frames[1].Original) != 0 || frames[1].Info.Header.SequenceNumber != 0 || frames[1].Info.Header.Timestamp != 0 {
+		t.Fatalf("lost continuous sample did not produce exact 20 ms PLC: %+v", frames[1])
 	}
 }
 

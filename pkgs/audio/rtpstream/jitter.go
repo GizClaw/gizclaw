@@ -229,7 +229,9 @@ func (b *Buffer) release(now time.Time, force bool) []Frame {
 			if b.clock {
 				delta := int32(frame.Info.Header.Timestamp - b.lastEnd)
 				missing := uint32(uint16(frame.Info.Header.SequenceNumber - b.next))
-				if delta > 0 && uint32(delta) <= b.cfg.MaxGap48-concealed && delta%120 == 0 &&
+				// A marked talkspurt can follow DTX, so its clock gap is not
+				// proof that the whole interval belongs to missing packets.
+				if !frame.Info.Header.Marker && delta > 0 && uint32(delta) <= b.cfg.MaxGap48-concealed && delta%120 == 0 &&
 					uint32(delta) >= missing*120 && uint32(delta) <= missing*5760 {
 					gap := frame.Info.Clone()
 					gap.Header.SequenceNumber = b.next

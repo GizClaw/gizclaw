@@ -1,9 +1,6 @@
 package gizcli
 
 import (
-	"context"
-	"errors"
-	"io"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -49,16 +46,4 @@ func (c *Client) dispatchPeerAudio(blob *genx.Blob) {
 			// subscribers or the connection's reliable control traffic.
 		}
 	}
-}
-
-func (c *Client) flushPeerAudio(ctx context.Context) error {
-	reader := c.mediaReader.Load()
-	if reader == nil {
-		return nil
-	}
-	err := reader.Flush(ctx)
-	if errors.Is(err, io.ErrClosedPipe) {
-		return nil
-	}
-	return err
 }

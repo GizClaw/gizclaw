@@ -26,6 +26,7 @@ import (
 const (
 	relayMaxTurnEvents        = 4096
 	relayMaxTurnAudioDuration = 10 * time.Minute
+	relayMaxTurnPCMBytes      = int64(relayMaxTurnAudioDuration/time.Second) * int64(peerAudioDecodeRate) * 2
 	relayMaxTextBytes         = 1 << 20
 )
 
@@ -246,7 +247,9 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 	sides[active].everActive = true
 	completed, totalEvents, turnEvents, totalTextBytes, totalAudioBytes := 0, 0, 0, 0, 0
 	var turnAudioDuration time.Duration
-	turnAudioBytes, turnOriginalAudioBytes, deliveredAudioBytes := 0, 0, 0
+	turnOriginalAudioBytes := 0
+	var turnPCMBytes, totalPCMBytes int64
+	maxPCMBytes := int64(op.MaxTurns) * relayMaxTurnPCMBytes
 	started := time.Now()
 	lastEventMS := int64(0)
 	idleTimeout, _ := time.ParseDuration(op.IdleTimeout)
@@ -341,13 +344,21 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 			// including concealment and audio later discarded. Opus padding
 			// can make originals larger than their decoded samples.
 			originalBytes := peerOriginalAudioBytes(blob)
-			if len(blob.Data) > giztest.MaxRelayAudioBytes-turnAudioBytes || originalBytes > giztest.MaxRelayAudioBytes-turnOriginalAudioBytes {
+			if originalBytes > giztest.MaxRelayAudioBytes-turnOriginalAudioBytes {
 				return fail(side, "", "exceeded the fixed %d-byte relay turn audio limit", giztest.MaxRelayAudioBytes)
 			}
-			turnAudioBytes += len(blob.Data)
 			turnOriginalAudioBytes += originalBytes
 			if isPCM {
-				turnAudioDuration += pcm.L16Mono16K.Duration(int64(len(blob.Data)))
+				pcmBytes := int64(len(blob.Data))
+				if pcmBytes > relayMaxTurnPCMBytes-turnPCMBytes {
+					return fail(side, "", "exceeded the fixed %d-byte relay turn PCM limit", relayMaxTurnPCMBytes)
+				}
+				if pcmBytes > maxPCMBytes-totalPCMBytes {
+					return fail(side, "", "exceeded the fixed %d-byte relay PCM limit", maxPCMBytes)
+				}
+				turnPCMBytes += pcmBytes
+				totalPCMBytes += pcmBytes
+				turnAudioDuration += pcm.L16Mono16K.Duration(pcmBytes)
 			} else {
 				packets, err := decodeOpusPackets(blob.Data)
 				if err != nil {
@@ -465,10 +476,9 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 				observationOpen = true
 			}
 			originalBytes := peerOriginalAudioBytes(part)
-			if len(part.Data) > giztest.MaxRelayAudioBytes-deliveredAudioBytes || originalBytes > giztest.MaxRelayAudioBytes-totalAudioBytes {
+			if originalBytes > giztest.MaxRelayAudioBytes-totalAudioBytes {
 				return fail(side, "", "exceeded the fixed %d-byte relay audio limit", giztest.MaxRelayAudioBytes)
 			}
-			deliveredAudioBytes += len(part.Data)
 			totalAudioBytes += originalBytes
 			if op.Media != "audio" {
 				break // text relays consume assistant audio without forwarding it
@@ -538,7 +548,7 @@ func runWorkspaceRelayWithEvidence(ctx context.Context, op *giztest.WorkspaceRel
 		completed++
 		turnEvents = 0
 		turnAudioDuration = 0
-		turnAudioBytes, turnOriginalAudioBytes = 0, 0
+		turnOriginalAudioBytes, turnPCMBytes = 0, 0
 		side.turns++
 		if side.turnFirstMS >= 0 {
 			if op.Media == "text" {

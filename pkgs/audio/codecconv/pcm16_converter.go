@@ -142,7 +142,10 @@ func (c *PCM16Converter) drain() ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if n == 0 {
+		if n == 0 && !c.input.finished && c.input.Len() == 0 {
+			// FIR lookahead can consume source frames without emitting output.
+			// Pause only when more live input is needed; a finished source must
+			// be read through EOF so its filter tail is drained exactly once.
 			return out.Bytes(), nil
 		}
 	}

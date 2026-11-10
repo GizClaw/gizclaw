@@ -17,10 +17,11 @@ type rtpWriter interface {
 // opusSampleWriter supplies a media timeline for payload-only callers while
 // the same RTP track can forward explicitly timestamped packets unchanged.
 type opusSampleWriter struct {
-	track rtpWriter
-	mu    sync.Mutex
-	seq   uint16
-	ts    uint32
+	track   rtpWriter
+	mu      sync.Mutex
+	seq     uint16
+	ts      uint32
+	started bool
 }
 
 func newOpusSampleWriter(track *webrtc.TrackLocalStaticRTP) *opusSampleWriter {
@@ -32,7 +33,10 @@ func (w *opusSampleWriter) WriteSample(sample media.Sample) error {
 	w.mu.Lock()
 	w.seq += sample.PrevDroppedPackets
 	w.ts += uint32(sample.PrevDroppedPackets) * ticks
-	header := rtp.Header{Version: 2, SequenceNumber: w.seq, Timestamp: w.ts, Marker: true}
+	// Payload-only samples advance one continuous media clock. Mark only its
+	// start; a marker on every sample would disguise ordinary loss as DTX.
+	header := rtp.Header{Version: 2, SequenceNumber: w.seq, Timestamp: w.ts, Marker: !w.started}
+	w.started = true
 	w.seq++
 	w.ts += ticks
 	w.mu.Unlock()

@@ -256,12 +256,20 @@ func (s *recoveringSession) run(ready chan<- error) {
 		if errors.Is(context.Cause(attemptCtx), errASRRecoveryTimeout) {
 			return errASRRecoveryTimeout
 		}
-		if s.continuous && isRecoverableRealtimeSessionError(cause) {
+		// Before any provider generation is accepted, an opening EOF has no
+		// audio or transcript to replay. Share the existing retry and deadline;
+		// EOF after a successful open remains a terminal midstream failure.
+		openingEOF := generation == 0 && provider == nil && errors.Is(cause, io.EOF)
+		if s.continuous && !openingEOF && isRecoverableRealtimeSessionError(cause) {
 			return cause
 		}
 		s.log("attempt failed", cause, nil, s.reason())
 		apiErr, ok := doubaospeech.AsError(cause)
-		if !ok || apiErr.Code != asrServerError || s.reason() != "" {
+		if openingEOF {
+			if s.retry != 0 {
+				return cause
+			}
+		} else if !ok || apiErr.Code != asrServerError || s.reason() != "" {
 			return cause
 		}
 		// Log the original error before changing generation or replaying audio.

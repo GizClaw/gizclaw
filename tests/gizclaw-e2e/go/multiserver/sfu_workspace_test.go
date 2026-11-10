@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"mime"
 	"os"
 	"sort"
 	"strings"
@@ -412,8 +413,8 @@ func exchangeAudio(ctx context.Context, sender, listener *gizcli.Client, packets
 			if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 				log.Printf("sfu e2e: listener stream %q received terminal error code=%q message=%q", chunk.Ctrl.StreamID, chunk.Ctrl.ErrorCode, chunk.Ctrl.Error)
 			}
-			if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
-				received.Add(int64(len(blob.Data)))
+			if blob, ok := chunk.Part.(*genx.Blob); ok {
+				received.Add(int64(forwardedOriginalAudioBytes(blob)))
 			}
 		}
 	}()
@@ -451,6 +452,22 @@ func exchangeAudio(ctx context.Context, sender, listener *gizcli.Client, packets
 	_ = listen.Close()
 	<-done
 	return int(received.Load()), nil
+}
+
+// forwardedOriginalAudioBytes preserves the encoded threshold for both native
+// recovered PCM and legacy Opus. Synthesized PCM cannot prove tone forwarding.
+func forwardedOriginalAudioBytes(blob *genx.Blob) int {
+	if blob == nil || blob.ConcealedAudio {
+		return 0
+	}
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	mediaType, _, err := mime.ParseMediaType(blob.MIMEType)
+	if err != nil || mediaType != "audio/opus" {
+		return 0
+	}
+	return len(blob.Data)
 }
 
 func opusTonePackets(t *testing.T, duration time.Duration) [][]byte {

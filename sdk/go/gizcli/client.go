@@ -8,7 +8,6 @@ import (
 	"net"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
@@ -70,7 +69,6 @@ type Client struct {
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
 	audioSubscribers  map[chan *genx.Blob]struct{}
-	mediaReader       atomic.Pointer[opusmedia.PacketReader]
 	openPeerStream    func(int) (*PeerStream, error)
 
 	clientRPCMu           sync.RWMutex
@@ -550,20 +548,30 @@ func (c *Client) servePackets() error {
 	if c == nil {
 		return fmt.Errorf("gizclaw: nil client")
 	}
-	conn := c.PeerConn()
+	c.mu.RLock()
+	conn, events := c.conn, c.events
+	c.mu.RUnlock()
 	if conn == nil {
 		return nil
 	}
 	var media *opusmedia.PacketReader
 	if raw, ok := conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() {
+		config := opusmedia.Config{OutputMode: peerAudioOutputMode()}
+		if events != nil {
+			config.OutputMode = events.outputMode
+		}
 		var err error
-		media, err = opusmedia.NewPacketReader(raw.ReadPacket, opusmedia.Config{})
+		media, err = opusmedia.NewPacketReader(raw.ReadPacket, config)
 		if err != nil {
 			return err
 		}
-		c.mediaReader.Store(media)
+		if events != nil {
+			events.mediaReader.Store(media)
+		}
 		defer func() {
-			c.mediaReader.CompareAndSwap(media, nil)
+			if events != nil {
+				events.mediaReader.CompareAndSwap(media, nil)
+			}
 			_ = media.Close()
 		}()
 	}
@@ -586,9 +594,13 @@ func (c *Client) servePackets() error {
 		}
 		var audio *genx.Blob
 		if frame != nil {
-			audio = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: frame.PCM, ConcealedAudio: frame.Concealed}
-			if len(frame.Original) > 0 {
-				audio.OriginalAudio = &genx.Blob{MIMEType: "audio/opus", Data: frame.Original}
+			if media.OutputMode() == opusmedia.OutputEncoded {
+				audio = &genx.Blob{MIMEType: "audio/opus", Data: frame.Original}
+			} else {
+				audio = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: frame.PCM, ConcealedAudio: frame.Concealed}
+				if len(frame.Original) > 0 {
+					audio.OriginalAudio = &genx.Blob{MIMEType: "audio/opus", Data: frame.Original}
+				}
 			}
 		}
 		c.dispatchPeerMedia(protocol, buf[:n], audio)

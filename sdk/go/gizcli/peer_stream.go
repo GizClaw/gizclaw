@@ -18,7 +18,6 @@ import (
 type PeerStream struct {
 	events      io.ReadWriteCloser
 	audio       <-chan *genx.Blob
-	flushAudio  func(context.Context) error
 	pcmAudio    bool
 	unsubscribe func()
 	conn        peerPacketWriter
@@ -83,18 +82,28 @@ func (c *Client) OpenPeerStream(buffer int) (*PeerStream, error) {
 	if buffer < 1 {
 		buffer = 1
 	}
-	eventStream, err := c.DialPeerEventStream()
+	if c == nil {
+		return nil, fmt.Errorf("gizclaw: nil client")
+	}
+	c.mu.RLock()
+	conn, events := c.conn, c.events
+	c.mu.RUnlock()
+	if events == nil {
+		return nil, fmt.Errorf("gizclaw: client is not connected")
+	}
+	eventStream, err := events.subscribe()
 	if err != nil {
 		return nil, err
 	}
 	audio, unsubscribe := c.subscribePeerAudio(buffer)
-	conn := c.PeerConn()
 	raw, timed := conn.(giznet.RTPAudioReader)
+	// The physical session chooses its receiver format before any control can
+	// arrive. RTP timing alone does not imply PCM on an unsupported runtime.
+	pcmAudio := timed && raw.RTPAudio() && events.outputMode == opusmedia.OutputPCM
 	stream := &PeerStream{
 		events:         eventStream,
 		audio:          audio,
-		flushAudio:     c.flushPeerAudio,
-		pcmAudio:       timed && raw.RTPAudio(),
+		pcmAudio:       pcmAudio,
 		unsubscribe:    unsubscribe,
 		conn:           conn,
 		out:            make(chan *genx.MessageChunk, buffer),
@@ -376,11 +385,6 @@ func (s *PeerStream) pushMergedEvent(chunk *genx.MessageChunk) error {
 		}
 	}
 	if peerStreamChunkIsOutputOpusControl(chunk) && (chunk.IsEndOfStream() || s.audioEnded && chunk.IsBeginOfStream()) {
-		if chunk.IsEndOfStream() && s.flushAudio != nil {
-			if err := s.flushAudioOutput(); err != nil {
-				return err
-			}
-		}
 		if err := s.drainBufferedAudio(); err != nil {
 			return err
 		}

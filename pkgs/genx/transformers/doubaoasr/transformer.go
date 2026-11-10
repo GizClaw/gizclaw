@@ -269,11 +269,13 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		historyRoutes[key] = struct{}{}
 		return output.Push(historyUserAudioBOSChunk(streamID, mimeType))
 	}
-	closeHistoryRoute := func(key historyRouteKey) error {
+	closeHistoryRoute := func(key historyRouteKey, cause error) error {
 		delete(historyRoutes, key)
-		return output.Push(historyUserAudioEOSChunk(key.streamID, key.mimeType))
+		terminal := historyUserAudioEOSChunk(key.streamID, key.mimeType)
+		genx.SetStreamError(terminal.Ctrl, cause)
+		return output.Push(terminal)
 	}
-	closeHistoryStream := func(streamID, fallbackMIME string) error {
+	closeHistoryStream := func(streamID, fallbackMIME string, cause error) error {
 		keys := make([]historyRouteKey, 0)
 		for key := range historyRoutes {
 			if key.streamID == streamID {
@@ -291,7 +293,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			return strings.Compare(a.mimeType, b.mimeType)
 		})
 		for _, key := range keys {
-			if err := closeHistoryRoute(key); err != nil {
+			if err := closeHistoryRoute(key, cause); err != nil {
 				return err
 			}
 		}
@@ -309,7 +311,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			return strings.Compare(a.mimeType, b.mimeType)
 		})
 		for _, key := range keys {
-			if err := closeHistoryRoute(key); err != nil {
+			if err := closeHistoryRoute(key, nil); err != nil {
 				return err
 			}
 		}
@@ -325,7 +327,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		sessionRoute = newDoubaoASRRouteState(sourceChunk)
 		next, err := newRecoveringSession(ctx, cfg, sessionRoute, t.emitInterim, t.recoveryTimeout, openSession, inputReader.activate)
 		if err != nil {
-			return err
+			return &providerStartupError{cause: err}
 		}
 		session = next
 		sessionConfig = cfg
@@ -417,14 +419,14 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		sessionSourceChunk = nil
 		sessionRoute = nil
 	}
-	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk, errorText string) error {
+	emitTranscriptEOS := func(sourceChunk *genx.MessageChunk, cause error) error {
 		if !lastSessionTranscriptBegan {
 			if err := output.Push(transcriptTextChunk(sourceChunk, "", true, false)); err != nil {
 				return err
 			}
 		}
 		terminal := transcriptTextChunk(sourceChunk, "", false, true)
-		terminal.Ctrl.Error = errorText
+		genx.SetStreamError(terminal.Ctrl, cause)
 		return output.Push(terminal)
 	}
 
@@ -537,7 +539,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		return err
 	}
-	interruptSession := func() error {
+	interruptSession := func(cause error) error {
 		if session == nil {
 			return nil
 		}
@@ -550,7 +552,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 			interruptedSource = sourceChunkForStream(lastChunk, interruptedID)
 		}
 		if sessionRoute != nil {
-			sessionRoute.interrupt("interrupted")
+			sessionRoute.interruptWithError(cause)
 		}
 		_ = session.Close()
 		if resultsForwarded != nil {
@@ -560,10 +562,10 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if !t.emitInterim {
 			// A replacement must retire the old input's History channels even
 			// when it interrupts recognition before that input's audio EOS.
-			if err := closeHistoryStream(interruptedID, "audio/pcm"); err != nil {
+			if err := closeHistoryStream(interruptedID, "audio/pcm", cause); err != nil {
 				return err
 			}
-			if err := emitTranscriptEOS(interruptedSource, "interrupted"); err != nil {
+			if err := emitTranscriptEOS(interruptedSource, cause); err != nil {
 				return err
 			}
 		}
@@ -598,7 +600,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 				}
 			}
 			if hadSession && !t.emitInterim {
-				if err := emitTranscriptEOS(sourceChunk, ""); err != nil {
+				if err := emitTranscriptEOS(sourceChunk, nil); err != nil {
 					return
 				}
 			}
@@ -610,7 +612,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		}
 		if sessionRoute != nil && sessionRoute.interruption() != "" {
 			discardStreamID, _ = sessionRoute.current()
-			if err := interruptSession(); err != nil {
+			if err := interruptSession(sessionRoute.interruptionCause()); err != nil {
 				output.CloseWithError(err)
 				return
 			}
@@ -626,7 +628,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		if chunk.IsBeginOfStream() && chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.StreamID) != "" {
 			nextStreamID := strings.TrimSpace(chunk.Ctrl.StreamID)
 			if session != nil && activeStreamID != "" && nextStreamID != activeStreamID {
-				if err := interruptSession(); err != nil {
+				if err := interruptSession(errors.New("interrupted")); err != nil {
 					output.CloseWithError(err)
 					return
 				}
@@ -640,10 +642,20 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 		// Check for EoS marker with audio MIME type
 		if chunk.IsEndOfStream() {
 			if blob, ok := chunk.Part.(*genx.Blob); ok && isAudioMIME(blob.MIMEType) {
-				if err := genx.StreamError(chunk.Ctrl); err != nil {
-					clearSession()
-					output.CloseWithError(err)
-					return
+				if cause := genx.StreamError(chunk.Ctrl); cause != nil {
+					if err := ctx.Err(); err != nil {
+						output.CloseWithError(err)
+						return
+					}
+					// The input channel failed; its outer transport remains usable.
+					// Retire and join this session without finalizing buffered audio.
+					discardStreamID = resolveStreamID(chunk)
+					if err := interruptSession(cause); err != nil {
+						output.CloseWithError(err)
+						return
+					}
+					activeStreamID = ""
+					continue
 				}
 				finishingRoute := sessionRoute
 				if t.emitInterim {
@@ -663,7 +675,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					sourceChunk = sourceChunkForStream(chunk, historyStreamID)
 				}
 				if !t.emitInterim {
-					if err := closeHistoryStream(historyStreamID, blob.MIMEType); err != nil {
+					if err := closeHistoryStream(historyStreamID, blob.MIMEType, nil); err != nil {
 						return
 					}
 				}
@@ -677,7 +689,7 @@ func (t *Transformer) transformLoop(parentCtx context.Context, input genx.Stream
 					continue
 				}
 				if !t.emitInterim {
-					if err := emitTranscriptEOS(sourceChunk, ""); err != nil {
+					if err := emitTranscriptEOS(sourceChunk, nil); err != nil {
 						return
 					}
 				}
@@ -983,7 +995,7 @@ type doubaoASRRouteState struct {
 	streamID        string
 	generation      uint64
 	transcriptBegan bool
-	terminalError   string
+	terminalCause   error
 }
 
 func newDoubaoASRRouteState(chunk *genx.MessageChunk) *doubaoASRRouteState {
@@ -1039,21 +1051,36 @@ func (s *doubaoASRRouteState) transcriptStarted() bool {
 }
 
 func (s *doubaoASRRouteState) interrupt(errorText string) {
+	var cause error
+	if errorText = strings.TrimSpace(errorText); errorText != "" {
+		cause = errors.New(errorText)
+	}
+	s.interruptWithError(cause)
+}
+
+func (s *doubaoASRRouteState) interruptWithError(cause error) {
 	if s == nil {
 		return
 	}
 	s.mu.Lock()
-	s.terminalError = strings.TrimSpace(errorText)
+	s.terminalCause = cause
 	s.mu.Unlock()
 }
 
-func (s *doubaoASRRouteState) interruption() string {
+func (s *doubaoASRRouteState) interruptionCause() error {
 	if s == nil {
-		return ""
+		return nil
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	return s.terminalError
+	return s.terminalCause
+}
+
+func (s *doubaoASRRouteState) interruption() string {
+	if cause := s.interruptionCause(); cause != nil {
+		return cause.Error()
+	}
+	return ""
 }
 
 func newDoubaoASRHistoryAudioBuffer(cfg doubaoASRSessionConfig) *doubaoASRHistoryAudioBuffer {
@@ -1472,6 +1499,9 @@ func (t *Transformer) receiveResults(ctx context.Context, session doubaoASRSessi
 			Name: "transcript",
 			Part: genx.Text(""),
 			Ctrl: streamCtrl(false, true, errText),
+		}
+		if cause := route.interruptionCause(); cause != nil {
+			genx.SetStreamError(outChunk.Ctrl, cause)
 		}
 		resultsCh <- outChunk
 		transcriptOpen = false

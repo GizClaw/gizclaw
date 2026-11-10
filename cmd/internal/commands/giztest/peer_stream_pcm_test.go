@@ -350,7 +350,7 @@ func TestPeerAudioPacingConcealedPCMDoesNotInventOriginalPackets(t *testing.T) {
 	}
 }
 
-func TestWorkspaceRelayPCMRetainsWholeRelayByteLimit(t *testing.T) {
+func TestWorkspaceRelayPCMWholeBudgetAllowsSupportedTurns(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	first, second := newFakeRelayStream(), newFakeRelayStream()
@@ -364,20 +364,48 @@ func TestWorkspaceRelayPCMRetainsWholeRelayByteLimit(t *testing.T) {
 		done <- outcome{result, err}
 	}()
 	drainUserTurn(t, first)
-	// Each 9 MiB PCM payload fits the unchanged per-turn byte and duration
-	// limits. Together they must exceed the whole-relay byte budget even
-	// though neither concealed payload supplies original network bytes.
+	// Each concealed payload fits the supported turn duration. Their combined
+	// PCM exceeds the encoded-byte cap, but fits the two-turn PCM allowance.
+	// Neither supplies original network bytes.
 	first.in <- pcmAssistantChunk("first-audio", 9<<19, nil, true)
 	first.in <- assistantText("first-text", "next", true)
 	drainUserTurn(t, second)
 	second.in <- pcmAssistantChunk("second-audio", 9<<19, nil, true)
 	second.in <- assistantText("second-text", "PASS", true)
 	got := <-done
-	if got.err == nil || !strings.Contains(got.err.Error(), "16777216-byte relay audio limit") {
-		t.Fatalf("concealment escaped the whole-relay byte budget: %v", got.err)
+	if got.err != nil {
+		t.Fatalf("supported concealed PCM exhausted the encoded-byte budget: %v", got.err)
 	}
-	if got.result.evidence["audio_bytes"] != 0 || got.result.evidence["completed_turns"] != 1 {
+	if got.result.evidence["audio_bytes"] != 0 || got.result.evidence["completed_turns"] != 2 {
 		t.Fatalf("concealment changed original bytes or turn ownership: %#v", got.result.evidence)
+	}
+}
+
+func TestWorkspaceRelayPCMMaximumTurnsUsesWideBudget(t *testing.T) {
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	defer cancel()
+	first, second := newFakeRelayStream(), newFakeRelayStream()
+	type outcome struct {
+		result operationResult
+		err    error
+	}
+	done := make(chan outcome, 1)
+	go func() {
+		result, err := runWorkspaceRelay(ctx, textRelayOperation(256), first, second, "brief", 0)
+		done <- outcome{result, err}
+	}()
+	// The allowance for 256 turns exceeds uint32. Exercise its real comparison
+	// with small frames rather than allocating the multi-gigabyte allowance.
+	sides := [2]*fakeRelayStream{first, second}
+	for turn := range 256 {
+		side := sides[turn%2]
+		drainUserTurn(t, side)
+		side.in <- pcmAssistantChunk("audio", 320, nil, true)
+		side.in <- assistantText("text", "next", true)
+	}
+	got := <-done
+	if got.err != nil || got.result.evidence["completed_turns"] != 256 || got.result.evidence["audio_bytes"] != 0 {
+		t.Fatalf("maximum-turn PCM budget overflowed: result=%#v error=%v", got.result.evidence, got.err)
 	}
 }
 
@@ -449,9 +477,13 @@ func TestWorkspaceRelayPCMTurnAudioLimits(t *testing.T) {
 		{name: "empty PCM retains event guard", frames: 4097, wantError: "4096-event"},
 		{name: "padded originals retain byte guard", frames: 16300, samples: 320, original: padded, wantError: "relay turn audio limit"},
 		{name: "discarded originals retain byte guard", frames: 16300, samples: 320, original: padded, discarded: true, wantError: "relay turn audio limit"},
-		{name: "oversized PCM", frames: 1, samples: giztest.MaxRelayAudioBytes/2 + 1, wantError: "relay turn audio limit"},
-		{name: "concealment retains byte guard", frames: 1, samples: giztest.MaxRelayAudioBytes/2 + 1, concealed: true, wantError: "relay turn audio limit"},
-		{name: "discarded PCM retains byte guard", frames: 1, samples: giztest.MaxRelayAudioBytes/2 + 1, discarded: true, wantError: "relay turn audio limit"},
+		{name: "exact ten minutes", frames: 30000, samples: 320},
+		{name: "exact ten minutes PLC", frames: 30000, samples: 320, concealed: true},
+		{name: "over ten minutes", frames: 30001, samples: 320, wantError: "relay turn PCM limit"},
+		{name: "over ten minutes PLC", frames: 30001, samples: 320, concealed: true, wantError: "relay turn PCM limit"},
+		{name: "oversized PCM", frames: 1, samples: int(relayMaxTurnPCMBytes/2) + 1, wantError: "relay turn PCM limit"},
+		{name: "concealment retains byte guard", frames: 1, samples: int(relayMaxTurnPCMBytes/2) + 1, concealed: true, wantError: "relay turn PCM limit"},
+		{name: "discarded PCM retains byte guard", frames: 1, samples: int(relayMaxTurnPCMBytes/2) + 1, discarded: true, wantError: "relay turn PCM limit"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)

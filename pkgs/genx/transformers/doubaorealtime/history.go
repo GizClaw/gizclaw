@@ -178,6 +178,10 @@ func (r *doubaoRealtimeHistoryRoutes) push(output realtimeChunkOutput, chunk *ge
 }
 
 func (r *doubaoRealtimeHistoryRoutes) close(output realtimeChunkOutput, streamID, mimeType string) error {
+	return r.closeWithError(output, streamID, mimeType, nil)
+}
+
+func (r *doubaoRealtimeHistoryRoutes) closeWithError(output realtimeChunkOutput, streamID, mimeType string, cause error) error {
 	if r == nil {
 		return nil
 	}
@@ -216,7 +220,9 @@ func (r *doubaoRealtimeHistoryRoutes) close(output realtimeChunkOutput, streamID
 		routes = append(routes, route)
 	}
 	for _, route := range routes {
-		if err := output.Push(historyUserAudioEOSChunk(route.streamID, route.mimeType)); err != nil {
+		terminal := historyUserAudioEOSChunk(route.streamID, route.mimeType)
+		genx.SetStreamError(terminal.Ctrl, cause)
+		if err := output.Push(terminal); err != nil {
 			return fmt.Errorf("push history user audio eos: %w", err)
 		}
 		delete(r.open, route)

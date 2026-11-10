@@ -266,9 +266,18 @@ encoded Opus. Its budget is defined by
 Duplicate and late packets are dropped; source replacement and confirmed
 sequence/clock discontinuities reset decoder history. DTX and unknown trailing loss do not create guessed audio.
 
-Business streams receive signed little-endian PCM16 at 16 kHz mono, including
-PCM BOS/EOS boundaries. `genx.Blob.OriginalAudio` retains only real encoded bytes
-for recording or passthrough, and `ConcealedAudio` marks synthesized PCM. These
+Normal business streams receive signed little-endian PCM16 at 16 kHz mono,
+including PCM BOS/EOS boundaries. Accepted SFU input routes instead select bounded
+encoded reception before BOS is delivered: their Opus BOS/data/EOS contain only
+real originals and require no native decoder, on both native and unsupported
+runtimes. The media packet owner serializes mode changes and discards pending old
+media; the selected format remains stable through EOS. A runtime without native
+Opus rejects normal PCM input at route admission with `AUDIO_DECODER_UNAVAILABLE`
+EOS while keeping reliable services available. Unexpected decoder startup failures
+on a supported runtime remain terminal errors.
+
+`genx.Blob.OriginalAudio` retains only real encoded bytes behind decoded PCM for
+recording or passthrough, and `ConcealedAudio` marks synthesized PCM. These
 process-local fields are excluded from JSON. Transformers do not parse RTP or
 manage jitter/PLC. EOS releases media already held by the receiver before ending
 the logical route; it does not read future packets during a timed grace window.
