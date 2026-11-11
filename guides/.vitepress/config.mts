@@ -56,6 +56,7 @@ const zhDevelopingSidebar = [
         collapsed: false,
         items: [
           { text: "pkgs/giznet", link: "/zh/developing/giznet" },
+          { text: "pkgs/mcp", link: "/zh/developing/mcp" },
           {
             text: "pkgs/gizclaw",
             collapsed: false,
