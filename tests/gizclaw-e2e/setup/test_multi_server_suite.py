@@ -7,8 +7,7 @@ import stat
 import subprocess
 import sys
 import tempfile
-import unittest
-from unittest import mock
+from unittest import TestCase, main, mock
 
 
 E2E = Path(__file__).resolve().parents[1]
@@ -23,7 +22,7 @@ def shell_function(source, name):
     return match.group()
 
 
-class SharedScenarioDiscoveryTests(unittest.TestCase):
+class SharedScenarioDiscoveryTests(TestCase):
     def test_all_four_language_suites_exclude_dedicated_usage_cases(self):
         source = SHARED.read_text()
         filter_function = shell_function(source, "filter_shared_stack_giztests")
@@ -64,7 +63,7 @@ class SharedScenarioDiscoveryTests(unittest.TestCase):
         self.assertIn('compose run --rm -T giztest "${scenarios[@]}"', source)
 
 
-class MultiServerSourceManifestTests(unittest.TestCase):
+class MultiServerSourceManifestTests(TestCase):
     def setUp(self):
         temporary = tempfile.TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -86,7 +85,7 @@ class MultiServerSourceManifestTests(unittest.TestCase):
                 return b"\0".join(os.fsencode(entry) for entry in entries) + b"\0"
             if args[3:] == ["rev-parse", "HEAD"]:
                 return "fixture-revision\n"
-            self.fail(f"unexpected subprocess: {args}")
+            raise AssertionError(f"unexpected subprocess: {args}")
 
         read_bytes = Path.read_bytes
 
@@ -142,4 +141,4 @@ class MultiServerSourceManifestTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main()
+    main()
