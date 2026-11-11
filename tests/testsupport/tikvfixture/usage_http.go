@@ -67,7 +67,7 @@ func (h *usageHTTP) origin(endpoint string) (origin string, control bool, err er
 func usageHTTPPath(path string, control bool) error {
 	if control {
 		switch path {
-		case "/invoke", "/after", "/race", "/wait", "/release":
+		case "/arm", "/invoke", "/after", "/race", "/wait", "/release":
 			return nil
 		default:
 			return errors.New("HTTP path must be a TiKV usage coordination operation")

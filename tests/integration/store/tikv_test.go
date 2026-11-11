@@ -650,6 +650,9 @@ func (tiKVRetirement) RetirePeerSocial(context.Context, social.PeerSnapshot) (so
 func (r tiKVRetirement) SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error) {
 	return workspace.PeerRetirementSnapshot{PublicKey: r.owner}, nil
 }
+func (r tiKVRetirement) PreparePeerWorkspacesRetirement(ctx context.Context, owner string) (workspace.PeerRetirementSnapshot, error) {
+	return r.SnapshotPeerWorkspaces(ctx, owner)
+}
 func (tiKVRetirement) RetirePeerWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error) {
 	return nil, nil
 }

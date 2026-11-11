@@ -52,6 +52,7 @@ type pending struct {
 
 type claimReservation struct {
 	expected  []byte
+	owner     []byte
 	claimed   bool
 	uncertain bool
 }
@@ -60,7 +61,6 @@ type ownership struct {
 	expected    []byte
 	initialized bool
 	claimed     bool
-	uncertain   bool
 	fenced      bool
 	reservation claimReservation
 }
@@ -267,13 +267,14 @@ func (s *Service) write(peer giznet.PublicKey, p *pending) {
 	}
 }
 
-// reserveClaim orders first claims before their initial (possibly stale) owner
-// read. A newer reservation fences every older pending claim, while a pending
-// reservation does not revoke the current owner's ordinary updates. Reservations
-// never expire or get deleted: an uncertain retry retains its original condition
-// and cannot replace a newer reservation. Only the per-Peer writer calls this.
-// Owner tokens remain opaque, including persisted legacy values. All concurrent
-// writers must participate; older binaries do not honor the reservation guard.
+// reserveClaim orders first claims and pins the exact owner in the same CAS.
+// A legacy writer can replace the owner without changing claims, so publication
+// must keep this pinned owner even after a definitive rejection. A newer
+// reservation fences older pending claims without revoking the current owner's
+// ordinary updates. Reservations never expire or get deleted: an uncertain retry
+// retains both original conditions and cannot replace a newer reservation.
+// Owner values remain opaque, including persisted legacy values. Only the
+// per-Peer writer calls this.
 func (s *Service) reserveClaim(ctx context.Context, publisher *Publisher, token []byte) error {
 	owner := &publisher.ownership
 	reservation := &owner.reservation
@@ -285,6 +286,7 @@ func (s *Service) reserveClaim(ctx context.Context, publisher *Publisher, token 
 			Conditions: []kv.Condition{
 				{Key: generationKey(s.server), Expected: []byte(s.generation)},
 				{Key: claimKey(publisher.peer), Expected: reservation.expected},
+				{Key: ownerKey(publisher.peer), Expected: reservation.owner},
 			},
 			Entries: []kv.Entry{{Key: claimKey(publisher.peer), Value: token}},
 		}
@@ -310,9 +312,9 @@ func (s *Service) reserveClaim(ctx context.Context, publisher *Publisher, token 
 			owner.fenced = true
 			return nil
 		}
-		// No owner has been read or claim attempted yet. A definite rejection
-		// can acquire a later place in the authority's reservation order.
-		reservation.expected = current
+		// No reservation has committed or publication been attempted yet.
+		// Refresh both guards before acquiring a place in reservation order.
+		reservation.expected, reservation.owner = current, observed[2].Value
 	}
 	return errors.New("peerpresence: reservation contention")
 }
@@ -375,11 +377,7 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 		if err := s.reserveClaim(ctx, publisher, token); err != nil || owner.fenced || s.ctx.Err() != nil {
 			return err
 		}
-		expected, err := s.readOwner(ctx, peer)
-		if err != nil {
-			return err
-		}
-		owner.expected, owner.initialized = expected, true
+		owner.expected, owner.initialized = owner.reservation.owner, true
 	}
 	value, _ := json.Marshal(record{Snapshot: snapshot, Server: s.server, Generation: s.generation})
 	for range 8 {
@@ -396,7 +394,6 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 		}
 		result := s.applyTransition(ctx, mutation)
 		if result.err != nil {
-			owner.uncertain = true
 			return result.err
 		}
 		if result.matched {
@@ -412,12 +409,6 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 			// An earlier attempt committed but its response was lost. The
 			// owner token now suffices even if a newer reservation is pending.
 			owner.expected, owner.claimed = token, true
-			continue
-		}
-		if !owner.claimed && !owner.uncertain && bytes.Equal(observed[2].Value, token) {
-			// A stale first owner read may recover only while our reservation
-			// remains current. The retry atomically rechecks that reservation.
-			owner.expected = current
 			continue
 		}
 		owner.fenced = true

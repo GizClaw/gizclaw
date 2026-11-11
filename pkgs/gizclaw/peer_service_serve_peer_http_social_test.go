@@ -76,9 +76,10 @@ func newSocialHTTPFixture(t *testing.T) *socialHTTPFixture {
 		}
 		return f.peers.EnsureAvailable(ctx, key)
 	}
+	friendRoot := kv.NewMemory(nil)
 	f.public.Friends = &friend.Server{
-		InviteTokens:     kv.NewMemory(nil),
-		Friends:          kv.NewMemory(nil),
+		InviteTokens:     kv.Prefixed(friendRoot, kv.Key{"invite-tokens"}),
+		Friends:          kv.Prefixed(friendRoot, kv.Key{"friends"}),
 		Workspaces:       &adminTestWorkspaceService{},
 		Profiles:         f.peers,
 		PeerAvailability: availability,

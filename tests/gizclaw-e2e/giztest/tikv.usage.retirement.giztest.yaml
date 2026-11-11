@@ -53,6 +53,10 @@ steps:
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: group.get, id: '${group_id}'}}
     expect: {/value/workspace_id: {non_empty: true}}
+  - id: create_owned_workspace_positive_control
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.create, owner: '${alice_public}', name: '${name}-owned', token: workspace-reload-echo, primary: true}}
+    expect: {/value/name: {equals: '${name}-owned'}}
   - id: observe_known_member_lookup
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: stale-known-member, key: [friend-group-members, '${group_id}', '${alice_public}'], commands: [Get], source: learner, stage: response, count_only: true, diagnostics: true}}
@@ -102,6 +106,24 @@ steps:
       /value/groups/0/friend_group_id: {equals: '${group_id}'}
       /value/groups/0/peer_public_key: {equals: '${alice_public}'}
       /value/groups/0/workspace_name: {equals: '${workspace}'}
+  - id: prepare_owned_workspace_retirement
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.prepare, peer: '${alice_public}'}}
+    expect:
+      /value/public_key: {equals: '${alice_public}'}
+      /value/workspaces: {count: 1}
+      /value/workspaces/0/name: {equals: '${name}-owned'}
+  - id: peer_remains_available_behind_sql_fence
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peer.available, peer: '${alice_public}', primary: true}}
+  - id: late_owned_workspace_create_is_refused
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.create, owner: '${alice_public}', name: '${name}-late-owned', token: workspace-reload-echo, primary: true, expected_error: true}}
+    expect: {/error: {non_empty: true}}
+  - id: rejected_workspace_has_no_sql_row
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${name}-late-owned', equals: 0}}
+    expect: {/value/count: {equals: 0}}
   - id: late_contact_admission_is_refused
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: contact.create, owner: '${alice_public}', name: late-contact, expected_error: true}}
@@ -126,6 +148,10 @@ steps:
       path: /invoke
       body: {operation: read, store: peer, key: [records, by-pubkey, '${alice_public}'], primary: true, found: true, field: state, equals: deleted, wait: 80s}
     expect: {/value/data/version: {equals: 1}, /value/data/state: {equals: deleted}}
+  - id: retired_owned_workspace_has_no_sql_row
+    client: bob
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${name}-owned', equals: 0, wait: 20s}}
+    expect: {/value/count: {equals: 0}}
   - id: completed_peer_has_no_task
     client: bob
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peer.tasks, peer: '${alice_public}', primary: true}}

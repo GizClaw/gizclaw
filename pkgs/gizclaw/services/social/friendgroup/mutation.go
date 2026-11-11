@@ -30,6 +30,35 @@ func retryGroupMutation[T any](ctx context.Context, attempt func(context.Context
 	return attempt(kv.WithPrimaryReads(ctx))
 }
 
+// retryNamedGroupMutation resolves a name inside the retry boundary and pins the
+// first canonical ID it observes. A missing reader index gets one authority
+// attempt, while later conflicts cannot follow a reassigned name.
+func retryNamedGroupMutation[T any](ctx context.Context, resolve func(context.Context) (string, error), attempt func(context.Context, string) (T, error)) (T, error) {
+	var id string
+	return retryGroupMutation(ctx, func(ctx context.Context) (T, error) {
+		if id == "" {
+			resolved, err := resolve(ctx)
+			if err != nil {
+				var zero T
+				return zero, groupMutationReadError(ctx, err)
+			}
+			id = resolved
+		}
+		return attempt(ctx, id)
+	})
+}
+
+// groupMutationReadError marks a reader's missing precommit observation for
+// bounded recovery. A primary miss keeps its original not-found classification.
+// Do not use it on writes or postcommit projections: an uncertain write
+// acknowledgement must never cause a semantic replay.
+func groupMutationReadError(ctx context.Context, err error) error {
+	if errors.Is(err, kv.ErrNotFound) && kv.WithPrimaryReads(ctx) != ctx {
+		return errors.Join(ErrGroupChanged, err)
+	}
+	return err
+}
+
 func groupRevisionKey(id string) kv.Key {
 	return kv.Key{"group-revisions", socialutil.EscapeStoreSegment(id)}
 }
@@ -62,7 +91,7 @@ func (s *Server) readGroupMutation(ctx context.Context, id string, participants 
 	}
 	state.revision, err = store.Get(ctx, state.revisionKey)
 	if err != nil {
-		return groupMutation{}, err
+		return groupMutation{}, groupMutationReadError(ctx, err)
 	}
 	if len(state.revision) == 0 {
 		return groupMutation{}, errors.New("social: empty group revision")
@@ -197,7 +226,7 @@ func (s *Server) updateGroupInviteToken(ctx context.Context, owner, id string, u
 		key := s.relationshipKey(guard.prefixes[3], socialutil.GroupMemberKey(id, owner))
 		data, err := guard.store.Get(ctx, key)
 		if err != nil {
-			return nil, err
+			return nil, groupMutationReadError(ctx, err)
 		}
 		var member friendGroupMemberRecord
 		if err := json.Unmarshal(data, &member); err != nil {
@@ -234,6 +263,72 @@ func (s *Server) updateGroupInviteToken(ctx context.Context, owner, id string, u
 		return nil, ErrGroupChanged
 	}
 	return data, err
+}
+
+// proveGroupJoin acknowledges an existing membership only while its exact
+// lifecycle, member record, projections and invitation are still authoritative.
+// A rejected proof goes through the same bounded retry as a new admission.
+func (s *Server) proveGroupJoin(ctx context.Context, id, peer, name string, invitation []kv.Condition) (rpcapi.FriendGroupJoinResponse, error) {
+	members, err := s.membersStore()
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	belongs, err := s.belongsStore()
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	invites, err := s.groupInviteTokensStore()
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	guard, err := s.readGroupMutation(ctx, id, members, belongs, invites)
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	memberKey := s.relationshipKey(guard.prefixes[0], socialutil.GroupMemberKey(id, peer))
+	data, err := guard.store.Get(ctx, memberKey)
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, groupMutationReadError(ctx, err)
+	}
+	var member friendGroupMemberRecord
+	if err := json.Unmarshal(data, &member); err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	if err := member.validate(); err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	if member.FriendGroupID != id || member.PeerPublicKey != peer {
+		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: Group join membership identity mismatch")
+	}
+	conditions, err := guard.peerRetirementConditions(ctx, guard.prefixes[1], peer)
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	conditions = append(conditions, guard.conditions()...)
+	conditions = append(conditions,
+		kv.Condition{Key: memberKey, Expected: data},
+		kv.Condition{Key: s.relationshipKey(guard.prefixes[1], socialutil.GroupBelongKey(peer, id)), Expected: data},
+		kv.Condition{Key: s.relationshipKey(guard.prefixes[1], socialutil.GroupNameKey(peer, member.FriendGroupName)), Expected: []byte(id)})
+	for _, condition := range invitation {
+		condition.Key = s.relationshipKey(guard.prefixes[2], condition.Key)
+		conditions = append(conditions, condition)
+	}
+	proved, err := guard.store.ApplyMutation(ctx, kv.Mutation{Conditions: conditions})
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	if !proved {
+		return rpcapi.FriendGroupJoinResponse{}, ErrGroupChanged
+	}
+	if member.FriendGroupName != name {
+		return rpcapi.FriendGroupJoinResponse{}, ErrFriendGroupMembershipNameImmutable
+	}
+	var group rpcapi.FriendGroupObject
+	if err := json.Unmarshal(guard.groupData, &group); err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	group.Name, group.MyRole = member.FriendGroupName, new(member.Role)
+	return rpcapi.FriendGroupJoinResponse{Group: group, Member: member.peerObject()}, nil
 }
 
 func rejectPeerGroupRetirement(ctx context.Context, belongs kv.Store, peerID string) error {

@@ -50,6 +50,8 @@ Admin 好友列表保留跨 owner 的分页查询。当前好友行的定位信�
 
 每个 Peer 最多 10 个好友，自己发起和对方发起的关系合并计数；上限由 `socialutil.PeerFriendLimit` 写死，不通过 RuntimeProfile 或配置调整。创建前先检查双方人数，避免为注定失败的请求创建 Workspace；提交 relationship 时再次检查：每次创建都原子推进双方的 per-Peer 好友版本，提交时比较双方版本，因此不同 Server 并发创建也不会超过上限。任一方已满时，`friend.add` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `FRIEND_LIMIT_REACHED`；Admin HTTP 创建返回 `409 Conflict` 与错误码 `FRIEND_LIMIT_REACHED`。提交时已放不下的待创建关系会被取消并删除其 Workspace。重复添加已有好友仍然成功。
 
+Mutation preflight can refresh a missing Group or invitation and recheck a full capacity observation once before rejecting admission. Invitation and relationship views used by each service must share an atomic KV root, as in Server composition. Friend and Group invitation admission carries exact token-record and digest-index conditions into the relationship commit; Friend recovery retains those conditions in its intent. Existing relationships and memberships are conditionally proved before a mutation acknowledges idempotent success. Ordinary queries retain the configured reader policy. Legacy ownerless Friend cancellation records require durable creation evidence or an exact owner-scoped local system Workspace before an owner is persisted for cleanup; foreign SQL absence is not sufficient.
+
 ### friendgroup
 
 群组的主记录、成员、邀请、Workspace binding 与定位记录、删除意图与回执、恢复索引、已删除名称索引及 Friend Group `PendingDeletion` 记录和任务索引，全部位于配置的 `FriendGroupStore` 命名空间内。`RelationshipStore` 保留这个带前缀的视图；跨视图原子操作解析到底层 Store 时，为每个键恢复完整前缀。后台恢复与清理使用同一视图，不能访问其他命名空间的任务，也不回退读取命名空间外的数据。

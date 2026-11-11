@@ -38,6 +38,7 @@ variables:
   replication: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_REPLICATION_PROXY}
   replacement_workspace_id: {direction: output, type: string}
   admin_workspace_id: {direction: output, type: string}
+  admin_read_version: {direction: output, type: number}
 steps:
   - id: fresh_peer_readiness
     client: alice
@@ -187,6 +188,16 @@ steps:
   - id: wait_pair_absent_from_reader
     client: alice
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], found: false, wait: 20s}}
+  - id: retain_old_receipt_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: true}}
+    expect: {/frozen: {equals: true}}
+  - id: retained_old_receipt_ready_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], found: true, require_learner: true, wait: 20s}}
+  - id: retained_pair_absence_ready_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], found: false, require_learner: true, wait: 20s}}
   - id: hold_old_pair_absence
     client: alice
     http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: old-receipt, key: [friends, '${alice_public}', '${relation}'], commands: [Get], source: learner, stage: response}}
@@ -225,6 +236,10 @@ steps:
     client: alice
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], primary: true}}
     expect: {/value/data/workspace_id: {equals: '${replacement_workspace_id}'}}
+  - id: resume_after_old_receipt_race
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: false}}
+    expect: {/frozen: {equals: false}}
   - id: wait_latest_retirement_visible
     client: alice
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], field: workspace_id, equals: '${replacement_workspace_id}', wait: 20s}}
@@ -235,6 +250,14 @@ steps:
   - id: wait_latest_peer_revision_visible
     client: alice
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-peer-revisions, '${alice_public}'], equals: '${receipt_peer_revision}', found: true, wait: 20s}}
+  - id: retain_admin_projection_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: true}}
+    capture: {admin_read_version: /read_version}
+    expect: {/frozen: {equals: true}, /read_version: {minimum: 1}}
+  - id: retained_admin_receipt_ready_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], field: workspace_id, equals: '${replacement_workspace_id}', found: true, require_learner: true, wait: 20s}}
   - id: freeze_positive_old_receipt
     client: alice
     http: {endpoint: '${replication}', method: POST, path: /freeze, body: {}}
@@ -254,6 +277,7 @@ steps:
       /rules/admin-old-receipt/application_reads: {minimum: 1}
       /rules/admin-old-receipt/learner_reads: {minimum: 1}
       /rules/admin-old-receipt/positive_responses: {minimum: 1}
+      /rules/admin-old-receipt/last_read_version: {equals: '${admin_read_version}'}
   - id: admin_projection_matches_committed_binding
     client: alice
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-workspace-bindings, '${relation}'], primary: true}}
@@ -261,6 +285,10 @@ steps:
   - id: resume_after_admin_projection
     client: alice
     http: {endpoint: '${replication}', method: POST, path: /resume, body: {}}
+    expect: {/frozen: {equals: false}}
+  - id: resume_admin_projection_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: false}}
     expect: {/frozen: {equals: false}}
   - id: materialize_retry_competitor_workspace
     client: alice

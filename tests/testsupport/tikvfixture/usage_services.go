@@ -17,6 +17,7 @@ import (
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerroute"
@@ -24,6 +25,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/contact"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friend"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -34,19 +36,20 @@ import (
 // and private diagnostics; tested device requests still use Giztest RPC/HTTP.
 // No control operation writes raw KV rows or synthetic successful responses.
 type UsageServices struct {
-	Stores        map[string]kv.Store
-	Workspaces    *sql.DB
-	AdminEndpoint string
-	Materialize   func(context.Context, string, string, string) (any, error)
-	Peers         *peer.Server
-	Routes        *peerroute.Server
-	Friends       *friend.Server
-	Groups        *friendgroup.Server
-	Contacts      *contact.Server
-	Presence      *peerpresence.Service
-	mu            sync.Mutex
-	publishers    map[string]*peerpresence.Publisher
-	http          *usageHTTP
+	Stores           map[string]kv.Store
+	Workspaces       *sql.DB
+	WorkspaceService *workspace.Server
+	AdminEndpoint    string
+	Materialize      func(context.Context, string, string, string) (any, error)
+	Peers            *peer.Server
+	Routes           *peerroute.Server
+	Friends          *friend.Server
+	Groups           *friendgroup.Server
+	Contacts         *contact.Server
+	Presence         *peerpresence.Service
+	mu               sync.Mutex
+	publishers       map[string]*peerpresence.Publisher
+	http             *usageHTTP
 }
 
 // AttachUsageServices connects private controls to production service instances.
@@ -246,6 +249,16 @@ func (s *UsageServices) invoke(ctx context.Context, a UsageAction) (any, error) 
 			return nil, fmt.Errorf("exact pending creation Workspace count = %d, want %v", count, a.Equals)
 		}
 		return map[string]any{"count": count, "workspace_name": intent.WorkspaceName, "workspace_owner": intent.WorkspaceOwner, "incarnation_id": intent.IncarnationID}, nil
+	case "workspace.prepare":
+		if s.WorkspaceService == nil {
+			return nil, errors.New("actual Workspace service is not attached")
+		}
+		return s.WorkspaceService.PreparePeerWorkspacesRetirement(ctx, a.Peer)
+	case "workspace.create":
+		if s.WorkspaceService == nil || a.Owner == "" || a.Name == "" || a.Token == "" {
+			return nil, errors.New("actual Workspace service, owner, name and Workflow ID required")
+		}
+		return s.WorkspaceService.CreatePeerWorkspace(ownership.WithOwner(ctx, a.Owner), workspace.PeerWorkspaceCreateRequest{Name: a.Name, WorkflowID: a.Token})
 	case "workspace.count":
 		if s.Workspaces == nil || a.Name == "" {
 			return nil, errors.New("Workspace database and exact name required")
@@ -459,7 +472,7 @@ func (s *UsageServices) read(ctx context.Context, a UsageAction) (any, error) {
 		}
 		found := true
 		if a.Operation == "members" {
-			members, err := store.ListMembers(ctx, key)
+			members, err := store.ListMembers(readContext, key)
 			if err != nil {
 				return nil, err
 			}

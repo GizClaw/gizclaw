@@ -52,16 +52,18 @@ var (
 	ErrPeerDeleted              = errors.New("workspace: owner Peer deleted")
 )
 
+// Server owns SQL Workspace records and coordinates their runtime lifecycle.
 type Server struct {
-	DB               *sqlx.DB
-	Workflows        WorkflowService
-	Models           ModelService
-	Voices           VoiceService
-	RuntimeStore     RuntimeStore
-	Assets           objectstore.ObjectStore
-	IconLocks        iconasset.Locker
-	NewID            func() string
-	PeerAvailability func(context.Context, string) error
+	DB                       *sqlx.DB
+	Workflows                WorkflowService
+	Models                   ModelService
+	Voices                   VoiceService
+	RuntimeStore             RuntimeStore
+	Assets                   objectstore.ObjectStore
+	IconLocks                iconasset.Locker
+	NewID                    func() string
+	PeerAvailability         func(context.Context, string) error
+	PeerMutationAvailability func(context.Context, string) error
 
 	ownerCreateLocks keyedlock.Locker[string]
 }
@@ -302,7 +304,7 @@ func (s *Server) createPeerWorkspace(ctx context.Context, request PeerWorkspaceC
 	if err != nil {
 		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateInvalid, err)
 	}
-	if err := s.ensureContextPeerAvailable(ctx); err != nil {
+	if err := s.ensureContextPeerAvailableForMutation(ctx); err != nil {
 		return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, err)
 	}
 	unlock := s.IconLocks.LockRecord(string(normalized.Name))
@@ -331,6 +333,9 @@ func (s *Server) createPeerWorkspace(ctx context.Context, request PeerWorkspaceC
 	}
 	workspace, err := s.createWorkspaceRecord(ctx, store, normalized, false, request.Initialize)
 	if err != nil {
+		if errors.Is(err, ErrPeerPendingDeletion) || errors.Is(err, ErrPeerDeleted) {
+			return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, err)
+		}
 		if errors.Is(err, errWorkspaceIDExists) || errors.Is(err, errWorkspaceNameExists) {
 			return apitypes.Workspace{}, peerWorkspaceCreateError(PeerWorkspaceCreateConflict, err)
 		}
@@ -350,10 +355,8 @@ func (s *Server) CreateSystemWorkspace(ctx context.Context, body adminhttp.Works
 	}
 	owner = strings.TrimSpace(owner)
 	ctx = ownership.WithOwner(ctx, owner)
-	if s.PeerAvailability != nil {
-		if err := s.PeerAvailability(ctx, owner); err != nil {
-			return apitypes.Workspace{}, false, err
-		}
+	if err := s.ensureContextPeerAvailableForMutation(ctx); err != nil {
+		return apitypes.Workspace{}, false, err
 	}
 	store, err := s.store()
 	if err != nil {
@@ -423,7 +426,7 @@ func (s *Server) createWorkspaceRecord(
 		return apitypes.Workspace{}, err
 	}
 	defer release()
-	if err := s.ensureContextPeerAvailable(ctx); err != nil {
+	if err := s.ensureContextPeerAvailableForMutation(ctx); err != nil {
 		return apitypes.Workspace{}, err
 	}
 	if _, err := getWorkspaceByID(ctx, store, normalized.Id); err == nil {
@@ -1063,15 +1066,22 @@ func (s *Server) ensureWorkspaceOwnerAvailable(ctx context.Context, value apityp
 	return s.PeerAvailability(ctx, *value.OwnerPublicKey)
 }
 
-func (s *Server) ensureContextPeerAvailable(ctx context.Context) error {
-	if s == nil || s.PeerAvailability == nil {
+func (s *Server) ensureContextPeerAvailableForMutation(ctx context.Context) error {
+	if s == nil {
+		return nil
+	}
+	check := s.PeerMutationAvailability
+	if check == nil {
+		check = s.PeerAvailability
+	}
+	if check == nil {
 		return nil
 	}
 	owner, ok := ownership.FromContext(ctx)
 	if !ok || strings.TrimSpace(owner) == "" {
 		return nil
 	}
-	return s.PeerAvailability(ctx, owner)
+	return check(ctx, owner)
 }
 
 func peerAvailabilityCode(err error) string {

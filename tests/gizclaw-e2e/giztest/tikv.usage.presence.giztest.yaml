@@ -22,20 +22,13 @@ steps:
     client: observer
     http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: identity.new}}
     capture: {subject: /value/public_key}
-  - id: delay_old_first_owner_observation
+  - id: delay_old_first_publication_after_reservation
     client: observer
     http:
       endpoint: '${probe_a}'
       method: POST
       path: /arm
-      body: {id: old-owner, key: [owners, '${subject}'], commands: [Get], source: learner, stage: response}
-  - id: observe_batched_rejection_recovery
-    client: observer
-    http:
-      endpoint: '${probe_a}'
-      method: POST
-      path: /arm
-      body: {id: authority-batch, key: [owners, '${subject}'], commands: [BatchGet], source: center, stage: response, count_only: true}
+      body: {id: old-owner, key: [presence, peers, '${subject}'], commands: [Prewrite], mutation_op: Put, source: center, stage: request, hold_all: true}
   - id: delayed_claim_and_newer_owner
     timeout: 20s
     client: observer
@@ -58,12 +51,21 @@ steps:
               wait_endpoint: '${probe_a}'
               gate: old-owner
               actions:
+                - {operation: http, endpoint: '${probe_a}', method: POST, path: /arm, body: {id: authority-batch, key: [owners, '${subject}'], commands: [BatchGet], source: center, stage: response, count_only: true}}
+                - {operation: read, store: peer, key: [presence, claims, '${subject}'], primary: true, found: true}
                 - {operation: presence.publish, peer: '${subject}', publisher: newer, online: true, workspace: usage-newer-owner}
                 - {operation: read, store: peer, key: [presence, peers, '${subject}'], primary: true, found: true, field: workspace_name, equals: usage-newer-owner, wait: 10s}
-    capture: {newer_owner: /newer_publisher/actions/1/value/data/server}
+    capture: {newer_owner: /newer_publisher/actions/3/value/data/server}
     expect:
-      /newer_publisher/boundary/learner_reads: {minimum: 1}
-      /newer_publisher/actions/1/value/data/online: {equals: true}
+      /http_status/old_publisher: {equals: 200}
+      /http_status/newer_publisher: {equals: 200}
+      /newer_publisher/boundary/held_requests: {minimum: 1}
+      /newer_publisher/boundary/completed: {equals: 0}
+      /newer_publisher/boundary/last_mutation/operation: {equals: Put}
+      /newer_publisher/boundary/last_mutation/value_bytes: {minimum: 1}
+      /newer_publisher/actions/0/value/status: {equals: 200}
+      /newer_publisher/actions/1/value/found: {equals: true}
+      /newer_publisher/actions/3/value/data/online: {equals: true}
   - id: old_claim_observes_rejection_in_batch
     client: observer
     timeout: 10s

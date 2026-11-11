@@ -79,7 +79,7 @@ def prepare(root, output):
     if os.Getenv("GIZCLAW_E2E_TIKV_USAGE_ADDRESS") != "" {
         if err := tikvfixture.AttachUsageServices(&tikvfixture.UsageServices{
             Stores: map[string]kv.Store{"peer": s.PeerStore, "friend": s.FriendStore, "group": s.FriendGroupStore, "apikey": s.APIKeyStore},
-            Workspaces: s.WorkspaceDB.DB, AdminEndpoint: s.PublicEndpoint, Peers: peersServer, Routes: manager.PeerRoutes,
+            Workspaces: s.WorkspaceDB.DB, WorkspaceService: workspaceServer, AdminEndpoint: s.PublicEndpoint, Peers: peersServer, Routes: manager.PeerRoutes,
             Friends: friendServer, Groups: friendGroupServer, Contacts: contactServer, Presence: manager.Presence,
             Materialize: func(ctx context.Context, operation, name, member string) (any, error) {
                 var binding socialutil.SFUWorkspaceBinding

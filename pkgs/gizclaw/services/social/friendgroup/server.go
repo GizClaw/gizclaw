@@ -852,11 +852,9 @@ func (s *Server) AdminListFriendGroups(ctx context.Context, req rpcapi.FriendGro
 // PutFriendGroup updates the caller-owned Group resolved by req.Name. A stale
 // mutation retries once against the same canonical Group and rechecks its role.
 func (s *Server) PutFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupPutRequest) (rpcapi.FriendGroupObject, error) {
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.Name)
-	if err != nil {
-		return rpcapi.FriendGroupObject{}, err
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupObject, error) {
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		return s.resolveFriendGroupName(ctx, owner, req.Name)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupObject, error) {
 		return s.putFriendGroupAttempt(ctx, owner, friendGroupID, req)
 	})
 }
@@ -868,7 +866,7 @@ func (s *Server) putFriendGroupAttempt(ctx context.Context, owner, friendGroupID
 	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
-		return rpcapi.FriendGroupObject{}, err
+		return rpcapi.FriendGroupObject{}, groupMutationReadError(ctx, err)
 	}
 	group, err := s.putFriendGroup(ctx, friendGroupID, req.DisplayName, req.Description)
 	if err != nil {
@@ -916,17 +914,13 @@ func (s *Server) adminPutFriendGroupAttempt(ctx context.Context, friendGroupID s
 // DeleteFriendGroup retires the caller-owned Group resolved by req.Name. Its
 // bounded stale-snapshot retry keeps that canonical Group even if the name is reused.
 func (s *Server) DeleteFriendGroup(ctx context.Context, owner string, req rpcapi.FriendGroupDeleteRequest) (rpcapi.FriendGroupObject, error) {
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.Name)
-	if err != nil {
-		if !errors.Is(err, kv.ErrNotFound) {
-			return rpcapi.FriendGroupObject{}, err
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		id, err := s.resolveFriendGroupName(ctx, owner, req.Name)
+		if !errors.Is(err, kv.ErrNotFound) || kv.WithPrimaryReads(ctx) != ctx {
+			return id, err
 		}
-		friendGroupID, err = s.resolveRetiredFriendGroupName(ctx, owner, req.Name)
-		if err != nil {
-			return rpcapi.FriendGroupObject{}, err
-		}
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupObject, error) {
+		return s.resolveRetiredFriendGroupName(ctx, owner, req.Name)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupObject, error) {
 		return s.deleteFriendGroupAttempt(ctx, owner, friendGroupID, req)
 	})
 }
@@ -1033,11 +1027,9 @@ func (s *Server) CreateFriendGroupInviteTokenWithTTL(ctx context.Context, owner 
 			return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
 		}
 	}
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
-	if err != nil {
-		return rpcapi.FriendGroupInviteTokenCreateResponse{}, err
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupInviteTokenCreateResponse, error) {
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		return s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupInviteTokenCreateResponse, error) {
 		data, err := s.updateGroupInviteToken(ctx, owner, friendGroupID, func(current []byte) ([]byte, error) {
 			now := s.now()
 			var record inviteTokenRecord
@@ -1079,11 +1071,9 @@ func (s *Server) CreateFriendGroupInviteTokenWithTTL(ctx context.Context, owner 
 // ClearFriendGroupInviteToken clears the caller-owned canonical Group's token.
 // A rejected snapshot retries once with fresh Group and permission checks.
 func (s *Server) ClearFriendGroupInviteToken(ctx context.Context, owner string, req rpcapi.FriendGroupInviteTokenClearRequest) (rpcapi.FriendGroupInviteTokenClearResponse, error) {
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
-	if err != nil {
-		return rpcapi.FriendGroupInviteTokenClearResponse{}, err
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupInviteTokenClearResponse, error) {
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		return s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupInviteTokenClearResponse, error) {
 		_, err := s.updateGroupInviteToken(ctx, owner, friendGroupID, func([]byte) ([]byte, error) { return nil, nil })
 		return rpcapi.FriendGroupInviteTokenClearResponse{}, err
 	})
@@ -1148,31 +1138,29 @@ func (s *Server) JoinFriendGroup(ctx context.Context, owner string, req rpcapi.F
 	if owner == "" || strings.TrimSpace(req.Name) == "" {
 		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: peer public key and group name are required")
 	}
-	record, err := s.findGroupInviteToken(ctx, strings.TrimSpace(req.InviteToken))
-	if err != nil {
-		return rpcapi.FriendGroupJoinResponse{}, err
-	}
-	friendGroupID := strings.TrimSpace(record.FriendGroupID)
-	if friendGroupID == "" {
-		return rpcapi.FriendGroupJoinResponse{}, errors.New("social: invite token group is empty")
-	}
+	var friendGroupID string
 	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupJoinResponse, error) {
-		return s.joinFriendGroupAttempt(ctx, owner, friendGroupID, req)
+		record, conditions, err := s.observeGroupInviteToken(ctx, strings.TrimSpace(req.InviteToken))
+		if err != nil {
+			if errors.Is(err, ErrInviteTokenUnavailable) && kv.WithPrimaryReads(ctx) != ctx {
+				err = errors.Join(ErrGroupChanged, err)
+			}
+			return rpcapi.FriendGroupJoinResponse{}, err
+		}
+		if friendGroupID == "" {
+			friendGroupID = record.FriendGroupID
+		} else if record.FriendGroupID != friendGroupID {
+			return rpcapi.FriendGroupJoinResponse{}, ErrInviteTokenUnavailable
+		}
+		return s.joinFriendGroupAttempt(ctx, owner, friendGroupID, req, conditions)
 	})
 }
 
-func (s *Server) joinFriendGroupAttempt(ctx context.Context, owner, friendGroupID string, req rpcapi.FriendGroupJoinRequest) (rpcapi.FriendGroupJoinResponse, error) {
+func (s *Server) joinFriendGroupAttempt(ctx context.Context, owner, friendGroupID string, req rpcapi.FriendGroupJoinRequest, invitation []kv.Condition) (rpcapi.FriendGroupJoinResponse, error) {
 	name := strings.TrimSpace(req.Name)
-	record, err := s.findGroupInviteToken(ctx, strings.TrimSpace(req.InviteToken))
-	if err != nil {
-		return rpcapi.FriendGroupJoinResponse{}, err
-	}
-	if record.FriendGroupID != friendGroupID {
-		return rpcapi.FriendGroupJoinResponse{}, ErrInviteTokenUnavailable
-	}
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupJoinResponse{}, err
+		return rpcapi.FriendGroupJoinResponse{}, groupMutationReadError(ctx, err)
 	}
 	if existingID, err := s.resolveFriendGroupName(ctx, owner, name); err == nil && existingID != friendGroupID {
 		return rpcapi.FriendGroupJoinResponse{}, ErrFriendGroupNameExists
@@ -1184,22 +1172,21 @@ func (s *Server) joinFriendGroupAttempt(ctx context.Context, owner, friendGroupI
 		return rpcapi.FriendGroupJoinResponse{}, lockErr
 	}
 	defer unlock()
-	if existing, err := s.groupMember(ctx, friendGroupID, owner); err == nil {
-		if socialutil.StringValue(existing.FriendGroupName) != name {
-			return rpcapi.FriendGroupJoinResponse{}, ErrFriendGroupMembershipNameImmutable
-		}
-		group, err := s.getFriendGroupForMember(ctx, owner, friendGroupID)
-		if err != nil {
-			return rpcapi.FriendGroupJoinResponse{}, err
-		}
-		return rpcapi.FriendGroupJoinResponse{Group: group, Member: existing}, nil
+	lockedCtx, releasePeers, err := s.lockGroupPeers(ctx, group, owner)
+	if err != nil {
+		return rpcapi.FriendGroupJoinResponse{}, err
+	}
+	defer releasePeers()
+	ctx = lockedCtx
+	if _, err := s.groupMember(ctx, friendGroupID, owner); err == nil {
+		return s.proveGroupJoin(ctx, friendGroupID, owner, name, invitation)
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
 	if err := s.requireMemberCapacity(ctx, friendGroupID); err != nil {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
-	member, err := s.writeMember(ctx, friendGroupID, owner, rpcapi.FriendGroupMemberRoleMember, name)
+	member, err := s.createMember(ctx, friendGroupID, owner, rpcapi.FriendGroupMemberRoleMember, name, invitation...)
 	if err != nil {
 		return rpcapi.FriendGroupJoinResponse{}, err
 	}
@@ -1227,18 +1214,16 @@ func (s *Server) joinFriendGroupAttempt(ctx context.Context, owner, friendGroupI
 // AddFriendGroupMember adds or updates a member of the resolved canonical Group,
 // retrying one rejected snapshot with fresh permission and participant checks.
 func (s *Server) AddFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberAddRequest) (rpcapi.FriendGroupMemberObject, error) {
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
-	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupMemberObject, error) {
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		return s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupMemberObject, error) {
 		return s.addFriendGroupMemberAttempt(ctx, owner, friendGroupID, req)
 	})
 }
 
 func (s *Server) addFriendGroupMemberAttempt(ctx context.Context, owner, friendGroupID string, req rpcapi.FriendGroupMemberAddRequest) (rpcapi.FriendGroupMemberObject, error) {
 	if _, err := s.AdminGetFriendGroup(ctx, friendGroupID); err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	memberName := strings.TrimSpace(req.MemberName)
 	req.PeerPublicKey = strings.TrimSpace(req.PeerPublicKey)
@@ -1259,10 +1244,10 @@ func (s *Server) addFriendGroupMemberAttempt(ctx context.Context, owner, friendG
 	defer unlock()
 	if req.Role == rpcapi.FriendGroupMemberMutableRole("admin") {
 		if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
-			return rpcapi.FriendGroupMemberObject{}, err
+			return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 		}
 	} else if err := s.requireAdmin(ctx, owner, friendGroupID); err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	current, currentErr := s.groupMember(ctx, friendGroupID, req.PeerPublicKey)
 	if currentErr != nil && !errors.Is(currentErr, kv.ErrNotFound) {
@@ -1291,18 +1276,16 @@ func (s *Server) addFriendGroupMemberAttempt(ctx context.Context, owner, friendG
 // PutFriendGroupMember changes a member role in the resolved canonical Group.
 // A rejected snapshot retries once after rechecking the caller's owner role.
 func (s *Server) PutFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberPutRequest) (rpcapi.FriendGroupMemberObject, error) {
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
-	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupMemberObject, error) {
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		return s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupMemberObject, error) {
 		return s.putFriendGroupMemberAttempt(ctx, owner, friendGroupID, req)
 	})
 }
 
 func (s *Server) putFriendGroupMemberAttempt(ctx context.Context, owner, friendGroupID string, req rpcapi.FriendGroupMemberPutRequest) (rpcapi.FriendGroupMemberObject, error) {
 	if _, err := s.AdminGetFriendGroup(ctx, friendGroupID); err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if !req.Role.Valid() {
@@ -1314,11 +1297,11 @@ func (s *Server) putFriendGroupMemberAttempt(ctx context.Context, owner, friendG
 	}
 	defer unlock()
 	if err := s.requireRole(ctx, owner, friendGroupID, rpcapi.FriendGroupMemberRoleOwner); err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	current, err := s.targetMember(ctx, friendGroupID, req.Name)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	if current.Role != nil && *current.Role == rpcapi.FriendGroupMemberRoleOwner {
 		return rpcapi.FriendGroupMemberObject{}, ErrFriendGroupOwnerRoleImmutable
@@ -1357,11 +1340,9 @@ func (s *Server) LeaveFriendGroup(ctx context.Context, owner, friendGroupName st
 // deleteFriendGroupMember removes req.Name from the Group. A leave removes the
 // caller itself, which needs no role beyond the membership being removed.
 func (s *Server) deleteFriendGroupMember(ctx context.Context, owner string, req rpcapi.FriendGroupMemberDeleteRequest, leave bool) (rpcapi.FriendGroupMemberObject, error) {
-	friendGroupID, err := s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
-	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
-	}
-	return retryGroupMutation(ctx, func(ctx context.Context) (rpcapi.FriendGroupMemberObject, error) {
+	return retryNamedGroupMutation(ctx, func(ctx context.Context) (string, error) {
+		return s.resolveFriendGroupName(ctx, owner, req.FriendGroupName)
+	}, func(ctx context.Context, friendGroupID string) (rpcapi.FriendGroupMemberObject, error) {
 		return s.deleteFriendGroupMemberAttempt(ctx, owner, friendGroupID, req, leave)
 	})
 }
@@ -1375,7 +1356,7 @@ func (s *Server) deleteFriendGroupMemberAttempt(ctx context.Context, owner, frie
 	defer unlock()
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	lockedCtx, releasePeers, err := s.lockGroupPeers(ctx, group, req.Name)
 	if err != nil {
@@ -1385,7 +1366,7 @@ func (s *Server) deleteFriendGroupMemberAttempt(ctx context.Context, owner, frie
 	ctx = lockedCtx
 	current, err := s.targetMember(ctx, friendGroupID, req.Name)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	role := socialutil.GroupRole(current)
 	switch {
@@ -1483,7 +1464,7 @@ func (s *Server) adminCreateFriendGroupMemberAttempt(ctx context.Context, friend
 	}
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
 	if lockErr != nil {
@@ -1492,7 +1473,7 @@ func (s *Server) adminCreateFriendGroupMemberAttempt(ctx context.Context, friend
 	defer unlock()
 	group, err = s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	lockedCtx, releasePeers, err := s.lockGroupPeers(ctx, group, peerID)
 	if err != nil {
@@ -1531,7 +1512,7 @@ func (s *Server) adminPutFriendGroupMemberAttempt(ctx context.Context, friendGro
 	}
 	group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	unlock, lockErr := s.lockGroup(ctx, friendGroupID)
 	if lockErr != nil {
@@ -1540,7 +1521,7 @@ func (s *Server) adminPutFriendGroupMemberAttempt(ctx context.Context, friendGro
 	defer unlock()
 	group, err = s.AdminGetFriendGroup(ctx, friendGroupID)
 	if err != nil {
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	lockedCtx, releasePeers, err := s.lockGroupPeers(ctx, group, peerID)
 	if err != nil {
@@ -1607,7 +1588,7 @@ func (s *Server) adminDeleteFriendGroupMemberAttempt(ctx context.Context, friend
 		if _, retirement := peerRetirementFromContext(ctx); retirement && errors.Is(err, kv.ErrNotFound) {
 			return rpcapi.FriendGroupMemberObject{}, errors.Join(ErrGroupChanged, err)
 		}
-		return rpcapi.FriendGroupMemberObject{}, err
+		return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 	}
 	lockedCtx, releasePeers, err := s.lockGroupPeers(ctx, group, peerID)
 	if err != nil {
@@ -1701,7 +1682,7 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 	if !peerMutationLocked(ctx) {
 		group, err := s.AdminGetFriendGroup(ctx, friendGroupID)
 		if err != nil {
-			return rpcapi.FriendGroupMemberObject{}, err
+			return rpcapi.FriendGroupMemberObject{}, groupMutationReadError(ctx, err)
 		}
 		lockedCtx, releasePeers, err := s.lockGroupPeers(ctx, group, peerID)
 		if err != nil {
@@ -1782,7 +1763,7 @@ func (s *Server) writeMember(ctx context.Context, friendGroupID, peerID string, 
 	return item.peerObject(), nil
 }
 
-func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string, role rpcapi.FriendGroupMemberRole, localName string) (rpcapi.FriendGroupMemberObject, error) {
+func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string, role rpcapi.FriendGroupMemberRole, localName string, invitation ...kv.Condition) (rpcapi.FriendGroupMemberObject, error) {
 	members, err := s.membersStore()
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
@@ -1816,7 +1797,15 @@ func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string,
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
-	guard, err := s.readGroupMutation(ctx, friendGroupID, members, belongs)
+	participants := []kv.Store{members, belongs}
+	if len(invitation) != 0 {
+		invites, err := s.groupInviteTokensStore()
+		if err != nil {
+			return rpcapi.FriendGroupMemberObject{}, err
+		}
+		participants = append(participants, invites)
+	}
+	guard, err := s.readGroupMutation(ctx, friendGroupID, participants...)
 	if err != nil {
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
@@ -1842,6 +1831,10 @@ func (s *Server) createMember(ctx context.Context, friendGroupID, peerID string,
 		return rpcapi.FriendGroupMemberObject{}, err
 	}
 	mutation.Conditions = append(mutation.Conditions, fences...)
+	for _, condition := range invitation {
+		condition.Key = s.relationshipKey(prefixes[2], condition.Key)
+		mutation.Conditions = append(mutation.Conditions, condition)
+	}
 	s.admitPeerToGroup(&mutation, prefixes[1], peerID, peerRevision)
 	created, err := guard.apply(ctx, mutation, false)
 	if err != nil {
@@ -2706,30 +2699,38 @@ func (s *Server) activeGroupInviteToken(ctx context.Context, store kv.Store, fri
 }
 
 func (s *Server) findGroupInviteToken(ctx context.Context, inviteToken string) (inviteTokenRecord, error) {
+	record, _, err := s.observeGroupInviteToken(ctx, inviteToken)
+	return record, err
+}
+
+func (s *Server) observeGroupInviteToken(ctx context.Context, inviteToken string) (inviteTokenRecord, []kv.Condition, error) {
 	inviteToken = strings.TrimSpace(inviteToken)
 	if inviteToken == "" {
-		return inviteTokenRecord{}, errors.New("social: invite token is required")
+		return inviteTokenRecord{}, nil, errors.New("social: invite token is required")
 	}
 	store, err := s.groupInviteTokensStore()
 	if err != nil {
-		return inviteTokenRecord{}, err
+		return inviteTokenRecord{}, nil, err
 	}
-
-	data, err := socialutil.ReadInviteToken(ctx, store, socialutil.GroupInviteTokensRoot, inviteToken)
+	data, conditions, err := socialutil.ObserveInviteToken(ctx, store, socialutil.GroupInviteTokensRoot, inviteToken)
 	if errors.Is(err, kv.ErrNotFound) {
-		return inviteTokenRecord{}, ErrInviteTokenUnavailable
+		return inviteTokenRecord{}, nil, ErrInviteTokenUnavailable
 	}
 	if err != nil {
-		return inviteTokenRecord{}, err
+		return inviteTokenRecord{}, nil, err
 	}
 	var record inviteTokenRecord
 	if err := json.Unmarshal(data, &record); err != nil {
-		return inviteTokenRecord{}, err
+		return inviteTokenRecord{}, nil, err
+	}
+	if record.FriendGroupID == "" || record.FriendGroupID != strings.TrimSpace(record.FriendGroupID) ||
+		!slices.Equal(conditions[1].Key, socialutil.GroupInviteTokenKey(record.FriendGroupID)) {
+		return inviteTokenRecord{}, nil, errors.New("social: invite token Group identity mismatch")
 	}
 	if !record.ExpiresAt.After(s.now()) {
-		return inviteTokenRecord{}, ErrInviteTokenUnavailable
+		return inviteTokenRecord{}, nil, ErrInviteTokenUnavailable
 	}
-	return record, nil
+	return record, conditions, nil
 }
 
 func (s *Server) listAllMembers(ctx context.Context, friendGroupID string) ([]friendGroupMemberRecord, error) {

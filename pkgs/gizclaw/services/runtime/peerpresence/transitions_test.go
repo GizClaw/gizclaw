@@ -317,24 +317,24 @@ func TestRejectedBatchReusesAuthorityObservationsInWriters(t *testing.T) {
 			peers := []giznet.PublicKey{{2}, {3}}
 			var primaryGets atomic.Int32
 			raced := false
+			store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+				matched, err := base.ApplyMutation(ctx, mutation)
+				if replacement && !raced && matched && err == nil && store.attempts.Load() == 2 {
+					raced = true
+					// Both reservations pinned their owners. First publication must
+					// still reject a reservation replaced after that atomic boundary.
+					if err := base.Set(ctx, claimKey(peers[0]), []byte("replacement-reservation")); err != nil {
+						t.Fatal(err)
+					}
+				}
+				return matched, err
+			}
 			view := presenceReadHookStore{Store: store,
 				get: func(ctx context.Context, key kv.Key) ([]byte, error) {
 					if kv.WithPrimaryReads(ctx) == ctx {
 						primaryGets.Add(1)
 					}
 					return store.Get(ctx, key)
-				},
-				batchGet: func(ctx context.Context, keys []kv.Key) []kv.GetResult {
-					values := store.BatchGet(ctx, keys)
-					if replacement && !raced && kv.WithPrimaryReads(ctx) == ctx {
-						raced = true
-						// The observation is valid, but the next mutation must
-						// still reject a reservation that changes after the read.
-						if err := base.Set(ctx, claimKey(peers[0]), []byte("replacement-reservation")); err != nil {
-							t.Fatal(err)
-						}
-					}
-					return values
 				},
 			}
 			service := New(view, giznet.PublicKey{1})
@@ -353,8 +353,8 @@ func TestRejectedBatchReusesAuthorityObservationsInWriters(t *testing.T) {
 			for _, publisher := range publishers {
 				go func() { done <- service.writeTransition(ctx, publisher, Snapshot{Online: true}) }()
 			}
-			// Drive complete batches deterministically, including both reservations
-			// and the stale first-owner attempts. No real coordinator workers run.
+			// Drive complete batches deterministically: initial reservation rejection,
+			// refreshed owner pinning and first publication. No coordinator workers run.
 			for range 3 {
 				batch := []transitionMutation{takeTransition(t, service), takeTransition(t, service)}
 				service.commitTransitions(ctx, batch)
@@ -373,8 +373,8 @@ func TestRejectedBatchReusesAuthorityObservationsInWriters(t *testing.T) {
 			if replacement {
 				wantReads, wantMutations = 2, 4
 			}
-			if store.ordinary.Load() != 2 || store.primary.Load() != wantReads || primaryGets.Load() != 0 || store.attempts.Load() != wantMutations {
-				t.Fatalf("ordinary=%d primary=%d primary Gets=%d mutations=%d; want 2/%d/0/%d", store.ordinary.Load(), store.primary.Load(), primaryGets.Load(), store.attempts.Load(), wantReads, wantMutations)
+			if store.ordinary.Load() != 0 || store.primary.Load() != wantReads || primaryGets.Load() != 0 || store.attempts.Load() != wantMutations {
+				t.Fatalf("ordinary=%d primary=%d primary Gets=%d mutations=%d; want 0/%d/0/%d", store.ordinary.Load(), store.primary.Load(), primaryGets.Load(), store.attempts.Load(), wantReads, wantMutations)
 			}
 			for i, publisher := range publishers {
 				fenced := replacement && i == 0

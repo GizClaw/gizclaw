@@ -3,6 +3,7 @@ package socialutil
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -42,6 +43,73 @@ type inviteReplicaStore struct {
 func (s *inviteReplicaStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
 	s.writes++
 	return s.authority.ApplyMutation(ctx, mutation)
+}
+
+func TestInviteTokenUpdateRefreshesStaleIndexCollision(t *testing.T) {
+	for _, occupied := range []bool{false, true} {
+		t.Run(fmt.Sprintf("occupied-%v", occupied), func(t *testing.T) {
+			ctx := t.Context()
+			authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+			token := map[string]string{"invite_token": "reusable"}
+			if err := WriteInviteToken(ctx, replica, FriendInviteTokenKey("old-owner"), token); err != nil {
+				t.Fatal(err)
+			}
+			if occupied {
+				if err := WriteInviteToken(ctx, authority, FriendInviteTokenKey("current-owner"), token); err != nil {
+					t.Fatal(err)
+				}
+			}
+			reader, writer := redis.NewClient(&redis.Options{}), redis.NewClient(&redis.Options{})
+			t.Cleanup(func() { _ = reader.Close(); _ = writer.Close() })
+			ordinary, primary := 0, 0
+			reader.AddHook(inviteReadHook{store: replica, reads: &ordinary})
+			writer.AddHook(inviteReadHook{store: authority, reads: &primary})
+			reads, err := kv.NewRedisReadWriteWithClients(reader, writer, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			store := &inviteReplicaStore{Store: reads, authority: authority}
+			err = WriteInviteToken(ctx, store, FriendInviteTokenKey("new-owner"), token)
+			if occupied {
+				if err == nil || store.writes != 0 {
+					t.Fatalf("current owner overwritten: err=%v writes=%d", err, store.writes)
+				}
+			} else {
+				if err != nil || store.writes != 1 {
+					t.Fatalf("stale collision rejected valid update: err=%v writes=%d", err, store.writes)
+				}
+				if _, err := ReadInviteToken(ctx, authority, FriendInviteTokensRoot, "reusable"); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if ordinary != 2 || primary != 1 {
+				t.Fatalf("collision refresh reads=%d/%d", ordinary, primary)
+			}
+		})
+	}
+}
+
+func TestInviteTokenObservationCarriesExactIndexAndRecord(t *testing.T) {
+	ctx := t.Context()
+	store := kv.NewMemory(nil)
+	key := FriendInviteTokenKey("owner")
+	if err := WriteInviteToken(ctx, store, key, map[string]string{"invite_token": "token"}); err != nil {
+		t.Fatal(err)
+	}
+	data, guards, err := ObserveInviteToken(ctx, store, FriendInviteTokensRoot, "token")
+	if err != nil || len(guards) != 2 {
+		t.Fatalf("observation=%q guards=%v err=%v", data, guards, err)
+	}
+	data[0] = ' '
+	if matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: guards}); err != nil || !matched {
+		t.Fatalf("caller mutated private condition data: %v, %v", matched, err)
+	}
+	if err := store.Delete(ctx, InviteTokenIndexKey(FriendInviteTokensRoot, "token")); err != nil {
+		t.Fatal(err)
+	}
+	if matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: guards}); err != nil || matched {
+		t.Fatalf("revoked index passed guard: %v, %v", matched, err)
+	}
 }
 
 func TestInviteTokenLookupFallsBackOnlyOnMiss(t *testing.T) {

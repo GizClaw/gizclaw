@@ -137,6 +137,9 @@ func (a *peerDeletionAdapters) RetirePeerSocial(context.Context, social.PeerSnap
 func (a *peerDeletionAdapters) SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error) {
 	return workspace.PeerRetirementSnapshot{PublicKey: a.publicKey}, nil
 }
+func (a *peerDeletionAdapters) PreparePeerWorkspacesRetirement(ctx context.Context, owner string) (workspace.PeerRetirementSnapshot, error) {
+	return a.SnapshotPeerWorkspaces(ctx, owner)
+}
 func (a *peerDeletionAdapters) RetirePeerWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error) {
 	return nil, nil
 }
@@ -228,6 +231,10 @@ func (a pendingWorkspaceAdapters) SnapshotPeerWorkspaces(context.Context, string
 		PublicKey:  a.publicKey,
 		Workspaces: []workspace.PeerRetirementWorkspace{{ID: "workspace-a", Name: "room-a"}},
 	}, nil
+}
+
+func (a pendingWorkspaceAdapters) PreparePeerWorkspacesRetirement(ctx context.Context, owner string) (workspace.PeerRetirementSnapshot, error) {
+	return a.SnapshotPeerWorkspaces(ctx, owner)
 }
 
 type pendingWorkspaceLookup struct{ emptyPeerLookup }

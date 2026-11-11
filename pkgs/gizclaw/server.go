@@ -528,6 +528,21 @@ func (s *Server) init() error {
 				return err
 			}
 		},
+		PeerMutationAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			err = peersServer.EnsureAvailableForMutation(ctx, key)
+			switch {
+			case errors.Is(err, peer.ErrPeerPendingDeletion):
+				return workspace.ErrPeerPendingDeletion
+			case errors.Is(err, peer.ErrPeerDeleted):
+				return workspace.ErrPeerDeleted
+			default:
+				return err
+			}
+		},
 	}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore, s.WorkspaceHistory, s.WorkspaceHistoryAssets)
@@ -555,7 +570,7 @@ func (s *Server) init() error {
 			if err != nil {
 				return err
 			}
-			err = peersServer.EnsureAvailable(ctx, key)
+			err = peersServer.EnsureAvailableForMutation(ctx, key)
 			switch {
 			case errors.Is(err, peer.ErrPeerPendingDeletion):
 				return contact.ErrPeerPendingDeletion

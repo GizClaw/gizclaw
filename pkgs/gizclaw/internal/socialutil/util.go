@@ -376,7 +376,18 @@ func UpdateInviteToken(ctx context.Context, store kv.Store, key kv.Key, conditio
 		return nil, err
 	}
 	if indexed != nil && string(indexed) != string(locator) {
-		return nil, errors.New("social: invite token already belongs to another resource")
+		// A replica can retain a previous owner's locator after the token was
+		// released. Refresh only this conflicting observation before rejecting
+		// the mutation; the CAS still guards the exact authoritative bytes.
+		indexed, err = store.Get(kv.WithPrimaryReads(ctx), index)
+		if errors.Is(err, kv.ErrNotFound) {
+			indexed = nil
+		} else if err != nil {
+			return nil, err
+		}
+		if indexed != nil && string(indexed) != string(locator) {
+			return nil, errors.New("social: invite token already belongs to another resource")
+		}
 	}
 	guards := append([]kv.Condition(nil), conditions...)
 	guards = append(guards, kv.Condition{Key: key, Expected: old}, kv.Condition{Key: index, Expected: indexed})
@@ -462,34 +473,46 @@ func ReadInviteToken(ctx context.Context, store kv.Store, root kv.Key, token str
 }
 
 func readInviteToken(ctx context.Context, store kv.Store, root kv.Key, token string) ([]byte, error) {
-	locator, err := store.Get(ctx, InviteTokenIndexKey(root, token))
+	data, _, err := ObserveInviteToken(ctx, store, root, token)
+	return data, err
+}
+
+// ObserveInviteToken reads an invitation and its digest index under the configured
+// read policy. The returned conditions compare both exact observations, relative
+// to store, and must guard the mutation that uses the invitation (including an
+// idempotent success proof). Callers own bounded authority refreshes after a
+// missing invitation or a definitive conditional rejection. Expiry and domain
+// record validation remain the caller's responsibility.
+func ObserveInviteToken(ctx context.Context, store kv.Store, root kv.Key, token string) ([]byte, []kv.Condition, error) {
+	index := InviteTokenIndexKey(root, token)
+	locator, err := store.Get(ctx, index)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var key kv.Key
 	if err := json.Unmarshal(locator, &key); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(key) != len(root)+1 {
-		return nil, errors.New("social: invalid invite token locator")
+		return nil, nil, errors.New("social: invalid invite token locator")
 	}
 	for i := range root {
 		if key[i] != root[i] {
-			return nil, errors.New("social: invite token locator domain mismatch")
+			return nil, nil, errors.New("social: invite token locator domain mismatch")
 		}
 	}
 	data, err := store.Get(ctx, key)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var record struct {
 		Token string `json:"invite_token"`
 	}
 	if err := json.Unmarshal(data, &record); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if record.Token != token {
-		return nil, kv.ErrNotFound
+		return nil, nil, kv.ErrNotFound
 	}
-	return data, nil
+	return data, []kv.Condition{{Key: index, Expected: locator}, {Key: key, Expected: slices.Clone(data)}}, nil
 }

@@ -482,8 +482,9 @@ func TestPeerReadFailuresDoNotRefreshPrimary(t *testing.T) {
 			} {
 				ordinaryReads.Store(0)
 				primaryReads.Store(0)
-				if err := operation.run(); err == nil {
-					t.Fatalf("%s accepted a failed read", operation.name)
+				wantError := primary || operation.name != "admin-list" || !errors.Is(failure, kv.ErrNotFound)
+				if err := operation.run(); (err != nil) != wantError {
+					t.Fatalf("%s error=%v, want error=%t", operation.name, err, wantError)
 				}
 				wantOrdinary, wantPrimary := int32(1), int32(0)
 				if primary {

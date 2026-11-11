@@ -50,6 +50,7 @@ func Initialize(ctx context.Context, db *sqlx.DB) error {
 		`CREATE INDEX IF NOT EXISTS workspaces_workflow_id_idx ON workspaces(workflow_id,id)`,
 		`CREATE TABLE IF NOT EXISTS workspace_labels(workspace_id TEXT NOT NULL,label_key TEXT NOT NULL,label_value TEXT NOT NULL,PRIMARY KEY(workspace_id,label_key),FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE CASCADE)`,
 		`CREATE INDEX IF NOT EXISTS workspace_labels_value_idx ON workspace_labels(label_key,label_value,workspace_id)`,
+		`CREATE TABLE IF NOT EXISTS workspace_owner_state(owner_public_key TEXT NOT NULL PRIMARY KEY,retired INTEGER NOT NULL CHECK(retired IN (0,1)))`,
 	} {
 		if _, err := tx.ExecContext(ctx, query); err != nil {
 			return err
@@ -170,6 +171,11 @@ func createSQLWorkspace(ctx context.Context, db *sqlx.DB, item apitypes.Workspac
 		return err
 	}
 	defer tx.Rollback()
+	if item.OwnerPublicKey != nil {
+		if err := lockWorkspaceOwner(ctx, tx, *item.OwnerPublicKey, false); err != nil {
+			return err
+		}
+	}
 	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO workspaces(id,owner_public_key,name,workflow_id,system,created_at,updated_at,last_active_at,parameters_json,toolkit_json,icon_json,labels_json,incarnation,revision) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`), args...)
 	if err != nil {
 		return err
@@ -225,7 +231,7 @@ type workspaceSQLFilter struct {
 	labels       map[string]string
 }
 
-func listSQLWorkspaces(ctx context.Context, db *sqlx.DB, filter workspaceSQLFilter, cursor string, limit int) ([]apitypes.Workspace, bool, *string, error) {
+func listSQLWorkspaces(ctx context.Context, db sqlx.ExtContext, filter workspaceSQLFilter, cursor string, limit int) ([]apitypes.Workspace, bool, *string, error) {
 	if limit <= 0 || limit > maxListLimit {
 		return nil, false, nil, errors.New("workspace: invalid SQL page size")
 	}
@@ -276,7 +282,7 @@ func listSQLWorkspaces(ctx context.Context, db *sqlx.DB, filter workspaceSQLFilt
 	return items[:limit], true, &next, nil
 }
 
-func listAllSQLWorkspaces(ctx context.Context, db *sqlx.DB, filter workspaceSQLFilter) ([]apitypes.Workspace, error) {
+func listAllSQLWorkspaces(ctx context.Context, db sqlx.ExtContext, filter workspaceSQLFilter) ([]apitypes.Workspace, error) {
 	items := make([]apitypes.Workspace, 0)
 	cursor := ""
 	for {

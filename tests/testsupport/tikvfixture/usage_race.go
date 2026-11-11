@@ -54,6 +54,10 @@ func (g *UsageGate) race(ctx context.Context, w http.ResponseWriter, r *http.Req
 	}
 	h := g.http()
 	for id, branch := range input.Branches {
+		if id == "http_status" {
+			http.Error(w, "http_status is reserved for actual branch response codes", http.StatusBadRequest)
+			return
+		}
 		if _, err := h.request(ctx, branch.Endpoint, branch.Method, branch.Path, nil, false); err != nil {
 			http.Error(w, fmt.Sprintf("branch %s: %v", id, err), http.StatusBadGateway)
 			return
@@ -62,27 +66,34 @@ func (g *UsageGate) race(ctx context.Context, w http.ResponseWriter, r *http.Req
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	type completed struct {
-		id    string
-		value any
-		err   error
+		id     string
+		value  any
+		status int
+		err    error
 	}
 	done := make(chan completed, len(input.Branches))
 	for id, branch := range input.Branches {
 		go func() {
 			value, err := h.forward(ctx, UsageAction{Operation: "http", Endpoint: branch.Endpoint, Method: branch.Method, Path: branch.Path, Headers: branch.Headers, Body: branch.Body})
 			var body any
+			var status int
 			if err == nil {
 				response := value.(map[string]any)
-				status := response["status"].(int)
+				status = response["status"].(int)
 				body = response["body"]
-				if branch.Status != 0 && status != branch.Status || branch.Status == 0 && status >= http.StatusBadRequest {
-					err = fmt.Errorf("actual HTTP status %d; expected %d: %s", status, branch.Status, usageFailureDetail(body))
+				if branch.Status != 0 && status != branch.Status || branch.Status == 0 && (status < http.StatusOK || status >= http.StatusMultipleChoices) {
+					expected := fmt.Sprint(branch.Status)
+					if branch.Status == 0 {
+						expected = "2xx"
+					}
+					err = fmt.Errorf("actual HTTP status %d; expected %s: %s", status, expected, usageFailureDetail(body))
 				}
 			}
-			done <- completed{id, body, err}
+			done <- completed{id, body, status, err}
 		}()
 	}
-	results := make(map[string]any, len(input.Branches))
+	results := make(map[string]any, 3)
+	statuses := make(map[string]int, len(input.Branches))
 	var failure error
 	for range input.Branches {
 		result := <-done
@@ -92,10 +103,13 @@ func (g *UsageGate) race(ctx context.Context, w http.ResponseWriter, r *http.Req
 			cancel()
 		}
 		results[result.id] = result.value
+		statuses[result.id] = result.status
 	}
 	if failure != nil {
 		http.Error(w, failure.Error(), http.StatusBadGateway)
 		return
 	}
+	// Keep existing body assertion paths and expose actual statuses alongside.
+	results["http_status"] = statuses
 	usageJSON(w, results)
 }

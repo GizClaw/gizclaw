@@ -5,14 +5,15 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"slices"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
@@ -52,6 +53,135 @@ func assertCancellationSQLRows(t *testing.T, workspaces *workspace.Server, name 
 	}
 	if count != want {
 		t.Fatalf("exact SQL Workspace rows = %d, want %d", count, want)
+	}
+}
+
+func TestFriendLegacyCancellationRecoversOwnerBeforeSQLDeletion(t *testing.T) {
+	for _, creationPresent := range []bool{true, false} {
+		t.Run(fmt.Sprintf("creation-present-%v", creationPresent), func(t *testing.T) {
+			ctx := t.Context()
+			s := newTestServer()
+			sqlWorkspaces := cancellationSQLWorkspace(t)
+			s.Workspaces = sqlWorkspaces
+			creation, err := s.getOrCreateCreationIntent(ctx, s.Friends, "owner", "peer", "peer")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.ensureCreationWorkspace(ctx, creation); err != nil {
+				t.Fatal(err)
+			}
+			if !creationPresent {
+				if err := deleteCreationIntent(ctx, s.Friends, creation); err != nil {
+					t.Fatal(err)
+				}
+			}
+			legacy := retirementIntent{RelationID: creation.RelationID, FirstPeer: creation.FirstPeer, SecondPeer: creation.SecondPeer, WorkspaceName: creation.Workspace, DeletedAt: s.now(), CancelCreation: true}
+			data, err := json.Marshal(legacy)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.Friends.ApplyMutation(ctx, kv.Mutation{Entries: []kv.Entry{{Key: retirementIntentKey(creation.RelationID), Value: data}}, AddMembers: (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Add(creation.RelationID)}); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.ReconcileRetirementIntents(ctx); err != nil {
+				t.Fatal(err)
+			}
+			assertCancellationSQLRows(t, sqlWorkspaces, creation.Workspace, 0)
+			receipt, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID)
+			if err != nil || receipt.WorkspaceOwner != "peer" || receipt.WorkspaceName != creation.Workspace {
+				t.Fatalf("legacy cleanup receipt=%+v err=%v", receipt, err)
+			}
+			if _, err := readRetirementIntent(ctx, s.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("legacy work remained=%v", err)
+			}
+		})
+	}
+}
+
+func TestFriendLegacyCancellationForeignSQLAbsenceStaysPending(t *testing.T) {
+	ctx := t.Context()
+	local, foreign := newTestServer(), newTestServer()
+	localSQL, foreignSQL := cancellationSQLWorkspace(t), cancellationSQLWorkspace(t)
+	local.Workspaces, foreign.Workspaces, foreign.Friends = localSQL, foreignSQL, local.Friends
+	creation, err := local.getOrCreateCreationIntent(ctx, local.Friends, "owner", "peer", "owner")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := local.ensureCreationWorkspace(ctx, creation); err != nil {
+		t.Fatal(err)
+	}
+	if err := deleteCreationIntent(ctx, local.Friends, creation); err != nil {
+		t.Fatal(err)
+	}
+	legacy := retirementIntent{RelationID: creation.RelationID, FirstPeer: creation.FirstPeer, SecondPeer: creation.SecondPeer, WorkspaceName: creation.Workspace, DeletedAt: local.now(), CancelCreation: true}
+	if err := socialutil.WriteJSON(ctx, local.Friends, retirementIntentKey(creation.RelationID), legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := foreign.completeFriendRetirement(ctx, foreign.Friends, legacy); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("foreign absence completed legacy cleanup=%v", err)
+	}
+	current, err := readRetirementIntent(ctx, local.Friends, creation.RelationID)
+	if err != nil || current.WorkspaceOwner != "" {
+		t.Fatalf("foreign absence guessed owner=%+v err=%v", current, err)
+	}
+	if _, err := readRetirementReceipt(ctx, local.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("foreign absence published receipt=%v", err)
+	}
+	assertCancellationSQLRows(t, localSQL, creation.Workspace, 1)
+	if err := local.completeFriendRetirement(ctx, local.Friends, legacy); err != nil {
+		t.Fatal(err)
+	}
+	assertCancellationSQLRows(t, localSQL, creation.Workspace, 0)
+}
+
+func TestFriendLegacyCancellationReceiptRecoversExactLocalOwner(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	sqlWorkspaces := cancellationSQLWorkspace(t)
+	s.Workspaces = sqlWorkspaces
+	creation, err := s.getOrCreateCreationIntent(ctx, s.Friends, "owner", "peer", "peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ensureCreationWorkspace(ctx, creation); err != nil {
+		t.Fatal(err)
+	}
+	if err := deleteCreationIntent(ctx, s.Friends, creation); err != nil {
+		t.Fatal(err)
+	}
+	legacy := retirementReceipt{RelationID: creation.RelationID, FirstPeer: creation.FirstPeer, SecondPeer: creation.SecondPeer, WorkspaceName: creation.Workspace, DeletedAt: s.now(), CancelCreation: true}
+	if err := socialutil.WriteJSON(ctx, s.Friends, retirementReceiptKey(creation.RelationID), legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, creation.RelationID, "peer", creation.Workspace); err != nil {
+		t.Fatal(err)
+	}
+	assertCancellationSQLRows(t, sqlWorkspaces, creation.Workspace, 0)
+	receipt, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID)
+	if err != nil || receipt.WorkspaceOwner != "peer" {
+		t.Fatalf("upgraded legacy receipt=%+v err=%v", receipt, err)
+	}
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, creation.RelationID, "owner", creation.Workspace); err == nil {
+		t.Fatal("receipt acknowledged the other pair owner's scope")
+	}
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, creation.RelationID, "peer", creation.Workspace); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestFriendLegacyReceiptWithoutIdentitySupportsHistoricalDeleteOnly(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	s.Workspaces = cancellationSQLWorkspace(t)
+	legacy := retirementReceipt{RelationID: "owner:peer", FirstPeer: "owner", SecondPeer: "peer", WorkspaceName: "old-cancelled-workspace", DeletedAt: s.now(), CancelCreation: true}
+	if err := socialutil.WriteJSON(ctx, s.Friends, retirementReceiptKey(legacy.RelationID), legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.DeleteFriend(ctx, "owner", rpcapi.FriendDeleteRequest{Name: "peer"}); err != nil {
+		t.Fatalf("historical receipt rejected=%v", err)
+	}
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, legacy.RelationID, "owner", legacy.WorkspaceName); !errors.Is(err, sql.ErrNoRows) {
+		t.Fatalf("historical receipt guessed local cleanup owner=%v", err)
 	}
 }
 
@@ -223,8 +353,8 @@ func TestFriendCancellationReceiptRequiresExactWorkspaceOwner(t *testing.T) {
 	}
 	// Old durable work without immutable owner identity remains explicit work.
 	pending := retirementIntent{RelationID: "owner:peer", FirstPeer: "owner", SecondPeer: "peer", WorkspaceName: "cancelled-workspace", DeletedAt: s.now(), CancelCreation: true}
-	if err := s.completeFriendRetirement(ctx, s.Friends, pending); err == nil || !strings.Contains(err.Error(), "invalid Friend retirement intent") {
-		t.Fatalf("ownerless cancellation was guessed from the deleting actor: %v", err)
+	if err := s.completeFriendRetirement(ctx, s.Friends, pending); err == nil {
+		t.Fatal("ownerless cancellation was guessed without durable or local SQL identity")
 	}
 }
 

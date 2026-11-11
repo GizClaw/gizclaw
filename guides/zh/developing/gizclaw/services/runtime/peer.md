@@ -18,6 +18,10 @@ The production handler validates the fixed home before accessing regional SQL or
 
 Social adapters first persist domain admission fences and prove their inventories include preceding writes. Contacts fence and capture within one SQL transaction; Friend and Group admissions compare permanent Peer fences in their shared atomic roots. Existing plans must cover the prepared inventory or retain the task as `social_snapshot_incomplete`. Captured memberships retain their creation identity through retries, and known missing children require update-time absence validation. Read-only recovery probes do not create fences.
 
+Workspace preparation similarly commits a permanent owner admission fence and the ordinary Workspace inventory in one SQL transaction. Every owned Workspace insertion checks that fence, including another service instance that still observes an active Peer. Existing plans must cover the fenced SQL inventory or retain the task as `workspace_snapshot_incomplete`.
+
+Admin pages skip local directory entries absent from the historical Peer reader and advance by the last scanned local key, without upgrading the query. SQL Contact and Workspace creation may refresh a missing Peer input once; ordinary Workspace reads use a separate availability callback and retain historical absence.
+
 retirement plan 绑定 marker fingerprint、home Server 和未叠加 SQL 字段的完整 KV 记录指纹。清理前验证 generation；最终 guarded mutation 再比较准确 KV 字节和当前 task lease，避免并发替换被旧计划删除。SQL `RegistrationFirmware` 仅用于展示，删除 owner binding 导致投影消失不会改变 KV generation。
 
 本机 Contact 与用户 Workspace 由各自领域 adapter 清理。API Key cleanup 保留 owner retired marker，阻止并发创建 credential。Workspace 必须先完成 memory、History、runtime、icon、对象和 graph state 清理；随后清除 Peer scope 的当前 Memory binding，验证 absent，最后删除本区 RuntimeProfile owner binding。绑定指向的全局 Profile、Firmware、Workflow、RegistrationToken、log 和 metrics 保留。PeerRun 行保留为本机 Admin 目录与诊断状态，不是清理完成证据。

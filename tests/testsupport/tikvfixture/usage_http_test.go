@@ -258,7 +258,7 @@ func TestUsageAfterReleasesActualNativeResponseWithHTTPResult(t *testing.T) {
 	client := &usageHTTP{controls: []string{waitGate.URL(), actionGate.URL()}, edges: []string{upstream.URL}}
 	waitGate.services.Store(&UsageServices{http: client})
 	actionGate.services.Store(&UsageServices{http: client})
-	if err := HTTP(ctx, http.MethodPost, waitGate.URL()+"/arm", UsageRule{ID: "held", Key: []string{"held"}, Commands: []string{"Get"}, Stage: "response"}, nil); err != nil {
+	if err := client.control(ctx, waitGate.URL(), "/arm", UsageRule{ID: "held", Key: []string{"held"}, Commands: []string{"Get"}, Stage: "response"}, new(UsageObservation)); err != nil {
 		t.Fatal(err)
 	}
 	request := tikvrpc.NewRequest(tikvrpc.CmdGet, &kvrpcpb.GetRequest{Key: []byte("namespace:held"), Version: 97})

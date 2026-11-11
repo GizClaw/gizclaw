@@ -670,6 +670,16 @@ func (s *Server) EnsureAvailable(ctx context.Context, publicKey giznet.PublicKey
 	return nil
 }
 
+// EnsureAvailableForMutation refreshes a missing Peer input once before a SQL
+// mutation rejects it. Ordinary availability queries retain historical absence.
+func (s *Server) EnsureAvailableForMutation(ctx context.Context, publicKey giznet.PublicKey) error {
+	err := s.EnsureAvailable(ctx, publicKey)
+	if errors.Is(err, ErrPeerNotFound) {
+		return s.EnsureAvailable(kv.WithPrimaryReads(ctx), publicKey)
+	}
+	return err
+}
+
 func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([]adminhttp.PeerRegistrationResult, bool, *string, error) {
 	if s.LocalRuns == nil {
 		return nil, false, nil, errors.New("peer: local runtime directory is not configured")
@@ -683,14 +693,19 @@ func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([
 		return nil, false, nil, err
 	}
 	items := make([]adminhttp.PeerRegistrationResult, len(keys))
+	present := make([]bool, len(keys))
 	workers, workerCtx := errgroup.WithContext(ctx)
 	workers.SetLimit(8)
 	for i, key := range keys {
 		workers.Go(func() error {
 			data, err := store.Get(workerCtx, peerKey(key))
+			if errors.Is(err, kv.ErrNotFound) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
+			present[i] = true
 			if isPeerTombstone(data) {
 				items[i] = toAdminTombstoneResult(key)
 				return nil
@@ -713,10 +728,16 @@ func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([
 	if err := workers.Wait(); err != nil {
 		return nil, false, nil, err
 	}
-	if more {
-		return items, true, new(keys[len(keys)-1]), nil
+	visible := items[:0]
+	for i, item := range items {
+		if present[i] {
+			visible = append(visible, item)
+		}
 	}
-	return items, false, nil, nil
+	if more {
+		return visible, true, new(keys[len(keys)-1]), nil
+	}
+	return visible, false, nil, nil
 }
 
 func (s *Server) listBySN(ctx context.Context, sn string) ([]adminhttp.PeerRegistrationResult, error) {

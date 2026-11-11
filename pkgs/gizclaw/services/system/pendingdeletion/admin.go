@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/uuid"
 )
 
@@ -164,6 +165,12 @@ func (a *Admin) Retry(ctx context.Context, sourceName, deletionID string) (Task,
 		return Task{}, fmt.Errorf("%w: invalid deletion ID", ErrInvalid)
 	}
 	current, err := source.GetTask(ctx, deletionID)
+	if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid) || err == nil && current.Status != StatusFailed {
+		// Retry is an explicit mutation. Its admission check must see the failed
+		// task even when an ordinary query still sees absence or an older status.
+		ctx = kv.WithPrimaryReads(ctx)
+		current, err = source.GetTask(ctx, deletionID)
+	}
 	if err != nil {
 		return Task{}, err
 	}

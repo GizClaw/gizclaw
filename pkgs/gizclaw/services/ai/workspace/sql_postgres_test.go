@@ -62,6 +62,14 @@ func TestWorkspaceSQLPostgresIdentityAndConditionalMutation(t *testing.T) {
 	testWorkspaceSQLIdentityAndConditionalMutation(t, workspacePostgresTestDB(t, dsn))
 }
 
+func TestWorkspaceSQLPostgresOwnerRetirementAdmission(t *testing.T) {
+	dsn := os.Getenv("GIZCLAW_TEST_POSTGRES_DSN")
+	if dsn == "" {
+		t.Skip("set GIZCLAW_TEST_POSTGRES_DSN for PostgreSQL integration")
+	}
+	testWorkspaceRetirementAdmission(t, workspacePostgresTestDB(t, dsn))
+}
+
 func TestWorkspaceSQLPostgresActivityRetirement(t *testing.T) {
 	dsn := os.Getenv("GIZCLAW_TEST_POSTGRES_DSN")
 	if dsn == "" {

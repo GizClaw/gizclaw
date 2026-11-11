@@ -148,12 +148,22 @@ func (s KVSource) ListTasks(ctx context.Context, options SourceListOptions) ([]T
 }
 
 func (s KVSource) Retry(ctx context.Context, deletionID string, now time.Time) (Task, error) {
-	for range 4 {
+	for attempt := range 4 {
 		task, raw, err := s.loadTask(ctx, deletionID)
 		if err != nil {
+			if attempt == 0 && (errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid)) {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
 			return Task{}, err
 		}
 		if task.Status != StatusFailed {
+			if attempt == 0 {
+				// Explicit retry mutates a failed task that the reader may still
+				// expose as queued or running. Confirm before rejecting it.
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
 			return Task{}, ErrConflict
 		}
 		retried, matched, err := s.requeueFailed(ctx, task, raw, now)

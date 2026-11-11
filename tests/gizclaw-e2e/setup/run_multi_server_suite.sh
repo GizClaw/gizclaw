@@ -297,14 +297,34 @@ PY
 fi
 
 python3 -B - "$repo_root" "$report_dir/e2e-run.json" "$project" "$server_bin" "$test_bin" "$seed_bin" "$GIZCLAW_E2E_SFU_PROVIDER" "$suite" <<'PY'
-import hashlib, json, pathlib, subprocess, sys
+import hashlib, json, os, pathlib, stat, subprocess, sys
 repository, report, project, server, tests, seed, provider, suite = sys.argv[1:]
 diff = subprocess.check_output(["git", "-C", repository, "diff", "HEAD"])
-untracked = subprocess.check_output(["git", "-C", repository, "ls-files", "--others", "--exclude-standard", "-z"]).decode().split("\0")
+untracked = subprocess.check_output(["git", "-C", repository, "ls-files", "--others", "--exclude-standard", "-z"]).split(b"\0")
+source_hashes, source_symlinks, source_special = {}, {}, {}
+for entry in sorted(filter(None, untracked)):
+    path = os.fsdecode(entry)
+    source = pathlib.Path(repository) / path
+    mode = source.lstat().st_mode
+    if stat.S_ISLNK(mode):
+        target = os.readlink(source)
+        source_symlinks[path] = target
+        data = b"symlink\0" + os.fsencode(target)
+    elif stat.S_ISREG(mode):
+        data = source.read_bytes()
+    else:
+        # Git can list nested repositories or special files. Never read them:
+        # directory traversal can escape the snapshot and FIFOs can block it.
+        kind = stat.S_IFMT(mode)
+        source_special[path] = kind
+        data = b"special\0" + str(kind).encode("ascii")
+    source_hashes[path] = hashlib.sha256(data).hexdigest()
 pathlib.Path(report).write_text(json.dumps({
     "project": project,
     "suite": suite,
-    "source_untracked_sha256": {path: hashlib.sha256((pathlib.Path(repository) / path).read_bytes()).hexdigest() for path in untracked if path},
+    "source_untracked_sha256": source_hashes,
+    "source_untracked_symlinks": source_symlinks,
+    "source_untracked_special": source_special,
     "stale_delay": "2s" if suite == "tikv-usage-giztest" else "60s",
     "revision": subprocess.check_output(["git", "-C", repository, "rev-parse", "HEAD"], text=True).strip(),
     "source_diff_sha256": hashlib.sha256(diff).hexdigest(),

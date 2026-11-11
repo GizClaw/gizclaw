@@ -1066,3 +1066,447 @@ func TestPeerGroupRetirementRejectsUnversionedExistingMembership(t *testing.T) {
 		t.Fatalf("unversioned snapshot removed Group: %v", err)
 	}
 }
+
+func TestGroupMutationsRecoverGroupMissingFromReader(t *testing.T) {
+	operations := []struct {
+		name string
+		run  func(context.Context, *Server) error
+	}{
+		{"admin create member", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminCreateFriendGroupMember(ctx, "group", "candidate", "candidate-room", rpcapi.FriendGroupMemberRoleMember)
+			return err
+		}},
+		{"admin put member", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminPutFriendGroupMember(ctx, "group", "candidate", "candidate-room", rpcapi.FriendGroupMemberRoleMember)
+			return err
+		}},
+		{"admin put group", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminPutFriendGroup(ctx, "group", new("updated"), nil)
+			return err
+		}},
+		{"named put", func(ctx context.Context, s *Server) error {
+			_, err := s.PutFriendGroup(ctx, "owner", rpcapi.FriendGroupPutRequest{Name: "room", DisplayName: new("updated")})
+			return err
+		}},
+		{"named add member", func(ctx context.Context, s *Server) error {
+			_, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "room", PeerPublicKey: "candidate", MemberName: "candidate-room", Role: "member"})
+			return err
+		}},
+		{"named put member", func(ctx context.Context, s *Server) error {
+			_, err := s.PutFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberPutRequest{FriendGroupName: "room", Name: "guest", Role: "admin"})
+			return err
+		}},
+		{"named delete member", func(ctx context.Context, s *Server) error {
+			_, err := s.DeleteFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberDeleteRequest{FriendGroupName: "room", Name: "guest"})
+			return err
+		}},
+		{"named leave", func(ctx context.Context, s *Server) error {
+			_, err := s.LeaveFriendGroup(ctx, "guest", "guest-room")
+			return err
+		}},
+		{"named create invitation", func(ctx context.Context, s *Server) error {
+			_, err := s.CreateFriendGroupInviteToken(ctx, "owner", rpcapi.FriendGroupInviteTokenCreateRequest{FriendGroupName: "room"})
+			return err
+		}},
+		{"named clear invitation", func(ctx context.Context, s *Server) error {
+			_, err := s.ClearFriendGroupInviteToken(ctx, "owner", rpcapi.FriendGroupInviteTokenClearRequest{FriendGroupName: "room"})
+			return err
+		}},
+		{"named delete group", func(ctx context.Context, s *Server) error {
+			_, err := s.DeleteFriendGroup(ctx, "owner", rpcapi.FriendGroupDeleteRequest{Name: "room"})
+			return err
+		}},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			s, store := newReadSplitGroupServer(t)
+			store.replicate = false
+			primary := kv.WithPrimaryReads(t.Context())
+			if _, err := s.AdminCreateFriendGroup(primary, "group", "owner", "room", nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.AdminCreateFriendGroupMember(primary, "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember); err != nil {
+				t.Fatal(err)
+			}
+			store.primary = 0
+			if _, err := s.GetFriendGroup(t.Context(), "owner", rpcapi.FriendGroupGetRequest{Name: "room"}); !errors.Is(err, kv.ErrNotFound) || store.primary != 0 {
+				t.Fatalf("ordinary missing Group promoted to authority: primary=%d error=%v", store.primary, err)
+			}
+			before := store.mutations
+			if err := operation.run(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			if store.primary == 0 || store.mutations == before {
+				t.Fatalf("missing Group was not recovered: primary=%d mutations=%d", store.primary, store.mutations-before)
+			}
+		})
+	}
+}
+
+func TestGroupJoinRecoversInvitationMissingFromReader(t *testing.T) {
+	s, store := newReadSplitGroupServer(t)
+	if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	primary := kv.WithPrimaryReads(t.Context())
+	if _, err := s.AdminPutFriendGroupInviteToken(primary, "group", "new-invite", s.now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	store.primary = 0
+	if _, err := s.findGroupInviteToken(t.Context(), "new-invite"); !errors.Is(err, ErrInviteTokenUnavailable) || store.primary != 0 {
+		t.Fatalf("ordinary missing invitation promoted to authority: primary=%d error=%v", store.primary, err)
+	}
+	before := store.mutations
+	joined, err := s.JoinFriendGroup(t.Context(), "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "new-invite"})
+	if err != nil || joined.Group.Name != "guest-room" || store.primary == 0 || store.mutations-before != 1 {
+		t.Fatalf("new invitation join=%+v primary=%d mutations=%d error=%v", joined, store.primary, store.mutations-before, err)
+	}
+	member, err := s.groupMember(primary, "group", "guest")
+	if err != nil || socialutil.StringValue(member.FriendGroupName) != joined.Group.Name {
+		t.Fatalf("missing committed member: %+v %v", member, err)
+	}
+	store.primary = 0
+	if _, err := s.GetFriendGroup(t.Context(), "guest", rpcapi.FriendGroupGetRequest{Name: "guest-room"}); !errors.Is(err, kv.ErrNotFound) || store.primary != 0 {
+		t.Fatalf("join changed ordinary getter policy: primary=%d error=%v", store.primary, err)
+	}
+}
+
+func TestGroupJoinRejectsRevocationAtCommit(t *testing.T) {
+	for _, namespaced := range []bool{false, true} {
+		for _, existing := range []bool{false, true} {
+			for _, revoke := range []string{"clear", "rotate", "replace record", "reassign index"} {
+				t.Run(fmt.Sprintf("namespace=%v/existing=%v/%s", namespaced, existing, revoke), func(t *testing.T) {
+					s, store := newReadSplitGroupServer(t)
+					inviteAuthority := store.Store
+					if namespaced {
+						s.Groups = kv.Prefixed(store, kv.Key{"tenant", "groups"})
+						s.Members = kv.Prefixed(store, kv.Key{"tenant", "members"})
+						s.Belongs = kv.Prefixed(store, kv.Key{"tenant", "belongs"})
+						s.InviteTokens = kv.Prefixed(store, kv.Key{"tenant", "invites"})
+						s.RelationshipStore = kv.Prefixed(store, kv.Key{"tenant", "relationships"})
+						inviteAuthority = kv.Prefixed(store.Store, kv.Key{"tenant", "invites"})
+					}
+					if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+						t.Fatal(err)
+					}
+					if existing {
+						if _, err := s.AdminCreateFriendGroupMember(t.Context(), "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember); err != nil {
+							t.Fatal(err)
+						}
+					}
+					if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), "group", "invite", s.now().Add(time.Hour)); err != nil {
+						t.Fatal(err)
+					}
+					store.replicate = false
+					primary := kv.WithPrimaryReads(t.Context())
+					revision, err := s.Groups.Get(primary, groupRevisionKey("group"))
+					if err != nil {
+						t.Fatal(err)
+					}
+					before, rejected := store.mutations, store.rejected
+					store.beforeWrite = func(ctx context.Context, _ kv.Mutation) {
+						store.beforeWrite = nil
+						switch revoke {
+						case "clear":
+							if err := socialutil.DeleteInviteToken(primary, inviteAuthority, socialutil.GroupInviteTokenKey("group")); err != nil {
+								t.Fatal(err)
+							}
+						case "rotate":
+							record := inviteTokenRecord{FriendGroupID: "group", InviteToken: "rotated", CreatedAt: s.now(), ExpiresAt: s.now().Add(time.Hour)}
+							if err := socialutil.WriteInviteToken(primary, inviteAuthority, socialutil.GroupInviteTokenKey("group"), record); err != nil {
+								t.Fatal(err)
+							}
+						case "replace record":
+							// Preserve the old index so only the record-byte guard
+							// can reject the stale invitation observation.
+							record := inviteTokenRecord{FriendGroupID: "group", InviteToken: "rotated", CreatedAt: s.now(), ExpiresAt: s.now().Add(time.Hour)}
+							data, err := json.Marshal(record)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if err := inviteAuthority.Set(ctx, socialutil.GroupInviteTokenKey("group"), data); err != nil {
+								t.Fatal(err)
+							}
+						case "reassign index":
+							// Keep the original record intact: only the exact index
+							// guard can reject this admission to the first Group.
+							record := inviteTokenRecord{FriendGroupID: "replacement", InviteToken: "invite", CreatedAt: s.now(), ExpiresAt: s.now().Add(time.Hour)}
+							data, err := json.Marshal(record)
+							if err != nil {
+								t.Fatal(err)
+							}
+							key := socialutil.GroupInviteTokenKey("replacement")
+							if err := inviteAuthority.Set(ctx, key, data); err != nil {
+								t.Fatal(err)
+							}
+							locator, err := json.Marshal(key)
+							if err != nil {
+								t.Fatal(err)
+							}
+							if err := inviteAuthority.Set(ctx, socialutil.InviteTokenIndexKey(socialutil.GroupInviteTokensRoot, "invite"), locator); err != nil {
+								t.Fatal(err)
+							}
+						}
+					}
+					_, err = s.JoinFriendGroup(t.Context(), "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "invite"})
+					if !errors.Is(err, ErrInviteTokenUnavailable) || store.mutations-before != 1 || store.rejected-rejected != 1 {
+						t.Fatalf("revoked token acknowledged: mutations=%d rejected=%d error=%v", store.mutations-before, store.rejected-rejected, err)
+					}
+					current, err := s.Groups.Get(primary, groupRevisionKey("group"))
+					if err != nil || !slices.Equal(current, revision) {
+						t.Fatalf("rejected join changed Group revision: %q %v", current, err)
+					}
+					_, err = s.groupMember(primary, "group", "guest")
+					if (existing && err != nil) || (!existing && !errors.Is(err, kv.ErrNotFound)) {
+						t.Fatalf("rejected join changed membership: %v", err)
+					}
+				})
+			}
+		}
+	}
+}
+
+func TestGroupJoinRefreshesStaleExistingMembership(t *testing.T) {
+	s, store := newReadSplitGroupServer(t)
+	if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	old, err := s.AdminCreateFriendGroupMember(t.Context(), "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), "group", "invite", s.now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	primary := kv.WithPrimaryReads(t.Context())
+	if _, err := s.AdminDeleteFriendGroupMember(primary, "group", "guest"); err != nil {
+		t.Fatal(err)
+	}
+	later := s.now().Add(time.Second)
+	s.Now = func() time.Time { return later }
+	before, rejected := store.mutations, store.rejected
+	joined, err := s.JoinFriendGroup(t.Context(), "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "invite"})
+	if err != nil || store.mutations-before != 2 || store.rejected-rejected != 1 {
+		t.Fatalf("join=%+v mutations=%d rejected=%d error=%v", joined, store.mutations-before, store.rejected-rejected, err)
+	}
+	current, err := s.groupMember(primary, "group", "guest")
+	if err != nil || !socialutil.TimeValue(current.CreatedAt).Equal(later) || !socialutil.TimeValue(joined.Member.CreatedAt).Equal(later) || socialutil.TimeValue(current.CreatedAt).Equal(socialutil.TimeValue(old.CreatedAt)) {
+		t.Fatalf("join acknowledged removed incarnation: old=%+v current=%+v joined=%+v error=%v", old, current, joined.Member, err)
+	}
+}
+
+func TestGroupJoinDoesNotReplayUnknownCommit(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(fmt.Sprint(existing), func(t *testing.T) {
+			s, store := newReadSplitGroupServer(t)
+			if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			if existing {
+				if _, err := s.AdminCreateFriendGroupMember(t.Context(), "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), "group", "invite", s.now().Add(time.Hour)); err != nil {
+				t.Fatal(err)
+			}
+			store.replicate = false
+			store.writeErr = errors.New("lost acknowledgement")
+			before := store.mutations
+			_, err := s.JoinFriendGroup(t.Context(), "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "invite"})
+			if !errors.Is(err, store.writeErr) || store.mutations-before != 1 {
+				t.Fatalf("unknown join replayed: mutations=%d error=%v", store.mutations-before, err)
+			}
+		})
+	}
+}
+
+func TestGroupAdmissionRechecksStaleFullGroup(t *testing.T) {
+	operations := []struct {
+		name string
+		run  func(context.Context, *Server) error
+	}{
+		{"join", func(ctx context.Context, s *Server) error {
+			_, err := s.JoinFriendGroup(ctx, "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "invite"})
+			return err
+		}},
+		{"named add", func(ctx context.Context, s *Server) error {
+			_, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "room", PeerPublicKey: "guest", MemberName: "guest-room", Role: "member"})
+			return err
+		}},
+		{"admin create", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminCreateFriendGroupMember(ctx, "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember)
+			return err
+		}},
+		{"admin put", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminPutFriendGroupMember(ctx, "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember)
+			return err
+		}},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			s, store := newReadSplitGroupServer(t)
+			if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			for index := range socialutil.FriendGroupMemberLimit - 1 {
+				peer := fmt.Sprintf("member-%d", index)
+				if _, err := s.AdminCreateFriendGroupMember(t.Context(), "group", peer, peer+"-room", rpcapi.FriendGroupMemberRoleMember); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), "group", "invite", s.now().Add(time.Hour)); err != nil {
+				t.Fatal(err)
+			}
+			store.replicate = false
+			before := store.mutations
+			store.primary = 0
+			if err := operation.run(t.Context(), s); !errors.Is(err, ErrFriendGroupFull) || store.primary == 0 || store.mutations != before {
+				t.Fatalf("true full Group not confirmed before rejection: primary=%d mutations=%d error=%v", store.primary, store.mutations-before, err)
+			}
+			primary := kv.WithPrimaryReads(t.Context())
+			if _, err := s.AdminDeleteFriendGroupMember(primary, "group", "member-0"); err != nil {
+				t.Fatal(err)
+			}
+			before, rejected := store.mutations, store.rejected
+			store.primary = 0
+			if err := operation.run(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			if store.primary == 0 || store.rejected-rejected != 1 || store.mutations-before != 2 {
+				t.Fatalf("stale full Group did not recover boundedly: primary=%d rejected=%d mutations=%d", store.primary, store.rejected-rejected, store.mutations-before)
+			}
+			members, err := s.memberPublicKeys(primary, "group")
+			if err != nil || len(members) != socialutil.FriendGroupMemberLimit || !slices.Contains(members, "guest") || slices.Contains(members, "member-0") {
+				t.Fatalf("incorrect final membership: %v %v", members, err)
+			}
+		})
+	}
+}
+
+func TestGroupAdmissionRechecksStaleFullPeerQuota(t *testing.T) {
+	operations := []struct {
+		name string
+		run  func(context.Context, *Server) error
+	}{
+		{"join", func(ctx context.Context, s *Server) error {
+			_, err := s.JoinFriendGroup(ctx, "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "invite"})
+			return err
+		}},
+		{"named add", func(ctx context.Context, s *Server) error {
+			_, err := s.AddFriendGroupMember(ctx, "owner", rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "room", PeerPublicKey: "guest", MemberName: "guest-room", Role: "member"})
+			return err
+		}},
+		{"admin create", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminCreateFriendGroupMember(ctx, "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember)
+			return err
+		}},
+		{"admin put", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminPutFriendGroupMember(ctx, "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember)
+			return err
+		}},
+		{"create group", func(ctx context.Context, s *Server) error {
+			_, err := s.CreateFriendGroup(ctx, "guest", rpcapi.FriendGroupCreateRequest{Name: "new-group"})
+			return err
+		}},
+		{"admin create group", func(ctx context.Context, s *Server) error {
+			_, err := s.AdminCreateFriendGroup(ctx, "new-group", "guest", "new-group", nil, nil)
+			return err
+		}},
+	}
+	for _, operation := range operations {
+		t.Run(operation.name, func(t *testing.T) {
+			s, store := newReadSplitGroupServer(t)
+			for index := range socialutil.PeerFriendGroupLimit {
+				id := fmt.Sprintf("owned-%d", index)
+				if _, err := s.AdminCreateFriendGroup(t.Context(), id, "guest", id, nil, nil); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), "group", "invite", s.now().Add(time.Hour)); err != nil {
+				t.Fatal(err)
+			}
+			store.replicate = false
+			before := store.mutations
+			store.primary = 0
+			workspaces := s.Workspaces.(*recordingWorkspaceService)
+			created := len(workspaces.created)
+			if err := operation.run(t.Context(), s); !errors.Is(err, ErrPeerFriendGroupLimit) || store.primary == 0 || store.mutations != before || len(workspaces.created) != created {
+				t.Fatalf("true full Peer quota not confirmed before rejection: primary=%d mutations=%d error=%v", store.primary, store.mutations-before, err)
+			}
+			primary := kv.WithPrimaryReads(t.Context())
+			if _, err := s.AdminDeleteFriendGroup(primary, "owned-0"); err != nil {
+				t.Fatal(err)
+			}
+			before = store.mutations
+			store.primary = 0
+			if err := operation.run(t.Context(), s); err != nil {
+				t.Fatal(err)
+			}
+			if store.primary == 0 || store.mutations-before != 1 {
+				t.Fatalf("stale Peer quota not recovered: primary=%d mutations=%d", store.primary, store.mutations-before)
+			}
+			groups, err := s.Belongs.ListMembers(primary, belongCollectionKey("guest"))
+			if err != nil || len(groups) != socialutil.PeerFriendGroupLimit || slices.Contains(groups, "owned-0") {
+				t.Fatalf("incorrect final Peer groups: %v %v", groups, err)
+			}
+		})
+	}
+}
+
+func TestExistingGroupJoinCannotBypassPeerRetirement(t *testing.T) {
+	s, store := newReadSplitGroupServer(t)
+	if _, err := s.AdminCreateFriendGroup(t.Context(), "group", "owner", "room", nil, nil); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdminCreateFriendGroupMember(t.Context(), "group", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.AdminPutFriendGroupInviteToken(t.Context(), "group", "invite", s.now().Add(time.Hour)); err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	primary := kv.WithPrimaryReads(t.Context())
+	if err := store.Store.Set(primary, socialutil.PeerRetirementFenceKey("guest"), []byte("retired")); err != nil {
+		t.Fatal(err)
+	}
+	before, rejected := store.mutations, store.rejected
+	_, err := s.JoinFriendGroup(t.Context(), "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "invite"})
+	if !errors.Is(err, ownership.ErrOwnerRetired) || store.mutations-before != 1 || store.rejected-rejected != 1 {
+		t.Fatalf("retired Peer join acknowledged: mutations=%d rejected=%d error=%v", store.mutations-before, store.rejected-rejected, err)
+	}
+}
+
+func TestGroupMissingAuthorityRecoveryIsBounded(t *testing.T) {
+	for _, target := range []string{"group", "name", "invitation"} {
+		t.Run(target, func(t *testing.T) {
+			s, store := newReadSplitGroupServer(t)
+			var err error
+			switch target {
+			case "group":
+				_, err = s.AdminCreateFriendGroupMember(t.Context(), "missing", "guest", "guest-room", rpcapi.FriendGroupMemberRoleMember)
+			case "name":
+				_, err = s.PutFriendGroup(t.Context(), "owner", rpcapi.FriendGroupPutRequest{Name: "missing", DisplayName: new("updated")})
+			case "invitation":
+				_, err = s.JoinFriendGroup(t.Context(), "guest", rpcapi.FriendGroupJoinRequest{Name: "guest-room", InviteToken: "missing"})
+			}
+			if target == "invitation" && !errors.Is(err, ErrInviteTokenUnavailable) {
+				t.Fatalf("missing invitation error=%v", err)
+			}
+			if target != "invitation" && !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("missing %s error=%v", target, err)
+			}
+			if errors.Is(err, ErrGroupChanged) {
+				t.Fatalf("definite primary absence reported as a conflict for %s: %v", target, err)
+			}
+			if store.ordinary != 1 || store.primary != 1 || store.mutations != 0 {
+				t.Fatalf("unbounded missing %s recovery: ordinary=%d primary=%d mutations=%d", target, store.ordinary, store.primary, store.mutations)
+			}
+		})
+	}
+}

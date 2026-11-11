@@ -26,6 +26,9 @@ func (s *Server) requireMemberCapacity(ctx context.Context, friendGroupID string
 		return err
 	}
 	if len(members) >= socialutil.FriendGroupMemberLimit {
+		if primary := kv.WithPrimaryReads(ctx); primary != ctx {
+			return s.requireMemberCapacity(primary, friendGroupID)
+		}
 		return fmt.Errorf("%w: %d members", ErrFriendGroupFull, len(members))
 	}
 	return nil
@@ -60,6 +63,9 @@ func (s *Server) readPeerGroupCapacity(ctx context.Context, peerID string) ([]by
 		return nil, err
 	}
 	if len(groups) >= socialutil.PeerFriendGroupLimit {
+		if primary := kv.WithPrimaryReads(ctx); primary != ctx {
+			return s.readPeerGroupCapacity(primary, peerID)
+		}
 		return nil, fmt.Errorf("%w: %d groups", ErrPeerFriendGroupLimit, len(groups))
 	}
 	return revision, nil

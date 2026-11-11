@@ -26,8 +26,10 @@ type SocialRetirement interface {
 	RetirePeerSocial(context.Context, social.PeerSnapshot) (social.PeerRetirementResult, error)
 }
 
+// WorkspaceRetirement separates read-only probes from fenced SQL inventory capture.
 type WorkspaceRetirement interface {
 	SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error)
+	PreparePeerWorkspacesRetirement(context.Context, string) (workspace.PeerRetirementSnapshot, error)
 	RetirePeerWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error)
 }
 
@@ -207,6 +209,13 @@ func (h DeletionHandler) tryLoadOrCreatePlan(ctx context.Context, claim pendingd
 			return retirementPlan{}, err
 		}
 		if plan.Version == retirementPlanVersion {
+			workspaces, err := h.Workspaces.PreparePeerWorkspacesRetirement(ctx, publicKey.String())
+			if err != nil {
+				return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace retirement could not be prepared", err)
+			}
+			if !plan.Workspaces.Covers(workspaces) {
+				return retirementPlan{}, pendingdeletion.Terminal("workspace_snapshot_incomplete", "Retirement plan omits fenced Workspace dependencies; retain the task for repair", nil)
+			}
 			prepared, err := h.Social.PreparePeerSocialRetirement(ctx, publicKey.String())
 			if err != nil {
 				return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social retirement could not be prepared", err)
@@ -228,7 +237,7 @@ func (h DeletionHandler) tryLoadOrCreatePlan(ctx context.Context, claim pendingd
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social retirement could not be prepared", err)
 	}
-	workspaceSnapshot, err := h.Workspaces.SnapshotPeerWorkspaces(ctx, publicKey.String())
+	workspaceSnapshot, err := h.Workspaces.PreparePeerWorkspacesRetirement(ctx, publicKey.String())
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace snapshot failed", err)
 	}
@@ -355,6 +364,14 @@ func (h DeletionHandler) adoptLegacyPlan(ctx context.Context, claim pendingdelet
 	if err != nil {
 		return retirementPlan{}, err
 	}
+	workspaces, err := h.Workspaces.PreparePeerWorkspacesRetirement(ctx, key.String())
+	if err != nil {
+		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace retirement could not be prepared", err)
+	}
+	if !snapshot.Covers(workspaces) {
+		return retirementPlan{}, pendingdeletion.Terminal("retirement_scope_ambiguous", "Fenced Workspace data is absent from the legacy retirement plan; retain it for repair", nil)
+	}
+	snapshot = workspaces
 	prepared, err := h.Social.PreparePeerSocialRetirement(ctx, key.String())
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social retirement could not be prepared", err)

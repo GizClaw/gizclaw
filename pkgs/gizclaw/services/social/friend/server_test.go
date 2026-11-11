@@ -36,8 +36,9 @@ type friendNotification struct {
 func TestCrossServerFriendCreationSucceedsThroughSharedKV(t *testing.T) {
 	localKey := giznet.PublicKey{1}
 	foreignKey := giznet.PublicKey{2}
-	inviteTokens := kv.NewMemory(nil)
-	friends := kv.NewMemory(nil)
+	root := kv.NewMemory(nil)
+	inviteTokens := kv.Prefixed(root, kv.Key{"invite-tokens"})
+	friends := kv.Prefixed(root, kv.Key{"friends"})
 	workspaces := &recordingWorkspaceService{}
 	home := newTestServer()
 	home.InviteTokens, home.Friends, home.Workspaces = inviteTokens, friends, workspaces
@@ -1850,9 +1851,10 @@ var testNow = time.Now().UTC().Truncate(time.Second)
 func newTestServer() *Server {
 	now := testNow
 	nextID := 0
+	store := kv.NewMemory(nil)
 	return &Server{
-		InviteTokens: kv.NewMemory(nil),
-		Friends:      kv.NewMemory(nil),
+		InviteTokens: store,
+		Friends:      store,
 		Workspaces:   &recordingWorkspaceService{},
 		SFUURL:       "wss://sfu.test",
 		Now:          func() time.Time { return now },
