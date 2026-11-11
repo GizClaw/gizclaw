@@ -5,11 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
 
 type mutationHookStore struct {
@@ -176,4 +178,401 @@ func TestLostClaimResponseCannotReclaimAnotherServer(t *testing.T) {
 			awaitSnapshot(t, b, peer, want)
 		})
 	}
+}
+
+// stalePresenceStore routes ordinary reads to an unchanged snapshot while conditional
+// mutations execute against a real in-memory authority.
+type stalePresenceStore struct {
+	kv.Store
+	authority kv.Store
+	ordinary  atomic.Int32
+	primary   atomic.Int32
+	attempts  atomic.Int32
+	rejected  atomic.Int32
+	apply     func(context.Context, kv.Mutation) (bool, error)
+}
+
+func newStalePresenceStore(t *testing.T, authority, replica kv.Store) *stalePresenceStore {
+	t.Helper()
+	s := &stalePresenceStore{authority: authority}
+	s.Store = kvfixture.ReadView(authority, replica, &s.ordinary, &s.primary)
+	return s
+}
+func (s *stalePresenceStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.attempts.Add(1)
+	var matched bool
+	var err error
+	if s.apply != nil {
+		matched, err = s.apply(ctx, mutation)
+	} else {
+		matched, err = s.authority.ApplyMutation(ctx, mutation)
+	}
+	if !matched && err == nil {
+		s.rejected.Add(1)
+	}
+	return matched, err
+}
+func (s *stalePresenceStore) BatchSet(ctx context.Context, entries []kv.Entry) error {
+	return s.authority.BatchSet(ctx, entries)
+}
+
+func TestFirstClaimPinsOwnerAtReservationAfterRejection(t *testing.T) {
+	ctx, peer := t.Context(), giznet.PublicKey{95}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	previous := []byte("previous-connection")
+	if err := authority.Set(ctx, ownerKey(peer), previous); err != nil {
+		t.Fatal(err)
+	}
+	store := newStalePresenceStore(t, authority, replica)
+	service := startService(t, store, 1)
+	publisher := service.NewPublisher(peer)
+	store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+		if store.attempts.Load() == 1 && (len(mutation.Conditions) != 3 || mutation.Conditions[2].Key.String() != ownerKey(peer).String() || mutation.Conditions[2].Expected != nil || store.primary.Load() != 0) {
+			t.Errorf("initial reservation must guard owner absence before refresh: %+v reads=%d", mutation.Conditions, store.primary.Load())
+		}
+		if store.attempts.Load() == 2 && string(mutation.Conditions[2].Expected) != string(previous) {
+			t.Errorf("reservation did not pin refreshed opaque owner: %+v", mutation.Conditions)
+		}
+		return authority.ApplyMutation(ctx, mutation)
+	}
+	want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
+	if err := service.writeTransition(ctx, publisher, want); err != nil {
+		t.Fatal(err)
+	}
+	if !publisher.ownership.claimed || publisher.ownership.fenced || store.attempts.Load() != 3 || store.rejected.Load() != 1 || store.primary.Load() != 1 {
+		t.Fatalf("claim fallback: owner=%+v attempts=%d rejected=%d primary=%d", publisher.ownership, store.attempts.Load(), store.rejected.Load(), store.primary.Load())
+	}
+	value, err := authority.Get(ctx, peerKey(peer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got record
+	if err := json.Unmarshal(value, &got); err != nil || got.Snapshot != want {
+		t.Fatalf("committed snapshot=%+v %v", got, err)
+	}
+}
+
+func TestFirstClaimCannotReplaceLegacyWriterAfterReservation(t *testing.T) {
+	for _, handoff := range []string{"after-reservation", "before-publication"} {
+		t.Run(handoff, func(t *testing.T) {
+			ctx, peer := t.Context(), giznet.PublicKey{101}
+			base := kv.NewMemory(nil)
+			previous, replacement := []byte{0, 0xff, 'a'}, []byte{0, 0xfe, 'b'}
+			if err := base.Set(ctx, ownerKey(peer), previous); err != nil {
+				t.Fatal(err)
+			}
+			legacy := startService(t, base, 2)
+			want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "legacy"}
+			value, err := json.Marshal(record{Snapshot: want, Server: legacy.server, Generation: legacy.generation})
+			if err != nil {
+				t.Fatal(err)
+			}
+			var publisher *Publisher
+			handedOff := false
+			replace := func() {
+				t.Helper()
+				// This is the pre-reservation binary's first-publication mutation:
+				// generation and opaque owner are guarded, but claims is untouched.
+				matched, err := base.ApplyMutation(ctx, kv.Mutation{
+					Conditions: []kv.Condition{
+						{Key: generationKey(legacy.server), Expected: []byte(legacy.generation)},
+						{Key: ownerKey(peer), Expected: previous},
+					},
+					Entries: []kv.Entry{{Key: peerKey(peer), Value: value}, {Key: ownerKey(peer), Value: replacement}},
+				})
+				if err != nil || !matched {
+					t.Fatalf("legacy publication = %v, %v", matched, err)
+				}
+				current, err := base.Get(ctx, claimKey(peer))
+				if err != nil || string(current) != publisher.service.generation+"/"+publisher.token {
+					t.Fatalf("legacy writer changed reservation: %q, %v", current, err)
+				}
+				handedOff = true
+			}
+			store := mutationHookStore{Store: base, apply: func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+				publication := len(mutation.Entries) > 0 && mutation.Entries[0].Key.String() == peerKey(peer).String()
+				if handoff == "before-publication" && publication && !handedOff {
+					replace()
+				}
+				matched, err := base.ApplyMutation(ctx, mutation)
+				if handoff == "after-reservation" && matched && err == nil && len(mutation.Entries) == 1 && mutation.Entries[0].Key.String() == claimKey(peer).String() && !handedOff {
+					replace()
+				}
+				return matched, err
+			}}
+			service := startService(t, store, 1)
+			publisher = service.NewPublisher(peer)
+			if err := service.writeTransition(ctx, publisher, Snapshot{Online: true, WorkspaceName: "delayed"}); err != nil {
+				t.Fatal(err)
+			}
+			if !handedOff || !publisher.ownership.fenced || publisher.ownership.claimed {
+				t.Fatalf("delayed first claim = %+v, handoff=%v", publisher.ownership, handedOff)
+			}
+			current, err := base.Get(ctx, ownerKey(peer))
+			if err != nil || string(current) != string(replacement) {
+				t.Fatalf("legacy owner was replaced: %q, %v", current, err)
+			}
+			awaitSnapshot(t, legacy, peer, want)
+		})
+	}
+}
+
+func TestStaleOwnerDoesNotRebaseUncertainClaim(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		t.Run(map[bool]string{false: "uncommitted", true: "committed"}[committed], func(t *testing.T) {
+			ctx, peer := t.Context(), giznet.PublicKey{96}
+			authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+			previous := []byte("original-owner")
+			for _, store := range []kv.Store{authority, replica} {
+				if err := store.Set(ctx, ownerKey(peer), previous); err != nil {
+					t.Fatal(err)
+				}
+			}
+			store := newStalePresenceStore(t, authority, replica)
+			service := startService(t, store, 1)
+			publisher := service.NewPublisher(peer)
+			lost := errors.New("claim result uncertain")
+			store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+				if len(mutation.Entries) == 2 && store.attempts.Load() == 3 {
+					if committed {
+						if _, err := authority.ApplyMutation(ctx, mutation); err != nil {
+							return false, err
+						}
+					}
+					return false, lost
+				}
+				return authority.ApplyMutation(ctx, mutation)
+			}
+			want := Snapshot{Online: true, LastSeenAt: time.Now().UTC()}
+			if err := service.writeTransition(ctx, publisher, want); !errors.Is(err, lost) {
+				t.Fatalf("uncertain error=%v", err)
+			}
+			if store.attempts.Load() != 3 || store.primary.Load() != 1 {
+				t.Fatalf("uncertain claim replayed: %d/%d", store.attempts.Load(), store.primary.Load())
+			}
+			foreign := []byte("newer-owner")
+			if err := authority.Set(ctx, ownerKey(peer), foreign); err != nil {
+				t.Fatal(err)
+			}
+			if err := service.writeTransition(ctx, publisher, want); err != nil {
+				t.Fatal(err)
+			}
+			current, err := authority.Get(ctx, ownerKey(peer))
+			if err != nil || string(current) != string(foreign) || !publisher.ownership.fenced || string(publisher.ownership.expected) != string(previous) || store.attempts.Load() != 4 {
+				t.Fatalf("uncertain claim reclaimed: current=%q owner=%+v attempts=%d err=%v", current, publisher.ownership, store.attempts.Load(), err)
+			}
+		})
+	}
+}
+
+func TestOfflineLostClaimResponseRechecksStaleOwner(t *testing.T) {
+	ctx, peer := t.Context(), giznet.PublicKey{97}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	store := newStalePresenceStore(t, authority, replica)
+	service := startService(t, store, 1)
+	publisher := service.NewPublisher(peer)
+	lost := errors.New("claim response lost")
+	store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+		matched, err := authority.ApplyMutation(ctx, mutation)
+		if store.attempts.Load() == 2 && err == nil && matched {
+			return false, lost
+		}
+		return matched, err
+	}
+	if err := service.writeTransition(ctx, publisher, Snapshot{Online: true}); !errors.Is(err, lost) {
+		t.Fatalf("claim error=%v", err)
+	}
+	if err := service.writeTransition(ctx, publisher, Snapshot{}); err != nil {
+		t.Fatal(err)
+	}
+	value, err := authority.Get(ctx, peerKey(peer))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got record
+	if err := json.Unmarshal(value, &got); err != nil || got.Online || store.ordinary.Load() != 1 || store.primary.Load() != 1 {
+		t.Fatalf("offline recovery=%+v err=%v reads=%d/%d", got, err, store.ordinary.Load(), store.primary.Load())
+	}
+}
+
+type presenceReadHookStore struct {
+	kv.Store
+	get      func(context.Context, kv.Key) ([]byte, error)
+	batchGet func(context.Context, []kv.Key) []kv.GetResult
+}
+
+func (s presenceReadHookStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	if s.get != nil {
+		return s.get(ctx, key)
+	}
+	return s.Store.Get(ctx, key)
+}
+
+func (s presenceReadHookStore) BatchGet(ctx context.Context, keys []kv.Key) []kv.GetResult {
+	if s.batchGet != nil {
+		return s.batchGet(ctx, keys)
+	}
+	return s.Store.BatchGet(ctx, keys)
+}
+
+func TestAdminFirstClaimAcrossDifferentServersCannotHideActiveReplacement(t *testing.T) {
+	for _, stall := range []string{"reservation-committed", "first-publication"} {
+		t.Run(stall, func(t *testing.T) {
+			base, peer := kv.NewMemory(nil), giznet.PublicKey{98}
+			// Active Admin identities may connect to different Server keys;
+			// Client fixed-home routing does not serialize these publishers.
+			if err := base.Set(t.Context(), ownerKey(peer), []byte("previous-owner")); err != nil {
+				t.Fatal(err)
+			}
+			entered, release := make(chan struct{}), make(chan struct{})
+			var blocked, released sync.Once
+			unblock := func() { released.Do(func() { close(release) }) }
+			defer unblock()
+			wait := func(ctx context.Context) {
+				blocked.Do(func() {
+					close(entered)
+					select {
+					case <-release:
+					case <-ctx.Done():
+					}
+				})
+			}
+			store := mutationHookStore{Store: base, apply: func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+				if stall == "first-publication" && len(mutation.Entries) > 0 && mutation.Entries[0].Key.String() == peerKey(peer).String() {
+					wait(ctx)
+				}
+				matched, err := base.ApplyMutation(ctx, mutation)
+				if stall == "reservation-committed" && matched && err == nil && len(mutation.Entries) == 1 && mutation.Entries[0].Key.String() == claimKey(peer).String() {
+					wait(ctx) // Retain the pinned pre-handoff owner while stalled.
+				}
+				return matched, err
+			}}
+			a, b := startService(t, store, 1), startService(t, base, 2)
+			old, replacement := a.NewPublisher(peer), b.NewPublisher(peer)
+			initial := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "old"}
+			old.Publish(initial)
+			select {
+			case <-entered:
+			case <-time.After(time.Second):
+				t.Fatal("first claim did not reach its stall")
+			}
+			old.Publish(Snapshot{LastSeenAt: initial.LastSeenAt.Add(time.Second)})
+			want := Snapshot{Online: true, LastSeenAt: initial.LastSeenAt.Add(2 * time.Second), WorkspaceName: "active-admin"}
+			replacement.Publish(want)
+			awaitWriter(t, b, peer)
+			unblock()
+			awaitWriter(t, a, peer)
+			awaitSnapshot(t, b, peer, want)
+			if !old.ownership.fenced || old.ownership.claimed {
+				t.Fatalf("late first claim was not fenced: %+v", old.ownership)
+			}
+			old.Publish(initial)
+			awaitWriter(t, a, peer)
+			awaitSnapshot(t, b, peer, want)
+		})
+	}
+}
+
+func TestUncertainReservationRetainsOriginalCondition(t *testing.T) {
+	for _, committed := range []bool{false, true} {
+		for _, handoff := range []bool{false, true} {
+			name := map[bool]string{false: "uncommitted", true: "committed"}[committed] + map[bool]string{false: "/retry", true: "/handoff"}[handoff]
+			t.Run(name, func(t *testing.T) {
+				ctx, peer := t.Context(), giznet.PublicKey{99}
+				authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+				previous := []byte("previous-reservation")
+				if err := authority.Set(ctx, claimKey(peer), previous); err != nil {
+					t.Fatal(err)
+				}
+				store := newStalePresenceStore(t, authority, replica)
+				a := startService(t, store, 1)
+				publisher := a.NewPublisher(peer)
+				lost := errors.New("reservation response lost")
+				store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+					if store.attempts.Load() == 2 {
+						if string(mutation.Conditions[1].Expected) != string(previous) {
+							t.Errorf("reservation rebased to %q before uncertain commit", mutation.Conditions[1].Expected)
+						}
+						if committed {
+							if _, err := authority.ApplyMutation(ctx, mutation); err != nil {
+								return false, err
+							}
+						}
+						return false, lost
+					}
+					return authority.ApplyMutation(ctx, mutation)
+				}
+				want := Snapshot{Online: true, LastSeenAt: time.Now().UTC(), WorkspaceName: "room"}
+				if err := a.writeTransition(ctx, publisher, want); !errors.Is(err, lost) {
+					t.Fatalf("reservation error = %v", err)
+				}
+				if store.ordinary.Load() != 0 || publisher.ownership.initialized {
+					t.Fatal("owner was read before reservation was established")
+				}
+				var replacement *Publisher
+				if handoff {
+					b := startService(t, authority, 2)
+					replacement = b.NewPublisher(peer)
+					if err := b.writeTransition(ctx, replacement, want); err != nil {
+						t.Fatal(err)
+					}
+				}
+				if err := a.writeTransition(ctx, publisher, want); err != nil {
+					t.Fatal(err)
+				}
+				if string(publisher.ownership.reservation.expected) != string(previous) || publisher.ownership.fenced != handoff {
+					t.Fatalf("reservation retry = %+v", publisher.ownership)
+				}
+				current, err := authority.Get(ctx, ownerKey(peer))
+				winner := publisher
+				if handoff {
+					winner = replacement
+					if store.ordinary.Load() != 0 {
+						t.Fatal("fenced reservation proceeded to an owner read")
+					}
+				}
+				if err != nil || string(current) != winner.service.generation+"/"+winner.token {
+					t.Fatalf("reservation winner = %q, %v", current, err)
+				}
+			})
+		}
+	}
+}
+
+func TestUncertainClaimRecoversCommittedOwnerDespiteNewPendingReservation(t *testing.T) {
+	base, peer := kv.NewMemory(nil), giznet.PublicKey{100}
+	lost := errors.New("claim response lost")
+	var once sync.Once
+	store := mutationHookStore{Store: base, apply: func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+		matched, err := base.ApplyMutation(ctx, mutation)
+		if matched && err == nil && len(mutation.Entries) == 2 {
+			once.Do(func() { err = lost })
+		}
+		return matched, err
+	}}
+	a, b := startService(t, store, 1), startService(t, base, 2)
+	publisher, next := a.NewPublisher(peer), b.NewPublisher(peer)
+	want := Snapshot{Online: true, LastSeenAt: time.Now().UTC()}
+	if err := a.writeTransition(t.Context(), publisher, want); !errors.Is(err, lost) {
+		t.Fatalf("claim error = %v", err)
+	}
+	if err := b.reserveClaim(t.Context(), next, []byte(b.generation+"/"+next.token)); err != nil {
+		t.Fatal(err)
+	}
+	want.WorkspaceName = "still-current"
+	if err := a.writeTransition(t.Context(), publisher, want); err != nil {
+		t.Fatal(err)
+	}
+	if !publisher.ownership.claimed || publisher.ownership.fenced {
+		t.Fatalf("committed owner was revoked by pending reservation: %+v", publisher.ownership)
+	}
+	awaitSnapshot(t, a, peer, want)
+	want.WorkspaceName = "replacement"
+	if err := b.writeTransition(t.Context(), next, want); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.writeTransition(t.Context(), publisher, Snapshot{}); err != nil {
+		t.Fatal(err)
+	}
+	awaitSnapshot(t, a, peer, want)
 }

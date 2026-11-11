@@ -4,53 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
-	redis "github.com/redis/go-redis/v9"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
-
-type checkpointReadHook struct{ data kv.Store }
-
-func (h checkpointReadHook) DialHook(next redis.DialHook) redis.DialHook { return next }
-func (h checkpointReadHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
-	return next
-}
-func (h checkpointReadHook) ProcessHook(redis.ProcessHook) redis.ProcessHook {
-	return func(ctx context.Context, command redis.Cmder) error {
-		value, err := h.data.Get(ctx, kv.Key(strings.Split(command.Args()[1].(string), ":")))
-		if errors.Is(err, kv.ErrNotFound) {
-			err = redis.Nil
-		}
-		result := command.(*redis.StringCmd)
-		result.SetVal(string(value))
-		result.SetErr(err)
-		return err
-	}
-}
 
 type checkpointReadWriteStore struct {
 	kv.Store
 	authority kv.Store
+	before    func()
+	attempts  *atomic.Int32
 }
 
 func (s checkpointReadWriteStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	if s.attempts != nil {
+		s.attempts.Add(1)
+	}
+	if s.before != nil {
+		s.before()
+	}
 	return s.authority.ApplyMutation(ctx, mutation)
 }
 
 func TestSyncResumesCommittedCheckpointWhileReplicaHasNoHead(t *testing.T) {
 	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
-	reader, writer := redis.NewClient(&redis.Options{}), redis.NewClient(&redis.Options{})
-	t.Cleanup(func() { _ = reader.Close(); _ = writer.Close() })
-	reader.AddHook(checkpointReadHook{data: replica})
-	writer.AddHook(checkpointReadHook{data: authority})
-	reads, err := kv.NewRedisReadWriteWithClients(reader, writer, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	server := &Server{Store: checkpointReadWriteStore{Store: reads, authority: authority}}
+	server := &Server{Store: kvfixture.ReadView(authority, replica, nil, nil)}
 	owner := giznet.PublicKey{91}
 	snapshot := Snapshot{"runtime": json.RawMessage(`{"online":true}`)}
 	first, err := server.Sync(t.Context(), owner, 0, snapshot)
@@ -66,4 +47,22 @@ func TestSyncResumesCommittedCheckpointWhileReplicaHasNoHead(t *testing.T) {
 	}
 }
 
-var _ redis.Hook = checkpointReadHook{}
+func TestCheckpointStaleHeadRetriesPrimaryAfterConditionalRejection(t *testing.T) {
+	ctx, owner := t.Context(), giznet.PublicKey{98}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	first, err := (&Server{Store: authority}).Sync(ctx, owner, 0, Snapshot{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var ordinary, primary, attempts atomic.Int32
+	reads := kvfixture.ReadView(authority, replica, &ordinary, &primary)
+	server := &Server{Store: checkpointReadWriteStore{Store: reads, authority: authority, attempts: &attempts, before: func() {
+		if attempts.Load() == 1 && (ordinary.Load() != 1 || primary.Load() != 0) {
+			t.Errorf("first head read bypassed replica: %d/%d", ordinary.Load(), primary.Load())
+		}
+	}}}
+	second, err := server.Sync(ctx, owner, 0, Snapshot{})
+	if err != nil || second.Timestamp <= first.Timestamp || attempts.Load() != 2 || primary.Load() != 1 {
+		t.Fatalf("stale-head retry=%+v err=%v attempts=%d reads=%d/%d", second, err, attempts.Load(), ordinary.Load(), primary.Load())
+	}
+}

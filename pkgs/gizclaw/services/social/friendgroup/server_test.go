@@ -927,11 +927,12 @@ func TestPeerRetirementSnapshotOnlyBlocksGroupsForTargetPeer(t *testing.T) {
 	}
 	entered := make(chan struct{})
 	release := make(chan struct{})
-	s.Belongs = &blockingGroupListStore{
+	store := &blockingGroupListStore{
 		Store:   s.Belongs,
 		prefix:  belongCollectionKey("peer-a"),
 		entered: entered, release: release,
 	}
+	s.Groups, s.Members, s.Belongs, s.InviteTokens, s.RelationshipStore = store, store, store, store, store
 	secondary := *s
 	snapshotDone := make(chan error, 1)
 	go func() {

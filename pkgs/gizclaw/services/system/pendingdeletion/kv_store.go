@@ -58,6 +58,14 @@ func KVEntries(record Record) ([]kv.Entry, error) {
 // won an earlier concurrent create. It is the only KV producer write path for
 // PendingDeletion records.
 func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bool, error) {
+	return CreateOrGetGuarded(ctx, store, record, nil)
+}
+
+// CreateOrGetGuarded creates deletion work only while the caller's domain
+// conditions hold. Conditions use store's logical namespace and are evaluated
+// atomically with locator, marker and task creation. A rejected domain condition
+// with no existing deletion returns ErrConflict without creating work.
+func CreateOrGetGuarded(ctx context.Context, store kv.Store, record Record, conditions []kv.Condition) (Record, bool, error) {
 	if store == nil {
 		return Record{}, false, errors.New("pending deletion: KV store not configured")
 	}
@@ -77,8 +85,10 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	locatorKey := byLocatorKey(record.Kind, record.ResourceID)
 	entries = append(entries, kv.Entry{Key: locatorKey, Value: []byte(record.DeletionID)}, kv.Entry{Key: kvTaskKey(record.DeletionID), Value: state})
 	add, _ := kvTaskIndexChanges(nil, &task)
+	guards := append([]kv.Condition(nil), conditions...)
+	guards = append(guards, kv.Condition{Key: locatorKey}, kv.Condition{Key: byIDKey(record.DeletionID)}, kv.Condition{Key: kvTaskKey(record.DeletionID)})
 	created, err := store.ApplyMutation(ctx, kv.Mutation{
-		Conditions: []kv.Condition{{Key: locatorKey}, {Key: byIDKey(record.DeletionID)}, {Key: kvTaskKey(record.DeletionID)}},
+		Conditions: guards,
 		Entries:    entries, AddOrderedMembers: add,
 	})
 	if err != nil {
@@ -87,6 +97,8 @@ func CreateOrGet(ctx context.Context, store kv.Store, record Record) (Record, bo
 	if created {
 		return record, true, nil
 	}
+	// The conditional create lost to an existing event; resolve it on the writer.
+	ctx = kv.WithPrimaryReads(ctx)
 	existingID, err := store.Get(ctx, locatorKey)
 	if errors.Is(err, kv.ErrNotFound) {
 		return Record{}, false, ErrConflict
@@ -192,7 +204,6 @@ func getStoredRecord(ctx context.Context, store kv.Store, deletionID string) (Re
 
 // HasLocator reports whether any deletion event exists for a resource locator.
 func HasLocator(ctx context.Context, store kv.Store, kind Kind, resourceID string) (bool, error) {
-	store = kv.WithStrongReads(store)
 	if store == nil {
 		return false, errors.New("pending deletion: KV store not configured")
 	}

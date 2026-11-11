@@ -5,12 +5,14 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
 
 type testPeers struct {
@@ -266,4 +268,257 @@ func activeClientPeer() apitypes.Peer {
 func (p testPeers) EnsureAvailable(ctx context.Context, key giznet.PublicKey) error {
 	_, err := p.LoadPeer(ctx, key)
 	return err
+}
+
+// staleRouteStore routes ordinary reads to an unchanged snapshot while conditional
+// mutations execute against a real in-memory authority.
+type staleRouteStore struct {
+	kv.Store
+	authority kv.Store
+	ordinary  atomic.Int32
+	primary   atomic.Int32
+	attempts  atomic.Int32
+	rejected  atomic.Int32
+	apply     func(context.Context, kv.Mutation) (bool, error)
+}
+
+func newStaleRouteStore(t *testing.T, authority, replica kv.Store) *staleRouteStore {
+	t.Helper()
+	s := &staleRouteStore{authority: authority}
+	s.Store = kvfixture.ReadView(authority, replica, &s.ordinary, &s.primary)
+	return s
+}
+func (s *staleRouteStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.attempts.Add(1)
+	var matched bool
+	var err error
+	if s.apply != nil {
+		matched, err = s.apply(ctx, mutation)
+	} else {
+		matched, err = s.authority.ApplyMutation(ctx, mutation)
+	}
+	if !matched && err == nil {
+		s.rejected.Add(1)
+	}
+	return matched, err
+}
+func (s *staleRouteStore) CreateIfAbsent(ctx context.Context, guard kv.Entry, entries []kv.Entry) ([]byte, bool, error) {
+	return kv.CreateIfAbsent(ctx, s.authority, guard, entries)
+}
+func (s *staleRouteStore) CompareAndMutate(ctx context.Context, key kv.Key, expected []byte, entries []kv.Entry, deletes []kv.Key) (bool, error) {
+	return s.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: key, Expected: expected}}, Entries: entries, DeleteKeys: deletes})
+}
+
+func TestAssignmentReadsPreferReplicaAndRetryRejectedVersionAtPrimary(t *testing.T) {
+	for _, foreign := range []bool{false, true} {
+		t.Run(map[bool]string{false: "newer-version", true: "foreign-home"}[foreign], func(t *testing.T) {
+			ctx, key := t.Context(), giznet.PublicKey{93}
+			authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+			assignment := apitypes.PeerAssignment{PeerPublicKey: key.String(), ServerPublicKey: giznet.PublicKey{8}.String(), ServerEndpoint: "old", Role: apitypes.PeerRoleClient, Version: 1, UpdatedAt: time.Now()}
+			data, err := encodeAssignment(assignment)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := replica.Set(ctx, assignmentKey(key.String()), data); err != nil {
+				t.Fatal(err)
+			}
+			assignment.Version = 2
+			if foreign {
+				assignment.ServerPublicKey = giznet.PublicKey{9}.String()
+			}
+			data, err = encodeAssignment(assignment)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := authority.Set(ctx, assignmentKey(key.String()), data); err != nil {
+				t.Fatal(err)
+			}
+			store := newStaleRouteStore(t, authority, replica)
+			service := &Server{Store: store, Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{key: activeClientPeer()}}, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "new"}
+			got, err := service.Lookup(ctx, key)
+			if err != nil || got.Version != 1 || store.primary.Load() != 0 {
+				t.Fatalf("ordinary lookup=%+v %v primary=%d", got, err, store.primary.Load())
+			}
+			version := int64(1)
+			if _, err := service.Assign(ctx, key, &version); !errors.Is(err, ErrVersionConflict) {
+				t.Fatalf("stale version accepted: %v", err)
+			}
+			if store.attempts.Load() != 1 || store.rejected.Load() != 1 || store.primary.Load() != 1 {
+				t.Fatalf("fallback attempts=%d rejected=%d primary=%d", store.attempts.Load(), store.rejected.Load(), store.primary.Load())
+			}
+			after, err := authority.Get(ctx, assignmentKey(key.String()))
+			if err != nil || !bytes.Equal(after, data) {
+				t.Fatalf("newer assignment changed: %v", err)
+			}
+			if err := replica.Delete(ctx, assignmentKey(key.String())); err != nil {
+				t.Fatal(err)
+			}
+			got, err = service.Lookup(ctx, key)
+			if !errors.Is(err, ErrAssignmentNotFound) || store.primary.Load() != 1 {
+				t.Fatalf("missing assignment was refreshed: %+v %v primary=%d", got, err, store.primary.Load())
+			}
+		})
+	}
+}
+
+func TestAssignmentNoOpStillChecksExpectedVersion(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{95}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	assignment := apitypes.PeerAssignment{PeerPublicKey: key.String(), ServerPublicKey: giznet.PublicKey{8}.String(), ServerEndpoint: "unchanged", Role: apitypes.PeerRoleClient, Version: 1, UpdatedAt: time.Now()}
+	data, err := encodeAssignment(assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, assignmentKey(key.String()), data); err != nil {
+		t.Fatal(err)
+	}
+	assignment.Version = 2
+	data, err = encodeAssignment(assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := authority.Set(ctx, assignmentKey(key.String()), data); err != nil {
+		t.Fatal(err)
+	}
+	store := newStaleRouteStore(t, authority, replica)
+	service := &Server{Store: store, Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{key: activeClientPeer()}}, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "unchanged"}
+	oldVersion := int64(1)
+	if _, err := service.Assign(ctx, key, &oldVersion); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale no-op accepted obsolete version: %v", err)
+	}
+	if store.rejected.Load() != 1 || store.primary.Load() != 1 {
+		t.Fatalf("no-op conflict did not refresh authority: rejected=%d primary=%d", store.rejected.Load(), store.primary.Load())
+	}
+	got, err := service.Assign(ctx, key, &assignment.Version)
+	if err != nil || got.Version != assignment.Version || !got.UpdatedAt.Equal(assignment.UpdatedAt) {
+		t.Fatalf("fresh no-op changed metadata or rejected committed version: %+v %v", got, err)
+	}
+	if store.ordinary.Load() != 2 || store.primary.Load() != 2 || store.attempts.Load() != 2 {
+		t.Fatalf("version fallback was not scoped: reads=%d/%d attempts=%d", store.ordinary.Load(), store.primary.Load(), store.attempts.Load())
+	}
+	after, err := authority.Get(ctx, assignmentKey(key.String()))
+	if err != nil || !bytes.Equal(after, data) {
+		t.Fatalf("no-op overwrote assignment: %v", err)
+	}
+}
+
+func TestAssignmentConflictRetryIsBounded(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{94}
+	authority := kv.NewMemory(nil)
+	service := &Server{Store: authority, Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{key: activeClientPeer()}}, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "old"}
+	initial, err := service.Assign(ctx, key, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	store := newStaleRouteStore(t, authority, authority)
+	store.apply = func(context.Context, kv.Mutation) (bool, error) { return false, nil }
+	service.Store, service.ServerEndpoint = store, "new"
+	if _, err := service.Assign(ctx, key, &initial.Version); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("retry error=%v", err)
+	}
+	if store.attempts.Load() != 8 {
+		t.Fatalf("unbounded retry: %d", store.attempts.Load())
+	}
+}
+
+type unavailableRouteWriter struct {
+	kv.Store
+	writes atomic.Int32
+}
+
+type routeReadErrorStore struct {
+	kv.Store
+	reads atomic.Int32
+}
+
+func (s *routeReadErrorStore) Get(context.Context, kv.Key) ([]byte, error) {
+	s.reads.Add(1)
+	return nil, errors.New("authority unavailable")
+}
+
+func (s *unavailableRouteWriter) CreateIfAbsent(context.Context, kv.Entry, []kv.Entry) ([]byte, bool, error) {
+	s.writes.Add(1)
+	return nil, false, errors.New("authority unavailable")
+}
+
+func (s *unavailableRouteWriter) CompareAndMutate(context.Context, kv.Key, []byte, []kv.Entry, []kv.Key) (bool, error) {
+	s.writes.Add(1)
+	return false, errors.New("authority unavailable")
+}
+
+func TestUnchangedAssignmentSurvivesWriterOutage(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{96}
+	home := giznet.PublicKey{8}
+	replica := kv.NewMemory(nil)
+	assignment := apitypes.PeerAssignment{PeerPublicKey: key.String(), ServerPublicKey: home.String(), ServerEndpoint: "unchanged", Role: apitypes.PeerRoleClient, Version: 1, UpdatedAt: time.Now()}
+	data, err := encodeAssignment(assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, assignmentKey(key.String()), data); err != nil {
+		t.Fatal(err)
+	}
+	authority := &routeReadErrorStore{Store: replica}
+	store := &unavailableRouteWriter{Store: kvfixture.ReadView(authority, replica, nil, nil)}
+	service := &Server{Store: store, Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{key: activeClientPeer()}}, ServerPublicKey: home, ServerEndpoint: "unchanged"}
+	got, err := service.Assign(ctx, key, nil)
+	if err != nil || got.Version != assignment.Version || !got.UpdatedAt.Equal(assignment.UpdatedAt) || store.writes.Load() != 0 || authority.reads.Load() != 0 {
+		t.Fatalf("unchanged assignment: %+v %v writes=%d primary=%d", got, err, store.writes.Load(), authority.reads.Load())
+	}
+}
+
+func TestRouteReadFailuresDoNotRefreshPrimary(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{97}
+	for _, primary := range []bool{false, true} {
+		ctx := ctx
+		if primary {
+			ctx = kv.WithPrimaryReads(ctx)
+		}
+		replica := kv.NewMemory(nil)
+		authority := &routeReadErrorStore{Store: replica}
+		var ordinaryReads, primaryReads atomic.Int32
+		service := &Server{Store: kvfixture.ReadView(authority, replica, &ordinaryReads, &primaryReads), Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{key: activeClientPeer()}}, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "home"}
+		for _, operation := range []func(context.Context, giznet.PublicKey) (apitypes.PeerAssignment, error){service.Lookup, service.Resolve} {
+			ordinaryReads.Store(0)
+			primaryReads.Store(0)
+			_, err := operation(ctx, key)
+			if !primary && !errors.Is(err, ErrAssignmentNotFound) || primary && err == nil {
+				t.Fatalf("read error=%v (primary=%v)", err, primary)
+			}
+			wantOrdinary, wantPrimary := int32(1), int32(0)
+			if primary {
+				wantOrdinary, wantPrimary = 0, 1
+			}
+			if ordinaryReads.Load() != wantOrdinary || primaryReads.Load() != wantPrimary {
+				t.Fatalf("route read retried: %d/%d", ordinaryReads.Load(), primaryReads.Load())
+			}
+		}
+	}
+}
+
+func TestAssignmentMissingReaderStillCreatesAndRefreshesAtomically(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{98}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	store := newStaleRouteStore(t, authority, replica)
+	service := &Server{Store: store, Peers: testPeers{items: map[giznet.PublicKey]apitypes.Peer{key: activeClientPeer()}}, ServerPublicKey: giznet.PublicKey{8}, ServerEndpoint: "old"}
+	first, err := service.Assign(ctx, key, nil)
+	if err != nil || first.Version != 1 {
+		t.Fatalf("claim=%+v %v", first, err)
+	}
+	service.ServerEndpoint = "new"
+	second, err := service.Assign(ctx, key, nil)
+	if err != nil || second.Version != 2 || second.ServerEndpoint != "new" || store.attempts.Load() != 1 {
+		t.Fatalf("refresh=%+v %v conditional writes=%d", second, err, store.attempts.Load())
+	}
+	before, err := authority.Get(ctx, assignmentKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Assign(ctx, key, &first.Version); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("obsolete version after missing reader accepted: %v", err)
+	}
+	after, err := authority.Get(ctx, assignmentKey(key.String()))
+	if err != nil || !bytes.Equal(before, after) {
+		t.Fatalf("obsolete version modified assignment: %v", err)
+	}
 }

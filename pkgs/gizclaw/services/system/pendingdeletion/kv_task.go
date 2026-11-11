@@ -51,26 +51,43 @@ func (s KVSource) Claim(ctx context.Context, ref Reference, now time.Time, lease
 	if ref.Source != s.Name() {
 		return Claim{}, false, fmt.Errorf("pending deletion: KV reference source mismatch")
 	}
-	task, raw, err := s.loadTask(ctx, ref.DeletionID)
-	if err != nil {
-		return Claim{}, false, err
+	for attempt := range 4 {
+		task, raw, err := s.loadTask(ctx, ref.DeletionID)
+		if err != nil {
+			if attempt == 0 && (errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid)) {
+				// Discovery already observed this atomically published reference.
+				// A replica may not yet expose its record and task together.
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return Claim{}, false, err
+		}
+		if task.MarkerFingerprint != ref.MarkerFingerprint || !taskDue(task, now) {
+			if attempt == 0 {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return Claim{}, false, nil
+		}
+		token, err := newKVLeaseToken()
+		if err != nil {
+			return Claim{}, false, err
+		}
+		task.Status = StatusRunning
+		task.LeaseToken = token
+		task.LeaseDeadline = now.Add(leaseDuration)
+		task.UpdatedAt = now
+		matched, err := s.writeTask(ctx, task, raw)
+		if err != nil {
+			return Claim{}, false, err
+		}
+		if matched {
+			return Claim{Task: task}, true, nil
+		}
+		// A competing claim or newer state rejected the stale observation.
+		ctx = kv.WithPrimaryReads(ctx)
 	}
-	if task.MarkerFingerprint != ref.MarkerFingerprint || !taskDue(task, now) {
-		return Claim{}, false, nil
-	}
-	token, err := newKVLeaseToken()
-	if err != nil {
-		return Claim{}, false, err
-	}
-	task.Status = StatusRunning
-	task.LeaseToken = token
-	task.LeaseDeadline = now.Add(leaseDuration)
-	task.UpdatedAt = now
-	matched, err := s.writeTask(ctx, task, raw)
-	if err != nil || !matched {
-		return Claim{}, false, err
-	}
-	return Claim{Task: task}, true, nil
+	return Claim{}, false, nil
 }
 
 func (s KVSource) Renew(ctx context.Context, claim Claim, now time.Time, leaseDuration time.Duration) error {
@@ -131,37 +148,60 @@ func (s KVSource) ListTasks(ctx context.Context, options SourceListOptions) ([]T
 }
 
 func (s KVSource) Retry(ctx context.Context, deletionID string, now time.Time) (Task, error) {
-	task, raw, err := s.loadTask(ctx, deletionID)
-	if err != nil {
-		return Task{}, err
+	for attempt := range 4 {
+		task, raw, err := s.loadTask(ctx, deletionID)
+		if err != nil {
+			if attempt == 0 && (errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid)) {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return Task{}, err
+		}
+		if task.Status != StatusFailed {
+			if attempt == 0 {
+				// Explicit retry mutates a failed task that the reader may still
+				// expose as queued or running. Confirm before rejecting it.
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return Task{}, ErrConflict
+		}
+		retried, matched, err := s.requeueFailed(ctx, task, raw, now)
+		if err != nil || matched {
+			return retried, err
+		}
+		ctx = kv.WithPrimaryReads(ctx)
 	}
-	if task.Status != StatusFailed {
-		return Task{}, ErrConflict
-	}
-	return s.requeueFailed(ctx, task, raw, now)
+	return Task{}, ErrConflict
 }
 
 // RetryFailed requeues only the unchanged failed observation approved by a
 // domain recovery probe. The write and every task index update share one CAS.
 func (s KVSource) RetryFailed(ctx context.Context, observed Task, now time.Time) (Task, error) {
-	ctx = kv.WithPrimaryReads(ctx)
 	if err := ValidateTask(observed); err != nil {
 		return Task{}, err
 	}
 	if observed.Source != s.Name() {
 		return Task{}, ErrConflict
 	}
-	current, raw, err := s.loadTask(ctx, observed.Record.DeletionID)
-	if err != nil {
-		return Task{}, err
+	for range 4 {
+		current, raw, err := s.loadTask(ctx, observed.Record.DeletionID)
+		if err != nil {
+			return Task{}, err
+		}
+		if !sameFailedObservation(current, observed) {
+			return Task{}, ErrConflict
+		}
+		retried, matched, err := s.requeueFailed(ctx, current, raw, now)
+		if err != nil || matched {
+			return retried, err
+		}
+		ctx = kv.WithPrimaryReads(ctx)
 	}
-	if !sameFailedObservation(current, observed) {
-		return Task{}, ErrConflict
-	}
-	return s.requeueFailed(ctx, current, raw, now)
+	return Task{}, ErrConflict
 }
 
-func (s KVSource) requeueFailed(ctx context.Context, task Task, raw []byte, now time.Time) (Task, error) {
+func (s KVSource) requeueFailed(ctx context.Context, task Task, raw []byte, now time.Time) (Task, bool, error) {
 	task.Status = StatusQueued
 	task.FailureCount = 0
 	task.NextAttemptAt = now
@@ -171,13 +211,10 @@ func (s KVSource) requeueFailed(ctx context.Context, task Task, raw []byte, now 
 	task.LastErrorMessage = ""
 	task.UpdatedAt = now
 	matched, err := s.writeTask(ctx, task, raw)
-	if err != nil {
-		return Task{}, err
+	if err != nil || !matched {
+		return Task{}, false, err
 	}
-	if !matched {
-		return Task{}, ErrConflict
-	}
-	return task, nil
+	return task, true, nil
 }
 
 // Finalize atomically removes caller-owned domain keys together with the exact
@@ -195,7 +232,6 @@ func (s KVSource) FinalizeWithEntries(ctx context.Context, claim Claim, now time
 // FinalizeGuarded compares exact domain records in the same mutation as task
 // consumption. Conditions must use the source Store's logical key namespace.
 func (s KVSource) FinalizeGuarded(ctx context.Context, claim Claim, now time.Time, conditions []kv.Condition, entries []kv.Entry, deleteKeys []kv.Key, removeMembers ...kv.SetMembers) error {
-	ctx = kv.WithPrimaryReads(ctx)
 	for _, condition := range conditions {
 		if err := validateFinalizeDomainKey(condition.Key); err != nil {
 			return err
@@ -211,70 +247,96 @@ func (s KVSource) FinalizeGuarded(ctx context.Context, claim Claim, now time.Tim
 	if claim.Source != s.Name() || !s.owns(claim.Record.Kind) {
 		return ErrConflict
 	}
-	task, raw, err := s.loadTask(ctx, claim.Record.DeletionID)
-	if errors.Is(err, ErrNotFound) {
-		return ErrConflict
-	}
-	if err != nil {
-		return err
-	}
-	if task.MarkerFingerprint != claim.MarkerFingerprint || task.Status != StatusRunning ||
-		task.LeaseToken != claim.LeaseToken || !task.LeaseDeadline.After(now) {
-		return ErrConflict
-	}
-	locatorRecord, err := GetByLocator(ctx, s.Store, claim.Record.Kind, claim.Record.ResourceID)
-	if errors.Is(err, kv.ErrNotFound) {
-		return ErrConflict
-	}
-	if err != nil {
-		return err
-	}
-	if locatorRecord.DeletionID != claim.Record.DeletionID {
-		return ErrConflict
-	}
-	fingerprint, err := StoredFingerprint(locatorRecord)
-	if err != nil {
-		return err
-	}
-	if fingerprint != claim.MarkerFingerprint {
-		return ErrConflict
-	}
+	var mutation *kv.Mutation
+	for attempt := range 4 {
+		task, raw, err := s.loadTask(ctx, claim.Record.DeletionID)
+		if errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid) {
+			if attempt == 0 {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return ErrConflict
+		}
+		if err != nil {
+			return err
+		}
+		if !liveKVClaim(task, claim, now) {
+			if attempt == 0 {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return ErrConflict
+		}
+		locatorRecord, err := GetByLocator(ctx, s.Store, claim.Record.Kind, claim.Record.ResourceID)
+		if errors.Is(err, kv.ErrNotFound) {
+			if attempt == 0 {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return ErrConflict
+		}
+		if err != nil {
+			return err
+		}
+		if locatorRecord.DeletionID != claim.Record.DeletionID {
+			if attempt == 0 {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return ErrConflict
+		}
+		fingerprint, err := StoredFingerprint(locatorRecord)
+		if err != nil {
+			return err
+		}
+		if fingerprint != claim.MarkerFingerprint {
+			return ErrConflict
+		}
 
-	keys, err := kvFinalizeDeleteKeys(claim.Record, deleteKeys)
-	if err != nil {
-		return err
-	}
-	seen := make(map[string]struct{}, len(keys)+len(entries))
-	for _, key := range keys {
-		seen[kvKeyIdentity(key)] = struct{}{}
-	}
-	for _, entry := range entries {
-		if err := validateFinalizeDomainKey(entry.Key); err != nil {
+		if mutation == nil {
+			keys, err := kvFinalizeDeleteKeys(claim.Record, deleteKeys)
+			if err != nil {
+				return err
+			}
+			seen := make(map[string]struct{}, len(keys)+len(entries))
+			for _, key := range keys {
+				seen[kvKeyIdentity(key)] = struct{}{}
+			}
+			for _, entry := range entries {
+				if err := validateFinalizeDomainKey(entry.Key); err != nil {
+					return err
+				}
+				identity := kvKeyIdentity(entry.Key)
+				if _, exists := seen[identity]; exists {
+					return fmt.Errorf("pending deletion: duplicate KV finalization key %q", entry.Key.String())
+				}
+				seen[identity] = struct{}{}
+			}
+			for _, group := range removeMembers {
+				if err := validateFinalizeDomainKey(group.Key); err != nil {
+					return err
+				}
+				if _, exists := seen[kvKeyIdentity(group.Key)]; exists {
+					return fmt.Errorf("pending deletion: overlapping collection key")
+				}
+			}
+			mutation = &kv.Mutation{
+				Conditions: append(append([]kv.Condition(nil), conditions...), kv.Condition{Key: kvTaskKey(claim.Record.DeletionID)}),
+				Entries:    entries, DeleteKeys: keys, RemoveMembers: removeMembers,
+			}
+		}
+		mutation.Conditions[len(mutation.Conditions)-1].Expected = raw
+		_, mutation.RemoveOrderedMembers = kvTaskIndexChanges(&task, nil)
+		matched, err := s.Store.ApplyMutation(ctx, *mutation)
+		if err != nil {
 			return err
 		}
-		identity := kvKeyIdentity(entry.Key)
-		if _, exists := seen[identity]; exists {
-			return fmt.Errorf("pending deletion: duplicate KV finalization key %q", entry.Key.String())
+		if matched {
+			return nil
 		}
-		seen[identity] = struct{}{}
+		ctx = kv.WithPrimaryReads(ctx)
 	}
-	for _, group := range removeMembers {
-		if err := validateFinalizeDomainKey(group.Key); err != nil {
-			return err
-		}
-		if _, exists := seen[kvKeyIdentity(group.Key)]; exists {
-			return fmt.Errorf("pending deletion: overlapping collection key")
-		}
-	}
-	_, removeIndexes := kvTaskIndexChanges(&task, nil)
-	matched, err := s.Store.ApplyMutation(ctx, kv.Mutation{Conditions: append(append([]kv.Condition(nil), conditions...), kv.Condition{Key: kvTaskKey(claim.Record.DeletionID), Expected: raw}), Entries: entries, DeleteKeys: keys, RemoveMembers: removeMembers, RemoveOrderedMembers: removeIndexes})
-	if err != nil {
-		return err
-	}
-	if !matched {
-		return ErrConflict
-	}
-	return nil
+	return ErrConflict
 }
 
 func validateFinalizeDomainKey(key kv.Key) error {
@@ -332,25 +394,42 @@ func kvFinalizeDeleteKeys(record Record, domainKeys []kv.Key) ([]kv.Key, error) 
 	return keys, nil
 }
 
+func liveKVClaim(task Task, claim Claim, now time.Time) bool {
+	return task.MarkerFingerprint == claim.MarkerFingerprint && task.Status == StatusRunning &&
+		task.LeaseToken == claim.LeaseToken && task.LeaseDeadline.After(now)
+}
+
 func (s KVSource) transition(ctx context.Context, claim Claim, now time.Time, mutate func(*Task)) error {
-	task, raw, err := s.loadTask(ctx, claim.Record.DeletionID)
-	if err != nil {
-		return err
+	for attempt := range 4 {
+		task, raw, err := s.loadTask(ctx, claim.Record.DeletionID)
+		if err != nil {
+			if attempt == 0 && (errors.Is(err, ErrNotFound) || errors.Is(err, ErrInvalid)) {
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return err
+		}
+		if !liveKVClaim(task, claim, now) {
+			if attempt == 0 {
+				// This claim was committed, but the learner may still show queued
+				// state or a previous lease. Confirm ownership before rejecting it.
+				ctx = kv.WithPrimaryReads(ctx)
+				continue
+			}
+			return ErrConflict
+		}
+		mutate(&task)
+		task.UpdatedAt = now
+		matched, err := s.writeTask(ctx, task, raw)
+		if err != nil {
+			return err
+		}
+		if matched {
+			return nil
+		}
+		ctx = kv.WithPrimaryReads(ctx)
 	}
-	if task.MarkerFingerprint != claim.MarkerFingerprint || task.Status != StatusRunning ||
-		task.LeaseToken != claim.LeaseToken || !task.LeaseDeadline.After(now) {
-		return ErrConflict
-	}
-	mutate(&task)
-	task.UpdatedAt = now
-	matched, err := s.writeTask(ctx, task, raw)
-	if err != nil {
-		return err
-	}
-	if !matched {
-		return ErrConflict
-	}
-	return nil
+	return ErrConflict
 }
 
 func (s KVSource) loadTask(ctx context.Context, deletionID string) (Task, []byte, error) {

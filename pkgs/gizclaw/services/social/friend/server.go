@@ -3,6 +3,7 @@ package friend
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -73,6 +74,34 @@ type PeerRetirementFriend struct {
 	WorkspaceName string `json:"workspace_name"`
 }
 
+// PreparePeerFriendsRetirement freezes new Friend admissions for owner and
+// inventories relationships only after the reader has observed that barrier.
+func (s *Server) PreparePeerFriendsRetirement(ctx context.Context, owner string) ([]PeerRetirementFriend, error) {
+	store, err := s.friendsStore()
+	if err != nil {
+		return nil, err
+	}
+	if owner == "" || owner != strings.TrimSpace(owner) {
+		return nil, errors.New("social: Peer public key is required and must be canonical")
+	}
+	unlock, err := s.lockPeers(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer unlock()
+	ctx, err = socialutil.FencePeerRetirement(ctx, store, owner)
+	if err != nil {
+		return nil, err
+	}
+	if s.InviteTokens != nil {
+		if _, err := socialutil.FencePeerRetirement(ctx, s.InviteTokens, owner); err != nil {
+			return nil, err
+		}
+	}
+	return snapshotPeerFriends(ctx, store, owner)
+}
+
+// SnapshotPeerFriends reads the current inventory without closing admissions.
 func (s *Server) SnapshotPeerFriends(ctx context.Context, owner string) ([]PeerRetirementFriend, error) {
 	store, err := s.friendsStore()
 	if err != nil {
@@ -89,6 +118,10 @@ func (s *Server) SnapshotPeerFriends(ctx context.Context, owner string) ([]PeerR
 		return nil, err
 	}
 	defer unlock()
+	return snapshotPeerFriends(ctx, store, owner)
+}
+
+func snapshotPeerFriends(ctx context.Context, store kv.Store, owner string) ([]PeerRetirementFriend, error) {
 	ids, err := store.ListMembers(ctx, friendCollectionKey(owner))
 	if err != nil {
 		return nil, err
@@ -171,9 +204,9 @@ func (s *Server) RetirePeerFriend(ctx context.Context, owner string, snapshot Pe
 			receipt.WorkspaceID != snapshot.WorkspaceID || receipt.WorkspaceName != snapshot.WorkspaceName {
 			return errors.New("social: completed Friend retirement does not match snapshot")
 		}
-		return nil
 	}
-	_, err = s.deleteFriendByRelationID(context.WithValue(ctx, peerRetirementContextKey{}, true), owner, snapshot.RelationID)
+	ctx = context.WithValue(ctx, peerRetirementSnapshotContextKey{}, snapshot)
+	_, err = s.deleteFriendByRelationID(ctx, owner, snapshot.RelationID)
 	return err
 }
 
@@ -182,11 +215,11 @@ var (
 	peerMutationGates     keyedlock.Locker[string]
 )
 
-type peerRetirementContextKey struct{}
+type peerRetirementSnapshotContextKey struct{}
 
 func peerRetirementFromContext(ctx context.Context) bool {
-	value, _ := ctx.Value(peerRetirementContextKey{}).(bool)
-	return value
+	_, ok := ctx.Value(peerRetirementSnapshotContextKey{}).(PeerRetirementFriend)
+	return ok
 }
 
 func (s *Server) GetFriendInfo(ctx context.Context, owner string, req rpcapi.FriendInfoGetRequest) (rpcapi.FriendInfoGetResponse, error) {
@@ -257,6 +290,7 @@ type retirementIntent struct {
 	SecondPeer     string       `json:"second_peer"`
 	WorkspaceID    string       `json:"workspace_id"`
 	WorkspaceName  string       `json:"workspace_name"`
+	WorkspaceOwner string       `json:"workspace_owner,omitempty"`
 	Relationship   friendRecord `json:"relationship"`
 	DeletedAt      time.Time    `json:"deleted_at"`
 	CancelCreation bool         `json:"cancel_creation,omitempty"`
@@ -267,15 +301,24 @@ type retirementIntent struct {
 // reuse the persisted intent, so a committed relationship always carries the
 // Room identity minted for its incarnation.
 type creationIntent struct {
-	RelationID     string    `json:"relation_id"`
-	FirstPeer      string    `json:"first_peer"`
-	SecondPeer     string    `json:"second_peer"`
-	WorkspaceOwner string    `json:"workspace_owner"`
-	IncarnationID  string    `json:"incarnation_id"`
-	Workspace      string    `json:"workspace_name"`
-	SFUURL         string    `json:"sfu_url"`
-	RoomToken      string    `json:"room_token"`
-	CreatedAt      time.Time `json:"created_at"`
+	RelationID     string               `json:"relation_id"`
+	FirstPeer      string               `json:"first_peer"`
+	SecondPeer     string               `json:"second_peer"`
+	WorkspaceOwner string               `json:"workspace_owner"`
+	IncarnationID  string               `json:"incarnation_id"`
+	Workspace      string               `json:"workspace_name"`
+	SFUURL         string               `json:"sfu_url"`
+	RoomToken      string               `json:"room_token"`
+	CreatedAt      time.Time            `json:"created_at"`
+	Invitation     *invitationAdmission `json:"invitation,omitempty"`
+}
+
+// invitationAdmission persists the credential and its exact observation so
+// recovery can reobserve the same token across renewal without substituting a
+// rotated credential or publishing after revocation.
+type invitationAdmission struct {
+	Conditions []kv.Condition `json:"conditions"`
+	ExpiresAt  time.Time      `json:"expires_at"`
 }
 
 // creationDecision is the immutable, per-incarnation winner between committing
@@ -294,6 +337,7 @@ type retirementReceipt struct {
 	SecondPeer     string    `json:"second_peer"`
 	WorkspaceID    string    `json:"workspace_id"`
 	WorkspaceName  string    `json:"workspace_name"`
+	WorkspaceOwner string    `json:"workspace_owner,omitempty"`
 	DeletedAt      time.Time `json:"deleted_at"`
 	CancelCreation bool      `json:"cancel_creation,omitempty"`
 }
@@ -335,6 +379,7 @@ const (
 )
 
 var errFriendCreationCancelled = errors.New("social: Friend creation was cancelled")
+var errFriendChanged = errors.New("social: Friend relationship changed concurrently; retry")
 
 func (s *Server) GetFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenGetRequest) (rpcapi.FriendInviteTokenGetResponse, error) {
 	store, err := s.inviteTokensStore()
@@ -372,34 +417,49 @@ func (s *Server) CreateFriendInviteTokenWithTTL(ctx context.Context, owner strin
 			return rpcapi.FriendInviteTokenCreateResponse{}, err
 		}
 	}
-	now := s.now()
-	record, ok, err := s.activeInviteToken(ctx, store, owner)
-	if err != nil {
-		return rpcapi.FriendInviteTokenCreateResponse{}, err
-	}
-	if ok {
-		if ttl == 0 || !record.ExpiresAt.Before(now.Add(ttl)) {
-			return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
+	for range 16 {
+		if err := checkPeerFriendAdmissions(ctx, store, owner); err != nil {
+			return rpcapi.FriendInviteTokenCreateResponse{}, err
 		}
-		record.ExpiresAt = now.Add(ttl)
-	} else {
-		if ttl == 0 {
-			ttl = s.inviteTokenTTL()
+		data, err := socialutil.UpdateInviteToken(ctx, store, socialutil.FriendInviteTokenKey(owner),
+			[]kv.Condition{socialutil.PeerRetirementCondition(owner)}, func(current []byte) ([]byte, error) {
+				var record inviteTokenRecord
+				if current != nil {
+					if err := json.Unmarshal(current, &record); err != nil {
+						return nil, err
+					}
+				}
+				now := s.now()
+				if current != nil && strings.TrimSpace(record.InviteToken) != "" && record.ExpiresAt.After(now) {
+					if record.PeerPublicKey != owner {
+						return nil, errors.New("social: invite token owner mismatch")
+					}
+					if ttl != 0 && record.ExpiresAt.Before(now.Add(ttl)) {
+						record.ExpiresAt = now.Add(ttl)
+					}
+				} else {
+					lifetime := ttl
+					if lifetime == 0 {
+						lifetime = s.inviteTokenTTL()
+					}
+					record = inviteTokenRecord{PeerPublicKey: owner, InviteToken: s.newID(), CreatedAt: now, ExpiresAt: now.Add(lifetime)}
+				}
+				return json.Marshal(record)
+			})
+		if errors.Is(err, socialutil.ErrInviteTokenChanged) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
 		}
-		record = inviteTokenRecord{
-			PeerPublicKey: owner,
-			InviteToken:   s.newID(),
-			CreatedAt:     now,
-			ExpiresAt:     now.Add(ttl),
+		if err != nil {
+			return rpcapi.FriendInviteTokenCreateResponse{}, err
 		}
+		var record inviteTokenRecord
+		if err := json.Unmarshal(data, &record); err != nil {
+			return rpcapi.FriendInviteTokenCreateResponse{}, err
+		}
+		return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
 	}
-	if strings.TrimSpace(record.InviteToken) == "" {
-		return rpcapi.FriendInviteTokenCreateResponse{}, errors.New("social: invite token is empty")
-	}
-	if err := socialutil.WriteInviteToken(ctx, store, socialutil.FriendInviteTokenKey(owner), record); err != nil {
-		return rpcapi.FriendInviteTokenCreateResponse{}, err
-	}
-	return rpcapi.FriendInviteTokenCreateResponse{InviteToken: record.InviteToken, ExpiresAt: record.ExpiresAt}, nil
+	return rpcapi.FriendInviteTokenCreateResponse{}, socialutil.ErrInviteTokenChanged
 }
 
 func (s *Server) ClearFriendInviteToken(ctx context.Context, owner string, _ rpcapi.FriendInviteTokenClearRequest) (rpcapi.FriendInviteTokenClearResponse, error) {
@@ -429,31 +489,48 @@ func (s *Server) AddFriendReportingExisting(ctx context.Context, owner string, r
 	if owner == "" {
 		return rpcapi.FriendObject{}, false, errors.New("social: peer public key is required")
 	}
-	record, err := s.findInviteToken(ctx, req.InviteToken)
-	if err != nil {
-		return rpcapi.FriendObject{}, false, err
-	}
-	to := record.PeerPublicKey
-	if owner == to {
-		return rpcapi.FriendObject{}, false, ErrInviteTokenSelfOwned
+	if _, err := s.inviteTokensStore(); err != nil {
+		return rpcapi.FriendObject{}, false, inviteTokenLookupError(err)
 	}
 	store, err := s.friendsStore()
 	if err != nil {
 		return rpcapi.FriendObject{}, false, err
 	}
-	relationID := socialutil.RelationID(owner, to)
-	unlock, err := s.lockRelationMutation(ctx, relationID, owner, to)
-	if err != nil {
-		return rpcapi.FriendObject{}, false, err
+	for range 2 {
+		record, invitation, err := s.observeFriendInvitation(ctx, req.InviteToken)
+		if errors.Is(err, ErrInviteTokenUnavailable) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
+		if err != nil {
+			return rpcapi.FriendObject{}, false, err
+		}
+		to := record.PeerPublicKey
+		if owner == to {
+			return rpcapi.FriendObject{}, false, ErrInviteTokenSelfOwned
+		}
+		relationID := socialutil.RelationID(owner, to)
+		unlock, err := s.lockRelationMutation(ctx, relationID, owner, to)
+		if err != nil {
+			return rpcapi.FriendObject{}, false, err
+		}
+		existing, active, err := s.readActiveRelationshipForMutation(ctx, store, owner, to, invitation)
+		if err == nil && active {
+			unlock()
+			return existing, true, nil
+		}
+		var item rpcapi.FriendObject
+		if err == nil {
+			item, err = s.createFriend(ctx, owner, to, to, invitation)
+		}
+		unlock()
+		if errors.Is(err, errFriendChanged) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
+		return item, false, err
 	}
-	defer unlock()
-	if existing, active, err := readActiveRelationship(ctx, store, owner, to); err != nil {
-		return rpcapi.FriendObject{}, false, err
-	} else if active {
-		return existing, true, nil
-	}
-	item, err := s.createFriend(ctx, owner, to, to)
-	return item, false, err
+	return rpcapi.FriendObject{}, false, ErrInviteTokenUnavailable
 }
 
 func (s *Server) AdminCreateFriend(ctx context.Context, owner string, peerPublicKey string) (rpcapi.FriendObject, error) {
@@ -578,7 +655,11 @@ func (s *Server) AdminCreateFriendResource(ctx context.Context, id, owner, peerP
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
-	return s.adminFriendObject(ctx, owner, item)
+	projected, err := s.adminFriendObject(ctx, owner, item)
+	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, errFriendChanged) {
+		return s.adminFriendObject(kv.WithPrimaryReads(ctx), owner, item)
+	}
+	return projected, err
 }
 
 func (s *Server) AdminGetFriend(ctx context.Context, owner, id string) (adminhttp.AdminFriendObject, error) {
@@ -602,7 +683,11 @@ func (s *Server) AdminDeleteFriend(ctx context.Context, owner, id string) (admin
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
-	return s.adminFriendObject(ctx, owner, item)
+	projected, err := s.adminFriendObject(ctx, owner, item)
+	if errors.Is(err, kv.ErrNotFound) || errors.Is(err, errFriendChanged) {
+		return s.adminFriendObject(kv.WithPrimaryReads(ctx), owner, item)
+	}
+	return projected, err
 }
 
 func (s *Server) ListFriends(ctx context.Context, owner string, req rpcapi.FriendListRequest) (rpcapi.FriendListResponse, error) {
@@ -675,12 +760,46 @@ func peerFriendRevisionKey(owner string) kv.Key {
 	return kv.Key{"friend-peer-revisions", socialutil.EscapeStoreSegment(strings.TrimSpace(owner))}
 }
 
+func checkPeerFriendAdmissions(ctx context.Context, store kv.Store, peers ...string) error {
+	for _, peer := range peers {
+		if _, err := store.Get(ctx, socialutil.PeerRetirementFenceKey(peer)); err == nil {
+			return ownership.ErrOwnerRetired
+		} else if !errors.Is(err, kv.ErrNotFound) {
+			return err
+		}
+	}
+	return nil
+}
+
+func (s *Server) checkFriendAvailability(ctx context.Context, peers ...string) error {
+	if s.PeerAvailability != nil {
+		for _, peer := range peers {
+			if err := s.PeerAvailability(ctx, peer); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // readPeerFriendCapacity rejects one more Friend for each Peer that already
 // has socialutil.PeerFriendLimit Friends. It returns each Peer's relationship
 // revision, read before its count, as the Conditions a creation must commit
 // under; every creation advances them. Retirements leave the revisions alone
 // because they only lower the count.
 func readPeerFriendCapacity(ctx context.Context, store kv.Store, peers ...string) ([]kv.Condition, error) {
+	conditions, err := readPeerFriendCapacitySnapshot(ctx, store, peers...)
+	if errors.Is(err, ErrPeerFriendLimit) {
+		// Retirements lower counts without advancing admission revisions. A
+		// full replica observation needs a fresh count before rejection or
+		// cancellation; refresh all peers so the returned revisions and counts
+		// belong to the same authority read policy.
+		return readPeerFriendCapacitySnapshot(kv.WithPrimaryReads(ctx), store, peers...)
+	}
+	return conditions, err
+}
+
+func readPeerFriendCapacitySnapshot(ctx context.Context, store kv.Store, peers ...string) ([]kv.Condition, error) {
 	conditions := make([]kv.Condition, 0, len(peers))
 	for _, peer := range peers {
 		key := peerFriendRevisionKey(peer)
@@ -762,6 +881,15 @@ func (s *Server) DeleteFriend(ctx context.Context, owner string, req rpcapi.Frie
 }
 
 func (s *Server) deleteFriendByRelationID(ctx context.Context, owner, relationID string) (rpcapi.FriendObject, error) {
+	item, err := s.deleteFriendByRelationIDAttempt(ctx, owner, relationID)
+	if !errors.Is(err, errFriendChanged) {
+		return item, err
+	}
+	// The failed attempt has released both Peer and relation locks.
+	return s.deleteFriendByRelationIDAttempt(kv.WithPrimaryReads(ctx), owner, relationID)
+}
+
+func (s *Server) deleteFriendByRelationIDAttempt(ctx context.Context, owner, relationID string) (rpcapi.FriendObject, error) {
 	if s == nil || s.Workspaces == nil {
 		return rpcapi.FriendObject{}, errors.New("social: Workspace retirement service not configured")
 	}
@@ -842,12 +970,48 @@ func (s *Server) retireActiveFriend(
 	if workspaceName == "" {
 		return rpcapi.FriendObject{}, errors.New("social: active Friend relationship has no Workspace name")
 	}
-	binding, err := readWorkspaceBinding(ctx, store, relationID)
+	bindingData, err := store.Get(ctx, workspaceBindingKey(relationID))
+	if errors.Is(err, kv.ErrNotFound) {
+		return rpcapi.FriendObject{}, errFriendChanged
+	}
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
+	var binding workspaceBinding
+	if err := json.Unmarshal(bindingData, &binding); err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	if err := validateWorkspaceBinding(binding, relationID); err != nil {
+		return rpcapi.FriendObject{}, err
+	}
 	if binding.WorkspaceName != workspaceName {
-		return rpcapi.FriendObject{}, errors.New("social: Friend Workspace binding is inconsistent")
+		return rpcapi.FriendObject{}, errFriendChanged
+	}
+	if snapshot, ok := ctx.Value(peerRetirementSnapshotContextKey{}).(PeerRetirementFriend); ok &&
+		(binding.WorkspaceID != snapshot.WorkspaceID || binding.WorkspaceName != snapshot.WorkspaceName) {
+		return rpcapi.FriendObject{}, errors.New("social: Friend Workspace no longer matches Peer retirement snapshot")
+	}
+	conditions := []kv.Condition{{Key: workspaceBindingKey(relationID), Expected: bindingData}}
+	for _, row := range []struct{ owner, peer string }{{owner, other}, {other, owner}} {
+		key := socialutil.FriendKey(row.owner, relationID)
+		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			return rpcapi.FriendObject{}, errFriendChanged
+		}
+		if err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		var record friendRecord
+		if err := json.Unmarshal(data, &record); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if err := record.validate(); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if record.RelationID != relationID || record.PeerPublicKey != row.peer || record.WorkspaceName != workspaceName {
+			return rpcapi.FriendObject{}, errFriendChanged
+		}
+		conditions = append(conditions, kv.Condition{Key: key, Expected: data})
 	}
 	first, second := owner, other
 	if first > second {
@@ -872,14 +1036,19 @@ func (s *Server) retireActiveFriend(
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	if _, err := store.ApplyMutation(ctx, kv.Mutation{
+	retired, err := store.ApplyMutation(ctx, kv.Mutation{
+		Conditions:           conditions,
 		Entries:              []kv.Entry{{Key: retirementIntentKey(relationID), Value: data}},
 		AddMembers:           (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Add(relationID),
 		DeleteKeys:           []kv.Key{socialutil.FriendKey(owner, relationID), socialutil.FriendKey(other, relationID), workspaceBindingKey(relationID)},
 		RemoveMembers:        []kv.SetMembers{{Key: friendCollectionKey(owner), Members: []string{relationID}}, {Key: friendCollectionKey(other), Members: []string{relationID}}},
 		RemoveOrderedMembers: []kv.SetMembers{adminFriendMembership(owner, relationID), adminFriendMembership(other, relationID), friendPageMembership(owner, relationID), friendPageMembership(other, relationID)},
-	}); err != nil {
+	})
+	if err != nil {
 		return rpcapi.FriendObject{}, err
+	}
+	if !retired {
+		return rpcapi.FriendObject{}, errFriendChanged
 	}
 
 	if err := s.completeFriendRetirement(ctx, store, intent); err != nil {
@@ -894,6 +1063,7 @@ func (s *Server) cancelFriendCreation(
 	owner string,
 	relationID string,
 	creation creationIntent,
+	pendingOnly ...bool,
 ) (rpcapi.FriendObject, error) {
 	creation, err := validateCreationIntent(
 		creation,
@@ -918,6 +1088,12 @@ func (s *Server) cancelFriendCreation(
 	); err != nil {
 		return rpcapi.FriendObject{}, err
 	} else if active {
+		if len(pendingOnly) != 0 && pendingOnly[0] {
+			return rpcapi.FriendObject{}, errFriendChanged
+		}
+		if socialutil.StringValue(item.WorkspaceName) != creation.Workspace {
+			return rpcapi.FriendObject{}, errFriendChanged
+		}
 		return s.retireActiveFriend(ctx, store, owner, relationID, item)
 	}
 	intent := retirementIntent{
@@ -925,6 +1101,7 @@ func (s *Server) cancelFriendCreation(
 		FirstPeer:      creation.FirstPeer,
 		SecondPeer:     creation.SecondPeer,
 		WorkspaceName:  creation.Workspace,
+		WorkspaceOwner: creation.WorkspaceOwner,
 		DeletedAt:      s.now(),
 		CancelCreation: true,
 	}
@@ -951,6 +1128,7 @@ func (s *Server) cancelFriendCreation(
 		return rpcapi.FriendObject{}, err
 	}
 	if !created {
+		ctx = kv.WithPrimaryReads(ctx)
 		existing, err := store.Get(ctx, creationDecisionKey(creation.RelationID, creation.IncarnationID))
 		if err != nil {
 			return rpcapi.FriendObject{}, err
@@ -962,14 +1140,15 @@ func (s *Server) cancelFriendCreation(
 			return rpcapi.FriendObject{}, err
 		}
 		if decision.State == creationDecisionCommitted {
+			if len(pendingOnly) != 0 && pendingOnly[0] {
+				return rpcapi.FriendObject{}, errFriendChanged
+			}
 			item, active, err := readActiveRelationship(ctx, store, owner, other)
 			if err != nil {
 				return rpcapi.FriendObject{}, err
 			}
-			if !active {
-				return rpcapi.FriendObject{}, errors.New(
-					"social: committed Friend creation is missing reciprocal rows",
-				)
+			if !active || socialutil.StringValue(item.WorkspaceName) != creation.Workspace {
+				return rpcapi.FriendObject{}, errFriendChanged
 			}
 			return s.retireActiveFriend(ctx, store, owner, relationID, item)
 		}
@@ -979,7 +1158,7 @@ func (s *Server) cancelFriendCreation(
 			if err != nil {
 				return rpcapi.FriendObject{}, err
 			}
-			if persisted.CancelCreation &&
+			if persisted.CancelCreation && persisted.WorkspaceOwner == creation.WorkspaceOwner &&
 				persisted.WorkspaceName == creation.Workspace {
 				intent = persisted
 			} else {
@@ -1019,13 +1198,37 @@ func (s *Server) completedFriendDeletion(
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	receipt, err := readRetirementReceipt(ctx, store, relationID)
+	data, err := store.Get(ctx, retirementReceiptKey(relationID))
 	if err == nil {
+		var receipt retirementReceipt
+		if err := json.Unmarshal(data, &receipt); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
 		if err := validateRetirementReceipt(receipt, relationID); err != nil {
 			return rpcapi.FriendObject{}, err
 		}
 		if owner != receipt.FirstPeer && owner != receipt.SecondPeer {
 			return rpcapi.FriendObject{}, kv.ErrNotFound
+		}
+		if snapshot, ok := ctx.Value(peerRetirementSnapshotContextKey{}).(PeerRetirementFriend); ok &&
+			(snapshot.WorkspaceID != receipt.WorkspaceID || snapshot.WorkspaceName != receipt.WorkspaceName) {
+			return rpcapi.FriendObject{}, errors.New("social: completed Friend retirement does not match snapshot")
+		}
+		// A historical receipt may coexist with a newer active incarnation.
+		// Acknowledge it only if the writer confirms this pair is still absent.
+		matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{
+			{Key: retirementReceiptKey(relationID), Expected: data},
+			{Key: socialutil.FriendKey(receipt.FirstPeer, relationID)},
+			{Key: socialutil.FriendKey(receipt.SecondPeer, relationID)},
+			{Key: workspaceBindingKey(relationID)},
+			{Key: creationIntentKey(relationID)},
+			{Key: retirementIntentKey(relationID)},
+		}})
+		if err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if !matched {
+			return rpcapi.FriendObject{}, errFriendChanged
 		}
 		return friendObjectForReceipt(owner, receipt), nil
 	}
@@ -1085,6 +1288,9 @@ func (s *Server) adminFriendObject(ctx context.Context, owner string, item rpcap
 	if err != nil {
 		return adminhttp.AdminFriendObject{}, err
 	}
+	if binding.WorkspaceName != socialutil.StringValue(item.WorkspaceName) {
+		return adminhttp.AdminFriendObject{}, errFriendChanged
+	}
 	return adminhttp.AdminFriendObject{
 		OwnerPublicKey: owner,
 		Id:             id,
@@ -1138,26 +1344,29 @@ func (s *Server) createFriend(
 	from string,
 	to string,
 	workspaceOwner string,
+	invitations ...*invitationAdmission,
 ) (rpcapi.FriendObject, error) {
+	var invitation *invitationAdmission
+	if len(invitations) != 0 {
+		invitation = invitations[0]
+	}
 	store, err := s.friendsStore()
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
-	for {
-		existing, active, err := readActiveRelationship(ctx, store, from, to)
+	for range 2 {
+		existing, active, err := s.readActiveRelationshipForMutation(ctx, store, from, to, invitation)
 		if err != nil {
 			return rpcapi.FriendObject{}, err
 		}
 		if active {
 			return existing, nil
 		}
-		if s.PeerAvailability != nil {
-			if err := s.PeerAvailability(ctx, from); err != nil {
-				return rpcapi.FriendObject{}, err
-			}
-			if err := s.PeerAvailability(ctx, to); err != nil {
-				return rpcapi.FriendObject{}, err
-			}
+		if err := s.checkFriendAvailability(ctx, from, to); err != nil {
+			return rpcapi.FriendObject{}, err
+		}
+		if err := checkPeerFriendAdmissions(ctx, store, from, to); err != nil {
+			return rpcapi.FriendObject{}, err
 		}
 		// Reject before creating the Workspace; commitFriendCreation repeats
 		// the check under the Peer revisions.
@@ -1170,7 +1379,12 @@ func (s *Server) createFriend(
 			from,
 			to,
 			workspaceOwner,
+			invitation,
 		)
+		if errors.Is(err, errFriendChanged) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
 		if err != nil {
 			return rpcapi.FriendObject{}, err
 		}
@@ -1182,18 +1396,26 @@ func (s *Server) createFriend(
 			return rpcapi.FriendObject{}, errFriendCreationCancelled
 		}
 		if decisionState != "" {
+			ctx = kv.WithPrimaryReads(ctx)
 			continue
 		}
-		workspace, err := s.ensureCreationWorkspace(ctx, intent)
+		workspace, err := s.ensureCreationWorkspace(ctx, intent, invitation)
+		if errors.Is(err, errFriendChanged) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
 		if err != nil {
 			return rpcapi.FriendObject{}, err
 		}
-		item, err := s.commitFriendCreation(ctx, store, from, to, intent, workspace)
+		item, err := s.commitFriendCreation(ctx, store, from, to, intent, workspace, invitation)
 		if errors.Is(err, errFriendCapacityChanged) {
-			continue
+			// Reuse this incarnation and recheck capacity at the commit
+			// boundary; a now-full Peer must cancel its pending Workspace.
+			item, err = s.commitFriendCreation(kv.WithPrimaryReads(ctx), store, from, to, intent, workspace, invitation)
 		}
 		return item, err
 	}
+	return rpcapi.FriendObject{}, errFriendCapacityChanged
 }
 
 func readActiveRelationship(
@@ -1202,20 +1424,25 @@ func readActiveRelationship(
 	from string,
 	to string,
 ) (rpcapi.FriendObject, bool, error) {
+	item, active, err := readActiveRelationshipSnapshot(ctx, store, from, to)
+	if !errors.Is(err, errFriendChanged) {
+		return item, active, err
+	}
+	return readActiveRelationshipSnapshot(kv.WithPrimaryReads(ctx), store, from, to)
+}
+
+func readActiveRelationshipSnapshot(ctx context.Context, store kv.Store, from, to string, guards ...*[]kv.Condition) (rpcapi.FriendObject, bool, error) {
 	relationID := socialutil.RelationID(from, to)
-	fromItem, fromErr := socialutil.ReadJSONValue[friendRecord](
-		ctx,
-		store,
-		socialutil.FriendKey(from, relationID),
-	)
-	toItem, toErr := socialutil.ReadJSONValue[friendRecord](
-		ctx,
-		store,
-		socialutil.FriendKey(to, relationID),
-	)
+	fromKey, toKey := socialutil.FriendKey(from, relationID), socialutil.FriendKey(to, relationID)
+	fromData, fromErr := store.Get(ctx, fromKey)
+	toData, toErr := store.Get(ctx, toKey)
+	var fromItem, toItem friendRecord
 	fromMissing := errors.Is(fromErr, kv.ErrNotFound)
 	toMissing := errors.Is(toErr, kv.ErrNotFound)
 	if fromMissing && toMissing {
+		if len(guards) != 0 {
+			*guards[0] = []kv.Condition{{Key: fromKey}, {Key: toKey}}
+		}
 		return rpcapi.FriendObject{}, false, nil
 	}
 	if fromErr != nil && !fromMissing {
@@ -1225,9 +1452,15 @@ func readActiveRelationship(
 		return rpcapi.FriendObject{}, false, toErr
 	}
 	if fromMissing != toMissing {
-		return rpcapi.FriendObject{}, false, errors.New(
+		return rpcapi.FriendObject{}, false, errors.Join(errors.New(
 			"social: reciprocal Friend relationship is incomplete",
-		)
+		), errFriendChanged)
+	}
+	if err := json.Unmarshal(fromData, &fromItem); err != nil {
+		return rpcapi.FriendObject{}, false, err
+	}
+	if err := json.Unmarshal(toData, &toItem); err != nil {
+		return rpcapi.FriendObject{}, false, err
 	}
 	if err := fromItem.validate(); err != nil {
 		return rpcapi.FriendObject{}, false, err
@@ -1241,16 +1474,44 @@ func readActiveRelationship(
 		strings.TrimSpace(fromItem.PeerPublicKey) != to ||
 		strings.TrimSpace(toItem.PeerPublicKey) != from ||
 		fromWorkspace != toWorkspace {
-		return rpcapi.FriendObject{}, false, errors.New(
+		return rpcapi.FriendObject{}, false, errors.Join(errors.New(
 			"social: reciprocal Friend relationship is inconsistent",
-		)
+		), errFriendChanged)
 	}
 	if fromWorkspace == "" {
 		return rpcapi.FriendObject{}, false, errors.New(
 			"social: reciprocal Friend relationship has no Workspace name",
 		)
 	}
+	if len(guards) != 0 {
+		*guards[0] = []kv.Condition{{Key: fromKey, Expected: fromData}, {Key: toKey, Expected: toData}}
+	}
 	return fromItem.peerObject(), true, nil
+}
+
+func (s *Server) readActiveRelationshipForMutation(ctx context.Context, store kv.Store, from, to string, invitation *invitationAdmission) (rpcapi.FriendObject, bool, error) {
+	lastErr := errFriendChanged
+	for range 2 {
+		var conditions []kv.Condition
+		item, active, err := readActiveRelationshipSnapshot(ctx, store, from, to, &conditions)
+		if errors.Is(err, errFriendChanged) {
+			lastErr = err
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
+		if err != nil {
+			return item, active, err
+		}
+		matched, err := s.applyFriendAdmission(ctx, store, kv.Mutation{Conditions: conditions}, invitation)
+		if err != nil {
+			return rpcapi.FriendObject{}, false, err
+		}
+		if matched {
+			return item, active, nil
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return rpcapi.FriendObject{}, false, lastErr
 }
 
 func (s *Server) getOrCreateCreationIntent(
@@ -1259,6 +1520,7 @@ func (s *Server) getOrCreateCreationIntent(
 	from string,
 	to string,
 	workspaceOwner string,
+	invitations ...*invitationAdmission,
 ) (creationIntent, error) {
 	relationID := socialutil.RelationID(from, to)
 	if intent, err := readCreationIntent(ctx, store, relationID); err == nil {
@@ -1296,6 +1558,9 @@ func (s *Server) getOrCreateCreationIntent(
 		RoomToken:      roomToken,
 		CreatedAt:      s.now(),
 	}
+	if len(invitations) != 0 {
+		intent.Invitation = invitations[0]
+	}
 	if _, err := validateCreationIntent(intent, relationID, workspaceOwner); err != nil {
 		return creationIntent{}, err
 	}
@@ -1304,7 +1569,7 @@ func (s *Server) getOrCreateCreationIntent(
 		return creationIntent{}, err
 	}
 	created, err := store.ApplyMutation(ctx, kv.Mutation{
-		Conditions: []kv.Condition{{Key: creationIntentKey(relationID)}},
+		Conditions: []kv.Condition{{Key: creationIntentKey(relationID)}, {Key: socialutil.FriendKey(from, relationID)}, {Key: socialutil.FriendKey(to, relationID)}, socialutil.PeerRetirementCondition(from), socialutil.PeerRetirementCondition(to)},
 		Entries:    []kv.Entry{{Key: creationIntentKey(relationID), Value: data}},
 		AddMembers: (socialutil.RecoveryIndex{Root: creationIntentsRoot}).Add(relationID),
 	})
@@ -1313,6 +1578,15 @@ func (s *Server) getOrCreateCreationIntent(
 	}
 	if created {
 		return intent, nil
+	}
+	ctx = kv.WithPrimaryReads(ctx)
+	if err := checkPeerFriendAdmissions(ctx, store, from, to); err != nil {
+		return creationIntent{}, err
+	}
+	if _, active, err := readActiveRelationship(ctx, store, from, to); err != nil {
+		return creationIntent{}, err
+	} else if active {
+		return creationIntent{}, errFriendChanged
 	}
 	existing, err := store.Get(ctx, creationIntentKey(relationID))
 	if err != nil {
@@ -1360,12 +1634,93 @@ func validateCreationIntent(
 			relationID,
 		)
 	}
+	if intent.Invitation != nil {
+		conditions := intent.Invitation.Conditions
+		if len(conditions) != 2 {
+			return creationIntent{}, errors.New("social: invalid Friend creation invitation guards")
+		}
+		var record inviteTokenRecord
+		var locator kv.Key
+		if err := json.Unmarshal(conditions[1].Expected, &record); err != nil {
+			return creationIntent{}, err
+		}
+		if err := json.Unmarshal(conditions[0].Expected, &locator); err != nil {
+			return creationIntent{}, err
+		}
+		if record.PeerPublicKey != workspaceOwner || strings.TrimSpace(record.InviteToken) == "" ||
+			record.CreatedAt.IsZero() || !record.CreatedAt.Before(record.ExpiresAt) ||
+			!record.ExpiresAt.Equal(intent.Invitation.ExpiresAt) ||
+			!slices.Equal(locator, socialutil.FriendInviteTokenKey(workspaceOwner)) ||
+			!slices.Equal(conditions[1].Key, locator) ||
+			!slices.Equal(conditions[0].Key, socialutil.InviteTokenIndexKey(socialutil.FriendInviteTokensRoot, record.InviteToken)) {
+			return creationIntent{}, errors.New("social: invalid Friend creation invitation identity")
+		}
+	}
 	return intent, nil
 }
 
-func (s *Server) ensureCreationWorkspace(ctx context.Context, intent creationIntent) (apitypes.Workspace, error) {
+func creationAdmissionConditions(intent creationIntent, data []byte) []kv.Condition {
+	return []kv.Condition{
+		{Key: creationIntentKey(intent.RelationID), Expected: data},
+		{Key: creationDecisionKey(intent.RelationID, intent.IncarnationID)},
+		{Key: workspaceBindingKey(intent.RelationID)},
+		{Key: socialutil.FriendKey(intent.FirstPeer, intent.RelationID)},
+		{Key: socialutil.FriendKey(intent.SecondPeer, intent.RelationID)},
+		socialutil.PeerRetirementCondition(intent.FirstPeer),
+		socialutil.PeerRetirementCondition(intent.SecondPeer),
+	}
+}
+
+func (s *Server) ensureCreationWorkspace(ctx context.Context, intent creationIntent, invitations ...*invitationAdmission) (apitypes.Workspace, error) {
+	admissions := append([]*invitationAdmission{intent.Invitation}, invitations...)
 	if s == nil || s.Workspaces == nil {
 		return apitypes.Workspace{}, errors.New("social: Workspace creation service not configured")
+	}
+	store, err := s.friendsStore()
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	intentData, err := json.Marshal(intent)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	// Prove this is still the pending, undecided incarnation before a SQL
+	// side effect. A frozen reader may retain an intent after its retirement.
+	admitted, err := s.applyFriendAdmission(ctx, store, kv.Mutation{Conditions: creationAdmissionConditions(intent, intentData)}, admissions...)
+	if err != nil {
+		return apitypes.Workspace{}, err
+	}
+	if !admitted {
+		ctx = kv.WithPrimaryReads(ctx)
+		if err := checkPeerFriendAdmissions(ctx, store, intent.FirstPeer, intent.SecondPeer); err != nil {
+			if errors.Is(err, ownership.ErrOwnerRetired) {
+				_, cancelErr := s.cancelFriendCreation(ctx, store, intent.FirstPeer, intent.RelationID, intent)
+				if cancelErr != nil {
+					return apitypes.Workspace{}, errors.Join(err, cancelErr)
+				}
+				return apitypes.Workspace{}, errors.Join(errFriendCreationCancelled, err)
+			}
+			return apitypes.Workspace{}, err
+		}
+		state, err := s.reconcileCreationDecision(ctx, store, intent)
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		if state != "" {
+			return apitypes.Workspace{}, errFriendCreationCancelled
+		}
+		valid, err := s.applyFriendAdmission(ctx, store, kv.Mutation{}, admissions...)
+		if err != nil {
+			return apitypes.Workspace{}, err
+		}
+		if !valid {
+			_, cancelErr := s.cancelFriendCreation(ctx, store, intent.FirstPeer, intent.RelationID, intent, true)
+			if cancelErr != nil {
+				return apitypes.Workspace{}, errors.Join(ErrInviteTokenUnavailable, cancelErr)
+			}
+			return apitypes.Workspace{}, errors.Join(ErrInviteTokenUnavailable, errFriendCreationCancelled)
+		}
+		return apitypes.Workspace{}, errFriendChanged
 	}
 	body := adminhttp.WorkspaceUpsert{
 		Id:         intent.Workspace,
@@ -1392,13 +1747,22 @@ func (s *Server) commitFriendCreation(
 	to string,
 	intent creationIntent,
 	workspace apitypes.Workspace,
+	invitations ...*invitationAdmission,
 ) (rpcapi.FriendObject, error) {
+	admissions := append([]*invitationAdmission{intent.Invitation}, invitations...)
 	relationID := socialutil.RelationID(from, to)
+	if err := s.checkFriendAvailability(ctx, from, to); err != nil {
+		if errors.Is(err, ownership.ErrOwnerRetired) {
+			cancelErr := s.cancelRejectedFriendCreation(ctx, store, intent, workspace)
+			return rpcapi.FriendObject{}, errors.Join(err, cancelErr)
+		}
+		return rpcapi.FriendObject{}, err
+	}
 	capacity, err := readPeerFriendCapacity(ctx, store, from, to)
 	if errors.Is(err, ErrPeerFriendLimit) {
 		// Cancel the pending creation so recovery does not keep retrying a
 		// relationship that can no longer fit, and release its Workspace.
-		if _, cancelErr := s.cancelFriendCreation(ctx, store, from, relationID, intent); cancelErr != nil {
+		if cancelErr := s.cancelRejectedFriendCreation(ctx, store, intent, workspace); cancelErr != nil {
 			return rpcapi.FriendObject{}, errors.Join(err, cancelErr)
 		}
 		return rpcapi.FriendObject{}, err
@@ -1462,24 +1826,51 @@ func (s *Server) commitFriendCreation(
 	entries = append(entries, locatorEntries...)
 
 	entries = append(entries, kv.Entry{Key: creationDecisionKey(relationID, intent.IncarnationID), Value: decisionData})
-	conditions := append([]kv.Condition{{Key: creationDecisionKey(relationID, intent.IncarnationID)}}, capacity...)
+	intentData, err := json.Marshal(intent)
+	if err != nil {
+		return rpcapi.FriendObject{}, err
+	}
+	conditions := append(creationAdmissionConditions(intent, intentData), capacity...)
 	for _, condition := range capacity {
 		entries = append(entries, kv.Entry{Key: condition.Key, Value: []byte(uuid.NewString())})
 	}
-	created, err := store.ApplyMutation(ctx, kv.Mutation{
+	created, err := s.applyFriendAdmission(ctx, store, kv.Mutation{
 		Conditions: conditions, Entries: entries,
 		AddMembers:        []kv.SetMembers{{Key: friendCollectionKey(from), Members: []string{relationID}}, {Key: friendCollectionKey(to), Members: []string{relationID}}, adminFriendDirectoryMembership(from, relationID), adminFriendDirectoryMembership(to, relationID)},
 		AddOrderedMembers: []kv.SetMembers{adminFriendMembership(from, relationID), adminFriendMembership(to, relationID), friendPageMembership(from, relationID), friendPageMembership(to, relationID)},
-	})
+	}, admissions...)
 	if err != nil {
 		return rpcapi.FriendObject{}, err
 	}
 	if !created {
+		ctx = kv.WithPrimaryReads(ctx)
 		existingDecision, err := store.Get(ctx, creationDecisionKey(relationID, intent.IncarnationID))
 		if errors.Is(err, kv.ErrNotFound) {
+			if slices.ContainsFunc(admissions, func(invitation *invitationAdmission) bool { return invitation != nil }) {
+				valid, inviteErr := s.applyFriendAdmission(ctx, store, kv.Mutation{}, admissions...)
+				if inviteErr != nil {
+					return rpcapi.FriendObject{}, inviteErr
+				}
+				if !valid {
+					cancelErr := s.cancelRejectedFriendCreation(ctx, store, intent, workspace)
+					return rpcapi.FriendObject{}, errors.Join(ErrInviteTokenUnavailable, cancelErr)
+				}
+			}
+			if admissionErr := checkPeerFriendAdmissions(ctx, store, from, to); admissionErr != nil {
+				if errors.Is(admissionErr, ownership.ErrOwnerRetired) {
+					cancelErr := s.cancelRejectedFriendCreation(ctx, store, intent, workspace)
+					return rpcapi.FriendObject{}, errors.Join(admissionErr, cancelErr)
+				}
+				return rpcapi.FriendObject{}, admissionErr
+			}
 			if changed, changedErr := peerFriendRevisionsChanged(ctx, store, capacity); changedErr != nil {
 				return rpcapi.FriendObject{}, changedErr
 			} else if changed {
+				return rpcapi.FriendObject{}, errFriendCapacityChanged
+			}
+			if slices.ContainsFunc(admissions, func(invitation *invitationAdmission) bool { return invitation != nil }) {
+				// A still-valid token may have been renewed after its observation.
+				// The bounded commit retry reuses this exact Workspace incarnation.
 				return rpcapi.FriendObject{}, errFriendCapacityChanged
 			}
 		}
@@ -1494,10 +1885,7 @@ func (s *Server) commitFriendCreation(
 		}
 		switch decision.State {
 		case creationDecisionCancelled:
-			if _, err := s.Workspaces.DeleteSystemWorkspace(
-				ctx,
-				intent.Workspace,
-			); err != nil && !errors.Is(err, kv.ErrNotFound) {
+			if err := s.completeFriendCreationCancellation(ctx, store, relationID, intent.WorkspaceOwner, intent.Workspace); err != nil {
 				return rpcapi.FriendObject{}, err
 			}
 			if err := deleteCreationIntent(ctx, store, intent); err != nil {
@@ -1505,6 +1893,16 @@ func (s *Server) commitFriendCreation(
 			}
 			return rpcapi.FriendObject{}, errFriendCreationCancelled
 		case creationDecisionCommitted:
+			existing, active, err := readActiveRelationship(ctx, store, from, to)
+			if err != nil {
+				return rpcapi.FriendObject{}, err
+			}
+			if !active || socialutil.StringValue(existing.WorkspaceName) != intent.Workspace {
+				if err := s.compensateRetiredCreation(ctx, store, intent, workspace); err != nil {
+					return rpcapi.FriendObject{}, err
+				}
+				return rpcapi.FriendObject{}, errFriendCreationCancelled
+			}
 			persistedBinding, bindingErr := readWorkspaceBinding(ctx, store, relationID)
 			if bindingErr != nil {
 				return rpcapi.FriendObject{}, bindingErr
@@ -1512,21 +1910,6 @@ func (s *Server) commitFriendCreation(
 			if persistedBinding.WorkspaceID != workspace.Id || persistedBinding.WorkspaceName != intent.Workspace ||
 				persistedBinding.SFU.RoomToken != intent.RoomToken {
 				return rpcapi.FriendObject{}, errors.New("social: committed Friend creation has inconsistent Workspace binding")
-			}
-			existing, active, err := readActiveRelationship(ctx, store, from, to)
-			if err != nil {
-				return rpcapi.FriendObject{}, err
-			}
-			if !active {
-				if err := deleteCreationIntent(ctx, store, intent); err != nil {
-					return rpcapi.FriendObject{}, err
-				}
-				return rpcapi.FriendObject{}, errFriendCreationCancelled
-			}
-			if socialutil.StringValue(existing.WorkspaceName) != intent.Workspace {
-				return rpcapi.FriendObject{}, errors.New(
-					"social: committed Friend creation is missing reciprocal rows",
-				)
 			}
 			if err := deleteCreationIntent(ctx, store, intent); err != nil {
 				return rpcapi.FriendObject{}, err
@@ -1546,6 +1929,53 @@ func (s *Server) commitFriendCreation(
 		return rpcapi.FriendObject{}, err
 	}
 	return ownerRow.peerObject(), nil
+}
+
+func (s *Server) cancelRejectedFriendCreation(ctx context.Context, store kv.Store, intent creationIntent, workspace apitypes.Workspace) error {
+	_, err := s.cancelFriendCreation(ctx, store, intent.FirstPeer, intent.RelationID, intent, true)
+	if !errors.Is(err, errFriendChanged) {
+		return err
+	}
+	// A late creator must not retire a replacement active relationship. Prove
+	// an immutable decision exists before refreshing and cleaning its own SQL
+	// Workspace, including when the first observation came from a replica.
+	undecided, probeErr := store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: creationDecisionKey(intent.RelationID, intent.IncarnationID)}}})
+	if probeErr != nil {
+		return probeErr
+	}
+	if undecided {
+		return err
+	}
+	ctx = kv.WithPrimaryReads(ctx)
+	decision, err := readCreationDecision(ctx, store, intent)
+	if err != nil {
+		return err
+	}
+	if err := validateCreationDecision(decision, intent); err != nil {
+		return err
+	}
+	if decision.State == creationDecisionCancelled {
+		_, err := s.reconcileCreationDecision(ctx, store, intent)
+		return err
+	}
+	return s.compensateRetiredCreation(ctx, store, intent, workspace)
+}
+
+// compensateRetiredCreation is used only after a rejected creation CAS proved
+// the immutable committed decision belongs to an incarnation no longer active.
+// Its Workspace name is unique to that incarnation; a newer binding is kept.
+func (s *Server) compensateRetiredCreation(ctx context.Context, store kv.Store, intent creationIntent, workspace apitypes.Workspace) error {
+	binding, err := readWorkspaceBinding(ctx, store, intent.RelationID)
+	if err == nil && (binding.WorkspaceName == intent.Workspace || binding.WorkspaceID == workspace.Id) {
+		return errFriendChanged
+	}
+	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return err
+	}
+	if _, err := s.Workspaces.RetireSystemWorkspaceByID(ctx, workspace.Id, socialutil.SFUWorkspaceKindFriend, intent.RelationID); err != nil {
+		return err
+	}
+	return deleteCreationIntent(ctx, store, intent)
 }
 
 func (s *Server) reconcileCreationDecision(
@@ -1569,30 +1999,281 @@ func (s *Server) reconcileCreationDecision(
 				"social: Workspace creation service not configured",
 			)
 		}
-		if _, err := s.Workspaces.DeleteSystemWorkspace(
-			ctx,
-			intent.Workspace,
-		); err != nil && !errors.Is(err, kv.ErrNotFound) {
+		if err := s.completeFriendCreationCancellation(ctx, store, intent.RelationID, intent.WorkspaceOwner, intent.Workspace); err != nil {
 			return "", err
 		}
 		return decision.State, deleteCreationIntent(ctx, store, intent)
 	}
-	existing, active, err := readActiveRelationship(
-		ctx,
-		store,
-		intent.FirstPeer,
-		intent.SecondPeer,
-	)
-	if err != nil {
-		return "", err
-	}
-	if active &&
-		socialutil.StringValue(existing.WorkspaceName) != intent.Workspace {
-		return "", errors.New(
-			"social: active Friend relationship conflicts with creation decision",
-		)
-	}
+	// A committed decision is immutable even after that incarnation retires.
+	// Removing only this exact creation intent preserves any newer lifecycle.
 	return decision.State, deleteCreationIntent(ctx, store, intent)
+}
+
+// legacyCancellationOwner recovers ownership from the exact durable creation
+// incarnation or an owner-scoped local system Workspace. Neither the deleting
+// actor nor an absent SQL row establishes the cancelled Workspace's owner.
+func (s *Server) legacyCancellationOwner(ctx context.Context, store kv.Store, relationID, workspaceName, first, second string) (string, []kv.Condition, error) {
+	key := creationIntentKey(relationID)
+	data, err := store.Get(ctx, key)
+	if errors.Is(err, kv.ErrNotFound) {
+		data, err = store.Get(kv.WithPrimaryReads(ctx), key)
+	}
+	if err == nil {
+		var creation creationIntent
+		if err := json.Unmarshal(data, &creation); err != nil {
+			return "", nil, err
+		}
+		if _, err := validateCreationIntent(creation, relationID, creation.WorkspaceOwner); err != nil {
+			return "", nil, err
+		}
+		if creation.Workspace == workspaceName {
+			return creation.WorkspaceOwner, []kv.Condition{{Key: key, Expected: data}}, nil
+		}
+	} else if !errors.Is(err, kv.ErrNotFound) {
+		return "", nil, err
+	}
+	lookup, ok := s.Workspaces.(interface {
+		GetSystemWorkspaceForCleanup(context.Context, string) (apitypes.Workspace, error)
+	})
+	if !ok {
+		return "", nil, errors.New("social: legacy Friend cancellation requires a system Workspace identity lookup")
+	}
+	owner := ""
+	for _, candidate := range []string{first, second} {
+		item, err := lookup.GetSystemWorkspaceForCleanup(ownership.WithOwner(ctx, candidate), workspaceName)
+		if err == sql.ErrNoRows {
+			continue
+		}
+		if err != nil {
+			return "", nil, err
+		}
+		if item.Name != workspaceName || item.Id == "" || item.System == nil || !*item.System ||
+			socialutil.StringValue(item.OwnerPublicKey) != candidate || owner != "" {
+			return "", nil, errors.New("social: legacy Friend cancellation Workspace identity is ambiguous")
+		}
+		owner = candidate
+	}
+	if owner == "" {
+		// The pre-owner cancellation deleted its creation intent before SQL.
+		// A crash after the physical delete leaves the same evidence as a
+		// foreign Server with no copy. Its ownerless immutable decision cannot
+		// distinguish those histories; neither peer ordering nor home routing
+		// identifies where this Workspace was materialized.
+		return "", nil, fmt.Errorf("%w for relation %q Workspace %q: creation intent and both local SQL owner scopes are absent; restore the original creation identity and regional deletion evidence before retrying: %w", errLegacyCancellationEvidence, relationID, workspaceName, sql.ErrNoRows)
+	}
+	return owner, nil, nil
+}
+
+// upgradeLegacyCancellation records proven immutable ownership before deleting
+// local SQL, so subsequent cleanup can keep its exact-owner receipt fence.
+func (s *Server) upgradeLegacyCancellation(ctx context.Context, store kv.Store, key kv.Key, relationID, workspaceName string, receiptRecord bool) (string, error) {
+	for range 2 {
+		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			data, err = store.Get(kv.WithPrimaryReads(ctx), key)
+		}
+		if errors.Is(err, kv.ErrNotFound) {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		var intent retirementIntent
+		if err := json.Unmarshal(data, &intent); err != nil {
+			return "", err
+		}
+		if _, err := validateRetirementIntent(intent, relationID); err != nil {
+			return "", err
+		}
+		if !intent.CancelCreation || intent.WorkspaceName != workspaceName {
+			return "", nil
+		}
+		if intent.WorkspaceOwner != "" {
+			return intent.WorkspaceOwner, nil
+		}
+		owner, guards, err := s.legacyCancellationOwner(ctx, store, relationID, workspaceName, intent.FirstPeer, intent.SecondPeer)
+		if err != nil {
+			return "", err
+		}
+		intent.WorkspaceOwner = owner
+		var updated []byte
+		if receiptRecord {
+			var receipt retirementReceipt
+			if err := json.Unmarshal(data, &receipt); err != nil {
+				return "", err
+			}
+			receipt.WorkspaceOwner = owner
+			updated, err = json.Marshal(receipt)
+		} else {
+			updated, err = json.Marshal(intent)
+		}
+		if err != nil {
+			return "", err
+		}
+		guards = append(guards, kv.Condition{Key: key, Expected: data})
+		matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: guards, Entries: []kv.Entry{{Key: key, Value: updated}}})
+		if err != nil {
+			return "", err
+		}
+		if matched {
+			return owner, nil
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return "", errFriendChanged
+}
+
+// completedLegacyFriendCancellation acknowledges an already completed legacy
+// cancellation without inventing its erased owner. An exact receipt is required;
+// absent local SQL alone never completes the initial cancellation handoff. Both
+// possible owner scopes must be absent so a wrong owner cannot conceal a local
+// Workspace that still needs deletion. This does not certify other regions.
+func (s *Server) completedLegacyFriendCancellation(ctx context.Context, store kv.Store, relationID, workspaceName string) (bool, error) {
+	key := retirementReceiptKey(relationID)
+	for range 2 {
+		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			data = nil
+		} else if err != nil {
+			return false, err
+		}
+		legacy := false
+		if data != nil {
+			var receipt retirementReceipt
+			if err := json.Unmarshal(data, &receipt); err != nil {
+				return false, err
+			}
+			if err := validateRetirementReceipt(receipt, relationID); err != nil {
+				return false, err
+			}
+			legacy = receipt.CancelCreation && receipt.WorkspaceID == "" && receipt.WorkspaceOwner == "" && receipt.WorkspaceName == workspaceName
+			if legacy {
+				lookup, ok := s.Workspaces.(interface {
+					GetSystemWorkspaceForCleanup(context.Context, string) (apitypes.Workspace, error)
+				})
+				if !ok {
+					return false, errors.New("social: legacy Friend cancellation receipt requires a system Workspace identity lookup")
+				}
+				for _, owner := range []string{receipt.FirstPeer, receipt.SecondPeer} {
+					_, err := lookup.GetSystemWorkspaceForCleanup(ownership.WithOwner(ctx, owner), workspaceName)
+					if err == nil {
+						return false, nil
+					}
+					if err != sql.ErrNoRows {
+						return false, err
+					}
+				}
+			}
+		}
+		matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: key, Expected: data}}})
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return legacy, nil
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return false, errFriendChanged
+}
+
+// completeFriendCreationCancellation consumes the shared cancellation handoff
+// only after this Server successfully deletes that exact local Workspace. A
+// missing foreign SQL row cannot establish cleanup of another Server's copy.
+func (s *Server) completeFriendCreationCancellation(ctx context.Context, store kv.Store, relationID, workspaceOwner, workspaceName string) error {
+	if workspaceOwner == "" || workspaceOwner != strings.TrimSpace(workspaceOwner) || relationPeer(workspaceOwner, relationID) == "" {
+		return errors.New("social: cancelled Friend Workspace owner is missing or inconsistent")
+	}
+	completed, err := s.completedLegacyFriendCancellation(ctx, store, relationID, workspaceName)
+	if err != nil {
+		return err
+	}
+	if completed {
+		return nil
+	}
+	for _, record := range []struct {
+		key     kv.Key
+		receipt bool
+	}{{retirementIntentKey(relationID), false}, {retirementReceiptKey(relationID), true}} {
+		owner, err := s.upgradeLegacyCancellation(ctx, store, record.key, relationID, workspaceName, record.receipt)
+		if err != nil {
+			return err
+		}
+		if owner != "" && owner != workspaceOwner {
+			return errors.New("social: cancelled Friend Workspace owner does not match durable cleanup identity")
+		}
+	}
+	_, deleteErr := s.Workspaces.DeleteSystemWorkspace(ownership.WithOwner(ctx, workspaceOwner), workspaceName)
+	if deleteErr == sql.ErrNoRows {
+		// The raw SQL sentinel is the local lookup/relookup's absence result.
+		// Nested runtime errors stay wrapped and are never treated as absence.
+		// A completed exact cancellation receipt makes this a repeated local
+		// absence, rather than evidence that the first foreign cleanup succeeded.
+		completed, err := completedFriendCancellation(ctx, store, relationID, workspaceOwner, workspaceName)
+		if err != nil {
+			return err
+		}
+		if !completed {
+			return deleteErr
+		}
+		return nil
+	}
+	if deleteErr != nil && !errors.Is(deleteErr, kv.ErrNotFound) {
+		return deleteErr
+	}
+	intent, err := readRetirementIntent(ctx, store, relationID)
+	if errors.Is(err, kv.ErrNotFound) || err == nil && (!intent.CancelCreation || intent.WorkspaceOwner != workspaceOwner || intent.WorkspaceName != workspaceName) {
+		// The successful local delete is known. Refresh an unavailable or
+		// different postwrite handoff before deciding which receipt may commit.
+		ctx = kv.WithPrimaryReads(ctx)
+		intent, err = readRetirementIntent(ctx, store, relationID)
+	}
+	if errors.Is(err, kv.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	intent, err = validateRetirementIntent(intent, relationID)
+	if err != nil {
+		return err
+	}
+	if !intent.CancelCreation || intent.WorkspaceOwner != workspaceOwner || intent.WorkspaceName != workspaceName {
+		return nil
+	}
+	return s.completeFriendRetirementReceipt(ctx, store, intent)
+}
+
+func completedFriendCancellation(ctx context.Context, store kv.Store, relationID, workspaceOwner, workspaceName string) (bool, error) {
+	key := retirementReceiptKey(relationID)
+	for range 2 {
+		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			data = nil
+		} else if err != nil {
+			return false, err
+		}
+		matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: key, Expected: data}}})
+		if err != nil {
+			return false, err
+		}
+		if !matched {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
+		if data == nil {
+			return false, nil
+		}
+		var receipt retirementReceipt
+		if err := json.Unmarshal(data, &receipt); err != nil {
+			return false, err
+		}
+		if err := validateRetirementReceipt(receipt, relationID); err != nil {
+			return false, err
+		}
+		return receipt.CancelCreation && receipt.WorkspaceOwner == workspaceOwner && receipt.WorkspaceName == workspaceName, nil
+	}
+	return false, errFriendChanged
 }
 
 func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, intent retirementIntent) error {
@@ -1603,28 +2284,41 @@ func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, i
 		return err
 	}
 	if intent.CancelCreation {
-		if _, err := s.Workspaces.DeleteSystemWorkspace(
-			ctx,
-			intent.WorkspaceName,
-		); err != nil && !errors.Is(err, kv.ErrNotFound) {
-			return err
+		if intent.WorkspaceOwner == "" {
+			completed, err := s.completedLegacyFriendCancellation(ctx, store, intent.RelationID, intent.WorkspaceName)
+			if err != nil {
+				return err
+			}
+			if completed {
+				return nil
+			}
+			owner, err := s.upgradeLegacyCancellation(ctx, store, retirementIntentKey(intent.RelationID), intent.RelationID, intent.WorkspaceName, false)
+			if err != nil {
+				return err
+			}
+			intent.WorkspaceOwner = owner
 		}
-	} else {
-		if _, err := s.Workspaces.RetireSystemWorkspaceByID(
-			ctx,
-			intent.WorkspaceID,
-			socialutil.SFUWorkspaceKindFriend,
-			intent.RelationID,
-		); err != nil {
-			return err
-		}
+		return s.completeFriendCreationCancellation(ctx, store, intent.RelationID, intent.WorkspaceOwner, intent.WorkspaceName)
 	}
+	if _, err := s.Workspaces.RetireSystemWorkspaceByID(
+		ctx,
+		intent.WorkspaceID,
+		socialutil.SFUWorkspaceKindFriend,
+		intent.RelationID,
+	); err != nil {
+		return err
+	}
+	return s.completeFriendRetirementReceipt(ctx, store, intent)
+}
+
+func (s *Server) completeFriendRetirementReceipt(ctx context.Context, store kv.Store, intent retirementIntent) error {
 	receipt := retirementReceipt{
 		RelationID:     intent.RelationID,
 		FirstPeer:      intent.FirstPeer,
 		SecondPeer:     intent.SecondPeer,
 		WorkspaceID:    intent.WorkspaceID,
 		WorkspaceName:  intent.WorkspaceName,
+		WorkspaceOwner: intent.WorkspaceOwner,
 		DeletedAt:      intent.DeletedAt,
 		CancelCreation: intent.CancelCreation,
 	}
@@ -1632,41 +2326,64 @@ func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, i
 	if err != nil {
 		return err
 	}
+	for range 2 {
+		applied, err := commitFriendRetirementReceipt(ctx, store, intent, data)
+		if errors.Is(err, errFriendChanged) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
+		if err != nil {
+			return err
+		}
+		if applied && !intent.CancelCreation {
+			s.notifyFriendRetirement(ctx, intent)
+		}
+		return nil
+	}
+	return errFriendChanged
+}
+
+func commitFriendRetirementReceipt(ctx context.Context, store kv.Store, intent retirementIntent, data []byte) (bool, error) {
 	intentKey := retirementIntentKey(intent.RelationID)
 	stored, err := store.Get(ctx, intentKey)
 	if errors.Is(err, kv.ErrNotFound) {
-		return nil
+		ctx = kv.WithPrimaryReads(ctx)
+		stored, err = store.Get(ctx, intentKey)
+	}
+	if errors.Is(err, kv.ErrNotFound) {
+		return false, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	var current retirementIntent
 	if err := json.Unmarshal(stored, &current); err != nil {
-		return err
+		return false, err
 	}
 	current, err = validateRetirementIntent(current, intent.RelationID)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if current.WorkspaceID != intent.WorkspaceID ||
 		current.WorkspaceName != intent.WorkspaceName ||
+		current.WorkspaceOwner != intent.WorkspaceOwner ||
 		!current.DeletedAt.Equal(intent.DeletedAt) ||
 		current.CancelCreation != intent.CancelCreation {
-		return nil
+		return false, nil
 	}
-	matched, err := store.ApplyMutation(ctx, kv.Mutation{
+	applied, err := store.ApplyMutation(ctx, kv.Mutation{
 		Conditions:    []kv.Condition{{Key: intentKey, Expected: stored}},
 		Entries:       []kv.Entry{{Key: retirementReceiptKey(intent.RelationID), Value: data}},
 		DeleteKeys:    []kv.Key{intentKey},
 		RemoveMembers: (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Remove(intent.RelationID),
 	})
 	if err != nil {
-		return err
+		return false, err
 	}
-	if matched && !intent.CancelCreation {
-		s.notifyFriendRetirement(ctx, intent)
+	if !applied {
+		return false, errFriendChanged
 	}
-	return nil
+	return true, nil
 }
 
 // ReconcileCreationIntents completes Workspace-first relationship creations
@@ -1728,6 +2445,9 @@ func (s *Server) ReconcileCreationIntents(ctx context.Context) error {
 				} else if err == nil {
 					var workspace apitypes.Workspace
 					workspace, err = s.ensureCreationWorkspace(ctx, current)
+					if errors.Is(err, errFriendCreationCancelled) {
+						return nil
+					}
 					if err == nil {
 						_, err = s.commitFriendCreation(
 							ctx,
@@ -1898,17 +2618,31 @@ func deleteCreationIntent(
 	store kv.Store,
 	intent creationIntent,
 ) error {
+	for range 2 {
+		matched, err := deleteCreationIntentSnapshot(ctx, store, intent)
+		if err != nil || matched {
+			return err
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return errFriendChanged
+}
+
+func deleteCreationIntentSnapshot(ctx context.Context, store kv.Store, intent creationIntent) (bool, error) {
 	key := creationIntentKey(intent.RelationID)
 	data, err := store.Get(ctx, key)
 	if errors.Is(err, kv.ErrNotFound) {
-		return nil
+		data, err = store.Get(kv.WithPrimaryReads(ctx), key)
+	}
+	if errors.Is(err, kv.ErrNotFound) {
+		return true, nil
 	}
 	if err != nil {
-		return err
+		return false, err
 	}
 	var current creationIntent
 	if err := json.Unmarshal(data, &current); err != nil {
-		return err
+		return false, err
 	}
 	current, err = validateCreationIntent(
 		current,
@@ -1916,17 +2650,17 @@ func deleteCreationIntent(
 		current.WorkspaceOwner,
 	)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if current.IncarnationID != intent.IncarnationID ||
 		current.Workspace != intent.Workspace {
-		return nil
+		return true, nil
 	}
-	_, err = store.ApplyMutation(ctx, kv.Mutation{
+	matched, err := store.ApplyMutation(ctx, kv.Mutation{
 		Conditions: []kv.Condition{{Key: key, Expected: data}}, DeleteKeys: []kv.Key{key},
 		RemoveMembers: (socialutil.RecoveryIndex{Root: creationIntentsRoot}).Remove(intent.RelationID),
 	})
-	return err
+	return matched, err
 }
 
 func readCreationDecision(
@@ -1976,6 +2710,8 @@ func validateRetirementIntent(
 		intent.FirstPeer > intent.SecondPeer ||
 		socialutil.RelationID(intent.FirstPeer, intent.SecondPeer) != relationID ||
 		(!intent.CancelCreation && (intent.WorkspaceID == "" || intent.WorkspaceID != strings.TrimSpace(intent.WorkspaceID))) ||
+		(intent.CancelCreation && intent.WorkspaceOwner != "" && (intent.WorkspaceOwner != strings.TrimSpace(intent.WorkspaceOwner) ||
+			(intent.WorkspaceOwner != intent.FirstPeer && intent.WorkspaceOwner != intent.SecondPeer))) ||
 		intent.WorkspaceName == "" ||
 		intent.WorkspaceName != strings.TrimSpace(intent.WorkspaceName) ||
 		intent.DeletedAt.IsZero() {
@@ -1997,6 +2733,8 @@ func validateRetirementReceipt(receipt retirementReceipt, relationID string) err
 		receipt.FirstPeer > receipt.SecondPeer ||
 		socialutil.RelationID(receipt.FirstPeer, receipt.SecondPeer) != relationID ||
 		(!receipt.CancelCreation && (receipt.WorkspaceID == "" || receipt.WorkspaceID != strings.TrimSpace(receipt.WorkspaceID))) ||
+		(receipt.CancelCreation && receipt.WorkspaceOwner != "" && (receipt.WorkspaceOwner != strings.TrimSpace(receipt.WorkspaceOwner) ||
+			(receipt.WorkspaceOwner != receipt.FirstPeer && receipt.WorkspaceOwner != receipt.SecondPeer))) ||
 		receipt.WorkspaceName == "" ||
 		receipt.WorkspaceName != strings.TrimSpace(receipt.WorkspaceName) ||
 		receipt.DeletedAt.IsZero() {
@@ -2047,32 +2785,40 @@ func (s *Server) activeInviteToken(ctx context.Context, store kv.Store, owner st
 }
 
 func (s *Server) findInviteToken(ctx context.Context, inviteToken string) (inviteTokenRecord, error) {
+	record, _, err := s.observeFriendInvitation(ctx, inviteToken)
+	if errors.Is(err, ErrInviteTokenUnavailable) {
+		record, _, err = s.observeFriendInvitation(kv.WithPrimaryReads(ctx), inviteToken)
+	}
+	return record, err
+}
+
+func (s *Server) observeFriendInvitation(ctx context.Context, inviteToken string) (inviteTokenRecord, *invitationAdmission, error) {
 	if strings.TrimSpace(inviteToken) == "" {
-		return inviteTokenRecord{}, ErrInviteTokenRequired
+		return inviteTokenRecord{}, nil, ErrInviteTokenRequired
 	}
 	store, err := s.inviteTokensStore()
 	if err != nil {
-		return inviteTokenRecord{}, inviteTokenLookupError(err)
+		return inviteTokenRecord{}, nil, inviteTokenLookupError(err)
 	}
-
-	data, err := socialutil.ReadInviteToken(ctx, store, socialutil.FriendInviteTokensRoot, inviteToken)
+	data, conditions, err := socialutil.ObserveInviteToken(ctx, store, socialutil.FriendInviteTokensRoot, inviteToken)
 	if errors.Is(err, kv.ErrNotFound) {
-		return inviteTokenRecord{}, ErrInviteTokenUnavailable
+		return inviteTokenRecord{}, nil, ErrInviteTokenUnavailable
 	}
 	if err != nil {
-		return inviteTokenRecord{}, inviteTokenLookupError(err)
+		return inviteTokenRecord{}, nil, inviteTokenLookupError(err)
 	}
 	var record inviteTokenRecord
 	if err := json.Unmarshal(data, &record); err != nil {
-		return inviteTokenRecord{}, inviteTokenLookupError(err)
+		return inviteTokenRecord{}, nil, inviteTokenLookupError(err)
 	}
 	if !record.ExpiresAt.After(s.now()) {
-		return inviteTokenRecord{}, ErrInviteTokenUnavailable
+		return inviteTokenRecord{}, nil, ErrInviteTokenUnavailable
 	}
-	if record.CreatedAt.IsZero() || !record.CreatedAt.Before(record.ExpiresAt) || record.PeerPublicKey == "" || record.PeerPublicKey != strings.TrimSpace(record.PeerPublicKey) {
-		return inviteTokenRecord{}, inviteTokenLookupError(errors.New("social: persisted Friend invite token is invalid"))
+	if record.CreatedAt.IsZero() || !record.CreatedAt.Before(record.ExpiresAt) || record.PeerPublicKey == "" || record.PeerPublicKey != strings.TrimSpace(record.PeerPublicKey) ||
+		!slices.Equal(conditions[1].Key, socialutil.FriendInviteTokenKey(record.PeerPublicKey)) {
+		return inviteTokenRecord{}, nil, inviteTokenLookupError(errors.New("social: persisted Friend invite token is invalid"))
 	}
-	return record, nil
+	return record, &invitationAdmission{Conditions: conditions, ExpiresAt: record.ExpiresAt}, nil
 }
 
 func inviteTokenLookupError(err error) error {
@@ -2109,6 +2855,75 @@ func (s *Server) newID() string {
 		return s.NewID()
 	}
 	return socialutil.NewID()
+}
+
+// applyFriendAdmission compares invitation authority in the same transaction as
+// the relationship publication or idempotent success proof. The credential is
+// never consumed, and an unknown mutation outcome is returned without replay.
+func (s *Server) applyFriendAdmission(ctx context.Context, store kv.Store, mutation kv.Mutation, invitations ...*invitationAdmission) (bool, error) {
+	var conditions []kv.Condition
+	observed := make(map[string]string)
+	for _, invitation := range invitations {
+		if invitation == nil {
+			continue
+		}
+		if len(invitation.Conditions) != 2 {
+			return false, nil
+		}
+		var previous inviteTokenRecord
+		if err := json.Unmarshal(invitation.Conditions[1].Expected, &previous); err != nil {
+			return false, err
+		}
+		if owner, ok := observed[previous.InviteToken]; ok {
+			if owner != previous.PeerPublicKey {
+				return false, nil
+			}
+			continue
+		}
+		// Renewal may change expiry while retaining this credential. Reobserve
+		// that exact token under the caller's read policy; publication still
+		// compares the full record and digest locator from this observation.
+		current, admission, err := s.observeFriendInvitation(ctx, previous.InviteToken)
+		if errors.Is(err, ErrInviteTokenUnavailable) {
+			return false, nil
+		}
+		if err != nil {
+			return false, err
+		}
+		if current.PeerPublicKey != previous.PeerPublicKey {
+			return false, nil
+		}
+		observed[previous.InviteToken] = previous.PeerPublicKey
+		conditions = append(conditions, admission.Conditions...)
+	}
+	if len(conditions) == 0 {
+		return store.ApplyMutation(ctx, mutation)
+	}
+	root, prefixes, ok := kv.SharedAtomicStore(store, s.InviteTokens)
+	if !ok {
+		return false, errors.New("social: Friend invitations and relationships require a shared atomic store")
+	}
+	key := func(prefix, relative kv.Key) kv.Key {
+		return append(append(kv.Key(nil), prefix...), relative...)
+	}
+	for i := range mutation.Conditions {
+		mutation.Conditions[i].Key = key(prefixes[0], mutation.Conditions[i].Key)
+	}
+	for i := range mutation.Entries {
+		mutation.Entries[i].Key = key(prefixes[0], mutation.Entries[i].Key)
+	}
+	for i := range mutation.DeleteKeys {
+		mutation.DeleteKeys[i] = key(prefixes[0], mutation.DeleteKeys[i])
+	}
+	for _, collections := range [][]kv.SetMembers{mutation.AddMembers, mutation.RemoveMembers, mutation.AddOrderedMembers, mutation.RemoveOrderedMembers} {
+		for i := range collections {
+			collections[i].Key = key(prefixes[0], collections[i].Key)
+		}
+	}
+	for _, condition := range conditions {
+		mutation.Conditions = append(mutation.Conditions, kv.Condition{Key: key(prefixes[1], condition.Key), Expected: condition.Expected})
+	}
+	return root.ApplyMutation(ctx, mutation)
 }
 
 func friendPageKey(owner string) kv.Key {

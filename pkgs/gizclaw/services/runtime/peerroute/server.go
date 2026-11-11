@@ -37,7 +37,7 @@ type Server struct {
 	ServerEndpoint  string
 }
 
-// Lookup strongly reads an assignment without changing ownership.
+// Lookup reads an assignment without changing ownership.
 func (s *Server) Lookup(ctx context.Context, publicKey giznet.PublicKey) (apitypes.PeerAssignment, error) {
 	if publicKey.IsZero() {
 		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
@@ -109,26 +109,35 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 	if err != nil {
 		return apitypes.PeerAssignment{}, err
 	}
-	var existing []byte
-	if expectedVersion != nil {
-		existing, err = store.Get(ctx, assignmentKey(publicKey.String()))
-		if errors.Is(err, kv.ErrNotFound) {
-			return apitypes.PeerAssignment{}, ErrVersionConflict
-		}
-		if err != nil {
-			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: get %s: %w", publicKey.String(), err)
-		}
-	} else {
-		var created bool
-		existing, created, err = kv.CreateIfAbsent(ctx, store, kv.Entry{Key: assignmentKey(publicKey.String()), Value: encoded}, nil)
-		if err != nil {
-			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: claim %s: %w", publicKey.String(), err)
-		}
-		if created {
-			return assignment, nil
+	existing, err := store.Get(ctx, assignmentKey(publicKey.String()))
+	primaryFallback := false
+	if errors.Is(err, kv.ErrNotFound) {
+		if expectedVersion != nil {
+			// An explicit version may refer to a commit newer than the reader.
+			ctx = kv.WithPrimaryReads(ctx)
+			primaryFallback = true
+			existing, err = store.Get(ctx, assignmentKey(publicKey.String()))
+			if errors.Is(err, kv.ErrNotFound) {
+				return apitypes.PeerAssignment{}, ErrVersionConflict
+			}
+		} else {
+			var created bool
+			existing, created, err = kv.CreateIfAbsent(ctx, store, kv.Entry{Key: assignmentKey(publicKey.String()), Value: encoded}, nil)
+			if err != nil {
+				return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: claim %s: %w", publicKey.String(), err)
+			}
+			if created {
+				return assignment, nil
+			}
 		}
 	}
-	for {
+	if err != nil {
+		return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: get %s: %w", publicKey.String(), err)
+	}
+	for range 8 {
+		if err := ctx.Err(); err != nil {
+			return apitypes.PeerAssignment{}, err
+		}
 		current, decodeErr := decodeAssignment(publicKey, existing)
 		if decodeErr != nil {
 			return apitypes.PeerAssignment{}, decodeErr
@@ -137,27 +146,49 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 			return apitypes.PeerAssignment{}, ErrVersionConflict
 		}
 		if expectedVersion != nil && current.Version != *expectedVersion {
+			if current.Version < *expectedVersion && !primaryFallback {
+				// The caller may have observed a commit newer than this snapshot.
+				ctx = kv.WithPrimaryReads(ctx)
+				primaryFallback = true
+				existing, err = store.Get(ctx, assignmentKey(publicKey.String()))
+				if err != nil {
+					if errors.Is(err, kv.ErrNotFound) {
+						return apitypes.PeerAssignment{}, ErrVersionConflict
+					}
+					return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: reload %s: %w", publicKey.String(), err)
+				}
+				continue
+			}
 			return apitypes.PeerAssignment{}, ErrVersionConflict
 		}
-		if s.assignmentCurrent(current, peer) {
+		unchanged := s.assignmentCurrent(current, peer)
+		if unchanged && expectedVersion == nil {
 			return current, nil
 		}
 		next := current
-		next.ServerEndpoint = strings.TrimSpace(s.ServerEndpoint)
-		next.Role = peer.Role
-		next.Version++
-		next.UpdatedAt = time.Now()
-		nextEncoded, encodeErr := encodeAssignment(next)
-		if encodeErr != nil {
-			return apitypes.PeerAssignment{}, encodeErr
+		var entries []kv.Entry
+		if !unchanged {
+			next.ServerEndpoint = strings.TrimSpace(s.ServerEndpoint)
+			next.Role = peer.Role
+			next.Version++
+			next.UpdatedAt = time.Now()
+			nextEncoded, encodeErr := encodeAssignment(next)
+			if encodeErr != nil {
+				return apitypes.PeerAssignment{}, encodeErr
+			}
+			entries = []kv.Entry{{Key: assignmentKey(publicKey.String()), Value: nextEncoded}}
 		}
-		matched, mutateErr := kv.CompareAndMutate(ctx, store, assignmentKey(publicKey.String()), existing, []kv.Entry{{Key: assignmentKey(publicKey.String()), Value: nextEncoded}}, nil)
+		// An explicit version must be checked atomically even when there is no
+		// metadata change; a stale no-op must not acknowledge an obsolete version.
+		matched, mutateErr := kv.CompareAndMutate(ctx, store, assignmentKey(publicKey.String()), existing, entries, nil)
 		if mutateErr != nil {
 			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: refresh %s: %w", publicKey.String(), mutateErr)
 		}
 		if matched {
 			return next, nil
 		}
+		ctx = kv.WithPrimaryReads(ctx)
+		primaryFallback = true
 		existing, err = store.Get(ctx, assignmentKey(publicKey.String()))
 		if err != nil {
 			if errors.Is(err, kv.ErrNotFound) {
@@ -166,6 +197,7 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 			return apitypes.PeerAssignment{}, fmt.Errorf("peerroute: reload %s: %w", publicKey.String(), err)
 		}
 	}
+	return apitypes.PeerAssignment{}, ErrVersionConflict
 }
 
 func validateAssignablePeer(peer apitypes.Peer) error {
@@ -245,7 +277,7 @@ func (s *Server) store() (kv.Store, error) {
 	if s == nil || s.Store == nil {
 		return nil, ErrStoreNil
 	}
-	return kv.WithStrongReads(s.Store), nil
+	return s.Store, nil
 }
 
 func ParsePublicKey(value string) (giznet.PublicKey, error) {

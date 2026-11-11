@@ -36,8 +36,9 @@ type friendNotification struct {
 func TestCrossServerFriendCreationSucceedsThroughSharedKV(t *testing.T) {
 	localKey := giznet.PublicKey{1}
 	foreignKey := giznet.PublicKey{2}
-	inviteTokens := kv.NewMemory(nil)
-	friends := kv.NewMemory(nil)
+	root := kv.NewMemory(nil)
+	inviteTokens := kv.Prefixed(root, kv.Key{"invite-tokens"})
+	friends := kv.Prefixed(root, kv.Key{"friends"})
 	workspaces := &recordingWorkspaceService{}
 	home := newTestServer()
 	home.InviteTokens, home.Friends, home.Workspaces = inviteTokens, friends, workspaces
@@ -1850,9 +1851,10 @@ var testNow = time.Now().UTC().Truncate(time.Second)
 func newTestServer() *Server {
 	now := testNow
 	nextID := 0
+	store := kv.NewMemory(nil)
 	return &Server{
-		InviteTokens: kv.NewMemory(nil),
-		Friends:      kv.NewMemory(nil),
+		InviteTokens: store,
+		Friends:      store,
 		Workspaces:   &recordingWorkspaceService{},
 		SFUURL:       "wss://sfu.test",
 		Now:          func() time.Time { return now },
@@ -2194,5 +2196,200 @@ func TestAddFriendReportingExisting(t *testing.T) {
 	// AddFriend keeps the idempotent RPC behavior.
 	if item, err := s.AddFriend(ctx, "peer-a", rpcapi.FriendAddRequest{InviteToken: token.InviteToken}); err != nil || item.Name != created.Name {
 		t.Fatalf("AddFriend existing = %#v, %v; want existing relationship", item, err)
+	}
+}
+
+// socialReadSplitStore keeps a frozen replica while mutations target authority.
+// WithPrimaryReads is idempotent, so comparing its returned context lets this
+// test double recognize the explicit fallback without reaching into KV internals.
+type socialReadSplitStore struct {
+	kv.Store
+	reader                                 kv.Store
+	replicate                              bool
+	ordinary, primary, mutations, rejected int
+	beforeWrite                            func(context.Context, kv.Mutation)
+	writeErr                               error
+}
+
+func (s *socialReadSplitStore) read(ctx context.Context) kv.Store {
+	if kv.WithPrimaryReads(ctx) == ctx {
+		s.primary++
+		return s.Store
+	}
+	s.ordinary++
+	return s.reader
+}
+func (s *socialReadSplitStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	return s.read(ctx).Get(ctx, key)
+}
+func (s *socialReadSplitStore) ListMembers(ctx context.Context, key kv.Key) ([]string, error) {
+	return s.read(ctx).ListMembers(ctx, key)
+}
+func (s *socialReadSplitStore) HasMember(ctx context.Context, key kv.Key, member string) (bool, error) {
+	return s.read(ctx).HasMember(ctx, key, member)
+}
+func (s *socialReadSplitStore) RangeOrderedMembers(ctx context.Context, key kv.Key, query kv.OrderedRange) ([]string, error) {
+	return s.read(ctx).RangeOrderedMembers(ctx, key, query)
+}
+func (s *socialReadSplitStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.mutations++
+	if s.beforeWrite != nil {
+		s.beforeWrite(ctx, mutation)
+	}
+	applied, err := s.Store.ApplyMutation(ctx, mutation)
+	if err != nil {
+		return applied, err
+	}
+	if !applied {
+		s.rejected++
+	}
+	if applied && s.replicate {
+		if _, err := s.reader.ApplyMutation(ctx, mutation); err != nil {
+			return false, err
+		}
+	}
+	if applied && s.writeErr != nil {
+		return false, s.writeErr
+	}
+	return applied, nil
+}
+
+func TestFriendStaleReadsAndConflictOnlyFallback(t *testing.T) {
+	s := newTestServer()
+	store := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+	s.Friends = store
+	if _, err := s.AdminCreateFriend(t.Context(), "owner", "first"); err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	if _, err := s.AdminCreateFriend(kv.WithPrimaryReads(t.Context()), "owner", "second"); err != nil {
+		t.Fatal(err)
+	}
+	store.primary, store.ordinary = 0, 0
+	if _, err := s.GetFriendRelation(t.Context(), "owner", "second"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("ordinary get: %v", err)
+	}
+	page, err := s.ListFriends(t.Context(), "owner", rpcapi.FriendListRequest{})
+	if err != nil || len(page.Items) != 1 || store.primary != 0 {
+		t.Fatalf("ordinary page=%+v primary=%d err=%v", page, store.primary, err)
+	}
+	before, rejected := store.mutations, store.rejected
+	item, err := s.AdminCreateFriend(t.Context(), "owner", "third")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if store.primary == 0 || store.rejected-rejected != 1 {
+		t.Fatalf("primary=%d rejected=%d", store.primary, store.rejected-rejected)
+	}
+	// One conditional absence proof precedes the bounded creation/CAS retry.
+	if store.mutations-before > 6 || socialutil.StringValue(item.WorkspaceName) == "" {
+		t.Fatalf("unbounded creation writes=%d item=%+v", store.mutations-before, item)
+	}
+	primary := store.primary
+	if _, err := s.GetFriendRelation(t.Context(), "owner", "third"); !errors.Is(err, kv.ErrNotFound) || store.primary != primary {
+		t.Fatalf("fallback pinned ordinary reads: primary=%d err=%v", store.primary, err)
+	}
+}
+
+func TestFriendStaleExistingRelationshipKeepsLifecycle(t *testing.T) {
+	s := newTestServer()
+	store := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil)}
+	s.Friends = store
+	original, err := s.AdminCreateFriend(kv.WithPrimaryReads(t.Context()), "owner", "peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	before := len(s.Workspaces.(*recordingWorkspaceService).created)
+	got, err := s.AdminCreateFriend(t.Context(), "owner", "peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if socialutil.StringValue(got.WorkspaceName) != socialutil.StringValue(original.WorkspaceName) || len(s.Workspaces.(*recordingWorkspaceService).created) != before {
+		t.Fatalf("existing lifecycle changed: %+v -> %+v", original, got)
+	}
+	if _, err := store.Store.Get(t.Context(), creationIntentKey(socialutil.RelationID("owner", "peer"))); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("left a replacement creation intent: %v", err)
+	}
+}
+
+func TestFriendStaleDeleteRetriesWithoutRecreatingRelationship(t *testing.T) {
+	s := newTestServer()
+	store := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+	s.Friends = store
+	item, err := s.AdminCreateFriend(t.Context(), "owner", "peer")
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	if _, err := s.DeleteFriend(kv.WithPrimaryReads(t.Context()), "owner", rpcapi.FriendDeleteRequest{Name: "peer"}); err != nil {
+		t.Fatal(err)
+	}
+	before := store.mutations
+	got, err := s.DeleteFriend(t.Context(), "owner", rpcapi.FriendDeleteRequest{Name: "peer"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// One stale deletion CAS rejects, then the receipt's absence proof succeeds.
+	if socialutil.StringValue(got.WorkspaceName) != socialutil.StringValue(item.WorkspaceName) || store.rejected != 1 || store.mutations-before != 2 {
+		t.Fatalf("retirement retry item=%+v rejections=%d writes=%d", got, store.rejected, store.mutations-before)
+	}
+}
+
+func TestFriendRetirementReceiptRetriesRejectedSnapshot(t *testing.T) {
+	s := newTestServer()
+	store := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+	s.Friends = store
+	if _, err := s.AdminCreateFriend(t.Context(), "owner", "peer"); err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	id := socialutil.RelationID("owner", "peer")
+	store.beforeWrite = func(ctx context.Context, mutation kv.Mutation) {
+		for _, entry := range mutation.Entries {
+			if slices.Equal(entry.Key, retirementIntentKey(id)) {
+				// Valid JSON from a different snapshot must not make the first
+				// failed receipt CAS silently abandon the durable handoff.
+				if err := store.reader.Set(ctx, entry.Key, append([]byte(" "), entry.Value...)); err != nil {
+					t.Fatal(err)
+				}
+			}
+		}
+	}
+	if _, err := s.DeleteFriend(t.Context(), "owner", rpcapi.FriendDeleteRequest{Name: "peer"}); err != nil {
+		t.Fatal(err)
+	}
+	if store.rejected != 1 {
+		t.Fatalf("rejected receipt CAS=%d", store.rejected)
+	}
+	if _, err := readRetirementReceipt(kv.WithPrimaryReads(t.Context()), store, id); err != nil {
+		t.Fatalf("receipt was not published: %v", err)
+	}
+	if _, err := store.Store.Get(t.Context(), retirementIntentKey(id)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("retirement intent remains: %v", err)
+	}
+}
+
+func TestFriendFallbackPreservesCapacityLimitAndCancelsIntent(t *testing.T) {
+	s := newTestServer()
+	store := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+	s.Friends = store
+	if _, err := s.AdminCreateFriend(t.Context(), "owner", "first"); err != nil {
+		t.Fatal(err)
+	}
+	store.replicate = false
+	for i := 1; i < socialutil.PeerFriendLimit; i++ {
+		if _, err := s.AdminCreateFriend(kv.WithPrimaryReads(t.Context()), "owner", fmt.Sprint("peer-", i)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := s.AdminCreateFriend(t.Context(), "owner", "overflow"); !errors.Is(err, ErrPeerFriendLimit) {
+		t.Fatalf("stale capacity admission: %v", err)
+	}
+	id := socialutil.RelationID("owner", "overflow")
+	if _, err := store.Store.Get(t.Context(), creationIntentKey(id)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("full Peer left a pending creation: %v", err)
+	}
+	if _, err := s.GetFriendRelation(kv.WithPrimaryReads(t.Context()), "owner", "overflow"); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("over-limit relationship: %v", err)
 	}
 }

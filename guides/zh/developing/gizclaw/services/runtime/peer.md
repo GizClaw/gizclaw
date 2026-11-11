@@ -12,9 +12,15 @@ Public key 是 Peer identity，不应和数据库 ID、connection ID 或 Edge as
 
 每个 Peer 最多维护 10 个不同的 SN／IMEI 索引，非空 SN 计一个，IMEI 按完整的 `(TAC, serial)` 去重；重复或不完整 IMEI 不增加索引。每个 SN 或 IMEI 反查 Set 最多关联 10 个不同的 Peer 公钥。数量检查覆盖完整保存和设备字段刷新；集合容量在与主记录及索引变更相同的原子 mutation 中校验。超额拒绝不会更改原记录或任何旧、新索引，重复关联不消耗额外名额，移除关联后可再次添加。Admin refresh 分别返回 `409 DEVICE_IDENTIFIER_LIMIT_REACHED` 或 `409 DEVICE_IDENTIFIER_INDEX_FULL`。已有超额集合不自动删除成员，允许不增长的幂等关联和移除操作。
 
-Peer 删除会在 Peer KV 中创建或复用一条 `kind=peer` PendingDeletion，并立即把 public key 变成跨进程 identity fence。marker 存在期间，Admin Peer get/list 与同一 delete 仍可用于诊断和幂等重试；reconnect、API Key HTTP、WebRTC、RPC/stream、Edge bootstrap、业务读取与 mutation 都返回 `PEER_PENDING_DELETION`。在线 connection 会被 quiesce，terminal cleanup failure 也不会解除 fence。
+Peer deletion atomically creates or reuses a `kind=peer` PendingDeletion identity fence. Admin get/list and repeated deletion remain available for diagnostics. Admission, profile and fence reads follow the configured replica policy, so a successful stale read may still observe active state until its snapshot advances; once visible, the fence rejects reconnects and business access with `PEER_PENDING_DELETION`. Atomic write conditions reject mutations crossing a committed fence. Local connections are quiesced, and a terminal cleanup failure retains the fence.
 
-Production handler 在访问区域 SQL 或 Provider 前，从中央主库验证固定 home Server。共享任务由 home worker 认领；其他区域跳过认领，Admin retry 返回 `peer_home_mismatch`。缺失或无效 route 保留任务和身份围栏，不用本区空表推断删除完成。任务管理、扫描和整个 cleanup 调用链使用 [KV 主库读取](../../../stores/kv#redis-读写分离)，不依赖地区副本的复制进度。
+The production handler validates the fixed home before accessing regional SQL or providers. Task discovery and domain reads start with the [configured reader](../../../stores/kv); a claim mismatch, failed lookup or inconsistent retirement proof permits a bounded primary refresh. Foreign workers leave shared work for the home Server. Unknown or invalid routes retain the task and identity fence, and local SQL absence never proves another region completed cleanup.
+
+Social adapters first persist domain admission fences and prove their inventories include preceding writes. Contacts fence and capture within one SQL transaction; Friend and Group admissions compare permanent Peer fences in their shared atomic roots. Existing plans must cover the prepared inventory or retain the task as `social_snapshot_incomplete`. Captured memberships retain their creation identity through retries, and known missing children require update-time absence validation. Read-only recovery probes do not create fences.
+
+Workspace preparation similarly commits a permanent owner admission fence and the ordinary Workspace inventory in one SQL transaction. Every owned Workspace insertion checks that fence, including another service instance that still observes an active Peer. Existing plans must cover the fenced SQL inventory or retain the task as `workspace_snapshot_incomplete`.
+
+Admin pages skip local directory entries absent from the historical Peer reader and advance by the last scanned local key, without upgrading the query. SQL Contact and Workspace creation may refresh a missing Peer input once; ordinary Workspace reads use a separate availability callback and retain historical absence.
 
 retirement plan 绑定 marker fingerprint、home Server 和未叠加 SQL 字段的完整 KV 记录指纹。清理前验证 generation；最终 guarded mutation 再比较准确 KV 字节和当前 task lease，避免并发替换被旧计划删除。SQL `RegistrationFirmware` 仅用于展示，删除 owner binding 导致投影消失不会改变 KV generation。
 

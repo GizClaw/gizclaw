@@ -1,0 +1,103 @@
+# User Story:
+# As a presence owner,
+# I want delayed first claims fenced by newer owners with bounded batch observation,
+# So that a rejected stale claim cannot take ownership from a newer Server.
+# Concurrency uses the private /race adapter; Giztest parallel admits peer_stream only.
+# These are explicitly diagnostic Publisher transitions on the real Servers,
+# not an assertion that an additional Admin WebRTC connection was accepted.
+version: gizclaw.test/v1alpha1
+name: tikv.usage.presence
+timeout: 2m
+clients:
+  observer: {identity: ephemeral, connection: webrtc, access_point: '${edge_a}', registration_token: '${token_a}'}
+variables:
+  edge_a: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_A}
+  token_a: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_A, secret: true}
+  probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
+  probe_b: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_B}
+  subject: {direction: output, type: string}
+  newer_owner: {direction: output, type: string}
+steps:
+  - id: diagnostic_unassigned_identity
+    client: observer
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: identity.new}}
+    capture: {subject: /value/public_key}
+  - id: delay_old_first_publication_after_reservation
+    client: observer
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: old-owner, key: [presence, peers, '${subject}'], commands: [Prewrite], mutation_op: Put, source: center, stage: request, hold_all: true}
+  - id: delayed_claim_and_newer_owner
+    timeout: 20s
+    client: observer
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          old_publisher:
+            endpoint: '${probe_a}'
+            method: POST
+            path: /invoke
+            body: {operation: presence.publish, peer: '${subject}', publisher: old, online: true, workspace: usage-old-owner}
+          newer_publisher:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: old-owner
+              actions:
+                - {operation: http, endpoint: '${probe_a}', method: POST, path: /arm, body: {id: authority-batch, key: [owners, '${subject}'], commands: [BatchGet], source: center, stage: response, count_only: true}}
+                - {operation: read, store: peer, key: [presence, claims, '${subject}'], primary: true, found: true}
+                - {operation: presence.publish, peer: '${subject}', publisher: newer, online: true, workspace: usage-newer-owner}
+                - {operation: read, store: peer, key: [presence, peers, '${subject}'], primary: true, found: true, field: workspace_name, equals: usage-newer-owner, wait: 10s}
+    capture: {newer_owner: /newer_publisher/actions/3/value/data/server}
+    expect:
+      /http_status/old_publisher: {equals: 200}
+      /http_status/newer_publisher: {equals: 200}
+      /newer_publisher/boundary/held_requests: {minimum: 1}
+      /newer_publisher/boundary/completed: {equals: 0}
+      /newer_publisher/boundary/last_mutation/operation: {equals: Put}
+      /newer_publisher/boundary/last_mutation/value_bytes: {minimum: 1}
+      /newer_publisher/actions/0/value/status: {equals: 200}
+      /newer_publisher/actions/1/value/found: {equals: true}
+      /newer_publisher/actions/3/value/data/online: {equals: true}
+  - id: old_claim_observes_rejection_in_batch
+    client: observer
+    timeout: 10s
+    http: {endpoint: '${probe_a}', method: POST, path: /wait, body: {id: authority-batch}}
+    expect: {/application_reads: {minimum: 1, maximum: 2}, /center_reads: {minimum: 1, maximum: 2}}
+  - id: delayed_claim_cannot_take_newer_owner
+    client: observer
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: peer, key: [presence, peers, '${subject}'], primary: true}
+    expect:
+      /value/data/workspace_name: {equals: usage-newer-owner}
+      /value/data/server: {equals: '${newer_owner}'}
+  - id: old_publisher_offline_transition
+    client: observer
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: presence.publish, peer: '${subject}', publisher: old, online: false}}
+  - id: newer_owner_remains_online
+    client: observer
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: peer, key: [presence, peers, '${subject}'], primary: true}}
+    expect:
+      /value/data/online: {equals: true}
+      /value/data/workspace_name: {equals: usage-newer-owner}
+      /value/data/server: {equals: '${newer_owner}'}
+finally:
+  - client: observer
+    http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
+  - client: observer
+    http: {endpoint: '${probe_b}', method: POST, path: /reset, body: {}}
+  - client: observer
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: presence.publish, peer: '${subject}', publisher: newer, online: false}}
+  - client: observer
+    rpc: {method: server.peer.delete, request: {}}
+report: {redact: [token_a]}

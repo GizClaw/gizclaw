@@ -608,7 +608,13 @@ func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.Pub
 		return "", err
 	}
 	if peerRecord.Role == apitypes.PeerRoleClient && m.PeerRoutes != nil {
-		if _, err := m.PeerRoutes.Assign(ctx, publicKey, nil); err != nil {
+		_, err := m.PeerRoutes.Assign(ctx, publicKey, nil)
+		if errors.Is(err, peer.ErrPeerNotFound) {
+			// The preceding update confirmed this Peer. A missing routing input
+			// conflicts with that result, so refresh only this bootstrap attempt.
+			_, err = m.PeerRoutes.Assign(kv.WithPrimaryReads(ctx), publicKey, nil)
+		}
+		if err != nil {
 			return "", err
 		}
 	}

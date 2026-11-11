@@ -1,0 +1,115 @@
+package tikvfixture
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"regexp"
+	"strings"
+)
+
+var usageCredentialPattern = regexp.MustCompile(`gizclaw_sk_v1_[A-Za-z0-9_-]+|(?i:bearer)[ ]+[^ ]+`)
+
+func usageRedactFailure(text string) string {
+	text = usageCredentialPattern.ReplaceAllString(text, "[REDACTED]")
+	if len(text) > 2048 {
+		text = text[:2048] + " [truncated]"
+	}
+	return text
+}
+
+func usageFailureDetail(body any) string {
+	switch value := body.(type) {
+	case string:
+		return usageRedactFailure(strings.TrimSpace(value))
+	case map[string]any:
+		if detail, ok := value["error"]; ok {
+			return usageRedactFailure(fmt.Sprint(detail))
+		}
+	}
+	return "response body omitted"
+}
+
+type usageHTTPBranch struct {
+	Endpoint string            `json:"endpoint"`
+	Method   string            `json:"method"`
+	Path     string            `json:"path"`
+	Headers  map[string]string `json:"headers,omitempty"`
+	Body     any               `json:"body,omitempty"`
+	Status   int               `json:"status,omitempty"`
+}
+
+// race is an isolated coordination adapter because Giztest's parallel children
+// support peer_stream only. Every branch sends a real HTTP request to an Edge
+// or private control listener; status/body and transport failures are preserved.
+// It joins both branches before replying and cancels siblings on any failure.
+func (g *UsageGate) race(ctx context.Context, w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		Branches map[string]usageHTTPBranch `json:"branches"`
+	}
+	if err := usageDecode(r, &input); err != nil || len(input.Branches) != 2 {
+		http.Error(w, "exactly two HTTP coordination branches required", http.StatusBadRequest)
+		return
+	}
+	h := g.http()
+	for id, branch := range input.Branches {
+		if id == "http_status" {
+			http.Error(w, "http_status is reserved for actual branch response codes", http.StatusBadRequest)
+			return
+		}
+		if _, err := h.request(ctx, branch.Endpoint, branch.Method, branch.Path, nil, false); err != nil {
+			http.Error(w, fmt.Sprintf("branch %s: %v", id, err), http.StatusBadGateway)
+			return
+		}
+	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	type completed struct {
+		id     string
+		value  any
+		status int
+		err    error
+	}
+	done := make(chan completed, len(input.Branches))
+	for id, branch := range input.Branches {
+		go func() {
+			value, err := h.forward(ctx, UsageAction{Operation: "http", Endpoint: branch.Endpoint, Method: branch.Method, Path: branch.Path, Headers: branch.Headers, Body: branch.Body})
+			var body any
+			var status int
+			if err == nil {
+				response := value.(map[string]any)
+				status = response["status"].(int)
+				body = response["body"]
+				if branch.Status != 0 && status != branch.Status || branch.Status == 0 && (status < http.StatusOK || status >= http.StatusMultipleChoices) {
+					expected := fmt.Sprint(branch.Status)
+					if branch.Status == 0 {
+						expected = "2xx"
+					}
+					err = fmt.Errorf("actual HTTP status %d; expected %s: %s", status, expected, usageFailureDetail(body))
+				}
+			}
+			done <- completed{id, body, status, err}
+		}()
+	}
+	results := make(map[string]any, 3)
+	statuses := make(map[string]int, len(input.Branches))
+	var failure error
+	for range input.Branches {
+		result := <-done
+		if result.err != nil && failure == nil {
+			failure = fmt.Errorf("branch %s: %w", result.id, result.err)
+			slog.Error("TiKV usage race branch failed", "branch", result.id, "error", usageRedactFailure(result.err.Error()))
+			cancel()
+		}
+		results[result.id] = result.value
+		statuses[result.id] = result.status
+	}
+	if failure != nil {
+		http.Error(w, failure.Error(), http.StatusBadGateway)
+		return
+	}
+	// Keep existing body assertion paths and expose actual statuses alongside.
+	results["http_status"] = statuses
+	usageJSON(w, results)
+}

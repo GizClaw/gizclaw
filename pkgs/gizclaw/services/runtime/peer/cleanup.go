@@ -17,13 +17,19 @@ import (
 
 const peerRetirementPollInterval = 5 * time.Second
 
+// SocialRetirement owns Social admission fences and the child identities retained
+// by Peer cleanup. SnapshotPeerSocial is read-only for recovery probes;
+// PreparePeerSocialRetirement fences admissions and proves snapshot coverage.
 type SocialRetirement interface {
 	SnapshotPeerSocial(context.Context, string) (social.PeerSnapshot, error)
+	PreparePeerSocialRetirement(context.Context, string) (social.PeerSnapshot, error)
 	RetirePeerSocial(context.Context, social.PeerSnapshot) (social.PeerRetirementResult, error)
 }
 
+// WorkspaceRetirement separates read-only probes from fenced SQL inventory capture.
 type WorkspaceRetirement interface {
 	SnapshotPeerWorkspaces(context.Context, string) (workspace.PeerRetirementSnapshot, error)
+	PreparePeerWorkspacesRetirement(context.Context, string) (workspace.PeerRetirementSnapshot, error)
 	RetirePeerWorkspaces(context.Context, workspace.PeerRetirementSnapshot) ([]string, error)
 }
 
@@ -78,9 +84,10 @@ type DeletionHandler struct {
 func (h DeletionHandler) Kind() pendingdeletion.Kind { return pendingdeletion.KindPeer }
 
 func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim) error {
-	ctx = kv.WithPrimaryReads(ctx)
 	if err := h.CheckTask(ctx, claim.Task); err != nil {
-		return err
+		if err := h.CheckTask(kv.WithPrimaryReads(ctx), claim.Task); err != nil {
+			return err
+		}
 	}
 	publicKey, err := validatePeerDeletionClaim(claim)
 	if err != nil {
@@ -93,11 +100,7 @@ func (h DeletionHandler) Handle(ctx context.Context, claim pendingdeletion.Claim
 	if err != nil {
 		return err
 	}
-	current, raw, err := h.retainedPeer(ctx, publicKey)
-	if err != nil {
-		return err
-	}
-	if err := h.checkPlan(plan, current, raw); err != nil {
+	if _, err := h.planPeer(ctx, plan, publicKey); err != nil {
 		return err
 	}
 	claim, err = h.Source.Checkpoint(ctx, claim, claim.Phase, h.currentTime())
@@ -180,6 +183,17 @@ func validatePeerDeletionClaim(claim pendingdeletion.Claim) (giznet.PublicKey, e
 }
 
 func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdeletion.Claim, publicKey giznet.PublicKey) (retirementPlan, error) {
+	for range 2 {
+		plan, err := h.tryLoadOrCreatePlan(ctx, claim, publicKey)
+		if !errors.Is(err, pendingdeletion.ErrConflict) {
+			return plan, err
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return retirementPlan{}, pendingdeletion.ErrConflict
+}
+
+func (h DeletionHandler) tryLoadOrCreatePlan(ctx context.Context, claim pendingdeletion.Claim, publicKey giznet.PublicKey) (retirementPlan, error) {
 	store, err := h.Server.store()
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("store_unavailable", "Peer store is unavailable", err)
@@ -190,14 +204,25 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 		if err != nil {
 			return retirementPlan{}, err
 		}
-		current, raw, err := h.retainedPeer(ctx, publicKey)
+		current, raw, err := h.planPeerRecord(ctx, plan, publicKey)
 		if err != nil {
 			return retirementPlan{}, err
 		}
-		if err := h.checkPlan(plan, current, raw); err != nil {
-			return retirementPlan{}, err
-		}
 		if plan.Version == retirementPlanVersion {
+			workspaces, err := h.Workspaces.PreparePeerWorkspacesRetirement(ctx, publicKey.String())
+			if err != nil {
+				return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace retirement could not be prepared", err)
+			}
+			if !plan.Workspaces.Covers(workspaces) {
+				return retirementPlan{}, pendingdeletion.Terminal("workspace_snapshot_incomplete", "Retirement plan omits fenced Workspace dependencies; retain the task for repair", nil)
+			}
+			prepared, err := h.Social.PreparePeerSocialRetirement(ctx, publicKey.String())
+			if err != nil {
+				return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social retirement could not be prepared", err)
+			}
+			if !plan.Social.Covers(prepared) {
+				return retirementPlan{}, pendingdeletion.Terminal("social_snapshot_incomplete", "Retirement plan omits fenced Social dependencies; retain the task for repair", nil)
+			}
 			return plan, nil
 		}
 		return h.adoptLegacyPlan(ctx, claim, publicKey, data, current, raw)
@@ -208,11 +233,11 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 	if err != nil {
 		return retirementPlan{}, err
 	}
-	socialSnapshot, err := h.Social.SnapshotPeerSocial(ctx, publicKey.String())
+	socialSnapshot, err := h.Social.PreparePeerSocialRetirement(ctx, publicKey.String())
 	if err != nil {
-		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social snapshot failed", err)
+		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social retirement could not be prepared", err)
 	}
-	workspaceSnapshot, err := h.Workspaces.SnapshotPeerWorkspaces(ctx, publicKey.String())
+	workspaceSnapshot, err := h.Workspaces.PreparePeerWorkspacesRetirement(ctx, publicKey.String())
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace snapshot failed", err)
 	}
@@ -235,14 +260,17 @@ func (h DeletionHandler) loadOrCreatePlan(ctx context.Context, claim pendingdele
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Terminal("plan_encode_failed", "Peer retirement plan could not be encoded", err)
 	}
-	existing, created, err := kv.CreateIfAbsent(ctx, store, kv.Entry{Key: key, Value: data}, nil)
+	created, err := store.ApplyMutation(ctx, kv.Mutation{
+		Conditions: []kv.Condition{{Key: key}, {Key: peerKey(publicKey.String()), Expected: raw}},
+		Entries:    []kv.Entry{{Key: key, Value: data}},
+	})
 	if err != nil {
 		return retirementPlan{}, pendingdeletion.Retryable("plan_store_failed", "Peer retirement plan could not be stored", err)
 	}
 	if created {
 		return plan, nil
 	}
-	return validateRetirementPlan(existing, claim, publicKey)
+	return retirementPlan{}, pendingdeletion.ErrConflict
 }
 
 func validateRetirementPlan(data []byte, claim pendingdeletion.Claim, publicKey giznet.PublicKey) (retirementPlan, error) {
@@ -280,24 +308,29 @@ func childDeletionPending(ctx context.Context, source pendingdeletion.LookupSour
 func (h DeletionHandler) finalize(ctx context.Context, claim pendingdeletion.Claim, plan retirementPlan, publicKey giznet.PublicKey) error {
 	unlock := h.Server.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	if err := h.checkHome(ctx, publicKey); err != nil {
-		return err
-	}
-	current, raw, err := h.retainedPeer(ctx, publicKey)
-	if err != nil {
-		return err
-	}
-	if err := h.checkPlan(plan, current, raw); err != nil {
-		return err
-	}
-	deletes := append(indexKeys(plan.Peer), peerRetirementPlanKey(claim.Record.DeletionID))
-	if err := h.Source.FinalizeGuarded(ctx, claim, h.currentTime(), []kv.Condition{{Key: peerKey(publicKey.String()), Expected: raw}}, []kv.Entry{{Key: peerKey(publicKey.String()), Value: encodedPeerTombstone}}, deletes, identifierSets(plan.Peer)...); err != nil {
-		if errors.Is(err, pendingdeletion.ErrConflict) {
+	for attempt := range 2 {
+		if err := h.checkHome(ctx, publicKey); err != nil {
 			return err
 		}
-		return pendingdeletion.Retryable("store_error", "Peer tombstone finalization failed", err)
+		raw, err := h.planPeer(ctx, plan, publicKey)
+		if err != nil {
+			if attempt > 0 {
+				return pendingdeletion.ErrConflict
+			}
+			return err
+		}
+		deletes := append(indexKeys(plan.Peer), peerRetirementPlanKey(claim.Record.DeletionID))
+		err = h.Source.FinalizeGuarded(ctx, claim, h.currentTime(), []kv.Condition{{Key: peerKey(publicKey.String()), Expected: raw}}, []kv.Entry{{Key: peerKey(publicKey.String()), Value: encodedPeerTombstone}}, deletes, identifierSets(plan.Peer)...)
+		if errors.Is(err, pendingdeletion.ErrConflict) {
+			ctx = kv.WithPrimaryReads(ctx)
+			continue
+		}
+		if err != nil {
+			return pendingdeletion.Retryable("store_error", "Peer tombstone finalization failed", err)
+		}
+		return nil
 	}
-	return nil
+	return pendingdeletion.ErrConflict
 }
 
 func peerRetirementPlanKey(deletionID string) kv.Key {
@@ -331,7 +364,22 @@ func (h DeletionHandler) adoptLegacyPlan(ctx context.Context, claim pendingdelet
 	if err != nil {
 		return retirementPlan{}, err
 	}
-	plan := retirementPlan{Version: retirementPlanVersion, HomeServer: h.Server.ServerPublicKey.String(), PeerFingerprint: peerFingerprint(raw), MarkerFingerprint: claim.MarkerFingerprint, Peer: current, Workspaces: snapshot, Social: socialSnapshot}
+	workspaces, err := h.Workspaces.PreparePeerWorkspacesRetirement(ctx, key.String())
+	if err != nil {
+		return retirementPlan{}, pendingdeletion.Retryable("workspace_snapshot_failed", "Peer Workspace retirement could not be prepared", err)
+	}
+	if !snapshot.Covers(workspaces) {
+		return retirementPlan{}, pendingdeletion.Terminal("retirement_scope_ambiguous", "Fenced Workspace data is absent from the legacy retirement plan; retain it for repair", nil)
+	}
+	snapshot = workspaces
+	prepared, err := h.Social.PreparePeerSocialRetirement(ctx, key.String())
+	if err != nil {
+		return retirementPlan{}, pendingdeletion.Retryable("social_snapshot_failed", "Peer Social retirement could not be prepared", err)
+	}
+	if !socialSnapshot.Covers(prepared) {
+		return retirementPlan{}, pendingdeletion.Terminal("retirement_scope_ambiguous", "Fenced Social data is absent from the legacy retirement plan; retain the plan for regional repair", nil)
+	}
+	plan := retirementPlan{Version: retirementPlanVersion, HomeServer: h.Server.ServerPublicKey.String(), PeerFingerprint: peerFingerprint(raw), MarkerFingerprint: claim.MarkerFingerprint, Peer: current, Workspaces: snapshot, Social: prepared}
 	data, err := json.Marshal(plan)
 	if err != nil {
 		return retirementPlan{}, err

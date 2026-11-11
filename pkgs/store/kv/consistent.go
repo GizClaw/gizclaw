@@ -24,9 +24,10 @@ func ReadDelay(store Store) time.Duration {
 	}
 }
 
-// WithPrimaryReads binds reads in this operation and its call chain to the
-// write authority. Redis read/write stores use the writer; TiKV bypasses
-// stale Learner reads. This does not provide a multi-operation snapshot.
+// WithPrimaryReads selects the write authority for fallback reads after a
+// rejected condition or an unavailable replica. Ordinary reads should use the
+// caller's context unchanged. Redis uses the writer; TiKV bypasses stale reads.
+// This does not provide a multi-operation snapshot.
 func WithPrimaryReads(ctx context.Context) context.Context {
 	return strongReadContext(ctx)
 }

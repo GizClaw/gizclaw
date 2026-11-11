@@ -343,8 +343,8 @@ func (s *session) drainDisconnects() {
 // recheck validates the attachment in the background. A refresh has a deadline
 // of at most two seconds (or one interval, when shorter). Cached membership is
 // usable only until that refresh completes; any error, timeout, or generation
-// change stops forwarding. The default maximum stale window is seven seconds:
-// the five-second interval plus the two-second request deadline.
+// change stops forwarding. The interval and request deadline add seven seconds
+// by default, on top of the configured store's historical delay or replica lag.
 func (s *session) recheck() {
 	ticker := time.NewTicker(s.config.RecheckInterval)
 	defer ticker.Stop()

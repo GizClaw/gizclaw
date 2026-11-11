@@ -47,7 +47,7 @@ SQLite/PostgreSQL 配置只把同一个逻辑声明改为 `storage: database`；
 
 `Get`、`BatchGet`、`HasMember`、`ListMembers`、`RangeOrderedMembers` 默认使用读连接。`Set`、`Delete`、`BatchSet`、`BatchDelete`、`BatchMutate`、集合修改、conditional create、compare-and-mutate 和 `ApplyMutation` 全部使用写连接；Lua 内的条件读取与写入在主节点原子执行。同一个读写分离 connector 下的逻辑 Store 共用原子 root 和 prefix 隔离规则。逻辑 Store 的 `Close` 不关闭连接。
 
-`kv.WithPrimaryReads(ctx)` 显式将一次操作及其调用链中的 point、Set 与 ordered-set 读取绑定到写入 authority（Redis writer 或 TiKV 强读）；它穿过 `Prefixed`，不创建连接，也不改变其他请求的读端选择。PendingDeletion 管理、扫描和清理使用该 context，确保归属、任务和 absent 校验读取中央主库。普通读取仍不自动 fallback；主库读取之间也不构成快照，最终提交仍须使用原子条件。
+`kv.WithPrimaryReads(ctx)` selects the write authority for bounded update recovery after a rejected condition or an observation inconsistent with a known successful write. A missing target may be refreshed within a mutation such as API Key revocation. Ordinary queries, including authentication negatives and PendingDeletion administration/discovery, retain the configured reader and accept stale absence or errors. The fallback preserves cancellation, deadlines and prefixes, does not pin unrelated requests, and does not combine reads into one snapshot. Final writes still compare their conditions atomically.
 
 读写分离是显式允许复制延迟的选择：成功写入后立即查询仍可能得到旧值或不存在，多个独立查询也不构成快照。只为能容忍这些结果的消费者选择该 backend；要求最新状态的消费者使用 `WithStrongReads`，或绑定普通 Redis 主节点连接。读端故障直接返回错误，不自动回退主节点；写端故障也不向只读副本写入。两个 URL 的逻辑数据库编号必须一致，部署层负责保证它们属于同一复制组并维护稳定的写入入口。
 
@@ -80,7 +80,7 @@ services:
     store: peers
 ```
 
-省略 `stale_read_delay` 和 `read_labels` 时，全部查询为强读。两者必须一起配置；delay 为 1ms 到 24h 的整毫秒时长。普通查询使用 PD 提供的时间戳减去 delay 并启用 Stale Read。SDK 将 labels 作为副本选择偏好；健康部署中优先地区完整 Learner，副本慢或不可用时可能选择其他副本或中心 Leader，读取的仍是同一历史时间戳。delay 指定历史快照时间，不保证副本能及时提供该快照。每次查询仍需访问 PD；不可用或已被 GC 的快照返回错误，不改读更旧的时间戳。副本放置、网络和 TiKV GC 保留窗口由部署管理，必须覆盖配置的 delay。
+Omit both `stale_read_delay` and `read_labels` for strong reads throughout. When enabled, both are required; the delay must be an integral number of milliseconds from 1ms to 24h. Ordinary queries subtract the complete millisecond delay from the cached PD timestamp and enable Stale Read, without synchronously requesting a fresh TSO. Cache age adds to the configured history window. Writes and explicit primary reads obtain fresh timestamps. Point, batch and collection queries prefer Learner peers; point and batch selection also uses the configured store labels. SDK health and availability can cause fallback to another replica or the central Leader at the same historical timestamp. Native range scans selected on a Learner carry the stale-read flag so safe historical reads do not require ReadIndex. Cache initialization, Region metadata and GC visibility still depend on the cluster control plane. Unavailable, over-aged or GC-expired snapshots return errors without selecting an older timestamp. Deployment owns replica placement, networking, and GC retention covering the delay plus cache age.
 
 TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV RPC 和故障恢复健康检查，不修改 client-go 的全局配置。恢复探测通过 `tikv.WithStoreLivenessSecurity` 接收同一 connector 的证书策略；不同 connector 即使访问同一地址，也不共享探测结果。显式无 TLS 的 connector 不继承其他连接的 TLS 配置，TLS 失败不回退到明文。Storage 负责关闭物理 client；逻辑 Store 和强读 view 不关闭该连接。
 
@@ -90,7 +90,7 @@ TLS CA 与可选 client certificate/key 同时用于 PD、safe-point etcd、TiKV
 
 测试代理先建立监听，runner 启动全部容器后再通过临时启动标记开启集群 bootstrap 计时。启动等待与事务恢复分别有界；原 client 仍须在 20 秒内恢复。失败时 CI 只上传明确列出的诊断日志和 source/Go 版本信息，证书、私钥、二进制及数据目录不进入 artifact。
 
-Entry 的绝对 deadline 与记录、过期索引在同一事务写入；零 deadline 会移除已有过期索引。读取立即把过期值视为不存在。Store Registry 为每个 TiKV root 启动一个可取消的清理 worker，只扫描内部 deadline 索引，每批最多 128 条、每轮最多 32 批且限制 15 秒；清空后间隔一分钟，仍有积压时一秒后继续。删除前在新事务重查记录的 deadline，并通过写冲突重试保护并发刷新。`Stores.Close` 取消并等待 worker，物理 Storage 随后关闭。直接使用 `NewTiKVWithClient` 的调用方可通过 `PurgeExpired` 执行同样的有界清理；这不推进集群 MVCC GC safe point。
+Entry 的绝对 deadline 与记录、过期索引在同一事务写入；零 deadline 会移除已有过期索引。读取立即把过期值视为不存在。Store Registry 为每个 TiKV root 启动一个可取消的清理 worker，只扫描内部 deadline 索引，每批最多 128 条、每轮最多 32 批且限制 15 秒；清空后间隔一分钟，仍有积压时一秒后继续。删除前在新事务重查记录的 deadline，并通过写冲突重试保护并发刷新。 If that transaction proves a historical candidate was already consumed, the uncommitted batch is discarded and discovery is repeated once on primary; the returned count includes only committed index removals. `Stores.Close` 取消并等待 worker，物理 Storage 随后关闭。直接使用 `NewTiKVWithClient` 的调用方可通过 `PurgeExpired` 执行同样的有界清理；这不推进集群 MVCC GC safe point。
 
 ### Redis → TiKV 离线迁移 {#redis-tikv-migration}
 
@@ -104,7 +104,7 @@ Entry 的绝对 deadline 与记录、过期索引在同一事务写入；零 dea
 2. 执行 dry-run，解决所有类型、大小及目标冲突后再导入。
 3. 执行导入；中断后可用同一配置重新执行。工具重新扫描，校验已完成的相同记录，并幂等补齐尚未完成的集合。
 4. 执行 `--verify-only`。它检查源→目标和目标→源两个方向；缺失、不同的内容/类型/deadline、未完成集合及目标多余的活跃 key 都使命令非零退出。
-5. 校验成功后，把选中 `stores.*.storage` 改为 TiKV connector，保持原 prefix 和 service binding。等待部署层确认地区 Learner 追平，且普通历史读的快照时间已晚于最后一批导入提交后再恢复服务；至少留出配置的 `stale_read_delay`，控制面仍使用强读。保留独立迁移配置可在切换后再次执行 `--verify-only`。最终运行配置移除不再使用的 Redis connector，避免 Server 启动仍连接旧 Redis；不要更改逻辑 Store prefix。
+5. 校验成功后，把选中 `stores.*.storage` 改为 TiKV connector，保持原 prefix 和 service binding。等待部署层确认地区 Learner 追平，且普通历史读的快照时间已晚于最后一批导入提交后再恢复服务；至少留出配置的 `stale_read_delay`；控制面查询同样遵循配置的读取策略。保留独立迁移配置可在切换后再次执行 `--verify-only`。最终运行配置移除不再使用的 Redis connector，避免 Server 启动仍连接旧 Redis；不要更改逻辑 Store prefix。
 
 ```sh
 gizclaw kv-migrate /srv/gizclaw --source redis-old --target tikv --dry-run
@@ -122,9 +122,9 @@ gizclaw kv-migrate /srv/gizclaw --source redis-old --target tikv --verify-only
 
 ### 控制面与权限读取
 
-Peer 资源、assignment lookup/resolve/refresh、Peer 删除围栏与删除任务，API key 查询、鉴权和撤权，以及 Server 组装的 Social membership / Peer 退役快照都使用强读。Redis 读写分离通过写端读取，TiKV 绕过地区 Stale Read，使用新的 leader snapshot。首次 assignment 成功后可立即从其他 Server 查询；旧 `expected_version` 不会因为副本延迟被接受。Route resolve/assign 还检查 Peer 的删除围栏，拒绝 pending deletion、永久 tombstone 和非 active Peer。
+Peer records and profiles, assignments, deletion fences and tasks, API key authentication, Social relationships, synchronization checkpoints and infrastructure feeds all follow the configured read policy. With regional TiKV reads enabled, successful ordinary reads may retain an old assignment, active Peer, credential or membership until the historical snapshot advances. Revocation and deletion visibility includes that delay; a successful stale read does not itself trigger a primary lookup.
 
-`WithStrongReads` 不把多个独立操作变成同一快照，也不取消已经开始的请求。需要跨记录不变量时，仍使用 atomic mutation 及条件。其他允许历史结果的领域查询可继续使用普通 view；不能把普通陈旧读用于权限撤销或删除完成判断。
+Writes and their conditions execute on the write authority. A definite conditional conflict, failed identity lookup or observation incompatible with a known successful claim can trigger a bounded primary refresh. Retries preserve explicit versions, fixed ownership, lease tokens and lifecycle identities; uncertain commits are not replayed. Primary fallback applies only to the affected operation. `WithStrongReads` remains available for explicit authority views and offline verification, and does not create a snapshot across separate calls.
 
 PostgreSQL mutation 按物理表与 encoded key 获取事务级 advisory lock，并按 lock ID 排序，覆盖不存在的 guard；普通写入、删除和条件 mutation 使用同一协议，不再获取表级写锁。不同 key 可以并发，同 key 与多 key 原子操作保持协调。哈希碰撞只增加串行等待，不改变正确性。PostgreSQL mutation 只清理本次涉及的过期 key，读取仍把过期值视为不存在，并在同一个 key advisory lock 下尝试定点物理清理；获得锁后重新检查过期条件，保留并发刷新值，取消或数据库错误不改变逻辑不存在的结果；SQLite 保留原有事务与过期清理行为。
 

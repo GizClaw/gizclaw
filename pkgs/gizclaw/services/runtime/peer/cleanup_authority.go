@@ -22,7 +22,6 @@ type DeletionAssignments interface {
 // CheckTask performs read-only admission for both worker claims and Admin retry.
 // A foreign home never takes a lease or accesses this Server's SQL database.
 func (h DeletionHandler) CheckTask(ctx context.Context, task pendingdeletion.Task) error {
-	ctx = kv.WithPrimaryReads(ctx)
 	key, err := validatePeerDeletionClaim(pendingdeletion.Claim{Task: task})
 	if err != nil {
 		return pendingdeletion.Terminal("invalid_peer_marker", "Peer deletion marker is invalid", err)
@@ -78,6 +77,9 @@ func (h DeletionHandler) retainedPeer(ctx context.Context, key giznet.PublicKey)
 		return apitypes.Peer{}, nil, pendingdeletion.Retryable("store_unavailable", "Peer store is unavailable", nil)
 	}
 	raw, err := h.Server.Store.Get(ctx, peerKey(key.String()))
+	if err != nil {
+		raw, err = h.Server.Store.Get(kv.WithPrimaryReads(ctx), peerKey(key.String()))
+	}
 	if errors.Is(err, kv.ErrNotFound) || (err == nil && isPeerTombstone(raw)) {
 		return apitypes.Peer{}, nil, pendingdeletion.Terminal("peer_record_missing", "Retained Peer record is unavailable; keep the deletion fence for investigation", nil)
 	}
@@ -145,7 +147,6 @@ func (h DeletionHandler) CanRecoverFailed(ctx context.Context, task pendingdelet
 	if task.Status != pendingdeletion.StatusFailed || task.Phase != pendingdeletion.PhaseFinalize || task.LastErrorCode != "peer_replacement_ambiguous" {
 		return false, nil
 	}
-	ctx = kv.WithPrimaryReads(ctx)
 	key, err := validatePeerDeletionClaim(pendingdeletion.Claim{Task: task})
 	if err != nil {
 		return false, err
@@ -184,3 +185,27 @@ func (h DeletionHandler) CanRecoverFailed(ctx context.Context, task pendingdelet
 }
 
 var _ pendingdeletion.FailedRecovery = DeletionHandler{}
+
+// planPeer verifies an observation against a retained plan before cleanup. An
+// inconsistent post-claim observation is rechecked once at the write authority.
+func (h DeletionHandler) planPeer(ctx context.Context, plan retirementPlan, key giznet.PublicKey) ([]byte, error) {
+	_, raw, err := h.planPeerRecord(ctx, plan, key)
+	return raw, err
+}
+
+// planPeerRecord retains the accepted decoded observation for plan adoption.
+func (h DeletionHandler) planPeerRecord(ctx context.Context, plan retirementPlan, key giznet.PublicKey) (apitypes.Peer, []byte, error) {
+	var lastErr error
+	for range 2 {
+		current, raw, err := h.retainedPeer(ctx, key)
+		if err == nil {
+			err = h.checkPlan(plan, current, raw)
+		}
+		if err == nil {
+			return current, raw, nil
+		}
+		lastErr = err
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return apitypes.Peer{}, nil, lastErr
+}

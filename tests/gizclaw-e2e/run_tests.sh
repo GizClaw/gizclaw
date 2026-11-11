@@ -389,6 +389,9 @@ filter_shared_stack_giztests() {
 	local file
 	while IFS= read -r file; do
 		case "$(basename "$file")" in
+			tikv.usage.*.giztest.yaml)
+				echo "==> dedicated TiKV usage fixture: $(basename "$file")" >&2
+				;;
 			server.device.mhs.management.instances.giztest.yaml | server.device.mhs.management.invalid_response.giztest.yaml | server.device.mhs.nfc.control.giztest.yaml | server.device.monitor.signed.giztest.yaml)
 				echo "==> dedicated device-management fixture: $(basename "$file")" >&2
 				;;

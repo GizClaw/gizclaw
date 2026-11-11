@@ -18,6 +18,66 @@ type PeerSnapshot struct {
 	Groups    []friendgroup.PeerRetirementGroup `json:"groups"`
 }
 
+// Covers reports whether every currently observed lifecycle in other is
+// included in the saved snapshot. Already-removed saved entries are allowed;
+// a newly admitted or replaced lifecycle must be prepared into a new plan.
+func (snapshot PeerSnapshot) Covers(other PeerSnapshot) bool {
+	if snapshot.PublicKey == "" || snapshot.PublicKey != strings.TrimSpace(snapshot.PublicKey) || snapshot.PublicKey != other.PublicKey {
+		return false
+	}
+	for _, current := range other.Contacts {
+		found := false
+		for _, saved := range snapshot.Contacts {
+			if current.Owner == snapshot.PublicKey && saved == current {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	for _, current := range other.Friends {
+		found := false
+		for _, saved := range snapshot.Friends {
+			if (current.FirstPeer == snapshot.PublicKey || current.SecondPeer == snapshot.PublicKey) && saved == current {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	for _, current := range other.Groups {
+		found := false
+		for _, saved := range snapshot.Groups {
+			if samePeerGroupLifecycle(saved, current) && current.PeerPublicKey == snapshot.PublicKey {
+				found = true
+				break
+			}
+		}
+		if !found {
+			return false
+		}
+	}
+	return true
+}
+
+func samePeerGroupLifecycle(saved, current friendgroup.PeerRetirementGroup) bool {
+	if saved.FriendGroupID != current.FriendGroupID || saved.WorkspaceID != current.WorkspaceID ||
+		saved.WorkspaceName != current.WorkspaceName || saved.OwnerPublicKey != current.OwnerPublicKey ||
+		saved.PeerPublicKey != current.PeerPublicKey || saved.FriendGroupName != current.FriendGroupName || saved.Role != current.Role {
+		return false
+	}
+	if saved.CreatedAt == nil || current.CreatedAt == nil {
+		return saved.CreatedAt == nil && current.CreatedAt == nil
+	}
+	return saved.CreatedAt.Equal(*current.CreatedAt)
+}
+
+// PeerRetirementResult names the Social-owned Workspaces and Groups retired by
+// a prepared Peer snapshot.
 type PeerRetirementResult struct {
 	WorkspaceIDs   []string `json:"workspace_ids"`
 	FriendGroupIDs []string `json:"friend_group_ids"`
@@ -27,6 +87,30 @@ type PeerRetirement struct {
 	Contacts     *contact.Server
 	Friends      *friend.Server
 	FriendGroups *friendgroup.Server
+}
+
+// PreparePeerSocialRetirement closes admissions in every owning domain before
+// returning the inventory that a Peer retirement plan may seal.
+func (r PeerRetirement) PreparePeerSocialRetirement(ctx context.Context, publicKey string) (PeerSnapshot, error) {
+	if publicKey == "" || publicKey != strings.TrimSpace(publicKey) {
+		return PeerSnapshot{}, errors.New("social: Peer public key is required and must be canonical")
+	}
+	if r.Contacts == nil || r.Friends == nil || r.FriendGroups == nil {
+		return PeerSnapshot{}, errors.New("social: Peer retirement services are not configured")
+	}
+	contacts, err := r.Contacts.PreparePeerContactsRetirement(ctx, publicKey)
+	if err != nil {
+		return PeerSnapshot{}, err
+	}
+	friends, err := r.Friends.PreparePeerFriendsRetirement(ctx, publicKey)
+	if err != nil {
+		return PeerSnapshot{}, err
+	}
+	groups, err := r.FriendGroups.PreparePeerGroupsRetirement(ctx, publicKey)
+	if err != nil {
+		return PeerSnapshot{}, err
+	}
+	return PeerSnapshot{PublicKey: publicKey, Contacts: contacts, Friends: friends, Groups: groups}, nil
 }
 
 func (r PeerRetirement) SnapshotPeerSocial(ctx context.Context, publicKey string) (PeerSnapshot, error) {

@@ -14,6 +14,10 @@ var (
 	// ErrPeerFriendLimit reports that one side of a new Friend relationship
 	// already has socialutil.PeerFriendLimit Friends.
 	ErrPeerFriendLimit = errors.New("social: peer friend limit reached")
+	// errLegacyCancellationEvidence reports a pre-owner cancellation whose
+	// creation identity and regional SQL deletion evidence are both unavailable.
+	// Such work must remain intact for recovery from an authoritative backup.
+	errLegacyCancellationEvidence = errors.New("social: legacy Friend cancellation lacks immutable owner and regional deletion evidence")
 	// errFriendCapacityChanged reports that another relationship committed for
 	// one of the Peers after its Friend count was read; read again and retry.
 	errFriendCapacityChanged = errors.New("social: peer friends changed concurrently; retry")

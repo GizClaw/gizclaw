@@ -5,11 +5,17 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
 
 func TestStoreOpsHelpers(t *testing.T) {
@@ -251,5 +257,364 @@ func TestEnsureConnectedPeerRejectsConcurrentBlockedCreate(t *testing.T) {
 	s := &Server{Store: store}
 	if _, err := s.EnsureConnectedPeer(t.Context(), key); !errors.Is(err, ErrPeerBlocked) {
 		t.Fatalf("concurrent blocked create: %v", err)
+	}
+}
+
+// stalePeerStore routes ordinary reads to an unchanged snapshot while conditional
+// mutations execute against a real in-memory authority.
+type stalePeerStore struct {
+	kv.Store
+	authority kv.Store
+	ordinary  atomic.Int32
+	primary   atomic.Int32
+	attempts  atomic.Int32
+	rejected  atomic.Int32
+	apply     func(context.Context, kv.Mutation) (bool, error)
+}
+
+func newStalePeerStore(t *testing.T, authority, replica kv.Store) *stalePeerStore {
+	t.Helper()
+	s := &stalePeerStore{authority: authority}
+	s.Store = kvfixture.ReadView(authority, replica, &s.ordinary, &s.primary)
+	return s
+}
+func (s *stalePeerStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.attempts.Add(1)
+	var matched bool
+	var err error
+	if s.apply != nil {
+		matched, err = s.apply(ctx, mutation)
+	} else {
+		matched, err = s.authority.ApplyMutation(ctx, mutation)
+	}
+	if !matched && err == nil {
+		s.rejected.Add(1)
+	}
+	return matched, err
+}
+func TestPeerReadsPreserveStaleValuesAndMissingRecords(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{90}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	initial := apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive}
+	stored, err := (&Server{Store: authority}).SavePeer(ctx, initial)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := authority.Get(ctx, peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, peerKey(key.String()), data); err != nil {
+		t.Fatal(err)
+	}
+	stored.Status = apitypes.PeerRegistrationStatusBlocked
+	if _, err := (&Server{Store: authority}).SavePeer(ctx, stored); err != nil {
+		t.Fatal(err)
+	}
+	store := newStalePeerStore(t, authority, replica)
+	server := &Server{Store: store}
+	allowed, err := server.CheckActiveRole(ctx, key, apitypes.PeerRoleClient)
+	if err != nil || !allowed || store.ordinary.Load() == 0 || store.primary.Load() != 0 {
+		t.Fatalf("ordinary admission: allowed=%v err=%v reads=%d/%d", allowed, err, store.ordinary.Load(), store.primary.Load())
+	}
+	if err := replica.Delete(ctx, peerKey(key.String())); err != nil {
+		t.Fatal(err)
+	}
+	got, err := server.LoadPeer(ctx, key)
+	if !errors.Is(err, ErrPeerNotFound) || store.primary.Load() != 0 {
+		t.Fatalf("missing record was refreshed: peer=%+v err=%v primary=%d", got, err, store.primary.Load())
+	}
+}
+
+func TestPeerPartialUpdateRetriesStaleSnapshotWithoutLosingIdentifiers(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{91}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	writer := &Server{Store: authority}
+	initial, err := writer.SavePeer(ctx, apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive})
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := authority.Get(ctx, peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, peerKey(key.String()), data); err != nil {
+		t.Fatal(err)
+	}
+	sn := "newer-sn"
+	initial.Device.Identifiers = &apitypes.DeviceIdentifiers{Sn: &sn}
+	if _, err := writer.SavePeer(ctx, initial); err != nil {
+		t.Fatal(err)
+	}
+	store := newStalePeerStore(t, authority, replica)
+	store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+		if store.attempts.Load() == 1 && (store.ordinary.Load() == 0 || store.primary.Load() != 0) {
+			t.Errorf("first write bypassed ordinary reader: %d/%d", store.ordinary.Load(), store.primary.Load())
+		}
+		return authority.ApplyMutation(ctx, mutation)
+	}
+	name := "updated-name"
+	got, err := (&Server{Store: store}).putInfo(ctx, key, apitypes.DeviceInfo{Name: &name})
+	if err != nil || got.Device.Name == nil || *got.Device.Name != name || got.Device.Identifiers == nil || *got.Device.Identifiers.Sn != sn {
+		t.Fatalf("partial update lost newer data: %+v %v", got, err)
+	}
+	if store.attempts.Load() != 2 || store.rejected.Load() != 1 || store.primary.Load() == 0 {
+		t.Fatalf("fallback attempts=%d rejected=%d primary=%d", store.attempts.Load(), store.rejected.Load(), store.primary.Load())
+	}
+	if found, err := authority.HasMember(ctx, snPrefix(sn), key.String()); err != nil || !found {
+		t.Fatalf("newer index lost: %v %v", found, err)
+	}
+}
+
+func TestPeerFullWriteDoesNotReplayStaleOrUncertainMutation(t *testing.T) {
+	for _, uncertain := range []bool{false, true} {
+		t.Run(map[bool]string{false: "stale", true: "uncertain"}[uncertain], func(t *testing.T) {
+			ctx, key := t.Context(), giznet.PublicKey{92}
+			authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+			writer := &Server{Store: authority}
+			initial, err := writer.SavePeer(ctx, apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive})
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := authority.Get(ctx, peerKey(key.String()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := replica.Set(ctx, peerKey(key.String()), data); err != nil {
+				t.Fatal(err)
+			}
+			winner := initial
+			name := "winner"
+			winner.Device.Name = &name
+			if _, err := writer.SavePeer(ctx, winner); err != nil {
+				t.Fatal(err)
+			}
+			store := newStalePeerStore(t, authority, replica)
+			failure := errors.New("uncertain commit")
+			if uncertain {
+				store.apply = func(context.Context, kv.Mutation) (bool, error) { return false, failure }
+			}
+			_, err = (&Server{Store: store}).SavePeer(ctx, initial)
+			if uncertain && !errors.Is(err, failure) || !uncertain && !errors.Is(err, ErrPeerConcurrentUpdate) {
+				t.Fatalf("write error=%v", err)
+			}
+			if store.attempts.Load() != 1 || uncertain && store.primary.Load() != 0 {
+				t.Fatalf("write replayed: attempts=%d primary=%d", store.attempts.Load(), store.primary.Load())
+			}
+			got, err := writer.LoadPeer(ctx, key)
+			if err != nil || got.Device.Name == nil || *got.Device.Name != name {
+				t.Fatalf("winner changed: %+v %v", got, err)
+			}
+		})
+	}
+}
+
+func TestBootstrapFallbackDoesNotPinUnrelatedPeersToPrimary(t *testing.T) {
+	ctx := t.Context()
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	writer := &Server{Store: authority}
+	keys := []giznet.PublicKey{{101}, {102}}
+	for _, key := range keys {
+		initial, err := writer.SavePeer(ctx, apitypes.Peer{PublicKey: key.String(), Role: apitypes.PeerRoleClient, Status: apitypes.PeerRegistrationStatusActive})
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := authority.Get(ctx, peerKey(key.String()))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := replica.Set(ctx, peerKey(key.String()), data); err != nil {
+			t.Fatal(err)
+		}
+		name := "newer-" + key.String()
+		initial.Device.Name = &name
+		if _, err := writer.SavePeer(ctx, initial); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := newStalePeerStore(t, authority, replica)
+	if err := (&Server{Store: store}).BootstrapEdgeNodes(ctx, keys); err != nil {
+		t.Fatal(err)
+	}
+	if store.attempts.Load() != 4 || store.rejected.Load() != 2 {
+		t.Fatalf("fallback leaked across Peer keys: attempts=%d rejected=%d", store.attempts.Load(), store.rejected.Load())
+	}
+	for _, key := range keys {
+		got, err := writer.LoadPeer(ctx, key)
+		if err != nil || got.Role != apitypes.PeerRoleEdgeNode || got.Device.Name == nil || *got.Device.Name != "newer-"+key.String() {
+			t.Fatalf("bootstrap lost record: %+v %v", got, err)
+		}
+	}
+}
+
+type peerReadErrorStore struct {
+	kv.Store
+	err error
+}
+
+func (s peerReadErrorStore) Get(context.Context, kv.Key) ([]byte, error) {
+	return nil, s.err
+}
+
+func TestPeerReadFailuresDoNotRefreshPrimary(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{103}
+	base := kv.NewMemory(nil)
+	server := &Server{Store: base, LocalRuns: peerruntest.New(t)}
+	saveTestPeer(t, server, key, apitypes.DeviceInfo{})
+	for _, failure := range []error{kv.ErrNotFound, errors.New("reader unavailable")} {
+		for _, primary := range []bool{false, true} {
+			ctx := ctx
+			if primary {
+				ctx = kv.WithPrimaryReads(ctx)
+			}
+			var ordinaryReads, primaryReads atomic.Int32
+			authority := peerReadErrorStore{Store: base, err: errors.New("authority unavailable")}
+			replica := peerReadErrorStore{Store: base, err: failure}
+			server.Store = kvfixture.ReadView(authority, replica, &ordinaryReads, &primaryReads)
+			for _, operation := range []struct {
+				name string
+				run  func() error
+			}{
+				{"load", func() error { _, err := server.LoadPeer(ctx, key); return err }},
+				{"availability", func() error { return server.EnsureAvailable(ctx, key) }},
+				{"role", func() error { _, err := server.CheckActiveRole(ctx, key, apitypes.PeerRoleClient); return err }},
+				{"admin-list", func() error { _, _, _, err := server.listAdminPage(ctx, "", 10); return err }},
+			} {
+				ordinaryReads.Store(0)
+				primaryReads.Store(0)
+				wantError := primary || operation.name != "admin-list" || !errors.Is(failure, kv.ErrNotFound)
+				if err := operation.run(); (err != nil) != wantError {
+					t.Fatalf("%s error=%v, want error=%t", operation.name, err, wantError)
+				}
+				wantOrdinary, wantPrimary := int32(1), int32(0)
+				if primary {
+					wantOrdinary, wantPrimary = 0, 1
+				}
+				if ordinaryReads.Load() != wantOrdinary || primaryReads.Load() != wantPrimary {
+					t.Fatalf("%s retried failed read (primary=%v): %d/%d", operation.name, primary, ordinaryReads.Load(), primaryReads.Load())
+				}
+			}
+		}
+	}
+}
+
+func TestPeerPartialUpdateRefreshesMissingInputAtPrimary(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{104}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	saveTestPeer(t, &Server{Store: authority}, key, apitypes.DeviceInfo{})
+	store := newStalePeerStore(t, authority, replica)
+	name := "updated"
+	updated, err := (&Server{Store: store}).putInfo(ctx, key, apitypes.DeviceInfo{Name: &name})
+	if err != nil || updated.Device.Name == nil || *updated.Device.Name != name || store.attempts.Load() != 1 || store.primary.Load() == 0 {
+		t.Fatalf("missing update input: %+v %v writes=%d primary=%d", updated, err, store.attempts.Load(), store.primary.Load())
+	}
+}
+
+func TestPeerDeleteDoesNotRecreateTaskAfterTombstone(t *testing.T) {
+	for _, concurrent := range []bool{false, true} {
+		t.Run(map[bool]string{false: "completed", true: "concurrent-finalize"}[concurrent], func(t *testing.T) {
+			ctx, key := t.Context(), giznet.PublicKey{105}
+			authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+			saveTestPeer(t, &Server{Store: authority}, key, apitypes.DeviceInfo{})
+			raw, err := authority.Get(ctx, peerKey(key.String()))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := replica.Set(ctx, peerKey(key.String()), raw); err != nil {
+				t.Fatal(err)
+			}
+			store := newStalePeerStore(t, authority, replica)
+			finalize := func() {
+				if err := authority.Set(ctx, peerKey(key.String()), encodedPeerTombstone); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if concurrent {
+				store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+					finalize()
+					return authority.ApplyMutation(ctx, mutation)
+				}
+			} else {
+				finalize()
+			}
+			server := &Server{Store: store}
+			for range 2 {
+				response, err := server.DeletePeer(ctx, adminhttp.DeletePeerRequestObject{PublicKey: key.String()})
+				if err != nil {
+					t.Fatal(err)
+				}
+				ok, success := response.(adminhttp.DeletePeer200JSONResponse)
+				if !success {
+					t.Fatalf("repeated delete response=%T", response)
+				}
+				tombstone, err := adminhttp.PeerRegistrationResult(ok).AsExternalRef0RegistrationTombstone()
+				if err != nil || tombstone.Status != apitypes.RegistrationTombstoneStatusDeleted {
+					t.Fatalf("delete did not classify tombstone: %+v %v", tombstone, err)
+				}
+			}
+			if exists, err := pendingdeletion.HasLocator(ctx, authority, pendingdeletion.KindPeer, key.String()); err != nil || exists {
+				t.Fatalf("tombstone recreated deletion work: %v %v", exists, err)
+			}
+			refs, _, err := PendingDeletionSource(authority).ScanDue(ctx, time.Now().Add(time.Minute), 10, "")
+			if err != nil || len(refs) != 0 || store.attempts.Load() != 2 || store.rejected.Load() != 2 {
+				t.Fatalf("tombstone work=%+v %v attempts=%d rejected=%d", refs, err, store.attempts.Load(), store.rejected.Load())
+			}
+		})
+	}
+}
+
+func TestPeerDeleteUsesExactRawGuardBeforeFirmwareProjection(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{106}
+	authority := kv.NewMemory(nil)
+	saveTestPeer(t, &Server{Store: authority}, key, apitypes.DeviceInfo{})
+	raw, err := authority.Get(ctx, peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = append([]byte(" \n"), raw...)
+	if err := authority.Set(ctx, peerKey(key.String()), raw); err != nil {
+		t.Fatal(err)
+	}
+	store := newStalePeerStore(t, authority, authority)
+	server := &Server{Store: store, RegistrationFirmware: func(context.Context, string) (*string, error) { return new("sql-firmware"), nil }}
+	projected, err := server.delete(ctx, key, pendingdeletion.ReasonAdminDelete)
+	if err != nil || projected.FirmwareId == nil || *projected.FirmwareId != "sql-firmware" || store.attempts.Load() != 1 || store.primary.Load() != 0 {
+		t.Fatalf("raw deletion guard: %+v %v writes=%d primary=%d", projected, err, store.attempts.Load(), store.primary.Load())
+	}
+	if current, err := authority.Get(ctx, peerKey(key.String())); err != nil || !bytes.Equal(current, raw) {
+		t.Fatalf("deletion changed raw Peer: %v", err)
+	}
+}
+
+func TestPeerDeletionConflictRetryIsBounded(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{108}
+	authority := kv.NewMemory(nil)
+	saveTestPeer(t, &Server{Store: authority}, key, apitypes.DeviceInfo{})
+	store := newStalePeerStore(t, authority, authority)
+	store.apply = func(context.Context, kv.Mutation) (bool, error) { return false, nil }
+	_, err := (&Server{Store: store}).delete(ctx, key, pendingdeletion.ReasonAdminDelete)
+	if !errors.Is(err, ErrPeerConcurrentUpdate) || store.attempts.Load() != 8 {
+		t.Fatalf("deletion retry=%v attempts=%d", err, store.attempts.Load())
+	}
+}
+
+func TestPeerDeleteDoesNotReplayUncertainCommit(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{107}
+	authority := kv.NewMemory(nil)
+	saveTestPeer(t, &Server{Store: authority}, key, apitypes.DeviceInfo{})
+	store := newStalePeerStore(t, authority, authority)
+	failure := errors.New("lost commit acknowledgement")
+	store.apply = func(ctx context.Context, mutation kv.Mutation) (bool, error) {
+		if applied, err := authority.ApplyMutation(ctx, mutation); err != nil || !applied {
+			t.Fatalf("commit = %v %v", applied, err)
+		}
+		return false, failure
+	}
+	_, err := (&Server{Store: store}).delete(ctx, key, pendingdeletion.ReasonAdminDelete)
+	if !errors.Is(err, failure) || store.attempts.Load() != 1 || store.primary.Load() != 0 {
+		t.Fatalf("uncertain deletion replayed: %v attempts=%d primary=%d", err, store.attempts.Load(), store.primary.Load())
+	}
+	if exists, err := pendingdeletion.HasLocator(ctx, authority, pendingdeletion.KindPeer, key.String()); err != nil || !exists {
+		t.Fatalf("committed deletion missing: %v %v", exists, err)
 	}
 }

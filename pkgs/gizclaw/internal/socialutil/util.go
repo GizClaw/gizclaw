@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -32,6 +33,8 @@ var (
 	// ErrInvalidInviteTokenTTL reports a requested invite token lifetime
 	// outside [MinInviteTokenTTL, MaxInviteTokenTTL].
 	ErrInvalidInviteTokenTTL = errors.New("social: invite token ttl is out of range")
+	// ErrInviteTokenChanged reports a definitive invitation CAS rejection.
+	ErrInviteTokenChanged = errors.New("social: invite token changed concurrently")
 
 	ContactsRoot           = kv.Key{"contacts"}
 	ContactNamesRoot       = kv.Key{"contact-names"}
@@ -297,71 +300,139 @@ func InviteTokenIndexKey(root kv.Key, token string) kv.Key {
 	return append(append(kv.Key(nil), root...), "by-token", hex.EncodeToString(digest[:]))
 }
 
-// WriteInviteToken atomically replaces an invitation and its unique token index.
-// A non-zero expires_at becomes the storage deadline of both records, so expired
-// invitations are removed by the store instead of accumulating.
-func WriteInviteToken(ctx context.Context, store kv.Store, key kv.Key, value any) error {
-	data, err := json.Marshal(value)
+// UpdateInviteToken computes and atomically writes one invitation and its token
+// index from the same observation guarded by the CAS. The callback receives nil
+// for an absent record and may modify its private copy. Returning nil deletes
+// the record and its index. A definitive rejection
+// returns ErrInviteTokenChanged; mutation errors are never retried. On success
+// the returned bytes are the committed payload. A non-zero expires_at is the
+// storage deadline of both records.
+func UpdateInviteToken(ctx context.Context, store kv.Store, key kv.Key, conditions []kv.Condition, update func(current []byte) ([]byte, error)) ([]byte, error) {
+	if len(key) < 2 || update == nil {
+		return nil, errors.New("social: invalid invite token update")
+	}
+	old, err := store.Get(ctx, key)
+	if errors.Is(err, kv.ErrNotFound) {
+		old = nil
+	} else if err != nil {
+		return nil, err
+	}
+	current := slices.Clone(old)
+	data, err := update(current)
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if data == nil {
+		keys := []kv.Key{key}
+		if old != nil {
+			var previous struct {
+				Token string `json:"invite_token"`
+			}
+			if err := json.Unmarshal(old, &previous); err != nil {
+				return nil, err
+			}
+			if previous.Token != "" {
+				keys = append(keys, InviteTokenIndexKey(key[:len(key)-1], previous.Token))
+			}
+		}
+		guards := append([]kv.Condition(nil), conditions...)
+		guards = append(guards, kv.Condition{Key: key, Expected: old})
+		ok, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: guards, DeleteKeys: keys})
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			return nil, ErrInviteTokenChanged
+		}
+		return nil, nil
 	}
 	var next struct {
 		Token     string    `json:"invite_token"`
 		ExpiresAt time.Time `json:"expires_at"`
 	}
 	if err := json.Unmarshal(data, &next); err != nil {
-		return err
+		return nil, err
 	}
-	if strings.TrimSpace(next.Token) == "" || len(key) < 2 {
-		return errors.New("social: invalid invite token")
+	if strings.TrimSpace(next.Token) == "" {
+		return nil, errors.New("social: invalid invite token")
+	}
+	var previous struct {
+		Token string `json:"invite_token"`
+	}
+	if old != nil {
+		if err := json.Unmarshal(old, &previous); err != nil {
+			return nil, err
+		}
 	}
 	locator, err := json.Marshal(key)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	index := InviteTokenIndexKey(key[:len(key)-1], next.Token)
-	for range 16 {
-		old, err := store.Get(ctx, key)
-		if err != nil && !errors.Is(err, kv.ErrNotFound) {
-			return err
-		}
-		var previous struct {
-			Token string `json:"invite_token"`
-		}
-		if old != nil {
-			if err := json.Unmarshal(old, &previous); err != nil {
-				return err
-			}
-		}
-		indexed, err := store.Get(ctx, index)
-		if err != nil && !errors.Is(err, kv.ErrNotFound) {
-			return err
+	indexed, err := store.Get(ctx, index)
+	if errors.Is(err, kv.ErrNotFound) {
+		indexed = nil
+	} else if err != nil {
+		return nil, err
+	}
+	if indexed != nil && string(indexed) != string(locator) {
+		// A replica can retain a previous owner's locator after the token was
+		// released. Refresh only this conflicting observation before rejecting
+		// the mutation; the CAS still guards the exact authoritative bytes.
+		indexed, err = store.Get(kv.WithPrimaryReads(ctx), index)
+		if errors.Is(err, kv.ErrNotFound) {
+			indexed = nil
+		} else if err != nil {
+			return nil, err
 		}
 		if indexed != nil && string(indexed) != string(locator) {
-			return errors.New("social: invite token already belongs to another resource")
-		}
-		mutation := kv.Mutation{
-			Conditions: []kv.Condition{{Key: key, Expected: old}, {Key: index, Expected: indexed}},
-			Entries:    []kv.Entry{{Key: key, Value: data, Deadline: next.ExpiresAt}, {Key: index, Value: locator, Deadline: next.ExpiresAt}},
-		}
-		if previous.Token != "" && previous.Token != next.Token {
-			mutation.DeleteKeys = []kv.Key{InviteTokenIndexKey(key[:len(key)-1], previous.Token)}
-		}
-		ok, err := store.ApplyMutation(ctx, mutation)
-		if err != nil {
-			return err
-		}
-		if ok {
-			return nil
+			return nil, errors.New("social: invite token already belongs to another resource")
 		}
 	}
-	return errors.New("social: invite token changed concurrently")
+	guards := append([]kv.Condition(nil), conditions...)
+	guards = append(guards, kv.Condition{Key: key, Expected: old}, kv.Condition{Key: index, Expected: indexed})
+	mutation := kv.Mutation{
+		Conditions: guards,
+		Entries:    []kv.Entry{{Key: key, Value: data, Deadline: next.ExpiresAt}, {Key: index, Value: locator, Deadline: next.ExpiresAt}},
+	}
+	if previous.Token != "" && previous.Token != next.Token {
+		mutation.DeleteKeys = []kv.Key{InviteTokenIndexKey(key[:len(key)-1], previous.Token)}
+	}
+	ok, err := store.ApplyMutation(ctx, mutation)
+	if err != nil {
+		return nil, err
+	}
+	if !ok {
+		return nil, ErrInviteTokenChanged
+	}
+	return data, nil
+}
+
+// WriteInviteToken atomically replaces an invitation and its unique token index.
+// Unlike UpdateInviteToken, its replacement value is independent of the current
+// invitation. Definitive CAS conflicts retry on the write authority.
+func WriteInviteToken(ctx context.Context, store kv.Store, key kv.Key, value any) error {
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	for range 16 {
+		_, err := UpdateInviteToken(ctx, store, key, nil, func([]byte) ([]byte, error) { return data, nil })
+		if !errors.Is(err, ErrInviteTokenChanged) {
+			return err
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return ErrInviteTokenChanged
 }
 
 // DeleteInviteToken atomically removes the current invitation and its index.
 func DeleteInviteToken(ctx context.Context, store kv.Store, key kv.Key) error {
 	for range 16 {
 		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			data, err = store.Get(kv.WithPrimaryReads(ctx), key)
+		}
 		if errors.Is(err, kv.ErrNotFound) {
 			return nil
 		}
@@ -385,41 +456,63 @@ func DeleteInviteToken(ctx context.Context, store kv.Store, key kv.Key) error {
 		if ok {
 			return nil
 		}
+		ctx = kv.WithPrimaryReads(ctx)
 	}
 	return errors.New("social: invite token changed concurrently")
 }
 
 // ReadInviteToken resolves a token with two exact reads and verifies that the
-// authoritative invitation still names it, including during concurrent rotation.
+// matching invitation still names it. A failed lookup retries once on primary;
+// successful ordinary reads retain the configured replica policy.
 func ReadInviteToken(ctx context.Context, store kv.Store, root kv.Key, token string) ([]byte, error) {
-	locator, err := store.Get(ctx, InviteTokenIndexKey(root, token))
+	data, err := readInviteToken(ctx, store, root, token)
+	if errors.Is(err, kv.ErrNotFound) {
+		return readInviteToken(kv.WithPrimaryReads(ctx), store, root, token)
+	}
+	return data, err
+}
+
+func readInviteToken(ctx context.Context, store kv.Store, root kv.Key, token string) ([]byte, error) {
+	data, _, err := ObserveInviteToken(ctx, store, root, token)
+	return data, err
+}
+
+// ObserveInviteToken reads an invitation and its digest index under the configured
+// read policy. The returned conditions compare both exact observations, relative
+// to store, and must guard the mutation that uses the invitation (including an
+// idempotent success proof). Callers own bounded authority refreshes after a
+// missing invitation or a definitive conditional rejection. Expiry and domain
+// record validation remain the caller's responsibility.
+func ObserveInviteToken(ctx context.Context, store kv.Store, root kv.Key, token string) ([]byte, []kv.Condition, error) {
+	index := InviteTokenIndexKey(root, token)
+	locator, err := store.Get(ctx, index)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var key kv.Key
 	if err := json.Unmarshal(locator, &key); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if len(key) != len(root)+1 {
-		return nil, errors.New("social: invalid invite token locator")
+		return nil, nil, errors.New("social: invalid invite token locator")
 	}
 	for i := range root {
 		if key[i] != root[i] {
-			return nil, errors.New("social: invite token locator domain mismatch")
+			return nil, nil, errors.New("social: invite token locator domain mismatch")
 		}
 	}
 	data, err := store.Get(ctx, key)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var record struct {
 		Token string `json:"invite_token"`
 	}
 	if err := json.Unmarshal(data, &record); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if record.Token != token {
-		return nil, kv.ErrNotFound
+		return nil, nil, kv.ErrNotFound
 	}
-	return data, nil
+	return data, []kv.Condition{{Key: index, Expected: locator}, {Key: key, Expected: slices.Clone(data)}}, nil
 }

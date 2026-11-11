@@ -1,0 +1,176 @@
+# User Story:
+# As a device owner renewing an invite,
+# I want stale renewal to preserve a longer expiry and a concurrently rotated token,
+# So that the primary invitation never regresses after a rejected stale snapshot.
+# Concurrency uses the private /race adapter; Giztest parallel admits peer_stream only.
+# Native gates hold original Learner responses; competing changes use real services.
+version: gizclaw.test/v1alpha1
+name: tikv.usage.invites
+timeout: 3m
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: '${edge_a}', registration_token: '${token_a}'}
+variables:
+  edge_a: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_A}
+  token_a: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_A, secret: true}
+  probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
+  probe_b: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_B}
+  key: {direction: output, type: string, secret: true}
+  key_name: {direction: output, type: string}
+  owner: {direction: output, type: string}
+  original: {direction: output, type: string, secret: true}
+  longer_expiry: {direction: output, type: string}
+  returned_expiry: {direction: output, type: string}
+  group: {direction: input, type: string, generate: token}
+  group_id: {direction: output, type: string}
+  rotated: {direction: input, type: string, generate: token, secret: true}
+  returned_token: {direction: output, type: string, secret: true}
+steps:
+  - id: fresh_peer_readiness
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peers.visible}}
+  - id: owner_key
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Usage invites}}
+    capture: {key: /api_key, key_name: /value/name}
+  - id: diagnostic_owner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${key_name}'], primary: true}}
+    capture: {owner: /value/data/owner}
+  - id: wait_key
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${key_name}'], found: true, wait: 20s}}
+  - id: initial_friend_invite
+    client: alice
+    http:
+      method: POST
+      path: /gizclaw/v1/friends/invite-token
+      headers: {Authorization: 'Bearer ${key}'}
+      body: {ttl_seconds: 60}
+      status: 200
+    capture: {original: /invite_token}
+  - id: wait_friend_invite
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [invite-tokens, friend-invite-tokens, '${owner}'], found: true, wait: 20s}}
+  - id: hold_old_friend_invite
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: friend-renew, key: [friend-invite-tokens, '${owner}'], commands: [Get], source: learner, stage: response}
+  - id: renew_while_primary_is_extended
+    timeout: 20s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          renew:
+            endpoint: 'http://${edge_a}'
+            method: POST
+            path: /gizclaw/v1/friends/invite-token
+            headers: {Authorization: 'Bearer ${key}'}
+            body: {ttl_seconds: 3600}
+            status: 200
+          extend:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: friend-renew
+              actions: [{operation: friend.invite.create, owner: '${owner}', ttl_seconds: 604800, primary: true}]
+    capture:
+      longer_expiry: /extend/actions/0/value/expires_at
+      returned_expiry: /renew/expires_at
+    expect:
+      /extend/boundary/learner_reads: {minimum: 1}
+      /extend/actions/0/value/invite_token: {equals: '${original}'}
+      /renew/invite_token: {equals: '${original}'}
+  - id: primary_keeps_longer_expiry
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [invite-tokens, friend-invite-tokens, '${owner}'], primary: true}}
+    expect: {/value/data/expires_at: {equals: '${longer_expiry}'}, /value/data/invite_token: {equals: '${original}'}}
+  - id: renewal_response_matches_primary
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [invite-tokens, friend-invite-tokens, '${owner}'], primary: true}}
+    expect: {/value/data/expires_at: {equals: '${returned_expiry}'}}
+  - id: create_group
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: '${group}'}}
+  - id: canonical_group_id
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-names, '${owner}', '${group}'], primary: true}}
+    capture: {group_id: /value/data}
+  - id: wait_group_alias_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-names, '${owner}', '${group}'], found: true, equals: '${group_id}', wait: 20s}}
+  - id: create_group_invite
+    client: alice
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: '${group}'}}
+  - id: wait_group_invite
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [invite-tokens, friend-group-invite-tokens, '${group_id}'], found: true, wait: 20s}}
+  - id: hold_old_group_invite
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: group-rotate, key: [friend-group-invite-tokens, '${group_id}'], commands: [Get], source: learner, stage: response}
+  - id: renew_after_rotation
+    timeout: 20s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          renew_group:
+            endpoint: 'http://${edge_a}'
+            method: POST
+            path: /gizclaw/v1/friend-groups/${group}/invite-token
+            headers: {Authorization: 'Bearer ${key}'}
+            body: {ttl_seconds: 86400}
+            status: 200
+          rotate:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: group-rotate
+              actions: [{operation: group.invite.put, id: '${group_id}', token: '${rotated}', ttl_seconds: 604800, primary: true}]
+    capture: {returned_token: /renew_group/invite_token}
+    expect: {/rotate/boundary/learner_reads: {minimum: 1}}
+  - id: primary_never_restores_old_group_token
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [invite-tokens, friend-group-invite-tokens, '${group_id}'], primary: true}}
+    expect: {/value/data/invite_token: {equals: '${rotated}'}}
+  - id: wait_rotated_token_visibility
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: group, key: [invite-tokens, friend-group-invite-tokens, '${group_id}'], found: true, wait: 20s}
+  - id: returned_group_token_is_current
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 500ms}
+    rpc: {method: server.friend_group.invite_token.get, request: {friend_group_name: '${group}'}}
+    expect: {/invite_token: {equals: '${rotated}'}}
+  - id: response_token_matches_authority
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [invite-tokens, friend-group-invite-tokens, '${group_id}'], primary: true}}
+    expect: {/value/data/invite_token: {equals: '${returned_token}'}}
+finally:
+  - client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
+  - client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /reset, body: {}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+report: {redact: [token_a, key, original, rotated, returned_token]}

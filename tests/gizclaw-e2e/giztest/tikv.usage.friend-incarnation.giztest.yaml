@@ -1,0 +1,388 @@
+# User Story:
+# As a Friend participant,
+# I want recovery, deletion receipts, Admin projection and creation retry to recheck authority,
+# So that retired incarnations leave no orphan Workspace or incorrect successful response.
+# Concurrency uses the private /race adapter; Giztest parallel admits peer_stream only.
+# Private calls use actual services; Edge requests and
+# native TiKV observations remain distinguishable in the report.
+version: gizclaw.test/v1alpha1
+name: tikv.usage.friend-incarnation
+timeout: 5m
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: '${edge_a}', registration_token: '${token_a}'}
+  bob: {identity: ephemeral, connection: webrtc, access_point: '${edge_b}', registration_token: '${token_b}'}
+  charlie: {identity: ephemeral, connection: webrtc, access_point: '${edge_b}', registration_token: '${token_b}'}
+variables:
+  edge_a: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_A}
+  edge_b: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_B}
+  token_a: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_A, secret: true}
+  token_b: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_B, secret: true}
+  probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
+  probe_b: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_B}
+  alice_key: {direction: output, type: string, secret: true}
+  alice_key_name: {direction: output, type: string}
+  bob_key_name: {direction: output, type: string}
+  charlie_key_name: {direction: output, type: string}
+  charlie_public: {direction: output, type: string}
+  competing_relation: {direction: output, type: string}
+  capacity_revision_before: {direction: output, type: string}
+  retry_workspace: {direction: output, type: string}
+  alice_public: {direction: output, type: string}
+  bob_public: {direction: output, type: string}
+  relation: {direction: output, type: string}
+  invite: {direction: output, type: string, secret: true}
+  cancelled_workspace: {direction: output, type: string}
+  cancelled_incarnation: {direction: output, type: string}
+  cancelled_workspace_owner: {direction: output, type: string}
+  receipt_peer_revision: {direction: output, type: string}
+  replication: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_REPLICATION_PROXY}
+  replacement_workspace_id: {direction: output, type: string}
+  admin_workspace_id: {direction: output, type: string}
+  admin_read_version: {direction: output, type: number}
+steps:
+  - id: fresh_peer_readiness
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peers.visible}}
+  - id: fresh_peer_readiness_b
+    client: bob
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: peers.visible}}
+  - id: alice_management_key
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Usage Friend Alice}}
+    capture: {alice_key: /api_key, alice_key_name: /value/name}
+  - id: bob_identity_key
+    client: bob
+    rpc: {method: server.api_key.create, request: {display_name: Usage Friend Bob}}
+    capture: {bob_key_name: /value/name}
+  - id: charlie_identity_key
+    client: charlie
+    rpc: {method: server.api_key.create, request: {display_name: Usage Friend Charlie}}
+    capture: {charlie_key_name: /value/name}
+  - id: alice_identity
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${alice_key_name}'], primary: true}}
+    capture: {alice_public: /value/data/owner}
+  - id: bob_identity
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${bob_key_name}'], primary: true}}
+    capture: {bob_public: /value/data/owner}
+  - id: charlie_identity
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${charlie_key_name}'], primary: true}}
+    capture: {charlie_public: /value/data/owner}
+  - id: competing_pair_id
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: friend.relation, owner: '${alice_public}', peer: '${charlie_public}'}}
+    capture: {competing_relation: /value/id}
+  - id: canonical_pair_id
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: friend.relation, owner: '${alice_public}', peer: '${bob_public}'}}
+    capture: {relation: /value/id}
+  - id: wait_alice_key
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${alice_key_name}'], found: true, wait: 20s}}
+  - id: bob_invite
+    client: bob
+    rpc: {method: server.friend.invite_token.create, request: {}}
+    capture: {invite: /invite_token}
+  - id: pause_automatic_recovery_a
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /automatic-recovery, body: {paused: true}}
+    expect: {/paused: {equals: true}, /active: {equals: 0}}
+  - id: pause_automatic_recovery_b
+    client: bob
+    http: {endpoint: '${probe_b}', method: POST, path: /automatic-recovery, body: {paused: true}}
+    expect: {/paused: {equals: true}, /active: {equals: 0}}
+  - id: hold_creation_commit_after_sql_workspace
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      # A guard-only admission proof deletes absent keys. Only publication
+      # writes the canonical binding with Put after its SQL Workspace exists.
+      body: {id: cancel-create, key: [friend-workspace-bindings, '${relation}'], commands: [Prewrite], mutation_op: Put, hold_all: true, stage: request}
+  - id: cancel_creation_while_sql_workspace_exists
+    timeout: 30s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          create:
+            endpoint: '${probe_a}'
+            method: POST
+            path: /invoke
+            body: {operation: http, endpoint: 'http://${edge_a}', method: POST, path: /gizclaw/v1/friends, headers: {Authorization: 'Bearer ${alice_key}'}, body: {invite_token: '${invite}'}}
+          cancel:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: cancel-create
+              actions:
+                - {operation: read, store: friend, key: [friends, friend-creation-intents, '${relation}'], found: true, wait: 20s}
+                # This real A-side SQL check fails before cancellation unless
+                # the exact primary intent's owner/name identifies one row.
+                - {operation: fixture.invoke, endpoint: '${probe_a}', body: {operation: friend.creation.workspace.count, owner: '${alice_public}', peer: '${bob_public}', equals: 1}}
+                - {operation: friend.creation.workspace.count, owner: '${alice_public}', peer: '${bob_public}', equals: 0}
+                - {operation: friend.delete.device, owner: '${alice_public}', peer: '${bob_public}', primary: true, expected_error: true}
+    capture: {cancelled_workspace: /cancel/actions/1/value/value/workspace_name, cancelled_incarnation: /cancel/actions/1/value/value/incarnation_id, cancelled_workspace_owner: /cancel/actions/1/value/value/workspace_owner}
+    expect:
+      /create/value/status: {minimum: 400, maximum: 599}
+      /cancel/boundary/hits: {minimum: 1}
+      /cancel/boundary/last_mutation/operation: {equals: Put}
+      /cancel/boundary/last_mutation/value_bytes: {minimum: 1}
+      /cancel/actions/0/value/found: {equals: true}
+      /cancel/actions/1/value/value/count: {equals: 1}
+      /cancel/actions/2/value/count: {equals: 0}
+      /cancel/actions/3/error: {contains: no rows in result set}
+  - id: cancellation_committed_despite_foreign_sql_error
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-creation-decisions, '${relation}', '${cancelled_incarnation}'], primary: true}}
+    expect: {/value/data/state: {equals: cancelled}, /value/data/workspace_name: {equals: '${cancelled_workspace}'}}
+  - id: original_creator_completed_exact_cancellation_receipt
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], primary: true}}
+    expect:
+      /value/found: {equals: true}
+      /value/data/cancel_creation: {equals: true}
+      /value/data/relation_id: {equals: '${relation}'}
+      /value/data/workspace_owner: {equals: '${cancelled_workspace_owner}'}
+      /value/data/workspace_name: {equals: '${cancelled_workspace}'}
+  - id: original_creator_removed_exact_sql_workspace
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${cancelled_workspace}'}}
+    expect: {/value/count: {equals: 0}}
+  - id: stale_creation_intent_is_really_visible
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-creation-intents, '${relation}']}}
+    expect: {/value/found: {equals: true}}
+  - id: stale_creation_recovery
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: friend.creation.reconcile, name: '${cancelled_workspace}'}}
+  - id: no_recreated_orphan_sql_workspace
+    client: alice
+    timeout: 85s
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${cancelled_workspace}', equals: 0, wait: 80s}}
+    expect: {/value/count: {equals: 0}}
+  - id: cancelled_retirement_recovery
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: friend.retirement.reconcile, name: '${cancelled_workspace}'}}
+  - id: cancelled_pair_absent_at_authority
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], primary: true}}
+    expect: {/value/found: {equals: false}}
+  - id: first_complete_incarnation
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: friend.create, owner: '${alice_public}', peer: '${bob_public}', primary: true}}
+  - id: retire_first_complete_incarnation
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: friend.delete.device, owner: '${alice_public}', peer: '${bob_public}', primary: true}}
+  - id: wait_old_receipt
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], found: true, wait: 20s}}
+  - id: wait_pair_absent_from_reader
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], found: false, wait: 20s}}
+  - id: retain_old_receipt_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: true}}
+    expect: {/frozen: {equals: true}}
+  - id: retained_old_receipt_ready_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], found: true, require_learner: true, wait: 20s}}
+  - id: retained_pair_absence_ready_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], found: false, require_learner: true, wait: 20s}}
+  - id: hold_old_pair_absence
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: old-receipt, key: [friends, '${alice_public}', '${relation}'], commands: [Get], source: learner, stage: response}}
+  - id: delete_rechecks_new_active_pair
+    timeout: 30s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          delete:
+            endpoint: 'http://${edge_a}'
+            method: DELETE
+            path: /gizclaw/v1/friends/${bob_public}
+            headers: {Authorization: 'Bearer ${alice_key}'}
+            status: 204
+          recreate:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: old-receipt
+              actions:
+                - {operation: friend.create, owner: '${alice_public}', peer: '${bob_public}', primary: true}
+                - {operation: fixture.invoke, endpoint: '${probe_a}', body: {operation: friend.materialize, owner: '${alice_public}', peer: '${bob_public}', primary: true}}
+    capture: {replacement_workspace_id: /recreate/actions/0/value/workspace_id}
+    expect: {/recreate/boundary/learner_reads: {minimum: 1}, /recreate/boundary/missing_responses: {minimum: 1}}
+  - id: new_pair_was_really_retired
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], primary: true}}
+    expect: {/value/found: {equals: false}}
+  - id: receipt_names_the_new_incarnation
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], primary: true}}
+    expect: {/value/data/workspace_id: {equals: '${replacement_workspace_id}'}}
+  - id: resume_after_old_receipt_race
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: false}}
+    expect: {/frozen: {equals: false}}
+  - id: wait_latest_retirement_visible
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], field: workspace_id, equals: '${replacement_workspace_id}', wait: 20s}}
+  - id: latest_peer_revision_at_authority
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-peer-revisions, '${alice_public}'], primary: true}}
+    capture: {receipt_peer_revision: /value/data}
+  - id: wait_latest_peer_revision_visible
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-peer-revisions, '${alice_public}'], equals: '${receipt_peer_revision}', found: true, wait: 20s}}
+  - id: retain_admin_projection_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: true}}
+    capture: {admin_read_version: /read_version}
+    expect: {/frozen: {equals: true}, /read_version: {minimum: 1}}
+  - id: retained_admin_receipt_ready_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-retirement-receipts, '${relation}'], field: workspace_id, equals: '${replacement_workspace_id}', found: true, require_learner: true, wait: 20s}}
+  - id: freeze_positive_old_receipt
+    client: alice
+    http: {endpoint: '${replication}', method: POST, path: /freeze, body: {}}
+    expect: {/frozen: {equals: true}}
+  - id: observe_actual_admin_old_receipt
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: admin-old-receipt, key: [friend-retirement-receipts, '${relation}'], commands: [Get], source: learner, stage: response, count_only: true}}
+  - id: admin_postwrite_projection
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: admin.friend.create, owner: '${alice_public}', peer: '${bob_public}'}}
+    capture: {admin_workspace_id: /value/body/workspace_id}
+    expect: {/diagnostic: {equals: false}, /value/status: {equals: 200}, /value/body/workspace_id: {non_empty: true, not_contains: '${replacement_workspace_id}'}}
+  - id: real_old_positive_application_read
+    client: alice
+    http: {endpoint: '${probe_a}', method: GET, path: /status}
+    expect:
+      /rules/admin-old-receipt/application_reads: {minimum: 1}
+      /rules/admin-old-receipt/learner_reads: {minimum: 1}
+      /rules/admin-old-receipt/positive_responses: {minimum: 1}
+      /rules/admin-old-receipt/last_read_version: {equals: '${admin_read_version}'}
+  - id: admin_projection_matches_committed_binding
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-workspace-bindings, '${relation}'], primary: true}}
+    expect: {/value/data/workspace_id: {equals: '${admin_workspace_id}'}}
+  - id: resume_after_admin_projection
+    client: alice
+    http: {endpoint: '${replication}', method: POST, path: /resume, body: {}}
+    expect: {/frozen: {equals: false}}
+  - id: resume_admin_projection_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: false}}
+    expect: {/frozen: {equals: false}}
+  - id: materialize_retry_competitor_workspace
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: friend.materialize, owner: '${bob_public}', peer: '${alice_public}', primary: true}}
+    expect: {/value/id: {equals: '${admin_workspace_id}'}}
+  - id: retire_before_creation_retry_case
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: friend.delete.device, owner: '${alice_public}', peer: '${bob_public}', primary: true}}
+  - id: wait_absence_for_creation_retry
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], found: false, wait: 20s}}
+  - id: capacity_revision_before_retry
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-peer-revisions, '${alice_public}'], primary: true}}
+    capture: {capacity_revision_before: /value/data}
+  - id: wait_capacity_observation_on_learner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-peer-revisions, '${alice_public}'], found: true, equals: '${capacity_revision_before}', require_learner: true, wait: 20s}}
+  - id: hold_final_publication_with_observed_capacity
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: creation-retry, key: [friend-workspace-bindings, '${relation}'], commands: [Prewrite], mutation_op: Put, hold_all: true, stage: request}}
+  - id: creation_retry_rechecks_peer_availability
+    timeout: 30s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          create_retry:
+            endpoint: '${probe_a}'
+            method: POST
+            path: /invoke
+            body: {operation: http, endpoint: 'http://${edge_a}', method: POST, path: /gizclaw/v1/friends, headers: {Authorization: 'Bearer ${alice_key}'}, body: {invite_token: '${invite}'}}
+          retire_target:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: creation-retry
+              actions:
+                - {operation: fixture.invoke, endpoint: '${probe_a}', body: {operation: friend.creation.workspace.count, owner: '${alice_public}', peer: '${bob_public}', equals: 1}}
+                - {operation: friend.create, owner: '${alice_public}', peer: '${charlie_public}', primary: true}
+                - {operation: friend.capacity.changed, owner: '${alice_public}', token: '${capacity_revision_before}'}
+                - {operation: peer.delete, peer: '${bob_public}', primary: true}
+                - {operation: peer.available, peer: '${bob_public}', primary: true, expected_error: true}
+                - {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], primary: true, found: false, wait: 1s}
+                - {operation: read, store: friend, key: [friends, peer-retirement-fences, '${bob_public}'], primary: true, found: false, wait: 1s}
+    capture: {retry_workspace: /retire_target/actions/0/value/value/workspace_name}
+    expect:
+      /create_retry/value/status: {minimum: 400, maximum: 499}
+      /retire_target/boundary/last_mutation/operation: {equals: Put}
+      /retire_target/actions/0/value/value/count: {equals: 1}
+      /retire_target/actions/1/value/peer_public_key: {equals: '${charlie_public}'}
+      /retire_target/actions/2/value/changed: {equals: true}
+      /retire_target/actions/4/error: {non_empty: true}
+      /retire_target/actions/5/value/found: {equals: false}
+      /retire_target/actions/6/value/found: {equals: false}
+  - id: actual_capacity_write_conflict
+    client: alice
+    http: {endpoint: '${probe_a}', method: GET, path: /status}
+    expect: {/rules/creation-retry/write_conflicts: {minimum: 1}}
+  - id: rejected_target_pair_not_published
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${relation}'], primary: true}}
+    expect: {/value/found: {equals: false}}
+  - id: rejected_target_reverse_row_not_published
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${bob_public}', '${relation}'], primary: true}}
+    expect: {/value/found: {equals: false}}
+  - id: rejected_target_binding_not_published
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friend-workspace-bindings, '${relation}'], primary: true}}
+    expect: {/value/found: {equals: false}}
+  - id: independent_competing_pair_preserved
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: read, store: friend, key: [friends, friends, '${alice_public}', '${competing_relation}'], primary: true}}
+    expect: {/value/found: {equals: true}, /value/data/peer_public_key: {equals: '${charlie_public}'}}
+  - id: rejected_target_workspace_removed
+    client: alice
+    timeout: 85s
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: workspace.count, name: '${retry_workspace}', equals: 0, wait: 80s}}
+    expect: {/value/count: {equals: 0}}
+finally:
+  - client: alice
+    http: {endpoint: '${replication}', method: POST, path: /resume, body: {}}
+  - client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
+  - client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /reset, body: {}}
+  - client: charlie
+    rpc: {method: server.peer.delete, request: {}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+report: {redact: [token_a, token_b, alice_key, invite]}

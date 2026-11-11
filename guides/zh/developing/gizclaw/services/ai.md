@@ -223,6 +223,8 @@ Workspace 还拥有不可变的 `system` 生命周期分类。通用创建写入
 
 普通 Workspace 创建由 Peer 拥有。Admin `PUT` 只更新已有 Workspace；Admin apply 在修改任何 item 前拒绝 Workspace resource，包括嵌套在 `ResourceList` 中的情况。Peer RPC 与 OpenAI Conversation 创建共享 typed domain operation：从 RuntimeProfile 解析 Workflow alias，绑定 authenticated owner，准备 runtime，执行可选的发布前 initializer，并在失败时回滚。
 
+Peer retirement prepares a permanent owner admission fence and captures ordinary Workspaces in the same SQL transaction. Owned Workspace insertion checks that fence, so a creator admitted by a stale Peer view cannot publish after the snapshot. Read-only retirement probes do not establish fences. Creation can refresh a missing Peer mutation input without changing ordinary Workspace availability reads. Social cancellation recovery can inspect an exact owner-scoped system Workspace through its cleanup-only lookup even while the owner retires; absence is not a cleanup-completion proof.
+
 一个 OpenAI Conversation 一对一映射一个用户 Workspace；绑定 `sfu` driver Workspace 的文本执行会被明确拒绝，因为该 Workspace 没有可执行文本输入的 Agent。History 仍是唯一 transcript store；OpenAI item record 只保存稳定 ID、role/status/order 与准确 History correlation。Conversation metadata、item index、不可变 Response input snapshot 与 Response lifecycle record 共用 Workspace runtime prefix，因此会被普通 Workspace cleanup 一并移除。
 
 租户删除先在 SQL 事务内按创建标识删除原记录，保持生命周期锁直到音色清理完成；旧请求若遇到重建记录，在清理音色之前就失败。租户与 Voice 共用连接池时，音色删除加入同一事务，失败一起回滚，也不会占用第二个连接。使用不同数据库时，音色清理独立提交且可重试，租户事务在此期间阻止同名替代记录创建；该配置不提供跨数据库原子提交。

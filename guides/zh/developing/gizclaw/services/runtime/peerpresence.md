@@ -10,7 +10,7 @@ Manager 在连接上线、下线、替换、退役和运行 Workspace 变化时�
 
 发布只把快照交给进程内 worker，不在 Manager 或 Agent Host 状态锁中执行存储 I/O。每个 Peer 独立串行写入，合并尚未提交的中间状态；每次操作带两秒 context deadline，失败写入一秒后重试最新状态，直到成功或 service 关闭。不同 Peer 独立维护状态顺序，通过有界批量 writer 提交存储。Storage 打开的 Redis 读写端均启用 context 的 socket I/O deadline；直接借用客户端的 Go 调用方同样应启用该选项。查询使用普通 KV view；Redis 读写分离走读端，写入和原子条件走写端，不对查询错误做主库或 SQL fallback。读取失败视为离线并省略最后观察时间。
 
-Manager 为每个接受的连接创建独立 `Publisher`。首次上线在写权威端读取 `owners/<peer>`，并通过原子条件同时领取 token 与写入快照；后续 Workspace 和下线更新必须匹配该 token。另一台 Server 或同机新连接领取后，旧连接的迟到更新不再覆盖它，其他 Peer 的发布继续运行。`Publisher` 在整个连接生命周期内保留领取条件与 fencing 状态；下线 worker 退出后，删除失败回滚也不能重新领取。首次领取的条件在错误重试间保留，提交响应丢失也不能重新抢回其他连接的 ownership。未曾尝试上线便被合并成下线的连接不领取 token，也不覆盖现有历史；已提交但响应丢失的上线仅在 token 仍归本连接时撤回。ownership token 不逐 Peer 续期，查询仍只读快照与 Server 租约。
+Manager gives every accepted connection its own `Publisher`, without constructor I/O. The async writer reserves `claims/<peer>` and pins the exact `owners/<peer>` bytes in the same conditional mutation as its Server generation guard. It first compares owner absence; only definitive rejection permits a bounded authority observation and reservation retry. Initial publication must still match that reservation, generation and pinned owner. It never rebases onto an owner installed after reservation, including a legacy writer that does not update `claims`. A newer reservation also fences delayed first publication across Servers. Later Workspace and offline updates must match the claimed owner token. Original conditions survive uncertain commit results, so a lost response cannot steal newer ownership. A connection coalesced into offline before an online attempt preserves existing history; an uncertain committed online state is revoked only while its token remains current. Each Peer retains one reservation key; tokens have no per-Peer heartbeat. Persisted opaque owner values remain readable.
 
 运行时由 Server 从现有 Peer KV 自动组装。多台 Server 必须共享该 Store 的物理 namespace；只共享 Social Store 不足以共享 presence。单节点 `redis`、`redis.readwrite` 和其他已有 KV backend 都沿用现有配置，不新增 service binding。
 
@@ -22,7 +22,7 @@ Manager 为每个接受的连接创建独立 `Publisher`。首次上线在写权
 
 每台 Server 用两个批量 writer 消费有界队列，正常路径只允许一个批次提交，避免公共 generation guard 的持续竞争；另一 writer 等待超过现有两秒预算的四分之一后可推进，隔离阻塞的存储调用。只合并队列中已经到达的请求，每个事务最多包含 128 个不同 Peer 的转换；低负载时直接提交，不等待凑批。排队、条件检查和提交共用原有两秒操作预算；批次采用其中最早的 deadline，不延长调用方超时。存储提交、等待和备用 writer 都沿用原有 deadline，不延长预算。每个 Peer 的串行 worker 继续拥有连接 token 和状态顺序。
 
-批次保留公共 Server generation 条件和全部 Peer owner 条件，并在同一个原子事务写快照与首次领取的 token。条件明确失败后，在写权威端批量读取 generation 与 owner，隔离失去 ownership 的连接，并以原子条件重新提交仍匹配的 Peer；批量交接不逐个拆成事务。存储错误或提交结果不确定时交回保留原领取条件的 Peer worker。租约续期与普通状态批次共享提交协调及两秒预算。重启、续约和关闭继续使用原有 generation key，KV 的 guard 写回及 write-skew 防护保持有效。
+Batches retain the common Server generation and every per-Peer condition, including first-claim reservations. Reservation and publication share the two-second operation budget. After definitive rejection, one authority batch read observes all guards; rejected callers reuse those observations instead of rereading generation and owner separately. Still-matching Peers retry under their original atomic conditions, so changes after the observation remain fenced. Storage errors and uncertain commits return to each worker with its original conditions. Lease renewal shares commit coordination and the original budget with state batches. Startup, renewal and close retain generation fencing and write-skew protection.
 
 TiKV 的 `ApplyMutation` 在同一事务快照中批量预读条件、记录和删除 key。后续逐项校验和更新复用 SDK snapshot cache，避免每个 key 单独往返；所有条件仍写回参与冲突检测。
 
