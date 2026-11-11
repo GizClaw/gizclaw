@@ -1,0 +1,143 @@
+# User Story:
+# As a device using Seed 2.1 Lite and the deployed LiteLink MCP catalog,
+# I want the model to find a real song through MCP and invoke playback,
+# So that its actual playlist arguments and player state prove the complete flow.
+# The stateful Giztest Peer records actual calls; no physical speaker is attached.
+version: gizclaw.test/v1alpha1
+name: mcp-litelink.seed-lite-music
+clients:
+  peer:
+    identity: ephemeral
+    connection: webrtc
+    access_point: ${endpoint}
+variables:
+  endpoint: {direction: input, type: string, env: GIZCLAW_TEST_ENDPOINT}
+  registration_token: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN, secret: true}
+  workspace_name: {direction: input, type: string, generate: token}
+  api_key: {direction: output, type: string, secret: true}
+steps:
+  - id: register
+    client: peer
+    rpc:
+      method: server.register
+      request: {token: '${registration_token}'}
+  - id: install_playlist_handler
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: audioplayer.playlist.set
+      response: {audio_player: {items: []}}
+      expect_calls: 0
+  - id: install_play_handler
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: audioplayer.play
+      response: {audio_player: {items: []}}
+      expect_calls: 0
+  - id: install_playlist_readback
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: audioplayer.playlist.get
+      response: {audio_player: {items: []}}
+      expect_calls: 0
+  - id: install_player_readback
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: audioplayer.get
+      response: {audio_player: {items: []}}
+      expect_calls: 0
+  - id: api_key
+    client: peer
+    rpc:
+      method: server.api_key.create
+      request: {display_name: MCP live qualification}
+    capture: {api_key: /api_key}
+  - id: workspace
+    client: peer
+    rpc:
+      method: server.workspace.create
+      request:
+        name: ${workspace_name}
+        workflow_name: mcp-music
+        parameters:
+          eino_workspace_parameters:
+            agent_type: EINO_WORKSPACE_PARAMETERS_AGENT_TYPE_EINO
+            input: WORKSPACE_INPUT_MODE_PUSH_TO_TALK
+  - id: select
+    client: peer
+    rpc:
+      method: server.run.workspace.set
+      request: {workspace_name: '${workspace_name}'}
+  - id: activate
+    client: peer
+    timeout: 90s
+    rpc: {method: server.run.workspace.reload, request: {}}
+  - id: find_and_play
+    client: peer
+    timeout: 120s
+    peer_stream:
+      mode: text
+      input: 请找到歌曲《小鸟飞飞》，把它加入本机播放列表并立即播放。
+      require_text: true
+      require_audio: false
+    expect:
+      /text: {contains: 小鸟飞飞}
+      /text_eos: {equals: true}
+  - id: verify_playlist_call
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: audioplayer.playlist.set
+      expect_calls: 1
+      response: {audio_player: {items: []}}
+    expect:
+      /requests/0/args/items/0/title: {equals: 小鸟飞飞}
+      /requests/0/args/items/0/source_ref: {equals: music.animal-dance.zh-cn.bird-wings}
+      /requests/0/args/items/0/url:
+        equals: https://static-volc.gizclaw.com/aigc/v1/songs/music/animal-dance/zh-cn/bird-wings.ogg
+  - id: verify_play_call
+    client: peer
+    client_rpc:
+      method: client.tool.v0.invoke
+      tool: audioplayer.play
+      expect_calls: 1
+      response: {audio_player: {items: []}}
+    expect:
+      /requests/0/effective_index: {equals: 0}
+      /mutations/0/tool: {equals: audioplayer.playlist.set}
+      /mutations/1/tool: {equals: audioplayer.play}
+  - id: read_actual_playlist
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers: {Authorization: 'Bearer ${api_key}'}
+      body: {tool: audioplayer.playlist.get, args: {}}
+      status: 200
+    expect:
+      /result/items/0/title: {equals: 小鸟飞飞}
+      /result/items/0/source_ref: {equals: music.animal-dance.zh-cn.bird-wings}
+  - id: read_actual_player
+    client: peer
+    http:
+      method: POST
+      path: /gizclaw/v1/device/tool/v0/invoke
+      headers: {Authorization: 'Bearer ${api_key}'}
+      body: {tool: audioplayer.get, args: {}}
+      status: 200
+    expect:
+      /result/state: {equals: playing}
+      /result/current_index: {equals: 0}
+      /result/playlist_length: {equals: 1}
+finally:
+  - client: peer
+    rpc: {method: server.run.stop, request: {}}
+  - client: peer
+    rpc:
+      method: server.workspace.delete
+      request: {name: '${workspace_name}'}
+  - client: peer
+    rpc: {method: server.peer.delete, request: {}}

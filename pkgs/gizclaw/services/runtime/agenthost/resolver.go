@@ -15,6 +15,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/memorylayout"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workflow"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/mcpclient"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolkit"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztools"
@@ -33,6 +34,7 @@ type ServiceResolver struct {
 	ToolCatalog            *toolcatalog.Catalog
 	ToolCredentials        toolCredentialResolver
 	HTTPTools              giztools.HTTPExecutor
+	MCPRegistry            *mcpclient.Registry
 }
 
 type workspaceRuntimeProvider interface {
@@ -280,7 +282,12 @@ func (r ServiceResolver) resolveWorkspace(ctx context.Context, ws apitypes.Works
 		memoryProfileID = profile.Id
 		memoryProfileRevision = profile.Revision
 	}
+	mcp, err := r.resolveMCP(resolutionCtx, ws)
+	if err != nil {
+		return Spec{}, err
+	}
 	return Spec{
+		MCP:                   mcp,
 		Workspace:             ws,
 		Workflow:              workflow,
 		AgentType:             agentType,

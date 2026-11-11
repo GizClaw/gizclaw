@@ -5653,6 +5653,27 @@ type RuntimeProfileI18nText struct {
 	DisplayName string  `json:"display_name"`
 }
 
+// RuntimeProfileMCPSelection Eino-only MCP permissions. Enable resources or explicitly select at least one remote Tool name. Aliases of one canonical Workflow must have identical normalized MCP selections.
+type RuntimeProfileMCPSelection struct {
+	// Resources Allow reading this server's resources. Omitted means false.
+	Resources *bool `json:"resources,omitempty"`
+
+	// Tools Explicit, unique remote Tool names, each non-blank and 1..128 UTF-8 bytes, enforced by Server normalization. Names are preserved verbatim; no discovery or wildcard expansion grants permissions. Omitted or empty means no Tools.
+	Tools *[]string `json:"tools,omitempty"`
+}
+
+// RuntimeProfileMCPServer Private remote MCP connection. Validation never connects to the endpoint; connection settings and headers are not projected to Peers.
+type RuntimeProfileMCPServer struct {
+	// Endpoint Absolute HTTP(S) Streamable HTTP endpoint without userinfo or fragment. Query parameters are permitted.
+	Endpoint string `json:"endpoint"`
+
+	// Headers Private HTTP headers. Names and values must be valid HTTP fields; Host, Accept, Content-Type and every MCP-* header are reserved, case-insensitively.
+	Headers *map[string]string `json:"headers,omitempty"`
+
+	// RefreshInterval Resource snapshot refresh duration, from 1s through 24h inclusive. Omitted uses 5m.
+	RefreshInterval *string `json:"refresh_interval,omitempty"`
+}
+
 // RuntimeProfileMem0Connection defines model for RuntimeProfileMem0Connection.
 type RuntimeProfileMem0Connection struct {
 	ApiKey       string  `json:"api_key"`
@@ -5748,12 +5769,14 @@ type RuntimeProfileResource struct {
 // RuntimeProfileResourceKind defines model for RuntimeProfileResource.Kind.
 type RuntimeProfileResourceKind string
 
-// RuntimeProfileResources Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
+// RuntimeProfileResources Model, Voice, Tool, Memory and private MCP server bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
 type RuntimeProfileResources struct {
-	Memories *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
-	Models   *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
-	Tools    *map[string]RuntimeProfileToolBinding   `json:"tools,omitempty"`
-	Voices   *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
+	// McpServers Private MCP servers keyed by ordinary RuntimeProfile aliases, unique across Workflow and resource bindings.
+	McpServers *map[string]RuntimeProfileMCPServer     `json:"mcp_servers,omitempty"`
+	Memories   *map[string]RuntimeProfileMemoryBinding `json:"memories,omitempty"`
+	Models     *map[string]RuntimeProfileBinding       `json:"models,omitempty"`
+	Tools      *map[string]RuntimeProfileToolBinding   `json:"tools,omitempty"`
+	Voices     *map[string]RuntimeProfileBinding       `json:"voices,omitempty"`
 }
 
 // RuntimeProfileSafetyFence defines model for RuntimeProfileSafetyFence.
@@ -5775,7 +5798,7 @@ type RuntimeProfileSpec struct {
 	// Quota Optional provider-call policy. Omitted or null means unlimited. Only custom uses the external Quota HTTP API.
 	Quota *RuntimeProfileQuota `json:"quota,omitempty"`
 
-	// Resources Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
+	// Resources Model, Voice, Tool, Memory and private MCP server bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
 	Resources RuntimeProfileResources `json:"resources,omitempty"`
 
 	// SafetyFences Profile-defined identifiers mapped to independent complete prompts. No prompt inherits another. A selected identifier must exist at reload.
@@ -5819,6 +5842,9 @@ type RuntimeProfileVolcMem0ConnectionType string
 // RuntimeProfileWorkflowBinding defines model for RuntimeProfileWorkflowBinding.
 type RuntimeProfileWorkflowBinding struct {
 	I18n map[string]RuntimeProfileI18nText `json:"i18n"`
+
+	// Mcp MCP permissions keyed by a server alias declared in resources.mcp_servers. Only Eino Workflows support MCP.
+	Mcp *map[string]RuntimeProfileMCPSelection `json:"mcp,omitempty"`
 
 	// PttAsrModel Optional ASR Model alias from this RuntimeProfile resources.models for push-to-talk audio input. Omitted or null falls back to realtime_asr_model while retaining push-to-talk input mode. AudioDock publishes its transcript independently and sends original audio to an audio-capable Graph or ASR text to a text Graph. When both ASR aliases are omitted or null, Eino accepts text only. Workflow definitions and Workspace parameters cannot override it.
 	PttAsrModel *string `json:"ptt_asr_model,omitempty"`

@@ -275,6 +275,13 @@ func insertMemoryProfile(ctx context.Context, index *sqlx.DB, profile apitypes.R
 			}
 		}
 	}
+	if profile.Spec.Resources.McpServers != nil {
+		for alias, server := range *profile.Spec.Resources.McpServers {
+			if err := add("mcp_server", alias, server); err != nil {
+				return err
+			}
+		}
+	}
 	if profile.Spec.AppConfig != nil {
 		for name, value := range *profile.Spec.AppConfig {
 			if err := add("app_config", name, value); err != nil {
@@ -300,13 +307,13 @@ func insertMemoryProfile(ctx context.Context, index *sqlx.DB, profile apitypes.R
 }
 
 // ListEntries reads every indexed entry of one kind across all profiles.
-// Kinds are workflow, model, voice, tool, memory, app_config, safety_fence,
-// and mhs.v0.device. Entries are ordered by profile ID and name.
+// Kinds are workflow, model, voice, tool, memory, mcp_server, app_config,
+// safety_fence, and mhs.v0.device. Entries are ordered by profile ID and name.
 func (s *Index) ListEntries(ctx context.Context, kind string) ([]Entry, error) {
 	if s == nil {
 		return nil, errors.New("RuntimeProfile runtime index is nil")
 	}
-	if !slices.Contains([]string{"workflow", "model", "voice", "tool", "memory", "app_config", "safety_fence", "mhs.v0.device"}, kind) {
+	if !slices.Contains([]string{"workflow", "model", "voice", "tool", "memory", "mcp_server", "app_config", "safety_fence", "mhs.v0.device"}, kind) {
 		return nil, fmt.Errorf("unsupported RuntimeProfile entry kind %q", kind)
 	}
 	s.memoryIndexMu.RLock()

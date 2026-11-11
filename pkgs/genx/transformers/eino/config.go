@@ -27,6 +27,10 @@ type Config struct {
 	History     *HistoryConfig
 	Memory      *MemoryConfig
 	ToolInvoker genx.ToolInvoker
+	// PrepareToolContext acquires host-owned, invocation-local tool context
+	// before a root Graph executes. Child Graphs inherit the returned context.
+	// Calls may run concurrently and must preserve the input cancellation.
+	PrepareToolContext func(context.Context) (context.Context, error)
 	// VerifyToolResponse checks a final draft against the actual conversation
 	// and current Tool results. When configured, reply text is buffered until
 	// accepted; nonempty feedback permits at most two model corrections.

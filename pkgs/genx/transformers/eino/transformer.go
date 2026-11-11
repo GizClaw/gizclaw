@@ -846,6 +846,14 @@ func (run *turnRun) runGraph() (*runState, string, error) {
 func (run *turnRun) executeGraph(ctx context.Context, state *runState, version *string) error {
 	config := run.session.transformer.config
 	execute := func() error {
+		ctx := ctx
+		if config.PrepareToolContext != nil {
+			prepared, err := config.PrepareToolContext(ctx)
+			if err != nil {
+				return err
+			}
+			ctx = prepared
+		}
 		// Each root generation owns its ToolCalls. Child Graphs and model
 		// continuations share this context; an inherited scope is preserved.
 		generationContext := toolrun.WithContext(ctx, toolrun.New(config.ToolInvoker, config.MaxToolCalls))

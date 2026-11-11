@@ -13,6 +13,9 @@
 !model-request-bindings/
 !model-request-bindings/resources.json
 !model-request-bindings/lifecycle.giztest.yaml
+!mcp-litelink/
+!mcp-litelink/resources.yaml
+!mcp-litelink/music.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

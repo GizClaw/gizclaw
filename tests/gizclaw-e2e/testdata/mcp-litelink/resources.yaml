@@ -1,0 +1,134 @@
+apiVersion: gizclaw.admin/v1alpha1
+kind: ResourceList
+spec:
+  items:
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Credential
+      metadata: {id: mcp-live-volc-credential}
+      spec:
+        provider: volc
+        description: Ark credential for isolated LiteLink MCP qualification
+        body:
+          ark_api_key: ${GIZCLAW_MCP_ARK_API_KEY}
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: VolcTenant
+      metadata: {id: mcp-live-ark}
+      spec:
+        credential_id: mcp-live-volc-credential
+        region: cn-beijing
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Model
+      metadata: {id: mcp-live-seed-lite}
+      spec:
+        kind: llm
+        source: manual
+        provider: {kind: volc-tenant, id: mcp-live-ark}
+        display_name: Seed 2.1 Lite MCP qualification
+        provider_data:
+          api_mode: chat_completions
+          upstream_model: doubao-seed-2-1-lite-260915
+          service_tier: fast
+          support_json_output: true
+          support_text_only: true
+          support_tool_calls: true
+          support_temperature: true
+          support_thinking: true
+          thinking_param: thinking.type
+          thinking_levels: [enabled, disabled]
+          default_thinking_level: disabled
+          use_system_role: true
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: Workflow
+      metadata: {id: mcp-litelink-music}
+      spec:
+        driver: eino
+        eino:
+          graph:
+            name: LiteLinkMusic
+            compile: {node_trigger_mode: any_predecessor}
+            state:
+              fields:
+                - {name: messages, type: messages, merge: replace}
+                - {name: answer, type: string, merge: replace}
+            nodes:
+              - id: prompt
+                type: prompt
+                format: f_string
+                messages:
+                  - role: system
+                    template: >-
+                      你是音乐助手。用户要播放歌曲时，先用 LiteLink 的 search_catalog 搜索真实曲目。
+                      只有结果存在才能继续；从实际结果取得 work id，再用资源读取工具读取
+                      litelink://catalog/works/<work-id>，取得真实音频 URL 和曲名。
+                      播放前必须调用 playlist-set，把真实 URL、title 和 source_ref（work id）
+                      放入单曲 items，再调用 play，index 为 0。不要编造 URL、曲名或 id。
+                      只有实际播放调用成功才可确认已播放；错误时说明未成功。
+                  - {role: user, template: '{text}'}
+                inputs: {text: {from: input.text}}
+                outputs: {messages: messages}
+              - id: answer
+                type: chat_model
+                model: llm
+                max_tokens: 2048
+                inputs: {messages: {from: messages}}
+                outputs: {text: answer}
+            edges:
+              - {from: start, to: prompt}
+              - {from: prompt, to: answer}
+              - {from: answer, to: end}
+            branches: []
+            outputs:
+              - {node: answer, field: answer, name: assistant, mime_type: text/plain, primary: true}
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: RuntimeProfile
+      metadata: {id: mcp-litelink-music}
+      spec:
+        resources:
+          models:
+            llm:
+              resource_id: mcp-live-seed-lite
+              i18n:
+                en: {display_name: Seed 2.1 Lite}
+                zh-CN: {display_name: Seed 2.1 Lite}
+          mcp_servers:
+            litelink:
+              endpoint: https://litelink.haivivi.com/mcp/v1/public
+              refresh_interval: 5m
+          tools:
+            playlist-set:
+              client_tool: {name: audioplayer.playlist.set}
+              i18n:
+                en: {display_name: Set playlist}
+                zh-CN: {display_name: 设置播放列表}
+            play:
+              client_tool: {name: audioplayer.play}
+              i18n:
+                en: {display_name: Play music}
+                zh-CN: {display_name: 播放音乐}
+            playlist-get:
+              client_tool: {name: audioplayer.playlist.get}
+              i18n:
+                en: {display_name: Read playlist}
+                zh-CN: {display_name: 读取播放列表}
+            player-status:
+              client_tool: {name: audioplayer.get}
+              i18n:
+                en: {display_name: Read player status}
+                zh-CN: {display_name: 读取播放器状态}
+        workflows:
+          mcp-music:
+            resource_id: mcp-litelink-music
+            toolkit: {tool_names: [playlist-set, play]}
+            mcp:
+              litelink:
+                resources: true
+                tools: [search_catalog, get_work]
+            i18n:
+              en: {display_name: LiteLink music}
+              zh-CN: {display_name: LiteLink 音乐}
+    - apiVersion: gizclaw.admin/v1alpha1
+      kind: RegistrationToken
+      metadata: {id: mcp-litelink-music}
+      spec:
+        token: ${GIZCLAW_TEST_REGISTRATION_TOKEN}
+        runtime_profile_id: mcp-litelink-music

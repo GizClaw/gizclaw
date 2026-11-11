@@ -222,9 +222,60 @@
           }
         }
       },
+      "RuntimeProfileMCPServer": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "endpoint"
+        ],
+        "description": "Private remote MCP connection. Validation never connects to the endpoint; connection settings and headers are not projected to Peers.",
+        "properties": {
+          "endpoint": {
+            "type": "string",
+            "format": "uri",
+            "minLength": 1,
+            "description": "Absolute HTTP(S) Streamable HTTP endpoint without userinfo or fragment. Query parameters are permitted."
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Private HTTP headers. Names and values must be valid HTTP fields; Host, Accept, Content-Type and every MCP-* header are reserved, case-insensitively."
+          },
+          "refresh_interval": {
+            "type": "string",
+            "minLength": 1,
+            "default": "5m",
+            "description": "Resource snapshot refresh duration, from 1s through 24h inclusive. Omitted uses 5m."
+          }
+        }
+      },
+      "RuntimeProfileMCPSelection": {
+        "type": "object",
+        "additionalProperties": false,
+        "description": "Eino-only MCP permissions. Enable resources or explicitly select at least one remote Tool name. Aliases of one canonical Workflow must have identical normalized MCP selections.",
+        "properties": {
+          "resources": {
+            "type": "boolean",
+            "default": false,
+            "description": "Allow reading this server's resources. Omitted means false."
+          },
+          "tools": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "description": "Explicit, unique remote Tool names, each non-blank and 1..128 UTF-8 bytes, enforced by Server normalization. Names are preserved verbatim; no discovery or wildcard expansion grants permissions. Omitted or empty means no Tools."
+          }
+        }
+      },
       "RuntimeProfileResources": {
         "type": "object",
-        "description": "Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.",
+        "description": "Model, Voice, Tool, Memory and private MCP server bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.",
         "x-go-type-skip-optional-pointer": true,
         "additionalProperties": false,
         "properties": {
@@ -250,6 +301,13 @@
             "type": "object",
             "additionalProperties": {
               "$ref": "#/components/schemas/RuntimeProfileMemoryBinding"
+            }
+          },
+          "mcp_servers": {
+            "type": "object",
+            "description": "Private MCP servers keyed by ordinary RuntimeProfile aliases, unique across Workflow and resource bindings.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileMCPServer"
             }
           }
         }
@@ -428,6 +486,13 @@
           },
           "toolkit": {
             "$ref": "#/components/schemas/RuntimeProfileToolSelection"
+          },
+          "mcp": {
+            "type": "object",
+            "description": "MCP permissions keyed by a server alias declared in resources.mcp_servers. Only Eino Workflows support MCP.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/RuntimeProfileMCPSelection"
+            }
           },
           "sort_order": {
             "type": "integer",

@@ -48,6 +48,9 @@ func (f *audioFixture) invoke(ctx context.Context, request proto.Message) (proto
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	if err := rpcapi.ValidateAudioPlayerRequest(request); err != nil {
+		return nil, rpcapi.Error{Code: rpcapi.StatusCodeInvalidArgument, Message: err.Error()}
+	}
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	switch request := request.(type) {
@@ -59,6 +62,30 @@ func (f *audioFixture) invoke(ctx context.Context, request proto.Message) (proto
 		return result, nil
 	case *rpcpb.ClientDeviceAudioPlayerGetRequest:
 		return &rpcpb.ClientDeviceAudioPlayerGetResponse{Value: proto.CloneOf(f.status)}, nil
+	case *rpcpb.ClientDeviceAudioPlayerPlaylistSetRequest:
+		items := make([]*rpcpb.AudioPlayerItem, len(request.Items))
+		for index, item := range request.Items {
+			items[index] = proto.CloneOf(item)
+		}
+		f.items = items
+		f.status.State = "stopped"
+		f.status.CurrentIndex = nil
+		f.status.PositionMs = 0
+		f.status.DurationMs = nil
+		f.status.ErrorCode, f.status.ErrorMessage = nil, nil
+		f.status.PlaylistLength = uint32(len(f.items))
+		f.status.PlaylistRevision++
+		return &rpcpb.ClientDeviceAudioPlayerPlaylistSetResponse{Value: proto.CloneOf(f.status)}, nil
+	case *rpcpb.ClientDeviceAudioPlayerPlaylistAppendRequest:
+		if len(f.items)+len(request.Items) > 32 {
+			return nil, rpcapi.Error{Code: rpcapi.StatusCodeResourceExhausted, Message: "playlist capacity exceeded"}
+		}
+		for _, item := range request.Items {
+			f.items = append(f.items, proto.CloneOf(item))
+		}
+		f.status.PlaylistLength = uint32(len(f.items))
+		f.status.PlaylistRevision++
+		return &rpcpb.ClientDeviceAudioPlayerPlaylistAppendResponse{Value: proto.CloneOf(f.status)}, nil
 	case *rpcpb.ClientDeviceAudioPlayerPlayRequest:
 		index := uint32(0)
 		if request.Index != nil {

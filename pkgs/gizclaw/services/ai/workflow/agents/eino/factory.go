@@ -118,8 +118,11 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if spec.Runtime.History != nil {
 		config.History.Store = spec.Runtime.History
 	}
+	if config.ToolInvoker == nil && spec.MCP != nil {
+		config.ToolInvoker = &agenthost.ToolkitInvoker{}
+	}
 	if spec.ToolVerificationModel != "" {
-		invoker, ok := spec.ToolInvoker.(*agenthost.ToolkitInvoker)
+		invoker, ok := config.ToolInvoker.(*agenthost.ToolkitInvoker)
 		if !ok {
 			return nil, errors.New("eino: semantic Tool verification requires the runtime catalog invoker")
 		}
@@ -199,6 +202,25 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			Store: bound,
 			Scope: memoryScope,
 		}
+	}
+	if spec.MCP != nil {
+		invoker, ok := config.ToolInvoker.(*agenthost.ToolkitInvoker)
+		if !ok {
+			return nil, errors.Join(errors.New("eino: MCP requires a runtime catalog invoker"), closeMemory(memoryCloser))
+		}
+		mcp, err := agenthost.OpenMCP(ctx, *spec.MCP)
+		if err != nil {
+			return nil, errors.Join(err, closeMemory(memoryCloser))
+		}
+		configured := *invoker
+		configured.MCP = mcp
+		config.ToolInvoker = &configured
+		config.PrepareToolContext = mcp.PrepareToolContext
+		if spec.ToolVerificationModel != "" {
+			configured.Verify = runtimeToolVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
+			config.VerifyToolResponse = runtimeToolResponseVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
+		}
+		memoryCloser = orderedClosers{memoryCloser, mcp}
 	}
 	transformer, err := genxeino.New(ctx, config)
 	if err != nil {
