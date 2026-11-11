@@ -1,14 +1,12 @@
 package tikvfixture
 
 import (
-	"bytes"
 	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
@@ -48,6 +46,7 @@ type UsageServices struct {
 	Presence      *peerpresence.Service
 	mu            sync.Mutex
 	publishers    map[string]*peerpresence.Publisher
+	http          *usageHTTP
 }
 
 // AttachUsageServices connects private controls to production service instances.
@@ -147,12 +146,12 @@ func usageRelation(a, b string) string {
 func (s *UsageServices) invoke(ctx context.Context, a UsageAction) (any, error) {
 	switch a.Operation {
 	case "http":
-		return usageForward(ctx, a)
+		return s.http.forward(ctx, a)
 	case "admin.friend.create":
 		return s.adminFriendCreate(ctx, a)
 	case "fixture.invoke":
 		var result usageActionResult
-		err := usageControl(ctx, a.Endpoint, "/invoke", a.Body, &result)
+		err := s.http.control(ctx, a.Endpoint, "/invoke", a.Body, &result)
 		return result, err
 	case "group.materialize", "friend.materialize":
 		if s.Materialize == nil {
@@ -513,79 +512,11 @@ func (s *UsageServices) read(ctx context.Context, a UsageAction) (any, error) {
 	}
 }
 
-// usageForward is a test-owned envelope for a real HTTP response. It is used
-// when a race may legitimately return different 4xx codes. No status or body
-// is synthesized; transport errors remain errors and cannot pass a 4xx check.
-func usageForward(ctx context.Context, action UsageAction) (any, error) {
-	if action.Endpoint == "" || action.Method == "" || len(action.Path) == 0 || action.Path[0] != '/' {
-		return nil, errors.New("HTTP endpoint, method and absolute path required")
-	}
-	var body io.Reader
-	if action.Body != nil {
-		raw, err := json.Marshal(action.Body)
-		if err != nil {
-			return nil, err
-		}
-		body = bytes.NewReader(raw)
-	}
-	req, err := http.NewRequestWithContext(ctx, action.Method, action.Endpoint+action.Path, body)
-	if err != nil {
-		return nil, err
-	}
-	for name, value := range action.Headers {
-		req.Header.Set(name, value)
-	}
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-	raw, err := io.ReadAll(io.LimitReader(response.Body, (4<<20)+1))
-	if err != nil {
-		return nil, err
-	}
-	if len(raw) > 4<<20 {
-		return nil, errors.New("HTTP response exceeds 4 MiB")
-	}
-	var value any
-	if len(raw) != 0 && json.Unmarshal(raw, &value) != nil {
-		value = string(raw)
-	}
-	return map[string]any{"status": response.StatusCode, "body": value}, nil
-}
-
 type usageAfter struct {
 	WaitEndpoint    string        `json:"wait_endpoint"`
 	Gate            string        `json:"gate"`
 	Actions         []UsageAction `json:"actions"`
 	ReleaseEndpoint string        `json:"release_endpoint"`
-}
-
-// usageControl uses the existing private fixture endpoint without forwarding
-// cookies, credentials or headers from the incoming HTTP control request.
-func usageControl(ctx context.Context, endpoint, path string, input, output any) error {
-	raw, err := json.Marshal(input)
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint+path, bytes.NewReader(raw))
-	if err != nil {
-		return err
-	}
-	req.Header.Set("Content-Type", "application/json")
-	response, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		text, _ := io.ReadAll(io.LimitReader(response.Body, 2048))
-		return fmt.Errorf("fixture %s: status %d: %s", path, response.StatusCode, text)
-	}
-	return json.NewDecoder(io.LimitReader(response.Body, 1<<20)).Decode(output)
 }
 
 func (g *UsageGate) after(ctx context.Context, w http.ResponseWriter, r *http.Request) {
@@ -598,15 +529,22 @@ func (g *UsageGate) after(ctx context.Context, w http.ResponseWriter, r *http.Re
 	if release == "" {
 		release = input.WaitEndpoint
 	}
+	h := g.http()
+	for _, endpoint := range []string{input.WaitEndpoint, release} {
+		if _, err := h.request(ctx, endpoint, http.MethodPost, "/wait", nil, true); err != nil {
+			http.Error(w, err.Error(), http.StatusGatewayTimeout)
+			return
+		}
+	}
 	// Release even on a competing service failure. The failed action remains
 	// a failing HTTP step; it cannot turn a blocked request into a false pass.
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
 		defer cancel()
-		_ = usageControl(cleanup, release, "/release", map[string]string{"id": input.Gate}, new(UsageObservation))
+		_ = h.control(cleanup, release, "/release", map[string]string{"id": input.Gate}, new(UsageObservation))
 	}()
 	var observation UsageObservation
-	if err := usageControl(ctx, input.WaitEndpoint, "/wait", map[string]string{"id": input.Gate}, &observation); err != nil {
+	if err := h.control(ctx, input.WaitEndpoint, "/wait", map[string]string{"id": input.Gate}, &observation); err != nil {
 		http.Error(w, err.Error(), http.StatusGatewayTimeout)
 		return
 	}

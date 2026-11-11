@@ -52,6 +52,13 @@ func (g *UsageGate) race(ctx context.Context, w http.ResponseWriter, r *http.Req
 		http.Error(w, "exactly two HTTP coordination branches required", http.StatusBadRequest)
 		return
 	}
+	h := g.http()
+	for id, branch := range input.Branches {
+		if _, err := h.request(ctx, branch.Endpoint, branch.Method, branch.Path, nil, false); err != nil {
+			http.Error(w, fmt.Sprintf("branch %s: %v", id, err), http.StatusBadGateway)
+			return
+		}
+	}
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	type completed struct {
@@ -62,7 +69,7 @@ func (g *UsageGate) race(ctx context.Context, w http.ResponseWriter, r *http.Req
 	done := make(chan completed, len(input.Branches))
 	for id, branch := range input.Branches {
 		go func() {
-			value, err := usageForward(ctx, UsageAction{Operation: "http", Endpoint: branch.Endpoint, Method: branch.Method, Path: branch.Path, Headers: branch.Headers, Body: branch.Body})
+			value, err := h.forward(ctx, UsageAction{Operation: "http", Endpoint: branch.Endpoint, Method: branch.Method, Path: branch.Path, Headers: branch.Headers, Body: branch.Body})
 			var body any
 			if err == nil {
 				response := value.(map[string]any)

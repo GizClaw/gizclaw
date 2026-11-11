@@ -89,8 +89,8 @@ func (state groupMutation) peerRetirementConditions(ctx context.Context, belongP
 	if owner == "" {
 		return nil, errors.New("social: Friend Group owner is missing")
 	}
-	conditions := make([]kv.Condition, 0, len(peers)+1)
-	seen := make(map[string]bool, len(peers)+1)
+	conditions := make([]kv.Condition, 0, len(peers))
+	seen := make(map[string]bool, len(peers))
 	for _, peer := range append([]string{owner}, peers...) {
 		if seen[peer] {
 			continue

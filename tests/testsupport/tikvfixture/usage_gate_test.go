@@ -110,7 +110,7 @@ func TestUsageGateCenterPauseCancellationAndReset(t *testing.T) {
 
 func TestUsageHTTPEnvelopeKeepsActualFailureBody(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPut || r.URL.Path != "/group" || r.Header.Get("Authorization") != "Bearer generated-fixture-key" {
+		if r.Method != http.MethodPut || r.URL.Path != "/gizclaw/v1/friend-groups/group" || r.Header.Get("Authorization") != "Bearer generated-fixture-key" {
 			t.Error("forwarded request changed")
 		}
 		var body map[string]any
@@ -122,7 +122,8 @@ func TestUsageHTTPEnvelopeKeepsActualFailureBody(t *testing.T) {
 		_, _ = w.Write([]byte(`{"error":{"code":"ACTUAL_CONFLICT"}}`))
 	}))
 	defer upstream.Close()
-	value, err := usageForward(t.Context(), UsageAction{Endpoint: upstream.URL, Method: http.MethodPut, Path: "/group", Headers: map[string]string{"Authorization": "Bearer generated-fixture-key"}, Body: map[string]any{"display_name": "changed"}})
+	client := &usageHTTP{edges: []string{upstream.URL}}
+	value, err := client.forward(t.Context(), UsageAction{Endpoint: upstream.URL, Method: http.MethodPut, Path: "/gizclaw/v1/friend-groups/group", Headers: map[string]string{"Authorization": "Bearer generated-fixture-key"}, Body: map[string]any{"display_name": "changed"}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,7 +132,7 @@ func TestUsageHTTPEnvelopeKeepsActualFailureBody(t *testing.T) {
 		t.Fatalf("actual HTTP response changed: %#v", result)
 	}
 	upstream.Close()
-	if _, err := usageForward(t.Context(), UsageAction{Endpoint: upstream.URL, Method: http.MethodGet, Path: "/group"}); err == nil {
+	if _, err := client.forward(t.Context(), UsageAction{Endpoint: upstream.URL, Method: http.MethodGet, Path: "/gizclaw/v1/friend-groups/group"}); err == nil {
 		t.Fatal("transport failure became a successful envelope")
 	}
 }
