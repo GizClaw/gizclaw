@@ -85,6 +85,8 @@ workspace-backed agents through the CLI and APIs.
   identity store primitives.
 - `pkgs/agent/`: agent memory, recall, embedding, and local runtime support.
 - `pkgs/genx/`: model and generation abstractions used by workflows and agents.
+- `pkgs/mcp/`: concurrent MCP client and shared local resource snapshots;
+  see [MCP client and resource cache](guides/en/developing/mcp.md).
 - `pkgs/audio/`: audio codecs, resampling, raw Opus packet helpers, playback, and
   PCM processing.
 - `api/`: source OpenAPI and RPC schemas. Generated Go and TypeScript code is
