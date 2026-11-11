@@ -1440,6 +1440,9 @@ func readActiveRelationshipSnapshot(ctx context.Context, store kv.Store, from, t
 	fromMissing := errors.Is(fromErr, kv.ErrNotFound)
 	toMissing := errors.Is(toErr, kv.ErrNotFound)
 	if fromMissing && toMissing {
+		if len(guards) != 0 {
+			*guards[0] = []kv.Condition{{Key: fromKey}, {Key: toKey}}
+		}
 		return rpcapi.FriendObject{}, false, nil
 	}
 	if fromErr != nil && !fromMissing {
@@ -1496,7 +1499,7 @@ func (s *Server) readActiveRelationshipForMutation(ctx context.Context, store kv
 			ctx = kv.WithPrimaryReads(ctx)
 			continue
 		}
-		if err != nil || !active {
+		if err != nil {
 			return item, active, err
 		}
 		matched, err := s.applyFriendAdmission(ctx, store, kv.Mutation{Conditions: conditions}, invitation)
@@ -1504,7 +1507,7 @@ func (s *Server) readActiveRelationshipForMutation(ctx context.Context, store kv
 			return rpcapi.FriendObject{}, false, err
 		}
 		if matched {
-			return item, true, nil
+			return item, active, nil
 		}
 		ctx = kv.WithPrimaryReads(ctx)
 	}
@@ -2051,7 +2054,12 @@ func (s *Server) legacyCancellationOwner(ctx context.Context, store kv.Store, re
 		owner = candidate
 	}
 	if owner == "" {
-		return "", nil, sql.ErrNoRows
+		// The pre-owner cancellation deleted its creation intent before SQL.
+		// A crash after the physical delete leaves the same evidence as a
+		// foreign Server with no copy. Its ownerless immutable decision cannot
+		// distinguish those histories; neither peer ordering nor home routing
+		// identifies where this Workspace was materialized.
+		return "", nil, fmt.Errorf("%w for relation %q Workspace %q: creation intent and both local SQL owner scopes are absent; restore the original creation identity and regional deletion evidence before retrying: %w", errLegacyCancellationEvidence, relationID, workspaceName, sql.ErrNoRows)
 	}
 	return owner, nil, nil
 }
@@ -2115,12 +2123,73 @@ func (s *Server) upgradeLegacyCancellation(ctx context.Context, store kv.Store, 
 	return "", errFriendChanged
 }
 
+// completedLegacyFriendCancellation acknowledges an already completed legacy
+// cancellation without inventing its erased owner. An exact receipt is required;
+// absent local SQL alone never completes the initial cancellation handoff. Both
+// possible owner scopes must be absent so a wrong owner cannot conceal a local
+// Workspace that still needs deletion. This does not certify other regions.
+func (s *Server) completedLegacyFriendCancellation(ctx context.Context, store kv.Store, relationID, workspaceName string) (bool, error) {
+	key := retirementReceiptKey(relationID)
+	for range 2 {
+		data, err := store.Get(ctx, key)
+		if errors.Is(err, kv.ErrNotFound) {
+			data = nil
+		} else if err != nil {
+			return false, err
+		}
+		legacy := false
+		if data != nil {
+			var receipt retirementReceipt
+			if err := json.Unmarshal(data, &receipt); err != nil {
+				return false, err
+			}
+			if err := validateRetirementReceipt(receipt, relationID); err != nil {
+				return false, err
+			}
+			legacy = receipt.CancelCreation && receipt.WorkspaceID == "" && receipt.WorkspaceOwner == "" && receipt.WorkspaceName == workspaceName
+			if legacy {
+				lookup, ok := s.Workspaces.(interface {
+					GetSystemWorkspaceForCleanup(context.Context, string) (apitypes.Workspace, error)
+				})
+				if !ok {
+					return false, errors.New("social: legacy Friend cancellation receipt requires a system Workspace identity lookup")
+				}
+				for _, owner := range []string{receipt.FirstPeer, receipt.SecondPeer} {
+					_, err := lookup.GetSystemWorkspaceForCleanup(ownership.WithOwner(ctx, owner), workspaceName)
+					if err == nil {
+						return false, nil
+					}
+					if err != sql.ErrNoRows {
+						return false, err
+					}
+				}
+			}
+		}
+		matched, err := store.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: key, Expected: data}}})
+		if err != nil {
+			return false, err
+		}
+		if matched {
+			return legacy, nil
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	return false, errFriendChanged
+}
+
 // completeFriendCreationCancellation consumes the shared cancellation handoff
 // only after this Server successfully deletes that exact local Workspace. A
 // missing foreign SQL row cannot establish cleanup of another Server's copy.
 func (s *Server) completeFriendCreationCancellation(ctx context.Context, store kv.Store, relationID, workspaceOwner, workspaceName string) error {
 	if workspaceOwner == "" || workspaceOwner != strings.TrimSpace(workspaceOwner) || relationPeer(workspaceOwner, relationID) == "" {
 		return errors.New("social: cancelled Friend Workspace owner is missing or inconsistent")
+	}
+	completed, err := s.completedLegacyFriendCancellation(ctx, store, relationID, workspaceName)
+	if err != nil {
+		return err
+	}
+	if completed {
+		return nil
 	}
 	for _, record := range []struct {
 		key     kv.Key
@@ -2216,6 +2285,13 @@ func (s *Server) completeFriendRetirement(ctx context.Context, store kv.Store, i
 	}
 	if intent.CancelCreation {
 		if intent.WorkspaceOwner == "" {
+			completed, err := s.completedLegacyFriendCancellation(ctx, store, intent.RelationID, intent.WorkspaceName)
+			if err != nil {
+				return err
+			}
+			if completed {
+				return nil
+			}
 			owner, err := s.upgradeLegacyCancellation(ctx, store, retirementIntentKey(intent.RelationID), intent.RelationID, intent.WorkspaceName, false)
 			if err != nil {
 				return err

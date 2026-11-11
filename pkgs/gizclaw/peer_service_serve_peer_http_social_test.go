@@ -69,13 +69,7 @@ func newSocialHTTPFixture(t *testing.T) *socialHTTPFixture {
 		}
 		*target.peer = socialHTTPPeer{key: keyPair.Public, secret: created.Secret}
 	}
-	availability := func(ctx context.Context, publicKey string) error {
-		key, err := parsePeerPublicKey(publicKey)
-		if err != nil {
-			return err
-		}
-		return f.peers.EnsureAvailable(ctx, key)
-	}
+	availability := peerMutationAvailability(f.peers)
 	friendRoot := kv.NewMemory(nil)
 	f.public.Friends = &friend.Server{
 		InviteTokens:     kv.Prefixed(friendRoot, kv.Key{"invite-tokens"}),
@@ -95,7 +89,7 @@ func newSocialHTTPFixture(t *testing.T) *socialHTTPFixture {
 		RelationshipStore: groupStore,
 		Workspaces:        &adminTestWorkspaceService{},
 		Profiles:          f.peers,
-		PeerAvailability:  availability,
+		PeerAvailability:  peerMutationAvailability(f.peers),
 		SFUURL:            "wss://sfu.test",
 		Now:               f.clock,
 	}

@@ -1,22 +1,29 @@
 package friend
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -53,6 +60,365 @@ func assertCancellationSQLRows(t *testing.T, workspaces *workspace.Server, name 
 	}
 	if count != want {
 		t.Fatalf("exact SQL Workspace rows = %d, want %d", count, want)
+	}
+}
+
+// These wire types are the fields written by cab4785b. In particular, neither
+// the cancellation handoff, its receipt, nor its decision contains an owner or
+// region; the creation intent was the sole shared record containing the owner.
+type baseFriendCancellationIntent struct {
+	RelationID     string       `json:"relation_id"`
+	FirstPeer      string       `json:"first_peer"`
+	SecondPeer     string       `json:"second_peer"`
+	WorkspaceID    string       `json:"workspace_id"`
+	WorkspaceName  string       `json:"workspace_name"`
+	Relationship   friendRecord `json:"relationship"`
+	DeletedAt      time.Time    `json:"deleted_at"`
+	CancelCreation bool         `json:"cancel_creation,omitempty"`
+}
+
+type baseFriendCancellationReceipt struct {
+	RelationID     string    `json:"relation_id"`
+	FirstPeer      string    `json:"first_peer"`
+	SecondPeer     string    `json:"second_peer"`
+	WorkspaceID    string    `json:"workspace_id"`
+	WorkspaceName  string    `json:"workspace_name"`
+	DeletedAt      time.Time `json:"deleted_at"`
+	CancelCreation bool      `json:"cancel_creation,omitempty"`
+}
+
+func baseFriendCancellationBoundary(t *testing.T, s *Server, sqlWorkspaces *workspace.Server, owner, boundary string) (creationIntent, retirementIntent, []byte) {
+	t.Helper()
+	ctx := t.Context()
+	s.Workspaces = sqlWorkspaces
+	creation, err := s.getOrCreateCreationIntent(ctx, s.Friends, "owner", "peer", owner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ensureCreationWorkspace(ctx, creation); err != nil {
+		t.Fatal(err)
+	}
+	legacy := baseFriendCancellationIntent{RelationID: creation.RelationID, FirstPeer: creation.FirstPeer, SecondPeer: creation.SecondPeer, WorkspaceName: creation.Workspace, DeletedAt: s.now(), CancelCreation: true}
+	data, err := json.Marshal(legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision, err := json.Marshal(struct {
+		RelationID    string `json:"relation_id"`
+		IncarnationID string `json:"incarnation_id"`
+		Workspace     string `json:"workspace_name"`
+		State         string `json:"state"`
+	}{creation.RelationID, creation.IncarnationID, creation.Workspace, "cancelled"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Friends.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: creationDecisionKey(creation.RelationID, creation.IncarnationID)}}, Entries: []kv.Entry{{Key: creationDecisionKey(creation.RelationID, creation.IncarnationID), Value: decision}, {Key: retirementIntentKey(creation.RelationID), Value: data}}, AddMembers: (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Add(creation.RelationID)}); err != nil {
+		t.Fatal(err)
+	}
+	// cab4785b deleted this shared identity before entering SQL cleanup.
+	if err := deleteCreationIntent(ctx, s.Friends, creation); err != nil {
+		t.Fatal(err)
+	}
+	var pending retirementIntent
+	if err := json.Unmarshal(data, &pending); err != nil {
+		t.Fatal(err)
+	}
+	if boundary == "before-sql" {
+		return creation, pending, data
+	}
+	if _, err := sqlWorkspaces.DeleteSystemWorkspace(ownership.WithOwner(ctx, owner), creation.Workspace); err != nil {
+		t.Fatal(err)
+	}
+	var tasks int
+	if err := sqlWorkspaces.DB.GetContext(ctx, &tasks, `SELECT COUNT(*) FROM workspace_pending_deletions`); err != nil || tasks != 0 {
+		t.Fatalf("base direct cancellation unexpectedly retained SQL tasks=%d err=%v", tasks, err)
+	}
+	if boundary == "after-sql" {
+		return creation, pending, data
+	}
+	receipt, err := json.Marshal(baseFriendCancellationReceipt{RelationID: creation.RelationID, FirstPeer: creation.FirstPeer, SecondPeer: creation.SecondPeer, WorkspaceName: creation.Workspace, DeletedAt: pending.DeletedAt, CancelCreation: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Friends.ApplyMutation(ctx, kv.Mutation{Conditions: []kv.Condition{{Key: retirementIntentKey(creation.RelationID), Expected: data}}, Entries: []kv.Entry{{Key: retirementReceiptKey(creation.RelationID), Value: receipt}}, DeleteKeys: []kv.Key{retirementIntentKey(creation.RelationID)}, RemoveMembers: (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).Remove(creation.RelationID)}); err != nil {
+		t.Fatal(err)
+	}
+	return creation, pending, receipt
+}
+
+func TestFriendBaseCancellationCrashAfterSQLRetainsUnprovableWork(t *testing.T) {
+	for _, owner := range []string{"owner", "peer"} {
+		t.Run(owner, func(t *testing.T) {
+			ctx := t.Context()
+			s := newTestServer()
+			sqlWorkspaces := cancellationSQLWorkspace(t)
+			creation, _, raw := baseFriendCancellationBoundary(t, s, sqlWorkspaces, owner, "after-sql")
+			// The base retry's DeleteSystemWorkspace also returned raw ErrNoRows;
+			// completeFriendRetirement only tolerated kv.ErrNotFound, so this
+			// information-loss boundary already prevented base completion.
+			if _, err := sqlWorkspaces.DeleteSystemWorkspace(ownership.WithOwner(ctx, owner), creation.Workspace); err != sql.ErrNoRows {
+				t.Fatalf("base physical-delete retry sentinel=%v", err)
+			}
+			beforeDecision, err := s.Friends.Get(ctx, creationDecisionKey(creation.RelationID, creation.IncarnationID))
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, sqlRegion := range []*workspace.Server{sqlWorkspaces, cancellationSQLWorkspace(t)} {
+				restarted := newTestServer()
+				restarted.Friends, restarted.Workspaces = s.Friends, sqlRegion
+				if err := restarted.ReconcileRetirementIntents(ctx); !errors.Is(err, errLegacyCancellationEvidence) || !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("ownerless crash invented regional completion: %v", err)
+				}
+				stored, err := s.Friends.Get(ctx, retirementIntentKey(creation.RelationID))
+				if err != nil || !bytes.Equal(stored, raw) {
+					t.Fatalf("unprovable base handoff changed: %q err=%v", stored, err)
+				}
+				if _, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+					t.Fatalf("absence published a completion receipt: %v", err)
+				}
+			}
+			if _, err := readCreationIntent(ctx, s.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+				t.Fatalf("fixture retained creation evidence: %v", err)
+			}
+			afterDecision, err := s.Friends.Get(ctx, creationDecisionKey(creation.RelationID, creation.IncarnationID))
+			if err != nil || !bytes.Equal(beforeDecision, afterDecision) {
+				t.Fatalf("ownerless decision changed=%q err=%v", afterDecision, err)
+			}
+			var ids []string
+			for id, err := range (socialutil.RecoveryIndex{Root: retirementIntentsRoot}).IDs(ctx, s.Friends) {
+				if err != nil {
+					t.Fatal(err)
+				}
+				ids = append(ids, id)
+			}
+			if !slices.Contains(ids, creation.RelationID) {
+				t.Fatalf("unprovable work lost its recovery index: %v", ids)
+			}
+			assertCancellationSQLRows(t, sqlWorkspaces, creation.Workspace, 0)
+		})
+	}
+}
+
+func TestFriendBaseCancellationRecoversAfterExactRegionalSQLBackupRestore(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	originalSQL, foreignSQL := cancellationSQLWorkspace(t), cancellationSQLWorkspace(t)
+	creation, pending, raw := baseFriendCancellationBoundary(t, s, originalSQL, "peer", "before-sql")
+	// This backup's provenance is the exact original regional SQL connection,
+	// captured before physical deletion. Peer ordering/home routing supplies no
+	// provenance. Preserve every SQL field, including its separate incarnation.
+	const columns = "id,owner_public_key,name,workflow_id,system,created_at,updated_at,last_active_at,parameters_json,toolkit_json,icon_json,labels_json,incarnation,revision,pending_deletion_id"
+	backup := make(map[string]any)
+	if err := originalSQL.DB.QueryRowxContext(ctx, "SELECT "+columns+" FROM workspaces WHERE id=?", creation.Workspace).MapScan(backup); err != nil {
+		t.Fatal(err)
+	}
+	if backup["id"] != creation.Workspace || backup["name"] != creation.Workspace || backup["owner_public_key"] != "peer" || backup["incarnation"] == "" || backup["pending_deletion_id"] != nil {
+		t.Fatalf("backup did not retain the exact original identity: %+v", backup)
+	}
+	assetRoot, err := os.OpenRoot(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = assetRoot.Close() })
+	assets, err := objectstore.NewRoot(assetRoot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	originalSQL.Assets = assets
+	artifactName := iconasset.ObjectName(creation.Workspace, iconasset.FormatPNG)
+	artifactBackup := []byte("original regional Workspace artifact")
+	if err := assets.Put(artifactName, bytes.NewReader(artifactBackup)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := originalSQL.DeleteSystemWorkspace(ownership.WithOwner(ctx, "peer"), creation.Workspace); err != nil {
+		t.Fatal(err)
+	}
+	assertCancellationSQLRows(t, originalSQL, creation.Workspace, 0)
+	if items, err := assets.List(""); err != nil || len(items) != 0 {
+		t.Fatalf("base delete retained artifacts=%v err=%v", items, err)
+	}
+	foreign := newTestServer()
+	foreign.Friends, foreign.Workspaces = s.Friends, foreignSQL
+	for _, worker := range []*Server{s, foreign} {
+		if err := worker.ReconcileRetirementIntents(ctx); !errors.Is(err, errLegacyCancellationEvidence) {
+			t.Fatalf("unrestored crash auto-completed: %v", err)
+		}
+	}
+	stored, err := s.Friends.Get(ctx, retirementIntentKey(creation.RelationID))
+	if err != nil || !bytes.Equal(stored, raw) {
+		t.Fatalf("missing-evidence handoff changed: %q err=%v", stored, err)
+	}
+	if _, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("unrestored crash published a receipt: %v", err)
+	}
+	// A normal creation is not a backup restore and may be permanently fenced.
+	// Maintenance must preserve the original row instead of minting a new SQL
+	// incarnation or clearing this owner admission fence.
+	if _, err := originalSQL.DB.ExecContext(ctx, `UPDATE workspace_owner_state SET retired=1 WHERE owner_public_key=?`, "peer"); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := originalSQL.CreateSystemWorkspace(ownership.WithOwner(ctx, "peer"), adminhttp.WorkspaceUpsert{Id: creation.Workspace, Name: creation.Workspace, WorkflowId: socialutil.SFUWorkflowID}); !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("normal admission bypassed the retired-owner fence: %v", err)
+	}
+	values := make([]any, 0, len(backup))
+	for column := range strings.SplitSeq(columns, ",") {
+		values = append(values, backup[column])
+	}
+	// Exclusive offline maintenance: this test runs no admission or recovery
+	// writer for the relation during the checks and restore below. Establish the
+	// matching cancelled decision, exact still-pending handoff and absent receipt
+	// while those writers are quiesced; these checks are not an online lease.
+	decision, err := readCreationDecision(ctx, s.Friends, creation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := validateCreationDecision(decision, creation); err != nil || decision.State != creationDecisionCancelled {
+		t.Fatalf("maintenance lacks the matching cancellation decision: %+v err=%v", decision, err)
+	}
+	stored, err = s.Friends.Get(ctx, retirementIntentKey(creation.RelationID))
+	if err != nil || !bytes.Equal(stored, raw) {
+		t.Fatalf("maintenance handoff no longer matches the backup: %q err=%v", stored, err)
+	}
+	if _, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("maintenance cannot restore after a completion receipt: %v", err)
+	}
+	// Restore only to the proven original regional DB. Plain INSERT fails on
+	// any current ID/name collision and never overwrites an existing identity.
+	const restore = "INSERT INTO workspaces(" + columns + ") VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+	if _, err := originalSQL.DB.ExecContext(ctx, restore, values...); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := originalSQL.DB.ExecContext(ctx, restore, values...); err == nil {
+		t.Fatal("maintenance restore overwrote an existing row")
+	}
+	restored := make(map[string]any)
+	if err := originalSQL.DB.QueryRowxContext(ctx, "SELECT "+columns+" FROM workspaces WHERE id=?", creation.Workspace).MapScan(restored); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(restored, backup) {
+		t.Fatalf("maintenance changed backed-up identity: got=%+v want=%+v", restored, backup)
+	}
+	if err := assets.Put(artifactName, bytes.NewReader(artifactBackup)); err != nil {
+		t.Fatal(err)
+	}
+	// End exclusive maintenance before resuming either region's reconciler.
+	assertCancellationSQLRows(t, foreignSQL, creation.Workspace, 0)
+	if err := foreign.ReconcileRetirementIntents(ctx); !errors.Is(err, errLegacyCancellationEvidence) {
+		t.Fatalf("foreign absence consumed restored regional work: %v", err)
+	}
+	assertCancellationSQLRows(t, originalSQL, creation.Workspace, 1)
+	if err := s.ReconcileRetirementIntents(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertCancellationSQLRows(t, originalSQL, creation.Workspace, 0)
+	if items, err := assets.List(""); err != nil || len(items) != 0 {
+		t.Fatalf("reconciliation retained restored artifacts=%v err=%v", items, err)
+	}
+	receipt, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID)
+	if err != nil || !receipt.CancelCreation || receipt.WorkspaceOwner != backup["owner_public_key"] || receipt.WorkspaceName != backup["name"] || !receipt.DeletedAt.Equal(pending.DeletedAt) {
+		t.Fatalf("restored cleanup receipt=%+v err=%v", receipt, err)
+	}
+	if _, err := readRetirementIntent(ctx, s.Friends, creation.RelationID); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("restored cleanup remained pending: %v", err)
+	}
+	var retired int
+	if err := originalSQL.DB.GetContext(ctx, &retired, `SELECT retired FROM workspace_owner_state WHERE owner_public_key=?`, "peer"); err != nil || retired != 1 {
+		t.Fatalf("maintenance cleared the owner fence=%d err=%v", retired, err)
+	}
+}
+
+func TestFriendBaseCancellationBeforeSQLRejectsForeignAbsenceAndRecoversLocally(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	localSQL := cancellationSQLWorkspace(t)
+	creation, pending, _ := baseFriendCancellationBoundary(t, s, localSQL, "peer", "before-sql")
+	foreign := newTestServer()
+	foreign.Friends, foreign.Workspaces = s.Friends, cancellationSQLWorkspace(t)
+	if err := foreign.completeFriendRetirement(ctx, foreign.Friends, pending); !errors.Is(err, errLegacyCancellationEvidence) {
+		t.Fatalf("foreign SQL absence completed a base handoff: %v", err)
+	}
+	assertCancellationSQLRows(t, localSQL, creation.Workspace, 1)
+	if err := s.ReconcileRetirementIntents(ctx); err != nil {
+		t.Fatal(err)
+	}
+	assertCancellationSQLRows(t, localSQL, creation.Workspace, 0)
+	receipt, err := readRetirementReceipt(ctx, s.Friends, creation.RelationID)
+	if err != nil || receipt.WorkspaceOwner != "peer" {
+		t.Fatalf("locally recovered base receipt=%+v err=%v", receipt, err)
+	}
+}
+
+func TestFriendBaseCompletedCancellationReceiptNeedsNoInventedOwner(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	sqlWorkspaces := cancellationSQLWorkspace(t)
+	creation, pending, raw := baseFriendCancellationBoundary(t, s, sqlWorkspaces, "peer", "receipt")
+	if err := s.completeFriendRetirement(ctx, s.Friends, pending); err != nil {
+		t.Fatalf("old retirement worker could not acknowledge exact base receipt: %v", err)
+	}
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, creation.RelationID, "peer", creation.Workspace); err != nil {
+		t.Fatalf("old creator could not acknowledge exact base receipt: %v", err)
+	}
+	stored, err := s.Friends.Get(ctx, retirementReceiptKey(creation.RelationID))
+	if err != nil || !bytes.Equal(raw, stored) {
+		t.Fatalf("completed base receipt invented ownership=%q err=%v", stored, err)
+	}
+}
+
+func TestFriendBaseReceiptCannotHideRetainedOtherOwnerWorkspace(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	creation, _, _ := baseFriendCancellationBoundary(t, s, cancellationSQLWorkspace(t), "peer", "receipt")
+	copySQL := cancellationSQLWorkspace(t)
+	s.Workspaces = copySQL
+	if _, _, err := copySQL.CreateSystemWorkspace(ownership.WithOwner(ctx, "peer"), adminhttp.WorkspaceUpsert{Id: creation.Workspace, Name: creation.Workspace, WorkflowId: socialutil.SFUWorkflowID}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, creation.RelationID, "owner", creation.Workspace); err == nil {
+		t.Fatal("wrong owner hid an existing second-owner Workspace behind the legacy receipt")
+	}
+	assertCancellationSQLRows(t, copySQL, creation.Workspace, 1)
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, creation.RelationID, "peer", creation.Workspace); err != nil {
+		t.Fatal(err)
+	}
+	assertCancellationSQLRows(t, copySQL, creation.Workspace, 0)
+}
+
+func TestFriendLegacyReceiptProofRefreshesOnlyOnDefinitiveRejection(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	root := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+	s.Friends = root
+	creation, _, _ := baseFriendCancellationBoundary(t, s, cancellationSQLWorkspace(t), "peer", "receipt")
+	root.replicate = false
+	replacement := retirementReceipt{RelationID: creation.RelationID, FirstPeer: creation.FirstPeer, SecondPeer: creation.SecondPeer, WorkspaceName: "different-cancelled-workspace", DeletedAt: s.now().Add(time.Second), CancelCreation: true}
+	if err := socialutil.WriteJSON(ctx, root.Store, retirementReceiptKey(creation.RelationID), replacement); err != nil {
+		t.Fatal(err)
+	}
+	root.primary = 0
+	before := root.rejected
+	if completed, err := s.completedLegacyFriendCancellation(ctx, root, creation.RelationID, creation.Workspace); err != nil || completed {
+		t.Fatalf("stale legacy receipt acknowledged another completion: %v, %v", completed, err)
+	}
+	if root.rejected != before+1 || root.primary != 1 {
+		t.Fatalf("receipt proof refresh rejected=%d primary=%d", root.rejected-before, root.primary)
+	}
+}
+
+func TestFriendLegacyReceiptProofDoesNotReplayUnknownOutcome(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	root := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+	s.Friends = root
+	creation, _, _ := baseFriendCancellationBoundary(t, s, cancellationSQLWorkspace(t), "peer", "receipt")
+	uncertain := errors.New("legacy cancellation receipt proof outcome unavailable")
+	root.writeErr, root.primary = uncertain, 0
+	before := root.mutations
+	if completed, err := s.completedLegacyFriendCancellation(ctx, root, creation.RelationID, creation.Workspace); !errors.Is(err, uncertain) || completed {
+		t.Fatalf("unknown receipt proof was acknowledged: %v, %v", completed, err)
+	}
+	if root.mutations != before+1 || root.primary != 0 {
+		t.Fatalf("unknown receipt proof replayed: writes=%d primary=%d", root.mutations-before, root.primary)
 	}
 }
 
@@ -169,7 +535,7 @@ func TestFriendLegacyCancellationReceiptRecoversExactLocalOwner(t *testing.T) {
 	}
 }
 
-func TestFriendLegacyReceiptWithoutIdentitySupportsHistoricalDeleteOnly(t *testing.T) {
+func TestFriendLegacyReceiptWithoutIdentityAcknowledgesCompletedCancellation(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer()
 	s.Workspaces = cancellationSQLWorkspace(t)
@@ -180,8 +546,12 @@ func TestFriendLegacyReceiptWithoutIdentitySupportsHistoricalDeleteOnly(t *testi
 	if _, err := s.DeleteFriend(ctx, "owner", rpcapi.FriendDeleteRequest{Name: "peer"}); err != nil {
 		t.Fatalf("historical receipt rejected=%v", err)
 	}
-	if err := s.completeFriendCreationCancellation(ctx, s.Friends, legacy.RelationID, "owner", legacy.WorkspaceName); !errors.Is(err, sql.ErrNoRows) {
-		t.Fatalf("historical receipt guessed local cleanup owner=%v", err)
+	if err := s.completeFriendCreationCancellation(ctx, s.Friends, legacy.RelationID, "owner", legacy.WorkspaceName); err != nil {
+		t.Fatalf("historical receipt did not acknowledge completed cancellation=%v", err)
+	}
+	current, err := readRetirementReceipt(ctx, s.Friends, legacy.RelationID)
+	if err != nil || current.WorkspaceOwner != "" {
+		t.Fatalf("historical receipt invented an owner=%+v err=%v", current, err)
 	}
 }
 
@@ -342,7 +712,7 @@ func TestFriendCancellationReceiptRequiresExactWorkspaceOwner(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer()
 	s.Workspaces = cancellationSQLWorkspace(t)
-	for _, owner := range []string{"peer", ""} {
+	for _, owner := range []string{"peer"} {
 		receipt := retirementReceipt{RelationID: "owner:peer", FirstPeer: "owner", SecondPeer: "peer", WorkspaceName: "cancelled-workspace", WorkspaceOwner: owner, DeletedAt: s.now(), CancelCreation: true}
 		if err := socialutil.WriteJSON(ctx, s.Friends, retirementReceiptKey(receipt.RelationID), receipt); err != nil {
 			t.Fatal(err)

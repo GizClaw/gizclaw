@@ -15,6 +15,87 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
 
+func TestFriendReAddAtFullQuotaProvesReaderAbsence(t *testing.T) {
+	for _, lifecycle := range []string{"new", "replaced"} {
+		for _, operation := range []string{"admin", "invitation"} {
+			t.Run(lifecycle+"/"+operation, func(t *testing.T) {
+				ctx := t.Context()
+				s := newPeerLimitTestServer()
+				root := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil), replicate: true}
+				s.Friends, s.InviteTokens = root, root
+				token, err := s.CreateFriendInviteToken(ctx, "target", rpcapi.FriendInviteTokenCreateRequest{})
+				if err != nil {
+					t.Fatal(err)
+				}
+				for i := range socialutil.PeerFriendLimit {
+					if _, err := s.AdminCreateFriend(ctx, "owner", fmt.Sprintf("previous-%02d", i)); err != nil {
+						t.Fatal(err)
+					}
+				}
+				root.replicate = false
+				primary := kv.WithPrimaryReads(ctx)
+				if _, err := s.DeleteFriend(primary, "owner", rpcapi.FriendDeleteRequest{Name: "previous-00"}); err != nil {
+					t.Fatal(err)
+				}
+				current, err := s.AdminCreateFriend(primary, "owner", "target")
+				if err != nil {
+					t.Fatal(err)
+				}
+				if lifecycle == "replaced" {
+					if _, err := s.DeleteFriend(primary, "owner", rpcapi.FriendDeleteRequest{Name: "target"}); err != nil {
+						t.Fatal(err)
+					}
+					current, err = s.AdminCreateFriend(primary, "owner", "target")
+					if err != nil {
+						t.Fatal(err)
+					}
+				}
+				root.primary = 0
+				if _, err := s.GetFriendRelation(ctx, "owner", "target"); !errors.Is(err, kv.ErrNotFound) || root.primary != 0 {
+					t.Fatalf("ordinary absent read changed policy: primary=%d err=%v", root.primary, err)
+				}
+				workspaces := s.Workspaces.(*recordingWorkspaceService)
+				created, rejected := len(workspaces.created), root.rejected
+				var item rpcapi.FriendObject
+				if operation == "admin" {
+					item, err = s.AdminCreateFriend(ctx, "owner", "target")
+				} else {
+					var existing bool
+					item, existing, err = s.AddFriendReportingExisting(ctx, "owner", rpcapi.FriendAddRequest{InviteToken: token.InviteToken})
+					if !existing {
+						t.Fatal("writer's active pair was not reported existing")
+					}
+				}
+				if err != nil || socialutil.StringValue(item.WorkspaceName) != socialutil.StringValue(current.WorkspaceName) {
+					t.Fatalf("full-quota re-add=%+v current=%+v err=%v", item, current, err)
+				}
+				if root.rejected != rejected+1 || root.primary == 0 || root.primary > 6 {
+					t.Fatalf("absence retry rejected=%d primary=%d", root.rejected-rejected, root.primary)
+				}
+				if len(workspaces.created) != created {
+					t.Fatal("idempotent re-add created another Workspace")
+				}
+			})
+		}
+	}
+}
+
+func TestFriendInactiveMutationProofAvoidsPrimaryAndPropagatesUnknownOutcome(t *testing.T) {
+	ctx := t.Context()
+	s := newTestServer()
+	root := &socialReadSplitStore{Store: kv.NewMemory(nil), reader: kv.NewMemory(nil)}
+	s.Friends = root
+	if _, active, err := s.readActiveRelationshipForMutation(ctx, root, "owner", "peer", nil); err != nil || active || root.primary != 0 || root.mutations != 1 {
+		t.Fatalf("inactive proof: active=%v primary=%d mutations=%d err=%v", active, root.primary, root.mutations, err)
+	}
+	uncertain := errors.New("inactive proof outcome unavailable")
+	root.writeErr = uncertain
+	before := root.mutations
+	if _, _, err := s.readActiveRelationshipForMutation(ctx, root, "owner", "peer", nil); !errors.Is(err, uncertain) || root.mutations != before+1 || root.primary != 0 {
+		t.Fatalf("unknown inactive proof replayed: mutations=%d primary=%d err=%v", root.mutations-before, root.primary, err)
+	}
+}
+
 func TestFriendInvitationRevocationGuardsPublicationAndExistingProof(t *testing.T) {
 	for _, phase := range []string{"before-workspace", "publication", "existing"} {
 		for _, change := range []string{"record", "index"} {

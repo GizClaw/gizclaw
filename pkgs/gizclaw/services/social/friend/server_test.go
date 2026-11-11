@@ -2281,7 +2281,8 @@ func TestFriendStaleReadsAndConflictOnlyFallback(t *testing.T) {
 	if store.primary == 0 || store.rejected-rejected != 1 {
 		t.Fatalf("primary=%d rejected=%d", store.primary, store.rejected-rejected)
 	}
-	if store.mutations-before > 5 || socialutil.StringValue(item.WorkspaceName) == "" {
+	// One conditional absence proof precedes the bounded creation/CAS retry.
+	if store.mutations-before > 6 || socialutil.StringValue(item.WorkspaceName) == "" {
 		t.Fatalf("unbounded creation writes=%d item=%+v", store.mutations-before, item)
 	}
 	primary := store.primary
