@@ -217,6 +217,9 @@ func (c *ResourceCache) ReadResource(ctx context.Context, uri string) (*mcp.Read
 // load owns the shared network request independently of any individual waiter.
 // It is bounded by the Client timeout and canceled when the Client is closed.
 func (c *ResourceCache) load(ctx context.Context, uri string) (json.RawMessage, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	result := c.loads.DoChan(uri, func() (any, error) {
 		requestCtx, cancel := c.client.operationContext(context.WithoutCancel(ctx))
 		defer cancel()
@@ -310,6 +313,9 @@ func (c *ResourceCache) refresh(ctx context.Context) error {
 	group, groupCtx := errgroup.WithContext(ctx)
 	group.SetLimit(8)
 	for index, uri := range uris {
+		if groupCtx.Err() != nil {
+			break
+		}
 		group.Go(func() error {
 			data, err := c.load(groupCtx, uri)
 			if err != nil {
