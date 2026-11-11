@@ -50,11 +50,19 @@ type pending struct {
 	running   bool
 }
 
+type claimReservation struct {
+	expected  []byte
+	claimed   bool
+	uncertain bool
+}
+
 type ownership struct {
 	expected    []byte
 	initialized bool
 	claimed     bool
+	uncertain   bool
 	fenced      bool
+	reservation claimReservation
 }
 
 // Publisher owns the presence token of one accepted Peer connection. Keep it
@@ -106,6 +114,7 @@ func generationKey(server string) kv.Key    { return kv.Key{"servers", server, "
 func leaseKey(server string) kv.Key         { return kv.Key{"servers", server, "lease"} }
 func peerKey(peer giznet.PublicKey) kv.Key  { return kv.Key{"peers", peer.String()} }
 func ownerKey(peer giznet.PublicKey) kv.Key { return kv.Key{"owners", peer.String()} }
+func claimKey(peer giznet.PublicKey) kv.Key { return kv.Key{"claims", peer.String()} }
 
 func (s *Service) leaseEntry() kv.Entry {
 	expires := time.Now().UTC().Add(leaseDuration + kv.ReadDelay(s.store))
@@ -258,6 +267,80 @@ func (s *Service) write(peer giznet.PublicKey, p *pending) {
 	}
 }
 
+// reserveClaim orders first claims before their initial (possibly stale) owner
+// read. A newer reservation fences every older pending claim, while a pending
+// reservation does not revoke the current owner's ordinary updates. Reservations
+// never expire or get deleted: an uncertain retry retains its original condition
+// and cannot replace a newer reservation. Only the per-Peer writer calls this.
+// Owner tokens remain opaque, including persisted legacy values. All concurrent
+// writers must participate; older binaries do not honor the reservation guard.
+func (s *Service) reserveClaim(ctx context.Context, publisher *Publisher, token []byte) error {
+	owner := &publisher.ownership
+	reservation := &owner.reservation
+	if reservation.claimed {
+		return nil
+	}
+	for range 8 {
+		mutation := kv.Mutation{
+			Conditions: []kv.Condition{
+				{Key: generationKey(s.server), Expected: []byte(s.generation)},
+				{Key: claimKey(publisher.peer), Expected: reservation.expected},
+			},
+			Entries: []kv.Entry{{Key: claimKey(publisher.peer), Value: token}},
+		}
+		result := s.applyTransition(ctx, mutation)
+		if result.err != nil {
+			reservation.uncertain = true
+			return result.err
+		}
+		if result.matched {
+			reservation.claimed = true
+			return nil
+		}
+		observed, err := s.observeRejection(ctx, mutation, result)
+		if err != nil || observed == nil {
+			return err
+		}
+		current := observed[1].Value
+		if bytes.Equal(current, token) {
+			reservation.claimed = true
+			return nil
+		}
+		if reservation.uncertain {
+			owner.fenced = true
+			return nil
+		}
+		// No owner has been read or claim attempted yet. A definite rejection
+		// can acquire a later place in the authority's reservation order.
+		reservation.expected = current
+	}
+	return errors.New("peerpresence: reservation contention")
+}
+
+// observeRejection reuses the coordinator's validated authority observations.
+// Singletons have no observations, so read all their guards once. Observations
+// only choose the next attempt; the next mutation still checks every guard.
+func (s *Service) observeRejection(ctx context.Context, mutation kv.Mutation, result transitionResult) ([]kv.GetResult, error) {
+	observed := result.observed
+	if len(observed) == 0 {
+		keys := make([]kv.Key, len(mutation.Conditions))
+		for i, condition := range mutation.Conditions {
+			keys[i] = condition.Key
+		}
+		observed = s.store.BatchGet(kv.WithPrimaryReads(ctx), keys)
+	}
+	for i, value := range observed {
+		if value.Err != nil && !errors.Is(value.Err, kv.ErrNotFound) {
+			return nil, value.Err
+		}
+		if i == 0 && (value.Err != nil || !bytes.Equal(value.Value, []byte(s.generation))) {
+			s.cancel()
+			return nil, nil
+		}
+	}
+	return observed, nil
+}
+
 // writeTransition claims a connection once, then fences every later transition
 // at the write authority. Retaining the original claim condition across errors
 // prevents an uncertain commit from reclaiming ownership after another Server.
@@ -266,7 +349,6 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 	if owner.fenced {
 		return nil
 	}
-	ctx = kv.WithPrimaryReads(ctx)
 	token := []byte(s.generation + "/" + publisher.token)
 	if !snapshot.Online && !owner.claimed {
 		// A coalesced disconnect cannot claim another connection's Peer. If
@@ -279,11 +361,20 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 			return err
 		}
 		if !bytes.Equal(current, token) {
-			return nil
+			current, err = s.readOwner(kv.WithPrimaryReads(ctx), peer)
+			if err != nil {
+				return err
+			}
+			if !bytes.Equal(current, token) {
+				return nil
+			}
 		}
 		owner.expected, owner.claimed = token, true
 	}
 	if !owner.initialized {
+		if err := s.reserveClaim(ctx, publisher, token); err != nil || owner.fenced || s.ctx.Err() != nil {
+			return err
+		}
 		expected, err := s.readOwner(ctx, peer)
 		if err != nil {
 			return err
@@ -291,7 +382,7 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 		owner.expected, owner.initialized = expected, true
 	}
 	value, _ := json.Marshal(record{Snapshot: snapshot, Server: s.server, Generation: s.generation})
-	for {
+	for range 8 {
 		mutation := kv.Mutation{
 			Conditions: []kv.Condition{
 				{Key: generationKey(s.server), Expected: []byte(s.generation)},
@@ -300,36 +391,39 @@ func (s *Service) writeTransition(ctx context.Context, publisher *Publisher, sna
 			Entries: []kv.Entry{{Key: peerKey(peer), Value: value}},
 		}
 		if !owner.claimed {
+			mutation.Conditions = append(mutation.Conditions, kv.Condition{Key: claimKey(peer), Expected: token})
 			mutation.Entries = append(mutation.Entries, kv.Entry{Key: ownerKey(peer), Value: token})
 		}
-		matched, err := s.applyTransition(ctx, mutation)
-		if err != nil {
-			return err
+		result := s.applyTransition(ctx, mutation)
+		if result.err != nil {
+			owner.uncertain = true
+			return result.err
 		}
-		if matched {
+		if result.matched {
 			owner.expected, owner.claimed = token, true
 			return nil
 		}
-		generation, err := s.store.Get(ctx, generationKey(s.server))
-		if errors.Is(err, kv.ErrNotFound) || (err == nil && !bytes.Equal(generation, []byte(s.generation))) {
-			s.cancel()
-			return nil
-		}
-		if err != nil {
+		observed, err := s.observeRejection(ctx, mutation, result)
+		if err != nil || observed == nil {
 			return err
 		}
-		current, err := s.readOwner(ctx, peer)
-		if err != nil {
-			return err
+		current := observed[1].Value
+		if bytes.Equal(current, token) {
+			// An earlier attempt committed but its response was lost. The
+			// owner token now suffices even if a newer reservation is pending.
+			owner.expected, owner.claimed = token, true
+			continue
 		}
-		if !bytes.Equal(current, token) {
-			owner.fenced = true
-			return nil
+		if !owner.claimed && !owner.uncertain && bytes.Equal(observed[2].Value, token) {
+			// A stale first owner read may recover only while our reservation
+			// remains current. The retry atomically rechecks that reservation.
+			owner.expected = current
+			continue
 		}
-		// An earlier attempt committed but its response was lost. Continue
-		// using the committed token rather than claiming the Peer again.
-		owner.expected, owner.claimed = token, true
+		owner.fenced = true
+		return nil
 	}
+	return errors.New("peerpresence: ownership contention")
 }
 
 func (s *Service) readOwner(ctx context.Context, peer giznet.PublicKey) ([]byte, error) {

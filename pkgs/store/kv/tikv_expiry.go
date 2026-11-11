@@ -17,18 +17,77 @@ func (s *TiKV) expiryKey(key Key, deadline int64) []byte {
 	return append(prefix, s.opts.encode(key)...)
 }
 
-// PurgeExpired processes at most limit entries from the internal expiry index.
-// It always uses strong reads and rechecks record deadlines transactionally,
-// preserving concurrent refreshes. The count reports index entries processed.
+// PurgeExpired removes at most limit entries from the internal expiry index.
+// It discovers candidates using configured reads and rechecks deadlines in a
+// fresh transaction, preserving concurrent refreshes. If a historical candidate
+// is already absent there, it discards the uncommitted batch and rediscovers
+// once on the primary. The count reports index entries removed by a successful
+// commit, so repeated calls can make progress before historical reads advance.
 // It does not advance the cluster's MVCC GC safe point. Registry-backed stores
 // run this maintenance automatically; direct borrowers may call it themselves.
 func (s *TiKV) PurgeExpired(ctx context.Context, limit int) (int, error) {
 	if limit <= 0 || limit > 1024 {
 		return 0, errors.New("kv: tikv expiry batch limit must be between 1 and 1024")
 	}
-	snapshot, err := s.snapshot(strongReadContext(ctx))
+	rediscoverMissing := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
+	prefix := tiKVExpiryPrefix()
+	for {
+		candidates, err := s.expiredCandidates(ctx, limit)
+		if err != nil || len(candidates) == 0 {
+			return 0, err
+		}
+		var removed int
+		var rediscover bool
+		_, err = s.update(ctx, func(tx *transaction.KVTxn) (bool, error) {
+			removed, rediscover = 0, false
+			for _, indexKey := range candidates {
+				if len(indexKey) < len(prefix)+8 {
+					return false, errors.New("kv: invalid tikv expiry key")
+				}
+				if _, err := tx.Get(ctx, indexKey); tikverr.IsErrNotFound(err) {
+					if rediscoverMissing {
+						rediscover = true
+						return false, nil
+					}
+					continue
+				} else if err != nil {
+					return false, err
+				}
+				deadline := int64(binary.BigEndian.Uint64(indexKey[len(prefix):]))
+				key := s.opts.decode(indexKey[len(prefix)+8:])
+				v, _, err := s.getTxn(ctx, tx, key)
+				if err != nil && !errors.Is(err, ErrNotFound) {
+					return false, err
+				}
+				if v.deadline == deadline && deadline <= time.Now().UnixNano() {
+					if err := tx.Delete(s.recordKey(key)); err != nil {
+						return false, err
+					}
+				}
+				if err := tx.Delete(indexKey); err != nil {
+					return false, err
+				}
+				removed++
+			}
+			return removed > 0, ctx.Err()
+		})
+		if err != nil {
+			return 0, err
+		}
+		if !rediscover {
+			return removed, nil
+		}
+		// Only a discarded transaction can reach this retry; never replay an
+		// uncertain commit. A second discovery cannot trigger another retry.
+		rediscoverMissing = false
+		ctx = WithPrimaryReads(ctx)
+	}
+}
+
+func (s *TiKV) expiredCandidates(ctx context.Context, limit int) ([][]byte, error) {
+	snapshot, err := s.snapshot(ctx)
 	if err != nil {
-		return 0, tiKVError("expiry snapshot", err)
+		return nil, tiKVError("expiry snapshot", err)
 	}
 	prefix := tiKVExpiryPrefix()
 	end := binary.BigEndian.AppendUint64(bytes.Clone(prefix), uint64(time.Now().UnixNano()))
@@ -36,56 +95,21 @@ func (s *TiKV) PurgeExpired(ctx context.Context, limit int) (int, error) {
 	snapshot.SetScanBatchSize(max(2, min(limit, 256)))
 	it, err := snapshot.Iter(prefix, end)
 	if err != nil {
-		return 0, tiKVError("scan expiry", err)
+		return nil, tiKVError("scan expiry", err)
 	}
+	defer it.Close()
 	var candidates [][]byte
 	for it.Valid() && len(candidates) < limit {
 		if err := ctx.Err(); err != nil {
-			it.Close()
-			return 0, err
+			return nil, err
 		}
 		candidates = append(candidates, bytes.Clone(it.Key()))
 		if len(candidates) == limit {
 			break
 		}
 		if err := it.Next(); err != nil {
-			it.Close()
-			return 0, tiKVError("scan expiry next", err)
+			return nil, tiKVError("scan expiry next", err)
 		}
 	}
-	it.Close()
-	if len(candidates) == 0 {
-		return 0, ctx.Err()
-	}
-	_, err = s.update(ctx, func(tx *transaction.KVTxn) (bool, error) {
-		for _, indexKey := range candidates {
-			if len(indexKey) < len(prefix)+8 {
-				return false, errors.New("kv: invalid tikv expiry key")
-			}
-			if _, err := tx.Get(ctx, indexKey); tikverr.IsErrNotFound(err) {
-				continue
-			} else if err != nil {
-				return false, err
-			}
-			deadline := int64(binary.BigEndian.Uint64(indexKey[len(prefix):]))
-			key := s.opts.decode(indexKey[len(prefix)+8:])
-			v, _, err := s.getTxn(ctx, tx, key)
-			if err != nil && !errors.Is(err, ErrNotFound) {
-				return false, err
-			}
-			if v.deadline == deadline && deadline <= time.Now().UnixNano() {
-				if err := tx.Delete(s.recordKey(key)); err != nil {
-					return false, err
-				}
-			}
-			if err := tx.Delete(indexKey); err != nil {
-				return false, err
-			}
-		}
-		return true, ctx.Err()
-	})
-	if err != nil {
-		return 0, err
-	}
-	return len(candidates), nil
+	return candidates, ctx.Err()
 }

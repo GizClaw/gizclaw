@@ -128,6 +128,9 @@ func (a *peerDeletionAdapters) PeerMemoryAbsent(context.Context, string) (bool, 
 func (a *peerDeletionAdapters) SnapshotPeerSocial(context.Context, string) (social.PeerSnapshot, error) {
 	return social.PeerSnapshot{PublicKey: a.publicKey}, nil
 }
+func (a *peerDeletionAdapters) PreparePeerSocialRetirement(ctx context.Context, owner string) (social.PeerSnapshot, error) {
+	return a.SnapshotPeerSocial(ctx, owner)
+}
 func (a *peerDeletionAdapters) RetirePeerSocial(context.Context, social.PeerSnapshot) (social.PeerRetirementResult, error) {
 	return social.PeerRetirementResult{}, nil
 }
@@ -639,5 +642,62 @@ func TestAutomaticPeerRecoveryRequiresExactLegacyProjectionAndHomeProof(t *testi
 				t.Fatal("eligibility probe mutated task or domain data")
 			}
 		})
+	}
+}
+
+func TestPeerRetirementPlanRetriesStaleGenerationAtPrimary(t *testing.T) {
+	ctx, key := t.Context(), giznet.PublicKey{99}
+	authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	writer := &Server{Store: authority, ServerPublicKey: giznet.PublicKey{100}}
+	saveTestPeer(t, writer, key, apitypes.DeviceInfo{})
+	old, err := authority.Get(ctx, peerKey(key.String()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, peerKey(key.String()), old); err != nil {
+		t.Fatal(err)
+	}
+	name := "newer-generation"
+	current, err := writer.putInfo(ctx, key, apitypes.DeviceInfo{Name: &name})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.DeleteSelf(ctx, key); err != nil {
+		t.Fatal(err)
+	}
+	claim := claimPeerDeletion(t, PendingDeletionSource(authority), time.Now().Add(time.Second))
+	store := newStalePeerStore(t, authority, replica)
+	adapters := &peerDeletionAdapters{publicKey: key.String()}
+	handler := DeletionHandler{Server: &Server{Store: store, ServerPublicKey: writer.ServerPublicKey}, Social: adapters, Workspaces: adapters}
+	plan, err := handler.loadOrCreatePlan(ctx, claim, key)
+	if err != nil || plan.Peer.Device.Name == nil || *plan.Peer.Device.Name != name || !plan.Peer.UpdatedAt.Equal(current.UpdatedAt) {
+		t.Fatalf("stale plan accepted: %+v %v", plan, err)
+	}
+	if store.attempts.Load() != 2 || store.rejected.Load() != 1 || store.ordinary.Load() == 0 || store.primary.Load() == 0 {
+		t.Fatalf("plan fallback attempts=%d rejected=%d reads=%d/%d", store.attempts.Load(), store.rejected.Load(), store.ordinary.Load(), store.primary.Load())
+	}
+	store.ordinary.Store(0)
+	store.primary.Store(0)
+	raw, err := handler.planPeer(ctx, plan, key)
+	if err != nil || peerFingerprint(raw) != plan.PeerFingerprint || store.ordinary.Load() != 1 || store.primary.Load() != 1 {
+		t.Fatalf("known-plan fallback err=%v reads=%d/%d", err, store.ordinary.Load(), store.primary.Load())
+	}
+	if adapters.sessionCalls != 0 || adapters.bindingCalls != 0 || adapters.quiesceCalls != 0 {
+		t.Fatal("plan retry performed cleanup side effects")
+	}
+	data, err := authority.Get(ctx, peerRetirementPlanKey(claim.Record.DeletionID))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, peerRetirementPlanKey(claim.Record.DeletionID), data); err != nil {
+		t.Fatal(err)
+	}
+	store.ordinary.Store(0)
+	store.primary.Store(0)
+	if _, err := handler.tryLoadOrCreatePlan(ctx, claim, key); err != nil {
+		t.Fatal(err)
+	}
+	if store.ordinary.Load() != 2 || store.primary.Load() != 1 {
+		t.Fatalf("existing-plan observations repeated: reads=%d/%d", store.ordinary.Load(), store.primary.Load())
 	}
 }

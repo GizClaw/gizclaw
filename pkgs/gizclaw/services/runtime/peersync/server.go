@@ -119,7 +119,10 @@ func (s *Server) loadCheckpoint(ctx context.Context, owner giznet.PublicKey, tim
 	if timestamp == 0 || timestamp < s.clock().Add(-retention).UnixMilli() {
 		return checkpoint{}, false, nil
 	}
-	data, err := kv.WithStrongReads(s.Store).Get(ctx, checkpointKey(owner, timestamp))
+	data, err := s.Store.Get(ctx, checkpointKey(owner, timestamp))
+	if err != nil {
+		data, err = s.Store.Get(kv.WithPrimaryReads(ctx), checkpointKey(owner, timestamp))
+	}
 	if errors.Is(err, kv.ErrNotFound) {
 		return checkpoint{}, false, nil
 	}
@@ -139,7 +142,7 @@ func (s *Server) saveCheckpoint(ctx context.Context, owner giznet.PublicKey, val
 		return 0, err
 	}
 	key := stateKey(owner, "head")
-	store := kv.WithStrongReads(s.Store)
+	store := s.Store
 	for range 32 {
 		if err := ctx.Err(); err != nil {
 			return 0, err
@@ -198,6 +201,7 @@ func (s *Server) saveCheckpoint(ctx context.Context, owner giznet.PublicKey, val
 		if committed {
 			return timestamp, nil
 		}
+		ctx = kv.WithPrimaryReads(ctx)
 	}
 	return 0, errors.New("peersync: checkpoint contention; retry synchronization")
 }

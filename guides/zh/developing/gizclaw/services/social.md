@@ -21,7 +21,7 @@ services/social/
 
 Contact 使用 Server 本地 SQL 连接池中的 `contacts` 业务表。ID、owner、名称、显示名、手机号、规范化手机号、时间和创建标识分别保存为列；数据库约束保证同一 owner 下名称与规范化手机号唯一。按 ID 或 owner/name 直接查询，列表使用 `(owner_public_key, id)` 索引进行游标分页，一次读取完整记录。启动阶段创建表和索引。Peer 清理快照保留创建标识，条件删除不会误删同 ID 重建后的联系人。
 
-每个 owner Peer 最多 8 个联系人；上限由 `contact.PeerContactLimit` 写死，与设备端联系人数组和离线白名单容量一致，不通过 RuntimeProfile 或配置调整。创建时在 owner 锁内先计数再写入，同一 Server 上的并发创建不会超过上限。已满时 `server.contact.create` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `CONTACT_LIMIT_REACHED`；Peer HTTP、Admin HTTP 创建和 Resource apply 新建返回 `409 Conflict` 与错误码 `CONTACT_LIMIT_REACHED`，不写入任何数据。更新与删除不受影响。上限生效前已超过 8 个的存量联系人会保留，只阻止继续新增，直到删除到 8 个以下。
+每个 owner Peer 最多 8 个联系人；上限由 `contact.PeerContactLimit` 写死，与设备端联系人数组和离线白名单容量一致，不通过 RuntimeProfile 或配置调整。Creation counts and inserts in a SQL transaction holding the durable owner row, so service instances sharing that database serialize admissions and cannot exceed the cap. 已满时 `server.contact.create` RPC 返回 `RESOURCE_EXHAUSTED`（8），reason 为 `CONTACT_LIMIT_REACHED`；Peer HTTP、Admin HTTP 创建和 Resource apply 新建返回 `409 Conflict` 与错误码 `CONTACT_LIMIT_REACHED`，不写入任何数据。更新与删除不受影响。上限生效前已超过 8 个的存量联系人会保留，只阻止继续新增，直到删除到 8 个以下。
 
 名称或规范化号码冲突时，Contact create/put RPC 返回 `ALREADY_EXISTS`（6），reason 为
 `CONTACT_ALREADY_EXISTS`，保留原联系人，不将该业务冲突报告为内部错误。
@@ -227,7 +227,7 @@ Downlink passthrough uses GenX `audio/opus; passthrough=1` chunks with a fresh `
 - 删除 Friend Group（`friend_group.delete`）。
 - 从 Friend Group 移除成员（`members.delete`、Peer 退休）。
 
-Social 服务在一个 `BatchMutate` 中提交关系变化（binding 被替换时同时递增 `generation`），不向任何 Peer 或 Server 推送取消信号。终止由 SFU runtime 自己完成：它按 `services.sfu.recheck_interval` 周期重读共享 Social KV 中的 binding，成员不再有效、generation 不匹配或 resolver 出错时立即 fail closed，断开 participant 并结束 session。本机与异机 Peer 行为一致，撤权是最终一致的，每次刷新最多等待 `min(recheck_interval, 2s)`，停止转发的延迟上限为刷新周期加请求超时，默认 7 秒。刷新错误或超时立即停止转发，不无限延用旧权限。BOS／EOS 使用连接内按运行版本缓存、后台刷新的权限结果；Opus packet 检查本地音频流、权限有效期与 AgentHost 运行版本，不查询数据库。Workspace deletion cleaner 的异步 quiesce 继续负责最终释放。
+Social 服务在一个 `BatchMutate` 中提交关系变化（binding 被替换时同时递增 `generation`），不向任何 Peer 或 Server 推送取消信号。终止由 SFU runtime 自己完成：它按 `services.sfu.recheck_interval` 周期重读共享 Social KV 中的 binding，成员不再有效、generation 不匹配或 resolver 出错时立即 fail closed，断开 participant 并结束 session。Local and remote Peers behave identically. Binding and membership reads follow the configured replica policy. Revocation visibility includes the store's historical delay or replication lag, followed by the refresh interval and a request timeout of `min(recheck_interval, 2s)`; the latter two add seven seconds by default. Redis replica lag has no client-enforced bound.刷新错误或超时立即停止转发，不无限延用旧权限。BOS／EOS 使用连接内按运行版本缓存、后台刷新的权限结果；Opus packet 检查本地音频流、权限有效期与 AgentHost 运行版本，不查询数据库。Workspace deletion cleaner 的异步 quiesce 继续负责最终释放。
 
 ### 多 Server materialize
 
@@ -286,7 +286,7 @@ flowchart LR
 
 新增 social 能力时，应先判断它属于 contact、friend 还是 friend group；只有形成新的独立资源与生命周期时才增加新的子 package。
 
-Contact mutation 与 retirement 按 owner 协调。Friend retirement 快照只持有目标 Peer admission gate，双向关系变化仍按 relation key 串行。Friend Group 快照使用相同的目标 Peer admission 边界；删除群时按 canonical 顺序获取 owner/全部 member Peer 集合及 group lock。退休扫描不会停止与目标 Peer 无关的关系或群。
+Contact mutation and retirement serialize through a durable SQL owner row; preparation fences admissions and captures Contact identities in one transaction. Friend and Group preparation persist permanent Peer admission fences in the same atomic roots as their relationship mutations, then verify the configured reader has observed the fence before capturing inventory. Admissions check those fences atomically, including in-flight creation commits. Ordinary snapshots remain read-only. Captured group memberships carry creation identity, local name, role and Workspace identity through every retirement retry. Group deletion retains canonical ordered participant and group locks; unrelated relationships continue independently.
 
 ## 共享查询索引
 
@@ -299,5 +299,7 @@ Friend 与 Friend Group 通过 Workspace ID 和系统生成的规范名称直接
 邀请令牌默认有效期为 `socialutil.DefaultInviteTokenTTL`（5 分钟），设备 RPC 只使用这个默认值：已有有效令牌时原样返回，否则新建。`friend.Server.CreateFriendInviteTokenWithTTL` 与 `friendgroup.Server.CreateFriendGroupInviteTokenWithTTL` 额外接受调用方给出的有效期，范围由 `socialutil.MinInviteTokenTTL`（1 分钟）与 `socialutil.MaxInviteTokenTTL`（7 天）限定，越界返回 `socialutil.ErrInvalidInviteTokenTTL`。带有效期时新建令牌按该值过期；已有有效令牌保留原值，只把有效期延长到当前时间加请求值，从不缩短，KV deadline 随之更新。Peer HTTP 的 `ttl_seconds` 使用这条路径。
 
 Peer 的好友和群组分页另有按 owner 隔离的有序索引，保存转义后的关系／群组 ID。创建、加入、退出和删除在同一 mutation 中维护该索引。分页将游标和 `limit + 1` 下推存储，仅加载最多 `limit` 条详细记录；返回游标仍为原始 ID。遇到并发删除时允许当前页少于 limit，游标按已读取的索引位置前进，不回退全量集合读取。
+
+Named Group mutations retain their first resolved canonical ID across bounded conflict retries; name reuse cannot retarget an in-flight operation. Invitation renewal recomputes the token and maximum expiry from each CAS observation, preserving a concurrent rotation or longer lifetime. Group invitations also compare Group lifecycle and revision guards. Friend creation recovery proves its current durable decision before materializing SQL; compensation is tied to the exact retired Workspace. Cancellation retains that Workspace's immutable owner and uses it for scoped SQL deletion. Repeated cleanup requires the matching cancellation receipt; a missing local SQL row alone cannot complete shared recovery. Receipt success conditionally proves current relationship absence, and postwrite projections must match the committed Workspace incarnation.
 
 Peer 只退出别人拥有的群时，由共享 membership adapter 移除自身成员关系；其他成员和该群 Workspace 保留，不把它当作当前 Peer 的子资源清理。

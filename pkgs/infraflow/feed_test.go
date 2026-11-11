@@ -352,3 +352,80 @@ func TestGeneratedReadAPIIsAnonymousAndRejectsUnboundedQueries(t *testing.T) {
 		t.Fatalf("generated preflight: %+v %v", preflight, err)
 	}
 }
+
+type laggingFeedStore struct {
+	kv.Store
+	replica     kv.Store
+	reads       []bool
+	mutations   int
+	commitError error
+}
+
+func (s *laggingFeedStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	primary := kv.WithPrimaryReads(ctx) == ctx
+	s.reads = append(s.reads, primary)
+	if primary {
+		return s.Store.Get(ctx, key)
+	}
+	return s.replica.Get(ctx, key)
+}
+
+func (s *laggingFeedStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.mutations++
+	matched, err := s.Store.ApplyMutation(ctx, mutation)
+	if err == nil && matched && s.commitError != nil {
+		return false, s.commitError
+	}
+	return matched, err
+}
+
+func TestFeedLearnerReadsAndPrimaryCASFallback(t *testing.T) {
+	writer, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	end := time.Now().Truncate(Window)
+	for _, store := range []kv.Store{writer, replica} {
+		seed, err := New(store)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := seed.Append(t.Context(), fixtureFrame(end.Add(-Window), 1)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	seed, err := New(writer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seed.Append(t.Context(), fixtureFrame(end, 1)); err != nil {
+		t.Fatal(err)
+	}
+	store := &laggingFeedStore{Store: writer, replica: replica}
+	feed, err := New(store)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := feed.Append(t.Context(), fixtureFrame(end.Add(Window), 1)); err != nil {
+		t.Fatal(err)
+	}
+	if len(store.reads) != 2 || store.reads[0] || !store.reads[1] || store.mutations != 2 {
+		t.Fatalf("append reads=%v mutations=%d", store.reads, store.mutations)
+	}
+	store.reads = nil
+	page, err := feed.Read(t.Context(), infraapi.Prod, "")
+	if err != nil || page.Cursor != strconvIDTest(end.Add(-Window).UnixMilli()) {
+		t.Fatalf("learner feed read = %+v, %v", page, err)
+	}
+	for _, primary := range store.reads {
+		if primary {
+			t.Fatal("feed load bypassed learner")
+		}
+	}
+	store.commitError = errors.New("commit reply lost")
+	store.mutations = 0
+	if err := feed.Append(t.Context(), fixtureFrame(end.Add(2*Window), 1)); !errors.Is(err, store.commitError) {
+		t.Fatalf("uncertain append = %v", err)
+	}
+	// One stale CAS may precede the uncertain commit; that commit is not replayed.
+	if store.mutations != 2 {
+		t.Fatalf("uncertain append mutations = %d", store.mutations)
+	}
+}

@@ -550,7 +550,7 @@ ports are exposed. Tests verify placement rules and every Region's leader/Learne
 identities through PD. Local runs retain startup, cluster, test and topology
 diagnostics in the evidence directory.
 
-测试先验证跨 client 原子 CRUD、batch、deadline、条件创建、CAS、集合与容量限制、prefix 和 borrowed lifecycle。地区测试在 seeded 数据已进入历史快照后切断中心到 Learner 的 Raft 流，保持查询通路可用，同时确认普通读仍返回旧 assignment、active Peer 和已撤销 key。实际 `peerroute`、Peer 删除 handler、API key service 必须通过强读观察首次 claim、assignment version 刷新、pending-deletion 围栏、永久 tombstone、撤权和 owner retirement。RPC 观测还要求成功的陈旧查询落在地区 Learner、强读落在中心 leader。另一个测试二进制验证有序集合边界、并发容量、跨 key write skew、过期记录物理回收及清理期间的并发刷新。
+The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Production Peer, route, API key and collection reads must use the regional Learner and retain the historical state. Rejected version conditions, failed first-assignment lookups and inconsistent post-write observations exercise bounded primary fallback without weakening ownership, retirement fences or atomic writes. Resuming replication verifies eventual visibility. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 
 Artifacts 写入 ignored `.testbench/tikv-*`；退出时只清理本次 Compose project。该 gate 验证实际 TiKV 的一致性路径，不覆盖中心多数副本故障、WAN 性能、重启持久性、外部子资源清理或完整 Edge ingress transport。
 
@@ -596,7 +596,23 @@ bash tests/gizclaw-e2e/run_tikv_contention_tests.sh
 
 Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各配置 1 GiB tmpfs，隔离本机 Docker 存储 I/O 停顿；通过 `tikv-pd.toml` 将 [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) 设为 15 秒。`tikv-test.toml` 将预留空间设为 64 MiB、Raft 预留空间设为 32 MiB、block cache 设为 128 MiB，TiKV 容器各有 4 GiB 内存上限，匹配小型夹具容量。仍运行真实 RocksDB、Raft 和 Learner 数据复制。数据只在本次测试内有效；该夹具不验收 SSD 性能或 TiKV/PD 重启持久性。
 
-`TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
+`TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。During the freeze, first claims through both Edges must preserve the correct home. A newly committed assignment absent from the historical view may return a routing miss through the other Edge; it cannot be reassigned. Cross-Edge roaming uses seeded, already-visible assignments and must succeed with the original home. After SDK key revocation, HTTP through both Edges still authenticates against the retained snapshot. After SDK deletion of a Peer on each home, primary diagnostics verify the committed deletion fences while Learner controls retain the old active records. Task discovery also uses historical reads. After replication resumes, the test waits for discovery and verifies primary tombstones and home-local Workspace/owner-binding cleanup, then waits for those cleanup writes to enter the historical view. Both Edges must then reject revoked keys and deleted-Peer reconnects; fixed home assignments remain retained.测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
+
+This fixed entrypoint runs the provider-free native SDK lag gate and Edge connector-isolation checks. Its coverage cannot be changed through an environment selector:
+
+```bash
+bash tests/gizclaw-e2e/run_tikv_learner_lag_tests.sh
+```
+
+The separate fixed Docker Giztest entry exercises stale reads and guarded updates through two Servers and Edges:
+
+```bash
+bash tests/gizclaw-e2e/run_tikv_usage_giztest_tests.sh
+```
+
+It runs seven committed `tikv.usage.*.giztest.yaml` documents serially: readonly queries/reconnects, invitation renewal, Group incarnation changes, Peer retirement, Friend incarnation/recovery, fresh-key revocation, and Presence claim ordering. The fixture uses a two-second history offset, one-second resolved-ts advancement on both TiKV nodes, and bounded visibility checks. Build overlays expose private request gates and actual-service/SQL diagnostics inside the isolated Docker network. They retain real TiKV data and responses; diagnostic operations are identified separately from tested device RPC/HTTP. The full multi-server entry retains its SDK and SFU coverage. Reports include the exact overlay/source manifest and Giztest step results; no environment variable can truncate these dedicated suites.
+
+The fresh-key case retains an actual SDK cached timestamp in the test build and waits for a successful Learner read at that snapshot before creating the target keys. Both real revocation paths must then observe a native missing response at the retained read version. Fresh writer timestamps, SDK read validation and GC checks remain active; fixture reset restores the live cache accessor. This keeps `DataIsNotReady` fallback distinct from the missing-target recovery being tested.
 
 `sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频；`sfu.friend-group.members-in-room` 与 `sfu.presence.cross-server` 不收发音频。这些场景都不需要语音服务凭据，在默认 multi-server gate 中运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
 
@@ -2471,7 +2487,7 @@ GIZCLAW_TEST_MEM0_ENDPOINT=http://127.0.0.1:8000 \
 ## 跨 Server 召集通知 Docker 验收
 
 ```sh
-GIZCLAW_E2E_SOCIAL_PING_ONLY=1 GIZCLAW_E2E_TEST_RUN='^TestSocialPingCrossServer$' bash tests/gizclaw-e2e/run_multi_server_tests.sh
+bash tests/gizclaw-e2e/run_social_ping_tests.sh
 ```
 
 在仓库根目录运行；不需要 Provider credential。沿用双 Server、双 Edge、共享 Social KV

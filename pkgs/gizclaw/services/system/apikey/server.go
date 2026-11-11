@@ -81,10 +81,9 @@ type Server struct {
 	random     io.Reader
 }
 
-// NewServer creates an API key service whose authority reads always use a
-// strong view of store, including when ordinary reads allow replica lag.
+// NewServer creates an API key service that uses the configured read policy.
 func NewServer(store kv.Store) *Server {
-	return &Server{Store: kv.WithStrongReads(store), now: time.Now, random: rand.Reader}
+	return &Server{Store: store, now: time.Now, random: rand.Reader}
 }
 
 // Create issues one API key for a canonical device owner.
@@ -105,7 +104,7 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		return Created{}, err
 	}
 	defer release()
-	if _, err := kv.WithStrongReads(s.Store).Get(ctx, retiredKey(owner)); err == nil {
+	if _, err := s.Store.Get(ctx, retiredKey(owner)); err == nil {
 		return Created{}, ErrOwnerRetired
 	} else if !errors.Is(err, kv.ErrNotFound) {
 		return Created{}, err
@@ -143,7 +142,7 @@ func (s *Server) Create(ctx context.Context, owner, displayName string, manageAP
 		if created {
 			return Created{Key: item, Secret: secret}, nil
 		}
-		if _, err := kv.WithStrongReads(s.Store).Get(ctx, retiredKey(owner)); err == nil {
+		if _, err := s.Store.Get(kv.WithPrimaryReads(ctx), retiredKey(owner)); err == nil {
 			return Created{}, ErrOwnerRetired
 		} else if !errors.Is(err, kv.ErrNotFound) {
 			return Created{}, err
@@ -157,7 +156,7 @@ func (s *Server) Authenticate(ctx context.Context, secret string) (Principal, er
 	if s == nil || s.Store == nil || !validSecret(secret) {
 		return Principal{}, ErrInvalidAPIKey
 	}
-	name, err := kv.WithStrongReads(s.Store).Get(ctx, secretKey(secret))
+	name, err := s.Store.Get(ctx, secretKey(secret))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
 			return Principal{}, ErrInvalidAPIKey
@@ -211,7 +210,7 @@ func (s *Server) ListOwner(ctx context.Context, owner, cursor string, limit int)
 		return ListResult{}, err
 	}
 	defer release()
-	names, err := kv.WithStrongReads(s.Store).ListMembers(ctx, ownerPrefix(owner))
+	names, err := s.Store.ListMembers(ctx, ownerPrefix(owner))
 	if err != nil {
 		return ListResult{}, err
 	}
@@ -300,10 +299,24 @@ func (s *Server) CleanupPeer(ctx context.Context, owner string) error {
 	}
 	defer release()
 	// Fence concurrent creators on every Server before discovering credentials.
-	if err := s.Store.Set(ctx, retiredKey(owner), []byte("retired")); err != nil {
+	fence, err := randomText(rand.Reader, 32)
+	if err != nil {
 		return err
 	}
-	names, err := kv.WithStrongReads(s.Store).ListMembers(ctx, ownerPrefix(owner))
+	if err := s.Store.Set(ctx, retiredKey(owner), []byte(fence)); err != nil {
+		return err
+	}
+	// Discovery must observe the retirement fence so keys created before it
+	// cannot be omitted while the learner catches up. A fresh value also fences
+	// replayed cleanup attempts whose earlier retirement marker is visible.
+	observed, err := s.Store.Get(ctx, retiredKey(owner))
+	if err != nil && !errors.Is(err, kv.ErrNotFound) {
+		return err
+	}
+	if string(observed) != fence {
+		ctx = kv.WithPrimaryReads(ctx)
+	}
+	names, err := s.Store.ListMembers(ctx, ownerPrefix(owner))
 	if err != nil {
 		return err
 	}
@@ -331,15 +344,35 @@ func (s *Server) revoke(ctx context.Context, owner, name string) error {
 		return err
 	}
 	defer release()
-	item, err := s.load(ctx, name)
-	if err != nil {
-		return err
+	primaryFallback := false
+	for range 8 {
+		item, raw, err := s.loadRecord(ctx, name)
+		if err != nil {
+			if errors.Is(err, ErrNotFound) && !primaryFallback {
+				ctx = kv.WithPrimaryReads(ctx)
+				primaryFallback = true
+				continue
+			}
+			return err
+		}
+		if item.Owner != owner {
+			return ErrNotFound
+		}
+		applied, err := s.Store.ApplyMutation(ctx, kv.Mutation{
+			Conditions:    []kv.Condition{{Key: recordKey(name), Expected: raw}},
+			DeleteKeys:    []kv.Key{recordKey(name), secretKey(item.APIKey)},
+			RemoveMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: []string{name}}},
+		})
+		if err != nil {
+			return err
+		}
+		if applied {
+			return nil
+		}
+		ctx = kv.WithPrimaryReads(ctx)
+		primaryFallback = true
 	}
-	if item.Owner != owner {
-		return ErrNotFound
-	}
-	_, err = s.Store.ApplyMutation(ctx, kv.Mutation{DeleteKeys: []kv.Key{recordKey(name), secretKey(item.APIKey)}, RemoveMembers: []kv.SetMembers{{Key: ownerPrefix(owner), Members: []string{name}}}})
-	return err
+	return errors.New("api key: concurrent credential update")
 }
 
 func (s *Server) randomParts() (string, string, error) {
@@ -357,21 +390,26 @@ func (s *Server) randomParts() (string, string, error) {
 }
 
 func (s *Server) load(ctx context.Context, name string) (Key, error) {
-	data, err := kv.WithStrongReads(s.Store).Get(ctx, recordKey(name))
+	item, _, err := s.loadRecord(ctx, name)
+	return item, err
+}
+
+func (s *Server) loadRecord(ctx context.Context, name string) (Key, []byte, error) {
+	data, err := s.Store.Get(ctx, recordKey(name))
 	if err != nil {
 		if errors.Is(err, kv.ErrNotFound) {
-			return Key{}, ErrNotFound
+			return Key{}, nil, ErrNotFound
 		}
-		return Key{}, err
+		return Key{}, nil, err
 	}
 	var item Key
 	if err := json.Unmarshal(data, &item); err != nil {
-		return Key{}, fmt.Errorf("api key: malformed record %q: %w", name, err)
+		return Key{}, nil, fmt.Errorf("api key: malformed record %q: %w", name, err)
 	}
 	if item.Name != name || item.Owner == "" || !validSecret(item.APIKey) {
-		return Key{}, fmt.Errorf("api key: malformed record %q", name)
+		return Key{}, nil, fmt.Errorf("api key: malformed record %q", name)
 	}
-	return item, nil
+	return item, data, nil
 }
 
 func (s *Server) nowOrDefault() time.Time {

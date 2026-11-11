@@ -9,7 +9,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/metrics"
 )
 
@@ -116,7 +115,7 @@ func (p *Processor) Start(parent context.Context) {
 	if p.started || len(p.registry.sources()) == 0 {
 		return
 	}
-	ctx, cancel := context.WithCancel(kv.WithPrimaryReads(parent))
+	ctx, cancel := context.WithCancel(parent)
 	p.cancel = cancel
 	p.done = make(chan struct{})
 	p.started = true
@@ -245,7 +244,6 @@ func (p *Processor) worker(ctx context.Context, dispatch <-chan dispatchItem) {
 }
 
 func (p *Processor) process(ctx context.Context, item dispatchItem) {
-	ctx = kv.WithPrimaryReads(ctx)
 	if item.failed != nil {
 		task, recovered := p.recoverFailed(ctx, item)
 		if !recovered {

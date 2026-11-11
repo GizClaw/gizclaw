@@ -3,6 +3,7 @@ package friendgroup
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -45,6 +46,9 @@ func (s *Server) readPeerGroupCapacity(ctx context.Context, peerID string) ([]by
 	if err != nil {
 		return nil, err
 	}
+	if err := rejectPeerGroupRetirement(ctx, belongs, peerID); err != nil {
+		return nil, err
+	}
 	revision, err := belongs.Get(ctx, peerGroupRevisionKey(peerID))
 	if errors.Is(err, kv.ErrNotFound) {
 		revision = nil
@@ -66,7 +70,9 @@ func (s *Server) readPeerGroupCapacity(ctx context.Context, peerID string) ([]by
 // the belongs store.
 func (s *Server) admitPeerToGroup(mutation *kv.Mutation, belongPrefix kv.Key, peerID string, revision []byte) kv.Key {
 	key := s.relationshipKey(belongPrefix, peerGroupRevisionKey(peerID))
-	mutation.Conditions = append(mutation.Conditions, kv.Condition{Key: key, Expected: revision})
+	fence := socialutil.PeerRetirementCondition(peerID)
+	fence.Key = s.relationshipKey(belongPrefix, fence.Key)
+	mutation.Conditions = append(mutation.Conditions, kv.Condition{Key: key, Expected: revision}, fence)
 	mutation.Entries = append(mutation.Entries, kv.Entry{Key: key, Value: []byte(uuid.NewString())})
 	return key
 }
@@ -99,12 +105,16 @@ func (s *Server) removeMember(ctx context.Context, friendGroupID, peerID string,
 	if err != nil {
 		return err
 	}
+	relationships, err := s.relationshipStore()
+	if err != nil {
+		return err
+	}
 	// Resolve the transaction boundary and the key prefixes from the member
 	// and belong stores themselves, exactly as createMember does. Reading the
 	// prefixes off the configured Server fields instead would let a wiring
 	// that binds those stores elsewhere delete keys nobody ever wrote, leaving
 	// the membership in place and the removed Peer still able to talk.
-	guard, err := s.readGroupMutation(ctx, friendGroupID, members, belongs)
+	guard, err := s.readGroupMutation(ctx, friendGroupID, members, belongs, relationships)
 	if err != nil {
 		return err
 	}
@@ -112,13 +122,40 @@ func (s *Server) removeMember(ctx context.Context, friendGroupID, peerID string,
 	memberKey := s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID))
 	memberData, err := guard.store.Get(ctx, memberKey)
 	if errors.Is(err, kv.ErrNotFound) {
+		if _, retirement := peerRetirementFromContext(ctx); retirement {
+			return s.provePeerRetirementMemberAbsent(ctx, friendGroupID, peerID)
+		}
+		// current was just observed by this operation. Confirm a missing
+		// replica row before claiming that its removal has completed.
+		memberData, err = guard.store.Get(kv.WithPrimaryReads(ctx), memberKey)
+	}
+	if errors.Is(err, kv.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
+	var member friendGroupMemberRecord
+	if err := json.Unmarshal(memberData, &member); err != nil {
+		return err
+	}
+	if err := member.validate(); err != nil {
+		return err
+	}
+	if member.FriendGroupID != friendGroupID || member.PeerPublicKey != peerID {
+		return errors.New("social: Friend Group member identity mismatch")
+	}
+	if member.FriendGroupName != socialutil.StringValue(current.FriendGroupName) || member.Role != socialutil.GroupRole(current) ||
+		!member.CreatedAt.Equal(socialutil.TimeValue(current.CreatedAt)) || !member.UpdatedAt.Equal(socialutil.TimeValue(current.UpdatedAt)) {
+		return ErrGroupChanged
+	}
+	conditions, err := s.peerRetirementMutationConditions(ctx, guard, friendGroupID, prefixes[2], &member)
+	if err != nil {
+		return err
+	}
+	conditions = append(conditions, kv.Condition{Key: memberKey, Expected: memberData})
 	changed, err := guard.apply(ctx, kv.Mutation{
-		Conditions:           []kv.Condition{{Key: memberKey, Expected: memberData}},
+		Conditions:           conditions,
 		DeleteKeys:           []kv.Key{s.relationshipKey(prefixes[0], socialutil.GroupMemberKey(friendGroupID, peerID)), s.relationshipKey(prefixes[1], socialutil.GroupBelongKey(peerID, friendGroupID)), s.relationshipKey(prefixes[1], socialutil.GroupNameKey(peerID, socialutil.StringValue(current.FriendGroupName)))},
 		RemoveMembers:        []kv.SetMembers{{Key: s.relationshipKey(prefixes[0], memberCollectionKey(friendGroupID)), Members: []string{peerID}}, {Key: s.relationshipKey(prefixes[1], belongCollectionKey(peerID)), Members: []string{friendGroupID}}},
 		RemoveOrderedMembers: []kv.SetMembers{{Key: s.relationshipKey(prefixes[1], belongPageKey(peerID)), Members: []string{socialutil.EscapeStoreSegment(friendGroupID)}}},

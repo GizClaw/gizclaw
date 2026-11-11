@@ -10,4 +10,4 @@
 
 Client activation 会在 Manager 发布 connection 之前执行 claim 或校验。归属其他 Server 的 direct 或 Edge-tunneled connection 会在 RPC、HTTP、packet、audio、Agent 或 PeerRun 工作开始前被拒绝。Route assignment、在线 connection 与持久化 Peer 仍是三个独立状态；存在 assignment 不表示 owner Server 或 Peer 当前可达。
 
-Assignment 与 Peer 准入/删除围栏使用 [KV 强读](../../../stores/kv)，即使 connector 配置了 Redis 副本或 TiKV 地区 Learner 的陈旧读。Route resolve/assign 在读取 Peer 状态前检查 pending-deletion 围栏；副本中的旧 active 状态不能重新授权已删除的 Peer。
+Assignments and Peer admission/deletion fences follow the [configured KV read policy](../../../stores/kv). Ordinary queries accept stale routes, active status and missing results without a primary refresh. With no explicit version, `Assign` reuses a matching existing home without a writer transaction. Missing assignments are claimed atomically; metadata changes and explicit-version no-ops compare writer conditions. A rejected condition permits bounded refresh. When activation has just confirmed a Peer but route admission cannot see it, Manager refreshes only that bootstrap update. These paths never transfer ownership or relax an explicit version.

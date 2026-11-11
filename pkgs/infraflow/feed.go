@@ -125,7 +125,6 @@ func (f *Feed) Append(ctx context.Context, frame infraapi.Frame) error {
 	if err != nil || len(data) > MaxFrameBytes {
 		return errors.New("infraflow: frame exceeds encoded capacity")
 	}
-	ctx = kv.WithPrimaryReads(ctx)
 	for range 4 {
 		previous, err := f.store.Get(ctx, headKey(frame.Environment))
 		if err != nil && !errors.Is(err, kv.ErrNotFound) {
@@ -166,12 +165,13 @@ func (f *Feed) Append(ctx context.Context, frame infraapi.Frame) error {
 			f.mu.Unlock()
 			return nil
 		}
+		// A rejected CAS committed nothing; refresh the head on the writer.
+		ctx = kv.WithPrimaryReads(ctx)
 	}
 	return errors.New("infraflow: concurrent publisher contention")
 }
 
 func (f *Feed) load(ctx context.Context, env infraapi.Environment) (int64, []infraapi.Frame, error) {
-	ctx = kv.WithPrimaryReads(ctx)
 	value, err := f.store.Get(ctx, headKey(env))
 	if errors.Is(err, kv.ErrNotFound) {
 		return 0, []infraapi.Frame{}, nil

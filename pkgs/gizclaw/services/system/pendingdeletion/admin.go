@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/google/uuid"
 )
 
@@ -61,7 +60,6 @@ func NewAdmin(registry *Registry, wake func()) *Admin {
 
 // List returns active tasks in (created_at, source, deletion_id) order.
 func (a *Admin) List(ctx context.Context, request ListRequest) (ListResult, error) {
-	ctx = kv.WithPrimaryReads(ctx)
 	if a == nil || a.registry == nil {
 		return ListResult{}, errors.New("pending deletion: admin is not configured")
 	}
@@ -139,7 +137,6 @@ func (a *Admin) List(ctx context.Context, request ListRequest) (ListResult, erro
 
 // Get returns one active task from an explicit source.
 func (a *Admin) Get(ctx context.Context, sourceName, deletionID string) (Task, error) {
-	ctx = kv.WithPrimaryReads(ctx)
 	source, err := a.requireSource(sourceName)
 	if err != nil {
 		return Task{}, err
@@ -159,7 +156,6 @@ func (a *Admin) Get(ctx context.Context, sourceName, deletionID string) (Task, e
 
 // Retry requeues one failed active task.
 func (a *Admin) Retry(ctx context.Context, sourceName, deletionID string) (Task, error) {
-	ctx = kv.WithPrimaryReads(ctx)
 	source, err := a.requireSource(sourceName)
 	if err != nil {
 		return Task{}, err

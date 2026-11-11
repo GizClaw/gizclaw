@@ -391,10 +391,10 @@ func (s *Server) init() error {
 	peerRouteStore := kv.Prefixed(s.PeerStore, kv.Key{"routes"})
 	workspaceDB := s.WorkspaceDB
 	apiKeyStore := s.APIKeyStore
-	// Social membership is authority and also supplies Peer retirement plans.
-	// A replica must not hide recently committed relationships during deletion.
-	friendRoot := kv.WithStrongReads(s.FriendStore)
-	friendGroupRoot := kv.WithStrongReads(s.FriendGroupStore)
+	// Social reads follow the configured replica policy. Mutations compare their
+	// observations atomically and use primary reads only for conflict recovery.
+	friendRoot := s.FriendStore
+	friendGroupRoot := s.FriendGroupStore
 	friendInviteTokenStore := kv.Prefixed(friendRoot, kv.Key{"invite-tokens"})
 	friendStore := kv.Prefixed(friendRoot, kv.Key{"friends"})
 	friendGroupStore := kv.Prefixed(friendGroupRoot, kv.Key{"groups"})

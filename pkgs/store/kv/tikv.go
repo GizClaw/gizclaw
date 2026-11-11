@@ -12,6 +12,7 @@ import (
 	"github.com/pingcap/kvproto/pkg/metapb"
 	"github.com/tikv/client-go/v2/config/retry"
 	tikverr "github.com/tikv/client-go/v2/error"
+	tikvkv "github.com/tikv/client-go/v2/kv"
 	"github.com/tikv/client-go/v2/oracle"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
@@ -21,9 +22,10 @@ import (
 )
 
 // TiKVReadOptions selects optional regional stale reads. A positive delay and
-// labels must be supplied together. Strong views and mutations ignore both.
-// The delay selects a historical timestamp, not a maximum replication lag;
-// unavailable snapshots return an error and are never replaced with older data.
+// labels must be supplied together. Primary fallback reads and mutations ignore both.
+// The delay is subtracted from the SDK's cached PD timestamp; cache age can
+// add staleness. Unavailable snapshots return an error and are never replaced
+// with older data.
 // Labels are SDK preferences; slow or unavailable replicas can cause reads of
 // the same historical timestamp to use a different store, including the leader.
 type TiKVReadOptions struct {
@@ -145,18 +147,37 @@ func (s *TiKV) snapshot(ctx context.Context) (*txnsnapshot.KVSnapshot, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	ts, err := s.timestamp(ctx)
+	stale := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
+	var ts uint64
+	var err error
+	if stale {
+		// This SDK method reads only the oracle cache. Keeping the snapshot
+		// behind that timestamp also lets ValidateReadTS accept it without
+		// a synchronous PD request; cache age may add further staleness.
+		ts, err = s.client.GetOracle().GetLowResolutionTimestamp(ctx, &oracle.Option{TxnScope: oracle.GlobalTxnScope})
+		if err == nil {
+			ts = oracle.GoTimeToTS(oracle.GetTimeFromTS(ts).Add(-s.read.StaleReadDelay))
+		}
+	} else {
+		ts, err = s.timestamp(ctx)
+	}
 	if err != nil {
 		return nil, err
 	}
-	stale := s.read.StaleReadDelay > 0 && !requiresStrongReads(ctx)
-	if stale {
-		ts = oracle.GoTimeToTS(oracle.GetTimeFromTS(ts).Add(-s.read.StaleReadDelay))
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	snapshot := s.client.GetSnapshot(ts)
 	if stale {
 		snapshot.SetMatchStoreLabels(s.labels)
+		snapshot.SetReplicaRead(tikvkv.ReplicaReadLearner)
 		snapshot.SetIsStalenessReadOnly(true)
+		// client-go turns stale Get/BatchGet into mixed reads before applying
+		// this adjuster. Restore Learner preference; range scans use the type
+		// set above. Native selection still handles unavailable replicas.
+		snapshot.SetReplicaReadAdjuster(func(int) (tikv.StoreSelectorOption, tikvkv.ReplicaReadType) {
+			return nil, tikvkv.ReplicaReadLearner
+		})
 	}
 	// client-go scanners do not accept a context. Bound each scan RPC by the
 	// caller's remaining deadline and check cancellation at every iterator step.
@@ -167,16 +188,24 @@ func (s *TiKV) snapshot(ctx context.Context) (*txnsnapshot.KVSnapshot, error) {
 	if timeout <= 0 {
 		return nil, context.DeadlineExceeded
 	}
-	configureTiKVReadContext(ctx, snapshot, timeout)
+	configureTiKVReadContext(ctx, snapshot, timeout, stale)
 	return snapshot, nil
 }
 
-func configureTiKVReadContext(ctx context.Context, snapshot *txnsnapshot.KVSnapshot, timeout time.Duration) {
+func configureTiKVReadContext(ctx context.Context, snapshot *txnsnapshot.KVSnapshot, timeout time.Duration, historical bool) {
 	snapshot.SetKVReadTimeout(timeout)
 	snapshot.SetRPCInterceptor(interceptor.NewRPCInterceptor("gizclaw-context", func(next interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
 		return func(target string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
 			if err := ctx.Err(); err != nil {
 				return nil, err
+			}
+			// Native scans retain the historical timestamp and Learner selection,
+			// but omit the stale-read flag used by Get/BatchGet. Mark a selected
+			// Learner scan here so it can serve its safe snapshot without ReadIndex.
+			// Other targets keep the SDK's normal retry/fallback request flags.
+			if historical && req.Type == tikvrpc.CmdScan && req.Peer.GetRole() == metapb.PeerRole_Learner {
+				req.StaleRead = true
+				req.ReplicaRead = false
 			}
 			return next(target, req)
 		}
@@ -272,7 +301,7 @@ func (s *TiKV) update(ctx context.Context, fn func(*transaction.KVTxn) (bool, er
 			_ = tx.Rollback()
 			return false, context.DeadlineExceeded
 		}
-		configureTiKVReadContext(ctx, tx.GetSnapshot(), timeout)
+		configureTiKVReadContext(ctx, tx.GetSnapshot(), timeout, false)
 		matched, err := fn(tx)
 		if err == nil && matched {
 			err = tx.Commit(ctx)

@@ -286,3 +286,157 @@ func TestConditionalFailedRetryRejectsNewFailureAndGeneration(t *testing.T) {
 		})
 	}
 }
+
+// The replica remains fixed until the test explicitly advances it. Conditional
+// mutations always execute against Store, including when the read is stale.
+type laggingTaskStore struct {
+	kv.Store
+	replica     kv.Store
+	reads       []bool
+	mutations   int
+	commitError error
+}
+
+func (s *laggingTaskStore) Get(ctx context.Context, key kv.Key) ([]byte, error) {
+	primary := kv.WithPrimaryReads(ctx) == ctx
+	s.reads = append(s.reads, primary)
+	if primary {
+		return s.Store.Get(ctx, key)
+	}
+	return s.replica.Get(ctx, key)
+}
+
+func (s *laggingTaskStore) ApplyMutation(ctx context.Context, mutation kv.Mutation) (bool, error) {
+	s.mutations++
+	matched, err := s.Store.ApplyMutation(ctx, mutation)
+	if err == nil && matched && s.commitError != nil {
+		return false, s.commitError
+	}
+	return matched, err
+}
+
+func (s *laggingTaskStore) expectFallback(t *testing.T) {
+	t.Helper()
+	if len(s.reads) < 3 || s.reads[0] || !s.reads[len(s.reads)-1] {
+		t.Fatalf("reads = %v, want ordinary first then primary fallback", s.reads)
+	}
+	s.reads = nil
+}
+
+func TestKVClaimTransitionsWithLaggingLearner(t *testing.T) {
+	ctx := t.Context()
+	writer, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	record, err := New(KindPeer, "lagging-peer", nil, ReasonPeerDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, store := range []kv.Store{writer, replica} {
+		if _, _, err := CreateOrGet(ctx, store, record); err != nil {
+			t.Fatal(err)
+		}
+	}
+	store := &laggingTaskStore{Store: writer, replica: replica}
+	source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	queued, err := source.GetTask(ctx, record.DeletionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref := Reference{Source: source.Name(), DeletionID: record.DeletionID, MarkerFingerprint: queued.MarkerFingerprint}
+	store.reads = nil
+	claim, ok, err := source.Claim(ctx, ref, time.Unix(2, 0), time.Minute)
+	if err != nil || !ok {
+		t.Fatalf("Claim = %v, %v", ok, err)
+	}
+	for _, primary := range store.reads {
+		if primary {
+			t.Fatal("initial claim bypassed learner")
+		}
+	}
+	store.reads = nil
+	if _, ok, err := source.Claim(ctx, ref, time.Unix(3, 0), time.Minute); err != nil || ok {
+		t.Fatalf("duplicate claim stole live lease: %v, %v", ok, err)
+	}
+	store.expectFallback(t)
+	if err := source.Renew(ctx, claim, time.Unix(3, 0), 2*time.Minute); err != nil {
+		t.Fatal(err)
+	}
+	store.expectFallback(t)
+	// Advance only to the original claim: its lease is valid but behind the
+	// renewal, so the next transition must recover from a definite CAS miss.
+	oldState, err := encodeKVTaskState(claim.Task)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replica.Set(ctx, kvTaskKey(record.DeletionID), oldState); err != nil {
+		t.Fatal(err)
+	}
+	claim, err = source.Checkpoint(ctx, claim, PhaseFinalize, time.Unix(4, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	store.expectFallback(t)
+	if err := source.Finalize(ctx, claim, time.Unix(5, 0), nil); err != nil {
+		t.Fatal(err)
+	}
+	store.expectFallback(t)
+	if _, err := writer.Get(ctx, kvTaskKey(record.DeletionID)); !errors.Is(err, kv.ErrNotFound) {
+		t.Fatalf("finalized task still present: %v", err)
+	}
+}
+
+func TestKVClaimRefreshesReferenceMissingFromLearner(t *testing.T) {
+	ctx := t.Context()
+	writer, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+	record, err := New(KindPeer, "new-reference", nil, ReasonPeerDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := CreateOrGet(ctx, writer, record); err != nil {
+		t.Fatal(err)
+	}
+	store := &laggingTaskStore{Store: writer, replica: replica}
+	source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	refs, _, err := source.ScanDue(kv.WithPrimaryReads(ctx), time.Unix(2, 0), 10, "")
+	if err != nil || len(refs) != 1 {
+		t.Fatalf("discovery=%v err=%v", refs, err)
+	}
+	store.reads = nil
+	claim, claimed, err := source.Claim(ctx, refs[0], time.Unix(2, 0), time.Minute)
+	if err != nil || !claimed || claim.Record.DeletionID != record.DeletionID {
+		t.Fatalf("claim=%+v claimed=%v err=%v", claim, claimed, err)
+	}
+	store.expectFallback(t)
+	if _, claimed, err := source.Claim(ctx, refs[0], time.Unix(3, 0), time.Minute); err != nil || claimed {
+		t.Fatalf("reference stole a committed lease: claimed=%v err=%v", claimed, err)
+	}
+}
+
+func TestKVTaskDoesNotReplayUncertainTransition(t *testing.T) {
+	ctx := t.Context()
+	writer := kv.NewMemory(nil)
+	record, err := New(KindPeer, "uncertain-peer", nil, ReasonPeerDelete, struct{}{}, time.Unix(1, 0))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := CreateOrGet(ctx, writer, record); err != nil {
+		t.Fatal(err)
+	}
+	store := &laggingTaskStore{Store: writer, replica: writer}
+	source := KVSource{Store: store, SourceName: "peer", OwnedKinds: []Kind{KindPeer}}
+	task, err := source.GetTask(ctx, record.DeletionID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claim, ok, err := source.Claim(ctx, Reference{Source: "peer", DeletionID: record.DeletionID, MarkerFingerprint: task.MarkerFingerprint}, time.Unix(2, 0), time.Minute)
+	if err != nil || !ok {
+		t.Fatalf("Claim = %v, %v", ok, err)
+	}
+	store.commitError = errors.New("commit reply lost")
+	store.mutations = 0
+	if err := source.Fail(ctx, claim, "temporary", "temporary", false, time.Unix(5, 0), time.Unix(3, 0), 3); !errors.Is(err, store.commitError) {
+		t.Fatalf("Fail = %v", err)
+	}
+	if store.mutations != 1 {
+		t.Fatalf("uncertain commit replayed %d times", store.mutations)
+	}
+}
