@@ -16,6 +16,8 @@
 !mcp-litelink/
 !mcp-litelink/resources.yaml
 !mcp-litelink/music.giztest.yaml
+!mcp-litelink/music-clarification.giztest.yaml
+!mcp-litelink/album.giztest.yaml
 !.gitignore
 !resources/
 !resources/**/

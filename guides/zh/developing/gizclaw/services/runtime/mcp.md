@@ -114,12 +114,28 @@ LiteLink MCP, and the real `doubao-seed-2-1-lite-260915` model. With
 can provision isolated resources and run the committed Giztest in one command:
 
 ```bash
-go test ./cmd/internal/server -run '^TestLiteLinkMCPMusicGiztest$' -count=1 -v -timeout=240s
+go test ./cmd/internal/server -run '^TestLiteLinkMCPMusicGiztest$' -count=1 -v -timeout=720s
 ```
 
+The harness runs three independent Giztest stories:
+
+- A directly named song is discovered and sent to the player.
+- A vague music request receives a clarification question with zero playlist or
+  playback mutations. A song-title-only reply in the same Workspace then plays
+  the selected song, using the fixture Workflow's history message input.
+- A Three Kingdoms request resolves the complete album and queues every episode
+  in catalog order before starting playback. The harness independently fetches
+  the deployed album and supplies a read-only assertion endpoint. The model
+  never receives its expected playlist. Assertions compare the complete actual
+  arguments and device readback with that reference, including every URL, title,
+  and source ID; a single episode, omission, reordering, or duplicate fails.
+
 Set `GIZCLAW_MCP_EVIDENCE` to an ignored output directory to retain the redacted
-JSON report and runner log. The default is a temporary directory. The test skips
-when the provider key is absent. To drive a separately running Server instead,
+JSON report and runner log. The default is a temporary directory. Live execution
+skips when the provider key is absent; ordinary Go tests still validate all three
+Giztest documents and the independent album-reference checks. The album story
+uses `GIZCLAW_MCP_ALBUM_REFERENCE`, which the harness supplies automatically.
+To drive a separately running Server for the single-song story instead,
 use an isolated Server and Admin context. Set `GIZCLAW_MCP_ARK_API_KEY` to the intended Ark account,
 `GIZCLAW_TEST_ENDPOINT` to that Server, and `GIZCLAW_TEST_REGISTRATION_TOKEN` to a
 new test-only token before applying resources:
@@ -138,5 +154,7 @@ the returned URL, title and work ID, and invokes playback. Assertions inspect th
 `client.tool.v0.invoke` arguments, require playlist replacement before play, and
 read back the stored playlist and `playing` state. The Giztest Peer is a stateful
 protocol fixture without a physical speaker; this proves device invocation and
-acceptance, not audible hardware playback. The scenario cleans up its Peer and
-Workspace. It runs explicitly rather than in the default credential-free suite.
+acceptance, not audible hardware playback. Each scenario cleans up its Peer and
+Workspace. Live stories run explicitly rather than in the default credential-free
+suite. Album coverage proves ordered queueing and playback acceptance; it does
+not simulate end-of-track auto-advance or verify playback-position resume.

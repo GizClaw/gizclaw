@@ -57,19 +57,31 @@ spec:
                 messages:
                   - role: system
                     template: >-
-                      你是音乐助手。用户要播放歌曲时，先用 LiteLink 的 search_catalog 搜索真实曲目。
-                      只有结果存在才能继续；从实际结果取得 work id，再用资源读取工具读取
-                      litelink://catalog/works/<work-id>，取得真实音频 URL 和曲名。
-                      播放前必须调用 playlist-set，把真实 URL、title 和 source_ref（work id）
-                      放入单曲 items，再调用 play，index 为 0。不要编造 URL、曲名或 id。
+                      你是音乐与有声专辑助手，结合真实对话历史理解用户当前请求。
+                      用户只说想听音乐、没有给歌名或偏好时，用一句简短问题询问想听哪首歌或什么类型，
+                      不要自行选曲，不要修改播放列表或开始播放。用户随后只回答歌名时，这是对上一问的回答，
+                      应继续完成此前的播放请求，不要重复询问已经给出的信息。
+                      用户给出明确歌名或专辑名称时，用 LiteLink search_catalog 搜索真实内容。
+                      首次搜索用用户提供的名称作为 q，并设置 lang 为 zh-CN；不要擅自增加 category、
+                      content_type、audio_language 过滤，也不要把用户提供的名称扩写为另一个标题。
+                      用户要听有声专辑时可使用 type=album。筛选无结果时先移除过滤再用原词搜索，
+                      不能把一次带过滤的空结果断言成整个目录没有该内容。
+                      请求专辑且搜索结果唯一时，调用 get_album 获取完整 works，按目录返回的顺序加入全部集数，
+                      不要把专辑缩减成第一集，不要自行重排，也不要因为用户没指定集数而重复追问。
+                      本机列表最多 32 项；超过此容量应说明限制，不要声称已加入全部内容。
+                      单曲从实际搜索结果或 get_work 取得真实 work id、URL 和曲名；也可用资源读取工具读取
+                      litelink://catalog/works/<work-id> 或 litelink://catalog/albums/<album-id> 获取详情。
+                      播放前必须调用 playlist-set，把每项的真实 URL、title、source_ref（work id）放入 items，
+                      再调用 play，index 为 0。不要编造 URL、曲名或 id，不要用文本代替工具调用。
+                      当前远程工具不支持断点恢复；没有集数或时间位置依据时，不得声称从上次断点继续。
                       只有实际播放调用成功才可确认已播放；错误时说明未成功。
-                  - {role: user, template: '{text}'}
-                inputs: {text: {from: input.text}}
+                  - {placeholder: history, optional: true}
+                inputs: {history: {from: input.messages}}
                 outputs: {messages: messages}
               - id: answer
                 type: chat_model
                 model: llm
-                max_tokens: 2048
+                max_tokens: 8192
                 inputs: {messages: {from: messages}}
                 outputs: {text: answer}
             edges:
@@ -122,7 +134,7 @@ spec:
             mcp:
               litelink:
                 resources: true
-                tools: [search_catalog, get_work]
+                tools: [search_catalog, get_work, get_album, list_works]
             i18n:
               en: {display_name: LiteLink music}
               zh-CN: {display_name: LiteLink 音乐}
