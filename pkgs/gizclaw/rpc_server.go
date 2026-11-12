@@ -81,6 +81,7 @@ type rpcServer struct {
 	apiKeys             *apikey.Server
 	validateAPIKeyOwner func(context.Context, giznet.PublicKey) error
 	onRegistration      func(runtimeprofile.Registration)
+	isCallerActive      func() bool
 	registrationSource  string
 	callerPublicKey     giznet.PublicKey
 	deletePeerSelf      func(context.Context) error
@@ -224,7 +225,11 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	if registration.FirmwareID != nil {
-		if _, err := s.peer.LoadPeer(ctx, s.callerPublicKey); err != nil {
+		if s.isCallerActive != nil {
+			if !s.isCallerActive() {
+				return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Message: ErrPeerConnNotActive.Error()}.RPCResponse(), nil
+			}
+		} else if _, err := s.peer.LoadPeer(ctx, s.callerPublicKey); err != nil {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil
 		}
 	}
