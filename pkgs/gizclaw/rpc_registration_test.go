@@ -18,7 +18,91 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/runtimeprofile"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
+	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
 )
+
+func TestRPCRegistrationUsesAdmittedConnection(t *testing.T) {
+	for _, state := range []string{"active", "unadmitted", "replaced", "disconnected", "retiring"} {
+		t.Run(state, func(t *testing.T) {
+			t.Parallel()
+			ctx := t.Context()
+			registrations := firmwareRegistrationServer(t, "h106-profile", "h106")
+			firmwareID := "h106"
+			response, err := registrations.CreateRegistrationToken(ctx, adminhttp.CreateRegistrationTokenRequestObject{
+				Body: &adminhttp.RegistrationTokenUpsert{
+					Id: "h106-token", Token: "h106-registration", RuntimeProfileId: "h106-profile", FirmwareId: &firmwareID,
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			created, ok := response.(adminhttp.CreateRegistrationToken200JSONResponse)
+			if !ok {
+				t.Fatalf("CreateRegistrationToken() = %T", response)
+			}
+			authority, replica := kv.NewMemory(nil), kv.NewMemory(nil)
+			var ordinaryReads, primaryReads atomic.Int32
+			peers := &peer.Server{
+				Store: bootstrapReadView{
+					Store:     kvfixture.ReadView(authority, replica, &ordinaryReads, &primaryReads),
+					authority: authority,
+				},
+				RegistrationFirmware: registrations.ResolveOwnerFirmware,
+			}
+			manager := NewManager(peers)
+			manager.RuntimeProfiles = registrations
+			publicKey := giznet.PublicKey{19}
+			conn := &testGiznetConn{publicKey: publicKey}
+			if state != "unadmitted" {
+				if _, err := manager.activatePeer(ctx, conn); err != nil {
+					t.Fatal(err)
+				}
+			}
+			connection := &PeerConn{Conn: conn, Service: &PeerService{manager: manager}}
+			connection.initRPC()
+			switch state {
+			case "replaced":
+				if _, err := manager.activatePeer(ctx, &testGiznetConn{publicKey: publicKey}); err != nil {
+					t.Fatal(err)
+				}
+			case "disconnected":
+				manager.SetPeerDown(publicKey, conn)
+			case "retiring":
+				if err := manager.QuiescePeer(ctx, publicKey); err != nil {
+					t.Fatal(err)
+				}
+			}
+			ordinaryBefore, primaryBefore := ordinaryReads.Load(), primaryReads.Load()
+			registered, err := connection.rpc.dispatch(ctx, registrationRequest(created.Token))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if state == "active" {
+				if registered.Error != nil {
+					t.Fatalf("server.register rejected the Peer already confirmed by admission: %#v", registered.Error)
+				}
+				binding, err := registrations.ResolveOwnerProfile(ctx, publicKey.String())
+				if err != nil || binding.Id != "h106-profile" {
+					t.Fatalf("owner profile = %#v, %v", binding, err)
+				}
+			} else {
+				if registered.Error == nil || registered.Error.Code != rpcapi.StatusCodeUnavailable {
+					t.Fatalf("inactive connection registration = %#v, want unavailable", registered)
+				}
+				if _, err := registrations.ResolveOwnerProfile(ctx, publicKey.String()); !errors.Is(err, sql.ErrNoRows) {
+					t.Fatalf("inactive connection left an owner binding: %v", err)
+				}
+				var activations int
+				if err := registrations.DB.GetContext(ctx, &activations, "SELECT COUNT(*) FROM registration_token_activations"); err != nil || activations != 0 {
+					t.Fatalf("inactive connection consumed activation: %d, %v", activations, err)
+				}
+			}
+			if ordinaryReads.Load() != ordinaryBefore || primaryReads.Load() != primaryBefore {
+				t.Fatalf("registration reread Peer existence after admission: reader=%d primary=%d", ordinaryReads.Load()-ordinaryBefore, primaryReads.Load()-primaryBefore)
+			}
+		})
+	}
+}
 
 func TestRPCRegistrationRechecksCapacityAfterAdmission(t *testing.T) {
 	registrations, token := registrationServerAndToken(t, "limited")
