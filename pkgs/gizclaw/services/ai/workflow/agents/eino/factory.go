@@ -215,7 +215,6 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 		configured := *invoker
 		configured.MCP = mcp
 		config.ToolInvoker = &configured
-		config.PrepareToolContext = mcp.PrepareToolContext
 		if spec.ToolVerificationModel != "" {
 			configured.Verify = runtimeToolVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
 			config.VerifyToolResponse = runtimeToolResponseVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)

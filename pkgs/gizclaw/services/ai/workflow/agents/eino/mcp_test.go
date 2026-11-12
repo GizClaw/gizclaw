@@ -101,7 +101,7 @@ func TestMCPModelResourceReadAndContinuation(t *testing.T) {
 	transformer, err := genxeino.New(t.Context(), genxeino.Config{
 		Agent:      genxeino.AgentConfig{ID: "mcp-integration", ContextID: "mcp-integration"},
 		Graph:      genxeino.GraphDefinition{Name: "mcp", State: genxeino.StateDefinition{Fields: []genxeino.StateField{{Name: "answer", Type: genxeino.StateString, Merge: genxeino.MergeReplace}}}, Nodes: []genxeino.NodeDefinition{{ID: "model", Inputs: map[string]genxeino.Binding{"messages": {From: "input.messages"}}, Outputs: map[string]string{"text": "answer"}, ChatModel: &genxeino.ChatModelNode{Model: "chat"}}}, Edges: []genxeino.EdgeDefinition{{From: "start", To: "model"}, {From: "model", To: "end"}}, Outputs: []genxeino.OutputDefinition{{Node: "model", Field: "answer", Name: "answer", MIMEType: "text/plain", Primary: true}}},
-		Components: catalogPromptResolver{generator: generator}, ToolInvoker: &agenthost.ToolkitInvoker{MCP: capabilities}, PrepareToolContext: capabilities.PrepareToolContext,
+		Components: catalogPromptResolver{generator: generator}, ToolInvoker: &agenthost.ToolkitInvoker{MCP: capabilities},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -140,8 +140,8 @@ func TestMCPModelResourceReadAndContinuation(t *testing.T) {
 	if text.String() != "answer from MCP" || rounds.Load() != 2 || reads.Load() != 1 {
 		t.Fatalf("continuation output=%q model_rounds=%d remote_reads=%d", text.String(), rounds.Load(), reads.Load())
 	}
-	// The product factory must also acquire/release the same shared source and
-	// install its invocation context, rather than only the generic test config.
+	// The product factory must also acquire/release the same shared source,
+	// rather than only the generic test config.
 	var authorized atomic.Int32
 	config.Authorize = func(context.Context) error { authorized.Add(1); return nil }
 	spec := einoFactorySpec(t)

@@ -17,7 +17,7 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-func TestMCPInvokerSharedSnapshotsToolsAndRevocation(t *testing.T) {
+func TestMCPInvokerSharedCacheToolsAndRevocation(t *testing.T) {
 	var reads, calls atomic.Int32
 	var version atomic.Value
 	version.Store("old")
@@ -80,34 +80,31 @@ func TestMCPInvokerSharedSnapshotsToolsAndRevocation(t *testing.T) {
 			templateName = tool.FunctionName
 		}
 	}
-	turn, err := first.PrepareToolContext(t.Context())
-	if err != nil {
-		t.Fatal(err)
+	ctx := t.Context()
+	before, err := invoker.InvokeTool(ctx, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
+	if err != nil || !strings.Contains(string(before), `"text":"old"`) {
+		t.Fatalf("initial cached value = %s, %v", before, err)
 	}
 	version.Store("new")
-	if err := first.sources["knowledge"].Cache.Refresh(t.Context()); err != nil {
+	if err := first.sources["knowledge"].Cache.Refresh(ctx); err != nil {
 		t.Fatal(err)
 	}
-	before, err := invoker.InvokeTool(turn, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
-	if err != nil || !strings.Contains(string(before), `"text":"old"`) {
-		t.Fatalf("old snapshot = %s, %v", before, err)
-	}
-	nextTurn, err := first.PrepareToolContext(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
-	after, err := invoker.InvokeTool(nextTurn, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
+	after, err := invoker.InvokeTool(ctx, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
 	if err != nil || !strings.Contains(string(after), `"text":"new"`) {
-		t.Fatalf("new snapshot = %s, %v", after, err)
+		t.Fatalf("refreshed cached value = %s, %v", after, err)
+	}
+	shared, err := (&ToolkitInvoker{MCP: second}).InvokeTool(ctx, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
+	if err != nil || !strings.Contains(string(shared), `"text":"new"`) {
+		t.Fatalf("shared refreshed value = %s, %v", shared, err)
 	}
 	if reads.Load() != 2 {
 		t.Fatalf("local reads reached remote %d times", reads.Load())
 	}
-	if templates, err := invoker.InvokeTool(turn, templateName, nil); err != nil || !strings.Contains(string(templates), "dynamic:///{name}") {
+	if templates, err := invoker.InvokeTool(ctx, templateName, nil); err != nil || !strings.Contains(string(templates), "dynamic:///{name}") {
 		t.Fatalf("templates = %s, %v", templates, err)
 	}
 	for range 2 {
-		body, err := invoker.InvokeTool(turn, readName, json.RawMessage(`{"uri":"dynamic:///instance"}`))
+		body, err := invoker.InvokeTool(ctx, readName, json.RawMessage(`{"uri":"dynamic:///instance"}`))
 		if err != nil || !strings.Contains(string(body), `"blob":"YmluYXJ5"`) {
 			t.Fatalf("template read = %s, %v", body, err)
 		}
@@ -115,14 +112,14 @@ func TestMCPInvokerSharedSnapshotsToolsAndRevocation(t *testing.T) {
 	if reads.Load() != 3 {
 		t.Fatalf("template instance was not cached: %d", reads.Load())
 	}
-	if _, err := invoker.InvokeTool(turn, callName, json.RawMessage(`{"value":1}`)); err != nil {
+	if _, err := invoker.InvokeTool(ctx, callName, json.RawMessage(`{"value":1}`)); err != nil {
 		t.Fatal(err)
 	}
 	if calls.Load() != 0 {
 		t.Fatal("invalid arguments reached remote tool")
 	}
 	for range 2 {
-		body, err := invoker.InvokeTool(turn, callName, json.RawMessage(`{"value":"hello"}`))
+		body, err := invoker.InvokeTool(ctx, callName, json.RawMessage(`{"value":"hello"}`))
 		if err != nil || !strings.Contains(string(body), `"isError":true`) {
 			t.Fatalf("remote execution error lost: %s, %v", body, err)
 		}
@@ -133,16 +130,16 @@ func TestMCPInvokerSharedSnapshotsToolsAndRevocation(t *testing.T) {
 	invoker.Verify = func(context.Context, toolcatalog.Tool, json.RawMessage, genx.ToolConversation) (string, error) {
 		return "rejected", nil
 	}
-	verified := genx.WithToolConversation(turn, genx.ToolConversation{CurrentUser: "echo"})
+	verified := genx.WithToolConversation(ctx, genx.ToolConversation{CurrentUser: "echo"})
 	body, err := invoker.InvokeTool(verified, callName, json.RawMessage(`{"value":"hello"}`))
 	if err != nil || !strings.Contains(string(body), "intent_rejected") || calls.Load() != 2 {
 		t.Fatalf("MCP bypassed semantic verification: %s, %v", body, err)
 	}
 	revoked.Store(true)
-	if _, err := first.PrepareToolContext(t.Context()); err == nil {
-		t.Fatal("revoked source prepared")
+	if _, err := invoker.ResolveCatalog(ctx); err == nil {
+		t.Fatal("revoked source remained available")
 	}
-	body, err = invoker.InvokeTool(turn, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
+	body, err = invoker.InvokeTool(ctx, readName, json.RawMessage(`{"uri":"fixture:///knowledge"}`))
 	if err != nil || !strings.Contains(string(body), "unavailable") {
 		t.Fatalf("cached data bypassed revocation: %s, %v", body, err)
 	}

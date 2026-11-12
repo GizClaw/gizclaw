@@ -68,13 +68,12 @@ interval. A failed refresh retains the previous version. Resource and serialized
 byte limits bound each cache; the registry also bounds active sources. Polling
 is explicitly owned by the Server rather than starting per model call.
 
-Each root Graph execution pins the current local resource version; parallel
-turns and subsequent continuation generations acquire their own versions, while
-child Graphs inherit the root context. Listed resources are read locally.
-Concrete template URIs are fetched on their first use, cached for other
-Workflows, and pinned for repeated reads during that execution. An unknown URI
-can therefore require one initial remote read. Resource text, binary content,
-MIME types, and metadata retain the MCP result structure.
+Resource operations read the shared cache directly. Successful background
+refreshes become visible on the next operation. Listed resource bodies are
+preloaded; concrete template URIs are fetched on their first read and cached for
+other Workflows. An unknown URI can therefore require one initial remote read.
+Resource text, binary content, MIME types, and metadata retain the MCP result
+structure.
 
 Selected remote tools use native model ToolCalls with their discovered input
 schemas. Runtime-generated function names avoid collisions with ordinary
@@ -93,7 +92,7 @@ integration.
 
 ## Validation
 
-Local MCP and model HTTP fixtures cover shared caches, immutable turn snapshots,
+Local MCP and model HTTP fixtures cover shared caches, refresh visibility,
 resource templates, native ToolCall continuation, permission revocation,
 credential changes, failed construction, polling failure, and lease cleanup.
 They do not require a public MCP server or model credentials.

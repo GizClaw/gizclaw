@@ -16,7 +16,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/mcpclient"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/toolcatalog"
-	"github.com/GizClaw/gizclaw-go/pkgs/mcp"
 	"github.com/google/jsonschema-go/jsonschema"
 	mcpproto "github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -192,28 +191,6 @@ func (i *MCPInvoker) ResolveCatalog(ctx context.Context) ([]toolcatalog.Tool, er
 	return catalog, nil
 }
 
-type mcpContextKey struct{}
-type mcpTurn struct {
-	snapshots map[string]mcp.Snapshot
-	loaded    sync.Map
-}
-
-// PrepareToolContext pins local resource versions for one root Graph execution.
-// Parallel turns have independent snapshots; child graphs inherit the context.
-func (i *MCPInvoker) PrepareToolContext(ctx context.Context) (context.Context, error) {
-	if _, ok := ctx.Value(mcpContextKey{}).(*mcpTurn); ok {
-		return ctx, nil
-	}
-	if err := i.config.Authorize(ctx); err != nil {
-		return nil, err
-	}
-	turn := &mcpTurn{snapshots: make(map[string]mcp.Snapshot)}
-	for alias, source := range i.sources {
-		turn.snapshots[alias] = source.Cache.Snapshot()
-	}
-	return context.WithValue(ctx, mcpContextKey{}, turn), nil
-}
-
 func (i *MCPInvoker) invoke(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	if err := i.config.Authorize(ctx); err != nil {
 		return recoverableToolError("unavailable", "MCP authorization changed; reload the Workspace"), nil
@@ -227,18 +204,13 @@ func (i *MCPInvoker) invoke(ctx context.Context, name string, args json.RawMessa
 		}
 		return json.Marshal(result)
 	}
-	turn, ok := ctx.Value(mcpContextKey{}).(*mcpTurn)
-	if !ok {
-		return nil, errors.New("MCP resource snapshot is unavailable")
-	}
-	snapshot := turn.snapshots[operation.server]
 	var result any
 	var err error
 	switch operation.operation {
 	case "list_resources":
-		result, err = snapshot.ListResources()
+		result, err = source.Cache.ListResources(ctx)
 	case "list_resource_templates":
-		result, err = snapshot.ListResourceTemplates()
+		result, err = source.Cache.ListResourceTemplates(ctx)
 	case "read_resource":
 		var input struct {
 			URI string `json:"uri"`
@@ -246,24 +218,7 @@ func (i *MCPInvoker) invoke(ctx context.Context, name string, args json.RawMessa
 		if err := json.Unmarshal(args, &input); err != nil {
 			return recoverableToolError("invalid_arguments", "resource URI is required"), nil
 		}
-		key := operation.server + "\x00" + input.URI
-		if cached, exists := turn.loaded.Load(key); exists {
-			return slices.Clone(cached.(json.RawMessage)), nil
-		}
-		result, err = snapshot.ReadResource(input.URI)
-		if errors.Is(err, mcp.ErrNotCached) {
-			// Template instances are fetched once on first use and pinned to this
-			// turn; catalog-listed bodies always come from the acquired snapshot.
-			result, err = source.Cache.ReadResource(ctx, input.URI)
-		}
-		if err == nil {
-			data, encodeErr := json.Marshal(result)
-			if encodeErr != nil {
-				return nil, encodeErr
-			}
-			actual, _ := turn.loaded.LoadOrStore(key, json.RawMessage(data))
-			return slices.Clone(actual.(json.RawMessage)), nil
-		}
+		result, err = source.Cache.ReadResource(ctx, input.URI)
 	}
 	if err != nil {
 		return recoverableToolError("mcp_failure", "MCP resource is unavailable"), nil
