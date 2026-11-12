@@ -78,6 +78,15 @@ Every RuntimeProfile alias is 1-63 bytes of dot-separated lowercase kebab-case s
 
 The binding alias identifies the named physical source selected by a Workflow's scalar `memory` field. Within the same Workspace, driver, and physical binding, changing extraction policy, Graph Recall/Observe policy, prompts, or `top_k` does not create another canonical data namespace. Changing the driver or connection can select another source without migrating or deleting the old one. Deleting a Workspace purges only its data in the current binding; see [Memory Store](/en/developing/stores/memory#memorylayout-runtimeprofile-and-workflow).
 
+## MCP servers
+
+`resources.mcp_servers` holds private Streamable HTTP connections. Each Eino
+Workflow binding explicitly selects resource access and remote tool names through
+`mcp`. The Server shares connections and local resource snapshots across Workflow
+generations using the same binding, polls for updates, and retains the previous
+version on refresh failure. Configuration, authorization, lifecycle, and examples
+are described in [Runtime MCP](./runtime/mcp).
+
 ## app_config
 
 `app_config` is stored in the `app_config_json` column of the same RuntimeProfile row. Creation, updates, and every read path preserve the original string values. Omitted configuration is stored as JSON `null`, and an explicit empty map as `{}`; both represent no configuration and clear previous values on update. Initialization adds the column to existing tables that lack it while preserving other fields and versions. Administrators must resubmit configuration that was never stored.
