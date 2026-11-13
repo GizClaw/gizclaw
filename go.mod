@@ -70,7 +70,7 @@ require (
 	github.com/valyala/fasthttp v1.77.0
 	github.com/volcengine/ve-tos-golang-sdk/v2 v2.9.9
 	github.com/volcengine/volc-sdk-golang v1.0.259
-	github.com/volcengine/volcengine-go-sdk v1.2.48
+	github.com/volcengine/volcengine-go-sdk v1.2.62
 	go.starlark.net v0.0.0-20260708150628-5395d018f003
 	go.step.sm/crypto v0.86.0
 	go.uber.org/zap v1.28.0
