@@ -790,14 +790,14 @@ func adminSocialError(err error) (int, apitypes.ErrorResponse) {
 		return http.StatusConflict, apitypes.NewErrorResponse("FRIEND_LIMIT_REACHED", friend.ErrPeerFriendLimit.Error())
 	case errors.Is(err, workspace.ErrWorkspacePendingDeletion):
 		return http.StatusConflict, apitypes.NewErrorResponse(workspace.WorkspacePendingDeletionCode, err.Error())
+	case errors.Is(err, runtimepeer.ErrPeerDeleted):
+		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerDeletedCode, err.Error())
 	case errors.Is(err, workspace.ErrPeerPendingDeletion):
 		return http.StatusConflict, apitypes.NewErrorResponse(workspace.PeerPendingDeletionCode, err.Error())
 	case errors.Is(err, workspace.ErrPeerDeleted):
 		return http.StatusConflict, apitypes.NewErrorResponse(workspace.PeerDeletedCode, err.Error())
 	case errors.Is(err, runtimepeer.ErrPeerPendingDeletion):
 		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerPendingDeletionCode, err.Error())
-	case errors.Is(err, runtimepeer.ErrPeerDeleted):
-		return http.StatusConflict, apitypes.NewErrorResponse(runtimepeer.PeerDeletedCode, err.Error())
 	case errors.Is(err, contact.ErrPeerContactLimit):
 		return http.StatusConflict, apitypes.NewErrorResponse(contact.ContactLimitReachedCode, contact.ErrPeerContactLimit.Error())
 	case errors.Is(err, contact.ErrPeerPendingDeletion):

@@ -50,12 +50,6 @@ func ValidateTiKVConfig(cfg TiKVConfig) error {
 		}
 		seen[address] = true
 	}
-	if cfg.StaleReadDelay < 0 || cfg.StaleReadDelay > 24*time.Hour || cfg.StaleReadDelay%time.Millisecond != 0 {
-		return errors.New("tikv stale_read_delay must be between 1ms and 24h, or zero for strong reads")
-	}
-	if (cfg.StaleReadDelay > 0) != (len(cfg.ReadLabels) > 0) {
-		return errors.New("tikv stale_read_delay and read_labels must be configured together")
-	}
 	for key, value := range cfg.ReadLabels {
 		if strings.TrimSpace(key) == "" || strings.TrimSpace(value) == "" || key != strings.TrimSpace(key) || value != strings.TrimSpace(value) {
 			return errors.New("tikv read_labels requires non-empty clean keys and values")

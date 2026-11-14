@@ -16,10 +16,9 @@ import (
 // obtain real timestamps, and the SDK's future-TS and GC validators stay active.
 type tiKVExpiryReadOracle struct {
 	oracle.Oracle
-	frozenTS    atomic.Uint64
-	lastCached  atomic.Uint64
-	lastStaleTS atomic.Uint64
-	freshCalls  atomic.Int64
+	frozenTS   atomic.Uint64
+	lastCached atomic.Uint64
+	freshCalls atomic.Int64
 }
 
 func (o *tiKVExpiryReadOracle) GetLowResolutionTimestamp(ctx context.Context, opt *oracle.Option) (uint64, error) {
@@ -40,13 +39,6 @@ func (o *tiKVExpiryReadOracle) GetTimestamp(ctx context.Context, opt *oracle.Opt
 	return o.Oracle.GetTimestamp(ctx, opt)
 }
 
-func (o *tiKVExpiryReadOracle) ValidateReadTS(ctx context.Context, readTS uint64, stale bool, opt *oracle.Option) error {
-	if stale {
-		o.lastStaleTS.Store(readTS)
-	}
-	return o.Oracle.ValidateReadTS(ctx, readTS, stale, opt)
-}
-
 func testTiKVStaleExpiryProgress(t *testing.T, primary *TiKV) {
 	t.Helper()
 	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
@@ -65,8 +57,7 @@ func testTiKVStaleExpiryProgress(t *testing.T, primary *TiKV) {
 			t.Fatal("expiry setup did not drain within 32 batches")
 		}
 	}
-	const delay = 1501 * time.Millisecond
-	stale, err := NewTiKVWithClient(primary.client, TiKVReadOptions{StaleReadDelay: delay, Labels: map[string]string{"region": "local"}}, nil)
+	stale, err := NewTiKVWithClient(primary.client, TiKVReadOptions{Labels: map[string]string{"region": "local"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -111,9 +102,8 @@ func testTiKVStaleExpiryProgress(t *testing.T, primary *TiKV) {
 	if value, err := stale.Get(ctx, marker); err != nil || string(value) != "ready" {
 		t.Fatalf("frozen ordinary read=%q %v", value, err)
 	}
-	wantTS := oracle.GoTimeToTS(oracle.GetTimeFromTS(clock.frozenTS.Load()).Add(-delay))
-	if got := clock.lastStaleTS.Load(); got != wantTS {
-		t.Fatalf("stale read timestamp=%d, want cached timestamp minus all 1501ms=%d", got, wantTS)
+	if got := clock.lastCached.Load(); got != clock.frozenTS.Load() {
+		t.Fatalf("native read did not retain the frozen cached timestamp: %d, want %d", got, clock.frozenTS.Load())
 	}
 	first, err := stale.expiredCandidates(ctx, 128)
 	if err != nil || len(first) != 128 {

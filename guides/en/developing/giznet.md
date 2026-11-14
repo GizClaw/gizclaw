@@ -234,6 +234,14 @@ acceptance result. DCEP open alone is not acceptance. The Edge reads that
 result by its header length, so a result split across several reads of the
 reliable control stream is still decoded as one frame.
 
+An optional application admission callback runs outside Router locks before the
+acceptance result. It can reject the session or return a typed redirect with a
+canonical, nonzero Server public key. Redirected sessions expose no application
+streams and release their channel reservations. The caller handles the target;
+Giztunnel does not resolve routes or access storage. Unknown result statuses and
+malformed redirect keys fail closed. Accepted and rejected frames retain their
+existing encoding; peers that do not support redirects reject that result.
+
 Direct packets retain message boundaries on the per-session unreliable channel.
 Opus uses the shared physical unreliable lane. New sessions declare `control-rtp`
 in their control label and carry envelope version 3: one version byte, the 16-byte

@@ -18,6 +18,7 @@ type Redis struct {
 	client *redis.Client
 	reader *redis.Client
 	opts   *Options
+	local  *redisLocal
 }
 
 // NewRedisWithClient creates a Store that borrows an already-open Redis
@@ -30,10 +31,12 @@ func NewRedisWithClient(client *redis.Client, opts *Options) (*Redis, error) {
 }
 
 // NewRedisReadWriteWithClients creates a Store that borrows separate read and
-// write clients, in that order. Get and collection queries use read; mutations
-// and their atomic conditions use write. Reads may lag successful writes and
-// read errors never fall back to write. Both clients must address the same
-// logical database in one replication group. This constructor opens no connections.
+// write clients, in that order. Ordinary reads use read with local read-your-writes;
+// mutations and their atomic conditions use write. Replication progress retires
+// local postimages; an unprovable reader then fails closed. Explicit primary
+// reads bypass local state. Read errors never fall back to write. Clients address one
+// logical database in one replication group. Read/write stores require Redis 7
+// or newer for exact expiry metadata. This constructor opens no connections.
 func NewRedisReadWriteWithClients(read, write *redis.Client, opts *Options) (*Redis, error) {
 	if read == nil || write == nil {
 		return nil, errors.New("kv: redis read and write clients are required")
@@ -41,7 +44,7 @@ func NewRedisReadWriteWithClients(read, write *redis.Client, opts *Options) (*Re
 	if read.Options().DB != write.Options().DB {
 		return nil, errors.New("kv: redis read and write clients must use the same database")
 	}
-	return &Redis{client: write, reader: read, opts: opts}, nil
+	return &Redis{client: write, reader: read, opts: opts, local: &redisLocal{images: make(map[string]redisPostimage)}}, nil
 }
 
 func (r *Redis) readClient(ctx context.Context) *redis.Client {
@@ -52,6 +55,9 @@ func (r *Redis) readClient(ctx context.Context) *redis.Client {
 }
 
 func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
+	if r.localReads(ctx) {
+		return r.getLocal(ctx, key)
+	}
 	value, err := r.readClient(ctx).Get(ctx, string(r.opts.encode(key))).Bytes()
 	if errors.Is(err, redis.Nil) {
 		return nil, ErrNotFound
@@ -68,6 +74,9 @@ func (r *Redis) Get(ctx context.Context, key Key) ([]byte, error) {
 // BatchGet uses one MGET on the selected reader. Missing and non-string keys
 // report ErrNotFound; reader errors never fall back to the writer.
 func (r *Redis) BatchGet(ctx context.Context, keys []Key) []GetResult {
+	if r.localReads(ctx) {
+		return r.batchGetLocal(ctx, keys)
+	}
 	results := make([]GetResult, len(keys))
 	if len(keys) == 0 {
 		return results
@@ -105,6 +114,9 @@ func (r *Redis) BatchGet(ctx context.Context, keys []Key) []GetResult {
 }
 
 func (r *Redis) Set(ctx context.Context, key Key, value []byte) error {
+	if r.local != nil {
+		return r.BatchMutate(ctx, []Entry{{Key: key, Value: value}}, nil)
+	}
 	if err := r.client.Set(ctx, string(r.opts.encode(key)), value, 0).Err(); err != nil {
 		return redisOperationError("set", err)
 	}
@@ -112,6 +124,9 @@ func (r *Redis) Set(ctx context.Context, key Key, value []byte) error {
 }
 
 func (r *Redis) Delete(ctx context.Context, key Key) error {
+	if r.local != nil {
+		return r.BatchMutate(ctx, nil, []Key{key})
+	}
 	if err := r.client.Del(ctx, string(r.opts.encode(key))).Err(); err != nil {
 		return redisOperationError("delete", err)
 	}
@@ -137,7 +152,13 @@ func (r *Redis) BatchMutate(ctx context.Context, entries []Entry, keys []Key) er
 	if len(redisKeys) == 0 {
 		return nil
 	}
-	result, err := redisMutationScript.Run(ctx, r.client, redisKeys, args...).Int64()
+	release, err := r.lockRedisKeys(ctx, redisKeys)
+	if err != nil {
+		return err
+	}
+	defer release()
+	raw, err := r.runRedisMutation(ctx, redisMutationScript, redisKeys, args)
+	result, _ := raw.(int64)
 	if err != nil {
 		return redisOperationError("batch mutate", err)
 	}
@@ -171,7 +192,13 @@ func (r *Redis) CreateIfAllAbsent(ctx context.Context, guards []Entry, entries [
 	for _, guard := range guards {
 		args = append(args, guard.Value, deadlineMilliseconds(guard.Deadline))
 	}
-	result, err := redisCreateScript.Run(ctx, r.client, keys, args...).Slice()
+	release, err := r.lockRedisKeys(ctx, keys)
+	if err != nil {
+		return nil, nil, false, err
+	}
+	defer release()
+	raw, err := r.runRedisMutation(ctx, redisCreateScript, keys, args)
+	result, _ := raw.([]any)
 	if err != nil {
 		return nil, nil, false, redisOperationError("create if absent", err)
 	}
@@ -215,7 +242,13 @@ func (r *Redis) CompareAndMutate(
 	for _, key := range keys {
 		redisKeys = append(redisKeys, string(r.opts.encode(key)))
 	}
-	result, err := redisCompareScript.Run(ctx, r.client, redisKeys, args...).Int64()
+	release, err := r.lockRedisKeys(ctx, redisKeys)
+	if err != nil {
+		return false, err
+	}
+	defer release()
+	raw, err := r.runRedisMutation(ctx, redisCompareScript, redisKeys, args)
+	result, _ := raw.(int64)
 	if err != nil {
 		return false, redisOperationError("compare and mutate", err)
 	}
@@ -298,7 +331,9 @@ func redisResultBytes(value any) []byte {
 	}
 }
 
-var redisMutationScript = redis.NewScript(`
+var redisMutationScript = newRedisMutation(redisMutationSource, "result == 1")
+
+const redisMutationSource = `
 local count = tonumber(ARGV[1])
 local now = redis.call('TIME')
 local now_ms = tonumber(now[1]) * 1000 + math.floor(tonumber(now[2]) / 1000)
@@ -316,9 +351,11 @@ for i = 1, count do
 end
 for i = count + 1, #KEYS do redis.call('DEL', KEYS[i]) end
 return 1
-`)
+`
 
-var redisCreateScript = redis.NewScript(`
+var redisCreateScript = newRedisMutation(redisCreateSource, "result[1] == 1")
+
+const redisCreateSource = `
 local guards = tonumber(ARGV[1])
 local entries = tonumber(ARGV[2])
 for i = 1, guards do
@@ -345,9 +382,11 @@ for i = 1, guards do
   if deadline ~= 0 then redis.call('PEXPIREAT', KEYS[i], deadline) end
 end
 return {1}
-`)
+`
 
-var redisCompareScript = redis.NewScript(`
+var redisCompareScript = newRedisMutation(redisCompareSource, "result == 1")
+
+const redisCompareSource = `
 local current = redis.call('GET', KEYS[1])
 if not current or current ~= ARGV[1] then return 0 end
 local entries = tonumber(ARGV[2])
@@ -365,4 +404,4 @@ for i = 1, entries do
 end
 for i = entries + 2, #KEYS do redis.call('DEL', KEYS[i]) end
 return 1
-`)
+`

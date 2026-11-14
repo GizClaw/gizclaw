@@ -59,7 +59,7 @@ func TestServeEdgeTunnelCarriesAcceptedSessionCorrelation(t *testing.T) {
 	t.Cleanup(func() { _ = router.Close() })
 
 	capture := captureSlog(t)
-	host := &PeerConn{Conn: serverConn, Service: &PeerService{manager: &Manager{}}}
+	host := &PeerConn{Conn: serverConn, Service: &PeerService{manager: NewManager(&peer.Server{Store: kv.NewMemory(nil)})}}
 	// The accepting Router has to exist before the edge dials, otherwise the
 	// session declaration arrives with nothing listening for it and the dial
 	// reads to its deadline. serveEdgeTunnel builds the Router itself, so

@@ -2,16 +2,17 @@ package iconasset
 
 import (
 	"bytes"
+	"context"
 	"encoding/binary"
 	"errors"
 	"fmt"
 	"image/png"
 	"io"
 	"io/fs"
-	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
+	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/objectstore"
 )
 
@@ -170,23 +171,13 @@ func ValidateProjection(current, requested *apitypes.Icon) error {
 }
 
 type Locker struct {
-	mu    sync.Mutex
-	locks map[string]*sync.Mutex
+	locks keyedlock.Locker[string]
 }
 
 func (l *Locker) Lock(key string) func() {
-	l.mu.Lock()
-	if l.locks == nil {
-		l.locks = map[string]*sync.Mutex{}
-	}
-	lock := l.locks[key]
-	if lock == nil {
-		lock = &sync.Mutex{}
-		l.locks[key] = lock
-	}
-	l.mu.Unlock()
-	lock.Lock()
-	return lock.Unlock
+	// Background acquisition cannot fail; keep the existing blocking API.
+	unlock, _ := l.locks.Acquire(context.Background(), key)
+	return unlock
 }
 
 func (l *Locker) LockOwner(identity string) func() {
@@ -202,6 +193,12 @@ func (l *Locker) LockOwner(identity string) func() {
 
 func (l *Locker) LockRecord(identity string) func() {
 	return l.Lock(identity + ":record")
+}
+
+// LockRecordContext shares record coordination with LockRecord and LockOwner,
+// but releases a canceled waiter without waiting for the current holder.
+func (l *Locker) LockRecordContext(ctx context.Context, identity string) (func(), error) {
+	return l.locks.Acquire(ctx, identity+":record")
 }
 
 func validatePIXA(data []byte) error {

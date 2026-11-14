@@ -66,6 +66,9 @@ func (r *Redis) RangeOrderedMembers(ctx context.Context, key Key, query OrderedR
 	if err := query.validate(ctx); err != nil {
 		return nil, err
 	}
+	if r.localReads(ctx) {
+		return r.collectionLocal(ctx, key, true, query)
+	}
 	min, max := "-", "+"
 	if query.After != nil {
 		min = "(" + *query.After

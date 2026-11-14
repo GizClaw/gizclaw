@@ -343,13 +343,14 @@ type IdentityConfig struct {
 }
 
 type storageFileConfig struct {
-	Kind            string            `yaml:"kind"`
-	Dir             string            `yaml:"dir"`
-	DSN             string            `yaml:"dsn"`
-	MaxOpenConns    int               `yaml:"max_open_conns"`
-	ConnMaxIdleTime string            `yaml:"conn_max_idle_time"`
-	URL             string            `yaml:"url"`
-	PDAddresses     []string          `yaml:"pd_addresses"`
+	Kind            string   `yaml:"kind"`
+	Dir             string   `yaml:"dir"`
+	DSN             string   `yaml:"dsn"`
+	MaxOpenConns    int      `yaml:"max_open_conns"`
+	ConnMaxIdleTime string   `yaml:"conn_max_idle_time"`
+	URL             string   `yaml:"url"`
+	PDAddresses     []string `yaml:"pd_addresses"`
+	// Deprecated: accepted for compatibility and ignored without duration parsing.
 	StaleReadDelay  string            `yaml:"stale_read_delay"`
 	ReadLabels      map[string]string `yaml:"read_labels"`
 	TLSCertFile     string            `yaml:"tls_cert_file"`
@@ -400,15 +401,7 @@ func (cfg storageFileConfig) runtimeConfig() (storage.Config, error) {
 	case storage.KindClickHouse:
 		return storage.ClickHouseConfig{DSN: cfg.DSN}, nil
 	case storage.KindTiKV:
-		var delay time.Duration
-		if cfg.StaleReadDelay != "" {
-			var err error
-			delay, err = time.ParseDuration(cfg.StaleReadDelay)
-			if err != nil {
-				return nil, fmt.Errorf("tikv stale_read_delay must be a duration")
-			}
-		}
-		tikvConfig := storage.TiKVConfig{PDAddresses: cfg.PDAddresses, TLSCAFile: cfg.TLSCAFile, TLSCertFile: cfg.TLSCertFile, TLSKeyFile: cfg.TLSKeyFile, StaleReadDelay: delay, ReadLabels: cfg.ReadLabels}
+		tikvConfig := storage.TiKVConfig{PDAddresses: cfg.PDAddresses, TLSCAFile: cfg.TLSCAFile, TLSCertFile: cfg.TLSCertFile, TLSKeyFile: cfg.TLSKeyFile, ReadLabels: cfg.ReadLabels}
 		if err := storage.ValidateTiKVConfig(tikvConfig); err != nil {
 			return nil, err
 		}

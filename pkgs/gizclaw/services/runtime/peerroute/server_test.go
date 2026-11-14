@@ -215,8 +215,8 @@ func TestAssignRefreshesOnlySameOwnerAndPreservesForeignBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	foreign := &Server{Store: store, Peers: peers, ServerPublicKey: giznet.PublicKey{9}, ServerEndpoint: "server-b:9820"}
-	if _, err := foreign.Assign(t.Context(), peerKey, nil); !errors.Is(err, ErrVersionConflict) {
-		t.Fatalf("foreign Assign() error = %v, want conflict", err)
+	if observed, err := foreign.Assign(t.Context(), peerKey, nil); !errors.Is(err, ErrVersionConflict) || observed.ServerPublicKey != first.ServerPublicKey || observed.PeerPublicKey != first.PeerPublicKey || observed.Version != first.Version || !observed.UpdatedAt.Equal(first.UpdatedAt) {
+		t.Fatalf("foreign Assign() = %+v, %v, want original assignment and conflict", observed, err)
 	}
 	after, err := store.Get(t.Context(), assignmentKey(peerKey.String()))
 	if err != nil {

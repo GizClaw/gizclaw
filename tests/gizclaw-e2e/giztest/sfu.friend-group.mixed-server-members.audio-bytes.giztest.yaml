@@ -431,6 +431,15 @@ steps:
       request: {friend_group_name: '${group}'}
     expect:
       /items: {count: 3}
+  - id: bob_waits_for_readded_group
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 7s}
+    rpc:
+      method: server.friend_group.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${group_workspace}'}
   - id: bob_returns
     client: bob
     rpc:

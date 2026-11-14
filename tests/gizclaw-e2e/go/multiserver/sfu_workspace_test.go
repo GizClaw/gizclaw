@@ -96,6 +96,7 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 	room := waitNewRoom(t, ctx, rooms, roomsBefore, []string{peerA.Public.String()})
 	t.Logf("room %q created lazily with sid %s", room.Name, room.Sid)
 
+	waitRemoteFriend(t, ctx, clientB, peerA.Public.String(), workspace)
 	if _, err := clientB.SetServerRunWorkspace(ctx, "sfu-select-b", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: workspace}); err != nil {
 		t.Fatalf("Peer B select Workspace: %v", err)
 	}
@@ -123,9 +124,7 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 	var sawReconnecting atomic.Bool
 	observerCtx, stopObserver := context.WithCancel(ctx)
 	var observer sync.WaitGroup
-	observer.Add(1)
-	go func() {
-		defer observer.Done()
+	observer.Go(func() {
 		for observerCtx.Err() == nil {
 			state, err := clientA.GetServerRunWorkspace(observerCtx, "sfu-observe-a")
 			if err == nil && state != nil && isReconnecting(*state) {
@@ -134,7 +133,7 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
-	}()
+	})
 	if _, err := rooms.DeleteRoom(ctx, &livekit.DeleteRoomRequest{Room: room.Name}); err != nil {
 		stopObserver()
 		t.Fatalf("delete Room %q: %v", room.Name, err)

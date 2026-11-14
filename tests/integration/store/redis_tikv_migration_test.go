@@ -48,7 +48,7 @@ func TestTiKVRedisMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	target, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{StaleReadDelay: 30 * time.Second, Labels: map[string]string{"region": "local"}}, nil)
+	target, err := kv.NewTiKVWithClient(client, kv.TiKVReadOptions{Labels: map[string]string{"region": "local"}}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

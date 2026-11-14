@@ -71,7 +71,9 @@ func (s *Server) Resolve(ctx context.Context, target giznet.PublicKey) (apitypes
 }
 
 // Assign claims an absent owner or atomically refreshes this Server's metadata.
-// An expected version never authorizes transfer to another Server.
+// An expected version never authorizes transfer to another Server. A foreign
+// owner returns the observed assignment with ErrVersionConflict so admission can
+// direct the caller to that owner without another potentially stale lookup.
 func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expectedVersion *int64) (apitypes.PeerAssignment, error) {
 	if publicKey.IsZero() {
 		return apitypes.PeerAssignment{}, ErrInvalidPublicKey
@@ -143,7 +145,7 @@ func (s *Server) Assign(ctx context.Context, publicKey giznet.PublicKey, expecte
 			return apitypes.PeerAssignment{}, decodeErr
 		}
 		if current.ServerPublicKey != s.ServerPublicKey.String() {
-			return apitypes.PeerAssignment{}, ErrVersionConflict
+			return current, ErrVersionConflict
 		}
 		if expectedVersion != nil && current.Version != *expectedVersion {
 			if current.Version < *expectedVersion && !primaryFallback {

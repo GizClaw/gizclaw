@@ -12,7 +12,6 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/peerruntest"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 	"github.com/GizClaw/gizclaw-go/tests/testsupport/kvfixture"
@@ -82,7 +81,7 @@ func TestSQLMutationPeerInputRefreshesOnlyMissingHistoricalPeer(t *testing.T) {
 	if err := s.DeleteSelf(kv.WithPrimaryReads(ctx), key); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.EnsureAvailableForMutation(ctx, key); !errors.Is(err, ErrPeerPendingDeletion) {
+	if err := s.EnsureAvailableForMutation(ctx, key); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("missing reader accepted retired writer input: %v", err)
 	}
 	if err := s.EnsureAvailableForMutation(ctx, giznet.PublicKey{90}); !errors.Is(err, ErrPeerNotFound) {
@@ -118,14 +117,14 @@ func TestPeerRetirementRequiresFencedWorkspaceInventory(t *testing.T) {
 				t.Fatal(err)
 			}
 			source := PendingDeletionSource(store)
-			claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+			claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 			base := &peerDeletionAdapters{publicKey: key.String()}
 			prepared := &preparedPeerWorkspaces{peerDeletionAdapters: base, prepared: workspace.PeerRetirementSnapshot{
 				PublicKey: key.String(), Workspaces: []workspace.PeerRetirementWorkspace{{ID: "owned", Name: "owned"}},
 			}}
 			handler := DeletionHandler{Server: s, Source: source, Social: base, Workspaces: prepared}
 			if existing {
-				current, raw, err := handler.retainedPeer(ctx, key)
+				current, raw, err := handler.retainedPeer(ctx, claim.Record, key)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -140,16 +139,11 @@ func TestPeerRetirementRequiresFencedWorkspaceInventory(t *testing.T) {
 				}
 			}
 			plan, err := handler.loadOrCreatePlan(ctx, claim, key)
-			if existing {
-				var outcome *pendingdeletion.OutcomeError
-				if !errors.As(err, &outcome) || outcome.Code != "workspace_snapshot_incomplete" {
-					t.Fatalf("incomplete SQL plan accepted: %+v, %v", plan, err)
-				}
-				if _, err := source.GetTask(ctx, claim.Record.DeletionID); err != nil {
-					t.Fatalf("incomplete task consumed: %v", err)
-				}
-			} else if err != nil || !plan.Workspaces.Covers(prepared.prepared) {
-				t.Fatalf("fenced SQL inventory omitted: %+v, %v", plan, err)
+			if err != nil || !plan.Workspaces.Covers(prepared.prepared) {
+				t.Fatalf("refreshed SQL inventory omitted: %+v, %v", plan, err)
+			}
+			if _, err := source.GetTask(ctx, claim.Record.DeletionID); err != nil {
+				t.Fatalf("refresh consumed the request: %v", err)
 			}
 			if prepared.prepareCalls != 1 || prepared.readCalls != 0 {
 				t.Fatalf("prepare/probe=%d/%d", prepared.prepareCalls, prepared.readCalls)

@@ -196,6 +196,14 @@ control label 是 logical identity 的唯一声明。Server 收齐 control 与 p
 显式 Accept 并发送精确的 `GZT2` result，DCEP open 本身不是 logical acceptance。Edge
 按帧头长度读取该 result，因此即使 result 在可靠 control stream 上分多次到达，仍按一帧解码。
 
+An optional application admission callback runs outside Router locks before the
+acceptance result. It can reject the session or return a typed redirect with a
+canonical, nonzero Server public key. Redirected sessions expose no application
+streams and release their channel reservations. The caller handles the target;
+Giztunnel does not resolve routes or access storage. Unknown result statuses and
+malformed redirect keys fail closed. Accepted and rejected frames retain their
+existing encoding; peers that do not support redirects reject that result.
+
 Direct packets preserve message boundaries on each session's unreliable channel.
 New audio sessions declare `control-rtp` and use envelope version 3 on the shared
 physical unordered, zero-retransmission Packet DataChannel: one version byte,
