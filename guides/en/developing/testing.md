@@ -1941,6 +1941,25 @@ measured directional aggregate Mbps floors.
 
 ## GenX provider E2E
 
+GenX Transformer integration lives in `tests/genx-e2e/transformer`, using its
+existing `package transformer` and public adapter APIs. Tests that require private
+implementation state remain beside the adapter in `pkgs/genx/transformers/`.
+Local protocol fixtures and live provider tests share this directory and use
+separate execution paths. The Doubao PTT fault-injection cases have no build tag,
+like the provider-free Match and deterministic duplex regressions, so ordinary
+root-module Go and race CI continue to run them without cloud credentials.
+
+From the repository root, run the local cases natively or in Docker:
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+The Docker entrypoint selects only those local cases, does not enable the live
+provider tag, and does not load the credential preflight. The real-provider
+entrypoints below enable `gizclaw_genx_e2e` and require the credential inventory.
+
 Provider-backed transformer coverage uses one complete credential inventory:
 
 ```sh

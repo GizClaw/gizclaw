@@ -1830,6 +1830,22 @@ Docker suite 默认只记录速率。可用带宽有余量时，可设置
 
 ## GenX provider E2E
 
+GenX Transformer 集成测试统一放在已有的 `tests/genx-e2e/transformer`，沿用
+`package transformer`，通过公开 adapter API 使用实现。需要私有实现状态的单元测试
+继续留在 `pkgs/genx/transformers/`。本地协议 fixture 与真实云端用例同目录，按入口选择
+区分：Doubao PTT 故障注入和已有的 provider-free Match、deterministic duplex 回归一样
+不带 build tag，因此根模块普通 Go 与 race CI 仍会执行，且不需要云凭据。
+
+从仓库根目录单独运行本地用例或其 Docker 入口：
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+该 Docker 入口只选择上述本地测试，不启用云端 tag，也不加载 credential preflight。
+下面的真实 provider 入口启用 `gizclaw_genx_e2e`，并要求完整 credential inventory。
+
 Provider-backed transformer coverage 使用一份完整 credential inventory：
 
 ```sh

@@ -192,6 +192,22 @@ Push-to-Talk 在匹配的 `ASREnded` 到达时，根据当前 turn 累积并 tri
 
 已经交给失败 session 的 input 不会重放；尚未读取的 input 保留在有界 stream backpressure 之后，由 replacement session 继续消费。Push-to-Talk 中 provider loss 会使当前 turn 失效：丢弃 retained transcript 和 assistant output，在本地持续消费该 turn 剩余 chunks 直到 audio EOS，下一次 BOS 再开始新 turn。
 
+Push-to-Talk 的新 BOS 到达时，如果上一轮已提交 `EndASR` 但尚未收到匹配的 `ASREnded`，transformer 会保留新 BOS，先关闭旧 session 并等待 event receiver 退出，再以 provider loss 的错误终态关闭仍未完成的旧 route，最后由 replacement 消费新 BOS 与音频。等待 receiver 退出期间，已经缓冲的旧 `ASREnded` 仍可正常定稿旧 transcript；已发布的 transcript 保留，未完成的助手 route 以错误结束。旧 receiver 退出前不会开始新轮，因此永久缺失的终止事件不会让后续 ASR 持续按错位 FIFO 配对。
+
+这个保守策略也适用于快速再次按键时仅仅迟到的旧 `ASREnded`，代价是重新握手、默认 100 ms 初始重连退避，以及一条 WARN `provider session lost; reconnecting`。Replacement 继续使用配置的 `DialogID`；未配置时不会继承旧 provider session 的对话上下文。尚未终止的 ASR 在下一次输入边界恢复，不增加无输入时的墙钟超时，也不改变正常回复期间的 PTT interrupt 策略。
+
+Push-to-Talk 收到 SDK `DialogCommonError`（599）时，按保守恢复策略结束受影响轮次并替换 session，即使 SDK 只携带 `event.Error` 而没有终止接收流；warning 保留 event、status 与可用的问题/回复标识。Realtime 与 Text 模式保持 SDK 原有的非终止事件策略。599 并不能单独证明真实上游 session 已停止推进。若 provider loss 发生在仍录音的 PTT turn，replacement 在本地丢弃旧录音后缀直到 audio EOS，然后消费同 route 的尾随 control EOS，下一 BOS 才开启新轮；不会重播已经发送的音频。
+
+这些恢复路径沿用 SDK 的 session Close，不保证被阻塞的网络写或 Close 有界完成。
+
+在仓库根目录运行本地 Docker 协议回归。用例与 loopback fixture 放在已有的 `tests/genx-e2e/transformer`，沿用该目录的 `package transformer`，通过公开的 `doubaorealtime.New(Config)` 构造 adapter。本地用例不带 build tag，Docker 入口精确选择它们，不加载真实 provider 凭据：
+
+```sh
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+脚本使用一次性 Go 容器，不发布宿主端口或读取凭据。可用 `DOUBAO_PTT_TEST_IMAGE` 选择已有的项目 Go base image，并用 `DOUBAO_PTT_GOMODCACHE` 指定只读 Go module cache；默认镜像会在容器内下载依赖。测试通过真实 Transformer 与 SDK WebSocket 发送合成 PCM，覆盖正常五轮、永久缺失 ASR 终止、599 后停滞、录音期间 599 与 MIME-only/双 EOS，以及已结束音频后的迟到 control EOS，检查后续轮恢复、录音与实际上传字节以及不重播音频。关闭旧连接时另有尝试写入旧事件的场景；SDK 可能在读取这些事件前就关闭 socket，因此该场景不证明已接收迟到事件的过滤。测试属于本地故障注入，不替代真实云端或 Peer/WebRTC 验证；容器退出后自动删除。
+
 Realtime 模式把普通 BOS、MIME EOS 和 route EOS 只视为本地 stream boundary；它们不会调用 `EndASR`、注入静音、commit audio 或发送 `ClientInterrupt`。新的客户端输入 route 在打断既有回复时仍关闭并替换 provider session。Input EOF 仍是 transform 终态：它停止重连，并在已提交的有限 Push-to-Talk 或 Text turn 排空匹配的 Chat/TTS response 后关闭当前 session；没有待完成 response 时直接关闭，且不会触发重建。Text mode 不发送 `EndASR` 或 `ClientInterrupt`；Push-to-Talk 仍是使用这两个 provider 操作的模式。
 
 Provider VAD 在同一输入 route 内识别到新的 `question_id` 时，已能关联问题/回复标识的 Realtime session 保持连接，关闭旧助手回复的 text/audio route，让 provider 已接收及后续的音频继续进入 ASR 和完整回复。旧问题的迟到 text、terminal 和 TTS-start 所属的匿名音频不会进入新回复；同一问题的重复 `ASRInfo` 不再次打断，retired question 历史最多保留 64 个。新的客户端 route 或文字 query 提交会清除这份 VAD 状态，文字输入与外挂 ASR 的文本提交保留原路径。不能关联标识的旧协议 `ASRInfo` 仍使用原有 close-and-replace handoff。协议标识见[火山 Realtime API](https://docs.volcengine.com/docs/DoubaoVoice/End-to-endreal-timespeechlargemodelAPIaccessdocument?lang=zh)。
