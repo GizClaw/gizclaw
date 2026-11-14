@@ -1587,6 +1587,40 @@ export type RuntimeProfileI18nText = {
     description?: string;
 };
 
+/**
+ * Eino-only MCP permissions. Enable resources or explicitly select at least one remote Tool name. Aliases of one canonical Workflow must have identical normalized MCP selections.
+ */
+export type RuntimeProfileMcpSelection = {
+    /**
+     * Allow reading this server's resources. Omitted means false.
+     */
+    resources?: boolean;
+    /**
+     * Explicit, unique remote Tool names, each non-blank and 1..128 UTF-8 bytes, enforced by Server normalization. Names are preserved verbatim; no discovery or wildcard expansion grants permissions. Omitted or empty means no Tools.
+     */
+    tools?: Array<string>;
+};
+
+/**
+ * Private remote MCP connection. Validation never connects to the endpoint; connection settings and headers are not projected to Peers.
+ */
+export type RuntimeProfileMcpServer = {
+    /**
+     * Absolute HTTP(S) Streamable HTTP endpoint without userinfo or fragment. Query parameters are permitted.
+     */
+    endpoint: string;
+    /**
+     * Private HTTP headers. Names and values must be valid HTTP fields; Host, Accept, Content-Type and every MCP-* header are reserved, case-insensitively.
+     */
+    headers?: {
+        [key: string]: string;
+    };
+    /**
+     * Resource snapshot refresh duration, from 1s through 24h inclusive. Omitted uses 5m.
+     */
+    refresh_interval?: string;
+};
+
 export type RuntimeProfileMem0Connection = {
     type: 'mem0';
     /**
@@ -1665,7 +1699,7 @@ export type RuntimeProfileQuotaUnlimited = {
 };
 
 /**
- * Model, Voice, Tool, and Memory bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
+ * Model, Voice, Tool, Memory and private MCP server bindings that Workflows reference by alias. Omitted means the RuntimeProfile binds none of them.
  */
 export type RuntimeProfileResources = {
     models?: {
@@ -1679,6 +1713,12 @@ export type RuntimeProfileResources = {
     };
     memories?: {
         [key: string]: RuntimeProfileMemoryBinding;
+    };
+    /**
+     * Private MCP servers keyed by ordinary RuntimeProfile aliases, unique across Workflow and resource bindings.
+     */
+    mcp_servers?: {
+        [key: string]: RuntimeProfileMcpServer;
     };
 };
 
@@ -1753,6 +1793,12 @@ export type RuntimeProfileWorkflowBinding = {
      */
     tags?: Array<string>;
     toolkit?: RuntimeProfileToolSelection;
+    /**
+     * MCP permissions keyed by a server alias declared in resources.mcp_servers. Only Eino Workflows support MCP.
+     */
+    mcp?: {
+        [key: string]: RuntimeProfileMcpSelection;
+    };
     /**
      * Only valid for Workflow bindings. Device RPC and HTTP Workflow lists sort by this value ascending, then by alias. Omitted values use zero; negative values can place a Workflow before unconfigured entries. Does not change Workflow identity or Workspace bindings.
      */

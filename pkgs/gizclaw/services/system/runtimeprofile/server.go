@@ -769,6 +769,9 @@ func normalizeProfile(in adminhttp.RuntimeProfileUpsert, expectedID string) (api
 		}
 		spec.Resources.Memories = &normalized
 	}
+	if err := normalizeMCP(&spec, allAliases); err != nil {
+		return apitypes.RuntimeProfile{}, err
+	}
 	if spec.AppConfig != nil {
 		normalized, err := normalizeAppConfig(*spec.AppConfig)
 		if err != nil {
@@ -1039,7 +1042,7 @@ func bindingByAlias(values *map[string]apitypes.RuntimeProfileBinding, alias str
 
 func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimeProfileSpec) error {
 	if s == nil || s.ResolveResource == nil {
-		return nil
+		return validateMCPResolver(spec)
 	}
 	resolve := func(path string, kind apitypes.ResourceKind, binding apitypes.RuntimeProfileBinding) (apitypes.Resource, error) {
 		resource, err := s.ResolveResource(ctx, kind, binding.ResourceId)
@@ -1071,6 +1074,9 @@ func (s *Server) validateResources(ctx context.Context, spec apitypes.RuntimePro
 		workflow, err := resource.AsWorkflowResource()
 		if err != nil {
 			return fmt.Errorf("%s.resource_id %q returned an invalid Workflow: %w", path, binding.ResourceId, err)
+		}
+		if err := validateWorkflowMCP(path, workflow.Spec.Driver, binding); err != nil {
+			return err
 		}
 		if binding.Toolkit != nil && binding.Toolkit.VerificationModel != nil && workflow.Spec.Driver != apitypes.WorkflowDriverEino {
 			return fmt.Errorf("%s.toolkit: verification_model requires an Eino Workflow", path)
