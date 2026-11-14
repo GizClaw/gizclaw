@@ -1435,8 +1435,9 @@ func (t *Transformer) processSession(
 					continue
 				}
 				// The SDK returns 599 as a nonterminal event carrying Error.
-				// Its dialogue state is no longer safe to reuse for another turn.
-				if event.Type == doubaospeech.EventDialogCommonError {
+				// PTT conservatively replaces the affected dialogue; other input
+				// modes keep the SDK's nonterminal policy.
+				if t.mode == ModePushToTalk && event.Type == doubaospeech.EventDialogCommonError {
 					var cause error = errors.New("provider reported a dialogue error")
 					if event.Error != nil {
 						cause = event.Error
@@ -2048,6 +2049,10 @@ func (t *Transformer) processSession(
 		if t.mode == ModePushToTalk && pushToTalk.discard(chunk) {
 			if realtimeAudioInputEOS(chunk) {
 				streamID := streamIDs.serviceInput(chunk)
+				// Discarding ends at this audio boundary. Only now retire the
+				// containing route's trailing EOS, so it cannot reach the new
+				// session as EOS-before-BOS or keep discarding the next BOS.
+				runtime.markFailedPTTTrailingRoute(streamID)
 				historyStreamID := streamIDs.historyInput(chunk)
 				mimeType := ""
 				if blob, ok := chunk.Part.(*genx.Blob); ok {

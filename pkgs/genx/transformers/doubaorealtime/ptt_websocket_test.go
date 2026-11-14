@@ -20,17 +20,18 @@ import (
 // pttWireProvider speaks the actual Dialogue binary protocol to the pinned SDK.
 // It only uses loopback, synthetic PCM and dummy credentials; no cloud service.
 type pttWireProvider struct {
-	t           *testing.T
-	mu          sync.Mutex
-	connections int
-	turns       int
-	audioBytes  int
-	fault       string
-	server      *httptest.Server
+	t                *testing.T
+	mu               sync.Mutex
+	connections      int
+	turns            int
+	audioBytes       int
+	fault            string
+	server           *httptest.Server
+	replacementReady chan struct{}
 }
 
 func newPTTWireProvider(t *testing.T, fault string) *pttWireProvider {
-	p := &pttWireProvider{t: t, fault: fault}
+	p := &pttWireProvider{t: t, fault: fault, replacementReady: make(chan struct{})}
 	p.server = httptest.NewServer(http.HandlerFunc(p.serve))
 	t.Cleanup(p.server.Close)
 	return p
@@ -70,10 +71,21 @@ func (p *pttWireProvider) serve(w http.ResponseWriter, r *http.Request) {
 			if !send(150, `{"dialog_id":"local-docker-dialog"}`) {
 				return
 			}
+			if connection == 2 {
+				close(p.replacementReady)
+			}
 		case 200:
 			p.mu.Lock()
 			p.audioBytes += len(payload)
+			turns := p.turns
 			p.mu.Unlock()
+			if connection == 1 && p.fault == "capture599" && turns == 1 && !stalled {
+				p.t.Log("INJECT: 599 after first frame while input is still Capturing")
+				if !send(599, `{"status_code":"MODEL_BUSY","message":"local capture failure"}`) {
+					return
+				}
+				stalled = true
+			}
 		case 400:
 			p.mu.Lock()
 			p.turns++
@@ -88,7 +100,7 @@ func (p *pttWireProvider) serve(w http.ResponseWriter, r *http.Request) {
 			if !send(451, asr) {
 				return
 			}
-			if turn == 2 && (p.fault == "missing459" || p.fault == "late459") {
+			if turn == 2 && (p.fault == "missing459" || p.fault == "closeEventAttempt") {
 				p.t.Log("INJECT: permanently omit turn 2 ASREnded and response; later turns return their own 451/459/reply")
 				continue
 			}
@@ -110,8 +122,10 @@ func (p *pttWireProvider) serve(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		case 102:
-			if connection == 1 && p.fault == "late459" {
-				// Try to deliver the retired turn while the SDK is closing it.
+			if connection == 1 && p.fault == "closeEventAttempt" {
+				// Attempt old events after the finish request. The SDK may close
+				// the socket before reading them; this case does not prove delivery
+				// or filtering of already-received events.
 				if !send(451, `{"text":"late old transcript","question_id":"q2"}`) ||
 					!send(459, `{"question_id":"q2"}`) ||
 					!send(350, `{"text":"late old answer","question_id":"q2","reply_id":"r2"}`) {
@@ -175,7 +189,7 @@ func pttServerFrame(event int, session string, payload []byte) []byte {
 }
 
 func TestPTTWebSocketRecovery(t *testing.T) {
-	for _, fault := range []string{"none", "missing459", "599", "late459", "599TrailingEOS"} {
+	for _, fault := range []string{"none", "missing459", "599", "closeEventAttempt", "599TrailingEOS"} {
 		t.Run(fault, func(t *testing.T) {
 			p := newPTTWireProvider(t, fault)
 			client := speech.NewClient("local-only", speech.WithAPIKey("local-only"), speech.WithWebSocketURL("ws"+strings.TrimPrefix(p.server.URL, "http")))

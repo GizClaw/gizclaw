@@ -13,8 +13,8 @@ fi
 exec docker run --rm --name "gizclaw-doubao-ptt-$$" \
   --label org.gizclaw.test=doubao-ptt \
   --mount "type=bind,source=${repo_root},target=/src,readonly" \
-  "${cache_args[@]}" \
+  ${cache_args[@]+"${cache_args[@]}"} \
   --workdir /src --env CGO_ENABLED=0 --env GOTOOLCHAIN=local \
   --entrypoint go "${image}" \
   test ./pkgs/genx/transformers/doubaorealtime \
-  -run '^TestPTTWebSocketRecovery$' -count=1 -v -timeout=30s
+  -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1 -v -timeout=30s
