@@ -26,7 +26,7 @@ type rpcPeerService interface {
 	GetSelfInfo(context.Context, giznet.PublicKey) (apitypes.DeviceInfo, error)
 	PutSelfInfo(context.Context, giznet.PublicKey, apitypes.DeviceInfo) (apitypes.DeviceInfo, error)
 	GetSelfRuntime(context.Context, giznet.PublicKey) apitypes.Runtime
-	LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error)
+	ValidatePeerRecord(context.Context, giznet.PublicKey) error
 	DeleteSelf(context.Context, giznet.PublicKey) error
 }
 
@@ -225,13 +225,14 @@ func (s *rpcServer) handleRegister(ctx context.Context, req *rpcapi.RPCRequest) 
 		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "peer service not configured"}.RPCResponse(), nil
 	}
 	if registration.FirmwareID != nil {
-		if s.isCallerActive != nil {
-			if !s.isCallerActive() {
-				return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Message: ErrPeerConnNotActive.Error()}.RPCResponse(), nil
-			}
-		} else if _, err := s.peer.LoadPeer(ctx, s.callerPublicKey); err != nil {
+		if err := s.peer.ValidatePeerRecord(ctx, s.callerPublicKey); err != nil {
 			return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeInternal, Message: "registration failed"}.RPCResponse(), nil
 		}
+	}
+	// This connection-generation checkpoint supplements the configured Peer
+	// read; an admitted connection never bypasses stored-record validation.
+	if s.isCallerActive != nil && !s.isCallerActive() {
+		return rpcapi.Error{RequestID: req.Id, Code: rpcapi.StatusCodeUnavailable, Message: ErrPeerConnNotActive.Error()}.RPCResponse(), nil
 	}
 	registration, err = s.registrations.RegisterOwner(ctx, s.callerPublicKey.String(), params.Token, s.onRegistration)
 	if err != nil {

@@ -16,6 +16,7 @@ type kvTaskState struct {
 	Status            Status `json:"status"`
 	Phase             Phase  `json:"phase"`
 	FailureCount      int    `json:"failure_count"`
+	ExecutionCount    int    `json:"execution_count"`
 	NextAttemptAt     string `json:"next_attempt_at"`
 	LeaseToken        string `json:"lease_token"`
 	LeaseDeadline     string `json:"lease_deadline"`
@@ -114,6 +115,7 @@ func (s KVSource) Checkpoint(ctx context.Context, claim Claim, phase Phase, now 
 
 func (s KVSource) Defer(ctx context.Context, claim Claim, code, message string, nextAttempt, now time.Time) error {
 	return s.transition(ctx, claim, now, func(task *Task) {
+		task.ExecutionCount++
 		task.Status = StatusRetryWait
 		task.NextAttemptAt = nextAttempt
 		task.LeaseToken = ""
@@ -126,6 +128,7 @@ func (s KVSource) Defer(ctx context.Context, claim Claim, code, message string, 
 func (s KVSource) Fail(ctx context.Context, claim Claim, code, message string, terminal bool, nextAttempt, now time.Time, maxAttempts int) error {
 	return s.transition(ctx, claim, now, func(task *Task) {
 		task.FailureCount++
+		task.ExecutionCount++
 		task.Status = StatusRetryWait
 		if terminal || task.FailureCount >= maxAttempts {
 			task.Status = StatusFailed
@@ -189,7 +192,7 @@ func (s KVSource) RetryFailed(ctx context.Context, observed Task, now time.Time)
 		if err != nil {
 			return Task{}, err
 		}
-		if !sameFailedObservation(current, observed) {
+		if !sameFailedObservation(current, observed) || current.ExecutionCount != observed.ExecutionCount {
 			return Task{}, ErrConflict
 		}
 		retried, matched, err := s.requeueFailed(ctx, current, raw, now)
@@ -465,7 +468,7 @@ func (s KVSource) decodeTask(record Record, raw []byte) (Task, []byte, error) {
 	}
 	task := Task{
 		Source: s.Name(), Record: record, MarkerFingerprint: state.MarkerFingerprint,
-		Status: state.Status, Phase: state.Phase, FailureCount: state.FailureCount,
+		Status: state.Status, Phase: state.Phase, FailureCount: state.FailureCount, ExecutionCount: state.ExecutionCount,
 		NextAttemptAt: parseKVTaskTime(state.NextAttemptAt), LeaseToken: state.LeaseToken,
 		LeaseDeadline: parseKVTaskTime(state.LeaseDeadline), LastErrorCode: state.LastErrorCode,
 		LastErrorMessage: state.LastErrorMessage, UpdatedAt: parseKVTaskTime(state.UpdatedAt),
@@ -499,7 +502,7 @@ func (s KVSource) writeTask(ctx context.Context, task Task, expected []byte) (bo
 func encodeKVTaskState(task Task) ([]byte, error) {
 	return json.Marshal(kvTaskState{
 		MarkerFingerprint: task.MarkerFingerprint, Status: task.Status, Phase: task.Phase,
-		FailureCount: task.FailureCount, NextAttemptAt: formatKVTaskTime(task.NextAttemptAt),
+		FailureCount: task.FailureCount, ExecutionCount: task.ExecutionCount, NextAttemptAt: formatKVTaskTime(task.NextAttemptAt),
 		LeaseToken: task.LeaseToken, LeaseDeadline: formatKVTaskTime(task.LeaseDeadline),
 		LastErrorCode: task.LastErrorCode, LastErrorMessage: task.LastErrorMessage,
 		UpdatedAt: formatKVTaskTime(task.UpdatedAt),

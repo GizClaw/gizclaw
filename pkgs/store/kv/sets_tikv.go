@@ -25,18 +25,21 @@ func (s *TiKV) RemoveMembers(ctx context.Context, key Key, members ...string) er
 
 // HasMember reads the collection type and member from one snapshot.
 func (s *TiKV) HasMember(ctx context.Context, key Key, member string) (bool, error) {
-	snapshot, err := s.snapshot(ctx)
+	prefix := s.memberPrefix(key)
+	record, memberKey := s.recordKey(key), append(bytes.Clone(prefix), member...)
+	view, err := s.readView(ctx, [][]byte{record, memberKey}, prefix, false)
 	if err != nil {
 		return false, tiKVError("member snapshot", err)
 	}
-	raw, err := snapshot.Get(ctx, s.recordKey(key))
-	if tikverr.IsErrNotFound(err) {
+	defer view.close()
+	raw, err := view.get(ctx, record)
+	if errors.Is(err, ErrNotFound) {
 		return false, nil
 	}
 	if err != nil {
 		return false, tiKVError("collection", err)
 	}
-	v, err := decodeTiKVValue(raw.Value, time.Now())
+	v, err := decodeTiKVValue(raw, time.Now())
 	if errors.Is(err, ErrNotFound) {
 		return false, nil
 	}
@@ -46,8 +49,8 @@ func (s *TiKV) HasMember(ctx context.Context, key Key, member string) (bool, err
 	if v.kind != 1 {
 		return false, ErrWrongType
 	}
-	_, err = snapshot.Get(ctx, append(s.memberPrefix(key), member...))
-	if tikverr.IsErrNotFound(err) {
+	_, err = view.get(ctx, memberKey)
+	if errors.Is(err, ErrNotFound) {
 		return false, nil
 	}
 	return err == nil, tiKVError("has member", err)
@@ -66,18 +69,29 @@ func (s *TiKV) RangeOrderedMembers(ctx context.Context, key Key, query OrderedRa
 	return s.members(ctx, key, 2, query)
 }
 func (s *TiKV) members(ctx context.Context, key Key, kind byte, query OrderedRange) ([]string, error) {
-	snapshot, err := s.snapshot(ctx)
+	prefix := s.memberPrefix(key)
+	record := s.recordKey(key)
+	start, end := bytes.Clone(prefix), tiKVPrefixEnd(prefix)
+	if query.After != nil {
+		start = append(start, *query.After...)
+		start = append(start, 0)
+	}
+	if query.Before != nil {
+		end = append(bytes.Clone(prefix), *query.Before...)
+	}
+	view, err := s.readView(ctx, [][]byte{record}, prefix, true, tiKVLocalRange{start: start, end: end})
 	if err != nil {
 		return nil, tiKVError("member snapshot", err)
 	}
-	raw, err := snapshot.Get(ctx, s.recordKey(key))
-	if tikverr.IsErrNotFound(err) {
+	defer view.close()
+	raw, err := view.get(ctx, record)
+	if errors.Is(err, ErrNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, tiKVError("collection", err)
 	}
-	v, err := decodeTiKVValue(raw.Value, time.Now())
+	v, err := decodeTiKVValue(raw, time.Now())
 	if errors.Is(err, ErrNotFound) {
 		return nil, nil
 	}
@@ -87,40 +101,14 @@ func (s *TiKV) members(ctx context.Context, key Key, kind byte, query OrderedRan
 	if v.kind != kind {
 		return nil, ErrWrongType
 	}
-	prefix := s.memberPrefix(key)
-	start, end := bytes.Clone(prefix), tiKVPrefixEnd(prefix)
-	if query.After != nil {
-		start = append(start, *query.After...)
-		start = append(start, 0)
-	}
-	if query.Before != nil {
-		end = append(bytes.Clone(prefix), *query.Before...)
-	}
 	if bytes.Compare(start, end) >= 0 {
 		return nil, nil
 	}
 	if query.Limit > 0 {
-		snapshot.SetScanBatchSize(max(2, min(query.Limit, 256)))
+		view.snapshot.SetScanBatchSize(max(2, min(query.Limit, 256)))
 	}
-	it, err := snapshot.Iter(start, end)
-	if err != nil {
-		return nil, tiKVError("scan members", err)
-	}
-	defer it.Close()
-	var result []string
-	for it.Valid() {
-		if err := ctx.Err(); err != nil {
-			return nil, err
-		}
-		result = append(result, string(it.Key()[len(prefix):]))
-		if query.Limit > 0 && len(result) == query.Limit {
-			break
-		}
-		if err := it.Next(); err != nil {
-			return nil, tiKVError("scan next member", err)
-		}
-	}
-	return result, ctx.Err()
+	members, err := view.rangeMembers(ctx, start, end, query.Limit)
+	return members, tiKVError("scan members", err)
 }
 
 // ApplyMutation checks conditions and updates records and indexes atomically.
@@ -218,19 +206,29 @@ func (s *TiKV) membersTxn(ctx context.Context, tx *transaction.KVTxn, group SetM
 			return err
 		}
 		exists := err == nil
-		if add && !exists {
-			if err := tx.Set(key, []byte{1}); err != nil {
-				return err
+		if add {
+			// Also publish idempotent additions/removals: a historical reader may
+			// disagree with the member state this successful mutation confirmed.
+			if !exists || s.local != nil {
+				if err := tx.Set(key, []byte{1}); err != nil {
+					return err
+				}
 			}
-			count++
-		} else if !add && exists {
-			if count == 0 {
-				return errors.New("kv: invalid tikv collection count")
+			if !exists {
+				count++
 			}
-			if err := tx.Delete(key); err != nil {
-				return err
+		} else {
+			if exists {
+				if count == 0 {
+					return errors.New("kv: invalid tikv collection count")
+				}
+				count--
 			}
-			count--
+			if exists || s.local != nil {
+				if err := tx.Delete(key); err != nil {
+					return err
+				}
+			}
 		}
 	}
 	if group.MaxMembers > 0 && count > uint64(group.MaxMembers) && count > previous {

@@ -32,7 +32,12 @@ const (
 
 // Config bounds one physical Edge tunnel router.
 type Config struct {
-	AcceptSessions        bool
+	AcceptSessions bool
+	// AdmitSession runs in Accept before acknowledging a remote session, outside
+	// Router locks. Nil accepts every declaration. Return *SessionRedirectError
+	// to redirect; other errors send a generic rejection. The callback must honor
+	// ctx, which is canceled on handshake expiry, Accept cancellation or close.
+	AdmitSession          func(context.Context, SessionDeclaration) error
 	MaxChannelsPerSession int
 	MaxChannels           int
 	MaxPendingSessions    int
@@ -107,6 +112,7 @@ type Router struct {
 	pendingAdmissions int
 	closed            bool
 	acceptCh          chan acceptedSession
+	admissionCalls    chan struct{}
 	closeCh           chan struct{}
 	channelAvailable  chan struct{}
 	closeOnce         sync.Once
@@ -197,6 +203,7 @@ func NewRouter(transport giznet.ChannelConn, cfg Config) (*Router, error) {
 		pending:          make(map[SessionID]*pendingSession),
 		retired:          make(map[SessionID]*time.Timer),
 		acceptCh:         make(chan acceptedSession, cfg.MaxPendingSessions),
+		admissionCalls:   make(chan struct{}, cfg.MaxPendingSessions),
 		closeCh:          make(chan struct{}),
 		channelAvailable: make(chan struct{}),
 		writeBudget:      giznet.NewWriteBudget(uint64(cfg.MaxAssociationBufferedBytes)),
@@ -225,6 +232,8 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 	if ctx == nil {
 		return nil, errors.New("giztunnel: nil dial context")
 	}
+	ctx, cancel := context.WithTimeout(ctx, r.cfg.HandshakeTimeout)
+	defer cancel()
 	controlName, err := controlLabel(declaration)
 	if err != nil {
 		return nil, err
@@ -250,6 +259,8 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 		return nil, err
 	}
 
+	stopCancel := context.AfterFunc(ctx, func() { r.dropPending(declaration.SessionID, pending) })
+	defer stopCancel()
 	control, err := r.transport.OpenChannel(ctx, controlName, giznet.ChannelReliable)
 	if err != nil {
 		r.dropPending(declaration.SessionID, pending)
@@ -287,15 +298,30 @@ func (r *Router) Dial(ctx context.Context, declaration SessionDeclaration) (*Con
 	reset()
 	if err != nil {
 		r.dropPending(declaration.SessionID, pending)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return nil, err
 	}
-	if status == sessionRejected {
+	switch status {
+	case sessionRejected:
 		r.dropPending(declaration.SessionID, pending)
 		return nil, rejectionError(reason)
+	case sessionRedirected:
+		r.dropPending(declaration.SessionID, pending)
+		key, err := parseRedirectKey(reason)
+		if err != nil {
+			return nil, err
+		}
+		return nil, &SessionRedirectError{ServerPublicKey: key}
+	case sessionAccepted:
+	default:
+		r.dropPending(declaration.SessionID, pending)
+		return nil, ErrInvalidFrame
 	}
 
 	r.mu.Lock()
-	if r.closed || r.pending[declaration.SessionID] != pending {
+	if r.closed || ctx.Err() != nil || r.pending[declaration.SessionID] != pending {
 		r.mu.Unlock()
 		r.dropPending(declaration.SessionID, pending)
 		return nil, giznet.ErrConnClosed
@@ -321,22 +347,93 @@ func (r *Router) Accept(ctx context.Context) (*Conn, SessionDeclaration, error) 
 	for {
 		select {
 		case accepted := <-r.acceptCh:
-			if !accepted.conn.acceptApplication() {
-				continue
-			}
-			result, _ := encodeSessionResult(sessionAccepted, "")
-			if _, err := accepted.conn.control.Write(result); err != nil {
-				_ = accepted.conn.closeWithError(err)
+			admitted, err := r.admitSession(ctx, accepted)
+			if err != nil {
 				return nil, SessionDeclaration{}, err
 			}
-			accepted.conn.start()
-			return accepted.conn, accepted.declaration, nil
+			if admitted {
+				accepted.conn.start()
+				return accepted.conn, accepted.declaration, nil
+			}
 		case <-ctx.Done():
 			return nil, SessionDeclaration{}, ctx.Err()
 		case <-r.closeCh:
 			return nil, SessionDeclaration{}, giznet.ErrConnClosed
 		}
 	}
+}
+
+// admitSession owns one queued admission until it is acknowledged or closed.
+// The separate callback quota remains held until the callback returns, even if
+// its session expires, so uncooperative callbacks cannot accumulate without bound.
+func (r *Router) admitSession(ctx context.Context, accepted acceptedSession) (bool, error) {
+	conn := accepted.conn
+	ctx, cancel := context.WithDeadline(ctx, conn.admissionDeadline)
+	stopClose := context.AfterFunc(conn.closedContext, cancel)
+	stopCancel := context.AfterFunc(ctx, func() { _ = conn.closeWithError(ctx.Err()) })
+	defer func() {
+		stopCancel()
+		stopClose()
+		cancel()
+	}()
+	if ctx.Err() != nil || conn.admission.Load() != admissionPending {
+		_ = conn.Close()
+		return false, nil
+	}
+
+	status, detail := sessionAccepted, ""
+	if r.cfg.AdmitSession != nil {
+		select {
+		case r.admissionCalls <- struct{}{}:
+		case <-ctx.Done():
+			_ = conn.Close()
+			return false, nil
+		}
+		err := r.cfg.AdmitSession(ctx, accepted.declaration)
+		<-r.admissionCalls
+		if err != nil {
+			status, detail = sessionRejected, "session admission denied"
+			var redirect *SessionRedirectError
+			if errors.As(err, &redirect) && redirect != nil && !redirect.ServerPublicKey.IsZero() {
+				status, detail = sessionRedirected, redirect.ServerPublicKey.String()
+			}
+		}
+	}
+	if ctx.Err() != nil {
+		_ = conn.closeWithError(ctx.Err())
+		return false, nil
+	}
+	reset, err := setChannelDeadline(ctx, conn.control, r.cfg.HandshakeTimeout)
+	if err != nil {
+		_ = conn.closeWithError(err)
+		return false, err
+	}
+	defer reset()
+	if status == sessionAccepted && !conn.acceptApplication() {
+		_ = conn.Close()
+		return false, nil
+	}
+	result, err := encodeSessionResult(status, detail)
+	if err == nil {
+		var n int
+		n, err = conn.control.Write(result)
+		if err == nil && n != len(result) {
+			err = io.ErrShortWrite
+		}
+	}
+	if err != nil {
+		_ = conn.closeWithError(err)
+		return false, err
+	}
+	if status != sessionAccepted {
+		_ = conn.Close()
+		return false, nil
+	}
+	if ctx.Err() != nil {
+		_ = conn.closeWithError(ctx.Err())
+		return false, nil
+	}
+	return true, nil
 }
 
 // ActiveChannels reports the currently reserved tunnel channels.
@@ -654,6 +751,8 @@ func (r *Router) acceptPending(id SessionID, pending *pendingSession) {
 	case r.acceptCh <- acceptedSession{conn: conn, declaration: pending.declaration}:
 	case <-r.closeCh:
 		_ = conn.Close()
+	default:
+		_ = conn.closeWithError(ErrBufferLimit)
 	}
 }
 
@@ -786,20 +885,23 @@ type Conn struct {
 	mediaMu     sync.Mutex
 	mediaClock  opusmedia.Clock
 
-	mu             sync.Mutex
-	streams        map[uint64]*serviceStream
-	seenStreams    map[uint64]struct{}
-	byService      map[uint64]map[uint64]*serviceStream
-	listeners      map[uint64]*serviceListener
-	closedSvc      map[uint64]bool
-	nextID         uint64
-	localParity    uint64
-	activeChannels atomic.Int64
-	writeBudget    *giznet.WriteBudget
-	admission      atomic.Uint32
-	admissionSlot  atomic.Bool
-	admissionMu    sync.Mutex
-	admissionTimer *time.Timer
+	mu                sync.Mutex
+	streams           map[uint64]*serviceStream
+	seenStreams       map[uint64]struct{}
+	byService         map[uint64]map[uint64]*serviceStream
+	listeners         map[uint64]*serviceListener
+	closedSvc         map[uint64]bool
+	nextID            uint64
+	localParity       uint64
+	activeChannels    atomic.Int64
+	writeBudget       *giznet.WriteBudget
+	admission         atomic.Uint32
+	admissionSlot     atomic.Bool
+	admissionMu       sync.Mutex
+	admissionTimer    *time.Timer
+	admissionDeadline time.Time
+	closedContext     context.Context
+	cancelClosed      context.CancelFunc
 
 	acceptAll atomic.Bool
 	serviceCh chan acceptedService
@@ -857,6 +959,7 @@ func newConn(
 	} else {
 		conn.nextID = 2
 	}
+	conn.closedContext, conn.cancelClosed = context.WithCancel(context.Background())
 	conn.activeChannels.Store(int64(active))
 	if router.cfg.AggregateServices {
 		conn.EnableServiceAccept()
@@ -867,6 +970,7 @@ func newConn(
 
 func (c *Conn) armAdmissionTimeout(timeout time.Duration) {
 	c.admissionMu.Lock()
+	c.admissionDeadline = time.Now().Add(timeout)
 	c.admissionTimer = time.AfterFunc(timeout, func() {
 		if c.admission.CompareAndSwap(admissionPending, admissionExpired) {
 			_ = c.closeWithError(context.DeadlineExceeded)
@@ -1246,6 +1350,9 @@ func (c *Conn) closeWithError(cause error) error {
 			cause = giznet.ErrConnClosed
 		}
 		c.closeErr.Store(&cause)
+		if c.cancelClosed != nil {
+			c.cancelClosed()
+		}
 		c.admission.CompareAndSwap(admissionPending, admissionExpired)
 		c.stopAdmissionTimer()
 		c.releaseAdmissionSlot()

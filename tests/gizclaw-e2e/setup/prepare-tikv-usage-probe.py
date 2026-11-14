@@ -53,7 +53,7 @@ def prepare(root, output):
     text = replace_once(text, 'codec, safePoint, rpc,', 'codec, safePoint, transport,', path)
     text = replace_once(text, 'if err != nil {\n\t\t_ = rpc.Close()', 'if err != nil {\n\t\t_ = transport.Close()', path)
     text = replace_once(text, '\treturn store, nil', '''\tif gate, ok := transport.(*tikvfixture.UsageGate); ok {
-        store.SetOracle(gate.WrapReadClock(store.GetOracle(), cfg.StaleReadDelay))
+        store.SetOracle(gate.WrapReadClock(store.GetOracle(), len(cfg.ReadLabels) > 0))
     }
 \treturn store, nil''', path)
     replacements[path] = "storage-tikv.go"

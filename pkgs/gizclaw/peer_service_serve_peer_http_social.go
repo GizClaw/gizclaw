@@ -81,9 +81,11 @@ func publicSocialError(err error, notFound string) (int, apitypes.ErrorResponse)
 		return http.StatusConflict, apiError(publicHTTPFriendGroupChanged, friendgroup.ErrGroupChanged.Error())
 	case errors.Is(err, friendgroup.ErrFriendGroupPendingDeletion):
 		return http.StatusConflict, apiError(publicHTTPFriendGroupPendingDeletion, "friend group is pending deletion")
+	case errors.Is(err, runtimepeer.ErrPeerDeleted):
+		return http.StatusConflict, apiError(publicHTTPPeerDeleted, "peer is deleted")
 	case errors.Is(err, runtimepeer.ErrPeerPendingDeletion):
 		return http.StatusConflict, apiError(runtimepeer.PeerPendingDeletionCode, "peer is pending deletion")
-	case errors.Is(err, runtimepeer.ErrPeerDeleted), errors.Is(err, runtimepeer.ErrPeerNotFound):
+	case errors.Is(err, runtimepeer.ErrPeerNotFound):
 		return http.StatusConflict, apiError(publicHTTPPeerDeleted, "peer is deleted")
 	case errors.Is(err, kv.ErrNotFound):
 		return http.StatusNotFound, apiError(notFound, strings.ToLower(strings.ReplaceAll(notFound, "_", " ")))

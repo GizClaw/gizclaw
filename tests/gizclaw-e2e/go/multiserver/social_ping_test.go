@@ -184,10 +184,17 @@ func TestSocialPingCrossServer(t *testing.T) {
 		}
 		offline = connectAndServe(t, offlineKey, ingress, serverB.PublicKey, "offline-create-relation")
 		registerSocialPeer(t, ctx, offline, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
-		if _, err := offline.AddFriend(ctx, "social-offline-add", rpcapi.FriendAddRequest{InviteToken: invite.InviteToken}); err != nil {
+		friend, err := offline.AddFriend(ctx, "social-offline-add", rpcapi.FriendAddRequest{InviteToken: invite.InviteToken})
+		if err != nil {
 			t.Fatal(err)
 		}
+		if friend.WorkspaceName == nil || *friend.WorkspaceName == "" {
+			t.Fatal("offline Friend has no shared Workspace")
+		}
 		_ = offline.Close()
+		// A reads through another Server. Wait for the committed relationship
+		// before testing offline delivery; never retry the ping or its mutation.
+		waitSocialPingFriend(t, ctx, a, offlineKey.Public.String(), *friend.WorkspaceName)
 		start := time.Now()
 		missed, err := a.PingFriend(ctx, "social-offline", rpcapi.FriendPingRequest{Name: offlineKey.Public.String()})
 		requireFriendPing(t, missed, err, rpcapi.SocialPingResultNotOnline, 0)
@@ -283,7 +290,39 @@ func socialPingFriends(t *testing.T, ctx context.Context, a, b *gizcli.Client) s
 	if err != nil {
 		t.Fatal(err)
 	}
+	if friend.WorkspaceName == nil || *friend.WorkspaceName == "" {
+		t.Fatal("Friend has no shared Workspace")
+	}
+	// The invite owner may read through another Server. Establish readiness
+	// before the first ping so the shared-window assertions keep their timing.
+	waitSocialPingFriend(t, ctx, b, a.KeyPair.Public.String(), *friend.WorkspaceName)
 	return friend.Name
+}
+
+func waitSocialPingFriend(t *testing.T, ctx context.Context, client *gizcli.Client, peerKey, workspace string) {
+	t.Helper()
+	visibleCtx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+	if err := waitSharedRead(visibleCtx, func(ctx context.Context) (bool, error) {
+		friends, err := client.ListFriends(ctx, "social-friend-visible", rpcapi.FriendListRequest{})
+		if err != nil {
+			return false, err
+		}
+		for _, item := range friends.Items {
+			if item.PeerPublicKey != nil && *item.PeerPublicKey == peerKey {
+				if item.WorkspaceName == nil {
+					return false, nil
+				}
+				if *item.WorkspaceName != workspace {
+					t.Fatalf("Friend Workspace = %q, want %q", *item.WorkspaceName, workspace)
+				}
+				return true, nil
+			}
+		}
+		return false, nil
+	}); err != nil {
+		t.Fatalf("wait for Friend %s visibility: %v", peerKey, err)
+	}
 }
 
 func socialPingGroup(t *testing.T, ctx context.Context, owner *gizcli.Client, name string, members map[string]*gizcli.Client) string {

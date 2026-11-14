@@ -162,7 +162,7 @@ func TestAPIKeyHTTPRoutesAcrossEdgeToOwnerServer(t *testing.T) {
 	clientB := connectAndServe(t, peerB, edgeB, serverB.PublicKey, "api-key-owner-server-b-via-edge-b")
 	defer clientB.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	registerSocialPeer(t, ctx, clientB, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
 	created, err := clientB.CreateAPIKey(ctx, "multi-server-api-key", rpcapi.APIKeyCreateRequest{
@@ -172,6 +172,7 @@ func TestAPIKeyHTTPRoutesAcrossEdgeToOwnerServer(t *testing.T) {
 		t.Fatalf("create API key on Server B: %v", err)
 	}
 
+	waitAPIKeyVisible(t, ctx, deviceRouteBase(t, edgeAEndpoint), created.APIKey)
 	request, err := http.NewRequestWithContext(
 		ctx,
 		http.MethodGet,
@@ -223,7 +224,7 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	clientB := connectAndServe(t, peerB, serverB, serverB.PublicKey, "social-peer-b")
 	defer clientB.Close()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 	registerSocialPeer(t, ctx, clientA, serverA, "GIZCLAW_TEST_REGISTRATION_TOKEN_A")
 	registerSocialPeer(t, ctx, clientB, serverB, "GIZCLAW_TEST_REGISTRATION_TOKEN_B")
@@ -257,10 +258,7 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 	if snapshotsEqual(sharedBeforeFriend, sharedSnapshot(t, shared)) {
 		t.Fatal("shared TiKV did not record the cross-server Friend")
 	}
-	ownerFriends, err := clientB.ListFriends(ctx, "friend-owner-list", rpcapi.FriendListRequest{})
-	if err != nil {
-		t.Fatalf("list invite owner Friends: %v", err)
-	}
+	ownerFriends := waitRemoteFriend(t, ctx, clientB, peerA.Public.String(), *friend.WorkspaceName)
 	if len(ownerFriends.Items) != 1 || ownerFriends.Items[0].WorkspaceName == nil {
 		t.Fatalf("invite owner Friends = %+v, want one relationship with a Workspace", ownerFriends.Items)
 	}
@@ -318,15 +316,25 @@ func TestCrossServerSocialSharesWorkspaceIdentity(t *testing.T) {
 		t.Fatal("shared TiKV did not record the cross-server FriendGroup membership")
 	}
 	groupName := group.Name
-	members, err := clientB.ListFriendGroupMembers(ctx, "friend-group-owner-members", rpcapi.FriendGroupMemberListRequest{FriendGroupName: &groupName})
-	if err != nil {
-		t.Fatalf("list FriendGroup members: %v", err)
-	}
-	memberKeys := make([]string, 0, len(members.Items))
-	for _, member := range members.Items {
-		if member.PeerPublicKey != nil {
-			memberKeys = append(memberKeys, *member.PeerPublicKey)
+	membersCtx, cancelMembers := context.WithTimeout(ctx, time.Minute)
+	defer cancelMembers()
+	var memberKeys []string
+	var memberRead int
+	if err := waitSharedRead(membersCtx, func(ctx context.Context) (bool, error) {
+		memberRead++
+		members, err := clientB.ListFriendGroupMembers(ctx, fmt.Sprintf("friend-group-owner-members-%d", memberRead), rpcapi.FriendGroupMemberListRequest{FriendGroupName: &groupName})
+		if err != nil {
+			return false, err
 		}
+		memberKeys = make([]string, 0, len(members.Items))
+		for _, member := range members.Items {
+			if member.PeerPublicKey != nil {
+				memberKeys = append(memberKeys, *member.PeerPublicKey)
+			}
+		}
+		return len(memberKeys) >= 2, nil
+	}); err != nil {
+		t.Fatalf("wait for FriendGroup members: %v; visible=%v", err, memberKeys)
 	}
 	sort.Strings(memberKeys)
 	wantKeys := []string{peerA.Public.String(), peerB.Public.String()}

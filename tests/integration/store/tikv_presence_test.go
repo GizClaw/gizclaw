@@ -7,7 +7,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"net/http"
 	"slices"
 	"sync"
 	"testing"
@@ -48,7 +47,7 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 	transport := &redirectedTiKVClient{Client: readerClient.GetTiKVClient(), addresses: redirects}
 	observer := &observedTiKVClient{Client: transport}
 	readerClient.SetTiKVClient(observer)
-	options := kv.TiKVReadOptions{StaleReadDelay: 5 * time.Second, Labels: map[string]string{"region": "local"}}
+	options := kv.TiKVReadOptions{Labels: map[string]string{"region": "local"}}
 	writeRoot, err := kv.NewTiKVWithClient(writerClient, options, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -109,8 +108,8 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 			return err
 		}
 		for _, read := range observer.snapshot()[start:] {
-			if read.Address != addresses["local"] || !read.Stale {
-				return fmt.Errorf("waiting for Learner to serve the historical snapshot: %+v", read)
+			if read.Address != addresses["local"] || read.Stale {
+				return fmt.Errorf("waiting for native Learner synchronization: %+v", read)
 			}
 		}
 		return nil
@@ -125,7 +124,7 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 		keys := 0
 		for _, read := range reads {
 			keys += read.Keys
-			if read.Address != addresses["local"] || !read.Stale {
+			if read.Address != addresses["local"] || read.Stale {
 				t.Fatalf("presence did not use regional reads: %+v", reads)
 			}
 		}
@@ -174,18 +173,12 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 		t.Log("16 concurrent callers completed 160 ten-Peer presence pages")
 	})
 
-	t.Run("frozen-learner-retains-old-presence", func(t *testing.T) {
-		proxyURL := requiredEnvironment(t, "GIZCLAW_TEST_TIKV_PROXY")
-		if err := tiKVHTTP(ctx, http.MethodPost, proxyURL+"/freeze", nil, nil); err != nil {
-			t.Fatal(err)
+	t.Run("frozen-cached-snapshot-retains-old-presence", func(t *testing.T) {
+		clock := freezeTiKVReadClock(t, readerClient)
+		defer clock.frozen.Store(false)
+		if err := assertOnline(reader.ReadBatch(ctx, peers)); err != nil {
+			t.Fatalf("frozen cached snapshot did not contain seeded presence: %v", err)
 		}
-		defer func() {
-			restoreCtx, restoreCancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			defer restoreCancel()
-			if err := tiKVHTTP(restoreCtx, http.MethodPost, proxyURL+"/resume", nil, nil); err != nil {
-				t.Error(err)
-			}
-		}()
 		publishers[0].Publish(peerpresence.Snapshot{LastSeenAt: seen})
 		await(t, func() error {
 			snapshot, err := writer.Read(kv.WithPrimaryReads(ctx), peers[0])
@@ -199,11 +192,11 @@ func testTiKVPresence(t *testing.T, pd string, addresses map[string]string) {
 			t.Fatal(err)
 		}
 		for _, read := range observer.snapshot()[start:] {
-			if !read.Stale || read.Address != addresses["local"] {
+			if read.Stale || read.Address != addresses["local"] || read.Version != clock.cached {
 				t.Fatalf("frozen presence escaped Learner: %+v", read)
 			}
 		}
-		t.Log("real Raft replication paused: center is offline, Learner still returns the old online/room snapshot")
+		t.Logf("test-only cached PD snapshot %d retains old online/room presence while Raft remains healthy and the primary serves offline presence", clock.cached)
 	})
 	await(t, func() error {
 		result := reader.ReadBatch(ctx, peers)[0]

@@ -258,7 +258,7 @@ func TestRPCPeerDeleteAcknowledgesBeforeTerminalAction(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("terminal action was not called after the caller closed the RPC stream")
 	}
-	if _, err := peers.LoadPeer(context.Background(), publicKey); err != nil {
+	if _, err := peers.LoadPeer(context.Background(), publicKey); !errors.Is(err, peer.ErrPeerDeleted) {
 		t.Fatalf("LoadPeer after self-delete: %v", err)
 	}
 	if pending, err := pendingdeletion.HasLocator(context.Background(), store, pendingdeletion.KindPeer, publicKey.String()); err != nil || !pending {

@@ -3,14 +3,12 @@ package peer
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/social/friendgroup"
-	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/store/kv"
 )
@@ -43,7 +41,7 @@ func TestPeerRetirementRequiresPreparedSocialCoverage(t *testing.T) {
 				t.Fatal(err)
 			}
 			source := PendingDeletionSource(store)
-			claim := claimPeerDeletion(t, source, time.Now().Add(time.Second))
+			claim := claimPeerDeletionFinalPass(t, source, time.Now().Add(time.Second))
 			base := &peerDeletionAdapters{publicKey: key.String()}
 			created := time.Now().UTC()
 			prepared := &preparedPeerSocial{peerDeletionAdapters: base, prepared: social.PeerSnapshot{
@@ -52,7 +50,7 @@ func TestPeerRetirementRequiresPreparedSocialCoverage(t *testing.T) {
 			}}
 			handler := DeletionHandler{Server: server, Source: source, Social: prepared, Workspaces: base}
 			if existing {
-				current, raw, err := handler.retainedPeer(ctx, key)
+				current, raw, err := handler.retainedPeer(ctx, claim.Record, key)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -67,16 +65,11 @@ func TestPeerRetirementRequiresPreparedSocialCoverage(t *testing.T) {
 				}
 			}
 			plan, err := handler.loadOrCreatePlan(ctx, claim, key)
-			if existing {
-				var outcome *pendingdeletion.OutcomeError
-				if !errors.As(err, &outcome) || outcome.Code != "social_snapshot_incomplete" || outcome.Class != pendingdeletion.OutcomeTerminal {
-					t.Fatalf("incomplete plan was accepted: %+v, %v", plan, err)
-				}
-				if _, err := source.GetTask(ctx, claim.Record.DeletionID); err != nil {
-					t.Fatalf("task consumed: %v", err)
-				}
-			} else if err != nil || !plan.Social.Covers(prepared.prepared) {
-				t.Fatalf("prepared inventory omitted: %+v, %v", plan, err)
+			if err != nil || !plan.Social.Covers(prepared.prepared) {
+				t.Fatalf("refreshed Social inventory omitted: %+v, %v", plan, err)
+			}
+			if _, err := source.GetTask(ctx, claim.Record.DeletionID); err != nil {
+				t.Fatalf("refresh consumed the request: %v", err)
 			}
 			if prepared.prepareCalls != 1 || prepared.readCalls != 0 {
 				t.Fatalf("preparation/read calls = %d/%d", prepared.prepareCalls, prepared.readCalls)

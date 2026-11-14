@@ -197,7 +197,7 @@ func TestServerFriendGroupNamespaceLifecycle(t *testing.T) {
 	if value, err := dev.FriendGroupStore.Get(ctx, directoryKey); err != nil || string(value) != "corrupt directory" {
 		t.Fatalf("initialization changed the damaged directory: %q, %v", value, err)
 	}
-	if err := dev.manager.Peers.EnsureAvailable(ctx, keyPair.Public); !errors.Is(err, runtimepeer.ErrPeerPendingDeletion) {
+	if err := dev.manager.Peers.EnsureAvailable(ctx, keyPair.Public); !errors.Is(err, runtimepeer.ErrPeerDeleted) {
 		t.Fatalf("Peer was not pending deletion: %v", err)
 	}
 	runServerSocialRecoveryPass(t, dev)

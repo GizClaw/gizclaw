@@ -5,15 +5,83 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/tikv/client-go/v2/oracle"
 )
 
 func TestReadDelayFollowsStoreViews(t *testing.T) {
-	tikv := &TiKV{read: TiKVReadOptions{StaleReadDelay: time.Minute}}
+	tikv := &TiKV{local: new(tiKVLocalWrites)}
+	at := time.Now().Truncate(time.Millisecond)
+	tikv.local.observeRead(oracle.GoTimeToTS(at.Add(-time.Minute)), at)
 	if delay := ReadDelay(Prefixed(tikv, Key{"peers", "presence"})); delay != time.Minute {
 		t.Fatalf("prefixed delay = %v", delay)
 	}
-	if ReadDelay(Prefixed(WithStrongReads(tikv), Key{"peers"})) != 0 || ReadDelay(NewMemory(nil)) != 0 {
-		t.Fatal("strong or memory view has a historical read delay")
+	if ReadDelay(Prefixed(WithStrongReads(tikv), Key{"peers"})) != 0 || ReadDelay(NewMemory(nil)) != 0 || ReadDelay(&TiKV{}) != 0 || ReadDelay(&TiKV{local: new(tiKVLocalWrites)}) != 0 {
+		t.Fatal("strong, nonregional or unobserved store has a read delay")
+	}
+}
+
+func TestReadDelayDoesNotAccumulateWithoutReads(t *testing.T) {
+	tikv := &TiKV{local: new(tiKVLocalWrites)}
+	// Model a successful read a day ago, with two seconds of lag at completion.
+	// Neither idle time nor subsequent writes are another lag observation.
+	at := time.Now().Add(-24 * time.Hour).Truncate(time.Millisecond)
+	ts := oracle.GoTimeToTS(at.Add(-2 * time.Second))
+	tikv.local.retire(ts)
+	tikv.local.observeRead(ts, at)
+	for i := range 3 {
+		commitTS := oracle.GoTimeToTS(time.Now()) + uint64(i)
+		tikv.local.publish(commitTS, map[tiKVLocalKey][]byte{{key: "lease"}: []byte("renewed")})
+		if delay := ReadDelay(tikv); delay != 2*time.Second {
+			t.Fatalf("writer-only delay = %v", delay)
+		}
+		if covered := tikv.local.coveredTimestamp(); covered != ts {
+			t.Fatalf("lag measurement changed coverage: %d, want %d", covered, ts)
+		}
+	}
+}
+
+func TestReadDelayOrdersConcurrentSnapshotObservations(t *testing.T) {
+	tikv := &TiKV{local: new(tiKVLocalWrites)}
+	at := time.Now().Truncate(time.Millisecond)
+	ts := oracle.GoTimeToTS(at.Add(-2 * time.Second))
+	tikv.local.observeRead(ts, at)
+	// An older snapshot can complete later without replacing the latest sample.
+	tikv.local.observeRead(oracle.GoTimeToTS(at.Add(-time.Minute)), at.Add(time.Minute))
+	tikv.local.observeRead(0, at.Add(time.Hour))
+	if delay := ReadDelay(tikv); delay != 2*time.Second {
+		t.Fatalf("older or zero snapshot changed delay: %v", delay)
+	}
+	// Repeated reads at one timestamp use the later completion measurement,
+	// even when the calls acquire the observation mutex out of order.
+	tikv.local.observeRead(ts, at.Add(time.Second))
+	tikv.local.observeRead(ts, at)
+	if delay := ReadDelay(tikv); delay != 3*time.Second {
+		t.Fatalf("same-timestamp delay = %v", delay)
+	}
+	tikv.local.observeRead(oracle.GoTimeToTS(at), at.Add(time.Millisecond))
+	if delay := ReadDelay(tikv); delay != time.Millisecond {
+		t.Fatalf("new snapshot did not refresh delay: %v", delay)
+	}
+	tikv.local.observeRead(oracle.GoTimeToTS(at.Add(time.Hour)), at)
+	if delay := ReadDelay(tikv); delay != 0 {
+		t.Fatalf("future snapshot delay = %v", delay)
+	}
+	if covered := tikv.local.coveredTimestamp(); covered != 0 {
+		t.Fatalf("lag observation advanced MVCC coverage: %d", covered)
+	}
+}
+
+func TestReadDelayRecordsSuccessfulReadView(t *testing.T) {
+	tikv := &TiKV{local: new(tiKVLocalWrites)}
+	ts := oracle.GoTimeToTS(time.Now().Add(-time.Minute))
+	view := &tiKVReadView{cache: tikv.local, ts: ts}
+	view.observed()
+	if delay := ReadDelay(tikv); delay < time.Minute || delay > time.Minute+time.Second {
+		t.Fatalf("read-view delay = %v", delay)
+	}
+	if covered := tikv.local.coveredTimestamp(); covered != ts {
+		t.Fatalf("read-view coverage = %d, want %d", covered, ts)
 	}
 }
 

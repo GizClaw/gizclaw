@@ -431,8 +431,6 @@ func (h *PeerConn) initRPC() {
 	}
 	if h.Service != nil && h.Service.manager != nil {
 		manager, conn := h.Service.manager, h.Conn
-		// Activation confirms the Peer before publishing this connection locally.
-		// Reuse that admission result instead of querying a historical snapshot.
 		h.rpc.isCallerActive = func() bool {
 			if conn == nil || h.isRetiring() {
 				return false

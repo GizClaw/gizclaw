@@ -48,7 +48,7 @@ func TestDeleteSelfRetainsPeerFencesMutationsAndReusesDeletionEvent(t *testing.T
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(first): %v", err)
 	}
-	if _, err := server.BindFirmware(ctx, publicKey, "firmware-reconnected"); !errors.Is(err, ErrPeerPendingDeletion) {
+	if _, err := server.BindFirmware(ctx, publicKey, "firmware-reconnected"); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("BindFirmware(marked) error = %v", err)
 	}
 	if _, err := server.SavePeer(ctx, apitypes.Peer{
@@ -56,10 +56,10 @@ func TestDeleteSelfRetainsPeerFencesMutationsAndReusesDeletionEvent(t *testing.T
 		Role:      apitypes.PeerRoleClient,
 		Status:    apitypes.PeerRegistrationStatusActive,
 		Device:    apitypes.DeviceInfo{},
-	}); !errors.Is(err, ErrPeerPendingDeletion) {
+	}); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("SavePeer(marked) error = %v", err)
 	}
-	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); !errors.Is(err, ErrPeerPendingDeletion) {
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{publicKey}); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("BootstrapEdgeNodes(marked) error = %v", err)
 	}
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
@@ -83,11 +83,11 @@ func TestDeleteSelfRetryPreservesPeerButRejectsReconnect(t *testing.T) {
 	if err := server.DeleteSelf(ctx, publicKey); err != nil {
 		t.Fatalf("DeleteSelf(retry): %v", err)
 	}
-	if _, err := server.EnsureConnectedPeer(ctx, publicKey); !errors.Is(err, ErrPeerPendingDeletion) {
+	if _, err := server.EnsureConnectedPeer(ctx, publicKey); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("EnsureConnectedPeer error = %v", err)
 	}
-	if _, err := server.LoadPeer(ctx, publicKey); err != nil {
-		t.Fatalf("LoadPeer(reconnected): %v", err)
+	if _, err := server.LoadPeer(ctx, publicKey); !errors.Is(err, ErrPeerDeleted) {
+		t.Fatalf("LoadPeer(deleted): %v", err)
 	}
 }
 
@@ -277,9 +277,9 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 	if !ok {
 		t.Fatalf("DeletePeer response type = %T", deleteResp)
 	}
-	deletedRegistration := registrationResultForTest(t, adminhttp.PeerRegistrationResult(deleted))
-	if deletedRegistration.Role != apitypes.PeerRoleClient || deletedRegistration.Status != apitypes.PeerRegistrationStatusBlocked || deletedRegistration.ApprovedAt == nil {
-		t.Fatalf("DeletePeer = %+v", deleted)
+	deletedRegistration, err := adminhttp.PeerRegistrationResult(deleted).AsExternalRef0RegistrationTombstone()
+	if err != nil || deletedRegistration.PublicKey != peerPublicKey || deletedRegistration.Status != apitypes.RegistrationTombstoneStatusDeleted {
+		t.Fatalf("DeletePeer = %+v, %v", deleted, err)
 	}
 	getDeletedResp, err := server.GetPeer(ctx, adminhttp.GetPeerRequestObject{PublicKey: string(peerPublicKey)})
 	if err != nil {
@@ -314,17 +314,18 @@ func TestServerAdminPeerHandlers(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	var descriptor map[string]any
+	var descriptor peerDeletionDescriptor
 	if err := json.Unmarshal(pendingRecord.Descriptor, &descriptor); err != nil {
 		t.Fatalf("decode pending descriptor: %v", err)
 	}
-	if len(descriptor) != 1 || descriptor["public_key"] != peerPublicKey {
-		t.Fatalf("pending descriptor = %#v, want only public_key", descriptor)
+	retained, err := decodePeer(descriptor.PeerRecord)
+	if err != nil || descriptor.PublicKey != peerPublicKey || retained.Role != apitypes.PeerRoleClient || retained.Status != apitypes.PeerRegistrationStatusBlocked || retained.ApprovedAt == nil {
+		t.Fatalf("pending descriptor did not retain the original Peer: %+v, %v", descriptor, err)
 	}
 	if err := server.DeleteSelf(ctx, peerKey); err != nil {
 		t.Fatalf("DeleteSelf() retry error = %v", err)
 	}
-	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); !errors.Is(err, ErrPeerPendingDeletion) {
+	if err := server.BootstrapEdgeNodes(ctx, []giznet.PublicKey{peerKey}); !errors.Is(err, ErrPeerDeleted) {
 		t.Fatalf("BootstrapEdgeNodes() while marked error = %v", err)
 	}
 }

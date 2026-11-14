@@ -76,7 +76,8 @@ func TestUsageReadinessRequiresSuccessfulActualLearnerResponse(t *testing.T) {
 			receipt := new(usageReadReceipt)
 			ctx := context.WithValue(t.Context(), usageReadReceiptKey{}, receipt)
 			req := tikvrpc.NewRequest(tikvrpc.CmdGet, &kvrpcpb.GetRequest{}, kvrpcpb.Context{Peer: &metapb.Peer{Role: test.role}})
-			usageRecordRead(ctx, req, &tikvrpc.Response{Resp: test.response}, nil)
+			gate := new(UsageGate)
+			gate.recordNativeRead(ctx, req, &tikvrpc.Response{Resp: test.response}, nil)
 			if receipt.learner.Load() != test.want {
 				t.Fatalf("actual response readiness = %t, want %t", receipt.learner.Load(), test.want)
 			}

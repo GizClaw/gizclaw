@@ -336,8 +336,16 @@ func (p *Processor) process(ctx context.Context, item dispatchItem) {
 	case OutcomeTerminal:
 		transitionErr = item.source.Fail(ctx, claim, outcome.Code, outcome.Message, true, outcomeNow, outcomeNow, p.config.MaxAttempts)
 	default:
-		next := outcomeNow.Add(retryDelay(p.config.RetryInitial, p.config.RetryMax, claim.FailureCount+1))
-		transitionErr = item.source.Fail(ctx, claim, outcome.Code, outcome.Message, false, next, outcomeNow, p.config.MaxAttempts)
+		delay := retryDelay(p.config.RetryInitial, p.config.RetryMax, claim.FailureCount+1)
+		maxAttempts := p.config.MaxAttempts
+		if policy, ok := handler.(RetryPolicy); ok {
+			interval, minimumAttempts := policy.RetryPolicy()
+			if interval > 0 {
+				delay = interval
+			}
+			maxAttempts = max(maxAttempts, minimumAttempts)
+		}
+		transitionErr = item.source.Fail(ctx, claim, outcome.Code, outcome.Message, false, outcomeNow.Add(delay), outcomeNow, maxAttempts)
 	}
 	if transitionErr != nil {
 		attemptOutcome = "transition_error"

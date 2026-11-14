@@ -28,7 +28,7 @@ TiKV 的 `ApplyMutation` 在同一事务快照中批量预读条件、记录和�
 
 ## Server 租约
 
-每次 Server 启动创建独立 generation，并每十秒续期一条 Server 租约，不逐个续期 Peer。默认有效期三十秒；TiKV 配置历史读时额外加上 `kv.ReadDelay` 返回的历史窗口，避免健康租约在历史快照中已经过期。地区历史读仍会延迟首次上线及后续变化的可见性。
+Each Server boot has a unique generation and renews one Server lease every ten seconds, without per-Peer heartbeats. Its default lifetime is thirty seconds. TiKV regional reads add the snapshot lag measured at successful ordinary read completion by `kv.ReadDelay` to that lifetime. The measurement stays fixed during idle periods and write-only activity, and newer snapshot observations refresh it. Ordinary reads use native Learner synchronization; the application does not select safe-ts or configure a snapshot delay, and the measurement is not a maximum staleness bound. Regional reads can still delay visibility of initial connections and later transitions.
 
 查询同时校验快照的 generation、租约和绝对到期时间。异常退出、无法持续续约或时钟到期会让该 Server 的 Peer 离线；正常关闭主动撤销租约。新 generation 会拒绝旧进程的状态写入、续期与关闭撤销。所有 Server 应保持时钟同步；Redis 副本延迟超过租约窗口时会保守显示离线。
 

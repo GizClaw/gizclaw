@@ -1,7 +1,9 @@
 # User Story:
-# As a pair of independently registered devices that become friends,
-# I want send a direct-chat text turn and inspect its bounded persisted transcript evidence,
-# So that a human can confirm the relationship-owned social history before cleanup.
+# As a pair of registered devices that become friends,
+# I want both sides to receive the other's spoken audio through the shared SFU Room,
+# So that a human can inspect independent transcriptions of the received clips.
+# SFU does not produce transcripts or persist Workspace History. Speech RPCs
+# transcribe the captured audio separately; only read-only readiness checks retry.
 version: gizclaw.test/v1alpha1
 name: review.social
 clients:
@@ -33,11 +35,34 @@ variables:
   alice_workspace:
     direction: output
     type: string
-  social_message:
-    direction: input
+  alice_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_audio:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  alice_received:
+    direction: output
+    type: audio
+    max_bytes: 16777216
+    media_type: audio/ogg
+    codec: opus
+  bob_heard_alice:
+    direction: output
     type: string
-    value: Hello Bob, this is the bounded social review turn.
-  review_evidence:
+  alice_heard_bob:
     direction: output
     type: string
 review: true
@@ -70,43 +95,156 @@ steps:
     capture:
       friend_name: /name
       alice_workspace: /workspace_name
+    expect:
+      /workspace_name: {non_empty: true}
+  - id: bob_waits_for_friend_visibility
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 7s}
+    rpc:
+      method: server.friend.list
+      request: {}
+    expect:
+      /items: {count: 1}
+      /items/0/workspace_name: {equals: '${alice_workspace}'}
   - id: select_alice_workspace
     client: alice
     rpc:
       method: server.run.workspace.set
       request:
         workspace_name: ${alice_workspace}
-  - id: exercise_social_flow
-    client: alice
-    peer_stream:
-      mode: text
-      input: ${social_message}
-      terminal_label: transcript
-      wait_for_history: true
     expect:
-      /events:
-        non_empty: true
-      /history_name:
-        non_empty: true
-  - id: read_persisted_transcript
+      /selected_workspace_name: {equals: '${alice_workspace}'}
+  - id: alice_runtime_running
+    client: alice
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /selected_workspace_name: {equals: '${alice_workspace}'}
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: select_bob_workspace
+    client: bob
+    rpc:
+      method: server.run.workspace.set
+      request:
+        workspace_name: ${alice_workspace}
+    expect:
+      /selected_workspace_name: {equals: '${alice_workspace}'}
+  - id: bob_runtime_running
+    client: bob
+    retry: {attempts: 10, on: [assertion], delay: 3s}
+    rpc:
+      method: server.run.workspace.get
+      request: {}
+    expect:
+      /selected_workspace_name: {equals: '${alice_workspace}'}
+      /runtime_state: {equals: PEER_RUN_STATUS_STATE_RUNNING}
+  - id: synthesize_alice_audio
+    client: alice
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 今天的天气非常好
+        accepted_content_types: [audio/ogg]
+    save_as: alice_audio
+  - id: synthesize_bob_audio
+    client: bob
+    speech:
+      method: server.speech.synthesize
+      request:
+        voice_name: narrator
+        text: 我们一起去公园散步
+        accepted_content_types: [audio/ogg]
+    save_as: bob_audio
+  - id: alice_speaks_to_bob
+    timeout: 30s
+    parallel:
+      - id: bob_listen
+        client: bob
+        peer_stream: {mode: listen, duration: 8s}
+      - id: alice_listen_self
+        client: alice
+        peer_stream: {mode: listen, duration: 8s}
+      - id: alice_speak
+        client: alice
+        peer_stream:
+          mode: push-to-talk
+          input: ${alice_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      bob_received: /bob_listen/audio
+    expect:
+      /bob_listen/audio_bytes: {minimum: 2000}
+      /bob_listen/packets: {minimum: 50}
+      /alice_listen_self/audio_bytes: {maximum: 0}
+      /alice_speak/input_sent: {equals: true}
+  - id: transcribe_bob_received_audio
+    client: bob
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh-CN}
+      input: ${bob_received}
+    capture:
+      bob_heard_alice: /transcript
+    expect:
+      /transcript: {contains: 今天的天气非常好, normalize: [case, punctuation, whitespace]}
+  - id: bob_speaks_to_alice
+    timeout: 30s
+    parallel:
+      - id: alice_listen
+        client: alice
+        peer_stream: {mode: listen, duration: 8s}
+      - id: bob_listen_self
+        client: bob
+        peer_stream: {mode: listen, duration: 8s}
+      - id: bob_speak
+        client: bob
+        peer_stream:
+          mode: push-to-talk
+          input: ${bob_audio}
+          pacing: 20ms
+          completion: input_sent
+    capture:
+      alice_received: /alice_listen/audio
+    expect:
+      /alice_listen/audio_bytes: {minimum: 2000}
+      /alice_listen/packets: {minimum: 50}
+      /bob_listen_self/audio_bytes: {maximum: 0}
+      /bob_speak/input_sent: {equals: true}
+  - id: transcribe_alice_received_audio
+    client: alice
+    speech:
+      method: server.speech.transcribe
+      request: {model_name: asr, language: zh-CN}
+      input: ${alice_received}
+    capture:
+      alice_heard_bob: /transcript
+    expect:
+      /transcript: {contains: 我们一起去公园散步, normalize: [case, punctuation, whitespace]}
+  - id: sfu_history_is_unavailable
     client: alice
     rpc:
       method: server.run.workspace.history
-      request:
-        limit: 20
+      request: {limit: 20}
     expect:
-      /items:
-        non_empty: true
-    capture:
-      review_evidence: /items/0/text
-  - id: show_review_evidence
-    output:
-      variable: review_evidence
+      /available: {equals: false}
+      /items: {count: 0}
+  - id: show_bob_heard_alice
+    output: {variable: bob_heard_alice}
+  - id: show_alice_heard_bob
+    output: {variable: alice_heard_bob}
   - id: confirm_review
     review_op:
-      message: Confirm the bounded transcript above matches the direct-chat text and persisted social history
+      message: Confirm the received-audio transcriptions show Alice saying 今天的天气非常好 and Bob saying 我们一起去公园散步
 finally:
   - client: alice
+    rpc:
+      method: server.run.stop
+      request: {}
+  - client: bob
     rpc:
       method: server.run.stop
       request: {}
