@@ -1111,7 +1111,7 @@ func TestTransformerPTTOverlappingInputRoutesAnonymousAudioToCurrentTTS(t *testi
 	}
 }
 
-func TestTransformerPTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
+func TestTransformerPTTBargeInReplacesUnresolvedASR(t *testing.T) {
 	endASR := make(chan struct{})
 	eventPaused := make(chan struct{})
 	resumeEvents := make(chan struct{})
@@ -1125,6 +1125,14 @@ func TestTransformerPTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
 		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "old transcript", QuestionID: "q-1"},
 			{Type: doubaospeech.EventASREnded, QuestionID: "q-1"},
+		},
+	}
+	replacementEndASR := make(chan struct{})
+	replacement := &fakeTransformerSession{
+		beforeRecv:       replacementEndASR,
+		endASR:           replacementEndASR,
+		blockAfterEvents: make(chan struct{}),
+		events: []*doubaospeech.RealtimeEvent{
 			{Type: doubaospeech.EventASRResponse, Text: "new transcript", QuestionID: "q-2"},
 			{Type: doubaospeech.EventASREnded, QuestionID: "q-2"},
 			{Type: doubaospeech.EventChatResponse, Text: "new answer", QuestionID: "q-2", ReplyID: "r-2"},
@@ -1134,7 +1142,7 @@ func TestTransformerPTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
 			{Type: doubaospeech.EventTTSFinished, ReplyID: "r-2"},
 		},
 	}
-	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}}}
+	opener := &fakeTransformerOpener{results: []fakeTransformerOpenResult{{session: session}, {session: replacement}}}
 	tfr := newTransformer(nil,
 		withDoubaoRealtimeOpener(opener),
 		withMode(ModePushToTalk),
@@ -1167,8 +1175,11 @@ func TestTransformerPTTBargeInIgnoresDelayedASRTerminal(t *testing.T) {
 		t.Fatal("provider events did not pause before the delayed first-turn ASR events")
 	}
 	pushTurn("turn-2", 2)
-	if !session.waitForEndASRCount(2, 2*time.Second) {
-		t.Fatalf("EndASR calls = %d, want 2", session.endASRCount())
+	if !replacement.waitForEndASRCount(1, 2*time.Second) {
+		t.Fatalf("replacement EndASR calls = %d, want 1", replacement.endASRCount())
+	}
+	if session.endASRCount() != 1 || opener.callCount() != 2 || session.audioCount() != 1 || replacement.audioCount() != 1 {
+		t.Fatalf("unresolved ASR must replace the session without replaying audio: old EndASR=%d opens=%d audio=%d/%d", session.endASRCount(), opener.callCount(), session.audioCount(), replacement.audioCount())
 	}
 	close(resumeEvents)
 	if err := input.Close(); err != nil {
@@ -2298,13 +2309,9 @@ func TestTransformerTextProviderLossClosesPartialResponseRoutes(t *testing.T) {
 	output := newBufferStream(16)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	err := tfr.processSession(
-		ctx,
-		&sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}},
-		output,
-		session,
-		runtime,
-	)
+	reader := newDoubaoRealtimeInputReader(&sliceRealtimeStream{chunks: []*genx.MessageChunk{{Part: genx.Text("question")}}})
+	defer reader.Close()
+	err := tfr.processSession(ctx, reader, output, session, runtime)
 	if !isDoubaoRealtimeRecoverable(err) {
 		t.Fatalf("processSession() error = %v, want recoverable provider loss", err)
 	}

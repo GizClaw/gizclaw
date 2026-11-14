@@ -665,7 +665,7 @@ func (r *doubaoRealtimeRuntime) consumeEmptyPTTTrailingEOS(chunk *genx.MessageCh
 	if chunk.IsBeginOfStream() && streamID != "" {
 		r.failedPTTTrailingRoute = ""
 	} else if r.failedPTTTrailingRoute != "" && streamID == r.failedPTTTrailingRoute {
-		// The failed MIME boundary already retired this turn. Its containing
+		// The failed turn already consumed its audio boundary. Its containing
 		// route may still publish control EOS, including duplicate boundaries.
 		return true
 	}
@@ -700,9 +700,15 @@ func (r *doubaoRealtimeRuntime) providerLost(t *Transformer, output realtimeChun
 		errText = cause.Error()
 	}
 	pttStreamID, pttActive, pttCommitted := r.pttTurn.discard()
-	stateStreamID, _, stateActive := r.pushToTalk.abort()
+	stateStreamID, stateCapturing, stateActive := r.pushToTalk.abort()
 	if pttStreamID == "" {
 		pttStreamID = stateStreamID
+	}
+	if t.mode == ModePushToTalk && stateActive && !stateCapturing {
+		// The audio EOS may have been consumed before failure while its
+		// containing control EOS is still unread. It belongs to the failed
+		// route and must not become EOS-before-BOS on the replacement.
+		r.markFailedPTTTrailingRoute(pttStreamID)
 	}
 	if (pttActive && !pttCommitted) || (!pttActive && stateActive) {
 		_ = output.Push(&genx.MessageChunk{
@@ -1094,7 +1100,7 @@ func waitDoubaoRealtimeRetry(ctx context.Context, outputDone, inputDone <-chan s
 
 func (t *Transformer) processSession(
 	ctx context.Context,
-	input genx.Stream,
+	input *doubaoRealtimeInputReader,
 	output *bufferStream,
 	session doubaoRealtimeSession,
 	runtime *doubaoRealtimeRuntime,
@@ -1427,6 +1433,19 @@ func (t *Transformer) processSession(
 				}
 				if event == nil {
 					continue
+				}
+				// The SDK returns 599 as a nonterminal event carrying Error.
+				// PTT conservatively replaces the affected dialogue; other input
+				// modes keep the SDK's nonterminal policy.
+				if t.mode == ModePushToTalk && event.Type == doubaospeech.EventDialogCommonError {
+					var cause error = errors.New("provider reported a dialogue error")
+					if event.Error != nil {
+						cause = event.Error
+					}
+					return doubaoRealtimeRecoverable("dialog common error", fmt.Errorf(
+						"event=%d status=%q question_id=%q reply_id=%q: %w",
+						event.Type, event.StatusCode, event.QuestionID, event.ReplyID, cause,
+					))
 				}
 
 				streamID := streamIDs.response()
@@ -2030,6 +2049,10 @@ func (t *Transformer) processSession(
 		if t.mode == ModePushToTalk && pushToTalk.discard(chunk) {
 			if realtimeAudioInputEOS(chunk) {
 				streamID := streamIDs.serviceInput(chunk)
+				// Discarding ends at this audio boundary. Only now retire the
+				// containing route's trailing EOS, so it cannot reach the new
+				// session as EOS-before-BOS or keep discarding the next BOS.
+				runtime.markFailedPTTTrailingRoute(streamID)
 				historyStreamID := streamIDs.historyInput(chunk)
 				mimeType := ""
 				if blob, ok := chunk.Part.(*genx.Blob); ok {
@@ -2056,6 +2079,16 @@ func (t *Transformer) processSession(
 			// part-bearing BOS on the current route only declares that MIME
 			// channel and must not begin the route a second time.
 			if (newRoute || chunk.Part == nil) && t.mode == ModePushToTalk {
+				if pttASR.peek(0) != 0 {
+					// Without the previous 459, FIFO cannot distinguish its late
+					// events from the new turn's events. Retain this unread BOS and
+					// close/join the old session before accepting any new audio.
+					// Previously submitted audio is never replayed.
+					input.pending = &doubaoRealtimeInputResult{chunk: chunk}
+					return doubaoRealtimeRecoverable("replace unresolved push-to-talk ASR", fmt.Errorf(
+						"ASREnded missing before new input stream %q", streamID,
+					))
+				}
 				pttSessionControl.Lock()
 				var previousCompletionDone <-chan struct{}
 				if pendingCompletionInterrupt != nil {
