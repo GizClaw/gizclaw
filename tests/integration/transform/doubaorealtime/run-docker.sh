@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 image="${DOUBAO_PTT_TEST_IMAGE:-gizcr.gizclaw.com/docker.io/library/golang:1.26.8}"
 cache_args=()
 if [[ -n "${DOUBAO_PTT_GOMODCACHE:-}" ]]; then
@@ -16,5 +16,5 @@ exec docker run --rm --name "gizclaw-doubao-ptt-$$" \
   ${cache_args[@]+"${cache_args[@]}"} \
   --workdir /src --env CGO_ENABLED=0 --env GOTOOLCHAIN=local \
   --entrypoint go "${image}" \
-  test ./pkgs/genx/transformers/doubaorealtime \
+  test ./tests/integration/transform/doubaorealtime \
   -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1 -v -timeout=30s

@@ -46,6 +46,7 @@ tests/
 │   ├── store/
 │   ├── sdk/
 │   ├── terraform/
+│   ├── transform/      # GenX Transformer protocol integration, by adapter
 │   └── audio/
 ├── clients/           # js/, cgo/, flutter/, setup/
 ├── evaluation/locomo/
@@ -61,6 +62,20 @@ and their entrypoint live together under `tests/integration/terraform/`.
 Reusable test helpers and service startup scripts, including coturn, belong under
 `tests/testsupport/`. Fixed input files and samples stay in the owning suite's
 `testdata/` directory.
+
+GenX Transformer integration that uses public adapter APIs with local provider
+protocol fixtures belongs under `tests/integration/transform/<adapter>/`; keep
+its scenario tests, fixtures and explicit Docker runner together. These local
+regressions need no cloud credentials and can also run with ordinary `go test`.
+Tests that need private state remain beside the implementation. Live provider
+coverage stays in the separately tagged `tests/genx-e2e/transformer` harness;
+see [GenX provider E2E](#genx-provider-e2e). The Doubao PTT protocol example runs
+from the repository root:
+
+```sh
+go test ./tests/integration/transform/doubaorealtime -count=1
+bash tests/integration/transform/doubaorealtime/run-docker.sh
+```
 
 Run native integration from the repository root:
 

@@ -1,4 +1,4 @@
-package doubaorealtime
+package doubaorealtime_test
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 
 	speech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 	"github.com/gorilla/websocket"
 )
 
@@ -195,10 +196,20 @@ func TestPTTWebSocketRecovery(t *testing.T) {
 			client := speech.NewClient("local-only", speech.WithAPIKey("local-only"), speech.WithWebSocketURL("ws"+strings.TrimPrefix(p.server.URL, "http")))
 			ctx, cancel := context.WithTimeout(t.Context(), 15*time.Second)
 			defer cancel()
-			tr := newTransformer(client, withMode(ModePushToTalk), withModel("2.2.0.0"), withInputFormat("pcm"), withInputTranscode(false), withFormat("pcm"))
-			input := newBufferStream(64, ctx)
-			defer input.Close()
-			output, err := tr.Transform(ctx, input)
+			transcode := false
+			tr, err := doubaorealtime.New(doubaorealtime.Config{
+				Client: client, Model: "2.2.0.0", Mode: doubaorealtime.ModePushToTalk,
+				InputFormat: "pcm", InputTranscode: &transcode, Format: "pcm",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			// Preserve every supplied FIFO boundary. RealtimeStream's route
+			// supersession would discard the failed suffix before the adapter
+			// could exercise its capture-recovery state machine.
+			input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 64)
+			defer input.Abort(context.Canceled)
+			output, err := tr.Transform(ctx, input.Stream())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -230,7 +241,7 @@ func TestPTTWebSocketRecovery(t *testing.T) {
 						// failure/replacement. It must not fail the new session.
 						continue
 					}
-					if err := input.Push(chunk); err != nil {
+					if err := input.Add(chunk); err != nil {
 						t.Fatal(err)
 					}
 				}
@@ -284,7 +295,7 @@ func TestPTTWebSocketRecovery(t *testing.T) {
 				}
 				if turn == 2 && fault != "none" {
 					if fault == "599TrailingEOS" {
-						if err := input.Push(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: id, EndOfStream: true}}); err != nil {
+						if err := input.Add(&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: id, EndOfStream: true}}); err != nil {
 							t.Fatal(err)
 						}
 					}

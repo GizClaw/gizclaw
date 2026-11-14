@@ -168,10 +168,10 @@ In Push-to-Talk, SDK `DialogCommonError` (599) conservatively ends the affected 
 
 These recovery paths use the SDK's existing session Close and do not guarantee bounded completion of blocked network writes or Close.
 
-Run the local Docker protocol regression from the repository root:
+Run the local Docker protocol regression from the repository root. Its tests and loopback fixture live together in `tests/integration/transform/doubaorealtime`, use an external test package and construct the adapter through public `doubaorealtime.New(Config)`:
 
 ```sh
-tests/integration/doubao-ptt/run-docker.sh
+tests/integration/transform/doubaorealtime/run-docker.sh
 ```
 
 The script uses a disposable Go container without host ports or credentials. Set `DOUBAO_PTT_TEST_IMAGE` to use an existing project Go base image and `DOUBAO_PTT_GOMODCACHE` to mount a read-only Go module cache; the default image downloads dependencies inside the container. The test sends synthetic PCM through the actual Transformer and SDK WebSocket. It covers five normal turns, a permanently missing ASR terminal, a connection stalled after 599, 599 during capture with MIME-only and paired EOS, and late control EOS after ended audio. Assertions check later-turn recovery, recorded and uploaded byte counts, and absence of audio replay. Another case attempts to write old events during Close; the SDK may close its socket before reading them, so this case does not establish filtering of already-received late events. This is local fault injection, not cloud or Peer/WebRTC verification. The container is removed on exit.

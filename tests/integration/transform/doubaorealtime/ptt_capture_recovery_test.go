@@ -1,4 +1,4 @@
-package doubaorealtime
+package doubaorealtime_test
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 
 	speech "github.com/GizClaw/doubao-speech-go"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx/transformers/doubaorealtime"
 )
 
 func TestPTTWebSocketCaptureFailure(t *testing.T) {
@@ -18,10 +19,17 @@ func TestPTTWebSocketCaptureFailure(t *testing.T) {
 			client := speech.NewClient("local-only", speech.WithAPIKey("local-only"), speech.WithWebSocketURL("ws"+strings.TrimPrefix(p.server.URL, "http")))
 			ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 			defer cancel()
-			input := newBufferStream(32, ctx)
-			defer input.Close()
-			tr := newTransformer(client, withInputFormat("pcm"), withInputTranscode(false), withFormat("pcm"), withModel("2.2.0.0"))
-			output, err := tr.Transform(ctx, input)
+			input := genx.NewGrowableStreamBuilder((&genx.ModelContextBuilder{}).Build(), 32)
+			defer input.Abort(context.Canceled)
+			transcode := false
+			tr, err := doubaorealtime.New(doubaorealtime.Config{
+				Client: client, Model: "2.2.0.0", Mode: doubaorealtime.ModePushToTalk,
+				InputFormat: "pcm", InputTranscode: &transcode, Format: "pcm",
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			output, err := tr.Transform(ctx, input.Stream())
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -41,7 +49,7 @@ func TestPTTWebSocketCaptureFailure(t *testing.T) {
 			}()
 			push := func(chunk *genx.MessageChunk) {
 				t.Helper()
-				if err := input.Push(chunk); err != nil {
+				if err := input.Add(chunk); err != nil {
 					t.Fatal(err)
 				}
 			}

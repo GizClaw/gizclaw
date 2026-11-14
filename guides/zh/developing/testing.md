@@ -42,6 +42,7 @@ tests/
 │   ├── store/
 │   ├── sdk/
 │   ├── terraform/
+│   ├── transform/      # GenX Transformer protocol integration, by adapter
 │   └── audio/
 ├── clients/           # js/, cgo/, flutter/, setup/
 ├── evaluation/locomo/
@@ -57,6 +58,17 @@ and their entrypoint live together under `tests/integration/terraform/`.
 Reusable test helpers and service startup scripts, including coturn, belong under
 `tests/testsupport/`. Fixed input files and samples stay in the owning suite's
 `testdata/` directory.
+
+使用公开 adapter API 与本地 provider 协议 fixture 的 GenX Transformer 集成测试，放在
+`tests/integration/transform/<adapter>/`，场景用例、fixture 和显式 Docker runner 保持同目录。
+这些本地回归不需要云凭据，也可由普通 `go test` 执行；需要访问私有状态的测试继续放在实现包内。
+真实云端 provider 验证仍由单独带 tag 的 `tests/genx-e2e/transformer` harness 承担，见
+[GenX provider E2E](#genx-provider-e2e)。例如从仓库根目录运行 Doubao PTT 协议回归：
+
+```sh
+go test ./tests/integration/transform/doubaorealtime -count=1
+bash tests/integration/transform/doubaorealtime/run-docker.sh
+```
 
 Run native integration from the repository root:
 
