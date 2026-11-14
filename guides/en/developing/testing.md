@@ -46,7 +46,6 @@ tests/
 │   ├── store/
 │   ├── sdk/
 │   ├── terraform/
-│   ├── transform/      # GenX Transformer protocol integration, by adapter
 │   └── audio/
 ├── clients/           # js/, cgo/, flutter/, setup/
 ├── evaluation/locomo/
@@ -62,20 +61,6 @@ and their entrypoint live together under `tests/integration/terraform/`.
 Reusable test helpers and service startup scripts, including coturn, belong under
 `tests/testsupport/`. Fixed input files and samples stay in the owning suite's
 `testdata/` directory.
-
-GenX Transformer integration that uses public adapter APIs with local provider
-protocol fixtures belongs under `tests/integration/transform/<adapter>/`; keep
-its scenario tests, fixtures and explicit Docker runner together. These local
-regressions need no cloud credentials and can also run with ordinary `go test`.
-Tests that need private state remain beside the implementation. Live provider
-coverage stays in the separately tagged `tests/genx-e2e/transformer` harness;
-see [GenX provider E2E](#genx-provider-e2e). The Doubao PTT protocol example runs
-from the repository root:
-
-```sh
-go test ./tests/integration/transform/doubaorealtime -count=1
-bash tests/integration/transform/doubaorealtime/run-docker.sh
-```
 
 Run native integration from the repository root:
 
@@ -1955,6 +1940,25 @@ set `GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` and
 measured directional aggregate Mbps floors.
 
 ## GenX provider E2E
+
+GenX Transformer integration lives in `tests/genx-e2e/transformer`, using its
+existing `package transformer` and public adapter APIs. Tests that require private
+implementation state remain beside the adapter in `pkgs/genx/transformers/`.
+Local protocol fixtures and live provider tests share this directory and use
+separate execution paths. The Doubao PTT fault-injection cases have no build tag,
+like the provider-free Match and deterministic duplex regressions, so ordinary
+root-module Go and race CI continue to run them without cloud credentials.
+
+From the repository root, run the local cases natively or in Docker:
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+The Docker entrypoint selects only those local cases, does not enable the live
+provider tag, and does not load the credential preflight. The real-provider
+entrypoints below enable `gizclaw_genx_e2e` and require the credential inventory.
 
 Provider-backed transformer coverage uses one complete credential inventory:
 

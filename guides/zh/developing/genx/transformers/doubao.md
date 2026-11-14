@@ -200,10 +200,10 @@ Push-to-Talk 收到 SDK `DialogCommonError`（599）时，按保守恢复策略�
 
 这些恢复路径沿用 SDK 的 session Close，不保证被阻塞的网络写或 Close 有界完成。
 
-在仓库根目录运行本地 Docker 协议回归。用例与 loopback fixture 一起位于 `tests/integration/transform/doubaorealtime`，使用外部测试 package，通过公开的 `doubaorealtime.New(Config)` 构造 adapter：
+在仓库根目录运行本地 Docker 协议回归。用例与 loopback fixture 放在已有的 `tests/genx-e2e/transformer`，沿用该目录的 `package transformer`，通过公开的 `doubaorealtime.New(Config)` 构造 adapter。本地用例不带 build tag，Docker 入口精确选择它们，不加载真实 provider 凭据：
 
 ```sh
-tests/integration/transform/doubaorealtime/run-docker.sh
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
 ```
 
 脚本使用一次性 Go 容器，不发布宿主端口或读取凭据。可用 `DOUBAO_PTT_TEST_IMAGE` 选择已有的项目 Go base image，并用 `DOUBAO_PTT_GOMODCACHE` 指定只读 Go module cache；默认镜像会在容器内下载依赖。测试通过真实 Transformer 与 SDK WebSocket 发送合成 PCM，覆盖正常五轮、永久缺失 ASR 终止、599 后停滞、录音期间 599 与 MIME-only/双 EOS，以及已结束音频后的迟到 control EOS，检查后续轮恢复、录音与实际上传字节以及不重播音频。关闭旧连接时另有尝试写入旧事件的场景；SDK 可能在读取这些事件前就关闭 socket，因此该场景不证明已接收迟到事件的过滤。测试属于本地故障注入，不替代真实云端或 Peer/WebRTC 验证；容器退出后自动删除。
