@@ -1,12 +1,16 @@
 package giztestcmd
 
 import (
+	"encoding/binary"
 	"fmt"
+	"mime"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codec/opus"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
@@ -37,6 +41,7 @@ type peerAudioClass struct {
 	// who produced it: the downlink mixer fills a track that has no buffered
 	// audio with digital silence, and a provider could emit it too.
 	digitalSilencePrefix time.Duration
+	concealedSamples     int
 }
 
 // peerAudioAudibility classifies received audio as audible or silent, so
@@ -55,6 +60,28 @@ func (a *peerAudioAudibility) classify(chunk *genx.MessageChunk) peerAudioClass 
 	blob, ok := chunk.Part.(*genx.Blob)
 	if !ok || blob == nil || len(blob.Data) == 0 {
 		return peerAudioClass{}
+	}
+	if isPCM, err := peerPCM16Format(blob); isPCM {
+		if err != nil {
+			return peerAudioClass{audible: true}
+		}
+		peak := 0
+		for offset := 0; offset < len(blob.Data); offset += 2 {
+			sample := int(int16(binary.LittleEndian.Uint16(blob.Data[offset:])))
+			peak = max(peak, sample, -sample)
+		}
+		class := peerAudioClass{audible: peak >= peerAudioAudiblePeak}
+		duration := pcm.L16Mono16K.Duration(int64(len(blob.Data)))
+		if !class.audible {
+			class.silentPrefix = duration
+			if peak == 0 {
+				class.digitalSilencePrefix = duration
+			}
+		}
+		if blob.ConcealedAudio {
+			class.concealedSamples = len(blob.Data) / 2
+		}
+		return class
 	}
 	if !relayOpusMIME(blob.MIMEType) {
 		// Only Opus can be decoded here. Any other audio payload is counted
@@ -113,6 +140,62 @@ func (a *peerAudioAudibility) Close() {
 		_ = decoder.Close()
 		delete(a.decoders, streamID)
 	}
+}
+
+// peerPCM16Format recognizes the media receiver's existing playback format.
+// It validates signed little-endian 16 kHz mono PCM without decoding media.
+func peerPCM16Format(blob *genx.Blob) (bool, error) {
+	if blob == nil {
+		return false, nil
+	}
+	mediaType, params, err := mime.ParseMediaType(blob.MIMEType)
+	if err != nil || (mediaType != "audio/l16" && mediaType != "audio/pcm" && mediaType != "audio/x-pcm") {
+		return false, nil
+	}
+	for key, want := range map[string]int{"rate": peerAudioDecodeRate, "channels": 1, "bits": 16} {
+		if value := params[key]; value != "" {
+			parsed, err := strconv.Atoi(value)
+			if err != nil || parsed != want {
+				return true, fmt.Errorf("playback PCM requires %s=%d, got %q", key, want, value)
+			}
+		}
+	}
+	if format := params["format"]; format != "" && format != "s16le" && format != "pcm_s16le" {
+		return true, fmt.Errorf("playback PCM format %q is unsupported", format)
+	}
+	if len(blob.Data)%2 != 0 {
+		return true, fmt.Errorf("PCM16 payload has an incomplete sample")
+	}
+	return true, nil
+}
+
+func peerOriginalAudio(blob *genx.Blob) *genx.Blob {
+	if blob == nil || blob.ConcealedAudio {
+		return nil
+	}
+	if blob.OriginalAudio != nil {
+		return blob.OriginalAudio
+	}
+	return blob
+}
+
+func peerOriginalAudioBytes(blob *genx.Blob) int {
+	if original := peerOriginalAudio(blob); original != nil {
+		return len(original.Data)
+	}
+	return 0
+}
+
+type peerAudioConcealment struct {
+	samples int
+}
+
+func (c *peerAudioConcealment) observe(class peerAudioClass) {
+	c.samples += class.concealedSamples
+}
+
+func (c peerAudioConcealment) fields() map[string]any {
+	return map[string]any{"concealed_samples": c.samples, "concealed_ms": pcm.L16Mono16K.Duration(int64(c.samples) * 2).Milliseconds()}
 }
 
 // peerInputSpeechPeak is the decoded sample peak, about -30 dBFS, that marks a

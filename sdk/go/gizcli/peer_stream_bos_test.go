@@ -16,7 +16,7 @@ func TestPeerStreamAudioBeforeInitialBOS(t *testing.T) {
 	defer s.Close()
 	payload := []byte{0xf8, 0xff, 0xfe}
 	for range 2 {
-		if err := s.pushMergedPacket(payload); err != nil {
+		if err := pushPeerStreamTestAudio(t, s, payload); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -57,17 +57,17 @@ func TestPeerStreamInitialBOSBufferLimits(t *testing.T) {
 			s := &PeerStream{out: make(chan *genx.MessageChunk, 1), done: make(chan struct{})}
 			defer s.Close()
 			for range tc.count {
-				if err := s.pushMergedPacket(tc.payload); err != nil {
+				if err := pushPeerStreamTestAudio(t, s, tc.payload); err != nil {
 					t.Fatal(err)
 				}
 			}
-			if err := s.pushMergedPacket([]byte{1}); err != nil {
+			if err := pushPeerStreamTestAudio(t, s, []byte{1}); err != nil {
 				t.Fatal(err)
 			}
 			if len(s.startupAudio) != 0 || s.startupBytes != 0 || !s.startupExpired {
 				t.Fatal("overflow did not discard the startup window")
 			}
-			if err := s.pushMergedPacket([]byte{2}); err != nil {
+			if err := pushPeerStreamTestAudio(t, s, []byte{2}); err != nil {
 				t.Fatal(err)
 			}
 			if len(s.startupAudio) != 0 || len(s.out) != 0 {
@@ -83,7 +83,7 @@ func TestPeerStreamInitialBOSBufferLimits(t *testing.T) {
 			if c := <-s.out; !c.IsBeginOfStream() {
 				t.Fatal("missing recovery BOS")
 			}
-			if err := s.pushMergedPacket([]byte{3}); err != nil {
+			if err := pushPeerStreamTestAudio(t, s, []byte{3}); err != nil {
 				t.Fatal(err)
 			}
 			if c := <-s.out; c.Ctrl.StreamID != "recovered" || !bytes.Equal(c.Part.(*genx.Blob).Data, []byte{3}) {
@@ -100,9 +100,10 @@ func TestPeerStreamInitialBOSTimeout(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("interrupted=%t/lateBOS=%t", tc.interrupted, tc.lateBOS), func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
-				packets := make(chan []byte)
+				client := &Client{}
+				audio, unsubscribe := client.subscribePeerAudio(1)
 				events := make(chan peerStreamEventResult)
-				s := &PeerStream{packets: packets, eventResults: events, out: make(chan *genx.MessageChunk, 8), done: make(chan struct{})}
+				s := &PeerStream{audio: audio, unsubscribe: unsubscribe, eventResults: events, out: make(chan *genx.MessageChunk, 8), done: make(chan struct{})}
 				defer s.Close()
 				go s.mergeOutput()
 				if tc.interrupted {
@@ -114,7 +115,7 @@ func TestPeerStreamInitialBOSTimeout(t *testing.T) {
 					events <- peerStreamEventResult{chunk: eos}
 					<-s.out
 				}
-				packets <- []byte{1}
+				client.dispatchPeerAudio(&genx.Blob{MIMEType: "audio/opus", Data: []byte{1}})
 				synctest.Wait()
 				time.Sleep(2 * time.Second)
 				synctest.Wait()
@@ -126,7 +127,7 @@ func TestPeerStreamInitialBOSTimeout(t *testing.T) {
 				if len(s.startupAudio) != 0 || s.startupBytes != 0 || len(s.out) != 0 {
 					t.Fatal("expired audio retained or emitted")
 				}
-				packets <- []byte{3}
+				client.dispatchPeerAudio(&genx.Blob{MIMEType: "audio/opus", Data: []byte{3}})
 				synctest.Wait()
 				if len(s.startupAudio) != 0 || len(s.out) != 0 {
 					t.Fatal("orphan restarted expired window")
@@ -140,7 +141,7 @@ func TestPeerStreamInitialBOSTimeout(t *testing.T) {
 					if c := <-s.out; !c.IsBeginOfStream() {
 						t.Fatal("missing BOS")
 					}
-					packets <- []byte{2}
+					client.dispatchPeerAudio(&genx.Blob{MIMEType: "audio/opus", Data: []byte{2}})
 					c := <-s.out
 					if c.Ctrl.StreamID != "new" || !bytes.Equal(c.Part.(*genx.Blob).Data, []byte{2}) {
 						t.Fatalf("wrong route: %v", c)
@@ -173,7 +174,7 @@ func TestPeerStreamIgnoresPostEOSAudio(t *testing.T) {
 		}
 		<-s.out
 	}
-	if err := s.pushMergedPacket([]byte{1}); err != nil {
+	if err := pushPeerStreamTestAudio(t, s, []byte{1}); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -202,7 +203,7 @@ func TestPeerStreamIgnoresPostEOSAudio(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-s.out
-	if err := s.pushMergedPacket([]byte{2}); err != nil {
+	if err := pushPeerStreamTestAudio(t, s, []byte{2}); err != nil {
 		t.Fatal(err)
 	}
 	if c := <-s.out; c.Ctrl.StreamID != "next" || !bytes.Equal(c.Part.(*genx.Blob).Data, []byte{2}) {
@@ -216,7 +217,7 @@ func TestPeerStreamIgnoresPostEOSAudio(t *testing.T) {
 func TestPeerStreamEOSBeforeInitialBOSDiscardsOrphanAudio(t *testing.T) {
 	s := &PeerStream{out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
 	defer s.Close()
-	if err := s.pushMergedPacket([]byte{1}); err != nil {
+	if err := pushPeerStreamTestAudio(t, s, []byte{1}); err != nil {
 		t.Fatal(err)
 	}
 	eos, err := peerStreamEventToChunk(eosEvent("old", "assistant", "", nil))
@@ -228,7 +229,7 @@ func TestPeerStreamEOSBeforeInitialBOSDiscardsOrphanAudio(t *testing.T) {
 	}
 	<-s.out
 	for range 128 {
-		if err := s.pushMergedPacket([]byte{2}); err != nil {
+		if err := pushPeerStreamTestAudio(t, s, []byte{2}); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -248,8 +249,9 @@ func TestPeerStreamEOSBeforeInitialBOSDiscardsOrphanAudio(t *testing.T) {
 }
 
 func TestPeerStreamNewBOSDiscardsQueuedPostEOSAudio(t *testing.T) {
-	packets := make(chan []byte, 2)
-	s := &PeerStream{packets: packets, out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
+	client := &Client{}
+	audio, unsubscribe := client.subscribePeerAudio(2)
+	s := &PeerStream{audio: audio, unsubscribe: unsubscribe, out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
 	defer s.Close()
 	for _, event := range []*eventpb.PeerEvent{bosEvent("old", "assistant", ""), eosEvent("old", "assistant", "", nil)} {
 		chunk, err := peerStreamEventToChunk(event)
@@ -261,8 +263,8 @@ func TestPeerStreamNewBOSDiscardsQueuedPostEOSAudio(t *testing.T) {
 		}
 		<-s.out
 	}
-	packets <- []byte{1}
-	packets <- []byte{2}
+	client.dispatchPeerAudio(&genx.Blob{MIMEType: "audio/opus", Data: []byte{1}})
+	client.dispatchPeerAudio(&genx.Blob{MIMEType: "audio/opus", Data: []byte{2}})
 	bos, err := peerStreamEventToChunk(bosEvent("next", "assistant", ""))
 	if err != nil {
 		t.Fatal(err)
@@ -271,10 +273,10 @@ func TestPeerStreamNewBOSDiscardsQueuedPostEOSAudio(t *testing.T) {
 		t.Fatal(err)
 	}
 	<-s.out
-	if len(packets) != 0 || s.IgnoredPostEOSAudioPackets() != 2 {
-		t.Fatalf("queued tail packets survived the new BOS: queued=%d ignored=%d", len(packets), s.IgnoredPostEOSAudioPackets())
+	if len(audio) != 0 || s.IgnoredPostEOSAudioPackets() != 2 {
+		t.Fatalf("queued tail packets survived the new BOS: queued=%d ignored=%d", len(audio), s.IgnoredPostEOSAudioPackets())
 	}
-	if err := s.pushMergedPacket([]byte{3}); err != nil {
+	if err := pushPeerStreamTestAudio(t, s, []byte{3}); err != nil {
 		t.Fatal(err)
 	}
 	if chunk := <-s.out; chunk.Ctrl.StreamID != "next" || !bytes.Equal(chunk.Part.(*genx.Blob).Data, []byte{3}) {
@@ -298,7 +300,7 @@ func TestPeerStreamInputEOSDoesNotEndOutputAudio(t *testing.T) {
 		}
 		<-s.out
 	}
-	if err := s.pushMergedPacket([]byte{1}); err != nil {
+	if err := pushPeerStreamTestAudio(t, s, []byte{1}); err != nil {
 		t.Fatal(err)
 	}
 	select {
@@ -318,7 +320,7 @@ func TestPeerStreamInitialBOSIgnoresTextAndCopiesPackets(t *testing.T) {
 	s := &PeerStream{out: make(chan *genx.MessageChunk, 4), done: make(chan struct{})}
 	defer s.Close()
 	payload := []byte{1, 2}
-	if err := s.pushMergedPacket(payload); err != nil {
+	if err := pushPeerStreamTestAudio(t, s, payload); err != nil {
 		t.Fatal(err)
 	}
 	payload[0] = 9
@@ -349,21 +351,26 @@ func TestPeerStreamInitialBOSIgnoresTextAndCopiesPackets(t *testing.T) {
 }
 
 func TestPeerStreamCloseReleasesInitialAudio(t *testing.T) {
-	packets := make(chan []byte)
-	events := make(chan peerStreamEventResult)
-	s := &PeerStream{packets: packets, eventResults: events, out: make(chan *genx.MessageChunk, 1), done: make(chan struct{})}
-	finished := make(chan struct{})
-	go func() { s.mergeOutput(); close(finished) }()
-	packets <- []byte{1}
-	// The event rendezvous proves the packet was processed before Close.
-	events <- peerStreamEventResult{}
-	_ = s.Close()
-	select {
-	case <-finished:
-		if len(s.startupAudio) != 0 {
-			t.Fatal("close retained startup audio")
+	synctest.Test(t, func(t *testing.T) {
+		client := &Client{}
+		audio, unsubscribe := client.subscribePeerAudio(1)
+		s := &PeerStream{audio: audio, unsubscribe: unsubscribe, eventResults: make(chan peerStreamEventResult), out: make(chan *genx.MessageChunk, 1), done: make(chan struct{})}
+		defer s.Close()
+		finished := make(chan struct{})
+		go func() { s.mergeOutput(); close(finished) }()
+		client.dispatchPeerAudio(&genx.Blob{MIMEType: "audio/opus", Data: []byte{1}})
+		synctest.Wait()
+		if len(s.startupAudio) != 1 {
+			t.Fatal("audio was not buffered before Close")
 		}
-	case <-time.After(time.Second):
-		t.Fatal("merge did not exit on close")
-	}
+		_ = s.Close()
+		select {
+		case <-finished:
+			if len(s.startupAudio) != 0 {
+				t.Fatal("close retained startup audio")
+			}
+		case <-time.After(time.Second):
+			t.Fatal("merge did not exit on close")
+		}
+	})
 }

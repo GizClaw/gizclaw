@@ -1031,7 +1031,7 @@ func streamReadError(chunk *genx.MessageChunk, nextErr error) error {
 }
 
 func streamDone(err error) bool {
-	return errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF)
+	return genx.IsStreamDone(err)
 }
 
 func readTextStream(stream genx.Stream) (string, error) {

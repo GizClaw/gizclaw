@@ -33,6 +33,7 @@ func TestValidateTaskStateInvariants(t *testing.T) {
 		{name: "status", mutate: func(task *Task) { task.Status = "unknown" }},
 		{name: "phase", mutate: func(task *Task) { task.Phase = "INVALID" }},
 		{name: "failure count", mutate: func(task *Task) { task.FailureCount = -1 }},
+		{name: "execution count", mutate: func(task *Task) { task.ExecutionCount = -1 }},
 		{name: "updated time", mutate: func(task *Task) { task.UpdatedAt = time.Time{} }},
 		{name: "failure metadata", mutate: func(task *Task) { task.LastErrorMessage = strings.Repeat("x", 257) }},
 		{name: "running lease", mutate: func(task *Task) {

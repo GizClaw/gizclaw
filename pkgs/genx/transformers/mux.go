@@ -2,7 +2,6 @@ package transformers
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 
@@ -76,7 +75,7 @@ func streamToReader(stream genx.Stream) io.Reader {
 		for {
 			chunk, err := stream.Next()
 			if err != nil {
-				if !errors.Is(err, genx.ErrDone) && !errors.Is(err, io.EOF) {
+				if !genx.IsStreamDone(err) {
 					pw.CloseWithError(err)
 				}
 				return

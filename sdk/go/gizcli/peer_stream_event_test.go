@@ -313,13 +313,24 @@ func TestPeerStreamEventToChunkAcceptsWorkspaceHistoryUpdated(t *testing.T) {
 	}
 }
 
+func pushPeerStreamTestAudio(t *testing.T, stream *PeerStream, payload []byte) error {
+	t.Helper()
+	client := &Client{}
+	audio, unsubscribe := client.subscribePeerAudio(1)
+	defer unsubscribe()
+	client.dispatchPeerPacket(giznet.ProtocolOpusPacket, payload)
+	return stream.pushMergedAudio(<-audio)
+}
+
 func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 	clientSide, serverSide := net.Pipe()
 	defer serverSide.Close()
-	packets := make(chan []byte, 1)
+	client := &Client{}
+	audio, unsubscribe := client.subscribePeerAudio(1)
 	stream := &PeerStream{
 		events:         clientSide,
-		packets:        packets,
+		audio:          audio,
+		unsubscribe:    unsubscribe,
 		out:            make(chan *genx.MessageChunk, 3),
 		eventResults:   make(chan peerStreamEventResult, 3),
 		done:           make(chan struct{}),
@@ -404,7 +415,7 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 	if err != nil || !chunk.IsBeginOfStream() {
 		t.Fatalf("Next(BOS) = %#v, %v", chunk, err)
 	}
-	packets <- []byte{4, 5}
+	client.dispatchPeerPacket(giznet.ProtocolOpusPacket, []byte{4, 5})
 	chunk, err = stream.Next()
 	if err != nil {
 		t.Fatalf("Next(packet) error = %v", err)
@@ -423,13 +434,15 @@ func TestPeerStreamNextReadsEventsAndRoutesOpus(t *testing.T) {
 }
 
 func TestPeerStreamOrdersBufferedOpusBeforeAudioEOS(t *testing.T) {
-	packets := make(chan []byte, 2)
-	packets <- []byte{1, 2}
-	packets <- []byte{3, 4}
+	client := &Client{}
+	audio, unsubscribe := client.subscribePeerAudio(2)
+	client.dispatchPeerPacket(giznet.ProtocolOpusPacket, []byte{1, 2})
+	client.dispatchPeerPacket(giznet.ProtocolOpusPacket, []byte{3, 4})
 	stream := &PeerStream{
-		packets: packets,
-		out:     make(chan *genx.MessageChunk, 3),
-		done:    make(chan struct{}),
+		audio:       audio,
+		unsubscribe: unsubscribe,
+		out:         make(chan *genx.MessageChunk, 3),
+		done:        make(chan struct{}),
 		audioRoute: genx.StreamCtrl{
 			StreamID: "history-replay",
 			Label:    "transcript",
@@ -473,8 +486,8 @@ func TestPeerStreamRoutesFixedOpusWithEmptyMIMEAcrossEpochs(t *testing.T) {
 		if err := stream.pushMergedEvent(bos); err != nil {
 			t.Fatalf("pushMergedEvent(%s BOS) error = %v", streamID, err)
 		}
-		if err := stream.pushMergedPacket([]byte{1, 2, 3}); err != nil {
-			t.Fatalf("pushMergedPacket(%s) error = %v", streamID, err)
+		if err := pushPeerStreamTestAudio(t, stream, []byte{1, 2, 3}); err != nil {
+			t.Fatalf("pushMergedAudio(%s) error = %v", streamID, err)
 		}
 		eos, err := peerStreamEventToChunk(eosEvent(streamID, "assistant", "", nil))
 		if err != nil {
@@ -509,7 +522,7 @@ func TestPeerStreamRoutesFixedOpusWithEmptyMIMEAcrossEpochs(t *testing.T) {
 
 func TestPeerStreamDeliversQueuedEventBeforeTerminalError(t *testing.T) {
 	stream := &PeerStream{
-		packets:      make(chan []byte),
+		audio:        make(chan *genx.Blob),
 		out:          make(chan *genx.MessageChunk, 1),
 		eventResults: make(chan peerStreamEventResult, 2),
 		done:         make(chan struct{}),
@@ -532,11 +545,11 @@ func TestPeerStreamDeliversQueuedEventBeforeTerminalError(t *testing.T) {
 	}
 }
 
-func TestPeerStreamContinuesEventsAfterPacketSubscriptionCloses(t *testing.T) {
-	packets := make(chan []byte)
-	close(packets)
+func TestPeerStreamContinuesEventsAfterAudioSubscriptionCloses(t *testing.T) {
+	audio := make(chan *genx.Blob)
+	close(audio)
 	stream := &PeerStream{
-		packets:      packets,
+		audio:        audio,
 		out:          make(chan *genx.MessageChunk, 1),
 		eventResults: make(chan peerStreamEventResult),
 		done:         make(chan struct{}),

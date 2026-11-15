@@ -86,6 +86,7 @@ func TestTiKVCollectionContracts(t *testing.T) {
 		}
 	})
 	t.Run("expiry-concurrent-refresh", func(t *testing.T) { testTiKVExpiryRefresh(t, store) })
+	t.Run("stale-expiry-progress", func(t *testing.T) { testTiKVStaleExpiryProgress(t, store) })
 	t.Run("guard-write-skew", func(t *testing.T) {
 		prefix := Key{"write-skew", time.Now().Format("150405.000000000")}
 		a, b := append(cloneKey(prefix), "a"), append(cloneKey(prefix), "b")

@@ -118,8 +118,11 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 	if spec.Runtime.History != nil {
 		config.History.Store = spec.Runtime.History
 	}
+	if config.ToolInvoker == nil && spec.MCP != nil {
+		config.ToolInvoker = &agenthost.ToolkitInvoker{}
+	}
 	if spec.ToolVerificationModel != "" {
-		invoker, ok := spec.ToolInvoker.(*agenthost.ToolkitInvoker)
+		invoker, ok := config.ToolInvoker.(*agenthost.ToolkitInvoker)
 		if !ok {
 			return nil, errors.New("eino: semantic Tool verification requires the runtime catalog invoker")
 		}
@@ -199,6 +202,24 @@ func (f Factory) NewAgent(ctx context.Context, spec agenthost.Spec) (agenthost.A
 			Store: bound,
 			Scope: memoryScope,
 		}
+	}
+	if spec.MCP != nil {
+		invoker, ok := config.ToolInvoker.(*agenthost.ToolkitInvoker)
+		if !ok {
+			return nil, errors.Join(errors.New("eino: MCP requires a runtime catalog invoker"), closeMemory(memoryCloser))
+		}
+		mcp, err := agenthost.OpenMCP(ctx, *spec.MCP)
+		if err != nil {
+			return nil, errors.Join(err, closeMemory(memoryCloser))
+		}
+		configured := *invoker
+		configured.MCP = mcp
+		config.ToolInvoker = &configured
+		if spec.ToolVerificationModel != "" {
+			configured.Verify = runtimeToolVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
+			config.VerifyToolResponse = runtimeToolResponseVerifier(service.Generator(), "model/"+spec.ToolVerificationModel, configured.ResolveCatalog)
+		}
+		memoryCloser = orderedClosers{memoryCloser, mcp}
 	}
 	transformer, err := genxeino.New(ctx, config)
 	if err != nil {
@@ -722,7 +743,7 @@ func (s *einoAudioOutputStream) forward() {
 	for {
 		chunk, err := s.downstream.Next()
 		if err != nil {
-			if errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone) {
+			if genx.IsStreamDone(err) {
 				_ = s.input.Close()
 				_ = s.builder.Done(genx.Usage{})
 				return
@@ -867,7 +888,7 @@ func (m genXChatModel) Generate(ctx context.Context, input []*schema.Message, op
 	var chunks []*schema.Message
 	for {
 		chunk, err := reader.Recv()
-		if errors.Is(err, io.EOF) {
+		if genx.IsStreamDone(err) {
 			break
 		}
 		if err != nil {
@@ -924,7 +945,7 @@ func (m genXChatModel) Stream(ctx context.Context, input []*schema.Message, opti
 		for {
 			chunk, nextErr := stream.Next()
 			if nextErr != nil {
-				if !errors.Is(nextErr, io.EOF) {
+				if !genx.IsStreamDone(nextErr) {
 					writer.Send(nil, nextErr)
 				}
 				return

@@ -21,7 +21,7 @@ services/system/
 
 ### pendingdeletion
 
-定义带版本的 backend-neutral `PendingDeletion` envelope，以及 durable task/source contract、registration、有界 scan 与 worker、lease、replay phase、持久化 retry state 和 operator list/get/retry service。领域删除请求在资源自己的物理存储中原子创建或复用一条最小 cleanup descriptor，同时保留 active resource 与 index。locator 派生的稳定 ID 让 producer retry 命中同一事件；immutable marker fingerprint 则阻止早期 generation 或 stale lease 修改后续 work。
+定义带版本的 backend-neutral `PendingDeletion` envelope，以及 durable task/source contract、registration、有界 scan 与 worker、lease、replay phase、持久化 retry state 和 operator list/get/retry service。A domain deletion request atomically creates or reuses its cleanup descriptor in that resource's physical store. Peer requests publish a tombstone in the same mutation and retain the original Peer bytes in the descriptor; other domains can retain their active record until finalization. locator 派生的稳定 ID 让 producer retry 命中同一事件；immutable marker fingerprint 则阻止早期 generation 或 stale lease 修改后续 work。
 
 公共 processor 不包含任何资源删除 policy，也不会在 handler 返回后执行 generic complete。领域 handler 必须重新验证 marker、当前 lease 与准确 resource generation，然后在一个领域原子边界内删除资源及 source-owned marker、locator 和 task state。Outcome 分为 `deferred`、有界 retryable failure 与 terminal `failed`；operator retry 会保留 replay phase。完成的 task 立即消失，不保留 receipt 或 history。Production registry 包含 `friend_group/friend_group`、`workspace/workspace` 与 `peer/peer`；任一 source 只声明自己拥有且已注册 handler 的 kind。Peer handler 是跨领域协调者，但实际清理由各领域的 narrow adapter 完成；Peer 最终只在自己的 KV 留下永久 tombstone。
 
@@ -37,11 +37,15 @@ Peer 自动 policy 只批准 `phase=finalize`、`peer_replacement_ambiguous` 且
 
 在线批量恢复用于可选运维和诊断，复用同一状态转换，见 [CLI](../../../using/cli#pendingdeletion-恢复)。
 
-Admin list/get/retry、processor 与领域一致性校验显式使用 Redis writer 或 TiKV authority 强读。领域 finalization 可以附加准确原记录的 CAS 条件，并与 task lease 及索引删除在同一原子 mutation 提交。读取主库不等于跨 Redis、SQL 和 Provider 的全局事务。
+Admin list/get/retry, processor discovery and domain checks start with the configured reader. A definite CAS rejection or an observation incompatible with a successful claim can trigger a bounded primary refresh. Domain finalization compares exact record and lease conditions atomically with task/index removal. Successful stale reads can delay deletion discovery and fence visibility; a primary fallback does not create a transaction spanning KV, regional SQL and providers.
 
 Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active depth、最老 active age、claim、active worker、phase latency、deferral、retry、terminal failure、transition error 与 completion；resource ID、owner、deletion ID、descriptor、fingerprint、lease token 和 error text 都不会成为 label。Metrics store 失败不会停止 cleanup。
 
 共享 KV source 在创建 marker 时同时写入 locator、初始 task state 和有序索引，不在读取时补建状态。每个 kind 的任务按 deletion ID 分为 16 个分片：到期索引按下次执行时间或租约到期时间排序，管理索引按 status 与创建时间排序。查询将时间边界和每片返回上限下推到存储，最多并发读取 8 个分片，再合并结果；到期发现只返回 ID 与 fingerprint，不逐条读取 task。状态转换、续租和 finalization 原子维护索引，未变化的成员不会重复删除，完成后移除全部 task 索引。
+
+Explicit Admin and KV task retry refresh missing, inconsistent or nonfailed historical observations once before rejecting a request. Safety admission still runs before any state change. Rejected conditional writes retain bounded retry attempts, and an uncertain commit is returned without replay. Ordinary task queries keep the configured reader policy.
+
+KV task state records completed executions independently from failures. Successful `Defer` and `Fail` transitions increment the execution count atomically; claim, lease renewal, checkpoint and retry do not increment or reset it. A handler may supply `RetryPolicy` to select its transient retry interval and minimum failure limit. Peer cleanup uses hourly execution and at least 32 executions before successful task removal, refreshing its inventory each pass. Other handlers retain their existing scheduling policy.
 
 ### runtimeprofile
 
@@ -50,6 +54,8 @@ Metrics 使用有界的 source/kind/status/phase/outcome label，报告 active d
 ### apikey
 
 为已注册 Peer 创建长期 Key，明文保存完整 Key 供管理接口恢复，强制同 owner 管理，并在 Peer 退役时撤销该 owner 的全部 Key。该 package 不拥有 HTTP routing、Edge proxy 或业务资源实现。
+
+Ordinary API Key authentication and management queries use the configured reader, accepting stale values and absence. Revoke is an update: a missing target may be refreshed once at the authority, then ownership and exact record bytes are checked at mutation time. Peer cleanup persists an owner retirement fence before credential discovery, preventing late admission after task completion.
 
 ### resourcemanager
 

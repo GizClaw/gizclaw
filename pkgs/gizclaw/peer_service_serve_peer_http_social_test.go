@@ -69,16 +69,11 @@ func newSocialHTTPFixture(t *testing.T) *socialHTTPFixture {
 		}
 		*target.peer = socialHTTPPeer{key: keyPair.Public, secret: created.Secret}
 	}
-	availability := func(ctx context.Context, publicKey string) error {
-		key, err := parsePeerPublicKey(publicKey)
-		if err != nil {
-			return err
-		}
-		return f.peers.EnsureAvailable(ctx, key)
-	}
+	availability := peerMutationAvailability(f.peers)
+	friendRoot := kv.NewMemory(nil)
 	f.public.Friends = &friend.Server{
-		InviteTokens:     kv.NewMemory(nil),
-		Friends:          kv.NewMemory(nil),
+		InviteTokens:     kv.Prefixed(friendRoot, kv.Key{"invite-tokens"}),
+		Friends:          kv.Prefixed(friendRoot, kv.Key{"friends"}),
 		Workspaces:       &adminTestWorkspaceService{},
 		Profiles:         f.peers,
 		PeerAvailability: availability,
@@ -94,7 +89,7 @@ func newSocialHTTPFixture(t *testing.T) *socialHTTPFixture {
 		RelationshipStore: groupStore,
 		Workspaces:        &adminTestWorkspaceService{},
 		Profiles:          f.peers,
-		PeerAvailability:  availability,
+		PeerAvailability:  peerMutationAvailability(f.peers),
 		SFUURL:            "wss://sfu.test",
 		Now:               f.clock,
 	}
@@ -212,9 +207,9 @@ func TestPeerHTTPFriendRejectsRetiringCounterpart(t *testing.T) {
 	if err := f.peers.DeleteSelf(context.Background(), f.a.key); err != nil {
 		t.Fatalf("DeleteSelf: %v", err)
 	}
-	expect(t, f.as(t, f.b, http.MethodPost, "/friends", `{"invite_token":"`+created.InviteToken+`"}`), http.StatusConflict, "PEER_PENDING_DELETION")
-	// The retiring owner's own key is rejected before any handler runs.
-	expect(t, f.as(t, f.a, http.MethodGet, "/friends", ""), http.StatusConflict, "PEER_PENDING_DELETION")
+	expect(t, f.as(t, f.b, http.MethodPost, "/friends", `{"invite_token":"`+created.InviteToken+`"}`), http.StatusConflict, "PEER_DELETED")
+	// The deleted owner's own key is rejected before any handler runs.
+	expect(t, f.as(t, f.a, http.MethodGet, "/friends", ""), http.StatusForbidden, "API_KEY_OWNER_UNAVAILABLE")
 }
 
 func TestPublicSocialErrorCodes(t *testing.T) {

@@ -3,7 +3,6 @@ package genx
 import (
 	"context"
 	"errors"
-	"io"
 )
 
 // FailureClass is a payload-free provenance marker for a stream failure.
@@ -30,7 +29,7 @@ func ClassifyFailure(err error, class FailureClass) error {
 	if err == nil || !class.valid() {
 		return err
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) || errors.Is(err, ErrDone) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || IsStreamDone(err) {
 		return err
 	}
 	if _, ok := FailureClassOf(err); ok {

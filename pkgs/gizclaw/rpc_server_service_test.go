@@ -707,8 +707,8 @@ func (s *fakeRPCPeerService) DeleteSelf(_ context.Context, publicKey giznet.Publ
 	return s.deleteSelfError
 }
 
-func (s *fakeRPCPeerService) LoadPeer(context.Context, giznet.PublicKey) (apitypes.Peer, error) {
-	return apitypes.Peer{}, nil
+func (s *fakeRPCPeerService) ValidatePeerRecord(context.Context, giznet.PublicKey) error {
+	return nil
 }
 
 type fakeRPCRunWorkspaceResources struct {

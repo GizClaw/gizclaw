@@ -1,7 +1,7 @@
 # User Story:
 # As a GizClaw maintainer choosing a live-audio path for Eino,
 # I want one recording answered by one Workflow on the model path and on the asr path,
-# So that run_audio_input_comparison_tests.sh can score both transcripts and replies across languages and dialects.
+# So that both audio input code paths deliver transcripts and complete text/audio replies without scoring model accuracy.
 version: gizclaw.test/v1alpha1
 name: benchmark.eino-audio-input-comparison
 clients:
@@ -128,7 +128,13 @@ steps:
       pacing: 20ms
       trim_trailing_silence: true
       reply_observation: 30s
+      require_text: true
+      require_audio: true
     expect:
+      /transcript: {non_empty: true}
+      /reply: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+      /first_audio_ms: {minimum: 1}
       /first_text_ms:
         minimum: 1
       /first_transcript_ms:
@@ -166,7 +172,13 @@ steps:
       pacing: 20ms
       trim_trailing_silence: true
       reply_observation: 30s
+      require_text: true
+      require_audio: true
     expect:
+      /transcript: {non_empty: true}
+      /reply: {non_empty: true}
+      /audio_bytes: {minimum: 1}
+      /first_audio_ms: {minimum: 1}
       /first_text_ms:
         minimum: 1
       /first_transcript_ms:

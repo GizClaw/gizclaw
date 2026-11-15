@@ -18,6 +18,13 @@ case "$docker_endpoint" in
 esac
 arch=amd64
 case "$(docker info --format '{{.Architecture}}')" in arm64 | aarch64) arch=arm64 ;; esac
+# Keep the build quota and Go parallelism within the local daemon's capacity.
+build_cpus="$(docker info --format '{{.NCPU}}')"
+if [[ ! "$build_cpus" =~ ^[1-9][0-9]*$ ]]; then
+  printf 'Docker reported an invalid CPU count: %s\n' "$build_cpus" >&2
+  exit 1
+fi
+if ((build_cpus > 4)); then build_cpus=4; fi
 mkdir -p "$script_dir/.testbench"
 run_dir="$(mktemp -d "$script_dir/.testbench/audio-netem-XXXXXX")"
 export NETEM_ROOT="$repo_dir" NETEM_BIN="$run_dir/bin" NETEM_STATE="$run_dir/runtime" NETEM_REPORTS="$run_dir/reports"
@@ -60,10 +67,10 @@ npm ci && npm run build:console
 python3 -I "$script_dir/setup/prepare-audio-netem.py" "$repo_dir" "$NETEM_BIN"
 docker build --build-arg "BASE_IMAGE=${GIZCLAW_NETEM_TOOLS_BASE:-gizcr.gizclaw.com/docker.io/library/alpine:3.22}" \
   -f "$script_dir/docker/Dockerfile.audio-netem" -t "$NETEM_TOOLS_IMAGE" "$script_dir/docker"
-docker run --rm --name "$project-build" --cpus=4 --memory=6g --entrypoint /bin/bash \
+docker run --rm --name "$project-build" --cpus="$build_cpus" --memory=6g --entrypoint /bin/bash \
   -v "$repo_dir:/src:ro" -v "$NETEM_BIN:/out" \
   -v "gizclaw-netem-modcache:/gomod" -v "gizclaw-netem-buildcache:/cache" \
-  -e GOMODCACHE=/gomod -e GOCACHE=/cache -e GOMAXPROCS=4 -e 'GOFLAGS=-p=4 -buildvcs=false' \
+  -e GOMODCACHE=/gomod -e GOCACHE=/cache -e GOMAXPROCS="$build_cpus" -e "GOFLAGS=-p=$build_cpus -buildvcs=false" \
   -e "GIZCLAW_NETEM_SCTP_DEFER_INITIAL_PROBE=${GIZCLAW_NETEM_SCTP_DEFER_INITIAL_PROBE:-0}" \
   "$NETEM_BASE_IMAGE" -lc 'cd /src \
     && if [[ -f /out/sctp-source/go.mod ]]; then \

@@ -272,7 +272,7 @@ func TestPeerAudioPacingOmitsUnavailableIntervals(t *testing.T) {
 	}
 	pacing.observe(time.Unix(1, 0), [][]byte{{0xf8}})
 	summary := pacing.summary()
-	if len(summary) != 2 || summary["packets"] != 1 || summary["audio_ms"] != int64(20) {
+	if len(summary) != 3 || summary["packets"] != 1 || summary["audio_ms"] != int64(20) || summary["playout_ms"] != int64(20) {
 		t.Fatalf("single-packet pacing summary = %#v", summary)
 	}
 }
@@ -293,7 +293,8 @@ func TestInvokePeerStreamObservesAssistantOpus(t *testing.T) {
 	open := func() (peerStream, error) { return stream, nil }
 	result, err := invokePeerStream(context.Background(), nil, open, giztest.Step{
 		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "text"},
-	}, "hello", 0, func(gotClient, gotRole string, gotPacket []byte, _ bool) error {
+	}, "hello", 0, func(gotClient, gotRole string, blob *genx.Blob, _ bool) error {
+		gotPacket := observedAudioBytes(blob)
 		client = gotClient
 		role = gotRole
 		if len(gotPacket) > 0 {
@@ -326,7 +327,7 @@ func TestInvokePeerStreamObservesUserBeforeAssistant(t *testing.T) {
 	var roles []string
 	_, err := invokePeerStream(context.Background(), nil, func() (peerStream, error) { return stream, nil }, giztest.Step{
 		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "push-to-talk", HoldBeforeAudio: "0ms"},
-	}, []byte{1}, 0, func(_ string, role string, _ []byte, end bool) error {
+	}, []byte{1}, 0, func(_ string, role string, _ *genx.Blob, end bool) error {
 		if end {
 			roles = append(roles, role)
 		}
@@ -393,7 +394,7 @@ func TestInvokePeerStreamPropagatesAudioObserverFailure(t *testing.T) {
 	open := func() (peerStream, error) { return stream, nil }
 	_, err := invokePeerStream(context.Background(), nil, open, giztest.Step{
 		ID: "turn", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "text"},
-	}, "hello", 0, func(string, string, []byte, bool) error { return errors.New("speaker failed") })
+	}, "hello", 0, func(string, string, *genx.Blob, bool) error { return errors.New("speaker failed") })
 	if err == nil || !strings.Contains(err.Error(), "speaker failed") {
 		t.Fatalf("observer error = %v", err)
 	}
@@ -2089,7 +2090,8 @@ func TestPeerStreamAcceptsIgnoredPostEOSAudio(t *testing.T) {
 	var played [][]byte
 	step := giztest.Step{PeerStream: &giztest.PeerStreamOperation{Mode: "text"}}
 	result, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return stream, nil }, step, "question", 1024*1024,
-		func(_, role string, packet []byte, end bool) error {
+		func(_, role string, blob *genx.Blob, end bool) error {
+			packet := observedAudioBytes(blob)
 			if role == "assistant" && len(packet) > 0 {
 				played = append(played, bytes.Clone(packet))
 			}

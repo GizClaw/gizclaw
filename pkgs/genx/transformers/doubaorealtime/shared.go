@@ -1,6 +1,7 @@
 package doubaorealtime
 
 import (
+	"slices"
 	"sync"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
@@ -107,6 +108,12 @@ func (a *SharedAudioInput) Prepare(blob *genx.Blob) ([]byte, error) {
 func (a *SharedAudioInput) PrepareFrames(blob *genx.Blob) ([][]byte, error) {
 	return a.inner.prepareFrames(blob)
 }
+
+// FlushFrames drains conversion state and pads at most one final Opus frame.
+// Call it only for a successful input boundary; Close discards canceled tails.
+func (a *SharedAudioInput) FlushFrames() ([][]byte, error) {
+	return a.inner.flushFrames()
+}
 func (a *SharedAudioInput) KeepaliveFrames(frameCount int) ([][]byte, error) {
 	return a.inner.keepaliveFrames(frameCount)
 }
@@ -114,6 +121,8 @@ func (a *SharedAudioInput) Format() string { return a.inner.format }
 func (a *SharedAudioInput) Close()         { a.inner.close() }
 
 // SharedAudioInputs owns independent codec state for every input StreamID.
+// Its owner serializes codec use, flushing and closing. The mutex protects only
+// registry access; no codec operation runs while the registry is locked.
 type SharedAudioInputs struct {
 	inner  *doubaoRealtimeAudioInputs
 	mu     sync.Mutex
@@ -153,18 +162,49 @@ func (a *SharedAudioInputs) StreamForBlob(streamID string, blob *genx.Blob) (*Sh
 	a.inputs[key] = input
 	return input, nil
 }
+
+// FlushStream drains one existing route at a successful input boundary.
+// An unknown route produces no frames and is not reopened.
+func (a *SharedAudioInputs) FlushStream(streamID string) ([][]byte, error) {
+	a.mu.Lock()
+	input := a.inner.streams[realtimeStreamKey(streamID)]
+	a.mu.Unlock()
+	return flushRealtimeAudioInput(input)
+}
+
+// Flush drains all existing routes at successful outer-stream EOF.
+func (a *SharedAudioInputs) Flush() ([][]byte, error) {
+	a.mu.Lock()
+	inputs := make([]*doubaoRealtimeAudioInput, 0, len(a.inner.streams))
+	for _, input := range a.inner.streams {
+		inputs = append(inputs, input)
+	}
+	a.mu.Unlock()
+	return flushRealtimeAudioInputs(slices.Values(inputs))
+}
+
 func (a *SharedAudioInputs) CloseStream(streamID string) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
 	key := realtimeStreamKey(streamID)
+	input := a.inner.streams[key]
 	delete(a.inputs, key)
-	a.inner.closeStream(key)
+	delete(a.inner.streams, key)
+	delete(a.inner.mimeTypes, key)
+	a.mu.Unlock()
+	if input != nil {
+		input.close()
+	}
 }
 func (a *SharedAudioInputs) Close() {
 	a.mu.Lock()
-	defer a.mu.Unlock()
+	inputs := a.inner.streams
+	a.inner.streams = make(map[string]*doubaoRealtimeAudioInput)
+	clear(a.inner.mimeTypes)
 	clear(a.inputs)
-	a.inner.close()
+	a.mu.Unlock()
+	for _, input := range inputs {
+		input.close()
+	}
 }
 
 func SharedAudioInputEOS(chunk *genx.MessageChunk) bool { return realtimeAudioInputEOS(chunk) }

@@ -161,7 +161,7 @@ func TestRunRejectsParallelStepsInPlayMode(t *testing.T) {
 		ID: "listen_together", Parallel: []giztest.Step{listenChild("one", "peer", "1s"), listenChild("two", "other", "1s")},
 	}})
 	d := fakeClientDriver(newFakeRelayStream())
-	d.audioObserver = func(string, string, []byte, bool) error { return nil }
+	d.audioObserver = func(string, string, *genx.Blob, bool) error { return nil }
 	result := runSingleTask(t, doc, d)
 	if result.Status != "failed" || len(result.Steps) != 1 || !strings.Contains(result.Steps[0].Error, "play audio") {
 		t.Fatalf("result = %#v", result)

@@ -12,7 +12,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
-// peerAudioIntegrity observes raw audio channel boundaries and payload, before
+// peerAudioIntegrity observes delivered audio channel boundaries and payload, before
 // response filtering. It intentionally does not infer missing BOS/EOS. Payload
 // for a known-ended stream is ignored without changing the delivered digest.
 // The stream reader owns observe; summary is called after that reader's delivery.
@@ -56,7 +56,9 @@ func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) bool {
 		return true
 	}
 	id := chunk.Ctrl.StreamID + "\x00" + mediaType
-	if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 && p.ended[id] && !chunk.IsBeginOfStream() && !chunk.IsEndOfStream() && chunk.Ctrl.Error == "" && chunk.Ctrl.ErrorCode == "" {
+	blob, _ := chunk.Part.(*genx.Blob)
+	hasPayload := blob != nil && len(blob.Data) > 0
+	if hasPayload && p.ended[id] && !chunk.IsBeginOfStream() && !chunk.IsEndOfStream() && chunk.Ctrl.Error == "" && chunk.Ctrl.ErrorCode == "" {
 		p.ignoredPostEOSPackets++
 		return false
 	}
@@ -70,16 +72,20 @@ func (p *peerAudioIntegrity) observe(chunk *genx.MessageChunk) bool {
 		p.streams++
 		p.maxActive = max(p.maxActive, len(p.active))
 	}
-	if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
+	if hasPayload {
 		if p.ended[id] {
 			p.violation("payload_after_end")
 		} else if !p.active[id] {
 			p.violation("payload_without_begin")
 		}
-		if p.digest == nil {
-			p.digest = sha256.New()
+		// Delivered PCM still participates in the channel lifecycle, including
+		// concealment, while only real originals contribute to the digest.
+		if original := peerOriginalAudio(blob); original != nil && len(original.Data) > 0 {
+			if p.digest == nil {
+				p.digest = sha256.New()
+			}
+			_, _ = p.digest.Write(original.Data)
 		}
-		_, _ = p.digest.Write(blob.Data)
 	}
 	if chunk.IsEndOfStream() {
 		if !p.active[id] {

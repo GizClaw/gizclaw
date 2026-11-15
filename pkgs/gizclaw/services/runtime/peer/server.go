@@ -18,6 +18,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/iconasset"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/pendingdeletion"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet/gizwebrtc"
@@ -25,10 +26,11 @@ import (
 )
 
 var (
-	ErrPeerNotFound        = errors.New("peer: peer not found")
-	ErrPeerAlreadyExists   = errors.New("peer: peer already exists")
-	ErrInvalidInfo         = errors.New("peer: invalid device info")
-	ErrPeerPendingDeletion = errors.New("peer: deletion pending")
+	ErrPeerNotFound      = errors.New("peer: peer not found")
+	ErrPeerAlreadyExists = errors.New("peer: peer already exists")
+	ErrInvalidInfo       = errors.New("peer: invalid device info")
+	// ErrPeerPendingDeletion reports the shared retirement admission fence.
+	ErrPeerPendingDeletion = ownership.ErrOwnerRetired
 	ErrPeerDeleted         = errors.New("peer: deleted")
 	// ErrPeerBlocked rejects connection activation until an Admin approves the Peer.
 	ErrPeerBlocked = errors.New("peer: blocked")
@@ -130,7 +132,7 @@ func (s *Server) DeletePeer(ctx context.Context, request adminhttp.DeletePeerReq
 	if err != nil {
 		return nil, fmt.Errorf("invalid params: %w", err)
 	}
-	peer, err := s.delete(ctx, publicKey, pendingdeletion.ReasonAdminDelete)
+	_, err = s.delete(ctx, publicKey, pendingdeletion.ReasonAdminDelete)
 	if err != nil {
 		if errors.Is(err, ErrPeerDeleted) {
 			return adminhttp.DeletePeer200JSONResponse(toAdminTombstoneResult(publicKey.String())), nil
@@ -140,7 +142,7 @@ func (s *Server) DeletePeer(ctx context.Context, request adminhttp.DeletePeerReq
 		}
 		return adminhttp.DeletePeer500JSONResponse(apitypes.NewErrorResponse("INTERNAL_ERROR", err.Error())), nil
 	}
-	return adminhttp.DeletePeer200JSONResponse(toAdminRegistrationResult(peer)), nil
+	return adminhttp.DeletePeer200JSONResponse(toAdminTombstoneResult(publicKey.String())), nil
 }
 
 // GetPeer implements `adminhttp.StrictServerInterface.GetPeer`.

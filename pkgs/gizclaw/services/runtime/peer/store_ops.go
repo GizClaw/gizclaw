@@ -29,6 +29,13 @@ type tombstone struct {
 
 var encodedPeerTombstone = []byte(`{"version":1,"state":"deleted"}`)
 
+// peerDeletionDescriptor retains the exact unprojected record after admission
+// publishes its tombstone. Older deletion requests contain only PublicKey.
+type peerDeletionDescriptor struct {
+	PublicKey  string `json:"public_key"`
+	PeerRecord []byte `json:"peer_record,omitempty"`
+}
+
 func isPeerTombstone(data []byte) bool {
 	return bytes.Equal(data, encodedPeerTombstone)
 }
@@ -44,12 +51,10 @@ func (s *Server) BindFirmware(ctx context.Context, publicKey giznet.PublicKey, f
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.getStored(ctx, publicKey)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
-	peer.FirmwareId = &firmwareID
-	return s.putRecord(ctx, peer)
+	return s.updatePeerLocked(ctx, publicKey, func(peer *apitypes.Peer) error {
+		peer.FirmwareId = &firmwareID
+		return nil
+	})
 }
 
 // EnsureConnectedPeer creates a default active peer record for a connected peer
@@ -71,7 +76,10 @@ func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey gizne
 	if publicKey.IsZero() {
 		return apitypes.Peer{}, fmt.Errorf("peer: empty public key")
 	}
-	recordUnlock := s.IconLocks.LockRecord(publicKey.String())
+	recordUnlock, err := s.IconLocks.LockRecordContext(ctx, publicKey.String())
+	if err != nil {
+		return apitypes.Peer{}, err
+	}
 	defer recordUnlock()
 	if guard != nil {
 		if err := guard(); err != nil {
@@ -101,7 +109,7 @@ func (s *Server) EnsureConnectedPeerGuarded(ctx context.Context, publicKey gizne
 		AutoRegistered: &autoRegistered,
 	})
 	if errors.Is(err, ErrPeerAlreadyExists) {
-		created, err = s.get(ctx, publicKey)
+		created, err = s.get(kv.WithPrimaryReads(ctx), publicKey)
 	}
 	if err == nil && created.Status == apitypes.PeerRegistrationStatusBlocked {
 		return apitypes.Peer{}, ErrPeerBlocked
@@ -131,17 +139,15 @@ func (s *Server) putInfo(ctx context.Context, publicKey giznet.PublicKey, info a
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.getStored(ctx, publicKey)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
-	if info.Name != nil {
-		peer.Device.Name = info.Name
-	}
-	if info.Emoji != nil {
-		peer.Device.Emoji = info.Emoji
-	}
-	return s.putRecord(ctx, peer)
+	return s.updatePeerLocked(ctx, publicKey, func(peer *apitypes.Peer) error {
+		if info.Name != nil {
+			peer.Device.Name = info.Name
+		}
+		if info.Emoji != nil {
+			peer.Device.Emoji = info.Emoji
+		}
+		return nil
+	})
 }
 
 // LoadPeer returns the stored peer record for a public key.
@@ -170,7 +176,7 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 		if publicKey.IsZero() {
 			return fmt.Errorf("peer: empty edge-node public key")
 		}
-		if err := func() error {
+		if err := func(ctx context.Context) error {
 			unlock := s.IconLocks.LockRecord(publicKey.String())
 			defer unlock()
 			// Each conflict requires a fresh snapshot: startup may race with
@@ -202,6 +208,7 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 				}
 				err = s.writePeerLocked(ctx, peer, previous)
 				if errors.Is(err, ErrPeerConcurrentUpdate) || errors.Is(err, ErrPeerAlreadyExists) {
+					ctx = kv.WithPrimaryReads(ctx)
 					continue
 				}
 				if err != nil {
@@ -210,7 +217,7 @@ func (s *Server) BootstrapEdgeNodes(ctx context.Context, publicKeys []giznet.Pub
 				return s.rememberPeer(ctx, peer)
 			}
 			return ErrPeerConcurrentUpdate
-		}(); err != nil {
+		}(ctx); err != nil {
 			return err
 		}
 	}
@@ -232,47 +239,105 @@ func (s *Server) SaveRefreshedDeviceFields(
 ) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.getStored(ctx, publicKey)
+	return s.updatePeerLocked(ctx, publicKey, func(peer *apitypes.Peer) error {
+		for _, field := range fields {
+			switch field {
+			case "device.hardware.manufacturer":
+				if device.Hardware == nil {
+					return fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+				}
+				ensurePeerHardware(&peer.Device).Manufacturer = device.Hardware.Manufacturer
+			case "device.hardware.model":
+				if device.Hardware == nil {
+					return fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+				}
+				ensurePeerHardware(&peer.Device).Model = device.Hardware.Model
+			case "device.hardware.hardware_revision":
+				if device.Hardware == nil {
+					return fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+				}
+				ensurePeerHardware(&peer.Device).HardwareRevision = device.Hardware.HardwareRevision
+			case "device.identifiers.sn":
+				if device.Identifiers == nil {
+					return fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
+				}
+				ensurePeerIdentifiers(&peer.Device).Sn = device.Identifiers.Sn
+			case "device.identifiers.imeis":
+				if device.Identifiers == nil {
+					return fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
+				}
+				ensurePeerIdentifiers(&peer.Device).Imeis = device.Identifiers.Imeis
+			case "device.identifiers.labels":
+				if device.Identifiers == nil {
+					return fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
+				}
+				ensurePeerIdentifiers(&peer.Device).Labels = device.Identifiers.Labels
+			default:
+				return fmt.Errorf("peer: unsupported refreshed device field %q", field)
+			}
+		}
+		return nil
+	})
+}
+
+// updatePeerLocked refreshes a missing update input or rejected conditional write.
+// The caller holds the Peer record lock; every retry merges from a fresh record.
+func (s *Server) updatePeerLocked(ctx context.Context, key giznet.PublicKey, update func(*apitypes.Peer) error) (apitypes.Peer, error) {
+	item, err := s.mergePeerLocked(ctx, key, update)
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
-	for _, field := range fields {
-		switch field {
-		case "device.hardware.manufacturer":
-			if device.Hardware == nil {
-				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
+	return item, s.rememberPeer(ctx, item)
+}
+
+func (s *Server) mergePeerLocked(ctx context.Context, key giznet.PublicKey, update func(*apitypes.Peer) error) (apitypes.Peer, error) {
+	primaryFallback := false
+	for range 8 {
+		if err := s.EnsureAvailable(ctx, key); err != nil {
+			if errors.Is(err, ErrPeerNotFound) && !primaryFallback {
+				ctx = kv.WithPrimaryReads(ctx)
+				primaryFallback = true
+				continue
 			}
-			ensurePeerHardware(&peer.Device).Manufacturer = device.Hardware.Manufacturer
-		case "device.hardware.model":
-			if device.Hardware == nil {
-				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
-			}
-			ensurePeerHardware(&peer.Device).Model = device.Hardware.Model
-		case "device.hardware.hardware_revision":
-			if device.Hardware == nil {
-				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no hardware value", field)
-			}
-			ensurePeerHardware(&peer.Device).HardwareRevision = device.Hardware.HardwareRevision
-		case "device.identifiers.sn":
-			if device.Identifiers == nil {
-				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
-			}
-			ensurePeerIdentifiers(&peer.Device).Sn = device.Identifiers.Sn
-		case "device.identifiers.imeis":
-			if device.Identifiers == nil {
-				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
-			}
-			ensurePeerIdentifiers(&peer.Device).Imeis = device.Identifiers.Imeis
-		case "device.identifiers.labels":
-			if device.Identifiers == nil {
-				return apitypes.Peer{}, fmt.Errorf("peer: refreshed device field %q has no identifiers value", field)
-			}
-			ensurePeerIdentifiers(&peer.Device).Labels = device.Identifiers.Labels
-		default:
-			return apitypes.Peer{}, fmt.Errorf("peer: unsupported refreshed device field %q", field)
+			return apitypes.Peer{}, err
 		}
+		previous, err := s.getStored(ctx, key)
+		if err != nil {
+			if errors.Is(err, ErrPeerNotFound) && !primaryFallback {
+				ctx = kv.WithPrimaryReads(ctx)
+				primaryFallback = true
+				continue
+			}
+			return apitypes.Peer{}, err
+		}
+		data, err := json.Marshal(previous)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		item, err := decodePeer(data)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		if err := update(&item); err != nil {
+			return apitypes.Peer{}, err
+		}
+		if err := validatePeer(item); err != nil {
+			return apitypes.Peer{}, err
+		}
+		item.UpdatedAt = time.Now()
+		projected, err := s.projectRegistrationFirmware(ctx, item)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		err = s.writePeerLocked(ctx, item, &previous)
+		if errors.Is(err, ErrPeerConcurrentUpdate) {
+			ctx = kv.WithPrimaryReads(ctx)
+			primaryFallback = true
+			continue
+		}
+		return projected, err
 	}
-	return s.putRecord(ctx, peer)
+	return apitypes.Peer{}, ErrPeerConcurrentUpdate
 }
 
 func ensurePeerHardware(device *apitypes.DeviceInfo) *apitypes.HardwareInfo {
@@ -295,33 +360,22 @@ func (s *Server) approve(ctx context.Context, publicKey giznet.PublicKey, role a
 	}
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	peer, err := s.getStored(ctx, publicKey)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
-	approvedAt := time.Now()
-	peer.Role = role
-	peer.Status = apitypes.PeerRegistrationStatusActive
-	peer.ApprovedAt = &approvedAt
-	return s.putRecord(ctx, peer)
+	return s.updatePeerLocked(ctx, publicKey, func(peer *apitypes.Peer) error {
+		approvedAt := time.Now()
+		peer.Role = role
+		peer.Status = apitypes.PeerRegistrationStatusActive
+		peer.ApprovedAt = &approvedAt
+		return nil
+	})
 }
 
 func (s *Server) block(ctx context.Context, publicKey giznet.PublicKey) (apitypes.Peer, error) {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
-	item, err := s.getStored(ctx, publicKey)
+	projected, err := s.mergePeerLocked(ctx, publicKey, func(peer *apitypes.Peer) error {
+		peer.Status = apitypes.PeerRegistrationStatusBlocked
+		return nil
+	})
 	if err != nil {
-		unlock()
-		return apitypes.Peer{}, err
-	}
-	previous := item
-	item.Status = apitypes.PeerRegistrationStatusBlocked
-	item.UpdatedAt = time.Now()
-	projected, err := s.projectRegistrationFirmware(ctx, item)
-	if err != nil {
-		unlock()
-		return apitypes.Peer{}, err
-	}
-	if err := s.writePeerLocked(ctx, item, &previous); err != nil {
 		unlock()
 		return apitypes.Peer{}, err
 	}
@@ -355,24 +409,64 @@ func (s *Server) delete(ctx context.Context, publicKey giznet.PublicKey, reason 
 }
 
 func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, reason pendingdeletion.Reason) (apitypes.Peer, error) {
-	peer, err := s.get(ctx, publicKey)
-	if err != nil {
-		return apitypes.Peer{}, err
-	}
 	store, err := s.store()
 	if err != nil {
 		return apitypes.Peer{}, err
 	}
-	record, err := pendingdeletion.New(pendingdeletion.KindPeer, peer.PublicKey, &peer.PublicKey, reason, struct {
-		PublicKey string `json:"public_key"`
-	}{PublicKey: peer.PublicKey}, time.Now())
-	if err != nil {
-		return apitypes.Peer{}, err
+	primaryFallback := false
+	for range 8 {
+		raw, err := store.Get(ctx, peerKey(publicKey.String()))
+		if errors.Is(err, kv.ErrNotFound) {
+			if !primaryFallback {
+				ctx = kv.WithPrimaryReads(ctx)
+				primaryFallback = true
+				continue
+			}
+			return apitypes.Peer{}, ErrPeerNotFound
+		}
+		if err != nil {
+			return apitypes.Peer{}, fmt.Errorf("peer: get %s: %w", publicKey.String(), err)
+		}
+		peer, err := decodePeer(raw)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		if peer.PublicKey != publicKey.String() {
+			return apitypes.Peer{}, errors.New("peer: deletion record identity mismatch")
+		}
+		projected, err := s.projectRegistrationFirmware(ctx, peer)
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		record, err := pendingdeletion.New(pendingdeletion.KindPeer, peer.PublicKey, &peer.PublicKey, reason, peerDeletionDescriptor{
+			PublicKey: peer.PublicKey, PeerRecord: raw,
+		}, time.Now())
+		if err != nil {
+			return apitypes.Peer{}, err
+		}
+		// Publish logical deletion together with its durable cleanup request.
+		// The descriptor preserves the original bytes for later cleanup; a stale
+		// active observation cannot overwrite an already committed tombstone.
+		existing, created, err := pendingdeletion.CreateOrGetGuarded(ctx, store, record,
+			[]kv.Condition{{Key: peerKey(publicKey.String()), Expected: raw}},
+			kv.Entry{Key: peerKey(publicKey.String()), Value: encodedPeerTombstone},
+		)
+		if err == nil && !created {
+			// Reuse never writes domain entries. An older request may still
+			// retain its active Peer, so preserve its snapshot and fence together.
+			err = s.adoptPeerDeletion(kv.WithPrimaryReads(ctx), store, existing, peer, raw)
+		}
+		if errors.Is(err, pendingdeletion.ErrConflict) {
+			ctx = kv.WithPrimaryReads(ctx)
+			primaryFallback = true
+			continue
+		}
+		if err != nil {
+			return apitypes.Peer{}, fmt.Errorf("peer: delete %s: %w", peer.PublicKey, err)
+		}
+		return projected, nil
 	}
-	if _, _, err := pendingdeletion.CreateOrGet(ctx, store, record); err != nil {
-		return apitypes.Peer{}, fmt.Errorf("peer: delete %s: %w", peer.PublicKey, err)
-	}
-	return peer, nil
+	return apitypes.Peer{}, ErrPeerConcurrentUpdate
 }
 
 // DeleteSelf records a deletion request for the authenticated Peer. A retry
@@ -380,10 +474,12 @@ func (s *Server) deleteLocked(ctx context.Context, publicKey giznet.PublicKey, r
 func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) error {
 	unlock := s.IconLocks.LockRecord(publicKey.String())
 	defer unlock()
-	if _, err := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete); err == nil {
+	_, deleteErr := s.deleteLocked(ctx, publicKey, pendingdeletion.ReasonPeerDelete)
+	if deleteErr == nil {
 		return nil
-	} else if !errors.Is(err, ErrPeerNotFound) {
-		return err
+	}
+	if !errors.Is(deleteErr, ErrPeerNotFound) && !errors.Is(deleteErr, ErrPeerDeleted) {
+		return deleteErr
 	}
 	store, err := s.store()
 	if err != nil {
@@ -394,7 +490,7 @@ func (s *Server) DeleteSelf(ctx context.Context, publicKey giznet.PublicKey) err
 		return err
 	}
 	if !exists {
-		return ErrPeerNotFound
+		return deleteErr
 	}
 	return nil
 }
@@ -595,6 +691,16 @@ func (s *Server) EnsureAvailable(ctx context.Context, publicKey giznet.PublicKey
 	return nil
 }
 
+// EnsureAvailableForMutation refreshes a missing Peer input once before a SQL
+// mutation rejects it. Ordinary availability queries retain historical absence.
+func (s *Server) EnsureAvailableForMutation(ctx context.Context, publicKey giznet.PublicKey) error {
+	err := s.EnsureAvailable(ctx, publicKey)
+	if errors.Is(err, ErrPeerNotFound) {
+		return s.EnsureAvailable(kv.WithPrimaryReads(ctx), publicKey)
+	}
+	return err
+}
+
 func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([]adminhttp.PeerRegistrationResult, bool, *string, error) {
 	if s.LocalRuns == nil {
 		return nil, false, nil, errors.New("peer: local runtime directory is not configured")
@@ -608,14 +714,19 @@ func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([
 		return nil, false, nil, err
 	}
 	items := make([]adminhttp.PeerRegistrationResult, len(keys))
+	present := make([]bool, len(keys))
 	workers, workerCtx := errgroup.WithContext(ctx)
 	workers.SetLimit(8)
 	for i, key := range keys {
 		workers.Go(func() error {
 			data, err := store.Get(workerCtx, peerKey(key))
+			if errors.Is(err, kv.ErrNotFound) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}
+			present[i] = true
 			if isPeerTombstone(data) {
 				items[i] = toAdminTombstoneResult(key)
 				return nil
@@ -638,10 +749,16 @@ func (s *Server) listAdminPage(ctx context.Context, cursor string, limit int) ([
 	if err := workers.Wait(); err != nil {
 		return nil, false, nil, err
 	}
-	if more {
-		return items, true, new(keys[len(keys)-1]), nil
+	visible := items[:0]
+	for i, item := range items {
+		if present[i] {
+			visible = append(visible, item)
+		}
 	}
-	return items, false, nil, nil
+	if more {
+		return visible, true, new(keys[len(keys)-1]), nil
+	}
+	return visible, false, nil, nil
 }
 
 func (s *Server) listBySN(ctx context.Context, sn string) ([]adminhttp.PeerRegistrationResult, error) {
@@ -726,6 +843,9 @@ func (s *Server) ListPublicKeysByIMEI(ctx context.Context, tac, serial string) (
 }
 
 func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previous *apitypes.Peer) error {
+	if previous != nil && previous.PublicKey != peer.PublicKey {
+		return errors.New("peer: record identity cannot change")
+	}
 	additions := identifierSets(peer)
 	if len(additions) > PeerIdentifierLimit {
 		return ErrPeerIdentifierLimit
@@ -744,9 +864,6 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 
 	var deletes []kv.Key
 	if previous != nil {
-		if previous.PublicKey != peer.PublicKey {
-			deletes = append(deletes, peerKey(previous.PublicKey))
-		}
 		deletes = append(deletes, indexKeys(*previous)...)
 	}
 
@@ -772,7 +889,7 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 			current[group.Key.String()] = true
 		}
 		for _, group := range identifierSets(*previous) {
-			if previous.PublicKey != peer.PublicKey || !current[group.Key.String()] {
+			if !current[group.Key.String()] {
 				removals = append(removals, group)
 			}
 		}
@@ -801,6 +918,7 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 		return fmt.Errorf("peer: write record and identifier indexes: %w", err)
 	}
 	if !applied {
+		ctx = kv.WithPrimaryReads(ctx)
 		pending, err := pendingdeletion.HasLocator(ctx, store, pendingdeletion.KindPeer, peer.PublicKey)
 		if err != nil {
 			return err
@@ -808,7 +926,11 @@ func (s *Server) writePeerLocked(ctx context.Context, peer apitypes.Peer, previo
 		if pending {
 			return ErrPeerPendingDeletion
 		}
-		if previous == nil {
+		_, err = getStoredByPublicKeyText(ctx, store, peer.PublicKey)
+		if err != nil && !errors.Is(err, ErrPeerNotFound) {
+			return err
+		}
+		if previous == nil && err == nil {
 			return ErrPeerAlreadyExists
 		}
 		return ErrPeerConcurrentUpdate
@@ -832,7 +954,7 @@ func (s *Server) store() (kv.Store, error) {
 	if s.Store == nil {
 		return nil, errors.New("peer: store not configured")
 	}
-	return kv.WithStrongReads(s.Store), nil
+	return s.Store, nil
 }
 
 func (s *Server) peerRuntime(ctx context.Context, publicKey giznet.PublicKey) apitypes.Runtime {

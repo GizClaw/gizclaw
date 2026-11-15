@@ -220,7 +220,24 @@ func collectServedGoClientAudioRoute(t *testing.T, stream *gizcli.PeerStream, st
 			t.Fatalf("active SDK chunk route = %#v, want %q/assistant", chunk.Ctrl, streamID)
 		}
 		if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
-			packets = append(packets, append([]byte(nil), blob.Data...))
+			if blob.MIMEType != "audio/pcm;rate=16000;channels=1" || len(blob.Data)%2 != 0 {
+				t.Fatalf("SDK audio is not recovered PCM16: MIME=%q bytes=%d", blob.MIMEType, len(blob.Data))
+			}
+			if blob.ConcealedAudio {
+				if blob.OriginalAudio != nil {
+					t.Fatal("concealed PCM invented original Opus")
+				}
+			} else {
+				original := blob.OriginalAudio
+				if original == nil || original.MIMEType != "audio/opus" || len(original.Data) == 0 {
+					t.Fatal("decoded audio lost its original encoded provenance")
+				}
+				wantBytes := int(codecconv.OpusPacketRTPTicks(original.Data)) * 16000 / 48000 * 2
+				if len(blob.Data) != wantBytes {
+					t.Fatalf("decoded media duration bytes=%d, want=%d", len(blob.Data), wantBytes)
+				}
+				packets = append(packets, append([]byte(nil), original.Data...))
+			}
 		}
 		if chunk.IsEndOfStream() {
 			return packets

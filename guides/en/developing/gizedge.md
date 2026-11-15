@@ -227,6 +227,12 @@ Server. `ServiceEdgeHTTP` carries public HTTP forwarding. Gateway logical
 sessions use the registered `giznet/v2/tunnel/` DataChannel namespace and are
 not a product service ID.
 
+Both direct and TURN upstream dials select unordered, zero-retransmission delivery
+for the shared physical Packet DataChannel carrying tunneled Opus. Missing packets
+are not retransmitted and do not impose ordered-delivery waiting on later audio
+from other sessions. Client RTP and reliable service-channel policies are separate;
+see [Giznet](giznet) for the transport boundary.
+
 By default, omitting an entry's `ice-transport-policy` and `ice-servers`
 preserves direct ICE. A relay deployment sets a pool of
 at least two literal-IP TURN/UDP members:
@@ -304,6 +310,18 @@ explicit logical-session rejection, and other nonterminal protocol errors do
 not change a healthy association's eligibility. Packet or parent-connection
 failure marks the association failed and reports its relay attempt at most
 once.
+
+Before accepting a logical Client session, the Server ensures its durable Peer and
+claims or verifies its fixed home using the existing admission transaction. A
+foreign-home result returns a typed tunnel redirect containing that Server's
+public key. The Edge selects that configured pool directly, without repeating a
+possibly stale route lookup. Before dialing the redirected session, it confirms
+the target's existing control HTTP service is ready; Server starts that service
+after registering the tunnel namespace, and this check does not read Peer KV.
+Unknown or same-Server targets fail closed; redirect
+loops stop at the normal attempt limit. No application stream is forwarded before
+acceptance, so redirection does not replay business requests or move ownership.
+Ordinary KV reads and backend-local read-your-writes behavior are unchanged.
 
 A fresh client has one private 30-second logical-session establishment budget
 and may try at most two physical entries before Server acceptance. An alternate
@@ -423,7 +441,8 @@ shared Social KV and the SFU Room; see [Social](gizclaw/services/social#sfu-work
 
 For every logical-session attempt, the gateway emits
 `gizclaw: peer stream lifecycle` at `session_establishing` and either a bounded
-`terminal` failure or `session_accepted`, `bridge_started`, and `terminal`.
+`terminal` failure, a pre-acceptance `session_redirected` result, or
+`session_accepted`, `bridge_started`, and `terminal`.
 These records carry the generated `tunnel_session_id`, authenticated
 logical `peer_public_key`, and bounded upstream `entry_id`. Terminal `result`
 and `reason` distinguish completion, cancellation, timeout, transport close, and

@@ -4,15 +4,19 @@ package multiserver_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
-	"github.com/GizClaw/gizclaw-go/tests/testsupport/tikvfixture"
+	"github.com/pingcap/kvproto/pkg/errorpb"
 	"github.com/pingcap/kvproto/pkg/kvrpcpb"
 	"github.com/pingcap/kvproto/pkg/metapb"
+	tikvkv "github.com/tikv/client-go/v2/kv"
 	"github.com/tikv/client-go/v2/tikv"
 	"github.com/tikv/client-go/v2/tikvrpc"
+	"github.com/tikv/client-go/v2/tikvrpc/interceptor"
 )
 
 type learnerRequestSink struct {
@@ -20,79 +24,106 @@ type learnerRequestSink struct {
 	send func(string, *tikvrpc.Request) (*tikvrpc.Response, error)
 }
 
-func (s learnerRequestSink) SendRequest(_ context.Context, address string, req *tikvrpc.Request, _ time.Duration) (*tikvrpc.Response, error) {
+func (s learnerRequestSink) SendRequest(ctx context.Context, address string, req *tikvrpc.Request, _ time.Duration) (*tikvrpc.Response, error) {
+	if chain := interceptor.GetRPCInterceptorFromCtx(ctx); chain != nil {
+		return chain.Wrap(s.send)(address, req)
+	}
 	return s.send(address, req)
 }
 
-func TestLearnerControlPinsPDPeerWithoutChangingSDKRequest(t *testing.T) {
-	for _, command := range []tikvrpc.CmdType{tikvrpc.CmdGet, tikvrpc.CmdScan} {
+func TestLearnerControlObservesRequestsWithoutChangingReadSemantics(t *testing.T) {
+	for _, command := range []tikvrpc.CmdType{tikvrpc.CmdGet, tikvrpc.CmdBatchGet, tikvrpc.CmdScan} {
 		for _, stale := range []bool{true, false} {
-			t.Run(fmt.Sprintf("%s/stale=%t", command, stale), func(t *testing.T) {
-				var payload any = &kvrpcpb.GetRequest{Version: 97}
-				if command == tikvrpc.CmdScan {
-					payload = &kvrpcpb.ScanRequest{Version: 97}
-				}
-				original := tikvrpc.NewRequest(command, payload, kvrpcpb.Context{RegionId: 7, StaleRead: stale})
-				if err := tikvrpc.SetContext(original, nil, &metapb.Peer{Id: 8, StoreId: 9}); err != nil {
-					t.Fatal(err)
-				}
-				sent := 0
-				client := learnerReadClient{
-					reads: make(chan string, 1), address: "learner:20160",
-					peers: map[uint64]tikvfixture.RegionalPeer{7: {ID: 10, StoreID: 11}},
-					Client: learnerRequestSink{send: func(address string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
-						sent++
-						if address != "learner:20160" || req.RegionId != 7 || req.Peer.Id != 10 || req.Peer.StoreId != 11 || !req.StaleRead {
-							t.Fatalf("unexpected diagnostic destination %s: %+v", address, req.Context)
+			for _, replica := range []tikvkv.ReplicaReadType{tikvkv.ReplicaReadLeader, tikvkv.ReplicaReadLearner} {
+				for _, outcome := range []string{"success", "transport-error", "region-error"} {
+					t.Run(fmt.Sprintf("%s/stale=%t/replica=%d/%s", command, stale, replica, outcome), func(t *testing.T) {
+						var payload any = &kvrpcpb.GetRequest{Version: 97}
+						if command == tikvrpc.CmdScan {
+							payload = &kvrpcpb.ScanRequest{Version: 97}
+						} else if command == tikvrpc.CmdBatchGet {
+							payload = &kvrpcpb.BatchGetRequest{Version: 97}
 						}
-						if command == tikvrpc.CmdGet {
-							if req.Get().Context.Peer.Id != 10 || req.Get().Version != 97 {
-								t.Fatal("Get wire context or timestamp was lost")
+						original := tikvrpc.NewRequest(command, payload, kvrpcpb.Context{RegionId: 7, StaleRead: stale})
+						original.ReplicaReadType = replica
+						if err := tikvrpc.SetContext(original, nil, &metapb.Peer{Id: 8, StoreId: 9, Role: metapb.PeerRole_Learner}); err != nil {
+							t.Fatal(err)
+						}
+						var regionErr *errorpb.Error
+						var wantErr error
+						if outcome == "region-error" {
+							regionErr = &errorpb.Error{Message: "Learner unavailable"}
+						} else if outcome == "transport-error" {
+							wantErr = errors.New("Learner transport unavailable")
+						}
+						var response any = &kvrpcpb.GetResponse{RegionError: regionErr}
+						if command == tikvrpc.CmdScan {
+							response = &kvrpcpb.ScanResponse{RegionError: regionErr}
+						} else if command == tikvrpc.CmdBatchGet {
+							response = &kvrpcpb.BatchGetResponse{RegionError: regionErr}
+						}
+						wantResponse := &tikvrpc.Response{Resp: response}
+						if wantErr != nil {
+							wantResponse = nil
+						}
+						sent := 0
+						client := learnerReadClient{Client: learnerRequestSink{send: func(address string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
+							sent++
+							// Observe even a center destination unchanged: the production
+							// guard, never this observer, owns Learner routing enforcement.
+							if address != "center:20160" || req != original || req.Req != payload || req.Peer.Id != 8 || req.Peer.StoreId != 9 || req.StaleRead != stale || req.ReplicaReadType != replica {
+								t.Fatalf("observer rewrote request %s: %+v", address, req)
 							}
-							return &tikvrpc.Response{Resp: &kvrpcpb.GetResponse{}}, nil
+							var wire *kvrpcpb.Context
+							var version uint64
+							switch command {
+							case tikvrpc.CmdGet:
+								wire, version = req.Get().Context, req.Get().Version
+							case tikvrpc.CmdBatchGet:
+								wire, version = req.BatchGet().Context, req.BatchGet().Version
+							case tikvrpc.CmdScan:
+								wire, version = req.Scan().Context, req.Scan().Version
+							}
+							if wire.Peer.Id != 8 || wire.StaleRead != stale || version != 97 {
+								t.Fatalf("observer changed wire context or timestamp: %+v version=%d", wire, version)
+							}
+							return wantResponse, wantErr
+						}}}
+						ctx := context.WithValue(t.Context(), learnerControlReadKey{}, true)
+						response, err := client.SendRequest(ctx, "center:20160", original, time.Second)
+						if response != wantResponse || err != wantErr || sent != 1 {
+							t.Fatalf("observer changed transport result: response=%v err=%v sent=%d", response, err, sent)
 						}
-						if req.Scan().Context.Peer.Id != 10 || req.Scan().Version != 97 {
-							t.Fatal("Scan wire context or timestamp was lost")
+						want := learnerReadObservation{Address: "center:20160", RegionID: 7, PeerID: 8, StoreID: 9, Role: metapb.PeerRole_Learner, ReplicaRead: replica, Stale: stale, Type: command}
+						if got := client.snapshot(); !reflect.DeepEqual(got, []learnerReadObservation{want}) {
+							t.Fatalf("dispatch observation=%+v, want %+v", got, want)
 						}
-						return &tikvrpc.Response{Resp: &kvrpcpb.ScanResponse{}}, nil
-					}},
+					})
 				}
-				ctx := context.WithValue(t.Context(), learnerControlReadKey{}, true)
-				if _, err := client.SendRequest(ctx, "center:20160", original, time.Second); err != nil {
-					t.Fatal(err)
-				}
-				if sent != 1 || original.Peer.Id != 8 || original.StaleRead != stale || len(client.reads) != 1 {
-					t.Fatal("original SDK context changed or the regional read was not observed")
-				}
-				if command == tikvrpc.CmdGet && original.Get().Context.Peer.Id != 8 {
-					t.Fatal("original Get wire context changed")
-				}
-				if command == tikvrpc.CmdScan && original.Scan().Context.Peer.Id != 8 {
-					t.Fatal("original Scan wire context changed")
-				}
-			})
+			}
 		}
 	}
 }
 
-func TestLearnerControlRejectsUnknownRegionAndLeavesStrongReadsAlone(t *testing.T) {
-	client := learnerReadClient{reads: make(chan string, 1)}
-	request := tikvrpc.NewRequest(tikvrpc.CmdGet, &kvrpcpb.GetRequest{}, kvrpcpb.Context{RegionId: 12, StaleRead: true})
-	ctx := context.WithValue(t.Context(), learnerControlReadKey{}, true)
-	if _, err := client.SendRequest(ctx, "center:20160", request, time.Second); err == nil {
-		t.Fatal("unknown regional peer reached the transport")
-	}
-	client.Client = learnerRequestSink{send: func(address string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
-		if address != "center:20160" || req.StaleRead {
-			t.Fatal("strong control read was rerouted")
+func TestLearnerControlIgnoresUnmarkedReadsAndGuardRejections(t *testing.T) {
+	guardErr := errors.New("production routing guard rejected target")
+	client := learnerReadClient{Client: learnerRequestSink{send: func(address string, req *tikvrpc.Request) (*tikvrpc.Response, error) {
+		if address != "center:20160" || req.StaleRead || req.ReplicaReadType != tikvkv.ReplicaReadLeader {
+			t.Fatal("primary read semantics changed")
 		}
 		return &tikvrpc.Response{Resp: &kvrpcpb.GetResponse{}}, nil
-	}}
-	request = tikvrpc.NewRequest(tikvrpc.CmdGet, &kvrpcpb.GetRequest{}, kvrpcpb.Context{RegionId: 12})
+	}}}
+	request := tikvrpc.NewRequest(tikvrpc.CmdGet, &kvrpcpb.GetRequest{}, kvrpcpb.Context{RegionId: 12})
 	if _, err := client.SendRequest(t.Context(), "center:20160", request, time.Second); err != nil {
 		t.Fatal(err)
 	}
-	if len(client.reads) != 0 {
-		t.Fatal("strong read counted as a Learner control")
+	ctx := context.WithValue(t.Context(), learnerControlReadKey{}, true)
+	ctx = interceptor.WithRPCInterceptor(ctx, interceptor.NewRPCInterceptor("production-guard", func(_ interceptor.RPCInterceptorFunc) interceptor.RPCInterceptorFunc {
+		return func(_ string, _ *tikvrpc.Request) (*tikvrpc.Response, error) { return nil, guardErr }
+	}))
+	if _, err := client.SendRequest(ctx, "center:20160", request, time.Second); err != guardErr {
+		t.Fatalf("routing rejection changed: %v", err)
+	}
+	if got := client.snapshot(); len(got) != 0 {
+		t.Fatalf("unmarked read or rejected selection counted as a data attempt: %+v", got)
 	}
 }

@@ -7,3 +7,8 @@ reserve-raft-space = "32MiB"
 # Leave memory available for Raft, write buffers and the temporary data files.
 [storage.block-cache]
 capacity = "128MiB"
+
+# The usage suite reads two-second historical snapshots. Advancing safe-ts
+# every second keeps a healthy Learner eligible without native Leader fallback.
+[resolved-ts]
+advance-ts-interval = "1s"

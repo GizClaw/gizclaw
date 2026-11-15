@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
+	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v4"
 	"github.com/pion/webrtc/v4/pkg/media"
 )
@@ -53,7 +54,7 @@ func TestRemoteOpusFrameRoutesThroughConnReadAsRawOpus(t *testing.T) {
 	}
 	frame := []byte{0x00, 0x10, 0x20}
 
-	conn.enqueueRemoteOpusFrame(frame)
+	conn.enqueueRemoteOpusPacket(&rtp.Packet{Header: rtp.Header{Version: 2}, Payload: frame}, "source")
 
 	buf := make([]byte, 64)
 	protocol, n, err := conn.Read(buf)
@@ -74,7 +75,7 @@ func TestRemoteOpusFrameIgnoresEmptyRTPPayload(t *testing.T) {
 		closeCh: make(chan struct{}),
 	}
 
-	conn.enqueueRemoteOpusFrame(nil)
+	conn.enqueueRemoteOpusPacket(&rtp.Packet{Header: rtp.Header{Version: 2}}, "source")
 
 	select {
 	case packet := <-conn.readCh:

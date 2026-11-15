@@ -56,6 +56,7 @@ const zhDevelopingSidebar = [
         collapsed: false,
         items: [
           { text: "pkgs/giznet", link: "/zh/developing/giznet" },
+          { text: "pkgs/mcp", link: "/zh/developing/mcp" },
           {
             text: "pkgs/gizclaw",
             collapsed: false,
@@ -138,6 +139,7 @@ const zhDevelopingSidebar = [
                   { text: "Peer Presence", link: "/zh/developing/gizclaw/services/runtime/peerpresence" },
                   { text: "Peer Telemetry", link: "/zh/developing/gizclaw/services/runtime/peertelemetry" },
                   { text: "Toolkit", link: "/zh/developing/gizclaw/services/runtime/toolkit" },
+                  { text: "MCP", link: "/zh/developing/gizclaw/services/runtime/mcp" },
                 ],
               },
               { text: "Social", link: "/zh/developing/gizclaw/services/social" },

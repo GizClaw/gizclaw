@@ -1128,11 +1128,7 @@ func (stream *sessionStream) CloseWithError(err error) error {
 }
 
 func isStreamEnd(err error) bool {
-	if err == nil || errors.Is(err, genx.ErrDone) || errors.Is(err, io.EOF) || errors.Is(err, buffer.ErrIteratorDone) {
-		return true
-	}
-	var state *genx.State
-	return errors.As(err, &state) && state.Status() == genx.StatusDone
+	return err == nil || genx.IsStreamDone(err, buffer.ErrIteratorDone)
 }
 
 func isInterruptedTextInputEnd(chunk *genx.MessageChunk) bool {

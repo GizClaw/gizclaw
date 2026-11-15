@@ -66,6 +66,8 @@ Edge 立即关闭这条上游 RPC stream，让 authoritative Server 取消仍在
 `session_establishing`，随后记录有界的失败 `terminal`，或者依次记录
 `session_accepted`、`bridge_started` 和 `terminal`。这些记录携带 gateway 生成的
 `tunnel_session_id`、认证后的 logical `peer_public_key` 与有界的 upstream `entry_id`。
+A pre-acceptance home redirect ends the attempt with `session_redirected`; the
+next attempt receives a new tunnel session identifier.
 Terminal `result` 与 `reason` 区分完成、取消、超时、transport close 和 bridge error，
 不记录 raw error。Edge 也不记录声明的 remote address 或 tunnel payload。
 
@@ -219,10 +221,11 @@ Edge ingress 不拥有 Peer HTTP、OpenAI-compatible HTTP 或其他 product rout
 
 Edge Node 使用 `pkgs/giznet/gizwebrtc` 连接配置的 authoritative Server。`ServiceEdgeHTTP` 承载 public HTTP forwarding；gateway logical sessions 使用注册的 `giznet/v2/tunnel/` DataChannel namespace，不占用 product service ID。
 
-Both direct and TURN upstream dials explicitly select the ordered, timed physical Packet
-DataChannel policy for tunneled Opus. It recovers transient loss and preserves packet order
-without changing the client's RTP policy or the reliable service channels. The generic
-transport policy and its delivery boundary are described in [Giznet](giznet).
+Both direct and TURN upstream dials select unordered, zero-retransmission delivery
+for the shared physical Packet DataChannel carrying tunneled Opus. Missing packets
+are not retransmitted and do not impose ordered-delivery waiting on later audio
+from other sessions. Client RTP and reliable service-channel policies are separate;
+see [Giznet](giznet) for the transport boundary.
 
 默认省略每个 entry 的 `ice-transport-policy` 和 `ice-servers`，保持
 direct ICE。启用 relay 时配置至少两个 literal-IP TURN/UDP 成员：
@@ -287,6 +290,18 @@ application-acceptance timeout，会进入 draining，但不会惩罚其 TURN me
 cancellation、Edge shutdown、显式 logical-session rejection 和其他 nonterminal protocol
 error 不会改变 healthy association 的 eligibility。packet 或父连接失败会进入 failed，并且
 对应 relay attempt 最多报告一次失败。
+
+Before accepting a logical Client session, the Server ensures its durable Peer and
+claims or verifies its fixed home using the existing admission transaction. A
+foreign-home result returns a typed tunnel redirect containing that Server's
+public key. The Edge selects that configured pool directly, without repeating a
+possibly stale route lookup. Before dialing the redirected session, it confirms
+the target's existing control HTTP service is ready; Server starts that service
+after registering the tunnel namespace, and this check does not read Peer KV.
+Unknown or same-Server targets fail closed; redirect
+loops stop at the normal attempt limit. No application stream is forwarded before
+acceptance, so redirection does not replay business requests or move ownership.
+Ordinary KV reads and backend-local read-your-writes behavior are unchanged.
 
 fresh client 共享一个私有的三十秒 logical-session establishment budget，并且只允许在
 Server acceptance 前尝试至多两条 physical entry。alternate 会重新创建 control/packet

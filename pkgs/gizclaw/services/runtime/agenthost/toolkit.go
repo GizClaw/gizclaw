@@ -33,6 +33,8 @@ type ToolkitInvoker struct {
 	Scope       func(context.Context, string) (apitypes.RuntimeProfile, []string, error)
 	Credentials toolCredentialResolver
 	HTTP        giztools.HTTPExecutor
+	// MCP adds explicitly selected MCP capabilities to this generation.
+	MCP *MCPInvoker
 	// Verify validates mutations and fixed-target MHS reads against their actual conversation.
 	// It never selects another alias or changes the supplied arguments.
 	Verify func(context.Context, toolcatalog.Tool, json.RawMessage, genx.ToolConversation) (string, error)
@@ -43,18 +45,34 @@ var _ genx.ToolInvoker = (*ToolkitInvoker)(nil)
 // ResolveCatalog returns the current authorized catalog for product consumers.
 // HTTP executor data is private; model inputs must project only public metadata.
 func (i *ToolkitInvoker) ResolveCatalog(ctx context.Context) ([]toolcatalog.Tool, error) {
-	if i == nil || i.Catalog == nil || i.Owner == nil || i.Scope == nil {
+	if i == nil {
 		return nil, toolkit.ErrNotConfigured
 	}
-	owner, err := i.Owner(ctx)
-	if err != nil {
-		return nil, err
+	var tools []toolcatalog.Tool
+	if i.Catalog != nil && i.Owner != nil && i.Scope != nil {
+		owner, err := i.Owner(ctx)
+		if err != nil {
+			return nil, err
+		}
+		profile, names, err := i.Scope(ctx, owner)
+		if err != nil {
+			return nil, err
+		}
+		tools, err = i.Catalog.Resolve(ctx, owner, profile, &names)
+		if err != nil {
+			return nil, err
+		}
+	} else if i.MCP == nil {
+		return nil, toolkit.ErrNotConfigured
 	}
-	profile, names, err := i.Scope(ctx, owner)
-	if err != nil {
-		return nil, err
+	if i.MCP != nil {
+		additional, err := i.MCP.ResolveCatalog(ctx)
+		if err != nil {
+			return nil, err
+		}
+		tools = append(tools, additional...)
 	}
-	return i.Catalog.Resolve(ctx, owner, profile, &names)
+	return tools, nil
 }
 
 func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinition, error) {
@@ -76,6 +94,26 @@ func (i *ToolkitInvoker) ResolveTools(ctx context.Context) ([]genx.ToolDefinitio
 func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.RawMessage) (json.RawMessage, error) {
 	if len(args) == 0 {
 		args = json.RawMessage(`{}`)
+	}
+	if i != nil && i.MCP != nil && i.MCP.Owns(name) {
+		tools, err := i.MCP.ResolveCatalog(ctx)
+		if err != nil {
+			return recoverableToolError("unavailable", "MCP authorization is unavailable"), nil
+		}
+		for _, tool := range tools {
+			if tool.FunctionName != name {
+				continue
+			}
+			if err := toolcatalog.ValidateArguments(tool, args); err != nil {
+				return recoverableToolError("invalid_arguments", "MCP arguments do not match the tool schema"), nil
+			}
+			if rejected := i.verifyTool(ctx, tool, args); rejected != nil {
+				return rejected, nil
+			}
+			slog.InfoContext(ctx, "agenthost: Tool execution requested", "tool_alias", tool.Alias, "source", tool.Source)
+			return i.MCP.invoke(ctx, name, args)
+		}
+		return recoverableToolError("unavailable", "MCP tool is unavailable"), nil
 	}
 	if i == nil || i.Catalog == nil || i.Owner == nil || i.Scope == nil {
 		return recoverableToolError("unavailable", "tool authorization is unavailable"), nil
@@ -118,18 +156,8 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 			slog.WarnContext(ctx, "agenthost: Tool arguments rejected", "tool_alias", tool.Alias, "reason", "invalid_arguments")
 			return recoverableToolError("invalid_arguments", "tool arguments do not match its schema. Optional fields must be omitted when not requested; null is an explicit value, not omission. Do not guess a replacement value or target"), nil
 		}
-		if i.Verify != nil && (mutatingTool(tool) || tool.Source == "mhs") {
-			conversation, ok := genx.ToolConversationFromContext(ctx)
-			if !ok || strings.TrimSpace(conversation.CurrentUser) == "" {
-				return recoverableToolError("intent_unverified", "the actual user conversation is unavailable; do not execute or claim completion"), nil
-			}
-			reason, err := i.Verify(ctx, tool, args, conversation)
-			if err != nil {
-				return recoverableToolError("intent_unverified", "request verification failed; no change was executed"), nil
-			}
-			if reason != "" {
-				return recoverableToolError("intent_rejected", reason+"; this candidate was not executed. Recheck the actual user request and current catalog; this rejection does not revoke a different authorized candidate. Ask only for information still missing, and never substitute another target or claim completion"), nil
-			}
+		if rejected := i.verifyTool(ctx, tool, args); rejected != nil {
+			return rejected, nil
 		}
 		tool.Authorize = func(ctx context.Context) error {
 			current, names, err := i.Scope(ctx, owner)
@@ -164,7 +192,28 @@ func (i *ToolkitInvoker) InvokeTool(ctx context.Context, name string, args json.
 	return recoverableToolError("unavailable", "tool is not authorized"), nil
 }
 
+func (i *ToolkitInvoker) verifyTool(ctx context.Context, tool toolcatalog.Tool, args json.RawMessage) json.RawMessage {
+	if i.Verify == nil || !(mutatingTool(tool) || tool.Source == "mhs") {
+		return nil
+	}
+	conversation, ok := genx.ToolConversationFromContext(ctx)
+	if !ok || strings.TrimSpace(conversation.CurrentUser) == "" {
+		return recoverableToolError("intent_unverified", "the actual user conversation is unavailable; do not execute or claim completion")
+	}
+	reason, err := i.Verify(ctx, tool, args, conversation)
+	if err != nil {
+		return recoverableToolError("intent_unverified", "request verification failed; no change was executed")
+	}
+	if reason != "" {
+		return recoverableToolError("intent_rejected", reason+"; this candidate was not executed. Recheck the actual user request and current catalog; this rejection does not revoke a different authorized candidate. Ask only for information still missing, and never substitute another target or claim completion")
+	}
+	return nil
+}
+
 func mutatingTool(tool toolcatalog.Tool) bool {
+	if tool.Source == "mcp_tool" {
+		return true
+	}
 	if tool.Source == "mhs" {
 		return tool.Binding.Mhs.Operation == "write"
 	}

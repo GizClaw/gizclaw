@@ -2,6 +2,7 @@ package peerresource
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
@@ -522,10 +523,6 @@ type systemWorkspaceCreator interface {
 // catalog has no record yet. Every Server materializes the same identity,
 // Workflow, and owner, so the copies stay interchangeable.
 func (s *Server) materializeSocialWorkspace(ctx context.Context, name string) (apitypes.Workspace, error) {
-	creator, ok := s.Workspaces.(systemWorkspaceCreator)
-	if !ok {
-		return apitypes.Workspace{}, kv.ErrNotFound
-	}
 	owner := s.Caller.String()
 	binding, err := s.resolveSocialBinding(ctx, func(resolver sfu.BindingResolver) (socialutil.SFUWorkspaceBinding, error) {
 		if byName, ok := resolver.(interface {
@@ -541,25 +538,55 @@ func (s *Server) materializeSocialWorkspace(ctx context.Context, name string) (a
 	case err != nil:
 		return apitypes.Workspace{}, err
 	}
-	return s.materializeSocialWorkspaceBinding(ctx, creator, binding)
+	return s.materializeSocialWorkspaceBinding(ctx, binding)
 }
 
-func (s *Server) materializeSocialWorkspaceBinding(ctx context.Context, creator systemWorkspaceCreator, binding socialutil.SFUWorkspaceBinding) (apitypes.Workspace, error) {
+func (s *Server) materializeSocialWorkspaceBinding(ctx context.Context, binding socialutil.SFUWorkspaceBinding) (apitypes.Workspace, error) {
 	if strings.TrimSpace(binding.Owner) == "" || strings.TrimSpace(binding.WorkspaceID) == "" || strings.TrimSpace(binding.WorkspaceName) == "" {
 		return apitypes.Workspace{}, fmt.Errorf("social Workspace binding %q has no materializable identity", binding.WorkspaceName)
 	}
-	workspace, _, err := creator.CreateSystemWorkspace(ownership.WithOwner(ctx, binding.Owner), adminhttp.WorkspaceUpsert{
-		Id:         binding.WorkspaceID,
-		Name:       binding.WorkspaceName,
-		WorkflowId: socialutil.SFUWorkflowID,
-	})
+	var item apitypes.Workspace
+	var err error
+	missing := false
+	switch reader := s.Workspaces.(type) {
+	case interface {
+		GetAvailableWorkspaceByID(context.Context, string) (apitypes.Workspace, error)
+	}:
+		item, err = reader.GetAvailableWorkspaceByID(ctx, binding.WorkspaceID)
+		missing = errors.Is(err, workspace.ErrWorkspaceDeleted)
+	case interface {
+		GetWorkspaceByName(context.Context, string) (apitypes.Workspace, error)
+	}:
+		item, err = reader.GetWorkspaceByName(ownership.WithOwner(ctx, binding.Owner), binding.WorkspaceName)
+		missing = errors.Is(err, kv.ErrNotFound) || errors.Is(err, sql.ErrNoRows)
+	default:
+		err, missing = kv.ErrNotFound, true
+	}
 	if err != nil {
-		return apitypes.Workspace{}, fmt.Errorf("materialize social Workspace %q: %w", binding.WorkspaceName, err)
+		// The ID availability reader reports an absent local copy as
+		// ErrWorkspaceDeleted. Other availability, deletion, and backend errors
+		// must propagate without entering the creation path.
+		if !missing {
+			return apitypes.Workspace{}, err
+		}
+		creator, ok := s.Workspaces.(systemWorkspaceCreator)
+		if !ok {
+			return apitypes.Workspace{}, kv.ErrNotFound
+		}
+		item, _, err = creator.CreateSystemWorkspace(ownership.WithOwner(ctx, binding.Owner), adminhttp.WorkspaceUpsert{
+			Id:         binding.WorkspaceID,
+			Name:       binding.WorkspaceName,
+			WorkflowId: socialutil.SFUWorkflowID,
+		})
+		if err != nil {
+			return apitypes.Workspace{}, fmt.Errorf("materialize social Workspace %q: %w", binding.WorkspaceName, err)
+		}
 	}
-	if workspace.Id != binding.WorkspaceID || workspace.Name != binding.WorkspaceName {
-		return apitypes.Workspace{}, fmt.Errorf("materialized social Workspace %q has identity %q/%q", binding.WorkspaceName, workspace.Id, workspace.Name)
+	if item.Id != binding.WorkspaceID || item.Name != binding.WorkspaceName ||
+		socialutil.StringValue(item.OwnerPublicKey) != binding.Owner || !isSocialWorkspace(item) {
+		return apitypes.Workspace{}, fmt.Errorf("social Workspace %q does not match its authoritative binding", binding.WorkspaceName)
 	}
-	return workspace, nil
+	return item, nil
 }
 
 func (s *Server) requireWorkspaceAccess(ctx context.Context, requestID, name string) *rpcapi.RPCResponse {

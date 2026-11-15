@@ -4,13 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/jmoiron/sqlx"
 	_ "modernc.org/sqlite"
 )
@@ -160,9 +164,11 @@ func TestConcurrentCreateContactRespectsPeerLimit(t *testing.T) {
 	start := make(chan struct{})
 	results := make(chan error, attempts)
 	for i := range attempts {
+		// Independent service instances must share the SQL quota boundary.
+		server := &Server{DB: s.DB}
 		go func() {
 			<-start
-			_, err := s.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: fmt.Sprintf("contact-%02d", i), OwnerPublicKey: "owner", Name: fmt.Sprintf("person-%02d", i), DisplayName: new("Person")})
+			_, err := server.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: fmt.Sprintf("contact-%02d", i), OwnerPublicKey: "owner", Name: fmt.Sprintf("person-%02d", i), DisplayName: new("Person")})
 			results <- err
 		}()
 	}
@@ -617,7 +623,12 @@ func (s *blockingContactAvailability) Check(ctx context.Context, owner string) e
 }
 func newTestDB(t testing.TB) *sqlx.DB {
 	t.Helper()
-	db, err := sqlx.Open("sqlite", ":memory:")
+	return newTestDBDSN(t, ":memory:")
+}
+
+func newTestDBDSN(t testing.TB, dsn string) *sqlx.DB {
+	t.Helper()
+	db, err := sqlx.Open("sqlite", dsn)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -679,10 +690,268 @@ func TestRetirementSnapshotDoesNotDeleteRecreatedContact(t *testing.T) {
 	if _, err := server.AdminCreateContact(t.Context(), request); err != nil {
 		t.Fatal(err)
 	}
+	replacement, err := server.PreparePeerContactsRetirement(t.Context(), "owner")
+	if err != nil || len(replacement) != 1 || replacement[0].Incarnation == snapshot[0].Incarnation {
+		t.Fatalf("replacement snapshot = %#v, %v", replacement, err)
+	}
 	if err := server.RetirePeerContact(t.Context(), snapshot[0]); err == nil {
 		t.Fatal("old snapshot accepted a new creation instance")
 	}
 	if _, err := server.AdminGetContactByID(t.Context(), request.Id); err != nil {
 		t.Fatalf("replacement removed: %v", err)
+	}
+	if err := server.RetirePeerContact(t.Context(), replacement[0]); err != nil {
+		t.Fatalf("retiring replacement: %v", err)
+	}
+}
+
+func TestPreparePeerContactsRetirementFencesStaleAvailability(t *testing.T) {
+	ctx := t.Context()
+	server := newTestServer(t)
+	request := adminhttp.AdminContactCreateRequest{Id: "contact-a", OwnerPublicKey: "peer-a", Name: "alice", DisplayName: new("Alice")}
+	if _, err := server.AdminCreateContact(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := server.PreparePeerContactsRetirement(ctx, "peer-a")
+	if err != nil || len(prepared) != 1 || prepared[0].ID != request.Id {
+		t.Fatalf("PreparePeerContactsRetirement() = %#v, %v", prepared, err)
+	}
+	// Initialization and a fresh service instance must preserve the SQL fence.
+	writer := &Server{DB: server.DB, PeerAvailability: func(context.Context, string) error { return nil }}
+	if err := writer.Initialize(ctx); err != nil {
+		t.Fatal(err)
+	}
+	replayed, err := writer.PreparePeerContactsRetirement(ctx, "peer-a")
+	if err != nil || !slices.Equal(prepared, replayed) {
+		t.Fatalf("repeated preparation = %#v, %v, want %#v", replayed, err, prepared)
+	}
+	for _, test := range []struct {
+		name   string
+		mutate func() error
+	}{
+		{"admin create", func() error {
+			_, err := writer.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{Id: "new-id", OwnerPublicKey: "peer-a", Name: "new-name", DisplayName: new("New")})
+			return err
+		}},
+		{"peer create", func() error {
+			_, err := writer.CreateContact(ctx, "peer-a", rpcapi.ContactCreateRequest{Name: "new-name", DisplayName: new("New")})
+			return err
+		}},
+		{"admin put", func() error {
+			_, err := writer.AdminPutContactByID(ctx, request.Id, adminhttp.AdminContactPutRequest{DisplayName: new("Changed")})
+			return err
+		}},
+		{"peer put", func() error {
+			_, err := writer.PutContact(ctx, "peer-a", rpcapi.ContactPutRequest{Name: request.Name, DisplayName: new("Changed")})
+			return err
+		}},
+		{"admin delete", func() error {
+			_, err := writer.AdminDeleteContactByID(ctx, request.Id)
+			return err
+		}},
+		{"peer delete", func() error {
+			_, err := writer.DeleteContact(ctx, "peer-a", rpcapi.ContactDeleteRequest{Name: request.Name})
+			return err
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := test.mutate(); !errors.Is(err, ownership.ErrOwnerRetired) || !errors.Is(err, ErrPeerPendingDeletion) {
+				t.Fatalf("mutation error = %v, want shared and Contact retirement classification", err)
+			}
+		})
+	}
+	retained, err := writer.AdminGetContactByID(ctx, request.Id)
+	if err != nil || socialutil.StringValue(retained.DisplayName) != "Alice" {
+		t.Fatalf("retained Contact = %#v, %v", retained, err)
+	}
+	if err := writer.RetirePeerContact(ctx, prepared[0]); err != nil {
+		t.Fatalf("retirement delete rejected by fence: %v", err)
+	}
+	if _, err := writer.AdminCreateContact(ctx, request); !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("recreate error = %v, want owner retired", err)
+	}
+	if _, err := writer.AdminPutContact(ctx, "peer-a", request.Id, adminhttp.AdminContactPutRequest{DisplayName: new("Recreated")}); !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("put after cleanup error = %v, want owner retired", err)
+	}
+	remaining, err := writer.PreparePeerContactsRetirement(ctx, "peer-a")
+	if err != nil || len(remaining) != 0 {
+		t.Fatalf("preparation after cleanup = %#v, %v", remaining, err)
+	}
+	if got := contactNames(t, writer, "peer-a"); len(got) != 0 {
+		t.Fatalf("Contacts reappeared after cleanup: %v", got)
+	}
+	if _, err := writer.AdminCreateContact(ctx, adminhttp.AdminContactCreateRequest{Id: request.Id, OwnerPublicKey: "peer-b", Name: request.Name, DisplayName: new("Other owner")}); err != nil {
+		t.Fatalf("independent owner admission: %v", err)
+	}
+}
+
+func TestContactRetirementPreservesMutationErrorPrecedence(t *testing.T) {
+	server := newTestServer(t)
+	if _, err := server.PutContact(t.Context(), " ", rpcapi.ContactPutRequest{Name: "missing"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("empty-owner put error = %v, want not found", err)
+	}
+	if _, err := server.DeleteContact(t.Context(), " ", rpcapi.ContactDeleteRequest{Name: "missing"}); !errors.Is(err, ErrNotFound) {
+		t.Fatalf("empty-owner delete error = %v, want not found", err)
+	}
+	for i := range PeerContactLimit {
+		if _, err := server.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: fmt.Sprintf("contact-%d", i), OwnerPublicKey: "peer-a", Name: fmt.Sprintf("person-%d", i), DisplayName: new("Person")}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := server.PreparePeerContactsRetirement(t.Context(), "peer-a"); err != nil {
+		t.Fatal(err)
+	}
+	request := adminhttp.AdminContactCreateRequest{Id: "contact-0", OwnerPublicKey: "peer-a", Name: "person-0", DisplayName: new("Person")}
+	if _, err := server.AdminCreateContact(t.Context(), request); !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("retired full-owner duplicate error = %v, want owner retired", err)
+	}
+	unavailable := errors.New("availability check failed")
+	server.PeerAvailability = func(context.Context, string) error { return unavailable }
+	if _, err := server.AdminCreateContact(t.Context(), request); !errors.Is(err, unavailable) {
+		t.Fatalf("availability error = %v, want callback failure", err)
+	}
+	request.Name = " padded "
+	if _, err := server.AdminCreateContact(t.Context(), request); err == nil || !strings.Contains(err.Error(), "surrounding whitespace") {
+		t.Fatalf("invalid request error = %v, want name validation", err)
+	}
+}
+
+func TestCanceledContactRetirementDoesNotFenceOwner(t *testing.T) {
+	server := newTestServer(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := server.PreparePeerContactsRetirement(ctx, "peer-a"); !errors.Is(err, context.Canceled) {
+		t.Fatalf("canceled preparation error = %v", err)
+	}
+	if _, err := server.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{Name: "alice", DisplayName: new("Alice")}); err != nil {
+		t.Fatalf("canceled preparation fenced owner or closed borrowed pool: %v", err)
+	}
+}
+
+func TestSnapshotPeerContactsRemainsReadOnly(t *testing.T) {
+	server := newTestServer(t)
+	if _, err := server.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{Name: "alice", DisplayName: new("Alice")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.DB.ExecContext(t.Context(), "PRAGMA query_only=ON"); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := server.SnapshotPeerContacts(t.Context(), "peer-a")
+	if err != nil || len(snapshot) != 1 {
+		t.Fatalf("read-only snapshot = %#v, %v", snapshot, err)
+	}
+	if _, err := server.DB.ExecContext(t.Context(), "PRAGMA query_only=OFF"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.CreateContact(t.Context(), "peer-a", rpcapi.ContactCreateRequest{Name: "bob", DisplayName: new("Bob")}); err != nil {
+		t.Fatalf("read-only snapshot fenced admission: %v", err)
+	}
+}
+
+func TestPreparePeerContactsRetirementRejectsInflightStaleAdmission(t *testing.T) {
+	server := newTestServer(t)
+	blocked := &blockingContactAvailability{owner: "peer-a", reached: make(chan struct{}, 1), release: make(chan struct{})}
+	writer := &Server{DB: server.DB, PeerAvailability: blocked.Check}
+	release := sync.OnceFunc(func() { close(blocked.release) })
+	t.Cleanup(release)
+	created := make(chan error, 1)
+	go func() {
+		_, err := writer.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: "in-flight", OwnerPublicKey: "peer-a", Name: "alice", DisplayName: new("Alice")})
+		created <- err
+	}()
+	<-blocked.reached
+	prepared, err := server.PreparePeerContactsRetirement(t.Context(), "peer-a")
+	if err != nil || len(prepared) != 0 {
+		t.Fatalf("preparation during stale availability read = %#v, %v", prepared, err)
+	}
+	if _, err := writer.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: "independent", OwnerPublicKey: "peer-b", Name: "bob", DisplayName: new("Bob")}); err != nil {
+		t.Fatalf("independent owner blocked by stale admission: %v", err)
+	}
+	release()
+	if err := <-created; !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("in-flight stale admission error = %v, want owner retired", err)
+	}
+	if got := contactNames(t, server, "peer-a"); len(got) != 0 {
+		t.Fatalf("late Contact escaped snapshot: %v", got)
+	}
+}
+
+func TestPreparePeerContactsRetirementIncludesInflightSQLCreate(t *testing.T) {
+	// Independent pools prevent a single database/sql connection or keyed mutex
+	// from providing the serialization under test.
+	dsn := filepath.Join(t.TempDir(), "contacts.db") + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	writer := &Server{DB: newTestDBDSN(t, dsn)}
+	retiring := &Server{DB: newTestDBDSN(t, dsn)}
+	reached, unblock := make(chan struct{}), make(chan struct{})
+	release := sync.OnceFunc(func() { close(unblock) })
+	t.Cleanup(release)
+	writer.Now = func() time.Time {
+		close(reached) // The create has locked its SQL owner row and checked quota.
+		select {
+		case <-unblock:
+		case <-t.Context().Done():
+		}
+		return time.Date(2026, 11, 10, 0, 0, 0, 0, time.UTC)
+	}
+	created := make(chan error, 1)
+	go func() {
+		_, err := writer.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: "in-flight", OwnerPublicKey: "peer-a", Name: "alice", DisplayName: new("Alice")})
+		created <- err
+	}()
+	<-reached
+	type preparation struct {
+		items []PeerRetirementContact
+		err   error
+	}
+	started := make(chan struct{})
+	prepared := make(chan preparation, 1)
+	go func() {
+		close(started)
+		items, err := retiring.PreparePeerContactsRetirement(t.Context(), "peer-a")
+		prepared <- preparation{items: items, err: err}
+	}()
+	<-started
+	select {
+	case result := <-prepared:
+		t.Fatalf("retirement passed an uncommitted SQL create: %#v, %v", result.items, result.err)
+	case <-time.After(100 * time.Millisecond):
+	}
+	release()
+	if err := <-created; err != nil {
+		t.Fatalf("in-flight SQL create: %v", err)
+	}
+	result := <-prepared
+	if result.err != nil || len(result.items) != 1 || result.items[0].ID != "in-flight" {
+		t.Fatalf("prepared snapshot = %#v, %v", result.items, result.err)
+	}
+	if err := retiring.RetirePeerContact(t.Context(), result.items[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := writer.AdminCreateContact(t.Context(), adminhttp.AdminContactCreateRequest{Id: "late-create", OwnerPublicKey: "peer-a", Name: "late", DisplayName: new("Late")}); !errors.Is(err, ownership.ErrOwnerRetired) {
+		t.Fatalf("cross-pool create after retirement = %v", err)
+	}
+}
+
+func TestContactOwnerStateSchemaValidation(t *testing.T) {
+	for _, definition := range []string{
+		`owner_public_key TEXT NOT NULL, retired INTEGER NOT NULL`,
+		`owner_public_key TEXT PRIMARY KEY NOT NULL, retired TEXT NOT NULL`,
+		`owner_public_key TEXT PRIMARY KEY NOT NULL, retired INTEGER`,
+	} {
+		t.Run(definition, func(t *testing.T) {
+			db := newTestDB(t)
+			if _, err := db.ExecContext(t.Context(), `DROP TABLE contact_owner_state`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.ExecContext(t.Context(), `CREATE TABLE contact_owner_state (`+definition+`)`); err != nil {
+				t.Fatal(err)
+			}
+			if err := (&Server{DB: db}).Initialize(t.Context()); err == nil {
+				t.Fatal("Initialize accepted incompatible owner-state schema")
+			}
+			if err := db.PingContext(t.Context()); err != nil {
+				t.Fatalf("Initialize closed borrowed pool: %v", err)
+			}
+		})
 	}
 }

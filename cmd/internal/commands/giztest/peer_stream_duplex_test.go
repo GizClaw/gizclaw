@@ -106,7 +106,7 @@ func TestPeerStreamRealtimeProcessesOutputBeyondReadQueueDuringInput(t *testing.
 	count := 0
 	_, err := invokePeerStream(ctx, nil, func() (peerStream, error) { return s, nil }, giztest.Step{
 		ID: "duplex", Client: "peer", PeerStream: &giztest.PeerStreamOperation{Mode: "realtime"},
-	}, []byte{0xf8}, 0, func(_ string, role string, _ []byte, end bool) error {
+	}, []byte{0xf8}, 0, func(_ string, role string, _ *genx.Blob, end bool) error {
 		if role == "assistant" && !end {
 			count++
 			if count == packets {
@@ -251,7 +251,7 @@ func TestPeerStreamFirstResponseConsumesBeyondQueueDuringTail(t *testing.T) {
 		ID: "first", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 			Mode: "realtime", Completion: "first_response", FirstTextTimeout: "100ms", RequireAudio: &disabled,
 		},
-	}, []byte{0xf8}, 0, func(_ string, role string, _ []byte, end bool) error {
+	}, []byte{0xf8}, 0, func(_ string, role string, _ *genx.Blob, end bool) error {
 		if role == "assistant" && !end {
 			count++
 			if count == packets {
@@ -325,7 +325,7 @@ func TestPeerStreamInterruptConsumesOutputDuringReplacementPush(t *testing.T) {
 		return replacement, nil
 	}, giztest.Step{ID: "interrupt", Client: "peer", PeerStream: &giztest.PeerStreamOperation{
 		Mode: "realtime", InterruptAfter: "1ms",
-	}}, []byte{0xf8}, 0, func(_ string, role string, _ []byte, end bool) error {
+	}}, []byte{0xf8}, 0, func(_ string, role string, _ *genx.Blob, end bool) error {
 		if role == "assistant" && !end {
 			count++
 			if count == packets {

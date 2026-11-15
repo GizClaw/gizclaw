@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/giznet"
 	"github.com/pion/datachannel"
 )
@@ -13,6 +14,7 @@ var errPacketProtocolIgnored = errors.New("gizwebrtc: packet protocol ignored")
 type directPacket struct {
 	protocol byte
 	payload  []byte
+	opus     *packet.OpusInfo
 }
 
 func writePacket(raw datachannel.ReadWriteCloserDeadliner, protocol byte, payload []byte) (int, error) {

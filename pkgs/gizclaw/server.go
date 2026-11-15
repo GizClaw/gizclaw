@@ -22,6 +22,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/graphstate"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/mcpclient"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
@@ -319,6 +320,9 @@ func (s *Server) Close() error {
 		errs = append(errs, s.manager.PeerQuota.Close(ctx))
 		cancel()
 	}
+	if s.manager != nil && s.manager.MCPClients != nil {
+		errs = append(errs, s.manager.MCPClients.Close())
+	}
 	if s.manager != nil && s.manager.MemoryStores != nil {
 		errs = append(errs, s.manager.MemoryStores.Close())
 	}
@@ -391,10 +395,10 @@ func (s *Server) init() error {
 	peerRouteStore := kv.Prefixed(s.PeerStore, kv.Key{"routes"})
 	workspaceDB := s.WorkspaceDB
 	apiKeyStore := s.APIKeyStore
-	// Social membership is authority and also supplies Peer retirement plans.
-	// A replica must not hide recently committed relationships during deletion.
-	friendRoot := kv.WithStrongReads(s.FriendStore)
-	friendGroupRoot := kv.WithStrongReads(s.FriendGroupStore)
+	// Social reads follow the configured replica policy. Mutations compare their
+	// observations atomically and use primary reads only for conflict recovery.
+	friendRoot := s.FriendStore
+	friendGroupRoot := s.FriendGroupStore
 	friendInviteTokenStore := kv.Prefixed(friendRoot, kv.Key{"invite-tokens"})
 	friendStore := kv.Prefixed(friendRoot, kv.Key{"friends"})
 	friendGroupStore := kv.Prefixed(friendGroupRoot, kv.Key{"groups"})
@@ -474,6 +478,7 @@ func (s *Server) init() error {
 	manager.GraphStateDB = s.GraphStateDB
 	manager.MemoryRoot = s.MemoryRoot
 	manager.MemoryStores = memorystore.NewRegistry()
+	manager.MCPClients = mcpclient.NewRegistry()
 	manager.SpeechLimits = s.SpeechLimits
 	manager.PeerRoutes = &peerroute.Server{
 		Store:           peerRouteStore,
@@ -528,6 +533,21 @@ func (s *Server) init() error {
 				return err
 			}
 		},
+		PeerMutationAvailability: func(ctx context.Context, publicKey string) error {
+			key, err := parsePeerPublicKey(publicKey)
+			if err != nil {
+				return err
+			}
+			err = peersServer.EnsureAvailableForMutation(ctx, key)
+			switch {
+			case errors.Is(err, peer.ErrPeerPendingDeletion):
+				return workspace.ErrPeerPendingDeletion
+			case errors.Is(err, peer.ErrPeerDeleted):
+				return workspace.ErrPeerDeleted
+			default:
+				return err
+			}
+		},
 	}
 	if s.AgentHostStore != nil {
 		workspaceServer.RuntimeStore = workspace.NewObjectRuntimeStore(s.AgentHostStore, s.WorkspaceHistory, s.WorkspaceHistoryAssets)
@@ -555,7 +575,7 @@ func (s *Server) init() error {
 			if err != nil {
 				return err
 			}
-			err = peersServer.EnsureAvailable(ctx, key)
+			err = peersServer.EnsureAvailableForMutation(ctx, key)
 			switch {
 			case errors.Is(err, peer.ErrPeerPendingDeletion):
 				return contact.ErrPeerPendingDeletion
@@ -570,21 +590,15 @@ func (s *Server) init() error {
 		return fmt.Errorf("gizclaw: initialize contact: %w", err)
 	}
 	friendServer := &friend.Server{
-		InviteTokens: friendInviteTokenStore,
-		Friends:      friendStore,
-		Workspaces:   workspaceServer,
-		Profiles:     peersServer,
-		NotifyPeer:   notifyPeer,
-		Pings:        manager,
-		Presence:     manager,
-		PeerAvailability: func(ctx context.Context, publicKey string) error {
-			key, err := parsePeerPublicKey(publicKey)
-			if err != nil {
-				return err
-			}
-			return peersServer.EnsureAvailable(ctx, key)
-		},
-		SFUURL: s.SFUURL,
+		InviteTokens:     friendInviteTokenStore,
+		Friends:          friendStore,
+		Workspaces:       workspaceServer,
+		Profiles:         peersServer,
+		NotifyPeer:       notifyPeer,
+		Pings:            manager,
+		Presence:         manager,
+		PeerAvailability: peerMutationAvailability(peersServer),
+		SFUURL:           s.SFUURL,
 	}
 	friendGroupServer := &friendgroup.Server{
 		Groups:            friendGroupStore,
@@ -598,14 +612,8 @@ func (s *Server) init() error {
 		Pings:             manager,
 		Presence:          manager,
 		Rooms:             manager,
-		PeerAvailability: func(ctx context.Context, publicKey string) error {
-			key, err := parsePeerPublicKey(publicKey)
-			if err != nil {
-				return err
-			}
-			return peersServer.EnsureAvailable(ctx, key)
-		},
-		SFUURL: s.SFUURL,
+		PeerAvailability:  peerMutationAvailability(peersServer),
+		SFUURL:            s.SFUURL,
 	}
 	providerTenantsServer := &providertenants.Server{
 		DB:          s.ProviderTenantDB,
@@ -692,6 +700,7 @@ func (s *Server) init() error {
 		ToolCatalog:            manager.ToolCatalog,
 		ToolCredentials:        credentialServer,
 		HTTPTools:              s.ToolHTTPExecutor,
+		MCPRegistry:            manager.MCPClients,
 	}
 	manager.AgentHost = agenthost.New(agentResolver)
 	manager.Workspaces = workspaceServer

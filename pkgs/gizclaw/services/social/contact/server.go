@@ -14,7 +14,9 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/customid"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/internal/socialutil"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/system/ownership"
 	"github.com/GizClaw/gizclaw-go/pkgs/internal/keyedlock"
+	"github.com/GizClaw/gizclaw-go/pkgs/store/sqlmeta"
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 )
@@ -68,11 +70,27 @@ func (s *Server) Initialize(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	contacts, err := sqlmeta.PrepareSQLTable(db, "sql", "contacts")
+	if err != nil {
+		return err
+	}
+	owners, err := sqlmeta.PrepareSQLTable(db, "sql", "contact_owner_state")
+	if err != nil {
+		return err
+	}
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if contacts.Dialect() == sqlmeta.SQLDialectPostgreSQL {
+		if err := sqlmeta.LockPostgreSQLTable(ctx, tx, contacts); err != nil {
+			return err
+		}
+		if err := sqlmeta.LockPostgreSQLTable(ctx, tx, owners); err != nil {
+			return err
+		}
+	}
 	for _, query := range []string{
 		`CREATE TABLE IF NOT EXISTS contacts (
  id TEXT PRIMARY KEY CHECK(length(id)>0), owner_public_key TEXT NOT NULL CHECK(length(owner_public_key)>0),
@@ -81,14 +99,31 @@ func (s *Server) Initialize(ctx context.Context) error {
  UNIQUE(owner_public_key,name),UNIQUE(owner_public_key,normalized_phone),
  CHECK(display_name IS NOT NULL OR phone_number IS NOT NULL))`,
 		`CREATE INDEX IF NOT EXISTS contacts_owner_id ON contacts(owner_public_key,id)`,
+		`CREATE TABLE IF NOT EXISTS contact_owner_state (
+ owner_public_key TEXT PRIMARY KEY NOT NULL CHECK(length(owner_public_key)>0),
+ retired INTEGER NOT NULL CHECK(retired IN (0,1)))`,
 	} {
 		if _, err := tx.ExecContext(ctx, query); err != nil {
 			return err
 		}
 	}
-	return tx.Commit()
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+	columns, err := sqlmeta.SQLColumns(ctx, db, owners)
+	if err != nil {
+		return err
+	}
+	if err := sqlmeta.ValidateSQLColumns(columns, map[string]sqlmeta.SQLColumn{
+		"owner_public_key": {Type: "TEXT", PrimaryKeyPosition: 1},
+		"retired":          {Type: "INTEGER"},
+	}); err != nil {
+		return fmt.Errorf("social: contact owner state schema: %w", err)
+	}
+	return nil
 }
 
+// SnapshotPeerContacts reads current Contact identities without changing owner admission.
 func (s *Server) SnapshotPeerContacts(ctx context.Context, owner string) ([]PeerRetirementContact, error) {
 	db, err := s.database()
 	if err != nil {
@@ -105,6 +140,49 @@ func (s *Server) SnapshotPeerContacts(ctx context.Context, owner string) ([]Peer
 		return nil, err
 	}
 	defer release()
+	return snapshotPeerContacts(ctx, db, owner)
+}
+
+// PreparePeerContactsRetirement permanently fences Contact mutations for owner
+// and captures its current Contact creation identities in the same SQL transaction.
+// Repeated preparation preserves the fence and returns the remaining Contacts.
+func (s *Server) PreparePeerContactsRetirement(ctx context.Context, owner string) ([]PeerRetirementContact, error) {
+	db, err := s.database()
+	if err != nil {
+		return nil, err
+	}
+	if err := socialutil.RequireOwner(owner); err != nil {
+		return nil, err
+	}
+	if owner != strings.TrimSpace(owner) {
+		return nil, errors.New("social: Peer public key must be canonical")
+	}
+	release, err := s.ownerLocks.Acquire(ctx, owner)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	// Mutations acquire this same owner row before reading or writing Contacts.
+	// PostgreSQL locks that row; SQLite acquires its transaction's write lock.
+	if _, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO contact_owner_state(owner_public_key,retired) VALUES (?,1) ON CONFLICT(owner_public_key) DO UPDATE SET retired=1`), owner); err != nil {
+		return nil, err
+	}
+	result, err := snapshotPeerContacts(ctx, tx, owner)
+	if err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func snapshotPeerContacts(ctx context.Context, db sqlx.ExtContext, owner string) ([]PeerRetirementContact, error) {
 	var result []PeerRetirementContact
 	cursor := ""
 	for {
@@ -120,7 +198,7 @@ func (s *Server) SnapshotPeerContacts(ctx context.Context, owner string) ([]Peer
 	}
 }
 
-func snapshotContactPage(ctx context.Context, db *sqlx.DB, owner, cursor string) ([]PeerRetirementContact, error) {
+func snapshotContactPage(ctx context.Context, db sqlx.ExtContext, owner, cursor string) ([]PeerRetirementContact, error) {
 	rows, err := db.QueryContext(ctx, db.Rebind(`SELECT id,name,incarnation FROM contacts WHERE owner_public_key=? AND id>? ORDER BY id LIMIT 256`), owner, cursor)
 	if err != nil {
 		return nil, err
@@ -305,9 +383,14 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	if err := s.ensurePeerAvailable(ctx, owner); err != nil {
 		return rpcapi.ContactObject{}, err
 	}
-	// The owner lock serializes this count with the insert below.
+	tx, err := beginContactMutation(ctx, db, owner)
+	if err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	defer tx.Rollback()
+	// The SQL owner row serializes quota checks and admissions across instances.
 	var existing int
-	if err := db.QueryRowContext(ctx, db.Rebind(`SELECT COUNT(*) FROM contacts WHERE owner_public_key=?`), owner).Scan(&existing); err != nil {
+	if err := tx.QueryRowContext(ctx, tx.Rebind(`SELECT COUNT(*) FROM contacts WHERE owner_public_key=?`), owner).Scan(&existing); err != nil {
 		return rpcapi.ContactObject{}, err
 	}
 	if existing >= PeerContactLimit {
@@ -315,7 +398,7 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	}
 	now := s.now()
 	item := rpcapi.ContactObject{Name: name, DisplayName: display, PhoneNumber: phone, CreatedAt: &now, UpdatedAt: &now}
-	result, err := db.ExecContext(ctx, db.Rebind(`INSERT INTO contacts(id,owner_public_key,name,display_name,phone_number,normalized_phone,created_at,updated_at,incarnation) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`), id, owner, name, display, phone, normalizedPhone(phone), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), uuid.NewString())
+	result, err := tx.ExecContext(ctx, tx.Rebind(`INSERT INTO contacts(id,owner_public_key,name,display_name,phone_number,normalized_phone,created_at,updated_at,incarnation) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT DO NOTHING`), id, owner, name, display, phone, normalizedPhone(phone), now.Format(time.RFC3339Nano), now.Format(time.RFC3339Nano), uuid.NewString())
 	if err != nil {
 		return rpcapi.ContactObject{}, contactSQLError(err)
 	}
@@ -325,6 +408,9 @@ func (s *Server) createContact(ctx context.Context, owner, id, name string, disp
 	}
 	if count == 0 {
 		return rpcapi.ContactObject{}, fmt.Errorf("%w: contact id, name or phone_number", socialutil.ErrResourceAlreadyExists)
+	}
+	if err := tx.Commit(); err != nil {
+		return rpcapi.ContactObject{}, err
 	}
 	return item, nil
 }
@@ -355,8 +441,19 @@ func (s *Server) putContact(ctx context.Context, owner, id string, displayValue,
 	if byName {
 		field = "name"
 	}
-	row, err := scanContact(db.QueryRowContext(ctx, db.Rebind(`UPDATE contacts SET display_name=CASE WHEN ? THEN ? ELSE display_name END,phone_number=CASE WHEN ? THEN ? ELSE phone_number END,normalized_phone=CASE WHEN ? THEN ? ELSE normalized_phone END,updated_at=? WHERE owner_public_key=? AND `+field+`=? RETURNING `+contactColumns), displayValue != nil, display, phoneValue != nil, phone, phoneValue != nil, normalizedPhone(phone), s.now().Format(time.RFC3339Nano), owner, id))
-	return row.Item, contactSQLError(err)
+	tx, err := beginContactMutation(ctx, db, owner)
+	if err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	defer tx.Rollback()
+	row, err := scanContact(tx.QueryRowContext(ctx, tx.Rebind(`UPDATE contacts SET display_name=CASE WHEN ? THEN ? ELSE display_name END,phone_number=CASE WHEN ? THEN ? ELSE phone_number END,normalized_phone=CASE WHEN ? THEN ? ELSE normalized_phone END,updated_at=? WHERE owner_public_key=? AND `+field+`=? RETURNING `+contactColumns), displayValue != nil, display, phoneValue != nil, phone, phoneValue != nil, normalizedPhone(phone), s.now().Format(time.RFC3339Nano), owner, id))
+	if err != nil {
+		return row.Item, contactSQLError(err)
+	}
+	if err := tx.Commit(); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	return row.Item, nil
 }
 
 func (s *Server) DeleteContact(ctx context.Context, owner string, req rpcapi.ContactDeleteRequest) (rpcapi.ContactObject, error) {
@@ -383,8 +480,44 @@ func (s *Server) deleteContact(ctx context.Context, owner, id string, byName boo
 	if byName {
 		field = "name"
 	}
-	row, err := scanContact(db.QueryRowContext(ctx, db.Rebind(`DELETE FROM contacts WHERE owner_public_key=? AND `+field+`=? RETURNING `+contactColumns), owner, id))
-	return row.Item, err
+	tx, err := beginContactMutation(ctx, db, owner)
+	if err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	defer tx.Rollback()
+	row, err := scanContact(tx.QueryRowContext(ctx, tx.Rebind(`DELETE FROM contacts WHERE owner_public_key=? AND `+field+`=? RETURNING `+contactColumns), owner, id))
+	if err != nil {
+		return row.Item, err
+	}
+	if err := tx.Commit(); err != nil {
+		return rpcapi.ContactObject{}, err
+	}
+	return row.Item, nil
+}
+
+func beginContactMutation(ctx context.Context, db *sqlx.DB, owner string) (*sqlx.Tx, error) {
+	if owner == "" {
+		return nil, ErrNotFound
+	}
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	// This write must precede every Contact read in the transaction. A conflicting
+	// UPSERT locks the persisted owner row without clearing its retirement fence.
+	var retired int
+	if err := tx.QueryRowContext(ctx, tx.Rebind(`INSERT INTO contact_owner_state(owner_public_key,retired) VALUES (?,0) ON CONFLICT(owner_public_key) DO UPDATE SET retired=contact_owner_state.retired RETURNING retired`), owner).Scan(&retired); err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+	if retired != 0 {
+		tx.Rollback()
+		if retired == 1 {
+			return nil, errors.Join(ErrPeerPendingDeletion, ownership.ErrOwnerRetired)
+		}
+		return nil, errors.New("social: invalid Contact owner retirement state")
+	}
+	return tx, nil
 }
 
 func normalizedPhone(phone *string) *string {

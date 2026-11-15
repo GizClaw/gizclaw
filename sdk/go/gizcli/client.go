@@ -10,8 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/apitypes"
+	"github.com/GizClaw/gizclaw-go/pkgs/giznet/opusmedia"
 
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/adminhttp"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/peerhttp"
@@ -66,6 +68,7 @@ type Client struct {
 
 	packetMu          sync.RWMutex
 	packetSubscribers map[byte]map[chan []byte]struct{}
+	audioSubscribers  map[chan *genx.Blob]struct{}
 	openPeerStream    func(int) (*PeerStream, error)
 
 	clientRPCMu           sync.RWMutex
@@ -545,20 +548,62 @@ func (c *Client) servePackets() error {
 	if c == nil {
 		return fmt.Errorf("gizclaw: nil client")
 	}
+	c.mu.RLock()
+	conn, events := c.conn, c.events
+	c.mu.RUnlock()
+	if conn == nil {
+		return nil
+	}
+	var media *opusmedia.PacketReader
+	if raw, ok := conn.(giznet.RTPAudioReader); ok && raw.RTPAudio() {
+		config := opusmedia.Config{OutputMode: peerAudioOutputMode()}
+		if events != nil {
+			config.OutputMode = events.outputMode
+		}
+		var err error
+		media, err = opusmedia.NewPacketReader(raw.ReadPacket, config)
+		if err != nil {
+			return err
+		}
+		if events != nil {
+			events.mediaReader.Store(media)
+		}
+		defer func() {
+			if events != nil {
+				events.mediaReader.CompareAndSwap(media, nil)
+			}
+			_ = media.Close()
+		}()
+	}
 	buf := make([]byte, 64*1024)
 	for {
-		conn := c.PeerConn()
-		if conn == nil {
-			return nil
+		var protocol byte
+		var n int
+		var frame *opusmedia.Frame
+		var err error
+		if media != nil {
+			protocol, n, frame, err = media.Read(context.Background(), buf)
+		} else {
+			protocol, n, err = conn.Read(buf)
 		}
-		protocol, n, err := conn.Read(buf)
 		if err != nil {
 			if isPeerPacketReadClosed(err) {
 				return nil
 			}
 			return err
 		}
-		c.dispatchPeerPacket(protocol, buf[:n])
+		var audio *genx.Blob
+		if frame != nil {
+			if media.OutputMode() == opusmedia.OutputEncoded {
+				audio = &genx.Blob{MIMEType: "audio/opus", Data: frame.Original}
+			} else {
+				audio = &genx.Blob{MIMEType: "audio/pcm;rate=16000;channels=1", Data: frame.PCM, ConcealedAudio: frame.Concealed}
+				if len(frame.Original) > 0 {
+					audio.OriginalAudio = &genx.Blob{MIMEType: "audio/opus", Data: frame.Original}
+				}
+			}
+		}
+		c.dispatchPeerMedia(protocol, buf[:n], audio)
 	}
 }
 
@@ -582,9 +627,9 @@ func (c *Client) rejectDuplicateEventStreams() error {
 }
 
 func isPeerPacketReadClosed(err error) bool {
-	if errors.Is(err, giznet.ErrConnFailed) {
-		// Preserve the concrete transport cause so Serve callers can distinguish a
-		// failed connection from an intentional or remote graceful close.
+	if errors.Is(err, giznet.ErrConnFailed) || errors.Is(err, codecconv.ErrOpusDecoderInit) {
+		// Preserve fatal transport and decoder startup causes even when a final
+		// media flush joins them with a normal close. Serve must report failure.
 		return false
 	}
 	return errors.Is(err, io.EOF) ||
@@ -627,6 +672,19 @@ func (c *Client) subscribePeerPackets(protocol byte, buffer int) (<-chan []byte,
 }
 
 func (c *Client) dispatchPeerPacket(protocol byte, payload []byte) {
+	c.dispatchPeerMedia(protocol, payload, nil)
+}
+
+func (c *Client) dispatchPeerMedia(protocol byte, payload []byte, audio *genx.Blob) {
+	if protocol == giznet.ProtocolOpusPacket {
+		if audio == nil {
+			audio = &genx.Blob{MIMEType: "audio/opus", Data: payload}
+		}
+		c.dispatchPeerAudio(audio)
+		if audio.ConcealedAudio {
+			return // There is no encoded packet for a PLC frame.
+		}
+	}
 	c.packetMu.RLock()
 	subscribers := c.packetSubscribers[protocol]
 	if len(subscribers) == 0 {
