@@ -22,6 +22,51 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 )
 
+func TestPCMOpusDuplexTailFlushesAtEOSAndEOF(t *testing.T) {
+	for _, eos := range []bool{false, true} {
+		t.Run(fmt.Sprint(eos), func(t *testing.T) {
+			audioSent := make(chan struct{})
+			session := &fakeDoubaoRealtimeDuplexSession{
+				beforeRecv: audioSent, audioSent: audioSent,
+				events: []*doubaospeech.RealtimeDuplexEvent{{Type: doubaospeech.RealtimeDuplexEventSessionClosed}},
+			}
+			chunks := []*genx.MessageChunk{
+				{Ctrl: &genx.StreamCtrl{StreamID: "turn", BeginOfStream: true}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 80)}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+				{Part: &genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 320), ConcealedAudio: true}, Ctrl: &genx.StreamCtrl{StreamID: "turn"}},
+			}
+			if eos {
+				chunks = append(chunks,
+					&genx.MessageChunk{Part: &genx.Blob{MIMEType: "audio/pcm"}, Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+					&genx.MessageChunk{Ctrl: &genx.StreamCtrl{StreamID: "turn", EndOfStream: true}},
+				)
+			}
+			if err := runDoubaoRealtimeDuplexProcessLoop(t, newTransformer(nil), &sliceRealtimeStream{chunks: chunks}, session); err != nil {
+				t.Fatal(err)
+			}
+			if session.audioCount() != 1 {
+				t.Fatalf("12.5ms tail emitted %d Opus frames, want exactly one", session.audioCount())
+			}
+		})
+	}
+}
+
+func TestPCMOpusDuplexCanceledEOSDiscardsTail(t *testing.T) {
+	inputs := newDoubaoRealtimeDuplexAudioInputs("speech_opus", 16000, 1, true)
+	defer inputs.close()
+	input := inputs.stream("old")
+	if frames, err := input.prepareFrames(&genx.Blob{MIMEType: "audio/pcm", Data: make([]byte, 80)}); err != nil || len(frames) != 0 {
+		t.Fatalf("fractional PCM emitted %d frames, %v", len(frames), err)
+	}
+	inputs.closeStream("old")
+	if frames, err := inputs.flush(); err != nil || len(frames) != 0 {
+		t.Fatalf("canceled tail emitted %d frames, %v", len(frames), err)
+	}
+	if frames, err := inputs.flushStream("old"); err != nil || len(frames) != 0 {
+		t.Fatal("flush recreated a canceled input")
+	}
+}
+
 func TestDoubaoRealtimeDuplexAudioInputDecodesOpusToPCM(t *testing.T) {
 	if !opus.IsRuntimeSupported() {
 		t.Skip("native opus runtime is not available")

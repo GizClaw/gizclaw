@@ -1,0 +1,119 @@
+# User Story:
+# As a device owner,
+# I want fresh keys revoked through owner RPC and an older management key,
+# So that a historical reader miss cannot leave a committed key active.
+# Native missing-response evidence is required; eventual deletion alone is not.
+version: gizclaw.test/v1alpha1
+name: tikv.usage.apikey-revoke
+timeout: 2m
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: '${edge_a}', registration_token: '${token_a}'}
+variables:
+  edge_a: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_A}
+  token_a: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_A, secret: true}
+  probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
+  manage_key: {direction: output, type: string, secret: true}
+  manage_name: {direction: output, type: string}
+  rpc_name: {direction: output, type: string}
+  http_name: {direction: output, type: string}
+  read_version: {direction: output, type: number}
+steps:
+  - id: fresh_peer_readiness
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peers.visible}}
+  - id: old_management_key
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Usage manager, manage_api_keys: true}}
+    capture: {manage_key: /api_key, manage_name: /value/name}
+  - id: wait_old_management_key
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: apikey, key: [records, '${manage_name}'], found: true, require_learner: true, wait: 20s}
+  - id: warm_authentication
+    client: alice
+    http:
+      method: GET
+      path: /gizclaw/v1/api-keys/self
+      headers: {Authorization: 'Bearer ${manage_key}'}
+      status: 200
+  # Retain a real SDK cache observation, then wait until the Learner serves
+  # that exact historical snapshot. Fresh writers and SDK validators remain live.
+  - id: freeze_actual_cached_read_clock
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /read-clock, body: {frozen: true}}
+    capture: {read_version: /read_version}
+    expect: {/frozen: {equals: true}, /read_version: {minimum: 1}}
+  - id: frozen_snapshot_ready_on_learner
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: apikey, key: [records, '${manage_name}'], found: true, require_learner: true, wait: 20s}
+  - id: fresh_rpc_target
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Fresh RPC target}}
+    capture: {rpc_name: /value/name}
+  - id: observe_rpc_target
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: rpc, key: [records, '${rpc_name}'], commands: [Get], source: learner, stage: response, count_only: true}
+  - id: revoke_via_owner_rpc
+    client: alice
+    rpc: {method: server.api_key.revoke, request: {name: '${rpc_name}'}}
+  - id: rpc_target_really_absent_at_authority
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: apikey, key: [records, '${rpc_name}'], primary: true}
+    expect: {/value/found: {equals: false}}
+  - id: fresh_http_target
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Fresh HTTP target}}
+    capture: {http_name: /value/name}
+  - id: observe_http_target
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: http, key: [records, '${http_name}'], commands: [Get], source: learner, stage: response, count_only: true}
+  - id: revoke_via_old_management_key
+    client: alice
+    http:
+      method: DELETE
+      path: /gizclaw/v1/api-keys/${http_name}
+      headers: {Authorization: 'Bearer ${manage_key}'}
+      status: 204
+  - id: http_target_really_absent_at_authority
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: apikey, key: [records, '${http_name}'], primary: true}
+    expect: {/value/found: {equals: false}}
+  - id: actual_missing_reader_evidence
+    client: alice
+    http: {endpoint: '${probe_a}', method: GET, path: /status}
+    expect:
+      /rules/rpc/application_reads: {minimum: 1}
+      /rules/rpc/missing_responses: {minimum: 1}
+      /rules/rpc/last_read_version: {equals: '${read_version}'}
+      /rules/http/application_reads: {minimum: 1}
+      /rules/http/missing_responses: {minimum: 1}
+      /rules/http/last_read_version: {equals: '${read_version}'}
+finally:
+  - client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+report: {redact: [token_a, manage_key]}

@@ -1,6 +1,6 @@
 # pkgs/audio Overview
 
-`pkgs/audio` Provides GizClaw reusable audio codec, PCM pipeline, device I/O, resampling, music rendering and voiceprint capabilities. The product layer can combine these packages, but the codec and audio processing do not own the peer, agent, workspace or transport lifecycle.
+`pkgs/audio` provides reusable audio codecs, PCM pipelines, device I/O, resampling, and music rendering. Product layers can combine these packages, while Peer, Agent, workspace, and transport lifecycles remain with their owners.
 
 ## Package structure
 
@@ -15,8 +15,7 @@ pkgs/audio/
 ├── portaudio/       # Native capture and playback
 ├── resampler/       # Sample-rate and channel conversion
 ├── songs/           # Song definitions and PCM rendering
-├── timestretch/     # Pitch-preserving PCM16 time-stretch
-└── voiceprint/      # Speaker embedding and identity detection
+└── timestretch/     # Pitch-preserving PCM16 time-stretch
 ```
 
 ## Data flow relationship
@@ -31,7 +30,6 @@ flowchart LR
     CodecConv --> Ogg["codec/ogg"]
     CodecConv --> Opus["codec/opus"]
     PCM --> MP3["codec/mp3"]
-    PCM --> Voiceprint["voiceprint"]
     Songs["songs"] --> PCM
 ```
 
@@ -40,6 +38,5 @@ flowchart LR
 - Codec: [mp3](./codec-mp3), [ogg](./codec-ogg), [opus](./codec-opus)
 - Conversion and PCM: [codecconv](./codecconv), [pcm](./pcm), [resampler](./resampler), [timestretch](./timestretch)
 - Device and product materials: [portaudio](./portaudio), [songs](./songs)
-- Identification: [voiceprint](./voiceprint)
 
 Audio packages only have format, frame, sample, device stream and signal-processing contract. WebRTC track, Peer connection, Agent realtime stream and product resources belong to giznet, gizclaw runtime and domain services respectively.

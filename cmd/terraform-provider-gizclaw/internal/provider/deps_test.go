@@ -35,8 +35,6 @@ func TestProviderDependencyBoundary(t *testing.T) {
 				"github.com/GizClaw/gizclaw-go/cmd/internal",
 				"github.com/GizClaw/gizclaw-go/web/",
 				"github.com/GizClaw/gizclaw-go/third_party/",
-				"github.com/GizClaw/gizclaw-go/pkgs/agent/ncnn",
-				"github.com/GizClaw/gizclaw-go/pkgs/audio/voiceprint",
 				"github.com/GizClaw/gizclaw-go/pkgs/store/storage",
 				"github.com/tikv/client-go/",
 				"github.com/yanyiwu/gojieba",

@@ -300,7 +300,7 @@ func TestPeerHTTPSyncErrorsStayJSONAndDoNotLeak(t *testing.T) {
 	if err := f.peers.DeleteSelf(t.Context(), f.a.key); err != nil {
 		t.Fatal(err)
 	}
-	expect(t, f.as(t, f.a, http.MethodGet, "/sync?timestamp=0", ""), http.StatusConflict, "PEER_PENDING_DELETION")
+	expect(t, f.as(t, f.a, http.MethodGet, "/sync?timestamp=0", ""), http.StatusForbidden, "API_KEY_OWNER_UNAVAILABLE")
 }
 
 func TestPeerHTTPSyncGeneratedClientStreamsOverHTTP(t *testing.T) {

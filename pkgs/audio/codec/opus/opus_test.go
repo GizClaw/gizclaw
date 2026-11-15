@@ -1,6 +1,7 @@
 package opus
 
 import (
+	"bytes"
 	"math"
 	"runtime"
 	"strings"
@@ -316,5 +317,90 @@ func TestUnsupportedRuntimeErrorHelper(t *testing.T) {
 	err = unsupportedRuntimeError("windows", "amd64", true)
 	if !strings.Contains(err.Error(), "unsupported platform windows/amd64") {
 		t.Fatalf("expected platform-only reason, got: %v", err)
+	}
+}
+
+func TestDecodeCapacityAcceptsAllLegalPacketDurations(t *testing.T) {
+	for _, rate := range []int{8000, 12000, 16000, 24000, 48000} {
+		for ticks := 1; ticks <= 48; ticks++ {
+			if err := validateDecodeFrameSize(rate, ticks*rate/400); err != nil {
+				t.Fatalf("%d Hz, %d x 2.5 ms: %v", rate, ticks, err)
+			}
+		}
+		for _, size := range []int{-1, 0, rate/400 + 1, rate*3/25 + rate/400} {
+			if err := validateDecodeFrameSize(rate, size); err == nil {
+				t.Fatalf("accepted invalid %d Hz decode capacity %d", rate, size)
+			}
+		}
+	}
+}
+
+func TestEncodeIntoBoundsAndRetainedOutput(t *testing.T) {
+	requireNativeOpusSupportedRuntime(t)
+	encoder, err := NewEncoder(16000, 1, ApplicationAudio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer encoder.Close()
+	reference, err := NewEncoder(16000, 1, ApplicationAudio)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer reference.Close()
+	pcm := mustPCM16kMono(320)
+	guarded := bytes.Repeat([]byte{0xa5}, DefaultMaxPacketSize+2)
+	dst := guarded[1 : len(guarded)-1]
+	for range 3 {
+		n, err := encoder.EncodeInto(pcm, 320, dst)
+		want, refErr := reference.Encode(pcm, 320)
+		if err != nil || refErr != nil || n <= 0 || n > len(dst) || !bytes.Equal(dst[:n], want) {
+			t.Fatalf("EncodeInto=%d,%v; reference=%d,%v", n, err, len(want), refErr)
+		}
+		if guarded[0] != 0xa5 || guarded[len(guarded)-1] != 0xa5 {
+			t.Fatal("native encoder wrote outside dst")
+		}
+	}
+	for _, output := range [][]byte{nil, {}, make([]byte, DefaultMaxPacketSize+1)} {
+		if n, err := encoder.EncodeInto(pcm, 320, output); err == nil || n != 0 {
+			t.Fatalf("accepted output limit %d: %d,%v", len(output), n, err)
+		}
+	}
+	short := []byte{0xa5, 0, 0xa5}
+	if n, err := encoder.EncodeInto(pcm, 320, short[1:2]); n < 0 || n > 1 || (err != nil && n != 0) {
+		t.Fatalf("short native output buffer: %d,%v", n, err)
+	}
+	if short[0] != 0xa5 || short[2] != 0xa5 {
+		t.Fatal("native encoder wrote outside its short output buffer")
+	}
+	if n, err := encoder.EncodeInto(pcm[:319], 320, dst); err == nil || n != 0 {
+		t.Fatalf("accepted short PCM: %d,%v", n, err)
+	}
+	if n, err := encoder.EncodeInto(pcm, 123, dst); err == nil || n != 0 {
+		t.Fatalf("accepted invalid frame size: %d,%v", n, err)
+	}
+	if err := encoder.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if n, err := encoder.EncodeInto(pcm, 320, dst); err == nil || n != 0 {
+		t.Fatalf("closed EncodeInto=%d,%v", n, err)
+	}
+}
+
+func TestUnsupportedEncodeIntoValidation(t *testing.T) {
+	if isNativeOpusSupportedRuntime() {
+		t.Skip("requires unsupported native runtime")
+	}
+	encoder := &Encoder{sampleRate: 16000, channels: 1}
+	pcm := mustPCM16kMono(320)
+	if n, err := encoder.EncodeInto(pcm, 320, make([]byte, DefaultMaxPacketSize)); err == nil || n != 0 {
+		t.Fatalf("unsupported EncodeInto=%d,%v", n, err)
+	}
+	for _, output := range [][]byte{nil, make([]byte, DefaultMaxPacketSize+1)} {
+		if _, err := encoder.EncodeInto(pcm, 320, output); err == nil || !strings.Contains(err.Error(), "max data bytes") {
+			t.Fatalf("invalid output limit %d: %v", len(output), err)
+		}
+	}
+	if _, err := encoder.EncodeInto(pcm[:319], 320, make([]byte, DefaultMaxPacketSize)); err == nil || !strings.Contains(err.Error(), "pcm length mismatch") {
+		t.Fatalf("short PCM: %v", err)
 	}
 }

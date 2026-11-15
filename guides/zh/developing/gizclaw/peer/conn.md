@@ -61,7 +61,7 @@ identity 做非 owning 分发。单一调用方负责 `gzc_client_poll`，reques
 
 `streamMixedAudio` 是生成音频唯一的发送 pacing owner。普通 Go ticker 迟到时继续读取下一帧，不丢弃、重排或批量补发 PCM，也不创建 provider epoch。Pion 在同一条 WebRTC track 生命周期内维护 SSRC、RTP sequence number 和 timestamp；每个 20ms Opus sample 在 48kHz RTP clock 上推进 960 ticks，新连接建立独立 RTP timeline。到达 jitter、adaptive playout delay、packet-loss concealment 与 Opus FEC 属于 WebRTC receiver。
 
-`PeerConn` 不根据 paced packet 或 mixer read 推导逻辑 BOS/EOS；它只拥有固定的 mixed PCM-to-Opus 下行与实时 pacing，以及 SFU passthrough 下行：带 `agenthost.OpusPassthroughMIME` 的 chunk 由 `peerAgentOutput` 在 mixer 之前认领，payload 原样、按收到的节奏写入 Device Opus Track，不解码、不混音、不走 pacer；mixer 出口与 passthrough 共用一把写锁串行写 Track。Agent output bridge 在 Mixer 排空后下发聚合后的音频生命周期（passthrough route 的 BOS/EOS 也经同一 aggregator 成对发出），因此 transport sequence number、MIME fallback 和 per-source boundary state 都不属于这里。
+`PeerConn` does not infer logical BOS/EOS from paced packets or mixer reads. It composes mixed PCM-to-Opus output and SFU passthrough. `peerAgentOutput` claims passthrough before the mixer and hands the original bytes, opaque audio timing and route identity to Giznet's local-audio writer. Media-owned code preserves known missing intervals and rebases source changes on the same destination clock used by ordinary samples. Passthrough is not decoded, mixed or paced again. A shared write lock serializes mixer and passthrough transport writes. The output bridge retains paired Peer Events through the existing route aggregator; RTP sequence and timestamp state remains in the media layer.
 
 输出聚合器最多保留 64 个已完成 audio MIME route 的 identity。Peer 已收到 EOS、producer 尚未收到交付确认时，下一轮输入可能触发旧 route 的迟到 interruption EOS；该终态不重复下发，也不终止新一轮 runtime。普通重复 EOS、未知 route 的 EOS 和不匹配的 MIME 仍然报错。
 

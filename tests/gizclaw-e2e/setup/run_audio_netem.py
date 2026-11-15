@@ -77,6 +77,7 @@ manifest = {
               'pcm_seed': [7919, 104729], 'tone_hz': 440, 'noise_amplitude': 2000},
     'sctp_qualification': (json.loads((run_dir / 'bin/sctp-source-identity.json').read_text())
                            if (run_dir / 'bin/sctp-source-identity.json').exists() else None),
+    'diagnostic_only_ordered_timed_packet_policy': os.environ.get('GIZCLAW_NETEM_ORDERED_TIMED_PACKET_PROBE') == '1',
     'provider': 'slow-tts fixture with per-frame tone variation; ASR emits only after nonempty real input',
     'playback': {'prebuffer_ms': 500, 'frame_ms': 20, 'physical_speaker': False},
 }
@@ -98,26 +99,41 @@ def traces(text):
     for line in text.splitlines():
         if 'NETEM_TRACE ' in line:
             try:
-                values.append(json.loads(line.split('NETEM_TRACE ', 1)[1]))
-            except json.JSONDecodeError as error:
+                item = json.loads(line.split('NETEM_TRACE ', 1)[1])
+                if (not isinstance(item, dict) or type(item.get('ns')) is not int or item['ns'] <= 0
+                        or not all(isinstance(item.get(key), str) for key in ['node', 'stage', 'hash', 'detail'])
+                        or not item['node'] or not item['stage']
+                        or any(type(item.get(key)) is not int for key in ['bytes', 'sequence', 'timestamp'])
+                        or item['bytes'] < 0 or bool(item['hash']) != (item['bytes'] > 0)
+                        or (item['hash'] and (len(item['hash']) != 64
+                            or any(c not in '0123456789abcdef' for c in item['hash'])))
+                        or item.get('error')):
+                    raise ValueError('invalid observation schema or observer error')
+                if 'pcm_bytes' in item and (type(item['pcm_bytes']) is not int or item['pcm_bytes'] <= 0
+                        or item['pcm_bytes'] % 2 or type(item.get('concealed')) is not bool
+                        or not isinstance(item.get('pcm_hash'), str) or len(item['pcm_hash']) != 64
+                        or item['concealed'] == bool(item['hash'])):
+                    raise ValueError('invalid recovered audio provenance')
+                values.append(item)
+            except (ValueError, TypeError) as error:
                 # Ordinary log noise has no marker. A malformed marked record
                 # means packet evidence may be truncated and must fail closed.
                 raise RuntimeError('malformed NETEM_TRACE observation') from error
     return values
 
 
-def compare(source, received):
+def compare(source, received, identity='hash'):
     indices = collections.defaultdict(list)
     for i, item in enumerate(source):
-        indices[item['hash']].append(i)
+        indices[item[identity]].append(i)
     ambiguous = {key: ids for key, ids in indices.items() if len(ids) > 1}
     seen = collections.Counter()
     order = []
     unknown = 0
     for item in received:
-        ids = indices.get(item['hash'], [])
-        count = seen[item['hash']]
-        seen[item['hash']] += 1
+        ids = indices.get(item[identity], [])
+        count = seen[item[identity]]
+        seen[item[identity]] += 1
         if not ids:
             unknown += 1
         else:
@@ -140,8 +156,130 @@ def compare(source, received):
             'content_bytes': sum(item['bytes'] for item in received)}
 
 
+def select_trace(observed, node, stage):
+    return sorted((item for item in observed if item['node'] == node and item['stage'] == stage),
+                  key=lambda item: item['ns'])
+
+
+def recovery_summary(items):
+    """Describe actual recovered PCM, originals, PLC and the retained RTP clock."""
+    errors = []
+    previous = {}
+    for item in items:
+        # A real Opus packet is at most 120 ms. One synthesized PLC interval
+        # may cover several missing packets, bounded by the receiver's 500 ms.
+        maximum_duration48 = 24000 if item.get('concealed') else 5760
+        if (not item.get('pcm_bytes') or item.get('concealed') == bool(item['hash'])
+                or not item.get('source') or not 0 <= item['sequence'] <= 65535
+                or not 0 <= item['timestamp'] <= 0xffffffff
+                or not 0 < item.get('duration48', 0) <= maximum_duration48
+                or item.get('duration48', 0) % 120
+                or item['pcm_bytes'] * 3 != item.get('duration48', 0) * 2):
+            errors.append('missing PCM/provenance/RTP metadata')
+            continue
+        source = item['source']
+        if source in previous:
+            last = previous[source]
+            sequence_delta = (item['sequence'] - last['sequence']) % 65536
+            if last.get('concealed'):
+                # The PLC sequence marks the first missing packet. Variable
+                # packet durations prevent inferring an exact packet count.
+                # Every skipped packet must fit at least 2.5 ms (120 ticks).
+                if not 1 <= sequence_delta <= last['duration48'] // 120:
+                    errors.append('invalid recovered RTP sequence after PLC')
+            elif sequence_delta != 1:
+                errors.append('noncontiguous recovered RTP sequence')
+            if (item['timestamp'] - last['timestamp']) % 2**32 != last['duration48']:
+                errors.append('noncontiguous recovered RTP timestamp')
+        previous[source] = item
+    return {'frames': len(items), 'original_packets': sum(bool(x['hash']) for x in items),
+            'pcm_bytes': sum(x.get('pcm_bytes', 0) for x in items),
+            'concealed_frames': sum(x.get('concealed', False) for x in items),
+            'concealed_samples': sum(x.get('pcm_bytes', 0) // 2 for x in items if x.get('concealed')),
+            'concealed_ms': sum(x.get('pcm_bytes', 0) / 32 for x in items if x.get('concealed')),
+            'clock_errors': sorted(set(errors))}
+
+
+def endpoint_evidence(observed, expected_up, minimum_down, delivered_down=None):
+    """Require intact ordered originals and real PCM at both recovered endpoints.
+
+    Wire vectors must be complete, but arrival order is diagnostic. Recovery
+    must restore the exact source order; neither PLC nor a surviving suffix can
+    satisfy the healthy/delay/jitter acceptance contract.
+    """
+    errors, counts, recovery, wire = [], {}, {}, {}
+
+    def select(node, stage):
+        return select_trace(observed, node, stage)
+
+    up = select('client', 'rtp_write_sample')
+    down = select('server', 'server_output')
+    if expected_up <= 0 or len(up) != expected_up:
+        errors.append('incomplete independent input packet evidence')
+    if minimum_down <= 0 or len(down) < minimum_down:
+        errors.append('incomplete reply source evidence')
+
+    def check(node, stage, reference, ordered=False, pcm=False):
+        items = select(node, stage)
+        counts[f'{node}/{stage}'] = len(items)
+        hashes = [x['hash'] for x in items]
+        wanted = [x['hash'] for x in reference]
+        if not wanted or any(not value for value in hashes) or collections.Counter(hashes) != collections.Counter(wanted):
+            errors.append(f'{node}/{stage}: incomplete original payload vector')
+        elif ordered and hashes != wanted:
+            errors.append(f'{node}/{stage}: recovered original payload order differs')
+        if pcm and any(not x.get('pcm_bytes') or x.get('concealed') for x in items):
+            errors.append(f'{node}/{stage}: missing real PCM or unexpected PLC')
+        return items
+
+    for direction, source, sender, receiver, endpoint, stage in [
+            ('up', up, 'edge', 'server', 'server', 'server_input'),
+            ('down', down, 'server', 'edge', 'client', 'client_recovered')]:
+        sent = check(sender, 'tunnel_wire_send', source)
+        received = check(receiver, 'tunnel_wire_read', source)
+        if any(x.get('wire_version') != 3 or not x.get('wire_hash') or x['sequence'] < 0 for x in sent + received):
+            errors.append(f'{direction}: missing v3 wire RTP evidence')
+        wire[direction] = compare(sent, received, 'wire_hash')
+        if any(wire[direction][key] for key in ['missing_indices', 'duplicate', 'unknown']):
+            errors.append(f'{direction}: wire RTP inventory differs')
+        boundary = check(endpoint, stage, source, ordered=True, pcm=True)
+        frames = check(endpoint, 'media_recovered', source, ordered=True, pcm=True)
+        recovery[direction] = recovery_summary(frames)
+        if recovery[direction]['clock_errors']:
+            errors.append(f'{direction}: recovered RTP clock is not contiguous')
+        if [(x.get('pcm_hash'), x.get('pcm_bytes')) for x in frames] != [
+                (x.get('pcm_hash'), x.get('pcm_bytes')) for x in boundary]:
+            errors.append(f'{direction}: endpoint PCM differs from receiver output')
+
+    clock_key = lambda x: (x['hash'], x['sequence'], x['timestamp'])
+    for direction, original, stages in [
+            ('up', up, [('edge', 'rtp_read'), ('edge', 'tunnel_wire_send'), ('server', 'media_recovered')]),
+            ('down', select('server', 'tunnel_wire_send'),
+             [('edge', 'rtp_write_packet'), ('client', 'rtp_read'), ('client', 'media_recovered')])]:
+        for node, stage in stages:
+            items = select(node, stage)
+            if collections.Counter(map(clock_key, items)) != collections.Counter(map(clock_key, original)):
+                errors.append(f'{direction}: {node}/{stage} changed RTP sequence or timestamp')
+    check('edge', 'rtp_read', up)
+    check('edge', 'rtp_write_packet', down)
+    check('client', 'rtp_read', down)
+    delivered = select('client', 'client_delivered')
+    discarded = select('client', 'client_post_eos_drop')
+    counts.update({'input_packets': expected_up, 'physical_reply_packets': len(down),
+                   'delivered_reply_packets': len(delivered), 'post_eos_packets': len(discarded)})
+    reconciled = sorted(delivered + discarded, key=lambda item: item['ns'])
+    if ([x['hash'] for x in reconciled] != [x['hash'] for x in down]
+            or any(not x.get('pcm_bytes') or x.get('concealed') for x in reconciled)):
+        errors.append('down: delivered audio and explicit post-EOS discards do not reconcile with source')
+    if delivered_down is not None and len(delivered) != delivered_down:
+        errors.append('down: delivered frame count differs from Giztest playback evidence')
+    if not delivered:
+        errors.append('down: no delivered PCM')
+    return {'passed': not errors, 'errors': errors, 'counts': counts, 'recovery': recovery, 'wire': wire}
+
+
 def continuity_evidence(observed, rounds, frames_per_reply):
-    """Reconcile complete packet vectors with all three Giztest rounds."""
+    """Reconcile recovered endpoint vectors with all three Giztest rounds."""
     errors = []
     expected_rounds = {f'continuous_round_{index}' for index in range(1, 4)}
     if len(rounds) != 3 or {item.get('id') for item in rounds} != expected_rounds:
@@ -162,6 +300,13 @@ def continuity_evidence(observed, rounds, frames_per_reply):
             errors.append(f"{item.get('id')}: missing or incomplete reply packet count")
         else:
             delivered_down += packets
+        pacing = item.get('pacing') or {}
+        if (not isinstance(pacing.get('audio_ms'), (int, float))
+                or pacing['audio_ms'] < frames_per_reply * 20
+                or pacing.get('prebuffer_ms') != 500 or pacing.get('underruns') != 0
+                or not isinstance(pacing.get('minimum_buffer_ms'), (int, float))
+                or pacing['minimum_buffer_ms'] < 0):
+            errors.append(f"{item.get('id')}: incomplete sustained playback or underrun evidence")
 
     def select(node, stage):
         return sorted((item for item in observed if item['node'] == node and item['stage'] == stage),
@@ -176,28 +321,164 @@ def continuity_evidence(observed, rounds, frames_per_reply):
             any(sequence != list(range(frames_per_reply)) for sequence in source_streams.values())):
         errors.append('incomplete provider frame evidence for the three replies')
 
-    discarded_down = len(select('client', 'client_post_eos_drop'))
-    expected_down = delivered_down + discarded_down
-    counts = {'input_packets': expected_up, 'delivered_reply_packets': delivered_down,
-              'post_eos_packets': discarded_down, 'physical_reply_packets': expected_down}
-    for direction, expected, stages in [
-            ('up', expected_up, [('client', 'rtp_write_sample'), ('edge', 'tunnel_wire_send'),
-                                ('server', 'tunnel_wire_read'), ('server', 'server_input')]),
-            ('down', expected_down, [('server', 'server_output'), ('server', 'tunnel_wire_send'),
-                                    ('edge', 'tunnel_wire_read'), ('edge', 'rtp_write_sample'),
-                                    ('client', 'client_raw')])]:
-        reference = None
-        for node, stage in stages:
-            items = select(node, stage)
-            hashes = [item['hash'] for item in items]
-            counts[f'{node}/{stage}'] = len(items)
-            if expected <= 0 or len(items) != expected or any(not value for value in hashes):
-                errors.append(f'{direction}: incomplete {node}/{stage} packet evidence')
-            if reference is None:
-                reference = hashes
-            elif hashes != reference:
-                errors.append(f'{direction}: {node}/{stage} payload vector differs')
-    return {'passed': not errors, 'errors': errors, 'counts': counts}
+    endpoint = endpoint_evidence(observed, expected_up, 3 * frames_per_reply, delivered_down)
+    errors.extend(endpoint['errors'])
+    return {**endpoint, 'passed': not errors, 'errors': errors}
+
+
+def loss_continuity_document(document):
+    """Change only loss-case completeness to recovered PCM duration."""
+    packets = '      /audio_pacing/packets: {minimum: 800}\n'
+    duration = '      /audio_pacing/audio_ms: {minimum: 16000}'
+    if document.count(packets) != 1 or document.count(duration) != 1:
+        raise RuntimeError('continuous document original-audio expectations changed')
+    return document.replace(packets, '').replace(duration, '      /audio_pacing/playout_ms: {minimum: 16000}')
+
+
+def loss_recovery_evidence(observed, rounds, frames_per_reply):
+    """Prove downlink loss became matching PLC and reached real playback.
+
+    This verdict never changes the strict original-packet verdict. Missing
+    source/tail traces, ineffective loss injection and PLC with invented encoded
+    bytes fail rather than qualifying a surviving suffix as recovered audio.
+    """
+    errors, wire, recovery = [], {}, {}
+    expected_rounds = {f'continuous_round_{index}' for index in range(1, 4)}
+    if len(rounds) != 3 or {item.get('id') for item in rounds} != expected_rounds:
+        errors.append('missing or duplicate Giztest rounds')
+    expected_up, delivered_originals, playout_ms = 0, 0, 0
+    for item in rounds:
+        pushed, inputs = item.get('pushed_packets'), item.get('input_packets')
+        pacing = item.get('pacing') or {}
+        if item.get('status') != 'passed':
+            errors.append(f"{item.get('id')}: Giztest round did not pass")
+        if type(pushed) is not int or pushed <= 0 or pushed != inputs:
+            errors.append('missing or incomplete independent input counts')
+        else:
+            expected_up += pushed
+        if type(pacing.get('packets')) is not int or pacing['packets'] <= 0:
+            errors.append('missing original playback packet count')
+        else:
+            delivered_originals += pacing['packets']
+        duration = pacing.get('playout_ms')
+        if (not isinstance(duration, (int, float)) or duration < frames_per_reply * 20
+                or pacing.get('prebuffer_ms') != 500 or pacing.get('underruns') != 0
+                or not isinstance(pacing.get('minimum_buffer_ms'), (int, float))
+                or pacing['minimum_buffer_ms'] < 0):
+            errors.append('incomplete recovered playback or underrun evidence')
+        else:
+            playout_ms += duration
+    provider = collections.defaultdict(list)
+    for item in select_trace(observed, 'server', 'tts_output'):
+        provider[item['detail']].append(item['sequence'])
+    if (len(provider) != 3 or '' in provider
+            or any(ids != list(range(frames_per_reply)) for ids in provider.values())):
+        errors.append('incomplete provider frame evidence for the three replies')
+
+    clock_key = lambda x: (x['hash'], x['sequence'], x['timestamp'])
+    pcm_key = lambda x: (x['hash'], x.get('pcm_hash'), x.get('pcm_bytes'), x.get('concealed'))
+    down_frames = []
+    for direction, source, sender, receiver, endpoint, stage in [
+            ('up', select_trace(observed, 'client', 'rtp_write_sample'), 'edge', 'server', 'server', 'server_input'),
+            ('down', select_trace(observed, 'server', 'server_output'), 'server', 'edge', 'client', 'client_recovered')]:
+        sent = select_trace(observed, sender, 'tunnel_wire_send')
+        received = select_trace(observed, receiver, 'tunnel_wire_read')
+        if (not source or collections.Counter(x['hash'] for x in sent) != collections.Counter(x['hash'] for x in source)
+                or any(not x['hash'] for x in source)):
+            errors.append(f'{direction}: incomplete independent source/wire evidence')
+        if direction == 'up' and (expected_up <= 0 or len(source) != expected_up
+                or collections.Counter(map(clock_key, source)) != collections.Counter(map(clock_key, sent))):
+            errors.append('up: incomplete input RTP evidence')
+        if direction == 'down' and len(source) < 3 * frames_per_reply:
+            errors.append('down: incomplete reply source evidence')
+        if any(x.get('wire_version') != 3 or not x.get('wire_hash') or x['sequence'] < 0 for x in sent + received):
+            errors.append(f'{direction}: missing v3 wire RTP evidence')
+        previous = {}
+        for item in sent:
+            duration = item.get('duration48', 0)
+            session, ssrc = item.get('detail'), item.get('ssrc')
+            # RecordTunnel parses the wire SessionID and SSRC independently;
+            # process-local SourceID is deliberately absent from the envelope.
+            if (not isinstance(session, str) or len(session) != 32
+                    or any(char not in '0123456789abcdef' for char in session)
+                    or type(ssrc) is not int or not 0 <= ssrc < 2**32
+                    or type(duration) is not int or not 0 < duration <= 5760 or duration % 120):
+                errors.append(f'{direction}: missing source RTP duration or identity')
+                continue
+            identity = (session, ssrc)
+            if identity in previous:
+                last = previous[identity]
+                if ((item['sequence'] - last['sequence']) % 65536 != 1
+                        or (item['timestamp'] - last['timestamp']) % 2**32 != last.get('duration48')):
+                    errors.append(f'{direction}: noncontiguous source RTP clock')
+            previous[identity] = item
+        metric = compare(sent, received, 'wire_hash')
+        wire[direction] = metric
+        if metric['duplicate'] or metric['unknown'] or metric['ambiguous_source_hashes']:
+            errors.append(f'{direction}: duplicate, unknown or ambiguous wire RTP')
+        missing = set(metric['missing_indices'])
+        if direction == 'up' and missing:
+            errors.append('up: unexpected loss outside the downlink injection')
+        if direction == 'down' and (not missing or any(i == 0 or i == len(sent) - 1 for i in missing)):
+            errors.append('down: no exclusively interior observed media loss')
+        # The Edge must forward exactly the surviving RTP packets unchanged.
+        if direction == 'down':
+            for node, wire_stage in [('edge', 'rtp_write_packet'), ('client', 'rtp_read')]:
+                if collections.Counter(map(clock_key, select_trace(observed, node, wire_stage))) != collections.Counter(map(clock_key, received)):
+                    errors.append(f'down: {node}/{wire_stage} differs from surviving wire RTP')
+        elif collections.Counter(map(clock_key, select_trace(observed, 'edge', 'rtp_read'))) != collections.Counter(map(clock_key, sent)):
+            errors.append('up: Edge changed input RTP')
+        frames = select_trace(observed, endpoint, 'media_recovered')
+        boundary = select_trace(observed, endpoint, stage)
+        recovery[direction] = recovery_summary(frames)
+        if not frames or recovery[direction]['clock_errors']:
+            errors.append(f'{direction}: missing or noncontiguous recovered RTP/PCM')
+        if list(map(pcm_key, frames)) != list(map(pcm_key, boundary)):
+            errors.append(f'{direction}: recovered PCM did not reach the application unchanged')
+        index = 0
+        for frame in frames:
+            if index >= len(sent):
+                errors.append(f'{direction}: excess recovered media')
+                break
+            expected = sent[index]
+            if (frame['sequence'], frame['timestamp']) != (expected['sequence'], expected['timestamp']):
+                errors.append(f'{direction}: recovered frame does not start at the expected source RTP clock')
+                break
+            if frame.get('concealed'):
+                duration = frame.get('duration48', 0)
+                covered = 0
+                while index < len(sent) and covered < duration:
+                    if index not in missing or sent[index].get('duration48', 0) <= 0:
+                        errors.append(f'{direction}: PLC does not cover observed wire loss')
+                        break
+                    covered += sent[index]['duration48']
+                    index += 1
+                if covered != duration or duration <= 0 or frame['hash']:
+                    errors.append(f'{direction}: PLC duration or original provenance differs from source loss')
+                    break
+            else:
+                if index in missing or frame['hash'] != expected['hash'] or frame.get('duration48') != expected.get('duration48'):
+                    errors.append(f'{direction}: recovered original differs from surviving source packet')
+                    break
+                index += 1
+        if index != len(sent):
+            errors.append(f'{direction}: recovered media does not cover the complete source')
+        if direction == 'down':
+            down_frames = frames
+
+    delivered = select_trace(observed, 'client', 'client_delivered')
+    discarded = select_trace(observed, 'client', 'client_post_eos_drop')
+    reconciled = sorted(delivered + discarded, key=lambda x: x['ns'])
+    if list(map(pcm_key, reconciled)) != list(map(pcm_key, down_frames)):
+        errors.append('down: delivered PCM and explicit discards do not reconcile with recovery')
+    concealed_samples = sum(x.get('pcm_bytes', 0) // 2 for x in delivered if x.get('concealed'))
+    if concealed_samples <= 0:
+        errors.append('down: no concealed PCM reached playback')
+    if (sum(bool(x['hash']) for x in delivered) != delivered_originals
+            or sum(x.get('pcm_bytes', 0) for x in delivered) / 32 != playout_ms):
+        errors.append('down: application PCM differs from Giztest playback evidence')
+    return {'passed': not errors, 'errors': sorted(set(errors)), 'wire': wire,
+            'recovery': recovery, 'delivered_concealed_samples': concealed_samples}
 
 
 def playback(items):
@@ -205,9 +486,12 @@ def playback(items):
     buffered = 0
     started = None
     # Match peerAudioPacing.playback: start when media, not wall time,
-    # reaches the prebuffer. Every packet in this fixture carries 20 ms.
-    for index, _ in enumerate(items):
-        buffered += 20
+    # reaches the prebuffer. Recovered PCM includes real PLC duration.
+    def duration(item):
+        return item['pcm_bytes'] / 32 if item.get('pcm_bytes') else 20
+
+    for index, item in enumerate(items):
+        buffered += duration(item)
         if buffered >= 500:
             started = index
             break
@@ -219,7 +503,7 @@ def playback(items):
         if level < 0:
             result['underruns'] += 1
             result['stall_ms'] -= level
-        buffered += 20
+        buffered += duration(item)
     return result
 
 
@@ -252,28 +536,31 @@ def run_case(name, params, nodes, seed=7919):
     (case / 'qdisc-after.txt').write_text(json.dumps(after, indent=2) + '\n')
     def select(node, stage):
         return sorted((item for item in observations if item['node'] == node and item['stage'] == stage), key=lambda item: item['ns'])
-    uplink = compare(select('client', 'client_sent'), select('server', 'server_input'))
-    downlink = compare(select('server', 'server_output'), select('client', 'client_raw'))
-    delivered = compare(select('server', 'server_output'), select('client', 'client_delivered'))
+    uplink = compare(select('client', 'client_sent'), [x for x in select('server', 'server_input') if x['hash']])
+    downlink = compare(select('server', 'server_output'), [x for x in select('client', 'client_recovered') if x['hash']])
+    delivered = compare(select('server', 'server_output'), [x for x in select('client', 'client_delivered') if x['hash']])
+    endpoint = endpoint_evidence(observations, 160, 80)
+    required_recovery = (not params or params == ['delay', '100ms'] or
+                         params == ['delay', '20ms', '5ms', 'distribution', 'normal'])
     client = json.loads((case / 'client.json').read_text()) if (case / 'client.json').exists() else {}
     result = {'name': name, 'tc_args': params, 'egress_nodes': nodes, 'seed': seed,
               'one_way_delay_scope': 'each listed node egress; bidirectional RTT increment is twice a symmetric delay',
               'test_exit': completed.returncode, 'client': client,
-              'uplink': uplink, 'downlink_raw': downlink, 'downlink_delivered': delivered,
+              'uplink': uplink, 'downlink_recovered': downlink, 'downlink_delivered': delivered,
+              'endpoint_evidence': endpoint, 'endpoint_recovery_required': required_recovery,
               'playback': playback(select('client', 'client_delivered')),
               'asr_packets': len(select('server', 'asr_input')),
               'tts_packets': len(select('server', 'tts_output')),
               'tunnel_queue_drops': len([o for o in observations if o['stage'] == 'tunnel_drop']),
-              'wire_up': compare(select('edge', 'tunnel_wire_send'), select('server', 'tunnel_wire_read')),
-              'wire_down': compare(select('server', 'tunnel_wire_send'), select('edge', 'tunnel_wire_read')),
+              'wire_up': endpoint['wire']['up'],
+              'wire_down': endpoint['wire']['down'],
               'server_input_rejected': len(select('server', 'server_input_rejected')),
               'control': [o for o in observations if o['stage'].startswith('control_') or o['stage'] in ['client_bos', 'client_eos', 'asr_bos', 'asr_eos']]}
     tail_hashes = {o['hash'] for o in select('client', 'client_post_eos_drop')}
     result['sdk_policy_tail_indices'] = [i for i, o in enumerate(select('server', 'server_output')) if o['hash'] in tail_hashes]
     unexpected_delivery_loss = set(delivered['missing_indices']) - set(result['sdk_policy_tail_indices'])
-    result['degraded'] = bool(completed.returncode or uplink['missing_indices'] or uplink['reordered_indices']
-                              or downlink['missing_indices'] or downlink['reordered_indices']
-                              or unexpected_delivery_loss or delivered['reordered_indices'] or result['playback']['underruns'])
+    result['degraded'] = bool(completed.returncode or not endpoint['passed']
+                              or unexpected_delivery_loss or result['playback']['underruns'])
     save(case / 'result.json', result)
     results.append(result)
     save(reports / 'summary.json', results)
@@ -281,6 +568,8 @@ def run_case(name, params, nodes, seed=7919):
     print(json.dumps({k: result[k] for k in ['name', 'test_exit', 'asr_packets', 'tts_packets', 'degraded']}) +
           f" up={uplink['received']}/{uplink['sent']} down={delivered['received']}/{delivered['sent']}" +
           f" reorder={len(uplink['reordered_indices'])}/{len(delivered['reordered_indices'])}", flush=True)
+    if required_recovery and result['degraded']:
+        raise RuntimeError(f'{name}: required recovered endpoint audio failed; inspect result.json')
     return result
 
 
@@ -308,14 +597,14 @@ def run_diagnostics():
         ('both-delay100-jitter30-reorder10', ['delay', '100ms', '30ms', 'reorder', '10%', '50%']),
     ]:
         run_case(name, params, ['edge', 'server'])
-    # Refine the observed jitter effect without a Cartesian product. Transport
-    # loss here excludes the SDK's separately counted post-EOS tail policy.
+    # Refine the observed wire jitter effect without a Cartesian product.
+    # Recovery, PLC and SDK post-EOS policy are measured separately.
     for direction, nodes in [('up', ['edge']), ('down', ['server'])]:
         selected = ['delay', '50ms', '20ms', 'distribution', 'normal']
         for mean, variation in [(20, 5), (50, 5), (20, 10), (50, 10)]:
             params = ['delay', f'{mean}ms', f'{variation}ms', 'distribution', 'normal']
             trial = run_case(f'{direction}-refine-{mean}-{variation}', params, nodes)
-            metric = trial['uplink' if direction == 'up' else 'downlink_raw']
+            metric = trial['wire_up' if direction == 'up' else 'wire_down']
             if len(metric['missing_indices']) >= 4 or metric['reordered_indices']:
                 selected = params
                 break
@@ -331,23 +620,18 @@ def run_continuity():
     manifest['provider'] = {'frames': 800, 'frame_ms': 20, 'pacing': 'absolute media deadlines, no receiver acknowledgements'}
     manifest['playback'] = {'observer': 'production Giztest audio_pacing', 'prebuffer_ms': 500}
     manifest['diagnostic_only_sctp_defer_initial_abandon'] = os.environ.get('GIZCLAW_NETEM_SCTP_DEFER_INITIAL_PROBE') == '1'
-    manifest['diagnostic_only_ordered_timed_packet_policy'] = os.environ.get('GIZCLAW_NETEM_ORDERED_TIMED_PACKET_PROBE') == '1'
     save(reports / 'manifest.json', manifest)
     cases = [
         ('continuous-healthy', [], []),
         ('continuous-delay100', ['delay', '100ms'], ['edge', 'server']),
         ('continuous-down-jitter5', ['delay', '20ms', '5ms', 'distribution', 'normal'], ['server']),
         ('continuous-up-jitter5', ['delay', '20ms', '5ms', 'distribution', 'normal'], ['edge']),
-        # The default CI matrix must guard the measured cross-region recovery
-        # boundary as well as jitter without configured loss.
-        ('continuous-delay150-loss1', ['delay', '150ms', 'loss', 'random', '1%'], ['edge', 'server']),
+        # Loss has its own recovery verdict; its original-integrity failure is
+        # retained independently and can never become an intact-audio result.
+        ('continuous-down-loss1', ['delay', '50ms', 'loss', 'random', '1%'], ['server']),
     ]
     if os.environ.get('GIZCLAW_NETEM_CONTINUITY_EXTENDED') == '1':
         cases.extend([
-            ('continuous-down-loss1', ['delay', '50ms', 'loss', 'random', '1%'], ['server']),
-            ('continuous-up-loss1', ['delay', '50ms', 'loss', 'random', '1%'], ['edge']),
-            ('continuous-down-reorder10', ['delay', '50ms', 'reorder', '10%', '50%'], ['server']),
-            ('continuous-up-reorder10', ['delay', '50ms', 'reorder', '10%', '50%'], ['edge']),
             ('continuous-delay150-jitter30', ['delay', '150ms', '30ms', 'distribution', 'normal'], ['edge', 'server']),
             ('continuous-delay250', ['delay', '250ms'], ['edge', 'server']),
         ])
@@ -357,8 +641,8 @@ def run_continuity():
         known = {name for name, _, _ in cases}
         if not selected or selected - known:
             raise RuntimeError(f'unknown or empty continuity case selection: {sorted(selected - known)}')
-        if 'continuous-healthy' not in selected:
-            raise RuntimeError('continuity case selection must include the healthy baseline')
+        if not {'continuous-healthy', 'continuous-down-loss1'} <= selected:
+            raise RuntimeError('continuity case selection must include the healthy baseline and loss recovery gate')
         cases = [case for case in cases if case[0] in selected]
     manifest['continuity_cases'] = [name for name, _, _ in cases]
     save(reports / 'manifest.json', manifest)
@@ -372,11 +656,16 @@ def run_continuity():
             execute(node + '-netem', 'tc', 'qdisc', 'replace', 'dev', interfaces[node], 'root',
                     'netem', 'limit', '10000', *params, 'seed', '7919')
         save(case / 'qdisc-before.json', qdisc())
+        loss_case = name == 'continuous-down-loss1'
+        document = '/src/tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml'
+        if loss_case:
+            source = root / 'tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml'
+            (case / 'continuous-loss.giztest.yaml').write_text(loss_continuity_document(source.read_text()))
+            document = '/reports/' + name + '/continuous-loss.giztest.yaml'
         started = time.time_ns()
         completed = command([*compose, 'exec', '-T', 'test', 'env',
             'GIZCLAW_TEST_ENDPOINT=edge:9821', 'LATENCY_TONE=' + base64.b64encode(tone.read_bytes()).decode(),
-            '/binaries/gizclaw', 'test', 'run',
-            '/src/tests/gizclaw-e2e/testdata/peer-audio/continuous.giztest.yaml',
+            '/binaries/gizclaw', 'test', 'run', document,
             '--parallel', '1', '--report', '/reports/' + name + '/giztest.json'], check=False, timeout=180)
         (case / 'client.log').write_text(completed.stdout)
         services = command([*compose, 'logs', '--no-color', '--since', str(started // 1000000000), 'server', 'edge']).stdout
@@ -385,10 +674,6 @@ def run_continuity():
         client_policies.extend(x for x in observed if x['node'] == 'client' and x['stage'] == 'packet_policy')
         save(case / 'trace.json', observed)
         save(case / 'qdisc-after.json', qdisc())
-        def select(node, stage):
-            return sorted((x for x in observed if x['node'] == node and x['stage'] == stage), key=lambda x:x['ns'])
-        wire_up = compare(select('edge', 'tunnel_wire_send'), select('server', 'tunnel_wire_read'))
-        wire_down = compare(select('server', 'tunnel_wire_send'), select('edge', 'tunnel_wire_read'))
         path = case / 'giztest.json'
         report = json.loads(path.read_text()) if path.exists() else {}
         rounds = []
@@ -403,11 +688,15 @@ def run_continuity():
                                    'audio_eos_ms': evidence.get('audio_eos_ms'),
                                    'text_eos_ms': evidence.get('text_eos_ms')})
         packet_evidence = continuity_evidence(observed, rounds, manifest['provider']['frames'])
+        wire_up = packet_evidence['wire']['up']
+        wire_down = packet_evidence['wire']['down']
+        recovered = loss_recovery_evidence(observed, rounds, manifest['provider']['frames']) if loss_case else None
         passed = (completed.returncode == 0 and report.get('status') == 'passed'
-                  and packet_evidence['passed'])
+                  and (recovered['passed'] if loss_case else packet_evidence['passed']))
         result = {'case': name, 'passed': passed, 'giztest_exit': completed.returncode,
                   'parameters': params, 'egress': nodes, 'seed': 7919, 'rounds': rounds,
-                  'wire_up': wire_up, 'wire_down': wire_down, 'packet_evidence': packet_evidence}
+                  'wire_up': wire_up, 'wire_down': wire_down, 'packet_evidence': packet_evidence,
+                  'loss_recovery': recovered}
         measured.append(result)
         save(case / 'result.json', result)
         save(reports / 'continuity-summary.json', measured)
@@ -419,19 +708,22 @@ def run_continuity():
                         if x['stage'] == 'packet_policy']
     policies = service_policies + client_policies
     expected_default = 'ordered=false,lifetime_ms=-1,max_retransmits=0'
-    lifetime_ms = 200 if manifest['diagnostic_only_ordered_timed_packet_policy'] else 1000
-    expected_upstream = f'ordered=true,lifetime_ms={lifetime_ms},max_retransmits=-1'
     by_node = {node: collections.Counter(x['detail'] for x in policies if x['node'] == node)
                for node in ['server', 'edge', 'client']}
-    # The seed tool makes an ordinary direct Server connection as well. Match
-    # both ends of every Edge upstream and every client-to-Edge connection;
-    # do not mistake the seed's default channel for an Edge upstream.
-    policy_passed = (set(by_node['server']) <= {expected_default, expected_upstream}
-                     and by_node['server'][expected_upstream] > 0
-                     and by_node['server'][expected_upstream] == by_node['edge'][expected_upstream]
-                     and set(by_node['edge']) == {expected_default, expected_upstream}
-                     and set(by_node['client']) == {expected_default}
-                     and by_node['edge'][expected_default] == by_node['client'][expected_default])
+    if manifest['diagnostic_only_ordered_timed_packet_policy']:
+        expected_upstream = 'ordered=true,lifetime_ms=1000,max_retransmits=-1'
+        # The seed tool makes an ordinary direct Server connection as well.
+        policy_passed = (set(by_node['server']) <= {expected_default, expected_upstream}
+                         and by_node['server'][expected_upstream] > 0
+                         and by_node['server'][expected_upstream] == by_node['edge'][expected_upstream]
+                         and set(by_node['edge']) == {expected_default, expected_upstream}
+                         and set(by_node['client']) == {expected_default}
+                         and by_node['edge'][expected_default] == by_node['client'][expected_default])
+    else:
+        # Client and upstream channels share the same unreliable policy. Require
+        # observations at every node and extra Edge channels for its upstreams.
+        policy_passed = (all(set(counts) == {expected_default} for counts in by_node.values())
+                         and by_node['edge'][expected_default] > by_node['client'][expected_default])
     save(reports / 'policy-verification.json', {'passed': policy_passed, 'observed': by_node,
          'diagnostic_policy_probe': manifest['diagnostic_only_ordered_timed_packet_policy'],
          'diagnostic_sctp_probe': manifest['diagnostic_only_sctp_defer_initial_abandon']})

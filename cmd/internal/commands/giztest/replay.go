@@ -253,8 +253,17 @@ func (c *replayCapture) observe(client, direction string, chunk *genx.MessageChu
 			event.Text = strings.ReplaceAll(event.Text, secret, "[REDACTED]")
 		}
 	case *genx.Blob:
-		if part != nil && len(part.Data) > 0 && relayOpusMIME(part.MIMEType) {
-			event.Kind, audio = "audio", part.Data
+		if isPCM, err := peerPCM16Format(part); direction == "sent" && isPCM && err == nil {
+			// Successful Push submitted this PCM as new source audio. Its
+			// upstream originals, if any, are not the packets the sender encodes.
+			if len(part.Data) > 0 {
+				event.Kind, audio = "audio", part.Data
+			}
+		} else if original := peerOriginalAudio(part); original != nil {
+			event.MIME = original.MIMEType
+			if len(original.Data) > 0 && relayOpusMIME(original.MIMEType) {
+				event.Kind, audio = "audio", original.Data
+			}
 		}
 	}
 	if event.Kind == "" || (event.Kind == "text" && event.Text == "") {
@@ -315,7 +324,7 @@ func (r *replayRecord) appendEvent(event replayEvent, key string, audio []byte) 
 		}
 		return
 	}
-	if event.Error != "" || (event.EOS && relayOpusMIME(event.MIME)) {
+	if event.Error != "" || (event.EOS && relayTerminalMedia("audio", event.MIME)) {
 		delete(r.audio, audioKey)
 	}
 	r.events = append(r.events, event)
@@ -413,37 +422,55 @@ func writeTestReplay(directory string, data replayData, tracks []*replayAudio) e
 	}
 	for _, track := range tracks {
 		event := &data.Events[track.event]
-		name := fmt.Sprintf("audio/%06d.ogg", track.event+1)
-		packets, timing, err := replayPackets(track, data.Report.StartedAt)
-		if err == nil {
-			err = writePlayAudio(filepath.Join(directory, filepath.FromSlash(name)), packets)
-		}
-		if err != nil {
-			event.Error = giztest.SafeError(fmt.Errorf("export audio: %w", err))
-			data.Errors = append(data.Errors, event.Error)
-			continue
-		}
-		event.Audio, event.Packets = name, len(packets)
-		event.AudioTiming = timing
-		for _, chunk := range timing {
-			event.DurationMS += chunk.DurationMS
-		}
-		// WAV plays directly from file://; the original Opus is also retained.
-		wavName := strings.TrimSuffix(name, ".ogg") + ".wav"
-		if opus.IsRuntimeSupported() {
-			if err := writeReplayWAV(filepath.Join(directory, filepath.FromSlash(wavName)), packets); err != nil {
-				event.Error = giztest.SafeError(fmt.Errorf("export WAV: %w", err))
-				data.Errors = append(data.Errors, event.Error)
-			} else {
-				event.Audio, event.OriginalAudio = wavName, name
+		if isPCM, _ := peerPCM16Format(&genx.Blob{MIMEType: event.MIME}); isPCM {
+			// Sent PCM is source media, not an original received Opus recording.
+			name := fmt.Sprintf("audio/%06d.wav", track.event+1)
+			var samples bytes.Buffer
+			for i, chunk := range track.chunks {
+				samples.Write(chunk)
+				event.AudioTiming = append(event.AudioTiming, replayAudioTiming{
+					OffsetMS:   max(0, packetMilliseconds(track.times[i].Sub(data.Report.StartedAt))),
+					DurationMS: packetMilliseconds(pcm.L16Mono16K.Duration(int64(len(chunk)))),
+				})
 			}
+			if err := os.WriteFile(filepath.Join(directory, filepath.FromSlash(name)), pcm.L16Mono16K.WAV(samples.Bytes()), 0o600); err != nil {
+				event.Error = giztest.SafeError(fmt.Errorf("export PCM WAV: %w", err))
+				data.Errors = append(data.Errors, event.Error)
+				continue
+			}
+			event.Audio = name
+		} else {
+			name := fmt.Sprintf("audio/%06d.ogg", track.event+1)
+			packets, timing, err := replayPackets(track, data.Report.StartedAt)
+			if err == nil {
+				err = writePlayAudio(filepath.Join(directory, filepath.FromSlash(name)), packets)
+			}
+			if err != nil {
+				event.Error = giztest.SafeError(fmt.Errorf("export audio: %w", err))
+				data.Errors = append(data.Errors, event.Error)
+				continue
+			}
+			event.Audio, event.Packets, event.AudioTiming = name, len(packets), timing
+			// WAV plays directly from file://; the original Opus is also retained.
+			wavName := strings.TrimSuffix(name, ".ogg") + ".wav"
+			if opus.IsRuntimeSupported() {
+				if err := writeReplayWAV(filepath.Join(directory, filepath.FromSlash(wavName)), packets); err != nil {
+					event.Error = giztest.SafeError(fmt.Errorf("export WAV: %w", err))
+					data.Errors = append(data.Errors, event.Error)
+				} else {
+					event.Audio, event.OriginalAudio = wavName, name
+				}
+			}
+		}
+		for _, chunk := range event.AudioTiming {
+			event.DurationMS += chunk.DurationMS
 		}
 		media, err := os.ReadFile(filepath.Join(directory, filepath.FromSlash(event.Audio)))
 		if err != nil {
 			return fmt.Errorf("embed recorded audio: %w", err)
 		}
 		mediaType := "audio/wav"
-		if event.OriginalAudio == "" {
+		if strings.HasSuffix(event.Audio, ".ogg") {
 			mediaType = "audio/ogg"
 		}
 		event.AudioData = "data:" + mediaType + ";base64," + base64.StdEncoding.EncodeToString(media)

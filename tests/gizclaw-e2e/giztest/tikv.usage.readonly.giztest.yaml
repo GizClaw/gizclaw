@@ -1,0 +1,171 @@
+# User Story:
+# As a device behind an Edge,
+# I want ordinary reads and reconnects to survive a paused center after Learner warmup,
+# So that normal reads and unknown credentials, Peers and routes avoid center reads.
+# Private diagnostic calls are explicitly separated from device requests.
+version: gizclaw.test/v1alpha1
+name: tikv.usage.readonly
+timeout: 3m
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: '${edge_a}', registration_token: '${token_a}'}
+variables:
+  edge_a: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_A}
+  edge_b: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_B}
+  token_a: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_A, secret: true}
+  probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
+  probe_b: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_B}
+  key: {direction: output, type: string, secret: true}
+  key_name: {direction: output, type: string}
+  owner: {direction: output, type: string}
+  unknown: {direction: output, type: string}
+  bad_key: {direction: output, type: string, secret: true}
+steps:
+  - id: fresh_peer_readiness
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peers.visible}}
+  - id: create_key
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Usage readonly}}
+    capture: {key: /api_key, key_name: /value/name}
+  - id: diagnostic_owner
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: apikey, key: [records, '${key_name}'], primary: true}
+    capture: {owner: /value/data/owner}
+    expect: {/value/found: {equals: true}}
+  - id: wait_key_on_learner
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: apikey, key: [records, '${key_name}'], found: true, wait: 20s}
+    expect: {/value/found: {equals: true}}
+  - id: wait_peer_on_learner
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: peer, key: [records, by-pubkey, '${owner}'], found: true, wait: 20s}
+  - id: wait_route_on_learner
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: read, store: peer, key: [routes, by-peer, '${owner}'], found: true, wait: 20s}
+  - id: warm_http_and_edge_metadata
+    client: alice
+    http:
+      method: GET
+      path: /gizclaw/v1/api-keys/self
+      headers: {Authorization: 'Bearer ${key}'}
+      status: 200
+    expect: {/name: {equals: '${key_name}'}}
+  - id: valid_format_unknown_credential
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: credential.unknown, token: '${key}'}}
+    capture: {bad_key: /value/api_key}
+  - id: unknown_identity
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: identity.new}}
+    capture: {unknown: /value/public_key}
+  - id: observe_existing_record
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: active, key: [by-pubkey, '${owner}'], commands: [Get, BatchGet], stage: request, count_only: true}
+  - id: observe_unknown_identity
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: unknown, key: ['${unknown}'], commands: [Get, BatchGet], stage: request, count_only: true}
+  - id: observe_unknown_key
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /arm
+      body: {id: credential, key: [secrets, '${bad_key}'], commands: [Get, BatchGet], stage: request, count_only: true}
+  - id: block_center_a
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /block-center, body: {blocked: true}}
+  - id: block_center_b
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /block-center, body: {blocked: true}}
+  - id: unchanged_reconnect
+    client: alice
+    timeout: 10s
+    reconnect: {await_ms: 8000}
+  - id: read_existing_key
+    client: alice
+    timeout: 5s
+    http:
+      method: GET
+      path: /gizclaw/v1/api-keys/self
+      headers: {Authorization: 'Bearer ${key}'}
+      status: 200
+    expect: {/name: {equals: '${key_name}'}}
+  - id: unknown_credential_is_negative
+    client: alice
+    timeout: 5s
+    http:
+      endpoint: 'http://${edge_a}'
+      method: GET
+      path: /gizclaw/v1/api-keys/self
+      headers: {Authorization: 'Bearer ${bad_key}'}
+      status: 401
+  - id: diagnostic_unknown_peer
+    client: alice
+    timeout: 5s
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: peer.available, peer: '${unknown}', expected_error: true}
+    expect: {/error: {non_empty: true}}
+  - id: diagnostic_unknown_route
+    client: alice
+    timeout: 5s
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: route.lookup, peer: '${unknown}', expected_error: true}
+    expect: {/error: {non_empty: true}}
+  - id: diagnostic_unknown_resolve
+    client: alice
+    timeout: 5s
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /invoke
+      body: {operation: route.resolve, peer: '${unknown}', expected_error: true}
+    expect: {/error: {non_empty: true}}
+  - id: learner_and_no_center_evidence
+    client: alice
+    http: {endpoint: '${probe_a}', method: GET, path: /status}
+    expect:
+      /rules/active/application_reads: {minimum: 1}
+      /rules/active/learner_reads: {minimum: 1}
+      /rules/active/center_reads: {equals: 0}
+      /rules/unknown/diagnostic_reads: {minimum: 2}
+      /rules/unknown/center_reads: {equals: 0}
+      /rules/credential/application_reads: {minimum: 1}
+      /rules/credential/center_reads: {equals: 0}
+finally:
+  - client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
+  - client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /reset, body: {}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+report: {redact: [token_a, key, bad_key]}

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-
-	redis "github.com/redis/go-redis/v9"
 )
 
 // AddMembers adds members idempotently to one collection.
@@ -22,12 +20,18 @@ func (r *Redis) RemoveMembers(ctx context.Context, key Key, members ...string) e
 
 // HasMember tests membership without enumerating the collection.
 func (r *Redis) HasMember(ctx context.Context, key Key, member string) (bool, error) {
+	if r.localReads(ctx) {
+		return r.hasMemberLocal(ctx, key, member)
+	}
 	result, err := r.readClient(ctx).SIsMember(ctx, string(r.opts.encode(key)), member).Result()
 	return result, setRedisError(err)
 }
 
 // ListMembers reads one exact collection. Missing collections return no members.
 func (r *Redis) ListMembers(ctx context.Context, key Key) ([]string, error) {
+	if r.localReads(ctx) {
+		return r.collectionLocal(ctx, key, false, OrderedRange{})
+	}
 	result, err := r.readClient(ctx).SMembers(ctx, string(r.opts.encode(key))).Result()
 	return result, setRedisError(err)
 }
@@ -92,7 +96,13 @@ func (r *Redis) ApplyMutation(ctx context.Context, mutation Mutation) (bool, err
 	if len(keys) == 0 {
 		return true, ctx.Err()
 	}
-	result, err := redisSetMutationScript.Run(ctx, r.client, keys, args...).Int64()
+	release, err := r.lockRedisKeys(ctx, keys)
+	if err != nil {
+		return false, err
+	}
+	defer release()
+	raw, err := r.runRedisMutation(ctx, redisSetMutationScript, keys, args)
+	result, _ := raw.(int64)
 	if err != nil {
 		return false, setRedisError(err)
 	}
@@ -112,7 +122,9 @@ func (r *Redis) ApplyMutation(ctx context.Context, mutation Mutation) (bool, err
 
 // Validate every command before writing: Redis script errors do not roll back
 // earlier writes. Type, deadline and capacity checks all precede the write pass.
-var redisSetMutationScript = redis.NewScript(`
+var redisSetMutationScript = newRedisMutation(redisSetMutationSource, "result == 1")
+
+const redisSetMutationSource = `
 local operations = {}
 local bounded = {}
 local offset = 1
@@ -188,4 +200,4 @@ for _, command in ipairs(operations) do
  end
 end
 return 1
-`)
+`

@@ -1665,7 +1665,14 @@ func (r *inputRouter) forwardASR() {
 				return
 			}
 		}
-		if err := r.transcript.Push(chunk.Clone()); err != nil {
+		historyAudio := chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel
+		var published chan struct{}
+		var observe func(*genx.MessageChunk)
+		if !r.agentAudio && !historyAudio {
+			published = make(chan struct{})
+			observe = func(*genx.MessageChunk) { close(published) }
+		}
+		if err := r.transcript.PushObserved(chunk.Clone(), observe); err != nil {
 			if r.ctx.Err() == nil && !errors.Is(err, io.ErrClosedPipe) {
 				r.fail(fmt.Errorf("audiodock: expose ASR output: %w", err))
 			}
@@ -1674,10 +1681,17 @@ func (r *inputRouter) forwardASR() {
 		if r.agentAudio {
 			continue
 		}
-		if chunk.Ctrl != nil && strings.TrimSpace(chunk.Ctrl.Label) == genx.HistoryUserAudioLabel {
+		if historyAudio {
 			// The outer recorder consumes this sideband from transcript output.
 			// Sending it through Agent lets non-text bypass return a second copy.
 			continue
+		}
+		// Text and EOS must reach combined output before Agent can reply. A bare
+		// control BOS alone does not establish the user's History entry order.
+		select {
+		case <-published:
+		case <-r.ctx.Done():
+			return
 		}
 		if chunk.Ctrl != nil && chunk.Ctrl.TextInterim {
 			if _, ok := chunk.Part.(genx.Text); ok {
@@ -1735,7 +1749,7 @@ func closePipelineStream(stream genx.Stream, err error) {
 }
 
 func streamDone(err error) bool {
-	return errors.Is(err, io.EOF) || errors.Is(err, genx.ErrDone)
+	return genx.IsStreamDone(err)
 }
 
 func cloneCtrl(ctrl *genx.StreamCtrl) *genx.StreamCtrl {

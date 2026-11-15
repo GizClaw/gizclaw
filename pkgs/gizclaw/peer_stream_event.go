@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/GizClaw/gizclaw-go/pkgs/audio/packet"
 	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	eventpb "github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/eventproto"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/api/rpcapi"
@@ -169,7 +170,7 @@ type peerAgentOutput struct {
 	// Packets writes one raw Opus packet to the device's Opus track. It
 	// serves passthrough routes (agenthost.OpusPassthroughMIME), whose
 	// payloads bypass the mixer entirely; nil rejects such routes.
-	Packets           func([]byte) error
+	Packets           func(context.Context, []byte, *packet.OpusTiming, string) error
 	Logger            *slog.Logger
 	PeerPublicKey     string
 	WorkspaceName     func(context.Context) string
@@ -184,7 +185,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 	err := (agenthost.MixerOutput{
 		Tracks:            o.Tracks,
 		WaitForAudioDrain: true,
-		Passthrough:       o.writePassthrough,
+		Passthrough:       func(chunk *genx.MessageChunk) error { return o.writePassthroughContext(ctx, chunk) },
 		OnAudioCutover: func(chunk *genx.MessageChunk) error {
 			event, owner := audio.cutoverOwned(chunk)
 			if event == nil {
@@ -240,7 +241,7 @@ func (o peerAgentOutput) ConsumeAgentOutput(ctx context.Context, output genx.Str
 // received: the producer delivers them at source pace and no pacer sits in
 // between, so a passthrough route must never share the device track with a
 // mixer route.
-func (o peerAgentOutput) writePassthrough(chunk *genx.MessageChunk) error {
+func (o peerAgentOutput) writePassthroughContext(ctx context.Context, chunk *genx.MessageChunk) error {
 	blob, ok := chunk.Part.(*genx.Blob)
 	if !ok || blob == nil || len(blob.Data) == 0 {
 		return nil
@@ -252,7 +253,11 @@ func (o peerAgentOutput) writePassthrough(chunk *genx.MessageChunk) error {
 		}
 		return fmt.Errorf("gizclaw: passthrough audio stream_id=%q has no device packet writer", streamID)
 	}
-	return o.Packets(blob.Data)
+	segment := ""
+	if chunk.Ctrl != nil {
+		segment = chunk.Ctrl.StreamID
+	}
+	return o.Packets(ctx, blob.Data, blob.AudioTiming, segment)
 }
 
 func (o peerAgentOutput) ObserveAgentRuntimeTerminal(err error) {

@@ -17,6 +17,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/codecconv"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/pcm"
 	"github.com/GizClaw/gizclaw-go/pkgs/audio/portaudio"
+	"github.com/GizClaw/gizclaw-go/pkgs/genx"
 	"github.com/GizClaw/gizclaw-go/pkgs/giztest"
 )
 
@@ -39,6 +40,11 @@ type playOutput interface {
 	Close() error
 }
 
+type playPendingAudio struct {
+	data []byte
+	pcm  bool
+}
+
 type playPCMRequest struct {
 	pcm  []byte
 	done chan error
@@ -58,7 +64,7 @@ type playSession struct {
 	output                  playOutput
 	out                     io.Writer
 	packets                 [][]byte
-	pending                 [][]byte
+	pending                 []playPendingAudio
 	bytes                   int
 	discardRecording        bool
 	client                  string
@@ -72,6 +78,7 @@ type playSession struct {
 	packetGapsMS            []int64
 	packetAudio             time.Duration
 	pendingAudio            time.Duration
+	concealedSamples        int
 	pumpOnce                sync.Once
 	pcmQueue                chan playPCMRequest
 	pumpDone                chan struct{}
@@ -126,7 +133,7 @@ func (s *playSession) cue() error {
 	return nil
 }
 
-func (s *playSession) observe(client, role string, packet []byte, end bool) error {
+func (s *playSession) observe(client, role string, blob *genx.Blob, end bool) error {
 	if s == nil || s.closed.Load() {
 		return errors.New("play session is closed")
 	}
@@ -138,29 +145,52 @@ func (s *playSession) observe(client, role string, packet []byte, end bool) erro
 	if s.client == "" {
 		s.client, s.role = client, role
 	}
-	if len(packet) > 0 {
-		if !s.discardRecording && s.bytes > playMaxAudioBytes-len(packet) {
-			return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
+	if blob != nil && len(blob.Data) > 0 {
+		isPCM, err := peerPCM16Format(blob)
+		if err != nil {
+			return err
 		}
-		now := time.Now()
-		if s.firstPacketAt.IsZero() {
-			s.firstPacketAt = now
+		var duration time.Duration
+		if isPCM {
+			duration = pcm.L16Mono16K.Duration(int64(len(blob.Data)))
 		} else {
-			s.packetGapsMS = append(s.packetGapsMS, now.Sub(s.lastPacketAt).Milliseconds())
+			duration = time.Duration(codecconv.OpusPacketRTPTicks(blob.Data)) * time.Second / 48000
 		}
-		s.lastPacketAt = now
-		packetAudio := time.Duration(codecconv.OpusPacketRTPTicks(packet)) * time.Second / 48000
-		s.packetAudio += packetAudio
-		s.pendingAudio += packetAudio
-		copyOfPacket := append([]byte(nil), packet...)
-		if !s.discardRecording {
-			s.packets = append(s.packets, copyOfPacket)
+		var playback []byte
+		if original := peerOriginalAudio(blob); original != nil && len(original.Data) > 0 {
+			if !s.discardRecording && s.bytes > playMaxAudioBytes-len(original.Data) {
+				return fmt.Errorf("play audio exceeds fixed %d-byte limit", playMaxAudioBytes)
+			}
+			now := time.Now()
+			if s.firstPacketAt.IsZero() {
+				s.firstPacketAt = now
+			} else {
+				s.packetGapsMS = append(s.packetGapsMS, now.Sub(s.lastPacketAt).Milliseconds())
+			}
+			s.lastPacketAt = now
+			s.packetAudio += duration
+			if relayOpusMIME(original.MIMEType) && (!s.discardRecording || original == blob) {
+				copyOfPacket := slices.Clone(original.Data)
+				if !s.discardRecording {
+					s.packets = append(s.packets, copyOfPacket)
+				}
+				if original == blob {
+					playback = copyOfPacket
+				}
+			}
+			s.bytes += len(original.Data)
+			if role == "assistant" && s.firstDownlinkReceivedMS < 0 && !s.cueAt.IsZero() {
+				s.firstDownlinkReceivedMS = time.Since(s.cueAt).Milliseconds()
+			}
 		}
-		s.pending = append(s.pending, copyOfPacket)
-		s.bytes += len(copyOfPacket)
-		if role == "assistant" && s.firstDownlinkReceivedMS < 0 && !s.cueAt.IsZero() {
-			s.firstDownlinkReceivedMS = time.Since(s.cueAt).Milliseconds()
+		if playback == nil {
+			playback = slices.Clone(blob.Data)
 		}
+		if isPCM && blob.ConcealedAudio {
+			s.concealedSamples += len(blob.Data) / 2
+		}
+		s.pendingAudio += duration
+		s.pending = append(s.pending, playPendingAudio{data: playback, pcm: isPCM})
 		if !s.utteranceStarted && s.pendingAudio >= playStartBuffer {
 			s.utteranceStarted = true
 			if role == "assistant" && s.firstDownlinkPlaybackMS < 0 && !s.cueAt.IsZero() {
@@ -196,13 +226,17 @@ func (s *playSession) drainPending() error {
 	if len(s.pending) == 0 {
 		return nil
 	}
-	if err := s.ensureDecoder(); err != nil {
-		return err
-	}
 	const maxFrameSize = 16000 * 3 / 25
 	var pcmBytes []byte
-	for _, packet := range s.pending {
-		samples, err := s.decoder.Decode(packet, maxFrameSize, false)
+	for _, frame := range s.pending {
+		if frame.pcm {
+			pcmBytes = append(pcmBytes, frame.data...)
+			continue
+		}
+		if err := s.ensureDecoder(); err != nil {
+			return err
+		}
+		samples, err := s.decoder.Decode(frame.data, maxFrameSize, false)
 		if err != nil {
 			return fmt.Errorf("decode Opus packet: %w", err)
 		}
@@ -317,13 +351,17 @@ func (s *playSession) finishUtterance(waitPlayback bool) error {
 	s.packetGapsMS = nil
 	s.packetAudio = 0
 	s.pendingAudio = 0
+	s.concealedSamples = 0
 	return errors.Join(err, playbackErr)
 }
 
 func (s *playSession) logUtteranceTiming() {
 	packetCount := len(s.packetGapsMS) + 1
 	if s.firstPacketAt.IsZero() {
-		return
+		packetCount = 0
+		if s.concealedSamples == 0 {
+			return
+		}
 	}
 	receiveSpanMS, gapAverageMS, gapP95MS, gapMaxMS := int64(0), int64(0), int64(0), int64(0)
 	if len(s.packetGapsMS) > 0 {
@@ -341,7 +379,7 @@ func (s *playSession) logUtteranceTiming() {
 	if out == nil {
 		out = io.Discard
 	}
-	fmt.Fprintf(out, "Giztest stream timing: client=%s role=%s packets=%d audio=%dms receive_span=%dms gap_avg=%dms gap_p95=%dms gap_max=%dms\n", s.client, s.role, packetCount, s.packetAudio.Milliseconds(), receiveSpanMS, gapAverageMS, gapP95MS, gapMaxMS)
+	fmt.Fprintf(out, "Giztest stream timing: client=%s role=%s packets=%d audio=%dms receive_span=%dms gap_avg=%dms gap_p95=%dms gap_max=%dms concealed_samples=%d concealed_ms=%d\n", s.client, s.role, packetCount, s.packetAudio.Milliseconds(), receiveSpanMS, gapAverageMS, gapP95MS, gapMaxMS, s.concealedSamples, pcm.L16Mono16K.Duration(int64(s.concealedSamples)*2).Milliseconds())
 }
 
 func (s *playSession) latencySummary() (int64, int64) {

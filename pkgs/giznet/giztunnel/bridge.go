@@ -201,7 +201,7 @@ func bridgeStream(left, right net.Conn, cancelOnInitiatorClose bool) {
 func bridgePackets(source, destination giznet.Conn, direction string) bridgeLoopResult {
 	buf := make([]byte, 64*1024)
 	for {
-		protocol, n, err := source.Read(buf)
+		protocol, n, info, err := giznet.ReadPacket(context.Background(), source, buf)
 		if err != nil {
 			return bridgeLoopResult{
 				path:      bridgePathPacket,
@@ -210,7 +210,7 @@ func bridgePackets(source, destination giznet.Conn, direction string) bridgeLoop
 				err:       err,
 			}
 		}
-		if _, err := destination.Write(protocol, buf[:n]); err != nil {
+		if _, err := giznet.WritePacket(destination, protocol, buf[:n], info); err != nil {
 			return bridgeLoopResult{
 				path:      bridgePathPacket,
 				direction: direction,

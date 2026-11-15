@@ -29,7 +29,13 @@ type realtimeHistoryAudio struct {
 
 func (h *realtimeHistoryAudio) append(chunk *genx.MessageChunk, streamID string) error {
 	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || blob == nil || len(blob.Data) == 0 {
+	if !ok || blob == nil || blob.ConcealedAudio {
+		return nil
+	}
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	if len(blob.Data) == 0 {
 		return nil
 	}
 	h.mu.Lock()
@@ -46,7 +52,6 @@ func (h *realtimeHistoryAudio) append(chunk *genx.MessageChunk, streamID string)
 		return fmt.Errorf("doubao realtime: user history audio exceeds buffer limit")
 	}
 	next := historyUserAudioChunk(chunk, streamID)
-	next.Part = &genx.Blob{MIMEType: canonicalHistoryAudioMIME(blob.MIMEType), Data: append([]byte(nil), blob.Data...)}
 	h.chunks = append(h.chunks, next)
 	h.bytes += len(blob.Data)
 	return nil
@@ -73,12 +78,18 @@ func historyUserAudioChunk(chunk *genx.MessageChunk, streamID string) *genx.Mess
 	if strings.TrimSpace(streamID) == "" {
 		streamID = "audio"
 	}
-	next := chunk.Clone()
+	source := *chunk
+	if blob, ok := source.Part.(*genx.Blob); ok && blob != nil {
+		if blob.OriginalAudio != nil {
+			blob = blob.OriginalAudio
+		}
+		// Only the selected recording payload is cloned; discarded PCM and
+		// nested process-local provenance never enter history.
+		source.Part = &genx.Blob{MIMEType: canonicalHistoryAudioMIME(blob.MIMEType), Data: blob.Data}
+	}
+	next := source.Clone()
 	next.Role = genx.RoleUser
 	next.Name = "transcript"
-	if blob, ok := next.Part.(*genx.Blob); ok && blob != nil {
-		blob.MIMEType = canonicalHistoryAudioMIME(blob.MIMEType)
-	}
 	if next.Ctrl == nil {
 		next.Ctrl = &genx.StreamCtrl{}
 	}
@@ -123,37 +134,54 @@ type doubaoRealtimeHistoryRoute struct {
 }
 
 type doubaoRealtimeHistoryRoutes struct {
-	mu   sync.Mutex
-	open map[doubaoRealtimeHistoryRoute]struct{}
+	mu      sync.Mutex
+	open    map[doubaoRealtimeHistoryRoute]struct{}
+	sources map[doubaoRealtimeHistoryRoute]doubaoRealtimeHistoryRoute
 }
 
 func newDoubaoRealtimeHistoryRoutes() *doubaoRealtimeHistoryRoutes {
-	return &doubaoRealtimeHistoryRoutes{open: make(map[doubaoRealtimeHistoryRoute]struct{})}
+	return &doubaoRealtimeHistoryRoutes{open: make(map[doubaoRealtimeHistoryRoute]struct{}), sources: make(map[doubaoRealtimeHistoryRoute]doubaoRealtimeHistoryRoute)}
 }
 
 func (r *doubaoRealtimeHistoryRoutes) push(output realtimeChunkOutput, chunk *genx.MessageChunk, streamID string) error {
 	if r == nil || chunk == nil {
 		return nil
 	}
-	mimeType, _ := chunk.MIMEType()
+	blob, ok := chunk.Part.(*genx.Blob)
+	if ok && blob != nil && blob.ConcealedAudio {
+		return nil
+	}
+	recorded := historyUserAudioChunk(chunk, streamID)
+	mimeType, _ := recorded.MIMEType()
 	streamID, mimeType = normalizeHistoryUserAudioRoute(streamID, mimeType)
 	route := doubaoRealtimeHistoryRoute{streamID: streamID, mimeType: mimeType}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if ok && blob != nil && blob.OriginalAudio != nil {
+		if r.sources == nil {
+			r.sources = make(map[doubaoRealtimeHistoryRoute]doubaoRealtimeHistoryRoute)
+		}
+		sourceMIME, _ := chunk.MIMEType()
+		r.sources[doubaoRealtimeHistoryRoute{streamID: streamID, mimeType: sourceMIME}] = route
+	}
 	if _, ok := r.open[route]; !ok {
 		if err := output.Push(historyUserAudioBOSChunk(streamID, mimeType)); err != nil {
 			return fmt.Errorf("push history user audio bos: %w", err)
 		}
 		r.open[route] = struct{}{}
 	}
-	if err := output.Push(historyUserAudioChunk(chunk, streamID)); err != nil {
+	if err := output.Push(recorded); err != nil {
 		return fmt.Errorf("push history user audio data: %w", err)
 	}
 	return nil
 }
 
 func (r *doubaoRealtimeHistoryRoutes) close(output realtimeChunkOutput, streamID, mimeType string) error {
+	return r.closeWithError(output, streamID, mimeType, nil)
+}
+
+func (r *doubaoRealtimeHistoryRoutes) closeWithError(output realtimeChunkOutput, streamID, mimeType string, cause error) error {
 	if r == nil {
 		return nil
 	}
@@ -168,6 +196,14 @@ func (r *doubaoRealtimeHistoryRoutes) close(output realtimeChunkOutput, streamID
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if original, ok := r.sources[doubaoRealtimeHistoryRoute{streamID: streamID, mimeType: mimeType}]; ok {
+		mimeType = original.mimeType
+	}
+	for source := range r.sources {
+		if source.streamID == streamID && (mimeType == "" || r.sources[source].mimeType == mimeType) {
+			delete(r.sources, source)
+		}
+	}
 	var routes []doubaoRealtimeHistoryRoute
 	for route := range r.open {
 		if route.streamID == streamID && (mimeType == "" || route.mimeType == mimeType) {
@@ -184,7 +220,9 @@ func (r *doubaoRealtimeHistoryRoutes) close(output realtimeChunkOutput, streamID
 		routes = append(routes, route)
 	}
 	for _, route := range routes {
-		if err := output.Push(historyUserAudioEOSChunk(route.streamID, route.mimeType)); err != nil {
+		terminal := historyUserAudioEOSChunk(route.streamID, route.mimeType)
+		genx.SetStreamError(terminal.Ctrl, cause)
+		if err := output.Push(terminal); err != nil {
 			return fmt.Errorf("push history user audio eos: %w", err)
 		}
 		delete(r.open, route)
@@ -222,7 +260,13 @@ func (b *timestampedHistoryAudioBuffer) append(chunk *genx.MessageChunk, streamI
 		return
 	}
 	blob, ok := chunk.Part.(*genx.Blob)
-	if !ok || blob == nil || len(blob.Data) == 0 || realtimeBaseMIME(blob.MIMEType) != "audio/opus" {
+	if !ok || blob == nil || blob.ConcealedAudio {
+		return
+	}
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	if len(blob.Data) == 0 || realtimeBaseMIME(blob.MIMEType) != "audio/opus" {
 		return
 	}
 	next := historyUserAudioChunk(chunk, streamID)

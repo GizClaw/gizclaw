@@ -12,8 +12,9 @@ import (
 const transitionBatchSize = 128
 
 type transitionResult struct {
-	matched bool
-	err     error
+	matched  bool
+	err      error
+	observed []kv.GetResult // Authority observations in request-condition order.
 }
 
 type transitionMutation struct {
@@ -22,18 +23,18 @@ type transitionMutation struct {
 	result   chan transitionResult
 }
 
-func (s *Service) applyTransition(ctx context.Context, mutation kv.Mutation) (bool, error) {
+func (s *Service) applyTransition(ctx context.Context, mutation kv.Mutation) transitionResult {
 	request := transitionMutation{ctx: ctx, mutation: mutation, result: make(chan transitionResult, 1)}
 	select {
 	case <-ctx.Done():
-		return false, ctx.Err()
+		return transitionResult{err: ctx.Err()}
 	case s.mutations <- request:
 	}
 	select {
 	case <-ctx.Done():
-		return false, ctx.Err()
+		return transitionResult{err: ctx.Err()}
 	case result := <-request.result:
-		return result.matched, result.err
+		return result
 	}
 }
 
@@ -104,10 +105,11 @@ func (s *Service) commitTransitions(ctx context.Context, batch []transitionMutat
 		}
 		mutation := kv.Mutation{Conditions: []kv.Condition{{Key: generationKey(s.server), Expected: []byte(s.generation)}}}
 		for _, request := range batch {
-			// Each transition has the common generation guard and one owner
-			// condition. Per-Peer writers prevent duplicate Peers in a batch.
-			mutation.Conditions = append(mutation.Conditions, request.mutation.Conditions[1])
+			// Only the Server generation guard is shared. First claims also
+			// guard their reservation; retain every per-request condition.
+			mutation.Conditions = append(mutation.Conditions, request.mutation.Conditions[1:]...)
 			mutation.Entries = append(mutation.Entries, request.mutation.Entries...)
+			mutation.DeleteKeys = append(mutation.DeleteKeys, request.mutation.DeleteKeys...)
 		}
 		matched, err := s.store.ApplyMutation(ctx, mutation)
 		if matched || err != nil || len(batch) == 1 {
@@ -121,7 +123,9 @@ func (s *Service) commitTransitions(ctx context.Context, batch []transitionMutat
 		// These reads only select retries; every retry keeps all atomic guards.
 		keys := []kv.Key{generationKey(s.server)}
 		for _, request := range batch {
-			keys = append(keys, request.mutation.Conditions[1].Key)
+			for _, condition := range request.mutation.Conditions[1:] {
+				keys = append(keys, condition.Key)
+			}
 		}
 		values := s.store.BatchGet(kv.WithPrimaryReads(ctx), keys)
 		generation := values[0]
@@ -130,19 +134,36 @@ func (s *Service) commitTransitions(ctx context.Context, batch []transitionMutat
 			return
 		}
 		if generation.Err != nil || !bytes.Equal(generation.Value, []byte(s.generation)) {
-			completeTransitions(batch, false, nil)
+			for _, request := range batch {
+				request.result <- transitionResult{observed: []kv.GetResult{generation}}
+			}
 			return
 		}
 		active := make([]transitionMutation, 0, len(batch))
-		for i, request := range batch {
-			value, expected := values[i+1], request.mutation.Conditions[1].Expected
-			absent := errors.Is(value.Err, kv.ErrNotFound)
-			if value.Err != nil && !absent {
-				request.result <- transitionResult{err: value.Err}
-			} else if expected == nil && absent || expected != nil && value.Err == nil && bytes.Equal(value.Value, expected) {
+		offset := 1
+		for _, request := range batch {
+			end := offset + len(request.mutation.Conditions) - 1
+			observed := append([]kv.GetResult{generation}, values[offset:end]...)
+			offset = end
+			matched := true
+			var err error
+			for i, value := range observed[1:] {
+				absent := errors.Is(value.Err, kv.ErrNotFound)
+				if value.Err != nil && !absent {
+					err = value.Err
+					break
+				}
+				expected := request.mutation.Conditions[i+1].Expected
+				if !(expected == nil && absent || expected != nil && value.Err == nil && bytes.Equal(value.Value, expected)) {
+					matched = false
+				}
+			}
+			if err != nil {
+				request.result <- transitionResult{err: err}
+			} else if matched {
 				active = append(active, request)
 			} else {
-				request.result <- transitionResult{}
+				request.result <- transitionResult{observed: observed}
 			}
 		}
 		batch = active

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"io"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -427,7 +426,7 @@ func runTTS(invocation *Invocation, input genx.Stream, mimeType string, run ttsS
 	for {
 		chunk, err := streamlog.ReadInput(ctx, input)
 		if err != nil {
-			if !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
+			if !genx.IsStreamDone(err) {
 				_ = invocation.Fail(err)
 				return
 			}

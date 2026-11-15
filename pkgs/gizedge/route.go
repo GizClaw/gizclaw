@@ -72,6 +72,32 @@ func (g *Gateway) acquirePeerUpstream(ctx context.Context, peerKey giznet.Public
 	return nil, nil, fmt.Errorf("edge: resolve peer route: %w", errors.Join(errs...))
 }
 
+// acquireRedirectUpstream uses the trusted admission result directly. Looking up
+// the route again could repeat the same missing replica view that chose the
+// bootstrap Server. Redirects never add an endpoint to the configured topology.
+func (g *Gateway) acquireRedirectUpstream(ctx context.Context, source *gatewayUpstream, owner giznet.PublicKey) (*gatewayUpstream, func(), error) {
+	target := g.pools[owner]
+	if owner.IsZero() || target == nil {
+		return nil, nil, errors.New("edge: redirect returned unconfigured server identity")
+	}
+	if source == nil || target == source.pool {
+		return nil, nil, errors.New("edge: redirect returned the same server")
+	}
+	entry, release, err := target.acquire(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	// A redirected pool may be connecting to this Server for the first time.
+	// Transport readiness precedes Edge activation and tunnel registration. The
+	// existing control HTTP service starts only after that registration; a
+	// response therefore confirms readiness without querying any Peer KV state.
+	if err := probeUpstreamLiveness(ctx, entry.conn); err != nil {
+		release()
+		return nil, nil, fmt.Errorf("edge: redirected server is not ready: %w", err)
+	}
+	return entry, release, nil
+}
+
 func (g *Gateway) configuredPoolForAssignment(assignment *rpcpb.PeerAssignment) (*gatewayPool, error) {
 	if assignment == nil {
 		return nil, errors.New("edge: route returned no assignment")

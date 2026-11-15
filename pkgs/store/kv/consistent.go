@@ -7,10 +7,11 @@ import (
 
 type strongReadsKey struct{}
 
-// ReadDelay returns the configured historical snapshot delay of ordinary
-// reads. It is zero for strong views and backends without a fixed delay,
-// including Redis replicas whose replication lag is not bounded by the client.
-// Lease owners can account for TiKV historical reads in their validity window.
+// ReadDelay returns the snapshot lag measured when the latest ordinary regional
+// TiKV snapshot was successfully read. The measurement does not grow between
+// reads and is not a configured delay or maximum staleness bound. Strong views,
+// nonregional stores and stores without a successful observation return zero.
+// Lease owners can account for measured reader lag in their validity window.
 func ReadDelay(store Store) time.Duration {
 	switch s := store.(type) {
 	case *strongReadStore:
@@ -18,15 +19,19 @@ func ReadDelay(store Store) time.Duration {
 	case *prefixedStore:
 		return ReadDelay(s.base)
 	case *TiKV:
-		return s.read.StaleReadDelay
+		if s.local != nil {
+			return s.local.readDelay()
+		}
+		return 0
 	default:
 		return 0
 	}
 }
 
-// WithPrimaryReads binds reads in this operation and its call chain to the
-// write authority. Redis read/write stores use the writer; TiKV bypasses
-// stale Learner reads. This does not provide a multi-operation snapshot.
+// WithPrimaryReads selects the write authority for fallback reads after a
+// rejected condition or an unavailable replica. Ordinary reads should use the
+// caller's context unchanged. Redis uses the writer; TiKV bypasses stale reads.
+// This does not provide a multi-operation snapshot.
 func WithPrimaryReads(ctx context.Context) context.Context {
 	return strongReadContext(ctx)
 }

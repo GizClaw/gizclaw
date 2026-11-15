@@ -30,7 +30,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	edgeAEndpoint := requiredEnv(t, "GIZCLAW_E2E_EDGE_A")
 	edgeBEndpoint := requiredEnv(t, "GIZCLAW_E2E_EDGE_B")
 	stateB := requiredEnv(t, "GIZCLAW_E2E_SERVER_B_STATE")
-	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
 
 	peer, err := giznet.GenerateKeyPair()
@@ -75,6 +75,7 @@ func TestDeviceRoutesFollowTheKeyOwnerHome(t *testing.T) {
 	}
 	for name, base := range homeBases {
 		t.Run(name, func(t *testing.T) {
+			waitAPIKeyVisible(t, ctx, base, apiKey)
 			var runtime apitypes.Runtime
 			deviceRouteJSON(t, base, apiKey, http.MethodGet, "/gizclaw/v1/device/runtime", "", http.StatusOK, &runtime)
 			if !runtime.Online {

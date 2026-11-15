@@ -53,7 +53,20 @@ type sessionResultStatus byte
 const (
 	sessionAccepted sessionResultStatus = iota
 	sessionRejected
+	sessionRedirected
 )
+
+// SessionRedirectError asks the session initiator to retry admission at the
+// authoritative Server identified by ServerPublicKey. It is returned by Dial
+// only after validating the redirect result; it never represents acceptance.
+// Admission callbacks return a pointer to this error to redirect a session.
+type SessionRedirectError struct {
+	ServerPublicKey giznet.PublicKey
+}
+
+func (e *SessionRedirectError) Error() string {
+	return "giztunnel: session redirected to " + e.ServerPublicKey.String()
+}
 
 // SessionID identifies one logical connection within one physical Edge
 // PeerConnection.
@@ -76,6 +89,9 @@ type SessionDeclaration struct {
 	SessionID       SessionID
 	ClientPublicKey giznet.PublicKey
 	RemoteAddr      string
+	// RTPAudio explicitly declares timestamped RTP media in this logical session.
+	// Older endpoints reject the distinct control label before audio can start.
+	RTPAudio bool
 }
 
 type parsedLabel struct {
@@ -85,6 +101,7 @@ type parsedLabel struct {
 	remote    string
 	service   uint64
 	channelID uint64
+	rtpAudio  bool
 }
 
 func controlLabel(declaration SessionDeclaration) (string, error) {
@@ -96,7 +113,11 @@ func controlLabel(declaration SessionDeclaration) (string, error) {
 	if declaration.RemoteAddr != "" {
 		remote = base64.RawURLEncoding.EncodeToString([]byte(declaration.RemoteAddr))
 	}
-	label := LabelPrefix + declaration.SessionID.String() + "/control/" +
+	kind := "control"
+	if declaration.RTPAudio {
+		kind = "control-rtp"
+	}
+	label := LabelPrefix + declaration.SessionID.String() + "/" + kind + "/" +
 		declaration.ClientPublicKey.String() + "/" + remote
 	if len(label) > maxLabelSize {
 		return "", ErrFrameTooLarge
@@ -132,7 +153,7 @@ func parseLabel(label string) (parsedLabel, error) {
 		return parsedLabel{}, err
 	}
 	switch parts[1] {
-	case "control":
+	case "control", "control-rtp":
 		if len(parts) != 4 {
 			return parsedLabel{}, ErrInvalidFrame
 		}
@@ -144,7 +165,7 @@ func parseLabel(label string) (parsedLabel, error) {
 		if err != nil {
 			return parsedLabel{}, err
 		}
-		return parsedLabel{kind: labelControl, session: id, client: client, remote: remote}, nil
+		return parsedLabel{kind: labelControl, session: id, client: client, remote: remote, rtpAudio: parts[1] == "control-rtp"}, nil
 	case "packet":
 		if len(parts) != 2 {
 			return parsedLabel{}, ErrInvalidFrame
@@ -209,10 +230,38 @@ func decodeRemoteAddr(value string) (string, error) {
 	return string(raw), nil
 }
 
+// validateSessionResult keeps accepted/rejected frames wire compatible while
+// treating a redirect payload as a canonical Server public key, never a reason.
+func validateSessionResult(status sessionResultStatus, detail string) error {
+	if len(detail) > maxRejectReasonSize || !utf8.ValidString(detail) {
+		return ErrInvalidFrame
+	}
+	switch status {
+	case sessionAccepted:
+		if detail != "" {
+			return ErrInvalidFrame
+		}
+	case sessionRejected:
+	case sessionRedirected:
+		_, err := parseRedirectKey(detail)
+		return err
+	default:
+		return ErrInvalidFrame
+	}
+	return nil
+}
+
+func parseRedirectKey(value string) (giznet.PublicKey, error) {
+	var key giznet.PublicKey
+	if err := key.UnmarshalText([]byte(value)); err != nil || key.IsZero() || key.String() != value {
+		return giznet.PublicKey{}, ErrInvalidFrame
+	}
+	return key, nil
+}
+
 func encodeSessionResult(status sessionResultStatus, reason string) ([]byte, error) {
-	if status == sessionAccepted && reason != "" || status != sessionAccepted && status != sessionRejected ||
-		len(reason) > maxRejectReasonSize || !utf8.ValidString(reason) {
-		return nil, ErrInvalidFrame
+	if err := validateSessionResult(status, reason); err != nil {
+		return nil, err
 	}
 	payload := make([]byte, sessionResultHeaderSize+len(reason))
 	copy(payload[:4], sessionResultMagic[:])
@@ -233,8 +282,8 @@ func decodeSessionResult(payload []byte) (sessionResultStatus, string, error) {
 		return 0, "", ErrInvalidFrame
 	}
 	reason := string(payload[7:])
-	if status == sessionAccepted && reason != "" || status != sessionAccepted && status != sessionRejected {
-		return 0, "", ErrInvalidFrame
+	if err := validateSessionResult(status, reason); err != nil {
+		return 0, "", err
 	}
 	return status, reason, nil
 }

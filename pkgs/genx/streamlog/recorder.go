@@ -5,7 +5,6 @@ package streamlog
 import (
 	"context"
 	"errors"
-	"io"
 	"log/slog"
 	"slices"
 	"strings"
@@ -256,7 +255,7 @@ func (r *Recorder) finish(err error, closeRecorder bool) {
 	result := "completed"
 	if errors.Is(err, context.Canceled) {
 		result = "canceled"
-	} else if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, genx.ErrDone) {
+	} else if err != nil && !genx.IsStreamDone(err) {
 		result = "error"
 	}
 	var entries []entry

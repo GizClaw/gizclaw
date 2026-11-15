@@ -23,7 +23,7 @@ pkgs/store/
 | [memory](./memory) | Raw observations, fact recall/update/delete, and asynchronous operations | Agent runtimes and memory evaluation harnesses |
 | [metrics](./metrics) | Sample writing, instant/range query and aggregation | Peer telemetry, Server metrics |
 | [objectstore](./objectstore) | Binary object, prefix list/delete and expiration | Firmware, workspace assets, HNSW |
-| [vecid](./vecid) | Vector hashing, bucket and identity clustering | Voiceprint detection |
+| [vecid](./vecid) | Vector hashing, bucket and identity clustering | — |
 | [vecstore](./vecstore) | Vector add/search/delete and HNSW persistence | Agent recall, memory index |
 
 ## Dependencies
@@ -37,7 +37,6 @@ flowchart TB
     Domains --> Memory["memory"]
     Memory --> Remote["Mem0 / Volc remote"]
     Vectors --> Objects
-    VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
 `cmd/internal/server` exclusively owns YAML DTOs, strict decoding, environment expansion, and workspace-relative path resolution, then passes plain Go configurations to public packages. `pkgs/store/storage` opens and owns physical resources. The root `pkgs/store` package validates Storage/Store combinations and constructs logical Stores. Neither public package reads YAML or JSON or selects service bindings.
@@ -66,7 +65,7 @@ flowchart TB
 | `sqlite` | exactly one of `dir` or `dsn` |
 | `postgresql`, `clickhouse` | `dsn` |
 | `redis` | Single-node `redis://` or `rediss://` URL; `rediss://` can add PEM CA certificates through `tls_ca_file`; Redis Cluster is not supported |
-| `tikv` | `pd_addresses`; optional `tls_ca_file`, `tls_cert_file`, `tls_key_file`; optional paired `stale_read_delay` / `read_labels`; see [KV](./kv#tikv) |
+| `tikv` | `pd_addresses`; optional `tls_ca_file`, `tls_cert_file`, `tls_key_file`; `read_labels` restricts ordinary data reads to matching Learners with native synchronization; deprecated `stale_read_delay` is accepted and ignored; see [KV](./kv#tikv) |
 | `prometheus` | remote-write/query URLs and optional bearer token |
 | `volc-tls` | endpoint, region, and credentials |
 

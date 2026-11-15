@@ -10,9 +10,6 @@
 [submodule "third_party/audio/portaudio"]
 	path = third_party/audio/portaudio
 	url = https://github.com/GizClaw/portaudio.git
-[submodule "third_party/ncnn/upstream"]
-	path = third_party/ncnn/upstream
-	url = https://github.com/GizClaw/ncnn.git
 [submodule "third_party/nanopb/upstream"]
 	path = third_party/nanopb/upstream
 	url = https://github.com/GizClaw/nanopb.git

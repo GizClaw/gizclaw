@@ -17,7 +17,7 @@ GizClaw 是面向 GizClaw 设备、浏览器客户端和 SDK 集成的 Agent Run
 | AI capability | GenX 提供统一的 message、stream、model、tool、generator 和 transformer contract，并由 provider adapters 实现。 |
 | Product domains | Device、runtime、AI、system 和 social services 拥有各自资源与业务规则。 |
 | API 与 SDK | 根 `api/` 保存 HTTP/Protobuf source contract，并生成 Go、JavaScript、C、Flutter 等调用 surface。 |
-| Storage 与 media | Store packages 提供通用持久化/索引能力；Audio packages 提供 codec、PCM、重采样和 voiceprint。 |
+| Storage 与 media | Store packages 提供通用持久化/索引能力；Audio packages 提供 codec、PCM、重采样和 signal processing。 |
 | Observability | 使用结构化日志定位单次请求，通过低 cardinality metrics 观察请求、runtime 与设备状态。具体字段与 ownership 见 [Observability](observability)。 |
 
 当前代码支持 Edge 配置多个 authoritative Server upstream，并按 API Key owner 的固定 Peer assignment 路由业务 HTTP 请求。分布式 membership、跨 Server 数据同步和全局路由不属于当前已完成的 Server Mesh 能力；Friend 与 Friend Group 通过共享 Social KV 和 SFU Workspace 实现跨 Server 语音，见 [services/social](/zh/developing/gizclaw/services/social#sfu-workspace)。
@@ -103,7 +103,7 @@ gizclaw/
 | `pkgs/gizlog` | 进程级结构化 logger、level、fan-out 与 Store sink | 产品日志字段与 backend provisioning | [Observability](observability) |
 | `pkgs/genx` | Message、Stream、Generator、Transformer、Tool 与 adapters | Agent instance、workspace、产品 model resource | [GenX](genx/overview) |
 | `pkgs/store` | KV、object、metrics、vector 与 identity primitives | 领域 resource schema 与业务规则 | [Stores](stores/overview) |
-| `pkgs/audio` | Codec、PCM、resampling、device I/O 与 voiceprint | WebRTC connection、Agent lifecycle | [Audio](audio/overview) |
+| `pkgs/audio` | Codec、PCM、resampling、device I/O 与 signal processing | WebRTC connection、Agent lifecycle | [Audio](audio/overview) |
 | `cmd` | 配置读取、dependency wiring、进程生命周期与 CLI UX | 可复用领域逻辑 | 对应 package 指引 |
 | `sdk` | 面向各语言的生成 contract 与客户端封装 | 独立定义另一套 wire contract | [API 生成](api/generation) |
 

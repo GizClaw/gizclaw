@@ -171,9 +171,9 @@ Exit cleanup removes this project's containers, networks, qdiscs, and private ru
 bash tests/gizclaw-e2e/run_audio_continuity_tests.sh
 ```
 
-This separate strict entrypoint uses the real Server, Edge, Go SDK and Giztest receiver with a deterministic provider that sends 800 Opus frames at absolute 20 ms deadlines per reply. Three PTT rounds share one client connection; the sender never waits for per-packet receiver acknowledgements. Each reply must deliver at least 16 seconds of audio with zero simulated playback underruns and nonnegative minimum buffer. The controller also compares complete sent/received payload-hash vectors on both upstream directions. Nonempty vectors must reconcile with the input/reply packet counters from all three Giztest rounds, explicit post-EOS drops, and complete per-reply provider frame ordinals. Malformed marked trace records, missing observations and identical surviving suffixes fail acceptance. The uplink proof ends at the Server receive boundary; ASR admission and control/media EOS ordering remain separate pipeline checks. Successful EOS cannot override lost or reordered media. Any failed case returns a nonzero exit status. The full local suite invokes this as `docker:audio-continuity`. Keep this Docker acceptance outside ordinary CI and run it locally without diagnostic policy overrides.
+This separate strict entrypoint uses the real Server, Edge, Go SDK and Giztest receiver with a deterministic provider that sends 800 Opus frames at absolute 20 ms deadlines per reply. Three PTT rounds share one client connection; the sender never waits for per-packet receiver acknowledgements. Each reply must deliver at least 16 seconds of audio with zero simulated playback underruns and nonnegative minimum buffer. For intact-audio cases, the controller also compares complete sent/received payload-hash vectors on both upstream directions. Nonempty vectors must reconcile with the input/reply packet counters from all three Giztest rounds, explicit post-EOS drops, and complete per-reply provider frame ordinals. Malformed marked trace records, missing observations and identical surviving suffixes fail acceptance. The uplink proof ends at the Server receive boundary; ASR admission and control/media EOS ordering remain separate pipeline checks. Successful EOS cannot override lost or reordered media. Any failed case returns a nonzero exit status. The full local suite invokes this as `docker:audio-continuity`. Keep this Docker acceptance outside ordinary CI and run it locally without diagnostic policy overrides.
 
-`testdata/peer-audio/continuous.giztest.yaml` is the accepted document. The default local cases cover a healthy baseline, symmetric 100 ms delay, directional 20 ms delay with 5 ms normal jitter, and symmetric 150 ms delay with 1% random loss. The loss case retains the same strict payload and playback assertions during local acceptance. The same isolated namespace-sidecar restrictions and cleanup as the netem diagnostic apply. The fixture uses three-second TTS startup and synthetic audio; this verifies sustained transport/playback rather than provider response quality. PTT steps reopen their logical subscription while retaining the client/Event/RTP connection; retained-PeerStream boundary handling is separately qualified by the regression below. The document explicitly bounds post-terminal observation so recovered RTP tails remain visible to the SDK's post-EOS discard diagnostics before the subscription closes, including after the final reply. This observation does not shift packet timestamps, enlarge the playback prebuffer, or admit post-EOS packets into playback. Complete physical vectors must still reconcile with played packets and explicitly observed discards. Test-only SCTP/policy probes are recorded in the manifest and are not production fixes.
+`testdata/peer-audio/continuous.giztest.yaml` is the accepted document. The default local cases cover a healthy baseline, symmetric delay, directional jitter, and a required downlink-loss recovery case. Healthy, delay and jitter cases keep their complete-original and playback assertions. The loss case generates its expectations from the same document and requires complete recovered playout, observed interior wire loss, matching PLC duration and RTP clock, unchanged application PCM, and playback without underruns. Its separate recovery verdict does not change the retained failed original-integrity verdict. Missing traces, ineffective loss injection and unaccounted source tails fail acceptance; concealed PCM never becomes an original encoded packet. Explicit case selection must retain both the healthy baseline and loss recovery gate. The larger diagnostic loss/reorder matrix remains separate and records degradation. The same isolated namespace-sidecar restrictions and cleanup as the netem diagnostic apply. The fixture uses three-second TTS startup and synthetic audio; this verifies sustained transport/playback rather than provider response quality. PTT steps reopen their logical subscription while retaining the client/Event/RTP connection; retained-PeerStream boundary handling is separately qualified by the regression below. The document explicitly bounds post-terminal observation so recovered RTP tails remain visible to the SDK's post-EOS discard diagnostics before the subscription closes, including after the final reply. This observation does not shift packet timestamps, enlarge the playback prebuffer, or admit post-EOS packets into playback. Complete physical vectors must still reconcile with played packets and explicitly observed discards. Test-only SCTP/policy probes are recorded in the manifest and are not production fixes.
 
 ### Permanent cross-channel Giztest regression
 
@@ -287,7 +287,7 @@ bash tests/gizclaw-e2e/run_history_query_tests.sh .tmp/history-query-evidence
 
 ```sh
 npm ci && npm run build:console
-git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/ncnn/models/**'
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**'
 bash tests/gizclaw-e2e/run_run_state_tests.sh
 ```
 
@@ -550,7 +550,7 @@ ports are exposed. Tests verify placement rules and every Region's leader/Learne
 identities through PD. Local runs retain startup, cluster, test and topology
 diagnostics in the evidence directory.
 
-测试先验证跨 client 原子 CRUD、batch、deadline、条件创建、CAS、集合与容量限制、prefix 和 borrowed lifecycle。地区测试在 seeded 数据已进入历史快照后切断中心到 Learner 的 Raft 流，保持查询通路可用，同时确认普通读仍返回旧 assignment、active Peer 和已撤销 key。实际 `peerroute`、Peer 删除 handler、API key service 必须通过强读观察首次 claim、assignment version 刷新、pending-deletion 围栏、永久 tombstone、撤权和 owner retirement。RPC 观测还要求成功的陈旧查询落在地区 Learner、强读落在中心 leader。另一个测试二进制验证有序集合边界、并发容量、跨 key write skew、过期记录物理回收及清理期间的并发刷新。
+The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Production Peer, route, API key and collection reads must use the regional Learner and retain the historical state. Rejected version conditions, failed first-assignment lookups and inconsistent post-write observations exercise bounded primary fallback without weakening ownership, retirement fences or atomic writes. Resuming replication verifies eventual visibility. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 
 Artifacts 写入 ignored `.testbench/tikv-*`；退出时只清理本次 Compose project。该 gate 验证实际 TiKV 的一致性路径，不覆盖中心多数副本故障、WAN 性能、重启持久性、外部子资源清理或完整 Edge ingress transport。
 
@@ -596,7 +596,25 @@ bash tests/gizclaw-e2e/run_tikv_contention_tests.sh
 
 Docker 夹具为 PD 元数据配置 256 MiB tmpfs，为中心和地区 TiKV 各配置 1 GiB tmpfs，隔离本机 Docker 存储 I/O 停顿；通过 `tikv-pd.toml` 将 [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) 设为 15 秒。`tikv-test.toml` 将预留空间设为 64 MiB、Raft 预留空间设为 32 MiB、block cache 设为 128 MiB，TiKV 容器各有 4 GiB 内存上限，匹配小型夹具容量。仍运行真实 RocksDB、Raft 和 Learner 数据复制。数据只在本次测试内有效；该夹具不验收 SSD 性能或 TiKV/PD 重启持久性。
 
-`TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。冻结期间，两台 Edge 的新 Peer claim 和交叉重连必须使用正确的固定 home；SDK 撤销 API key 后，两台 Edge 的 HTTP 均立即返回 401；SDK 删除各 home 的 Peer 后，等待正确 Server 的 Workspace 与 owner binding 清除，再验证两台 Edge 均拒绝重连和旧 key。测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
+`TestTiKVLearnerLagThroughBothEdges` 通过公开 Go SDK 和真实 WebRTC/HTTP 验证复制延迟：先让 active Peer 与凭据进入 60 秒历史快照，再阻断中心到 Learner 的 Raft 流并保留地区查询通路。During the freeze, first claims through both Edges must preserve the correct home. A newly committed assignment absent from the historical view may return a routing miss through the other Edge; it cannot be reassigned. Cross-Edge roaming uses seeded, already-visible assignments and must succeed with the original home. After SDK key revocation, HTTP through both Edges still authenticates against the retained snapshot. After SDK deletion of a Peer on each home, primary diagnostics verify the committed deletion fences while Learner controls retain the old active records. Task discovery also uses historical reads. After replication resumes, the test waits for discovery and verifies primary tombstones and home-local Workspace/owner-binding cleanup, then waits for those cleanup writes to enter the historical view. Both Edges must then reject revoked keys and deleted-Peer reconnects; fixed home assignments remain retained.测试 client 将对照读固定到 PD 已确认的地区 Learner，要求返回旧 active Peer、旧 key 索引且看不到新 assignment，以证明这些断言确实发生在复制滞后期间。对照请求由测试显式标记；即使 SDK 重试清除 stale-read 标记，也保持原历史时间戳并固定到 Learner。应用 Server 的 client 保持正常 SDK 路由；标签偏好允许 SDK 在慢节点时回退其他 store，对照读的固定路由只用于测试证据。该 gate 不衡量 WAN 吞吐或中心多数副本故障恢复。
+
+This fixed entrypoint runs the provider-free native SDK lag gate and Edge connector-isolation checks. Its coverage cannot be changed through an environment selector:
+
+```bash
+bash tests/gizclaw-e2e/run_tikv_learner_lag_tests.sh
+```
+
+The separate fixed Docker Giztest entry exercises stale reads and guarded updates through two Servers and Edges:
+
+```bash
+bash tests/gizclaw-e2e/run_tikv_usage_giztest_tests.sh
+```
+
+It runs seven committed `tikv.usage.*.giztest.yaml` documents serially: readonly queries/reconnects, invitation renewal, Group incarnation changes, Peer retirement, Friend incarnation/recovery, fresh-key revocation, and Presence claim ordering. The fixture uses a two-second history offset, one-second resolved-ts advancement on both TiKV nodes, and bounded visibility checks. Build overlays expose private request gates and actual-service/SQL diagnostics inside the isolated Docker network. They retain real TiKV data and responses; diagnostic operations are identified separately from tested device RPC/HTTP. HTTP forwarding is limited to the fixed Edge and private control origins, uses validated resource paths, bypasses environment proxies, and returns redirects without following them. The full multi-server entry retains its SDK and SFU coverage. Reports include the exact overlay/source manifest and Giztest step results; no environment variable can truncate these dedicated suites.
+
+Shared single-server Go, JavaScript, Flutter and C scenario discovery excludes these dedicated documents. Their fixed runner still selects all seven. Race branches require a 2xx response unless an expected status is explicit, and expose actual branch codes under `http_status`; redirects are never followed. Source manifests record untracked symlink targets without reading through them. The retirement case includes real Workspace admission before a SQL fence and rejection after it, followed by actual Peer cleanup.
+
+The fresh-key case and both historical Friend receipt phases retain actual SDK cached timestamps in the test build and wait for successful Learner reads at those snapshots before the competing writes. Friend controls restore live cache access after each phase, and the Admin projection checks the actual read version. Both real revocation paths must then observe a native missing response at the retained read version. Fresh writer timestamps, SDK read validation and GC checks remain active; fixture reset restores the live cache accessor. This keeps `DataIsNotReady` fallback distinct from the missing-target recovery being tested.
 
 `sfu.*.audio-bytes` 使用仓库内的 Ogg/Opus 音频；`sfu.friend-group.members-in-room` 与 `sfu.presence.cross-server` 不收发音频。这些场景都不需要语音服务凭据，在默认 multi-server gate 中运行；另外三个 SFU 场景需要 TTS/ASR，只有 `tests/gizclaw-e2e/.env`（或 `GIZCLAW_E2E_CREDENTIAL_FILE` 指向的文件）提供完整 Volc/Doubao 凭据时才运行，seed 此时才种入 `asr` 与 `narrator` alias。这三个场景的合成文本是中文、转写用 `language: zh-CN`，与种入的中文 `narrator` 声音一致。排查转写失败时用 `GIZCLAW_E2E_GIZTEST_EVIDENCE=full` 运行，报告会记录实际识别出的 transcript。
 
@@ -1392,29 +1410,31 @@ Server 协议，不能证明 JavaScript Client 已实现恢复。
 是能被 100 整除的正整数。该路径只跳过输入 fixture 的语音合成，不绕过 realtime WebRTC
 route 或 reload 后的响应断言。
 
-当 `peer_stream` 收到 assistant Opus 时，结果与脱敏 evidence 在
-`audio_pacing` 下提供接收侧 pacing 指标：`packets`、`audio_ms`、
-`target_span_ms`、`receive_span_ms`、`mean_packet_ms`、`mean_interval_ms`、
-`p95_interval_ms`、`max_interval_ms`、`drift_ms`、`absolute_drift_ms`、
-`buffer_surplus_ms`，以及连续播放模拟结果 `prebuffer_ms`、`underruns`、
-`underrun_ms`、`max_underrun_ms` 和 `minimum_buffer_ms`。间隔来自 stream reader 收到每包的 monotonic 时间；
-reader 先记录时间再由另一条处理流程解码 Opus、判断是否可听和观察事件，因此这些处理以及后续断言、
-保存或 PortAudio 播放耗时不会记到下一包的间隔里。`buffer_surplus_ms` 为正表示网络到包领先于 Opus 音频时钟。
-`max_interval_ms` 保留为诊断值：即使单次到包间隔超过 100 ms，500 ms 预缓冲仍可能让播放连续。
-Doubao realtime roundtrip 用零 underrun 和正的最小缓冲验收连续播放，同时保留均值、P95 节奏及缓冲余量断言，
-不再用单次最大间隔作硬性门槛。即使间隔被预缓冲覆盖，累计 `buffer_surplus_ms` 也可能低于 500 ms 目标，
-因此该场景只对这项诊断值保留上限，不用下限判定播放中断。
-所有 `*_ms` 字段的单位都是毫秒。`target_span_ms` 是除最后一包外各包时长之和，
-`drift_ms = receive_span_ms - target_span_ms`，`buffer_surplus_ms = -drift_ms`；P95 对到包
-间隔使用 nearest-rank。只有一包时仅提供 `packets` 与 `audio_ms`；没有 assistant Opus 时
-不提供 `audio_pacing`。
+When `peer_stream` receives assistant audio, its result and redacted evidence
+include `audio_pacing`. `packets` and `audio_ms` count only real original Opus;
+`playout_ms` includes every delivered audio interval, including concealed PCM.
+Original-packet interval, drift and surplus fields keep that original-only
+meaning. Playback fields use the delivered audio trace, so concealment contributes
+to the simulated playback buffer without becoming a received encoded packet.
 
-连续播放模拟按到包轨迹重放一个客户端：先缓冲 `prebuffer_ms`（500 ms）再按自身时钟
-播放。`minimum_buffer_ms` 是整条流里缓冲量的最低点，为负表示某个空档超过了当时
-已缓冲的音频，听感上就是卡顿；`underruns` 是欠载次数，`underrun_ms` 与
-`max_underrun_ms` 是听众实际听到的静音总长与单次最长静音。P95 间隔无法反映单次
-断流，因此听感连续性以 `underruns` 与 `minimum_buffer_ms` 为准。整段回复短于
-`prebuffer_ms` 时客户端要等全部音频到齐才起播，不会欠载，此时只提供 `prebuffer_ms`。
+The stream reader records monotonic arrival times before audibility checks,
+assertions, recording or PortAudio playback. `target_span_ms` excludes the final
+original packet; `drift_ms = receive_span_ms - target_span_ms` and
+`buffer_surplus_ms = -drift_ms`. Interval percentiles use nearest-rank. All
+`*_ms` fields use milliseconds. A single original packet has no interval metrics,
+but delivered PCM can still provide playback metrics. No received or delivered
+audio means no `audio_pacing` object.
+
+The playback simulation buffers delivered audio before consuming it on its own
+clock. Its prebuffer belongs to `peerAudioPrebuffer` in
+[`peer_stream.go`](https://github.com/GizClaw/gizclaw/blob/main/cmd/internal/commands/giztest/peer_stream.go).
+`minimum_buffer_ms` is the lowest buffer level; a negative value identifies an
+interval that exceeded available audio. `underruns`, `underrun_ms` and
+`max_underrun_ms` report the count, total duration and longest duration of those
+simulated stalls. They describe simulated playback, not a physical device's
+speaker output. A reply shorter than the prebuffer starts after all audio arrives
+and supplies only `prebuffer_ms` among the playback fields. Original-packet pacing
+and strict intact-audio assertions remain independent of recovered playback.
 Giztest 文件使用普通 `expect` 数值约束断言这些路径，不增加另一套 pacing schema。
 `eino-voice-assistant.push-to-talk-roundtrip.giztest.yaml` 与
 `doubao-realtime-conversation.realtime-roundtrip.giztest.yaml` 都要求至少 101 包、20 ms Opus
@@ -1474,7 +1494,7 @@ tester Workflow 拥有测试意图、生成的用户行为、语义评判和最�
 bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ```
 
-`eino-audio-input` 比较两条 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)，两边使用同一上游 `doubao-seed-2-1-lite-260915` 与 `multilingual-voice`，都使用 `asr`（`volc-bigasr-sauc`）。主 Profile 只配置 `realtime_asr_model`，验证 PTT 回退；`e2e-audio-asr` 只配置 `ptt_asr_model`，验证 realtime 回退。`e2e-giztest` 的 `audio-llm` 绑定 `doubao-lite-audio-chat`，原音进入 Eino，ASR 旁路产出 transcript；`e2e-audio-asr` 绑定文本输入 Model `doubao-lite-chat`，ASR 文本进入 Eino。Workflow 不拥有 ASR 选择，Workspace 只选择输入模式。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`，比较同一录音的 transcript、回复和首响。`setup/audio_input_comparison.py` 保存报告、日志和转写／文本／音频时延到 `testdata/audio-input-comparison/`。每条路径在回复结束后继续收集 30 秒，以记录独立 ASR 的迟到结果；首字与首条转写时延仍按真实到达时间计量。缺少期望转写或回复使样本失败。`GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` 选择样本；`setup/audio_input_comparison_test.py` 验证离线解析与评分。
+`eino-audio-input` 比较两条 [音频输入路径](/zh/developing/gizclaw/services/ai#eino-音频输入路径)，两边使用同一上游 `doubao-seed-2-1-lite-260915` 与 `multilingual-voice`，都使用 `asr`（`volc-bigasr-sauc`）。主 Profile 只配置 `realtime_asr_model`，验证 PTT 回退；`e2e-audio-asr` 只配置 `ptt_asr_model`，验证 realtime 回退。`e2e-giztest` 的 `audio-llm` 绑定 `doubao-lite-audio-chat`，原音进入 Eino，ASR 旁路产出 transcript；`e2e-audio-asr` 绑定文本输入 Model `doubao-lite-chat`，ASR 文本进入 Eino。Workflow 不拥有 ASR 选择，Workspace 只选择输入模式。脚本启动一套隔离 stack，对普通话、四川话、粤语、英语、日语和西班牙语样本运行 `benchmark.eino-audio-input-comparison`，比较同一录音的 transcript、回复和首响。`setup/audio_input_comparison.py` 保存报告、日志和转写／文本／音频时延到 `testdata/audio-input-comparison/`。每条路径在回复结束后继续收集 30 秒，以记录独立 ASR 的迟到结果；首字与首条转写时延仍按真实到达时间计量。Acceptance checks both input-path selections, nonempty transcripts and replies, text/audio delivery and EOS, and successful cleanup. The runner exit status and document/step results must pass for both paths. Transcripts and answers remain diagnostic evidence; language recognition accuracy and answer content are not acceptance criteria. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` selects samples; `setup/audio_input_comparison_test.py` verifies parsing and rejects incomplete execution without scoring model semantics.
 
 `peer_stream` result 的 `/transcript` 是非 interim 的 `transcript` label 文本，`/reply` 是 `assistant` label 文本；`/text` 按到达顺序包含所有文本片段。`eino-audio-input.push-to-talk-transcript` 验证原音进入 Model，同时独立 ASR 产出 transcript 并写入 History。`eino-audio-input.path-selection` 通过 RPC 验证音频 Model 的 PTT 直接输入、realtime 的 ASR 文本输入，以及另一 Profile 绑定文本 Model 后的 PTT ASR 输入；Workspace 只切换输入模式。
 
@@ -1809,6 +1829,22 @@ Docker suite 默认只记录速率。可用带宽有余量时，可设置
 带宽已饱和时应使用独立测得的分方向 aggregate Mbps 下限。
 
 ## GenX provider E2E
+
+GenX Transformer 集成测试统一放在已有的 `tests/genx-e2e/transformer`，沿用
+`package transformer`，通过公开 adapter API 使用实现。需要私有实现状态的单元测试
+继续留在 `pkgs/genx/transformers/`。本地协议 fixture 与真实云端用例同目录，按入口选择
+区分：Doubao PTT 故障注入和已有的 provider-free Match、deterministic duplex 回归一样
+不带 build tag，因此根模块普通 Go 与 race CI 仍会执行，且不需要云凭据。
+
+从仓库根目录单独运行本地用例或其 Docker 入口：
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+该 Docker 入口只选择上述本地测试，不启用云端 tag，也不加载 credential preflight。
+下面的真实 provider 入口启用 `gizclaw_genx_e2e`，并要求完整 credential inventory。
 
 Provider-backed transformer coverage 使用一份完整 credential inventory：
 
@@ -2469,7 +2505,7 @@ GIZCLAW_TEST_MEM0_ENDPOINT=http://127.0.0.1:8000 \
 ## 跨 Server 召集通知 Docker 验收
 
 ```sh
-GIZCLAW_E2E_SOCIAL_PING_ONLY=1 GIZCLAW_E2E_TEST_RUN='^TestSocialPingCrossServer$' bash tests/gizclaw-e2e/run_multi_server_tests.sh
+bash tests/gizclaw-e2e/run_social_ping_tests.sh
 ```
 
 在仓库根目录运行；不需要 Provider credential。沿用双 Server、双 Edge、共享 Social KV

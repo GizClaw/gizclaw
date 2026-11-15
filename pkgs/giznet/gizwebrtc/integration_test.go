@@ -190,7 +190,7 @@ func TestDialPacketDataChannelPolicyNegotiated(t *testing.T) {
 		wantOrdered   bool
 	}{
 		{name: "public client defaults"},
-		{name: "gateway window and metrics do not select policy", receiveBuffer: GatewaySCTPReceiveBufferSize, metricsRole: "edge"},
+		{name: "edge upstream audio", policy: PacketDataChannelUnreliable, receiveBuffer: GatewaySCTPReceiveBufferSize, metricsRole: "edge"},
 		{name: "ordered timed with default window", policy: PacketDataChannelOrderedTimed, wantOrdered: true},
 		{name: "ordered timed with gateway window", policy: PacketDataChannelOrderedTimed, receiveBuffer: GatewaySCTPReceiveBufferSize, wantOrdered: true},
 	} {

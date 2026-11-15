@@ -206,6 +206,10 @@ func TestDialFailsOnTruncatedOrInvalidSessionResult(t *testing.T) {
 	}
 	invalid := append([]byte(nil), valid...)
 	invalid[0] ^= 0xff
+	unknownStatus := append([]byte(nil), valid...)
+	unknownStatus[4] = 255
+	invalidRedirect := append([]byte(nil), valid...)
+	invalidRedirect[4] = byte(sessionRedirected)
 	for _, test := range []struct {
 		name  string
 		frame []byte
@@ -215,6 +219,8 @@ func TestDialFailsOnTruncatedOrInvalidSessionResult(t *testing.T) {
 		{name: "truncated reason", frame: valid[:len(valid)-1], want: io.ErrUnexpectedEOF},
 		{name: "empty", frame: nil, want: io.EOF},
 		{name: "bad magic", frame: invalid, want: ErrInvalidFrame},
+		{name: "unknown status", frame: unknownStatus, want: ErrInvalidFrame},
+		{name: "invalid redirect key", frame: invalidRedirect, want: ErrInvalidFrame},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			edgePhysical, serverPhysical := newMemChannelConnPair()

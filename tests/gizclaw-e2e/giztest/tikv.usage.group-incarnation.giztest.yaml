@@ -1,0 +1,185 @@
+# User Story:
+# As a Group owner,
+# I want delayed named mutations to retain the original canonical Group identity,
+# So that name reuse and retirement cannot change another Group or recreate its token.
+# Concurrency uses the private /race adapter; Giztest parallel admits peer_stream only.
+# The forwarding envelope contains actual Edge HTTP status/body, not fixture data.
+version: gizclaw.test/v1alpha1
+name: tikv.usage.group-incarnation
+timeout: 4m
+clients:
+  alice: {identity: ephemeral, connection: webrtc, access_point: '${edge_a}', registration_token: '${token_a}'}
+variables:
+  edge_a: {direction: input, type: string, env: GIZCLAW_TEST_EDGE_A}
+  token_a: {direction: input, type: string, env: GIZCLAW_TEST_REGISTRATION_TOKEN_A, secret: true}
+  probe_a: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_A}
+  probe_b: {direction: input, type: string, env: GIZCLAW_TEST_TIKV_USAGE_B}
+  key: {direction: output, type: string, secret: true}
+  key_name: {direction: output, type: string}
+  owner: {direction: output, type: string}
+  name: {direction: input, type: string, generate: token}
+  old_update: {direction: output, type: string}
+  old_delete: {direction: output, type: string}
+  old_invite: {direction: output, type: string}
+  update_workspace: {direction: output, type: string}
+  delete_workspace: {direction: output, type: string}
+  invite_workspace: {direction: output, type: string}
+steps:
+  - id: fresh_peer_readiness
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: peers.visible}}
+  - id: owner_key
+    client: alice
+    rpc: {method: server.api_key.create, request: {display_name: Usage group identity}}
+    capture: {key: /api_key, key_name: /value/name}
+  - id: owner
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${key_name}'], primary: true}}
+    capture: {owner: /value/data/owner}
+  - id: wait_key
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: apikey, key: [records, '${key_name}'], found: true, wait: 20s}}
+  - id: create_update_group
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: '${name}-update', display_name: Original}}
+    capture: {update_workspace: /workspace_name}
+  - id: update_group_id
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-names, '${owner}', '${name}-update'], found: true, wait: 20s}}
+    capture: {old_update: /value/data}
+  - id: materialize_update_competitor_workspace
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: group.materialize, name: '${update_workspace}', owner: '${owner}', primary: true}}
+  - id: hold_update_revision
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: update, key: [group-revisions, '${old_update}'], commands: [Get], source: learner, stage: response}}
+  - id: update_after_name_reuse
+    timeout: 30s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          update:
+            endpoint: '${probe_a}'
+            method: POST
+            path: /invoke
+            body: {operation: http, endpoint: 'http://${edge_a}', method: PUT, path: '/gizclaw/v1/friend-groups/${name}-update', headers: {Authorization: 'Bearer ${key}'}, body: {display_name: Delayed update}}
+          replace_update:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: update
+              actions: [{operation: group.replace, id: '${old_update}', token: '${name}-new-update', owner: '${owner}', name: '${name}-update', display_name: Replacement update, primary: true}]
+    expect:
+      /update/diagnostic: {equals: false}
+      /update/value/status: {minimum: 400, maximum: 499}
+      /replace_update/boundary/learner_reads: {minimum: 1}
+  - id: replacement_not_updated
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: group.get, id: '${name}-new-update', primary: true}}
+    expect: {/value/display_name: {equals: Replacement update}}
+  - id: create_delete_group
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: '${name}-delete'}}
+    capture: {delete_workspace: /workspace_name}
+  - id: delete_group_id
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-names, '${owner}', '${name}-delete'], found: true, wait: 20s}}
+    capture: {old_delete: /value/data}
+  - id: materialize_delete_competitor_workspace
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: group.materialize, name: '${delete_workspace}', owner: '${owner}', primary: true}}
+  - id: hold_delete_revision
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: delete, key: [group-revisions, '${old_delete}'], commands: [Get], source: learner, stage: response}}
+  - id: delete_after_name_reuse
+    timeout: 30s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          delete:
+            endpoint: '${probe_a}'
+            method: POST
+            path: /invoke
+            body: {operation: http, endpoint: 'http://${edge_a}', method: DELETE, path: '/gizclaw/v1/friend-groups/${name}-delete', headers: {Authorization: 'Bearer ${key}'}}
+          replace_delete:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: delete
+              actions: [{operation: group.replace, id: '${old_delete}', token: '${name}-new-delete', owner: '${owner}', name: '${name}-delete', display_name: Replacement delete, primary: true}]
+    expect:
+      /delete/value/status: {minimum: 200, maximum: 499}
+      /replace_delete/boundary/learner_reads: {minimum: 1}
+  - id: replacement_not_deleted
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: group.get, id: '${name}-new-delete', primary: true}}
+    expect: {/value/display_name: {equals: Replacement delete}}
+  - id: create_invite_group
+    client: alice
+    rpc: {method: server.friend_group.create, request: {name: '${name}-invite'}}
+    capture: {invite_workspace: /workspace_name}
+  - id: invite_group_id
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [belongs, friend-group-names, '${owner}', '${name}-invite'], found: true, wait: 20s}}
+    capture: {old_invite: /value/data}
+  - id: create_initial_invite
+    client: alice
+    rpc: {method: server.friend_group.invite_token.create, request: {friend_group_name: '${name}-invite'}}
+  - id: wait_initial_invite
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [invite-tokens, friend-group-invite-tokens, '${old_invite}'], found: true, wait: 20s}}
+  - id: materialize_invite_competitor_workspace
+    client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /invoke, body: {operation: group.materialize, name: '${invite_workspace}', owner: '${owner}', primary: true}}
+  - id: hold_invite_snapshot
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /arm, body: {id: retired-invite, key: [friend-group-invite-tokens, '${old_invite}'], commands: [Get], source: learner, stage: response}}
+  - id: renewal_after_group_retirement
+    timeout: 30s
+    client: alice
+    http:
+      endpoint: '${probe_a}'
+      method: POST
+      path: /race
+      body:
+        branches:
+          renew:
+            endpoint: '${probe_a}'
+            method: POST
+            path: /invoke
+            body: {operation: http, endpoint: 'http://${edge_a}', method: POST, path: '/gizclaw/v1/friend-groups/${name}-invite/invite-token', headers: {Authorization: 'Bearer ${key}'}, body: {ttl_seconds: 86400}}
+          retire:
+            endpoint: '${probe_b}'
+            method: POST
+            path: /after
+            body:
+              wait_endpoint: '${probe_a}'
+              gate: retired-invite
+              actions: [{operation: group.delete, id: '${old_invite}', primary: true}]
+    expect:
+      /renew/value/status: {minimum: 400, maximum: 499}
+      /retire/boundary/learner_reads: {minimum: 1}
+  - id: retired_group_has_no_token
+    client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /invoke, body: {operation: read, store: group, key: [invite-tokens, friend-group-invite-tokens, '${old_invite}'], primary: true}}
+    expect: {/value/found: {equals: false}}
+finally:
+  - client: alice
+    http: {endpoint: '${probe_a}', method: POST, path: /reset, body: {}}
+  - client: alice
+    http: {endpoint: '${probe_b}', method: POST, path: /reset, body: {}}
+  - client: alice
+    rpc: {method: server.peer.delete, request: {}}
+report: {redact: [token_a, key]}

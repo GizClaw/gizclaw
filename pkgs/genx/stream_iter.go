@@ -75,7 +75,7 @@ func (itr *StreamIter) Where(test func(IterElement) bool) iter.Seq2[IterElement,
 		for {
 			el, err := itr.Next()
 			if err != nil {
-				if errors.Is(err, ErrDone) {
+				if IsStreamDone(err) {
 					return
 				}
 				yield(nil, err)
@@ -94,7 +94,7 @@ func (itr *StreamIter) FirstWhere(test func(IterElement) bool) (IterElement, err
 	for {
 		el, err := itr.Next()
 		if err != nil {
-			if errors.Is(err, ErrDone) {
+			if IsStreamDone(err) {
 				return nil, nil
 			}
 			return nil, err

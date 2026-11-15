@@ -161,19 +161,30 @@ func TestAdminRejectedAdmissionPreservesFailedState(t *testing.T) {
 	if err := source.Fail(ctx, claim, "original_failure", "safe message", true, now, now, 10); err != nil {
 		t.Fatal(err)
 	}
+	replica := kv.NewMemory(nil)
+	if _, _, err := CreateOrGet(ctx, replica, record); err != nil {
+		t.Fatal(err)
+	}
+	store := &laggingTaskStore{Store: source.Store, replica: replica}
+	source.Store = store
 	registry := NewRegistry()
 	if err := registry.Register(source, &admissionKVHandler{finalizingKVHandler: finalizingKVHandler{kind: KindPeer, source: source}, admission: ErrNotLocal}); err != nil {
 		t.Fatal(err)
 	}
 	admin := NewAdmin(registry, func() { t.Error("rejected retry woke processor") })
-	before, err := admin.Get(ctx, source.Name(), record.DeletionID)
+	before, err := source.GetTask(kv.WithPrimaryReads(ctx), record.DeletionID)
 	if err != nil {
 		t.Fatal(err)
 	}
+	store.reads = nil
 	if _, err := admin.Retry(ctx, source.Name(), record.DeletionID); !errors.Is(err, ErrNotLocal) {
 		t.Fatalf("retry=%v", err)
 	}
-	after, err := admin.Get(ctx, source.Name(), record.DeletionID)
+	store.expectFallback(t)
+	if store.mutations != 0 {
+		t.Fatalf("rejected admission attempted %d mutations", store.mutations)
+	}
+	after, err := source.GetTask(kv.WithPrimaryReads(ctx), record.DeletionID)
 	if err != nil {
 		t.Fatal(err)
 	}

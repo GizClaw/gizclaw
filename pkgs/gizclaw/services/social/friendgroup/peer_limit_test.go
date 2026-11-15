@@ -131,7 +131,7 @@ func (s *revisionRacingStore) ApplyMutation(ctx context.Context, mutation kv.Mut
 	return s.Store.ApplyMutation(ctx, mutation)
 }
 
-func TestPeerFriendGroupAdmissionRejectsStalePeerRevision(t *testing.T) {
+func TestPeerFriendGroupAdmissionRetriesStalePeerRevision(t *testing.T) {
 	ctx := t.Context()
 	s := newTestServer(t)
 	if _, err := s.CreateFriendGroup(ctx, "owner", rpcapi.FriendGroupCreateRequest{Name: "room"}); err != nil {
@@ -140,18 +140,12 @@ func TestPeerFriendGroupAdmissionRejectsStalePeerRevision(t *testing.T) {
 	racing := &revisionRacingStore{Store: s.Groups, key: peerGroupRevisionKey("peer")}
 	s.Groups, s.InviteTokens, s.Members, s.Belongs, s.RelationshipStore = racing, racing, racing, racing, racing
 	request := rpcapi.FriendGroupMemberAddRequest{FriendGroupName: "room", PeerPublicKey: "peer", MemberName: "room", Role: rpcapi.FriendGroupMemberMutableRole("member")}
-	if _, err := s.AddFriendGroupMember(ctx, "owner", request); !errors.Is(err, ErrGroupChanged) {
-		t.Fatalf("AddFriendGroupMember(stale peer revision) error = %v, want %v", err, ErrGroupChanged)
-	}
 	if _, err := s.AddFriendGroupMember(ctx, "owner", request); err != nil {
-		t.Fatalf("AddFriendGroupMember(retry) error = %v", err)
+		t.Fatalf("AddFriendGroupMember(stale peer revision) error = %v", err)
 	}
 
 	racing.key, racing.once = peerGroupRevisionKey("creator"), sync.Once{}
-	if _, err := s.CreateFriendGroup(ctx, "creator", rpcapi.FriendGroupCreateRequest{Name: "mine"}); !errors.Is(err, ErrGroupChanged) {
-		t.Fatalf("CreateFriendGroup(stale peer revision) error = %v, want %v", err, ErrGroupChanged)
-	}
 	if _, err := s.CreateFriendGroup(ctx, "creator", rpcapi.FriendGroupCreateRequest{Name: "mine"}); err != nil {
-		t.Fatalf("CreateFriendGroup(retry) error = %v", err)
+		t.Fatalf("CreateFriendGroup(stale peer revision) error = %v", err)
 	}
 }

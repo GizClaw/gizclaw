@@ -2,7 +2,7 @@
 
 [源码](https://github.com/GizClaw/gizclaw/tree/main/pkgs/store/vecid)
 
-`pkgs/store/vecid` 使用 locality-sensitive hashing 和 bucket clustering 为 vectors 建立稳定 identity。当前主要消费者是 audio voiceprint detector，用于把相近 speaker embeddings 归入已有 identity 或创建新 identity。
+`pkgs/store/vecid` uses locality-sensitive hashing and bucket clustering to establish stable identities for vectors. It matches similar embeddings to existing identities or creates new identities.
 
 [Go API References](https://pkg.go.dev/github.com/GizClaw/gizclaw-go/pkgs/store/vecid)
 

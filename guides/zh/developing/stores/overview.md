@@ -23,7 +23,7 @@ pkgs/store/
 | [memory](./memory) | 原始 observation、fact recall/update/delete 与异步 operation | Agent runtime、memory evaluation harness |
 | [metrics](./metrics) | Sample 写入、instant/range query 与 aggregation | Peer telemetry、Server metrics |
 | [objectstore](./objectstore) | Binary object、prefix list/delete 与 expiration | Firmware、workspace assets、HNSW |
-| [vecid](./vecid) | Vector hashing、bucket 与 identity 聚类 | Voiceprint detection |
+| [vecid](./vecid) | Vector hashing, bucket, and identity clustering | — |
 | [vecstore](./vecstore) | Vector add/search/delete 与 HNSW persistence | Agent recall、memory index |
 
 ## 依赖关系
@@ -37,7 +37,6 @@ flowchart TB
     Domains --> Memory["memory"]
     Memory --> Remote["Mem0 / Volc remote"]
     Vectors --> Objects
-    VecID["vecid"] --> Voiceprint["audio/voiceprint"]
 ```
 
 `cmd/internal/server` 独占 YAML DTO、严格解析、环境变量展开和 workspace 相对路径解析，再把普通 Go 配置传给公共包。`pkgs/store/storage` 打开并持有物理资源；根包 `pkgs/store` 校验 Storage/Store 组合并构造逻辑 Store。两个公共包都不读取 YAML 或 JSON，也不决定 service binding。
@@ -67,7 +66,7 @@ flowchart TB
 | `postgresql`、`clickhouse` | `dsn` |
 | `redis` | 单节点 `redis://` 或 `rediss://` URL；`rediss://` 可通过 `tls_ca_file` 增加 PEM CA 证书；不支持 Redis Cluster |
 | `redis.readwrite` | 同一复制组、同一逻辑数据库的 `read_url` 与 `write_url`；可分别配置 `read_tls_ca_file`、`write_tls_ca_file`；只支持 `keyvalue` Store，读取允许复制延迟 |
-| `tikv` | `pd_addresses`；可选 `tls_ca_file`、`tls_cert_file`、`tls_key_file`；可选成对的 `stale_read_delay` / `read_labels`，详见 [KV](./kv#tikv) |
+| `tikv` | `pd_addresses`; optional `tls_ca_file`, `tls_cert_file`, `tls_key_file`; `read_labels` restricts ordinary data reads to matching Learners with native synchronization; deprecated `stale_read_delay` is accepted and ignored; see [KV](./kv#tikv) |
 | `prometheus` | remote-write/query URL 与可选 bearer token |
 | `volc-tls` | endpoint、region 与 credential |
 

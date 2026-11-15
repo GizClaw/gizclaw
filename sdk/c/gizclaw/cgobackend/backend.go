@@ -258,12 +258,16 @@ func responseHeaders(header http.Header) []HTTPHeader {
 }
 
 func (b *Backend) CreatePeer() error {
+	return b.createPeer(webrtc.NewPeerConnection)
+}
+
+func (b *Backend) createPeer(newPeer func(webrtc.Configuration) (*webrtc.PeerConnection, error)) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.pc != nil {
 		return fmt.Errorf("peer already exists")
 	}
-	pc, err := webrtc.NewPeerConnection(webrtc.Configuration{})
+	pc, err := newPeer(webrtc.Configuration{})
 	if err != nil {
 		return err
 	}

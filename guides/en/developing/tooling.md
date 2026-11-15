@@ -61,8 +61,8 @@ semantics.
 
 ## Native Prebuilt Artifacts
 
-`tools/audio/{mp3,ogg,opus,portaudio}` and `tools/ncnn` build, package, and
-verify committed prebuilts from pinned upstream submodules. The common flow is:
+`tools/audio/{mp3,ogg,opus,portaudio}` build, package, and verify committed
+prebuilts from pinned upstream submodules. The common flow is:
 
 1. `build_prebuilt_<os>.sh` writes staging output under `.tmp/<component>-prebuilt/<platform>/`.
 2. `package_prebuilt.sh <platform>` copies headers/libraries into `third_party/**/prebuilt` and writes a checksum manifest.
@@ -88,7 +88,6 @@ tools/audio/mp3/verify_artifacts.sh darwin-arm64
 | `tools/audio/ogg` | `third_party/audio/libogg` | `third_party/audio/prebuilt/libogg/<platform>/lib/libogg.a` |
 | `tools/audio/opus` | `third_party/audio/libopus` | `third_party/audio/prebuilt/libopus/<platform>/lib/libopus.a` |
 | `tools/audio/portaudio` | `third_party/audio/portaudio` | `third_party/audio/prebuilt/portaudio/<platform>/lib/libportaudio.a` |
-| `tools/ncnn` | `third_party/ncnn/upstream` | `third_party/ncnn/prebuilt/<platform>/lib/libncnn.a` |
 
 The tools cover `darwin-arm64`, `darwin-amd64`, `linux-amd64`, and
 `linux-arm64`. Apple Silicon may build macOS amd64 with `TARGET_ARCH=amd64`.
@@ -100,10 +99,8 @@ TARGET_ARCH=amd64 tools/audio/opus/build_prebuilt_darwin.sh
 TARGET_ARCH=arm64 tools/audio/opus/build_prebuilt_linux.sh
 ```
 
-NCNN uses fixed `NCNN_VULKAN=OFF` and `NCNN_C_API=ON` flags and records the
-upstream commit/describe in `build.env`. Native availability remains governed
-by each package's build/runtime capability checks; unsupported targets return
-explicit errors instead of placeholder output.
+Native availability remains governed by each package's build/runtime capability
+checks; unsupported targets return explicit errors instead of placeholder output.
 
 ## Repository Releases
 

@@ -30,6 +30,7 @@ import (
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/ai/workspace"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/device/firmware"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/agenthost"
+	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/mcpclient"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/memorystore"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peer"
 	"github.com/GizClaw/gizclaw-go/pkgs/gizclaw/services/runtime/peerpresence"
@@ -167,6 +168,7 @@ type Manager struct {
 	GraphStateDB *sqlx.DB
 	MemoryRoot   string
 	MemoryStores *memorystore.Registry
+	MCPClients   *mcpclient.Registry
 	SpeechLimits SpeechLimits
 	Tools        *toolkit.Server
 	ToolBuilder  *toolkit.Builder
@@ -608,7 +610,13 @@ func (m *Manager) ensureActivatingPeer(ctx context.Context, publicKey giznet.Pub
 		return "", err
 	}
 	if peerRecord.Role == apitypes.PeerRoleClient && m.PeerRoutes != nil {
-		if _, err := m.PeerRoutes.Assign(ctx, publicKey, nil); err != nil {
+		_, err := m.PeerRoutes.Assign(ctx, publicKey, nil)
+		if errors.Is(err, peer.ErrPeerNotFound) {
+			// The preceding update confirmed this Peer. A missing routing input
+			// conflicts with that result, so refresh only this bootstrap attempt.
+			_, err = m.PeerRoutes.Assign(kv.WithPrimaryReads(ctx), publicKey, nil)
+		}
+		if err != nil {
 			return "", err
 		}
 	}

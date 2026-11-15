@@ -220,7 +220,7 @@ Evidence includes source hashes, fixture information, actual SQL, indexes, `EXPL
 
 ```sh
 npm ci && npm run build:console
-git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**,pkgs/agent/ncnn/models/**'
+git lfs pull --include 'third_party/audio/prebuilt/*/<os>-<arch>/**'
 bash tests/gizclaw-e2e/run_run_state_tests.sh
 ```
 
@@ -533,7 +533,25 @@ The common `server.friend.list`, `server.friend_group.members.list`, and `server
 
 The Docker fixture gives PD metadata a 256 MiB tmpfs and each central/regional TiKV a 1 GiB tmpfs to isolate local Docker storage I/O stalls. It sets the [PD leader lease](https://docs.pingcap.com/tidb/stable/pd-configuration-file/#lease) to 15 seconds in `tikv-pd.toml`. `tikv-test.toml` sets reserved space to 64 MiB, reserved Raft space to 32 MiB, and block cache to 128 MiB, with a 4 GiB memory limit per TiKV container, to match the small fixture. RocksDB, Raft and Learner replication run normally. Data lasts only for this test; the fixture does not validate SSD performance or TiKV/PD restart durability.
 
-`TestTiKVLearnerLagThroughBothEdges` uses the public Go SDK with real WebRTC and HTTP under replica lag. It seeds active Peers and credentials into a 60-second historical snapshot, then blocks center-to-Learner Raft streams while preserving regional reads. During the freeze, first claims through both Edges and cross-Edge reconnects must preserve the correct home. After SDK key revocation, HTTP through both Edges must immediately return 401. After SDK deletion of a Peer on each home, the test waits for the correct Server to remove its Workspace and owner binding, then requires both Edges to reject reconnects and old keys. The diagnostic client pins control reads to the Learner confirmed by PD; those reads must retain the old active Peers and key index and miss the new assignments. The test explicitly marks diagnostic requests, preserving their historical timestamp and Learner destination even when an SDK retry clears its stale-read flag. Application Server clients retain normal SDK routing. Label preferences permit SDK fallback from slow stores; the pinned route is only for test evidence. This proves the assertions run during replication lag; the gate does not measure WAN throughput or central-majority recovery.
+`TestTiKVLearnerLagThroughBothEdges` uses the public Go SDK with real WebRTC and HTTP under replica lag. It seeds active Peers and credentials into a 60-second historical snapshot, then blocks center-to-Learner Raft streams while preserving regional reads. During the freeze, first claims through both Edges must preserve the correct home. A newly committed assignment absent from the historical view may return a routing miss through the other Edge; it cannot be reassigned. Cross-Edge roaming uses seeded, already-visible assignments and must succeed with the original home. After SDK key revocation, HTTP through both Edges still authenticates against the retained snapshot. After SDK deletion of a Peer on each home, primary diagnostics verify the committed deletion fences while Learner controls retain the old active records. Task discovery also uses historical reads. After replication resumes, the test waits for discovery and verifies primary tombstones and home-local Workspace/owner-binding cleanup, then waits for those cleanup writes to enter the historical view. Both Edges must then reject revoked keys and deleted-Peer reconnects; fixed home assignments remain retained. The diagnostic client pins control reads to the Learner confirmed by PD; those reads must retain the old active Peers and key index and miss the new assignments. The test explicitly marks diagnostic requests, preserving their historical timestamp and Learner destination even when an SDK retry clears its stale-read flag. Application Server clients retain normal SDK routing. Label preferences permit SDK fallback from slow stores; the pinned route is only for test evidence. This proves the assertions run during replication lag; the gate does not measure WAN throughput or central-majority recovery.
+
+This fixed entrypoint runs the provider-free native SDK lag gate and Edge connector-isolation checks. Its coverage cannot be changed through an environment selector:
+
+```bash
+bash tests/gizclaw-e2e/run_tikv_learner_lag_tests.sh
+```
+
+The separate fixed Docker Giztest entry exercises stale reads and guarded updates through two Servers and Edges:
+
+```bash
+bash tests/gizclaw-e2e/run_tikv_usage_giztest_tests.sh
+```
+
+It runs seven committed `tikv.usage.*.giztest.yaml` documents serially: readonly queries/reconnects, invitation renewal, Group incarnation changes, Peer retirement, Friend incarnation/recovery, fresh-key revocation, and Presence claim ordering. The fixture uses a two-second history offset, one-second resolved-ts advancement on both TiKV nodes, and bounded visibility checks. Build overlays expose private request gates and actual-service/SQL diagnostics inside the isolated Docker network. They retain real TiKV data and responses; diagnostic operations are identified separately from tested device RPC/HTTP. HTTP forwarding is limited to the fixed Edge and private control origins, uses validated resource paths, bypasses environment proxies, and returns redirects without following them. The full multi-server entry retains its SDK and SFU coverage. Reports include the exact overlay/source manifest and Giztest step results; no environment variable can truncate these dedicated suites.
+
+Shared single-server Go, JavaScript, Flutter and C scenario discovery excludes these dedicated documents. Their fixed runner still selects all seven. Race branches require a 2xx response unless an expected status is explicit, and expose actual branch codes under `http_status`; redirects are never followed. Source manifests record untracked symlink targets without reading through them. The retirement case includes real Workspace admission before a SQL fence and rejection after it, followed by actual Peer cleanup.
+
+The fresh-key case and both historical Friend receipt phases retain actual SDK cached timestamps in the test build and wait for successful Learner reads at those snapshots before the competing writes. Friend controls restore live cache access after each phase, and the Admin projection checks the actual read version. Both real revocation paths must then observe a native missing response at the retained read version. Fresh writer timestamps, SDK read validation and GC checks remain active; fixture reset restores the live cache accessor. This keeps `DataIsNotReady` fallback distinct from the missing-target recovery being tested.
 
 `sfu.*.audio-bytes` uses the committed Ogg/Opus fixture; `sfu.friend-group.members-in-room` and `sfu.presence.cross-server` exchange no audio. These scenarios need no speech-provider credentials and run in the default multi-server gate. The other three SFU scenarios need TTS/ASR and only run when `tests/gizclaw-e2e/.env` (or the file `GIZCLAW_E2E_CREDENTIAL_FILE` points at) carries the complete Volc/Doubao credentials, which is also when the seed adds the `asr` and `narrator` aliases. Those three synthesize Chinese phrases and transcribe with `language: zh-CN`, matching the seeded Chinese `narrator` voice. To debug a transcript assertion, run with `GIZCLAW_E2E_GIZTEST_EVIDENCE=full`: the report then records the transcript that was actually recognized.
 
@@ -706,7 +724,7 @@ This mode retains real PD, the center voter and regional Learner. A separate dea
 
 This entry point requires Go and Docker Compose. It cross-compiles Linux test binaries and starts digest-pinned TiKV/PD 8.5.6 from `gizcr.gizclaw.com/docker.io/pingcap/`: one PD, one central voter, one full regional Learner, and a test-only TCP proxy. PD has a 256 MiB data tmpfs and each TiKV has 1 GiB. The fixture reserves 64 MiB for KV and 32 MiB for Raft, with a 128 MiB block cache, so production defaults do not classify small local filesystems as full. Both TiKV containers set soft and hard `nofile` limits to 262144 to satisfy TiKV startup checks independently of host defaults. No host ports are exposed. Tests verify placement rules and every Region's leader/Learner identities through PD. Local runs retain startup, cluster, test and topology diagnostics in the evidence directory.
 
-The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Ordinary reads must still return the old assignment, active Peer, and revoked key. Real `peerroute`, Peer deletion-handler, and API key services must use strong reads for first claims, version refreshes, pending-deletion fences, permanent tombstones, revocation, and owner retirement. Successful stale RPCs must reach the regional Learner; strong reads must reach the central leader. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
+The suite checks cross-client atomic CRUD, batches, deadlines, conditional create, CAS, collection limits, prefixes, and borrowed lifetimes. After seeded data enters the historical snapshot window, it disconnects center-to-Learner Raft streams while keeping queries available. Production Peer, route, API key and collection reads must use the regional Learner and retain the historical state. Rejected version conditions, failed first-assignment lookups and inconsistent post-write observations exercise bounded primary fallback without weakening ownership, retirement fences or atomic writes. Resuming replication verifies eventual visibility. A second binary checks ordered bounds, concurrent capacity, cross-key write skew, physical expiry reclamation, and concurrent refresh preservation.
 
 Artifacts remain in ignored `.testbench/tikv-*`; cleanup affects only this Compose project. This gate covers actual TiKV consistency paths, not center-quorum failure, WAN performance, restart durability, external child-resource cleanup, or the complete Edge ingress transport.
 
@@ -1508,7 +1526,7 @@ reports. No player model, semantic verdict or score is part of this gate.
 bash tests/gizclaw-e2e/run_audio_input_comparison_tests.sh
 ```
 
-`eino-audio-input` compares two [audio input paths](/en/developing/gizclaw/services/ai#eino-audio-input-path) using the same upstream `doubao-seed-2-1-lite-260915` and `multilingual-voice`. Both Profiles use `asr` (`volc-bigasr-sauc`). The main Profile configures only `realtime_asr_model` to exercise PTT fallback; `e2e-audio-asr` configures only `ptt_asr_model` to exercise realtime fallback. `e2e-giztest` binds `audio-llm` to `doubao-lite-audio-chat`, sending original audio to Eino with sideband ASR transcription; `e2e-audio-asr` binds the alias to text-only `doubao-lite-chat`, sending ASR text to Eino. Workflow does not select ASR, and Workspace selects input mode only. The script starts one isolated stack and runs `benchmark.eino-audio-input-comparison` for Mandarin, Sichuanese, Cantonese, English, Japanese and Spanish, comparing transcripts, replies and latency for the same recording. `setup/audio_input_comparison.py` saves reports, logs and transcript/text/audio timings to `testdata/audio-input-comparison/`. Each path keeps collecting for 30 seconds after reply completion to observe late independent ASR output; first-text and first-transcript latency still use actual arrival times. Missing expected transcription or reply fails a sample. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` selects samples; `setup/audio_input_comparison_test.py` verifies offline parsing and scoring.
+`eino-audio-input` compares two [audio input paths](/en/developing/gizclaw/services/ai#eino-audio-input-path) using the same upstream `doubao-seed-2-1-lite-260915` and `multilingual-voice`. Both Profiles use `asr` (`volc-bigasr-sauc`). The main Profile configures only `realtime_asr_model` to exercise PTT fallback; `e2e-audio-asr` configures only `ptt_asr_model` to exercise realtime fallback. `e2e-giztest` binds `audio-llm` to `doubao-lite-audio-chat`, sending original audio to Eino with sideband ASR transcription; `e2e-audio-asr` binds the alias to text-only `doubao-lite-chat`, sending ASR text to Eino. Workflow does not select ASR, and Workspace selects input mode only. The script starts one isolated stack and runs `benchmark.eino-audio-input-comparison` for Mandarin, Sichuanese, Cantonese, English, Japanese and Spanish, comparing transcripts, replies and latency for the same recording. `setup/audio_input_comparison.py` saves reports, logs and transcript/text/audio timings to `testdata/audio-input-comparison/`. Each path keeps collecting for 30 seconds after reply completion to observe late independent ASR output; first-text and first-transcript latency still use actual arrival times. Acceptance checks both input-path selections, nonempty transcripts and replies, text/audio delivery and EOS, and successful cleanup. The runner exit status and document/step results must pass for both paths. Transcripts and answers remain diagnostic evidence; language recognition accuracy and answer content are not acceptance criteria. `GIZCLAW_AUDIO_SAMPLES=mandarin,cantonese` selects samples; `setup/audio_input_comparison_test.py` verifies parsing and rejects incomplete execution without scoring model semantics.
 
 A `peer_stream` result's `/transcript` contains non-interim `transcript` text, `/reply` contains `assistant` text, and `/text` retains all text in arrival order. `eino-audio-input.push-to-talk-transcript` verifies direct Model audio alongside independent ASR and History recording. `eino-audio-input.path-selection` uses RPC to verify direct PTT audio, realtime ASR text, and PTT ASR text under a Profile binding a text-only Model. Workspace selects input mode only.
 
@@ -1922,6 +1940,25 @@ set `GIZCLAW_E2E_SPEED_MIN_CLIENT_RATIO` and
 measured directional aggregate Mbps floors.
 
 ## GenX provider E2E
+
+GenX Transformer integration lives in `tests/genx-e2e/transformer`, using its
+existing `package transformer` and public adapter APIs. Tests that require private
+implementation state remain beside the adapter in `pkgs/genx/transformers/`.
+Local protocol fixtures and live provider tests share this directory and use
+separate execution paths. The Doubao PTT fault-injection cases have no build tag,
+like the provider-free Match and deterministic duplex regressions, so ordinary
+root-module Go and race CI continue to run them without cloud credentials.
+
+From the repository root, run the local cases natively or in Docker:
+
+```sh
+go test ./tests/genx-e2e/transformer -run '^TestPTTWebSocket(Recovery|CaptureFailure)$' -count=1
+bash tests/genx-e2e/transformer/run_doubao_ptt_docker.sh
+```
+
+The Docker entrypoint selects only those local cases, does not enable the live
+provider tag, and does not load the credential preflight. The real-provider
+entrypoints below enable `gizclaw_genx_e2e` and require the credential inventory.
 
 Provider-backed transformer coverage uses one complete credential inventory:
 
@@ -2643,7 +2680,7 @@ Evidence includes source Graph/document SHA-256, scenario reports, sanitized tra
 ## Cross-Server notification Docker acceptance
 
 ```sh
-GIZCLAW_E2E_SOCIAL_PING_ONLY=1 GIZCLAW_E2E_TEST_RUN='^TestSocialPingCrossServer$' bash tests/gizclaw-e2e/run_multi_server_tests.sh
+bash tests/gizclaw-e2e/run_social_ping_tests.sh
 ```
 
 Run from the repository root; provider credentials are unnecessary. The existing

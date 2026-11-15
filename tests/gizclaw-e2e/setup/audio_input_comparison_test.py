@@ -32,18 +32,43 @@ class AudioInputComparisonTest(unittest.TestCase):
             "asr_reply": "八",
         })
 
-    def test_matches_normalizes_case_accents_digits_and_punctuation(self) -> None:
-        self.assertTrue(comparison.matches("三 加 五，等于几？", [["3"], ["5"]]))
-        self.assertTrue(comparison.matches("¿Cuántos DÍAS tiene una semana?", [["dias"], ["semana"]]))
-        self.assertTrue(comparison.matches("一个星期有七天。", [["7"]]))
-        self.assertFalse(comparison.matches("SYLLABLE's Daze Teen Una.", [["dias"], ["semana"]]))
+    def passed_result(self):
+        return {
+            "runner_exit_status": 0,
+            "document_status": "passed",
+            "paths": {path: {"step_status": "passed", "transcript": "SYLLABLE's Daze Teen Una.",
+                             "reply": "An unrelated model answer."} for path in comparison.PATHS},
+        }
 
-    def test_samples_declare_scoring_groups(self) -> None:
+    def test_acceptance_does_not_score_recognition_or_answer_content(self) -> None:
+        self.assertTrue(comparison.sample_passed(self.passed_result()))
+
+    def test_both_paths_require_nonempty_transcripts_and_replies(self) -> None:
+        for path in comparison.PATHS:
+            for field in ("transcript", "reply"):
+                with self.subTest(path=path, field=field):
+                    result = self.passed_result()
+                    result["paths"][path][field] = "  \n "
+                    self.assertFalse(comparison.sample_passed(result))
+
+    def test_runner_document_and_step_failures_cannot_pass(self) -> None:
+        for field, value in (("runner_exit_status", 4), ("document_status", "missing"), ("document_status", "failed")):
+            with self.subTest(field=field, value=value):
+                result = self.passed_result()
+                result[field] = value
+                self.assertFalse(comparison.sample_passed(result))
+        for path in comparison.PATHS:
+            result = self.passed_result()
+            result["paths"][path]["step_status"] = "not_run"
+            self.assertFalse(comparison.sample_passed(result))
+
+    def test_samples_only_define_input_stimuli(self) -> None:
         ids = [sample["id"] for sample in comparison.SAMPLES]
         self.assertEqual(len(ids), len(set(ids)))
         for sample in comparison.SAMPLES:
             self.assertTrue(sample["voice"] and sample["text"])
-            self.assertTrue(sample["transcript"] and sample["reply"])
+            self.assertNotIn("transcript", sample)
+            self.assertNotIn("reply", sample)
 
 
 if __name__ == "__main__":

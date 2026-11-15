@@ -18,8 +18,10 @@ The Server reuses `services.peer.store`, addressing
 `peer-sync/<owner>/head` and `peer-sync/<owner>/checkpoints/<timestamp>` exactly.
 KV `ApplyMutation` atomically compares the head, saves the new checkpoint, and
 removes evicted checkpoints without enumerating database keys. Head and checkpoint
-reads use a strong view so regional replica lag cannot hide a committed baseline
-or repeatedly supply an obsolete head for conditional writes. Each owner retains
+reads follow the configured replica policy. A failed checkpoint lookup retries
+once on primary before deciding whether the baseline is absent. A rejected head
+condition switches the bounded write retry to primary reads without changing the
+caller's timestamp. Each owner retains
 at most 64 checkpoints for at most 24 hours; the head also expires. Timestamps
 increase monotonically per owner even within one millisecond or after clock
 rollback, and remain JavaScript safe integers. Conditional writes use bounded

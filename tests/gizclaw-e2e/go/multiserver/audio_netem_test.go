@@ -4,6 +4,7 @@ package multiserver_test
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -82,6 +83,9 @@ func TestAudioNetemRoundTrip(t *testing.T) {
 		NonSilentPackets int     `json:"non_silent_packets"`
 		DecodeErrors     int     `json:"decode_errors"`
 		MaxRMS           float64 `json:"max_rms"`
+		OriginalPackets  int     `json:"original_packets"`
+		ConcealedSamples int     `json:"concealed_samples"`
+		PCMBytes         int     `json:"pcm_bytes"`
 	}
 	result := make(chan observation, 1)
 	go func() {
@@ -115,7 +119,29 @@ func TestAudioNetemRoundTrip(t *testing.T) {
 					netemtrace.Record("client_audio_eos", nil, chunk.Ctrl.StreamID, -1, -1)
 				}
 				if len(blob.Data) > 0 {
-					pcm, decodeErr := decoder.Decode(blob.Data, 960, false)
+					var pcm []int16
+					var decodeErr error
+					if blob.MIMEType == "audio/pcm;rate=16000;channels=1" {
+						if len(blob.Data)%2 != 0 || blob.ConcealedAudio == (blob.OriginalAudio != nil && len(blob.OriginalAudio.Data) > 0) {
+							decodeErr = fmt.Errorf("invalid recovered PCM provenance")
+						} else {
+							pcm = make([]int16, len(blob.Data)/2)
+							for i := range pcm {
+								pcm[i] = int16(binary.LittleEndian.Uint16(blob.Data[i*2:]))
+							}
+							value.PCMBytes += len(blob.Data)
+							if blob.ConcealedAudio {
+								value.ConcealedSamples += len(pcm)
+							} else {
+								value.OriginalPackets++
+							}
+						}
+					} else if blob.MIMEType == "audio/opus" {
+						pcm, decodeErr = decoder.Decode(blob.Data, 960, false)
+						value.OriginalPackets++
+					} else {
+						decodeErr = fmt.Errorf("unsupported received audio format %q", blob.MIMEType)
+					}
 					if decodeErr != nil {
 						value.DecodeErrors++
 					} else if len(pcm) > 0 {
@@ -134,7 +160,6 @@ func TestAudioNetemRoundTrip(t *testing.T) {
 					}
 					value.AudioPackets++
 					value.AudioBytes += len(blob.Data)
-					netemtrace.Record("client_delivered", blob.Data, "", -1, -1)
 				}
 				value.AudioEOS = value.AudioEOS || chunk.IsEndOfStream()
 			}
@@ -229,7 +254,7 @@ func TestAudioNetemRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("audio packets=%d bytes=%d eos=%v text_eos=%v late=%d", value.AudioPackets, value.AudioBytes, value.AudioEOS, value.TextEOS, value.IgnoredPostEOS)
-	if value.Error != "" || !value.AudioEOS || !value.TextEOS || value.AudioBytes == 0 || value.NonSilentPackets == 0 {
+	if value.Error != "" || !value.AudioEOS || !value.TextEOS || value.AudioBytes == 0 || value.NonSilentPackets == 0 || value.DecodeErrors != 0 {
 		t.Fatal(fmt.Sprintf("incomplete audible response: %+v", value))
 	}
 }

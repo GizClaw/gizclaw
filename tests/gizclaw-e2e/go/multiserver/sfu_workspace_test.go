@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"mime"
 	"os"
 	"sort"
 	"strings"
@@ -95,6 +96,7 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 	room := waitNewRoom(t, ctx, rooms, roomsBefore, []string{peerA.Public.String()})
 	t.Logf("room %q created lazily with sid %s", room.Name, room.Sid)
 
+	waitRemoteFriend(t, ctx, clientB, peerA.Public.String(), workspace)
 	if _, err := clientB.SetServerRunWorkspace(ctx, "sfu-select-b", rpcapi.ServerSetRunWorkspaceRequest{WorkspaceName: workspace}); err != nil {
 		t.Fatalf("Peer B select Workspace: %v", err)
 	}
@@ -122,9 +124,7 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 	var sawReconnecting atomic.Bool
 	observerCtx, stopObserver := context.WithCancel(ctx)
 	var observer sync.WaitGroup
-	observer.Add(1)
-	go func() {
-		defer observer.Done()
+	observer.Go(func() {
 		for observerCtx.Err() == nil {
 			state, err := clientA.GetServerRunWorkspace(observerCtx, "sfu-observe-a")
 			if err == nil && state != nil && isReconnecting(*state) {
@@ -133,7 +133,7 @@ func TestSFURoomLazyCreateAndReconnect(t *testing.T) {
 			}
 			time.Sleep(10 * time.Millisecond)
 		}
-	}()
+	})
 	if _, err := rooms.DeleteRoom(ctx, &livekit.DeleteRoomRequest{Room: room.Name}); err != nil {
 		stopObserver()
 		t.Fatalf("delete Room %q: %v", room.Name, err)
@@ -412,8 +412,8 @@ func exchangeAudio(ctx context.Context, sender, listener *gizcli.Client, packets
 			if chunk.Ctrl != nil && chunk.Ctrl.Error != "" {
 				log.Printf("sfu e2e: listener stream %q received terminal error code=%q message=%q", chunk.Ctrl.StreamID, chunk.Ctrl.ErrorCode, chunk.Ctrl.Error)
 			}
-			if blob, ok := chunk.Part.(*genx.Blob); ok && len(blob.Data) > 0 {
-				received.Add(int64(len(blob.Data)))
+			if blob, ok := chunk.Part.(*genx.Blob); ok {
+				received.Add(int64(forwardedOriginalAudioBytes(blob)))
 			}
 		}
 	}()
@@ -451,6 +451,22 @@ func exchangeAudio(ctx context.Context, sender, listener *gizcli.Client, packets
 	_ = listen.Close()
 	<-done
 	return int(received.Load()), nil
+}
+
+// forwardedOriginalAudioBytes preserves the encoded threshold for both native
+// recovered PCM and legacy Opus. Synthesized PCM cannot prove tone forwarding.
+func forwardedOriginalAudioBytes(blob *genx.Blob) int {
+	if blob == nil || blob.ConcealedAudio {
+		return 0
+	}
+	if blob.OriginalAudio != nil {
+		blob = blob.OriginalAudio
+	}
+	mediaType, _, err := mime.ParseMediaType(blob.MIMEType)
+	if err != nil || mediaType != "audio/opus" {
+		return 0
+	}
+	return len(blob.Data)
 }
 
 func opusTonePackets(t *testing.T, duration time.Duration) [][]byte {

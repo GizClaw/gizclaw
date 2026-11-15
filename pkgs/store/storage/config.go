@@ -100,14 +100,17 @@ type RedisReadWriteConfig struct {
 func (RedisReadWriteConfig) storageKind() string { return KindRedisReadWrite }
 
 // TiKVConfig configures a transactional TiKV cluster discovered through PD.
-// ReadLabels and StaleReadDelay opt ordinary reads into regional Learners.
+// ReadLabels restricts ordinary data reads to matching Learners using native
+// replica-read synchronization. Empty labels keep ordinary reads strong.
 // Strong reads and all mutations always use fresh leader transactions.
 // TLS files apply to PD, its etcd endpoint, and TiKV RPCs.
 type TiKVConfig struct {
-	PDAddresses    []string
-	TLSCAFile      string
-	TLSCertFile    string
-	TLSKeyFile     string
+	PDAddresses []string
+	TLSCAFile   string
+	TLSCertFile string
+	TLSKeyFile  string
+	// Deprecated: ignored. ReadLabels alone enables native Learner reads.
+	// No fixed snapshot delay is applied.
 	StaleReadDelay time.Duration
 	ReadLabels     map[string]string
 }

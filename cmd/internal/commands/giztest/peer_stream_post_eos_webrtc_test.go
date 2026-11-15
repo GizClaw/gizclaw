@@ -53,7 +53,8 @@ func runPostEOSWebRTCGiztest(t *testing.T, tailDelay time.Duration, finalTail bo
 	t.Setenv("GIZCLAW_TEST_POST_EOS_SECOND_DIGEST", voicePacketDigest([][]byte{second}))
 	observed := make(chan *genx.MessageChunk, 32)
 	played := make(chan []byte, 8)
-	d := &postEOSWebRTCDriver{driver: newDriver(false, func(_, _ string, packet []byte, _ bool) error {
+	d := &postEOSWebRTCDriver{driver: newDriver(false, func(_, _ string, blob *genx.Blob, _ bool) error {
+		packet := observedAudioBytes(blob)
 		if len(packet) > 0 {
 			played <- bytes.Clone(packet)
 		}
@@ -323,7 +324,7 @@ func servePostEOSWebRTC(ctx context.Context, remote giznet.Conn, events net.Conn
 		}
 		if err := await(id, func(chunk *genx.MessageChunk) bool {
 			blob, ok := chunk.Part.(*genx.Blob)
-			return ok && bytes.Equal(blob.Data, packet)
+			return ok && bytes.Equal(observedAudioBytes(blob), packet)
 		}); err != nil {
 			return err
 		}
